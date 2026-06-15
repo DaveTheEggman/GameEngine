@@ -330,3 +330,45 @@ TEST_CASE("memory: RefPtr upcasts from a derived type")
     }
     CHECK(Widget::Live() == 0);
 }
+
+// --- System ----------------------------------------------------------------
+
+TEST_CASE("system: high-resolution time advances")
+{
+    CHECK(GetTickFrequency() > 0u);
+
+    const u64 t0 = GetTicks();
+    SleepMilliseconds(2);
+    const u64 t1 = GetTicks();
+
+    CHECK(t1 > t0);
+
+    const f64 seconds = TicksToSeconds(t1 - t0);
+    CHECK(seconds > 0.0);
+    CHECK(seconds < 1.0); // a 2ms sleep should be well under a second
+    CHECK(TicksToMilliseconds(t1 - t0) >= 1.0);
+}
+
+TEST_CASE("system: info queries are sane")
+{
+    CHECK(LogicalCoreCount() >= 1u);
+
+    const usize pageSize = PageSize();
+    CHECK(pageSize >= 4096u);
+    CHECK(IsPowerOfTwo(pageSize));
+}
+
+TEST_CASE("system: page allocation is usable and page-aligned")
+{
+    const usize pageSize = PageSize();
+
+    void* p = PageAllocate(pageSize);
+    REQUIRE(p != nullptr);
+    CHECK(IsAligned(p, pageSize));
+
+    MemSet(p, 0x5A, pageSize);
+    CHECK(static_cast<u8*>(p)[0] == 0x5Au);
+    CHECK(static_cast<u8*>(p)[pageSize - 1] == 0x5Au);
+
+    PageFree(p, pageSize);
+}

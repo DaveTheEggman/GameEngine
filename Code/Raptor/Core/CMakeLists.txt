@@ -22,7 +22,15 @@ target_sources(RaptorCore
             CoreModule.cppm
             Base.cppm
             Memory/Memory.cppm
-            Memory/SmartPtr.cppm)
+            Memory/SmartPtr.cppm
+            System/System.cppm)
+
+# Per-platform System backend (classic TUs).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(RaptorCore PRIVATE System/Linux/LinuxSystem.cpp)
+elseif(WIN32)
+    target_sources(RaptorCore PRIVATE System/Win32/Win32System.cpp)
+endif()
 
 # Classic headers that cross the module boundary (macros only). Consumers
 # include them as "Core/<Header>.h"; the engine include root is Code/Raptor.
@@ -32,7 +40,8 @@ target_sources(RaptorCore
             BASE_DIRS ${CMAKE_SOURCE_DIR}/Code/Raptor
             FILES
                 Prelude.h
-                Debug/Assert.h)
+                Debug/Assert.h
+                System/SystemBackend.h)
 
 # So `#include "Core/Prelude.h"` resolves from module global-module-fragments.
 target_include_directories(RaptorCore PUBLIC ${CMAKE_SOURCE_DIR}/Code/Raptor)
