@@ -331,6 +331,48 @@ TEST_CASE("memory: RefPtr upcasts from a derived type")
     CHECK(Widget::Live() == 0);
 }
 
+TEST_CASE("memory: WeakRefPtr locks while alive and expires after")
+{
+    Widget::Live() = 0;
+
+    WeakRefPtr<Widget> weak;
+    CHECK(weak.Expired());
+
+    {
+        RefPtr<Widget> strong = MakeRef<Widget>(DefaultAllocator(), 11);
+        weak = WeakRefPtr<Widget>(strong);
+
+        CHECK_FALSE(weak.Expired());
+        CHECK(Widget::Live() == 1);
+
+        RefPtr<Widget> locked = weak.Lock();
+        REQUIRE(static_cast<bool>(locked));
+        CHECK(locked->value == 11);
+        CHECK(strong->RefCount() == 2u); // strong + locked
+    }
+
+    // strong gone -> object destroyed, but the weak ref keeps the control block.
+    CHECK(Widget::Live() == 0);
+    CHECK(weak.Expired());
+    CHECK_FALSE(static_cast<bool>(weak.Lock()));
+}
+
+TEST_CASE("memory: outstanding WeakRefPtr does not keep the object alive")
+{
+    Widget::Live() = 0;
+
+    WeakRefPtr<Widget> weak;
+    {
+        RefPtr<Widget> strong = MakeRef<Widget>(DefaultAllocator(), 1);
+        weak = WeakRefPtr<Widget>(strong);
+        CHECK(Widget::Live() == 1);
+    }
+    // Object destroyed at strong -> 0 even though a weak ref remains.
+    CHECK(Widget::Live() == 0);
+    CHECK(weak.Expired());
+    // weak destructor here frees the retained control block (clean under ASan).
+}
+
 // --- System ----------------------------------------------------------------
 
 TEST_CASE("system: high-resolution time advances")

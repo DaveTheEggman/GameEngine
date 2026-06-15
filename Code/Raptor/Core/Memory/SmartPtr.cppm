@@ -3,14 +3,18 @@
 // Ownership smart pointers (no std:: equivalents). Allocation is explicit: the
 // owning allocator is passed at creation, matching the engine-wide policy.
 //
-//   UniquePtr<T> — sole ownership.
-//   RefCounted   — intrusive strong-ref base (Object will derive from it).
-//   RefPtr<T>    — intrusive shared ownership of a RefCounted-derived type.
+//   UniquePtr<T>  — sole ownership.
+//   RefCounted    — intrusive strong+weak ref base (Object derives from it).
+//   RefPtr<T>     — strong shared ownership of a RefCounted-derived type.
+//   WeakRefPtr<T> — non-owning weak reference; Lock() promotes to RefPtr.
 //
-// NOTE: WeakRefPtr is deferred. Correct intrusive weak refs require splitting
-// "destroy the object" (strong -> 0) from "free the storage" (weak -> 0); see
-// Documentation/Planning/Core.md §4.2 / §4.10. The current RefCounted is
-// strong-only and frees immediately at strong -> 0.
+// Lifetime model (std::shared_ptr semantics, single allocation):
+//   * strong = number of RefPtr owners.
+//   * weak   = number of WeakRefPtr owners + (1 while strong > 0).
+//   * strong -> 0 destroys the object (runs ~T); the storage is retained.
+//   * weak   -> 0 frees the storage.
+// A co-allocated RefControl holds the counts; its lifetime is independent of
+// the object, so it stays valid for weak refs after the object is destroyed.
 
 module;
 #include "Core/Prelude.h"
@@ -23,43 +27,75 @@ export module raptor.core:smart_ptr;
 import :base;
 import :memory;
 
+namespace raptor::core::detail
+{
+    struct RefControl
+    {
+        mutable std::atomic<u32> strong;
+        mutable std::atomic<u32> weak;
+        IAllocator* allocator;
+        void (*destroyObject)(void*) noexcept; // runs the object's destructor
+        void* object;                          // the managed T*
+        void* allocation;                      // base of the combined allocation
+    };
+
+    inline void ReleaseWeak(RefControl* control) noexcept
+    {
+        if (control->weak.fetch_sub(1, std::memory_order_acq_rel) == 1)
+        {
+            IAllocator* allocator = control->allocator;
+            void* allocation = control->allocation;
+            control->~RefControl();
+            if (allocator != nullptr)
+            {
+                allocator->Free(allocation);
+            }
+        }
+    }
+}
+
 export namespace raptor::core
 {
     template <typename T>
     class RefPtr;
+    template <typename T>
+    class WeakRefPtr;
 
     template <typename T, typename... Args>
     [[nodiscard]] RefPtr<T> MakeRef(IAllocator& allocator, Args&&... args);
 
+    struct AdoptRef {}; // tag: take ownership of an already-counted reference
+
     // =======================================================================
-    // RefCounted — intrusive strong reference count.
-    //   Objects must be heap-allocated through MakeRef (it records the owning
-    //   allocator and frees the object when the count reaches zero).
+    // RefCounted — intrusive strong+weak base. Heap-allocate via MakeRef.
     // =======================================================================
     class RefCounted
     {
     public:
         void AddRef() const noexcept
         {
-            m_strong.fetch_add(1, std::memory_order_relaxed);
+            RAPTOR_ASSERT(m_control != nullptr);
+            m_control->strong.fetch_add(1, std::memory_order_relaxed);
         }
 
         void Release() const noexcept
         {
-            if (m_strong.fetch_sub(1, std::memory_order_acq_rel) == 1)
+            RAPTOR_ASSERT(m_control != nullptr);
+            detail::RefControl* control = m_control;
+            if (control->strong.fetch_sub(1, std::memory_order_acq_rel) == 1)
             {
-                IAllocator* allocator = m_allocator;
-                this->~RefCounted();                                  // virtual -> derived dtor
-                if (allocator != nullptr)
-                {
-                    allocator->Free(const_cast<RefCounted*>(this));
-                }
+                // Last strong owner: destroy the object (this runs ~T, which
+                // also ends this RefCounted subobject's lifetime — but `control`
+                // lives independently), then drop the "alive" weak ref.
+                control->destroyObject(control->object);
+                detail::ReleaseWeak(control);
             }
         }
 
         [[nodiscard]] u32 RefCount() const noexcept
         {
-            return m_strong.load(std::memory_order_relaxed);
+            RAPTOR_ASSERT(m_control != nullptr);
+            return m_control->strong.load(std::memory_order_relaxed);
         }
 
     protected:
@@ -72,15 +108,16 @@ export namespace raptor::core
     private:
         template <typename U, typename... Args>
         friend RefPtr<U> MakeRef(IAllocator&, Args&&...);
+        template <typename U>
+        friend class WeakRefPtr;
 
-        void SetOwningAllocator(IAllocator* allocator) noexcept { m_allocator = allocator; }
+        [[nodiscard]] detail::RefControl* Control() const noexcept { return m_control; }
 
-        mutable std::atomic<u32> m_strong{ 0 };
-        IAllocator* m_allocator = nullptr;
+        detail::RefControl* m_control = nullptr;
     };
 
     // =======================================================================
-    // RefPtr — intrusive shared pointer.
+    // RefPtr — strong intrusive shared pointer.
     // =======================================================================
     template <typename T>
     class RefPtr
@@ -94,6 +131,9 @@ export namespace raptor::core
             if (m_ptr != nullptr) { m_ptr->AddRef(); }
         }
 
+        // Adopt an already-incremented strong reference (no extra AddRef).
+        RefPtr(T* pointer, AdoptRef) noexcept : m_ptr(pointer) {}
+
         RefPtr(const RefPtr& other) noexcept : m_ptr(other.m_ptr)
         {
             if (m_ptr != nullptr) { m_ptr->AddRef(); }
@@ -101,7 +141,6 @@ export namespace raptor::core
 
         RefPtr(RefPtr&& other) noexcept : m_ptr(other.m_ptr) { other.m_ptr = nullptr; }
 
-        // Upcast from a derived RefPtr<U>.
         template <typename U>
             requires std::is_convertible_v<U*, T*>
         RefPtr(const RefPtr<U>& other) noexcept : m_ptr(other.Get())
@@ -161,16 +200,129 @@ export namespace raptor::core
     {
         static_assert(std::is_base_of_v<RefCounted, T>, "MakeRef requires a RefCounted-derived type.");
 
-        void* memory = allocator.Allocate(sizeof(T), alignof(T));
-        if (memory == nullptr)
+        constexpr usize alignment = (alignof(detail::RefControl) > alignof(T))
+                                        ? alignof(detail::RefControl) : alignof(T);
+        const usize objectOffset = AlignUp(sizeof(detail::RefControl), alignof(T));
+        const usize total = objectOffset + sizeof(T);
+
+        void* base = allocator.Allocate(total, alignment);
+        if (base == nullptr)
         {
             return RefPtr<T>{};
         }
 
-        T* object = ::new (memory) T(Forward<Args>(args)...);
-        object->SetOwningAllocator(&allocator);
-        return RefPtr<T>{ object }; // AddRef -> strong count becomes 1
+        auto* control = ::new (base) detail::RefControl{};
+        T* object = ::new (static_cast<byte*>(base) + objectOffset) T(Forward<Args>(args)...);
+
+        control->strong.store(1, std::memory_order_relaxed);
+        control->weak.store(1, std::memory_order_relaxed);
+        control->allocator = &allocator;
+        control->object = object;
+        control->allocation = base;
+        control->destroyObject = [](void* p) noexcept { static_cast<T*>(p)->~T(); };
+
+        static_cast<RefCounted*>(object)->m_control = control;
+        return RefPtr<T>{ object, AdoptRef{} };
     }
+
+    // =======================================================================
+    // WeakRefPtr — non-owning weak reference; Lock() promotes to RefPtr.
+    // =======================================================================
+    template <typename T>
+    class WeakRefPtr
+    {
+    public:
+        WeakRefPtr() noexcept = default;
+        WeakRefPtr(decltype(nullptr)) noexcept {}
+
+        WeakRefPtr(const RefPtr<T>& strong) noexcept
+        {
+            if (strong.Get() != nullptr)
+            {
+                m_ptr = strong.Get();
+                m_control = static_cast<RefCounted*>(m_ptr)->Control();
+                m_control->weak.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+
+        WeakRefPtr(const WeakRefPtr& other) noexcept : m_ptr(other.m_ptr), m_control(other.m_control)
+        {
+            if (m_control != nullptr) { m_control->weak.fetch_add(1, std::memory_order_relaxed); }
+        }
+
+        WeakRefPtr(WeakRefPtr&& other) noexcept : m_ptr(other.m_ptr), m_control(other.m_control)
+        {
+            other.m_ptr = nullptr;
+            other.m_control = nullptr;
+        }
+
+        ~WeakRefPtr()
+        {
+            if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+        }
+
+        WeakRefPtr& operator=(const WeakRefPtr& other) noexcept
+        {
+            if (this != &other)
+            {
+                if (other.m_control != nullptr) { other.m_control->weak.fetch_add(1, std::memory_order_relaxed); }
+                if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+                m_ptr = other.m_ptr;
+                m_control = other.m_control;
+            }
+            return *this;
+        }
+
+        WeakRefPtr& operator=(WeakRefPtr&& other) noexcept
+        {
+            if (this != &other)
+            {
+                if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+                m_ptr = other.m_ptr;
+                m_control = other.m_control;
+                other.m_ptr = nullptr;
+                other.m_control = nullptr;
+            }
+            return *this;
+        }
+
+        void Reset() noexcept
+        {
+            if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+            m_ptr = nullptr;
+            m_control = nullptr;
+        }
+
+        [[nodiscard]] bool Expired() const noexcept
+        {
+            return m_control == nullptr || m_control->strong.load(std::memory_order_acquire) == 0;
+        }
+
+        // Promotes to a strong RefPtr, or returns null if the object is gone.
+        [[nodiscard]] RefPtr<T> Lock() const noexcept
+        {
+            if (m_control == nullptr)
+            {
+                return RefPtr<T>{};
+            }
+
+            u32 strong = m_control->strong.load(std::memory_order_relaxed);
+            while (strong != 0)
+            {
+                if (m_control->strong.compare_exchange_weak(
+                        strong, strong + 1,
+                        std::memory_order_acq_rel, std::memory_order_relaxed))
+                {
+                    return RefPtr<T>{ static_cast<T*>(m_ptr), AdoptRef{} };
+                }
+            }
+            return RefPtr<T>{};
+        }
+
+    private:
+        T* m_ptr = nullptr;
+        detail::RefControl* m_control = nullptr;
+    };
 
     // =======================================================================
     // UniquePtr — sole ownership; frees through the owning allocator.

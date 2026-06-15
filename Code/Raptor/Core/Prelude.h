@@ -115,15 +115,12 @@
 // shared libraries. Plugins (see Library module) will flip this per target.
 #define RAPTOR_API
 
-#define RAPTOR_LIKELY(x)   (__builtin_expect(!!(x), 1))
-#define RAPTOR_UNLIKELY(x) (__builtin_expect(!!(x), 0))
-
-#if RAPTOR_COMPILER_MSVC && !RAPTOR_COMPILER_CLANG
-    #undef RAPTOR_LIKELY
-    #undef RAPTOR_UNLIKELY
-    #define RAPTOR_LIKELY(x)   (x)
-    #define RAPTOR_UNLIKELY(x) (x)
-#endif
+// Expression-form branch hints are pass-throughs: Clang miscompiles
+// __builtin_expect when it is reachable across C++ module units (it conflates
+// call sites and reports an ambiguous call). For real hot paths, use the
+// C++20 [[likely]] / [[unlikely]] attributes on if/switch statements instead.
+#define RAPTOR_LIKELY(x)   (x)
+#define RAPTOR_UNLIKELY(x) (x)
 
 #define RAPTOR_STRINGIFY_(x) #x
 #define RAPTOR_STRINGIFY(x)  RAPTOR_STRINGIFY_(x)
