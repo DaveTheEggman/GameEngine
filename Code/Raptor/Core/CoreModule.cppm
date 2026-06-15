@@ -7,7 +7,7 @@
 export module raptor.core;
 
 export import :base;
-// export import :debug;
-// export import :memory;
+export import :memory;
+export import :smart_ptr;
 // export import :containers;
 // ...

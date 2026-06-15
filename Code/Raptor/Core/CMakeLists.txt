@@ -20,7 +20,9 @@ target_sources(RaptorCore
     PUBLIC
         FILE_SET core_modules TYPE CXX_MODULES FILES
             CoreModule.cppm
-            Base.cppm)
+            Base.cppm
+            Memory/Memory.cppm
+            Memory/SmartPtr.cppm)
 
 # Classic headers that cross the module boundary (macros only). Consumers
 # include them as "Core/<Header>.h"; the engine include root is Code/Raptor.
