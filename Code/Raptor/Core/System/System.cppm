@@ -49,4 +49,54 @@ export namespace raptor::core
     [[nodiscard]] inline void* PageAllocate(usize size) noexcept { return sys::PageAllocate(size); }
 
     inline void PageFree(void* pointer, usize size) noexcept { sys::PageFree(pointer, size); }
+
+    // --- Files (low-level primitives; IO wraps these) ----------------------
+
+    using FileHandle = sys::FileHandle;
+    using FileMode = sys::FileMode;
+    using SeekOrigin = sys::SeekOrigin;
+    inline constexpr FileHandle kInvalidFile = sys::kInvalidFile;
+
+    [[nodiscard]] inline FileHandle FileOpen(const char* path, FileMode mode) noexcept
+    {
+        return sys::FileOpen(path, mode);
+    }
+
+    [[nodiscard]] inline bool FileIsValid(FileHandle handle) noexcept
+    {
+        return handle != kInvalidFile;
+    }
+
+    inline void FileClose(FileHandle handle) noexcept { sys::FileClose(handle); }
+
+    // Returns bytes transferred, or -1 on error.
+    [[nodiscard]] inline i64 FileRead(FileHandle handle, void* buffer, u64 bytes) noexcept
+    {
+        return sys::FileRead(handle, buffer, bytes);
+    }
+
+    [[nodiscard]] inline i64 FileWrite(FileHandle handle, const void* buffer, u64 bytes) noexcept
+    {
+        return sys::FileWrite(handle, buffer, bytes);
+    }
+
+    [[nodiscard]] inline i64 FileSeek(FileHandle handle, i64 offset, SeekOrigin origin) noexcept
+    {
+        return sys::FileSeek(handle, offset, origin);
+    }
+
+    [[nodiscard]] inline i64 FileSize(FileHandle handle) noexcept { return sys::FileSize(handle); }
+
+    [[nodiscard]] inline bool FileExists(const char* path) noexcept { return sys::FileExists(path); }
+
+    inline bool FileDelete(const char* path) noexcept { return sys::FileDelete(path); }
+
+    // --- Console -----------------------------------------------------------
+
+    inline void ConsoleWrite(const char* text, u64 length) noexcept { sys::ConsoleWrite(text, length); }
+
+    inline void ConsoleWriteError(const char* text, u64 length) noexcept
+    {
+        sys::ConsoleWriteError(text, length);
+    }
 }

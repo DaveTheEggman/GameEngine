@@ -35,6 +35,9 @@ export namespace raptor::core
     using usize = std::size_t;
     using isize = std::ptrdiff_t;
 
+    using iptr = std::intptr_t;
+    using uptr = std::uintptr_t;
+
     using byte = std::byte;
 
     // Wide character unit for the primary String type (UTF-16); UTF8String uses

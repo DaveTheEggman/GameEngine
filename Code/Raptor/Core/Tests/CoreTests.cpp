@@ -541,3 +541,57 @@ TEST_CASE("containers: Array honours a custom allocator")
     CHECK(a.Size() == 10u);
     CHECK(arena.Used() > 0u);
 }
+
+// --- System: files ---------------------------------------------------------
+
+TEST_CASE("system: file write / read / seek / size round-trip")
+{
+    const char* path = "raptor_system_test.tmp";
+    const char payload[] = "Raptor file IO";
+    const u64 length = sizeof(payload) - 1; // exclude null terminator
+
+    // Write
+    {
+        FileHandle f = FileOpen(path, FileMode::Write);
+        REQUIRE(FileIsValid(f));
+        CHECK(FileWrite(f, payload, length) == static_cast<i64>(length));
+        FileClose(f);
+    }
+
+    CHECK(FileExists(path));
+
+    // Read back
+    {
+        FileHandle f = FileOpen(path, FileMode::Read);
+        REQUIRE(FileIsValid(f));
+        CHECK(FileSize(f) == static_cast<i64>(length));
+
+        char buffer[32] = {};
+        CHECK(FileRead(f, buffer, length) == static_cast<i64>(length));
+        CHECK(buffer[0] == 'R');
+
+        // Seek back to a known offset and re-read.
+        CHECK(FileSeek(f, 7, SeekOrigin::Begin) == 7);
+        char c = 0;
+        CHECK(FileRead(f, &c, 1) == 1);
+        CHECK(c == 'f'); // "Raptor file IO"[7]
+
+        FileClose(f);
+    }
+
+    CHECK(FileDelete(path));
+    CHECK_FALSE(FileExists(path));
+}
+
+TEST_CASE("system: opening a missing file fails cleanly")
+{
+    FileHandle f = FileOpen("raptor_definitely_missing.xyz", FileMode::Read);
+    CHECK_FALSE(FileIsValid(f));
+}
+
+TEST_CASE("system: console write does not crash")
+{
+    const char msg[] = "[raptor-test] console output check\n";
+    ConsoleWrite(msg, sizeof(msg) - 1);
+    CHECK(true);
+}

@@ -26,6 +26,39 @@ namespace raptor::core::sys
     // --- Virtual memory (page-granular) ------------------------------------
     void* PageAllocate(std::size_t size) noexcept;   // nullptr on failure
     void PageFree(void* pointer, std::size_t size) noexcept;
+
+    // --- Files (low-level primitives; IO wraps these) ----------------------
+    // Opaque handle: fd on Linux, HANDLE on Win32. kInvalidFile on failure.
+    using FileHandle = std::intptr_t;
+    inline constexpr FileHandle kInvalidFile = -1;
+
+    enum class FileMode
+    {
+        Read,       // existing file, read-only
+        Write,      // create/truncate, write-only
+        ReadWrite,  // create if needed, read+write
+        Append,     // create if needed, write at end
+    };
+
+    enum class SeekOrigin
+    {
+        Begin,
+        Current,
+        End,
+    };
+
+    FileHandle FileOpen(const char* path, FileMode mode) noexcept;
+    void FileClose(FileHandle handle) noexcept;
+    std::int64_t FileRead(FileHandle handle, void* buffer, std::uint64_t bytes) noexcept;   // -1 on error
+    std::int64_t FileWrite(FileHandle handle, const void* buffer, std::uint64_t bytes) noexcept;
+    std::int64_t FileSeek(FileHandle handle, std::int64_t offset, SeekOrigin origin) noexcept; // new pos, -1 error
+    std::int64_t FileSize(FileHandle handle) noexcept;                                      // -1 on error
+    bool FileExists(const char* path) noexcept;
+    bool FileDelete(const char* path) noexcept;
+
+    // --- Console -----------------------------------------------------------
+    void ConsoleWrite(const char* text, std::uint64_t length) noexcept;       // stdout
+    void ConsoleWriteError(const char* text, std::uint64_t length) noexcept;   // stderr
 }
 
 #endif // RAPTOR_CORE_SYSTEM_BACKEND_H
