@@ -1,0 +1,30 @@
+# Raptor C++ style — Allman braces, 4-space indent, 100-col.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+ColumnLimit: 100
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+BreakBeforeBraces: Allman
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+AccessModifierOffset: -4
+IndentAccessModifiers: false
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+NamespaceIndentation: All
+FixNamespaceComments: true
+
+AlwaysBreakTemplateDeclarations: Yes
+SpaceAfterTemplateKeyword: true
+
+IncludeBlocks: Preserve
+SortIncludes: CaseInsensitive

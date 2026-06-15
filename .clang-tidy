@@ -1,0 +1,15 @@
+# Raptor static analysis. Starter set — tighten as the codebase grows.
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  readability-*,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -bugprone-easily-swappable-parameters
+
+WarningsAsErrors: ''
+HeaderFilterRegex: 'Code/Raptor/.*'
+FormatStyle: file
