@@ -10,7 +10,6 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
-#include <new>
 
 export module raptor.core:string;
 

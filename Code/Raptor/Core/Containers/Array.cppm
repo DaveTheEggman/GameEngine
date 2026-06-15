@@ -7,7 +7,6 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
-#include <new>          // placement new
 #include <type_traits>
 
 export module raptor.core:containers;
@@ -72,7 +71,7 @@ export namespace raptor::core
             Reserve(other.m_size);
             for (usize i = 0; i < other.m_size; ++i)
             {
-                ::new (&m_data[i]) T(other.m_data[i]);
+                Construct<T>(&m_data[i], other.m_data[i]);
             }
             m_size = other.m_size;
         }
@@ -94,7 +93,7 @@ export namespace raptor::core
                 Reserve(other.m_size);
                 for (usize i = 0; i < other.m_size; ++i)
                 {
-                    ::new (&m_data[i]) T(other.m_data[i]);
+                    Construct<T>(&m_data[i], other.m_data[i]);
                 }
                 m_size = other.m_size;
             }
@@ -136,8 +135,8 @@ export namespace raptor::core
 
             for (usize i = 0; i < m_size; ++i)
             {
-                ::new (&newData[i]) T(Move(m_data[i]));
-                m_data[i].~T();
+                Construct<T>(&newData[i], Move(m_data[i]));
+                Destruct(&m_data[i]);
             }
 
             if (m_data != nullptr)
@@ -154,7 +153,7 @@ export namespace raptor::core
             {
                 for (usize i = newSize; i < m_size; ++i)
                 {
-                    m_data[i].~T();
+                    Destruct(&m_data[i]);
                 }
             }
             else if (newSize > m_size)
@@ -162,7 +161,7 @@ export namespace raptor::core
                 Reserve(newSize);
                 for (usize i = m_size; i < newSize; ++i)
                 {
-                    ::new (&m_data[i]) T();
+                    Construct<T>(&m_data[i]);
                 }
             }
             m_size = newSize;
@@ -173,7 +172,7 @@ export namespace raptor::core
         {
             for (usize i = 0; i < m_size; ++i)
             {
-                m_data[i].~T();
+                Destruct(&m_data[i]);
             }
             m_size = 0;
         }
@@ -200,14 +199,14 @@ export namespace raptor::core
         T& PushBack(const T& value)
         {
             EnsureCapacityForOne();
-            ::new (&m_data[m_size]) T(value);
+            Construct<T>(&m_data[m_size], value);
             return m_data[m_size++];
         }
 
         T& PushBack(T&& value)
         {
             EnsureCapacityForOne();
-            ::new (&m_data[m_size]) T(Move(value));
+            Construct<T>(&m_data[m_size], Move(value));
             return m_data[m_size++];
         }
 
@@ -215,14 +214,14 @@ export namespace raptor::core
         T& EmplaceBack(Args&&... args)
         {
             EnsureCapacityForOne();
-            ::new (&m_data[m_size]) T(Forward<Args>(args)...);
+            Construct<T>(&m_data[m_size], Forward<Args>(args)...);
             return m_data[m_size++];
         }
 
         void PopBack() noexcept
         {
             RAPTOR_ASSERT(m_size > 0);
-            m_data[--m_size].~T();
+            Destruct(&m_data[--m_size]);
         }
 
         // Removes element `index`, shifting the tail down (order preserved).
@@ -233,7 +232,7 @@ export namespace raptor::core
             {
                 m_data[i] = Move(m_data[i + 1]);
             }
-            m_data[--m_size].~T();
+            Destruct(&m_data[--m_size]);
         }
 
         // Removes element `index` by swapping in the last element (O(1), order not preserved).
@@ -244,7 +243,7 @@ export namespace raptor::core
             {
                 m_data[index] = Move(m_data[m_size - 1]);
             }
-            m_data[--m_size].~T();
+            Destruct(&m_data[--m_size]);
         }
 
         // --- views / iteration ---------------------------------------------

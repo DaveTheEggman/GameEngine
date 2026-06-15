@@ -14,4 +14,6 @@ export import :containers;
 export import :string;
 export import :hash;
 export import :hash_map;
+export import :format;
+export import :log;
 // ...

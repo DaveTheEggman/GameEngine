@@ -7,7 +7,6 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
-#include <new>
 #include <type_traits>
 
 export module raptor.core:hash_map;
@@ -118,7 +117,7 @@ export namespace raptor::core
             {
                 --m_tombstones;
             }
-            ::new (&m_entries[target]) Entry{ key, value };
+            Construct<Entry>(&m_entries[target], key, value);
             m_states[target] = State::Occupied;
             ++m_size;
             return m_entries[target].value;
@@ -145,7 +144,7 @@ export namespace raptor::core
             {
                 return false;
             }
-            m_entries[index].~Entry();
+            Destruct(&m_entries[index]);
             m_states[index] = State::Tombstone;
             --m_size;
             ++m_tombstones;
@@ -158,7 +157,7 @@ export namespace raptor::core
             {
                 if (m_states[i] == State::Occupied)
                 {
-                    m_entries[i].~Entry();
+                    Destruct(&m_entries[i]);
                 }
                 m_states[i] = State::Empty;
             }
@@ -296,7 +295,7 @@ export namespace raptor::core
                 if (oldStates[i] == State::Occupied)
                 {
                     InsertMoved(Move(oldEntries[i]));
-                    oldEntries[i].~Entry();
+                    Destruct(&oldEntries[i]);
                 }
             }
 
@@ -314,7 +313,7 @@ export namespace raptor::core
             {
                 index = (index + 1) & mask;
             }
-            ::new (&m_entries[index]) Entry{ Move(entry.key), Move(entry.value) };
+            Construct<Entry>(&m_entries[index], Move(entry.key), Move(entry.value));
             m_states[index] = State::Occupied;
             ++m_size;
         }

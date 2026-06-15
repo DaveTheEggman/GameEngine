@@ -14,6 +14,12 @@
 #ifndef RAPTOR_CORE_PRELUDE_H
 #define RAPTOR_CORE_PRELUDE_H
 
+// Placement operator new must be reachable in every TU that instantiates a
+// container (GCC binds it at the instantiation site, not where the placement
+// new textually appears). Prelude.h is included in every module's global module
+// fragment, so this makes it uniformly available. <new> is a tiny header.
+#include <new>
+
 // ---------------------------------------------------------------------------
 // Compiler detection
 // ---------------------------------------------------------------------------

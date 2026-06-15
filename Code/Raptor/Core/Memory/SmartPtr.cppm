@@ -45,7 +45,7 @@ namespace raptor::core::detail
         {
             IAllocator* allocator = control->allocator;
             void* allocation = control->allocation;
-            control->~RefControl();
+            Destruct(control);
             if (allocator != nullptr)
             {
                 allocator->Free(allocation);
@@ -211,15 +211,15 @@ export namespace raptor::core
             return RefPtr<T>{};
         }
 
-        auto* control = ::new (base) detail::RefControl{};
-        T* object = ::new (static_cast<byte*>(base) + objectOffset) T(Forward<Args>(args)...);
+        auto* control = Construct<detail::RefControl>(base);
+        T* object = Construct<T>(static_cast<byte*>(base) + objectOffset, Forward<Args>(args)...);
 
         control->strong.store(1, std::memory_order_relaxed);
         control->weak.store(1, std::memory_order_relaxed);
         control->allocator = &allocator;
         control->object = object;
         control->allocation = base;
-        control->destroyObject = [](void* p) noexcept { static_cast<T*>(p)->~T(); };
+        control->destroyObject = [](void* p) noexcept { Destruct(static_cast<T*>(p)); };
 
         static_cast<RefCounted*>(object)->m_control = control;
         return RefPtr<T>{ object, AdoptRef{} };

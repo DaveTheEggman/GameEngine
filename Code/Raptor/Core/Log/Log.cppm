@@ -1,0 +1,185 @@
+// Raptor Core — :log partition
+//
+// Logging frontend + sinks. Messages are formatted (see :format) into narrow
+// char text and dispatched to registered sinks. Level filtering happens up
+// front so disabled levels cost almost nothing.
+//
+// NOTE: the global logger is not yet thread-safe (Threading is not built);
+// single-threaded use only for now.
+
+module;
+#include "Core/Prelude.h"
+
+export module raptor.core:log;
+
+import :base;
+import :memory;
+import :containers;
+import :format;
+import :system;
+
+export namespace raptor::core
+{
+    enum class LogLevel : u8
+    {
+        Trace,
+        Debug,
+        Info,
+        Warning,
+        Error,
+        Fatal,
+        Off, // sentinel: filters out everything
+    };
+
+    [[nodiscard]] inline const char* LogLevelName(LogLevel level) noexcept
+    {
+        switch (level)
+        {
+            case LogLevel::Trace:   return "Trace";
+            case LogLevel::Debug:   return "Debug";
+            case LogLevel::Info:    return "Info";
+            case LogLevel::Warning: return "Warning";
+            case LogLevel::Error:   return "Error";
+            case LogLevel::Fatal:   return "Fatal";
+            case LogLevel::Off:     return "Off";
+        }
+        return "?";
+    }
+
+    // -----------------------------------------------------------------------
+    // Sinks
+    // -----------------------------------------------------------------------
+    class ILogSink
+    {
+    public:
+        virtual ~ILogSink() = default;
+        virtual void Write(LogLevel level, const char* category,
+                           const char* message, usize length) noexcept = 0;
+    };
+
+    namespace detail
+    {
+        inline void FormatLine(FormatBuffer& line, LogLevel level, const char* category,
+                               const char* message, usize length)
+        {
+            FormatTo(line, "[{}] {}: ", LogLevelName(level), category);
+            line.Append(message, length);
+            line.Append('\n');
+        }
+    }
+
+    // Writes to stdout (stderr for Error/Fatal).
+    class ConsoleSink final : public ILogSink
+    {
+    public:
+        void Write(LogLevel level, const char* category,
+                   const char* message, usize length) noexcept override
+        {
+            FormatBuffer line;
+            detail::FormatLine(line, level, category, message, length);
+
+            if (static_cast<u8>(level) >= static_cast<u8>(LogLevel::Error))
+            {
+                ConsoleWriteError(line.Data(), line.Size());
+            }
+            else
+            {
+                ConsoleWrite(line.Data(), line.Size());
+            }
+        }
+    };
+
+    // Appends to a file.
+    class FileSink final : public ILogSink
+    {
+    public:
+        explicit FileSink(const char* path) noexcept { m_file = FileOpen(path, FileMode::Append); }
+        ~FileSink() override
+        {
+            if (FileIsValid(m_file)) { FileClose(m_file); }
+        }
+
+        FileSink(const FileSink&) = delete;
+        FileSink& operator=(const FileSink&) = delete;
+
+        [[nodiscard]] bool IsOpen() const noexcept { return FileIsValid(m_file); }
+
+        void Write(LogLevel level, const char* category,
+                   const char* message, usize length) noexcept override
+        {
+            if (!FileIsValid(m_file)) { return; }
+
+            FormatBuffer line;
+            detail::FormatLine(line, level, category, message, length);
+            (void)FileWrite(m_file, line.Data(), line.Size());
+        }
+
+    private:
+        FileHandle m_file = kInvalidFile;
+    };
+
+    // -----------------------------------------------------------------------
+    // Logger — owns the sink list and the active level filter.
+    // -----------------------------------------------------------------------
+    class Logger
+    {
+    public:
+        // Sinks are non-owning; the caller manages their lifetime.
+        void AddSink(ILogSink* sink) { if (sink != nullptr) { m_sinks.PushBack(sink); } }
+
+        void RemoveSink(ILogSink* sink) noexcept
+        {
+            for (usize i = 0; i < m_sinks.Size(); ++i)
+            {
+                if (m_sinks[i] == sink)
+                {
+                    m_sinks.RemoveAtSwap(i);
+                    return;
+                }
+            }
+        }
+
+        void SetMinLevel(LogLevel level) noexcept { m_minLevel = level; }
+        [[nodiscard]] LogLevel MinLevel() const noexcept { return m_minLevel; }
+
+        [[nodiscard]] bool IsEnabled(LogLevel level) const noexcept
+        {
+            return static_cast<u8>(level) >= static_cast<u8>(m_minLevel);
+        }
+
+        void Dispatch(LogLevel level, const char* category, const char* message, usize length) noexcept
+        {
+            for (ILogSink* sink : m_sinks)
+            {
+                sink->Write(level, category, message, length);
+            }
+        }
+
+    private:
+        Array<ILogSink*> m_sinks;
+        LogLevel m_minLevel = LogLevel::Info;
+    };
+
+    [[nodiscard]] Logger& GlobalLogger() noexcept
+    {
+        static Logger instance;
+        return instance;
+    }
+
+    // -----------------------------------------------------------------------
+    // Frontend — formats and dispatches (used by the RAPTOR_LOG_* macros).
+    // -----------------------------------------------------------------------
+    template <typename... Args>
+    void Logf(LogLevel level, const char* category, const char* fmt, const Args&... args)
+    {
+        Logger& logger = GlobalLogger();
+        if (!logger.IsEnabled(level))
+        {
+            return;
+        }
+
+        FormatBuffer buffer;
+        FormatTo(buffer, fmt, args...);
+        logger.Dispatch(level, category, buffer.Data(), buffer.Size());
+    }
+}

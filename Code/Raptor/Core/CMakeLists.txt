@@ -27,7 +27,9 @@ target_sources(RaptorCore
             Containers/Array.cppm
             Containers/String.cppm
             Containers/Hash.cppm
-            Containers/HashMap.cppm)
+            Containers/HashMap.cppm
+            Containers/Format.cppm
+            Log/Log.cppm)
 
 # Per-platform System backend (classic TUs).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -45,7 +47,8 @@ target_sources(RaptorCore
             FILES
                 Prelude.h
                 Debug/Assert.h
-                System/SystemBackend.h)
+                System/SystemBackend.h
+                Log/Log.h)
 
 # So `#include "Core/Prelude.h"` resolves from module global-module-fragments.
 target_include_directories(RaptorCore PUBLIC ${CMAKE_SOURCE_DIR}/Code/Raptor)

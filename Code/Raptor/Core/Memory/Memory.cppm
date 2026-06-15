@@ -68,6 +68,26 @@ export namespace raptor::core
     }
 
     // =======================================================================
+    // Placement construct / destroy
+    //   Centralizing placement-new here (where <new> is included) keeps the
+    //   global placement operator new reachable: container modules call these
+    //   instead of `::new`, so consumers that instantiate containers never need
+    //   to include <new> themselves. (GCC modules require it at the
+    //   instantiation site otherwise.)
+    // =======================================================================
+    template <typename T, typename... Args>
+    T* Construct(void* where, Args&&... args)
+    {
+        return ::new (where) T(Forward<Args>(args)...);
+    }
+
+    template <typename T>
+    void Destruct(T* object) noexcept
+    {
+        object->~T();
+    }
+
+    // =======================================================================
     // Allocator interface
     //   Allocate returns nullptr on failure (no exceptions).
     //   Free(nullptr) is a no-op.
