@@ -8,6 +8,12 @@ add_library(Raptor::Core ALIAS RaptorCore)
 
 target_link_libraries(RaptorCore PUBLIC Raptor::Policy)
 
+# Classic (non-module) translation units: macro-centric subsystems whose
+# functions need external linkage reachable from any module's GMF (see
+# Debug/Assert.h). Kept minimal.
+target_sources(RaptorCore PRIVATE
+    Debug/Debug.cpp)
+
 # Module interface units. The primary unit (CoreModule.cppm) must be listed;
 # partitions are added here as subsystems land.
 target_sources(RaptorCore
@@ -22,7 +28,9 @@ target_sources(RaptorCore
     PUBLIC
         FILE_SET core_headers TYPE HEADERS
             BASE_DIRS ${CMAKE_SOURCE_DIR}/Code/Raptor
-            FILES Prelude.h)
+            FILES
+                Prelude.h
+                Debug/Assert.h)
 
 # So `#include "Core/Prelude.h"` resolves from module global-module-fragments.
 target_include_directories(RaptorCore PUBLIC ${CMAKE_SOURCE_DIR}/Code/Raptor)

@@ -1,21 +1,24 @@
 // Raptor Core — :base partition
 //
-// The foundation: fundamental exported types and a handful of widely-used
-// utilities. Lives at the Core root (no dedicated folder). Macros live in
-// Prelude.h, not here — modules cannot export macros.
+// The foundation: fundamental exported types, widely-used utilities, and the
+// project-wide error vocabulary (Status / Result). Lives at the Core root.
+// Macros live in Prelude.h, not here — modules cannot export macros.
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Debug/Assert.h"  // classic header — no module cycle (see Assert.h)
 #include <cstdint>
 #include <cstddef>
+#include <new>          // placement new
+#include <type_traits>
 
 export module raptor.core:base;
 
 export namespace raptor::core
 {
-    // -----------------------------------------------------------------------
+    // =======================================================================
     // Fundamental integer / floating types
-    // -----------------------------------------------------------------------
+    // =======================================================================
     using i8  = std::int8_t;
     using i16 = std::int16_t;
     using i32 = std::int32_t;
@@ -39,9 +42,41 @@ export namespace raptor::core
     using widechar = char16_t;
     using utf8char = char8_t;
 
-    // -----------------------------------------------------------------------
-    // Small, universally useful utilities
-    // -----------------------------------------------------------------------
+    // =======================================================================
+    // Move / Forward / Swap
+    // (our own, to avoid pulling <utility> into every consumer)
+    // =======================================================================
+    template <typename T>
+    [[nodiscard]] constexpr std::remove_reference_t<T>&& Move(T&& value) noexcept
+    {
+        return static_cast<std::remove_reference_t<T>&&>(value);
+    }
+
+    template <typename T>
+    [[nodiscard]] constexpr T&& Forward(std::remove_reference_t<T>& value) noexcept
+    {
+        return static_cast<T&&>(value);
+    }
+
+    template <typename T>
+    [[nodiscard]] constexpr T&& Forward(std::remove_reference_t<T>&& value) noexcept
+    {
+        static_assert(!std::is_lvalue_reference_v<T>, "Forward must not be used to forward an rvalue as an lvalue.");
+        return static_cast<T&&>(value);
+    }
+
+    template <typename T>
+    constexpr void Swap(T& a, T& b)
+        noexcept(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_assignable_v<T>)
+    {
+        T tmp = Move(a);
+        a = Move(b);
+        b = Move(tmp);
+    }
+
+    // =======================================================================
+    // Small utilities
+    // =======================================================================
     template <typename T>
     [[nodiscard]] constexpr const T& Min(const T& a, const T& b)
     {
@@ -65,4 +100,188 @@ export namespace raptor::core
     {
         return N;
     }
+
+    // =======================================================================
+    // Ownership mixins
+    // =======================================================================
+    class NonCopyable
+    {
+    protected:
+        constexpr NonCopyable() = default;
+        ~NonCopyable() = default;
+
+    public:
+        NonCopyable(const NonCopyable&) = delete;
+        NonCopyable& operator=(const NonCopyable&) = delete;
+    };
+
+    class NonMovable
+    {
+    protected:
+        constexpr NonMovable() = default;
+        ~NonMovable() = default;
+
+    public:
+        NonMovable(const NonMovable&) = delete;
+        NonMovable& operator=(const NonMovable&) = delete;
+        NonMovable(NonMovable&&) = delete;
+        NonMovable& operator=(NonMovable&&) = delete;
+    };
+
+    // =======================================================================
+    // Error vocabulary (exceptions are disabled engine-wide)
+    //   Status      — success or an error code, no payload.
+    //   Result<T,E> — a value (T) or an error (E). Use Err(e) to build the
+    //                 error case; a T converts implicitly to the value case.
+    // =======================================================================
+    enum class ErrorCode : u32
+    {
+        Ok = 0,
+        Unknown,
+        InvalidArgument,
+        OutOfRange,
+        OutOfMemory,
+        NotFound,
+        NotSupported,
+        AlreadyExists,
+        Internal,
+    };
+
+    class Status
+    {
+    public:
+        constexpr Status() = default;
+        constexpr Status(ErrorCode code) : m_code(code) {}
+
+        [[nodiscard]] constexpr ErrorCode Code() const { return m_code; }
+        [[nodiscard]] constexpr bool IsOk() const { return m_code == ErrorCode::Ok; }
+        [[nodiscard]] constexpr explicit operator bool() const { return IsOk(); }
+
+        // NB: explicit, not `= default` — GCC 15 ICEs on defaulted comparison
+        // operators inside a module.
+        friend constexpr bool operator==(Status a, Status b) { return a.m_code == b.m_code; }
+
+    private:
+        ErrorCode m_code = ErrorCode::Ok;
+    };
+
+    // Tag wrapper that disambiguates the error case of Result.
+    template <typename E>
+    struct Failure
+    {
+        E error;
+    };
+
+    template <typename E>
+    [[nodiscard]] constexpr Failure<std::remove_cvref_t<E>> Err(E&& error)
+    {
+        return Failure<std::remove_cvref_t<E>>{ Forward<E>(error) };
+    }
+
+    template <typename T, typename E = ErrorCode>
+    class Result
+    {
+        static_assert(!std::is_void_v<T>, "Use Status for operations that return no value.");
+
+    public:
+        using ValueType = T;
+        using ErrorType = E;
+
+        // Value case (implicit from T).
+        Result(const T& value) : m_hasValue(true) { ::new (&m_value) T(value); }
+        Result(T&& value) : m_hasValue(true) { ::new (&m_value) T(Move(value)); }
+
+        // Error case (from Err(...)).
+        Result(Failure<E> failure) : m_hasValue(false) { ::new (&m_error) E(Move(failure.error)); }
+
+        Result(const Result& other) : m_hasValue(other.m_hasValue)
+        {
+            if (m_hasValue) { ::new (&m_value) T(other.m_value); }
+            else            { ::new (&m_error) E(other.m_error); }
+        }
+
+        Result(Result&& other)
+            noexcept(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_constructible_v<E>)
+            : m_hasValue(other.m_hasValue)
+        {
+            if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
+            else            { ::new (&m_error) E(Move(other.m_error)); }
+        }
+
+        Result& operator=(const Result& other)
+        {
+            if (this != &other)
+            {
+                Destroy();
+                m_hasValue = other.m_hasValue;
+                if (m_hasValue) { ::new (&m_value) T(other.m_value); }
+                else            { ::new (&m_error) E(other.m_error); }
+            }
+            return *this;
+        }
+
+        Result& operator=(Result&& other)
+            noexcept(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_constructible_v<E>)
+        {
+            if (this != &other)
+            {
+                Destroy();
+                m_hasValue = other.m_hasValue;
+                if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
+                else            { ::new (&m_error) E(Move(other.m_error)); }
+            }
+            return *this;
+        }
+
+        ~Result() { Destroy(); }
+
+        [[nodiscard]] bool HasValue() const { return m_hasValue; }
+        [[nodiscard]] explicit operator bool() const { return m_hasValue; }
+
+        [[nodiscard]] T& Value() &
+        {
+            RAPTOR_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
+            return m_value;
+        }
+        [[nodiscard]] const T& Value() const&
+        {
+            RAPTOR_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
+            return m_value;
+        }
+        [[nodiscard]] T&& Value() &&
+        {
+            RAPTOR_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
+            return Move(m_value);
+        }
+
+        [[nodiscard]] E& Error() &
+        {
+            RAPTOR_ASSERT_MSG(!m_hasValue, "Result::Error() called on a value Result");
+            return m_error;
+        }
+        [[nodiscard]] const E& Error() const&
+        {
+            RAPTOR_ASSERT_MSG(!m_hasValue, "Result::Error() called on a value Result");
+            return m_error;
+        }
+
+        [[nodiscard]] T ValueOr(T fallback) const&
+        {
+            return m_hasValue ? m_value : Move(fallback);
+        }
+
+    private:
+        void Destroy()
+        {
+            if (m_hasValue) { m_value.~T(); }
+            else            { m_error.~E(); }
+        }
+
+        bool m_hasValue;
+        union
+        {
+            T m_value;
+            E m_error;
+        };
+    };
 }
