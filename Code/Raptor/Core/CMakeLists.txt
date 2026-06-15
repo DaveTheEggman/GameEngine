@@ -23,7 +23,8 @@ target_sources(RaptorCore
             Base.cppm
             Memory/Memory.cppm
             Memory/SmartPtr.cppm
-            System/System.cppm)
+            System/System.cppm
+            Containers/Array.cppm)
 
 # Per-platform System backend (classic TUs).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

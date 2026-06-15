@@ -372,3 +372,130 @@ TEST_CASE("system: page allocation is usable and page-aligned")
 
     PageFree(p, pageSize);
 }
+
+// --- Containers: Span ------------------------------------------------------
+
+TEST_CASE("containers: Span views contiguous memory")
+{
+    int values[5] = { 10, 20, 30, 40, 50 };
+    Span<int> s = values;
+
+    CHECK(s.Size() == 5u);
+    CHECK_FALSE(s.IsEmpty());
+    CHECK(s[0] == 10);
+    CHECK(s.Front() == 10);
+    CHECK(s.Back() == 50);
+
+    Span<int> mid = s.SubSpan(1, 3);
+    CHECK(mid.Size() == 3u);
+    CHECK(mid[0] == 20);
+
+    int sum = 0;
+    for (int v : s) { sum += v; }
+    CHECK(sum == 150);
+}
+
+// --- Containers: Array -----------------------------------------------------
+
+TEST_CASE("containers: Array push/access/grow")
+{
+    Array<int> a;
+    CHECK(a.IsEmpty());
+
+    for (int i = 0; i < 100; ++i)
+    {
+        a.PushBack(i);
+    }
+    CHECK(a.Size() == 100u);
+    CHECK(a.Capacity() >= 100u);
+    CHECK(a.Front() == 0);
+    CHECK(a.Back() == 99);
+    CHECK(a[50] == 50);
+
+    int sum = 0;
+    for (int v : a) { sum += v; }
+    CHECK(sum == 4950);
+}
+
+TEST_CASE("containers: Array emplace, pop, remove")
+{
+    Array<int> a;
+    a.EmplaceBack(1);
+    a.EmplaceBack(2);
+    a.EmplaceBack(3);
+    a.EmplaceBack(4);
+
+    a.RemoveAt(1);              // -> {1, 3, 4}
+    CHECK(a.Size() == 3u);
+    CHECK(a[0] == 1);
+    CHECK(a[1] == 3);
+    CHECK(a[2] == 4);
+
+    a.RemoveAtSwap(0);          // -> {4, 3}
+    CHECK(a.Size() == 2u);
+    CHECK(a[0] == 4);
+    CHECK(a[1] == 3);
+
+    a.PopBack();               // -> {4}
+    CHECK(a.Size() == 1u);
+    CHECK(a.Back() == 4);
+}
+
+TEST_CASE("containers: Array resize and clear")
+{
+    Array<int> a;
+    a.Resize(4);                // default-constructed ints (0)
+    CHECK(a.Size() == 4u);
+    CHECK(a[0] == 0);
+    CHECK(a[3] == 0);
+
+    a[2] = 99;
+    a.Resize(2);                // truncate
+    CHECK(a.Size() == 2u);
+
+    const usize capBefore = a.Capacity();
+    a.Clear();
+    CHECK(a.IsEmpty());
+    CHECK(a.Capacity() == capBefore); // clear keeps capacity
+}
+
+TEST_CASE("containers: Array manages non-trivial element lifetimes")
+{
+    struct Item
+    {
+        static int& Live() { static int n = 0; return n; }
+        int value;
+        explicit Item(int v) : value(v) { ++Live(); }
+        Item(const Item& o) : value(o.value) { ++Live(); }
+        Item(Item&& o) noexcept : value(o.value) { ++Live(); }
+        Item& operator=(const Item&) = default;
+        Item& operator=(Item&&) = default;
+        ~Item() { --Live(); }
+    };
+
+    Item::Live() = 0;
+    {
+        Array<Item> a;
+        for (int i = 0; i < 20; ++i) { a.EmplaceBack(i); } // forces reallocations
+        CHECK(Item::Live() == 20);
+
+        Array<Item> copy = a;       // deep copy
+        CHECK(Item::Live() == 40);
+
+        Array<Item> moved = Move(a); // steals buffer, no new Items
+        CHECK(Item::Live() == 40);
+        CHECK(moved.Size() == 20u);
+    }
+    CHECK(Item::Live() == 0); // everything destroyed
+}
+
+TEST_CASE("containers: Array honours a custom allocator")
+{
+    alignas(64) byte buffer[4096];
+    LinearAllocator arena(buffer, sizeof(buffer));
+
+    Array<int> a(arena);
+    for (int i = 0; i < 10; ++i) { a.PushBack(i); }
+    CHECK(a.Size() == 10u);
+    CHECK(arena.Used() > 0u);
+}

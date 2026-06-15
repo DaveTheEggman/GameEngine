@@ -10,5 +10,5 @@ export import :base;
 export import :memory;
 export import :smart_ptr;
 export import :system;
-// export import :containers;
+export import :containers;
 // ...
