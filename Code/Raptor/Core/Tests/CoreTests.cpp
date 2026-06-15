@@ -595,3 +595,94 @@ TEST_CASE("system: console write does not crash")
     ConsoleWrite(msg, sizeof(msg) - 1);
     CHECK(true);
 }
+
+// --- Containers: String ----------------------------------------------------
+
+TEST_CASE("string: StringView basics")
+{
+    StringView v = u"hello";
+    CHECK(v.Size() == 5u);
+    CHECK_FALSE(v.IsEmpty());
+    CHECK(v[0] == u'h');
+    CHECK(v == StringView(u"hello"));
+    CHECK_FALSE(v == StringView(u"world"));
+
+    CHECK(v.StartsWith(u"he"));
+    CHECK(v.EndsWith(u"lo"));
+    CHECK(v.SubStr(1, 3) == StringView(u"ell"));
+
+    static_assert(CStringLength(u"abc") == 3u);
+}
+
+TEST_CASE("string: construct, append, compare")
+{
+    String s = u"foo";
+    CHECK(s.Size() == 3u);
+    CHECK(s == u"foo");
+
+    s += u"bar";
+    CHECK(s == u"foobar");
+    CHECK(s.Size() == 6u);
+
+    s.PushBack(u'!');
+    CHECK(s == u"foobar!");
+
+    // CStr is null-terminated.
+    CHECK(s.CStr()[s.Size()] == u'\0');
+
+    String empty;
+    CHECK(empty.IsEmpty());
+    CHECK(empty.CStr()[0] == u'\0'); // valid even with no allocation
+}
+
+TEST_CASE("string: copy and move")
+{
+    String a = u"original";
+    String b = a;                 // deep copy
+    CHECK(a == b);
+
+    b += u"-modified";
+    CHECK_FALSE(a == b);
+    CHECK(a == u"original");
+
+    String c = Move(a);           // steal buffer
+    CHECK(c == u"original");
+    CHECK(a.IsEmpty());
+}
+
+TEST_CASE("string: growth across reallocations")
+{
+    String s;
+    for (int i = 0; i < 1000; ++i)
+    {
+        s.PushBack(u'x');
+    }
+    CHECK(s.Size() == 1000u);
+    CHECK(s.Capacity() >= 1000u);
+    CHECK(s[0] == u'x');
+    CHECK(s[999] == u'x');
+    CHECK(s.CStr()[1000] == u'\0');
+}
+
+TEST_CASE("string: UTF8String is the secondary type")
+{
+    UTF8String s = u8"utf8";
+    CHECK(s.Size() == 4u);
+    s += u8"-data";
+    CHECK(s == u8"utf8-data");
+
+    // widechar is 2 bytes, utf8char is 1.
+    CHECK(sizeof(String::ValueType) == 2u);
+    CHECK(sizeof(UTF8String::ValueType) == 1u);
+}
+
+TEST_CASE("string: honours a custom allocator")
+{
+    alignas(64) byte buffer[2048];
+    LinearAllocator arena(buffer, sizeof(buffer));
+
+    String s(arena);
+    s += u"arena-backed string";
+    CHECK(s == u"arena-backed string");
+    CHECK(arena.Used() > 0u);
+}
