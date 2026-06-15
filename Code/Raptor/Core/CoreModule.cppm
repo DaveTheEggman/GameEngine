@@ -12,4 +12,6 @@ export import :smart_ptr;
 export import :system;
 export import :containers;
 export import :string;
+export import :hash;
+export import :hash_map;
 // ...

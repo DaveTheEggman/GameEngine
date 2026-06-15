@@ -686,3 +686,122 @@ TEST_CASE("string: honours a custom allocator")
     CHECK(s == u"arena-backed string");
     CHECK(arena.Used() > 0u);
 }
+
+// --- Hash ------------------------------------------------------------------
+
+TEST_CASE("hash: integers and strings hash deterministically")
+{
+    Hash<int> hi;
+    CHECK(hi(42) == hi(42));
+    CHECK(hi(42) != hi(43));
+
+    Hash<StringView> hs;
+    CHECK(hs(u"hello") == hs(u"hello"));
+    CHECK(hs(u"hello") != hs(u"world"));
+
+    CHECK(HashBytes("abc", 3) == HashBytes("abc", 3));
+}
+
+// --- Containers: HashMap ---------------------------------------------------
+
+TEST_CASE("hashmap: insert, find, contains, overwrite")
+{
+    HashMap<int, int> m;
+    CHECK(m.IsEmpty());
+
+    m.InsertOrAssign(1, 100);
+    m.InsertOrAssign(2, 200);
+    CHECK(m.Size() == 2u);
+    CHECK(m.Contains(1));
+    CHECK_FALSE(m.Contains(99));
+
+    REQUIRE(m.Find(2) != nullptr);
+    CHECK(*m.Find(2) == 200);
+    CHECK(m.Find(99) == nullptr);
+
+    m.InsertOrAssign(1, 111); // overwrite
+    CHECK(m.Size() == 2u);
+    CHECK(*m.Find(1) == 111);
+}
+
+TEST_CASE("hashmap: remove and tombstone reuse")
+{
+    HashMap<int, int> m;
+    for (int i = 0; i < 50; ++i) { m.InsertOrAssign(i, i * 10); }
+    CHECK(m.Size() == 50u);
+
+    CHECK(m.Remove(25));
+    CHECK_FALSE(m.Remove(25)); // already gone
+    CHECK(m.Size() == 49u);
+    CHECK_FALSE(m.Contains(25));
+
+    m.InsertOrAssign(25, 999); // reuse
+    CHECK(m.Contains(25));
+    CHECK(*m.Find(25) == 999);
+
+    // All other keys still findable after rehashes.
+    for (int i = 0; i < 50; ++i)
+    {
+        REQUIRE(m.Find(i) != nullptr);
+        CHECK(*m.Find(i) == (i == 25 ? 999 : i * 10));
+    }
+}
+
+TEST_CASE("hashmap: grows and iterates")
+{
+    HashMap<int, int> m;
+    int expectedSum = 0;
+    for (int i = 0; i < 500; ++i)
+    {
+        m.InsertOrAssign(i, i);
+        expectedSum += i;
+    }
+    CHECK(m.Size() == 500u);
+
+    int sum = 0;
+    int count = 0;
+    for (auto& entry : m)
+    {
+        sum += entry.value;
+        ++count;
+    }
+    CHECK(count == 500);
+    CHECK(sum == expectedSum);
+}
+
+TEST_CASE("hashmap: string keys")
+{
+    HashMap<String, int> ages;
+    ages.InsertOrAssign(String(u"alice"), 30);
+    ages.InsertOrAssign(String(u"bob"), 25);
+
+    REQUIRE(ages.Find(String(u"alice")) != nullptr);
+    CHECK(*ages.Find(String(u"alice")) == 30);
+    CHECK(*ages.Find(String(u"bob")) == 25);
+    CHECK(ages.Find(String(u"carol")) == nullptr);
+}
+
+TEST_CASE("hashmap: manages non-trivial value lifetimes")
+{
+    struct Val
+    {
+        static int& Live() { static int n = 0; return n; }
+        int v;
+        explicit Val(int x = 0) : v(x) { ++Live(); }
+        Val(const Val& o) : v(o.v) { ++Live(); }
+        Val(Val&& o) noexcept : v(o.v) { ++Live(); }
+        Val& operator=(const Val&) = default;
+        Val& operator=(Val&&) = default;
+        ~Val() { --Live(); }
+    };
+
+    Val::Live() = 0;
+    {
+        HashMap<int, Val> m;
+        for (int i = 0; i < 30; ++i) { m.InsertOrAssign(i, Val{ i }); } // forces rehashes
+        CHECK(m.Size() == 30u);
+        m.Remove(5);
+        CHECK(m.Size() == 29u);
+    }
+    CHECK(Val::Live() == 0); // all destroyed across rehash/remove/clear
+}
