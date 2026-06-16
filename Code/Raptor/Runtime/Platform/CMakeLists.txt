@@ -13,3 +13,11 @@ target_sources(RaptorRuntimePlatform
 
 # Backends (each only needs the interface).
 add_subdirectory(Null)
+
+# Desktop (SDL3) backend — built when SDL3 is available (system/prebuilt).
+find_package(SDL3 QUIET)
+if(SDL3_FOUND)
+    add_subdirectory(Desktop)
+else()
+    message(STATUS "SDL3 not found — skipping Raptor::RuntimePlatformDesktop")
+endif()
