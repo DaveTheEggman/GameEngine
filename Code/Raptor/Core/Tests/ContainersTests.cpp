@@ -346,3 +346,58 @@ TEST_CASE("hashmap: manages non-trivial value lifetimes")
     }
     CHECK(Val::Live() == 0); // all destroyed across rehash/remove/clear
 }
+
+// --- Containers: HashSet ---------------------------------------------------
+
+TEST_CASE("hashset: insert, contains, remove, dedupe")
+{
+    HashSet<int> set;
+    CHECK(set.IsEmpty());
+
+    CHECK(set.Insert(5));        // newly inserted
+    CHECK_FALSE(set.Insert(5));  // already present
+    CHECK(set.Insert(7));
+    CHECK(set.Size() == 2u);
+
+    CHECK(set.Contains(5));
+    CHECK_FALSE(set.Contains(99));
+
+    CHECK(set.Remove(5));
+    CHECK_FALSE(set.Remove(5));
+    CHECK_FALSE(set.Contains(5));
+    CHECK(set.Size() == 1u);
+}
+
+TEST_CASE("hashset: grows and iterates keys")
+{
+    HashSet<int> set;
+    int expectedSum = 0;
+    for (int i = 0; i < 200; ++i)
+    {
+        set.Insert(i);
+        expectedSum += i;
+    }
+    CHECK(set.Size() == 200u);
+
+    int sum = 0;
+    int count = 0;
+    for (int key : set)
+    {
+        sum += key;
+        ++count;
+    }
+    CHECK(count == 200);
+    CHECK(sum == expectedSum);
+}
+
+TEST_CASE("hashset: string keys")
+{
+    HashSet<String> set;
+    CHECK(set.Insert(String(u"alpha")));
+    CHECK(set.Insert(String(u"beta")));
+    CHECK_FALSE(set.Insert(String(u"alpha")));
+
+    CHECK(set.Contains(String(u"beta")));
+    CHECK_FALSE(set.Contains(String(u"gamma")));
+    CHECK(set.Size() == 2u);
+}
