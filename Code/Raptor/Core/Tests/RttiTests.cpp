@@ -22,6 +22,10 @@ namespace
         int AddLegs(int n) { legs += n; return legs; }
         int GetLegs() const { return legs; }
         static int DefaultLegs() { return 4; }
+
+        // Object-argument forms: pointer and owning RefPtr.
+        int LegsOf(Animal* other) const { return other != nullptr ? other->legs : -1; }
+        bool IsSame(RefPtr<Animal> other) const { return other.Get() == this; }
     };
 
     class Dog : public Animal
@@ -43,6 +47,8 @@ RAPTOR_REFLECT(Animal, "raptor::test")
     builder.Method<&Animal::AddLegs>("AddLegs");
     builder.Method<&Animal::GetLegs>("GetLegs");
     builder.Method<&Animal::DefaultLegs>("DefaultLegs");
+    builder.Method<&Animal::LegsOf>("LegsOf");   // takes Animal*
+    builder.Method<&Animal::IsSame>("IsSame");   // takes RefPtr<Animal>
     builder.Attribute("scriptName", "Critter");
     builder.Attribute("maxLegs", 8);
     builder.Constructor(); // default ctor -> RefPtr<Animal> via MakeRef
@@ -80,6 +86,40 @@ TEST_CASE("rtti: GetType is virtual through a base pointer")
 
     CHECK(asObject->GetType() == &Dog::StaticType());
     CHECK(dog->GetType()->id == Dog::StaticType().id);
+}
+
+TEST_CASE("rtti: object arguments marshal through reflected methods")
+{
+    RefPtr<Animal> self = MakeRef<Animal>(DefaultAllocator());
+    self->legs = 6;
+    RefPtr<Animal> other = MakeRef<Animal>(DefaultAllocator());
+    other->legs = 4;
+    Instance inst = Instance::From(self.Get());
+
+    // U* parameter: pass an object-mode Variant.
+    const MethodInfo* legsOf = FindMethod(Animal::StaticType(), "LegsOf");
+    REQUIRE(legsOf != nullptr);
+    CHECK(ParamAt(*legsOf, 0).type() == &Animal::StaticType());  // object's static type
+    Variant otherArg[] = { Variant::From(other) };
+    CHECK(InvokeMethod(*legsOf, inst, Span<Variant>{ otherArg, 1 }).Value().Get<int>() == 4);
+
+    // Polymorphic: a Dog is accepted where Animal* is expected.
+    RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator()); // legs == 4
+    Variant dogArg[] = { Variant::From(dog) };
+    CHECK(InvokeMethod(*legsOf, inst, Span<Variant>{ dogArg, 1 }).Value().Get<int>() == 4);
+
+    // RefPtr<U> parameter (owning): IsSame(self) -> true.
+    Variant selfArg[] = { Variant::From(self) };
+    CHECK(InvokeMethod(*FindMethod(Animal::StaticType(), "IsSame"), inst,
+                       Span<Variant>{ selfArg, 1 }).Value().Get<bool>());
+
+    // A non-object (value) argument is rejected.
+    Variant valueArg[] = { Variant::From(5) };
+    CHECK_FALSE(InvokeMethod(*legsOf, inst, Span<Variant>{ valueArg, 1 }).HasValue());
+
+    // No leak from the call: self is held only by `self` and `selfArg` (== 2);
+    // the RefPtr<Animal> param copy made during the call was released (else 3).
+    CHECK(self->RefCount() == 2u);
 }
 
 TEST_CASE("rtti: Construct an Object-derived type via reflection")
@@ -322,9 +362,9 @@ TEST_CASE("rtti: instance method invoke with an argument and a return value")
     REQUIRE(add != nullptr);
     CHECK_FALSE(add->isStatic);
     CHECK_FALSE(add->isConst);
-    CHECK(add->returnType == &TypeOf<int>());
+    CHECK(add->returnType() == &TypeOf<int>());
     CHECK(add->paramCount == 1u);
-    CHECK(add->params[0].type == &TypeOf<int>());
+    CHECK(add->params[0].type() == &TypeOf<int>());
 
     Variant args[] = { Variant::From(3) };
     Result<Variant> r = InvokeMethod(*add, inst, Span<Variant>{ args, 1 });

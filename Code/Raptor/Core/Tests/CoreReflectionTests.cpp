@@ -133,9 +133,9 @@ TEST_CASE("core-reflection: overloaded free functions reflect (disambiguated by 
     const MethodInfo* dot = FindMethod(TypeOf<Vec3>(), "Dot");
     REQUIRE(dot != nullptr);
     CHECK(dot->isStatic);
-    CHECK(dot->returnType == &TypeOf<f32>());
+    CHECK(dot->returnType() == &TypeOf<f32>());
     REQUIRE(dot->paramCount == 2u);
-    CHECK(dot->params[0].type == &TypeOf<Vec3>());
+    CHECK(dot->params[0].type() == &TypeOf<Vec3>());
     Variant dotArgs[] = { Variant::From(Vec3{ 1.0f, 2.0f, 3.0f }), Variant::From(Vec3{ 4.0f, 5.0f, 6.0f }) };
     CHECK(InvokeStatic(*dot, Span<Variant>{ dotArgs, 2 }).Value().Get<f32>() == 32.0f);
 }
@@ -230,9 +230,9 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
         const MethodInfo& m = MethodAt(vec3, i);
         for (usize p = 0; p < ParamCount(m); ++p)
         {
-            CHECK(ParamAt(m, p).type != nullptr);  // every param carries type info
+            CHECK(ParamAt(m, p).type() != nullptr);  // every param carries type info
         }
-        if (ParamCount(m) >= 1 && ParamAt(m, 0).type == &TypeOf<Vec3>())
+        if (ParamCount(m) >= 1 && ParamAt(m, 0).type() == &TypeOf<Vec3>())
         {
             ++vec3FirstParam;
         }

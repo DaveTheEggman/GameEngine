@@ -126,14 +126,16 @@ export namespace raptor::core
     // =======================================================================
     struct ParamInfo
     {
-        const TypeInfo* type;
+        // Resolved lazily (a getter, not a pointer) so a type can reflect methods
+        // that reference its own type without a recursive static-init.
+        const TypeInfo* (*type)();
         const char* name; // optional; "" when unknown
     };
 
     struct MethodInfo
     {
         const char* name;
-        const TypeInfo* returnType; // nullptr for void
+        const TypeInfo* (*returnType)(); // returns nullptr for void; lazy (see ParamInfo)
         const ParamInfo* params;
         u32 paramCount;
         bool isStatic;
@@ -241,7 +243,7 @@ export namespace raptor::core
                 bool match = true;
                 for (u32 p = 0; p < method.paramCount; ++p)
                 {
-                    if (method.params[p].type != paramTypes[p]) { match = false; break; }
+                    if (method.params[p].type() != paramTypes[p]) { match = false; break; }
                 }
                 if (match) { return &method; }
             }
@@ -369,6 +371,85 @@ export namespace raptor::core
 
 namespace raptor::core::detail
 {
+    // Object-argument support: a parameter A may be a value type, or an object
+    // form (RefPtr<U>, U*, or U&/const U& with U deriving Object). Object args
+    // are extracted from an object-mode Variant via AsObject<U>().
+    template <typename T> struct ArgRefPtr { static constexpr bool value = false; };
+    template <typename U> struct ArgRefPtr<RefPtr<U>> { static constexpr bool value = true; using Pointee = U; };
+
+    template <typename A>
+    [[nodiscard]] const TypeInfo* ParamTypeOf() noexcept
+    {
+        using Bare = std::remove_cvref_t<A>;
+        if constexpr (ArgRefPtr<Bare>::value)
+        {
+            return &ArgRefPtr<Bare>::Pointee::StaticType();
+        }
+        else if constexpr (std::is_pointer_v<Bare> &&
+                           std::is_base_of_v<Object, std::remove_cv_t<std::remove_pointer_t<Bare>>>)
+        {
+            return &std::remove_cv_t<std::remove_pointer_t<Bare>>::StaticType();
+        }
+        else if constexpr (std::is_class_v<Bare> && std::is_base_of_v<Object, Bare>)
+        {
+            return &Bare::StaticType();
+        }
+        else
+        {
+            return &TypeOf<Bare>();
+        }
+    }
+
+    template <typename A>
+    [[nodiscard]] bool AcceptArg(const Variant& v) noexcept
+    {
+        using Bare = std::remove_cvref_t<A>;
+        if constexpr (ArgRefPtr<Bare>::value)
+        {
+            using U = typename ArgRefPtr<Bare>::Pointee;
+            return v.IsObject() && (v.AsObject() == nullptr || v.AsObject<U>() != nullptr);
+        }
+        else if constexpr (std::is_pointer_v<Bare> &&
+                           std::is_base_of_v<Object, std::remove_cv_t<std::remove_pointer_t<Bare>>>)
+        {
+            using U = std::remove_cv_t<std::remove_pointer_t<Bare>>;
+            return v.IsObject() && (v.AsObject() == nullptr || v.AsObject<U>() != nullptr);
+        }
+        else if constexpr (std::is_class_v<Bare> && std::is_base_of_v<Object, Bare>)
+        {
+            return v.IsObject() && v.AsObject<Bare>() != nullptr; // reference: must be non-null
+        }
+        else
+        {
+            return v.TryGet<Bare>() != nullptr;
+        }
+    }
+
+    template <typename A>
+    [[nodiscard]] decltype(auto) ConvertArg(Variant& v) noexcept
+    {
+        using Bare = std::remove_cvref_t<A>;
+        if constexpr (ArgRefPtr<Bare>::value)
+        {
+            using U = typename ArgRefPtr<Bare>::Pointee;
+            return RefPtr<U>(v.AsObject<U>());
+        }
+        else if constexpr (std::is_pointer_v<Bare> &&
+                           std::is_base_of_v<Object, std::remove_cv_t<std::remove_pointer_t<Bare>>>)
+        {
+            using U = std::remove_cv_t<std::remove_pointer_t<Bare>>;
+            return v.AsObject<U>();
+        }
+        else if constexpr (std::is_class_v<Bare> && std::is_base_of_v<Object, Bare>)
+        {
+            return *v.AsObject<Bare>();
+        }
+        else
+        {
+            return *v.template TryGet<Bare>();
+        }
+    }
+
     template <typename... A>
     [[nodiscard]] Span<const ParamInfo> MakeParams()
     {
@@ -378,7 +459,7 @@ namespace raptor::core::detail
         }
         else
         {
-            static const ParamInfo params[] = { ParamInfo{ &TypeOf<std::remove_cvref_t<A>>(), "" }... };
+            static const ParamInfo params[] = { ParamInfo{ &ParamTypeOf<A>, "" }... };
             return Span<const ParamInfo>{ params, sizeof...(A) };
         }
     }
@@ -386,7 +467,7 @@ namespace raptor::core::detail
     template <typename... A, usize... I>
     [[nodiscard]] bool ArgsMatch(Span<Variant>& args, std::index_sequence<I...>)
     {
-        return ( ... && (args[I].template TryGet<std::remove_cvref_t<A>>() != nullptr) );
+        return ( ... && AcceptArg<A>(args[I]) );
     }
 
     template <auto Member, typename C, typename R, bool Const, typename... A, usize... I>
@@ -401,13 +482,13 @@ namespace raptor::core::detail
         ObjectType* object = static_cast<ObjectType*>(instance.Pointer());
         if constexpr (std::is_void_v<R>)
         {
-            (object->*Member)(*args[I].template TryGet<std::remove_cvref_t<A>>()...);
+            (object->*Member)(ConvertArg<A>(args[I])...);
             return Variant{};
         }
         else
         {
             return Variant::From<std::remove_cvref_t<R>>(
-                (object->*Member)(*args[I].template TryGet<std::remove_cvref_t<A>>()...));
+                (object->*Member)(ConvertArg<A>(args[I])...));
         }
     }
 
@@ -421,12 +502,12 @@ namespace raptor::core::detail
         }
         if constexpr (std::is_void_v<R>)
         {
-            Func(*args[I].template TryGet<std::remove_cvref_t<A>>()...);
+            Func(ConvertArg<A>(args[I])...);
             return Variant{};
         }
         else
         {
-            return Variant::From<std::remove_cvref_t<R>>(Func(*args[I].template TryGet<std::remove_cvref_t<A>>()...));
+            return Variant::From<std::remove_cvref_t<R>>(Func(ConvertArg<A>(args[I])...));
         }
     }
 
@@ -434,7 +515,7 @@ namespace raptor::core::detail
     [[nodiscard]] const TypeInfo* ReturnTypeInfo() noexcept
     {
         if constexpr (std::is_void_v<R>) { return nullptr; }
-        else { return &TypeOf<std::remove_cvref_t<R>>(); }
+        else { return ParamTypeOf<R>(); } // object-aware (StaticType for objects)
     }
 
     template <typename T, typename... A, usize... I>
@@ -449,11 +530,11 @@ namespace raptor::core::detail
         {
             // Object-derived: heap-allocate via MakeRef -> Variant object mode.
             return Variant::From(MakeRef<T>(DefaultAllocator(),
-                *args[I].template TryGet<std::remove_cvref_t<A>>()...));
+                ConvertArg<A>(args[I])...));
         }
         else
         {
-            return Variant::From<T>(T(*args[I].template TryGet<std::remove_cvref_t<A>>()...));
+            return Variant::From<T>(T(ConvertArg<A>(args[I])...));
         }
     }
 
@@ -590,7 +671,7 @@ export namespace raptor::core
             using Reflect = detail::MethodReflect<Member>;
             const Span<const ParamInfo> params = Reflect::Params();
             m_data.methods.PushBack(MethodInfo{
-                name, Reflect::ReturnType(), params.Data(), static_cast<u32>(params.Size()),
+                name, &Reflect::ReturnType, params.Data(), static_cast<u32>(params.Size()),
                 Reflect::isStatic, Reflect::isConst, &Reflect::Invoke });
             return *this;
         }
