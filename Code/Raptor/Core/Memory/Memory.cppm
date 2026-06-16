@@ -7,6 +7,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
+#include <atomic>       // allocation tracking counters
 #include <cstddef>      // std::max_align_t
 #include <cstdlib>      // aligned_alloc / free
 #include <cstring>      // memcpy / memmove / memset
@@ -223,6 +224,49 @@ export namespace raptor::core
         byte* m_begin = nullptr;
         byte* m_current = nullptr;
         byte* m_end = nullptr;
+    };
+
+    // =======================================================================
+    // TrackingAllocator — wraps another allocator and counts live allocations
+    // for leak detection. Thread-safe (atomic counters). Tracks counts, not
+    // bytes (which would need a per-allocation header).
+    // =======================================================================
+    class TrackingAllocator final : public IAllocator
+    {
+    public:
+        explicit TrackingAllocator(IAllocator& backing) noexcept : m_backing(&backing) {}
+
+        [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
+        {
+            void* pointer = m_backing->Allocate(size, alignment);
+            if (pointer != nullptr)
+            {
+                m_liveCount.fetch_add(1, std::memory_order_relaxed);
+                m_totalAllocations.fetch_add(1, std::memory_order_relaxed);
+            }
+            return pointer;
+        }
+
+        void Free(void* pointer) override
+        {
+            if (pointer != nullptr)
+            {
+                m_backing->Free(pointer);
+                m_liveCount.fetch_sub(1, std::memory_order_relaxed);
+                m_totalFrees.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+
+        [[nodiscard]] u64 LiveAllocations() const noexcept { return m_liveCount.load(std::memory_order_relaxed); }
+        [[nodiscard]] u64 TotalAllocations() const noexcept { return m_totalAllocations.load(std::memory_order_relaxed); }
+        [[nodiscard]] u64 TotalFrees() const noexcept { return m_totalFrees.load(std::memory_order_relaxed); }
+        [[nodiscard]] bool HasLeaks() const noexcept { return LiveAllocations() != 0; }
+
+    private:
+        IAllocator* m_backing;
+        std::atomic<u64> m_liveCount{ 0 };
+        std::atomic<u64> m_totalAllocations{ 0 };
+        std::atomic<u64> m_totalFrees{ 0 };
     };
 
     // =======================================================================

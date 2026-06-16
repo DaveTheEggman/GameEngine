@@ -262,3 +262,32 @@ TEST_CASE("memory: outstanding WeakRefPtr does not keep the object alive")
     CHECK(weak.Expired());
     // weak destructor here frees the retained control block (clean under ASan).
 }
+
+TEST_CASE("memory: TrackingAllocator counts live allocations and detects leaks")
+{
+    TrackingAllocator tracker(DefaultAllocator());
+    CHECK(tracker.LiveAllocations() == 0u);
+
+    void* a = tracker.Allocate(64, 16);
+    void* b = tracker.Allocate(32, 16);
+    REQUIRE(a != nullptr);
+    REQUIRE(b != nullptr);
+    CHECK(tracker.LiveAllocations() == 2u);
+    CHECK(tracker.TotalAllocations() == 2u);
+    CHECK(tracker.HasLeaks());
+
+    tracker.Free(a);
+    CHECK(tracker.LiveAllocations() == 1u);
+    tracker.Free(b);
+    CHECK(tracker.LiveAllocations() == 0u);
+    CHECK(tracker.TotalFrees() == 2u);
+    CHECK_FALSE(tracker.HasLeaks());
+
+    // Works as a drop-in IAllocator for New/Delete.
+    struct Probe { int v = 3; };
+    Probe* p = tracker.New<Probe>();
+    CHECK(tracker.LiveAllocations() == 1u);
+    CHECK(p->v == 3);
+    tracker.Delete(p);
+    CHECK(tracker.LiveAllocations() == 0u);
+}
