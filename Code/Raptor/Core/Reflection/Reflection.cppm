@@ -188,6 +188,34 @@ export namespace raptor::core
     }
 
     // =======================================================================
+    // Constants — named static values exposed for scripting (e.g. Vec3::Zero,
+    // Quat::Identity, Guid::Nil). Each holds its value as a Variant.
+    // =======================================================================
+    struct ConstantInfo
+    {
+        const char* name;
+        const TypeInfo* type;
+        Variant value;
+    };
+
+    [[nodiscard]] inline Span<const ConstantInfo> Constants(const TypeInfo& type) noexcept
+    {
+        return Span<const ConstantInfo>{ type.constants, type.constantCount };
+    }
+
+    [[nodiscard]] inline const ConstantInfo* FindConstant(const TypeInfo& type, const char* name) noexcept
+    {
+        for (u32 i = 0; i < type.constantCount; ++i)
+        {
+            if (detail::CStringEquals(type.constants[i].name, name))
+            {
+                return &type.constants[i];
+            }
+        }
+        return nullptr;
+    }
+
+    // =======================================================================
     // Container reflection (phase f) — generic indexed access to Array<T>, so
     // tools/scripting can iterate without knowing the element type statically.
     // =======================================================================
@@ -360,6 +388,7 @@ export namespace raptor::core
         Array<PropertyInfo> properties;
         Array<MethodInfo> methods;
         Array<Attribute> attributes;
+        Array<ConstantInfo> constants;
         TypeInfo info{};
     };
 
@@ -399,6 +428,14 @@ export namespace raptor::core
             return *this;
         }
 
+        template <typename V>
+        TypeBuilder& Constant(const char* name, V value)
+        {
+            m_data.constants.PushBack(raptor::core::ConstantInfo{
+                name, &TypeOf<V>(), Variant::From<V>(Move(value)) });
+            return *this;
+        }
+
         [[nodiscard]] TypeData Build()
         {
             m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base);
@@ -408,6 +445,8 @@ export namespace raptor::core
             m_data.info.methodCount = static_cast<u32>(m_data.methods.Size());
             m_data.info.attributes = m_data.attributes.Data();
             m_data.info.attributeCount = static_cast<u32>(m_data.attributes.Size());
+            m_data.info.constants = m_data.constants.Data();
+            m_data.info.constantCount = static_cast<u32>(m_data.constants.Size());
             return Move(m_data);
         }
 

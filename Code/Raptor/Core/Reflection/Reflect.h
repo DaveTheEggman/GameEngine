@@ -70,4 +70,28 @@ public:                                                                         
     }                                                                                    \
     static void RaptorEnumBody_##EnumType([[maybe_unused]] ::raptor::core::EnumBuilder<EnumType>& builder)
 
+// Reflects a non-Object value type (plain struct) non-intrusively: builds its
+// properties/methods with a TypeBuilder and patches the type's TypeOf<T>() in
+// place (so it gains a qualified name/id + members without an intrusive
+// StaticType()). Defines RaptorRegisterValue_<Type>() to call once at startup,
+// e.g.:
+//   RAPTOR_REFLECT_VALUE(Vec3, "raptor::core")
+//   {
+//       builder.Property<&Vec3::x>("x").Property<&Vec3::y>("y").Property<&Vec3::z>("z");
+//   }
+//   // later: RaptorRegisterValue_Vec3();
+#define RAPTOR_REFLECT_VALUE(Type, Namespace)                                          \
+    static void RaptorReflectValue_##Type(::raptor::core::TypeBuilder<Type>& builder);   \
+    void RaptorRegisterValue_##Type()                                                    \
+    {                                                                                     \
+        static ::raptor::core::TypeData raptorTypeData = []() {                          \
+            ::raptor::core::TypeBuilder<Type> builder(#Type, Namespace, nullptr);        \
+            RaptorReflectValue_##Type(builder);                                          \
+            return builder.Build();                                                       \
+        }();                                                                              \
+        const_cast<::raptor::core::TypeInfo&>(::raptor::core::TypeOf<Type>()) =          \
+            raptorTypeData.info;                                                          \
+    }                                                                                     \
+    static void RaptorReflectValue_##Type([[maybe_unused]] ::raptor::core::TypeBuilder<Type>& builder)
+
 #endif // RAPTOR_CORE_RTTI_REFLECT_H

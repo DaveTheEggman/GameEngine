@@ -51,6 +51,7 @@ export import :variant;
 export import :instance;
 export import :reflection;
 export import :enum_reflection;
+export import :core_reflection;
 export import :io;
 export import :path;
 export import :filesystem;

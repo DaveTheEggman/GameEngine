@@ -17,10 +17,11 @@ export namespace raptor::core
 {
     using TypeId = u64;
 
-    struct PropertyInfo; // fully defined in :variant (phase c)
-    struct MethodInfo;   // fully defined in :variant (phase d)
-    struct Attribute;    // fully defined in :variant (phase e)
-    struct ContainerInfo; // fully defined in :variant (phase f)
+    struct PropertyInfo; // fully defined in :reflection
+    struct MethodInfo;   // fully defined in :reflection
+    struct Attribute;    // fully defined in :reflection
+    struct ContainerInfo; // fully defined in :reflection
+    struct ConstantInfo; // fully defined in :reflection (named static values)
 
     struct EnumValue
     {
@@ -45,6 +46,8 @@ export namespace raptor::core
         const Attribute* attributes = nullptr;
         u32 attributeCount = 0;
         const ContainerInfo* container = nullptr; // non-null for reflected containers
+        const ConstantInfo* constants = nullptr; // named static values (e.g. Vec3::Zero)
+        u32 constantCount = 0;
     };
 
     // Stable 64-bit identity from the fully-qualified name.
