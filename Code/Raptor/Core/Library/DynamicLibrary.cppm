@@ -64,7 +64,7 @@ export namespace raptor::core
         // Resolves a symbol as the requested pointer type (typically a function
         // pointer). Returns nullptr if absent or not loaded.
         template <typename T>
-        [[nodiscard]] T GetSymbol(const char* name) const noexcept
+        [[nodiscard]] T GetSymbol(StringView name) const noexcept
         {
             static_assert(sizeof(T) == sizeof(void*), "GetSymbol<T> expects a pointer type.");
             void* symbol = (m_handle != nullptr) ? GetLibrarySymbol(m_handle, name) : nullptr;

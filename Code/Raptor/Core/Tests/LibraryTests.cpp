@@ -29,16 +29,16 @@ TEST_CASE("library: load a real plugin, resolve and call symbols, unload")
     CHECK(lib.IsLoaded());
 
     using AddFn = int (*)(int, int);
-    AddFn add = lib.GetSymbol<AddFn>("RaptorTestAdd");
+    AddFn add = lib.GetSymbol<AddFn>(u"RaptorTestAdd");
     REQUIRE(add != nullptr);
     CHECK(add(2, 3) == 5);
 
     using AnswerFn = int (*)();
-    AnswerFn answer = lib.GetSymbol<AnswerFn>("RaptorTestAnswer");
+    AnswerFn answer = lib.GetSymbol<AnswerFn>(u"RaptorTestAnswer");
     REQUIRE(answer != nullptr);
     CHECK(answer() == 42);
 
-    CHECK(lib.GetSymbol<AddFn>("NoSuchSymbol") == nullptr);
+    CHECK(lib.GetSymbol<AddFn>(u"NoSuchSymbol") == nullptr);
 
     lib.Unload();
     CHECK_FALSE(lib.IsLoaded());
@@ -63,7 +63,7 @@ TEST_CASE("library: move transfers ownership")
     CHECK(b.IsLoaded());
 
     using AnswerFn = int (*)();
-    AnswerFn answer = b.GetSymbol<AnswerFn>("RaptorTestAnswer");
+    AnswerFn answer = b.GetSymbol<AnswerFn>(u"RaptorTestAnswer");
     REQUIRE(answer != nullptr);
     CHECK(answer() == 42);
 }

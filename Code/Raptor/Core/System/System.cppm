@@ -127,9 +127,9 @@ export namespace raptor::core
     using LibraryHandle = sys::LibraryHandle;
 
     [[nodiscard]] inline LibraryHandle OpenLibrary(StringView path) noexcept { return sys::LibraryOpen(detail::NarrowPath(path).CStr()); }
-    [[nodiscard]] inline void* GetLibrarySymbol(LibraryHandle handle, const char* name) noexcept
+    [[nodiscard]] inline void* GetLibrarySymbol(LibraryHandle handle, StringView name) noexcept
     {
-        return sys::LibrarySymbol(handle, name);
+        return sys::LibrarySymbol(handle, detail::NarrowPath(name).CStr());
     }
     inline void CloseLibrary(LibraryHandle handle) noexcept { sys::LibraryClose(handle); }
 }
