@@ -86,3 +86,80 @@ TEST_CASE("threading: ConditionVariable hand-off between two threads")
     consumer.Join();
     CHECK(payload == 42);
 }
+
+TEST_CASE("threading: SpinLock protects a counter")
+{
+    SpinLock spin;
+    i64 counter = 0;
+    constexpr int kThreads = 4;
+    constexpr int kPerThread = 5000;
+
+    Array<Thread> threads;
+    for (int i = 0; i < kThreads; ++i)
+    {
+        threads.PushBack(Thread([&spin, &counter]() {
+            for (int j = 0; j < kPerThread; ++j)
+            {
+                ScopedLock lock(spin);
+                ++counter;
+            }
+        }));
+    }
+    for (Thread& t : threads) { t.Join(); }
+    CHECK(counter == static_cast<i64>(kThreads) * kPerThread);
+}
+
+TEST_CASE("threading: Semaphore hands out a bounded number of permits")
+{
+    Semaphore sem(0);
+    Atomic<int> acquired{ 0 };
+    constexpr int kConsumers = 4;
+
+    Array<Thread> threads;
+    for (int i = 0; i < kConsumers; ++i)
+    {
+        threads.PushBack(Thread([&sem, &acquired]() {
+            sem.Acquire();
+            acquired.fetch_add(1);
+        }));
+    }
+
+    // Release exactly one permit per consumer.
+    for (int i = 0; i < kConsumers; ++i) { sem.Release(); }
+    for (Thread& t : threads) { t.Join(); }
+
+    CHECK(acquired.load() == kConsumers);
+    CHECK_FALSE(sem.TryAcquire()); // none left
+}
+
+TEST_CASE("threading: SharedMutex allows shared reads and exclusive writes")
+{
+    SharedMutex rw;
+    i64 value = 0;
+    constexpr int kWriters = 4;
+    constexpr int kPerWriter = 2000;
+
+    Array<Thread> threads;
+    for (int i = 0; i < kWriters; ++i)
+    {
+        threads.PushBack(Thread([&rw, &value]() {
+            for (int j = 0; j < kPerWriter; ++j)
+            {
+                ScopedLock lock(rw); // exclusive
+                ++value;
+            }
+        }));
+    }
+    // A reader that takes the shared lock a few times concurrently.
+    threads.PushBack(Thread([&rw, &value]() {
+        for (int j = 0; j < 1000; ++j)
+        {
+            ScopedSharedLock lock(rw);
+            volatile i64 observed = value; // read under shared lock
+            (void)observed;
+        }
+    }));
+
+    for (Thread& t : threads) { t.Join(); }
+    CHECK(value == static_cast<i64>(kWriters) * kPerWriter);
+}

@@ -133,18 +133,45 @@ export namespace raptor::core
         alignas(sys::kMutexStorageAlign) byte m_storage[sys::kMutexStorageSize];
     };
 
-    // RAII lock guard.
+    // RAII exclusive-lock guard for any type with Lock()/Unlock() (Mutex,
+    // SpinLock, SharedMutex). CTAD deduces the lockable: `ScopedLock lk(m);`.
+    template <typename Lockable>
     class ScopedLock
     {
     public:
-        explicit ScopedLock(Mutex& mutex) noexcept : m_mutex(&mutex) { m_mutex->Lock(); }
-        ~ScopedLock() { m_mutex->Unlock(); }
+        explicit ScopedLock(Lockable& lockable) noexcept : m_lockable(&lockable) { m_lockable->Lock(); }
+        ~ScopedLock() { m_lockable->Unlock(); }
 
         ScopedLock(const ScopedLock&) = delete;
         ScopedLock& operator=(const ScopedLock&) = delete;
 
     private:
-        Mutex* m_mutex;
+        Lockable* m_lockable;
+    };
+
+    // =======================================================================
+    // SpinLock — busy-wait exclusive lock for very short critical sections.
+    // =======================================================================
+    class SpinLock
+    {
+    public:
+        void Lock() noexcept
+        {
+            while (m_locked.exchange(true, std::memory_order_acquire))
+            {
+                while (m_locked.load(std::memory_order_relaxed)) {} // spin without RMW
+            }
+        }
+
+        [[nodiscard]] bool TryLock() noexcept
+        {
+            return !m_locked.exchange(true, std::memory_order_acquire);
+        }
+
+        void Unlock() noexcept { m_locked.store(false, std::memory_order_release); }
+
+    private:
+        std::atomic<bool> m_locked{ false };
     };
 
     // =======================================================================
@@ -166,5 +193,106 @@ export namespace raptor::core
 
     private:
         alignas(sys::kCondStorageAlign) byte m_storage[sys::kCondStorageSize];
+    };
+
+    // =======================================================================
+    // Semaphore — counting semaphore (Mutex + ConditionVariable).
+    // =======================================================================
+    class Semaphore
+    {
+    public:
+        explicit Semaphore(i32 initialCount = 0) noexcept : m_count(initialCount) {}
+
+        Semaphore(const Semaphore&) = delete;
+        Semaphore& operator=(const Semaphore&) = delete;
+
+        void Acquire() noexcept
+        {
+            ScopedLock lock(m_mutex);
+            while (m_count == 0) { m_available.Wait(m_mutex); }
+            --m_count;
+        }
+
+        [[nodiscard]] bool TryAcquire() noexcept
+        {
+            ScopedLock lock(m_mutex);
+            if (m_count == 0) { return false; }
+            --m_count;
+            return true;
+        }
+
+        void Release() noexcept
+        {
+            ScopedLock lock(m_mutex);
+            ++m_count;
+            m_available.NotifyOne();
+        }
+
+    private:
+        Mutex m_mutex;
+        ConditionVariable m_available;
+        i32 m_count;
+    };
+
+    // =======================================================================
+    // SharedMutex — read/write lock (writer-preferring). Lock/Unlock for
+    // exclusive (write); LockShared/UnlockShared for shared (read).
+    // =======================================================================
+    class SharedMutex
+    {
+    public:
+        SharedMutex() noexcept = default;
+        SharedMutex(const SharedMutex&) = delete;
+        SharedMutex& operator=(const SharedMutex&) = delete;
+
+        void Lock() noexcept // exclusive
+        {
+            ScopedLock lock(m_mutex);
+            ++m_writersWaiting;
+            while (m_writeActive || m_readers > 0) { m_gate.Wait(m_mutex); }
+            --m_writersWaiting;
+            m_writeActive = true;
+        }
+
+        void Unlock() noexcept
+        {
+            ScopedLock lock(m_mutex);
+            m_writeActive = false;
+            m_gate.NotifyAll();
+        }
+
+        void LockShared() noexcept // read
+        {
+            ScopedLock lock(m_mutex);
+            while (m_writeActive || m_writersWaiting > 0) { m_gate.Wait(m_mutex); }
+            ++m_readers;
+        }
+
+        void UnlockShared() noexcept
+        {
+            ScopedLock lock(m_mutex);
+            if (--m_readers == 0) { m_gate.NotifyAll(); }
+        }
+
+    private:
+        Mutex m_mutex;
+        ConditionVariable m_gate;
+        i32 m_readers = 0;
+        i32 m_writersWaiting = 0;
+        bool m_writeActive = false;
+    };
+
+    // RAII shared-lock guard for SharedMutex.
+    class ScopedSharedLock
+    {
+    public:
+        explicit ScopedSharedLock(SharedMutex& mutex) noexcept : m_mutex(&mutex) { m_mutex->LockShared(); }
+        ~ScopedSharedLock() { m_mutex->UnlockShared(); }
+
+        ScopedSharedLock(const ScopedSharedLock&) = delete;
+        ScopedSharedLock& operator=(const ScopedSharedLock&) = delete;
+
+    private:
+        SharedMutex* m_mutex;
     };
 }
