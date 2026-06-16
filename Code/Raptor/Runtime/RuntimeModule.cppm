@@ -7,3 +7,5 @@ export module raptor.runtime;
 
 export import :subsystem;
 export import :context;
+export import :plugin;
+export import :pluginhost;

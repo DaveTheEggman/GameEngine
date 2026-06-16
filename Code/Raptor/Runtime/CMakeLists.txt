@@ -10,7 +10,9 @@ target_sources(RaptorRuntime
         FILE_SET runtime_modules TYPE CXX_MODULES FILES
             RuntimeModule.cppm
             Subsystem.cppm
-            Context.cppm)
+            Context.cppm
+            Plugin.cppm
+            PluginHost.cppm)
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)

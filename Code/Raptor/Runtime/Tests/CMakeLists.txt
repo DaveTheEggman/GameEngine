@@ -11,14 +11,21 @@ if(NOT TARGET doctest::doctest)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
 endif()
 
+# A real plugin shared object, dlopen'd by the PluginHost::Load test.
+add_library(RaptorRuntimeTestPlugin MODULE TestPlugin.cpp)
+set_target_properties(RaptorRuntimeTestPlugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(RaptorRuntimeTestPlugin PRIVATE Raptor::Runtime Raptor::Policy)
+
 add_executable(RaptorRuntimeTests
     TestsMain.cpp
     RuntimeTests.cpp)
 
 target_link_libraries(RaptorRuntimeTests PRIVATE Raptor::Runtime doctest::doctest)
+add_dependencies(RaptorRuntimeTests RaptorRuntimeTestPlugin)
 
 target_compile_definitions(RaptorRuntimeTests PRIVATE
-    DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
+    DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
+    RAPTOR_TEST_PLUGIN_PATH="$<TARGET_FILE:RaptorRuntimeTestPlugin>")
 
 target_compile_options(RaptorRuntimeTests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>"

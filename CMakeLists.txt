@@ -15,6 +15,10 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Position-independent code so the static engine libraries can be linked into
+# dynamically-loaded plugin shared objects (Raptor::Runtime plugin host).
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Single-config generators default to Debug.
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
@@ -23,6 +27,12 @@ endif()
 # --- Options -----------------------------------------------------------------
 option(RAPTOR_BUILD_TESTS "Build Raptor unit tests" ON)
 option(RAPTOR_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
+
+# Enable testing before any subdirectory so add_test() calls made by modules that
+# register their own Tests/ (e.g. Runtime, Script/Wren) are picked up by ctest.
+if(RAPTOR_BUILD_TESTS)
+    enable_testing()
+endif()
 
 # --- Engine-wide compile policy ----------------------------------------------
 # Exceptions and C++ RTTI are disabled engine-wide (see Documentation/Planning/Core.md §1).
@@ -56,7 +66,6 @@ add_subdirectory(Code/Raptor/Script)
 add_subdirectory(Code/Raptor/Runtime)
 
 if(RAPTOR_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(Code/Raptor/Core/Tests)
     add_subdirectory(Code/Raptor/Script/Tests)
 endif()

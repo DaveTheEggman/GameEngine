@@ -31,17 +31,35 @@ export namespace raptor::runtime
         [[nodiscard]] bool IsRunning() const noexcept { return m_running; }
 
         // Constructs and registers a subsystem of type T (one per type). Returns
-        // a borrowed pointer; the Context owns it.
+        // a borrowed pointer; the Context owns it. If the Context is already
+        // running, the subsystem is brought up (Init + Ready) immediately.
         template <typename T, typename... Args>
         T* AddSubsystem(Args&&... args)
         {
             static_assert(std::is_base_of_v<Subsystem, T>, "T must derive from Subsystem");
             T* subsystem = m_allocator->New<T>(rc::Forward<Args>(args)...);
-            m_byType.InsertOrAssign(&rc::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
-            InsertSorted(subsystem);
             m_owned.PushBack(rc::UniquePtr<Subsystem>(static_cast<Subsystem*>(subsystem), *m_allocator));
-            subsystem->OnRegister(this);
+            RegisterInternal(&rc::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
             return subsystem;
+        }
+
+        // Registers a subsystem the caller owns (e.g. a plugin owns its own
+        // subsystems). The Context tracks it for lookup and per-frame phases but
+        // never destroys it. Brings it up immediately if the Context is running.
+        template <typename T>
+        T* RegisterSubsystem(T* subsystem)
+        {
+            static_assert(std::is_base_of_v<Subsystem, T>, "T must derive from Subsystem");
+            RegisterInternal(&rc::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
+            return subsystem;
+        }
+
+        // Removes the subsystem of type T (shutting it down first if running) and,
+        // if the Context owns it, destroys it. No-op if not registered.
+        template <typename T>
+        void RemoveSubsystem()
+        {
+            RemoveByType(&rc::TypeOf<T>());
         }
 
         template <typename T>
@@ -90,6 +108,41 @@ export namespace raptor::runtime
         }
 
     private:
+        // Registers an already-constructed subsystem: index by type, insert into
+        // the sorted phase list, wire the context, and bring it up if running.
+        void RegisterInternal(const rc::TypeInfo* type, Subsystem* subsystem)
+        {
+            m_byType.InsertOrAssign(type, subsystem);
+            InsertSorted(subsystem);
+            subsystem->OnRegister(this);
+            if (m_running) { subsystem->Init(); subsystem->Ready(); }
+        }
+
+        // Detaches a subsystem by type: shut it down (if running), unregister,
+        // drop from the lookup/phase lists, and destroy it if Context-owned.
+        void RemoveByType(const rc::TypeInfo* type)
+        {
+            Subsystem* const* found = m_byType.Find(type);
+            if (found == nullptr) { return; }
+            Subsystem* subsystem = *found;
+
+            if (m_running) { subsystem->PrepareShutdown(); }
+            subsystem->Shutdown();
+            subsystem->OnUnregister();
+
+            for (rc::usize i = 0; i < m_sorted.Size(); ++i)
+            {
+                if (m_sorted[i] == subsystem) { m_sorted.RemoveAt(i); break; }
+            }
+            m_byType.Remove(type);
+
+            // If the Context owns it, destroying the UniquePtr frees the object.
+            for (rc::usize i = 0; i < m_owned.Size(); ++i)
+            {
+                if (m_owned[i].Get() == subsystem) { m_owned.RemoveAt(i); break; }
+            }
+        }
+
         // Insertion sort into m_sorted, ascending by UpdateOrder (stable).
         void InsertSorted(Subsystem* subsystem)
         {
