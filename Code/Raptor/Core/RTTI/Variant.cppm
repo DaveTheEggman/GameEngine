@@ -185,6 +185,13 @@ export namespace raptor::core
             return *static_cast<T*>(Data());
         }
 
+        template <typename T>
+        [[nodiscard]] const T& Get() const noexcept
+        {
+            RAPTOR_ASSERT_MSG(Is<T>(), "Variant::Get<T>() type mismatch");
+            return *static_cast<const T*>(Data());
+        }
+
     private:
         static constexpr usize kInlineSize = 3 * sizeof(void*);
         static constexpr usize kInlineAlign = alignof(std::max_align_t);
@@ -393,6 +400,32 @@ export namespace raptor::core
         }
         return nullptr;
     }
+
+    // =======================================================================
+    // Attributes (phase e) — freeform key -> Variant metadata on a type.
+    // =======================================================================
+    struct Attribute
+    {
+        const char* key;
+        Variant value;
+    };
+
+    [[nodiscard]] inline Span<const Attribute> Attributes(const TypeInfo& type) noexcept
+    {
+        return Span<const Attribute>{ type.attributes, type.attributeCount };
+    }
+
+    [[nodiscard]] inline const Variant* FindAttribute(const TypeInfo& type, const char* key) noexcept
+    {
+        for (u32 i = 0; i < type.attributeCount; ++i)
+        {
+            if (detail::CStringEquals(type.attributes[i].key, key))
+            {
+                return &type.attributes[i].value;
+            }
+        }
+        return nullptr;
+    }
 }
 
 namespace raptor::core::detail
@@ -517,6 +550,7 @@ export namespace raptor::core
     {
         Array<PropertyInfo> properties;
         Array<MethodInfo> methods;
+        Array<Attribute> attributes;
         TypeInfo info{};
     };
 
@@ -549,6 +583,13 @@ export namespace raptor::core
             return *this;
         }
 
+        template <typename V>
+        TypeBuilder& Attribute(const char* key, V value)
+        {
+            m_data.attributes.PushBack(raptor::core::Attribute{ key, Variant::From<V>(Move(value)) });
+            return *this;
+        }
+
         [[nodiscard]] TypeData Build()
         {
             m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base);
@@ -556,6 +597,8 @@ export namespace raptor::core
             m_data.info.propertyCount = static_cast<u32>(m_data.properties.Size());
             m_data.info.methods = m_data.methods.Data();
             m_data.info.methodCount = static_cast<u32>(m_data.methods.Size());
+            m_data.info.attributes = m_data.attributes.Data();
+            m_data.info.attributeCount = static_cast<u32>(m_data.attributes.Size());
             return Move(m_data);
         }
 

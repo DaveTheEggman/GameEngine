@@ -48,9 +48,20 @@ RAPTOR_REFLECT(Animal, "raptor::test")
     builder.Method<&Animal::AddLegs>("AddLegs");
     builder.Method<&Animal::GetLegs>("GetLegs");
     builder.Method<&Animal::DefaultLegs>("DefaultLegs");
+    builder.Attribute("scriptName", "Critter");
+    builder.Attribute("maxLegs", 8);
 }
 RAPTOR_DEFINE_OBJECT(Dog, "raptor::test")
 RAPTOR_DEFINE_OBJECT(Cat, "raptor::test")
+
+enum class Color : int { Red = 1, Green = 2, Blue = 4 };
+
+RAPTOR_REFLECT_ENUM(Color, "raptor::test")
+{
+    builder.Value("Red", Color::Red);
+    builder.Value("Green", Color::Green);
+    builder.Value("Blue", Color::Blue);
+}
 
 namespace
 {
@@ -1378,4 +1389,54 @@ TEST_CASE("rtti: method invoke rejects wrong arity and arg types")
     CHECK(badType.Error() == ErrorCode::InvalidArgument);
 
     CHECK(animal->legs == 4); // unchanged after failed calls
+}
+
+// --- RTTI: enums -----------------------------------------------------------
+
+TEST_CASE("rtti: enum reflection exposes named values")
+{
+    RaptorRegisterEnum_Color();
+
+    const TypeInfo& type = TypeOf<Color>();
+    CHECK(IsEnum(type));
+    CHECK(Enumerators(type).Size() == 3u);
+    CHECK(std::strcmp(type.name, "Color") == 0);
+
+    CHECK(std::strcmp(EnumValueName(type, static_cast<i64>(Color::Green)), "Green") == 0);
+    CHECK(EnumValueName(type, 999) == nullptr);
+
+    i64 value = 0;
+    CHECK(EnumValueByName(type, "Blue", value));
+    CHECK(value == static_cast<i64>(Color::Blue));
+    CHECK_FALSE(EnumValueByName(type, "Purple", value));
+}
+
+TEST_CASE("rtti: enum values round-trip through a Variant")
+{
+    RaptorRegisterEnum_Color();
+
+    Variant v = Variant::From(Color::Green);
+    REQUIRE(v.Is<Color>());
+    CHECK(v.Get<Color>() == Color::Green);
+    CHECK(v.Type() == &TypeOf<Color>());
+    CHECK(IsEnum(*v.Type()));
+}
+
+// --- RTTI: attributes ------------------------------------------------------
+
+TEST_CASE("rtti: type attributes are queryable")
+{
+    const TypeInfo& type = Animal::StaticType();
+    CHECK(Attributes(type).Size() == 2u);
+
+    const Variant* scriptName = FindAttribute(type, "scriptName");
+    REQUIRE(scriptName != nullptr);
+    REQUIRE(scriptName->Is<const char*>());
+    CHECK(std::strcmp(scriptName->Get<const char*>(), "Critter") == 0);
+
+    const Variant* maxLegs = FindAttribute(type, "maxLegs");
+    REQUIRE(maxLegs != nullptr);
+    CHECK(maxLegs->Get<int>() == 8);
+
+    CHECK(FindAttribute(type, "missing") == nullptr);
 }

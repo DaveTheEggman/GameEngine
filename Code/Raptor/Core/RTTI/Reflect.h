@@ -52,4 +52,22 @@ public:                                                                         
     }                                                                                    \
     static void RaptorReflect_##Type([[maybe_unused]] ::raptor::core::TypeBuilder<Type>& builder)
 
+// Reflects an enum's named values. Defines a registration function
+// RaptorRegisterEnum_<EnumType>() to be called explicitly at startup, e.g.:
+//   RAPTOR_REFLECT_ENUM(Color, "raptor::game")
+//   {
+//       builder.Value("Red", Color::Red);
+//       builder.Value("Green", Color::Green);
+//   }
+//   // later: RaptorRegisterEnum_Color();
+#define RAPTOR_REFLECT_ENUM(EnumType, Namespace)                                        \
+    static void RaptorEnumBody_##EnumType(::raptor::core::EnumBuilder<EnumType>&);       \
+    void RaptorRegisterEnum_##EnumType()                                                 \
+    {                                                                                    \
+        ::raptor::core::EnumBuilder<EnumType> builder(#EnumType, Namespace);             \
+        RaptorEnumBody_##EnumType(builder);                                              \
+        builder.Build();                                                                 \
+    }                                                                                    \
+    static void RaptorEnumBody_##EnumType([[maybe_unused]] ::raptor::core::EnumBuilder<EnumType>& builder)
+
 #endif // RAPTOR_CORE_RTTI_REFLECT_H
