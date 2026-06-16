@@ -24,6 +24,7 @@ namespace
     class MockContext final : public IScriptContext
     {
     public:
+        void SetErrorHandler(IScriptErrorHandler*) override {}
         Status Load(StringView, StringView) override { return Status{ ErrorCode::NotSupported }; }
         void SetGlobal(StringView name, const Variant& value) override { m_globals.InsertOrAssign(String(name), value); }
         Variant GetGlobal(StringView name) override

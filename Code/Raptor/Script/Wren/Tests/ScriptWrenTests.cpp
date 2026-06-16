@@ -58,6 +58,52 @@ TEST_CASE("wren: a compile error is reported")
     CHECK(status.Code() == ErrorCode::InvalidArgument);
 }
 
+namespace
+{
+    struct CapturingErrors final : IScriptErrorHandler
+    {
+        int count = 0;
+        ScriptErrorKind lastKind = ScriptErrorKind::Compile;
+        String lastMessage;
+        i32 lastLine = -1;
+
+        void OnError(const ScriptError& error) override
+        {
+            ++count;
+            lastKind = error.kind;
+            lastMessage = String(error.message);
+            lastLine = error.line;
+        }
+    };
+}
+
+TEST_CASE("wren: errors are surfaced to a handler")
+{
+    RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
+    CapturingErrors errors;
+    ctx->SetErrorHandler(&errors);
+
+    // Compile error: kind + non-empty message + a source line.
+    CHECK_FALSE(ctx->Load(u"var = = =", u"main").IsOk());
+    CHECK(errors.count >= 1);
+    CHECK(errors.lastKind == ScriptErrorKind::Compile);
+    CHECK(!errors.lastMessage.IsEmpty());
+    CHECK(errors.lastLine >= 1);
+
+    // Runtime error: kind switches to Runtime.
+    const int afterCompile = errors.count;
+    CHECK_FALSE(ctx->Load(u"Fiber.abort(\"boom\")", u"main").IsOk());
+    CHECK(errors.count > afterCompile);
+    CHECK(errors.lastKind == ScriptErrorKind::Runtime);
+    CHECK(!errors.lastMessage.IsEmpty());
+
+    // Clearing the handler restores default (console) reporting — no more captures.
+    ctx->SetErrorHandler(nullptr);
+    const int afterRuntime = errors.count;
+    CHECK_FALSE(ctx->Load(u"more @#$ garbage", u"main").IsOk());
+    CHECK(errors.count == afterRuntime);
+}
+
 TEST_CASE("wren: a runtime error is reported")
 {
     RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();

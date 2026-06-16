@@ -16,9 +16,38 @@ namespace rc = raptor::core;
 
 export namespace raptor::script
 {
+    enum class ScriptErrorKind
+    {
+        Compile, // failed to compile source
+        Runtime, // threw / aborted while running
+    };
+
+    // A script error. The string views are valid only for the duration of the
+    // OnError callback (copy out if you need to keep them).
+    struct ScriptError
+    {
+        ScriptErrorKind kind;
+        rc::StringView module;  // may be empty
+        rc::i32 line;           // 1-based source line, or -1 if unknown
+        rc::StringView message;
+    };
+
+    // Host-provided sink for script errors (compile + runtime). Non-owning: the
+    // host manages its lifetime and outlives the context it's attached to.
+    class IScriptErrorHandler
+    {
+    public:
+        virtual ~IScriptErrorHandler() = default;
+        virtual void OnError(const ScriptError& error) = 0;
+    };
+
     class IScriptContext : public rc::Object
     {
     public:
+        // Sets (or clears, with nullptr) the error sink. When unset, backends
+        // report errors to the console.
+        virtual void SetErrorHandler(IScriptErrorHandler* handler) = 0;
+
         // Compile and run a chunk of script source. NotSupported if the backend
         // has no compiler (e.g. it only loads precompiled blobs).
         virtual rc::Status Load(rc::StringView source, rc::StringView chunkName) = 0;

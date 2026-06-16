@@ -424,6 +424,8 @@ namespace raptor::script::wren
             return rc::Status{ rc::ErrorCode::Unknown };
         }
 
+        void SetErrorHandler(IScriptErrorHandler* handler) override { m_errorHandler = handler; }
+
         void SetGlobal(rc::StringView, const rc::Variant&) override {}
 
         [[nodiscard]] rc::Variant GetGlobal(rc::StringView name) override
@@ -550,12 +552,30 @@ namespace raptor::script::wren
         }
 
         static void OnWrite(WrenVM*, const char* text) { WriteUtf8(&rc::ConsoleWrite, text); }
-        static void OnError(WrenVM*, WrenErrorType, const char*, int, const char* message)
+        static void OnError(WrenVM* vm, WrenErrorType type, const char* module, int line, const char* message)
         {
+            WrenContext* self = static_cast<WrenContext*>(wrenGetUserData(vm));
+            if (self != nullptr && self->m_errorHandler != nullptr)
+            {
+                // Stack-trace frames follow a runtime error; surface the message kinds.
+                if (type == WREN_ERROR_COMPILE || type == WREN_ERROR_RUNTIME)
+                {
+                    const rc::String mod = (module != nullptr)
+                        ? rc::ToWide(rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(module))) : rc::String{};
+                    const rc::String msg = (message != nullptr)
+                        ? rc::ToWide(rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(message))) : rc::String{};
+                    const ScriptError error{
+                        (type == WREN_ERROR_COMPILE) ? ScriptErrorKind::Compile : ScriptErrorKind::Runtime,
+                        mod.AsView(), static_cast<rc::i32>(line), msg.AsView() };
+                    self->m_errorHandler->OnError(error);
+                }
+                return;
+            }
             WriteUtf8(&rc::ConsoleWriteError, message);
         }
 
         WrenVM* m_vm = nullptr;
+        IScriptErrorHandler* m_errorHandler = nullptr;
         rc::UTF8String m_module;
         rc::Array<const rc::TypeInfo*> m_types;
     };
