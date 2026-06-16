@@ -22,6 +22,7 @@ export import :geometry;
 export import :rtti;
 export import :variant;
 export import :io;
+export import :path;
 export import :serialization;
 export import :threading;
 export import :library;

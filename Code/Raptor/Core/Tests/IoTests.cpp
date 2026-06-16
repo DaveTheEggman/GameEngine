@@ -323,3 +323,28 @@ TEST_CASE("io: BufferedStream write-then-seek-then-read on one stream")
         CHECK(v == i + 100);
     }
 }
+
+// --- IO: Path --------------------------------------------------------------
+
+TEST_CASE("io: Path query functions")
+{
+    CHECK(PathFilename(u8"/a/b/c.txt") == UTF8StringView(u8"c.txt"));
+    CHECK(PathFilename(u8"noslash.dat") == UTF8StringView(u8"noslash.dat"));
+    CHECK(PathExtension(u8"/a/b/c.txt") == UTF8StringView(u8".txt"));
+    CHECK(PathExtension(u8"/a/b/c") == UTF8StringView(u8""));
+    CHECK(PathExtension(u8"/a/.hidden") == UTF8StringView(u8"")); // dotfile has no ext
+    CHECK(PathStem(u8"/a/b/c.txt") == UTF8StringView(u8"c"));
+    CHECK(PathParent(u8"/a/b/c.txt") == UTF8StringView(u8"/a/b"));
+    CHECK(PathParent(u8"file") == UTF8StringView(u8""));
+
+    CHECK(PathIsAbsolute(u8"/etc/hosts"));
+    CHECK_FALSE(PathIsAbsolute(u8"relative/path"));
+}
+
+TEST_CASE("io: PathJoin")
+{
+    CHECK(PathJoin(u8"/a/b", u8"c.txt") == u8"/a/b/c.txt");
+    CHECK(PathJoin(u8"/a/b/", u8"c.txt") == u8"/a/b/c.txt"); // no double separator
+    CHECK(PathJoin(u8"", u8"c.txt") == u8"c.txt");
+    CHECK(PathJoin(u8"/a/b", u8"/absolute") == u8"/absolute"); // absolute rhs wins
+}
