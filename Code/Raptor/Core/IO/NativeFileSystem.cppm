@@ -9,7 +9,7 @@ export module raptor.core:native_filesystem;
 
 import :base;
 import :memory;
-import :smart_ptr;
+import :unique_ptr;
 import :string;
 import :path;
 import :system;

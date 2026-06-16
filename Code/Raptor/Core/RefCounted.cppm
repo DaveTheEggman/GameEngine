@@ -1,10 +1,9 @@
-// Raptor Core — :smart_ptr partition
+// Raptor Core — :ref_counted partition
 //
-// Ownership smart pointers (no std:: equivalents). Allocation is explicit: the
-// owning allocator is passed at creation, matching the engine-wide policy.
+// Intrusive strong+weak reference counting (no std:: equivalent). One
+// mechanism: a co-allocated RefControl shared by the object and its weak refs.
 //
-//   UniquePtr<T>  — sole ownership.
-//   RefCounted    — intrusive strong+weak ref base (Object derives from it).
+//   RefCounted    — intrusive strong+weak base (Object derives from it).
 //   RefPtr<T>     — strong shared ownership of a RefCounted-derived type.
 //   WeakRefPtr<T> — non-owning weak reference; Lock() promotes to RefPtr.
 //
@@ -13,8 +12,8 @@
 //   * weak   = number of WeakRefPtr owners + (1 while strong > 0).
 //   * strong -> 0 destroys the object (runs ~T); the storage is retained.
 //   * weak   -> 0 frees the storage.
-// A co-allocated RefControl holds the counts; its lifetime is independent of
-// the object, so it stays valid for weak refs after the object is destroyed.
+// Allocation is explicit: the owning allocator is passed to MakeRef, matching
+// the engine-wide policy. (Depends on :memory only for IAllocator.)
 
 module;
 #include "Core/Prelude.h"
@@ -22,7 +21,7 @@ module;
 #include <atomic>
 #include <type_traits>
 
-export module raptor.core:smart_ptr;
+export module raptor.core:ref_counted;
 
 import :base;
 import :memory;
@@ -326,73 +325,4 @@ export namespace raptor::core
         T* m_ptr = nullptr;
         detail::RefControl* m_control = nullptr;
     };
-
-    // =======================================================================
-    // UniquePtr — sole ownership; frees through the owning allocator.
-    // =======================================================================
-    template <typename T>
-    class UniquePtr
-    {
-    public:
-        UniquePtr() noexcept = default;
-        UniquePtr(decltype(nullptr)) noexcept {}
-
-        UniquePtr(T* pointer, IAllocator& allocator) noexcept
-            : m_ptr(pointer), m_allocator(&allocator) {}
-
-        UniquePtr(UniquePtr&& other) noexcept
-            : m_ptr(other.m_ptr), m_allocator(other.m_allocator)
-        {
-            other.m_ptr = nullptr;
-        }
-
-        UniquePtr& operator=(UniquePtr&& other) noexcept
-        {
-            if (this != &other)
-            {
-                Reset();
-                m_ptr = other.m_ptr;
-                m_allocator = other.m_allocator;
-                other.m_ptr = nullptr;
-            }
-            return *this;
-        }
-
-        UniquePtr(const UniquePtr&) = delete;
-        UniquePtr& operator=(const UniquePtr&) = delete;
-
-        ~UniquePtr() { Reset(); }
-
-        void Reset() noexcept
-        {
-            if (m_ptr != nullptr && m_allocator != nullptr)
-            {
-                m_allocator->Delete(m_ptr);
-            }
-            m_ptr = nullptr;
-        }
-
-        [[nodiscard]] T* Release() noexcept
-        {
-            T* released = m_ptr;
-            m_ptr = nullptr;
-            return released;
-        }
-
-        [[nodiscard]] T* Get() const noexcept { return m_ptr; }
-        [[nodiscard]] T* operator->() const noexcept { return m_ptr; }
-        [[nodiscard]] T& operator*() const noexcept { return *m_ptr; }
-        [[nodiscard]] explicit operator bool() const noexcept { return m_ptr != nullptr; }
-
-    private:
-        T* m_ptr = nullptr;
-        IAllocator* m_allocator = nullptr;
-    };
-
-    template <typename T, typename... Args>
-    [[nodiscard]] UniquePtr<T> MakeUnique(IAllocator& allocator, Args&&... args)
-    {
-        T* object = allocator.New<T>(Forward<Args>(args)...);
-        return UniquePtr<T>{ object, allocator };
-    }
 }

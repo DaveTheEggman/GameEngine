@@ -9,7 +9,7 @@ module;
 export module raptor.core:object;
 
 import :base;
-import :smart_ptr;
+import :ref_counted;
 import :type_info;
 
 export namespace raptor::core

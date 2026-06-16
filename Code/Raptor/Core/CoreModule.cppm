@@ -8,7 +8,8 @@ export module raptor.core;
 
 export import :base;
 export import :memory;
-export import :smart_ptr;
+export import :ref_counted;
+export import :unique_ptr;
 export import :system;
 export import :span;
 export import :array;

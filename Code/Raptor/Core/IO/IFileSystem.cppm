@@ -9,7 +9,7 @@ module;
 export module raptor.core:ifilesystem;
 
 import :base;
-import :smart_ptr;
+import :unique_ptr;
 import :string;
 import :system;
 import :io;

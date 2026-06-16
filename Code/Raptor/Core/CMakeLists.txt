@@ -21,8 +21,9 @@ target_sources(RaptorCore
         FILE_SET core_modules TYPE CXX_MODULES FILES
             CoreModule.cppm
             Base.cppm
+            RefCounted.cppm
+            UniquePtr.cppm
             Memory/Memory.cppm
-            Memory/SmartPtr.cppm
             System/System.cppm
             Containers/Span.cppm
             Containers/Array.cppm
