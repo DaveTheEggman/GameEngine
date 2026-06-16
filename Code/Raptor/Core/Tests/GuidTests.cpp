@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 
+#include <cstring>
+
 #include "Core/Prelude.h"  // brings <new> into reach for container instantiation (GCC)
 
 import raptor.core;
@@ -71,6 +73,22 @@ TEST_CASE("guid: TryParse rejects malformed input")
     CHECK(Guid::TryParse("FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF", ok));
     CHECK(ok.high == 0xFFFFFFFFFFFFFFFFull);
     CHECK(ok.low == 0xFFFFFFFFFFFFFFFFull);
+}
+
+TEST_CASE("guid: formats via {} to its canonical string")
+{
+    Random rng(42);
+    const Guid g = Guid::Generate(rng);
+
+    char expected[37];
+    g.ToChars(expected);
+
+    FormatBuffer buffer;
+    FormatTo(buffer, "id={}", g);
+
+    CHECK(buffer.Size() == 3 + 36);  // "id=" + 36-char guid
+    CHECK(std::memcmp(buffer.Data(), "id=", 3) == 0);
+    CHECK(std::memcmp(buffer.Data() + 3, expected, 36) == 0);
 }
 
 TEST_CASE("guid: usable as a hashed-container key")

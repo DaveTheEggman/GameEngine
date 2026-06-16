@@ -20,6 +20,7 @@ export module raptor.core:format;
 import :base;
 import :allocator;
 import :string;
+import :guid;
 
 export namespace raptor::core
 {
@@ -143,6 +144,13 @@ export namespace raptor::core
     {
         const UTF8String utf8 = ToUTF8(view);
         out.Append(reinterpret_cast<const char*>(utf8.Data()), utf8.Size());
+    }
+
+    inline void AppendValue(FormatBuffer& out, Guid value)
+    {
+        char text[37];
+        value.ToChars(text);
+        out.Append(text, 36);
     }
 
     inline void AppendValue(FormatBuffer& out, const void* value)
