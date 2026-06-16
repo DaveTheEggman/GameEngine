@@ -9,7 +9,7 @@ export module raptor.core:plane;
 
 import :base;
 import :math;
-import :vector;
+import :vec3;
 
 export namespace raptor::core
 {

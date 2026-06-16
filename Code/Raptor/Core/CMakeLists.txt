@@ -45,7 +45,9 @@ target_sources(RaptorCore
             Log/FileSink.cppm
             Log/RingLogSink.cppm
             Math/Math.cppm
-            Math/Vector.cppm
+            Math/Vec2.cppm
+            Math/Vec3.cppm
+            Math/Vec4.cppm
             Math/Color.cppm
             Math/Random.cppm
             Math/Matrix.cppm

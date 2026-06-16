@@ -8,7 +8,7 @@ module;
 export module raptor.core:rect;
 
 import :base;
-import :vector;
+import :vec2;
 
 export namespace raptor::core
 {
