@@ -198,6 +198,14 @@ export namespace raptor::core
         return type.constructors[index];
     }
 
+    // Borrows an Instance over the value/object a Variant owns (for binding
+    // layers that call properties/methods on a reflected Variant).
+    [[nodiscard]] inline Instance ToInstance(Variant& value) noexcept
+    {
+        if (value.IsObject()) { return Instance(value.AsObject(), value.Type()); }
+        return Instance(value.ValuePointer(), value.Type());
+    }
+
     // Constructs an instance by picking the constructor whose arity matches and
     // whose argument types accept `args`. Returns InvalidArgument if none match.
     [[nodiscard]] inline Result<Variant> Construct(const TypeInfo& type, Span<Variant> args)

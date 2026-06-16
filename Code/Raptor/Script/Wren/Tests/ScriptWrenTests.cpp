@@ -68,6 +68,45 @@ TEST_CASE("wren: read module globals as Variant")
     CHECK(ctx->GetGlobal(u"Missing").IsEmpty());           // absent -> empty Variant
 }
 
+TEST_CASE("wren: reflected value types are usable from script (construct + properties)")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    RegisterReflectedTypes(*manager);                 // reflection -> manager
+    RefPtr<IScriptContext> ctx = manager->CreateContext(); // emits Wren foreign classes
+
+    // Construct a reflected Vec3 from Wren, read and write its properties.
+    const Status status = ctx->Load(
+        u"var v = Vec3.new(1, 2, 3)\n"
+        u"var X = v.x\n"
+        u"var Z = v.z\n"
+        u"v.x = 9\n"
+        u"var X2 = v.x\n",
+        u"main");
+    REQUIRE(status.IsOk());
+
+    CHECK(ctx->GetGlobal(u"X").Get<f64>() == 1.0);    // construct + getter
+    CHECK(ctx->GetGlobal(u"Z").Get<f64>() == 3.0);
+    CHECK(ctx->GetGlobal(u"X2").Get<f64>() == 9.0);   // setter took effect
+}
+
+TEST_CASE("wren: a default-constructed reflected type")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // Guid has a default ctor and (u64, u64); its props round-trip through doubles.
+    REQUIRE(ctx->Load(
+        u"var g = Guid.new(7, 42)\n"
+        u"var Hi = g.high\n"
+        u"var Lo = g.low\n",
+        u"main").IsOk());
+    CHECK(ctx->GetGlobal(u"Hi").Get<f64>() == 7.0);
+    CHECK(ctx->GetGlobal(u"Lo").Get<f64>() == 42.0);
+}
+
 TEST_CASE("wren: call a script function with marshalled args")
 {
     RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();

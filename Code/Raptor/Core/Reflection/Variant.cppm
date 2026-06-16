@@ -213,6 +213,11 @@ export namespace raptor::core
         template <typename T>
         [[nodiscard]] T* AsObject() const noexcept { return Cast<T>(AsObject()); }
 
+        // Address of the stored value (value mode). For the reflection/binding
+        // layer to build an Instance over a value a Variant owns. For objects use
+        // AsObject() instead (this returns the RefPtr storage, not the object).
+        [[nodiscard]] void* ValuePointer() noexcept { return Data(); }
+
         template <typename T>
         [[nodiscard]] bool Is() const noexcept { return m_vtable == &detail::kVariantVTable<T>; }
 
