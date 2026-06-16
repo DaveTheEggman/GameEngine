@@ -49,7 +49,8 @@ target_sources(RaptorCore
             Math/Vec3.cppm
             Math/Vec4.cppm
             Math/Color.cppm
-            Math/Random.cppm
+            Random.cppm
+            Guid.cppm
             Math/Mat4.cppm
             Math/Mat3.cppm
             Math/Quat.cppm

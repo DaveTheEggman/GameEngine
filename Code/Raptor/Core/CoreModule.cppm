@@ -36,6 +36,7 @@ export import :vec3;
 export import :vec4;
 export import :color;
 export import :random;
+export import :guid;
 export import :mat4;
 export import :mat3;
 export import :quat;
