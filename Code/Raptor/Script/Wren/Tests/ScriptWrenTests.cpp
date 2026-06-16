@@ -1,11 +1,35 @@
 #include <doctest/doctest.h>
 
+#include "Core/Prelude.h"             // <new> reachability for reflection containers (GCC)
+#include "Core/Reflection/Reflect.h"
+
 import raptor.core;
 import raptor.script;
 import raptor.script.wren;
 
 using namespace raptor::core;
 using namespace raptor::script;
+
+// A reflected Object-derived type to exercise object foreign classes in Wren.
+namespace
+{
+    class Widget : public Object
+    {
+        RAPTOR_OBJECT(Widget, Object)
+    public:
+        int id = 0;
+        int doubled() const { return id * 2; }
+        int idOf(Widget* other) const { return other != nullptr ? other->id : -1; }
+    };
+}
+
+RAPTOR_REFLECT(Widget, "raptor::script::test")
+{
+    builder.Property<&Widget::id>("id");
+    builder.Method<&Widget::doubled>("doubled");
+    builder.Method<&Widget::idOf>("idOf");
+    builder.Constructor();
+}
 
 TEST_CASE("wren: a context runs valid source")
 {
@@ -124,6 +148,47 @@ TEST_CASE("wren: call reflected methods (static, instance, struct return, foreig
         u"main").IsOk());
     CHECK(ctx->GetGlobal(u"inside").Get<bool>() == true);
     CHECK(ctx->GetGlobal(u"outside").Get<bool>() == false);
+}
+
+TEST_CASE("wren: same-name overloads resolve by argument type")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // Vec3.Mul has two overloads: (Vec3, Vec3) componentwise and (Vec3, f32) scale.
+    REQUIRE(ctx->Load(
+        u"var p = Vec3.new(2, 3, 4)\n"
+        u"var comp = Vec3.Mul(p, Vec3.new(1, 2, 3))\n"  // -> (2, 6, 12)
+        u"var scaled = Vec3.Mul(p, 2)\n"                // -> (4, 6, 8)
+        u"var CX = comp.x\n"
+        u"var CZ = comp.z\n"
+        u"var SX = scaled.x\n",
+        u"main").IsOk());
+    CHECK(ctx->GetGlobal(u"CX").Get<f64>() == 2.0);    // chose (Vec3, Vec3)
+    CHECK(ctx->GetGlobal(u"CZ").Get<f64>() == 12.0);
+    CHECK(ctx->GetGlobal(u"SX").Get<f64>() == 4.0);    // chose (Vec3, f32)
+}
+
+TEST_CASE("wren: Object-derived type as a foreign class")
+{
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    manager->RegisterType(Widget::StaticType());       // register just the Object type
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    REQUIRE(ctx->Load(
+        u"var w = Widget.new()\n"
+        u"w.id = 21\n"
+        u"var w2 = Widget.new()\n"
+        u"w2.id = 5\n"
+        u"var I = w.id\n"
+        u"var D = w.doubled()\n"     // instance method -> 42
+        u"var O = w.idOf(w2)\n",     // object argument -> 5
+        u"main").IsOk());
+    CHECK(ctx->GetGlobal(u"I").Get<f64>() == 21.0);
+    CHECK(ctx->GetGlobal(u"D").Get<f64>() == 42.0);
+    CHECK(ctx->GetGlobal(u"O").Get<f64>() == 5.0);
 }
 
 TEST_CASE("wren: a default-constructed reflected type")

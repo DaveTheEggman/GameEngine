@@ -169,6 +169,51 @@ namespace raptor::script::wren
         }
     }
 
+    // --- overload resolution (by argument type) ----------------------------
+    // Is the value in arg slot `p+1` acceptable for parameter type `pt`?
+    inline bool SlotMatchesParam(WrenVM* vm, int slot, const rc::TypeInfo* pt)
+    {
+        switch (wrenGetSlotType(vm, slot))
+        {
+            case WREN_TYPE_FOREIGN:
+            {
+                const rc::Variant* v = *static_cast<rc::Variant**>(wrenGetSlotForeign(vm, slot));
+                return rc::IsDerivedFrom(v->Type(), pt); // exact, or object covariance
+            }
+            case WREN_TYPE_NUM:
+                return pt == &rc::TypeOf<rc::f32>() || pt == &rc::TypeOf<rc::f64>()
+                    || pt == &rc::TypeOf<rc::i32>() || pt == &rc::TypeOf<rc::i64>()
+                    || pt == &rc::TypeOf<rc::u32>() || pt == &rc::TypeOf<rc::u64>();
+            case WREN_TYPE_BOOL:
+                return pt == &rc::TypeOf<bool>();
+            case WREN_TYPE_STRING:
+                return pt == &rc::TypeOf<rc::String>() || pt == &rc::TypeOf<rc::UTF8String>();
+            default:
+                return false;
+        }
+    }
+
+    // Among `type`'s methods sharing the bound method's name/arity/static-ness,
+    // pick the first whose parameters match the actual argument slots. Falls
+    // back to the bound method (e.g. when nothing matches better).
+    inline const rc::MethodInfo* ResolveOverload(const rc::TypeInfo& type, const rc::MethodInfo& bound,
+                                                 WrenVM* vm, int argc)
+    {
+        for (rc::usize i = 0; i < rc::MethodCount(type); ++i)
+        {
+            const rc::MethodInfo& m = rc::MethodAt(type, i);
+            if (m.isStatic != bound.isStatic || m.paramCount != static_cast<rc::u32>(argc)
+                || !NameEq(m.name, bound.name)) { continue; }
+            bool match = true;
+            for (int p = 0; p < argc; ++p)
+            {
+                if (!SlotMatchesParam(vm, p + 1, m.params[p].type())) { match = false; break; }
+            }
+            if (match) { return &m; }
+        }
+        return &bound;
+    }
+
     // --- foreign-binding dispatch pool -------------------------------------
     inline constexpr int kMaxBindings = 256;
     inline constexpr int kMaxArgs = 8;
@@ -218,10 +263,22 @@ namespace raptor::script::wren
         rc::DefaultAllocator().Delete(*static_cast<rc::Variant**>(data));
     }
 
-    // Reserve a pool slot for a binding; returns its trampoline or null if full.
+    // Reserve a trampoline for a binding. Identical bindings (same kind/type/
+    // member) dispatch identically and are VM-independent, so they're deduped and
+    // share a slot — keeping the pool bounded by the distinct reflected surface
+    // rather than the number of contexts created. Returns null if full.
     inline WrenForeignMethodFn Reserve(const Binding& binding)
     {
         EnsureTable();
+        for (int i = 0; i < g_bindingCount; ++i)
+        {
+            const Binding& e = g_bindings[i];
+            if (e.kind == binding.kind && e.type == binding.type
+                && e.property == binding.property && e.method == binding.method)
+            {
+                return g_table[i];
+            }
+        }
         if (g_bindingCount >= kMaxBindings) { return nullptr; }
         const int slot = g_bindingCount++;
         g_bindings[slot] = binding;
@@ -271,8 +328,8 @@ namespace raptor::script::wren
             }
             case BindKind::Method:
             {
-                const rc::MethodInfo* method = binding.method;
                 const int argc = wrenGetSlotCount(vm) - 1;
+                const rc::MethodInfo* method = ResolveOverload(*binding.type, *binding.method, vm, argc);
                 rc::Variant args[kMaxArgs];
                 for (int i = 0; i < argc && i < kMaxArgs; ++i)
                 {
