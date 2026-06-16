@@ -274,3 +274,54 @@ TEST_CASE("math: Mat3 determinant and inverse")
     Mat3 zero{};
     CHECK(NearlyEqual(Inverse(zero), Mat3::Identity()));
 }
+
+// --- Math: geometry --------------------------------------------------------
+
+TEST_CASE("geometry: AABB contains, expand, merge")
+{
+    AABB box{ Vec3{ 0.0f, 0.0f, 0.0f }, Vec3{ 2.0f, 2.0f, 2.0f } };
+    CHECK(box.Contains(Vec3{ 1.0f, 1.0f, 1.0f }));
+    CHECK_FALSE(box.Contains(Vec3{ 3.0f, 1.0f, 1.0f }));
+    CHECK(NearlyEqual(box.Center(), Vec3{ 1.0f, 1.0f, 1.0f }));
+    CHECK(NearlyEqual(box.Extents(), Vec3{ 1.0f, 1.0f, 1.0f }));
+
+    // Build from points via Empty + Expand.
+    AABB grown = AABB::Empty();
+    CHECK_FALSE(grown.IsValid());
+    grown.Expand(Vec3{ -1.0f, 0.0f, 5.0f });
+    grown.Expand(Vec3{ 3.0f, 4.0f, -2.0f });
+    CHECK(grown.IsValid());
+    CHECK(NearlyEqual(grown.min, Vec3{ -1.0f, 0.0f, -2.0f }));
+    CHECK(NearlyEqual(grown.max, Vec3{ 3.0f, 4.0f, 5.0f }));
+
+    AABB a{ Vec3{ 0.0f, 0.0f, 0.0f }, Vec3{ 1.0f, 1.0f, 1.0f } };
+    AABB b{ Vec3{ 2.0f, 2.0f, 2.0f }, Vec3{ 3.0f, 3.0f, 3.0f } };
+    CHECK_FALSE(a.Intersects(b));
+    AABB m = Merge(a, b);
+    CHECK(NearlyEqual(m.min, Vec3::Zero));
+    CHECK(NearlyEqual(m.max, Vec3{ 3.0f, 3.0f, 3.0f }));
+    CHECK(m.Intersects(a));
+}
+
+TEST_CASE("geometry: Plane signed distance")
+{
+    // XZ plane at y = 0, normal +Y.
+    const Plane plane = Plane::FromPointNormal(Vec3::Zero, Vec3::UnitY);
+    CHECK(NearlyEqual(plane.SignedDistance(Vec3{ 5.0f, 0.0f, -3.0f }), 0.0f));
+    CHECK(NearlyEqual(plane.SignedDistance(Vec3{ 0.0f, 2.0f, 0.0f }), 2.0f));
+    CHECK(NearlyEqual(plane.SignedDistance(Vec3{ 0.0f, -4.0f, 0.0f }), -4.0f));
+
+    const Plane unnormalized{ Vec3{ 0.0f, 3.0f, 0.0f }, 0.0f };
+    CHECK(NearlyEqual(Length(unnormalized.Normalized().normal), 1.0f));
+}
+
+TEST_CASE("geometry: Rect contains and intersects")
+{
+    Rect r{ 0.0f, 0.0f, 4.0f, 2.0f };
+    CHECK(r.Contains(Vec2{ 2.0f, 1.0f }));
+    CHECK_FALSE(r.Contains(Vec2{ 5.0f, 1.0f }));
+    CHECK(NearlyEqual(r.Center(), Vec2{ 2.0f, 1.0f }));
+
+    CHECK(r.Intersects(Rect{ 3.0f, 1.0f, 2.0f, 2.0f }));
+    CHECK_FALSE(r.Intersects(Rect{ 10.0f, 10.0f, 1.0f, 1.0f }));
+}

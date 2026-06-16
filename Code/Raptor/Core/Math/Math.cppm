@@ -25,6 +25,7 @@ export namespace raptor::core
     inline constexpr f32 kDegToRad = kPi / 180.0f;
     inline constexpr f32 kRadToDeg = 180.0f / kPi;
     inline constexpr f32 kEpsilon = 1.0e-6f;
+    inline constexpr f32 kFloatMax = 3.402823466e38f;
 
     [[nodiscard]] constexpr f32 Abs(f32 x) noexcept { return x < 0.0f ? -x : x; }
     [[nodiscard]] inline f32 Sqrt(f32 x) noexcept { return std::sqrt(x); }
@@ -102,6 +103,11 @@ export namespace raptor::core
     {
         const f32 lengthSq = LengthSquared(v);
         return (lengthSq <= kEpsilon * kEpsilon) ? Vec2::Zero : v / Sqrt(lengthSq);
+    }
+
+    [[nodiscard]] inline bool NearlyEqual(Vec2 a, Vec2 b, f32 epsilon = kEpsilon) noexcept
+    {
+        return NearlyEqual(a.x, b.x, epsilon) && NearlyEqual(a.y, b.y, epsilon);
     }
 
     // =======================================================================
@@ -239,5 +245,11 @@ export namespace raptor::core
     {
         const f32 lengthSq = LengthSquared(v);
         return (lengthSq <= kEpsilon * kEpsilon) ? Vec4::Zero : v * (1.0f / Sqrt(lengthSq));
+    }
+
+    [[nodiscard]] inline bool NearlyEqual(Vec4 a, Vec4 b, f32 epsilon = kEpsilon) noexcept
+    {
+        return NearlyEqual(a.x, b.x, epsilon) && NearlyEqual(a.y, b.y, epsilon)
+            && NearlyEqual(a.z, b.z, epsilon) && NearlyEqual(a.w, b.w, epsilon);
     }
 }

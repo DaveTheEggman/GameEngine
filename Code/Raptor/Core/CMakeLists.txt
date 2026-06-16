@@ -32,6 +32,7 @@ target_sources(RaptorCore
             Log/Log.cppm
             Math/Math.cppm
             Math/Matrix.cppm
+            Math/Geometry.cppm
             RTTI/RTTI.cppm
             RTTI/Variant.cppm
             IO/Stream.cppm
