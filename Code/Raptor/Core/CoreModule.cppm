@@ -34,6 +34,7 @@ export import :filesystem;
 export import :ifilesystem;
 export import :native_filesystem;
 export import :vfs;
+export import :iserializer;
 export import :serializer;
 export import :binary_serializer;
 export import :serialize;

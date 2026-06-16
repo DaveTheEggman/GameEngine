@@ -1,42 +1,18 @@
 // Raptor Core — :serializer partition
 //
-// The serialization contract (§4.7): one direction-aware path serves both
-// load and save. ISerializer is the pure interface; Serializer is the concrete
-// base holding direction/version/sticky error.
+// Serializer: the concrete base over ISerializer that holds direction, version,
+// and a sticky error Status. Backends (e.g. BinarySerializer) extend this.
 
 module;
 #include "Core/Prelude.h"
 
 export module raptor.core:serializer;
 
+export import :iserializer;
 import :base;
 
 export namespace raptor::core
 {
-    enum class SerializeDirection
-    {
-        Load,
-        Save,
-    };
-
-    // Pure interface: direction + the single raw-bytes primitive.
-    class ISerializer
-    {
-    public:
-        virtual ~ISerializer() = default;
-
-        [[nodiscard]] virtual SerializeDirection Direction() const noexcept = 0;
-        [[nodiscard]] virtual u32 Version() const noexcept = 0;
-
-        // Moves `size` bytes between memory and the backing store, in whichever
-        // direction this serializer runs.
-        virtual Status SerializeRaw(void* data, usize size) = 0;
-
-        [[nodiscard]] bool IsLoading() const noexcept { return Direction() == SerializeDirection::Load; }
-        [[nodiscard]] bool IsSaving() const noexcept { return Direction() == SerializeDirection::Save; }
-    };
-
-    // Concrete base: holds direction, version, and a sticky error status.
     // Backends extend this, not ISerializer directly.
     class Serializer : public ISerializer
     {

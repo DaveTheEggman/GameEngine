@@ -48,6 +48,7 @@ target_sources(RaptorCore
             IO/IFileSystem.cppm
             IO/NativeFileSystem.cppm
             IO/VirtualFileSystem.cppm
+            Serialization/ISerializer.cppm
             Serialization/Serializer.cppm
             Serialization/BinarySerializer.cppm
             Serialization/Serialize.cppm
