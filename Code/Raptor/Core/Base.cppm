@@ -287,4 +287,98 @@ export namespace raptor::core
             E m_error;
         };
     };
+
+    // =======================================================================
+    // Optional<T> — a value that may be absent. (Use Result when the absence
+    // carries an error; Optional when absence is ordinary.)
+    // =======================================================================
+    struct NullOptType
+    {
+        explicit constexpr NullOptType() = default;
+    };
+    inline constexpr NullOptType NullOpt{};
+
+    template <typename T>
+    class Optional
+    {
+    public:
+        Optional() noexcept : m_hasValue(false) {}
+        Optional(NullOptType) noexcept : m_hasValue(false) {}
+
+        Optional(const T& value) : m_hasValue(true) { ::new (&m_value) T(value); }
+        Optional(T&& value) : m_hasValue(true) { ::new (&m_value) T(Move(value)); }
+
+        Optional(const Optional& other) : m_hasValue(other.m_hasValue)
+        {
+            if (m_hasValue) { ::new (&m_value) T(other.m_value); }
+        }
+
+        Optional(Optional&& other) noexcept(std::is_nothrow_move_constructible_v<T>)
+            : m_hasValue(other.m_hasValue)
+        {
+            if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
+        }
+
+        Optional& operator=(const Optional& other)
+        {
+            if (this != &other)
+            {
+                Reset();
+                m_hasValue = other.m_hasValue;
+                if (m_hasValue) { ::new (&m_value) T(other.m_value); }
+            }
+            return *this;
+        }
+
+        Optional& operator=(Optional&& other) noexcept(std::is_nothrow_move_constructible_v<T>)
+        {
+            if (this != &other)
+            {
+                Reset();
+                m_hasValue = other.m_hasValue;
+                if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
+            }
+            return *this;
+        }
+
+        ~Optional() { Reset(); }
+
+        void Reset() noexcept
+        {
+            if (m_hasValue) { m_value.~T(); m_hasValue = false; }
+        }
+
+        template <typename... Args>
+        T& Emplace(Args&&... args)
+        {
+            Reset();
+            ::new (&m_value) T(Forward<Args>(args)...);
+            m_hasValue = true;
+            return m_value;
+        }
+
+        [[nodiscard]] bool HasValue() const noexcept { return m_hasValue; }
+        [[nodiscard]] explicit operator bool() const noexcept { return m_hasValue; }
+
+        [[nodiscard]] T& Value() & { return m_value; }
+        [[nodiscard]] const T& Value() const& { return m_value; }
+        [[nodiscard]] T&& Value() && { return Move(m_value); }
+
+        [[nodiscard]] T* operator->() noexcept { return &m_value; }
+        [[nodiscard]] const T* operator->() const noexcept { return &m_value; }
+        [[nodiscard]] T& operator*() & noexcept { return m_value; }
+        [[nodiscard]] const T& operator*() const& noexcept { return m_value; }
+
+        [[nodiscard]] T ValueOr(T fallback) const&
+        {
+            return m_hasValue ? m_value : Move(fallback);
+        }
+
+    private:
+        bool m_hasValue;
+        union
+        {
+            T m_value;
+        };
+    };
 }

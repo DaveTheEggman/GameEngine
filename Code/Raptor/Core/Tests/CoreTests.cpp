@@ -178,6 +178,52 @@ TEST_CASE("base: Result manages a non-trivial payload")
     CHECK(Counter::Live() == 0); // all destroyed
 }
 
+TEST_CASE("base: Optional")
+{
+    Optional<int> empty;
+    CHECK_FALSE(empty.HasValue());
+    CHECK_FALSE(static_cast<bool>(empty));
+    CHECK(empty.ValueOr(-1) == -1);
+
+    Optional<int> some = 7;
+    REQUIRE(some.HasValue());
+    CHECK(*some == 7);
+    CHECK(some.ValueOr(-1) == 7);
+
+    some = NullOpt;
+    CHECK_FALSE(some.HasValue());
+
+    some.Emplace(99);
+    CHECK(some.Value() == 99);
+    some.Reset();
+    CHECK_FALSE(some.HasValue());
+}
+
+TEST_CASE("base: Optional manages non-trivial payload lifetimes")
+{
+    struct Tracked
+    {
+        static int& Live() { static int n = 0; return n; }
+        int v;
+        explicit Tracked(int x) : v(x) { ++Live(); }
+        Tracked(const Tracked& o) : v(o.v) { ++Live(); }
+        Tracked(Tracked&& o) noexcept : v(o.v) { ++Live(); }
+        ~Tracked() { --Live(); }
+    };
+
+    Tracked::Live() = 0;
+    {
+        Optional<Tracked> opt{ Tracked{ 5 } };
+        CHECK(Tracked::Live() == 1);
+        Optional<Tracked> copy = opt;
+        CHECK(Tracked::Live() == 2);
+        CHECK(copy->v == 5);
+        opt.Reset();
+        CHECK(Tracked::Live() == 1);
+    }
+    CHECK(Tracked::Live() == 0);
+}
+
 // --- Debug / assertions ----------------------------------------------------
 // We install a non-breaking handler so failed asserts record instead of trap.
 
