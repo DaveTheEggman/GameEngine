@@ -401,3 +401,74 @@ TEST_CASE("hashset: string keys")
     CHECK_FALSE(set.Contains(String(u"gamma")));
     CHECK(set.Size() == 2u);
 }
+
+// --- Containers: RingBuffer ------------------------------------------------
+
+TEST_CASE("ringbuffer: FIFO push/pop, full and empty")
+{
+    RingBuffer<int> ring(3);
+    CHECK(ring.IsEmpty());
+    CHECK(ring.Capacity() == 3u);
+
+    CHECK(ring.PushBack(1));
+    CHECK(ring.PushBack(2));
+    CHECK(ring.PushBack(3));
+    CHECK(ring.IsFull());
+    CHECK_FALSE(ring.PushBack(4)); // rejected when full
+
+    CHECK(ring.Front() == 1);
+    CHECK(ring.Back() == 3);
+
+    int out = 0;
+    CHECK(ring.PopFront(out)); CHECK(out == 1);
+    CHECK(ring.PopFront(out)); CHECK(out == 2);
+    CHECK(ring.Size() == 1u);
+
+    out = -1;
+    CHECK(ring.PopFront(out)); CHECK(out == 3);
+    CHECK(ring.IsEmpty());
+    CHECK_FALSE(ring.PopFront(out)); // empty
+}
+
+TEST_CASE("ringbuffer: wraps around with interleaved push/pop")
+{
+    RingBuffer<int> ring(3);
+    int out = 0;
+    // Cycle well past capacity to exercise index wrap-around.
+    for (int i = 0; i < 20; ++i)
+    {
+        CHECK(ring.PushBack(i));
+        CHECK(ring.PopFront(out));
+        CHECK(out == i);
+    }
+    CHECK(ring.IsEmpty());
+}
+
+TEST_CASE("ringbuffer: manages non-trivial element lifetimes")
+{
+    struct Item
+    {
+        static int& Live() { static int n = 0; return n; }
+        int v;
+        explicit Item(int x = 0) : v(x) { ++Live(); }
+        Item(const Item& o) : v(o.v) { ++Live(); }
+        Item(Item&& o) noexcept : v(o.v) { ++Live(); }
+        Item& operator=(const Item&) = default;
+        Item& operator=(Item&&) = default;
+        ~Item() { --Live(); }
+    };
+
+    Item::Live() = 0;
+    {
+        RingBuffer<Item> ring(4);
+        ring.PushBack(Item{ 1 });
+        ring.PushBack(Item{ 2 });
+        ring.PushBack(Item{ 3 });
+        CHECK(Item::Live() == 3);
+
+        Item out{ 0 };
+        ring.PopFront(out);
+        CHECK(out.v == 1);
+    }
+    CHECK(Item::Live() == 0); // all destroyed
+}
