@@ -7,6 +7,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"  // classic header — no module cycle (see Assert.h)
+#include <bit>          // std::byteswap
 #include <cstdint>
 #include <cstddef>
 #include <new>          // placement new
@@ -103,6 +104,37 @@ export namespace raptor::core
     {
         return N;
     }
+
+    // =======================================================================
+    // Byte order
+    // =======================================================================
+    inline constexpr bool kIsLittleEndian = RAPTOR_LITTLE_ENDIAN != 0;
+
+    template <typename T>
+        requires std::is_integral_v<T>
+    [[nodiscard]] constexpr T ByteSwap(T value) noexcept { return std::byteswap(value); }
+
+    template <typename T>
+        requires std::is_integral_v<T>
+    [[nodiscard]] constexpr T NativeToLittle(T value) noexcept
+    {
+        if constexpr (kIsLittleEndian) { return value; }
+        else { return ByteSwap(value); }
+    }
+
+    template <typename T>
+        requires std::is_integral_v<T>
+    [[nodiscard]] constexpr T NativeToBig(T value) noexcept
+    {
+        if constexpr (kIsLittleEndian) { return ByteSwap(value); }
+        else { return value; }
+    }
+
+    // Conversions are symmetric (swap-or-not), so reuse them by name.
+    template <typename T>
+    [[nodiscard]] constexpr T LittleToNative(T value) noexcept { return NativeToLittle(value); }
+    template <typename T>
+    [[nodiscard]] constexpr T BigToNative(T value) noexcept { return NativeToBig(value); }
 
     // =======================================================================
     // Ownership mixins

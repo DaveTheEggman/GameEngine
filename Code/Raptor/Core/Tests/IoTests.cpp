@@ -348,3 +348,36 @@ TEST_CASE("io: PathJoin")
     CHECK(PathJoin(u8"", u8"c.txt") == u8"c.txt");
     CHECK(PathJoin(u8"/a/b", u8"/absolute") == u8"/absolute"); // absolute rhs wins
 }
+
+// --- IO: FileSystem --------------------------------------------------------
+
+TEST_CASE("io: ReadFile / WriteFile round-trip")
+{
+    const char* path = "raptor_fs_roundtrip.tmp";
+    const byte payload[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 0xFF }, byte{ 0 }, byte{ 42 } };
+
+    CHECK(WriteFile(path, Span<const byte>{ payload, ArrayCount(payload) }).IsOk());
+
+    Result<Array<byte>> result = ReadFile(path);
+    REQUIRE(result.HasValue());
+    const Array<byte>& bytes = result.Value();
+    REQUIRE(bytes.Size() == ArrayCount(payload));
+    for (usize i = 0; i < bytes.Size(); ++i)
+    {
+        CHECK(bytes[i] == payload[i]);
+    }
+
+    CHECK(FileDelete(path));
+    CHECK(ReadFile("raptor_fs_missing.tmp").Error() == ErrorCode::NotFound);
+}
+
+TEST_CASE("io: directory create / exists / remove")
+{
+    const char* dir = "raptor_fs_test_dir";
+    CHECK_FALSE(DirectoryExists(dir));
+    CHECK(CreateDirectory(dir));
+    CHECK(DirectoryExists(dir));
+    CHECK(CreateDirectory(dir)); // idempotent
+    CHECK(RemoveDirectory(dir));
+    CHECK_FALSE(DirectoryExists(dir));
+}

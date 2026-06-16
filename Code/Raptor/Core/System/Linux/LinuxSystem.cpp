@@ -139,6 +139,23 @@ namespace raptor::core::sys
         return unlink(path) == 0;
     }
 
+    bool DirectoryExists(const char* path) noexcept
+    {
+        struct stat st{};
+        return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+    }
+
+    bool CreateDirectory(const char* path) noexcept
+    {
+        if (mkdir(path, 0755) == 0) { return true; }
+        return DirectoryExists(path); // already exists is success
+    }
+
+    bool RemoveDirectory(const char* path) noexcept
+    {
+        return rmdir(path) == 0;
+    }
+
     void ConsoleWrite(const char* text, std::uint64_t length) noexcept
     {
         ssize_t result = write(STDOUT_FILENO, text, static_cast<std::size_t>(length));

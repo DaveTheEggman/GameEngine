@@ -55,6 +55,9 @@ namespace raptor::core::sys
     std::int64_t FileSize(FileHandle handle) noexcept;                                      // -1 on error
     bool FileExists(const char* path) noexcept;
     bool FileDelete(const char* path) noexcept;
+    bool DirectoryExists(const char* path) noexcept;
+    bool CreateDirectory(const char* path) noexcept;  // true if created or already exists
+    bool RemoveDirectory(const char* path) noexcept;
 
     // --- Console -----------------------------------------------------------
     void ConsoleWrite(const char* text, std::uint64_t length) noexcept;       // stdout

@@ -79,6 +79,9 @@
     #define RAPTOR_ARCH_ARM64 0
 #endif
 
+// Byte order. Both supported architectures run little-endian.
+#define RAPTOR_LITTLE_ENDIAN 1
+
 // ---------------------------------------------------------------------------
 // Build configuration
 //   RAPTOR_DEBUG    — asserts on, no/low optimization

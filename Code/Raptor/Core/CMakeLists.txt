@@ -37,6 +37,7 @@ target_sources(RaptorCore
             RTTI/Variant.cppm
             IO/Stream.cppm
             IO/Path.cppm
+            IO/FileSystem.cppm
             IO/Serialization.cppm
             Threading/Threading.cppm
             Library/Library.cppm)

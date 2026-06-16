@@ -91,6 +91,10 @@ export namespace raptor::core
 
     inline bool FileDelete(const char* path) noexcept { return sys::FileDelete(path); }
 
+    [[nodiscard]] inline bool DirectoryExists(const char* path) noexcept { return sys::DirectoryExists(path); }
+    inline bool CreateDirectory(const char* path) noexcept { return sys::CreateDirectory(path); }
+    inline bool RemoveDirectory(const char* path) noexcept { return sys::RemoveDirectory(path); }
+
     // --- Console -----------------------------------------------------------
 
     inline void ConsoleWrite(const char* text, u64 length) noexcept { sys::ConsoleWrite(text, length); }

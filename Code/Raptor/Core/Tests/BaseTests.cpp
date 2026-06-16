@@ -158,3 +158,16 @@ TEST_CASE("base: Optional manages non-trivial payload lifetimes")
     }
     CHECK(Tracked::Live() == 0);
 }
+
+// --- Base: byte order ------------------------------------------------------
+
+TEST_CASE("base: byte order helpers")
+{
+    CHECK(kIsLittleEndian);
+    CHECK(ByteSwap<u16>(0x1234) == 0x3412);
+    CHECK(ByteSwap<u32>(0x11223344u) == 0x44332211u);
+
+    // Native<->little is a no-op here; native<->big swaps and round-trips.
+    CHECK(NativeToLittle<u32>(0x01020304u) == 0x01020304u);
+    CHECK(BigToNative(NativeToBig<u32>(0xDEADBEEFu)) == 0xDEADBEEFu);
+}
