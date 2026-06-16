@@ -53,6 +53,7 @@ endif()
 # --- Targets -----------------------------------------------------------------
 add_subdirectory(Code/Raptor/Core)
 add_subdirectory(Code/Raptor/Script)
+add_subdirectory(Code/Raptor/Runtime)
 
 if(RAPTOR_BUILD_TESTS)
     enable_testing()

@@ -1,0 +1,9 @@
+// Raptor::Runtime — the `raptor.runtime` module.
+//
+// The engine runtime: a Context owns Subsystems and drives their lifecycle and
+// per-frame phases. The application loop and plugin host build on this.
+
+export module raptor.runtime;
+
+export import :subsystem;
+export import :context;
