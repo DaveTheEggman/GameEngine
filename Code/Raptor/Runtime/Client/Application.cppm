@@ -13,11 +13,13 @@
 
 module;
 #include "Core/Prelude.h"
+#include <chrono>
 
 export module raptor.runtime.client;
 
 import raptor.core;
 import raptor.runtime;
+import raptor.runtime.platform;
 
 namespace rc = raptor::core;
 
@@ -40,10 +42,14 @@ export namespace raptor::runtime
 
         // Bring the application up: configure, register subsystems, start the
         // Context, then signal ready. Idempotent. The platform runner calls this
-        // once, then Tick() each frame while IsRunning(), then Stop().
-        void Start()
+        // once (passing the platform), then Tick() each frame while IsRunning(),
+        // then Stop(). The platform is borrowed (the entry point owns it) and is
+        // available from OnInitialize on, so platform-backed subsystems can be
+        // wired there; it stays null for headless runs.
+        void Start(IPlatform* platform = nullptr)
         {
             if (m_started) { return; }
+            m_platform = platform;
             OnConfigure(m_settings);
             OnInitialize();
             m_context.Startup();
@@ -88,6 +94,9 @@ export namespace raptor::runtime
         void RequestExit(int code = 0) noexcept { m_running = false; m_exitCode = code; }
 
         [[nodiscard]] Context& Ctx() noexcept { return m_context; }
+        // Borrowed platform service (null for headless runs). Use from
+        // OnInitialize on to wire platform-backed subsystems.
+        [[nodiscard]] IPlatform* Platform() noexcept { return m_platform; }
         [[nodiscard]] const ApplicationSettings& Settings() const noexcept { return m_settings; }
         [[nodiscard]] bool IsRunning() const noexcept { return m_running; }
         [[nodiscard]] int ExitCode() const noexcept { return m_exitCode; }
@@ -103,9 +112,31 @@ export namespace raptor::runtime
     private:
         Context m_context;
         ApplicationSettings m_settings;
+        IPlatform* m_platform = nullptr;  // borrowed; owned by the entry point
         bool m_started = false;
         bool m_running = false;
         int m_exitCode = 0;
         rc::f32 m_accumulator = 0.0f;
     };
+
+    // The generic desktop runner: drives an Application against a platform with a
+    // blocking wall-clock loop, clamping each frame to maxFrameTime. The platform
+    // entry point (RAPTOR_APP_MAIN) calls this on desktop; Emscripten provides its
+    // own callback-based loop instead. Returns the application's exit code.
+    inline int RunApplication(Application& app, IPlatform& platform)
+    {
+        app.Start(&platform);
+        auto previous = std::chrono::steady_clock::now();
+        while (platform.IsRunning() && app.IsRunning())
+        {
+            platform.ProcessEvents();
+            const auto now = std::chrono::steady_clock::now();
+            rc::f32 dt = std::chrono::duration<rc::f32>(now - previous).count();
+            previous = now;
+            if (dt > app.Settings().maxFrameTime) { dt = app.Settings().maxFrameTime; }
+            app.Tick(dt);
+        }
+        app.Stop();
+        return app.ExitCode();
+    }
 }

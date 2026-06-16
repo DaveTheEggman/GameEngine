@@ -14,7 +14,10 @@ target_sources(RaptorRuntime
             Plugin.cppm
             PluginHost.cppm)
 
-# The client Application loop and scripting integration (separate targets).
+# Platform service (interface + backends), the client Application loop, and
+# scripting integration (separate targets). Platform precedes Client (Client
+# links the platform interface).
+add_subdirectory(Platform)
 add_subdirectory(Client)
 add_subdirectory(Script)
 

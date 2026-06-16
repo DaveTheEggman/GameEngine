@@ -4,6 +4,7 @@
 
 import raptor.core;
 import raptor.runtime;
+import raptor.runtime.platform;
 import raptor.runtime.client;
 
 using namespace raptor::core;
@@ -11,6 +12,19 @@ using namespace raptor::runtime;
 
 namespace
 {
+    // A minimal in-process platform: counts ProcessEvents, and can be made to
+    // quit (as if the window closed) to exercise the runner's exit conditions.
+    class MockPlatform final : public IPlatform
+    {
+    public:
+        int processed = 0;
+        bool running = true;
+        IWindow* MainWindow() noexcept override { return nullptr; }
+        void ProcessEvents() override { ++processed; }
+        bool IsRunning() const noexcept override { return running; }
+        void RequestExit() override { running = false; }
+    };
+
     // Counts the frame phases the Application drives into the Context.
     class CountingSys final : public Subsystem
     {
@@ -126,4 +140,57 @@ TEST_CASE("client: RequestExit stops a manual run loop")
     CHECK(frames == 3);
     CHECK(app.ExitCode() == 7);
     CHECK(app.sys->update == 3);
+}
+
+namespace
+{
+    // App that borrows the platform in OnInitialize and exits after N updates.
+    class PlatformApp final : public Application
+    {
+    public:
+        IPlatform* seenPlatform = nullptr;
+        int frames = 0;
+    protected:
+        void OnInitialize() override { seenPlatform = Platform(); }  // platform available at init
+        void OnUpdate(f32) override { if (++frames == 3) { RequestExit(5); } }
+    };
+}
+
+TEST_CASE("client: RunApplication drives the app against a platform until exit")
+{
+    MockPlatform platform;
+    PlatformApp app;
+
+    const int code = RunApplication(app, platform);
+
+    CHECK(code == 5);
+    CHECK(app.seenPlatform == &platform);     // borrowed platform visible from OnInitialize
+    CHECK(app.frames == 3);                    // RequestExit(5) stopped the loop
+    CHECK(platform.processed >= 3);            // ProcessEvents pumped each frame
+    CHECK_FALSE(app.IsRunning());              // Stop() ran
+}
+
+TEST_CASE("client: RunApplication stops when the platform quits (window closed)")
+{
+    struct QuitApp final : Application
+    {
+        int frames = 0;
+    protected:
+        void OnUpdate(f32) override { ++frames; }
+    } app;
+
+    // A platform that quits itself after two pumps (as if the window closed).
+    struct ClosingPlatform final : public IPlatform
+    {
+        int pumps = 0;
+        IWindow* MainWindow() noexcept override { return nullptr; }
+        void ProcessEvents() override { if (++pumps >= 2) { running = false; } }
+        bool IsRunning() const noexcept override { return running; }
+        void RequestExit() override { running = false; }
+        bool running = true;
+    } platform;
+
+    const int code = RunApplication(app, platform);
+    CHECK(code == 0);                  // app never set an exit code
+    CHECK(platform.pumps == 2);        // loop exited once the platform stopped running
 }
