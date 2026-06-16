@@ -49,7 +49,9 @@ target_sources(RaptorCore
             Math/Color.cppm
             Math/Random.cppm
             Math/Matrix.cppm
-            Math/Geometry.cppm
+            Math/AABB.cppm
+            Math/Plane.cppm
+            Math/Rect.cppm
             RTTI/TypeInfo.cppm
             RTTI/TypeRegistry.cppm
             RTTI/Object.cppm
