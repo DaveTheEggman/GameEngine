@@ -191,6 +191,64 @@ export namespace raptor::core
         return true;
     }
 
+    [[nodiscard]] inline f32 Determinant(const Mat4& mat) noexcept
+    {
+        const f32* m = &mat.m[0][0];
+        const f32 s0 = m[0] * m[5] - m[1] * m[4];
+        const f32 s1 = m[0] * m[6] - m[2] * m[4];
+        const f32 s2 = m[0] * m[7] - m[3] * m[4];
+        const f32 s3 = m[1] * m[6] - m[2] * m[5];
+        const f32 s4 = m[1] * m[7] - m[3] * m[5];
+        const f32 s5 = m[2] * m[7] - m[3] * m[6];
+        const f32 c5 = m[10] * m[15] - m[11] * m[14];
+        const f32 c4 = m[9] * m[15] - m[11] * m[13];
+        const f32 c3 = m[9] * m[14] - m[10] * m[13];
+        const f32 c2 = m[8] * m[15] - m[11] * m[12];
+        const f32 c1 = m[8] * m[14] - m[10] * m[12];
+        const f32 c0 = m[8] * m[13] - m[9] * m[12];
+        return s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0;
+    }
+
+    // Full 4x4 inverse (adjugate / determinant). Returns Identity for a
+    // singular matrix.
+    [[nodiscard]] inline Mat4 Inverse(const Mat4& mat) noexcept
+    {
+        const f32* m = &mat.m[0][0];
+        f32 inv[16];
+
+        inv[0]  =  m[5]*m[10]*m[15] - m[5]*m[11]*m[14] - m[9]*m[6]*m[15] + m[9]*m[7]*m[14] + m[13]*m[6]*m[11] - m[13]*m[7]*m[10];
+        inv[4]  = -m[4]*m[10]*m[15] + m[4]*m[11]*m[14] + m[8]*m[6]*m[15] - m[8]*m[7]*m[14] - m[12]*m[6]*m[11] + m[12]*m[7]*m[10];
+        inv[8]  =  m[4]*m[9]*m[15]  - m[4]*m[11]*m[13] - m[8]*m[5]*m[15] + m[8]*m[7]*m[13] + m[12]*m[5]*m[11] - m[12]*m[7]*m[9];
+        inv[12] = -m[4]*m[9]*m[14]  + m[4]*m[10]*m[13] + m[8]*m[5]*m[14] - m[8]*m[6]*m[13] - m[12]*m[5]*m[10] + m[12]*m[6]*m[9];
+        inv[1]  = -m[1]*m[10]*m[15] + m[1]*m[11]*m[14] + m[9]*m[2]*m[15] - m[9]*m[3]*m[14] - m[13]*m[2]*m[11] + m[13]*m[3]*m[10];
+        inv[5]  =  m[0]*m[10]*m[15] - m[0]*m[11]*m[14] - m[8]*m[2]*m[15] + m[8]*m[3]*m[14] + m[12]*m[2]*m[11] - m[12]*m[3]*m[10];
+        inv[9]  = -m[0]*m[9]*m[15]  + m[0]*m[11]*m[13] + m[8]*m[1]*m[15] - m[8]*m[3]*m[13] - m[12]*m[1]*m[11] + m[12]*m[3]*m[9];
+        inv[13] =  m[0]*m[9]*m[14]  - m[0]*m[10]*m[13] - m[8]*m[1]*m[14] + m[8]*m[2]*m[13] + m[12]*m[1]*m[10] - m[12]*m[2]*m[9];
+        inv[2]  =  m[1]*m[6]*m[15]  - m[1]*m[7]*m[14]  - m[5]*m[2]*m[15] + m[5]*m[3]*m[14] + m[13]*m[2]*m[7]  - m[13]*m[3]*m[6];
+        inv[6]  = -m[0]*m[6]*m[15]  + m[0]*m[7]*m[14]  + m[4]*m[2]*m[15] - m[4]*m[3]*m[14] - m[12]*m[2]*m[7]  + m[12]*m[3]*m[6];
+        inv[10] =  m[0]*m[5]*m[15]  - m[0]*m[7]*m[13]  - m[4]*m[1]*m[15] + m[4]*m[3]*m[13] + m[12]*m[1]*m[7]  - m[12]*m[3]*m[5];
+        inv[14] = -m[0]*m[5]*m[14]  + m[0]*m[6]*m[13]  + m[4]*m[1]*m[14] - m[4]*m[2]*m[13] - m[12]*m[1]*m[6]  + m[12]*m[2]*m[5];
+        inv[3]  = -m[1]*m[6]*m[11]  + m[1]*m[7]*m[10]  + m[5]*m[2]*m[11] - m[5]*m[3]*m[10] - m[9]*m[2]*m[7]   + m[9]*m[3]*m[6];
+        inv[7]  =  m[0]*m[6]*m[11]  - m[0]*m[7]*m[10]  - m[4]*m[2]*m[11] + m[4]*m[3]*m[10] + m[8]*m[2]*m[7]   - m[8]*m[3]*m[6];
+        inv[11] = -m[0]*m[5]*m[11]  + m[0]*m[7]*m[9]   + m[4]*m[1]*m[11] - m[4]*m[3]*m[9]  - m[8]*m[1]*m[7]   + m[8]*m[3]*m[5];
+        inv[15] =  m[0]*m[5]*m[10]  - m[0]*m[6]*m[9]   - m[4]*m[1]*m[10] + m[4]*m[2]*m[9]  + m[8]*m[1]*m[6]   - m[8]*m[2]*m[5];
+
+        f32 det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12];
+        if (NearlyZero(det))
+        {
+            return Mat4::Identity();
+        }
+
+        const f32 invDet = 1.0f / det;
+        Mat4 result{};
+        f32* out = &result.m[0][0];
+        for (usize i = 0; i < 16; ++i)
+        {
+            out[i] = inv[i] * invDet;
+        }
+        return result;
+    }
+
     // =======================================================================
     // Quat — unit quaternion rotation (x, y, z, w).
     // =======================================================================
@@ -248,6 +306,36 @@ export namespace raptor::core
     {
         return NearlyEqual(a.x, b.x, epsilon) && NearlyEqual(a.y, b.y, epsilon)
             && NearlyEqual(a.z, b.z, epsilon) && NearlyEqual(a.w, b.w, epsilon);
+    }
+
+    // Spherical linear interpolation along the shortest arc; result is unit.
+    [[nodiscard]] inline Quat Slerp(Quat a, Quat b, f32 t) noexcept
+    {
+        f32 cosTheta = Dot(a, b);
+        if (cosTheta < 0.0f) // shortest path
+        {
+            b = Quat{ -b.x, -b.y, -b.z, -b.w };
+            cosTheta = -cosTheta;
+        }
+
+        if (cosTheta > 0.9995f) // nearly parallel — lerp + normalize
+        {
+            return Normalized(Quat{ a.x + (b.x - a.x) * t,
+                                    a.y + (b.y - a.y) * t,
+                                    a.z + (b.z - a.z) * t,
+                                    a.w + (b.w - a.w) * t });
+        }
+
+        const f32 theta0 = Acos(cosTheta);
+        const f32 theta = theta0 * t;
+        const f32 sinTheta = Sin(theta);
+        const f32 sinTheta0 = Sin(theta0);
+        const f32 s1 = sinTheta / sinTheta0;
+        const f32 s0 = Cos(theta) - cosTheta * s1;
+        return Quat{ a.x * s0 + b.x * s1,
+                     a.y * s0 + b.y * s1,
+                     a.z * s0 + b.z * s1,
+                     a.w * s0 + b.w * s1 };
     }
 
     // Rotation matrix for a unit quaternion (row-vector convention, XNA layout).

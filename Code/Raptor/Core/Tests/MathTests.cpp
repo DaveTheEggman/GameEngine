@@ -181,3 +181,61 @@ TEST_CASE("math: Transform composes scale, rotation, translation")
     CHECK(NearlyEqual(TransformPoint(Vec3{ 7.0f, 8.0f, 9.0f }, identity.ToMatrix()),
                       Vec3{ 7.0f, 8.0f, 9.0f }));
 }
+
+// --- Math: Mat4 determinant / inverse --------------------------------------
+
+TEST_CASE("math: Mat4 determinant")
+{
+    CHECK(NearlyEqual(Determinant(Mat4::Identity()), 1.0f));
+    CHECK(NearlyEqual(Determinant(Mat4::Scale(Vec3{ 2.0f, 3.0f, 4.0f })), 24.0f));
+}
+
+TEST_CASE("math: Mat4 inverse undoes the transform")
+{
+    Transform xform;
+    xform.scale = Vec3{ 2.0f, 0.5f, 3.0f };
+    xform.rotation = Quat::FromAxisAngle(Normalized(Vec3{ 1.0f, 2.0f, 3.0f }), DegreesToRadians(50.0f));
+    xform.position = Vec3{ 5.0f, -2.0f, 1.0f };
+
+    const Mat4 m = xform.ToMatrix();
+    const Mat4 inv = Inverse(m);
+
+    CHECK(NearlyEqual(m * inv, Mat4::Identity(), 1.0e-3f));
+    CHECK(NearlyEqual(inv * m, Mat4::Identity(), 1.0e-3f));
+
+    // A point transformed then inverse-transformed returns to itself.
+    const Vec3 p{ 3.0f, 4.0f, 5.0f };
+    const Vec3 roundTrip = TransformPoint(TransformPoint(p, m), inv);
+    CHECK(NearlyEqual(roundTrip, p, 1.0e-3f));
+
+    // Singular matrix -> Identity (no divide-by-zero).
+    CHECK(NearlyEqual(Inverse(Mat4::Scale(Vec3::Zero)), Mat4::Identity()));
+}
+
+// --- Math: Quat Slerp ------------------------------------------------------
+
+TEST_CASE("math: Quat Slerp endpoints and midpoint")
+{
+    const Quat a = Quat::Identity;
+    const Quat b = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(90.0f));
+
+    CHECK(NearlyEqual(Slerp(a, b, 0.0f), a));
+    CHECK(NearlyEqual(Slerp(a, b, 1.0f), b));
+
+    // Halfway between 0 and 90 deg about Z is 45 deg: maps +X to (cos45, sin45, 0).
+    const Quat mid = Slerp(a, b, 0.5f);
+    const Vec3 rotated = RotateVector(mid, Vec3::UnitX);
+    const f32 c = Cos(DegreesToRadians(45.0f));
+    CHECK(NearlyEqual(rotated, Vec3{ c, c, 0.0f }, 1.0e-4f));
+}
+
+// --- Math: Vec2 / Vec4 normalize -------------------------------------------
+
+TEST_CASE("math: Vec2 and Vec4 Normalized")
+{
+    CHECK(NearlyEqual(Length(Normalized(Vec2{ 3.0f, 4.0f })), 1.0f));
+    CHECK(Normalized(Vec2::Zero) == Vec2::Zero);
+
+    CHECK(NearlyEqual(Length(Normalized(Vec4{ 1.0f, 2.0f, 2.0f, 4.0f })), 1.0f));
+    CHECK(Normalized(Vec4::Zero) == Vec4::Zero);
+}

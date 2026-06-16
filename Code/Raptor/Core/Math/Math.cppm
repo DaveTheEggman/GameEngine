@@ -98,6 +98,12 @@ export namespace raptor::core
     [[nodiscard]] constexpr f32 LengthSquared(Vec2 v) noexcept { return Dot(v, v); }
     [[nodiscard]] inline f32 Length(Vec2 v) noexcept { return Sqrt(LengthSquared(v)); }
 
+    [[nodiscard]] inline Vec2 Normalized(Vec2 v) noexcept
+    {
+        const f32 lengthSq = LengthSquared(v);
+        return (lengthSq <= kEpsilon * kEpsilon) ? Vec2::Zero : v / Sqrt(lengthSq);
+    }
+
     // =======================================================================
     // Vec3
     // =======================================================================
@@ -228,4 +234,10 @@ export namespace raptor::core
     [[nodiscard]] constexpr f32 Dot(Vec4 a, Vec4 b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
     [[nodiscard]] constexpr f32 LengthSquared(Vec4 v) noexcept { return Dot(v, v); }
     [[nodiscard]] inline f32 Length(Vec4 v) noexcept { return Sqrt(LengthSquared(v)); }
+
+    [[nodiscard]] inline Vec4 Normalized(Vec4 v) noexcept
+    {
+        const f32 lengthSq = LengthSquared(v);
+        return (lengthSq <= kEpsilon * kEpsilon) ? Vec4::Zero : v * (1.0f / Sqrt(lengthSq));
+    }
 }
