@@ -169,6 +169,21 @@ namespace raptor::script::wren
         }
     }
 
+    // Builds a Wren call signature "name(_,_,...)" with `argc` parameter slots.
+    inline void BuildSignature(char* out, rc::usize capacity, const char* name, rc::usize argc)
+    {
+        rc::usize pos = 0;
+        for (const char* p = name; *p != '\0' && pos + 1 < capacity; ++p) { out[pos++] = *p; }
+        if (pos + 1 < capacity) { out[pos++] = '('; }
+        for (rc::usize i = 0; i < argc && pos + 2 < capacity; ++i)
+        {
+            out[pos++] = '_';
+            if (i + 1 < argc) { out[pos++] = ','; }
+        }
+        if (pos + 1 < capacity) { out[pos++] = ')'; }
+        out[pos] = '\0';
+    }
+
     // --- overload resolution (by argument type) ----------------------------
     // Is the value in arg slot `p+1` acceptable for parameter type `pt`?
     inline bool SlotMatchesParam(WrenVM* vm, int slot, const rc::TypeInfo* pt)
@@ -376,6 +391,46 @@ namespace raptor::script::wren
     WrenForeignMethodFn BindForeignMethod(WrenVM* vm, const char* module, const char* className,
                                           bool isStatic, const char* signature);
 
+    // A live instance of a script-defined Wren class. Holds a handle to the
+    // object plus a strong reference to its owning context (keeping the VM alive),
+    // and dispatches Invoke() by building the method's Wren call signature.
+    class WrenScriptObject final : public ScriptObject
+    {
+    public:
+        WrenScriptObject(rc::RefPtr<IScriptContext> owner, WrenVM* vm, WrenHandle* instance) noexcept
+            : m_owner(rc::Move(owner)), m_vm(vm), m_instance(instance) {}
+
+        ~WrenScriptObject() override
+        {
+            if (m_vm != nullptr && m_instance != nullptr) { wrenReleaseHandle(m_vm, m_instance); }
+        }
+
+        WrenScriptObject(const WrenScriptObject&) = delete;
+        WrenScriptObject& operator=(const WrenScriptObject&) = delete;
+
+        [[nodiscard]] rc::Result<rc::Variant> Invoke(rc::StringView method, rc::Span<rc::Variant> args) override
+        {
+            const rc::usize argc = args.Size();
+            wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
+            wrenSetSlotHandle(m_vm, 0, m_instance); // receiver
+            for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
+
+            const rc::UTF8String name = rc::ToUTF8(method);
+            char signature[96];
+            BuildSignature(signature, sizeof(signature), CStr(name), argc);
+            WrenHandle* call = wrenMakeCallHandle(m_vm, signature);
+            const WrenInterpretResult result = wrenCall(m_vm, call);
+            wrenReleaseHandle(m_vm, call);
+            if (result != WREN_RESULT_SUCCESS) { return rc::Err(rc::ErrorCode::Internal); }
+            return SlotToVariant(m_vm, 0);
+        }
+
+    private:
+        rc::RefPtr<IScriptContext> m_owner;
+        WrenVM* m_vm;
+        WrenHandle* m_instance;
+    };
+
     class WrenContext final : public IScriptContext
     {
     public:
@@ -455,6 +510,29 @@ namespace raptor::script::wren
             wrenReleaseHandle(m_vm, handle);
             if (result != WREN_RESULT_SUCCESS) { return rc::Err(rc::ErrorCode::Internal); }
             return SlotToVariant(m_vm, 0);
+        }
+
+        [[nodiscard]] rc::RefPtr<ScriptObject> CreateInstance(
+            rc::StringView className, rc::Span<rc::Variant> args) override
+        {
+            if (!HasVariable(className)) { return nullptr; }
+
+            const rc::usize argc = args.Size();
+            wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
+            const rc::UTF8String cls = rc::ToUTF8(className);
+            wrenGetVariable(m_vm, CStr(m_module), CStr(cls), 0); // class object -> slot 0
+            for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
+
+            char signature[64];
+            BuildSignature(signature, sizeof(signature), "new", argc);
+            WrenHandle* call = wrenMakeCallHandle(m_vm, signature);
+            const WrenInterpretResult result = wrenCall(m_vm, call);
+            wrenReleaseHandle(m_vm, call);
+            if (result != WREN_RESULT_SUCCESS) { return nullptr; }
+
+            WrenHandle* instance = wrenGetSlotHandle(m_vm, 0);
+            return rc::RefPtr<ScriptObject>(rc::MakeRef<WrenScriptObject>(
+                rc::DefaultAllocator(), rc::RefPtr<IScriptContext>(this), m_vm, instance));
         }
 
     private:

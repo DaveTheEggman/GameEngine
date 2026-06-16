@@ -34,6 +34,7 @@ namespace
         }
         bool HasFunction(StringView) const override { return false; }
         Result<Variant> Call(StringView, Span<Variant>) override { return Err(ErrorCode::NotSupported); }
+        RefPtr<ScriptObject> CreateInstance(StringView, Span<Variant>) override { return nullptr; }
 
     private:
         HashMap<String, Variant> m_globals;

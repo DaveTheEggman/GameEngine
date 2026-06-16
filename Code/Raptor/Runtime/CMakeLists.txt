@@ -14,6 +14,9 @@ target_sources(RaptorRuntime
             Plugin.cppm
             PluginHost.cppm)
 
+# Scripting integration (separate target; bridges Runtime + Script).
+add_subdirectory(Script)
+
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()

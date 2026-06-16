@@ -275,3 +275,53 @@ TEST_CASE("wren: call a script function with marshalled args")
     // missing callable -> NotFound.
     CHECK(ctx->Call(u"nope", Span<Variant>{}).Error() == ErrorCode::NotFound);
 }
+
+TEST_CASE("wren: instantiate a script class and invoke its methods")
+{
+    RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
+    REQUIRE(ctx->Load(
+        u"class Counter {\n"
+        u"  construct new(start) { _n = start }\n"
+        u"  add(x) { _n = _n + x }\n"
+        u"  value() { _n }\n"    // a zero-arg method (Invoke models methods, not getters)
+        u"  reset() { _n = 0 }\n"
+        u"}\n",
+        u"main").IsOk());
+
+    Variant ctorArgs[] = { Variant::From(10) };
+    RefPtr<ScriptObject> counter = ctx->CreateInstance(u"Counter", Span<Variant>{ ctorArgs, 1 });
+    REQUIRE(static_cast<bool>(counter));
+
+    Variant addArgs[] = { Variant::From(5) };
+    CHECK(counter->Invoke(u"add", Span<Variant>{ addArgs, 1 }).HasValue());
+
+    // Zero-arg getter: signature has no parens, so call it by its bare name.
+    CHECK(counter->Invoke(u"value", Span<Variant>{}).Value().Get<f64>() == 15.0);
+
+    CHECK(counter->Invoke(u"reset", Span<Variant>{}).HasValue());
+    CHECK(counter->Invoke(u"value", Span<Variant>{}).Value().Get<f64>() == 0.0);
+}
+
+TEST_CASE("wren: CreateInstance returns null for an unknown class")
+{
+    RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
+    REQUIRE(ctx->Load(u"class Known { construct new() {} }\n", u"main").IsOk());
+    CHECK_FALSE(static_cast<bool>(ctx->CreateInstance(u"Missing", Span<Variant>{})));
+}
+
+TEST_CASE("wren: a script object outlives the local context reference")
+{
+    RefPtr<ScriptObject> obj;
+    {
+        RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
+        REQUIRE(ctx->Load(
+            u"class Echo {\n"
+            u"  construct new() {}\n"
+            u"  ping() { 42 }\n"
+            u"}\n", u"main").IsOk());
+        obj = ctx->CreateInstance(u"Echo", Span<Variant>{});
+        REQUIRE(static_cast<bool>(obj));
+        // ctx goes out of scope here; obj retains it (keeps the VM alive).
+    }
+    CHECK(obj->Invoke(u"ping", Span<Variant>{}).Value().Get<f64>() == 42.0);
+}

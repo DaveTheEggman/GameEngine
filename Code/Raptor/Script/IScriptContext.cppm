@@ -41,6 +41,21 @@ export namespace raptor::script
         virtual void OnError(const ScriptError& error) = 0;
     };
 
+    // A handle to a live script-side object — typically an instance of a
+    // script-defined class. Reference-counted; it keeps its owning context alive
+    // for as long as it exists. This is the shared primitive script integration
+    // builds on: a global "driver" object the runtime ticks (tier 1), or — later,
+    // when an ECS exists — per-entity script components an ECS system ticks.
+    class ScriptObject : public rc::Object
+    {
+    public:
+        // Invoke a method on this object with reflected args. Returns its result
+        // (empty Variant for a void method), or an error if the method is missing
+        // or the script faults.
+        [[nodiscard]] virtual rc::Result<rc::Variant> Invoke(
+            rc::StringView method, rc::Span<rc::Variant> args) = 0;
+    };
+
     class IScriptContext : public rc::Object
     {
     public:
@@ -63,5 +78,11 @@ export namespace raptor::script
         // -> empty Variant), or an error if missing / on a script fault.
         [[nodiscard]] virtual rc::Result<rc::Variant> Call(
             rc::StringView function, rc::Span<rc::Variant> args) = 0;
+
+        // Instantiate a script-defined class by name, passing reflected
+        // constructor args. Returns null if the class is unknown or construction
+        // faults. The returned object outlives this call and retains the context.
+        [[nodiscard]] virtual rc::RefPtr<ScriptObject> CreateInstance(
+            rc::StringView className, rc::Span<rc::Variant> args) = 0;
     };
 }
