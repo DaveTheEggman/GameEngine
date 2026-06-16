@@ -239,3 +239,38 @@ TEST_CASE("math: Vec2 and Vec4 Normalized")
     CHECK(NearlyEqual(Length(Normalized(Vec4{ 1.0f, 2.0f, 2.0f, 4.0f })), 1.0f));
     CHECK(Normalized(Vec4::Zero) == Vec4::Zero);
 }
+
+// --- Math: Mat3 ------------------------------------------------------------
+
+TEST_CASE("math: Mat3 identity, multiply, transpose")
+{
+    const Mat3 id = Mat3::Identity();
+    const Mat3 r = Mat3::FromMat4(Mat4::RotationZ(DegreesToRadians(90.0f)));
+
+    CHECK(NearlyEqual(id * r, r));
+    CHECK(NearlyEqual(Transpose(Transpose(r)), r));
+
+    static_assert(Mat3::Identity()(1, 1) == 1.0f);
+}
+
+TEST_CASE("math: Mat3 row-vector rotation matches Mat4")
+{
+    const Mat3 rz = Mat3::FromMat4(Mat4::RotationZ(DegreesToRadians(90.0f)));
+    CHECK(NearlyEqual(Vec3::UnitX * rz, Vec3::UnitY));
+}
+
+TEST_CASE("math: Mat3 determinant and inverse")
+{
+    const Mat3 rz = Mat3::FromMat4(Mat4::RotationZ(DegreesToRadians(37.0f)));
+    CHECK(NearlyEqual(Determinant(rz), 1.0f)); // pure rotation
+
+    const Mat3 inv = Inverse(rz);
+    CHECK(NearlyEqual(rz * inv, Mat3::Identity(), 1.0e-4f));
+
+    // For a rotation, the inverse equals the transpose.
+    CHECK(NearlyEqual(inv, Transpose(rz), 1.0e-4f));
+
+    // Singular -> Identity.
+    Mat3 zero{};
+    CHECK(NearlyEqual(Inverse(zero), Mat3::Identity()));
+}
