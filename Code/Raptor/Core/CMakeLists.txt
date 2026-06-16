@@ -24,6 +24,10 @@ target_sources(RaptorCore
             Memory/Memory.cppm
             Memory/SmartPtr.cppm
             System/System.cppm
+            Containers/Span.cppm
+            Containers/Array.cppm
+            Containers/RingBuffer.cppm
+            Containers/IntrusiveList.cppm
             Containers/Containers.cppm
             Containers/String.cppm
             Containers/Hash.cppm
