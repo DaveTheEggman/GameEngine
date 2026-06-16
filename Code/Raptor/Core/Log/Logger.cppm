@@ -14,6 +14,7 @@ export module raptor.core:logger;
 
 import :base;
 import :array;
+import :string;
 import :format;
 import :atomic;
 import :mutex;
@@ -32,19 +33,19 @@ export namespace raptor::core
         Off, // sentinel: filters out everything
     };
 
-    [[nodiscard]] inline const char* LogLevelName(LogLevel level) noexcept
+    [[nodiscard]] inline const widechar* LogLevelName(LogLevel level) noexcept
     {
         switch (level)
         {
-            case LogLevel::Trace:   return "Trace";
-            case LogLevel::Debug:   return "Debug";
-            case LogLevel::Info:    return "Info";
-            case LogLevel::Warning: return "Warning";
-            case LogLevel::Error:   return "Error";
-            case LogLevel::Fatal:   return "Fatal";
-            case LogLevel::Off:     return "Off";
+            case LogLevel::Trace:   return u"Trace";
+            case LogLevel::Debug:   return u"Debug";
+            case LogLevel::Info:    return u"Info";
+            case LogLevel::Warning: return u"Warning";
+            case LogLevel::Error:   return u"Error";
+            case LogLevel::Fatal:   return u"Fatal";
+            case LogLevel::Off:     return u"Off";
         }
-        return "?";
+        return u"?";
     }
 
     // -----------------------------------------------------------------------
@@ -54,18 +55,16 @@ export namespace raptor::core
     {
     public:
         virtual ~ILogSink() = default;
-        virtual void Write(LogLevel level, const char* category,
-                           const char* message, usize length) noexcept = 0;
+        virtual void Write(LogLevel level, StringView category, StringView message) noexcept = 0;
     };
 
     namespace detail
     {
-        inline void FormatLine(FormatBuffer& line, LogLevel level, const char* category,
-                               const char* message, usize length)
+        inline void FormatLine(FormatBuffer& line, LogLevel level, StringView category, StringView message)
         {
-            FormatTo(line, "[{}] {}: ", LogLevelName(level), category);
-            line.Append(message, length);
-            line.Append('\n');
+            FormatTo(line, u"[{}] {}: ", LogLevelName(level), category);
+            line.Append(message.Data(), message.Size());
+            line.Append(u'\n');
         }
     }
 
@@ -106,12 +105,12 @@ export namespace raptor::core
             return static_cast<u8>(level) >= static_cast<u8>(m_minLevel.load());
         }
 
-        void Dispatch(LogLevel level, const char* category, const char* message, usize length) noexcept
+        void Dispatch(LogLevel level, StringView category, StringView message) noexcept
         {
             ScopedLock lock(m_mutex);
             for (ILogSink* sink : m_sinks)
             {
-                sink->Write(level, category, message, length);
+                sink->Write(level, category, message);
             }
         }
 
@@ -131,7 +130,7 @@ export namespace raptor::core
     // Frontend — formats and dispatches (used by the RAPTOR_LOG_* macros).
     // -----------------------------------------------------------------------
     template <typename... Args>
-    void Logf(LogLevel level, const char* category, FormatString<Args...> fmt, const Args&... args)
+    void Logf(LogLevel level, StringView category, FormatString<Args...> fmt, const Args&... args)
     {
         Logger& logger = GlobalLogger();
         if (!logger.IsEnabled(level))
@@ -141,6 +140,6 @@ export namespace raptor::core
 
         FormatBuffer buffer;
         FormatToV(buffer, fmt.data, args...);
-        logger.Dispatch(level, category, buffer.Data(), buffer.Size());
+        logger.Dispatch(level, category, buffer.View());
     }
 }

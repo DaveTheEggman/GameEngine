@@ -18,19 +18,18 @@ export namespace raptor::core
     class ConsoleSink final : public ILogSink
     {
     public:
-        void Write(LogLevel level, const char* category,
-                   const char* message, usize length) noexcept override
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
             FormatBuffer line;
-            detail::FormatLine(line, level, category, message, length);
+            detail::FormatLine(line, level, category, message);
 
             if (static_cast<u8>(level) >= static_cast<u8>(LogLevel::Error))
             {
-                ConsoleWriteError(line.Data(), line.Size());
+                ConsoleWriteError(line.View());
             }
             else
             {
-                ConsoleWrite(line.Data(), line.Size());
+                ConsoleWrite(line.View());
             }
         }
     };

@@ -101,7 +101,6 @@ TEST_CASE("system: opening a missing file fails cleanly")
 
 TEST_CASE("system: console write does not crash")
 {
-    const char msg[] = "[raptor-test] console output check\n";
-    ConsoleWrite(msg, sizeof(msg) - 1);
+    ConsoleWrite(u"[raptor-test] console output check\n");
     CHECK(true);
 }

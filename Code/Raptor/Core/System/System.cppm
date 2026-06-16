@@ -115,11 +115,16 @@ export namespace raptor::core
 
     // --- Console -----------------------------------------------------------
 
-    inline void ConsoleWrite(const char* text, u64 length) noexcept { sys::ConsoleWrite(text, length); }
-
-    inline void ConsoleWriteError(const char* text, u64 length) noexcept
+    inline void ConsoleWrite(StringView text) noexcept
     {
-        sys::ConsoleWriteError(text, length);
+        const UTF8String utf8 = ToUTF8(text);
+        sys::ConsoleWrite(reinterpret_cast<const char*>(utf8.Data()), utf8.Size());
+    }
+
+    inline void ConsoleWriteError(StringView text) noexcept
+    {
+        const UTF8String utf8 = ToUTF8(text);
+        sys::ConsoleWriteError(reinterpret_cast<const char*>(utf8.Data()), utf8.Size());
     }
 
     // --- Dynamic libraries (raw; the Library module wraps these) -----------

@@ -13,6 +13,7 @@ export module raptor.core:guid;
 
 import :base;
 import :random;
+import :string;
 
 export namespace raptor::core
 {
@@ -36,37 +37,37 @@ export namespace raptor::core
         }
 
         // Canonical lowercase 8-4-4-4-12 form into `out` (36 chars + null).
-        void ToChars(char out[37]) const noexcept
+        void ToChars(widechar out[37]) const noexcept
         {
-            static constexpr char kHex[] = "0123456789abcdef";
+            static constexpr widechar kHex[] = u"0123456789abcdef";
             usize pos = 0;
             for (usize i = 0; i < 16; ++i)
             {
-                if (i == 4 || i == 6 || i == 8 || i == 10) { out[pos++] = '-'; }
+                if (i == 4 || i == 6 || i == 8 || i == 10) { out[pos++] = u'-'; }
                 const u64 source = (i < 8) ? high : low;
                 const u32 shift = static_cast<u32>((7 - (i & 7)) * 8);
                 const u8 byte = static_cast<u8>((source >> shift) & 0xFFull);
                 out[pos++] = kHex[byte >> 4];
                 out[pos++] = kHex[byte & 0xF];
             }
-            out[pos] = '\0';
+            out[pos] = u'\0';
         }
 
         // Parses the canonical 36-char form. Returns false (leaving `out`
         // untouched) on malformed input.
-        [[nodiscard]] static bool TryParse(const char* text, Guid& out) noexcept
+        [[nodiscard]] static bool TryParse(StringView text, Guid& out) noexcept
         {
-            if (text == nullptr) { return false; }
+            if (text.Size() != 36) { return false; }
 
             u64 hi = 0;
             u64 lo = 0;
             usize nibbles = 0;
             for (usize i = 0; i < 36; ++i)
             {
-                const char c = text[i];
+                const widechar c = text[i];
                 if (i == 8 || i == 13 || i == 18 || i == 23)
                 {
-                    if (c != '-') { return false; }
+                    if (c != u'-') { return false; }
                     continue;
                 }
                 const i32 value = HexValue(c);
@@ -75,7 +76,7 @@ export namespace raptor::core
                 else { lo = (lo << 4) | static_cast<u64>(value); }
                 ++nibbles;
             }
-            if (text[36] != '\0' || nibbles != 32) { return false; }
+            if (nibbles != 32) { return false; }
 
             out = Guid{ hi, lo };
             return true;
@@ -84,11 +85,11 @@ export namespace raptor::core
         static const Guid Nil;
 
     private:
-        [[nodiscard]] static constexpr i32 HexValue(char c) noexcept
+        [[nodiscard]] static constexpr i32 HexValue(widechar c) noexcept
         {
-            if (c >= '0' && c <= '9') { return c - '0'; }
-            if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
-            if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+            if (c >= u'0' && c <= u'9') { return c - u'0'; }
+            if (c >= u'a' && c <= u'f') { return c - u'a' + 10; }
+            if (c >= u'A' && c <= u'F') { return c - u'A' + 10; }
             return -1;
         }
     };

@@ -1,13 +1,11 @@
 // Raptor Core — :format partition
 //
-// Lightweight typesafe text formatting (no iostreams, no exceptions). Numbers
-// go through <charconv> (std::to_chars) — allocation-free and locale-independent.
-// Output targets a growable, allocator-backed narrow (char) buffer; `{}` marks a
-// substitution, `{{`/`}}` are literal braces.
-//
-// Narrow char (not char8_t) is used deliberately: it is what <charconv> and the
-// OS write APIs (System console/file) consume. Wide-string formatting awaits
-// UTF-16<->UTF-8 transcoding (deferred).
+// Lightweight typesafe text formatting (no iostreams, no exceptions). Output
+// targets a growable, allocator-backed wide (UTF-16) buffer; `{}` marks a
+// substitution, `{{`/`}}` are literal braces. Numbers go through <charconv>
+// (std::to_chars, allocation-free, locale-independent) and are widened into the
+// buffer digit by digit. Wide is the API surface; sinks transcode to UTF-8
+// bytes at the OS edge.
 
 module;
 #include "Core/Prelude.h"
@@ -38,37 +36,38 @@ export namespace raptor::core
             if (m_data != nullptr) { m_allocator->Free(m_data); }
         }
 
-        void Append(char c)
+        void Append(widechar c)
         {
             EnsureCapacity(m_size + 1);
             m_data[m_size++] = c;
-            m_data[m_size] = '\0';
+            m_data[m_size] = u'\0';
         }
 
-        void Append(const char* text, usize length)
+        void Append(const widechar* text, usize length)
         {
             if (length == 0) { return; }
             EnsureCapacity(m_size + length);
-            MemCopy(m_data + m_size, text, length);
+            MemCopy(m_data + m_size, text, length * sizeof(widechar));
             m_size += length;
-            m_data[m_size] = '\0';
+            m_data[m_size] = u'\0';
         }
 
-        void Append(const char* cstr)
+        void Append(const widechar* cstr)
         {
             usize length = 0;
-            while (cstr[length] != '\0') { ++length; }
+            while (cstr[length] != u'\0') { ++length; }
             Append(cstr, length);
         }
 
         void Clear() noexcept
         {
             m_size = 0;
-            if (m_data != nullptr) { m_data[0] = '\0'; }
+            if (m_data != nullptr) { m_data[0] = u'\0'; }
         }
 
-        [[nodiscard]] const char* Data() const noexcept { return m_data != nullptr ? m_data : ""; }
-        [[nodiscard]] const char* CStr() const noexcept { return Data(); }
+        [[nodiscard]] const widechar* Data() const noexcept { return m_data != nullptr ? m_data : u""; }
+        [[nodiscard]] const widechar* CStr() const noexcept { return Data(); }
+        [[nodiscard]] StringView View() const noexcept { return StringView{ Data(), m_size }; }
         [[nodiscard]] usize Size() const noexcept { return m_size; }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_size == 0; }
 
@@ -80,48 +79,68 @@ export namespace raptor::core
             usize newCapacity = (m_capacity == 0) ? 64 : m_capacity * 2;
             if (newCapacity < required + 1) { newCapacity = required + 1; }
 
-            char* newData = static_cast<char*>(m_allocator->Allocate(newCapacity, alignof(char)));
+            widechar* newData = static_cast<widechar*>(
+                m_allocator->Allocate(newCapacity * sizeof(widechar), alignof(widechar)));
             RAPTOR_ASSERT_MSG(newData != nullptr, "FormatBuffer allocation failed");
 
             if (m_data != nullptr)
             {
-                MemCopy(newData, m_data, m_size + 1);
+                MemCopy(newData, m_data, (m_size + 1) * sizeof(widechar));
                 m_allocator->Free(m_data);
             }
             else
             {
-                newData[0] = '\0';
+                newData[0] = u'\0';
             }
             m_data = newData;
             m_capacity = newCapacity;
         }
 
-        char* m_data = nullptr;
+        widechar* m_data = nullptr;
         usize m_size = 0;
         usize m_capacity = 0;
         IAllocator* m_allocator = nullptr;
     };
 
+    namespace detail
+    {
+        // Widen a run of ASCII bytes (digits/hex from <charconv>) into the buffer.
+        inline void AppendAsciiDigits(FormatBuffer& out, const char* text, usize length)
+        {
+            for (usize i = 0; i < length; ++i)
+            {
+                out.Append(static_cast<widechar>(static_cast<unsigned char>(text[i])));
+            }
+        }
+    }
+
     // --- per-type appenders ------------------------------------------------
     inline void AppendValue(FormatBuffer& out, bool value)
     {
-        out.Append(value ? "true" : "false");
+        out.Append(value ? u"true" : u"false");
     }
 
-    inline void AppendValue(FormatBuffer& out, char value) { out.Append(value); }
-
-    inline void AppendValue(FormatBuffer& out, const char* value)
+    inline void AppendValue(FormatBuffer& out, char value)
     {
-        out.Append(value != nullptr ? value : "(null)");
+        out.Append(static_cast<widechar>(static_cast<unsigned char>(value)));
+    }
+
+    inline void AppendValue(FormatBuffer& out, widechar value) { out.Append(value); }
+
+    inline void AppendValue(FormatBuffer& out, const widechar* value)
+    {
+        out.Append(value != nullptr ? value : u"(null)");
     }
 
     template <typename T>
-        requires (std::is_integral_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
+        requires (std::is_integral_v<T> && !std::is_same_v<T, bool>
+                  && !std::is_same_v<T, char> && !std::is_same_v<T, widechar>
+                  && !std::is_same_v<T, char8_t>)
     void AppendValue(FormatBuffer& out, T value)
     {
         char temp[32];
         const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
-        out.Append(temp, static_cast<usize>(result.ptr - temp));
+        detail::AppendAsciiDigits(out, temp, static_cast<usize>(result.ptr - temp));
     }
 
     template <typename T>
@@ -130,64 +149,64 @@ export namespace raptor::core
     {
         char temp[48];
         const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
-        out.Append(temp, static_cast<usize>(result.ptr - temp));
+        detail::AppendAsciiDigits(out, temp, static_cast<usize>(result.ptr - temp));
     }
 
-    // UTF-8 view: append bytes directly.
+    // UTF-8 view: transcode to wide.
     inline void AppendValue(FormatBuffer& out, UTF8StringView view)
     {
-        out.Append(reinterpret_cast<const char*>(view.Data()), view.Size());
+        const String wide = ToWide(view);
+        out.Append(wide.Data(), wide.Size());
     }
 
-    // Wide view (and String, via its implicit View conversion): transcode to UTF-8.
+    // Wide view (and String, via its implicit View conversion): append directly.
     inline void AppendValue(FormatBuffer& out, StringView view)
     {
-        const UTF8String utf8 = ToUTF8(view);
-        out.Append(reinterpret_cast<const char*>(utf8.Data()), utf8.Size());
+        out.Append(view.Data(), view.Size());
     }
 
     inline void AppendValue(FormatBuffer& out, Guid value)
     {
-        char text[37];
+        widechar text[37];
         value.ToChars(text);
         out.Append(text, 36);
     }
 
     inline void AppendValue(FormatBuffer& out, const void* value)
     {
-        out.Append("0x");
+        out.Append(u"0x");
         char temp[20];
         const auto address = static_cast<u64>(reinterpret_cast<uptr>(value));
         const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), address, 16);
-        out.Append(temp, static_cast<usize>(result.ptr - temp));
+        detail::AppendAsciiDigits(out, temp, static_cast<usize>(result.ptr - temp));
     }
 
     // --- format core -------------------------------------------------------
-    // --- runtime format (FormatToV): fmt is an ordinary const char* --------
-    inline void FormatToV(FormatBuffer& out, const char* fmt)
+    // --- runtime format (FormatToV): fmt is a wide const widechar* ---------
+    inline void FormatToV(FormatBuffer& out, const widechar* fmt)
     {
         // No remaining args: copy the rest, honouring {{ and }} escapes.
-        while (*fmt != '\0')
+        while (*fmt != u'\0')
         {
-            if (fmt[0] == '{' && fmt[1] == '{') { out.Append('{'); fmt += 2; }
-            else if (fmt[0] == '}' && fmt[1] == '}') { out.Append('}'); fmt += 2; }
+            if (fmt[0] == u'{' && fmt[1] == u'{') { out.Append(u'{'); fmt += 2; }
+            else if (fmt[0] == u'}' && fmt[1] == u'}') { out.Append(u'}'); fmt += 2; }
             else { out.Append(*fmt++); }
         }
     }
 
     template <typename T, typename... Rest>
-    void FormatToV(FormatBuffer& out, const char* fmt, const T& value, const Rest&... rest)
+    void FormatToV(FormatBuffer& out, const widechar* fmt, const T& value, const Rest&... rest)
     {
-        while (*fmt != '\0')
+        while (*fmt != u'\0')
         {
-            if (fmt[0] == '{' && fmt[1] == '}')
+            if (fmt[0] == u'{' && fmt[1] == u'}')
             {
                 AppendValue(out, value);
                 FormatToV(out, fmt + 2, rest...);
                 return;
             }
-            if (fmt[0] == '{' && fmt[1] == '{') { out.Append('{'); fmt += 2; continue; }
-            if (fmt[0] == '}' && fmt[1] == '}') { out.Append('}'); fmt += 2; continue; }
+            if (fmt[0] == u'{' && fmt[1] == u'{') { out.Append(u'{'); fmt += 2; continue; }
+            if (fmt[0] == u'}' && fmt[1] == u'}') { out.Append(u'}'); fmt += 2; continue; }
             out.Append(*fmt++);
         }
         // More args than `{}` placeholders: extra args are ignored.
@@ -202,24 +221,24 @@ export namespace raptor::core
     }
 
     // A format string whose `{}` count is validated at compile time against the
-    // argument pack. Constructed implicitly from a string literal.
+    // argument pack. Constructed implicitly from a wide string literal.
     template <typename... Args>
     struct BasicFormatString
     {
-        const char* data;
+        const widechar* data;
 
         template <usize N>
-        consteval BasicFormatString(const char (&str)[N]) : data(str)
+        consteval BasicFormatString(const widechar (&str)[N]) : data(str)
         {
             usize placeholders = 0;
             usize i = 0;
             while (i + 1 < N)
             {
-                const char c0 = str[i];
-                const char c1 = str[i + 1];
-                if (c0 == '{' && c1 == '{') { i += 2; }
-                else if (c0 == '}' && c1 == '}') { i += 2; }
-                else if (c0 == '{' && c1 == '}') { ++placeholders; i += 2; }
+                const widechar c0 = str[i];
+                const widechar c1 = str[i + 1];
+                if (c0 == u'{' && c1 == u'{') { i += 2; }
+                else if (c0 == u'}' && c1 == u'}') { i += 2; }
+                else if (c0 == u'{' && c1 == u'}') { ++placeholders; i += 2; }
                 else { ++i; }
             }
             if (placeholders != sizeof...(Args))

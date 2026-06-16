@@ -30,14 +30,14 @@ export namespace raptor::core
 
         [[nodiscard]] bool IsOpen() const noexcept { return FileIsValid(m_file); }
 
-        void Write(LogLevel level, const char* category,
-                   const char* message, usize length) noexcept override
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
             if (!FileIsValid(m_file)) { return; }
 
             FormatBuffer line;
-            detail::FormatLine(line, level, category, message, length);
-            (void)FileWrite(m_file, line.Data(), line.Size());
+            detail::FormatLine(line, level, category, message);
+            const UTF8String utf8 = ToUTF8(line.View());
+            (void)FileWrite(m_file, utf8.Data(), utf8.Size());
         }
 
     private:
