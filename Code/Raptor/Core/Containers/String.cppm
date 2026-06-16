@@ -257,20 +257,6 @@ export namespace raptor::core
         [[nodiscard]] const CharT* begin() const noexcept { return CStr(); }
         [[nodiscard]] const CharT* end() const noexcept { return CStr() + m_size; }
 
-        // --- comparison ----------------------------------------------------
-        [[nodiscard]] friend bool operator==(const BasicString& a, const BasicString& b) noexcept
-        {
-            return a.AsView() == b.AsView();
-        }
-        [[nodiscard]] friend bool operator==(const BasicString& a, View b) noexcept
-        {
-            return a.AsView() == b;
-        }
-        [[nodiscard]] friend bool operator==(const BasicString& a, const CharT* b) noexcept
-        {
-            return a.AsView() == View{ b };
-        }
-
     private:
         void EnsureCapacity(usize required)
         {
@@ -304,6 +290,25 @@ export namespace raptor::core
 
     template <typename CharT>
     constexpr CharT BasicString<CharT>::s_empty;
+
+    // Comparison as free function templates (not hidden friends): friends
+    // defined in an exported module class can get strong per-TU symbols under
+    // GCC, colliding at link; template free functions have COMDAT linkage.
+    template <typename CharT>
+    [[nodiscard]] bool operator==(const BasicString<CharT>& a, const BasicString<CharT>& b) noexcept
+    {
+        return a.AsView() == b.AsView();
+    }
+    template <typename CharT>
+    [[nodiscard]] bool operator==(const BasicString<CharT>& a, BasicStringView<CharT> b) noexcept
+    {
+        return a.AsView() == b;
+    }
+    template <typename CharT>
+    [[nodiscard]] bool operator==(const BasicString<CharT>& a, const CharT* b) noexcept
+    {
+        return a.AsView() == BasicStringView<CharT>{ b };
+    }
 
     // =======================================================================
     // Aliases — String is wide (UTF-16); UTF8String is the UTF-8 secondary.

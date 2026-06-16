@@ -14,7 +14,20 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 FetchContent_MakeAvailable(doctest)
 unset(CMAKE_POLICY_VERSION_MINIMUM)
 
-add_executable(RaptorCoreTests CoreTests.cpp)
+# One file per subsystem; TestsMain.cpp is the only TU that emits main.
+add_executable(RaptorCoreTests
+    TestsMain.cpp
+    BaseTests.cpp
+    DebugTests.cpp
+    MemoryTests.cpp
+    SystemTests.cpp
+    ContainersTests.cpp
+    FormatLogTests.cpp
+    MathTests.cpp
+    RttiTests.cpp
+    IoTests.cpp
+    ThreadingTests.cpp
+    LibraryTests.cpp)
 
 target_link_libraries(RaptorCoreTests PRIVATE Raptor::Core doctest::doctest)
 
@@ -23,9 +36,10 @@ add_library(RaptorTestPlugin MODULE TestPlugin.cpp)
 set_target_properties(RaptorTestPlugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_dependencies(RaptorCoreTests RaptorTestPlugin)
 
+# DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN is set in TestsMain.cpp only (not here),
+# so the other TUs don't each emit a main.
 target_compile_definitions(RaptorCoreTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
     RAPTOR_TEST_PLUGIN_PATH="$<TARGET_FILE:RaptorTestPlugin>")
 
 # doctest 2.4.11 includes <ciso646>, which emits a deprecation #warning under

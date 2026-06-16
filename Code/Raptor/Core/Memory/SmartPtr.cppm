@@ -186,14 +186,17 @@ export namespace raptor::core
         [[nodiscard]] T& operator*() const noexcept { return *m_ptr; }
         [[nodiscard]] explicit operator bool() const noexcept { return m_ptr != nullptr; }
 
-        [[nodiscard]] friend bool operator==(const RefPtr& a, const RefPtr& b) noexcept
-        {
-            return a.m_ptr == b.m_ptr;
-        }
-
     private:
         T* m_ptr = nullptr;
     };
+
+    // Free function template (not a hidden friend) so it gets COMDAT linkage
+    // across module consumers rather than a strong per-TU symbol under GCC.
+    template <typename T>
+    [[nodiscard]] bool operator==(const RefPtr<T>& a, const RefPtr<T>& b) noexcept
+    {
+        return a.Get() == b.Get();
+    }
 
     template <typename T, typename... Args>
     RefPtr<T> MakeRef(IAllocator& allocator, Args&&... args)
