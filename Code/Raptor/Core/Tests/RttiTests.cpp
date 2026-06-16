@@ -45,6 +45,7 @@ RAPTOR_REFLECT(Animal, "raptor::test")
     builder.Method<&Animal::DefaultLegs>("DefaultLegs");
     builder.Attribute("scriptName", "Critter");
     builder.Attribute("maxLegs", 8);
+    builder.Constructor(); // default ctor -> RefPtr<Animal> via MakeRef
 }
 RAPTOR_DEFINE_OBJECT(Dog, "raptor::test")
 RAPTOR_DEFINE_OBJECT(Cat, "raptor::test")
@@ -79,6 +80,19 @@ TEST_CASE("rtti: GetType is virtual through a base pointer")
 
     CHECK(asObject->GetType() == &Dog::StaticType());
     CHECK(dog->GetType()->id == Dog::StaticType().id);
+}
+
+TEST_CASE("rtti: Construct an Object-derived type via reflection")
+{
+    Result<Variant> created = Construct(Animal::StaticType(), Span<Variant>{});
+    REQUIRE(created.HasValue());
+    Variant& v = created.Value();
+    CHECK(v.IsObject());                       // object mode (RefPtr<Animal>)
+    CHECK(v.Type() == &Animal::StaticType());
+    Animal* animal = v.AsObject<Animal>();
+    REQUIRE(animal != nullptr);
+    CHECK(animal->legs == 4);
+    CHECK(animal->RefCount() == 1u);           // the Variant owns the only ref
 }
 
 TEST_CASE("variant: object mode owns a ref and reports the dynamic type")

@@ -18,6 +18,8 @@ import :span;
 import :type_info;
 import :variant;
 import :instance;
+import :object;
+import :ref_counted;
 
 // ---------------------------------------------------------------------------
 // Properties (RTTI phase c)
@@ -168,6 +170,44 @@ export namespace raptor::core
     {
         RAPTOR_ASSERT(index < method.paramCount);
         return method.params[index];
+    }
+
+    // =======================================================================
+    // Constructors — let scripting instantiate a type. invoke() validates its
+    // args and returns the new instance as a Variant (a value, or object mode
+    // for Object-derived types). A type may have several (overloads).
+    // =======================================================================
+    struct ConstructorInfo
+    {
+        const ParamInfo* params;
+        u32 paramCount;
+        Result<Variant> (*invoke)(Span<Variant> args);
+    };
+
+    [[nodiscard]] inline Span<const ConstructorInfo> Constructors(const TypeInfo& type) noexcept
+    {
+        return Span<const ConstructorInfo>{ type.constructors, type.constructorCount };
+    }
+
+    [[nodiscard]] inline usize ConstructorCount(const TypeInfo& type) noexcept { return type.constructorCount; }
+    [[nodiscard]] inline const ConstructorInfo& ConstructorAt(const TypeInfo& type, usize index) noexcept
+    {
+        RAPTOR_ASSERT(index < type.constructorCount);
+        return type.constructors[index];
+    }
+
+    // Constructs an instance by picking the constructor whose arity matches and
+    // whose argument types accept `args`. Returns InvalidArgument if none match.
+    [[nodiscard]] inline Result<Variant> Construct(const TypeInfo& type, Span<Variant> args)
+    {
+        for (u32 i = 0; i < type.constructorCount; ++i)
+        {
+            const ConstructorInfo& ctor = type.constructors[i];
+            if (ctor.paramCount != args.Size()) { continue; }
+            Result<Variant> result = ctor.invoke(args);
+            if (result.HasValue()) { return result; }
+        }
+        return Err(ErrorCode::InvalidArgument);
     }
 
     [[nodiscard]] inline const MethodInfo* FindMethod(const TypeInfo& type, const char* name) noexcept
@@ -397,6 +437,36 @@ namespace raptor::core::detail
         else { return &TypeOf<std::remove_cvref_t<R>>(); }
     }
 
+    template <typename T, typename... A, usize... I>
+    Result<Variant> ConstructImpl(Span<Variant> args, std::index_sequence<I...> seq)
+    {
+        if (args.Size() != sizeof...(A)) { return Err(ErrorCode::InvalidArgument); }
+        if constexpr (sizeof...(A) > 0)
+        {
+            if (!ArgsMatch<A...>(args, seq)) { return Err(ErrorCode::InvalidArgument); }
+        }
+        if constexpr (std::is_base_of_v<Object, T>)
+        {
+            // Object-derived: heap-allocate via MakeRef -> Variant object mode.
+            return Variant::From(MakeRef<T>(DefaultAllocator(),
+                *args[I].template TryGet<std::remove_cvref_t<A>>()...));
+        }
+        else
+        {
+            return Variant::From<T>(T(*args[I].template TryGet<std::remove_cvref_t<A>>()...));
+        }
+    }
+
+    template <typename T, typename... A>
+    struct ConstructorReflect
+    {
+        static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
+        static Result<Variant> Invoke(Span<Variant> args)
+        {
+            return ConstructImpl<T, A...>(args, std::index_sequence_for<A...>{});
+        }
+    };
+
     template <auto Member, typename Sig = decltype(Member)>
     struct MethodReflect;
 
@@ -492,6 +562,7 @@ export namespace raptor::core
         Array<MethodInfo> methods;
         Array<Attribute> attributes;
         Array<ConstantInfo> constants;
+        Array<ConstructorInfo> constructors;
         TypeInfo info{};
     };
 
@@ -539,6 +610,17 @@ export namespace raptor::core
             return *this;
         }
 
+        // Reflects a constructor T(Args...). Call multiple times for overloads.
+        template <typename... Args>
+        TypeBuilder& Constructor()
+        {
+            using Reflect = detail::ConstructorReflect<T, Args...>;
+            const Span<const ParamInfo> params = Reflect::Params();
+            m_data.constructors.PushBack(ConstructorInfo{
+                params.Data(), static_cast<u32>(params.Size()), &Reflect::Invoke });
+            return *this;
+        }
+
         [[nodiscard]] TypeData Build()
         {
             m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base);
@@ -550,6 +632,8 @@ export namespace raptor::core
             m_data.info.attributeCount = static_cast<u32>(m_data.attributes.Size());
             m_data.info.constants = m_data.constants.Data();
             m_data.info.constantCount = static_cast<u32>(m_data.constants.Size());
+            m_data.info.constructors = m_data.constructors.Data();
+            m_data.info.constructorCount = static_cast<u32>(m_data.constructors.Size());
             return Move(m_data);
         }
 

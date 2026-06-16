@@ -240,6 +240,35 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
     CHECK(vec3FirstParam >= 2u);
 }
 
+TEST_CASE("core-reflection: construct value types via reflection")
+{
+    EnsureRegistered();
+    const TypeInfo& vec3 = TypeOf<Vec3>();
+    CHECK(ConstructorCount(vec3) == 2u);  // default + (f32,f32,f32)
+
+    // Parameterized constructor.
+    Variant args[] = { Variant::From(1.0f), Variant::From(2.0f), Variant::From(3.0f) };
+    Result<Variant> made = Construct(vec3, Span<Variant>{ args, 3 });
+    REQUIRE(made.HasValue());
+    CHECK(made.Value().Get<Vec3>() == Vec3{ 1.0f, 2.0f, 3.0f });
+
+    // Default constructor (overload picked by arity).
+    CHECK(Construct(vec3, Span<Variant>{}).Value().Get<Vec3>() == Vec3::Zero);
+
+    // No matching overload -> InvalidArgument.
+    Variant bad[] = { Variant::From(1.0f) };
+    CHECK(Construct(vec3, Span<Variant>{ bad, 1 }).Error() == ErrorCode::InvalidArgument);
+
+    // Wrong arg type at a matching arity is also rejected.
+    Variant wrong[] = { Variant::From(1), Variant::From(2), Variant::From(3) };  // int, not f32
+    CHECK_FALSE(Construct(vec3, Span<Variant>{ wrong, 3 }).HasValue());
+
+    // Aggregate value type (parenthesized aggregate init).
+    Variant rectArgs[] = { Variant::From(1.0f), Variant::From(2.0f), Variant::From(3.0f), Variant::From(4.0f) };
+    Rect r = Construct(TypeOf<Rect>(), Span<Variant>{ rectArgs, 4 }).Value().Get<Rect>();
+    CHECK(r.width == 3.0f);
+}
+
 TEST_CASE("core-reflection: namespace-level constants are registered")
 {
     EnsureRegistered();
