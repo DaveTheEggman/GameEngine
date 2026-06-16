@@ -16,7 +16,8 @@ import :math;
 import :vec2;
 import :vec3;
 import :vec4;
-import :matrix;
+import :mat4;
+import :quat;
 import :string;
 import :array;
 

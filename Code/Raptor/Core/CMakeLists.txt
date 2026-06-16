@@ -50,7 +50,10 @@ target_sources(RaptorCore
             Math/Vec4.cppm
             Math/Color.cppm
             Math/Random.cppm
-            Math/Matrix.cppm
+            Math/Mat4.cppm
+            Math/Mat3.cppm
+            Math/Quat.cppm
+            Math/Transform.cppm
             Math/AABB.cppm
             Math/Plane.cppm
             Math/Rect.cppm
