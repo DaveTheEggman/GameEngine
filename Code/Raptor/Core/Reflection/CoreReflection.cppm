@@ -23,9 +23,13 @@ import :type_info;
 import :type_registry;
 import :constant_registry;
 import :reflection;
+import :enum_reflection;
 import :math;
 import :instance;
 import :variant;
+import :logger;
+import :iserializer;
+import :system;
 import :vec2;
 import :vec3;
 import :vec4;
@@ -163,6 +167,45 @@ namespace raptor::core
                .Constant("Nil", Guid::Nil)
                .Method<&Guid::IsNil>("IsNil");
     }
+
+    // Public Core enums (scripting-relevant). Internal enums (PropertyFlags,
+    // HashMap::State, BufferedStream::Mode) are deliberately not reflected.
+    RAPTOR_REFLECT_ENUM(LogLevel, "raptor::core")
+    {
+        builder.Value("Trace", LogLevel::Trace).Value("Debug", LogLevel::Debug)
+               .Value("Info", LogLevel::Info).Value("Warning", LogLevel::Warning)
+               .Value("Error", LogLevel::Error).Value("Fatal", LogLevel::Fatal)
+               .Value("Off", LogLevel::Off);
+    }
+
+    RAPTOR_REFLECT_ENUM(ErrorCode, "raptor::core")
+    {
+        builder.Value("Ok", ErrorCode::Ok).Value("Unknown", ErrorCode::Unknown)
+               .Value("InvalidArgument", ErrorCode::InvalidArgument)
+               .Value("OutOfRange", ErrorCode::OutOfRange)
+               .Value("OutOfMemory", ErrorCode::OutOfMemory)
+               .Value("NotFound", ErrorCode::NotFound)
+               .Value("NotSupported", ErrorCode::NotSupported)
+               .Value("AlreadyExists", ErrorCode::AlreadyExists)
+               .Value("Internal", ErrorCode::Internal);
+    }
+
+    RAPTOR_REFLECT_ENUM(SerializeDirection, "raptor::core")
+    {
+        builder.Value("Load", SerializeDirection::Load).Value("Save", SerializeDirection::Save);
+    }
+
+    RAPTOR_REFLECT_ENUM(FileMode, "raptor::core")
+    {
+        builder.Value("Read", FileMode::Read).Value("Write", FileMode::Write)
+               .Value("ReadWrite", FileMode::ReadWrite).Value("Append", FileMode::Append);
+    }
+
+    RAPTOR_REFLECT_ENUM(SeekOrigin, "raptor::core")
+    {
+        builder.Value("Begin", SeekOrigin::Begin).Value("Current", SeekOrigin::Current)
+               .Value("End", SeekOrigin::End);
+    }
 }
 
 export namespace raptor::core
@@ -197,5 +240,12 @@ export namespace raptor::core
         constants.Register("raptor::core", "kRadToDeg", f32Type, Variant::From<f32>(kRadToDeg));
         constants.Register("raptor::core", "kEpsilon", f32Type, Variant::From<f32>(kEpsilon));
         constants.Register("raptor::core", "kFloatMax", f32Type, Variant::From<f32>(kFloatMax));
+
+        // Public enums (patch TypeOf<E>() with enumerators, then register).
+        RaptorRegisterEnum_LogLevel();          GlobalTypeRegistry().Register(TypeOf<LogLevel>());
+        RaptorRegisterEnum_ErrorCode();         GlobalTypeRegistry().Register(TypeOf<ErrorCode>());
+        RaptorRegisterEnum_SerializeDirection();GlobalTypeRegistry().Register(TypeOf<SerializeDirection>());
+        RaptorRegisterEnum_FileMode();          GlobalTypeRegistry().Register(TypeOf<FileMode>());
+        RaptorRegisterEnum_SeekOrigin();        GlobalTypeRegistry().Register(TypeOf<SeekOrigin>());
     }
 }

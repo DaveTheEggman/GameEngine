@@ -257,6 +257,34 @@ TEST_CASE("core-reflection: namespace-level constants are registered")
     CHECK(&cr.At(0) == &cr.All()[0]);
 }
 
+TEST_CASE("core-reflection: public enums are reflected")
+{
+    EnsureRegistered();
+
+    const TypeInfo& level = TypeOf<LogLevel>();
+    CHECK(IsEnum(level));
+    CHECK(EnumeratorCount(level) == 7u);
+
+    i64 warning = -1;
+    CHECK(EnumValueByName(level, "Warning", warning));
+    CHECK(warning == static_cast<i64>(LogLevel::Warning));
+
+    // EnumValueName (metadata names are ASCII char*).
+    const char* name = EnumValueName(level, static_cast<i64>(LogLevel::Error));
+    REQUIRE(name != nullptr);
+    CHECK(EnumeratorAt(level, 4).value == static_cast<i64>(LogLevel::Error));
+
+    // Other public enums.
+    CHECK(EnumeratorCount(TypeOf<FileMode>()) == 4u);
+    CHECK(EnumeratorCount(TypeOf<SeekOrigin>()) == 3u);
+    i64 notFound = -1;
+    CHECK(EnumValueByName(TypeOf<ErrorCode>(), "NotFound", notFound));
+    CHECK(notFound == static_cast<i64>(ErrorCode::NotFound));
+
+    CHECK(GlobalTypeRegistry().FindByName("raptor::core", "LogLevel") == &TypeOf<LogLevel>());
+    CHECK(GlobalTypeRegistry().FindByName("raptor::core", "FileMode") == &TypeOf<FileMode>());
+}
+
 TEST_CASE("core-reflection: types are in the global registry by qualified name")
 {
     EnsureRegistered();
