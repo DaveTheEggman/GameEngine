@@ -32,12 +32,16 @@ target_sources(RaptorCore
             Containers/String.cppm
             Containers/Hash.cppm
             Containers/HashMap.cppm
+            Containers/HashSet.cppm
             Containers/Format.cppm
             Log/Log.cppm
             Math/Math.cppm
+            Math/Color.cppm
+            Math/Random.cppm
             Math/Matrix.cppm
             Math/Geometry.cppm
             RTTI/RTTI.cppm
+            RTTI/Variant.cppm
             RTTI/Reflection.cppm
             IO/Stream.cppm
             IO/Path.cppm
