@@ -364,3 +364,22 @@ TEST_CASE("random: ranges are respected")
         CHECK(n <= 20);
     }
 }
+
+// --- Math: Color -----------------------------------------------------------
+
+TEST_CASE("color: pack/unpack and operations")
+{
+    CHECK(Color::White.ToRGBA8() == 0xFFFFFFFFu);
+    CHECK(Color::Red.ToRGBA8() == 0xFF0000FFu);
+    CHECK(Color::Transparent.ToRGBA8() == 0x00000000u);
+
+    const Color c = Color::FromRGBA8(0xFF0000FFu);
+    CHECK(NearlyEqual(c, Color::Red));
+
+    CHECK(NearlyEqual(Lerp(Color::Black, Color::White, 0.5f), Color{ 0.5f, 0.5f, 0.5f, 1.0f }));
+    CHECK(NearlyEqual(Color::White * 0.25f, Color{ 0.25f, 0.25f, 0.25f, 0.25f }));
+
+    // Round-trip through 8-bit packing (within quantization tolerance).
+    const Color original{ 0.2f, 0.4f, 0.6f, 0.8f };
+    CHECK(NearlyEqual(Color::FromRGBA8(original.ToRGBA8()), original, 1.0f / 255.0f));
+}

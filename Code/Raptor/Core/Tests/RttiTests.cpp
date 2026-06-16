@@ -49,13 +49,13 @@ RAPTOR_REFLECT(Animal, "raptor::test")
 RAPTOR_DEFINE_OBJECT(Dog, "raptor::test")
 RAPTOR_DEFINE_OBJECT(Cat, "raptor::test")
 
-enum class Color : int { Red = 1, Green = 2, Blue = 4 };
+enum class TestColor : int { Red = 1, Green = 2, Blue = 4 };
 
-RAPTOR_REFLECT_ENUM(Color, "raptor::test")
+RAPTOR_REFLECT_ENUM(TestColor, "raptor::test")
 {
-    builder.Value("Red", Color::Red);
-    builder.Value("Green", Color::Green);
-    builder.Value("Blue", Color::Blue);
+    builder.Value("Red", TestColor::Red);
+    builder.Value("Green", TestColor::Green);
+    builder.Value("Blue", TestColor::Blue);
 }
 
 // --- RTTI ------------------------------------------------------------------
@@ -332,30 +332,30 @@ TEST_CASE("rtti: method invoke rejects wrong arity and arg types")
 
 TEST_CASE("rtti: enum reflection exposes named values")
 {
-    RaptorRegisterEnum_Color();
+    RaptorRegisterEnum_TestColor();
 
-    const TypeInfo& type = TypeOf<Color>();
+    const TypeInfo& type = TypeOf<TestColor>();
     CHECK(IsEnum(type));
     CHECK(Enumerators(type).Size() == 3u);
-    CHECK(std::strcmp(type.name, "Color") == 0);
+    CHECK(std::strcmp(type.name, "TestColor") == 0);
 
-    CHECK(std::strcmp(EnumValueName(type, static_cast<i64>(Color::Green)), "Green") == 0);
+    CHECK(std::strcmp(EnumValueName(type, static_cast<i64>(TestColor::Green)), "Green") == 0);
     CHECK(EnumValueName(type, 999) == nullptr);
 
     i64 value = 0;
     CHECK(EnumValueByName(type, "Blue", value));
-    CHECK(value == static_cast<i64>(Color::Blue));
+    CHECK(value == static_cast<i64>(TestColor::Blue));
     CHECK_FALSE(EnumValueByName(type, "Purple", value));
 }
 
 TEST_CASE("rtti: enum values round-trip through a Variant")
 {
-    RaptorRegisterEnum_Color();
+    RaptorRegisterEnum_TestColor();
 
-    Variant v = Variant::From(Color::Green);
-    REQUIRE(v.Is<Color>());
-    CHECK(v.Get<Color>() == Color::Green);
-    CHECK(v.Type() == &TypeOf<Color>());
+    Variant v = Variant::From(TestColor::Green);
+    REQUIRE(v.Is<TestColor>());
+    CHECK(v.Get<TestColor>() == TestColor::Green);
+    CHECK(v.Type() == &TypeOf<TestColor>());
     CHECK(IsEnum(*v.Type()));
 }
 
