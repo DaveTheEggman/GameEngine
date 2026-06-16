@@ -291,3 +291,27 @@ TEST_CASE("memory: TrackingAllocator counts live allocations and detects leaks")
     tracker.Delete(p);
     CHECK(tracker.LiveAllocations() == 0u);
 }
+
+TEST_CASE("memory: FrameAllocator double-buffers across frames")
+{
+    alignas(16) byte buffer[256];
+    FrameAllocator frame(buffer, sizeof(buffer)); // two 128-byte halves
+
+    void* a = frame.Allocate(16, 16);
+    REQUIRE(a != nullptr);
+    MemSet(a, 0x11, 16);
+
+    // Next frame uses the other half; the previous frame's data stays valid.
+    frame.NextFrame();
+    void* b = frame.Allocate(16, 16);
+    REQUIRE(b != nullptr);
+    CHECK(b != a);
+    CHECK(static_cast<u8*>(a)[0] == 0x11u); // last frame's allocation still readable
+
+    // Frame after that swaps back and resets the first half.
+    frame.NextFrame();
+    void* c = frame.Allocate(16, 16);
+    CHECK(c == a); // reuses the first half's start
+
+    CHECK(frame.Used() >= 16u);
+}
