@@ -1,4 +1,4 @@
-// Raptor Core — :variant partition (RTTI phase b)
+// Raptor Core — :reflection partition (RTTI phases b-f)
 //
 // Variant  — an owned value with small-buffer optimization, type-erased via a
 //            per-type vtable. Used for property values, method args, returns.
@@ -15,7 +15,7 @@ module;
 #include <type_traits>
 #include <utility>
 
-export module raptor.core:variant;
+export module raptor.core:reflection;
 
 import :base;
 import :memory;

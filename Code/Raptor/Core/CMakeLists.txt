@@ -24,7 +24,7 @@ target_sources(RaptorCore
             Memory/Memory.cppm
             Memory/SmartPtr.cppm
             System/System.cppm
-            Containers/Array.cppm
+            Containers/Containers.cppm
             Containers/String.cppm
             Containers/Hash.cppm
             Containers/HashMap.cppm
@@ -34,7 +34,7 @@ target_sources(RaptorCore
             Math/Matrix.cppm
             Math/Geometry.cppm
             RTTI/RTTI.cppm
-            RTTI/Variant.cppm
+            RTTI/Reflection.cppm
             IO/Stream.cppm
             IO/Path.cppm
             IO/FileSystem.cppm

@@ -20,7 +20,7 @@ export import :math;
 export import :matrix;
 export import :geometry;
 export import :rtti;
-export import :variant;
+export import :reflection;
 export import :io;
 export import :path;
 export import :filesystem;

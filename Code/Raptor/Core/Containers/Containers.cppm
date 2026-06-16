@@ -1,4 +1,4 @@
-// Raptor Core — :containers partition (Span + Array)
+// Raptor Core — :containers partition (Span, Array, RingBuffer, IntrusiveList)
 //
 // Allocator-aware containers. Span is a non-owning view; Array is a growable,
 // allocator-backed dynamic array. More containers (String, HashMap, ...) land
