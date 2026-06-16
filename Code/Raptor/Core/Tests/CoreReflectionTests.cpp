@@ -92,6 +92,86 @@ TEST_CASE("core-reflection: named constants are reflected")
     CHECK(FindConstant(TypeOf<Guid>(), "Nil")->value.Get<Guid>() == Guid::Nil);
 }
 
+TEST_CASE("core-reflection: member, const, and static methods invoke")
+{
+    EnsureRegistered();
+
+    // const member returning a value type
+    Vec4 v{ 1.0f, 2.0f, 3.0f, 4.0f };
+    Instance vi = Instance::From(&v);
+    const MethodInfo* xyz = FindMethod(TypeOf<Vec4>(), "XYZ");
+    REQUIRE(xyz != nullptr);
+    CHECK_FALSE(xyz->isStatic);
+    CHECK(xyz->isConst);
+    CHECK(InvokeMethod(*xyz, vi, Span<Variant>{}).Value().Get<Vec3>() == Vec3{ 1.0f, 2.0f, 3.0f });
+
+    // const member returning a scalar
+    Color white = Color::White;
+    Instance wi = Instance::From(&white);
+    const MethodInfo* toRGBA = FindMethod(TypeOf<Color>(), "ToRGBA8");
+    REQUIRE(toRGBA != nullptr);
+    CHECK(InvokeMethod(*toRGBA, wi, Span<Variant>{}).Value().Get<u32>() == 0xFFFFFFFFu);
+
+    // static factory
+    const MethodInfo* fromRGBA = FindMethod(TypeOf<Color>(), "FromRGBA8");
+    REQUIRE(fromRGBA != nullptr);
+    CHECK(fromRGBA->isStatic);
+    Variant fromArgs[] = { Variant::From<u32>(0xFFFFFFFFu) };
+    CHECK(InvokeStatic(*fromRGBA, Span<Variant>{ fromArgs, 1 }).Value().Get<Color>() == Color::White);
+
+    // member taking an argument
+    Guid nil = Guid::Nil;
+    Instance gi = Instance::From(&nil);
+    CHECK(InvokeMethod(*FindMethod(TypeOf<Guid>(), "IsNil"), gi, Span<Variant>{}).Value().Get<bool>());
+}
+
+TEST_CASE("core-reflection: overloaded free functions reflect (disambiguated by cast)")
+{
+    EnsureRegistered();
+
+    // Dot/Length were overloaded free functions; reflected as static methods.
+    const MethodInfo* dot = FindMethod(TypeOf<Vec3>(), "Dot");
+    REQUIRE(dot != nullptr);
+    CHECK(dot->isStatic);
+    CHECK(dot->returnType == &TypeOf<f32>());
+    REQUIRE(dot->paramCount == 2u);
+    CHECK(dot->params[0].type == &TypeOf<Vec3>());
+    Variant dotArgs[] = { Variant::From(Vec3{ 1.0f, 2.0f, 3.0f }), Variant::From(Vec3{ 4.0f, 5.0f, 6.0f }) };
+    CHECK(InvokeStatic(*dot, Span<Variant>{ dotArgs, 2 }).Value().Get<f32>() == 32.0f);
+}
+
+TEST_CASE("core-reflection: same-named overloads resolved by parameter type")
+{
+    EnsureRegistered();
+
+    const Vec3 a{ 2.0f, 3.0f, 4.0f };
+
+    // Vec3 * f32
+    const TypeInfo* const scalarSig[] = { &TypeOf<Vec3>(), &TypeOf<f32>() };
+    const MethodInfo* mulScalar = FindMethod(TypeOf<Vec3>(), "Mul",
+        Span<const TypeInfo* const>{ scalarSig, 2 });
+    REQUIRE(mulScalar != nullptr);
+
+    // Vec3 * Vec3
+    const TypeInfo* const vecSig[] = { &TypeOf<Vec3>(), &TypeOf<Vec3>() };
+    const MethodInfo* mulVec = FindMethod(TypeOf<Vec3>(), "Mul",
+        Span<const TypeInfo* const>{ vecSig, 2 });
+    REQUIRE(mulVec != nullptr);
+
+    CHECK(mulScalar != mulVec);  // distinct overloads selected by signature
+
+    Variant scalarArgs[] = { Variant::From(a), Variant::From(2.0f) };
+    CHECK(InvokeStatic(*mulScalar, Span<Variant>{ scalarArgs, 2 }).Value().Get<Vec3>()
+          == Vec3{ 4.0f, 6.0f, 8.0f });
+
+    Variant vecArgs[] = { Variant::From(a), Variant::From(Vec3{ 1.0f, 2.0f, 3.0f }) };
+    CHECK(InvokeStatic(*mulVec, Span<Variant>{ vecArgs, 2 }).Value().Get<Vec3>()
+          == Vec3{ 2.0f, 6.0f, 12.0f });
+
+    // Name-only lookup still returns the first overload.
+    CHECK(FindMethod(TypeOf<Vec3>(), "Mul") != nullptr);
+}
+
 TEST_CASE("core-reflection: types are in the global registry by qualified name")
 {
     EnsureRegistered();

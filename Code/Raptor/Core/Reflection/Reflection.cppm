@@ -161,6 +161,30 @@ export namespace raptor::core
         return nullptr;
     }
 
+    // Overload-aware lookup: matches name + exact parameter types (using the
+    // ParamInfo type info each method carries). Lets several same-named methods
+    // coexist and be resolved by signature.
+    [[nodiscard]] inline const MethodInfo* FindMethod(
+        const TypeInfo& type, const char* name, Span<const TypeInfo* const> paramTypes) noexcept
+    {
+        for (const TypeInfo* t = &type; t != nullptr; t = t->base)
+        {
+            for (u32 i = 0; i < t->methodCount; ++i)
+            {
+                const MethodInfo& method = t->methods[i];
+                if (!detail::CStringEquals(method.name, name)) { continue; }
+                if (method.paramCount != paramTypes.Size()) { continue; }
+                bool match = true;
+                for (u32 p = 0; p < method.paramCount; ++p)
+                {
+                    if (method.params[p].type != paramTypes[p]) { match = false; break; }
+                }
+                if (match) { return &method; }
+            }
+        }
+        return nullptr;
+    }
+
     // =======================================================================
     // Attributes (phase e) — freeform key -> Variant metadata on a type.
     // =======================================================================
@@ -366,6 +390,47 @@ namespace raptor::core::detail
 
     template <auto Func, typename R, typename... A> // static / free function
     struct MethodReflect<Func, R (*)(A...)>
+    {
+        static constexpr bool isStatic = true;
+        static constexpr bool isConst = false;
+        static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
+        static Result<Variant> Invoke(const Instance&, Span<Variant> a)
+        {
+            return InvokeFreeImpl<Func, R, A...>(a, std::index_sequence_for<A...>{});
+        }
+    };
+
+    // noexcept is part of the function type (C++17), so each form needs a
+    // noexcept twin. These delegate to the same invoke implementations.
+    template <auto Member, typename C, typename R, typename... A> // instance method (noexcept)
+    struct MethodReflect<Member, R (C::*)(A...) noexcept>
+    {
+        static constexpr bool isStatic = false;
+        static constexpr bool isConst = false;
+        static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
+        static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
+        {
+            return InvokeMemberImpl<Member, C, R, false, A...>(i, a, std::index_sequence_for<A...>{});
+        }
+    };
+
+    template <auto Member, typename C, typename R, typename... A> // const instance method (noexcept)
+    struct MethodReflect<Member, R (C::*)(A...) const noexcept>
+    {
+        static constexpr bool isStatic = false;
+        static constexpr bool isConst = true;
+        static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
+        static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
+        {
+            return InvokeMemberImpl<Member, C, R, true, A...>(i, a, std::index_sequence_for<A...>{});
+        }
+    };
+
+    template <auto Func, typename R, typename... A> // static / free function (noexcept)
+    struct MethodReflect<Func, R (*)(A...) noexcept>
     {
         static constexpr bool isStatic = true;
         static constexpr bool isConst = false;

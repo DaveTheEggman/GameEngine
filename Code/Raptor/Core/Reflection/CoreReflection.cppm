@@ -45,14 +45,22 @@ namespace raptor::core
         builder.Property<&Vec3::x>("x").Property<&Vec3::y>("y").Property<&Vec3::z>("z")
                .Constant("Zero", Vec3::Zero).Constant("One", Vec3::One)
                .Constant("UnitX", Vec3::UnitX).Constant("UnitY", Vec3::UnitY)
-               .Constant("UnitZ", Vec3::UnitZ);
+               .Constant("UnitZ", Vec3::UnitZ)
+               // Overloaded free functions, disambiguated by an explicit cast.
+               .Method<static_cast<f32 (*)(Vec3, Vec3)>(&Dot)>("Dot")
+               .Method<static_cast<f32 (*)(Vec3)>(&Length)>("Length")
+               .Method<static_cast<Vec3 (*)(Vec3)>(&Normalized)>("Normalized")
+               // Two same-named overloads, resolved by parameter type at lookup.
+               .Method<static_cast<Vec3 (*)(Vec3, Vec3)>(&operator*)>("Mul")
+               .Method<static_cast<Vec3 (*)(Vec3, f32)>(&operator*)>("Mul");
     }
 
     RAPTOR_REFLECT_VALUE(Vec4, "raptor::core")
     {
         builder.Property<&Vec4::x>("x").Property<&Vec4::y>("y")
                .Property<&Vec4::z>("z").Property<&Vec4::w>("w")
-               .Constant("Zero", Vec4::Zero).Constant("One", Vec4::One);
+               .Constant("Zero", Vec4::Zero).Constant("One", Vec4::One)
+               .Method<&Vec4::XYZ>("XYZ");
     }
 
     RAPTOR_REFLECT_VALUE(Color, "raptor::core")
@@ -61,7 +69,9 @@ namespace raptor::core
                .Property<&Color::b>("b").Property<&Color::a>("a")
                .Constant("White", Color::White).Constant("Black", Color::Black)
                .Constant("Red", Color::Red).Constant("Green", Color::Green)
-               .Constant("Blue", Color::Blue).Constant("Transparent", Color::Transparent);
+               .Constant("Blue", Color::Blue).Constant("Transparent", Color::Transparent)
+               .Method<&Color::ToRGBA8>("ToRGBA8")      // const member
+               .Method<&Color::FromRGBA8>("FromRGBA8"); // static factory
     }
 
     RAPTOR_REFLECT_VALUE(Quat, "raptor::core")
@@ -75,17 +85,20 @@ namespace raptor::core
     {
         builder.Property<&Transform::position>("position")
                .Property<&Transform::rotation>("rotation")
-               .Property<&Transform::scale>("scale");
+               .Property<&Transform::scale>("scale")
+               .Method<&Transform::ToMatrix>("ToMatrix");
     }
 
     RAPTOR_REFLECT_VALUE(AABB, "raptor::core")
     {
-        builder.Property<&AABB::min>("min").Property<&AABB::max>("max");
+        builder.Property<&AABB::min>("min").Property<&AABB::max>("max")
+               .Method<&AABB::Center>("Center").Method<&AABB::Contains>("Contains");
     }
 
     RAPTOR_REFLECT_VALUE(Plane, "raptor::core")
     {
-        builder.Property<&Plane::normal>("normal").Property<&Plane::d>("d");
+        builder.Property<&Plane::normal>("normal").Property<&Plane::d>("d")
+               .Method<&Plane::SignedDistance>("SignedDistance");
     }
 
     RAPTOR_REFLECT_VALUE(Rect, "raptor::core")
@@ -97,7 +110,8 @@ namespace raptor::core
     RAPTOR_REFLECT_VALUE(Guid, "raptor::core")
     {
         builder.Property<&Guid::high>("high").Property<&Guid::low>("low")
-               .Constant("Nil", Guid::Nil);
+               .Constant("Nil", Guid::Nil)
+               .Method<&Guid::IsNil>("IsNil");
     }
 }
 
