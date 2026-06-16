@@ -16,7 +16,7 @@ module;
 export module raptor.core:serialization;
 
 import :base;
-import :containers;
+import :array;
 import :string;
 import :io;
 import :math;

@@ -11,7 +11,8 @@ export module raptor.core:filesystem;
 
 import :base;
 import :memory;
-import :containers;
+import :array;
+import :span;
 import :system;
 import :io;
 

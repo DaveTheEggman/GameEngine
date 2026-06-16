@@ -17,7 +17,7 @@ export module raptor.core:threading;
 
 import :base;
 import :memory;
-import :containers;
+import :array;
 import :system;
 
 export namespace raptor::core

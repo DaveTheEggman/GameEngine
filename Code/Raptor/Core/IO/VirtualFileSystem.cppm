@@ -12,7 +12,7 @@ export module raptor.core:vfs;
 import :base;
 import :memory;
 import :smart_ptr;
-import :containers;
+import :array;
 import :string;
 import :path;
 import :system;

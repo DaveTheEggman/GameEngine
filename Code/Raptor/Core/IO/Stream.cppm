@@ -13,7 +13,8 @@ export module raptor.core:io;
 
 import :base;
 import :memory;
-import :containers;
+import :array;
+import :span;
 import :system;
 
 export namespace raptor::core

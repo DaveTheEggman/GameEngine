@@ -14,7 +14,8 @@ export module raptor.core:log;
 
 import :base;
 import :memory;
-import :containers;
+import :array;
+import :ring_buffer;
 import :format;
 import :system;
 import :threading;

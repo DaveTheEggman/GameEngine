@@ -13,7 +13,8 @@ export module raptor.core:reflection;
 
 import :base;
 import :memory;
-import :containers;
+import :array;
+import :span;
 import :rtti;
 import :variant;
 
