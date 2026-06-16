@@ -1167,3 +1167,85 @@ TEST_CASE("rtti: explicit registration and lookup")
     registry.Register(Dog::StaticType());
     CHECK(registry.Count() == count);
 }
+
+// --- RTTI: Variant ---------------------------------------------------------
+
+TEST_CASE("variant: holds small values inline")
+{
+    Variant v = Variant::From(42);
+    CHECK_FALSE(v.IsEmpty());
+    CHECK(v.Is<int>());
+    CHECK_FALSE(v.Is<float>());
+
+    REQUIRE(v.TryGet<int>() != nullptr);
+    CHECK(*v.TryGet<int>() == 42);
+    CHECK(v.TryGet<float>() == nullptr);
+    CHECK(v.Get<int>() == 42);
+
+    CHECK(v.Type() == &TypeOf<int>());
+}
+
+TEST_CASE("variant: holds a Vec3 and a large (heap) value")
+{
+    Variant small = Variant::From(Vec3{ 1.0f, 2.0f, 3.0f });
+    REQUIRE(small.Is<Vec3>());
+    CHECK(*small.TryGet<Vec3>() == Vec3{ 1.0f, 2.0f, 3.0f });
+
+    Variant large = Variant::From(Mat4::Translation(Vec3{ 5.0f, 0.0f, 0.0f }));
+    REQUIRE(large.Is<Mat4>());
+    CHECK(large.TryGet<Mat4>()->m[3][0] == 5.0f);
+}
+
+TEST_CASE("variant: copy and move are independent")
+{
+    Variant a = Variant::From(7);
+    Variant b = a;            // copy
+    *b.TryGet<int>() = 99;
+    CHECK(*a.TryGet<int>() == 7);
+    CHECK(*b.TryGet<int>() == 99);
+
+    Variant c = Move(b);      // move
+    CHECK(*c.TryGet<int>() == 99);
+    CHECK(b.IsEmpty());
+
+    a.Reset();
+    CHECK(a.IsEmpty());
+}
+
+TEST_CASE("variant: manages non-trivial payload lifetimes")
+{
+    struct Tracked
+    {
+        static int& Live() { static int n = 0; return n; }
+        int value;
+        explicit Tracked(int v = 0) : value(v) { ++Live(); }
+        Tracked(const Tracked& o) : value(o.value) { ++Live(); }
+        Tracked(Tracked&& o) noexcept : value(o.value) { ++Live(); }
+        ~Tracked() { --Live(); }
+    };
+
+    Tracked::Live() = 0;
+    {
+        Variant v = Variant::From(Tracked{ 5 });
+        CHECK(Tracked::Live() == 1);
+        Variant copy = v;
+        CHECK(Tracked::Live() == 2);
+        CHECK(copy.TryGet<Tracked>()->value == 5);
+    }
+    CHECK(Tracked::Live() == 0);
+}
+
+TEST_CASE("variant: Instance borrows without owning")
+{
+    int x = 17;
+    Instance inst = Instance::From(&x);
+    CHECK_FALSE(inst.IsEmpty());
+    CHECK(inst.Type() == &TypeOf<int>());
+
+    REQUIRE(inst.TryGet<int>() != nullptr);
+    CHECK(*inst.TryGet<int>() == 17);
+    *inst.TryGet<int>() = 23;
+    CHECK(x == 23); // writes through to the borrowed object
+
+    CHECK(inst.TryGet<float>() == nullptr); // wrong type
+}

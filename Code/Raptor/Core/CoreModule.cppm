@@ -19,3 +19,4 @@ export import :log;
 export import :math;
 export import :matrix;
 export import :rtti;
+export import :variant;

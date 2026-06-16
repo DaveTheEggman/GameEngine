@@ -51,6 +51,23 @@ export namespace raptor::core
                          static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T)), base };
     }
 
+    // Lazily-created TypeInfo for any value type. Identity is the returned
+    // object's address (process-stable); used by Variant/Instance for type
+    // checks. Object-derived types should prefer their StaticType() instead.
+    // (A nice name / stable hashed id for value types comes in a later phase.)
+    template <typename T>
+    [[nodiscard]] const TypeInfo& TypeOf() noexcept
+    {
+        static TypeInfo info = MakeTypeInfo<T>("<value>", "", nullptr);
+        static const bool initialized = []() noexcept
+        {
+            info.id = static_cast<TypeId>(reinterpret_cast<uptr>(&info));
+            return true;
+        }();
+        (void)initialized;
+        return info;
+    }
+
     // =======================================================================
     // Type registry — explicit registration; lookup by id or qualified name.
     // =======================================================================

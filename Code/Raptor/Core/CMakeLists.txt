@@ -32,7 +32,8 @@ target_sources(RaptorCore
             Log/Log.cppm
             Math/Math.cppm
             Math/Matrix.cppm
-            RTTI/RTTI.cppm)
+            RTTI/RTTI.cppm
+            RTTI/Variant.cppm)
 
 # Per-platform System backend (classic TUs).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
