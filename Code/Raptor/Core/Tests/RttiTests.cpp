@@ -81,6 +81,44 @@ TEST_CASE("rtti: GetType is virtual through a base pointer")
     CHECK(dog->GetType()->id == Dog::StaticType().id);
 }
 
+TEST_CASE("variant: object mode owns a ref and reports the dynamic type")
+{
+    RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator());
+    CHECK(dog->RefCount() == 1u);
+
+    {
+        // From a RefPtr<Dog> -> object mode (auto-detected).
+        Variant v = Variant::From(dog);
+        CHECK(v.IsObject());
+        CHECK(dog->RefCount() == 2u);                 // Variant owns a strong ref
+        CHECK(v.Type() == &Dog::StaticType());         // dynamic type, not RefPtr<Object>
+
+        // Borrowed access, with down/up-cast.
+        CHECK(v.AsObject() != nullptr);
+        CHECK(v.AsObject<Animal>() != nullptr);        // upcast
+        CHECK(v.AsObject<Dog>() != nullptr);
+        CHECK(v.AsObject<Cat>() == nullptr);           // wrong branch
+
+        // Copy shares ownership; move transfers it.
+        Variant copy = v;
+        CHECK(dog->RefCount() == 3u);
+        CHECK(copy.Type() == &Dog::StaticType());
+        Variant moved = Move(copy);
+        CHECK(dog->RefCount() == 3u);                  // moved, not added
+        CHECK(moved.AsObject<Dog>() != nullptr);
+    }
+    CHECK(dog->RefCount() == 1u);                      // all Variants released
+}
+
+TEST_CASE("variant: a null object ref falls back to the static type")
+{
+    Variant v = Variant::From(RefPtr<Dog>{});
+    CHECK(v.IsObject());
+    CHECK(v.Type() == &Dog::StaticType());
+    CHECK(v.AsObject() == nullptr);
+    CHECK(v.AsObject<Dog>() == nullptr);
+}
+
 TEST_CASE("rtti: Cast and IsA walk the inheritance chain")
 {
     RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator());

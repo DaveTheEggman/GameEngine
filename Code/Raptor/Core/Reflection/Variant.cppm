@@ -1,7 +1,10 @@
 // Raptor Core — :variant partition
 //
 // Variant  — an owned, type-erased value (small-buffer optimized) used for
-//            property values, method args/returns.
+//            property values, method args/returns. Two modes:
+//              * value mode  — owns a copy of any value type T (SBO + heap).
+//              * object mode — owns a RefPtr<Object> and reports the object's
+//                dynamic GetType() (so scripting can wrap it as the right type).
 // Instance — a borrowed { void*, TypeInfo* } target for member access. Variant
 //            ALWAYS owns its value (no reference mode); see §4.10.
 
@@ -15,7 +18,9 @@ export module raptor.core:variant;
 
 import :base;
 import :allocator;
+import :ref_counted;
 import :type_info;
+import :object;
 
 namespace raptor::core::detail
 {
@@ -45,6 +50,16 @@ namespace raptor::core::detail
         &VariantOps<T>::Copy, &VariantOps<T>::Move, &VariantOps<T>::Destroy,
         &VariantTypeInfo<T>, static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T))
     };
+
+    // Detects RefPtr<U> where U derives Object — routed to Variant's object mode.
+    template <typename T>
+    struct ObjectRef { static constexpr bool value = false; };
+    template <typename U>
+    struct ObjectRef<RefPtr<U>>
+    {
+        static constexpr bool value = std::is_base_of_v<Object, U>;
+        using Pointee = U;
+    };
 }
 
 export namespace raptor::core
@@ -57,14 +72,34 @@ export namespace raptor::core
         template <typename T>
         [[nodiscard]] static Variant From(T value)
         {
-            Variant v;
-            v.m_vtable = &detail::kVariantVTable<T>;
-            void* dst = v.AllocateStorage(sizeof(T), alignof(T));
-            Construct<T>(dst, Move(value));
-            return v;
+            if constexpr (detail::ObjectRef<T>::value)
+            {
+                using U = typename detail::ObjectRef<T>::Pointee;
+                Variant v;
+                // Dynamic type for non-null; static type as a fallback for null.
+                v.m_dynamicType = (value.Get() != nullptr) ? value.Get()->GetType() : &U::StaticType();
+                v.m_vtable = &detail::kVariantVTable<RefPtr<Object>>;
+                void* dst = v.AllocateStorage(sizeof(RefPtr<Object>), alignof(RefPtr<Object>));
+                Construct<RefPtr<Object>>(dst, RefPtr<Object>(value));
+                return v;
+            }
+            else
+            {
+                Variant v;
+                v.m_vtable = &detail::kVariantVTable<T>;
+                void* dst = v.AllocateStorage(sizeof(T), alignof(T));
+                Construct<T>(dst, Move(value));
+                return v;
+            }
         }
 
-        Variant(const Variant& other) : m_vtable(other.m_vtable)
+        // Wrap an object (owning). Reports the object's dynamic type.
+        [[nodiscard]] static Variant FromObject(const RefPtr<Object>& object)
+        {
+            return From<RefPtr<Object>>(object);
+        }
+
+        Variant(const Variant& other) : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable)
         {
             if (m_vtable != nullptr)
             {
@@ -73,7 +108,7 @@ export namespace raptor::core
             }
         }
 
-        Variant(Variant&& other) noexcept : m_vtable(other.m_vtable)
+        Variant(Variant&& other) noexcept : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable)
         {
             if (m_vtable != nullptr)
             {
@@ -91,6 +126,7 @@ export namespace raptor::core
             }
             other.m_vtable = nullptr;
             other.m_isHeap = false;
+            other.m_dynamicType = nullptr;
         }
 
         Variant& operator=(const Variant& other)
@@ -98,6 +134,7 @@ export namespace raptor::core
             if (this != &other)
             {
                 Reset();
+                m_dynamicType = other.m_dynamicType;
                 m_vtable = other.m_vtable;
                 if (m_vtable != nullptr)
                 {
@@ -113,6 +150,7 @@ export namespace raptor::core
             if (this != &other)
             {
                 Reset();
+                m_dynamicType = other.m_dynamicType;
                 m_vtable = other.m_vtable;
                 if (m_vtable != nullptr)
                 {
@@ -130,6 +168,7 @@ export namespace raptor::core
                 }
                 other.m_vtable = nullptr;
                 other.m_isHeap = false;
+                other.m_dynamicType = nullptr;
             }
             return *this;
         }
@@ -148,15 +187,31 @@ export namespace raptor::core
             }
             m_vtable = nullptr;
             m_isHeap = false;
+            m_dynamicType = nullptr;
         }
 
         [[nodiscard]] bool IsEmpty() const noexcept { return m_vtable == nullptr; }
         [[nodiscard]] explicit operator bool() const noexcept { return m_vtable != nullptr; }
 
+        // True if this holds an object (RefPtr<Object>), not a plain value.
+        [[nodiscard]] bool IsObject() const noexcept { return m_dynamicType != nullptr; }
+
         [[nodiscard]] const TypeInfo* Type() const noexcept
         {
+            if (m_dynamicType != nullptr) { return m_dynamicType; } // object: dynamic type
             return m_vtable != nullptr ? m_vtable->typeInfo() : nullptr;
         }
+
+        // Borrowed view of the held object, or null if empty / not an object.
+        [[nodiscard]] Object* AsObject() const noexcept
+        {
+            if (m_dynamicType == nullptr) { return nullptr; }
+            return static_cast<const RefPtr<Object>*>(Data())->Get();
+        }
+
+        // Borrowed, down-cast view; null if not an object or not a T.
+        template <typename T>
+        [[nodiscard]] T* AsObject() const noexcept { return Cast<T>(AsObject()); }
 
         template <typename T>
         [[nodiscard]] bool Is() const noexcept { return m_vtable == &detail::kVariantVTable<T>; }
@@ -220,6 +275,7 @@ export namespace raptor::core
 
         Storage m_storage{};
         bool m_isHeap = false;
+        const TypeInfo* m_dynamicType = nullptr;  // non-null => object mode (dynamic type)
         const detail::VariantVTable* m_vtable = nullptr;
     };
 }
