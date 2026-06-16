@@ -10,6 +10,7 @@ export module raptor.core:geometry;
 
 import :base;
 import :math;
+import :vector;
 
 export namespace raptor::core
 {

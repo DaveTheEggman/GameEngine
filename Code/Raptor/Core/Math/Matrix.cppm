@@ -15,6 +15,7 @@ export module raptor.core:matrix;
 
 import :base;
 import :math;
+import :vector;
 
 export namespace raptor::core
 {

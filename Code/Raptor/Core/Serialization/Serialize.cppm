@@ -13,6 +13,7 @@ export module raptor.core:serialize;
 import :base;
 import :serializer;
 import :math;
+import :vector;
 import :matrix;
 import :string;
 import :array;

@@ -31,6 +31,7 @@ export import :console_sink;
 export import :file_sink;
 export import :ring_log_sink;
 export import :math;
+export import :vector;
 export import :color;
 export import :random;
 export import :matrix;
