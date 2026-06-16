@@ -69,25 +69,49 @@ namespace raptor::script::wren
     }
 
     // --- marshalling -------------------------------------------------------
-    // Engine value -> Wren slot (primitives; non-primitives become null for now).
-    inline void VariantToSlot(WrenVM* vm, int slot, const rc::Variant& value)
+    inline constexpr const char* kModule = "main"; // module the foreign classes live in
+
+    // Engine value -> Wren slot for primitives; true if handled (slot untouched
+    // and false otherwise, so the caller can try a foreign wrap).
+    inline bool TryPrimitiveOut(WrenVM* vm, int slot, const rc::Variant& value)
     {
-        if (const bool* b = value.TryGet<bool>())       { wrenSetSlotBool(vm, slot, *b); return; }
-        if (const rc::f64* d = value.TryGet<rc::f64>()) { wrenSetSlotDouble(vm, slot, *d); return; }
-        if (const rc::f32* f = value.TryGet<rc::f32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*f)); return; }
-        if (const rc::i32* i = value.TryGet<rc::i32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*i)); return; }
-        if (const rc::i64* i = value.TryGet<rc::i64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*i)); return; }
-        if (const rc::u32* u = value.TryGet<rc::u32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return; }
-        if (const rc::u64* u = value.TryGet<rc::u64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return; }
+        if (const bool* b = value.TryGet<bool>())       { wrenSetSlotBool(vm, slot, *b); return true; }
+        if (const rc::f64* d = value.TryGet<rc::f64>()) { wrenSetSlotDouble(vm, slot, *d); return true; }
+        if (const rc::f32* f = value.TryGet<rc::f32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*f)); return true; }
+        if (const rc::i32* i = value.TryGet<rc::i32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*i)); return true; }
+        if (const rc::i64* i = value.TryGet<rc::i64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*i)); return true; }
+        if (const rc::u32* u = value.TryGet<rc::u32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return true; }
+        if (const rc::u64* u = value.TryGet<rc::u64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return true; }
         if (const rc::String* s = value.TryGet<rc::String>())
         {
             const rc::UTF8String utf8 = rc::ToUTF8(s->AsView());
             wrenSetSlotBytes(vm, slot, CStr(utf8), utf8.Size());
-            return;
+            return true;
         }
         if (const rc::UTF8String* s = value.TryGet<rc::UTF8String>())
         {
             wrenSetSlotBytes(vm, slot, CStr(*s), s->Size());
+            return true;
+        }
+        return false;
+    }
+
+    // Engine value -> Wren slot. Primitives go directly; a reflected value/object
+    // is wrapped into a new Wren foreign instance of its class (if one is bound),
+    // sharing/copying the Variant; otherwise null.
+    inline void MarshalOut(WrenVM* vm, int slot, const rc::Variant& value)
+    {
+        if (TryPrimitiveOut(vm, slot, value)) { return; }
+
+        const rc::TypeInfo* type = value.Type();
+        if (type != nullptr && type->name != nullptr &&
+            wrenHasModule(vm, kModule) && wrenHasVariable(vm, kModule, type->name))
+        {
+            const int classSlot = wrenGetSlotCount(vm);
+            wrenEnsureSlots(vm, classSlot + 1);
+            wrenGetVariable(vm, kModule, type->name, classSlot);
+            void* data = wrenSetSlotNewForeign(vm, slot, classSlot, sizeof(rc::Variant*));
+            *static_cast<rc::Variant**>(data) = rc::DefaultAllocator().New<rc::Variant>(value);
             return;
         }
         wrenSetSlotNull(vm, slot);
@@ -99,6 +123,7 @@ namespace raptor::script::wren
         {
             case WREN_TYPE_BOOL: return rc::Variant::From<bool>(wrenGetSlotBool(vm, slot));
             case WREN_TYPE_NUM:  return rc::Variant::From<rc::f64>(wrenGetSlotDouble(vm, slot));
+            case WREN_TYPE_FOREIGN: return **static_cast<rc::Variant**>(wrenGetSlotForeign(vm, slot));
             case WREN_TYPE_STRING:
             {
                 int length = 0;
@@ -234,7 +259,7 @@ namespace raptor::script::wren
             {
                 rc::Instance instance = rc::ToInstance(*SelfOf(vm));
                 const rc::Variant result = rc::GetProperty(*binding.property, instance);
-                VariantToSlot(vm, 0, result);
+                MarshalOut(vm, 0, result);
                 break;
             }
             case BindKind::PropertySet:
@@ -258,12 +283,12 @@ namespace raptor::script::wren
                 if (method->isStatic)
                 {
                     const rc::Result<rc::Variant> r = rc::InvokeStatic(*method, argSpan);
-                    if (r.HasValue()) { VariantToSlot(vm, 0, r.Value()); } else { wrenSetSlotNull(vm, 0); }
+                    if (r.HasValue()) { MarshalOut(vm, 0, r.Value()); } else { wrenSetSlotNull(vm, 0); }
                 }
                 else
                 {
                     const rc::Result<rc::Variant> r = rc::InvokeMethod(*method, rc::ToInstance(*SelfOf(vm)), argSpan);
-                    if (r.HasValue()) { VariantToSlot(vm, 0, r.Value()); } else { wrenSetSlotNull(vm, 0); }
+                    if (r.HasValue()) { MarshalOut(vm, 0, r.Value()); } else { wrenSetSlotNull(vm, 0); }
                 }
                 break;
             }
@@ -362,7 +387,7 @@ namespace raptor::script::wren
             wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
             const rc::UTF8String nm = rc::ToUTF8(function);
             wrenGetVariable(m_vm, CStr(m_module), CStr(nm), 0);
-            for (rc::usize i = 0; i < argc; ++i) { VariantToSlot(m_vm, static_cast<int>(i) + 1, args[i]); }
+            for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
 
             char signature[64];
             BuildCallSignature(signature, sizeof(signature), argc);
@@ -427,6 +452,36 @@ namespace raptor::script::wren
                 AppendAscii(src, prop.name);
                 AppendAscii(src, "=(value)\n");
             }
+            for (rc::usize i = 0; i < rc::MethodCount(type); ++i)
+            {
+                const rc::MethodInfo& method = rc::MethodAt(type, i);
+                // Wren overloads only by name+arity, so a same-(name,arity,static)
+                // overload is emitted once; the binding picks the first match.
+                bool duplicate = false;
+                for (rc::usize j = 0; j < i; ++j)
+                {
+                    const rc::MethodInfo& earlier = rc::MethodAt(type, j);
+                    if (earlier.paramCount == method.paramCount &&
+                        earlier.isStatic == method.isStatic && NameEq(earlier.name, method.name))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (duplicate) { continue; }
+
+                AppendAscii(src, "  foreign ");
+                if (method.isStatic) { AppendAscii(src, "static "); }
+                AppendAscii(src, method.name);
+                AppendAscii(src, "(");
+                for (rc::u32 p = 0; p < method.paramCount; ++p)
+                {
+                    AppendAscii(src, "a");
+                    AppendUint(src, p);
+                    if (p + 1 < method.paramCount) { AppendAscii(src, ", "); }
+                }
+                AppendAscii(src, ")\n");
+            }
             AppendAscii(src, "}\n");
         }
 
@@ -462,8 +517,19 @@ namespace raptor::script::wren
         return methods;
     }
 
+    // First method on `type` matching name + static-ness (Wren tells us which).
+    inline const rc::MethodInfo* FindMethodMatching(const rc::TypeInfo& type, const char* name, bool isStatic)
+    {
+        for (rc::usize i = 0; i < rc::MethodCount(type); ++i)
+        {
+            const rc::MethodInfo& m = rc::MethodAt(type, i);
+            if (m.isStatic == isStatic && NameEq(m.name, name)) { return &m; }
+        }
+        return nullptr;
+    }
+
     WrenForeignMethodFn BindForeignMethod(WrenVM* vm, const char*, const char* className,
-                                          bool, const char* signature)
+                                          bool isStatic, const char* signature)
     {
         const WrenContext* ctx = static_cast<const WrenContext*>(wrenGetUserData(vm));
         const rc::TypeInfo* type = (ctx != nullptr) ? ctx->FindType(className) : nullptr;
@@ -482,7 +548,7 @@ namespace raptor::script::wren
             const rc::PropertyInfo* prop = rc::FindProperty(*type, name);
             return (prop != nullptr) ? Reserve(Binding{ BindKind::PropertyGet, type, prop, nullptr }) : nullptr;
         }
-        const rc::MethodInfo* method = rc::FindMethod(*type, name);
+        const rc::MethodInfo* method = FindMethodMatching(*type, name, isStatic);
         return (method != nullptr) ? Reserve(Binding{ BindKind::Method, type, nullptr, method }) : nullptr;
     }
 

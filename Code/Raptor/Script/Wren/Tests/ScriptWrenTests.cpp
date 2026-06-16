@@ -90,6 +90,42 @@ TEST_CASE("wren: reflected value types are usable from script (construct + prope
     CHECK(ctx->GetGlobal(u"X2").Get<f64>() == 9.0);   // setter took effect
 }
 
+TEST_CASE("wren: call reflected methods (static, instance, struct return, foreign args)")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // Static method with foreign args, scalar return: Vec3.Dot(a, b).
+    REQUIRE(ctx->Load(
+        u"var a = Vec3.new(1, 2, 3)\n"
+        u"var b = Vec3.new(4, 5, 6)\n"
+        u"var D = Vec3.Dot(a, b)\n",
+        u"main").IsOk());
+    CHECK(ctx->GetGlobal(u"D").Get<f64>() == 32.0);
+
+    // Instance method returning a struct (Vec4.XYZ() -> Vec3), then read it.
+    REQUIRE(ctx->Load(
+        u"var v4 = Vec4.new(7, 8, 9, 10)\n"
+        u"var xyz = v4.XYZ()\n"
+        u"var XX = xyz.x\n"
+        u"var ZZ = xyz.z\n",
+        u"main").IsOk());
+    CHECK(ctx->GetGlobal(u"XX").Get<f64>() == 7.0);
+    CHECK(ctx->GetGlobal(u"ZZ").Get<f64>() == 9.0);
+
+    // Instance method taking a foreign arg, returning bool; constructed from
+    // foreign args too (AABB.new(Vec3, Vec3)).
+    REQUIRE(ctx->Load(
+        u"var box = AABB.new(Vec3.new(0, 0, 0), Vec3.new(10, 10, 10))\n"
+        u"var inside = box.Contains(Vec3.new(5, 5, 5))\n"
+        u"var outside = box.Contains(Vec3.new(20, 0, 0))\n",
+        u"main").IsOk());
+    CHECK(ctx->GetGlobal(u"inside").Get<bool>() == true);
+    CHECK(ctx->GetGlobal(u"outside").Get<bool>() == false);
+}
+
 TEST_CASE("wren: a default-constructed reflected type")
 {
     RegisterCoreTypes();
