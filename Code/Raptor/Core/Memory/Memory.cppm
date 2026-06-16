@@ -226,10 +226,48 @@ export namespace raptor::core
         byte* m_end = nullptr;
     };
 
+    // A per-allocation header lets a wrapping allocator recover the original
+    // size/base from just the user pointer on Free.
+    namespace detail
+    {
+        struct AllocHeader
+        {
+            usize size;
+            void* base;
+        };
+
+        // Allocates `size` bytes from `backing` behind a header; returns the
+        // user pointer (aligned to >= alignment), or nullptr.
+        [[nodiscard]] inline void* AllocWithHeader(IAllocator& backing, usize size, usize alignment)
+        {
+            const usize effectiveAlign = (alignment >= alignof(AllocHeader)) ? alignment : alignof(AllocHeader);
+            const usize prefix = AlignUp(sizeof(AllocHeader), effectiveAlign);
+            void* base = backing.Allocate(prefix + size, effectiveAlign);
+            if (base == nullptr)
+            {
+                return nullptr;
+            }
+            byte* user = static_cast<byte*>(base) + prefix;
+            auto* header = reinterpret_cast<AllocHeader*>(user - sizeof(AllocHeader));
+            header->size = size;
+            header->base = base;
+            return user;
+        }
+
+        // Frees a headered allocation; returns the size that was recorded.
+        inline usize FreeWithHeader(IAllocator& backing, void* user)
+        {
+            auto* header = reinterpret_cast<AllocHeader*>(static_cast<byte*>(user) - sizeof(AllocHeader));
+            const usize size = header->size;
+            backing.Free(header->base);
+            return size;
+        }
+    }
+
     // =======================================================================
-    // TrackingAllocator — wraps another allocator and counts live allocations
-    // for leak detection. Thread-safe (atomic counters). Tracks counts, not
-    // bytes (which would need a per-allocation header).
+    // TrackingAllocator — wraps another allocator and tracks live/total
+    // allocations and bytes (via a per-allocation header) for leak detection
+    // and budgeting. Thread-safe (atomic counters).
     // =======================================================================
     class TrackingAllocator final : public IAllocator
     {
@@ -238,35 +276,169 @@ export namespace raptor::core
 
         [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
         {
-            void* pointer = m_backing->Allocate(size, alignment);
-            if (pointer != nullptr)
+            void* user = detail::AllocWithHeader(*m_backing, size, alignment);
+            if (user != nullptr)
             {
                 m_liveCount.fetch_add(1, std::memory_order_relaxed);
                 m_totalAllocations.fetch_add(1, std::memory_order_relaxed);
+                const u64 live = m_liveBytes.fetch_add(size, std::memory_order_relaxed) + size;
+                m_totalBytes.fetch_add(size, std::memory_order_relaxed);
+                UpdatePeak(live);
             }
-            return pointer;
+            return user;
         }
 
         void Free(void* pointer) override
         {
             if (pointer != nullptr)
             {
-                m_backing->Free(pointer);
+                const usize size = detail::FreeWithHeader(*m_backing, pointer);
                 m_liveCount.fetch_sub(1, std::memory_order_relaxed);
                 m_totalFrees.fetch_add(1, std::memory_order_relaxed);
+                m_liveBytes.fetch_sub(size, std::memory_order_relaxed);
             }
         }
 
         [[nodiscard]] u64 LiveAllocations() const noexcept { return m_liveCount.load(std::memory_order_relaxed); }
         [[nodiscard]] u64 TotalAllocations() const noexcept { return m_totalAllocations.load(std::memory_order_relaxed); }
         [[nodiscard]] u64 TotalFrees() const noexcept { return m_totalFrees.load(std::memory_order_relaxed); }
+        [[nodiscard]] u64 LiveBytes() const noexcept { return m_liveBytes.load(std::memory_order_relaxed); }
+        [[nodiscard]] u64 TotalBytesAllocated() const noexcept { return m_totalBytes.load(std::memory_order_relaxed); }
+        [[nodiscard]] u64 PeakBytes() const noexcept { return m_peakBytes.load(std::memory_order_relaxed); }
         [[nodiscard]] bool HasLeaks() const noexcept { return LiveAllocations() != 0; }
 
     private:
+        void UpdatePeak(u64 live) noexcept
+        {
+            u64 peak = m_peakBytes.load(std::memory_order_relaxed);
+            while (live > peak && !m_peakBytes.compare_exchange_weak(peak, live, std::memory_order_relaxed)) {}
+        }
+
         IAllocator* m_backing;
         std::atomic<u64> m_liveCount{ 0 };
         std::atomic<u64> m_totalAllocations{ 0 };
         std::atomic<u64> m_totalFrees{ 0 };
+        std::atomic<u64> m_liveBytes{ 0 };
+        std::atomic<u64> m_totalBytes{ 0 };
+        std::atomic<u64> m_peakBytes{ 0 };
+    };
+
+    // =======================================================================
+    // Memory tagging — attribute allocations to a category. Core does NOT
+    // enumerate subsystems (that would couple it to higher layers); instead it
+    // hands out opaque tags by name via a small registry. Higher layers do:
+    //     static const MemoryTag kGraphics = RegisterMemoryTag("Graphics");
+    // Register tags at startup (single-threaded); allocation-time counters are
+    // thread-safe.
+    // =======================================================================
+    struct MemoryTag
+    {
+        u32 value = 0;
+    };
+
+    inline constexpr MemoryTag kDefaultMemoryTag{ 0 };
+
+    namespace detail
+    {
+        inline constexpr usize kMaxMemoryTags = 64;
+
+        struct MemoryTagRegistry
+        {
+            const char* names[kMaxMemoryTags]{};
+            std::atomic<u64> bytes[kMaxMemoryTags]{};
+            std::atomic<u64> counts[kMaxMemoryTags]{};
+            std::atomic<u32> registered{ 1 }; // slot 0 reserved for Default
+
+            MemoryTagRegistry() { names[0] = "Default"; }
+        };
+
+        [[nodiscard]] inline MemoryTagRegistry& MemoryTags() noexcept
+        {
+            static MemoryTagRegistry registry;
+            return registry;
+        }
+
+        [[nodiscard]] inline bool TagNameEquals(const char* a, const char* b) noexcept
+        {
+            usize i = 0;
+            while (a[i] != '\0' && a[i] == b[i]) { ++i; }
+            return a[i] == b[i];
+        }
+    }
+
+    // Returns a stable tag for `name`, creating it on first use (idempotent by
+    // name). Falls back to the Default tag if the registry is full.
+    [[nodiscard]] inline MemoryTag RegisterMemoryTag(const char* name)
+    {
+        detail::MemoryTagRegistry& registry = detail::MemoryTags();
+        const u32 count = registry.registered.load(std::memory_order_acquire);
+        for (u32 i = 0; i < count; ++i)
+        {
+            if (registry.names[i] != nullptr && detail::TagNameEquals(registry.names[i], name))
+            {
+                return MemoryTag{ i };
+            }
+        }
+        const u32 index = registry.registered.fetch_add(1, std::memory_order_acq_rel);
+        if (index >= detail::kMaxMemoryTags)
+        {
+            RAPTOR_ASSERT_MSG(false, "Memory tag registry full");
+            return kDefaultMemoryTag;
+        }
+        registry.names[index] = name;
+        return MemoryTag{ index };
+    }
+
+    [[nodiscard]] inline const char* MemoryTagName(MemoryTag tag) noexcept
+    {
+        const detail::MemoryTagRegistry& registry = detail::MemoryTags();
+        return (tag.value < registry.registered.load(std::memory_order_relaxed)) ? registry.names[tag.value] : "?";
+    }
+
+    [[nodiscard]] inline u32 MemoryTagCount() noexcept
+    {
+        return detail::MemoryTags().registered.load(std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] inline u64 MemoryTagBytes(MemoryTag tag) noexcept
+    {
+        return detail::MemoryTags().bytes[tag.value].load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] inline u64 MemoryTagAllocations(MemoryTag tag) noexcept
+    {
+        return detail::MemoryTags().counts[tag.value].load(std::memory_order_relaxed);
+    }
+
+    // Wraps an allocator and records per-tag byte/allocation totals. Thread-safe.
+    class TaggedAllocator final : public IAllocator
+    {
+    public:
+        TaggedAllocator(IAllocator& backing, MemoryTag tag) noexcept : m_backing(&backing), m_tag(tag.value) {}
+
+        [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
+        {
+            void* user = detail::AllocWithHeader(*m_backing, size, alignment);
+            if (user != nullptr)
+            {
+                detail::MemoryTags().bytes[m_tag].fetch_add(size, std::memory_order_relaxed);
+                detail::MemoryTags().counts[m_tag].fetch_add(1, std::memory_order_relaxed);
+            }
+            return user;
+        }
+
+        void Free(void* pointer) override
+        {
+            if (pointer != nullptr)
+            {
+                const usize size = detail::FreeWithHeader(*m_backing, pointer);
+                detail::MemoryTags().bytes[m_tag].fetch_sub(size, std::memory_order_relaxed);
+                detail::MemoryTags().counts[m_tag].fetch_sub(1, std::memory_order_relaxed);
+            }
+        }
+
+    private:
+        IAllocator* m_backing;
+        u32 m_tag;
     };
 
     // =======================================================================

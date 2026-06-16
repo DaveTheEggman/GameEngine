@@ -315,3 +315,61 @@ TEST_CASE("memory: FrameAllocator double-buffers across frames")
 
     CHECK(frame.Used() >= 16u);
 }
+
+TEST_CASE("memory: TrackingAllocator tracks bytes and peak")
+{
+    TrackingAllocator tracker(DefaultAllocator());
+    CHECK(tracker.LiveBytes() == 0u);
+
+    void* a = tracker.Allocate(100, 16);
+    void* b = tracker.Allocate(50, 16);
+    REQUIRE(a != nullptr);
+    REQUIRE(b != nullptr);
+    CHECK(IsAligned(a, 16));
+    CHECK(tracker.LiveBytes() == 150u);
+    CHECK(tracker.TotalBytesAllocated() == 150u);
+    CHECK(tracker.PeakBytes() == 150u);
+
+    tracker.Free(a);
+    CHECK(tracker.LiveBytes() == 50u);
+    CHECK(tracker.PeakBytes() == 150u); // peak retained after free
+
+    void* c = tracker.Allocate(200, 16);
+    CHECK(tracker.LiveBytes() == 250u);
+    CHECK(tracker.PeakBytes() == 250u);
+    CHECK(tracker.TotalBytesAllocated() == 350u);
+
+    tracker.Free(b);
+    tracker.Free(c);
+    CHECK(tracker.LiveBytes() == 0u);
+    CHECK_FALSE(tracker.HasLeaks());
+}
+
+TEST_CASE("memory: TaggedAllocator records per-tag usage via the registry")
+{
+    // Core knows no subsystems; the caller registers tags by name.
+    const MemoryTag graphics = RegisterMemoryTag("TestGraphics");
+    const MemoryTag audio = RegisterMemoryTag("TestAudio");
+    CHECK(graphics.value != audio.value);
+    // Idempotent: same name -> same tag.
+    CHECK(RegisterMemoryTag("TestGraphics").value == graphics.value);
+    CHECK(std::strcmp(MemoryTagName(graphics), "TestGraphics") == 0);
+
+    const u64 beforeBytes = MemoryTagBytes(graphics);
+    const u64 beforeCount = MemoryTagAllocations(graphics);
+
+    TaggedAllocator gfx(DefaultAllocator(), graphics);
+    void* a = gfx.Allocate(128, 16);
+    void* b = gfx.Allocate(64, 16);
+    REQUIRE(a != nullptr);
+    REQUIRE(b != nullptr);
+
+    CHECK(MemoryTagBytes(graphics) == beforeBytes + 192);
+    CHECK(MemoryTagAllocations(graphics) == beforeCount + 2);
+    CHECK(MemoryTagBytes(audio) == 0u); // other tags unaffected
+
+    gfx.Free(a);
+    gfx.Free(b);
+    CHECK(MemoryTagBytes(graphics) == beforeBytes);
+    CHECK(MemoryTagAllocations(graphics) == beforeCount);
+}
