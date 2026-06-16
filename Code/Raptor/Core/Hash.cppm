@@ -1,7 +1,8 @@
 // Raptor Core — :hash partition
 //
 // Hashing utilities: a byte hash (FNV-1a, 64-bit), an integer finalizer, and
-// the Hash<T> function object used by hashed containers. Includes string
+// the Hash<T> function object used by hashed containers. (Hash specializations
+// for the string types live with those types in :string.)
 // specializations.
 
 module;
@@ -11,7 +12,6 @@ module;
 export module raptor.core:hash;
 
 import :base;
-import :string;
 
 export namespace raptor::core
 {
@@ -58,24 +58,6 @@ export namespace raptor::core
                               "No Hash for this type; specialize raptor::core::Hash.");
                 return HashBytes(&value, sizeof(T));
             }
-        }
-    };
-
-    template <typename CharT>
-    struct Hash<BasicStringView<CharT>>
-    {
-        [[nodiscard]] u64 operator()(BasicStringView<CharT> view) const noexcept
-        {
-            return HashBytes(view.Data(), view.Size() * sizeof(CharT));
-        }
-    };
-
-    template <typename CharT>
-    struct Hash<BasicString<CharT>>
-    {
-        [[nodiscard]] u64 operator()(const BasicString<CharT>& str) const noexcept
-        {
-            return HashBytes(str.Data(), str.Size() * sizeof(CharT));
         }
     };
 }

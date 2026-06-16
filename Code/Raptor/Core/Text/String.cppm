@@ -16,6 +16,7 @@ export module raptor.core:string;
 
 import :base;
 import :allocator;
+import :hash;
 
 export namespace raptor::core
 {
@@ -482,4 +483,23 @@ export namespace raptor::core
         }
         return result;
     }
+    // Hash specializations so the string types work as hashed-container keys.
+    // (The Hash<T> primary template + HashBytes live in :hash.)
+    template <typename CharT>
+    struct Hash<BasicStringView<CharT>>
+    {
+        [[nodiscard]] u64 operator()(BasicStringView<CharT> view) const noexcept
+        {
+            return HashBytes(view.Data(), view.Size() * sizeof(CharT));
+        }
+    };
+
+    template <typename CharT>
+    struct Hash<BasicString<CharT>>
+    {
+        [[nodiscard]] u64 operator()(const BasicString<CharT>& str) const noexcept
+        {
+            return HashBytes(str.Data(), str.Size() * sizeof(CharT));
+        }
+    };
 }
