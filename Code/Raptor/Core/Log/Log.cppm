@@ -1,10 +1,11 @@
 // Raptor Core — :log partition
 //
-// Logging frontend + sinks. Messages are formatted (see :format) into narrow
-// char text and dispatched to registered sinks. Level filtering happens up
-// front so disabled levels cost almost nothing.
+// Logging frontend: log levels, the ILogSink interface, the Logger (sink list
+// + level filter) and the Logf frontend behind the RAPTOR_LOG_* macros.
+// Concrete sinks (Console/File/Ring) live in their own partitions.
 //
-// single-threaded use only for now.
+// Thread-safe: an atomic level filters cheaply on the hot path; a mutex guards
+// sink registration and dispatch.
 
 module;
 #include "Core/Prelude.h"
@@ -12,11 +13,8 @@ module;
 export module raptor.core:log;
 
 import :base;
-import :memory;
 import :array;
-import :ring_buffer;
 import :format;
-import :system;
 import :atomic;
 import :mutex;
 import :scoped_lock;
@@ -70,108 +68,6 @@ export namespace raptor::core
             line.Append('\n');
         }
     }
-
-    // Writes to stdout (stderr for Error/Fatal).
-    class ConsoleSink final : public ILogSink
-    {
-    public:
-        void Write(LogLevel level, const char* category,
-                   const char* message, usize length) noexcept override
-        {
-            FormatBuffer line;
-            detail::FormatLine(line, level, category, message, length);
-
-            if (static_cast<u8>(level) >= static_cast<u8>(LogLevel::Error))
-            {
-                ConsoleWriteError(line.Data(), line.Size());
-            }
-            else
-            {
-                ConsoleWrite(line.Data(), line.Size());
-            }
-        }
-    };
-
-    // Appends to a file.
-    class FileSink final : public ILogSink
-    {
-    public:
-        explicit FileSink(const char* path) noexcept { m_file = FileOpen(path, FileMode::Append); }
-        ~FileSink() override
-        {
-            if (FileIsValid(m_file)) { FileClose(m_file); }
-        }
-
-        FileSink(const FileSink&) = delete;
-        FileSink& operator=(const FileSink&) = delete;
-
-        [[nodiscard]] bool IsOpen() const noexcept { return FileIsValid(m_file); }
-
-        void Write(LogLevel level, const char* category,
-                   const char* message, usize length) noexcept override
-        {
-            if (!FileIsValid(m_file)) { return; }
-
-            FormatBuffer line;
-            detail::FormatLine(line, level, category, message, length);
-            (void)FileWrite(m_file, line.Data(), line.Size());
-        }
-
-    private:
-        FileHandle m_file = kInvalidFile;
-    };
-
-    // Keeps the most recent messages in a ring buffer (for tools / in-app
-    // consoles). Fixed-size records; long category/message text is truncated.
-    struct LogRecord
-    {
-        LogLevel level;
-        char category[64];
-        char message[192];
-    };
-
-    class RingLogSink final : public ILogSink
-    {
-    public:
-        explicit RingLogSink(usize capacity, IAllocator& allocator = DefaultAllocator())
-            : m_records(capacity, allocator) {}
-
-        void Write(LogLevel level, const char* category,
-                   const char* message, usize length) noexcept override
-        {
-            LogRecord record{};
-            record.level = level;
-            CopyTruncated(record.category, sizeof(record.category), category, CStringLen(category));
-            CopyTruncated(record.message, sizeof(record.message), message, length);
-
-            if (m_records.IsFull())
-            {
-                LogRecord discarded;
-                m_records.PopFront(discarded);
-            }
-            m_records.PushBack(record);
-        }
-
-        [[nodiscard]] usize Count() const noexcept { return m_records.Size(); }
-        [[nodiscard]] const LogRecord& Record(usize index) const noexcept { return m_records[index]; }
-
-    private:
-        static usize CStringLen(const char* s) noexcept
-        {
-            usize n = 0;
-            while (s[n] != '\0') { ++n; }
-            return n;
-        }
-
-        static void CopyTruncated(char* dst, usize dstSize, const char* src, usize srcLen) noexcept
-        {
-            const usize n = (srcLen < dstSize - 1) ? srcLen : dstSize - 1;
-            MemCopy(dst, src, n);
-            dst[n] = '\0';
-        }
-
-        RingBuffer<LogRecord> m_records;
-    };
 
     // -----------------------------------------------------------------------
     // Logger — owns the sink list and the active level filter.
