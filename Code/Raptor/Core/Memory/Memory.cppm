@@ -224,4 +224,128 @@ export namespace raptor::core
         byte* m_current = nullptr;
         byte* m_end = nullptr;
     };
+
+    // =======================================================================
+    // PoolAllocator — fixed-size block allocator over a caller buffer.
+    //   O(1) allocate/free via an intrusive free list. Allocations must fit in
+    //   the block size; returns nullptr when exhausted.
+    // =======================================================================
+    class PoolAllocator final : public IAllocator
+    {
+    public:
+        PoolAllocator() noexcept = default;
+
+        PoolAllocator(void* buffer, usize bufferSize, usize blockSize, usize blockAlign = kDefaultAlignment) noexcept
+        {
+            Init(buffer, bufferSize, blockSize, blockAlign);
+        }
+
+        void Init(void* buffer, usize bufferSize, usize blockSize, usize blockAlign = kDefaultAlignment) noexcept
+        {
+            RAPTOR_ASSERT(IsPowerOfTwo(blockAlign));
+
+            // Each free block stores a next-pointer, so blocks are at least pointer-sized.
+            usize actualBlock = (blockSize < sizeof(void*)) ? sizeof(void*) : blockSize;
+            actualBlock = AlignUp(actualBlock, blockAlign);
+            m_blockSize = actualBlock;
+
+            const usize alignedStart = AlignUp(reinterpret_cast<usize>(buffer), blockAlign);
+            byte* cursor = reinterpret_cast<byte*>(alignedStart);
+            byte* end = static_cast<byte*>(buffer) + bufferSize;
+
+            m_freeList = nullptr;
+            m_blockCount = 0;
+            m_freeCount = 0;
+            while (cursor + actualBlock <= end)
+            {
+                *reinterpret_cast<void**>(cursor) = m_freeList;
+                m_freeList = cursor;
+                ++m_blockCount;
+                ++m_freeCount;
+                cursor += actualBlock;
+            }
+        }
+
+        [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
+        {
+            RAPTOR_ASSERT_MSG(size <= m_blockSize, "PoolAllocator allocation exceeds block size");
+            (void)alignment;
+            if (m_freeList == nullptr)
+            {
+                return nullptr;
+            }
+            void* block = m_freeList;
+            m_freeList = *reinterpret_cast<void**>(m_freeList);
+            --m_freeCount;
+            return block;
+        }
+
+        void Free(void* pointer) override
+        {
+            if (pointer == nullptr)
+            {
+                return;
+            }
+            *reinterpret_cast<void**>(pointer) = m_freeList;
+            m_freeList = pointer;
+            ++m_freeCount;
+        }
+
+        [[nodiscard]] usize BlockSize() const noexcept { return m_blockSize; }
+        [[nodiscard]] usize Capacity() const noexcept { return m_blockCount; }
+        [[nodiscard]] usize FreeCount() const noexcept { return m_freeCount; }
+
+    private:
+        void* m_freeList = nullptr;
+        usize m_blockSize = 0;
+        usize m_blockCount = 0;
+        usize m_freeCount = 0;
+    };
+
+    // =======================================================================
+    // StackAllocator — LIFO bump allocator with markers. Free is a no-op;
+    // reclaim back to a saved marker (or Reset to reclaim everything).
+    // =======================================================================
+    class StackAllocator final : public IAllocator
+    {
+    public:
+        using Marker = usize;
+
+        StackAllocator() noexcept = default;
+        StackAllocator(void* buffer, usize size) noexcept { Init(buffer, size); }
+
+        void Init(void* buffer, usize size) noexcept
+        {
+            m_begin = static_cast<byte*>(buffer);
+            m_current = m_begin;
+            m_end = m_begin + size;
+        }
+
+        [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
+        {
+            RAPTOR_ASSERT(IsPowerOfTwo(alignment));
+            const usize aligned = AlignUp(reinterpret_cast<usize>(m_current), alignment);
+            byte* result = reinterpret_cast<byte*>(aligned);
+            if (result + size > m_end)
+            {
+                return nullptr;
+            }
+            m_current = result + size;
+            return result;
+        }
+
+        void Free(void* /*pointer*/) override {}
+
+        [[nodiscard]] Marker GetMarker() const noexcept { return static_cast<Marker>(m_current - m_begin); }
+        void FreeToMarker(Marker marker) noexcept { m_current = m_begin + marker; }
+        void Reset() noexcept { m_current = m_begin; }
+
+        [[nodiscard]] usize Used() const noexcept { return static_cast<usize>(m_current - m_begin); }
+        [[nodiscard]] usize Capacity() const noexcept { return static_cast<usize>(m_end - m_begin); }
+
+    private:
+        byte* m_begin = nullptr;
+        byte* m_current = nullptr;
+        byte* m_end = nullptr;
+    };
 }

@@ -325,6 +325,60 @@ TEST_CASE("memory: LinearAllocator bumps, aligns, exhausts, resets")
     CHECK(c == a); // first allocation lands at the start again
 }
 
+TEST_CASE("memory: PoolAllocator hands out and recycles fixed blocks")
+{
+    alignas(16) byte buffer[256];
+    PoolAllocator pool(buffer, sizeof(buffer), 32, 16);
+
+    const usize capacity = pool.Capacity();
+    CHECK(capacity >= 1u);
+    CHECK(pool.FreeCount() == capacity);
+    CHECK(pool.BlockSize() >= 32u);
+
+    // Drain the pool.
+    Array<void*> blocks;
+    for (usize i = 0; i < capacity; ++i)
+    {
+        void* b = pool.Allocate(32, 16);
+        REQUIRE(b != nullptr);
+        CHECK(IsAligned(b, 16));
+        blocks.PushBack(b);
+    }
+    CHECK(pool.FreeCount() == 0u);
+    CHECK(pool.Allocate(32, 16) == nullptr); // exhausted
+
+    // Free one and reallocate -> recycles the block.
+    void* recycled = blocks[0];
+    pool.Free(recycled);
+    CHECK(pool.FreeCount() == 1u);
+    CHECK(pool.Allocate(32, 16) == recycled);
+}
+
+TEST_CASE("memory: StackAllocator markers reclaim in LIFO order")
+{
+    alignas(16) byte buffer[256];
+    StackAllocator stack(buffer, sizeof(buffer));
+
+    void* a = stack.Allocate(16, 16);
+    REQUIRE(a != nullptr);
+
+    const StackAllocator::Marker marker = stack.GetMarker();
+    void* b = stack.Allocate(32, 16);
+    void* c = stack.Allocate(32, 16);
+    REQUIRE(b != nullptr);
+    REQUIRE(c != nullptr);
+    CHECK(stack.Used() >= 80u);
+
+    // Roll back to the marker; the next allocation reuses b's address.
+    stack.FreeToMarker(marker);
+    void* b2 = stack.Allocate(32, 16);
+    CHECK(b2 == b);
+
+    stack.Reset();
+    CHECK(stack.Used() == 0u);
+    CHECK(stack.Allocate(16, 16) == a);
+}
+
 // --- Smart pointers --------------------------------------------------------
 
 namespace
