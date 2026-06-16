@@ -24,6 +24,7 @@ export import :variant;
 export import :io;
 export import :path;
 export import :filesystem;
+export import :vfs;
 export import :serialization;
 export import :threading;
 export import :library;

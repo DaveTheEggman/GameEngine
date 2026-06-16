@@ -381,3 +381,41 @@ TEST_CASE("io: directory create / exists / remove")
     CHECK(RemoveDirectory(dir));
     CHECK_FALSE(DirectoryExists(dir));
 }
+
+// --- IO: Virtual file system -----------------------------------------------
+
+TEST_CASE("io: NativeFileSystem and VirtualFileSystem mounting")
+{
+    const char* file = "raptor_vfs_test.tmp";
+    const byte data[] = { byte{ 7 }, byte{ 8 }, byte{ 9 } };
+    REQUIRE(WriteFile(file, Span<const byte>{ data, ArrayCount(data) }).IsOk());
+
+    NativeFileSystem native(u8".");
+    CHECK(native.Exists(u8"raptor_vfs_test.tmp"));
+    CHECK_FALSE(native.Exists(u8"raptor_vfs_nope.xyz"));
+    {
+        UniquePtr<IStream> stream = native.Open(u8"raptor_vfs_test.tmp", FileMode::Read);
+        REQUIRE(static_cast<bool>(stream));
+        byte buffer[3] = {};
+        CHECK(stream->Read(buffer, 3) == 3u);
+        CHECK(buffer[0] == byte{ 7 });
+        CHECK(buffer[2] == byte{ 9 });
+    }
+
+    // Mount the native FS under a logical prefix.
+    VirtualFileSystem vfs;
+    vfs.Mount(u8"assets", native);
+    CHECK(vfs.Exists(u8"assets/raptor_vfs_test.tmp"));
+    CHECK_FALSE(vfs.Exists(u8"unmounted/whatever"));
+    {
+        UniquePtr<IStream> stream = vfs.Open(u8"assets/raptor_vfs_test.tmp", FileMode::Read);
+        REQUIRE(static_cast<bool>(stream));
+        byte b = byte{ 0 };
+        CHECK(stream->Read(&b, 1) == 1u);
+        CHECK(b == byte{ 7 });
+    }
+    // Unmounted prefix -> no stream.
+    CHECK_FALSE(static_cast<bool>(vfs.Open(u8"unmounted/x", FileMode::Read)));
+
+    CHECK(FileDelete(file));
+}
