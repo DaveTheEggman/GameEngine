@@ -372,4 +372,98 @@ export namespace raptor::core
 
         String m_string;
     };
+
+    // =======================================================================
+    // UTF-8 <-> UTF-16 transcoding. Invalid sequences become U+FFFD.
+    // =======================================================================
+    [[nodiscard]] inline String ToWide(UTF8StringView utf8, IAllocator& allocator = DefaultAllocator())
+    {
+        String result(allocator);
+        const usize size = utf8.Size();
+        usize i = 0;
+        while (i < size)
+        {
+            const u8 lead = static_cast<u8>(utf8[i]);
+            u32 codepoint;
+            usize extra;
+            if (lead < 0x80u) { codepoint = lead; extra = 0; }
+            else if ((lead & 0xE0u) == 0xC0u) { codepoint = lead & 0x1Fu; extra = 1; }
+            else if ((lead & 0xF0u) == 0xE0u) { codepoint = lead & 0x0Fu; extra = 2; }
+            else if ((lead & 0xF8u) == 0xF0u) { codepoint = lead & 0x07u; extra = 3; }
+            else { codepoint = 0xFFFDu; extra = 0; }
+            ++i;
+
+            bool valid = true;
+            for (usize k = 0; k < extra; ++k)
+            {
+                if (i >= size || (static_cast<u8>(utf8[i]) & 0xC0u) != 0x80u) { valid = false; break; }
+                codepoint = (codepoint << 6) | (static_cast<u8>(utf8[i]) & 0x3Fu);
+                ++i;
+            }
+            if (!valid) { codepoint = 0xFFFDu; }
+
+            if (codepoint <= 0xFFFFu)
+            {
+                result.PushBack(static_cast<widechar>(codepoint));
+            }
+            else
+            {
+                codepoint -= 0x10000u;
+                result.PushBack(static_cast<widechar>(0xD800u + (codepoint >> 10)));
+                result.PushBack(static_cast<widechar>(0xDC00u + (codepoint & 0x3FFu)));
+            }
+        }
+        return result;
+    }
+
+    [[nodiscard]] inline UTF8String ToUTF8(StringView wide, IAllocator& allocator = DefaultAllocator())
+    {
+        UTF8String result(allocator);
+        const usize size = wide.Size();
+        usize i = 0;
+        while (i < size)
+        {
+            u32 codepoint = static_cast<u16>(wide[i]);
+            ++i;
+            if (codepoint >= 0xD800u && codepoint <= 0xDBFFu) // high surrogate
+            {
+                if (i < size)
+                {
+                    const u16 low = static_cast<u16>(wide[i]);
+                    if (low >= 0xDC00u && low <= 0xDFFFu)
+                    {
+                        codepoint = 0x10000u + ((codepoint - 0xD800u) << 10) + (low - 0xDC00u);
+                        ++i;
+                    }
+                    else { codepoint = 0xFFFDu; }
+                }
+                else { codepoint = 0xFFFDu; }
+            }
+            else if (codepoint >= 0xDC00u && codepoint <= 0xDFFFu) { codepoint = 0xFFFDu; } // lone low
+
+            if (codepoint < 0x80u)
+            {
+                result.PushBack(static_cast<utf8char>(codepoint));
+            }
+            else if (codepoint < 0x800u)
+            {
+                result.PushBack(static_cast<utf8char>(0xC0u | (codepoint >> 6)));
+                result.PushBack(static_cast<utf8char>(0x80u | (codepoint & 0x3Fu)));
+            }
+            else if (codepoint < 0x10000u)
+            {
+                result.PushBack(static_cast<utf8char>(0xE0u | (codepoint >> 12)));
+                result.PushBack(static_cast<utf8char>(0x80u | ((codepoint >> 6) & 0x3Fu)));
+                result.PushBack(static_cast<utf8char>(0x80u | (codepoint & 0x3Fu)));
+            }
+            else
+            {
+                result.PushBack(static_cast<utf8char>(0xF0u | (codepoint >> 18)));
+                result.PushBack(static_cast<utf8char>(0x80u | ((codepoint >> 12) & 0x3Fu)));
+                result.PushBack(static_cast<utf8char>(0x80u | ((codepoint >> 6) & 0x3Fu)));
+                result.PushBack(static_cast<utf8char>(0x80u | (codepoint & 0x3Fu)));
+            }
+        }
+        return result;
+    }
 }

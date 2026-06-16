@@ -540,3 +540,29 @@ TEST_CASE("intrusivelist: push/iterate/remove without owning")
     list.Clear();
     CHECK(list.IsEmpty());
 }
+
+// --- Containers: transcoding -----------------------------------------------
+
+TEST_CASE("string: UTF-8 <-> UTF-16 transcoding")
+{
+    // ASCII.
+    CHECK(ToWide(u8"hello") == u"hello");
+    CHECK(ToUTF8(u"hello") == u8"hello");
+
+    // U+00E9 (é): 2-byte UTF-8, single UTF-16 unit.
+    CHECK(ToWide(u8"café") == u"café");
+    CHECK(ToUTF8(u"café") == u8"café");
+
+    // U+1F600 (emoji): 4-byte UTF-8, surrogate pair in UTF-16.
+    UTF8String emoji8 = u8"\U0001F600";
+    String emoji16 = ToWide(emoji8);
+    CHECK(emoji16.Size() == 2u); // surrogate pair
+    CHECK(ToUTF8(emoji16) == emoji8);
+
+    // Mixed round-trip both directions.
+    UTF8String mixed8 = u8"aé\U0001F600z";
+    CHECK(ToUTF8(ToWide(mixed8)) == mixed8);
+
+    String mixed16 = u"aéz";
+    CHECK(ToWide(ToUTF8(mixed16)) == mixed16);
+}
