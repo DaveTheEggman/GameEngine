@@ -100,7 +100,8 @@ export namespace raptor::core
     };
 
     // =======================================================================
-    // BasicString — allocator-backed, null-terminated, growable string.
+    // BasicString — null-terminated, growable string with small-string
+    // optimization: short strings live inline; longer ones move to the heap.
     // =======================================================================
     template <typename CharT>
     class BasicString
@@ -109,33 +110,32 @@ export namespace raptor::core
         using ValueType = CharT;
         using View = BasicStringView<CharT>;
 
-        BasicString() noexcept : m_allocator(&DefaultAllocator()) {}
-        explicit BasicString(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+        BasicString() noexcept : m_allocator(&DefaultAllocator()) { m_storage.inlineBuf[0] = CharT(0); }
+        explicit BasicString(IAllocator& allocator) noexcept : m_allocator(&allocator) { m_storage.inlineBuf[0] = CharT(0); }
 
         BasicString(const CharT* str, IAllocator& allocator = DefaultAllocator())
             : m_allocator(&allocator)
         {
+            m_storage.inlineBuf[0] = CharT(0);
             Append(str, CStringLength(str));
         }
 
         BasicString(View view, IAllocator& allocator = DefaultAllocator())
             : m_allocator(&allocator)
         {
+            m_storage.inlineBuf[0] = CharT(0);
             Append(view.Data(), view.Size());
         }
 
         BasicString(const BasicString& other) : m_allocator(other.m_allocator)
         {
-            Append(other.m_data, other.m_size);
+            m_storage.inlineBuf[0] = CharT(0);
+            Append(other.Data(), other.m_size);
         }
 
-        BasicString(BasicString&& other) noexcept
-            : m_data(other.m_data), m_size(other.m_size),
-              m_capacity(other.m_capacity), m_allocator(other.m_allocator)
+        BasicString(BasicString&& other) noexcept : m_allocator(other.m_allocator)
         {
-            other.m_data = nullptr;
-            other.m_size = 0;
-            other.m_capacity = 0;
+            AdoptOrCopy(other);
         }
 
         BasicString& operator=(const BasicString& other)
@@ -143,7 +143,7 @@ export namespace raptor::core
             if (this != &other)
             {
                 Clear();
-                Append(other.m_data, other.m_size);
+                Append(other.Data(), other.m_size);
             }
             return *this;
         }
@@ -152,29 +152,25 @@ export namespace raptor::core
         {
             if (this != &other)
             {
-                Destroy();
-                m_data = other.m_data;
-                m_size = other.m_size;
-                m_capacity = other.m_capacity;
+                FreeHeap();
                 m_allocator = other.m_allocator;
-                other.m_data = nullptr;
-                other.m_size = 0;
-                other.m_capacity = 0;
+                AdoptOrCopy(other);
             }
             return *this;
         }
 
-        ~BasicString() { Destroy(); }
+        ~BasicString() { FreeHeap(); }
 
         // --- capacity ------------------------------------------------------
         [[nodiscard]] usize Size() const noexcept { return m_size; }
         [[nodiscard]] usize Length() const noexcept { return m_size; }
-        [[nodiscard]] usize Capacity() const noexcept { return m_capacity; }
+        [[nodiscard]] usize Capacity() const noexcept { return m_isHeap ? m_storage.heap.capacity : kInlineCapacity; }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_size == 0; }
+        [[nodiscard]] bool IsSmall() const noexcept { return !m_isHeap; }
 
         void Reserve(usize newCapacity)
         {
-            if (newCapacity <= m_capacity)
+            if (newCapacity <= Capacity())
             {
                 return;
             }
@@ -184,27 +180,17 @@ export namespace raptor::core
                 m_allocator->Allocate((newCapacity + 1) * sizeof(CharT), alignof(CharT)));
             RAPTOR_ASSERT_MSG(newData != nullptr, "String allocation failed");
 
-            if (m_data != nullptr)
-            {
-                MemCopy(newData, m_data, (m_size + 1) * sizeof(CharT));
-                m_allocator->Free(m_data);
-            }
-            else
-            {
-                newData[0] = CharT(0);
-            }
-
-            m_data = newData;
-            m_capacity = newCapacity;
+            MemCopy(newData, Data(), (m_size + 1) * sizeof(CharT)); // copy incl. terminator
+            FreeHeap();
+            m_storage.heap.data = newData;
+            m_storage.heap.capacity = newCapacity;
+            m_isHeap = true;
         }
 
         void Clear() noexcept
         {
             m_size = 0;
-            if (m_data != nullptr)
-            {
-                m_data[0] = CharT(0);
-            }
+            Data()[0] = CharT(0);
         }
 
         // --- append --------------------------------------------------------
@@ -215,9 +201,10 @@ export namespace raptor::core
                 return;
             }
             EnsureCapacity(m_size + count);
-            MemCopy(m_data + m_size, str, count * sizeof(CharT));
+            CharT* data = Data();
+            MemCopy(data + m_size, str, count * sizeof(CharT));
             m_size += count;
-            m_data[m_size] = CharT(0);
+            data[m_size] = CharT(0);
         }
 
         void Append(View view) { Append(view.Data(), view.Size()); }
@@ -225,8 +212,9 @@ export namespace raptor::core
         void PushBack(CharT ch)
         {
             EnsureCapacity(m_size + 1);
-            m_data[m_size++] = ch;
-            m_data[m_size] = CharT(0);
+            CharT* data = Data();
+            data[m_size++] = ch;
+            data[m_size] = CharT(0);
         }
 
         BasicString& operator+=(View view) { Append(view); return *this; }
@@ -237,60 +225,88 @@ export namespace raptor::core
         [[nodiscard]] CharT& operator[](usize index) noexcept
         {
             RAPTOR_ASSERT(index < m_size);
-            return m_data[index];
+            return Data()[index];
         }
         [[nodiscard]] const CharT& operator[](usize index) const noexcept
         {
             RAPTOR_ASSERT(index < m_size);
-            return m_data[index];
+            return Data()[index];
         }
 
         // Always null-terminated.
-        [[nodiscard]] const CharT* CStr() const noexcept { return m_data != nullptr ? m_data : &s_empty; }
-        [[nodiscard]] CharT* Data() noexcept { return m_data; }
-        [[nodiscard]] const CharT* Data() const noexcept { return CStr(); }
+        [[nodiscard]] CharT* Data() noexcept { return m_isHeap ? m_storage.heap.data : m_storage.inlineBuf; }
+        [[nodiscard]] const CharT* Data() const noexcept { return m_isHeap ? m_storage.heap.data : m_storage.inlineBuf; }
+        [[nodiscard]] const CharT* CStr() const noexcept { return Data(); }
 
-        [[nodiscard]] View AsView() const noexcept { return View{ CStr(), m_size }; }
+        [[nodiscard]] View AsView() const noexcept { return View{ Data(), m_size }; }
         operator View() const noexcept { return AsView(); }
 
-        [[nodiscard]] CharT* begin() noexcept { return m_data; }
-        [[nodiscard]] CharT* end() noexcept { return m_data + m_size; }
-        [[nodiscard]] const CharT* begin() const noexcept { return CStr(); }
-        [[nodiscard]] const CharT* end() const noexcept { return CStr() + m_size; }
+        [[nodiscard]] CharT* begin() noexcept { return Data(); }
+        [[nodiscard]] CharT* end() noexcept { return Data() + m_size; }
+        [[nodiscard]] const CharT* begin() const noexcept { return Data(); }
+        [[nodiscard]] const CharT* end() const noexcept { return Data() + m_size; }
 
     private:
+        static constexpr usize kInlineBytes = 3 * sizeof(void*);
+        static constexpr usize kInlineCapacity = (kInlineBytes / sizeof(CharT)) > 1
+                                                      ? (kInlineBytes / sizeof(CharT)) - 1 : 1;
+        static constexpr usize kInitialHeapCapacity = (kInlineCapacity + 1) * 2;
+
         void EnsureCapacity(usize required)
         {
-            if (required > m_capacity)
+            const usize capacity = Capacity();
+            if (required > capacity)
             {
-                const usize doubled = m_capacity * 2;
+                const usize doubled = capacity * 2;
                 const usize next = (required > doubled) ? required : doubled;
-                Reserve(next < kInitialCapacity ? kInitialCapacity : next);
+                Reserve(next < kInitialHeapCapacity ? kInitialHeapCapacity : next);
             }
         }
 
-        void Destroy() noexcept
+        void FreeHeap() noexcept
         {
-            if (m_data != nullptr)
+            if (m_isHeap && m_storage.heap.data != nullptr)
             {
-                m_allocator->Free(m_data);
-                m_data = nullptr;
+                m_allocator->Free(m_storage.heap.data);
             }
-            m_size = 0;
-            m_capacity = 0;
+            m_isHeap = false;
         }
 
-        static constexpr usize kInitialCapacity = 16;
-        static constexpr CharT s_empty = CharT(0);
+        // Takes `other`'s buffer (heap) or copies its inline data; leaves
+        // `other` empty. Assumes *this owns no heap buffer.
+        void AdoptOrCopy(BasicString& other) noexcept
+        {
+            if (other.m_isHeap)
+            {
+                m_isHeap = true;
+                m_storage.heap = other.m_storage.heap;
+            }
+            else
+            {
+                m_isHeap = false;
+                MemCopy(m_storage.inlineBuf, other.m_storage.inlineBuf, (other.m_size + 1) * sizeof(CharT));
+            }
+            m_size = other.m_size;
+            other.m_isHeap = false;
+            other.m_size = 0;
+            other.m_storage.inlineBuf[0] = CharT(0);
+        }
 
-        CharT* m_data = nullptr;
+        union Storage
+        {
+            struct
+            {
+                CharT* data;
+                usize capacity;
+            } heap;
+            CharT inlineBuf[kInlineCapacity + 1];
+        };
+
+        Storage m_storage;
         usize m_size = 0;
-        usize m_capacity = 0;
         IAllocator* m_allocator = nullptr;
+        bool m_isHeap = false;
     };
-
-    template <typename CharT>
-    constexpr CharT BasicString<CharT>::s_empty;
 
     // Comparison as free function templates (not hidden friends): friends
     // defined in an exported module class can get strong per-TU symbols under

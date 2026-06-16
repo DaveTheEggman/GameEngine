@@ -566,3 +566,36 @@ TEST_CASE("string: UTF-8 <-> UTF-16 transcoding")
     String mixed16 = u"aéz";
     CHECK(ToWide(ToUTF8(mixed16)) == mixed16);
 }
+
+// --- Containers: String SSO ------------------------------------------------
+
+TEST_CASE("string: small-string optimization avoids heap until it grows")
+{
+    String small = u"hi"; // short -> inline
+    CHECK(small.IsSmall());
+    CHECK(small == u"hi");
+    CHECK(small.CStr()[small.Size()] == u'\0');
+
+    // Build up a long string -> spills to the heap, content preserved.
+    String big;
+    for (int i = 0; i < 100; ++i) { big.PushBack(u'x'); }
+    CHECK_FALSE(big.IsSmall());
+    CHECK(big.Size() == 100u);
+    CHECK(big[0] == u'x');
+    CHECK(big[99] == u'x');
+
+    // Move of a heap string transfers the buffer; move of an inline copies.
+    String movedBig = Move(big);
+    CHECK(movedBig.Size() == 100u);
+    CHECK(big.IsEmpty());
+
+    String movedSmall = Move(small);
+    CHECK(movedSmall == u"hi");
+    CHECK(small.IsEmpty());
+
+    // Copy is independent across the inline/heap boundary.
+    String copy = movedBig;
+    CHECK(copy == movedBig);
+    copy.PushBack(u'!');
+    CHECK_FALSE(copy == movedBig);
+}
