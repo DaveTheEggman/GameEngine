@@ -163,3 +163,36 @@ TEST_CASE("threading: SharedMutex allows shared reads and exclusive writes")
     for (Thread& t : threads) { t.Join(); }
     CHECK(value == static_cast<i64>(kWriters) * kPerWriter);
 }
+
+TEST_CASE("threading: JobSystem runs all enqueued jobs")
+{
+    JobSystem jobs(4);
+    CHECK(jobs.WorkerCount() == 4u);
+
+    Atomic<i64> sum{ 0 };
+    constexpr int kJobs = 1000;
+    for (int i = 0; i < kJobs; ++i)
+    {
+        jobs.Enqueue([&sum, i]() { sum.fetch_add(i); });
+    }
+    jobs.WaitForAll();
+
+    i64 expected = 0;
+    for (int i = 0; i < kJobs; ++i) { expected += i; }
+    CHECK(sum.load() == expected);
+
+    // WaitForAll with nothing pending returns immediately.
+    jobs.WaitForAll();
+    CHECK(sum.load() == expected);
+}
+
+TEST_CASE("threading: JobSystem default worker count is sane")
+{
+    JobSystem jobs;
+    CHECK(jobs.WorkerCount() >= 1u);
+
+    Atomic<int> done{ 0 };
+    for (int i = 0; i < 50; ++i) { jobs.Enqueue([&done]() { done.fetch_add(1); }); }
+    jobs.WaitForAll();
+    CHECK(done.load() == 50);
+}
