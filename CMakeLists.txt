@@ -26,6 +26,7 @@ endif()
 
 # --- Options -----------------------------------------------------------------
 option(RAPTOR_BUILD_TESTS "Build Raptor unit tests" ON)
+option(RAPTOR_BUILD_SAMPLES "Build Raptor sample applications" ON)
 option(RAPTOR_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 
 # Enable testing before any subdirectory so add_test() calls made by modules that
@@ -68,4 +69,8 @@ add_subdirectory(Code/Raptor/Runtime)
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Code/Raptor/Core/Tests)
     add_subdirectory(Code/Raptor/Script/Tests)
+endif()
+
+if(RAPTOR_BUILD_SAMPLES)
+    add_subdirectory(Code/Samples)
 endif()
