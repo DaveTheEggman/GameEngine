@@ -17,7 +17,7 @@ namespace
     bool FormatEquals(const char* expected, const char* fmt, const Args&... args)
     {
         FormatBuffer buffer;
-        FormatTo(buffer, fmt, args...);
+        FormatToV(buffer, fmt, args...);
         return std::strcmp(buffer.Data(), expected) == 0;
     }
 }
@@ -177,4 +177,15 @@ TEST_CASE("log: RingLogSink keeps the most recent records")
     CHECK(std::strcmp(ring.Record(2).message, "m4") == 0);
     CHECK(ring.Record(0).level == LogLevel::Info);
     CHECK(std::strcmp(ring.Record(0).category, "Cat") == 0);
+}
+
+TEST_CASE("format: checked FormatTo validates arg count at compile time")
+{
+    // Correct placeholder/arg count compiles and formats as usual.
+    FormatBuffer buffer;
+    FormatTo(buffer, "a={} b={}", 1, 2);
+    CHECK(std::strcmp(buffer.Data(), "a=1 b=2") == 0);
+
+    // A mismatched count, e.g. FormatTo(buffer, "x={}", 1, 2), would fail to
+    // compile via FormatString's consteval constructor.
 }

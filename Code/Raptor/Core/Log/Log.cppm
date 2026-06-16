@@ -233,7 +233,7 @@ export namespace raptor::core
     // Frontend — formats and dispatches (used by the RAPTOR_LOG_* macros).
     // -----------------------------------------------------------------------
     template <typename... Args>
-    void Logf(LogLevel level, const char* category, const char* fmt, const Args&... args)
+    void Logf(LogLevel level, const char* category, FormatString<Args...> fmt, const Args&... args)
     {
         Logger& logger = GlobalLogger();
         if (!logger.IsEnabled(level))
@@ -242,7 +242,7 @@ export namespace raptor::core
         }
 
         FormatBuffer buffer;
-        FormatTo(buffer, fmt, args...);
+        FormatToV(buffer, fmt.data, args...);
         logger.Dispatch(level, category, buffer.Data(), buffer.Size());
     }
 }

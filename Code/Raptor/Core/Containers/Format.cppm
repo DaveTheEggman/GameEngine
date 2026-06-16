@@ -155,7 +155,8 @@ export namespace raptor::core
     }
 
     // --- format core -------------------------------------------------------
-    inline void FormatTo(FormatBuffer& out, const char* fmt)
+    // --- runtime format (FormatToV): fmt is an ordinary const char* --------
+    inline void FormatToV(FormatBuffer& out, const char* fmt)
     {
         // No remaining args: copy the rest, honouring {{ and }} escapes.
         while (*fmt != '\0')
@@ -167,14 +168,14 @@ export namespace raptor::core
     }
 
     template <typename T, typename... Rest>
-    void FormatTo(FormatBuffer& out, const char* fmt, const T& value, const Rest&... rest)
+    void FormatToV(FormatBuffer& out, const char* fmt, const T& value, const Rest&... rest)
     {
         while (*fmt != '\0')
         {
             if (fmt[0] == '{' && fmt[1] == '}')
             {
                 AppendValue(out, value);
-                FormatTo(out, fmt + 2, rest...);
+                FormatToV(out, fmt + 2, rest...);
                 return;
             }
             if (fmt[0] == '{' && fmt[1] == '{') { out.Append('{'); fmt += 2; continue; }
@@ -182,5 +183,52 @@ export namespace raptor::core
             out.Append(*fmt++);
         }
         // More args than `{}` placeholders: extra args are ignored.
+    }
+
+    // --- compile-time-checked format ---------------------------------------
+    namespace detail
+    {
+        // Calling a non-constexpr function inside a consteval context is a
+        // compile error; the name is what shows up in the diagnostic.
+        inline void Format_argument_count_does_not_match_the_format_string() {}
+    }
+
+    // A format string whose `{}` count is validated at compile time against the
+    // argument pack. Constructed implicitly from a string literal.
+    template <typename... Args>
+    struct BasicFormatString
+    {
+        const char* data;
+
+        template <usize N>
+        consteval BasicFormatString(const char (&str)[N]) : data(str)
+        {
+            usize placeholders = 0;
+            usize i = 0;
+            while (i + 1 < N)
+            {
+                const char c0 = str[i];
+                const char c1 = str[i + 1];
+                if (c0 == '{' && c1 == '{') { i += 2; }
+                else if (c0 == '}' && c1 == '}') { i += 2; }
+                else if (c0 == '{' && c1 == '}') { ++placeholders; i += 2; }
+                else { ++i; }
+            }
+            if (placeholders != sizeof...(Args))
+            {
+                detail::Format_argument_count_does_not_match_the_format_string();
+            }
+        }
+    };
+
+    template <typename... Args>
+    using FormatString = BasicFormatString<std::type_identity_t<Args>...>;
+
+    // Checked entry point: a literal format string's placeholder count must
+    // match the argument count (verified by FormatString's consteval ctor).
+    template <typename... Args>
+    void FormatTo(FormatBuffer& out, FormatString<Args...> fmt, const Args&... args)
+    {
+        FormatToV(out, fmt.data, args...);
     }
 }
