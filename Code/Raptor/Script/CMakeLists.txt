@@ -17,3 +17,6 @@ target_sources(RaptorScript
             IScriptContext.cppm
             IScriptManager.cppm
             RegisterTypes.cppm)
+
+# VM backends.
+add_subdirectory(Wren)
