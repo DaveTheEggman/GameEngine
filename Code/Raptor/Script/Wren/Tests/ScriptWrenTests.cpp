@@ -51,3 +51,41 @@ TEST_CASE("wren: each context is an isolated VM")
     CHECK(a->Load(u"var X = 1", u"main").IsOk());
     CHECK(b->Load(u"var Y = 2", u"main").IsOk());
 }
+
+TEST_CASE("wren: read module globals as Variant")
+{
+    RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
+    REQUIRE(ctx->Load(
+        u"var Answer = 42\n"
+        u"var Name = \"raptor\"\n"
+        u"var Flag = true\n",
+        u"main").IsOk());
+
+    CHECK(ctx->GetGlobal(u"Answer").Get<f64>() == 42.0);   // Wren numbers are doubles
+    CHECK(ctx->GetGlobal(u"Name").Get<String>() == u"raptor");
+    CHECK(ctx->GetGlobal(u"Flag").Get<bool>() == true);
+
+    CHECK(ctx->GetGlobal(u"Missing").IsEmpty());           // absent -> empty Variant
+}
+
+TEST_CASE("wren: call a script function with marshalled args")
+{
+    RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
+    REQUIRE(ctx->Load(
+        u"var add = Fn.new { |a, b| a + b }\n"
+        u"var greeting = Fn.new { \"hi\" }\n",
+        u"main").IsOk());
+
+    CHECK(ctx->HasFunction(u"add"));
+    CHECK_FALSE(ctx->HasFunction(u"nope"));
+
+    // int args marshal to Wren numbers; result comes back as a double.
+    Variant addArgs[] = { Variant::From(2), Variant::From(3) };
+    CHECK(ctx->Call(u"add", Span<Variant>{ addArgs, 2 }).Value().Get<f64>() == 5.0);
+
+    // no-arg call returning a string.
+    CHECK(ctx->Call(u"greeting", Span<Variant>{}).Value().Get<String>() == u"hi");
+
+    // missing callable -> NotFound.
+    CHECK(ctx->Call(u"nope", Span<Variant>{}).Error() == ErrorCode::NotFound);
+}
