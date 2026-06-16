@@ -20,12 +20,16 @@ import :base;
 import :type_info;
 import :type_registry;
 import :reflection;
+import :instance;
+import :variant;
 import :vec2;
 import :vec3;
 import :vec4;
 import :color;
 import :quat;
 import :transform;
+import :mat3;
+import :mat4;
 import :aabb;
 import :plane;
 import :rect;
@@ -33,6 +37,28 @@ import :guid;
 
 namespace raptor::core
 {
+    // Matrices store a C array (f32[N][N]) that can't be a property, so their
+    // elements are exposed via the container facility: a flat, row-major view of
+    // N*N scalars (read m(r,c) as element r*N + c). No change to the math types.
+    template <typename MatT, usize N>
+    void RegisterMatrixElements()
+    {
+        static const ContainerInfo info{
+            &TypeOf<f32>(),
+            [](const Instance&) noexcept -> usize { return N * N; },
+            [](const Instance& i, usize index) -> Variant
+            { return Variant::From<f32>((&static_cast<const MatT*>(i.Pointer())->m[0][0])[index]); },
+            [](const Instance& i, usize index, const Variant& value) -> Status
+            {
+                const f32* typed = value.TryGet<f32>();
+                if (typed == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+                (&static_cast<MatT*>(i.Pointer())->m[0][0])[index] = *typed;
+                return Status{};
+            }
+        };
+        const_cast<TypeInfo&>(TypeOf<MatT>()).container = &info;
+    }
+
     RAPTOR_REFLECT_VALUE(Vec2, "raptor::core")
     {
         builder.Property<&Vec2::x>("x").Property<&Vec2::y>("y")
@@ -89,6 +115,26 @@ namespace raptor::core
                .Method<&Transform::ToMatrix>("ToMatrix");
     }
 
+    // Matrices: no properties (element access is via the container facility,
+    // registered separately); reflect the key static/free operations.
+    RAPTOR_REFLECT_VALUE(Mat4, "raptor::core")
+    {
+        builder.Method<&Mat4::Identity>("Identity")
+               .Method<static_cast<Mat4 (*)(const Mat4&, const Mat4&)>(&operator*)>("Mul")
+               .Method<static_cast<f32 (*)(const Mat4&)>(&Determinant)>("Determinant")
+               .Method<static_cast<Mat4 (*)(const Mat4&)>(&Transpose)>("Transpose")
+               .Method<static_cast<Mat4 (*)(const Mat4&)>(&Inverse)>("Inverse");
+    }
+
+    RAPTOR_REFLECT_VALUE(Mat3, "raptor::core")
+    {
+        builder.Method<&Mat3::Identity>("Identity")
+               .Method<static_cast<Mat3 (*)(const Mat3&, const Mat3&)>(&operator*)>("Mul")
+               .Method<static_cast<f32 (*)(const Mat3&)>(&Determinant)>("Determinant")
+               .Method<static_cast<Mat3 (*)(const Mat3&)>(&Transpose)>("Transpose")
+               .Method<static_cast<Mat3 (*)(const Mat3&)>(&Inverse)>("Inverse");
+    }
+
     RAPTOR_REFLECT_VALUE(AABB, "raptor::core")
     {
         builder.Property<&AABB::min>("min").Property<&AABB::max>("max")
@@ -127,6 +173,10 @@ export namespace raptor::core
         RaptorRegisterValue_Color();     GlobalTypeRegistry().Register(TypeOf<Color>());
         RaptorRegisterValue_Quat();      GlobalTypeRegistry().Register(TypeOf<Quat>());
         RaptorRegisterValue_Transform(); GlobalTypeRegistry().Register(TypeOf<Transform>());
+        RaptorRegisterValue_Mat4();      GlobalTypeRegistry().Register(TypeOf<Mat4>());
+        RaptorRegisterValue_Mat3();      GlobalTypeRegistry().Register(TypeOf<Mat3>());
+        RegisterMatrixElements<Mat4, 4>();  // flat element access (after the patch above)
+        RegisterMatrixElements<Mat3, 3>();
         RaptorRegisterValue_AABB();      GlobalTypeRegistry().Register(TypeOf<AABB>());
         RaptorRegisterValue_Plane();     GlobalTypeRegistry().Register(TypeOf<Plane>());
         RaptorRegisterValue_Rect();      GlobalTypeRegistry().Register(TypeOf<Rect>());

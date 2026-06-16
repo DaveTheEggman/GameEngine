@@ -172,6 +172,40 @@ TEST_CASE("core-reflection: same-named overloads resolved by parameter type")
     CHECK(FindMethod(TypeOf<Vec3>(), "Mul") != nullptr);
 }
 
+TEST_CASE("core-reflection: matrix elements via container + ops as methods")
+{
+    EnsureRegistered();
+    const TypeInfo& mat4 = TypeOf<Mat4>();
+
+    // Element access through the container facility (flat, row-major).
+    REQUIRE(IsContainer(mat4));
+    const ContainerInfo* c = mat4.container;
+    REQUIRE(c != nullptr);
+    CHECK(c->elementType == &TypeOf<f32>());
+
+    Mat4 m = Mat4::Identity();
+    Instance inst = Instance::From(&m);
+    CHECK(ContainerSize(*c, inst) == 16u);
+    CHECK(ContainerGetAt(*c, inst, 0).Get<f32>() == 1.0f);  // m(0,0)
+    CHECK(ContainerGetAt(*c, inst, 1).Get<f32>() == 0.0f);  // m(0,1)
+    CHECK(ContainerSetAt(*c, inst, 5, Variant::From(7.0f)).IsOk());  // m(1,1)
+    CHECK(m.m[1][1] == 7.0f);
+
+    CHECK(ContainerSize(*TypeOf<Mat3>().container, Instance::From(&m)) == 9u);
+
+    // Static factory + free ops reflected as methods.
+    Mat4 id = InvokeStatic(*FindMethod(mat4, "Identity"), Span<Variant>{}).Value().Get<Mat4>();
+    CHECK(NearlyEqual(id, Mat4::Identity()));
+
+    const Mat4 t = Mat4::Translation(Vec3{ 1.0f, 2.0f, 3.0f });
+    Variant mulArgs[] = { Variant::From(t), Variant::From(Mat4::Identity()) };
+    Mat4 product = InvokeStatic(*FindMethod(mat4, "Mul"), Span<Variant>{ mulArgs, 2 }).Value().Get<Mat4>();
+    CHECK(NearlyEqual(product, t));
+
+    Variant detArgs[] = { Variant::From(Mat4::Identity()) };
+    CHECK(InvokeStatic(*FindMethod(mat4, "Determinant"), Span<Variant>{ detArgs, 1 }).Value().Get<f32>() == 1.0f);
+}
+
 TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)")
 {
     EnsureRegistered();
