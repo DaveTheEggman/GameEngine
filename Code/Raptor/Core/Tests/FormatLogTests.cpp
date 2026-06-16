@@ -100,3 +100,44 @@ TEST_CASE("log: dispatch, formatting, and level filtering")
     RAPTOR_LOG_ERROR("Audio", "ignored");
     CHECK(sink.count == 2);
 }
+
+// --- Log: thread safety ----------------------------------------------------
+
+namespace
+{
+    struct CountingSink : ILogSink
+    {
+        Atomic<int> count{ 0 };
+        void Write(LogLevel, const char*, const char*, usize) noexcept override
+        {
+            count.fetch_add(1);
+        }
+    };
+}
+
+TEST_CASE("log: concurrent logging is serialized by the logger")
+{
+    Logger& logger = GlobalLogger();
+    const LogLevel previous = logger.MinLevel();
+    logger.SetMinLevel(LogLevel::Info);
+
+    CountingSink sink;
+    logger.AddSink(&sink);
+
+    constexpr int kThreads = 4;
+    constexpr int kPerThread = 500;
+
+    Array<Thread> threads;
+    for (int i = 0; i < kThreads; ++i)
+    {
+        threads.PushBack(Thread([]() {
+            for (int j = 0; j < kPerThread; ++j) { RAPTOR_LOG_INFO("Worker", "tick {}", j); }
+        }));
+    }
+    for (Thread& t : threads) { t.Join(); }
+
+    logger.RemoveSink(&sink);
+    logger.SetMinLevel(previous);
+
+    CHECK(sink.count.load() == kThreads * kPerThread);
+}

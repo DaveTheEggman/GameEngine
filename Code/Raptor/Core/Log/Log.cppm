@@ -17,6 +17,7 @@ import :memory;
 import :containers;
 import :format;
 import :system;
+import :threading;
 
 export namespace raptor::core
 {
@@ -121,14 +122,22 @@ export namespace raptor::core
     // -----------------------------------------------------------------------
     // Logger — owns the sink list and the active level filter.
     // -----------------------------------------------------------------------
+    // Thread-safe: an atomic level filters cheaply on the hot path; a mutex
+    // guards sink registration and dispatch.
     class Logger
     {
     public:
         // Sinks are non-owning; the caller manages their lifetime.
-        void AddSink(ILogSink* sink) { if (sink != nullptr) { m_sinks.PushBack(sink); } }
+        void AddSink(ILogSink* sink)
+        {
+            if (sink == nullptr) { return; }
+            ScopedLock lock(m_mutex);
+            m_sinks.PushBack(sink);
+        }
 
         void RemoveSink(ILogSink* sink) noexcept
         {
+            ScopedLock lock(m_mutex);
             for (usize i = 0; i < m_sinks.Size(); ++i)
             {
                 if (m_sinks[i] == sink)
@@ -139,16 +148,17 @@ export namespace raptor::core
             }
         }
 
-        void SetMinLevel(LogLevel level) noexcept { m_minLevel = level; }
-        [[nodiscard]] LogLevel MinLevel() const noexcept { return m_minLevel; }
+        void SetMinLevel(LogLevel level) noexcept { m_minLevel.store(level); }
+        [[nodiscard]] LogLevel MinLevel() const noexcept { return m_minLevel.load(); }
 
         [[nodiscard]] bool IsEnabled(LogLevel level) const noexcept
         {
-            return static_cast<u8>(level) >= static_cast<u8>(m_minLevel);
+            return static_cast<u8>(level) >= static_cast<u8>(m_minLevel.load());
         }
 
         void Dispatch(LogLevel level, const char* category, const char* message, usize length) noexcept
         {
+            ScopedLock lock(m_mutex);
             for (ILogSink* sink : m_sinks)
             {
                 sink->Write(level, category, message, length);
@@ -157,7 +167,8 @@ export namespace raptor::core
 
     private:
         Array<ILogSink*> m_sinks;
-        LogLevel m_minLevel = LogLevel::Info;
+        Atomic<LogLevel> m_minLevel{ LogLevel::Info };
+        Mutex m_mutex;
     };
 
     [[nodiscard]] Logger& GlobalLogger() noexcept
