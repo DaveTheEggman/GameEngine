@@ -1,4 +1,4 @@
-// Raptor Core — :log partition
+// Raptor Core — :logger partition
 //
 // Logging frontend: log levels, the ILogSink interface, the Logger (sink list
 // + level filter) and the Logf frontend behind the RAPTOR_LOG_* macros.
@@ -10,7 +10,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module raptor.core:log;
+export module raptor.core:logger;
 
 import :base;
 import :array;

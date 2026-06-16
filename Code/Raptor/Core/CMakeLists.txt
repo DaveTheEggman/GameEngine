@@ -40,7 +40,7 @@ target_sources(RaptorCore
             Containers/HashSet.cppm
             Text/String.cppm
             Text/Format.cppm
-            Log/Log.cppm
+            Log/Logger.cppm
             Log/ConsoleSink.cppm
             Log/FileSink.cppm
             Log/RingLogSink.cppm

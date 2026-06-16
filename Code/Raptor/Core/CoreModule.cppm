@@ -26,7 +26,7 @@ export import :hash;
 export import :hash_map;
 export import :hash_set;
 export import :format;
-export import :log;
+export import :logger;
 export import :console_sink;
 export import :file_sink;
 export import :ring_log_sink;

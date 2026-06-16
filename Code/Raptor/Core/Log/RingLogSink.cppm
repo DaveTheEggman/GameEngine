@@ -11,7 +11,7 @@ export module raptor.core:ring_log_sink;
 import :base;
 import :allocator;
 import :ring_buffer;
-import :log;
+import :logger;
 
 export namespace raptor::core
 {

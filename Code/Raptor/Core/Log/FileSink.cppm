@@ -10,7 +10,7 @@ export module raptor.core:file_sink;
 import :base;
 import :format;
 import :system;
-import :log;
+import :logger;
 
 export namespace raptor::core
 {
