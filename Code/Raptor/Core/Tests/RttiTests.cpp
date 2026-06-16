@@ -377,3 +377,41 @@ TEST_CASE("rtti: type attributes are queryable")
 
     CHECK(FindAttribute(type, "missing") == nullptr);
 }
+
+// --- RTTI: container reflection --------------------------------------------
+
+TEST_CASE("rtti: Array reflected as a container, iterated generically")
+{
+    RegisterArrayType<int>();
+
+    const TypeInfo& type = TypeOf<Array<int>>();
+    REQUIRE(IsContainer(type));
+    const ContainerInfo* container = type.container;
+    REQUIRE(container != nullptr);
+    CHECK(container->elementType == &TypeOf<int>());
+
+    Array<int> values;
+    values.PushBack(10);
+    values.PushBack(20);
+    values.PushBack(30);
+
+    Instance inst = Instance::From(&values);
+
+    CHECK(ContainerSize(*container, inst) == 3u);
+    CHECK(ContainerGetAt(*container, inst, 1).Get<int>() == 20);
+
+    // Generic sum without knowing the element type at the call site.
+    i64 sum = 0;
+    for (usize i = 0; i < ContainerSize(*container, inst); ++i)
+    {
+        sum += ContainerGetAt(*container, inst, i).Get<int>();
+    }
+    CHECK(sum == 60);
+
+    // Generic write-back.
+    CHECK(ContainerSetAt(*container, inst, 0, Variant::From(99)).IsOk());
+    CHECK(values[0] == 99);
+
+    // Type-checked: wrong element type rejected.
+    CHECK(ContainerSetAt(*container, inst, 0, Variant::From(1.5f)).Code() == ErrorCode::InvalidArgument);
+}

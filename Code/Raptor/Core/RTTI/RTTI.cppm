@@ -28,6 +28,7 @@ export namespace raptor::core
     struct PropertyInfo; // fully defined in :variant (phase c)
     struct MethodInfo;   // fully defined in :variant (phase d)
     struct Attribute;    // fully defined in :variant (phase e)
+    struct ContainerInfo; // fully defined in :variant (phase f)
 
     struct EnumValue
     {
@@ -51,6 +52,7 @@ export namespace raptor::core
         u32 enumeratorCount = 0;
         const Attribute* attributes = nullptr;
         u32 attributeCount = 0;
+        const ContainerInfo* container = nullptr; // non-null for reflected containers
     };
 
     // Stable 64-bit identity from the fully-qualified name.

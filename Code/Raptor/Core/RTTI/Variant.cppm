@@ -426,6 +426,55 @@ export namespace raptor::core
         }
         return nullptr;
     }
+
+    // =======================================================================
+    // Container reflection (phase f) — generic indexed access to Array<T>, so
+    // tools/scripting can iterate without knowing the element type statically.
+    // =======================================================================
+    struct ContainerInfo
+    {
+        const TypeInfo* elementType;
+        usize (*size)(const Instance&);
+        Variant (*getAt)(const Instance&, usize index);
+        Status (*setAt)(const Instance&, usize index, const Variant& value);
+    };
+
+    [[nodiscard]] inline bool IsContainer(const TypeInfo& type) noexcept { return type.container != nullptr; }
+
+    [[nodiscard]] inline usize ContainerSize(const ContainerInfo& container, const Instance& instance)
+    {
+        return container.size(instance);
+    }
+
+    [[nodiscard]] inline Variant ContainerGetAt(const ContainerInfo& container, const Instance& instance, usize index)
+    {
+        return container.getAt(instance, index);
+    }
+
+    inline Status ContainerSetAt(const ContainerInfo& container, const Instance& instance, usize index, const Variant& value)
+    {
+        return container.setAt(instance, index, value);
+    }
+
+    // Registers Array<T> as a reflected container (patches TypeOf<Array<T>>()).
+    template <typename T>
+    void RegisterArrayType()
+    {
+        static const ContainerInfo info{
+            &TypeOf<T>(),
+            [](const Instance& i) -> usize { return static_cast<const Array<T>*>(i.Pointer())->Size(); },
+            [](const Instance& i, usize index) -> Variant
+            { return Variant::From<T>((*static_cast<const Array<T>*>(i.Pointer()))[index]); },
+            [](const Instance& i, usize index, const Variant& value) -> Status
+            {
+                const T* typed = value.TryGet<T>();
+                if (typed == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+                (*static_cast<Array<T>*>(i.Pointer()))[index] = *typed;
+                return Status{};
+            }
+        };
+        const_cast<TypeInfo&>(TypeOf<Array<T>>()).container = &info;
+    }
 }
 
 namespace raptor::core::detail
