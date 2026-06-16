@@ -23,6 +23,10 @@ namespace
         RAPTOR_OBJECT(Animal, Object)
     public:
         int legs = 4;
+
+        int AddLegs(int n) { legs += n; return legs; }
+        int GetLegs() const { return legs; }
+        static int DefaultLegs() { return 4; }
     };
 
     class Dog : public Animal
@@ -41,6 +45,9 @@ namespace
 RAPTOR_REFLECT(Animal, "raptor::test")
 {
     builder.Property<&Animal::legs>("legs");
+    builder.Method<&Animal::AddLegs>("AddLegs");
+    builder.Method<&Animal::GetLegs>("GetLegs");
+    builder.Method<&Animal::DefaultLegs>("DefaultLegs");
 }
 RAPTOR_DEFINE_OBJECT(Dog, "raptor::test")
 RAPTOR_DEFINE_OBJECT(Cat, "raptor::test")
@@ -1302,4 +1309,73 @@ TEST_CASE("rtti: inherited property is found through the base chain")
     Instance inst = Instance::From(dog.Get());
     CHECK(SetProperty(*legs, inst, Variant::From(3)).IsOk());
     CHECK(dog->legs == 3);
+}
+
+// --- RTTI: methods ---------------------------------------------------------
+
+TEST_CASE("rtti: instance method invoke with an argument and a return value")
+{
+    RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator()); // legs = 4
+    Instance inst = Instance::From(animal.Get());
+
+    const MethodInfo* add = FindMethod(Animal::StaticType(), "AddLegs");
+    REQUIRE(add != nullptr);
+    CHECK_FALSE(add->isStatic);
+    CHECK_FALSE(add->isConst);
+    CHECK(add->returnType == &TypeOf<int>());
+    CHECK(add->paramCount == 1u);
+    CHECK(add->params[0].type == &TypeOf<int>());
+
+    Variant args[] = { Variant::From(3) };
+    Result<Variant> r = InvokeMethod(*add, inst, Span<Variant>{ args, 1 });
+    REQUIRE(r.HasValue());
+    CHECK(r.Value().Get<int>() == 7);
+    CHECK(animal->legs == 7); // mutated the real object
+}
+
+TEST_CASE("rtti: const method and zero-arg invoke")
+{
+    RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator());
+    Instance inst = Instance::From(animal.Get());
+
+    const MethodInfo* get = FindMethod(Animal::StaticType(), "GetLegs");
+    REQUIRE(get != nullptr);
+    CHECK(get->isConst);
+    CHECK(get->paramCount == 0u);
+
+    Result<Variant> r = InvokeMethod(*get, inst, Span<Variant>{});
+    REQUIRE(r.HasValue());
+    CHECK(r.Value().Get<int>() == 4);
+}
+
+TEST_CASE("rtti: static method invoke needs no instance")
+{
+    const MethodInfo* def = FindMethod(Animal::StaticType(), "DefaultLegs");
+    REQUIRE(def != nullptr);
+    CHECK(def->isStatic);
+
+    Result<Variant> r = InvokeStatic(*def, Span<Variant>{});
+    REQUIRE(r.HasValue());
+    CHECK(r.Value().Get<int>() == 4);
+}
+
+TEST_CASE("rtti: method invoke rejects wrong arity and arg types")
+{
+    RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator());
+    Instance inst = Instance::From(animal.Get());
+    const MethodInfo* add = FindMethod(Animal::StaticType(), "AddLegs");
+    REQUIRE(add != nullptr);
+
+    // Wrong arity.
+    Result<Variant> noArgs = InvokeMethod(*add, inst, Span<Variant>{});
+    CHECK_FALSE(noArgs.HasValue());
+    CHECK(noArgs.Error() == ErrorCode::InvalidArgument);
+
+    // Wrong argument type.
+    Variant wrong[] = { Variant::From(2.5f) };
+    Result<Variant> badType = InvokeMethod(*add, inst, Span<Variant>{ wrong, 1 });
+    CHECK_FALSE(badType.HasValue());
+    CHECK(badType.Error() == ErrorCode::InvalidArgument);
+
+    CHECK(animal->legs == 4); // unchanged after failed calls
 }

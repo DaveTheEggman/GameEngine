@@ -22,6 +22,15 @@ namespace raptor::core
         g_assertHandler = handler;
     }
 
+    void DebugBreak() noexcept
+    {
+#if RAPTOR_COMPILER_MSVC && !RAPTOR_COMPILER_CLANG
+        __debugbreak();
+#else
+        __builtin_trap();
+#endif
+    }
+
     bool ReportAssertFailure(const char* expression, const char* message,
                              const char* file, int line, const char* function) noexcept
     {

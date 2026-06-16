@@ -38,13 +38,14 @@ namespace raptor::core
 
     AssertHandler GetAssertHandler() noexcept;
     void SetAssertHandler(AssertHandler handler) noexcept;
+
+    // Traps into the debugger / aborts. A real function (not a builtin macro)
+    // so it is callable from module code without tripping Clang's
+    // cross-module-builtin ambiguity.
+    void DebugBreak() noexcept;
 }
 
-#if RAPTOR_COMPILER_MSVC && !RAPTOR_COMPILER_CLANG
-    #define RAPTOR_DEBUGBREAK() __debugbreak()
-#else
-    #define RAPTOR_DEBUGBREAK() __builtin_trap()
-#endif
+#define RAPTOR_DEBUGBREAK() ::raptor::core::DebugBreak()
 
 // Core check expression: evaluates `cond`; on failure reports and, if the
 // handler requests it, breaks. Yields void.

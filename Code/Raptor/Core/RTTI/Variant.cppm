@@ -12,6 +12,8 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 #include <cstddef>
+#include <type_traits>
+#include <utility>
 
 export module raptor.core:variant;
 
@@ -341,12 +343,180 @@ export namespace raptor::core
         return nullptr;
     }
 
-    // Holds a type's TypeInfo together with the property array it points into.
-    // Stored as a single static (see RAPTOR_REFLECT); Array's move preserves the
-    // buffer address, so TypeInfo::properties stays valid.
+    // =======================================================================
+    // Methods (RTTI phase d) — instance, const, and static, via Variant args.
+    // =======================================================================
+    struct ParamInfo
+    {
+        const TypeInfo* type;
+        const char* name; // optional; "" when unknown
+    };
+
+    struct MethodInfo
+    {
+        const char* name;
+        const TypeInfo* returnType; // nullptr for void
+        const ParamInfo* params;
+        u32 paramCount;
+        bool isStatic;
+        bool isConst;
+        Result<Variant> (*invoke)(const Instance&, Span<Variant>);
+    };
+
+    [[nodiscard]] inline Result<Variant> InvokeMethod(const MethodInfo& method, const Instance& instance, Span<Variant> args)
+    {
+        return method.invoke(instance, args);
+    }
+
+    // Convenience for static methods (no target object).
+    [[nodiscard]] inline Result<Variant> InvokeStatic(const MethodInfo& method, Span<Variant> args)
+    {
+        return method.invoke(Instance{}, args);
+    }
+
+    [[nodiscard]] inline Span<const MethodInfo> Methods(const TypeInfo& type) noexcept
+    {
+        return Span<const MethodInfo>{ type.methods, type.methodCount };
+    }
+
+    [[nodiscard]] inline const MethodInfo* FindMethod(const TypeInfo& type, const char* name) noexcept
+    {
+        for (const TypeInfo* t = &type; t != nullptr; t = t->base)
+        {
+            for (u32 i = 0; i < t->methodCount; ++i)
+            {
+                if (detail::CStringEquals(t->methods[i].name, name))
+                {
+                    return &t->methods[i];
+                }
+            }
+        }
+        return nullptr;
+    }
+}
+
+namespace raptor::core::detail
+{
+    template <typename... A>
+    [[nodiscard]] Span<const ParamInfo> MakeParams()
+    {
+        if constexpr (sizeof...(A) == 0)
+        {
+            return Span<const ParamInfo>{};
+        }
+        else
+        {
+            static const ParamInfo params[] = { ParamInfo{ &TypeOf<std::remove_cvref_t<A>>(), "" }... };
+            return Span<const ParamInfo>{ params, sizeof...(A) };
+        }
+    }
+
+    template <typename... A, usize... I>
+    [[nodiscard]] bool ArgsMatch(Span<Variant>& args, std::index_sequence<I...>)
+    {
+        return ( ... && (args[I].template TryGet<std::remove_cvref_t<A>>() != nullptr) );
+    }
+
+    template <auto Member, typename C, typename R, bool Const, typename... A, usize... I>
+    Result<Variant> InvokeMemberImpl(const Instance& instance, Span<Variant> args, std::index_sequence<I...> seq)
+    {
+        if (args.Size() != sizeof...(A)) { return Err(ErrorCode::InvalidArgument); }
+        if constexpr (sizeof...(A) > 0)
+        {
+            if (!ArgsMatch<A...>(args, seq)) { return Err(ErrorCode::InvalidArgument); }
+        }
+        using ObjectType = std::conditional_t<Const, const C, C>;
+        ObjectType* object = static_cast<ObjectType*>(instance.Pointer());
+        if constexpr (std::is_void_v<R>)
+        {
+            (object->*Member)(*args[I].template TryGet<std::remove_cvref_t<A>>()...);
+            return Variant{};
+        }
+        else
+        {
+            return Variant::From<std::remove_cvref_t<R>>(
+                (object->*Member)(*args[I].template TryGet<std::remove_cvref_t<A>>()...));
+        }
+    }
+
+    template <auto Func, typename R, typename... A, usize... I>
+    Result<Variant> InvokeFreeImpl(Span<Variant> args, std::index_sequence<I...> seq)
+    {
+        if (args.Size() != sizeof...(A)) { return Err(ErrorCode::InvalidArgument); }
+        if constexpr (sizeof...(A) > 0)
+        {
+            if (!ArgsMatch<A...>(args, seq)) { return Err(ErrorCode::InvalidArgument); }
+        }
+        if constexpr (std::is_void_v<R>)
+        {
+            Func(*args[I].template TryGet<std::remove_cvref_t<A>>()...);
+            return Variant{};
+        }
+        else
+        {
+            return Variant::From<std::remove_cvref_t<R>>(Func(*args[I].template TryGet<std::remove_cvref_t<A>>()...));
+        }
+    }
+
+    template <typename R>
+    [[nodiscard]] const TypeInfo* ReturnTypeInfo() noexcept
+    {
+        if constexpr (std::is_void_v<R>) { return nullptr; }
+        else { return &TypeOf<std::remove_cvref_t<R>>(); }
+    }
+
+    template <auto Member, typename Sig = decltype(Member)>
+    struct MethodReflect;
+
+    template <auto Member, typename C, typename R, typename... A> // instance method
+    struct MethodReflect<Member, R (C::*)(A...)>
+    {
+        static constexpr bool isStatic = false;
+        static constexpr bool isConst = false;
+        static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
+        static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
+        {
+            return InvokeMemberImpl<Member, C, R, false, A...>(i, a, std::index_sequence_for<A...>{});
+        }
+    };
+
+    template <auto Member, typename C, typename R, typename... A> // const instance method
+    struct MethodReflect<Member, R (C::*)(A...) const>
+    {
+        static constexpr bool isStatic = false;
+        static constexpr bool isConst = true;
+        static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
+        static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
+        {
+            return InvokeMemberImpl<Member, C, R, true, A...>(i, a, std::index_sequence_for<A...>{});
+        }
+    };
+
+    template <auto Func, typename R, typename... A> // static / free function
+    struct MethodReflect<Func, R (*)(A...)>
+    {
+        static constexpr bool isStatic = true;
+        static constexpr bool isConst = false;
+        static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
+        static Result<Variant> Invoke(const Instance&, Span<Variant> a)
+        {
+            return InvokeFreeImpl<Func, R, A...>(a, std::index_sequence_for<A...>{});
+        }
+    };
+}
+
+export namespace raptor::core
+{
+    // Holds a type's TypeInfo together with the property/method arrays it points
+    // into. Stored as a single static (see RAPTOR_REFLECT); Array's move
+    // preserves the buffer address, so the TypeInfo pointers stay valid.
     struct TypeData
     {
         Array<PropertyInfo> properties;
+        Array<MethodInfo> methods;
         TypeInfo info{};
     };
 
@@ -368,11 +538,24 @@ export namespace raptor::core
             return *this;
         }
 
+        template <auto Member>
+        TypeBuilder& Method(const char* name)
+        {
+            using Reflect = detail::MethodReflect<Member>;
+            const Span<const ParamInfo> params = Reflect::Params();
+            m_data.methods.PushBack(MethodInfo{
+                name, Reflect::ReturnType(), params.Data(), static_cast<u32>(params.Size()),
+                Reflect::isStatic, Reflect::isConst, &Reflect::Invoke });
+            return *this;
+        }
+
         [[nodiscard]] TypeData Build()
         {
             m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base);
             m_data.info.properties = m_data.properties.Data();
             m_data.info.propertyCount = static_cast<u32>(m_data.properties.Size());
+            m_data.info.methods = m_data.methods.Data();
+            m_data.info.methodCount = static_cast<u32>(m_data.methods.Size());
             return Move(m_data);
         }
 

@@ -26,6 +26,7 @@ export namespace raptor::core
     using TypeId = u64;
 
     struct PropertyInfo; // fully defined in :variant (phase c)
+    struct MethodInfo;   // fully defined in :variant (phase d)
 
     struct TypeInfo
     {
@@ -37,6 +38,8 @@ export namespace raptor::core
         const TypeInfo* base;       // single-inheritance chain; null at the root
         const PropertyInfo* properties = nullptr; // declared in this type (not inherited)
         u32 propertyCount = 0;
+        const MethodInfo* methods = nullptr;
+        u32 methodCount = 0;
     };
 
     // Stable 64-bit identity from the fully-qualified name.
