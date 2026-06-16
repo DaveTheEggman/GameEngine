@@ -52,7 +52,15 @@ target_sources(RaptorCore
             Serialization/Serializer.cppm
             Serialization/BinarySerializer.cppm
             Serialization/Serialize.cppm
-            Threading/Threading.cppm
+            Threading/Atomic.cppm
+            Threading/Thread.cppm
+            Threading/Mutex.cppm
+            Threading/ScopedLock.cppm
+            Threading/SpinLock.cppm
+            Threading/ConditionVariable.cppm
+            Threading/Semaphore.cppm
+            Threading/SharedMutex.cppm
+            Threading/JobSystem.cppm
             Library/DynamicLibrary.cppm)
 
 # Per-platform backends (classic TUs).

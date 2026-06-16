@@ -4,7 +4,6 @@
 // char text and dispatched to registered sinks. Level filtering happens up
 // front so disabled levels cost almost nothing.
 //
-// NOTE: the global logger is not yet thread-safe (Threading is not built);
 // single-threaded use only for now.
 
 module;
@@ -18,7 +17,9 @@ import :array;
 import :ring_buffer;
 import :format;
 import :system;
-import :threading;
+import :atomic;
+import :mutex;
+import :scoped_lock;
 
 export namespace raptor::core
 {
