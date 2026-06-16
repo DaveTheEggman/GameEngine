@@ -240,6 +240,23 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
     CHECK(vec3FirstParam >= 2u);
 }
 
+TEST_CASE("core-reflection: namespace-level constants are registered")
+{
+    EnsureRegistered();
+    ConstantRegistry& cr = GlobalConstantRegistry();
+
+    const NamedConstant* pi = cr.Find("raptor::core", "kPi");
+    REQUIRE(pi != nullptr);
+    CHECK(pi->type == &TypeOf<f32>());
+    CHECK(pi->value.Get<f32>() == kPi);
+
+    CHECK(cr.Find("raptor::core", "kEpsilon")->value.Get<f32>() == kEpsilon);
+    CHECK(cr.Find("raptor::core", "nope") == nullptr);
+    CHECK(cr.Count() >= 8u);
+    CHECK(cr.All().Size() == cr.Count());
+    CHECK(&cr.At(0) == &cr.All()[0]);
+}
+
 TEST_CASE("core-reflection: types are in the global registry by qualified name")
 {
     EnsureRegistered();

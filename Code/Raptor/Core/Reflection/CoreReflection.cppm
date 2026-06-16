@@ -1,14 +1,16 @@
 // Raptor Core — :core_reflection partition
 //
 // Reflects Core's value types (vectors, color, quaternion, transform, geometry
-// primitives, Guid) so they can be introspected and bound to scripting. Plain
-// value types are reflected non-intrusively via RAPTOR_REFLECT_VALUE, which
-// patches each type's TypeOf<T>() in place. Call RegisterCoreTypes() once at
-// startup; it also registers them in the GlobalTypeRegistry.
+// primitives, matrices, Guid) so they can be introspected and bound to
+// scripting. Plain value types are reflected non-intrusively via
+// RAPTOR_REFLECT_VALUE, which patches each type's TypeOf<T>() in place. Call
+// RegisterCoreTypes() once at startup; it registers types in the
+// GlobalTypeRegistry and namespace-level math constants in the
+// GlobalConstantRegistry.
 //
-// Matrices (Mat3/Mat4) are not field-reflected: their storage is a C array
-// (f32[N][N]) which can't be a property. They'll get element-accessor methods
-// in a later pass.
+// Matrices (Mat3/Mat4) expose their f32[N][N] storage through the container
+// facility (flat, row-major) since a C array can't be a property; their ops are
+// reflected as methods.
 
 module;
 #include "Core/Prelude.h"
@@ -19,7 +21,9 @@ export module raptor.core:core_reflection;
 import :base;
 import :type_info;
 import :type_registry;
+import :constant_registry;
 import :reflection;
+import :math;
 import :instance;
 import :variant;
 import :vec2;
@@ -181,5 +185,17 @@ export namespace raptor::core
         RaptorRegisterValue_Plane();     GlobalTypeRegistry().Register(TypeOf<Plane>());
         RaptorRegisterValue_Rect();      GlobalTypeRegistry().Register(TypeOf<Rect>());
         RaptorRegisterValue_Guid();      GlobalTypeRegistry().Register(TypeOf<Guid>());
+
+        // Free-standing (namespace-level) math constants.
+        ConstantRegistry& constants = GlobalConstantRegistry();
+        const TypeInfo* f32Type = &TypeOf<f32>();
+        constants.Register("raptor::core", "kPi", f32Type, Variant::From<f32>(kPi));
+        constants.Register("raptor::core", "kTwoPi", f32Type, Variant::From<f32>(kTwoPi));
+        constants.Register("raptor::core", "kHalfPi", f32Type, Variant::From<f32>(kHalfPi));
+        constants.Register("raptor::core", "kInvPi", f32Type, Variant::From<f32>(kInvPi));
+        constants.Register("raptor::core", "kDegToRad", f32Type, Variant::From<f32>(kDegToRad));
+        constants.Register("raptor::core", "kRadToDeg", f32Type, Variant::From<f32>(kRadToDeg));
+        constants.Register("raptor::core", "kEpsilon", f32Type, Variant::From<f32>(kEpsilon));
+        constants.Register("raptor::core", "kFloatMax", f32Type, Variant::From<f32>(kFloatMax));
     }
 }
