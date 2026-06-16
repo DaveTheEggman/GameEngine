@@ -267,3 +267,59 @@ TEST_CASE("serialization: short read on load is reported")
     CHECK_FALSE(loader.IsOk()); // ran out of bytes
     CHECK(loader.GetStatus().Code() == ErrorCode::Internal);
 }
+
+// --- IO: BufferedStream ----------------------------------------------------
+
+TEST_CASE("io: BufferedStream write then read round-trip (small buffer)")
+{
+    MemoryStream backing;
+    {
+        BufferedStream buffered(backing, 8); // tiny buffer forces many flushes
+        for (i32 i = 0; i < 100; ++i) { CHECK(buffered.WriteValue<i32>(i)); }
+        buffered.Flush();
+    }
+
+    // Verify the bytes actually reached the backing store.
+    CHECK(backing.Size() == static_cast<i64>(100 * sizeof(i32)));
+    CHECK(backing.Seek(0, SeekOrigin::Begin) == 0);
+    for (i32 i = 0; i < 100; ++i)
+    {
+        i32 v = -1;
+        CHECK(backing.ReadValue(v));
+        CHECK(v == i);
+    }
+}
+
+TEST_CASE("io: BufferedStream read refills across the buffer boundary")
+{
+    MemoryStream backing;
+    for (i32 i = 0; i < 50; ++i) { CHECK(backing.WriteValue<i32>(i * 2)); }
+    CHECK(backing.Seek(0, SeekOrigin::Begin) == 0);
+
+    BufferedStream buffered(backing, 8);
+    for (i32 i = 0; i < 50; ++i)
+    {
+        i32 v = -1;
+        CHECK(buffered.ReadValue(v));
+        CHECK(v == i * 2);
+    }
+    i32 extra = 0;
+    CHECK(buffered.Read(&extra, sizeof(extra)) == 0u); // EOF
+}
+
+TEST_CASE("io: BufferedStream write-then-seek-then-read on one stream")
+{
+    MemoryStream backing;
+    BufferedStream buffered(backing, 16);
+
+    for (i32 i = 0; i < 20; ++i) { CHECK(buffered.WriteValue<i32>(i + 100)); }
+
+    // Seek flushes pending writes, then we read back from the start.
+    CHECK(buffered.Seek(0, SeekOrigin::Begin) == 0);
+    for (i32 i = 0; i < 20; ++i)
+    {
+        i32 v = -1;
+        CHECK(buffered.ReadValue(v));
+        CHECK(v == i + 100);
+    }
+}

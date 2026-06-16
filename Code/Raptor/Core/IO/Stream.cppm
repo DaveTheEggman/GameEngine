@@ -164,4 +164,128 @@ export namespace raptor::core
         Array<byte> m_data;
         u64 m_position = 0;
     };
+
+    // =======================================================================
+    // BufferedStream — buffers reads/writes over an underlying IStream to cut
+    // the number of small transfers. Buffers in one direction at a time;
+    // switching direction (or seeking) syncs the buffer first. The underlying
+    // stream must outlive the BufferedStream.
+    // =======================================================================
+    class BufferedStream final : public IStream
+    {
+    public:
+        explicit BufferedStream(IStream& stream, usize bufferSize = 4096)
+            : m_stream(&stream)
+        {
+            m_buffer.Resize(bufferSize == 0 ? 1 : bufferSize);
+        }
+
+        BufferedStream(const BufferedStream&) = delete;
+        BufferedStream& operator=(const BufferedStream&) = delete;
+
+        ~BufferedStream() override { FlushWrites(); }
+
+        [[nodiscard]] bool IsValid() const override { return m_stream->IsValid(); }
+
+        // Flushes any pending writes to the underlying stream.
+        void Flush() { FlushWrites(); }
+
+        [[nodiscard]] u64 Write(const void* source, u64 bytes) override
+        {
+            if (m_mode == Mode::Read) { SyncForSeek(); }
+            m_mode = Mode::Write;
+
+            const byte* src = static_cast<const byte*>(source);
+            u64 remaining = bytes;
+            while (remaining > 0)
+            {
+                const usize space = m_buffer.Size() - m_pos;
+                const usize chunk = (remaining < space) ? static_cast<usize>(remaining) : space;
+                MemCopy(&m_buffer[m_pos], src, chunk);
+                m_pos += chunk;
+                src += chunk;
+                remaining -= chunk;
+                if (m_pos == m_buffer.Size()) { FlushWrites(); }
+            }
+            return bytes;
+        }
+
+        [[nodiscard]] u64 Read(void* destination, u64 bytes) override
+        {
+            if (m_mode == Mode::Write) { FlushWrites(); }
+            m_mode = Mode::Read;
+
+            byte* dst = static_cast<byte*>(destination);
+            u64 produced = 0;
+            while (produced < bytes)
+            {
+                if (m_pos == m_len)
+                {
+                    m_len = static_cast<usize>(m_stream->Read(m_buffer.Data(), m_buffer.Size()));
+                    m_pos = 0;
+                    if (m_len == 0) { break; } // EOF
+                }
+                const usize available = m_len - m_pos;
+                const u64 want = bytes - produced;
+                const usize chunk = (want < available) ? static_cast<usize>(want) : available;
+                MemCopy(dst + produced, &m_buffer[m_pos], chunk);
+                m_pos += chunk;
+                produced += chunk;
+            }
+            return produced;
+        }
+
+        [[nodiscard]] i64 Seek(i64 offset, SeekOrigin origin) override
+        {
+            SyncForSeek();
+            return m_stream->Seek(offset, origin);
+        }
+
+        [[nodiscard]] i64 Tell() const override
+        {
+            const i64 base = m_stream->Tell();
+            if (m_mode == Mode::Write) { return base + static_cast<i64>(m_pos); }
+            if (m_mode == Mode::Read) { return base - static_cast<i64>(m_len - m_pos); }
+            return base;
+        }
+
+        // Note: ignores unflushed pending writes that may extend the file.
+        [[nodiscard]] i64 Size() const override { return m_stream->Size(); }
+
+    private:
+        enum class Mode { None, Read, Write };
+
+        void FlushWrites()
+        {
+            if (m_mode == Mode::Write && m_pos > 0)
+            {
+                (void)m_stream->Write(m_buffer.Data(), m_pos);
+            }
+            m_pos = 0;
+            m_len = 0;
+            m_mode = Mode::None;
+        }
+
+        void SyncForSeek()
+        {
+            if (m_mode == Mode::Write)
+            {
+                FlushWrites();
+            }
+            else if (m_mode == Mode::Read)
+            {
+                const i64 unread = static_cast<i64>(m_len - m_pos);
+                if (unread > 0) { (void)m_stream->Seek(-unread, SeekOrigin::Current); }
+            }
+            m_pos = 0;
+            m_len = 0;
+            m_mode = Mode::None;
+        }
+
+        IStream* m_stream;
+        Array<byte> m_buffer;
+        usize m_pos = 0;  // write: bytes pending; read: cursor into buffer
+        usize m_len = 0;  // read: valid bytes prefetched
+        Mode m_mode = Mode::None;
+    };
 }
