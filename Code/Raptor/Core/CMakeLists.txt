@@ -24,6 +24,12 @@ target_sources(RaptorCore
             RefCounted.cppm
             UniquePtr.cppm
             Memory/Memory.cppm
+            Memory/LinearAllocator.cppm
+            Memory/StackAllocator.cppm
+            Memory/PoolAllocator.cppm
+            Memory/FrameAllocator.cppm
+            Memory/TrackingAllocator.cppm
+            Memory/MemoryTag.cppm
             System/System.cppm
             Containers/Span.cppm
             Containers/Array.cppm

@@ -8,6 +8,12 @@ export module raptor.core;
 
 export import :base;
 export import :memory;
+export import :linear_allocator;
+export import :stack_allocator;
+export import :pool_allocator;
+export import :frame_allocator;
+export import :tracking_allocator;
+export import :memory_tag;
 export import :ref_counted;
 export import :unique_ptr;
 export import :system;
