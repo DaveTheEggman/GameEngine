@@ -974,3 +974,100 @@ TEST_CASE("math: Vec2 and Vec4 basics")
     CHECK(v.w == 1.0f);
     CHECK(Dot(Vec4::One, Vec4::One) == 4.0f);
 }
+
+// --- Math: Mat4 ------------------------------------------------------------
+
+TEST_CASE("math: Mat4 identity and multiply")
+{
+    const Mat4 id = Mat4::Identity();
+    const Mat4 t = Mat4::Translation(Vec3{ 1.0f, 2.0f, 3.0f });
+
+    CHECK(NearlyEqual(id * t, t));
+    CHECK(NearlyEqual(t * id, t));
+
+    static_assert(Mat4::Identity()(0, 0) == 1.0f);
+    static_assert(Mat4::Identity()(0, 1) == 0.0f);
+}
+
+TEST_CASE("math: Mat4 translation lives in the last row (row vectors)")
+{
+    const Mat4 t = Mat4::Translation(Vec3{ 10.0f, 20.0f, 30.0f });
+    CHECK(t.m[3][0] == 10.0f);
+    CHECK(t.m[3][1] == 20.0f);
+    CHECK(t.m[3][2] == 30.0f);
+
+    const Vec3 p = TransformPoint(Vec3{ 1.0f, 1.0f, 1.0f }, t);
+    CHECK(NearlyEqual(p, Vec3{ 11.0f, 21.0f, 31.0f }));
+
+    // Directions ignore translation.
+    CHECK(NearlyEqual(TransformDirection(Vec3{ 1.0f, 0.0f, 0.0f }, t), Vec3{ 1.0f, 0.0f, 0.0f }));
+}
+
+TEST_CASE("math: Mat4 rotation (row vectors): RotationZ(90) maps +X to +Y")
+{
+    const Mat4 rz = Mat4::RotationZ(DegreesToRadians(90.0f));
+    CHECK(NearlyEqual(TransformDirection(Vec3::UnitX, rz), Vec3::UnitY));
+
+    const Mat4 ry = Mat4::RotationY(DegreesToRadians(90.0f));
+    // RotationY(90) maps +Z to +X.
+    CHECK(NearlyEqual(TransformDirection(Vec3::UnitZ, ry), Vec3::UnitX));
+}
+
+TEST_CASE("math: Mat4 composition reads left-to-right (scale then translate)")
+{
+    // v * (S * T): scale first, then translate.
+    const Mat4 st = Mat4::Scale(Vec3{ 2.0f, 2.0f, 2.0f }) * Mat4::Translation(Vec3{ 1.0f, 0.0f, 0.0f });
+    const Vec3 p = TransformPoint(Vec3{ 1.0f, 1.0f, 1.0f }, st);
+    CHECK(NearlyEqual(p, Vec3{ 3.0f, 2.0f, 2.0f })); // (2,2,2) + (1,0,0)
+}
+
+TEST_CASE("math: perspective has the expected projective structure")
+{
+    const Mat4 proj = Mat4::PerspectiveFovRH(DegreesToRadians(90.0f), 1.0f, 1.0f, 100.0f);
+    CHECK(proj.m[2][3] == -1.0f);              // w' = -z (RH)
+    CHECK(NearlyEqual(proj.m[0][0], 1.0f));    // xScale = 1/tan(45) at aspect 1
+}
+
+// --- Math: Quat ------------------------------------------------------------
+
+TEST_CASE("math: Quat rotates vectors and agrees with its matrix")
+{
+    const Quat q = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(90.0f));
+
+    // 90 deg about Z maps +X to +Y.
+    CHECK(NearlyEqual(RotateVector(q, Vec3::UnitX), Vec3::UnitY));
+
+    // Quaternion rotation and its matrix agree.
+    const Mat4 r = RotationMatrix(q);
+    CHECK(NearlyEqual(RotateVector(q, Vec3::UnitX), TransformDirection(Vec3::UnitX, r)));
+    CHECK(NearlyEqual(RotateVector(q, Vec3{ 0.3f, -0.5f, 0.8f }),
+                      TransformDirection(Vec3{ 0.3f, -0.5f, 0.8f }, r)));
+
+    // Identity does nothing.
+    CHECK(NearlyEqual(RotateVector(Quat::Identity, Vec3{ 1.0f, 2.0f, 3.0f }), Vec3{ 1.0f, 2.0f, 3.0f }));
+
+    // Composition: two 45-deg rotations == one 90-deg.
+    const Quat half = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(45.0f));
+    CHECK(NearlyEqual(RotateVector(half * half, Vec3::UnitX), Vec3::UnitY));
+}
+
+// --- Math: Transform -------------------------------------------------------
+
+TEST_CASE("math: Transform composes scale, rotation, translation")
+{
+    Transform xform;
+    xform.scale = Vec3{ 2.0f, 2.0f, 2.0f };
+    xform.rotation = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(90.0f));
+    xform.position = Vec3{ 5.0f, 0.0f, 0.0f };
+
+    const Mat4 m = xform.ToMatrix();
+
+    // (1,0,0) -> scale*2 -> (2,0,0) -> rot90Z -> (0,2,0) -> +translate -> (5,2,0)
+    const Vec3 p = TransformPoint(Vec3::UnitX, m);
+    CHECK(NearlyEqual(p, Vec3{ 5.0f, 2.0f, 0.0f }));
+
+    // Identity transform is a no-op.
+    Transform identity;
+    CHECK(NearlyEqual(TransformPoint(Vec3{ 7.0f, 8.0f, 9.0f }, identity.ToMatrix()),
+                      Vec3{ 7.0f, 8.0f, 9.0f }));
+}

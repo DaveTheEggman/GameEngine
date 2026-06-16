@@ -30,7 +30,8 @@ target_sources(RaptorCore
             Containers/HashMap.cppm
             Containers/Format.cppm
             Log/Log.cppm
-            Math/Math.cppm)
+            Math/Math.cppm
+            Math/Matrix.cppm)
 
 # Per-platform System backend (classic TUs).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
