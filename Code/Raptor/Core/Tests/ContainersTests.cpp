@@ -472,3 +472,71 @@ TEST_CASE("ringbuffer: manages non-trivial element lifetimes")
     }
     CHECK(Item::Live() == 0); // all destroyed
 }
+
+// --- Containers: StringBuilder ---------------------------------------------
+
+TEST_CASE("stringbuilder: builds wide strings with numbers")
+{
+    StringBuilder sb;
+    sb.Append(u"x=").AppendInt(-42).Append(u", ok=").AppendBool(true);
+    CHECK(sb.View() == u"x=-42, ok=true");
+
+    sb.Clear();
+    CHECK(sb.Size() == 0u);
+
+    sb.AppendAscii("count:").Append(u' ').AppendUInt(1000u);
+    CHECK(sb.Str() == u"count: 1000");
+
+    String taken = sb.Take();
+    CHECK(taken == u"count: 1000");
+    CHECK(sb.Size() == 0u); // moved out
+}
+
+// --- Containers: IntrusiveList ---------------------------------------------
+
+namespace
+{
+    struct ListItem : IntrusiveListNode
+    {
+        int value;
+        explicit ListItem(int v) : value(v) {}
+    };
+}
+
+TEST_CASE("intrusivelist: push/iterate/remove without owning")
+{
+    ListItem a{ 1 };
+    ListItem b{ 2 };
+    ListItem c{ 3 };
+
+    IntrusiveList<ListItem> list;
+    CHECK(list.IsEmpty());
+
+    list.PushBack(a);
+    list.PushBack(b);
+    list.PushBack(c);
+    CHECK(list.Size() == 3u);
+    CHECK(list.Front()->value == 1);
+    CHECK(list.Back()->value == 3);
+
+    int sum = 0;
+    for (ListItem& item : list) { sum += item.value; }
+    CHECK(sum == 6);
+
+    // Remove the middle element (O(1), given the node).
+    list.Remove(b);
+    CHECK(list.Size() == 2u);
+    int order[2] = { 0, 0 };
+    int i = 0;
+    for (ListItem& item : list) { order[i++] = item.value; }
+    CHECK(order[0] == 1);
+    CHECK(order[1] == 3);
+
+    // PushFront orders before existing.
+    ListItem head{ 0 };
+    list.PushFront(head);
+    CHECK(list.Front()->value == 0);
+
+    list.Clear();
+    CHECK(list.IsEmpty());
+}

@@ -10,6 +10,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
+#include <charconv>
 
 export module raptor.core:string;
 
@@ -318,4 +319,57 @@ export namespace raptor::core
 
     using UTF8StringView = BasicStringView<utf8char>;
     using UTF8String = BasicString<utf8char>;
+
+    // =======================================================================
+    // StringBuilder — incrementally builds a wide String, including numbers
+    // (formatted as ASCII via <charconv> and widened).
+    // =======================================================================
+    class StringBuilder
+    {
+    public:
+        StringBuilder() = default;
+        explicit StringBuilder(IAllocator& allocator) : m_string(allocator) {}
+
+        StringBuilder& Append(StringView view) { m_string.Append(view); return *this; }
+        StringBuilder& Append(const widechar* str) { m_string.Append(StringView{ str }); return *this; }
+        StringBuilder& Append(widechar ch) { m_string.PushBack(ch); return *this; }
+
+        // Appends an ASCII C-string, widening each byte.
+        StringBuilder& AppendAscii(const char* str)
+        {
+            for (usize i = 0; str[i] != '\0'; ++i)
+            {
+                m_string.PushBack(static_cast<widechar>(static_cast<unsigned char>(str[i])));
+            }
+            return *this;
+        }
+
+        StringBuilder& AppendInt(i64 value) { return AppendChars(value); }
+        StringBuilder& AppendUInt(u64 value) { return AppendChars(value); }
+        StringBuilder& AppendFloat(f64 value) { return AppendChars(value); }
+        StringBuilder& AppendBool(bool value) { return AppendAscii(value ? "true" : "false"); }
+
+        void Clear() noexcept { m_string.Clear(); }
+        [[nodiscard]] usize Size() const noexcept { return m_string.Size(); }
+        [[nodiscard]] StringView View() const noexcept { return m_string.AsView(); }
+
+        // Copy out, or move the built string out (leaving the builder empty).
+        [[nodiscard]] const String& Str() const noexcept { return m_string; }
+        [[nodiscard]] String Take() noexcept { return Move(m_string); }
+
+    private:
+        template <typename T>
+        StringBuilder& AppendChars(T value)
+        {
+            char temp[48];
+            const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
+            for (char* p = temp; p != result.ptr; ++p)
+            {
+                m_string.PushBack(static_cast<widechar>(static_cast<unsigned char>(*p)));
+            }
+            return *this;
+        }
+
+        String m_string;
+    };
 }
