@@ -99,4 +99,15 @@ export namespace raptor::core
     {
         sys::ConsoleWriteError(text, length);
     }
+
+    // --- Dynamic libraries (raw; the Library module wraps these) -----------
+
+    using LibraryHandle = sys::LibraryHandle;
+
+    [[nodiscard]] inline LibraryHandle OpenLibrary(const char* path) noexcept { return sys::LibraryOpen(path); }
+    [[nodiscard]] inline void* GetLibrarySymbol(LibraryHandle handle, const char* name) noexcept
+    {
+        return sys::LibrarySymbol(handle, name);
+    }
+    inline void CloseLibrary(LibraryHandle handle) noexcept { sys::LibraryClose(handle); }
 }

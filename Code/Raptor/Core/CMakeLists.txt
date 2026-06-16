@@ -36,7 +36,8 @@ target_sources(RaptorCore
             RTTI/Variant.cppm
             IO/Stream.cppm
             IO/Serialization.cppm
-            Threading/Threading.cppm)
+            Threading/Threading.cppm
+            Library/Library.cppm)
 
 # Per-platform backends (classic TUs).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -52,6 +53,9 @@ endif()
 # Threading runtime (pthreads on Linux).
 find_package(Threads REQUIRED)
 target_link_libraries(RaptorCore PUBLIC Threads::Threads)
+
+# Dynamic loader (dlopen/dlsym) for the Library module.
+target_link_libraries(RaptorCore PUBLIC ${CMAKE_DL_LIBS})
 
 # Classic headers that cross the module boundary (macros only). Consumers
 # include them as "Core/<Header>.h"; the engine include root is Code/Raptor.

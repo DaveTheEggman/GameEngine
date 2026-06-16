@@ -3,6 +3,7 @@
 #include "Core/System/SystemBackend.h"
 
 #include <ctime>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -148,5 +149,20 @@ namespace raptor::core::sys
     {
         ssize_t result = write(STDERR_FILENO, text, static_cast<std::size_t>(length));
         (void)result;
+    }
+
+    LibraryHandle LibraryOpen(const char* path) noexcept
+    {
+        return dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    }
+
+    void* LibrarySymbol(LibraryHandle handle, const char* name) noexcept
+    {
+        return (handle != nullptr) ? dlsym(handle, name) : nullptr;
+    }
+
+    void LibraryClose(LibraryHandle handle) noexcept
+    {
+        if (handle != nullptr) { dlclose(handle); }
     }
 }

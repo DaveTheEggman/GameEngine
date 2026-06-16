@@ -59,6 +59,13 @@ namespace raptor::core::sys
     // --- Console -----------------------------------------------------------
     void ConsoleWrite(const char* text, std::uint64_t length) noexcept;       // stdout
     void ConsoleWriteError(const char* text, std::uint64_t length) noexcept;   // stderr
+
+    // --- Dynamic libraries (raw; the Library module wraps these) -----------
+    using LibraryHandle = void*; // HMODULE on Win32
+
+    LibraryHandle LibraryOpen(const char* path) noexcept;                 // nullptr on failure
+    void* LibrarySymbol(LibraryHandle handle, const char* name) noexcept; // nullptr if absent
+    void LibraryClose(LibraryHandle handle) noexcept;
 }
 
 #endif // RAPTOR_CORE_SYSTEM_BACKEND_H

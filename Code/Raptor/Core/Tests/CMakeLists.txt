@@ -18,9 +18,15 @@ add_executable(RaptorCoreTests CoreTests.cpp)
 
 target_link_libraries(RaptorCoreTests PRIVATE Raptor::Core doctest::doctest)
 
+# A real shared library for the DynamicLibrary tests to load at runtime.
+add_library(RaptorTestPlugin MODULE TestPlugin.cpp)
+set_target_properties(RaptorTestPlugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_dependencies(RaptorCoreTests RaptorTestPlugin)
+
 target_compile_definitions(RaptorCoreTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN)
+    DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+    RAPTOR_TEST_PLUGIN_PATH="$<TARGET_FILE:RaptorTestPlugin>")
 
 # doctest 2.4.11 includes <ciso646>, which emits a deprecation #warning under
 # C++23. It's third-party noise — de-promote just that warning for this target;
