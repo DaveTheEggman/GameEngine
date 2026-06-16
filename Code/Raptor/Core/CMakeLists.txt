@@ -39,10 +39,13 @@ target_sources(RaptorCore
             Math/Random.cppm
             Math/Matrix.cppm
             Math/Geometry.cppm
-            RTTI/RTTI.cppm
-            RTTI/Variant.cppm
-            RTTI/Instance.cppm
-            RTTI/Reflection.cppm
+            RTTI/TypeInfo.cppm
+            RTTI/TypeRegistry.cppm
+            RTTI/Object.cppm
+            Reflection/Variant.cppm
+            Reflection/Instance.cppm
+            Reflection/Reflection.cppm
+            Reflection/EnumReflection.cppm
             IO/Stream.cppm
             IO/Path.cppm
             IO/FileSystem.cppm
@@ -93,7 +96,7 @@ target_sources(RaptorCore
                 Debug/Assert.h
                 System/SystemBackend.h
                 Log/Log.h
-                RTTI/Reflect.h
+                Reflection/Reflect.h
                 Threading/ThreadBackend.h)
 
 # So `#include "Core/Prelude.h"` resolves from module global-module-fragments.

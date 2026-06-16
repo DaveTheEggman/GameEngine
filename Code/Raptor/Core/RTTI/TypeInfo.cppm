@@ -1,0 +1,82 @@
+// Raptor Core — :type_info partition
+//
+// The type-system foundation: stable type identity (TypeId / TypeInfo),
+// ComputeTypeId, and TypeOf<T>. Registry, Object, casting, and the reflection
+// runtime build on this (Documentation/Planning/Core.md §4.10).
+
+module;
+#include "Core/Prelude.h"
+
+export module raptor.core:type_info;
+
+import :base;
+import :hash;
+import :string;
+
+export namespace raptor::core
+{
+    using TypeId = u64;
+
+    struct PropertyInfo; // fully defined in :variant (phase c)
+    struct MethodInfo;   // fully defined in :variant (phase d)
+    struct Attribute;    // fully defined in :variant (phase e)
+    struct ContainerInfo; // fully defined in :variant (phase f)
+
+    struct EnumValue
+    {
+        const char* name;
+        i64 value;
+    };
+
+    struct TypeInfo
+    {
+        TypeId id;
+        const char* name;          // unqualified, e.g. "Entity"
+        const char* namespaceName; // e.g. "raptor::game"
+        u32 size;
+        u32 align;
+        const TypeInfo* base;       // single-inheritance chain; null at the root
+        const PropertyInfo* properties = nullptr; // declared in this type (not inherited)
+        u32 propertyCount = 0;
+        const MethodInfo* methods = nullptr;
+        u32 methodCount = 0;
+        const EnumValue* enumerators = nullptr; // populated for reflected enums
+        u32 enumeratorCount = 0;
+        const Attribute* attributes = nullptr;
+        u32 attributeCount = 0;
+        const ContainerInfo* container = nullptr; // non-null for reflected containers
+    };
+
+    // Stable 64-bit identity from the fully-qualified name.
+    [[nodiscard]] inline TypeId ComputeTypeId(const char* namespaceName, const char* name) noexcept
+    {
+        u64 hash = HashBytes(namespaceName, CStringLength(namespaceName));
+        hash = HashBytes("::", 2, hash);
+        hash = HashBytes(name, CStringLength(name), hash);
+        return hash;
+    }
+
+    template <typename T>
+    [[nodiscard]] TypeInfo MakeTypeInfo(const char* name, const char* namespaceName, const TypeInfo* base) noexcept
+    {
+        return TypeInfo{ ComputeTypeId(namespaceName, name), name, namespaceName,
+                         static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T)), base };
+    }
+
+    // Lazily-created TypeInfo for any value type. Identity is the returned
+    // object's address (process-stable); used by Variant/Instance for type
+    // checks. Object-derived types should prefer their StaticType() instead.
+    // (A nice name / stable hashed id for value types comes in a later phase.)
+    template <typename T>
+    [[nodiscard]] const TypeInfo& TypeOf() noexcept
+    {
+        static TypeInfo info = MakeTypeInfo<T>("<value>", "", nullptr);
+        static const bool initialized = []() noexcept
+        {
+            info.id = static_cast<TypeId>(reinterpret_cast<uptr>(&info));
+            return true;
+        }();
+        (void)initialized;
+        return info;
+    }
+}

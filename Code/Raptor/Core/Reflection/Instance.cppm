@@ -9,7 +9,7 @@ module;
 export module raptor.core:instance;
 
 import :base;
-import :rtti;
+import :type_info;
 
 export namespace raptor::core
 {

@@ -4,7 +4,7 @@
 
 #include "Core/Debug/Assert.h"
 #include "Core/Log/Log.h"
-#include "Core/RTTI/Reflect.h"
+#include "Core/Reflection/Reflect.h"
 
 import raptor.core;
 

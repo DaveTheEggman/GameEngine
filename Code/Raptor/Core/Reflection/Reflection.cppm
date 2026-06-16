@@ -15,7 +15,7 @@ import :base;
 import :memory;
 import :array;
 import :span;
-import :rtti;
+import :type_info;
 import :variant;
 import :instance;
 
