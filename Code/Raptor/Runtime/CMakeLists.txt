@@ -14,7 +14,8 @@ target_sources(RaptorRuntime
             Plugin.cppm
             PluginHost.cppm)
 
-# Scripting integration (separate target; bridges Runtime + Script).
+# The client Application loop and scripting integration (separate targets).
+add_subdirectory(Client)
 add_subdirectory(Script)
 
 if(RAPTOR_BUILD_TESTS)
