@@ -38,7 +38,10 @@ namespace
     };
 }
 
-RAPTOR_DEFINE_OBJECT(Animal, "raptor::test")
+RAPTOR_REFLECT(Animal, "raptor::test")
+{
+    builder.Property<&Animal::legs>("legs");
+}
 RAPTOR_DEFINE_OBJECT(Dog, "raptor::test")
 RAPTOR_DEFINE_OBJECT(Cat, "raptor::test")
 
@@ -1248,4 +1251,55 @@ TEST_CASE("variant: Instance borrows without owning")
     CHECK(x == 23); // writes through to the borrowed object
 
     CHECK(inst.TryGet<float>() == nullptr); // wrong type
+}
+
+// --- RTTI: properties ------------------------------------------------------
+
+TEST_CASE("rtti: reflected property is discoverable")
+{
+    CHECK(Properties(Animal::StaticType()).Size() == 1u);
+
+    const PropertyInfo* legs = FindProperty(Animal::StaticType(), "legs");
+    REQUIRE(legs != nullptr);
+    CHECK(std::strcmp(legs->name, "legs") == 0);
+    CHECK(legs->type == &TypeOf<int>());
+
+    CHECK(FindProperty(Animal::StaticType(), "missing") == nullptr);
+}
+
+TEST_CASE("rtti: property get/set through an Instance")
+{
+    RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator());
+    const PropertyInfo* legs = FindProperty(Animal::StaticType(), "legs");
+    REQUIRE(legs != nullptr);
+
+    Instance inst = Instance::From(animal.Get());
+
+    Variant got = GetProperty(*legs, inst);
+    REQUIRE(got.Is<int>());
+    CHECK(got.Get<int>() == 4); // default
+
+    CHECK(SetProperty(*legs, inst, Variant::From(6)).IsOk());
+    CHECK(animal->legs == 6); // mutated the real object
+    CHECK(GetProperty(*legs, inst).Get<int>() == 6);
+
+    // Wrong-typed value -> error, object unchanged.
+    Status bad = SetProperty(*legs, inst, Variant::From(3.5f));
+    CHECK_FALSE(bad.IsOk());
+    CHECK(bad.Code() == ErrorCode::InvalidArgument);
+    CHECK(animal->legs == 6);
+}
+
+TEST_CASE("rtti: inherited property is found through the base chain")
+{
+    // Dog declares no properties of its own but inherits 'legs' from Animal.
+    CHECK(Properties(Dog::StaticType()).Size() == 0u);
+
+    const PropertyInfo* legs = FindProperty(Dog::StaticType(), "legs");
+    REQUIRE(legs != nullptr);
+
+    RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator());
+    Instance inst = Instance::From(dog.Get());
+    CHECK(SetProperty(*legs, inst, Variant::From(3)).IsOk());
+    CHECK(dog->legs == 3);
 }

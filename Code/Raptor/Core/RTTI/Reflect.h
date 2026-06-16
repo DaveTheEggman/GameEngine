@@ -25,8 +25,7 @@ public:                                                                         
         return &StaticType();                                                           \
     }
 
-// Defines StaticType() for `Type` in the given namespace string. The TypeInfo
-// is a function-local static (created on first use); registration is separate.
+// Defines StaticType() for a Type with no reflected properties.
 #define RAPTOR_DEFINE_OBJECT(Type, Namespace)                                          \
     const ::raptor::core::TypeInfo& Type::StaticType() noexcept                         \
     {                                                                                   \
@@ -34,5 +33,23 @@ public:                                                                         
             ::raptor::core::MakeTypeInfo<Type>(#Type, Namespace, &Super::StaticType()); \
         return info;                                                                    \
     }
+
+// Defines StaticType() with a reflection body that configures `builder`, e.g.:
+//   RAPTOR_REFLECT(Entity, "raptor::game")
+//   {
+//       builder.Property<&Entity::name>("name");
+//   }
+#define RAPTOR_REFLECT(Type, Namespace)                                                 \
+    static void RaptorReflect_##Type(::raptor::core::TypeBuilder<Type>& builder);        \
+    const ::raptor::core::TypeInfo& Type::StaticType() noexcept                          \
+    {                                                                                    \
+        static ::raptor::core::TypeData raptorTypeData = []() {                          \
+            ::raptor::core::TypeBuilder<Type> builder(#Type, Namespace, &Super::StaticType()); \
+            RaptorReflect_##Type(builder);                                               \
+            return builder.Build();                                                      \
+        }();                                                                             \
+        return raptorTypeData.info;                                                      \
+    }                                                                                    \
+    static void RaptorReflect_##Type([[maybe_unused]] ::raptor::core::TypeBuilder<Type>& builder)
 
 #endif // RAPTOR_CORE_RTTI_REFLECT_H

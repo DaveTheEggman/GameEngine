@@ -25,6 +25,8 @@ export namespace raptor::core
 {
     using TypeId = u64;
 
+    struct PropertyInfo; // fully defined in :variant (phase c)
+
     struct TypeInfo
     {
         TypeId id;
@@ -32,7 +34,9 @@ export namespace raptor::core
         const char* namespaceName; // e.g. "raptor::game"
         u32 size;
         u32 align;
-        const TypeInfo* base;      // single-inheritance chain; null at the root
+        const TypeInfo* base;       // single-inheritance chain; null at the root
+        const PropertyInfo* properties = nullptr; // declared in this type (not inherited)
+        u32 propertyCount = 0;
     };
 
     // Stable 64-bit identity from the fully-qualified name.

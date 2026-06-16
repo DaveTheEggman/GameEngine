@@ -17,6 +17,7 @@ export module raptor.core:variant;
 
 import :base;
 import :memory;
+import :containers;
 import :rtti;
 
 namespace raptor::core::detail
@@ -246,5 +247,139 @@ export namespace raptor::core
     private:
         void* m_ptr = nullptr;
         const TypeInfo* m_type = nullptr;
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Properties (RTTI phase c)
+// ---------------------------------------------------------------------------
+namespace raptor::core::detail
+{
+    template <typename>
+    struct MemberTraits;
+    template <typename C, typename M>
+    struct MemberTraits<M C::*>
+    {
+        using Class = C;
+        using Member = M;
+    };
+
+    template <typename T, typename M, auto Member>
+    Variant PropertyGet(const Instance& instance)
+    {
+        const T* object = static_cast<const T*>(instance.Pointer());
+        return Variant::From<M>(object->*Member);
+    }
+
+    template <typename T, typename M, auto Member>
+    Status PropertySet(const Instance& instance, const Variant& value)
+    {
+        const M* typed = value.TryGet<M>();
+        if (typed == nullptr)
+        {
+            return Status{ ErrorCode::InvalidArgument };
+        }
+        T* object = static_cast<T*>(instance.Pointer());
+        object->*Member = *typed;
+        return Status{};
+    }
+
+    [[nodiscard]] inline bool CStringEquals(const char* a, const char* b) noexcept
+    {
+        usize i = 0;
+        while (a[i] != '\0' && a[i] == b[i]) { ++i; }
+        return a[i] == b[i];
+    }
+}
+
+export namespace raptor::core
+{
+    enum class PropertyFlags : u32
+    {
+        None = 0,
+        ReadOnly = 1u << 0,
+    };
+
+    struct PropertyInfo
+    {
+        const char* name;
+        const TypeInfo* type;
+        PropertyFlags flags;
+        Variant (*get)(const Instance&);
+        Status (*set)(const Instance&, const Variant&);
+    };
+
+    [[nodiscard]] inline Variant GetProperty(const PropertyInfo& property, const Instance& instance)
+    {
+        return property.get(instance);
+    }
+
+    [[nodiscard]] inline Status SetProperty(const PropertyInfo& property, const Instance& instance, const Variant& value)
+    {
+        return property.set(instance, value);
+    }
+
+    // Properties declared directly on `type` (not inherited).
+    [[nodiscard]] inline Span<const PropertyInfo> Properties(const TypeInfo& type) noexcept
+    {
+        return Span<const PropertyInfo>{ type.properties, type.propertyCount };
+    }
+
+    // Searches `type` and its base chain for a property by name.
+    [[nodiscard]] inline const PropertyInfo* FindProperty(const TypeInfo& type, const char* name) noexcept
+    {
+        for (const TypeInfo* t = &type; t != nullptr; t = t->base)
+        {
+            for (u32 i = 0; i < t->propertyCount; ++i)
+            {
+                if (detail::CStringEquals(t->properties[i].name, name))
+                {
+                    return &t->properties[i];
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    // Holds a type's TypeInfo together with the property array it points into.
+    // Stored as a single static (see RAPTOR_REFLECT); Array's move preserves the
+    // buffer address, so TypeInfo::properties stays valid.
+    struct TypeData
+    {
+        Array<PropertyInfo> properties;
+        TypeInfo info{};
+    };
+
+    template <typename T>
+    class TypeBuilder
+    {
+    public:
+        TypeBuilder(const char* name, const char* namespaceName, const TypeInfo* base) noexcept
+            : m_name(name), m_namespace(namespaceName), m_base(base) {}
+
+        template <auto Member>
+        TypeBuilder& Property(const char* name, PropertyFlags flags = PropertyFlags::None)
+        {
+            using M = typename detail::MemberTraits<decltype(Member)>::Member;
+            m_data.properties.PushBack(PropertyInfo{
+                name, &TypeOf<M>(), flags,
+                &detail::PropertyGet<T, M, Member>,
+                &detail::PropertySet<T, M, Member> });
+            return *this;
+        }
+
+        [[nodiscard]] TypeData Build()
+        {
+            m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base);
+            m_data.info.properties = m_data.properties.Data();
+            m_data.info.propertyCount = static_cast<u32>(m_data.properties.Size());
+            return Move(m_data);
+        }
+
+    private:
+        const char* m_name;
+        const char* m_namespace;
+        const TypeInfo* m_base;
+        TypeData m_data;
     };
 }
