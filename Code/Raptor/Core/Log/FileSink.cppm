@@ -9,6 +9,7 @@ export module raptor.core:file_sink;
 
 import :base;
 import :format;
+import :string;
 import :system;
 import :logger;
 
@@ -18,7 +19,7 @@ export namespace raptor::core
     class FileSink final : public ILogSink
     {
     public:
-        explicit FileSink(const char* path) noexcept { m_file = FileOpen(path, FileMode::Append); }
+        explicit FileSink(StringView path) noexcept { m_file = FileOpen(path, FileMode::Append); }
         ~FileSink() override
         {
             if (FileIsValid(m_file)) { FileClose(m_file); }

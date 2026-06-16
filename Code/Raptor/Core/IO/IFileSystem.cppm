@@ -22,7 +22,7 @@ export namespace raptor::core
         virtual ~IFileSystem() = default;
 
         // Opens a stream for the logical path, or null on failure.
-        [[nodiscard]] virtual UniquePtr<IStream> Open(UTF8StringView path, FileMode mode) = 0;
-        [[nodiscard]] virtual bool Exists(UTF8StringView path) = 0;
+        [[nodiscard]] virtual UniquePtr<IStream> Open(StringView path, FileMode mode) = 0;
+        [[nodiscard]] virtual bool Exists(StringView path) = 0;
     };
 }

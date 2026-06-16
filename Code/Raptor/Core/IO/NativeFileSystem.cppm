@@ -24,14 +24,13 @@ export namespace raptor::core
     class NativeFileSystem final : public IFileSystem
     {
     public:
-        explicit NativeFileSystem(UTF8StringView root, IAllocator& allocator = DefaultAllocator())
+        explicit NativeFileSystem(StringView root, IAllocator& allocator = DefaultAllocator())
             : m_root(root, allocator), m_allocator(&allocator) {}
 
-        [[nodiscard]] UniquePtr<IStream> Open(UTF8StringView path, FileMode mode) override
+        [[nodiscard]] UniquePtr<IStream> Open(StringView path, FileMode mode) override
         {
-            const UTF8String full = PathJoin(m_root.AsView(), path, *m_allocator);
-            FileStream* stream = m_allocator->New<FileStream>(
-                reinterpret_cast<const char*>(full.CStr()), mode);
+            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            FileStream* stream = m_allocator->New<FileStream>(full.AsView(), mode);
             if (stream == nullptr)
             {
                 return UniquePtr<IStream>{};
@@ -44,14 +43,14 @@ export namespace raptor::core
             return UniquePtr<IStream>{ stream, *m_allocator };
         }
 
-        [[nodiscard]] bool Exists(UTF8StringView path) override
+        [[nodiscard]] bool Exists(StringView path) override
         {
-            const UTF8String full = PathJoin(m_root.AsView(), path, *m_allocator);
-            return FileExists(reinterpret_cast<const char*>(full.CStr()));
+            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            return FileExists(full.AsView());
         }
 
     private:
-        UTF8String m_root;
+        String m_root;
         IAllocator* m_allocator;
     };
 }

@@ -26,12 +26,12 @@ export namespace raptor::core
     {
     public:
         // Mounts a backend under a logical prefix (non-owning; backend must outlive this).
-        void Mount(UTF8StringView prefix, IFileSystem& backend)
+        void Mount(StringView prefix, IFileSystem& backend)
         {
-            m_mounts.PushBack(MountPoint{ UTF8String(prefix), &backend });
+            m_mounts.PushBack(MountPoint{ String(prefix), &backend });
         }
 
-        [[nodiscard]] UniquePtr<IStream> Open(UTF8StringView path, FileMode mode) override
+        [[nodiscard]] UniquePtr<IStream> Open(StringView path, FileMode mode) override
         {
             const MountPoint* mount = FindMount(path);
             if (mount == nullptr)
@@ -41,7 +41,7 @@ export namespace raptor::core
             return mount->backend->Open(Relative(path, *mount), mode);
         }
 
-        [[nodiscard]] bool Exists(UTF8StringView path) override
+        [[nodiscard]] bool Exists(StringView path) override
         {
             const MountPoint* mount = FindMount(path);
             return mount != nullptr && mount->backend->Exists(Relative(path, *mount));
@@ -50,11 +50,11 @@ export namespace raptor::core
     private:
         struct MountPoint
         {
-            UTF8String prefix;
+            String prefix;
             IFileSystem* backend;
         };
 
-        [[nodiscard]] const MountPoint* FindMount(UTF8StringView path) const
+        [[nodiscard]] const MountPoint* FindMount(StringView path) const
         {
             const MountPoint* best = nullptr;
             for (const MountPoint& mount : m_mounts)
@@ -70,10 +70,10 @@ export namespace raptor::core
             return best;
         }
 
-        [[nodiscard]] static UTF8StringView Relative(UTF8StringView path, const MountPoint& mount)
+        [[nodiscard]] static StringView Relative(StringView path, const MountPoint& mount)
         {
             usize offset = mount.prefix.Size();
-            while (offset < path.Size() && (path[offset] == u8'/' || path[offset] == u8'\\'))
+            while (offset < path.Size() && (path[offset] == u'/' || path[offset] == u'\\'))
             {
                 ++offset;
             }

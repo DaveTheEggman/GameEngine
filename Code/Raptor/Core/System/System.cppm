@@ -11,6 +11,24 @@ module;
 export module raptor.core:system;
 
 import :base;
+import :allocator;
+import :string;
+
+namespace raptor::core::detail
+{
+    // Transcode a wide API-surface path to a null-terminated UTF-8 buffer for
+    // the char*-based platform (sys::) layer. This is the convert-at-the-edge
+    // point: Raptor APIs are wide; the OS shim takes bytes.
+    struct NarrowPath
+    {
+        UTF8String storage;
+        explicit NarrowPath(StringView path) : storage(ToUTF8(path)) {}
+        [[nodiscard]] const char* CStr() const noexcept
+        {
+            return reinterpret_cast<const char*>(storage.CStr());
+        }
+    };
+}
 
 export namespace raptor::core
 {
@@ -57,9 +75,9 @@ export namespace raptor::core
     using SeekOrigin = sys::SeekOrigin;
     inline constexpr FileHandle kInvalidFile = sys::kInvalidFile;
 
-    [[nodiscard]] inline FileHandle FileOpen(const char* path, FileMode mode) noexcept
+    [[nodiscard]] inline FileHandle FileOpen(StringView path, FileMode mode) noexcept
     {
-        return sys::FileOpen(path, mode);
+        return sys::FileOpen(detail::NarrowPath(path).CStr(), mode);
     }
 
     [[nodiscard]] inline bool FileIsValid(FileHandle handle) noexcept
@@ -87,13 +105,13 @@ export namespace raptor::core
 
     [[nodiscard]] inline i64 FileSize(FileHandle handle) noexcept { return sys::FileSize(handle); }
 
-    [[nodiscard]] inline bool FileExists(const char* path) noexcept { return sys::FileExists(path); }
+    [[nodiscard]] inline bool FileExists(StringView path) noexcept { return sys::FileExists(detail::NarrowPath(path).CStr()); }
 
-    inline bool FileDelete(const char* path) noexcept { return sys::FileDelete(path); }
+    inline bool FileDelete(StringView path) noexcept { return sys::FileDelete(detail::NarrowPath(path).CStr()); }
 
-    [[nodiscard]] inline bool DirectoryExists(const char* path) noexcept { return sys::DirectoryExists(path); }
-    inline bool CreateDirectory(const char* path) noexcept { return sys::CreateDirectory(path); }
-    inline bool RemoveDirectory(const char* path) noexcept { return sys::RemoveDirectory(path); }
+    [[nodiscard]] inline bool DirectoryExists(StringView path) noexcept { return sys::DirectoryExists(detail::NarrowPath(path).CStr()); }
+    inline bool CreateDirectory(StringView path) noexcept { return sys::CreateDirectory(detail::NarrowPath(path).CStr()); }
+    inline bool RemoveDirectory(StringView path) noexcept { return sys::RemoveDirectory(detail::NarrowPath(path).CStr()); }
 
     // --- Console -----------------------------------------------------------
 
@@ -108,7 +126,7 @@ export namespace raptor::core
 
     using LibraryHandle = sys::LibraryHandle;
 
-    [[nodiscard]] inline LibraryHandle OpenLibrary(const char* path) noexcept { return sys::LibraryOpen(path); }
+    [[nodiscard]] inline LibraryHandle OpenLibrary(StringView path) noexcept { return sys::LibraryOpen(detail::NarrowPath(path).CStr()); }
     [[nodiscard]] inline void* GetLibrarySymbol(LibraryHandle handle, const char* name) noexcept
     {
         return sys::LibrarySymbol(handle, name);

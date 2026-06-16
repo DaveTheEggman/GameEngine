@@ -11,6 +11,7 @@ module;
 export module raptor.core:library;
 
 import :base;
+import :string;
 import :system;
 
 export namespace raptor::core
@@ -19,7 +20,7 @@ export namespace raptor::core
     {
     public:
         DynamicLibrary() noexcept = default;
-        explicit DynamicLibrary(const char* path) noexcept { m_handle = OpenLibrary(path); }
+        explicit DynamicLibrary(StringView path) noexcept { m_handle = OpenLibrary(path); }
 
         DynamicLibrary(DynamicLibrary&& other) noexcept : m_handle(other.m_handle)
         {
@@ -42,7 +43,7 @@ export namespace raptor::core
 
         ~DynamicLibrary() { Unload(); }
 
-        Status Load(const char* path) noexcept
+        Status Load(StringView path) noexcept
         {
             Unload();
             m_handle = OpenLibrary(path);

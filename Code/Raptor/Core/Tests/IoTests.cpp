@@ -73,7 +73,7 @@ TEST_CASE("io: MemoryStream seek bounds and overwrite")
 
 TEST_CASE("io: FileStream writes then reads a file")
 {
-    const char* path = "raptor_io_stream_test.tmp";
+    const StringView path = u"raptor_io_stream_test.tmp";
 
     {
         FileStream out(path, FileMode::Write);
@@ -106,7 +106,7 @@ TEST_CASE("io: FileStream writes then reads a file")
 
 TEST_CASE("io: FileStream on an unopenable path is invalid")
 {
-    FileStream in("raptor_io_missing_file.xyz", FileMode::Read);
+    FileStream in(u"raptor_io_missing_file.xyz", FileMode::Read);
     CHECK_FALSE(in.IsValid());
     u8 byte = 0;
     CHECK(in.Read(&byte, 1) == 0u);
@@ -328,32 +328,32 @@ TEST_CASE("io: BufferedStream write-then-seek-then-read on one stream")
 
 TEST_CASE("io: Path query functions")
 {
-    CHECK(PathFilename(u8"/a/b/c.txt") == UTF8StringView(u8"c.txt"));
-    CHECK(PathFilename(u8"noslash.dat") == UTF8StringView(u8"noslash.dat"));
-    CHECK(PathExtension(u8"/a/b/c.txt") == UTF8StringView(u8".txt"));
-    CHECK(PathExtension(u8"/a/b/c") == UTF8StringView(u8""));
-    CHECK(PathExtension(u8"/a/.hidden") == UTF8StringView(u8"")); // dotfile has no ext
-    CHECK(PathStem(u8"/a/b/c.txt") == UTF8StringView(u8"c"));
-    CHECK(PathParent(u8"/a/b/c.txt") == UTF8StringView(u8"/a/b"));
-    CHECK(PathParent(u8"file") == UTF8StringView(u8""));
+    CHECK(PathFilename(u"/a/b/c.txt") == StringView(u"c.txt"));
+    CHECK(PathFilename(u"noslash.dat") == StringView(u"noslash.dat"));
+    CHECK(PathExtension(u"/a/b/c.txt") == StringView(u".txt"));
+    CHECK(PathExtension(u"/a/b/c") == StringView(u""));
+    CHECK(PathExtension(u"/a/.hidden") == StringView(u"")); // dotfile has no ext
+    CHECK(PathStem(u"/a/b/c.txt") == StringView(u"c"));
+    CHECK(PathParent(u"/a/b/c.txt") == StringView(u"/a/b"));
+    CHECK(PathParent(u"file") == StringView(u""));
 
-    CHECK(PathIsAbsolute(u8"/etc/hosts"));
-    CHECK_FALSE(PathIsAbsolute(u8"relative/path"));
+    CHECK(PathIsAbsolute(u"/etc/hosts"));
+    CHECK_FALSE(PathIsAbsolute(u"relative/path"));
 }
 
 TEST_CASE("io: PathJoin")
 {
-    CHECK(PathJoin(u8"/a/b", u8"c.txt") == u8"/a/b/c.txt");
-    CHECK(PathJoin(u8"/a/b/", u8"c.txt") == u8"/a/b/c.txt"); // no double separator
-    CHECK(PathJoin(u8"", u8"c.txt") == u8"c.txt");
-    CHECK(PathJoin(u8"/a/b", u8"/absolute") == u8"/absolute"); // absolute rhs wins
+    CHECK(PathJoin(u"/a/b", u"c.txt") == u"/a/b/c.txt");
+    CHECK(PathJoin(u"/a/b/", u"c.txt") == u"/a/b/c.txt"); // no double separator
+    CHECK(PathJoin(u"", u"c.txt") == u"c.txt");
+    CHECK(PathJoin(u"/a/b", u"/absolute") == u"/absolute"); // absolute rhs wins
 }
 
 // --- IO: FileSystem --------------------------------------------------------
 
 TEST_CASE("io: ReadFile / WriteFile round-trip")
 {
-    const char* path = "raptor_fs_roundtrip.tmp";
+    const StringView path = u"raptor_fs_roundtrip.tmp";
     const byte payload[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 0xFF }, byte{ 0 }, byte{ 42 } };
 
     CHECK(WriteFile(path, Span<const byte>{ payload, ArrayCount(payload) }).IsOk());
@@ -368,12 +368,12 @@ TEST_CASE("io: ReadFile / WriteFile round-trip")
     }
 
     CHECK(FileDelete(path));
-    CHECK(ReadFile("raptor_fs_missing.tmp").Error() == ErrorCode::NotFound);
+    CHECK(ReadFile(u"raptor_fs_missing.tmp").Error() == ErrorCode::NotFound);
 }
 
 TEST_CASE("io: directory create / exists / remove")
 {
-    const char* dir = "raptor_fs_test_dir";
+    const StringView dir = u"raptor_fs_test_dir";
     CHECK_FALSE(DirectoryExists(dir));
     CHECK(CreateDirectory(dir));
     CHECK(DirectoryExists(dir));
@@ -386,15 +386,15 @@ TEST_CASE("io: directory create / exists / remove")
 
 TEST_CASE("io: NativeFileSystem and VirtualFileSystem mounting")
 {
-    const char* file = "raptor_vfs_test.tmp";
+    const StringView file = u"raptor_vfs_test.tmp";
     const byte data[] = { byte{ 7 }, byte{ 8 }, byte{ 9 } };
     REQUIRE(WriteFile(file, Span<const byte>{ data, ArrayCount(data) }).IsOk());
 
-    NativeFileSystem native(u8".");
-    CHECK(native.Exists(u8"raptor_vfs_test.tmp"));
-    CHECK_FALSE(native.Exists(u8"raptor_vfs_nope.xyz"));
+    NativeFileSystem native(u".");
+    CHECK(native.Exists(u"raptor_vfs_test.tmp"));
+    CHECK_FALSE(native.Exists(u"raptor_vfs_nope.xyz"));
     {
-        UniquePtr<IStream> stream = native.Open(u8"raptor_vfs_test.tmp", FileMode::Read);
+        UniquePtr<IStream> stream = native.Open(u"raptor_vfs_test.tmp", FileMode::Read);
         REQUIRE(static_cast<bool>(stream));
         byte buffer[3] = {};
         CHECK(stream->Read(buffer, 3) == 3u);
@@ -404,18 +404,18 @@ TEST_CASE("io: NativeFileSystem and VirtualFileSystem mounting")
 
     // Mount the native FS under a logical prefix.
     VirtualFileSystem vfs;
-    vfs.Mount(u8"assets", native);
-    CHECK(vfs.Exists(u8"assets/raptor_vfs_test.tmp"));
-    CHECK_FALSE(vfs.Exists(u8"unmounted/whatever"));
+    vfs.Mount(u"assets", native);
+    CHECK(vfs.Exists(u"assets/raptor_vfs_test.tmp"));
+    CHECK_FALSE(vfs.Exists(u"unmounted/whatever"));
     {
-        UniquePtr<IStream> stream = vfs.Open(u8"assets/raptor_vfs_test.tmp", FileMode::Read);
+        UniquePtr<IStream> stream = vfs.Open(u"assets/raptor_vfs_test.tmp", FileMode::Read);
         REQUIRE(static_cast<bool>(stream));
         byte b = byte{ 0 };
         CHECK(stream->Read(&b, 1) == 1u);
         CHECK(b == byte{ 7 });
     }
     // Unmounted prefix -> no stream.
-    CHECK_FALSE(static_cast<bool>(vfs.Open(u8"unmounted/x", FileMode::Read)));
+    CHECK_FALSE(static_cast<bool>(vfs.Open(u"unmounted/x", FileMode::Read)));
 
     CHECK(FileDelete(file));
 }

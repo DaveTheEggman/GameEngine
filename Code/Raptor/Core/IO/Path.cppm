@@ -1,9 +1,9 @@
 // Raptor Core — :path partition
 //
-// UTF-8 path string manipulation (POSIX '/' separator). Non-owning queries
-// return UTF8StringView into the input; PathJoin builds a new UTF8String.
-// Paths are UTF-8; reinterpret_cast<const char*>(view.Data()) bridges to the
-// System file API when needed.
+// Wide (UTF-16) path string manipulation (POSIX '/' separator). Non-owning
+// queries return StringView into the input; PathJoin builds a new String.
+// Paths are wide on the API surface; transcoding to UTF-8 happens at the
+// System file API.
 
 module;
 #include "Core/Prelude.h"
@@ -16,17 +16,17 @@ import :string;
 
 export namespace raptor::core
 {
-    inline constexpr utf8char kPathSeparator = u8'/';
+    inline constexpr widechar kPathSeparator = u'/';
 
-    [[nodiscard]] inline bool PathIsSeparator(utf8char c) noexcept { return c == u8'/' || c == u8'\\'; }
+    [[nodiscard]] inline bool PathIsSeparator(widechar c) noexcept { return c == u'/' || c == u'\\'; }
 
-    [[nodiscard]] inline bool PathIsAbsolute(UTF8StringView path) noexcept
+    [[nodiscard]] inline bool PathIsAbsolute(StringView path) noexcept
     {
         return !path.IsEmpty() && PathIsSeparator(path[0]);
     }
 
     // The final component (after the last separator).
-    [[nodiscard]] inline UTF8StringView PathFilename(UTF8StringView path) noexcept
+    [[nodiscard]] inline StringView PathFilename(StringView path) noexcept
     {
         usize start = 0;
         for (usize i = 0; i < path.Size(); ++i)
@@ -38,44 +38,44 @@ export namespace raptor::core
 
     // The extension including the dot (e.g. ".png"), or empty. A leading-dot
     // filename (".gitignore") has no extension.
-    [[nodiscard]] inline UTF8StringView PathExtension(UTF8StringView path) noexcept
+    [[nodiscard]] inline StringView PathExtension(StringView path) noexcept
     {
-        const UTF8StringView name = PathFilename(path);
+        const StringView name = PathFilename(path);
         usize dot = name.Size();
         for (usize i = 0; i < name.Size(); ++i)
         {
-            if (name[i] == u8'.') { dot = i; }
+            if (name[i] == u'.') { dot = i; }
         }
-        if (dot == name.Size() || dot == 0) { return UTF8StringView{}; }
+        if (dot == name.Size() || dot == 0) { return StringView{}; }
         return name.SubStr(dot, name.Size() - dot);
     }
 
     // The filename without its extension.
-    [[nodiscard]] inline UTF8StringView PathStem(UTF8StringView path) noexcept
+    [[nodiscard]] inline StringView PathStem(StringView path) noexcept
     {
-        const UTF8StringView name = PathFilename(path);
-        const UTF8StringView ext = PathExtension(path);
+        const StringView name = PathFilename(path);
+        const StringView ext = PathExtension(path);
         return name.SubStr(0, name.Size() - ext.Size());
     }
 
     // Everything before the last separator (empty if there is none).
-    [[nodiscard]] inline UTF8StringView PathParent(UTF8StringView path) noexcept
+    [[nodiscard]] inline StringView PathParent(StringView path) noexcept
     {
         usize lastSep = path.Size();
         for (usize i = 0; i < path.Size(); ++i)
         {
             if (PathIsSeparator(path[i])) { lastSep = i; }
         }
-        if (lastSep == path.Size()) { return UTF8StringView{}; }
+        if (lastSep == path.Size()) { return StringView{}; }
         return path.SubStr(0, lastSep);
     }
 
     // Joins two paths with a single separator. If `b` is absolute it wins.
-    [[nodiscard]] inline UTF8String PathJoin(UTF8StringView a, UTF8StringView b, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline String PathJoin(StringView a, StringView b, IAllocator& allocator = DefaultAllocator())
     {
-        if (a.IsEmpty() || PathIsAbsolute(b)) { return UTF8String{ b, allocator }; }
+        if (a.IsEmpty() || PathIsAbsolute(b)) { return String{ b, allocator }; }
 
-        UTF8String result{ a, allocator };
+        String result{ a, allocator };
         if (!PathIsSeparator(a[a.Size() - 1]))
         {
             result.PushBack(kPathSeparator);

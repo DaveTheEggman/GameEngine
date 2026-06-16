@@ -15,6 +15,7 @@ import :base;
 import :allocator;
 import :array;
 import :span;
+import :string;
 import :system;
 
 export namespace raptor::core
@@ -56,7 +57,7 @@ export namespace raptor::core
     class FileStream final : public IStream
     {
     public:
-        FileStream(const char* path, FileMode mode) noexcept { m_file = FileOpen(path, mode); }
+        FileStream(StringView path, FileMode mode) noexcept { m_file = FileOpen(path, mode); }
 
         ~FileStream() override
         {
