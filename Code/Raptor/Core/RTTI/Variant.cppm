@@ -222,34 +222,4 @@ export namespace raptor::core
         bool m_isHeap = false;
         const detail::VariantVTable* m_vtable = nullptr;
     };
-
-    // =======================================================================
-    // Instance — a borrowed, type-erased pointer to a live object.
-    // =======================================================================
-    class Instance
-    {
-    public:
-        Instance() noexcept = default;
-        Instance(void* pointer, const TypeInfo* type) noexcept : m_ptr(pointer), m_type(type) {}
-
-        template <typename T>
-        [[nodiscard]] static Instance From(T* pointer) noexcept
-        {
-            return Instance{ pointer, &TypeOf<T>() };
-        }
-
-        [[nodiscard]] bool IsEmpty() const noexcept { return m_ptr == nullptr; }
-        [[nodiscard]] void* Pointer() const noexcept { return m_ptr; }
-        [[nodiscard]] const TypeInfo* Type() const noexcept { return m_type; }
-
-        template <typename T>
-        [[nodiscard]] T* TryGet() const noexcept
-        {
-            return (m_type == &TypeOf<T>()) ? static_cast<T*>(m_ptr) : nullptr;
-        }
-
-    private:
-        void* m_ptr = nullptr;
-        const TypeInfo* m_type = nullptr;
-    };
 }

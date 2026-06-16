@@ -41,6 +41,7 @@ target_sources(RaptorCore
             Math/Geometry.cppm
             RTTI/RTTI.cppm
             RTTI/Variant.cppm
+            RTTI/Instance.cppm
             RTTI/Reflection.cppm
             IO/Stream.cppm
             IO/Path.cppm

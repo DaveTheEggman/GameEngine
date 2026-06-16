@@ -27,6 +27,7 @@ export import :matrix;
 export import :geometry;
 export import :rtti;
 export import :variant;
+export import :instance;
 export import :reflection;
 export import :io;
 export import :path;

@@ -17,6 +17,7 @@ import :array;
 import :span;
 import :rtti;
 import :variant;
+import :instance;
 
 // ---------------------------------------------------------------------------
 // Properties (RTTI phase c)
