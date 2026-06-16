@@ -141,3 +141,40 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
 
     CHECK(sink.count.load() == kThreads * kPerThread);
 }
+
+// --- Format: wide / UTF-8 string arguments ---------------------------------
+
+TEST_CASE("format: wide and utf8 string arguments")
+{
+    // Wide String / StringView transcode to UTF-8 in the output.
+    String wide = u"café";
+    CHECK(FormatEquals("name=café", "name={}", wide));
+    CHECK(FormatEquals("v=héllo", "v={}", StringView(u"héllo")));
+
+    // UTF-8 view appends directly.
+    CHECK(FormatEquals("u=café", "u={}", UTF8StringView(u8"café")));
+}
+
+// --- Log: in-memory ring sink ----------------------------------------------
+
+TEST_CASE("log: RingLogSink keeps the most recent records")
+{
+    RingLogSink ring(3);
+    CHECK(ring.Count() == 0u);
+
+    for (int i = 0; i < 5; ++i)
+    {
+        char msg[16];
+        msg[0] = 'm';
+        msg[1] = static_cast<char>('0' + i);
+        msg[2] = '\0';
+        ring.Write(LogLevel::Info, "Cat", msg, 2);
+    }
+
+    // Capacity 3 -> keeps the last three (m2, m3, m4).
+    CHECK(ring.Count() == 3u);
+    CHECK(std::strcmp(ring.Record(0).message, "m2") == 0);
+    CHECK(std::strcmp(ring.Record(2).message, "m4") == 0);
+    CHECK(ring.Record(0).level == LogLevel::Info);
+    CHECK(std::strcmp(ring.Record(0).category, "Cat") == 0);
+}

@@ -19,6 +19,7 @@ export module raptor.core:format;
 
 import :base;
 import :memory;
+import :string;
 
 export namespace raptor::core
 {
@@ -129,6 +130,19 @@ export namespace raptor::core
         char temp[48];
         const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
         out.Append(temp, static_cast<usize>(result.ptr - temp));
+    }
+
+    // UTF-8 view: append bytes directly.
+    inline void AppendValue(FormatBuffer& out, UTF8StringView view)
+    {
+        out.Append(reinterpret_cast<const char*>(view.Data()), view.Size());
+    }
+
+    // Wide view (and String, via its implicit View conversion): transcode to UTF-8.
+    inline void AppendValue(FormatBuffer& out, StringView view)
+    {
+        const UTF8String utf8 = ToUTF8(view);
+        out.Append(reinterpret_cast<const char*>(utf8.Data()), utf8.Size());
     }
 
     inline void AppendValue(FormatBuffer& out, const void* value)

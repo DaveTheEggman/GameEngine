@@ -376,6 +376,18 @@ export namespace raptor::core
             return m_data[(m_head + m_count - 1) % m_capacity];
         }
 
+        // Indexed from the front (0 == oldest).
+        [[nodiscard]] T& operator[](usize index) noexcept
+        {
+            RAPTOR_ASSERT(index < m_count);
+            return m_data[(m_head + index) % m_capacity];
+        }
+        [[nodiscard]] const T& operator[](usize index) const noexcept
+        {
+            RAPTOR_ASSERT(index < m_count);
+            return m_data[(m_head + index) % m_capacity];
+        }
+
         void Clear() noexcept
         {
             for (usize i = 0; i < m_count; ++i)
