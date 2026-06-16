@@ -28,11 +28,11 @@ target_sources(RaptorCore
             Containers/Array.cppm
             Containers/RingBuffer.cppm
             Containers/IntrusiveList.cppm
-            Containers/String.cppm
             Containers/Hash.cppm
             Containers/HashMap.cppm
             Containers/HashSet.cppm
-            Containers/Format.cppm
+            Text/String.cppm
+            Text/Format.cppm
             Log/Log.cppm
             Math/Math.cppm
             Math/Color.cppm
