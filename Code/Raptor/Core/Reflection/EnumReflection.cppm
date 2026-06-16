@@ -5,6 +5,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Debug/Assert.h"
 
 export module raptor.core:enum_reflection;
 
@@ -74,6 +75,13 @@ export namespace raptor::core
     [[nodiscard]] inline Span<const EnumValue> Enumerators(const TypeInfo& type) noexcept
     {
         return Span<const EnumValue>{ type.enumerators, type.enumeratorCount };
+    }
+
+    [[nodiscard]] inline usize EnumeratorCount(const TypeInfo& type) noexcept { return type.enumeratorCount; }
+    [[nodiscard]] inline const EnumValue& EnumeratorAt(const TypeInfo& type, usize index) noexcept
+    {
+        RAPTOR_ASSERT(index < type.enumeratorCount);
+        return type.enumerators[index];
     }
 
     // Name for an enum value, or nullptr if not found.

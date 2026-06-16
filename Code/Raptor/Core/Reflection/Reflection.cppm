@@ -94,6 +94,15 @@ export namespace raptor::core
         return Span<const PropertyInfo>{ type.properties, type.propertyCount };
     }
 
+    // Count / by-index access (own properties only) for binding generators that
+    // enumerate rather than search.
+    [[nodiscard]] inline usize PropertyCount(const TypeInfo& type) noexcept { return type.propertyCount; }
+    [[nodiscard]] inline const PropertyInfo& PropertyAt(const TypeInfo& type, usize index) noexcept
+    {
+        RAPTOR_ASSERT(index < type.propertyCount);
+        return type.properties[index];
+    }
+
     // Searches `type` and its base chain for a property by name.
     [[nodiscard]] inline const PropertyInfo* FindProperty(const TypeInfo& type, const char* name) noexcept
     {
@@ -144,6 +153,21 @@ export namespace raptor::core
     [[nodiscard]] inline Span<const MethodInfo> Methods(const TypeInfo& type) noexcept
     {
         return Span<const MethodInfo>{ type.methods, type.methodCount };
+    }
+
+    [[nodiscard]] inline usize MethodCount(const TypeInfo& type) noexcept { return type.methodCount; }
+    [[nodiscard]] inline const MethodInfo& MethodAt(const TypeInfo& type, usize index) noexcept
+    {
+        RAPTOR_ASSERT(index < type.methodCount);
+        return type.methods[index];
+    }
+
+    // A method's parameters by count / index (for binding each overload's signature).
+    [[nodiscard]] inline usize ParamCount(const MethodInfo& method) noexcept { return method.paramCount; }
+    [[nodiscard]] inline const ParamInfo& ParamAt(const MethodInfo& method, usize index) noexcept
+    {
+        RAPTOR_ASSERT(index < method.paramCount);
+        return method.params[index];
     }
 
     [[nodiscard]] inline const MethodInfo* FindMethod(const TypeInfo& type, const char* name) noexcept
@@ -199,6 +223,13 @@ export namespace raptor::core
         return Span<const Attribute>{ type.attributes, type.attributeCount };
     }
 
+    [[nodiscard]] inline usize AttributeCount(const TypeInfo& type) noexcept { return type.attributeCount; }
+    [[nodiscard]] inline const Attribute& AttributeAt(const TypeInfo& type, usize index) noexcept
+    {
+        RAPTOR_ASSERT(index < type.attributeCount);
+        return type.attributes[index];
+    }
+
     [[nodiscard]] inline const Variant* FindAttribute(const TypeInfo& type, const char* key) noexcept
     {
         for (u32 i = 0; i < type.attributeCount; ++i)
@@ -225,6 +256,13 @@ export namespace raptor::core
     [[nodiscard]] inline Span<const ConstantInfo> Constants(const TypeInfo& type) noexcept
     {
         return Span<const ConstantInfo>{ type.constants, type.constantCount };
+    }
+
+    [[nodiscard]] inline usize ConstantCount(const TypeInfo& type) noexcept { return type.constantCount; }
+    [[nodiscard]] inline const ConstantInfo& ConstantAt(const TypeInfo& type, usize index) noexcept
+    {
+        RAPTOR_ASSERT(index < type.constantCount);
+        return type.constants[index];
     }
 
     [[nodiscard]] inline const ConstantInfo* FindConstant(const TypeInfo& type, const char* name) noexcept

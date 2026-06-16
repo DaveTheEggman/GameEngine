@@ -172,6 +172,40 @@ TEST_CASE("core-reflection: same-named overloads resolved by parameter type")
     CHECK(FindMethod(TypeOf<Vec3>(), "Mul") != nullptr);
 }
 
+TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)")
+{
+    EnsureRegistered();
+    const TypeInfo& vec3 = TypeOf<Vec3>();
+
+    // Count/At agree with the Span views.
+    REQUIRE(PropertyCount(vec3) == Properties(vec3).Size());
+    CHECK(&PropertyAt(vec3, 2) == &Properties(vec3)[2]);
+
+    REQUIRE(ConstantCount(vec3) == Constants(vec3).Size());
+    CHECK(ConstantAt(vec3, 0).value.Get<Vec3>() == Vec3::Zero);
+
+    REQUIRE(MethodCount(vec3) == Methods(vec3).Size());
+    CHECK(MethodCount(vec3) >= 5u);  // Dot, Length, Normalized, Mul x2
+
+    // Iterate methods by index and read each signature via ParamCount/ParamAt
+    // — exactly how a binding generator would walk the type. Two 2-arg methods
+    // start with (Vec3, f32) / (Vec3, Vec3): the Mul overloads.
+    usize vec3FirstParam = 0;
+    for (usize i = 0; i < MethodCount(vec3); ++i)
+    {
+        const MethodInfo& m = MethodAt(vec3, i);
+        for (usize p = 0; p < ParamCount(m); ++p)
+        {
+            CHECK(ParamAt(m, p).type != nullptr);  // every param carries type info
+        }
+        if (ParamCount(m) >= 1 && ParamAt(m, 0).type == &TypeOf<Vec3>())
+        {
+            ++vec3FirstParam;
+        }
+    }
+    CHECK(vec3FirstParam >= 2u);
+}
+
 TEST_CASE("core-reflection: types are in the global registry by qualified name")
 {
     EnsureRegistered();
