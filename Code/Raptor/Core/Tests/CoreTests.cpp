@@ -9,10 +9,38 @@
 
 #include "Core/Debug/Assert.h"
 #include "Core/Log/Log.h"
+#include "Core/RTTI/Reflect.h"
 
 import raptor.core;
 
 using namespace raptor::core;
+
+// --- A small reflected hierarchy for the RTTI tests ------------------------
+namespace
+{
+    class Animal : public Object
+    {
+        RAPTOR_OBJECT(Animal, Object)
+    public:
+        int legs = 4;
+    };
+
+    class Dog : public Animal
+    {
+        RAPTOR_OBJECT(Dog, Animal)
+    public:
+        const char* Speak() const { return "woof"; }
+    };
+
+    class Cat : public Animal
+    {
+        RAPTOR_OBJECT(Cat, Animal)
+    };
+}
+
+RAPTOR_DEFINE_OBJECT(Animal, "raptor::test")
+RAPTOR_DEFINE_OBJECT(Dog, "raptor::test")
+RAPTOR_DEFINE_OBJECT(Cat, "raptor::test")
 
 namespace
 {
@@ -1070,4 +1098,72 @@ TEST_CASE("math: Transform composes scale, rotation, translation")
     Transform identity;
     CHECK(NearlyEqual(TransformPoint(Vec3{ 7.0f, 8.0f, 9.0f }, identity.ToMatrix()),
                       Vec3{ 7.0f, 8.0f, 9.0f }));
+}
+
+// --- RTTI ------------------------------------------------------------------
+
+TEST_CASE("rtti: stable type identity")
+{
+    CHECK(Dog::StaticType().id == Dog::StaticType().id);
+    CHECK(Dog::StaticType().id != Cat::StaticType().id);
+    CHECK(Dog::StaticType().base == &Animal::StaticType());
+    CHECK(Animal::StaticType().base == &Object::StaticType());
+    CHECK(Object::StaticType().base == nullptr);
+
+    CHECK(std::strcmp(Dog::StaticType().name, "Dog") == 0);
+    CHECK(std::strcmp(Dog::StaticType().namespaceName, "raptor::test") == 0);
+}
+
+TEST_CASE("rtti: GetType is virtual through a base pointer")
+{
+    RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator());
+    RefPtr<Object> asObject = dog; // upcast
+
+    CHECK(asObject->GetType() == &Dog::StaticType());
+    CHECK(dog->GetType()->id == Dog::StaticType().id);
+}
+
+TEST_CASE("rtti: Cast and IsA walk the inheritance chain")
+{
+    RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator());
+    Object* obj = dog.Get();
+
+    CHECK(IsA<Dog>(obj));
+    CHECK(IsA<Animal>(obj)); // up the chain
+    CHECK(IsA<Object>(obj));
+    CHECK_FALSE(IsA<Cat>(obj));
+
+    // Down/cross casts
+    REQUIRE(Cast<Animal>(obj) != nullptr);
+    REQUIRE(Cast<Dog>(obj) != nullptr);
+    CHECK(Cast<Cat>(obj) == nullptr);
+
+    // Casting preserves the object and lets us call derived API.
+    Dog* backToDog = Cast<Dog>(Cast<Animal>(obj));
+    REQUIRE(backToDog != nullptr);
+    CHECK(std::strcmp(backToDog->Speak(), "woof") == 0);
+
+    CHECK_FALSE(IsA<Dog>(static_cast<Object*>(nullptr)));
+}
+
+TEST_CASE("rtti: explicit registration and lookup")
+{
+    TypeRegistry& registry = GlobalTypeRegistry();
+    const usize before = registry.Count();
+
+    registry.Register(Object::StaticType());
+    registry.Register(Animal::StaticType());
+    registry.Register(Dog::StaticType());
+    registry.Register(Cat::StaticType());
+
+    CHECK(registry.Count() >= before + 4);
+
+    CHECK(registry.FindById(Dog::StaticType().id) == &Dog::StaticType());
+    CHECK(registry.FindByName("raptor::test", "Cat") == &Cat::StaticType());
+    CHECK(registry.FindByName("raptor::test", "Missing") == nullptr);
+
+    // Idempotent: re-registering does not duplicate.
+    const usize count = registry.Count();
+    registry.Register(Dog::StaticType());
+    CHECK(registry.Count() == count);
 }
