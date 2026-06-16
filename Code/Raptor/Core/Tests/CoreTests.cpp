@@ -1440,3 +1440,105 @@ TEST_CASE("rtti: type attributes are queryable")
 
     CHECK(FindAttribute(type, "missing") == nullptr);
 }
+
+// --- IO: MemoryStream ------------------------------------------------------
+
+TEST_CASE("io: MemoryStream write/read round-trip")
+{
+    MemoryStream stream;
+    CHECK(stream.IsValid());
+    CHECK(stream.Size() == 0);
+
+    CHECK(stream.WriteValue<i32>(0x11223344));
+    CHECK(stream.WriteValue<f32>(2.5f));
+    const char text[] = "hi";
+    CHECK(stream.Write(text, 2) == 2u);
+
+    CHECK(stream.Size() == static_cast<i64>(sizeof(i32) + sizeof(f32) + 2));
+    CHECK(stream.Tell() == stream.Size());
+
+    // Rewind and read back.
+    CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
+    i32 a = 0;
+    f32 b = 0.0f;
+    char c[2] = {};
+    CHECK(stream.ReadValue(a));
+    CHECK(stream.ReadValue(b));
+    CHECK(stream.Read(c, 2) == 2u);
+
+    CHECK(a == 0x11223344);
+    CHECK(b == 2.5f);
+    CHECK(c[0] == 'h');
+    CHECK(c[1] == 'i');
+
+    // Reading past the end returns a short count.
+    u8 extra = 0;
+    CHECK(stream.Read(&extra, 1) == 0u);
+}
+
+TEST_CASE("io: MemoryStream seek bounds and overwrite")
+{
+    MemoryStream stream;
+    CHECK(stream.WriteValue<i32>(10));
+    CHECK(stream.WriteValue<i32>(20));
+
+    // Seek out of range fails.
+    CHECK(stream.Seek(-1, SeekOrigin::Begin) == -1);
+    CHECK(stream.Seek(100, SeekOrigin::Begin) == -1);
+
+    // Overwrite the first value in place.
+    CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
+    CHECK(stream.WriteValue<i32>(99));
+    CHECK(stream.Size() == 8); // no growth
+
+    CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
+    i32 first = 0;
+    i32 second = 0;
+    CHECK(stream.ReadValue(first));
+    CHECK(stream.ReadValue(second));
+    CHECK(first == 99);
+    CHECK(second == 20);
+}
+
+// --- IO: FileStream --------------------------------------------------------
+
+TEST_CASE("io: FileStream writes then reads a file")
+{
+    const char* path = "raptor_io_stream_test.tmp";
+
+    {
+        FileStream out(path, FileMode::Write);
+        REQUIRE(out.IsValid());
+        CHECK(out.WriteValue<u32>(0xDEADBEEF));
+        CHECK(out.WriteValue<f64>(3.25));
+    }
+
+    {
+        FileStream in(path, FileMode::Read);
+        REQUIRE(in.IsValid());
+        CHECK(in.Size() == static_cast<i64>(sizeof(u32) + sizeof(f64)));
+
+        u32 magic = 0;
+        f64 value = 0.0;
+        CHECK(in.ReadValue(magic));
+        CHECK(in.ReadValue(value));
+        CHECK(magic == 0xDEADBEEFu);
+        CHECK(value == 3.25);
+
+        // Seek back to the float and re-read.
+        CHECK(in.Seek(static_cast<i64>(sizeof(u32)), SeekOrigin::Begin) == static_cast<i64>(sizeof(u32)));
+        f64 again = 0.0;
+        CHECK(in.ReadValue(again));
+        CHECK(again == 3.25);
+    }
+
+    CHECK(FileDelete(path));
+}
+
+TEST_CASE("io: FileStream on an unopenable path is invalid")
+{
+    FileStream in("raptor_io_missing_file.xyz", FileMode::Read);
+    CHECK_FALSE(in.IsValid());
+    u8 byte = 0;
+    CHECK(in.Read(&byte, 1) == 0u);
+}
