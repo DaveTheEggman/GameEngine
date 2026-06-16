@@ -46,9 +46,11 @@ target_sources(RaptorCore
             IO/Path.cppm
             IO/FileSystem.cppm
             IO/VirtualFileSystem.cppm
-            IO/Serialization.cppm
+            Serialization/Serializer.cppm
+            Serialization/BinarySerializer.cppm
+            Serialization/Serialize.cppm
             Threading/Threading.cppm
-            Library/Library.cppm)
+            Library/DynamicLibrary.cppm)
 
 # Per-platform backends (classic TUs).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
