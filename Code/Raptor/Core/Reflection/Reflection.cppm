@@ -12,7 +12,7 @@ module;
 export module raptor.core:reflection;
 
 import :base;
-import :memory;
+import :allocator;
 import :array;
 import :span;
 import :type_info;

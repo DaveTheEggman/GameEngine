@@ -12,7 +12,7 @@ module;
 export module raptor.core:io;
 
 import :base;
-import :memory;
+import :allocator;
 import :array;
 import :span;
 import :system;

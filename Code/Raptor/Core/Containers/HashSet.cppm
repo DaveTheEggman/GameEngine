@@ -5,7 +5,7 @@ module;
 export module raptor.core:hash_set;
 
 import :base;
-import :memory;
+import :allocator;
 import :hash;
 import :hash_map;
 

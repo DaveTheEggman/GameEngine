@@ -7,7 +7,7 @@
 export module raptor.core;
 
 export import :base;
-export import :memory;
+export import :allocator;
 export import :linear_allocator;
 export import :stack_allocator;
 export import :pool_allocator;

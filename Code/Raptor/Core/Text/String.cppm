@@ -15,7 +15,7 @@ module;
 export module raptor.core:string;
 
 import :base;
-import :memory;
+import :allocator;
 
 export namespace raptor::core
 {

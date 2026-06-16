@@ -9,7 +9,7 @@ module;
 export module raptor.core:unique_ptr;
 
 import :base;
-import :memory;
+import :allocator;
 
 export namespace raptor::core
 {

@@ -12,7 +12,7 @@ module;
 export module raptor.core:hash_map;
 
 import :base;
-import :memory;
+import :allocator;
 import :hash;
 
 export namespace raptor::core

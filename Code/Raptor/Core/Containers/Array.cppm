@@ -5,7 +5,7 @@ module;
 export module raptor.core:array;
 
 import :base;
-import :memory;
+import :allocator;
 import :span;
 
 export namespace raptor::core

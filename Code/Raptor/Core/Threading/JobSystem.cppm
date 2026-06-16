@@ -9,7 +9,7 @@ module;
 export module raptor.core:job_system;
 
 import :base;
-import :memory;
+import :allocator;
 import :array;
 import :system;
 import :thread;

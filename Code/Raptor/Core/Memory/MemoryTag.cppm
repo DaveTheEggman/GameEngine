@@ -12,7 +12,7 @@ module;
 export module raptor.core:memory_tag;
 
 import :base;
-import :memory;
+import :allocator;
 
 export namespace raptor::core
 {

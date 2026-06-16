@@ -10,7 +10,7 @@ module;
 export module raptor.core:pool_allocator;
 
 import :base;
-import :memory;
+import :allocator;
 
 export namespace raptor::core
 {

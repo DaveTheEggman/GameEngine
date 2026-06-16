@@ -5,7 +5,7 @@ module;
 export module raptor.core:ring_buffer;
 
 import :base;
-import :memory;
+import :allocator;
 
 export namespace raptor::core
 {

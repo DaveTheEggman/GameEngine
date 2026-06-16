@@ -9,7 +9,7 @@ module;
 export module raptor.core:stack_allocator;
 
 import :base;
-import :memory;
+import :allocator;
 
 export namespace raptor::core
 {

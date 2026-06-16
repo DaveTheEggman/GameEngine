@@ -1,4 +1,4 @@
-// Raptor Core — :memory partition (foundation)
+// Raptor Core — :allocator partition (foundation)
 //
 // The allocator vocabulary every consumer needs: alignment / raw-memory
 // helpers, Construct/Destruct, the IAllocator interface, the default
@@ -14,7 +14,7 @@ module;
 #include <cstring>      // memcpy / memmove / memset
 #include <new>          // placement new
 
-export module raptor.core:memory;
+export module raptor.core:allocator;
 
 import :base;
 

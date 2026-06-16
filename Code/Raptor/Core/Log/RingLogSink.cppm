@@ -9,7 +9,7 @@ module;
 export module raptor.core:ring_log_sink;
 
 import :base;
-import :memory;
+import :allocator;
 import :ring_buffer;
 import :log;
 

@@ -10,7 +10,7 @@ module;
 export module raptor.core:filesystem;
 
 import :base;
-import :memory;
+import :allocator;
 import :array;
 import :span;
 import :system;

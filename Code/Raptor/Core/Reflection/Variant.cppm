@@ -14,7 +14,7 @@ module;
 export module raptor.core:variant;
 
 import :base;
-import :memory;
+import :allocator;
 import :type_info;
 
 namespace raptor::core::detail

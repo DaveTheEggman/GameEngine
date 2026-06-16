@@ -9,7 +9,7 @@ module;
 export module raptor.core:vfs;
 
 import :base;
-import :memory;
+import :allocator;
 import :unique_ptr;
 import :array;
 import :string;

@@ -10,7 +10,7 @@ module;
 export module raptor.core:thread;
 
 import :base;
-import :memory;
+import :allocator;
 
 export namespace raptor::core
 {

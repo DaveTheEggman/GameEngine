@@ -9,7 +9,7 @@ module;
 export module raptor.core:frame_allocator;
 
 import :base;
-import :memory;
+import :allocator;
 import :linear_allocator;
 
 export namespace raptor::core

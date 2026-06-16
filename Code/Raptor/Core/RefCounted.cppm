@@ -13,7 +13,7 @@
 //   * strong -> 0 destroys the object (runs ~T); the storage is retained.
 //   * weak   -> 0 frees the storage.
 // Allocation is explicit: the owning allocator is passed to MakeRef, matching
-// the engine-wide policy. (Depends on :memory only for IAllocator.)
+// the engine-wide policy. (Depends on :allocator only for IAllocator.)
 
 module;
 #include "Core/Prelude.h"
@@ -24,7 +24,7 @@ module;
 export module raptor.core:ref_counted;
 
 import :base;
-import :memory;
+import :allocator;
 
 namespace raptor::core::detail
 {
