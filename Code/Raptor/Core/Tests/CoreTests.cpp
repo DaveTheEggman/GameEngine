@@ -899,3 +899,78 @@ TEST_CASE("log: dispatch, formatting, and level filtering")
     RAPTOR_LOG_ERROR("Audio", "ignored");
     CHECK(sink.count == 2);
 }
+
+// --- Math: scalars ---------------------------------------------------------
+
+TEST_CASE("math: scalar helpers")
+{
+    CHECK(Abs(-3.0f) == 3.0f);
+    CHECK(NearlyEqual(DegreesToRadians(180.0f), kPi));
+    CHECK(NearlyEqual(RadiansToDegrees(kPi), 180.0f));
+    CHECK(NearlyEqual(Lerp(0.0f, 10.0f, 0.25f), 2.5f));
+    CHECK(NearlyEqual(Sqrt(16.0f), 4.0f));
+    CHECK(NearlyZero(1.0e-8f));
+
+    static_assert(Abs(-1.0f) == 1.0f);
+}
+
+// --- Math: Vec3 ------------------------------------------------------------
+
+TEST_CASE("math: Vec3 arithmetic")
+{
+    Vec3 a{ 1.0f, 2.0f, 3.0f };
+    Vec3 b{ 4.0f, 5.0f, 6.0f };
+
+    CHECK((a + b) == Vec3{ 5.0f, 7.0f, 9.0f });
+    CHECK((b - a) == Vec3{ 3.0f, 3.0f, 3.0f });
+    CHECK((a * 2.0f) == Vec3{ 2.0f, 4.0f, 6.0f });
+    CHECK((2.0f * a) == Vec3{ 2.0f, 4.0f, 6.0f });
+    CHECK((-a) == Vec3{ -1.0f, -2.0f, -3.0f });
+
+    a += b;
+    CHECK(a == Vec3{ 5.0f, 7.0f, 9.0f });
+
+    CHECK(a[0] == 5.0f);
+    CHECK(a[2] == 9.0f);
+
+    static_assert(Vec3{ 1.0f, 0.0f, 0.0f } == Vec3::UnitX);
+}
+
+TEST_CASE("math: Vec3 dot, cross, length, normalize")
+{
+    CHECK(Dot(Vec3{ 1.0f, 2.0f, 3.0f }, Vec3{ 4.0f, 5.0f, 6.0f }) == 32.0f);
+
+    // Right-handed cross: X x Y = Z
+    CHECK(Cross(Vec3::UnitX, Vec3::UnitY) == Vec3::UnitZ);
+    CHECK(Cross(Vec3::UnitY, Vec3::UnitZ) == Vec3::UnitX);
+
+    CHECK(LengthSquared(Vec3{ 3.0f, 4.0f, 0.0f }) == 25.0f);
+    CHECK(NearlyEqual(Length(Vec3{ 3.0f, 4.0f, 0.0f }), 5.0f));
+
+    Vec3 n = Normalized(Vec3{ 0.0f, 8.0f, 0.0f });
+    CHECK(NearlyEqual(n, Vec3::UnitY));
+    CHECK(NearlyEqual(Length(n), 1.0f));
+
+    // Degenerate input -> Zero, no NaN/divide-by-zero.
+    CHECK(Normalized(Vec3::Zero) == Vec3::Zero);
+}
+
+TEST_CASE("math: Vec3 lerp/min/max")
+{
+    CHECK(Lerp(Vec3::Zero, Vec3{ 4.0f, 8.0f, 12.0f }, 0.5f) == Vec3{ 2.0f, 4.0f, 6.0f });
+    CHECK(Min(Vec3{ 1.0f, 5.0f, 3.0f }, Vec3{ 4.0f, 2.0f, 6.0f }) == Vec3{ 1.0f, 2.0f, 3.0f });
+    CHECK(Max(Vec3{ 1.0f, 5.0f, 3.0f }, Vec3{ 4.0f, 2.0f, 6.0f }) == Vec3{ 4.0f, 5.0f, 6.0f });
+}
+
+// --- Math: Vec2 / Vec4 -----------------------------------------------------
+
+TEST_CASE("math: Vec2 and Vec4 basics")
+{
+    CHECK(Dot(Vec2{ 1.0f, 2.0f }, Vec2{ 3.0f, 4.0f }) == 11.0f);
+    CHECK(NearlyEqual(Length(Vec2{ 3.0f, 4.0f }), 5.0f));
+
+    Vec4 v{ Vec3{ 1.0f, 2.0f, 3.0f }, 1.0f };
+    CHECK(v.XYZ() == Vec3{ 1.0f, 2.0f, 3.0f });
+    CHECK(v.w == 1.0f);
+    CHECK(Dot(Vec4::One, Vec4::One) == 4.0f);
+}

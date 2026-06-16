@@ -16,4 +16,5 @@ export import :hash;
 export import :hash_map;
 export import :format;
 export import :log;
+export import :math;
 // ...
