@@ -31,6 +31,8 @@ export import :reflection;
 export import :io;
 export import :path;
 export import :filesystem;
+export import :ifilesystem;
+export import :native_filesystem;
 export import :vfs;
 export import :serializer;
 export import :binary_serializer;
