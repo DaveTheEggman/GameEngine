@@ -9,6 +9,7 @@
 #define NOMINMAX
 #include <windows.h>
 
+#include <cstdio>
 #include <cstring>
 
 // windows.h #defines these to the ...A/...W variants, which would also rewrite
@@ -147,6 +148,31 @@ namespace raptor::core::sys
     }
 
     bool RemoveDirectory(const char* path) noexcept { return RemoveDirectoryA(path) != 0; }
+
+    bool ListDirectory(const char* path, DirEntryCallback cb, void* ctx) noexcept
+    {
+        char pattern[MAX_PATH];
+        const int n = std::snprintf(pattern, sizeof(pattern), "%s\\*", path);
+        if (n < 0 || n >= static_cast<int>(sizeof(pattern))) { return false; }
+
+        WIN32_FIND_DATAA data{};
+        HANDLE handle = FindFirstFileA(pattern, &data);
+        if (handle == INVALID_HANDLE_VALUE) { return false; }
+
+        do
+        {
+            const char* name = data.cFileName;
+            if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')))
+            {
+                continue; // skip "." and ".."
+            }
+            const bool isDir = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            cb(ctx, name, isDir);
+        } while (FindNextFileA(handle, &data));
+
+        FindClose(handle);
+        return true;
+    }
 
     void ConsoleWrite(const char* text, std::uint64_t length) noexcept
     {

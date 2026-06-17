@@ -113,6 +113,24 @@ export namespace raptor::core
     inline bool CreateDirectory(StringView path) noexcept { return sys::CreateDirectory(detail::NarrowPath(path).CStr()); }
     inline bool RemoveDirectory(StringView path) noexcept { return sys::RemoveDirectory(detail::NarrowPath(path).CStr()); }
 
+    // Lists immediate children of a directory, invoking `cb(ctx, name, isDir)`
+    // per entry (excluding "." and ".."). `name` is a wide view valid only for
+    // the duration of the call. Returns false if the directory can't be opened.
+    using DirEntryCallback = void (*)(void* ctx, StringView name, bool isDirectory);
+    inline bool ListDirectory(StringView path, DirEntryCallback cb, void* ctx) noexcept
+    {
+        struct Bridge { DirEntryCallback cb; void* ctx; } bridge{ cb, ctx };
+        return sys::ListDirectory(
+            detail::NarrowPath(path).CStr(),
+            [](void* c, const char* name, bool isDir) noexcept
+            {
+                auto* b = static_cast<Bridge*>(c);
+                const String wide = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(name)));
+                b->cb(b->ctx, wide.AsView(), isDir);
+            },
+            &bridge);
+    }
+
     // --- Console -----------------------------------------------------------
 
     inline void ConsoleWrite(StringView text) noexcept

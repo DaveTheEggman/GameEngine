@@ -59,6 +59,12 @@ namespace raptor::core::sys
     bool CreateDirectory(const char* path) noexcept;  // true if created or already exists
     bool RemoveDirectory(const char* path) noexcept;
 
+    // Lists the immediate children of a directory, invoking `cb` once per entry
+    // (excluding "." and ".."). Allocation-free: the backend owns no buffers.
+    // Returns false if the directory can't be opened.
+    using DirEntryCallback = void (*)(void* ctx, const char* name, bool isDirectory) noexcept;
+    bool ListDirectory(const char* path, DirEntryCallback cb, void* ctx) noexcept;
+
     // --- Console -----------------------------------------------------------
     void ConsoleWrite(const char* text, std::uint64_t length) noexcept;       // stdout
     void ConsoleWriteError(const char* text, std::uint64_t length) noexcept;   // stderr

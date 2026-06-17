@@ -1,7 +1,10 @@
 // Raptor::VFS — :vfs partition
 //
-// VirtualFileSystem: routes logical paths to mounted IFileSystem backends by
-// longest-prefix match. Mounts are non-owning.
+// VirtualFileSystem: a scheme mount table. Paths are `scheme://locator`; the
+// scheme selects a mounted backend and the locator (mount-relative, no scheme)
+// is forwarded to it. It is a router, so it does not itself advertise
+// capabilities — resolve a specific mount via GetMount(scheme) and query that
+// mount's As*() instead. Mounts are non-owning.
 
 module;
 #include "Core/Prelude.h"
@@ -15,65 +18,66 @@ using namespace raptor::core;
 
 export namespace raptor::vfs
 {
-    // =======================================================================
-    // VirtualFileSystem — routes logical paths to mounted backends.
-    // =======================================================================
     class VirtualFileSystem final : public IFileSystem
     {
     public:
-        // Mounts a backend under a logical prefix (non-owning; backend must outlive this).
-        void Mount(StringView prefix, IFileSystem& backend)
+        // Mounts a backend under a scheme, e.g. Mount(u"project", fs) routes
+        // "project://...". Non-owning; the backend must outlive this.
+        void Mount(StringView scheme, IFileSystem& backend)
         {
-            m_mounts.PushBack(MountPoint{ String(prefix), &backend });
+            m_mounts.PushBack(MountPoint{ String(scheme), &backend });
+        }
+
+        // Resolves the backend registered for a scheme, or null.
+        [[nodiscard]] IFileSystem* GetMount(StringView scheme)
+        {
+            for (MountPoint& mount : m_mounts)
+            {
+                if (mount.scheme.AsView() == scheme) { return mount.backend; }
+            }
+            return nullptr;
         }
 
         [[nodiscard]] UniquePtr<IStream> Open(StringView path, FileMode mode) override
         {
-            const MountPoint* mount = FindMount(path);
-            if (mount == nullptr)
-            {
-                return UniquePtr<IStream>{};
-            }
-            return mount->backend->Open(Relative(path, *mount), mode);
+            StringView scheme;
+            StringView locator;
+            if (!SplitScheme(path, scheme, locator)) { return UniquePtr<IStream>{}; }
+            IFileSystem* backend = GetMount(scheme);
+            return backend != nullptr ? backend->Open(locator, mode) : UniquePtr<IStream>{};
         }
 
         [[nodiscard]] bool Exists(StringView path) override
         {
-            const MountPoint* mount = FindMount(path);
-            return mount != nullptr && mount->backend->Exists(Relative(path, *mount));
+            StringView scheme;
+            StringView locator;
+            if (!SplitScheme(path, scheme, locator)) { return false; }
+            IFileSystem* backend = GetMount(scheme);
+            return backend != nullptr && backend->Exists(locator);
         }
 
     private:
         struct MountPoint
         {
-            String prefix;
+            String scheme;
             IFileSystem* backend;
         };
 
-        [[nodiscard]] const MountPoint* FindMount(StringView path) const
+        // Splits "scheme://locator" into its parts. Returns false if there is no
+        // "://" separator (schemeless paths are rejected).
+        [[nodiscard]] static bool SplitScheme(StringView path, StringView& outScheme, StringView& outLocator)
         {
-            const MountPoint* best = nullptr;
-            for (const MountPoint& mount : m_mounts)
+            constexpr StringView sep = u"://";
+            for (usize i = 0; i + sep.Size() <= path.Size(); ++i)
             {
-                if (path.StartsWith(mount.prefix.AsView()))
+                if (path.SubStr(i, sep.Size()) == sep)
                 {
-                    if (best == nullptr || mount.prefix.Size() > best->prefix.Size())
-                    {
-                        best = &mount;
-                    }
+                    outScheme = path.SubStr(0, i);
+                    outLocator = path.SubStr(i + sep.Size(), path.Size() - i - sep.Size());
+                    return true;
                 }
             }
-            return best;
-        }
-
-        [[nodiscard]] static StringView Relative(StringView path, const MountPoint& mount)
-        {
-            usize offset = mount.prefix.Size();
-            while (offset < path.Size() && (path[offset] == u'/' || path[offset] == u'\\'))
-            {
-                ++offset;
-            }
-            return path.SubStr(offset, path.Size() - offset);
+            return false;
         }
 
         Array<MountPoint> m_mounts;

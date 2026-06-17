@@ -3,6 +3,7 @@
 #include "Core/System/SystemBackend.h"
 
 #include <ctime>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -154,6 +155,33 @@ namespace raptor::core::sys
     bool RemoveDirectory(const char* path) noexcept
     {
         return rmdir(path) == 0;
+    }
+
+    bool ListDirectory(const char* path, DirEntryCallback cb, void* ctx) noexcept
+    {
+        DIR* dir = opendir(path);
+        if (dir == nullptr) { return false; }
+
+        for (struct dirent* entry = readdir(dir); entry != nullptr; entry = readdir(dir))
+        {
+            const char* name = entry->d_name;
+            if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')))
+            {
+                continue; // skip "." and ".."
+            }
+
+            bool isDir = false;
+            if (entry->d_type == DT_DIR) { isDir = true; }
+            else if (entry->d_type == DT_UNKNOWN) // some filesystems don't fill d_type
+            {
+                struct stat st{};
+                if (fstatat(dirfd(dir), name, &st, 0) == 0) { isDir = S_ISDIR(st.st_mode); }
+            }
+            cb(ctx, name, isDir);
+        }
+
+        closedir(dir);
+        return true;
     }
 
     void ConsoleWrite(const char* text, std::uint64_t length) noexcept

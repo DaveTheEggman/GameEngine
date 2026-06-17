@@ -1,6 +1,7 @@
 // Raptor::VFS — :native_filesystem partition
 //
-// NativeFileSystem: backs logical paths with a real directory prefix.
+// NativeFileSystem: backs logical paths with a real directory prefix. Supports
+// read, enumerate, and write (the watch capability is not implemented yet).
 
 module;
 #include "Core/Prelude.h"
@@ -17,12 +18,16 @@ export namespace raptor::vfs
     // =======================================================================
     // NativeFileSystem — backs logical paths with a real directory prefix.
     // =======================================================================
-    class NativeFileSystem final : public IFileSystem
+    class NativeFileSystem final
+        : public IFileSystem
+        , public IEnumerableFileSystem
+        , public IWritableFileSystem
     {
     public:
         explicit NativeFileSystem(StringView root, IAllocator& allocator = DefaultAllocator())
             : m_root(root, allocator), m_allocator(&allocator) {}
 
+        // --- IFileSystem ---
         [[nodiscard]] UniquePtr<IStream> Open(StringView path, FileMode mode) override
         {
             const String full = PathJoin(m_root.AsView(), path, *m_allocator);
@@ -42,10 +47,62 @@ export namespace raptor::vfs
         [[nodiscard]] bool Exists(StringView path) override
         {
             const String full = PathJoin(m_root.AsView(), path, *m_allocator);
-            return FileExists(full.AsView());
+            return FileExists(full.AsView()) || DirectoryExists(full.AsView());
+        }
+
+        [[nodiscard]] IEnumerableFileSystem* AsEnumerable() noexcept override { return this; }
+        [[nodiscard]] IWritableFileSystem*   AsWritable()   noexcept override { return this; }
+
+        // --- IEnumerableFileSystem ---
+        [[nodiscard]] Status Enumerate(StringView folder, Array<DirEntry>& out) override
+        {
+            const String full = PathJoin(m_root.AsView(), folder, *m_allocator);
+            const bool ok = ListDirectory(
+                full.AsView(),
+                [](void* ctx, StringView name, bool isDir)
+                {
+                    auto* dst = static_cast<Array<DirEntry>*>(ctx);
+                    dst->PushBack(DirEntry{ String(name), isDir });
+                },
+                &out);
+            return ok ? Status{} : Status{ ErrorCode::NotFound };
+        }
+
+        // --- IWritableFileSystem ---
+        [[nodiscard]] Status Save(StringView path, Span<const byte> data) override
+        {
+            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            EnsureParentDirectories(full.AsView());
+
+            FileStream stream(full.AsView(), FileMode::Write);
+            if (!stream.IsValid()) { return Status{ ErrorCode::Internal }; }
+            if (!data.IsEmpty() && stream.Write(data.Data(), data.Size()) != data.Size())
+            {
+                return Status{ ErrorCode::Internal };
+            }
+            return Status{};
+        }
+
+        [[nodiscard]] Status Delete(StringView path) override
+        {
+            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            return FileDelete(full.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
         }
 
     private:
+        // Creates every ancestor directory of `full` (idempotent). The final
+        // component is the file itself and is left to the caller.
+        static void EnsureParentDirectories(StringView full)
+        {
+            for (usize i = 1; i < full.Size(); ++i)
+            {
+                if (full[i] == u'/' || full[i] == u'\\')
+                {
+                    (void)CreateDirectory(full.SubStr(0, i));
+                }
+            }
+        }
+
         String m_root;
         IAllocator* m_allocator;
     };
