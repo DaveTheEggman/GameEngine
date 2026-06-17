@@ -15,31 +15,31 @@ export namespace raptor::rhi::validation {
 
 class ValidatedFence : public Fence {
 public:
-    explicit ValidatedFence(Fence* inner) : inner_(inner) {}
+    explicit ValidatedFence(Fence* inner) : m_inner(inner) {}
 
-    u64 CompletedValue() override { return inner_->CompletedValue(); }
+    u64 CompletedValue() override { return m_inner->CompletedValue(); }
 
     bool Wait(u64 value, u64 timeoutNs) override {
-        if (value > lastSignaled_ && lastSignaled_ > 0) {
+        if (value > m_lastSignaled && m_lastSignaled > 0) {
             LogWarningf("[Validation] Fence::wait: waiting for value %llu but highest signaled is %llu",
-                        static_cast<unsigned long long>(value), static_cast<unsigned long long>(lastSignaled_));
+                        static_cast<unsigned long long>(value), static_cast<unsigned long long>(m_lastSignaled));
         }
-        return inner_->Wait(value, timeoutNs);
+        return m_inner->Wait(value, timeoutNs);
     }
 
     void trackSignal(u64 value) {
-        if (value <= lastSignaled_ && lastSignaled_ > 0) {
+        if (value <= m_lastSignaled && m_lastSignaled > 0) {
             LogWarningf("[Validation] Fence signal value %llu is not monotonically increasing (last=%llu)",
-                        static_cast<unsigned long long>(value), static_cast<unsigned long long>(lastSignaled_));
+                        static_cast<unsigned long long>(value), static_cast<unsigned long long>(m_lastSignaled));
         }
-        lastSignaled_ = value;
+        m_lastSignaled = value;
     }
 
-    Fence* inner() const { return inner_; }
+    Fence* inner() const { return m_inner; }
 
 private:
-    Fence* inner_;
-    u64    lastSignaled_ = 0;
+    Fence* m_inner;
+    u64    m_lastSignaled = 0;
 };
 
 } // namespace raptor::rhi::validation

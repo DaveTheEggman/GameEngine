@@ -25,7 +25,7 @@ public:
         auto* vkLayout = static_cast<VkPipelineLayoutImpl*>(desc.layout);
         if (!vkLayout) return ErrorCode::Unknown;
         layout  = desc.layout;
-        layout_ = vkLayout;
+        m_layout = vkLayout;
 
         auto* vkMod = static_cast<VkShaderModuleImpl*>(desc.compute.module);
         if (!vkMod) return ErrorCode::Unknown;
@@ -46,21 +46,21 @@ public:
         VkPipelineCache cacheHandle = VK_NULL_HANDLE;
         if (desc.cache) cacheHandle = static_cast<VkPipelineCacheImpl*>(desc.cache)->handle();
 
-        if (vkCreateComputePipelines(device, cacheHandle, 1, &ci, nullptr, &pipeline_) != VK_SUCCESS)
+        if (vkCreateComputePipelines(device, cacheHandle, 1, &ci, nullptr, &m_pipeline) != VK_SUCCESS)
             return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline_, nullptr); pipeline_ = VK_NULL_HANDLE; }
+        if (m_pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, m_pipeline, nullptr); m_pipeline = VK_NULL_HANDLE; }
     }
 
-    [[nodiscard]] VkPipeline           handle()   const { return pipeline_; }
-    [[nodiscard]] VkPipelineLayoutImpl* vkLayout() const { return layout_; }
+    [[nodiscard]] VkPipeline           handle()   const { return m_pipeline; }
+    [[nodiscard]] VkPipelineLayoutImpl* vkLayout() const { return m_layout; }
 
 private:
-    VkPipeline            pipeline_ = VK_NULL_HANDLE;
-    VkPipelineLayoutImpl* layout_   = nullptr;
+    VkPipeline            m_pipeline = VK_NULL_HANDLE;
+    VkPipelineLayoutImpl* m_layout   = nullptr;
 };
 
 } // namespace raptor::rhi::vk

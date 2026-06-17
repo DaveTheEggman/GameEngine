@@ -43,18 +43,18 @@ public:
         ci.pushConstantRangeCount = static_cast<u32>(pushRanges.Size());
         ci.pPushConstantRanges    = pushRanges.Data();
 
-        if (vkCreatePipelineLayout(device, &ci, nullptr, &layout_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreatePipelineLayout(device, &ci, nullptr, &m_layout) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (layout_ != VK_NULL_HANDLE) { vkDestroyPipelineLayout(device, layout_, nullptr); layout_ = VK_NULL_HANDLE; }
+        if (m_layout != VK_NULL_HANDLE) { vkDestroyPipelineLayout(device, m_layout, nullptr); m_layout = VK_NULL_HANDLE; }
     }
 
-    [[nodiscard]] VkPipelineLayout handle() const { return layout_; }
+    [[nodiscard]] VkPipelineLayout handle() const { return m_layout; }
 
 private:
-    VkPipelineLayout layout_ = VK_NULL_HANDLE;
+    VkPipelineLayout m_layout = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

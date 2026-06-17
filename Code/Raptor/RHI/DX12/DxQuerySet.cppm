@@ -24,7 +24,7 @@ public:
         D3D12_QUERY_HEAP_DESC hd{};
         hd.Type  = toQueryHeapType(d.type);
         hd.Count = d.count;
-        HRESULT hr = device->CreateQueryHeap(&hd, IID_PPV_ARGS(&heap_));
+        HRESULT hr = device->CreateQueryHeap(&hd, IID_PPV_ARGS(&m_heap));
         if (FAILED(hr)) {
             LogErrorf("DxQuerySet: CreateQueryHeap failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
@@ -32,9 +32,9 @@ public:
         return ErrorCode::Ok;
     }
 
-    void cleanup() { heap_.Reset(); }
+    void cleanup() { m_heap.Reset(); }
 
-    [[nodiscard]] ID3D12QueryHeap* handle() const { return heap_.Get(); }
+    [[nodiscard]] ID3D12QueryHeap* handle() const { return m_heap.Get(); }
 
     static D3D12_QUERY_HEAP_TYPE toQueryHeapType(QueryType t) {
         switch (t) {
@@ -55,7 +55,7 @@ public:
     }
 
 private:
-    ComPtr<ID3D12QueryHeap> heap_;
+    ComPtr<ID3D12QueryHeap> m_heap;
 };
 
 } // namespace raptor::rhi::dx12

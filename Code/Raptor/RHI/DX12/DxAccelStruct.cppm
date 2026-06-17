@@ -19,7 +19,7 @@ export namespace raptor::rhi::dx12 {
 class DxAccelStructImpl : public AccelStruct {
 public:
     Status init(ID3D12Device* device, const AccelStructDesc& d) {
-        type_ = d.type;
+        m_type = d.type;
 
         D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
         D3D12_RESOURCE_DESC rd{};
@@ -36,24 +36,24 @@ public:
         HRESULT hr = device->CreateCommittedResource(
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
             D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr,
-            IID_PPV_ARGS(&resource_));
+            IID_PPV_ARGS(&m_resource));
         if (FAILED(hr)) return ErrorCode::Unknown;
 
-        gpuAddr_ = resource_->GetGPUVirtualAddress();
+        m_gpuAddr = m_resource->GetGPUVirtualAddress();
         return ErrorCode::Ok;
     }
 
-    AccelStructType Type()          const override { return type_; }
-    u64             DeviceAddress() const override { return gpuAddr_; }
+    AccelStructType Type()          const override { return m_type; }
+    u64             DeviceAddress() const override { return m_gpuAddr; }
 
-    void cleanup() { resource_.Reset(); }
+    void cleanup() { m_resource.Reset(); }
 
-    [[nodiscard]] ID3D12Resource* handle() const { return resource_.Get(); }
+    [[nodiscard]] ID3D12Resource* handle() const { return m_resource.Get(); }
 
 private:
-    AccelStructType        type_ = AccelStructType::BottomLevel;
-    u64                    gpuAddr_ = 0;
-    ComPtr<ID3D12Resource> resource_;
+    AccelStructType        m_type = AccelStructType::BottomLevel;
+    u64                    m_gpuAddr = 0;
+    ComPtr<ID3D12Resource> m_resource;
 };
 
 } // namespace raptor::rhi::dx12

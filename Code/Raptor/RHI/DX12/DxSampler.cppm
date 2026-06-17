@@ -20,7 +20,7 @@ export namespace raptor::rhi::dx12 {
 class DxSamplerImpl : public Sampler {
 public:
     Status init(ID3D12Device* device, const SamplerDesc& d, DxDescriptorHeapAllocator* samplerHeap) {
-        samplerHeap_ = samplerHeap;
+        m_samplerHeap = samplerHeap;
 
         bool isComparison = d.compare.HasValue();
 
@@ -47,20 +47,20 @@ public:
         case SamplerBorderColor::OpaqueWhite:      sd.BorderColor[0]=1; sd.BorderColor[1]=1; sd.BorderColor[2]=1; sd.BorderColor[3]=1; break;
         }
 
-        handle_ = samplerHeap->allocate();
-        device->CreateSampler(&sd, handle_);
+        m_handle = samplerHeap->allocate();
+        device->CreateSampler(&sd, m_handle);
         return ErrorCode::Ok;
     }
 
     void cleanup() {
-        if (samplerHeap_) samplerHeap_->free(handle_);
+        if (m_samplerHeap) m_samplerHeap->free(m_handle);
     }
 
-    [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return handle_; }
+    [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
 
 private:
-    D3D12_CPU_DESCRIPTOR_HANDLE handle_{};
-    DxDescriptorHeapAllocator*  samplerHeap_ = nullptr;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_handle{};
+    DxDescriptorHeapAllocator*  m_samplerHeap = nullptr;
 };
 
 } // namespace raptor::rhi::dx12

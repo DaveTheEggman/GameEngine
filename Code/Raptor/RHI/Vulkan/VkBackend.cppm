@@ -69,7 +69,7 @@ public:
     // ---- Backend interface ----
 
     Span<Adapter* const> EnumerateAdapters() override {
-        return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
+        return Span<Adapter* const>(m_adapterPtrs.Data(), m_adapterPtrs.Size());
     }
 
     Status CreateSurface(void* windowHandle, void*
@@ -93,7 +93,7 @@ public:
         ci.hinstance = ::GetModuleHandleW(nullptr);
         ci.hwnd      = reinterpret_cast<HWND>(windowHandle);
 
-        VkResult vr = vkCreateWin32SurfaceKHR(instance_, &ci, nullptr, &vkSurface);
+        VkResult vr = vkCreateWin32SurfaceKHR(m_instance, &ci, nullptr, &vkSurface);
         if (vr != VK_SUCCESS) {
             LogErrorf("VkBackend: vkCreateWin32SurfaceKHR failed (%d)", static_cast<int>(vr));
             return ErrorCode::Unknown;
@@ -112,29 +112,29 @@ public:
         // when SDL chose Wayland, or X11 Display* when SDL chose X11.
         // We can't easily distinguish the pointer types, so we try Wayland first
         // if the extension is available and WAYLAND_DISPLAY is set, then X11.
-        if (hasWayland_ && std::getenv("WAYLAND_DISPLAY")) {
+        if (m_hasWayland && std::getenv("WAYLAND_DISPLAY")) {
             auto fn = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(
-                vkGetInstanceProcAddr(instance_, "vkCreateWaylandSurfaceKHR"));
+                vkGetInstanceProcAddr(m_instance, "vkCreateWaylandSurfaceKHR"));
             if (fn) {
                 VkWaylandSurfaceCreateInfoKHR ci{};
                 ci.sType   = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
                 ci.display = reinterpret_cast<wl_display*>(displayHandle);
                 ci.surface = reinterpret_cast<wl_surface*>(windowHandle);
-                vr = fn(instance_, &ci, nullptr, &vkSurface);
+                vr = fn(m_instance, &ci, nullptr, &vkSurface);
                 triedWayland = true;
             }
         }
 
         // Fall back to X11 if Wayland failed or wasn't tried.
-        if (vr != VK_SUCCESS && hasXlib_) {
+        if (vr != VK_SUCCESS && m_hasXlib) {
             auto fn = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(
-                vkGetInstanceProcAddr(instance_, "vkCreateXlibSurfaceKHR"));
+                vkGetInstanceProcAddr(m_instance, "vkCreateXlibSurfaceKHR"));
             if (fn) {
                 VkXlibSurfaceCreateInfoKHR ci{};
                 ci.sType  = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
                 ci.dpy    = reinterpret_cast<Display*>(displayHandle);
                 ci.window = static_cast<XID>(reinterpret_cast<std::uintptr_t>(windowHandle));
-                vr = fn(instance_, &ci, nullptr, &vkSurface);
+                vr = fn(m_instance, &ci, nullptr, &vkSurface);
                 triedX11 = true;
             }
         }
@@ -153,7 +153,7 @@ public:
         return ErrorCode::NotSupported;
 #endif
 
-        out = new VkSurfaceImpl(vkSurface, instance_);
+        out = new VkSurfaceImpl(vkSurface, m_instance);
         return ErrorCode::Ok;
     }
 
@@ -164,14 +164,14 @@ public:
 
     // ---- Internal ----
 
-    [[nodiscard]] VkInstance instance() const { return instance_; }
-    [[nodiscard]] bool validationEnabled() const { return validationEnabled_; }
+    [[nodiscard]] VkInstance instance() const { return m_instance; }
+    [[nodiscard]] bool validationEnabled() const { return m_validationEnabled; }
 
 private:
     friend Status CreateBackend(const VkBackendDesc& desc, Backend*& out);
 
     Status init(bool enableValidation) {
-        validationEnabled_ = enableValidation;
+        m_validationEnabled = enableValidation;
 
         // ---- Application info ----
         VkApplicationInfo appInfo{};
@@ -208,7 +208,7 @@ private:
             // because SDL3 may choose Wayland even when DISPLAY is set.
             if (hasXlib) extensions.PushBack(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
             if (hasWayland) extensions.PushBack(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
-            hasXlib_ = hasXlib; hasWayland_ = hasWayland;
+            m_hasXlib = hasXlib; m_hasWayland = hasWayland;
             if (!hasXlib && !hasWayland) {
                 LogError("VkBackend: no surface extension available (need xlib or wayland)");
                 return ErrorCode::Unknown;
@@ -231,7 +231,7 @@ private:
         ci.enabledLayerCount       = static_cast<u32>(layers.Size());
         ci.ppEnabledLayerNames     = layers.Data();
 
-        VkResult vr = vkCreateInstance(&ci, nullptr, &instance_);
+        VkResult vr = vkCreateInstance(&ci, nullptr, &m_instance);
         if (vr != VK_SUCCESS) {
             LogErrorf("VkBackend: vkCreateInstance failed (%d)", static_cast<int>(vr));
             return ErrorCode::Unknown;
@@ -258,8 +258,8 @@ private:
         ci.pfnUserCallback = &debugCallback;
 
         auto pfn = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-            vkGetInstanceProcAddr(instance_, "vkCreateDebugUtilsMessengerEXT"));
-        if (pfn) pfn(instance_, &ci, nullptr, &debugMessenger_);
+            vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
+        if (pfn) pfn(m_instance, &ci, nullptr, &m_debugMessenger);
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -278,53 +278,53 @@ private:
 
     void enumeratePhysicalDevices() {
         u32 count = 0;
-        vkEnumeratePhysicalDevices(instance_, &count, nullptr);
+        vkEnumeratePhysicalDevices(m_instance, &count, nullptr);
         if (count == 0) return;
 
         Array<VkPhysicalDevice> devices(count);
-        vkEnumeratePhysicalDevices(instance_, &count, devices.Data());
+        vkEnumeratePhysicalDevices(m_instance, &count, devices.Data());
 
-        adapters_.Reserve(count);
-        adapterPtrs_.Reserve(count);
+        m_adapters.Reserve(count);
+        m_adapterPtrs.Reserve(count);
         for (VkPhysicalDevice pd : devices) {
-            auto* a = new VkAdapterImpl(pd, instance_);
-            adapters_.PushBack(a);
-            adapterPtrs_.PushBack(a);
+            auto* a = new VkAdapterImpl(pd, m_instance);
+            m_adapters.PushBack(a);
+            m_adapterPtrs.PushBack(a);
         }
 
         // Expose adapters best-GPU-first; callers take [0]. See Backend::enumerateAdapters.
-        SortAdaptersByPreference(adapterPtrs_);
+        SortAdaptersByPreference(m_adapterPtrs);
     }
 
     void destroyImpl() {
-        for (auto* a : adapters_) delete a;
-        adapters_.Clear();
-        adapterPtrs_.Clear();
+        for (auto* a : m_adapters) delete a;
+        m_adapters.Clear();
+        m_adapterPtrs.Clear();
 
-        if (debugMessenger_ != VK_NULL_HANDLE) {
+        if (m_debugMessenger != VK_NULL_HANDLE) {
             auto pfn = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-                vkGetInstanceProcAddr(instance_, "vkDestroyDebugUtilsMessengerEXT"));
-            if (pfn) pfn(instance_, debugMessenger_, nullptr);
-            debugMessenger_ = VK_NULL_HANDLE;
+                vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
+            if (pfn) pfn(m_instance, m_debugMessenger, nullptr);
+            m_debugMessenger = VK_NULL_HANDLE;
         }
 
-        if (instance_ != VK_NULL_HANDLE) {
-            vkDestroyInstance(instance_, nullptr);
-            instance_ = VK_NULL_HANDLE;
+        if (m_instance != VK_NULL_HANDLE) {
+            vkDestroyInstance(m_instance, nullptr);
+            m_instance = VK_NULL_HANDLE;
         }
 
         isInitialized = false;
     }
 
-    VkInstance                       instance_       = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT         debugMessenger_ = VK_NULL_HANDLE;
-    bool                             validationEnabled_ = false;
-    Array<VkAdapterImpl*>      adapters_;
-    Array<Adapter*>            adapterPtrs_;
+    VkInstance                       m_instance       = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT         m_debugMessenger = VK_NULL_HANDLE;
+    bool                             m_validationEnabled = false;
+    Array<VkAdapterImpl*>      m_adapters;
+    Array<Adapter*>            m_adapterPtrs;
 
 #if defined(__linux__)
-    bool                             hasXlib_    = false;
-    bool                             hasWayland_ = false;
+    bool                             m_hasXlib    = false;
+    bool                             m_hasWayland = false;
 #endif
 };
 

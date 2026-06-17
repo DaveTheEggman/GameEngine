@@ -29,31 +29,31 @@ class VkBindGroupImpl : public BindGroup {
 public:
     Status init(VkDevice device, VkDescriptorPoolManager* poolMgr, const BindGroupDesc& desc,
                  const BindingShifts& shifts = {}) {
-        device_ = device;
-        shifts_ = shifts;
-        layout_ = static_cast<VkBindGroupLayoutImpl*>(desc.layout);
-        if (!layout_) return ErrorCode::Unknown;
+        m_device = device;
+        m_shifts = shifts;
+        m_layout = static_cast<VkBindGroupLayoutImpl*>(desc.layout);
+        if (!m_layout) return ErrorCode::Unknown;
 
         VkDescriptorPool pool;
-        if (poolMgr->allocate(layout_->handle(), pool, layout_->hasBindless(), layout_->bindlessCount()) != ErrorCode::Ok)
+        if (poolMgr->allocate(m_layout->handle(), pool, m_layout->hasBindless(), m_layout->bindlessCount()) != ErrorCode::Ok)
             return ErrorCode::Unknown;
-        pool_ = pool;
-        set_  = poolMgr->lastAllocatedSet();
+        m_pool = pool;
+        m_set  = poolMgr->lastAllocatedSet();
 
         writeDescriptors(device, desc);
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device, VkDescriptorPoolManager* poolMgr) {
-        if (set_ != VK_NULL_HANDLE && pool_ != VK_NULL_HANDLE) {
-            poolMgr->free(pool_, set_);
-            set_  = VK_NULL_HANDLE;
-            pool_ = VK_NULL_HANDLE;
+        if (m_set != VK_NULL_HANDLE && m_pool != VK_NULL_HANDLE) {
+            poolMgr->free(m_pool, m_set);
+            m_set  = VK_NULL_HANDLE;
+            m_pool = VK_NULL_HANDLE;
         }
         (void)device;
     }
 
-    BindGroupLayout* Layout() override { return layout_; }
+    BindGroupLayout* Layout() override { return m_layout; }
 
     void UpdateBindless(Span<const BindlessUpdateEntry> entries) override {
         if (entries.Size() == 0) return;
@@ -64,7 +64,7 @@ public:
         bufInfos.Reserve(entries.Size());
         imgInfos.Reserve(entries.Size());
 
-        auto layoutEntries = layout_->Entries();
+        auto layoutEntries = m_layout->Entries();
 
         for (usize i = 0; i < entries.Size(); ++i) {
             const auto& e = entries[i];
@@ -73,8 +73,8 @@ public:
 
             VkWriteDescriptorSet w{};
             w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            w.dstSet          = set_;
-            w.dstBinding      = shifts_.apply(le.type, le.binding);
+            w.dstSet          = m_set;
+            w.dstBinding      = m_shifts.apply(le.type, le.binding);
             w.dstArrayElement = e.arrayIndex;
             w.descriptorCount = 1;
             w.descriptorType  = toVkDescriptorType(le);
@@ -107,16 +107,16 @@ public:
         }
 
         if (!writes.IsEmpty())
-            vkUpdateDescriptorSets(device_, static_cast<u32>(writes.Size()), writes.Data(), 0, nullptr);
+            vkUpdateDescriptorSets(m_device, static_cast<u32>(writes.Size()), writes.Data(), 0, nullptr);
     }
 
-    [[nodiscard]] VkDescriptorSet handle() const { return set_; }
+    [[nodiscard]] VkDescriptorSet handle() const { return m_set; }
 
 private:
     void writeDescriptors(VkDevice device, const BindGroupDesc& desc) {
         if (desc.entries.Size() == 0) return;
 
-        auto layoutEntries = layout_->Entries();
+        auto layoutEntries = m_layout->Entries();
 
         Array<VkWriteDescriptorSet>    writes;
         Array<VkDescriptorBufferInfo>  bufInfos;
@@ -143,8 +143,8 @@ private:
 
             VkWriteDescriptorSet w{};
             w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            w.dstSet          = set_;
-            w.dstBinding      = shifts_.apply(le.type, le.binding);
+            w.dstSet          = m_set;
+            w.dstBinding      = m_shifts.apply(le.type, le.binding);
             w.dstArrayElement = 0;
             w.descriptorCount = 1;
             w.descriptorType  = toVkDescriptorType(le);
@@ -199,11 +199,11 @@ private:
             vkUpdateDescriptorSets(device, static_cast<u32>(writes.Size()), writes.Data(), 0, nullptr);
     }
 
-    VkDevice              device_ = VK_NULL_HANDLE;
-    VkDescriptorSet       set_    = VK_NULL_HANDLE;
-    VkDescriptorPool      pool_   = VK_NULL_HANDLE;
-    VkBindGroupLayoutImpl* layout_ = nullptr;
-    BindingShifts          shifts_{};
+    VkDevice              m_device = VK_NULL_HANDLE;
+    VkDescriptorSet       m_set    = VK_NULL_HANDLE;
+    VkDescriptorPool      m_pool   = VK_NULL_HANDLE;
+    VkBindGroupLayoutImpl* m_layout = nullptr;
+    BindingShifts          m_shifts{};
 };
 
 } // namespace raptor::rhi::vk

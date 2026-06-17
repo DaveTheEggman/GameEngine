@@ -46,12 +46,12 @@ class DxRenderPassEncoderImpl : public RenderPassEncoder, public MeshShaderPassE
 public:
     MeshShaderPassExt* AsMeshShaderExt() noexcept override { return this; }
     explicit DxRenderPassEncoderImpl(const DxRenderPassContext& ctx)
-        : ctx_(ctx) {}
+        : m_ctx(ctx) {}
 
     void begin(const RenderPassDesc& desc) {
-        desc_ = desc;
-        currentPipeline_     = nullptr;
-        currentMeshPipeline_ = nullptr;
+        m_desc = desc;
+        m_currentPipeline     = nullptr;
+        m_currentMeshPipeline = nullptr;
     }
 
     // ---- RenderPassEncoder: Pipeline & Binding ----
@@ -59,10 +59,10 @@ public:
     void SetPipeline(RenderPipeline* pipeline) override {
         auto* dxPipeline = static_cast<DxRenderPipelineImpl*>(pipeline);
         if (!dxPipeline) return;
-        currentPipeline_     = dxPipeline;
-        currentMeshPipeline_ = nullptr;
+        m_currentPipeline     = dxPipeline;
+        m_currentMeshPipeline = nullptr;
 
-        auto* cmdList = ctx_.cmdList;
+        auto* cmdList = m_ctx.cmdList;
         cmdList->SetPipelineState(dxPipeline->handle());
         cmdList->SetGraphicsRootSignature(dxPipeline->pipelineLayout()->handle());
         cmdList->IASetPrimitiveTopology(dxPipeline->topology());
@@ -70,10 +70,10 @@ public:
         // Re-apply cached vertex buffers with correct strides from the new pipeline.
         // DX12 vertex buffer views include stride, which comes from the pipeline.
         // If setVertexBuffer was called before setPipeline, the stride was 0.
-        for (u32 slot = 0; slot < cachedVbCount_; ++slot) {
-            if (cachedVbs_[slot].BufferLocation != 0) {
-                cachedVbs_[slot].StrideInBytes = dxPipeline->getVertexStride(slot);
-                cmdList->IASetVertexBuffers(slot, 1, &cachedVbs_[slot]);
+        for (u32 slot = 0; slot < m_cachedVbCount; ++slot) {
+            if (m_cachedVbs[slot].BufferLocation != 0) {
+                m_cachedVbs[slot].StrideInBytes = dxPipeline->getVertexStride(slot);
+                cmdList->IASetVertexBuffers(slot, 1, &m_cachedVbs[slot]);
             }
         }
     }
@@ -85,7 +85,7 @@ public:
         auto* layout = getCurrentLayout();
         if (!layout) return;
 
-        auto* cmdList  = ctx_.cmdList;
+        auto* cmdList  = m_ctx.cmdList;
         auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->Layout());
 
         // Copy-on-bind: copy bind group's descriptors into encoder's staging region,
@@ -96,10 +96,10 @@ public:
         if (dxGroup->cbvSrvUavOffset() >= 0 && dxLayout && dxLayout->cbvSrvUavCount() > 0) {
             i32 rootIdx = layout->getCbvSrvUavRootIndex(index);
             if (rootIdx >= 0) {
-                i32 stagedOffset = ctx_.srvStaging->copyFrom(
+                i32 stagedOffset = m_ctx.srvStaging->copyFrom(
                     static_cast<u32>(dxGroup->cbvSrvUavOffset()), dxLayout->cbvSrvUavCount());
                 if (stagedOffset >= 0) {
-                    auto gpuHandle = ctx_.gpuSrvHeap->getGpuHandle(static_cast<u32>(stagedOffset));
+                    auto gpuHandle = m_ctx.gpuSrvHeap->getGpuHandle(static_cast<u32>(stagedOffset));
                     cmdList->SetGraphicsRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
                 }
             }
@@ -109,10 +109,10 @@ public:
         if (dxGroup->samplerOffset() >= 0 && dxLayout && dxLayout->samplerCount() > 0) {
             i32 rootIdx = layout->getSamplerRootIndex(index);
             if (rootIdx >= 0) {
-                i32 stagedOffset = ctx_.samplerStaging->copyFrom(
+                i32 stagedOffset = m_ctx.samplerStaging->copyFrom(
                     static_cast<u32>(dxGroup->samplerOffset()), dxLayout->samplerCount());
                 if (stagedOffset >= 0) {
-                    auto gpuHandle = ctx_.gpuSamplerHeap->getGpuHandle(static_cast<u32>(stagedOffset));
+                    auto gpuHandle = m_ctx.gpuSamplerHeap->getGpuHandle(static_cast<u32>(stagedOffset));
                     cmdList->SetGraphicsRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
                 }
             }
@@ -150,7 +150,7 @@ public:
         auto* layout = getCurrentLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;
 
-        ctx_.cmdList->SetGraphicsRoot32BitConstants(
+        m_ctx.cmdList->SetGraphicsRoot32BitConstants(
             static_cast<UINT>(layout->pushConstantRootIndex()),
             size / 4, data, offset / 4);
     }
@@ -161,7 +161,7 @@ public:
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf || slot >= 8) return;
 
-        u32 stride = currentPipeline_ ? currentPipeline_->getVertexStride(slot) : 0;
+        u32 stride = m_currentPipeline ? m_currentPipeline->getVertexStride(slot) : 0;
 
         D3D12_VERTEX_BUFFER_VIEW view{};
         view.BufferLocation = dxBuf->gpuAddress() + offset;
@@ -169,10 +169,10 @@ public:
         view.StrideInBytes  = stride;
 
         // Cache for re-application when pipeline changes.
-        cachedVbs_[slot] = view;
-        if (slot >= cachedVbCount_) cachedVbCount_ = slot + 1;
+        m_cachedVbs[slot] = view;
+        if (slot >= m_cachedVbCount) m_cachedVbCount = slot + 1;
 
-        ctx_.cmdList->IASetVertexBuffers(slot, 1, &view);
+        m_ctx.cmdList->IASetVertexBuffers(slot, 1, &view);
     }
 
     void SetIndexBuffer(Buffer* buffer, IndexFormat format, u64 offset) override {
@@ -184,7 +184,7 @@ public:
         view.SizeInBytes    = static_cast<UINT>(dxBuf->desc.size - offset);
         view.Format         = toDxgiIndexFormat(format);
 
-        ctx_.cmdList->IASetIndexBuffer(&view);
+        m_ctx.cmdList->IASetIndexBuffer(&view);
     }
 
     // ---- Dynamic State ----
@@ -198,7 +198,7 @@ public:
         viewport.MinDepth = minDepth;
         viewport.MaxDepth = maxDepth;
 
-        ctx_.cmdList->RSSetViewports(1, &viewport);
+        m_ctx.cmdList->RSSetViewports(1, &viewport);
     }
 
     void SetScissor(i32 x, i32 y, u32 w, u32 h) override {
@@ -208,38 +208,38 @@ public:
         rect.right  = x + static_cast<LONG>(w);
         rect.bottom = y + static_cast<LONG>(h);
 
-        ctx_.cmdList->RSSetScissorRects(1, &rect);
+        m_ctx.cmdList->RSSetScissorRects(1, &rect);
     }
 
     void SetBlendConstant(f32 r, f32 g, f32 b, f32 a) override {
         f32 color[4] = { r, g, b, a };
-        ctx_.cmdList->OMSetBlendFactor(color);
+        m_ctx.cmdList->OMSetBlendFactor(color);
     }
 
     void SetStencilReference(u32 reference) override {
-        ctx_.cmdList->OMSetStencilRef(reference);
+        m_ctx.cmdList->OMSetStencilRef(reference);
     }
 
     // ---- Draw Commands ----
 
     void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override {
-        ctx_.cmdList->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+        m_ctx.cmdList->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
     }
 
     void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex, u32 firstInstance) override {
-        ctx_.cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
+        m_ctx.cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
     }
 
     void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
-        auto* sig = ctx_.drawSig;
+        auto* sig = m_ctx.drawSig;
         if (!sig) return;
 
         u32 actualStride = (stride > 0) ? stride : 16; // sizeof(D3D12_DRAW_ARGUMENTS)
         for (u32 i = 0; i < drawCount; ++i) {
-            ctx_.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(),
+            m_ctx.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(),
                 offset + static_cast<u64>(i) * actualStride, nullptr, 0);
         }
     }
@@ -248,12 +248,12 @@ public:
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
-        auto* sig = ctx_.drawIndexedSig;
+        auto* sig = m_ctx.drawIndexedSig;
         if (!sig) return;
 
         u32 actualStride = (stride > 0) ? stride : 20; // sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)
         for (u32 i = 0; i < drawCount; ++i) {
-            ctx_.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(),
+            m_ctx.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(),
                 offset + static_cast<u64>(i) * actualStride, nullptr, 0);
         }
     }
@@ -262,17 +262,17 @@ public:
 
     void WriteTimestamp(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
-        if (qs) ctx_.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
+        if (qs) m_ctx.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
     }
 
     void BeginOcclusionQuery(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
-        if (qs) ctx_.cmdList->BeginQuery(qs->handle(), D3D12_QUERY_TYPE_OCCLUSION, index);
+        if (qs) m_ctx.cmdList->BeginQuery(qs->handle(), D3D12_QUERY_TYPE_OCCLUSION, index);
     }
 
     void EndOcclusionQuery(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
-        if (qs) ctx_.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_OCCLUSION, index);
+        if (qs) m_ctx.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_OCCLUSION, index);
     }
 
     // ---- MeshShaderPassExt ----
@@ -280,10 +280,10 @@ public:
     void SetMeshPipeline(MeshPipeline* pipeline) override {
         auto* dxPipeline = static_cast<DxMeshPipelineImpl*>(pipeline);
         if (!dxPipeline) return;
-        currentMeshPipeline_ = dxPipeline;
-        currentPipeline_     = nullptr; // clear regular pipeline
+        m_currentMeshPipeline = dxPipeline;
+        m_currentPipeline     = nullptr; // clear regular pipeline
 
-        auto* cmdList = ctx_.cmdList;
+        auto* cmdList = m_ctx.cmdList;
         cmdList->SetPipelineState(dxPipeline->handle());
         cmdList->SetGraphicsRootSignature(dxPipeline->pipelineLayout()->handle());
     }
@@ -291,7 +291,7 @@ public:
     void DrawMeshTasks(u32 groupCountX, u32 groupCountY, u32 groupCountZ) override {
         // Need ID3D12GraphicsCommandList6 for DispatchMesh.
         ID3D12GraphicsCommandList6* cmdList6 = nullptr;
-        HRESULT hr = ctx_.cmdList->QueryInterface(IID_PPV_ARGS(&cmdList6));
+        HRESULT hr = m_ctx.cmdList->QueryInterface(IID_PPV_ARGS(&cmdList6));
         if (SUCCEEDED(hr) && cmdList6) {
             cmdList6->DispatchMesh(groupCountX, groupCountY, groupCountZ);
             cmdList6->Release();
@@ -302,12 +302,12 @@ public:
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
-        auto* sig = ctx_.dispatchMeshSig;
+        auto* sig = m_ctx.dispatchMeshSig;
         if (!sig) return;
 
         u32 actualStride = (stride > 0) ? stride : 12; // sizeof(D3D12_DISPATCH_MESH_ARGUMENTS): 3 x u32
         for (u32 i = 0; i < drawCount; ++i) {
-            ctx_.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(),
+            m_ctx.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(),
                 offset + static_cast<u64>(i) * actualStride, nullptr, 0);
         }
     }
@@ -319,10 +319,10 @@ public:
         auto* dxCountBuf = static_cast<DxBufferImpl*>(countBuffer);
         if (!dxBuf || !dxCountBuf) return;
 
-        auto* sig = ctx_.dispatchMeshSig;
+        auto* sig = m_ctx.dispatchMeshSig;
         if (!sig) return;
 
-        ctx_.cmdList->ExecuteIndirect(sig, maxDrawCount, dxBuf->handle(),
+        m_ctx.cmdList->ExecuteIndirect(sig, maxDrawCount, dxBuf->handle(),
             offset, dxCountBuf->handle(), countOffset);
     }
 
@@ -330,14 +330,14 @@ public:
 
     void End() override {
         // Timestamp at pass end.
-        if (desc_.timestampQuerySet) {
-            auto* qs = static_cast<DxQuerySetImpl*>(desc_.timestampQuerySet);
+        if (m_desc.timestampQuerySet) {
+            auto* qs = static_cast<DxQuerySetImpl*>(m_desc.timestampQuerySet);
             if (qs)
-                ctx_.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, desc_.endTimestampIndex);
+                m_ctx.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, m_desc.endTimestampIndex);
         }
 
         // MSAA resolve: resolve multisampled color attachments to their resolve targets.
-        auto colorAtts = desc_.colorAttachments.View();
+        auto colorAtts = m_desc.colorAttachments.View();
         for (usize i = 0; i < colorAtts.Size(); ++i) {
             const auto& ca = colorAtts[i];
             if (!ca.resolveTarget) continue;
@@ -368,9 +368,9 @@ public:
             barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_RESOLVE_DEST;
             barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-            ctx_.cmdList->ResourceBarrier(2, barriers);
+            m_ctx.cmdList->ResourceBarrier(2, barriers);
 
-            ctx_.cmdList->ResolveSubresource(dstTex->handle(), 0, srcTex->handle(), 0, dxgiFormat);
+            m_ctx.cmdList->ResolveSubresource(dstTex->handle(), 0, srcTex->handle(), 0, dxgiFormat);
 
             // Transition back.
             barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
@@ -378,30 +378,30 @@ public:
             barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RESOLVE_DEST;
             barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
-            ctx_.cmdList->ResourceBarrier(2, barriers);
+            m_ctx.cmdList->ResourceBarrier(2, barriers);
         }
 
-        currentPipeline_     = nullptr;
-        currentMeshPipeline_ = nullptr;
+        m_currentPipeline     = nullptr;
+        m_currentMeshPipeline = nullptr;
     }
 
 private:
     DxPipelineLayoutImpl* getCurrentLayout() {
-        if (currentPipeline_)
-            return currentPipeline_->pipelineLayout();
-        if (currentMeshPipeline_)
-            return currentMeshPipeline_->pipelineLayout();
+        if (m_currentPipeline)
+            return m_currentPipeline->pipelineLayout();
+        if (m_currentMeshPipeline)
+            return m_currentMeshPipeline->pipelineLayout();
         return nullptr;
     }
 
-    DxRenderPassContext    ctx_;
-    RenderPassDesc         desc_{};
-    DxRenderPipelineImpl*  currentPipeline_     = nullptr;
-    DxMeshPipelineImpl*    currentMeshPipeline_ = nullptr;
+    DxRenderPassContext    m_ctx;
+    RenderPassDesc         m_desc{};
+    DxRenderPipelineImpl*  m_currentPipeline     = nullptr;
+    DxMeshPipelineImpl*    m_currentMeshPipeline = nullptr;
 
     // Cached vertex buffer views for re-application on pipeline change.
-    D3D12_VERTEX_BUFFER_VIEW cachedVbs_[8]{};
-    u32                      cachedVbCount_ = 0;
+    D3D12_VERTEX_BUFFER_VIEW m_cachedVbs[8]{};
+    u32                      m_cachedVbCount = 0;
 };
 
 } // namespace raptor::rhi::dx12

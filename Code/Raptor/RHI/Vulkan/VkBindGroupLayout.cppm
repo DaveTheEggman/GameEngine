@@ -42,8 +42,8 @@ inline VkDescriptorType toVkDescriptorType(const BindGroupLayoutEntry& e) {
 class VkBindGroupLayoutImpl : public BindGroupLayout {
 public:
     Status init(VkDevice device, const BindGroupLayoutDesc& desc, const BindingShifts& shifts = {}) {
-        entries_.Clear();
-        for (usize i = 0; i < desc.entries.Size(); ++i) { entries_.PushBack(desc.entries[i]); }
+        m_entries.Clear();
+        for (usize i = 0; i < desc.entries.Size(); ++i) { m_entries.PushBack(desc.entries[i]); }
 
         Array<VkDescriptorSetLayoutBinding> bindings(desc.entries.Size());
         Array<VkDescriptorBindingFlags>     flags(desc.entries.Size());
@@ -60,8 +60,8 @@ public:
             flags[i] = 0;
             if (e.count == ~0u) {
                 b.descriptorCount = 1024 * 16;
-                hasBindless_      = true;
-                bindlessCount_    = b.descriptorCount;
+                m_hasBindless      = true;
+                m_bindlessCount    = b.descriptorCount;
                 flags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
                          | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
                          | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
@@ -77,33 +77,33 @@ public:
         ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         ci.bindingCount = static_cast<u32>(desc.entries.Size());
         ci.pBindings    = bindings.Data();
-        if (hasBindless_) {
+        if (m_hasBindless) {
             ci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
             ci.pNext  = &flagsInfo;
         }
 
-        if (vkCreateDescriptorSetLayout(device, &ci, nullptr, &layout_) != VK_SUCCESS)
+        if (vkCreateDescriptorSetLayout(device, &ci, nullptr, &m_layout) != VK_SUCCESS)
             return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (layout_ != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device, layout_, nullptr); layout_ = VK_NULL_HANDLE; }
+        if (m_layout != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device, m_layout, nullptr); m_layout = VK_NULL_HANDLE; }
     }
 
     Span<const BindGroupLayoutEntry> Entries() const override {
-        return Span<const BindGroupLayoutEntry>(entries_.Data(), entries_.Size());
+        return Span<const BindGroupLayoutEntry>(m_entries.Data(), m_entries.Size());
     }
 
-    [[nodiscard]] VkDescriptorSetLayout handle() const { return layout_; }
-    [[nodiscard]] bool hasBindless()   const { return hasBindless_; }
-    [[nodiscard]] u32  bindlessCount() const { return bindlessCount_; }
+    [[nodiscard]] VkDescriptorSetLayout handle() const { return m_layout; }
+    [[nodiscard]] bool hasBindless()   const { return m_hasBindless; }
+    [[nodiscard]] u32  bindlessCount() const { return m_bindlessCount; }
 
 private:
-    VkDescriptorSetLayout                layout_ = VK_NULL_HANDLE;
-    Array<BindGroupLayoutEntry>    entries_;
-    bool                                 hasBindless_  = false;
-    u32                                  bindlessCount_ = 0;
+    VkDescriptorSetLayout                m_layout = VK_NULL_HANDLE;
+    Array<BindGroupLayoutEntry>    m_entries;
+    bool                                 m_hasBindless  = false;
+    u32                                  m_bindlessCount = 0;
 };
 
 } // namespace raptor::rhi::vk

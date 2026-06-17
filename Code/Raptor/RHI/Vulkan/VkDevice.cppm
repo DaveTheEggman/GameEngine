@@ -46,15 +46,15 @@ export namespace raptor::rhi::vk {
 class VkDeviceImpl : public Device {
 public:
     Status init(VkAdapterImpl* adapter, const DeviceDesc& desc) {
-        adapter_ = adapter;
+        m_adapter = adapter;
         features = adapter->buildFeatures();
 
         bool bindlessEnabled = desc.requiredFeatures.bindlessDescriptors && adapter->supportsDescriptorIndexing();
         bool meshEnabled     = desc.requiredFeatures.meshShaders         && adapter->supportsMeshShader();
         bool rtEnabled       = desc.requiredFeatures.rayTracing          && adapter->supportsRayTracing();
-        meshEnabled_      = meshEnabled;
-        rtEnabled_        = rtEnabled;
-        bindlessEnabled_  = bindlessEnabled;
+        m_meshEnabled      = meshEnabled;
+        m_rtEnabled        = rtEnabled;
+        m_bindlessEnabled  = bindlessEnabled;
         // Validation flag: set externally by Adapter.createDevice after init.
 
         // Find queue families.
@@ -150,7 +150,7 @@ public:
         dci.enabledExtensionCount   = static_cast<u32>(exts.Size());
         dci.ppEnabledExtensionNames = exts.Data();
 
-        if (vkCreateDevice(adapter->physicalDevice(), &dci, nullptr, &device_) != VK_SUCCESS)
+        if (vkCreateDevice(adapter->physicalDevice(), &dci, nullptr, &m_device) != VK_SUCCESS)
             return ErrorCode::Unknown;
 
         type = DeviceType::Vulkan;
@@ -161,13 +161,13 @@ public:
             f32 tsPeriod = adapter->properties().limits.timestampPeriod;
             for (u32 i = 0; i < count; ++i) {
                 VkQueue q = VK_NULL_HANDLE;
-                vkGetDeviceQueue(device_, static_cast<u32>(family), offset + i, &q);
-                auto* vkQ = new VkQueueImpl(q, qt, static_cast<u32>(family), tsPeriod, this, device_, adapter->physicalDevice());
-                allQueues_.PushBack(vkQ);
+                vkGetDeviceQueue(m_device, static_cast<u32>(family), offset + i, &q);
+                auto* vkQ = new VkQueueImpl(q, qt, static_cast<u32>(family), tsPeriod, this, m_device, adapter->physicalDevice());
+                m_allQueues.PushBack(vkQ);
                 switch (qt) {
-                case QueueType::Graphics: gfxQueues_.PushBack(vkQ); break;
-                case QueueType::Compute:  compQueues_.PushBack(vkQ); break;
-                case QueueType::Transfer: xferQueues_.PushBack(vkQ); break;
+                case QueueType::Graphics: m_gfxQueues.PushBack(vkQ); break;
+                case QueueType::Compute:  m_compQueues.PushBack(vkQ); break;
+                case QueueType::Transfer: m_xferQueues.PushBack(vkQ); break;
                 }
             }
         };
@@ -189,15 +189,15 @@ public:
         }
         if (xferFamily >= 0) {
             u32 offset = 0;
-            if (xferFamily == gfxFamily) offset = gfxCount + static_cast<u32>(compQueues_.Size());
-            else if (xferFamily == compFamily) offset = static_cast<u32>(compQueues_.Size());
+            if (xferFamily == gfxFamily) offset = gfxCount + static_cast<u32>(m_compQueues.Size());
+            else if (xferFamily == compFamily) offset = static_cast<u32>(m_compQueues.Size());
             u32 avail = adapter->queueFamilies()[xferFamily].queueCount - offset;
             u32 xferCount = Min(desc.transferQueueCount, avail);
             retrieveQueues(xferFamily, xferCount, QueueType::Transfer, offset);
         }
 
         // Descriptor pool manager.
-        poolManager_ = new VkDescriptorPoolManager(device_, 256, rtEnabled);
+        m_poolManager = new VkDescriptorPoolManager(m_device, 256, rtEnabled);
 
         // Probe depth-stencil format support. D24_S8 is optional (unsupported on AMD/RADV).
         // Configures toVkFormat() to substitute D32F/D32F_S8 when D24 variants aren't supported.
@@ -228,22 +228,22 @@ public:
 
     Queue* GetQueue(QueueType t, u32 index) override {
         switch (t) {
-        case QueueType::Graphics: return index < gfxQueues_.Size()  ? gfxQueues_[index]  : nullptr;
-        case QueueType::Compute:  return index < compQueues_.Size() ? compQueues_[index] : nullptr;
-        case QueueType::Transfer: return index < xferQueues_.Size() ? xferQueues_[index] : nullptr;
+        case QueueType::Graphics: return index < m_gfxQueues.Size()  ? m_gfxQueues[index]  : nullptr;
+        case QueueType::Compute:  return index < m_compQueues.Size() ? m_compQueues[index] : nullptr;
+        case QueueType::Transfer: return index < m_xferQueues.Size() ? m_xferQueues[index] : nullptr;
         } return nullptr;
     }
     u32 GetQueueCount(QueueType t) override {
         switch (t) {
-        case QueueType::Graphics: return static_cast<u32>(gfxQueues_.Size());
-        case QueueType::Compute:  return static_cast<u32>(compQueues_.Size());
-        case QueueType::Transfer: return static_cast<u32>(xferQueues_.Size());
+        case QueueType::Graphics: return static_cast<u32>(m_gfxQueues.Size());
+        case QueueType::Compute:  return static_cast<u32>(m_compQueues.Size());
+        case QueueType::Transfer: return static_cast<u32>(m_xferQueues.Size());
         } return 0;
     }
 
     FormatSupport GetFormatSupport(TextureFormat format) override {
         VkFormatProperties fp{};
-        vkGetPhysicalDeviceFormatProperties(adapter_->physicalDevice(), toVkFormat(format), &fp);
+        vkGetPhysicalDeviceFormatProperties(m_adapter->physicalDevice(), toVkFormat(format), &fp);
         auto opt = fp.optimalTilingFeatures;
         auto buf = fp.bufferFeatures;
         FormatSupport s = FormatSupport::Unsupported;
@@ -261,156 +261,156 @@ public:
 
     // ---- Resource creation ----
     Status CreateBuffer(const BufferDesc& d, Buffer*& out) override {
-        auto* b = new VkBufferImpl(); if (b->init(device_, adapter_, d) != ErrorCode::Ok) { delete b; out = nullptr; return ErrorCode::Unknown; }
+        auto* b = new VkBufferImpl(); if (b->init(m_device, m_adapter, d) != ErrorCode::Ok) { delete b; out = nullptr; return ErrorCode::Unknown; }
         out = b; return ErrorCode::Ok;
     }
     Status CreateTexture(const TextureDesc& d, Texture*& out) override {
-        auto* t = new VkTextureImpl(); if (t->init(device_, adapter_, d) != ErrorCode::Ok) { delete t; out = nullptr; return ErrorCode::Unknown; }
+        auto* t = new VkTextureImpl(); if (t->init(m_device, m_adapter, d) != ErrorCode::Ok) { delete t; out = nullptr; return ErrorCode::Unknown; }
         out = t; return ErrorCode::Ok;
     }
     Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override {
-        auto* v = new VkTextureViewImpl(); if (v->init(device_, static_cast<VkTextureImpl*>(tex), d) != ErrorCode::Ok) { delete v; out = nullptr; return ErrorCode::Unknown; }
+        auto* v = new VkTextureViewImpl(); if (v->init(m_device, static_cast<VkTextureImpl*>(tex), d) != ErrorCode::Ok) { delete v; out = nullptr; return ErrorCode::Unknown; }
         out = v; return ErrorCode::Ok;
     }
     Status CreateSampler(const SamplerDesc& d, Sampler*& out) override {
-        auto* s = new VkSamplerImpl(); if (s->init(device_, d) != ErrorCode::Ok) { delete s; out = nullptr; return ErrorCode::Unknown; }
+        auto* s = new VkSamplerImpl(); if (s->init(m_device, d) != ErrorCode::Ok) { delete s; out = nullptr; return ErrorCode::Unknown; }
         out = s; return ErrorCode::Ok;
     }
     Status CreateShaderModule(const ShaderModuleDesc& d, ShaderModule*& out) override {
-        auto* m = new VkShaderModuleImpl(); if (m->init(device_, d) != ErrorCode::Ok) { delete m; out = nullptr; return ErrorCode::Unknown; }
+        auto* m = new VkShaderModuleImpl(); if (m->init(m_device, d) != ErrorCode::Ok) { delete m; out = nullptr; return ErrorCode::Unknown; }
         out = m; return ErrorCode::Ok;
     }
     Status CreateBindGroupLayout(const BindGroupLayoutDesc& d, BindGroupLayout*& out) override {
-        auto* l = new VkBindGroupLayoutImpl(); if (l->init(device_, d, bindingShifts_) != ErrorCode::Ok) { delete l; out = nullptr; return ErrorCode::Unknown; }
+        auto* l = new VkBindGroupLayoutImpl(); if (l->init(m_device, d, m_bindingShifts) != ErrorCode::Ok) { delete l; out = nullptr; return ErrorCode::Unknown; }
         out = l; return ErrorCode::Ok;
     }
     Status CreateBindGroup(const BindGroupDesc& d, BindGroup*& out) override {
-        auto* g = new VkBindGroupImpl(); if (g->init(device_, poolManager_, d, bindingShifts_) != ErrorCode::Ok) { delete g; out = nullptr; return ErrorCode::Unknown; }
+        auto* g = new VkBindGroupImpl(); if (g->init(m_device, m_poolManager, d, m_bindingShifts) != ErrorCode::Ok) { delete g; out = nullptr; return ErrorCode::Unknown; }
         out = g; return ErrorCode::Ok;
     }
     Status CreatePipelineLayout(const PipelineLayoutDesc& d, PipelineLayout*& out) override {
-        auto* l = new VkPipelineLayoutImpl(); if (l->init(device_, d) != ErrorCode::Ok) { delete l; out = nullptr; return ErrorCode::Unknown; }
+        auto* l = new VkPipelineLayoutImpl(); if (l->init(m_device, d) != ErrorCode::Ok) { delete l; out = nullptr; return ErrorCode::Unknown; }
         out = l; return ErrorCode::Ok;
     }
     Status CreatePipelineCache(const PipelineCacheDesc& d, PipelineCache*& out) override {
-        auto* c = new VkPipelineCacheImpl(); if (c->init(device_, d) != ErrorCode::Ok) { delete c; out = nullptr; return ErrorCode::Unknown; }
+        auto* c = new VkPipelineCacheImpl(); if (c->init(m_device, d) != ErrorCode::Ok) { delete c; out = nullptr; return ErrorCode::Unknown; }
         out = c; return ErrorCode::Ok;
     }
     Status CreateRenderPipeline(const RenderPipelineDesc& d, RenderPipeline*& out) override {
-        auto* p = new VkRenderPipelineImpl(); if (p->init(device_, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        auto* p = new VkRenderPipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     Status CreateComputePipeline(const ComputePipelineDesc& d, ComputePipeline*& out) override {
-        auto* p = new VkComputePipelineImpl(); if (p->init(device_, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        auto* p = new VkComputePipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     Status CreateCommandPool(QueueType qt, CommandPool*& out) override {
         auto* p = new VkCommandPoolImpl(); p->ownerDevice = this;
-        if (p->init(device_, adapter_, qt) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        if (p->init(m_device, m_adapter, qt) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     Status CreateFence(u64 initialValue, Fence*& out) override {
-        auto* f = new VkFenceImpl(); if (f->init(device_, initialValue) != ErrorCode::Ok) { delete f; out = nullptr; return ErrorCode::Unknown; }
+        auto* f = new VkFenceImpl(); if (f->init(m_device, initialValue) != ErrorCode::Ok) { delete f; out = nullptr; return ErrorCode::Unknown; }
         out = f; return ErrorCode::Ok;
     }
     Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override {
-        auto* q = new VkQuerySetImpl(); if (q->init(device_, d) != ErrorCode::Ok) { delete q; out = nullptr; return ErrorCode::Unknown; }
+        auto* q = new VkQuerySetImpl(); if (q->init(m_device, d) != ErrorCode::Ok) { delete q; out = nullptr; return ErrorCode::Unknown; }
         out = q; return ErrorCode::Ok;
     }
     Status CreateSwapChain(Surface* surface, const SwapChainDesc& d, SwapChain*& out) override {
         auto* sc = new VkSwapChainImpl();
         auto* vkSurf = static_cast<VkSurfaceImpl*>(surface);
-        if (sc->init(device_, adapter_->physicalDevice(), vkSurf->handle(), d, this) != ErrorCode::Ok)
+        if (sc->init(m_device, m_adapter->physicalDevice(), vkSurf->handle(), d, this) != ErrorCode::Ok)
         { delete sc; out = nullptr; return ErrorCode::Unknown; }
         out = sc; return ErrorCode::Ok;
     }
 
     // ---- Mesh shader (folded in) ----
     Status CreateMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
-        if (!meshEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
-        auto* p = new VkMeshPipelineImpl(); if (p->init(device_, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        if (!m_meshEnabled) { out = nullptr; return ErrorCode::NotSupported; }
+        auto* p = new VkMeshPipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     void DestroyMeshPipeline(MeshPipeline*& p) override {
-        if (p) { static_cast<VkMeshPipelineImpl*>(p)->cleanup(device_); delete p; p = nullptr; }
+        if (p) { static_cast<VkMeshPipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; }
     }
 
     // ---- Ray tracing (folded in) ----
     Status CreateAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
-        if (!rtEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
-        auto* a = new VkAccelStructImpl(); if (a->init(device_, adapter_, d, 256 * 1024) != ErrorCode::Ok) { delete a; out = nullptr; return ErrorCode::Unknown; }
+        if (!m_rtEnabled) { out = nullptr; return ErrorCode::NotSupported; }
+        auto* a = new VkAccelStructImpl(); if (a->init(m_device, m_adapter, d, 256 * 1024) != ErrorCode::Ok) { delete a; out = nullptr; return ErrorCode::Unknown; }
         out = a; return ErrorCode::Ok;
     }
     void DestroyAccelStruct(AccelStruct*& a) override {
-        if (a) { static_cast<VkAccelStructImpl*>(a)->cleanup(device_); delete a; a = nullptr; }
+        if (a) { static_cast<VkAccelStructImpl*>(a)->cleanup(m_device); delete a; a = nullptr; }
     }
     Status CreateRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
-        if (!rtEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
-        auto* p = new VkRayTracingPipelineImpl(); if (p->init(device_, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        if (!m_rtEnabled) { out = nullptr; return ErrorCode::NotSupported; }
+        auto* p = new VkRayTracingPipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     void DestroyRayTracingPipeline(RayTracingPipeline*& p) override {
-        if (p) { static_cast<VkRayTracingPipelineImpl*>(p)->cleanup(device_); delete p; p = nullptr; }
+        if (p) { static_cast<VkRayTracingPipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; }
     }
     Status GetShaderGroupHandles(RayTracingPipeline* pipeline, u32 firstGroup, u32 groupCount, Span<u8> outData) override {
-        if (!rtEnabled_) return ErrorCode::NotSupported;
+        if (!m_rtEnabled) return ErrorCode::NotSupported;
         auto* p = static_cast<VkRayTracingPipelineImpl*>(pipeline);
         auto pfn = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(
-            vkGetDeviceProcAddr(device_, "vkGetRayTracingShaderGroupHandlesKHR"));
+            vkGetDeviceProcAddr(m_device, "vkGetRayTracingShaderGroupHandlesKHR"));
         if (!pfn) return ErrorCode::Unknown;
-        return pfn(device_, p->handle(), firstGroup, groupCount, outData.Size(), outData.Data()) == VK_SUCCESS
+        return pfn(m_device, p->handle(), firstGroup, groupCount, outData.Size(), outData.Data()) == VK_SUCCESS
             ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
     // ---- Resource destruction ----
-    void DestroyBuffer(Buffer*& b)              override { if (b) { static_cast<VkBufferImpl*>(b)->cleanup(device_); delete b; b = nullptr; } }
-    void DestroyTexture(Texture*& t)            override { if (t) { static_cast<VkTextureImpl*>(t)->cleanup(device_); delete t; t = nullptr; } }
-    void DestroyTextureView(TextureView*& v)    override { if (v) { static_cast<VkTextureViewImpl*>(v)->cleanup(device_); delete v; v = nullptr; } }
-    void DestroySampler(Sampler*& s)            override { if (s) { static_cast<VkSamplerImpl*>(s)->cleanup(device_); delete s; s = nullptr; } }
-    void DestroyShaderModule(ShaderModule*& m)  override { if (m) { static_cast<VkShaderModuleImpl*>(m)->cleanup(device_); delete m; m = nullptr; } }
-    void DestroyBindGroupLayout(BindGroupLayout*& l) override { if (l) { static_cast<VkBindGroupLayoutImpl*>(l)->cleanup(device_); delete l; l = nullptr; } }
-    void DestroyBindGroup(BindGroup*& g)        override { if (g) { static_cast<VkBindGroupImpl*>(g)->cleanup(device_, poolManager_); delete g; g = nullptr; } }
-    void DestroyPipelineLayout(PipelineLayout*& l) override { if (l) { static_cast<VkPipelineLayoutImpl*>(l)->cleanup(device_); delete l; l = nullptr; } }
-    void DestroyPipelineCache(PipelineCache*& c) override { if (c) { static_cast<VkPipelineCacheImpl*>(c)->cleanup(device_); delete c; c = nullptr; } }
-    void DestroyRenderPipeline(RenderPipeline*& p) override { if (p) { static_cast<VkRenderPipelineImpl*>(p)->cleanup(device_); delete p; p = nullptr; } }
-    void DestroyComputePipeline(ComputePipeline*& p) override { if (p) { static_cast<VkComputePipelineImpl*>(p)->cleanup(device_); delete p; p = nullptr; } }
+    void DestroyBuffer(Buffer*& b)              override { if (b) { static_cast<VkBufferImpl*>(b)->cleanup(m_device); delete b; b = nullptr; } }
+    void DestroyTexture(Texture*& t)            override { if (t) { static_cast<VkTextureImpl*>(t)->cleanup(m_device); delete t; t = nullptr; } }
+    void DestroyTextureView(TextureView*& v)    override { if (v) { static_cast<VkTextureViewImpl*>(v)->cleanup(m_device); delete v; v = nullptr; } }
+    void DestroySampler(Sampler*& s)            override { if (s) { static_cast<VkSamplerImpl*>(s)->cleanup(m_device); delete s; s = nullptr; } }
+    void DestroyShaderModule(ShaderModule*& m)  override { if (m) { static_cast<VkShaderModuleImpl*>(m)->cleanup(m_device); delete m; m = nullptr; } }
+    void DestroyBindGroupLayout(BindGroupLayout*& l) override { if (l) { static_cast<VkBindGroupLayoutImpl*>(l)->cleanup(m_device); delete l; l = nullptr; } }
+    void DestroyBindGroup(BindGroup*& g)        override { if (g) { static_cast<VkBindGroupImpl*>(g)->cleanup(m_device, m_poolManager); delete g; g = nullptr; } }
+    void DestroyPipelineLayout(PipelineLayout*& l) override { if (l) { static_cast<VkPipelineLayoutImpl*>(l)->cleanup(m_device); delete l; l = nullptr; } }
+    void DestroyPipelineCache(PipelineCache*& c) override { if (c) { static_cast<VkPipelineCacheImpl*>(c)->cleanup(m_device); delete c; c = nullptr; } }
+    void DestroyRenderPipeline(RenderPipeline*& p) override { if (p) { static_cast<VkRenderPipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; } }
+    void DestroyComputePipeline(ComputePipeline*& p) override { if (p) { static_cast<VkComputePipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; } }
     void DestroyCommandPool(CommandPool*& p)    override { if (p) { static_cast<VkCommandPoolImpl*>(p)->cleanup(); delete p; p = nullptr; } }
-    void DestroyFence(Fence*& f)                override { if (f) { static_cast<VkFenceImpl*>(f)->cleanup(device_); delete f; f = nullptr; } }
-    void DestroyQuerySet(QuerySet*& q)          override { if (q) { static_cast<VkQuerySetImpl*>(q)->cleanup(device_); delete q; q = nullptr; } }
+    void DestroyFence(Fence*& f)                override { if (f) { static_cast<VkFenceImpl*>(f)->cleanup(m_device); delete f; f = nullptr; } }
+    void DestroyQuerySet(QuerySet*& q)          override { if (q) { static_cast<VkQuerySetImpl*>(q)->cleanup(m_device); delete q; q = nullptr; } }
     void DestroySwapChain(SwapChain*& sc)       override { if (sc) { static_cast<VkSwapChainImpl*>(sc)->cleanup(); delete sc; sc = nullptr; } }
     void DestroySurface(Surface*& s)            override { if (s) { static_cast<VkSurfaceImpl*>(s)->Destroy(); delete s; s = nullptr; } }
 
-    void WaitIdle() override { vkDeviceWaitIdle(device_); }
+    void WaitIdle() override { vkDeviceWaitIdle(m_device); }
     void Destroy() override {
         WaitIdle();
-        if (poolManager_) { poolManager_->Destroy(); delete poolManager_; poolManager_ = nullptr; }
-        for (auto* q : allQueues_) delete q;
-        allQueues_.Clear(); gfxQueues_.Clear(); compQueues_.Clear(); xferQueues_.Clear();
-        if (device_ != VK_NULL_HANDLE) { vkDestroyDevice(device_, nullptr); device_ = VK_NULL_HANDLE; }
+        if (m_poolManager) { m_poolManager->Destroy(); delete m_poolManager; m_poolManager = nullptr; }
+        for (auto* q : m_allQueues) delete q;
+        m_allQueues.Clear(); m_gfxQueues.Clear(); m_compQueues.Clear(); m_xferQueues.Clear();
+        if (m_device != VK_NULL_HANDLE) { vkDestroyDevice(m_device, nullptr); m_device = VK_NULL_HANDLE; }
         delete this;
     }
 
     // ---- Swap chain sync ----
     void setPendingSwapChainSync(VkSemaphore acquire, VkSemaphore present) {
-        pendingAcquire_ = acquire; pendingPresent_ = present; hasPendingSync_ = true;
+        m_pendingAcquire = acquire; m_pendingPresent = present; m_hasPendingSync = true;
     }
     bool consumePendingSwapChainSync(VkSemaphore& acquire, VkSemaphore& present) {
-        if (!hasPendingSync_) return false;
-        acquire = pendingAcquire_; present = pendingPresent_; hasPendingSync_ = false; return true;
+        if (!m_hasPendingSync) return false;
+        acquire = m_pendingAcquire; present = m_pendingPresent; m_hasPendingSync = false; return true;
     }
 
-    [[nodiscard]] VkDevice       handle()  const { return device_; }
-    [[nodiscard]] VkAdapterImpl* adapter() const { return adapter_; }
-    [[nodiscard]] bool           validationEnabled() const { return validationEnabled_; }
+    [[nodiscard]] VkDevice       handle()  const { return m_device; }
+    [[nodiscard]] VkAdapterImpl* adapter() const { return m_adapter; }
+    [[nodiscard]] bool           validationEnabled() const { return m_validationEnabled; }
 
-    [[nodiscard]] const BindingShifts& bindingShifts() const { return bindingShifts_; }
-    void setBindingShifts(const BindingShifts& s) { bindingShifts_ = s; }
+    [[nodiscard]] const BindingShifts& bindingShifts() const { return m_bindingShifts; }
+    void setBindingShifts(const BindingShifts& s) { m_bindingShifts = s; }
 
     /// Set a Vulkan debug name on an object (only when validation is enabled).
     void setDebugName(VkObjectType objectType, u64 objectHandle, StringView name) {
-        if (!validationEnabled_ || name.IsEmpty()) return;
+        if (!m_validationEnabled || name.IsEmpty()) return;
         auto pfn = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
-            vkGetDeviceProcAddr(device_, "vkSetDebugUtilsObjectNameEXT"));
+            vkGetDeviceProcAddr(m_device, "vkSetDebugUtilsObjectNameEXT"));
         if (!pfn) return;
         char buf[256]{};
         auto len = Min(name.Size(), static_cast<usize>(255));
@@ -420,24 +420,24 @@ public:
         ni.objectType   = objectType;
         ni.objectHandle = objectHandle;
         ni.pObjectName  = buf;
-        pfn(device_, &ni);
+        pfn(m_device, &ni);
     }
 
 private:
-    VkDevice         device_  = VK_NULL_HANDLE;
-    VkAdapterImpl*   adapter_ = nullptr;
-    bool             meshEnabled_      = false;
-    bool             rtEnabled_        = false;
-    bool             bindlessEnabled_  = false;
-    bool             validationEnabled_= false;
-    BindingShifts    bindingShifts_ = BindingShifts::standard();
-    VkDescriptorPoolManager* poolManager_ = nullptr;
+    VkDevice         m_device  = VK_NULL_HANDLE;
+    VkAdapterImpl*   m_adapter = nullptr;
+    bool             m_meshEnabled      = false;
+    bool             m_rtEnabled        = false;
+    bool             m_bindlessEnabled  = false;
+    bool             m_validationEnabled= false;
+    BindingShifts    m_bindingShifts = BindingShifts::standard();
+    VkDescriptorPoolManager* m_poolManager = nullptr;
 
-    Array<VkQueueImpl*> allQueues_, gfxQueues_, compQueues_, xferQueues_;
+    Array<VkQueueImpl*> m_allQueues, m_gfxQueues, m_compQueues, m_xferQueues;
 
-    VkSemaphore pendingAcquire_ = VK_NULL_HANDLE;
-    VkSemaphore pendingPresent_ = VK_NULL_HANDLE;
-    bool        hasPendingSync_ = false;
+    VkSemaphore m_pendingAcquire = VK_NULL_HANDLE;
+    VkSemaphore m_pendingPresent = VK_NULL_HANDLE;
+    bool        m_hasPendingSync = false;
 };
 
 // ---- Adapter::CreateDevice implementation ----
@@ -451,25 +451,25 @@ Status VkAdapterImpl::CreateDevice(const DeviceDesc& desc, Device*& out) {
 // ---- SwapChain acquire/present implementations ----
 
 Status VkSwapChainImpl::AcquireNextImage() {
-    VkSemaphore acquireSem = acquireSems_[frameIndex_];
+    VkSemaphore acquireSem = m_acquireSems[m_frameIndex];
     u32 imgIdx = 0;
-    VkResult vr = vkAcquireNextImageKHR(device_, swapchain_, ~0ull, acquireSem, VK_NULL_HANDLE, &imgIdx);
-    currentImageIndex_ = imgIdx;
+    VkResult vr = vkAcquireNextImageKHR(m_device, m_swapchain, ~0ull, acquireSem, VK_NULL_HANDLE, &imgIdx);
+    m_currentImageIndex = imgIdx;
     if (vr == VK_ERROR_OUT_OF_DATE_KHR) return ErrorCode::Unknown;
     if (vr != VK_SUCCESS && vr != VK_SUBOPTIMAL_KHR) return ErrorCode::Unknown;
-    VkSemaphore presentSem = presentSems_[currentImageIndex_];
-    owner_->setPendingSwapChainSync(acquireSem, presentSem);
+    VkSemaphore presentSem = m_presentSems[m_currentImageIndex];
+    m_owner->setPendingSwapChainSync(acquireSem, presentSem);
     return ErrorCode::Ok;
 }
 
 Status VkSwapChainImpl::Present(Queue* queue) {
     auto* vkQ = static_cast<VkQueueImpl*>(queue);
-    VkSemaphore waitSem = presentSems_[currentImageIndex_];
+    VkSemaphore waitSem = m_presentSems[m_currentImageIndex];
     VkPresentInfoKHR pi{}; pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     pi.waitSemaphoreCount = 1; pi.pWaitSemaphores = &waitSem;
-    pi.swapchainCount = 1; pi.pSwapchains = &swapchain_; pi.pImageIndices = &currentImageIndex_;
+    pi.swapchainCount = 1; pi.pSwapchains = &m_swapchain; pi.pImageIndices = &m_currentImageIndex;
     VkResult vr = vkQueuePresentKHR(vkQ->handle(), &pi);
-    frameIndex_ = (frameIndex_ + 1) % bufferCount_;
+    m_frameIndex = (m_frameIndex + 1) % m_bufferCount;
     if (vr == VK_ERROR_OUT_OF_DATE_KHR || vr == VK_SUBOPTIMAL_KHR) return ErrorCode::Unknown;
     return vr == VK_SUCCESS ? ErrorCode::Ok : ErrorCode::Unknown;
 }
@@ -486,7 +486,7 @@ void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence,
     if (!vkFence) return;
 
     VkSemaphore acquireSem = VK_NULL_HANDLE, presentSem = VK_NULL_HANDLE;
-    bool hasSync = device_->consumePendingSwapChainSync(acquireSem, presentSem);
+    bool hasSync = m_device->consumePendingSwapChainSync(acquireSem, presentSem);
 
     VkSemaphore waitSems[1]  = { acquireSem };
     VkPipelineStageFlags waitStages[1] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -505,7 +505,7 @@ void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence,
     si.signalSemaphoreCount = hasSync ? 2u : 1u;             si.pSignalSemaphores = signalSems;
     if (hasSync) { si.waitSemaphoreCount = 1; si.pWaitSemaphores = waitSems; si.pWaitDstStageMask = waitStages; }
 
-    vkQueueSubmit(queue_, 1, &si, VK_NULL_HANDLE);
+    vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE);
 }
 
 void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs,
@@ -544,7 +544,7 @@ void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs,
         si.pSignalSemaphores          = &signalSem;
     }
 
-    vkQueueSubmit(queue_, 1, &si, VK_NULL_HANDLE);
+    vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE);
 }
 
 } // namespace raptor::rhi::vk

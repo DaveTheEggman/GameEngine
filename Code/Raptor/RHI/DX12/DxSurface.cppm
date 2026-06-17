@@ -17,12 +17,12 @@ export namespace raptor::rhi::dx12 {
 
 class DxSurfaceImpl : public Surface {
 public:
-    explicit DxSurfaceImpl(HWND hwnd) : hwnd_(hwnd) {}
+    explicit DxSurfaceImpl(HWND hwnd) : m_hwnd(hwnd) {}
 
-    [[nodiscard]] HWND handle() const { return hwnd_; }
+    [[nodiscard]] HWND handle() const { return m_hwnd; }
 
 private:
-    HWND hwnd_ = nullptr;
+    HWND m_hwnd = nullptr;
 };
 
 } // namespace raptor::rhi::dx12

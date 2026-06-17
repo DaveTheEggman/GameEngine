@@ -18,12 +18,12 @@ export namespace raptor::rhi::validation {
 
 class ValidatedQueue : public Queue {
 public:
-    explicit ValidatedQueue(Queue* inner) : inner_(inner) { queueType = inner->queueType; }
+    explicit ValidatedQueue(Queue* inner) : m_inner(inner) { queueType = inner->queueType; }
 
     void Submit(Span<CommandBuffer* const> cmdBufs) override {
         for (usize i = 0; i < cmdBufs.Size(); ++i)
             if (!cmdBufs[i]) LogErrorf("[Validation] Queue::submit: commandBuffer[%zu] is null", i);
-        inner_->Submit(cmdBufs);
+        m_inner->Submit(cmdBufs);
     }
 
     void Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
@@ -31,7 +31,7 @@ public:
         auto* vf = static_cast<ValidatedFence*>(signalFence);
         Fence* innerFence = vf ? vf->inner() : signalFence;
         if (vf) vf->trackSignal(signalValue);
-        inner_->Submit(cmdBufs, innerFence, signalValue);
+        m_inner->Submit(cmdBufs, innerFence, signalValue);
     }
 
     void Submit(Span<CommandBuffer* const> cmdBufs,
@@ -48,14 +48,14 @@ public:
         auto* vf = static_cast<ValidatedFence*>(signalFence);
         Fence* innerSignal = vf ? vf->inner() : signalFence;
         if (vf) vf->trackSignal(signalValue);
-        inner_->Submit(cmdBufs, Span<Fence* const>(innerWait.Data(), innerWait.Size()), waitValues, innerSignal, signalValue);
+        m_inner->Submit(cmdBufs, Span<Fence* const>(innerWait.Data(), innerWait.Size()), waitValues, innerSignal, signalValue);
     }
 
-    void WaitIdle() override { inner_->WaitIdle(); }
+    void WaitIdle() override { m_inner->WaitIdle(); }
 
     Status CreateTransferBatch(TransferBatch*& out) override {
         TransferBatch* innerBatch = nullptr;
-        Status r = inner_->CreateTransferBatch(innerBatch);
+        Status r = m_inner->CreateTransferBatch(innerBatch);
         if (r != ErrorCode::Ok || !innerBatch) { out = nullptr; return r; }
         out = new ValidatedTransferBatch(innerBatch);
         return ErrorCode::Ok;
@@ -66,20 +66,20 @@ public:
         auto* vt = static_cast<ValidatedTransferBatch*>(batch);
         if (vt) {
             TransferBatch* innerBatch = vt->inner();
-            inner_->DestroyTransferBatch(innerBatch);
+            m_inner->DestroyTransferBatch(innerBatch);
             delete vt;
         } else {
-            inner_->DestroyTransferBatch(batch);
+            m_inner->DestroyTransferBatch(batch);
         }
         batch = nullptr;
     }
 
-    f32 TimestampPeriod() const override { return inner_->TimestampPeriod(); }
+    f32 TimestampPeriod() const override { return m_inner->TimestampPeriod(); }
 
-    Queue* inner() const { return inner_; }
+    Queue* inner() const { return m_inner; }
 
 private:
-    Queue* inner_;
+    Queue* m_inner;
 };
 
 } // namespace raptor::rhi::validation

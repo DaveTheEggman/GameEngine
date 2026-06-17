@@ -39,10 +39,10 @@ struct DxComputePassContext {
 class DxComputePassEncoderImpl : public ComputePassEncoder {
 public:
     explicit DxComputePassEncoderImpl(const DxComputePassContext& ctx)
-        : ctx_(ctx) {}
+        : m_ctx(ctx) {}
 
     void begin() {
-        currentPipeline_ = nullptr;
+        m_currentPipeline = nullptr;
     }
 
     // ---- Pipeline & Binding ----
@@ -50,31 +50,31 @@ public:
     void SetPipeline(ComputePipeline* pipeline) override {
         auto* dxPipeline = static_cast<DxComputePipelineImpl*>(pipeline);
         if (!dxPipeline) return;
-        currentPipeline_ = dxPipeline;
+        m_currentPipeline = dxPipeline;
 
-        auto* cmdList = ctx_.cmdList;
+        auto* cmdList = m_ctx.cmdList;
         cmdList->SetPipelineState(dxPipeline->handle());
         cmdList->SetComputeRootSignature(dxPipeline->pipelineLayout()->handle());
     }
 
     void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
         auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
-        if (!dxGroup || !currentPipeline_) return;
+        if (!dxGroup || !m_currentPipeline) return;
 
-        auto* layout = currentPipeline_->pipelineLayout();
+        auto* layout = m_currentPipeline->pipelineLayout();
         if (!layout) return;
 
-        auto* cmdList  = ctx_.cmdList;
+        auto* cmdList  = m_ctx.cmdList;
         auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->Layout());
 
         // Copy-on-bind: copy into encoder's staging region, bind from staging offset.
         if (dxGroup->cbvSrvUavOffset() >= 0 && dxLayout && dxLayout->cbvSrvUavCount() > 0) {
             i32 rootIdx = layout->getCbvSrvUavRootIndex(index);
             if (rootIdx >= 0) {
-                i32 stagedOffset = ctx_.srvStaging->copyFrom(
+                i32 stagedOffset = m_ctx.srvStaging->copyFrom(
                     static_cast<u32>(dxGroup->cbvSrvUavOffset()), dxLayout->cbvSrvUavCount());
                 if (stagedOffset >= 0) {
-                    auto gpuHandle = ctx_.gpuSrvHeap->getGpuHandle(static_cast<u32>(stagedOffset));
+                    auto gpuHandle = m_ctx.gpuSrvHeap->getGpuHandle(static_cast<u32>(stagedOffset));
                     cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
                 }
             }
@@ -83,10 +83,10 @@ public:
         if (dxGroup->samplerOffset() >= 0 && dxLayout && dxLayout->samplerCount() > 0) {
             i32 rootIdx = layout->getSamplerRootIndex(index);
             if (rootIdx >= 0) {
-                i32 stagedOffset = ctx_.samplerStaging->copyFrom(
+                i32 stagedOffset = m_ctx.samplerStaging->copyFrom(
                     static_cast<u32>(dxGroup->samplerOffset()), dxLayout->samplerCount());
                 if (stagedOffset >= 0) {
-                    auto gpuHandle = ctx_.gpuSamplerHeap->getGpuHandle(static_cast<u32>(stagedOffset));
+                    auto gpuHandle = m_ctx.gpuSamplerHeap->getGpuHandle(static_cast<u32>(stagedOffset));
                     cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
                 }
             }
@@ -121,11 +121,11 @@ public:
     }
 
     void SetPushConstants(ShaderStage /*stages*/, u32 offset, u32 size, const void* data) override {
-        if (!currentPipeline_) return;
-        auto* layout = currentPipeline_->pipelineLayout();
+        if (!m_currentPipeline) return;
+        auto* layout = m_currentPipeline->pipelineLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;
 
-        ctx_.cmdList->SetComputeRoot32BitConstants(
+        m_ctx.cmdList->SetComputeRoot32BitConstants(
             static_cast<UINT>(layout->pushConstantRootIndex()),
             size / 4, data, offset / 4);
     }
@@ -133,17 +133,17 @@ public:
     // ---- Dispatch ----
 
     void Dispatch(u32 x, u32 y, u32 z) override {
-        ctx_.cmdList->Dispatch(x, y, z);
+        m_ctx.cmdList->Dispatch(x, y, z);
     }
 
     void DispatchIndirect(Buffer* buffer, u64 offset) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
-        auto* sig = ctx_.dispatchSig;
+        auto* sig = m_ctx.dispatchSig;
         if (!sig) return;
 
-        ctx_.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(), offset, nullptr, 0);
+        m_ctx.cmdList->ExecuteIndirect(sig, 1, dxBuf->handle(), offset, nullptr, 0);
     }
 
     // ---- Barrier ----
@@ -153,25 +153,25 @@ public:
         barrier.Type  = D3D12_RESOURCE_BARRIER_TYPE_UAV;
         barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
         barrier.UAV.pResource = nullptr; // global UAV barrier
-        ctx_.cmdList->ResourceBarrier(1, &barrier);
+        m_ctx.cmdList->ResourceBarrier(1, &barrier);
     }
 
     // ---- Queries ----
 
     void WriteTimestamp(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
-        if (qs) ctx_.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
+        if (qs) m_ctx.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
     }
 
     // ---- End ----
 
     void End() override {
-        currentPipeline_ = nullptr;
+        m_currentPipeline = nullptr;
     }
 
 private:
-    DxComputePassContext    ctx_;
-    DxComputePipelineImpl*  currentPipeline_ = nullptr;
+    DxComputePassContext    m_ctx;
+    DxComputePipelineImpl*  m_currentPipeline = nullptr;
 };
 
 } // namespace raptor::rhi::dx12

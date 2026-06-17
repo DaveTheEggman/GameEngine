@@ -49,9 +49,9 @@ public:
     DxCommandEncoderImpl(DxDeviceImpl* device, ID3D12GraphicsCommandList* cmdList,
                          DxCommandPoolImpl* pool, const DxRenderPassContext& rpeCtx,
                          const DxComputePassContext& cpeCtx)
-        : device_(device), cmdList_(cmdList), pool_(pool),
-          gpuSrvHeap_(rpeCtx.gpuSrvHeap), gpuSamplerHeap_(rpeCtx.gpuSamplerHeap),
-          rpe_(rpeCtx), cpe_(cpeCtx) {}
+        : m_device(device), m_cmdList(cmdList), m_pool(pool),
+          m_gpuSrvHeap(rpeCtx.gpuSrvHeap), m_gpuSamplerHeap(rpeCtx.gpuSamplerHeap),
+          m_rpe(rpeCtx), m_cpe(cpeCtx) {}
 
     ~DxCommandEncoderImpl() override = default;
 
@@ -67,7 +67,7 @@ public:
         // Timestamp at pass begin.
         if (desc.timestampQuerySet) {
             if (auto* qs = static_cast<DxQuerySetImpl*>(desc.timestampQuerySet))
-                cmdList_->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, desc.beginTimestampIndex);
+                m_cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, desc.beginTimestampIndex);
         }
 
         // Collect render target views.
@@ -93,14 +93,14 @@ public:
             }
         }
 
-        cmdList_->OMSetRenderTargets(rtvCount, rtvHandles, FALSE, dsvPtr);
+        m_cmdList->OMSetRenderTargets(rtvCount, rtvHandles, FALSE, dsvPtr);
 
         // Clear render targets.
         for (usize i = 0; i < colorAtts.Size() && i < 8; ++i) {
             const auto& att = colorAtts[i];
             if (att.loadOp == LoadOp::Clear) {
                 FLOAT color[4] = { att.clearValue.r, att.clearValue.g, att.clearValue.b, att.clearValue.a };
-                cmdList_->ClearRenderTargetView(rtvHandles[i], color, 0, nullptr);
+                m_cmdList->ClearRenderTargetView(rtvHandles[i], color, 0, nullptr);
             }
         }
 
@@ -120,20 +120,20 @@ public:
                 needsClear = true;
             }
             if (needsClear)
-                cmdList_->ClearDepthStencilView(*dsvPtr, clearFlags,
+                m_cmdList->ClearDepthStencilView(*dsvPtr, clearFlags,
                     dsAttach.depthClearValue, static_cast<UINT8>(dsAttach.stencilClearValue), 0, nullptr);
         }
 
-        rpe_.begin(desc);
-        return &rpe_;
+        m_rpe.begin(desc);
+        return &m_rpe;
     }
 
     // ---- Compute Pass ----
 
     ComputePassEncoder* BeginComputePass(StringView) override {
         ensureDescriptorHeaps();
-        cpe_.begin();
-        return &cpe_;
+        m_cpe.begin();
+        return &m_cpe;
     }
 
     // ---- Barriers ----
@@ -267,7 +267,7 @@ public:
         }
 
         if (!dxBarriers.IsEmpty())
-            cmdList_->ResourceBarrier(static_cast<UINT>(dxBarriers.Size()), dxBarriers.Data());
+            m_cmdList->ResourceBarrier(static_cast<UINT>(dxBarriers.Size()), dxBarriers.Data());
     }
 
     // ---- Copy Operations ----
@@ -276,7 +276,7 @@ public:
         auto* dxSrc = static_cast<DxBufferImpl*>(src);
         auto* dxDst = static_cast<DxBufferImpl*>(dst);
         if (!dxSrc || !dxDst) return;
-        cmdList_->CopyBufferRegion(dxDst->handle(), dstOffset, dxSrc->handle(), srcOffset, size);
+        m_cmdList->CopyBufferRegion(dxDst->handle(), dstOffset, dxSrc->handle(), srcOffset, size);
     }
 
     void CopyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& region) override {
@@ -301,7 +301,7 @@ public:
         dstLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
         dstLoc.SubresourceIndex = subresource;
 
-        cmdList_->CopyTextureRegion(&dstLoc,
+        m_cmdList->CopyTextureRegion(&dstLoc,
             region.textureOrigin.x, region.textureOrigin.y, region.textureOrigin.z,
             &srcLoc, nullptr);
     }
@@ -336,7 +336,7 @@ public:
         srcBox.bottom = region.textureOrigin.y + region.textureExtent.height;
         srcBox.back   = region.textureOrigin.z + region.textureExtent.depth;
 
-        cmdList_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &srcBox);
+        m_cmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &srcBox);
     }
 
     void CopyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& region) override {
@@ -365,7 +365,7 @@ public:
         srcBox.bottom = region.extent.height;
         srcBox.back   = region.extent.depth;
 
-        cmdList_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &srcBox);
+        m_cmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &srcBox);
     }
 
     // ---- Blit & Mipmap Generation ----
@@ -393,7 +393,7 @@ public:
         barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
         barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
-        cmdList_->ResourceBarrier(2, barriers);
+        m_cmdList->ResourceBarrier(2, barriers);
 
         blitSubresource(dxSrc, 0, dxDst, 0, dxDst->desc.width, dxDst->desc.height, dxgiFormat);
 
@@ -404,7 +404,7 @@ public:
         barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
         barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
 
-        cmdList_->ResourceBarrier(2, barriers);
+        m_cmdList->ResourceBarrier(2, barriers);
     }
 
     void GenerateMipmaps(Texture* texture) override {
@@ -437,7 +437,7 @@ public:
             barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
             barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
-            cmdList_->ResourceBarrier(2, barriers);
+            m_cmdList->ResourceBarrier(2, barriers);
 
             blitSubresource(dxTex, mip - 1, dxTex, mip, dstWidth, dstHeight, dxgiFormat);
 
@@ -448,7 +448,7 @@ public:
             barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
             barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
 
-            cmdList_->ResourceBarrier(2, barriers);
+            m_cmdList->ResourceBarrier(2, barriers);
         }
     }
 
@@ -476,9 +476,9 @@ public:
         barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
         barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_RESOLVE_DEST;
 
-        cmdList_->ResourceBarrier(2, barriers);
+        m_cmdList->ResourceBarrier(2, barriers);
 
-        cmdList_->ResolveSubresource(dxDst->handle(), 0, dxSrc->handle(), 0, dxgiFormat);
+        m_cmdList->ResolveSubresource(dxDst->handle(), 0, dxSrc->handle(), 0, dxgiFormat);
 
         // Transition back.
         barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
@@ -486,7 +486,7 @@ public:
         barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RESOLVE_DEST;
         barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
 
-        cmdList_->ResourceBarrier(2, barriers);
+        m_cmdList->ResourceBarrier(2, barriers);
     }
 
     // ---- Queries ----
@@ -497,14 +497,14 @@ public:
 
     void WriteTimestamp(QuerySet* querySet, u32 index) override {
         if (auto* qs = static_cast<DxQuerySetImpl*>(querySet))
-            cmdList_->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
+            m_cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
     }
 
     void ResolveQuerySet(QuerySet* querySet, u32 first, u32 count, Buffer* dst, u64 dstOffset) override {
         auto* qs    = static_cast<DxQuerySetImpl*>(querySet);
         auto* dxDst = static_cast<DxBufferImpl*>(dst);
         if (!qs || !dxDst) return;
-        cmdList_->ResolveQueryData(qs->handle(), DxQuerySetImpl::toDxQueryType(qs->type),
+        m_cmdList->ResolveQueryData(qs->handle(), DxQuerySetImpl::toDxQueryType(qs->type),
             first, count, dxDst->handle(), dstOffset);
     }
 
@@ -521,9 +521,9 @@ public:
     // ---- Finish ----
 
     CommandBuffer* Finish() override {
-        cmdList_->Close();
-        auto* cb = new DxCommandBufferImpl(cmdList_);
-        pool_->trackCommandBuffer(cb);
+        m_cmdList->Close();
+        auto* cb = new DxCommandBufferImpl(m_cmdList);
+        m_pool->trackCommandBuffer(cb);
         return cb;
     }
 
@@ -541,7 +541,7 @@ public:
 
         // Query ID3D12GraphicsCommandList4 for RT support.
         ComPtr<ID3D12GraphicsCommandList4> cmdList4;
-        if (FAILED(cmdList_->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
+        if (FAILED(m_cmdList->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
 
         usize totalGeoms = tris.Size() + aabbs.Size();
         Array<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs(totalGeoms);
@@ -617,7 +617,7 @@ public:
         if (!dxAs || !dxScratch || !dxInstances) return;
 
         ComPtr<ID3D12GraphicsCommandList4> cmdList4;
-        if (FAILED(cmdList_->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
+        if (FAILED(m_cmdList->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
 
         D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc{};
         buildDesc.DestAccelerationStructureData    = dxAs->DeviceAddress();
@@ -632,25 +632,25 @@ public:
     }
 
     void SetRayTracingPipeline(RayTracingPipeline* pipeline) override {
-        currentRtPipeline_ = static_cast<DxRayTracingPipelineImpl*>(pipeline);
-        if (!currentRtPipeline_) return;
+        m_currentRtPipeline = static_cast<DxRayTracingPipelineImpl*>(pipeline);
+        if (!m_currentRtPipeline) return;
 
         ensureDescriptorHeaps();
 
         ComPtr<ID3D12GraphicsCommandList4> cmdList4;
-        if (SUCCEEDED(cmdList_->QueryInterface(IID_PPV_ARGS(&cmdList4))) && cmdList4)
-            cmdList4->SetPipelineState1(currentRtPipeline_->handle());
+        if (SUCCEEDED(m_cmdList->QueryInterface(IID_PPV_ARGS(&cmdList4))) && cmdList4)
+            cmdList4->SetPipelineState1(m_currentRtPipeline->handle());
 
         // RT uses compute root signature binding.
-        if (auto* layout = currentRtPipeline_->pipelineLayout())
-            cmdList_->SetComputeRootSignature(layout->handle());
+        if (auto* layout = m_currentRtPipeline->pipelineLayout())
+            m_cmdList->SetComputeRootSignature(layout->handle());
     }
 
     void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
         auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
-        if (!dxGroup || !currentRtPipeline_) return;
+        if (!dxGroup || !m_currentRtPipeline) return;
 
-        auto* layout = currentRtPipeline_->pipelineLayout();
+        auto* layout = m_currentRtPipeline->pipelineLayout();
         if (!layout) return;
 
         auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->Layout());
@@ -659,11 +659,11 @@ public:
         if (dxGroup->cbvSrvUavOffset() >= 0 && dxLayout && dxLayout->cbvSrvUavCount() > 0) {
             i32 rootIdx = layout->getCbvSrvUavRootIndex(index);
             if (rootIdx >= 0) {
-                i32 stagedOffset = pool_->srvStaging()->copyFrom(
+                i32 stagedOffset = m_pool->srvStaging()->copyFrom(
                     static_cast<u32>(dxGroup->cbvSrvUavOffset()), dxLayout->cbvSrvUavCount());
                 if (stagedOffset >= 0) {
-                    auto gpuHandle = gpuSrvHeap_->getGpuHandle(static_cast<u32>(stagedOffset));
-                    cmdList_->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
+                    auto gpuHandle = m_gpuSrvHeap->getGpuHandle(static_cast<u32>(stagedOffset));
+                    m_cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
                 }
             }
         }
@@ -671,11 +671,11 @@ public:
         if (dxGroup->samplerOffset() >= 0 && dxLayout && dxLayout->samplerCount() > 0) {
             i32 rootIdx = layout->getSamplerRootIndex(index);
             if (rootIdx >= 0) {
-                i32 stagedOffset = pool_->samplerStaging()->copyFrom(
+                i32 stagedOffset = m_pool->samplerStaging()->copyFrom(
                     static_cast<u32>(dxGroup->samplerOffset()), dxLayout->samplerCount());
                 if (stagedOffset >= 0) {
-                    auto gpuHandle = gpuSamplerHeap_->getGpuHandle(static_cast<u32>(stagedOffset));
-                    cmdList_->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
+                    auto gpuHandle = m_gpuSamplerHeap->getGpuHandle(static_cast<u32>(stagedOffset));
+                    m_cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
                 }
             }
         }
@@ -696,13 +696,13 @@ public:
 
             switch (entry.paramType) {
             case D3D12_ROOT_PARAMETER_TYPE_CBV:
-                cmdList_->SetComputeRootConstantBufferView(static_cast<UINT>(entry.rootParamIndex), gpuAddr);
+                m_cmdList->SetComputeRootConstantBufferView(static_cast<UINT>(entry.rootParamIndex), gpuAddr);
                 break;
             case D3D12_ROOT_PARAMETER_TYPE_SRV:
-                cmdList_->SetComputeRootShaderResourceView(static_cast<UINT>(entry.rootParamIndex), gpuAddr);
+                m_cmdList->SetComputeRootShaderResourceView(static_cast<UINT>(entry.rootParamIndex), gpuAddr);
                 break;
             case D3D12_ROOT_PARAMETER_TYPE_UAV:
-                cmdList_->SetComputeRootUnorderedAccessView(static_cast<UINT>(entry.rootParamIndex), gpuAddr);
+                m_cmdList->SetComputeRootUnorderedAccessView(static_cast<UINT>(entry.rootParamIndex), gpuAddr);
                 break;
             default: break;
             }
@@ -710,11 +710,11 @@ public:
     }
 
     void SetPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override {
-        if (!currentRtPipeline_) return;
-        auto* layout = currentRtPipeline_->pipelineLayout();
+        if (!m_currentRtPipeline) return;
+        auto* layout = m_currentRtPipeline->pipelineLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;
 
-        cmdList_->SetComputeRoot32BitConstants(
+        m_cmdList->SetComputeRoot32BitConstants(
             static_cast<UINT>(layout->pushConstantRootIndex()),
             size / 4, data, offset / 4);
     }
@@ -725,7 +725,7 @@ public:
                    u32 width, u32 height, u32 depth) override
     {
         ComPtr<ID3D12GraphicsCommandList4> cmdList4;
-        if (FAILED(cmdList_->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
+        if (FAILED(m_cmdList->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
 
         D3D12_DISPATCH_RAYS_DESC dispatchDesc{};
 
@@ -764,10 +764,10 @@ public:
     // Internal accessors
     // ================================================================
 
-    [[nodiscard]] ID3D12GraphicsCommandList* cmdList()       const { return cmdList_; }
-    [[nodiscard]] DxDeviceImpl*              ownerDevice()   const { return device_; }
-    [[nodiscard]] DxDescriptorStaging*       srvStaging()          { return pool_->srvStaging(); }
-    [[nodiscard]] DxDescriptorStaging*       samplerStaging()      { return pool_->samplerStaging(); }
+    [[nodiscard]] ID3D12GraphicsCommandList* cmdList()       const { return m_cmdList; }
+    [[nodiscard]] DxDeviceImpl*              ownerDevice()   const { return m_device; }
+    [[nodiscard]] DxDescriptorStaging*       srvStaging()          { return m_pool->srvStaging(); }
+    [[nodiscard]] DxDescriptorStaging*       samplerStaging()      { return m_pool->samplerStaging(); }
 
     // ================================================================
     // Static helpers
@@ -838,14 +838,14 @@ private:
     // ---- Descriptor heap management ----
 
     void ensureDescriptorHeaps() {
-        if (descriptorHeapsSet_) return;
-        descriptorHeapsSet_ = true;
+        if (m_descriptorHeapsSet) return;
+        m_descriptorHeapsSet = true;
 
         ID3D12DescriptorHeap* heaps[2] = {
-            gpuSrvHeap_->heap(),
-            gpuSamplerHeap_->heap()
+            m_gpuSrvHeap->heap(),
+            m_gpuSamplerHeap->heap()
         };
-        cmdList_->SetDescriptorHeaps(2, heaps);
+        m_cmdList->SetDescriptorHeaps(2, heaps);
     }
 
     static D3D12_RAYTRACING_GEOMETRY_FLAGS toGeometryFlags(GeometryFlags flags) {
@@ -865,20 +865,20 @@ private:
 
     // ---- Members ----
 
-    DxDeviceImpl*                device_  = nullptr;
-    ID3D12GraphicsCommandList*   cmdList_ = nullptr;
-    DxCommandPoolImpl*           pool_    = nullptr;
-    DxRayTracingPipelineImpl*    currentRtPipeline_ = nullptr;
-    bool                         descriptorHeapsSet_ = false;
+    DxDeviceImpl*                m_device  = nullptr;
+    ID3D12GraphicsCommandList*   m_cmdList = nullptr;
+    DxCommandPoolImpl*           m_pool    = nullptr;
+    DxRayTracingPipelineImpl*    m_currentRtPipeline = nullptr;
+    bool                         m_descriptorHeapsSet = false;
 
     // GPU descriptor heaps (cached from device at construction).
-    DxGpuDescriptorHeap*         gpuSrvHeap_     = nullptr;
-    DxGpuDescriptorHeap*         gpuSamplerHeap_ = nullptr;
+    DxGpuDescriptorHeap*         m_gpuSrvHeap     = nullptr;
+    DxGpuDescriptorHeap*         m_gpuSamplerHeap = nullptr;
 
     // Embedded sub-encoders using context-based decoupling (see DxRenderPassEncoder.cppm,
     // DxComputePassEncoder.cppm). Contexts carry the pointers the sub-encoders need.
-    DxRenderPassEncoderImpl      rpe_;
-    DxComputePassEncoderImpl     cpe_;
+    DxRenderPassEncoderImpl      m_rpe;
+    DxComputePassEncoderImpl     m_cpe;
 };
 
 // ---- Deferred DxCommandPoolImpl method implementations ----

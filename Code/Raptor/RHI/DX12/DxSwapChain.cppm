@@ -30,15 +30,15 @@ public:
                 DxSurfaceImpl* surface, const SwapChainDesc& d,
                 DxDescriptorHeapAllocator* srvHeap, DxDescriptorHeapAllocator* rtvHeap,
                 DxDescriptorHeapAllocator* dsvHeap) {
-        d3dDevice_   = device;
-        format_      = d.format;
-        width_       = d.width;
-        height_      = d.height;
-        bufferCount_ = d.bufferCount;
-        presentMode_ = d.presentMode;
-        srvHeap_     = srvHeap;
-        rtvHeap_     = rtvHeap;
-        dsvHeap_     = dsvHeap;
+        m_d3dDevice   = device;
+        m_format      = d.format;
+        m_width       = d.width;
+        m_height      = d.height;
+        m_bufferCount = d.bufferCount;
+        m_presentMode = d.presentMode;
+        m_srvHeap     = srvHeap;
+        m_rtvHeap     = rtvHeap;
+        m_dsvHeap     = dsvHeap;
 
         DXGI_FORMAT swapFmt = stripSrgb(toDxgiFormat(d.format));
 
@@ -65,97 +65,97 @@ public:
 
         factory->MakeWindowAssociation(surface->handle(), DXGI_MWA_NO_ALT_ENTER);
 
-        hr = sc1.As(&swapChain_);
+        hr = sc1.As(&m_swapChain);
         if (FAILED(hr)) return ErrorCode::Unknown;
 
         if (acquireBackBuffers() != ErrorCode::Ok) return ErrorCode::Unknown;
-        currentIndex_ = swapChain_->GetCurrentBackBufferIndex();
+        m_currentIndex = m_swapChain->GetCurrentBackBufferIndex();
         return ErrorCode::Ok;
     }
 
     // ---- SwapChain interface ----
-    TextureFormat Format()            const override { return format_; }
-    u32           Width()             const override { return width_; }
-    u32           Height()            const override { return height_; }
-    u32           BufferCount()       const override { return bufferCount_; }
-    u32           CurrentImageIndex() const override { return currentIndex_; }
-    Texture*      CurrentTexture()    override { return (currentIndex_ < textures_.Size()) ? textures_[currentIndex_] : nullptr; }
-    TextureView*  CurrentTextureView()override { return (currentIndex_ < views_.Size())    ? views_[currentIndex_]    : nullptr; }
+    TextureFormat Format()            const override { return m_format; }
+    u32           Width()             const override { return m_width; }
+    u32           Height()            const override { return m_height; }
+    u32           BufferCount()       const override { return m_bufferCount; }
+    u32           CurrentImageIndex() const override { return m_currentIndex; }
+    Texture*      CurrentTexture()    override { return (m_currentIndex < m_textures.Size()) ? m_textures[m_currentIndex] : nullptr; }
+    TextureView*  CurrentTextureView()override { return (m_currentIndex < m_views.Size())    ? m_views[m_currentIndex]    : nullptr; }
 
     Status AcquireNextImage() override {
-        currentIndex_ = swapChain_->GetCurrentBackBufferIndex();
+        m_currentIndex = m_swapChain->GetCurrentBackBufferIndex();
         return ErrorCode::Ok;
     }
 
     Status Present(Queue* /*queue*/) override {
         UINT syncInterval = 1, flags = 0;
-        switch (presentMode_) {
+        switch (m_presentMode) {
         case PresentMode::Immediate: syncInterval = 0; flags = DXGI_PRESENT_ALLOW_TEARING; break;
         case PresentMode::Mailbox:   syncInterval = 0; break;
         case PresentMode::Fifo:      syncInterval = 1; break;
         case PresentMode::FifoRelaxed: syncInterval = 1; break;
         }
-        return SUCCEEDED(swapChain_->Present(syncInterval, flags)) ? ErrorCode::Ok : ErrorCode::Unknown;
+        return SUCCEEDED(m_swapChain->Present(syncInterval, flags)) ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
     Status Resize(u32 w, u32 h) override {
         if (w == 0 || h == 0) return ErrorCode::Ok;
-        width_ = w; height_ = h;
+        m_width = w; m_height = h;
         releaseBackBuffers();
-        HRESULT hr = swapChain_->ResizeBuffers(bufferCount_, w, h,
-            stripSrgb(toDxgiFormat(format_)), 0);
+        HRESULT hr = m_swapChain->ResizeBuffers(m_bufferCount, w, h,
+            stripSrgb(toDxgiFormat(m_format)), 0);
         if (FAILED(hr)) return ErrorCode::Unknown;
         if (acquireBackBuffers() != ErrorCode::Ok) return ErrorCode::Unknown;
-        currentIndex_ = swapChain_->GetCurrentBackBufferIndex();
+        m_currentIndex = m_swapChain->GetCurrentBackBufferIndex();
         return ErrorCode::Ok;
     }
 
     void cleanup() {
         releaseBackBuffers();
-        swapChain_.Reset();
+        m_swapChain.Reset();
     }
 
 private:
     Status acquireBackBuffers() {
-        for (u32 i = 0; i < bufferCount_; ++i) {
+        for (u32 i = 0; i < m_bufferCount; ++i) {
             ID3D12Resource* resource = nullptr;
-            if (FAILED(swapChain_->GetBuffer(i, IID_PPV_ARGS(&resource)))) return ErrorCode::Unknown;
+            if (FAILED(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&resource)))) return ErrorCode::Unknown;
 
             auto* tex = new DxTextureImpl();
-            TextureDesc td{}; td.dimension = TextureDimension::Texture2D; td.format = format_;
-            td.width = width_; td.height = height_; td.arrayLayerCount = 1; td.mipLevelCount = 1;
+            TextureDesc td{}; td.dimension = TextureDimension::Texture2D; td.format = m_format;
+            td.width = m_width; td.height = m_height; td.arrayLayerCount = 1; td.mipLevelCount = 1;
             td.sampleCount = 1; td.usage = TextureUsage::RenderTarget;
             tex->initFromExisting(resource, td);
             resource->Release(); // initFromExisting AddRef'd
-            textures_.PushBack(tex);
+            m_textures.PushBack(tex);
 
             auto* view = new DxTextureViewImpl();
-            TextureViewDesc vd{}; vd.format = format_; vd.dimension = TextureViewDimension::Texture2D;
+            TextureViewDesc vd{}; vd.format = m_format; vd.dimension = TextureViewDimension::Texture2D;
             vd.mipLevelCount = 1; vd.arrayLayerCount = 1;
-            view->init(d3dDevice_, tex, vd, srvHeap_, rtvHeap_, dsvHeap_);
-            views_.PushBack(view);
+            view->init(m_d3dDevice, tex, vd, m_srvHeap, m_rtvHeap, m_dsvHeap);
+            m_views.PushBack(view);
         }
         return ErrorCode::Ok;
     }
 
     void releaseBackBuffers() {
-        for (auto* v : views_)   { v->cleanup(); delete v; }
-        views_.Clear();
-        for (auto* t : textures_) { t->cleanup(); delete t; }
-        textures_.Clear();
+        for (auto* v : m_views)   { v->cleanup(); delete v; }
+        m_views.Clear();
+        for (auto* t : m_textures) { t->cleanup(); delete t; }
+        m_textures.Clear();
     }
 
-    ComPtr<IDXGISwapChain3>          swapChain_;
-    ID3D12Device*                    d3dDevice_  = nullptr;
-    TextureFormat                    format_     = TextureFormat::RGBA8UnormSrgb;
-    u32                              width_ = 0, height_ = 0, bufferCount_ = 2;
-    u32                              currentIndex_ = 0;
-    PresentMode                      presentMode_ = PresentMode::Fifo;
-    Array<DxTextureImpl*>            textures_;
-    Array<DxTextureViewImpl*>        views_;
-    DxDescriptorHeapAllocator*       srvHeap_ = nullptr;
-    DxDescriptorHeapAllocator*       rtvHeap_ = nullptr;
-    DxDescriptorHeapAllocator*       dsvHeap_ = nullptr;
+    ComPtr<IDXGISwapChain3>          m_swapChain;
+    ID3D12Device*                    m_d3dDevice  = nullptr;
+    TextureFormat                    m_format     = TextureFormat::RGBA8UnormSrgb;
+    u32                              m_width = 0, m_height = 0, m_bufferCount = 2;
+    u32                              m_currentIndex = 0;
+    PresentMode                      m_presentMode = PresentMode::Fifo;
+    Array<DxTextureImpl*>            m_textures;
+    Array<DxTextureViewImpl*>        m_views;
+    DxDescriptorHeapAllocator*       m_srvHeap = nullptr;
+    DxDescriptorHeapAllocator*       m_rtvHeap = nullptr;
+    DxDescriptorHeapAllocator*       m_dsvHeap = nullptr;
 };
 
 } // namespace raptor::rhi::dx12

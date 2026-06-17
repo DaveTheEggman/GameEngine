@@ -28,13 +28,13 @@ struct DynamicRootEntry {
 class DxPipelineLayoutImpl : public PipelineLayout {
 public:
     Status init(ID3D12Device* device, const PipelineLayoutDesc& d) {
-        numBindGroups_ = static_cast<u32>(d.bindGroupLayouts.Size());
+        m_numBindGroups = static_cast<u32>(d.bindGroupLayouts.Size());
 
         Array<D3D12_ROOT_PARAMETER> rootParams;
         // Storage for descriptor ranges (must outlive SerializeRootSignature).
         Array<Array<D3D12_DESCRIPTOR_RANGE>> rangeStorage;
 
-        rootParamMap_.Resize(d.bindGroupLayouts.Size() * 2, -1);
+        m_rootParamMap.Resize(d.bindGroupLayouts.Size() * 2, -1);
 
         for (usize gi = 0; gi < d.bindGroupLayouts.Size(); ++gi) {
             auto* layout = static_cast<DxBindGroupLayoutImpl*>(d.bindGroupLayouts[gi]);
@@ -60,7 +60,7 @@ public:
                     p.Descriptor.ShaderRegister = r.binding;
                     p.Descriptor.RegisterSpace  = static_cast<UINT>(gi);
 
-                    dynamicRootEntries_.PushBack({ static_cast<u32>(gi), dynIdx,
+                    m_dynamicRootEntries.PushBack({ static_cast<u32>(gi), dynIdx,
                         static_cast<i32>(rootParams.Size()), pt });
                     rootParams.PushBack(p);
                     ++dynIdx;
@@ -85,7 +85,7 @@ public:
                 p.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
                 p.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(stored.Size());
                 p.DescriptorTable.pDescriptorRanges   = stored.Data();
-                rootParamMap_[gi * 2] = static_cast<i32>(rootParams.Size());
+                m_rootParamMap[gi * 2] = static_cast<i32>(rootParams.Size());
                 rootParams.PushBack(p);
             }
             if (!sampRanges.IsEmpty()) {
@@ -95,7 +95,7 @@ public:
                 p.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
                 p.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(stored.Size());
                 p.DescriptorTable.pDescriptorRanges   = stored.Data();
-                rootParamMap_[gi * 2 + 1] = static_cast<i32>(rootParams.Size());
+                m_rootParamMap[gi * 2 + 1] = static_cast<i32>(rootParams.Size());
                 rootParams.PushBack(p);
             }
         }
@@ -103,13 +103,13 @@ public:
         // Push constants → root 32-bit constants.
         for (usize i = 0; i < d.pushConstantRanges.Size(); ++i) {
             const auto& pc = d.pushConstantRanges[i];
-            if (pushConstantRootIndex_ < 0)
-                pushConstantRootIndex_ = static_cast<i32>(rootParams.Size());
+            if (m_pushConstantRootIndex < 0)
+                m_pushConstantRootIndex = static_cast<i32>(rootParams.Size());
 
             D3D12_ROOT_PARAMETER p{}; p.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
             p.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
             p.Constants.ShaderRegister = pc.offset / 4;
-            p.Constants.RegisterSpace  = numBindGroups_;
+            p.Constants.RegisterSpace  = m_numBindGroups;
             p.Constants.Num32BitValues = pc.size / 4;
             rootParams.PushBack(p);
         }
@@ -129,25 +129,25 @@ public:
         }
 
         hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
-            IID_PPV_ARGS(&rootSig_));
+            IID_PPV_ARGS(&m_rootSig));
         return SUCCEEDED(hr) ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
-    void cleanup() { rootSig_.Reset(); }
+    void cleanup() { m_rootSig.Reset(); }
 
-    [[nodiscard]] ID3D12RootSignature* handle() const { return rootSig_.Get(); }
-    [[nodiscard]] i32 getCbvSrvUavRootIndex(u32 gi) const { return (gi*2 < rootParamMap_.Size()) ? rootParamMap_[gi*2] : -1; }
-    [[nodiscard]] i32 getSamplerRootIndex(u32 gi)   const { return (gi*2+1 < rootParamMap_.Size()) ? rootParamMap_[gi*2+1] : -1; }
-    [[nodiscard]] i32 pushConstantRootIndex()        const { return pushConstantRootIndex_; }
-    [[nodiscard]] u32 numBindGroups()                const { return numBindGroups_; }
-    [[nodiscard]] Span<const DynamicRootEntry> dynamicRootEntries() const { return { dynamicRootEntries_.Data(), dynamicRootEntries_.Size() }; }
+    [[nodiscard]] ID3D12RootSignature* handle() const { return m_rootSig.Get(); }
+    [[nodiscard]] i32 getCbvSrvUavRootIndex(u32 gi) const { return (gi*2 < m_rootParamMap.Size()) ? m_rootParamMap[gi*2] : -1; }
+    [[nodiscard]] i32 getSamplerRootIndex(u32 gi)   const { return (gi*2+1 < m_rootParamMap.Size()) ? m_rootParamMap[gi*2+1] : -1; }
+    [[nodiscard]] i32 pushConstantRootIndex()        const { return m_pushConstantRootIndex; }
+    [[nodiscard]] u32 numBindGroups()                const { return m_numBindGroups; }
+    [[nodiscard]] Span<const DynamicRootEntry> dynamicRootEntries() const { return { m_dynamicRootEntries.Data(), m_dynamicRootEntries.Size() }; }
 
 private:
-    ComPtr<ID3D12RootSignature>    rootSig_;
-    Array<i32>                     rootParamMap_;
-    Array<DynamicRootEntry>        dynamicRootEntries_;
-    i32                            pushConstantRootIndex_ = -1;
-    u32                            numBindGroups_ = 0;
+    ComPtr<ID3D12RootSignature>    m_rootSig;
+    Array<i32>                     m_rootParamMap;
+    Array<DynamicRootEntry>        m_dynamicRootEntries;
+    i32                            m_pushConstantRootIndex = -1;
+    u32                            m_numBindGroups = 0;
 };
 
 } // namespace raptor::rhi::dx12

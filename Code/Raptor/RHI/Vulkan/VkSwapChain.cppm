@@ -40,35 +40,35 @@ class VkSwapChainImpl : public SwapChain {
 public:
     Status init(VkDevice device, VkPhysicalDevice physDevice, VkSurfaceKHR surface,
                 const SwapChainDesc& desc, VkDeviceImpl* owner) {
-        device_     = device;
-        physDevice_ = physDevice;
-        surface_    = surface;
-        owner_      = owner;
-        presentMode_= desc.presentMode;
+        m_device     = device;
+        m_physDevice = physDevice;
+        m_surface    = surface;
+        m_owner      = owner;
+        m_presentMode= desc.presentMode;
         return CreateSwapChain(desc.width, desc.height, desc.format, desc.bufferCount, VK_NULL_HANDLE);
     }
 
     // ---- SwapChain interface ----
-    TextureFormat Format()            const override { return format_; }
-    u32           Width()             const override { return width_; }
-    u32           Height()            const override { return height_; }
-    u32           BufferCount()       const override { return bufferCount_; }
-    u32           CurrentImageIndex() const override { return currentImageIndex_; }
+    TextureFormat Format()            const override { return m_format; }
+    u32           Width()             const override { return m_width; }
+    u32           Height()            const override { return m_height; }
+    u32           BufferCount()       const override { return m_bufferCount; }
+    u32           CurrentImageIndex() const override { return m_currentImageIndex; }
 
     Status AcquireNextImage() override;
-    Texture*     CurrentTexture()     override { return currentImageIndex_ < textures_.Size() ? textures_[currentImageIndex_] : nullptr; }
-    TextureView* CurrentTextureView() override { return currentImageIndex_ < views_.Size()    ? views_[currentImageIndex_]    : nullptr; }
+    Texture*     CurrentTexture()     override { return m_currentImageIndex < m_textures.Size() ? m_textures[m_currentImageIndex] : nullptr; }
+    TextureView* CurrentTextureView() override { return m_currentImageIndex < m_views.Size()    ? m_views[m_currentImageIndex]    : nullptr; }
     Status Present(Queue* queue) override;
     Status Resize(u32 w, u32 h) override;
 
     void cleanup();
 
     // ---- Internal ----
-    [[nodiscard]] VkSwapchainKHR handle() const { return swapchain_; }
+    [[nodiscard]] VkSwapchainKHR handle() const { return m_swapchain; }
 
     // Semaphore accessors for queue submit integration.
-    VkSemaphore currentAcquireSemaphore() const { return acquireSems_[frameIndex_]; }
-    VkSemaphore currentPresentSemaphore() const { return presentSems_[currentImageIndex_]; }
+    VkSemaphore currentAcquireSemaphore() const { return m_acquireSems[m_frameIndex]; }
+    VkSemaphore currentPresentSemaphore() const { return m_presentSems[m_currentImageIndex]; }
 
 private:
     Status CreateSwapChain(u32 w, u32 h, TextureFormat reqFormat, u32 reqCount, VkSwapchainKHR old);
@@ -80,43 +80,43 @@ private:
     VkSurfaceFormatKHR chooseSurfaceFormat(TextureFormat requested);
     VkPresentModeKHR   choosePresentMode(PresentMode requested);
 
-    VkDevice         device_     = VK_NULL_HANDLE;
-    VkPhysicalDevice physDevice_ = VK_NULL_HANDLE;
-    VkSurfaceKHR     surface_    = VK_NULL_HANDLE;
-    VkSwapchainKHR   swapchain_  = VK_NULL_HANDLE;
-    VkDeviceImpl*    owner_      = nullptr;
+    VkDevice         m_device     = VK_NULL_HANDLE;
+    VkPhysicalDevice m_physDevice = VK_NULL_HANDLE;
+    VkSurfaceKHR     m_surface    = VK_NULL_HANDLE;
+    VkSwapchainKHR   m_swapchain  = VK_NULL_HANDLE;
+    VkDeviceImpl*    m_owner      = nullptr;
 
-    TextureFormat format_      = TextureFormat::Undefined;
-    PresentMode   presentMode_ = PresentMode::Fifo;
-    u32 width_  = 0, height_ = 0, bufferCount_ = 0;
-    u32 currentImageIndex_ = 0;
-    u32 frameIndex_        = 0;
+    TextureFormat m_format      = TextureFormat::Undefined;
+    PresentMode   m_presentMode = PresentMode::Fifo;
+    u32 m_width  = 0, m_height = 0, m_bufferCount = 0;
+    u32 m_currentImageIndex = 0;
+    u32 m_frameIndex        = 0;
 
-    Array<VkTextureImpl*>     textures_;
-    Array<VkTextureViewImpl*> views_;
-    Array<VkSemaphore>        acquireSems_;
-    Array<VkSemaphore>        presentSems_;
+    Array<VkTextureImpl*>     m_textures;
+    Array<VkTextureViewImpl*> m_views;
+    Array<VkSemaphore>        m_acquireSems;
+    Array<VkSemaphore>        m_presentSems;
 };
 
 // ---- Implementation (inline in module) ----
 
 inline Status VkSwapChainImpl::CreateSwapChain(u32 w, u32 h, TextureFormat reqFormat, u32 reqCount, VkSwapchainKHR old) {
     VkSurfaceCapabilitiesKHR caps{};
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice_, surface_, &caps);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physDevice, m_surface, &caps);
 
-    if (caps.currentExtent.width != ~0u) { width_ = caps.currentExtent.width; height_ = caps.currentExtent.height; }
-    else { width_ = Clamp(w, caps.minImageExtent.width, caps.maxImageExtent.width);
-           height_ = Clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height); }
-    if (width_ == 0 || height_ == 0) return ErrorCode::Unknown;
+    if (caps.currentExtent.width != ~0u) { m_width = caps.currentExtent.width; m_height = caps.currentExtent.height; }
+    else { m_width = Clamp(w, caps.minImageExtent.width, caps.maxImageExtent.width);
+           m_height = Clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height); }
+    if (m_width == 0 || m_height == 0) return ErrorCode::Unknown;
 
-    bufferCount_ = Max(reqCount, caps.minImageCount);
-    if (caps.maxImageCount > 0) bufferCount_ = Min(bufferCount_, caps.maxImageCount);
+    m_bufferCount = Max(reqCount, caps.minImageCount);
+    if (caps.maxImageCount > 0) m_bufferCount = Min(m_bufferCount, caps.maxImageCount);
 
     auto surfFmt = chooseSurfaceFormat(reqFormat);
-    format_ = fromVkFormat(surfFmt.format);
-    if (format_ == TextureFormat::Undefined) format_ = reqFormat;
+    m_format = fromVkFormat(surfFmt.format);
+    if (m_format == TextureFormat::Undefined) m_format = reqFormat;
 
-    auto presentMode = choosePresentMode(presentMode_);
+    auto presentMode = choosePresentMode(m_presentMode);
 
     VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     if (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT) usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -127,11 +127,11 @@ inline Status VkSwapChainImpl::CreateSwapChain(u32 w, u32 h, TextureFormat reqFo
 
     VkSwapchainCreateInfoKHR ci{};
     ci.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    ci.surface          = surface_;
-    ci.minImageCount    = bufferCount_;
+    ci.surface          = m_surface;
+    ci.minImageCount    = m_bufferCount;
     ci.imageFormat      = surfFmt.format;
     ci.imageColorSpace  = surfFmt.colorSpace;
-    ci.imageExtent      = { width_, height_ };
+    ci.imageExtent      = { m_width, m_height };
     ci.imageArrayLayers = 1;
     ci.imageUsage       = usage;
     ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -141,20 +141,20 @@ inline Status VkSwapChainImpl::CreateSwapChain(u32 w, u32 h, TextureFormat reqFo
     ci.clipped          = VK_TRUE;
     ci.oldSwapchain     = old;
 
-    if (vkCreateSwapchainKHR(device_, &ci, nullptr, &swapchain_) != VK_SUCCESS) return ErrorCode::Unknown;
-    if (old != VK_NULL_HANDLE) vkDestroySwapchainKHR(device_, old, nullptr);
+    if (vkCreateSwapchainKHR(m_device, &ci, nullptr, &m_swapchain) != VK_SUCCESS) return ErrorCode::Unknown;
+    if (old != VK_NULL_HANDLE) vkDestroySwapchainKHR(m_device, old, nullptr);
 
     if (retrieveImages(surfFmt.format) != ErrorCode::Ok) return ErrorCode::Unknown;
     createSyncObjects();
-    frameIndex_ = 0;
+    m_frameIndex = 0;
     return ErrorCode::Ok;
 }
 
 inline VkSurfaceFormatKHR VkSwapChainImpl::chooseSurfaceFormat(TextureFormat requested) {
     u32 count = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice_, surface_, &count, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physDevice, m_surface, &count, nullptr);
     Array<VkSurfaceFormatKHR> fmts(count);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice_, surface_, &count, fmts.Data());
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physDevice, m_surface, &count, fmts.Data());
 
     VkFormat desired = toVkFormat(requested);
     for (auto& f : fmts) if (f.format == desired) return f;
@@ -165,9 +165,9 @@ inline VkSurfaceFormatKHR VkSwapChainImpl::chooseSurfaceFormat(TextureFormat req
 
 inline VkPresentModeKHR VkSwapChainImpl::choosePresentMode(PresentMode requested) {
     u32 count = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice_, surface_, &count, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physDevice, m_surface, &count, nullptr);
     Array<VkPresentModeKHR> modes(count);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice_, surface_, &count, modes.Data());
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physDevice, m_surface, &count, modes.Data());
     VkPresentModeKHR desired = toVkPresentMode(requested);
     for (auto m : modes) if (m == desired) return m;
     return VK_PRESENT_MODE_FIFO_KHR;
@@ -175,67 +175,67 @@ inline VkPresentModeKHR VkSwapChainImpl::choosePresentMode(PresentMode requested
 
 inline Status VkSwapChainImpl::retrieveImages(VkFormat format) {
     u32 imgCount = 0;
-    vkGetSwapchainImagesKHR(device_, swapchain_, &imgCount, nullptr);
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &imgCount, nullptr);
     Array<VkImage> images(imgCount);
-    vkGetSwapchainImagesKHR(device_, swapchain_, &imgCount, images.Data());
-    bufferCount_ = imgCount;
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &imgCount, images.Data());
+    m_bufferCount = imgCount;
 
     TextureFormat texFmt = fromVkFormat(format);
-    if (texFmt == TextureFormat::Undefined) texFmt = format_;
+    if (texFmt == TextureFormat::Undefined) texFmt = m_format;
 
     for (u32 i = 0; i < imgCount; ++i) {
         TextureDesc td{}; td.dimension = TextureDimension::Texture2D; td.format = texFmt;
-        td.width = width_; td.height = height_; td.arrayLayerCount = 1; td.mipLevelCount = 1;
+        td.width = m_width; td.height = m_height; td.arrayLayerCount = 1; td.mipLevelCount = 1;
         td.sampleCount = 1; td.usage = TextureUsage::RenderTarget;
 
         auto* tex = new VkTextureImpl();
         tex->initFromExisting(images[i], td);
-        textures_.PushBack(tex);
+        m_textures.PushBack(tex);
 
         TextureViewDesc vd{}; vd.format = texFmt; vd.dimension = TextureViewDimension::Texture2D;
         vd.mipLevelCount = 1; vd.arrayLayerCount = 1;
         auto* view = new VkTextureViewImpl();
-        if (view->init(device_, tex, vd) != ErrorCode::Ok) { delete view; return ErrorCode::Unknown; }
-        views_.PushBack(view);
+        if (view->init(m_device, tex, vd) != ErrorCode::Ok) { delete view; return ErrorCode::Unknown; }
+        m_views.PushBack(view);
     }
     return ErrorCode::Ok;
 }
 
 inline void VkSwapChainImpl::createSyncObjects() {
     VkSemaphoreCreateInfo ci{}; ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    for (u32 i = 0; i < bufferCount_; ++i) {
+    for (u32 i = 0; i < m_bufferCount; ++i) {
         VkSemaphore a = VK_NULL_HANDLE, p = VK_NULL_HANDLE;
-        vkCreateSemaphore(device_, &ci, nullptr, &a);
-        vkCreateSemaphore(device_, &ci, nullptr, &p);
-        acquireSems_.PushBack(a);
-        presentSems_.PushBack(p);
+        vkCreateSemaphore(m_device, &ci, nullptr, &a);
+        vkCreateSemaphore(m_device, &ci, nullptr, &p);
+        m_acquireSems.PushBack(a);
+        m_presentSems.PushBack(p);
     }
 }
 
 inline void VkSwapChainImpl::cleanupImages() {
-    for (auto* v : views_)    { v->cleanup(device_); delete v; } views_.Clear();
-    for (auto* t : textures_) { t->cleanup(device_); delete t; } textures_.Clear();
+    for (auto* v : m_views)    { v->cleanup(m_device); delete v; } m_views.Clear();
+    for (auto* t : m_textures) { t->cleanup(m_device); delete t; } m_textures.Clear();
 }
 
 inline void VkSwapChainImpl::destroySyncObjects() {
-    for (auto s : acquireSems_) { vkDestroySemaphore(device_, s, nullptr); }
-    acquireSems_.Clear();
-    for (auto s : presentSems_) { vkDestroySemaphore(device_, s, nullptr); }
-    presentSems_.Clear();
+    for (auto s : m_acquireSems) { vkDestroySemaphore(m_device, s, nullptr); }
+    m_acquireSems.Clear();
+    for (auto s : m_presentSems) { vkDestroySemaphore(m_device, s, nullptr); }
+    m_presentSems.Clear();
 }
 
 inline Status VkSwapChainImpl::Resize(u32 w, u32 h) {
-    vkDeviceWaitIdle(device_);
+    vkDeviceWaitIdle(m_device);
     cleanupImages();
     destroySyncObjects();
-    return CreateSwapChain(w, h, format_, bufferCount_, swapchain_);
+    return CreateSwapChain(w, h, m_format, m_bufferCount, m_swapchain);
 }
 
 inline void VkSwapChainImpl::cleanup() {
-    vkDeviceWaitIdle(device_);
+    vkDeviceWaitIdle(m_device);
     cleanupImages();
     destroySyncObjects();
-    if (swapchain_ != VK_NULL_HANDLE) { vkDestroySwapchainKHR(device_, swapchain_, nullptr); swapchain_ = VK_NULL_HANDLE; }
+    if (m_swapchain != VK_NULL_HANDLE) { vkDestroySwapchainKHR(m_device, m_swapchain, nullptr); m_swapchain = VK_NULL_HANDLE; }
 }
 
 } // namespace raptor::rhi::vk

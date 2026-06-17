@@ -24,7 +24,7 @@ class VkDeviceImpl; // forward
 class VkQueueImpl : public Queue {
 public:
     VkQueueImpl(VkQueue queue, QueueType type, u32 familyIndex, f32 tsPeriod, VkDeviceImpl* device, VkDevice vkDevice, VkPhysicalDevice physDevice)
-        : queue_(queue), familyIndex_(familyIndex), tsPeriod_(tsPeriod), device_(device), vkDevice_(vkDevice), physDevice_(physDevice)
+        : m_queue(queue), m_familyIndex(familyIndex), m_tsPeriod(tsPeriod), m_device(device), m_vkDevice(vkDevice), m_physDevice(physDevice)
     { queueType = type; }
 
     // ---- Queue interface ----
@@ -38,7 +38,7 @@ public:
         VkSubmitInfo si{}; si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         si.commandBufferCount = static_cast<u32>(bufs.Size());
         si.pCommandBuffers    = bufs.Data();
-        vkQueueSubmit(queue_, 1, &si, VK_NULL_HANDLE);
+        vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE);
     }
 
     void Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override;
@@ -48,29 +48,29 @@ public:
                 Fence* signalFence, u64 signalValue) override;
 
 
-    void WaitIdle() override { vkQueueWaitIdle(queue_); }
+    void WaitIdle() override { vkQueueWaitIdle(m_queue); }
 
     Status CreateTransferBatch(TransferBatch*& out) override {
-        out = new VkTransferBatchImpl(vkDevice_, queue_, familyIndex_, physDevice_);
+        out = new VkTransferBatchImpl(m_vkDevice, m_queue, m_familyIndex, m_physDevice);
         return ErrorCode::Ok;
     }
     void DestroyTransferBatch(TransferBatch*& batch) override {
         if (batch) { static_cast<VkTransferBatchImpl*>(batch)->Destroy(); delete batch; batch = nullptr; }
     }
 
-    f32 TimestampPeriod() const override { return tsPeriod_; }
+    f32 TimestampPeriod() const override { return m_tsPeriod; }
 
     // ---- Internal ----
-    [[nodiscard]] VkQueue handle()      const { return queue_; }
-    [[nodiscard]] u32     familyIndex() const { return familyIndex_; }
+    [[nodiscard]] VkQueue handle()      const { return m_queue; }
+    [[nodiscard]] u32     familyIndex() const { return m_familyIndex; }
 
 private:
-    VkQueue       queue_       = VK_NULL_HANDLE;
-    u32           familyIndex_ = 0;
-    f32           tsPeriod_    = 0.0f;
-    VkDeviceImpl*    device_      = nullptr;
-    VkDevice         vkDevice_    = VK_NULL_HANDLE;
-    VkPhysicalDevice physDevice_  = VK_NULL_HANDLE;
+    VkQueue       m_queue       = VK_NULL_HANDLE;
+    u32           m_familyIndex = 0;
+    f32           m_tsPeriod    = 0.0f;
+    VkDeviceImpl*    m_device      = nullptr;
+    VkDevice         m_vkDevice    = VK_NULL_HANDLE;
+    VkPhysicalDevice m_physDevice  = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

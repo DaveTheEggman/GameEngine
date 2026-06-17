@@ -27,9 +27,9 @@ public:
         auto flags    = toBufferResourceFlags(d.usage);
 
         // Initial state based on heap type.
-        state_ = D3D12_RESOURCE_STATE_COMMON;
-        if (heapType == D3D12_HEAP_TYPE_UPLOAD)   state_ = D3D12_RESOURCE_STATE_GENERIC_READ;
-        if (heapType == D3D12_HEAP_TYPE_READBACK)  state_ = D3D12_RESOURCE_STATE_COPY_DEST;
+        m_state = D3D12_RESOURCE_STATE_COMMON;
+        if (heapType == D3D12_HEAP_TYPE_UPLOAD)   m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+        if (heapType == D3D12_HEAP_TYPE_READBACK)  m_state = D3D12_RESOURCE_STATE_COPY_DEST;
 
         u64 alignedSize = (d.size + 255) & ~u64(255); // 256-byte alignment for CBVs
 
@@ -49,8 +49,8 @@ public:
 
         HRESULT hr = device->CreateCommittedResource(
             &heapProps, D3D12_HEAP_FLAG_NONE,
-            &rd, state_, nullptr,
-            IID_PPV_ARGS(&resource_));
+            &rd, m_state, nullptr,
+            IID_PPV_ARGS(&m_resource));
         if (FAILED(hr)) {
             LogErrorf("DxBuffer: CreateCommittedResource failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
@@ -58,38 +58,38 @@ public:
 
         // Persistently map upload/readback buffers.
         if (heapType == D3D12_HEAP_TYPE_UPLOAD || heapType == D3D12_HEAP_TYPE_READBACK)
-            resource_->Map(0, nullptr, &persistentMap_);
+            m_resource->Map(0, nullptr, &m_persistentMap);
 
         return ErrorCode::Ok;
     }
 
     void* Map() override {
-        if (persistentMap_) return persistentMap_;
+        if (m_persistentMap) return m_persistentMap;
         void* ptr = nullptr;
-        if (SUCCEEDED(resource_->Map(0, nullptr, &ptr))) return ptr;
+        if (SUCCEEDED(m_resource->Map(0, nullptr, &ptr))) return ptr;
         return nullptr;
     }
 
     void Unmap() override {
-        if (persistentMap_) return; // don't unmap persistently mapped buffers
-        resource_->Unmap(0, nullptr);
+        if (m_persistentMap) return; // don't unmap persistently mapped buffers
+        m_resource->Unmap(0, nullptr);
     }
 
     void cleanup() {
-        if (persistentMap_) { resource_->Unmap(0, nullptr); persistentMap_ = nullptr; }
-        resource_.Reset();
+        if (m_persistentMap) { m_resource->Unmap(0, nullptr); m_persistentMap = nullptr; }
+        m_resource.Reset();
     }
 
     // ---- Internal ----
-    [[nodiscard]] ID3D12Resource*       handle() const { return resource_.Get(); }
-    [[nodiscard]] D3D12_RESOURCE_STATES currentState() const { return state_; }
-    void setState(D3D12_RESOURCE_STATES s) { state_ = s; }
-    [[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS gpuAddress() const { return resource_ ? resource_->GetGPUVirtualAddress() : 0; }
+    [[nodiscard]] ID3D12Resource*       handle() const { return m_resource.Get(); }
+    [[nodiscard]] D3D12_RESOURCE_STATES currentState() const { return m_state; }
+    void setState(D3D12_RESOURCE_STATES s) { m_state = s; }
+    [[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS gpuAddress() const { return m_resource ? m_resource->GetGPUVirtualAddress() : 0; }
 
 private:
-    ComPtr<ID3D12Resource>  resource_;
-    D3D12_RESOURCE_STATES   state_ = D3D12_RESOURCE_STATE_COMMON;
-    void*                   persistentMap_ = nullptr;
+    ComPtr<ID3D12Resource>  m_resource;
+    D3D12_RESOURCE_STATES   m_state = D3D12_RESOURCE_STATE_COMMON;
+    void*                   m_persistentMap = nullptr;
 };
 
 } // namespace raptor::rhi::dx12

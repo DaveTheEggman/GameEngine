@@ -18,17 +18,17 @@ export namespace raptor::rhi::dx12 {
 class DxShaderModuleImpl : public ShaderModule {
 public:
     Status init(const ShaderModuleDesc& d) {
-        bytecode_.Resize(d.code.Size());
-        std::memcpy(bytecode_.Data(), d.code.Data(), d.code.Size());
+        m_bytecode.Resize(d.code.Size());
+        std::memcpy(m_bytecode.Data(), d.code.Data(), d.code.Size());
         return ErrorCode::Ok;
     }
 
-    void cleanup() { bytecode_.Clear(); }
+    void cleanup() { m_bytecode.Clear(); }
 
-    [[nodiscard]] Span<const u8> bytecode() const { return { bytecode_.Data(), bytecode_.Size() }; }
+    [[nodiscard]] Span<const u8> bytecode() const { return { m_bytecode.Data(), m_bytecode.Size() }; }
 
 private:
-    Array<u8> bytecode_;
+    Array<u8> m_bytecode;
 };
 
 } // namespace raptor::rhi::dx12

@@ -22,7 +22,7 @@ ValidatedAdapter* ValidatedBackend::CreateValidatedAdapter(Adapter* inner) {
 
 Status ValidatedAdapter::CreateDevice(const DeviceDesc& desc, Device*& out) {
     Device* innerDevice = nullptr;
-    Status r = inner_->CreateDevice(desc, innerDevice);
+    Status r = m_inner->CreateDevice(desc, innerDevice);
     if (r != ErrorCode::Ok || !innerDevice) { out = nullptr; return r; }
     out = new ValidatedDevice(innerDevice);
     return ErrorCode::Ok;

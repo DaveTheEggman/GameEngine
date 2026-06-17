@@ -35,8 +35,8 @@ class VkCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt 
 public:
     RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     VkCommandEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device, VkCommandPoolImpl* pool)
-        : cmdBuf_(cmdBuf), device_(device), pool_(pool),
-          rpe_(cmdBuf, device), cpe_(cmdBuf) {}
+        : m_cmdBuf(cmdBuf), m_device(device), m_pool(pool),
+          m_rpe(cmdBuf, device), m_cpe(cmdBuf) {}
 
     // ---- CommandEncoder ----
 
@@ -113,11 +113,11 @@ public:
             }
         }
 
-        vkCmdBeginRendering(cmdBuf_, &ri);
-        return &rpe_;
+        vkCmdBeginRendering(m_cmdBuf, &ri);
+        return &m_rpe;
     }
 
-    ComputePassEncoder* BeginComputePass(StringView) override { return &cpe_; }
+    ComputePassEncoder* BeginComputePass(StringView) override { return &m_cpe; }
 
     void Barrier(const BarrierGroup& group) override {
         Array<VkMemoryBarrier2>      memBs(group.memoryBarriers.Size());
@@ -193,14 +193,14 @@ public:
         di.memoryBarrierCount       = static_cast<u32>(memBs.Size()); di.pMemoryBarriers       = memBs.Data();
         di.bufferMemoryBarrierCount = static_cast<u32>(bufBs.Size()); di.pBufferMemoryBarriers = bufBs.Data();
         di.imageMemoryBarrierCount  = static_cast<u32>(imgBs.Size()); di.pImageMemoryBarriers  = imgBs.Data();
-        vkCmdPipelineBarrier2(cmdBuf_, &di);
+        vkCmdPipelineBarrier2(m_cmdBuf, &di);
     }
 
     void CopyBufferToBuffer(Buffer* src, u64 srcOff, Buffer* dst, u64 dstOff, u64 size) override {
         auto* s = static_cast<VkBufferImpl*>(src); auto* d = static_cast<VkBufferImpl*>(dst);
         if (!s || !d) return;
         VkBufferCopy r{}; r.srcOffset = srcOff; r.dstOffset = dstOff; r.size = size;
-        vkCmdCopyBuffer(cmdBuf_, s->handle(), d->handle(), 1, &r);
+        vkCmdCopyBuffer(m_cmdBuf, s->handle(), d->handle(), 1, &r);
     }
 
     void CopyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& region) override {
@@ -217,7 +217,7 @@ public:
         c.imageSubresource.layerCount     = 1;
         c.imageOffset = { static_cast<i32>(region.textureOrigin.x), static_cast<i32>(region.textureOrigin.y), static_cast<i32>(region.textureOrigin.z) };
         c.imageExtent = { region.textureExtent.width, region.textureExtent.height, region.textureExtent.depth };
-        vkCmdCopyBufferToImage(cmdBuf_, s->handle(), d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
+        vkCmdCopyBufferToImage(m_cmdBuf, s->handle(), d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
     }
 
     void CopyTextureToBuffer(Texture* src, Buffer* dst, const BufferTextureCopyRegion& region) override {
@@ -234,7 +234,7 @@ public:
         c.imageSubresource.layerCount     = 1;
         c.imageOffset = { static_cast<i32>(region.textureOrigin.x), static_cast<i32>(region.textureOrigin.y), static_cast<i32>(region.textureOrigin.z) };
         c.imageExtent = { region.textureExtent.width, region.textureExtent.height, region.textureExtent.depth };
-        vkCmdCopyImageToBuffer(cmdBuf_, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, d->handle(), 1, &c);
+        vkCmdCopyImageToBuffer(m_cmdBuf, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, d->handle(), 1, &c);
     }
 
     void CopyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& region) override {
@@ -244,7 +244,7 @@ public:
         c.srcSubresource = { getAspectMask(s->desc.format), region.srcMipLevel, region.srcArrayLayer, 1 };
         c.dstSubresource = { getAspectMask(d->desc.format), region.dstMipLevel, region.dstArrayLayer, 1 };
         c.extent = { region.extent.width, region.extent.height, region.extent.depth };
-        vkCmdCopyImage(cmdBuf_, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        vkCmdCopyImage(m_cmdBuf, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                        d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
     }
 
@@ -256,7 +256,7 @@ public:
         b.srcOffsets[1]  = { static_cast<i32>(s->desc.width), static_cast<i32>(s->desc.height), 1 };
         b.dstSubresource = { getAspectMask(d->desc.format), 0, 0, 1 };
         b.dstOffsets[1]  = { static_cast<i32>(d->desc.width), static_cast<i32>(d->desc.height), 1 };
-        vkCmdBlitImage(cmdBuf_, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        vkCmdBlitImage(m_cmdBuf, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                        d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &b, VK_FILTER_LINEAR);
     }
 
@@ -297,13 +297,13 @@ public:
             VkImageMemoryBarrier2 barriers[2] = { srcBarrier, dstBarrier };
             VkDependencyInfo dep{}; dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
             dep.imageMemoryBarrierCount = 2; dep.pImageMemoryBarriers = barriers;
-            vkCmdPipelineBarrier2(cmdBuf_, &dep);
+            vkCmdPipelineBarrier2(m_cmdBuf, &dep);
 
             i32 nw = Max(1, mipW / 2), nh = Max(1, mipH / 2);
             VkImageBlit bl{};
             bl.srcSubresource = { aspect, i - 1, 0, layers }; bl.srcOffsets[1] = { mipW, mipH, 1 };
             bl.dstSubresource = { aspect, i,     0, layers }; bl.dstOffsets[1] = { nw, nh, 1 };
-            vkCmdBlitImage(cmdBuf_, vkTex->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            vkCmdBlitImage(m_cmdBuf, vkTex->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                            vkTex->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bl, VK_FILTER_LINEAR);
             mipW = nw; mipH = nh;
         }
@@ -316,7 +316,7 @@ public:
         lb.subresourceRange = { aspect, vkTex->desc.mipLevelCount - 1, 1, 0, layers };
         VkDependencyInfo ldep{}; ldep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
         ldep.imageMemoryBarrierCount = 1; ldep.pImageMemoryBarriers = &lb;
-        vkCmdPipelineBarrier2(cmdBuf_, &ldep);
+        vkCmdPipelineBarrier2(m_cmdBuf, &ldep);
 
         // Update tracked layout — all mips now in TRANSFER_SRC.
         vkTex->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -328,22 +328,22 @@ public:
         auto aspect = getAspectMask(s->desc.format);
         VkImageResolve r{}; r.srcSubresource = { aspect, 0, 0, 1 }; r.dstSubresource = { aspect, 0, 0, 1 };
         r.extent = { s->desc.width, s->desc.height, 1 };
-        vkCmdResolveImage(cmdBuf_, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        vkCmdResolveImage(m_cmdBuf, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                           d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &r);
     }
 
     void ResetQuerySet(QuerySet* qs, u32 first, u32 count) override {
-        if (auto* q = static_cast<VkQuerySetImpl*>(qs)) vkCmdResetQueryPool(cmdBuf_, q->handle(), first, count);
+        if (auto* q = static_cast<VkQuerySetImpl*>(qs)) vkCmdResetQueryPool(m_cmdBuf, q->handle(), first, count);
     }
 
     void WriteTimestamp(QuerySet* qs, u32 index) override {
         if (auto* q = static_cast<VkQuerySetImpl*>(qs))
-            vkCmdWriteTimestamp(cmdBuf_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, q->handle(), index);
+            vkCmdWriteTimestamp(m_cmdBuf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, q->handle(), index);
     }
 
     void ResolveQuerySet(QuerySet* qs, u32 first, u32 count, Buffer* dst, u64 dstOffset) override {
         auto* q = static_cast<VkQuerySetImpl*>(qs); auto* b = static_cast<VkBufferImpl*>(dst);
-        if (q && b) vkCmdCopyQueryPoolResults(cmdBuf_, q->handle(), first, count, b->handle(), dstOffset, 8,
+        if (q && b) vkCmdCopyQueryPoolResults(m_cmdBuf, q->handle(), first, count, b->handle(), dstOffset, 8,
             VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
     }
 
@@ -352,13 +352,13 @@ public:
         std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
         li.pLabelName = buf; li.color[0] = r; li.color[1] = g; li.color[2] = b; li.color[3] = a;
-        auto pfn = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device_, "vkCmdBeginDebugUtilsLabelEXT"));
-        if (pfn) pfn(cmdBuf_, &li);
+        auto pfn = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr(m_device, "vkCmdBeginDebugUtilsLabelEXT"));
+        if (pfn) pfn(m_cmdBuf, &li);
     }
 
     void EndDebugLabel() override {
-        auto pfn = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device_, "vkCmdEndDebugUtilsLabelEXT"));
-        if (pfn) pfn(cmdBuf_);
+        auto pfn = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr(m_device, "vkCmdEndDebugUtilsLabelEXT"));
+        if (pfn) pfn(m_cmdBuf);
     }
 
     void InsertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
@@ -366,14 +366,14 @@ public:
         std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
         li.pLabelName = buf; li.color[0] = r; li.color[1] = g; li.color[2] = b; li.color[3] = a;
-        auto pfn = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device_, "vkCmdInsertDebugUtilsLabelEXT"));
-        if (pfn) pfn(cmdBuf_, &li);
+        auto pfn = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetDeviceProcAddr(m_device, "vkCmdInsertDebugUtilsLabelEXT"));
+        if (pfn) pfn(m_cmdBuf, &li);
     }
 
     CommandBuffer* Finish() override {
-        vkEndCommandBuffer(cmdBuf_);
-        auto* cb = new VkCommandBufferImpl(cmdBuf_);
-        pool_->trackCommandBuffer(cb);
+        vkEndCommandBuffer(m_cmdBuf);
+        auto* cb = new VkCommandBufferImpl(m_cmdBuf);
+        m_pool->trackCommandBuffer(cb);
         return cb;
     }
 
@@ -395,44 +395,44 @@ private:
     u64 getBufferDeviceAddress(VkBufferImpl* buf) {
         VkBufferDeviceAddressInfo info{}; info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
         info.buffer = buf->handle();
-        if (!pfnGetBufAddr_) pfnGetBufAddr_ = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(
-            vkGetDeviceProcAddr(device_, "vkGetBufferDeviceAddress"));
-        return pfnGetBufAddr_ ? pfnGetBufAddr_(device_, &info) : 0;
+        if (!m_pfnGetBufAddr) m_pfnGetBufAddr = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(
+            vkGetDeviceProcAddr(m_device, "vkGetBufferDeviceAddress"));
+        return m_pfnGetBufAddr ? m_pfnGetBufAddr(m_device, &info) : 0;
     }
 
-    VkCommandBuffer          cmdBuf_ = VK_NULL_HANDLE;
-    VkDevice                 device_ = VK_NULL_HANDLE;
-    VkCommandPoolImpl*       pool_   = nullptr;
-    VkRenderPassEncoderImpl  rpe_;
-    VkComputePassEncoderImpl cpe_;
+    VkCommandBuffer          m_cmdBuf = VK_NULL_HANDLE;
+    VkDevice                 m_device = VK_NULL_HANDLE;
+    VkCommandPoolImpl*       m_pool   = nullptr;
+    VkRenderPassEncoderImpl  m_rpe;
+    VkComputePassEncoderImpl m_cpe;
 
     // RT state.
-    VkRayTracingPipelineImpl* currentRtPipeline_ = nullptr;
-    PFN_vkGetBufferDeviceAddress pfnGetBufAddr_ = nullptr;
-    PFN_vkCmdBuildAccelerationStructuresKHR pfnBuild_ = nullptr;
-    PFN_vkCmdTraceRaysKHR pfnTrace_ = nullptr;
+    VkRayTracingPipelineImpl* m_currentRtPipeline = nullptr;
+    PFN_vkGetBufferDeviceAddress m_pfnGetBufAddr = nullptr;
+    PFN_vkCmdBuildAccelerationStructuresKHR m_pfnBuild = nullptr;
+    PFN_vkCmdTraceRaysKHR m_pfnTrace = nullptr;
 };
 
 // ---- Deferred RT method implementations ----
 
 inline void VkCommandEncoderImpl::SetRayTracingPipeline(RayTracingPipeline* pipeline) {
-    currentRtPipeline_ = static_cast<VkRayTracingPipelineImpl*>(pipeline);
-    if (currentRtPipeline_)
-        vkCmdBindPipeline(cmdBuf_, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, currentRtPipeline_->handle());
+    m_currentRtPipeline = static_cast<VkRayTracingPipelineImpl*>(pipeline);
+    if (m_currentRtPipeline)
+        vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_currentRtPipeline->handle());
 }
 
 inline void VkCommandEncoderImpl::SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) {
     auto* bg = static_cast<VkBindGroupImpl*>(group);
-    if (!bg || !currentRtPipeline_ || !currentRtPipeline_->vkLayout()) return;
+    if (!bg || !m_currentRtPipeline || !m_currentRtPipeline->vkLayout()) return;
     VkDescriptorSet set = bg->handle();
-    vkCmdBindDescriptorSets(cmdBuf_, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-        currentRtPipeline_->vkLayout()->handle(), index, 1, &set,
+    vkCmdBindDescriptorSets(m_cmdBuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+        m_currentRtPipeline->vkLayout()->handle(), index, 1, &set,
         static_cast<u32>(dynOffsets.Size()), dynOffsets.Data());
 }
 
 inline void VkCommandEncoderImpl::SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) {
-    if (!currentRtPipeline_ || !currentRtPipeline_->vkLayout()) return;
-    vkCmdPushConstants(cmdBuf_, currentRtPipeline_->vkLayout()->handle(),
+    if (!m_currentRtPipeline || !m_currentRtPipeline->vkLayout()) return;
+    vkCmdPushConstants(m_cmdBuf, m_currentRtPipeline->vkLayout()->handle(),
         toVkShaderStageFlags(stages), offset, size, data);
 }
 
@@ -450,8 +450,8 @@ inline void VkCommandEncoderImpl::TraceRays(
     if (auto* ht = static_cast<VkBufferImpl*>(hitSBT)) {
         htn.deviceAddress = getBufferDeviceAddress(ht) + hitOff; htn.stride = hitStride; htn.size = hitStride;
     }
-    if (!pfnTrace_) pfnTrace_ = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device_, "vkCmdTraceRaysKHR"));
-    if (pfnTrace_) pfnTrace_(cmdBuf_, &rgn, &msn, &htn, &cal, w, h, d);
+    if (!m_pfnTrace) m_pfnTrace = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(m_device, "vkCmdTraceRaysKHR"));
+    if (m_pfnTrace) m_pfnTrace(m_cmdBuf, &rgn, &msn, &htn, &cal, w, h, d);
 }
 
 inline void VkCommandEncoderImpl::BuildBottomLevelAccelStruct(
@@ -514,11 +514,11 @@ inline void VkCommandEncoderImpl::BuildBottomLevelAccelStruct(
     bi.geometryCount = static_cast<u32>(idx); bi.pGeometries = geoms.Data();
     bi.scratchData.deviceAddress = getBufferDeviceAddress(sc) + scratchOffset;
 
-    if (!pfnBuild_) pfnBuild_ = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(
-        vkGetDeviceProcAddr(device_, "vkCmdBuildAccelerationStructuresKHR"));
-    if (!pfnBuild_) return;
+    if (!m_pfnBuild) m_pfnBuild = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(
+        vkGetDeviceProcAddr(m_device, "vkCmdBuildAccelerationStructuresKHR"));
+    if (!m_pfnBuild) return;
     const VkAccelerationStructureBuildRangeInfoKHR* pRange = ranges.Data();
-    pfnBuild_(cmdBuf_, 1, &bi, &pRange);
+    m_pfnBuild(m_cmdBuf, 1, &bi, &pRange);
 }
 
 inline void VkCommandEncoderImpl::BuildTopLevelAccelStruct(
@@ -545,39 +545,39 @@ inline void VkCommandEncoderImpl::BuildTopLevelAccelStruct(
     bi.scratchData.deviceAddress = getBufferDeviceAddress(sc) + scratchOffset;
 
     VkAccelerationStructureBuildRangeInfoKHR range{}; range.primitiveCount = instanceCount;
-    if (!pfnBuild_) pfnBuild_ = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(
-        vkGetDeviceProcAddr(device_, "vkCmdBuildAccelerationStructuresKHR"));
-    if (!pfnBuild_) return;
+    if (!m_pfnBuild) m_pfnBuild = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(
+        vkGetDeviceProcAddr(m_device, "vkCmdBuildAccelerationStructuresKHR"));
+    if (!m_pfnBuild) return;
     const VkAccelerationStructureBuildRangeInfoKHR* pRange = &range;
-    pfnBuild_(cmdBuf_, 1, &bi, &pRange);
+    m_pfnBuild(m_cmdBuf, 1, &bi, &pRange);
 }
 
 // ---- Deferred mesh shader method implementations on RenderPassEncoder ----
 
 VkPipelineLayoutImpl* VkRenderPassEncoderImpl::getCurrentLayout() {
-    if (currentPipeline_)     return currentPipeline_->vkLayout();
-    if (currentMeshPipeline_) return currentMeshPipeline_->vkLayout();
+    if (m_currentPipeline)     return m_currentPipeline->vkLayout();
+    if (m_currentMeshPipeline) return m_currentMeshPipeline->vkLayout();
     return nullptr;
 }
 
 void VkRenderPassEncoderImpl::SetMeshPipeline(MeshPipeline* pipeline) {
-    currentMeshPipeline_ = static_cast<VkMeshPipelineImpl*>(pipeline);
-    currentPipeline_     = nullptr;
-    if (currentMeshPipeline_)
-        vkCmdBindPipeline(cmdBuf_, VK_PIPELINE_BIND_POINT_GRAPHICS, currentMeshPipeline_->handle());
+    m_currentMeshPipeline = static_cast<VkMeshPipelineImpl*>(pipeline);
+    m_currentPipeline     = nullptr;
+    if (m_currentMeshPipeline)
+        vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_currentMeshPipeline->handle());
 }
 
 void VkRenderPassEncoderImpl::DrawMeshTasks(u32 gx, u32 gy, u32 gz) {
-    if (!pfnDrawMesh_) pfnDrawMesh_ = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(
-        vkGetDeviceProcAddr(device_, "vkCmdDrawMeshTasksEXT"));
-    if (pfnDrawMesh_) pfnDrawMesh_(cmdBuf_, gx, gy, gz);
+    if (!m_pfnDrawMesh) m_pfnDrawMesh = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(
+        vkGetDeviceProcAddr(m_device, "vkCmdDrawMeshTasksEXT"));
+    if (m_pfnDrawMesh) m_pfnDrawMesh(m_cmdBuf, gx, gy, gz);
 }
 
 void VkRenderPassEncoderImpl::DrawMeshTasksIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) {
     auto* vkBuf = static_cast<VkBufferImpl*>(buf); if (!vkBuf) return;
-    if (!pfnDrawMeshIndirect_) pfnDrawMeshIndirect_ = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectEXT>(
-        vkGetDeviceProcAddr(device_, "vkCmdDrawMeshTasksIndirectEXT"));
-    if (pfnDrawMeshIndirect_) pfnDrawMeshIndirect_(cmdBuf_, vkBuf->handle(), offset, drawCount, stride > 0 ? stride : 12);
+    if (!m_pfnDrawMeshIndirect) m_pfnDrawMeshIndirect = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectEXT>(
+        vkGetDeviceProcAddr(m_device, "vkCmdDrawMeshTasksIndirectEXT"));
+    if (m_pfnDrawMeshIndirect) m_pfnDrawMeshIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount, stride > 0 ? stride : 12);
 }
 
 void VkRenderPassEncoderImpl::DrawMeshTasksIndirectCount(
@@ -585,9 +585,9 @@ void VkRenderPassEncoderImpl::DrawMeshTasksIndirectCount(
     auto* vkBuf = static_cast<VkBufferImpl*>(buf);
     auto* vkCb  = static_cast<VkBufferImpl*>(countBuf);
     if (!vkBuf || !vkCb) return;
-    if (!pfnDrawMeshIndCount_) pfnDrawMeshIndCount_ = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectCountEXT>(
-        vkGetDeviceProcAddr(device_, "vkCmdDrawMeshTasksIndirectCountEXT"));
-    if (pfnDrawMeshIndCount_) pfnDrawMeshIndCount_(cmdBuf_, vkBuf->handle(), offset,
+    if (!m_pfnDrawMeshIndCount) m_pfnDrawMeshIndCount = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectCountEXT>(
+        vkGetDeviceProcAddr(m_device, "vkCmdDrawMeshTasksIndirectCountEXT"));
+    if (m_pfnDrawMeshIndCount) m_pfnDrawMeshIndCount(m_cmdBuf, vkBuf->handle(), offset,
         vkCb->handle(), countOffset, maxDrawCount, stride > 0 ? stride : 12);
 }
 
@@ -597,15 +597,15 @@ Status VkCommandPoolImpl::CreateEncoder(CommandEncoder*& out) {
     out = nullptr;
     VkCommandBuffer cmdBuf = VK_NULL_HANDLE;
 
-    if (!freeHandles_.IsEmpty()) {
-        cmdBuf = freeHandles_.Back(); freeHandles_.PopBack();
+    if (!m_freeHandles.IsEmpty()) {
+        cmdBuf = m_freeHandles.Back(); m_freeHandles.PopBack();
     } else {
         VkCommandBufferAllocateInfo ai{};
         ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        ai.commandPool        = pool_;
+        ai.commandPool        = m_pool;
         ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         ai.commandBufferCount = 1;
-        if (vkAllocateCommandBuffers(device_, &ai, &cmdBuf) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkAllocateCommandBuffers(m_device, &ai, &cmdBuf) != VK_SUCCESS) return ErrorCode::Unknown;
     }
 
     VkCommandBufferBeginInfo bi{};
@@ -613,7 +613,7 @@ Status VkCommandPoolImpl::CreateEncoder(CommandEncoder*& out) {
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmdBuf, &bi);
 
-    out = new VkCommandEncoderImpl(cmdBuf, device_, this);
+    out = new VkCommandEncoderImpl(cmdBuf, m_device, this);
     return ErrorCode::Ok;
 }
 
@@ -622,9 +622,9 @@ void VkCommandPoolImpl::DestroyEncoder(CommandEncoder*& encoder) {
 }
 
 void VkCommandPoolImpl::Reset() {
-    for (auto* cb : trackedBuffers_) { freeHandles_.PushBack(cb->handle()); delete cb; }
-    trackedBuffers_.Clear();
-    vkResetCommandPool(device_, pool_, 0);
+    for (auto* cb : m_trackedBuffers) { m_freeHandles.PushBack(cb->handle()); delete cb; }
+    m_trackedBuffers.Clear();
+    vkResetCommandPool(m_device, m_pool, 0);
 }
 
 } // namespace raptor::rhi::vk

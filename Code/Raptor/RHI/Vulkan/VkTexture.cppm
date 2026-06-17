@@ -40,15 +40,15 @@ public:
         if (d.arrayLayerCount >= 6 && d.dimension == TextureDimension::Texture2D)
             ci.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-        if (vkCreateImage(device, &ci, nullptr, &image_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreateImage(device, &ci, nullptr, &m_image) != VK_SUCCESS) return ErrorCode::Unknown;
 
         VkMemoryRequirements memReqs{};
-        vkGetImageMemoryRequirements(device, image_, &memReqs);
+        vkGetImageMemoryRequirements(device, m_image, &memReqs);
 
         i32 memType = adapter->findMemoryType(
             static_cast<u32>(memReqs.memoryTypeBits), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         if (memType < 0) {
-            vkDestroyImage(device, image_, nullptr); image_ = VK_NULL_HANDLE;
+            vkDestroyImage(device, m_image, nullptr); m_image = VK_NULL_HANDLE;
             return ErrorCode::Unknown;
         }
 
@@ -57,31 +57,31 @@ public:
         ai.allocationSize  = memReqs.size;
         ai.memoryTypeIndex = static_cast<u32>(memType);
 
-        if (vkAllocateMemory(device, &ai, nullptr, &memory_) != VK_SUCCESS) {
-            vkDestroyImage(device, image_, nullptr); image_ = VK_NULL_HANDLE;
+        if (vkAllocateMemory(device, &ai, nullptr, &m_memory) != VK_SUCCESS) {
+            vkDestroyImage(device, m_image, nullptr); m_image = VK_NULL_HANDLE;
             return ErrorCode::Unknown;
         }
 
-        vkBindImageMemory(device, image_, memory_, 0);
+        vkBindImageMemory(device, m_image, m_memory, 0);
         return ErrorCode::Ok;
     }
 
     /// Initialize from an existing VkImage (e.g. swap chain). Does not own the image.
     void initFromExisting(VkImage image, const TextureDesc& d) {
-        image_     = image;
+        m_image     = image;
         desc       = d;
-        ownsImage_ = false;
+        m_ownsImage = false;
     }
 
     void cleanup(VkDevice device) {
-        if (memory_ != VK_NULL_HANDLE) { vkFreeMemory(device, memory_, nullptr); memory_ = VK_NULL_HANDLE; }
-        if (ownsImage_ && image_ != VK_NULL_HANDLE) vkDestroyImage(device, image_, nullptr);
-        image_ = VK_NULL_HANDLE;
-        subresourceLayouts_.Clear();
+        if (m_memory != VK_NULL_HANDLE) { vkFreeMemory(device, m_memory, nullptr); m_memory = VK_NULL_HANDLE; }
+        if (m_ownsImage && m_image != VK_NULL_HANDLE) vkDestroyImage(device, m_image, nullptr);
+        m_image = VK_NULL_HANDLE;
+        m_subresourceLayouts.Clear();
     }
 
     // ---- Internal ----
-    [[nodiscard]] VkImage  handle()   const { return image_; }
+    [[nodiscard]] VkImage  handle()   const { return m_image; }
     [[nodiscard]] VkFormat vkFormat() const { return toVkFormat(desc.format); }
 
     /// Whole-resource layout (uniform fast path).
@@ -89,10 +89,10 @@ public:
 
     /// Get layout for a specific subresource.
     VkImageLayout getSubresourceLayout(u32 mip, u32 layer) const {
-        if (subresourceLayouts_.IsEmpty()) return currentLayout;
+        if (m_subresourceLayouts.IsEmpty()) return currentLayout;
         u32 idx = mip + layer * desc.mipLevelCount;
-        if (idx >= static_cast<u32>(subresourceLayouts_.Size())) return currentLayout;
-        return subresourceLayouts_[idx];
+        if (idx >= static_cast<u32>(m_subresourceLayouts.Size())) return currentLayout;
+        return m_subresourceLayouts[idx];
     }
 
     /// Update layout for a subresource range. Promotes to per-subresource
@@ -107,34 +107,34 @@ public:
         // All subresources? Collapse to uniform.
         if (baseMip == 0 && mipEnd >= totalMips && baseLayer == 0 && layerEnd >= totalLayers) {
             currentLayout = layout;
-            subresourceLayouts_.Clear();
+            m_subresourceLayouts.Clear();
             return;
         }
 
         // Promote to per-subresource.
-        if (subresourceLayouts_.IsEmpty()) {
+        if (m_subresourceLayouts.IsEmpty()) {
             if (layout == currentLayout) return;
-            subresourceLayouts_.Resize(totalMips * totalLayers, currentLayout);
+            m_subresourceLayouts.Resize(totalMips * totalLayers, currentLayout);
         }
 
         for (u32 l = baseLayer; l < layerEnd; ++l)
             for (u32 m = baseMip; m < mipEnd; ++m)
-                subresourceLayouts_[m + l * totalMips] = layout;
+                m_subresourceLayouts[m + l * totalMips] = layout;
 
         // Try to collapse back to uniform.
-        VkImageLayout first = subresourceLayouts_[0];
-        for (usize i = 1; i < subresourceLayouts_.Size(); ++i) {
-            if (subresourceLayouts_[i] != first) return;
+        VkImageLayout first = m_subresourceLayouts[0];
+        for (usize i = 1; i < m_subresourceLayouts.Size(); ++i) {
+            if (m_subresourceLayouts[i] != first) return;
         }
         currentLayout = first;
-        subresourceLayouts_.Clear();
+        m_subresourceLayouts.Clear();
     }
 
 private:
-    VkImage        image_     = VK_NULL_HANDLE;
-    VkDeviceMemory memory_    = VK_NULL_HANDLE;
-    bool           ownsImage_ = true;
-    Array<VkImageLayout> subresourceLayouts_;
+    VkImage        m_image     = VK_NULL_HANDLE;
+    VkDeviceMemory m_memory    = VK_NULL_HANDLE;
+    bool           m_ownsImage = true;
+    Array<VkImageLayout> m_subresourceLayouts;
 };
 
 } // namespace raptor::rhi::vk

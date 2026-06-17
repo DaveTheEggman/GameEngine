@@ -18,20 +18,20 @@ export namespace raptor::rhi::vk {
 class VkSurfaceImpl : public Surface {
 public:
     VkSurfaceImpl(VkSurfaceKHR surface, VkInstance instance)
-        : surface_(surface), instance_(instance) {}
+        : m_surface(surface), m_instance(instance) {}
 
-    [[nodiscard]] VkSurfaceKHR handle() const { return surface_; }
+    [[nodiscard]] VkSurfaceKHR handle() const { return m_surface; }
 
     void Destroy() {
-        if (surface_ != VK_NULL_HANDLE) {
-            vkDestroySurfaceKHR(instance_, surface_, nullptr);
-            surface_ = VK_NULL_HANDLE;
+        if (m_surface != VK_NULL_HANDLE) {
+            vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+            m_surface = VK_NULL_HANDLE;
         }
     }
 
 private:
-    VkSurfaceKHR surface_  = VK_NULL_HANDLE;
-    VkInstance   instance_ = VK_NULL_HANDLE;
+    VkSurfaceKHR m_surface  = VK_NULL_HANDLE;
+    VkInstance   m_instance = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

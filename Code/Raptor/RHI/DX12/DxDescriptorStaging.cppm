@@ -24,11 +24,11 @@ public:
 
     void init(DxGpuDescriptorHeap* cpuHeap, DxGpuDescriptorHeap* gpuHeap,
               ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, u32 initialCapacity) {
-        cpuHeap_  = cpuHeap;
-        gpuHeap_  = gpuHeap;
-        device_   = device;
-        heapType_ = heapType;
-        capacity_ = initialCapacity;
+        m_cpuHeap  = cpuHeap;
+        m_gpuHeap  = gpuHeap;
+        m_device   = device;
+        m_heapType = heapType;
+        m_capacity = initialCapacity;
     }
 
     /// Copies `count` descriptors from `srcOffset` in CPU heap into GPU staging.
@@ -37,62 +37,62 @@ public:
         if (count == 0) return -1;
 
         // Lazy allocation.
-        if (blockOffset_ < 0) {
-            blockOffset_ = gpuHeap_->allocate(capacity_);
-            if (blockOffset_ < 0) return -1;
-            current_ = 0;
+        if (m_blockOffset < 0) {
+            m_blockOffset = m_gpuHeap->allocate(m_capacity);
+            if (m_blockOffset < 0) return -1;
+            m_current = 0;
         }
 
         // Grow if needed: retire current block, allocate bigger.
-        if (current_ + count > capacity_) {
-            u32 newCap = std::max(capacity_ * 2, current_ + count);
-            i32 newBlock = gpuHeap_->allocate(newCap);
+        if (m_current + count > m_capacity) {
+            u32 newCap = std::max(m_capacity * 2, m_current + count);
+            i32 newBlock = m_gpuHeap->allocate(newCap);
             if (newBlock < 0) return -1;
-            retiredBlocks_.PushBack({ blockOffset_, capacity_ });
-            blockOffset_ = newBlock;
-            capacity_ = newCap;
-            current_ = 0;
+            m_retiredBlocks.PushBack({ m_blockOffset, m_capacity });
+            m_blockOffset = newBlock;
+            m_capacity = newCap;
+            m_current = 0;
         }
 
-        u32 dstOffset = static_cast<u32>(blockOffset_) + current_;
-        device_->CopyDescriptorsSimple(count,
-            gpuHeap_->getCpuHandle(dstOffset),
-            cpuHeap_->getCpuHandle(srcOffset),
-            heapType_);
-        current_ += count;
+        u32 dstOffset = static_cast<u32>(m_blockOffset) + m_current;
+        m_device->CopyDescriptorsSimple(count,
+            m_gpuHeap->getCpuHandle(dstOffset),
+            m_cpuHeap->getCpuHandle(srcOffset),
+            m_heapType);
+        m_current += count;
         return static_cast<i32>(dstOffset);
     }
 
     /// Resets bump pointer. Called when command pool resets after fence wait.
     void Reset() {
-        current_ = 0;
-        for (auto& b : retiredBlocks_)
-            gpuHeap_->free(static_cast<u32>(b.offset), b.capacity);
-        retiredBlocks_.Clear();
+        m_current = 0;
+        for (auto& b : m_retiredBlocks)
+            m_gpuHeap->free(static_cast<u32>(b.offset), b.capacity);
+        m_retiredBlocks.Clear();
     }
 
     /// Frees all blocks.
     void Destroy() {
-        if (blockOffset_ >= 0) {
-            gpuHeap_->free(static_cast<u32>(blockOffset_), capacity_);
-            blockOffset_ = -1;
+        if (m_blockOffset >= 0) {
+            m_gpuHeap->free(static_cast<u32>(m_blockOffset), m_capacity);
+            m_blockOffset = -1;
         }
-        for (auto& b : retiredBlocks_)
-            gpuHeap_->free(static_cast<u32>(b.offset), b.capacity);
-        retiredBlocks_.Clear();
+        for (auto& b : m_retiredBlocks)
+            m_gpuHeap->free(static_cast<u32>(b.offset), b.capacity);
+        m_retiredBlocks.Clear();
     }
 
 private:
     struct RetiredBlock { i32 offset; u32 capacity; };
 
-    DxGpuDescriptorHeap*         cpuHeap_  = nullptr;
-    DxGpuDescriptorHeap*         gpuHeap_  = nullptr;
-    ID3D12Device*                device_   = nullptr;
-    D3D12_DESCRIPTOR_HEAP_TYPE   heapType_ = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    i32                          blockOffset_ = -1;
-    u32                          capacity_ = 0;
-    u32                          current_  = 0;
-    Array<RetiredBlock>          retiredBlocks_;
+    DxGpuDescriptorHeap*         m_cpuHeap  = nullptr;
+    DxGpuDescriptorHeap*         m_gpuHeap  = nullptr;
+    ID3D12Device*                m_device   = nullptr;
+    D3D12_DESCRIPTOR_HEAP_TYPE   m_heapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    i32                          m_blockOffset = -1;
+    u32                          m_capacity = 0;
+    u32                          m_current  = 0;
+    Array<RetiredBlock>          m_retiredBlocks;
 };
 
 } // namespace raptor::rhi::dx12

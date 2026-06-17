@@ -17,27 +17,27 @@ export namespace raptor::rhi::validation {
 
 class ValidatedBackend : public Backend {
 public:
-    explicit ValidatedBackend(Backend* inner) : inner_(inner) {
+    explicit ValidatedBackend(Backend* inner) : m_inner(inner) {
         isInitialized = inner->isInitialized;
     }
 
     Span<Adapter* const> EnumerateAdapters() override {
-        if (!inner_->isInitialized) {
+        if (!m_inner->isInitialized) {
             LogError("[Validation] enumerateAdapters: backend not initialized");
             return {};
         }
 
-        if (adapterWrappers_.IsEmpty()) {
-            auto innerAdapters = inner_->EnumerateAdapters();
-            adapterWrappers_.Reserve(innerAdapters.Size());
-            adapterPtrs_.Reserve(innerAdapters.Size());
+        if (m_adapterWrappers.IsEmpty()) {
+            auto innerAdapters = m_inner->EnumerateAdapters();
+            m_adapterWrappers.Reserve(innerAdapters.Size());
+            m_adapterPtrs.Reserve(innerAdapters.Size());
             for (usize i = 0; i < innerAdapters.Size(); ++i) {
                 auto* w = CreateValidatedAdapter(innerAdapters[i]);
-                adapterWrappers_.PushBack(w);
-                adapterPtrs_.PushBack(w);
+                m_adapterWrappers.PushBack(w);
+                m_adapterPtrs.PushBack(w);
             }
         }
-        return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
+        return Span<Adapter* const>(m_adapterPtrs.Data(), m_adapterPtrs.Size());
     }
 
     Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out) override {
@@ -46,25 +46,25 @@ public:
             out = nullptr;
             return ErrorCode::InvalidArgument;
         }
-        return inner_->CreateSurface(windowHandle, displayHandle, out);
+        return m_inner->CreateSurface(windowHandle, displayHandle, out);
     }
 
     void Destroy() override {
-        for (auto* w : adapterWrappers_) delete w;
-        adapterWrappers_.Clear();
-        adapterPtrs_.Clear();
-        inner_->Destroy();
+        for (auto* w : m_adapterWrappers) delete w;
+        m_adapterWrappers.Clear();
+        m_adapterPtrs.Clear();
+        m_inner->Destroy();
         delete this;
     }
 
-    Backend* inner() const { return inner_; }
+    Backend* inner() const { return m_inner; }
 
 private:
     static ValidatedAdapter* CreateValidatedAdapter(Adapter* inner);
 
-    Backend* inner_;
-    Array<ValidatedAdapter*> adapterWrappers_;
-    Array<Adapter*>          adapterPtrs_;
+    Backend* m_inner;
+    Array<ValidatedAdapter*> m_adapterWrappers;
+    Array<Adapter*>          m_adapterPtrs;
 };
 
 Backend* CreateValidatedBackend(Backend* inner) {

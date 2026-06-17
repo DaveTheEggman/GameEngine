@@ -42,18 +42,18 @@ public:
             ci.compareOp     = toVkCompareOp(d.compare.Value());
         }
 
-        if (vkCreateSampler(device, &ci, nullptr, &sampler_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreateSampler(device, &ci, nullptr, &m_sampler) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (sampler_ != VK_NULL_HANDLE) { vkDestroySampler(device, sampler_, nullptr); sampler_ = VK_NULL_HANDLE; }
+        if (m_sampler != VK_NULL_HANDLE) { vkDestroySampler(device, m_sampler, nullptr); m_sampler = VK_NULL_HANDLE; }
     }
 
-    [[nodiscard]] VkSampler handle() const { return sampler_; }
+    [[nodiscard]] VkSampler handle() const { return m_sampler; }
 
 private:
-    VkSampler sampler_ = VK_NULL_HANDLE;
+    VkSampler m_sampler = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

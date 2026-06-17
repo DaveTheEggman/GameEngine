@@ -34,11 +34,11 @@ public:
 
         for (usize i = 0; i < d.entries.Size(); ++i) {
             const auto& e = d.entries[i];
-            entries_.PushBack(e);
+            m_entries.PushBack(e);
 
             bool sampler = isSamplerBinding(e.type);
             u32 cnt = e.count;
-            if (cnt == ~0u) { cnt = 1024 * 16; hasBindless_ = true; }
+            if (cnt == ~0u) { cnt = 1024 * 16; m_hasBindless = true; }
 
             DxBindingRangeInfo r{};
             r.binding    = e.binding;
@@ -50,7 +50,7 @@ public:
 
             if (e.hasDynamicOffset) {
                 r.heapOffset = 0;
-                ++dynamicOffsetCount_;
+                ++m_dynamicOffsetCount;
             } else if (sampler) {
                 r.heapOffset = sampOff;
                 sampOff += cnt;
@@ -58,27 +58,27 @@ public:
                 r.heapOffset = csvUavOff;
                 csvUavOff += cnt;
             }
-            ranges_.PushBack(r);
+            m_ranges.PushBack(r);
         }
-        cbvSrvUavCount_ = csvUavOff;
-        samplerCount_   = sampOff;
+        m_cbvSrvUavCount = csvUavOff;
+        m_samplerCount   = sampOff;
         return ErrorCode::Ok;
     }
 
-    [[nodiscard]] Span<const BindGroupLayoutEntry> Entries() const { return { entries_.Data(), entries_.Size() }; }
-    [[nodiscard]] Span<const DxBindingRangeInfo>   ranges()  const { return { ranges_.Data(), ranges_.Size() }; }
-    [[nodiscard]] u32  cbvSrvUavCount()    const { return cbvSrvUavCount_; }
-    [[nodiscard]] u32  samplerCount()      const { return samplerCount_; }
-    [[nodiscard]] u32  dynamicOffsetCount()const { return dynamicOffsetCount_; }
-    [[nodiscard]] bool hasBindless()       const { return hasBindless_; }
+    [[nodiscard]] Span<const BindGroupLayoutEntry> Entries() const { return { m_entries.Data(), m_entries.Size() }; }
+    [[nodiscard]] Span<const DxBindingRangeInfo>   ranges()  const { return { m_ranges.Data(), m_ranges.Size() }; }
+    [[nodiscard]] u32  cbvSrvUavCount()    const { return m_cbvSrvUavCount; }
+    [[nodiscard]] u32  samplerCount()      const { return m_samplerCount; }
+    [[nodiscard]] u32  dynamicOffsetCount()const { return m_dynamicOffsetCount; }
+    [[nodiscard]] bool hasBindless()       const { return m_hasBindless; }
 
 private:
-    Array<BindGroupLayoutEntry> entries_;
-    Array<DxBindingRangeInfo>   ranges_;
-    u32  cbvSrvUavCount_    = 0;
-    u32  samplerCount_      = 0;
-    u32  dynamicOffsetCount_= 0;
-    bool hasBindless_       = false;
+    Array<BindGroupLayoutEntry> m_entries;
+    Array<DxBindingRangeInfo>   m_ranges;
+    u32  m_cbvSrvUavCount    = 0;
+    u32  m_samplerCount      = 0;
+    u32  m_dynamicOffsetCount= 0;
+    bool m_hasBindless       = false;
 };
 
 } // namespace raptor::rhi::dx12

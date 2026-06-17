@@ -33,7 +33,7 @@ public:
     // ---- Backend interface ----
 
     Span<Adapter* const> EnumerateAdapters() override {
-        return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
+        return Span<Adapter* const>(m_adapterPtrs.Data(), m_adapterPtrs.Size());
     }
 
     Status CreateSurface(void* windowHandle, void* /*displayHandle*/, Surface*& out) override {
@@ -52,17 +52,17 @@ public:
     }
 
     // ---- Internal ----
-    [[nodiscard]] IDXGIFactory4* factory() const { return factory_.Get(); }
-    [[nodiscard]] bool validationEnabled() const { return validationEnabled_; }
+    [[nodiscard]] IDXGIFactory4* factory() const { return m_factory.Get(); }
+    [[nodiscard]] bool validationEnabled() const { return m_validationEnabled; }
 
 private:
     friend Status CreateDxBackend(const DxBackendDesc& desc, Backend*& out);
 
     Status init(bool enableValidation) {
-        validationEnabled_ = enableValidation;
+        m_validationEnabled = enableValidation;
 
         // Enable debug layer before device creation.
-        if (validationEnabled_) {
+        if (m_validationEnabled) {
             ComPtr<ID3D12Debug> debugController;
             if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
                 debugController->EnableDebugLayer();
@@ -70,8 +70,8 @@ private:
         }
 
         // Create DXGI factory.
-        UINT factoryFlags = validationEnabled_ ? DXGI_CREATE_FACTORY_DEBUG : 0;
-        HRESULT hr = CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&factory_));
+        UINT factoryFlags = m_validationEnabled ? DXGI_CREATE_FACTORY_DEBUG : 0;
+        HRESULT hr = CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&m_factory));
         if (FAILED(hr)) {
             LogErrorf("DxBackend: CreateDXGIFactory2 failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
@@ -84,7 +84,7 @@ private:
 
     void enumerateAdaptersInternal() {
         ComPtr<IDXGIAdapter1> adapter;
-        for (UINT i = 0; factory_->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
+        for (UINT i = 0; m_factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
             DXGI_ADAPTER_DESC1 desc{};
             adapter->GetDesc1(&desc);
 
@@ -96,29 +96,29 @@ private:
 
             // Check D3D12 feature level 12.0 support.
             if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, __uuidof(ID3D12Device), nullptr))) {
-                auto* a = new DxAdapterImpl(adapter.Detach(), factory_.Get());
-                adapters_.PushBack(a);
-                adapterPtrs_.PushBack(a);
+                auto* a = new DxAdapterImpl(adapter.Detach(), m_factory.Get());
+                m_adapters.PushBack(a);
+                m_adapterPtrs.PushBack(a);
             }
 
             adapter.Reset();
         }
 
         // Expose adapters best-GPU-first; callers take [0]. See Backend::enumerateAdapters.
-        SortAdaptersByPreference(adapterPtrs_);
+        SortAdaptersByPreference(m_adapterPtrs);
     }
 
     void destroyImpl() {
-        for (auto* a : adapters_) delete a;
-        adapters_.Clear();
-        adapterPtrs_.Clear();
-        factory_.Reset();
+        for (auto* a : m_adapters) delete a;
+        m_adapters.Clear();
+        m_adapterPtrs.Clear();
+        m_factory.Reset();
     }
 
-    ComPtr<IDXGIFactory4>         factory_;
-    bool                          validationEnabled_ = false;
-    Array<DxAdapterImpl*>         adapters_;
-    Array<Adapter*>               adapterPtrs_;
+    ComPtr<IDXGIFactory4>         m_factory;
+    bool                          m_validationEnabled = false;
+    Array<DxAdapterImpl*>         m_adapters;
+    Array<Adapter*>               m_adapterPtrs;
 };
 
 /// Creates a DX12 backend. Caller owns the returned pointer — dispose via destroy().

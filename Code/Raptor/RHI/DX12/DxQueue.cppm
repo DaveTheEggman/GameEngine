@@ -25,22 +25,22 @@ class DxQueueImpl : public Queue {
 public:
     Status init(ID3D12Device* device, QueueType type, DxDeviceImpl* owner) {
         queueType  = type;
-        device_    = owner;
-        d3dDevice_ = device;
+        m_device    = owner;
+        m_d3dDevice = device;
 
         D3D12_COMMAND_QUEUE_DESC qd{};
         qd.Type = toCommandListType(type);
-        HRESULT hr = device->CreateCommandQueue(&qd, IID_PPV_ARGS(&queue_));
+        HRESULT hr = device->CreateCommandQueue(&qd, IID_PPV_ARGS(&m_queue));
         if (FAILED(hr)) return ErrorCode::Unknown;
 
-        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&internalFence_));
+        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_internalFence));
         if (FAILED(hr)) return ErrorCode::Unknown;
-        fenceEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        m_fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 
         // Query timestamp frequency.
         UINT64 freq = 0;
-        queue_->GetTimestampFrequency(&freq);
-        tsPeriod_ = (freq > 0) ? (1e9f / static_cast<f32>(freq)) : 1.0f;
+        m_queue->GetTimestampFrequency(&freq);
+        m_tsPeriod = (freq > 0) ? (1e9f / static_cast<f32>(freq)) : 1.0f;
 
         return ErrorCode::Ok;
     }
@@ -54,13 +54,13 @@ public:
             if (auto* dxCb = static_cast<DxCommandBufferImpl*>(cmdBufs[i]))
                 lists[i] = dxCb->handle();
         }
-        queue_->ExecuteCommandLists(static_cast<UINT>(lists.Size()), lists.Data());
+        m_queue->ExecuteCommandLists(static_cast<UINT>(lists.Size()), lists.Data());
     }
 
     void Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
         Submit(cmdBufs);
         if (auto* f = static_cast<DxFenceImpl*>(signalFence))
-            queue_->Signal(f->handle(), signalValue);
+            m_queue->Signal(f->handle(), signalValue);
     }
 
     void Submit(Span<CommandBuffer* const> cmdBufs,
@@ -68,24 +68,24 @@ public:
                 Fence* signalFence, u64 signalValue) override {
         for (usize i = 0; i < waitFences.Size(); ++i)
             if (auto* f = static_cast<DxFenceImpl*>(waitFences[i]))
-                queue_->Wait(f->handle(), waitValues[i]);
+                m_queue->Wait(f->handle(), waitValues[i]);
         Submit(cmdBufs);
         if (auto* f = static_cast<DxFenceImpl*>(signalFence))
-            queue_->Signal(f->handle(), signalValue);
+            m_queue->Signal(f->handle(), signalValue);
     }
 
     void WaitIdle() override {
-        ++fenceValue_;
-        queue_->Signal(internalFence_.Get(), fenceValue_);
-        if (internalFence_->GetCompletedValue() < fenceValue_) {
-            internalFence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-            WaitForSingleObject(fenceEvent_, INFINITE);
+        ++m_fenceValue;
+        m_queue->Signal(m_internalFence.Get(), m_fenceValue);
+        if (m_internalFence->GetCompletedValue() < m_fenceValue) {
+            m_internalFence->SetEventOnCompletion(m_fenceValue, m_fenceEvent);
+            WaitForSingleObject(m_fenceEvent, INFINITE);
         }
     }
 
     Status CreateTransferBatch(TransferBatch*& out) override {
         auto* batch = new DxTransferBatchImpl();
-        if (batch->init(d3dDevice_, queue_.Get(), queueType) != ErrorCode::Ok) {
+        if (batch->init(m_d3dDevice, m_queue.Get(), queueType) != ErrorCode::Ok) {
             delete batch;
             return ErrorCode::Unknown;
         }
@@ -101,26 +101,26 @@ public:
         batch = nullptr;
     }
 
-    f32 TimestampPeriod() const override { return tsPeriod_; }
+    f32 TimestampPeriod() const override { return m_tsPeriod; }
 
     void cleanup() {
-        if (fenceEvent_) { CloseHandle(fenceEvent_); fenceEvent_ = nullptr; }
-        internalFence_.Reset();
-        queue_.Reset();
+        if (m_fenceEvent) { CloseHandle(m_fenceEvent); m_fenceEvent = nullptr; }
+        m_internalFence.Reset();
+        m_queue.Reset();
     }
 
     // ---- Internal ----
-    [[nodiscard]] ID3D12CommandQueue* handle() const { return queue_.Get(); }
-    [[nodiscard]] DxDeviceImpl*       owner()  const { return device_; }
+    [[nodiscard]] ID3D12CommandQueue* handle() const { return m_queue.Get(); }
+    [[nodiscard]] DxDeviceImpl*       owner()  const { return m_device; }
 
 private:
-    ComPtr<ID3D12CommandQueue> queue_;
-    ComPtr<ID3D12Fence>        internalFence_;
-    HANDLE                     fenceEvent_ = nullptr;
-    u64                        fenceValue_ = 0;
-    f32                        tsPeriod_   = 1.0f;
-    DxDeviceImpl*              device_     = nullptr;
-    ID3D12Device*              d3dDevice_  = nullptr;
+    ComPtr<ID3D12CommandQueue> m_queue;
+    ComPtr<ID3D12Fence>        m_internalFence;
+    HANDLE                     m_fenceEvent = nullptr;
+    u64                        m_fenceValue = 0;
+    f32                        m_tsPeriod   = 1.0f;
+    DxDeviceImpl*              m_device     = nullptr;
+    ID3D12Device*              m_d3dDevice  = nullptr;
 };
 
 } // namespace raptor::rhi::dx12

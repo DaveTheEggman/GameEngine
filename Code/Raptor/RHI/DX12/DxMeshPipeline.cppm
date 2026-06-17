@@ -27,8 +27,8 @@ export namespace raptor::rhi::dx12 {
 class DxMeshPipelineImpl : public MeshPipeline {
 public:
     Status init(ID3D12Device* device, const MeshPipelineDesc& desc) {
-        layout_ = static_cast<DxPipelineLayoutImpl*>(desc.layout);
-        if (!layout_) {
+        m_layout = static_cast<DxPipelineLayoutImpl*>(desc.layout);
+        if (!m_layout) {
             LogErrorf("DxMeshPipeline: pipeline layout is null");
             return ErrorCode::Unknown;
         }
@@ -55,7 +55,7 @@ public:
                 (D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE), sizeof(D3D12_PIPELINE_STATE_SUBOBJECT_TYPE));
             offset += sizeof(D3D12_PIPELINE_STATE_SUBOBJECT_TYPE);
             offset = (offset + 7) & ~usize(7); // pointer-align
-            auto* rootSig = layout_->handle();
+            auto* rootSig = m_layout->handle();
             std::memcpy(&streamBuffer[offset], &rootSig, sizeof(rootSig));
             offset += sizeof(rootSig);
         }
@@ -180,7 +180,7 @@ public:
         streamDesc.SizeInBytes                   = static_cast<SIZE_T>(offset);
         streamDesc.pPipelineStateSubobjectStream = streamBuffer;
 
-        hr = device2->CreatePipelineState(&streamDesc, IID_PPV_ARGS(&pipelineState_));
+        hr = device2->CreatePipelineState(&streamDesc, IID_PPV_ARGS(&m_pipelineState));
         if (FAILED(hr)) {
             LogErrorf("DxMeshPipeline: CreatePipelineState failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
@@ -188,10 +188,10 @@ public:
         return ErrorCode::Ok;
     }
 
-    void cleanup() { pipelineState_.Reset(); }
+    void cleanup() { m_pipelineState.Reset(); }
 
-    [[nodiscard]] ID3D12PipelineState*  handle()         const { return pipelineState_.Get(); }
-    [[nodiscard]] DxPipelineLayoutImpl* pipelineLayout() const { return layout_; }
+    [[nodiscard]] ID3D12PipelineState*  handle()         const { return m_pipelineState.Get(); }
+    [[nodiscard]] DxPipelineLayoutImpl* pipelineLayout() const { return m_layout; }
 
 private:
     /// Writes a pipeline state stream subobject into the buffer.
@@ -215,8 +215,8 @@ private:
         offset += sizeof(T);
     }
 
-    ComPtr<ID3D12PipelineState>  pipelineState_;
-    DxPipelineLayoutImpl*        layout_ = nullptr;
+    ComPtr<ID3D12PipelineState>  m_pipelineState;
+    DxPipelineLayoutImpl*        m_layout = nullptr;
 };
 
 } // namespace raptor::rhi::dx12

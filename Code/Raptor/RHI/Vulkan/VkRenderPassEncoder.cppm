@@ -27,15 +27,15 @@ class VkRenderPassEncoderImpl : public RenderPassEncoder, public MeshShaderPassE
 public:
     MeshShaderPassExt* AsMeshShaderExt() noexcept override { return this; }
     VkRenderPassEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device)
-        : cmdBuf_(cmdBuf), device_(device) {}
+        : m_cmdBuf(cmdBuf), m_device(device) {}
 
     // ---- RenderPassEncoder ----
 
     void SetPipeline(RenderPipeline* pipeline) override {
-        currentPipeline_ = static_cast<VkRenderPipelineImpl*>(pipeline);
-        currentMeshPipeline_ = nullptr;
-        if (currentPipeline_)
-            vkCmdBindPipeline(cmdBuf_, VK_PIPELINE_BIND_POINT_GRAPHICS, currentPipeline_->handle());
+        m_currentPipeline = static_cast<VkRenderPipelineImpl*>(pipeline);
+        m_currentMeshPipeline = nullptr;
+        if (m_currentPipeline)
+            vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_currentPipeline->handle());
     }
 
     void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override {
@@ -43,89 +43,89 @@ public:
         auto* layout = getCurrentLayout();
         if (!bg || !layout) return;
         VkDescriptorSet set = bg->handle();
-        vkCmdBindDescriptorSets(cmdBuf_, VK_PIPELINE_BIND_POINT_GRAPHICS, layout->handle(),
+        vkCmdBindDescriptorSets(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout->handle(),
             index, 1, &set, static_cast<u32>(dynOffsets.Size()), dynOffsets.Data());
     }
 
     void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override {
         auto* layout = getCurrentLayout();
         if (!layout) return;
-        vkCmdPushConstants(cmdBuf_, layout->handle(), toVkShaderStageFlags(stages), offset, size, data);
+        vkCmdPushConstants(m_cmdBuf, layout->handle(), toVkShaderStageFlags(stages), offset, size, data);
     }
 
     void SetVertexBuffer(u32 slot, Buffer* buffer, u64 offset) override {
         auto* vkBuf = static_cast<VkBufferImpl*>(buffer);
         if (!vkBuf) return;
         VkBuffer handle = vkBuf->handle();
-        vkCmdBindVertexBuffers(cmdBuf_, slot, 1, &handle, &offset);
+        vkCmdBindVertexBuffers(m_cmdBuf, slot, 1, &handle, &offset);
     }
 
     void SetIndexBuffer(Buffer* buffer, IndexFormat format, u64 offset) override {
         auto* vkBuf = static_cast<VkBufferImpl*>(buffer);
         if (!vkBuf) return;
-        vkCmdBindIndexBuffer(cmdBuf_, vkBuf->handle(), offset, toVkIndexType(format));
+        vkCmdBindIndexBuffer(m_cmdBuf, vkBuf->handle(), offset, toVkIndexType(format));
     }
 
     void SetViewport(f32 x, f32 y, f32 w, f32 h, f32 minDepth, f32 maxDepth) override {
         // Flip Y via negative height to match DX12 coordinate system.
         VkViewport vp{}; vp.x = x; vp.y = y + h; vp.width = w; vp.height = -h;
         vp.minDepth = minDepth; vp.maxDepth = maxDepth;
-        vkCmdSetViewport(cmdBuf_, 0, 1, &vp);
+        vkCmdSetViewport(m_cmdBuf, 0, 1, &vp);
     }
 
     void SetScissor(i32 x, i32 y, u32 w, u32 h) override {
         VkRect2D sc{}; sc.offset = {x, y}; sc.extent = {w, h};
-        vkCmdSetScissor(cmdBuf_, 0, 1, &sc);
+        vkCmdSetScissor(m_cmdBuf, 0, 1, &sc);
     }
 
     void SetBlendConstant(f32 r, f32 g, f32 b, f32 a) override {
         f32 c[4] = {r, g, b, a};
-        vkCmdSetBlendConstants(cmdBuf_, c);
+        vkCmdSetBlendConstants(m_cmdBuf, c);
     }
 
     void SetStencilReference(u32 ref) override {
-        vkCmdSetStencilReference(cmdBuf_, VK_STENCIL_FACE_FRONT_AND_BACK, ref);
+        vkCmdSetStencilReference(m_cmdBuf, VK_STENCIL_FACE_FRONT_AND_BACK, ref);
     }
 
     void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override {
-        vkCmdDraw(cmdBuf_, vertexCount, instanceCount, firstVertex, firstInstance);
+        vkCmdDraw(m_cmdBuf, vertexCount, instanceCount, firstVertex, firstInstance);
     }
 
     void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex, u32 firstInstance) override {
-        vkCmdDrawIndexed(cmdBuf_, indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
+        vkCmdDrawIndexed(m_cmdBuf, indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
     }
 
     void DrawIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) override {
         auto* vkBuf = static_cast<VkBufferImpl*>(buf);
         if (!vkBuf) return;
-        vkCmdDrawIndirect(cmdBuf_, vkBuf->handle(), offset, drawCount, stride > 0 ? stride : 16);
+        vkCmdDrawIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount, stride > 0 ? stride : 16);
     }
 
     void DrawIndexedIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) override {
         auto* vkBuf = static_cast<VkBufferImpl*>(buf);
         if (!vkBuf) return;
-        vkCmdDrawIndexedIndirect(cmdBuf_, vkBuf->handle(), offset, drawCount, stride > 0 ? stride : 20);
+        vkCmdDrawIndexedIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount, stride > 0 ? stride : 20);
     }
 
     void WriteTimestamp(QuerySet* qs, u32 index) override {
         auto* q = static_cast<VkQuerySetImpl*>(qs);
-        if (q) vkCmdWriteTimestamp(cmdBuf_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, q->handle(), index);
+        if (q) vkCmdWriteTimestamp(m_cmdBuf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, q->handle(), index);
     }
 
     void BeginOcclusionQuery(QuerySet* qs, u32 index) override {
         auto* q = static_cast<VkQuerySetImpl*>(qs);
-        if (q) vkCmdBeginQuery(cmdBuf_, q->handle(), index, 0);
+        if (q) vkCmdBeginQuery(m_cmdBuf, q->handle(), index, 0);
     }
 
     void EndOcclusionQuery(QuerySet* qs, u32 index) override {
         auto* q = static_cast<VkQuerySetImpl*>(qs);
-        if (q) vkCmdEndQuery(cmdBuf_, q->handle(), index);
+        if (q) vkCmdEndQuery(m_cmdBuf, q->handle(), index);
     }
 
     void End() override {
-        vkCmdEndRendering(cmdBuf_);
-        currentPipeline_ = nullptr;
-        currentMeshPipeline_ = nullptr;
+        vkCmdEndRendering(m_cmdBuf);
+        m_currentPipeline = nullptr;
+        m_currentMeshPipeline = nullptr;
     }
 
     // ---- MeshShaderPassExt ----
@@ -138,15 +138,15 @@ public:
 private:
     VkPipelineLayoutImpl* getCurrentLayout();
 
-    VkCommandBuffer       cmdBuf_ = VK_NULL_HANDLE;
-    VkDevice              device_ = VK_NULL_HANDLE;
-    VkRenderPipelineImpl* currentPipeline_     = nullptr;
-    VkMeshPipelineImpl*   currentMeshPipeline_ = nullptr;
+    VkCommandBuffer       m_cmdBuf = VK_NULL_HANDLE;
+    VkDevice              m_device = VK_NULL_HANDLE;
+    VkRenderPipelineImpl* m_currentPipeline     = nullptr;
+    VkMeshPipelineImpl*   m_currentMeshPipeline = nullptr;
 
     // Cached device-level mesh shader function pointers.
-    PFN_vkCmdDrawMeshTasksEXT              pfnDrawMesh_          = nullptr;
-    PFN_vkCmdDrawMeshTasksIndirectEXT      pfnDrawMeshIndirect_  = nullptr;
-    PFN_vkCmdDrawMeshTasksIndirectCountEXT pfnDrawMeshIndCount_  = nullptr;
+    PFN_vkCmdDrawMeshTasksEXT              m_pfnDrawMesh          = nullptr;
+    PFN_vkCmdDrawMeshTasksIndirectEXT      m_pfnDrawMeshIndirect  = nullptr;
+    PFN_vkCmdDrawMeshTasksIndirectCountEXT m_pfnDrawMeshIndCount  = nullptr;
 };
 
 } // namespace raptor::rhi::vk

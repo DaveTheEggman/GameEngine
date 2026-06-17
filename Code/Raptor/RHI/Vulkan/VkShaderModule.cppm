@@ -23,18 +23,18 @@ public:
         ci.codeSize = d.code.Size();
         ci.pCode    = reinterpret_cast<const u32*>(d.code.Data());
 
-        if (vkCreateShaderModule(device, &ci, nullptr, &module_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreateShaderModule(device, &ci, nullptr, &m_module) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (module_ != VK_NULL_HANDLE) { vkDestroyShaderModule(device, module_, nullptr); module_ = VK_NULL_HANDLE; }
+        if (m_module != VK_NULL_HANDLE) { vkDestroyShaderModule(device, m_module, nullptr); m_module = VK_NULL_HANDLE; }
     }
 
-    [[nodiscard]] VkShaderModule handle() const { return module_; }
+    [[nodiscard]] VkShaderModule handle() const { return m_module; }
 
 private:
-    VkShaderModule module_ = VK_NULL_HANDLE;
+    VkShaderModule m_module = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

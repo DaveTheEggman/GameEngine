@@ -24,8 +24,8 @@ export namespace raptor::rhi::dx12 {
 class DxRayTracingPipelineImpl : public RayTracingPipeline {
 public:
     Status init(ID3D12Device* device, const RayTracingPipelineDesc& desc) {
-        layout_ = static_cast<DxPipelineLayoutImpl*>(desc.layout);
-        if (!layout_) {
+        m_layout = static_cast<DxPipelineLayoutImpl*>(desc.layout);
+        if (!m_layout) {
             LogErrorf("DxRayTracingPipeline: pipeline layout is null");
             return ErrorCode::Unknown;
         }
@@ -144,14 +144,14 @@ public:
                 // General groups (raygen/miss/callable) use the entry point name.
                 if (group.generalShaderIndex != ~0u && group.generalShaderIndex < desc.stages.Size()) {
                     auto ep = desc.stages[group.generalShaderIndex].entryPoint;
-                    groupExportNames_.emplace_back(
+                    m_groupExportNames.emplace_back(
                         reinterpret_cast<const wchar_t*>(ep.Data()), ep.Size());
                 } else {
-                    groupExportNames_.emplace_back();
+                    m_groupExportNames.emplace_back();
                 }
             } else {
                 // Hit groups use "HitGroupN" where N is the group index.
-                groupExportNames_.push_back(L"HitGroup" + std::to_wstring(i));
+                m_groupExportNames.push_back(L"HitGroup" + std::to_wstring(i));
             }
         }
 
@@ -172,7 +172,7 @@ public:
 
         // --- Global root signature ---
         D3D12_GLOBAL_ROOT_SIGNATURE globalRootSig{};
-        globalRootSig.pGlobalRootSignature = layout_->handle();
+        globalRootSig.pGlobalRootSignature = m_layout->handle();
         subobjects[soIdx].Type  = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
         subobjects[soIdx].pDesc = &globalRootSig;
         ++soIdx;
@@ -183,16 +183,16 @@ public:
         stateObjDesc.NumSubobjects = static_cast<UINT>(soIdx);
         stateObjDesc.pSubobjects   = subobjects.Data();
 
-        hr = device5->CreateStateObject(&stateObjDesc, IID_PPV_ARGS(&stateObject_));
-        if (FAILED(hr) || !stateObject_) {
+        hr = device5->CreateStateObject(&stateObjDesc, IID_PPV_ARGS(&m_stateObject));
+        if (FAILED(hr) || !m_stateObject) {
             LogErrorf("DxRayTracingPipeline: CreateStateObject failed (0x%08X)",
                       static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
         // Query properties for shader identifier lookup.
-        hr = stateObject_->QueryInterface(IID_PPV_ARGS(&properties_));
-        if (FAILED(hr)) properties_.Reset();
+        hr = m_stateObject->QueryInterface(IID_PPV_ARGS(&m_properties));
+        if (FAILED(hr)) m_properties.Reset();
 
         return ErrorCode::Ok;
     }
@@ -201,7 +201,7 @@ public:
     /// Returns a pointer to D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES (32) bytes,
     /// or nullptr on failure.
     [[nodiscard]] void* getShaderIdentifier(StringView exportName) const {
-        if (!properties_) return nullptr;
+        if (!m_properties) return nullptr;
 
         // Convert narrow string to wide (ASCII-safe for shader entry points).
         std::wstring wide;
@@ -209,26 +209,26 @@ public:
         for (usize i = 0; i < exportName.Size(); ++i)
             wide.push_back(static_cast<wchar_t>(exportName[i]));
 
-        return properties_->GetShaderIdentifier(wide.c_str());
+        return m_properties->GetShaderIdentifier(wide.c_str());
     }
 
     void cleanup() {
-        properties_.Reset();
-        stateObject_.Reset();
+        m_properties.Reset();
+        m_stateObject.Reset();
     }
 
-    [[nodiscard]] ID3D12StateObject*           handle()     const { return stateObject_.Get(); }
-    [[nodiscard]] ID3D12StateObjectProperties* properties() const { return properties_.Get(); }
-    [[nodiscard]] DxPipelineLayoutImpl*         pipelineLayout() const { return layout_; }
+    [[nodiscard]] ID3D12StateObject*           handle()     const { return m_stateObject.Get(); }
+    [[nodiscard]] ID3D12StateObjectProperties* properties() const { return m_properties.Get(); }
+    [[nodiscard]] DxPipelineLayoutImpl*         pipelineLayout() const { return m_layout; }
     [[nodiscard]] Span<const std::wstring>       groupExportNames() const {
-        return { groupExportNames_.data(), groupExportNames_.size() };
+        return { m_groupExportNames.data(), m_groupExportNames.size() };
     }
 
 private:
-    ComPtr<ID3D12StateObject>           stateObject_;
-    ComPtr<ID3D12StateObjectProperties> properties_;
-    DxPipelineLayoutImpl*               layout_ = nullptr;
-    std::vector<std::wstring>           groupExportNames_;
+    ComPtr<ID3D12StateObject>           m_stateObject;
+    ComPtr<ID3D12StateObjectProperties> m_properties;
+    DxPipelineLayoutImpl*               m_layout = nullptr;
+    std::vector<std::wstring>           m_groupExportNames;
 };
 
 } // namespace raptor::rhi::dx12

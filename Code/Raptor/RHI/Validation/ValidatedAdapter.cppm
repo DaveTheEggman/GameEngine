@@ -17,16 +17,16 @@ class ValidatedDevice;
 
 class ValidatedAdapter : public Adapter {
 public:
-    explicit ValidatedAdapter(Adapter* inner) : inner_(inner) {}
+    explicit ValidatedAdapter(Adapter* inner) : m_inner(inner) {}
 
-    void GetInfo(AdapterInfo& out) override { inner_->GetInfo(out); }
+    void GetInfo(AdapterInfo& out) override { m_inner->GetInfo(out); }
 
     Status CreateDevice(const DeviceDesc& desc, Device*& out) override;
 
-    Adapter* inner() const { return inner_; }
+    Adapter* inner() const { return m_inner; }
 
 private:
-    Adapter* inner_;
+    Adapter* m_inner;
 };
 
 } // namespace raptor::rhi::validation

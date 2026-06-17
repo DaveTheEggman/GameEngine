@@ -18,7 +18,7 @@ export namespace raptor::rhi::vk {
 class VkPipelineCacheImpl : public PipelineCache {
 public:
     Status init(VkDevice device, const PipelineCacheDesc& desc) {
-        device_ = device;
+        m_device = device;
 
         VkPipelineCacheCreateInfo ci{};
         ci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
@@ -27,31 +27,31 @@ public:
             ci.pInitialData    = desc.initialData.Data();
         }
 
-        if (vkCreatePipelineCache(device, &ci, nullptr, &cache_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreatePipelineCache(device, &ci, nullptr, &m_cache) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (cache_ != VK_NULL_HANDLE) { vkDestroyPipelineCache(device, cache_, nullptr); cache_ = VK_NULL_HANDLE; }
+        if (m_cache != VK_NULL_HANDLE) { vkDestroyPipelineCache(device, m_cache, nullptr); m_cache = VK_NULL_HANDLE; }
     }
 
     u32 GetDataSize() override {
         usize size = 0;
-        vkGetPipelineCacheData(device_, cache_, &size, nullptr);
+        vkGetPipelineCacheData(m_device, m_cache, &size, nullptr);
         return static_cast<u32>(size);
     }
 
     Status GetData(Span<u8> outData) override {
         usize size = outData.Size();
-        if (vkGetPipelineCacheData(device_, cache_, &size, outData.Data()) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkGetPipelineCacheData(m_device, m_cache, &size, outData.Data()) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
-    [[nodiscard]] VkPipelineCache handle() const { return cache_; }
+    [[nodiscard]] VkPipelineCache handle() const { return m_cache; }
 
 private:
-    VkPipelineCache cache_  = VK_NULL_HANDLE;
-    VkDevice        device_ = VK_NULL_HANDLE;
+    VkPipelineCache m_cache  = VK_NULL_HANDLE;
+    VkDevice        m_device = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

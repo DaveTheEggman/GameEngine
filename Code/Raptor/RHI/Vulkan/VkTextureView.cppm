@@ -22,11 +22,11 @@ public:
     Status init(VkDevice device, VkTextureImpl* tex, const TextureViewDesc& d) {
         desc    = d;
         texture = tex;
-        width_  = tex->desc.width;
-        height_ = tex->desc.height;
+        m_width  = tex->desc.width;
+        m_height = tex->desc.height;
 
         TextureFormat fmt = (d.format == TextureFormat::Undefined) ? tex->desc.format : d.format;
-        format_ = fmt;
+        m_format = fmt;
 
         VkImageViewCreateInfo ci{};
         ci.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -48,27 +48,27 @@ public:
 
         ci.subresourceRange = { aspect, d.baseMipLevel, mipCount, d.baseArrayLayer, layerCount };
 
-        if (vkCreateImageView(device, &ci, nullptr, &imageView_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreateImageView(device, &ci, nullptr, &m_imageView) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (imageView_ != VK_NULL_HANDLE) {
-            vkDestroyImageView(device, imageView_, nullptr);
-            imageView_ = VK_NULL_HANDLE;
+        if (m_imageView != VK_NULL_HANDLE) {
+            vkDestroyImageView(device, m_imageView, nullptr);
+            m_imageView = VK_NULL_HANDLE;
         }
     }
 
-    [[nodiscard]] VkImageView   handle() const { return imageView_; }
-    [[nodiscard]] TextureFormat Format() const { return format_; }
-    [[nodiscard]] u32           Width()  const { return width_; }
-    [[nodiscard]] u32           Height() const { return height_; }
+    [[nodiscard]] VkImageView   handle() const { return m_imageView; }
+    [[nodiscard]] TextureFormat Format() const { return m_format; }
+    [[nodiscard]] u32           Width()  const { return m_width; }
+    [[nodiscard]] u32           Height() const { return m_height; }
 
 private:
-    VkImageView   imageView_ = VK_NULL_HANDLE;
-    TextureFormat format_    = TextureFormat::Undefined;
-    u32           width_     = 0;
-    u32           height_    = 0;
+    VkImageView   m_imageView = VK_NULL_HANDLE;
+    TextureFormat m_format    = TextureFormat::Undefined;
+    u32           m_width     = 0;
+    u32           m_height    = 0;
 };
 
 } // namespace raptor::rhi::vk

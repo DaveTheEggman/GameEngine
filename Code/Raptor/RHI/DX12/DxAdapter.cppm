@@ -23,30 +23,30 @@ class DxDeviceImpl; // forward
 class DxAdapterImpl : public Adapter {
 public:
     DxAdapterImpl(IDXGIAdapter1* adapter, IDXGIFactory4* factory)
-        : adapter_(adapter), factory_(factory)
+        : m_adapter(adapter), m_factory(factory)
     {
-        adapter_->GetDesc1(&desc_);
+        m_adapter->GetDesc1(&m_desc);
     }
 
     ~DxAdapterImpl() override {
-        if (adapter_) { adapter_->Release(); adapter_ = nullptr; }
+        if (m_adapter) { m_adapter->Release(); m_adapter = nullptr; }
     }
 
     // ---- Adapter interface ----
 
     void GetInfo(AdapterInfo& out) override {
         // DXGI Description is a WCHAR[] — construct String (wide) directly.
-        out.name = String(reinterpret_cast<const widechar*>(desc_.Description));
-        out.vendorId = desc_.VendorId;
-        out.deviceId = desc_.DeviceId;
-        out.type = (desc_.DedicatedVideoMemory > 0) ? AdapterType::DiscreteGpu : AdapterType::IntegratedGpu;
+        out.name = String(reinterpret_cast<const widechar*>(m_desc.Description));
+        out.vendorId = m_desc.VendorId;
+        out.deviceId = m_desc.DeviceId;
+        out.type = (m_desc.DedicatedVideoMemory > 0) ? AdapterType::DiscreteGpu : AdapterType::IntegratedGpu;
         out.supportedFeatures = buildFeatures();
     }
 
     DeviceFeatures buildFeatures() {
         // Create a temporary device to query features.
         ComPtr<ID3D12Device> tempDevice;
-        HRESULT hr = D3D12CreateDevice(adapter_, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&tempDevice));
+        HRESULT hr = D3D12CreateDevice(m_adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&tempDevice));
         if (FAILED(hr) || !tempDevice) return {};
 
         DeviceFeatures f{};
@@ -88,7 +88,7 @@ public:
         f.maxComputeWorkgroupSizeY = 1024;
         f.maxComputeWorkgroupSizeZ = 64;
         f.maxComputeWorkgroupsPerDimension = 65535;
-        f.maxBufferSize = static_cast<u64>(desc_.DedicatedVideoMemory);
+        f.maxBufferSize = static_cast<u64>(m_desc.DedicatedVideoMemory);
         f.minUniformBufferOffsetAlignment = 256;
         f.minStorageBufferOffsetAlignment = 16;
         f.timestampPeriodNs = 1; // DX12 timestamps in ticks, period queried at runtime
@@ -99,14 +99,14 @@ public:
     Status CreateDevice(const DeviceDesc& desc, Device*& out) override;
 
     // ---- Internal ----
-    [[nodiscard]] IDXGIAdapter1*    handle()  const { return adapter_; }
-    [[nodiscard]] IDXGIFactory4*    factory() const { return factory_; }
-    [[nodiscard]] DXGI_ADAPTER_DESC1 adapterDesc() const { return desc_; }
+    [[nodiscard]] IDXGIAdapter1*    handle()  const { return m_adapter; }
+    [[nodiscard]] IDXGIFactory4*    factory() const { return m_factory; }
+    [[nodiscard]] DXGI_ADAPTER_DESC1 adapterDesc() const { return m_desc; }
 
 private:
-    IDXGIAdapter1*     adapter_ = nullptr; // owned, released in destructor
-    IDXGIFactory4*     factory_ = nullptr; // not owned (Backend owns it)
-    DXGI_ADAPTER_DESC1 desc_{};
+    IDXGIAdapter1*     m_adapter = nullptr; // owned, released in destructor
+    IDXGIFactory4*     m_factory = nullptr; // not owned (Backend owns it)
+    DXGI_ADAPTER_DESC1 m_desc{};
 };
 
 } // namespace raptor::rhi::dx12

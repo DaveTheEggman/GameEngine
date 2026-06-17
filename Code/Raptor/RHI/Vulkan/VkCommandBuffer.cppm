@@ -17,12 +17,12 @@ export namespace raptor::rhi::vk {
 
 class VkCommandBufferImpl : public CommandBuffer {
 public:
-    explicit VkCommandBufferImpl(VkCommandBuffer cmdBuf) : cmdBuf_(cmdBuf) {}
+    explicit VkCommandBufferImpl(VkCommandBuffer cmdBuf) : m_cmdBuf(cmdBuf) {}
 
-    [[nodiscard]] VkCommandBuffer handle() const { return cmdBuf_; }
+    [[nodiscard]] VkCommandBuffer handle() const { return m_cmdBuf; }
 
 private:
-    VkCommandBuffer cmdBuf_ = VK_NULL_HANDLE;
+    VkCommandBuffer m_cmdBuf = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

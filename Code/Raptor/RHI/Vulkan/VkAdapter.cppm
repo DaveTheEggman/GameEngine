@@ -23,16 +23,16 @@ class VkDeviceImpl; // forward
 class VkAdapterImpl : public Adapter {
 public:
     VkAdapterImpl(VkPhysicalDevice physicalDevice, VkInstance instance)
-        : physicalDevice_(physicalDevice), instance_(instance)
+        : m_physicalDevice(physicalDevice), m_instance(instance)
     {
-        vkGetPhysicalDeviceProperties(physicalDevice_, &properties_);
-        vkGetPhysicalDeviceFeatures(physicalDevice_, &features10_);
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memoryProperties_);
+        vkGetPhysicalDeviceProperties(m_physicalDevice, &m_properties);
+        vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_features10);
+        vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &m_memoryProperties);
 
         u32 qfCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &qfCount, nullptr);
-        queueFamilies_.Resize(qfCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &qfCount, queueFamilies_.Data());
+        vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &qfCount, nullptr);
+        m_queueFamilies.Resize(qfCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &qfCount, m_queueFamilies.Data());
 
         queryExtensionSupport();
     }
@@ -40,11 +40,11 @@ public:
     // ---- Adapter interface ----
 
     void GetInfo(AdapterInfo& out) override {
-        out.name = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(properties_.deviceName)));
-        out.vendorId = properties_.vendorID;
-        out.deviceId = properties_.deviceID;
+        out.name = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(m_properties.deviceName)));
+        out.vendorId = m_properties.vendorID;
+        out.deviceId = m_properties.deviceID;
 
-        switch (properties_.deviceType) {
+        switch (m_properties.deviceType) {
         case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:   out.type = AdapterType::DiscreteGpu; break;
         case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: out.type = AdapterType::IntegratedGpu; break;
         case VK_PHYSICAL_DEVICE_TYPE_CPU:            out.type = AdapterType::Cpu; break;
@@ -61,27 +61,27 @@ public:
     DeviceFeatures buildFeatures() const {
         DeviceFeatures f{};
 
-        f.bindlessDescriptors       = supportsDescriptorIndexing_;
-        f.timestampQueries          = properties_.limits.timestampComputeAndGraphics;
-        f.multiDrawIndirect         = features10_.multiDrawIndirect;
-        f.depthClamp                = features10_.depthClamp;
-        f.fillModeWireframe         = features10_.fillModeNonSolid;
-        f.textureCompressionBC      = features10_.textureCompressionBC;
-        f.textureCompressionASTC    = features10_.textureCompressionASTC_LDR;
-        f.independentBlend          = features10_.independentBlend;
-        f.multiViewport             = features10_.multiViewport;
-        f.meshShaders               = supportsMeshShader_;
-        f.rayTracing                = supportsRayTracing_;
-        f.pipelineStatisticsQueries = features10_.pipelineStatisticsQuery;
+        f.bindlessDescriptors       = m_supportsDescriptorIndexing;
+        f.timestampQueries          = m_properties.limits.timestampComputeAndGraphics;
+        f.multiDrawIndirect         = m_features10.multiDrawIndirect;
+        f.depthClamp                = m_features10.depthClamp;
+        f.fillModeWireframe         = m_features10.fillModeNonSolid;
+        f.textureCompressionBC      = m_features10.textureCompressionBC;
+        f.textureCompressionASTC    = m_features10.textureCompressionASTC_LDR;
+        f.independentBlend          = m_features10.independentBlend;
+        f.multiViewport             = m_features10.multiViewport;
+        f.meshShaders               = m_supportsMeshShader;
+        f.rayTracing                = m_supportsRayTracing;
+        f.pipelineStatisticsQueries = m_features10.pipelineStatisticsQuery;
 
         // Mesh shader limits.
-        if (supportsMeshShader_) {
+        if (m_supportsMeshShader) {
             VkPhysicalDeviceMeshShaderPropertiesEXT meshProps{};
             meshProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
             VkPhysicalDeviceProperties2 p2{};
             p2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
             p2.pNext = &meshProps;
-            vkGetPhysicalDeviceProperties2(physicalDevice_, &p2);
+            vkGetPhysicalDeviceProperties2(m_physicalDevice, &p2);
             f.maxMeshOutputVertices   = meshProps.maxMeshOutputVertices;
             f.maxMeshOutputPrimitives = meshProps.maxMeshOutputPrimitives;
             f.maxMeshWorkgroupSize    = meshProps.maxMeshWorkGroupInvocations;
@@ -89,19 +89,19 @@ public:
         }
 
         // Limits.
-        f.maxBindGroups                    = properties_.limits.maxBoundDescriptorSets;
-        f.maxBindingsPerGroup              = properties_.limits.maxDescriptorSetUniformBuffers;
-        f.maxPushConstantSize              = properties_.limits.maxPushConstantsSize;
-        f.maxTextureDimension2D            = properties_.limits.maxImageDimension2D;
-        f.maxTextureArrayLayers            = properties_.limits.maxImageArrayLayers;
-        f.maxComputeWorkgroupSizeX         = properties_.limits.maxComputeWorkGroupSize[0];
-        f.maxComputeWorkgroupSizeY         = properties_.limits.maxComputeWorkGroupSize[1];
-        f.maxComputeWorkgroupSizeZ         = properties_.limits.maxComputeWorkGroupSize[2];
-        f.maxComputeWorkgroupsPerDimension = properties_.limits.maxComputeWorkGroupCount[0];
-        f.maxBufferSize                    = static_cast<u64>(properties_.limits.maxStorageBufferRange);
-        f.minUniformBufferOffsetAlignment  = static_cast<u32>(properties_.limits.minUniformBufferOffsetAlignment);
-        f.minStorageBufferOffsetAlignment  = static_cast<u32>(properties_.limits.minStorageBufferOffsetAlignment);
-        f.timestampPeriodNs                = static_cast<u32>(properties_.limits.timestampPeriod);
+        f.maxBindGroups                    = m_properties.limits.maxBoundDescriptorSets;
+        f.maxBindingsPerGroup              = m_properties.limits.maxDescriptorSetUniformBuffers;
+        f.maxPushConstantSize              = m_properties.limits.maxPushConstantsSize;
+        f.maxTextureDimension2D            = m_properties.limits.maxImageDimension2D;
+        f.maxTextureArrayLayers            = m_properties.limits.maxImageArrayLayers;
+        f.maxComputeWorkgroupSizeX         = m_properties.limits.maxComputeWorkGroupSize[0];
+        f.maxComputeWorkgroupSizeY         = m_properties.limits.maxComputeWorkGroupSize[1];
+        f.maxComputeWorkgroupSizeZ         = m_properties.limits.maxComputeWorkGroupSize[2];
+        f.maxComputeWorkgroupsPerDimension = m_properties.limits.maxComputeWorkGroupCount[0];
+        f.maxBufferSize                    = static_cast<u64>(m_properties.limits.maxStorageBufferRange);
+        f.minUniformBufferOffsetAlignment  = static_cast<u32>(m_properties.limits.minUniformBufferOffsetAlignment);
+        f.minStorageBufferOffsetAlignment  = static_cast<u32>(m_properties.limits.minStorageBufferOffsetAlignment);
+        f.timestampPeriodNs                = static_cast<u32>(m_properties.limits.timestampPeriod);
 
         return f;
     }
@@ -111,30 +111,30 @@ public:
     /// Finds the best queue family index for the given type.
     /// Prefers dedicated families for Compute and Transfer.
     i32 findQueueFamily(QueueType type) const {
-        const auto count = static_cast<i32>(queueFamilies_.Size());
+        const auto count = static_cast<i32>(m_queueFamilies.Size());
         switch (type) {
         case QueueType::Graphics:
             for (i32 i = 0; i < count; ++i)
-                if (queueFamilies_[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) return i;
+                if (m_queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) return i;
             break;
         case QueueType::Compute:
             // Prefer dedicated (no graphics).
             for (i32 i = 0; i < count; ++i) {
-                auto f = queueFamilies_[i].queueFlags;
+                auto f = m_queueFamilies[i].queueFlags;
                 if ((f & VK_QUEUE_COMPUTE_BIT) && !(f & VK_QUEUE_GRAPHICS_BIT)) return i;
             }
             for (i32 i = 0; i < count; ++i)
-                if (queueFamilies_[i].queueFlags & VK_QUEUE_COMPUTE_BIT) return i;
+                if (m_queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) return i;
             break;
         case QueueType::Transfer:
             // Prefer dedicated (no graphics or compute).
             for (i32 i = 0; i < count; ++i) {
-                auto f = queueFamilies_[i].queueFlags;
+                auto f = m_queueFamilies[i].queueFlags;
                 if ((f & VK_QUEUE_TRANSFER_BIT) && !(f & VK_QUEUE_GRAPHICS_BIT) && !(f & VK_QUEUE_COMPUTE_BIT))
                     return i;
             }
             for (i32 i = 0; i < count; ++i)
-                if (queueFamilies_[i].queueFlags & VK_QUEUE_TRANSFER_BIT) return i;
+                if (m_queueFamilies[i].queueFlags & VK_QUEUE_TRANSFER_BIT) return i;
             break;
         }
         return -1;
@@ -142,9 +142,9 @@ public:
 
     /// Finds a memory type index matching the filter and property requirements.
     i32 findMemoryType(u32 typeFilter, VkMemoryPropertyFlags properties) const {
-        for (u32 i = 0; i < memoryProperties_.memoryTypeCount; ++i) {
+        for (u32 i = 0; i < m_memoryProperties.memoryTypeCount; ++i) {
             if ((typeFilter & (1 << i)) &&
-                (memoryProperties_.memoryTypes[i].propertyFlags & properties) == properties)
+                (m_memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
                 return static_cast<i32>(i);
         }
         return -1;
@@ -162,60 +162,60 @@ public:
     }
 
     // ---- Internal accessors ----
-    [[nodiscard]] VkPhysicalDevice                       physicalDevice()   const { return physicalDevice_; }
-    [[nodiscard]] const VkPhysicalDeviceProperties&      properties()       const { return properties_; }
-    [[nodiscard]] const VkPhysicalDeviceFeatures&        features10()       const { return features10_; }
-    [[nodiscard]] const VkPhysicalDeviceMemoryProperties& memoryProperties() const { return memoryProperties_; }
-    [[nodiscard]] const Array<VkQueueFamilyProperties>& queueFamilies() const { return queueFamilies_; }
+    [[nodiscard]] VkPhysicalDevice                       physicalDevice()   const { return m_physicalDevice; }
+    [[nodiscard]] const VkPhysicalDeviceProperties&      properties()       const { return m_properties; }
+    [[nodiscard]] const VkPhysicalDeviceFeatures&        features10()       const { return m_features10; }
+    [[nodiscard]] const VkPhysicalDeviceMemoryProperties& memoryProperties() const { return m_memoryProperties; }
+    [[nodiscard]] const Array<VkQueueFamilyProperties>& queueFamilies() const { return m_queueFamilies; }
 
-    [[nodiscard]] bool supportsDescriptorIndexing() const { return supportsDescriptorIndexing_; }
-    [[nodiscard]] bool supportsMeshShader()         const { return supportsMeshShader_; }
-    [[nodiscard]] bool supportsRayTracing()         const { return supportsRayTracing_; }
+    [[nodiscard]] bool supportsDescriptorIndexing() const { return m_supportsDescriptorIndexing; }
+    [[nodiscard]] bool supportsMeshShader()         const { return m_supportsMeshShader; }
+    [[nodiscard]] bool supportsRayTracing()         const { return m_supportsRayTracing; }
 
 private:
     void queryExtensionSupport() {
         u32 extCount = 0;
-        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extCount, nullptr);
+        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, nullptr);
         Array<VkExtensionProperties> exts(extCount);
-        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extCount, exts.Data());
+        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, exts.Data());
 
         for (const auto& ext : exts) {
             const char* name = ext.extensionName;
-            if (std::strcmp(name, "VK_KHR_dynamic_rendering") == 0)  supportsDynamicRendering_ = true;
-            if (std::strcmp(name, "VK_KHR_timeline_semaphore") == 0) supportsTimelineSemaphore_ = true;
-            if (std::strcmp(name, "VK_KHR_synchronization2") == 0)   supportsSynchronization2_ = true;
-            if (std::strcmp(name, "VK_EXT_descriptor_indexing") == 0) supportsDescriptorIndexing_ = true;
-            if (std::strcmp(name, "VK_EXT_mesh_shader") == 0)        supportsMeshShader_ = true;
-            if (std::strcmp(name, "VK_KHR_ray_tracing_pipeline") == 0) supportsRayTracing_ = true;
+            if (std::strcmp(name, "VK_KHR_dynamic_rendering") == 0)  m_supportsDynamicRendering = true;
+            if (std::strcmp(name, "VK_KHR_timeline_semaphore") == 0) m_supportsTimelineSemaphore = true;
+            if (std::strcmp(name, "VK_KHR_synchronization2") == 0)   m_supportsSynchronization2 = true;
+            if (std::strcmp(name, "VK_EXT_descriptor_indexing") == 0) m_supportsDescriptorIndexing = true;
+            if (std::strcmp(name, "VK_EXT_mesh_shader") == 0)        m_supportsMeshShader = true;
+            if (std::strcmp(name, "VK_KHR_ray_tracing_pipeline") == 0) m_supportsRayTracing = true;
         }
 
         // Vulkan 1.3+: these are core.
-        u32 major = VK_API_VERSION_MAJOR(properties_.apiVersion);
-        u32 minor = VK_API_VERSION_MINOR(properties_.apiVersion);
+        u32 major = VK_API_VERSION_MAJOR(m_properties.apiVersion);
+        u32 minor = VK_API_VERSION_MINOR(m_properties.apiVersion);
         if (major > 1 || (major == 1 && minor >= 3)) {
-            supportsDynamicRendering_ = true;
-            supportsTimelineSemaphore_ = true;
-            supportsSynchronization2_ = true;
-            supportsDescriptorIndexing_ = true;
+            m_supportsDynamicRendering = true;
+            m_supportsTimelineSemaphore = true;
+            m_supportsSynchronization2 = true;
+            m_supportsDescriptorIndexing = true;
         } else if (major == 1 && minor >= 2) {
-            supportsTimelineSemaphore_ = true;
-            supportsDescriptorIndexing_ = true;
+            m_supportsTimelineSemaphore = true;
+            m_supportsDescriptorIndexing = true;
         }
     }
 
-    VkPhysicalDevice                   physicalDevice_ = VK_NULL_HANDLE;
-    VkInstance                         instance_       = VK_NULL_HANDLE;
-    VkPhysicalDeviceProperties         properties_{};
-    VkPhysicalDeviceFeatures           features10_{};
-    VkPhysicalDeviceMemoryProperties   memoryProperties_{};
-    Array<VkQueueFamilyProperties> queueFamilies_;
+    VkPhysicalDevice                   m_physicalDevice = VK_NULL_HANDLE;
+    VkInstance                         m_instance       = VK_NULL_HANDLE;
+    VkPhysicalDeviceProperties         m_properties{};
+    VkPhysicalDeviceFeatures           m_features10{};
+    VkPhysicalDeviceMemoryProperties   m_memoryProperties{};
+    Array<VkQueueFamilyProperties> m_queueFamilies;
 
-    bool supportsDynamicRendering_   = false;
-    bool supportsTimelineSemaphore_  = false;
-    bool supportsSynchronization2_   = false;
-    bool supportsDescriptorIndexing_ = false;
-    bool supportsMeshShader_         = false;
-    bool supportsRayTracing_         = false;
+    bool m_supportsDynamicRendering   = false;
+    bool m_supportsTimelineSemaphore  = false;
+    bool m_supportsSynchronization2   = false;
+    bool m_supportsDescriptorIndexing = false;
+    bool m_supportsMeshShader         = false;
+    bool m_supportsRayTracing         = false;
 };
 
 } // namespace raptor::rhi::vk

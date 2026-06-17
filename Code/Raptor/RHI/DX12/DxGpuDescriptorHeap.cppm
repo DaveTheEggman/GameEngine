@@ -21,20 +21,20 @@ public:
 
     Status init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, u32 capacity,
                 bool shaderVisible = true) {
-        capacity_ = capacity;
+        m_capacity = capacity;
 
         D3D12_DESCRIPTOR_HEAP_DESC hd{};
         hd.Type           = type;
         hd.NumDescriptors = capacity;
         hd.Flags          = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
                                           : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        HRESULT hr = device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&heap_));
+        HRESULT hr = device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&m_heap));
         if (FAILED(hr)) return ErrorCode::Unknown;
 
-        cpuStart_      = heap_->GetCPUDescriptorHandleForHeapStart();
+        m_cpuStart      = m_heap->GetCPUDescriptorHandleForHeapStart();
         if (shaderVisible)
-            gpuStart_  = heap_->GetGPUDescriptorHandleForHeapStart();
-        incrementSize_ = device->GetDescriptorHandleIncrementSize(type);
+            m_gpuStart  = m_heap->GetGPUDescriptorHandleForHeapStart();
+        m_incrementSize = device->GetDescriptorHandleIncrementSize(type);
         return ErrorCode::Ok;
     }
 
@@ -42,21 +42,21 @@ public:
     i32 allocate(u32 count) {
         if (count == 0) return -1;
         // First-fit from free list.
-        for (usize i = 0; i < freeBlocks_.Size(); ++i) {
-            auto& b = freeBlocks_[i];
+        for (usize i = 0; i < m_freeBlocks.Size(); ++i) {
+            auto& b = m_freeBlocks[i];
             if (b.count >= count) {
                 u32 off = b.offset;
                 if (b.count == count)
-                    freeBlocks_.RemoveAt(i);
+                    m_freeBlocks.RemoveAt(i);
                 else
                     b = { b.offset + count, b.count - count };
                 return static_cast<i32>(off);
             }
         }
         // Bump allocate.
-        if (nextFree_ + count <= capacity_) {
-            u32 off = nextFree_;
-            nextFree_ += count;
+        if (m_nextFree + count <= m_capacity) {
+            u32 off = m_nextFree;
+            m_nextFree += count;
             return static_cast<i32>(off);
         }
         return -1;
@@ -66,43 +66,43 @@ public:
     void free(u32 offset, u32 count) {
         if (count == 0) return;
         u32 mOff = offset, mCnt = count;
-        for (usize i = 0; i < freeBlocks_.Size(); ) {
-            if (freeBlocks_[i].offset + freeBlocks_[i].count == mOff) {
-                mOff = freeBlocks_[i].offset; mCnt += freeBlocks_[i].count;
-                freeBlocks_.RemoveAt(i);
-            } else if (mOff + mCnt == freeBlocks_[i].offset) {
-                mCnt += freeBlocks_[i].count;
-                freeBlocks_.RemoveAt(i);
+        for (usize i = 0; i < m_freeBlocks.Size(); ) {
+            if (m_freeBlocks[i].offset + m_freeBlocks[i].count == mOff) {
+                mOff = m_freeBlocks[i].offset; mCnt += m_freeBlocks[i].count;
+                m_freeBlocks.RemoveAt(i);
+            } else if (mOff + mCnt == m_freeBlocks[i].offset) {
+                mCnt += m_freeBlocks[i].count;
+                m_freeBlocks.RemoveAt(i);
             } else ++i;
         }
-        if (mOff + mCnt == nextFree_)
-            nextFree_ = mOff;
+        if (mOff + mCnt == m_nextFree)
+            m_nextFree = mOff;
         else
-            freeBlocks_.PushBack({ mOff, mCnt });
+            m_freeBlocks.PushBack({ mOff, mCnt });
     }
 
     D3D12_CPU_DESCRIPTOR_HANDLE getCpuHandle(u32 offset) const {
-        D3D12_CPU_DESCRIPTOR_HANDLE h{}; h.ptr = cpuStart_.ptr + static_cast<SIZE_T>(offset) * incrementSize_; return h;
+        D3D12_CPU_DESCRIPTOR_HANDLE h{}; h.ptr = m_cpuStart.ptr + static_cast<SIZE_T>(offset) * m_incrementSize; return h;
     }
     D3D12_GPU_DESCRIPTOR_HANDLE getGpuHandle(u32 offset) const {
-        D3D12_GPU_DESCRIPTOR_HANDLE h{}; h.ptr = gpuStart_.ptr + static_cast<UINT64>(offset) * incrementSize_; return h;
+        D3D12_GPU_DESCRIPTOR_HANDLE h{}; h.ptr = m_gpuStart.ptr + static_cast<UINT64>(offset) * m_incrementSize; return h;
     }
 
-    void Destroy() { heap_.Reset(); freeBlocks_.Clear(); }
+    void Destroy() { m_heap.Reset(); m_freeBlocks.Clear(); }
 
-    [[nodiscard]] ID3D12DescriptorHeap* heap()          const { return heap_.Get(); }
-    [[nodiscard]] u32                   incrementSize()  const { return incrementSize_; }
+    [[nodiscard]] ID3D12DescriptorHeap* heap()          const { return m_heap.Get(); }
+    [[nodiscard]] u32                   incrementSize()  const { return m_incrementSize; }
 
 private:
     struct FreeBlock { u32 offset; u32 count; };
 
-    ComPtr<ID3D12DescriptorHeap>  heap_;
-    D3D12_CPU_DESCRIPTOR_HANDLE   cpuStart_{};
-    D3D12_GPU_DESCRIPTOR_HANDLE   gpuStart_{};
-    u32                           incrementSize_ = 0;
-    u32                           capacity_  = 0;
-    u32                           nextFree_  = 0;
-    Array<FreeBlock>              freeBlocks_;
+    ComPtr<ID3D12DescriptorHeap>  m_heap;
+    D3D12_CPU_DESCRIPTOR_HANDLE   m_cpuStart{};
+    D3D12_GPU_DESCRIPTOR_HANDLE   m_gpuStart{};
+    u32                           m_incrementSize = 0;
+    u32                           m_capacity  = 0;
+    u32                           m_nextFree  = 0;
+    Array<FreeBlock>              m_freeBlocks;
 };
 
 } // namespace raptor::rhi::dx12

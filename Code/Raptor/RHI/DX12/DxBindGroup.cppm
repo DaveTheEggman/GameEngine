@@ -30,33 +30,33 @@ class DxBindGroupImpl : public BindGroup {
 public:
     Status init(ID3D12Device* device, const BindGroupDesc& d,
                 DxGpuDescriptorHeap* cpuSrvHeap, DxGpuDescriptorHeap* cpuSamplerHeap) {
-        device_         = device;
-        layout_         = static_cast<DxBindGroupLayoutImpl*>(d.layout);
-        cpuSrvHeap_     = cpuSrvHeap;
-        cpuSamplerHeap_ = cpuSamplerHeap;
-        if (!layout_) return ErrorCode::Unknown;
+        m_device         = device;
+        m_layout         = static_cast<DxBindGroupLayoutImpl*>(d.layout);
+        m_cpuSrvHeap     = cpuSrvHeap;
+        m_cpuSamplerHeap = cpuSamplerHeap;
+        if (!m_layout) return ErrorCode::Unknown;
 
-        // Cache counts so cleanup doesn't need to access layout_ (which may be destroyed first).
-        cachedCbvSrvUavCount_ = layout_->cbvSrvUavCount();
-        cachedSamplerCount_   = layout_->samplerCount();
+        // Cache counts so cleanup doesn't need to access m_layout (which may be destroyed first).
+        m_cachedCbvSrvUavCount = m_layout->cbvSrvUavCount();
+        m_cachedSamplerCount   = m_layout->samplerCount();
 
-        if (cachedCbvSrvUavCount_ > 0) {
-            cbvSrvUavOffset_ = cpuSrvHeap->allocate(cachedCbvSrvUavCount_);
-            if (cbvSrvUavOffset_ < 0) return ErrorCode::Unknown;
+        if (m_cachedCbvSrvUavCount > 0) {
+            m_cbvSrvUavOffset = cpuSrvHeap->allocate(m_cachedCbvSrvUavCount);
+            if (m_cbvSrvUavOffset < 0) return ErrorCode::Unknown;
         }
-        if (cachedSamplerCount_ > 0) {
-            samplerOffset_ = cpuSamplerHeap->allocate(cachedSamplerCount_);
-            if (samplerOffset_ < 0) return ErrorCode::Unknown;
+        if (m_cachedSamplerCount > 0) {
+            m_samplerOffset = cpuSamplerHeap->allocate(m_cachedSamplerCount);
+            if (m_samplerOffset < 0) return ErrorCode::Unknown;
         }
 
         writeDescriptors(d);
         return ErrorCode::Ok;
     }
 
-    BindGroupLayout* Layout() override { return layout_; }
+    BindGroupLayout* Layout() override { return m_layout; }
 
     void UpdateBindless(Span<const BindlessUpdateEntry> entries) override {
-        auto ranges = layout_->ranges();
+        auto ranges = m_layout->ranges();
         for (usize i = 0; i < entries.Size(); ++i) {
             const auto& e = entries[i];
             if (e.layoutIndex >= static_cast<u32>(ranges.Size())) continue;
@@ -77,20 +77,20 @@ public:
     }
 
     void cleanup() {
-        if (cbvSrvUavOffset_ >= 0 && cachedCbvSrvUavCount_ > 0)
-            cpuSrvHeap_->free(static_cast<u32>(cbvSrvUavOffset_), cachedCbvSrvUavCount_);
-        if (samplerOffset_ >= 0 && cachedSamplerCount_ > 0)
-            cpuSamplerHeap_->free(static_cast<u32>(samplerOffset_), cachedSamplerCount_);
-        cbvSrvUavOffset_ = -1; samplerOffset_ = -1;
+        if (m_cbvSrvUavOffset >= 0 && m_cachedCbvSrvUavCount > 0)
+            m_cpuSrvHeap->free(static_cast<u32>(m_cbvSrvUavOffset), m_cachedCbvSrvUavCount);
+        if (m_samplerOffset >= 0 && m_cachedSamplerCount > 0)
+            m_cpuSamplerHeap->free(static_cast<u32>(m_samplerOffset), m_cachedSamplerCount);
+        m_cbvSrvUavOffset = -1; m_samplerOffset = -1;
     }
 
-    [[nodiscard]] i32 cbvSrvUavOffset()  const { return cbvSrvUavOffset_; }
-    [[nodiscard]] i32 samplerOffset()    const { return samplerOffset_; }
-    [[nodiscard]] Span<const u64> dynamicGpuAddresses() const { return { dynAddrs_.Data(), dynAddrs_.Size() }; }
+    [[nodiscard]] i32 cbvSrvUavOffset()  const { return m_cbvSrvUavOffset; }
+    [[nodiscard]] i32 samplerOffset()    const { return m_samplerOffset; }
+    [[nodiscard]] Span<const u64> dynamicGpuAddresses() const { return { m_dynAddrs.Data(), m_dynAddrs.Size() }; }
 
 private:
     void writeDescriptors(const BindGroupDesc& d) {
-        auto ranges = layout_->ranges();
+        auto ranges = m_layout->ranges();
         usize entryIdx = 0;
         for (usize i = 0; i < ranges.Size(); ++i) {
             const auto& r = ranges[i];
@@ -105,9 +105,9 @@ private:
 
             if (r.hasDynamicOffset) {
                 if (auto* buf = static_cast<DxBufferImpl*>(e.buffer))
-                    dynAddrs_.PushBack(buf->gpuAddress() + e.bufferOffset);
+                    m_dynAddrs.PushBack(buf->gpuAddress() + e.bufferOffset);
                 else
-                    dynAddrs_.PushBack(0);
+                    m_dynAddrs.PushBack(0);
                 continue;
             }
             if (r.isSampler) writeSampler(e, r);
@@ -116,8 +116,8 @@ private:
     }
 
     void writeCbvSrvUav(const BindGroupEntry& e, const DxBindingRangeInfo& r, u32 arrayIdx = 0) {
-        u32 off = static_cast<u32>(cbvSrvUavOffset_) + r.heapOffset + arrayIdx;
-        D3D12_CPU_DESCRIPTOR_HANDLE dest = cpuSrvHeap_->getCpuHandle(off);
+        u32 off = static_cast<u32>(m_cbvSrvUavOffset) + r.heapOffset + arrayIdx;
+        D3D12_CPU_DESCRIPTOR_HANDLE dest = m_cpuSrvHeap->getCpuHandle(off);
 
         switch (r.type) {
         case BindingType::UniformBuffer:
@@ -126,7 +126,7 @@ private:
                 cbv.BufferLocation = buf->gpuAddress() + e.bufferOffset;
                 u64 sz = (e.bufferSize > 0) ? e.bufferSize : buf->desc.size;
                 cbv.SizeInBytes = static_cast<UINT>((sz + 255) & ~u64(255));
-                device_->CreateConstantBufferView(&cbv, dest);
+                m_device->CreateConstantBufferView(&cbv, dest);
             }
             break;
         case BindingType::StorageBufferReadOnly:
@@ -146,7 +146,7 @@ private:
                     srv.Buffer.NumElements  = static_cast<UINT>(sz / 4);
                     srv.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
                 }
-                device_->CreateShaderResourceView(buf->handle(), &srv, dest);
+                m_device->CreateShaderResourceView(buf->handle(), &srv, dest);
             }
             break;
         case BindingType::StorageBufferReadWrite:
@@ -165,17 +165,17 @@ private:
                     uav.Buffer.NumElements  = static_cast<UINT>(sz / 4);
                     uav.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
                 }
-                device_->CreateUnorderedAccessView(buf->handle(), nullptr, &uav, dest);
+                m_device->CreateUnorderedAccessView(buf->handle(), nullptr, &uav, dest);
             }
             break;
         case BindingType::SampledTexture: case BindingType::BindlessTextures:
             if (auto* v = static_cast<DxTextureViewImpl*>(e.textureView))
-                device_->CopyDescriptorsSimple(1, dest, v->getSrv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                m_device->CopyDescriptorsSimple(1, dest, v->getSrv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
             break;
         case BindingType::StorageTextureReadOnly: case BindingType::StorageTextureReadWrite:
         case BindingType::BindlessStorageTextures:
             if (auto* v = static_cast<DxTextureViewImpl*>(e.textureView))
-                device_->CopyDescriptorsSimple(1, dest, v->getUav(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                m_device->CopyDescriptorsSimple(1, dest, v->getUav(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
             break;
         case BindingType::AccelerationStructure:
             if (auto* dxAs = static_cast<DxAccelStructImpl*>(e.accelStruct)) {
@@ -184,7 +184,7 @@ private:
                 asSrv.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
                 asSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
                 asSrv.RaytracingAccelerationStructure.Location = dxAs->DeviceAddress();
-                device_->CreateShaderResourceView(nullptr, &asSrv, dest);
+                m_device->CreateShaderResourceView(nullptr, &asSrv, dest);
             }
             break;
         default: break;
@@ -192,21 +192,21 @@ private:
     }
 
     void writeSampler(const BindGroupEntry& e, const DxBindingRangeInfo& r, u32 arrayIdx = 0) {
-        u32 off = static_cast<u32>(samplerOffset_) + r.heapOffset + arrayIdx;
-        D3D12_CPU_DESCRIPTOR_HANDLE dest = cpuSamplerHeap_->getCpuHandle(off);
+        u32 off = static_cast<u32>(m_samplerOffset) + r.heapOffset + arrayIdx;
+        D3D12_CPU_DESCRIPTOR_HANDLE dest = m_cpuSamplerHeap->getCpuHandle(off);
         if (auto* s = static_cast<DxSamplerImpl*>(e.sampler))
-            device_->CopyDescriptorsSimple(1, dest, s->handle(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+            m_device->CopyDescriptorsSimple(1, dest, s->handle(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     }
 
-    ID3D12Device*              device_         = nullptr;
-    DxBindGroupLayoutImpl*     layout_         = nullptr;
-    DxGpuDescriptorHeap*       cpuSrvHeap_     = nullptr;
-    DxGpuDescriptorHeap*       cpuSamplerHeap_ = nullptr;
-    u32                        cachedCbvSrvUavCount_ = 0;
-    u32                        cachedSamplerCount_   = 0;
-    i32                        cbvSrvUavOffset_ = -1;
-    i32                        samplerOffset_   = -1;
-    Array<u64>                 dynAddrs_;
+    ID3D12Device*              m_device         = nullptr;
+    DxBindGroupLayoutImpl*     m_layout         = nullptr;
+    DxGpuDescriptorHeap*       m_cpuSrvHeap     = nullptr;
+    DxGpuDescriptorHeap*       m_cpuSamplerHeap = nullptr;
+    u32                        m_cachedCbvSrvUavCount = 0;
+    u32                        m_cachedSamplerCount   = 0;
+    i32                        m_cbvSrvUavOffset = -1;
+    i32                        m_samplerOffset   = -1;
+    Array<u64>                 m_dynAddrs;
 };
 
 } // namespace raptor::rhi::dx12

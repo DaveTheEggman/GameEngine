@@ -16,11 +16,11 @@ export namespace raptor::rhi::validation {
 
 class ValidatedCommandPool : public CommandPool {
 public:
-    explicit ValidatedCommandPool(CommandPool* inner) : inner_(inner) {}
+    explicit ValidatedCommandPool(CommandPool* inner) : m_inner(inner) {}
 
     Status CreateEncoder(CommandEncoder*& out) override {
         CommandEncoder* innerEnc = nullptr;
-        Status r = inner_->CreateEncoder(innerEnc);
+        Status r = m_inner->CreateEncoder(innerEnc);
         if (r != ErrorCode::Ok || !innerEnc) { out = nullptr; return r; }
         out = new ValidatedCommandEncoder(innerEnc);
         return ErrorCode::Ok;
@@ -31,20 +31,20 @@ public:
         auto* ve = static_cast<ValidatedCommandEncoder*>(encoder);
         if (ve) {
             CommandEncoder* innerEnc = ve->inner();
-            inner_->DestroyEncoder(innerEnc);
+            m_inner->DestroyEncoder(innerEnc);
             delete ve;
         } else {
-            inner_->DestroyEncoder(encoder);
+            m_inner->DestroyEncoder(encoder);
         }
         encoder = nullptr;
     }
 
-    void Reset() override { inner_->Reset(); }
+    void Reset() override { m_inner->Reset(); }
 
-    CommandPool* inner() const { return inner_; }
+    CommandPool* inner() const { return m_inner; }
 
 private:
-    CommandPool* inner_;
+    CommandPool* m_inner;
 };
 
 } // namespace raptor::rhi::validation

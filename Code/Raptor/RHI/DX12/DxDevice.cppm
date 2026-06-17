@@ -54,11 +54,11 @@ export namespace raptor::rhi::dx12 {
 class DxDeviceImpl : public Device {
 public:
     Status init(DxAdapterImpl* adapter, const DeviceDesc& desc) {
-        adapter_ = adapter;
+        m_adapter = adapter;
 
         // Create device at feature level 12.0.
         HRESULT hr = D3D12CreateDevice(
-            adapter->handle(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device_));
+            adapter->handle(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device));
         if (FAILED(hr)) {
             LogErrorf("DxDevice: D3D12CreateDevice failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
@@ -67,7 +67,7 @@ public:
         // Suppress noisy debug layer warnings.
         {
             ComPtr<ID3D12InfoQueue> infoQueue;
-            if (SUCCEEDED(device_->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+            if (SUCCEEDED(m_device->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
                 D3D12_MESSAGE_ID suppressIds[] = {
                     D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
                     D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE,
@@ -76,46 +76,46 @@ public:
                 filter.DenyList.NumIDs  = static_cast<UINT>(std::size(suppressIds));
                 filter.DenyList.pIDList = suppressIds;
                 infoQueue->AddStorageFilterEntries(&filter);
-                infoQueue_ = infoQueue;
+                m_infoQueue = infoQueue;
             }
         }
 
         // --- Descriptor heap allocators (CPU-side, for staging) ---
-        rtvHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256);
-        dsvHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 64);
-        srvHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 4096);
-        samplerHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 256);
+        m_rtvHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256);
+        m_dsvHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 64);
+        m_srvHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 4096);
+        m_samplerHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 256);
 
         // --- GPU-visible descriptor heaps (shader-visible) ---
-        gpuSrvHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 65536, true);
-        gpuSamplerHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, true);
+        m_gpuSrvHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 65536, true);
+        m_gpuSamplerHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, true);
 
         // --- CPU-visible descriptor heaps (non-shader-visible, bind groups write here) ---
-        cpuSrvHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 65536, false);
-        cpuSamplerHeap_.init(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, false);
+        m_cpuSrvHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 65536, false);
+        m_cpuSamplerHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, false);
 
         // --- Create queues ---
         u32 graphicsCount = std::max(desc.graphicsQueueCount, 1u);
         for (u32 i = 0; i < graphicsCount; ++i) {
             auto* q = new DxQueueImpl();
-            if (q->init(device_.Get(), QueueType::Graphics, this) != ErrorCode::Ok) {
+            if (q->init(m_device.Get(), QueueType::Graphics, this) != ErrorCode::Ok) {
                 delete q; break;
             }
-            graphicsQueues_.PushBack(q);
+            m_graphicsQueues.PushBack(q);
         }
         for (u32 i = 0; i < desc.computeQueueCount; ++i) {
             auto* q = new DxQueueImpl();
-            if (q->init(device_.Get(), QueueType::Compute, this) != ErrorCode::Ok) {
+            if (q->init(m_device.Get(), QueueType::Compute, this) != ErrorCode::Ok) {
                 delete q; break;
             }
-            computeQueues_.PushBack(q);
+            m_computeQueues.PushBack(q);
         }
         for (u32 i = 0; i < desc.transferQueueCount; ++i) {
             auto* q = new DxQueueImpl();
-            if (q->init(device_.Get(), QueueType::Transfer, this) != ErrorCode::Ok) {
+            if (q->init(m_device.Get(), QueueType::Transfer, this) != ErrorCode::Ok) {
                 delete q; break;
             }
-            transferQueues_.PushBack(q);
+            m_transferQueues.PushBack(q);
         }
 
         // --- Cached command signatures for indirect execution ---
@@ -132,7 +132,7 @@ public:
         features = adapter->buildFeatures();
 
         // --- RT handle properties (DX12 constants) ---
-        if (rtEnabled_) {
+        if (m_rtEnabled) {
             shaderGroupHandleSize      = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES; // 32
             shaderGroupHandleAlignment = D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT; // 32
             shaderGroupBaseAlignment   = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT;  // 64
@@ -147,18 +147,18 @@ public:
 
     Queue* GetQueue(QueueType t, u32 index) override {
         switch (t) {
-        case QueueType::Graphics: return index < graphicsQueues_.Size()  ? graphicsQueues_[index]  : nullptr;
-        case QueueType::Compute:  return index < computeQueues_.Size()   ? computeQueues_[index]   : nullptr;
-        case QueueType::Transfer: return index < transferQueues_.Size()  ? transferQueues_[index]   : nullptr;
+        case QueueType::Graphics: return index < m_graphicsQueues.Size()  ? m_graphicsQueues[index]  : nullptr;
+        case QueueType::Compute:  return index < m_computeQueues.Size()   ? m_computeQueues[index]   : nullptr;
+        case QueueType::Transfer: return index < m_transferQueues.Size()  ? m_transferQueues[index]   : nullptr;
         }
         return nullptr;
     }
 
     u32 GetQueueCount(QueueType t) override {
         switch (t) {
-        case QueueType::Graphics: return static_cast<u32>(graphicsQueues_.Size());
-        case QueueType::Compute:  return static_cast<u32>(computeQueues_.Size());
-        case QueueType::Transfer: return static_cast<u32>(transferQueues_.Size());
+        case QueueType::Graphics: return static_cast<u32>(m_graphicsQueues.Size());
+        case QueueType::Compute:  return static_cast<u32>(m_computeQueues.Size());
+        case QueueType::Transfer: return static_cast<u32>(m_transferQueues.Size());
         }
         return 0;
     }
@@ -178,7 +178,7 @@ public:
 
     Status CreateBuffer(const BufferDesc& d, Buffer*& out) override {
         auto* b = new DxBufferImpl();
-        if (b->init(device_.Get(), d) != ErrorCode::Ok) { delete b; out = nullptr; return ErrorCode::Unknown; }
+        if (b->init(m_device.Get(), d) != ErrorCode::Ok) { delete b; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(b->handle(), d.label);
         out = b;
         return ErrorCode::Ok;
@@ -186,7 +186,7 @@ public:
 
     Status CreateTexture(const TextureDesc& d, Texture*& out) override {
         auto* t = new DxTextureImpl();
-        if (t->init(device_.Get(), d) != ErrorCode::Ok) { delete t; out = nullptr; return ErrorCode::Unknown; }
+        if (t->init(m_device.Get(), d) != ErrorCode::Ok) { delete t; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(t->handle(), d.label);
         out = t;
         return ErrorCode::Ok;
@@ -200,7 +200,7 @@ public:
             return ErrorCode::Unknown;
         }
         auto* v = new DxTextureViewImpl();
-        if (v->init(device_.Get(), dxTex, d, &srvHeap_, &rtvHeap_, &dsvHeap_) != ErrorCode::Ok) {
+        if (v->init(m_device.Get(), dxTex, d, &m_srvHeap, &m_rtvHeap, &m_dsvHeap) != ErrorCode::Ok) {
             delete v; out = nullptr; return ErrorCode::Unknown;
         }
         out = v;
@@ -209,7 +209,7 @@ public:
 
     Status CreateSampler(const SamplerDesc& d, Sampler*& out) override {
         auto* s = new DxSamplerImpl();
-        if (s->init(device_.Get(), d, &samplerHeap_) != ErrorCode::Ok) {
+        if (s->init(m_device.Get(), d, &m_samplerHeap) != ErrorCode::Ok) {
             delete s; out = nullptr; return ErrorCode::Unknown;
         }
         out = s;
@@ -236,7 +236,7 @@ public:
 
     Status CreateBindGroup(const BindGroupDesc& d, BindGroup*& out) override {
         auto* g = new DxBindGroupImpl();
-        if (g->init(device_.Get(), d, &cpuSrvHeap_, &cpuSamplerHeap_) != ErrorCode::Ok) {
+        if (g->init(m_device.Get(), d, &m_cpuSrvHeap, &m_cpuSamplerHeap) != ErrorCode::Ok) {
             delete g; out = nullptr; return ErrorCode::Unknown;
         }
         out = g;
@@ -245,7 +245,7 @@ public:
 
     Status CreatePipelineLayout(const PipelineLayoutDesc& d, PipelineLayout*& out) override {
         auto* l = new DxPipelineLayoutImpl();
-        if (l->init(device_.Get(), d) != ErrorCode::Ok) {
+        if (l->init(m_device.Get(), d) != ErrorCode::Ok) {
             LogError("DxDevice: createPipelineLayout failed");
             delete l; out = nullptr; return ErrorCode::Unknown;
         }
@@ -256,7 +256,7 @@ public:
 
     Status CreatePipelineCache(const PipelineCacheDesc& d, PipelineCache*& out) override {
         auto* c = new DxPipelineCacheImpl();
-        if (c->init(device_.Get(), d) != ErrorCode::Ok) { delete c; out = nullptr; return ErrorCode::Unknown; }
+        if (c->init(m_device.Get(), d) != ErrorCode::Ok) { delete c; out = nullptr; return ErrorCode::Unknown; }
         if (c->handle()) setDebugName(c->handle(), d.label);
         out = c;
         return ErrorCode::Ok;
@@ -264,7 +264,7 @@ public:
 
     Status CreateRenderPipeline(const RenderPipelineDesc& d, RenderPipeline*& out) override {
         auto* p = new DxRenderPipelineImpl();
-        if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        if (p->init(m_device.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(p->handle(), d.label);
         out = p;
         return ErrorCode::Ok;
@@ -272,7 +272,7 @@ public:
 
     Status CreateComputePipeline(const ComputePipelineDesc& d, ComputePipeline*& out) override {
         auto* p = new DxComputePipelineImpl();
-        if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        if (p->init(m_device.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(p->handle(), d.label);
         out = p;
         return ErrorCode::Ok;
@@ -283,9 +283,9 @@ public:
     // ==================================================================
 
     Status CreateMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
-        if (!meshEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
+        if (!m_meshEnabled) { out = nullptr; return ErrorCode::NotSupported; }
         auto* p = new DxMeshPipelineImpl();
-        if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        if (p->init(m_device.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(p->handle(), d.label);
         out = p;
         return ErrorCode::Ok;
@@ -300,9 +300,9 @@ public:
     // ==================================================================
 
     Status CreateAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
-        if (!rtEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
+        if (!m_rtEnabled) { out = nullptr; return ErrorCode::NotSupported; }
         auto* a = new DxAccelStructImpl();
-        if (a->init(device_.Get(), d) != ErrorCode::Ok) { delete a; out = nullptr; return ErrorCode::Unknown; }
+        if (a->init(m_device.Get(), d) != ErrorCode::Ok) { delete a; out = nullptr; return ErrorCode::Unknown; }
         out = a;
         return ErrorCode::Ok;
     }
@@ -312,9 +312,9 @@ public:
     }
 
     Status CreateRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
-        if (!rtEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
+        if (!m_rtEnabled) { out = nullptr; return ErrorCode::NotSupported; }
         auto* p = new DxRayTracingPipelineImpl();
-        if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        if (p->init(m_device.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         out = p;
         return ErrorCode::Ok;
     }
@@ -325,7 +325,7 @@ public:
 
     Status GetShaderGroupHandles(RayTracingPipeline* pipeline, u32 firstGroup,
                                   u32 groupCount, Span<u8> outData) override {
-        if (!rtEnabled_) return ErrorCode::NotSupported;
+        if (!m_rtEnabled) return ErrorCode::NotSupported;
         auto* dxPipeline = static_cast<DxRayTracingPipelineImpl*>(pipeline);
         if (!dxPipeline || !dxPipeline->properties()) {
             LogError("DxDevice: pipeline or properties is null");
@@ -362,9 +362,9 @@ public:
 
     Status CreateCommandPool(QueueType qt, CommandPool*& out) override {
         auto* p = new DxCommandPoolImpl();
-        if (p->init(this, device_.Get(), qt,
-                    &cpuSrvHeap_, &gpuSrvHeap_,
-                    &cpuSamplerHeap_, &gpuSamplerHeap_) != ErrorCode::Ok) {
+        if (p->init(this, m_device.Get(), qt,
+                    &m_cpuSrvHeap, &m_gpuSrvHeap,
+                    &m_cpuSamplerHeap, &m_gpuSamplerHeap) != ErrorCode::Ok) {
             delete p; out = nullptr; return ErrorCode::Unknown;
         }
         out = p;
@@ -377,7 +377,7 @@ public:
 
     Status CreateFence(u64 initialValue, Fence*& out) override {
         auto* f = new DxFenceImpl();
-        if (f->init(device_.Get(), initialValue) != ErrorCode::Ok) { delete f; out = nullptr; return ErrorCode::Unknown; }
+        if (f->init(m_device.Get(), initialValue) != ErrorCode::Ok) { delete f; out = nullptr; return ErrorCode::Unknown; }
         out = f;
         return ErrorCode::Ok;
     }
@@ -388,7 +388,7 @@ public:
 
     Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override {
         auto* q = new DxQuerySetImpl();
-        if (q->init(device_.Get(), d) != ErrorCode::Ok) { delete q; out = nullptr; return ErrorCode::Unknown; }
+        if (q->init(m_device.Get(), d) != ErrorCode::Ok) { delete q; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(q->handle(), d.label);
         out = q;
         return ErrorCode::Ok;
@@ -407,13 +407,13 @@ public:
         }
 
         // Need a graphics queue for swap chain.
-        if (graphicsQueues_.IsEmpty()) { out = nullptr; return ErrorCode::Unknown; }
+        if (m_graphicsQueues.IsEmpty()) { out = nullptr; return ErrorCode::Unknown; }
 
         auto* sc = new DxSwapChainImpl();
-        if (sc->init(device_.Get(), adapter_->factory(),
-                     graphicsQueues_[0]->handle(),
+        if (sc->init(m_device.Get(), m_adapter->factory(),
+                     m_graphicsQueues[0]->handle(),
                      dxSurface, d,
-                     &srvHeap_, &rtvHeap_, &dsvHeap_) != ErrorCode::Ok) {
+                     &m_srvHeap, &m_rtvHeap, &m_dsvHeap) != ErrorCode::Ok) {
             delete sc; out = nullptr; return ErrorCode::Unknown;
         }
         out = sc;
@@ -446,21 +446,21 @@ public:
     // ==================================================================
 
     void WaitIdle() override {
-        for (auto* q : graphicsQueues_) q->WaitIdle();
-        for (auto* q : computeQueues_)  q->WaitIdle();
-        for (auto* q : transferQueues_) q->WaitIdle();
+        for (auto* q : m_graphicsQueues) q->WaitIdle();
+        for (auto* q : m_computeQueues)  q->WaitIdle();
+        for (auto* q : m_transferQueues) q->WaitIdle();
         drainDebugMessages();
     }
 
     void drainDebugMessages() {
-        if (!infoQueue_) return;
-        UINT64 count = infoQueue_->GetNumStoredMessages();
+        if (!m_infoQueue) return;
+        UINT64 count = m_infoQueue->GetNumStoredMessages();
         for (UINT64 i = 0; i < count; ++i) {
             SIZE_T len = 0;
-            infoQueue_->GetMessage(i, nullptr, &len);
+            m_infoQueue->GetMessage(i, nullptr, &len);
             if (len == 0) continue;
             auto* msg = static_cast<D3D12_MESSAGE*>(std::malloc(len));
-            if (infoQueue_->GetMessage(i, msg, &len) == S_OK) {
+            if (m_infoQueue->GetMessage(i, msg, &len) == S_OK) {
                 if (msg->Severity <= D3D12_MESSAGE_SEVERITY_WARNING)
                     std::fprintf(stderr, "[DX12 %s] %.*s\n",
                         msg->Severity == D3D12_MESSAGE_SEVERITY_ERROR ? "ERROR" :
@@ -469,56 +469,56 @@ public:
             }
             std::free(msg);
         }
-        infoQueue_->ClearStoredMessages();
+        m_infoQueue->ClearStoredMessages();
     }
 
     void Destroy() override {
         WaitIdle();
 
         // Queues.
-        for (auto* q : graphicsQueues_) { q->cleanup(); delete q; }
-        for (auto* q : computeQueues_)  { q->cleanup(); delete q; }
-        for (auto* q : transferQueues_) { q->cleanup(); delete q; }
-        graphicsQueues_.Clear();
-        computeQueues_.Clear();
-        transferQueues_.Clear();
+        for (auto* q : m_graphicsQueues) { q->cleanup(); delete q; }
+        for (auto* q : m_computeQueues)  { q->cleanup(); delete q; }
+        for (auto* q : m_transferQueues) { q->cleanup(); delete q; }
+        m_graphicsQueues.Clear();
+        m_computeQueues.Clear();
+        m_transferQueues.Clear();
 
         // Blit pipeline.
-        for (auto& [fmt, pso] : blitPsoCache_)
+        for (auto& [fmt, pso] : m_blitPsoCache)
             pso.Reset();
-        blitPsoCache_.clear();
-        blitVsBlob_.Reset();
-        blitPsBlob_.Reset();
-        blitRootSignature_.Reset();
+        m_blitPsoCache.clear();
+        m_blitVsBlob.Reset();
+        m_blitPsBlob.Reset();
+        m_blitRootSignature.Reset();
 
         // Command signatures.
-        drawSignature_.Reset();
-        drawIndexedSignature_.Reset();
-        dispatchSignature_.Reset();
-        dispatchMeshSignature_.Reset();
+        m_drawSignature.Reset();
+        m_drawIndexedSignature.Reset();
+        m_dispatchSignature.Reset();
+        m_dispatchMeshSignature.Reset();
 
         // Descriptor heaps.
-        cpuSrvHeap_.Destroy();
-        cpuSamplerHeap_.Destroy();
-        gpuSrvHeap_.Destroy();
-        gpuSamplerHeap_.Destroy();
-        rtvHeap_.Destroy();
-        dsvHeap_.Destroy();
-        srvHeap_.Destroy();
-        samplerHeap_.Destroy();
+        m_cpuSrvHeap.Destroy();
+        m_cpuSamplerHeap.Destroy();
+        m_gpuSrvHeap.Destroy();
+        m_gpuSamplerHeap.Destroy();
+        m_rtvHeap.Destroy();
+        m_dsvHeap.Destroy();
+        m_srvHeap.Destroy();
+        m_samplerHeap.Destroy();
 
         // Report live objects in debug builds.
 #ifdef _DEBUG
         {
             ComPtr<ID3D12DebugDevice> debugDevice;
-            if (SUCCEEDED(device_->QueryInterface(IID_PPV_ARGS(&debugDevice)))) {
+            if (SUCCEEDED(m_device->QueryInterface(IID_PPV_ARGS(&debugDevice)))) {
                 debugDevice->ReportLiveDeviceObjects(
                     static_cast<D3D12_RLDO_FLAGS>(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL));
             }
         }
 #endif
 
-        device_.Reset();
+        m_device.Reset();
         delete this;
     }
 
@@ -526,41 +526,41 @@ public:
     // Internal accessors (encoders, swap chain, etc. need these)
     // ==================================================================
 
-    [[nodiscard]] ID3D12Device* handle() const { return device_.Get(); }
-    [[nodiscard]] DxAdapterImpl* adapter() const { return adapter_; }
+    [[nodiscard]] ID3D12Device* handle() const { return m_device.Get(); }
+    [[nodiscard]] DxAdapterImpl* adapter() const { return m_adapter; }
 
-    [[nodiscard]] DxDescriptorHeapAllocator* rtvHeap()     { return &rtvHeap_; }
-    [[nodiscard]] DxDescriptorHeapAllocator* dsvHeap()     { return &dsvHeap_; }
-    [[nodiscard]] DxDescriptorHeapAllocator* srvHeap()     { return &srvHeap_; }
-    [[nodiscard]] DxDescriptorHeapAllocator* samplerHeap() { return &samplerHeap_; }
+    [[nodiscard]] DxDescriptorHeapAllocator* rtvHeap()     { return &m_rtvHeap; }
+    [[nodiscard]] DxDescriptorHeapAllocator* dsvHeap()     { return &m_dsvHeap; }
+    [[nodiscard]] DxDescriptorHeapAllocator* srvHeap()     { return &m_srvHeap; }
+    [[nodiscard]] DxDescriptorHeapAllocator* samplerHeap() { return &m_samplerHeap; }
 
-    [[nodiscard]] DxGpuDescriptorHeap* gpuSrvHeap()     { return &gpuSrvHeap_; }
-    [[nodiscard]] DxGpuDescriptorHeap* gpuSamplerHeap() { return &gpuSamplerHeap_; }
-    [[nodiscard]] DxGpuDescriptorHeap* cpuSrvHeap()     { return &cpuSrvHeap_; }
-    [[nodiscard]] DxGpuDescriptorHeap* cpuSamplerHeap() { return &cpuSamplerHeap_; }
+    [[nodiscard]] DxGpuDescriptorHeap* gpuSrvHeap()     { return &m_gpuSrvHeap; }
+    [[nodiscard]] DxGpuDescriptorHeap* gpuSamplerHeap() { return &m_gpuSamplerHeap; }
+    [[nodiscard]] DxGpuDescriptorHeap* cpuSrvHeap()     { return &m_cpuSrvHeap; }
+    [[nodiscard]] DxGpuDescriptorHeap* cpuSamplerHeap() { return &m_cpuSamplerHeap; }
 
-    [[nodiscard]] ID3D12CommandSignature* drawSignature()        const { return drawSignature_.Get(); }
-    [[nodiscard]] ID3D12CommandSignature* drawIndexedSignature()  const { return drawIndexedSignature_.Get(); }
-    [[nodiscard]] ID3D12CommandSignature* dispatchSignature()     const { return dispatchSignature_.Get(); }
-    [[nodiscard]] ID3D12CommandSignature* dispatchMeshSignature() const { return dispatchMeshSignature_.Get(); }
-    [[nodiscard]] ID3D12RootSignature*    blitRootSignature()    const { return blitRootSignature_.Get(); }
+    [[nodiscard]] ID3D12CommandSignature* drawSignature()        const { return m_drawSignature.Get(); }
+    [[nodiscard]] ID3D12CommandSignature* drawIndexedSignature()  const { return m_drawIndexedSignature.Get(); }
+    [[nodiscard]] ID3D12CommandSignature* dispatchSignature()     const { return m_dispatchSignature.Get(); }
+    [[nodiscard]] ID3D12CommandSignature* dispatchMeshSignature() const { return m_dispatchMeshSignature.Get(); }
+    [[nodiscard]] ID3D12RootSignature*    blitRootSignature()    const { return m_blitRootSignature.Get(); }
 
-    [[nodiscard]] bool meshEnabled() const { return meshEnabled_; }
-    [[nodiscard]] bool rtEnabled()   const { return rtEnabled_; }
+    [[nodiscard]] bool meshEnabled() const { return m_meshEnabled; }
+    [[nodiscard]] bool rtEnabled()   const { return m_rtEnabled; }
 
     /// Gets or creates a blit PSO for the given render target format.
     ID3D12PipelineState* getOrCreateBlitPSO(DXGI_FORMAT format) {
-        if (!blitRootSignature_) return nullptr;
+        if (!m_blitRootSignature) return nullptr;
 
-        std::lock_guard lock(blitMutex_);
+        std::lock_guard lock(m_blitMutex);
 
-        auto it = blitPsoCache_.find(format);
-        if (it != blitPsoCache_.end()) return it->second.Get();
+        auto it = m_blitPsoCache.find(format);
+        if (it != m_blitPsoCache.end()) return it->second.Get();
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC psd{};
-        psd.pRootSignature = blitRootSignature_.Get();
-        psd.VS = blitVsBytecode_;
-        psd.PS = blitPsBytecode_;
+        psd.pRootSignature = m_blitRootSignature.Get();
+        psd.VS = m_blitVsBytecode;
+        psd.PS = m_blitPsBytecode;
         psd.InputLayout = { nullptr, 0 };
         psd.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         psd.RasterizerState.FillMode         = D3D12_FILL_MODE_SOLID;
@@ -577,9 +577,9 @@ public:
         psd.SampleMask       = UINT_MAX;
 
         ComPtr<ID3D12PipelineState> newPso;
-        if (SUCCEEDED(device_->CreateGraphicsPipelineState(&psd, IID_PPV_ARGS(&newPso)))) {
+        if (SUCCEEDED(m_device->CreateGraphicsPipelineState(&psd, IID_PPV_ARGS(&newPso)))) {
             auto* raw = newPso.Get();
-            blitPsoCache_[format] = std::move(newPso);
+            m_blitPsoCache[format] = std::move(newPso);
             return raw;
         }
         return nullptr;
@@ -613,17 +613,17 @@ private:
         // Draw.
         argDesc.Type        = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
         sigDesc.ByteStride  = 16; // sizeof(D3D12_DRAW_ARGUMENTS): 4 x uint32
-        device_->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&drawSignature_));
+        m_device->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&m_drawSignature));
 
         // DrawIndexed.
         argDesc.Type        = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
         sigDesc.ByteStride  = 20; // sizeof(D3D12_DRAW_INDEXED_ARGUMENTS): 5 x uint32
-        device_->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&drawIndexedSignature_));
+        m_device->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&m_drawIndexedSignature));
 
         // Dispatch.
         argDesc.Type        = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
         sigDesc.ByteStride  = 12; // sizeof(D3D12_DISPATCH_ARGUMENTS): 3 x uint32
-        device_->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&dispatchSignature_));
+        m_device->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&m_dispatchSignature));
     }
 
     // ------------------------------------------------------------------
@@ -633,10 +633,10 @@ private:
     void detectExtensionSupport() {
         // Mesh shaders -- requires D3D12_OPTIONS7.
         D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7{};
-        HRESULT hr = device_->CheckFeatureSupport(
+        HRESULT hr = m_device->CheckFeatureSupport(
             D3D12_FEATURE_D3D12_OPTIONS7, &options7, sizeof(options7));
         if (SUCCEEDED(hr) && options7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED) {
-            meshEnabled_ = true;
+            m_meshEnabled = true;
 
             // DispatchMesh command signature.
             D3D12_INDIRECT_ARGUMENT_DESC argDesc{};
@@ -646,15 +646,15 @@ private:
             sigDesc.NumArgumentDescs = 1;
             sigDesc.pArgumentDescs   = &argDesc;
             sigDesc.NodeMask         = 0;
-            device_->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&dispatchMeshSignature_));
+            m_device->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&m_dispatchMeshSignature));
         }
 
         // Ray tracing -- requires D3D12_OPTIONS5.
         D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
-        hr = device_->CheckFeatureSupport(
+        hr = m_device->CheckFeatureSupport(
             D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5));
         if (SUCCEEDED(hr) && options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED) {
-            rtEnabled_ = true;
+            m_rtEnabled = true;
         }
     }
 
@@ -693,7 +693,7 @@ private:
 
         // Compile VS.
         HRESULT hr = D3DCompile(vsSource, sizeof(vsSource) - 1, nullptr, nullptr, nullptr,
-                                "main", "vs_5_0", 0, 0, &blitVsBlob_, &errorBlob);
+                                "main", "vs_5_0", 0, 0, &m_blitVsBlob, &errorBlob);
         if (FAILED(hr)) {
             if (errorBlob) LogErrorf("DxDevice: blit VS compile error: %s",
                                       static_cast<const char*>(errorBlob->GetBufferPointer()));
@@ -703,17 +703,17 @@ private:
 
         // Compile PS.
         hr = D3DCompile(psSource, sizeof(psSource) - 1, nullptr, nullptr, nullptr,
-                        "main", "ps_5_0", 0, 0, &blitPsBlob_, &errorBlob);
+                        "main", "ps_5_0", 0, 0, &m_blitPsBlob, &errorBlob);
         if (FAILED(hr)) {
             if (errorBlob) LogErrorf("DxDevice: blit PS compile error: %s",
                                       static_cast<const char*>(errorBlob->GetBufferPointer()));
-            blitVsBlob_.Reset();
+            m_blitVsBlob.Reset();
             return;
         }
         errorBlob.Reset();
 
-        blitVsBytecode_ = { blitVsBlob_->GetBufferPointer(), blitVsBlob_->GetBufferSize() };
-        blitPsBytecode_ = { blitPsBlob_->GetBufferPointer(), blitPsBlob_->GetBufferSize() };
+        m_blitVsBytecode = { m_blitVsBlob->GetBufferPointer(), m_blitVsBlob->GetBufferSize() };
+        m_blitPsBytecode = { m_blitPsBlob->GetBufferPointer(), m_blitPsBlob->GetBufferSize() };
 
         // Root signature: 1 SRV descriptor table (t0) + 1 static linear sampler (s0).
         D3D12_DESCRIPTOR_RANGE srvRange{};
@@ -755,56 +755,56 @@ private:
             return;
         }
 
-        device_->CreateRootSignature(0, signatureBlob->GetBufferPointer(),
+        m_device->CreateRootSignature(0, signatureBlob->GetBufferPointer(),
                                      signatureBlob->GetBufferSize(),
-                                     IID_PPV_ARGS(&blitRootSignature_));
+                                     IID_PPV_ARGS(&m_blitRootSignature));
     }
 
     // ------------------------------------------------------------------
     // Member data
     // ------------------------------------------------------------------
 
-    ComPtr<ID3D12Device> device_;
-    ComPtr<ID3D12InfoQueue> infoQueue_;
-    DxAdapterImpl*       adapter_ = nullptr;
+    ComPtr<ID3D12Device> m_device;
+    ComPtr<ID3D12InfoQueue> m_infoQueue;
+    DxAdapterImpl*       m_adapter = nullptr;
 
     // Queues.
-    Array<DxQueueImpl*> graphicsQueues_;
-    Array<DxQueueImpl*> computeQueues_;
-    Array<DxQueueImpl*> transferQueues_;
+    Array<DxQueueImpl*> m_graphicsQueues;
+    Array<DxQueueImpl*> m_computeQueues;
+    Array<DxQueueImpl*> m_transferQueues;
 
     // Descriptor heap allocators (CPU-side for staging).
-    DxDescriptorHeapAllocator rtvHeap_;
-    DxDescriptorHeapAllocator dsvHeap_;
-    DxDescriptorHeapAllocator srvHeap_;
-    DxDescriptorHeapAllocator samplerHeap_;
+    DxDescriptorHeapAllocator m_rtvHeap;
+    DxDescriptorHeapAllocator m_dsvHeap;
+    DxDescriptorHeapAllocator m_srvHeap;
+    DxDescriptorHeapAllocator m_samplerHeap;
 
     // GPU-visible descriptor heaps (shader-visible, for command buffer binding).
-    DxGpuDescriptorHeap gpuSrvHeap_;
-    DxGpuDescriptorHeap gpuSamplerHeap_;
+    DxGpuDescriptorHeap m_gpuSrvHeap;
+    DxGpuDescriptorHeap m_gpuSamplerHeap;
 
     // CPU-visible descriptor heaps (non-shader-visible, bind groups write here).
-    DxGpuDescriptorHeap cpuSrvHeap_;
-    DxGpuDescriptorHeap cpuSamplerHeap_;
+    DxGpuDescriptorHeap m_cpuSrvHeap;
+    DxGpuDescriptorHeap m_cpuSamplerHeap;
 
     // Cached command signatures for indirect execution.
-    ComPtr<ID3D12CommandSignature> drawSignature_;
-    ComPtr<ID3D12CommandSignature> drawIndexedSignature_;
-    ComPtr<ID3D12CommandSignature> dispatchSignature_;
-    ComPtr<ID3D12CommandSignature> dispatchMeshSignature_;
+    ComPtr<ID3D12CommandSignature> m_drawSignature;
+    ComPtr<ID3D12CommandSignature> m_drawIndexedSignature;
+    ComPtr<ID3D12CommandSignature> m_dispatchSignature;
+    ComPtr<ID3D12CommandSignature> m_dispatchMeshSignature;
 
     // Internal blit pipeline.
-    ComPtr<ID3D12RootSignature>    blitRootSignature_;
-    D3D12_SHADER_BYTECODE          blitVsBytecode_{};
-    D3D12_SHADER_BYTECODE          blitPsBytecode_{};
-    ComPtr<ID3DBlob>               blitVsBlob_;
-    ComPtr<ID3DBlob>               blitPsBlob_;
-    std::unordered_map<DXGI_FORMAT, ComPtr<ID3D12PipelineState>> blitPsoCache_;
-    std::mutex                     blitMutex_;
+    ComPtr<ID3D12RootSignature>    m_blitRootSignature;
+    D3D12_SHADER_BYTECODE          m_blitVsBytecode{};
+    D3D12_SHADER_BYTECODE          m_blitPsBytecode{};
+    ComPtr<ID3DBlob>               m_blitVsBlob;
+    ComPtr<ID3DBlob>               m_blitPsBlob;
+    std::unordered_map<DXGI_FORMAT, ComPtr<ID3D12PipelineState>> m_blitPsoCache;
+    std::mutex                     m_blitMutex;
 
     // Extension flags.
-    bool meshEnabled_ = false;
-    bool rtEnabled_   = false;
+    bool m_meshEnabled = false;
+    bool m_rtEnabled   = false;
 };
 
 // ==================================================================
@@ -825,25 +825,25 @@ Status DxAdapterImpl::CreateDevice(const DeviceDesc& desc, Device*& out) {
 void DxCommandEncoderImpl::blitSubresource(DxTextureImpl* srcTex, u32 srcMip,
     DxTextureImpl* dstTex, u32 dstMip, u32 dstWidth, u32 dstHeight, DXGI_FORMAT dxgiFormat) {
 
-    auto* blitRootSig = device_->blitRootSignature();
+    auto* blitRootSig = m_device->blitRootSignature();
     if (!blitRootSig) return;
-    auto* blitPso = device_->getOrCreateBlitPSO(dxgiFormat);
+    auto* blitPso = m_device->getOrCreateBlitPSO(dxgiFormat);
     if (!blitPso) return;
 
     // Allocate temp RTV for destination mip.
-    auto rtvHandle = device_->rtvHeap()->allocate();
+    auto rtvHandle = m_device->rtvHeap()->allocate();
 
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
     rtvDesc.Format = dxgiFormat;
     rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
     rtvDesc.Texture2D.MipSlice = dstMip;
-    device_->handle()->CreateRenderTargetView(dstTex->handle(), &rtvDesc, rtvHandle);
+    m_device->handle()->CreateRenderTargetView(dstTex->handle(), &rtvDesc, rtvHandle);
 
     // Allocate temp SRV in CPU heap, write, then stage-copy to GPU heap.
-    i32 tempSrvOff = device_->cpuSrvHeap()->allocate(1);
-    if (tempSrvOff < 0) { device_->rtvHeap()->free(rtvHandle); return; }
+    i32 tempSrvOff = m_device->cpuSrvHeap()->allocate(1);
+    if (tempSrvOff < 0) { m_device->rtvHeap()->free(rtvHandle); return; }
 
-    auto tempCpuHandle = device_->cpuSrvHeap()->getCpuHandle(static_cast<u32>(tempSrvOff));
+    auto tempCpuHandle = m_device->cpuSrvHeap()->getCpuHandle(static_cast<u32>(tempSrvOff));
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
     srvDesc.Format = dxgiFormat;
@@ -851,32 +851,32 @@ void DxCommandEncoderImpl::blitSubresource(DxTextureImpl* srcTex, u32 srcMip,
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MostDetailedMip = srcMip;
     srvDesc.Texture2D.MipLevels = 1;
-    device_->handle()->CreateShaderResourceView(srcTex->handle(), &srvDesc, tempCpuHandle);
+    m_device->handle()->CreateShaderResourceView(srcTex->handle(), &srvDesc, tempCpuHandle);
 
     // Copy from CPU heap into GPU staging, then free CPU temp slot.
-    i32 stagedOff = pool_->srvStaging()->copyFrom(static_cast<u32>(tempSrvOff), 1);
-    device_->cpuSrvHeap()->free(static_cast<u32>(tempSrvOff), 1);
-    if (stagedOff < 0) { device_->rtvHeap()->free(rtvHandle); return; }
+    i32 stagedOff = m_pool->srvStaging()->copyFrom(static_cast<u32>(tempSrvOff), 1);
+    m_device->cpuSrvHeap()->free(static_cast<u32>(tempSrvOff), 1);
+    if (stagedOff < 0) { m_device->rtvHeap()->free(rtvHandle); return; }
 
-    auto srvGpuHandle = device_->gpuSrvHeap()->getGpuHandle(static_cast<u32>(stagedOff));
+    auto srvGpuHandle = m_device->gpuSrvHeap()->getGpuHandle(static_cast<u32>(stagedOff));
 
     ensureDescriptorHeaps();
 
     // Set blit pipeline.
-    cmdList_->SetGraphicsRootSignature(blitRootSig);
-    cmdList_->SetPipelineState(blitPso);
-    cmdList_->SetGraphicsRootDescriptorTable(0, srvGpuHandle);
-    cmdList_->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+    m_cmdList->SetGraphicsRootSignature(blitRootSig);
+    m_cmdList->SetPipelineState(blitPso);
+    m_cmdList->SetGraphicsRootDescriptorTable(0, srvGpuHandle);
+    m_cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
     D3D12_VIEWPORT vp{}; vp.Width = static_cast<FLOAT>(dstWidth); vp.Height = static_cast<FLOAT>(dstHeight); vp.MaxDepth = 1.0f;
-    cmdList_->RSSetViewports(1, &vp);
+    m_cmdList->RSSetViewports(1, &vp);
     D3D12_RECT sc{}; sc.right = static_cast<LONG>(dstWidth); sc.bottom = static_cast<LONG>(dstHeight);
-    cmdList_->RSSetScissorRects(1, &sc);
+    m_cmdList->RSSetScissorRects(1, &sc);
 
-    cmdList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmdList_->DrawInstanced(3, 1, 0, 0);
+    m_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_cmdList->DrawInstanced(3, 1, 0, 0);
 
-    device_->rtvHeap()->free(rtvHandle);
+    m_device->rtvHeap()->free(rtvHandle);
 }
 
 // ---- CommandPool out-of-line methods (need DxCommandEncoderImpl + context structs) ----
@@ -885,33 +885,33 @@ Status DxCommandPoolImpl::CreateEncoder(CommandEncoder*& out) {
     out = nullptr;
 
     ComPtr<ID3D12Device> d3dDev;
-    allocator_->GetDevice(IID_PPV_ARGS(&d3dDev));
+    m_allocator->GetDevice(IID_PPV_ARGS(&d3dDev));
     if (!d3dDev) return ErrorCode::Unknown;
 
     ID3D12GraphicsCommandList* cmdList = nullptr;
-    HRESULT hr = d3dDev->CreateCommandList(0, type_,
-        allocator_.Get(), nullptr, IID_PPV_ARGS(&cmdList));
+    HRESULT hr = d3dDev->CreateCommandList(0, m_type,
+        m_allocator.Get(), nullptr, IID_PPV_ARGS(&cmdList));
     if (FAILED(hr)) return ErrorCode::Unknown;
 
     DxRenderPassContext rpeCtx{};
     rpeCtx.cmdList         = cmdList;
-    rpeCtx.srvStaging      = &srvStaging_;
-    rpeCtx.samplerStaging  = &samplerStaging_;
-    rpeCtx.gpuSrvHeap      = device_->gpuSrvHeap();
-    rpeCtx.gpuSamplerHeap  = device_->gpuSamplerHeap();
-    rpeCtx.drawSig         = device_->drawSignature();
-    rpeCtx.drawIndexedSig  = device_->drawIndexedSignature();
-    rpeCtx.dispatchMeshSig = device_->dispatchMeshSignature();
+    rpeCtx.srvStaging      = &m_srvStaging;
+    rpeCtx.samplerStaging  = &m_samplerStaging;
+    rpeCtx.gpuSrvHeap      = m_device->gpuSrvHeap();
+    rpeCtx.gpuSamplerHeap  = m_device->gpuSamplerHeap();
+    rpeCtx.drawSig         = m_device->drawSignature();
+    rpeCtx.drawIndexedSig  = m_device->drawIndexedSignature();
+    rpeCtx.dispatchMeshSig = m_device->dispatchMeshSignature();
 
     DxComputePassContext cpeCtx{};
     cpeCtx.cmdList         = cmdList;
-    cpeCtx.srvStaging      = &srvStaging_;
-    cpeCtx.samplerStaging  = &samplerStaging_;
-    cpeCtx.gpuSrvHeap      = device_->gpuSrvHeap();
-    cpeCtx.gpuSamplerHeap  = device_->gpuSamplerHeap();
-    cpeCtx.dispatchSig     = device_->dispatchSignature();
+    cpeCtx.srvStaging      = &m_srvStaging;
+    cpeCtx.samplerStaging  = &m_samplerStaging;
+    cpeCtx.gpuSrvHeap      = m_device->gpuSrvHeap();
+    cpeCtx.gpuSamplerHeap  = m_device->gpuSamplerHeap();
+    cpeCtx.dispatchSig     = m_device->dispatchSignature();
 
-    auto* enc = new DxCommandEncoderImpl(device_, cmdList, this, rpeCtx, cpeCtx);
+    auto* enc = new DxCommandEncoderImpl(m_device, cmdList, this, rpeCtx, cpeCtx);
     out = enc;
     return ErrorCode::Ok;
 }

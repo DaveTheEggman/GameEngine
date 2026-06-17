@@ -18,65 +18,65 @@ class ValidatedCommandEncoder; // forward
 class ValidatedComputePassEncoder : public ComputePassEncoder {
 public:
     void begin(ComputePassEncoder* inner, ValidatedCommandEncoder* parent) {
-        inner_ = inner; parent_ = parent;
-        pipelineBound_ = false; ended_ = false;
+        m_inner = inner; m_parent = parent;
+        m_pipelineBound = false; m_ended = false;
     }
 
     void SetPipeline(ComputePipeline* pipeline) override {
-        if (ended_) { LogError("[Validation] compute setPipeline: pass ended"); return; }
+        if (m_ended) { LogError("[Validation] compute setPipeline: pass ended"); return; }
         if (!pipeline) { LogError("[Validation] compute setPipeline: pipeline is null"); return; }
-        pipelineBound_ = true;
-        inner_->SetPipeline(pipeline);
+        m_pipelineBound = true;
+        m_inner->SetPipeline(pipeline);
     }
 
     void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override {
-        if (ended_) return;
+        if (m_ended) return;
         if (!group) { LogError("[Validation] compute setBindGroup: group is null"); return; }
-        if (!pipelineBound_) LogWarning("[Validation] compute setBindGroup: no pipeline bound");
-        inner_->SetBindGroup(index, group, dynOffsets);
+        if (!m_pipelineBound) LogWarning("[Validation] compute setBindGroup: no pipeline bound");
+        m_inner->SetBindGroup(index, group, dynOffsets);
     }
 
     void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override {
-        if (ended_) return;
-        if (!pipelineBound_) LogWarning("[Validation] compute setPushConstants: no pipeline bound");
+        if (m_ended) return;
+        if (!m_pipelineBound) LogWarning("[Validation] compute setPushConstants: no pipeline bound");
         if (!data && size > 0) { LogError("[Validation] compute setPushConstants: data is null"); return; }
         if (offset % 4 != 0) LogError("[Validation] compute setPushConstants: offset not 4-byte aligned");
         if (size % 4 != 0) LogError("[Validation] compute setPushConstants: size not 4-byte aligned");
-        inner_->SetPushConstants(stages, offset, size, data);
+        m_inner->SetPushConstants(stages, offset, size, data);
     }
 
     void Dispatch(u32 x, u32 y, u32 z) override {
-        if (ended_) { LogError("[Validation] dispatch: pass ended"); return; }
-        if (!pipelineBound_) { LogError("[Validation] dispatch: no pipeline bound"); return; }
+        if (m_ended) { LogError("[Validation] dispatch: pass ended"); return; }
+        if (!m_pipelineBound) { LogError("[Validation] dispatch: no pipeline bound"); return; }
         if (x == 0 || y == 0 || z == 0) LogWarning("[Validation] dispatch: zero dimension");
-        inner_->Dispatch(x, y, z);
+        m_inner->Dispatch(x, y, z);
     }
 
     void DispatchIndirect(Buffer* buffer, u64 offset) override {
-        if (ended_) { LogError("[Validation] dispatchIndirect: pass ended"); return; }
-        if (!pipelineBound_) { LogError("[Validation] dispatchIndirect: no pipeline bound"); return; }
+        if (m_ended) { LogError("[Validation] dispatchIndirect: pass ended"); return; }
+        if (!m_pipelineBound) { LogError("[Validation] dispatchIndirect: no pipeline bound"); return; }
         if (!buffer) { LogError("[Validation] dispatchIndirect: buffer is null"); return; }
-        inner_->DispatchIndirect(buffer, offset);
+        m_inner->DispatchIndirect(buffer, offset);
     }
 
     void ComputeBarrier() override {
-        if (ended_) return;
-        inner_->ComputeBarrier();
+        if (m_ended) return;
+        m_inner->ComputeBarrier();
     }
 
     void WriteTimestamp(QuerySet* qs, u32 index) override {
-        if (ended_) return;
+        if (m_ended) return;
         if (!qs) { LogError("[Validation] compute writeTimestamp: querySet is null"); return; }
-        inner_->WriteTimestamp(qs, index);
+        m_inner->WriteTimestamp(qs, index);
     }
 
     void End() override;
 
 private:
-    ComputePassEncoder* inner_  = nullptr;
-    ValidatedCommandEncoder* parent_ = nullptr;
-    bool pipelineBound_ = false;
-    bool ended_         = false;
+    ComputePassEncoder* m_inner  = nullptr;
+    ValidatedCommandEncoder* m_parent = nullptr;
+    bool m_pipelineBound = false;
+    bool m_ended         = false;
 };
 
 } // namespace raptor::rhi::validation

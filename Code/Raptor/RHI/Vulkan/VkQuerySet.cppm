@@ -39,18 +39,18 @@ public:
             break;
         }
 
-        if (vkCreateQueryPool(device, &ci, nullptr, &pool_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreateQueryPool(device, &ci, nullptr, &m_pool) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
     void cleanup(VkDevice device) {
-        if (pool_ != VK_NULL_HANDLE) { vkDestroyQueryPool(device, pool_, nullptr); pool_ = VK_NULL_HANDLE; }
+        if (m_pool != VK_NULL_HANDLE) { vkDestroyQueryPool(device, m_pool, nullptr); m_pool = VK_NULL_HANDLE; }
     }
 
-    [[nodiscard]] VkQueryPool handle() const { return pool_; }
+    [[nodiscard]] VkQueryPool handle() const { return m_pool; }
 
 private:
-    VkQueryPool pool_ = VK_NULL_HANDLE;
+    VkQueryPool m_pool = VK_NULL_HANDLE;
 };
 
 } // namespace raptor::rhi::vk

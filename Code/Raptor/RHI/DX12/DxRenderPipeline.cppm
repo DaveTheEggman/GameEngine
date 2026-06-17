@@ -26,11 +26,11 @@ export namespace raptor::rhi::dx12 {
 class DxRenderPipelineImpl : public RenderPipeline {
 public:
     Status init(ID3D12Device* device, const RenderPipelineDesc& d) {
-        layout_ = static_cast<DxPipelineLayoutImpl*>(d.layout);
-        if (!layout_) return ErrorCode::Unknown;
+        m_layout = static_cast<DxPipelineLayoutImpl*>(d.layout);
+        if (!m_layout) return ErrorCode::Unknown;
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso{};
-        pso.pRootSignature = layout_->handle();
+        pso.pRootSignature = m_layout->handle();
 
         // Vertex shader.
         auto* vsMod = static_cast<DxShaderModuleImpl*>(d.vertex.shader.module);
@@ -47,10 +47,10 @@ public:
         // Input layout.
         Array<D3D12_INPUT_ELEMENT_DESC> elems;
         auto bufs = d.vertex.buffers;
-        vtxBufCount_ = static_cast<u32>(std::min(bufs.Size(), usize(8)));
+        m_vtxBufCount = static_cast<u32>(std::min(bufs.Size(), usize(8)));
         for (usize i = 0; i < bufs.Size(); ++i) {
             const auto& buf = bufs[i];
-            if (i < 8) vtxStrides_[i] = buf.stride;
+            if (i < 8) m_vtxStrides[i] = buf.stride;
             auto attrs = buf.attributes;
             for (usize j = 0; j < attrs.Size(); ++j) {
                 const auto& a = attrs[j];
@@ -71,7 +71,7 @@ public:
 
         // Topology.
         pso.PrimitiveTopologyType = toPrimitiveTopologyType(d.primitive.topology);
-        topology_ = toPrimitiveTopology(d.primitive.topology);
+        m_topology = toPrimitiveTopology(d.primitive.topology);
 
         // Rasterizer.
         pso.RasterizerState.FillMode = toFillMode(d.primitive.fillMode);
@@ -140,7 +140,7 @@ public:
         pso.SampleMask = (d.multisample.mask != 0) ? d.multisample.mask : ~0u;
 
         // Create PSO.
-        HRESULT hr = device->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&pipelineState_));
+        HRESULT hr = device->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&m_pipelineState));
         if (FAILED(hr)) {
             LogErrorf("DxRenderPipeline: CreateGraphicsPipelineState failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
@@ -148,19 +148,19 @@ public:
         return ErrorCode::Ok;
     }
 
-    void cleanup() { pipelineState_.Reset(); }
+    void cleanup() { m_pipelineState.Reset(); }
 
-    [[nodiscard]] ID3D12PipelineState*    handle()   const { return pipelineState_.Get(); }
-    [[nodiscard]] D3D_PRIMITIVE_TOPOLOGY  topology() const { return topology_; }
-    [[nodiscard]] DxPipelineLayoutImpl*   pipelineLayout() const { return layout_; }
-    [[nodiscard]] u32 getVertexStride(u32 slot) const { return (slot < vtxBufCount_) ? vtxStrides_[slot] : 0; }
+    [[nodiscard]] ID3D12PipelineState*    handle()   const { return m_pipelineState.Get(); }
+    [[nodiscard]] D3D_PRIMITIVE_TOPOLOGY  topology() const { return m_topology; }
+    [[nodiscard]] DxPipelineLayoutImpl*   pipelineLayout() const { return m_layout; }
+    [[nodiscard]] u32 getVertexStride(u32 slot) const { return (slot < m_vtxBufCount) ? m_vtxStrides[slot] : 0; }
 
 private:
-    ComPtr<ID3D12PipelineState>  pipelineState_;
-    DxPipelineLayoutImpl*        layout_      = nullptr;
-    D3D_PRIMITIVE_TOPOLOGY       topology_    = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    u32                          vtxStrides_[8]{};
-    u32                          vtxBufCount_ = 0;
+    ComPtr<ID3D12PipelineState>  m_pipelineState;
+    DxPipelineLayoutImpl*        m_layout      = nullptr;
+    D3D_PRIMITIVE_TOPOLOGY       m_topology    = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    u32                          m_vtxStrides[8]{};
+    u32                          m_vtxBufCount = 0;
 };
 
 } // namespace raptor::rhi::dx12

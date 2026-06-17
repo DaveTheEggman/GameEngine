@@ -23,31 +23,31 @@ public:
 
         HRESULT hr;
         if (d.initialData.Size() > 0)
-            hr = device1->CreatePipelineLibrary(d.initialData.Data(), d.initialData.Size(), IID_PPV_ARGS(&library_));
+            hr = device1->CreatePipelineLibrary(d.initialData.Data(), d.initialData.Size(), IID_PPV_ARGS(&m_library));
         else
-            hr = device1->CreatePipelineLibrary(nullptr, 0, IID_PPV_ARGS(&library_));
+            hr = device1->CreatePipelineLibrary(nullptr, 0, IID_PPV_ARGS(&m_library));
 
         return SUCCEEDED(hr) ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
     u32 GetDataSize() override {
-        if (!library_) return 0;
-        return static_cast<u32>(library_->GetSerializedSize());
+        if (!m_library) return 0;
+        return static_cast<u32>(m_library->GetSerializedSize());
     }
 
     Status GetData(Span<u8> outData) override {
-        if (!library_) return ErrorCode::Unknown;
-        auto size = library_->GetSerializedSize();
+        if (!m_library) return ErrorCode::Unknown;
+        auto size = m_library->GetSerializedSize();
         if (outData.Size() < size) return ErrorCode::Unknown;
-        return SUCCEEDED(library_->Serialize(outData.Data(), size)) ? ErrorCode::Ok : ErrorCode::Unknown;
+        return SUCCEEDED(m_library->Serialize(outData.Data(), size)) ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
-    void cleanup() { library_.Reset(); }
+    void cleanup() { m_library.Reset(); }
 
-    [[nodiscard]] ID3D12PipelineLibrary* handle() const { return library_.Get(); }
+    [[nodiscard]] ID3D12PipelineLibrary* handle() const { return m_library.Get(); }
 
 private:
-    ComPtr<ID3D12PipelineLibrary> library_;
+    ComPtr<ID3D12PipelineLibrary> m_library;
 };
 
 } // namespace raptor::rhi::dx12

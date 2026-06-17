@@ -18,16 +18,16 @@ export namespace raptor::rhi::dx12 {
 
 class DxCommandBufferImpl : public CommandBuffer {
 public:
-    explicit DxCommandBufferImpl(ID3D12GraphicsCommandList* cmdList) : cmdList_(cmdList) {}
+    explicit DxCommandBufferImpl(ID3D12GraphicsCommandList* cmdList) : m_cmdList(cmdList) {}
 
-    [[nodiscard]] ID3D12GraphicsCommandList* handle() const { return cmdList_; }
+    [[nodiscard]] ID3D12GraphicsCommandList* handle() const { return m_cmdList; }
 
     void release() {
-        if (cmdList_) { cmdList_->Release(); cmdList_ = nullptr; }
+        if (m_cmdList) { m_cmdList->Release(); m_cmdList = nullptr; }
     }
 
 private:
-    ID3D12GraphicsCommandList* cmdList_ = nullptr; // raw, released via release()
+    ID3D12GraphicsCommandList* m_cmdList = nullptr; // raw, released via release()
 };
 
 } // namespace raptor::rhi::dx12

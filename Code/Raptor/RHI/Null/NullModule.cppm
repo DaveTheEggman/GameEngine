@@ -17,12 +17,12 @@ export namespace raptor::rhi::null {
 
 class NullBuffer : public Buffer {
 public:
-    void* Map()   override { return mapped_; }
+    void* Map()   override { return m_mapped; }
     void  Unmap() override {}
-    void  allocate(u64 size) { data_.Resize(static_cast<usize>(size)); mapped_ = data_.Data(); }
+    void  allocate(u64 size) { m_data.Resize(static_cast<usize>(size)); m_mapped = m_data.Data(); }
 private:
-    Array<u8> data_;
-    void* mapped_ = nullptr;
+    Array<u8> m_data;
+    void* m_mapped = nullptr;
 };
 
 class NullTexture : public Texture {};
@@ -34,11 +34,11 @@ class NullCommandBuffer : public CommandBuffer {};
 
 class NullFence : public Fence {
 public:
-    u64  CompletedValue() override { return value_; }
-    bool Wait(u64 value, u64) override { value_ = value; return true; }
-    void signal(u64 v) { value_ = v; }
+    u64  CompletedValue() override { return m_value; }
+    bool Wait(u64 value, u64) override { m_value = value; return true; }
+    void signal(u64 v) { m_value = v; }
 private:
-    u64 value_ = 0;
+    u64 m_value = 0;
 };
 
 class NullQuerySet : public QuerySet {};
@@ -170,22 +170,22 @@ class NullSwapChain : public SwapChain {
 public:
     NullTexture tex;
     NullTextureView view;
-    TextureFormat format_  = TextureFormat::BGRA8UnormSrgb;
-    u32           width_   = 0;
-    u32           height_  = 0;
-    u32           count_   = 2;
-    u32           imgIdx_  = 0;
+    TextureFormat m_format  = TextureFormat::BGRA8UnormSrgb;
+    u32           m_width   = 0;
+    u32           m_height  = 0;
+    u32           m_count   = 2;
+    u32           m_imgIdx  = 0;
 
-    TextureFormat Format()            const override { return format_; }
-    u32           Width()             const override { return width_; }
-    u32           Height()            const override { return height_; }
-    u32           BufferCount()       const override { return count_; }
-    u32           CurrentImageIndex() const override { return imgIdx_; }
-    Status        AcquireNextImage()        override { imgIdx_ = (imgIdx_ + 1) % count_; return ErrorCode::Ok; }
+    TextureFormat Format()            const override { return m_format; }
+    u32           Width()             const override { return m_width; }
+    u32           Height()            const override { return m_height; }
+    u32           BufferCount()       const override { return m_count; }
+    u32           CurrentImageIndex() const override { return m_imgIdx; }
+    Status        AcquireNextImage()        override { m_imgIdx = (m_imgIdx + 1) % m_count; return ErrorCode::Ok; }
     Texture*      CurrentTexture()          override { return &tex; }
     TextureView*  CurrentTextureView()      override { return &view; }
     Status        Present(Queue*)           override { return ErrorCode::Ok; }
-    Status        Resize(u32 w, u32 h)      override { width_ = w; height_ = h; return ErrorCode::Ok; }
+    Status        Resize(u32 w, u32 h)      override { m_width = w; m_height = h; return ErrorCode::Ok; }
 };
 
 class NullQueue : public Queue {
@@ -240,7 +240,7 @@ public:
     Status CreateFence(u64, Fence*& out) override { out = new NullFence(); return ErrorCode::Ok; }
     Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override { auto* q = new NullQuerySet(); q->type = d.type; q->count = d.count; out = q; return ErrorCode::Ok; }
     Status CreateSwapChain(Surface*, const SwapChainDesc& d, SwapChain*& out) override {
-        auto* sc = new NullSwapChain(); sc->format_ = d.format; sc->width_ = d.width; sc->height_ = d.height; sc->count_ = d.bufferCount; out = sc; return ErrorCode::Ok;
+        auto* sc = new NullSwapChain(); sc->m_format = d.format; sc->m_width = d.width; sc->m_height = d.height; sc->m_count = d.bufferCount; out = sc; return ErrorCode::Ok;
     }
 
     void DestroyBuffer(Buffer*& x)            override { delete x; x = nullptr; }

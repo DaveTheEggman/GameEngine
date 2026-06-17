@@ -24,18 +24,18 @@ class VkCommandEncoderImpl; // forward
 class VkCommandPoolImpl : public CommandPool {
 public:
     Status init(VkDevice device, VkAdapterImpl* adapter, QueueType queueType) {
-        device_ = device;
+        m_device = device;
 
         i32 familyIndex = adapter->findQueueFamily(queueType);
         if (familyIndex < 0) return ErrorCode::Unknown;
-        familyIndex_ = static_cast<u32>(familyIndex);
+        m_familyIndex = static_cast<u32>(familyIndex);
 
         VkCommandPoolCreateInfo ci{};
         ci.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         ci.flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-        ci.queueFamilyIndex = familyIndex_;
+        ci.queueFamilyIndex = m_familyIndex;
 
-        if (vkCreateCommandPool(device, &ci, nullptr, &pool_) != VK_SUCCESS) return ErrorCode::Unknown;
+        if (vkCreateCommandPool(device, &ci, nullptr, &m_pool) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;
     }
 
@@ -45,28 +45,28 @@ public:
     void   Reset() override;
 
     void cleanup() {
-        for (auto* cb : trackedBuffers_) delete cb;
-        trackedBuffers_.Clear();
-        freeHandles_.Clear();
+        for (auto* cb : m_trackedBuffers) delete cb;
+        m_trackedBuffers.Clear();
+        m_freeHandles.Clear();
 
-        if (pool_ != VK_NULL_HANDLE) { vkDestroyCommandPool(device_, pool_, nullptr); pool_ = VK_NULL_HANDLE; }
+        if (m_pool != VK_NULL_HANDLE) { vkDestroyCommandPool(m_device, m_pool, nullptr); m_pool = VK_NULL_HANDLE; }
     }
 
     // Called by encoder's finish() to register the command buffer.
-    void trackCommandBuffer(VkCommandBufferImpl* cb) { trackedBuffers_.PushBack(cb); }
+    void trackCommandBuffer(VkCommandBufferImpl* cb) { m_trackedBuffers.PushBack(cb); }
 
-    [[nodiscard]] VkCommandPool handle() const { return pool_; }
-    [[nodiscard]] VkDevice      vkDevice() const { return device_; }
+    [[nodiscard]] VkCommandPool handle() const { return m_pool; }
+    [[nodiscard]] VkDevice      vkDevice() const { return m_device; }
 
     // Stored so the encoder can access it.
     VkDeviceImpl* ownerDevice = nullptr;
 
 private:
-    VkDevice                          device_      = VK_NULL_HANDLE;
-    VkCommandPool                     pool_        = VK_NULL_HANDLE;
-    u32                               familyIndex_ = 0;
-    Array<VkCommandBuffer>      freeHandles_;
-    Array<VkCommandBufferImpl*> trackedBuffers_;
+    VkDevice                          m_device      = VK_NULL_HANDLE;
+    VkCommandPool                     m_pool        = VK_NULL_HANDLE;
+    u32                               m_familyIndex = 0;
+    Array<VkCommandBuffer>      m_freeHandles;
+    Array<VkCommandBufferImpl*> m_trackedBuffers;
 };
 
 } // namespace raptor::rhi::vk

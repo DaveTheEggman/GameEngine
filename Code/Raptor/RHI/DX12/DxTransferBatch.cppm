@@ -27,12 +27,12 @@ class DxQueueImpl; // forward
 class DxTransferBatchImpl : public TransferBatch {
 public:
     Status init(ID3D12Device* device, ID3D12CommandQueue* queue, QueueType queueType) {
-        device_ = device;
-        queue_  = queue;
+        m_device = device;
+        m_queue  = queue;
 
         HRESULT hr = device->CreateCommandAllocator(
             toCommandListType(queueType),
-            IID_PPV_ARGS(&allocator_));
+            IID_PPV_ARGS(&m_allocator));
         if (FAILED(hr)) {
             LogErrorf("DxTransferBatch: CreateCommandAllocator failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
@@ -40,25 +40,25 @@ public:
 
         hr = device->CreateCommandList(0,
             toCommandListType(queueType),
-            allocator_.Get(), nullptr,
-            IID_PPV_ARGS(&cmdList_));
+            m_allocator.Get(), nullptr,
+            IID_PPV_ARGS(&m_cmdList));
         if (FAILED(hr)) {
             LogErrorf("DxTransferBatch: CreateCommandList failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
         // Command list starts open; close it until we need it.
-        cmdList_->Close();
+        m_cmdList->Close();
 
         // Create fence for synchronous submit.
-        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
+        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence));
         if (FAILED(hr)) {
             LogErrorf("DxTransferBatch: CreateFence failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
-        fenceEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-        fenceValue_ = 0;
+        m_fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        m_fenceValue = 0;
 
         return ErrorCode::Ok;
     }
@@ -89,7 +89,7 @@ public:
         rd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         rd.Flags            = D3D12_RESOURCE_FLAG_NONE;
 
-        HRESULT hr = device_->CreateCommittedResource(
+        HRESULT hr = m_device->CreateCommittedResource(
             &heapProps, D3D12_HEAP_FLAG_NONE,
             &rd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
             IID_PPV_ARGS(&staging));
@@ -101,11 +101,11 @@ public:
         std::memcpy(mapped, data.Data(), data.Size());
         staging->Unmap(0, nullptr);
 
-        stagingBuffers_.push_back(std::move(staging));
+        m_stagingBuffers.push_back(std::move(staging));
 
         // Record copy command.
-        cmdList_->CopyBufferRegion(dxDst->handle(), dstOffset,
-            stagingBuffers_.back().Get(), 0, stagingSize);
+        m_cmdList->CopyBufferRegion(dxDst->handle(), dstOffset,
+            m_stagingBuffers.back().Get(), 0, stagingSize);
     }
 
     void WriteTexture(Texture* dst, Span<const u8> data,
@@ -137,7 +137,7 @@ public:
         rd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         rd.Flags            = D3D12_RESOURCE_FLAG_NONE;
 
-        HRESULT hr = device_->CreateCommittedResource(
+        HRESULT hr = m_device->CreateCommittedResource(
             &heapProps, D3D12_HEAP_FLAG_NONE,
             &rd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
             IID_PPV_ARGS(&staging));
@@ -159,7 +159,7 @@ public:
         }
 
         staging->Unmap(0, nullptr);
-        stagingBuffers_.push_back(std::move(staging));
+        m_stagingBuffers.push_back(std::move(staging));
 
         // Transition texture to copy dest.
         D3D12_RESOURCE_BARRIER barrier{};
@@ -169,12 +169,12 @@ public:
         barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
         barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         if (dxTex->currentState() != D3D12_RESOURCE_STATE_COPY_DEST)
-            cmdList_->ResourceBarrier(1, &barrier);
+            m_cmdList->ResourceBarrier(1, &barrier);
 
         u32 subresource = mipLevel + arrayLayer * dxTex->desc.mipLevelCount;
 
         D3D12_TEXTURE_COPY_LOCATION srcLoc{};
-        srcLoc.pResource                          = stagingBuffers_.back().Get();
+        srcLoc.pResource                          = m_stagingBuffers.back().Get();
         srcLoc.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         srcLoc.PlacedFootprint.Offset             = 0;
         srcLoc.PlacedFootprint.Footprint.Format   = toDxgiFormat(dxTex->desc.format);
@@ -188,30 +188,30 @@ public:
         dstLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
         dstLoc.SubresourceIndex = subresource;
 
-        cmdList_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
+        m_cmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
 
         // Transition back to common.
         barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
         barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
-        cmdList_->ResourceBarrier(1, &barrier);
+        m_cmdList->ResourceBarrier(1, &barrier);
         dxTex->setState(D3D12_RESOURCE_STATE_COMMON);
     }
 
     Status Submit() override {
-        if (!isRecording_) return ErrorCode::Ok;
+        if (!m_isRecording) return ErrorCode::Ok;
 
-        cmdList_->Close();
-        isRecording_ = false;
+        m_cmdList->Close();
+        m_isRecording = false;
 
-        ID3D12CommandList* lists[] = { cmdList_.Get() };
-        queue_->ExecuteCommandLists(1, lists);
+        ID3D12CommandList* lists[] = { m_cmdList.Get() };
+        m_queue->ExecuteCommandLists(1, lists);
 
         // Wait for completion.
-        ++fenceValue_;
-        queue_->Signal(fence_.Get(), fenceValue_);
-        if (fence_->GetCompletedValue() < fenceValue_) {
-            fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-            WaitForSingleObject(fenceEvent_, INFINITE);
+        ++m_fenceValue;
+        m_queue->Signal(m_fence.Get(), m_fenceValue);
+        if (m_fence->GetCompletedValue() < m_fenceValue) {
+            m_fence->SetEventOnCompletion(m_fenceValue, m_fenceEvent);
+            WaitForSingleObject(m_fenceEvent, INFINITE);
         }
 
         releaseStagingBuffers();
@@ -219,16 +219,16 @@ public:
     }
 
     Status SubmitAsync(Fence* fence, u64 signalValue) override {
-        if (!isRecording_) return ErrorCode::Ok;
+        if (!m_isRecording) return ErrorCode::Ok;
 
-        cmdList_->Close();
-        isRecording_ = false;
+        m_cmdList->Close();
+        m_isRecording = false;
 
-        ID3D12CommandList* lists[] = { cmdList_.Get() };
-        queue_->ExecuteCommandLists(1, lists);
+        ID3D12CommandList* lists[] = { m_cmdList.Get() };
+        m_queue->ExecuteCommandLists(1, lists);
 
         if (auto* dxFence = static_cast<DxFenceImpl*>(fence))
-            queue_->Signal(dxFence->handle(), signalValue);
+            m_queue->Signal(dxFence->handle(), signalValue);
 
         // Note: staging buffers can't be released until GPU is done.
         // Caller must wait on the fence before calling reset().
@@ -242,37 +242,37 @@ public:
     void Destroy() override {
         releaseStagingBuffers();
 
-        if (fenceEvent_) { CloseHandle(fenceEvent_); fenceEvent_ = nullptr; }
-        fence_.Reset();
-        cmdList_.Reset();
-        allocator_.Reset();
+        if (m_fenceEvent) { CloseHandle(m_fenceEvent); m_fenceEvent = nullptr; }
+        m_fence.Reset();
+        m_cmdList.Reset();
+        m_allocator.Reset();
     }
 
 private:
     void ensureRecording() {
-        if (!isRecording_) {
-            allocator_->Reset();
-            cmdList_->Reset(allocator_.Get(), nullptr);
-            isRecording_ = true;
+        if (!m_isRecording) {
+            m_allocator->Reset();
+            m_cmdList->Reset(m_allocator.Get(), nullptr);
+            m_isRecording = true;
         }
     }
 
     void releaseStagingBuffers() {
-        stagingBuffers_.clear();
+        m_stagingBuffers.clear();
     }
 
-    ID3D12Device*                       device_  = nullptr;
-    ID3D12CommandQueue*                 queue_   = nullptr;
-    ComPtr<ID3D12CommandAllocator>      allocator_;
-    ComPtr<ID3D12GraphicsCommandList>   cmdList_;
-    bool                                isRecording_ = false;
+    ID3D12Device*                       m_device  = nullptr;
+    ID3D12CommandQueue*                 m_queue   = nullptr;
+    ComPtr<ID3D12CommandAllocator>      m_allocator;
+    ComPtr<ID3D12GraphicsCommandList>   m_cmdList;
+    bool                                m_isRecording = false;
 
     // ComPtr's operator overloads are incompatible with Array's placement-new.
-    std::vector<ComPtr<ID3D12Resource>>  stagingBuffers_;
+    std::vector<ComPtr<ID3D12Resource>>  m_stagingBuffers;
 
-    ComPtr<ID3D12Fence>                 fence_;
-    u64                                 fenceValue_ = 0;
-    HANDLE                              fenceEvent_ = nullptr;
+    ComPtr<ID3D12Fence>                 m_fence;
+    u64                                 m_fenceValue = 0;
+    HANDLE                              m_fenceEvent = nullptr;
 };
 
 } // namespace raptor::rhi::dx12
