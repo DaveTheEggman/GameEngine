@@ -1,17 +1,21 @@
 // Raptor::RuntimePlatform — the `raptor.runtime.platform` module.
 //
 // IPlatform is the raw platform service (Sedulous calls this the "shell"):
-// windowing, the OS event pump, run state, and — later — raw input devices. It
-// is a PASSIVE service, not a subsystem and not the loop owner: the runner
-// drives it (ProcessEvents once per frame) and the Application borrows it to
-// wire platform-backed subsystems (e.g. a future InputSubsystem). Native
-// backends (Win32/Linux/...) implement it; a null backend serves headless and
-// test runs. Interfaces only — depends on Core, nothing higher.
+// windowing, the OS event pump, run state, and raw input devices (keyboard,
+// mouse, gamepad, touch — see the :input / :input_types partitions). It is a
+// PASSIVE service, not a subsystem and not the loop owner: the runner drives it
+// (ProcessEvents once per frame) and the Application borrows it to wire
+// platform-backed subsystems (e.g. a future InputSubsystem). Native backends
+// (Win32/Linux/...) implement it; a null backend serves headless and test runs.
+// Interfaces only — depends on Core, nothing higher.
 
 module;
 #include "Core/Prelude.h"
 
 export module raptor.runtime.platform;
+
+export import :input_types;
+export import :input;
 
 import raptor.core;
 
@@ -73,7 +77,12 @@ export namespace raptor::runtime
         // The main window (may be null for a headless platform).
         [[nodiscard]] virtual IWindow* MainWindow() noexcept = 0;
 
-        // Pump pending OS events once per frame (the runner calls this).
+        // Aggregate input devices (keyboard/mouse/gamepad/touch). Always present
+        // — the null backend returns a no-op manager, so callers need not check.
+        [[nodiscard]] virtual IInputManager* Input() noexcept = 0;
+
+        // Pump pending OS events once per frame (the runner calls this). The
+        // backend rolls input state (Input()->Update()) before pumping.
         virtual void ProcessEvents() = 0;
 
         // OS-level run state: false once the platform should quit (e.g. the main

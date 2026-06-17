@@ -9,6 +9,8 @@ target_link_libraries(RaptorRuntimePlatform PUBLIC Raptor::Core Raptor::Policy)
 target_sources(RaptorRuntimePlatform
     PUBLIC
         FILE_SET runtime_platform_modules TYPE CXX_MODULES FILES
+            InputTypes.cppm
+            Input.cppm
             Platform.cppm)
 
 # Null backend only needs the interface. The Desktop backend depends on the

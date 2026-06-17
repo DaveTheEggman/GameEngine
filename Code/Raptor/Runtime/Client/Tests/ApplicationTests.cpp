@@ -20,6 +20,7 @@ namespace
         int processed = 0;
         bool running = true;
         IWindow* MainWindow() noexcept override { return nullptr; }
+        IInputManager* Input() noexcept override { return nullptr; }
         void ProcessEvents() override { ++processed; }
         bool IsRunning() const noexcept override { return running; }
         void RequestExit() override { running = false; }

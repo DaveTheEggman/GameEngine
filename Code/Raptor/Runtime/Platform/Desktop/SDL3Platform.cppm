@@ -103,13 +103,332 @@ export namespace raptor::runtime
         bool m_open = true;
     };
 
+    // -----------------------------------------------------------------------
+    // Input devices — double-buffered state fed by the SDL3 event pump.
+    // -----------------------------------------------------------------------
+    inline constexpr rc::u32 kKeyCount           = static_cast<rc::u32>(KeyCode::Count);
+    inline constexpr rc::u32 kMouseButtonCount   = static_cast<rc::u32>(MouseButton::Count);
+    inline constexpr rc::u32 kGamepadButtonCount = static_cast<rc::u32>(GamepadButton::Count);
+    inline constexpr rc::u32 kCursorCount        = static_cast<rc::u32>(CursorType::Count);
+
+    class SDL3Keyboard final : public IKeyboard
+    {
+    public:
+        [[nodiscard]] bool IsKeyDown(KeyCode key) const override { return m_current[Index(key)]; }
+        [[nodiscard]] bool IsKeyPressed(KeyCode key) const override
+        {
+            const rc::u32 i = Index(key);
+            return m_current[i] && !m_previous[i];
+        }
+        [[nodiscard]] bool IsKeyReleased(KeyCode key) const override
+        {
+            const rc::u32 i = Index(key);
+            return !m_current[i] && m_previous[i];
+        }
+        [[nodiscard]] KeyModifiers Modifiers() const override { return m_mods; }
+
+        void SetKey(KeyCode key, bool down) { m_current[Index(key)] = down; }
+        void SetModifiers(KeyModifiers mods) { m_mods = mods; }
+        void BeginFrame() { for (rc::u32 i = 0; i < kKeyCount; ++i) { m_previous[i] = m_current[i]; } }
+
+    private:
+        static rc::u32 Index(KeyCode key) noexcept
+        {
+            const rc::u32 i = static_cast<rc::u32>(key);
+            return i < kKeyCount ? i : 0;
+        }
+        bool m_current[kKeyCount] = {};
+        bool m_previous[kKeyCount] = {};
+        KeyModifiers m_mods = KeyModifiers::None;
+    };
+
+    class SDL3Mouse final : public IMouse
+    {
+    public:
+        [[nodiscard]] rc::f32 X() const override { return m_x; }
+        [[nodiscard]] rc::f32 Y() const override { return m_y; }
+        [[nodiscard]] rc::f32 DeltaX() const override { return m_dx; }
+        [[nodiscard]] rc::f32 DeltaY() const override { return m_dy; }
+        [[nodiscard]] rc::f32 ScrollX() const override { return m_sx; }
+        [[nodiscard]] rc::f32 ScrollY() const override { return m_sy; }
+        [[nodiscard]] bool IsButtonDown(MouseButton b) const override { return m_current[Index(b)]; }
+        [[nodiscard]] bool IsButtonPressed(MouseButton b) const override
+        {
+            const rc::u32 i = Index(b);
+            return m_current[i] && !m_previous[i];
+        }
+        [[nodiscard]] bool IsButtonReleased(MouseButton b) const override
+        {
+            const rc::u32 i = Index(b);
+            return !m_current[i] && m_previous[i];
+        }
+        [[nodiscard]] bool RelativeMode() const override { return m_relative; }
+        void SetRelativeMode(bool enabled) override
+        {
+            if (m_window != nullptr) { SDL_SetWindowRelativeMouseMode(m_window, enabled); }
+            m_relative = enabled;
+        }
+        [[nodiscard]] bool CursorVisible() const override { return m_cursorVisible; }
+        void SetCursorVisible(bool visible) override
+        {
+            if (visible) { SDL_ShowCursor(); } else { SDL_HideCursor(); }
+            m_cursorVisible = visible;
+        }
+        void SetCursor(CursorType cursor) override
+        {
+            const rc::u32 i = static_cast<rc::u32>(cursor);
+            if (i >= kCursorCount) { return; }
+            if (m_cursors[i] == nullptr) { m_cursors[i] = SDL_CreateSystemCursor(MapSystemCursor(cursor)); }
+            if (m_cursors[i] != nullptr) { SDL_SetCursor(m_cursors[i]); m_cursor = cursor; }
+        }
+
+        void SetWindow(SDL_Window* window) { m_window = window; }
+        // Frees the lazily-created system cursors. Called before SDL_Quit so no
+        // SDL calls happen after the video subsystem is torn down.
+        void ReleaseCursors()
+        {
+            for (SDL_Cursor*& c : m_cursors)
+            {
+                if (c != nullptr) { SDL_DestroyCursor(c); c = nullptr; }
+            }
+        }
+        void OnMotion(rc::f32 x, rc::f32 y, rc::f32 relX, rc::f32 relY)
+        {
+            m_x = x; m_y = y; m_dx += relX; m_dy += relY;
+        }
+        void OnButton(rc::u32 index, bool down) { if (index < kMouseButtonCount) { m_current[index] = down; } }
+        void OnWheel(rc::f32 x, rc::f32 y) { m_sx += x; m_sy += y; }
+        void BeginFrame()
+        {
+            for (rc::u32 i = 0; i < kMouseButtonCount; ++i) { m_previous[i] = m_current[i]; }
+            m_dx = m_dy = m_sx = m_sy = 0.0f;
+        }
+
+    private:
+        static rc::u32 Index(MouseButton b) noexcept
+        {
+            const rc::u32 i = static_cast<rc::u32>(b);
+            return i < kMouseButtonCount ? i : 0;
+        }
+
+        static SDL_SystemCursor MapSystemCursor(CursorType cursor) noexcept
+        {
+            switch (cursor)
+            {
+                case CursorType::Default:    return SDL_SYSTEM_CURSOR_DEFAULT;
+                case CursorType::Text:       return SDL_SYSTEM_CURSOR_TEXT;
+                case CursorType::Wait:       return SDL_SYSTEM_CURSOR_WAIT;
+                case CursorType::Crosshair:  return SDL_SYSTEM_CURSOR_CROSSHAIR;
+                case CursorType::Progress:   return SDL_SYSTEM_CURSOR_PROGRESS;
+                case CursorType::ResizeNWSE: return SDL_SYSTEM_CURSOR_NWSE_RESIZE;
+                case CursorType::ResizeNESW: return SDL_SYSTEM_CURSOR_NESW_RESIZE;
+                case CursorType::ResizeEW:   return SDL_SYSTEM_CURSOR_EW_RESIZE;
+                case CursorType::ResizeNS:   return SDL_SYSTEM_CURSOR_NS_RESIZE;
+                case CursorType::ResizeNW:   return SDL_SYSTEM_CURSOR_NW_RESIZE;
+                case CursorType::ResizeN:    return SDL_SYSTEM_CURSOR_N_RESIZE;
+                case CursorType::ResizeNE:   return SDL_SYSTEM_CURSOR_NE_RESIZE;
+                case CursorType::ResizeE:    return SDL_SYSTEM_CURSOR_E_RESIZE;
+                case CursorType::ResizeSE:   return SDL_SYSTEM_CURSOR_SE_RESIZE;
+                case CursorType::ResizeS:    return SDL_SYSTEM_CURSOR_S_RESIZE;
+                case CursorType::ResizeSW:   return SDL_SYSTEM_CURSOR_SW_RESIZE;
+                case CursorType::ResizeW:    return SDL_SYSTEM_CURSOR_W_RESIZE;
+                case CursorType::Move:       return SDL_SYSTEM_CURSOR_MOVE;
+                case CursorType::NotAllowed: return SDL_SYSTEM_CURSOR_NOT_ALLOWED;
+                case CursorType::Pointer:    return SDL_SYSTEM_CURSOR_POINTER;
+                default:                     return SDL_SYSTEM_CURSOR_DEFAULT;
+            }
+        }
+
+        SDL_Window* m_window = nullptr;
+        rc::f32 m_x = 0, m_y = 0, m_dx = 0, m_dy = 0, m_sx = 0, m_sy = 0;
+        bool m_current[kMouseButtonCount] = {};
+        bool m_previous[kMouseButtonCount] = {};
+        bool m_relative = false;
+        bool m_cursorVisible = true;
+        CursorType m_cursor = CursorType::Default;
+        SDL_Cursor* m_cursors[kCursorCount] = {};  // lazily created, cached
+    };
+
+    class SDL3Gamepad final : public IGamepad
+    {
+    public:
+        SDL3Gamepad(SDL_Gamepad* pad, SDL_JoystickID id, rc::i32 index, rc::String name) noexcept
+            : m_pad(pad), m_id(id), m_index(index), m_name(static_cast<rc::String&&>(name)) {}
+
+        [[nodiscard]] rc::i32 Index() const override { return m_index; }
+        [[nodiscard]] rc::StringView Name() const override { return m_name; }
+        [[nodiscard]] bool Connected() const override { return m_pad != nullptr; }
+        [[nodiscard]] bool IsButtonDown(GamepadButton b) const override { return m_current[Index(b)]; }
+        [[nodiscard]] bool IsButtonPressed(GamepadButton b) const override
+        {
+            const rc::u32 i = Index(b);
+            return m_current[i] && !m_previous[i];
+        }
+        [[nodiscard]] bool IsButtonReleased(GamepadButton b) const override
+        {
+            const rc::u32 i = Index(b);
+            return !m_current[i] && m_previous[i];
+        }
+        [[nodiscard]] rc::f32 Axis(GamepadAxis a) const override
+        {
+            if (m_pad == nullptr) { return 0.0f; }
+            const auto raw = SDL_GetGamepadAxis(m_pad, static_cast<SDL_GamepadAxis>(static_cast<rc::u32>(a)));
+            return static_cast<rc::f32>(raw) / 32767.0f;
+        }
+        void SetRumble(rc::f32 lowFreq, rc::f32 highFreq, rc::u32 durationMs) override
+        {
+            if (m_pad != nullptr)
+            {
+                SDL_RumbleGamepad(m_pad,
+                                  static_cast<rc::u16>(lowFreq * 65535.0f),
+                                  static_cast<rc::u16>(highFreq * 65535.0f),
+                                  durationMs);
+            }
+        }
+
+        [[nodiscard]] SDL_JoystickID Id() const noexcept { return m_id; }
+        [[nodiscard]] SDL_Gamepad* Handle() const noexcept { return m_pad; }
+        void SetIndex(rc::i32 index) noexcept { m_index = index; }
+        void SetButton(GamepadButton b, bool down) { m_current[Index(b)] = down; }
+        void Disconnect() noexcept { m_pad = nullptr; }
+        void BeginFrame() { for (rc::u32 i = 0; i < kGamepadButtonCount; ++i) { m_previous[i] = m_current[i]; } }
+
+    private:
+        static rc::u32 Index(GamepadButton b) noexcept
+        {
+            const rc::u32 i = static_cast<rc::u32>(b);
+            return i < kGamepadButtonCount ? i : 0;
+        }
+        SDL_Gamepad* m_pad;
+        SDL_JoystickID m_id;
+        rc::i32 m_index;
+        rc::String m_name;
+        bool m_current[kGamepadButtonCount] = {};
+        bool m_previous[kGamepadButtonCount] = {};
+    };
+
+    class SDL3Touch final : public ITouch
+    {
+    public:
+        [[nodiscard]] rc::i32 TouchCount() const override { return static_cast<rc::i32>(m_points.Size()); }
+        [[nodiscard]] bool GetTouchPoint(rc::i32 index, TouchPoint& out) const override
+        {
+            if (index < 0 || static_cast<rc::usize>(index) >= m_points.Size()) { return false; }
+            out = m_points[static_cast<rc::usize>(index)];
+            return true;
+        }
+        [[nodiscard]] bool HasTouch() const override { return !m_points.IsEmpty(); }
+
+        void AddOrUpdate(const TouchPoint& tp)
+        {
+            for (rc::usize i = 0; i < m_points.Size(); ++i)
+            {
+                if (m_points[i].id == tp.id) { m_points[i] = tp; return; }
+            }
+            m_points.PushBack(tp);
+        }
+        void Remove(rc::u64 id)
+        {
+            for (rc::usize i = 0; i < m_points.Size(); ++i)
+            {
+                if (m_points[i].id == id) { m_points.RemoveAtSwap(i); return; }
+            }
+        }
+
+    private:
+        rc::Array<TouchPoint> m_points;
+    };
+
+    class SDL3InputManager final : public IInputManager
+    {
+    public:
+        ~SDL3InputManager() override { ReleaseDevices(); }
+
+        // Frees all SDL-owned input resources (open gamepads, system cursors).
+        // The platform calls this before SDL_Quit; idempotent so the destructor
+        // can call it again harmlessly.
+        void ReleaseDevices()
+        {
+            for (SDL3Gamepad* g : m_gamepads)
+            {
+                if (g->Handle() != nullptr) { SDL_CloseGamepad(g->Handle()); }
+                rc::DefaultAllocator().Delete(g);
+            }
+            m_gamepads.Clear();
+            m_mouse.ReleaseCursors();
+        }
+
+        [[nodiscard]] IKeyboard* Keyboard() override { return &m_keyboard; }
+        [[nodiscard]] IMouse*    Mouse()    override { return &m_mouse; }
+        [[nodiscard]] ITouch*    Touch()    override { return &m_touch; }
+        [[nodiscard]] rc::i32    GamepadCount() const override { return static_cast<rc::i32>(m_gamepads.Size()); }
+        [[nodiscard]] IGamepad*  GetGamepad(rc::i32 index) override
+        {
+            if (index < 0 || static_cast<rc::usize>(index) >= m_gamepads.Size()) { return nullptr; }
+            return m_gamepads[static_cast<rc::usize>(index)];
+        }
+        void Update() override
+        {
+            m_keyboard.BeginFrame();
+            m_mouse.BeginFrame();
+            for (SDL3Gamepad* g : m_gamepads) { g->BeginFrame(); }
+        }
+
+        // --- backend wiring (called by the platform event pump) ---
+        SDL3Keyboard& Kb() noexcept { return m_keyboard; }
+        SDL3Mouse&    Ms() noexcept { return m_mouse; }
+        SDL3Touch&    Tc() noexcept { return m_touch; }
+        void SetWindow(SDL_Window* window) { m_mouse.SetWindow(window); }
+
+        void AddGamepad(SDL_JoystickID id)
+        {
+            if (FindById(id) != nullptr) { return; }
+            SDL_Gamepad* pad = SDL_OpenGamepad(id);
+            if (pad == nullptr) { return; }
+
+            const char* n = SDL_GetGamepadName(pad);
+            rc::String name = (n != nullptr)
+                ? rc::ToWide(rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(n)))
+                : rc::String{};
+            const rc::i32 index = static_cast<rc::i32>(m_gamepads.Size());
+            m_gamepads.PushBack(rc::DefaultAllocator().New<SDL3Gamepad>(pad, id, index, static_cast<rc::String&&>(name)));
+        }
+
+        void RemoveGamepad(SDL_JoystickID id)
+        {
+            for (rc::usize i = 0; i < m_gamepads.Size(); ++i)
+            {
+                if (m_gamepads[i]->Id() == id)
+                {
+                    if (m_gamepads[i]->Handle() != nullptr) { SDL_CloseGamepad(m_gamepads[i]->Handle()); }
+                    rc::DefaultAllocator().Delete(m_gamepads[i]);
+                    m_gamepads.RemoveAt(i);
+                    for (rc::usize j = 0; j < m_gamepads.Size(); ++j) { m_gamepads[j]->SetIndex(static_cast<rc::i32>(j)); }
+                    return;
+                }
+            }
+        }
+
+        SDL3Gamepad* FindById(SDL_JoystickID id)
+        {
+            for (SDL3Gamepad* g : m_gamepads) { if (g->Id() == id) { return g; } }
+            return nullptr;
+        }
+
+    private:
+        SDL3Keyboard m_keyboard;
+        SDL3Mouse    m_mouse;
+        SDL3Touch    m_touch;
+        rc::Array<SDL3Gamepad*> m_gamepads;
+    };
+
     class SDL3Platform final : public IPlatform
     {
     public:
         explicit SDL3Platform(const WindowSettings& settings = {}) noexcept
         {
             SDL_SetMainReady();
-            if (!SDL_Init(SDL_INIT_VIDEO)) { m_running = false; return; }
+            if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) { m_running = false; return; }
             m_initialized = true;
 
             const rc::UTF8String title = rc::ToUTF8(settings.title);
@@ -120,10 +439,13 @@ export namespace raptor::runtime
             if (window == nullptr) { m_running = false; return; }
 
             m_window = rc::DefaultAllocator().New<SDL3Window>(window);
+            m_input.SetWindow(window);
         }
 
         ~SDL3Platform() override
         {
+            // Release SDL-owned input resources before tearing SDL down.
+            m_input.ReleaseDevices();
             if (m_window != nullptr) { rc::DefaultAllocator().Delete(m_window); }
             if (m_initialized) { SDL_Quit(); }
         }
@@ -132,9 +454,13 @@ export namespace raptor::runtime
         SDL3Platform& operator=(const SDL3Platform&) = delete;
 
         [[nodiscard]] IWindow* MainWindow() noexcept override { return m_window; }
+        [[nodiscard]] IInputManager* Input() noexcept override { return &m_input; }
 
         void ProcessEvents() override
         {
+            // Roll input state (current -> previous, clear deltas) before pumping.
+            m_input.Update();
+
             SDL_Event event;
             while (SDL_PollEvent(&event))
             {
@@ -152,6 +478,58 @@ export namespace raptor::runtime
                                                 static_cast<rc::u32>(event.window.data2));
                         }
                         break;
+
+                    // --- Keyboard ---
+                    case SDL_EVENT_KEY_DOWN:
+                    case SDL_EVENT_KEY_UP:
+                        m_input.Kb().SetKey(MapKeyCode(event.key.scancode), event.key.down);
+                        m_input.Kb().SetModifiers(MapModifiers(event.key.mod));
+                        break;
+
+                    // --- Mouse ---
+                    case SDL_EVENT_MOUSE_MOTION:
+                        m_input.Ms().OnMotion(event.motion.x, event.motion.y,
+                                              event.motion.xrel, event.motion.yrel);
+                        break;
+                    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                    case SDL_EVENT_MOUSE_BUTTON_UP:
+                        m_input.Ms().OnButton(static_cast<rc::u32>(event.button.button) - 1,
+                                              event.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
+                        break;
+                    case SDL_EVENT_MOUSE_WHEEL:
+                        m_input.Ms().OnWheel(event.wheel.x, event.wheel.y);
+                        break;
+
+                    // --- Touch ---
+                    case SDL_EVENT_FINGER_DOWN:
+                    case SDL_EVENT_FINGER_MOTION:
+                        m_input.Tc().AddOrUpdate(TouchPoint{
+                            static_cast<rc::u64>(event.tfinger.fingerID),
+                            event.tfinger.x, event.tfinger.y, event.tfinger.pressure });
+                        break;
+                    case SDL_EVENT_FINGER_UP:
+                        m_input.Tc().Remove(static_cast<rc::u64>(event.tfinger.fingerID));
+                        break;
+
+                    // --- Gamepad ---
+                    case SDL_EVENT_GAMEPAD_ADDED:
+                        m_input.AddGamepad(event.gdevice.which);
+                        break;
+                    case SDL_EVENT_GAMEPAD_REMOVED:
+                        m_input.RemoveGamepad(event.gdevice.which);
+                        break;
+                    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+                    case SDL_EVENT_GAMEPAD_BUTTON_UP:
+                        if (SDL3Gamepad* pad = m_input.FindById(event.gbutton.which))
+                        {
+                            const GamepadButton b = MapGamepadButton(static_cast<SDL_GamepadButton>(event.gbutton.button));
+                            if (b != GamepadButton::Count)
+                            {
+                                pad->SetButton(b, event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
+                            }
+                        }
+                        break;
+
                     default:
                         break;
                 }
@@ -166,7 +544,93 @@ export namespace raptor::runtime
         void RequestExit() override { m_running = false; }
 
     private:
+        static KeyCode MapKeyCode(SDL_Scancode sc) noexcept
+        {
+            if (sc >= SDL_SCANCODE_A && sc <= SDL_SCANCODE_Z)
+                return static_cast<KeyCode>(static_cast<rc::u32>(KeyCode::A) + (sc - SDL_SCANCODE_A));
+            if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9)
+                return static_cast<KeyCode>(static_cast<rc::u32>(KeyCode::Num1) + (sc - SDL_SCANCODE_1));
+            if (sc == SDL_SCANCODE_0) return KeyCode::Num0;
+            if (sc >= SDL_SCANCODE_F1 && sc <= SDL_SCANCODE_F12)
+                return static_cast<KeyCode>(static_cast<rc::u32>(KeyCode::F1) + (sc - SDL_SCANCODE_F1));
+            switch (sc)
+            {
+                case SDL_SCANCODE_RETURN:    return KeyCode::Return;
+                case SDL_SCANCODE_ESCAPE:    return KeyCode::Escape;
+                case SDL_SCANCODE_BACKSPACE: return KeyCode::Backspace;
+                case SDL_SCANCODE_TAB:       return KeyCode::Tab;
+                case SDL_SCANCODE_SPACE:     return KeyCode::Space;
+                case SDL_SCANCODE_UP:        return KeyCode::Up;
+                case SDL_SCANCODE_DOWN:      return KeyCode::Down;
+                case SDL_SCANCODE_LEFT:      return KeyCode::Left;
+                case SDL_SCANCODE_RIGHT:     return KeyCode::Right;
+                case SDL_SCANCODE_LCTRL:     return KeyCode::LeftCtrl;
+                case SDL_SCANCODE_LSHIFT:    return KeyCode::LeftShift;
+                case SDL_SCANCODE_LALT:      return KeyCode::LeftAlt;
+                case SDL_SCANCODE_LGUI:      return KeyCode::LeftGui;
+                case SDL_SCANCODE_RCTRL:     return KeyCode::RightCtrl;
+                case SDL_SCANCODE_RSHIFT:    return KeyCode::RightShift;
+                case SDL_SCANCODE_RALT:      return KeyCode::RightAlt;
+                case SDL_SCANCODE_RGUI:      return KeyCode::RightGui;
+                case SDL_SCANCODE_DELETE:    return KeyCode::Delete;
+                case SDL_SCANCODE_INSERT:    return KeyCode::Insert;
+                case SDL_SCANCODE_HOME:      return KeyCode::Home;
+                case SDL_SCANCODE_END:       return KeyCode::End;
+                case SDL_SCANCODE_PAGEUP:    return KeyCode::PageUp;
+                case SDL_SCANCODE_PAGEDOWN:  return KeyCode::PageDown;
+                default:                     return KeyCode::Unknown;
+            }
+        }
+
+        static KeyModifiers MapModifiers(SDL_Keymod mod) noexcept
+        {
+            KeyModifiers m = KeyModifiers::None;
+            if (mod & SDL_KMOD_LSHIFT) { m |= KeyModifiers::LeftShift; }
+            if (mod & SDL_KMOD_RSHIFT) { m |= KeyModifiers::RightShift; }
+            if (mod & SDL_KMOD_LCTRL)  { m |= KeyModifiers::LeftCtrl; }
+            if (mod & SDL_KMOD_RCTRL)  { m |= KeyModifiers::RightCtrl; }
+            if (mod & SDL_KMOD_LALT)   { m |= KeyModifiers::LeftAlt; }
+            if (mod & SDL_KMOD_RALT)   { m |= KeyModifiers::RightAlt; }
+            if (mod & SDL_KMOD_LGUI)   { m |= KeyModifiers::LeftGui; }
+            if (mod & SDL_KMOD_RGUI)   { m |= KeyModifiers::RightGui; }
+            if (mod & SDL_KMOD_NUM)    { m |= KeyModifiers::NumLock; }
+            if (mod & SDL_KMOD_CAPS)   { m |= KeyModifiers::CapsLock; }
+            if (mod & SDL_KMOD_SCROLL) { m |= KeyModifiers::ScrollLock; }
+            return m;
+        }
+
+        // SDL's button order differs from ours, so map explicitly.
+        static GamepadButton MapGamepadButton(SDL_GamepadButton b) noexcept
+        {
+            switch (b)
+            {
+                case SDL_GAMEPAD_BUTTON_SOUTH:          return GamepadButton::South;
+                case SDL_GAMEPAD_BUTTON_EAST:           return GamepadButton::East;
+                case SDL_GAMEPAD_BUTTON_WEST:           return GamepadButton::West;
+                case SDL_GAMEPAD_BUTTON_NORTH:          return GamepadButton::North;
+                case SDL_GAMEPAD_BUTTON_BACK:           return GamepadButton::Back;
+                case SDL_GAMEPAD_BUTTON_GUIDE:          return GamepadButton::Guide;
+                case SDL_GAMEPAD_BUTTON_START:          return GamepadButton::Start;
+                case SDL_GAMEPAD_BUTTON_LEFT_STICK:     return GamepadButton::LeftStick;
+                case SDL_GAMEPAD_BUTTON_RIGHT_STICK:    return GamepadButton::RightStick;
+                case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:  return GamepadButton::LeftShoulder;
+                case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return GamepadButton::RightShoulder;
+                case SDL_GAMEPAD_BUTTON_DPAD_UP:        return GamepadButton::DPadUp;
+                case SDL_GAMEPAD_BUTTON_DPAD_DOWN:      return GamepadButton::DPadDown;
+                case SDL_GAMEPAD_BUTTON_DPAD_LEFT:      return GamepadButton::DPadLeft;
+                case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:     return GamepadButton::DPadRight;
+                case SDL_GAMEPAD_BUTTON_MISC1:          return GamepadButton::Misc1;
+                case SDL_GAMEPAD_BUTTON_LEFT_PADDLE1:   return GamepadButton::LeftPaddle1;
+                case SDL_GAMEPAD_BUTTON_LEFT_PADDLE2:   return GamepadButton::LeftPaddle2;
+                case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1:  return GamepadButton::RightPaddle1;
+                case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2:  return GamepadButton::RightPaddle2;
+                case SDL_GAMEPAD_BUTTON_TOUCHPAD:       return GamepadButton::Touchpad;
+                default:                                return GamepadButton::Count;  // unmapped
+            }
+        }
+
         SDL3Window* m_window = nullptr;
+        SDL3InputManager m_input;
         bool m_initialized = false;
         bool m_running = true;
     };
