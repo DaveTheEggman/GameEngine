@@ -26,7 +26,7 @@ public:
     VkTransferBatchImpl(VkDevice device, VkQueue queue, u32 queueFamilyIndex, VkPhysicalDevice physDevice)
         : device_(device), physDevice_(physDevice), queue_(queue), queueFamilyIndex_(queueFamilyIndex) {}
 
-    void writeBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
+    void WriteBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
         u64 needed = stagingOffset_ + data.Size();
         if (ensureStagingBuffer(needed) != ErrorCode::Ok) return;
         void* mapped = stagingMapped_;
@@ -36,7 +36,7 @@ public:
         stagingOffset_ = (stagingOffset_ + data.Size() + 15) & ~static_cast<u64>(15);
     }
 
-    void writeTexture(Texture* dst, Span<const u8> data,
+    void WriteTexture(Texture* dst, Span<const u8> data,
                       const TextureDataLayout& layout, Extent3D extent,
                       u32 mipLevel, u32 arrayLayer) override {
         u64 needed = stagingOffset_ + data.Size();
@@ -48,7 +48,7 @@ public:
         stagingOffset_ = (stagingOffset_ + data.Size() + 15) & ~static_cast<u64>(15);
     }
 
-    Status submit() override {
+    Status Submit() override {
         if (bufferCopies_.IsEmpty() && textureCopies_.IsEmpty()) return ErrorCode::Ok;
         VkCommandBuffer cmdBuf = recordCommands();
         if (cmdBuf == VK_NULL_HANDLE) return ErrorCode::Unknown;
@@ -61,7 +61,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status submitAsync(Fence* fence, u64 signalValue) override {
+    Status SubmitAsync(Fence* fence, u64 signalValue) override {
         if (bufferCopies_.IsEmpty() && textureCopies_.IsEmpty()) return ErrorCode::Ok;
         VkCommandBuffer cmdBuf = recordCommands();
         if (cmdBuf == VK_NULL_HANDLE) return ErrorCode::Unknown;
@@ -82,14 +82,14 @@ public:
         return ErrorCode::Ok;
     }
 
-    void reset() override {
+    void Reset() override {
         bufferCopies_.Clear(); textureCopies_.Clear();
         stagingOffset_ = 0;
         cleanupCmdPool();
     }
 
-    void destroy() override {
-        if (asyncFence_) { asyncFence_->wait(asyncValue_, ~0ull); asyncFence_ = nullptr; }
+    void Destroy() override {
+        if (asyncFence_) { asyncFence_->Wait(asyncValue_, ~0ull); asyncFence_ = nullptr; }
         if (cmdPool_ != VK_NULL_HANDLE) { vkDestroyCommandPool(device_, cmdPool_, nullptr); cmdPool_ = VK_NULL_HANDLE; }
         if (stagingMapped_) { vkUnmapMemory(device_, stagingMem_); stagingMapped_ = nullptr; }
         if (stagingMem_ != VK_NULL_HANDLE) { vkFreeMemory(device_, stagingMem_, nullptr); stagingMem_ = VK_NULL_HANDLE; }

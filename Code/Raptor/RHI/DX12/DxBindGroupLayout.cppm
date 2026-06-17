@@ -65,7 +65,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    [[nodiscard]] Span<const BindGroupLayoutEntry> entries() const { return { entries_.Data(), entries_.Size() }; }
+    [[nodiscard]] Span<const BindGroupLayoutEntry> Entries() const { return { entries_.Data(), entries_.Size() }; }
     [[nodiscard]] Span<const DxBindingRangeInfo>   ranges()  const { return { ranges_.Data(), ranges_.Size() }; }
     [[nodiscard]] u32  cbvSrvUavCount()    const { return cbvSrvUavCount_; }
     [[nodiscard]] u32  samplerCount()      const { return samplerCount_; }

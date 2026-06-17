@@ -20,18 +20,18 @@ public:
     Status init(ID3D12Device* device, u64 initialValue) {
         HRESULT hr = device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
         if (FAILED(hr)) {
-            logErrorf("DxFence: CreateFence failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxFence: CreateFence failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
         event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         return ErrorCode::Ok;
     }
 
-    u64 completedValue() override {
+    u64 CompletedValue() override {
         return fence_->GetCompletedValue();
     }
 
-    bool wait(u64 value, u64 timeoutNs) override {
+    bool Wait(u64 value, u64 timeoutNs) override {
         if (fence_->GetCompletedValue() >= value) return true;
         fence_->SetEventOnCompletion(value, event_);
         DWORD timeoutMs = (timeoutNs == ~0ull) ? INFINITE : static_cast<DWORD>(timeoutNs / 1000000);

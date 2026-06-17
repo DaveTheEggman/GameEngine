@@ -21,12 +21,12 @@ public:
 
     BufferDesc  desc{};
 
-    [[nodiscard]] u64         size()  const { return desc.size; }
-    [[nodiscard]] BufferUsage usage() const { return desc.usage; }
+    [[nodiscard]] u64         GetSize()  const { return desc.size; }
+    [[nodiscard]] BufferUsage Usage() const { return desc.usage; }
 
     /// Map the buffer for CPU access. Returns nullptr if not mappable.
-    [[nodiscard]] virtual void* map()   = 0;
-    virtual void unmap() = 0;
+    [[nodiscard]] virtual void* Map()   = 0;
+    virtual void Unmap() = 0;
 };
 
 /// GPU texture (1D/2D/3D, with mip levels and array layers).
@@ -78,11 +78,11 @@ public:
     virtual ~Fence() = default;
 
     /// Returns the most recently completed (signaled) value.
-    [[nodiscard]] virtual u64 completedValue() = 0;
+    [[nodiscard]] virtual u64 CompletedValue() = 0;
 
     /// Blocks the CPU until the fence reaches `value`, or until timeout.
     /// Returns true on success, false on timeout.
-    virtual bool wait(u64 value, u64 timeoutNs = ~0ull) = 0;
+    virtual bool Wait(u64 value, u64 timeoutNs = ~0ull) = 0;
 };
 
 /// GPU query set (timestamp, occlusion, pipeline statistics).
@@ -99,7 +99,7 @@ class BindGroupLayout {
 public:
     virtual ~BindGroupLayout() = default;
 
-    [[nodiscard]] virtual Span<const BindGroupLayoutEntry> entries() const = 0;
+    [[nodiscard]] virtual Span<const BindGroupLayoutEntry> Entries() const = 0;
 };
 
 /// A set of resource bindings that can be bound to a pipeline.
@@ -107,10 +107,10 @@ class BindGroup {
 public:
     virtual ~BindGroup() = default;
 
-    [[nodiscard]] virtual BindGroupLayout* layout() = 0;
+    [[nodiscard]] virtual BindGroupLayout* Layout() = 0;
 
     /// Update individual entries in a bindless bind group.
-    virtual void updateBindless(Span<const BindlessUpdateEntry> entries) = 0;
+    virtual void UpdateBindless(Span<const BindlessUpdateEntry> entries) = 0;
 };
 
 /// Describes the resource binding layout for a pipeline (bind group
@@ -125,8 +125,8 @@ class PipelineCache {
 public:
     virtual ~PipelineCache() = default;
 
-    [[nodiscard]] virtual u32 getDataSize() = 0;
-    virtual Status getData(Span<u8> outData) = 0;
+    [[nodiscard]] virtual u32 GetDataSize() = 0;
+    virtual Status GetData(Span<u8> outData) = 0;
 };
 
 /// Compiled graphics (rasterization) pipeline.
@@ -155,8 +155,8 @@ class AccelStruct {
 public:
     virtual ~AccelStruct() = default;
 
-    [[nodiscard]] virtual AccelStructType type()          const = 0;
-    [[nodiscard]] virtual u64             deviceAddress() const = 0;
+    [[nodiscard]] virtual AccelStructType Type()          const = 0;
+    [[nodiscard]] virtual u64             DeviceAddress() const = 0;
 };
 
 /// Compiled ray tracing pipeline.

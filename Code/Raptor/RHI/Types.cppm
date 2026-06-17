@@ -35,9 +35,9 @@ struct Origin3D {
 struct ClearColor {
     f32 r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
 
-    static constexpr ClearColor black()          { return { 0, 0, 0, 1 }; }
-    static constexpr ClearColor white()          { return { 1, 1, 1, 1 }; }
-    static constexpr ClearColor cornflowerBlue() { return { 0.392f, 0.584f, 0.929f, 1.0f }; }
+    static constexpr ClearColor Black()          { return { 0, 0, 0, 1 }; }
+    static constexpr ClearColor White()          { return { 1, 1, 1, 1 }; }
+    static constexpr ClearColor CornflowerBlue() { return { 0.392f, 0.584f, 0.929f, 1.0f }; }
 };
 
 // ---- Adapter / Device info ----

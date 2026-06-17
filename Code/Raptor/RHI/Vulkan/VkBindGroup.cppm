@@ -53,9 +53,9 @@ public:
         (void)device;
     }
 
-    BindGroupLayout* layout() override { return layout_; }
+    BindGroupLayout* Layout() override { return layout_; }
 
-    void updateBindless(Span<const BindlessUpdateEntry> entries) override {
+    void UpdateBindless(Span<const BindlessUpdateEntry> entries) override {
         if (entries.Size() == 0) return;
 
         Array<VkWriteDescriptorSet>    writes;
@@ -64,7 +64,7 @@ public:
         bufInfos.Reserve(entries.Size());
         imgInfos.Reserve(entries.Size());
 
-        auto layoutEntries = layout_->entries();
+        auto layoutEntries = layout_->Entries();
 
         for (usize i = 0; i < entries.Size(); ++i) {
             const auto& e = entries[i];
@@ -116,7 +116,7 @@ private:
     void writeDescriptors(VkDevice device, const BindGroupDesc& desc) {
         if (desc.entries.Size() == 0) return;
 
-        auto layoutEntries = layout_->entries();
+        auto layoutEntries = layout_->Entries();
 
         Array<VkWriteDescriptorSet>    writes;
         Array<VkDescriptorBufferInfo>  bufInfos;
@@ -163,7 +163,7 @@ private:
                     if (le.type == BindingType::SampledTexture) {
                         // Depth/stencil textures are always sampled in DEPTH_STENCIL_READ_ONLY layout.
                         auto* vkTex = vkView->texture;
-                        if (vkTex && isDepthFormat(vkTex->desc.format))
+                        if (vkTex && IsDepthFormat(vkTex->desc.format))
                             ii.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
                         else
                             ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

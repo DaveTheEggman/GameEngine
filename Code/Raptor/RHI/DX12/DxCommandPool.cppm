@@ -44,22 +44,22 @@ public:
     }
 
     // ---- CommandPool interface ----
-    Status createEncoder(CommandEncoder*& out) override;
-    void   destroyEncoder(CommandEncoder*& encoder) override;
+    Status CreateEncoder(CommandEncoder*& out) override;
+    void   DestroyEncoder(CommandEncoder*& encoder) override;
 
-    void reset() override {
+    void Reset() override {
         releaseCommandBuffers();
         // Reset descriptor staging -- GPU is done (fence waited), so staging
         // bump pointers can safely return to start.
-        srvStaging_.reset();
-        samplerStaging_.reset();
+        srvStaging_.Reset();
+        samplerStaging_.Reset();
         allocator_->Reset();
     }
 
     void cleanup() {
         releaseCommandBuffers();
-        srvStaging_.destroy();
-        samplerStaging_.destroy();
+        srvStaging_.Destroy();
+        samplerStaging_.Destroy();
         allocator_.Reset();
     }
 

@@ -65,12 +65,12 @@ raptor::core::Status MipmapSample::onInit() {
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->createBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->createBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ubd{}; ubd.size = 64; ubd.usage = dr::BufferUsage::Uniform; ubd.memory = dr::MemoryLocation::CpuToGpu;
-    if (device_->createBuffer(ubd, ub_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    ubMapped_ = ub_->map();
+    if (device_->CreateBuffer(ubd, ub_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    ubMapped_ = ub_->Map();
 
     // Checkerboard base texture 256x256 with 9 mip levels.
     constexpr u32 tw = 256, th = 256, mipCount = 9;
@@ -83,20 +83,20 @@ raptor::core::Status MipmapSample::onInit() {
     dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm; td.width = tw; td.height = th;
     td.mipLevelCount = mipCount;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopySrc | dr::TextureUsage::CopyDst | dr::TextureUsage::RenderTarget;
-    if (device_->createTexture(td, tex_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateTexture(td, tex_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Upload base mip + generate mips.
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->createTransferBatch(batch);
-    batch->writeBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
-    batch->writeBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
+    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
+    batch->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
+    batch->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
     dr::TextureDataLayout layout{}; layout.bytesPerRow = tw*4; layout.rowsPerImage = th;
-    batch->writeTexture(tex_, Span<const u8>(texPixels, sizeof(texPixels)), layout, dr::Extent3D{tw,th,1});
-    batch->submit(); graphicsQueue_->destroyTransferBatch(batch);
+    batch->WriteTexture(tex_, Span<const u8>(texPixels, sizeof(texPixels)), layout, dr::Extent3D{tw,th,1});
+    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
 
     // Generate mipmaps then transition to shader-read.
-    dr::CommandPool* tmpPool = nullptr; device_->createCommandPool(dr::QueueType::Graphics, tmpPool);
-    dr::CommandEncoder* enc = nullptr; tmpPool->createEncoder(enc);
-    enc->generateMipmaps(tex_);
+    dr::CommandPool* tmpPool = nullptr; device_->CreateCommandPool(dr::QueueType::Graphics, tmpPool);
+    dr::CommandEncoder* enc = nullptr; tmpPool->CreateEncoder(enc);
+    enc->GenerateMipmaps(tex_);
     // generateMipmaps leaves all mips in TRANSFER_SRC.
     // Transition all mips to SHADER_READ for sampling.
     dr::TextureBarrier tb{}; tb.texture = tex_;
@@ -104,43 +104,43 @@ raptor::core::Status MipmapSample::onInit() {
     tb.baseMipLevel = 0; tb.mipLevelCount = mipCount;
     tb.baseArrayLayer = 0; tb.arrayLayerCount = 1;
     dr::BarrierGroup bg{}; bg.textureBarriers = Span<const dr::TextureBarrier>(&tb, 1);
-    enc->barrier(bg);
-    dr::CommandBuffer* cb = enc->finish();
+    enc->Barrier(bg);
+    dr::CommandBuffer* cb = enc->Finish();
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->submit(Span<dr::CommandBuffer* const>(cbs, 1));
-    graphicsQueue_->waitIdle();
-    tmpPool->destroyEncoder(enc); device_->destroyCommandPool(tmpPool);
+    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1));
+    graphicsQueue_->WaitIdle();
+    tmpPool->DestroyEncoder(enc); device_->DestroyCommandPool(tmpPool);
 
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm; tvd.mipLevelCount = mipCount; tvd.arrayLayerCount = 1;
-    if (device_->createTextureView(tex_, tvd, texView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateTextureView(tex_, tvd, texView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
     sd.mipmapFilter = dr::MipmapFilterMode::Linear; sd.maxLod = static_cast<raptor::core::f32>(mipCount);
-    if (device_->createSampler(sd, sampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateSampler(sd, sampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Bind groups: set 0 = texture+sampler, set 1 = UBO.
-    dr::BindGroupLayoutEntry tE[2] = { dr::BindGroupLayoutEntry::sampledTexture(0, dr::ShaderStage::Fragment),
-                                        dr::BindGroupLayoutEntry::sampler(0, dr::ShaderStage::Fragment) };
+    dr::BindGroupLayoutEntry tE[2] = { dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Fragment),
+                                        dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment) };
     dr::BindGroupLayoutDesc tBgld{}; tBgld.entries = Span<const dr::BindGroupLayoutEntry>(tE, 2);
-    if (device_->createBindGroupLayout(tBgld, texBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::BindGroupEntry tBgE[2] = { dr::BindGroupEntry::textureEntry(texView_), dr::BindGroupEntry::samplerEntry(sampler_) };
+    if (device_->CreateBindGroupLayout(tBgld, texBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupEntry tBgE[2] = { dr::BindGroupEntry::TextureEntry(texView_), dr::BindGroupEntry::SamplerEntry(sampler_) };
     dr::BindGroupDesc tBgd{}; tBgd.layout = texBgl_; tBgd.entries = Span<const dr::BindGroupEntry>(tBgE, 2);
-    if (device_->createBindGroup(tBgd, texBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBindGroup(tBgd, texBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::BindGroupLayoutEntry uE[1] = { dr::BindGroupLayoutEntry::uniformBuffer(0, dr::ShaderStage::Vertex) };
+    dr::BindGroupLayoutEntry uE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex) };
     dr::BindGroupLayoutDesc uBgld{}; uBgld.entries = Span<const dr::BindGroupLayoutEntry>(uE, 1);
-    if (device_->createBindGroupLayout(uBgld, uboBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::BindGroupEntry uBgE[1] = { dr::BindGroupEntry::bufferEntry(ub_, 0, 64) };
+    if (device_->CreateBindGroupLayout(uBgld, uboBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupEntry uBgE[1] = { dr::BindGroupEntry::BufferEntry(ub_, 0, 64) };
     dr::BindGroupDesc uBgd{}; uBgd.layout = uboBgl_; uBgd.entries = Span<const dr::BindGroupEntry>(uBgE, 1);
-    if (device_->createBindGroup(uBgd, uboBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBindGroup(uBgd, uboBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BindGroupLayout* sets[2] = { texBgl_, uboBgl_ };
     dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 2);
-    if (device_->createPipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     depthBuf_.recreate(device_, width_, height_);
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x2, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 20; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = swapChain_->format();
+    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
     rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
@@ -148,57 +148,57 @@ raptor::core::Status MipmapSample::onInit() {
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
-    if (device_->createRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->createCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->createFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
 void MipmapSample::onRender() {
     using raptor::core::f32, raptor::core::Span;
-    if (fenceVal_ > 0) fence_->wait(fenceVal_, ~0ull);
-    if (swapChain_->acquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
+    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
     f32 aspect = static_cast<f32>(width_) / static_cast<f32>(height_);
     Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{0, 2, 2}, raptor::core::Vec3{ 0, 0, -5}, raptor::core::Vec3{0,1,0});
     Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(60.0f), aspect, 0.1f, 100.0f);
     Mat4 mvp = proj * view;
     std::memcpy(ubMapped_, mvp.Data(), 64);
 
-    pool_->reset();
+    pool_->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->createEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    enc->transitionTexture(depthBuf_.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
-    dr::ColorAttachment ca{}; ca.view = swapChain_->currentTextureView();
+    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(depthBuf_.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store; ca.clearValue = dr::ClearColor(0.1f,0.1f,0.15f,1);
     dr::DepthStencilAttachment dsa{}; dsa.view = depthBuf_.view;
     dsa.depthLoadOp = dr::LoadOp::Clear; dsa.depthStoreOp = dr::StoreOp::Store; dsa.depthClearValue = 1.0f;
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
-    auto* rp = enc->beginRenderPass(rpd);
-    rp->setPipeline(pipeline_); rp->setBindGroup(0, texBg_); rp->setBindGroup(1, uboBg_);
-    rp->setViewport(0,0,static_cast<f32>(width_),static_cast<f32>(height_),0,1);
-    rp->setScissor(0,0,width_,height_);
-    rp->setVertexBuffer(0, vb_, 0); rp->setIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
-    rp->drawIndexed(6); rp->end();
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* cb = enc->finish(); fenceVal_++;
+    auto* rp = enc->BeginRenderPass(rpd);
+    rp->SetPipeline(pipeline_); rp->SetBindGroup(0, texBg_); rp->SetBindGroup(1, uboBg_);
+    rp->SetViewport(0,0,static_cast<f32>(width_),static_cast<f32>(height_),0,1);
+    rp->SetScissor(0,0,width_,height_);
+    rp->SetVertexBuffer(0, vb_, 0); rp->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
+    rp->DrawIndexed(6); rp->End();
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->present(graphicsQueue_); pool_->destroyEncoder(enc);
+    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
+    swapChain_->Present(graphicsQueue_); pool_->DestroyEncoder(enc);
 }
 
 void MipmapSample::onShutdown() {
     depthBuf_.destroy(device_);
-    if (fence_) device_->destroyFence(fence_); if (pool_) device_->destroyCommandPool(pool_);
-    if (pipeline_) device_->destroyRenderPipeline(pipeline_); if (pl_) device_->destroyPipelineLayout(pl_);
-    if (uboBg_) device_->destroyBindGroup(uboBg_); if (uboBgl_) device_->destroyBindGroupLayout(uboBgl_);
-    if (texBg_) device_->destroyBindGroup(texBg_); if (texBgl_) device_->destroyBindGroupLayout(texBgl_);
-    if (sampler_) device_->destroySampler(sampler_); if (texView_) device_->destroyTextureView(texView_);
-    if (tex_) device_->destroyTexture(tex_); if (ub_) device_->destroyBuffer(ub_);
-    if (ib_) device_->destroyBuffer(ib_); if (vb_) device_->destroyBuffer(vb_);
-    if (ps_) device_->destroyShaderModule(ps_); if (vs_) device_->destroyShaderModule(vs_);
-    if (compiler_) { compiler_->destroy(); delete compiler_; }
+    if (fence_) device_->DestroyFence(fence_); if (pool_) device_->DestroyCommandPool(pool_);
+    if (pipeline_) device_->DestroyRenderPipeline(pipeline_); if (pl_) device_->DestroyPipelineLayout(pl_);
+    if (uboBg_) device_->DestroyBindGroup(uboBg_); if (uboBgl_) device_->DestroyBindGroupLayout(uboBgl_);
+    if (texBg_) device_->DestroyBindGroup(texBg_); if (texBgl_) device_->DestroyBindGroupLayout(texBgl_);
+    if (sampler_) device_->DestroySampler(sampler_); if (texView_) device_->DestroyTextureView(texView_);
+    if (tex_) device_->DestroyTexture(tex_); if (ub_) device_->DestroyBuffer(ub_);
+    if (ib_) device_->DestroyBuffer(ib_); if (vb_) device_->DestroyBuffer(vb_);
+    if (ps_) device_->DestroyShaderModule(ps_); if (vs_) device_->DestroyShaderModule(vs_);
+    if (compiler_) { compiler_->Destroy(); delete compiler_; }
 }
 
 int main(int argc, char** argv) { MipmapSample app; return app.run(argc, argv); }

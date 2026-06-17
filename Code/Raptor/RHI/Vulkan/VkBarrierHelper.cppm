@@ -56,7 +56,7 @@ inline VkImageLayout getImageLayout(ResourceState state, TextureFormat format = 
     if (has(ResourceState::ShaderRead)) {
         // Depth/stencil textures must use DEPTH_STENCIL_READ_ONLY when sampled,
         // not SHADER_READ_ONLY — the latter is only for color textures.
-        if (isDepthFormat(format))
+        if (IsDepthFormat(format))
             return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }

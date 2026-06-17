@@ -41,13 +41,13 @@ public:
     }
 
     // ---- Fence interface ----
-    u64 completedValue() override {
+    u64 CompletedValue() override {
         u64 value = 0;
         vkGetSemaphoreCounterValue(device_, semaphore_, &value);
         return value;
     }
 
-    bool wait(u64 value, u64 timeoutNs) override {
+    bool Wait(u64 value, u64 timeoutNs) override {
         VkSemaphoreWaitInfo wi{};
         wi.sType          = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
         wi.semaphoreCount = 1;

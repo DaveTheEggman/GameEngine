@@ -88,7 +88,7 @@ public:
         D3D12_GPU_DESCRIPTOR_HANDLE h{}; h.ptr = gpuStart_.ptr + static_cast<UINT64>(offset) * incrementSize_; return h;
     }
 
-    void destroy() { heap_.Reset(); freeBlocks_.Clear(); }
+    void Destroy() { heap_.Reset(); freeBlocks_.Clear(); }
 
     [[nodiscard]] ID3D12DescriptorHeap* heap()          const { return heap_.Get(); }
     [[nodiscard]] u32                   incrementSize()  const { return incrementSize_; }

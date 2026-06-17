@@ -16,13 +16,13 @@ using namespace raptor::core;
 
 namespace raptor::rhi::validation {
 
-ValidatedAdapter* ValidatedBackend::createValidatedAdapter(Adapter* inner) {
+ValidatedAdapter* ValidatedBackend::CreateValidatedAdapter(Adapter* inner) {
     return new ValidatedAdapter(inner);
 }
 
-Status ValidatedAdapter::createDevice(const DeviceDesc& desc, Device*& out) {
+Status ValidatedAdapter::CreateDevice(const DeviceDesc& desc, Device*& out) {
     Device* innerDevice = nullptr;
-    Status r = inner_->createDevice(desc, innerDevice);
+    Status r = inner_->CreateDevice(desc, innerDevice);
     if (r != ErrorCode::Ok || !innerDevice) { out = nullptr; return r; }
     out = new ValidatedDevice(innerDevice);
     return ErrorCode::Ok;

@@ -64,7 +64,7 @@ public:
     }
 
     /// Resets bump pointer. Called when command pool resets after fence wait.
-    void reset() {
+    void Reset() {
         current_ = 0;
         for (auto& b : retiredBlocks_)
             gpuHeap_->free(static_cast<u32>(b.offset), b.capacity);
@@ -72,7 +72,7 @@ public:
     }
 
     /// Frees all blocks.
-    void destroy() {
+    void Destroy() {
         if (blockOffset_ >= 0) {
             gpuHeap_->free(static_cast<u32>(blockOffset_), capacity_);
             blockOffset_ = -1;

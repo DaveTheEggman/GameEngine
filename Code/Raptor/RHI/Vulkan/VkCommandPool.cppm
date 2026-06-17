@@ -40,9 +40,9 @@ public:
     }
 
     // ---- CommandPool interface ----
-    Status createEncoder(CommandEncoder*& out) override;
-    void   destroyEncoder(CommandEncoder*& encoder) override;
-    void   reset() override;
+    Status CreateEncoder(CommandEncoder*& out) override;
+    void   DestroyEncoder(CommandEncoder*& encoder) override;
+    void   Reset() override;
 
     void cleanup() {
         for (auto* cb : trackedBuffers_) delete cb;

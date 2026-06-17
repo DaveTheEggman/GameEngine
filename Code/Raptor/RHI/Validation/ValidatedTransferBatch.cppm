@@ -18,48 +18,48 @@ class ValidatedTransferBatch : public TransferBatch {
 public:
     explicit ValidatedTransferBatch(TransferBatch* inner) : inner_(inner) {}
 
-    void writeBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
-        if (destroyed_) { logError("[Validation] TransferBatch::writeBuffer: batch already destroyed"); return; }
-        if (!dst) { logError("[Validation] TransferBatch::writeBuffer: dst is null"); return; }
-        if (data.Size() == 0) { logWarning("[Validation] TransferBatch::writeBuffer: data is empty"); return; }
+    void WriteBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
+        if (destroyed_) { LogError("[Validation] TransferBatch::writeBuffer: batch already destroyed"); return; }
+        if (!dst) { LogError("[Validation] TransferBatch::writeBuffer: dst is null"); return; }
+        if (data.Size() == 0) { LogWarning("[Validation] TransferBatch::writeBuffer: data is empty"); return; }
         pendingWrites_++;
-        inner_->writeBuffer(dst, dstOffset, data);
+        inner_->WriteBuffer(dst, dstOffset, data);
     }
 
-    void writeTexture(Texture* dst, Span<const u8> data, const TextureDataLayout& layout,
+    void WriteTexture(Texture* dst, Span<const u8> data, const TextureDataLayout& layout,
                       Extent3D extent, u32 mipLevel, u32 arrayLayer) override {
-        if (destroyed_) { logError("[Validation] TransferBatch::writeTexture: batch already destroyed"); return; }
-        if (!dst) { logError("[Validation] TransferBatch::writeTexture: dst is null"); return; }
-        if (data.Size() == 0) { logWarning("[Validation] TransferBatch::writeTexture: data is empty"); return; }
-        if (extent.width == 0 || extent.height == 0) { logError("[Validation] TransferBatch::writeTexture: extent is zero"); return; }
+        if (destroyed_) { LogError("[Validation] TransferBatch::writeTexture: batch already destroyed"); return; }
+        if (!dst) { LogError("[Validation] TransferBatch::writeTexture: dst is null"); return; }
+        if (data.Size() == 0) { LogWarning("[Validation] TransferBatch::writeTexture: data is empty"); return; }
+        if (extent.width == 0 || extent.height == 0) { LogError("[Validation] TransferBatch::writeTexture: extent is zero"); return; }
         pendingWrites_++;
-        inner_->writeTexture(dst, data, layout, extent, mipLevel, arrayLayer);
+        inner_->WriteTexture(dst, data, layout, extent, mipLevel, arrayLayer);
     }
 
-    Status submit() override {
-        if (destroyed_) { logError("[Validation] TransferBatch::submit: batch already destroyed"); return ErrorCode::Unknown; }
-        if (pendingWrites_ == 0) logWarning("[Validation] TransferBatch::submit: no pending writes");
+    Status Submit() override {
+        if (destroyed_) { LogError("[Validation] TransferBatch::submit: batch already destroyed"); return ErrorCode::Unknown; }
+        if (pendingWrites_ == 0) LogWarning("[Validation] TransferBatch::submit: no pending writes");
         pendingWrites_ = 0;
-        return inner_->submit();
+        return inner_->Submit();
     }
 
-    Status submitAsync(Fence* fence, u64 signalValue) override {
-        if (destroyed_) { logError("[Validation] TransferBatch::submitAsync: batch already destroyed"); return ErrorCode::Unknown; }
-        if (!fence) { logError("[Validation] TransferBatch::submitAsync: fence is null"); return ErrorCode::Unknown; }
-        if (pendingWrites_ == 0) logWarning("[Validation] TransferBatch::submitAsync: no pending writes");
+    Status SubmitAsync(Fence* fence, u64 signalValue) override {
+        if (destroyed_) { LogError("[Validation] TransferBatch::submitAsync: batch already destroyed"); return ErrorCode::Unknown; }
+        if (!fence) { LogError("[Validation] TransferBatch::submitAsync: fence is null"); return ErrorCode::Unknown; }
+        if (pendingWrites_ == 0) LogWarning("[Validation] TransferBatch::submitAsync: no pending writes");
         pendingWrites_ = 0;
         auto* vf = static_cast<ValidatedFence*>(fence);
         Fence* innerFence = vf ? vf->inner() : fence;
         if (vf) vf->trackSignal(signalValue);
-        return inner_->submitAsync(innerFence, signalValue);
+        return inner_->SubmitAsync(innerFence, signalValue);
     }
 
-    void reset() override { pendingWrites_ = 0; inner_->reset(); }
+    void Reset() override { pendingWrites_ = 0; inner_->Reset(); }
 
-    void destroy() override {
-        if (destroyed_) { logWarning("[Validation] TransferBatch::destroy: already destroyed"); return; }
+    void Destroy() override {
+        if (destroyed_) { LogWarning("[Validation] TransferBatch::destroy: already destroyed"); return; }
         destroyed_ = true;
-        inner_->destroy();
+        inner_->Destroy();
     }
 
     TransferBatch* inner() const { return inner_; }

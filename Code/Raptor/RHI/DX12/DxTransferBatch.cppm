@@ -34,7 +34,7 @@ public:
             toCommandListType(queueType),
             IID_PPV_ARGS(&allocator_));
         if (FAILED(hr)) {
-            logErrorf("DxTransferBatch: CreateCommandAllocator failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxTransferBatch: CreateCommandAllocator failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -43,7 +43,7 @@ public:
             allocator_.Get(), nullptr,
             IID_PPV_ARGS(&cmdList_));
         if (FAILED(hr)) {
-            logErrorf("DxTransferBatch: CreateCommandList failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxTransferBatch: CreateCommandList failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -53,7 +53,7 @@ public:
         // Create fence for synchronous submit.
         hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
         if (FAILED(hr)) {
-            logErrorf("DxTransferBatch: CreateFence failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxTransferBatch: CreateFence failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -65,7 +65,7 @@ public:
 
     // ---- TransferBatch interface ----
 
-    void writeBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
+    void WriteBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
         auto* dxDst = static_cast<DxBufferImpl*>(dst);
         if (!dxDst || data.Size() == 0) return;
 
@@ -108,7 +108,7 @@ public:
             stagingBuffers_.back().Get(), 0, stagingSize);
     }
 
-    void writeTexture(Texture* dst, Span<const u8> data,
+    void WriteTexture(Texture* dst, Span<const u8> data,
                       const TextureDataLayout& layout, Extent3D extent,
                       u32 mipLevel, u32 arrayLayer) override {
         auto* dxTex = static_cast<DxTextureImpl*>(dst);
@@ -197,7 +197,7 @@ public:
         dxTex->setState(D3D12_RESOURCE_STATE_COMMON);
     }
 
-    Status submit() override {
+    Status Submit() override {
         if (!isRecording_) return ErrorCode::Ok;
 
         cmdList_->Close();
@@ -218,7 +218,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status submitAsync(Fence* fence, u64 signalValue) override {
+    Status SubmitAsync(Fence* fence, u64 signalValue) override {
         if (!isRecording_) return ErrorCode::Ok;
 
         cmdList_->Close();
@@ -235,11 +235,11 @@ public:
         return ErrorCode::Ok;
     }
 
-    void reset() override {
+    void Reset() override {
         releaseStagingBuffers();
     }
 
-    void destroy() override {
+    void Destroy() override {
         releaseStagingBuffers();
 
         if (fenceEvent_) { CloseHandle(fenceEvent_); fenceEvent_ = nullptr; }

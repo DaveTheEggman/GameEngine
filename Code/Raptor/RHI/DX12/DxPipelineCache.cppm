@@ -30,12 +30,12 @@ public:
         return SUCCEEDED(hr) ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
-    u32 getDataSize() override {
+    u32 GetDataSize() override {
         if (!library_) return 0;
         return static_cast<u32>(library_->GetSerializedSize());
     }
 
-    Status getData(Span<u8> outData) override {
+    Status GetData(Span<u8> outData) override {
         if (!library_) return ErrorCode::Unknown;
         auto size = library_->GetSerializedSize();
         if (outData.Size() < size) return ErrorCode::Unknown;

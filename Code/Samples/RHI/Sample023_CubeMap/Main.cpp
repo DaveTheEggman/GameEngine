@@ -188,7 +188,7 @@ raptor::core::Status CubeMapSample::onInit() {
         sd.minFilter = dr::FilterMode::Linear;
         sd.magFilter = dr::FilterMode::Linear;
         sd.label = u"LinearSampler";
-        if (device_->createSampler(sd, linearSampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateSampler(sd, linearSampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
     {
         dr::SamplerDesc sd{};
@@ -196,32 +196,32 @@ raptor::core::Status CubeMapSample::onInit() {
         sd.magFilter = dr::FilterMode::Linear;
         sd.compare = dr::CompareFunction::LessEqual;
         sd.label = u"ComparisonSampler";
-        if (device_->createSampler(sd, comparisonSampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateSampler(sd, comparisonSampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Skybox bind group layout: cube texture + sampler
     {
         dr::BindGroupLayoutEntry entries[2] = {
-            dr::BindGroupLayoutEntry::sampledTexture(0, dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, dr::TextureViewDimension::TextureCube),
-            dr::BindGroupLayoutEntry::sampler(0, dr::ShaderStage::Fragment)
+            dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, dr::TextureViewDimension::TextureCube),
+            dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment)
         };
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
         bgld.label = u"SkyboxBGL";
-        if (device_->createBindGroupLayout(bgld, skyboxBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateBindGroupLayout(bgld, skyboxBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Skybox bind group
     {
         dr::BindGroupEntry entries[2] = {
-            dr::BindGroupEntry::textureEntry(cubeView_),
-            dr::BindGroupEntry::samplerEntry(linearSampler_)
+            dr::BindGroupEntry::TextureEntry(cubeView_),
+            dr::BindGroupEntry::SamplerEntry(linearSampler_)
         };
         dr::BindGroupDesc bgd{};
         bgd.layout = skyboxBgl_;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
         bgd.label = u"SkyboxBG";
-        if (device_->createBindGroup(bgd, skyboxBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateBindGroup(bgd, skyboxBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Skybox pipeline layout
@@ -236,13 +236,13 @@ raptor::core::Status CubeMapSample::onInit() {
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
         pld.label = u"SkyboxPL";
-        if (device_->createPipelineLayout(pld, skyboxPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreatePipelineLayout(pld, skyboxPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Skybox pipeline (fullscreen triangle, no vertex input)
     {
         dr::ColorTargetState ct{};
-        ct.format = swapChain_->format();
+        ct.format = swapChain_->Format();
         dr::RenderPipelineDesc rpd{};
         rpd.layout = skyboxPl_;
         rpd.vertex.shader = { skyboxVs_, u"VSMain", dr::ShaderStage::Vertex };
@@ -251,7 +251,7 @@ raptor::core::Status CubeMapSample::onInit() {
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
         rpd.label = u"SkyboxPipeline";
-        if (device_->createRenderPipeline(rpd, skyboxPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateRenderPipeline(rpd, skyboxPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Shadow test quad vertices (bottom-right corner overlay)
@@ -272,19 +272,19 @@ raptor::core::Status CubeMapSample::onInit() {
         bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
         bd.memory = dr::MemoryLocation::GpuOnly;
         bd.label = u"ShadowQuadVB";
-        if (device_->createBuffer(bd, quadVb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateBuffer(bd, quadVb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         dr::TransferBatch* batch = nullptr;
-        graphicsQueue_->createTransferBatch(batch);
-        batch->writeBuffer(quadVb_, 0, Span<const u8>(reinterpret_cast<const u8*>(quadVerts), vbSize));
-        batch->submit();
-        graphicsQueue_->destroyTransferBatch(batch);
+        graphicsQueue_->CreateTransferBatch(batch);
+        batch->WriteBuffer(quadVb_, 0, Span<const u8>(reinterpret_cast<const u8*>(quadVerts), vbSize));
+        batch->Submit();
+        graphicsQueue_->DestroyTransferBatch(batch);
     }
 
     // Shadow bind group layout: depth texture + comparison sampler
     {
         dr::BindGroupLayoutEntry entries[2];
-        entries[0] = dr::BindGroupLayoutEntry::sampledTexture(0, dr::ShaderStage::Fragment, dr::TextureViewDimension::Texture2D);
+        entries[0] = dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Fragment, dr::TextureViewDimension::Texture2D);
         entries[1] = {};
         entries[1].binding = 0;
         entries[1].visibility = dr::ShaderStage::Fragment;
@@ -292,20 +292,20 @@ raptor::core::Status CubeMapSample::onInit() {
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
         bgld.label = u"ShadowBGL";
-        if (device_->createBindGroupLayout(bgld, shadowBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateBindGroupLayout(bgld, shadowBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Shadow bind group
     {
         dr::BindGroupEntry entries[2] = {
-            dr::BindGroupEntry::textureEntry(depthView_),
-            dr::BindGroupEntry::samplerEntry(comparisonSampler_)
+            dr::BindGroupEntry::TextureEntry(depthView_),
+            dr::BindGroupEntry::SamplerEntry(comparisonSampler_)
         };
         dr::BindGroupDesc bgd{};
         bgd.layout = shadowBgl_;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
         bgd.label = u"ShadowBG";
-        if (device_->createBindGroup(bgd, shadowBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateBindGroup(bgd, shadowBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Shadow pipeline layout
@@ -320,7 +320,7 @@ raptor::core::Status CubeMapSample::onInit() {
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
         pld.label = u"ShadowPL";
-        if (device_->createPipelineLayout(pld, shadowPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreatePipelineLayout(pld, shadowPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Shadow pipeline
@@ -334,7 +334,7 @@ raptor::core::Status CubeMapSample::onInit() {
         vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
 
         dr::ColorTargetState ct{};
-        ct.format = swapChain_->format();
+        ct.format = swapChain_->Format();
 
         dr::RenderPipelineDesc rpd{};
         rpd.layout = shadowPl_;
@@ -345,11 +345,11 @@ raptor::core::Status CubeMapSample::onInit() {
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
         rpd.label = u"ShadowPipeline";
-        if (device_->createRenderPipeline(rpd, shadowPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (device_->CreateRenderPipeline(rpd, shadowPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
-    if (device_->createCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->createFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
@@ -357,8 +357,8 @@ raptor::core::Status CubeMapSample::createCubeMap() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
     constexpr u32 faceSize = 64;
-    constexpr u32 bytesPerPixel = 4;
-    constexpr u32 faceBytes = faceSize * faceSize * bytesPerPixel;
+    constexpr u32 BytesPerPixel = 4;
+    constexpr u32 faceBytes = faceSize * faceSize * BytesPerPixel;
 
     // Create cube map texture: 2D with 6 array layers
     dr::TextureDesc td{};
@@ -371,7 +371,7 @@ raptor::core::Status CubeMapSample::createCubeMap() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
     td.label = u"CubeMapTex";
-    if (device_->createTexture(td, cubeTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateTexture(td, cubeTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create cube view
     dr::TextureViewDesc tvd{};
@@ -381,7 +381,7 @@ raptor::core::Status CubeMapSample::createCubeMap() {
     tvd.mipLevelCount = 1;
     tvd.baseArrayLayer = 0;
     tvd.arrayLayerCount = 6;
-    if (device_->createTextureView(cubeTexture_, tvd, cubeView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateTextureView(cubeTexture_, tvd, cubeView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Generate 6 face colors: +X red, -X cyan, +Y green, -Y magenta, +Z blue, -Z yellow
     u8 faceColors[6][4] = {
@@ -395,7 +395,7 @@ raptor::core::Status CubeMapSample::createCubeMap() {
 
     u8 stagingBuf[faceBytes];
     dr::TransferBatch* batch = nullptr;
-    graphicsQueue_->createTransferBatch(batch);
+    graphicsQueue_->CreateTransferBatch(batch);
 
     for (int face = 0; face < 6; face++) {
         // Fill face with gradient from face color to white at center
@@ -406,7 +406,7 @@ raptor::core::Status CubeMapSample::createCubeMap() {
                 float dist = std::min(1.0f, std::sqrt(fx * fx + fy * fy));
                 float t = 1.0f - dist * 0.5f;
 
-                u32 idx = (y * faceSize + x) * bytesPerPixel;
+                u32 idx = (y * faceSize + x) * BytesPerPixel;
                 stagingBuf[idx + 0] = static_cast<u8>(faceColors[face][0] * t + 40 * (1.0f - t));
                 stagingBuf[idx + 1] = static_cast<u8>(faceColors[face][1] * t + 40 * (1.0f - t));
                 stagingBuf[idx + 2] = static_cast<u8>(faceColors[face][2] * t + 40 * (1.0f - t));
@@ -415,16 +415,16 @@ raptor::core::Status CubeMapSample::createCubeMap() {
         }
 
         dr::TextureDataLayout layout{};
-        layout.bytesPerRow = faceSize * bytesPerPixel;
+        layout.bytesPerRow = faceSize * BytesPerPixel;
         layout.rowsPerImage = faceSize;
-        batch->writeTexture(cubeTexture_,
+        batch->WriteTexture(cubeTexture_,
             Span<const u8>(stagingBuf, faceBytes),
             layout, dr::Extent3D{faceSize, faceSize, 1},
             0, static_cast<u32>(face));
     }
 
-    batch->submit();
-    graphicsQueue_->destroyTransferBatch(batch);
+    batch->Submit();
+    graphicsQueue_->DestroyTransferBatch(batch);
     return raptor::core::ErrorCode::Ok;
 }
 
@@ -443,12 +443,12 @@ raptor::core::Status CubeMapSample::createDepthTexture() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::DepthStencil | dr::TextureUsage::Sampled;
     td.label = u"ShadowDepthTex";
-    if (device_->createTexture(td, depthTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateTexture(td, depthTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};
     tvd.format = dr::TextureFormat::Depth32Float;
     tvd.dimension = dr::TextureViewDimension::Texture2D;
-    if (device_->createTextureView(depthTexture_, tvd, depthView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateTextureView(depthTexture_, tvd, depthView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // We'll render a gradient depth in a render pass
     // For simplicity, just clear to 0.5 so the comparison sampler has something to compare against
@@ -460,17 +460,17 @@ raptor::core::Status CubeMapSample::createDepthTexture() {
 void CubeMapSample::onRender() {
     using raptor::core::f32, raptor::core::u32, raptor::core::Span;
 
-    if (fenceVal_ > 0) fence_->wait(fenceVal_, ~0ull);
-    if (swapChain_->acquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
+    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
-    pool_->reset();
+    pool_->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->createEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
     f32 aspect = static_cast<f32>(width_) / static_cast<f32>(height_);
 
     // Render a depth value into the shadow depth texture
-    enc->transitionTexture(depthTexture_, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(depthTexture_, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
     {
         dr::DepthStencilAttachment dsa{};
         dsa.view = depthView_;
@@ -479,82 +479,82 @@ void CubeMapSample::onRender() {
         dsa.depthClearValue = 0.5f;
         dr::RenderPassDesc rpd{};
         rpd.depthStencilAttachment = dsa;
-        auto* rp = enc->beginRenderPass(rpd);
-        rp->end();
+        auto* rp = enc->BeginRenderPass(rpd);
+        rp->End();
     }
 
     // Transition depth texture from DepthStencilWrite -> ShaderRead for sampling
-    enc->transitionTexture(depthTexture_, dr::ResourceState::DepthStencilWrite, dr::ResourceState::ShaderRead);
+    enc->TransitionTexture(depthTexture_, dr::ResourceState::DepthStencilWrite, dr::ResourceState::ShaderRead);
 
     // Transition swapchain
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
     dr::ColorAttachment ca{};
-    ca.view = swapChain_->currentTextureView();
+    ca.view = swapChain_->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear;
     ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
     dr::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
-    auto* rp = enc->beginRenderPass(rpd);
+    auto* rp = enc->BeginRenderPass(rpd);
 
-    rp->setViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
-    rp->setScissor(0, 0, width_, height_);
+    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
+    rp->SetScissor(0, 0, width_, height_);
 
     // Draw skybox (fullscreen triangle, no VB needed - SV_VertexID)
-    rp->setPipeline(skyboxPipeline_);
-    rp->setBindGroup(0, skyboxBg_);
+    rp->SetPipeline(skyboxPipeline_);
+    rp->SetBindGroup(0, skyboxBg_);
     PushData pc{};
     pc.time = totalTime_;
     pc.aspectRatio = aspect;
-    rp->setPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
-    rp->draw(3);
+    rp->SetPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
+    rp->Draw(3);
 
     // Draw shadow comparison overlay quad
-    rp->setPipeline(shadowPipeline_);
-    rp->setBindGroup(0, shadowBg_);
-    rp->setPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
-    rp->setVertexBuffer(0, quadVb_, 0);
-    rp->draw(6);
+    rp->SetPipeline(shadowPipeline_);
+    rp->SetBindGroup(0, shadowBg_);
+    rp->SetPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
+    rp->SetVertexBuffer(0, quadVb_, 0);
+    rp->Draw(6);
 
-    rp->end();
+    rp->End();
 
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
     // Transition depth texture back to DepthStencilWrite for next frame
-    enc->transitionTexture(depthTexture_, dr::ResourceState::ShaderRead, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(depthTexture_, dr::ResourceState::ShaderRead, dr::ResourceState::DepthStencilWrite);
 
-    dr::CommandBuffer* cb = enc->finish();
+    dr::CommandBuffer* cb = enc->Finish();
     fenceVal_++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->present(graphicsQueue_);
-    pool_->destroyEncoder(enc);
+    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
+    swapChain_->Present(graphicsQueue_);
+    pool_->DestroyEncoder(enc);
 }
 
 void CubeMapSample::onShutdown() {
-    if (fence_) device_->destroyFence(fence_);
-    if (pool_) device_->destroyCommandPool(pool_);
-    if (shadowPipeline_) device_->destroyRenderPipeline(shadowPipeline_);
-    if (skyboxPipeline_) device_->destroyRenderPipeline(skyboxPipeline_);
-    if (shadowPl_) device_->destroyPipelineLayout(shadowPl_);
-    if (skyboxPl_) device_->destroyPipelineLayout(skyboxPl_);
-    if (shadowBg_) device_->destroyBindGroup(shadowBg_);
-    if (skyboxBg_) device_->destroyBindGroup(skyboxBg_);
-    if (shadowBgl_) device_->destroyBindGroupLayout(shadowBgl_);
-    if (skyboxBgl_) device_->destroyBindGroupLayout(skyboxBgl_);
-    if (comparisonSampler_) device_->destroySampler(comparisonSampler_);
-    if (linearSampler_) device_->destroySampler(linearSampler_);
-    if (quadVb_) device_->destroyBuffer(quadVb_);
-    if (depthView_) device_->destroyTextureView(depthView_);
-    if (depthTexture_) device_->destroyTexture(depthTexture_);
-    if (cubeView_) device_->destroyTextureView(cubeView_);
-    if (cubeTexture_) device_->destroyTexture(cubeTexture_);
-    if (shadowPs_) device_->destroyShaderModule(shadowPs_);
-    if (shadowVs_) device_->destroyShaderModule(shadowVs_);
-    if (skyboxPs_) device_->destroyShaderModule(skyboxPs_);
-    if (skyboxVs_) device_->destroyShaderModule(skyboxVs_);
-    if (compiler_) { compiler_->destroy(); delete compiler_; }
+    if (fence_) device_->DestroyFence(fence_);
+    if (pool_) device_->DestroyCommandPool(pool_);
+    if (shadowPipeline_) device_->DestroyRenderPipeline(shadowPipeline_);
+    if (skyboxPipeline_) device_->DestroyRenderPipeline(skyboxPipeline_);
+    if (shadowPl_) device_->DestroyPipelineLayout(shadowPl_);
+    if (skyboxPl_) device_->DestroyPipelineLayout(skyboxPl_);
+    if (shadowBg_) device_->DestroyBindGroup(shadowBg_);
+    if (skyboxBg_) device_->DestroyBindGroup(skyboxBg_);
+    if (shadowBgl_) device_->DestroyBindGroupLayout(shadowBgl_);
+    if (skyboxBgl_) device_->DestroyBindGroupLayout(skyboxBgl_);
+    if (comparisonSampler_) device_->DestroySampler(comparisonSampler_);
+    if (linearSampler_) device_->DestroySampler(linearSampler_);
+    if (quadVb_) device_->DestroyBuffer(quadVb_);
+    if (depthView_) device_->DestroyTextureView(depthView_);
+    if (depthTexture_) device_->DestroyTexture(depthTexture_);
+    if (cubeView_) device_->DestroyTextureView(cubeView_);
+    if (cubeTexture_) device_->DestroyTexture(cubeTexture_);
+    if (shadowPs_) device_->DestroyShaderModule(shadowPs_);
+    if (shadowVs_) device_->DestroyShaderModule(shadowVs_);
+    if (skyboxPs_) device_->DestroyShaderModule(skyboxPs_);
+    if (skyboxVs_) device_->DestroyShaderModule(skyboxVs_);
+    if (compiler_) { compiler_->Destroy(); delete compiler_; }
 }
 
 int main(int argc, char** argv) { CubeMapSample app; return app.run(argc, argv); }

@@ -29,7 +29,7 @@ public:
 
     // ---- Queue interface ----
 
-    void submit(Span<CommandBuffer* const> cmdBufs) override {
+    void Submit(Span<CommandBuffer* const> cmdBufs) override {
         if (cmdBufs.Size() == 0) return;
         Array<VkCommandBuffer> bufs(cmdBufs.Size());
         for (usize i = 0; i < cmdBufs.Size(); ++i)
@@ -41,24 +41,24 @@ public:
         vkQueueSubmit(queue_, 1, &si, VK_NULL_HANDLE);
     }
 
-    void submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override;
+    void Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override;
 
-    void submit(Span<CommandBuffer* const> cmdBufs,
+    void Submit(Span<CommandBuffer* const> cmdBufs,
                 Span<Fence* const> waitFences, Span<const u64> waitValues,
                 Fence* signalFence, u64 signalValue) override;
 
 
-    void waitIdle() override { vkQueueWaitIdle(queue_); }
+    void WaitIdle() override { vkQueueWaitIdle(queue_); }
 
-    Status createTransferBatch(TransferBatch*& out) override {
+    Status CreateTransferBatch(TransferBatch*& out) override {
         out = new VkTransferBatchImpl(vkDevice_, queue_, familyIndex_, physDevice_);
         return ErrorCode::Ok;
     }
-    void destroyTransferBatch(TransferBatch*& batch) override {
-        if (batch) { static_cast<VkTransferBatchImpl*>(batch)->destroy(); delete batch; batch = nullptr; }
+    void DestroyTransferBatch(TransferBatch*& batch) override {
+        if (batch) { static_cast<VkTransferBatchImpl*>(batch)->Destroy(); delete batch; batch = nullptr; }
     }
 
-    f32 timestampPeriod() const override { return tsPeriod_; }
+    f32 TimestampPeriod() const override { return tsPeriod_; }
 
     // ---- Internal ----
     [[nodiscard]] VkQueue handle()      const { return queue_; }

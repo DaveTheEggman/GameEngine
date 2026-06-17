@@ -35,7 +35,7 @@ struct TextureDesc {
     StringView   label;
 
     /// Convenience factory for a 2D render target.
-    static TextureDesc renderTarget(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, StringView lbl = {}) {
+    static TextureDesc RenderTarget(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, StringView lbl = {}) {
         TextureDesc d{};
         d.format = fmt; d.width = w; d.height = h; d.sampleCount = samples;
         d.usage = TextureUsage::RenderTarget | TextureUsage::Sampled;
@@ -44,7 +44,7 @@ struct TextureDesc {
     }
 
     /// Convenience factory for a depth buffer.
-    static TextureDesc depthBuffer(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, StringView lbl = {}) {
+    static TextureDesc DepthBuffer(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, StringView lbl = {}) {
         TextureDesc d{};
         d.format = fmt; d.width = w; d.height = h; d.sampleCount = samples;
         d.usage = TextureUsage::DepthStencil;
@@ -116,26 +116,26 @@ struct BindGroupLayoutEntry {
     StringView   label;
 
     /// Factory: uniform buffer binding.
-    static BindGroupLayoutEntry uniformBuffer(u32 binding, ShaderStage vis) {
+    static BindGroupLayoutEntry UniformBuffer(u32 binding, ShaderStage vis) {
         BindGroupLayoutEntry e{}; e.binding = binding; e.visibility = vis;
         e.type = BindingType::UniformBuffer; return e;
     }
 
     /// Factory: sampled texture binding.
-    static BindGroupLayoutEntry sampledTexture(u32 binding, ShaderStage vis,
+    static BindGroupLayoutEntry SampledTexture(u32 binding, ShaderStage vis,
                                                TextureViewDimension dim = TextureViewDimension::Texture2D) {
         BindGroupLayoutEntry e{}; e.binding = binding; e.visibility = vis;
         e.type = BindingType::SampledTexture; e.textureDimension = dim; return e;
     }
 
     /// Factory: sampler binding.
-    static BindGroupLayoutEntry sampler(u32 binding, ShaderStage vis) {
+    static BindGroupLayoutEntry Sampler(u32 binding, ShaderStage vis) {
         BindGroupLayoutEntry e{}; e.binding = binding; e.visibility = vis;
         e.type = BindingType::Sampler; return e;
     }
 
     /// Factory: storage buffer (read-write) binding.
-    static BindGroupLayoutEntry storageBuffer(u32 binding, ShaderStage vis, bool readOnly = false) {
+    static BindGroupLayoutEntry StorageBuffer(u32 binding, ShaderStage vis, bool readOnly = false) {
         BindGroupLayoutEntry e{}; e.binding = binding; e.visibility = vis;
         e.type = readOnly ? BindingType::StorageBufferReadOnly : BindingType::StorageBufferReadWrite;
         return e;
@@ -156,16 +156,16 @@ struct BindGroupEntry {
     Sampler*     sampler      = nullptr;
     AccelStruct* accelStruct  = nullptr;
 
-    static BindGroupEntry bufferEntry(Buffer* buf, u64 offset, u64 size) {
+    static BindGroupEntry BufferEntry(Buffer* buf, u64 offset, u64 size) {
         BindGroupEntry e{}; e.buffer = buf; e.bufferOffset = offset; e.bufferSize = size; return e;
     }
-    static BindGroupEntry textureEntry(TextureView* view) {
+    static BindGroupEntry TextureEntry(TextureView* view) {
         BindGroupEntry e{}; e.textureView = view; return e;
     }
-    static BindGroupEntry samplerEntry(Sampler* s) {
+    static BindGroupEntry SamplerEntry(Sampler* s) {
         BindGroupEntry e{}; e.sampler = s; return e;
     }
-    static BindGroupEntry accelStructEntry(AccelStruct* as) {
+    static BindGroupEntry AccelStructEntry(AccelStruct* as) {
         BindGroupEntry e{}; e.accelStruct = as; return e;
     }
 };
@@ -222,7 +222,7 @@ struct BlendState {
     BlendComponent color;
     BlendComponent alpha;
 
-    static constexpr BlendState alphaBlend() {
+    static constexpr BlendState AlphaBlend() {
         return { { BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha, BlendOperation::Add },
                  { BlendFactor::One,      BlendFactor::OneMinusSrcAlpha, BlendOperation::Add } };
     }
@@ -315,7 +315,7 @@ struct ColorAttachment {
     TextureView* resolveTarget = nullptr;
     LoadOp       loadOp        = LoadOp::Clear;
     StoreOp      storeOp       = StoreOp::Store;
-    ClearColor   clearValue    = ClearColor::black();
+    ClearColor   clearValue    = ClearColor::Black();
 };
 
 /// Depth/stencil attachment for a render pass.

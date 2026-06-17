@@ -17,8 +17,8 @@ export namespace raptor::rhi::null {
 
 class NullBuffer : public Buffer {
 public:
-    void* map()   override { return mapped_; }
-    void  unmap() override {}
+    void* Map()   override { return mapped_; }
+    void  Unmap() override {}
     void  allocate(u64 size) { data_.Resize(static_cast<usize>(size)); mapped_ = data_.Data(); }
 private:
     Array<u8> data_;
@@ -34,8 +34,8 @@ class NullCommandBuffer : public CommandBuffer {};
 
 class NullFence : public Fence {
 public:
-    u64  completedValue() override { return value_; }
-    bool wait(u64 value, u64) override { value_ = value; return true; }
+    u64  CompletedValue() override { return value_; }
+    bool Wait(u64 value, u64) override { value_ = value; return true; }
     void signal(u64 v) { value_ = v; }
 private:
     u64 value_ = 0;
@@ -45,21 +45,21 @@ class NullQuerySet : public QuerySet {};
 
 class NullBindGroupLayout : public BindGroupLayout {
 public:
-    Span<const BindGroupLayoutEntry> entries() const override { return {}; }
+    Span<const BindGroupLayoutEntry> Entries() const override { return {}; }
 };
 
 class NullBindGroup : public BindGroup {
 public:
-    BindGroupLayout* layout() override { return nullptr; }
-    void updateBindless(Span<const BindlessUpdateEntry>) override {}
+    BindGroupLayout* Layout() override { return nullptr; }
+    void UpdateBindless(Span<const BindlessUpdateEntry>) override {}
 };
 
 class NullPipelineLayout : public PipelineLayout {};
 
 class NullPipelineCache : public PipelineCache {
 public:
-    u32    getDataSize() override { return 0; }
-    Status getData(Span<u8>) override { return ErrorCode::Ok; }
+    u32    GetDataSize() override { return 0; }
+    Status GetData(Span<u8>) override { return ErrorCode::Ok; }
 };
 
 class NullRenderPipeline : public RenderPipeline {};
@@ -68,8 +68,8 @@ class NullMeshPipeline : public MeshPipeline {};
 
 class NullAccelStruct : public AccelStruct {
 public:
-    AccelStructType type()          const override { return AccelStructType::BottomLevel; }
-    u64             deviceAddress() const override { return 0; }
+    AccelStructType Type()          const override { return AccelStructType::BottomLevel; }
+    u64             DeviceAddress() const override { return 0; }
 };
 
 class NullRayTracingPipeline : public RayTracingPipeline {};
@@ -78,92 +78,92 @@ class NullRayTracingPipeline : public RayTracingPipeline {};
 
 class NullRenderPassEncoder : public RenderPassEncoder, public MeshShaderPassExt {
 public:
-    MeshShaderPassExt* asMeshShaderExt() noexcept override { return this; }
-    void setPipeline(RenderPipeline*) override {}
-    void setBindGroup(u32, BindGroup*, Span<const u32>) override {}
-    void setPushConstants(ShaderStage, u32, u32, const void*) override {}
-    void setVertexBuffer(u32, Buffer*, u64) override {}
-    void setIndexBuffer(Buffer*, IndexFormat, u64) override {}
-    void setViewport(f32, f32, f32, f32, f32, f32) override {}
-    void setScissor(i32, i32, u32, u32) override {}
-    void setBlendConstant(f32, f32, f32, f32) override {}
-    void setStencilReference(u32) override {}
-    void draw(u32, u32, u32, u32) override {}
-    void drawIndexed(u32, u32, u32, i32, u32) override {}
-    void drawIndirect(Buffer*, u64, u32, u32) override {}
-    void drawIndexedIndirect(Buffer*, u64, u32, u32) override {}
-    void writeTimestamp(QuerySet*, u32) override {}
-    void beginOcclusionQuery(QuerySet*, u32) override {}
-    void endOcclusionQuery(QuerySet*, u32) override {}
-    void end() override {}
-    void setMeshPipeline(MeshPipeline*) override {}
-    void drawMeshTasks(u32, u32, u32) override {}
-    void drawMeshTasksIndirect(Buffer*, u64, u32, u32) override {}
-    void drawMeshTasksIndirectCount(Buffer*, u64, Buffer*, u64, u32, u32) override {}
+    MeshShaderPassExt* AsMeshShaderExt() noexcept override { return this; }
+    void SetPipeline(RenderPipeline*) override {}
+    void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+    void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
+    void SetVertexBuffer(u32, Buffer*, u64) override {}
+    void SetIndexBuffer(Buffer*, IndexFormat, u64) override {}
+    void SetViewport(f32, f32, f32, f32, f32, f32) override {}
+    void SetScissor(i32, i32, u32, u32) override {}
+    void SetBlendConstant(f32, f32, f32, f32) override {}
+    void SetStencilReference(u32) override {}
+    void Draw(u32, u32, u32, u32) override {}
+    void DrawIndexed(u32, u32, u32, i32, u32) override {}
+    void DrawIndirect(Buffer*, u64, u32, u32) override {}
+    void DrawIndexedIndirect(Buffer*, u64, u32, u32) override {}
+    void WriteTimestamp(QuerySet*, u32) override {}
+    void BeginOcclusionQuery(QuerySet*, u32) override {}
+    void EndOcclusionQuery(QuerySet*, u32) override {}
+    void End() override {}
+    void SetMeshPipeline(MeshPipeline*) override {}
+    void DrawMeshTasks(u32, u32, u32) override {}
+    void DrawMeshTasksIndirect(Buffer*, u64, u32, u32) override {}
+    void DrawMeshTasksIndirectCount(Buffer*, u64, Buffer*, u64, u32, u32) override {}
 };
 
 class NullComputePassEncoder : public ComputePassEncoder {
 public:
-    void setPipeline(ComputePipeline*) override {}
-    void setBindGroup(u32, BindGroup*, Span<const u32>) override {}
-    void setPushConstants(ShaderStage, u32, u32, const void*) override {}
-    void dispatch(u32, u32, u32) override {}
-    void dispatchIndirect(Buffer*, u64) override {}
-    void computeBarrier() override {}
-    void writeTimestamp(QuerySet*, u32) override {}
-    void end() override {}
+    void SetPipeline(ComputePipeline*) override {}
+    void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+    void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
+    void Dispatch(u32, u32, u32) override {}
+    void DispatchIndirect(Buffer*, u64) override {}
+    void ComputeBarrier() override {}
+    void WriteTimestamp(QuerySet*, u32) override {}
+    void End() override {}
 };
 
 class NullCommandEncoder : public CommandEncoder, public RayTracingEncoderExt {
 public:
-    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
+    RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     NullRenderPassEncoder rpe;
     NullComputePassEncoder cpe;
     NullCommandBuffer cb;
 
-    RenderPassEncoder*  beginRenderPass(const RenderPassDesc&) override { return &rpe; }
-    ComputePassEncoder* beginComputePass(StringView) override { return &cpe; }
-    void barrier(const BarrierGroup&) override {}
-    void copyBufferToBuffer(Buffer*, u64, Buffer*, u64, u64) override {}
-    void copyBufferToTexture(Buffer*, Texture*, const BufferTextureCopyRegion&) override {}
-    void copyTextureToBuffer(Texture*, Buffer*, const BufferTextureCopyRegion&) override {}
-    void copyTextureToTexture(Texture*, Texture*, const TextureCopyRegion&) override {}
-    void blit(Texture*, Texture*) override {}
-    void generateMipmaps(Texture*) override {}
-    void resolveTexture(Texture*, Texture*) override {}
-    void resetQuerySet(QuerySet*, u32, u32) override {}
-    void writeTimestamp(QuerySet*, u32) override {}
-    void resolveQuerySet(QuerySet*, u32, u32, Buffer*, u64) override {}
-    void beginDebugLabel(StringView, f32, f32, f32, f32) override {}
-    void endDebugLabel() override {}
-    void insertDebugLabel(StringView, f32, f32, f32, f32) override {}
-    CommandBuffer* finish() override { return &cb; }
+    RenderPassEncoder*  BeginRenderPass(const RenderPassDesc&) override { return &rpe; }
+    ComputePassEncoder* BeginComputePass(StringView) override { return &cpe; }
+    void Barrier(const BarrierGroup&) override {}
+    void CopyBufferToBuffer(Buffer*, u64, Buffer*, u64, u64) override {}
+    void CopyBufferToTexture(Buffer*, Texture*, const BufferTextureCopyRegion&) override {}
+    void CopyTextureToBuffer(Texture*, Buffer*, const BufferTextureCopyRegion&) override {}
+    void CopyTextureToTexture(Texture*, Texture*, const TextureCopyRegion&) override {}
+    void Blit(Texture*, Texture*) override {}
+    void GenerateMipmaps(Texture*) override {}
+    void ResolveTexture(Texture*, Texture*) override {}
+    void ResetQuerySet(QuerySet*, u32, u32) override {}
+    void WriteTimestamp(QuerySet*, u32) override {}
+    void ResolveQuerySet(QuerySet*, u32, u32, Buffer*, u64) override {}
+    void BeginDebugLabel(StringView, f32, f32, f32, f32) override {}
+    void EndDebugLabel() override {}
+    void InsertDebugLabel(StringView, f32, f32, f32, f32) override {}
+    CommandBuffer* Finish() override { return &cb; }
 
     // RayTracingEncoderExt
-    void buildBottomLevelAccelStruct(AccelStruct*, Buffer*, u64, Span<const AccelStructGeometryTriangles>, Span<const AccelStructGeometryAABBs>) override {}
-    void buildTopLevelAccelStruct(AccelStruct*, Buffer*, u64, Buffer*, u64, u32) override {}
-    void setRayTracingPipeline(RayTracingPipeline*) override {}
-    void setBindGroup(u32, BindGroup*, Span<const u32>) override {}
-    void setPushConstants(ShaderStage, u32, u32, const void*) override {}
-    void traceRays(Buffer*, u64, u64, Buffer*, u64, u64, Buffer*, u64, u64, u32, u32, u32) override {}
+    void BuildBottomLevelAccelStruct(AccelStruct*, Buffer*, u64, Span<const AccelStructGeometryTriangles>, Span<const AccelStructGeometryAABBs>) override {}
+    void BuildTopLevelAccelStruct(AccelStruct*, Buffer*, u64, Buffer*, u64, u32) override {}
+    void SetRayTracingPipeline(RayTracingPipeline*) override {}
+    void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+    void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
+    void TraceRays(Buffer*, u64, u64, Buffer*, u64, u64, Buffer*, u64, u64, u32, u32, u32) override {}
 };
 
 class NullCommandPool : public CommandPool {
 public:
     NullCommandEncoder enc;
-    Status createEncoder(CommandEncoder*& out) override { out = &enc; return ErrorCode::Ok; }
-    void   destroyEncoder(CommandEncoder*&) override {}
-    void   reset() override {}
+    Status CreateEncoder(CommandEncoder*& out) override { out = &enc; return ErrorCode::Ok; }
+    void   DestroyEncoder(CommandEncoder*&) override {}
+    void   Reset() override {}
 };
 
 class NullTransferBatch : public TransferBatch {
 public:
-    void   writeBuffer(Buffer*, u64, Span<const u8>) override {}
-    void   writeTexture(Texture*, Span<const u8>, const TextureDataLayout&, Extent3D, u32, u32) override {}
-    Status submit() override { return ErrorCode::Ok; }
-    Status submitAsync(Fence*, u64) override { return ErrorCode::Ok; }
-    void   reset() override {}
-    void   destroy() override {}
+    void   WriteBuffer(Buffer*, u64, Span<const u8>) override {}
+    void   WriteTexture(Texture*, Span<const u8>, const TextureDataLayout&, Extent3D, u32, u32) override {}
+    Status Submit() override { return ErrorCode::Ok; }
+    Status SubmitAsync(Fence*, u64) override { return ErrorCode::Ok; }
+    void   Reset() override {}
+    void   Destroy() override {}
 };
 
 class NullSwapChain : public SwapChain {
@@ -176,28 +176,28 @@ public:
     u32           count_   = 2;
     u32           imgIdx_  = 0;
 
-    TextureFormat format()            const override { return format_; }
-    u32           width()             const override { return width_; }
-    u32           height()            const override { return height_; }
-    u32           bufferCount()       const override { return count_; }
-    u32           currentImageIndex() const override { return imgIdx_; }
-    Status        acquireNextImage()        override { imgIdx_ = (imgIdx_ + 1) % count_; return ErrorCode::Ok; }
-    Texture*      currentTexture()          override { return &tex; }
-    TextureView*  currentTextureView()      override { return &view; }
-    Status        present(Queue*)           override { return ErrorCode::Ok; }
-    Status        resize(u32 w, u32 h)      override { width_ = w; height_ = h; return ErrorCode::Ok; }
+    TextureFormat Format()            const override { return format_; }
+    u32           Width()             const override { return width_; }
+    u32           Height()            const override { return height_; }
+    u32           BufferCount()       const override { return count_; }
+    u32           CurrentImageIndex() const override { return imgIdx_; }
+    Status        AcquireNextImage()        override { imgIdx_ = (imgIdx_ + 1) % count_; return ErrorCode::Ok; }
+    Texture*      CurrentTexture()          override { return &tex; }
+    TextureView*  CurrentTextureView()      override { return &view; }
+    Status        Present(Queue*)           override { return ErrorCode::Ok; }
+    Status        Resize(u32 w, u32 h)      override { width_ = w; height_ = h; return ErrorCode::Ok; }
 };
 
 class NullQueue : public Queue {
 public:
     NullTransferBatch tb;
-    void submit(Span<CommandBuffer* const>) override {}
-    void submit(Span<CommandBuffer* const>, Fence* f, u64 v) override { if (auto* nf = static_cast<NullFence*>(f)) nf->signal(v); }
-    void submit(Span<CommandBuffer* const>, Span<Fence* const>, Span<const u64>, Fence* f, u64 v) override { if (auto* nf = static_cast<NullFence*>(f)) nf->signal(v); }
-    void waitIdle() override {}
-    Status createTransferBatch(TransferBatch*& out) override { out = &tb; return ErrorCode::Ok; }
-    void destroyTransferBatch(TransferBatch*&) override {}
-    f32 timestampPeriod() const override { return 1.0f; }
+    void Submit(Span<CommandBuffer* const>) override {}
+    void Submit(Span<CommandBuffer* const>, Fence* f, u64 v) override { if (auto* nf = static_cast<NullFence*>(f)) nf->signal(v); }
+    void Submit(Span<CommandBuffer* const>, Span<Fence* const>, Span<const u64>, Fence* f, u64 v) override { if (auto* nf = static_cast<NullFence*>(f)) nf->signal(v); }
+    void WaitIdle() override {}
+    Status CreateTransferBatch(TransferBatch*& out) override { out = &tb; return ErrorCode::Ok; }
+    void DestroyTransferBatch(TransferBatch*&) override {}
+    f32 TimestampPeriod() const override { return 1.0f; }
 };
 
 // ---- Null Device ----
@@ -213,68 +213,68 @@ public:
         xferQueue.queueType = QueueType::Transfer;
     }
 
-    Queue* getQueue(QueueType t, u32) override {
+    Queue* GetQueue(QueueType t, u32) override {
         switch (t) {
         case QueueType::Graphics: return &gfxQueue;
         case QueueType::Compute:  return &compQueue;
         case QueueType::Transfer: return &xferQueue;
         } return nullptr;
     }
-    u32 getQueueCount(QueueType) override { return 1; }
-    FormatSupport getFormatSupport(TextureFormat) override { return FormatSupport::Texture | FormatSupport::ColorAttachment | FormatSupport::DepthStencil; }
+    u32 GetQueueCount(QueueType) override { return 1; }
+    FormatSupport GetFormatSupport(TextureFormat) override { return FormatSupport::Texture | FormatSupport::ColorAttachment | FormatSupport::DepthStencil; }
 
-    Status createBuffer(const BufferDesc& d, Buffer*& out) override {
+    Status CreateBuffer(const BufferDesc& d, Buffer*& out) override {
         auto* b = new NullBuffer(); b->desc = d; b->allocate(d.size); out = b; return ErrorCode::Ok;
     }
-    Status createTexture(const TextureDesc& d, Texture*& out) override { auto* t = new NullTexture(); t->desc = d; out = t; return ErrorCode::Ok; }
-    Status createTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override { auto* v = new NullTextureView(); v->desc = d; v->texture = tex; out = v; return ErrorCode::Ok; }
-    Status createSampler(const SamplerDesc& d, Sampler*& out) override { auto* s = new NullSampler(); s->desc = d; out = s; return ErrorCode::Ok; }
-    Status createShaderModule(const ShaderModuleDesc&, ShaderModule*& out) override { out = new NullShaderModule(); return ErrorCode::Ok; }
-    Status createBindGroupLayout(const BindGroupLayoutDesc&, BindGroupLayout*& out) override { out = new NullBindGroupLayout(); return ErrorCode::Ok; }
-    Status createBindGroup(const BindGroupDesc&, BindGroup*& out) override { out = new NullBindGroup(); return ErrorCode::Ok; }
-    Status createPipelineLayout(const PipelineLayoutDesc&, PipelineLayout*& out) override { out = new NullPipelineLayout(); return ErrorCode::Ok; }
-    Status createPipelineCache(const PipelineCacheDesc&, PipelineCache*& out) override { out = new NullPipelineCache(); return ErrorCode::Ok; }
-    Status createRenderPipeline(const RenderPipelineDesc&, RenderPipeline*& out) override { out = new NullRenderPipeline(); return ErrorCode::Ok; }
-    Status createComputePipeline(const ComputePipelineDesc&, ComputePipeline*& out) override { out = new NullComputePipeline(); return ErrorCode::Ok; }
-    Status createCommandPool(QueueType, CommandPool*& out) override { out = new NullCommandPool(); return ErrorCode::Ok; }
-    Status createFence(u64, Fence*& out) override { out = new NullFence(); return ErrorCode::Ok; }
-    Status createQuerySet(const QuerySetDesc& d, QuerySet*& out) override { auto* q = new NullQuerySet(); q->type = d.type; q->count = d.count; out = q; return ErrorCode::Ok; }
-    Status createSwapChain(Surface*, const SwapChainDesc& d, SwapChain*& out) override {
+    Status CreateTexture(const TextureDesc& d, Texture*& out) override { auto* t = new NullTexture(); t->desc = d; out = t; return ErrorCode::Ok; }
+    Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override { auto* v = new NullTextureView(); v->desc = d; v->texture = tex; out = v; return ErrorCode::Ok; }
+    Status CreateSampler(const SamplerDesc& d, Sampler*& out) override { auto* s = new NullSampler(); s->desc = d; out = s; return ErrorCode::Ok; }
+    Status CreateShaderModule(const ShaderModuleDesc&, ShaderModule*& out) override { out = new NullShaderModule(); return ErrorCode::Ok; }
+    Status CreateBindGroupLayout(const BindGroupLayoutDesc&, BindGroupLayout*& out) override { out = new NullBindGroupLayout(); return ErrorCode::Ok; }
+    Status CreateBindGroup(const BindGroupDesc&, BindGroup*& out) override { out = new NullBindGroup(); return ErrorCode::Ok; }
+    Status CreatePipelineLayout(const PipelineLayoutDesc&, PipelineLayout*& out) override { out = new NullPipelineLayout(); return ErrorCode::Ok; }
+    Status CreatePipelineCache(const PipelineCacheDesc&, PipelineCache*& out) override { out = new NullPipelineCache(); return ErrorCode::Ok; }
+    Status CreateRenderPipeline(const RenderPipelineDesc&, RenderPipeline*& out) override { out = new NullRenderPipeline(); return ErrorCode::Ok; }
+    Status CreateComputePipeline(const ComputePipelineDesc&, ComputePipeline*& out) override { out = new NullComputePipeline(); return ErrorCode::Ok; }
+    Status CreateCommandPool(QueueType, CommandPool*& out) override { out = new NullCommandPool(); return ErrorCode::Ok; }
+    Status CreateFence(u64, Fence*& out) override { out = new NullFence(); return ErrorCode::Ok; }
+    Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override { auto* q = new NullQuerySet(); q->type = d.type; q->count = d.count; out = q; return ErrorCode::Ok; }
+    Status CreateSwapChain(Surface*, const SwapChainDesc& d, SwapChain*& out) override {
         auto* sc = new NullSwapChain(); sc->format_ = d.format; sc->width_ = d.width; sc->height_ = d.height; sc->count_ = d.bufferCount; out = sc; return ErrorCode::Ok;
     }
 
-    void destroyBuffer(Buffer*& x)            override { delete x; x = nullptr; }
-    void destroyTexture(Texture*& x)          override { delete x; x = nullptr; }
-    void destroyTextureView(TextureView*& x)  override { delete x; x = nullptr; }
-    void destroySampler(Sampler*& x)          override { delete x; x = nullptr; }
-    void destroyShaderModule(ShaderModule*& x)override { delete x; x = nullptr; }
-    void destroyBindGroupLayout(BindGroupLayout*& x) override { delete x; x = nullptr; }
-    void destroyBindGroup(BindGroup*& x)      override { delete x; x = nullptr; }
-    void destroyPipelineLayout(PipelineLayout*& x) override { delete x; x = nullptr; }
-    void destroyPipelineCache(PipelineCache*& x) override { delete x; x = nullptr; }
-    void destroyRenderPipeline(RenderPipeline*& x) override { delete x; x = nullptr; }
-    void destroyComputePipeline(ComputePipeline*& x) override { delete x; x = nullptr; }
-    void destroyCommandPool(CommandPool*& x)  override { delete x; x = nullptr; }
-    void destroyFence(Fence*& x)              override { delete x; x = nullptr; }
-    void destroyQuerySet(QuerySet*& x)        override { delete x; x = nullptr; }
-    void destroySwapChain(SwapChain*& x)      override { delete x; x = nullptr; }
-    void destroySurface(Surface*& x)          override { delete x; x = nullptr; }
+    void DestroyBuffer(Buffer*& x)            override { delete x; x = nullptr; }
+    void DestroyTexture(Texture*& x)          override { delete x; x = nullptr; }
+    void DestroyTextureView(TextureView*& x)  override { delete x; x = nullptr; }
+    void DestroySampler(Sampler*& x)          override { delete x; x = nullptr; }
+    void DestroyShaderModule(ShaderModule*& x)override { delete x; x = nullptr; }
+    void DestroyBindGroupLayout(BindGroupLayout*& x) override { delete x; x = nullptr; }
+    void DestroyBindGroup(BindGroup*& x)      override { delete x; x = nullptr; }
+    void DestroyPipelineLayout(PipelineLayout*& x) override { delete x; x = nullptr; }
+    void DestroyPipelineCache(PipelineCache*& x) override { delete x; x = nullptr; }
+    void DestroyRenderPipeline(RenderPipeline*& x) override { delete x; x = nullptr; }
+    void DestroyComputePipeline(ComputePipeline*& x) override { delete x; x = nullptr; }
+    void DestroyCommandPool(CommandPool*& x)  override { delete x; x = nullptr; }
+    void DestroyFence(Fence*& x)              override { delete x; x = nullptr; }
+    void DestroyQuerySet(QuerySet*& x)        override { delete x; x = nullptr; }
+    void DestroySwapChain(SwapChain*& x)      override { delete x; x = nullptr; }
+    void DestroySurface(Surface*& x)          override { delete x; x = nullptr; }
 
-    void waitIdle() override {}
-    void destroy() override { delete this; }
+    void WaitIdle() override {}
+    void Destroy() override { delete this; }
 };
 
 // ---- Null Adapter ----
 
 class NullAdapter : public Adapter {
 public:
-    void getInfo(AdapterInfo& out) override {
+    void GetInfo(AdapterInfo& out) override {
         out.name     = u"Null Device";
         out.vendorId = 0;
         out.deviceId = 0;
         out.type     = AdapterType::Cpu;
     }
-    Status createDevice(const DeviceDesc&, Device*& out) override {
+    Status CreateDevice(const DeviceDesc&, Device*& out) override {
         out = new NullDevice();
         return ErrorCode::Ok;
     }
@@ -287,20 +287,20 @@ public:
     NullAdapter adapter;
     Adapter*    adapterPtr = &adapter;
 
-    Span<Adapter* const> enumerateAdapters() override {
+    Span<Adapter* const> EnumerateAdapters() override {
         return Span<Adapter* const>(&adapterPtr, 1);
     }
 
-    Status createSurface(void*, void*, Surface*& out) override {
+    Status CreateSurface(void*, void*, Surface*& out) override {
         out = new NullSurface();
         return ErrorCode::Ok;
     }
 
-    void destroy() override { delete this; }
+    void Destroy() override { delete this; }
 };
 
 /// Creates a null backend for headless / GPU-less testing.
-Status createNullBackend(Backend*& out) {
+Status CreateNullBackend(Backend*& out) {
     auto* b = new NullBackend();
     b->isInitialized = true;
     out = b;

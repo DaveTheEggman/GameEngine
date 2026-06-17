@@ -47,7 +47,7 @@ public:
 
     // ---- Queue interface ----
 
-    void submit(Span<CommandBuffer* const> cmdBufs) override {
+    void Submit(Span<CommandBuffer* const> cmdBufs) override {
         if (cmdBufs.Size() == 0) return;
         Array<ID3D12CommandList*> lists(cmdBufs.Size());
         for (usize i = 0; i < cmdBufs.Size(); ++i) {
@@ -57,24 +57,24 @@ public:
         queue_->ExecuteCommandLists(static_cast<UINT>(lists.Size()), lists.Data());
     }
 
-    void submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
-        submit(cmdBufs);
+    void Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
+        Submit(cmdBufs);
         if (auto* f = static_cast<DxFenceImpl*>(signalFence))
             queue_->Signal(f->handle(), signalValue);
     }
 
-    void submit(Span<CommandBuffer* const> cmdBufs,
+    void Submit(Span<CommandBuffer* const> cmdBufs,
                 Span<Fence* const> waitFences, Span<const u64> waitValues,
                 Fence* signalFence, u64 signalValue) override {
         for (usize i = 0; i < waitFences.Size(); ++i)
             if (auto* f = static_cast<DxFenceImpl*>(waitFences[i]))
                 queue_->Wait(f->handle(), waitValues[i]);
-        submit(cmdBufs);
+        Submit(cmdBufs);
         if (auto* f = static_cast<DxFenceImpl*>(signalFence))
             queue_->Signal(f->handle(), signalValue);
     }
 
-    void waitIdle() override {
+    void WaitIdle() override {
         ++fenceValue_;
         queue_->Signal(internalFence_.Get(), fenceValue_);
         if (internalFence_->GetCompletedValue() < fenceValue_) {
@@ -83,7 +83,7 @@ public:
         }
     }
 
-    Status createTransferBatch(TransferBatch*& out) override {
+    Status CreateTransferBatch(TransferBatch*& out) override {
         auto* batch = new DxTransferBatchImpl();
         if (batch->init(d3dDevice_, queue_.Get(), queueType) != ErrorCode::Ok) {
             delete batch;
@@ -93,15 +93,15 @@ public:
         return ErrorCode::Ok;
     }
 
-    void destroyTransferBatch(TransferBatch*& batch) override {
+    void DestroyTransferBatch(TransferBatch*& batch) override {
         if (auto* dx = static_cast<DxTransferBatchImpl*>(batch)) {
-            dx->destroy();
+            dx->Destroy();
             delete dx;
         }
         batch = nullptr;
     }
 
-    f32 timestampPeriod() const override { return tsPeriod_; }
+    f32 TimestampPeriod() const override { return tsPeriod_; }
 
     void cleanup() {
         if (fenceEvent_) { CloseHandle(fenceEvent_); fenceEvent_ = nullptr; }

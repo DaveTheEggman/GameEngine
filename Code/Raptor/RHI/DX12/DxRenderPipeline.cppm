@@ -142,7 +142,7 @@ public:
         // Create PSO.
         HRESULT hr = device->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&pipelineState_));
         if (FAILED(hr)) {
-            logErrorf("DxRenderPipeline: CreateGraphicsPipelineState failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxRenderPipeline: CreateGraphicsPipelineState failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
         return ErrorCode::Ok;

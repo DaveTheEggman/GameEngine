@@ -48,9 +48,9 @@ public:
             return ErrorCode::Unknown;
         }
 
-        bool needsDeviceAddress = hasFlag(d.usage, BufferUsage::AccelStructInput)
-                               || hasFlag(d.usage, BufferUsage::ShaderBindingTable)
-                               || hasFlag(d.usage, BufferUsage::AccelStructScratch);
+        bool needsDeviceAddress = HasFlag(d.usage, BufferUsage::AccelStructInput)
+                               || HasFlag(d.usage, BufferUsage::ShaderBindingTable)
+                               || HasFlag(d.usage, BufferUsage::AccelStructScratch);
 
         VkMemoryAllocateFlagsInfo allocFlags{};
         allocFlags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
@@ -85,8 +85,8 @@ public:
     }
 
     // ---- Buffer interface ----
-    void* map()   override { return mappedPtr_; }
-    void  unmap() override { /* persistently mapped */ }
+    void* Map()   override { return mappedPtr_; }
+    void  Unmap() override { /* persistently mapped */ }
 
     // ---- Internal ----
     [[nodiscard]] VkBuffer       handle() const { return buffer_; }

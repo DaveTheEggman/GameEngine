@@ -96,12 +96,12 @@ raptor::core::Status MultiQueueSample::onInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
     // Check for dedicated compute queue.
-    if (device_->getQueueCount(dr::QueueType::Compute) == 0) {
+    if (device_->GetQueueCount(dr::QueueType::Compute) == 0) {
         computeQueue_ = graphicsQueue_;
         hasDedicatedCompute_ = false;
         std::printf("No dedicated compute queue - using graphics queue for both\n");
     } else {
-        computeQueue_ = device_->getQueue(dr::QueueType::Compute, 0);
+        computeQueue_ = device_->GetQueue(dr::QueueType::Compute, 0);
         hasDedicatedCompute_ = true;
         std::printf("Using dedicated compute queue\n");
     }
@@ -113,49 +113,49 @@ raptor::core::Status MultiQueueSample::onInit() {
 
     // Shared vertex/storage buffer.
     dr::BufferDesc vbd{}; vbd.size = kBufSz; vbd.usage = dr::BufferUsage::Storage | dr::BufferUsage::Vertex; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->createBuffer(vbd, vtxBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBuffer(vbd, vtxBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Compute params UBO.
     dr::BufferDesc pbd{}; pbd.size = 16; pbd.usage = dr::BufferUsage::Uniform; pbd.memory = dr::MemoryLocation::CpuToGpu;
-    if (device_->createBuffer(pbd, paramsBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    paramsMapped_ = paramsBuf_->map();
+    if (device_->CreateBuffer(pbd, paramsBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    paramsMapped_ = paramsBuf_->Map();
 
     // View-projection UBO.
     dr::BufferDesc vpd{}; vpd.size = 64; vpd.usage = dr::BufferUsage::Uniform; vpd.memory = dr::MemoryLocation::CpuToGpu;
-    if (device_->createBuffer(vpd, vpBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    vpMapped_ = vpBuf_->map();
+    if (device_->CreateBuffer(vpd, vpBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    vpMapped_ = vpBuf_->Map();
 
     // Compute pipeline.
-    dr::BindGroupLayoutEntry cE[2] = { dr::BindGroupLayoutEntry::uniformBuffer(0, dr::ShaderStage::Compute),
-                                        dr::BindGroupLayoutEntry::storageBuffer(0, dr::ShaderStage::Compute, false) };
+    dr::BindGroupLayoutEntry cE[2] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Compute),
+                                        dr::BindGroupLayoutEntry::StorageBuffer(0, dr::ShaderStage::Compute, false) };
     dr::BindGroupLayoutDesc cBgld{}; cBgld.entries = Span<const dr::BindGroupLayoutEntry>(cE, 2);
-    if (device_->createBindGroupLayout(cBgld, compBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::BindGroupEntry cBgE[2] = { dr::BindGroupEntry::bufferEntry(paramsBuf_, 0, 16),
-                                    dr::BindGroupEntry::bufferEntry(vtxBuf_, 0, kBufSz) };
+    if (device_->CreateBindGroupLayout(cBgld, compBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupEntry cBgE[2] = { dr::BindGroupEntry::BufferEntry(paramsBuf_, 0, 16),
+                                    dr::BindGroupEntry::BufferEntry(vtxBuf_, 0, kBufSz) };
     dr::BindGroupDesc cBgd{}; cBgd.layout = compBgl_; cBgd.entries = Span<const dr::BindGroupEntry>(cBgE, 2);
-    if (device_->createBindGroup(cBgd, compBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBindGroup(cBgd, compBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BindGroupLayout* cSets[1] = { compBgl_ };
     dr::PipelineLayoutDesc cPld{}; cPld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(cSets, 1);
-    if (device_->createPipelineLayout(cPld, compPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreatePipelineLayout(cPld, compPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::ComputePipelineDesc cpd{}; cpd.layout = compPl_; cpd.compute = { cs_, u"CSMain", dr::ShaderStage::Compute };
-    if (device_->createComputePipeline(cpd, compPipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateComputePipeline(cpd, compPipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render pipeline.
-    dr::BindGroupLayoutEntry rE[1] = { dr::BindGroupLayoutEntry::uniformBuffer(0, dr::ShaderStage::Vertex) };
+    dr::BindGroupLayoutEntry rE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex) };
     dr::BindGroupLayoutDesc rBgld{}; rBgld.entries = Span<const dr::BindGroupLayoutEntry>(rE, 1);
-    if (device_->createBindGroupLayout(rBgld, renBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::BindGroupEntry rBgE[1] = { dr::BindGroupEntry::bufferEntry(vpBuf_, 0, 64) };
+    if (device_->CreateBindGroupLayout(rBgld, renBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupEntry rBgE[1] = { dr::BindGroupEntry::BufferEntry(vpBuf_, 0, 64) };
     dr::BindGroupDesc rBgd{}; rBgd.layout = renBgl_; rBgd.entries = Span<const dr::BindGroupEntry>(rBgE, 1);
-    if (device_->createBindGroup(rBgd, renBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBindGroup(rBgd, renBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BindGroupLayout* rSets[1] = { renBgl_ };
     dr::PipelineLayoutDesc rPld{}; rPld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(rSets, 1);
-    if (device_->createPipelineLayout(rPld, renPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreatePipelineLayout(rPld, renPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     depthBuf_.recreate(device_, width_, height_);
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x3, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = kVertSz; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = swapChain_->format();
+    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = renPl_;
     rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
@@ -164,22 +164,22 @@ raptor::core::Status MultiQueueSample::onInit() {
     rpd.primitive.topology = dr::PrimitiveTopology::PointList;
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthWriteEnabled = true; rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
-    if (device_->createRenderPipeline(rpd, renPipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateRenderPipeline(rpd, renPipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Command pools — one per queue type.
-    if (device_->createCommandPool(dr::QueueType::Graphics, gfxPool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateCommandPool(dr::QueueType::Graphics, gfxPool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     auto compPoolType = hasDedicatedCompute_ ? dr::QueueType::Compute : dr::QueueType::Graphics;
-    if (device_->createCommandPool(compPoolType, computePool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateCommandPool(compPoolType, computePool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->createFence(0, compFence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->createFence(0, gfxFence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateFence(0, compFence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateFence(0, gfxFence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
 void MultiQueueSample::onRender() {
     using raptor::core::u32, raptor::core::f32, raptor::core::Span;
-    if (gfxFenceVal_ > 0) gfxFence_->wait(gfxFenceVal_, ~0ull);
-    if (swapChain_->acquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (gfxFenceVal_ > 0) gfxFence_->Wait(gfxFenceVal_, ~0ull);
+    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
     // Update compute params.
     u32 numPts = kNumPts;
@@ -196,58 +196,58 @@ void MultiQueueSample::onRender() {
     std::memcpy(vpMapped_, vp.Data(), 64);
 
     // === Compute pass on compute queue ===
-    computePool_->reset();
+    computePool_->Reset();
     dr::CommandEncoder* cEnc = nullptr;
-    if (computePool_->createEncoder(cEnc) != raptor::core::ErrorCode::Ok || !cEnc) return;
+    if (computePool_->CreateEncoder(cEnc) != raptor::core::ErrorCode::Ok || !cEnc) return;
 
     dr::BufferBarrier bb{}; bb.buffer = vtxBuf_; bb.oldState = dr::ResourceState::VertexBuffer; bb.newState = dr::ResourceState::ShaderWrite;
     dr::BarrierGroup bg1{}; bg1.bufferBarriers = Span<const dr::BufferBarrier>(&bb, 1);
-    cEnc->barrier(bg1);
-    auto* cp = cEnc->beginComputePass(u"AsyncCompute");
-    cp->setPipeline(compPipe_); cp->setBindGroup(0, compBg_);
-    cp->dispatch((kNumPts + 63) / 64); cp->end();
+    cEnc->Barrier(bg1);
+    auto* cp = cEnc->BeginComputePass(u"AsyncCompute");
+    cp->SetPipeline(compPipe_); cp->SetBindGroup(0, compBg_);
+    cp->Dispatch((kNumPts + 63) / 64); cp->End();
     bb.oldState = dr::ResourceState::ShaderWrite; bb.newState = dr::ResourceState::VertexBuffer;
-    cEnc->barrier(bg1);
+    cEnc->Barrier(bg1);
 
-    dr::CommandBuffer* cCb = cEnc->finish(); compFenceVal_++;
+    dr::CommandBuffer* cCb = cEnc->Finish(); compFenceVal_++;
     dr::CommandBuffer* cCbs[1] = { cCb };
-    computeQueue_->submit(Span<dr::CommandBuffer* const>(cCbs, 1), compFence_, compFenceVal_);
-    computePool_->destroyEncoder(cEnc);
+    computeQueue_->Submit(Span<dr::CommandBuffer* const>(cCbs, 1), compFence_, compFenceVal_);
+    computePool_->DestroyEncoder(cEnc);
 
     // === Graphics pass — waits on compute fence before executing ===
-    gfxPool_->reset();
+    gfxPool_->Reset();
     dr::CommandEncoder* gEnc = nullptr;
-    if (gfxPool_->createEncoder(gEnc) != raptor::core::ErrorCode::Ok || !gEnc) return;
+    if (gfxPool_->CreateEncoder(gEnc) != raptor::core::ErrorCode::Ok || !gEnc) return;
 
-    gEnc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    gEnc->transitionTexture(depthBuf_.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    gEnc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    gEnc->TransitionTexture(depthBuf_.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->currentTextureView();
+    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.03f, 0.03f, 0.06f, 1.0f);
     dr::DepthStencilAttachment dsa{}; dsa.view = depthBuf_.view;
     dsa.depthLoadOp = dr::LoadOp::Clear; dsa.depthStoreOp = dr::StoreOp::Store; dsa.depthClearValue = 1.0f;
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
-    auto* rp = gEnc->beginRenderPass(rpd);
-    rp->setPipeline(renPipe_); rp->setBindGroup(0, renBg_);
-    rp->setViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0, 1);
-    rp->setScissor(0, 0, width_, height_);
-    rp->setVertexBuffer(0, vtxBuf_, 0);
-    rp->draw(kNumPts); rp->end();
+    auto* rp = gEnc->BeginRenderPass(rpd);
+    rp->SetPipeline(renPipe_); rp->SetBindGroup(0, renBg_);
+    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0, 1);
+    rp->SetScissor(0, 0, width_, height_);
+    rp->SetVertexBuffer(0, vtxBuf_, 0);
+    rp->Draw(kNumPts); rp->End();
 
-    gEnc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* gCb = gEnc->finish(); gfxFenceVal_++;
+    gEnc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    dr::CommandBuffer* gCb = gEnc->Finish(); gfxFenceVal_++;
     dr::CommandBuffer* gCbs[1] = { gCb };
 
     // Submit graphics — wait on compute fence, signal graphics fence.
     dr::Fence* waitFences[1] = { compFence_ };
     raptor::core::u64 waitValues[1] = { compFenceVal_ };
-    graphicsQueue_->submit(Span<dr::CommandBuffer* const>(gCbs, 1),
+    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(gCbs, 1),
                            Span<dr::Fence* const>(waitFences, 1),
                            Span<const raptor::core::u64>(waitValues, 1),
                            gfxFence_, gfxFenceVal_);
-    swapChain_->present(graphicsQueue_);
-    gfxPool_->destroyEncoder(gEnc);
+    swapChain_->Present(graphicsQueue_);
+    gfxPool_->DestroyEncoder(gEnc);
 
     if (totalTime_ - lastReportTime_ >= 3.0f) {
         std::printf("MultiQueue: compute fence=%llu, graphics fence=%llu, dt=%.2fms\n",
@@ -259,20 +259,20 @@ void MultiQueueSample::onRender() {
 }
 
 void MultiQueueSample::onShutdown() {
-    if (paramsBuf_ && paramsMapped_) paramsBuf_->unmap();
-    if (vpBuf_ && vpMapped_) vpBuf_->unmap();
+    if (paramsBuf_ && paramsMapped_) paramsBuf_->Unmap();
+    if (vpBuf_ && vpMapped_) vpBuf_->Unmap();
     depthBuf_.destroy(device_);
-    if (gfxFence_) device_->destroyFence(gfxFence_); if (compFence_) device_->destroyFence(compFence_);
-    if (gfxPool_) device_->destroyCommandPool(gfxPool_); if (computePool_) device_->destroyCommandPool(computePool_);
-    if (renPipe_) device_->destroyRenderPipeline(renPipe_); if (renPl_) device_->destroyPipelineLayout(renPl_);
-    if (renBg_) device_->destroyBindGroup(renBg_); if (renBgl_) device_->destroyBindGroupLayout(renBgl_);
-    if (compPipe_) device_->destroyComputePipeline(compPipe_); if (compPl_) device_->destroyPipelineLayout(compPl_);
-    if (compBg_) device_->destroyBindGroup(compBg_); if (compBgl_) device_->destroyBindGroupLayout(compBgl_);
-    if (vpBuf_) device_->destroyBuffer(vpBuf_); if (paramsBuf_) device_->destroyBuffer(paramsBuf_);
-    if (vtxBuf_) device_->destroyBuffer(vtxBuf_);
-    if (ps_) device_->destroyShaderModule(ps_); if (vs_) device_->destroyShaderModule(vs_);
-    if (cs_) device_->destroyShaderModule(cs_);
-    if (compiler_) { compiler_->destroy(); delete compiler_; }
+    if (gfxFence_) device_->DestroyFence(gfxFence_); if (compFence_) device_->DestroyFence(compFence_);
+    if (gfxPool_) device_->DestroyCommandPool(gfxPool_); if (computePool_) device_->DestroyCommandPool(computePool_);
+    if (renPipe_) device_->DestroyRenderPipeline(renPipe_); if (renPl_) device_->DestroyPipelineLayout(renPl_);
+    if (renBg_) device_->DestroyBindGroup(renBg_); if (renBgl_) device_->DestroyBindGroupLayout(renBgl_);
+    if (compPipe_) device_->DestroyComputePipeline(compPipe_); if (compPl_) device_->DestroyPipelineLayout(compPl_);
+    if (compBg_) device_->DestroyBindGroup(compBg_); if (compBgl_) device_->DestroyBindGroupLayout(compBgl_);
+    if (vpBuf_) device_->DestroyBuffer(vpBuf_); if (paramsBuf_) device_->DestroyBuffer(paramsBuf_);
+    if (vtxBuf_) device_->DestroyBuffer(vtxBuf_);
+    if (ps_) device_->DestroyShaderModule(ps_); if (vs_) device_->DestroyShaderModule(vs_);
+    if (cs_) device_->DestroyShaderModule(cs_);
+    if (compiler_) { compiler_->Destroy(); delete compiler_; }
 }
 
 int main(int argc, char** argv) { MultiQueueSample app; return app.run(argc, argv); }

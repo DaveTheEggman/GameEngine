@@ -18,33 +18,33 @@ class ValidatedSwapChain : public SwapChain {
 public:
     explicit ValidatedSwapChain(SwapChain* inner) : inner_(inner) {}
 
-    TextureFormat format()            const override { return inner_->format(); }
-    u32           width()             const override { return inner_->width(); }
-    u32           height()            const override { return inner_->height(); }
-    u32           bufferCount()       const override { return inner_->bufferCount(); }
-    u32           currentImageIndex() const override { return inner_->currentImageIndex(); }
-    Texture*      currentTexture()          override { return inner_->currentTexture(); }
-    TextureView*  currentTextureView()      override { return inner_->currentTextureView(); }
+    TextureFormat Format()            const override { return inner_->Format(); }
+    u32           Width()             const override { return inner_->Width(); }
+    u32           Height()            const override { return inner_->Height(); }
+    u32           BufferCount()       const override { return inner_->BufferCount(); }
+    u32           CurrentImageIndex() const override { return inner_->CurrentImageIndex(); }
+    Texture*      CurrentTexture()          override { return inner_->CurrentTexture(); }
+    TextureView*  CurrentTextureView()      override { return inner_->CurrentTextureView(); }
 
-    Status acquireNextImage() override {
-        if (imageAcquired_) logWarning("[Validation] SwapChain::acquireNextImage: image already acquired");
-        Status r = inner_->acquireNextImage();
+    Status AcquireNextImage() override {
+        if (imageAcquired_) LogWarning("[Validation] SwapChain::acquireNextImage: image already acquired");
+        Status r = inner_->AcquireNextImage();
         if (r == ErrorCode::Ok) imageAcquired_ = true;
         return r;
     }
 
-    Status present(Queue* queue) override {
-        if (!imageAcquired_) logWarning("[Validation] SwapChain::present: no image acquired");
+    Status Present(Queue* queue) override {
+        if (!imageAcquired_) LogWarning("[Validation] SwapChain::present: no image acquired");
         imageAcquired_ = false;
         // Unwrap validated queue so the inner swap chain gets the raw VK queue.
         auto* vq = static_cast<ValidatedQueue*>(queue);
-        return inner_->present(vq ? vq->inner() : queue);
+        return inner_->Present(vq ? vq->inner() : queue);
     }
 
-    Status resize(u32 w, u32 h) override {
-        if (imageAcquired_) logError("[Validation] SwapChain::resize: cannot resize while image is acquired");
-        if (w == 0 || h == 0) logError("[Validation] SwapChain::resize: dimensions are zero");
-        return inner_->resize(w, h);
+    Status Resize(u32 w, u32 h) override {
+        if (imageAcquired_) LogError("[Validation] SwapChain::resize: cannot resize while image is acquired");
+        if (w == 0 || h == 0) LogError("[Validation] SwapChain::resize: dimensions are zero");
+        return inner_->Resize(w, h);
     }
 
     SwapChain* inner() const { return inner_; }

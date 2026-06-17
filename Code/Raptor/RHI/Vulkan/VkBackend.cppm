@@ -68,11 +68,11 @@ public:
 
     // ---- Backend interface ----
 
-    Span<Adapter* const> enumerateAdapters() override {
+    Span<Adapter* const> EnumerateAdapters() override {
         return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
     }
 
-    Status createSurface(void* windowHandle, void*
+    Status CreateSurface(void* windowHandle, void*
 #if RAPTOR_PLATFORM_LINUX
                          displayHandle
 #else
@@ -81,7 +81,7 @@ public:
                          , Surface*& out) override {
         out = nullptr;
         if (!windowHandle) {
-            logError("VkBackend: window handle is null");
+            LogError("VkBackend: window handle is null");
             return ErrorCode::InvalidArgument;
         }
 
@@ -95,7 +95,7 @@ public:
 
         VkResult vr = vkCreateWin32SurfaceKHR(instance_, &ci, nullptr, &vkSurface);
         if (vr != VK_SUCCESS) {
-            logErrorf("VkBackend: vkCreateWin32SurfaceKHR failed (%d)", static_cast<int>(vr));
+            LogErrorf("VkBackend: vkCreateWin32SurfaceKHR failed (%d)", static_cast<int>(vr));
             return ErrorCode::Unknown;
         }
 #elif defined(__linux__)
@@ -140,16 +140,16 @@ public:
         }
 
         if (vr != VK_SUCCESS) {
-            logErrorf("VkBackend: surface creation failed (tried wayland=%d, x11=%d)", triedWayland, triedX11);
+            LogErrorf("VkBackend: surface creation failed (tried wayland=%d, x11=%d)", triedWayland, triedX11);
             return ErrorCode::Unknown;
         }
         if (vr != VK_SUCCESS) {
-            logErrorf("VkBackend: surface creation failed (%d)", static_cast<int>(vr));
+            LogErrorf("VkBackend: surface creation failed (%d)", static_cast<int>(vr));
             return ErrorCode::Unknown;
         }
 #else
         (void)displayHandle;
-        logError("VkBackend: surface creation not supported on this platform");
+        LogError("VkBackend: surface creation not supported on this platform");
         return ErrorCode::NotSupported;
 #endif
 
@@ -157,7 +157,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    void destroy() override {
+    void Destroy() override {
         destroyImpl();
         delete this;
     }
@@ -168,7 +168,7 @@ public:
     [[nodiscard]] bool validationEnabled() const { return validationEnabled_; }
 
 private:
-    friend Status createBackend(const VkBackendDesc& desc, Backend*& out);
+    friend Status CreateBackend(const VkBackendDesc& desc, Backend*& out);
 
     Status init(bool enableValidation) {
         validationEnabled_ = enableValidation;
@@ -210,7 +210,7 @@ private:
             if (hasWayland) extensions.PushBack(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
             hasXlib_ = hasXlib; hasWayland_ = hasWayland;
             if (!hasXlib && !hasWayland) {
-                logError("VkBackend: no surface extension available (need xlib or wayland)");
+                LogError("VkBackend: no surface extension available (need xlib or wayland)");
                 return ErrorCode::Unknown;
             }
         }
@@ -233,7 +233,7 @@ private:
 
         VkResult vr = vkCreateInstance(&ci, nullptr, &instance_);
         if (vr != VK_SUCCESS) {
-            logErrorf("VkBackend: vkCreateInstance failed (%d)", static_cast<int>(vr));
+            LogErrorf("VkBackend: vkCreateInstance failed (%d)", static_cast<int>(vr));
             return ErrorCode::Unknown;
         }
 
@@ -269,9 +269,9 @@ private:
         void* /*userData*/)
     {
         if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-            logErrorf("[Vulkan ERROR] %s", data->pMessage);
+            LogErrorf("[Vulkan ERROR] %s", data->pMessage);
         } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-            logWarningf("[Vulkan WARN] %s", data->pMessage);
+            LogWarningf("[Vulkan WARN] %s", data->pMessage);
         }
         return VK_FALSE;
     }
@@ -293,7 +293,7 @@ private:
         }
 
         // Expose adapters best-GPU-first; callers take [0]. See Backend::enumerateAdapters.
-        sortAdaptersByPreference(adapterPtrs_);
+        SortAdaptersByPreference(adapterPtrs_);
     }
 
     void destroyImpl() {
@@ -329,7 +329,7 @@ private:
 };
 
 /// Creates a Vulkan backend. Caller owns the returned pointer — dispose via destroy().
-[[nodiscard]] Status createBackend(const VkBackendDesc& desc, Backend*& out) {
+[[nodiscard]] Status CreateBackend(const VkBackendDesc& desc, Backend*& out) {
     out = nullptr;
     auto* b = new VkBackendImpl();
     Status r = b->init(desc.enableValidation);

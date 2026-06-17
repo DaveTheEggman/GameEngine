@@ -16,7 +16,7 @@ using namespace raptor::core;
 
 export namespace raptor::rhi
 {
-    inline void logWrite(bool error, const char* utf8)
+    inline void LogWrite(bool error, const char* utf8)
     {
         const String wide = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(utf8)));
         if (error) { ConsoleWriteError(wide.AsView()); }
@@ -24,25 +24,25 @@ export namespace raptor::rhi
         ConsoleWrite(u"\n");
     }
 
-    inline void logError(const char* message)   { logWrite(true,  message); }
-    inline void logWarning(const char* message)  { logWrite(false, message); }
-    inline void logInfo(const char* message)     { logWrite(false, message); }
+    inline void LogError(const char* message)   { LogWrite(true,  message); }
+    inline void LogWarning(const char* message)  { LogWrite(false, message); }
+    inline void LogInfo(const char* message)     { LogWrite(false, message); }
 
-    inline void logErrorf(const char* fmt, ...)
+    inline void LogErrorf(const char* fmt, ...)
     {
         char buf[1024];
         va_list ap; va_start(ap, fmt);
         std::vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
-        logWrite(true, buf);
+        LogWrite(true, buf);
     }
 
-    inline void logWarningf(const char* fmt, ...)
+    inline void LogWarningf(const char* fmt, ...)
     {
         char buf[1024];
         va_list ap; va_start(ap, fmt);
         std::vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
-        logWrite(false, buf);
+        LogWrite(false, buf);
     }
 }

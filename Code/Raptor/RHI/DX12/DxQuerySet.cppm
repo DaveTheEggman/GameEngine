@@ -26,7 +26,7 @@ public:
         hd.Count = d.count;
         HRESULT hr = device->CreateQueryHeap(&hd, IID_PPV_ARGS(&heap_));
         if (FAILED(hr)) {
-            logErrorf("DxQuerySet: CreateQueryHeap failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxQuerySet: CreateQueryHeap failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
         return ErrorCode::Ok;

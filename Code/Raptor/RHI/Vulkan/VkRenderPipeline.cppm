@@ -177,8 +177,8 @@ public:
         renderingInfo.pColorAttachmentFormats = colorFormats.Data();
         if (desc.depthStencil.HasValue()) {
             VkFormat dsf = toVkFormat(desc.depthStencil->format);
-            if (hasDepth(desc.depthStencil->format))   renderingInfo.depthAttachmentFormat   = dsf;
-            if (hasStencil(desc.depthStencil->format)) renderingInfo.stencilAttachmentFormat = dsf;
+            if (HasDepth(desc.depthStencil->format))   renderingInfo.depthAttachmentFormat   = dsf;
+            if (HasStencil(desc.depthStencil->format)) renderingInfo.stencilAttachmentFormat = dsf;
         }
 
         // Create pipeline.

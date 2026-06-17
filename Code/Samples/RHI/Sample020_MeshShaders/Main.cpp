@@ -141,11 +141,11 @@ raptor::core::Status MeshShaderSample::onInit() {
     dr::PipelineLayoutDesc pld{};
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pushRange, 1);
     pld.label = u"MeshPipelineLayout";
-    if (device_->createPipelineLayout(pld, pipelineLayout_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreatePipelineLayout(pld, pipelineLayout_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create mesh pipeline.
     dr::ColorTargetState ct{};
-    ct.format   = swapChain_->format();
+    ct.format   = swapChain_->Format();
     ct.writeMask = dr::ColorWriteMask::All;
 
     dr::MeshPipelineDesc mpd{};
@@ -156,11 +156,11 @@ raptor::core::Status MeshShaderSample::onInit() {
     mpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     mpd.colorTargets = Span<const dr::ColorTargetState>(&ct, 1);
     mpd.label        = u"MeshShaderPipeline";
-    if (device_->createMeshPipeline(mpd, meshPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateMeshPipeline(mpd, meshPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Command pool and fence.
-    if (device_->createCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->createFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     return raptor::core::ErrorCode::Ok;
 }
@@ -168,34 +168,34 @@ raptor::core::Status MeshShaderSample::onInit() {
 void MeshShaderSample::onRender() {
     using raptor::core::f32, raptor::core::Span;
 
-    if (fenceVal_ > 0) fence_->wait(fenceVal_, ~0ull);
-    if (swapChain_->acquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
+    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
-    pool_->reset();
+    pool_->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->createEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
     // Barrier: present -> render target.
-    enc->transitionTexture(swapChain_->currentTexture(),
+    enc->TransitionTexture(swapChain_->CurrentTexture(),
                            dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
     // Begin render pass.
     dr::ColorAttachment ca{};
-    ca.view       = swapChain_->currentTextureView();
+    ca.view       = swapChain_->CurrentTextureView();
     ca.loadOp     = dr::LoadOp::Clear;
     ca.storeOp    = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
 
     dr::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
-    auto* rp = enc->beginRenderPass(rpd);
+    auto* rp = enc->BeginRenderPass(rpd);
 
-    rp->setViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
-    rp->setScissor(0, 0, width_, height_);
+    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
+    rp->SetScissor(0, 0, width_, height_);
 
     // Draw with mesh shader.
-    if (auto* meshPass = rp->asMeshShaderExt()) {
-        meshPass->setMeshPipeline(meshPipeline_);
+    if (auto* meshPass = rp->AsMeshShaderExt()) {
+        meshPass->SetMeshPipeline(meshPipeline_);
 
         // Push constants (must be after pipeline is bound).
         PushData pushData{};
@@ -203,33 +203,33 @@ void MeshShaderSample::onRender() {
         pushData.aspectRatio = static_cast<float>(width_) / static_cast<float>(height_);
         pushData.pad0        = 0.0f;
         pushData.pad1        = 0.0f;
-        rp->setPushConstants(dr::ShaderStage::Mesh, 0, sizeof(PushData), &pushData);
+        rp->SetPushConstants(dr::ShaderStage::Mesh, 0, sizeof(PushData), &pushData);
 
-        meshPass->drawMeshTasks(1);
+        meshPass->DrawMeshTasks(1);
     }
 
-    rp->end();
+    rp->End();
 
     // Barrier: render target -> present.
-    enc->transitionTexture(swapChain_->currentTexture(),
+    enc->TransitionTexture(swapChain_->CurrentTexture(),
                            dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->finish();
+    dr::CommandBuffer* cb = enc->Finish();
     fenceVal_++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->present(graphicsQueue_);
-    pool_->destroyEncoder(enc);
+    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
+    swapChain_->Present(graphicsQueue_);
+    pool_->DestroyEncoder(enc);
 }
 
 void MeshShaderSample::onShutdown() {
-    if (fence_) device_->destroyFence(fence_);
-    if (pool_) device_->destroyCommandPool(pool_);
-    if (meshPipeline_) device_->destroyMeshPipeline(meshPipeline_);
-    if (pipelineLayout_) device_->destroyPipelineLayout(pipelineLayout_);
-    if (fragModule_) device_->destroyShaderModule(fragModule_);
-    if (meshModule_) device_->destroyShaderModule(meshModule_);
-    if (compiler_) { compiler_->destroy(); delete compiler_; }
+    if (fence_) device_->DestroyFence(fence_);
+    if (pool_) device_->DestroyCommandPool(pool_);
+    if (meshPipeline_) device_->DestroyMeshPipeline(meshPipeline_);
+    if (pipelineLayout_) device_->DestroyPipelineLayout(pipelineLayout_);
+    if (fragModule_) device_->DestroyShaderModule(fragModule_);
+    if (meshModule_) device_->DestroyShaderModule(meshModule_);
+    if (compiler_) { compiler_->Destroy(); delete compiler_; }
 }
 
 int main(int argc, char** argv) { MeshShaderSample app; return app.run(argc, argv); }

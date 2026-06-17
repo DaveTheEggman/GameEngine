@@ -39,7 +39,7 @@ public:
 
     // ---- Adapter interface ----
 
-    void getInfo(AdapterInfo& out) override {
+    void GetInfo(AdapterInfo& out) override {
         out.name = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(properties_.deviceName)));
         out.vendorId = properties_.vendorID;
         out.deviceId = properties_.deviceID;
@@ -54,7 +54,7 @@ public:
         out.supportedFeatures = buildFeatures();
     }
 
-    Status createDevice(const DeviceDesc& desc, Device*& out) override;
+    Status CreateDevice(const DeviceDesc& desc, Device*& out) override;
 
     // ---- Feature building ----
 

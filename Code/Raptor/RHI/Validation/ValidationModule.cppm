@@ -1,5 +1,5 @@
 /// Validation layer module surface.
-/// Provides createValidatedBackend() as the entry point.
+/// Provides CreateValidatedBackend() as the entry point.
 
 export module raptor.rhi.validation;
 

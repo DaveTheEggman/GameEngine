@@ -41,7 +41,7 @@ struct Compiler {
                                  CompileResult& out);
 
     void freeResult(CompileResult& result);
-    void destroy();
+    void Destroy();
 };
 
 [[nodiscard]] Status createCompiler(const CompilerDesc& desc, Compiler*& out);
@@ -207,7 +207,7 @@ Status Compiler::compile(const u8* source, usize sourceSize,
 
 void Compiler::freeResult(CompileResult& r) { delete[] r.bytecode; delete[] r.messages; r = {}; }
 
-void Compiler::destroy() {
+void Compiler::Destroy() {
     auto* s = stateOf(this);
     if (!s) return;
     if (s->includeHdlr) { s->includeHdlr->Release(); s->includeHdlr = nullptr; }
@@ -247,7 +247,7 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
     }
     if (!s->dxcompiler) {
         std::fprintf(stderr, "raptor.shaders: LoadLibraryW(dxcompiler.dll) failed (error %lu)\n", GetLastError());
-        c->destroy(); delete c; return ErrorCode::Unknown;
+        c->Destroy(); delete c; return ErrorCode::Unknown;
     }
     s->createInst = reinterpret_cast<DxcCreateInstanceProc>(GetProcAddress(s->dxcompiler, "DxcCreateInstance"));
 #else
@@ -267,15 +267,15 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
     }
     if (!s->dxcompiler) {
         std::fprintf(stderr, "raptor.shaders: dlopen(libdxcompiler.so) failed: %s\n", dlerror());
-        c->destroy(); delete c; return ErrorCode::Unknown;
+        c->Destroy(); delete c; return ErrorCode::Unknown;
     }
     s->createInst = reinterpret_cast<DxcCreateInstanceProc>(dlsym(s->dxcompiler, "DxcCreateInstance"));
 #endif
 
-    if (!s->createInst) { std::fprintf(stderr, "raptor.shaders: DXC library missing DxcCreateInstance\n"); c->destroy(); delete c; return ErrorCode::Unknown; }
-    if (FAILED(s->createInst(CLSID_DxcCompiler, IID_PPV_ARGS(&s->dxc)))) { std::fprintf(stderr, "raptor.shaders: DxcCreateInstance(IDxcCompiler3) failed\n"); c->destroy(); delete c; return ErrorCode::Unknown; }
-    if (FAILED(s->createInst(CLSID_DxcUtils, IID_PPV_ARGS(&s->utils)))) { std::fprintf(stderr, "raptor.shaders: DxcCreateInstance(IDxcUtils) failed\n"); c->destroy(); delete c; return ErrorCode::Unknown; }
-    if (FAILED(s->utils->CreateDefaultIncludeHandler(&s->includeHdlr))) { std::fprintf(stderr, "raptor.shaders: CreateDefaultIncludeHandler failed\n"); c->destroy(); delete c; return ErrorCode::Unknown; }
+    if (!s->createInst) { std::fprintf(stderr, "raptor.shaders: DXC library missing DxcCreateInstance\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
+    if (FAILED(s->createInst(CLSID_DxcCompiler, IID_PPV_ARGS(&s->dxc)))) { std::fprintf(stderr, "raptor.shaders: DxcCreateInstance(IDxcCompiler3) failed\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
+    if (FAILED(s->createInst(CLSID_DxcUtils, IID_PPV_ARGS(&s->utils)))) { std::fprintf(stderr, "raptor.shaders: DxcCreateInstance(IDxcUtils) failed\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
+    if (FAILED(s->utils->CreateDefaultIncludeHandler(&s->includeHdlr))) { std::fprintf(stderr, "raptor.shaders: CreateDefaultIncludeHandler failed\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
 
     out = c;
     return ErrorCode::Ok;

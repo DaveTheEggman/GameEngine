@@ -84,8 +84,8 @@ public:
         if (buffer_ != VK_NULL_HANDLE) { vkDestroyBuffer(device, buffer_, nullptr); buffer_ = VK_NULL_HANDLE; }
     }
 
-    AccelStructType type()          const override { return type_; }
-    u64             deviceAddress() const override { return deviceAddress_; }
+    AccelStructType Type()          const override { return type_; }
+    u64             DeviceAddress() const override { return deviceAddress_; }
 
     [[nodiscard]] VkAccelerationStructureKHR handle() const { return accel_; }
 

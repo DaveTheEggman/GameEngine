@@ -29,7 +29,7 @@ public:
     Status init(ID3D12Device* device, const MeshPipelineDesc& desc) {
         layout_ = static_cast<DxPipelineLayoutImpl*>(desc.layout);
         if (!layout_) {
-            logErrorf("DxMeshPipeline: pipeline layout is null");
+            LogErrorf("DxMeshPipeline: pipeline layout is null");
             return ErrorCode::Unknown;
         }
         layout = desc.layout;
@@ -38,7 +38,7 @@ public:
         ComPtr<ID3D12Device2> device2;
         HRESULT hr = device->QueryInterface(IID_PPV_ARGS(&device2));
         if (FAILED(hr) || !device2) {
-            logErrorf("DxMeshPipeline: QueryInterface for ID3D12Device2 failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxMeshPipeline: QueryInterface for ID3D12Device2 failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -63,7 +63,7 @@ public:
         // Mesh shader (required).
         auto* msMod = static_cast<DxShaderModuleImpl*>(desc.mesh.module);
         if (!msMod) {
-            logErrorf("DxMeshPipeline: mesh shader module is null");
+            LogErrorf("DxMeshPipeline: mesh shader module is null");
             return ErrorCode::Unknown;
         }
         {
@@ -182,7 +182,7 @@ public:
 
         hr = device2->CreatePipelineState(&streamDesc, IID_PPV_ARGS(&pipelineState_));
         if (FAILED(hr)) {
-            logErrorf("DxMeshPipeline: CreatePipelineState failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxMeshPipeline: CreatePipelineState failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
         return ErrorCode::Ok;

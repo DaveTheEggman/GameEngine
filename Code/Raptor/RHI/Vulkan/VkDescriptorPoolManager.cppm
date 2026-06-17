@@ -73,7 +73,7 @@ public:
         vkFreeDescriptorSets(device_, pool, 1, &set);
     }
 
-    void destroy() {
+    void Destroy() {
         for (auto pool : pools_) vkDestroyDescriptorPool(device_, pool, nullptr);
         pools_.Clear();
     }

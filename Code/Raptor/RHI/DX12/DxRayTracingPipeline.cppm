@@ -26,7 +26,7 @@ public:
     Status init(ID3D12Device* device, const RayTracingPipelineDesc& desc) {
         layout_ = static_cast<DxPipelineLayoutImpl*>(desc.layout);
         if (!layout_) {
-            logErrorf("DxRayTracingPipeline: pipeline layout is null");
+            LogErrorf("DxRayTracingPipeline: pipeline layout is null");
             return ErrorCode::Unknown;
         }
         layout = desc.layout;
@@ -35,7 +35,7 @@ public:
         ComPtr<ID3D12Device5> device5;
         HRESULT hr = device->QueryInterface(IID_PPV_ARGS(&device5));
         if (FAILED(hr) || !device5) {
-            logErrorf("DxRayTracingPipeline: QueryInterface for ID3D12Device5 failed (0x%08X)",
+            LogErrorf("DxRayTracingPipeline: QueryInterface for ID3D12Device5 failed (0x%08X)",
                       static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
@@ -185,7 +185,7 @@ public:
 
         hr = device5->CreateStateObject(&stateObjDesc, IID_PPV_ARGS(&stateObject_));
         if (FAILED(hr) || !stateObject_) {
-            logErrorf("DxRayTracingPipeline: CreateStateObject failed (0x%08X)",
+            LogErrorf("DxRayTracingPipeline: CreateStateObject failed (0x%08X)",
                       static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }

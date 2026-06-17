@@ -33,14 +33,14 @@ export namespace raptor::rhi::vk {
 
 class VkCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt {
 public:
-    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
+    RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     VkCommandEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device, VkCommandPoolImpl* pool)
         : cmdBuf_(cmdBuf), device_(device), pool_(pool),
           rpe_(cmdBuf, device), cpe_(cmdBuf) {}
 
     // ---- CommandEncoder ----
 
-    RenderPassEncoder* beginRenderPass(const RenderPassDesc& desc) override {
+    RenderPassEncoder* BeginRenderPass(const RenderPassDesc& desc) override {
         auto colorAtts = desc.colorAttachments.View();
         Array<VkRenderingAttachmentInfo> vkColor(colorAtts.Size());
 
@@ -75,10 +75,10 @@ public:
         VkRect2D renderArea{};
         if (colorAtts.Size() > 0) {
             if (auto* v = static_cast<VkTextureViewImpl*>(colorAtts[0].view))
-                renderArea.extent = { v->width(), v->height() };
+                renderArea.extent = { v->Width(), v->Height() };
         } else if (desc.depthStencilAttachment.HasValue()) {
             if (auto* v = static_cast<VkTextureViewImpl*>(desc.depthStencilAttachment->view))
-                renderArea.extent = { v->width(), v->height() };
+                renderArea.extent = { v->Width(), v->Height() };
         }
 
         VkRenderingInfo ri{};
@@ -104,7 +104,7 @@ public:
                 depthAtt.storeOp = toVkStoreOp(ds.depthStoreOp);
                 depthAtt.clearValue.depthStencil = { ds.depthClearValue, ds.stencilClearValue };
                 ri.pDepthAttachment = &depthAtt;
-                if (hasStencil(dv->format())) {
+                if (HasStencil(dv->Format())) {
                     stencilAtt          = depthAtt;
                     stencilAtt.loadOp   = toVkLoadOp(ds.stencilLoadOp);
                     stencilAtt.storeOp  = toVkStoreOp(ds.stencilStoreOp);
@@ -117,9 +117,9 @@ public:
         return &rpe_;
     }
 
-    ComputePassEncoder* beginComputePass(StringView) override { return &cpe_; }
+    ComputePassEncoder* BeginComputePass(StringView) override { return &cpe_; }
 
-    void barrier(const BarrierGroup& group) override {
+    void Barrier(const BarrierGroup& group) override {
         Array<VkMemoryBarrier2>      memBs(group.memoryBarriers.Size());
         Array<VkBufferMemoryBarrier2> bufBs(group.bufferBarriers.Size());
         Array<VkImageMemoryBarrier2>  imgBs(group.textureBarriers.Size());
@@ -196,19 +196,19 @@ public:
         vkCmdPipelineBarrier2(cmdBuf_, &di);
     }
 
-    void copyBufferToBuffer(Buffer* src, u64 srcOff, Buffer* dst, u64 dstOff, u64 size) override {
+    void CopyBufferToBuffer(Buffer* src, u64 srcOff, Buffer* dst, u64 dstOff, u64 size) override {
         auto* s = static_cast<VkBufferImpl*>(src); auto* d = static_cast<VkBufferImpl*>(dst);
         if (!s || !d) return;
         VkBufferCopy r{}; r.srcOffset = srcOff; r.dstOffset = dstOff; r.size = size;
         vkCmdCopyBuffer(cmdBuf_, s->handle(), d->handle(), 1, &r);
     }
 
-    void copyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& region) override {
+    void CopyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& region) override {
         auto* s = static_cast<VkBufferImpl*>(src); auto* d = static_cast<VkTextureImpl*>(dst);
         if (!s || !d) return;
         VkBufferImageCopy c{};
         c.bufferOffset      = region.bufferOffset;
-        u32 bpp2 = bytesPerPixel(d->desc.format);
+        u32 bpp2 = BytesPerPixel(d->desc.format);
         c.bufferRowLength   = (bpp2 > 0 && region.bytesPerRow > 0) ? region.bytesPerRow / bpp2 : 0;
         c.bufferImageHeight = region.rowsPerImage;
         c.imageSubresource.aspectMask     = getAspectMask(d->desc.format);
@@ -220,12 +220,12 @@ public:
         vkCmdCopyBufferToImage(cmdBuf_, s->handle(), d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
     }
 
-    void copyTextureToBuffer(Texture* src, Buffer* dst, const BufferTextureCopyRegion& region) override {
+    void CopyTextureToBuffer(Texture* src, Buffer* dst, const BufferTextureCopyRegion& region) override {
         auto* s = static_cast<VkTextureImpl*>(src); auto* d = static_cast<VkBufferImpl*>(dst);
         if (!s || !d) return;
         VkBufferImageCopy c{};
         c.bufferOffset      = region.bufferOffset;
-        u32 bpp = bytesPerPixel(s->desc.format);
+        u32 bpp = BytesPerPixel(s->desc.format);
         c.bufferRowLength   = (bpp > 0 && region.bytesPerRow > 0) ? region.bytesPerRow / bpp : 0;
         c.bufferImageHeight = region.rowsPerImage;
         c.imageSubresource.aspectMask     = getAspectMask(s->desc.format);
@@ -237,7 +237,7 @@ public:
         vkCmdCopyImageToBuffer(cmdBuf_, s->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, d->handle(), 1, &c);
     }
 
-    void copyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& region) override {
+    void CopyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& region) override {
         auto* s = static_cast<VkTextureImpl*>(src); auto* d = static_cast<VkTextureImpl*>(dst);
         if (!s || !d) return;
         VkImageCopy c{};
@@ -248,7 +248,7 @@ public:
                        d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
     }
 
-    void blit(Texture* src, Texture* dst) override {
+    void Blit(Texture* src, Texture* dst) override {
         auto* s = static_cast<VkTextureImpl*>(src); auto* d = static_cast<VkTextureImpl*>(dst);
         if (!s || !d) return;
         VkImageBlit b{};
@@ -260,7 +260,7 @@ public:
                        d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &b, VK_FILTER_LINEAR);
     }
 
-    void generateMipmaps(Texture* texture) override {
+    void GenerateMipmaps(Texture* texture) override {
         auto* vkTex = static_cast<VkTextureImpl*>(texture);
         if (!vkTex || vkTex->desc.mipLevelCount <= 1) return;
         // Simplified: caller transitions all mips to TRANSFER_DST before calling.
@@ -322,7 +322,7 @@ public:
         vkTex->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
-    void resolveTexture(Texture* src, Texture* dst) override {
+    void ResolveTexture(Texture* src, Texture* dst) override {
         auto* s = static_cast<VkTextureImpl*>(src); auto* d = static_cast<VkTextureImpl*>(dst);
         if (!s || !d) return;
         auto aspect = getAspectMask(s->desc.format);
@@ -332,22 +332,22 @@ public:
                           d->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &r);
     }
 
-    void resetQuerySet(QuerySet* qs, u32 first, u32 count) override {
+    void ResetQuerySet(QuerySet* qs, u32 first, u32 count) override {
         if (auto* q = static_cast<VkQuerySetImpl*>(qs)) vkCmdResetQueryPool(cmdBuf_, q->handle(), first, count);
     }
 
-    void writeTimestamp(QuerySet* qs, u32 index) override {
+    void WriteTimestamp(QuerySet* qs, u32 index) override {
         if (auto* q = static_cast<VkQuerySetImpl*>(qs))
             vkCmdWriteTimestamp(cmdBuf_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, q->handle(), index);
     }
 
-    void resolveQuerySet(QuerySet* qs, u32 first, u32 count, Buffer* dst, u64 dstOffset) override {
+    void ResolveQuerySet(QuerySet* qs, u32 first, u32 count, Buffer* dst, u64 dstOffset) override {
         auto* q = static_cast<VkQuerySetImpl*>(qs); auto* b = static_cast<VkBufferImpl*>(dst);
         if (q && b) vkCmdCopyQueryPoolResults(cmdBuf_, q->handle(), first, count, b->handle(), dstOffset, 8,
             VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
     }
 
-    void beginDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
+    void BeginDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
         char buf[256]{}; auto len = Min(label.Size(), static_cast<usize>(255));
         std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -356,12 +356,12 @@ public:
         if (pfn) pfn(cmdBuf_, &li);
     }
 
-    void endDebugLabel() override {
+    void EndDebugLabel() override {
         auto pfn = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device_, "vkCmdEndDebugUtilsLabelEXT"));
         if (pfn) pfn(cmdBuf_);
     }
 
-    void insertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
+    void InsertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
         char buf[256]{}; auto len = Min(label.Size(), static_cast<usize>(255));
         std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -370,7 +370,7 @@ public:
         if (pfn) pfn(cmdBuf_, &li);
     }
 
-    CommandBuffer* finish() override {
+    CommandBuffer* Finish() override {
         vkEndCommandBuffer(cmdBuf_);
         auto* cb = new VkCommandBufferImpl(cmdBuf_);
         pool_->trackCommandBuffer(cb);
@@ -379,14 +379,14 @@ public:
 
     // ---- RayTracingEncoderExt ----
 
-    void buildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOffset,
+    void BuildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOffset,
         Span<const AccelStructGeometryTriangles> tris, Span<const AccelStructGeometryAABBs> aabbs) override;
-    void buildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOffset,
+    void BuildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOffset,
         Buffer* instanceBuf, u64 instanceOffset, u32 instanceCount) override;
-    void setRayTracingPipeline(RayTracingPipeline* pipeline) override;
-    void setBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override;
-    void setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override;
-    void traceRays(Buffer* raygenSBT, u64 raygenOff, u64 raygenStride,
+    void SetRayTracingPipeline(RayTracingPipeline* pipeline) override;
+    void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override;
+    void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override;
+    void TraceRays(Buffer* raygenSBT, u64 raygenOff, u64 raygenStride,
                    Buffer* missSBT, u64 missOff, u64 missStride,
                    Buffer* hitSBT, u64 hitOff, u64 hitStride,
                    u32 width, u32 height, u32 depth) override;
@@ -415,13 +415,13 @@ private:
 
 // ---- Deferred RT method implementations ----
 
-inline void VkCommandEncoderImpl::setRayTracingPipeline(RayTracingPipeline* pipeline) {
+inline void VkCommandEncoderImpl::SetRayTracingPipeline(RayTracingPipeline* pipeline) {
     currentRtPipeline_ = static_cast<VkRayTracingPipelineImpl*>(pipeline);
     if (currentRtPipeline_)
         vkCmdBindPipeline(cmdBuf_, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, currentRtPipeline_->handle());
 }
 
-inline void VkCommandEncoderImpl::setBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) {
+inline void VkCommandEncoderImpl::SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) {
     auto* bg = static_cast<VkBindGroupImpl*>(group);
     if (!bg || !currentRtPipeline_ || !currentRtPipeline_->vkLayout()) return;
     VkDescriptorSet set = bg->handle();
@@ -430,13 +430,13 @@ inline void VkCommandEncoderImpl::setBindGroup(u32 index, BindGroup* group, Span
         static_cast<u32>(dynOffsets.Size()), dynOffsets.Data());
 }
 
-inline void VkCommandEncoderImpl::setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) {
+inline void VkCommandEncoderImpl::SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) {
     if (!currentRtPipeline_ || !currentRtPipeline_->vkLayout()) return;
     vkCmdPushConstants(cmdBuf_, currentRtPipeline_->vkLayout()->handle(),
         toVkShaderStageFlags(stages), offset, size, data);
 }
 
-inline void VkCommandEncoderImpl::traceRays(
+inline void VkCommandEncoderImpl::TraceRays(
     Buffer* raygenSBT, u64 raygenOff, u64 raygenStride,
     Buffer* missSBT, u64 missOff, u64 missStride,
     Buffer* hitSBT, u64 hitOff, u64 hitStride, u32 w, u32 h, u32 d) {
@@ -454,7 +454,7 @@ inline void VkCommandEncoderImpl::traceRays(
     if (pfnTrace_) pfnTrace_(cmdBuf_, &rgn, &msn, &htn, &cal, w, h, d);
 }
 
-inline void VkCommandEncoderImpl::buildBottomLevelAccelStruct(
+inline void VkCommandEncoderImpl::BuildBottomLevelAccelStruct(
     AccelStruct* dst, Buffer* scratch, u64 scratchOffset,
     Span<const AccelStructGeometryTriangles> tris, Span<const AccelStructGeometryAABBs> aabbs) {
     auto* as = static_cast<VkAccelStructImpl*>(dst);
@@ -521,7 +521,7 @@ inline void VkCommandEncoderImpl::buildBottomLevelAccelStruct(
     pfnBuild_(cmdBuf_, 1, &bi, &pRange);
 }
 
-inline void VkCommandEncoderImpl::buildTopLevelAccelStruct(
+inline void VkCommandEncoderImpl::BuildTopLevelAccelStruct(
     AccelStruct* dst, Buffer* scratch, u64 scratchOffset,
     Buffer* instanceBuf, u64 instanceOffset, u32 instanceCount) {
     auto* as = static_cast<VkAccelStructImpl*>(dst);
@@ -560,27 +560,27 @@ VkPipelineLayoutImpl* VkRenderPassEncoderImpl::getCurrentLayout() {
     return nullptr;
 }
 
-void VkRenderPassEncoderImpl::setMeshPipeline(MeshPipeline* pipeline) {
+void VkRenderPassEncoderImpl::SetMeshPipeline(MeshPipeline* pipeline) {
     currentMeshPipeline_ = static_cast<VkMeshPipelineImpl*>(pipeline);
     currentPipeline_     = nullptr;
     if (currentMeshPipeline_)
         vkCmdBindPipeline(cmdBuf_, VK_PIPELINE_BIND_POINT_GRAPHICS, currentMeshPipeline_->handle());
 }
 
-void VkRenderPassEncoderImpl::drawMeshTasks(u32 gx, u32 gy, u32 gz) {
+void VkRenderPassEncoderImpl::DrawMeshTasks(u32 gx, u32 gy, u32 gz) {
     if (!pfnDrawMesh_) pfnDrawMesh_ = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(
         vkGetDeviceProcAddr(device_, "vkCmdDrawMeshTasksEXT"));
     if (pfnDrawMesh_) pfnDrawMesh_(cmdBuf_, gx, gy, gz);
 }
 
-void VkRenderPassEncoderImpl::drawMeshTasksIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) {
+void VkRenderPassEncoderImpl::DrawMeshTasksIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) {
     auto* vkBuf = static_cast<VkBufferImpl*>(buf); if (!vkBuf) return;
     if (!pfnDrawMeshIndirect_) pfnDrawMeshIndirect_ = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectEXT>(
         vkGetDeviceProcAddr(device_, "vkCmdDrawMeshTasksIndirectEXT"));
     if (pfnDrawMeshIndirect_) pfnDrawMeshIndirect_(cmdBuf_, vkBuf->handle(), offset, drawCount, stride > 0 ? stride : 12);
 }
 
-void VkRenderPassEncoderImpl::drawMeshTasksIndirectCount(
+void VkRenderPassEncoderImpl::DrawMeshTasksIndirectCount(
     Buffer* buf, u64 offset, Buffer* countBuf, u64 countOffset, u32 maxDrawCount, u32 stride) {
     auto* vkBuf = static_cast<VkBufferImpl*>(buf);
     auto* vkCb  = static_cast<VkBufferImpl*>(countBuf);
@@ -593,7 +593,7 @@ void VkRenderPassEncoderImpl::drawMeshTasksIndirectCount(
 
 // ---- CommandPool deferred implementations ----
 
-Status VkCommandPoolImpl::createEncoder(CommandEncoder*& out) {
+Status VkCommandPoolImpl::CreateEncoder(CommandEncoder*& out) {
     out = nullptr;
     VkCommandBuffer cmdBuf = VK_NULL_HANDLE;
 
@@ -617,11 +617,11 @@ Status VkCommandPoolImpl::createEncoder(CommandEncoder*& out) {
     return ErrorCode::Ok;
 }
 
-void VkCommandPoolImpl::destroyEncoder(CommandEncoder*& encoder) {
+void VkCommandPoolImpl::DestroyEncoder(CommandEncoder*& encoder) {
     if (encoder) { delete encoder; encoder = nullptr; }
 }
 
-void VkCommandPoolImpl::reset() {
+void VkCommandPoolImpl::Reset() {
     for (auto* cb : trackedBuffers_) { freeHandles_.PushBack(cb->handle()); delete cb; }
     trackedBuffers_.Clear();
     vkResetCommandPool(device_, pool_, 0);

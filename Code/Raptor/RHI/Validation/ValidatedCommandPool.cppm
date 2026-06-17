@@ -18,28 +18,28 @@ class ValidatedCommandPool : public CommandPool {
 public:
     explicit ValidatedCommandPool(CommandPool* inner) : inner_(inner) {}
 
-    Status createEncoder(CommandEncoder*& out) override {
+    Status CreateEncoder(CommandEncoder*& out) override {
         CommandEncoder* innerEnc = nullptr;
-        Status r = inner_->createEncoder(innerEnc);
+        Status r = inner_->CreateEncoder(innerEnc);
         if (r != ErrorCode::Ok || !innerEnc) { out = nullptr; return r; }
         out = new ValidatedCommandEncoder(innerEnc);
         return ErrorCode::Ok;
     }
 
-    void destroyEncoder(CommandEncoder*& encoder) override {
+    void DestroyEncoder(CommandEncoder*& encoder) override {
         if (!encoder) return;
         auto* ve = static_cast<ValidatedCommandEncoder*>(encoder);
         if (ve) {
             CommandEncoder* innerEnc = ve->inner();
-            inner_->destroyEncoder(innerEnc);
+            inner_->DestroyEncoder(innerEnc);
             delete ve;
         } else {
-            inner_->destroyEncoder(encoder);
+            inner_->DestroyEncoder(encoder);
         }
         encoder = nullptr;
     }
 
-    void reset() override { inner_->reset(); }
+    void Reset() override { inner_->Reset(); }
 
     CommandPool* inner() const { return inner_; }
 

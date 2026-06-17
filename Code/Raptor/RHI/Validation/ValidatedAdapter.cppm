@@ -19,9 +19,9 @@ class ValidatedAdapter : public Adapter {
 public:
     explicit ValidatedAdapter(Adapter* inner) : inner_(inner) {}
 
-    void getInfo(AdapterInfo& out) override { inner_->getInfo(out); }
+    void GetInfo(AdapterInfo& out) override { inner_->GetInfo(out); }
 
-    Status createDevice(const DeviceDesc& desc, Device*& out) override;
+    Status CreateDevice(const DeviceDesc& desc, Device*& out) override;
 
     Adapter* inner() const { return inner_; }
 

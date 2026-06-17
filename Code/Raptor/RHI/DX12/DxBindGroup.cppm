@@ -53,9 +53,9 @@ public:
         return ErrorCode::Ok;
     }
 
-    BindGroupLayout* layout() override { return layout_; }
+    BindGroupLayout* Layout() override { return layout_; }
 
-    void updateBindless(Span<const BindlessUpdateEntry> entries) override {
+    void UpdateBindless(Span<const BindlessUpdateEntry> entries) override {
         auto ranges = layout_->ranges();
         for (usize i = 0; i < entries.Size(); ++i) {
             const auto& e = entries[i];
@@ -183,7 +183,7 @@ private:
                 asSrv.Format = DXGI_FORMAT_UNKNOWN;
                 asSrv.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
                 asSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                asSrv.RaytracingAccelerationStructure.Location = dxAs->deviceAddress();
+                asSrv.RaytracingAccelerationStructure.Location = dxAs->DeviceAddress();
                 device_->CreateShaderResourceView(nullptr, &asSrv, dest);
             }
             break;

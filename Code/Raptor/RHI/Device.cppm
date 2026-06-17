@@ -41,20 +41,20 @@ public:
     /// preferred first (discrete > integrated > unknown > CPU). Backends
     /// guarantee this ordering via sortAdaptersByPreference(), so callers
     /// that just want "the best available GPU" can take element [0].
-    [[nodiscard]] virtual Span<Adapter* const> enumerateAdapters() = 0;
+    [[nodiscard]] virtual Span<Adapter* const> EnumerateAdapters() = 0;
 
     /// Creates a presentation surface from a native window handle.
     /// On Win32: windowHandle = HWND, displayHandle = nullptr.
     /// On X11: windowHandle = XID (as void*), displayHandle = Display*.
     /// On Wayland: windowHandle = wl_surface*, displayHandle = wl_display*.
-    virtual Status createSurface(void* windowHandle, void* displayHandle, Surface*& out) = 0;
+    virtual Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out) = 0;
 
-    Status createSurface(void* windowHandle, Surface*& out) {
-        return createSurface(windowHandle, nullptr, out);
+    Status CreateSurface(void* windowHandle, Surface*& out) {
+        return CreateSurface(windowHandle, nullptr, out);
     }
 
     /// Destroy the backend and all objects it owns.
-    virtual void destroy() = 0;
+    virtual void Destroy() = 0;
 };
 
 // ---- Adapter ----
@@ -65,18 +65,18 @@ public:
     virtual ~Adapter() = default;
 
     /// Populate adapter info (name, vendor, features, limits).
-    virtual void getInfo(AdapterInfo& out) = 0;
+    virtual void GetInfo(AdapterInfo& out) = 0;
 
     /// Convenience: returns a copy of the adapter info.
-    [[nodiscard]] AdapterInfo info() { AdapterInfo i; getInfo(i); return i; }
+    [[nodiscard]] AdapterInfo Info() { AdapterInfo i; GetInfo(i); return i; }
 
     /// Create a logical device from this adapter.
-    virtual Status createDevice(const DeviceDesc& desc, Device*& out) = 0;
+    virtual Status CreateDevice(const DeviceDesc& desc, Device*& out) = 0;
 };
 
 /// Selection preference for an adapter type — lower is more preferred.
 /// Defines the single source of truth for "best GPU first" ordering.
-[[nodiscard]] inline int adapterPreferenceRank(AdapterType type) {
+[[nodiscard]] inline int AdapterPreferenceRank(AdapterType type) {
     switch (type) {
         case AdapterType::DiscreteGpu:   return 0;
         case AdapterType::IntegratedGpu: return 1;
@@ -90,13 +90,13 @@ public:
 /// adapterPreferenceRank). Backends call this after enumeration so that
 /// enumerateAdapters()[0] is the recommended default. The sort is stable,
 /// preserving the driver's native order among adapters of equal type.
-inline void sortAdaptersByPreference(Array<Adapter*>& adapters) {
+inline void SortAdaptersByPreference(Array<Adapter*>& adapters) {
     // Stable insertion sort by preference rank (adapter counts are tiny).
     for (usize i = 1; i < adapters.Size(); ++i) {
         Adapter* key = adapters[i];
-        const int keyRank = adapterPreferenceRank(key->info().type);
+        const int keyRank = AdapterPreferenceRank(key->Info().type);
         usize j = i;
-        while (j > 0 && adapterPreferenceRank(adapters[j - 1]->info().type) > keyRank) {
+        while (j > 0 && AdapterPreferenceRank(adapters[j - 1]->Info().type) > keyRank) {
             adapters[j] = adapters[j - 1];
             --j;
         }
@@ -115,53 +115,53 @@ public:
     DeviceFeatures features{};
 
     // ---- Queries ----
-    [[nodiscard]] virtual Queue* getQueue(QueueType type, u32 index = 0) = 0;
-    [[nodiscard]] virtual u32    getQueueCount(QueueType type) = 0;
+    [[nodiscard]] virtual Queue* GetQueue(QueueType type, u32 index = 0) = 0;
+    [[nodiscard]] virtual u32    GetQueueCount(QueueType type) = 0;
     /// Query hardware format support for a given texture format.
-    [[nodiscard]] virtual FormatSupport getFormatSupport(TextureFormat format) = 0;
+    [[nodiscard]] virtual FormatSupport GetFormatSupport(TextureFormat format) = 0;
 
     // ---- Resource creation ----
-    virtual Status createBuffer(const BufferDesc& desc, Buffer*& out) = 0;
-    virtual Status createTexture(const TextureDesc& desc, Texture*& out) = 0;
-    virtual Status createTextureView(Texture* texture, const TextureViewDesc& desc, TextureView*& out) = 0;
-    virtual Status createSampler(const SamplerDesc& desc, Sampler*& out) = 0;
-    virtual Status createShaderModule(const ShaderModuleDesc& desc, ShaderModule*& out) = 0;
-    virtual Status createBindGroupLayout(const BindGroupLayoutDesc& desc, BindGroupLayout*& out) = 0;
-    virtual Status createBindGroup(const BindGroupDesc& desc, BindGroup*& out) = 0;
-    virtual Status createPipelineLayout(const PipelineLayoutDesc& desc, PipelineLayout*& out) = 0;
-    virtual Status createPipelineCache(const PipelineCacheDesc& desc, PipelineCache*& out) = 0;
-    virtual Status createRenderPipeline(const RenderPipelineDesc& desc, RenderPipeline*& out) = 0;
-    virtual Status createComputePipeline(const ComputePipelineDesc& desc, ComputePipeline*& out) = 0;
-    virtual Status createCommandPool(QueueType queueType, CommandPool*& out) = 0;
-    virtual Status createFence(u64 initialValue, Fence*& out) = 0;
-    virtual Status createQuerySet(const QuerySetDesc& desc, QuerySet*& out) = 0;
-    virtual Status createSwapChain(Surface* surface, const SwapChainDesc& desc, SwapChain*& out) = 0;
+    virtual Status CreateBuffer(const BufferDesc& desc, Buffer*& out) = 0;
+    virtual Status CreateTexture(const TextureDesc& desc, Texture*& out) = 0;
+    virtual Status CreateTextureView(Texture* texture, const TextureViewDesc& desc, TextureView*& out) = 0;
+    virtual Status CreateSampler(const SamplerDesc& desc, Sampler*& out) = 0;
+    virtual Status CreateShaderModule(const ShaderModuleDesc& desc, ShaderModule*& out) = 0;
+    virtual Status CreateBindGroupLayout(const BindGroupLayoutDesc& desc, BindGroupLayout*& out) = 0;
+    virtual Status CreateBindGroup(const BindGroupDesc& desc, BindGroup*& out) = 0;
+    virtual Status CreatePipelineLayout(const PipelineLayoutDesc& desc, PipelineLayout*& out) = 0;
+    virtual Status CreatePipelineCache(const PipelineCacheDesc& desc, PipelineCache*& out) = 0;
+    virtual Status CreateRenderPipeline(const RenderPipelineDesc& desc, RenderPipeline*& out) = 0;
+    virtual Status CreateComputePipeline(const ComputePipelineDesc& desc, ComputePipeline*& out) = 0;
+    virtual Status CreateCommandPool(QueueType queueType, CommandPool*& out) = 0;
+    virtual Status CreateFence(u64 initialValue, Fence*& out) = 0;
+    virtual Status CreateQuerySet(const QuerySetDesc& desc, QuerySet*& out) = 0;
+    virtual Status CreateSwapChain(Surface* surface, const SwapChainDesc& desc, SwapChain*& out) = 0;
 
     // ---- Resource destruction ----
-    virtual void destroyBuffer(Buffer*& buf) = 0;
-    virtual void destroyTexture(Texture*& tex) = 0;
-    virtual void destroyTextureView(TextureView*& view) = 0;
-    virtual void destroySampler(Sampler*& sampler) = 0;
-    virtual void destroyShaderModule(ShaderModule*& module) = 0;
-    virtual void destroyBindGroupLayout(BindGroupLayout*& layout) = 0;
-    virtual void destroyBindGroup(BindGroup*& group) = 0;
-    virtual void destroyPipelineLayout(PipelineLayout*& layout) = 0;
-    virtual void destroyPipelineCache(PipelineCache*& cache) = 0;
-    virtual void destroyRenderPipeline(RenderPipeline*& pipeline) = 0;
-    virtual void destroyComputePipeline(ComputePipeline*& pipeline) = 0;
-    virtual void destroyCommandPool(CommandPool*& pool) = 0;
-    virtual void destroyFence(Fence*& fence) = 0;
-    virtual void destroyQuerySet(QuerySet*& querySet) = 0;
-    virtual void destroySwapChain(SwapChain*& swapChain) = 0;
-    virtual void destroySurface(Surface*& surface) = 0;
+    virtual void DestroyBuffer(Buffer*& buf) = 0;
+    virtual void DestroyTexture(Texture*& tex) = 0;
+    virtual void DestroyTextureView(TextureView*& view) = 0;
+    virtual void DestroySampler(Sampler*& sampler) = 0;
+    virtual void DestroyShaderModule(ShaderModule*& module) = 0;
+    virtual void DestroyBindGroupLayout(BindGroupLayout*& layout) = 0;
+    virtual void DestroyBindGroup(BindGroup*& group) = 0;
+    virtual void DestroyPipelineLayout(PipelineLayout*& layout) = 0;
+    virtual void DestroyPipelineCache(PipelineCache*& cache) = 0;
+    virtual void DestroyRenderPipeline(RenderPipeline*& pipeline) = 0;
+    virtual void DestroyComputePipeline(ComputePipeline*& pipeline) = 0;
+    virtual void DestroyCommandPool(CommandPool*& pool) = 0;
+    virtual void DestroyFence(Fence*& fence) = 0;
+    virtual void DestroyQuerySet(QuerySet*& querySet) = 0;
+    virtual void DestroySwapChain(SwapChain*& swapChain) = 0;
+    virtual void DestroySurface(Surface*& surface) = 0;
 
     // ---- Mesh shader extension (folded into Device) ----
     /// Create a mesh shader pipeline. Returns Unsupported if mesh shaders
     /// are not enabled on this device.
-    virtual Status createMeshPipeline(const MeshPipelineDesc& desc, MeshPipeline*& out) {
+    virtual Status CreateMeshPipeline(const MeshPipelineDesc& desc, MeshPipeline*& out) {
         (void)desc; out = nullptr; return ErrorCode::NotSupported;
     }
-    virtual void destroyMeshPipeline(MeshPipeline*& pipeline) { (void)pipeline; }
+    virtual void DestroyMeshPipeline(MeshPipeline*& pipeline) { (void)pipeline; }
 
     // ---- Ray tracing extension (folded into Device) ----
     /// Shader binding table handle properties. Populated by the backend
@@ -172,26 +172,26 @@ public:
 
     /// Create an acceleration structure. Returns Unsupported if ray tracing
     /// is not enabled on this device.
-    virtual Status createAccelStruct(const AccelStructDesc& desc, AccelStruct*& out) {
+    virtual Status CreateAccelStruct(const AccelStructDesc& desc, AccelStruct*& out) {
         (void)desc; out = nullptr; return ErrorCode::NotSupported;
     }
-    virtual void destroyAccelStruct(AccelStruct*& accelStruct) { (void)accelStruct; }
+    virtual void DestroyAccelStruct(AccelStruct*& accelStruct) { (void)accelStruct; }
 
-    virtual Status createRayTracingPipeline(const RayTracingPipelineDesc& desc, RayTracingPipeline*& out) {
+    virtual Status CreateRayTracingPipeline(const RayTracingPipelineDesc& desc, RayTracingPipeline*& out) {
         (void)desc; out = nullptr; return ErrorCode::NotSupported;
     }
-    virtual void destroyRayTracingPipeline(RayTracingPipeline*& pipeline) { (void)pipeline; }
+    virtual void DestroyRayTracingPipeline(RayTracingPipeline*& pipeline) { (void)pipeline; }
 
     /// Retrieve shader group handles for building shader binding tables.
-    virtual Status getShaderGroupHandles(RayTracingPipeline* pipeline, u32 firstGroup,
+    virtual Status GetShaderGroupHandles(RayTracingPipeline* pipeline, u32 firstGroup,
                                           u32 groupCount, Span<u8> outData) {
         (void)pipeline; (void)firstGroup; (void)groupCount; (void)outData;
         return ErrorCode::NotSupported;
     }
 
     // ---- Lifecycle ----
-    virtual void waitIdle() = 0;
-    virtual void destroy() = 0;
+    virtual void WaitIdle() = 0;
+    virtual void Destroy() = 0;
 };
 
 } // namespace raptor::rhi

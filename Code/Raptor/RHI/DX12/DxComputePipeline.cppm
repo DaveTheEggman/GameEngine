@@ -32,7 +32,7 @@ public:
 
         HRESULT hr = device->CreateComputePipelineState(&pso, IID_PPV_ARGS(&pipelineState_));
         if (FAILED(hr)) {
-            logErrorf("DxComputePipeline: CreateComputePipelineState failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxComputePipeline: CreateComputePipelineState failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
         return ErrorCode::Ok;

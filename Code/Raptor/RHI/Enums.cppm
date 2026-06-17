@@ -27,7 +27,7 @@ enum class BufferUsage : u32 {
 };
 inline constexpr BufferUsage operator|(BufferUsage a, BufferUsage b) { return static_cast<BufferUsage>(static_cast<u32>(a) | static_cast<u32>(b)); }
 inline constexpr BufferUsage operator&(BufferUsage a, BufferUsage b) { return static_cast<BufferUsage>(static_cast<u32>(a) & static_cast<u32>(b)); }
-inline constexpr bool hasFlag(BufferUsage v, BufferUsage f) { return (v & f) == f; }
+inline constexpr bool HasFlag(BufferUsage v, BufferUsage f) { return (v & f) == f; }
 
 enum class TextureUsage : u32 {
     None            = 0,

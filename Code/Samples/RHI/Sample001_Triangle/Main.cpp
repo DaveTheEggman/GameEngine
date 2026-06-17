@@ -77,24 +77,24 @@ raptor::core::Status TriangleSample::onInit() {
     // Vertex buffer.
     dr::BufferDesc bd{}; bd.size = sizeof(kVertexData); bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
     bd.memory = dr::MemoryLocation::GpuOnly; bd.label = u"TriangleVB";
-    if (device_->createBuffer(bd, vertexBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBuffer(bd, vertexBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Upload.
     dr::TransferBatch* batch = nullptr;
-    graphicsQueue_->createTransferBatch(batch);
-    batch->writeBuffer(vertexBuf_, 0, raptor::core::Span<const raptor::core::u8>(reinterpret_cast<const raptor::core::u8*>(kVertexData), sizeof(kVertexData)));
-    batch->submit();
-    graphicsQueue_->destroyTransferBatch(batch);
+    graphicsQueue_->CreateTransferBatch(batch);
+    batch->WriteBuffer(vertexBuf_, 0, raptor::core::Span<const raptor::core::u8>(reinterpret_cast<const raptor::core::u8*>(kVertexData), sizeof(kVertexData)));
+    batch->Submit();
+    graphicsQueue_->DestroyTransferBatch(batch);
 
     // Pipeline layout (empty).
     dr::BindGroupLayoutDesc bglDesc{}; bglDesc.label = u"EmptyBGL";
-    if (device_->createBindGroupLayout(bglDesc, bgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBindGroupLayout(bglDesc, bgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::PipelineLayoutDesc pld{};
     dr::BindGroupLayout* sets[1] = { bgl_ };
     pld.bindGroupLayouts = raptor::core::Span<dr::BindGroupLayout* const>(sets, 1);
     pld.label = u"TrianglePL";
-    if (device_->createPipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render pipeline.
     dr::VertexAttribute attrs[2] = {
@@ -103,7 +103,7 @@ raptor::core::Status TriangleSample::onInit() {
     };
     dr::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = raptor::core::Span<const dr::VertexAttribute>(attrs, 2);
 
-    dr::ColorTargetState ct{}; ct.format = swapChain_->format(); ct.writeMask = dr::ColorWriteMask::All;
+    dr::ColorTargetState ct{}; ct.format = swapChain_->Format(); ct.writeMask = dr::ColorWriteMask::All;
 
     dr::RenderPipelineDesc rpd{};
     rpd.layout   = pl_;
@@ -114,62 +114,62 @@ raptor::core::Status TriangleSample::onInit() {
     rpd.fragment->targets = raptor::core::Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
     rpd.label = u"TrianglePipeline";
-    if (device_->createRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Command pool + fence.
-    if (device_->createCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->createFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     return raptor::core::ErrorCode::Ok;
 }
 
 void TriangleSample::onRender() {
-    if (fenceVal_ > 0) fence_->wait(fenceVal_, ~0ull);
-    if (swapChain_->acquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
+    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
-    pool_->reset();
+    pool_->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->createEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
     dr::ColorAttachment ca{};
-    ca.view = swapChain_->currentTextureView();
+    ca.view = swapChain_->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
 
     dr::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
 
-    auto* rp = enc->beginRenderPass(rpd);
-    rp->setPipeline(pipeline_);
-    rp->setViewport(0, 0, static_cast<raptor::core::f32>(width_), static_cast<raptor::core::f32>(height_), 0, 1);
-    rp->setScissor(0, 0, width_, height_);
-    rp->setVertexBuffer(0, vertexBuf_, 0);
-    rp->draw(3);
-    rp->end();
+    auto* rp = enc->BeginRenderPass(rpd);
+    rp->SetPipeline(pipeline_);
+    rp->SetViewport(0, 0, static_cast<raptor::core::f32>(width_), static_cast<raptor::core::f32>(height_), 0, 1);
+    rp->SetScissor(0, 0, width_, height_);
+    rp->SetVertexBuffer(0, vertexBuf_, 0);
+    rp->Draw(3);
+    rp->End();
 
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->finish();
+    dr::CommandBuffer* cb = enc->Finish();
     fenceVal_++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->submit(raptor::core::Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
+    graphicsQueue_->Submit(raptor::core::Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
 
-    swapChain_->present(graphicsQueue_);
-    pool_->destroyEncoder(enc);
+    swapChain_->Present(graphicsQueue_);
+    pool_->DestroyEncoder(enc);
 }
 
 void TriangleSample::onShutdown() {
-    if (fence_)    device_->destroyFence(fence_);
-    if (pool_)     device_->destroyCommandPool(pool_);
-    if (pipeline_) device_->destroyRenderPipeline(pipeline_);
-    if (pl_)       device_->destroyPipelineLayout(pl_);
-    if (bgl_)      device_->destroyBindGroupLayout(bgl_);
-    if (ps_)       device_->destroyShaderModule(ps_);
-    if (vs_)       device_->destroyShaderModule(vs_);
-    if (vertexBuf_) device_->destroyBuffer(vertexBuf_);
-    if (compiler_) { compiler_->destroy(); delete compiler_; }
+    if (fence_)    device_->DestroyFence(fence_);
+    if (pool_)     device_->DestroyCommandPool(pool_);
+    if (pipeline_) device_->DestroyRenderPipeline(pipeline_);
+    if (pl_)       device_->DestroyPipelineLayout(pl_);
+    if (bgl_)      device_->DestroyBindGroupLayout(bgl_);
+    if (ps_)       device_->DestroyShaderModule(ps_);
+    if (vs_)       device_->DestroyShaderModule(vs_);
+    if (vertexBuf_) device_->DestroyBuffer(vertexBuf_);
+    if (compiler_) { compiler_->Destroy(); delete compiler_; }
 }
 
 int main(int argc, char** argv) { TriangleSample app; return app.run(argc, argv); }

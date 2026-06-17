@@ -43,8 +43,8 @@ public:
         return ErrorCode::Ok;
     }
 
-    AccelStructType type()          const override { return type_; }
-    u64             deviceAddress() const override { return gpuAddr_; }
+    AccelStructType Type()          const override { return type_; }
+    u64             DeviceAddress() const override { return gpuAddr_; }
 
     void cleanup() { resource_.Reset(); }
 

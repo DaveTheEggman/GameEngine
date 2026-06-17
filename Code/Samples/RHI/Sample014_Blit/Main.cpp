@@ -53,30 +53,30 @@ raptor::core::Status BlitSample::onInit() {
 
     // Triangle VB (CpuToGpu for per-frame rotation updates).
     dr::BufferDesc vbd{}; vbd.size = 84; vbd.usage = dr::BufferUsage::Vertex; vbd.memory = dr::MemoryLocation::CpuToGpu;
-    if (device_->createBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::PipelineLayoutDesc pld{};
-    if (device_->createPipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Offscreen render target.
-    dr::TextureDesc td{}; td.format = swapChain_->format(); td.width = kOffscreenSize; td.height = kOffscreenSize;
+    dr::TextureDesc td{}; td.format = swapChain_->Format(); td.width = kOffscreenSize; td.height = kOffscreenSize;
     td.mipLevelCount = 1; td.usage = dr::TextureUsage::RenderTarget | dr::TextureUsage::CopySrc | dr::TextureUsage::Sampled;
-    if (device_->createTexture(td, offscreenTex_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::TextureViewDesc tvd{}; tvd.format = swapChain_->format(); tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    if (device_->createTextureView(offscreenTex_, tvd, offscreenView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateTexture(td, offscreenTex_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::TextureViewDesc tvd{}; tvd.format = swapChain_->Format(); tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
+    if (device_->CreateTextureView(offscreenTex_, tvd, offscreenView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = swapChain_->format();
+    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
     rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
     rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-    if (device_->createRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->createCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->createFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
@@ -92,58 +92,58 @@ void BlitSample::updateTriangle() {
         verts[i*7+3] = colors[i*4]; verts[i*7+4] = colors[i*4+1];
         verts[i*7+5] = colors[i*4+2]; verts[i*7+6] = colors[i*4+3];
     }
-    void* mapped = vb_->map();
-    if (mapped) { std::memcpy(mapped, verts, 84); vb_->unmap(); }
+    void* mapped = vb_->Map();
+    if (mapped) { std::memcpy(mapped, verts, 84); vb_->Unmap(); }
 }
 
 void BlitSample::onRender() {
     using raptor::core::f32, raptor::core::Span;
-    if (fenceVal_ > 0) fence_->wait(fenceVal_, ~0ull);
-    if (swapChain_->acquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
+    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
     updateTriangle();
 
-    pool_->reset();
+    pool_->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->createEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
     // Pass 1: Render spinning triangle to offscreen texture.
-    enc->transitionTexture(offscreenTex_, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(offscreenTex_, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
     {
         dr::ColorAttachment ca{}; ca.view = offscreenView_;
         ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
         ca.clearValue = dr::ClearColor(0.15f, 0.1f, 0.2f, 1.0f);
         dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
-        auto* rp = enc->beginRenderPass(rpd);
-        rp->setPipeline(pipeline_);
-        rp->setViewport(0, 0, static_cast<f32>(kOffscreenSize), static_cast<f32>(kOffscreenSize), 0, 1);
-        rp->setScissor(0, 0, kOffscreenSize, kOffscreenSize);
-        rp->setVertexBuffer(0, vb_, 0);
-        rp->draw(3);
-        rp->end();
+        auto* rp = enc->BeginRenderPass(rpd);
+        rp->SetPipeline(pipeline_);
+        rp->SetViewport(0, 0, static_cast<f32>(kOffscreenSize), static_cast<f32>(kOffscreenSize), 0, 1);
+        rp->SetScissor(0, 0, kOffscreenSize, kOffscreenSize);
+        rp->SetVertexBuffer(0, vb_, 0);
+        rp->Draw(3);
+        rp->End();
     }
-    enc->transitionTexture(offscreenTex_, dr::ResourceState::RenderTarget, dr::ResourceState::CopySrc);
+    enc->TransitionTexture(offscreenTex_, dr::ResourceState::RenderTarget, dr::ResourceState::CopySrc);
 
     // Pass 2: Blit offscreen (128x128) to full swapchain (scaled up with linear filtering).
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::Undefined, dr::ResourceState::CopyDst);
-    enc->blit(offscreenTex_, swapChain_->currentTexture());
-    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::CopyDst, dr::ResourceState::Present);
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::CopyDst);
+    enc->Blit(offscreenTex_, swapChain_->CurrentTexture());
+    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::CopyDst, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->finish(); fenceVal_++;
+    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->present(graphicsQueue_);
-    pool_->destroyEncoder(enc);
+    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
+    swapChain_->Present(graphicsQueue_);
+    pool_->DestroyEncoder(enc);
 }
 
 void BlitSample::onShutdown() {
-    if (fence_) device_->destroyFence(fence_); if (pool_) device_->destroyCommandPool(pool_);
-    if (pipeline_) device_->destroyRenderPipeline(pipeline_); if (pl_) device_->destroyPipelineLayout(pl_);
-    if (offscreenView_) device_->destroyTextureView(offscreenView_);
-    if (offscreenTex_) device_->destroyTexture(offscreenTex_);
-    if (vb_) device_->destroyBuffer(vb_);
-    if (ps_) device_->destroyShaderModule(ps_); if (vs_) device_->destroyShaderModule(vs_);
-    if (compiler_) { compiler_->destroy(); delete compiler_; }
+    if (fence_) device_->DestroyFence(fence_); if (pool_) device_->DestroyCommandPool(pool_);
+    if (pipeline_) device_->DestroyRenderPipeline(pipeline_); if (pl_) device_->DestroyPipelineLayout(pl_);
+    if (offscreenView_) device_->DestroyTextureView(offscreenView_);
+    if (offscreenTex_) device_->DestroyTexture(offscreenTex_);
+    if (vb_) device_->DestroyBuffer(vb_);
+    if (ps_) device_->DestroyShaderModule(ps_); if (vs_) device_->DestroyShaderModule(vs_);
+    if (compiler_) { compiler_->Destroy(); delete compiler_; }
 }
 
 int main(int argc, char** argv) { BlitSample app; return app.run(argc, argv); }

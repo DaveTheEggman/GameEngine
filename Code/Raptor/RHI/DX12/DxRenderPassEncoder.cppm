@@ -44,7 +44,7 @@ struct DxRenderPassContext {
 
 class DxRenderPassEncoderImpl : public RenderPassEncoder, public MeshShaderPassExt {
 public:
-    MeshShaderPassExt* asMeshShaderExt() noexcept override { return this; }
+    MeshShaderPassExt* AsMeshShaderExt() noexcept override { return this; }
     explicit DxRenderPassEncoderImpl(const DxRenderPassContext& ctx)
         : ctx_(ctx) {}
 
@@ -56,7 +56,7 @@ public:
 
     // ---- RenderPassEncoder: Pipeline & Binding ----
 
-    void setPipeline(RenderPipeline* pipeline) override {
+    void SetPipeline(RenderPipeline* pipeline) override {
         auto* dxPipeline = static_cast<DxRenderPipelineImpl*>(pipeline);
         if (!dxPipeline) return;
         currentPipeline_     = dxPipeline;
@@ -78,7 +78,7 @@ public:
         }
     }
 
-    void setBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
+    void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
         auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
         if (!dxGroup) return;
 
@@ -86,7 +86,7 @@ public:
         if (!layout) return;
 
         auto* cmdList  = ctx_.cmdList;
-        auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->layout());
+        auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->Layout());
 
         // Copy-on-bind: copy bind group's descriptors into encoder's staging region,
         // then bind from the staging offset. This makes bind group destruction safe
@@ -146,7 +146,7 @@ public:
         }
     }
 
-    void setPushConstants(ShaderStage /*stages*/, u32 offset, u32 size, const void* data) override {
+    void SetPushConstants(ShaderStage /*stages*/, u32 offset, u32 size, const void* data) override {
         auto* layout = getCurrentLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;
 
@@ -157,7 +157,7 @@ public:
 
     // ---- Vertex & Index Buffers ----
 
-    void setVertexBuffer(u32 slot, Buffer* buffer, u64 offset) override {
+    void SetVertexBuffer(u32 slot, Buffer* buffer, u64 offset) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf || slot >= 8) return;
 
@@ -175,7 +175,7 @@ public:
         ctx_.cmdList->IASetVertexBuffers(slot, 1, &view);
     }
 
-    void setIndexBuffer(Buffer* buffer, IndexFormat format, u64 offset) override {
+    void SetIndexBuffer(Buffer* buffer, IndexFormat format, u64 offset) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
@@ -189,7 +189,7 @@ public:
 
     // ---- Dynamic State ----
 
-    void setViewport(f32 x, f32 y, f32 w, f32 h, f32 minDepth, f32 maxDepth) override {
+    void SetViewport(f32 x, f32 y, f32 w, f32 h, f32 minDepth, f32 maxDepth) override {
         D3D12_VIEWPORT viewport{};
         viewport.TopLeftX = x;
         viewport.TopLeftY = y;
@@ -201,7 +201,7 @@ public:
         ctx_.cmdList->RSSetViewports(1, &viewport);
     }
 
-    void setScissor(i32 x, i32 y, u32 w, u32 h) override {
+    void SetScissor(i32 x, i32 y, u32 w, u32 h) override {
         D3D12_RECT rect{};
         rect.left   = x;
         rect.top    = y;
@@ -211,26 +211,26 @@ public:
         ctx_.cmdList->RSSetScissorRects(1, &rect);
     }
 
-    void setBlendConstant(f32 r, f32 g, f32 b, f32 a) override {
+    void SetBlendConstant(f32 r, f32 g, f32 b, f32 a) override {
         f32 color[4] = { r, g, b, a };
         ctx_.cmdList->OMSetBlendFactor(color);
     }
 
-    void setStencilReference(u32 reference) override {
+    void SetStencilReference(u32 reference) override {
         ctx_.cmdList->OMSetStencilRef(reference);
     }
 
     // ---- Draw Commands ----
 
-    void draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override {
+    void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override {
         ctx_.cmdList->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
     }
 
-    void drawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex, u32 firstInstance) override {
+    void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex, u32 firstInstance) override {
         ctx_.cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
     }
 
-    void drawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override {
+    void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
@@ -244,7 +244,7 @@ public:
         }
     }
 
-    void drawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override {
+    void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
@@ -260,24 +260,24 @@ public:
 
     // ---- Queries ----
 
-    void writeTimestamp(QuerySet* querySet, u32 index) override {
+    void WriteTimestamp(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
         if (qs) ctx_.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
     }
 
-    void beginOcclusionQuery(QuerySet* querySet, u32 index) override {
+    void BeginOcclusionQuery(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
         if (qs) ctx_.cmdList->BeginQuery(qs->handle(), D3D12_QUERY_TYPE_OCCLUSION, index);
     }
 
-    void endOcclusionQuery(QuerySet* querySet, u32 index) override {
+    void EndOcclusionQuery(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
         if (qs) ctx_.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_OCCLUSION, index);
     }
 
     // ---- MeshShaderPassExt ----
 
-    void setMeshPipeline(MeshPipeline* pipeline) override {
+    void SetMeshPipeline(MeshPipeline* pipeline) override {
         auto* dxPipeline = static_cast<DxMeshPipelineImpl*>(pipeline);
         if (!dxPipeline) return;
         currentMeshPipeline_ = dxPipeline;
@@ -288,7 +288,7 @@ public:
         cmdList->SetGraphicsRootSignature(dxPipeline->pipelineLayout()->handle());
     }
 
-    void drawMeshTasks(u32 groupCountX, u32 groupCountY, u32 groupCountZ) override {
+    void DrawMeshTasks(u32 groupCountX, u32 groupCountY, u32 groupCountZ) override {
         // Need ID3D12GraphicsCommandList6 for DispatchMesh.
         ID3D12GraphicsCommandList6* cmdList6 = nullptr;
         HRESULT hr = ctx_.cmdList->QueryInterface(IID_PPV_ARGS(&cmdList6));
@@ -298,7 +298,7 @@ public:
         }
     }
 
-    void drawMeshTasksIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override {
+    void DrawMeshTasksIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
@@ -312,7 +312,7 @@ public:
         }
     }
 
-    void drawMeshTasksIndirectCount(Buffer* buffer, u64 offset,
+    void DrawMeshTasksIndirectCount(Buffer* buffer, u64 offset,
                                     Buffer* countBuffer, u64 countOffset,
                                     u32 maxDrawCount, u32 /*stride*/) override {
         auto* dxBuf      = static_cast<DxBufferImpl*>(buffer);
@@ -328,7 +328,7 @@ public:
 
     // ---- End ----
 
-    void end() override {
+    void End() override {
         // Timestamp at pass end.
         if (desc_.timestampQuerySet) {
             auto* qs = static_cast<DxQuerySetImpl*>(desc_.timestampQuerySet);
@@ -349,7 +349,7 @@ public:
             auto* srcTex = srcView->dxTexture();
             auto* dstTex = dstView->dxTexture();
 
-            TextureFormat format = srcView->format();
+            TextureFormat format = srcView->Format();
             if (format == TextureFormat::Undefined)
                 format = srcView->dxTexture()->desc.format;
             DXGI_FORMAT dxgiFormat = toDxgiFormat(format);

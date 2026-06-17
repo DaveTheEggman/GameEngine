@@ -22,7 +22,7 @@ public:
 
     [[nodiscard]] VkSurfaceKHR handle() const { return surface_; }
 
-    void destroy() {
+    void Destroy() {
         if (surface_ != VK_NULL_HANDLE) {
             vkDestroySurfaceKHR(instance_, surface_, nullptr);
             surface_ = VK_NULL_HANDLE;

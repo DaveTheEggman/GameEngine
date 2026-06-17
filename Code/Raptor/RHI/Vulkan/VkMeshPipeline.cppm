@@ -130,8 +130,8 @@ public:
         ri.colorAttachmentCount = static_cast<u32>(colorFmts.Size()); ri.pColorAttachmentFormats = colorFmts.Data();
         if (desc.depthStencil.HasValue()) {
             VkFormat dsf = toVkFormat(desc.depthStencil->format);
-            if (hasDepth(desc.depthStencil->format))   ri.depthAttachmentFormat   = dsf;
-            if (hasStencil(desc.depthStencil->format)) ri.stencilAttachmentFormat = dsf;
+            if (HasDepth(desc.depthStencil->format))   ri.depthAttachmentFormat   = dsf;
+            if (HasStencil(desc.depthStencil->format)) ri.stencilAttachmentFormat = dsf;
         }
 
         // Create pipeline (no vertex input / input assembly for mesh shaders).

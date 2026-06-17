@@ -20,25 +20,25 @@ class ValidatedQueue : public Queue {
 public:
     explicit ValidatedQueue(Queue* inner) : inner_(inner) { queueType = inner->queueType; }
 
-    void submit(Span<CommandBuffer* const> cmdBufs) override {
+    void Submit(Span<CommandBuffer* const> cmdBufs) override {
         for (usize i = 0; i < cmdBufs.Size(); ++i)
-            if (!cmdBufs[i]) logErrorf("[Validation] Queue::submit: commandBuffer[%zu] is null", i);
-        inner_->submit(cmdBufs);
+            if (!cmdBufs[i]) LogErrorf("[Validation] Queue::submit: commandBuffer[%zu] is null", i);
+        inner_->Submit(cmdBufs);
     }
 
-    void submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
-        if (!signalFence) { logError("[Validation] Queue::submit: signalFence is null"); return; }
+    void Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
+        if (!signalFence) { LogError("[Validation] Queue::submit: signalFence is null"); return; }
         auto* vf = static_cast<ValidatedFence*>(signalFence);
         Fence* innerFence = vf ? vf->inner() : signalFence;
         if (vf) vf->trackSignal(signalValue);
-        inner_->submit(cmdBufs, innerFence, signalValue);
+        inner_->Submit(cmdBufs, innerFence, signalValue);
     }
 
-    void submit(Span<CommandBuffer* const> cmdBufs,
+    void Submit(Span<CommandBuffer* const> cmdBufs,
                 Span<Fence* const> waitFences, Span<const u64> waitValues,
                 Fence* signalFence, u64 signalValue) override {
         if (waitFences.Size() != waitValues.Size())
-            logError("[Validation] Queue::submit: waitFences and waitValues count mismatch");
+            LogError("[Validation] Queue::submit: waitFences and waitValues count mismatch");
         // Unwrap validated fences for both wait and signal.
         Array<Fence*> innerWait(waitFences.Size());
         for (usize i = 0; i < waitFences.Size(); ++i) {
@@ -48,33 +48,33 @@ public:
         auto* vf = static_cast<ValidatedFence*>(signalFence);
         Fence* innerSignal = vf ? vf->inner() : signalFence;
         if (vf) vf->trackSignal(signalValue);
-        inner_->submit(cmdBufs, Span<Fence* const>(innerWait.Data(), innerWait.Size()), waitValues, innerSignal, signalValue);
+        inner_->Submit(cmdBufs, Span<Fence* const>(innerWait.Data(), innerWait.Size()), waitValues, innerSignal, signalValue);
     }
 
-    void waitIdle() override { inner_->waitIdle(); }
+    void WaitIdle() override { inner_->WaitIdle(); }
 
-    Status createTransferBatch(TransferBatch*& out) override {
+    Status CreateTransferBatch(TransferBatch*& out) override {
         TransferBatch* innerBatch = nullptr;
-        Status r = inner_->createTransferBatch(innerBatch);
+        Status r = inner_->CreateTransferBatch(innerBatch);
         if (r != ErrorCode::Ok || !innerBatch) { out = nullptr; return r; }
         out = new ValidatedTransferBatch(innerBatch);
         return ErrorCode::Ok;
     }
 
-    void destroyTransferBatch(TransferBatch*& batch) override {
+    void DestroyTransferBatch(TransferBatch*& batch) override {
         if (!batch) return;
         auto* vt = static_cast<ValidatedTransferBatch*>(batch);
         if (vt) {
             TransferBatch* innerBatch = vt->inner();
-            inner_->destroyTransferBatch(innerBatch);
+            inner_->DestroyTransferBatch(innerBatch);
             delete vt;
         } else {
-            inner_->destroyTransferBatch(batch);
+            inner_->DestroyTransferBatch(batch);
         }
         batch = nullptr;
     }
 
-    f32 timestampPeriod() const override { return inner_->timestampPeriod(); }
+    f32 TimestampPeriod() const override { return inner_->TimestampPeriod(); }
 
     Queue* inner() const { return inner_; }
 

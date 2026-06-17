@@ -30,72 +30,72 @@ public:
     }
 
     // ---- Queues ----
-    Queue* getQueue(QueueType t, u32 index) override {
+    Queue* GetQueue(QueueType t, u32 index) override {
         // Wrap on first access.
-        Queue* raw = inner_->getQueue(t, index);
+        Queue* raw = inner_->GetQueue(t, index);
         if (!raw) return nullptr;
         for (auto& w : queueWrappers_) if (w.raw == raw) return w.validated;
         auto* vq = new ValidatedQueue(raw);
         queueWrappers_.PushBack({ raw, vq });
         return vq;
     }
-    u32 getQueueCount(QueueType t) override { return inner_->getQueueCount(t); }
-    FormatSupport getFormatSupport(TextureFormat f) override { return inner_->getFormatSupport(f); }
+    u32 GetQueueCount(QueueType t) override { return inner_->GetQueueCount(t); }
+    FormatSupport GetFormatSupport(TextureFormat f) override { return inner_->GetFormatSupport(f); }
 
     // ---- Create methods (with validation + tracking) ----
 #define V_CREATE(Type, method, desc_t) \
     Status method(const desc_t& d, Type*& out) override { \
-        if (destroyed_) { logError("[Validation] " #method ": device destroyed"); out = nullptr; return ErrorCode::Unknown; } \
+        if (destroyed_) { LogError("[Validation] " #method ": device destroyed"); out = nullptr; return ErrorCode::Unknown; } \
         Status r = inner_->method(d, out); \
         if (r == ErrorCode::Ok && out) live##Type##s_.PushBack(out); \
         return r; \
     }
 
-    V_CREATE(Buffer, createBuffer, BufferDesc)
-    V_CREATE(Texture, createTexture, TextureDesc)
-    V_CREATE(Sampler, createSampler, SamplerDesc)
-    V_CREATE(ShaderModule, createShaderModule, ShaderModuleDesc)
-    V_CREATE(BindGroupLayout, createBindGroupLayout, BindGroupLayoutDesc)
-    V_CREATE(BindGroup, createBindGroup, BindGroupDesc)
-    V_CREATE(PipelineLayout, createPipelineLayout, PipelineLayoutDesc)
-    V_CREATE(PipelineCache, createPipelineCache, PipelineCacheDesc)
-    V_CREATE(RenderPipeline, createRenderPipeline, RenderPipelineDesc)
-    V_CREATE(ComputePipeline, createComputePipeline, ComputePipelineDesc)
-    V_CREATE(QuerySet, createQuerySet, QuerySetDesc)
+    V_CREATE(Buffer, CreateBuffer, BufferDesc)
+    V_CREATE(Texture, CreateTexture, TextureDesc)
+    V_CREATE(Sampler, CreateSampler, SamplerDesc)
+    V_CREATE(ShaderModule, CreateShaderModule, ShaderModuleDesc)
+    V_CREATE(BindGroupLayout, CreateBindGroupLayout, BindGroupLayoutDesc)
+    V_CREATE(BindGroup, CreateBindGroup, BindGroupDesc)
+    V_CREATE(PipelineLayout, CreatePipelineLayout, PipelineLayoutDesc)
+    V_CREATE(PipelineCache, CreatePipelineCache, PipelineCacheDesc)
+    V_CREATE(RenderPipeline, CreateRenderPipeline, RenderPipelineDesc)
+    V_CREATE(ComputePipeline, CreateComputePipeline, ComputePipelineDesc)
+    V_CREATE(QuerySet, CreateQuerySet, QuerySetDesc)
 #undef V_CREATE
 
-    Status createTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override {
-        if (destroyed_) { logError("[Validation] createTextureView: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
-        if (!tex) { logError("[Validation] createTextureView: texture is null"); out = nullptr; return ErrorCode::Unknown; }
-        Status r = inner_->createTextureView(tex, d, out);
+    Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override {
+        if (destroyed_) { LogError("[Validation] createTextureView: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
+        if (!tex) { LogError("[Validation] createTextureView: texture is null"); out = nullptr; return ErrorCode::Unknown; }
+        Status r = inner_->CreateTextureView(tex, d, out);
         if (r == ErrorCode::Ok && out) liveTextureViews_.PushBack(out);
         return r;
     }
 
-    Status createCommandPool(QueueType qt, CommandPool*& out) override {
-        if (destroyed_) { logError("[Validation] createCommandPool: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
+    Status CreateCommandPool(QueueType qt, CommandPool*& out) override {
+        if (destroyed_) { LogError("[Validation] createCommandPool: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
         CommandPool* innerPool = nullptr;
-        Status r = inner_->createCommandPool(qt, innerPool);
+        Status r = inner_->CreateCommandPool(qt, innerPool);
         if (r != ErrorCode::Ok || !innerPool) { out = nullptr; return r; }
         out = new ValidatedCommandPool(innerPool);
         liveCommandPools_.PushBack(out);
         return ErrorCode::Ok;
     }
 
-    Status createFence(u64 initialValue, Fence*& out) override {
-        if (destroyed_) { logError("[Validation] createFence: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
+    Status CreateFence(u64 initialValue, Fence*& out) override {
+        if (destroyed_) { LogError("[Validation] createFence: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
         Fence* innerFence = nullptr;
-        Status r = inner_->createFence(initialValue, innerFence);
+        Status r = inner_->CreateFence(initialValue, innerFence);
         if (r != ErrorCode::Ok || !innerFence) { out = nullptr; return r; }
         out = new ValidatedFence(innerFence);
         liveFences_.PushBack(out);
         return ErrorCode::Ok;
     }
 
-    Status createSwapChain(Surface* surface, const SwapChainDesc& d, SwapChain*& out) override {
-        if (destroyed_) { logError("[Validation] createSwapChain: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
+    Status CreateSwapChain(Surface* surface, const SwapChainDesc& d, SwapChain*& out) override {
+        if (destroyed_) { LogError("[Validation] createSwapChain: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
         SwapChain* innerSc = nullptr;
-        Status r = inner_->createSwapChain(surface, d, innerSc);
+        Status r = inner_->CreateSwapChain(surface, d, innerSc);
         if (r != ErrorCode::Ok || !innerSc) { out = nullptr; return r; }
         out = new ValidatedSwapChain(innerSc);
         liveSwapChains_.PushBack(out);
@@ -103,90 +103,90 @@ public:
     }
 
     // ---- Mesh/RT (forwarded, validated for destroyed state) ----
-    Status createMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
+    Status CreateMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
         if (destroyed_) { out = nullptr; return ErrorCode::Unknown; }
-        Status r = inner_->createMeshPipeline(d, out);
+        Status r = inner_->CreateMeshPipeline(d, out);
         if (r == ErrorCode::Ok && out) liveMeshPipelines_.PushBack(out);
         return r;
     }
-    void destroyMeshPipeline(MeshPipeline*& p) override { removeAndDestroy(liveMeshPipelines_, p, [&](auto*& x){ inner_->destroyMeshPipeline(x); }); }
+    void DestroyMeshPipeline(MeshPipeline*& p) override { removeAndDestroy(liveMeshPipelines_, p, [&](auto*& x){ inner_->DestroyMeshPipeline(x); }); }
 
-    Status createAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
+    Status CreateAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
         if (destroyed_) { out = nullptr; return ErrorCode::Unknown; }
-        Status r = inner_->createAccelStruct(d, out);
+        Status r = inner_->CreateAccelStruct(d, out);
         if (r == ErrorCode::Ok && out) liveAccelStructs_.PushBack(out);
         return r;
     }
-    void destroyAccelStruct(AccelStruct*& a) override { removeAndDestroy(liveAccelStructs_, a, [&](auto*& x){ inner_->destroyAccelStruct(x); }); }
+    void DestroyAccelStruct(AccelStruct*& a) override { removeAndDestroy(liveAccelStructs_, a, [&](auto*& x){ inner_->DestroyAccelStruct(x); }); }
 
-    Status createRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
+    Status CreateRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
         if (destroyed_) { out = nullptr; return ErrorCode::Unknown; }
-        Status r = inner_->createRayTracingPipeline(d, out);
+        Status r = inner_->CreateRayTracingPipeline(d, out);
         if (r == ErrorCode::Ok && out) liveRtPipelines_.PushBack(out);
         return r;
     }
-    void destroyRayTracingPipeline(RayTracingPipeline*& p) override { removeAndDestroy(liveRtPipelines_, p, [&](auto*& x){ inner_->destroyRayTracingPipeline(x); }); }
+    void DestroyRayTracingPipeline(RayTracingPipeline*& p) override { removeAndDestroy(liveRtPipelines_, p, [&](auto*& x){ inner_->DestroyRayTracingPipeline(x); }); }
 
-    Status getShaderGroupHandles(RayTracingPipeline* p, u32 first, u32 count, Span<u8> out) override {
-        return inner_->getShaderGroupHandles(p, first, count, out);
+    Status GetShaderGroupHandles(RayTracingPipeline* p, u32 first, u32 count, Span<u8> out) override {
+        return inner_->GetShaderGroupHandles(p, first, count, out);
     }
 
     // ---- Destroy methods (with tracking removal) ----
 #define V_DESTROY(Type, method, list) \
     void method(Type*& x) override { removeAndDestroy(list, x, [&](auto*& p){ inner_->method(p); }); }
 
-    V_DESTROY(Buffer, destroyBuffer, liveBuffers_)
-    V_DESTROY(Texture, destroyTexture, liveTextures_)
-    V_DESTROY(TextureView, destroyTextureView, liveTextureViews_)
-    V_DESTROY(Sampler, destroySampler, liveSamplers_)
-    V_DESTROY(ShaderModule, destroyShaderModule, liveShaderModules_)
-    V_DESTROY(BindGroupLayout, destroyBindGroupLayout, liveBindGroupLayouts_)
-    V_DESTROY(BindGroup, destroyBindGroup, liveBindGroups_)
-    V_DESTROY(PipelineLayout, destroyPipelineLayout, livePipelineLayouts_)
-    V_DESTROY(PipelineCache, destroyPipelineCache, livePipelineCaches_)
-    V_DESTROY(RenderPipeline, destroyRenderPipeline, liveRenderPipelines_)
-    V_DESTROY(ComputePipeline, destroyComputePipeline, liveComputePipelines_)
-    V_DESTROY(QuerySet, destroyQuerySet, liveQuerySets_)
+    V_DESTROY(Buffer, DestroyBuffer, liveBuffers_)
+    V_DESTROY(Texture, DestroyTexture, liveTextures_)
+    V_DESTROY(TextureView, DestroyTextureView, liveTextureViews_)
+    V_DESTROY(Sampler, DestroySampler, liveSamplers_)
+    V_DESTROY(ShaderModule, DestroyShaderModule, liveShaderModules_)
+    V_DESTROY(BindGroupLayout, DestroyBindGroupLayout, liveBindGroupLayouts_)
+    V_DESTROY(BindGroup, DestroyBindGroup, liveBindGroups_)
+    V_DESTROY(PipelineLayout, DestroyPipelineLayout, livePipelineLayouts_)
+    V_DESTROY(PipelineCache, DestroyPipelineCache, livePipelineCaches_)
+    V_DESTROY(RenderPipeline, DestroyRenderPipeline, liveRenderPipelines_)
+    V_DESTROY(ComputePipeline, DestroyComputePipeline, liveComputePipelines_)
+    V_DESTROY(QuerySet, DestroyQuerySet, liveQuerySets_)
 #undef V_DESTROY
 
-    void destroyCommandPool(CommandPool*& pool) override {
+    void DestroyCommandPool(CommandPool*& pool) override {
         if (!pool) return;
         removeFromList(liveCommandPools_, pool);
         auto* vp = static_cast<ValidatedCommandPool*>(pool);
-        if (vp) { CommandPool* innerPool = vp->inner(); inner_->destroyCommandPool(innerPool); delete vp; }
-        else inner_->destroyCommandPool(pool);
+        if (vp) { CommandPool* innerPool = vp->inner(); inner_->DestroyCommandPool(innerPool); delete vp; }
+        else inner_->DestroyCommandPool(pool);
         pool = nullptr;
     }
 
-    void destroyFence(Fence*& fence) override {
+    void DestroyFence(Fence*& fence) override {
         if (!fence) return;
         removeFromList(liveFences_, fence);
         auto* vf = static_cast<ValidatedFence*>(fence);
-        if (vf) { Fence* innerFence = vf->inner(); inner_->destroyFence(innerFence); delete vf; }
-        else inner_->destroyFence(fence);
+        if (vf) { Fence* innerFence = vf->inner(); inner_->DestroyFence(innerFence); delete vf; }
+        else inner_->DestroyFence(fence);
         fence = nullptr;
     }
 
-    void destroySwapChain(SwapChain*& sc) override {
+    void DestroySwapChain(SwapChain*& sc) override {
         if (!sc) return;
         removeFromList(liveSwapChains_, sc);
         auto* vs = static_cast<ValidatedSwapChain*>(sc);
-        if (vs) { SwapChain* innerSc = vs->inner(); inner_->destroySwapChain(innerSc); delete vs; }
-        else inner_->destroySwapChain(sc);
+        if (vs) { SwapChain* innerSc = vs->inner(); inner_->DestroySwapChain(innerSc); delete vs; }
+        else inner_->DestroySwapChain(sc);
         sc = nullptr;
     }
 
-    void destroySurface(Surface*& s) override { inner_->destroySurface(s); }
+    void DestroySurface(Surface*& s) override { inner_->DestroySurface(s); }
 
-    void waitIdle() override { inner_->waitIdle(); }
+    void WaitIdle() override { inner_->WaitIdle(); }
 
-    void destroy() override {
-        if (destroyed_) { logError("[Validation] Device::destroy: already destroyed"); return; }
+    void Destroy() override {
+        if (destroyed_) { LogError("[Validation] Device::destroy: already destroyed"); return; }
         destroyed_ = true;
         reportLeaks();
         for (auto& w : queueWrappers_) delete w.validated;
         queueWrappers_.Clear();
-        inner_->destroy();
+        inner_->Destroy();
         delete this;
     }
 
@@ -208,7 +208,7 @@ private:
 
     void reportLeaks() {
         auto report = [](const char* name, usize count) {
-            if (count > 0) logWarningf("[Validation] Device destroyed with %zu live %s(s)", count, name);
+            if (count > 0) LogWarningf("[Validation] Device destroyed with %zu live %s(s)", count, name);
         };
         report("Buffer", liveBuffers_.Size());
         report("Texture", liveTextures_.Size());

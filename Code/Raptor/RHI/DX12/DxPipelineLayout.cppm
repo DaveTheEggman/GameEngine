@@ -124,7 +124,7 @@ public:
         HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1,
             &sigBlob, &errBlob);
         if (FAILED(hr)) {
-            if (errBlob) logErrorf("DxPipelineLayout: %s", static_cast<const char*>(errBlob->GetBufferPointer()));
+            if (errBlob) LogErrorf("DxPipelineLayout: %s", static_cast<const char*>(errBlob->GetBufferPointer()));
             return ErrorCode::Unknown;
         }
 

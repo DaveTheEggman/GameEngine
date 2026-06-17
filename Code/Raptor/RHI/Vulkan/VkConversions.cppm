@@ -140,19 +140,19 @@ inline VkFormat toVkVertexFormat(VertexFormat f) {
 
 inline VkBufferUsageFlags toVkBufferUsage(BufferUsage u) {
     VkBufferUsageFlags f = 0;
-    if (hasFlag(u, BufferUsage::CopySrc))   f |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    if (hasFlag(u, BufferUsage::CopyDst))   f |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    if (hasFlag(u, BufferUsage::Vertex))    f |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    if (hasFlag(u, BufferUsage::Index))     f |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    if (hasFlag(u, BufferUsage::Uniform))   f |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    if (hasFlag(u, BufferUsage::Storage))   f |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    if (hasFlag(u, BufferUsage::StorageRead))f|= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    if (hasFlag(u, BufferUsage::Indirect))  f |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-    if (hasFlag(u, BufferUsage::AccelStructInput))
+    if (HasFlag(u, BufferUsage::CopySrc))   f |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    if (HasFlag(u, BufferUsage::CopyDst))   f |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if (HasFlag(u, BufferUsage::Vertex))    f |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if (HasFlag(u, BufferUsage::Index))     f |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if (HasFlag(u, BufferUsage::Uniform))   f |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if (HasFlag(u, BufferUsage::Storage))   f |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if (HasFlag(u, BufferUsage::StorageRead))f|= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if (HasFlag(u, BufferUsage::Indirect))  f |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+    if (HasFlag(u, BufferUsage::AccelStructInput))
         f |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    if (hasFlag(u, BufferUsage::ShaderBindingTable))
+    if (HasFlag(u, BufferUsage::ShaderBindingTable))
         f |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    if (hasFlag(u, BufferUsage::AccelStructScratch))
+    if (HasFlag(u, BufferUsage::AccelStructScratch))
         f |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     return f;
 }
@@ -291,10 +291,10 @@ inline VkPresentModeKHR toVkPresentMode(PresentMode m) {
 }
 
 inline VkImageAspectFlags getAspectMask(TextureFormat f) {
-    if (isDepthStencil(f)) {
+    if (IsDepthStencil(f)) {
         VkImageAspectFlags a = 0;
-        if (hasDepth(f))   a |= VK_IMAGE_ASPECT_DEPTH_BIT;
-        if (hasStencil(f)) a |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        if (HasDepth(f))   a |= VK_IMAGE_ASPECT_DEPTH_BIT;
+        if (HasStencil(f)) a |= VK_IMAGE_ASPECT_STENCIL_BIT;
         return a;
     }
     return VK_IMAGE_ASPECT_COLOR_BIT;

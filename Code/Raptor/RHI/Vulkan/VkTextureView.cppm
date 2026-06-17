@@ -60,9 +60,9 @@ public:
     }
 
     [[nodiscard]] VkImageView   handle() const { return imageView_; }
-    [[nodiscard]] TextureFormat format() const { return format_; }
-    [[nodiscard]] u32           width()  const { return width_; }
-    [[nodiscard]] u32           height() const { return height_; }
+    [[nodiscard]] TextureFormat Format() const { return format_; }
+    [[nodiscard]] u32           Width()  const { return width_; }
+    [[nodiscard]] u32           Height() const { return height_; }
 
 private:
     VkImageView   imageView_ = VK_NULL_HANDLE;

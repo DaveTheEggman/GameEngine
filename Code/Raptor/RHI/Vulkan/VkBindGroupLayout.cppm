@@ -91,7 +91,7 @@ public:
         if (layout_ != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device, layout_, nullptr); layout_ = VK_NULL_HANDLE; }
     }
 
-    Span<const BindGroupLayoutEntry> entries() const override {
+    Span<const BindGroupLayoutEntry> Entries() const override {
         return Span<const BindGroupLayoutEntry>(entries_.Data(), entries_.Size());
     }
 

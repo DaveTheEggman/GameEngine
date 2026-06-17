@@ -35,13 +35,13 @@ public:
         if (cache_ != VK_NULL_HANDLE) { vkDestroyPipelineCache(device, cache_, nullptr); cache_ = VK_NULL_HANDLE; }
     }
 
-    u32 getDataSize() override {
+    u32 GetDataSize() override {
         usize size = 0;
         vkGetPipelineCacheData(device_, cache_, &size, nullptr);
         return static_cast<u32>(size);
     }
 
-    Status getData(Span<u8> outData) override {
+    Status GetData(Span<u8> outData) override {
         usize size = outData.Size();
         if (vkGetPipelineCacheData(device_, cache_, &size, outData.Data()) != VK_SUCCESS) return ErrorCode::Unknown;
         return ErrorCode::Ok;

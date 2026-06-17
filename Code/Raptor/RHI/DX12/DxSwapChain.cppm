@@ -59,7 +59,7 @@ public:
         HRESULT hr = factory->CreateSwapChainForHwnd(
             gfxQueue, surface->handle(), &sd, nullptr, nullptr, &sc1);
         if (FAILED(hr)) {
-            logErrorf("DxSwapChain: CreateSwapChainForHwnd failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxSwapChain: CreateSwapChainForHwnd failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -74,20 +74,20 @@ public:
     }
 
     // ---- SwapChain interface ----
-    TextureFormat format()            const override { return format_; }
-    u32           width()             const override { return width_; }
-    u32           height()            const override { return height_; }
-    u32           bufferCount()       const override { return bufferCount_; }
-    u32           currentImageIndex() const override { return currentIndex_; }
-    Texture*      currentTexture()    override { return (currentIndex_ < textures_.Size()) ? textures_[currentIndex_] : nullptr; }
-    TextureView*  currentTextureView()override { return (currentIndex_ < views_.Size())    ? views_[currentIndex_]    : nullptr; }
+    TextureFormat Format()            const override { return format_; }
+    u32           Width()             const override { return width_; }
+    u32           Height()            const override { return height_; }
+    u32           BufferCount()       const override { return bufferCount_; }
+    u32           CurrentImageIndex() const override { return currentIndex_; }
+    Texture*      CurrentTexture()    override { return (currentIndex_ < textures_.Size()) ? textures_[currentIndex_] : nullptr; }
+    TextureView*  CurrentTextureView()override { return (currentIndex_ < views_.Size())    ? views_[currentIndex_]    : nullptr; }
 
-    Status acquireNextImage() override {
+    Status AcquireNextImage() override {
         currentIndex_ = swapChain_->GetCurrentBackBufferIndex();
         return ErrorCode::Ok;
     }
 
-    Status present(Queue* /*queue*/) override {
+    Status Present(Queue* /*queue*/) override {
         UINT syncInterval = 1, flags = 0;
         switch (presentMode_) {
         case PresentMode::Immediate: syncInterval = 0; flags = DXGI_PRESENT_ALLOW_TEARING; break;
@@ -98,7 +98,7 @@ public:
         return SUCCEEDED(swapChain_->Present(syncInterval, flags)) ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
-    Status resize(u32 w, u32 h) override {
+    Status Resize(u32 w, u32 h) override {
         if (w == 0 || h == 0) return ErrorCode::Ok;
         width_ = w; height_ = h;
         releaseBackBuffers();

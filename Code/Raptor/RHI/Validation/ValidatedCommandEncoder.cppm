@@ -19,7 +19,7 @@ enum class EncoderState { Recording, InRenderPass, InComputePass, Finished };
 
 class ValidatedCommandEncoder : public CommandEncoder, public RayTracingEncoderExt {
 public:
-    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
+    RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     explicit ValidatedCommandEncoder(CommandEncoder* inner)
         : inner_(inner) {}
 
@@ -28,182 +28,182 @@ public:
 
     // ---- CommandEncoder ----
 
-    RenderPassEncoder* beginRenderPass(const RenderPassDesc& desc) override {
+    RenderPassEncoder* BeginRenderPass(const RenderPassDesc& desc) override {
         if (!checkState("beginRenderPass", EncoderState::Recording)) return &rpe_;
         if (desc.colorAttachments.IsEmpty() &&
             (!desc.depthStencilAttachment.HasValue() || !desc.depthStencilAttachment->view))
-            logWarning("[Validation] beginRenderPass: no color or depth attachment");
+            LogWarning("[Validation] beginRenderPass: no color or depth attachment");
         for (usize i = 0; i < desc.colorAttachments.count; ++i)
             if (!desc.colorAttachments[i].view)
-                logErrorf("[Validation] beginRenderPass: color attachment %d view is null", static_cast<int>(i));
+                LogErrorf("[Validation] beginRenderPass: color attachment %d view is null", static_cast<int>(i));
 
         state_ = EncoderState::InRenderPass;
-        auto* innerRpe = inner_->beginRenderPass(desc);
+        auto* innerRpe = inner_->BeginRenderPass(desc);
         rpe_.begin(innerRpe, this);
         return &rpe_;
     }
 
-    ComputePassEncoder* beginComputePass(StringView label) override {
+    ComputePassEncoder* BeginComputePass(StringView label) override {
         if (!checkState("beginComputePass", EncoderState::Recording)) return &cpe_;
         state_ = EncoderState::InComputePass;
-        auto* innerCpe = inner_->beginComputePass(label);
+        auto* innerCpe = inner_->BeginComputePass(label);
         cpe_.begin(innerCpe, this);
         return &cpe_;
     }
 
-    void barrier(const BarrierGroup& group) override {
+    void Barrier(const BarrierGroup& group) override {
         if (!checkState("barrier", EncoderState::Recording)) return;
-        inner_->barrier(group);
+        inner_->Barrier(group);
     }
 
-    void copyBufferToBuffer(Buffer* src, u64 srcOff, Buffer* dst, u64 dstOff, u64 size) override {
+    void CopyBufferToBuffer(Buffer* src, u64 srcOff, Buffer* dst, u64 dstOff, u64 size) override {
         if (!checkState("copyBufferToBuffer", EncoderState::Recording)) return;
-        if (!src) { logError("[Validation] copyBufferToBuffer: src is null"); return; }
-        if (!dst) { logError("[Validation] copyBufferToBuffer: dst is null"); return; }
-        if (size == 0) logWarning("[Validation] copyBufferToBuffer: size is 0");
-        inner_->copyBufferToBuffer(src, srcOff, dst, dstOff, size);
+        if (!src) { LogError("[Validation] copyBufferToBuffer: src is null"); return; }
+        if (!dst) { LogError("[Validation] copyBufferToBuffer: dst is null"); return; }
+        if (size == 0) LogWarning("[Validation] copyBufferToBuffer: size is 0");
+        inner_->CopyBufferToBuffer(src, srcOff, dst, dstOff, size);
     }
 
-    void copyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& r) override {
+    void CopyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& r) override {
         if (!checkState("copyBufferToTexture", EncoderState::Recording)) return;
-        if (!src) { logError("[Validation] copyBufferToTexture: src is null"); return; }
-        if (!dst) { logError("[Validation] copyBufferToTexture: dst is null"); return; }
-        inner_->copyBufferToTexture(src, dst, r);
+        if (!src) { LogError("[Validation] copyBufferToTexture: src is null"); return; }
+        if (!dst) { LogError("[Validation] copyBufferToTexture: dst is null"); return; }
+        inner_->CopyBufferToTexture(src, dst, r);
     }
 
-    void copyTextureToBuffer(Texture* src, Buffer* dst, const BufferTextureCopyRegion& r) override {
+    void CopyTextureToBuffer(Texture* src, Buffer* dst, const BufferTextureCopyRegion& r) override {
         if (!checkState("copyTextureToBuffer", EncoderState::Recording)) return;
-        if (!src) { logError("[Validation] copyTextureToBuffer: src is null"); return; }
-        if (!dst) { logError("[Validation] copyTextureToBuffer: dst is null"); return; }
-        inner_->copyTextureToBuffer(src, dst, r);
+        if (!src) { LogError("[Validation] copyTextureToBuffer: src is null"); return; }
+        if (!dst) { LogError("[Validation] copyTextureToBuffer: dst is null"); return; }
+        inner_->CopyTextureToBuffer(src, dst, r);
     }
 
-    void copyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& r) override {
+    void CopyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& r) override {
         if (!checkState("copyTextureToTexture", EncoderState::Recording)) return;
-        if (!src) { logError("[Validation] copyTextureToTexture: src is null"); return; }
-        if (!dst) { logError("[Validation] copyTextureToTexture: dst is null"); return; }
-        inner_->copyTextureToTexture(src, dst, r);
+        if (!src) { LogError("[Validation] copyTextureToTexture: src is null"); return; }
+        if (!dst) { LogError("[Validation] copyTextureToTexture: dst is null"); return; }
+        inner_->CopyTextureToTexture(src, dst, r);
     }
 
-    void blit(Texture* src, Texture* dst) override {
+    void Blit(Texture* src, Texture* dst) override {
         if (!checkState("blit", EncoderState::Recording)) return;
-        if (!src || !dst) { logError("[Validation] blit: src or dst is null"); return; }
-        inner_->blit(src, dst);
+        if (!src || !dst) { LogError("[Validation] blit: src or dst is null"); return; }
+        inner_->Blit(src, dst);
     }
 
-    void generateMipmaps(Texture* tex) override {
+    void GenerateMipmaps(Texture* tex) override {
         if (!checkState("generateMipmaps", EncoderState::Recording)) return;
-        if (!tex) { logError("[Validation] generateMipmaps: texture is null"); return; }
-        inner_->generateMipmaps(tex);
+        if (!tex) { LogError("[Validation] generateMipmaps: texture is null"); return; }
+        inner_->GenerateMipmaps(tex);
     }
 
-    void resolveTexture(Texture* src, Texture* dst) override {
+    void ResolveTexture(Texture* src, Texture* dst) override {
         if (!checkState("resolveTexture", EncoderState::Recording)) return;
-        if (!src || !dst) { logError("[Validation] resolveTexture: src or dst is null"); return; }
-        inner_->resolveTexture(src, dst);
+        if (!src || !dst) { LogError("[Validation] resolveTexture: src or dst is null"); return; }
+        inner_->ResolveTexture(src, dst);
     }
 
-    void resetQuerySet(QuerySet* qs, u32 first, u32 count) override {
+    void ResetQuerySet(QuerySet* qs, u32 first, u32 count) override {
         if (!checkState("resetQuerySet", EncoderState::Recording)) return;
-        if (!qs) { logError("[Validation] resetQuerySet: querySet is null"); return; }
-        inner_->resetQuerySet(qs, first, count);
+        if (!qs) { LogError("[Validation] resetQuerySet: querySet is null"); return; }
+        inner_->ResetQuerySet(qs, first, count);
     }
 
-    void writeTimestamp(QuerySet* qs, u32 index) override {
+    void WriteTimestamp(QuerySet* qs, u32 index) override {
         if (!checkState("writeTimestamp", EncoderState::Recording)) return;
-        if (!qs) { logError("[Validation] writeTimestamp: querySet is null"); return; }
-        inner_->writeTimestamp(qs, index);
+        if (!qs) { LogError("[Validation] writeTimestamp: querySet is null"); return; }
+        inner_->WriteTimestamp(qs, index);
     }
 
-    void resolveQuerySet(QuerySet* qs, u32 first, u32 count, Buffer* dst, u64 dstOff) override {
+    void ResolveQuerySet(QuerySet* qs, u32 first, u32 count, Buffer* dst, u64 dstOff) override {
         if (!checkState("resolveQuerySet", EncoderState::Recording)) return;
-        if (!qs) { logError("[Validation] resolveQuerySet: querySet is null"); return; }
-        if (!dst) { logError("[Validation] resolveQuerySet: dst is null"); return; }
-        inner_->resolveQuerySet(qs, first, count, dst, dstOff);
+        if (!qs) { LogError("[Validation] resolveQuerySet: querySet is null"); return; }
+        if (!dst) { LogError("[Validation] resolveQuerySet: dst is null"); return; }
+        inner_->ResolveQuerySet(qs, first, count, dst, dstOff);
     }
 
-    void beginDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
-        if (state_ == EncoderState::Finished) { logError("[Validation] beginDebugLabel: encoder finished"); return; }
+    void BeginDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
+        if (state_ == EncoderState::Finished) { LogError("[Validation] beginDebugLabel: encoder finished"); return; }
         debugLabelDepth_++;
-        inner_->beginDebugLabel(label, r, g, b, a);
+        inner_->BeginDebugLabel(label, r, g, b, a);
     }
 
-    void endDebugLabel() override {
-        if (state_ == EncoderState::Finished) { logError("[Validation] endDebugLabel: encoder finished"); return; }
-        if (debugLabelDepth_ <= 0) { logError("[Validation] endDebugLabel: no matching begin"); return; }
+    void EndDebugLabel() override {
+        if (state_ == EncoderState::Finished) { LogError("[Validation] endDebugLabel: encoder finished"); return; }
+        if (debugLabelDepth_ <= 0) { LogError("[Validation] endDebugLabel: no matching begin"); return; }
         debugLabelDepth_--;
-        inner_->endDebugLabel();
+        inner_->EndDebugLabel();
     }
 
-    void insertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
+    void InsertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
         if (state_ == EncoderState::Finished) return;
-        inner_->insertDebugLabel(label, r, g, b, a);
+        inner_->InsertDebugLabel(label, r, g, b, a);
     }
 
-    CommandBuffer* finish() override {
-        if (state_ == EncoderState::Finished) { logError("[Validation] finish: encoder already finished"); return nullptr; }
-        if (state_ == EncoderState::InRenderPass) logError("[Validation] finish: render pass still open");
-        if (state_ == EncoderState::InComputePass) logError("[Validation] finish: compute pass still open");
-        if (debugLabelDepth_ > 0) logWarningf("[Validation] finish: %d debug label(s) not closed", debugLabelDepth_);
+    CommandBuffer* Finish() override {
+        if (state_ == EncoderState::Finished) { LogError("[Validation] finish: encoder already finished"); return nullptr; }
+        if (state_ == EncoderState::InRenderPass) LogError("[Validation] finish: render pass still open");
+        if (state_ == EncoderState::InComputePass) LogError("[Validation] finish: compute pass still open");
+        if (debugLabelDepth_ > 0) LogWarningf("[Validation] finish: %d debug label(s) not closed", debugLabelDepth_);
         state_ = EncoderState::Finished;
-        return inner_->finish();
+        return inner_->Finish();
     }
 
     // ---- RayTracingEncoderExt ----
 
-    void buildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOff,
+    void BuildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOff,
                                      Span<const AccelStructGeometryTriangles> tris,
                                      Span<const AccelStructGeometryAABBs> aabbs) override {
         if (!checkState("buildBLAS", EncoderState::Recording)) return;
-        if (!dst) { logError("[Validation] buildBLAS: dst is null"); return; }
-        if (!scratch) { logError("[Validation] buildBLAS: scratch is null"); return; }
-        auto* rt = inner_->asRayTracingExt();
-        if (rt) rt->buildBottomLevelAccelStruct(dst, scratch, scratchOff, tris, aabbs);
-        else logError("[Validation] buildBLAS: inner encoder does not support ray tracing");
+        if (!dst) { LogError("[Validation] buildBLAS: dst is null"); return; }
+        if (!scratch) { LogError("[Validation] buildBLAS: scratch is null"); return; }
+        auto* rt = inner_->AsRayTracingExt();
+        if (rt) rt->BuildBottomLevelAccelStruct(dst, scratch, scratchOff, tris, aabbs);
+        else LogError("[Validation] buildBLAS: inner encoder does not support ray tracing");
     }
 
-    void buildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOff,
+    void BuildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratch, u64 scratchOff,
                                   Buffer* instanceBuf, u64 instanceOff, u32 instanceCount) override {
         if (!checkState("buildTLAS", EncoderState::Recording)) return;
-        if (!dst || !scratch || !instanceBuf) { logError("[Validation] buildTLAS: null argument"); return; }
-        auto* rt = inner_->asRayTracingExt();
-        if (rt) rt->buildTopLevelAccelStruct(dst, scratch, scratchOff, instanceBuf, instanceOff, instanceCount);
-        else logError("[Validation] buildTLAS: inner encoder does not support ray tracing");
+        if (!dst || !scratch || !instanceBuf) { LogError("[Validation] buildTLAS: null argument"); return; }
+        auto* rt = inner_->AsRayTracingExt();
+        if (rt) rt->BuildTopLevelAccelStruct(dst, scratch, scratchOff, instanceBuf, instanceOff, instanceCount);
+        else LogError("[Validation] buildTLAS: inner encoder does not support ray tracing");
     }
 
-    void setRayTracingPipeline(RayTracingPipeline* pipeline) override {
+    void SetRayTracingPipeline(RayTracingPipeline* pipeline) override {
         if (!checkState("setRayTracingPipeline", EncoderState::Recording)) return;
-        if (!pipeline) { logError("[Validation] setRayTracingPipeline: pipeline is null"); return; }
+        if (!pipeline) { LogError("[Validation] setRayTracingPipeline: pipeline is null"); return; }
         rtPipelineBound_ = true;
-        auto* rt = inner_->asRayTracingExt();
-        if (rt) rt->setRayTracingPipeline(pipeline);
+        auto* rt = inner_->AsRayTracingExt();
+        if (rt) rt->SetRayTracingPipeline(pipeline);
     }
 
-    void setBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override {
+    void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override {
         if (!checkState("RT setBindGroup", EncoderState::Recording)) return;
-        if (!group) { logError("[Validation] RT setBindGroup: group is null"); return; }
-        if (!rtPipelineBound_) logWarning("[Validation] RT setBindGroup: no RT pipeline bound");
-        auto* rt = inner_->asRayTracingExt();
-        if (rt) rt->setBindGroup(index, group, dynOffsets);
+        if (!group) { LogError("[Validation] RT setBindGroup: group is null"); return; }
+        if (!rtPipelineBound_) LogWarning("[Validation] RT setBindGroup: no RT pipeline bound");
+        auto* rt = inner_->AsRayTracingExt();
+        if (rt) rt->SetBindGroup(index, group, dynOffsets);
     }
 
-    void setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override {
+    void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override {
         if (!checkState("RT setPushConstants", EncoderState::Recording)) return;
-        if (!rtPipelineBound_) logWarning("[Validation] RT setPushConstants: no RT pipeline bound");
-        if (!data && size > 0) { logError("[Validation] RT setPushConstants: data is null"); return; }
-        auto* rt = inner_->asRayTracingExt();
-        if (rt) rt->setPushConstants(stages, offset, size, data);
+        if (!rtPipelineBound_) LogWarning("[Validation] RT setPushConstants: no RT pipeline bound");
+        if (!data && size > 0) { LogError("[Validation] RT setPushConstants: data is null"); return; }
+        auto* rt = inner_->AsRayTracingExt();
+        if (rt) rt->SetPushConstants(stages, offset, size, data);
     }
 
-    void traceRays(Buffer* raygenSBT, u64 raygenOff, u64 raygenStride,
+    void TraceRays(Buffer* raygenSBT, u64 raygenOff, u64 raygenStride,
                    Buffer* missSBT, u64 missOff, u64 missStride,
                    Buffer* hitSBT, u64 hitOff, u64 hitStride,
                    u32 width, u32 height, u32 depth) override {
         if (!checkState("traceRays", EncoderState::Recording)) return;
-        if (!rtPipelineBound_) { logError("[Validation] traceRays: no RT pipeline bound"); return; }
-        if (!raygenSBT) { logError("[Validation] traceRays: raygenSBT is null"); return; }
-        auto* rt = inner_->asRayTracingExt();
-        if (rt) rt->traceRays(raygenSBT, raygenOff, raygenStride, missSBT, missOff, missStride,
+        if (!rtPipelineBound_) { LogError("[Validation] traceRays: no RT pipeline bound"); return; }
+        if (!raygenSBT) { LogError("[Validation] traceRays: raygenSBT is null"); return; }
+        auto* rt = inner_->AsRayTracingExt();
+        if (rt) rt->TraceRays(raygenSBT, raygenOff, raygenStride, missSBT, missOff, missStride,
                               hitSBT, hitOff, hitStride, width, height, depth);
     }
 
@@ -212,11 +212,11 @@ public:
 private:
     bool checkState(const char* method, EncoderState expected) {
         if (state_ == EncoderState::Finished) {
-            logErrorf("[Validation] %s: encoder already finished", method);
+            LogErrorf("[Validation] %s: encoder already finished", method);
             return false;
         }
         if (state_ != expected) {
-            logErrorf("[Validation] %s: wrong state (expected Recording, got %s)", method,
+            LogErrorf("[Validation] %s: wrong state (expected Recording, got %s)", method,
                       state_ == EncoderState::InRenderPass ? "InRenderPass" :
                       state_ == EncoderState::InComputePass ? "InComputePass" : "?");
             return false;
@@ -235,17 +235,17 @@ private:
 
 // ---- Deferred end() implementations ----
 
-void ValidatedRenderPassEncoder::end() {
-    if (ended_) { logError("[Validation] RenderPassEncoder::end: already ended"); return; }
+void ValidatedRenderPassEncoder::End() {
+    if (ended_) { LogError("[Validation] RenderPassEncoder::End: already ended"); return; }
     ended_ = true;
-    inner_->end();
+    inner_->End();
     if (parent_) parent_->onPassEnded();
 }
 
-void ValidatedComputePassEncoder::end() {
-    if (ended_) { logError("[Validation] ComputePassEncoder::end: already ended"); return; }
+void ValidatedComputePassEncoder::End() {
+    if (ended_) { LogError("[Validation] ComputePassEncoder::End: already ended"); return; }
     ended_ = true;
-    inner_->end();
+    inner_->End();
     if (parent_) parent_->onPassEnded();
 }
 

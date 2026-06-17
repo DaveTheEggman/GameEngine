@@ -52,7 +52,7 @@ public:
             &rd, state_, nullptr,
             IID_PPV_ARGS(&resource_));
         if (FAILED(hr)) {
-            logErrorf("DxBuffer: CreateCommittedResource failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxBuffer: CreateCommittedResource failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -63,14 +63,14 @@ public:
         return ErrorCode::Ok;
     }
 
-    void* map() override {
+    void* Map() override {
         if (persistentMap_) return persistentMap_;
         void* ptr = nullptr;
         if (SUCCEEDED(resource_->Map(0, nullptr, &ptr))) return ptr;
         return nullptr;
     }
 
-    void unmap() override {
+    void Unmap() override {
         if (persistentMap_) return; // don't unmap persistently mapped buffers
         resource_->Unmap(0, nullptr);
     }

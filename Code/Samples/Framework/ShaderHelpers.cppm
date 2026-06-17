@@ -44,7 +44,7 @@ inline Status compileToModule(shaders::Compiler* compiler, rhi::Device* device,
     if (r != ErrorCode::Ok) {
         if (cr.messages) {
             const UTF8String lbl = ToUTF8(label);
-            rhi::logErrorf("Shader compile failed (%s): %s",
+            rhi::LogErrorf("Shader compile failed (%s): %s",
                 reinterpret_cast<const char*>(lbl.CStr()), cr.messages);
         }
         compiler->freeResult(cr);
@@ -54,7 +54,7 @@ inline Status compileToModule(shaders::Compiler* compiler, rhi::Device* device,
     rhi::ShaderModuleDesc desc{};
     desc.code  = Span<const u8>(cr.bytecode, cr.bytecodeSize);
     desc.label = label;
-    r = device->createShaderModule(desc, out);
+    r = device->CreateShaderModule(desc, out);
 
     compiler->freeResult(cr);
     return r;

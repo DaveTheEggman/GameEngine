@@ -21,27 +21,27 @@ public:
     QueueType queueType = QueueType::Graphics;
 
     /// Submit command buffers for execution.
-    virtual void submit(Span<CommandBuffer* const> commandBuffers) = 0;
+    virtual void Submit(Span<CommandBuffer* const> commandBuffers) = 0;
 
     /// Submit with fence signaling.
-    virtual void submit(Span<CommandBuffer* const> commandBuffers,
+    virtual void Submit(Span<CommandBuffer* const> commandBuffers,
                         Fence* signalFence, u64 signalValue) = 0;
 
     /// Submit with full synchronization: wait on fences, then signal.
-    virtual void submit(Span<CommandBuffer* const> commandBuffers,
+    virtual void Submit(Span<CommandBuffer* const> commandBuffers,
                         Span<Fence* const> waitFences, Span<const u64> waitValues,
                         Fence* signalFence, u64 signalValue) = 0;
 
     /// Block until all submitted work on this queue completes.
-    virtual void waitIdle() = 0;
+    virtual void WaitIdle() = 0;
 
     /// Create a transfer batch for batching CPU→GPU uploads.
-    virtual Status createTransferBatch(TransferBatch*& out) = 0;
+    virtual Status CreateTransferBatch(TransferBatch*& out) = 0;
     /// Destroy a transfer batch.
-    virtual void destroyTransferBatch(TransferBatch*& batch) = 0;
+    virtual void DestroyTransferBatch(TransferBatch*& batch) = 0;
 
     /// Timestamp period in nanoseconds per tick.
-    [[nodiscard]] virtual f32 timestampPeriod() const = 0;
+    [[nodiscard]] virtual f32 TimestampPeriod() const = 0;
 };
 
 } // namespace raptor::rhi

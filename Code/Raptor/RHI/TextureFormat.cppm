@@ -56,17 +56,17 @@ enum class TextureFormat : u32 {
 };
 
 /// True for Depth16Unorm, Depth24Plus, Depth32Float and their stencil variants.
-[[nodiscard]] constexpr bool isDepthFormat(TextureFormat f) {
+[[nodiscard]] constexpr bool IsDepthFormat(TextureFormat f) {
     return f >= TextureFormat::Depth16Unorm && f <= TextureFormat::Depth32FloatStencil8;
 }
 
 /// True for any depth or stencil format (includes Stencil8).
-[[nodiscard]] constexpr bool isDepthStencil(TextureFormat f) {
+[[nodiscard]] constexpr bool IsDepthStencil(TextureFormat f) {
     return f >= TextureFormat::Depth16Unorm && f <= TextureFormat::Stencil8;
 }
 
 /// True if the format has a depth component.
-[[nodiscard]] constexpr bool hasDepth(TextureFormat f) {
+[[nodiscard]] constexpr bool HasDepth(TextureFormat f) {
     switch (f) {
     case TextureFormat::Depth16Unorm:
     case TextureFormat::Depth24Plus:
@@ -79,7 +79,7 @@ enum class TextureFormat : u32 {
 }
 
 /// True if the format has a stencil component.
-[[nodiscard]] constexpr bool hasStencil(TextureFormat f) {
+[[nodiscard]] constexpr bool HasStencil(TextureFormat f) {
     switch (f) {
     case TextureFormat::Depth24PlusStencil8:
     case TextureFormat::Depth32FloatStencil8:
@@ -90,12 +90,12 @@ enum class TextureFormat : u32 {
 }
 
 /// True for BC or ASTC compressed formats.
-[[nodiscard]] constexpr bool isCompressed(TextureFormat f) {
+[[nodiscard]] constexpr bool IsCompressed(TextureFormat f) {
     return f >= TextureFormat::BC1RGBAUnorm && f <= TextureFormat::ASTC8x8UnormSrgb;
 }
 
 /// True for sRGB variants.
-[[nodiscard]] constexpr bool isSrgb(TextureFormat f) {
+[[nodiscard]] constexpr bool IsSrgb(TextureFormat f) {
     switch (f) {
     case TextureFormat::RGBA8UnormSrgb:
     case TextureFormat::BGRA8UnormSrgb:
@@ -113,7 +113,7 @@ enum class TextureFormat : u32 {
 }
 
 /// Returns bytes per pixel for uncompressed formats; 0 for compressed or unknown.
-[[nodiscard]] constexpr u32 bytesPerPixel(TextureFormat f) {
+[[nodiscard]] constexpr u32 BytesPerPixel(TextureFormat f) {
     switch (f) {
     case TextureFormat::R8Unorm:
     case TextureFormat::Stencil8:

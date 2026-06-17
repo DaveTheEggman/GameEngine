@@ -47,7 +47,7 @@ public:
 
     // ---- Pipeline & Binding ----
 
-    void setPipeline(ComputePipeline* pipeline) override {
+    void SetPipeline(ComputePipeline* pipeline) override {
         auto* dxPipeline = static_cast<DxComputePipelineImpl*>(pipeline);
         if (!dxPipeline) return;
         currentPipeline_ = dxPipeline;
@@ -57,7 +57,7 @@ public:
         cmdList->SetComputeRootSignature(dxPipeline->pipelineLayout()->handle());
     }
 
-    void setBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
+    void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
         auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
         if (!dxGroup || !currentPipeline_) return;
 
@@ -65,7 +65,7 @@ public:
         if (!layout) return;
 
         auto* cmdList  = ctx_.cmdList;
-        auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->layout());
+        auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->Layout());
 
         // Copy-on-bind: copy into encoder's staging region, bind from staging offset.
         if (dxGroup->cbvSrvUavOffset() >= 0 && dxLayout && dxLayout->cbvSrvUavCount() > 0) {
@@ -120,7 +120,7 @@ public:
         }
     }
 
-    void setPushConstants(ShaderStage /*stages*/, u32 offset, u32 size, const void* data) override {
+    void SetPushConstants(ShaderStage /*stages*/, u32 offset, u32 size, const void* data) override {
         if (!currentPipeline_) return;
         auto* layout = currentPipeline_->pipelineLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;
@@ -132,11 +132,11 @@ public:
 
     // ---- Dispatch ----
 
-    void dispatch(u32 x, u32 y, u32 z) override {
+    void Dispatch(u32 x, u32 y, u32 z) override {
         ctx_.cmdList->Dispatch(x, y, z);
     }
 
-    void dispatchIndirect(Buffer* buffer, u64 offset) override {
+    void DispatchIndirect(Buffer* buffer, u64 offset) override {
         auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
         if (!dxBuf) return;
 
@@ -148,7 +148,7 @@ public:
 
     // ---- Barrier ----
 
-    void computeBarrier() override {
+    void ComputeBarrier() override {
         D3D12_RESOURCE_BARRIER barrier{};
         barrier.Type  = D3D12_RESOURCE_BARRIER_TYPE_UAV;
         barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -158,14 +158,14 @@ public:
 
     // ---- Queries ----
 
-    void writeTimestamp(QuerySet* querySet, u32 index) override {
+    void WriteTimestamp(QuerySet* querySet, u32 index) override {
         auto* qs = static_cast<DxQuerySetImpl*>(querySet);
         if (qs) ctx_.cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
     }
 
     // ---- End ----
 
-    void end() override {
+    void End() override {
         currentPipeline_ = nullptr;
     }
 

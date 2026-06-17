@@ -59,7 +59,7 @@ public:
         }
     }
 
-    void destroy() {
+    void Destroy() {
         heap_.Reset();
         alive_.Clear();
     }

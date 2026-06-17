@@ -24,7 +24,7 @@ public:
     Status init(ID3D12Device* device, const TextureDesc& d) {
         desc = d;
 
-        DXGI_FORMAT format = isDepthFormat(d.format)
+        DXGI_FORMAT format = IsDepthFormat(d.format)
             ? toTypelessDepthFormat(d.format)
             : toDxgiFormat(d.format);
 
@@ -64,7 +64,7 @@ public:
             &rd, state_, pClearVal,
             IID_PPV_ARGS(&resource_));
         if (FAILED(hr)) {
-            logErrorf("DxTexture: CreateCommittedResource failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxTexture: CreateCommittedResource failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
         ownsResource_ = true;

@@ -45,7 +45,7 @@ class DxDeviceImpl; // forward
 /// render/compute passes (barriers, copies, queries, RT builds).
 class DxCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt {
 public:
-    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
+    RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     DxCommandEncoderImpl(DxDeviceImpl* device, ID3D12GraphicsCommandList* cmdList,
                          DxCommandPoolImpl* pool, const DxRenderPassContext& rpeCtx,
                          const DxComputePassContext& cpeCtx)
@@ -61,7 +61,7 @@ public:
 
     // ---- Render Pass ----
 
-    RenderPassEncoder* beginRenderPass(const RenderPassDesc& desc) override {
+    RenderPassEncoder* BeginRenderPass(const RenderPassDesc& desc) override {
         ensureDescriptorHeaps();
 
         // Timestamp at pass begin.
@@ -130,7 +130,7 @@ public:
 
     // ---- Compute Pass ----
 
-    ComputePassEncoder* beginComputePass(StringView) override {
+    ComputePassEncoder* BeginComputePass(StringView) override {
         ensureDescriptorHeaps();
         cpe_.begin();
         return &cpe_;
@@ -138,7 +138,7 @@ public:
 
     // ---- Barriers ----
 
-    void barrier(const BarrierGroup& group) override {
+    void Barrier(const BarrierGroup& group) override {
         usize totalBarriers = group.bufferBarriers.Size() + group.textureBarriers.Size()
                             + group.memoryBarriers.Size();
         if (totalBarriers == 0) return;
@@ -272,14 +272,14 @@ public:
 
     // ---- Copy Operations ----
 
-    void copyBufferToBuffer(Buffer* src, u64 srcOffset, Buffer* dst, u64 dstOffset, u64 size) override {
+    void CopyBufferToBuffer(Buffer* src, u64 srcOffset, Buffer* dst, u64 dstOffset, u64 size) override {
         auto* dxSrc = static_cast<DxBufferImpl*>(src);
         auto* dxDst = static_cast<DxBufferImpl*>(dst);
         if (!dxSrc || !dxDst) return;
         cmdList_->CopyBufferRegion(dxDst->handle(), dstOffset, dxSrc->handle(), srcOffset, size);
     }
 
-    void copyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& region) override {
+    void CopyBufferToTexture(Buffer* src, Texture* dst, const BufferTextureCopyRegion& region) override {
         auto* dxSrc = static_cast<DxBufferImpl*>(src);
         auto* dxTex = static_cast<DxTextureImpl*>(dst);
         if (!dxSrc || !dxTex) return;
@@ -306,7 +306,7 @@ public:
             &srcLoc, nullptr);
     }
 
-    void copyTextureToBuffer(Texture* src, Buffer* dst, const BufferTextureCopyRegion& region) override {
+    void CopyTextureToBuffer(Texture* src, Buffer* dst, const BufferTextureCopyRegion& region) override {
         auto* dxTex = static_cast<DxTextureImpl*>(src);
         auto* dxDst = static_cast<DxBufferImpl*>(dst);
         if (!dxTex || !dxDst) return;
@@ -339,7 +339,7 @@ public:
         cmdList_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &srcBox);
     }
 
-    void copyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& region) override {
+    void CopyTextureToTexture(Texture* src, Texture* dst, const TextureCopyRegion& region) override {
         auto* dxSrc = static_cast<DxTextureImpl*>(src);
         auto* dxDst = static_cast<DxTextureImpl*>(dst);
         if (!dxSrc || !dxDst) return;
@@ -370,7 +370,7 @@ public:
 
     // ---- Blit & Mipmap Generation ----
 
-    void blit(Texture* src, Texture* dst) override {
+    void Blit(Texture* src, Texture* dst) override {
         auto* dxSrc = static_cast<DxTextureImpl*>(src);
         auto* dxDst = static_cast<DxTextureImpl*>(dst);
         if (!dxSrc || !dxDst) return;
@@ -407,7 +407,7 @@ public:
         cmdList_->ResourceBarrier(2, barriers);
     }
 
-    void generateMipmaps(Texture* texture) override {
+    void GenerateMipmaps(Texture* texture) override {
         auto* dxTex = static_cast<DxTextureImpl*>(texture);
         if (!dxTex) return;
 
@@ -454,7 +454,7 @@ public:
 
     // ---- MSAA Resolve ----
 
-    void resolveTexture(Texture* src, Texture* dst) override {
+    void ResolveTexture(Texture* src, Texture* dst) override {
         auto* dxSrc = static_cast<DxTextureImpl*>(src);
         auto* dxDst = static_cast<DxTextureImpl*>(dst);
         if (!dxSrc || !dxDst) return;
@@ -491,16 +491,16 @@ public:
 
     // ---- Queries ----
 
-    void resetQuerySet(QuerySet*, u32, u32) override {
+    void ResetQuerySet(QuerySet*, u32, u32) override {
         // DX12 does not require explicit query reset -- queries are implicitly reset when written.
     }
 
-    void writeTimestamp(QuerySet* querySet, u32 index) override {
+    void WriteTimestamp(QuerySet* querySet, u32 index) override {
         if (auto* qs = static_cast<DxQuerySetImpl*>(querySet))
             cmdList_->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
     }
 
-    void resolveQuerySet(QuerySet* querySet, u32 first, u32 count, Buffer* dst, u64 dstOffset) override {
+    void ResolveQuerySet(QuerySet* querySet, u32 first, u32 count, Buffer* dst, u64 dstOffset) override {
         auto* qs    = static_cast<DxQuerySetImpl*>(querySet);
         auto* dxDst = static_cast<DxBufferImpl*>(dst);
         if (!qs || !dxDst) return;
@@ -510,17 +510,17 @@ public:
 
     // ---- Debug Labels ----
 
-    void beginDebugLabel(StringView, f32, f32, f32, f32) override {
+    void BeginDebugLabel(StringView, f32, f32, f32, f32) override {
         // PIX events would go here; no-op without PIX runtime.
     }
 
-    void endDebugLabel() override {}
+    void EndDebugLabel() override {}
 
-    void insertDebugLabel(StringView, f32, f32, f32, f32) override {}
+    void InsertDebugLabel(StringView, f32, f32, f32, f32) override {}
 
     // ---- Finish ----
 
-    CommandBuffer* finish() override {
+    CommandBuffer* Finish() override {
         cmdList_->Close();
         auto* cb = new DxCommandBufferImpl(cmdList_);
         pool_->trackCommandBuffer(cb);
@@ -531,7 +531,7 @@ public:
     // RayTracingEncoderExt interface
     // ================================================================
 
-    void buildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
+    void BuildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
         Span<const AccelStructGeometryTriangles> tris,
         Span<const AccelStructGeometryAABBs> aabbs) override
     {
@@ -597,7 +597,7 @@ public:
         }
 
         D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc{};
-        buildDesc.DestAccelerationStructureData    = dxAs->deviceAddress();
+        buildDesc.DestAccelerationStructureData    = dxAs->DeviceAddress();
         buildDesc.ScratchAccelerationStructureData = dxScratch->gpuAddress() + scratchOffset;
         buildDesc.Inputs.Type           = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
         buildDesc.Inputs.Flags          = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
@@ -608,7 +608,7 @@ public:
         cmdList4->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
     }
 
-    void buildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
+    void BuildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
         Buffer* instanceBuffer, u64 instanceOffset, u32 instanceCount) override
     {
         auto* dxAs        = static_cast<DxAccelStructImpl*>(dst);
@@ -620,7 +620,7 @@ public:
         if (FAILED(cmdList_->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
 
         D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc{};
-        buildDesc.DestAccelerationStructureData    = dxAs->deviceAddress();
+        buildDesc.DestAccelerationStructureData    = dxAs->DeviceAddress();
         buildDesc.ScratchAccelerationStructureData = dxScratch->gpuAddress() + scratchOffset;
         buildDesc.Inputs.Type          = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
         buildDesc.Inputs.Flags         = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
@@ -631,7 +631,7 @@ public:
         cmdList4->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
     }
 
-    void setRayTracingPipeline(RayTracingPipeline* pipeline) override {
+    void SetRayTracingPipeline(RayTracingPipeline* pipeline) override {
         currentRtPipeline_ = static_cast<DxRayTracingPipelineImpl*>(pipeline);
         if (!currentRtPipeline_) return;
 
@@ -646,14 +646,14 @@ public:
             cmdList_->SetComputeRootSignature(layout->handle());
     }
 
-    void setBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
+    void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override {
         auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
         if (!dxGroup || !currentRtPipeline_) return;
 
         auto* layout = currentRtPipeline_->pipelineLayout();
         if (!layout) return;
 
-        auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->layout());
+        auto* dxLayout = static_cast<DxBindGroupLayoutImpl*>(dxGroup->Layout());
 
         // RT uses compute root signature binding -- copy-on-bind staging.
         if (dxGroup->cbvSrvUavOffset() >= 0 && dxLayout && dxLayout->cbvSrvUavCount() > 0) {
@@ -709,7 +709,7 @@ public:
         }
     }
 
-    void setPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override {
+    void SetPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override {
         if (!currentRtPipeline_) return;
         auto* layout = currentRtPipeline_->pipelineLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;
@@ -719,7 +719,7 @@ public:
             size / 4, data, offset / 4);
     }
 
-    void traceRays(Buffer* raygenSBT, u64 raygenOffset, u64 raygenStride,
+    void TraceRays(Buffer* raygenSBT, u64 raygenOffset, u64 raygenStride,
                    Buffer* missSBT, u64 missOffset, u64 missStride,
                    Buffer* hitSBT, u64 hitOffset, u64 hitStride,
                    u32 width, u32 height, u32 depth) override
@@ -786,41 +786,41 @@ public:
 
         D3D12_RESOURCE_STATES result = D3D12_RESOURCE_STATE_COMMON;
 
-        if (hasFlag(state, ResourceState::VertexBuffer))
+        if (HasFlag(state, ResourceState::VertexBuffer))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-        if (hasFlag(state, ResourceState::IndexBuffer))
+        if (HasFlag(state, ResourceState::IndexBuffer))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_INDEX_BUFFER);
-        if (hasFlag(state, ResourceState::UniformBuffer))
+        if (HasFlag(state, ResourceState::UniformBuffer))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-        if (hasFlag(state, ResourceState::ShaderRead)) {
+        if (HasFlag(state, ResourceState::ShaderRead)) {
             // Depth textures use DEPTH_READ when sampled, not PIXEL_SHADER_RESOURCE.
-            if (isDepthFormat(format))
+            if (IsDepthFormat(format))
                 result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_DEPTH_READ);
             else
                 result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
                                                                    | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         }
-        if (hasFlag(state, ResourceState::ShaderWrite))
+        if (HasFlag(state, ResourceState::ShaderWrite))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        if (hasFlag(state, ResourceState::RenderTarget))
+        if (HasFlag(state, ResourceState::RenderTarget))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_RENDER_TARGET);
-        if (hasFlag(state, ResourceState::DepthStencilWrite))
+        if (HasFlag(state, ResourceState::DepthStencilWrite))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_DEPTH_WRITE);
-        if (hasFlag(state, ResourceState::DepthStencilRead))
+        if (HasFlag(state, ResourceState::DepthStencilRead))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_DEPTH_READ);
-        if (hasFlag(state, ResourceState::IndirectArgument))
+        if (HasFlag(state, ResourceState::IndirectArgument))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-        if (hasFlag(state, ResourceState::CopySrc))
+        if (HasFlag(state, ResourceState::CopySrc))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_COPY_SOURCE);
-        if (hasFlag(state, ResourceState::CopyDst))
+        if (HasFlag(state, ResourceState::CopyDst))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_COPY_DEST);
-        if (hasFlag(state, ResourceState::Present))
+        if (HasFlag(state, ResourceState::Present))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_PRESENT);
-        if (hasFlag(state, ResourceState::General))
+        if (HasFlag(state, ResourceState::General))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_COMMON);
-        if (hasFlag(state, ResourceState::AccelStructRead))
+        if (HasFlag(state, ResourceState::AccelStructRead))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
-        if (hasFlag(state, ResourceState::AccelStructWrite))
+        if (HasFlag(state, ResourceState::AccelStructWrite))
             result = static_cast<D3D12_RESOURCE_STATES>(result | D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
         return result;
@@ -859,7 +859,7 @@ private:
         return result;
     }
 
-    static bool hasFlag(ResourceState state, ResourceState flag) {
+    static bool HasFlag(ResourceState state, ResourceState flag) {
         return (static_cast<u32>(state) & static_cast<u32>(flag)) != 0;
     }
 

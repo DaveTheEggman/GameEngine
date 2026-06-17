@@ -21,18 +21,18 @@ public:
         isInitialized = inner->isInitialized;
     }
 
-    Span<Adapter* const> enumerateAdapters() override {
+    Span<Adapter* const> EnumerateAdapters() override {
         if (!inner_->isInitialized) {
-            logError("[Validation] enumerateAdapters: backend not initialized");
+            LogError("[Validation] enumerateAdapters: backend not initialized");
             return {};
         }
 
         if (adapterWrappers_.IsEmpty()) {
-            auto innerAdapters = inner_->enumerateAdapters();
+            auto innerAdapters = inner_->EnumerateAdapters();
             adapterWrappers_.Reserve(innerAdapters.Size());
             adapterPtrs_.Reserve(innerAdapters.Size());
             for (usize i = 0; i < innerAdapters.Size(); ++i) {
-                auto* w = createValidatedAdapter(innerAdapters[i]);
+                auto* w = CreateValidatedAdapter(innerAdapters[i]);
                 adapterWrappers_.PushBack(w);
                 adapterPtrs_.PushBack(w);
             }
@@ -40,35 +40,35 @@ public:
         return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
     }
 
-    Status createSurface(void* windowHandle, void* displayHandle, Surface*& out) override {
+    Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out) override {
         if (!windowHandle) {
-            logError("[Validation] createSurface: windowHandle is null");
+            LogError("[Validation] createSurface: windowHandle is null");
             out = nullptr;
             return ErrorCode::InvalidArgument;
         }
-        return inner_->createSurface(windowHandle, displayHandle, out);
+        return inner_->CreateSurface(windowHandle, displayHandle, out);
     }
 
-    void destroy() override {
+    void Destroy() override {
         for (auto* w : adapterWrappers_) delete w;
         adapterWrappers_.Clear();
         adapterPtrs_.Clear();
-        inner_->destroy();
+        inner_->Destroy();
         delete this;
     }
 
     Backend* inner() const { return inner_; }
 
 private:
-    static ValidatedAdapter* createValidatedAdapter(Adapter* inner);
+    static ValidatedAdapter* CreateValidatedAdapter(Adapter* inner);
 
     Backend* inner_;
     Array<ValidatedAdapter*> adapterWrappers_;
     Array<Adapter*>          adapterPtrs_;
 };
 
-Backend* createValidatedBackend(Backend* inner) {
-    if (!inner) { logError("[Validation] createValidatedBackend: inner is null"); return nullptr; }
+Backend* CreateValidatedBackend(Backend* inner) {
+    if (!inner) { LogError("[Validation] CreateValidatedBackend: inner is null"); return nullptr; }
     return new ValidatedBackend(inner);
 }
 

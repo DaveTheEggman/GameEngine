@@ -28,13 +28,13 @@ public:
     virtual ~MeshShaderPassExt() = default;
 
     /// Bind a mesh shader pipeline.
-    virtual void setMeshPipeline(MeshPipeline* pipeline) = 0;
+    virtual void SetMeshPipeline(MeshPipeline* pipeline) = 0;
     /// Dispatch mesh shader work groups.
-    virtual void drawMeshTasks(u32 groupCountX, u32 groupCountY = 1, u32 groupCountZ = 1) = 0;
+    virtual void DrawMeshTasks(u32 groupCountX, u32 groupCountY = 1, u32 groupCountZ = 1) = 0;
     /// Dispatch mesh shader work groups via an indirect buffer.
-    virtual void drawMeshTasksIndirect(Buffer* buffer, u64 offset, u32 drawCount = 1, u32 stride = 0) = 0;
+    virtual void DrawMeshTasksIndirect(Buffer* buffer, u64 offset, u32 drawCount = 1, u32 stride = 0) = 0;
     /// Dispatch mesh shader work groups with an indirect count buffer.
-    virtual void drawMeshTasksIndirectCount(Buffer* buffer, u64 offset,
+    virtual void DrawMeshTasksIndirectCount(Buffer* buffer, u64 offset,
                                             Buffer* countBuffer, u64 countOffset,
                                             u32 maxDrawCount, u32 stride) = 0;
 };
@@ -46,25 +46,25 @@ public:
     virtual ~RayTracingEncoderExt() = default;
 
     /// Build a bottom-level acceleration structure from triangle and/or AABB geometry.
-    virtual void buildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
+    virtual void BuildBottomLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
                                              Span<const AccelStructGeometryTriangles> triangles,
                                              Span<const AccelStructGeometryAABBs> aabbs) = 0;
 
     /// Build a top-level acceleration structure from an instance buffer.
-    virtual void buildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
+    virtual void BuildTopLevelAccelStruct(AccelStruct* dst, Buffer* scratchBuffer, u64 scratchOffset,
                                           Buffer* instanceBuffer, u64 instanceOffset, u32 instanceCount) = 0;
 
     /// Bind a ray tracing pipeline.
-    virtual void setRayTracingPipeline(RayTracingPipeline* pipeline) = 0;
+    virtual void SetRayTracingPipeline(RayTracingPipeline* pipeline) = 0;
 
     /// Bind a resource group for the ray tracing pipeline.
-    virtual void setBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets = {}) = 0;
+    virtual void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets = {}) = 0;
 
     /// Upload push constants for the ray tracing pipeline.
-    virtual void setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) = 0;
+    virtual void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) = 0;
 
     /// Dispatch rays using shader binding tables.
-    virtual void traceRays(Buffer* raygenSBT, u64 raygenOffset, u64 raygenStride,
+    virtual void TraceRays(Buffer* raygenSBT, u64 raygenOffset, u64 raygenStride,
                            Buffer* missSBT, u64 missOffset, u64 missStride,
                            Buffer* hitSBT, u64 hitOffset, u64 hitStride,
                            u32 width, u32 height, u32 depth = 1) = 0;

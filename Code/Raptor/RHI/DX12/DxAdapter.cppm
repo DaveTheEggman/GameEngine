@@ -34,7 +34,7 @@ public:
 
     // ---- Adapter interface ----
 
-    void getInfo(AdapterInfo& out) override {
+    void GetInfo(AdapterInfo& out) override {
         // DXGI Description is a WCHAR[] — construct String (wide) directly.
         out.name = String(reinterpret_cast<const widechar*>(desc_.Description));
         out.vendorId = desc_.VendorId;
@@ -96,7 +96,7 @@ public:
         return f;
     }
 
-    Status createDevice(const DeviceDesc& desc, Device*& out) override;
+    Status CreateDevice(const DeviceDesc& desc, Device*& out) override;
 
     // ---- Internal ----
     [[nodiscard]] IDXGIAdapter1*    handle()  const { return adapter_; }

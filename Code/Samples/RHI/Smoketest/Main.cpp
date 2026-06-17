@@ -59,18 +59,18 @@ int main(int /*argc*/, char** /*argv*/) {
     // ---- VK backend (wrapped in validation layer) ----
     vk::VkBackendDesc vkDesc{ .enableValidation = true };
     Backend* rawBackend = nullptr;
-    if (vk::createBackend(vkDesc, rawBackend) != raptor::core::ErrorCode::Ok) {
+    if (vk::CreateBackend(vkDesc, rawBackend) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBackend failed\n");
         return 1;
     }
-    Backend* backend = validation::createValidatedBackend(rawBackend);
+    Backend* backend = validation::CreateValidatedBackend(rawBackend);
 
-    auto adapters = backend->enumerateAdapters();
-    if (adapters.Size() == 0) { backend->destroy(); return 1; }
+    auto adapters = backend->EnumerateAdapters();
+    if (adapters.Size() == 0) { backend->Destroy(); return 1; }
 
     // Adapters are enumerated best-GPU-first (see Backend::enumerateAdapters).
     Adapter* chosen = adapters[0];
-    auto adapterInfo = chosen->info();
+    auto adapterInfo = chosen->Info();
     const UTF8String adapterName = ToUTF8(adapterInfo.name);
     std::printf("adapter: %s (%s)\n", reinterpret_cast<const char*>(adapterName.CStr()), adapterTypeStr(adapterInfo.type));
 
@@ -80,16 +80,16 @@ int main(int /*argc*/, char** /*argv*/) {
     dd.transferQueueCount = 1;
     dd.requiredFeatures.meshShaders = adapterInfo.supportedFeatures.meshShaders;
     Device* device = nullptr;
-    if (chosen->createDevice(dd, device) != raptor::core::ErrorCode::Ok) {
+    if (chosen->CreateDevice(dd, device) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createDevice failed\n");
-        backend->destroy(); return 1;
+        backend->Destroy(); return 1;
     }
 
     // ---- Surface + swap chain ----
     Surface* surface = nullptr;
-    if (backend->createSurface(native, display, surface) != raptor::core::ErrorCode::Ok) {
+    if (backend->CreateSurface(native, display, surface) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSurface failed\n");
-        device->destroy(); return 1;
+        device->Destroy(); return 1;
     }
     std::printf("surface created\n");
 
@@ -100,12 +100,12 @@ int main(int /*argc*/, char** /*argv*/) {
     sd.bufferCount = 2;
     sd.label = u"main";
     SwapChain* swap = nullptr;
-    if (device->createSwapChain(surface, sd, swap) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateSwapChain(surface, sd, swap) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSwapChain failed\n");
-        device->destroySurface(surface);
-        device->destroy(); return 1;
+        device->DestroySurface(surface);
+        device->Destroy(); return 1;
     }
-    std::printf("swap chain: %ux%u, bufferCount=%u\n", swap->width(), swap->height(), swap->bufferCount());
+    std::printf("swap chain: %ux%u, bufferCount=%u\n", swap->Width(), swap->Height(), swap->BufferCount());
 
     // ---- Buffer / Sampler / ShaderModule ----
     BufferDesc ubDesc{};
@@ -114,21 +114,21 @@ int main(int /*argc*/, char** /*argv*/) {
     ubDesc.memory = MemoryLocation::CpuToGpu;
     ubDesc.label = u"smoketest_uniform";
     Buffer* ub = nullptr;
-    if (device->createBuffer(ubDesc, ub) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateBuffer(ubDesc, ub) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBuffer failed\n");
     } else {
-        void* mapped = ub->map();
+        void* mapped = ub->Map();
         std::printf("uniform buffer: size=%llu mapped=%p\n",
-                    static_cast<unsigned long long>(ub->size()), mapped);
+                    static_cast<unsigned long long>(ub->GetSize()), mapped);
         if (mapped) std::memset(mapped, 0xAB, 16);
-        ub->unmap();
+        ub->Unmap();
     }
 
     SamplerDesc sampDesc{};
     sampDesc.maxAnisotropy = 16;
     sampDesc.label = u"smoketest_sampler";
     Sampler* samp = nullptr;
-    if (device->createSampler(sampDesc, samp) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateSampler(sampDesc, samp) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSampler failed\n");
     } else {
         std::printf("sampler created (aniso=%u)\n", samp->desc.maxAnisotropy);
@@ -151,26 +151,26 @@ int main(int /*argc*/, char** /*argv*/) {
     shDesc.code = Span<const u8>(reinterpret_cast<const u8*>(kSpvNoop), sizeof(kSpvNoop));
     shDesc.label = u"smoketest_noop_fs";
     ShaderModule* sh = nullptr;
-    if (device->createShaderModule(shDesc, sh) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateShaderModule(shDesc, sh) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createShaderModule failed\n");
     } else {
         std::printf("shader module created (%zu bytes)\n", shDesc.code.Size());
-        device->destroyShaderModule(sh);
+        device->DestroyShaderModule(sh);
     }
 
     // ---- BindGroupLayout / PipelineLayout / PipelineCache ----
     BindGroupLayoutEntry layoutEntries[2] = {
-        BindGroupLayoutEntry::uniformBuffer(0, ShaderStage::Vertex),
-        BindGroupLayoutEntry::sampledTexture(1, ShaderStage::Fragment),
+        BindGroupLayoutEntry::UniformBuffer(0, ShaderStage::Vertex),
+        BindGroupLayoutEntry::SampledTexture(1, ShaderStage::Fragment),
     };
     BindGroupLayoutDesc bglDesc{};
     bglDesc.entries = Span<const BindGroupLayoutEntry>(layoutEntries, 2);
     bglDesc.label = u"smoketest_bgl";
     BindGroupLayout* bgl = nullptr;
-    if (device->createBindGroupLayout(bglDesc, bgl) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateBindGroupLayout(bglDesc, bgl) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBindGroupLayout failed\n");
     } else {
-        std::printf("bind group layout: %zu entries\n", bgl->entries().Size());
+        std::printf("bind group layout: %zu entries\n", bgl->Entries().Size());
     }
 
     PipelineLayoutDesc plDesc{};
@@ -178,7 +178,7 @@ int main(int /*argc*/, char** /*argv*/) {
     plDesc.bindGroupLayouts = Span<BindGroupLayout* const>(plSets, 1);
     plDesc.label = u"smoketest_pl";
     PipelineLayout* pl = nullptr;
-    if (device->createPipelineLayout(plDesc, pl) != raptor::core::ErrorCode::Ok) {
+    if (device->CreatePipelineLayout(plDesc, pl) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createPipelineLayout failed\n");
     } else {
         std::printf("pipeline layout created\n");
@@ -187,32 +187,32 @@ int main(int /*argc*/, char** /*argv*/) {
     PipelineCacheDesc pcDesc{};
     pcDesc.label = u"smoketest_pc";
     PipelineCache* pc = nullptr;
-    if (device->createPipelineCache(pcDesc, pc) != raptor::core::ErrorCode::Ok) {
+    if (device->CreatePipelineCache(pcDesc, pc) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createPipelineCache failed\n");
     } else {
-        std::printf("pipeline cache created (size=%u)\n", pc->getDataSize());
+        std::printf("pipeline cache created (size=%u)\n", pc->GetDataSize());
     }
 
-    device->destroyPipelineCache(pc);
-    device->destroyPipelineLayout(pl);
-    device->destroyBindGroupLayout(bgl);
-    device->destroySampler(samp);
-    device->destroyBuffer(ub);
+    device->DestroyPipelineCache(pc);
+    device->DestroyPipelineLayout(pl);
+    device->DestroyBindGroupLayout(bgl);
+    device->DestroySampler(samp);
+    device->DestroyBuffer(ub);
 
     // ---- Command pool + fence ----
     CommandPool* pool = nullptr;
-    if (device->createCommandPool(QueueType::Graphics, pool) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateCommandPool(QueueType::Graphics, pool) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createCommandPool failed\n");
     } else {
         std::printf("command pool created\n");
     }
 
     Fence* fence = nullptr;
-    if (device->createFence(0, fence) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateFence(0, fence) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createFence failed\n");
     } else {
         std::printf("fence created (initial=%llu)\n",
-                    static_cast<unsigned long long>(fence->completedValue()));
+                    static_cast<unsigned long long>(fence->CompletedValue()));
     }
 
     QuerySetDesc qsDesc{};
@@ -220,7 +220,7 @@ int main(int /*argc*/, char** /*argv*/) {
     qsDesc.count = 16;
     qsDesc.label = u"smoketest_qs";
     QuerySet* qs = nullptr;
-    if (device->createQuerySet(qsDesc, qs) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateQuerySet(qsDesc, qs) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createQuerySet failed\n");
     } else {
         std::printf("query set created (type=%u count=%u)\n",
@@ -229,30 +229,30 @@ int main(int /*argc*/, char** /*argv*/) {
 
     // ---- Show window + acquire/present 3 frames ----
 
-    Queue* gfx = device->getQueue(QueueType::Graphics);
+    Queue* gfx = device->GetQueue(QueueType::Graphics);
     u64 fenceValue = 0;
     for (int frame = 0; frame < 3; ++frame) {
-        if (swap->acquireNextImage() != raptor::core::ErrorCode::Ok) {
+        if (swap->AcquireNextImage() != raptor::core::ErrorCode::Ok) {
             std::fprintf(stderr, "acquireNextImage failed on frame %d\n", frame);
             break;
         }
 
         CommandEncoder* enc = nullptr;
-        if (pool && pool->createEncoder(enc) == raptor::core::ErrorCode::Ok && enc) {
-            enc->transitionTexture(swap->currentTexture(), ResourceState::Undefined, ResourceState::Present);
+        if (pool && pool->CreateEncoder(enc) == raptor::core::ErrorCode::Ok && enc) {
+            enc->TransitionTexture(swap->CurrentTexture(), ResourceState::Undefined, ResourceState::Present);
 
-            CommandBuffer* cb = enc->finish();
+            CommandBuffer* cb = enc->Finish();
             CommandBuffer* cbs[1] = { cb };
             fenceValue++;
-            gfx->submit(Span<CommandBuffer* const>(cbs, 1), fence, fenceValue);
-            pool->destroyEncoder(enc);
+            gfx->Submit(Span<CommandBuffer* const>(cbs, 1), fence, fenceValue);
+            pool->DestroyEncoder(enc);
         }
 
-        swap->present(gfx);
-        if (fence) fence->wait(fenceValue);
-        if (pool) pool->reset();
+        swap->Present(gfx);
+        if (fence) fence->Wait(fenceValue);
+        if (pool) pool->Reset();
         std::printf("frame %d acquired image_index=%u fence=%llu\n",
-                    frame, swap->currentImageIndex(),
+                    frame, swap->CurrentImageIndex(),
                     static_cast<unsigned long long>(fenceValue));
     }
 
@@ -296,21 +296,21 @@ int main(int /*argc*/, char** /*argv*/) {
                 std::fprintf(stderr, "shaders: compile failed: %s\n", cr.messages ? cr.messages : "(no messages)");
             }
             shaderc->freeResult(cr);
-            shaderc->destroy();
+            shaderc->Destroy();
             delete shaderc;
         }
     }
 #endif
 
-    if (qs)    device->destroyQuerySet(qs);
-    if (fence) device->destroyFence(fence);
-    if (pool)  device->destroyCommandPool(pool);
+    if (qs)    device->DestroyQuerySet(qs);
+    if (fence) device->DestroyFence(fence);
+    if (pool)  device->DestroyCommandPool(pool);
 
-    device->waitIdle();
-    device->destroySwapChain(swap);
-    device->destroySurface(surface);
-    device->destroy();
-    backend->destroy();
+    device->WaitIdle();
+    device->DestroySwapChain(swap);
+    device->DestroySurface(surface);
+    device->Destroy();
+    backend->Destroy();
 
     
 
@@ -319,52 +319,52 @@ int main(int /*argc*/, char** /*argv*/) {
     {
         namespace null = raptor::rhi::null;
         Backend* nullBackend = nullptr;
-        null::createNullBackend(nullBackend);
+        null::CreateNullBackend(nullBackend);
 
-        auto nullAdapters = nullBackend->enumerateAdapters();
+        auto nullAdapters = nullBackend->EnumerateAdapters();
         std::printf("null adapters: %zu\n", nullAdapters.Size());
 
         Device* nullDevice = nullptr;
-        nullAdapters[0]->createDevice(DeviceDesc{}, nullDevice);
+        nullAdapters[0]->CreateDevice(DeviceDesc{}, nullDevice);
 
         Surface* nullSurface = nullptr;
-        nullBackend->createSurface(nullptr, nullSurface);
+        nullBackend->CreateSurface(nullptr, nullSurface);
 
         SwapChainDesc nullSd{}; nullSd.width = 800; nullSd.height = 600; nullSd.bufferCount = 2;
         SwapChain* nullSwap = nullptr;
-        nullDevice->createSwapChain(nullSurface, nullSd, nullSwap);
-        std::printf("null swap chain: %ux%u\n", nullSwap->width(), nullSwap->height());
+        nullDevice->CreateSwapChain(nullSurface, nullSd, nullSwap);
+        std::printf("null swap chain: %ux%u\n", nullSwap->Width(), nullSwap->Height());
 
         Buffer* nullBuf = nullptr;
         BufferDesc nbd{}; nbd.size = 256; nbd.usage = BufferUsage::Uniform; nbd.memory = MemoryLocation::CpuToGpu;
-        nullDevice->createBuffer(nbd, nullBuf);
-        void* mapped = nullBuf->map();
+        nullDevice->CreateBuffer(nbd, nullBuf);
+        void* mapped = nullBuf->Map();
         std::printf("null buffer mapped: %s\n", mapped ? "yes" : "no");
-        nullBuf->unmap();
+        nullBuf->Unmap();
 
         CommandPool* nullPool = nullptr;
-        nullDevice->createCommandPool(QueueType::Graphics, nullPool);
+        nullDevice->CreateCommandPool(QueueType::Graphics, nullPool);
         CommandEncoder* nullEnc = nullptr;
-        nullPool->createEncoder(nullEnc);
-        nullSwap->acquireNextImage();
-        nullEnc->transitionTexture(nullSwap->currentTexture(), ResourceState::Undefined, ResourceState::Present);
-        CommandBuffer* nullCb = nullEnc->finish();
+        nullPool->CreateEncoder(nullEnc);
+        nullSwap->AcquireNextImage();
+        nullEnc->TransitionTexture(nullSwap->CurrentTexture(), ResourceState::Undefined, ResourceState::Present);
+        CommandBuffer* nullCb = nullEnc->Finish();
         Fence* nullFence = nullptr;
-        nullDevice->createFence(0, nullFence);
+        nullDevice->CreateFence(0, nullFence);
         CommandBuffer* nullCbs[1] = { nullCb };
-        nullDevice->getQueue(QueueType::Graphics)->submit(Span<CommandBuffer* const>(nullCbs, 1), nullFence, 1);
-        nullFence->wait(1, ~0ull);
-        nullSwap->present(nullDevice->getQueue(QueueType::Graphics));
+        nullDevice->GetQueue(QueueType::Graphics)->Submit(Span<CommandBuffer* const>(nullCbs, 1), nullFence, 1);
+        nullFence->Wait(1, ~0ull);
+        nullSwap->Present(nullDevice->GetQueue(QueueType::Graphics));
         std::printf("null frame completed\n");
 
-        nullPool->destroyEncoder(nullEnc);
-        nullDevice->destroyFence(nullFence);
-        nullDevice->destroyCommandPool(nullPool);
-        nullDevice->destroyBuffer(nullBuf);
-        nullDevice->destroySwapChain(nullSwap);
-        nullDevice->destroySurface(nullSurface);
-        nullDevice->destroy();
-        nullBackend->destroy();
+        nullPool->DestroyEncoder(nullEnc);
+        nullDevice->DestroyFence(nullFence);
+        nullDevice->DestroyCommandPool(nullPool);
+        nullDevice->DestroyBuffer(nullBuf);
+        nullDevice->DestroySwapChain(nullSwap);
+        nullDevice->DestroySurface(nullSurface);
+        nullDevice->Destroy();
+        nullBackend->Destroy();
         std::printf("null backend: OK\n");
     }
 
@@ -377,13 +377,13 @@ int main(int /*argc*/, char** /*argv*/) {
         Backend* dx12Backend = nullptr;
         dx12::DxBackendDesc dx12Desc{};
         dx12Desc.enableValidation = true;
-        if (dx12::createDxBackend(dx12Desc, dx12Backend) != ErrorCode::Ok) {
+        if (dx12::CreateDxBackend(dx12Desc, dx12Backend) != ErrorCode::Ok) {
             std::printf("DX12 backend: FAILED to create\n");
         } else {
-            auto dx12Adapters = dx12Backend->enumerateAdapters();
+            auto dx12Adapters = dx12Backend->EnumerateAdapters();
             std::printf("DX12 adapters: %zu\n", dx12Adapters.Size());
             for (usize i = 0; i < dx12Adapters.Size(); ++i) {
-                AdapterInfo ai = dx12Adapters[i]->info();
+                AdapterInfo ai = dx12Adapters[i]->Info();
                 const UTF8String name8 = ToUTF8(ai.name);
                 std::printf("  [%zu] %s (%s)\n", i,
                     reinterpret_cast<const char*>(name8.CStr()),
@@ -393,35 +393,35 @@ int main(int /*argc*/, char** /*argv*/) {
             if (dx12Adapters.Size() > 0) {
                 Device* dx12Device = nullptr;
                 DeviceDesc dx12dd{}; dx12dd.graphicsQueueCount = 1;
-                if (dx12Adapters[0]->createDevice(dx12dd, dx12Device) == ErrorCode::Ok) {
+                if (dx12Adapters[0]->CreateDevice(dx12dd, dx12Device) == ErrorCode::Ok) {
                     std::printf("DX12 device created (type=%d)\n", static_cast<int>(dx12Device->type));
 
                     // Create and destroy a buffer.
                     Buffer* dx12Buf = nullptr;
                     BufferDesc bd{}; bd.size = 256; bd.usage = BufferUsage::Uniform;
                     bd.memory = MemoryLocation::CpuToGpu;
-                    dx12Device->createBuffer(bd, dx12Buf);
+                    dx12Device->CreateBuffer(bd, dx12Buf);
                     if (dx12Buf) {
-                        void* mapped = dx12Buf->map();
+                        void* mapped = dx12Buf->Map();
                         std::printf("DX12 buffer mapped: %s\n", mapped ? "OK" : "FAIL");
-                        if (mapped) dx12Buf->unmap();
-                        dx12Device->destroyBuffer(dx12Buf);
+                        if (mapped) dx12Buf->Unmap();
+                        dx12Device->DestroyBuffer(dx12Buf);
                     }
 
                     // Create and destroy a fence.
                     Fence* dx12Fence = nullptr;
-                    dx12Device->createFence(0, dx12Fence);
+                    dx12Device->CreateFence(0, dx12Fence);
                     if (dx12Fence) {
                         std::printf("DX12 fence completed value: %llu\n",
-                            static_cast<unsigned long long>(dx12Fence->completedValue()));
-                        dx12Device->destroyFence(dx12Fence);
+                            static_cast<unsigned long long>(dx12Fence->CompletedValue()));
+                        dx12Device->DestroyFence(dx12Fence);
                     }
 
-                    dx12Device->destroy();
+                    dx12Device->Destroy();
                 }
             }
 
-            dx12Backend->destroy();
+            dx12Backend->Destroy();
             std::printf("DX12 backend: OK\n");
         }
     }

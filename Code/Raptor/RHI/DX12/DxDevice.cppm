@@ -60,7 +60,7 @@ public:
         HRESULT hr = D3D12CreateDevice(
             adapter->handle(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device_));
         if (FAILED(hr)) {
-            logErrorf("DxDevice: D3D12CreateDevice failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxDevice: D3D12CreateDevice failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -145,7 +145,7 @@ public:
     // Device interface -- Queues
     // ==================================================================
 
-    Queue* getQueue(QueueType t, u32 index) override {
+    Queue* GetQueue(QueueType t, u32 index) override {
         switch (t) {
         case QueueType::Graphics: return index < graphicsQueues_.Size()  ? graphicsQueues_[index]  : nullptr;
         case QueueType::Compute:  return index < computeQueues_.Size()   ? computeQueues_[index]   : nullptr;
@@ -154,7 +154,7 @@ public:
         return nullptr;
     }
 
-    u32 getQueueCount(QueueType t) override {
+    u32 GetQueueCount(QueueType t) override {
         switch (t) {
         case QueueType::Graphics: return static_cast<u32>(graphicsQueues_.Size());
         case QueueType::Compute:  return static_cast<u32>(computeQueues_.Size());
@@ -163,7 +163,7 @@ public:
         return 0;
     }
 
-    FormatSupport getFormatSupport(TextureFormat /*format*/) override {
+    FormatSupport GetFormatSupport(TextureFormat /*format*/) override {
         // DX12 supports D24_S8 on all hardware and most formats broadly.
         // A full implementation would call CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT).
         return FormatSupport::Texture | FormatSupport::ColorAttachment |
@@ -176,7 +176,7 @@ public:
     // Device interface -- Resource creation
     // ==================================================================
 
-    Status createBuffer(const BufferDesc& d, Buffer*& out) override {
+    Status CreateBuffer(const BufferDesc& d, Buffer*& out) override {
         auto* b = new DxBufferImpl();
         if (b->init(device_.Get(), d) != ErrorCode::Ok) { delete b; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(b->handle(), d.label);
@@ -184,7 +184,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createTexture(const TextureDesc& d, Texture*& out) override {
+    Status CreateTexture(const TextureDesc& d, Texture*& out) override {
         auto* t = new DxTextureImpl();
         if (t->init(device_.Get(), d) != ErrorCode::Ok) { delete t; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(t->handle(), d.label);
@@ -192,10 +192,10 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override {
+    Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override {
         auto* dxTex = static_cast<DxTextureImpl*>(tex);
         if (!dxTex) {
-            logError("DxDevice: cast to DxTextureImpl failed");
+            LogError("DxDevice: cast to DxTextureImpl failed");
             out = nullptr;
             return ErrorCode::Unknown;
         }
@@ -207,7 +207,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createSampler(const SamplerDesc& d, Sampler*& out) override {
+    Status CreateSampler(const SamplerDesc& d, Sampler*& out) override {
         auto* s = new DxSamplerImpl();
         if (s->init(device_.Get(), d, &samplerHeap_) != ErrorCode::Ok) {
             delete s; out = nullptr; return ErrorCode::Unknown;
@@ -216,7 +216,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createShaderModule(const ShaderModuleDesc& d, ShaderModule*& out) override {
+    Status CreateShaderModule(const ShaderModuleDesc& d, ShaderModule*& out) override {
         auto* m = new DxShaderModuleImpl();
         if (m->init(d) != ErrorCode::Ok) { delete m; out = nullptr; return ErrorCode::Unknown; }
         out = m;
@@ -227,14 +227,14 @@ public:
     // Binding & Pipelines
     // ==================================================================
 
-    Status createBindGroupLayout(const BindGroupLayoutDesc& d, BindGroupLayout*& out) override {
+    Status CreateBindGroupLayout(const BindGroupLayoutDesc& d, BindGroupLayout*& out) override {
         auto* l = new DxBindGroupLayoutImpl();
         if (l->init(d) != ErrorCode::Ok) { delete l; out = nullptr; return ErrorCode::Unknown; }
         out = l;
         return ErrorCode::Ok;
     }
 
-    Status createBindGroup(const BindGroupDesc& d, BindGroup*& out) override {
+    Status CreateBindGroup(const BindGroupDesc& d, BindGroup*& out) override {
         auto* g = new DxBindGroupImpl();
         if (g->init(device_.Get(), d, &cpuSrvHeap_, &cpuSamplerHeap_) != ErrorCode::Ok) {
             delete g; out = nullptr; return ErrorCode::Unknown;
@@ -243,10 +243,10 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createPipelineLayout(const PipelineLayoutDesc& d, PipelineLayout*& out) override {
+    Status CreatePipelineLayout(const PipelineLayoutDesc& d, PipelineLayout*& out) override {
         auto* l = new DxPipelineLayoutImpl();
         if (l->init(device_.Get(), d) != ErrorCode::Ok) {
-            logError("DxDevice: createPipelineLayout failed");
+            LogError("DxDevice: createPipelineLayout failed");
             delete l; out = nullptr; return ErrorCode::Unknown;
         }
         setDebugName(l->handle(), d.label);
@@ -254,7 +254,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createPipelineCache(const PipelineCacheDesc& d, PipelineCache*& out) override {
+    Status CreatePipelineCache(const PipelineCacheDesc& d, PipelineCache*& out) override {
         auto* c = new DxPipelineCacheImpl();
         if (c->init(device_.Get(), d) != ErrorCode::Ok) { delete c; out = nullptr; return ErrorCode::Unknown; }
         if (c->handle()) setDebugName(c->handle(), d.label);
@@ -262,7 +262,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createRenderPipeline(const RenderPipelineDesc& d, RenderPipeline*& out) override {
+    Status CreateRenderPipeline(const RenderPipelineDesc& d, RenderPipeline*& out) override {
         auto* p = new DxRenderPipelineImpl();
         if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(p->handle(), d.label);
@@ -270,7 +270,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    Status createComputePipeline(const ComputePipelineDesc& d, ComputePipeline*& out) override {
+    Status CreateComputePipeline(const ComputePipelineDesc& d, ComputePipeline*& out) override {
         auto* p = new DxComputePipelineImpl();
         if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(p->handle(), d.label);
@@ -282,7 +282,7 @@ public:
     // Mesh shader (folded in)
     // ==================================================================
 
-    Status createMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
+    Status CreateMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
         if (!meshEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
         auto* p = new DxMeshPipelineImpl();
         if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
@@ -291,7 +291,7 @@ public:
         return ErrorCode::Ok;
     }
 
-    void destroyMeshPipeline(MeshPipeline*& p) override {
+    void DestroyMeshPipeline(MeshPipeline*& p) override {
         if (p) { static_cast<DxMeshPipelineImpl*>(p)->cleanup(); delete p; p = nullptr; }
     }
 
@@ -299,7 +299,7 @@ public:
     // Ray tracing (folded in)
     // ==================================================================
 
-    Status createAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
+    Status CreateAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
         if (!rtEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
         auto* a = new DxAccelStructImpl();
         if (a->init(device_.Get(), d) != ErrorCode::Ok) { delete a; out = nullptr; return ErrorCode::Unknown; }
@@ -307,11 +307,11 @@ public:
         return ErrorCode::Ok;
     }
 
-    void destroyAccelStruct(AccelStruct*& a) override {
+    void DestroyAccelStruct(AccelStruct*& a) override {
         if (a) { static_cast<DxAccelStructImpl*>(a)->cleanup(); delete a; a = nullptr; }
     }
 
-    Status createRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
+    Status CreateRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
         if (!rtEnabled_) { out = nullptr; return ErrorCode::NotSupported; }
         auto* p = new DxRayTracingPipelineImpl();
         if (p->init(device_.Get(), d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
@@ -319,22 +319,22 @@ public:
         return ErrorCode::Ok;
     }
 
-    void destroyRayTracingPipeline(RayTracingPipeline*& p) override {
+    void DestroyRayTracingPipeline(RayTracingPipeline*& p) override {
         if (p) { static_cast<DxRayTracingPipelineImpl*>(p)->cleanup(); delete p; p = nullptr; }
     }
 
-    Status getShaderGroupHandles(RayTracingPipeline* pipeline, u32 firstGroup,
+    Status GetShaderGroupHandles(RayTracingPipeline* pipeline, u32 firstGroup,
                                   u32 groupCount, Span<u8> outData) override {
         if (!rtEnabled_) return ErrorCode::NotSupported;
         auto* dxPipeline = static_cast<DxRayTracingPipelineImpl*>(pipeline);
         if (!dxPipeline || !dxPipeline->properties()) {
-            logError("DxDevice: pipeline or properties is null");
+            LogError("DxDevice: pipeline or properties is null");
             return ErrorCode::Unknown;
         }
 
         constexpr u32 handleSize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES; // 32
         if (outData.Size() < static_cast<usize>(groupCount * handleSize)) {
-            logError("DxDevice: output buffer too small for shader group handles");
+            LogError("DxDevice: output buffer too small for shader group handles");
             return ErrorCode::Unknown;
         }
 
@@ -342,13 +342,13 @@ public:
         for (u32 i = 0; i < groupCount; ++i) {
             u32 groupIdx = firstGroup + i;
             if (groupIdx >= exportNames.Size()) {
-                logError("DxDevice: shader group index out of range");
+                LogError("DxDevice: shader group index out of range");
                 return ErrorCode::Unknown;
             }
             const auto& exportName = exportNames[groupIdx];
             void* identifier = dxPipeline->properties()->GetShaderIdentifier(exportName.c_str());
             if (!identifier) {
-                logError("DxDevice: GetShaderIdentifier returned null");
+                LogError("DxDevice: GetShaderIdentifier returned null");
                 return ErrorCode::Unknown;
             }
             std::memcpy(outData.Data() + (i * handleSize), identifier, handleSize);
@@ -360,7 +360,7 @@ public:
     // Commands
     // ==================================================================
 
-    Status createCommandPool(QueueType qt, CommandPool*& out) override {
+    Status CreateCommandPool(QueueType qt, CommandPool*& out) override {
         auto* p = new DxCommandPoolImpl();
         if (p->init(this, device_.Get(), qt,
                     &cpuSrvHeap_, &gpuSrvHeap_,
@@ -375,7 +375,7 @@ public:
     // Synchronization
     // ==================================================================
 
-    Status createFence(u64 initialValue, Fence*& out) override {
+    Status CreateFence(u64 initialValue, Fence*& out) override {
         auto* f = new DxFenceImpl();
         if (f->init(device_.Get(), initialValue) != ErrorCode::Ok) { delete f; out = nullptr; return ErrorCode::Unknown; }
         out = f;
@@ -386,7 +386,7 @@ public:
     // Queries
     // ==================================================================
 
-    Status createQuerySet(const QuerySetDesc& d, QuerySet*& out) override {
+    Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override {
         auto* q = new DxQuerySetImpl();
         if (q->init(device_.Get(), d) != ErrorCode::Ok) { delete q; out = nullptr; return ErrorCode::Unknown; }
         setDebugName(q->handle(), d.label);
@@ -398,10 +398,10 @@ public:
     // Presentation
     // ==================================================================
 
-    Status createSwapChain(Surface* surface, const SwapChainDesc& d, SwapChain*& out) override {
+    Status CreateSwapChain(Surface* surface, const SwapChainDesc& d, SwapChain*& out) override {
         auto* dxSurface = static_cast<DxSurfaceImpl*>(surface);
         if (!dxSurface) {
-            logError("DxDevice: cast to DxSurfaceImpl failed");
+            LogError("DxDevice: cast to DxSurfaceImpl failed");
             out = nullptr;
             return ErrorCode::Unknown;
         }
@@ -424,31 +424,31 @@ public:
     // Resource destruction
     // ==================================================================
 
-    void destroyBuffer(Buffer*& b)              override { if (b) { static_cast<DxBufferImpl*>(b)->cleanup(); delete b; b = nullptr; } }
-    void destroyTexture(Texture*& t)            override { if (t) { static_cast<DxTextureImpl*>(t)->cleanup(); delete t; t = nullptr; } }
-    void destroyTextureView(TextureView*& v)    override { if (v) { static_cast<DxTextureViewImpl*>(v)->cleanup(); delete v; v = nullptr; } }
-    void destroySampler(Sampler*& s)            override { if (s) { static_cast<DxSamplerImpl*>(s)->cleanup(); delete s; s = nullptr; } }
-    void destroyShaderModule(ShaderModule*& m)  override { if (m) { static_cast<DxShaderModuleImpl*>(m)->cleanup(); delete m; m = nullptr; } }
-    void destroyBindGroupLayout(BindGroupLayout*& l) override { if (l) { delete l; l = nullptr; } }
-    void destroyBindGroup(BindGroup*& g)        override { if (g) { static_cast<DxBindGroupImpl*>(g)->cleanup(); delete g; g = nullptr; } }
-    void destroyPipelineLayout(PipelineLayout*& l) override { if (l) { static_cast<DxPipelineLayoutImpl*>(l)->cleanup(); delete l; l = nullptr; } }
-    void destroyPipelineCache(PipelineCache*& c) override { if (c) { static_cast<DxPipelineCacheImpl*>(c)->cleanup(); delete c; c = nullptr; } }
-    void destroyRenderPipeline(RenderPipeline*& p) override { if (p) { static_cast<DxRenderPipelineImpl*>(p)->cleanup(); delete p; p = nullptr; } }
-    void destroyComputePipeline(ComputePipeline*& p) override { if (p) { static_cast<DxComputePipelineImpl*>(p)->cleanup(); delete p; p = nullptr; } }
-    void destroyCommandPool(CommandPool*& p)    override { if (p) { static_cast<DxCommandPoolImpl*>(p)->cleanup(); delete p; p = nullptr; } }
-    void destroyFence(Fence*& f)                override { if (f) { static_cast<DxFenceImpl*>(f)->cleanup(); delete f; f = nullptr; } }
-    void destroyQuerySet(QuerySet*& q)          override { if (q) { static_cast<DxQuerySetImpl*>(q)->cleanup(); delete q; q = nullptr; } }
-    void destroySwapChain(SwapChain*& sc)       override { if (sc) { static_cast<DxSwapChainImpl*>(sc)->cleanup(); delete sc; sc = nullptr; } }
-    void destroySurface(Surface*& s)            override { if (s) { delete s; s = nullptr; } }
+    void DestroyBuffer(Buffer*& b)              override { if (b) { static_cast<DxBufferImpl*>(b)->cleanup(); delete b; b = nullptr; } }
+    void DestroyTexture(Texture*& t)            override { if (t) { static_cast<DxTextureImpl*>(t)->cleanup(); delete t; t = nullptr; } }
+    void DestroyTextureView(TextureView*& v)    override { if (v) { static_cast<DxTextureViewImpl*>(v)->cleanup(); delete v; v = nullptr; } }
+    void DestroySampler(Sampler*& s)            override { if (s) { static_cast<DxSamplerImpl*>(s)->cleanup(); delete s; s = nullptr; } }
+    void DestroyShaderModule(ShaderModule*& m)  override { if (m) { static_cast<DxShaderModuleImpl*>(m)->cleanup(); delete m; m = nullptr; } }
+    void DestroyBindGroupLayout(BindGroupLayout*& l) override { if (l) { delete l; l = nullptr; } }
+    void DestroyBindGroup(BindGroup*& g)        override { if (g) { static_cast<DxBindGroupImpl*>(g)->cleanup(); delete g; g = nullptr; } }
+    void DestroyPipelineLayout(PipelineLayout*& l) override { if (l) { static_cast<DxPipelineLayoutImpl*>(l)->cleanup(); delete l; l = nullptr; } }
+    void DestroyPipelineCache(PipelineCache*& c) override { if (c) { static_cast<DxPipelineCacheImpl*>(c)->cleanup(); delete c; c = nullptr; } }
+    void DestroyRenderPipeline(RenderPipeline*& p) override { if (p) { static_cast<DxRenderPipelineImpl*>(p)->cleanup(); delete p; p = nullptr; } }
+    void DestroyComputePipeline(ComputePipeline*& p) override { if (p) { static_cast<DxComputePipelineImpl*>(p)->cleanup(); delete p; p = nullptr; } }
+    void DestroyCommandPool(CommandPool*& p)    override { if (p) { static_cast<DxCommandPoolImpl*>(p)->cleanup(); delete p; p = nullptr; } }
+    void DestroyFence(Fence*& f)                override { if (f) { static_cast<DxFenceImpl*>(f)->cleanup(); delete f; f = nullptr; } }
+    void DestroyQuerySet(QuerySet*& q)          override { if (q) { static_cast<DxQuerySetImpl*>(q)->cleanup(); delete q; q = nullptr; } }
+    void DestroySwapChain(SwapChain*& sc)       override { if (sc) { static_cast<DxSwapChainImpl*>(sc)->cleanup(); delete sc; sc = nullptr; } }
+    void DestroySurface(Surface*& s)            override { if (s) { delete s; s = nullptr; } }
 
     // ==================================================================
     // Lifecycle
     // ==================================================================
 
-    void waitIdle() override {
-        for (auto* q : graphicsQueues_) q->waitIdle();
-        for (auto* q : computeQueues_)  q->waitIdle();
-        for (auto* q : transferQueues_) q->waitIdle();
+    void WaitIdle() override {
+        for (auto* q : graphicsQueues_) q->WaitIdle();
+        for (auto* q : computeQueues_)  q->WaitIdle();
+        for (auto* q : transferQueues_) q->WaitIdle();
         drainDebugMessages();
     }
 
@@ -472,8 +472,8 @@ public:
         infoQueue_->ClearStoredMessages();
     }
 
-    void destroy() override {
-        waitIdle();
+    void Destroy() override {
+        WaitIdle();
 
         // Queues.
         for (auto* q : graphicsQueues_) { q->cleanup(); delete q; }
@@ -498,14 +498,14 @@ public:
         dispatchMeshSignature_.Reset();
 
         // Descriptor heaps.
-        cpuSrvHeap_.destroy();
-        cpuSamplerHeap_.destroy();
-        gpuSrvHeap_.destroy();
-        gpuSamplerHeap_.destroy();
-        rtvHeap_.destroy();
-        dsvHeap_.destroy();
-        srvHeap_.destroy();
-        samplerHeap_.destroy();
+        cpuSrvHeap_.Destroy();
+        cpuSamplerHeap_.Destroy();
+        gpuSrvHeap_.Destroy();
+        gpuSamplerHeap_.Destroy();
+        rtvHeap_.Destroy();
+        dsvHeap_.Destroy();
+        srvHeap_.Destroy();
+        samplerHeap_.Destroy();
 
         // Report live objects in debug builds.
 #ifdef _DEBUG
@@ -695,7 +695,7 @@ private:
         HRESULT hr = D3DCompile(vsSource, sizeof(vsSource) - 1, nullptr, nullptr, nullptr,
                                 "main", "vs_5_0", 0, 0, &blitVsBlob_, &errorBlob);
         if (FAILED(hr)) {
-            if (errorBlob) logErrorf("DxDevice: blit VS compile error: %s",
+            if (errorBlob) LogErrorf("DxDevice: blit VS compile error: %s",
                                       static_cast<const char*>(errorBlob->GetBufferPointer()));
             return;
         }
@@ -705,7 +705,7 @@ private:
         hr = D3DCompile(psSource, sizeof(psSource) - 1, nullptr, nullptr, nullptr,
                         "main", "ps_5_0", 0, 0, &blitPsBlob_, &errorBlob);
         if (FAILED(hr)) {
-            if (errorBlob) logErrorf("DxDevice: blit PS compile error: %s",
+            if (errorBlob) LogErrorf("DxDevice: blit PS compile error: %s",
                                       static_cast<const char*>(errorBlob->GetBufferPointer()));
             blitVsBlob_.Reset();
             return;
@@ -750,7 +750,7 @@ private:
         hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1,
                                           &signatureBlob, &errorBlob);
         if (FAILED(hr)) {
-            if (errorBlob) logErrorf("DxDevice: blit root sig serialize error: %s",
+            if (errorBlob) LogErrorf("DxDevice: blit root sig serialize error: %s",
                                       static_cast<const char*>(errorBlob->GetBufferPointer()));
             return;
         }
@@ -808,10 +808,10 @@ private:
 };
 
 // ==================================================================
-// Adapter::createDevice implementation
+// Adapter::CreateDevice implementation
 // ==================================================================
 
-Status DxAdapterImpl::createDevice(const DeviceDesc& desc, Device*& out) {
+Status DxAdapterImpl::CreateDevice(const DeviceDesc& desc, Device*& out) {
     auto* dev = new DxDeviceImpl();
     if (dev->init(this, desc) != ErrorCode::Ok) {
         delete dev; out = nullptr; return ErrorCode::Unknown;
@@ -881,7 +881,7 @@ void DxCommandEncoderImpl::blitSubresource(DxTextureImpl* srcTex, u32 srcMip,
 
 // ---- CommandPool out-of-line methods (need DxCommandEncoderImpl + context structs) ----
 
-Status DxCommandPoolImpl::createEncoder(CommandEncoder*& out) {
+Status DxCommandPoolImpl::CreateEncoder(CommandEncoder*& out) {
     out = nullptr;
 
     ComPtr<ID3D12Device> d3dDev;
@@ -916,7 +916,7 @@ Status DxCommandPoolImpl::createEncoder(CommandEncoder*& out) {
     return ErrorCode::Ok;
 }
 
-void DxCommandPoolImpl::destroyEncoder(CommandEncoder*& encoder) {
+void DxCommandPoolImpl::DestroyEncoder(CommandEncoder*& encoder) {
     if (auto* dx = static_cast<DxCommandEncoderImpl*>(encoder)) delete dx;
     encoder = nullptr;
 }

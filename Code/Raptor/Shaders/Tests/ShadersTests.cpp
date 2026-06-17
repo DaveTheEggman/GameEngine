@@ -46,7 +46,7 @@ TEST_CASE("shaders: DXC compiles HLSL to SPIR-V")
         CHECK(magic == 0x07230203u);
     }
 
-    compiler->destroy();
+    compiler->Destroy();
 }
 
 TEST_CASE("shaders: a compile error is reported, not a crash")
@@ -60,5 +60,5 @@ TEST_CASE("shaders: a compile error is reported, not a crash")
                             ShaderStage::Vertex, u"main", ShaderTarget::SPIRV, CompileOptions{}, result);
     CHECK_FALSE(result.success);
 
-    compiler->destroy();
+    compiler->Destroy();
 }

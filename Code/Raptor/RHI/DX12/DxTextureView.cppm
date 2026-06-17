@@ -38,7 +38,7 @@ public:
         if (hasSrv_) return srv_;
 
         auto fmt = (viewDesc_.format == TextureFormat::Undefined) ? texture_->desc.format : viewDesc_.format;
-        DXGI_FORMAT srvFmt = isDepthFormat(fmt) ? toDepthSrvFormat(fmt) : toDxgiFormat(fmt);
+        DXGI_FORMAT srvFmt = IsDepthFormat(fmt) ? toDepthSrvFormat(fmt) : toDxgiFormat(fmt);
 
         D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
         sd.Format = srvFmt;
@@ -266,11 +266,11 @@ public:
     // ---- Internal ----
     [[nodiscard]] DxTextureImpl*    dxTexture() const { return texture_; }
     [[nodiscard]] TextureViewDesc   viewDesc()  const { return viewDesc_; }
-    [[nodiscard]] TextureFormat     format()    const {
+    [[nodiscard]] TextureFormat     Format()    const {
         return (viewDesc_.format == TextureFormat::Undefined) ? texture_->desc.format : viewDesc_.format;
     }
-    [[nodiscard]] u32 width()  const { return texture_->desc.width;  }
-    [[nodiscard]] u32 height() const { return texture_->desc.height; }
+    [[nodiscard]] u32 Width()  const { return texture_->desc.width;  }
+    [[nodiscard]] u32 Height() const { return texture_->desc.height; }
 
 private:
     ID3D12Device*               device_   = nullptr;

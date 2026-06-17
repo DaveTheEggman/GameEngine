@@ -106,7 +106,7 @@ inline Status SampleApp::init_() {
     platformOwner_ = runtime::CreatePlatform(ws);
     platform_ = platformOwner_.Get();
     if (platform_ == nullptr || platform_->MainWindow() == nullptr) {
-        rhi::logError("SampleApp: platform/window init failed"); return ErrorCode::Unknown;
+        rhi::LogError("SampleApp: platform/window init failed"); return ErrorCode::Unknown;
     }
     window_ = platform_->MainWindow();
     width_  = window_->Width();
@@ -115,16 +115,16 @@ inline Status SampleApp::init_() {
     if (!createBackend_().IsOk()) return ErrorCode::Unknown;
 
     const runtime::NativeWindow nw = window_->Native();
-    if (!backend_->createSurface(nw.window, nw.display, surface_).IsOk()) {
-        rhi::logError("SampleApp: createSurface failed"); return ErrorCode::Unknown;
+    if (!backend_->CreateSurface(nw.window, nw.display, surface_).IsOk()) {
+        rhi::LogError("SampleApp: createSurface failed"); return ErrorCode::Unknown;
     }
 
-    auto adapters = backend_->enumerateAdapters();
-    if (adapters.Size() == 0) { rhi::logError("SampleApp: no adapters"); return ErrorCode::Unknown; }
+    auto adapters = backend_->EnumerateAdapters();
+    if (adapters.Size() == 0) { rhi::LogError("SampleApp: no adapters"); return ErrorCode::Unknown; }
     rhi::Adapter* adapter = adapters[0];   // best GPU first
 
     {
-        rhi::AdapterInfo ai = adapter->info();
+        rhi::AdapterInfo ai = adapter->Info();
         const char* backendName = (backendType_ == BackendType::DX12) ? "DX12" : "Vulkan";
         const UTF8String name8 = ToUTF8(ai.name);
         std::printf("SampleApp: backend=%s adapter=%s\n",
@@ -134,12 +134,12 @@ inline Status SampleApp::init_() {
     rhi::DeviceDesc dd{};
     dd.graphicsQueueCount = 1;
     dd.requiredFeatures   = requiredFeatures();
-    if (!adapter->createDevice(dd, device_).IsOk()) {
-        rhi::logError("SampleApp: createDevice failed"); return ErrorCode::Unknown;
+    if (!adapter->CreateDevice(dd, device_).IsOk()) {
+        rhi::LogError("SampleApp: createDevice failed"); return ErrorCode::Unknown;
     }
 
-    graphicsQueue_ = device_->getQueue(rhi::QueueType::Graphics);
-    if (graphicsQueue_ == nullptr) { rhi::logError("SampleApp: no graphics queue"); return ErrorCode::Unknown; }
+    graphicsQueue_ = device_->GetQueue(rhi::QueueType::Graphics);
+    if (graphicsQueue_ == nullptr) { rhi::LogError("SampleApp: no graphics queue"); return ErrorCode::Unknown; }
 
     if (!createSwapChain_().IsOk()) return ErrorCode::Unknown;
     return onInit();
@@ -151,8 +151,8 @@ inline Status SampleApp::createBackend_() {
     case BackendType::Vulkan: {
         rhi::vk::VkBackendDesc desc{};
         desc.enableValidation = validationEnabled_;
-        if (!rhi::vk::createBackend(desc, raw).IsOk()) {
-            rhi::logError("SampleApp: vk::createBackend failed"); return ErrorCode::Unknown;
+        if (!rhi::vk::CreateBackend(desc, raw).IsOk()) {
+            rhi::LogError("SampleApp: vk::CreateBackend failed"); return ErrorCode::Unknown;
         }
         break;
     }
@@ -160,17 +160,17 @@ inline Status SampleApp::createBackend_() {
 #ifdef RAPTOR_HAS_DX12
         rhi::dx12::DxBackendDesc desc{};
         desc.enableValidation = validationEnabled_;
-        if (!rhi::dx12::createDxBackend(desc, raw).IsOk()) {
-            rhi::logError("SampleApp: dx12::createDxBackend failed"); return ErrorCode::Unknown;
+        if (!rhi::dx12::CreateDxBackend(desc, raw).IsOk()) {
+            rhi::LogError("SampleApp: dx12::CreateDxBackend failed"); return ErrorCode::Unknown;
         }
 #else
-        rhi::logError("SampleApp: DX12 backend not available on this platform");
+        rhi::LogError("SampleApp: DX12 backend not available on this platform");
         return ErrorCode::Unknown;
 #endif
         break;
     }
     }
-    backend_ = validationEnabled_ ? rhi::validation::createValidatedBackend(raw) : raw;
+    backend_ = validationEnabled_ ? rhi::validation::CreateValidatedBackend(raw) : raw;
     return backend_ != nullptr ? Status{} : Status{ ErrorCode::Unknown };
 }
 
@@ -182,8 +182,8 @@ inline Status SampleApp::createSwapChain_() {
     desc.presentMode = presentMode();
     desc.bufferCount = bufferCount();
     desc.label       = u"main";
-    if (!device_->createSwapChain(surface_, desc, swapChain_).IsOk()) {
-        rhi::logError("SampleApp: createSwapChain failed"); return ErrorCode::Unknown;
+    if (!device_->CreateSwapChain(surface_, desc, swapChain_).IsOk()) {
+        rhi::LogError("SampleApp: createSwapChain failed"); return ErrorCode::Unknown;
     }
     return Status{};
 }
@@ -216,18 +216,18 @@ inline void SampleApp::checkAndResize_() {
     if (nw == 0 || nh == 0) return;
     if (nw == width_ && nh == height_) return;
     width_ = nw; height_ = nh;
-    device_->waitIdle();
-    swapChain_->resize(width_, height_);
+    device_->WaitIdle();
+    swapChain_->Resize(width_, height_);
     onResize(width_, height_);
 }
 
 inline void SampleApp::shutdown_() {
-    if (device_) device_->waitIdle();
+    if (device_) device_->WaitIdle();
     onShutdown();
-    if (swapChain_) { device_->destroySwapChain(swapChain_); swapChain_ = nullptr; }
-    if (surface_)   { device_->destroySurface(surface_);     surface_   = nullptr; }
-    if (device_)    { device_->destroy();                    device_    = nullptr; }
-    if (backend_)   { backend_->destroy();                   backend_   = nullptr; }
+    if (swapChain_) { device_->DestroySwapChain(swapChain_); swapChain_ = nullptr; }
+    if (surface_)   { device_->DestroySurface(surface_);     surface_   = nullptr; }
+    if (device_)    { device_->Destroy();                    device_    = nullptr; }
+    if (backend_)   { backend_->Destroy();                   backend_   = nullptr; }
     platformOwner_.Reset();   // destroys the window + platform
 }
 

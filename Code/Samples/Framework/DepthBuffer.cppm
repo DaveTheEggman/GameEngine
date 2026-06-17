@@ -16,8 +16,8 @@ struct DepthBuffer {
 
     Status recreate(rhi::Device* device, u32 width, u32 height, u32 sampleCount = 1) {
         destroy(device);
-        auto desc = rhi::TextureDesc::depthBuffer(format, width, height, sampleCount, u"Depth");
-        if (device->createTexture(desc, texture) != ErrorCode::Ok) return ErrorCode::Unknown;
+        auto desc = rhi::TextureDesc::DepthBuffer(format, width, height, sampleCount, u"Depth");
+        if (device->CreateTexture(desc, texture) != ErrorCode::Ok) return ErrorCode::Unknown;
 
         rhi::TextureViewDesc vd{};
         vd.format           = format;
@@ -27,16 +27,16 @@ struct DepthBuffer {
         vd.baseArrayLayer   = 0;
         vd.arrayLayerCount  = 1;
         vd.label            = u"DepthView";
-        if (device->createTextureView(texture, vd, view) != ErrorCode::Ok) {
-            device->destroyTexture(texture);
+        if (device->CreateTextureView(texture, vd, view) != ErrorCode::Ok) {
+            device->DestroyTexture(texture);
             return ErrorCode::Unknown;
         }
         return ErrorCode::Ok;
     }
 
     void destroy(rhi::Device* device) {
-        if (view)    { device->destroyTextureView(view);  view    = nullptr; }
-        if (texture) { device->destroyTexture(texture);   texture = nullptr; }
+        if (view)    { device->DestroyTextureView(view);  view    = nullptr; }
+        if (texture) { device->DestroyTexture(texture);   texture = nullptr; }
     }
 };
 

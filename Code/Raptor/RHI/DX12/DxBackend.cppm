@@ -32,21 +32,21 @@ public:
 
     // ---- Backend interface ----
 
-    Span<Adapter* const> enumerateAdapters() override {
+    Span<Adapter* const> EnumerateAdapters() override {
         return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
     }
 
-    Status createSurface(void* windowHandle, void* /*displayHandle*/, Surface*& out) override {
+    Status CreateSurface(void* windowHandle, void* /*displayHandle*/, Surface*& out) override {
         out = nullptr;
         if (!windowHandle) {
-            logError("DxBackend: window handle is null");
+            LogError("DxBackend: window handle is null");
             return ErrorCode::InvalidArgument;
         }
         out = new DxSurfaceImpl(reinterpret_cast<HWND>(windowHandle));
         return ErrorCode::Ok;
     }
 
-    void destroy() override {
+    void Destroy() override {
         destroyImpl();
         delete this;
     }
@@ -56,7 +56,7 @@ public:
     [[nodiscard]] bool validationEnabled() const { return validationEnabled_; }
 
 private:
-    friend Status createDxBackend(const DxBackendDesc& desc, Backend*& out);
+    friend Status CreateDxBackend(const DxBackendDesc& desc, Backend*& out);
 
     Status init(bool enableValidation) {
         validationEnabled_ = enableValidation;
@@ -73,7 +73,7 @@ private:
         UINT factoryFlags = validationEnabled_ ? DXGI_CREATE_FACTORY_DEBUG : 0;
         HRESULT hr = CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&factory_));
         if (FAILED(hr)) {
-            logErrorf("DxBackend: CreateDXGIFactory2 failed (0x%08X)", static_cast<unsigned>(hr));
+            LogErrorf("DxBackend: CreateDXGIFactory2 failed (0x%08X)", static_cast<unsigned>(hr));
             return ErrorCode::Unknown;
         }
 
@@ -105,7 +105,7 @@ private:
         }
 
         // Expose adapters best-GPU-first; callers take [0]. See Backend::enumerateAdapters.
-        sortAdaptersByPreference(adapterPtrs_);
+        SortAdaptersByPreference(adapterPtrs_);
     }
 
     void destroyImpl() {
@@ -122,7 +122,7 @@ private:
 };
 
 /// Creates a DX12 backend. Caller owns the returned pointer — dispose via destroy().
-[[nodiscard]] Status createDxBackend(const DxBackendDesc& desc, Backend*& out) {
+[[nodiscard]] Status CreateDxBackend(const DxBackendDesc& desc, Backend*& out) {
     out = nullptr;
     auto* b = new DxBackendImpl();
     Status r = b->init(desc.enableValidation);

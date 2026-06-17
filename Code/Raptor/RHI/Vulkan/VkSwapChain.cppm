@@ -45,21 +45,21 @@ public:
         surface_    = surface;
         owner_      = owner;
         presentMode_= desc.presentMode;
-        return createSwapChain(desc.width, desc.height, desc.format, desc.bufferCount, VK_NULL_HANDLE);
+        return CreateSwapChain(desc.width, desc.height, desc.format, desc.bufferCount, VK_NULL_HANDLE);
     }
 
     // ---- SwapChain interface ----
-    TextureFormat format()            const override { return format_; }
-    u32           width()             const override { return width_; }
-    u32           height()            const override { return height_; }
-    u32           bufferCount()       const override { return bufferCount_; }
-    u32           currentImageIndex() const override { return currentImageIndex_; }
+    TextureFormat Format()            const override { return format_; }
+    u32           Width()             const override { return width_; }
+    u32           Height()            const override { return height_; }
+    u32           BufferCount()       const override { return bufferCount_; }
+    u32           CurrentImageIndex() const override { return currentImageIndex_; }
 
-    Status acquireNextImage() override;
-    Texture*     currentTexture()     override { return currentImageIndex_ < textures_.Size() ? textures_[currentImageIndex_] : nullptr; }
-    TextureView* currentTextureView() override { return currentImageIndex_ < views_.Size()    ? views_[currentImageIndex_]    : nullptr; }
-    Status present(Queue* queue) override;
-    Status resize(u32 w, u32 h) override;
+    Status AcquireNextImage() override;
+    Texture*     CurrentTexture()     override { return currentImageIndex_ < textures_.Size() ? textures_[currentImageIndex_] : nullptr; }
+    TextureView* CurrentTextureView() override { return currentImageIndex_ < views_.Size()    ? views_[currentImageIndex_]    : nullptr; }
+    Status Present(Queue* queue) override;
+    Status Resize(u32 w, u32 h) override;
 
     void cleanup();
 
@@ -71,7 +71,7 @@ public:
     VkSemaphore currentPresentSemaphore() const { return presentSems_[currentImageIndex_]; }
 
 private:
-    Status createSwapChain(u32 w, u32 h, TextureFormat reqFormat, u32 reqCount, VkSwapchainKHR old);
+    Status CreateSwapChain(u32 w, u32 h, TextureFormat reqFormat, u32 reqCount, VkSwapchainKHR old);
     Status retrieveImages(VkFormat format);
     void   createSyncObjects();
     void   cleanupImages();
@@ -100,7 +100,7 @@ private:
 
 // ---- Implementation (inline in module) ----
 
-inline Status VkSwapChainImpl::createSwapChain(u32 w, u32 h, TextureFormat reqFormat, u32 reqCount, VkSwapchainKHR old) {
+inline Status VkSwapChainImpl::CreateSwapChain(u32 w, u32 h, TextureFormat reqFormat, u32 reqCount, VkSwapchainKHR old) {
     VkSurfaceCapabilitiesKHR caps{};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice_, surface_, &caps);
 
@@ -224,11 +224,11 @@ inline void VkSwapChainImpl::destroySyncObjects() {
     presentSems_.Clear();
 }
 
-inline Status VkSwapChainImpl::resize(u32 w, u32 h) {
+inline Status VkSwapChainImpl::Resize(u32 w, u32 h) {
     vkDeviceWaitIdle(device_);
     cleanupImages();
     destroySyncObjects();
-    return createSwapChain(w, h, format_, bufferCount_, swapchain_);
+    return CreateSwapChain(w, h, format_, bufferCount_, swapchain_);
 }
 
 inline void VkSwapChainImpl::cleanup() {
