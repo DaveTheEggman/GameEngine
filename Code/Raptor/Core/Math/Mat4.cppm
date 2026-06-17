@@ -126,6 +126,7 @@ export namespace raptor::core
                            { xAxis.z, yAxis.z, zAxis.z, 0.0f },
                            { -Dot(xAxis, eye), -Dot(yAxis, eye), -Dot(zAxis, eye), 1.0f } } };
         }
+
     };
 
     [[nodiscard]] constexpr Mat4 operator*(const Mat4& a, const Mat4& b) noexcept

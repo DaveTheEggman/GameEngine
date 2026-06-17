@@ -30,7 +30,7 @@ private:
         cbuffer UBO : register(b0, space0) { row_major float4x4 MVP; };
         struct VSInput { float3 Position : TEXCOORD0; float4 Color : TEXCOORD1; };
         struct PSInput { float4 Position : SV_POSITION; float4 Color : COLOR0; };
-        PSInput VSMain(VSInput i) { PSInput o; o.Position = mul(MVP, float4(i.Position,1)); o.Color = i.Color; return o; }
+        PSInput VSMain(VSInput i) { PSInput o; o.Position = mul(float4(i.Position,1), MVP); o.Color = i.Color; return o; }
         float4 PSMain(PSInput i) : SV_TARGET { return i.Color; }
     )";
 
@@ -120,10 +120,12 @@ void WireframeSample::onRender() {
     if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
     f32 aspect = static_cast<f32>(width_) / static_cast<f32>(height_);
     Mat4 model = Mat4::RotationY(totalTime_ * 0.8f);
-    f32 view[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,3, 0,0,0,1 };
+    // Row-vector view: identity rotation, camera 3 units along +Z (RH: looking toward -Z).
+    // Translation in row 3: m[3][2] = 3.
+    f32 view[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,3,1 };
     Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
     Mat4 vMat; std::memcpy(vMat.Data(), view, 64);
-    Mat4 mvp = proj * (vMat * model);
+    Mat4 mvp = model * vMat * proj;
     std::memcpy(ubMapped_, mvp.Data(), 64);
 
     pool_->Reset();

@@ -34,7 +34,7 @@ private:
         cbuffer UBO : register(b0, space1) { row_major float4x4 MVP; };
         struct VSInput { float3 Position : TEXCOORD0; float2 TexCoord : TEXCOORD1; };
         struct PSInput { float4 Position : SV_POSITION; float2 TexCoord : TEXCOORD0; };
-        PSInput VSMain(VSInput i) { PSInput o; o.Position = mul(MVP, float4(i.Position,1)); o.TexCoord = i.TexCoord; return o; }
+        PSInput VSMain(VSInput i) { PSInput o; o.Position = mul(float4(i.Position,1), MVP); o.TexCoord = i.TexCoord; return o; }
         float4 PSMain(PSInput i) : SV_TARGET { return gTexture.Sample(gSampler, i.TexCoord); }
     )";
     // Receding floor plane.
@@ -162,7 +162,7 @@ void MipmapSample::onRender() {
     f32 aspect = static_cast<f32>(width_) / static_cast<f32>(height_);
     Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{0, 2, 2}, raptor::core::Vec3{ 0, 0, -5}, raptor::core::Vec3{0,1,0});
     Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(60.0f), aspect, 0.1f, 100.0f);
-    Mat4 mvp = proj * view;
+    Mat4 mvp = view * proj;
     std::memcpy(ubMapped_, mvp.Data(), 64);
 
     pool_->Reset();

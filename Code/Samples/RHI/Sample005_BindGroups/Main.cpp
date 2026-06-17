@@ -35,9 +35,9 @@ private:
         struct PSInput { float4 Position : SV_POSITION; float3 Normal : NORMAL; float4 Color : COLOR; };
         PSInput VSMain(VSInput i) {
             PSInput o;
-            float4 wp = mul(Model, float4(i.Position, 1.0));
-            o.Position = mul(VP, wp);
-            o.Normal = mul((float3x3)Model, i.Normal);
+            float4 wp = mul(float4(i.Position, 1.0), Model);
+            o.Position = mul(wp, VP);
+            o.Normal = mul(i.Normal, (float3x3)Model);
             o.Color = ObjColor;
             return o;
         }
@@ -153,7 +153,7 @@ void BindGroupSample::onRender() {
     f32 camAngle = totalTime_ * 0.3f, camDist = 8.0f;
     Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{std::sin(camAngle)*camDist, 5.0f, -std::cos(camAngle)*camDist}, raptor::core::Vec3{ 0,0,0}, raptor::core::Vec3{0,1,0});
     Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Mat4 vp = proj * view;
+    Mat4 vp = view * proj;
     std::memcpy(globalMapped_, vp.Data(), 64);
 
     // Update per-object.

@@ -36,7 +36,7 @@ private:
         struct VSInput { float3 Position : TEXCOORD0; float3 Color : TEXCOORD1; };
         struct PSInput { float4 Position : SV_POSITION; float3 Color : COLOR0; };
         PSInput VSMain(VSInput input) {
-            PSInput o; o.Position = mul(MVP, float4(input.Position, 1.0)); o.Color = input.Color; return o;
+            PSInput o; o.Position = mul(float4(input.Position, 1.0), MVP); o.Color = input.Color; return o;
         }
         float4 PSMain(PSInput input) : SV_TARGET { return float4(input.Color * gPush.Tint.rgb, 1.0); }
     )";
@@ -136,7 +136,7 @@ void UniformBufferSample::onRender() {
     Mat4 model = (Mat4::RotationY(angle) * Mat4::RotationX( angle * 0.7f));
     Mat4 view  = Mat4::LookAtRH(raptor::core::Vec3{0, 1.5f, -3}, raptor::core::Vec3{ 0, 0, 0}, raptor::core::Vec3{ 0, 1, 0});
     Mat4 proj  = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Mat4 mvp   = proj * (view * model);
+    Mat4 mvp   = model * view * proj;
     std::memcpy(ubMapped_, mvp.Data(), 64);
 
     pool_->Reset();

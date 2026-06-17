@@ -49,7 +49,7 @@ private:
         struct VSInput { float3 Position : TEXCOORD0; float3 Color : TEXCOORD1; };
         struct PSInput { float4 Position : SV_POSITION; float3 Color : COLOR0;
                          [[vk::builtin("PointSize")]] float PointSize : PSIZE; };
-        PSInput VSMain(VSInput i) { PSInput o; o.Position = mul(VP, float4(i.Position,1)); o.Color = i.Color; o.PointSize = 1.0; return o; }
+        PSInput VSMain(VSInput i) { PSInput o; o.Position = mul(float4(i.Position,1), VP); o.Color = i.Color; o.PointSize = 1.0; return o; }
         float4 PSMain(PSInput i) : SV_TARGET { return float4(i.Color, 1.0); }
     )";
 
@@ -148,7 +148,7 @@ void ComputeSample::onRender() {
     f32 camAngle = totalTime_ * 0.3f, camDist = 2.5f;
     Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{std::sin(camAngle)*camDist, 1.2f, std::cos(camAngle)*camDist}, raptor::core::Vec3{ 0,0,0}, raptor::core::Vec3{0,1,0});
     Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Mat4 vp = proj * view;
+    Mat4 vp = view * proj;
     std::memcpy(vpMapped_, vp.Data(), 64);
 
     pool_->Reset();
