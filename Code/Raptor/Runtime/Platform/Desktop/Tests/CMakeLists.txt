@@ -18,7 +18,7 @@ add_executable(RaptorRuntimePlatformDesktopTests
 
 # The test TU includes <SDL3/SDL.h> directly to push synthetic events.
 target_link_libraries(RaptorRuntimePlatformDesktopTests PRIVATE
-    Raptor::RuntimePlatformDesktop SDL3::SDL3 doctest::doctest)
+    Raptor::RuntimePlatformDesktop Raptor::RuntimeClient SDL3::SDL3 doctest::doctest)
 
 target_compile_definitions(RaptorRuntimePlatformDesktopTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

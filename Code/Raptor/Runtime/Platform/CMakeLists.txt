@@ -11,13 +11,7 @@ target_sources(RaptorRuntimePlatform
         FILE_SET runtime_platform_modules TYPE CXX_MODULES FILES
             Platform.cppm)
 
-# Backends (each only needs the interface).
+# Null backend only needs the interface. The Desktop backend depends on the
+# client (its runner drives Application), so it is added from the parent after
+# Client is defined.
 add_subdirectory(Null)
-
-# Desktop (SDL3) backend — built when SDL3 is available (system/prebuilt).
-find_package(SDL3 QUIET)
-if(SDL3_FOUND)
-    add_subdirectory(Desktop)
-else()
-    message(STATUS "SDL3 not found — skipping Raptor::RuntimePlatformDesktop")
-endif()

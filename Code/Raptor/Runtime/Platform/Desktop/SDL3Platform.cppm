@@ -18,6 +18,8 @@
 
 module;
 #include "Core/Prelude.h"
+#include <chrono>
+#include <cstdint>
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>   // SDL_SetMainReady (no main hijack with SDL_MAIN_HANDLED)
@@ -26,6 +28,7 @@ export module raptor.runtime.platform.desktop;
 
 import raptor.core;
 import raptor.runtime.platform;
+import raptor.runtime.client;   // Application (the desktop runner drives it)
 
 namespace rc = raptor::core;
 
@@ -49,8 +52,40 @@ export namespace raptor::runtime
 
         [[nodiscard]] rc::u32 Width() const noexcept override { return m_width; }
         [[nodiscard]] rc::u32 Height() const noexcept override { return m_height; }
-        // The SDL_Window* — RHI feeds it to SDL_Vulkan_CreateSurface.
-        [[nodiscard]] NativeWindowHandle NativeHandle() const noexcept override { return m_window; }
+
+        // Extract the real native handles from SDL's window properties so RHI can
+        // create its own surface (it does not use SDL's Vulkan helpers).
+        [[nodiscard]] NativeWindow Native() const noexcept override
+        {
+            NativeWindow native;
+            if (m_window == nullptr) { return native; }
+            const SDL_PropertiesID props = SDL_GetWindowProperties(m_window);
+#if defined(_WIN32)
+            native.system = WindowSystem::Win32;
+            native.display = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, nullptr);
+            native.window = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+#elif defined(__APPLE__)
+            native.system = WindowSystem::Cocoa;
+            native.window = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+#else
+            const char* driver = SDL_GetCurrentVideoDriver();
+            if (driver != nullptr && SDL_strcmp(driver, "wayland") == 0)
+            {
+                native.system = WindowSystem::Wayland;
+                native.display = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+                native.window = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
+            }
+            else if (driver != nullptr && SDL_strcmp(driver, "x11") == 0)
+            {
+                native.system = WindowSystem::X11;
+                native.display = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+                native.window = reinterpret_cast<void*>(static_cast<std::uintptr_t>(
+                    SDL_GetNumberProperty(props, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0)));
+            }
+#endif
+            return native;
+        }
+
         [[nodiscard]] bool IsOpen() const noexcept override { return m_open; }
         void Close() override { m_open = false; }
 
@@ -137,5 +172,27 @@ export namespace raptor::runtime
     {
         IPlatform* platform = rc::DefaultAllocator().New<SDL3Platform>(settings);
         return rc::UniquePtr<IPlatform>(platform, rc::DefaultAllocator());
+    }
+
+    // The desktop runner: a blocking wall-clock loop driving the Application
+    // against the platform, clamped to maxFrameTime. This lives here (not in the
+    // client) because owning the loop is execution-model-specific — desktop
+    // blocks, Emscripten uses a callback — and it must know both Application and
+    // IPlatform. RAPTOR_APP_MAIN calls it on desktop. Returns the exit code.
+    inline int RunApplication(Application& app, IPlatform& platform)
+    {
+        app.Start(&platform);
+        auto previous = std::chrono::steady_clock::now();
+        while (platform.IsRunning() && app.IsRunning())
+        {
+            platform.ProcessEvents();
+            const auto now = std::chrono::steady_clock::now();
+            rc::f32 dt = std::chrono::duration<rc::f32>(now - previous).count();
+            previous = now;
+            if (dt > app.Settings().maxFrameTime) { dt = app.Settings().maxFrameTime; }
+            app.Tick(dt);
+        }
+        app.Stop();
+        return app.ExitCode();
     }
 }

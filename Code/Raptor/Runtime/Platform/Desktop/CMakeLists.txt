@@ -5,7 +5,7 @@ add_library(RaptorRuntimePlatformDesktop STATIC)
 add_library(Raptor::RuntimePlatformDesktop ALIAS RaptorRuntimePlatformDesktop)
 
 target_link_libraries(RaptorRuntimePlatformDesktop
-    PUBLIC Raptor::RuntimePlatform Raptor::Policy
+    PUBLIC Raptor::RuntimePlatform Raptor::RuntimeClient Raptor::Policy
     PRIVATE SDL3::SDL3)
 
 target_sources(RaptorRuntimePlatformDesktop

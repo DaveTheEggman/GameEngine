@@ -144,53 +144,27 @@ TEST_CASE("client: RequestExit stops a manual run loop")
 
 namespace
 {
-    // App that borrows the platform in OnInitialize and exits after N updates.
+    // App that records the borrowed platform it sees during OnInitialize.
     class PlatformApp final : public Application
     {
     public:
         IPlatform* seenPlatform = nullptr;
-        int frames = 0;
     protected:
         void OnInitialize() override { seenPlatform = Platform(); }  // platform available at init
-        void OnUpdate(f32) override { if (++frames == 3) { RequestExit(5); } }
     };
 }
 
-TEST_CASE("client: RunApplication drives the app against a platform until exit")
+TEST_CASE("client: Start borrows the platform and exposes it from OnInitialize")
 {
     MockPlatform platform;
     PlatformApp app;
 
-    const int code = RunApplication(app, platform);
+    CHECK(app.Platform() == nullptr);    // none until Start
+    app.Start(&platform);
+    CHECK(app.seenPlatform == &platform);  // visible during OnInitialize
+    CHECK(app.Platform() == &platform);
+    app.Stop();
 
-    CHECK(code == 5);
-    CHECK(app.seenPlatform == &platform);     // borrowed platform visible from OnInitialize
-    CHECK(app.frames == 3);                    // RequestExit(5) stopped the loop
-    CHECK(platform.processed >= 3);            // ProcessEvents pumped each frame
-    CHECK_FALSE(app.IsRunning());              // Stop() ran
-}
-
-TEST_CASE("client: RunApplication stops when the platform quits (window closed)")
-{
-    struct QuitApp final : Application
-    {
-        int frames = 0;
-    protected:
-        void OnUpdate(f32) override { ++frames; }
-    } app;
-
-    // A platform that quits itself after two pumps (as if the window closed).
-    struct ClosingPlatform final : public IPlatform
-    {
-        int pumps = 0;
-        IWindow* MainWindow() noexcept override { return nullptr; }
-        void ProcessEvents() override { if (++pumps >= 2) { running = false; } }
-        bool IsRunning() const noexcept override { return running; }
-        void RequestExit() override { running = false; }
-        bool running = true;
-    } platform;
-
-    const int code = RunApplication(app, platform);
-    CHECK(code == 0);                  // app never set an exit code
-    CHECK(platform.pumps == 2);        // loop exited once the platform stopped running
+    // The runner (RunApplication) that drives ProcessEvents + Tick lives in the
+    // platform backend, not here; it is exercised by the desktop backend tests.
 }

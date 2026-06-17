@@ -13,7 +13,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include <chrono>
 
 export module raptor.runtime.client;
 
@@ -118,25 +117,4 @@ export namespace raptor::runtime
         int m_exitCode = 0;
         rc::f32 m_accumulator = 0.0f;
     };
-
-    // The generic desktop runner: drives an Application against a platform with a
-    // blocking wall-clock loop, clamping each frame to maxFrameTime. The platform
-    // entry point (RAPTOR_APP_MAIN) calls this on desktop; Emscripten provides its
-    // own callback-based loop instead. Returns the application's exit code.
-    inline int RunApplication(Application& app, IPlatform& platform)
-    {
-        app.Start(&platform);
-        auto previous = std::chrono::steady_clock::now();
-        while (platform.IsRunning() && app.IsRunning())
-        {
-            platform.ProcessEvents();
-            const auto now = std::chrono::steady_clock::now();
-            rc::f32 dt = std::chrono::duration<rc::f32>(now - previous).count();
-            previous = now;
-            if (dt > app.Settings().maxFrameTime) { dt = app.Settings().maxFrameTime; }
-            app.Tick(dt);
-        }
-        app.Stop();
-        return app.ExitCode();
-    }
 }

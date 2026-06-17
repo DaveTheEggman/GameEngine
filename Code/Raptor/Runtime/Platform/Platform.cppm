@@ -19,9 +19,28 @@ namespace rc = raptor::core;
 
 export namespace raptor::runtime
 {
-    // Opaque native window handle (HWND, xcb_window_t, canvas id, ...). RHI casts
-    // it back to the concrete handle for swapchain creation.
-    using NativeWindowHandle = void*;
+    enum class WindowSystem : rc::u8
+    {
+        Unknown,
+        Win32,
+        X11,
+        Wayland,
+        Cocoa,
+    };
+
+    // The native handles RHI needs to create a surface/swapchain itself (RHI does
+    // surface creation internally — the platform only hands over the handles).
+    // Interpretation depends on `system`:
+    //   Win32   — display = HINSTANCE,   window = HWND
+    //   X11     — display = Display*,     window = Window (XID, via uintptr)
+    //   Wayland — display = wl_display*,  window = wl_surface*
+    //   Cocoa   — display = nullptr,      window = NSWindow*
+    struct NativeWindow
+    {
+        WindowSystem system = WindowSystem::Unknown;
+        void* display = nullptr;
+        void* window = nullptr;
+    };
 
     struct WindowSettings
     {
@@ -37,7 +56,8 @@ export namespace raptor::runtime
 
         [[nodiscard]] virtual rc::u32 Width() const noexcept = 0;
         [[nodiscard]] virtual rc::u32 Height() const noexcept = 0;
-        [[nodiscard]] virtual NativeWindowHandle NativeHandle() const noexcept = 0;
+        // Native handles for RHI surface creation (see NativeWindow).
+        [[nodiscard]] virtual NativeWindow Native() const noexcept = 0;
         [[nodiscard]] virtual bool IsOpen() const noexcept = 0;
         virtual void Close() = 0;
     };

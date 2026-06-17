@@ -19,7 +19,8 @@ TEST_CASE("platform.null: a headless platform reports a window and run state")
     REQUIRE(platform.MainWindow() != nullptr);
     CHECK(platform.MainWindow()->Width() == 800u);
     CHECK(platform.MainWindow()->Height() == 600u);
-    CHECK(platform.MainWindow()->NativeHandle() == nullptr);
+    CHECK(platform.MainWindow()->Native().system == WindowSystem::Unknown);  // headless: no handles
+    CHECK(platform.MainWindow()->Native().window == nullptr);
     CHECK(platform.IsRunning());
 
     platform.ProcessEvents();  // no-op, must not change run state
