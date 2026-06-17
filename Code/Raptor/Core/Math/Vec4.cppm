@@ -52,6 +52,7 @@ export namespace raptor::core
     [[nodiscard]] constexpr Vec4 operator-(Vec4 a, Vec4 b) noexcept { return { a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w }; }
     [[nodiscard]] constexpr Vec4 operator*(Vec4 v, f32 s) noexcept { return { v.x * s, v.y * s, v.z * s, v.w * s }; }
     [[nodiscard]] constexpr Vec4 operator*(f32 s, Vec4 v) noexcept { return { v.x * s, v.y * s, v.z * s, v.w * s }; }
+    [[nodiscard]] constexpr Vec4 Lerp(Vec4 a, Vec4 b, f32 t) noexcept { return a + (b - a) * t; }
     [[nodiscard]] constexpr bool operator==(Vec4 a, Vec4 b) noexcept
     {
         return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;

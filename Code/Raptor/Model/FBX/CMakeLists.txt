@@ -1,0 +1,5 @@
+add_library(RaptorModelFbx STATIC)
+add_library(Raptor::ModelFbx ALIAS RaptorModelFbx)
+target_link_libraries(RaptorModelFbx PUBLIC Raptor::Core Raptor::Model Raptor::ModelIO Raptor::Image Raptor::ImageIO Raptor::Policy PRIVATE Raptor::Ufbx)
+target_sources(RaptorModelFbx PUBLIC FILE_SET model_fbx_modules TYPE CXX_MODULES FILES FbxLoader.cppm PRIVATE ufbx_impl.cpp)
+target_compile_options(RaptorModelFbx PRIVATE "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=missing-field-initializers;-Wno-error=unused-function;-Wno-error=unused-but-set-variable;-Wno-error=sign-compare;-Wno-error=implicit-fallthrough;-Wno-error=type-limits;-Wno-error=cast-function-type>")

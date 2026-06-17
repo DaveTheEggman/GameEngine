@@ -167,7 +167,9 @@ export namespace raptor::core
         }
 
         [[nodiscard]] T& Front() noexcept { RAPTOR_ASSERT(m_size > 0); return m_data[0]; }
+        [[nodiscard]] const T& Front() const noexcept { RAPTOR_ASSERT(m_size > 0); return m_data[0]; }
         [[nodiscard]] T& Back() noexcept { RAPTOR_ASSERT(m_size > 0); return m_data[m_size - 1]; }
+        [[nodiscard]] const T& Back() const noexcept { RAPTOR_ASSERT(m_size > 0); return m_data[m_size - 1]; }
 
         [[nodiscard]] T* Data() noexcept { return m_data; }
         [[nodiscard]] const T* Data() const noexcept { return m_data; }
