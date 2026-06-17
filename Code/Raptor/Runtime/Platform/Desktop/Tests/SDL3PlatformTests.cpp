@@ -60,11 +60,15 @@ TEST_CASE("platform.desktop: SDL3 platform creates a window and reports state")
     CHECK(platform.MainWindow()->Height() == 480u);
     CHECK(platform.IsRunning());
 
-    // Under the dummy driver no real windowing system is active, so native
-    // handles aren't available; real-handle extraction is validated with a real
-    // display. Native() must still be callable and self-consistent.
+    // Under the dummy driver the reported window system is platform-dependent:
+    // Linux reports Unknown (no real display), Windows still reports Win32.
+    // Native() must be callable and self-consistent either way.
     const NativeWindow native = platform.MainWindow()->Native();
+#if RAPTOR_PLATFORM_WINDOWS
+    CHECK(native.system == WindowSystem::Win32);
+#else
     CHECK(native.system == WindowSystem::Unknown);
+#endif
 
     platform.ProcessEvents();   // pump (no pending events) — must not change state
     CHECK(platform.IsRunning());
