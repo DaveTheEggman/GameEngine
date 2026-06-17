@@ -386,3 +386,58 @@ TEST_CASE("io: directory create / exists / remove")
 
 // VFS (NativeFileSystem / VirtualFileSystem) moved to raptor.vfs — see
 // Code/Raptor/VFS/Tests/VfsTests.cpp.
+
+// --- Serialization: ISerializable ------------------------------------------
+
+namespace
+{
+    // A serializable object: implements Serialize() once for both directions.
+    class Widget final : public ISerializable
+    {
+        RAPTOR_OBJECT(Widget, ISerializable)
+    public:
+        i32 id = 0;
+        String label;
+        Vec3 position;
+
+        void Serialize(ISerializer& ar) override
+        {
+            raptor::core::Serialize(ar, "id", id);
+            raptor::core::Serialize(ar, "label", label);
+            raptor::core::Serialize(ar, "position", position);
+        }
+    };
+}
+
+RAPTOR_DEFINE_OBJECT(Widget, "raptor::test")
+
+TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
+{
+    // It is an Object, so it carries reflected type identity.
+    CHECK(Widget::StaticType().base == &ISerializable::StaticType());
+    CHECK(IsDerivedFrom(&Widget::StaticType(), &ISerializable::StaticType()));
+
+    MemoryStream stream;
+    {
+        Widget w;
+        w.id = 42;
+        w.label = u"hello";
+        w.position = Vec3{ 1.0f, 2.0f, 3.0f };
+        BinarySerializer saver(stream, SerializeMode::Write);
+        Serialize(saver, w);                 // free fn dispatches to w.Serialize(ar)
+        CHECK(saver.IsOk());
+    }
+
+    CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        Widget w;
+        BinarySerializer loader(stream, SerializeMode::Read);
+        ISerializable& asBase = w;           // through the base reference
+        Serialize(loader, asBase);
+        CHECK(loader.IsOk());
+
+        CHECK(w.id == 42);
+        CHECK(w.label == u"hello");
+        CHECK(w.position == Vec3{ 1.0f, 2.0f, 3.0f });
+    }
+}

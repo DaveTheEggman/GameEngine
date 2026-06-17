@@ -59,6 +59,7 @@ export import :binary_io;
 export import :path;
 export import :filesystem;
 export import :iserializer;
+export import :iserializable;
 export import :serializer;
 export import :binary_serializer;
 export import :serialize;

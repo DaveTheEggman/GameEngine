@@ -14,6 +14,7 @@ export module raptor.core:serialize;
 
 import :base;
 import :serializer;
+import :iserializable;
 import :math;
 import :vec2;
 import :vec3;
@@ -116,6 +117,10 @@ export namespace raptor::core
         for (u32 i = 0; i < n; ++i) { Serialize(ar, m.Data()[i]); }
         ar.EndArray();
     }
+
+    // ISerializable: dispatch to the object's own Serialize(), so serializable
+    // members compose with Serialize(ar, "key", member) like any other type.
+    inline void Serialize(ISerializer& ar, ISerializable& obj) { obj.Serialize(ar); }
 
     // String: first-class text.
     inline void Serialize(ISerializer& ar, String& str) { ar.Text(str); }
