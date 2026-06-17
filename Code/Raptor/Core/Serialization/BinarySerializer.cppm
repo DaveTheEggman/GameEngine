@@ -1,8 +1,9 @@
 // Raptor Core — :binary_serializer partition
 //
-// Raw binary backend (as-stored bytes) over an IStream. Names and object scopes
-// carry no information here, so they are dropped; arrays and strings store a
-// u32 count/length prefix, and scalars store their natural width.
+// Raw binary backend (as-stored bytes) over an IStream, built on BinaryReader /
+// BinaryWriter. Names and object scopes carry no information here, so they are
+// dropped; arrays and strings store a u32 count/length prefix, and scalars
+// store their natural width.
 
 module;
 #include "Core/Prelude.h"
@@ -13,6 +14,7 @@ import :base;
 import :serializer;
 import :string;
 import :io;
+import :binary_io;
 
 export namespace raptor::core
 {
@@ -21,7 +23,7 @@ export namespace raptor::core
     {
     public:
         BinarySerializer(IStream& stream, SerializeMode mode) noexcept
-            : Serializer(mode), m_stream(&stream) {}
+            : Serializer(mode), m_reader(stream), m_writer(stream) {}
 
         // Naming and object scopes are inherited as no-ops from Serializer; a
         // flat byte stream carries no names. Arrays are length-prefixed.
@@ -34,27 +36,13 @@ export namespace raptor::core
 
         void Text(String& value) override
         {
-            u32 length = static_cast<u32>(value.Size());
-            Scalar(&length, ScalarKind::UInt32);
-
-            if (IsReading())
+            if (IsWriting())
             {
-                value.Clear();
-                value.Reserve(length);
-                for (u32 i = 0; i < length; ++i)
-                {
-                    widechar ch{};
-                    RawBytes(&ch, sizeof(widechar));
-                    value.PushBack(ch);
-                }
+                if (!m_writer.WriteString(value)) { Fail(ErrorCode::Internal); }
             }
             else
             {
-                for (u32 i = 0; i < length; ++i)
-                {
-                    widechar ch = value[i];
-                    RawBytes(&ch, sizeof(widechar));
-                }
+                if (!m_reader.ReadString(value)) { Fail(ErrorCode::Internal); }
             }
         }
 
@@ -68,11 +56,11 @@ export namespace raptor::core
 
             if (IsWriting())
             {
-                if (m_stream->Write(data, size) != size) { Fail(ErrorCode::Internal); }
+                if (!m_writer.WriteBytes(data, size)) { Fail(ErrorCode::Internal); }
             }
             else
             {
-                if (m_stream->Read(data, size) != size) { Fail(ErrorCode::Internal); }
+                if (!m_reader.ReadBytes(data, size)) { Fail(ErrorCode::Internal); }
             }
         }
 
@@ -91,6 +79,7 @@ export namespace raptor::core
             return 0;
         }
 
-        IStream* m_stream;
+        BinaryReader m_reader;
+        BinaryWriter m_writer;
     };
 }

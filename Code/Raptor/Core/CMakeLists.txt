@@ -69,6 +69,7 @@ target_sources(RaptorCore
             Reflection/ConstantRegistry.cppm
             Reflection/CoreReflection.cppm
             IO/Stream.cppm
+            IO/BinaryIO.cppm
             IO/Path.cppm
             IO/FileSystem.cppm
             IO/IFileSystem.cppm

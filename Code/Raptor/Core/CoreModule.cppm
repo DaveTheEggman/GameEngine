@@ -55,6 +55,7 @@ export import :enum_reflection;
 export import :constant_registry;
 export import :core_reflection;
 export import :io;
+export import :binary_io;
 export import :path;
 export import :filesystem;
 export import :ifilesystem;
