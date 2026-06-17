@@ -71,6 +71,7 @@ add_subdirectory(ThirdParty)
 add_subdirectory(Code/Raptor/Core)
 add_subdirectory(Code/Raptor/RHI)   # depends only on Core (foundational sibling of Runtime)
 add_subdirectory(Code/Raptor/Shaders)
+add_subdirectory(Code/Raptor/Image)
 add_subdirectory(Code/Raptor/Script)
 add_subdirectory(Code/Raptor/Runtime)
 

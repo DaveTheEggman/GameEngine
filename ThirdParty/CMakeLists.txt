@@ -38,3 +38,18 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
 else()
     message(STATUS "ThirdParty/DXC not present — raptor.shaders will be skipped.")
 endif()
+
+# stb / cgltf / ufbx — vendored header(+source) libraries (copied, not submodules).
+# Header include-dir INTERFACE targets; the *_impl translation units that define
+# the implementations live in the engine libraries that use them.
+add_library(raptor_stb INTERFACE)
+add_library(Raptor::Stb ALIAS raptor_stb)
+target_include_directories(raptor_stb INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/stb)
+
+add_library(raptor_cgltf INTERFACE)
+add_library(Raptor::Cgltf ALIAS raptor_cgltf)
+target_include_directories(raptor_cgltf INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cgltf)
+
+add_library(raptor_ufbx INTERFACE)
+add_library(Raptor::Ufbx ALIAS raptor_ufbx)
+target_include_directories(raptor_ufbx INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
