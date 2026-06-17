@@ -28,6 +28,7 @@ export namespace raptor::runtime
         [[nodiscard]] rc::u32 Height() const noexcept override { return m_height; }
         [[nodiscard]] NativeWindow Native() const noexcept override { return {}; }  // headless: no handles
         [[nodiscard]] bool IsOpen() const noexcept override { return m_open; }
+        [[nodiscard]] bool IsMinimized() const noexcept override { return false; }
         void Close() override { m_open = false; }
 
     private:

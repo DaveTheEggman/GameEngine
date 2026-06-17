@@ -87,6 +87,10 @@ export namespace raptor::runtime
         }
 
         [[nodiscard]] bool IsOpen() const noexcept override { return m_open; }
+        [[nodiscard]] bool IsMinimized() const noexcept override
+        {
+            return (SDL_GetWindowFlags(m_window) & SDL_WINDOW_MINIMIZED) != 0;
+        }
         void Close() override { m_open = false; }
 
         [[nodiscard]] SDL_Window* Handle() const noexcept { return m_window; }

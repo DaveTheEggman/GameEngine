@@ -59,6 +59,9 @@ export namespace raptor::runtime
         // Native handles for RHI surface creation (see NativeWindow).
         [[nodiscard]] virtual NativeWindow Native() const noexcept = 0;
         [[nodiscard]] virtual bool IsOpen() const noexcept = 0;
+        // True while the window is minimized (renderers skip drawing). Resize is
+        // detected by polling Width()/Height().
+        [[nodiscard]] virtual bool IsMinimized() const noexcept = 0;
         virtual void Close() = 0;
     };
 

@@ -5,3 +5,9 @@ if(TARGET Raptor::RuntimePlatformDesktop)
 else()
     message(STATUS "Samples: desktop platform unavailable (SDL3 not found) — skipping HelloWindow")
 endif()
+
+# RHI sample framework + RHI samples (need Vulkan + Shaders too).
+add_subdirectory(Framework)
+if(TARGET Raptor::SamplesFramework)
+    add_subdirectory(RHI)
+endif()
