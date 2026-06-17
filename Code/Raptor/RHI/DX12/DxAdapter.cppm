@@ -3,6 +3,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12Adapter.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -12,6 +13,8 @@ export module raptor.rhi.dx12:adapter;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -32,10 +35,8 @@ public:
     // ---- Adapter interface ----
 
     void getInfo(AdapterInfo& out) override {
-        char name[128]{};
-        for (int i = 0; i < 128 && desc_.Description[i]; ++i)
-            name[i] = static_cast<char>(desc_.Description[i]);
-        out.name = name;
+        // DXGI Description is a WCHAR[] — construct String (wide) directly.
+        out.name = String(reinterpret_cast<const widechar*>(desc_.Description));
         out.vendorId = desc_.VendorId;
         out.deviceId = desc_.DeviceId;
         out.type = (desc_.DedicatedVideoMemory > 0) ? AdapterType::DiscreteGpu : AdapterType::IntegratedGpu;

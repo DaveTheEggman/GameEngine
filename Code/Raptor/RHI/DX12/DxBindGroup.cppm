@@ -3,10 +3,9 @@
 /// Ported from Sedulous.RHI.DX12/DX12BindGroup.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
-
-#include <vector>
 
 export module raptor.rhi.dx12:bind_group;
 
@@ -20,6 +19,8 @@ import :texture;
 import :texture_view;
 import :sampler;
 import :accel_struct;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -56,9 +57,9 @@ public:
 
     void updateBindless(Span<const BindlessUpdateEntry> entries) override {
         auto ranges = layout_->ranges();
-        for (usize i = 0; i < entries.count(); ++i) {
+        for (usize i = 0; i < entries.Size(); ++i) {
             const auto& e = entries[i];
-            if (e.layoutIndex >= static_cast<u32>(ranges.count())) continue;
+            if (e.layoutIndex >= static_cast<u32>(ranges.Size())) continue;
             const auto& r = ranges[e.layoutIndex];
 
             BindGroupEntry bgEntry{};
@@ -85,13 +86,13 @@ public:
 
     [[nodiscard]] i32 cbvSrvUavOffset()  const { return cbvSrvUavOffset_; }
     [[nodiscard]] i32 samplerOffset()    const { return samplerOffset_; }
-    [[nodiscard]] Span<const u64> dynamicGpuAddresses() const { return { dynAddrs_.data(), dynAddrs_.size() }; }
+    [[nodiscard]] Span<const u64> dynamicGpuAddresses() const { return { dynAddrs_.Data(), dynAddrs_.Size() }; }
 
 private:
     void writeDescriptors(const BindGroupDesc& d) {
         auto ranges = layout_->ranges();
         usize entryIdx = 0;
-        for (usize i = 0; i < ranges.count(); ++i) {
+        for (usize i = 0; i < ranges.Size(); ++i) {
             const auto& r = ranges[i];
             switch (r.type) {
             case BindingType::BindlessTextures: case BindingType::BindlessSamplers:
@@ -99,14 +100,14 @@ private:
                 continue;
             default: break;
             }
-            if (entryIdx >= d.entries.count()) break;
+            if (entryIdx >= d.entries.Size()) break;
             const auto& e = d.entries[entryIdx++];
 
             if (r.hasDynamicOffset) {
                 if (auto* buf = static_cast<DxBufferImpl*>(e.buffer))
-                    dynAddrs_.push_back(buf->gpuAddress() + e.bufferOffset);
+                    dynAddrs_.PushBack(buf->gpuAddress() + e.bufferOffset);
                 else
-                    dynAddrs_.push_back(0);
+                    dynAddrs_.PushBack(0);
                 continue;
             }
             if (r.isSampler) writeSampler(e, r);
@@ -205,7 +206,7 @@ private:
     u32                        cachedSamplerCount_   = 0;
     i32                        cbvSrvUavOffset_ = -1;
     i32                        samplerOffset_   = -1;
-    std::vector<u64>           dynAddrs_;
+    Array<u64>                 dynAddrs_;
 };
 
 } // namespace raptor::rhi::dx12

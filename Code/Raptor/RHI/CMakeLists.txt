@@ -37,3 +37,8 @@ if(Vulkan_FOUND)
 else()
     message(STATUS "Vulkan not found — skipping Raptor::RHIVulkan")
 endif()
+
+# DX12 backend — Windows only.
+if(WIN32)
+    add_subdirectory(DX12)
+endif()

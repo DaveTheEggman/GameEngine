@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12Sampler.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -12,6 +13,8 @@ import raptor.rhi;
 import :conversions;
 import :descriptor_heap;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::dx12 {
 
 class DxSamplerImpl : public Sampler {
@@ -19,7 +22,7 @@ public:
     Status init(ID3D12Device* device, const SamplerDesc& d, DxDescriptorHeapAllocator* samplerHeap) {
         samplerHeap_ = samplerHeap;
 
-        bool isComparison = d.compare.has_value();
+        bool isComparison = d.compare.HasValue();
 
         D3D12_SAMPLER_DESC sd{};
         if (isComparison)

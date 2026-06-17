@@ -3,6 +3,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12RenderPassEncoder.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -22,6 +23,8 @@ import :texture_view;
 import :descriptor_staging;
 import :gpu_descriptor_heap;
 import :mesh_pipeline;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -118,13 +121,13 @@ public:
         // Bind dynamic offset root descriptors (not staged -- uses GPU virtual addresses).
         auto dynAddrs = dxGroup->dynamicGpuAddresses();
         usize dynOffsetIdx = 0;
-        for (usize i = 0; i < layout->dynamicRootEntries().count(); ++i) {
+        for (usize i = 0; i < layout->dynamicRootEntries().Size(); ++i) {
             const auto& entry = layout->dynamicRootEntries()[i];
             if (entry.groupIndex != index) continue;
-            if (entry.dynamicIndex >= static_cast<u32>(dynAddrs.count())) continue;
+            if (entry.dynamicIndex >= static_cast<u32>(dynAddrs.Size())) continue;
 
             u64 gpuAddr = dynAddrs[entry.dynamicIndex];
-            if (dynOffsetIdx < dynamicOffsets.count())
+            if (dynOffsetIdx < dynamicOffsets.Size())
                 gpuAddr += static_cast<u64>(dynamicOffsets[dynOffsetIdx]);
             ++dynOffsetIdx;
 
@@ -143,7 +146,7 @@ public:
         }
     }
 
-    void setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override {
+    void setPushConstants(ShaderStage /*stages*/, u32 offset, u32 size, const void* data) override {
         auto* layout = getCurrentLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;
 
@@ -311,7 +314,7 @@ public:
 
     void drawMeshTasksIndirectCount(Buffer* buffer, u64 offset,
                                     Buffer* countBuffer, u64 countOffset,
-                                    u32 maxDrawCount, u32 stride) override {
+                                    u32 maxDrawCount, u32 /*stride*/) override {
         auto* dxBuf      = static_cast<DxBufferImpl*>(buffer);
         auto* dxCountBuf = static_cast<DxBufferImpl*>(countBuffer);
         if (!dxBuf || !dxCountBuf) return;
@@ -334,8 +337,8 @@ public:
         }
 
         // MSAA resolve: resolve multisampled color attachments to their resolve targets.
-        auto colorAtts = desc_.colorAttachments.view();
-        for (usize i = 0; i < colorAtts.count(); ++i) {
+        auto colorAtts = desc_.colorAttachments.View();
+        for (usize i = 0; i < colorAtts.Size(); ++i) {
             const auto& ca = colorAtts[i];
             if (!ca.resolveTarget) continue;
 

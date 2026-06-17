@@ -3,11 +3,11 @@
 /// Ported from Sedulous.RHI.DX12/DX12Backend.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
 #include <cstdio>
-#include <vector>
 
 export module raptor.rhi.dx12:backend;
 
@@ -15,6 +15,8 @@ import raptor.core;
 import raptor.rhi;
 import :surface;
 import :adapter;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -31,7 +33,7 @@ public:
     // ---- Backend interface ----
 
     Span<Adapter* const> enumerateAdapters() override {
-        return Span<Adapter* const>(adapterPtrs_.data(), adapterPtrs_.size());
+        return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
     }
 
     Status createSurface(void* windowHandle, void* /*displayHandle*/, Surface*& out) override {
@@ -95,8 +97,8 @@ private:
             // Check D3D12 feature level 12.0 support.
             if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, __uuidof(ID3D12Device), nullptr))) {
                 auto* a = new DxAdapterImpl(adapter.Detach(), factory_.Get());
-                adapters_.push_back(a);
-                adapterPtrs_.push_back(a);
+                adapters_.PushBack(a);
+                adapterPtrs_.PushBack(a);
             }
 
             adapter.Reset();
@@ -108,15 +110,15 @@ private:
 
     void destroyImpl() {
         for (auto* a : adapters_) delete a;
-        adapters_.clear();
-        adapterPtrs_.clear();
+        adapters_.Clear();
+        adapterPtrs_.Clear();
         factory_.Reset();
     }
 
     ComPtr<IDXGIFactory4>         factory_;
     bool                          validationEnabled_ = false;
-    std::vector<DxAdapterImpl*>   adapters_;
-    std::vector<Adapter*>         adapterPtrs_;
+    Array<DxAdapterImpl*>         adapters_;
+    Array<Adapter*>               adapterPtrs_;
 };
 
 /// Creates a DX12 backend. Caller owns the returned pointer — dispose via destroy().

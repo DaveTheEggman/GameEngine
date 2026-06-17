@@ -3,6 +3,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12TextureView.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -13,6 +14,8 @@ import raptor.rhi;
 import :conversions;
 import :texture;
 import :descriptor_heap;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 

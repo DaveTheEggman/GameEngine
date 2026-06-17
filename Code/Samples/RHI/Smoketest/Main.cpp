@@ -371,33 +371,35 @@ int main(int /*argc*/, char** /*argv*/) {
     // ===== DX12 backend (Windows only) =====
 #ifdef RAPTOR_HAS_DX12
     {
+        namespace dx12 = raptor::rhi::dx12;
         std::printf("\n=== DX12 Backend ===\n");
 
-        rhi::Backend* dx12Backend = nullptr;
-        rhi::dx12::DxBackendDesc dx12Desc{};
+        Backend* dx12Backend = nullptr;
+        dx12::DxBackendDesc dx12Desc{};
         dx12Desc.enableValidation = true;
-        if (rhi::dx12::createDxBackend(dx12Desc, dx12Backend) != raptor::core::ErrorCode::Ok) {
+        if (dx12::createDxBackend(dx12Desc, dx12Backend) != ErrorCode::Ok) {
             std::printf("DX12 backend: FAILED to create\n");
         } else {
             auto dx12Adapters = dx12Backend->enumerateAdapters();
             std::printf("DX12 adapters: %zu\n", dx12Adapters.Size());
             for (usize i = 0; i < dx12Adapters.Size(); ++i) {
-                rhi::AdapterInfo ai = dx12Adapters[i]->info();
-                std::printf("  [%zu] %.*s (%s)\n", i,
-                    static_cast<int>(ai.name.length()), ai.name.data(),
+                AdapterInfo ai = dx12Adapters[i]->info();
+                const UTF8String name8 = ToUTF8(ai.name);
+                std::printf("  [%zu] %s (%s)\n", i,
+                    reinterpret_cast<const char*>(name8.CStr()),
                     adapterTypeStr(ai.type));
             }
 
             if (dx12Adapters.Size() > 0) {
-                rhi::Device* dx12Device = nullptr;
-                rhi::DeviceDesc dd{}; dd.graphicsQueueCount = 1;
-                if (dx12Adapters[0]->createDevice(dd, dx12Device) == raptor::core::ErrorCode::Ok) {
+                Device* dx12Device = nullptr;
+                DeviceDesc dx12dd{}; dx12dd.graphicsQueueCount = 1;
+                if (dx12Adapters[0]->createDevice(dx12dd, dx12Device) == ErrorCode::Ok) {
                     std::printf("DX12 device created (type=%d)\n", static_cast<int>(dx12Device->type));
 
                     // Create and destroy a buffer.
-                    rhi::Buffer* dx12Buf = nullptr;
-                    rhi::BufferDesc bd{}; bd.size = 256; bd.usage = rhi::BufferUsage::Uniform;
-                    bd.memory = rhi::MemoryLocation::CpuToGpu;
+                    Buffer* dx12Buf = nullptr;
+                    BufferDesc bd{}; bd.size = 256; bd.usage = BufferUsage::Uniform;
+                    bd.memory = MemoryLocation::CpuToGpu;
                     dx12Device->createBuffer(bd, dx12Buf);
                     if (dx12Buf) {
                         void* mapped = dx12Buf->map();
@@ -407,7 +409,7 @@ int main(int /*argc*/, char** /*argv*/) {
                     }
 
                     // Create and destroy a fence.
-                    rhi::Fence* dx12Fence = nullptr;
+                    Fence* dx12Fence = nullptr;
                     dx12Device->createFence(0, dx12Fence);
                     if (dx12Fence) {
                         std::printf("DX12 fence completed value: %llu\n",

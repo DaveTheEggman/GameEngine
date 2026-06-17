@@ -59,6 +59,11 @@ if(RAPTOR_WARNINGS_AS_ERRORS)
     target_compile_options(raptor_policy INTERFACE
         $<$<CXX_COMPILER_ID:Clang,GNU>:-Werror>
         $<$<CXX_COMPILER_ID:MSVC>:/WX>)
+    # Clang on Windows emits a spurious "argument unused during compilation: '-c'"
+    # during the CMake module-dependency scan step. Suppress just that diagnostic
+    # so -Werror doesn't kill the build.
+    target_compile_options(raptor_policy INTERFACE
+        $<$<CXX_COMPILER_ID:Clang>:-Wno-error=unused-command-line-argument>)
 endif()
 
 # --- Targets -----------------------------------------------------------------

@@ -49,7 +49,7 @@ target_compile_definitions(RaptorCoreTests PRIVATE
 # C++23. It's third-party noise — de-promote just that warning for this target;
 # our own code keeps -Werror.
 target_compile_options(RaptorCoreTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>"
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
 add_test(NAME RaptorCoreTests COMMAND RaptorCoreTests)

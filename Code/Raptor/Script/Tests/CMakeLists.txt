@@ -23,7 +23,7 @@ target_compile_definitions(RaptorScriptTests PRIVATE
 
 # doctest 2.4.11 <ciso646> deprecation #warning under C++23 — third-party noise.
 target_compile_options(RaptorScriptTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>"
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
 add_test(NAME RaptorScriptTests COMMAND RaptorScriptTests)

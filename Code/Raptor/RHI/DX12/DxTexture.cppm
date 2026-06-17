@@ -2,18 +2,20 @@
 /// Ported from Sedulous.RHI.DX12/DX12Texture.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
 #include <algorithm>
 #include <cstring>
-#include <vector>
 
 export module raptor.rhi.dx12:texture;
 
 import raptor.core;
 import raptor.rhi;
 import :conversions;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -79,7 +81,7 @@ public:
     }
 
     void cleanup() {
-        subresourceStates_.clear();
+        subresourceStates_.Clear();
         resource_.Reset();
     }
 
@@ -87,12 +89,12 @@ public:
     [[nodiscard]] ID3D12Resource*       handle() const { return resource_.Get(); }
 
     [[nodiscard]] D3D12_RESOURCE_STATES currentState() const { return state_; }
-    void setState(D3D12_RESOURCE_STATES s) { state_ = s; subresourceStates_.clear(); }
+    void setState(D3D12_RESOURCE_STATES s) { state_ = s; subresourceStates_.Clear(); }
 
     [[nodiscard]] D3D12_RESOURCE_STATES getSubresourceState(u32 mip, u32 layer) const {
-        if (subresourceStates_.empty()) return state_;
+        if (subresourceStates_.IsEmpty()) return state_;
         u32 idx = mip + layer * desc.mipLevelCount;
-        return (idx < subresourceStates_.size()) ? subresourceStates_[idx] : state_;
+        return (idx < subresourceStates_.Size()) ? subresourceStates_[idx] : state_;
     }
 
     void setSubresourceState(u32 baseMip, u32 mipCount, u32 baseLayer, u32 layerCount, D3D12_RESOURCE_STATES s) {
@@ -104,13 +106,13 @@ public:
         // All subresources? Collapse to uniform.
         if (baseMip == 0 && mipEnd >= totalMips && baseLayer == 0 && layerEnd >= totalLayers) {
             state_ = s;
-            subresourceStates_.clear();
+            subresourceStates_.Clear();
             return;
         }
         // Promote to per-subresource.
-        if (subresourceStates_.empty()) {
+        if (subresourceStates_.IsEmpty()) {
             if (s == state_) return;
-            subresourceStates_.resize(totalMips * totalLayers, state_);
+            subresourceStates_.Resize(totalMips * totalLayers, state_);
         }
         for (u32 l = baseLayer; l < layerEnd; ++l)
             for (u32 m = baseMip; m < mipEnd; ++m)
@@ -118,16 +120,16 @@ public:
 
         // Try to collapse.
         auto first = subresourceStates_[0];
-        for (usize i = 1; i < subresourceStates_.size(); ++i)
+        for (usize i = 1; i < subresourceStates_.Size(); ++i)
             if (subresourceStates_[i] != first) return;
         state_ = first;
-        subresourceStates_.clear();
+        subresourceStates_.Clear();
     }
 
 private:
     ComPtr<ID3D12Resource>                resource_;
     D3D12_RESOURCE_STATES                 state_ = D3D12_RESOURCE_STATE_COMMON;
-    std::vector<D3D12_RESOURCE_STATES>    subresourceStates_;
+    Array<D3D12_RESOURCE_STATES>           subresourceStates_;
     bool                                  ownsResource_ = true;
 };
 

@@ -3,6 +3,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12ComputePassEncoder.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -19,6 +20,8 @@ import :pipeline_layout;
 import :query_set;
 import :descriptor_staging;
 import :gpu_descriptor_heap;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -92,13 +95,13 @@ public:
         // Bind dynamic offset root descriptors (not staged -- uses GPU virtual addresses).
         auto dynAddrs = dxGroup->dynamicGpuAddresses();
         usize dynOffsetIdx = 0;
-        for (usize i = 0; i < layout->dynamicRootEntries().count(); ++i) {
+        for (usize i = 0; i < layout->dynamicRootEntries().Size(); ++i) {
             const auto& entry = layout->dynamicRootEntries()[i];
             if (entry.groupIndex != index) continue;
-            if (entry.dynamicIndex >= static_cast<u32>(dynAddrs.count())) continue;
+            if (entry.dynamicIndex >= static_cast<u32>(dynAddrs.Size())) continue;
 
             u64 gpuAddr = dynAddrs[entry.dynamicIndex];
-            if (dynOffsetIdx < dynamicOffsets.count())
+            if (dynOffsetIdx < dynamicOffsets.Size())
                 gpuAddr += static_cast<u64>(dynamicOffsets[dynOffsetIdx]);
             ++dynOffsetIdx;
 
@@ -117,7 +120,7 @@ public:
         }
     }
 
-    void setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override {
+    void setPushConstants(ShaderStage /*stages*/, u32 offset, u32 size, const void* data) override {
         if (!currentPipeline_) return;
         auto* layout = currentPipeline_->pipelineLayout();
         if (!layout || layout->pushConstantRootIndex() < 0) return;

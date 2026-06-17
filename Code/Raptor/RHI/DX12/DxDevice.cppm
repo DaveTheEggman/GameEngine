@@ -4,6 +4,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12Device.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -12,9 +13,7 @@ module;
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
-#include <string>
 #include <unordered_map>
-#include <vector>
 
 export module raptor.rhi.dx12:device;
 
@@ -47,6 +46,8 @@ import :render_pass_encoder;
 import :compute_pass_encoder;
 import :queue;
 import :swap_chain;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -100,21 +101,21 @@ public:
             if (q->init(device_.Get(), QueueType::Graphics, this) != ErrorCode::Ok) {
                 delete q; break;
             }
-            graphicsQueues_.push_back(q);
+            graphicsQueues_.PushBack(q);
         }
         for (u32 i = 0; i < desc.computeQueueCount; ++i) {
             auto* q = new DxQueueImpl();
             if (q->init(device_.Get(), QueueType::Compute, this) != ErrorCode::Ok) {
                 delete q; break;
             }
-            computeQueues_.push_back(q);
+            computeQueues_.PushBack(q);
         }
         for (u32 i = 0; i < desc.transferQueueCount; ++i) {
             auto* q = new DxQueueImpl();
             if (q->init(device_.Get(), QueueType::Transfer, this) != ErrorCode::Ok) {
                 delete q; break;
             }
-            transferQueues_.push_back(q);
+            transferQueues_.PushBack(q);
         }
 
         // --- Cached command signatures for indirect execution ---
@@ -146,23 +147,23 @@ public:
 
     Queue* getQueue(QueueType t, u32 index) override {
         switch (t) {
-        case QueueType::Graphics: return index < graphicsQueues_.size()  ? graphicsQueues_[index]  : nullptr;
-        case QueueType::Compute:  return index < computeQueues_.size()   ? computeQueues_[index]   : nullptr;
-        case QueueType::Transfer: return index < transferQueues_.size()  ? transferQueues_[index]   : nullptr;
+        case QueueType::Graphics: return index < graphicsQueues_.Size()  ? graphicsQueues_[index]  : nullptr;
+        case QueueType::Compute:  return index < computeQueues_.Size()   ? computeQueues_[index]   : nullptr;
+        case QueueType::Transfer: return index < transferQueues_.Size()  ? transferQueues_[index]   : nullptr;
         }
         return nullptr;
     }
 
     u32 getQueueCount(QueueType t) override {
         switch (t) {
-        case QueueType::Graphics: return static_cast<u32>(graphicsQueues_.size());
-        case QueueType::Compute:  return static_cast<u32>(computeQueues_.size());
-        case QueueType::Transfer: return static_cast<u32>(transferQueues_.size());
+        case QueueType::Graphics: return static_cast<u32>(graphicsQueues_.Size());
+        case QueueType::Compute:  return static_cast<u32>(computeQueues_.Size());
+        case QueueType::Transfer: return static_cast<u32>(transferQueues_.Size());
         }
         return 0;
     }
 
-    FormatSupport getFormatSupport(TextureFormat format) override {
+    FormatSupport getFormatSupport(TextureFormat /*format*/) override {
         // DX12 supports D24_S8 on all hardware and most formats broadly.
         // A full implementation would call CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT).
         return FormatSupport::Texture | FormatSupport::ColorAttachment |
@@ -332,7 +333,7 @@ public:
         }
 
         constexpr u32 handleSize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES; // 32
-        if (outData.count() < static_cast<usize>(groupCount * handleSize)) {
+        if (outData.Size() < static_cast<usize>(groupCount * handleSize)) {
             logError("DxDevice: output buffer too small for shader group handles");
             return ErrorCode::Unknown;
         }
@@ -340,19 +341,17 @@ public:
         auto exportNames = dxPipeline->groupExportNames();
         for (u32 i = 0; i < groupCount; ++i) {
             u32 groupIdx = firstGroup + i;
-            if (groupIdx >= exportNames.count()) {
+            if (groupIdx >= exportNames.Size()) {
                 logError("DxDevice: shader group index out of range");
                 return ErrorCode::Unknown;
             }
             const auto& exportName = exportNames[groupIdx];
-            // Convert narrow name to wide for DX12 API.
-            std::wstring wide(exportName.begin(), exportName.end());
-            void* identifier = dxPipeline->properties()->GetShaderIdentifier(wide.c_str());
+            void* identifier = dxPipeline->properties()->GetShaderIdentifier(exportName.c_str());
             if (!identifier) {
                 logError("DxDevice: GetShaderIdentifier returned null");
                 return ErrorCode::Unknown;
             }
-            std::memcpy(outData.data() + (i * handleSize), identifier, handleSize);
+            std::memcpy(outData.Data() + (i * handleSize), identifier, handleSize);
         }
         return ErrorCode::Ok;
     }
@@ -408,7 +407,7 @@ public:
         }
 
         // Need a graphics queue for swap chain.
-        if (graphicsQueues_.empty()) { out = nullptr; return ErrorCode::Unknown; }
+        if (graphicsQueues_.IsEmpty()) { out = nullptr; return ErrorCode::Unknown; }
 
         auto* sc = new DxSwapChainImpl();
         if (sc->init(device_.Get(), adapter_->factory(),
@@ -480,9 +479,9 @@ public:
         for (auto* q : graphicsQueues_) { q->cleanup(); delete q; }
         for (auto* q : computeQueues_)  { q->cleanup(); delete q; }
         for (auto* q : transferQueues_) { q->cleanup(); delete q; }
-        graphicsQueues_.clear();
-        computeQueues_.clear();
-        transferQueues_.clear();
+        graphicsQueues_.Clear();
+        computeQueues_.Clear();
+        transferQueues_.Clear();
 
         // Blit pipeline.
         for (auto& [fmt, pso] : blitPsoCache_)
@@ -590,11 +589,11 @@ public:
     /// Works with any type that inherits from ID3D12Object (Resource, PSO, QueryHeap, etc.).
     template<typename T>
     static void setDebugName(T* obj, StringView name) {
-        if (!obj || name.isEmpty()) return;
+        if (!obj || name.IsEmpty()) return;
         // Convert narrow to wide.
         std::wstring wide;
-        wide.reserve(name.length());
-        for (usize i = 0; i < name.length(); ++i)
+        wide.reserve(name.Size());
+        for (usize i = 0; i < name.Size(); ++i)
             wide.push_back(static_cast<wchar_t>(name[i]));
         obj->SetName(wide.c_str());
     }
@@ -770,9 +769,9 @@ private:
     DxAdapterImpl*       adapter_ = nullptr;
 
     // Queues.
-    std::vector<DxQueueImpl*> graphicsQueues_;
-    std::vector<DxQueueImpl*> computeQueues_;
-    std::vector<DxQueueImpl*> transferQueues_;
+    Array<DxQueueImpl*> graphicsQueues_;
+    Array<DxQueueImpl*> computeQueues_;
+    Array<DxQueueImpl*> transferQueues_;
 
     // Descriptor heap allocators (CPU-side for staging).
     DxDescriptorHeapAllocator rtvHeap_;
@@ -918,7 +917,7 @@ Status DxCommandPoolImpl::createEncoder(CommandEncoder*& out) {
 }
 
 void DxCommandPoolImpl::destroyEncoder(CommandEncoder*& encoder) {
-    if (auto* dx = dynamic_cast<DxCommandEncoderImpl*>(encoder)) delete dx;
+    if (auto* dx = static_cast<DxCommandEncoderImpl*>(encoder)) delete dx;
     encoder = nullptr;
 }
 

@@ -3,12 +3,12 @@
 /// Ported from Sedulous.RHI.DX12/DX12RenderPipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
 #include <algorithm>
 #include <cstring>
-#include <vector>
 
 export module raptor.rhi.dx12:render_pipeline;
 
@@ -18,6 +18,8 @@ import :conversions;
 import :pipeline_layout;
 import :shader_module;
 import :pipeline_cache;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -34,23 +36,23 @@ public:
         auto* vsMod = static_cast<DxShaderModuleImpl*>(d.vertex.shader.module);
         if (!vsMod) return ErrorCode::Unknown;
         auto vsCode = vsMod->bytecode();
-        pso.VS = { vsCode.data(), vsCode.count() };
+        pso.VS = { vsCode.Data(), vsCode.Size() };
 
         // Fragment shader.
-        if (d.fragment.has_value()) {
+        if (d.fragment.HasValue()) {
             auto* psMod = static_cast<DxShaderModuleImpl*>(d.fragment->shader.module);
-            if (psMod) { auto ps = psMod->bytecode(); pso.PS = { ps.data(), ps.count() }; }
+            if (psMod) { auto ps = psMod->bytecode(); pso.PS = { ps.Data(), ps.Size() }; }
         }
 
         // Input layout.
-        std::vector<D3D12_INPUT_ELEMENT_DESC> elems;
+        Array<D3D12_INPUT_ELEMENT_DESC> elems;
         auto bufs = d.vertex.buffers;
-        vtxBufCount_ = static_cast<u32>(std::min(bufs.count(), usize(8)));
-        for (usize i = 0; i < bufs.count(); ++i) {
+        vtxBufCount_ = static_cast<u32>(std::min(bufs.Size(), usize(8)));
+        for (usize i = 0; i < bufs.Size(); ++i) {
             const auto& buf = bufs[i];
             if (i < 8) vtxStrides_[i] = buf.stride;
             auto attrs = buf.attributes;
-            for (usize j = 0; j < attrs.count(); ++j) {
+            for (usize j = 0; j < attrs.Size(); ++j) {
                 const auto& a = attrs[j];
                 D3D12_INPUT_ELEMENT_DESC e{};
                 e.SemanticName  = "TEXCOORD";
@@ -62,10 +64,10 @@ public:
                     ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA
                     : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
                 e.InstanceDataStepRate = (buf.stepMode == VertexStepMode::Instance) ? 1 : 0;
-                elems.push_back(e);
+                elems.PushBack(e);
             }
         }
-        pso.InputLayout = { elems.data(), static_cast<UINT>(elems.size()) };
+        pso.InputLayout = { elems.Data(), static_cast<UINT>(elems.Size()) };
 
         // Topology.
         pso.PrimitiveTopologyType = toPrimitiveTopologyType(d.primitive.topology);
@@ -78,21 +80,21 @@ public:
         pso.RasterizerState.DepthClipEnable = d.primitive.depthClipEnabled ? TRUE : FALSE;
         pso.RasterizerState.MultisampleEnable = (d.multisample.count > 1) ? TRUE : FALSE;
 
-        if (d.depthStencil.has_value()) {
+        if (d.depthStencil.HasValue()) {
             pso.RasterizerState.DepthBias = d.depthStencil->depthBias;
             pso.RasterizerState.DepthBiasClamp = d.depthStencil->depthBiasClamp;
             pso.RasterizerState.SlopeScaledDepthBias = d.depthStencil->depthBiasSlopeScale;
         }
 
         // Blend.
-        Span<const ColorTargetState> targets = d.fragment.has_value() ? d.fragment->targets : Span<const ColorTargetState>();
+        Span<const ColorTargetState> targets = d.fragment.HasValue() ? d.fragment->targets : Span<const ColorTargetState>();
         pso.BlendState.AlphaToCoverageEnable = d.multisample.alphaToCoverageEnabled ? TRUE : FALSE;
-        pso.BlendState.IndependentBlendEnable = (targets.count() > 1) ? TRUE : FALSE;
-        for (usize i = 0; i < targets.count() && i < 8; ++i) {
+        pso.BlendState.IndependentBlendEnable = (targets.Size() > 1) ? TRUE : FALSE;
+        for (usize i = 0; i < targets.Size() && i < 8; ++i) {
             const auto& t = targets[i];
             auto& rt = pso.BlendState.RenderTarget[i];
             rt.RenderTargetWriteMask = static_cast<UINT8>(t.writeMask);
-            if (t.blend.has_value()) {
+            if (t.blend.HasValue()) {
                 rt.BlendEnable = TRUE;
                 rt.SrcBlend      = toBlendFactor(t.blend->color.srcFactor);
                 rt.DestBlend     = toBlendFactor(t.blend->color.dstFactor);
@@ -104,7 +106,7 @@ public:
         }
 
         // Depth/stencil.
-        if (d.depthStencil.has_value()) {
+        if (d.depthStencil.HasValue()) {
             const auto& ds = *d.depthStencil;
             pso.DepthStencilState.DepthEnable    = ds.depthTestEnabled ? TRUE : FALSE;
             pso.DepthStencilState.DepthWriteMask  = ds.depthWriteEnabled ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
@@ -129,8 +131,8 @@ public:
         }
 
         // Render targets.
-        pso.NumRenderTargets = static_cast<UINT>(std::min(targets.count(), usize(8)));
-        for (usize i = 0; i < targets.count() && i < 8; ++i)
+        pso.NumRenderTargets = static_cast<UINT>(std::min(targets.Size(), usize(8)));
+        for (usize i = 0; i < targets.Size() && i < 8; ++i)
             pso.RTVFormats[i] = toDxgiFormat(targets[i].format);
 
         // Multisample.

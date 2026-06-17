@@ -3,16 +3,18 @@
 /// Ported from Sedulous.RHI.DX12/DX12DescriptorStaging.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
 #include <algorithm>
-#include <vector>
 
 export module raptor.rhi.dx12:descriptor_staging;
 
 import raptor.core;
 import :gpu_descriptor_heap;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -46,7 +48,7 @@ public:
             u32 newCap = std::max(capacity_ * 2, current_ + count);
             i32 newBlock = gpuHeap_->allocate(newCap);
             if (newBlock < 0) return -1;
-            retiredBlocks_.push_back({ blockOffset_, capacity_ });
+            retiredBlocks_.PushBack({ blockOffset_, capacity_ });
             blockOffset_ = newBlock;
             capacity_ = newCap;
             current_ = 0;
@@ -66,7 +68,7 @@ public:
         current_ = 0;
         for (auto& b : retiredBlocks_)
             gpuHeap_->free(static_cast<u32>(b.offset), b.capacity);
-        retiredBlocks_.clear();
+        retiredBlocks_.Clear();
     }
 
     /// Frees all blocks.
@@ -77,7 +79,7 @@ public:
         }
         for (auto& b : retiredBlocks_)
             gpuHeap_->free(static_cast<u32>(b.offset), b.capacity);
-        retiredBlocks_.clear();
+        retiredBlocks_.Clear();
     }
 
 private:
@@ -90,7 +92,7 @@ private:
     i32                          blockOffset_ = -1;
     u32                          capacity_ = 0;
     u32                          current_  = 0;
-    std::vector<RetiredBlock>    retiredBlocks_;
+    Array<RetiredBlock>          retiredBlocks_;
 };
 
 } // namespace raptor::rhi::dx12

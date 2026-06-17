@@ -7,6 +7,7 @@
 module;
 #include "Core/Prelude.h"
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 
 export module raptor.samples.framework:sample_app;
@@ -14,6 +15,9 @@ export module raptor.samples.framework:sample_app;
 import raptor.core;
 import raptor.rhi;
 import raptor.rhi.vk;
+#ifdef RAPTOR_HAS_DX12
+import raptor.rhi.dx12;
+#endif
 import raptor.rhi.validation;
 import raptor.runtime.platform;
 import raptor.runtime.platform.desktop;
@@ -119,6 +123,14 @@ inline Status SampleApp::init_() {
     if (adapters.Size() == 0) { rhi::logError("SampleApp: no adapters"); return ErrorCode::Unknown; }
     rhi::Adapter* adapter = adapters[0];   // best GPU first
 
+    {
+        rhi::AdapterInfo ai = adapter->info();
+        const char* backendName = (backendType_ == BackendType::DX12) ? "DX12" : "Vulkan";
+        const UTF8String name8 = ToUTF8(ai.name);
+        std::printf("SampleApp: backend=%s adapter=%s\n",
+                    backendName, reinterpret_cast<const char*>(name8.CStr()));
+    }
+
     rhi::DeviceDesc dd{};
     dd.graphicsQueueCount = 1;
     dd.requiredFeatures   = requiredFeatures();
@@ -144,9 +156,19 @@ inline Status SampleApp::createBackend_() {
         }
         break;
     }
-    default:
-        rhi::logError("SampleApp: only the Vulkan backend is available on this platform");
+    case BackendType::DX12: {
+#ifdef RAPTOR_HAS_DX12
+        rhi::dx12::DxBackendDesc desc{};
+        desc.enableValidation = validationEnabled_;
+        if (!rhi::dx12::createDxBackend(desc, raw).IsOk()) {
+            rhi::logError("SampleApp: dx12::createDxBackend failed"); return ErrorCode::Unknown;
+        }
+#else
+        rhi::logError("SampleApp: DX12 backend not available on this platform");
         return ErrorCode::Unknown;
+#endif
+        break;
+    }
     }
     backend_ = validationEnabled_ ? rhi::validation::createValidatedBackend(raw) : raw;
     return backend_ != nullptr ? Status{} : Status{ ErrorCode::Unknown };

@@ -28,7 +28,7 @@ target_compile_definitions(RaptorRuntimeTests PRIVATE
     RAPTOR_TEST_PLUGIN_PATH="$<TARGET_FILE:RaptorRuntimeTestPlugin>")
 
 target_compile_options(RaptorRuntimeTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>"
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
 add_test(NAME RaptorRuntimeTests COMMAND RaptorRuntimeTests)

@@ -19,6 +19,12 @@ target_link_libraries(RaptorSamplesFramework PUBLIC
     Raptor::Shaders
     Raptor::Policy)
 
+# DX12 backend — Windows only.
+if(TARGET Raptor::RHIDX12)
+    target_link_libraries(RaptorSamplesFramework PUBLIC Raptor::RHIDX12)
+    target_compile_definitions(RaptorSamplesFramework PUBLIC RAPTOR_HAS_DX12)
+endif()
+
 target_sources(RaptorSamplesFramework
     PUBLIC
         FILE_SET samples_framework_modules TYPE CXX_MODULES FILES

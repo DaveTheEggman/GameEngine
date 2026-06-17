@@ -3,10 +3,9 @@
 /// Ported from Sedulous.RHI.DX12/DX12CommandPool.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
-
-#include <vector>
 
 export module raptor.rhi.dx12:command_pool;
 
@@ -15,6 +14,8 @@ import raptor.rhi;
 import :conversions;
 import :command_buffer;
 import :descriptor_staging;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -69,7 +70,7 @@ public:
     [[nodiscard]] DxDescriptorStaging*    samplerStaging()        { return &samplerStaging_; }
 
     /// Called by DxCommandEncoderImpl::finish() to register a command buffer with this pool.
-    void trackCommandBuffer(DxCommandBufferImpl* cb) { trackedBuffers_.push_back(cb); }
+    void trackCommandBuffer(DxCommandBufferImpl* cb) { trackedBuffers_.PushBack(cb); }
 
 private:
     void releaseCommandBuffers() {
@@ -77,14 +78,14 @@ private:
             cb->release();
             delete cb;
         }
-        trackedBuffers_.clear();
+        trackedBuffers_.Clear();
     }
 
     ComPtr<ID3D12CommandAllocator>      allocator_;
     ID3D12Device*                       d3dDevice_ = nullptr;
     DxDeviceImpl*                       device_     = nullptr;
     D3D12_COMMAND_LIST_TYPE             type_       = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    std::vector<DxCommandBufferImpl*>   trackedBuffers_;
+    Array<DxCommandBufferImpl*>          trackedBuffers_;
     DxDescriptorStaging                 srvStaging_;
     DxDescriptorStaging                 samplerStaging_;
 };

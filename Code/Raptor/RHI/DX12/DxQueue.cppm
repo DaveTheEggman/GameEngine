@@ -2,10 +2,9 @@
 /// Ported from Sedulous.RHI.DX12/DX12Queue.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
-
-#include <vector>
 
 export module raptor.rhi.dx12:queue;
 
@@ -15,6 +14,8 @@ import :conversions;
 import :command_buffer;
 import :fence;
 import :transfer_batch;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -47,13 +48,13 @@ public:
     // ---- Queue interface ----
 
     void submit(Span<CommandBuffer* const> cmdBufs) override {
-        if (cmdBufs.count() == 0) return;
-        std::vector<ID3D12CommandList*> lists(cmdBufs.count());
-        for (usize i = 0; i < cmdBufs.count(); ++i) {
-            if (auto* dxCb = dynamic_cast<DxCommandBufferImpl*>(cmdBufs[i]))
+        if (cmdBufs.Size() == 0) return;
+        Array<ID3D12CommandList*> lists(cmdBufs.Size());
+        for (usize i = 0; i < cmdBufs.Size(); ++i) {
+            if (auto* dxCb = static_cast<DxCommandBufferImpl*>(cmdBufs[i]))
                 lists[i] = dxCb->handle();
         }
-        queue_->ExecuteCommandLists(static_cast<UINT>(lists.size()), lists.data());
+        queue_->ExecuteCommandLists(static_cast<UINT>(lists.Size()), lists.Data());
     }
 
     void submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
@@ -65,7 +66,7 @@ public:
     void submit(Span<CommandBuffer* const> cmdBufs,
                 Span<Fence* const> waitFences, Span<const u64> waitValues,
                 Fence* signalFence, u64 signalValue) override {
-        for (usize i = 0; i < waitFences.count(); ++i)
+        for (usize i = 0; i < waitFences.Size(); ++i)
             if (auto* f = static_cast<DxFenceImpl*>(waitFences[i]))
                 queue_->Wait(f->handle(), waitValues[i]);
         submit(cmdBufs);

@@ -21,7 +21,13 @@ namespace
     // display and never flash a real window. Set before any SDL_Init.
     struct ForceDummyDriver
     {
-        ForceDummyDriver() { ::setenv("SDL_VIDEODRIVER", "dummy", 1); }
+        ForceDummyDriver() {
+#ifdef _WIN32
+            _putenv_s("SDL_VIDEODRIVER", "dummy");
+#else
+            ::setenv("SDL_VIDEODRIVER", "dummy", 1);
+#endif
+        }
     };
     const ForceDummyDriver g_forceDummy;
 

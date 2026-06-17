@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12ComputePipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -11,6 +12,8 @@ import raptor.core;
 import raptor.rhi;
 import :pipeline_layout;
 import :shader_module;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -25,7 +28,7 @@ public:
         auto cs = csMod->bytecode();
         D3D12_COMPUTE_PIPELINE_STATE_DESC pso{};
         pso.pRootSignature = layout_->handle();
-        pso.CS = { cs.data(), cs.count() };
+        pso.CS = { cs.Data(), cs.Size() };
 
         HRESULT hr = device->CreateComputePipelineState(&pso, IID_PPV_ARGS(&pipelineState_));
         if (FAILED(hr)) {

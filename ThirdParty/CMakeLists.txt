@@ -1,5 +1,14 @@
 # Raptor third-party dependencies.
 
+# SDL3 — pre-built development libraries (Windows). Point find_package(SDL3)
+# to the vendored copy and store the DLL path for post-build copies.
+if(WIN32 AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake/SDL3Config.cmake)
+    set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake" CACHE PATH "SDL3 CMake config" FORCE)
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/lib/x64/SDL3.dll)
+        set(RAPTOR_SDL3_DLL "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/lib/x64/SDL3.dll" CACHE FILEPATH "" FORCE)
+    endif()
+endif()
+
 # DXC — vendored headers + pre-built runtime binaries (HLSL -> SPIR-V/DXIL).
 # Headers are an INTERFACE target; the runtime library is loaded at run time
 # (dlopen / LoadLibrary), so we only publish its path + an rpath for dev builds.

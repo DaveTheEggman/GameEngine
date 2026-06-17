@@ -72,7 +72,13 @@ public:
         return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
     }
 
-    Status createSurface(void* windowHandle, void* displayHandle, Surface*& out) override {
+    Status createSurface(void* windowHandle, void*
+#if RAPTOR_PLATFORM_LINUX
+                         displayHandle
+#else
+                         /*displayHandle*/
+#endif
+                         , Surface*& out) override {
         out = nullptr;
         if (!windowHandle) {
             logError("VkBackend: window handle is null");

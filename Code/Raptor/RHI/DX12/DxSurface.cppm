@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12Surface.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -9,6 +10,8 @@ export module raptor.rhi.dx12:surface;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 

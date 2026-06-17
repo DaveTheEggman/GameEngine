@@ -3,6 +3,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12RayTracingPipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -15,6 +16,8 @@ import raptor.core;
 import raptor.rhi;
 import :shader_module;
 import :pipeline_layout;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -38,24 +41,21 @@ public:
         }
 
         // Collect entry point names and per-stage export descriptors.
-        std::vector<std::string> entryNarrow;
+        // StringView is wide in Raptor, and DX12 expects LPCWSTR — direct copy.
         std::vector<std::wstring> entryWide;
-        std::vector<D3D12_EXPORT_DESC> exports;
+        Array<D3D12_EXPORT_DESC> exports;
 
-        for (usize i = 0; i < desc.stages.count(); ++i) {
+        for (usize i = 0; i < desc.stages.Size(); ++i) {
             const auto& stage = desc.stages[i];
             auto* dxMod = static_cast<DxShaderModuleImpl*>(stage.module);
             if (!dxMod) continue;
 
-            std::string narrow(stage.entryPoint.data(), stage.entryPoint.length());
-            entryNarrow.push_back(narrow);
-
-            // Convert to wide string (ASCII is sufficient for shader entry points).
-            std::wstring wide(narrow.begin(), narrow.end());
-            entryWide.push_back(std::move(wide));
+            entryWide.emplace_back(
+                reinterpret_cast<const wchar_t*>(stage.entryPoint.Data()),
+                stage.entryPoint.Size());
         }
 
-        exports.resize(entryWide.size());
+        exports.Resize(entryWide.size());
         for (usize i = 0; i < entryWide.size(); ++i) {
             exports[i] = {};
             exports[i].Name  = entryWide[i].c_str();
@@ -63,45 +63,45 @@ public:
         }
 
         // Build one DXIL library subobject per stage.
-        std::vector<D3D12_DXIL_LIBRARY_DESC> libraries;
-        for (usize i = 0; i < desc.stages.count(); ++i) {
+        Array<D3D12_DXIL_LIBRARY_DESC> libraries;
+        for (usize i = 0; i < desc.stages.Size(); ++i) {
             auto* dxMod = static_cast<DxShaderModuleImpl*>(desc.stages[i].module);
             if (!dxMod) continue;
 
             auto bc = dxMod->bytecode();
             D3D12_DXIL_LIBRARY_DESC lib{};
-            lib.DXILLibrary.pShaderBytecode = bc.data();
-            lib.DXILLibrary.BytecodeLength  = bc.count();
+            lib.DXILLibrary.pShaderBytecode = bc.Data();
+            lib.DXILLibrary.BytecodeLength  = bc.Size();
             lib.NumExports = 1;
             lib.pExports   = &exports[i];
-            libraries.push_back(lib);
+            libraries.PushBack(lib);
         }
 
         // Count hit groups.
         u32 numHitGroups = 0;
-        for (usize i = 0; i < desc.groups.count(); ++i) {
+        for (usize i = 0; i < desc.groups.Size(); ++i) {
             if (desc.groups[i].type == RayTracingShaderGroup::Type::TrianglesHitGroup ||
                 desc.groups[i].type == RayTracingShaderGroup::Type::ProceduralHitGroup)
                 ++numHitGroups;
         }
 
         // Total subobjects: libraries + hit groups + shader config + pipeline config + global root sig.
-        usize subobjectCount = libraries.size() + numHitGroups + 3;
-        std::vector<D3D12_STATE_SUBOBJECT> subobjects(subobjectCount);
+        usize subobjectCount = libraries.Size() + numHitGroups + 3;
+        Array<D3D12_STATE_SUBOBJECT> subobjects(subobjectCount);
         usize soIdx = 0;
 
         // --- DXIL library subobjects ---
-        for (usize i = 0; i < libraries.size(); ++i) {
+        for (usize i = 0; i < libraries.Size(); ++i) {
             subobjects[soIdx].Type  = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
             subobjects[soIdx].pDesc = &libraries[i];
             ++soIdx;
         }
 
         // --- Hit groups ---
-        std::vector<D3D12_HIT_GROUP_DESC> hitGroups;
+        Array<D3D12_HIT_GROUP_DESC> hitGroups;
         std::vector<std::wstring> hitGroupNamesWide;
 
-        for (usize i = 0; i < desc.groups.count(); ++i) {
+        for (usize i = 0; i < desc.groups.Size(); ++i) {
             const auto& group = desc.groups[i];
             if (group.type != RayTracingShaderGroup::Type::TrianglesHitGroup &&
                 group.type != RayTracingShaderGroup::Type::ProceduralHitGroup)
@@ -126,10 +126,10 @@ public:
             if (group.intersectionShaderIndex != ~0u && group.intersectionShaderIndex < entryWide.size())
                 hg.IntersectionShaderImport = entryWide[group.intersectionShaderIndex].c_str();
 
-            hitGroups.push_back(hg);
+            hitGroups.PushBack(hg);
         }
 
-        for (usize i = 0; i < hitGroups.size(); ++i) {
+        for (usize i = 0; i < hitGroups.Size(); ++i) {
             subobjects[soIdx].Type  = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
             subobjects[soIdx].pDesc = &hitGroups[i];
             ++soIdx;
@@ -138,19 +138,20 @@ public:
         // --- Build group-to-export-name mapping ---
         // For each group in desc.Groups order, store the DX12 export name
         // used to retrieve its shader identifier.
-        for (usize i = 0; i < desc.groups.count(); ++i) {
+        for (usize i = 0; i < desc.groups.Size(); ++i) {
             const auto& group = desc.groups[i];
             if (group.type == RayTracingShaderGroup::Type::General) {
                 // General groups (raygen/miss/callable) use the entry point name.
-                if (group.generalShaderIndex != ~0u && group.generalShaderIndex < desc.stages.count()) {
+                if (group.generalShaderIndex != ~0u && group.generalShaderIndex < desc.stages.Size()) {
                     auto ep = desc.stages[group.generalShaderIndex].entryPoint;
-                    groupExportNames_.emplace_back(ep.data(), ep.length());
+                    groupExportNames_.emplace_back(
+                        reinterpret_cast<const wchar_t*>(ep.Data()), ep.Size());
                 } else {
                     groupExportNames_.emplace_back();
                 }
             } else {
                 // Hit groups use "HitGroupN" where N is the group index.
-                groupExportNames_.push_back("HitGroup" + std::to_string(i));
+                groupExportNames_.push_back(L"HitGroup" + std::to_wstring(i));
             }
         }
 
@@ -180,7 +181,7 @@ public:
         D3D12_STATE_OBJECT_DESC stateObjDesc{};
         stateObjDesc.Type          = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
         stateObjDesc.NumSubobjects = static_cast<UINT>(soIdx);
-        stateObjDesc.pSubobjects   = subobjects.data();
+        stateObjDesc.pSubobjects   = subobjects.Data();
 
         hr = device5->CreateStateObject(&stateObjDesc, IID_PPV_ARGS(&stateObject_));
         if (FAILED(hr) || !stateObject_) {
@@ -204,8 +205,8 @@ public:
 
         // Convert narrow string to wide (ASCII-safe for shader entry points).
         std::wstring wide;
-        wide.reserve(exportName.length());
-        for (usize i = 0; i < exportName.length(); ++i)
+        wide.reserve(exportName.Size());
+        for (usize i = 0; i < exportName.Size(); ++i)
             wide.push_back(static_cast<wchar_t>(exportName[i]));
 
         return properties_->GetShaderIdentifier(wide.c_str());
@@ -219,7 +220,7 @@ public:
     [[nodiscard]] ID3D12StateObject*           handle()     const { return stateObject_.Get(); }
     [[nodiscard]] ID3D12StateObjectProperties* properties() const { return properties_.Get(); }
     [[nodiscard]] DxPipelineLayoutImpl*         pipelineLayout() const { return layout_; }
-    [[nodiscard]] Span<const std::string>       groupExportNames() const {
+    [[nodiscard]] Span<const std::wstring>       groupExportNames() const {
         return { groupExportNames_.data(), groupExportNames_.size() };
     }
 
@@ -227,7 +228,7 @@ private:
     ComPtr<ID3D12StateObject>           stateObject_;
     ComPtr<ID3D12StateObjectProperties> properties_;
     DxPipelineLayoutImpl*               layout_ = nullptr;
-    std::vector<std::string>            groupExportNames_;
+    std::vector<std::wstring>           groupExportNames_;
 };
 
 } // namespace raptor::rhi::dx12

@@ -1,6 +1,9 @@
 /// Primary module for raptor.rhi.dx12. Re-exports all partitions.
 /// DX12 backend — Windows only.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.dx12;
 
 export import :conversions;

@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12TransferBatch.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -16,6 +17,8 @@ import :conversions;
 import :buffer;
 import :texture;
 import :fence;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -64,12 +67,12 @@ public:
 
     void writeBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
         auto* dxDst = static_cast<DxBufferImpl*>(dst);
-        if (!dxDst || data.count() == 0) return;
+        if (!dxDst || data.Size() == 0) return;
 
         ensureRecording();
 
         // Create upload-heap staging buffer.
-        u64 stagingSize = static_cast<u64>(data.count());
+        u64 stagingSize = static_cast<u64>(data.Size());
         ComPtr<ID3D12Resource> staging;
 
         D3D12_HEAP_PROPERTIES heapProps{};
@@ -95,7 +98,7 @@ public:
         // Map and copy data.
         void* mapped = nullptr;
         staging->Map(0, nullptr, &mapped);
-        std::memcpy(mapped, data.data(), data.count());
+        std::memcpy(mapped, data.Data(), data.Size());
         staging->Unmap(0, nullptr);
 
         stagingBuffers_.push_back(std::move(staging));
@@ -109,7 +112,7 @@ public:
                       const TextureDataLayout& layout, Extent3D extent,
                       u32 mipLevel, u32 arrayLayer) override {
         auto* dxTex = static_cast<DxTextureImpl*>(dst);
-        if (!dxTex || data.count() == 0) return;
+        if (!dxTex || data.Size() == 0) return;
 
         ensureRecording();
 
@@ -144,7 +147,7 @@ public:
         void* mapped = nullptr;
         staging->Map(0, nullptr, &mapped);
 
-        const u8* srcPtr = data.data() + layout.offset;
+        const u8* srcPtr = data.Data() + layout.offset;
         u8*       dstPtr = static_cast<u8*>(mapped);
         for (u32 z = 0; z < extent.depth; ++z) {
             for (u32 row = 0; row < rowsPerImage; ++row) {
@@ -264,7 +267,8 @@ private:
     ComPtr<ID3D12GraphicsCommandList>   cmdList_;
     bool                                isRecording_ = false;
 
-    std::vector<ComPtr<ID3D12Resource>> stagingBuffers_;
+    // ComPtr's operator overloads are incompatible with Array's placement-new.
+    std::vector<ComPtr<ID3D12Resource>>  stagingBuffers_;
 
     ComPtr<ID3D12Fence>                 fence_;
     u64                                 fenceValue_ = 0;

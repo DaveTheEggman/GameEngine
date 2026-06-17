@@ -4,6 +4,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12MeshPipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -18,6 +19,8 @@ import raptor.rhi;
 import :conversions;
 import :pipeline_layout;
 import :shader_module;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -65,24 +68,24 @@ public:
         }
         {
             auto msCode = msMod->bytecode();
-            D3D12_SHADER_BYTECODE msBC{ msCode.data(), msCode.count() };
+            D3D12_SHADER_BYTECODE msBC{ msCode.Data(), msCode.Size() };
             writeSubobject(streamBuffer, offset, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MS, msBC);
         }
 
         // Task/amplification shader (optional).
-        if (desc.task.has_value()) {
+        if (desc.task.HasValue()) {
             if (auto* asMod = static_cast<DxShaderModuleImpl*>(desc.task->module)) {
                 auto asCode = asMod->bytecode();
-                D3D12_SHADER_BYTECODE asBC{ asCode.data(), asCode.count() };
+                D3D12_SHADER_BYTECODE asBC{ asCode.Data(), asCode.Size() };
                 writeSubobject(streamBuffer, offset, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_AS, asBC);
             }
         }
 
         // Fragment/pixel shader (optional).
-        if (desc.fragment.has_value()) {
+        if (desc.fragment.HasValue()) {
             if (auto* psMod = static_cast<DxShaderModuleImpl*>(desc.fragment->shader.module)) {
                 auto psCode = psMod->bytecode();
-                D3D12_SHADER_BYTECODE psBC{ psCode.data(), psCode.count() };
+                D3D12_SHADER_BYTECODE psBC{ psCode.Data(), psCode.Size() };
                 writeSubobject(streamBuffer, offset, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PS, psBC);
             }
         }
@@ -91,12 +94,12 @@ public:
         auto colorTargets = desc.colorTargets;
         D3D12_BLEND_DESC blendDesc{};
         blendDesc.AlphaToCoverageEnable = desc.multisample.alphaToCoverageEnabled ? TRUE : FALSE;
-        blendDesc.IndependentBlendEnable = (colorTargets.count() > 1) ? TRUE : FALSE;
-        for (usize i = 0; i < colorTargets.count() && i < 8; ++i) {
+        blendDesc.IndependentBlendEnable = (colorTargets.Size() > 1) ? TRUE : FALSE;
+        for (usize i = 0; i < colorTargets.Size() && i < 8; ++i) {
             const auto& t = colorTargets[i];
             auto& rt = blendDesc.RenderTarget[i];
             rt.RenderTargetWriteMask = static_cast<UINT8>(t.writeMask);
-            if (t.blend.has_value()) {
+            if (t.blend.HasValue()) {
                 rt.BlendEnable    = TRUE;
                 rt.SrcBlend       = toBlendFactor(t.blend->color.srcFactor);
                 rt.DestBlend      = toBlendFactor(t.blend->color.dstFactor);
@@ -120,7 +123,7 @@ public:
         rasterDesc.DepthClipEnable = desc.primitive.depthClipEnabled ? TRUE : FALSE;
         rasterDesc.MultisampleEnable = (desc.multisample.count > 1) ? TRUE : FALSE;
 
-        if (desc.depthStencil.has_value()) {
+        if (desc.depthStencil.HasValue()) {
             rasterDesc.DepthBias            = desc.depthStencil->depthBias;
             rasterDesc.DepthBiasClamp       = desc.depthStencil->depthBiasClamp;
             rasterDesc.SlopeScaledDepthBias = desc.depthStencil->depthBiasSlopeScale;
@@ -129,7 +132,7 @@ public:
         writeSubobject(streamBuffer, offset, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RASTERIZER, rasterDesc);
 
         // Depth/stencil state.
-        if (desc.depthStencil.has_value()) {
+        if (desc.depthStencil.HasValue()) {
             const auto& ds = *desc.depthStencil;
 
             D3D12_DEPTH_STENCIL_DESC dsDesc{};
@@ -161,8 +164,8 @@ public:
 
         // Render target formats.
         D3D12_RT_FORMAT_ARRAY rtFormats{};
-        rtFormats.NumRenderTargets = static_cast<UINT>(std::min(colorTargets.count(), usize(8)));
-        for (usize i = 0; i < colorTargets.count() && i < 8; ++i)
+        rtFormats.NumRenderTargets = static_cast<UINT>(std::min(colorTargets.Size(), usize(8)));
+        for (usize i = 0; i < colorTargets.Size() && i < 8; ++i)
             rtFormats.RTFormats[i] = toDxgiFormat(colorTargets[i].format);
         writeSubobject(streamBuffer, offset, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RENDER_TARGET_FORMATS, rtFormats);
 

@@ -2,14 +2,15 @@
 /// Ported from Sedulous.RHI.DX12/DX12DescriptorHeapAllocator.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
-
-#include <vector>
 
 export module raptor.rhi.dx12:descriptor_heap;
 
 import raptor.core;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -20,7 +21,7 @@ public:
     Status init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, u32 maxCount,
                 D3D12_DESCRIPTOR_HEAP_FLAGS flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE) {
         maxCount_ = maxCount;
-        alive_.resize(maxCount, false);
+        alive_.Resize(maxCount, static_cast<u8>(0));
 
         D3D12_DESCRIPTOR_HEAP_DESC hd{};
         hd.Type           = type;
@@ -60,7 +61,7 @@ public:
 
     void destroy() {
         heap_.Reset();
-        alive_.clear();
+        alive_.Clear();
     }
 
     [[nodiscard]] ID3D12DescriptorHeap* heap() const { return heap_.Get(); }
@@ -73,7 +74,7 @@ private:
     u32                           maxCount_    = 0;
     u32                           allocCount_  = 0;
     u32                           searchStart_ = 0;
-    std::vector<bool>             alive_;
+    Array<u8>                     alive_;
 };
 
 } // namespace raptor::rhi::dx12

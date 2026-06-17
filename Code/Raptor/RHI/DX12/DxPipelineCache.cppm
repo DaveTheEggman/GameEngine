@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12PipelineCache.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -9,6 +10,8 @@ export module raptor.rhi.dx12:pipeline_cache;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -19,8 +22,8 @@ public:
         if (FAILED(device->QueryInterface(IID_PPV_ARGS(&device1)))) return ErrorCode::Unknown;
 
         HRESULT hr;
-        if (d.initialData.count() > 0)
-            hr = device1->CreatePipelineLibrary(d.initialData.data(), d.initialData.count(), IID_PPV_ARGS(&library_));
+        if (d.initialData.Size() > 0)
+            hr = device1->CreatePipelineLibrary(d.initialData.Data(), d.initialData.Size(), IID_PPV_ARGS(&library_));
         else
             hr = device1->CreatePipelineLibrary(nullptr, 0, IID_PPV_ARGS(&library_));
 
@@ -35,8 +38,8 @@ public:
     Status getData(Span<u8> outData) override {
         if (!library_) return ErrorCode::Unknown;
         auto size = library_->GetSerializedSize();
-        if (outData.count() < size) return ErrorCode::Unknown;
-        return SUCCEEDED(library_->Serialize(outData.data(), size)) ? ErrorCode::Ok : ErrorCode::Unknown;
+        if (outData.Size() < size) return ErrorCode::Unknown;
+        return SUCCEEDED(library_->Serialize(outData.Data(), size)) ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
     void cleanup() { library_.Reset(); }

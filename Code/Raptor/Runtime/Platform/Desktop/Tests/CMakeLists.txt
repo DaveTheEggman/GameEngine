@@ -24,7 +24,14 @@ target_compile_definitions(RaptorRuntimePlatformDesktopTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 
 target_compile_options(RaptorRuntimePlatformDesktopTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>"
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
 add_test(NAME RaptorRuntimePlatformDesktopTests COMMAND RaptorRuntimePlatformDesktopTests)
+
+# Copy SDL3.dll next to the test executable on Windows.
+if(RAPTOR_SDL3_DLL)
+    add_custom_command(TARGET RaptorRuntimePlatformDesktopTests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${RAPTOR_SDL3_DLL}" "$<TARGET_FILE_DIR:RaptorRuntimePlatformDesktopTests>")
+endif()

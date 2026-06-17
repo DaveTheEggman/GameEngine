@@ -3,10 +3,9 @@
 /// Ported from Sedulous.RHI.DX12/DX12SwapChain.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
-
-#include <vector>
 
 export module raptor.rhi.dx12:swap_chain;
 
@@ -17,6 +16,8 @@ import :surface;
 import :texture;
 import :texture_view;
 import :descriptor_heap;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -78,8 +79,8 @@ public:
     u32           height()            const override { return height_; }
     u32           bufferCount()       const override { return bufferCount_; }
     u32           currentImageIndex() const override { return currentIndex_; }
-    Texture*      currentTexture()    override { return (currentIndex_ < textures_.size()) ? textures_[currentIndex_] : nullptr; }
-    TextureView*  currentTextureView()override { return (currentIndex_ < views_.size())    ? views_[currentIndex_]    : nullptr; }
+    Texture*      currentTexture()    override { return (currentIndex_ < textures_.Size()) ? textures_[currentIndex_] : nullptr; }
+    TextureView*  currentTextureView()override { return (currentIndex_ < views_.Size())    ? views_[currentIndex_]    : nullptr; }
 
     Status acquireNextImage() override {
         currentIndex_ = swapChain_->GetCurrentBackBufferIndex();
@@ -126,22 +127,22 @@ private:
             td.sampleCount = 1; td.usage = TextureUsage::RenderTarget;
             tex->initFromExisting(resource, td);
             resource->Release(); // initFromExisting AddRef'd
-            textures_.push_back(tex);
+            textures_.PushBack(tex);
 
             auto* view = new DxTextureViewImpl();
             TextureViewDesc vd{}; vd.format = format_; vd.dimension = TextureViewDimension::Texture2D;
             vd.mipLevelCount = 1; vd.arrayLayerCount = 1;
             view->init(d3dDevice_, tex, vd, srvHeap_, rtvHeap_, dsvHeap_);
-            views_.push_back(view);
+            views_.PushBack(view);
         }
         return ErrorCode::Ok;
     }
 
     void releaseBackBuffers() {
         for (auto* v : views_)   { v->cleanup(); delete v; }
-        views_.clear();
+        views_.Clear();
         for (auto* t : textures_) { t->cleanup(); delete t; }
-        textures_.clear();
+        textures_.Clear();
     }
 
     ComPtr<IDXGISwapChain3>          swapChain_;
@@ -150,8 +151,8 @@ private:
     u32                              width_ = 0, height_ = 0, bufferCount_ = 2;
     u32                              currentIndex_ = 0;
     PresentMode                      presentMode_ = PresentMode::Fifo;
-    std::vector<DxTextureImpl*>      textures_;
-    std::vector<DxTextureViewImpl*>  views_;
+    Array<DxTextureImpl*>            textures_;
+    Array<DxTextureViewImpl*>        views_;
     DxDescriptorHeapAllocator*       srvHeap_ = nullptr;
     DxDescriptorHeapAllocator*       rtvHeap_ = nullptr;
     DxDescriptorHeapAllocator*       dsvHeap_ = nullptr;

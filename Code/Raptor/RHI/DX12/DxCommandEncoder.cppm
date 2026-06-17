@@ -3,12 +3,12 @@
 /// Ported from Sedulous.RHI.DX12/DX12CommandEncoder.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
 #include <algorithm>
 #include <cstring>
-#include <vector>
 
 export module raptor.rhi.dx12:command_encoder;
 
@@ -34,6 +34,8 @@ import :ray_tracing_pipeline;
 import :render_pass_encoder;
 import :compute_pass_encoder;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::dx12 {
 
 class DxDeviceImpl; // forward
@@ -47,8 +49,9 @@ public:
     DxCommandEncoderImpl(DxDeviceImpl* device, ID3D12GraphicsCommandList* cmdList,
                          DxCommandPoolImpl* pool, const DxRenderPassContext& rpeCtx,
                          const DxComputePassContext& cpeCtx)
-        : device_(device), cmdList_(cmdList), pool_(pool), rpe_(rpeCtx), cpe_(cpeCtx),
-          gpuSrvHeap_(rpeCtx.gpuSrvHeap), gpuSamplerHeap_(rpeCtx.gpuSamplerHeap) {}
+        : device_(device), cmdList_(cmdList), pool_(pool),
+          gpuSrvHeap_(rpeCtx.gpuSrvHeap), gpuSamplerHeap_(rpeCtx.gpuSamplerHeap),
+          rpe_(rpeCtx), cpe_(cpeCtx) {}
 
     ~DxCommandEncoderImpl() override = default;
 
@@ -70,8 +73,8 @@ public:
         // Collect render target views.
         D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[8]{};
         u32 rtvCount = 0;
-        auto colorAtts = desc.colorAttachments.view();
-        for (usize i = 0; i < colorAtts.count() && i < 8; ++i) {
+        auto colorAtts = desc.colorAttachments.View();
+        for (usize i = 0; i < colorAtts.Size() && i < 8; ++i) {
             const auto& att = colorAtts[i];
             if (auto* dxView = static_cast<DxTextureViewImpl*>(att.view)) {
                 rtvHandles[i] = dxView->getRtv();
@@ -82,7 +85,7 @@ public:
         // Depth/stencil view.
         D3D12_CPU_DESCRIPTOR_HANDLE dsvStorage{};
         D3D12_CPU_DESCRIPTOR_HANDLE* dsvPtr = nullptr;
-        if (desc.depthStencilAttachment.has_value()) {
+        if (desc.depthStencilAttachment.HasValue()) {
             const auto& dsAttach = *desc.depthStencilAttachment;
             if (auto* dxView = static_cast<DxTextureViewImpl*>(dsAttach.view)) {
                 dsvStorage = dxView->getDsv();
@@ -93,7 +96,7 @@ public:
         cmdList_->OMSetRenderTargets(rtvCount, rtvHandles, FALSE, dsvPtr);
 
         // Clear render targets.
-        for (usize i = 0; i < colorAtts.count() && i < 8; ++i) {
+        for (usize i = 0; i < colorAtts.Size() && i < 8; ++i) {
             const auto& att = colorAtts[i];
             if (att.loadOp == LoadOp::Clear) {
                 FLOAT color[4] = { att.clearValue.r, att.clearValue.g, att.clearValue.b, att.clearValue.a };
@@ -102,7 +105,7 @@ public:
         }
 
         // Clear depth/stencil.
-        if (desc.depthStencilAttachment.has_value() && dsvPtr) {
+        if (desc.depthStencilAttachment.HasValue() && dsvPtr) {
             const auto& dsAttach = *desc.depthStencilAttachment;
             D3D12_CLEAR_FLAGS clearFlags = static_cast<D3D12_CLEAR_FLAGS>(0);
             bool needsClear = false;
@@ -136,15 +139,15 @@ public:
     // ---- Barriers ----
 
     void barrier(const BarrierGroup& group) override {
-        usize totalBarriers = group.bufferBarriers.count() + group.textureBarriers.count()
-                            + group.memoryBarriers.count();
+        usize totalBarriers = group.bufferBarriers.Size() + group.textureBarriers.Size()
+                            + group.memoryBarriers.Size();
         if (totalBarriers == 0) return;
 
-        std::vector<D3D12_RESOURCE_BARRIER> dxBarriers;
-        dxBarriers.reserve(totalBarriers);
+        Array<D3D12_RESOURCE_BARRIER> dxBarriers;
+        dxBarriers.Reserve(totalBarriers);
 
         // Buffer barriers.
-        for (usize i = 0; i < group.bufferBarriers.count(); ++i) {
+        for (usize i = 0; i < group.bufferBarriers.Size(); ++i) {
             const auto& bb = group.bufferBarriers[i];
             auto* dxBuf = static_cast<DxBufferImpl*>(bb.buffer);
             if (!dxBuf) continue;
@@ -161,7 +164,7 @@ public:
             b.Transition.StateAfter  = newState;
             b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
             dxBuf->setState(newState);
-            dxBarriers.push_back(b);
+            dxBarriers.PushBack(b);
         }
 
         // Texture barriers: coalesce chained transitions per (resource, subresource).
@@ -177,10 +180,10 @@ public:
                 D3D12_RESOURCE_STATES firstBefore;
                 D3D12_RESOURCE_STATES lastAfter;
             };
-            std::vector<CoalescedEntry> coalesced;
-            coalesced.reserve(group.textureBarriers.count());
+            Array<CoalescedEntry> coalesced;
+            coalesced.Reserve(group.textureBarriers.Size());
 
-            for (usize i = 0; i < group.textureBarriers.count(); ++i) {
+            for (usize i = 0; i < group.textureBarriers.Size(); ++i) {
                 const auto& tb = group.textureBarriers[i];
                 auto* dxTex = static_cast<DxTextureImpl*>(tb.texture);
                 if (!dxTex) continue;
@@ -203,7 +206,7 @@ public:
                         }
                     }
                     if (!found)
-                        coalesced.push_back({ dxTex->handle(), D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                        coalesced.PushBack({ dxTex->handle(), D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                                               resolvedOldState, newState });
 
                     dxTex->setState(newState);
@@ -233,7 +236,7 @@ public:
                                 }
                             }
                             if (!found)
-                                coalesced.push_back({ dxTex->handle(), sub, resolvedOldState, newState });
+                                coalesced.PushBack({ dxTex->handle(), sub, resolvedOldState, newState });
                         }
                     }
                     dxTex->setSubresourceState(baseMip, tb.mipLevelCount, baseLayer, tb.arrayLayerCount, newState);
@@ -250,21 +253,21 @@ public:
                 b.Transition.StateBefore = entry.firstBefore;
                 b.Transition.StateAfter  = entry.lastAfter;
                 b.Transition.Subresource = entry.subresource;
-                dxBarriers.push_back(b);
+                dxBarriers.PushBack(b);
             }
         }
 
         // Memory barriers -> UAV barriers.
-        for (usize i = 0; i < group.memoryBarriers.count(); ++i) {
+        for (usize i = 0; i < group.memoryBarriers.Size(); ++i) {
             D3D12_RESOURCE_BARRIER b{};
             b.Type  = D3D12_RESOURCE_BARRIER_TYPE_UAV;
             b.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
             b.UAV.pResource = nullptr; // global UAV barrier
-            dxBarriers.push_back(b);
+            dxBarriers.PushBack(b);
         }
 
-        if (!dxBarriers.empty())
-            cmdList_->ResourceBarrier(static_cast<UINT>(dxBarriers.size()), dxBarriers.data());
+        if (!dxBarriers.IsEmpty())
+            cmdList_->ResourceBarrier(static_cast<UINT>(dxBarriers.Size()), dxBarriers.Data());
     }
 
     // ---- Copy Operations ----
@@ -540,11 +543,11 @@ public:
         ComPtr<ID3D12GraphicsCommandList4> cmdList4;
         if (FAILED(cmdList_->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4) return;
 
-        usize totalGeoms = tris.count() + aabbs.count();
-        std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs(totalGeoms);
+        usize totalGeoms = tris.Size() + aabbs.Size();
+        Array<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs(totalGeoms);
         usize idx = 0;
 
-        for (usize i = 0; i < tris.count(); ++i) {
+        for (usize i = 0; i < tris.Size(); ++i) {
             const auto& t = tris[i];
             geomDescs[idx] = {};
             geomDescs[idx].Type  = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
@@ -578,7 +581,7 @@ public:
             ++idx;
         }
 
-        for (usize i = 0; i < aabbs.count(); ++i) {
+        for (usize i = 0; i < aabbs.Size(); ++i) {
             const auto& a = aabbs[i];
             geomDescs[idx] = {};
             geomDescs[idx].Type  = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
@@ -600,7 +603,7 @@ public:
         buildDesc.Inputs.Flags          = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
         buildDesc.Inputs.NumDescs       = static_cast<UINT>(totalGeoms);
         buildDesc.Inputs.DescsLayout    = D3D12_ELEMENTS_LAYOUT_ARRAY;
-        buildDesc.Inputs.pGeometryDescs = geomDescs.data();
+        buildDesc.Inputs.pGeometryDescs = geomDescs.Data();
 
         cmdList4->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
     }
@@ -629,7 +632,7 @@ public:
     }
 
     void setRayTracingPipeline(RayTracingPipeline* pipeline) override {
-        currentRtPipeline_ = dynamic_cast<DxRayTracingPipelineImpl*>(pipeline);
+        currentRtPipeline_ = static_cast<DxRayTracingPipelineImpl*>(pipeline);
         if (!currentRtPipeline_) return;
 
         ensureDescriptorHeaps();
@@ -681,13 +684,13 @@ public:
         auto dynEntries = layout->dynamicRootEntries();
         auto dynAddrs   = dxGroup->dynamicGpuAddresses();
         usize dynOffsetIdx = 0;
-        for (usize i = 0; i < dynEntries.count(); ++i) {
+        for (usize i = 0; i < dynEntries.Size(); ++i) {
             const auto& entry = dynEntries[i];
             if (entry.groupIndex != index) continue;
-            if (entry.dynamicIndex >= dynAddrs.count()) continue;
+            if (entry.dynamicIndex >= dynAddrs.Size()) continue;
 
             u64 gpuAddr = dynAddrs[entry.dynamicIndex];
-            if (dynOffsetIdx < dynamicOffsets.count())
+            if (dynOffsetIdx < dynamicOffsets.Size())
                 gpuAddr += static_cast<u64>(dynamicOffsets[dynOffsetIdx]);
             ++dynOffsetIdx;
 

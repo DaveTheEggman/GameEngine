@@ -3,14 +3,15 @@
 /// Ported from Sedulous.RHI.DX12/DX12GpuDescriptorHeap.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
-
-#include <vector>
 
 export module raptor.rhi.dx12:gpu_descriptor_heap;
 
 import raptor.core;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
@@ -41,12 +42,12 @@ public:
     i32 allocate(u32 count) {
         if (count == 0) return -1;
         // First-fit from free list.
-        for (usize i = 0; i < freeBlocks_.size(); ++i) {
+        for (usize i = 0; i < freeBlocks_.Size(); ++i) {
             auto& b = freeBlocks_[i];
             if (b.count >= count) {
                 u32 off = b.offset;
                 if (b.count == count)
-                    freeBlocks_.erase(freeBlocks_.begin() + static_cast<std::ptrdiff_t>(i));
+                    freeBlocks_.RemoveAt(i);
                 else
                     b = { b.offset + count, b.count - count };
                 return static_cast<i32>(off);
@@ -65,19 +66,19 @@ public:
     void free(u32 offset, u32 count) {
         if (count == 0) return;
         u32 mOff = offset, mCnt = count;
-        for (auto it = freeBlocks_.begin(); it != freeBlocks_.end(); ) {
-            if (it->offset + it->count == mOff) {
-                mOff = it->offset; mCnt += it->count;
-                it = freeBlocks_.erase(it);
-            } else if (mOff + mCnt == it->offset) {
-                mCnt += it->count;
-                it = freeBlocks_.erase(it);
-            } else ++it;
+        for (usize i = 0; i < freeBlocks_.Size(); ) {
+            if (freeBlocks_[i].offset + freeBlocks_[i].count == mOff) {
+                mOff = freeBlocks_[i].offset; mCnt += freeBlocks_[i].count;
+                freeBlocks_.RemoveAt(i);
+            } else if (mOff + mCnt == freeBlocks_[i].offset) {
+                mCnt += freeBlocks_[i].count;
+                freeBlocks_.RemoveAt(i);
+            } else ++i;
         }
         if (mOff + mCnt == nextFree_)
             nextFree_ = mOff;
         else
-            freeBlocks_.push_back({ mOff, mCnt });
+            freeBlocks_.PushBack({ mOff, mCnt });
     }
 
     D3D12_CPU_DESCRIPTOR_HANDLE getCpuHandle(u32 offset) const {
@@ -87,7 +88,7 @@ public:
         D3D12_GPU_DESCRIPTOR_HANDLE h{}; h.ptr = gpuStart_.ptr + static_cast<UINT64>(offset) * incrementSize_; return h;
     }
 
-    void destroy() { heap_.Reset(); freeBlocks_.clear(); }
+    void destroy() { heap_.Reset(); freeBlocks_.Clear(); }
 
     [[nodiscard]] ID3D12DescriptorHeap* heap()          const { return heap_.Get(); }
     [[nodiscard]] u32                   incrementSize()  const { return incrementSize_; }
@@ -101,7 +102,7 @@ private:
     u32                           incrementSize_ = 0;
     u32                           capacity_  = 0;
     u32                           nextFree_  = 0;
-    std::vector<FreeBlock>        freeBlocks_;
+    Array<FreeBlock>              freeBlocks_;
 };
 
 } // namespace raptor::rhi::dx12

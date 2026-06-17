@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12Buffer.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "DxIncludes.h"
 
@@ -10,6 +11,8 @@ export module raptor.rhi.dx12:buffer;
 import raptor.core;
 import raptor.rhi;
 import :conversions;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
