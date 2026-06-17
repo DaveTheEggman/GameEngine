@@ -79,22 +79,6 @@ export namespace raptor::core
                 && BasicStringView{ m_data + (m_size - suffix.m_size), suffix.m_size } == suffix;
         }
 
-        [[nodiscard]] friend constexpr bool operator==(BasicStringView a, BasicStringView b) noexcept
-        {
-            if (a.m_size != b.m_size)
-            {
-                return false;
-            }
-            for (usize i = 0; i < a.m_size; ++i)
-            {
-                if (a.m_data[i] != b.m_data[i])
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
     private:
         const CharT* m_data = nullptr;
         usize m_size = 0;
@@ -312,6 +296,24 @@ export namespace raptor::core
     // Comparison as free function templates (not hidden friends): friends
     // defined in an exported module class can get strong per-TU symbols under
     // GCC, colliding at link; template free functions have COMDAT linkage.
+    template <typename CharT>
+    [[nodiscard]] constexpr bool operator==(BasicStringView<CharT> a, BasicStringView<CharT> b) noexcept
+    {
+        if (a.Size() != b.Size()) { return false; }
+        for (usize i = 0; i < a.Size(); ++i)
+        {
+            if (a.Data()[i] != b.Data()[i]) { return false; }
+        }
+        return true;
+    }
+    // A C-string literal can't deduce CharT for the view==view template, so a
+    // dedicated overload covers `view == "lit"` (and, via the C++20 reversed
+    // candidate, `"lit" == view`).
+    template <typename CharT>
+    [[nodiscard]] constexpr bool operator==(BasicStringView<CharT> a, const CharT* b) noexcept
+    {
+        return a == BasicStringView<CharT>{ b };
+    }
     template <typename CharT>
     [[nodiscard]] bool operator==(const BasicString<CharT>& a, const BasicString<CharT>& b) noexcept
     {
