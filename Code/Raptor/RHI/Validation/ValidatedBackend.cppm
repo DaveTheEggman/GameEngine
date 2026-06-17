@@ -2,14 +2,16 @@
 /// Ported from Sedulous.RHI.Validation/ValidatedBackend.bf.
 
 module;
+#include "Core/Prelude.h"
 
-#include <vector>
 
 export module raptor.rhi.validation:validated_backend;
 
 import raptor.core;
 import raptor.rhi;
 import :validated_adapter;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::validation {
 
@@ -25,17 +27,17 @@ public:
             return {};
         }
 
-        if (adapterWrappers_.empty()) {
+        if (adapterWrappers_.IsEmpty()) {
             auto innerAdapters = inner_->enumerateAdapters();
-            adapterWrappers_.reserve(innerAdapters.count());
-            adapterPtrs_.reserve(innerAdapters.count());
-            for (usize i = 0; i < innerAdapters.count(); ++i) {
+            adapterWrappers_.Reserve(innerAdapters.Size());
+            adapterPtrs_.Reserve(innerAdapters.Size());
+            for (usize i = 0; i < innerAdapters.Size(); ++i) {
                 auto* w = createValidatedAdapter(innerAdapters[i]);
-                adapterWrappers_.push_back(w);
-                adapterPtrs_.push_back(w);
+                adapterWrappers_.PushBack(w);
+                adapterPtrs_.PushBack(w);
             }
         }
-        return Span<Adapter* const>(adapterPtrs_.data(), adapterPtrs_.size());
+        return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
     }
 
     Status createSurface(void* windowHandle, void* displayHandle, Surface*& out) override {
@@ -49,8 +51,8 @@ public:
 
     void destroy() override {
         for (auto* w : adapterWrappers_) delete w;
-        adapterWrappers_.clear();
-        adapterPtrs_.clear();
+        adapterWrappers_.Clear();
+        adapterPtrs_.Clear();
         inner_->destroy();
         delete this;
     }
@@ -61,8 +63,8 @@ private:
     static ValidatedAdapter* createValidatedAdapter(Adapter* inner);
 
     Backend* inner_;
-    std::vector<ValidatedAdapter*> adapterWrappers_;
-    std::vector<Adapter*>          adapterPtrs_;
+    Array<ValidatedAdapter*> adapterWrappers_;
+    Array<Adapter*>          adapterPtrs_;
 };
 
 Backend* createValidatedBackend(Backend* inner) {

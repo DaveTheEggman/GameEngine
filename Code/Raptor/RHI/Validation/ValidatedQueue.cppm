@@ -2,8 +2,8 @@
 /// Ported from Sedulous.RHI.Validation/ValidatedQueue.bf.
 
 module;
+#include "Core/Prelude.h"
 
-#include <vector>
 
 export module raptor.rhi.validation:validated_queue;
 
@@ -12,6 +12,8 @@ import raptor.rhi;
 import :validated_fence;
 import :validated_transfer_batch;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::validation {
 
 class ValidatedQueue : public Queue {
@@ -19,14 +21,14 @@ public:
     explicit ValidatedQueue(Queue* inner) : inner_(inner) { queueType = inner->queueType; }
 
     void submit(Span<CommandBuffer* const> cmdBufs) override {
-        for (usize i = 0; i < cmdBufs.count(); ++i)
+        for (usize i = 0; i < cmdBufs.Size(); ++i)
             if (!cmdBufs[i]) logErrorf("[Validation] Queue::submit: commandBuffer[%zu] is null", i);
         inner_->submit(cmdBufs);
     }
 
     void submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) override {
         if (!signalFence) { logError("[Validation] Queue::submit: signalFence is null"); return; }
-        auto* vf = dynamic_cast<ValidatedFence*>(signalFence);
+        auto* vf = static_cast<ValidatedFence*>(signalFence);
         Fence* innerFence = vf ? vf->inner() : signalFence;
         if (vf) vf->trackSignal(signalValue);
         inner_->submit(cmdBufs, innerFence, signalValue);
@@ -35,18 +37,18 @@ public:
     void submit(Span<CommandBuffer* const> cmdBufs,
                 Span<Fence* const> waitFences, Span<const u64> waitValues,
                 Fence* signalFence, u64 signalValue) override {
-        if (waitFences.count() != waitValues.count())
+        if (waitFences.Size() != waitValues.Size())
             logError("[Validation] Queue::submit: waitFences and waitValues count mismatch");
         // Unwrap validated fences for both wait and signal.
-        std::vector<Fence*> innerWait(waitFences.count());
-        for (usize i = 0; i < waitFences.count(); ++i) {
-            auto* vw = dynamic_cast<ValidatedFence*>(waitFences[i]);
+        Array<Fence*> innerWait(waitFences.Size());
+        for (usize i = 0; i < waitFences.Size(); ++i) {
+            auto* vw = static_cast<ValidatedFence*>(waitFences[i]);
             innerWait[i] = vw ? vw->inner() : waitFences[i];
         }
-        auto* vf = dynamic_cast<ValidatedFence*>(signalFence);
+        auto* vf = static_cast<ValidatedFence*>(signalFence);
         Fence* innerSignal = vf ? vf->inner() : signalFence;
         if (vf) vf->trackSignal(signalValue);
-        inner_->submit(cmdBufs, Span<Fence* const>(innerWait.data(), innerWait.size()), waitValues, innerSignal, signalValue);
+        inner_->submit(cmdBufs, Span<Fence* const>(innerWait.Data(), innerWait.Size()), waitValues, innerSignal, signalValue);
     }
 
     void waitIdle() override { inner_->waitIdle(); }
@@ -61,7 +63,7 @@ public:
 
     void destroyTransferBatch(TransferBatch*& batch) override {
         if (!batch) return;
-        auto* vt = dynamic_cast<ValidatedTransferBatch*>(batch);
+        auto* vt = static_cast<ValidatedTransferBatch*>(batch);
         if (vt) {
             TransferBatch* innerBatch = vt->inner();
             inner_->destroyTransferBatch(innerBatch);

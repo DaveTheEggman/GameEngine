@@ -3,8 +3,8 @@
 /// Ported from Sedulous.RHI.Validation/ValidatedDevice.bf.
 
 module;
+#include "Core/Prelude.h"
 
-#include <vector>
 
 export module raptor.rhi.validation:validated_device;
 
@@ -14,6 +14,8 @@ import :validated_fence;
 import :validated_swap_chain;
 import :validated_command_pool;
 import :validated_queue;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::validation {
 
@@ -34,7 +36,7 @@ public:
         if (!raw) return nullptr;
         for (auto& w : queueWrappers_) if (w.raw == raw) return w.validated;
         auto* vq = new ValidatedQueue(raw);
-        queueWrappers_.push_back({ raw, vq });
+        queueWrappers_.PushBack({ raw, vq });
         return vq;
     }
     u32 getQueueCount(QueueType t) override { return inner_->getQueueCount(t); }
@@ -45,7 +47,7 @@ public:
     Status method(const desc_t& d, Type*& out) override { \
         if (destroyed_) { logError("[Validation] " #method ": device destroyed"); out = nullptr; return ErrorCode::Unknown; } \
         Status r = inner_->method(d, out); \
-        if (r == ErrorCode::Ok && out) live##Type##s_.push_back(out); \
+        if (r == ErrorCode::Ok && out) live##Type##s_.PushBack(out); \
         return r; \
     }
 
@@ -66,7 +68,7 @@ public:
         if (destroyed_) { logError("[Validation] createTextureView: device destroyed"); out = nullptr; return ErrorCode::Unknown; }
         if (!tex) { logError("[Validation] createTextureView: texture is null"); out = nullptr; return ErrorCode::Unknown; }
         Status r = inner_->createTextureView(tex, d, out);
-        if (r == ErrorCode::Ok && out) liveTextureViews_.push_back(out);
+        if (r == ErrorCode::Ok && out) liveTextureViews_.PushBack(out);
         return r;
     }
 
@@ -76,7 +78,7 @@ public:
         Status r = inner_->createCommandPool(qt, innerPool);
         if (r != ErrorCode::Ok || !innerPool) { out = nullptr; return r; }
         out = new ValidatedCommandPool(innerPool);
-        liveCommandPools_.push_back(out);
+        liveCommandPools_.PushBack(out);
         return ErrorCode::Ok;
     }
 
@@ -86,7 +88,7 @@ public:
         Status r = inner_->createFence(initialValue, innerFence);
         if (r != ErrorCode::Ok || !innerFence) { out = nullptr; return r; }
         out = new ValidatedFence(innerFence);
-        liveFences_.push_back(out);
+        liveFences_.PushBack(out);
         return ErrorCode::Ok;
     }
 
@@ -96,7 +98,7 @@ public:
         Status r = inner_->createSwapChain(surface, d, innerSc);
         if (r != ErrorCode::Ok || !innerSc) { out = nullptr; return r; }
         out = new ValidatedSwapChain(innerSc);
-        liveSwapChains_.push_back(out);
+        liveSwapChains_.PushBack(out);
         return ErrorCode::Ok;
     }
 
@@ -104,7 +106,7 @@ public:
     Status createMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
         if (destroyed_) { out = nullptr; return ErrorCode::Unknown; }
         Status r = inner_->createMeshPipeline(d, out);
-        if (r == ErrorCode::Ok && out) liveMeshPipelines_.push_back(out);
+        if (r == ErrorCode::Ok && out) liveMeshPipelines_.PushBack(out);
         return r;
     }
     void destroyMeshPipeline(MeshPipeline*& p) override { removeAndDestroy(liveMeshPipelines_, p, [&](auto*& x){ inner_->destroyMeshPipeline(x); }); }
@@ -112,7 +114,7 @@ public:
     Status createAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
         if (destroyed_) { out = nullptr; return ErrorCode::Unknown; }
         Status r = inner_->createAccelStruct(d, out);
-        if (r == ErrorCode::Ok && out) liveAccelStructs_.push_back(out);
+        if (r == ErrorCode::Ok && out) liveAccelStructs_.PushBack(out);
         return r;
     }
     void destroyAccelStruct(AccelStruct*& a) override { removeAndDestroy(liveAccelStructs_, a, [&](auto*& x){ inner_->destroyAccelStruct(x); }); }
@@ -120,7 +122,7 @@ public:
     Status createRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
         if (destroyed_) { out = nullptr; return ErrorCode::Unknown; }
         Status r = inner_->createRayTracingPipeline(d, out);
-        if (r == ErrorCode::Ok && out) liveRtPipelines_.push_back(out);
+        if (r == ErrorCode::Ok && out) liveRtPipelines_.PushBack(out);
         return r;
     }
     void destroyRayTracingPipeline(RayTracingPipeline*& p) override { removeAndDestroy(liveRtPipelines_, p, [&](auto*& x){ inner_->destroyRayTracingPipeline(x); }); }
@@ -150,7 +152,7 @@ public:
     void destroyCommandPool(CommandPool*& pool) override {
         if (!pool) return;
         removeFromList(liveCommandPools_, pool);
-        auto* vp = dynamic_cast<ValidatedCommandPool*>(pool);
+        auto* vp = static_cast<ValidatedCommandPool*>(pool);
         if (vp) { CommandPool* innerPool = vp->inner(); inner_->destroyCommandPool(innerPool); delete vp; }
         else inner_->destroyCommandPool(pool);
         pool = nullptr;
@@ -159,7 +161,7 @@ public:
     void destroyFence(Fence*& fence) override {
         if (!fence) return;
         removeFromList(liveFences_, fence);
-        auto* vf = dynamic_cast<ValidatedFence*>(fence);
+        auto* vf = static_cast<ValidatedFence*>(fence);
         if (vf) { Fence* innerFence = vf->inner(); inner_->destroyFence(innerFence); delete vf; }
         else inner_->destroyFence(fence);
         fence = nullptr;
@@ -168,7 +170,7 @@ public:
     void destroySwapChain(SwapChain*& sc) override {
         if (!sc) return;
         removeFromList(liveSwapChains_, sc);
-        auto* vs = dynamic_cast<ValidatedSwapChain*>(sc);
+        auto* vs = static_cast<ValidatedSwapChain*>(sc);
         if (vs) { SwapChain* innerSc = vs->inner(); inner_->destroySwapChain(innerSc); delete vs; }
         else inner_->destroySwapChain(sc);
         sc = nullptr;
@@ -183,21 +185,21 @@ public:
         destroyed_ = true;
         reportLeaks();
         for (auto& w : queueWrappers_) delete w.validated;
-        queueWrappers_.clear();
+        queueWrappers_.Clear();
         inner_->destroy();
         delete this;
     }
 
 private:
     template <typename T>
-    void removeFromList(std::vector<T*>& list, T* item) {
-        for (auto it = list.begin(); it != list.end(); ++it) {
-            if (*it == item) { list.erase(it); return; }
+    void removeFromList(Array<T*>& list, T* item) {
+        for (usize i = 0; i < list.Size(); ++i) {
+            if (list[i] == item) { list.RemoveAt(i); return; }
         }
     }
 
     template <typename T, typename Fn>
-    void removeAndDestroy(std::vector<T*>& list, T*& item, Fn destroyFn) {
+    void removeAndDestroy(Array<T*>& list, T*& item, Fn destroyFn) {
         if (!item) return;
         removeFromList(list, item);
         destroyFn(item);
@@ -208,50 +210,50 @@ private:
         auto report = [](const char* name, usize count) {
             if (count > 0) logWarningf("[Validation] Device destroyed with %zu live %s(s)", count, name);
         };
-        report("Buffer", liveBuffers_.size());
-        report("Texture", liveTextures_.size());
-        report("TextureView", liveTextureViews_.size());
-        report("Sampler", liveSamplers_.size());
-        report("ShaderModule", liveShaderModules_.size());
-        report("BindGroupLayout", liveBindGroupLayouts_.size());
-        report("BindGroup", liveBindGroups_.size());
-        report("PipelineLayout", livePipelineLayouts_.size());
-        report("PipelineCache", livePipelineCaches_.size());
-        report("RenderPipeline", liveRenderPipelines_.size());
-        report("ComputePipeline", liveComputePipelines_.size());
-        report("MeshPipeline", liveMeshPipelines_.size());
-        report("AccelStruct", liveAccelStructs_.size());
-        report("RayTracingPipeline", liveRtPipelines_.size());
-        report("CommandPool", liveCommandPools_.size());
-        report("Fence", liveFences_.size());
-        report("SwapChain", liveSwapChains_.size());
-        report("QuerySet", liveQuerySets_.size());
+        report("Buffer", liveBuffers_.Size());
+        report("Texture", liveTextures_.Size());
+        report("TextureView", liveTextureViews_.Size());
+        report("Sampler", liveSamplers_.Size());
+        report("ShaderModule", liveShaderModules_.Size());
+        report("BindGroupLayout", liveBindGroupLayouts_.Size());
+        report("BindGroup", liveBindGroups_.Size());
+        report("PipelineLayout", livePipelineLayouts_.Size());
+        report("PipelineCache", livePipelineCaches_.Size());
+        report("RenderPipeline", liveRenderPipelines_.Size());
+        report("ComputePipeline", liveComputePipelines_.Size());
+        report("MeshPipeline", liveMeshPipelines_.Size());
+        report("AccelStruct", liveAccelStructs_.Size());
+        report("RayTracingPipeline", liveRtPipelines_.Size());
+        report("CommandPool", liveCommandPools_.Size());
+        report("Fence", liveFences_.Size());
+        report("SwapChain", liveSwapChains_.Size());
+        report("QuerySet", liveQuerySets_.Size());
     }
 
     Device* inner_;
     bool    destroyed_ = false;
 
     struct QueueWrap { Queue* raw; ValidatedQueue* validated; };
-    std::vector<QueueWrap> queueWrappers_;
+    Array<QueueWrap> queueWrappers_;
 
-    std::vector<Buffer*>            liveBuffers_;
-    std::vector<Texture*>           liveTextures_;
-    std::vector<TextureView*>       liveTextureViews_;
-    std::vector<Sampler*>           liveSamplers_;
-    std::vector<ShaderModule*>      liveShaderModules_;
-    std::vector<BindGroupLayout*>   liveBindGroupLayouts_;
-    std::vector<BindGroup*>         liveBindGroups_;
-    std::vector<PipelineLayout*>    livePipelineLayouts_;
-    std::vector<PipelineCache*>     livePipelineCaches_;
-    std::vector<RenderPipeline*>    liveRenderPipelines_;
-    std::vector<ComputePipeline*>   liveComputePipelines_;
-    std::vector<MeshPipeline*>      liveMeshPipelines_;
-    std::vector<AccelStruct*>       liveAccelStructs_;
-    std::vector<RayTracingPipeline*>liveRtPipelines_;
-    std::vector<CommandPool*>       liveCommandPools_;
-    std::vector<Fence*>             liveFences_;
-    std::vector<SwapChain*>         liveSwapChains_;
-    std::vector<QuerySet*>          liveQuerySets_;
+    Array<Buffer*>            liveBuffers_;
+    Array<Texture*>           liveTextures_;
+    Array<TextureView*>       liveTextureViews_;
+    Array<Sampler*>           liveSamplers_;
+    Array<ShaderModule*>      liveShaderModules_;
+    Array<BindGroupLayout*>   liveBindGroupLayouts_;
+    Array<BindGroup*>         liveBindGroups_;
+    Array<PipelineLayout*>    livePipelineLayouts_;
+    Array<PipelineCache*>     livePipelineCaches_;
+    Array<RenderPipeline*>    liveRenderPipelines_;
+    Array<ComputePipeline*>   liveComputePipelines_;
+    Array<MeshPipeline*>      liveMeshPipelines_;
+    Array<AccelStruct*>       liveAccelStructs_;
+    Array<RayTracingPipeline*>liveRtPipelines_;
+    Array<CommandPool*>       liveCommandPools_;
+    Array<Fence*>             liveFences_;
+    Array<SwapChain*>         liveSwapChains_;
+    Array<QuerySet*>          liveQuerySets_;
 };
 
 } // namespace raptor::rhi::validation

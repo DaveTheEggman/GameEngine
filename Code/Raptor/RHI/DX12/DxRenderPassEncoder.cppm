@@ -41,6 +41,7 @@ struct DxRenderPassContext {
 
 class DxRenderPassEncoderImpl : public RenderPassEncoder, public MeshShaderPassExt {
 public:
+    MeshShaderPassExt* asMeshShaderExt() noexcept override { return this; }
     explicit DxRenderPassEncoderImpl(const DxRenderPassContext& ctx)
         : ctx_(ctx) {}
 

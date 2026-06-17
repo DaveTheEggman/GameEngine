@@ -25,6 +25,7 @@ export namespace raptor::rhi::vk {
 
 class VkRenderPassEncoderImpl : public RenderPassEncoder, public MeshShaderPassExt {
 public:
+    MeshShaderPassExt* asMeshShaderExt() noexcept override { return this; }
     VkRenderPassEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device)
         : cmdBuf_(cmdBuf), device_(device) {}
 

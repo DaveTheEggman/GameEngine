@@ -1,10 +1,15 @@
 /// Validation wrapper for Fence.
 /// Ported from Sedulous.RHI.Validation/ValidatedFence.bf.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.validation:validated_fence;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::validation {
 

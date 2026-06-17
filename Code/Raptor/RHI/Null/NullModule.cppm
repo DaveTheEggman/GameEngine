@@ -78,6 +78,7 @@ class NullRayTracingPipeline : public RayTracingPipeline {};
 
 class NullRenderPassEncoder : public RenderPassEncoder, public MeshShaderPassExt {
 public:
+    MeshShaderPassExt* asMeshShaderExt() noexcept override { return this; }
     void setPipeline(RenderPipeline*) override {}
     void setBindGroup(u32, BindGroup*, Span<const u32>) override {}
     void setPushConstants(ShaderStage, u32, u32, const void*) override {}
@@ -115,6 +116,7 @@ public:
 
 class NullCommandEncoder : public CommandEncoder, public RayTracingEncoderExt {
 public:
+    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
     NullRenderPassEncoder rpe;
     NullComputePassEncoder cpe;
     NullCommandBuffer cb;

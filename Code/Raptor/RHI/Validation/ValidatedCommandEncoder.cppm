@@ -1,6 +1,9 @@
 /// Validation wrapper for CommandEncoder + RayTracingEncoderExt.
 /// Ported from Sedulous.RHI.Validation/ValidatedCommandEncoder.bf.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.validation:validated_command_encoder;
 
 import raptor.core;
@@ -8,12 +11,15 @@ import raptor.rhi;
 import :validated_render_pass_encoder;
 import :validated_compute_pass_encoder;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::validation {
 
 enum class EncoderState { Recording, InRenderPass, InComputePass, Finished };
 
 class ValidatedCommandEncoder : public CommandEncoder, public RayTracingEncoderExt {
 public:
+    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
     explicit ValidatedCommandEncoder(CommandEncoder* inner)
         : inner_(inner) {}
 
@@ -24,12 +30,12 @@ public:
 
     RenderPassEncoder* beginRenderPass(const RenderPassDesc& desc) override {
         if (!checkState("beginRenderPass", EncoderState::Recording)) return &rpe_;
-        if (desc.colorAttachments.isEmpty() &&
-            (!desc.depthStencilAttachment.has_value() || !desc.depthStencilAttachment->view))
+        if (desc.colorAttachments.IsEmpty() &&
+            (!desc.depthStencilAttachment.HasValue() || !desc.depthStencilAttachment->view))
             logWarning("[Validation] beginRenderPass: no color or depth attachment");
-        for (i32 i = 0; i < desc.colorAttachments.count; ++i)
+        for (usize i = 0; i < desc.colorAttachments.count; ++i)
             if (!desc.colorAttachments[i].view)
-                logErrorf("[Validation] beginRenderPass: color attachment %d view is null", i);
+                logErrorf("[Validation] beginRenderPass: color attachment %d view is null", static_cast<int>(i));
 
         state_ = EncoderState::InRenderPass;
         auto* innerRpe = inner_->beginRenderPass(desc);
@@ -151,7 +157,7 @@ public:
         if (!checkState("buildBLAS", EncoderState::Recording)) return;
         if (!dst) { logError("[Validation] buildBLAS: dst is null"); return; }
         if (!scratch) { logError("[Validation] buildBLAS: scratch is null"); return; }
-        auto* rt = dynamic_cast<RayTracingEncoderExt*>(inner_);
+        auto* rt = inner_->asRayTracingExt();
         if (rt) rt->buildBottomLevelAccelStruct(dst, scratch, scratchOff, tris, aabbs);
         else logError("[Validation] buildBLAS: inner encoder does not support ray tracing");
     }
@@ -160,7 +166,7 @@ public:
                                   Buffer* instanceBuf, u64 instanceOff, u32 instanceCount) override {
         if (!checkState("buildTLAS", EncoderState::Recording)) return;
         if (!dst || !scratch || !instanceBuf) { logError("[Validation] buildTLAS: null argument"); return; }
-        auto* rt = dynamic_cast<RayTracingEncoderExt*>(inner_);
+        auto* rt = inner_->asRayTracingExt();
         if (rt) rt->buildTopLevelAccelStruct(dst, scratch, scratchOff, instanceBuf, instanceOff, instanceCount);
         else logError("[Validation] buildTLAS: inner encoder does not support ray tracing");
     }
@@ -169,7 +175,7 @@ public:
         if (!checkState("setRayTracingPipeline", EncoderState::Recording)) return;
         if (!pipeline) { logError("[Validation] setRayTracingPipeline: pipeline is null"); return; }
         rtPipelineBound_ = true;
-        auto* rt = dynamic_cast<RayTracingEncoderExt*>(inner_);
+        auto* rt = inner_->asRayTracingExt();
         if (rt) rt->setRayTracingPipeline(pipeline);
     }
 
@@ -177,7 +183,7 @@ public:
         if (!checkState("RT setBindGroup", EncoderState::Recording)) return;
         if (!group) { logError("[Validation] RT setBindGroup: group is null"); return; }
         if (!rtPipelineBound_) logWarning("[Validation] RT setBindGroup: no RT pipeline bound");
-        auto* rt = dynamic_cast<RayTracingEncoderExt*>(inner_);
+        auto* rt = inner_->asRayTracingExt();
         if (rt) rt->setBindGroup(index, group, dynOffsets);
     }
 
@@ -185,7 +191,7 @@ public:
         if (!checkState("RT setPushConstants", EncoderState::Recording)) return;
         if (!rtPipelineBound_) logWarning("[Validation] RT setPushConstants: no RT pipeline bound");
         if (!data && size > 0) { logError("[Validation] RT setPushConstants: data is null"); return; }
-        auto* rt = dynamic_cast<RayTracingEncoderExt*>(inner_);
+        auto* rt = inner_->asRayTracingExt();
         if (rt) rt->setPushConstants(stages, offset, size, data);
     }
 
@@ -196,7 +202,7 @@ public:
         if (!checkState("traceRays", EncoderState::Recording)) return;
         if (!rtPipelineBound_) { logError("[Validation] traceRays: no RT pipeline bound"); return; }
         if (!raygenSBT) { logError("[Validation] traceRays: raygenSBT is null"); return; }
-        auto* rt = dynamic_cast<RayTracingEncoderExt*>(inner_);
+        auto* rt = inner_->asRayTracingExt();
         if (rt) rt->traceRays(raygenSBT, raygenOff, raygenStride, missSBT, missOff, missStride,
                               hitSBT, hitOff, hitStride, width, height, depth);
     }
@@ -229,14 +235,14 @@ private:
 
 // ---- Deferred end() implementations ----
 
-inline void ValidatedRenderPassEncoder::end() {
+void ValidatedRenderPassEncoder::end() {
     if (ended_) { logError("[Validation] RenderPassEncoder::end: already ended"); return; }
     ended_ = true;
     inner_->end();
     if (parent_) parent_->onPassEnded();
 }
 
-inline void ValidatedComputePassEncoder::end() {
+void ValidatedComputePassEncoder::end() {
     if (ended_) { logError("[Validation] ComputePassEncoder::end: already ended"); return; }
     ended_ = true;
     inner_->end();

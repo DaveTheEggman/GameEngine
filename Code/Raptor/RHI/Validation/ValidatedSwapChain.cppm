@@ -1,11 +1,16 @@
 /// Validation wrapper for SwapChain.
 /// Ported from Sedulous.RHI.Validation/ValidatedSwapChain.bf.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.validation:validated_swap_chain;
 
 import raptor.core;
 import raptor.rhi;
 import :validated_queue;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::validation {
 
@@ -32,7 +37,7 @@ public:
         if (!imageAcquired_) logWarning("[Validation] SwapChain::present: no image acquired");
         imageAcquired_ = false;
         // Unwrap validated queue so the inner swap chain gets the raw VK queue.
-        auto* vq = dynamic_cast<ValidatedQueue*>(queue);
+        auto* vq = static_cast<ValidatedQueue*>(queue);
         return inner_->present(vq ? vq->inner() : queue);
     }
 

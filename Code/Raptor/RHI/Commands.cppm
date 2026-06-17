@@ -4,6 +4,7 @@
 export module raptor.rhi:commands;
 
 import raptor.core;
+import :forward;
 import :enums;
 import :types;
 import :descriptors;
@@ -19,6 +20,10 @@ export namespace raptor::rhi {
 class RenderPassEncoder {
 public:
     virtual ~RenderPassEncoder() = default;
+
+    /// Cross-query for the mesh-shader extension (-fno-rtti replacement for a
+    /// sideways dynamic_cast). Encoders that support it return `this`.
+    [[nodiscard]] virtual MeshShaderPassExt* asMeshShaderExt() noexcept { return nullptr; }
 
     /// Bind a graphics (rasterization) pipeline.
     virtual void setPipeline(RenderPipeline* pipeline) = 0;
@@ -90,6 +95,10 @@ public:
 class CommandEncoder {
 public:
     virtual ~CommandEncoder() = default;
+
+    /// Cross-query for the ray-tracing extension (-fno-rtti replacement for a
+    /// sideways dynamic_cast). Encoders that support it return `this`.
+    [[nodiscard]] virtual RayTracingEncoderExt* asRayTracingExt() noexcept { return nullptr; }
 
     /// Begin a render pass. Returns the encoder for recording draw commands.
     [[nodiscard]] virtual RenderPassEncoder* beginRenderPass(const RenderPassDesc& desc) = 0;

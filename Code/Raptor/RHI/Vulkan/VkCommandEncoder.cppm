@@ -33,6 +33,7 @@ export namespace raptor::rhi::vk {
 
 class VkCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt {
 public:
+    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
     VkCommandEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device, VkCommandPoolImpl* pool)
         : cmdBuf_(cmdBuf), device_(device), pool_(pool),
           rpe_(cmdBuf, device), cpe_(cmdBuf) {}

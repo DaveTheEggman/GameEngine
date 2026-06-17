@@ -28,6 +28,7 @@ target_sources(RaptorRHI
 
 # Backends.
 add_subdirectory(Null)
+add_subdirectory(Validation)
 
 # Vulkan backend — built when the Vulkan SDK is available.
 find_package(Vulkan QUIET)

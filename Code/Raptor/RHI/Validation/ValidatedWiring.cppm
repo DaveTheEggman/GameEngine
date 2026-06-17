@@ -1,6 +1,9 @@
 /// Deferred implementations that break circular dependencies between
 /// ValidatedBackend, ValidatedAdapter, and ValidatedDevice.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.validation:wiring;
 
 import raptor.core;
@@ -8,6 +11,8 @@ import raptor.rhi;
 import :validated_backend;
 import :validated_adapter;
 import :validated_device;
+
+using namespace raptor::core;
 
 namespace raptor::rhi::validation {
 

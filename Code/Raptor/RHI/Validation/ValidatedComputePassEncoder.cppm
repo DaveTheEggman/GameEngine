@@ -1,10 +1,15 @@
 /// Validation wrapper for ComputePassEncoder.
 /// Ported from Sedulous.RHI.Validation/ValidatedComputePassEncoder.bf.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.validation:validated_compute_pass_encoder;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::validation {
 

@@ -1,11 +1,16 @@
 /// Validation wrapper for CommandPool.
 /// Ported from Sedulous.RHI.Validation/ValidatedCommandPool.bf.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.validation:validated_command_pool;
 
 import raptor.core;
 import raptor.rhi;
 import :validated_command_encoder;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::validation {
 
@@ -23,7 +28,7 @@ public:
 
     void destroyEncoder(CommandEncoder*& encoder) override {
         if (!encoder) return;
-        auto* ve = dynamic_cast<ValidatedCommandEncoder*>(encoder);
+        auto* ve = static_cast<ValidatedCommandEncoder*>(encoder);
         if (ve) {
             CommandEncoder* innerEnc = ve->inner();
             inner_->destroyEncoder(innerEnc);

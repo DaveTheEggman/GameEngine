@@ -1,10 +1,15 @@
 /// Validation wrapper for RenderPassEncoder + MeshShaderPassExt.
 /// Ported from Sedulous.RHI.Validation/ValidatedRenderPassEncoder.bf.
 
+module;
+#include "Core/Prelude.h"
+
 export module raptor.rhi.validation:validated_render_pass_encoder;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::validation {
 
@@ -12,6 +17,7 @@ class ValidatedCommandEncoder; // forward
 
 class ValidatedRenderPassEncoder : public RenderPassEncoder, public MeshShaderPassExt {
 public:
+    MeshShaderPassExt* asMeshShaderExt() noexcept override { return this; }
     void begin(RenderPassEncoder* inner, ValidatedCommandEncoder* parent) {
         inner_ = inner; parent_ = parent;
         pipelineBound_ = false; viewportSet_ = false; scissorSet_ = false; ended_ = false;
@@ -126,28 +132,28 @@ public:
         if (ended_) { logError("[Validation] setMeshPipeline: render pass ended"); return; }
         if (!pipeline) { logError("[Validation] setMeshPipeline: pipeline is null"); return; }
         meshPipelineBound_ = true; pipelineBound_ = false;
-        auto* mp = dynamic_cast<MeshShaderPassExt*>(inner_);
+        auto* mp = inner_->asMeshShaderExt();
         if (mp) mp->setMeshPipeline(pipeline);
         else logError("[Validation] setMeshPipeline: inner encoder does not support mesh shaders");
     }
 
     void drawMeshTasks(u32 gx, u32 gy, u32 gz) override {
         if (!checkDrawReady("drawMeshTasks")) return;
-        auto* mp = dynamic_cast<MeshShaderPassExt*>(inner_);
+        auto* mp = inner_->asMeshShaderExt();
         if (mp) mp->drawMeshTasks(gx, gy, gz);
     }
 
     void drawMeshTasksIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) override {
         if (!checkDrawReady("drawMeshTasksIndirect")) return;
         if (!buf) { logError("[Validation] drawMeshTasksIndirect: buffer is null"); return; }
-        auto* mp = dynamic_cast<MeshShaderPassExt*>(inner_);
+        auto* mp = inner_->asMeshShaderExt();
         if (mp) mp->drawMeshTasksIndirect(buf, offset, drawCount, stride);
     }
 
     void drawMeshTasksIndirectCount(Buffer* buf, u64 offset, Buffer* countBuf, u64 countOffset, u32 maxDrawCount, u32 stride) override {
         if (!checkDrawReady("drawMeshTasksIndirectCount")) return;
         if (!buf || !countBuf) { logError("[Validation] drawMeshTasksIndirectCount: buffer is null"); return; }
-        auto* mp = dynamic_cast<MeshShaderPassExt*>(inner_);
+        auto* mp = inner_->asMeshShaderExt();
         if (mp) mp->drawMeshTasksIndirectCount(buf, offset, countBuf, countOffset, maxDrawCount, stride);
     }
 

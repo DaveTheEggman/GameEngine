@@ -43,6 +43,7 @@ class DxDeviceImpl; // forward
 /// render/compute passes (barriers, copies, queries, RT builds).
 class DxCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt {
 public:
+    RayTracingEncoderExt* asRayTracingExt() noexcept override { return this; }
     DxCommandEncoderImpl(DxDeviceImpl* device, ID3D12GraphicsCommandList* cmdList,
                          DxCommandPoolImpl* pool, const DxRenderPassContext& rpeCtx,
                          const DxComputePassContext& cpeCtx)
