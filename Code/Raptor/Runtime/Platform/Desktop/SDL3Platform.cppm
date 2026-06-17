@@ -431,11 +431,23 @@ export namespace raptor::runtime
             if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) { m_running = false; return; }
             m_initialized = true;
 
+            SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+#if defined(__linux__)
+            // On Wayland (GNOME/Mutter does no server-side decorations) SDL only
+            // attaches libdecor client-side decorations to a window backed by a
+            // GPU surface, so a plain window comes up bare. The desktop RHI here
+            // is Vulkan, so flag it as a Vulkan window. Skipped under the headless
+            // "dummy" driver (no Vulkan) so tests still get a window.
+            {
+                const char* driver = SDL_GetCurrentVideoDriver();
+                if (driver != nullptr && SDL_strcmp(driver, "dummy") != 0) { flags |= SDL_WINDOW_VULKAN; }
+            }
+#endif
             const rc::UTF8String title = rc::ToUTF8(settings.title);
             SDL_Window* window = SDL_CreateWindow(
                 reinterpret_cast<const char*>(title.CStr()),
                 static_cast<int>(settings.width), static_cast<int>(settings.height),
-                SDL_WINDOW_RESIZABLE);
+                flags);
             if (window == nullptr) { m_running = false; return; }
 
             m_window = rc::DefaultAllocator().New<SDL3Window>(window);
