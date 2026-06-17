@@ -1,0 +1,378 @@
+#include <new>
+/// Sample027 -- 3D Texture & 1D LUT. Ported from Sedulous Sample027_3DTexture.
+/// Demonstrates 3D textures and 1D textures.
+/// Generates a 3D noise volume, renders slices animated over time.
+/// Uses a 1D gradient LUT for color mapping.
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+
+import raptor.core;
+import raptor.rhi;
+import raptor.shaders;
+import raptor.samples.framework;
+import raptor.rhi.vk;
+
+namespace sf = raptor::samples::framework;
+namespace dr = raptor::rhi;
+namespace ds = raptor::shaders;
+
+class Texture3DSample : public sf::SampleApp {
+public:
+    using sf::SampleApp::SampleApp;
+    raptor::core::StringView title() const override { return u"Sample027 - 3D Texture & 1D LUT"; }
+protected:
+    raptor::core::Status onInit() override;
+    void onRender() override;
+    void onShutdown() override;
+private:
+    raptor::core::Status createVolumeTexture();
+    raptor::core::Status createLUTTexture();
+
+    static constexpr const char8_t kShader[] = u8R"(
+        Texture3D<float4> gVolume : register(t0, space0);
+        Texture1D<float4> gLUT    : register(t1, space0);
+        SamplerState gSampler     : register(s0, space0);
+
+        struct PushConstants
+        {
+            float SliceZ;
+            float Time;
+            float2 _pad;
+        };
+
+        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
+
+        struct PSInput
+        {
+            float4 Position : SV_POSITION;
+            float2 UV       : TEXCOORD0;
+        };
+
+        PSInput VSMain(uint vertexID : SV_VertexID)
+        {
+            PSInput output;
+            float2 uv = float2((vertexID << 1) & 2, vertexID & 2);
+            output.Position = float4(uv * 2.0 - 1.0, 0.5, 1.0);
+            output.UV = uv;
+            return output;
+        }
+
+        float4 PSMain(PSInput input) : SV_TARGET
+        {
+            // Sample 3D volume at current slice
+            float3 uvw = float3(input.UV, pc.SliceZ);
+            float density = gVolume.Sample(gSampler, uvw).r;
+
+            // Map density through 1D LUT
+            float4 color = gLUT.Sample(gSampler, density);
+            return color;
+        }
+    )";
+
+    struct PushData {
+        float sliceZ;
+        float time;
+        float _pad0;
+        float _pad1;
+    };
+
+    static constexpr raptor::core::u32 kVolumeSize = 32;
+    static constexpr raptor::core::u32 kLUTSize = 64;
+
+    ds::Compiler* compiler_ = nullptr;
+    dr::ShaderModule* vs_ = nullptr;
+    dr::ShaderModule* ps_ = nullptr;
+
+    // 3D volume texture
+    dr::Texture*     volumeTexture_ = nullptr;
+    dr::TextureView* volumeView_    = nullptr;
+
+    // 1D LUT texture
+    dr::Texture*     lutTexture_ = nullptr;
+    dr::TextureView* lutView_    = nullptr;
+
+    dr::Sampler*         sampler_  = nullptr;
+    dr::BindGroupLayout* bgl_     = nullptr;
+    dr::BindGroup*       bg_      = nullptr;
+    dr::PipelineLayout*  pl_      = nullptr;
+    dr::RenderPipeline*  pipeline_ = nullptr;
+
+    dr::CommandPool* pool_     = nullptr;
+    dr::Fence*       fence_    = nullptr;
+    raptor::core::u64       fenceVal_ = 0;
+};
+
+raptor::core::Status Texture3DSample::onInit() {
+    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+
+    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"Vol3DVS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"Vol3DPS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+
+    if (createVolumeTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (createLUTTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+
+    // Sampler
+    {
+        dr::SamplerDesc sd{};
+        sd.minFilter = dr::FilterMode::Linear;
+        sd.magFilter = dr::FilterMode::Linear;
+        sd.addressU = dr::AddressMode::Repeat;
+        sd.addressV = dr::AddressMode::Repeat;
+        sd.addressW = dr::AddressMode::Repeat;
+        sd.label = u"VolSampler";
+        if (device_->createSampler(sd, sampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    }
+
+    // Bind group layout: 3D tex, 1D tex, sampler
+    {
+        dr::BindGroupLayoutEntry entries[3] = {
+            dr::BindGroupLayoutEntry::sampledTexture(0, dr::ShaderStage::Fragment, dr::TextureViewDimension::Texture3D),
+            dr::BindGroupLayoutEntry::sampledTexture(1, dr::ShaderStage::Fragment, dr::TextureViewDimension::Texture1D),
+            dr::BindGroupLayoutEntry::sampler(0, dr::ShaderStage::Fragment)
+        };
+        dr::BindGroupLayoutDesc bgld{};
+        bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 3);
+        bgld.label = u"VolBGL";
+        if (device_->createBindGroupLayout(bgld, bgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    }
+
+    // Bind group
+    {
+        dr::BindGroupEntry entries[3] = {
+            dr::BindGroupEntry::textureEntry(volumeView_),
+            dr::BindGroupEntry::textureEntry(lutView_),
+            dr::BindGroupEntry::samplerEntry(sampler_)
+        };
+        dr::BindGroupDesc bgd{};
+        bgd.layout = bgl_;
+        bgd.entries = Span<const dr::BindGroupEntry>(entries, 3);
+        bgd.label = u"VolBG";
+        if (device_->createBindGroup(bgd, bg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    }
+
+    // Pipeline layout with push constants
+    {
+        dr::BindGroupLayout* sets[1] = { bgl_ };
+        dr::PushConstantRange pcr{};
+        pcr.stages = dr::ShaderStage::Fragment;
+        pcr.offset = 0;
+        pcr.size = sizeof(PushData);
+        dr::PushConstantRange pushRanges[1] = { pcr };
+        dr::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
+        pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
+        pld.label = u"VolPL";
+        if (device_->createPipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    }
+
+    // Render pipeline (fullscreen triangle, no vertex input)
+    {
+        dr::ColorTargetState ct{};
+        ct.format = swapChain_->format();
+        dr::RenderPipelineDesc rpd{};
+        rpd.layout = pl_;
+        rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.fragment = dr::FragmentState{};
+        rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
+        rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
+        rpd.label = u"VolPipeline";
+        if (device_->createRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    }
+
+    if (device_->createCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (device_->createFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    return raptor::core::ErrorCode::Ok;
+}
+
+raptor::core::Status Texture3DSample::createVolumeTexture() {
+    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+
+    dr::TextureDesc td{};
+    td.dimension = dr::TextureDimension::Texture3D;
+    td.format = dr::TextureFormat::R8Unorm;
+    td.width = kVolumeSize;
+    td.height = kVolumeSize;
+    td.depth = kVolumeSize;
+    td.mipLevelCount = 1;
+    td.sampleCount = 1;
+    td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
+    td.label = u"VolumeTex3D";
+    if (device_->createTexture(td, volumeTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+
+    dr::TextureViewDesc tvd{};
+    tvd.format = dr::TextureFormat::R8Unorm;
+    tvd.dimension = dr::TextureViewDimension::Texture3D;
+    if (device_->createTextureView(volumeTexture_, tvd, volumeView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+
+    // Generate procedural 3D noise data
+    constexpr u32 dataSize = kVolumeSize * kVolumeSize * kVolumeSize;
+    u8 data[dataSize];
+
+    for (u32 z = 0; z < kVolumeSize; z++) {
+        for (u32 y = 0; y < kVolumeSize; y++) {
+            for (u32 x = 0; x < kVolumeSize; x++) {
+                float fx = static_cast<float>(x) / static_cast<float>(kVolumeSize);
+                float fy = static_cast<float>(y) / static_cast<float>(kVolumeSize);
+                float fz = static_cast<float>(z) / static_cast<float>(kVolumeSize);
+
+                // Simple 3D pattern: spherical blobs + frequency pattern
+                float cx = fx - 0.5f, cy = fy - 0.5f, cz = fz - 0.5f;
+                float dist = std::sqrt(cx * cx + cy * cy + cz * cz);
+                float sphere = std::max(0.0f, 1.0f - dist * 3.0f);
+                float pattern = std::sin(fx * 12.0f) * std::sin(fy * 12.0f) * std::sin(fz * 12.0f);
+                float v = std::clamp(sphere + pattern * 0.3f, 0.0f, 1.0f);
+
+                u32 idx = z * kVolumeSize * kVolumeSize + y * kVolumeSize + x;
+                data[idx] = static_cast<u8>(v * 255.0f);
+            }
+        }
+    }
+
+    dr::TransferBatch* batch = nullptr;
+    graphicsQueue_->createTransferBatch(batch);
+    dr::TextureDataLayout layout{};
+    layout.bytesPerRow = kVolumeSize;
+    layout.rowsPerImage = kVolumeSize;
+    batch->writeTexture(volumeTexture_,
+        Span<const u8>(data, dataSize),
+        layout, dr::Extent3D{kVolumeSize, kVolumeSize, kVolumeSize});
+    batch->submit();
+    graphicsQueue_->destroyTransferBatch(batch);
+
+    return raptor::core::ErrorCode::Ok;
+}
+
+raptor::core::Status Texture3DSample::createLUTTexture() {
+    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+
+    dr::TextureDesc td{};
+    td.dimension = dr::TextureDimension::Texture1D;
+    td.format = dr::TextureFormat::RGBA8UnormSrgb;
+    td.width = kLUTSize;
+    td.height = 1;
+    td.arrayLayerCount = 1;
+    td.mipLevelCount = 1;
+    td.sampleCount = 1;
+    td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
+    td.label = u"LUTTex1D";
+    if (device_->createTexture(td, lutTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+
+    dr::TextureViewDesc tvd{};
+    tvd.format = dr::TextureFormat::RGBA8UnormSrgb;
+    tvd.dimension = dr::TextureViewDimension::Texture1D;
+    if (device_->createTextureView(lutTexture_, tvd, lutView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+
+    // Generate gradient LUT: dark blue -> cyan -> green -> yellow -> red -> white
+    u8 data[kLUTSize * 4];
+    for (u32 i = 0; i < kLUTSize; i++) {
+        float t = static_cast<float>(i) / static_cast<float>(kLUTSize - 1);
+        float r, g, b;
+        if (t < 0.2f) {
+            float s = t / 0.2f;
+            r = 0.05f; g = 0.05f + s * 0.4f; b = 0.3f + s * 0.5f;
+        } else if (t < 0.4f) {
+            float s = (t - 0.2f) / 0.2f;
+            r = 0.05f; g = 0.45f + s * 0.5f; b = 0.8f - s * 0.5f;
+        } else if (t < 0.6f) {
+            float s = (t - 0.4f) / 0.2f;
+            r = s * 0.8f; g = 0.95f; b = 0.3f - s * 0.3f;
+        } else if (t < 0.8f) {
+            float s = (t - 0.6f) / 0.2f;
+            r = 0.8f + s * 0.2f; g = 0.95f - s * 0.6f; b = 0.0f;
+        } else {
+            float s = (t - 0.8f) / 0.2f;
+            r = 1.0f; g = 0.35f + s * 0.65f; b = s * 0.8f;
+        }
+
+        u32 idx = i * 4;
+        data[idx + 0] = static_cast<u8>(r * 255.0f);
+        data[idx + 1] = static_cast<u8>(g * 255.0f);
+        data[idx + 2] = static_cast<u8>(b * 255.0f);
+        data[idx + 3] = 255;
+    }
+
+    dr::TransferBatch* batch = nullptr;
+    graphicsQueue_->createTransferBatch(batch);
+    dr::TextureDataLayout layout{};
+    layout.bytesPerRow = kLUTSize * 4;
+    layout.rowsPerImage = 1;
+    batch->writeTexture(lutTexture_,
+        Span<const u8>(data, kLUTSize * 4),
+        layout, dr::Extent3D{kLUTSize, 1, 1});
+    batch->submit();
+    graphicsQueue_->destroyTransferBatch(batch);
+
+    return raptor::core::ErrorCode::Ok;
+}
+
+void Texture3DSample::onRender() {
+    using raptor::core::f32, raptor::core::Span;
+
+    if (fenceVal_ > 0) fence_->wait(fenceVal_, ~0ull);
+    if (swapChain_->acquireNextImage() != raptor::core::ErrorCode::Ok) return;
+
+    pool_->reset();
+    dr::CommandEncoder* enc = nullptr;
+    if (pool_->createEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+
+    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+
+    dr::ColorAttachment ca{};
+    ca.view = swapChain_->currentTextureView();
+    ca.loadOp = dr::LoadOp::Clear;
+    ca.storeOp = dr::StoreOp::Store;
+    ca.clearValue = dr::ClearColor(0.02f, 0.02f, 0.05f, 1.0f);
+    dr::RenderPassDesc rpd{};
+    rpd.colorAttachments.Add(ca);
+
+    auto* rp = enc->beginRenderPass(rpd);
+
+    rp->setPipeline(pipeline_);
+    rp->setBindGroup(0, bg_);
+    rp->setViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
+    rp->setScissor(0, 0, width_, height_);
+
+    // Animate slice through 3D volume
+    float sliceZ = 0.5f + 0.5f * std::sin(totalTime_ * 0.5f);
+    PushData pc{};
+    pc.sliceZ = sliceZ;
+    pc.time = totalTime_;
+    rp->setPushConstants(dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
+
+    rp->draw(3); // Fullscreen triangle
+
+    rp->end();
+
+    enc->transitionTexture(swapChain_->currentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+
+    dr::CommandBuffer* cb = enc->finish();
+    fenceVal_++;
+    dr::CommandBuffer* cbs[1] = { cb };
+    graphicsQueue_->submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
+    swapChain_->present(graphicsQueue_);
+    pool_->destroyEncoder(enc);
+}
+
+void Texture3DSample::onShutdown() {
+    if (fence_) device_->destroyFence(fence_);
+    if (pool_) device_->destroyCommandPool(pool_);
+    if (pipeline_) device_->destroyRenderPipeline(pipeline_);
+    if (pl_) device_->destroyPipelineLayout(pl_);
+    if (bg_) device_->destroyBindGroup(bg_);
+    if (bgl_) device_->destroyBindGroupLayout(bgl_);
+    if (sampler_) device_->destroySampler(sampler_);
+    if (lutView_) device_->destroyTextureView(lutView_);
+    if (lutTexture_) device_->destroyTexture(lutTexture_);
+    if (volumeView_) device_->destroyTextureView(volumeView_);
+    if (volumeTexture_) device_->destroyTexture(volumeTexture_);
+    if (ps_) device_->destroyShaderModule(ps_);
+    if (vs_) device_->destroyShaderModule(vs_);
+    if (compiler_) { compiler_->destroy(); delete compiler_; }
+}
+
+int main(int argc, char** argv) { Texture3DSample app; return app.run(argc, argv); }

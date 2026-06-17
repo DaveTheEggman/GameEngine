@@ -1,3 +1,4 @@
-add_executable(RaptorSample001Triangle Main.cpp)
-target_link_libraries(RaptorSample001Triangle PRIVATE
-    Raptor::SamplesFramework Raptor::RHIVulkan Raptor::Core Raptor::Policy)
+add_executable(RaptorSample001_Triangle Main.cpp)
+target_link_libraries(RaptorSample001_Triangle PRIVATE Raptor::SamplesFramework Raptor::RHIVulkan Raptor::Core Raptor::Policy)
+target_compile_options(RaptorSample001_Triangle PRIVATE
+    "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")

@@ -1,3 +1,4 @@
+#include <new>
 /// Sample001 — Triangle. Ported from Sedulous Sample001_Triangle.
 /// Renders a colored triangle using vertex buffer + render pipeline.
 

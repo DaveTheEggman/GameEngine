@@ -26,6 +26,10 @@ export namespace raptor::core
     {
         f32 m[4][4];
 
+        // Raw row-major float pointer (16 contiguous floats), e.g. for GPU upload.
+        [[nodiscard]] const f32* Data() const noexcept { return &m[0][0]; }
+        [[nodiscard]] f32* Data() noexcept { return &m[0][0]; }
+
         [[nodiscard]] constexpr f32 operator()(usize row, usize col) const noexcept
         {
             RAPTOR_ASSERT(row < 4 && col < 4);
