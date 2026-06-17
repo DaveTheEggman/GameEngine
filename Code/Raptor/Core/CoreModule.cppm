@@ -60,6 +60,7 @@ export import :path;
 export import :filesystem;
 export import :iserializer;
 export import :iserializable;
+export import :serializable_registry;
 export import :serializer;
 export import :binary_serializer;
 export import :serialize;

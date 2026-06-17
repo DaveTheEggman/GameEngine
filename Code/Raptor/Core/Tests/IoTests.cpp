@@ -441,3 +441,33 @@ TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
         CHECK(w.position == Vec3{ 1.0f, 2.0f, 3.0f });
     }
 }
+
+TEST_CASE("serialization: SerializableRegistry creates by type id, then deserializes")
+{
+    SerializableRegistry registry;
+    RegisterSerializable<Widget>(registry);
+    CHECK(registry.Contains(Widget::StaticType().id));
+    CHECK_FALSE(registry.Contains(ISerializable::StaticType().id));
+
+    MemoryStream stream;
+    {
+        Widget w; w.id = 7; w.label = u"reg"; w.position = Vec3{ 9, 8, 7 };
+        BinarySerializer saver(stream, SerializeMode::Write);
+        Serialize(saver, w);
+    }
+    CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
+
+    // Polymorphic rebuild: create the concrete type from its id, deserialize via base.
+    RefPtr<ISerializable> obj = registry.Create(Widget::StaticType().id);
+    REQUIRE(obj.Get() != nullptr);
+    BinarySerializer loader(stream, SerializeMode::Read);
+    obj->Serialize(loader);
+    CHECK(loader.IsOk());
+
+    Widget* w = Cast<Widget>(obj.Get());
+    REQUIRE(w != nullptr);                    // GetType() reports the concrete type
+    CHECK(w->id == 7);
+    CHECK(w->label == u"reg");
+
+    CHECK(registry.Create(ISerializable::StaticType().id).Get() == nullptr);
+}
