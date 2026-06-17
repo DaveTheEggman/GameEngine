@@ -2,11 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanMeshPipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <string>
-#include <vector>
 
 export module raptor.rhi.vk:mesh_pipeline;
 
@@ -16,6 +15,8 @@ import :conversions;
 import :shader_module;
 import :pipeline_layout;
 import :pipeline_cache;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -27,17 +28,17 @@ public:
         layout  = desc.layout;
         layout_ = vkLayout;
 
-        std::vector<VkPipelineShaderStageCreateInfo> stages;
-        std::string meshEntry(desc.mesh.entryPoint.data(), desc.mesh.entryPoint.length());
-        std::string taskEntry, fsEntry;
+        Array<VkPipelineShaderStageCreateInfo> stages;
+        UTF8String meshEntry = ToUTF8(desc.mesh.entryPoint);
+        UTF8String taskEntry, fsEntry;
 
         // Task shader (optional).
-        if (desc.task.has_value()) {
-            taskEntry.assign(desc.task->entryPoint.data(), desc.task->entryPoint.length());
+        if (desc.task.HasValue()) {
+            taskEntry = ToUTF8(desc.task->entryPoint);
             if (auto* mod = static_cast<VkShaderModuleImpl*>(desc.task->module)) {
                 VkPipelineShaderStageCreateInfo s{}; s.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-                s.stage = VK_SHADER_STAGE_TASK_BIT_EXT; s.module = mod->handle(); s.pName = taskEntry.c_str();
-                stages.push_back(s);
+                s.stage = VK_SHADER_STAGE_TASK_BIT_EXT; s.module = mod->handle(); s.pName = reinterpret_cast<const char*>(taskEntry.CStr());
+                stages.PushBack(s);
             }
         }
 
@@ -45,16 +46,16 @@ public:
         auto* meshMod = static_cast<VkShaderModuleImpl*>(desc.mesh.module);
         if (!meshMod) return ErrorCode::Unknown;
         { VkPipelineShaderStageCreateInfo s{}; s.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-          s.stage = VK_SHADER_STAGE_MESH_BIT_EXT; s.module = meshMod->handle(); s.pName = meshEntry.c_str();
-          stages.push_back(s); }
+          s.stage = VK_SHADER_STAGE_MESH_BIT_EXT; s.module = meshMod->handle(); s.pName = reinterpret_cast<const char*>(meshEntry.CStr());
+          stages.PushBack(s); }
 
         // Fragment shader (optional).
-        if (desc.fragment.has_value()) {
-            fsEntry.assign(desc.fragment->shader.entryPoint.data(), desc.fragment->shader.entryPoint.length());
+        if (desc.fragment.HasValue()) {
+            fsEntry = ToUTF8(desc.fragment->shader.entryPoint);
             if (auto* mod = static_cast<VkShaderModuleImpl*>(desc.fragment->shader.module)) {
                 VkPipelineShaderStageCreateInfo s{}; s.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-                s.stage = VK_SHADER_STAGE_FRAGMENT_BIT; s.module = mod->handle(); s.pName = fsEntry.c_str();
-                stages.push_back(s);
+                s.stage = VK_SHADER_STAGE_FRAGMENT_BIT; s.module = mod->handle(); s.pName = reinterpret_cast<const char*>(fsEntry.CStr());
+                stages.PushBack(s);
             }
         }
 
@@ -69,7 +70,7 @@ public:
         rs.cullMode    = toVkCullMode(desc.primitive.cullMode);
         rs.frontFace   = toVkFrontFace(desc.primitive.frontFace);
         rs.lineWidth   = 1.0f;
-        if (desc.depthStencil.has_value()) {
+        if (desc.depthStencil.HasValue()) {
             rs.depthBiasEnable         = (desc.depthStencil->depthBias != 0 || desc.depthStencil->depthBiasSlopeScale != 0) ? VK_TRUE : VK_FALSE;
             rs.depthBiasConstantFactor = static_cast<f32>(desc.depthStencil->depthBias);
             rs.depthBiasSlopeFactor    = desc.depthStencil->depthBiasSlopeScale;
@@ -83,11 +84,11 @@ public:
         u32 sampleMask = desc.multisample.mask; ms.pSampleMask = &sampleMask;
 
         // Color blend.
-        std::vector<VkPipelineColorBlendAttachmentState> blendAtts(desc.colorTargets.count());
-        for (usize i = 0; i < desc.colorTargets.count(); ++i) {
+        Array<VkPipelineColorBlendAttachmentState> blendAtts(desc.colorTargets.Size());
+        for (usize i = 0; i < desc.colorTargets.Size(); ++i) {
             auto& ba = blendAtts[i]; ba = {};
             ba.colorWriteMask = toVkColorWriteMask(desc.colorTargets[i].writeMask);
-            if (desc.colorTargets[i].blend.has_value()) {
+            if (desc.colorTargets[i].blend.HasValue()) {
                 ba.blendEnable = VK_TRUE;
                 ba.srcColorBlendFactor = toVkBlendFactor(desc.colorTargets[i].blend->color.srcFactor);
                 ba.dstColorBlendFactor = toVkBlendFactor(desc.colorTargets[i].blend->color.dstFactor);
@@ -98,11 +99,11 @@ public:
             }
         }
         VkPipelineColorBlendStateCreateInfo cb{}; cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        cb.attachmentCount = static_cast<u32>(blendAtts.size()); cb.pAttachments = blendAtts.data();
+        cb.attachmentCount = static_cast<u32>(blendAtts.Size()); cb.pAttachments = blendAtts.Data();
 
         // Depth/stencil.
         VkPipelineDepthStencilStateCreateInfo dss{}; dss.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        if (desc.depthStencil.has_value()) {
+        if (desc.depthStencil.HasValue()) {
             const auto& ds = *desc.depthStencil;
             dss.depthTestEnable   = ds.depthTestEnabled  ? VK_TRUE : VK_FALSE;
             dss.depthWriteEnable  = ds.depthWriteEnabled ? VK_TRUE : VK_FALSE;
@@ -123,11 +124,11 @@ public:
         dyn.dynamicStateCount = 4; dyn.pDynamicStates = dynStates;
 
         // Dynamic rendering.
-        std::vector<VkFormat> colorFmts(desc.colorTargets.count());
-        for (usize i = 0; i < desc.colorTargets.count(); ++i) colorFmts[i] = toVkFormat(desc.colorTargets[i].format);
+        Array<VkFormat> colorFmts(desc.colorTargets.Size());
+        for (usize i = 0; i < desc.colorTargets.Size(); ++i) colorFmts[i] = toVkFormat(desc.colorTargets[i].format);
         VkPipelineRenderingCreateInfo ri{}; ri.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-        ri.colorAttachmentCount = static_cast<u32>(colorFmts.size()); ri.pColorAttachmentFormats = colorFmts.data();
-        if (desc.depthStencil.has_value()) {
+        ri.colorAttachmentCount = static_cast<u32>(colorFmts.Size()); ri.pColorAttachmentFormats = colorFmts.Data();
+        if (desc.depthStencil.HasValue()) {
             VkFormat dsf = toVkFormat(desc.depthStencil->format);
             if (hasDepth(desc.depthStencil->format))   ri.depthAttachmentFormat   = dsf;
             if (hasStencil(desc.depthStencil->format)) ri.stencilAttachmentFormat = dsf;
@@ -135,10 +136,10 @@ public:
 
         // Create pipeline (no vertex input / input assembly for mesh shaders).
         VkGraphicsPipelineCreateInfo pi{}; pi.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pi.pNext = &ri; pi.stageCount = static_cast<u32>(stages.size()); pi.pStages = stages.data();
+        pi.pNext = &ri; pi.stageCount = static_cast<u32>(stages.Size()); pi.pStages = stages.Data();
         pi.pVertexInputState = nullptr; pi.pInputAssemblyState = nullptr;
         pi.pViewportState = &vp; pi.pRasterizationState = &rs; pi.pMultisampleState = &ms;
-        pi.pDepthStencilState = desc.depthStencil.has_value() ? &dss : nullptr;
+        pi.pDepthStencilState = desc.depthStencil.HasValue() ? &dss : nullptr;
         pi.pColorBlendState = &cb; pi.pDynamicState = &dyn; pi.layout = vkLayout->handle();
 
         VkPipelineCache cacheHandle = VK_NULL_HANDLE;

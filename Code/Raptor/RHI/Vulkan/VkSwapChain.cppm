@@ -2,11 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanSwapChain.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <algorithm>
-#include <vector>
 
 export module raptor.rhi.vk:swap_chain;
 
@@ -17,6 +16,8 @@ import :adapter;
 import :surface;
 import :texture;
 import :texture_view;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -55,8 +56,8 @@ public:
     u32           currentImageIndex() const override { return currentImageIndex_; }
 
     Status acquireNextImage() override;
-    Texture*     currentTexture()     override { return currentImageIndex_ < textures_.size() ? textures_[currentImageIndex_] : nullptr; }
-    TextureView* currentTextureView() override { return currentImageIndex_ < views_.size()    ? views_[currentImageIndex_]    : nullptr; }
+    Texture*     currentTexture()     override { return currentImageIndex_ < textures_.Size() ? textures_[currentImageIndex_] : nullptr; }
+    TextureView* currentTextureView() override { return currentImageIndex_ < views_.Size()    ? views_[currentImageIndex_]    : nullptr; }
     Status present(Queue* queue) override;
     Status resize(u32 w, u32 h) override;
 
@@ -91,10 +92,10 @@ private:
     u32 currentImageIndex_ = 0;
     u32 frameIndex_        = 0;
 
-    std::vector<VkTextureImpl*>     textures_;
-    std::vector<VkTextureViewImpl*> views_;
-    std::vector<VkSemaphore>        acquireSems_;
-    std::vector<VkSemaphore>        presentSems_;
+    Array<VkTextureImpl*>     textures_;
+    Array<VkTextureViewImpl*> views_;
+    Array<VkSemaphore>        acquireSems_;
+    Array<VkSemaphore>        presentSems_;
 };
 
 // ---- Implementation (inline in module) ----
@@ -104,12 +105,12 @@ inline Status VkSwapChainImpl::createSwapChain(u32 w, u32 h, TextureFormat reqFo
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice_, surface_, &caps);
 
     if (caps.currentExtent.width != ~0u) { width_ = caps.currentExtent.width; height_ = caps.currentExtent.height; }
-    else { width_ = std::clamp(w, caps.minImageExtent.width, caps.maxImageExtent.width);
-           height_ = std::clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height); }
+    else { width_ = Clamp(w, caps.minImageExtent.width, caps.maxImageExtent.width);
+           height_ = Clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height); }
     if (width_ == 0 || height_ == 0) return ErrorCode::Unknown;
 
-    bufferCount_ = std::max(reqCount, caps.minImageCount);
-    if (caps.maxImageCount > 0) bufferCount_ = std::min(bufferCount_, caps.maxImageCount);
+    bufferCount_ = Max(reqCount, caps.minImageCount);
+    if (caps.maxImageCount > 0) bufferCount_ = Min(bufferCount_, caps.maxImageCount);
 
     auto surfFmt = chooseSurfaceFormat(reqFormat);
     format_ = fromVkFormat(surfFmt.format);
@@ -152,8 +153,8 @@ inline Status VkSwapChainImpl::createSwapChain(u32 w, u32 h, TextureFormat reqFo
 inline VkSurfaceFormatKHR VkSwapChainImpl::chooseSurfaceFormat(TextureFormat requested) {
     u32 count = 0;
     vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice_, surface_, &count, nullptr);
-    std::vector<VkSurfaceFormatKHR> fmts(count);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice_, surface_, &count, fmts.data());
+    Array<VkSurfaceFormatKHR> fmts(count);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice_, surface_, &count, fmts.Data());
 
     VkFormat desired = toVkFormat(requested);
     for (auto& f : fmts) if (f.format == desired) return f;
@@ -165,8 +166,8 @@ inline VkSurfaceFormatKHR VkSwapChainImpl::chooseSurfaceFormat(TextureFormat req
 inline VkPresentModeKHR VkSwapChainImpl::choosePresentMode(PresentMode requested) {
     u32 count = 0;
     vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice_, surface_, &count, nullptr);
-    std::vector<VkPresentModeKHR> modes(count);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice_, surface_, &count, modes.data());
+    Array<VkPresentModeKHR> modes(count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice_, surface_, &count, modes.Data());
     VkPresentModeKHR desired = toVkPresentMode(requested);
     for (auto m : modes) if (m == desired) return m;
     return VK_PRESENT_MODE_FIFO_KHR;
@@ -175,8 +176,8 @@ inline VkPresentModeKHR VkSwapChainImpl::choosePresentMode(PresentMode requested
 inline Status VkSwapChainImpl::retrieveImages(VkFormat format) {
     u32 imgCount = 0;
     vkGetSwapchainImagesKHR(device_, swapchain_, &imgCount, nullptr);
-    std::vector<VkImage> images(imgCount);
-    vkGetSwapchainImagesKHR(device_, swapchain_, &imgCount, images.data());
+    Array<VkImage> images(imgCount);
+    vkGetSwapchainImagesKHR(device_, swapchain_, &imgCount, images.Data());
     bufferCount_ = imgCount;
 
     TextureFormat texFmt = fromVkFormat(format);
@@ -189,13 +190,13 @@ inline Status VkSwapChainImpl::retrieveImages(VkFormat format) {
 
         auto* tex = new VkTextureImpl();
         tex->initFromExisting(images[i], td);
-        textures_.push_back(tex);
+        textures_.PushBack(tex);
 
         TextureViewDesc vd{}; vd.format = texFmt; vd.dimension = TextureViewDimension::Texture2D;
         vd.mipLevelCount = 1; vd.arrayLayerCount = 1;
         auto* view = new VkTextureViewImpl();
         if (view->init(device_, tex, vd) != ErrorCode::Ok) { delete view; return ErrorCode::Unknown; }
-        views_.push_back(view);
+        views_.PushBack(view);
     }
     return ErrorCode::Ok;
 }
@@ -206,19 +207,21 @@ inline void VkSwapChainImpl::createSyncObjects() {
         VkSemaphore a = VK_NULL_HANDLE, p = VK_NULL_HANDLE;
         vkCreateSemaphore(device_, &ci, nullptr, &a);
         vkCreateSemaphore(device_, &ci, nullptr, &p);
-        acquireSems_.push_back(a);
-        presentSems_.push_back(p);
+        acquireSems_.PushBack(a);
+        presentSems_.PushBack(p);
     }
 }
 
 inline void VkSwapChainImpl::cleanupImages() {
-    for (auto* v : views_)    { v->cleanup(device_); delete v; } views_.clear();
-    for (auto* t : textures_) { t->cleanup(device_); delete t; } textures_.clear();
+    for (auto* v : views_)    { v->cleanup(device_); delete v; } views_.Clear();
+    for (auto* t : textures_) { t->cleanup(device_); delete t; } textures_.Clear();
 }
 
 inline void VkSwapChainImpl::destroySyncObjects() {
-    for (auto s : acquireSems_) vkDestroySemaphore(device_, s, nullptr); acquireSems_.clear();
-    for (auto s : presentSems_) vkDestroySemaphore(device_, s, nullptr); presentSems_.clear();
+    for (auto s : acquireSems_) { vkDestroySemaphore(device_, s, nullptr); }
+    acquireSems_.Clear();
+    for (auto s : presentSems_) { vkDestroySemaphore(device_, s, nullptr); }
+    presentSems_.Clear();
 }
 
 inline Status VkSwapChainImpl::resize(u32 w, u32 h) {

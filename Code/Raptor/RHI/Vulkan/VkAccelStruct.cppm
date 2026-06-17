@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanAccelStruct.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
@@ -10,6 +11,8 @@ export module raptor.rhi.vk:accel_struct;
 import raptor.core;
 import raptor.rhi;
 import :adapter;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 

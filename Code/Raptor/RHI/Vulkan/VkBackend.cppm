@@ -3,6 +3,7 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanBackend.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
@@ -10,10 +11,18 @@ module;
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <string>
-#include <vector>
 
-// Linux surface types — forward-declared to avoid header pollution.
+export module raptor.rhi.vk:backend;
+
+import raptor.core;
+import raptor.rhi;
+import :adapter;
+import :surface;
+
+using namespace raptor::core;
+
+// Linux surface types — forward-declared to avoid header pollution. In the module
+// purview (not the GMF): GCC requires the GMF to contain only #includes.
 #if defined(__linux__)
 extern "C" { typedef struct _XDisplay Display; }
 typedef unsigned long XID;
@@ -45,13 +54,6 @@ using PFN_vkCreateWaylandSurfaceKHR = VkResult(VKAPI_PTR*)(
     VkInstance, const VkWaylandSurfaceCreateInfoKHR*, const VkAllocationCallbacks*, VkSurfaceKHR*);
 #endif // __linux__
 
-export module raptor.rhi.vk:backend;
-
-import raptor.core;
-import raptor.rhi;
-import :adapter;
-import :surface;
-
 export namespace raptor::rhi::vk {
 
 /// Configuration for VK backend creation.
@@ -67,7 +69,7 @@ public:
     // ---- Backend interface ----
 
     Span<Adapter* const> enumerateAdapters() override {
-        return Span<Adapter* const>(adapterPtrs_.data(), adapterPtrs_.size());
+        return Span<Adapter* const>(adapterPtrs_.Data(), adapterPtrs_.Size());
     }
 
     Status createSurface(void* windowHandle, void* displayHandle, Surface*& out) override {
@@ -175,17 +177,17 @@ private:
         appInfo.apiVersion         = VK_API_VERSION_1_3;
 
         // ---- Extensions ----
-        std::vector<const char*> extensions;
-        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+        Array<const char*> extensions;
+        extensions.PushBack(VK_KHR_SURFACE_EXTENSION_NAME);
 
 #ifdef _WIN32
-        extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+        extensions.PushBack(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
         {
             u32 availCount = 0;
             vkEnumerateInstanceExtensionProperties(nullptr, &availCount, nullptr);
-            std::vector<VkExtensionProperties> avail(availCount);
-            vkEnumerateInstanceExtensionProperties(nullptr, &availCount, avail.data());
+            Array<VkExtensionProperties> avail(availCount);
+            vkEnumerateInstanceExtensionProperties(nullptr, &availCount, avail.Data());
             auto hasExt = [&](const char* name) {
                 for (const auto& e : avail)
                     if (std::strcmp(e.extensionName, name) == 0) return true;
@@ -198,8 +200,8 @@ private:
             // Enable both surface extensions if available. The actual surface
             // type is detected at createSurface time from the window handles,
             // because SDL3 may choose Wayland even when DISPLAY is set.
-            if (hasXlib) extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
-            if (hasWayland) extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+            if (hasXlib) extensions.PushBack(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+            if (hasWayland) extensions.PushBack(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
             hasXlib_ = hasXlib; hasWayland_ = hasWayland;
             if (!hasXlib && !hasWayland) {
                 logError("VkBackend: no surface extension available (need xlib or wayland)");
@@ -208,20 +210,20 @@ private:
         }
 #endif
 
-        if (enableValidation) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        if (enableValidation) extensions.PushBack(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
         // ---- Layers ----
-        std::vector<const char*> layers;
-        if (enableValidation) layers.push_back("VK_LAYER_KHRONOS_validation");
+        Array<const char*> layers;
+        if (enableValidation) layers.PushBack("VK_LAYER_KHRONOS_validation");
 
         // ---- Create instance ----
         VkInstanceCreateInfo ci{};
         ci.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         ci.pApplicationInfo        = &appInfo;
-        ci.enabledExtensionCount   = static_cast<u32>(extensions.size());
-        ci.ppEnabledExtensionNames = extensions.data();
-        ci.enabledLayerCount       = static_cast<u32>(layers.size());
-        ci.ppEnabledLayerNames     = layers.data();
+        ci.enabledExtensionCount   = static_cast<u32>(extensions.Size());
+        ci.ppEnabledExtensionNames = extensions.Data();
+        ci.enabledLayerCount       = static_cast<u32>(layers.Size());
+        ci.ppEnabledLayerNames     = layers.Data();
 
         VkResult vr = vkCreateInstance(&ci, nullptr, &instance_);
         if (vr != VK_SUCCESS) {
@@ -261,13 +263,9 @@ private:
         void* /*userData*/)
     {
         if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-            std::string msg = "[Vulkan ERROR] ";
-            msg += data->pMessage;
-            logError(msg.c_str());
+            logErrorf("[Vulkan ERROR] %s", data->pMessage);
         } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-            std::string msg = "[Vulkan WARN] ";
-            msg += data->pMessage;
-            logWarning(msg.c_str());
+            logWarningf("[Vulkan WARN] %s", data->pMessage);
         }
         return VK_FALSE;
     }
@@ -277,15 +275,15 @@ private:
         vkEnumeratePhysicalDevices(instance_, &count, nullptr);
         if (count == 0) return;
 
-        std::vector<VkPhysicalDevice> devices(count);
-        vkEnumeratePhysicalDevices(instance_, &count, devices.data());
+        Array<VkPhysicalDevice> devices(count);
+        vkEnumeratePhysicalDevices(instance_, &count, devices.Data());
 
-        adapters_.reserve(count);
-        adapterPtrs_.reserve(count);
+        adapters_.Reserve(count);
+        adapterPtrs_.Reserve(count);
         for (VkPhysicalDevice pd : devices) {
             auto* a = new VkAdapterImpl(pd, instance_);
-            adapters_.push_back(a);
-            adapterPtrs_.push_back(a);
+            adapters_.PushBack(a);
+            adapterPtrs_.PushBack(a);
         }
 
         // Expose adapters best-GPU-first; callers take [0]. See Backend::enumerateAdapters.
@@ -294,8 +292,8 @@ private:
 
     void destroyImpl() {
         for (auto* a : adapters_) delete a;
-        adapters_.clear();
-        adapterPtrs_.clear();
+        adapters_.Clear();
+        adapterPtrs_.Clear();
 
         if (debugMessenger_ != VK_NULL_HANDLE) {
             auto pfn = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
@@ -315,8 +313,8 @@ private:
     VkInstance                       instance_       = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT         debugMessenger_ = VK_NULL_HANDLE;
     bool                             validationEnabled_ = false;
-    std::vector<VkAdapterImpl*>      adapters_;
-    std::vector<Adapter*>            adapterPtrs_;
+    Array<VkAdapterImpl*>      adapters_;
+    Array<Adapter*>            adapterPtrs_;
 
 #if defined(__linux__)
     bool                             hasXlib_    = false;

@@ -1,5 +1,6 @@
 export module raptor.rhi;
 
+export import :log;
 export import :enums;
 export import :texture_format;
 export import :types;

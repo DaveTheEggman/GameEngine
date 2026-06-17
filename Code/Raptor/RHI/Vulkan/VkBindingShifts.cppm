@@ -6,6 +6,8 @@ export module raptor.rhi.vk:binding_shifts;
 import raptor.core;
 import raptor.rhi;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::vk {
 
 /// Maps HLSL register spaces to Vulkan descriptor bindings.

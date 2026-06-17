@@ -2,11 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanTexture.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <algorithm>
-#include <vector>
 
 export module raptor.rhi.vk:texture;
 
@@ -14,6 +13,8 @@ import raptor.core;
 import raptor.rhi;
 import :adapter;
 import :conversions;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -76,7 +77,7 @@ public:
         if (memory_ != VK_NULL_HANDLE) { vkFreeMemory(device, memory_, nullptr); memory_ = VK_NULL_HANDLE; }
         if (ownsImage_ && image_ != VK_NULL_HANDLE) vkDestroyImage(device, image_, nullptr);
         image_ = VK_NULL_HANDLE;
-        subresourceLayouts_.clear();
+        subresourceLayouts_.Clear();
     }
 
     // ---- Internal ----
@@ -88,9 +89,9 @@ public:
 
     /// Get layout for a specific subresource.
     VkImageLayout getSubresourceLayout(u32 mip, u32 layer) const {
-        if (subresourceLayouts_.empty()) return currentLayout;
+        if (subresourceLayouts_.IsEmpty()) return currentLayout;
         u32 idx = mip + layer * desc.mipLevelCount;
-        if (idx >= static_cast<u32>(subresourceLayouts_.size())) return currentLayout;
+        if (idx >= static_cast<u32>(subresourceLayouts_.Size())) return currentLayout;
         return subresourceLayouts_[idx];
     }
 
@@ -99,21 +100,21 @@ public:
     void setSubresourceLayout(u32 baseMip, u32 mipCount, u32 baseLayer, u32 layerCount,
                               VkImageLayout layout) {
         u32 totalMips   = desc.mipLevelCount;
-        u32 totalLayers = std::max(desc.arrayLayerCount, 1u);
-        u32 mipEnd   = (mipCount   == ~0u) ? totalMips   : std::min(baseMip   + mipCount,   totalMips);
-        u32 layerEnd = (layerCount == ~0u) ? totalLayers : std::min(baseLayer + layerCount, totalLayers);
+        u32 totalLayers = Max(desc.arrayLayerCount, 1u);
+        u32 mipEnd   = (mipCount   == ~0u) ? totalMips   : Min(baseMip   + mipCount,   totalMips);
+        u32 layerEnd = (layerCount == ~0u) ? totalLayers : Min(baseLayer + layerCount, totalLayers);
 
         // All subresources? Collapse to uniform.
         if (baseMip == 0 && mipEnd >= totalMips && baseLayer == 0 && layerEnd >= totalLayers) {
             currentLayout = layout;
-            subresourceLayouts_.clear();
+            subresourceLayouts_.Clear();
             return;
         }
 
         // Promote to per-subresource.
-        if (subresourceLayouts_.empty()) {
+        if (subresourceLayouts_.IsEmpty()) {
             if (layout == currentLayout) return;
-            subresourceLayouts_.resize(totalMips * totalLayers, currentLayout);
+            subresourceLayouts_.Resize(totalMips * totalLayers, currentLayout);
         }
 
         for (u32 l = baseLayer; l < layerEnd; ++l)
@@ -122,18 +123,18 @@ public:
 
         // Try to collapse back to uniform.
         VkImageLayout first = subresourceLayouts_[0];
-        for (usize i = 1; i < subresourceLayouts_.size(); ++i) {
+        for (usize i = 1; i < subresourceLayouts_.Size(); ++i) {
             if (subresourceLayouts_[i] != first) return;
         }
         currentLayout = first;
-        subresourceLayouts_.clear();
+        subresourceLayouts_.Clear();
     }
 
 private:
     VkImage        image_     = VK_NULL_HANDLE;
     VkDeviceMemory memory_    = VK_NULL_HANDLE;
     bool           ownsImage_ = true;
-    std::vector<VkImageLayout> subresourceLayouts_;
+    Array<VkImageLayout> subresourceLayouts_;
 };
 
 } // namespace raptor::rhi::vk

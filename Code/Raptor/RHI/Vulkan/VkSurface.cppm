@@ -2,12 +2,16 @@
 /// Wraps VkSurfaceKHR + parent VkInstance for cleanup.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
 export module raptor.rhi.vk:surface;
 
+import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 

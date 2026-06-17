@@ -2,13 +2,12 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanDevice.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <vector>
 
 export module raptor.rhi.vk:device;
 
@@ -40,6 +39,8 @@ import :swap_chain;
 import :descriptor_pool_manager;
 import :conversions;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::vk {
 
 class VkDeviceImpl : public Device {
@@ -64,36 +65,36 @@ public:
 
         // Build queue create infos.
         struct FamilyRequest { u32 family; u32 count; };
-        std::vector<FamilyRequest> familyReqs;
+        Array<FamilyRequest> familyReqs;
         auto addFamily = [&](i32 f, u32 requested) {
             if (f < 0 || requested == 0) return;
             u32 avail = adapter->queueFamilies()[f].queueCount;
-            for (auto& fr : familyReqs) { if (fr.family == static_cast<u32>(f)) { fr.count = std::min(fr.count + requested, avail); return; } }
-            familyReqs.push_back({ static_cast<u32>(f), std::min(requested, avail) });
+            for (auto& fr : familyReqs) { if (fr.family == static_cast<u32>(f)) { fr.count = Min(fr.count + requested, avail); return; } }
+            familyReqs.PushBack({ static_cast<u32>(f), Min(requested, avail) });
         };
         addFamily(gfxFamily,  desc.graphicsQueueCount);
         addFamily(compFamily, desc.computeQueueCount);
         addFamily(xferFamily, desc.transferQueueCount);
 
-        std::vector<VkDeviceQueueCreateInfo> queueCis;
-        std::vector<std::vector<f32>> priorities;
+        Array<VkDeviceQueueCreateInfo> queueCis;
+        Array<Array<f32>> priorities;
         for (auto& fr : familyReqs) {
-            priorities.emplace_back(fr.count, 1.0f);
+            priorities.EmplaceBack(fr.count, 1.0f);
             VkDeviceQueueCreateInfo qci{}; qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             qci.queueFamilyIndex = fr.family; qci.queueCount = fr.count;
-            qci.pQueuePriorities = priorities.back().data();
-            queueCis.push_back(qci);
+            qci.pQueuePriorities = priorities.Back().Data();
+            queueCis.PushBack(qci);
         }
 
         // Extensions.
-        std::vector<const char*> exts;
-        exts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-        if (meshEnabled) exts.push_back("VK_EXT_mesh_shader");
+        Array<const char*> exts;
+        exts.PushBack(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        if (meshEnabled) exts.PushBack("VK_EXT_mesh_shader");
         if (rtEnabled) {
-            exts.push_back("VK_KHR_ray_tracing_pipeline");
-            exts.push_back("VK_KHR_acceleration_structure");
-            exts.push_back("VK_KHR_deferred_host_operations");
-            exts.push_back("VK_KHR_ray_query");
+            exts.PushBack("VK_KHR_ray_tracing_pipeline");
+            exts.PushBack("VK_KHR_acceleration_structure");
+            exts.PushBack("VK_KHR_deferred_host_operations");
+            exts.PushBack("VK_KHR_ray_query");
         }
 
         // Feature chain.
@@ -144,10 +145,10 @@ public:
 
         VkDeviceCreateInfo dci{}; dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         dci.pNext                   = &features2;
-        dci.queueCreateInfoCount    = static_cast<u32>(queueCis.size());
-        dci.pQueueCreateInfos       = queueCis.data();
-        dci.enabledExtensionCount   = static_cast<u32>(exts.size());
-        dci.ppEnabledExtensionNames = exts.data();
+        dci.queueCreateInfoCount    = static_cast<u32>(queueCis.Size());
+        dci.pQueueCreateInfos       = queueCis.Data();
+        dci.enabledExtensionCount   = static_cast<u32>(exts.Size());
+        dci.ppEnabledExtensionNames = exts.Data();
 
         if (vkCreateDevice(adapter->physicalDevice(), &dci, nullptr, &device_) != VK_SUCCESS)
             return ErrorCode::Unknown;
@@ -162,11 +163,11 @@ public:
                 VkQueue q = VK_NULL_HANDLE;
                 vkGetDeviceQueue(device_, static_cast<u32>(family), offset + i, &q);
                 auto* vkQ = new VkQueueImpl(q, qt, static_cast<u32>(family), tsPeriod, this, device_, adapter->physicalDevice());
-                allQueues_.push_back(vkQ);
+                allQueues_.PushBack(vkQ);
                 switch (qt) {
-                case QueueType::Graphics: gfxQueues_.push_back(vkQ); break;
-                case QueueType::Compute:  compQueues_.push_back(vkQ); break;
-                case QueueType::Transfer: xferQueues_.push_back(vkQ); break;
+                case QueueType::Graphics: gfxQueues_.PushBack(vkQ); break;
+                case QueueType::Compute:  compQueues_.PushBack(vkQ); break;
+                case QueueType::Transfer: xferQueues_.PushBack(vkQ); break;
                 }
             }
         };
@@ -177,21 +178,21 @@ public:
             return total;
         };
 
-        u32 gfxCount = std::min(desc.graphicsQueueCount, familyAvail(gfxFamily));
+        u32 gfxCount = Min(desc.graphicsQueueCount, familyAvail(gfxFamily));
         retrieveQueues(gfxFamily, gfxCount, QueueType::Graphics, 0);
 
         if (compFamily >= 0) {
             u32 offset = (compFamily == gfxFamily) ? gfxCount : 0;
             u32 avail  = adapter->queueFamilies()[compFamily].queueCount - offset;
-            u32 compCount = std::min(desc.computeQueueCount, avail);
+            u32 compCount = Min(desc.computeQueueCount, avail);
             retrieveQueues(compFamily, compCount, QueueType::Compute, offset);
         }
         if (xferFamily >= 0) {
             u32 offset = 0;
-            if (xferFamily == gfxFamily) offset = gfxCount + static_cast<u32>(compQueues_.size());
-            else if (xferFamily == compFamily) offset = static_cast<u32>(compQueues_.size());
+            if (xferFamily == gfxFamily) offset = gfxCount + static_cast<u32>(compQueues_.Size());
+            else if (xferFamily == compFamily) offset = static_cast<u32>(compQueues_.Size());
             u32 avail = adapter->queueFamilies()[xferFamily].queueCount - offset;
-            u32 xferCount = std::min(desc.transferQueueCount, avail);
+            u32 xferCount = Min(desc.transferQueueCount, avail);
             retrieveQueues(xferFamily, xferCount, QueueType::Transfer, offset);
         }
 
@@ -227,16 +228,16 @@ public:
 
     Queue* getQueue(QueueType t, u32 index) override {
         switch (t) {
-        case QueueType::Graphics: return index < gfxQueues_.size()  ? gfxQueues_[index]  : nullptr;
-        case QueueType::Compute:  return index < compQueues_.size() ? compQueues_[index] : nullptr;
-        case QueueType::Transfer: return index < xferQueues_.size() ? xferQueues_[index] : nullptr;
+        case QueueType::Graphics: return index < gfxQueues_.Size()  ? gfxQueues_[index]  : nullptr;
+        case QueueType::Compute:  return index < compQueues_.Size() ? compQueues_[index] : nullptr;
+        case QueueType::Transfer: return index < xferQueues_.Size() ? xferQueues_[index] : nullptr;
         } return nullptr;
     }
     u32 getQueueCount(QueueType t) override {
         switch (t) {
-        case QueueType::Graphics: return static_cast<u32>(gfxQueues_.size());
-        case QueueType::Compute:  return static_cast<u32>(compQueues_.size());
-        case QueueType::Transfer: return static_cast<u32>(xferQueues_.size());
+        case QueueType::Graphics: return static_cast<u32>(gfxQueues_.Size());
+        case QueueType::Compute:  return static_cast<u32>(compQueues_.Size());
+        case QueueType::Transfer: return static_cast<u32>(xferQueues_.Size());
         } return 0;
     }
 
@@ -357,7 +358,7 @@ public:
         auto pfn = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(
             vkGetDeviceProcAddr(device_, "vkGetRayTracingShaderGroupHandlesKHR"));
         if (!pfn) return ErrorCode::Unknown;
-        return pfn(device_, p->handle(), firstGroup, groupCount, outData.count(), outData.data()) == VK_SUCCESS
+        return pfn(device_, p->handle(), firstGroup, groupCount, outData.Size(), outData.Data()) == VK_SUCCESS
             ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
@@ -384,7 +385,7 @@ public:
         waitIdle();
         if (poolManager_) { poolManager_->destroy(); delete poolManager_; poolManager_ = nullptr; }
         for (auto* q : allQueues_) delete q;
-        allQueues_.clear(); gfxQueues_.clear(); compQueues_.clear(); xferQueues_.clear();
+        allQueues_.Clear(); gfxQueues_.Clear(); compQueues_.Clear(); xferQueues_.Clear();
         if (device_ != VK_NULL_HANDLE) { vkDestroyDevice(device_, nullptr); device_ = VK_NULL_HANDLE; }
         delete this;
     }
@@ -407,13 +408,13 @@ public:
 
     /// Set a Vulkan debug name on an object (only when validation is enabled).
     void setDebugName(VkObjectType objectType, u64 objectHandle, StringView name) {
-        if (!validationEnabled_ || name.isEmpty()) return;
+        if (!validationEnabled_ || name.IsEmpty()) return;
         auto pfn = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
             vkGetDeviceProcAddr(device_, "vkSetDebugUtilsObjectNameEXT"));
         if (!pfn) return;
         char buf[256]{};
-        auto len = std::min(name.length(), static_cast<usize>(255));
-        std::memcpy(buf, name.data(), len);
+        auto len = Min(name.Size(), static_cast<usize>(255));
+        std::memcpy(buf, name.Data(), len);
         VkDebugUtilsObjectNameInfoEXT ni{};
         ni.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
         ni.objectType   = objectType;
@@ -432,7 +433,7 @@ private:
     BindingShifts    bindingShifts_ = BindingShifts::standard();
     VkDescriptorPoolManager* poolManager_ = nullptr;
 
-    std::vector<VkQueueImpl*> allQueues_, gfxQueues_, compQueues_, xferQueues_;
+    Array<VkQueueImpl*> allQueues_, gfxQueues_, compQueues_, xferQueues_;
 
     VkSemaphore pendingAcquire_ = VK_NULL_HANDLE;
     VkSemaphore pendingPresent_ = VK_NULL_HANDLE;
@@ -476,9 +477,9 @@ Status VkSwapChainImpl::present(Queue* queue) {
 // ---- Queue submit-with-fence (needs Device for swap chain sync) ----
 
 void VkQueueImpl::submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence, u64 signalValue) {
-    if (cmdBufs.count() == 0) return;
-    std::vector<VkCommandBuffer> bufs(cmdBufs.count());
-    for (usize i = 0; i < cmdBufs.count(); ++i)
+    if (cmdBufs.Size() == 0) return;
+    Array<VkCommandBuffer> bufs(cmdBufs.Size());
+    for (usize i = 0; i < cmdBufs.Size(); ++i)
         bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
 
     auto* vkFence = static_cast<VkFenceImpl*>(signalFence);
@@ -500,7 +501,7 @@ void VkQueueImpl::submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence,
     tsi.waitSemaphoreValueCount   = hasSync ? 1u : 0u; tsi.pWaitSemaphoreValues   = waitValues;
 
     VkSubmitInfo si{}; si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; si.pNext = &tsi;
-    si.commandBufferCount   = static_cast<u32>(bufs.size()); si.pCommandBuffers = bufs.data();
+    si.commandBufferCount   = static_cast<u32>(bufs.Size()); si.pCommandBuffers = bufs.Data();
     si.signalSemaphoreCount = hasSync ? 2u : 1u;             si.pSignalSemaphores = signalSems;
     if (hasSync) { si.waitSemaphoreCount = 1; si.pWaitSemaphores = waitSems; si.pWaitDstStageMask = waitStages; }
 
@@ -510,29 +511,29 @@ void VkQueueImpl::submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence,
 void VkQueueImpl::submit(Span<CommandBuffer* const> cmdBufs,
                          Span<Fence* const> waitFences, Span<const u64> waitVals,
                          Fence* signalFence, u64 signalValue) {
-    if (cmdBufs.count() == 0) return;
-    std::vector<VkCommandBuffer> bufs(cmdBufs.count());
-    for (usize i = 0; i < cmdBufs.count(); ++i)
+    if (cmdBufs.Size() == 0) return;
+    Array<VkCommandBuffer> bufs(cmdBufs.Size());
+    for (usize i = 0; i < cmdBufs.Size(); ++i)
         bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
 
     // 5-arg submit does NOT consume swap chain sync — matching Sedulous.
     // The 2-arg submit (used by the first queue submit each frame) handles it.
-    std::vector<VkSemaphore>          waitSems(waitFences.count());
-    std::vector<VkPipelineStageFlags> waitStages(waitFences.count());
-    for (usize i = 0; i < waitFences.count(); ++i) {
+    Array<VkSemaphore>          waitSems(waitFences.Size());
+    Array<VkPipelineStageFlags> waitStages(waitFences.Size());
+    for (usize i = 0; i < waitFences.Size(); ++i) {
         waitSems[i]   = static_cast<VkFenceImpl*>(waitFences[i])->handle();
         waitStages[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     }
 
     VkTimelineSemaphoreSubmitInfo tsi{};
     tsi.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-    tsi.waitSemaphoreValueCount = static_cast<u32>(waitVals.count());
-    tsi.pWaitSemaphoreValues    = waitVals.data();
+    tsi.waitSemaphoreValueCount = static_cast<u32>(waitVals.Size());
+    tsi.pWaitSemaphoreValues    = waitVals.Data();
 
     VkSubmitInfo si{}; si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; si.pNext = &tsi;
-    si.commandBufferCount   = static_cast<u32>(bufs.size());  si.pCommandBuffers  = bufs.data();
-    si.waitSemaphoreCount   = static_cast<u32>(waitSems.size()); si.pWaitSemaphores = waitSems.data();
-    si.pWaitDstStageMask    = waitStages.data();
+    si.commandBufferCount   = static_cast<u32>(bufs.Size());  si.pCommandBuffers  = bufs.Data();
+    si.waitSemaphoreCount   = static_cast<u32>(waitSems.Size()); si.pWaitSemaphores = waitSems.Data();
+    si.pWaitDstStageMask    = waitStages.Data();
 
     VkSemaphore signalSem = VK_NULL_HANDLE;
     if (signalFence) {

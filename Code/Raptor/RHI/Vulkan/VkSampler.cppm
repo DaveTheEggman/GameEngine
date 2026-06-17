@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanSampler.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
@@ -10,6 +11,8 @@ export module raptor.rhi.vk:sampler;
 import raptor.core;
 import raptor.rhi;
 import :conversions;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -34,9 +37,9 @@ public:
         ci.borderColor   = toVkBorderColor(d.borderColor);
         ci.unnormalizedCoordinates = VK_FALSE;
 
-        if (d.compare.has_value()) {
+        if (d.compare.HasValue()) {
             ci.compareEnable = VK_TRUE;
-            ci.compareOp     = toVkCompareOp(d.compare.value());
+            ci.compareOp     = toVkCompareOp(d.compare.Value());
         }
 
         if (vkCreateSampler(device, &ci, nullptr, &sampler_) != VK_SUCCESS) return ErrorCode::Unknown;

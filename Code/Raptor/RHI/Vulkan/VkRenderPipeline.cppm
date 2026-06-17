@@ -2,11 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanRenderPipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <string>
-#include <vector>
 
 export module raptor.rhi.vk:render_pipeline;
 
@@ -16,6 +15,8 @@ import :conversions;
 import :shader_module;
 import :pipeline_layout;
 import :pipeline_cache;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -28,9 +29,9 @@ public:
         layout_ = vkLayout;
 
         // Shader stages.
-        std::vector<VkPipelineShaderStageCreateInfo> stages;
-        std::string vsEntry(desc.vertex.shader.entryPoint.data(), desc.vertex.shader.entryPoint.length());
-        std::string fsEntry;
+        Array<VkPipelineShaderStageCreateInfo> stages;
+        UTF8String vsEntry = ToUTF8(desc.vertex.shader.entryPoint);
+        UTF8String fsEntry;
 
         auto* vsMod = static_cast<VkShaderModuleImpl*>(desc.vertex.shader.module);
         if (!vsMod) return ErrorCode::Unknown;
@@ -38,47 +39,47 @@ public:
         vsStage.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         vsStage.stage  = VK_SHADER_STAGE_VERTEX_BIT;
         vsStage.module = vsMod->handle();
-        vsStage.pName  = vsEntry.c_str();
-        stages.push_back(vsStage);
+        vsStage.pName  = reinterpret_cast<const char*>(vsEntry.CStr());
+        stages.PushBack(vsStage);
 
-        if (desc.fragment.has_value()) {
-            fsEntry.assign(desc.fragment->shader.entryPoint.data(), desc.fragment->shader.entryPoint.length());
+        if (desc.fragment.HasValue()) {
+            fsEntry = ToUTF8(desc.fragment->shader.entryPoint);
             auto* fsMod = static_cast<VkShaderModuleImpl*>(desc.fragment->shader.module);
             if (fsMod) {
                 VkPipelineShaderStageCreateInfo fsStage{};
                 fsStage.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
                 fsStage.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
                 fsStage.module = fsMod->handle();
-                fsStage.pName  = fsEntry.c_str();
-                stages.push_back(fsStage);
+                fsStage.pName  = reinterpret_cast<const char*>(fsEntry.CStr());
+                stages.PushBack(fsStage);
             }
         }
 
         // Vertex input.
-        std::vector<VkVertexInputBindingDescription>   vertBindings;
-        std::vector<VkVertexInputAttributeDescription> vertAttribs;
-        for (usize i = 0; i < desc.vertex.buffers.count(); ++i) {
+        Array<VkVertexInputBindingDescription>   vertBindings;
+        Array<VkVertexInputAttributeDescription> vertAttribs;
+        for (usize i = 0; i < desc.vertex.buffers.Size(); ++i) {
             const auto& buf = desc.vertex.buffers[i];
             VkVertexInputBindingDescription b{};
             b.binding   = static_cast<u32>(i);
             b.stride    = buf.stride;
             b.inputRate = buf.stepMode == VertexStepMode::Instance ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
-            vertBindings.push_back(b);
-            for (usize j = 0; j < buf.attributes.count(); ++j) {
+            vertBindings.PushBack(b);
+            for (usize j = 0; j < buf.attributes.Size(); ++j) {
                 VkVertexInputAttributeDescription a{};
                 a.location = buf.attributes[j].shaderLocation;
                 a.binding  = static_cast<u32>(i);
                 a.format   = toVkVertexFormat(buf.attributes[j].format);
                 a.offset   = buf.attributes[j].offset;
-                vertAttribs.push_back(a);
+                vertAttribs.PushBack(a);
             }
         }
         VkPipelineVertexInputStateCreateInfo vertexInput{};
         vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInput.vertexBindingDescriptionCount   = static_cast<u32>(vertBindings.size());
-        vertexInput.pVertexBindingDescriptions       = vertBindings.data();
-        vertexInput.vertexAttributeDescriptionCount = static_cast<u32>(vertAttribs.size());
-        vertexInput.pVertexAttributeDescriptions     = vertAttribs.data();
+        vertexInput.vertexBindingDescriptionCount   = static_cast<u32>(vertBindings.Size());
+        vertexInput.pVertexBindingDescriptions       = vertBindings.Data();
+        vertexInput.vertexAttributeDescriptionCount = static_cast<u32>(vertAttribs.Size());
+        vertexInput.pVertexAttributeDescriptions     = vertAttribs.Data();
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -96,7 +97,7 @@ public:
         rasterization.cullMode         = toVkCullMode(desc.primitive.cullMode);
         rasterization.frontFace        = toVkFrontFace(desc.primitive.frontFace);
         rasterization.lineWidth        = 1.0f;
-        if (desc.depthStencil.has_value()) {
+        if (desc.depthStencil.HasValue()) {
             rasterization.depthBiasEnable         = (desc.depthStencil->depthBias != 0 || desc.depthStencil->depthBiasSlopeScale != 0) ? VK_TRUE : VK_FALSE;
             rasterization.depthBiasConstantFactor = static_cast<f32>(desc.depthStencil->depthBias);
             rasterization.depthBiasSlopeFactor    = desc.depthStencil->depthBiasSlopeScale;
@@ -111,13 +112,13 @@ public:
         multisample.pSampleMask = &sampleMask;
 
         // Color blend.
-        auto colorTargets = desc.fragment.has_value() ? desc.fragment->targets : Span<const ColorTargetState>();
-        std::vector<VkPipelineColorBlendAttachmentState> blendAttachments(colorTargets.count());
-        for (usize i = 0; i < colorTargets.count(); ++i) {
+        auto colorTargets = desc.fragment.HasValue() ? desc.fragment->targets : Span<const ColorTargetState>();
+        Array<VkPipelineColorBlendAttachmentState> blendAttachments(colorTargets.Size());
+        for (usize i = 0; i < colorTargets.Size(); ++i) {
             auto& ba = blendAttachments[i];
             ba = {};
             ba.colorWriteMask = toVkColorWriteMask(colorTargets[i].writeMask);
-            if (colorTargets[i].blend.has_value()) {
+            if (colorTargets[i].blend.HasValue()) {
                 ba.blendEnable         = VK_TRUE;
                 ba.srcColorBlendFactor = toVkBlendFactor(colorTargets[i].blend->color.srcFactor);
                 ba.dstColorBlendFactor = toVkBlendFactor(colorTargets[i].blend->color.dstFactor);
@@ -129,13 +130,13 @@ public:
         }
         VkPipelineColorBlendStateCreateInfo colorBlend{};
         colorBlend.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlend.attachmentCount = static_cast<u32>(blendAttachments.size());
-        colorBlend.pAttachments    = blendAttachments.data();
+        colorBlend.attachmentCount = static_cast<u32>(blendAttachments.Size());
+        colorBlend.pAttachments    = blendAttachments.Data();
 
         // Depth/stencil.
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        if (desc.depthStencil.has_value()) {
+        if (desc.depthStencil.HasValue()) {
             const auto& ds = *desc.depthStencil;
             depthStencil.depthTestEnable   = ds.depthTestEnabled  ? VK_TRUE : VK_FALSE;
             depthStencil.depthWriteEnable  = ds.depthWriteEnabled ? VK_TRUE : VK_FALSE;
@@ -166,15 +167,15 @@ public:
         dynState.pDynamicStates    = dynStates;
 
         // Dynamic rendering (Vulkan 1.3).
-        std::vector<VkFormat> colorFormats(colorTargets.count());
-        for (usize i = 0; i < colorTargets.count(); ++i)
+        Array<VkFormat> colorFormats(colorTargets.Size());
+        for (usize i = 0; i < colorTargets.Size(); ++i)
             colorFormats[i] = toVkFormat(colorTargets[i].format);
 
         VkPipelineRenderingCreateInfo renderingInfo{};
         renderingInfo.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-        renderingInfo.colorAttachmentCount    = static_cast<u32>(colorFormats.size());
-        renderingInfo.pColorAttachmentFormats = colorFormats.data();
-        if (desc.depthStencil.has_value()) {
+        renderingInfo.colorAttachmentCount    = static_cast<u32>(colorFormats.Size());
+        renderingInfo.pColorAttachmentFormats = colorFormats.Data();
+        if (desc.depthStencil.HasValue()) {
             VkFormat dsf = toVkFormat(desc.depthStencil->format);
             if (hasDepth(desc.depthStencil->format))   renderingInfo.depthAttachmentFormat   = dsf;
             if (hasStencil(desc.depthStencil->format)) renderingInfo.stencilAttachmentFormat = dsf;
@@ -184,14 +185,14 @@ public:
         VkGraphicsPipelineCreateInfo pi{};
         pi.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         pi.pNext               = &renderingInfo;
-        pi.stageCount          = static_cast<u32>(stages.size());
-        pi.pStages             = stages.data();
+        pi.stageCount          = static_cast<u32>(stages.Size());
+        pi.pStages             = stages.Data();
         pi.pVertexInputState   = &vertexInput;
         pi.pInputAssemblyState = &inputAssembly;
         pi.pViewportState      = &viewportState;
         pi.pRasterizationState = &rasterization;
         pi.pMultisampleState   = &multisample;
-        pi.pDepthStencilState  = desc.depthStencil.has_value() ? &depthStencil : nullptr;
+        pi.pDepthStencilState  = desc.depthStencil.HasValue() ? &depthStencil : nullptr;
         pi.pColorBlendState    = &colorBlend;
         pi.pDynamicState       = &dynState;
         pi.layout              = vkLayout->handle();

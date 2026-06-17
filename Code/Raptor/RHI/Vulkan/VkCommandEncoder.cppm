@@ -2,12 +2,11 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanCommandEncoder.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <algorithm>
 #include <cstring>
-#include <vector>
 
 export module raptor.rhi.vk:command_encoder;
 
@@ -28,6 +27,8 @@ import :compute_pass_encoder;
 import :accel_struct;
 import :ray_tracing_pipeline;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::vk {
 
 class VkCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt {
@@ -39,10 +40,10 @@ public:
     // ---- CommandEncoder ----
 
     RenderPassEncoder* beginRenderPass(const RenderPassDesc& desc) override {
-        auto colorAtts = desc.colorAttachments.view();
-        std::vector<VkRenderingAttachmentInfo> vkColor(colorAtts.count());
+        auto colorAtts = desc.colorAttachments.View();
+        Array<VkRenderingAttachmentInfo> vkColor(colorAtts.Size());
 
-        for (usize i = 0; i < colorAtts.count(); ++i) {
+        for (usize i = 0; i < colorAtts.Size(); ++i) {
             const auto& att = colorAtts[i];
             auto* view = static_cast<VkTextureViewImpl*>(att.view);
             VkRenderingAttachmentInfo info{};
@@ -71,10 +72,10 @@ public:
         }
 
         VkRect2D renderArea{};
-        if (colorAtts.count() > 0) {
+        if (colorAtts.Size() > 0) {
             if (auto* v = static_cast<VkTextureViewImpl*>(colorAtts[0].view))
                 renderArea.extent = { v->width(), v->height() };
-        } else if (desc.depthStencilAttachment.has_value()) {
+        } else if (desc.depthStencilAttachment.HasValue()) {
             if (auto* v = static_cast<VkTextureViewImpl*>(desc.depthStencilAttachment->view))
                 renderArea.extent = { v->width(), v->height() };
         }
@@ -83,11 +84,11 @@ public:
         ri.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
         ri.renderArea           = renderArea;
         ri.layerCount           = 1;
-        ri.colorAttachmentCount = static_cast<u32>(vkColor.size());
-        ri.pColorAttachments    = vkColor.data();
+        ri.colorAttachmentCount = static_cast<u32>(vkColor.Size());
+        ri.pColorAttachments    = vkColor.Data();
 
         VkRenderingAttachmentInfo depthAtt{}, stencilAtt{};
-        if (desc.depthStencilAttachment.has_value()) {
+        if (desc.depthStencilAttachment.HasValue()) {
             const auto& ds = *desc.depthStencilAttachment;
             if (auto* dv = static_cast<VkTextureViewImpl*>(ds.view)) {
                 depthAtt.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -118,11 +119,11 @@ public:
     ComputePassEncoder* beginComputePass(StringView) override { return &cpe_; }
 
     void barrier(const BarrierGroup& group) override {
-        std::vector<VkMemoryBarrier2>      memBs(group.memoryBarriers.count());
-        std::vector<VkBufferMemoryBarrier2> bufBs(group.bufferBarriers.count());
-        std::vector<VkImageMemoryBarrier2>  imgBs(group.textureBarriers.count());
+        Array<VkMemoryBarrier2>      memBs(group.memoryBarriers.Size());
+        Array<VkBufferMemoryBarrier2> bufBs(group.bufferBarriers.Size());
+        Array<VkImageMemoryBarrier2>  imgBs(group.textureBarriers.Size());
 
-        for (usize i = 0; i < group.memoryBarriers.count(); ++i) {
+        for (usize i = 0; i < group.memoryBarriers.Size(); ++i) {
             auto src = getStageAccess(group.memoryBarriers[i].oldState);
             auto dst = getStageAccess(group.memoryBarriers[i].newState);
             memBs[i] = {}; memBs[i].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
@@ -130,7 +131,7 @@ public:
             memBs[i].dstStageMask = dst.stageMask; memBs[i].dstAccessMask = dst.accessMask;
         }
 
-        for (usize i = 0; i < group.bufferBarriers.count(); ++i) {
+        for (usize i = 0; i < group.bufferBarriers.Size(); ++i) {
             const auto& bb = group.bufferBarriers[i];
             auto src = getStageAccess(bb.oldState); auto dst = getStageAccess(bb.newState);
             bufBs[i] = {}; bufBs[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
@@ -143,7 +144,7 @@ public:
             bufBs[i].size = (bb.size == ~0ull) ? VK_WHOLE_SIZE : bb.size;
         }
 
-        for (usize i = 0; i < group.textureBarriers.count(); ++i) {
+        for (usize i = 0; i < group.textureBarriers.Size(); ++i) {
             const auto& tb = group.textureBarriers[i];
             auto src = getStageAccess(tb.oldState); auto dst = getStageAccess(tb.newState);
 
@@ -188,9 +189,9 @@ public:
         }
 
         VkDependencyInfo di{}; di.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-        di.memoryBarrierCount       = static_cast<u32>(memBs.size()); di.pMemoryBarriers       = memBs.data();
-        di.bufferMemoryBarrierCount = static_cast<u32>(bufBs.size()); di.pBufferMemoryBarriers = bufBs.data();
-        di.imageMemoryBarrierCount  = static_cast<u32>(imgBs.size()); di.pImageMemoryBarriers  = imgBs.data();
+        di.memoryBarrierCount       = static_cast<u32>(memBs.Size()); di.pMemoryBarriers       = memBs.Data();
+        di.bufferMemoryBarrierCount = static_cast<u32>(bufBs.Size()); di.pBufferMemoryBarriers = bufBs.Data();
+        di.imageMemoryBarrierCount  = static_cast<u32>(imgBs.Size()); di.pImageMemoryBarriers  = imgBs.Data();
         vkCmdPipelineBarrier2(cmdBuf_, &di);
     }
 
@@ -297,7 +298,7 @@ public:
             dep.imageMemoryBarrierCount = 2; dep.pImageMemoryBarriers = barriers;
             vkCmdPipelineBarrier2(cmdBuf_, &dep);
 
-            i32 nw = std::max(1, mipW / 2), nh = std::max(1, mipH / 2);
+            i32 nw = Max(1, mipW / 2), nh = Max(1, mipH / 2);
             VkImageBlit bl{};
             bl.srcSubresource = { aspect, i - 1, 0, layers }; bl.srcOffsets[1] = { mipW, mipH, 1 };
             bl.dstSubresource = { aspect, i,     0, layers }; bl.dstOffsets[1] = { nw, nh, 1 };
@@ -346,8 +347,8 @@ public:
     }
 
     void beginDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
-        char buf[256]{}; auto len = std::min(label.length(), static_cast<usize>(255));
-        std::memcpy(buf, label.data(), len);
+        char buf[256]{}; auto len = Min(label.Size(), static_cast<usize>(255));
+        std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
         li.pLabelName = buf; li.color[0] = r; li.color[1] = g; li.color[2] = b; li.color[3] = a;
         auto pfn = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device_, "vkCmdBeginDebugUtilsLabelEXT"));
@@ -360,8 +361,8 @@ public:
     }
 
     void insertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
-        char buf[256]{}; auto len = std::min(label.length(), static_cast<usize>(255));
-        std::memcpy(buf, label.data(), len);
+        char buf[256]{}; auto len = Min(label.Size(), static_cast<usize>(255));
+        std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
         li.pLabelName = buf; li.color[0] = r; li.color[1] = g; li.color[2] = b; li.color[3] = a;
         auto pfn = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device_, "vkCmdInsertDebugUtilsLabelEXT"));
@@ -425,7 +426,7 @@ inline void VkCommandEncoderImpl::setBindGroup(u32 index, BindGroup* group, Span
     VkDescriptorSet set = bg->handle();
     vkCmdBindDescriptorSets(cmdBuf_, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
         currentRtPipeline_->vkLayout()->handle(), index, 1, &set,
-        static_cast<u32>(dynOffsets.count()), dynOffsets.data());
+        static_cast<u32>(dynOffsets.Size()), dynOffsets.Data());
 }
 
 inline void VkCommandEncoderImpl::setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) {
@@ -459,12 +460,12 @@ inline void VkCommandEncoderImpl::buildBottomLevelAccelStruct(
     auto* sc = static_cast<VkBufferImpl*>(scratch);
     if (!as || !sc) return;
 
-    usize total = tris.count() + aabbs.count();
-    std::vector<VkAccelerationStructureGeometryKHR> geoms(total);
-    std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges(total);
+    usize total = tris.Size() + aabbs.Size();
+    Array<VkAccelerationStructureGeometryKHR> geoms(total);
+    Array<VkAccelerationStructureBuildRangeInfoKHR> ranges(total);
     usize idx = 0;
 
-    for (usize i = 0; i < tris.count(); ++i) {
+    for (usize i = 0; i < tris.Size(); ++i) {
         const auto& t = tris[i];
         auto* vb = static_cast<VkBufferImpl*>(t.vertexBuffer); if (!vb) continue;
         VkAccelerationStructureGeometryTrianglesDataKHR td{};
@@ -487,7 +488,7 @@ inline void VkCommandEncoderImpl::buildBottomLevelAccelStruct(
         ranges[idx] = {}; ranges[idx].primitiveCount = t.indexBuffer ? t.indexCount / 3 : t.vertexCount / 3;
         ++idx;
     }
-    for (usize i = 0; i < aabbs.count(); ++i) {
+    for (usize i = 0; i < aabbs.Size(); ++i) {
         const auto& a = aabbs[i];
         auto* ab = static_cast<VkBufferImpl*>(a.aabbBuffer); if (!ab) continue;
         VkAccelerationStructureGeometryAabbsDataKHR ad{};
@@ -509,13 +510,13 @@ inline void VkCommandEncoderImpl::buildBottomLevelAccelStruct(
     bi.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
     bi.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
     bi.dstAccelerationStructure = as->handle();
-    bi.geometryCount = static_cast<u32>(idx); bi.pGeometries = geoms.data();
+    bi.geometryCount = static_cast<u32>(idx); bi.pGeometries = geoms.Data();
     bi.scratchData.deviceAddress = getBufferDeviceAddress(sc) + scratchOffset;
 
     if (!pfnBuild_) pfnBuild_ = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(
         vkGetDeviceProcAddr(device_, "vkCmdBuildAccelerationStructuresKHR"));
     if (!pfnBuild_) return;
-    const VkAccelerationStructureBuildRangeInfoKHR* pRange = ranges.data();
+    const VkAccelerationStructureBuildRangeInfoKHR* pRange = ranges.Data();
     pfnBuild_(cmdBuf_, 1, &bi, &pRange);
 }
 
@@ -595,8 +596,8 @@ Status VkCommandPoolImpl::createEncoder(CommandEncoder*& out) {
     out = nullptr;
     VkCommandBuffer cmdBuf = VK_NULL_HANDLE;
 
-    if (!freeHandles_.empty()) {
-        cmdBuf = freeHandles_.back(); freeHandles_.pop_back();
+    if (!freeHandles_.IsEmpty()) {
+        cmdBuf = freeHandles_.Back(); freeHandles_.PopBack();
     } else {
         VkCommandBufferAllocateInfo ai{};
         ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -620,8 +621,8 @@ void VkCommandPoolImpl::destroyEncoder(CommandEncoder*& encoder) {
 }
 
 void VkCommandPoolImpl::reset() {
-    for (auto* cb : trackedBuffers_) { freeHandles_.push_back(cb->handle()); delete cb; }
-    trackedBuffers_.clear();
+    for (auto* cb : trackedBuffers_) { freeHandles_.PushBack(cb->handle()); delete cb; }
+    trackedBuffers_.Clear();
     vkResetCommandPool(device_, pool_, 0);
 }
 

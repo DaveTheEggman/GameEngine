@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanBuffer.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
@@ -11,6 +12,8 @@ import raptor.core;
 import raptor.rhi;
 import :adapter;
 import :conversions;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 

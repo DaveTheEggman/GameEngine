@@ -2,10 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanComputePipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <string>
 
 export module raptor.rhi.vk:compute_pipeline;
 
@@ -14,6 +14,8 @@ import raptor.rhi;
 import :shader_module;
 import :pipeline_layout;
 import :pipeline_cache;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -28,13 +30,13 @@ public:
         auto* vkMod = static_cast<VkShaderModuleImpl*>(desc.compute.module);
         if (!vkMod) return ErrorCode::Unknown;
 
-        std::string entry(desc.compute.entryPoint.data(), desc.compute.entryPoint.length());
+        UTF8String entry = ToUTF8(desc.compute.entryPoint);
 
         VkPipelineShaderStageCreateInfo stage{};
         stage.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
         stage.module = vkMod->handle();
-        stage.pName  = entry.c_str();
+        stage.pName  = reinterpret_cast<const char*>(entry.CStr());
 
         VkComputePipelineCreateInfo ci{};
         ci.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;

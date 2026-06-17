@@ -2,12 +2,11 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanTransferBatch.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <algorithm>
 #include <cstring>
-#include <vector>
 
 export module raptor.rhi.vk:transfer_batch;
 
@@ -18,6 +17,8 @@ import :buffer;
 import :texture;
 import :fence;
 
+using namespace raptor::core;
+
 export namespace raptor::rhi::vk {
 
 class VkTransferBatchImpl : public TransferBatch {
@@ -26,29 +27,29 @@ public:
         : device_(device), physDevice_(physDevice), queue_(queue), queueFamilyIndex_(queueFamilyIndex) {}
 
     void writeBuffer(Buffer* dst, u64 dstOffset, Span<const u8> data) override {
-        u64 needed = stagingOffset_ + data.count();
+        u64 needed = stagingOffset_ + data.Size();
         if (ensureStagingBuffer(needed) != ErrorCode::Ok) return;
         void* mapped = stagingMapped_;
         if (!mapped) return;
-        std::memcpy(static_cast<u8*>(mapped) + stagingOffset_, data.data(), data.count());
-        bufferCopies_.push_back({ dst, dstOffset, stagingOffset_, data.count() });
-        stagingOffset_ = (stagingOffset_ + data.count() + 15) & ~static_cast<u64>(15);
+        std::memcpy(static_cast<u8*>(mapped) + stagingOffset_, data.Data(), data.Size());
+        bufferCopies_.PushBack({ dst, dstOffset, stagingOffset_, data.Size() });
+        stagingOffset_ = (stagingOffset_ + data.Size() + 15) & ~static_cast<u64>(15);
     }
 
     void writeTexture(Texture* dst, Span<const u8> data,
                       const TextureDataLayout& layout, Extent3D extent,
                       u32 mipLevel, u32 arrayLayer) override {
-        u64 needed = stagingOffset_ + data.count();
+        u64 needed = stagingOffset_ + data.Size();
         if (ensureStagingBuffer(needed) != ErrorCode::Ok) return;
         void* mapped = stagingMapped_;
         if (!mapped) return;
-        std::memcpy(static_cast<u8*>(mapped) + stagingOffset_, data.data(), data.count());
-        textureCopies_.push_back({ dst, stagingOffset_, mipLevel, arrayLayer, extent, layout });
-        stagingOffset_ = (stagingOffset_ + data.count() + 15) & ~static_cast<u64>(15);
+        std::memcpy(static_cast<u8*>(mapped) + stagingOffset_, data.Data(), data.Size());
+        textureCopies_.PushBack({ dst, stagingOffset_, mipLevel, arrayLayer, extent, layout });
+        stagingOffset_ = (stagingOffset_ + data.Size() + 15) & ~static_cast<u64>(15);
     }
 
     Status submit() override {
-        if (bufferCopies_.empty() && textureCopies_.empty()) return ErrorCode::Ok;
+        if (bufferCopies_.IsEmpty() && textureCopies_.IsEmpty()) return ErrorCode::Ok;
         VkCommandBuffer cmdBuf = recordCommands();
         if (cmdBuf == VK_NULL_HANDLE) return ErrorCode::Unknown;
 
@@ -61,7 +62,7 @@ public:
     }
 
     Status submitAsync(Fence* fence, u64 signalValue) override {
-        if (bufferCopies_.empty() && textureCopies_.empty()) return ErrorCode::Ok;
+        if (bufferCopies_.IsEmpty() && textureCopies_.IsEmpty()) return ErrorCode::Ok;
         VkCommandBuffer cmdBuf = recordCommands();
         if (cmdBuf == VK_NULL_HANDLE) return ErrorCode::Unknown;
 
@@ -82,7 +83,7 @@ public:
     }
 
     void reset() override {
-        bufferCopies_.clear(); textureCopies_.clear();
+        bufferCopies_.Clear(); textureCopies_.Clear();
         stagingOffset_ = 0;
         cleanupCmdPool();
     }
@@ -101,7 +102,7 @@ private:
 
     Status ensureStagingBuffer(u64 required) {
         if (stagingBuf_ != VK_NULL_HANDLE && stagingSize_ >= required) return ErrorCode::Ok;
-        u64 newSize = std::max(required, std::max(stagingSize_ * 2, static_cast<u64>(4 * 1024 * 1024)));
+        u64 newSize = Max(required, Max(stagingSize_ * 2, static_cast<u64>(4 * 1024 * 1024)));
 
         // Create staging buffer directly.
         VkBufferCreateInfo ci{}; ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -213,8 +214,8 @@ private:
     void*            stagingMapped_ = nullptr;
     u64              stagingOffset_ = 0;
     u64              stagingSize_   = 0;
-    std::vector<BufCopy> bufferCopies_;
-    std::vector<TexCopy> textureCopies_;
+    Array<BufCopy> bufferCopies_;
+    Array<TexCopy> textureCopies_;
     VkFenceImpl*   asyncFence_ = nullptr;
     u64            asyncValue_  = 0;
 };

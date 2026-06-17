@@ -2,10 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanCommandPool.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <vector>
 
 export module raptor.rhi.vk:command_pool;
 
@@ -13,6 +13,8 @@ import raptor.core;
 import raptor.rhi;
 import :adapter;
 import :command_buffer;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -44,14 +46,14 @@ public:
 
     void cleanup() {
         for (auto* cb : trackedBuffers_) delete cb;
-        trackedBuffers_.clear();
-        freeHandles_.clear();
+        trackedBuffers_.Clear();
+        freeHandles_.Clear();
 
         if (pool_ != VK_NULL_HANDLE) { vkDestroyCommandPool(device_, pool_, nullptr); pool_ = VK_NULL_HANDLE; }
     }
 
     // Called by encoder's finish() to register the command buffer.
-    void trackCommandBuffer(VkCommandBufferImpl* cb) { trackedBuffers_.push_back(cb); }
+    void trackCommandBuffer(VkCommandBufferImpl* cb) { trackedBuffers_.PushBack(cb); }
 
     [[nodiscard]] VkCommandPool handle() const { return pool_; }
     [[nodiscard]] VkDevice      vkDevice() const { return device_; }
@@ -63,8 +65,8 @@ private:
     VkDevice                          device_      = VK_NULL_HANDLE;
     VkCommandPool                     pool_        = VK_NULL_HANDLE;
     u32                               familyIndex_ = 0;
-    std::vector<VkCommandBuffer>      freeHandles_;
-    std::vector<VkCommandBufferImpl*> trackedBuffers_;
+    Array<VkCommandBuffer>      freeHandles_;
+    Array<VkCommandBufferImpl*> trackedBuffers_;
 };
 
 } // namespace raptor::rhi::vk

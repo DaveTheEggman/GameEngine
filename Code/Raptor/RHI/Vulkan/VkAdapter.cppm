@@ -3,16 +3,18 @@
 /// Provides feature detection and queue family selection.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
 #include <cstring>
-#include <vector>
 
 export module raptor.rhi.vk:adapter;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -29,8 +31,8 @@ public:
 
         u32 qfCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &qfCount, nullptr);
-        queueFamilies_.resize(qfCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &qfCount, queueFamilies_.data());
+        queueFamilies_.Resize(qfCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &qfCount, queueFamilies_.Data());
 
         queryExtensionSupport();
     }
@@ -38,7 +40,7 @@ public:
     // ---- Adapter interface ----
 
     void getInfo(AdapterInfo& out) override {
-        out.name = String(reinterpret_cast<const char*>(properties_.deviceName));
+        out.name = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(properties_.deviceName)));
         out.vendorId = properties_.vendorID;
         out.deviceId = properties_.deviceID;
 
@@ -109,7 +111,7 @@ public:
     /// Finds the best queue family index for the given type.
     /// Prefers dedicated families for Compute and Transfer.
     i32 findQueueFamily(QueueType type) const {
-        const auto count = static_cast<i32>(queueFamilies_.size());
+        const auto count = static_cast<i32>(queueFamilies_.Size());
         switch (type) {
         case QueueType::Graphics:
             for (i32 i = 0; i < count; ++i)
@@ -164,7 +166,7 @@ public:
     [[nodiscard]] const VkPhysicalDeviceProperties&      properties()       const { return properties_; }
     [[nodiscard]] const VkPhysicalDeviceFeatures&        features10()       const { return features10_; }
     [[nodiscard]] const VkPhysicalDeviceMemoryProperties& memoryProperties() const { return memoryProperties_; }
-    [[nodiscard]] const std::vector<VkQueueFamilyProperties>& queueFamilies() const { return queueFamilies_; }
+    [[nodiscard]] const Array<VkQueueFamilyProperties>& queueFamilies() const { return queueFamilies_; }
 
     [[nodiscard]] bool supportsDescriptorIndexing() const { return supportsDescriptorIndexing_; }
     [[nodiscard]] bool supportsMeshShader()         const { return supportsMeshShader_; }
@@ -174,8 +176,8 @@ private:
     void queryExtensionSupport() {
         u32 extCount = 0;
         vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extCount, nullptr);
-        std::vector<VkExtensionProperties> exts(extCount);
-        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extCount, exts.data());
+        Array<VkExtensionProperties> exts(extCount);
+        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extCount, exts.Data());
 
         for (const auto& ext : exts) {
             const char* name = ext.extensionName;
@@ -206,7 +208,7 @@ private:
     VkPhysicalDeviceProperties         properties_{};
     VkPhysicalDeviceFeatures           features10_{};
     VkPhysicalDeviceMemoryProperties   memoryProperties_{};
-    std::vector<VkQueueFamilyProperties> queueFamilies_;
+    Array<VkQueueFamilyProperties> queueFamilies_;
 
     bool supportsDynamicRendering_   = false;
     bool supportsTimelineSemaphore_  = false;

@@ -20,6 +20,14 @@ export namespace raptor::core
         Array() noexcept : m_allocator(&DefaultAllocator()) {}
         explicit Array(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
 
+        // Sized construction: `count` value-initialized elements.
+        explicit Array(usize count, IAllocator& allocator = DefaultAllocator())
+            : m_allocator(&allocator) { Resize(count); }
+
+        // Sized construction: `count` elements copy-initialized from `value`.
+        Array(usize count, const T& value, IAllocator& allocator = DefaultAllocator())
+            : m_allocator(&allocator) { Resize(count, value); }
+
         Array(const Array& other) : m_allocator(other.m_allocator)
         {
             Reserve(other.m_size);
@@ -117,6 +125,21 @@ export namespace raptor::core
                 {
                     Construct<T>(&m_data[i]);
                 }
+            }
+            m_size = newSize;
+        }
+
+        // Resize, copy-initializing any new elements from `value`.
+        void Resize(usize newSize, const T& value)
+        {
+            if (newSize < m_size)
+            {
+                for (usize i = newSize; i < m_size; ++i) { Destruct(&m_data[i]); }
+            }
+            else if (newSize > m_size)
+            {
+                Reserve(newSize);
+                for (usize i = m_size; i < newSize; ++i) { Construct<T>(&m_data[i], value); }
             }
             m_size = newSize;
         }

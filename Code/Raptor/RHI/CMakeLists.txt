@@ -11,6 +11,7 @@ target_link_libraries(RaptorRHI PUBLIC Raptor::Core Raptor::Policy)
 target_sources(RaptorRHI
     PUBLIC
         FILE_SET rhi_modules TYPE CXX_MODULES FILES
+            Log.cppm
             Enums.cppm
             TextureFormat.cppm
             Types.cppm
@@ -27,3 +28,11 @@ target_sources(RaptorRHI
 
 # Backends.
 add_subdirectory(Null)
+
+# Vulkan backend — built when the Vulkan SDK is available.
+find_package(Vulkan QUIET)
+if(Vulkan_FOUND)
+    add_subdirectory(Vulkan)
+else()
+    message(STATUS "Vulkan not found — skipping Raptor::RHIVulkan")
+endif()

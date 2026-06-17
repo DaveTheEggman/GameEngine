@@ -2,10 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanBindGroupLayout.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <vector>
 
 export module raptor.rhi.vk:bind_group_layout;
 
@@ -13,6 +13,8 @@ import raptor.core;
 import raptor.rhi;
 import :conversions;
 import :binding_shifts;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -40,12 +42,13 @@ inline VkDescriptorType toVkDescriptorType(const BindGroupLayoutEntry& e) {
 class VkBindGroupLayoutImpl : public BindGroupLayout {
 public:
     Status init(VkDevice device, const BindGroupLayoutDesc& desc, const BindingShifts& shifts = {}) {
-        entries_.assign(desc.entries.data(), desc.entries.data() + desc.entries.count());
+        entries_.Clear();
+        for (usize i = 0; i < desc.entries.Size(); ++i) { entries_.PushBack(desc.entries[i]); }
 
-        std::vector<VkDescriptorSetLayoutBinding> bindings(desc.entries.count());
-        std::vector<VkDescriptorBindingFlags>     flags(desc.entries.count());
+        Array<VkDescriptorSetLayoutBinding> bindings(desc.entries.Size());
+        Array<VkDescriptorBindingFlags>     flags(desc.entries.Size());
 
-        for (usize i = 0; i < desc.entries.count(); ++i) {
+        for (usize i = 0; i < desc.entries.Size(); ++i) {
             const auto& e = desc.entries[i];
             auto& b = bindings[i];
             b = {};
@@ -67,13 +70,13 @@ public:
 
         VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo{};
         flagsInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-        flagsInfo.bindingCount  = static_cast<u32>(desc.entries.count());
-        flagsInfo.pBindingFlags = flags.data();
+        flagsInfo.bindingCount  = static_cast<u32>(desc.entries.Size());
+        flagsInfo.pBindingFlags = flags.Data();
 
         VkDescriptorSetLayoutCreateInfo ci{};
         ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        ci.bindingCount = static_cast<u32>(desc.entries.count());
-        ci.pBindings    = bindings.data();
+        ci.bindingCount = static_cast<u32>(desc.entries.Size());
+        ci.pBindings    = bindings.Data();
         if (hasBindless_) {
             ci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
             ci.pNext  = &flagsInfo;
@@ -89,7 +92,7 @@ public:
     }
 
     Span<const BindGroupLayoutEntry> entries() const override {
-        return Span<const BindGroupLayoutEntry>(entries_.data(), entries_.size());
+        return Span<const BindGroupLayoutEntry>(entries_.Data(), entries_.Size());
     }
 
     [[nodiscard]] VkDescriptorSetLayout handle() const { return layout_; }
@@ -98,7 +101,7 @@ public:
 
 private:
     VkDescriptorSetLayout                layout_ = VK_NULL_HANDLE;
-    std::vector<BindGroupLayoutEntry>    entries_;
+    Array<BindGroupLayoutEntry>    entries_;
     bool                                 hasBindless_  = false;
     u32                                  bindlessCount_ = 0;
 };

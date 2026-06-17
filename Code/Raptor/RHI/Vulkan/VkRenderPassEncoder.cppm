@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanRenderPassEncoder.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
@@ -17,6 +18,8 @@ import :compute_pipeline;
 import :pipeline_layout;
 import :query_set;
 import :mesh_pipeline;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -40,7 +43,7 @@ public:
         if (!bg || !layout) return;
         VkDescriptorSet set = bg->handle();
         vkCmdBindDescriptorSets(cmdBuf_, VK_PIPELINE_BIND_POINT_GRAPHICS, layout->handle(),
-            index, 1, &set, static_cast<u32>(dynOffsets.count()), dynOffsets.data());
+            index, 1, &set, static_cast<u32>(dynOffsets.Size()), dynOffsets.Data());
     }
 
     void setPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override {

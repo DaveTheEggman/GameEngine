@@ -2,6 +2,7 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanTextureView.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
@@ -11,6 +12,8 @@ import raptor.core;
 import raptor.rhi;
 import :conversions;
 import :texture;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 

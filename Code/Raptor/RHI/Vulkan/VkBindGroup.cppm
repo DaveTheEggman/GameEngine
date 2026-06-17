@@ -2,10 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanBindGroup.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <vector>
 
 export module raptor.rhi.vk:bind_group;
 
@@ -20,6 +20,8 @@ import :texture_view;
 import :sampler;
 import :accel_struct;
 import :descriptor_pool_manager;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -54,19 +56,19 @@ public:
     BindGroupLayout* layout() override { return layout_; }
 
     void updateBindless(Span<const BindlessUpdateEntry> entries) override {
-        if (entries.count() == 0) return;
+        if (entries.Size() == 0) return;
 
-        std::vector<VkWriteDescriptorSet>    writes;
-        std::vector<VkDescriptorBufferInfo>  bufInfos;
-        std::vector<VkDescriptorImageInfo>   imgInfos;
-        bufInfos.reserve(entries.count());
-        imgInfos.reserve(entries.count());
+        Array<VkWriteDescriptorSet>    writes;
+        Array<VkDescriptorBufferInfo>  bufInfos;
+        Array<VkDescriptorImageInfo>   imgInfos;
+        bufInfos.Reserve(entries.Size());
+        imgInfos.Reserve(entries.Size());
 
         auto layoutEntries = layout_->entries();
 
-        for (usize i = 0; i < entries.count(); ++i) {
+        for (usize i = 0; i < entries.Size(); ++i) {
             const auto& e = entries[i];
-            if (e.layoutIndex >= static_cast<u32>(layoutEntries.count())) continue;
+            if (e.layoutIndex >= static_cast<u32>(layoutEntries.Size())) continue;
             const auto& le = layoutEntries[e.layoutIndex];
 
             VkWriteDescriptorSet w{};
@@ -82,7 +84,7 @@ public:
                 if (auto* vkBuf = static_cast<VkBufferImpl*>(e.buffer)) {
                     VkDescriptorBufferInfo bi{}; bi.buffer = vkBuf->handle(); bi.offset = e.bufferOffset;
                     bi.range = e.bufferSize > 0 ? e.bufferSize : VK_WHOLE_SIZE;
-                    bufInfos.push_back(bi); w.pBufferInfo = &bufInfos.back();
+                    bufInfos.PushBack(bi); w.pBufferInfo = &bufInfos.Back();
                 } else continue;
                 break;
             case BindingType::BindlessTextures: case BindingType::BindlessStorageTextures:
@@ -90,44 +92,44 @@ public:
                     VkDescriptorImageInfo ii{}; ii.imageView = vkView->handle();
                     ii.imageLayout = le.type == BindingType::BindlessTextures
                         ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
-                    imgInfos.push_back(ii); w.pImageInfo = &imgInfos.back();
+                    imgInfos.PushBack(ii); w.pImageInfo = &imgInfos.Back();
                 } else continue;
                 break;
             case BindingType::BindlessSamplers:
                 if (auto* vkSamp = static_cast<VkSamplerImpl*>(e.sampler)) {
                     VkDescriptorImageInfo ii{}; ii.sampler = vkSamp->handle();
-                    imgInfos.push_back(ii); w.pImageInfo = &imgInfos.back();
+                    imgInfos.PushBack(ii); w.pImageInfo = &imgInfos.Back();
                 } else continue;
                 break;
             default: continue;
             }
-            writes.push_back(w);
+            writes.PushBack(w);
         }
 
-        if (!writes.empty())
-            vkUpdateDescriptorSets(device_, static_cast<u32>(writes.size()), writes.data(), 0, nullptr);
+        if (!writes.IsEmpty())
+            vkUpdateDescriptorSets(device_, static_cast<u32>(writes.Size()), writes.Data(), 0, nullptr);
     }
 
     [[nodiscard]] VkDescriptorSet handle() const { return set_; }
 
 private:
     void writeDescriptors(VkDevice device, const BindGroupDesc& desc) {
-        if (desc.entries.count() == 0) return;
+        if (desc.entries.Size() == 0) return;
 
         auto layoutEntries = layout_->entries();
 
-        std::vector<VkWriteDescriptorSet>    writes;
-        std::vector<VkDescriptorBufferInfo>  bufInfos;
-        std::vector<VkDescriptorImageInfo>   imgInfos;
-        std::vector<VkWriteDescriptorSetAccelerationStructureKHR> asWriteInfos;
-        std::vector<VkAccelerationStructureKHR>                   asHandles;
-        bufInfos.reserve(desc.entries.count());
-        imgInfos.reserve(desc.entries.count());
-        asWriteInfos.reserve(desc.entries.count());
-        asHandles.reserve(desc.entries.count());
+        Array<VkWriteDescriptorSet>    writes;
+        Array<VkDescriptorBufferInfo>  bufInfos;
+        Array<VkDescriptorImageInfo>   imgInfos;
+        Array<VkWriteDescriptorSetAccelerationStructureKHR> asWriteInfos;
+        Array<VkAccelerationStructureKHR>                   asHandles;
+        bufInfos.Reserve(desc.entries.Size());
+        imgInfos.Reserve(desc.entries.Size());
+        asWriteInfos.Reserve(desc.entries.Size());
+        asHandles.Reserve(desc.entries.Size());
 
         usize entryIdx = 0;
-        for (usize i = 0; i < layoutEntries.count(); ++i) {
+        for (usize i = 0; i < layoutEntries.Size(); ++i) {
             const auto& le = layoutEntries[i];
             // Skip bindless entries.
             switch (le.type) {
@@ -136,7 +138,7 @@ private:
                 continue;
             default: break;
             }
-            if (entryIdx >= desc.entries.count()) break;
+            if (entryIdx >= desc.entries.Size()) break;
             const auto& e = desc.entries[entryIdx++];
 
             VkWriteDescriptorSet w{};
@@ -152,7 +154,7 @@ private:
                 if (auto* vkBuf = static_cast<VkBufferImpl*>(e.buffer)) {
                     VkDescriptorBufferInfo bi{}; bi.buffer = vkBuf->handle(); bi.offset = e.bufferOffset;
                     bi.range = e.bufferSize > 0 ? e.bufferSize : VK_WHOLE_SIZE;
-                    bufInfos.push_back(bi); w.pBufferInfo = &bufInfos.back();
+                    bufInfos.PushBack(bi); w.pBufferInfo = &bufInfos.Back();
                 } else continue;
                 break;
             case BindingType::SampledTexture: case BindingType::StorageTextureReadOnly: case BindingType::StorageTextureReadWrite:
@@ -168,33 +170,33 @@ private:
                     } else {
                         ii.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
                     }
-                    imgInfos.push_back(ii); w.pImageInfo = &imgInfos.back();
+                    imgInfos.PushBack(ii); w.pImageInfo = &imgInfos.Back();
                 } else continue;
                 break;
             case BindingType::Sampler: case BindingType::ComparisonSampler:
                 if (auto* vkSamp = static_cast<VkSamplerImpl*>(e.sampler)) {
                     VkDescriptorImageInfo ii{}; ii.sampler = vkSamp->handle();
-                    imgInfos.push_back(ii); w.pImageInfo = &imgInfos.back();
+                    imgInfos.PushBack(ii); w.pImageInfo = &imgInfos.Back();
                 } else continue;
                 break;
             case BindingType::AccelerationStructure:
                 if (auto* vkAs = static_cast<VkAccelStructImpl*>(e.accelStruct)) {
-                    asHandles.push_back(vkAs->handle());
+                    asHandles.PushBack(vkAs->handle());
                     VkWriteDescriptorSetAccelerationStructureKHR asInfo{};
                     asInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
                     asInfo.accelerationStructureCount = 1;
-                    asInfo.pAccelerationStructures = &asHandles.back();
-                    asWriteInfos.push_back(asInfo);
-                    w.pNext = &asWriteInfos.back();
+                    asInfo.pAccelerationStructures = &asHandles.Back();
+                    asWriteInfos.PushBack(asInfo);
+                    w.pNext = &asWriteInfos.Back();
                 } else continue;
                 break;
             default: continue;
             }
-            writes.push_back(w);
+            writes.PushBack(w);
         }
 
-        if (!writes.empty())
-            vkUpdateDescriptorSets(device, static_cast<u32>(writes.size()), writes.data(), 0, nullptr);
+        if (!writes.IsEmpty())
+            vkUpdateDescriptorSets(device, static_cast<u32>(writes.Size()), writes.Data(), 0, nullptr);
     }
 
     VkDevice              device_ = VK_NULL_HANDLE;

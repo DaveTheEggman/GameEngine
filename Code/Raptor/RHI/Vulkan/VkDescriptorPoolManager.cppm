@@ -2,14 +2,16 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanDescriptorPoolManager.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <vector>
 
 export module raptor.rhi.vk:descriptor_pool_manager;
 
 import raptor.core;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -49,7 +51,7 @@ public:
         // Create new pool.
         if (createPool(updateAfterBind) != ErrorCode::Ok) return ErrorCode::Unknown;
 
-        auto pool = pools_.back();
+        auto pool = pools_.Back();
         VkDescriptorSet set = VK_NULL_HANDLE;
         VkDescriptorSetAllocateInfo ai{};
         ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -73,7 +75,7 @@ public:
 
     void destroy() {
         for (auto pool : pools_) vkDestroyDescriptorPool(device_, pool, nullptr);
-        pools_.clear();
+        pools_.Clear();
     }
 
 private:
@@ -105,12 +107,12 @@ private:
 
         VkDescriptorPool pool = VK_NULL_HANDLE;
         if (vkCreateDescriptorPool(device_, &ci, nullptr, &pool) != VK_SUCCESS) return ErrorCode::Unknown;
-        pools_.push_back(pool);
+        pools_.PushBack(pool);
         return ErrorCode::Ok;
     }
 
     VkDevice                      device_;
-    std::vector<VkDescriptorPool> pools_;
+    Array<VkDescriptorPool> pools_;
     u32                           maxSetsPerPool_;
     bool                          accelStructEnabled_;
     VkDescriptorSet               lastAllocatedSet_ = VK_NULL_HANDLE;

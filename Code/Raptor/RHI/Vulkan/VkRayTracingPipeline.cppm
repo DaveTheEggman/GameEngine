@@ -2,11 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanRayTracingPipeline.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <string>
-#include <vector>
 
 export module raptor.rhi.vk:ray_tracing_pipeline;
 
@@ -15,6 +14,8 @@ import raptor.rhi;
 import :shader_module;
 import :pipeline_layout;
 import :pipeline_cache;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -27,16 +28,16 @@ public:
         layout_ = vkLayout;
 
         // Shader stages.
-        std::vector<VkPipelineShaderStageCreateInfo> stages(desc.stages.count());
-        std::vector<std::string> entryStrings(desc.stages.count());
-        for (usize i = 0; i < desc.stages.count(); ++i) {
-            entryStrings[i].assign(desc.stages[i].entryPoint.data(), desc.stages[i].entryPoint.length());
+        Array<VkPipelineShaderStageCreateInfo> stages(desc.stages.Size());
+        Array<UTF8String> entryStrings(desc.stages.Size());
+        for (usize i = 0; i < desc.stages.Size(); ++i) {
+            entryStrings[i] = ToUTF8(desc.stages[i].entryPoint);
             auto* mod = static_cast<VkShaderModuleImpl*>(desc.stages[i].module);
             if (!mod) return ErrorCode::Unknown;
             stages[i] = {};
             stages[i].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             stages[i].module = mod->handle();
-            stages[i].pName  = entryStrings[i].c_str();
+            stages[i].pName  = reinterpret_cast<const char*>(entryStrings[i].CStr());
             // Map stage from desc.
             auto s = desc.stages[i].stage;
             if      (s == ShaderStage::RayGen)       stages[i].stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
@@ -49,8 +50,8 @@ public:
         }
 
         // Shader groups.
-        std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups(desc.groups.count());
-        for (usize i = 0; i < desc.groups.count(); ++i) {
+        Array<VkRayTracingShaderGroupCreateInfoKHR> groups(desc.groups.Size());
+        for (usize i = 0; i < desc.groups.Size(); ++i) {
             const auto& g = desc.groups[i];
             groups[i] = {};
             groups[i].sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -70,10 +71,10 @@ public:
 
         VkRayTracingPipelineCreateInfoKHR ci{};
         ci.sType             = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
-        ci.stageCount        = static_cast<u32>(stages.size());
-        ci.pStages           = stages.data();
-        ci.groupCount        = static_cast<u32>(groups.size());
-        ci.pGroups           = groups.data();
+        ci.stageCount        = static_cast<u32>(stages.Size());
+        ci.pStages           = stages.Data();
+        ci.groupCount        = static_cast<u32>(groups.Size());
+        ci.pGroups           = groups.Data();
         ci.maxPipelineRayRecursionDepth = desc.maxRecursionDepth;
         ci.layout            = vkLayout->handle();
 

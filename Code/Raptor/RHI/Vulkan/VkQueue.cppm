@@ -2,10 +2,10 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanQueue.bf.
 
 module;
+#include "Core/Prelude.h"
 
 #include "VkIncludes.h"
 
-#include <vector>
 
 export module raptor.rhi.vk:queue;
 
@@ -14,6 +14,8 @@ import raptor.rhi;
 import :command_buffer;
 import :fence;
 import :transfer_batch;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::vk {
 
@@ -28,14 +30,14 @@ public:
     // ---- Queue interface ----
 
     void submit(Span<CommandBuffer* const> cmdBufs) override {
-        if (cmdBufs.count() == 0) return;
-        std::vector<VkCommandBuffer> bufs(cmdBufs.count());
-        for (usize i = 0; i < cmdBufs.count(); ++i)
+        if (cmdBufs.Size() == 0) return;
+        Array<VkCommandBuffer> bufs(cmdBufs.Size());
+        for (usize i = 0; i < cmdBufs.Size(); ++i)
             bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
 
         VkSubmitInfo si{}; si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        si.commandBufferCount = static_cast<u32>(bufs.size());
-        si.pCommandBuffers    = bufs.data();
+        si.commandBufferCount = static_cast<u32>(bufs.Size());
+        si.pCommandBuffers    = bufs.Data();
         vkQueueSubmit(queue_, 1, &si, VK_NULL_HANDLE);
     }
 
