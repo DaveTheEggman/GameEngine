@@ -1,0 +1,26 @@
+# Raptor::Shaders — `raptor.shaders` (HLSL compilation via DXC). The Compiler is
+# a third-party edge (DXC's wide-char API), so it uses std strings/containers;
+# the public Types use Raptor types.
+
+if(NOT TARGET Raptor::DXCHeaders)
+    message(STATUS "Skipping Raptor::Shaders — DXC headers not available")
+    return()
+endif()
+
+add_library(RaptorShaders STATIC)
+add_library(Raptor::Shaders ALIAS RaptorShaders)
+
+target_link_libraries(RaptorShaders
+    PUBLIC Raptor::Core Raptor::DXCHeaders Raptor::Policy
+    PRIVATE ${CMAKE_DL_LIBS})
+
+target_sources(RaptorShaders
+    PUBLIC
+        FILE_SET shaders_modules TYPE CXX_MODULES FILES
+            Types.cppm
+            Compiler.cppm
+            ShadersModule.cppm)
+
+if(RAPTOR_BUILD_TESTS)
+    add_subdirectory(Tests)
+endif()
