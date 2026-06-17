@@ -1,22 +1,18 @@
-// Raptor Core — :native_filesystem partition
+// Raptor::VFS — :native_filesystem partition
 //
 // NativeFileSystem: backs logical paths with a real directory prefix.
 
 module;
 #include "Core/Prelude.h"
 
-export module raptor.core:native_filesystem;
+export module raptor.vfs:native_filesystem;
 
-import :base;
-import :allocator;
-import :unique_ptr;
-import :string;
-import :path;
-import :system;
-import :io;
+import raptor.core;
 import :ifilesystem;
 
-export namespace raptor::core
+using namespace raptor::core;
+
+export namespace raptor::vfs
 {
     // =======================================================================
     // NativeFileSystem — backs logical paths with a real directory prefix.

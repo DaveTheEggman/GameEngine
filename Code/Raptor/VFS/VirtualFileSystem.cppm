@@ -1,4 +1,4 @@
-// Raptor Core — :vfs partition
+// Raptor::VFS — :vfs partition
 //
 // VirtualFileSystem: routes logical paths to mounted IFileSystem backends by
 // longest-prefix match. Mounts are non-owning.
@@ -6,18 +6,14 @@
 module;
 #include "Core/Prelude.h"
 
-export module raptor.core:vfs;
+export module raptor.vfs:vfs;
 
-import :base;
-import :allocator;
-import :unique_ptr;
-import :array;
-import :string;
-import :io;
-import :system;
+import raptor.core;
 import :ifilesystem;
 
-export namespace raptor::core
+using namespace raptor::core;
+
+export namespace raptor::vfs
 {
     // =======================================================================
     // VirtualFileSystem — routes logical paths to mounted backends.

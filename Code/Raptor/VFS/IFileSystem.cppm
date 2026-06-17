@@ -1,4 +1,4 @@
-// Raptor Core — :ifilesystem partition
+// Raptor::VFS — :ifilesystem partition
 //
 // IFileSystem: open streams and test existence by logical path. Implemented by
 // NativeFileSystem and VirtualFileSystem.
@@ -6,15 +6,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module raptor.core:ifilesystem;
+export module raptor.vfs:ifilesystem;
 
-import :base;
-import :unique_ptr;
-import :string;
-import :system;
-import :io;
+import raptor.core;
 
-export namespace raptor::core
+using namespace raptor::core;
+
+export namespace raptor::vfs
 {
     class IFileSystem
     {
