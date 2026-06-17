@@ -136,8 +136,8 @@ TEST_CASE("serialization: primitives and math round-trip")
 {
     MemoryStream stream;
     {
-        BinarySerializer saver(stream, SerializeDirection::Save);
-        CHECK(saver.IsSaving());
+        BinarySerializer saver(stream, SerializeMode::Write);
+        CHECK(saver.IsWriting());
 
         i32 a = -7;
         f64 b = 1.5;
@@ -150,8 +150,8 @@ TEST_CASE("serialization: primitives and math round-trip")
 
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
-        BinarySerializer loader(stream, SerializeDirection::Load);
-        CHECK(loader.IsLoading());
+        BinarySerializer loader(stream, SerializeMode::Read);
+        CHECK(loader.IsReading());
 
         i32 a = 0;
         f64 b = 0.0;
@@ -171,7 +171,7 @@ TEST_CASE("serialization: String and Array round-trip")
 {
     MemoryStream stream;
     {
-        BinarySerializer saver(stream, SerializeDirection::Save);
+        BinarySerializer saver(stream, SerializeMode::Write);
         String name = u"raptor";
         Array<i32> values;
         for (i32 i = 0; i < 5; ++i) { values.PushBack(i * 11); }
@@ -182,7 +182,7 @@ TEST_CASE("serialization: String and Array round-trip")
 
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
-        BinarySerializer loader(stream, SerializeDirection::Load);
+        BinarySerializer loader(stream, SerializeMode::Read);
         String name;
         Array<i32> values;
         Serialize(loader, name);
@@ -206,7 +206,7 @@ TEST_CASE("serialization: a user type serialized once for both directions")
     original.mass = 2.25f;
 
     {
-        BinarySerializer saver(stream, SerializeDirection::Save);
+        BinarySerializer saver(stream, SerializeMode::Write);
         Serialize(saver, original);
         CHECK(saver.IsOk());
     }
@@ -215,7 +215,7 @@ TEST_CASE("serialization: a user type serialized once for both directions")
 
     Particle loaded;
     {
-        BinarySerializer loader(stream, SerializeDirection::Load);
+        BinarySerializer loader(stream, SerializeMode::Read);
         Serialize(loader, loaded);
         CHECK(loader.IsOk());
     }
@@ -229,7 +229,7 @@ TEST_CASE("serialization: nested Array<String> round-trips")
 {
     MemoryStream stream;
     {
-        BinarySerializer saver(stream, SerializeDirection::Save);
+        BinarySerializer saver(stream, SerializeMode::Write);
         Array<String> words;
         words.PushBack(String(u"alpha"));
         words.PushBack(String(u"beta"));
@@ -240,7 +240,7 @@ TEST_CASE("serialization: nested Array<String> round-trips")
 
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
-        BinarySerializer loader(stream, SerializeDirection::Load);
+        BinarySerializer loader(stream, SerializeMode::Read);
         Array<String> words;
         Serialize(loader, words);
         CHECK(loader.IsOk());
@@ -255,13 +255,13 @@ TEST_CASE("serialization: short read on load is reported")
 {
     MemoryStream stream;
     {
-        BinarySerializer saver(stream, SerializeDirection::Save);
+        BinarySerializer saver(stream, SerializeMode::Write);
         i16 small = 7;
         Serialize(saver, small); // only 2 bytes written
     }
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
 
-    BinarySerializer loader(stream, SerializeDirection::Load);
+    BinarySerializer loader(stream, SerializeMode::Read);
     i64 tooBig = 0; // wants 8 bytes
     Serialize(loader, tooBig);
     CHECK_FALSE(loader.IsOk()); // ran out of bytes

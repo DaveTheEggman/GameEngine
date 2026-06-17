@@ -1,6 +1,6 @@
 // Raptor Core — :serializer partition
 //
-// Serializer: the concrete base over ISerializer that holds direction, version,
+// Serializer: the concrete base over ISerializer that holds the mode, version,
 // and a sticky error Status. Backends (e.g. BinarySerializer) extend this.
 
 module;
@@ -17,14 +17,25 @@ export namespace raptor::core
     class Serializer : public ISerializer
     {
     public:
-        explicit Serializer(SerializeDirection direction) noexcept : m_direction(direction) {}
+        explicit Serializer(SerializeMode mode) noexcept : m_mode(mode) {}
 
-        [[nodiscard]] SerializeDirection Direction() const noexcept override { return m_direction; }
+        [[nodiscard]] SerializeMode Mode() const noexcept override { return m_mode; }
         [[nodiscard]] u32 Version() const noexcept override { return m_version; }
         void SetVersion(u32 version) noexcept { m_version = version; }
 
         [[nodiscard]] Status GetStatus() const noexcept { return m_status; }
         [[nodiscard]] bool IsOk() const noexcept { return m_status.IsOk(); }
+
+        [[nodiscard]] bool IsReading() const noexcept { return m_mode == SerializeMode::Read; }
+        [[nodiscard]] bool IsWriting() const noexcept { return m_mode == SerializeMode::Write; }
+
+        // Naming and object/array scopes carry no information in unkeyed formats;
+        // default them to no-ops. Keyed/text backends override what they need.
+        // (BeginArray/Scalar/Text/Blob stay pure — every backend must move data.)
+        void Key(const char* name) noexcept override { (void)name; }
+        void BeginObject() override {}
+        void EndObject() override {}
+        void EndArray() override {}
 
     protected:
         void Fail(ErrorCode code) noexcept
@@ -32,7 +43,7 @@ export namespace raptor::core
             if (m_status.IsOk()) { m_status = code; }
         }
 
-        SerializeDirection m_direction;
+        SerializeMode m_mode;
         u32 m_version = 0;
         Status m_status{};
     };

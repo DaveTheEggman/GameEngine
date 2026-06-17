@@ -1,7 +1,9 @@
 // Raptor Core — :iserializer partition
 //
-// The serialization contract: a direction-aware pure interface. One Serialize
-// path serves both load and save; SerializeRaw is the single primitive.
+// The serialization contract: a mode-aware, format-agnostic interface. One
+// Serialize() path runs either direction, and the interface speaks in *intent*
+// (typed scalars, named fields, structured scopes) rather than raw bytes — so a
+// binary backend and a keyed/text backend (JSON, …) can both implement it.
 
 module;
 #include "Core/Prelude.h"
@@ -9,31 +11,59 @@ module;
 export module raptor.core:iserializer;
 
 import :base;
+import :string;
 
 export namespace raptor::core
 {
-    enum class SerializeDirection
+    enum class SerializeMode
     {
-        Load,
-        Save,
+        Read,
+        Write,
     };
 
-    // Pure interface: direction + the single raw-bytes primitive.
+    // The type of a scalar, so keyed/text backends can emit the right token and
+    // binary backends know the width. Decouples "what kind of value" from bytes.
+    enum class ScalarKind : u8
+    {
+        Bool,
+        Int8, UInt8,
+        Int16, UInt16,
+        Int32, UInt32,
+        Int64, UInt64,
+        Float32, Float64,
+    };
+
+    // Format-agnostic pure interface. Backends extend Serializer, not this
+    // directly — Serializer supplies no-op defaults for the naming/scope ops
+    // that unkeyed formats (e.g. binary) ignore.
+    //
+    // Keyed/text backends use Key()/object scopes to produce `"name": value`.
     class ISerializer
     {
     public:
         virtual ~ISerializer() = default;
 
-        [[nodiscard]] virtual SerializeDirection Direction() const noexcept = 0;
+        [[nodiscard]] virtual SerializeMode Mode() const noexcept = 0;
         [[nodiscard]] virtual u32 Version() const noexcept = 0;
 
-        // Moves `size` bytes between memory and the backing store, in whichever
-        // direction this serializer runs.
-        virtual Status SerializeRaw(void* data, usize size) = 0;
+        // Names the next value within the current object. Ignored by unkeyed
+        // formats; keyed/text formats associate it with the value that follows.
+        virtual void Key(const char* name) noexcept = 0;
 
-        [[nodiscard]] bool IsLoading() const noexcept { return Direction() == SerializeDirection::Load; }
-        [[nodiscard]] bool IsSaving() const noexcept { return Direction() == SerializeDirection::Save; }
+        // Structured scopes. BeginArray moves the element count (written on
+        // write, read on read).
+        virtual void BeginObject() = 0;
+        virtual void EndObject() = 0;
+        virtual void BeginArray(u32& count) = 0;
+        virtual void EndArray() = 0;
+
+        // Moves one typed scalar between memory and the backing store.
+        virtual void Scalar(void* value, ScalarKind kind) = 0;
+
+        // Moves a (wide) string. First-class so text formats store it natively.
+        virtual void Text(String& value) = 0;
+
+        // Moves an opaque byte blob (raw in binary; e.g. base64 in text).
+        virtual void Blob(void* data, usize size) = 0;
     };
-
-    // Concrete base: holds direction, version, and a sticky error status.
 }

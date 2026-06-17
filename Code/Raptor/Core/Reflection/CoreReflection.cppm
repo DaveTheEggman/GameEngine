@@ -200,9 +200,9 @@ namespace raptor::core
                .Value("Internal", ErrorCode::Internal);
     }
 
-    RAPTOR_REFLECT_ENUM(SerializeDirection, "raptor::core")
+    RAPTOR_REFLECT_ENUM(SerializeMode, "raptor::core")
     {
-        builder.Value("Load", SerializeDirection::Load).Value("Save", SerializeDirection::Save);
+        builder.Value("Read", SerializeMode::Read).Value("Write", SerializeMode::Write);
     }
 
     RAPTOR_REFLECT_ENUM(FileMode, "raptor::core")
@@ -254,7 +254,7 @@ export namespace raptor::core
         // Public enums (patch TypeOf<E>() with enumerators, then register).
         RaptorRegisterEnum_LogLevel();          GlobalTypeRegistry().Register(TypeOf<LogLevel>());
         RaptorRegisterEnum_ErrorCode();         GlobalTypeRegistry().Register(TypeOf<ErrorCode>());
-        RaptorRegisterEnum_SerializeDirection();GlobalTypeRegistry().Register(TypeOf<SerializeDirection>());
+        RaptorRegisterEnum_SerializeMode();GlobalTypeRegistry().Register(TypeOf<SerializeMode>());
         RaptorRegisterEnum_FileMode();          GlobalTypeRegistry().Register(TypeOf<FileMode>());
         RaptorRegisterEnum_SeekOrigin();        GlobalTypeRegistry().Register(TypeOf<SeekOrigin>());
     }
