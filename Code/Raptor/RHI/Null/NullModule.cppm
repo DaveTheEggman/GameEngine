@@ -2,13 +2,14 @@
 /// Useful for headless testing, CI, or when no GPU is available.
 
 module;
-
-#include <vector>
+#include "Core/Prelude.h"  // <new> reachability for placement-new in core templates (GCC)
 
 export module raptor.rhi.null;
 
 import raptor.core;
 import raptor.rhi;
+
+using namespace raptor::core;
 
 export namespace raptor::rhi::null {
 
@@ -18,9 +19,9 @@ class NullBuffer : public Buffer {
 public:
     void* map()   override { return mapped_; }
     void  unmap() override {}
-    void  allocate(u64 size) { data_.resize(static_cast<usize>(size), 0); mapped_ = data_.data(); }
+    void  allocate(u64 size) { data_.Resize(static_cast<usize>(size)); mapped_ = data_.Data(); }
 private:
-    std::vector<u8> data_;
+    Array<u8> data_;
     void* mapped_ = nullptr;
 };
 
@@ -189,8 +190,8 @@ class NullQueue : public Queue {
 public:
     NullTransferBatch tb;
     void submit(Span<CommandBuffer* const>) override {}
-    void submit(Span<CommandBuffer* const>, Fence* f, u64 v) override { if (auto* nf = dynamic_cast<NullFence*>(f)) nf->signal(v); }
-    void submit(Span<CommandBuffer* const>, Span<Fence* const>, Span<const u64>, Fence* f, u64 v) override { if (auto* nf = dynamic_cast<NullFence*>(f)) nf->signal(v); }
+    void submit(Span<CommandBuffer* const>, Fence* f, u64 v) override { if (auto* nf = static_cast<NullFence*>(f)) nf->signal(v); }
+    void submit(Span<CommandBuffer* const>, Span<Fence* const>, Span<const u64>, Fence* f, u64 v) override { if (auto* nf = static_cast<NullFence*>(f)) nf->signal(v); }
     void waitIdle() override {}
     Status createTransferBatch(TransferBatch*& out) override { out = &tb; return ErrorCode::Ok; }
     void destroyTransferBatch(TransferBatch*&) override {}
@@ -266,7 +267,7 @@ public:
 class NullAdapter : public Adapter {
 public:
     void getInfo(AdapterInfo& out) override {
-        out.name     = "Null Device";
+        out.name     = u"Null Device";
         out.vendorId = 0;
         out.deviceId = 0;
         out.type     = AdapterType::Cpu;

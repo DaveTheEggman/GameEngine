@@ -24,3 +24,6 @@ target_sources(RaptorRHI
             SwapChain.cppm
             Device.cppm
             RhiModule.cppm)
+
+# Backends.
+add_subdirectory(Null)
