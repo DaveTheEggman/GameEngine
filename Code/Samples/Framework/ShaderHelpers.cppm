@@ -13,7 +13,7 @@ using namespace raptor::core;
 export namespace raptor::samples::framework {
 
 /// Compile HLSL source to a ShaderModule with a specific shader model.
-inline Status compileToModule(shaders::Compiler* compiler, rhi::Device* device,
+inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
                               UTF8StringView hlslSource, shaders::ShaderStage stage,
                               StringView entryPoint, StringView label,
                               StringView shaderModel,
@@ -61,11 +61,11 @@ inline Status compileToModule(shaders::Compiler* compiler, rhi::Device* device,
 }
 
 /// Compile HLSL source to a ShaderModule. Default shader model 6.0.
-inline Status compileToModule(shaders::Compiler* compiler, rhi::Device* device,
+inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
                               UTF8StringView hlslSource, shaders::ShaderStage stage,
                               StringView entryPoint, StringView label,
                               rhi::ShaderModule*& out) {
-    return compileToModule(compiler, device, hlslSource, stage, entryPoint, label, u"6_0", out);
+    return CompileToModule(compiler, device, hlslSource, stage, entryPoint, label, u"6_0", out);
 }
 
 } // namespace raptor::samples::framework

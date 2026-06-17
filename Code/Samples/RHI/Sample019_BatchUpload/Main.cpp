@@ -23,11 +23,11 @@ namespace ds = raptor::shaders;
 class BatchUploadSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample019 - Batch Upload (Async Transfer)"; }
+    raptor::core::StringView Title() const override { return u"Sample019 - Batch Upload (Async Transfer)"; }
 protected:
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnShutdown() override;
 private:
     raptor::core::Status doBatchUpload();
 
@@ -77,65 +77,65 @@ private:
 
     static constexpr raptor::core::u32 kTexSize = 128;
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::ShaderModule* vs_ = nullptr;
-    dr::ShaderModule* ps_ = nullptr;
+    ds::Compiler* m_compiler = nullptr;
+    dr::ShaderModule* m_vs = nullptr;
+    dr::ShaderModule* m_ps = nullptr;
 
-    dr::Buffer* vb_ = nullptr;
-    dr::Buffer* ib_ = nullptr;
-    dr::Texture* tex_ = nullptr;
-    dr::TextureView* texView_ = nullptr;
-    dr::Sampler* sampler_ = nullptr;
+    dr::Buffer* m_vb = nullptr;
+    dr::Buffer* m_ib = nullptr;
+    dr::Texture* m_tex = nullptr;
+    dr::TextureView* m_texView = nullptr;
+    dr::Sampler* m_sampler = nullptr;
 
-    dr::Buffer* transformBuf_ = nullptr;
-    void* transformMapped_ = nullptr;
+    dr::Buffer* m_transformBuf = nullptr;
+    void* m_transformMapped = nullptr;
 
-    dr::BindGroupLayout* bgl_ = nullptr;
-    dr::BindGroup* bg_ = nullptr;
-    dr::PipelineLayout* pl_ = nullptr;
-    dr::RenderPipeline* pipeline_ = nullptr;
-    dr::CommandPool* pool_ = nullptr;
-    dr::Fence* frameFence_ = nullptr;
-    raptor::core::u64 frameFenceVal_ = 0;
+    dr::BindGroupLayout* m_bgl = nullptr;
+    dr::BindGroup* m_bg = nullptr;
+    dr::PipelineLayout* m_pl = nullptr;
+    dr::RenderPipeline* m_pipeline = nullptr;
+    dr::CommandPool* m_pool = nullptr;
+    dr::Fence* m_frameFence = nullptr;
+    raptor::core::u64 m_frameFenceVal = 0;
 
     // Upload tracking
-    dr::Fence* uploadFence_ = nullptr;
-    raptor::core::u64 uploadFenceVal_ = 0;
-    bool uploadComplete_ = false;
-    float uploadStartTime_ = 0.0f;
+    dr::Fence* m_uploadFence = nullptr;
+    raptor::core::u64 m_uploadFenceVal = 0;
+    bool m_uploadComplete = false;
+    float m_uploadStartTime = 0.0f;
 };
 
-raptor::core::Status BatchUploadSample::onInit() {
+raptor::core::Status BatchUploadSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"BatchVS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"BatchPS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"BatchVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"BatchPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex buffer: 4 vertices x (pos3 + uv2) x 4 = 80 bytes
     dr::BufferDesc vbd{}; vbd.size = 80; vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u"BatchVB";
-    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Index buffer: 6 uint16 = 12 bytes
     dr::BufferDesc ibd{}; ibd.size = 12; ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u"BatchIB";
-    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Texture
     dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm; td.width = kTexSize; td.height = kTexSize;
     td.mipLevelCount = 1; td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst; td.label = u"BatchTex";
-    if (device_->CreateTexture(td, tex_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_tex) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm; tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    if (device_->CreateTextureView(tex_, tvd, texView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
     sd.addressU = dr::AddressMode::Repeat; sd.addressV = dr::AddressMode::Repeat; sd.label = u"BatchSampler";
-    if (device_->CreateSampler(sd, sampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Transform UBO
     dr::BufferDesc tbd{}; tbd.size = 16; tbd.usage = dr::BufferUsage::Uniform; tbd.memory = dr::MemoryLocation::CpuToGpu; tbd.label = u"BatchTransform";
-    if (device_->CreateBuffer(tbd, transformBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    transformMapped_ = transformBuf_->Map();
+    if (m_device->CreateBuffer(tbd, m_transformBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    m_transformMapped = m_transformBuf->Map();
 
     // Bind group layout: UBO + texture + sampler
     dr::BindGroupLayoutEntry bglEntries[3] = {
@@ -144,39 +144,39 @@ raptor::core::Status BatchUploadSample::onInit() {
         dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment),
     };
     dr::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const dr::BindGroupLayoutEntry>(bglEntries, 3); bgld.label = u"BatchBGL";
-    if (device_->CreateBindGroupLayout(bgld, bgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BindGroupEntry bgEntries[3] = {
-        dr::BindGroupEntry::BufferEntry(transformBuf_, 0, 16),
-        dr::BindGroupEntry::TextureEntry(texView_),
-        dr::BindGroupEntry::SamplerEntry(sampler_),
+        dr::BindGroupEntry::BufferEntry(m_transformBuf, 0, 16),
+        dr::BindGroupEntry::TextureEntry(m_texView),
+        dr::BindGroupEntry::SamplerEntry(m_sampler),
     };
-    dr::BindGroupDesc bgd{}; bgd.layout = bgl_; bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 3); bgd.label = u"BatchBG";
-    if (device_->CreateBindGroup(bgd, bg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 3); bgd.label = u"BatchBG";
+    if (m_device->CreateBindGroup(bgd, m_bg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Pipeline layout
-    dr::BindGroupLayout* bgls[1] = { bgl_ };
+    dr::BindGroupLayout* bgls[1] = { m_bgl };
     dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(bgls, 1); pld.label = u"BatchPL";
-    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render pipeline
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x2, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 20; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
-    dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
-    rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
+    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
     rpd.label = u"BatchPipeline";
-    if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, frameFence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_frameFence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Upload fence
-    if (device_->CreateFence(0, uploadFence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_uploadFence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // === Batch upload: VB + IB + texture in one submission ===
     if (doBatchUpload() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -187,10 +187,10 @@ raptor::core::Status BatchUploadSample::onInit() {
 raptor::core::Status BatchUploadSample::doBatchUpload() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
-    uploadStartTime_ = totalTime_;
+    m_uploadStartTime = m_totalTime;
 
     dr::TransferBatch* transfer = nullptr;
-    if (graphicsQueue_->CreateTransferBatch(transfer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_graphicsQueue->CreateTransferBatch(transfer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex data: quad
     float verts[20] = {
@@ -199,11 +199,11 @@ raptor::core::Status BatchUploadSample::doBatchUpload() {
          0.6f, -0.6f, 0.0f,   1.0f, 1.0f,
         -0.6f, -0.6f, 0.0f,   0.0f, 1.0f,
     };
-    transfer->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(verts), 80));
+    transfer->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(verts), 80));
 
     // Index data
     raptor::core::u16 indices[6] = { 0, 1, 2, 0, 2, 3 };
-    transfer->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(indices), 12));
+    transfer->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(indices), 12));
 
     // Texture data: procedural mandelbrot-ish pattern
     u32 texBytes = kTexSize * kTexSize * 4;
@@ -236,93 +236,93 @@ raptor::core::Status BatchUploadSample::doBatchUpload() {
     }
 
     dr::TextureDataLayout layout{}; layout.bytesPerRow = kTexSize * 4; layout.rowsPerImage = kTexSize;
-    transfer->WriteTexture(tex_, Span<const u8>(pixels, texBytes), layout, dr::Extent3D{kTexSize, kTexSize, 1});
+    transfer->WriteTexture(m_tex, Span<const u8>(pixels, texBytes), layout, dr::Extent3D{kTexSize, kTexSize, 1});
 
     delete[] pixels;
 
     // Async submit - signals fence when GPU transfer completes
-    uploadFenceVal_ = 1;
-    if (transfer->SubmitAsync(uploadFence_, uploadFenceVal_) != raptor::core::ErrorCode::Ok) {
-        graphicsQueue_->DestroyTransferBatch(transfer);
+    m_uploadFenceVal = 1;
+    if (transfer->SubmitAsync(m_uploadFence, m_uploadFenceVal) != raptor::core::ErrorCode::Ok) {
+        m_graphicsQueue->DestroyTransferBatch(transfer);
         return raptor::core::ErrorCode::Unknown;
     }
 
     std::printf("Batch upload submitted asynchronously (VB: 80B, IB: 12B, Tex: %uB)\n", texBytes);
-    graphicsQueue_->DestroyTransferBatch(transfer);
+    m_graphicsQueue->DestroyTransferBatch(transfer);
     return raptor::core::ErrorCode::Ok;
 }
 
-void BatchUploadSample::onRender() {
+void BatchUploadSample::OnRender() {
     using raptor::core::f32, raptor::core::Span;
 
-    if (frameFenceVal_ > 0) frameFence_->Wait(frameFenceVal_, ~0ull);
+    if (m_frameFenceVal > 0) m_frameFence->Wait(m_frameFenceVal, ~0ull);
 
     // Check if async upload has completed
-    if (!uploadComplete_) {
-        if (uploadFence_->CompletedValue() >= uploadFenceVal_) {
-            uploadComplete_ = true;
+    if (!m_uploadComplete) {
+        if (m_uploadFence->CompletedValue() >= m_uploadFenceVal) {
+            m_uploadComplete = true;
             std::printf("Batch upload completed! Rendering enabled.\n");
         }
     }
 
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
     // Update transform
-    float transform[4] = { totalTime_, 0, 0, 0 };
-    std::memcpy(transformMapped_, transform, 16);
+    float transform[4] = { m_totalTime, 0, 0, 0 };
+    std::memcpy(m_transformMapped, transform, 16);
 
-    pool_->Reset();
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
+    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
-    if (uploadComplete_) {
-        rp->SetPipeline(pipeline_);
-        rp->SetBindGroup(0, bg_);
-        rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
-        rp->SetScissor(0, 0, width_, height_);
-        rp->SetVertexBuffer(0, vb_, 0);
-        rp->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
+    if (m_uploadComplete) {
+        rp->SetPipeline(m_pipeline);
+        rp->SetBindGroup(0, m_bg);
+        rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0.0f, 1.0f);
+        rp->SetScissor(0, 0, m_width, m_height);
+        rp->SetVertexBuffer(0, m_vb, 0);
+        rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
         rp->DrawIndexed(6);
     }
 
     rp->End();
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish(); frameFenceVal_++;
+    dr::CommandBuffer* cb = enc->Finish(); m_frameFenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), frameFence_, frameFenceVal_);
-    swapChain_->Present(graphicsQueue_);
-    pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_frameFence, m_frameFenceVal);
+    m_swapChain->Present(m_graphicsQueue);
+    m_pool->DestroyEncoder(enc);
 }
 
-void BatchUploadSample::onShutdown() {
-    if (transformBuf_ && transformMapped_) transformBuf_->Unmap();
+void BatchUploadSample::OnShutdown() {
+    if (m_transformBuf && m_transformMapped) m_transformBuf->Unmap();
 
-    if (uploadFence_) device_->DestroyFence(uploadFence_);
-    if (frameFence_) device_->DestroyFence(frameFence_);
-    if (pool_) device_->DestroyCommandPool(pool_);
-    if (pipeline_) device_->DestroyRenderPipeline(pipeline_);
-    if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (bg_) device_->DestroyBindGroup(bg_);
-    if (bgl_) device_->DestroyBindGroupLayout(bgl_);
-    if (sampler_) device_->DestroySampler(sampler_);
-    if (texView_) device_->DestroyTextureView(texView_);
-    if (tex_) device_->DestroyTexture(tex_);
-    if (transformBuf_) device_->DestroyBuffer(transformBuf_);
-    if (ib_) device_->DestroyBuffer(ib_);
-    if (vb_) device_->DestroyBuffer(vb_);
-    if (ps_) device_->DestroyShaderModule(ps_);
-    if (vs_) device_->DestroyShaderModule(vs_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+    if (m_uploadFence) m_device->DestroyFence(m_uploadFence);
+    if (m_frameFence) m_device->DestroyFence(m_frameFence);
+    if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline);
+    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_bg) m_device->DestroyBindGroup(m_bg);
+    if (m_bgl) m_device->DestroyBindGroupLayout(m_bgl);
+    if (m_sampler) m_device->DestroySampler(m_sampler);
+    if (m_texView) m_device->DestroyTextureView(m_texView);
+    if (m_tex) m_device->DestroyTexture(m_tex);
+    if (m_transformBuf) m_device->DestroyBuffer(m_transformBuf);
+    if (m_ib) m_device->DestroyBuffer(m_ib);
+    if (m_vb) m_device->DestroyBuffer(m_vb);
+    if (m_ps) m_device->DestroyShaderModule(m_ps);
+    if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { BatchUploadSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { BatchUploadSample app; return app.Run(argc, argv); }

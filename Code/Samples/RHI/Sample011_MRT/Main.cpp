@@ -18,12 +18,12 @@ namespace ds = raptor::shaders;
 class MRTSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample011 - MRT"; }
+    raptor::core::StringView Title() const override { return u"Sample011 - MRT"; }
 protected:
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onResize(raptor::core::u32 w, raptor::core::u32 h) override { createRenderTargets(); }
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { createRenderTargets(); }
+    void OnShutdown() override;
 private:
     static constexpr const char8_t kGBufShader[] = u8R"(
         struct VSInput { float3 Position : TEXCOORD0; float4 Color : TEXCOORD1; };
@@ -55,74 +55,74 @@ private:
 
     void createRenderTargets();
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::ShaderModule *gbVs_=nullptr, *gbPs_=nullptr, *compVs_=nullptr, *compPs_=nullptr;
-    dr::Buffer *vb_=nullptr, *ib_=nullptr;
-    dr::Sampler* sampler_ = nullptr;
-    dr::PipelineLayout *gbPl_=nullptr, *compPl_=nullptr;
-    dr::RenderPipeline *gbPipe_=nullptr, *compPipe_=nullptr;
-    dr::BindGroupLayout* compBgl_ = nullptr;
-    dr::BindGroup* compBg_ = nullptr;
-    dr::Texture *colorRT_=nullptr, *brightRT_=nullptr;
-    dr::TextureView *colorRTView_=nullptr, *brightRTView_=nullptr;
-    dr::CommandPool* pool_=nullptr; dr::Fence* fence_=nullptr;
-    raptor::core::u64 fenceVal_ = 0;
+    ds::Compiler* m_compiler = nullptr;
+    dr::ShaderModule *m_gbVs=nullptr, *m_gbPs=nullptr, *m_compVs=nullptr, *m_compPs=nullptr;
+    dr::Buffer *m_vb=nullptr, *m_ib=nullptr;
+    dr::Sampler* m_sampler = nullptr;
+    dr::PipelineLayout *m_gbPl=nullptr, *m_compPl=nullptr;
+    dr::RenderPipeline *m_gbPipe=nullptr, *m_compPipe=nullptr;
+    dr::BindGroupLayout* m_compBgl = nullptr;
+    dr::BindGroup* m_compBg = nullptr;
+    dr::Texture *m_colorRT=nullptr, *m_brightRT=nullptr;
+    dr::TextureView *m_colorRTView=nullptr, *m_brightRTView=nullptr;
+    dr::CommandPool* m_pool=nullptr; dr::Fence* m_fence=nullptr;
+    raptor::core::u64 m_fenceVal = 0;
 };
 
 void MRTSample::createRenderTargets() {
-    if (compBg_) { device_->DestroyBindGroup(compBg_); compBg_ = nullptr; }
-    if (colorRTView_) { device_->DestroyTextureView(colorRTView_); colorRTView_ = nullptr; }
-    if (colorRT_) { device_->DestroyTexture(colorRT_); colorRT_ = nullptr; }
-    if (brightRTView_) { device_->DestroyTextureView(brightRTView_); brightRTView_ = nullptr; }
-    if (brightRT_) { device_->DestroyTexture(brightRT_); brightRT_ = nullptr; }
+    if (m_compBg) { m_device->DestroyBindGroup(m_compBg); m_compBg = nullptr; }
+    if (m_colorRTView) { m_device->DestroyTextureView(m_colorRTView); m_colorRTView = nullptr; }
+    if (m_colorRT) { m_device->DestroyTexture(m_colorRT); m_colorRT = nullptr; }
+    if (m_brightRTView) { m_device->DestroyTextureView(m_brightRTView); m_brightRTView = nullptr; }
+    if (m_brightRT) { m_device->DestroyTexture(m_brightRT); m_brightRT = nullptr; }
 
-    dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm; td.width = width_; td.height = height_;
+    dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm; td.width = m_width; td.height = m_height;
     td.usage = dr::TextureUsage::RenderTarget | dr::TextureUsage::Sampled;
-    device_->CreateTexture(td, colorRT_);
-    device_->CreateTexture(td, brightRT_);
+    m_device->CreateTexture(td, m_colorRT);
+    m_device->CreateTexture(td, m_brightRT);
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm; tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    device_->CreateTextureView(colorRT_, tvd, colorRTView_);
-    device_->CreateTextureView(brightRT_, tvd, brightRTView_);
+    m_device->CreateTextureView(m_colorRT, tvd, m_colorRTView);
+    m_device->CreateTextureView(m_brightRT, tvd, m_brightRTView);
 
-    dr::BindGroupEntry bgE[3] = { dr::BindGroupEntry::TextureEntry(colorRTView_),
-                                   dr::BindGroupEntry::TextureEntry(brightRTView_),
-                                   dr::BindGroupEntry::SamplerEntry(sampler_) };
-    dr::BindGroupDesc bgd{}; bgd.layout = compBgl_; bgd.entries = raptor::core::Span<const dr::BindGroupEntry>(bgE, 3);
-    device_->CreateBindGroup(bgd, compBg_);
+    dr::BindGroupEntry bgE[3] = { dr::BindGroupEntry::TextureEntry(m_colorRTView),
+                                   dr::BindGroupEntry::TextureEntry(m_brightRTView),
+                                   dr::BindGroupEntry::SamplerEntry(m_sampler) };
+    dr::BindGroupDesc bgd{}; bgd.layout = m_compBgl; bgd.entries = raptor::core::Span<const dr::BindGroupEntry>(bgE, 3);
+    m_device->CreateBindGroup(bgd, m_compBg);
 }
 
-raptor::core::Status MRTSample::onInit() {
+raptor::core::Status MRTSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kGBufShader, ds::ShaderStage::Vertex,   u"VSMain", u"GBufVS", gbVs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kGBufShader, ds::ShaderStage::Fragment, u"PSMain", u"GBufPS", gbPs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kCompShader, ds::ShaderStage::Vertex,   u"VSMain", u"CompVS", compVs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kCompShader, ds::ShaderStage::Fragment, u"PSMain", u"CompPS", compPs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Vertex,   u"VSMain", u"GBufVS", m_gbVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Fragment, u"PSMain", u"GBufPS", m_gbPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Vertex,   u"VSMain", u"CompVS", m_compVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Fragment, u"PSMain", u"CompPS", m_compPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
-    batch->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
+    batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Nearest; sd.magFilter = dr::FilterMode::Nearest;
     sd.addressU = dr::AddressMode::ClampToEdge; sd.addressV = dr::AddressMode::ClampToEdge;
-    if (device_->CreateSampler(sd, sampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // GBuffer pipeline (empty layout, 2 color targets).
-    dr::PipelineLayoutDesc gpld{}; if (device_->CreatePipelineLayout(gpld, gbPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::PipelineLayoutDesc gpld{}; if (m_device->CreatePipelineLayout(gpld, m_gbPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
     dr::ColorTargetState gbCt[2] = { {dr::TextureFormat::RGBA8Unorm}, {dr::TextureFormat::RGBA8Unorm} };
-    dr::RenderPipelineDesc grpd{}; grpd.layout = gbPl_;
-    grpd.vertex.shader = { gbVs_, u"VSMain", dr::ShaderStage::Vertex };
+    dr::RenderPipelineDesc grpd{}; grpd.layout = m_gbPl;
+    grpd.vertex.shader = { m_gbVs, u"VSMain", dr::ShaderStage::Vertex };
     grpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    grpd.fragment = dr::FragmentState{}; grpd.fragment->shader = { gbPs_, u"PSMain", dr::ShaderStage::Fragment };
+    grpd.fragment = dr::FragmentState{}; grpd.fragment->shader = { m_gbPs, u"PSMain", dr::ShaderStage::Fragment };
     grpd.fragment->targets = Span<const dr::ColorTargetState>(gbCt, 2);
-    if (device_->CreateRenderPipeline(grpd, gbPipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(grpd, m_gbPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Composite BGL + pipeline (3 bindings: 2 textures + 1 sampler).
     dr::BindGroupLayoutEntry cE[3] = {
@@ -131,77 +131,77 @@ raptor::core::Status MRTSample::onInit() {
         dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment),
     };
     dr::BindGroupLayoutDesc cBgld{}; cBgld.entries = Span<const dr::BindGroupLayoutEntry>(cE, 3);
-    if (device_->CreateBindGroupLayout(cBgld, compBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::BindGroupLayout* cSets[1] = { compBgl_ };
+    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupLayout* cSets[1] = { m_compBgl };
     dr::PipelineLayoutDesc cpld{}; cpld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(cSets, 1);
-    if (device_->CreatePipelineLayout(cpld, compPl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::ColorTargetState compCt{}; compCt.format = swapChain_->Format();
-    dr::RenderPipelineDesc crpd{}; crpd.layout = compPl_;
-    crpd.vertex.shader = { compVs_, u"VSMain", dr::ShaderStage::Vertex };
-    crpd.fragment = dr::FragmentState{}; crpd.fragment->shader = { compPs_, u"PSMain", dr::ShaderStage::Fragment };
+    if (m_device->CreatePipelineLayout(cpld, m_compPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::ColorTargetState compCt{}; compCt.format = m_swapChain->Format();
+    dr::RenderPipelineDesc crpd{}; crpd.layout = m_compPl;
+    crpd.vertex.shader = { m_compVs, u"VSMain", dr::ShaderStage::Vertex };
+    crpd.fragment = dr::FragmentState{}; crpd.fragment->shader = { m_compPs, u"PSMain", dr::ShaderStage::Fragment };
     crpd.fragment->targets = Span<const dr::ColorTargetState>(&compCt, 1);
-    if (device_->CreateRenderPipeline(crpd, compPipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(crpd, m_compPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     createRenderTargets();
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
-void MRTSample::onRender() {
+void MRTSample::OnRender() {
     using raptor::core::f32, raptor::core::Span;
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
-    pool_->Reset();
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
     // Pass 1: render to 2 RTs.
-    enc->TransitionTexture(colorRT_, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    enc->TransitionTexture(brightRT_, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_colorRT, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_brightRT, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
     dr::ColorAttachment ca2[2];
-    ca2[0].view = colorRTView_; ca2[0].loadOp = dr::LoadOp::Clear; ca2[0].storeOp = dr::StoreOp::Store; ca2[0].clearValue = dr::ClearColor(0.1f,0.1f,0.15f,1);
-    ca2[1].view = brightRTView_; ca2[1].loadOp = dr::LoadOp::Clear; ca2[1].storeOp = dr::StoreOp::Store; ca2[1].clearValue = dr::ClearColor::Black();
+    ca2[0].view = m_colorRTView; ca2[0].loadOp = dr::LoadOp::Clear; ca2[0].storeOp = dr::StoreOp::Store; ca2[0].clearValue = dr::ClearColor(0.1f,0.1f,0.15f,1);
+    ca2[1].view = m_brightRTView; ca2[1].loadOp = dr::LoadOp::Clear; ca2[1].storeOp = dr::StoreOp::Store; ca2[1].clearValue = dr::ClearColor::Black();
     dr::RenderPassDesc rpd1{}; rpd1.colorAttachments.Add(ca2[0]); rpd1.colorAttachments.Add(ca2[1]);
     auto* rp1 = enc->BeginRenderPass(rpd1);
-    rp1->SetPipeline(gbPipe_);
-    rp1->SetViewport(0,0,static_cast<f32>(width_),static_cast<f32>(height_),0,1);
-    rp1->SetScissor(0,0,width_,height_);
-    rp1->SetVertexBuffer(0, vb_, 0); rp1->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
+    rp1->SetPipeline(m_gbPipe);
+    rp1->SetViewport(0,0,static_cast<f32>(m_width),static_cast<f32>(m_height),0,1);
+    rp1->SetScissor(0,0,m_width,m_height);
+    rp1->SetVertexBuffer(0, m_vb, 0); rp1->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
     rp1->DrawIndexed(6); rp1->End();
-    enc->TransitionTexture(colorRT_, dr::ResourceState::RenderTarget, dr::ResourceState::ShaderRead);
-    enc->TransitionTexture(brightRT_, dr::ResourceState::RenderTarget, dr::ResourceState::ShaderRead);
+    enc->TransitionTexture(m_colorRT, dr::ResourceState::RenderTarget, dr::ResourceState::ShaderRead);
+    enc->TransitionTexture(m_brightRT, dr::ResourceState::RenderTarget, dr::ResourceState::ShaderRead);
 
     // Pass 2: composite to swap chain.
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    dr::ColorAttachment ca1{}; ca1.view = swapChain_->CurrentTextureView();
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    dr::ColorAttachment ca1{}; ca1.view = m_swapChain->CurrentTextureView();
     ca1.loadOp = dr::LoadOp::Clear; ca1.storeOp = dr::StoreOp::Store; ca1.clearValue = dr::ClearColor::Black();
     dr::RenderPassDesc rpd2{}; rpd2.colorAttachments.Add(ca1);
     auto* rp2 = enc->BeginRenderPass(rpd2);
-    rp2->SetPipeline(compPipe_); rp2->SetBindGroup(0, compBg_);
-    rp2->SetViewport(0,0,static_cast<f32>(width_),static_cast<f32>(height_),0,1);
-    rp2->SetScissor(0,0,width_,height_);
+    rp2->SetPipeline(m_compPipe); rp2->SetBindGroup(0, m_compBg);
+    rp2->SetViewport(0,0,static_cast<f32>(m_width),static_cast<f32>(m_height),0,1);
+    rp2->SetScissor(0,0,m_width,m_height);
     rp2->Draw(3); rp2->End();
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
+    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_); pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue); m_pool->DestroyEncoder(enc);
 }
 
-void MRTSample::onShutdown() {
-    if (fence_) device_->DestroyFence(fence_); if (pool_) device_->DestroyCommandPool(pool_);
-    if (compPipe_) device_->DestroyRenderPipeline(compPipe_); if (compPl_) device_->DestroyPipelineLayout(compPl_);
-    if (compBg_) device_->DestroyBindGroup(compBg_); if (compBgl_) device_->DestroyBindGroupLayout(compBgl_);
-    if (gbPipe_) device_->DestroyRenderPipeline(gbPipe_); if (gbPl_) device_->DestroyPipelineLayout(gbPl_);
-    if (brightRTView_) device_->DestroyTextureView(brightRTView_); if (brightRT_) device_->DestroyTexture(brightRT_);
-    if (colorRTView_) device_->DestroyTextureView(colorRTView_); if (colorRT_) device_->DestroyTexture(colorRT_);
-    if (sampler_) device_->DestroySampler(sampler_);
-    if (ib_) device_->DestroyBuffer(ib_); if (vb_) device_->DestroyBuffer(vb_);
-    if (compPs_) device_->DestroyShaderModule(compPs_); if (compVs_) device_->DestroyShaderModule(compVs_);
-    if (gbPs_) device_->DestroyShaderModule(gbPs_); if (gbVs_) device_->DestroyShaderModule(gbVs_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+void MRTSample::OnShutdown() {
+    if (m_fence) m_device->DestroyFence(m_fence); if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_compPipe) m_device->DestroyRenderPipeline(m_compPipe); if (m_compPl) m_device->DestroyPipelineLayout(m_compPl);
+    if (m_compBg) m_device->DestroyBindGroup(m_compBg); if (m_compBgl) m_device->DestroyBindGroupLayout(m_compBgl);
+    if (m_gbPipe) m_device->DestroyRenderPipeline(m_gbPipe); if (m_gbPl) m_device->DestroyPipelineLayout(m_gbPl);
+    if (m_brightRTView) m_device->DestroyTextureView(m_brightRTView); if (m_brightRT) m_device->DestroyTexture(m_brightRT);
+    if (m_colorRTView) m_device->DestroyTextureView(m_colorRTView); if (m_colorRT) m_device->DestroyTexture(m_colorRT);
+    if (m_sampler) m_device->DestroySampler(m_sampler);
+    if (m_ib) m_device->DestroyBuffer(m_ib); if (m_vb) m_device->DestroyBuffer(m_vb);
+    if (m_compPs) m_device->DestroyShaderModule(m_compPs); if (m_compVs) m_device->DestroyShaderModule(m_compVs);
+    if (m_gbPs) m_device->DestroyShaderModule(m_gbPs); if (m_gbVs) m_device->DestroyShaderModule(m_gbVs);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { MRTSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { MRTSample app; return app.Run(argc, argv); }

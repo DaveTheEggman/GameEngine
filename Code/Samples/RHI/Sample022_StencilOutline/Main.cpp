@@ -19,13 +19,13 @@ namespace ds = raptor::shaders;
 class StencilOutlineSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample022 - Stencil Outline"; }
+    raptor::core::StringView Title() const override { return u"Sample022 - Stencil Outline"; }
 
 protected:
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateDepthStencil(w, h); }
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateDepthStencil(w, h); }
+    void OnShutdown() override;
 
 private:
     static constexpr const char8_t kShader[] = u8R"(
@@ -102,68 +102,68 @@ private:
 
     void recreateDepthStencil(raptor::core::u32 w, raptor::core::u32 h);
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::Buffer *vb_ = nullptr, *ib_ = nullptr;
-    dr::ShaderModule *vs_ = nullptr, *ps_ = nullptr;
-    dr::PipelineLayout* pl_ = nullptr;
-    dr::RenderPipeline* stencilWritePipeline_ = nullptr;
-    dr::RenderPipeline* stencilTestPipeline_ = nullptr;
-    dr::Texture* depthStencilTex_ = nullptr;
-    dr::TextureView* depthStencilView_ = nullptr;
-    dr::CommandPool* pool_ = nullptr;
-    dr::Fence* fence_ = nullptr;
-    raptor::core::u64 fenceVal_ = 0;
+    ds::Compiler* m_compiler = nullptr;
+    dr::Buffer *m_vb = nullptr, *m_ib = nullptr;
+    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    dr::PipelineLayout* m_pl = nullptr;
+    dr::RenderPipeline* m_stencilWritePipeline = nullptr;
+    dr::RenderPipeline* m_stencilTestPipeline = nullptr;
+    dr::Texture* m_depthStencilTex = nullptr;
+    dr::TextureView* m_depthStencilView = nullptr;
+    dr::CommandPool* m_pool = nullptr;
+    dr::Fence* m_fence = nullptr;
+    raptor::core::u64 m_fenceVal = 0;
 };
 
 void StencilOutlineSample::recreateDepthStencil(raptor::core::u32 w, raptor::core::u32 h) {
-    if (depthStencilView_) { device_->DestroyTextureView(depthStencilView_); depthStencilView_ = nullptr; }
-    if (depthStencilTex_) { device_->DestroyTexture(depthStencilTex_); depthStencilTex_ = nullptr; }
+    if (m_depthStencilView) { m_device->DestroyTextureView(m_depthStencilView); m_depthStencilView = nullptr; }
+    if (m_depthStencilTex) { m_device->DestroyTexture(m_depthStencilTex); m_depthStencilTex = nullptr; }
 
     dr::TextureDesc td = dr::TextureDesc::DepthBuffer(dr::TextureFormat::Depth24PlusStencil8, w, h, 1, u"StencilDSTex");
-    device_->CreateTexture(td, depthStencilTex_);
+    m_device->CreateTexture(td, m_depthStencilTex);
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::Depth24PlusStencil8; tvd.dimension = dr::TextureViewDimension::Texture2D;
     tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    device_->CreateTextureView(depthStencilTex_, tvd, depthStencilView_);
+    m_device->CreateTextureView(m_depthStencilTex, tvd, m_depthStencilView);
 }
 
-raptor::core::Status StencilOutlineSample::onInit() {
+raptor::core::Status StencilOutlineSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"StencilVS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"StencilPS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"StencilVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"StencilPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex & index buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
-    batch->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
+    batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Pipeline layout with push constants (no bind groups).
     dr::PushConstantRange pcRange{ dr::ShaderStage::Vertex, 0, sizeof(PushData) };
     dr::PipelineLayoutDesc pld{};
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pcRange, 1);
-    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    recreateDepthStencil(width_, height_);
+    recreateDepthStencil(m_width, m_height);
 
     // Shared vertex layout.
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
+    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
 
     // Pipeline 1: Stencil write — draw solid, always pass depth, write stencil = ref (1).
     {
         dr::RenderPipelineDesc rpd{};
-        rpd.layout = pl_;
-        rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.layout = m_pl;
+        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.depthStencil = dr::DepthStencilState{};
         rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
@@ -174,16 +174,16 @@ raptor::core::Status StencilOutlineSample::onInit() {
         rpd.depthStencil->stencilWriteMask = 0xFF;
         rpd.depthStencil->stencilFront = { dr::CompareFunction::Always, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Replace };
         rpd.depthStencil->stencilBack  = { dr::CompareFunction::Always, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Replace };
-        if (device_->CreateRenderPipeline(rpd, stencilWritePipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_stencilWritePipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Pipeline 2: Stencil test — draw outline, only where stencil != 1.
     {
         dr::RenderPipelineDesc rpd{};
-        rpd.layout = pl_;
-        rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.layout = m_pl;
+        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.depthStencil = dr::DepthStencilState{};
         rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
@@ -194,81 +194,81 @@ raptor::core::Status StencilOutlineSample::onInit() {
         rpd.depthStencil->stencilWriteMask = 0x00;
         rpd.depthStencil->stencilFront = { dr::CompareFunction::NotEqual, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Keep };
         rpd.depthStencil->stencilBack  = { dr::CompareFunction::NotEqual, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Keep };
-        if (device_->CreateRenderPipeline(rpd, stencilTestPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_stencilTestPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
-void StencilOutlineSample::onRender() {
+void StencilOutlineSample::OnRender() {
     using raptor::core::f32, raptor::core::Span;
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
-    pool_->Reset();
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    enc->TransitionTexture(depthStencilTex_, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_depthStencilTex, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
+    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
 
-    dr::DepthStencilAttachment dsa{}; dsa.view = depthStencilView_;
+    dr::DepthStencilAttachment dsa{}; dsa.view = m_depthStencilView;
     dsa.depthLoadOp = dr::LoadOp::Clear; dsa.depthStoreOp = dr::StoreOp::Store; dsa.depthClearValue = 1.0f;
     dsa.stencilLoadOp = dr::LoadOp::Clear; dsa.stencilStoreOp = dr::StoreOp::Store; dsa.stencilClearValue = 0;
 
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
     auto* rp = enc->BeginRenderPass(rpd);
 
-    f32 aspect = static_cast<f32>(width_) / static_cast<f32>(height_);
+    f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
 
     // Pass 1: Draw solid hexagon, write stencil = 1.
-    rp->SetPipeline(stencilWritePipeline_);
-    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
-    rp->SetScissor(0, 0, width_, height_);
-    rp->SetVertexBuffer(0, vb_, 0);
-    rp->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
+    rp->SetPipeline(m_stencilWritePipeline);
+    rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0.0f, 1.0f);
+    rp->SetScissor(0, 0, m_width, m_height);
+    rp->SetVertexBuffer(0, m_vb, 0);
+    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
     rp->SetStencilReference(1);
-    PushData pc1{ 1.0f, aspect, totalTime_, 0.0f };
+    PushData pc1{ 1.0f, aspect, m_totalTime, 0.0f };
     rp->SetPushConstants(dr::ShaderStage::Vertex, 0, sizeof(PushData), &pc1);
     rp->DrawIndexed(18);
 
     // Pass 2: Draw scaled-up hexagon, only where stencil != 1 (outline ring).
-    rp->SetPipeline(stencilTestPipeline_);
+    rp->SetPipeline(m_stencilTestPipeline);
     rp->SetStencilReference(1);
-    PushData pc2{ 1.15f, aspect, totalTime_, 0.0f };
+    PushData pc2{ 1.15f, aspect, m_totalTime, 0.0f };
     rp->SetPushConstants(dr::ShaderStage::Vertex, 0, sizeof(PushData), &pc2);
     rp->DrawIndexed(18);
 
     rp->End();
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
+    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_);
-    pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue);
+    m_pool->DestroyEncoder(enc);
 }
 
-void StencilOutlineSample::onShutdown() {
-    if (fence_) device_->DestroyFence(fence_);
-    if (pool_) device_->DestroyCommandPool(pool_);
-    if (stencilTestPipeline_) device_->DestroyRenderPipeline(stencilTestPipeline_);
-    if (stencilWritePipeline_) device_->DestroyRenderPipeline(stencilWritePipeline_);
-    if (depthStencilView_) device_->DestroyTextureView(depthStencilView_);
-    if (depthStencilTex_) device_->DestroyTexture(depthStencilTex_);
-    if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (ps_) device_->DestroyShaderModule(ps_);
-    if (vs_) device_->DestroyShaderModule(vs_);
-    if (ib_) device_->DestroyBuffer(ib_);
-    if (vb_) device_->DestroyBuffer(vb_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+void StencilOutlineSample::OnShutdown() {
+    if (m_fence) m_device->DestroyFence(m_fence);
+    if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_stencilTestPipeline) m_device->DestroyRenderPipeline(m_stencilTestPipeline);
+    if (m_stencilWritePipeline) m_device->DestroyRenderPipeline(m_stencilWritePipeline);
+    if (m_depthStencilView) m_device->DestroyTextureView(m_depthStencilView);
+    if (m_depthStencilTex) m_device->DestroyTexture(m_depthStencilTex);
+    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_ps) m_device->DestroyShaderModule(m_ps);
+    if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_ib) m_device->DestroyBuffer(m_ib);
+    if (m_vb) m_device->DestroyBuffer(m_vb);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { StencilOutlineSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { StencilOutlineSample app; return app.Run(argc, argv); }

@@ -27,16 +27,16 @@ struct DrawIndexedIndirectArgs {
 class MultiDrawIndirectSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample025 - Multi-Draw Indirect & Lines"; }
+    raptor::core::StringView Title() const override { return u"Sample025 - Multi-Draw Indirect & Lines"; }
 protected:
-    dr::DeviceFeatures requiredFeatures() const override {
+    dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};
         f.multiDrawIndirect = true;
         return f;
     }
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnShutdown() override;
 private:
     static constexpr const char8_t kShader[] = u8R"(
         struct VSInput
@@ -69,21 +69,21 @@ private:
     raptor::core::Status createIndirectBuffer();
     raptor::core::Status createLineGeometry();
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::ShaderModule *vs_ = nullptr, *ps_ = nullptr;
-    dr::Buffer *vb_ = nullptr, *ib_ = nullptr, *indirectBuf_ = nullptr, *lineVb_ = nullptr;
-    dr::PipelineLayout *pl_ = nullptr;
-    dr::RenderPipeline *fillPipeline_ = nullptr, *linePipeline_ = nullptr;
-    dr::CommandPool *pool_ = nullptr;
-    dr::Fence *fence_ = nullptr;
-    raptor::core::u64 fenceVal_ = 0;
+    ds::Compiler* m_compiler = nullptr;
+    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    dr::Buffer *m_vb = nullptr, *m_ib = nullptr, *m_indirectBuf = nullptr, *m_lineVb = nullptr;
+    dr::PipelineLayout *m_pl = nullptr;
+    dr::RenderPipeline *m_fillPipeline = nullptr, *m_linePipeline = nullptr;
+    dr::CommandPool *m_pool = nullptr;
+    dr::Fence *m_fence = nullptr;
+    raptor::core::u64 m_fenceVal = 0;
 };
 
-raptor::core::Status MultiDrawIndirectSample::onInit() {
+raptor::core::Status MultiDrawIndirectSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"VS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"PS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     if (createGeometry() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     if (createIndirectBuffer() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -91,7 +91,7 @@ raptor::core::Status MultiDrawIndirectSample::onInit() {
 
     // Pipeline layout (empty — no bind groups needed).
     dr::PipelineLayoutDesc pld{};
-    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex layout: pos float3 + color float4, stride 28.
     dr::VertexAttribute attrs[2] = {
@@ -101,32 +101,32 @@ raptor::core::Status MultiDrawIndirectSample::onInit() {
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.stepMode = dr::VertexStepMode::Vertex;
     vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
 
-    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
+    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
 
     // Fill pipeline (TriangleList).
     {
-        dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
-        rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+        dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
-        if (device_->CreateRenderPipeline(rpd, fillPipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_fillPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Line pipeline (LineList).
     {
-        dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
-        rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+        dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::LineList;
-        if (device_->CreateRenderPipeline(rpd, linePipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_linePipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
@@ -170,17 +170,17 @@ raptor::core::Status MultiDrawIndirectSample::createGeometry() {
     dr::BufferDesc vbd{}; vbd.size = sizeof(verts);
     vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
     vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BufferDesc ibd{}; ibd.size = sizeof(indices);
     ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst;
     ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(verts), sizeof(verts)));
-    batch->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(indices), sizeof(indices)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(verts), sizeof(verts)));
+    batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(indices), sizeof(indices)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     return raptor::core::ErrorCode::Ok;
 }
@@ -199,11 +199,11 @@ raptor::core::Status MultiDrawIndirectSample::createIndirectBuffer() {
     dr::BufferDesc bd{}; bd.size = sizeof(args);
     bd.usage = dr::BufferUsage::Indirect | dr::BufferUsage::CopyDst;
     bd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(bd, indirectBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(bd, m_indirectBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(indirectBuf_, 0, Span<const u8>(reinterpret_cast<const u8*>(args), sizeof(args)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_indirectBuf, 0, Span<const u8>(reinterpret_cast<const u8*>(args), sizeof(args)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     return raptor::core::ErrorCode::Ok;
 }
@@ -257,68 +257,68 @@ raptor::core::Status MultiDrawIndirectSample::createLineGeometry() {
     dr::BufferDesc bd{}; bd.size = sizeof(lineVerts);
     bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
     bd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(bd, lineVb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(bd, m_lineVb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(lineVb_, 0, Span<const u8>(reinterpret_cast<const u8*>(lineVerts), sizeof(lineVerts)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_lineVb, 0, Span<const u8>(reinterpret_cast<const u8*>(lineVerts), sizeof(lineVerts)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     return raptor::core::ErrorCode::Ok;
 }
 
-void MultiDrawIndirectSample::onRender() {
+void MultiDrawIndirectSample::OnRender() {
     using raptor::core::f32, raptor::core::Span, raptor::core::u32;
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
-    pool_->Reset();
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
+    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.06f, 0.06f, 0.1f, 1.0f);
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
-    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
-    rp->SetScissor(0, 0, width_, height_);
+    rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0.0f, 1.0f);
+    rp->SetScissor(0, 0, m_width, m_height);
 
     // Pass 1: Draw all 4 quads with a single multi-draw indirect call.
-    rp->SetPipeline(fillPipeline_);
-    rp->SetVertexBuffer(0, vb_, 0);
-    rp->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
-    rp->DrawIndexedIndirect(indirectBuf_, 0, 4, static_cast<u32>(sizeof(DrawIndexedIndirectArgs)));
+    rp->SetPipeline(m_fillPipeline);
+    rp->SetVertexBuffer(0, m_vb, 0);
+    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
+    rp->DrawIndexedIndirect(m_indirectBuf, 0, 4, static_cast<u32>(sizeof(DrawIndexedIndirectArgs)));
 
     // Pass 2: Draw line wireframes.
-    rp->SetPipeline(linePipeline_);
-    rp->SetVertexBuffer(0, lineVb_, 0);
+    rp->SetPipeline(m_linePipeline);
+    rp->SetVertexBuffer(0, m_lineVb, 0);
     rp->Draw(32); // 4 quads * 4 edges * 2 verts = 32 line verts
 
     rp->End();
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_);
-    pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue);
+    m_pool->DestroyEncoder(enc);
 }
 
-void MultiDrawIndirectSample::onShutdown() {
-    if (fence_) device_->DestroyFence(fence_);
-    if (pool_) device_->DestroyCommandPool(pool_);
-    if (linePipeline_) device_->DestroyRenderPipeline(linePipeline_);
-    if (fillPipeline_) device_->DestroyRenderPipeline(fillPipeline_);
-    if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (ps_) device_->DestroyShaderModule(ps_);
-    if (vs_) device_->DestroyShaderModule(vs_);
-    if (lineVb_) device_->DestroyBuffer(lineVb_);
-    if (indirectBuf_) device_->DestroyBuffer(indirectBuf_);
-    if (ib_) device_->DestroyBuffer(ib_);
-    if (vb_) device_->DestroyBuffer(vb_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+void MultiDrawIndirectSample::OnShutdown() {
+    if (m_fence) m_device->DestroyFence(m_fence);
+    if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_linePipeline) m_device->DestroyRenderPipeline(m_linePipeline);
+    if (m_fillPipeline) m_device->DestroyRenderPipeline(m_fillPipeline);
+    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_ps) m_device->DestroyShaderModule(m_ps);
+    if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_lineVb) m_device->DestroyBuffer(m_lineVb);
+    if (m_indirectBuf) m_device->DestroyBuffer(m_indirectBuf);
+    if (m_ib) m_device->DestroyBuffer(m_ib);
+    if (m_vb) m_device->DestroyBuffer(m_vb);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { MultiDrawIndirectSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { MultiDrawIndirectSample app; return app.Run(argc, argv); }

@@ -21,14 +21,14 @@ namespace ds = raptor::shaders;
 class BindlessSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample018 - Bindless Textures"; }
-    dr::DeviceFeatures requiredFeatures() const override {
+    raptor::core::StringView Title() const override { return u"Sample018 - Bindless Textures"; }
+    dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{}; f.bindlessDescriptors = true; return f;
     }
 protected:
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnShutdown() override;
 private:
     raptor::core::Status createTextures();
     void generatePixel(raptor::core::u32 texIndex, raptor::core::u32 x, raptor::core::u32 y, raptor::core::u8* rgba);
@@ -85,36 +85,36 @@ private:
     static constexpr raptor::core::u32 kTexSize = 64;
     static constexpr raptor::core::u32 kNumTextures = 4;
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::ShaderModule* vs_ = nullptr;
-    dr::ShaderModule* ps_ = nullptr;
+    ds::Compiler* m_compiler = nullptr;
+    dr::ShaderModule* m_vs = nullptr;
+    dr::ShaderModule* m_ps = nullptr;
 
     // Textures
-    dr::Texture*     textures_[kNumTextures]     = {};
-    dr::TextureView* textureViews_[kNumTextures] = {};
-    dr::Sampler* sampler_ = nullptr;
+    dr::Texture*     m_textures[kNumTextures]     = {};
+    dr::TextureView* m_textureViews[kNumTextures] = {};
+    dr::Sampler* m_sampler = nullptr;
 
     // Bindless bind group (space0: bindless textures)
-    dr::BindGroupLayout* bindlessBgl_ = nullptr;
-    dr::BindGroup*       bindlessBg_  = nullptr;
+    dr::BindGroupLayout* m_bindlessBgl = nullptr;
+    dr::BindGroup*       m_bindlessBg  = nullptr;
 
     // Sampler bind group (space1: sampler)
-    dr::BindGroupLayout* samplerBgl_ = nullptr;
-    dr::BindGroup*       samplerBg_  = nullptr;
+    dr::BindGroupLayout* m_samplerBgl = nullptr;
+    dr::BindGroup*       m_samplerBg  = nullptr;
 
-    dr::PipelineLayout*  pl_       = nullptr;
-    dr::RenderPipeline*  pipeline_ = nullptr;
-    dr::CommandPool*     pool_     = nullptr;
-    dr::Fence*           fence_    = nullptr;
-    raptor::core::u64           fenceVal_ = 0;
+    dr::PipelineLayout*  m_pl       = nullptr;
+    dr::RenderPipeline*  m_pipeline = nullptr;
+    dr::CommandPool*     m_pool     = nullptr;
+    dr::Fence*           m_fence    = nullptr;
+    raptor::core::u64           m_fenceVal = 0;
 };
 
-raptor::core::Status BindlessSample::onInit() {
+raptor::core::Status BindlessSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"BindlessVS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"BindlessPS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"BindlessVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"BindlessPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create 4 procedural textures with different patterns
     if (createTextures() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -123,7 +123,7 @@ raptor::core::Status BindlessSample::onInit() {
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
     sd.addressU = dr::AddressMode::Repeat; sd.addressV = dr::AddressMode::Repeat;
     sd.label = u"BindlessSampler";
-    if (device_->CreateSampler(sd, sampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Bindless BGL (space0): unbounded texture array
     dr::BindGroupLayoutEntry bindlessEntry{};
@@ -135,11 +135,11 @@ raptor::core::Status BindlessSample::onInit() {
     dr::BindGroupLayoutEntry blEntries[1] = { bindlessEntry };
     dr::BindGroupLayoutDesc blBgld{}; blBgld.entries = Span<const dr::BindGroupLayoutEntry>(blEntries, 1);
     blBgld.label = u"BindlessBGL";
-    if (device_->CreateBindGroupLayout(blBgld, bindlessBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(blBgld, m_bindlessBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create bindless bind group (no entries at creation - populated via updateBindless)
-    dr::BindGroupDesc blBgd{}; blBgd.layout = bindlessBgl_; blBgd.label = u"BindlessBG";
-    if (device_->CreateBindGroup(blBgd, bindlessBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupDesc blBgd{}; blBgd.layout = m_bindlessBgl; blBgd.label = u"BindlessBG";
+    if (m_device->CreateBindGroup(blBgd, m_bindlessBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Populate bindless slots
     dr::BindlessUpdateEntry bindlessUpdates[kNumTextures];
@@ -147,44 +147,44 @@ raptor::core::Status BindlessSample::onInit() {
         bindlessUpdates[i] = {};
         bindlessUpdates[i].layoutIndex = 0;
         bindlessUpdates[i].arrayIndex  = i;
-        bindlessUpdates[i].textureView = textureViews_[i];
+        bindlessUpdates[i].textureView = m_textureViews[i];
     }
-    bindlessBg_->UpdateBindless(Span<const dr::BindlessUpdateEntry>(bindlessUpdates, kNumTextures));
+    m_bindlessBg->UpdateBindless(Span<const dr::BindlessUpdateEntry>(bindlessUpdates, kNumTextures));
 
     // Sampler BGL (space1)
     dr::BindGroupLayoutEntry samplerEntry = dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment);
     dr::BindGroupLayoutEntry sEntries[1] = { samplerEntry };
     dr::BindGroupLayoutDesc sBgld{}; sBgld.entries = Span<const dr::BindGroupLayoutEntry>(sEntries, 1);
     sBgld.label = u"SamplerBGL";
-    if (device_->CreateBindGroupLayout(sBgld, samplerBgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(sBgld, m_samplerBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::BindGroupEntry sBgEntries[1] = { dr::BindGroupEntry::SamplerEntry(sampler_) };
-    dr::BindGroupDesc sBgd{}; sBgd.layout = samplerBgl_;
+    dr::BindGroupEntry sBgEntries[1] = { dr::BindGroupEntry::SamplerEntry(m_sampler) };
+    dr::BindGroupDesc sBgd{}; sBgd.layout = m_samplerBgl;
     sBgd.entries = Span<const dr::BindGroupEntry>(sBgEntries, 1); sBgd.label = u"SamplerBG";
-    if (device_->CreateBindGroup(sBgd, samplerBg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(sBgd, m_samplerBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Pipeline layout: group 0 = bindless textures, group 1 = sampler, push constants
-    dr::BindGroupLayout* sets[2] = { bindlessBgl_, samplerBgl_ };
+    dr::BindGroupLayout* sets[2] = { m_bindlessBgl, m_samplerBgl };
     dr::PushConstantRange pcr{}; pcr.stages = dr::ShaderStage::Vertex | dr::ShaderStage::Fragment;
     pcr.offset = 0; pcr.size = 16;
     dr::PushConstantRange pushRanges[1] = { pcr };
     dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 2);
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
     pld.label = u"BindlessPL";
-    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render pipeline (no vertex buffers - SV_VertexID driven)
-    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
-    dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
-    rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
+    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleStrip;
     rpd.label = u"BindlessPipeline";
-    if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
@@ -196,7 +196,7 @@ raptor::core::Status BindlessSample::createTextures() {
     u8 pixels[texBytes];
 
     dr::TransferBatch* batch = nullptr;
-    graphicsQueue_->CreateTransferBatch(batch);
+    m_graphicsQueue->CreateTransferBatch(batch);
 
     for (u32 t = 0; t < kNumTextures; ++t) {
         // Generate pattern
@@ -211,23 +211,23 @@ raptor::core::Status BindlessSample::createTextures() {
         td.width = kTexSize; td.height = kTexSize;
         td.mipLevelCount = 1; td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
         td.label = u"BindlessTex";
-        if (device_->CreateTexture(td, textures_[t]) != raptor::core::ErrorCode::Ok) {
-            graphicsQueue_->DestroyTransferBatch(batch); return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateTexture(td, m_textures[t]) != raptor::core::ErrorCode::Ok) {
+            m_graphicsQueue->DestroyTransferBatch(batch); return raptor::core::ErrorCode::Unknown;
         }
 
         dr::TextureDataLayout layout{}; layout.bytesPerRow = rowBytes; layout.rowsPerImage = kTexSize;
-        batch->WriteTexture(textures_[t], Span<const u8>(pixels, texBytes),
+        batch->WriteTexture(m_textures[t], Span<const u8>(pixels, texBytes),
             layout, dr::Extent3D{kTexSize, kTexSize, 1});
 
         dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm;
         tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-        if (device_->CreateTextureView(textures_[t], tvd, textureViews_[t]) != raptor::core::ErrorCode::Ok) {
-            graphicsQueue_->DestroyTransferBatch(batch); return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateTextureView(m_textures[t], tvd, m_textureViews[t]) != raptor::core::ErrorCode::Ok) {
+            m_graphicsQueue->DestroyTransferBatch(batch); return raptor::core::ErrorCode::Unknown;
         }
     }
 
     batch->Submit();
-    graphicsQueue_->DestroyTransferBatch(batch);
+    m_graphicsQueue->DestroyTransferBatch(batch);
     return raptor::core::ErrorCode::Ok;
 }
 
@@ -274,26 +274,26 @@ void BindlessSample::generatePixel(raptor::core::u32 texIndex, raptor::core::u32
     }
 }
 
-void BindlessSample::onRender() {
+void BindlessSample::OnRender() {
     using raptor::core::f32, raptor::core::u32, raptor::core::Span;
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
-    pool_->Reset();
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
+    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.08f, 0.06f, 0.12f, 1.0f);
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
-    rp->SetPipeline(pipeline_);
-    rp->SetBindGroup(0, bindlessBg_);
-    rp->SetBindGroup(1, samplerBg_);
-    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
-    rp->SetScissor(0, 0, width_, height_);
+    rp->SetPipeline(m_pipeline);
+    rp->SetBindGroup(0, m_bindlessBg);
+    rp->SetBindGroup(1, m_samplerBg);
+    rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0.0f, 1.0f);
+    rp->SetScissor(0, 0, m_width, m_height);
 
     // Draw 4 quads, each with a different texture index via push constants
     // Layout: 2x2 grid
@@ -308,31 +308,31 @@ void BindlessSample::onRender() {
     }
 
     rp->End();
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_);
-    pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue);
+    m_pool->DestroyEncoder(enc);
 }
 
-void BindlessSample::onShutdown() {
-    if (fence_) device_->DestroyFence(fence_);
-    if (pool_) device_->DestroyCommandPool(pool_);
-    if (pipeline_) device_->DestroyRenderPipeline(pipeline_);
-    if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (samplerBg_) device_->DestroyBindGroup(samplerBg_);
-    if (samplerBgl_) device_->DestroyBindGroupLayout(samplerBgl_);
-    if (bindlessBg_) device_->DestroyBindGroup(bindlessBg_);
-    if (bindlessBgl_) device_->DestroyBindGroupLayout(bindlessBgl_);
-    if (sampler_) device_->DestroySampler(sampler_);
+void BindlessSample::OnShutdown() {
+    if (m_fence) m_device->DestroyFence(m_fence);
+    if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline);
+    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_samplerBg) m_device->DestroyBindGroup(m_samplerBg);
+    if (m_samplerBgl) m_device->DestroyBindGroupLayout(m_samplerBgl);
+    if (m_bindlessBg) m_device->DestroyBindGroup(m_bindlessBg);
+    if (m_bindlessBgl) m_device->DestroyBindGroupLayout(m_bindlessBgl);
+    if (m_sampler) m_device->DestroySampler(m_sampler);
     for (int i = kNumTextures - 1; i >= 0; --i) {
-        if (textureViews_[i]) device_->DestroyTextureView(textureViews_[i]);
-        if (textures_[i]) device_->DestroyTexture(textures_[i]);
+        if (m_textureViews[i]) m_device->DestroyTextureView(m_textureViews[i]);
+        if (m_textures[i]) m_device->DestroyTexture(m_textures[i]);
     }
-    if (ps_) device_->DestroyShaderModule(ps_);
-    if (vs_) device_->DestroyShaderModule(vs_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+    if (m_ps) m_device->DestroyShaderModule(m_ps);
+    if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { BindlessSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { BindlessSample app; return app.Run(argc, argv); }

@@ -14,8 +14,8 @@ struct DepthBuffer {
     rhi::TextureView* view    = nullptr;
     rhi::TextureFormat format = rhi::TextureFormat::Depth24PlusStencil8;
 
-    Status recreate(rhi::Device* device, u32 width, u32 height, u32 sampleCount = 1) {
-        destroy(device);
+    Status Recreate(rhi::Device* device, u32 width, u32 height, u32 sampleCount = 1) {
+        Destroy(device);
         auto desc = rhi::TextureDesc::DepthBuffer(format, width, height, sampleCount, u"Depth");
         if (device->CreateTexture(desc, texture) != ErrorCode::Ok) return ErrorCode::Unknown;
 
@@ -34,7 +34,7 @@ struct DepthBuffer {
         return ErrorCode::Ok;
     }
 
-    void destroy(rhi::Device* device) {
+    void Destroy(rhi::Device* device) {
         if (view)    { device->DestroyTextureView(view);  view    = nullptr; }
         if (texture) { device->DestroyTexture(texture);   texture = nullptr; }
     }

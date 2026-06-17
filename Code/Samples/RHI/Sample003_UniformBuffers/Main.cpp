@@ -20,13 +20,13 @@ using raptor::core::Mat4;
 class UniformBufferSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample003 - Rotating Cube (Uniform Buffers)"; }
+    raptor::core::StringView Title() const override { return u"Sample003 - Rotating Cube (Uniform Buffers)"; }
 
 protected:
-    raptor::core::Status onInit() override;
-    void          onRender() override;
-    void          onResize(raptor::core::u32 w, raptor::core::u32 h) override { depthBuf_.recreate(device_, w, h); }
-    void          onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void          OnRender() override;
+    void          OnResize(raptor::core::u32 w, raptor::core::u32 h) override { m_depthBuf.Recreate(m_device, w, h); }
+    void          OnShutdown() override;
 
 private:
     static constexpr const char8_t kShaderSource[] = u8R"(
@@ -49,146 +49,146 @@ private:
         0,2,1, 0,3,2,  4,5,6, 4,6,7,  4,7,3, 4,3,0,  1,2,6, 1,6,5,  3,7,6, 3,6,2,  4,0,1, 4,1,5,
     };
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::Buffer *vb_ = nullptr, *ib_ = nullptr, *ub_ = nullptr;
-    dr::ShaderModule *vs_ = nullptr, *ps_ = nullptr;
-    dr::BindGroupLayout* bgl_ = nullptr;
-    dr::BindGroup* bg_ = nullptr;
-    dr::PipelineLayout* pl_ = nullptr;
-    dr::RenderPipeline* pipeline_ = nullptr;
-    dr::CommandPool* pool_ = nullptr;
-    dr::Fence* fence_ = nullptr;
-    raptor::core::u64 fenceVal_ = 0;
-    void* ubMapped_ = nullptr;
-    sf::DepthBuffer depthBuf_;
+    ds::Compiler* m_compiler = nullptr;
+    dr::Buffer *m_vb = nullptr, *m_ib = nullptr, *m_ub = nullptr;
+    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    dr::BindGroupLayout* m_bgl = nullptr;
+    dr::BindGroup* m_bg = nullptr;
+    dr::PipelineLayout* m_pl = nullptr;
+    dr::RenderPipeline* m_pipeline = nullptr;
+    dr::CommandPool* m_pool = nullptr;
+    dr::Fence* m_fence = nullptr;
+    raptor::core::u64 m_fenceVal = 0;
+    void* m_ubMapped = nullptr;
+    sf::DepthBuffer m_depthBuf;
 };
 
-raptor::core::Status UniformBufferSample::onInit() {
+raptor::core::Status UniformBufferSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShaderSource, ds::ShaderStage::Vertex,   u"VSMain", u"CubeVS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShaderSource, ds::ShaderStage::Fragment, u"PSMain", u"CubePS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u"VSMain", u"CubeVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u"PSMain", u"CubePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kCubeVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kCubeIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ubd{}; ubd.size = 64; ubd.usage = dr::BufferUsage::Uniform; ubd.memory = dr::MemoryLocation::CpuToGpu;
-    if (device_->CreateBuffer(ubd, ub_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    ubMapped_ = ub_->Map();
+    if (m_device->CreateBuffer(ubd, m_ub) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    m_ubMapped = m_ub->Map();
 
     // Upload.
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeVerts), sizeof(kCubeVerts)));
-    batch->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeIdx), sizeof(kCubeIdx)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeVerts), sizeof(kCubeVerts)));
+    batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeIdx), sizeof(kCubeIdx)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Bind group layout + group.
     dr::BindGroupLayoutEntry bglE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex | dr::ShaderStage::Fragment) };
     dr::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const dr::BindGroupLayoutEntry>(bglE, 1);
-    if (device_->CreateBindGroupLayout(bgld, bgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::BindGroupEntry bgE[1] = { dr::BindGroupEntry::BufferEntry(ub_, 0, 64) };
-    dr::BindGroupDesc bgd{}; bgd.layout = bgl_; bgd.entries = Span<const dr::BindGroupEntry>(bgE, 1);
-    if (device_->CreateBindGroup(bgd, bg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::BindGroupEntry bgE[1] = { dr::BindGroupEntry::BufferEntry(m_ub, 0, 64) };
+    dr::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const dr::BindGroupEntry>(bgE, 1);
+    if (m_device->CreateBindGroup(bgd, m_bg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Pipeline layout with push constants.
-    dr::BindGroupLayout* sets[1] = { bgl_ };
+    dr::BindGroupLayout* sets[1] = { m_bgl };
     dr::PushConstantRange pc{ dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, 16 };
     dr::PipelineLayoutDesc pld{};
     pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pc, 1);
-    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Depth buffer.
-    depthBuf_.recreate(device_, width_, height_);
+    m_depthBuf.Recreate(m_device, m_width, m_height);
 
     // Render pipeline.
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x3, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
+    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
 
     dr::RenderPipelineDesc rpd{};
-    rpd.layout = pl_;
-    rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive = { dr::PrimitiveTopology::TriangleList, dr::FrontFace::CW, dr::CullMode::Back };
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
-    if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
-void UniformBufferSample::onRender() {
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+void UniformBufferSample::OnRender() {
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
     // Update MVP.
-    raptor::core::f32 aspect = static_cast<raptor::core::f32>(width_) / static_cast<raptor::core::f32>(height_);
-    raptor::core::f32 angle = totalTime_ * 1.2f;
+    raptor::core::f32 aspect = static_cast<raptor::core::f32>(m_width) / static_cast<raptor::core::f32>(m_height);
+    raptor::core::f32 angle = m_totalTime * 1.2f;
     Mat4 model = (Mat4::RotationY(angle) * Mat4::RotationX( angle * 0.7f));
     Mat4 view  = Mat4::LookAtRH(raptor::core::Vec3{0, 1.5f, -3}, raptor::core::Vec3{ 0, 0, 0}, raptor::core::Vec3{ 0, 1, 0});
     Mat4 proj  = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
     Mat4 mvp   = model * view * proj;
-    std::memcpy(ubMapped_, mvp.Data(), 64);
+    std::memcpy(m_ubMapped, mvp.Data(), 64);
 
-    pool_->Reset();
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    enc->TransitionTexture(depthBuf_.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_depthBuf.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
+    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
-    dr::DepthStencilAttachment dsa{}; dsa.view = depthBuf_.view;
+    dr::DepthStencilAttachment dsa{}; dsa.view = m_depthBuf.view;
     dsa.depthLoadOp = dr::LoadOp::Clear; dsa.depthStoreOp = dr::StoreOp::Store; dsa.depthClearValue = 1.0f;
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
 
     auto* rp = enc->BeginRenderPass(rpd);
-    rp->SetPipeline(pipeline_);
-    rp->SetBindGroup(0, bg_);
-    raptor::core::f32 pulse = (std::sin(totalTime_ * 2.0f) * 0.3f + 0.7f);
+    rp->SetPipeline(m_pipeline);
+    rp->SetBindGroup(0, m_bg);
+    raptor::core::f32 pulse = (std::sin(m_totalTime * 2.0f) * 0.3f + 0.7f);
     raptor::core::f32 tint[4] = { pulse, pulse, pulse, 1.0f };
     rp->SetPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, 16, tint);
-    rp->SetViewport(0, 0, static_cast<raptor::core::f32>(width_), static_cast<raptor::core::f32>(height_), 0, 1);
-    rp->SetScissor(0, 0, width_, height_);
-    rp->SetVertexBuffer(0, vb_, 0);
-    rp->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
+    rp->SetViewport(0, 0, static_cast<raptor::core::f32>(m_width), static_cast<raptor::core::f32>(m_height), 0, 1);
+    rp->SetScissor(0, 0, m_width, m_height);
+    rp->SetVertexBuffer(0, m_vb, 0);
+    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
     rp->DrawIndexed(36);
     rp->End();
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
+    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(raptor::core::Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_);
-    pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(raptor::core::Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue);
+    m_pool->DestroyEncoder(enc);
 }
 
-void UniformBufferSample::onShutdown() {
-    depthBuf_.destroy(device_);
-    if (fence_) device_->DestroyFence(fence_);
-    if (pool_) device_->DestroyCommandPool(pool_);
-    if (pipeline_) device_->DestroyRenderPipeline(pipeline_);
-    if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (bg_) device_->DestroyBindGroup(bg_);
-    if (bgl_) device_->DestroyBindGroupLayout(bgl_);
-    if (ub_) device_->DestroyBuffer(ub_);
-    if (ib_) device_->DestroyBuffer(ib_);
-    if (vb_) device_->DestroyBuffer(vb_);
-    if (ps_) device_->DestroyShaderModule(ps_);
-    if (vs_) device_->DestroyShaderModule(vs_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+void UniformBufferSample::OnShutdown() {
+    m_depthBuf.Destroy(m_device);
+    if (m_fence) m_device->DestroyFence(m_fence);
+    if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline);
+    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_bg) m_device->DestroyBindGroup(m_bg);
+    if (m_bgl) m_device->DestroyBindGroupLayout(m_bgl);
+    if (m_ub) m_device->DestroyBuffer(m_ub);
+    if (m_ib) m_device->DestroyBuffer(m_ib);
+    if (m_vb) m_device->DestroyBuffer(m_vb);
+    if (m_ps) m_device->DestroyShaderModule(m_ps);
+    if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { UniformBufferSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { UniformBufferSample app; return app.Run(argc, argv); }

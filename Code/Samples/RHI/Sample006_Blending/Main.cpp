@@ -17,11 +17,11 @@ namespace ds = raptor::shaders;
 class BlendingSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample006 - Alpha Blending"; }
+    raptor::core::StringView Title() const override { return u"Sample006 - Alpha Blending"; }
 protected:
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnShutdown() override;
 private:
     static constexpr const char8_t kShader[] = u8R"(
         struct VSInput { float3 Position : TEXCOORD0; float4 Color : TEXCOORD1; };
@@ -38,95 +38,95 @@ private:
     };
     static constexpr raptor::core::u16 kIdx[] = { 0,1,2,0,2,3, 4,5,6,4,6,7, 8,9,10,8,10,11, 12,13,14,12,14,15 };
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::ShaderModule *vs_ = nullptr, *ps_ = nullptr;
-    dr::Buffer *vb_ = nullptr, *ib_ = nullptr;
-    dr::PipelineLayout *pl_ = nullptr;
-    dr::RenderPipeline *opaquePipe_ = nullptr, *blendPipe_ = nullptr;
-    dr::CommandPool *pool_ = nullptr; dr::Fence *fence_ = nullptr;
-    raptor::core::u64 fenceVal_ = 0;
+    ds::Compiler* m_compiler = nullptr;
+    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    dr::Buffer *m_vb = nullptr, *m_ib = nullptr;
+    dr::PipelineLayout *m_pl = nullptr;
+    dr::RenderPipeline *m_opaquePipe = nullptr, *m_blendPipe = nullptr;
+    dr::CommandPool *m_pool = nullptr; dr::Fence *m_fence = nullptr;
+    raptor::core::u64 m_fenceVal = 0;
 };
 
-raptor::core::Status BlendingSample::onInit() {
+raptor::core::Status BlendingSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"VS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"PS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
-    batch->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
+    batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Empty pipeline layout.
     dr::PipelineLayoutDesc pld{};
-    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ctOpaque{}; ctOpaque.format = swapChain_->Format();
-    dr::ColorTargetState ctBlend{}; ctBlend.format = swapChain_->Format();
+    dr::ColorTargetState ctOpaque{}; ctOpaque.format = m_swapChain->Format();
+    dr::ColorTargetState ctBlend{}; ctBlend.format = m_swapChain->Format();
     ctBlend.blend = dr::BlendState::AlphaBlend();
 
     // Opaque pipeline (for background quad).
-    dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
-    rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ctOpaque, 1);
-    if (device_->CreateRenderPipeline(rpd, opaquePipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_opaquePipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Blend pipeline (for translucent quads).
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ctBlend, 1);
-    if (device_->CreateRenderPipeline(rpd, blendPipe_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_blendPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
-void BlendingSample::onRender() {
+void BlendingSample::OnRender() {
     using raptor::core::f32, raptor::core::Span;
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
-    pool_->Reset();
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
+    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store; ca.clearValue = dr::ClearColor(0.05f, 0.05f, 0.08f, 1);
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
-    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0, 1);
-    rp->SetScissor(0, 0, width_, height_);
-    rp->SetVertexBuffer(0, vb_, 0);
-    rp->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
+    rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0, 1);
+    rp->SetScissor(0, 0, m_width, m_height);
+    rp->SetVertexBuffer(0, m_vb, 0);
+    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
     // Draw background opaque.
-    rp->SetPipeline(opaquePipe_); rp->DrawIndexed(6, 1, 0, 0, 0);
+    rp->SetPipeline(m_opaquePipe); rp->DrawIndexed(6, 1, 0, 0, 0);
     // Draw 3 translucent quads.
-    rp->SetPipeline(blendPipe_); rp->DrawIndexed(18, 1, 6, 0, 0);
+    rp->SetPipeline(m_blendPipe); rp->DrawIndexed(18, 1, 6, 0, 0);
     rp->End();
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
+    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_); pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue); m_pool->DestroyEncoder(enc);
 }
 
-void BlendingSample::onShutdown() {
-    if (fence_) device_->DestroyFence(fence_); if (pool_) device_->DestroyCommandPool(pool_);
-    if (blendPipe_) device_->DestroyRenderPipeline(blendPipe_);
-    if (opaquePipe_) device_->DestroyRenderPipeline(opaquePipe_);
-    if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (ib_) device_->DestroyBuffer(ib_); if (vb_) device_->DestroyBuffer(vb_);
-    if (ps_) device_->DestroyShaderModule(ps_); if (vs_) device_->DestroyShaderModule(vs_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+void BlendingSample::OnShutdown() {
+    if (m_fence) m_device->DestroyFence(m_fence); if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_blendPipe) m_device->DestroyRenderPipeline(m_blendPipe);
+    if (m_opaquePipe) m_device->DestroyRenderPipeline(m_opaquePipe);
+    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_ib) m_device->DestroyBuffer(m_ib); if (m_vb) m_device->DestroyBuffer(m_vb);
+    if (m_ps) m_device->DestroyShaderModule(m_ps); if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { BlendingSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { BlendingSample app; return app.Run(argc, argv); }

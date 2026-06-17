@@ -20,12 +20,12 @@ namespace ds = raptor::shaders;
 class OcclusionQuerySample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample024 - Occlusion Queries & Debug Labels"; }
+    raptor::core::StringView Title() const override { return u"Sample024 - Occlusion Queries & Debug Labels"; }
 protected:
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateDepth(w, h); }
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateDepth(w, h); }
+    void OnShutdown() override;
 private:
     static constexpr const char8_t kShader[] = u8R"(
         struct VSInput
@@ -85,175 +85,175 @@ private:
 
     void recreateDepth(raptor::core::u32 w, raptor::core::u32 h);
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::ShaderModule *vs_ = nullptr, *ps_ = nullptr;
-    dr::Buffer *vb_ = nullptr, *ib_ = nullptr;
-    dr::PipelineLayout *pl_ = nullptr;
-    dr::RenderPipeline *pipeline_ = nullptr;
-    dr::Texture *depthTex_ = nullptr;
-    dr::TextureView *depthView_ = nullptr;
-    dr::QuerySet *occlusionQuerySet_ = nullptr;
-    dr::Buffer *queryResultBuf_ = nullptr;
-    dr::CommandPool *pool_ = nullptr;
-    dr::Fence *fence_ = nullptr;
-    raptor::core::u64 fenceVal_ = 0;
-    int frameCount_ = 0;
-    float lastReportTime_ = 0.0f;
+    ds::Compiler* m_compiler = nullptr;
+    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    dr::Buffer *m_vb = nullptr, *m_ib = nullptr;
+    dr::PipelineLayout *m_pl = nullptr;
+    dr::RenderPipeline *m_pipeline = nullptr;
+    dr::Texture *m_depthTex = nullptr;
+    dr::TextureView *m_depthView = nullptr;
+    dr::QuerySet *m_occlusionQuerySet = nullptr;
+    dr::Buffer *m_queryResultBuf = nullptr;
+    dr::CommandPool *m_pool = nullptr;
+    dr::Fence *m_fence = nullptr;
+    raptor::core::u64 m_fenceVal = 0;
+    int m_frameCount = 0;
+    float m_lastReportTime = 0.0f;
 };
 
 void OcclusionQuerySample::recreateDepth(raptor::core::u32 w, raptor::core::u32 h) {
-    if (depthView_) { device_->DestroyTextureView(depthView_); depthView_ = nullptr; }
-    if (depthTex_) { device_->DestroyTexture(depthTex_); depthTex_ = nullptr; }
+    if (m_depthView) { m_device->DestroyTextureView(m_depthView); m_depthView = nullptr; }
+    if (m_depthTex) { m_device->DestroyTexture(m_depthTex); m_depthTex = nullptr; }
 
     dr::TextureDesc td = dr::TextureDesc::DepthBuffer(dr::TextureFormat::Depth24PlusStencil8, w, h, 1, u"OccDepthTex");
-    device_->CreateTexture(td, depthTex_);
+    m_device->CreateTexture(td, m_depthTex);
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::Depth24PlusStencil8; tvd.dimension = dr::TextureViewDimension::Texture2D;
     tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    device_->CreateTextureView(depthTex_, tvd, depthView_);
+    m_device->CreateTextureView(m_depthTex, tvd, m_depthView);
 }
 
-raptor::core::Status OcclusionQuerySample::onInit() {
+raptor::core::Status OcclusionQuerySample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"OccVS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"OccPS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"OccVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"OccPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u"OccVB";
-    if (device_->CreateBuffer(vbd, vb_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u"OccIB";
-    if (device_->CreateBuffer(ibd, ib_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; graphicsQueue_->CreateTransferBatch(batch);
-    batch->WriteBuffer(vb_, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
-    batch->WriteBuffer(ib_, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
-    batch->Submit(); graphicsQueue_->DestroyTransferBatch(batch);
+    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
+    batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
+    batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     dr::PipelineLayoutDesc pld{}; pld.label = u"OccPL";
-    if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    recreateDepth(width_, height_);
+    recreateDepth(m_width, m_height);
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
 
-    dr::ColorTargetState ct{}; ct.format = swapChain_->Format();
-    dr::RenderPipelineDesc rpd{}; rpd.layout = pl_;
-    rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
+    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthWriteEnabled = true;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
     rpd.label = u"OccPipeline";
-    if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Occlusion query set: 2 queries (one per test quad).
     dr::QuerySetDesc qsd{}; qsd.type = dr::QueryType::Occlusion; qsd.count = 2; qsd.label = u"OcclusionQS";
-    if (device_->CreateQuerySet(qsd, occlusionQuerySet_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateQuerySet(qsd, m_occlusionQuerySet) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Buffer for query results (2 * uint64 = 16 bytes).
     dr::BufferDesc qbd{}; qbd.size = 16; qbd.usage = dr::BufferUsage::CopyDst; qbd.memory = dr::MemoryLocation::GpuToCpu; qbd.label = u"OccResultBuf";
-    if (device_->CreateBuffer(qbd, queryResultBuf_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(qbd, m_queryResultBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
-void OcclusionQuerySample::onRender() {
+void OcclusionQuerySample::OnRender() {
     using raptor::core::f32, raptor::core::u64, raptor::core::Span;
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
 
     // Read back previous frame's occlusion results (after fence wait ensures GPU is done).
-    if (frameCount_ > 1) {
-        void* mapped = queryResultBuf_->Map();
+    if (m_frameCount > 1) {
+        void* mapped = m_queryResultBuf->Map();
         if (mapped) {
             auto* results = static_cast<u64*>(mapped);
             u64 pixelsA = results[0];
             u64 pixelsB = results[1];
 
-            if (totalTime_ - lastReportTime_ >= 2.0f) {
+            if (m_totalTime - m_lastReportTime >= 2.0f) {
                 std::printf("Occlusion: QuadA=%llu pixels, QuadB=%llu pixels (B should be ~0)\n",
                     static_cast<unsigned long long>(pixelsA), static_cast<unsigned long long>(pixelsB));
-                lastReportTime_ = totalTime_;
+                m_lastReportTime = m_totalTime;
             }
-            queryResultBuf_->Unmap();
+            m_queryResultBuf->Unmap();
         }
     }
 
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
-    pool_->Reset();
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
     // Debug label: frame start.
     enc->InsertDebugLabel(u"Frame Start", 0, 1, 0);
 
     // Reset queries for this frame.
-    enc->ResetQuerySet(occlusionQuerySet_, 0, 2);
+    enc->ResetQuerySet(m_occlusionQuerySet, 0, 2);
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    enc->TransitionTexture(depthTex_, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_depthTex, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
 
     // Debug label: render pass.
     enc->BeginDebugLabel(u"Main Render Pass", 0.2f, 0.5f, 1.0f);
 
-    dr::ColorAttachment ca{}; ca.view = swapChain_->CurrentTextureView();
+    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
-    dr::DepthStencilAttachment dsa{}; dsa.view = depthView_;
+    dr::DepthStencilAttachment dsa{}; dsa.view = m_depthView;
     dsa.depthLoadOp = dr::LoadOp::Clear; dsa.depthStoreOp = dr::StoreOp::Store; dsa.depthClearValue = 1.0f;
     dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
     auto* rp = enc->BeginRenderPass(rpd);
 
-    rp->SetPipeline(pipeline_);
-    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0, 1);
-    rp->SetScissor(0, 0, width_, height_);
-    rp->SetVertexBuffer(0, vb_, 0);
-    rp->SetIndexBuffer(ib_, dr::IndexFormat::UInt16, 0);
+    rp->SetPipeline(m_pipeline);
+    rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0, 1);
+    rp->SetScissor(0, 0, m_width, m_height);
+    rp->SetVertexBuffer(0, m_vb, 0);
+    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
 
     // Draw occluder first (writes depth).
     rp->DrawIndexed(6, 1, 0, 0, 0);
 
     // Draw test quad A with occlusion query 0.
-    rp->BeginOcclusionQuery(occlusionQuerySet_, 0);
+    rp->BeginOcclusionQuery(m_occlusionQuerySet, 0);
     rp->DrawIndexed(6, 1, 6, 0, 0);
-    rp->EndOcclusionQuery(occlusionQuerySet_, 0);
+    rp->EndOcclusionQuery(m_occlusionQuerySet, 0);
 
     // Draw test quad B with occlusion query 1.
-    rp->BeginOcclusionQuery(occlusionQuerySet_, 1);
+    rp->BeginOcclusionQuery(m_occlusionQuerySet, 1);
     rp->DrawIndexed(6, 1, 12, 0, 0);
-    rp->EndOcclusionQuery(occlusionQuerySet_, 1);
+    rp->EndOcclusionQuery(m_occlusionQuerySet, 1);
 
     rp->End();
 
     enc->EndDebugLabel();
 
     // Resolve occlusion queries to buffer.
-    enc->ResolveQuerySet(occlusionQuerySet_, 0, 2, queryResultBuf_, 0);
+    enc->ResolveQuerySet(m_occlusionQuerySet, 0, 2, m_queryResultBuf, 0);
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* cb = enc->Finish(); fenceVal_++;
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_);
-    pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue);
+    m_pool->DestroyEncoder(enc);
 
-    frameCount_++;
+    m_frameCount++;
 }
 
-void OcclusionQuerySample::onShutdown() {
-    if (fence_) device_->DestroyFence(fence_); if (pool_) device_->DestroyCommandPool(pool_);
-    if (queryResultBuf_) device_->DestroyBuffer(queryResultBuf_);
-    if (occlusionQuerySet_) device_->DestroyQuerySet(occlusionQuerySet_);
-    if (pipeline_) device_->DestroyRenderPipeline(pipeline_); if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (depthView_) device_->DestroyTextureView(depthView_);
-    if (depthTex_) device_->DestroyTexture(depthTex_);
-    if (ib_) device_->DestroyBuffer(ib_); if (vb_) device_->DestroyBuffer(vb_);
-    if (ps_) device_->DestroyShaderModule(ps_); if (vs_) device_->DestroyShaderModule(vs_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+void OcclusionQuerySample::OnShutdown() {
+    if (m_fence) m_device->DestroyFence(m_fence); if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_queryResultBuf) m_device->DestroyBuffer(m_queryResultBuf);
+    if (m_occlusionQuerySet) m_device->DestroyQuerySet(m_occlusionQuerySet);
+    if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline); if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_depthView) m_device->DestroyTextureView(m_depthView);
+    if (m_depthTex) m_device->DestroyTexture(m_depthTex);
+    if (m_ib) m_device->DestroyBuffer(m_ib); if (m_vb) m_device->DestroyBuffer(m_vb);
+    if (m_ps) m_device->DestroyShaderModule(m_ps); if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { OcclusionQuerySample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { OcclusionQuerySample app; return app.Run(argc, argv); }

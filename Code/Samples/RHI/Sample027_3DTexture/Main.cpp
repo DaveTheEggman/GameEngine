@@ -22,11 +22,11 @@ namespace ds = raptor::shaders;
 class Texture3DSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView title() const override { return u"Sample027 - 3D Texture & 1D LUT"; }
+    raptor::core::StringView Title() const override { return u"Sample027 - 3D Texture & 1D LUT"; }
 protected:
-    raptor::core::Status onInit() override;
-    void onRender() override;
-    void onShutdown() override;
+    raptor::core::Status OnInit() override;
+    void OnRender() override;
+    void OnShutdown() override;
 private:
     raptor::core::Status createVolumeTexture();
     raptor::core::Status createLUTTexture();
@@ -82,35 +82,35 @@ private:
     static constexpr raptor::core::u32 kVolumeSize = 32;
     static constexpr raptor::core::u32 kLUTSize = 64;
 
-    ds::Compiler* compiler_ = nullptr;
-    dr::ShaderModule* vs_ = nullptr;
-    dr::ShaderModule* ps_ = nullptr;
+    ds::Compiler* m_compiler = nullptr;
+    dr::ShaderModule* m_vs = nullptr;
+    dr::ShaderModule* m_ps = nullptr;
 
     // 3D volume texture
-    dr::Texture*     volumeTexture_ = nullptr;
-    dr::TextureView* volumeView_    = nullptr;
+    dr::Texture*     m_volumeTexture = nullptr;
+    dr::TextureView* m_volumeView    = nullptr;
 
     // 1D LUT texture
-    dr::Texture*     lutTexture_ = nullptr;
-    dr::TextureView* lutView_    = nullptr;
+    dr::Texture*     m_lutTexture = nullptr;
+    dr::TextureView* m_lutView    = nullptr;
 
-    dr::Sampler*         sampler_  = nullptr;
-    dr::BindGroupLayout* bgl_     = nullptr;
-    dr::BindGroup*       bg_      = nullptr;
-    dr::PipelineLayout*  pl_      = nullptr;
-    dr::RenderPipeline*  pipeline_ = nullptr;
+    dr::Sampler*         m_sampler  = nullptr;
+    dr::BindGroupLayout* m_bgl     = nullptr;
+    dr::BindGroup*       m_bg      = nullptr;
+    dr::PipelineLayout*  m_pl      = nullptr;
+    dr::RenderPipeline*  m_pipeline = nullptr;
 
-    dr::CommandPool* pool_     = nullptr;
-    dr::Fence*       fence_    = nullptr;
-    raptor::core::u64       fenceVal_ = 0;
+    dr::CommandPool* m_pool     = nullptr;
+    dr::Fence*       m_fence    = nullptr;
+    raptor::core::u64       m_fenceVal = 0;
 };
 
-raptor::core::Status Texture3DSample::onInit() {
+raptor::core::Status Texture3DSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, compiler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"Vol3DVS", vs_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::compileToModule(compiler_, device_, kShader, ds::ShaderStage::Fragment, u"PSMain", u"Vol3DPS", ps_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"Vol3DVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"Vol3DPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     if (createVolumeTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     if (createLUTTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -124,7 +124,7 @@ raptor::core::Status Texture3DSample::onInit() {
         sd.addressV = dr::AddressMode::Repeat;
         sd.addressW = dr::AddressMode::Repeat;
         sd.label = u"VolSampler";
-        if (device_->CreateSampler(sd, sampler_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Bind group layout: 3D tex, 1D tex, sampler
@@ -137,26 +137,26 @@ raptor::core::Status Texture3DSample::onInit() {
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 3);
         bgld.label = u"VolBGL";
-        if (device_->CreateBindGroupLayout(bgld, bgl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroupLayout(bgld, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Bind group
     {
         dr::BindGroupEntry entries[3] = {
-            dr::BindGroupEntry::TextureEntry(volumeView_),
-            dr::BindGroupEntry::TextureEntry(lutView_),
-            dr::BindGroupEntry::SamplerEntry(sampler_)
+            dr::BindGroupEntry::TextureEntry(m_volumeView),
+            dr::BindGroupEntry::TextureEntry(m_lutView),
+            dr::BindGroupEntry::SamplerEntry(m_sampler)
         };
         dr::BindGroupDesc bgd{};
-        bgd.layout = bgl_;
+        bgd.layout = m_bgl;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 3);
         bgd.label = u"VolBG";
-        if (device_->CreateBindGroup(bgd, bg_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroup(bgd, m_bg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Pipeline layout with push constants
     {
-        dr::BindGroupLayout* sets[1] = { bgl_ };
+        dr::BindGroupLayout* sets[1] = { m_bgl };
         dr::PushConstantRange pcr{};
         pcr.stages = dr::ShaderStage::Fragment;
         pcr.offset = 0;
@@ -166,26 +166,26 @@ raptor::core::Status Texture3DSample::onInit() {
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
         pld.label = u"VolPL";
-        if (device_->CreatePipelineLayout(pld, pl_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
     // Render pipeline (fullscreen triangle, no vertex input)
     {
         dr::ColorTargetState ct{};
-        ct.format = swapChain_->Format();
+        ct.format = m_swapChain->Format();
         dr::RenderPipelineDesc rpd{};
-        rpd.layout = pl_;
-        rpd.vertex.shader = { vs_, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.layout = m_pl;
+        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
         rpd.fragment = dr::FragmentState{};
-        rpd.fragment->shader = { ps_, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
         rpd.label = u"VolPipeline";
-        if (device_->CreateRenderPipeline(rpd, pipeline_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
-    if (device_->CreateCommandPool(dr::QueueType::Graphics, pool_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (device_->CreateFence(0, fence_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     return raptor::core::ErrorCode::Ok;
 }
 
@@ -202,12 +202,12 @@ raptor::core::Status Texture3DSample::createVolumeTexture() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
     td.label = u"VolumeTex3D";
-    if (device_->CreateTexture(td, volumeTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_volumeTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};
     tvd.format = dr::TextureFormat::R8Unorm;
     tvd.dimension = dr::TextureViewDimension::Texture3D;
-    if (device_->CreateTextureView(volumeTexture_, tvd, volumeView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_volumeTexture, tvd, m_volumeView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Generate procedural 3D noise data
     constexpr u32 dataSize = kVolumeSize * kVolumeSize * kVolumeSize;
@@ -234,15 +234,15 @@ raptor::core::Status Texture3DSample::createVolumeTexture() {
     }
 
     dr::TransferBatch* batch = nullptr;
-    graphicsQueue_->CreateTransferBatch(batch);
+    m_graphicsQueue->CreateTransferBatch(batch);
     dr::TextureDataLayout layout{};
     layout.bytesPerRow = kVolumeSize;
     layout.rowsPerImage = kVolumeSize;
-    batch->WriteTexture(volumeTexture_,
+    batch->WriteTexture(m_volumeTexture,
         Span<const u8>(data, dataSize),
         layout, dr::Extent3D{kVolumeSize, kVolumeSize, kVolumeSize});
     batch->Submit();
-    graphicsQueue_->DestroyTransferBatch(batch);
+    m_graphicsQueue->DestroyTransferBatch(batch);
 
     return raptor::core::ErrorCode::Ok;
 }
@@ -260,12 +260,12 @@ raptor::core::Status Texture3DSample::createLUTTexture() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
     td.label = u"LUTTex1D";
-    if (device_->CreateTexture(td, lutTexture_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_lutTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};
     tvd.format = dr::TextureFormat::RGBA8UnormSrgb;
     tvd.dimension = dr::TextureViewDimension::Texture1D;
-    if (device_->CreateTextureView(lutTexture_, tvd, lutView_) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_lutTexture, tvd, m_lutView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Generate gradient LUT: dark blue -> cyan -> green -> yellow -> red -> white
     u8 data[kLUTSize * 4];
@@ -297,33 +297,33 @@ raptor::core::Status Texture3DSample::createLUTTexture() {
     }
 
     dr::TransferBatch* batch = nullptr;
-    graphicsQueue_->CreateTransferBatch(batch);
+    m_graphicsQueue->CreateTransferBatch(batch);
     dr::TextureDataLayout layout{};
     layout.bytesPerRow = kLUTSize * 4;
     layout.rowsPerImage = 1;
-    batch->WriteTexture(lutTexture_,
+    batch->WriteTexture(m_lutTexture,
         Span<const u8>(data, kLUTSize * 4),
         layout, dr::Extent3D{kLUTSize, 1, 1});
     batch->Submit();
-    graphicsQueue_->DestroyTransferBatch(batch);
+    m_graphicsQueue->DestroyTransferBatch(batch);
 
     return raptor::core::ErrorCode::Ok;
 }
 
-void Texture3DSample::onRender() {
+void Texture3DSample::OnRender() {
     using raptor::core::f32, raptor::core::Span;
 
-    if (fenceVal_ > 0) fence_->Wait(fenceVal_, ~0ull);
-    if (swapChain_->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
 
-    pool_->Reset();
+    m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (pool_->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
     dr::ColorAttachment ca{};
-    ca.view = swapChain_->CurrentTextureView();
+    ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = dr::LoadOp::Clear;
     ca.storeOp = dr::StoreOp::Store;
     ca.clearValue = dr::ClearColor(0.02f, 0.02f, 0.05f, 1.0f);
@@ -332,47 +332,47 @@ void Texture3DSample::onRender() {
 
     auto* rp = enc->BeginRenderPass(rpd);
 
-    rp->SetPipeline(pipeline_);
-    rp->SetBindGroup(0, bg_);
-    rp->SetViewport(0, 0, static_cast<f32>(width_), static_cast<f32>(height_), 0.0f, 1.0f);
-    rp->SetScissor(0, 0, width_, height_);
+    rp->SetPipeline(m_pipeline);
+    rp->SetBindGroup(0, m_bg);
+    rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0.0f, 1.0f);
+    rp->SetScissor(0, 0, m_width, m_height);
 
     // Animate slice through 3D volume
-    float sliceZ = 0.5f + 0.5f * std::sin(totalTime_ * 0.5f);
+    float sliceZ = 0.5f + 0.5f * std::sin(m_totalTime * 0.5f);
     PushData pc{};
     pc.sliceZ = sliceZ;
-    pc.time = totalTime_;
+    pc.time = m_totalTime;
     rp->SetPushConstants(dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
 
     rp->Draw(3); // Fullscreen triangle
 
     rp->End();
 
-    enc->TransitionTexture(swapChain_->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
 
     dr::CommandBuffer* cb = enc->Finish();
-    fenceVal_++;
+    m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    graphicsQueue_->Submit(Span<dr::CommandBuffer* const>(cbs, 1), fence_, fenceVal_);
-    swapChain_->Present(graphicsQueue_);
-    pool_->DestroyEncoder(enc);
+    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_swapChain->Present(m_graphicsQueue);
+    m_pool->DestroyEncoder(enc);
 }
 
-void Texture3DSample::onShutdown() {
-    if (fence_) device_->DestroyFence(fence_);
-    if (pool_) device_->DestroyCommandPool(pool_);
-    if (pipeline_) device_->DestroyRenderPipeline(pipeline_);
-    if (pl_) device_->DestroyPipelineLayout(pl_);
-    if (bg_) device_->DestroyBindGroup(bg_);
-    if (bgl_) device_->DestroyBindGroupLayout(bgl_);
-    if (sampler_) device_->DestroySampler(sampler_);
-    if (lutView_) device_->DestroyTextureView(lutView_);
-    if (lutTexture_) device_->DestroyTexture(lutTexture_);
-    if (volumeView_) device_->DestroyTextureView(volumeView_);
-    if (volumeTexture_) device_->DestroyTexture(volumeTexture_);
-    if (ps_) device_->DestroyShaderModule(ps_);
-    if (vs_) device_->DestroyShaderModule(vs_);
-    if (compiler_) { compiler_->Destroy(); delete compiler_; }
+void Texture3DSample::OnShutdown() {
+    if (m_fence) m_device->DestroyFence(m_fence);
+    if (m_pool) m_device->DestroyCommandPool(m_pool);
+    if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline);
+    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
+    if (m_bg) m_device->DestroyBindGroup(m_bg);
+    if (m_bgl) m_device->DestroyBindGroupLayout(m_bgl);
+    if (m_sampler) m_device->DestroySampler(m_sampler);
+    if (m_lutView) m_device->DestroyTextureView(m_lutView);
+    if (m_lutTexture) m_device->DestroyTexture(m_lutTexture);
+    if (m_volumeView) m_device->DestroyTextureView(m_volumeView);
+    if (m_volumeTexture) m_device->DestroyTexture(m_volumeTexture);
+    if (m_ps) m_device->DestroyShaderModule(m_ps);
+    if (m_vs) m_device->DestroyShaderModule(m_vs);
+    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
 }
 
-int main(int argc, char** argv) { Texture3DSample app; return app.run(argc, argv); }
+int main(int argc, char** argv) { Texture3DSample app; return app.Run(argc, argv); }
