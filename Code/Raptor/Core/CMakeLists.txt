@@ -33,6 +33,7 @@ target_sources(RaptorCore
             System/System.cppm
             Containers/Span.cppm
             Containers/Array.cppm
+            Containers/FixedArray.cppm
             Containers/RingBuffer.cppm
             Containers/IntrusiveList.cppm
             Hash.cppm

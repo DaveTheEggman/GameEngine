@@ -19,6 +19,7 @@ export import :unique_ptr;
 export import :system;
 export import :span;
 export import :array;
+export import :fixed_array;
 export import :ring_buffer;
 export import :intrusive_list;
 export import :string;

@@ -1,0 +1,26 @@
+# Raptor::RHI — the `raptor.rhi` module (the backend-agnostic RHI interface).
+# Ported from the Draconic RHI, adapted to Raptor types (raptor.core) and the
+# minimal-STL / -fno-exceptions / -fno-rtti policy. Backends (Null, Vulkan, DX12,
+# Validation) are separate targets.
+
+add_library(RaptorRHI STATIC)
+add_library(Raptor::RHI ALIAS RaptorRHI)
+
+target_link_libraries(RaptorRHI PUBLIC Raptor::Core Raptor::Policy)
+
+target_sources(RaptorRHI
+    PUBLIC
+        FILE_SET rhi_modules TYPE CXX_MODULES FILES
+            Enums.cppm
+            TextureFormat.cppm
+            Types.cppm
+            Forward.cppm
+            Descriptors.cppm
+            ExtDescriptors.cppm
+            Resources.cppm
+            Commands.cppm
+            Extensions.cppm
+            Queue.cppm
+            SwapChain.cppm
+            Device.cppm
+            RhiModule.cppm)
