@@ -77,6 +77,7 @@ add_subdirectory(Code/Raptor/RenderGraph)  # render graph over RHI
 add_subdirectory(Code/Raptor/Shaders)
 add_subdirectory(Code/Raptor/Image)
 add_subdirectory(Code/Raptor/Model)
+add_subdirectory(Code/Raptor/Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Raptor/Script)
 add_subdirectory(Code/Raptor/Runtime)
 
