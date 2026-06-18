@@ -14,6 +14,8 @@ target_sources(RaptorVFS
             NativeFileSystem.cppm
             VirtualFileSystem.cppm)
 
+add_subdirectory(Pak)   # packed read-only archive backend
+
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
