@@ -202,6 +202,10 @@ export namespace raptor::core
             data[m_size] = CharT(0);
         }
 
+        // Single-character append (alias for PushBack) — lets String serve as a
+        // format sink alongside its Append(view)/Append(ptr,len) overloads.
+        void Append(CharT ch) { PushBack(ch); }
+
         BasicString& operator+=(View view) { Append(view); return *this; }
         BasicString& operator+=(const CharT* str) { Append(str, CStringLength(str)); return *this; }
         BasicString& operator+=(CharT ch) { PushBack(ch); return *this; }

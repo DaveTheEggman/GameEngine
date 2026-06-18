@@ -102,10 +102,15 @@ export namespace raptor::core
         IAllocator* m_allocator = nullptr;
     };
 
+    // The appenders/format core are generic over the output sink: any type with
+    // Append(widechar), Append(const widechar*) and Append(const widechar*, usize)
+    // works. FormatBuffer is one such sink; String is another (so formatting can
+    // write straight into a String, no scratch buffer).
     namespace detail
     {
-        // Widen a run of ASCII bytes (digits/hex from <charconv>) into the buffer.
-        inline void AppendAsciiDigits(FormatBuffer& out, const char* text, usize length)
+        // Widen a run of ASCII bytes (digits/hex from <charconv>) into the sink.
+        template <typename Sink>
+        void AppendAsciiDigits(Sink& out, const char* text, usize length)
         {
             for (usize i = 0; i < length; ++i)
             {
@@ -115,37 +120,41 @@ export namespace raptor::core
     }
 
     // --- per-type appenders ------------------------------------------------
-    inline void AppendValue(FormatBuffer& out, bool value)
+    template <typename Sink>
+    void AppendValue(Sink& out, bool value)
     {
         out.Append(value ? u"true" : u"false");
     }
 
-    inline void AppendValue(FormatBuffer& out, char value)
+    template <typename Sink>
+    void AppendValue(Sink& out, char value)
     {
         out.Append(static_cast<widechar>(static_cast<unsigned char>(value)));
     }
 
-    inline void AppendValue(FormatBuffer& out, widechar value) { out.Append(value); }
+    template <typename Sink>
+    void AppendValue(Sink& out, widechar value) { out.Append(value); }
 
-    inline void AppendValue(FormatBuffer& out, const widechar* value)
+    template <typename Sink>
+    void AppendValue(Sink& out, const widechar* value)
     {
         out.Append(value != nullptr ? value : u"(null)");
     }
 
-    template <typename T>
+    template <typename Sink, typename T>
         requires (std::is_integral_v<T> && !std::is_same_v<T, bool>
                   && !std::is_same_v<T, char> && !std::is_same_v<T, widechar>
                   && !std::is_same_v<T, char8_t>)
-    void AppendValue(FormatBuffer& out, T value)
+    void AppendValue(Sink& out, T value)
     {
         char temp[32];
         const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
         detail::AppendAsciiDigits(out, temp, static_cast<usize>(result.ptr - temp));
     }
 
-    template <typename T>
+    template <typename Sink, typename T>
         requires std::is_floating_point_v<T>
-    void AppendValue(FormatBuffer& out, T value)
+    void AppendValue(Sink& out, T value)
     {
         char temp[48];
         const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
@@ -153,26 +162,30 @@ export namespace raptor::core
     }
 
     // UTF-8 view: transcode to wide.
-    inline void AppendValue(FormatBuffer& out, UTF8StringView view)
+    template <typename Sink>
+    void AppendValue(Sink& out, UTF8StringView view)
     {
         const String wide = ToWide(view);
         out.Append(wide.Data(), wide.Size());
     }
 
     // Wide view (and String, via its implicit View conversion): append directly.
-    inline void AppendValue(FormatBuffer& out, StringView view)
+    template <typename Sink>
+    void AppendValue(Sink& out, StringView view)
     {
         out.Append(view.Data(), view.Size());
     }
 
-    inline void AppendValue(FormatBuffer& out, Guid value)
+    template <typename Sink>
+    void AppendValue(Sink& out, Guid value)
     {
         widechar text[37];
         value.ToChars(text);
         out.Append(text, 36);
     }
 
-    inline void AppendValue(FormatBuffer& out, const void* value)
+    template <typename Sink>
+    void AppendValue(Sink& out, const void* value)
     {
         out.Append(u"0x");
         char temp[20];
@@ -181,9 +194,10 @@ export namespace raptor::core
         detail::AppendAsciiDigits(out, temp, static_cast<usize>(result.ptr - temp));
     }
 
-    // --- format core -------------------------------------------------------
+    // --- format core (generic over the output sink) ------------------------
     // --- runtime format (FormatToV): fmt is a wide const widechar* ---------
-    inline void FormatToV(FormatBuffer& out, const widechar* fmt)
+    template <typename Sink>
+    void FormatToV(Sink& out, const widechar* fmt)
     {
         // No remaining args: copy the rest, honouring {{ and }} escapes.
         while (*fmt != u'\0')
@@ -194,8 +208,8 @@ export namespace raptor::core
         }
     }
 
-    template <typename T, typename... Rest>
-    void FormatToV(FormatBuffer& out, const widechar* fmt, const T& value, const Rest&... rest)
+    template <typename Sink, typename T, typename... Rest>
+    void FormatToV(Sink& out, const widechar* fmt, const T& value, const Rest&... rest)
     {
         while (*fmt != u'\0')
         {
@@ -257,5 +271,21 @@ export namespace raptor::core
     void FormatTo(FormatBuffer& out, FormatString<Args...> fmt, const Args&... args)
     {
         FormatToV(out, fmt.data, args...);
+    }
+
+    // Append formatted text straight into a String (no scratch buffer).
+    template <typename... Args>
+    void AppendFormat(String& out, FormatString<Args...> fmt, const Args&... args)
+    {
+        FormatToV(out, fmt.data, args...);
+    }
+
+    // Build a new String from a format string and arguments.
+    template <typename... Args>
+    [[nodiscard]] String Format(FormatString<Args...> fmt, const Args&... args)
+    {
+        String out;
+        FormatToV(out, fmt.data, args...);
+        return out;
     }
 }
