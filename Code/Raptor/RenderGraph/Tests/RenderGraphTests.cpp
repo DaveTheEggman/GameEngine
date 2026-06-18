@@ -149,3 +149,44 @@ TEST_CASE("rendergraph.state_tracker: uniform fast path, divergence, collapse")
     restored.SetState(0, 1, 0, 1, RS::ShaderRead);
     CHECK(restored.IsUniform());
 }
+
+TEST_CASE("rendergraph.graph: compile culls dead passes and orders by dependency")
+{
+    // Device-less: exercises the compile pipeline (refs, cull, deps, topo sort).
+    RenderGraph graph(nullptr);
+
+    RGTextureDesc desc;
+    desc.format = rhi::TextureFormat::RGBA8Unorm;
+    const RGHandle x = graph.CreateTransient(u"X", desc);
+    const RGHandle y = graph.CreateTransient(u"Y", desc);
+    const RGHandle z = graph.CreateTransient(u"Z", desc);
+
+    // A writes X; B reads X and writes Y (kept alive); C writes Z (nobody reads -> culled).
+    const PassHandle a = graph.AddRenderPass(u"A", [&](PassBuilder& b) { b.WriteStorage(x); });
+    graph.AddRenderPass(u"B", [&](PassBuilder& b) { b.ReadTexture(x).WriteStorage(y).NeverCull(); });
+    graph.AddRenderPass(u"C", [&](PassBuilder& b) { b.WriteStorage(z); });
+
+    CHECK(graph.PassCount() == 3u);
+    REQUIRE(graph.Compile().IsOk());
+
+    // C is dead (its output is never read and it isn't NeverCull).
+    CHECK(graph.CulledPassCount() == 1u);
+
+    // A survives only because B (alive) reads X that A writes.
+    const Array<i32>& order = graph.ExecutionOrder();
+    REQUIRE(order.Size() == 2u);
+    // A must run before B.
+    i32 posA = -1, posB = -1;
+    for (i32 i = 0; i < static_cast<i32>(order.Size()); ++i)
+    {
+        if (order[static_cast<usize>(i)] == static_cast<i32>(a.index)) { posA = i; }
+        if (order[static_cast<usize>(i)] == 1) { posB = i; } // B is pass index 1
+    }
+    CHECK(posA >= 0);
+    CHECK(posB >= 0);
+    CHECK(posA < posB);
+
+    // Resource lookup by name + handle round-trips.
+    CHECK(graph.GetResource(u"X") == x);
+    CHECK_FALSE(graph.GetResource(u"nope").IsValid());
+}

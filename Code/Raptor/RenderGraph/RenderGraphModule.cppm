@@ -16,3 +16,6 @@ export import :resource;
 export import :pass;
 export import :state_tracker;
 export import :barrier_solver;
+export import :pass_builder;
+export import :transient_pool;
+export import :graph;
