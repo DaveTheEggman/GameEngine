@@ -21,6 +21,7 @@ target_sources(RaptorRenderGraph
             PassBuilder.cppm
             TransientTexturePool.cppm
             RenderGraph.cppm
+            GraphProfiler.cppm
             GraphValidator.cppm
             GraphDebug.cppm
             RenderGraphModule.cppm)

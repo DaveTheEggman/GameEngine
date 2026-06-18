@@ -21,3 +21,4 @@ export import :transient_pool;
 export import :graph;
 export import :validator;
 export import :debug;
+export import :profiler;

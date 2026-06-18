@@ -9,7 +9,7 @@ if(NOT TARGET doctest::doctest)
 endif()
 
 add_executable(RaptorRenderGraphTests TestsMain.cpp RenderGraphTests.cpp BarrierTests.cpp
-    TypeTests.cpp DescriptorTests.cpp GraphCoreTests.cpp CullingTests.cpp DependencyTests.cpp PassBuilderTests.cpp ValidationTests.cpp DebugTests.cpp)
+    TypeTests.cpp DescriptorTests.cpp GraphCoreTests.cpp CullingTests.cpp DependencyTests.cpp PassBuilderTests.cpp ValidationTests.cpp DebugTests.cpp ProfilerTests.cpp)
 target_link_libraries(RaptorRenderGraphTests PRIVATE Raptor::RenderGraph doctest::doctest)
 target_compile_definitions(RaptorRenderGraphTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorRenderGraphTests PRIVATE
