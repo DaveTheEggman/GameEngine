@@ -11,6 +11,8 @@ target_sources(RaptorFonts
         FILE_SET fonts_modules TYPE CXX_MODULES FILES
             Types.cppm
             Interfaces.cppm
+            TextUtil.cppm
+            Baked.cppm
             FontAtlasTexture.cppm
             NullFontService.cppm
             FontsModule.cppm)
