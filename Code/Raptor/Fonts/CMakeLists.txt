@@ -19,6 +19,7 @@ target_sources(RaptorFonts
 # Sedulous draws each of these as its own library; mirror those module lines.
 add_subdirectory(Baked)     # raptor.fonts.baked  — rasterizer-free IFont/IFontAtlas
 add_subdirectory(IO)        # raptor.fonts.io     — parser/baker pipeline + FontManager
+add_subdirectory(TTF)       # raptor.fonts.ttf    — stb_truetype backend + VFS service
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)

@@ -24,6 +24,11 @@ export namespace raptor::fonts
     public:
         virtual ~IFont() = default;
 
+        // Backend type tag for no-RTTI downcasts (-fno-rtti): a baker that must
+        // recover its parser's concrete font type checks this instead of using
+        // `dynamic_cast`/`is`. 0 = unspecified; backends return a unique id.
+        [[nodiscard]] virtual u32 BackendTypeId() const { return 0; }
+
         [[nodiscard]] virtual StringView FamilyName() const = 0;
         [[nodiscard]] virtual FontMetrics Metrics() const = 0;
         [[nodiscard]] virtual f32 PixelHeight() const = 0;
