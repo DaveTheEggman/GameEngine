@@ -16,6 +16,7 @@ export import :tracking_allocator;
 export import :memory_tag;
 export import :ref_counted;
 export import :unique_ptr;
+export import :function;
 export import :system;
 export import :span;
 export import :array;

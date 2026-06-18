@@ -23,6 +23,7 @@ target_sources(RaptorCore
             Base.cppm
             RefCounted.cppm
             UniquePtr.cppm
+            Function.cppm
             Memory/Allocator.cppm
             Memory/LinearAllocator.cppm
             Memory/StackAllocator.cppm

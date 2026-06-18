@@ -29,6 +29,7 @@ add_executable(RaptorCoreTests
     RttiTests.cpp
     CoreReflectionTests.cpp
     IoTests.cpp
+    FunctionTests.cpp
     ThreadingTests.cpp
     LibraryTests.cpp)
 
