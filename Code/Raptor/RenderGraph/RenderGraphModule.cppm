@@ -13,3 +13,6 @@ export import :callbacks;
 export import :descriptors;
 export import :persistent_resource;
 export import :resource;
+export import :pass;
+export import :state_tracker;
+export import :barrier_solver;

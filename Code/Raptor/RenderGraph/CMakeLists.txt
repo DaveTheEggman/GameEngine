@@ -15,6 +15,9 @@ target_sources(RaptorRenderGraph
             Descriptors.cppm
             PersistentResource.cppm
             RenderGraphResource.cppm
+            RenderGraphPass.cppm
+            SubresourceStateTracker.cppm
+            BarrierSolver.cppm
             RenderGraphModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

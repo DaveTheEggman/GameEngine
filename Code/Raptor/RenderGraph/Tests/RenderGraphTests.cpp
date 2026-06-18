@@ -112,3 +112,40 @@ TEST_CASE("rendergraph.resource: tracking + totals from descriptor")
     CHECK_FALSE(res.firstWriter.IsValid());
     CHECK_FALSE(res.finalState.HasValue());
 }
+
+TEST_CASE("rendergraph.state_tracker: uniform fast path, divergence, collapse")
+{
+    using RS = rhi::ResourceState;
+    SubresourceStateTracker t(4, 2, RS::Undefined);   // 4 mips x 2 layers
+    CHECK(t.IsUniform());
+    CHECK(t.GetState(0, 0) == RS::Undefined);
+
+    // Whole-resource set stays uniform.
+    t.SetState(RGSubresourceRange::All(), RS::ShaderRead);
+    CHECK(t.IsUniform());
+    CHECK(t.GetState(3, 1) == RS::ShaderRead);
+
+    // Diverging one subresource materializes per-subresource storage.
+    t.SetState(0, 1, 0, 1, RS::RenderTarget);   // mip0, layer0
+    CHECK_FALSE(t.IsUniform());
+    CHECK(t.GetState(0, 0) == RS::RenderTarget);
+    CHECK(t.GetState(1, 0) == RS::ShaderRead);
+
+    Array<RS> snapshot = t.CopyStates();
+    CHECK(snapshot.Size() == 8u);
+
+    // SetAll collapses back to uniform.
+    t.SetAll(RS::ShaderRead);
+    CHECK(t.IsUniform());
+
+    // Restoring the snapshot reproduces the non-uniform layout.
+    SubresourceStateTracker restored(4, 2, RS::Undefined);
+    restored.InitFromStates(snapshot, RS::Undefined);
+    CHECK_FALSE(restored.IsUniform());
+    CHECK(restored.GetState(0, 0) == RS::RenderTarget);
+    CHECK(restored.GetState(2, 1) == RS::ShaderRead);
+
+    // Re-converging all subresources collapses to uniform.
+    restored.SetState(0, 1, 0, 1, RS::ShaderRead);
+    CHECK(restored.IsUniform());
+}
