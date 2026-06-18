@@ -12,10 +12,13 @@ target_sources(RaptorFonts
             Types.cppm
             Interfaces.cppm
             TextUtil.cppm
-            Baked.cppm
             FontAtlasTexture.cppm
             NullFontService.cppm
             FontsModule.cppm)
+
+# Sedulous draws each of these as its own library; mirror those module lines.
+add_subdirectory(Baked)     # raptor.fonts.baked  — rasterizer-free IFont/IFontAtlas
+add_subdirectory(IO)        # raptor.fonts.io     — parser/baker pipeline + FontManager
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)

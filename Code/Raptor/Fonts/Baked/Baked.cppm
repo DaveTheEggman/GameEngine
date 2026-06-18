@@ -1,19 +1,17 @@
-// Raptor::Fonts — :baked partition
+// Raptor::FontsBaked — the `raptor.fonts.baked` module.
 //
 // Pre-baked IFont / IFontAtlas implementations with no rasterizer dependency:
 // shipped games get every glyph + region from disk (resource deserialization)
 // and never touch stb_truetype. Ported from Sedulous.Fonts.Baked
-// (BakedFont.bf, BakedFontAtlas.bf).
+// (BakedFont.bf, BakedFontAtlas.bf) — its own library, matching Sedulous.
 
 module;
 #include "Core/Prelude.h"
 
-export module raptor.fonts:baked;
+export module raptor.fonts.baked;
 
 import raptor.core;
-import :types;
-import :interfaces;
-import :text_util;
+import raptor.fonts;
 
 using namespace raptor::core;
 

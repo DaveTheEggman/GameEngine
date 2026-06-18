@@ -10,6 +10,5 @@ export module raptor.fonts;
 export import :types;
 export import :interfaces;
 export import :text_util;
-export import :baked;
 export import :atlas_texture;
 export import :null_service;

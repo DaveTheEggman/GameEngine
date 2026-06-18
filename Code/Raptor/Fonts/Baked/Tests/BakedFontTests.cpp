@@ -6,6 +6,7 @@
 
 import raptor.core;
 import raptor.fonts;
+import raptor.fonts.baked;
 
 using namespace raptor::core;
 using namespace raptor::fonts;

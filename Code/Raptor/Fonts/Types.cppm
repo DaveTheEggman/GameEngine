@@ -226,3 +226,20 @@ export namespace raptor::fonts
     [[nodiscard]] inline bool operator==(const FontCacheKey& a, const FontCacheKey& b) { return a.Equals(b); }
     [[nodiscard]] inline bool operator!=(const FontCacheKey& a, const FontCacheKey& b) { return !a.Equals(b); }
 }
+
+export namespace raptor::core
+{
+    // Hash for FontCacheKey, mirroring Sedulous: path hash combined with the
+    // pixel height quantized to hundredths. Equality (operator==) uses a 0.001
+    // tolerance — fine for the discrete font sizes a cache ever sees.
+    template <>
+    struct Hash<raptor::fonts::FontCacheKey>
+    {
+        [[nodiscard]] u64 operator()(const raptor::fonts::FontCacheKey& key) const noexcept
+        {
+            const u64 pathHash = Hash<String>{}(key.path);
+            const u64 heightBucket = static_cast<u64>(static_cast<i64>(key.pixelHeight * 100.0f));
+            return pathHash * 31u + heightBucket;
+        }
+    };
+}
