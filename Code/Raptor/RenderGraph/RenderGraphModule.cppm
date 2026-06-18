@@ -19,3 +19,5 @@ export import :barrier_solver;
 export import :pass_builder;
 export import :transient_pool;
 export import :graph;
+export import :validator;
+export import :debug;
