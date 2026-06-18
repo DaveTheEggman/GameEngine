@@ -28,6 +28,15 @@ export namespace raptor::rendergraph
         RenderGraphPass(StringView passName, RGPassType passType)
             : name(passName), type(passType) {}
 
+        // Explicitly defaulted so the (move-only, due to Function members) special
+        // members are synthesized in this module and usable by importers — GCC's
+        // module support otherwise reports the implicit destructor as deleted.
+        ~RenderGraphPass() = default;
+        RenderGraphPass(RenderGraphPass&&) = default;
+        RenderGraphPass& operator=(RenderGraphPass&&) = default;
+        RenderGraphPass(const RenderGraphPass&) = delete;
+        RenderGraphPass& operator=(const RenderGraphPass&) = delete;
+
         // Resource handles this pass reads (declared accesses + Load attachments).
         void GetInputs(Array<RGResourceAccess>& out) const
         {

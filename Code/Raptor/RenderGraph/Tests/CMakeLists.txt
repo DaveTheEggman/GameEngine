@@ -8,7 +8,7 @@ if(NOT TARGET doctest::doctest)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
 endif()
 
-add_executable(RaptorRenderGraphTests TestsMain.cpp RenderGraphTests.cpp)
+add_executable(RaptorRenderGraphTests TestsMain.cpp RenderGraphTests.cpp BarrierTests.cpp)
 target_link_libraries(RaptorRenderGraphTests PRIVATE Raptor::RenderGraph doctest::doctest)
 target_compile_definitions(RaptorRenderGraphTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorRenderGraphTests PRIVATE
