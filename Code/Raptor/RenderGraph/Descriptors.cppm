@@ -31,6 +31,12 @@ export namespace raptor::rendergraph
         u32 sampleCount = 1;
         rhi::TextureUsage usage = rhi::TextureUsage::None;
 
+        RGTextureDesc() = default;
+        RGTextureDesc(rhi::TextureFormat fmt, SizeMode mode = SizeMode::FullSize) noexcept
+            : format(fmt), sizeMode(mode) {}
+        RGTextureDesc(rhi::TextureFormat fmt, u32 w, u32 h) noexcept
+            : format(fmt), sizeMode(SizeMode::Custom), width(w), height(h) {}
+
         // Resolves actual dimensions from the graph output size.
         void Resolve(u32 outputWidth, u32 outputHeight) noexcept
         {
