@@ -69,3 +69,46 @@ TEST_CASE("rendergraph.descriptors: size resolve + RHI desc conversion")
     custom.Resolve(1280, 720);     // custom is untouched
     CHECK(custom.width == 256u);
 }
+
+TEST_CASE("rendergraph.persistent: ping-pong swap")
+{
+    // Fake non-null texture pointers (we only test index bookkeeping, no GPU).
+    auto* a = reinterpret_cast<rhi::Texture*>(0x10);
+    auto* b = reinterpret_cast<rhi::Texture*>(0x20);
+    auto* va = reinterpret_cast<rhi::TextureView*>(0x30);
+    auto* vb = reinterpret_cast<rhi::TextureView*>(0x40);
+
+    PersistentResource single(a, va);
+    CHECK_FALSE(single.IsPingPong());
+    CHECK(single.CurrentTexture() == a);
+    CHECK(single.PreviousTexture() == a);   // no history for single
+    single.Swap();                          // no-op
+    CHECK(single.CurrentTexture() == a);
+
+    PersistentResource pp(a, b, va, vb);
+    CHECK(pp.IsPingPong());
+    CHECK(pp.CurrentTexture() == a);
+    CHECK(pp.PreviousTexture() == b);
+    pp.Swap();
+    CHECK(pp.CurrentTexture() == b);
+    CHECK(pp.PreviousTexture() == a);
+}
+
+TEST_CASE("rendergraph.resource: tracking + totals from descriptor")
+{
+    RenderGraphResource res(u"gbuffer", RGResourceType::Texture, RGResourceLifetime::Transient);
+    res.textureDesc.mipLevelCount = 4;
+    res.textureDesc.arrayLayerCount = 6;
+
+    // No GPU texture allocated -> totals come from the descriptor.
+    CHECK(res.TotalMipLevels() == 4u);
+    CHECK(res.TotalArrayLayers() == 6u);
+
+    res.refCount = 3;
+    res.firstUsePass = 2;
+    res.ResetTracking();
+    CHECK(res.refCount == 0);
+    CHECK(res.firstUsePass == -1);
+    CHECK_FALSE(res.firstWriter.IsValid());
+    CHECK_FALSE(res.finalState.HasValue());
+}

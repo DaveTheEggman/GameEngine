@@ -11,3 +11,5 @@ export module raptor.rendergraph;
 export import :types;
 export import :callbacks;
 export import :descriptors;
+export import :persistent_resource;
+export import :resource;

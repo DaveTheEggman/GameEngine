@@ -13,6 +13,8 @@ target_sources(RaptorRenderGraph
             Types.cppm
             Callbacks.cppm
             Descriptors.cppm
+            PersistentResource.cppm
+            RenderGraphResource.cppm
             RenderGraphModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)
