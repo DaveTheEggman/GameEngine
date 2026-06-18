@@ -73,6 +73,7 @@ add_subdirectory(Code/Raptor/VFS)       # byte access over Core stream primitive
 add_subdirectory(Code/Raptor/Content)   # content database over Core + VFS
 add_subdirectory(Code/Raptor/Resource)  # resource manager over content
 add_subdirectory(Code/Raptor/RHI)   # depends only on Core (foundational sibling of Runtime)
+add_subdirectory(Code/Raptor/RenderGraph)  # render graph over RHI
 add_subdirectory(Code/Raptor/Shaders)
 add_subdirectory(Code/Raptor/Image)
 add_subdirectory(Code/Raptor/Model)

@@ -1,0 +1,101 @@
+// Raptor::RenderGraph — :descriptors partition
+//
+// Render-graph resource descriptors (transient texture/buffer) and pass target
+// attachments. Ported from Sedulous.RenderGraph (Descriptors.bf). RGTextureDesc
+// resolves size-relative-to-output and converts to an RHI TextureDesc.
+
+module;
+#include "Core/Prelude.h"
+
+export module raptor.rendergraph:descriptors;
+
+import raptor.core;
+import raptor.rhi;
+import :types;
+
+using namespace raptor::core;
+
+export namespace raptor::rendergraph
+{
+    namespace rhi = raptor::rhi;
+
+    // Describes a transient texture resource in the graph.
+    struct RGTextureDesc
+    {
+        rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+        SizeMode sizeMode = SizeMode::FullSize;
+        u32 width = 0;                 // used only when sizeMode == Custom
+        u32 height = 0;
+        u32 arrayLayerCount = 1;
+        u32 mipLevelCount = 1;
+        u32 sampleCount = 1;
+        rhi::TextureUsage usage = rhi::TextureUsage::None;
+
+        // Resolves actual dimensions from the graph output size.
+        void Resolve(u32 outputWidth, u32 outputHeight) noexcept
+        {
+            switch (sizeMode)
+            {
+                case SizeMode::FullSize:
+                    width = outputWidth; height = outputHeight; break;
+                case SizeMode::HalfSize:
+                    width = Max(1u, outputWidth / 2u); height = Max(1u, outputHeight / 2u); break;
+                case SizeMode::QuarterSize:
+                    width = Max(1u, outputWidth / 4u); height = Max(1u, outputHeight / 4u); break;
+                case SizeMode::Custom:
+                    break; // already set
+            }
+        }
+
+        [[nodiscard]] rhi::TextureDesc ToTextureDesc(StringView label) const
+        {
+            rhi::TextureDesc desc{};
+            desc.format = format;
+            desc.width = width;
+            desc.height = height;
+            desc.arrayLayerCount = arrayLayerCount;
+            desc.mipLevelCount = mipLevelCount;
+            desc.sampleCount = sampleCount;
+            desc.usage = usage;
+            desc.label = label;
+            return desc;
+        }
+    };
+
+    // Describes a transient buffer resource in the graph.
+    struct RGBufferDesc
+    {
+        u64 size = 0;
+        rhi::BufferUsage usage = rhi::BufferUsage::None;
+    };
+
+    // Color target attachment for a render pass.
+    struct RGColorTarget
+    {
+        RGHandle handle = RGHandle::Invalid();
+        rhi::LoadOp loadOp = rhi::LoadOp::Clear;
+        rhi::StoreOp storeOp = rhi::StoreOp::Store;
+        rhi::ClearColor clearValue = rhi::ClearColor::Black();
+        RGSubresourceRange subresource;
+    };
+
+    // Depth/stencil target attachment for a render pass.
+    struct RGDepthTarget
+    {
+        RGHandle handle = RGHandle::Invalid();
+        rhi::LoadOp depthLoadOp = rhi::LoadOp::Clear;
+        rhi::StoreOp depthStoreOp = rhi::StoreOp::Store;
+        f32 depthClearValue = 1.0f;
+        bool readOnly = false;
+        rhi::LoadOp stencilLoadOp = rhi::LoadOp::DontCare;
+        rhi::StoreOp stencilStoreOp = rhi::StoreOp::DontCare;
+        u32 stencilClearValue = 0;
+        RGSubresourceRange subresource;
+    };
+
+    // Configuration for the render graph.
+    struct RenderGraphConfig
+    {
+        i32 frameBufferCount = 2; // multi-buffering slots (typically 2 or 3)
+    };
+}
