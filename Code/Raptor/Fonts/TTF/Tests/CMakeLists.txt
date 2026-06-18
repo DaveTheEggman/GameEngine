@@ -8,7 +8,7 @@ if(NOT TARGET doctest::doctest)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
 endif()
 
-add_executable(RaptorFontsTTFTests TestsMain.cpp TrueTypeTests.cpp)
+add_executable(RaptorFontsTTFTests TestsMain.cpp TrueTypeTests.cpp UIFeaturesTests.cpp)
 target_link_libraries(RaptorFontsTTFTests PRIVATE Raptor::FontsTTF Raptor::FontsIO Raptor::Fonts doctest::doctest)
 target_compile_definitions(RaptorFontsTTFTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS

@@ -101,3 +101,46 @@ TEST_CASE("fonts.loadOptions: presets + character count")
     CHECK(large.pixelHeight == 64.0f);
     CHECK(large.atlasWidth >= 1024);
 }
+
+// --- UI value types (ported from UIFeaturesTests.bf) ----------------------
+
+TEST_CASE("fonts.hitTestResult: insertion index")
+{
+    CHECK(HitTestResult(5, false, true).InsertionIndex() == 5); // leading edge
+    CHECK(HitTestResult(5, true, true).InsertionIndex() == 6);  // trailing edge
+}
+
+TEST_CASE("fonts.selectionRange: normalization, empty, contains")
+{
+    SelectionRange range(2, 5);
+    CHECK(range.start == 2);
+    CHECK(range.end == 5);
+    CHECK(range.Length() == 3);
+
+    const SelectionRange reversed(5, 2);
+    CHECK(reversed.start == 2);   // normalized
+    CHECK(reversed.end == 5);
+
+    CHECK(SelectionRange(3, 3).IsEmpty());
+    CHECK(SelectionRange(3, 3).Length() == 0);
+    CHECK_FALSE(SelectionRange(2, 5).IsEmpty());
+
+    const SelectionRange r(2, 5);
+    CHECK_FALSE(r.Contains(1));
+    CHECK(r.Contains(2));
+    CHECK(r.Contains(4));
+    CHECK_FALSE(r.Contains(5));   // end exclusive
+}
+
+TEST_CASE("fonts.textDecorationMetrics: defaults + from-font")
+{
+    const TextDecorationMetrics def;
+    CHECK(def.underlineThickness == 1);
+    CHECK(def.strikethroughThickness == 1);
+
+    const TextDecorationMetrics m = TextDecorationMetrics::FromFontMetrics(24, 32);
+    CHECK(m.underlinePosition > 0);        // below baseline
+    CHECK(m.strikethroughPosition < 0);    // above baseline
+    CHECK(m.underlineThickness >= 1);
+    CHECK(m.strikethroughThickness >= 1);
+}
