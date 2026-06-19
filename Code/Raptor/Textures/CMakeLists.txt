@@ -14,7 +14,7 @@ target_sources(RaptorTextures
             TextureData.cppm
             TexturesModule.cppm)
 
-# add_subdirectory(Resource)  # (added once the resource layer is written)
+add_subdirectory(Resource)  # raptor.textures.resource — managed texture resource
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
