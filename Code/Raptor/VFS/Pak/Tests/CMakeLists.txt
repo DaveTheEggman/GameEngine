@@ -12,5 +12,5 @@ add_executable(RaptorVFSPakTests TestsMain.cpp PakTests.cpp)
 target_link_libraries(RaptorVFSPakTests PRIVATE Raptor::VFSPak doctest::doctest)
 target_compile_definitions(RaptorVFSPakTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorVFSPakTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME RaptorVFSPakTests COMMAND RaptorVFSPakTests)

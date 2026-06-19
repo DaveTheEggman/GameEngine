@@ -13,5 +13,5 @@ add_executable(RaptorRenderGraphTests TestsMain.cpp RenderGraphTests.cpp Barrier
 target_link_libraries(RaptorRenderGraphTests PRIVATE Raptor::RenderGraph doctest::doctest)
 target_compile_definitions(RaptorRenderGraphTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorRenderGraphTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME RaptorRenderGraphTests COMMAND RaptorRenderGraphTests)

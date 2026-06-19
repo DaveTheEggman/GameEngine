@@ -14,5 +14,5 @@ target_compile_definitions(RaptorFontsTTFTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     RAPTOR_FONTS_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/fonts")
 target_compile_options(RaptorFontsTTFTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME RaptorFontsTTFTests COMMAND RaptorFontsTTFTests)

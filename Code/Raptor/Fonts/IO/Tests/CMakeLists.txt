@@ -12,5 +12,5 @@ add_executable(RaptorFontsIOTests TestsMain.cpp FontIOTests.cpp)
 target_link_libraries(RaptorFontsIOTests PRIVATE Raptor::FontsIO Raptor::FontsBaked Raptor::Fonts doctest::doctest)
 target_compile_definitions(RaptorFontsIOTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorFontsIOTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME RaptorFontsIOTests COMMAND RaptorFontsIOTests)

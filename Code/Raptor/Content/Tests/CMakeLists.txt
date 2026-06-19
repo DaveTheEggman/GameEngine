@@ -12,5 +12,5 @@ add_executable(RaptorContentTests TestsMain.cpp ContentTests.cpp)
 target_link_libraries(RaptorContentTests PRIVATE Raptor::Content doctest::doctest)
 target_compile_definitions(RaptorContentTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorContentTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME RaptorContentTests COMMAND RaptorContentTests)

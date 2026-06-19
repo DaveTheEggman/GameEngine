@@ -44,12 +44,12 @@ endif()
 # the implementations live in the engine libraries that use them.
 add_library(raptor_stb INTERFACE)
 add_library(Raptor::Stb ALIAS raptor_stb)
-target_include_directories(raptor_stb INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/stb)
+target_include_directories(raptor_stb SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/stb)
 
 add_library(raptor_cgltf INTERFACE)
 add_library(Raptor::Cgltf ALIAS raptor_cgltf)
-target_include_directories(raptor_cgltf INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cgltf)
+target_include_directories(raptor_cgltf SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cgltf)
 
 add_library(raptor_ufbx INTERFACE)
 add_library(Raptor::Ufbx ALIAS raptor_ufbx)
-target_include_directories(raptor_ufbx INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
+target_include_directories(raptor_ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
