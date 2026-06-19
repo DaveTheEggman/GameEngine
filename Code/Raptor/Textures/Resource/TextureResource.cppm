@@ -89,6 +89,18 @@ export namespace raptor::textures
             wrapU = TextureWrap::Repeat; wrapV = TextureWrap::Repeat;
             generateMipmaps = true; anisotropy = 16.0f;
         }
+        void SetupForEquirectangularSkybox()
+        {
+            shape = TextureShape::Texture2D; minFilter = TextureFilter::Linear; magFilter = TextureFilter::Linear;
+            wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge; wrapW = TextureWrap::ClampToEdge;
+            generateMipmaps = false; anisotropy = 1.0f;
+        }
+        void SetupForCubemapSkybox()
+        {
+            shape = TextureShape::Cubemap; minFilter = TextureFilter::Linear; magFilter = TextureFilter::Linear;
+            wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge; wrapW = TextureWrap::ClampToEdge;
+            generateMipmaps = false; anisotropy = 1.0f;
+        }
     };
 
     // ---- Product: lean runtime texture ----------------------------------
@@ -101,6 +113,7 @@ export namespace raptor::textures
         rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
         rhi::TextureDimension dimension = rhi::TextureDimension::Texture2D;
         u32 mipLevels = 1;
+        TextureShape shape = TextureShape::Texture2D;
 
         // Resolved sampler state.
         TextureFilter minFilter = TextureFilter::Linear;
@@ -115,9 +128,17 @@ export namespace raptor::textures
         void SetPixels(Array<u8>&& pixels) noexcept { m_pixels = Move(pixels); }
 
         // A GPU-upload descriptor referencing this texture's owned pixel buffer.
+        // For a cubemap, the pixels are 6 faces packed vertically (height = 6*faceSize).
         [[nodiscard]] TextureData Descriptor() const
         {
-            TextureData d = TextureData::Create2D(m_pixels.Data(), static_cast<u64>(m_pixels.Size()), width, height, format);
+            const u64 size = static_cast<u64>(m_pixels.Size());
+            if (shape == TextureShape::Cubemap)
+            {
+                TextureData d = TextureData::CreateCube(m_pixels.Data(), size, width, format); // faceSize = width
+                d.mipLevels = mipLevels;
+                return d;
+            }
+            TextureData d = TextureData::Create2D(m_pixels.Data(), size, width, height, format);
             d.mipLevels = mipLevels;
             d.dimension = dimension;
             return d;
@@ -145,6 +166,7 @@ export namespace raptor::textures
             texture->format = TextureFormatUtils::Convert(res->imageFormat, res->colorSpace);
             texture->dimension = rhi::TextureDimension::Texture2D;
             texture->mipLevels = 1;
+            texture->shape = res->shape;
             texture->minFilter = res->minFilter;
             texture->magFilter = res->magFilter;
             texture->wrapU = res->wrapU;

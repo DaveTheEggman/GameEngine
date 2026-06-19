@@ -15,6 +15,7 @@ target_sources(RaptorTextures
             TexturesModule.cppm)
 
 add_subdirectory(Resource)  # raptor.textures.resource — managed texture resource
+add_subdirectory(Importer)  # raptor.textures.importer — image files -> TextureResource
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
