@@ -18,6 +18,8 @@ target_sources(RaptorXml
             Document.cppm
             XmlModule.cppm)
 
+add_subdirectory(Serialization)  # raptor.xml.serialization — XML serializer backend
+
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
