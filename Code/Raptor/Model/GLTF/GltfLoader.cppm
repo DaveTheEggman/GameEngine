@@ -494,8 +494,19 @@ private:
                     break;
                 }
             }
-            if (prim->indices)
+            if (prim->indices) {
                 totalIndexCount += static_cast<i32>(prim->indices->count);
+            } else {
+                // Non-indexed primitive: we will generate sequential indices, one
+                // per position vertex. GLTF allows non-indexed geometry but we
+                // require indices for rendering (else the primitive is dropped).
+                for (cgltf_size a = 0; a < prim->attributes_count; ++a) {
+                    if (prim->attributes[a].type == cgltf_attribute_type_position) {
+                        totalIndexCount += static_cast<i32>(prim->attributes[a].data->count);
+                        break;
+                    }
+                }
+            }
         }
 
         if (totalVertexCount == 0)
@@ -632,6 +643,18 @@ private:
                     u16* indices = reinterpret_cast<u16*>(indexData + indexOffset * 2);
                     for (i32 idx = 0; idx < primIndexCount; ++idx)
                         indices[idx] = static_cast<u16>(static_cast<u32>(cgltf_accessor_read_index(prim->indices, static_cast<cgltf_size>(idx))) + static_cast<u32>(vertexOffset));
+                }
+            } else {
+                // Non-indexed primitive: generate sequential indices (0, 1, 2, ...).
+                primIndexCount = primVertexCount;
+                if (use32Bit) {
+                    u32* indices = reinterpret_cast<u32*>(indexData + indexOffset * 4);
+                    for (i32 idx = 0; idx < primIndexCount; ++idx)
+                        indices[idx] = static_cast<u32>(vertexOffset + idx);
+                } else {
+                    u16* indices = reinterpret_cast<u16*>(indexData + indexOffset * 2);
+                    for (i32 idx = 0; idx < primIndexCount; ++idx)
+                        indices[idx] = static_cast<u16>(vertexOffset + idx);
                 }
             }
 
