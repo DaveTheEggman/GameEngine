@@ -29,15 +29,12 @@ export namespace raptor::model::gltf {
 using namespace raptor::core;
 using namespace raptor::model;
 
-// cgltf and the filesystem deal in narrow UTF-8 char*; the engine uses wide
-// String/StringView. Convert only at these boundaries.
+// cgltf deals in narrow UTF-8 char*; the engine uses wide String/StringView.
+// Convert only at these boundaries. NarrowPath (from Core/System) provides
+// the reverse direction without exposing std::string in the API.
 inline String WideFromC(const char* s) {
     if (!s) return String{};
     return ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(s)));
-}
-inline std::string NarrowFromWide(StringView s) {
-    const UTF8String u8 = ToUTF8(s);
-    return std::string(reinterpret_cast<const char*>(u8.CStr()), u8.Size());
 }
 
 /// Loads GLTF and GLB model files using cgltf.
@@ -69,8 +66,9 @@ public:
         }
 
         // Extract base path for loading external resources.
-        const std::string pathStr = NarrowFromWide(path);
-        std::filesystem::path filePath(pathStr);
+        const UTF8String narrowStorage = ToUTF8(path);
+        const char* narrowPath = reinterpret_cast<const char*>(narrowStorage.CStr());
+        std::filesystem::path filePath(narrowPath);
         m_basePath = filePath.parent_path().string();
 
         // Parse the file -- explicitly set type for .glb since auto-detect can fail.
@@ -81,7 +79,7 @@ public:
         options.json_token_count = 4096; // Ensure enough tokens for parsing.
 
         // Read file data ourselves (cgltf's fopen can fail with certain path formats on Windows).
-        std::ifstream file(pathStr, std::ios::binary | std::ios::ate);
+        std::ifstream file(narrowPath, std::ios::binary | std::ios::ate);
         if (!file.is_open())
             return ModelLoadResult::FileNotFound;
 
@@ -96,12 +94,12 @@ public:
                                                 fileBytes.Size(), &m_data);
         if (parseResult != cgltf_result_success) {
             fprintf(stderr, "  cgltf_parse failed: result=%d, size=%zu, path=%s\n",
-                    static_cast<int>(parseResult), fileBytes.Size(), pathStr.c_str());
+                    static_cast<int>(parseResult), fileBytes.Size(), narrowPath);
             return ModelLoadResult::ParseError;
         }
 
         // Load buffer data (for external .bin references; GLB has embedded buffers).
-        cgltf_result loadResult = cgltf_load_buffers(&options, m_data, pathStr.c_str());
+        cgltf_result loadResult = cgltf_load_buffers(&options, m_data, narrowPath);
         if (loadResult != cgltf_result_success)
             return ModelLoadResult::InvalidData;
 

@@ -30,15 +30,14 @@ export namespace raptor::model::fbx {
 using namespace raptor::core;
 using namespace raptor::model;
 
-// ufbx and the filesystem deal in narrow UTF-8 char*; the engine uses wide
-// String/StringView. Convert only at these boundaries.
+// ufbx deals in narrow UTF-8 char*; the engine uses wide String/StringView.
+// Convert only at these boundaries.
 inline String WideFromC(const char* s) {
     if (!s) return String{};
     return ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(s)));
 }
-inline std::string NarrowFromWide(StringView s) {
-    const UTF8String u8 = ToUTF8(s);
-    return std::string(reinterpret_cast<const char*>(u8.CStr()), u8.Size());
+inline String WideFromUfbx(const ufbx_string& s) {
+    return ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(s.data), s.length));
 }
 
 /// Loads FBX and OBJ model files using ufbx.
@@ -77,8 +76,9 @@ public:
         m_skinIndexMap.Clear();
 
         // Extract base path for loading external resources.
-        const std::string pathStr = NarrowFromWide(path);
-        std::filesystem::path filePath(pathStr);
+        const UTF8String narrowStorage = ToUTF8(path);
+        const char* narrowPath = reinterpret_cast<const char*>(narrowStorage.CStr());
+        std::filesystem::path filePath(narrowPath);
         m_basePath = filePath.parent_path().string();
 
         // Setup load options.
@@ -93,7 +93,7 @@ public:
 
         // Parse the file.
         ufbx_error error = {};
-        m_scene = ufbx_load_file(pathStr.c_str(), &m_loadOpts, &error);
+        m_scene = ufbx_load_file(narrowPath, &m_loadOpts, &error);
 
         if (!m_scene) {
             if (error.type == UFBX_ERROR_FILE_NOT_FOUND)
@@ -156,10 +156,7 @@ private:
         return caseInsensitiveEquals(str.SubStr(str.Size() - suffix.Size(), suffix.Size()), suffix);
     }
 
-    static String ufbxStr(const ufbx_string& s) {
-        if (!s.data) return String{};
-        return ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(s.data), s.length));
-    }
+
 
     // -----------------------------------------------------------------------
     // Materials
@@ -171,7 +168,7 @@ private:
             auto* material = new ModelMaterial();
 
             if (mat->element.name.data && mat->element.name.length > 0)
-                material->setName(ufbxStr(mat->element.name));
+                material->setName(WideFromUfbx(mat->element.name));
 
             bool hasPBR = mat->features.pbr.enabled;
 
@@ -311,7 +308,7 @@ private:
         // Create a placeholder texture entry that loadTextures will populate.
         auto* modelTex = new ModelTexture();
         if (texture->element.name.data && texture->element.name.length > 0)
-            modelTex->setName(ufbxStr(texture->element.name));
+            modelTex->setName(WideFromUfbx(texture->element.name));
 
         i32 index = model.addTexture(modelTex);
         m_textureIndexMap.InsertOrAssign(typedId, index);
@@ -337,7 +334,7 @@ private:
             } else {
                 modelTex = new ModelTexture();
                 if (tex->element.name.data && tex->element.name.length > 0)
-                    modelTex->setName(ufbxStr(tex->element.name));
+                    modelTex->setName(WideFromUfbx(tex->element.name));
                 i32 idx = model.addTexture(modelTex);
                 m_textureIndexMap.InsertOrAssign(typedId, idx);
             }
@@ -562,7 +559,7 @@ private:
             auto* mesh = new ModelMesh();
 
             if (fbxMesh->element.name.data && fbxMesh->element.name.length > 0)
-                mesh->setName(ufbxStr(fbxMesh->element.name));
+                mesh->setName(WideFromUfbx(fbxMesh->element.name));
 
             // Determine if this mesh is skinned.
             bool isSkinned = fbxMesh->skin_deformers.count > 0;
@@ -940,7 +937,7 @@ private:
             auto* bone = new ModelBone();
 
             if (node->element.name.data && node->element.name.length > 0)
-                bone->setName(ufbxStr(node->element.name));
+                bone->setName(WideFromUfbx(node->element.name));
 
             // Extract TRS from local transform.
             ufbx_transform t = node->local_transform;
@@ -1000,7 +997,7 @@ private:
             auto* skin = new ModelSkin();
 
             if (skinDef->element.name.data && skinDef->element.name.length > 0)
-                skin->setName(ufbxStr(skinDef->element.name));
+                skin->setName(WideFromUfbx(skinDef->element.name));
 
             // Process clusters (joints).
             for (size_t j = 0; j < skinDef->clusters.count; ++j) {
@@ -1054,7 +1051,7 @@ private:
             auto* animation = new ModelAnimation();
 
             if (stack->element.name.data && stack->element.name.length > 0)
-                animation->setName(ufbxStr(stack->element.name));
+                animation->setName(WideFromUfbx(stack->element.name));
 
             // Bake the animation — this pre-computes T/R/S keyframes per node
             // in the target coordinate system (Y-up), handling Euler-to-quaternion
