@@ -28,7 +28,7 @@ export namespace raptor::shaders {
 /// Configuration for compiler creation.
 struct CompilerDesc {
     /// Optional override path to the DXC shared library.
-    StringView dxcompilerPath{};
+    WideStringView dxcompilerPath{};
 };
 
 /// HLSL shader compiler backed by DXC (IDxcCompiler3).
@@ -36,7 +36,7 @@ struct Compiler {
     void* state = nullptr;
 
     [[nodiscard]] Status compile(const u8* source, usize sourceSize,
-                                 ShaderStage stage, StringView entryPoint,
+                                 ShaderStage stage, WideStringView entryPoint,
                                  ShaderTarget target, const CompileOptions& options,
                                  CompileResult& out);
 
@@ -68,9 +68,9 @@ struct CompilerState {
 
 static CompilerState* stateOf(Compiler* c) { return static_cast<CompilerState*>(c->state); }
 
-// Raptor StringView (UTF-16) -> std::wstring for DXC. On Windows wchar_t is
+// Raptor WideStringView (UTF-16) -> std::wstring for DXC. On Windows wchar_t is
 // UTF-16 (copy code units); on Linux wchar_t is UTF-32 (decode surrogate pairs).
-static std::wstring widen(StringView s) {
+static std::wstring widen(WideStringView s) {
     std::wstring out;
     out.reserve(s.Size());
 #ifdef _WIN32
@@ -108,7 +108,7 @@ static const wchar_t* stagePrefix(ShaderStage stage) {
 }
 
 Status Compiler::compile(const u8* source, usize sourceSize,
-                         ShaderStage stage, StringView entryPoint,
+                         ShaderStage stage, WideStringView entryPoint,
                          ShaderTarget target, const CompileOptions& options,
                          CompileResult& out) {
     auto* s = stateOf(this);
@@ -260,7 +260,7 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
             path = "libdxcompiler.so";
 #endif
         } else {
-            const UTF8String u8 = ToUTF8(desc.dxcompilerPath);
+            const String u8 = ToUTF8(desc.dxcompilerPath);
             path.assign(reinterpret_cast<const char*>(u8.CStr()), u8.Size());
         }
         s->dxcompiler = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);

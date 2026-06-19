@@ -18,7 +18,7 @@ namespace ds = raptor::shaders;
 class TextureSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample002 - Textured Quad"; }
+    raptor::core::WideStringView Title() const override { return u"Sample002 - Textured Quad"; }
 
 protected:
     raptor::core::Status OnInit() override;

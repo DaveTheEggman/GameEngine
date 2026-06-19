@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class BlitSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample014 - Blit (Scaled Copy)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample014 - Blit (Scaled Copy)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

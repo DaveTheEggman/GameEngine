@@ -22,8 +22,8 @@ public:
     ModelBone() = default;
     ~ModelBone() = default;
 
-    [[nodiscard]] StringView name() const { return StringView(m_name.Data(), m_name.Size()); }
-    void setName(StringView n) { m_name = String(n); }
+    [[nodiscard]] WideStringView name() const { return WideStringView(m_name.Data(), m_name.Size()); }
+    void setName(WideStringView n) { m_name = WideString(n); }
 
     /// Add a child bone (non-owning pointer).
     void addChild(ModelBone* child) { m_children.PushBack(child); }
@@ -110,7 +110,7 @@ public:
     i32 skinIndex = -1;
 
 private:
-    String m_name;
+    WideString m_name;
     Array<ModelBone*> m_children;
 };
 

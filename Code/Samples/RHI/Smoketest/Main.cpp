@@ -71,7 +71,7 @@ int main(int /*argc*/, char** /*argv*/) {
     // Adapters are enumerated best-GPU-first (see Backend::enumerateAdapters).
     Adapter* chosen = adapters[0];
     auto adapterInfo = chosen->Info();
-    const UTF8String adapterName = ToUTF8(adapterInfo.name);
+    const String adapterName = ToUTF8(adapterInfo.name);
     std::printf("adapter: %s (%s)\n", reinterpret_cast<const char*>(adapterName.CStr()), adapterTypeStr(adapterInfo.type));
 
     DeviceDesc dd{};
@@ -384,7 +384,7 @@ int main(int /*argc*/, char** /*argv*/) {
             std::printf("DX12 adapters: %zu\n", dx12Adapters.Size());
             for (usize i = 0; i < dx12Adapters.Size(); ++i) {
                 AdapterInfo ai = dx12Adapters[i]->Info();
-                const UTF8String name8 = ToUTF8(ai.name);
+                const String name8 = ToUTF8(ai.name);
                 std::printf("  [%zu] %s (%s)\n", i,
                     reinterpret_cast<const char*>(name8.CStr()),
                     adapterTypeStr(ai.type));

@@ -25,7 +25,7 @@ TEST_CASE("image: save PNG and reload via stb")
     Image img = Image::CreateCheckerboard(64);
     REQUIRE(img.Width() == 64u);
 
-    const StringView path = u"/tmp/raptor_image_roundtrip.png";
+    const WideStringView path = u"/tmp/raptor_image_roundtrip.png";
     REQUIRE(io::SaveImage(img, path, io::ImageFileFormat::PNG).IsOk());
 
     Image loaded;

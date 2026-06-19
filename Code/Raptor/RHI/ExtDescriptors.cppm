@@ -29,7 +29,7 @@ struct MeshPipelineDesc {
     Optional<DepthStencilState> depthStencil;
     MultisampleState  multisample;
     PipelineCache*    cache = nullptr;
-    StringView        label;
+    WideStringView        label;
 };
 
 // ---- Ray tracing ----
@@ -38,7 +38,7 @@ struct MeshPipelineDesc {
 struct AccelStructDesc {
     AccelStructType      type  = AccelStructType::BottomLevel;
     AccelStructBuildFlags flags = AccelStructBuildFlags::PreferFastTrace;
-    StringView           label;
+    WideStringView           label;
 };
 
 /// Triangle geometry for BLAS construction.
@@ -86,7 +86,7 @@ struct RayTracingPipelineDesc {
     u32          maxPayloadSize   = 0;
     u32          maxAttributeSize = 0;
     PipelineCache* cache          = nullptr;
-    StringView   label;
+    WideStringView   label;
 };
 
 } // namespace raptor::rhi

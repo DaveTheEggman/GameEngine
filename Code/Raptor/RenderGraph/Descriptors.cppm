@@ -53,7 +53,7 @@ export namespace raptor::rendergraph
             }
         }
 
-        [[nodiscard]] rhi::TextureDesc ToTextureDesc(StringView label) const
+        [[nodiscard]] rhi::TextureDesc ToTextureDesc(WideStringView label) const
         {
             rhi::TextureDesc desc{};
             desc.format = format;

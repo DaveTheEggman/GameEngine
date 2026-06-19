@@ -43,7 +43,7 @@ public:
         return &m_rpe;
     }
 
-    ComputePassEncoder* BeginComputePass(StringView label) override {
+    ComputePassEncoder* BeginComputePass(WideStringView label) override {
         if (!checkState("beginComputePass", EncoderState::Recording)) return &m_cpe;
         m_state = EncoderState::InComputePass;
         auto* innerCpe = m_inner->BeginComputePass(label);
@@ -122,7 +122,7 @@ public:
         m_inner->ResolveQuerySet(qs, first, count, dst, dstOff);
     }
 
-    void BeginDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
+    void BeginDebugLabel(WideStringView label, f32 r, f32 g, f32 b, f32 a) override {
         if (m_state == EncoderState::Finished) { LogError("[Validation] beginDebugLabel: encoder finished"); return; }
         m_debugLabelDepth++;
         m_inner->BeginDebugLabel(label, r, g, b, a);
@@ -135,7 +135,7 @@ public:
         m_inner->EndDebugLabel();
     }
 
-    void InsertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
+    void InsertDebugLabel(WideStringView label, f32 r, f32 g, f32 b, f32 a) override {
         if (m_state == EncoderState::Finished) return;
         m_inner->InsertDebugLabel(label, r, g, b, a);
     }

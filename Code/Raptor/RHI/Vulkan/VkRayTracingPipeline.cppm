@@ -29,7 +29,7 @@ public:
 
         // Shader stages.
         Array<VkPipelineShaderStageCreateInfo> stages(desc.stages.Size());
-        Array<UTF8String> entryStrings(desc.stages.Size());
+        Array<String> entryStrings(desc.stages.Size());
         for (usize i = 0; i < desc.stages.Size(); ++i) {
             entryStrings[i] = ToUTF8(desc.stages[i].entryPoint);
             auto* mod = static_cast<VkShaderModuleImpl*>(desc.stages[i].module);

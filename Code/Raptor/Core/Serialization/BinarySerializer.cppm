@@ -34,7 +34,7 @@ export namespace raptor::core
             RawBytes(value, ScalarSize(kind));
         }
 
-        void Text(String& value) override
+        void Text(WideString& value) override
         {
             if (IsWriting())
             {

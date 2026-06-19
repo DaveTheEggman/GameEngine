@@ -36,8 +36,8 @@ public:
 
     // -- Name --
 
-    [[nodiscard]] StringView name() const { return StringView(m_name.Data(), m_name.Size()); }
-    void setName(StringView n) { m_name = String(n); }
+    [[nodiscard]] WideStringView name() const { return WideStringView(m_name.Data(), m_name.Size()); }
+    void setName(WideStringView n) { m_name = WideString(n); }
 
     // -- Property accessors --
 
@@ -264,7 +264,7 @@ public:
     }
 
 private:
-    String m_name;
+    WideString m_name;
     Array<u8> m_vertexData;
     Array<u8> m_indexData;
     Array<ModelMeshPart> m_parts;

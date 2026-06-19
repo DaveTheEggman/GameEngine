@@ -56,7 +56,7 @@ TEST_CASE("system: page allocation is usable and page-aligned")
 
 TEST_CASE("system: file write / read / seek / size round-trip")
 {
-    const StringView path = u"raptor_system_test.tmp";
+    const WideStringView path = u"raptor_system_test.tmp";
     const char payload[] = "Raptor file IO";
     const u64 length = sizeof(payload) - 1; // exclude null terminator
 

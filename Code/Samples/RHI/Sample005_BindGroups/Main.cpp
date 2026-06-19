@@ -21,7 +21,7 @@ using raptor::core::Mat4;
 class BindGroupSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample005 - Multiple Bind Groups"; }
+    raptor::core::WideStringView Title() const override { return u"Sample005 - Multiple Bind Groups"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

@@ -64,14 +64,14 @@ namespace
     {
         int count = 0;
         ScriptErrorKind lastKind = ScriptErrorKind::Compile;
-        String lastMessage;
+        WideString lastMessage;
         i32 lastLine = -1;
 
         void OnError(const ScriptError& error) override
         {
             ++count;
             lastKind = error.kind;
-            lastMessage = String(error.message);
+            lastMessage = WideString(error.message);
             lastLine = error.line;
         }
     };
@@ -132,7 +132,7 @@ TEST_CASE("wren: read module globals as Variant")
         u"main").IsOk());
 
     CHECK(ctx->GetGlobal(u"Answer").Get<f64>() == 42.0);   // Wren numbers are doubles
-    CHECK(ctx->GetGlobal(u"Name").Get<String>() == u"raptor");
+    CHECK(ctx->GetGlobal(u"Name").Get<WideString>() == u"raptor");
     CHECK(ctx->GetGlobal(u"Flag").Get<bool>() == true);
 
     CHECK(ctx->GetGlobal(u"Missing").IsEmpty());           // absent -> empty Variant
@@ -270,7 +270,7 @@ TEST_CASE("wren: call a script function with marshalled args")
     CHECK(ctx->Call(u"add", Span<Variant>{ addArgs, 2 }).Value().Get<f64>() == 5.0);
 
     // no-arg call returning a string.
-    CHECK(ctx->Call(u"greeting", Span<Variant>{}).Value().Get<String>() == u"hi");
+    CHECK(ctx->Call(u"greeting", Span<Variant>{}).Value().Get<WideString>() == u"hi");
 
     // missing callable -> NotFound.
     CHECK(ctx->Call(u"nope", Span<Variant>{}).Error() == ErrorCode::NotFound);

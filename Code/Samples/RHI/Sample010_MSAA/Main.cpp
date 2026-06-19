@@ -17,7 +17,7 @@ namespace ds = raptor::shaders;
 class MSAASample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample010 - MSAA (4x)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample010 - MSAA (4x)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

@@ -57,7 +57,7 @@ export namespace raptor::core
     class FileStream final : public IStream
     {
     public:
-        FileStream(StringView path, FileMode mode) noexcept { m_file = FileOpen(path, mode); }
+        FileStream(WideStringView path, FileMode mode) noexcept { m_file = FileOpen(path, mode); }
 
         ~FileStream() override
         {

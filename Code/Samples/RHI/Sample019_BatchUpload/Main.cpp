@@ -23,7 +23,7 @@ namespace ds = raptor::shaders;
 class BatchUploadSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample019 - Batch Upload (Async Transfer)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample019 - Batch Upload (Async Transfer)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

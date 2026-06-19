@@ -128,14 +128,14 @@ public:
     ModelAnimation& operator=(const ModelAnimation&) = delete;
     ModelAnimation(ModelAnimation&& other) noexcept
         : duration(other.duration),
-          m_name(static_cast<String&&>(other.m_name)),
+          m_name(static_cast<WideString&&>(other.m_name)),
           m_channels(static_cast<Array<AnimationChannel*>&&>(other.m_channels)) {
         other.m_channels.Clear();
     }
     ModelAnimation& operator=(ModelAnimation&& other) noexcept {
         if (this != &other) {
             for (auto* ch : m_channels) delete ch;
-            m_name = static_cast<String&&>(other.m_name);
+            m_name = static_cast<WideString&&>(other.m_name);
             m_channels = static_cast<Array<AnimationChannel*>&&>(other.m_channels);
             duration = other.duration;
             other.m_channels.Clear();
@@ -143,8 +143,8 @@ public:
         return *this;
     }
 
-    [[nodiscard]] StringView name() const { return StringView(m_name.Data(), m_name.Size()); }
-    void setName(StringView n) { m_name = String(n); }
+    [[nodiscard]] WideStringView name() const { return WideStringView(m_name.Data(), m_name.Size()); }
+    void setName(WideStringView n) { m_name = WideString(n); }
 
     /// Add a channel (takes ownership of raw pointer).
     void addChannel(AnimationChannel* channel) {
@@ -175,7 +175,7 @@ public:
     f32 duration = 0.0f;
 
 private:
-    String m_name;
+    WideString m_name;
     Array<AnimationChannel*> m_channels;
 };
 

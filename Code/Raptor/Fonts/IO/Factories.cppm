@@ -66,7 +66,7 @@ export namespace raptor::fonts
         }
 
         // First parser claiming the given extension, or null.
-        [[nodiscard]] static IFontParser* GetParserForExtension(StringView fileExtension)
+        [[nodiscard]] static IFontParser* GetParserForExtension(WideStringView fileExtension)
         {
             for (IFontParser* p : ParserStore())
                 if (p->SupportsExtension(fileExtension))
@@ -74,7 +74,7 @@ export namespace raptor::fonts
             return nullptr;
         }
 
-        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromFile(StringView filePath, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromFile(WideStringView filePath, FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontParser* parser = GetParserForExtension(PathExtension(filePath));
             if (parser == nullptr)
@@ -82,7 +82,7 @@ export namespace raptor::fonts
             return parser->ParseFromFile(filePath, options);
         }
 
-        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8> data, StringView formatHint, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8> data, WideStringView formatHint, FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontParser* parser = GetParserForExtension(formatHint);
             if (parser == nullptr)
@@ -90,7 +90,7 @@ export namespace raptor::fonts
             return parser->ParseFromMemory(data, options);
         }
 
-        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromStream(IStream& stream, StringView formatHint, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromStream(IStream& stream, WideStringView formatHint, FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontParser* parser = GetParserForExtension(formatHint);
             if (parser == nullptr)
@@ -137,7 +137,7 @@ export namespace raptor::fonts
         }
 
         // First baker claiming the given extension, or null.
-        [[nodiscard]] static IFontAtlasBaker* GetBakerForExtension(StringView fileExtension)
+        [[nodiscard]] static IFontAtlasBaker* GetBakerForExtension(WideStringView fileExtension)
         {
             for (IFontAtlasBaker* b : BakerStore())
                 if (b->SupportsExtension(fileExtension))
@@ -162,7 +162,7 @@ export namespace raptor::fonts
             return baker->Bake(font, options);
         }
 
-        [[nodiscard]] static Result<IFontAtlas*, FontLoadResult> BakeFromExtension(StringView fileExtension, IFont& font, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFontAtlas*, FontLoadResult> BakeFromExtension(WideStringView fileExtension, IFont& font, FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontAtlasBaker* baker = GetBakerForExtension(fileExtension);
             if (baker == nullptr)

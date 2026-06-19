@@ -13,7 +13,7 @@ namespace rhi = raptor::rhi;
 
 namespace
 {
-    bool Contains(StringView hay, StringView needle)
+    bool Contains(WideStringView hay, WideStringView needle)
     {
         if (needle.Size() > hay.Size()) { return false; }
         for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
@@ -41,9 +41,9 @@ TEST_CASE("rg.debug: ExportDOT produces valid syntax")
         b.NeverCull();
     });
 
-    String dot;
+    WideString dot;
     GraphDebug::ExportDOT(graph, dot);
-    const StringView v = dot.AsView();
+    const WideStringView v = dot.AsView();
     CHECK(Contains(v, u"digraph"));
     CHECK(Contains(v, u"DepthPrepass"));
     CHECK(Contains(v, u"ForwardOpaque"));
@@ -63,9 +63,9 @@ TEST_CASE("rg.debug: ExportSummary includes counts")
     });
     REQUIRE(graph.Compile().IsOk());
 
-    String summary;
+    WideString summary;
     GraphDebug::ExportSummary(graph, summary);
-    const StringView v = summary.AsView();
+    const WideStringView v = summary.AsView();
     CHECK(Contains(v, u"1920x1080"));
     CHECK(Contains(v, u"Pass1"));
     CHECK(Contains(v, u"Render"));
@@ -81,7 +81,7 @@ TEST_CASE("rg.debug: DOT marks culled passes dashed")
     });
     REQUIRE(graph.Compile().IsOk());
 
-    String dot;
+    WideString dot;
     GraphDebug::ExportDOT(graph, dot);
     CHECK(Contains(dot.AsView(), u"dashed"));
 }

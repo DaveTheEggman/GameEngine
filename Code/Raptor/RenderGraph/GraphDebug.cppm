@@ -20,7 +20,7 @@ export namespace raptor::rendergraph
 {
     namespace detail
     {
-        [[nodiscard]] inline StringView PassColor(RGPassType type)
+        [[nodiscard]] inline WideStringView PassColor(RGPassType type)
         {
             switch (type)
             {
@@ -30,7 +30,7 @@ export namespace raptor::rendergraph
             }
             return u"#888888";
         }
-        [[nodiscard]] inline StringView LifetimeLabel(RGResourceLifetime lifetime)
+        [[nodiscard]] inline WideStringView LifetimeLabel(RGResourceLifetime lifetime)
         {
             switch (lifetime)
             {
@@ -40,7 +40,7 @@ export namespace raptor::rendergraph
             }
             return u"?";
         }
-        [[nodiscard]] inline StringView AccessLabel(RGAccessType type)
+        [[nodiscard]] inline WideStringView AccessLabel(RGAccessType type)
         {
             switch (type)
             {
@@ -58,7 +58,7 @@ export namespace raptor::rendergraph
             }
             return u"?";
         }
-        [[nodiscard]] inline StringView PassTypeLabel(RGPassType type)
+        [[nodiscard]] inline WideStringView PassTypeLabel(RGPassType type)
         {
             switch (type)
             {
@@ -75,7 +75,7 @@ export namespace raptor::rendergraph
     public:
         // Graphviz DOT: pass nodes (boxes) + resource nodes (ellipse/diamond) +
         // access edges. Culled passes/edges are dashed/gray.
-        static void ExportDOT(RenderGraph& graph, String& out)
+        static void ExportDOT(RenderGraph& graph, WideString& out)
         {
             const Array<RenderGraphPass*>& passes = graph.Passes();
             const Array<RenderGraphResource*>& resources = graph.Resources();
@@ -87,8 +87,8 @@ export namespace raptor::rendergraph
             for (usize i = 0; i < passes.Size(); ++i)
             {
                 RenderGraphPass* pass = passes[i];
-                const StringView style = pass->isCulled ? StringView(u"dashed") : StringView(u"filled");
-                const StringView fontColor = pass->isCulled ? StringView(u"gray") : StringView(u"white");
+                const WideStringView style = pass->isCulled ? WideStringView(u"dashed") : WideStringView(u"filled");
+                const WideStringView fontColor = pass->isCulled ? WideStringView(u"gray") : WideStringView(u"white");
                 AppendFormat(out,
                     u"  pass{} [label=\"{}\" shape=box style={} fillcolor=\"{}\" fontcolor=\"{}\"",
                     i, pass->name.AsView(), style, detail::PassColor(pass->type), fontColor);
@@ -101,8 +101,8 @@ export namespace raptor::rendergraph
             {
                 RenderGraphResource* res = resources[i];
                 if (res == nullptr) { continue; }
-                const StringView shape = res->resourceType == RGResourceType::Texture
-                                       ? StringView(u"ellipse") : StringView(u"diamond");
+                const WideStringView shape = res->resourceType == RGResourceType::Texture
+                                       ? WideStringView(u"ellipse") : WideStringView(u"diamond");
                 AppendFormat(out, u"  res{} [label=\"{}\\n({})\" shape={}];\n",
                     i, res->name.AsView(), detail::LifetimeLabel(res->lifetime), shape);
             }
@@ -116,7 +116,7 @@ export namespace raptor::rendergraph
                     if (!access.handle.IsValid() || access.handle.index >= resources.Size()) { continue; }
                     if (resources[access.handle.index] == nullptr) { continue; }
 
-                    const StringView label = detail::AccessLabel(access.type);
+                    const WideStringView label = detail::AccessLabel(access.type);
                     if (access.IsRead())
                     {
                         AppendFormat(out, u"  res{} -> pass{} [label=\"{}\"", access.handle.index, passIdx, label);
@@ -136,7 +136,7 @@ export namespace raptor::rendergraph
         }
 
         // Human-readable text summary (counts + execution order).
-        static void ExportSummary(RenderGraph& graph, String& out)
+        static void ExportSummary(RenderGraph& graph, WideString& out)
         {
             const Array<RenderGraphPass*>& passes = graph.Passes();
             const Array<RenderGraphResource*>& resources = graph.Resources();

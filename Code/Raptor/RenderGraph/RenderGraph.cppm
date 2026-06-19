@@ -149,7 +149,7 @@ export namespace raptor::rendergraph
         }
 
         // --- resource creation ---
-        RGHandle CreateTransient(StringView name, RGTextureDesc desc)
+        RGHandle CreateTransient(WideStringView name, RGTextureDesc desc)
         {
             RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(name, RGResourceType::Texture, RGResourceLifetime::Transient);
             desc.Resolve(m_outputWidth, m_outputHeight);
@@ -157,14 +157,14 @@ export namespace raptor::rendergraph
             return AddResource(res);
         }
 
-        RGHandle CreateTransientBuffer(StringView name, RGBufferDesc desc)
+        RGHandle CreateTransientBuffer(WideStringView name, RGBufferDesc desc)
         {
             RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(name, RGResourceType::Buffer, RGResourceLifetime::Transient);
             res->bufferDesc = desc;
             return AddResource(res);
         }
 
-        RGHandle RegisterPersistent(StringView name, rhi::Texture* texture, rhi::TextureView* view)
+        RGHandle RegisterPersistent(WideStringView name, rhi::Texture* texture, rhi::TextureView* view)
         {
             RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(name, RGResourceType::Texture, RGResourceLifetime::Persistent);
             res->texture = texture;
@@ -173,7 +173,7 @@ export namespace raptor::rendergraph
             return AddResource(res);
         }
 
-        RGHandle RegisterPersistentPingPong(StringView name, rhi::Texture* tex0, rhi::Texture* tex1,
+        RGHandle RegisterPersistentPingPong(WideStringView name, rhi::Texture* tex0, rhi::Texture* tex1,
                                             rhi::TextureView* view0, rhi::TextureView* view1)
         {
             RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(name, RGResourceType::Texture, RGResourceLifetime::Persistent);
@@ -183,7 +183,7 @@ export namespace raptor::rendergraph
             return AddResource(res);
         }
 
-        RGHandle ImportTarget(StringView name, rhi::Texture* texture, rhi::TextureView* view,
+        RGHandle ImportTarget(WideStringView name, rhi::Texture* texture, rhi::TextureView* view,
                               Optional<rhi::ResourceState> finalState = {},
                               Optional<rhi::ResourceState> currentState = {})
         {
@@ -197,7 +197,7 @@ export namespace raptor::rendergraph
         }
 
         // Depth import variant carrying a depth-only view for shader sampling.
-        RGHandle ImportTarget(StringView name, rhi::Texture* texture, rhi::TextureView* view,
+        RGHandle ImportTarget(WideStringView name, rhi::Texture* texture, rhi::TextureView* view,
                               rhi::TextureView* depthOnlyView,
                               Optional<rhi::ResourceState> finalState = {},
                               Optional<rhi::ResourceState> currentState = {})
@@ -212,7 +212,7 @@ export namespace raptor::rendergraph
             return AddResource(res);
         }
 
-        RGHandle ImportBuffer(StringView name, rhi::Buffer* buffer)
+        RGHandle ImportBuffer(WideStringView name, rhi::Buffer* buffer)
         {
             RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(name, RGResourceType::Buffer, RGResourceLifetime::Imported);
             res->buffer = buffer;
@@ -226,11 +226,11 @@ export namespace raptor::rendergraph
 
         // --- pass creation (setup callable receives PassBuilder&) ---
         template <typename Setup>
-        PassHandle AddRenderPass(StringView name, Setup&& setup) { return AddPassOfType(name, RGPassType::Render, setup); }
+        PassHandle AddRenderPass(WideStringView name, Setup&& setup) { return AddPassOfType(name, RGPassType::Render, setup); }
         template <typename Setup>
-        PassHandle AddComputePass(StringView name, Setup&& setup) { return AddPassOfType(name, RGPassType::Compute, setup); }
+        PassHandle AddComputePass(WideStringView name, Setup&& setup) { return AddPassOfType(name, RGPassType::Compute, setup); }
         template <typename Setup>
-        PassHandle AddCopyPass(StringView name, Setup&& setup) { return AddPassOfType(name, RGPassType::Copy, setup); }
+        PassHandle AddCopyPass(WideStringView name, Setup&& setup) { return AddPassOfType(name, RGPassType::Copy, setup); }
 
         // --- resource access (during execute callbacks) ---
         [[nodiscard]] rhi::Texture* GetTexture(RGHandle handle)
@@ -281,7 +281,7 @@ export namespace raptor::rendergraph
             for (RenderGraphPass* p : m_passes) { if (p->isCulled) { ++count; } }
             return count;
         }
-        [[nodiscard]] RGHandle GetResource(StringView name) const
+        [[nodiscard]] RGHandle GetResource(WideStringView name) const
         {
             for (usize i = 0; i < m_resources.Size(); ++i)
             {
@@ -367,7 +367,7 @@ export namespace raptor::rendergraph
         }
 
         template <typename Setup>
-        PassHandle AddPassOfType(StringView name, RGPassType type, Setup&& setup)
+        PassHandle AddPassOfType(WideStringView name, RGPassType type, Setup&& setup)
         {
             RenderGraphPass* pass = DefaultAllocator().New<RenderGraphPass>(name, type);
             PassBuilder builder(*pass);

@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class BorderSamplerSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample013 - Border Sampler"; }
+    raptor::core::WideStringView Title() const override { return u"Sample013 - Border Sampler"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

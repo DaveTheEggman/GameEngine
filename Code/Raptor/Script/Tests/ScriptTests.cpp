@@ -25,19 +25,19 @@ namespace
     {
     public:
         void SetErrorHandler(IScriptErrorHandler*) override {}
-        Status Load(StringView, StringView) override { return Status{ ErrorCode::NotSupported }; }
-        void SetGlobal(StringView name, const Variant& value) override { m_globals.InsertOrAssign(String(name), value); }
-        Variant GetGlobal(StringView name) override
+        Status Load(WideStringView, WideStringView) override { return Status{ ErrorCode::NotSupported }; }
+        void SetGlobal(WideStringView name, const Variant& value) override { m_globals.InsertOrAssign(WideString(name), value); }
+        Variant GetGlobal(WideStringView name) override
         {
-            const Variant* found = m_globals.Find(String(name));
+            const Variant* found = m_globals.Find(WideString(name));
             return (found != nullptr) ? *found : Variant{};
         }
-        bool HasFunction(StringView) const override { return false; }
-        Result<Variant> Call(StringView, Span<Variant>) override { return Err(ErrorCode::NotSupported); }
-        RefPtr<ScriptObject> CreateInstance(StringView, Span<Variant>) override { return nullptr; }
+        bool HasFunction(WideStringView) const override { return false; }
+        Result<Variant> Call(WideStringView, Span<Variant>) override { return Err(ErrorCode::NotSupported); }
+        RefPtr<ScriptObject> CreateInstance(WideStringView, Span<Variant>) override { return nullptr; }
 
     private:
-        HashMap<String, Variant> m_globals;
+        HashMap<WideString, Variant> m_globals;
     };
 
     class MockManager final : public IScriptManager

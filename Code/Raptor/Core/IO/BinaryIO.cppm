@@ -44,7 +44,7 @@ export namespace raptor::core
         }
 
         // Length-prefixed (u32 count) wide-character string.
-        bool WriteString(StringView value)
+        bool WriteString(WideStringView value)
         {
             const u32 length = static_cast<u32>(value.Size());
             Write(length);
@@ -84,7 +84,7 @@ export namespace raptor::core
         }
 
         // Length-prefixed (u32 count) wide-character string.
-        bool ReadString(String& outValue)
+        bool ReadString(WideString& outValue)
         {
             u32 length = 0;
             Read(length);

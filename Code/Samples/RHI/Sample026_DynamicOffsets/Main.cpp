@@ -21,7 +21,7 @@ namespace ds = raptor::shaders;
 class DynamicOffsetSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample026 - Dynamic Offsets & Blend Constants"; }
+    raptor::core::WideStringView Title() const override { return u"Sample026 - Dynamic Offsets & Blend Constants"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

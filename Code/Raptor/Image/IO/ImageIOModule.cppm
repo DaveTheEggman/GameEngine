@@ -26,7 +26,7 @@ export namespace raptor::image::io {
 enum class ImageFileFormat : u32 { PNG, JPG, BMP };
 
 /// Load an image from a file path. Returns RGBA8 for LDR, RGBA32F for HDR.
-[[nodiscard]] inline Status LoadImage(StringView path, Image& out) {
+[[nodiscard]] inline Status LoadImage(WideStringView path, Image& out) {
     const std::string cPath(reinterpret_cast<const char*>(ToUTF8(path).CStr()));
     int x = 0, y = 0, channels = 0;
     constexpr int desired = 4;
@@ -81,7 +81,7 @@ enum class ImageFileFormat : u32 { PNG, JPG, BMP };
 }
 
 /// Save an image to a file. Only supports 8-bit formats (R8, RG8, RGB8, RGBA8).
-[[nodiscard]] inline Status SaveImage(const Image& image, StringView path,
+[[nodiscard]] inline Status SaveImage(const Image& image, WideStringView path,
                                       ImageFileFormat format, i32 jpgQuality = 90) {
     if (image.Width() == 0 || image.Height() == 0) return ErrorCode::Unknown;
 

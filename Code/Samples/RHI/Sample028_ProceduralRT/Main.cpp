@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class ProceduralRTSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample028 - Procedural RT (AABB Spheres)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample028 - Procedural RT (AABB Spheres)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};

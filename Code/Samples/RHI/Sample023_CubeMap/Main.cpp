@@ -23,7 +23,7 @@ namespace ds = raptor::shaders;
 class CubeMapSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample023 - Cube Map & Comparison Sampler"; }
+    raptor::core::WideStringView Title() const override { return u"Sample023 - Cube Map & Comparison Sampler"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

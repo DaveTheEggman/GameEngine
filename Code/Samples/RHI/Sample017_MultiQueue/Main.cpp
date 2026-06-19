@@ -22,7 +22,7 @@ using raptor::core::Mat4;
 class MultiQueueSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample017 - MultiQueue (Async Compute)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample017 - MultiQueue (Async Compute)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

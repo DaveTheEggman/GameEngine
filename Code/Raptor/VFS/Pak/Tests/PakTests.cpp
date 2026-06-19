@@ -20,7 +20,7 @@ namespace
 
 TEST_CASE("vfs.pak: build, open, read, enumerate")
 {
-    const StringView pak = u"raptor_pak_test.pak";
+    const WideStringView pak = u"raptor_pak_test.pak";
     FileDelete(pak);
 
     // --- build ---
@@ -96,7 +96,7 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
 
 TEST_CASE("vfs.pak: a non-pak file is rejected")
 {
-    const StringView path = u"raptor_pak_bad.pak";
+    const WideStringView path = u"raptor_pak_bad.pak";
     const byte junk[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 4 } };
     REQUIRE(WriteFile(path, Span<const byte>{ junk, ArrayCount(junk) }).IsOk());
 

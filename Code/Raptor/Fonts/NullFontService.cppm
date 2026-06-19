@@ -20,10 +20,10 @@ export namespace raptor::fonts
     {
     public:
         [[nodiscard]] CachedFont* GetFont(f32) override { return nullptr; }
-        [[nodiscard]] CachedFont* GetFont(StringView, f32) override { return nullptr; }
+        [[nodiscard]] CachedFont* GetFont(WideStringView, f32) override { return nullptr; }
         [[nodiscard]] raptor::image::ImageData* GetAtlasTexture(CachedFont*) override { return nullptr; }
-        [[nodiscard]] raptor::image::ImageData* GetAtlasTexture(StringView, f32) override { return nullptr; }
+        [[nodiscard]] raptor::image::ImageData* GetAtlasTexture(WideStringView, f32) override { return nullptr; }
         void ReleaseFont(CachedFont*) override {}
-        [[nodiscard]] StringView DefaultFontFamily() const override { return u""; }
+        [[nodiscard]] WideStringView DefaultFontFamily() const override { return u""; }
     };
 }

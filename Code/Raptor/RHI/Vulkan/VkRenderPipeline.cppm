@@ -30,8 +30,8 @@ public:
 
         // Shader stages.
         Array<VkPipelineShaderStageCreateInfo> stages;
-        UTF8String vsEntry = ToUTF8(desc.vertex.shader.entryPoint);
-        UTF8String fsEntry;
+        String vsEntry = ToUTF8(desc.vertex.shader.entryPoint);
+        String fsEntry;
 
         auto* vsMod = static_cast<VkShaderModuleImpl*>(desc.vertex.shader.module);
         if (!vsMod) return ErrorCode::Unknown;

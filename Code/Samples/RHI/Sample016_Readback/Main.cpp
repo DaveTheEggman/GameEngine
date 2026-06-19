@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class ReadbackSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample016 - GPU Readback"; }
+    raptor::core::WideStringView Title() const override { return u"Sample016 - GPU Readback"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

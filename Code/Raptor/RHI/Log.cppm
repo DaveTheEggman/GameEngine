@@ -18,7 +18,7 @@ export namespace raptor::rhi
 {
     inline void LogWrite(bool error, const char* utf8)
     {
-        const String wide = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(utf8)));
+        const WideString wide = ToWide(StringView(reinterpret_cast<const utf8char*>(utf8)));
         if (error) { ConsoleWriteError(wide.AsView()); }
         else       { ConsoleWrite(wide.AsView()); }
         ConsoleWrite(u"\n");

@@ -21,7 +21,7 @@ namespace ds = raptor::shaders;
 class BindlessSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample018 - Bindless Textures"; }
+    raptor::core::WideStringView Title() const override { return u"Sample018 - Bindless Textures"; }
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{}; f.bindlessDescriptors = true; return f;
     }

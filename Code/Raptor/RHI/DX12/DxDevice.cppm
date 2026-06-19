@@ -588,7 +588,7 @@ public:
     /// Sets a debug name on a DX12 object (visible in PIX, VS Graphics Debugger, etc.).
     /// Works with any type that inherits from ID3D12Object (Resource, PSO, QueryHeap, etc.).
     template<typename T>
-    static void setDebugName(T* obj, StringView name) {
+    static void setDebugName(T* obj, WideStringView name) {
         if (!obj || name.IsEmpty()) return;
         // Convert narrow to wide.
         std::wstring wide;

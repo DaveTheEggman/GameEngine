@@ -73,7 +73,7 @@ TEST_CASE("io: MemoryStream seek bounds and overwrite")
 
 TEST_CASE("io: FileStream writes then reads a file")
 {
-    const StringView path = u"raptor_io_stream_test.tmp";
+    const WideStringView path = u"raptor_io_stream_test.tmp";
 
     {
         FileStream out(path, FileMode::Write);
@@ -167,12 +167,12 @@ TEST_CASE("serialization: primitives and math round-trip")
     }
 }
 
-TEST_CASE("serialization: String and Array round-trip")
+TEST_CASE("serialization: WideString and Array round-trip")
 {
     MemoryStream stream;
     {
         BinarySerializer saver(stream, SerializeMode::Write);
-        String name = u"raptor";
+        WideString name = u"raptor";
         Array<i32> values;
         for (i32 i = 0; i < 5; ++i) { values.PushBack(i * 11); }
         Serialize(saver, name);
@@ -183,7 +183,7 @@ TEST_CASE("serialization: String and Array round-trip")
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer loader(stream, SerializeMode::Read);
-        String name;
+        WideString name;
         Array<i32> values;
         Serialize(loader, name);
         Serialize(loader, values);
@@ -225,15 +225,15 @@ TEST_CASE("serialization: a user type serialized once for both directions")
     CHECK(loaded.mass == 2.25f);
 }
 
-TEST_CASE("serialization: nested Array<String> round-trips")
+TEST_CASE("serialization: nested Array<WideString> round-trips")
 {
     MemoryStream stream;
     {
         BinarySerializer saver(stream, SerializeMode::Write);
-        Array<String> words;
-        words.PushBack(String(u"alpha"));
-        words.PushBack(String(u"beta"));
-        words.PushBack(String(u"gamma"));
+        Array<WideString> words;
+        words.PushBack(WideString(u"alpha"));
+        words.PushBack(WideString(u"beta"));
+        words.PushBack(WideString(u"gamma"));
         Serialize(saver, words);
         CHECK(saver.IsOk());
     }
@@ -241,7 +241,7 @@ TEST_CASE("serialization: nested Array<String> round-trips")
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer loader(stream, SerializeMode::Read);
-        Array<String> words;
+        Array<WideString> words;
         Serialize(loader, words);
         CHECK(loader.IsOk());
 
@@ -328,14 +328,14 @@ TEST_CASE("io: BufferedStream write-then-seek-then-read on one stream")
 
 TEST_CASE("io: Path query functions")
 {
-    CHECK(PathFilename(u"/a/b/c.txt") == StringView(u"c.txt"));
-    CHECK(PathFilename(u"noslash.dat") == StringView(u"noslash.dat"));
-    CHECK(PathExtension(u"/a/b/c.txt") == StringView(u".txt"));
-    CHECK(PathExtension(u"/a/b/c") == StringView(u""));
-    CHECK(PathExtension(u"/a/.hidden") == StringView(u"")); // dotfile has no ext
-    CHECK(PathStem(u"/a/b/c.txt") == StringView(u"c"));
-    CHECK(PathParent(u"/a/b/c.txt") == StringView(u"/a/b"));
-    CHECK(PathParent(u"file") == StringView(u""));
+    CHECK(PathFilename(u"/a/b/c.txt") == WideStringView(u"c.txt"));
+    CHECK(PathFilename(u"noslash.dat") == WideStringView(u"noslash.dat"));
+    CHECK(PathExtension(u"/a/b/c.txt") == WideStringView(u".txt"));
+    CHECK(PathExtension(u"/a/b/c") == WideStringView(u""));
+    CHECK(PathExtension(u"/a/.hidden") == WideStringView(u"")); // dotfile has no ext
+    CHECK(PathStem(u"/a/b/c.txt") == WideStringView(u"c"));
+    CHECK(PathParent(u"/a/b/c.txt") == WideStringView(u"/a/b"));
+    CHECK(PathParent(u"file") == WideStringView(u""));
 
     CHECK(PathIsAbsolute(u"/etc/hosts"));
     CHECK_FALSE(PathIsAbsolute(u"relative/path"));
@@ -353,7 +353,7 @@ TEST_CASE("io: PathJoin")
 
 TEST_CASE("io: ReadFile / WriteFile round-trip")
 {
-    const StringView path = u"raptor_fs_roundtrip.tmp";
+    const WideStringView path = u"raptor_fs_roundtrip.tmp";
     const byte payload[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 0xFF }, byte{ 0 }, byte{ 42 } };
 
     CHECK(WriteFile(path, Span<const byte>{ payload, ArrayCount(payload) }).IsOk());
@@ -373,7 +373,7 @@ TEST_CASE("io: ReadFile / WriteFile round-trip")
 
 TEST_CASE("io: directory create / exists / remove")
 {
-    const StringView dir = u"raptor_fs_test_dir";
+    const WideStringView dir = u"raptor_fs_test_dir";
     CHECK_FALSE(DirectoryExists(dir));
     CHECK(CreateDirectory(dir));
     CHECK(DirectoryExists(dir));
@@ -397,7 +397,7 @@ namespace
         RAPTOR_OBJECT(Widget, ISerializable)
     public:
         i32 id = 0;
-        String label;
+        WideString label;
         Vec3 position;
 
         void Serialize(ISerializer& ar) override

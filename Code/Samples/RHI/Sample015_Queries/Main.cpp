@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class QuerySample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample015 - GPU Queries"; }
+    raptor::core::WideStringView Title() const override { return u"Sample015 - GPU Queries"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

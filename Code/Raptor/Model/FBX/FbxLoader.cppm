@@ -30,14 +30,14 @@ export namespace raptor::model::fbx {
 using namespace raptor::core;
 using namespace raptor::model;
 
-// ufbx deals in narrow UTF-8 char*; the engine uses wide String/StringView.
+// ufbx deals in narrow UTF-8 char*; the engine uses wide WideString/WideStringView.
 // Convert only at these boundaries.
-inline String WideFromC(const char* s) {
-    if (!s) return String{};
-    return ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(s)));
+inline WideString WideFromC(const char* s) {
+    if (!s) return WideString{};
+    return ToWide(StringView(reinterpret_cast<const utf8char*>(s)));
 }
-inline String WideFromUfbx(const ufbx_string& s) {
-    return ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(s.data), s.length));
+inline WideString WideFromUfbx(const ufbx_string& s) {
+    return ToWide(StringView(reinterpret_cast<const utf8char*>(s.data), s.length));
 }
 
 /// Loads FBX and OBJ model files using ufbx.
@@ -52,7 +52,7 @@ public:
         }
     }
 
-    bool supportsExtension(StringView ext) const override {
+    bool supportsExtension(WideStringView ext) const override {
         return caseInsensitiveEquals(ext, u".fbx") || caseInsensitiveEquals(ext, u".obj");
     }
 
@@ -61,7 +61,7 @@ public:
     FbxLoader& operator=(const FbxLoader&) = delete;
 
     /// Load an FBX or OBJ file.
-    ModelLoadResult load(StringView path, Model& model) override {
+    ModelLoadResult load(WideStringView path, Model& model) override {
         // Free previous scene.
         if (m_scene) {
             ufbx_free_scene(m_scene);
@@ -76,7 +76,7 @@ public:
         m_skinIndexMap.Clear();
 
         // Extract base path for loading external resources.
-        const UTF8String narrowStorage = ToUTF8(path);
+        const String narrowStorage = ToUTF8(path);
         const char* narrowPath = reinterpret_cast<const char*>(narrowStorage.CStr());
         std::filesystem::path filePath(narrowPath);
         m_basePath = filePath.parent_path().string();
@@ -141,7 +141,7 @@ private:
     // Helpers
     // -----------------------------------------------------------------------
 
-    static bool caseInsensitiveEquals(StringView a, StringView b) {
+    static bool caseInsensitiveEquals(WideStringView a, WideStringView b) {
         if (a.Size() != b.Size()) return false;
         for (usize i = 0; i < a.Size(); ++i) {
             if (std::tolower(static_cast<unsigned char>(a.Data()[i])) !=
@@ -151,7 +151,7 @@ private:
         return true;
     }
 
-    static bool endsWithCI(StringView str, StringView suffix) {
+    static bool endsWithCI(WideStringView str, WideStringView suffix) {
         if (str.Size() < suffix.Size()) return false;
         return caseInsensitiveEquals(str.SubStr(str.Size() - suffix.Size(), suffix.Size()), suffix);
     }

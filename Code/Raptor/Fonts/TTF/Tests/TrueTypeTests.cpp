@@ -17,9 +17,9 @@ using namespace raptor::fonts;
 namespace
 {
     // Build a wide path from the (ASCII) asset dir + a relative suffix.
-    String AssetPath(const char* rel)
+    WideString AssetPath(const char* rel)
     {
-        String p;
+        WideString p;
         for (const char* s = RAPTOR_FONTS_ASSET_DIR; *s != '\0'; ++s) p.PushBack(static_cast<widechar>(static_cast<unsigned char>(*s)));
         for (const char* s = rel; *s != '\0'; ++s) p.PushBack(static_cast<widechar>(static_cast<unsigned char>(*s)));
         return p;
@@ -28,7 +28,7 @@ namespace
     // Parse the bundled Roboto font with default options. Caller owns it.
     IFont* LoadRoboto()
     {
-        const String path = AssetPath("/roboto/Roboto-Regular.ttf");
+        const WideString path = AssetPath("/roboto/Roboto-Regular.ttf");
         Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
         return parsed.HasValue() ? parsed.Value() : nullptr;
     }

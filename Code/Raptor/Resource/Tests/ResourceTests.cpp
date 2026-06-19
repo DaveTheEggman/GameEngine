@@ -21,8 +21,8 @@ namespace
         RAPTOR_OBJECT(MaterialResource, ISerializable)
     public:
         i32 shininess = 0;
-        String shader;
-        String editorNote;   // editor-only
+        WideString shader;
+        WideString editorNote;   // editor-only
 
         void Serialize(ISerializer& ar) override
         {
@@ -38,7 +38,7 @@ namespace
         RAPTOR_OBJECT(Material, Object)
     public:
         f32 specular = 0.0f;
-        String shader;
+        WideString shader;
     };
 
     // Factory: builds a Material product from a MaterialResource source.
@@ -67,13 +67,13 @@ namespace
         RemoveDirectory(u"raptor_resource_test_db");
     }
 
-    void WriteSource(raptor::content::ContentDatabase& db, const Guid& id, i32 shininess, StringView shader)
+    void WriteSource(raptor::content::ContentDatabase& db, const Guid& id, i32 shininess, WideStringView shader)
     {
         auto* instance = db.GetInstance(id);
         REQUIRE(instance != nullptr);
         MaterialResource r;
         r.shininess = shininess;
-        r.shader = String(shader);
+        r.shader = WideString(shader);
         r.editorNote = u"node@(10,20)";
         REQUIRE(instance->WriteObject(r).IsOk());
     }

@@ -27,17 +27,17 @@ namespace rc = raptor::core;
 
 namespace raptor::script::wren
 {
-    inline const char* CStr(const rc::UTF8String& s) noexcept
+    inline const char* CStr(const rc::String& s) noexcept
     {
         return reinterpret_cast<const char*>(s.CStr());
     }
 
-    inline void AppendAscii(rc::UTF8String& s, const char* text)
+    inline void AppendAscii(rc::String& s, const char* text)
     {
-        s.Append(rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(text)));
+        s.Append(rc::StringView(reinterpret_cast<const rc::utf8char*>(text)));
     }
 
-    inline void AppendUint(rc::UTF8String& s, rc::u32 n)
+    inline void AppendUint(rc::String& s, rc::u32 n)
     {
         char buf[16];
         int i = 0;
@@ -60,11 +60,11 @@ namespace raptor::script::wren
         return a[i] == b[i];
     }
 
-    inline void WriteUtf8(void (*sink)(rc::StringView), const char* text)
+    inline void WriteUtf8(void (*sink)(rc::WideStringView), const char* text)
     {
         if (text != nullptr)
         {
-            sink(rc::ToWide(rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(text))).AsView());
+            sink(rc::ToWide(rc::StringView(reinterpret_cast<const rc::utf8char*>(text))).AsView());
         }
     }
 
@@ -82,13 +82,13 @@ namespace raptor::script::wren
         if (const rc::i64* i = value.TryGet<rc::i64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*i)); return true; }
         if (const rc::u32* u = value.TryGet<rc::u32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return true; }
         if (const rc::u64* u = value.TryGet<rc::u64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return true; }
-        if (const rc::String* s = value.TryGet<rc::String>())
+        if (const rc::WideString* s = value.TryGet<rc::WideString>())
         {
-            const rc::UTF8String utf8 = rc::ToUTF8(s->AsView());
+            const rc::String utf8 = rc::ToUTF8(s->AsView());
             wrenSetSlotBytes(vm, slot, CStr(utf8), utf8.Size());
             return true;
         }
-        if (const rc::UTF8String* s = value.TryGet<rc::UTF8String>())
+        if (const rc::String* s = value.TryGet<rc::String>())
         {
             wrenSetSlotBytes(vm, slot, CStr(*s), s->Size());
             return true;
@@ -128,8 +128,8 @@ namespace raptor::script::wren
             {
                 int length = 0;
                 const char* bytes = wrenGetSlotBytes(vm, slot, &length);
-                return rc::Variant::From<rc::String>(rc::ToWide(
-                    rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(bytes), static_cast<rc::usize>(length))));
+                return rc::Variant::From<rc::WideString>(rc::ToWide(
+                    rc::StringView(reinterpret_cast<const rc::utf8char*>(bytes), static_cast<rc::usize>(length))));
             }
             default: return rc::Variant{};
         }
@@ -159,10 +159,10 @@ namespace raptor::script::wren
             {
                 int length = 0;
                 const char* bytes = wrenGetSlotBytes(vm, slot, &length);
-                rc::String wide = rc::ToWide(rc::UTF8StringView(
+                rc::WideString wide = rc::ToWide(rc::StringView(
                     reinterpret_cast<const rc::utf8char*>(bytes), static_cast<rc::usize>(length)));
-                if (expected == &rc::TypeOf<rc::UTF8String>()) { return rc::Variant::From<rc::UTF8String>(rc::ToUTF8(wide.AsView())); }
-                return rc::Variant::From<rc::String>(rc::Move(wide));
+                if (expected == &rc::TypeOf<rc::String>()) { return rc::Variant::From<rc::String>(rc::ToUTF8(wide.AsView())); }
+                return rc::Variant::From<rc::WideString>(rc::Move(wide));
             }
             default:
                 return rc::Variant{};
@@ -202,7 +202,7 @@ namespace raptor::script::wren
             case WREN_TYPE_BOOL:
                 return pt == &rc::TypeOf<bool>();
             case WREN_TYPE_STRING:
-                return pt == &rc::TypeOf<rc::String>() || pt == &rc::TypeOf<rc::UTF8String>();
+                return pt == &rc::TypeOf<rc::WideString>() || pt == &rc::TypeOf<rc::String>();
             default:
                 return false;
         }
@@ -408,14 +408,14 @@ namespace raptor::script::wren
         WrenScriptObject(const WrenScriptObject&) = delete;
         WrenScriptObject& operator=(const WrenScriptObject&) = delete;
 
-        [[nodiscard]] rc::Result<rc::Variant> Invoke(rc::StringView method, rc::Span<rc::Variant> args) override
+        [[nodiscard]] rc::Result<rc::Variant> Invoke(rc::WideStringView method, rc::Span<rc::Variant> args) override
         {
             const rc::usize argc = args.Size();
             wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
             wrenSetSlotHandle(m_vm, 0, m_instance); // receiver
             for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
 
-            const rc::UTF8String name = rc::ToUTF8(method);
+            const rc::String name = rc::ToUTF8(method);
             char signature[96];
             BuildSignature(signature, sizeof(signature), CStr(name), argc);
             WrenHandle* call = wrenMakeCallHandle(m_vm, signature);
@@ -447,7 +447,7 @@ namespace raptor::script::wren
             m_vm = wrenNewVM(&config);
             wrenSetUserData(m_vm, this);
 
-            m_module = rc::UTF8String(reinterpret_cast<const rc::utf8char*>("main"));
+            m_module = rc::String(reinterpret_cast<const rc::utf8char*>("main"));
             GenerateForeignClasses();
         }
 
@@ -465,10 +465,10 @@ namespace raptor::script::wren
             return nullptr;
         }
 
-        rc::Status Load(rc::StringView source, rc::StringView chunkName) override
+        rc::Status Load(rc::WideStringView source, rc::WideStringView chunkName) override
         {
-            const rc::UTF8String src = rc::ToUTF8(source);
-            const rc::UTF8String name = rc::ToUTF8(chunkName);
+            const rc::String src = rc::ToUTF8(source);
+            const rc::String name = rc::ToUTF8(chunkName);
             const WrenInterpretResult result = wrenInterpret(m_vm, CStr(name), CStr(src));
             switch (result)
             {
@@ -481,25 +481,25 @@ namespace raptor::script::wren
 
         void SetErrorHandler(IScriptErrorHandler* handler) override { m_errorHandler = handler; }
 
-        void SetGlobal(rc::StringView, const rc::Variant&) override {}
+        void SetGlobal(rc::WideStringView, const rc::Variant&) override {}
 
-        [[nodiscard]] rc::Variant GetGlobal(rc::StringView name) override
+        [[nodiscard]] rc::Variant GetGlobal(rc::WideStringView name) override
         {
             if (!HasVariable(name)) { return rc::Variant{}; }
-            const rc::UTF8String nm = rc::ToUTF8(name);
+            const rc::String nm = rc::ToUTF8(name);
             wrenEnsureSlots(m_vm, 1);
             wrenGetVariable(m_vm, CStr(m_module), CStr(nm), 0);
             return SlotToVariant(m_vm, 0);
         }
 
-        [[nodiscard]] bool HasFunction(rc::StringView name) const override { return HasVariable(name); }
+        [[nodiscard]] bool HasFunction(rc::WideStringView name) const override { return HasVariable(name); }
 
-        [[nodiscard]] rc::Result<rc::Variant> Call(rc::StringView function, rc::Span<rc::Variant> args) override
+        [[nodiscard]] rc::Result<rc::Variant> Call(rc::WideStringView function, rc::Span<rc::Variant> args) override
         {
             if (!HasVariable(function)) { return rc::Err(rc::ErrorCode::NotFound); }
             const rc::usize argc = args.Size();
             wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
-            const rc::UTF8String nm = rc::ToUTF8(function);
+            const rc::String nm = rc::ToUTF8(function);
             wrenGetVariable(m_vm, CStr(m_module), CStr(nm), 0);
             for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
 
@@ -513,13 +513,13 @@ namespace raptor::script::wren
         }
 
         [[nodiscard]] rc::RefPtr<ScriptObject> CreateInstance(
-            rc::StringView className, rc::Span<rc::Variant> args) override
+            rc::WideStringView className, rc::Span<rc::Variant> args) override
         {
             if (!HasVariable(className)) { return nullptr; }
 
             const rc::usize argc = args.Size();
             wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
-            const rc::UTF8String cls = rc::ToUTF8(className);
+            const rc::String cls = rc::ToUTF8(className);
             wrenGetVariable(m_vm, CStr(m_module), CStr(cls), 0); // class object -> slot 0
             for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
 
@@ -553,7 +553,7 @@ namespace raptor::script::wren
         // into the "main" module so user scripts can use the reflected types.
         void GenerateForeignClasses()
         {
-            rc::UTF8String src;
+            rc::String src;
             for (const rc::TypeInfo* t : m_types)
             {
                 if (t == nullptr || rc::ConstructorCount(*t) == 0) { continue; }
@@ -562,7 +562,7 @@ namespace raptor::script::wren
             if (!src.IsEmpty()) { (void)wrenInterpret(m_vm, "main", CStr(src)); }
         }
 
-        static void AppendClass(rc::UTF8String& src, const rc::TypeInfo& type)
+        static void AppendClass(rc::String& src, const rc::TypeInfo& type)
         {
             AppendAscii(src, "foreign class ");
             AppendAscii(src, type.name);
@@ -622,10 +622,10 @@ namespace raptor::script::wren
             AppendAscii(src, "}\n");
         }
 
-        [[nodiscard]] bool HasVariable(rc::StringView name) const
+        [[nodiscard]] bool HasVariable(rc::WideStringView name) const
         {
             if (m_module.IsEmpty() || !wrenHasModule(m_vm, CStr(m_module))) { return false; }
-            const rc::UTF8String nm = rc::ToUTF8(name);
+            const rc::String nm = rc::ToUTF8(name);
             return wrenHasVariable(m_vm, CStr(m_module), CStr(nm));
         }
 
@@ -638,10 +638,10 @@ namespace raptor::script::wren
                 // Stack-trace frames follow a runtime error; surface the message kinds.
                 if (type == WREN_ERROR_COMPILE || type == WREN_ERROR_RUNTIME)
                 {
-                    const rc::String mod = (module != nullptr)
-                        ? rc::ToWide(rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(module))) : rc::String{};
-                    const rc::String msg = (message != nullptr)
-                        ? rc::ToWide(rc::UTF8StringView(reinterpret_cast<const rc::utf8char*>(message))) : rc::String{};
+                    const rc::WideString mod = (module != nullptr)
+                        ? rc::ToWide(rc::StringView(reinterpret_cast<const rc::utf8char*>(module))) : rc::WideString{};
+                    const rc::WideString msg = (message != nullptr)
+                        ? rc::ToWide(rc::StringView(reinterpret_cast<const rc::utf8char*>(message))) : rc::WideString{};
                     const ScriptError error{
                         (type == WREN_ERROR_COMPILE) ? ScriptErrorKind::Compile : ScriptErrorKind::Runtime,
                         mod.AsView(), static_cast<rc::i32>(line), msg.AsView() };
@@ -654,7 +654,7 @@ namespace raptor::script::wren
 
         WrenVM* m_vm = nullptr;
         IScriptErrorHandler* m_errorHandler = nullptr;
-        rc::UTF8String m_module;
+        rc::String m_module;
         rc::Array<const rc::TypeInfo*> m_types;
     };
 

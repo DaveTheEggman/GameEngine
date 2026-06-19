@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class OcclusionQuerySample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample024 - Occlusion Queries & Debug Labels"; }
+    raptor::core::WideStringView Title() const override { return u"Sample024 - Occlusion Queries & Debug Labels"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

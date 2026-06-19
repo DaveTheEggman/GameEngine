@@ -17,7 +17,7 @@ namespace ds = raptor::shaders;
 class BlendingSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample006 - Alpha Blending"; }
+    raptor::core::WideStringView Title() const override { return u"Sample006 - Alpha Blending"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

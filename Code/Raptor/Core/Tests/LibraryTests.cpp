@@ -13,9 +13,9 @@ using namespace raptor::core;
 // The plugin path is injected as a narrow build-system literal; the library API
 // is wide, so transcode at the boundary (mirrors real call sites loading a path
 // that originated as char* from a config/build tool).
-static String WidePath(const char* p)
+static WideString WidePath(const char* p)
 {
-    return ToWide(UTF8StringView{ reinterpret_cast<const utf8char*>(p) });
+    return ToWide(StringView{ reinterpret_cast<const utf8char*>(p) });
 }
 
 // --- Library ---------------------------------------------------------------

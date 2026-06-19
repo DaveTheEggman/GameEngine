@@ -25,15 +25,15 @@ export namespace raptor::rendergraph
     struct ValidationMessage
     {
         ValidationSeverity severity = ValidationSeverity::Warning;
-        String message;
+        WideString message;
     };
 
     namespace detail
     {
-        [[nodiscard]] inline StringView ResName(const Array<RenderGraphResource*>& resources, u32 index)
+        [[nodiscard]] inline WideStringView ResName(const Array<RenderGraphResource*>& resources, u32 index)
         {
             return (index < resources.Size() && resources[index] != nullptr)
-                ? resources[index]->name.AsView() : StringView(u"???");
+                ? resources[index]->name.AsView() : WideStringView(u"???");
         }
     }
 
@@ -47,7 +47,7 @@ export namespace raptor::rendergraph
             CheckRedundantWrites(graph, out);
         }
 
-        static void ValidateToString(RenderGraph& graph, String& out)
+        static void ValidateToString(RenderGraph& graph, WideString& out)
         {
             Array<ValidationMessage> messages;
             Validate(graph, messages);
@@ -61,8 +61,8 @@ export namespace raptor::rendergraph
             AppendFormat(out, u"Render graph validation: {} issue(s)\n", messages.Size());
             for (const ValidationMessage& msg : messages)
             {
-                const StringView prefix = msg.severity == ValidationSeverity::Error ? StringView(u"ERROR")
-                                                                                    : StringView(u"WARNING");
+                const WideStringView prefix = msg.severity == ValidationSeverity::Error ? WideStringView(u"ERROR")
+                                                                                    : WideStringView(u"WARNING");
                 AppendFormat(out, u"  [{}] {}\n", prefix, msg.message.AsView());
             }
         }
@@ -131,7 +131,7 @@ export namespace raptor::rendergraph
         static void CheckRedundantWrites(RenderGraph& graph, Array<ValidationMessage>& out)
         {
             const Array<RenderGraphResource*>& resources = graph.Resources();
-            HashMap<u32, String> lastWriter;
+            HashMap<u32, WideString> lastWriter;
 
             for (RenderGraphPass* pass : graph.Passes())
             {
@@ -142,7 +142,7 @@ export namespace raptor::rendergraph
                 for (const RGResourceAccess& access : pass->accesses)
                 {
                     if (!access.IsWrite() || !access.handle.IsValid()) { continue; }
-                    if (String* prev = lastWriter.Find(access.handle.index))
+                    if (WideString* prev = lastWriter.Find(access.handle.index))
                     {
                         ValidationMessage msg;
                         msg.severity = ValidationSeverity::Warning;
@@ -151,7 +151,7 @@ export namespace raptor::rendergraph
                             detail::ResName(resources, access.handle.index), pass->name.AsView(), prev->AsView());
                         out.PushBack(static_cast<ValidationMessage&&>(msg));
                     }
-                    lastWriter.InsertOrAssign(access.handle.index, String(pass->name));
+                    lastWriter.InsertOrAssign(access.handle.index, WideString(pass->name));
                 }
             }
         }

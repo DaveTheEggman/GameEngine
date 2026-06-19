@@ -69,12 +69,12 @@ public:
     ModelTexture(const ModelTexture&) = delete;
     ModelTexture& operator=(const ModelTexture&) = delete;
     ModelTexture(ModelTexture&& other) noexcept
-        : mimeType(static_cast<String&&>(other.mimeType)),
+        : mimeType(static_cast<WideString&&>(other.mimeType)),
           samplerIndex(other.samplerIndex),
           width(other.width), height(other.height),
           pixelFormat(other.pixelFormat),
-          m_name(static_cast<String&&>(other.m_name)),
-          m_uri(static_cast<String&&>(other.m_uri)),
+          m_name(static_cast<WideString&&>(other.m_name)),
+          m_uri(static_cast<WideString&&>(other.m_uri)),
           m_data(other.m_data), m_dataSize(other.m_dataSize) {
         other.m_data = nullptr;
         other.m_dataSize = 0;
@@ -82,11 +82,11 @@ public:
     ModelTexture& operator=(ModelTexture&& other) noexcept {
         if (this != &other) {
             delete[] m_data;
-            m_name = static_cast<String&&>(other.m_name);
-            m_uri = static_cast<String&&>(other.m_uri);
+            m_name = static_cast<WideString&&>(other.m_name);
+            m_uri = static_cast<WideString&&>(other.m_uri);
             m_data = other.m_data;
             m_dataSize = other.m_dataSize;
-            mimeType = static_cast<String&&>(other.mimeType);
+            mimeType = static_cast<WideString&&>(other.mimeType);
             samplerIndex = other.samplerIndex;
             width = other.width;
             height = other.height;
@@ -99,11 +99,11 @@ public:
 
     // -- Accessors --
 
-    [[nodiscard]] StringView name() const { return StringView(m_name.Data(), m_name.Size()); }
-    [[nodiscard]] StringView uri()  const { return StringView(m_uri.Data(), m_uri.Size()); }
+    [[nodiscard]] WideStringView name() const { return WideStringView(m_name.Data(), m_name.Size()); }
+    [[nodiscard]] WideStringView uri()  const { return WideStringView(m_uri.Data(), m_uri.Size()); }
 
-    void setName(StringView n) { m_name = String(n); }
-    void setUri(StringView u)  { m_uri  = String(u); }
+    void setName(WideStringView n) { m_name = WideString(n); }
+    void setUri(WideStringView u)  { m_uri  = WideString(u); }
 
     /// Set embedded image data (copies).
     void setData(const u8* ptr, usize length) {
@@ -137,7 +137,7 @@ public:
     // -- Public fields --
 
     /// Image data format (e.g., "image/png", "image/jpeg").
-    String mimeType;
+    WideString mimeType;
 
     /// Sampler index (-1 for default sampler).
     i32 samplerIndex = -1;
@@ -152,8 +152,8 @@ public:
     TexturePixelFormat pixelFormat = TexturePixelFormat::Unknown;
 
 private:
-    String m_name;
-    String m_uri;
+    WideString m_name;
+    WideString m_uri;
     u8* m_data = nullptr;
     i32 m_dataSize = 0;
 };

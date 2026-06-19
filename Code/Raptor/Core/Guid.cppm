@@ -55,7 +55,7 @@ export namespace raptor::core
 
         // Parses the canonical 36-char form. Returns false (leaving `out`
         // untouched) on malformed input.
-        [[nodiscard]] static bool TryParse(StringView text, Guid& out) noexcept
+        [[nodiscard]] static bool TryParse(WideStringView text, Guid& out) noexcept
         {
             if (text.Size() != 36) { return false; }
 

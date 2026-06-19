@@ -33,7 +33,7 @@ namespace
         }
 
         rhi::RenderPassEncoder* BeginRenderPass(const rhi::RenderPassDesc&) override { return nullptr; }
-        rhi::ComputePassEncoder* BeginComputePass(StringView) override { return nullptr; }
+        rhi::ComputePassEncoder* BeginComputePass(WideStringView) override { return nullptr; }
         void CopyBufferToBuffer(rhi::Buffer*, u64, rhi::Buffer*, u64, u64) override {}
         void CopyBufferToTexture(rhi::Buffer*, rhi::Texture*, const rhi::BufferTextureCopyRegion&) override {}
         void CopyTextureToBuffer(rhi::Texture*, rhi::Buffer*, const rhi::BufferTextureCopyRegion&) override {}
@@ -44,9 +44,9 @@ namespace
         void ResetQuerySet(rhi::QuerySet*, u32, u32) override {}
         void WriteTimestamp(rhi::QuerySet*, u32) override {}
         void ResolveQuerySet(rhi::QuerySet*, u32, u32, rhi::Buffer*, u64) override {}
-        void BeginDebugLabel(StringView, f32, f32, f32, f32) override {}
+        void BeginDebugLabel(WideStringView, f32, f32, f32, f32) override {}
         void EndDebugLabel() override {}
-        void InsertDebugLabel(StringView, f32, f32, f32, f32) override {}
+        void InsertDebugLabel(WideStringView, f32, f32, f32, f32) override {}
         rhi::CommandBuffer* Finish() override { return nullptr; }
     };
 

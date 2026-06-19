@@ -23,10 +23,10 @@ public:
     virtual ~ModelLoader() = default;
 
     /// Check if this loader supports the given file extension (e.g. ".gltf").
-    [[nodiscard]] virtual bool supportsExtension(StringView ext) const = 0;
+    [[nodiscard]] virtual bool supportsExtension(WideStringView ext) const = 0;
 
     /// Load a model from a file path.
-    virtual ModelLoadResult load(StringView path, Model& model) = 0;
+    virtual ModelLoadResult load(WideStringView path, Model& model) = 0;
 };
 
 /// Register a model loader. Does not take ownership.
@@ -37,7 +37,7 @@ void unregisterLoader(ModelLoader* loader);
 
 /// Load a model from a file, selecting the appropriate loader by extension.
 /// Returns UnsupportedFormat if no loader is registered for the extension.
-ModelLoadResult loadModel(StringView path, Model& model);
+ModelLoadResult loadModel(WideStringView path, Model& model);
 
 /// Check if any loaders are registered.
 [[nodiscard]] bool hasLoaders();
@@ -50,9 +50,9 @@ namespace detail {
         return s;
     }
 
-    inline StringView getExtension(StringView path) {
+    inline WideStringView getExtension(WideStringView path) {
         for (usize i = path.Size(); i > 0; --i) {
-            if (path.Data()[i - 1] == '.') return StringView(path.Data() + i - 1, path.Size() - i + 1);
+            if (path.Data()[i - 1] == '.') return WideStringView(path.Data() + i - 1, path.Size() - i + 1);
             if (path.Data()[i - 1] == '/' || path.Data()[i - 1] == '\\') break;
         }
         return {};
@@ -73,8 +73,8 @@ inline void unregisterLoader(ModelLoader* loader) {
     }
 }
 
-inline ModelLoadResult loadModel(StringView path, Model& model) {
-    StringView ext = detail::getExtension(path);
+inline ModelLoadResult loadModel(WideStringView path, Model& model) {
+    WideStringView ext = detail::getExtension(path);
     for (auto* loader : detail::loaders()) {
         if (loader->supportsExtension(ext))
             return loader->load(path, model);

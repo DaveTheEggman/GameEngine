@@ -17,7 +17,7 @@ using namespace raptor::core;
 export namespace raptor::fonts
 {
     // ASCII case-insensitive compare for extension matching.
-    [[nodiscard]] inline bool ExtEquals(StringView a, StringView b)
+    [[nodiscard]] inline bool ExtEquals(WideStringView a, WideStringView b)
     {
         if (a.Size() != b.Size())
             return false;
@@ -33,9 +33,9 @@ export namespace raptor::fonts
     }
 
     // .ttf / .ttc / .otf — the formats the TTF backend handles.
-    [[nodiscard]] inline Span<const StringView> TrueTypeExtensions()
+    [[nodiscard]] inline Span<const WideStringView> TrueTypeExtensions()
     {
-        static const StringView exts[] = { StringView(u".ttf"), StringView(u".ttc"), StringView(u".otf") };
-        return Span<const StringView>(exts, 3);
+        static const WideStringView exts[] = { WideStringView(u".ttf"), WideStringView(u".ttc"), WideStringView(u".otf") };
+        return Span<const WideStringView>(exts, 3);
     }
 }

@@ -18,7 +18,7 @@ TEST_CASE("baked.font: metrics round-trip")
     font.SetPixelHeight(24);
     font.SetMetrics(FontMetrics(20.0f, -5.0f, 2.0f, 24.0f, 0.0625f));
 
-    CHECK(font.FamilyName() == StringView(u"Hand Rolled"));
+    CHECK(font.FamilyName() == WideStringView(u"Hand Rolled"));
     CHECK(font.PixelHeight() == 24);
     CHECK(font.Metrics().ascent == 20.0f);
     CHECK(font.Metrics().descent == -5.0f);

@@ -20,7 +20,7 @@ using raptor::core::Mat4;
 class ComputeSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample004 - Compute (Animated Point Grid)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample004 - Compute (Animated Point Grid)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

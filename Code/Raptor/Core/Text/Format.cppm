@@ -67,7 +67,7 @@ export namespace raptor::core
 
         [[nodiscard]] const widechar* Data() const noexcept { return m_data != nullptr ? m_data : u""; }
         [[nodiscard]] const widechar* CStr() const noexcept { return Data(); }
-        [[nodiscard]] StringView View() const noexcept { return StringView{ Data(), m_size }; }
+        [[nodiscard]] WideStringView View() const noexcept { return WideStringView{ Data(), m_size }; }
         [[nodiscard]] usize Size() const noexcept { return m_size; }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_size == 0; }
 
@@ -104,8 +104,8 @@ export namespace raptor::core
 
     // The appenders/format core are generic over the output sink: any type with
     // Append(widechar), Append(const widechar*) and Append(const widechar*, usize)
-    // works. FormatBuffer is one such sink; String is another (so formatting can
-    // write straight into a String, no scratch buffer).
+    // works. FormatBuffer is one such sink; WideString is another (so formatting can
+    // write straight into a WideString, no scratch buffer).
     namespace detail
     {
         // Widen a run of ASCII bytes (digits/hex from <charconv>) into the sink.
@@ -163,15 +163,15 @@ export namespace raptor::core
 
     // UTF-8 view: transcode to wide.
     template <typename Sink>
-    void AppendValue(Sink& out, UTF8StringView view)
+    void AppendValue(Sink& out, StringView view)
     {
-        const String wide = ToWide(view);
+        const WideString wide = ToWide(view);
         out.Append(wide.Data(), wide.Size());
     }
 
-    // Wide view (and String, via its implicit View conversion): append directly.
+    // Wide view (and WideString, via its implicit View conversion): append directly.
     template <typename Sink>
-    void AppendValue(Sink& out, StringView view)
+    void AppendValue(Sink& out, WideStringView view)
     {
         out.Append(view.Data(), view.Size());
     }
@@ -273,18 +273,18 @@ export namespace raptor::core
         FormatToV(out, fmt.data, args...);
     }
 
-    // Append formatted text straight into a String (no scratch buffer).
+    // Append formatted text straight into a WideString (no scratch buffer).
     template <typename... Args>
-    void AppendFormat(String& out, FormatString<Args...> fmt, const Args&... args)
+    void AppendFormat(WideString& out, FormatString<Args...> fmt, const Args&... args)
     {
         FormatToV(out, fmt.data, args...);
     }
 
-    // Build a new String from a format string and arguments.
+    // Build a new WideString from a format string and arguments.
     template <typename... Args>
-    [[nodiscard]] String Format(FormatString<Args...> fmt, const Args&... args)
+    [[nodiscard]] WideString Format(FormatString<Args...> fmt, const Args&... args)
     {
-        String out;
+        WideString out;
         FormatToV(out, fmt.data, args...);
         return out;
     }

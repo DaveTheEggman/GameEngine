@@ -122,7 +122,7 @@ public:
     NullCommandBuffer cb;
 
     RenderPassEncoder*  BeginRenderPass(const RenderPassDesc&) override { return &rpe; }
-    ComputePassEncoder* BeginComputePass(StringView) override { return &cpe; }
+    ComputePassEncoder* BeginComputePass(WideStringView) override { return &cpe; }
     void Barrier(const BarrierGroup&) override {}
     void CopyBufferToBuffer(Buffer*, u64, Buffer*, u64, u64) override {}
     void CopyBufferToTexture(Buffer*, Texture*, const BufferTextureCopyRegion&) override {}
@@ -134,9 +134,9 @@ public:
     void ResetQuerySet(QuerySet*, u32, u32) override {}
     void WriteTimestamp(QuerySet*, u32) override {}
     void ResolveQuerySet(QuerySet*, u32, u32, Buffer*, u64) override {}
-    void BeginDebugLabel(StringView, f32, f32, f32, f32) override {}
+    void BeginDebugLabel(WideStringView, f32, f32, f32, f32) override {}
     void EndDebugLabel() override {}
-    void InsertDebugLabel(StringView, f32, f32, f32, f32) override {}
+    void InsertDebugLabel(WideStringView, f32, f32, f32, f32) override {}
     CommandBuffer* Finish() override { return &cb; }
 
     // RayTracingEncoderExt

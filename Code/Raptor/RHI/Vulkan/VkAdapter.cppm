@@ -40,7 +40,7 @@ public:
     // ---- Adapter interface ----
 
     void GetInfo(AdapterInfo& out) override {
-        out.name = ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(m_properties.deviceName)));
+        out.name = ToWide(StringView(reinterpret_cast<const utf8char*>(m_properties.deviceName)));
         out.vendorId = m_properties.vendorID;
         out.deviceId = m_properties.deviceID;
 

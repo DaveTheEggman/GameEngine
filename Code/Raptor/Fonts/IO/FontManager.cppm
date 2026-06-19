@@ -36,7 +36,7 @@ export namespace raptor::fonts
         void SetShaperFactory(Function<ITextShaper*()> factory) { m_shaperFactory = Move(factory); }
 
         // Get or load a font at the given pixel height. Returns null on failure.
-        [[nodiscard]] CachedFont* GetFont(StringView path, f32 pixelHeight)
+        [[nodiscard]] CachedFont* GetFont(WideStringView path, f32 pixelHeight)
         {
             const FontCacheKey lookupKey(path, pixelHeight);
 
@@ -86,7 +86,7 @@ export namespace raptor::fonts
         }
 
         // Get a font at the default pixel height from the options.
-        [[nodiscard]] CachedFont* GetFont(StringView path) { return GetFont(path, m_defaultOptions.pixelHeight); }
+        [[nodiscard]] CachedFont* GetFont(WideStringView path) { return GetFont(path, m_defaultOptions.pixelHeight); }
 
         // Release a reference. The font stays cached for potential reuse.
         void ReleaseFont(CachedFont* font)
@@ -129,7 +129,7 @@ export namespace raptor::fonts
             return m_cache.Size();
         }
 
-        [[nodiscard]] bool IsCached(StringView path, f32 pixelHeight)
+        [[nodiscard]] bool IsCached(WideStringView path, f32 pixelHeight)
         {
             const FontCacheKey key(path, pixelHeight);
             ScopedLock<Mutex> lock(m_lock);

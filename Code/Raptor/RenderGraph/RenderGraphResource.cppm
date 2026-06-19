@@ -25,7 +25,7 @@ export namespace raptor::rendergraph
     class RenderGraphResource
     {
     public:
-        RenderGraphResource(StringView resourceName, RGResourceType type, RGResourceLifetime life)
+        RenderGraphResource(WideStringView resourceName, RGResourceType type, RGResourceLifetime life)
             : name(resourceName), resourceType(type), lifetime(life) {}
 
         // Allocate GPU resources for a transient texture.
@@ -106,7 +106,7 @@ export namespace raptor::rendergraph
         }
 
         // --- identity / lifetime ---
-        String name;
+        WideString name;
         RGResourceType resourceType;
         RGResourceLifetime lifetime;
         u32 generation = 1;

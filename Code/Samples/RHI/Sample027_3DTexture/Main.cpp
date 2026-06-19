@@ -22,7 +22,7 @@ namespace ds = raptor::shaders;
 class Texture3DSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample027 - 3D Texture & 1D LUT"; }
+    raptor::core::WideStringView Title() const override { return u"Sample027 - 3D Texture & 1D LUT"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

@@ -18,7 +18,7 @@ export namespace raptor::core
     class ConsoleSink final : public ILogSink
     {
     public:
-        void Write(LogLevel level, StringView category, StringView message) noexcept override
+        void Write(LogLevel level, WideStringView category, WideStringView message) noexcept override
         {
             FormatBuffer line;
             detail::FormatLine(line, level, category, message);

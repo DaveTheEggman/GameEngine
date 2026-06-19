@@ -19,7 +19,7 @@ namespace
         RAPTOR_OBJECT(MaterialResource, ISerializable)
     public:
         i32 shininess = 0;
-        String shader;
+        WideString shader;
 
         void Serialize(ISerializer& ar) override
         {

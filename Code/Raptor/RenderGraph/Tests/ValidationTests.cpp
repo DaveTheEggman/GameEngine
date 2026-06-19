@@ -13,7 +13,7 @@ namespace rhi = raptor::rhi;
 
 namespace
 {
-    bool Contains(StringView hay, StringView needle)
+    bool Contains(WideStringView hay, WideStringView needle)
     {
         if (needle.Size() > hay.Size()) { return false; }
         for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
@@ -106,7 +106,7 @@ TEST_CASE("rg.validation: ValidateToString formats output")
     const RGHandle tex = graph.CreateTransient(u"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
     graph.AddRenderPass(u"BadRead", [&](PassBuilder& b) { b.ReadTexture(tex); b.NeverCull(); });
 
-    String result;
+    WideString result;
     GraphValidator::ValidateToString(graph, result);
     CHECK(Contains(result.AsView(), u"issue"));
 }

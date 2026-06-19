@@ -11,9 +11,9 @@ using namespace raptor::runtime;
 namespace
 {
     // Build dirs hand us a narrow UTF-8 path; the IO/Library APIs take wide views.
-    [[nodiscard]] String WidePath(const char* p)
+    [[nodiscard]] WideString WidePath(const char* p)
     {
-        return ToWide(UTF8StringView{ reinterpret_cast<const utf8char*>(p) });
+        return ToWide(StringView{ reinterpret_cast<const utf8char*>(p) });
     }
 
     // Distinct subsystem types (distinct TypeOf<> keys). Each records its tag in a
@@ -170,7 +170,7 @@ namespace
     class StaticTestPlugin final : public IRuntimePlugin
     {
     public:
-        [[nodiscard]] StringView Name() const noexcept override { return u"StaticTestPlugin"; }
+        [[nodiscard]] WideStringView Name() const noexcept override { return u"StaticTestPlugin"; }
         void OnLoad(Context& ctx) override { ctx.RegisterSubsystem<Sys<7>>(&m_sys); }
         void OnUnload(Context& ctx) override { ctx.RemoveSubsystem<Sys<7>>(); }
 
@@ -206,11 +206,11 @@ TEST_CASE("runtime: PluginHost::Load loads a plugin from a shared library")
     {
         PluginHost host(ctx);
 
-        const String path = WidePath(RAPTOR_TEST_PLUGIN_PATH);
+        const WideString path = WidePath(RAPTOR_TEST_PLUGIN_PATH);
         auto loaded = host.Load(path.AsView());
         REQUIRE(loaded.HasValue());
         CHECK(host.Count() == 1u);
-        CHECK(loaded.Value()->Name() == StringView{ u"RaptorTestPlugin" });
+        CHECK(loaded.Value()->Name() == WideStringView{ u"RaptorTestPlugin" });
 
         ctx.Startup();
         ctx.Update(0.016f);

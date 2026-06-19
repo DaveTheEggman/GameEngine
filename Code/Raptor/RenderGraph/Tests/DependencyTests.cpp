@@ -13,7 +13,7 @@ namespace rhi = raptor::rhi;
 
 namespace
 {
-    StringView PassName(RenderGraph& g, i32 orderSlot)
+    WideStringView PassName(RenderGraph& g, i32 orderSlot)
     {
         return g.Passes()[static_cast<usize>(g.ExecutionOrder()[static_cast<usize>(orderSlot)])]->name.AsView();
     }

@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class DepthBufferSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample008 - Depth Buffer"; }
+    raptor::core::WideStringView Title() const override { return u"Sample008 - Depth Buffer"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

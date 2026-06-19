@@ -25,7 +25,7 @@ struct InstanceData {
 class InstancingSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample007 - Instanced Rendering"; }
+    raptor::core::WideStringView Title() const override { return u"Sample007 - Instanced Rendering"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

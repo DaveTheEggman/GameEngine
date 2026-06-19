@@ -59,7 +59,7 @@ TEST_CASE("guid: ToChars / TryParse round-trip")
 TEST_CASE("guid: TryParse rejects malformed input")
 {
     Guid out{ 9, 9 };
-    CHECK(!Guid::TryParse(StringView{}, out));
+    CHECK(!Guid::TryParse(WideStringView{}, out));
     CHECK(!Guid::TryParse(u"not-a-guid", out));
     CHECK(!Guid::TryParse(u"00000000-0000-0000-0000-00000000000", out));   // too short
     CHECK(!Guid::TryParse(u"00000000+0000-0000-0000-000000000000", out));  // wrong separator
@@ -85,8 +85,8 @@ TEST_CASE("guid: formats via {} to its canonical string")
     FormatTo(buffer, u"id={}", g);
 
     CHECK(buffer.Size() == 3 + 36);  // "id=" + 36-char guid
-    CHECK(buffer.View().SubStr(0, 3) == StringView(u"id="));
-    CHECK(buffer.View().SubStr(3, 36) == StringView(expected, 36));
+    CHECK(buffer.View().SubStr(0, 3) == WideStringView(u"id="));
+    CHECK(buffer.View().SubStr(3, 36) == WideStringView(expected, 36));
 }
 
 TEST_CASE("guid: usable as a hashed-container key")

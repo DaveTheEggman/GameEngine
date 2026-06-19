@@ -21,7 +21,7 @@ struct BufferDesc {
     u64          size   = 0;
     BufferUsage  usage  = BufferUsage::None;
     MemoryLocation memory = MemoryLocation::GpuOnly;
-    StringView   label;
+    WideStringView   label;
 };
 
 struct TextureDesc {
@@ -32,10 +32,10 @@ struct TextureDesc {
     u32 mipLevelCount   = 1;
     u32 sampleCount     = 1;
     TextureUsage usage  = TextureUsage::None;
-    StringView   label;
+    WideStringView   label;
 
     /// Convenience factory for a 2D render target.
-    static TextureDesc RenderTarget(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, StringView lbl = {}) {
+    static TextureDesc RenderTarget(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, WideStringView lbl = {}) {
         TextureDesc d{};
         d.format = fmt; d.width = w; d.height = h; d.sampleCount = samples;
         d.usage = TextureUsage::RenderTarget | TextureUsage::Sampled;
@@ -44,7 +44,7 @@ struct TextureDesc {
     }
 
     /// Convenience factory for a depth buffer.
-    static TextureDesc DepthBuffer(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, StringView lbl = {}) {
+    static TextureDesc DepthBuffer(TextureFormat fmt, u32 w, u32 h, u32 samples = 1, WideStringView lbl = {}) {
         TextureDesc d{};
         d.format = fmt; d.width = w; d.height = h; d.sampleCount = samples;
         d.usage = TextureUsage::DepthStencil;
@@ -61,7 +61,7 @@ struct TextureViewDesc {
     u32 baseArrayLayer  = 0;
     u32 arrayLayerCount = 1;
     TextureAspect aspect = TextureAspect::All;
-    StringView label;
+    WideStringView label;
 };
 
 struct SamplerDesc {
@@ -77,18 +77,18 @@ struct SamplerDesc {
     u16 maxAnisotropy = 1;
     Optional<CompareFunction> compare;
     SamplerBorderColor borderColor = SamplerBorderColor::TransparentBlack;
-    StringView label;
+    WideStringView label;
 };
 
 struct ShaderModuleDesc {
     Span<const u8> code;   ///< SPIR-V or DXIL bytecode.
-    StringView     label;
+    WideStringView     label;
 };
 
 struct QuerySetDesc {
     QueryType  type  = QueryType::Timestamp;
     u32        count = 0;
-    StringView label;
+    WideStringView label;
 };
 
 struct SwapChainDesc {
@@ -97,7 +97,7 @@ struct SwapChainDesc {
     TextureFormat format      = TextureFormat::BGRA8UnormSrgb;
     PresentMode   presentMode = PresentMode::Fifo;
     u32           bufferCount = 2;
-    StringView    label;
+    WideStringView    label;
 };
 
 // ---- Binding ----
@@ -113,7 +113,7 @@ struct BindGroupLayoutEntry {
     bool         hasDynamicOffset     = false;
     u32          storageBufferStride  = 0;
     u32          count               = 1;
-    StringView   label;
+    WideStringView   label;
 
     /// Factory: uniform buffer binding.
     static BindGroupLayoutEntry UniformBuffer(u32 binding, ShaderStage vis) {
@@ -144,7 +144,7 @@ struct BindGroupLayoutEntry {
 
 struct BindGroupLayoutDesc {
     Span<const BindGroupLayoutEntry> entries;
-    StringView label;
+    WideStringView label;
 };
 
 /// Describes one resource binding within a bind group.
@@ -173,7 +173,7 @@ struct BindGroupEntry {
 struct BindGroupDesc {
     BindGroupLayout*         layout = nullptr;
     Span<const BindGroupEntry> entries;
-    StringView               label;
+    WideStringView               label;
 };
 
 /// For updating individual entries in a bindless bind group.
@@ -192,12 +192,12 @@ struct BindlessUpdateEntry {
 struct PipelineLayoutDesc {
     Span<BindGroupLayout* const> bindGroupLayouts;
     Span<const PushConstantRange> pushConstantRanges;
-    StringView label;
+    WideStringView label;
 };
 
 struct PipelineCacheDesc {
     Span<const u8> initialData;
-    StringView     label;
+    WideStringView     label;
 };
 
 struct VertexAttribute {
@@ -273,7 +273,7 @@ struct MultisampleState {
 /// Programmable shader stage (vertex, fragment, compute, mesh, task, etc.).
 struct ProgrammableStage {
     ShaderModule* module     = nullptr;
-    StringView    entryPoint = u"main";
+    WideStringView    entryPoint = u"main";
     ShaderStage   stage      = ShaderStage::None;
 };
 
@@ -296,7 +296,7 @@ struct RenderPipelineDesc {
     Optional<DepthStencilState> depthStencil;
     MultisampleState               multisample;
     PipelineCache*                 cache = nullptr;
-    StringView                     label;
+    WideStringView                     label;
 };
 
 /// Descriptor for creating a compute pipeline.
@@ -304,7 +304,7 @@ struct ComputePipelineDesc {
     PipelineLayout*   layout = nullptr;
     ProgrammableStage compute;
     PipelineCache*    cache = nullptr;
-    StringView        label;
+    WideStringView        label;
 };
 
 // ---- Render pass ----
@@ -341,7 +341,7 @@ struct RenderPassDesc {
     QuerySet* timestampQuerySet    = nullptr;
     u32       beginTimestampIndex  = 0;
     u32       endTimestampIndex    = 0;
-    StringView label;
+    WideStringView label;
 };
 
 // ---- Barriers ----

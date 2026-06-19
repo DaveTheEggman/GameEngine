@@ -19,8 +19,8 @@ enum class ShaderTarget : u32 {
 };
 
 struct ShaderDefine {
-    StringView name;
-    StringView value;
+    WideStringView name;
+    WideStringView value;
 };
 
 struct BindingShifts {
@@ -31,12 +31,12 @@ struct BindingShifts {
 };
 
 struct CompileOptions {
-    StringView shaderModel      = u"6_0";
+    WideStringView shaderModel      = u"6_0";
     i32        optimizationLevel = 3;
     bool       enableDebugInfo   = false;
     bool       rowMajorMatrices  = false;
     Span<const ShaderDefine>  defines;
-    Span<const StringView>    includePaths;
+    Span<const WideStringView>    includePaths;
     BindingShifts bindingShifts;
     u32           bindingShiftSets = 1;
 };

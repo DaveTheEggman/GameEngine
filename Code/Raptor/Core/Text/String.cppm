@@ -1,7 +1,7 @@
 // Raptor Core — :string partition
 //
-// String types. `String` is the primary wide string (UTF-16 / char16_t);
-// `UTF8String` is the secondary UTF-8 type. Both are aliases of one
+// String types. `String` is the primary type (UTF-8 / char8_t);
+// `WideString` is the secondary UTF-16 type (Win32 edge). Both are aliases of one
 // allocator-backed BasicString<CharT>, each with a matching view.
 //
 // NOTE: cross-encoding transcoding (UTF-16 <-> UTF-8) and small-string
@@ -163,7 +163,7 @@ export namespace raptor::core
             // +1 for the null terminator.
             CharT* newData = static_cast<CharT*>(
                 m_allocator->Allocate((newCapacity + 1) * sizeof(CharT), alignof(CharT)));
-            RAPTOR_ASSERT_MSG(newData != nullptr, "String allocation failed");
+            RAPTOR_ASSERT_MSG(newData != nullptr, "WideString allocation failed");
 
             MemCopy(newData, Data(), (m_size + 1) * sizeof(CharT)); // copy incl. terminator
             FreeHeap();
@@ -202,7 +202,7 @@ export namespace raptor::core
             data[m_size] = CharT(0);
         }
 
-        // Single-character append (alias for PushBack) — lets String serve as a
+        // Single-character append (alias for PushBack) — lets WideString serve as a
         // format sink alongside its Append(view)/Append(ptr,len) overloads.
         void Append(CharT ch) { PushBack(ch); }
 
@@ -335,30 +335,30 @@ export namespace raptor::core
     }
 
     // =======================================================================
-    // Aliases — String is wide (UTF-16); UTF8String is the UTF-8 secondary.
+    // Aliases — String is UTF-8 (primary); WideString is UTF-16 (Win32 edge).
     // =======================================================================
-    using StringView = BasicStringView<widechar>;
-    using String = BasicString<widechar>;
+    using StringView = BasicStringView<utf8char>;
+    using String = BasicString<utf8char>;
 
-    using UTF8StringView = BasicStringView<utf8char>;
-    using UTF8String = BasicString<utf8char>;
+    using WideStringView = BasicStringView<widechar>;
+    using WideString = BasicString<widechar>;
 
     // =======================================================================
-    // StringBuilder — incrementally builds a wide String, including numbers
+    // WideStringBuilder — incrementally builds a wide WideString, including numbers
     // (formatted as ASCII via <charconv> and widened).
     // =======================================================================
-    class StringBuilder
+    class WideStringBuilder
     {
     public:
-        StringBuilder() = default;
-        explicit StringBuilder(IAllocator& allocator) : m_string(allocator) {}
+        WideStringBuilder() = default;
+        explicit WideStringBuilder(IAllocator& allocator) : m_string(allocator) {}
 
-        StringBuilder& Append(StringView view) { m_string.Append(view); return *this; }
-        StringBuilder& Append(const widechar* str) { m_string.Append(StringView{ str }); return *this; }
-        StringBuilder& Append(widechar ch) { m_string.PushBack(ch); return *this; }
+        WideStringBuilder& Append(WideStringView view) { m_string.Append(view); return *this; }
+        WideStringBuilder& Append(const widechar* str) { m_string.Append(WideStringView{ str }); return *this; }
+        WideStringBuilder& Append(widechar ch) { m_string.PushBack(ch); return *this; }
 
         // Appends an ASCII C-string, widening each byte.
-        StringBuilder& AppendAscii(const char* str)
+        WideStringBuilder& AppendAscii(const char* str)
         {
             for (usize i = 0; str[i] != '\0'; ++i)
             {
@@ -367,22 +367,22 @@ export namespace raptor::core
             return *this;
         }
 
-        StringBuilder& AppendInt(i64 value) { return AppendChars(value); }
-        StringBuilder& AppendUInt(u64 value) { return AppendChars(value); }
-        StringBuilder& AppendFloat(f64 value) { return AppendChars(value); }
-        StringBuilder& AppendBool(bool value) { return AppendAscii(value ? "true" : "false"); }
+        WideStringBuilder& AppendInt(i64 value) { return AppendChars(value); }
+        WideStringBuilder& AppendUInt(u64 value) { return AppendChars(value); }
+        WideStringBuilder& AppendFloat(f64 value) { return AppendChars(value); }
+        WideStringBuilder& AppendBool(bool value) { return AppendAscii(value ? "true" : "false"); }
 
         void Clear() noexcept { m_string.Clear(); }
         [[nodiscard]] usize Size() const noexcept { return m_string.Size(); }
-        [[nodiscard]] StringView View() const noexcept { return m_string.AsView(); }
+        [[nodiscard]] WideStringView View() const noexcept { return m_string.AsView(); }
 
         // Copy out, or move the built string out (leaving the builder empty).
-        [[nodiscard]] const String& Str() const noexcept { return m_string; }
-        [[nodiscard]] String Take() noexcept { return Move(m_string); }
+        [[nodiscard]] const WideString& Str() const noexcept { return m_string; }
+        [[nodiscard]] WideString Take() noexcept { return Move(m_string); }
 
     private:
         template <typename T>
-        StringBuilder& AppendChars(T value)
+        WideStringBuilder& AppendChars(T value)
         {
             char temp[48];
             const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
@@ -393,15 +393,15 @@ export namespace raptor::core
             return *this;
         }
 
-        String m_string;
+        WideString m_string;
     };
 
     // =======================================================================
     // UTF-8 <-> UTF-16 transcoding. Invalid sequences become U+FFFD.
     // =======================================================================
-    [[nodiscard]] inline String ToWide(UTF8StringView utf8, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline WideString ToWide(StringView utf8, IAllocator& allocator = DefaultAllocator())
     {
-        String result(allocator);
+        WideString result(allocator);
         const usize size = utf8.Size();
         usize i = 0;
         while (i < size)
@@ -439,9 +439,9 @@ export namespace raptor::core
         return result;
     }
 
-    [[nodiscard]] inline UTF8String ToUTF8(StringView wide, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline String ToUTF8(WideStringView wide, IAllocator& allocator = DefaultAllocator())
     {
-        UTF8String result(allocator);
+        String result(allocator);
         const usize size = wide.Size();
         usize i = 0;
         while (i < size)

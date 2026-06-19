@@ -27,7 +27,7 @@ struct DrawIndexedIndirectArgs {
 class MultiDrawIndirectSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample025 - Multi-Draw Indirect & Lines"; }
+    raptor::core::WideStringView Title() const override { return u"Sample025 - Multi-Draw Indirect & Lines"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};

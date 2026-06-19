@@ -40,7 +40,7 @@ public:
     int Run(int argc = 0, char** argv = nullptr);
 
 protected:
-    virtual StringView          Title() const { return u"Raptor Sample"; }
+    virtual WideStringView          Title() const { return u"Raptor Sample"; }
     virtual rhi::DeviceFeatures RequiredFeatures() const { return {}; }
     virtual rhi::TextureFormat  SwapChainFormat() const { return rhi::TextureFormat::RGBA8UnormSrgb; }
     virtual rhi::PresentMode    PresentMode() const { return rhi::PresentMode::Fifo; }
@@ -126,7 +126,7 @@ inline Status SampleApp::Init() {
     {
         rhi::AdapterInfo ai = adapter->Info();
         const char* backendName = (m_backendType == BackendType::DX12) ? "DX12" : "Vulkan";
-        const UTF8String name8 = ToUTF8(ai.name);
+        const String name8 = ToUTF8(ai.name);
         std::printf("SampleApp: backend=%s adapter=%s\n",
                     backendName, reinterpret_cast<const char*>(name8.CStr()));
     }

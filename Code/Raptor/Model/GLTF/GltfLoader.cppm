@@ -29,12 +29,12 @@ export namespace raptor::model::gltf {
 using namespace raptor::core;
 using namespace raptor::model;
 
-// cgltf deals in narrow UTF-8 char*; the engine uses wide String/StringView.
+// cgltf deals in narrow UTF-8 char*; the engine uses wide WideString/WideStringView.
 // Convert only at these boundaries. NarrowPath (from Core/System) provides
 // the reverse direction without exposing std::string in the API.
-inline String WideFromC(const char* s) {
-    if (!s) return String{};
-    return ToWide(UTF8StringView(reinterpret_cast<const utf8char*>(s)));
+inline WideString WideFromC(const char* s) {
+    if (!s) return WideString{};
+    return ToWide(StringView(reinterpret_cast<const utf8char*>(s)));
 }
 
 /// Loads GLTF and GLB model files using cgltf.
@@ -49,7 +49,7 @@ public:
         }
     }
 
-    bool supportsExtension(StringView ext) const override {
+    bool supportsExtension(WideStringView ext) const override {
         return caseInsensitiveEquals(ext, u".gltf") || caseInsensitiveEquals(ext, u".glb");
     }
 
@@ -58,7 +58,7 @@ public:
     GltfLoader& operator=(const GltfLoader&) = delete;
 
     /// Load a GLTF or GLB file.
-    ModelLoadResult load(StringView path, Model& model) override {
+    ModelLoadResult load(WideStringView path, Model& model) override {
         // Free previous data.
         if (m_data) {
             cgltf_free(m_data);
@@ -66,7 +66,7 @@ public:
         }
 
         // Extract base path for loading external resources.
-        const UTF8String narrowStorage = ToUTF8(path);
+        const String narrowStorage = ToUTF8(path);
         const char* narrowPath = reinterpret_cast<const char*>(narrowStorage.CStr());
         std::filesystem::path filePath(narrowPath);
         m_basePath = filePath.parent_path().string();
@@ -135,7 +135,7 @@ private:
     // Helpers
     // -----------------------------------------------------------------------
 
-    static bool caseInsensitiveEquals(StringView a, StringView b) {
+    static bool caseInsensitiveEquals(WideStringView a, WideStringView b) {
         if (a.Size() != b.Size()) return false;
         for (size_t i = 0; i < a.Size(); ++i) {
             if (std::tolower(static_cast<unsigned char>(a[i])) !=
@@ -145,7 +145,7 @@ private:
         return true;
     }
 
-    static bool endsWithCI(StringView str, StringView suffix) {
+    static bool endsWithCI(WideStringView str, WideStringView suffix) {
         if (str.Size() < suffix.Size()) return false;
         return caseInsensitiveEquals(str.SubStr(str.Size() - suffix.Size(), suffix.Size()), suffix);
     }

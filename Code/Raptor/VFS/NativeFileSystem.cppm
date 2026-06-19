@@ -24,13 +24,13 @@ export namespace raptor::vfs
         , public IWritableFileSystem
     {
     public:
-        explicit NativeFileSystem(StringView root, IAllocator& allocator = DefaultAllocator())
+        explicit NativeFileSystem(WideStringView root, IAllocator& allocator = DefaultAllocator())
             : m_root(root, allocator), m_allocator(&allocator) {}
 
         // --- IFileSystem ---
-        [[nodiscard]] UniquePtr<IStream> Open(StringView path, FileMode mode) override
+        [[nodiscard]] UniquePtr<IStream> Open(WideStringView path, FileMode mode) override
         {
-            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            const WideString full = PathJoin(m_root.AsView(), path, *m_allocator);
             FileStream* stream = m_allocator->New<FileStream>(full.AsView(), mode);
             if (stream == nullptr)
             {
@@ -44,9 +44,9 @@ export namespace raptor::vfs
             return UniquePtr<IStream>{ stream, *m_allocator };
         }
 
-        [[nodiscard]] bool Exists(StringView path) override
+        [[nodiscard]] bool Exists(WideStringView path) override
         {
-            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            const WideString full = PathJoin(m_root.AsView(), path, *m_allocator);
             return FileExists(full.AsView()) || DirectoryExists(full.AsView());
         }
 
@@ -54,24 +54,24 @@ export namespace raptor::vfs
         [[nodiscard]] IWritableFileSystem*   AsWritable()   noexcept override { return this; }
 
         // --- IEnumerableFileSystem ---
-        [[nodiscard]] Status Enumerate(StringView folder, Array<DirEntry>& out) override
+        [[nodiscard]] Status Enumerate(WideStringView folder, Array<DirEntry>& out) override
         {
-            const String full = PathJoin(m_root.AsView(), folder, *m_allocator);
+            const WideString full = PathJoin(m_root.AsView(), folder, *m_allocator);
             const bool ok = ListDirectory(
                 full.AsView(),
-                [](void* ctx, StringView name, bool isDir)
+                [](void* ctx, WideStringView name, bool isDir)
                 {
                     auto* dst = static_cast<Array<DirEntry>*>(ctx);
-                    dst->PushBack(DirEntry{ String(name), isDir });
+                    dst->PushBack(DirEntry{ WideString(name), isDir });
                 },
                 &out);
             return ok ? Status{} : Status{ ErrorCode::NotFound };
         }
 
         // --- IWritableFileSystem ---
-        [[nodiscard]] Status Save(StringView path, Span<const byte> data) override
+        [[nodiscard]] Status Save(WideStringView path, Span<const byte> data) override
         {
-            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            const WideString full = PathJoin(m_root.AsView(), path, *m_allocator);
             EnsureParentDirectories(full.AsView());
 
             FileStream stream(full.AsView(), FileMode::Write);
@@ -83,16 +83,16 @@ export namespace raptor::vfs
             return Status{};
         }
 
-        [[nodiscard]] Status Delete(StringView path) override
+        [[nodiscard]] Status Delete(WideStringView path) override
         {
-            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            const WideString full = PathJoin(m_root.AsView(), path, *m_allocator);
             return FileDelete(full.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
         }
 
     private:
         // Creates every ancestor directory of `full` (idempotent). The final
         // component is the file itself and is left to the caller.
-        static void EnsureParentDirectories(StringView full)
+        static void EnsureParentDirectories(WideStringView full)
         {
             for (usize i = 1; i < full.Size(); ++i)
             {
@@ -103,7 +103,7 @@ export namespace raptor::vfs
             }
         }
 
-        String m_root;
+        WideString m_root;
         IAllocator* m_allocator;
     };
 }

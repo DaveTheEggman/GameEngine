@@ -10,7 +10,7 @@ using namespace raptor::vfs;
 
 TEST_CASE("vfs: NativeFileSystem read + scheme-routed VirtualFileSystem")
 {
-    const StringView file = u"raptor_vfs_test.tmp";
+    const WideStringView file = u"raptor_vfs_test.tmp";
     const byte data[] = { byte{ 7 }, byte{ 8 }, byte{ 9 } };
     REQUIRE(WriteFile(file, Span<const byte>{ data, ArrayCount(data) }).IsOk());
 

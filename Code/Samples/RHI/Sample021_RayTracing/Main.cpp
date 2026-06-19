@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class RayTracingSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample021 - Ray Tracing (TraceRays)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample021 - Ray Tracing (TraceRays)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};

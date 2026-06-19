@@ -15,7 +15,7 @@ using namespace raptor::script;
 namespace
 {
     // A driver class that accumulates the per-frame dt and reports the total.
-    constexpr StringView kDriverSource =
+    constexpr WideStringView kDriverSource =
         u"class Game {\n"
         u"  construct new() { _total = 0 }\n"
         u"  update(dt) { _total = _total + dt }\n"

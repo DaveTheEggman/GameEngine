@@ -40,7 +40,7 @@ export namespace raptor::runtime
 
         // Loads a plugin from a shared library: resolves the factory, creates the
         // plugin, and calls OnLoad. The library is closed when the host unloads.
-        rc::Result<IRuntimePlugin*> Load(rc::StringView path)
+        rc::Result<IRuntimePlugin*> Load(rc::WideStringView path)
         {
             rc::DynamicLibrary library;
             if (rc::Status status = library.Load(path); !status)

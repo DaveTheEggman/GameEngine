@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class ResolveTextureSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample029 - ResolveTexture (Explicit 4x MSAA)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample029 - ResolveTexture (Explicit 4x MSAA)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

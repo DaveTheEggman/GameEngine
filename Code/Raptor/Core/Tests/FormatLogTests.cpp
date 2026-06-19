@@ -15,7 +15,7 @@ namespace
     {
         FormatBuffer buffer;
         FormatToV(buffer, fmt, args...);
-        return buffer.View() == StringView(expected);
+        return buffer.View() == WideStringView(expected);
     }
 }
 
@@ -49,15 +49,15 @@ namespace
     {
         int count = 0;
         LogLevel lastLevel = LogLevel::Off;
-        String lastCategory;
-        String lastMessage;
+        WideString lastCategory;
+        WideString lastMessage;
 
-        void Write(LogLevel level, StringView category, StringView message) noexcept override
+        void Write(LogLevel level, WideStringView category, WideStringView message) noexcept override
         {
             ++count;
             lastLevel = level;
-            lastCategory = String(category);
-            lastMessage = String(message);
+            lastCategory = WideString(category);
+            lastMessage = WideString(message);
         }
     };
 }
@@ -102,7 +102,7 @@ namespace
     struct CountingSink : ILogSink
     {
         Atomic<int> count{ 0 };
-        void Write(LogLevel, StringView, StringView) noexcept override
+        void Write(LogLevel, WideStringView, WideStringView) noexcept override
         {
             count.fetch_add(1);
         }
@@ -140,13 +140,13 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
 
 TEST_CASE("format: wide and utf8 string arguments")
 {
-    // Wide String / StringView append directly.
-    String wide = u"café";
+    // Wide WideString / WideStringView append directly.
+    WideString wide = u"café";
     CHECK(FormatEquals(u"name=café", u"name={}", wide));
-    CHECK(FormatEquals(u"v=héllo", u"v={}", StringView(u"héllo")));
+    CHECK(FormatEquals(u"v=héllo", u"v={}", WideStringView(u"héllo")));
 
     // UTF-8 view transcodes to wide.
-    CHECK(FormatEquals(u"u=café", u"u={}", UTF8StringView(u8"café")));
+    CHECK(FormatEquals(u"u=café", u"u={}", StringView(u8"café")));
 }
 
 // --- Log: in-memory ring sink ----------------------------------------------
@@ -162,15 +162,15 @@ TEST_CASE("log: RingLogSink keeps the most recent records")
         msg[0] = u'm';
         msg[1] = static_cast<widechar>(u'0' + i);
         msg[2] = u'\0';
-        ring.Write(LogLevel::Info, u"Cat", StringView(msg, 2));
+        ring.Write(LogLevel::Info, u"Cat", WideStringView(msg, 2));
     }
 
     // Capacity 3 -> keeps the last three (m2, m3, m4).
     CHECK(ring.Count() == 3u);
-    CHECK(StringView(ring.Record(0).message) == StringView(u"m2"));
-    CHECK(StringView(ring.Record(2).message) == StringView(u"m4"));
+    CHECK(WideStringView(ring.Record(0).message) == WideStringView(u"m2"));
+    CHECK(WideStringView(ring.Record(2).message) == WideStringView(u"m4"));
     CHECK(ring.Record(0).level == LogLevel::Info);
-    CHECK(StringView(ring.Record(0).category) == StringView(u"Cat"));
+    CHECK(WideStringView(ring.Record(0).category) == WideStringView(u"Cat"));
 }
 
 TEST_CASE("format: checked FormatTo validates arg count at compile time")
@@ -178,7 +178,7 @@ TEST_CASE("format: checked FormatTo validates arg count at compile time")
     // Correct placeholder/arg count compiles and formats as usual.
     FormatBuffer buffer;
     FormatTo(buffer, u"a={} b={}", 1, 2);
-    CHECK(buffer.View() == StringView(u"a=1 b=2"));
+    CHECK(buffer.View() == WideStringView(u"a=1 b=2"));
 
     // A mismatched count, e.g. FormatTo(buffer, u"x={}", 1, 2), would fail to
     // compile via FormatString's consteval constructor.

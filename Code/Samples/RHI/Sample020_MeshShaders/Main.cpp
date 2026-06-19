@@ -24,7 +24,7 @@ struct PushData {
 class MeshShaderSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample020 - Mesh Shaders (Rotating Triangle)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample020 - Mesh Shaders (Rotating Triangle)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};

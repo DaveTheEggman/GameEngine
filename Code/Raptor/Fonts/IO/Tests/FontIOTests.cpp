@@ -20,16 +20,16 @@ namespace
     class FakeParser final : public IFontParser
     {
     public:
-        Span<const StringView> SupportedExtensions() const override
+        Span<const WideStringView> SupportedExtensions() const override
         {
-            static const StringView exts[] = { StringView(u".fake") };
-            return Span<const StringView>(exts, 1);
+            static const WideStringView exts[] = { WideStringView(u".fake") };
+            return Span<const WideStringView>(exts, 1);
         }
-        bool SupportsExtension(StringView ext) const override { return ext == StringView(u".fake"); }
+        bool SupportsExtension(WideStringView ext) const override { return ext == WideStringView(u".fake"); }
 
         Result<IFont*, FontLoadResult> ParseFromStream(IStream&, FontLoadOptions) override { return Make(); }
         Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8>, FontLoadOptions) override { return Make(); }
-        Result<IFont*, FontLoadResult> ParseFromFile(StringView, FontLoadOptions) override { return Make(); }
+        Result<IFont*, FontLoadResult> ParseFromFile(WideStringView, FontLoadOptions) override { return Make(); }
 
     private:
         static Result<IFont*, FontLoadResult> Make()
@@ -46,12 +46,12 @@ namespace
     class FakeBaker final : public IFontAtlasBaker
     {
     public:
-        Span<const StringView> SupportedExtensions() const override
+        Span<const WideStringView> SupportedExtensions() const override
         {
-            static const StringView exts[] = { StringView(u".fake") };
-            return Span<const StringView>(exts, 1);
+            static const WideStringView exts[] = { WideStringView(u".fake") };
+            return Span<const WideStringView>(exts, 1);
         }
-        bool SupportsExtension(StringView ext) const override { return ext == StringView(u".fake"); }
+        bool SupportsExtension(WideStringView ext) const override { return ext == WideStringView(u".fake"); }
         bool CanBake(const IFont&) const override { return true; }
 
         Result<IFontAtlas*, FontLoadResult> Bake(IFont&, FontLoadOptions) override

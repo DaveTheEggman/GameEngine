@@ -14,9 +14,9 @@ export namespace raptor::samples::framework {
 
 /// Compile HLSL source to a ShaderModule with a specific shader model.
 inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
-                              UTF8StringView hlslSource, shaders::ShaderStage stage,
-                              StringView entryPoint, StringView label,
-                              StringView shaderModel,
+                              StringView hlslSource, shaders::ShaderStage stage,
+                              WideStringView entryPoint, WideStringView label,
+                              WideStringView shaderModel,
                               rhi::ShaderModule*& out) {
     out = nullptr;
 
@@ -43,7 +43,7 @@ inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
 
     if (r != ErrorCode::Ok) {
         if (cr.messages) {
-            const UTF8String lbl = ToUTF8(label);
+            const String lbl = ToUTF8(label);
             rhi::LogErrorf("Shader compile failed (%s): %s",
                 reinterpret_cast<const char*>(lbl.CStr()), cr.messages);
         }
@@ -62,8 +62,8 @@ inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
 
 /// Compile HLSL source to a ShaderModule. Default shader model 6.0.
 inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
-                              UTF8StringView hlslSource, shaders::ShaderStage stage,
-                              StringView entryPoint, StringView label,
+                              StringView hlslSource, shaders::ShaderStage stage,
+                              WideStringView entryPoint, WideStringView label,
                               rhi::ShaderModule*& out) {
     return CompileToModule(compiler, device, hlslSource, stage, entryPoint, label, u"6_0", out);
 }

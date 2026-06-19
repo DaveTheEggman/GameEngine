@@ -211,11 +211,11 @@ export namespace raptor::fonts
     // Key for font cache lookups (family/path + pixel height).
     struct FontCacheKey
     {
-        String path;
+        WideString path;
         f32 pixelHeight = 0;
 
         FontCacheKey() = default;
-        FontCacheKey(StringView p, f32 ph) : path(p), pixelHeight(ph) {}
+        FontCacheKey(WideStringView p, f32 ph) : path(p), pixelHeight(ph) {}
 
         [[nodiscard]] bool Equals(const FontCacheKey& other) const
         {
@@ -237,7 +237,7 @@ export namespace raptor::core
     {
         [[nodiscard]] u64 operator()(const raptor::fonts::FontCacheKey& key) const noexcept
         {
-            const u64 pathHash = Hash<String>{}(key.path);
+            const u64 pathHash = Hash<WideString>{}(key.path);
             const u64 heightBucket = static_cast<u64>(static_cast<i64>(key.pixelHeight * 100.0f));
             return pathHash * 31u + heightBucket;
         }

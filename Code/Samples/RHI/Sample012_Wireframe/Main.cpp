@@ -19,7 +19,7 @@ using raptor::core::Mat4;
 class WireframeSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample012 - Wireframe"; }
+    raptor::core::WideStringView Title() const override { return u"Sample012 - Wireframe"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;

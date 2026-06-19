@@ -20,7 +20,7 @@ using raptor::core::Mat4;
 class UniformBufferSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample003 - Rotating Cube (Uniform Buffers)"; }
+    raptor::core::WideStringView Title() const override { return u"Sample003 - Rotating Cube (Uniform Buffers)"; }
 
 protected:
     raptor::core::Status OnInit() override;

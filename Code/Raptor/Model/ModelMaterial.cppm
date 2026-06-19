@@ -27,8 +27,8 @@ public:
     ModelMaterial() = default;
     ~ModelMaterial() = default;
 
-    [[nodiscard]] StringView name() const { return StringView(m_name.Data(), m_name.Size()); }
-    void setName(StringView n) { m_name = String(n); }
+    [[nodiscard]] WideStringView name() const { return WideStringView(m_name.Data(), m_name.Size()); }
+    void setName(WideStringView n) { m_name = WideString(n); }
 
     // -- Base color --
     Vec4 baseColorFactor{ 1, 1, 1, 1 };
@@ -59,7 +59,7 @@ public:
     bool doubleSided = false;
 
 private:
-    String m_name;
+    WideString m_name;
 };
 
 } // namespace raptor::model

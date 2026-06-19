@@ -40,7 +40,7 @@ export namespace raptor::vfs
     class PakFileSystem final : public IFileSystem, public IEnumerableFileSystem
     {
     public:
-        explicit PakFileSystem(StringView pakPath, IAllocator& allocator = DefaultAllocator())
+        explicit PakFileSystem(WideStringView pakPath, IAllocator& allocator = DefaultAllocator())
             : m_path(pakPath, allocator), m_allocator(&allocator) { Load(); }
 
         // True if the archive opened and parsed.
@@ -48,7 +48,7 @@ export namespace raptor::vfs
         [[nodiscard]] usize EntryCount() const noexcept { return m_entries.Size(); }
 
         // --- IFileSystem ---
-        [[nodiscard]] UniquePtr<IStream> Open(StringView locator, FileMode mode) override
+        [[nodiscard]] UniquePtr<IStream> Open(WideStringView locator, FileMode mode) override
         {
             if (!m_valid || mode != FileMode::Read) { return UniquePtr<IStream>{}; }
 
@@ -74,7 +74,7 @@ export namespace raptor::vfs
             return UniquePtr<IStream>{ stream, *m_allocator };
         }
 
-        [[nodiscard]] bool Exists(StringView locator) override
+        [[nodiscard]] bool Exists(WideStringView locator) override
         {
             return m_valid && Find(locator) != nullptr;
         }
@@ -82,13 +82,13 @@ export namespace raptor::vfs
         [[nodiscard]] IEnumerableFileSystem* AsEnumerable() noexcept override { return this; }
 
         // --- IEnumerableFileSystem ---
-        [[nodiscard]] Status Enumerate(StringView folder, Array<DirEntry>& out) override
+        [[nodiscard]] Status Enumerate(WideStringView folder, Array<DirEntry>& out) override
         {
             if (!m_valid) { return Status{ ErrorCode::NotFound }; }
 
             for (const Entry& entry : m_entries)
             {
-                StringView rel;
+                WideStringView rel;
                 if (!RelativeUnder(entry.locator.AsView(), folder, rel)) { continue; }
 
                 // First path segment of `rel`: a '/' means it's a subdirectory.
@@ -97,12 +97,12 @@ export namespace raptor::vfs
 
                 if (slash == rel.Size())
                 {
-                    out.PushBack(DirEntry{ String(rel), false });   // a file
+                    out.PushBack(DirEntry{ WideString(rel), false });   // a file
                 }
                 else
                 {
-                    const StringView dir = rel.SubStr(0, slash);
-                    if (!ContainsDir(out, dir)) { out.PushBack(DirEntry{ String(dir), true }); }
+                    const WideStringView dir = rel.SubStr(0, slash);
+                    if (!ContainsDir(out, dir)) { out.PushBack(DirEntry{ WideString(dir), true }); }
                 }
             }
             return Status{};
@@ -111,7 +111,7 @@ export namespace raptor::vfs
     private:
         struct Entry
         {
-            String locator;
+            WideString locator;
             u64 offset = 0;
             u64 storedSize = 0;
             u64 originalSize = 0;
@@ -145,7 +145,7 @@ export namespace raptor::vfs
                 if (locatorLength > 0 && !reader.ReadBytes(locatorBytes.Data(), locatorLength)) { return; }
 
                 Entry entry;
-                entry.locator = ToWide(UTF8StringView(
+                entry.locator = ToWide(StringView(
                     reinterpret_cast<const utf8char*>(locatorBytes.Data()), locatorLength));
                 reader.Read(entry.offset);
                 reader.Read(entry.storedSize);
@@ -157,7 +157,7 @@ export namespace raptor::vfs
             m_valid = true;
         }
 
-        [[nodiscard]] const Entry* Find(StringView locator) const
+        [[nodiscard]] const Entry* Find(WideStringView locator) const
         {
             for (const Entry& entry : m_entries)
             {
@@ -167,7 +167,7 @@ export namespace raptor::vfs
         }
 
         // Is `locator` under `folder`? If so, `outRel` is the remainder.
-        [[nodiscard]] static bool RelativeUnder(StringView locator, StringView folder, StringView& outRel)
+        [[nodiscard]] static bool RelativeUnder(WideStringView locator, WideStringView folder, WideStringView& outRel)
         {
             if (folder.IsEmpty()) { outRel = locator; return true; }
             if (locator.Size() <= folder.Size() + 1) { return false; }
@@ -177,7 +177,7 @@ export namespace raptor::vfs
             return true;
         }
 
-        [[nodiscard]] static bool ContainsDir(const Array<DirEntry>& out, StringView name)
+        [[nodiscard]] static bool ContainsDir(const Array<DirEntry>& out, WideStringView name)
         {
             for (const DirEntry& entry : out)
             {
@@ -186,7 +186,7 @@ export namespace raptor::vfs
             return false;
         }
 
-        String m_path;
+        WideString m_path;
         IAllocator* m_allocator;
         Array<Entry> m_entries;
         bool m_valid = false;
@@ -199,16 +199,16 @@ export namespace raptor::vfs
     {
     public:
         // Copies `data` immediately; the caller may free its buffer afterwards.
-        void Add(StringView locator, Span<const byte> data)
+        void Add(WideStringView locator, Span<const byte> data)
         {
             PendingEntry entry;
-            entry.locator = String(locator);
+            entry.locator = WideString(locator);
             entry.data.Resize(data.Size());
             if (data.Size() > 0) { MemCopy(entry.data.Data(), data.Data(), data.Size()); }
             m_entries.PushBack(static_cast<PendingEntry&&>(entry));
         }
 
-        [[nodiscard]] Status Write(StringView path) const
+        [[nodiscard]] Status Write(WideStringView path) const
         {
             MemoryStream out;
             BinaryWriter writer(out);
@@ -234,7 +234,7 @@ export namespace raptor::vfs
             tocOffset = static_cast<u64>(out.Tell());
             for (usize i = 0; i < m_entries.Size(); ++i)
             {
-                const UTF8String locator = ToUTF8(m_entries[i].locator.AsView());
+                const String locator = ToUTF8(m_entries[i].locator.AsView());
                 const u16 locatorLength = static_cast<u16>(locator.Size());
                 writer.Write(locatorLength);
                 if (locatorLength > 0) { writer.WriteBytes(locator.CStr(), locator.Size()); }
@@ -259,7 +259,7 @@ export namespace raptor::vfs
     private:
         struct PendingEntry
         {
-            String locator;
+            WideString locator;
             Array<byte> data;
         };
 

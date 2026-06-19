@@ -31,7 +31,7 @@ export namespace raptor::core
         explicit RingLogSink(usize capacity, IAllocator& allocator = DefaultAllocator())
             : m_records(capacity, allocator) {}
 
-        void Write(LogLevel level, StringView category, StringView message) noexcept override
+        void Write(LogLevel level, WideStringView category, WideStringView message) noexcept override
         {
             LogRecord record{};
             record.level = level;
@@ -50,7 +50,7 @@ export namespace raptor::core
         [[nodiscard]] const LogRecord& Record(usize index) const noexcept { return m_records[index]; }
 
     private:
-        static void CopyTruncated(widechar* dst, usize dstCount, StringView src) noexcept
+        static void CopyTruncated(widechar* dst, usize dstCount, WideStringView src) noexcept
         {
             const usize n = (src.Size() < dstCount - 1) ? src.Size() : dstCount - 1;
             MemCopy(dst, src.Data(), n * sizeof(widechar));

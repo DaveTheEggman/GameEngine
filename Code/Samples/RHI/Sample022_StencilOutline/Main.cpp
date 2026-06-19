@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class StencilOutlineSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u"Sample022 - Stencil Outline"; }
+    raptor::core::WideStringView Title() const override { return u"Sample022 - Stencil Outline"; }
 
 protected:
     raptor::core::Status OnInit() override;

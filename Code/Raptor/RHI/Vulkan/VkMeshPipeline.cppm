@@ -29,8 +29,8 @@ public:
         m_layout = vkLayout;
 
         Array<VkPipelineShaderStageCreateInfo> stages;
-        UTF8String meshEntry = ToUTF8(desc.mesh.entryPoint);
-        UTF8String taskEntry, fsEntry;
+        String meshEntry = ToUTF8(desc.mesh.entryPoint);
+        String taskEntry, fsEntry;
 
         // Task shader (optional).
         if (desc.task.HasValue()) {

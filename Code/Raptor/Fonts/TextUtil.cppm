@@ -1,7 +1,7 @@
 // Raptor::Fonts — :text_util partition
 //
-// Codepoint iteration over Raptor's wide (UTF-16) StringView. Sedulous worked
-// in UTF-8 and used Beef's `StringView.DecodedChars`; Raptor strings are wide,
+// Codepoint iteration over Raptor's wide (UTF-16) WideStringView. Sedulous worked
+// in UTF-8 and used Beef's `WideStringView.DecodedChars`; Raptor strings are wide,
 // so font measuring/shaping decodes surrogate pairs here. Shared by the baked
 // font and the TTF text shaper.
 
@@ -20,7 +20,7 @@ export namespace raptor::fonts
     // `index` past the consumed code unit(s). Combines a valid high/low
     // surrogate pair; an unpaired surrogate decodes to U+FFFD. Returns the
     // codepoint. Caller guarantees `index < text.Size()`.
-    [[nodiscard]] inline u32 DecodeCodepoint(StringView text, usize& index) noexcept
+    [[nodiscard]] inline u32 DecodeCodepoint(WideStringView text, usize& index) noexcept
     {
         const u32 unit = static_cast<u16>(text[index]);
         ++index;

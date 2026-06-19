@@ -54,11 +54,11 @@ export namespace raptor::rendergraph
             return Status{};
         }
 
-        void BeginPass(rhi::CommandEncoder& encoder, i32 passIndex, StringView passName)
+        void BeginPass(rhi::CommandEncoder& encoder, i32 passIndex, WideStringView passName)
         {
             if (!m_initialized || !enabled || passIndex >= m_maxPasses) { return; }
-            while (static_cast<i32>(m_passNames.Size()) <= passIndex) { m_passNames.PushBack(String{}); }
-            m_passNames[static_cast<usize>(passIndex)] = String(passName);
+            while (static_cast<i32>(m_passNames.Size()) <= passIndex) { m_passNames.PushBack(WideString{}); }
+            m_passNames[static_cast<usize>(passIndex)] = WideString(passName);
             encoder.WriteTimestamp(m_querySet, static_cast<u32>(passIndex * 2));
         }
 
@@ -78,7 +78,7 @@ export namespace raptor::rendergraph
         }
 
         // Read results and append a timing report (call after the GPU has finished).
-        void ReadResults(i32 passCount, String& outReport)
+        void ReadResults(i32 passCount, WideString& outReport)
         {
             if (!m_initialized || !enabled || passCount == 0) { return; }
 
@@ -98,8 +98,8 @@ export namespace raptor::rendergraph
                 m_passTimesMs[static_cast<usize>(i)] = ms;
                 totalMs += ms;
 
-                const StringView name = i < static_cast<i32>(m_passNames.Size())
-                                      ? m_passNames[static_cast<usize>(i)].AsView() : StringView(u"???");
+                const WideStringView name = i < static_cast<i32>(m_passNames.Size())
+                                      ? m_passNames[static_cast<usize>(i)].AsView() : WideStringView(u"???");
                 AppendFormat(outReport, u"  {} ms  {}\n", ms, name);
             }
             AppendFormat(outReport, u"  --------\n  {} ms  TOTAL\n", totalMs);
@@ -132,7 +132,7 @@ export namespace raptor::rendergraph
         rhi::Buffer* m_readbackBuffer = nullptr;
         i32 m_maxPasses = 0;
         bool m_initialized = false;
-        Array<String> m_passNames;
+        Array<WideString> m_passNames;
         Array<f32> m_passTimesMs;
         f32 m_gpuTimestampPeriod = 0.0f;
     };
