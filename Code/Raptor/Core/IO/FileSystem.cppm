@@ -20,7 +20,7 @@ import :io;
 export namespace raptor::core
 {
     // Reads an entire file into a byte buffer.
-    [[nodiscard]] inline Result<Array<byte>> ReadFile(WideStringView path, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline Result<Array<byte>> ReadFile(StringView path, IAllocator& allocator = DefaultAllocator())
     {
         FileStream file(path, FileMode::Read);
         if (!file.IsValid())
@@ -48,7 +48,7 @@ export namespace raptor::core
     }
 
     // Writes a byte buffer to a file, replacing any existing contents.
-    [[nodiscard]] inline Status WriteFile(WideStringView path, Span<const byte> data)
+    [[nodiscard]] inline Status WriteFile(StringView path, Span<const byte> data)
     {
         FileStream file(path, FileMode::Write);
         if (!file.IsValid())

@@ -21,7 +21,7 @@ namespace
     protected:
         void OnStarted() override
         {
-            rc::ConsoleWrite(u"HelloWindow: started — close the window to exit.\n");
+            rc::ConsoleWrite(u8"HelloWindow: started - close the window to exit.\n");
         }
 
         void OnUpdate(rc::f32 deltaTime) override
@@ -32,7 +32,7 @@ namespace
 
         void OnShutdown() override
         {
-            rc::ConsoleWrite(u"HelloWindow: shutting down.\n");
+            rc::ConsoleWrite(u8"HelloWindow: shutting down.\n");
         }
 
     private:

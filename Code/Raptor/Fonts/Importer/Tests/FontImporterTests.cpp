@@ -15,11 +15,11 @@ using namespace raptor::fonts;
 
 namespace
 {
-    WideString AssetPath(const char* rel)
+    String AssetPath(const char* rel)
     {
-        WideString p;
-        for (const char* s = RAPTOR_FONTS_ASSET_DIR; *s != '\0'; ++s) p.PushBack(static_cast<widechar>(static_cast<unsigned char>(*s)));
-        for (const char* s = rel; *s != '\0'; ++s) p.PushBack(static_cast<widechar>(static_cast<unsigned char>(*s)));
+        String p;
+        for (const char* s = RAPTOR_FONTS_ASSET_DIR; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        for (const char* s = rel; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         return p;
     }
 

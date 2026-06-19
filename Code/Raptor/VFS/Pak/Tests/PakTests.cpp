@@ -20,15 +20,15 @@ namespace
 
 TEST_CASE("vfs.pak: build, open, read, enumerate")
 {
-    const WideStringView pak = u"raptor_pak_test.pak";
+    const StringView pak = u8"raptor_pak_test.pak";
     FileDelete(pak);
 
     // --- build ---
     {
         PakBuilder builder;
-        builder.Add(u"hello.txt", Bytes("hello world"));
-        builder.Add(u"data/blob.bin", Bytes("XYZ"));
-        builder.Add(u"data/deep/leaf.txt", Bytes("leaf"));
+        builder.Add(u8"hello.txt", Bytes("hello world"));
+        builder.Add(u8"data/blob.bin", Bytes("XYZ"));
+        builder.Add(u8"data/deep/leaf.txt", Bytes("leaf"));
         REQUIRE(builder.Write(pak).IsOk());
     }
 
@@ -42,13 +42,13 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
     CHECK(fs.AsWritable() == nullptr);
 
     // Existence.
-    CHECK(fs.Exists(u"hello.txt"));
-    CHECK(fs.Exists(u"data/blob.bin"));
-    CHECK_FALSE(fs.Exists(u"missing.txt"));
+    CHECK(fs.Exists(u8"hello.txt"));
+    CHECK(fs.Exists(u8"data/blob.bin"));
+    CHECK_FALSE(fs.Exists(u8"missing.txt"));
 
     // Read an entry back.
     {
-        UniquePtr<IStream> stream = fs.Open(u"hello.txt", FileMode::Read);
+        UniquePtr<IStream> stream = fs.Open(u8"hello.txt", FileMode::Read);
         REQUIRE(static_cast<bool>(stream));
         char buffer[16] = {};
         const u64 n = stream->Read(buffer, 11);
@@ -57,20 +57,20 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
     }
 
     // Write mode is unsupported (read-only archive).
-    CHECK_FALSE(static_cast<bool>(fs.Open(u"hello.txt", FileMode::Write)));
+    CHECK_FALSE(static_cast<bool>(fs.Open(u8"hello.txt", FileMode::Write)));
     // Missing entry.
-    CHECK_FALSE(static_cast<bool>(fs.Open(u"nope", FileMode::Read)));
+    CHECK_FALSE(static_cast<bool>(fs.Open(u8"nope", FileMode::Read)));
 
     // Enumerate root: a file (hello.txt) and a directory (data/).
     {
         Array<DirEntry> entries;
-        REQUIRE(fs.Enumerate(u"", entries).IsOk());
+        REQUIRE(fs.Enumerate(u8"", entries).IsOk());
         bool foundFile = false;
         bool foundDir = false;
         for (const DirEntry& e : entries)
         {
-            if (e.name == u"hello.txt") { foundFile = true; CHECK_FALSE(e.isDirectory); }
-            if (e.name == u"data") { foundDir = true; CHECK(e.isDirectory); }
+            if (e.name == u8"hello.txt") { foundFile = true; CHECK_FALSE(e.isDirectory); }
+            if (e.name == u8"data") { foundDir = true; CHECK(e.isDirectory); }
         }
         CHECK(foundFile);
         CHECK(foundDir);
@@ -79,13 +79,13 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
     // Enumerate a subfolder: a file (blob.bin) and a nested directory (deep/).
     {
         Array<DirEntry> entries;
-        REQUIRE(fs.Enumerate(u"data", entries).IsOk());
+        REQUIRE(fs.Enumerate(u8"data", entries).IsOk());
         bool foundBlob = false;
         bool foundDeep = false;
         for (const DirEntry& e : entries)
         {
-            if (e.name == u"blob.bin") { foundBlob = true; CHECK_FALSE(e.isDirectory); }
-            if (e.name == u"deep") { foundDeep = true; CHECK(e.isDirectory); }
+            if (e.name == u8"blob.bin") { foundBlob = true; CHECK_FALSE(e.isDirectory); }
+            if (e.name == u8"deep") { foundDeep = true; CHECK(e.isDirectory); }
         }
         CHECK(foundBlob);
         CHECK(foundDeep);
@@ -96,13 +96,13 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
 
 TEST_CASE("vfs.pak: a non-pak file is rejected")
 {
-    const WideStringView path = u"raptor_pak_bad.pak";
+    const StringView path = u8"raptor_pak_bad.pak";
     const byte junk[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 4 } };
     REQUIRE(WriteFile(path, Span<const byte>{ junk, ArrayCount(junk) }).IsOk());
 
     PakFileSystem fs(path);
     CHECK_FALSE(fs.IsValid());
-    CHECK_FALSE(fs.Exists(u"anything"));
+    CHECK_FALSE(fs.Exists(u8"anything"));
 
     FileDelete(path);
 }

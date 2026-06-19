@@ -2,7 +2,7 @@
 //
 // DynamicLibrary: an RAII handle over the System raw dynamic-library calls,
 // with typed symbol resolution. Foundation for the future plugin/module system
-// (discover, load, init/shutdown lifecycle, hot-reload) — §4.9.
+// (discover, load, init/shutdown lifecycle, hot-reload) — S4.9.
 
 module;
 #include "Core/Prelude.h"
@@ -20,7 +20,7 @@ export namespace raptor::core
     {
     public:
         DynamicLibrary() noexcept = default;
-        explicit DynamicLibrary(WideStringView path) noexcept { m_handle = OpenLibrary(path); }
+        explicit DynamicLibrary(StringView path) noexcept { m_handle = OpenLibrary(path); }
 
         DynamicLibrary(DynamicLibrary&& other) noexcept : m_handle(other.m_handle)
         {
@@ -43,7 +43,7 @@ export namespace raptor::core
 
         ~DynamicLibrary() { Unload(); }
 
-        Status Load(WideStringView path) noexcept
+        Status Load(StringView path) noexcept
         {
             Unload();
             m_handle = OpenLibrary(path);
@@ -64,7 +64,7 @@ export namespace raptor::core
         // Resolves a symbol as the requested pointer type (typically a function
         // pointer). Returns nullptr if absent or not loaded.
         template <typename T>
-        [[nodiscard]] T GetSymbol(WideStringView name) const noexcept
+        [[nodiscard]] T GetSymbol(StringView name) const noexcept
         {
             static_assert(sizeof(T) == sizeof(void*), "GetSymbol<T> expects a pointer type.");
             void* symbol = (m_handle != nullptr) ? GetLibrarySymbol(m_handle, name) : nullptr;

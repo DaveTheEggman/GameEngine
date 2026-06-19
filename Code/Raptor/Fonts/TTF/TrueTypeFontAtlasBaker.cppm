@@ -24,11 +24,11 @@ export namespace raptor::fonts
     class TrueTypeFontAtlasBaker final : public IFontAtlasBaker
     {
     public:
-        [[nodiscard]] Span<const WideStringView> SupportedExtensions() const override { return TrueTypeExtensions(); }
+        [[nodiscard]] Span<const StringView> SupportedExtensions() const override { return TrueTypeExtensions(); }
 
-        [[nodiscard]] bool SupportsExtension(WideStringView fileExtension) const override
+        [[nodiscard]] bool SupportsExtension(StringView fileExtension) const override
         {
-            for (const WideStringView ext : TrueTypeExtensions())
+            for (const StringView ext : TrueTypeExtensions())
                 if (ExtEquals(fileExtension, ext))
                     return true;
             return false;

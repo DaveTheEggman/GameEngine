@@ -10,10 +10,10 @@ using namespace raptor::runtime;
 
 namespace
 {
-    // Build dirs hand us a narrow UTF-8 path; the IO/Library APIs take wide views.
-    [[nodiscard]] WideString WidePath(const char* p)
+    // Build dirs hand us a narrow UTF-8 path; the IO/Library APIs take StringView.
+    [[nodiscard]] StringView PluginPath()
     {
-        return ToWide(StringView{ reinterpret_cast<const utf8char*>(p) });
+        return StringView{ reinterpret_cast<const utf8char*>(RAPTOR_TEST_PLUGIN_PATH) };
     }
 
     // Distinct subsystem types (distinct TypeOf<> keys). Each records its tag in a
@@ -170,7 +170,7 @@ namespace
     class StaticTestPlugin final : public IRuntimePlugin
     {
     public:
-        [[nodiscard]] WideStringView Name() const noexcept override { return u"StaticTestPlugin"; }
+        [[nodiscard]] StringView Name() const noexcept override { return u8"StaticTestPlugin"; }
         void OnLoad(Context& ctx) override { ctx.RegisterSubsystem<Sys<7>>(&m_sys); }
         void OnUnload(Context& ctx) override { ctx.RemoveSubsystem<Sys<7>>(); }
 
@@ -206,20 +206,19 @@ TEST_CASE("runtime: PluginHost::Load loads a plugin from a shared library")
     {
         PluginHost host(ctx);
 
-        const WideString path = WidePath(RAPTOR_TEST_PLUGIN_PATH);
-        auto loaded = host.Load(path.AsView());
+        auto loaded = host.Load(PluginPath());
         REQUIRE(loaded.HasValue());
         CHECK(host.Count() == 1u);
-        CHECK(loaded.Value()->Name() == WideStringView{ u"RaptorTestPlugin" });
+        CHECK(loaded.Value()->Name() == StringView{ u8"RaptorTestPlugin" });
 
         ctx.Startup();
         ctx.Update(0.016f);
 
         // Observe the library's subsystem ran via a C symbol it exports. A second
         // handle to the same image shares the counter (dlopen refcounts).
-        DynamicLibrary probe{ path.AsView() };
+        DynamicLibrary probe{ PluginPath() };
         REQUIRE(probe.IsLoaded());
-        const auto ticks = probe.GetSymbol<int (*)()>(u"RaptorTestPluginTicks");
+        const auto ticks = probe.GetSymbol<int (*)()>(u8"RaptorTestPluginTicks");
         REQUIRE(ticks != nullptr);
         CHECK(ticks() == 1);
 
@@ -236,7 +235,7 @@ TEST_CASE("runtime: PluginHost::Load reports failure for a missing library")
 {
     Context ctx;
     PluginHost host(ctx);
-    auto result = host.Load(u"./definitely-not-a-real-plugin.so");
+    auto result = host.Load(u8"./definitely-not-a-real-plugin.so");
     CHECK_FALSE(result.HasValue());
     CHECK(host.Count() == 0u);
 }

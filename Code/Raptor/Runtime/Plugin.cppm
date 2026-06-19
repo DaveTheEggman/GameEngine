@@ -26,7 +26,7 @@ export namespace raptor::runtime
         virtual ~IRuntimePlugin() = default;
 
         // Human-readable identifier (for logging/diagnostics).
-        [[nodiscard]] virtual rc::WideStringView Name() const noexcept = 0;
+        [[nodiscard]] virtual rc::StringView Name() const noexcept = 0;
 
         // Register the plugin's subsystems/services into the Context.
         virtual void OnLoad(Context& context) = 0;
@@ -43,5 +43,5 @@ export namespace raptor::runtime
     using CreatePluginFn = IRuntimePlugin* (*)();
 
     // The exported symbol name PluginHost::Load resolves in a plugin library.
-    inline constexpr rc::WideStringView CreatePluginSymbol = u"RaptorCreatePlugin";
+    inline constexpr rc::StringView CreatePluginSymbol = u8"RaptorCreatePlugin";
 }

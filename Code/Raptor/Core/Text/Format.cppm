@@ -179,9 +179,13 @@ export namespace raptor::core
     template <typename Sink>
     void AppendValue(Sink& out, Guid value)
     {
-        widechar text[37];
+        utf8char text[37];
         value.ToChars(text);
-        out.Append(text, 36);
+        // Widen the ASCII hex digits into the (wide) sink.
+        for (usize i = 0; i < 36; ++i)
+        {
+            out.Append(static_cast<widechar>(static_cast<u8>(text[i])));
+        }
     }
 
     template <typename Sink>

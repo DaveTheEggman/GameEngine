@@ -37,7 +37,7 @@ export namespace raptor::runtime
 
         // Compile and run script source in the main context. Defaults to the
         // "main" module so the reflected foreign classes are in scope.
-        rc::Status Load(rc::WideStringView source, rc::WideStringView chunkName = u"main")
+        rc::Status Load(rc::StringView source, rc::StringView chunkName = u8"main")
         {
             return (m_context.Get() != nullptr) ? m_context->Load(source, chunkName)
                                           : rc::Status{ rc::ErrorCode::Internal };
@@ -45,7 +45,7 @@ export namespace raptor::runtime
 
         // Instantiate a script-defined class (see IScriptContext::CreateInstance).
         [[nodiscard]] rc::RefPtr<rs::ScriptObject> CreateInstance(
-            rc::WideStringView className, rc::Span<rc::Variant> args)
+            rc::StringView className, rc::Span<rc::Variant> args)
         {
             return (m_context.Get() != nullptr) ? m_context->CreateInstance(className, args)
                                           : rc::RefPtr<rs::ScriptObject>{};
@@ -62,7 +62,7 @@ export namespace raptor::runtime
             if (m_driver.Get() != nullptr)
             {
                 rc::Variant args[] = { rc::Variant::From<rc::f32>(deltaTime) };
-                (void)m_driver->Invoke(u"update", rc::Span<rc::Variant>{ args, 1 });
+                (void)m_driver->Invoke(u8"update", rc::Span<rc::Variant>{ args, 1 });
             }
         }
 

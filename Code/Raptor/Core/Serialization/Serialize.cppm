@@ -122,24 +122,8 @@ export namespace raptor::core
     // members compose with Serialize(ar, "key", member) like any other type.
     inline void Serialize(ISerializer& ar, ISerializable& obj) { obj.Serialize(ar); }
 
-    // WideString: first-class text.
-    inline void Serialize(ISerializer& ar, WideString& str) { ar.Text(str); }
-
-    // UTF-8 string: transcoded through the wide text channel.
-    inline void Serialize(ISerializer& ar, String& str)
-    {
-        if (ar.Mode() == SerializeMode::Write)
-        {
-            WideString wide = ToWide(str);
-            ar.Text(wide);
-        }
-        else
-        {
-            WideString wide;
-            ar.Text(wide);
-            str = ToUTF8(wide);
-        }
-    }
+    // String: first-class text (UTF-8).
+    inline void Serialize(ISerializer& ar, String& str) { ar.Text(str); }
 
     // Array: count-prefixed (array scope), each element serialized via Serialize().
     template <typename T>

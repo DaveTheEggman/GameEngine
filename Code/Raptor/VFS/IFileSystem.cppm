@@ -28,7 +28,7 @@ export namespace raptor::vfs
     // component), not a full path.
     struct DirEntry
     {
-        WideString name;
+        String name;
         bool isDirectory = false;
     };
 
@@ -39,8 +39,8 @@ export namespace raptor::vfs
         virtual ~IFileSystem() = default;
 
         // Opens a stream for the logical path, or null on failure.
-        [[nodiscard]] virtual UniquePtr<IStream> Open(WideStringView path, FileMode mode) = 0;
-        [[nodiscard]] virtual bool Exists(WideStringView path) = 0;
+        [[nodiscard]] virtual UniquePtr<IStream> Open(StringView path, FileMode mode) = 0;
+        [[nodiscard]] virtual bool Exists(StringView path) = 0;
 
         // Capability queries — default null; capable backends override to return
         // `this`. Consumers do `if (auto* w = fs.AsWritable())` rather than cast.
@@ -57,7 +57,7 @@ export namespace raptor::vfs
 
         // Appends the immediate children of `folder` ("" = root) to `out`.
         // Returns NotFound if the folder can't be opened.
-        [[nodiscard]] virtual Status Enumerate(WideStringView folder, Array<DirEntry>& out) = 0;
+        [[nodiscard]] virtual Status Enumerate(StringView folder, Array<DirEntry>& out) = 0;
     };
 
     // Capability: write and delete entries (creating parent dirs as needed).
@@ -66,8 +66,8 @@ export namespace raptor::vfs
     public:
         virtual ~IWritableFileSystem() = default;
 
-        [[nodiscard]] virtual Status Save(WideStringView path, Span<const byte> data) = 0;
-        [[nodiscard]] virtual Status Delete(WideStringView path) = 0;
+        [[nodiscard]] virtual Status Save(StringView path, Span<const byte> data) = 0;
+        [[nodiscard]] virtual Status Delete(StringView path) = 0;
     };
 
     // Per-mount notifier for content changes (hot reload). Polled by consumers.
@@ -76,10 +76,10 @@ export namespace raptor::vfs
     public:
         virtual ~IChangeSource() = default;
 
-        virtual void Track(WideStringView locator) = 0;
-        virtual void Untrack(WideStringView locator) = 0;
+        virtual void Track(StringView locator) = 0;
+        virtual void Untrack(StringView locator) = 0;
         // Appends changed locators to `outChanged`; returns true if any changed.
-        [[nodiscard]] virtual bool Poll(Array<WideString>& outChanged) = 0;
+        [[nodiscard]] virtual bool Poll(Array<String>& outChanged) = 0;
     };
 
     // Capability: expose a change source for hot reload. (Seam — no backend

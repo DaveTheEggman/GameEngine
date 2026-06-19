@@ -43,12 +43,12 @@ export namespace raptor::core
             return WriteBytes(&value, sizeof(T));
         }
 
-        // Length-prefixed (u32 count) wide-character string.
-        bool WriteString(WideStringView value)
+        // Length-prefixed (u32 count) UTF-8 string.
+        bool WriteString(StringView value)
         {
             const u32 length = static_cast<u32>(value.Size());
             Write(length);
-            if (length > 0) { WriteBytes(value.Data(), static_cast<usize>(length) * sizeof(widechar)); }
+            if (length > 0) { WriteBytes(value.Data(), static_cast<usize>(length) * sizeof(utf8char)); }
             return m_ok;
         }
 
@@ -83,8 +83,8 @@ export namespace raptor::core
             return ReadBytes(&outValue, sizeof(T));
         }
 
-        // Length-prefixed (u32 count) wide-character string.
-        bool ReadString(WideString& outValue)
+        // Length-prefixed (u32 count) UTF-8 string.
+        bool ReadString(String& outValue)
         {
             u32 length = 0;
             Read(length);
@@ -94,8 +94,8 @@ export namespace raptor::core
             outValue.Reserve(length);
             for (u32 i = 0; i < length; ++i)
             {
-                widechar ch{};
-                if (!ReadBytes(&ch, sizeof(widechar))) { break; }
+                utf8char ch{};
+                if (!ReadBytes(&ch, sizeof(utf8char))) { break; }
                 outValue.PushBack(ch);
             }
             return m_ok;

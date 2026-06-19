@@ -21,8 +21,8 @@ export namespace raptor::core
     struct LogRecord
     {
         LogLevel level;
-        widechar category[64];
-        widechar message[192];
+        utf8char category[64];
+        utf8char message[192];
     };
 
     class RingLogSink final : public ILogSink
@@ -31,12 +31,12 @@ export namespace raptor::core
         explicit RingLogSink(usize capacity, IAllocator& allocator = DefaultAllocator())
             : m_records(capacity, allocator) {}
 
-        void Write(LogLevel level, WideStringView category, WideStringView message) noexcept override
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
             LogRecord record{};
             record.level = level;
-            CopyTruncated(record.category, sizeof(record.category) / sizeof(widechar), category);
-            CopyTruncated(record.message, sizeof(record.message) / sizeof(widechar), message);
+            CopyTruncated(record.category, sizeof(record.category) / sizeof(utf8char), category);
+            CopyTruncated(record.message, sizeof(record.message) / sizeof(utf8char), message);
 
             if (m_records.IsFull())
             {
@@ -50,11 +50,11 @@ export namespace raptor::core
         [[nodiscard]] const LogRecord& Record(usize index) const noexcept { return m_records[index]; }
 
     private:
-        static void CopyTruncated(widechar* dst, usize dstCount, WideStringView src) noexcept
+        static void CopyTruncated(utf8char* dst, usize dstCount, StringView src) noexcept
         {
             const usize n = (src.Size() < dstCount - 1) ? src.Size() : dstCount - 1;
-            MemCopy(dst, src.Data(), n * sizeof(widechar));
-            dst[n] = u'\0';
+            MemCopy(dst, src.Data(), n * sizeof(utf8char));
+            dst[n] = utf8char('\0');
         }
 
         RingBuffer<LogRecord> m_records;

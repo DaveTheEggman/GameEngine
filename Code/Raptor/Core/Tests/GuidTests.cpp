@@ -41,34 +41,34 @@ TEST_CASE("guid: ToChars / TryParse round-trip")
     Random rng(2025);
     const Guid g = Guid::Generate(rng);
 
-    widechar text[37];
+    utf8char text[37];
     g.ToChars(text);
 
     // Canonical layout: 8-4-4-4-12 with dashes at fixed positions.
-    CHECK(text[8] == u'-');
-    CHECK(text[13] == u'-');
-    CHECK(text[18] == u'-');
-    CHECK(text[23] == u'-');
-    CHECK(text[36] == u'\0');
+    CHECK(text[8] == utf8char('-'));
+    CHECK(text[13] == utf8char('-'));
+    CHECK(text[18] == utf8char('-'));
+    CHECK(text[23] == utf8char('-'));
+    CHECK(text[36] == utf8char('\0'));
 
     Guid parsed{};
-    CHECK(Guid::TryParse(text, parsed));
+    CHECK(Guid::TryParse(StringView(text, 36), parsed));
     CHECK(parsed == g);
 }
 
 TEST_CASE("guid: TryParse rejects malformed input")
 {
     Guid out{ 9, 9 };
-    CHECK(!Guid::TryParse(WideStringView{}, out));
-    CHECK(!Guid::TryParse(u"not-a-guid", out));
-    CHECK(!Guid::TryParse(u"00000000-0000-0000-0000-00000000000", out));   // too short
-    CHECK(!Guid::TryParse(u"00000000+0000-0000-0000-000000000000", out));  // wrong separator
-    CHECK(!Guid::TryParse(u"0000000g-0000-0000-0000-000000000000", out));  // non-hex
+    CHECK(!Guid::TryParse(StringView{}, out));
+    CHECK(!Guid::TryParse(u8"not-a-guid", out));
+    CHECK(!Guid::TryParse(u8"00000000-0000-0000-0000-00000000000", out));   // too short
+    CHECK(!Guid::TryParse(u8"00000000+0000-0000-0000-000000000000", out));  // wrong separator
+    CHECK(!Guid::TryParse(u8"0000000g-0000-0000-0000-000000000000", out));  // non-hex
     CHECK(out == Guid{ 9, 9 });  // unchanged on failure
 
     // Accepts uppercase hex.
     Guid ok{};
-    CHECK(Guid::TryParse(u"FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF", ok));
+    CHECK(Guid::TryParse(u8"FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF", ok));
     CHECK(ok.high == 0xFFFFFFFFFFFFFFFFull);
     CHECK(ok.low == 0xFFFFFFFFFFFFFFFFull);
 }
@@ -78,7 +78,7 @@ TEST_CASE("guid: formats via {} to its canonical string")
     Random rng(42);
     const Guid g = Guid::Generate(rng);
 
-    widechar expected[37];
+    utf8char expected[37];
     g.ToChars(expected);
 
     FormatBuffer buffer;
@@ -86,7 +86,10 @@ TEST_CASE("guid: formats via {} to its canonical string")
 
     CHECK(buffer.Size() == 3 + 36);  // "id=" + 36-char guid
     CHECK(buffer.View().SubStr(0, 3) == WideStringView(u"id="));
-    CHECK(buffer.View().SubStr(3, 36) == WideStringView(expected, 36));
+
+    // Compare the guid portion: widen the expected UTF-8 for comparison.
+    const WideString expectedWide = ToWide(StringView(expected, 36));
+    CHECK(buffer.View().SubStr(3, 36) == expectedWide.AsView());
 }
 
 TEST_CASE("guid: usable as a hashed-container key")

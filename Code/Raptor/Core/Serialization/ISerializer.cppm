@@ -60,8 +60,8 @@ export namespace raptor::core
         // Moves one typed scalar between memory and the backing store.
         virtual void Scalar(void* value, ScalarKind kind) = 0;
 
-        // Moves a (wide) string. First-class so text formats store it natively.
-        virtual void Text(WideString& value) = 0;
+        // Moves a string. First-class so text formats store it natively.
+        virtual void Text(String& value) = 0;
 
         // Moves an opaque byte blob (raw in binary; e.g. base64 in text).
         virtual void Blob(void* data, usize size) = 0;

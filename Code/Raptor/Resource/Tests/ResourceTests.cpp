@@ -21,8 +21,8 @@ namespace
         RAPTOR_OBJECT(MaterialResource, ISerializable)
     public:
         i32 shininess = 0;
-        WideString shader;
-        WideString editorNote;   // editor-only
+        String shader;
+        String editorNote;   // editor-only
 
         void Serialize(ISerializer& ar) override
         {
@@ -38,7 +38,7 @@ namespace
         RAPTOR_OBJECT(Material, Object)
     public:
         f32 specular = 0.0f;
-        WideString shader;
+        String shader;
     };
 
     // Factory: builds a Material product from a MaterialResource source.
@@ -63,18 +63,18 @@ namespace
 
     void RemoveTree()
     {
-        FileDelete(u"raptor_resource_test_db/steel.rasset");
-        RemoveDirectory(u"raptor_resource_test_db");
+        FileDelete(u8"raptor_resource_test_db/steel.rasset");
+        RemoveDirectory(u8"raptor_resource_test_db");
     }
 
-    void WriteSource(raptor::content::ContentDatabase& db, const Guid& id, i32 shininess, WideStringView shader)
+    void WriteSource(raptor::content::ContentDatabase& db, const Guid& id, i32 shininess, StringView shader)
     {
         auto* instance = db.GetInstance(id);
         REQUIRE(instance != nullptr);
         MaterialResource r;
         r.shininess = shininess;
-        r.shader = WideString(shader);
-        r.editorNote = u"node@(10,20)";
+        r.shader = String(shader);
+        r.editorNote = u8"node@(10,20)";
         REQUIRE(instance->WriteObject(r).IsOk());
     }
 }
@@ -88,14 +88,14 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
     RegisterSerializable<MaterialResource>();
 
     RemoveTree();
-    NativeFileSystem mount(u"raptor_resource_test_db");
+    NativeFileSystem mount(u8"raptor_resource_test_db");
 
     Guid id;
     {
         raptor::content::ContentDatabase db(mount);
-        auto* steel = db.RootGroup()->CreateInstance(u"steel", MaterialResource::StaticType());
+        auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
-        WriteSource(db, id, 64, u"pbr");
+        WriteSource(db, id, 64, u8"pbr");
     }
 
     raptor::content::ContentDatabase db(mount);
@@ -106,7 +106,7 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
     // Bind: source -> product. Product is derived/lean (no editorNote field).
     Proxy<Material> p = manager.Bind<Material>(id);
     REQUIRE(p);
-    CHECK(p->shader == u"pbr");
+    CHECK(p->shader == u8"pbr");
     CHECK(p->specular == 0.5f);   // 64 / 128
 
     // Cache: binding the same id returns the same handle.
@@ -135,14 +135,14 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
     RegisterSerializable<MaterialResource>();
 
     RemoveTree();
-    NativeFileSystem mount(u"raptor_resource_test_db");
+    NativeFileSystem mount(u8"raptor_resource_test_db");
 
     Guid id;
     {
         raptor::content::ContentDatabase db(mount);
-        auto* steel = db.RootGroup()->CreateInstance(u"steel", MaterialResource::StaticType());
+        auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
-        WriteSource(db, id, 64, u"pbr");
+        WriteSource(db, id, 64, u8"pbr");
     }
 
     raptor::content::ContentDatabase db(mount);
@@ -155,10 +155,10 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
     CHECK(p->specular == 0.5f);
 
     // Source changes on disk; Reload rebuilds the product behind the handle.
-    WriteSource(db, id, 128, u"pbr2");
+    WriteSource(db, id, 128, u8"pbr2");
     CHECK(manager.Reload(id));
     CHECK(p->specular == 1.0f);    // same proxy, new product
-    CHECK(p->shader == u"pbr2");
+    CHECK(p->shader == u8"pbr2");
 
     RemoveTree();
 }

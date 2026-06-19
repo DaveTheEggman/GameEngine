@@ -8,7 +8,6 @@ module;
 export module raptor.core:file_sink;
 
 import :base;
-import :format;
 import :string;
 import :system;
 import :logger;
@@ -19,7 +18,7 @@ export namespace raptor::core
     class FileSink final : public ILogSink
     {
     public:
-        explicit FileSink(WideStringView path) noexcept { m_file = FileOpen(path, FileMode::Append); }
+        explicit FileSink(StringView path) noexcept { m_file = FileOpen(path, FileMode::Append); }
         ~FileSink() override
         {
             if (FileIsValid(m_file)) { FileClose(m_file); }
@@ -30,14 +29,14 @@ export namespace raptor::core
 
         [[nodiscard]] bool IsOpen() const noexcept { return FileIsValid(m_file); }
 
-        void Write(LogLevel level, WideStringView category, WideStringView message) noexcept override
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
             if (!FileIsValid(m_file)) { return; }
 
-            FormatBuffer line;
+            String line;
             detail::FormatLine(line, level, category, message);
-            const String utf8 = ToUTF8(line.View());
-            (void)FileWrite(m_file, utf8.Data(), utf8.Size());
+            // Strings are already UTF-8; write directly.
+            (void)FileWrite(m_file, line.Data(), line.Size());
         }
 
     private:

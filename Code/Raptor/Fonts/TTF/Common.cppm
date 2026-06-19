@@ -17,15 +17,15 @@ using namespace raptor::core;
 export namespace raptor::fonts
 {
     // ASCII case-insensitive compare for extension matching.
-    [[nodiscard]] inline bool ExtEquals(WideStringView a, WideStringView b)
+    [[nodiscard]] inline bool ExtEquals(StringView a, StringView b)
     {
         if (a.Size() != b.Size())
             return false;
         for (usize i = 0; i < a.Size(); ++i)
         {
-            widechar ca = a[i], cb = b[i];
-            if (ca >= u'A' && ca <= u'Z') ca = static_cast<widechar>(ca - u'A' + u'a');
-            if (cb >= u'A' && cb <= u'Z') cb = static_cast<widechar>(cb - u'A' + u'a');
+            utf8char ca = a[i], cb = b[i];
+            if (ca >= utf8char('A') && ca <= utf8char('Z')) ca = static_cast<utf8char>(static_cast<u8>(ca) - 'A' + 'a');
+            if (cb >= utf8char('A') && cb <= utf8char('Z')) cb = static_cast<utf8char>(static_cast<u8>(cb) - 'A' + 'a');
             if (ca != cb)
                 return false;
         }
@@ -33,9 +33,9 @@ export namespace raptor::fonts
     }
 
     // .ttf / .ttc / .otf — the formats the TTF backend handles.
-    [[nodiscard]] inline Span<const WideStringView> TrueTypeExtensions()
+    [[nodiscard]] inline Span<const StringView> TrueTypeExtensions()
     {
-        static const WideStringView exts[] = { WideStringView(u".ttf"), WideStringView(u".ttc"), WideStringView(u".otf") };
-        return Span<const WideStringView>(exts, 3);
+        static const StringView exts[] = { StringView(u8".ttf"), StringView(u8".ttc"), StringView(u8".otf") };
+        return Span<const StringView>(exts, 3);
     }
 }

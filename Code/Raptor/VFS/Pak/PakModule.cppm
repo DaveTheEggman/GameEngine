@@ -40,7 +40,7 @@ export namespace raptor::vfs
     class PakFileSystem final : public IFileSystem, public IEnumerableFileSystem
     {
     public:
-        explicit PakFileSystem(WideStringView pakPath, IAllocator& allocator = DefaultAllocator())
+        explicit PakFileSystem(StringView pakPath, IAllocator& allocator = DefaultAllocator())
             : m_path(pakPath, allocator), m_allocator(&allocator) { Load(); }
 
         // True if the archive opened and parsed.
@@ -48,7 +48,7 @@ export namespace raptor::vfs
         [[nodiscard]] usize EntryCount() const noexcept { return m_entries.Size(); }
 
         // --- IFileSystem ---
-        [[nodiscard]] UniquePtr<IStream> Open(WideStringView locator, FileMode mode) override
+        [[nodiscard]] UniquePtr<IStream> Open(StringView locator, FileMode mode) override
         {
             if (!m_valid || mode != FileMode::Read) { return UniquePtr<IStream>{}; }
 
@@ -74,7 +74,7 @@ export namespace raptor::vfs
             return UniquePtr<IStream>{ stream, *m_allocator };
         }
 
-        [[nodiscard]] bool Exists(WideStringView locator) override
+        [[nodiscard]] bool Exists(StringView locator) override
         {
             return m_valid && Find(locator) != nullptr;
         }
@@ -82,27 +82,27 @@ export namespace raptor::vfs
         [[nodiscard]] IEnumerableFileSystem* AsEnumerable() noexcept override { return this; }
 
         // --- IEnumerableFileSystem ---
-        [[nodiscard]] Status Enumerate(WideStringView folder, Array<DirEntry>& out) override
+        [[nodiscard]] Status Enumerate(StringView folder, Array<DirEntry>& out) override
         {
             if (!m_valid) { return Status{ ErrorCode::NotFound }; }
 
             for (const Entry& entry : m_entries)
             {
-                WideStringView rel;
+                StringView rel;
                 if (!RelativeUnder(entry.locator.AsView(), folder, rel)) { continue; }
 
                 // First path segment of `rel`: a '/' means it's a subdirectory.
                 usize slash = rel.Size();
-                for (usize i = 0; i < rel.Size(); ++i) { if (rel[i] == u'/') { slash = i; break; } }
+                for (usize i = 0; i < rel.Size(); ++i) { if (rel[i] == utf8char('/')) { slash = i; break; } }
 
                 if (slash == rel.Size())
                 {
-                    out.PushBack(DirEntry{ WideString(rel), false });   // a file
+                    out.PushBack(DirEntry{ String(rel), false });   // a file
                 }
                 else
                 {
-                    const WideStringView dir = rel.SubStr(0, slash);
-                    if (!ContainsDir(out, dir)) { out.PushBack(DirEntry{ WideString(dir), true }); }
+                    const StringView dir = rel.SubStr(0, slash);
+                    if (!ContainsDir(out, dir)) { out.PushBack(DirEntry{ String(dir), true }); }
                 }
             }
             return Status{};
@@ -111,7 +111,7 @@ export namespace raptor::vfs
     private:
         struct Entry
         {
-            WideString locator;
+            String locator;
             u64 offset = 0;
             u64 storedSize = 0;
             u64 originalSize = 0;
@@ -145,7 +145,8 @@ export namespace raptor::vfs
                 if (locatorLength > 0 && !reader.ReadBytes(locatorBytes.Data(), locatorLength)) { return; }
 
                 Entry entry;
-                entry.locator = ToWide(StringView(
+                // Locator is stored as UTF-8 on disk; String is already UTF-8.
+                entry.locator = String(StringView(
                     reinterpret_cast<const utf8char*>(locatorBytes.Data()), locatorLength));
                 reader.Read(entry.offset);
                 reader.Read(entry.storedSize);
@@ -157,7 +158,7 @@ export namespace raptor::vfs
             m_valid = true;
         }
 
-        [[nodiscard]] const Entry* Find(WideStringView locator) const
+        [[nodiscard]] const Entry* Find(StringView locator) const
         {
             for (const Entry& entry : m_entries)
             {
@@ -167,17 +168,17 @@ export namespace raptor::vfs
         }
 
         // Is `locator` under `folder`? If so, `outRel` is the remainder.
-        [[nodiscard]] static bool RelativeUnder(WideStringView locator, WideStringView folder, WideStringView& outRel)
+        [[nodiscard]] static bool RelativeUnder(StringView locator, StringView folder, StringView& outRel)
         {
             if (folder.IsEmpty()) { outRel = locator; return true; }
             if (locator.Size() <= folder.Size() + 1) { return false; }
             if (locator.SubStr(0, folder.Size()) != folder) { return false; }
-            if (locator[folder.Size()] != u'/') { return false; }
+            if (locator[folder.Size()] != utf8char('/')) { return false; }
             outRel = locator.SubStr(folder.Size() + 1, locator.Size() - folder.Size() - 1);
             return true;
         }
 
-        [[nodiscard]] static bool ContainsDir(const Array<DirEntry>& out, WideStringView name)
+        [[nodiscard]] static bool ContainsDir(const Array<DirEntry>& out, StringView name)
         {
             for (const DirEntry& entry : out)
             {
@@ -186,7 +187,7 @@ export namespace raptor::vfs
             return false;
         }
 
-        WideString m_path;
+        String m_path;
         IAllocator* m_allocator;
         Array<Entry> m_entries;
         bool m_valid = false;
@@ -199,16 +200,16 @@ export namespace raptor::vfs
     {
     public:
         // Copies `data` immediately; the caller may free its buffer afterwards.
-        void Add(WideStringView locator, Span<const byte> data)
+        void Add(StringView locator, Span<const byte> data)
         {
             PendingEntry entry;
-            entry.locator = WideString(locator);
+            entry.locator = String(locator);
             entry.data.Resize(data.Size());
             if (data.Size() > 0) { MemCopy(entry.data.Data(), data.Data(), data.Size()); }
             m_entries.PushBack(static_cast<PendingEntry&&>(entry));
         }
 
-        [[nodiscard]] Status Write(WideStringView path) const
+        [[nodiscard]] Status Write(StringView path) const
         {
             MemoryStream out;
             BinaryWriter writer(out);
@@ -234,10 +235,11 @@ export namespace raptor::vfs
             tocOffset = static_cast<u64>(out.Tell());
             for (usize i = 0; i < m_entries.Size(); ++i)
             {
-                const String locator = ToUTF8(m_entries[i].locator.AsView());
-                const u16 locatorLength = static_cast<u16>(locator.Size());
+                // Locator is already UTF-8; write directly.
+                const String& locatorStr = m_entries[i].locator;
+                const u16 locatorLength = static_cast<u16>(locatorStr.Size());
                 writer.Write(locatorLength);
-                if (locatorLength > 0) { writer.WriteBytes(locator.CStr(), locator.Size()); }
+                if (locatorLength > 0) { writer.WriteBytes(locatorStr.CStr(), locatorStr.Size()); }
 
                 const u64 size = m_entries[i].data.Size();
                 const u16 compression = kCompressionNone;
@@ -259,7 +261,7 @@ export namespace raptor::vfs
     private:
         struct PendingEntry
         {
-            WideString locator;
+            String locator;
             Array<byte> data;
         };
 

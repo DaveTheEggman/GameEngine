@@ -26,17 +26,17 @@ export namespace raptor::content
 {
     inline constexpr u32 kEnvelopeMagic   = 0x54534152u; // 'RAST'
     inline constexpr u32 kEnvelopeVersion = 1u;
-    inline constexpr WideStringView kInstanceExt = u".rasset";
+    inline constexpr StringView kInstanceExt = u8".rasset";
 
     class ContentDatabase;
     class Group;
 
     // Path + envelope helpers (defined below; declared here for in-class use).
-    [[nodiscard]] inline WideString JoinPath(WideStringView a, WideStringView b);
-    [[nodiscard]] inline bool EndsWith(WideStringView str, WideStringView suffix);
-    inline void WriteEnvelope(IStream& out, const Guid& id, WideStringView typeNs, WideStringView typeName,
+    [[nodiscard]] inline String JoinPath(StringView a, StringView b);
+    [[nodiscard]] inline bool EndsWith(StringView str, StringView suffix);
+    inline void WriteEnvelope(IStream& out, const Guid& id, StringView typeNs, StringView typeName,
                               ISerializable& object);
-    inline bool ReadEnvelopeHeader(IStream& in, Guid& outId, WideString& outNs, WideString& outName);
+    inline bool ReadEnvelopeHeader(IStream& in, Guid& outId, String& outNs, String& outName);
 
     // =======================================================================
     // Instance — one stored unit: identity + a primary object + data streams.
@@ -44,41 +44,41 @@ export namespace raptor::content
     class Instance
     {
     public:
-        Instance(ContentDatabase& db, Group& group, const Guid& id, WideStringView name,
-                 WideStringView typeNamespace, WideStringView typeName)
+        Instance(ContentDatabase& db, Group& group, const Guid& id, StringView name,
+                 StringView typeNamespace, StringView typeName)
             : m_db(&db), m_group(&group), m_id(id), m_name(name)
             , m_typeNamespace(typeNamespace), m_typeName(typeName) {}
 
         [[nodiscard]] const Guid& Id() const noexcept { return m_id; }
-        [[nodiscard]] WideStringView Name() const noexcept { return m_name.AsView(); }
-        [[nodiscard]] WideStringView TypeNamespace() const noexcept { return m_typeNamespace.AsView(); }
-        [[nodiscard]] WideStringView TypeName() const noexcept { return m_typeName.AsView(); }
+        [[nodiscard]] StringView Name() const noexcept { return m_name.AsView(); }
+        [[nodiscard]] StringView TypeNamespace() const noexcept { return m_typeNamespace.AsView(); }
+        [[nodiscard]] StringView TypeName() const noexcept { return m_typeName.AsView(); }
         [[nodiscard]] Group& OwningGroup() const noexcept { return *m_group; }
 
         // "group/path/name" (mount-relative, no extension).
-        [[nodiscard]] WideString Path() const;
+        [[nodiscard]] String Path() const;
 
         // Deserializes the primary object (constructing the concrete type from
         // its stored type name). Null if the type isn't registered or on I/O error.
         [[nodiscard]] RefPtr<ISerializable> ReadObject() const;
 
         // Opens a named data stream for reading, or null if absent.
-        [[nodiscard]] UniquePtr<IStream> ReadData(WideStringView streamName) const;
+        [[nodiscard]] UniquePtr<IStream> ReadData(StringView streamName) const;
 
         // --- tooling / write ---
         [[nodiscard]] Status WriteObject(ISerializable& object);
-        [[nodiscard]] Status WriteData(WideStringView streamName, Span<const byte> data);
+        [[nodiscard]] Status WriteData(StringView streamName, Span<const byte> data);
 
     private:
-        [[nodiscard]] WideString EnvelopePath() const;     // "<path>.rasset"
-        [[nodiscard]] WideString DataPath(WideStringView streamName) const; // "<path>.<stream>.bin"
+        [[nodiscard]] String EnvelopePath() const;     // "<path>.rasset"
+        [[nodiscard]] String DataPath(StringView streamName) const; // "<path>.<stream>.bin"
 
         ContentDatabase* m_db;
         Group* m_group;
         Guid m_id;
-        WideString m_name;
-        WideString m_typeNamespace;
-        WideString m_typeName;
+        String m_name;
+        String m_typeNamespace;
+        String m_typeName;
     };
 
     // =======================================================================
@@ -87,37 +87,37 @@ export namespace raptor::content
     class Group
     {
     public:
-        Group(ContentDatabase& db, Group* parent, WideStringView name)
+        Group(ContentDatabase& db, Group* parent, StringView name)
             : m_db(&db), m_parent(parent), m_name(name) {}
 
-        [[nodiscard]] WideStringView Name() const noexcept { return m_name.AsView(); }
+        [[nodiscard]] StringView Name() const noexcept { return m_name.AsView(); }
         [[nodiscard]] Group* Parent() const noexcept { return m_parent; }
 
         // Mount-relative folder path ("" at the root, "materials/metal" deeper).
-        [[nodiscard]] WideString Path() const;
+        [[nodiscard]] String Path() const;
 
         [[nodiscard]] Span<Group* const> Groups() const noexcept { return m_groups.AsSpan(); }
         [[nodiscard]] Span<Instance* const> Instances() const noexcept { return m_instances.AsSpan(); }
 
-        [[nodiscard]] Group* GetGroup(WideStringView name) const;
-        [[nodiscard]] Instance* GetInstance(WideStringView name) const;
+        [[nodiscard]] Group* GetGroup(StringView name) const;
+        [[nodiscard]] Instance* GetInstance(StringView name) const;
 
         // --- tooling ---
         // Returns the existing child group of this name, or creates it (no disk
         // write until an instance is committed under it).
-        Group* CreateGroup(WideStringView name);
+        Group* CreateGroup(StringView name);
         // Creates a new instance of `primaryType` with a fresh Guid. The on-disk
         // file appears once WriteObject() is called.
-        Instance* CreateInstance(WideStringView name, const TypeInfo& primaryType);
+        Instance* CreateInstance(StringView name, const TypeInfo& primaryType);
 
         // --- internal (used by the database scanner) ---
-        Group* AddChildGroup(WideStringView name);
-        Instance* AddInstance(const Guid& id, WideStringView name, WideStringView typeNs, WideStringView typeName);
+        Group* AddChildGroup(StringView name);
+        Instance* AddInstance(const Guid& id, StringView name, StringView typeNs, StringView typeName);
 
     private:
         ContentDatabase* m_db;
         Group* m_parent;
-        WideString m_name;
+        String m_name;
         Array<Group*> m_groups;        // owned by the database pool
         Array<Instance*> m_instances;  // owned by the database pool
     };
@@ -132,7 +132,7 @@ export namespace raptor::content
 
         [[nodiscard]] virtual Group* RootGroup() = 0;
         [[nodiscard]] virtual Instance* GetInstance(const Guid& id) = 0;
-        [[nodiscard]] virtual Instance* GetInstance(WideStringView path) = 0;
+        [[nodiscard]] virtual Instance* GetInstance(StringView path) = 0;
         [[nodiscard]] virtual RefPtr<ISerializable> ReadObject(const Guid& id) = 0;
     };
 
@@ -149,8 +149,8 @@ export namespace raptor::content
                                  TypeRegistry& types = GlobalTypeRegistry())
             : m_mount(&mount), m_serializables(&serializables), m_types(&types)
         {
-            m_root = NewGroup(nullptr, u"");
-            Scan(*m_root, u"");
+            m_root = NewGroup(nullptr, u8"");
+            Scan(*m_root, u8"");
         }
 
         ~ContentDatabase() override
@@ -170,7 +170,7 @@ export namespace raptor::content
             return (found != nullptr) ? *found : nullptr;
         }
 
-        [[nodiscard]] Instance* GetInstance(WideStringView path) override
+        [[nodiscard]] Instance* GetInstance(StringView path) override
         {
             // Split "group/sub/name" -> walk groups, then the instance by name.
             Group* group = m_root;
@@ -178,8 +178,8 @@ export namespace raptor::content
             for (usize i = 0; i <= path.Size(); ++i)
             {
                 const bool atEnd = (i == path.Size());
-                if (!atEnd && path[i] != u'/') { continue; }
-                const WideStringView part = path.SubStr(start, i - start);
+                if (!atEnd && path[i] != utf8char('/')) { continue; }
+                const StringView part = path.SubStr(start, i - start);
                 start = i + 1;
                 if (part.IsEmpty()) { continue; }
                 if (atEnd) { return group->GetInstance(part); }   // last segment = instance name
@@ -202,15 +202,15 @@ export namespace raptor::content
         [[nodiscard]] TypeRegistry& Types() const noexcept { return *m_types; }
         [[nodiscard]] Random& Rng() noexcept { return m_rng; }
 
-        Group* NewGroup(Group* parent, WideStringView name)
+        Group* NewGroup(Group* parent, StringView name)
         {
             Group* group = DefaultAllocator().New<Group>(*this, parent, name);
             m_allGroups.PushBack(group);
             return group;
         }
 
-        Instance* NewInstance(Group& group, const Guid& id, WideStringView name,
-                              WideStringView typeNs, WideStringView typeName)
+        Instance* NewInstance(Group& group, const Guid& id, StringView name,
+                              StringView typeNs, StringView typeName)
         {
             Instance* instance = DefaultAllocator().New<Instance>(*this, group, id, name, typeNs, typeName);
             m_allInstances.PushBack(instance);
@@ -220,7 +220,7 @@ export namespace raptor::content
 
     private:
         // Recursively scans `folder` (mount-relative) into `group`.
-        void Scan(Group& group, WideStringView folder)
+        void Scan(Group& group, StringView folder)
         {
             IEnumerableFileSystem* enumerable = m_mount->AsEnumerable();
             if (enumerable == nullptr) { return; }
@@ -242,15 +242,15 @@ export namespace raptor::content
             }
         }
 
-        void ScanInstance(Group& group, WideStringView folder, WideStringView fileName)
+        void ScanInstance(Group& group, StringView folder, StringView fileName)
         {
-            const WideStringView instanceName = fileName.SubStr(0, fileName.Size() - kInstanceExt.Size());
+            const StringView instanceName = fileName.SubStr(0, fileName.Size() - kInstanceExt.Size());
             UniquePtr<IStream> stream = m_mount->Open(JoinPath(folder, fileName), FileMode::Read);
             if (!stream) { return; }
 
             Guid id;
-            WideString typeNs;
-            WideString typeName;
+            String typeNs;
+            String typeName;
             if (!ReadEnvelopeHeader(*stream, id, typeNs, typeName)) { return; }
             (void)group.AddInstance(id, instanceName, typeNs.AsView(), typeName.AsView());
         }
@@ -268,17 +268,17 @@ export namespace raptor::content
     // -----------------------------------------------------------------------
     // Path helpers (mount-relative, forward-slash).
     // -----------------------------------------------------------------------
-    [[nodiscard]] inline WideString JoinPath(WideStringView a, WideStringView b)
+    [[nodiscard]] inline String JoinPath(StringView a, StringView b)
     {
-        if (a.IsEmpty()) { return WideString(b); }
-        if (b.IsEmpty()) { return WideString(a); }
-        WideString out(a);
-        out.PushBack(u'/');
+        if (a.IsEmpty()) { return String(b); }
+        if (b.IsEmpty()) { return String(a); }
+        String out(a);
+        out.PushBack(utf8char('/'));
         out.Append(b);
         return out;
     }
 
-    [[nodiscard]] inline bool EndsWith(WideStringView str, WideStringView suffix)
+    [[nodiscard]] inline bool EndsWith(StringView str, StringView suffix)
     {
         return str.Size() >= suffix.Size()
             && str.SubStr(str.Size() - suffix.Size(), suffix.Size()) == suffix;
@@ -287,7 +287,7 @@ export namespace raptor::content
     // -----------------------------------------------------------------------
     // Envelope I/O: [magic][version][guid.high][guid.low][typeNs][typeName][payload]
     // -----------------------------------------------------------------------
-    inline void WriteEnvelope(IStream& out, const Guid& id, WideStringView typeNs, WideStringView typeName,
+    inline void WriteEnvelope(IStream& out, const Guid& id, StringView typeNs, StringView typeName,
                               ISerializable& object)
     {
         BinarySerializer ar(out, SerializeMode::Write);
@@ -295,8 +295,8 @@ export namespace raptor::content
         u32 version = kEnvelopeVersion;
         u64 high = id.high;
         u64 low = id.low;
-        WideString ns(typeNs);
-        WideString nm(typeName);
+        String ns(typeNs);
+        String nm(typeName);
         Serialize(ar, magic);
         Serialize(ar, version);
         Serialize(ar, high);
@@ -308,7 +308,7 @@ export namespace raptor::content
 
     // Reads just the header fields (for scanning). Leaves the stream positioned
     // at the payload. Returns false on bad magic / short read.
-    inline bool ReadEnvelopeHeader(IStream& in, Guid& outId, WideString& outNs, WideString& outName)
+    inline bool ReadEnvelopeHeader(IStream& in, Guid& outId, String& outNs, String& outName)
     {
         BinarySerializer ar(in, SerializeMode::Read);
         u32 magic = 0;
@@ -329,13 +329,13 @@ export namespace raptor::content
     // -----------------------------------------------------------------------
     // Group method definitions.
     // -----------------------------------------------------------------------
-    inline WideString Group::Path() const
+    inline String Group::Path() const
     {
-        if (m_parent == nullptr) { return WideString(); }    // root
+        if (m_parent == nullptr) { return String(); }    // root
         return JoinPath(m_parent->Path().AsView(), m_name.AsView());
     }
 
-    inline Group* Group::GetGroup(WideStringView name) const
+    inline Group* Group::GetGroup(StringView name) const
     {
         for (Group* group : m_groups)
         {
@@ -344,7 +344,7 @@ export namespace raptor::content
         return nullptr;
     }
 
-    inline Instance* Group::GetInstance(WideStringView name) const
+    inline Instance* Group::GetInstance(StringView name) const
     {
         for (Instance* instance : m_instances)
         {
@@ -353,57 +353,57 @@ export namespace raptor::content
         return nullptr;
     }
 
-    inline Group* Group::AddChildGroup(WideStringView name)
+    inline Group* Group::AddChildGroup(StringView name)
     {
         Group* child = m_db->NewGroup(this, name);
         m_groups.PushBack(child);
         return child;
     }
 
-    inline Instance* Group::AddInstance(const Guid& id, WideStringView name, WideStringView typeNs, WideStringView typeName)
+    inline Instance* Group::AddInstance(const Guid& id, StringView name, StringView typeNs, StringView typeName)
     {
         Instance* instance = m_db->NewInstance(*this, id, name, typeNs, typeName);
         m_instances.PushBack(instance);
         return instance;
     }
 
-    inline Group* Group::CreateGroup(WideStringView name)
+    inline Group* Group::CreateGroup(StringView name)
     {
         Group* existing = GetGroup(name);
         return (existing != nullptr) ? existing : AddChildGroup(name);
     }
 
-    inline Instance* Group::CreateInstance(WideStringView name, const TypeInfo& primaryType)
+    inline Instance* Group::CreateInstance(StringView name, const TypeInfo& primaryType)
     {
         if (Instance* existing = GetInstance(name)) { return existing; }
         const Guid id = Guid::Generate(m_db->Rng());
-        // TypeInfo names are narrow ASCII; the envelope stores them wide.
-        const WideString ns = ToWide(StringView(reinterpret_cast<const utf8char*>(primaryType.namespaceName)));
-        const WideString nm = ToWide(StringView(reinterpret_cast<const utf8char*>(primaryType.name)));
-        return AddInstance(id, name, ns.AsView(), nm.AsView());
+        // TypeInfo names are narrow ASCII; wrap in StringView.
+        const StringView ns(reinterpret_cast<const utf8char*>(primaryType.namespaceName));
+        const StringView nm(reinterpret_cast<const utf8char*>(primaryType.name));
+        return AddInstance(id, name, ns, nm);
     }
 
     // -----------------------------------------------------------------------
     // Instance method definitions.
     // -----------------------------------------------------------------------
-    inline WideString Instance::Path() const
+    inline String Instance::Path() const
     {
         return JoinPath(m_group->Path().AsView(), m_name.AsView());
     }
 
-    inline WideString Instance::EnvelopePath() const
+    inline String Instance::EnvelopePath() const
     {
-        WideString path = Path();
+        String path = Path();
         path.Append(kInstanceExt);
         return path;
     }
 
-    inline WideString Instance::DataPath(WideStringView streamName) const
+    inline String Instance::DataPath(StringView streamName) const
     {
-        WideString path = Path();
-        path.PushBack(u'.');
+        String path = Path();
+        path.PushBack(utf8char('.'));
         path.Append(streamName);
-        path.Append(u".bin");
+        path.Append(u8".bin");
         return path;
     }
 
@@ -412,8 +412,8 @@ export namespace raptor::content
         UniquePtr<IStream> stream = m_db->Mount().Open(EnvelopePath().AsView(), FileMode::Read);
         if (!stream) { return RefPtr<ISerializable>{}; }
 
-        WideString ns;
-        WideString name;
+        String ns;
+        String name;
         // Read the header off this serializer, then continue into the payload.
         BinarySerializer ar(*stream, SerializeMode::Read);
         u32 magic = 0;
@@ -428,11 +428,9 @@ export namespace raptor::content
         Serialize(ar, name);
         if (!ar.IsOk() || magic != kEnvelopeMagic) { return RefPtr<ISerializable>{}; }
 
-        const String nsU8 = ToUTF8(ns.AsView());
-        const String nameU8 = ToUTF8(name.AsView());
         const TypeInfo* type = m_db->Types().FindByName(
-            reinterpret_cast<const char*>(nsU8.CStr()),
-            reinterpret_cast<const char*>(nameU8.CStr()));
+            reinterpret_cast<const char*>(ns.CStr()),
+            reinterpret_cast<const char*>(name.CStr()));
         if (type == nullptr) { return RefPtr<ISerializable>{}; }
 
         RefPtr<ISerializable> object = m_db->Serializables().Create(type->id);
@@ -442,7 +440,7 @@ export namespace raptor::content
         return ar.IsOk() ? object : RefPtr<ISerializable>{};
     }
 
-    inline UniquePtr<IStream> Instance::ReadData(WideStringView streamName) const
+    inline UniquePtr<IStream> Instance::ReadData(StringView streamName) const
     {
         return m_db->Mount().Open(DataPath(streamName).AsView(), FileMode::Read);
     }
@@ -457,7 +455,7 @@ export namespace raptor::content
         return writable->Save(EnvelopePath().AsView(), buffer.Bytes());
     }
 
-    inline Status Instance::WriteData(WideStringView streamName, Span<const byte> data)
+    inline Status Instance::WriteData(StringView streamName, Span<const byte> data)
     {
         IWritableFileSystem* writable = m_db->Mount().AsWritable();
         if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }

@@ -21,15 +21,15 @@ export namespace raptor::vfs
     class VirtualFileSystem final : public IFileSystem
     {
     public:
-        // Mounts a backend under a scheme, e.g. Mount(u"project", fs) routes
+        // Mounts a backend under a scheme, e.g. Mount(u8"project", fs) routes
         // "project://...". Non-owning; the backend must outlive this.
-        void Mount(WideStringView scheme, IFileSystem& backend)
+        void Mount(StringView scheme, IFileSystem& backend)
         {
-            m_mounts.PushBack(MountPoint{ WideString(scheme), &backend });
+            m_mounts.PushBack(MountPoint{ String(scheme), &backend });
         }
 
         // Resolves the backend registered for a scheme, or null.
-        [[nodiscard]] IFileSystem* GetMount(WideStringView scheme)
+        [[nodiscard]] IFileSystem* GetMount(StringView scheme)
         {
             for (MountPoint& mount : m_mounts)
             {
@@ -38,19 +38,19 @@ export namespace raptor::vfs
             return nullptr;
         }
 
-        [[nodiscard]] UniquePtr<IStream> Open(WideStringView path, FileMode mode) override
+        [[nodiscard]] UniquePtr<IStream> Open(StringView path, FileMode mode) override
         {
-            WideStringView scheme;
-            WideStringView locator;
+            StringView scheme;
+            StringView locator;
             if (!SplitScheme(path, scheme, locator)) { return UniquePtr<IStream>{}; }
             IFileSystem* backend = GetMount(scheme);
             return backend != nullptr ? backend->Open(locator, mode) : UniquePtr<IStream>{};
         }
 
-        [[nodiscard]] bool Exists(WideStringView path) override
+        [[nodiscard]] bool Exists(StringView path) override
         {
-            WideStringView scheme;
-            WideStringView locator;
+            StringView scheme;
+            StringView locator;
             if (!SplitScheme(path, scheme, locator)) { return false; }
             IFileSystem* backend = GetMount(scheme);
             return backend != nullptr && backend->Exists(locator);
@@ -59,15 +59,15 @@ export namespace raptor::vfs
     private:
         struct MountPoint
         {
-            WideString scheme;
+            String scheme;
             IFileSystem* backend;
         };
 
         // Splits "scheme://locator" into its parts. Returns false if there is no
         // "://" separator (schemeless paths are rejected).
-        [[nodiscard]] static bool SplitScheme(WideStringView path, WideStringView& outScheme, WideStringView& outLocator)
+        [[nodiscard]] static bool SplitScheme(StringView path, StringView& outScheme, StringView& outLocator)
         {
-            constexpr WideStringView sep = u"://";
+            constexpr StringView sep = u8"://";
             for (usize i = 0; i + sep.Size() <= path.Size(); ++i)
             {
                 if (path.SubStr(i, sep.Size()) == sep)

@@ -22,11 +22,11 @@ export namespace raptor::fonts
     class TrueTypeFontParser final : public IFontParser
     {
     public:
-        [[nodiscard]] Span<const WideStringView> SupportedExtensions() const override { return TrueTypeExtensions(); }
+        [[nodiscard]] Span<const StringView> SupportedExtensions() const override { return TrueTypeExtensions(); }
 
-        [[nodiscard]] bool SupportsExtension(WideStringView fileExtension) const override
+        [[nodiscard]] bool SupportsExtension(StringView fileExtension) const override
         {
-            for (const WideStringView ext : TrueTypeExtensions())
+            for (const StringView ext : TrueTypeExtensions())
                 if (ExtEquals(fileExtension, ext))
                     return true;
             return false;
@@ -57,7 +57,7 @@ export namespace raptor::fonts
             return Build(Move(fontData), options);
         }
 
-        [[nodiscard]] Result<IFont*, FontLoadResult> ParseFromFile(WideStringView filePath, FontLoadOptions options) override
+        [[nodiscard]] Result<IFont*, FontLoadResult> ParseFromFile(StringView filePath, FontLoadOptions options) override
         {
             FileStream file(filePath, FileMode::Read);
             if (!file.IsValid())

@@ -18,7 +18,7 @@ using namespace raptor::core;
 
 export namespace raptor::fonts
 {
-    // Parses a source-format font (TTF, OTF, …) into a queryable IFont. The
+    // Parses a source-format font (TTF, OTF, ...) into a queryable IFont. The
     // returned font is heap-allocated; the caller takes ownership.
     class IFontParser
     {
@@ -27,10 +27,10 @@ export namespace raptor::fonts
 
         // File extensions this parser supports (e.g. ".ttf", ".otf"), used by
         // FontParserFactory for extension dispatch.
-        [[nodiscard]] virtual Span<const WideStringView> SupportedExtensions() const = 0;
+        [[nodiscard]] virtual Span<const StringView> SupportedExtensions() const = 0;
 
         // Quick predicate over the extension list.
-        [[nodiscard]] virtual bool SupportsExtension(WideStringView fileExtension) const = 0;
+        [[nodiscard]] virtual bool SupportsExtension(StringView fileExtension) const = 0;
 
         // Canonical entry point: parse from a borrowed stream (not retained).
         [[nodiscard]] virtual Result<IFont*, FontLoadResult> ParseFromStream(IStream& stream, FontLoadOptions options) = 0;
@@ -40,7 +40,7 @@ export namespace raptor::fonts
 
         // Parse from a file on disk. Engine/shipped-game callers should prefer
         // the VFS-aware stream path.
-        [[nodiscard]] virtual Result<IFont*, FontLoadResult> ParseFromFile(WideStringView filePath, FontLoadOptions options) = 0;
+        [[nodiscard]] virtual Result<IFont*, FontLoadResult> ParseFromFile(StringView filePath, FontLoadOptions options) = 0;
     };
 
     // Bakes a parsed IFont into a renderable IFontAtlas. Implementations
@@ -51,10 +51,10 @@ export namespace raptor::fonts
         virtual ~IFontAtlasBaker() = default;
 
         // File extensions this baker is paired with, for factory dispatch.
-        [[nodiscard]] virtual Span<const WideStringView> SupportedExtensions() const = 0;
+        [[nodiscard]] virtual Span<const StringView> SupportedExtensions() const = 0;
 
         // Quick predicate over the extension list.
-        [[nodiscard]] virtual bool SupportsExtension(WideStringView fileExtension) const = 0;
+        [[nodiscard]] virtual bool SupportsExtension(StringView fileExtension) const = 0;
 
         // True if this baker can produce an atlas from the given font instance.
         [[nodiscard]] virtual bool CanBake(const IFont& font) const = 0;

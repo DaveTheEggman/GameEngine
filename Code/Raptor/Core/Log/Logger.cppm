@@ -33,19 +33,19 @@ export namespace raptor::core
         Off, // sentinel: filters out everything
     };
 
-    [[nodiscard]] inline const widechar* LogLevelName(LogLevel level) noexcept
+    [[nodiscard]] inline const utf8char* LogLevelName(LogLevel level) noexcept
     {
         switch (level)
         {
-            case LogLevel::Trace:   return u"Trace";
-            case LogLevel::Debug:   return u"Debug";
-            case LogLevel::Info:    return u"Info";
-            case LogLevel::Warning: return u"Warning";
-            case LogLevel::Error:   return u"Error";
-            case LogLevel::Fatal:   return u"Fatal";
-            case LogLevel::Off:     return u"Off";
+            case LogLevel::Trace:   return u8"Trace";
+            case LogLevel::Debug:   return u8"Debug";
+            case LogLevel::Info:    return u8"Info";
+            case LogLevel::Warning: return u8"Warning";
+            case LogLevel::Error:   return u8"Error";
+            case LogLevel::Fatal:   return u8"Fatal";
+            case LogLevel::Off:     return u8"Off";
         }
-        return u"?";
+        return u8"?";
     }
 
     // -----------------------------------------------------------------------
@@ -55,16 +55,24 @@ export namespace raptor::core
     {
     public:
         virtual ~ILogSink() = default;
-        virtual void Write(LogLevel level, WideStringView category, WideStringView message) noexcept = 0;
+        virtual void Write(LogLevel level, StringView category, StringView message) noexcept = 0;
     };
 
     namespace detail
     {
-        inline void FormatLine(FormatBuffer& line, LogLevel level, WideStringView category, WideStringView message)
+        inline void FormatLine(String& line, LogLevel level, StringView category, StringView message)
         {
-            FormatTo(line, u"[{}] {}: ", LogLevelName(level), category);
-            line.Append(message.Data(), message.Size());
-            line.Append(u'\n');
+            // "[Level] category: message\n"
+            line.Clear();
+            line.PushBack(utf8char('['));
+            line.Append(StringView(LogLevelName(level)));
+            line.PushBack(utf8char(']'));
+            line.PushBack(utf8char(' '));
+            line.Append(category);
+            line.PushBack(utf8char(':'));
+            line.PushBack(utf8char(' '));
+            line.Append(message);
+            line.PushBack(utf8char('\n'));
         }
     }
 
@@ -105,7 +113,7 @@ export namespace raptor::core
             return static_cast<u8>(level) >= static_cast<u8>(m_minLevel.load());
         }
 
-        void Dispatch(LogLevel level, WideStringView category, WideStringView message) noexcept
+        void Dispatch(LogLevel level, StringView category, StringView message) noexcept
         {
             ScopedLock lock(m_mutex);
             for (ILogSink* sink : m_sinks)
@@ -128,9 +136,11 @@ export namespace raptor::core
 
     // -----------------------------------------------------------------------
     // Frontend — formats and dispatches (used by the RAPTOR_LOG_* macros).
+    // The format system is still wide; Logf formats into a wide buffer and
+    // transcodes the result to UTF-8 for the Logger/sink UTF-8 API.
     // -----------------------------------------------------------------------
     template <typename... Args>
-    void Logf(LogLevel level, WideStringView category, FormatString<Args...> fmt, const Args&... args)
+    void Logf(LogLevel level, StringView category, FormatString<Args...> fmt, const Args&... args)
     {
         Logger& logger = GlobalLogger();
         if (!logger.IsEnabled(level))
@@ -140,6 +150,7 @@ export namespace raptor::core
 
         FormatBuffer buffer;
         FormatToV(buffer, fmt.data, args...);
-        logger.Dispatch(level, category, buffer.View());
+        const String message = ToUTF8(buffer.View());
+        logger.Dispatch(level, category, message);
     }
 }

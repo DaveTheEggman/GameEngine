@@ -16,9 +16,20 @@ import :string;
 
 namespace raptor::core::detail
 {
-    // Transcode a wide API-surface path to a null-terminated UTF-8 buffer for
-    // the char*-based platform (sys::) layer. This is the convert-at-the-edge
-    // point: Raptor APIs are wide; the OS shim takes bytes.
+    // Ensure a StringView is null-terminated for C APIs. If the view is
+    // already backed by a null-terminated String, the copy is unnecessary
+    // but harmless. A future optimisation could check the trailing byte.
+    struct NullTerminated
+    {
+        String storage;
+        explicit NullTerminated(StringView sv) : storage(sv) {}
+        [[nodiscard]] const char* CStr() const noexcept
+        {
+            return reinterpret_cast<const char*>(storage.CStr());
+        }
+    };
+
+    // Legacy: transcode a wide path to null-terminated UTF-8 for sys:: calls.
     struct NarrowPath
     {
         String storage;
@@ -75,9 +86,9 @@ export namespace raptor::core
     using SeekOrigin = sys::SeekOrigin;
     inline constexpr FileHandle kInvalidFile = sys::kInvalidFile;
 
-    [[nodiscard]] inline FileHandle FileOpen(WideStringView path, FileMode mode) noexcept
+    [[nodiscard]] inline FileHandle FileOpen(StringView path, FileMode mode) noexcept
     {
-        return sys::FileOpen(detail::NarrowPath(path).CStr(), mode);
+        return sys::FileOpen(detail::NullTerminated(path).CStr(), mode);
     }
 
     [[nodiscard]] inline bool FileIsValid(FileHandle handle) noexcept
@@ -105,54 +116,51 @@ export namespace raptor::core
 
     [[nodiscard]] inline i64 FileSize(FileHandle handle) noexcept { return sys::FileSize(handle); }
 
-    [[nodiscard]] inline bool FileExists(WideStringView path) noexcept { return sys::FileExists(detail::NarrowPath(path).CStr()); }
+    [[nodiscard]] inline bool FileExists(StringView path) noexcept { return sys::FileExists(detail::NullTerminated(path).CStr()); }
 
-    inline bool FileDelete(WideStringView path) noexcept { return sys::FileDelete(detail::NarrowPath(path).CStr()); }
+    inline bool FileDelete(StringView path) noexcept { return sys::FileDelete(detail::NullTerminated(path).CStr()); }
 
-    [[nodiscard]] inline bool DirectoryExists(WideStringView path) noexcept { return sys::DirectoryExists(detail::NarrowPath(path).CStr()); }
-    inline bool CreateDirectory(WideStringView path) noexcept { return sys::CreateDirectory(detail::NarrowPath(path).CStr()); }
-    inline bool RemoveDirectory(WideStringView path) noexcept { return sys::RemoveDirectory(detail::NarrowPath(path).CStr()); }
+    [[nodiscard]] inline bool DirectoryExists(StringView path) noexcept { return sys::DirectoryExists(detail::NullTerminated(path).CStr()); }
+    inline bool CreateDirectory(StringView path) noexcept { return sys::CreateDirectory(detail::NullTerminated(path).CStr()); }
+    inline bool RemoveDirectory(StringView path) noexcept { return sys::RemoveDirectory(detail::NullTerminated(path).CStr()); }
 
     // Lists immediate children of a directory, invoking `cb(ctx, name, isDir)`
-    // per entry (excluding "." and ".."). `name` is a wide view valid only for
+    // per entry (excluding "." and ".."). `name` is a UTF-8 view valid only for
     // the duration of the call. Returns false if the directory can't be opened.
-    using DirEntryCallback = void (*)(void* ctx, WideStringView name, bool isDirectory);
-    inline bool ListDirectory(WideStringView path, DirEntryCallback cb, void* ctx) noexcept
+    using DirEntryCallback = void (*)(void* ctx, StringView name, bool isDirectory);
+    inline bool ListDirectory(StringView path, DirEntryCallback cb, void* ctx) noexcept
     {
         struct Bridge { DirEntryCallback cb; void* ctx; } bridge{ cb, ctx };
         return sys::ListDirectory(
-            detail::NarrowPath(path).CStr(),
+            detail::NullTerminated(path).CStr(),
             [](void* c, const char* name, bool isDir) noexcept
             {
                 auto* b = static_cast<Bridge*>(c);
-                const WideString wide = ToWide(StringView(reinterpret_cast<const utf8char*>(name)));
-                b->cb(b->ctx, wide.AsView(), isDir);
+                b->cb(b->ctx, StringView(reinterpret_cast<const utf8char*>(name)), isDir);
             },
             &bridge);
     }
 
     // --- Console -----------------------------------------------------------
 
-    inline void ConsoleWrite(WideStringView text) noexcept
+    inline void ConsoleWrite(StringView text) noexcept
     {
-        const String utf8 = ToUTF8(text);
-        sys::ConsoleWrite(reinterpret_cast<const char*>(utf8.Data()), utf8.Size());
+        sys::ConsoleWrite(reinterpret_cast<const char*>(text.Data()), text.Size());
     }
 
-    inline void ConsoleWriteError(WideStringView text) noexcept
+    inline void ConsoleWriteError(StringView text) noexcept
     {
-        const String utf8 = ToUTF8(text);
-        sys::ConsoleWriteError(reinterpret_cast<const char*>(utf8.Data()), utf8.Size());
+        sys::ConsoleWriteError(reinterpret_cast<const char*>(text.Data()), text.Size());
     }
 
     // --- Dynamic libraries (raw; the Library module wraps these) -----------
 
     using LibraryHandle = sys::LibraryHandle;
 
-    [[nodiscard]] inline LibraryHandle OpenLibrary(WideStringView path) noexcept { return sys::LibraryOpen(detail::NarrowPath(path).CStr()); }
-    [[nodiscard]] inline void* GetLibrarySymbol(LibraryHandle handle, WideStringView name) noexcept
+    [[nodiscard]] inline LibraryHandle OpenLibrary(StringView path) noexcept { return sys::LibraryOpen(detail::NullTerminated(path).CStr()); }
+    [[nodiscard]] inline void* GetLibrarySymbol(LibraryHandle handle, StringView name) noexcept
     {
-        return sys::LibrarySymbol(handle, detail::NarrowPath(name).CStr());
+        return sys::LibrarySymbol(handle, detail::NullTerminated(name).CStr());
     }
     inline void CloseLibrary(LibraryHandle handle) noexcept { sys::LibraryClose(handle); }
 }

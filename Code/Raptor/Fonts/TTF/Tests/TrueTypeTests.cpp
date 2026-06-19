@@ -16,19 +16,19 @@ using namespace raptor::fonts;
 
 namespace
 {
-    // Build a wide path from the (ASCII) asset dir + a relative suffix.
-    WideString AssetPath(const char* rel)
+    // Build a UTF-8 path from the (ASCII) asset dir + a relative suffix.
+    String AssetPath(const char* rel)
     {
-        WideString p;
-        for (const char* s = RAPTOR_FONTS_ASSET_DIR; *s != '\0'; ++s) p.PushBack(static_cast<widechar>(static_cast<unsigned char>(*s)));
-        for (const char* s = rel; *s != '\0'; ++s) p.PushBack(static_cast<widechar>(static_cast<unsigned char>(*s)));
+        String p;
+        for (const char* s = RAPTOR_FONTS_ASSET_DIR; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        for (const char* s = rel; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         return p;
     }
 
     // Parse the bundled Roboto font with default options. Caller owns it.
     IFont* LoadRoboto()
     {
-        const WideString path = AssetPath("/roboto/Roboto-Regular.ttf");
+        const String path = AssetPath("/roboto/Roboto-Regular.ttf");
         Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
         return parsed.HasValue() ? parsed.Value() : nullptr;
     }
@@ -39,21 +39,21 @@ namespace
 TEST_CASE("ttf.loader: parser supports the right extensions")
 {
     TrueTypeFontParser parser;
-    CHECK(parser.SupportsExtension(u".ttf"));
-    CHECK(parser.SupportsExtension(u".TTF"));
-    CHECK(parser.SupportsExtension(u".ttc"));
-    CHECK(parser.SupportsExtension(u".otf"));
-    CHECK_FALSE(parser.SupportsExtension(u".woff"));
-    CHECK_FALSE(parser.SupportsExtension(u".png"));
-    CHECK_FALSE(parser.SupportsExtension(u".txt"));
+    CHECK(parser.SupportsExtension(u8".ttf"));
+    CHECK(parser.SupportsExtension(u8".TTF"));
+    CHECK(parser.SupportsExtension(u8".ttc"));
+    CHECK(parser.SupportsExtension(u8".otf"));
+    CHECK_FALSE(parser.SupportsExtension(u8".woff"));
+    CHECK_FALSE(parser.SupportsExtension(u8".png"));
+    CHECK_FALSE(parser.SupportsExtension(u8".txt"));
 }
 
 TEST_CASE("ttf.loader: baker supports the right extensions")
 {
     TrueTypeFontAtlasBaker baker;
-    CHECK(baker.SupportsExtension(u".ttf"));
-    CHECK(baker.SupportsExtension(u".otf"));
-    CHECK_FALSE(baker.SupportsExtension(u".woff"));
+    CHECK(baker.SupportsExtension(u8".ttf"));
+    CHECK(baker.SupportsExtension(u8".otf"));
+    CHECK_FALSE(baker.SupportsExtension(u8".woff"));
 }
 
 TEST_CASE("ttf.loader: Initialize/Shutdown wires both factories")
@@ -74,7 +74,7 @@ TEST_CASE("ttf.loader: Initialize/Shutdown wires both factories")
 TEST_CASE("ttf.loader: parser factory errors with no parsers")
 {
     FontParserFactory::Shutdown();
-    Result<IFont*, FontLoadResult> result = FontParserFactory::ParseFromFile(u"nonexistent.ttf", FontLoadOptions::Default());
+    Result<IFont*, FontLoadResult> result = FontParserFactory::ParseFromFile(u8"nonexistent.ttf", FontLoadOptions::Default());
     CHECK_FALSE(result.HasValue());
     CHECK(result.Error() == FontLoadResult::UnsupportedFormat);
 }

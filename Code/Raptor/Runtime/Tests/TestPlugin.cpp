@@ -29,7 +29,7 @@ namespace
     class TestPlugin final : public IRuntimePlugin
     {
     public:
-        [[nodiscard]] WideStringView Name() const noexcept override { return u"RaptorTestPlugin"; }
+        [[nodiscard]] StringView Name() const noexcept override { return u8"RaptorTestPlugin"; }
 
         // The plugin owns its subsystem; it registers it non-owningly and removes
         // it on unload, before the host closes this library.

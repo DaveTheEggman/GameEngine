@@ -27,9 +27,9 @@ export namespace raptor::script
     struct ScriptError
     {
         ScriptErrorKind kind;
-        rc::WideStringView module;  // may be empty
+        rc::StringView module;  // may be empty
         rc::i32 line;           // 1-based source line, or -1 if unknown
-        rc::WideStringView message;
+        rc::StringView message;
     };
 
     // Host-provided sink for script errors (compile + runtime). Non-owning: the
@@ -53,7 +53,7 @@ export namespace raptor::script
         // (empty Variant for a void method), or an error if the method is missing
         // or the script faults.
         [[nodiscard]] virtual rc::Result<rc::Variant> Invoke(
-            rc::WideStringView method, rc::Span<rc::Variant> args) = 0;
+            rc::StringView method, rc::Span<rc::Variant> args) = 0;
     };
 
     class IScriptContext : public rc::Object
@@ -65,24 +65,24 @@ export namespace raptor::script
 
         // Compile and run a chunk of script source. NotSupported if the backend
         // has no compiler (e.g. it only loads precompiled blobs).
-        virtual rc::Status Load(rc::WideStringView source, rc::WideStringView chunkName) = 0;
+        virtual rc::Status Load(rc::StringView source, rc::StringView chunkName) = 0;
 
         // Globals are exchanged as Variants (values or objects).
-        virtual void SetGlobal(rc::WideStringView name, const rc::Variant& value) = 0;
-        [[nodiscard]] virtual rc::Variant GetGlobal(rc::WideStringView name) = 0;
+        virtual void SetGlobal(rc::StringView name, const rc::Variant& value) = 0;
+        [[nodiscard]] virtual rc::Variant GetGlobal(rc::StringView name) = 0;
 
         // True if a callable global by that name exists.
-        [[nodiscard]] virtual bool HasFunction(rc::WideStringView name) const = 0;
+        [[nodiscard]] virtual bool HasFunction(rc::StringView name) const = 0;
 
         // Call a global function with reflected args; returns its result (void
         // -> empty Variant), or an error if missing / on a script fault.
         [[nodiscard]] virtual rc::Result<rc::Variant> Call(
-            rc::WideStringView function, rc::Span<rc::Variant> args) = 0;
+            rc::StringView function, rc::Span<rc::Variant> args) = 0;
 
         // Instantiate a script-defined class by name, passing reflected
         // constructor args. Returns null if the class is unknown or construction
         // faults. The returned object outlives this call and retains the context.
         [[nodiscard]] virtual rc::RefPtr<ScriptObject> CreateInstance(
-            rc::WideStringView className, rc::Span<rc::Variant> args) = 0;
+            rc::StringView className, rc::Span<rc::Variant> args) = 0;
     };
 }

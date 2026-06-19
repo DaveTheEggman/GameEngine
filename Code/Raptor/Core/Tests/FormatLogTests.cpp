@@ -49,15 +49,15 @@ namespace
     {
         int count = 0;
         LogLevel lastLevel = LogLevel::Off;
-        WideString lastCategory;
-        WideString lastMessage;
+        String lastCategory;
+        String lastMessage;
 
-        void Write(LogLevel level, WideStringView category, WideStringView message) noexcept override
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
             ++count;
             lastLevel = level;
-            lastCategory = WideString(category);
-            lastMessage = WideString(message);
+            lastCategory = String(category);
+            lastMessage = String(message);
         }
     };
 }
@@ -71,27 +71,27 @@ TEST_CASE("log: dispatch, formatting, and level filtering")
     logger.AddSink(&sink);
     logger.SetMinLevel(LogLevel::Info);
 
-    RAPTOR_LOG_INFO(u"Renderer", u"loaded {} meshes", 12);
+    RAPTOR_LOG_INFO(u8"Renderer", u"loaded {} meshes", 12);
     CHECK(sink.count == 1);
     CHECK(sink.lastLevel == LogLevel::Info);
-    CHECK(sink.lastCategory == u"Renderer");
-    CHECK(sink.lastMessage == u"loaded 12 meshes");
+    CHECK(sink.lastCategory == u8"Renderer");
+    CHECK(sink.lastMessage == u8"loaded 12 meshes");
 
     // Below the min level -> filtered out.
-    RAPTOR_LOG_DEBUG(u"Renderer", u"verbose {}", 1);
+    RAPTOR_LOG_DEBUG(u8"Renderer", u"verbose {}", 1);
     CHECK(sink.count == 1);
 
     // At/above min level -> delivered.
-    RAPTOR_LOG_ERROR(u"Audio", u"device {} lost", 3);
+    RAPTOR_LOG_ERROR(u8"Audio", u"device {} lost", 3);
     CHECK(sink.count == 2);
     CHECK(sink.lastLevel == LogLevel::Error);
-    CHECK(sink.lastMessage == u"device 3 lost");
+    CHECK(sink.lastMessage == u8"device 3 lost");
 
     logger.RemoveSink(&sink);
     logger.SetMinLevel(previousLevel);
 
     // After removal, no more delivery.
-    RAPTOR_LOG_ERROR(u"Audio", u"ignored");
+    RAPTOR_LOG_ERROR(u8"Audio", u"ignored");
     CHECK(sink.count == 2);
 }
 
@@ -102,7 +102,7 @@ namespace
     struct CountingSink : ILogSink
     {
         Atomic<int> count{ 0 };
-        void Write(LogLevel, WideStringView, WideStringView) noexcept override
+        void Write(LogLevel, StringView, StringView) noexcept override
         {
             count.fetch_add(1);
         }
@@ -125,7 +125,7 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
     for (int i = 0; i < kThreads; ++i)
     {
         threads.PushBack(Thread([]() {
-            for (int j = 0; j < kPerThread; ++j) { RAPTOR_LOG_INFO(u"Worker", u"tick {}", j); }
+            for (int j = 0; j < kPerThread; ++j) { RAPTOR_LOG_INFO(u8"Worker", u"tick {}", j); }
         }));
     }
     for (Thread& t : threads) { t.Join(); }
@@ -141,12 +141,12 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
 TEST_CASE("format: wide and utf8 string arguments")
 {
     // Wide WideString / WideStringView append directly.
-    WideString wide = u"café";
-    CHECK(FormatEquals(u"name=café", u"name={}", wide));
-    CHECK(FormatEquals(u"v=héllo", u"v={}", WideStringView(u"héllo")));
+    WideString wide = u"caf\u00e9";
+    CHECK(FormatEquals(u"name=caf\u00e9", u"name={}", wide));
+    CHECK(FormatEquals(u"v=h\u00e9llo", u"v={}", WideStringView(u"h\u00e9llo")));
 
     // UTF-8 view transcodes to wide.
-    CHECK(FormatEquals(u"u=café", u"u={}", StringView(u8"café")));
+    CHECK(FormatEquals(u"u=caf\u00e9", u"u={}", StringView(u8"caf\u00e9")));
 }
 
 // --- Log: in-memory ring sink ----------------------------------------------
@@ -158,19 +158,19 @@ TEST_CASE("log: RingLogSink keeps the most recent records")
 
     for (int i = 0; i < 5; ++i)
     {
-        widechar msg[3];
-        msg[0] = u'm';
-        msg[1] = static_cast<widechar>(u'0' + i);
-        msg[2] = u'\0';
-        ring.Write(LogLevel::Info, u"Cat", WideStringView(msg, 2));
+        utf8char msg[3];
+        msg[0] = utf8char('m');
+        msg[1] = static_cast<utf8char>(utf8char('0') + i);
+        msg[2] = utf8char('\0');
+        ring.Write(LogLevel::Info, u8"Cat", StringView(msg, 2));
     }
 
     // Capacity 3 -> keeps the last three (m2, m3, m4).
     CHECK(ring.Count() == 3u);
-    CHECK(WideStringView(ring.Record(0).message) == WideStringView(u"m2"));
-    CHECK(WideStringView(ring.Record(2).message) == WideStringView(u"m4"));
+    CHECK(StringView(ring.Record(0).message) == StringView(u8"m2"));
+    CHECK(StringView(ring.Record(2).message) == StringView(u8"m4"));
     CHECK(ring.Record(0).level == LogLevel::Info);
-    CHECK(WideStringView(ring.Record(0).category) == WideStringView(u"Cat"));
+    CHECK(StringView(ring.Record(0).category) == StringView(u8"Cat"));
 }
 
 TEST_CASE("format: checked FormatTo validates arg count at compile time")

@@ -8,7 +8,7 @@ module;
 export module raptor.core:console_sink;
 
 import :base;
-import :format;
+import :string;
 import :system;
 import :logger;
 
@@ -18,18 +18,18 @@ export namespace raptor::core
     class ConsoleSink final : public ILogSink
     {
     public:
-        void Write(LogLevel level, WideStringView category, WideStringView message) noexcept override
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
-            FormatBuffer line;
+            String line;
             detail::FormatLine(line, level, category, message);
 
             if (static_cast<u8>(level) >= static_cast<u8>(LogLevel::Error))
             {
-                ConsoleWriteError(line.View());
+                ConsoleWriteError(line);
             }
             else
             {
-                ConsoleWrite(line.View());
+                ConsoleWrite(line);
             }
         }
     };

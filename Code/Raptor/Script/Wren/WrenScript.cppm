@@ -60,11 +60,11 @@ namespace raptor::script::wren
         return a[i] == b[i];
     }
 
-    inline void WriteUtf8(void (*sink)(rc::WideStringView), const char* text)
+    inline void WriteUtf8(void (*sink)(rc::StringView) noexcept, const char* text)
     {
         if (text != nullptr)
         {
-            sink(rc::ToWide(rc::StringView(reinterpret_cast<const rc::utf8char*>(text))).AsView());
+            sink(rc::StringView(reinterpret_cast<const rc::utf8char*>(text)));
         }
     }
 
@@ -408,14 +408,14 @@ namespace raptor::script::wren
         WrenScriptObject(const WrenScriptObject&) = delete;
         WrenScriptObject& operator=(const WrenScriptObject&) = delete;
 
-        [[nodiscard]] rc::Result<rc::Variant> Invoke(rc::WideStringView method, rc::Span<rc::Variant> args) override
+        [[nodiscard]] rc::Result<rc::Variant> Invoke(rc::StringView method, rc::Span<rc::Variant> args) override
         {
             const rc::usize argc = args.Size();
             wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
             wrenSetSlotHandle(m_vm, 0, m_instance); // receiver
             for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
 
-            const rc::String name = rc::ToUTF8(method);
+            const rc::String name(method);
             char signature[96];
             BuildSignature(signature, sizeof(signature), CStr(name), argc);
             WrenHandle* call = wrenMakeCallHandle(m_vm, signature);
@@ -465,10 +465,10 @@ namespace raptor::script::wren
             return nullptr;
         }
 
-        rc::Status Load(rc::WideStringView source, rc::WideStringView chunkName) override
+        rc::Status Load(rc::StringView source, rc::StringView chunkName) override
         {
-            const rc::String src = rc::ToUTF8(source);
-            const rc::String name = rc::ToUTF8(chunkName);
+            const rc::String src(source);
+            const rc::String name(chunkName);
             const WrenInterpretResult result = wrenInterpret(m_vm, CStr(name), CStr(src));
             switch (result)
             {
@@ -481,25 +481,25 @@ namespace raptor::script::wren
 
         void SetErrorHandler(IScriptErrorHandler* handler) override { m_errorHandler = handler; }
 
-        void SetGlobal(rc::WideStringView, const rc::Variant&) override {}
+        void SetGlobal(rc::StringView, const rc::Variant&) override {}
 
-        [[nodiscard]] rc::Variant GetGlobal(rc::WideStringView name) override
+        [[nodiscard]] rc::Variant GetGlobal(rc::StringView name) override
         {
             if (!HasVariable(name)) { return rc::Variant{}; }
-            const rc::String nm = rc::ToUTF8(name);
+            const rc::String nm(name);
             wrenEnsureSlots(m_vm, 1);
             wrenGetVariable(m_vm, CStr(m_module), CStr(nm), 0);
             return SlotToVariant(m_vm, 0);
         }
 
-        [[nodiscard]] bool HasFunction(rc::WideStringView name) const override { return HasVariable(name); }
+        [[nodiscard]] bool HasFunction(rc::StringView name) const override { return HasVariable(name); }
 
-        [[nodiscard]] rc::Result<rc::Variant> Call(rc::WideStringView function, rc::Span<rc::Variant> args) override
+        [[nodiscard]] rc::Result<rc::Variant> Call(rc::StringView function, rc::Span<rc::Variant> args) override
         {
             if (!HasVariable(function)) { return rc::Err(rc::ErrorCode::NotFound); }
             const rc::usize argc = args.Size();
             wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
-            const rc::String nm = rc::ToUTF8(function);
+            const rc::String nm(function);
             wrenGetVariable(m_vm, CStr(m_module), CStr(nm), 0);
             for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
 
@@ -513,13 +513,13 @@ namespace raptor::script::wren
         }
 
         [[nodiscard]] rc::RefPtr<ScriptObject> CreateInstance(
-            rc::WideStringView className, rc::Span<rc::Variant> args) override
+            rc::StringView className, rc::Span<rc::Variant> args) override
         {
             if (!HasVariable(className)) { return nullptr; }
 
             const rc::usize argc = args.Size();
             wrenEnsureSlots(m_vm, static_cast<int>(argc) + 1);
-            const rc::String cls = rc::ToUTF8(className);
+            const rc::String cls(className);
             wrenGetVariable(m_vm, CStr(m_module), CStr(cls), 0); // class object -> slot 0
             for (rc::usize i = 0; i < argc; ++i) { MarshalOut(m_vm, static_cast<int>(i) + 1, args[i]); }
 
@@ -622,10 +622,10 @@ namespace raptor::script::wren
             AppendAscii(src, "}\n");
         }
 
-        [[nodiscard]] bool HasVariable(rc::WideStringView name) const
+        [[nodiscard]] bool HasVariable(rc::StringView name) const
         {
             if (m_module.IsEmpty() || !wrenHasModule(m_vm, CStr(m_module))) { return false; }
-            const rc::String nm = rc::ToUTF8(name);
+            const rc::String nm(name);
             return wrenHasVariable(m_vm, CStr(m_module), CStr(nm));
         }
 
@@ -638,13 +638,13 @@ namespace raptor::script::wren
                 // Stack-trace frames follow a runtime error; surface the message kinds.
                 if (type == WREN_ERROR_COMPILE || type == WREN_ERROR_RUNTIME)
                 {
-                    const rc::WideString mod = (module != nullptr)
-                        ? rc::ToWide(rc::StringView(reinterpret_cast<const rc::utf8char*>(module))) : rc::WideString{};
-                    const rc::WideString msg = (message != nullptr)
-                        ? rc::ToWide(rc::StringView(reinterpret_cast<const rc::utf8char*>(message))) : rc::WideString{};
+                    const rc::StringView mod = (module != nullptr)
+                        ? rc::StringView(reinterpret_cast<const rc::utf8char*>(module)) : rc::StringView{};
+                    const rc::StringView msg = (message != nullptr)
+                        ? rc::StringView(reinterpret_cast<const rc::utf8char*>(message)) : rc::StringView{};
                     const ScriptError error{
                         (type == WREN_ERROR_COMPILE) ? ScriptErrorKind::Compile : ScriptErrorKind::Runtime,
-                        mod.AsView(), static_cast<rc::i32>(line), msg.AsView() };
+                        mod, static_cast<rc::i32>(line), msg };
                     self->m_errorHandler->OnError(error);
                 }
                 return;

@@ -56,7 +56,7 @@ TEST_CASE("system: page allocation is usable and page-aligned")
 
 TEST_CASE("system: file write / read / seek / size round-trip")
 {
-    const WideStringView path = u"raptor_system_test.tmp";
+    const StringView path = u8"raptor_system_test.tmp";
     const char payload[] = "Raptor file IO";
     const u64 length = sizeof(payload) - 1; // exclude null terminator
 
@@ -95,12 +95,12 @@ TEST_CASE("system: file write / read / seek / size round-trip")
 
 TEST_CASE("system: opening a missing file fails cleanly")
 {
-    FileHandle f = FileOpen(u"raptor_definitely_missing.xyz", FileMode::Read);
+    FileHandle f = FileOpen(u8"raptor_definitely_missing.xyz", FileMode::Read);
     CHECK_FALSE(FileIsValid(f));
 }
 
 TEST_CASE("system: console write does not crash")
 {
-    ConsoleWrite(u"[raptor-test] console output check\n");
+    ConsoleWrite(u8"[raptor-test] console output check\n");
     CHECK(true);
 }

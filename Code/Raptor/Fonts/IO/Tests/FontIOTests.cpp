@@ -20,16 +20,16 @@ namespace
     class FakeParser final : public IFontParser
     {
     public:
-        Span<const WideStringView> SupportedExtensions() const override
+        Span<const StringView> SupportedExtensions() const override
         {
-            static const WideStringView exts[] = { WideStringView(u".fake") };
-            return Span<const WideStringView>(exts, 1);
+            static const StringView exts[] = { StringView(u8".fake") };
+            return Span<const StringView>(exts, 1);
         }
-        bool SupportsExtension(WideStringView ext) const override { return ext == WideStringView(u".fake"); }
+        bool SupportsExtension(StringView ext) const override { return ext == StringView(u8".fake"); }
 
         Result<IFont*, FontLoadResult> ParseFromStream(IStream&, FontLoadOptions) override { return Make(); }
         Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8>, FontLoadOptions) override { return Make(); }
-        Result<IFont*, FontLoadResult> ParseFromFile(WideStringView, FontLoadOptions) override { return Make(); }
+        Result<IFont*, FontLoadResult> ParseFromFile(StringView, FontLoadOptions) override { return Make(); }
 
     private:
         static Result<IFont*, FontLoadResult> Make()
@@ -46,12 +46,12 @@ namespace
     class FakeBaker final : public IFontAtlasBaker
     {
     public:
-        Span<const WideStringView> SupportedExtensions() const override
+        Span<const StringView> SupportedExtensions() const override
         {
-            static const WideStringView exts[] = { WideStringView(u".fake") };
-            return Span<const WideStringView>(exts, 1);
+            static const StringView exts[] = { StringView(u8".fake") };
+            return Span<const StringView>(exts, 1);
         }
-        bool SupportsExtension(WideStringView ext) const override { return ext == WideStringView(u".fake"); }
+        bool SupportsExtension(StringView ext) const override { return ext == StringView(u8".fake"); }
         bool CanBake(const IFont&) const override { return true; }
 
         Result<IFontAtlas*, FontLoadResult> Bake(IFont&, FontLoadOptions) override
@@ -71,16 +71,16 @@ TEST_CASE("io.factories: parser registration + extension dispatch")
     FontParserFactory::RegisterParser(nullptr);       // ignored
     CHECK(FontParserFactory::ParserCount() == 1);
 
-    CHECK(FontParserFactory::GetParserForExtension(u".fake") != nullptr);
-    CHECK(FontParserFactory::GetParserForExtension(u".nope") == nullptr);
+    CHECK(FontParserFactory::GetParserForExtension(u8".fake") != nullptr);
+    CHECK(FontParserFactory::GetParserForExtension(u8".nope") == nullptr);
 
     // Unknown extension -> UnsupportedFormat.
-    Result<IFont*, FontLoadResult> miss = FontParserFactory::ParseFromMemory(Span<const u8>(), u".nope");
+    Result<IFont*, FontLoadResult> miss = FontParserFactory::ParseFromMemory(Span<const u8>(), u8".nope");
     CHECK_FALSE(miss.HasValue());
     CHECK(miss.Error() == FontLoadResult::UnsupportedFormat);
 
     // Known extension -> a parsed font (caller owns it).
-    Result<IFont*, FontLoadResult> hit = FontParserFactory::ParseFromMemory(Span<const u8>(), u".fake");
+    Result<IFont*, FontLoadResult> hit = FontParserFactory::ParseFromMemory(Span<const u8>(), u8".fake");
     REQUIRE(hit.HasValue());
     CHECK(hit.Value()->HasGlyph(static_cast<i32>('A')));
     DefaultAllocator().Delete(hit.Value());
@@ -102,11 +102,11 @@ TEST_CASE("io.factories: baker dispatch by extension and by font")
     REQUIRE(byFont.HasValue());
     DefaultAllocator().Delete(byFont.Value());
 
-    Result<IFontAtlas*, FontLoadResult> byExt = FontAtlasBakerFactory::BakeFromExtension(u".fake", font);
+    Result<IFontAtlas*, FontLoadResult> byExt = FontAtlasBakerFactory::BakeFromExtension(u8".fake", font);
     REQUIRE(byExt.HasValue());
     DefaultAllocator().Delete(byExt.Value());
 
-    Result<IFontAtlas*, FontLoadResult> miss = FontAtlasBakerFactory::BakeFromExtension(u".nope", font);
+    Result<IFontAtlas*, FontLoadResult> miss = FontAtlasBakerFactory::BakeFromExtension(u8".nope", font);
     CHECK_FALSE(miss.HasValue());
 
     FontAtlasBakerFactory::Shutdown();
@@ -121,21 +121,21 @@ TEST_CASE("io.manager: cache hit, refcount, clear")
 
     FontManager manager;
     CHECK(manager.CacheCount() == 0);
-    CHECK_FALSE(manager.IsCached(u"font.fake", 16));
+    CHECK_FALSE(manager.IsCached(u8"font.fake", 16));
 
-    CachedFont* a = manager.GetFont(u"font.fake", 16);
+    CachedFont* a = manager.GetFont(u8"font.fake", 16);
     REQUIRE(a != nullptr);
     CHECK(manager.CacheCount() == 1);
-    CHECK(manager.IsCached(u"font.fake", 16));
+    CHECK(manager.IsCached(u8"font.fake", 16));
     CHECK(a->refCount == 1);
 
     // Same key -> same instance, refcount bumped.
-    CachedFont* b = manager.GetFont(u"font.fake", 16);
+    CachedFont* b = manager.GetFont(u8"font.fake", 16);
     CHECK(b == a);
     CHECK(a->refCount == 2);
 
     // Different size -> a distinct cached entry.
-    CachedFont* c = manager.GetFont(u"font.fake", 32);
+    CachedFont* c = manager.GetFont(u8"font.fake", 32);
     CHECK(c != a);
     CHECK(manager.CacheCount() == 2);
 

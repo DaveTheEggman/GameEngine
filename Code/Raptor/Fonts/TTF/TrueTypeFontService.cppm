@@ -46,7 +46,7 @@ export namespace raptor::fonts
 
         // Load a font from `locator` and build its atlas texture. The first
         // font loaded becomes the default. Returns Success or a failure.
-        [[nodiscard]] FontLoadResult LoadFont(WideStringView familyName, WideStringView locator,
+        [[nodiscard]] FontLoadResult LoadFont(WideStringView familyName, StringView locator,
                                               FontLoadOptions options = FontLoadOptions::ExtendedLatin())
         {
             IFont* font = nullptr;
@@ -56,7 +56,7 @@ export namespace raptor::fonts
                 if (!stream || !stream->IsValid())
                     return FontLoadResult::FileNotFound;
 
-                const WideStringView ext = PathExtension(locator);
+                const StringView ext = PathExtension(locator);
                 Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromStream(*stream, ext, options);
                 if (!parsed.HasValue())
                     return parsed.Error();

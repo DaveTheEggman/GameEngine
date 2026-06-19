@@ -25,19 +25,19 @@ namespace
     {
     public:
         void SetErrorHandler(IScriptErrorHandler*) override {}
-        Status Load(WideStringView, WideStringView) override { return Status{ ErrorCode::NotSupported }; }
-        void SetGlobal(WideStringView name, const Variant& value) override { m_globals.InsertOrAssign(WideString(name), value); }
-        Variant GetGlobal(WideStringView name) override
+        Status Load(StringView, StringView) override { return Status{ ErrorCode::NotSupported }; }
+        void SetGlobal(StringView name, const Variant& value) override { m_globals.InsertOrAssign(String(name), value); }
+        Variant GetGlobal(StringView name) override
         {
-            const Variant* found = m_globals.Find(WideString(name));
+            const Variant* found = m_globals.Find(String(name));
             return (found != nullptr) ? *found : Variant{};
         }
-        bool HasFunction(WideStringView) const override { return false; }
-        Result<Variant> Call(WideStringView, Span<Variant>) override { return Err(ErrorCode::NotSupported); }
-        RefPtr<ScriptObject> CreateInstance(WideStringView, Span<Variant>) override { return nullptr; }
+        bool HasFunction(StringView) const override { return false; }
+        Result<Variant> Call(StringView, Span<Variant>) override { return Err(ErrorCode::NotSupported); }
+        RefPtr<ScriptObject> CreateInstance(StringView, Span<Variant>) override { return nullptr; }
 
     private:
-        HashMap<WideString, Variant> m_globals;
+        HashMap<String, Variant> m_globals;
     };
 
     class MockManager final : public IScriptManager
@@ -83,23 +83,23 @@ TEST_CASE("script: context round-trips value and object globals as Variant")
     REQUIRE(static_cast<bool>(ctx));
 
     // Value global.
-    ctx->SetGlobal(u"pos", Variant::From(Vec3{ 1.0f, 2.0f, 3.0f }));
-    CHECK(ctx->GetGlobal(u"pos").Get<Vec3>() == Vec3{ 1.0f, 2.0f, 3.0f });
+    ctx->SetGlobal(u8"pos", Variant::From(Vec3{ 1.0f, 2.0f, 3.0f }));
+    CHECK(ctx->GetGlobal(u8"pos").Get<Vec3>() == Vec3{ 1.0f, 2.0f, 3.0f });
 
     // Object global keeps the object alive and reports its dynamic type.
     RefPtr<Widget> widget = MakeRef<Widget>(DefaultAllocator());
     widget->id = 42;
-    ctx->SetGlobal(u"w", Variant::From(widget));
+    ctx->SetGlobal(u8"w", Variant::From(widget));
     CHECK(widget->RefCount() == 2u);  // widget + the global's Variant
 
-    Variant got = ctx->GetGlobal(u"w");
+    Variant got = ctx->GetGlobal(u8"w");
     CHECK(got.IsObject());
     CHECK(got.Type() == &Widget::StaticType());
     REQUIRE(got.AsObject<Widget>() != nullptr);
     CHECK(got.AsObject<Widget>()->id == 42);
 
     // Missing global -> empty Variant.
-    CHECK(ctx->GetGlobal(u"missing").IsEmpty());
+    CHECK(ctx->GetGlobal(u8"missing").IsEmpty());
 }
 
 TEST_CASE("script: backend reports unsupported operations cleanly")
@@ -107,7 +107,7 @@ TEST_CASE("script: backend reports unsupported operations cleanly")
     RefPtr<MockManager> manager = MakeRef<MockManager>(DefaultAllocator());
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    CHECK(ctx->Load(u"print('hi')", u"chunk").Code() == ErrorCode::NotSupported);
-    CHECK_FALSE(ctx->HasFunction(u"main"));
-    CHECK(ctx->Call(u"main", Span<Variant>{}).Error() == ErrorCode::NotSupported);
+    CHECK(ctx->Load(u8"print('hi')", u8"chunk").Code() == ErrorCode::NotSupported);
+    CHECK_FALSE(ctx->HasFunction(u8"main"));
+    CHECK(ctx->Call(u8"main", Span<Variant>{}).Error() == ErrorCode::NotSupported);
 }

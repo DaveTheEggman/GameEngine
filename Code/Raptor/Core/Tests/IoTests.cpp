@@ -73,7 +73,7 @@ TEST_CASE("io: MemoryStream seek bounds and overwrite")
 
 TEST_CASE("io: FileStream writes then reads a file")
 {
-    const WideStringView path = u"raptor_io_stream_test.tmp";
+    const StringView path = u8"raptor_io_stream_test.tmp";
 
     {
         FileStream out(path, FileMode::Write);
@@ -106,7 +106,7 @@ TEST_CASE("io: FileStream writes then reads a file")
 
 TEST_CASE("io: FileStream on an unopenable path is invalid")
 {
-    FileStream in(u"raptor_io_missing_file.xyz", FileMode::Read);
+    FileStream in(u8"raptor_io_missing_file.xyz", FileMode::Read);
     CHECK_FALSE(in.IsValid());
     u8 byte = 0;
     CHECK(in.Read(&byte, 1) == 0u);
@@ -167,12 +167,12 @@ TEST_CASE("serialization: primitives and math round-trip")
     }
 }
 
-TEST_CASE("serialization: WideString and Array round-trip")
+TEST_CASE("serialization: String and Array round-trip")
 {
     MemoryStream stream;
     {
         BinarySerializer saver(stream, SerializeMode::Write);
-        WideString name = u"raptor";
+        String name = u8"raptor";
         Array<i32> values;
         for (i32 i = 0; i < 5; ++i) { values.PushBack(i * 11); }
         Serialize(saver, name);
@@ -183,13 +183,13 @@ TEST_CASE("serialization: WideString and Array round-trip")
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer loader(stream, SerializeMode::Read);
-        WideString name;
+        String name;
         Array<i32> values;
         Serialize(loader, name);
         Serialize(loader, values);
         CHECK(loader.IsOk());
 
-        CHECK(name == u"raptor");
+        CHECK(name == u8"raptor");
         REQUIRE(values.Size() == 5u);
         CHECK(values[0] == 0);
         CHECK(values[4] == 44);
@@ -225,15 +225,15 @@ TEST_CASE("serialization: a user type serialized once for both directions")
     CHECK(loaded.mass == 2.25f);
 }
 
-TEST_CASE("serialization: nested Array<WideString> round-trips")
+TEST_CASE("serialization: nested Array<String> round-trips")
 {
     MemoryStream stream;
     {
         BinarySerializer saver(stream, SerializeMode::Write);
-        Array<WideString> words;
-        words.PushBack(WideString(u"alpha"));
-        words.PushBack(WideString(u"beta"));
-        words.PushBack(WideString(u"gamma"));
+        Array<String> words;
+        words.PushBack(String(u8"alpha"));
+        words.PushBack(String(u8"beta"));
+        words.PushBack(String(u8"gamma"));
         Serialize(saver, words);
         CHECK(saver.IsOk());
     }
@@ -241,13 +241,13 @@ TEST_CASE("serialization: nested Array<WideString> round-trips")
     CHECK(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer loader(stream, SerializeMode::Read);
-        Array<WideString> words;
+        Array<String> words;
         Serialize(loader, words);
         CHECK(loader.IsOk());
 
         REQUIRE(words.Size() == 3u);
-        CHECK(words[0] == u"alpha");
-        CHECK(words[2] == u"gamma");
+        CHECK(words[0] == u8"alpha");
+        CHECK(words[2] == u8"gamma");
     }
 }
 
@@ -328,32 +328,32 @@ TEST_CASE("io: BufferedStream write-then-seek-then-read on one stream")
 
 TEST_CASE("io: Path query functions")
 {
-    CHECK(PathFilename(u"/a/b/c.txt") == WideStringView(u"c.txt"));
-    CHECK(PathFilename(u"noslash.dat") == WideStringView(u"noslash.dat"));
-    CHECK(PathExtension(u"/a/b/c.txt") == WideStringView(u".txt"));
-    CHECK(PathExtension(u"/a/b/c") == WideStringView(u""));
-    CHECK(PathExtension(u"/a/.hidden") == WideStringView(u"")); // dotfile has no ext
-    CHECK(PathStem(u"/a/b/c.txt") == WideStringView(u"c"));
-    CHECK(PathParent(u"/a/b/c.txt") == WideStringView(u"/a/b"));
-    CHECK(PathParent(u"file") == WideStringView(u""));
+    CHECK(PathFilename(u8"/a/b/c.txt") == StringView(u8"c.txt"));
+    CHECK(PathFilename(u8"noslash.dat") == StringView(u8"noslash.dat"));
+    CHECK(PathExtension(u8"/a/b/c.txt") == StringView(u8".txt"));
+    CHECK(PathExtension(u8"/a/b/c") == StringView(u8""));
+    CHECK(PathExtension(u8"/a/.hidden") == StringView(u8"")); // dotfile has no ext
+    CHECK(PathStem(u8"/a/b/c.txt") == StringView(u8"c"));
+    CHECK(PathParent(u8"/a/b/c.txt") == StringView(u8"/a/b"));
+    CHECK(PathParent(u8"file") == StringView(u8""));
 
-    CHECK(PathIsAbsolute(u"/etc/hosts"));
-    CHECK_FALSE(PathIsAbsolute(u"relative/path"));
+    CHECK(PathIsAbsolute(u8"/etc/hosts"));
+    CHECK_FALSE(PathIsAbsolute(u8"relative/path"));
 }
 
 TEST_CASE("io: PathJoin")
 {
-    CHECK(PathJoin(u"/a/b", u"c.txt") == u"/a/b/c.txt");
-    CHECK(PathJoin(u"/a/b/", u"c.txt") == u"/a/b/c.txt"); // no double separator
-    CHECK(PathJoin(u"", u"c.txt") == u"c.txt");
-    CHECK(PathJoin(u"/a/b", u"/absolute") == u"/absolute"); // absolute rhs wins
+    CHECK(PathJoin(u8"/a/b", u8"c.txt") == u8"/a/b/c.txt");
+    CHECK(PathJoin(u8"/a/b/", u8"c.txt") == u8"/a/b/c.txt"); // no double separator
+    CHECK(PathJoin(u8"", u8"c.txt") == u8"c.txt");
+    CHECK(PathJoin(u8"/a/b", u8"/absolute") == u8"/absolute"); // absolute rhs wins
 }
 
 // --- IO: FileSystem --------------------------------------------------------
 
 TEST_CASE("io: ReadFile / WriteFile round-trip")
 {
-    const WideStringView path = u"raptor_fs_roundtrip.tmp";
+    const StringView path = u8"raptor_fs_roundtrip.tmp";
     const byte payload[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 0xFF }, byte{ 0 }, byte{ 42 } };
 
     CHECK(WriteFile(path, Span<const byte>{ payload, ArrayCount(payload) }).IsOk());
@@ -368,12 +368,12 @@ TEST_CASE("io: ReadFile / WriteFile round-trip")
     }
 
     CHECK(FileDelete(path));
-    CHECK(ReadFile(u"raptor_fs_missing.tmp").Error() == ErrorCode::NotFound);
+    CHECK(ReadFile(u8"raptor_fs_missing.tmp").Error() == ErrorCode::NotFound);
 }
 
 TEST_CASE("io: directory create / exists / remove")
 {
-    const WideStringView dir = u"raptor_fs_test_dir";
+    const StringView dir = u8"raptor_fs_test_dir";
     CHECK_FALSE(DirectoryExists(dir));
     CHECK(CreateDirectory(dir));
     CHECK(DirectoryExists(dir));
@@ -397,7 +397,7 @@ namespace
         RAPTOR_OBJECT(Widget, ISerializable)
     public:
         i32 id = 0;
-        WideString label;
+        String label;
         Vec3 position;
 
         void Serialize(ISerializer& ar) override
@@ -421,7 +421,7 @@ TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
     {
         Widget w;
         w.id = 42;
-        w.label = u"hello";
+        w.label = u8"hello";
         w.position = Vec3{ 1.0f, 2.0f, 3.0f };
         BinarySerializer saver(stream, SerializeMode::Write);
         Serialize(saver, w);                 // free fn dispatches to w.Serialize(ar)
@@ -437,7 +437,7 @@ TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
         CHECK(loader.IsOk());
 
         CHECK(w.id == 42);
-        CHECK(w.label == u"hello");
+        CHECK(w.label == u8"hello");
         CHECK(w.position == Vec3{ 1.0f, 2.0f, 3.0f });
     }
 }
@@ -451,7 +451,7 @@ TEST_CASE("serialization: SerializableRegistry creates by type id, then deserial
 
     MemoryStream stream;
     {
-        Widget w; w.id = 7; w.label = u"reg"; w.position = Vec3{ 9, 8, 7 };
+        Widget w; w.id = 7; w.label = u8"reg"; w.position = Vec3{ 9, 8, 7 };
         BinarySerializer saver(stream, SerializeMode::Write);
         Serialize(saver, w);
     }
@@ -467,7 +467,7 @@ TEST_CASE("serialization: SerializableRegistry creates by type id, then deserial
     Widget* w = Cast<Widget>(obj.Get());
     REQUIRE(w != nullptr);                    // GetType() reports the concrete type
     CHECK(w->id == 7);
-    CHECK(w->label == u"reg");
+    CHECK(w->label == u8"reg");
 
     CHECK(registry.Create(ISerializable::StaticType().id).Get() == nullptr);
 }
