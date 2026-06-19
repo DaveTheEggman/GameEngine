@@ -14,11 +14,11 @@ using namespace raptor::fonts;
 TEST_CASE("baked.font: metrics round-trip")
 {
     BakedFont font;
-    font.SetFamilyName(u"Hand Rolled");
+    font.SetFamilyName(u8"Hand Rolled");
     font.SetPixelHeight(24);
     font.SetMetrics(FontMetrics(20.0f, -5.0f, 2.0f, 24.0f, 0.0625f));
 
-    CHECK(font.FamilyName() == WideStringView(u"Hand Rolled"));
+    CHECK(font.FamilyName() == StringView(u8"Hand Rolled"));
     CHECK(font.PixelHeight() == 24);
     CHECK(font.Metrics().ascent == 20.0f);
     CHECK(font.Metrics().descent == -5.0f);
@@ -76,9 +76,9 @@ TEST_CASE("baked.font: MeasureString uses kerning")
     font.SetKerning(static_cast<i32>('A'), static_cast<i32>('B'), -3.0f);
 
     // "AB": advance(A) + kerning(A,B) + advance(B) = 10 + (-3) + 10 = 17.
-    CHECK(font.MeasureString(u"AB") == 17.0f);
+    CHECK(font.MeasureString(u8"AB") == 17.0f);
     // "BA" has no kerning entry -> 20.
-    CHECK(font.MeasureString(u"BA") == 20.0f);
+    CHECK(font.MeasureString(u8"BA") == 20.0f);
 }
 
 TEST_CASE("baked.font: MeasureString with glyph positions")
@@ -91,7 +91,7 @@ TEST_CASE("baked.font: MeasureString with glyph positions")
     font.SetKerning(static_cast<i32>('A'), static_cast<i32>('B'), -3.0f);
 
     Array<GlyphPosition> positions;
-    const f32 total = font.MeasureString(u"AB", positions);
+    const f32 total = font.MeasureString(u8"AB", positions);
 
     CHECK(total == 17.0f);
     CHECK(positions.Size() == 2);

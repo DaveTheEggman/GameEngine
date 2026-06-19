@@ -19,12 +19,12 @@ export namespace raptor::fonts
     class TrueTypeTextShaper final : public ITextShaper
     {
     public:
-        [[nodiscard]] Result<f32> ShapeText(IFont& font, WideStringView text, Array<GlyphPosition>& outPositions) override
+        [[nodiscard]] Result<f32> ShapeText(IFont& font, StringView text, Array<GlyphPosition>& outPositions) override
         {
             return ShapeText(font, text, 0, 0, outPositions);
         }
 
-        [[nodiscard]] Result<f32> ShapeText(IFont& font, WideStringView text, f32 startX, f32 startY,
+        [[nodiscard]] Result<f32> ShapeText(IFont& font, StringView text, f32 startX, f32 startY,
                                             Array<GlyphPosition>& outPositions) override
         {
             outPositions.Clear();
@@ -46,7 +46,7 @@ export namespace raptor::fonts
             return x - startX;
         }
 
-        [[nodiscard]] Status ShapeTextWrapped(IFont& font, WideStringView text, f32 maxWidth,
+        [[nodiscard]] Status ShapeTextWrapped(IFont& font, StringView text, f32 maxWidth,
                                               Array<GlyphPosition>& outPositions, f32& outTotalHeight) override
         {
             outPositions.Clear();

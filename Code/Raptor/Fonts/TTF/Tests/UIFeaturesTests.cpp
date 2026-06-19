@@ -61,7 +61,7 @@ TEST_CASE("ttf.ui: HitTest before text")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"Hello", 100, 0, positions);
+    (void)shaper.ShapeText(*font, u8"Hello", 100, 0, positions);
 
     const HitTestResult result = shaper.HitTest(*font, AsSpan(positions), 50, 0);
     CHECK(result.characterIndex == 0);
@@ -79,7 +79,7 @@ TEST_CASE("ttf.ui: HitTest middle of a character")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"ABCDE", positions);
+    (void)shaper.ShapeText(*font, u8"ABCDE", positions);
     REQUIRE(positions.Size() >= 3);
 
     const GlyphPosition& pos = positions[2];
@@ -100,7 +100,7 @@ TEST_CASE("ttf.ui: HitTest trailing edge")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"AB", positions);
+    (void)shaper.ShapeText(*font, u8"AB", positions);
     REQUIRE(positions.Size() >= 1);
 
     const GlyphPosition& pos = positions[0];
@@ -122,7 +122,7 @@ TEST_CASE("ttf.ui: GetCursorPosition at start")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"Hello", 100, 0, positions);
+    (void)shaper.ShapeText(*font, u8"Hello", 100, 0, positions);
     CHECK(shaper.GetCursorPosition(*font, AsSpan(positions), 0) == 100);
 
     DefaultAllocator().Delete(font);
@@ -137,7 +137,7 @@ TEST_CASE("ttf.ui: GetCursorPosition at end")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"Hi", 0, 0, positions);
+    (void)shaper.ShapeText(*font, u8"Hi", 0, 0, positions);
     REQUIRE(positions.Size() >= 2);
 
     const f32 cursorX = shaper.GetCursorPosition(*font, AsSpan(positions), static_cast<i32>(positions.Size()));
@@ -156,7 +156,7 @@ TEST_CASE("ttf.ui: GetCursorPosition in the middle")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"ABC", positions);
+    (void)shaper.ShapeText(*font, u8"ABC", positions);
     REQUIRE(positions.Size() >= 3);
     CHECK(shaper.GetCursorPosition(*font, AsSpan(positions), 1) == positions[1].x);
 
@@ -172,7 +172,7 @@ TEST_CASE("ttf.ui: GetSelectionRects empty selection")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"Hello", positions);
+    (void)shaper.ShapeText(*font, u8"Hello", positions);
 
     Array<raptor::fonts::Rect> rects;
     shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(2, 2), font->Metrics().lineHeight, rects);
@@ -190,7 +190,7 @@ TEST_CASE("ttf.ui: GetSelectionRects single line")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    (void)shaper.ShapeText(*font, u"Hello", positions);
+    (void)shaper.ShapeText(*font, u8"Hello", positions);
 
     Array<raptor::fonts::Rect> rects;
     shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(1, 4), font->Metrics().lineHeight, rects);

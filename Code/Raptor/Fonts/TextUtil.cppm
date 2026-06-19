@@ -1,9 +1,9 @@
 // Raptor::Fonts — :text_util partition
 //
-// Codepoint iteration over Raptor's wide (UTF-16) WideStringView. Sedulous worked
-// in UTF-8 and used Beef's `WideStringView.DecodedChars`; Raptor strings are wide,
-// so font measuring/shaping decodes surrogate pairs here. Shared by the baked
-// font and the TTF text shaper.
+// Codepoint iteration over a UTF-8 StringView. Mirrors how Sedulous walked text
+// with Beef's `StringView.DecodedChars` (Beef strings are UTF-8); Raptor's
+// String is UTF-8 too, so font measuring/shaping decodes UTF-8 sequences here.
+// Shared by the baked font and the TTF text shaper.
 
 module;
 #include "Core/Prelude.h"
@@ -17,31 +17,30 @@ using namespace raptor::core;
 export namespace raptor::fonts
 {
     // Decodes the Unicode codepoint starting at `text[index]`, advancing
-    // `index` past the consumed code unit(s). Combines a valid high/low
-    // surrogate pair; an unpaired surrogate decodes to U+FFFD. Returns the
-    // codepoint. Caller guarantees `index < text.Size()`.
-    [[nodiscard]] inline u32 DecodeCodepoint(WideStringView text, usize& index) noexcept
+    // `index` past the consumed byte(s). A malformed/truncated sequence decodes
+    // to U+FFFD (consuming one byte). Returns the codepoint. Caller guarantees
+    // `index < text.Size()`.
+    [[nodiscard]] inline u32 DecodeCodepoint(StringView text, usize& index) noexcept
     {
-        const u32 unit = static_cast<u16>(text[index]);
+        const u8 lead = static_cast<u8>(text[index]);
         ++index;
 
-        if (unit >= 0xD800u && unit <= 0xDBFFu)
+        u32 codepoint;
+        int extra;
+        if (lead < 0x80u) { return lead; }
+        else if ((lead & 0xE0u) == 0xC0u) { codepoint = lead & 0x1Fu; extra = 1; }
+        else if ((lead & 0xF0u) == 0xE0u) { codepoint = lead & 0x0Fu; extra = 2; }
+        else if ((lead & 0xF8u) == 0xF0u) { codepoint = lead & 0x07u; extra = 3; }
+        else { return 0xFFFDu; } // invalid lead byte
+
+        for (int k = 0; k < extra; ++k)
         {
-            if (index < text.Size())
-            {
-                const u32 low = static_cast<u16>(text[index]);
-                if (low >= 0xDC00u && low <= 0xDFFFu)
-                {
-                    ++index;
-                    return 0x10000u + ((unit - 0xD800u) << 10) + (low - 0xDC00u);
-                }
-            }
-            return 0xFFFDu; // unpaired high surrogate
+            if (index >= text.Size()) { return 0xFFFDu; }
+            const u8 cont = static_cast<u8>(text[index]);
+            if ((cont & 0xC0u) != 0x80u) { return 0xFFFDu; } // not a continuation byte
+            codepoint = (codepoint << 6) | (cont & 0x3Fu);
+            ++index;
         }
-        if (unit >= 0xDC00u && unit <= 0xDFFFu)
-        {
-            return 0xFFFDu; // unpaired low surrogate
-        }
-        return unit;
+        return codepoint;
     }
 }

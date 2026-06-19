@@ -29,7 +29,7 @@ export namespace raptor::fonts
         // `dynamic_cast`/`is`. 0 = unspecified; backends return a unique id.
         [[nodiscard]] virtual u32 BackendTypeId() const { return 0; }
 
-        [[nodiscard]] virtual WideStringView FamilyName() const = 0;
+        [[nodiscard]] virtual StringView FamilyName() const = 0;
         [[nodiscard]] virtual FontMetrics Metrics() const = 0;
         [[nodiscard]] virtual f32 PixelHeight() const = 0;
 
@@ -37,8 +37,8 @@ export namespace raptor::fonts
         [[nodiscard]] virtual f32 GetKerning(i32 firstCodepoint, i32 secondCodepoint) const = 0;
         [[nodiscard]] virtual bool HasGlyph(i32 codepoint) const = 0;
 
-        [[nodiscard]] virtual f32 MeasureString(WideStringView text) const = 0;
-        [[nodiscard]] virtual f32 MeasureString(WideStringView text, Array<GlyphPosition>& outPositions) const = 0;
+        [[nodiscard]] virtual f32 MeasureString(StringView text) const = 0;
+        [[nodiscard]] virtual f32 MeasureString(StringView text, Array<GlyphPosition>& outPositions) const = 0;
     };
 
     // Texture of pre-rendered glyphs.
@@ -64,9 +64,9 @@ export namespace raptor::fonts
     public:
         virtual ~ITextShaper() = default;
 
-        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, WideStringView text, Array<GlyphPosition>& outPositions) = 0;
-        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, WideStringView text, f32 startX, f32 startY, Array<GlyphPosition>& outPositions) = 0;
-        [[nodiscard]] virtual Status ShapeTextWrapped(IFont& font, WideStringView text, f32 maxWidth, Array<GlyphPosition>& outPositions, f32& outTotalHeight) = 0;
+        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, StringView text, Array<GlyphPosition>& outPositions) = 0;
+        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, StringView text, f32 startX, f32 startY, Array<GlyphPosition>& outPositions) = 0;
+        [[nodiscard]] virtual Status ShapeTextWrapped(IFont& font, StringView text, f32 maxWidth, Array<GlyphPosition>& outPositions, f32& outTotalHeight) = 0;
 
         [[nodiscard]] virtual HitTestResult HitTest(IFont& font, Span<const GlyphPosition> positions, f32 x, f32 y) = 0;
         [[nodiscard]] virtual HitTestResult HitTestWrapped(IFont& font, Span<const GlyphPosition> positions, f32 x, f32 y, f32 lineHeight) = 0;
@@ -104,10 +104,10 @@ export namespace raptor::fonts
         virtual ~IFontService() = default;
 
         [[nodiscard]] virtual CachedFont* GetFont(f32 pixelHeight) = 0;
-        [[nodiscard]] virtual CachedFont* GetFont(WideStringView familyName, f32 pixelHeight) = 0;
+        [[nodiscard]] virtual CachedFont* GetFont(StringView familyName, f32 pixelHeight) = 0;
         [[nodiscard]] virtual raptor::image::ImageData* GetAtlasTexture(CachedFont* font) = 0;
-        [[nodiscard]] virtual raptor::image::ImageData* GetAtlasTexture(WideStringView familyName, f32 pixelHeight) = 0;
+        [[nodiscard]] virtual raptor::image::ImageData* GetAtlasTexture(StringView familyName, f32 pixelHeight) = 0;
         virtual void ReleaseFont(CachedFont* font) = 0;
-        [[nodiscard]] virtual WideStringView DefaultFontFamily() const = 0;
+        [[nodiscard]] virtual StringView DefaultFontFamily() const = 0;
     };
 }

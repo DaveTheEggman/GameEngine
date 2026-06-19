@@ -35,7 +35,7 @@ export namespace raptor::fonts
             m_metrics = FontMetrics::Default();
         }
 
-        void SetFamilyName(WideStringView name) { m_familyName = WideString(name); }
+        void SetFamilyName(StringView name) { m_familyName = String(name); }
         void SetMetrics(FontMetrics m) { m_metrics = m; }
         void SetPixelHeight(f32 h) { m_pixelHeight = h; }
 
@@ -47,7 +47,7 @@ export namespace raptor::fonts
         }
 
         // --- IFont ---------------------------------------------------------
-        [[nodiscard]] WideStringView FamilyName() const override { return m_familyName; }
+        [[nodiscard]] StringView FamilyName() const override { return m_familyName; }
         [[nodiscard]] FontMetrics Metrics() const override { return m_metrics; }
         [[nodiscard]] f32 PixelHeight() const override { return m_pixelHeight; }
 
@@ -67,7 +67,7 @@ export namespace raptor::fonts
 
         [[nodiscard]] bool HasGlyph(i32 codepoint) const override { return m_glyphs.Contains(codepoint); }
 
-        [[nodiscard]] f32 MeasureString(WideStringView text) const override
+        [[nodiscard]] f32 MeasureString(StringView text) const override
         {
             f32 width = 0;
             i32 prevCodepoint = 0;
@@ -84,7 +84,7 @@ export namespace raptor::fonts
             return width;
         }
 
-        [[nodiscard]] f32 MeasureString(WideStringView text, Array<GlyphPosition>& outPositions) const override
+        [[nodiscard]] f32 MeasureString(StringView text, Array<GlyphPosition>& outPositions) const override
         {
             f32 x = 0;
             i32 prevCodepoint = 0;
@@ -117,7 +117,7 @@ export namespace raptor::fonts
             return (static_cast<i64>(first) << 32) | static_cast<i64>(static_cast<u32>(second));
         }
 
-        WideString m_familyName;
+        String m_familyName;
         f32 m_pixelHeight = 0;
         FontMetrics m_metrics;
         HashMap<i32, GlyphInfo> m_glyphs;

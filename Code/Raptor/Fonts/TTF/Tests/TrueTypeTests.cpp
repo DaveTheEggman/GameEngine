@@ -138,11 +138,11 @@ TEST_CASE("ttf.font: MeasureString")
     IFont* font = LoadRoboto();
     REQUIRE(font != nullptr);
 
-    const f32 width = font->MeasureString(u"Hello World");
+    const f32 width = font->MeasureString(u8"Hello World");
     CHECK(width > 0);
-    CHECK(font->MeasureString(u"Hello World, this is longer!") > width);
-    CHECK(font->MeasureString(u"") == 0);
-    CHECK(font->MeasureString(u"W") > font->MeasureString(u"i"));
+    CHECK(font->MeasureString(u8"Hello World, this is longer!") > width);
+    CHECK(font->MeasureString(u8"") == 0);
+    CHECK(font->MeasureString(u8"W") > font->MeasureString(u8"i"));
 
     DefaultAllocator().Delete(font);
     TrueTypeFonts::Shutdown();
@@ -228,7 +228,7 @@ TEST_CASE("ttf.shaper: ShapeText")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    Result<f32> shaped = shaper.ShapeText(*font, u"ABC", positions);
+    Result<f32> shaped = shaper.ShapeText(*font, u8"ABC", positions);
     REQUIRE(shaped.HasValue());
 
     CHECK(positions.Size() == 3);
@@ -251,7 +251,7 @@ TEST_CASE("ttf.shaper: ShapeText with start position")
 
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
-    Result<f32> shaped = shaper.ShapeText(*font, u"AB", 100, 50, positions);
+    Result<f32> shaped = shaper.ShapeText(*font, u8"AB", 100, 50, positions);
     REQUIRE(shaped.HasValue());
 
     CHECK(positions.Size() == 2);
@@ -272,8 +272,8 @@ TEST_CASE("ttf.shaper: ShapeTextWrapped wraps on width")
     Array<GlyphPosition> positions;
     f32 totalHeight = 0;
 
-    const f32 maxWidth = font->MeasureString(u"Hello") + 10.0f;
-    Status st = shaper.ShapeTextWrapped(*font, u"Hello World", maxWidth, positions, totalHeight);
+    const f32 maxWidth = font->MeasureString(u8"Hello") + 10.0f;
+    Status st = shaper.ShapeTextWrapped(*font, u8"Hello World", maxWidth, positions, totalHeight);
     REQUIRE(st.IsOk());
 
     CHECK(totalHeight > font->Metrics().lineHeight);
@@ -295,7 +295,7 @@ TEST_CASE("ttf.shaper: ShapeTextWrapped honors explicit newlines")
     TrueTypeTextShaper shaper;
     Array<GlyphPosition> positions;
     f32 totalHeight = 0;
-    Status st = shaper.ShapeTextWrapped(*font, u"A\nB", 1000, positions, totalHeight);
+    Status st = shaper.ShapeTextWrapped(*font, u8"A\nB", 1000, positions, totalHeight);
     REQUIRE(st.IsOk());
 
     bool foundSecondLine = false;

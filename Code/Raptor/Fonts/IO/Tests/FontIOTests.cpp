@@ -35,7 +35,7 @@ namespace
         static Result<IFont*, FontLoadResult> Make()
         {
             BakedFont* f = DefaultAllocator().New<BakedFont>();
-            f->SetFamilyName(u"Fake");
+            f->SetFamilyName(u8"Fake");
             GlyphInfo g; g.advanceWidth = 8.0f;
             f->SetGlyph(static_cast<i32>('A'), g);
             return static_cast<IFont*>(f);

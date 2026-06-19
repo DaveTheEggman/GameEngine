@@ -46,7 +46,7 @@ export namespace raptor::fonts
 
         // Load a font from `locator` and build its atlas texture. The first
         // font loaded becomes the default. Returns Success or a failure.
-        [[nodiscard]] FontLoadResult LoadFont(WideStringView familyName, StringView locator,
+        [[nodiscard]] FontLoadResult LoadFont(StringView familyName, StringView locator,
                                               FontLoadOptions options = FontLoadOptions::ExtendedLatin())
         {
             IFont* font = nullptr;
@@ -74,17 +74,17 @@ export namespace raptor::fonts
         }
 
         // Change the default family used by GetFont(pixelHeight).
-        void SetDefaultFamily(WideStringView name) { m_defaultFontFamily = WideString(name); }
+        void SetDefaultFamily(StringView name) { m_defaultFontFamily = String(name); }
 
         // --- IFontService --------------------------------------------------
-        [[nodiscard]] WideStringView DefaultFontFamily() const override { return m_defaultFontFamily; }
+        [[nodiscard]] StringView DefaultFontFamily() const override { return m_defaultFontFamily; }
 
         [[nodiscard]] CachedFont* GetFont(f32 pixelHeight) override
         {
             return GetFont(m_defaultFontFamily, pixelHeight);
         }
 
-        [[nodiscard]] CachedFont* GetFont(WideStringView familyName, f32 pixelHeight) override
+        [[nodiscard]] CachedFont* GetFont(StringView familyName, f32 pixelHeight) override
         {
             if (const FontEntry* exact = FindExact(familyName, pixelHeight))
                 return exact->cachedFont;
@@ -101,7 +101,7 @@ export namespace raptor::fonts
             return nullptr;
         }
 
-        [[nodiscard]] raptor::image::ImageData* GetAtlasTexture(WideStringView familyName, f32 pixelHeight) override
+        [[nodiscard]] raptor::image::ImageData* GetAtlasTexture(StringView familyName, f32 pixelHeight) override
         {
             if (const FontEntry* exact = FindExact(familyName, pixelHeight))
                 return exact->texture;
@@ -119,7 +119,7 @@ export namespace raptor::fonts
     private:
         struct FontEntry
         {
-            WideString family;
+            String family;
             f32 pixelHeight = 0;
             CachedFont* cachedFont = nullptr;                 // owns font/atlas/shaper
             raptor::image::OwnedImageData* texture = nullptr; // owned
@@ -134,15 +134,15 @@ export namespace raptor::fonts
         }
 
         // ASCII case-insensitive family compare (matches Sedulous's ignore-case).
-        static bool FamilyEquals(WideStringView a, WideStringView b)
+        static bool FamilyEquals(StringView a, StringView b)
         {
             if (a.Size() != b.Size())
                 return false;
             for (usize i = 0; i < a.Size(); ++i)
             {
-                widechar ca = a[i], cb = b[i];
-                if (ca >= u'A' && ca <= u'Z') ca = static_cast<widechar>(ca - u'A' + u'a');
-                if (cb >= u'A' && cb <= u'Z') cb = static_cast<widechar>(cb - u'A' + u'a');
+                utf8char ca = a[i], cb = b[i];
+                if (ca >= u8'A' && ca <= u8'Z') ca = static_cast<utf8char>(ca - u8'A' + u8'a');
+                if (cb >= u8'A' && cb <= u8'Z') cb = static_cast<utf8char>(cb - u8'A' + u8'a');
                 if (ca != cb)
                     return false;
             }
@@ -151,7 +151,7 @@ export namespace raptor::fonts
 
         // Bake the atlas, expand to RGBA8, wrap in a CachedFont, and record the
         // entry. Takes ownership of `font`; deletes it on any failure.
-        FontLoadResult CacheFont(WideStringView familyName, IFont* font, FontLoadOptions options)
+        FontLoadResult CacheFont(StringView familyName, IFont* font, FontLoadOptions options)
         {
             Result<IFontAtlas*, FontLoadResult> baked = FontAtlasBakerFactory::Bake(*font, options);
             if (!baked.HasValue())
@@ -173,7 +173,7 @@ export namespace raptor::fonts
             CachedFont* cachedFont = DefaultAllocator().New<CachedFont>(font, atlas, shaper);
 
             FontEntry* entry = DefaultAllocator().New<FontEntry>();
-            entry->family = WideString(familyName);
+            entry->family = String(familyName);
             entry->pixelHeight = options.pixelHeight;
             entry->cachedFont = cachedFont;
             entry->texture = texture;
@@ -182,13 +182,13 @@ export namespace raptor::fonts
             if (m_defaultFont == nullptr)
             {
                 m_defaultFont = cachedFont;
-                m_defaultFontFamily = WideString(familyName);
+                m_defaultFontFamily = String(familyName);
                 m_defaultFontSize = options.pixelHeight;
             }
             return FontLoadResult::Success;
         }
 
-        [[nodiscard]] const FontEntry* FindExact(WideStringView family, f32 pixelHeight) const
+        [[nodiscard]] const FontEntry* FindExact(StringView family, f32 pixelHeight) const
         {
             for (const FontEntry* entry : m_fonts)
                 if (FamilyEquals(entry->family, family) && Abs(entry->pixelHeight - pixelHeight) < 0.001f)
@@ -196,7 +196,7 @@ export namespace raptor::fonts
             return nullptr;
         }
 
-        [[nodiscard]] const FontEntry* FindClosest(WideStringView family, f32 pixelHeight) const
+        [[nodiscard]] const FontEntry* FindClosest(StringView family, f32 pixelHeight) const
         {
             const FontEntry* best = nullptr;
             f32 bestDiff = 3.4e38f;
@@ -215,7 +215,7 @@ export namespace raptor::fonts
 
         raptor::vfs::IFileSystem* m_fileSystem = nullptr; // non-owning
         Array<FontEntry*> m_fonts;
-        WideString m_defaultFontFamily = WideString(u"Default");
+        String m_defaultFontFamily = String(u8"Default");
         CachedFont* m_defaultFont = nullptr;
         f32 m_defaultFontSize = 16;
     };

@@ -64,7 +64,7 @@ export namespace raptor::fonts
 
         // --- IFont ---------------------------------------------------------
         [[nodiscard]] u32 BackendTypeId() const override { return kTrueTypeFontTypeId; }
-        [[nodiscard]] WideStringView FamilyName() const override { return m_familyName; }
+        [[nodiscard]] StringView FamilyName() const override { return m_familyName; }
         [[nodiscard]] FontMetrics Metrics() const override { return m_metrics; }
         [[nodiscard]] f32 PixelHeight() const override { return m_pixelHeight; }
 
@@ -106,7 +106,7 @@ export namespace raptor::fonts
             return stbtt_FindGlyphIndex(&m_fontInfo, codepoint) > 0;
         }
 
-        [[nodiscard]] f32 MeasureString(WideStringView text) const override
+        [[nodiscard]] f32 MeasureString(StringView text) const override
         {
             f32 width = 0;
             i32 prevCodepoint = 0;
@@ -123,7 +123,7 @@ export namespace raptor::fonts
             return width;
         }
 
-        [[nodiscard]] f32 MeasureString(WideStringView text, Array<GlyphPosition>& outPositions) const override
+        [[nodiscard]] f32 MeasureString(StringView text, Array<GlyphPosition>& outPositions) const override
         {
             f32 x = 0;
             i32 prevCodepoint = 0;
@@ -148,7 +148,7 @@ export namespace raptor::fonts
         // Reads the family name (nameID 1) from the name table. Tries
         // Microsoft Unicode English, then any language, then Macintosh Roman;
         // falls back to a placeholder. MS strings are big-endian UTF-16.
-        static void ExtractFamilyName(const stbtt_fontinfo* font, WideString& outName)
+        static void ExtractFamilyName(const stbtt_fontinfo* font, String& outName)
         {
             outName.Clear();
             constexpr int NAME_ID_FAMILY = 1;
@@ -157,11 +157,11 @@ export namespace raptor::fonts
             if (TryReadUtf16NameAnyLanguage(font, 3, 1, NAME_ID_FAMILY, outName)) return;
             if (TryReadLatin1Name(font, 1, 0, 0, NAME_ID_FAMILY, outName)) return;
 
-            outName = WideString(u"TrueType Font");
+            outName = String(u8"TrueType Font");
         }
 
         static bool TryReadUtf16Name(const stbtt_fontinfo* font, int platformID, int encodingID,
-                                     int languageID, int nameID, WideString& outName)
+                                     int languageID, int nameID, String& outName)
         {
             int byteLen = 0;
             const char* bytes = stbtt_GetFontNameString(
@@ -173,7 +173,7 @@ export namespace raptor::fonts
         }
 
         static bool TryReadUtf16NameAnyLanguage(const stbtt_fontinfo* font, int platformID,
-                                                int encodingID, int nameID, WideString& outName)
+                                                int encodingID, int nameID, String& outName)
         {
             const int languages[] = { 0x0809, 0x0c09, 0x1009, 0x1409, 0 };
             for (const int lang : languages)
@@ -183,7 +183,7 @@ export namespace raptor::fonts
         }
 
         static bool TryReadLatin1Name(const stbtt_fontinfo* font, int platformID, int encodingID,
-                                      int languageID, int nameID, WideString& outName)
+                                      int languageID, int nameID, String& outName)
         {
             int byteLen = 0;
             const char* bytes = stbtt_GetFontNameString(
@@ -195,13 +195,13 @@ export namespace raptor::fonts
             {
                 const u8 b = static_cast<u8>(bytes[i]);
                 if (b == 0) continue;
-                outName.PushBack(static_cast<widechar>(b)); // Latin-1 == first 256 code points
+                AppendUtf8(outName, b); // Latin-1 == first 256 code points
             }
             return !outName.IsEmpty();
         }
 
-        // Decodes big-endian UTF-16 bytes straight into Raptor's wide WideString.
-        static void AppendBigEndianUtf16(const char* bytes, int byteLen, WideString& out)
+        // Decodes big-endian UTF-16 bytes from the name table into UTF-8 String.
+        static void AppendBigEndianUtf16(const char* bytes, int byteLen, String& out)
         {
             out.Clear();
             const u8* p = reinterpret_cast<const u8*>(bytes);
@@ -211,11 +211,31 @@ export namespace raptor::fonts
                 const u16 cp = static_cast<u16>((static_cast<u16>(p[i]) << 8) | p[i + 1]);
                 i += 2;
                 if (cp == 0) continue;
-                out.PushBack(static_cast<widechar>(cp)); // BMP; surrogates pass through as units
+                AppendUtf8(out, cp); // BMP only; lone surrogates pass through as their unit value
             }
         }
 
-        WideString m_familyName;
+        // Appends a (BMP) codepoint to a UTF-8 String.
+        static void AppendUtf8(String& out, u32 cp)
+        {
+            if (cp < 0x80u)
+            {
+                out.PushBack(static_cast<utf8char>(cp));
+            }
+            else if (cp < 0x800u)
+            {
+                out.PushBack(static_cast<utf8char>(0xC0u | (cp >> 6)));
+                out.PushBack(static_cast<utf8char>(0x80u | (cp & 0x3Fu)));
+            }
+            else
+            {
+                out.PushBack(static_cast<utf8char>(0xE0u | (cp >> 12)));
+                out.PushBack(static_cast<utf8char>(0x80u | ((cp >> 6) & 0x3Fu)));
+                out.PushBack(static_cast<utf8char>(0x80u | (cp & 0x3Fu)));
+            }
+        }
+
+        String m_familyName;
         FontMetrics m_metrics;
         f32 m_pixelHeight = 0;
         Array<u8> m_fontData;
