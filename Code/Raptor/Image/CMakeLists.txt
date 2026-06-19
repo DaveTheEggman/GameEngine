@@ -8,6 +8,8 @@ target_sources(RaptorImage PUBLIC FILE_SET image_modules TYPE CXX_MODULES FILES
     Image.cppm
     ImageModule.cppm)
 add_subdirectory(IO)
+add_subdirectory(Resource)  # raptor.image.resource (runtime CPU image)
+add_subdirectory(Editor)    # raptor.image.editor (tooling)
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
