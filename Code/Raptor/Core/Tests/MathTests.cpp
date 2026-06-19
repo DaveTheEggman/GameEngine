@@ -344,3 +344,24 @@ TEST_CASE("color: pack/unpack and operations")
     const Color original{ 0.2f, 0.4f, 0.6f, 0.8f };
     CHECK(NearlyEqual(Color::FromRGBA8(original.ToRGBA8()), original, 1.0f / 255.0f));
 }
+
+TEST_CASE("color32: packed byte color and conversions")
+{
+    CHECK(Color32::White.ToRGBA8() == 0xFFFFFFFFu);
+    CHECK(Color32::Red.ToRGBA8() == 0xFF0000FFu);
+    CHECK(Color32::Transparent.ToRGBA8() == 0x00000000u);
+    CHECK(Color32::FromRGBA8(0x10203040u) == Color32{ 0x10, 0x20, 0x30, 0x40 });
+
+    // Float <-> byte conversions, no gamma.
+    CHECK(ToColor32(Color::Red) == Color32::Red);
+    CHECK(NearlyEqual(ToColor(Color32::Blue), Color::Blue));
+
+    // Every byte value round-trips exactly: Color32 -> Color -> Color32.
+    bool exact = true;
+    for (u32 v = 0; v <= 255; ++v)
+    {
+        const Color32 c{ static_cast<u8>(v), static_cast<u8>(255 - v), static_cast<u8>(v), 255 };
+        if (!(ToColor32(ToColor(c)) == c)) { exact = false; break; }
+    }
+    CHECK(exact);
+}

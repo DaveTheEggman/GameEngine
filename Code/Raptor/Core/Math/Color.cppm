@@ -72,4 +72,73 @@ export namespace raptor::core
         return NearlyEqual(a.r, b.r, epsilon) && NearlyEqual(a.g, b.g, epsilon)
             && NearlyEqual(a.b, b.b, epsilon) && NearlyEqual(a.a, b.a, epsilon);
     }
+
+    // =======================================================================
+    // Color32 — packed 8-bit RGBA, for compact storage: image pixels, vertex
+    // colors, asset interchange. The byte-color counterpart of the float Color
+    // (which stays the linear/HDR runtime currency). Conversions are plain
+    // 0..255 <-> 0..1 with NO gamma; sRGB<->linear is handled explicitly at the
+    // texture/format edge (ImageColorSpace, *UnormSrgb formats).
+    // =======================================================================
+    struct Color32
+    {
+        u8 r = 0;
+        u8 g = 0;
+        u8 b = 0;
+        u8 a = 255;
+
+        constexpr Color32() noexcept = default;
+        constexpr Color32(u8 inR, u8 inG, u8 inB, u8 inA = 255) noexcept : r(inR), g(inG), b(inB), a(inA) {}
+
+        // Packs to 0xRRGGBBAA.
+        [[nodiscard]] constexpr u32 ToRGBA8() const noexcept
+        {
+            return (static_cast<u32>(r) << 24) | (static_cast<u32>(g) << 16)
+                 | (static_cast<u32>(b) << 8) | static_cast<u32>(a);
+        }
+
+        [[nodiscard]] static constexpr Color32 FromRGBA8(u32 packed) noexcept
+        {
+            return Color32{ static_cast<u8>((packed >> 24) & 0xFFu),
+                            static_cast<u8>((packed >> 16) & 0xFFu),
+                            static_cast<u8>((packed >> 8) & 0xFFu),
+                            static_cast<u8>(packed & 0xFFu) };
+        }
+
+        static const Color32 White;
+        static const Color32 Black;
+        static const Color32 Red;
+        static const Color32 Green;
+        static const Color32 Blue;
+        static const Color32 Transparent;
+    };
+
+    inline constexpr Color32 Color32::White{ 255, 255, 255, 255 };
+    inline constexpr Color32 Color32::Black{ 0, 0, 0, 255 };
+    inline constexpr Color32 Color32::Red{ 255, 0, 0, 255 };
+    inline constexpr Color32 Color32::Green{ 0, 255, 0, 255 };
+    inline constexpr Color32 Color32::Blue{ 0, 0, 255, 255 };
+    inline constexpr Color32 Color32::Transparent{ 0, 0, 0, 0 };
+
+    [[nodiscard]] constexpr bool operator==(Color32 a, Color32 b) noexcept
+    {
+        return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+    }
+
+    // Float Color -> packed bytes (components clamped to 0..1, rounded).
+    [[nodiscard]] constexpr Color32 ToColor32(Color c) noexcept
+    {
+        const auto byteOf = [](f32 v) -> u8
+        {
+            return static_cast<u8>(Clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
+        };
+        return Color32{ byteOf(c.r), byteOf(c.g), byteOf(c.b), byteOf(c.a) };
+    }
+
+    // Packed bytes -> float Color (exact 0..255 -> 0..1; round-trips ToColor32).
+    [[nodiscard]] constexpr Color ToColor(Color32 c) noexcept
+    {
+        return Color{ static_cast<f32>(c.r) / 255.0f, static_cast<f32>(c.g) / 255.0f,
+                      static_cast<f32>(c.b) / 255.0f, static_cast<f32>(c.a) / 255.0f };
+    }
 }
