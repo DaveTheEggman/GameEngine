@@ -232,35 +232,35 @@ private:
     // Textures
     // -----------------------------------------------------------------------
 
-    static TextureWrap wrapModeFromCgltf(int mode) {
+    static TextureWrap wrapModeFromCgltf(cgltf_wrap_mode mode) {
         switch (mode) {
-        case 33071: return TextureWrap::ClampToEdge;       // GL_CLAMP_TO_EDGE
-        case 33648: return TextureWrap::MirroredRepeat;    // GL_MIRRORED_REPEAT
-        default:    return TextureWrap::Repeat;
+        case cgltf_wrap_mode_clamp_to_edge:    return TextureWrap::ClampToEdge;
+        case cgltf_wrap_mode_mirrored_repeat:  return TextureWrap::MirroredRepeat;
+        default:                               return TextureWrap::Repeat;
         }
     }
 
-    static TextureMinFilter minFilterFromCgltf(int filter) {
+    static TextureMinFilter minFilterFromCgltf(cgltf_filter_type filter) {
         switch (filter) {
-        case 9728: return TextureMinFilter::Nearest;               // GL_NEAREST
-        case 9729: return TextureMinFilter::Linear;                // GL_LINEAR
-        case 9984: return TextureMinFilter::NearestMipmapNearest;  // GL_NEAREST_MIPMAP_NEAREST
-        case 9985: return TextureMinFilter::LinearMipmapNearest;   // GL_LINEAR_MIPMAP_NEAREST
-        case 9986: return TextureMinFilter::NearestMipmapLinear;   // GL_NEAREST_MIPMAP_LINEAR
-        case 9987: return TextureMinFilter::LinearMipmapLinear;    // GL_LINEAR_MIPMAP_LINEAR
-        default:   return TextureMinFilter::Nearest;
+        case cgltf_filter_type_nearest:                return TextureMinFilter::Nearest;
+        case cgltf_filter_type_linear:                 return TextureMinFilter::Linear;
+        case cgltf_filter_type_nearest_mipmap_nearest: return TextureMinFilter::NearestMipmapNearest;
+        case cgltf_filter_type_linear_mipmap_nearest:  return TextureMinFilter::LinearMipmapNearest;
+        case cgltf_filter_type_nearest_mipmap_linear:  return TextureMinFilter::NearestMipmapLinear;
+        case cgltf_filter_type_linear_mipmap_linear:   return TextureMinFilter::LinearMipmapLinear;
+        default:                                       return TextureMinFilter::Nearest;
         }
     }
 
-    static TextureMagFilter magFilterFromCgltf(int filter) {
+    static TextureMagFilter magFilterFromCgltf(cgltf_filter_type filter) {
         switch (filter) {
-        case 9728: // GL_NEAREST
-        case 9984: // GL_NEAREST_MIPMAP_NEAREST
-        case 9986: // GL_NEAREST_MIPMAP_LINEAR
+        case cgltf_filter_type_nearest:
+        case cgltf_filter_type_nearest_mipmap_nearest:
+        case cgltf_filter_type_nearest_mipmap_linear:
             return TextureMagFilter::Nearest;
-        case 9729: // GL_LINEAR
-        case 9985: // GL_LINEAR_MIPMAP_NEAREST
-        case 9987: // GL_LINEAR_MIPMAP_LINEAR
+        case cgltf_filter_type_linear:
+        case cgltf_filter_type_linear_mipmap_nearest:
+        case cgltf_filter_type_linear_mipmap_linear:
             return TextureMagFilter::Linear;
         default:
             return TextureMagFilter::Nearest;
