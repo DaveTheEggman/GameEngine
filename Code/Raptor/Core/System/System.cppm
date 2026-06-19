@@ -29,16 +29,6 @@ namespace raptor::core::detail
         }
     };
 
-    // Legacy: transcode a wide path to null-terminated UTF-8 for sys:: calls.
-    struct NarrowPath
-    {
-        String storage;
-        explicit NarrowPath(WideStringView path) : storage(ToUTF8(path)) {}
-        [[nodiscard]] const char* CStr() const noexcept
-        {
-            return reinterpret_cast<const char*>(storage.CStr());
-        }
-    };
 }
 
 export namespace raptor::core
