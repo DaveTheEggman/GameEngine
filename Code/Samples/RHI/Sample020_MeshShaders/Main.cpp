@@ -24,7 +24,7 @@ struct PushData {
 class MeshShaderSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample020 - Mesh Shaders (Rotating Triangle)"; }
+    raptor::core::StringView Title() const override { return u8"Sample020 - Mesh Shaders (Rotating Triangle)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};
@@ -124,12 +124,12 @@ raptor::core::Status MeshShaderSample::OnInit() {
 
     // Compile mesh shader (SM 6.5 required for mesh shaders).
     if (sf::CompileToModule(m_compiler, m_device, kMeshShaderSource, ds::ShaderStage::Mesh,
-                            u"MSMain", u"MeshShader", u"6_5", m_meshModule) != raptor::core::ErrorCode::Ok)
+                            u8"MSMain", u8"MeshShader", u8"6_5", m_meshModule) != raptor::core::ErrorCode::Ok)
         return raptor::core::ErrorCode::Unknown;
 
     // Compile fragment shader.
     if (sf::CompileToModule(m_compiler, m_device, kFragmentShaderSource, ds::ShaderStage::Fragment,
-                            u"PSMain", u"FragmentShader", m_fragModule) != raptor::core::ErrorCode::Ok)
+                            u8"PSMain", u8"FragmentShader", m_fragModule) != raptor::core::ErrorCode::Ok)
         return raptor::core::ErrorCode::Unknown;
 
     // Pipeline layout with push constants.
@@ -140,7 +140,7 @@ raptor::core::Status MeshShaderSample::OnInit() {
 
     dr::PipelineLayoutDesc pld{};
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pushRange, 1);
-    pld.label = u"MeshPipelineLayout";
+    pld.label = u8"MeshPipelineLayout";
     if (m_device->CreatePipelineLayout(pld, m_pipelineLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create mesh pipeline.
@@ -150,12 +150,12 @@ raptor::core::Status MeshShaderSample::OnInit() {
 
     dr::MeshPipelineDesc mpd{};
     mpd.layout       = m_pipelineLayout;
-    mpd.mesh         = { m_meshModule, u"MSMain", dr::ShaderStage::Mesh };
+    mpd.mesh         = { m_meshModule, u8"MSMain", dr::ShaderStage::Mesh };
     mpd.fragment     = dr::FragmentState{};
-    mpd.fragment->shader  = { m_fragModule, u"PSMain", dr::ShaderStage::Fragment };
+    mpd.fragment->shader  = { m_fragModule, u8"PSMain", dr::ShaderStage::Fragment };
     mpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     mpd.colorTargets = Span<const dr::ColorTargetState>(&ct, 1);
-    mpd.label        = u"MeshShaderPipeline";
+    mpd.label        = u8"MeshShaderPipeline";
     if (m_device->CreateMeshPipeline(mpd, m_meshPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Command pool and fence.

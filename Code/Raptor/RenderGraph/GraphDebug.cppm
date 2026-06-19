@@ -20,53 +20,53 @@ export namespace raptor::rendergraph
 {
     namespace detail
     {
-        [[nodiscard]] inline WideStringView PassColor(RGPassType type)
+        [[nodiscard]] inline StringView PassColor(RGPassType type)
         {
             switch (type)
             {
-                case RGPassType::Render:  return u"#4488cc";
-                case RGPassType::Compute: return u"#cc8844";
-                case RGPassType::Copy:    return u"#44aa44";
+                case RGPassType::Render:  return u8"#4488cc";
+                case RGPassType::Compute: return u8"#cc8844";
+                case RGPassType::Copy:    return u8"#44aa44";
             }
-            return u"#888888";
+            return u8"#888888";
         }
-        [[nodiscard]] inline WideStringView LifetimeLabel(RGResourceLifetime lifetime)
+        [[nodiscard]] inline StringView LifetimeLabel(RGResourceLifetime lifetime)
         {
             switch (lifetime)
             {
-                case RGResourceLifetime::Transient:  return u"transient";
-                case RGResourceLifetime::Persistent: return u"persistent";
-                case RGResourceLifetime::Imported:   return u"imported";
+                case RGResourceLifetime::Transient:  return u8"transient";
+                case RGResourceLifetime::Persistent: return u8"persistent";
+                case RGResourceLifetime::Imported:   return u8"imported";
             }
-            return u"?";
+            return u8"?";
         }
-        [[nodiscard]] inline WideStringView AccessLabel(RGAccessType type)
+        [[nodiscard]] inline StringView AccessLabel(RGAccessType type)
         {
             switch (type)
             {
-                case RGAccessType::ReadTexture:          return u"read";
-                case RGAccessType::ReadBuffer:           return u"read";
-                case RGAccessType::ReadDepthStencil:     return u"depth-read";
-                case RGAccessType::ReadCopySrc:          return u"copy-src";
-                case RGAccessType::WriteColorTarget:     return u"color-out";
-                case RGAccessType::WriteDepthTarget:     return u"depth-out";
-                case RGAccessType::WriteStorage:         return u"storage-write";
-                case RGAccessType::WriteCopyDst:         return u"copy-dst";
-                case RGAccessType::ReadWriteStorage:     return u"rw-storage";
-                case RGAccessType::ReadWriteDepthTarget: return u"depth-rw";
-                case RGAccessType::ReadWriteColorTarget: return u"color-rw";
+                case RGAccessType::ReadTexture:          return u8"read";
+                case RGAccessType::ReadBuffer:           return u8"read";
+                case RGAccessType::ReadDepthStencil:     return u8"depth-read";
+                case RGAccessType::ReadCopySrc:          return u8"copy-src";
+                case RGAccessType::WriteColorTarget:     return u8"color-out";
+                case RGAccessType::WriteDepthTarget:     return u8"depth-out";
+                case RGAccessType::WriteStorage:         return u8"storage-write";
+                case RGAccessType::WriteCopyDst:         return u8"copy-dst";
+                case RGAccessType::ReadWriteStorage:     return u8"rw-storage";
+                case RGAccessType::ReadWriteDepthTarget: return u8"depth-rw";
+                case RGAccessType::ReadWriteColorTarget: return u8"color-rw";
             }
-            return u"?";
+            return u8"?";
         }
-        [[nodiscard]] inline WideStringView PassTypeLabel(RGPassType type)
+        [[nodiscard]] inline StringView PassTypeLabel(RGPassType type)
         {
             switch (type)
             {
-                case RGPassType::Render:  return u"Render";
-                case RGPassType::Compute: return u"Compute";
-                case RGPassType::Copy:    return u"Copy";
+                case RGPassType::Render:  return u8"Render";
+                case RGPassType::Compute: return u8"Compute";
+                case RGPassType::Copy:    return u8"Copy";
             }
-            return u"?";
+            return u8"?";
         }
     }
 
@@ -75,38 +75,38 @@ export namespace raptor::rendergraph
     public:
         // Graphviz DOT: pass nodes (boxes) + resource nodes (ellipse/diamond) +
         // access edges. Culled passes/edges are dashed/gray.
-        static void ExportDOT(RenderGraph& graph, WideString& out)
+        static void ExportDOT(RenderGraph& graph, String& out)
         {
             const Array<RenderGraphPass*>& passes = graph.Passes();
             const Array<RenderGraphResource*>& resources = graph.Resources();
 
-            out.Append(u"digraph RenderGraph {\n");
-            out.Append(u"  rankdir=LR;\n");
-            out.Append(u"  node [fontname=\"Helvetica\"];\n\n");
+            out.Append(u8"digraph RenderGraph {\n");
+            out.Append(u8"  rankdir=LR;\n");
+            out.Append(u8"  node [fontname=\"Helvetica\"];\n\n");
 
             for (usize i = 0; i < passes.Size(); ++i)
             {
                 RenderGraphPass* pass = passes[i];
-                const WideStringView style = pass->isCulled ? WideStringView(u"dashed") : WideStringView(u"filled");
-                const WideStringView fontColor = pass->isCulled ? WideStringView(u"gray") : WideStringView(u"white");
+                const StringView style = pass->isCulled ? StringView(u8"dashed") : StringView(u8"filled");
+                const StringView fontColor = pass->isCulled ? StringView(u8"gray") : StringView(u8"white");
                 AppendFormat(out,
-                    u"  pass{} [label=\"{}\" shape=box style={} fillcolor=\"{}\" fontcolor=\"{}\"",
+                    u8"  pass{} [label=\"{}\" shape=box style={} fillcolor=\"{}\" fontcolor=\"{}\"",
                     i, pass->name.AsView(), style, detail::PassColor(pass->type), fontColor);
-                if (pass->isCulled) { out.Append(u" color=gray"); }
-                out.Append(u"];\n");
+                if (pass->isCulled) { out.Append(u8" color=gray"); }
+                out.Append(u8"];\n");
             }
-            out.Append(u"\n");
+            out.Append(u8"\n");
 
             for (usize i = 0; i < resources.Size(); ++i)
             {
                 RenderGraphResource* res = resources[i];
                 if (res == nullptr) { continue; }
-                const WideStringView shape = res->resourceType == RGResourceType::Texture
-                                       ? WideStringView(u"ellipse") : WideStringView(u"diamond");
-                AppendFormat(out, u"  res{} [label=\"{}\\n({})\" shape={}];\n",
+                const StringView shape = res->resourceType == RGResourceType::Texture
+                                       ? StringView(u8"ellipse") : StringView(u8"diamond");
+                AppendFormat(out, u8"  res{} [label=\"{}\\n({})\" shape={}];\n",
                     i, res->name.AsView(), detail::LifetimeLabel(res->lifetime), shape);
             }
-            out.Append(u"\n");
+            out.Append(u8"\n");
 
             for (usize passIdx = 0; passIdx < passes.Size(); ++passIdx)
             {
@@ -116,27 +116,27 @@ export namespace raptor::rendergraph
                     if (!access.handle.IsValid() || access.handle.index >= resources.Size()) { continue; }
                     if (resources[access.handle.index] == nullptr) { continue; }
 
-                    const WideStringView label = detail::AccessLabel(access.type);
+                    const StringView label = detail::AccessLabel(access.type);
                     if (access.IsRead())
                     {
-                        AppendFormat(out, u"  res{} -> pass{} [label=\"{}\"", access.handle.index, passIdx, label);
-                        if (pass->isCulled) { out.Append(u" style=dashed color=gray"); }
-                        out.Append(u"];\n");
+                        AppendFormat(out, u8"  res{} -> pass{} [label=\"{}\"", access.handle.index, passIdx, label);
+                        if (pass->isCulled) { out.Append(u8" style=dashed color=gray"); }
+                        out.Append(u8"];\n");
                     }
                     if (access.IsWrite())
                     {
-                        AppendFormat(out, u"  pass{} -> res{} [label=\"{}\"", passIdx, access.handle.index, label);
-                        if (pass->isCulled) { out.Append(u" style=dashed color=gray"); }
-                        out.Append(u"];\n");
+                        AppendFormat(out, u8"  pass{} -> res{} [label=\"{}\"", passIdx, access.handle.index, label);
+                        if (pass->isCulled) { out.Append(u8" style=dashed color=gray"); }
+                        out.Append(u8"];\n");
                     }
                 }
             }
 
-            out.Append(u"}\n");
+            out.Append(u8"}\n");
         }
 
         // Human-readable text summary (counts + execution order).
-        static void ExportSummary(RenderGraph& graph, WideString& out)
+        static void ExportSummary(RenderGraph& graph, String& out)
         {
             const Array<RenderGraphPass*>& passes = graph.Passes();
             const Array<RenderGraphResource*>& resources = graph.Resources();
@@ -158,19 +158,19 @@ export namespace raptor::rendergraph
                 }
             }
 
-            out.Append(u"=== Render Graph Summary ===\n");
-            AppendFormat(out, u"Passes: {} active, {} culled, {} total\n", activeCount, culledCount, passes.Size());
-            AppendFormat(out, u"Resources: {} total ({} transient, {} persistent, {} imported)\n",
+            out.Append(u8"=== Render Graph Summary ===\n");
+            AppendFormat(out, u8"Passes: {} active, {} culled, {} total\n", activeCount, culledCount, passes.Size());
+            AppendFormat(out, u8"Resources: {} total ({} transient, {} persistent, {} imported)\n",
                 resCount, transientCount, persistentCount, importedCount);
-            AppendFormat(out, u"Output: {}x{}\n\n", graph.OutputWidth(), graph.OutputHeight());
+            AppendFormat(out, u8"Output: {}x{}\n\n", graph.OutputWidth(), graph.OutputHeight());
 
             if (!executionOrder.IsEmpty())
             {
-                out.Append(u"Execution order:\n");
+                out.Append(u8"Execution order:\n");
                 for (usize i = 0; i < executionOrder.Size(); ++i)
                 {
                     RenderGraphPass* pass = passes[static_cast<usize>(executionOrder[i])];
-                    AppendFormat(out, u"  {}. [{}] {}\n", i + 1, detail::PassTypeLabel(pass->type), pass->name.AsView());
+                    AppendFormat(out, u8"  {}. [{}] {}\n", i + 1, detail::PassTypeLabel(pass->type), pass->name.AsView());
                 }
             }
         }

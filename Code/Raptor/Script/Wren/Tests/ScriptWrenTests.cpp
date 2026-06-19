@@ -132,7 +132,7 @@ TEST_CASE("wren: read module globals as Variant")
         u8"main").IsOk());
 
     CHECK(ctx->GetGlobal(u8"Answer").Get<f64>() == 42.0);   // Wren numbers are doubles
-    CHECK(ctx->GetGlobal(u8"Name").Get<WideString>() == u"raptor");
+    CHECK(ctx->GetGlobal(u8"Name").Get<String>() == u8"raptor");
     CHECK(ctx->GetGlobal(u8"Flag").Get<bool>() == true);
 
     CHECK(ctx->GetGlobal(u8"Missing").IsEmpty());           // absent -> empty Variant
@@ -270,7 +270,7 @@ TEST_CASE("wren: call a script function with marshalled args")
     CHECK(ctx->Call(u8"add", Span<Variant>{ addArgs, 2 }).Value().Get<f64>() == 5.0);
 
     // no-arg call returning a string.
-    CHECK(ctx->Call(u8"greeting", Span<Variant>{}).Value().Get<WideString>() == u"hi");
+    CHECK(ctx->Call(u8"greeting", Span<Variant>{}).Value().Get<String>() == u8"hi");
 
     // missing callable -> NotFound.
     CHECK(ctx->Call(u8"nope", Span<Variant>{}).Error() == ErrorCode::NotFound);

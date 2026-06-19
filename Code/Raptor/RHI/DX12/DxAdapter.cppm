@@ -35,8 +35,8 @@ public:
     // ---- Adapter interface ----
 
     void GetInfo(AdapterInfo& out) override {
-        // DXGI Description is a WCHAR[] — construct WideString (wide) directly.
-        out.name = WideString(reinterpret_cast<const widechar*>(m_desc.Description));
+        // DXGI Description is a WCHAR[] (UTF-16) — transcode to the UTF-8 String.
+        out.name = ToUTF8(WideStringView(reinterpret_cast<const widechar*>(m_desc.Description)));
         out.vendorId = m_desc.VendorId;
         out.deviceId = m_desc.DeviceId;
         out.type = (m_desc.DedicatedVideoMemory > 0) ? AdapterType::DiscreteGpu : AdapterType::IntegratedGpu;

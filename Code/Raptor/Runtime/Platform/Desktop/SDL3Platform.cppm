@@ -252,11 +252,11 @@ export namespace raptor::runtime
     class SDL3Gamepad final : public IGamepad
     {
     public:
-        SDL3Gamepad(SDL_Gamepad* pad, SDL_JoystickID id, rc::i32 index, rc::WideString name) noexcept
-            : m_pad(pad), m_id(id), m_index(index), m_name(static_cast<rc::WideString&&>(name)) {}
+        SDL3Gamepad(SDL_Gamepad* pad, SDL_JoystickID id, rc::i32 index, rc::String name) noexcept
+            : m_pad(pad), m_id(id), m_index(index), m_name(static_cast<rc::String&&>(name)) {}
 
         [[nodiscard]] rc::i32 Index() const override { return m_index; }
-        [[nodiscard]] rc::WideStringView Name() const override { return m_name; }
+        [[nodiscard]] rc::StringView Name() const override { return m_name; }
         [[nodiscard]] bool Connected() const override { return m_pad != nullptr; }
         [[nodiscard]] bool IsButtonDown(GamepadButton b) const override { return m_current[Index(b)]; }
         [[nodiscard]] bool IsButtonPressed(GamepadButton b) const override
@@ -302,7 +302,7 @@ export namespace raptor::runtime
         SDL_Gamepad* m_pad;
         SDL_JoystickID m_id;
         rc::i32 m_index;
-        rc::WideString m_name;
+        rc::String m_name;
         bool m_current[kGamepadButtonCount] = {};
         bool m_previous[kGamepadButtonCount] = {};
     };
@@ -387,11 +387,11 @@ export namespace raptor::runtime
             if (pad == nullptr) { return; }
 
             const char* n = SDL_GetGamepadName(pad);
-            rc::WideString name = (n != nullptr)
-                ? rc::ToWide(rc::StringView(reinterpret_cast<const rc::utf8char*>(n)))
-                : rc::WideString{};
+            rc::String name = (n != nullptr)
+                ? rc::String(rc::StringView(reinterpret_cast<const rc::utf8char*>(n)))
+                : rc::String{};
             const rc::i32 index = static_cast<rc::i32>(m_gamepads.Size());
-            m_gamepads.PushBack(rc::DefaultAllocator().New<SDL3Gamepad>(pad, id, index, static_cast<rc::WideString&&>(name)));
+            m_gamepads.PushBack(rc::DefaultAllocator().New<SDL3Gamepad>(pad, id, index, static_cast<rc::String&&>(name)));
         }
 
         void RemoveGamepad(SDL_JoystickID id)
@@ -443,7 +443,7 @@ export namespace raptor::runtime
                 if (driver != nullptr && SDL_strcmp(driver, "dummy") != 0) { flags |= SDL_WINDOW_VULKAN; }
             }
 #endif
-            const rc::String title = rc::ToUTF8(settings.title);
+            const rc::String title = rc::String(settings.title);
             SDL_Window* window = SDL_CreateWindow(
                 reinterpret_cast<const char*>(title.CStr()),
                 static_cast<int>(settings.width), static_cast<int>(settings.height),

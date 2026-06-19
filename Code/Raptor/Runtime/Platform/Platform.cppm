@@ -48,7 +48,7 @@ export namespace raptor::runtime
 
     struct WindowSettings
     {
-        rc::WideStringView title = u"Raptor";
+        rc::StringView title = u8"Raptor";
         rc::u32 width = 1280;
         rc::u32 height = 720;
     };

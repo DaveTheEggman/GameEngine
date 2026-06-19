@@ -29,12 +29,12 @@ public:
         m_layout = vkLayout;
 
         Array<VkPipelineShaderStageCreateInfo> stages;
-        String meshEntry = ToUTF8(desc.mesh.entryPoint);
+        String meshEntry = String(desc.mesh.entryPoint);
         String taskEntry, fsEntry;
 
         // Task shader (optional).
         if (desc.task.HasValue()) {
-            taskEntry = ToUTF8(desc.task->entryPoint);
+            taskEntry = String(desc.task->entryPoint);
             if (auto* mod = static_cast<VkShaderModuleImpl*>(desc.task->module)) {
                 VkPipelineShaderStageCreateInfo s{}; s.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
                 s.stage = VK_SHADER_STAGE_TASK_BIT_EXT; s.module = mod->handle(); s.pName = reinterpret_cast<const char*>(taskEntry.CStr());
@@ -51,7 +51,7 @@ public:
 
         // Fragment shader (optional).
         if (desc.fragment.HasValue()) {
-            fsEntry = ToUTF8(desc.fragment->shader.entryPoint);
+            fsEntry = String(desc.fragment->shader.entryPoint);
             if (auto* mod = static_cast<VkShaderModuleImpl*>(desc.fragment->shader.module)) {
                 VkPipelineShaderStageCreateInfo s{}; s.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
                 s.stage = VK_SHADER_STAGE_FRAGMENT_BIT; s.module = mod->handle(); s.pName = reinterpret_cast<const char*>(fsEntry.CStr());

@@ -30,14 +30,14 @@ export namespace raptor::model::fbx {
 using namespace raptor::core;
 using namespace raptor::model;
 
-// ufbx deals in narrow UTF-8 char*; the engine uses wide WideString/WideStringView.
-// Convert only at these boundaries.
-inline WideString WideFromC(const char* s) {
-    if (!s) return WideString{};
-    return ToWide(StringView(reinterpret_cast<const utf8char*>(s)));
+// ufbx hands back char* (UTF-8); the engine String is UTF-8 too, so these just
+// wrap the bytes in an owned String — no transcoding.
+inline String Utf8FromC(const char* s) {
+    if (!s) return String{};
+    return String(StringView(reinterpret_cast<const utf8char*>(s)));
 }
-inline WideString WideFromUfbx(const ufbx_string& s) {
-    return ToWide(StringView(reinterpret_cast<const utf8char*>(s.data), s.length));
+inline String Utf8FromUfbx(const ufbx_string& s) {
+    return String(StringView(reinterpret_cast<const utf8char*>(s.data), s.length));
 }
 
 /// Loads FBX and OBJ model files using ufbx.
@@ -52,8 +52,8 @@ public:
         }
     }
 
-    bool supportsExtension(WideStringView ext) const override {
-        return caseInsensitiveEquals(ext, u".fbx") || caseInsensitiveEquals(ext, u".obj");
+    bool supportsExtension(StringView ext) const override {
+        return caseInsensitiveEquals(ext, u8".fbx") || caseInsensitiveEquals(ext, u8".obj");
     }
 
     // Non-copyable.
@@ -61,7 +61,7 @@ public:
     FbxLoader& operator=(const FbxLoader&) = delete;
 
     /// Load an FBX or OBJ file.
-    ModelLoadResult load(WideStringView path, Model& model) override {
+    ModelLoadResult load(StringView path, Model& model) override {
         // Free previous scene.
         if (m_scene) {
             ufbx_free_scene(m_scene);
@@ -76,7 +76,7 @@ public:
         m_skinIndexMap.Clear();
 
         // Extract base path for loading external resources.
-        const String narrowStorage = ToUTF8(path);
+        const String narrowStorage = String(path);
         const char* narrowPath = reinterpret_cast<const char*>(narrowStorage.CStr());
         std::filesystem::path filePath(narrowPath);
         m_basePath = filePath.parent_path().string();
@@ -141,7 +141,7 @@ private:
     // Helpers
     // -----------------------------------------------------------------------
 
-    static bool caseInsensitiveEquals(WideStringView a, WideStringView b) {
+    static bool caseInsensitiveEquals(StringView a, StringView b) {
         if (a.Size() != b.Size()) return false;
         for (usize i = 0; i < a.Size(); ++i) {
             if (std::tolower(static_cast<unsigned char>(a.Data()[i])) !=
@@ -151,7 +151,7 @@ private:
         return true;
     }
 
-    static bool endsWithCI(WideStringView str, WideStringView suffix) {
+    static bool endsWithCI(StringView str, StringView suffix) {
         if (str.Size() < suffix.Size()) return false;
         return caseInsensitiveEquals(str.SubStr(str.Size() - suffix.Size(), suffix.Size()), suffix);
     }
@@ -168,7 +168,7 @@ private:
             auto* material = new ModelMaterial();
 
             if (mat->element.name.data && mat->element.name.length > 0)
-                material->setName(WideFromUfbx(mat->element.name));
+                material->setName(Utf8FromUfbx(mat->element.name));
 
             bool hasPBR = mat->features.pbr.enabled;
 
@@ -308,7 +308,7 @@ private:
         // Create a placeholder texture entry that loadTextures will populate.
         auto* modelTex = new ModelTexture();
         if (texture->element.name.data && texture->element.name.length > 0)
-            modelTex->setName(WideFromUfbx(texture->element.name));
+            modelTex->setName(Utf8FromUfbx(texture->element.name));
 
         i32 index = model.addTexture(modelTex);
         m_textureIndexMap.InsertOrAssign(typedId, index);
@@ -334,7 +334,7 @@ private:
             } else {
                 modelTex = new ModelTexture();
                 if (tex->element.name.data && tex->element.name.length > 0)
-                    modelTex->setName(WideFromUfbx(tex->element.name));
+                    modelTex->setName(Utf8FromUfbx(tex->element.name));
                 i32 idx = model.addTexture(modelTex);
                 m_textureIndexMap.InsertOrAssign(typedId, idx);
             }
@@ -370,7 +370,7 @@ private:
 
                     if (std::filesystem::exists(imagePath)) {
                         raptor::image::Image img;
-                        if (iio::LoadImage(WideFromC(imagePath.c_str()), img)
+                        if (iio::LoadImage(Utf8FromC(imagePath.c_str()), img)
                                 == ErrorCode::Ok) {
                             storeImageData(img, modelTex);
                             resolvedPath = imagePath;
@@ -387,7 +387,7 @@ private:
                             auto candidatePath = (parentDir / relPath).string();
                             if (std::filesystem::exists(candidatePath)) {
                                 raptor::image::Image img;
-                                if (iio::LoadImage(WideFromC(candidatePath.c_str()),
+                                if (iio::LoadImage(Utf8FromC(candidatePath.c_str()),
                                         img) == ErrorCode::Ok) {
                                     storeImageData(img, modelTex);
                                     resolvedPath = candidatePath;
@@ -403,7 +403,7 @@ private:
                 if (!loaded && tex->filename.data && tex->filename.length > 0) {
                     std::string absPath(tex->filename.data, tex->filename.length);
                     raptor::image::Image img;
-                    if (iio::LoadImage(WideFromC(absPath.c_str()), img)
+                    if (iio::LoadImage(Utf8FromC(absPath.c_str()), img)
                             == ErrorCode::Ok) {
                         storeImageData(img, modelTex);
                         resolvedPath = absPath;
@@ -413,7 +413,7 @@ private:
 
                 if (loaded) {
                     // Set the URI so TextureConverter can build the source path for dedup.
-                    modelTex->setUri(WideFromC(resolvedPath.c_str()));
+                    modelTex->setUri(Utf8FromC(resolvedPath.c_str()));
                 }
             }
 
@@ -559,7 +559,7 @@ private:
             auto* mesh = new ModelMesh();
 
             if (fbxMesh->element.name.data && fbxMesh->element.name.length > 0)
-                mesh->setName(WideFromUfbx(fbxMesh->element.name));
+                mesh->setName(Utf8FromUfbx(fbxMesh->element.name));
 
             // Determine if this mesh is skinned.
             bool isSkinned = fbxMesh->skin_deformers.count > 0;
@@ -937,7 +937,7 @@ private:
             auto* bone = new ModelBone();
 
             if (node->element.name.data && node->element.name.length > 0)
-                bone->setName(WideFromUfbx(node->element.name));
+                bone->setName(Utf8FromUfbx(node->element.name));
 
             // Extract TRS from local transform.
             ufbx_transform t = node->local_transform;
@@ -997,7 +997,7 @@ private:
             auto* skin = new ModelSkin();
 
             if (skinDef->element.name.data && skinDef->element.name.length > 0)
-                skin->setName(WideFromUfbx(skinDef->element.name));
+                skin->setName(Utf8FromUfbx(skinDef->element.name));
 
             // Process clusters (joints).
             for (size_t j = 0; j < skinDef->clusters.count; ++j) {
@@ -1051,7 +1051,7 @@ private:
             auto* animation = new ModelAnimation();
 
             if (stack->element.name.data && stack->element.name.length > 0)
-                animation->setName(WideFromUfbx(stack->element.name));
+                animation->setName(Utf8FromUfbx(stack->element.name));
 
             // Bake the animation — this pre-computes T/R/S keyframes per node
             // in the target coordinate system (Y-up), handling Euler-to-quaternion

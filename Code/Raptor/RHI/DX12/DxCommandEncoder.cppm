@@ -130,7 +130,7 @@ public:
 
     // ---- Compute Pass ----
 
-    ComputePassEncoder* BeginComputePass(WideStringView) override {
+    ComputePassEncoder* BeginComputePass(StringView) override {
         ensureDescriptorHeaps();
         m_cpe.begin();
         return &m_cpe;
@@ -510,13 +510,13 @@ public:
 
     // ---- Debug Labels ----
 
-    void BeginDebugLabel(WideStringView, f32, f32, f32, f32) override {
+    void BeginDebugLabel(StringView, f32, f32, f32, f32) override {
         // PIX events would go here; no-op without PIX runtime.
     }
 
     void EndDebugLabel() override {}
 
-    void InsertDebugLabel(WideStringView, f32, f32, f32, f32) override {}
+    void InsertDebugLabel(StringView, f32, f32, f32, f32) override {}
 
     // ---- Finish ----
 

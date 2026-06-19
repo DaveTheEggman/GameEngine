@@ -21,7 +21,7 @@ using raptor::core::Mat4;
 class MipmapSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample009 - Mipmaps"; }
+    raptor::core::StringView Title() const override { return u8"Sample009 - Mipmaps"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -60,8 +60,8 @@ private:
 raptor::core::Status MipmapSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
@@ -142,9 +142,9 @@ raptor::core::Status MipmapSample::OnInit() {
     dr::VertexBufferLayout vbl{}; vbl.stride = 20; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;

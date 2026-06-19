@@ -25,15 +25,15 @@ export namespace raptor::rendergraph
     struct ValidationMessage
     {
         ValidationSeverity severity = ValidationSeverity::Warning;
-        WideString message;
+        String message;
     };
 
     namespace detail
     {
-        [[nodiscard]] inline WideStringView ResName(const Array<RenderGraphResource*>& resources, u32 index)
+        [[nodiscard]] inline StringView ResName(const Array<RenderGraphResource*>& resources, u32 index)
         {
             return (index < resources.Size() && resources[index] != nullptr)
-                ? resources[index]->name.AsView() : WideStringView(u"???");
+                ? resources[index]->name.AsView() : StringView(u8"???");
         }
     }
 
@@ -47,23 +47,23 @@ export namespace raptor::rendergraph
             CheckRedundantWrites(graph, out);
         }
 
-        static void ValidateToString(RenderGraph& graph, WideString& out)
+        static void ValidateToString(RenderGraph& graph, String& out)
         {
             Array<ValidationMessage> messages;
             Validate(graph, messages);
 
             if (messages.IsEmpty())
             {
-                out.Append(u"Render graph validation: OK (no issues)\n");
+                out.Append(u8"Render graph validation: OK (no issues)\n");
                 return;
             }
 
-            AppendFormat(out, u"Render graph validation: {} issue(s)\n", messages.Size());
+            AppendFormat(out, u8"Render graph validation: {} issue(s)\n", messages.Size());
             for (const ValidationMessage& msg : messages)
             {
-                const WideStringView prefix = msg.severity == ValidationSeverity::Error ? WideStringView(u"ERROR")
-                                                                                    : WideStringView(u"WARNING");
-                AppendFormat(out, u"  [{}] {}\n", prefix, msg.message.AsView());
+                const StringView prefix = msg.severity == ValidationSeverity::Error ? StringView(u8"ERROR")
+                                                                                    : StringView(u8"WARNING");
+                AppendFormat(out, u8"  [{}] {}\n", prefix, msg.message.AsView());
             }
         }
 
@@ -94,7 +94,7 @@ export namespace raptor::rendergraph
                         ValidationMessage msg;
                         msg.severity = ValidationSeverity::Error;
                         AppendFormat(msg.message,
-                            u"Pass '{}' reads resource '{}' (index {}) which has not been written to",
+                            u8"Pass '{}' reads resource '{}' (index {}) which has not been written to",
                             pass->name.AsView(), detail::ResName(resources, access.handle.index), access.handle.index);
                         out.PushBack(static_cast<ValidationMessage&&>(msg));
                     }
@@ -121,7 +121,7 @@ export namespace raptor::rendergraph
                 {
                     ValidationMessage msg;
                     msg.severity = ValidationSeverity::Warning;
-                    AppendFormat(msg.message, u"Pass '{}' has no execute callback", pass->name.AsView());
+                    AppendFormat(msg.message, u8"Pass '{}' has no execute callback", pass->name.AsView());
                     out.PushBack(static_cast<ValidationMessage&&>(msg));
                 }
             }
@@ -131,7 +131,7 @@ export namespace raptor::rendergraph
         static void CheckRedundantWrites(RenderGraph& graph, Array<ValidationMessage>& out)
         {
             const Array<RenderGraphResource*>& resources = graph.Resources();
-            HashMap<u32, WideString> lastWriter;
+            HashMap<u32, String> lastWriter;
 
             for (RenderGraphPass* pass : graph.Passes())
             {
@@ -142,16 +142,16 @@ export namespace raptor::rendergraph
                 for (const RGResourceAccess& access : pass->accesses)
                 {
                     if (!access.IsWrite() || !access.handle.IsValid()) { continue; }
-                    if (WideString* prev = lastWriter.Find(access.handle.index))
+                    if (String* prev = lastWriter.Find(access.handle.index))
                     {
                         ValidationMessage msg;
                         msg.severity = ValidationSeverity::Warning;
                         AppendFormat(msg.message,
-                            u"Resource '{}' written by pass '{}' was already written by '{}' without being read",
+                            u8"Resource '{}' written by pass '{}' was already written by '{}' without being read",
                             detail::ResName(resources, access.handle.index), pass->name.AsView(), prev->AsView());
                         out.PushBack(static_cast<ValidationMessage&&>(msg));
                     }
-                    lastWriter.InsertOrAssign(access.handle.index, WideString(pass->name));
+                    lastWriter.InsertOrAssign(access.handle.index, String(pass->name));
                 }
             }
         }

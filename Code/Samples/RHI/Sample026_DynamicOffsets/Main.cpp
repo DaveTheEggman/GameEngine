@@ -21,7 +21,7 @@ namespace ds = raptor::shaders;
 class DynamicOffsetSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample026 - Dynamic Offsets & Blend Constants"; }
+    raptor::core::StringView Title() const override { return u8"Sample026 - Dynamic Offsets & Blend Constants"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -82,8 +82,8 @@ private:
 raptor::core::Status DynamicOffsetSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"DynVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"DynPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"DynVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"DynPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Unit quad vertices (will be transformed by UBO data).
     static constexpr float verts[] = {
@@ -139,9 +139,9 @@ raptor::core::Status DynamicOffsetSample::OnInit() {
     };
 
     dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 

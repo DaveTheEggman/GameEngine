@@ -25,7 +25,7 @@ export namespace raptor::rendergraph
     class RenderGraphPass
     {
     public:
-        RenderGraphPass(WideStringView passName, RGPassType passType)
+        RenderGraphPass(StringView passName, RGPassType passType)
             : name(passName), type(passType) {}
 
         // Explicitly defaulted so the (move-only, due to Function members) special
@@ -88,7 +88,7 @@ export namespace raptor::rendergraph
         [[nodiscard]] bool ShouldSurviveCulling() const noexcept { return neverCull || hasSideEffects; }
 
         // --- identity ---
-        WideString name;
+        String name;
         RGPassType type;
         rhi::QueueType queueType = rhi::QueueType::Graphics;
 

@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class TriangleSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample001 - Triangle"; }
+    raptor::core::StringView Title() const override { return u8"Sample001 - Triangle"; }
 
 protected:
     raptor::core::Status OnInit() override;
@@ -71,12 +71,12 @@ raptor::core::Status TriangleSample::OnInit() {
     // Shader compiler.
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u"VSMain", u"TriangleVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u"PSMain", u"TrianglePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u8"VSMain", u8"TriangleVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u8"PSMain", u8"TrianglePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex buffer.
     dr::BufferDesc bd{}; bd.size = sizeof(kVertexData); bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
-    bd.memory = dr::MemoryLocation::GpuOnly; bd.label = u"TriangleVB";
+    bd.memory = dr::MemoryLocation::GpuOnly; bd.label = u8"TriangleVB";
     if (m_device->CreateBuffer(bd, m_vertexBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Upload.
@@ -87,13 +87,13 @@ raptor::core::Status TriangleSample::OnInit() {
     m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Pipeline layout (empty).
-    dr::BindGroupLayoutDesc bglDesc{}; bglDesc.label = u"EmptyBGL";
+    dr::BindGroupLayoutDesc bglDesc{}; bglDesc.label = u8"EmptyBGL";
     if (m_device->CreateBindGroupLayout(bglDesc, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::PipelineLayoutDesc pld{};
     dr::BindGroupLayout* sets[1] = { m_bgl };
     pld.bindGroupLayouts = raptor::core::Span<dr::BindGroupLayout* const>(sets, 1);
-    pld.label = u"TrianglePL";
+    pld.label = u8"TrianglePL";
     if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render pipeline.
@@ -107,13 +107,13 @@ raptor::core::Status TriangleSample::OnInit() {
 
     dr::RenderPipelineDesc rpd{};
     rpd.layout   = m_pl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = raptor::core::Span<const dr::VertexBufferLayout>(&vbl, 1);
     rpd.fragment = dr::FragmentState{};
-    rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = raptor::core::Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
-    rpd.label = u"TrianglePipeline";
+    rpd.label = u8"TrianglePipeline";
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Command pool + fence.

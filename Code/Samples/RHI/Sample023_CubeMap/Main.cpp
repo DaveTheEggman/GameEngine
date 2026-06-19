@@ -23,7 +23,7 @@ namespace ds = raptor::shaders;
 class CubeMapSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample023 - Cube Map & Comparison Sampler"; }
+    raptor::core::StringView Title() const override { return u8"Sample023 - Cube Map & Comparison Sampler"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -169,12 +169,12 @@ raptor::core::Status CubeMapSample::OnInit() {
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Compile skybox shaders
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Vertex,   u"VSMain", u"SkyboxVS", m_skyboxVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Fragment, u"PSMain", u"SkyboxPS", m_skyboxPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"SkyboxVS", m_skyboxVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Fragment, u8"PSMain", u8"SkyboxPS", m_skyboxPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Compile shadow shaders
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Vertex,   u"VSMain", u"ShadowVS", m_shadowVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Fragment, u"PSMain", u"ShadowPS", m_shadowPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"ShadowVS", m_shadowVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Fragment, u8"PSMain", u8"ShadowPS", m_shadowPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create procedural cube map (6 faces, 64x64, each a solid color)
     if (createCubeMap() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -187,7 +187,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         dr::SamplerDesc sd{};
         sd.minFilter = dr::FilterMode::Linear;
         sd.magFilter = dr::FilterMode::Linear;
-        sd.label = u"LinearSampler";
+        sd.label = u8"LinearSampler";
         if (m_device->CreateSampler(sd, m_linearSampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
     {
@@ -195,7 +195,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         sd.minFilter = dr::FilterMode::Linear;
         sd.magFilter = dr::FilterMode::Linear;
         sd.compare = dr::CompareFunction::LessEqual;
-        sd.label = u"ComparisonSampler";
+        sd.label = u8"ComparisonSampler";
         if (m_device->CreateSampler(sd, m_comparisonSampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -207,7 +207,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         };
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
-        bgld.label = u"SkyboxBGL";
+        bgld.label = u8"SkyboxBGL";
         if (m_device->CreateBindGroupLayout(bgld, m_skyboxBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -220,7 +220,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         dr::BindGroupDesc bgd{};
         bgd.layout = m_skyboxBgl;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
-        bgd.label = u"SkyboxBG";
+        bgd.label = u8"SkyboxBG";
         if (m_device->CreateBindGroup(bgd, m_skyboxBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -235,7 +235,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         dr::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
-        pld.label = u"SkyboxPL";
+        pld.label = u8"SkyboxPL";
         if (m_device->CreatePipelineLayout(pld, m_skyboxPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -245,12 +245,12 @@ raptor::core::Status CubeMapSample::OnInit() {
         ct.format = m_swapChain->Format();
         dr::RenderPipelineDesc rpd{};
         rpd.layout = m_skyboxPl;
-        rpd.vertex.shader = { m_skyboxVs, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.vertex.shader = { m_skyboxVs, u8"VSMain", dr::ShaderStage::Vertex };
         rpd.fragment = dr::FragmentState{};
-        rpd.fragment->shader = { m_skyboxPs, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment->shader = { m_skyboxPs, u8"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
-        rpd.label = u"SkyboxPipeline";
+        rpd.label = u8"SkyboxPipeline";
         if (m_device->CreateRenderPipeline(rpd, m_skyboxPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -271,7 +271,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         bd.size = vbSize;
         bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
         bd.memory = dr::MemoryLocation::GpuOnly;
-        bd.label = u"ShadowQuadVB";
+        bd.label = u8"ShadowQuadVB";
         if (m_device->CreateBuffer(bd, m_quadVb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         dr::TransferBatch* batch = nullptr;
@@ -291,7 +291,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         entries[1].type = dr::BindingType::ComparisonSampler;
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
-        bgld.label = u"ShadowBGL";
+        bgld.label = u8"ShadowBGL";
         if (m_device->CreateBindGroupLayout(bgld, m_shadowBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -304,7 +304,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         dr::BindGroupDesc bgd{};
         bgd.layout = m_shadowBgl;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
-        bgd.label = u"ShadowBG";
+        bgd.label = u8"ShadowBG";
         if (m_device->CreateBindGroup(bgd, m_shadowBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -319,7 +319,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         dr::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
-        pld.label = u"ShadowPL";
+        pld.label = u8"ShadowPL";
         if (m_device->CreatePipelineLayout(pld, m_shadowPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -338,13 +338,13 @@ raptor::core::Status CubeMapSample::OnInit() {
 
         dr::RenderPipelineDesc rpd{};
         rpd.layout = m_shadowPl;
-        rpd.vertex.shader = { m_shadowVs, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.vertex.shader = { m_shadowVs, u8"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
         rpd.fragment = dr::FragmentState{};
-        rpd.fragment->shader = { m_shadowPs, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment->shader = { m_shadowPs, u8"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
-        rpd.label = u"ShadowPipeline";
+        rpd.label = u8"ShadowPipeline";
         if (m_device->CreateRenderPipeline(rpd, m_shadowPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -370,7 +370,7 @@ raptor::core::Status CubeMapSample::createCubeMap() {
     td.mipLevelCount = 1;
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
-    td.label = u"CubeMapTex";
+    td.label = u8"CubeMapTex";
     if (m_device->CreateTexture(td, m_cubeTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create cube view
@@ -442,7 +442,7 @@ raptor::core::Status CubeMapSample::createDepthTexture() {
     td.mipLevelCount = 1;
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::DepthStencil | dr::TextureUsage::Sampled;
-    td.label = u"ShadowDepthTex";
+    td.label = u8"ShadowDepthTex";
     if (m_device->CreateTexture(td, m_depthTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};

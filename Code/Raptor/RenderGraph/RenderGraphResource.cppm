@@ -25,7 +25,7 @@ export namespace raptor::rendergraph
     class RenderGraphResource
     {
     public:
-        RenderGraphResource(WideStringView resourceName, RGResourceType type, RGResourceLifetime life)
+        RenderGraphResource(StringView resourceName, RGResourceType type, RGResourceLifetime life)
             : name(resourceName), resourceType(type), lifetime(life) {}
 
         // Allocate GPU resources for a transient texture.
@@ -50,7 +50,7 @@ export namespace raptor::rendergraph
             {
                 rhi::TextureViewDesc depthDesc{};
                 depthDesc.aspect = rhi::TextureAspect::DepthOnly;
-                depthDesc.label = u"RGDepthOnlyView";
+                depthDesc.label = u8"RGDepthOnlyView";
                 rhi::TextureView* depthOnly = nullptr;
                 if (!device.CreateTextureView(tex, depthDesc, depthOnly).IsOk()) { return Status{ ErrorCode::Unknown }; }
                 depthOnlyView = depthOnly;
@@ -106,7 +106,7 @@ export namespace raptor::rendergraph
         }
 
         // --- identity / lifetime ---
-        WideString name;
+        String name;
         RGResourceType resourceType;
         RGResourceLifetime lifetime;
         u32 generation = 1;

@@ -117,7 +117,7 @@ public:
         return &m_rpe;
     }
 
-    ComputePassEncoder* BeginComputePass(WideStringView) override { return &m_cpe; }
+    ComputePassEncoder* BeginComputePass(StringView) override { return &m_cpe; }
 
     void Barrier(const BarrierGroup& group) override {
         Array<VkMemoryBarrier2>      memBs(group.memoryBarriers.Size());
@@ -347,7 +347,7 @@ public:
             VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
     }
 
-    void BeginDebugLabel(WideStringView label, f32 r, f32 g, f32 b, f32 a) override {
+    void BeginDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
         char buf[256]{}; auto len = Min(label.Size(), static_cast<usize>(255));
         std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -361,7 +361,7 @@ public:
         if (pfn) pfn(m_cmdBuf);
     }
 
-    void InsertDebugLabel(WideStringView label, f32 r, f32 g, f32 b, f32 a) override {
+    void InsertDebugLabel(StringView label, f32 r, f32 g, f32 b, f32 a) override {
         char buf[256]{}; auto len = Min(label.Size(), static_cast<usize>(255));
         std::memcpy(buf, label.Data(), len);
         VkDebugUtilsLabelEXT li{}; li.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;

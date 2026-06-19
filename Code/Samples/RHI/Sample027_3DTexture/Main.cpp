@@ -22,7 +22,7 @@ namespace ds = raptor::shaders;
 class Texture3DSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample027 - 3D Texture & 1D LUT"; }
+    raptor::core::StringView Title() const override { return u8"Sample027 - 3D Texture & 1D LUT"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -109,8 +109,8 @@ raptor::core::Status Texture3DSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"Vol3DVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"Vol3DPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     if (createVolumeTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     if (createLUTTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -123,7 +123,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         sd.addressU = dr::AddressMode::Repeat;
         sd.addressV = dr::AddressMode::Repeat;
         sd.addressW = dr::AddressMode::Repeat;
-        sd.label = u"VolSampler";
+        sd.label = u8"VolSampler";
         if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -136,7 +136,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         };
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 3);
-        bgld.label = u"VolBGL";
+        bgld.label = u8"VolBGL";
         if (m_device->CreateBindGroupLayout(bgld, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -150,7 +150,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         dr::BindGroupDesc bgd{};
         bgd.layout = m_bgl;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 3);
-        bgd.label = u"VolBG";
+        bgd.label = u8"VolBG";
         if (m_device->CreateBindGroup(bgd, m_bg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -165,7 +165,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         dr::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
-        pld.label = u"VolPL";
+        pld.label = u8"VolPL";
         if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -175,12 +175,12 @@ raptor::core::Status Texture3DSample::OnInit() {
         ct.format = m_swapChain->Format();
         dr::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
         rpd.fragment = dr::FragmentState{};
-        rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
-        rpd.label = u"VolPipeline";
+        rpd.label = u8"VolPipeline";
         if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -201,7 +201,7 @@ raptor::core::Status Texture3DSample::createVolumeTexture() {
     td.mipLevelCount = 1;
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
-    td.label = u"VolumeTex3D";
+    td.label = u8"VolumeTex3D";
     if (m_device->CreateTexture(td, m_volumeTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};
@@ -259,7 +259,7 @@ raptor::core::Status Texture3DSample::createLUTTexture() {
     td.mipLevelCount = 1;
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
-    td.label = u"LUTTex1D";
+    td.label = u8"LUTTex1D";
     if (m_device->CreateTexture(td, m_lutTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};

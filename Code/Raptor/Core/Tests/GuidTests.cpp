@@ -82,14 +82,13 @@ TEST_CASE("guid: formats via {} to its canonical string")
     g.ToChars(expected);
 
     FormatBuffer buffer;
-    FormatTo(buffer, u"id={}", g);
+    FormatTo(buffer, u8"id={}", g);
 
     CHECK(buffer.Size() == 3 + 36);  // "id=" + 36-char guid
-    CHECK(buffer.View().SubStr(0, 3) == WideStringView(u"id="));
+    CHECK(buffer.View().SubStr(0, 3) == StringView(u8"id="));
 
-    // Compare the guid portion: widen the expected UTF-8 for comparison.
-    const WideString expectedWide = ToWide(StringView(expected, 36));
-    CHECK(buffer.View().SubStr(3, 36) == expectedWide.AsView());
+    // The format buffer is UTF-8, matching the guid's UTF-8 ToChars output.
+    CHECK(buffer.View().SubStr(3, 36) == StringView(expected, 36));
 }
 
 TEST_CASE("guid: usable as a hashed-container key")

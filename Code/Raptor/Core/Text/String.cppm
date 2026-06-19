@@ -344,57 +344,62 @@ export namespace raptor::core
     using WideString = BasicString<widechar>;
 
     // =======================================================================
-    // WideStringBuilder — incrementally builds a wide WideString, including numbers
-    // (formatted as ASCII via <charconv> and widened).
+    // StringBuilder — incrementally builds a string, including numbers
+    // (formatted as ASCII via <charconv>). Templated over the code unit:
+    // `StringBuilder` is UTF-8 (primary), `WideStringBuilder` is UTF-16.
     // =======================================================================
-    class WideStringBuilder
+    template <typename CharT>
+    class BasicStringBuilder
     {
     public:
-        WideStringBuilder() = default;
-        explicit WideStringBuilder(IAllocator& allocator) : m_string(allocator) {}
+        BasicStringBuilder() = default;
+        explicit BasicStringBuilder(IAllocator& allocator) : m_string(allocator) {}
 
-        WideStringBuilder& Append(WideStringView view) { m_string.Append(view); return *this; }
-        WideStringBuilder& Append(const widechar* str) { m_string.Append(WideStringView{ str }); return *this; }
-        WideStringBuilder& Append(widechar ch) { m_string.PushBack(ch); return *this; }
+        BasicStringBuilder& Append(BasicStringView<CharT> view) { m_string.Append(view); return *this; }
+        BasicStringBuilder& Append(const CharT* str) { m_string.Append(BasicStringView<CharT>{ str }); return *this; }
+        BasicStringBuilder& Append(CharT ch) { m_string.PushBack(ch); return *this; }
 
-        // Appends an ASCII C-string, widening each byte.
-        WideStringBuilder& AppendAscii(const char* str)
+        // Appends an ASCII C-string (each byte maps to one code unit).
+        BasicStringBuilder& AppendAscii(const char* str)
         {
             for (usize i = 0; str[i] != '\0'; ++i)
             {
-                m_string.PushBack(static_cast<widechar>(static_cast<unsigned char>(str[i])));
+                m_string.PushBack(static_cast<CharT>(static_cast<unsigned char>(str[i])));
             }
             return *this;
         }
 
-        WideStringBuilder& AppendInt(i64 value) { return AppendChars(value); }
-        WideStringBuilder& AppendUInt(u64 value) { return AppendChars(value); }
-        WideStringBuilder& AppendFloat(f64 value) { return AppendChars(value); }
-        WideStringBuilder& AppendBool(bool value) { return AppendAscii(value ? "true" : "false"); }
+        BasicStringBuilder& AppendInt(i64 value) { return AppendChars(value); }
+        BasicStringBuilder& AppendUInt(u64 value) { return AppendChars(value); }
+        BasicStringBuilder& AppendFloat(f64 value) { return AppendChars(value); }
+        BasicStringBuilder& AppendBool(bool value) { return AppendAscii(value ? "true" : "false"); }
 
         void Clear() noexcept { m_string.Clear(); }
         [[nodiscard]] usize Size() const noexcept { return m_string.Size(); }
-        [[nodiscard]] WideStringView View() const noexcept { return m_string.AsView(); }
+        [[nodiscard]] BasicStringView<CharT> View() const noexcept { return m_string.AsView(); }
 
         // Copy out, or move the built string out (leaving the builder empty).
-        [[nodiscard]] const WideString& Str() const noexcept { return m_string; }
-        [[nodiscard]] WideString Take() noexcept { return Move(m_string); }
+        [[nodiscard]] const BasicString<CharT>& Str() const noexcept { return m_string; }
+        [[nodiscard]] BasicString<CharT> Take() noexcept { return Move(m_string); }
 
     private:
         template <typename T>
-        WideStringBuilder& AppendChars(T value)
+        BasicStringBuilder& AppendChars(T value)
         {
             char temp[48];
             const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
             for (char* p = temp; p != result.ptr; ++p)
             {
-                m_string.PushBack(static_cast<widechar>(static_cast<unsigned char>(*p)));
+                m_string.PushBack(static_cast<CharT>(static_cast<unsigned char>(*p)));
             }
             return *this;
         }
 
-        WideString m_string;
+        BasicString<CharT> m_string;
     };
+
+    using StringBuilder = BasicStringBuilder<utf8char>;
+    using WideStringBuilder = BasicStringBuilder<widechar>;
 
     // =======================================================================
     // UTF-8 <-> UTF-16 transcoding. Invalid sequences become U+FFFD.

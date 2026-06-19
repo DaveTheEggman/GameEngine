@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class ResolveTextureSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample029 - ResolveTexture (Explicit 4x MSAA)"; }
+    raptor::core::StringView Title() const override { return u8"Sample029 - ResolveTexture (Explicit 4x MSAA)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -97,7 +97,7 @@ void ResolveTextureSample::recreateMsaaTarget(raptor::core::u32 w, raptor::core:
     dr::TextureDesc td{};
     td.format = m_swapChain->Format(); td.width = w; td.height = h; td.sampleCount = kSamples;
     td.usage = dr::TextureUsage::RenderTarget | dr::TextureUsage::CopySrc;
-    td.label = u"MsaaRT";
+    td.label = u8"MsaaRT";
     m_device->CreateTexture(td, m_msaaTex);
     dr::TextureViewDesc tvd{}; tvd.format = m_swapChain->Format(); tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
     m_device->CreateTextureView(m_msaaTex, tvd, m_msaaView);
@@ -106,13 +106,13 @@ void ResolveTextureSample::recreateMsaaTarget(raptor::core::u32 w, raptor::core:
 raptor::core::Status ResolveTextureSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"ResolveVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"ResolvePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"ResolveVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"ResolvePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex and index buffers.
-    dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u"ResolveVB";
+    dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u8"ResolveVB";
     if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u"ResolveIB";
+    dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u8"ResolveIB";
     if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
@@ -121,7 +121,7 @@ raptor::core::Status ResolveTextureSample::OnInit() {
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Pipeline layout (no bind groups).
-    dr::PipelineLayoutDesc pld{}; pld.label = u"ResolvePL";
+    dr::PipelineLayoutDesc pld{}; pld.label = u8"ResolvePL";
     if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // MSAA render target.
@@ -135,10 +135,10 @@ raptor::core::Status ResolveTextureSample::OnInit() {
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
 
-    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl; rpd.label = u"ResolvePipeline";
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl; rpd.label = u8"ResolvePipeline";
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.multisample.count = kSamples;
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;

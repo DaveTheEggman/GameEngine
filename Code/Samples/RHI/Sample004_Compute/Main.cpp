@@ -20,7 +20,7 @@ using raptor::core::Mat4;
 class ComputeSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample004 - Compute (Animated Point Grid)"; }
+    raptor::core::StringView Title() const override { return u8"Sample004 - Compute (Animated Point Grid)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -72,9 +72,9 @@ private:
 raptor::core::Status ComputeSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kComputeSrc, ds::ShaderStage::Compute, u"CSMain", u"CS", m_cs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Vertex,  u"VSMain", u"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Fragment,u"PSMain", u"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kComputeSrc, ds::ShaderStage::Compute, u8"CSMain", u8"CS", m_cs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Vertex,  u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Fragment,u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = kBufSz; vbd.usage = dr::BufferUsage::Storage | dr::BufferUsage::Vertex; vbd.memory = dr::MemoryLocation::GpuOnly;
@@ -98,7 +98,7 @@ raptor::core::Status ComputeSample::OnInit() {
     dr::BindGroupLayout* cSets[1] = { m_compBgl };
     dr::PipelineLayoutDesc cPld{}; cPld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(cSets, 1);
     if (m_device->CreatePipelineLayout(cPld, m_compPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    dr::ComputePipelineDesc cpd{}; cpd.layout = m_compPl; cpd.compute = { m_cs, u"CSMain", dr::ShaderStage::Compute };
+    dr::ComputePipelineDesc cpd{}; cpd.layout = m_compPl; cpd.compute = { m_cs, u8"CSMain", dr::ShaderStage::Compute };
     if (m_device->CreateComputePipeline(cpd, m_compPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render BGL + BG + PL + pipeline.
@@ -118,9 +118,9 @@ raptor::core::Status ComputeSample::OnInit() {
     dr::VertexBufferLayout vbl{}; vbl.stride = kVertSz; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = m_renPl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::PointList;
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
@@ -159,7 +159,7 @@ void ComputeSample::OnRender() {
     dr::BufferBarrier bb{}; bb.buffer = m_vtxBuf; bb.oldState = dr::ResourceState::VertexBuffer; bb.newState = dr::ResourceState::ShaderWrite;
     dr::BarrierGroup bg1{}; bg1.bufferBarriers = Span<const dr::BufferBarrier>(&bb, 1);
     enc->Barrier(bg1);
-    auto* cp = enc->BeginComputePass(u"GenerateVertices");
+    auto* cp = enc->BeginComputePass(u8"GenerateVertices");
     cp->SetPipeline(m_compPipe); cp->SetBindGroup(0, m_compBg);
     cp->Dispatch((kNumPts + 63) / 64); cp->End();
     bb.oldState = dr::ResourceState::ShaderWrite; bb.newState = dr::ResourceState::VertexBuffer;

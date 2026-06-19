@@ -64,7 +64,7 @@ public:
     Model(Model&& other) noexcept
         : rootBoneIndex(other.rootBoneIndex),
           originalUpAxis(other.originalUpAxis),
-          m_name(static_cast<WideString&&>(other.m_name)),
+          m_name(static_cast<String&&>(other.m_name)),
           m_meshes(static_cast<Array<ModelMesh*>&&>(other.m_meshes)),
           m_materials(static_cast<Array<ModelMaterial*>&&>(other.m_materials)),
           m_bones(static_cast<Array<ModelBone*>&&>(other.m_bones)),
@@ -89,7 +89,7 @@ public:
             for (auto* a : m_animations) delete a;
             for (auto* t : m_textures) delete t;
 
-            m_name = static_cast<WideString&&>(other.m_name);
+            m_name = static_cast<String&&>(other.m_name);
             m_meshes = static_cast<Array<ModelMesh*>&&>(other.m_meshes);
             m_materials = static_cast<Array<ModelMaterial*>&&>(other.m_materials);
             m_bones = static_cast<Array<ModelBone*>&&>(other.m_bones);
@@ -113,8 +113,8 @@ public:
 
     // -- Name --
 
-    [[nodiscard]] WideStringView name() const { return WideStringView(m_name.Data(), m_name.Size()); }
-    void setName(WideStringView n) { m_name = WideString(n); }
+    [[nodiscard]] StringView name() const { return StringView(m_name.Data(), m_name.Size()); }
+    void setName(StringView n) { m_name = String(n); }
 
     // -- Meshes --
 
@@ -275,28 +275,28 @@ public:
     // -- Lookup by name --
 
     /// Get mesh by name (nullptr if not found).
-    [[nodiscard]] ModelMesh* getMesh(WideStringView n) const {
+    [[nodiscard]] ModelMesh* getMesh(StringView n) const {
         for (auto* m : m_meshes)
             if (m->name() == n) return m;
         return nullptr;
     }
 
     /// Get material by name (nullptr if not found).
-    [[nodiscard]] ModelMaterial* getMaterial(WideStringView n) const {
+    [[nodiscard]] ModelMaterial* getMaterial(StringView n) const {
         for (auto* m : m_materials)
             if (m->name() == n) return m;
         return nullptr;
     }
 
     /// Get bone by name (nullptr if not found).
-    [[nodiscard]] ModelBone* getBone(WideStringView n) const {
+    [[nodiscard]] ModelBone* getBone(StringView n) const {
         for (auto* b : m_bones)
             if (b->name() == n) return b;
         return nullptr;
     }
 
     /// Get animation by name (nullptr if not found).
-    [[nodiscard]] ModelAnimation* getAnimation(WideStringView n) const {
+    [[nodiscard]] ModelAnimation* getAnimation(StringView n) const {
         for (auto* a : m_animations)
             if (a->name() == n) return a;
         return nullptr;
@@ -311,7 +311,7 @@ public:
     CoordinateAxis originalUpAxis = CoordinateAxis::PositiveY;
 
 private:
-    WideString m_name;
+    String m_name;
     Array<ModelMesh*> m_meshes;
     Array<ModelMaterial*> m_materials;
     Array<ModelBone*> m_bones;

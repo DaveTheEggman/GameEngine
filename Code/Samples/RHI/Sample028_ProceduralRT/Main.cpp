@@ -20,7 +20,7 @@ namespace ds = raptor::shaders;
 class ProceduralRTSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample028 - Procedural RT (AABB Spheres)"; }
+    raptor::core::StringView Title() const override { return u8"Sample028 - Procedural RT (AABB Spheres)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};
@@ -191,7 +191,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
 
     // ---- Compile RT shader library (lib_6_3) ----
     if (sf::CompileToModule(m_compiler, m_device, kRtShaderSource, ds::ShaderStage::RayGen,
-                            u"", u"ProcRTLib", u"6_3", m_rtShaderModule) != raptor::core::ErrorCode::Ok) {
+                            u8"", u8"ProcRTLib", u8"6_3", m_rtShaderModule) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "ERROR: RT shader library compilation failed\n");
         return raptor::core::ErrorCode::Unknown;
     }
@@ -211,11 +211,11 @@ raptor::core::Status ProceduralRTSample::OnInit() {
         td.mipLevelCount  = 1;
         td.sampleCount    = 1;
         td.usage          = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc;
-        td.label          = u"ProcRTOutput";
+        td.label          = u8"ProcRTOutput";
         if (m_device->CreateTexture(td, m_outputTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         dr::TextureViewDesc tvd{};
-        tvd.label = u"ProcRTOutputView";
+        tvd.label = u8"ProcRTOutputView";
         if (m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -231,7 +231,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
         bd.size   = aabbSize;
         bd.usage  = dr::BufferUsage::AccelStructInput | dr::BufferUsage::CopyDst;
         bd.memory = dr::MemoryLocation::GpuOnly;
-        bd.label  = u"AABBBuffer";
+        bd.label  = u8"AABBBuffer";
         if (m_device->CreateBuffer(bd, m_aabbBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         dr::TransferBatch* transfer = nullptr;
@@ -246,11 +246,11 @@ raptor::core::Status ProceduralRTSample::OnInit() {
     {
         dr::AccelStructDesc asd{};
         asd.type  = dr::AccelStructType::BottomLevel;
-        asd.label = u"ProcBLAS";
+        asd.label = u8"ProcBLAS";
         if (m_device->CreateAccelStruct(asd, m_blas) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         asd.type  = dr::AccelStructType::TopLevel;
-        asd.label = u"ProcTLAS";
+        asd.label = u8"ProcTLAS";
         if (m_device->CreateAccelStruct(asd, m_tlas) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -260,7 +260,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
         bd.size   = 256 * 1024;
         bd.usage  = dr::BufferUsage::AccelStructScratch;
         bd.memory = dr::MemoryLocation::GpuOnly;
-        bd.label  = u"ProcScratch";
+        bd.label  = u8"ProcScratch";
         if (m_device->CreateBuffer(bd, m_scratchBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -270,7 +270,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
         bd.size   = 64 * kSphereCount;
         bd.usage  = dr::BufferUsage::AccelStructInput;
         bd.memory = dr::MemoryLocation::CpuToGpu;
-        bd.label  = u"ProcInstances";
+        bd.label  = u8"ProcInstances";
         if (m_device->CreateBuffer(bd, m_instanceBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -378,7 +378,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
 
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(layoutEntries, 2);
-        bgld.label   = u"ProcRTBGL";
+        bgld.label   = u8"ProcRTBGL";
         if (m_device->CreateBindGroupLayout(bgld, m_rtBindGroupLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         // Create bind group with output texture + TLAS.
@@ -389,7 +389,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
         dr::BindGroupDesc bgd{};
         bgd.layout  = m_rtBindGroupLayout;
         bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2);
-        bgd.label   = u"ProcRTBG";
+        bgd.label   = u8"ProcRTBG";
         if (m_device->CreateBindGroup(bgd, m_rtBindGroup) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -399,15 +399,15 @@ raptor::core::Status ProceduralRTSample::OnInit() {
 
         dr::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(bglArr, 1);
-        pld.label = u"ProcRTPL";
+        pld.label = u8"ProcRTPL";
         if (m_device->CreatePipelineLayout(pld, m_rtPipelineLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         // 4 stages: RayGen, Intersection, ClosestHit, Miss - all from the same shader module.
         dr::ProgrammableStage stages[4]{};
-        stages[0] = { m_rtShaderModule, u"RayGen",             dr::ShaderStage::RayGen };
-        stages[1] = { m_rtShaderModule, u"SphereIntersection", dr::ShaderStage::Intersection };
-        stages[2] = { m_rtShaderModule, u"ClosestHit",         dr::ShaderStage::ClosestHit };
-        stages[3] = { m_rtShaderModule, u"Miss",               dr::ShaderStage::Miss };
+        stages[0] = { m_rtShaderModule, u8"RayGen",             dr::ShaderStage::RayGen };
+        stages[1] = { m_rtShaderModule, u8"SphereIntersection", dr::ShaderStage::Intersection };
+        stages[2] = { m_rtShaderModule, u8"ClosestHit",         dr::ShaderStage::ClosestHit };
+        stages[3] = { m_rtShaderModule, u8"Miss",               dr::ShaderStage::Miss };
 
         // 3 groups: raygen (general), procedural hit group (intersection + closest hit), miss (general).
         dr::RayTracingShaderGroup groups[3]{};
@@ -428,7 +428,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
         rtpd.maxRecursionDepth = 1;
         rtpd.maxPayloadSize    = 32;  // RayPayload: float3 + float + float2 + float2
         rtpd.maxAttributeSize  = 16;  // SphereAttribs: float3 Normal + float HitDist
-        rtpd.label             = u"ProcRTPipeline";
+        rtpd.label             = u8"ProcRTPipeline";
         if (m_device->CreateRayTracingPipeline(rtpd, m_rtPipeline) != raptor::core::ErrorCode::Ok) {
             std::fprintf(stderr, "ERROR: CreateRayTracingPipeline failed\n");
             return raptor::core::ErrorCode::Unknown;
@@ -460,7 +460,7 @@ raptor::core::Status ProceduralRTSample::OnInit() {
         sbd.size   = sbtSize;
         sbd.usage  = dr::BufferUsage::ShaderBindingTable;
         sbd.memory = dr::MemoryLocation::CpuToGpu;
-        sbd.label  = u"ProcSBT";
+        sbd.label  = u8"ProcSBT";
         if (m_device->CreateBuffer(sbd, m_sbtBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         // Copy handles into SBT with proper alignment.
@@ -570,17 +570,17 @@ void ProceduralRTSample::OnResize(raptor::core::u32 w, raptor::core::u32 h) {
     dr::TextureDesc td{};
     td.dimension = dr::TextureDimension::Texture2D; td.format = dr::TextureFormat::RGBA8Unorm;
     td.width = w; td.height = h; td.arrayLayerCount = 1; td.mipLevelCount = 1; td.sampleCount = 1;
-    td.usage = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc; td.label = u"RTOutputTex";
+    td.usage = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc; td.label = u8"RTOutputTex";
     m_device->CreateTexture(td, m_outputTexture);
 
-    dr::TextureViewDesc tvd{}; tvd.label = u"RTOutputView";
+    dr::TextureViewDesc tvd{}; tvd.label = u8"RTOutputView";
     m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView);
 
     dr::BindGroupEntry bgEntries[2]{};
     bgEntries[0] = dr::BindGroupEntry::TextureEntry(m_outputTextureView);
     bgEntries[1] = dr::BindGroupEntry::AccelStructEntry(m_tlas);
     dr::BindGroupDesc bgd{}; bgd.layout = m_rtBindGroupLayout;
-    bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2); bgd.label = u"RTBindGroup";
+    bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2); bgd.label = u8"RTBindGroup";
     m_device->CreateBindGroup(bgd, m_rtBindGroup);
 
     m_outputTextureState = dr::ResourceState::Undefined;

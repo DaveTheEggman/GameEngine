@@ -20,7 +20,7 @@ using raptor::core::Mat4;
 class UniformBufferSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample003 - Rotating Cube (Uniform Buffers)"; }
+    raptor::core::StringView Title() const override { return u8"Sample003 - Rotating Cube (Uniform Buffers)"; }
 
 protected:
     raptor::core::Status OnInit() override;
@@ -67,8 +67,8 @@ raptor::core::Status UniformBufferSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
 
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u"VSMain", u"CubeVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u"PSMain", u"CubePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u8"VSMain", u8"CubeVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u8"PSMain", u8"CubePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kCubeVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
@@ -112,9 +112,9 @@ raptor::core::Status UniformBufferSample::OnInit() {
 
     dr::RenderPipelineDesc rpd{};
     rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive = { dr::PrimitiveTopology::TriangleList, dr::FrontFace::CW, dr::CullMode::Back };
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;

@@ -103,7 +103,7 @@ public:
     /// Begin a render pass. Returns the encoder for recording draw commands.
     [[nodiscard]] virtual RenderPassEncoder* BeginRenderPass(const RenderPassDesc& desc) = 0;
     /// Begin a compute pass.
-    [[nodiscard]] virtual ComputePassEncoder* BeginComputePass(WideStringView label = {}) = 0;
+    [[nodiscard]] virtual ComputePassEncoder* BeginComputePass(StringView label = {}) = 0;
 
     /// Insert resource barriers.
     virtual void Barrier(const BarrierGroup& group) = 0;
@@ -141,9 +141,9 @@ public:
     virtual void ResolveQuerySet(QuerySet* querySet, u32 first, u32 count, Buffer* dst, u64 dstOffset) = 0;
 
     /// Debug labels.
-    virtual void BeginDebugLabel(WideStringView label, f32 r = 0, f32 g = 0, f32 b = 0, f32 a = 1) = 0;
+    virtual void BeginDebugLabel(StringView label, f32 r = 0, f32 g = 0, f32 b = 0, f32 a = 1) = 0;
     virtual void EndDebugLabel() = 0;
-    virtual void InsertDebugLabel(WideStringView label, f32 r = 0, f32 g = 0, f32 b = 0, f32 a = 1) = 0;
+    virtual void InsertDebugLabel(StringView label, f32 r = 0, f32 g = 0, f32 b = 0, f32 a = 1) = 0;
 
     /// Finish recording and return an immutable command buffer.
     [[nodiscard]] virtual CommandBuffer* Finish() = 0;

@@ -21,8 +21,8 @@ public:
     ModelSkin() = default;
     ~ModelSkin() = default;
 
-    [[nodiscard]] WideStringView name() const { return WideStringView(m_name.Data(), m_name.Size()); }
-    void setName(WideStringView n) { m_name = WideString(n); }
+    [[nodiscard]] StringView name() const { return StringView(m_name.Data(), m_name.Size()); }
+    void setName(StringView n) { m_name = String(n); }
 
     /// Add a joint to the skin.
     void addJoint(i32 boneIndex, Mat4 inverseBindMatrix) {
@@ -50,7 +50,7 @@ public:
     i32 skeletonRootIndex = -1;
 
 private:
-    WideString m_name;
+    String m_name;
     Array<i32> m_joints;
     Array<Mat4> m_inverseBindMatrices;
 };

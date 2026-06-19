@@ -407,7 +407,7 @@ public:
     void setBindingShifts(const BindingShifts& s) { m_bindingShifts = s; }
 
     /// Set a Vulkan debug name on an object (only when validation is enabled).
-    void setDebugName(VkObjectType objectType, u64 objectHandle, WideStringView name) {
+    void setDebugName(VkObjectType objectType, u64 objectHandle, StringView name) {
         if (!m_validationEnabled || name.IsEmpty()) return;
         auto pfn = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
             vkGetDeviceProcAddr(m_device, "vkSetDebugUtilsObjectNameEXT"));

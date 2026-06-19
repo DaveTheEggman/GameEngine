@@ -31,7 +31,7 @@ TEST_CASE("shaders: DXC compiles HLSL to SPIR-V")
 
     CompileResult result{};
     const Status status = compiler->compile(
-        source, sourceSize, ShaderStage::Vertex, u"main",
+        source, sourceSize, ShaderStage::Vertex, u8"main",
         ShaderTarget::SPIRV, CompileOptions{}, result);
 
     CHECK(status.IsOk());
@@ -57,7 +57,7 @@ TEST_CASE("shaders: a compile error is reported, not a crash")
     const char* bad = "this is not valid hlsl @#$";
     CompileResult result{};
     (void)compiler->compile(reinterpret_cast<const u8*>(bad), std::strlen(bad),
-                            ShaderStage::Vertex, u"main", ShaderTarget::SPIRV, CompileOptions{}, result);
+                            ShaderStage::Vertex, u8"main", ShaderTarget::SPIRV, CompileOptions{}, result);
     CHECK_FALSE(result.success);
 
     compiler->Destroy();

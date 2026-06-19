@@ -38,7 +38,7 @@ int main(int /*argc*/, char** /*argv*/) {
 
     // ---- Platform: window via the desktop (SDL3) platform ----
     rt::WindowSettings ws{};
-    ws.title  = u"Raptor Smoketest";
+    ws.title  = u8"Raptor Smoketest";
     ws.width  = 1280;
     ws.height = 720;
     UniquePtr<rt::IPlatform> plat = rt::CreatePlatform(ws);
@@ -71,7 +71,7 @@ int main(int /*argc*/, char** /*argv*/) {
     // Adapters are enumerated best-GPU-first (see Backend::enumerateAdapters).
     Adapter* chosen = adapters[0];
     auto adapterInfo = chosen->Info();
-    const String adapterName = ToUTF8(adapterInfo.name);
+    const String adapterName = String(adapterInfo.name);
     std::printf("adapter: %s (%s)\n", reinterpret_cast<const char*>(adapterName.CStr()), adapterTypeStr(adapterInfo.type));
 
     DeviceDesc dd{};
@@ -98,7 +98,7 @@ int main(int /*argc*/, char** /*argv*/) {
     sd.format = TextureFormat::BGRA8UnormSrgb;
     sd.presentMode = PresentMode::Fifo;
     sd.bufferCount = 2;
-    sd.label = u"main";
+    sd.label = u8"main";
     SwapChain* swap = nullptr;
     if (device->CreateSwapChain(surface, sd, swap) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSwapChain failed\n");
@@ -112,7 +112,7 @@ int main(int /*argc*/, char** /*argv*/) {
     ubDesc.size  = 1024;
     ubDesc.usage = BufferUsage::Uniform | BufferUsage::CopyDst;
     ubDesc.memory = MemoryLocation::CpuToGpu;
-    ubDesc.label = u"smoketest_uniform";
+    ubDesc.label = u8"smoketest_uniform";
     Buffer* ub = nullptr;
     if (device->CreateBuffer(ubDesc, ub) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBuffer failed\n");
@@ -126,7 +126,7 @@ int main(int /*argc*/, char** /*argv*/) {
 
     SamplerDesc sampDesc{};
     sampDesc.maxAnisotropy = 16;
-    sampDesc.label = u"smoketest_sampler";
+    sampDesc.label = u8"smoketest_sampler";
     Sampler* samp = nullptr;
     if (device->CreateSampler(sampDesc, samp) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSampler failed\n");
@@ -149,7 +149,7 @@ int main(int /*argc*/, char** /*argv*/) {
     };
     ShaderModuleDesc shDesc{};
     shDesc.code = Span<const u8>(reinterpret_cast<const u8*>(kSpvNoop), sizeof(kSpvNoop));
-    shDesc.label = u"smoketest_noop_fs";
+    shDesc.label = u8"smoketest_noop_fs";
     ShaderModule* sh = nullptr;
     if (device->CreateShaderModule(shDesc, sh) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createShaderModule failed\n");
@@ -165,7 +165,7 @@ int main(int /*argc*/, char** /*argv*/) {
     };
     BindGroupLayoutDesc bglDesc{};
     bglDesc.entries = Span<const BindGroupLayoutEntry>(layoutEntries, 2);
-    bglDesc.label = u"smoketest_bgl";
+    bglDesc.label = u8"smoketest_bgl";
     BindGroupLayout* bgl = nullptr;
     if (device->CreateBindGroupLayout(bglDesc, bgl) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBindGroupLayout failed\n");
@@ -176,7 +176,7 @@ int main(int /*argc*/, char** /*argv*/) {
     PipelineLayoutDesc plDesc{};
     BindGroupLayout* plSets[1] = { bgl };
     plDesc.bindGroupLayouts = Span<BindGroupLayout* const>(plSets, 1);
-    plDesc.label = u"smoketest_pl";
+    plDesc.label = u8"smoketest_pl";
     PipelineLayout* pl = nullptr;
     if (device->CreatePipelineLayout(plDesc, pl) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createPipelineLayout failed\n");
@@ -185,7 +185,7 @@ int main(int /*argc*/, char** /*argv*/) {
     }
 
     PipelineCacheDesc pcDesc{};
-    pcDesc.label = u"smoketest_pc";
+    pcDesc.label = u8"smoketest_pc";
     PipelineCache* pc = nullptr;
     if (device->CreatePipelineCache(pcDesc, pc) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createPipelineCache failed\n");
@@ -218,7 +218,7 @@ int main(int /*argc*/, char** /*argv*/) {
     QuerySetDesc qsDesc{};
     qsDesc.type  = QueryType::Timestamp;
     qsDesc.count = 16;
-    qsDesc.label = u"smoketest_qs";
+    qsDesc.label = u8"smoketest_qs";
     QuerySet* qs = nullptr;
     if (device->CreateQuerySet(qsDesc, qs) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createQuerySet failed\n");
@@ -282,12 +282,12 @@ int main(int /*argc*/, char** /*argv*/) {
                 "    return float4(uv, 0.0, 1.0);\n"
                 "}\n";
             ds::CompileOptions opts{};
-            opts.shaderModel = u"6_0";
+            opts.shaderModel = u8"6_0";
             opts.optimizationLevel = 3;
             ds::CompileResult cr{};
             raptor::core::Status r = shaderc->compile(
                 reinterpret_cast<const u8*>(kHlsl), sizeof(kHlsl) - 1,
-                ds::ShaderStage::Fragment, u"main", ds::ShaderTarget::SPIRV, opts, cr);
+                ds::ShaderStage::Fragment, u8"main", ds::ShaderTarget::SPIRV, opts, cr);
             if (r == raptor::core::ErrorCode::Ok) {
                 u32 magic = cr.bytecodeSize >= 4 ? *reinterpret_cast<const u32*>(cr.bytecode) : 0u;
                 std::printf("HLSL->SPIR-V: %zu bytes, magic=0x%08x %s\n",
@@ -384,7 +384,7 @@ int main(int /*argc*/, char** /*argv*/) {
             std::printf("DX12 adapters: %zu\n", dx12Adapters.Size());
             for (usize i = 0; i < dx12Adapters.Size(); ++i) {
                 AdapterInfo ai = dx12Adapters[i]->Info();
-                const String name8 = ToUTF8(ai.name);
+                const String name8 = String(ai.name);
                 std::printf("  [%zu] %s (%s)\n", i,
                     reinterpret_cast<const char*>(name8.CStr()),
                     adapterTypeStr(ai.type));

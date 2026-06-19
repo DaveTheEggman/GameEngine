@@ -41,7 +41,7 @@ export namespace raptor::core
 
     using byte = std::byte;
 
-    // Wide character unit for the primary WideString type (UTF-16); String uses
+    // Wide character unit for the primary String type (UTF-16); String uses
     // char8_t. See Documentation/Planning/Core.md §4.5 / §7.
     using widechar = char16_t;
     using utf8char = char8_t;

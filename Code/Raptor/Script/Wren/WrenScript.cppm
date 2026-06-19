@@ -82,14 +82,9 @@ namespace raptor::script::wren
         if (const rc::i64* i = value.TryGet<rc::i64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*i)); return true; }
         if (const rc::u32* u = value.TryGet<rc::u32>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return true; }
         if (const rc::u64* u = value.TryGet<rc::u64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return true; }
-        if (const rc::WideString* s = value.TryGet<rc::WideString>())
-        {
-            const rc::String utf8 = rc::ToUTF8(s->AsView());
-            wrenSetSlotBytes(vm, slot, CStr(utf8), utf8.Size());
-            return true;
-        }
         if (const rc::String* s = value.TryGet<rc::String>())
         {
+            // Engine String is UTF-8, as are Wren strings — pass bytes directly.
             wrenSetSlotBytes(vm, slot, CStr(*s), s->Size());
             return true;
         }
@@ -128,8 +123,8 @@ namespace raptor::script::wren
             {
                 int length = 0;
                 const char* bytes = wrenGetSlotBytes(vm, slot, &length);
-                return rc::Variant::From<rc::WideString>(rc::ToWide(
-                    rc::StringView(reinterpret_cast<const rc::utf8char*>(bytes), static_cast<rc::usize>(length))));
+                return rc::Variant::From<rc::String>(
+                    rc::String(rc::StringView(reinterpret_cast<const rc::utf8char*>(bytes), static_cast<rc::usize>(length))));
             }
             default: return rc::Variant{};
         }
@@ -159,10 +154,9 @@ namespace raptor::script::wren
             {
                 int length = 0;
                 const char* bytes = wrenGetSlotBytes(vm, slot, &length);
-                rc::WideString wide = rc::ToWide(rc::StringView(
-                    reinterpret_cast<const rc::utf8char*>(bytes), static_cast<rc::usize>(length)));
-                if (expected == &rc::TypeOf<rc::String>()) { return rc::Variant::From<rc::String>(rc::ToUTF8(wide.AsView())); }
-                return rc::Variant::From<rc::WideString>(rc::Move(wide));
+                (void)expected; // engine String is UTF-8, like Wren strings
+                return rc::Variant::From<rc::String>(rc::String(rc::StringView(
+                    reinterpret_cast<const rc::utf8char*>(bytes), static_cast<rc::usize>(length))));
             }
             default:
                 return rc::Variant{};
@@ -202,7 +196,7 @@ namespace raptor::script::wren
             case WREN_TYPE_BOOL:
                 return pt == &rc::TypeOf<bool>();
             case WREN_TYPE_STRING:
-                return pt == &rc::TypeOf<rc::WideString>() || pt == &rc::TypeOf<rc::String>();
+                return pt == &rc::TypeOf<rc::String>() || pt == &rc::TypeOf<rc::String>();
             default:
                 return false;
         }

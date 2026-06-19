@@ -137,97 +137,6 @@ TEST_CASE("containers: Array honours a custom allocator")
     CHECK(arena.Used() > 0u);
 }
 
-// --- Containers: WideString ----------------------------------------------------
-
-TEST_CASE("string: WideStringView basics")
-{
-    WideStringView v = u"hello";
-    CHECK(v.Size() == 5u);
-    CHECK_FALSE(v.IsEmpty());
-    CHECK(v[0] == u'h');
-    CHECK(v == WideStringView(u"hello"));
-    CHECK_FALSE(v == WideStringView(u"world"));
-
-    CHECK(v.StartsWith(u"he"));
-    CHECK(v.EndsWith(u"lo"));
-    CHECK(v.SubStr(1, 3) == WideStringView(u"ell"));
-
-    static_assert(CStringLength(u"abc") == 3u);
-}
-
-TEST_CASE("string: construct, append, compare")
-{
-    WideString s = u"foo";
-    CHECK(s.Size() == 3u);
-    CHECK(s == u"foo");
-
-    s += u"bar";
-    CHECK(s == u"foobar");
-    CHECK(s.Size() == 6u);
-
-    s.PushBack(u'!');
-    CHECK(s == u"foobar!");
-
-    // CStr is null-terminated.
-    CHECK(s.CStr()[s.Size()] == u'\0');
-
-    WideString empty;
-    CHECK(empty.IsEmpty());
-    CHECK(empty.CStr()[0] == u'\0'); // valid even with no allocation
-}
-
-TEST_CASE("string: copy and move")
-{
-    WideString a = u"original";
-    WideString b = a;                 // deep copy
-    CHECK(a == b);
-
-    b += u"-modified";
-    CHECK_FALSE(a == b);
-    CHECK(a == u"original");
-
-    WideString c = Move(a);           // steal buffer
-    CHECK(c == u"original");
-    CHECK(a.IsEmpty());
-}
-
-TEST_CASE("string: growth across reallocations")
-{
-    WideString s;
-    for (int i = 0; i < 1000; ++i)
-    {
-        s.PushBack(u'x');
-    }
-    CHECK(s.Size() == 1000u);
-    CHECK(s.Capacity() >= 1000u);
-    CHECK(s[0] == u'x');
-    CHECK(s[999] == u'x');
-    CHECK(s.CStr()[1000] == u'\0');
-}
-
-TEST_CASE("string: String is the secondary type")
-{
-    String s = u8"utf8";
-    CHECK(s.Size() == 4u);
-    s += u8"-data";
-    CHECK(s == u8"utf8-data");
-
-    // widechar is 2 bytes, utf8char is 1.
-    CHECK(sizeof(WideString::ValueType) == 2u);
-    CHECK(sizeof(String::ValueType) == 1u);
-}
-
-TEST_CASE("string: honours a custom allocator")
-{
-    alignas(64) byte buffer[2048];
-    LinearAllocator arena(buffer, sizeof(buffer));
-
-    WideString s(arena);
-    s += u"arena-backed string";
-    CHECK(s == u"arena-backed string");
-    CHECK(arena.Used() > 0u);
-}
-
 // --- Hash ------------------------------------------------------------------
 
 TEST_CASE("hash: integers and strings hash deterministically")
@@ -236,9 +145,9 @@ TEST_CASE("hash: integers and strings hash deterministically")
     CHECK(hi(42) == hi(42));
     CHECK(hi(42) != hi(43));
 
-    Hash<WideStringView> hs;
-    CHECK(hs(u"hello") == hs(u"hello"));
-    CHECK(hs(u"hello") != hs(u"world"));
+    Hash<StringView> hs;
+    CHECK(hs(u8"hello") == hs(u8"hello"));
+    CHECK(hs(u8"hello") != hs(u8"world"));
 
     CHECK(HashBytes("abc", 3) == HashBytes("abc", 3));
 }
@@ -312,14 +221,14 @@ TEST_CASE("hashmap: grows and iterates")
 
 TEST_CASE("hashmap: string keys")
 {
-    HashMap<WideString, int> ages;
-    ages.InsertOrAssign(WideString(u"alice"), 30);
-    ages.InsertOrAssign(WideString(u"bob"), 25);
+    HashMap<String, int> ages;
+    ages.InsertOrAssign(String(u8"alice"), 30);
+    ages.InsertOrAssign(String(u8"bob"), 25);
 
-    REQUIRE(ages.Find(WideString(u"alice")) != nullptr);
-    CHECK(*ages.Find(WideString(u"alice")) == 30);
-    CHECK(*ages.Find(WideString(u"bob")) == 25);
-    CHECK(ages.Find(WideString(u"carol")) == nullptr);
+    REQUIRE(ages.Find(String(u8"alice")) != nullptr);
+    CHECK(*ages.Find(String(u8"alice")) == 30);
+    CHECK(*ages.Find(String(u8"bob")) == 25);
+    CHECK(ages.Find(String(u8"carol")) == nullptr);
 }
 
 TEST_CASE("hashmap: manages non-trivial value lifetimes")
@@ -392,13 +301,13 @@ TEST_CASE("hashset: grows and iterates keys")
 
 TEST_CASE("hashset: string keys")
 {
-    HashSet<WideString> set;
-    CHECK(set.Insert(WideString(u"alpha")));
-    CHECK(set.Insert(WideString(u"beta")));
-    CHECK_FALSE(set.Insert(WideString(u"alpha")));
+    HashSet<String> set;
+    CHECK(set.Insert(String(u8"alpha")));
+    CHECK(set.Insert(String(u8"beta")));
+    CHECK_FALSE(set.Insert(String(u8"alpha")));
 
-    CHECK(set.Contains(WideString(u"beta")));
-    CHECK_FALSE(set.Contains(WideString(u"gamma")));
+    CHECK(set.Contains(String(u8"beta")));
+    CHECK_FALSE(set.Contains(String(u8"gamma")));
     CHECK(set.Size() == 2u);
 }
 
@@ -473,25 +382,6 @@ TEST_CASE("ringbuffer: manages non-trivial element lifetimes")
     CHECK(Item::Live() == 0); // all destroyed
 }
 
-// --- Containers: WideStringBuilder ---------------------------------------------
-
-TEST_CASE("stringbuilder: builds wide strings with numbers")
-{
-    WideStringBuilder sb;
-    sb.Append(u"x=").AppendInt(-42).Append(u", ok=").AppendBool(true);
-    CHECK(sb.View() == u"x=-42, ok=true");
-
-    sb.Clear();
-    CHECK(sb.Size() == 0u);
-
-    sb.AppendAscii("count:").Append(u' ').AppendUInt(1000u);
-    CHECK(sb.Str() == u"count: 1000");
-
-    WideString taken = sb.Take();
-    CHECK(taken == u"count: 1000");
-    CHECK(sb.Size() == 0u); // moved out
-}
-
 // --- Containers: IntrusiveList ---------------------------------------------
 
 namespace
@@ -541,61 +431,3 @@ TEST_CASE("intrusivelist: push/iterate/remove without owning")
     CHECK(list.IsEmpty());
 }
 
-// --- Containers: transcoding -----------------------------------------------
-
-TEST_CASE("string: UTF-8 <-> UTF-16 transcoding")
-{
-    // ASCII.
-    CHECK(ToWide(u8"hello") == u"hello");
-    CHECK(ToUTF8(u"hello") == u8"hello");
-
-    // U+00E9 (é): 2-byte UTF-8, single UTF-16 unit.
-    CHECK(ToWide(u8"café") == u"café");
-    CHECK(ToUTF8(u"café") == u8"café");
-
-    // U+1F600 (emoji): 4-byte UTF-8, surrogate pair in UTF-16.
-    String emoji8 = u8"\U0001F600";
-    WideString emoji16 = ToWide(emoji8);
-    CHECK(emoji16.Size() == 2u); // surrogate pair
-    CHECK(ToUTF8(emoji16) == emoji8);
-
-    // Mixed round-trip both directions.
-    String mixed8 = u8"aé\U0001F600z";
-    CHECK(ToUTF8(ToWide(mixed8)) == mixed8);
-
-    WideString mixed16 = u"aéz";
-    CHECK(ToWide(ToUTF8(mixed16)) == mixed16);
-}
-
-// --- Containers: WideString SSO ------------------------------------------------
-
-TEST_CASE("string: small-string optimization avoids heap until it grows")
-{
-    WideString small = u"hi"; // short -> inline
-    CHECK(small.IsSmall());
-    CHECK(small == u"hi");
-    CHECK(small.CStr()[small.Size()] == u'\0');
-
-    // Build up a long string -> spills to the heap, content preserved.
-    WideString big;
-    for (int i = 0; i < 100; ++i) { big.PushBack(u'x'); }
-    CHECK_FALSE(big.IsSmall());
-    CHECK(big.Size() == 100u);
-    CHECK(big[0] == u'x');
-    CHECK(big[99] == u'x');
-
-    // Move of a heap string transfers the buffer; move of an inline copies.
-    WideString movedBig = Move(big);
-    CHECK(movedBig.Size() == 100u);
-    CHECK(big.IsEmpty());
-
-    WideString movedSmall = Move(small);
-    CHECK(movedSmall == u"hi");
-    CHECK(small.IsEmpty());
-
-    // Copy is independent across the inline/heap boundary.
-    WideString copy = movedBig;
-    CHECK(copy == movedBig);
-    copy.PushBack(u'!');
-    CHECK_FALSE(copy == movedBig);
-}

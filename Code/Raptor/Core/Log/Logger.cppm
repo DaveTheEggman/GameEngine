@@ -136,8 +136,7 @@ export namespace raptor::core
 
     // -----------------------------------------------------------------------
     // Frontend — formats and dispatches (used by the RAPTOR_LOG_* macros).
-    // The format system is still wide; Logf formats into a wide buffer and
-    // transcodes the result to UTF-8 for the Logger/sink UTF-8 API.
+    // The format buffer is UTF-8, matching the Logger/sink UTF-8 API.
     // -----------------------------------------------------------------------
     template <typename... Args>
     void Logf(LogLevel level, StringView category, FormatString<Args...> fmt, const Args&... args)
@@ -150,7 +149,7 @@ export namespace raptor::core
 
         FormatBuffer buffer;
         FormatToV(buffer, fmt.data, args...);
-        const String message = ToUTF8(buffer.View());
+        const String message = String(buffer.View());
         logger.Dispatch(level, category, message);
     }
 }

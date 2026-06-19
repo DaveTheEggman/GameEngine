@@ -13,7 +13,7 @@ namespace rhi = raptor::rhi;
 
 TEST_CASE("rg.builder: ReadTexture adds an access")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder builder(pass);
     const RGHandle handle{ 0, 1 };
     builder.ReadTexture(handle);
@@ -26,7 +26,7 @@ TEST_CASE("rg.builder: ReadTexture adds an access")
 
 TEST_CASE("rg.builder: ReadTexture with subresource")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder builder(pass);
     builder.ReadTexture(RGHandle{ 0, 1 }, RGSubresourceRange{ 0, 1, 2, 1 });
 
@@ -36,7 +36,7 @@ TEST_CASE("rg.builder: ReadTexture with subresource")
 
 TEST_CASE("rg.builder: SetColorTarget adds access + attachment")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder builder(pass);
     const RGHandle handle{ 0, 1 };
     builder.SetColorTarget(0, handle, rhi::LoadOp::Clear, rhi::StoreOp::Store);
@@ -50,7 +50,7 @@ TEST_CASE("rg.builder: SetColorTarget adds access + attachment")
 
 TEST_CASE("rg.builder: SetDepthTarget adds access + attachment")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder builder(pass);
     const RGHandle handle{ 0, 1 };
     builder.SetDepthTarget(handle, rhi::LoadOp::Clear, rhi::StoreOp::Store, 1.0f);
@@ -64,7 +64,7 @@ TEST_CASE("rg.builder: SetDepthTarget adds access + attachment")
 
 TEST_CASE("rg.builder: ReadDepth sets read-only")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder builder(pass);
     builder.ReadDepth(RGHandle{ 0, 1 });
 
@@ -77,13 +77,13 @@ TEST_CASE("rg.builder: ReadDepth sets read-only")
 TEST_CASE("rg.builder: NeverCull / HasSideEffects flags")
 {
     {
-        RenderGraphPass pass(u"Test", RGPassType::Render);
+        RenderGraphPass pass(u8"Test", RGPassType::Render);
         PassBuilder(pass).NeverCull();
         CHECK(pass.neverCull);
         CHECK(pass.ShouldSurviveCulling());
     }
     {
-        RenderGraphPass pass(u"Test", RGPassType::Render);
+        RenderGraphPass pass(u8"Test", RGPassType::Render);
         PassBuilder(pass).HasSideEffects();
         CHECK(pass.hasSideEffects);
         CHECK(pass.ShouldSurviveCulling());
@@ -92,7 +92,7 @@ TEST_CASE("rg.builder: NeverCull / HasSideEffects flags")
 
 TEST_CASE("rg.builder: EnableIf stores a runtime condition")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder(pass).EnableIf([]() { return true; });
     REQUIRE(static_cast<bool>(pass.condition));
     CHECK(pass.condition());
@@ -101,13 +101,13 @@ TEST_CASE("rg.builder: EnableIf stores a runtime condition")
 TEST_CASE("rg.builder: storage + copy accesses")
 {
     {
-        RenderGraphPass pass(u"Test", RGPassType::Compute);
+        RenderGraphPass pass(u8"Test", RGPassType::Compute);
         PassBuilder(pass).WriteStorage(RGHandle{ 0, 1 });
         REQUIRE(pass.accesses.Size() == 1u);
         CHECK(pass.accesses[0].type == RGAccessType::WriteStorage);
     }
     {
-        RenderGraphPass pass(u"Test", RGPassType::Compute);
+        RenderGraphPass pass(u8"Test", RGPassType::Compute);
         PassBuilder(pass).ReadWriteStorage(RGHandle{ 0, 1 });
         REQUIRE(pass.accesses.Size() == 1u);
         CHECK(pass.accesses[0].type == RGAccessType::ReadWriteStorage);
@@ -115,7 +115,7 @@ TEST_CASE("rg.builder: storage + copy accesses")
         CHECK(pass.accesses[0].IsWrite());
     }
     {
-        RenderGraphPass pass(u"Test", RGPassType::Copy);
+        RenderGraphPass pass(u8"Test", RGPassType::Copy);
         PassBuilder(pass).CopySrc(RGHandle{ 0, 1 }).CopyDst(RGHandle{ 1, 1 });
         REQUIRE(pass.accesses.Size() == 2u);
         CHECK(pass.accesses[0].type == RGAccessType::ReadCopySrc);
@@ -125,7 +125,7 @@ TEST_CASE("rg.builder: storage + copy accesses")
 
 TEST_CASE("rg.builder: fluent chaining")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder(pass)
         .ReadTexture(RGHandle{ 2, 1 })
         .SetColorTarget(0, RGHandle{ 0, 1 }, rhi::LoadOp::Clear, rhi::StoreOp::Store)
@@ -140,7 +140,7 @@ TEST_CASE("rg.builder: fluent chaining")
 
 TEST_CASE("rg.builder: GetInputs folds LoadOp into a read")
 {
-    RenderGraphPass pass(u"Test", RGPassType::Render);
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
     const RGHandle handle{ 0, 1 };
     PassBuilder(pass).SetColorTarget(0, handle, rhi::LoadOp::Load, rhi::StoreOp::Store);
 

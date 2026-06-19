@@ -41,7 +41,8 @@ public:
         }
 
         // Collect entry point names and per-stage export descriptors.
-        // WideStringView is wide in Raptor, and DX12 expects LPCWSTR — direct copy.
+        // Export names are UTF-8 StringView; DX12 wants LPCWSTR, so widen them
+        // (ASCII-safe for shader export names).
         std::vector<std::wstring> entryWide;
         Array<D3D12_EXPORT_DESC> exports;
 
@@ -200,7 +201,7 @@ public:
     /// Gets the shader identifier for an export name.
     /// Returns a pointer to D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES (32) bytes,
     /// or nullptr on failure.
-    [[nodiscard]] void* getShaderIdentifier(WideStringView exportName) const {
+    [[nodiscard]] void* getShaderIdentifier(StringView exportName) const {
         if (!m_properties) return nullptr;
 
         // Convert narrow string to wide (ASCII-safe for shader entry points).

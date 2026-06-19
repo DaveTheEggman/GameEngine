@@ -10,8 +10,8 @@ using namespace raptor::model;
 TEST_CASE("model: core data types — names round-trip as wide strings")
 {
     ModelMaterial mat;
-    mat.setName(u"steel");
-    CHECK(mat.name() == u"steel");
+    mat.setName(u8"steel");
+    CHECK(mat.name() == u8"steel");
 
     Model model;
     CHECK(model.meshes().Size() == 0u);

@@ -44,7 +44,7 @@ namespace
 TEST_CASE("platform.desktop: SDL3 platform creates a window and reports state")
 {
     WindowSettings settings;
-    settings.title = u"Raptor Test";
+    settings.title = u8"Raptor Test";
     settings.width = 640;
     settings.height = 480;
 

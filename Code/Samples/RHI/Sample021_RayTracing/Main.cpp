@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class RayTracingSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample021 - Ray Tracing (TraceRays)"; }
+    raptor::core::StringView Title() const override { return u8"Sample021 - Ray Tracing (TraceRays)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};
@@ -139,7 +139,7 @@ raptor::core::Status RayTracingSample::OnInit() {
     // ---- Compile RT shader library (lib_6_3) ----
     // Use ShaderStage::RayGen so stagePrefix yields "lib"; SM 6_3 for RT.
     if (sf::CompileToModule(m_compiler, m_device, kRtShaderSource, ds::ShaderStage::RayGen,
-                            u"", u"RTShaderLib", u"6_3", m_rtShaderModule) != raptor::core::ErrorCode::Ok) {
+                            u8"", u8"RTShaderLib", u8"6_3", m_rtShaderModule) != raptor::core::ErrorCode::Ok) {
         std::fprintf(stderr, "ERROR: RT shader library compilation failed\n");
         return raptor::core::ErrorCode::Unknown;
     }
@@ -159,11 +159,11 @@ raptor::core::Status RayTracingSample::OnInit() {
         td.mipLevelCount  = 1;
         td.sampleCount    = 1;
         td.usage          = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc;
-        td.label          = u"RTOutputTex";
+        td.label          = u8"RTOutputTex";
         if (m_device->CreateTexture(td, m_outputTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         dr::TextureViewDesc tvd{};
-        tvd.label = u"RTOutputView";
+        tvd.label = u8"RTOutputView";
         if (m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -173,7 +173,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         bd.size   = 36;
         bd.usage  = dr::BufferUsage::AccelStructInput | dr::BufferUsage::CopyDst;
         bd.memory = dr::MemoryLocation::GpuOnly;
-        bd.label  = u"BLAS_VB";
+        bd.label  = u8"BLAS_VB";
         if (m_device->CreateBuffer(bd, m_rtVertexBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -191,11 +191,11 @@ raptor::core::Status RayTracingSample::OnInit() {
     {
         dr::AccelStructDesc asd{};
         asd.type  = dr::AccelStructType::BottomLevel;
-        asd.label = u"BLAS";
+        asd.label = u8"BLAS";
         if (m_device->CreateAccelStruct(asd, m_blas) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         asd.type  = dr::AccelStructType::TopLevel;
-        asd.label = u"TLAS";
+        asd.label = u8"TLAS";
         if (m_device->CreateAccelStruct(asd, m_tlas) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -205,7 +205,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         bd.size   = 256 * 1024;
         bd.usage  = dr::BufferUsage::AccelStructScratch;
         bd.memory = dr::MemoryLocation::GpuOnly;
-        bd.label  = u"ScratchBuffer";
+        bd.label  = u8"ScratchBuffer";
         if (m_device->CreateBuffer(bd, m_scratchBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -215,7 +215,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         bd.size   = 64;
         bd.usage  = dr::BufferUsage::AccelStructInput;
         bd.memory = dr::MemoryLocation::CpuToGpu;
-        bd.label  = u"InstanceBuffer";
+        bd.label  = u8"InstanceBuffer";
         if (m_device->CreateBuffer(bd, m_instanceBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -319,7 +319,7 @@ raptor::core::Status RayTracingSample::OnInit() {
 
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(layoutEntries, 2);
-        bgld.label   = u"RTBindGroupLayout";
+        bgld.label   = u8"RTBindGroupLayout";
         if (m_device->CreateBindGroupLayout(bgld, m_rtBindGroupLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         // Create bind group with output texture + TLAS.
@@ -330,7 +330,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         dr::BindGroupDesc bgd{};
         bgd.layout  = m_rtBindGroupLayout;
         bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2);
-        bgd.label   = u"RTBindGroup";
+        bgd.label   = u8"RTBindGroup";
         if (m_device->CreateBindGroup(bgd, m_rtBindGroup) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -340,14 +340,14 @@ raptor::core::Status RayTracingSample::OnInit() {
 
         dr::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(bglArr, 1);
-        pld.label = u"RTPipelineLayout";
+        pld.label = u8"RTPipelineLayout";
         if (m_device->CreatePipelineLayout(pld, m_rtPipelineLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         // 3 stages: RayGen, ClosestHit, Miss - all from the same shader module.
         dr::ProgrammableStage stages[3]{};
-        stages[0] = { m_rtShaderModule, u"RayGen",     dr::ShaderStage::RayGen };
-        stages[1] = { m_rtShaderModule, u"ClosestHit", dr::ShaderStage::ClosestHit };
-        stages[2] = { m_rtShaderModule, u"Miss",       dr::ShaderStage::Miss };
+        stages[0] = { m_rtShaderModule, u8"RayGen",     dr::ShaderStage::RayGen };
+        stages[1] = { m_rtShaderModule, u8"ClosestHit", dr::ShaderStage::ClosestHit };
+        stages[2] = { m_rtShaderModule, u8"Miss",       dr::ShaderStage::Miss };
 
         // 3 groups: raygen (general), hit group (triangles), miss (general).
         dr::RayTracingShaderGroup groups[3]{};
@@ -365,7 +365,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         rtpd.stages           = Span<const dr::ProgrammableStage>(stages, 3);
         rtpd.groups           = Span<const dr::RayTracingShaderGroup>(groups, 3);
         rtpd.maxRecursionDepth = 1;
-        rtpd.label            = u"RTPipeline";
+        rtpd.label            = u8"RTPipeline";
         if (m_device->CreateRayTracingPipeline(rtpd, m_rtPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     }
 
@@ -394,7 +394,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         sbd.size   = sbtSize;
         sbd.usage  = dr::BufferUsage::ShaderBindingTable;
         sbd.memory = dr::MemoryLocation::CpuToGpu;
-        sbd.label  = u"SBTBuffer";
+        sbd.label  = u8"SBTBuffer";
         if (m_device->CreateBuffer(sbd, m_sbtBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
         // Copy handles into SBT with proper alignment.
@@ -513,10 +513,10 @@ void RayTracingSample::OnResize(raptor::core::u32 w, raptor::core::u32 h) {
     td.mipLevelCount   = 1;
     td.sampleCount     = 1;
     td.usage           = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc;
-    td.label           = u"RTOutputTex";
+    td.label           = u8"RTOutputTex";
     m_device->CreateTexture(td, m_outputTexture);
 
-    dr::TextureViewDesc tvd{}; tvd.label = u"RTOutputView";
+    dr::TextureViewDesc tvd{}; tvd.label = u8"RTOutputView";
     m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView);
 
     // Recreate bind group with new texture view + same TLAS.
@@ -526,7 +526,7 @@ void RayTracingSample::OnResize(raptor::core::u32 w, raptor::core::u32 h) {
     dr::BindGroupDesc bgd{};
     bgd.layout  = m_rtBindGroupLayout;
     bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2);
-    bgd.label   = u"RTBindGroup";
+    bgd.label   = u8"RTBindGroup";
     m_device->CreateBindGroup(bgd, m_rtBindGroup);
 
     m_outputTextureState = dr::ResourceState::Undefined;

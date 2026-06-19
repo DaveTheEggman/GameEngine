@@ -21,7 +21,7 @@ namespace ds = raptor::shaders;
 class BindlessSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample018 - Bindless Textures"; }
+    raptor::core::StringView Title() const override { return u8"Sample018 - Bindless Textures"; }
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{}; f.bindlessDescriptors = true; return f;
     }
@@ -113,8 +113,8 @@ raptor::core::Status BindlessSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"BindlessVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"BindlessPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"BindlessVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"BindlessPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create 4 procedural textures with different patterns
     if (createTextures() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -122,7 +122,7 @@ raptor::core::Status BindlessSample::OnInit() {
     // Sampler
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
     sd.addressU = dr::AddressMode::Repeat; sd.addressV = dr::AddressMode::Repeat;
-    sd.label = u"BindlessSampler";
+    sd.label = u8"BindlessSampler";
     if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Bindless BGL (space0): unbounded texture array
@@ -134,11 +134,11 @@ raptor::core::Status BindlessSample::OnInit() {
     bindlessEntry.count      = 0xFFFFFFFF;
     dr::BindGroupLayoutEntry blEntries[1] = { bindlessEntry };
     dr::BindGroupLayoutDesc blBgld{}; blBgld.entries = Span<const dr::BindGroupLayoutEntry>(blEntries, 1);
-    blBgld.label = u"BindlessBGL";
+    blBgld.label = u8"BindlessBGL";
     if (m_device->CreateBindGroupLayout(blBgld, m_bindlessBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Create bindless bind group (no entries at creation - populated via updateBindless)
-    dr::BindGroupDesc blBgd{}; blBgd.layout = m_bindlessBgl; blBgd.label = u"BindlessBG";
+    dr::BindGroupDesc blBgd{}; blBgd.layout = m_bindlessBgl; blBgd.label = u8"BindlessBG";
     if (m_device->CreateBindGroup(blBgd, m_bindlessBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Populate bindless slots
@@ -155,12 +155,12 @@ raptor::core::Status BindlessSample::OnInit() {
     dr::BindGroupLayoutEntry samplerEntry = dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment);
     dr::BindGroupLayoutEntry sEntries[1] = { samplerEntry };
     dr::BindGroupLayoutDesc sBgld{}; sBgld.entries = Span<const dr::BindGroupLayoutEntry>(sEntries, 1);
-    sBgld.label = u"SamplerBGL";
+    sBgld.label = u8"SamplerBGL";
     if (m_device->CreateBindGroupLayout(sBgld, m_samplerBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BindGroupEntry sBgEntries[1] = { dr::BindGroupEntry::SamplerEntry(m_sampler) };
     dr::BindGroupDesc sBgd{}; sBgd.layout = m_samplerBgl;
-    sBgd.entries = Span<const dr::BindGroupEntry>(sBgEntries, 1); sBgd.label = u"SamplerBG";
+    sBgd.entries = Span<const dr::BindGroupEntry>(sBgEntries, 1); sBgd.label = u8"SamplerBG";
     if (m_device->CreateBindGroup(sBgd, m_samplerBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Pipeline layout: group 0 = bindless textures, group 1 = sampler, push constants
@@ -170,17 +170,17 @@ raptor::core::Status BindlessSample::OnInit() {
     dr::PushConstantRange pushRanges[1] = { pcr };
     dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 2);
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
-    pld.label = u"BindlessPL";
+    pld.label = u8"BindlessPL";
     if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render pipeline (no vertex buffers - SV_VertexID driven)
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleStrip;
-    rpd.label = u"BindlessPipeline";
+    rpd.label = u8"BindlessPipeline";
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -210,7 +210,7 @@ raptor::core::Status BindlessSample::createTextures() {
         dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm;
         td.width = kTexSize; td.height = kTexSize;
         td.mipLevelCount = 1; td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
-        td.label = u"BindlessTex";
+        td.label = u8"BindlessTex";
         if (m_device->CreateTexture(td, m_textures[t]) != raptor::core::ErrorCode::Ok) {
             m_graphicsQueue->DestroyTransferBatch(batch); return raptor::core::ErrorCode::Unknown;
         }

@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class DepthBufferSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample008 - Depth Buffer"; }
+    raptor::core::StringView Title() const override { return u8"Sample008 - Depth Buffer"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -92,7 +92,7 @@ void DepthBufferSample::recreateDepth(raptor::core::u32 w, raptor::core::u32 h) 
     if (m_depthView) { m_device->DestroyTextureView(m_depthView); m_depthView = nullptr; }
     if (m_depthTex) { m_device->DestroyTexture(m_depthTex); m_depthTex = nullptr; }
 
-    dr::TextureDesc td = dr::TextureDesc::DepthBuffer(dr::TextureFormat::Depth24PlusStencil8, w, h, 1, u"DepthTex");
+    dr::TextureDesc td = dr::TextureDesc::DepthBuffer(dr::TextureFormat::Depth24PlusStencil8, w, h, 1, u8"DepthTex");
     m_device->CreateTexture(td, m_depthTex);
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::Depth24PlusStencil8; tvd.dimension = dr::TextureViewDimension::Texture2D;
     tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
@@ -102,8 +102,8 @@ void DepthBufferSample::recreateDepth(raptor::core::u32 w, raptor::core::u32 h) 
 raptor::core::Status DepthBufferSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -126,9 +126,9 @@ raptor::core::Status DepthBufferSample::OnInit() {
 
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthWriteEnabled = true;

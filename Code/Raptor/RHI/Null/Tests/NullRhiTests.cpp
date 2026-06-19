@@ -20,7 +20,7 @@ TEST_CASE("rhi.null: backend enumerates an adapter and creates a device")
     REQUIRE(adapters.Size() == 1u);
 
     const AdapterInfo info = adapters[0]->Info();
-    CHECK(info.name == u"Null Device");
+    CHECK(info.name == u8"Null Device");
     CHECK(info.type == AdapterType::Cpu);
 
     Device* device = nullptr;

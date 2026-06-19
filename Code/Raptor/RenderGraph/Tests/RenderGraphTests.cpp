@@ -40,7 +40,7 @@ TEST_CASE("rg.persistent: ping-pong swap")
 
 TEST_CASE("rg.resource: tracking + totals from descriptor")
 {
-    RenderGraphResource res(u"gbuffer", RGResourceType::Texture, RGResourceLifetime::Transient);
+    RenderGraphResource res(u8"gbuffer", RGResourceType::Texture, RGResourceLifetime::Transient);
     res.textureDesc.mipLevelCount = 4;
     res.textureDesc.arrayLayerCount = 6;
 

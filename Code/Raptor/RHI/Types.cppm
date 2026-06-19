@@ -44,7 +44,7 @@ struct ClearColor {
 
 /// Information about a physical GPU adapter.
 struct AdapterInfo {
-    WideString      name;
+    String      name;
     u32         vendorId = 0;
     u32         deviceId = 0;
     AdapterType type     = AdapterType::Unknown;
@@ -98,7 +98,7 @@ struct DeviceDesc {
     u32 graphicsQueueCount = 1;
     u32 computeQueueCount  = 0;
     u32 transferQueueCount = 0;
-    WideStringView label;
+    StringView label;
 };
 
 // ---- Copy regions ----

@@ -29,12 +29,11 @@ export namespace raptor::model::gltf {
 using namespace raptor::core;
 using namespace raptor::model;
 
-// cgltf deals in narrow UTF-8 char*; the engine uses wide WideString/WideStringView.
-// Convert only at these boundaries. NarrowPath (from Core/System) provides
-// the reverse direction without exposing std::string in the API.
-inline WideString WideFromC(const char* s) {
-    if (!s) return WideString{};
-    return ToWide(StringView(reinterpret_cast<const utf8char*>(s)));
+// cgltf hands back char* (UTF-8); the engine String is UTF-8 too, so this just
+// wraps the bytes in an owned String — no transcoding.
+inline String Utf8FromC(const char* s) {
+    if (!s) return String{};
+    return String(StringView(reinterpret_cast<const utf8char*>(s)));
 }
 
 /// Loads GLTF and GLB model files using cgltf.
@@ -49,8 +48,8 @@ public:
         }
     }
 
-    bool supportsExtension(WideStringView ext) const override {
-        return caseInsensitiveEquals(ext, u".gltf") || caseInsensitiveEquals(ext, u".glb");
+    bool supportsExtension(StringView ext) const override {
+        return caseInsensitiveEquals(ext, u8".gltf") || caseInsensitiveEquals(ext, u8".glb");
     }
 
     // Non-copyable.
@@ -58,7 +57,7 @@ public:
     GltfLoader& operator=(const GltfLoader&) = delete;
 
     /// Load a GLTF or GLB file.
-    ModelLoadResult load(WideStringView path, Model& model) override {
+    ModelLoadResult load(StringView path, Model& model) override {
         // Free previous data.
         if (m_data) {
             cgltf_free(m_data);
@@ -66,7 +65,7 @@ public:
         }
 
         // Extract base path for loading external resources.
-        const String narrowStorage = ToUTF8(path);
+        const String narrowStorage = String(path);
         const char* narrowPath = reinterpret_cast<const char*>(narrowStorage.CStr());
         std::filesystem::path filePath(narrowPath);
         m_basePath = filePath.parent_path().string();
@@ -74,7 +73,7 @@ public:
         // Parse the file -- explicitly set type for .glb since auto-detect can fail.
         cgltf_options options = {};
 
-        if (endsWithCI(path, u".glb"))
+        if (endsWithCI(path, u8".glb"))
             options.type = cgltf_file_type_glb;
         options.json_token_count = 4096; // Ensure enough tokens for parsing.
 
@@ -135,7 +134,7 @@ private:
     // Helpers
     // -----------------------------------------------------------------------
 
-    static bool caseInsensitiveEquals(WideStringView a, WideStringView b) {
+    static bool caseInsensitiveEquals(StringView a, StringView b) {
         if (a.Size() != b.Size()) return false;
         for (size_t i = 0; i < a.Size(); ++i) {
             if (std::tolower(static_cast<unsigned char>(a[i])) !=
@@ -145,7 +144,7 @@ private:
         return true;
     }
 
-    static bool endsWithCI(WideStringView str, WideStringView suffix) {
+    static bool endsWithCI(StringView str, StringView suffix) {
         if (str.Size() < suffix.Size()) return false;
         return caseInsensitiveEquals(str.SubStr(str.Size() - suffix.Size(), suffix.Size()), suffix);
     }
@@ -160,11 +159,11 @@ private:
             auto* material = new ModelMaterial();
 
             if (mat->name)
-                material->setName(WideFromC(mat->name));
+                material->setName(Utf8FromC(mat->name));
             else {
                 char buf[64];
                 snprintf(buf, sizeof(buf), "m_texture%zu", i);
-                material->setName(WideFromC(buf));
+                material->setName(Utf8FromC(buf));
             }
 
             // PBR Metallic Roughness.
@@ -276,9 +275,9 @@ private:
             auto* texture = new ModelTexture();
 
             if (tex->name)
-                texture->setName(WideFromC(tex->name));
+                texture->setName(Utf8FromC(tex->name));
             else if (tex->image && tex->image->name)
-                texture->setName(WideFromC(tex->image->name));
+                texture->setName(Utf8FromC(tex->image->name));
 
             if (tex->sampler)
                 texture->samplerIndex = static_cast<i32>(
@@ -288,11 +287,11 @@ private:
                 cgltf_image* gltfImage = tex->image;
 
                 if (gltfImage->mime_type)
-                    texture->mimeType = WideFromC(gltfImage->mime_type);
+                    texture->mimeType = Utf8FromC(gltfImage->mime_type);
 
                 if (gltfImage->uri) {
                     const char* uriC = gltfImage->uri;
-                    texture->setUri(WideFromC(uriC));
+                    texture->setUri(Utf8FromC(uriC));
 
                     if (std::strncmp(uriC, "data:", 5) == 0) {
                         // Base64 encoded data URI (e.g., "data:image/png;base64,iVBORw0...")
@@ -305,7 +304,7 @@ private:
                             std::filesystem::path(m_basePath) / uriC;
                         const std::string imgPath = imagePath.string();
                         raptor::image::Image img;
-                        if (iio::LoadImage(WideFromC(imgPath.c_str()), img) == ErrorCode::Ok)
+                        if (iio::LoadImage(Utf8FromC(imgPath.c_str()), img) == ErrorCode::Ok)
                             storeImageData(img, texture);
                     }
                 } else if (gltfImage->buffer_view) {
@@ -415,7 +414,7 @@ private:
             auto* mesh = new ModelMesh();
 
             if (meshData->name)
-                mesh->setName(WideFromC(meshData->name));
+                mesh->setName(Utf8FromC(meshData->name));
 
             if (meshData->primitives_count > 0)
                 loadMeshPrimitives(meshData, mesh);
@@ -670,7 +669,7 @@ private:
             auto* bone = new ModelBone();
 
             if (node->name)
-                bone->setName(WideFromC(node->name));
+                bone->setName(Utf8FromC(node->name));
 
             // Translation.
             if (node->has_translation)
@@ -720,7 +719,7 @@ private:
             auto* skin = new ModelSkin();
 
             if (skinData->name)
-                skin->setName(WideFromC(skinData->name));
+                skin->setName(Utf8FromC(skinData->name));
 
             if (skinData->skeleton)
                 skin->skeletonRootIndex = static_cast<i32>(cgltf_node_index(m_data, skinData->skeleton));
@@ -759,7 +758,7 @@ private:
             auto* animation = new ModelAnimation();
 
             if (animData->name)
-                animation->setName(WideFromC(animData->name));
+                animation->setName(Utf8FromC(animData->name));
 
             for (cgltf_size c = 0; c < animData->channels_count; ++c) {
                 cgltf_animation_channel* channelData = &animData->channels[c];

@@ -58,7 +58,7 @@ export namespace raptor::runtime
         virtual ~IGamepad() = default;
 
         [[nodiscard]] virtual rc::i32        Index()     const = 0;
-        [[nodiscard]] virtual rc::WideStringView Name()      const = 0;
+        [[nodiscard]] virtual rc::StringView Name()      const = 0;
         [[nodiscard]] virtual bool           Connected() const = 0;
 
         [[nodiscard]] virtual bool IsButtonDown(GamepadButton button)     const = 0;

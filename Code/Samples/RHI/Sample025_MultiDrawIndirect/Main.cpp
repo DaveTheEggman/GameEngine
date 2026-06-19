@@ -27,7 +27,7 @@ struct DrawIndexedIndirectArgs {
 class MultiDrawIndirectSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample025 - Multi-Draw Indirect & Lines"; }
+    raptor::core::StringView Title() const override { return u8"Sample025 - Multi-Draw Indirect & Lines"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};
@@ -82,8 +82,8 @@ private:
 raptor::core::Status MultiDrawIndirectSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     if (createGeometry() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     if (createIndirectBuffer() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -106,9 +106,9 @@ raptor::core::Status MultiDrawIndirectSample::OnInit() {
     // Fill pipeline (TriangleList).
     {
         dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
         if (m_device->CreateRenderPipeline(rpd, m_fillPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -117,9 +117,9 @@ raptor::core::Status MultiDrawIndirectSample::OnInit() {
     // Line pipeline (LineList).
     {
         dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::LineList;
         if (m_device->CreateRenderPipeline(rpd, m_linePipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;

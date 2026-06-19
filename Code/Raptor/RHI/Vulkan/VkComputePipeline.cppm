@@ -30,7 +30,7 @@ public:
         auto* vkMod = static_cast<VkShaderModuleImpl*>(desc.compute.module);
         if (!vkMod) return ErrorCode::Unknown;
 
-        String entry = ToUTF8(desc.compute.entryPoint);
+        String entry = String(desc.compute.entryPoint);
 
         VkPipelineShaderStageCreateInfo stage{};
         stage.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

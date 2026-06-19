@@ -39,14 +39,14 @@ export namespace raptor::rendergraph
             rhi::QuerySetDesc queryDesc{};
             queryDesc.type = rhi::QueryType::Timestamp;
             queryDesc.count = static_cast<u32>(maxPasses * 2);
-            queryDesc.label = u"RG_Profiler_Queries";
+            queryDesc.label = u8"RG_Profiler_Queries";
             if (!device.CreateQuerySet(queryDesc, m_querySet).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
             rhi::BufferDesc bufDesc{};
             bufDesc.size = static_cast<u64>(maxPasses) * 2u * sizeof(u64);
             bufDesc.usage = rhi::BufferUsage::CopyDst;
             bufDesc.memory = rhi::MemoryLocation::GpuToCpu;
-            bufDesc.label = u"RG_Profiler_Readback";
+            bufDesc.label = u8"RG_Profiler_Readback";
             if (!device.CreateBuffer(bufDesc, m_readbackBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
             m_passTimesMs.Resize(static_cast<usize>(maxPasses));
@@ -54,11 +54,11 @@ export namespace raptor::rendergraph
             return Status{};
         }
 
-        void BeginPass(rhi::CommandEncoder& encoder, i32 passIndex, WideStringView passName)
+        void BeginPass(rhi::CommandEncoder& encoder, i32 passIndex, StringView passName)
         {
             if (!m_initialized || !enabled || passIndex >= m_maxPasses) { return; }
-            while (static_cast<i32>(m_passNames.Size()) <= passIndex) { m_passNames.PushBack(WideString{}); }
-            m_passNames[static_cast<usize>(passIndex)] = WideString(passName);
+            while (static_cast<i32>(m_passNames.Size()) <= passIndex) { m_passNames.PushBack(String{}); }
+            m_passNames[static_cast<usize>(passIndex)] = String(passName);
             encoder.WriteTimestamp(m_querySet, static_cast<u32>(passIndex * 2));
         }
 
@@ -78,7 +78,7 @@ export namespace raptor::rendergraph
         }
 
         // Read results and append a timing report (call after the GPU has finished).
-        void ReadResults(i32 passCount, WideString& outReport)
+        void ReadResults(i32 passCount, String& outReport)
         {
             if (!m_initialized || !enabled || passCount == 0) { return; }
 
@@ -88,7 +88,7 @@ export namespace raptor::rendergraph
             const i32 count = Min(passCount, m_maxPasses);
             f32 totalMs = 0.0f;
 
-            outReport.Append(u"=== GPU Pass Timing ===\n");
+            outReport.Append(u8"=== GPU Pass Timing ===\n");
             for (i32 i = 0; i < count; ++i)
             {
                 const u64 begin = mapped[i * 2];
@@ -98,11 +98,11 @@ export namespace raptor::rendergraph
                 m_passTimesMs[static_cast<usize>(i)] = ms;
                 totalMs += ms;
 
-                const WideStringView name = i < static_cast<i32>(m_passNames.Size())
-                                      ? m_passNames[static_cast<usize>(i)].AsView() : WideStringView(u"???");
-                AppendFormat(outReport, u"  {} ms  {}\n", ms, name);
+                const StringView name = i < static_cast<i32>(m_passNames.Size())
+                                      ? m_passNames[static_cast<usize>(i)].AsView() : StringView(u8"???");
+                AppendFormat(outReport, u8"  {} ms  {}\n", ms, name);
             }
-            AppendFormat(outReport, u"  --------\n  {} ms  TOTAL\n", totalMs);
+            AppendFormat(outReport, u8"  --------\n  {} ms  TOTAL\n", totalMs);
 
             m_readbackBuffer->Unmap();
         }
@@ -132,7 +132,7 @@ export namespace raptor::rendergraph
         rhi::Buffer* m_readbackBuffer = nullptr;
         i32 m_maxPasses = 0;
         bool m_initialized = false;
-        Array<WideString> m_passNames;
+        Array<String> m_passNames;
         Array<f32> m_passTimesMs;
         f32 m_gpuTimestampPeriod = 0.0f;
     };

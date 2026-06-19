@@ -18,7 +18,7 @@ namespace ds = raptor::shaders;
 class MRTSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample011 - MRT"; }
+    raptor::core::StringView Title() const override { return u8"Sample011 - MRT"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -94,10 +94,10 @@ void MRTSample::createRenderTargets() {
 raptor::core::Status MRTSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Vertex,   u"VSMain", u"GBufVS", m_gbVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Fragment, u"PSMain", u"GBufPS", m_gbPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Vertex,   u"VSMain", u"CompVS", m_compVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Fragment, u"PSMain", u"CompPS", m_compPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"GBufVS", m_gbVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Fragment, u8"PSMain", u8"GBufPS", m_gbPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"CompVS", m_compVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Fragment, u8"PSMain", u8"CompPS", m_compPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
@@ -118,9 +118,9 @@ raptor::core::Status MRTSample::OnInit() {
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
     dr::ColorTargetState gbCt[2] = { {dr::TextureFormat::RGBA8Unorm}, {dr::TextureFormat::RGBA8Unorm} };
     dr::RenderPipelineDesc grpd{}; grpd.layout = m_gbPl;
-    grpd.vertex.shader = { m_gbVs, u"VSMain", dr::ShaderStage::Vertex };
+    grpd.vertex.shader = { m_gbVs, u8"VSMain", dr::ShaderStage::Vertex };
     grpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    grpd.fragment = dr::FragmentState{}; grpd.fragment->shader = { m_gbPs, u"PSMain", dr::ShaderStage::Fragment };
+    grpd.fragment = dr::FragmentState{}; grpd.fragment->shader = { m_gbPs, u8"PSMain", dr::ShaderStage::Fragment };
     grpd.fragment->targets = Span<const dr::ColorTargetState>(gbCt, 2);
     if (m_device->CreateRenderPipeline(grpd, m_gbPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
@@ -137,8 +137,8 @@ raptor::core::Status MRTSample::OnInit() {
     if (m_device->CreatePipelineLayout(cpld, m_compPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::ColorTargetState compCt{}; compCt.format = m_swapChain->Format();
     dr::RenderPipelineDesc crpd{}; crpd.layout = m_compPl;
-    crpd.vertex.shader = { m_compVs, u"VSMain", dr::ShaderStage::Vertex };
-    crpd.fragment = dr::FragmentState{}; crpd.fragment->shader = { m_compPs, u"PSMain", dr::ShaderStage::Fragment };
+    crpd.vertex.shader = { m_compVs, u8"VSMain", dr::ShaderStage::Vertex };
+    crpd.fragment = dr::FragmentState{}; crpd.fragment->shader = { m_compPs, u8"PSMain", dr::ShaderStage::Fragment };
     crpd.fragment->targets = Span<const dr::ColorTargetState>(&compCt, 1);
     if (m_device->CreateRenderPipeline(crpd, m_compPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 

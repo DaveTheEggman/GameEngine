@@ -23,7 +23,7 @@ namespace ds = raptor::shaders;
 class BatchUploadSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample019 - Batch Upload (Async Transfer)"; }
+    raptor::core::StringView Title() const override { return u8"Sample019 - Batch Upload (Async Transfer)"; }
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
@@ -109,31 +109,31 @@ raptor::core::Status BatchUploadSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
 
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"BatchVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"BatchPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"BatchVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"BatchPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex buffer: 4 vertices x (pos3 + uv2) x 4 = 80 bytes
-    dr::BufferDesc vbd{}; vbd.size = 80; vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u"BatchVB";
+    dr::BufferDesc vbd{}; vbd.size = 80; vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u8"BatchVB";
     if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Index buffer: 6 uint16 = 12 bytes
-    dr::BufferDesc ibd{}; ibd.size = 12; ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u"BatchIB";
+    dr::BufferDesc ibd{}; ibd.size = 12; ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u8"BatchIB";
     if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Texture
     dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm; td.width = kTexSize; td.height = kTexSize;
-    td.mipLevelCount = 1; td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst; td.label = u"BatchTex";
+    td.mipLevelCount = 1; td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst; td.label = u8"BatchTex";
     if (m_device->CreateTexture(td, m_tex) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm; tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
     if (m_device->CreateTextureView(m_tex, tvd, m_texView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
-    sd.addressU = dr::AddressMode::Repeat; sd.addressV = dr::AddressMode::Repeat; sd.label = u"BatchSampler";
+    sd.addressU = dr::AddressMode::Repeat; sd.addressV = dr::AddressMode::Repeat; sd.label = u8"BatchSampler";
     if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Transform UBO
-    dr::BufferDesc tbd{}; tbd.size = 16; tbd.usage = dr::BufferUsage::Uniform; tbd.memory = dr::MemoryLocation::CpuToGpu; tbd.label = u"BatchTransform";
+    dr::BufferDesc tbd{}; tbd.size = 16; tbd.usage = dr::BufferUsage::Uniform; tbd.memory = dr::MemoryLocation::CpuToGpu; tbd.label = u8"BatchTransform";
     if (m_device->CreateBuffer(tbd, m_transformBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     m_transformMapped = m_transformBuf->Map();
 
@@ -143,7 +143,7 @@ raptor::core::Status BatchUploadSample::OnInit() {
         dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Fragment),
         dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment),
     };
-    dr::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const dr::BindGroupLayoutEntry>(bglEntries, 3); bgld.label = u"BatchBGL";
+    dr::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const dr::BindGroupLayoutEntry>(bglEntries, 3); bgld.label = u8"BatchBGL";
     if (m_device->CreateBindGroupLayout(bgld, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     dr::BindGroupEntry bgEntries[3] = {
@@ -151,12 +151,12 @@ raptor::core::Status BatchUploadSample::OnInit() {
         dr::BindGroupEntry::TextureEntry(m_texView),
         dr::BindGroupEntry::SamplerEntry(m_sampler),
     };
-    dr::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 3); bgd.label = u"BatchBG";
+    dr::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 3); bgd.label = u8"BatchBG";
     if (m_device->CreateBindGroup(bgd, m_bg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Pipeline layout
     dr::BindGroupLayout* bgls[1] = { m_bgl };
-    dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(bgls, 1); pld.label = u"BatchPL";
+    dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(bgls, 1); pld.label = u8"BatchPL";
     if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Render pipeline
@@ -164,12 +164,12 @@ raptor::core::Status BatchUploadSample::OnInit() {
     dr::VertexBufferLayout vbl{}; vbl.stride = 20; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
     dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
-    rpd.label = u"BatchPipeline";
+    rpd.label = u8"BatchPipeline";
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;

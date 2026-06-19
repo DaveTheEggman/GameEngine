@@ -22,6 +22,7 @@ add_executable(RaptorCoreTests
     MemoryTests.cpp
     SystemTests.cpp
     ContainersTests.cpp
+    StringTests.cpp
     FormatLogTests.cpp
     MathTests.cpp
     RandomTests.cpp

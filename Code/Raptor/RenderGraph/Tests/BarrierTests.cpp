@@ -33,7 +33,7 @@ namespace
         }
 
         rhi::RenderPassEncoder* BeginRenderPass(const rhi::RenderPassDesc&) override { return nullptr; }
-        rhi::ComputePassEncoder* BeginComputePass(WideStringView) override { return nullptr; }
+        rhi::ComputePassEncoder* BeginComputePass(StringView) override { return nullptr; }
         void CopyBufferToBuffer(rhi::Buffer*, u64, rhi::Buffer*, u64, u64) override {}
         void CopyBufferToTexture(rhi::Buffer*, rhi::Texture*, const rhi::BufferTextureCopyRegion&) override {}
         void CopyTextureToBuffer(rhi::Texture*, rhi::Buffer*, const rhi::BufferTextureCopyRegion&) override {}
@@ -44,9 +44,9 @@ namespace
         void ResetQuerySet(rhi::QuerySet*, u32, u32) override {}
         void WriteTimestamp(rhi::QuerySet*, u32) override {}
         void ResolveQuerySet(rhi::QuerySet*, u32, u32, rhi::Buffer*, u64) override {}
-        void BeginDebugLabel(WideStringView, f32, f32, f32, f32) override {}
+        void BeginDebugLabel(StringView, f32, f32, f32, f32) override {}
         void EndDebugLabel() override {}
-        void InsertDebugLabel(WideStringView, f32, f32, f32, f32) override {}
+        void InsertDebugLabel(StringView, f32, f32, f32, f32) override {}
         rhi::CommandBuffer* Finish() override { return nullptr; }
     };
 
@@ -71,21 +71,21 @@ TEST_CASE("barriers: same texture via two handles emits one transition")
     MockEncoder encoder;
     rhi::Texture shadow = MakeTexture(RS::Undefined);
 
-    RenderGraphResource res0(u"ShadowWrite", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res0(u8"ShadowWrite", RGResourceType::Texture, RGResourceLifetime::Imported);
     res0.texture = &shadow;
-    RenderGraphResource res1(u"ShadowRead", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res1(u8"ShadowRead", RGResourceType::Texture, RGResourceLifetime::Imported);
     res1.texture = &shadow; // same GPU texture
     RenderGraphResource* resources[] = { &res0, &res1 };
     const Span<RenderGraphResource* const> span(resources, 2);
 
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"ShadowPass", RGPassType::Render);
+    RenderGraphPass writePass(u8"ShadowPass", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteDepthTarget));
     solver.EmitBarriers(writePass, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass readPass(u"ForwardPass", RGPassType::Render);
+    RenderGraphPass readPass(u8"ForwardPass", RGPassType::Render);
     readPass.accesses.PushBack(Access(1, AT::ReadTexture));
     solver.EmitBarriers(readPass, span, encoder);
 
@@ -101,18 +101,18 @@ TEST_CASE("barriers: single handle read-after-write")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined);
 
-    RenderGraphResource res(u"Color", RGResourceType::Texture, RGResourceLifetime::Transient);
+    RenderGraphResource res(u8"Color", RGResourceType::Texture, RGResourceLifetime::Transient);
     res.texture = &tex;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"Writer", RGPassType::Render);
+    RenderGraphPass writePass(u8"Writer", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteColorTarget));
     solver.EmitBarriers(writePass, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass readPass(u"Reader", RGPassType::Render);
+    RenderGraphPass readPass(u8"Reader", RGPassType::Render);
     readPass.accesses.PushBack(Access(0, AT::ReadTexture));
     solver.EmitBarriers(readPass, span, encoder);
 
@@ -127,18 +127,18 @@ TEST_CASE("barriers: compute write then render read")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined);
 
-    RenderGraphResource res(u"Volume", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Volume", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass computePass(u"Compute", RGPassType::Compute);
+    RenderGraphPass computePass(u8"Compute", RGPassType::Compute);
     computePass.accesses.PushBack(Access(0, AT::WriteStorage));
     solver.EmitBarriers(computePass, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass renderPass(u"Render", RGPassType::Render);
+    RenderGraphPass renderPass(u8"Render", RGPassType::Render);
     renderPass.accesses.PushBack(Access(0, AT::ReadTexture));
     solver.EmitBarriers(renderPass, span, encoder);
 
@@ -153,14 +153,14 @@ TEST_CASE("barriers: final transition uses texture-keyed state")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined);
 
-    RenderGraphResource res(u"Backbuffer", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Backbuffer", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.finalState = RS::Present;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass pass(u"FinalBlit", RGPassType::Render);
+    RenderGraphPass pass(u8"FinalBlit", RGPassType::Render);
     pass.accesses.PushBack(Access(0, AT::WriteColorTarget));
     solver.EmitBarriers(pass, span, encoder);
     encoder.textureBarriers.Clear();
@@ -178,14 +178,14 @@ TEST_CASE("barriers: none when already in the correct state")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined);
 
-    RenderGraphResource res(u"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::ShaderRead;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass pass(u"Reader", RGPassType::Render);
+    RenderGraphPass pass(u8"Reader", RGPassType::Render);
     pass.accesses.PushBack(Access(0, AT::ReadTexture));
     solver.EmitBarriers(pass, span, encoder);
 
@@ -198,14 +198,14 @@ TEST_CASE("barriers: per-layer writes emit individual barriers")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 1, 4); // 4 cascades
 
-    RenderGraphResource res(u"ShadowArray", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"ShadowArray", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::ShaderRead;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass pass0(u"Cascade0", RGPassType::Render);
+    RenderGraphPass pass0(u8"Cascade0", RGPassType::Render);
     pass0.accesses.PushBack(Access(0, AT::WriteDepthTarget, RGSubresourceRange{ 0, 1, 0, 1 }));
     solver.EmitBarriers(pass0, span, encoder);
     REQUIRE(encoder.textureBarriers.Size() == 1u);
@@ -215,7 +215,7 @@ TEST_CASE("barriers: per-layer writes emit individual barriers")
     CHECK(encoder.textureBarriers[0].arrayLayerCount == 1u);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass pass2(u"Cascade2", RGPassType::Render);
+    RenderGraphPass pass2(u8"Cascade2", RGPassType::Render);
     pass2.accesses.PushBack(Access(0, AT::WriteDepthTarget, RGSubresourceRange{ 0, 1, 2, 1 }));
     solver.EmitBarriers(pass2, span, encoder);
     REQUIRE(encoder.textureBarriers.Size() == 1u);
@@ -229,19 +229,19 @@ TEST_CASE("barriers: non-uniform whole-resource read emits per-subresource")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 1, 2);
 
-    RenderGraphResource res(u"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::ShaderRead;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"Writer", RGPassType::Render);
+    RenderGraphPass writePass(u8"Writer", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 0, 1, 0, 1 }));
     solver.EmitBarriers(writePass, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass readPass(u"Reader", RGPassType::Render);
+    RenderGraphPass readPass(u8"Reader", RGPassType::Render);
     readPass.accesses.PushBack(Access(0, AT::ReadTexture));
     solver.EmitBarriers(readPass, span, encoder);
 
@@ -257,24 +257,24 @@ TEST_CASE("barriers: all layers written collapses to uniform")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 1, 2);
 
-    RenderGraphResource res(u"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::ShaderRead;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass p0(u"W0", RGPassType::Render);
+    RenderGraphPass p0(u8"W0", RGPassType::Render);
     p0.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 0, 1, 0, 1 }));
     solver.EmitBarriers(p0, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass p1(u"W1", RGPassType::Render);
+    RenderGraphPass p1(u8"W1", RGPassType::Render);
     p1.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 0, 1, 1, 1 }));
     solver.EmitBarriers(p1, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass readPass(u"Read", RGPassType::Render);
+    RenderGraphPass readPass(u8"Read", RGPassType::Render);
     readPass.accesses.PushBack(Access(0, AT::ReadTexture));
     solver.EmitBarriers(readPass, span, encoder);
 
@@ -291,19 +291,19 @@ TEST_CASE("barriers: per-mip different states")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 4, 1);
 
-    RenderGraphResource res(u"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::Undefined;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass p0(u"WriteMip0", RGPassType::Render);
+    RenderGraphPass p0(u8"WriteMip0", RGPassType::Render);
     p0.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 0, 1, 0, 1 }));
     solver.EmitBarriers(p0, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass p1(u"WriteMip1", RGPassType::Render);
+    RenderGraphPass p1(u8"WriteMip1", RGPassType::Render);
     p1.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 1, 1, 0, 1 }));
     solver.EmitBarriers(p1, span, encoder);
 
@@ -320,7 +320,7 @@ TEST_CASE("barriers: readable-after-write is subresource aware")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 1, 4);
 
-    RenderGraphResource res(u"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Tex", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::ShaderRead;
     res.readableAfterWrite = true;
@@ -328,7 +328,7 @@ TEST_CASE("barriers: readable-after-write is subresource aware")
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"Writer", RGPassType::Render);
+    RenderGraphPass writePass(u8"Writer", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteDepthTarget, RGSubresourceRange{ 0, 1, 1, 1 }));
     solver.EmitBarriers(writePass, span, encoder);
     encoder.textureBarriers.Clear();
@@ -348,7 +348,7 @@ TEST_CASE("barriers: final transition non-uniform emits per-subresource")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 1, 2);
 
-    RenderGraphResource res(u"Swapchain", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Swapchain", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::Undefined;
     res.finalState = RS::Present;
@@ -356,7 +356,7 @@ TEST_CASE("barriers: final transition non-uniform emits per-subresource")
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"Blit", RGPassType::Render);
+    RenderGraphPass writePass(u8"Blit", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 0, 1, 0, 1 }));
     solver.EmitBarriers(writePass, span, encoder);
     encoder.textureBarriers.Clear();
@@ -381,19 +381,19 @@ TEST_CASE("barriers: non-overlapping subresource access emits no false barrier")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 1, 4);
 
-    RenderGraphResource res(u"Array", RGResourceType::Texture, RGResourceLifetime::Imported);
+    RenderGraphResource res(u8"Array", RGResourceType::Texture, RGResourceLifetime::Imported);
     res.texture = &tex;
     res.lastKnownState = RS::ShaderRead;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"WriteLayer0", RGPassType::Render);
+    RenderGraphPass writePass(u8"WriteLayer0", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 0, 1, 0, 1 }));
     solver.EmitBarriers(writePass, span, encoder);
     encoder.textureBarriers.Clear();
 
-    RenderGraphPass readPass(u"ReadLayer2", RGPassType::Render);
+    RenderGraphPass readPass(u8"ReadLayer2", RGPassType::Render);
     readPass.accesses.PushBack(Access(0, AT::ReadTexture, RGSubresourceRange{ 0, 1, 2, 1 }));
     solver.EmitBarriers(readPass, span, encoder);
 
@@ -406,7 +406,7 @@ TEST_CASE("barriers: persistent resource preserves per-subresource state")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined, 1, 2);
 
-    RenderGraphResource res(u"Persistent", RGResourceType::Texture, RGResourceLifetime::Persistent);
+    RenderGraphResource res(u8"Persistent", RGResourceType::Texture, RGResourceLifetime::Persistent);
     res.texture = &tex;
     res.persistentData = MakeUnique<PersistentResource>(DefaultAllocator(), &tex, static_cast<rhi::TextureView*>(nullptr));
     res.persistentData->firstFrame = false;
@@ -415,7 +415,7 @@ TEST_CASE("barriers: persistent resource preserves per-subresource state")
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"Writer", RGPassType::Render);
+    RenderGraphPass writePass(u8"Writer", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteColorTarget, RGSubresourceRange{ 0, 1, 0, 1 }));
     solver.EmitBarriers(writePass, span, encoder);
 
@@ -430,13 +430,13 @@ TEST_CASE("barriers: transient first access emits Undefined -> RenderTarget")
     MockEncoder encoder;
     rhi::Texture tex = MakeTexture(RS::Undefined);
 
-    RenderGraphResource res(u"PipelineOutput", RGResourceType::Texture, RGResourceLifetime::Transient);
+    RenderGraphResource res(u8"PipelineOutput", RGResourceType::Texture, RGResourceLifetime::Transient);
     res.texture = &tex;
     RenderGraphResource* resources[] = { &res };
     const Span<RenderGraphResource* const> span(resources, 1);
     solver.Reset(span);
 
-    RenderGraphPass writePass(u"ForwardOpaque", RGPassType::Render);
+    RenderGraphPass writePass(u8"ForwardOpaque", RGPassType::Render);
     writePass.accesses.PushBack(Access(0, AT::WriteColorTarget));
     solver.EmitBarriers(writePass, span, encoder);
 
@@ -453,18 +453,18 @@ TEST_CASE("barriers: transient reused across frames starts from Undefined")
 
     // Frame 1
     {
-        RenderGraphResource res(u"PipelineOutput", RGResourceType::Texture, RGResourceLifetime::Transient);
+        RenderGraphResource res(u8"PipelineOutput", RGResourceType::Texture, RGResourceLifetime::Transient);
         res.texture = &tex;
         RenderGraphResource* resources[] = { &res };
         const Span<RenderGraphResource* const> span(resources, 1);
         solver.Reset(span);
 
-        RenderGraphPass writePass(u"ForwardOpaque", RGPassType::Render);
+        RenderGraphPass writePass(u8"ForwardOpaque", RGPassType::Render);
         writePass.accesses.PushBack(Access(0, AT::WriteColorTarget));
         solver.EmitBarriers(writePass, span, encoder);
         encoder.textureBarriers.Clear();
 
-        RenderGraphPass readPass(u"PostProcess", RGPassType::Render);
+        RenderGraphPass readPass(u8"PostProcess", RGPassType::Render);
         readPass.accesses.PushBack(Access(0, AT::ReadTexture));
         solver.EmitBarriers(readPass, span, encoder);
         REQUIRE(encoder.textureBarriers.Size() == 1u);
@@ -475,13 +475,13 @@ TEST_CASE("barriers: transient reused across frames starts from Undefined")
 
     // Frame 2: same texture, fresh resource — must restart from Undefined.
     {
-        RenderGraphResource res(u"PipelineOutput", RGResourceType::Texture, RGResourceLifetime::Transient);
+        RenderGraphResource res(u8"PipelineOutput", RGResourceType::Texture, RGResourceLifetime::Transient);
         res.texture = &tex;
         RenderGraphResource* resources[] = { &res };
         const Span<RenderGraphResource* const> span(resources, 1);
         solver.Reset(span);
 
-        RenderGraphPass writePass(u"ForwardOpaque", RGPassType::Render);
+        RenderGraphPass writePass(u8"ForwardOpaque", RGPassType::Render);
         writePass.accesses.PushBack(Access(0, AT::WriteColorTarget));
         solver.EmitBarriers(writePass, span, encoder);
 

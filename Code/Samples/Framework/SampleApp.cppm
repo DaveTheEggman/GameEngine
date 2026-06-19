@@ -40,7 +40,7 @@ public:
     int Run(int argc = 0, char** argv = nullptr);
 
 protected:
-    virtual WideStringView          Title() const { return u"Raptor Sample"; }
+    virtual StringView          Title() const { return u8"Raptor Sample"; }
     virtual rhi::DeviceFeatures RequiredFeatures() const { return {}; }
     virtual rhi::TextureFormat  SwapChainFormat() const { return rhi::TextureFormat::RGBA8UnormSrgb; }
     virtual rhi::PresentMode    PresentMode() const { return rhi::PresentMode::Fifo; }
@@ -126,7 +126,7 @@ inline Status SampleApp::Init() {
     {
         rhi::AdapterInfo ai = adapter->Info();
         const char* backendName = (m_backendType == BackendType::DX12) ? "DX12" : "Vulkan";
-        const String name8 = ToUTF8(ai.name);
+        const String name8 = String(ai.name);
         std::printf("SampleApp: backend=%s adapter=%s\n",
                     backendName, reinterpret_cast<const char*>(name8.CStr()));
     }
@@ -181,7 +181,7 @@ inline Status SampleApp::CreateSwapChain() {
     desc.format      = SwapChainFormat();
     desc.presentMode = PresentMode();
     desc.bufferCount = BufferCount();
-    desc.label       = u"main";
+    desc.label       = u8"main";
     if (!m_device->CreateSwapChain(m_surface, desc, m_swapChain).IsOk()) {
         rhi::LogError("SampleApp: createSwapChain failed"); return ErrorCode::Unknown;
     }

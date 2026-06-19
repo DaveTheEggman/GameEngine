@@ -30,7 +30,7 @@ public:
 
         // Shader stages.
         Array<VkPipelineShaderStageCreateInfo> stages;
-        String vsEntry = ToUTF8(desc.vertex.shader.entryPoint);
+        String vsEntry = String(desc.vertex.shader.entryPoint);
         String fsEntry;
 
         auto* vsMod = static_cast<VkShaderModuleImpl*>(desc.vertex.shader.module);
@@ -43,7 +43,7 @@ public:
         stages.PushBack(vsStage);
 
         if (desc.fragment.HasValue()) {
-            fsEntry = ToUTF8(desc.fragment->shader.entryPoint);
+            fsEntry = String(desc.fragment->shader.entryPoint);
             auto* fsMod = static_cast<VkShaderModuleImpl*>(desc.fragment->shader.module);
             if (fsMod) {
                 VkPipelineShaderStageCreateInfo fsStage{};

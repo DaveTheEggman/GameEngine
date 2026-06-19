@@ -13,7 +13,7 @@ namespace rhi = raptor::rhi;
 
 namespace
 {
-    bool Contains(WideStringView hay, WideStringView needle)
+    bool Contains(StringView hay, StringView needle)
     {
         if (needle.Size() > hay.Size()) { return false; }
         for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
@@ -34,8 +34,8 @@ TEST_CASE("rg.validation: uninitialized read is an error")
 {
     RenderGraph graph(nullptr);
     graph.BeginFrame(0);
-    const RGHandle tex = graph.CreateTransient(u"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
-    graph.AddRenderPass(u"BadPass", [&](PassBuilder& b) { b.ReadTexture(tex); b.NeverCull(); });
+    const RGHandle tex = graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
+    graph.AddRenderPass(u8"BadPass", [&](PassBuilder& b) { b.ReadTexture(tex); b.NeverCull(); });
 
     Array<ValidationMessage> messages;
     GraphValidator::Validate(graph, messages);
@@ -46,8 +46,8 @@ TEST_CASE("rg.validation: reading an imported resource is fine")
 {
     RenderGraph graph(nullptr);
     graph.BeginFrame(0);
-    const RGHandle imported = graph.ImportTarget(u"External", nullptr, nullptr);
-    graph.AddRenderPass(u"ReadImported", [&](PassBuilder& b) { b.ReadTexture(imported); b.NeverCull(); });
+    const RGHandle imported = graph.ImportTarget(u8"External", nullptr, nullptr);
+    graph.AddRenderPass(u8"ReadImported", [&](PassBuilder& b) { b.ReadTexture(imported); b.NeverCull(); });
 
     Array<ValidationMessage> messages;
     GraphValidator::Validate(graph, messages);
@@ -58,7 +58,7 @@ TEST_CASE("rg.validation: empty pass is a warning")
 {
     RenderGraph graph(nullptr);
     graph.BeginFrame(0);
-    graph.AddRenderPass(u"Empty", [](PassBuilder& b) { b.NeverCull(); });
+    graph.AddRenderPass(u8"Empty", [](PassBuilder& b) { b.NeverCull(); });
 
     Array<ValidationMessage> messages;
     GraphValidator::Validate(graph, messages);
@@ -69,9 +69,9 @@ TEST_CASE("rg.validation: redundant write is a warning")
 {
     RenderGraph graph(nullptr);
     graph.BeginFrame(0);
-    const RGHandle tex = graph.CreateTransient(u"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
-    graph.AddRenderPass(u"Write1", [&](PassBuilder& b) { b.SetColorTarget(0, tex, rhi::LoadOp::Clear, rhi::StoreOp::Store); b.NeverCull(); });
-    graph.AddRenderPass(u"Write2", [&](PassBuilder& b) { b.SetColorTarget(0, tex, rhi::LoadOp::Clear, rhi::StoreOp::Store); b.NeverCull(); });
+    const RGHandle tex = graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
+    graph.AddRenderPass(u8"Write1", [&](PassBuilder& b) { b.SetColorTarget(0, tex, rhi::LoadOp::Clear, rhi::StoreOp::Store); b.NeverCull(); });
+    graph.AddRenderPass(u8"Write2", [&](PassBuilder& b) { b.SetColorTarget(0, tex, rhi::LoadOp::Clear, rhi::StoreOp::Store); b.NeverCull(); });
 
     Array<ValidationMessage> messages;
     GraphValidator::Validate(graph, messages);
@@ -82,13 +82,13 @@ TEST_CASE("rg.validation: a clean graph produces no messages")
 {
     RenderGraph graph(nullptr);
     graph.BeginFrame(0);
-    const RGHandle tex = graph.CreateTransient(u"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
-    graph.AddRenderPass(u"Write", [&](PassBuilder& b) {
+    const RGHandle tex = graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
+    graph.AddRenderPass(u8"Write", [&](PassBuilder& b) {
         b.SetColorTarget(0, tex, rhi::LoadOp::Clear, rhi::StoreOp::Store);
         b.NeverCull();
         b.SetExecute([](rhi::RenderPassEncoder&) {});
     });
-    graph.AddRenderPass(u"Read", [&](PassBuilder& b) {
+    graph.AddRenderPass(u8"Read", [&](PassBuilder& b) {
         b.ReadTexture(tex);
         b.NeverCull();
         b.SetExecute([](rhi::RenderPassEncoder&) {});
@@ -103,10 +103,10 @@ TEST_CASE("rg.validation: ValidateToString formats output")
 {
     RenderGraph graph(nullptr);
     graph.BeginFrame(0);
-    const RGHandle tex = graph.CreateTransient(u"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
-    graph.AddRenderPass(u"BadRead", [&](PassBuilder& b) { b.ReadTexture(tex); b.NeverCull(); });
+    const RGHandle tex = graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
+    graph.AddRenderPass(u8"BadRead", [&](PassBuilder& b) { b.ReadTexture(tex); b.NeverCull(); });
 
-    WideString result;
+    String result;
     GraphValidator::ValidateToString(graph, result);
-    CHECK(Contains(result.AsView(), u"issue"));
+    CHECK(Contains(result.AsView(), u8"issue"));
 }

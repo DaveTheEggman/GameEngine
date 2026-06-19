@@ -11,11 +11,11 @@ namespace
 {
     // Builds a formatted string and returns whether it equals `expected`.
     template <typename... Args>
-    bool FormatEquals(const widechar* expected, const widechar* fmt, const Args&... args)
+    bool FormatEquals(const utf8char* expected, const utf8char* fmt, const Args&... args)
     {
         FormatBuffer buffer;
         FormatToV(buffer, fmt, args...);
-        return buffer.View() == WideStringView(expected);
+        return buffer.View() == StringView(expected);
     }
 }
 
@@ -23,22 +23,22 @@ namespace
 
 TEST_CASE("format: substitution and types")
 {
-    CHECK(FormatEquals(u"no args", u"no args"));
-    CHECK(FormatEquals(u"a=1 b=2", u"a={} b={}", 1, 2));
-    CHECK(FormatEquals(u"neg -42", u"neg {}", -42));
-    CHECK(FormatEquals(u"big 4294967295", u"big {}", 4294967295u));
-    CHECK(FormatEquals(u"flag true and false", u"flag {} and {}", true, false));
-    CHECK(FormatEquals(u"char X", u"char {}", 'X'));
-    CHECK(FormatEquals(u"str hello", u"str {}", u"hello"));
-    CHECK(FormatEquals(u"pi 3.5", u"pi {}", 3.5));
+    CHECK(FormatEquals(u8"no args", u8"no args"));
+    CHECK(FormatEquals(u8"a=1 b=2", u8"a={} b={}", 1, 2));
+    CHECK(FormatEquals(u8"neg -42", u8"neg {}", -42));
+    CHECK(FormatEquals(u8"big 4294967295", u8"big {}", 4294967295u));
+    CHECK(FormatEquals(u8"flag true and false", u8"flag {} and {}", true, false));
+    CHECK(FormatEquals(u8"char X", u8"char {}", 'X'));
+    CHECK(FormatEquals(u8"str hello", u8"str {}", u8"hello"));
+    CHECK(FormatEquals(u8"pi 3.5", u8"pi {}", 3.5));
 }
 
 TEST_CASE("format: brace escapes and extra/missing args")
 {
-    CHECK(FormatEquals(u"{literal}", u"{{literal}}"));
-    CHECK(FormatEquals(u"set {x} = 7", u"set {{x}} = {}", 7));
-    CHECK(FormatEquals(u"only 1", u"only {}", 1, 2, 3)); // extra args ignored
-    CHECK(FormatEquals(u"missing {}", u"missing {}"));    // unmatched placeholder left as-is
+    CHECK(FormatEquals(u8"{literal}", u8"{{literal}}"));
+    CHECK(FormatEquals(u8"set {x} = 7", u8"set {{x}} = {}", 7));
+    CHECK(FormatEquals(u8"only 1", u8"only {}", 1, 2, 3)); // extra args ignored
+    CHECK(FormatEquals(u8"missing {}", u8"missing {}"));    // unmatched placeholder left as-is
 }
 
 // --- Log -------------------------------------------------------------------
@@ -71,18 +71,18 @@ TEST_CASE("log: dispatch, formatting, and level filtering")
     logger.AddSink(&sink);
     logger.SetMinLevel(LogLevel::Info);
 
-    RAPTOR_LOG_INFO(u8"Renderer", u"loaded {} meshes", 12);
+    RAPTOR_LOG_INFO(u8"Renderer", u8"loaded {} meshes", 12);
     CHECK(sink.count == 1);
     CHECK(sink.lastLevel == LogLevel::Info);
     CHECK(sink.lastCategory == u8"Renderer");
     CHECK(sink.lastMessage == u8"loaded 12 meshes");
 
     // Below the min level -> filtered out.
-    RAPTOR_LOG_DEBUG(u8"Renderer", u"verbose {}", 1);
+    RAPTOR_LOG_DEBUG(u8"Renderer", u8"verbose {}", 1);
     CHECK(sink.count == 1);
 
     // At/above min level -> delivered.
-    RAPTOR_LOG_ERROR(u8"Audio", u"device {} lost", 3);
+    RAPTOR_LOG_ERROR(u8"Audio", u8"device {} lost", 3);
     CHECK(sink.count == 2);
     CHECK(sink.lastLevel == LogLevel::Error);
     CHECK(sink.lastMessage == u8"device 3 lost");
@@ -91,7 +91,7 @@ TEST_CASE("log: dispatch, formatting, and level filtering")
     logger.SetMinLevel(previousLevel);
 
     // After removal, no more delivery.
-    RAPTOR_LOG_ERROR(u8"Audio", u"ignored");
+    RAPTOR_LOG_ERROR(u8"Audio", u8"ignored");
     CHECK(sink.count == 2);
 }
 
@@ -125,7 +125,7 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
     for (int i = 0; i < kThreads; ++i)
     {
         threads.PushBack(Thread([]() {
-            for (int j = 0; j < kPerThread; ++j) { RAPTOR_LOG_INFO(u8"Worker", u"tick {}", j); }
+            for (int j = 0; j < kPerThread; ++j) { RAPTOR_LOG_INFO(u8"Worker", u8"tick {}", j); }
         }));
     }
     for (Thread& t : threads) { t.Join(); }
@@ -140,13 +140,13 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
 
 TEST_CASE("format: wide and utf8 string arguments")
 {
-    // Wide WideString / WideStringView append directly.
-    WideString wide = u"caf\u00e9";
-    CHECK(FormatEquals(u"name=caf\u00e9", u"name={}", wide));
-    CHECK(FormatEquals(u"v=h\u00e9llo", u"v={}", WideStringView(u"h\u00e9llo")));
+    // A WideString / WideStringView argument transcodes to UTF-8.
+    WideString wide = u"café";
+    CHECK(FormatEquals(u8"name=café", u8"name={}", wide));
+    CHECK(FormatEquals(u8"v=héllo", u8"v={}", WideStringView(u"héllo")));
 
-    // UTF-8 view transcodes to wide.
-    CHECK(FormatEquals(u"u=caf\u00e9", u"u={}", StringView(u8"caf\u00e9")));
+    // A UTF-8 view appends directly.
+    CHECK(FormatEquals(u8"u=café", u8"u={}", StringView(u8"café")));
 }
 
 // --- Log: in-memory ring sink ----------------------------------------------
@@ -177,9 +177,9 @@ TEST_CASE("format: checked FormatTo validates arg count at compile time")
 {
     // Correct placeholder/arg count compiles and formats as usual.
     FormatBuffer buffer;
-    FormatTo(buffer, u"a={} b={}", 1, 2);
-    CHECK(buffer.View() == WideStringView(u"a=1 b=2"));
+    FormatTo(buffer, u8"a={} b={}", 1, 2);
+    CHECK(buffer.View() == StringView(u8"a=1 b=2"));
 
-    // A mismatched count, e.g. FormatTo(buffer, u"x={}", 1, 2), would fail to
+    // A mismatched count, e.g. FormatTo(buffer, u8"x={}", 1, 2), would fail to
     // compile via FormatString's consteval constructor.
 }

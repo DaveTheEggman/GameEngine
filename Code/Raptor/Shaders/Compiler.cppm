@@ -28,7 +28,7 @@ export namespace raptor::shaders {
 /// Configuration for compiler creation.
 struct CompilerDesc {
     /// Optional override path to the DXC shared library.
-    WideStringView dxcompilerPath{};
+    StringView dxcompilerPath{};
 };
 
 /// HLSL shader compiler backed by DXC (IDxcCompiler3).
@@ -36,7 +36,7 @@ struct Compiler {
     void* state = nullptr;
 
     [[nodiscard]] Status compile(const u8* source, usize sourceSize,
-                                 ShaderStage stage, WideStringView entryPoint,
+                                 ShaderStage stage, StringView entryPoint,
                                  ShaderTarget target, const CompileOptions& options,
                                  CompileResult& out);
 
@@ -68,25 +68,35 @@ struct CompilerState {
 
 static CompilerState* stateOf(Compiler* c) { return static_cast<CompilerState*>(c->state); }
 
-// Raptor WideStringView (UTF-16) -> std::wstring for DXC. On Windows wchar_t is
-// UTF-16 (copy code units); on Linux wchar_t is UTF-32 (decode surrogate pairs).
-static std::wstring widen(WideStringView s) {
+// Raptor StringView (UTF-8) -> std::wstring for DXC. Decodes UTF-8 codepoints,
+// then on Windows (wchar_t = UTF-16) emits surrogate pairs for astral code
+// points; on Linux (wchar_t = UTF-32) emits the codepoint directly.
+static std::wstring widen(StringView s) {
     std::wstring out;
     out.reserve(s.Size());
-#ifdef _WIN32
-    for (usize i = 0; i < s.Size(); ++i) { out.push_back(static_cast<wchar_t>(s.Data()[i])); }
-#else
-    const char16_t* p   = s.Data();
-    const char16_t* end = p + s.Size();
-    while (p < end) {
-        char32_t cp = *p++;
-        if (cp >= 0xD800 && cp <= 0xDBFF && p < end) { // high surrogate
-            const char32_t lo = *p++;
-            cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
+    usize i = 0;
+    while (i < s.Size()) {
+        const u8 lead = static_cast<u8>(s.Data()[i]); ++i;
+        char32_t cp; int extra;
+        if (lead < 0x80u)              { cp = lead;        extra = 0; }
+        else if ((lead & 0xE0u) == 0xC0u) { cp = lead & 0x1Fu; extra = 1; }
+        else if ((lead & 0xF0u) == 0xE0u) { cp = lead & 0x0Fu; extra = 2; }
+        else if ((lead & 0xF8u) == 0xF0u) { cp = lead & 0x07u; extra = 3; }
+        else                           { cp = 0xFFFDu;    extra = 0; }
+        for (int k = 0; k < extra && i < s.Size(); ++k) {
+            cp = (cp << 6) | (static_cast<u8>(s.Data()[i]) & 0x3Fu); ++i;
         }
+#ifdef _WIN32
+        if (cp <= 0xFFFFu) { out.push_back(static_cast<wchar_t>(cp)); }
+        else {
+            cp -= 0x10000u;
+            out.push_back(static_cast<wchar_t>(0xD800u + (cp >> 10)));
+            out.push_back(static_cast<wchar_t>(0xDC00u + (cp & 0x3FFu)));
+        }
+#else
         out.push_back(static_cast<wchar_t>(cp));
-    }
 #endif
+    }
     return out;
 }
 
@@ -108,7 +118,7 @@ static const wchar_t* stagePrefix(ShaderStage stage) {
 }
 
 Status Compiler::compile(const u8* source, usize sourceSize,
-                         ShaderStage stage, WideStringView entryPoint,
+                         ShaderStage stage, StringView entryPoint,
                          ShaderTarget target, const CompileOptions& options,
                          CompileResult& out) {
     auto* s = stateOf(this);
@@ -260,8 +270,8 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
             path = "libdxcompiler.so";
 #endif
         } else {
-            const String u8 = ToUTF8(desc.dxcompilerPath);
-            path.assign(reinterpret_cast<const char*>(u8.CStr()), u8.Size());
+            // dxcompilerPath is already UTF-8 — feed it to dlopen directly.
+            path.assign(reinterpret_cast<const char*>(desc.dxcompilerPath.Data()), desc.dxcompilerPath.Size());
         }
         s->dxcompiler = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
     }

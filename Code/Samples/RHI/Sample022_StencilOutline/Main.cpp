@@ -19,7 +19,7 @@ namespace ds = raptor::shaders;
 class StencilOutlineSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::WideStringView Title() const override { return u"Sample022 - Stencil Outline"; }
+    raptor::core::StringView Title() const override { return u8"Sample022 - Stencil Outline"; }
 
 protected:
     raptor::core::Status OnInit() override;
@@ -119,7 +119,7 @@ void StencilOutlineSample::recreateDepthStencil(raptor::core::u32 w, raptor::cor
     if (m_depthStencilView) { m_device->DestroyTextureView(m_depthStencilView); m_depthStencilView = nullptr; }
     if (m_depthStencilTex) { m_device->DestroyTexture(m_depthStencilTex); m_depthStencilTex = nullptr; }
 
-    dr::TextureDesc td = dr::TextureDesc::DepthBuffer(dr::TextureFormat::Depth24PlusStencil8, w, h, 1, u"StencilDSTex");
+    dr::TextureDesc td = dr::TextureDesc::DepthBuffer(dr::TextureFormat::Depth24PlusStencil8, w, h, 1, u8"StencilDSTex");
     m_device->CreateTexture(td, m_depthStencilTex);
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::Depth24PlusStencil8; tvd.dimension = dr::TextureViewDimension::Texture2D;
     tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
@@ -130,8 +130,8 @@ raptor::core::Status StencilOutlineSample::OnInit() {
     using raptor::core::Status, raptor::core::Span, raptor::core::u8;
 
     if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u"VSMain", u"StencilVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u"PSMain", u"StencilPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"StencilVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"StencilPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
 
     // Vertex & index buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
@@ -161,9 +161,9 @@ raptor::core::Status StencilOutlineSample::OnInit() {
     {
         dr::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.depthStencil = dr::DepthStencilState{};
         rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
@@ -181,9 +181,9 @@ raptor::core::Status StencilOutlineSample::OnInit() {
     {
         dr::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u"VSMain", dr::ShaderStage::Vertex };
+        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
         rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u"PSMain", dr::ShaderStage::Fragment };
+        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.depthStencil = dr::DepthStencilState{};
         rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
