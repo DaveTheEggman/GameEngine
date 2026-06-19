@@ -1,0 +1,21 @@
+# Raptor::Textures — `raptor.textures` (texture descriptors + image->RHI format map).
+# Ported from Sedulous.Textures (deps: RHI, Images).
+
+add_library(RaptorTextures STATIC)
+add_library(Raptor::Textures ALIAS RaptorTextures)
+
+target_link_libraries(RaptorTextures PUBLIC Raptor::Core Raptor::RHI Raptor::Image Raptor::Policy)
+
+target_sources(RaptorTextures
+    PUBLIC
+        FILE_SET textures_modules TYPE CXX_MODULES FILES
+            Types.cppm
+            FormatUtils.cppm
+            TextureData.cppm
+            TexturesModule.cppm)
+
+# add_subdirectory(Resource)  # (added once the resource layer is written)
+
+if(RAPTOR_BUILD_TESTS)
+    add_subdirectory(Tests)
+endif()
