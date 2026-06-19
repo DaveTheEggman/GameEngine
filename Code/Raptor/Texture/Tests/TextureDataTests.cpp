@@ -1,12 +1,12 @@
-// Tests for raptor.textures: descriptor factories, format conversion, mip sizes.
+// Tests for raptor.texture: descriptor factories, format conversion, mip sizes.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import raptor.core;
 import raptor.rhi;
 import raptor.image;
-import raptor.textures;
+import raptor.texture;
 using namespace raptor::core;
-using namespace raptor::textures;
+using namespace raptor::texture;
 namespace rhi = raptor::rhi;
 namespace img = raptor::image;
 

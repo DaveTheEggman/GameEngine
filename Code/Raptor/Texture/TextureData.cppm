@@ -1,4 +1,4 @@
-// Raptor::Textures — :data partition
+// Raptor::Texture — :data partition
 //
 // TextureData: a CPU-side descriptor of pixel data staged for GPU upload (it
 // owns no GPU handle — the consumer creates the rhi::Texture from this). Ported
@@ -7,7 +7,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module raptor.textures:data;
+export module raptor.texture:data;
 
 import raptor.core;
 import raptor.rhi;
@@ -16,7 +16,7 @@ import :format_utils;
 
 using namespace raptor::core;
 
-export namespace raptor::textures
+export namespace raptor::texture
 {
     namespace rhi = raptor::rhi;
     namespace img = raptor::image;

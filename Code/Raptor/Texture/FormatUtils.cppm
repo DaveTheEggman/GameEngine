@@ -1,4 +1,4 @@
-// Raptor::Textures — :format_utils partition
+// Raptor::Texture — :format_utils partition
 //
 // Maps an image PixelFormat to the RHI TextureFormat, honoring the source
 // data's color space. Ported from Sedulous.Textures/TextureFormatUtils.bf.
@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module raptor.textures:format_utils;
+export module raptor.texture:format_utils;
 
 import raptor.core;
 import raptor.rhi;
@@ -14,7 +14,7 @@ import raptor.image;
 
 using namespace raptor::core;
 
-export namespace raptor::textures
+export namespace raptor::texture
 {
     namespace rhi = raptor::rhi;
     namespace img = raptor::image;

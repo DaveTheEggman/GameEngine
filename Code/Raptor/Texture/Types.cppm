@@ -1,4 +1,4 @@
-// Raptor::Textures — :types partition
+// Raptor::Texture — :types partition
 //
 // Logical texture descriptors: shape, filter, wrap. Used by TextureResource to
 // say how pixel data should be interpreted and sampled. Ported from
@@ -7,13 +7,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module raptor.textures:types;
+export module raptor.texture:types;
 
 import raptor.core;
 
 using namespace raptor::core;
 
-export namespace raptor::textures
+export namespace raptor::texture
 {
     // The logical shape of a texture asset.
     enum class TextureShape : u8
