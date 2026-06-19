@@ -69,6 +69,7 @@ endif()
 # --- Targets -----------------------------------------------------------------
 add_subdirectory(ThirdParty)
 add_subdirectory(Code/Raptor/Core)
+add_subdirectory(Code/Raptor/Xml)       # DOM XML parser + writer over Core
 add_subdirectory(Code/Raptor/VFS)       # byte access over Core stream primitives
 add_subdirectory(Code/Raptor/Content)   # content database over Core + VFS
 add_subdirectory(Code/Raptor/Resource)  # resource manager over content
