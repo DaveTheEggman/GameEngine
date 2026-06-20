@@ -17,6 +17,7 @@ target_sources(RaptorVG
             Curves.cppm
             Path.cppm
             Shapes.cppm
+            Tessellation.cppm
             VGModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

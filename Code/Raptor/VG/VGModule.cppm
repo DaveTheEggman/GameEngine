@@ -10,3 +10,4 @@ export import :style;
 export import :curves;
 export import :path;
 export import :shapes;
+export import :tessellation;
