@@ -6,7 +6,7 @@ if(NOT TARGET doctest::doctest)
     FetchContent_MakeAvailable(doctest)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
 endif()
-add_executable(RaptorImageTests TestsMain.cpp ImageTests.cpp ImageDataTests.cpp)
+add_executable(RaptorImageTests TestsMain.cpp ImageTests.cpp ImageDataTests.cpp ImageManipulationTests.cpp NormalMapTests.cpp)
 target_link_libraries(RaptorImageTests PRIVATE Raptor::ImageIO Raptor::Image doctest::doctest)
 target_compile_definitions(RaptorImageTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorImageTests PRIVATE

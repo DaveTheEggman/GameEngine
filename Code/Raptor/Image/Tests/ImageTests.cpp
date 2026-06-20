@@ -10,11 +10,11 @@ using namespace raptor::image;
 
 TEST_CASE("image: procedural create + pixel access")
 {
-    Image img = Image::CreateSolidColor(4, 4, raptor::image::Color{ 10, 20, 30, 255 });
+    Image img = Image::CreateSolidColor(4, 4, Color32{ 10, 20, 30, 255 });
     CHECK(img.Width() == 4u);
     CHECK(img.Height() == 4u);
     CHECK(img.Format() == PixelFormat::RGBA8);
-    const raptor::image::Color p = img.GetPixel(1, 1);
+    const Color32 p = img.GetPixel(1, 1);
     CHECK(p.r == 10);
     CHECK(p.g == 20);
     CHECK(p.b == 30);
