@@ -7,7 +7,9 @@ if(NOT TARGET doctest::doctest)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
 endif()
 
-add_executable(RaptorVGTests TestsMain.cpp VGCoreTests.cpp VGPathTests.cpp VGTessellationTests.cpp VGBatchCacheTests.cpp VGContextTests.cpp)
+add_executable(RaptorVGTests TestsMain.cpp VGCoreTests.cpp VGPathTests.cpp VGTessellationTests.cpp VGBatchCacheTests.cpp VGContextTests.cpp
+    # Ports of Sedulous.VG.Tests (inherit upstream coverage):
+    VGCurveUtilsTests.cpp VGStyleTests.cpp VGTriangulatorTests.cpp VGDashGeneratorTests.cpp)
 target_link_libraries(RaptorVGTests PRIVATE Raptor::VG Raptor::Core Raptor::Image Raptor::Fonts doctest::doctest)
 target_compile_definitions(RaptorVGTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorVGTests PRIVATE
