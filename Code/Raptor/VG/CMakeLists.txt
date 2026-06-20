@@ -14,6 +14,9 @@ target_sources(RaptorVG
             Vertex.cppm
             Fills.cppm
             Style.cppm
+            Curves.cppm
+            Path.cppm
+            Shapes.cppm
             VGModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

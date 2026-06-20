@@ -7,3 +7,6 @@ export import :enums;
 export import :vertex;
 export import :fills;
 export import :style;
+export import :curves;
+export import :path;
+export import :shapes;

@@ -65,6 +65,11 @@ export namespace raptor::core
         return (lengthSq <= kEpsilon * kEpsilon) ? Vec2::Zero : v / Sqrt(lengthSq);
     }
 
+    [[nodiscard]] constexpr f32 DistanceSquared(Vec2 a, Vec2 b) noexcept { return LengthSquared(b - a); }
+    [[nodiscard]] inline f32 Distance(Vec2 a, Vec2 b) noexcept { return Length(b - a); }
+
+    [[nodiscard]] constexpr Vec2 Lerp(Vec2 a, Vec2 b, f32 t) noexcept { return a + (b - a) * t; }
+
     [[nodiscard]] inline bool NearlyEqual(Vec2 a, Vec2 b, f32 epsilon = kEpsilon) noexcept
     {
         return NearlyEqual(a.x, b.x, epsilon) && NearlyEqual(a.y, b.y, epsilon);
