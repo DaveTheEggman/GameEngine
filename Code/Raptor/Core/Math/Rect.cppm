@@ -36,5 +36,21 @@ export namespace raptor::core
             return x <= other.x + other.width && x + width >= other.x
                 && y <= other.y + other.height && y + height >= other.y;
         }
+
+        // The overlapping rectangle of two rects. Empty (zero size) if disjoint.
+        // (Uses ternaries rather than the free Min/Max, which the Min()/Max()
+        // member accessors above would shadow inside this scope.)
+        [[nodiscard]] static Rect Intersect(const Rect& a, const Rect& b) noexcept
+        {
+            const f32 ax1 = a.x + a.width, bx1 = b.x + b.width;
+            const f32 ay1 = a.y + a.height, by1 = b.y + b.height;
+            const f32 x0 = a.x > b.x ? a.x : b.x;
+            const f32 y0 = a.y > b.y ? a.y : b.y;
+            const f32 x1 = ax1 < bx1 ? ax1 : bx1;
+            const f32 y1 = ay1 < by1 ? ay1 : by1;
+            const f32 w = (x1 - x0) > 0.0f ? (x1 - x0) : 0.0f;
+            const f32 h = (y1 - y0) > 0.0f ? (y1 - y0) : 0.0f;
+            return Rect{ x0, y0, w, h };
+        }
     };
 }

@@ -6,6 +6,7 @@ target_sources(RaptorImage PUBLIC FILE_SET image_modules TYPE CXX_MODULES FILES
     PixelFormat.cppm
     ImageData.cppm
     Image.cppm
+    NineSlice.cppm
     ImageModule.cppm)
 add_subdirectory(IO)
 add_subdirectory(Resource)  # raptor.image.resource (runtime CPU image)

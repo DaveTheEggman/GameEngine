@@ -5,7 +5,7 @@
 add_library(RaptorVG STATIC)
 add_library(Raptor::VG ALIAS RaptorVG)
 
-target_link_libraries(RaptorVG PUBLIC Raptor::Core Raptor::Image Raptor::Policy)
+target_link_libraries(RaptorVG PUBLIC Raptor::Core Raptor::Image Raptor::Fonts Raptor::Policy)
 
 target_sources(RaptorVG
     PUBLIC
@@ -20,6 +20,7 @@ target_sources(RaptorVG
             Tessellation.cppm
             Batch.cppm
             Cache.cppm
+            Context.cppm
             VGModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

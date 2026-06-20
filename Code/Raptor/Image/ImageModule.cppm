@@ -5,3 +5,4 @@ export module raptor.image;
 export import :pixel_format;
 export import :image_data;
 export import :image;
+export import :nine_slice;
