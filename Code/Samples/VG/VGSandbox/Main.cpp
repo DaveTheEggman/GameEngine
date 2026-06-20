@@ -68,7 +68,7 @@ float4 main(PSInput input) : SV_Target {
 class VGSandbox : public sf::SampleApp
 {
 public:
-    using sf::SampleApp::SampleApp;
+    VGSandbox() { m_width = 1000; m_height = 720; } // match Sedulous VGSandbox layout
     StringView Title() const override { return u8"VG Sandbox"; }
     u32 BufferCount() const override { return kFrames; }
 
@@ -404,9 +404,16 @@ void VGSandbox::DrawGraph(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
 {
     f32 samples[6];
     for (i32 i = 0; i < 6; ++i)
-        samples[i] = (1.0f + Sin(t * 1.2345f + static_cast<f32>(i) * 0.33457f + static_cast<f32>(i) * static_cast<f32>(i) * 0.12f)
+    {
+        const f32 raw = (1.0f + Sin(t * 1.2345f + static_cast<f32>(i) * 0.33457f + static_cast<f32>(i) * static_cast<f32>(i) * 0.12f)
             + Sin(t * 0.68363f + static_cast<f32>(i) * 1.3f)
             + Sin(t * 1.1642f + static_cast<f32>(i) * static_cast<f32>(i) * 0.54f)) * 0.25f;
+        // Clamp >= 0. The raw value ranges [-0.5, 1.0]; a negative sample pushes the
+        // curve point below the baseline (y+h), so the area-fill "ribbon" self-
+        // intersects and ear-clipping emits sliver triangles — the stray line
+        // artifacts seen in the original Sedulous sample. (Latent data-gen bug.)
+        samples[i] = Max(0.0f, raw);
+    }
 
     const f32 dx = w / 5.0f;
 
