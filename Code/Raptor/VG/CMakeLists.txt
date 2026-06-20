@@ -23,6 +23,8 @@ target_sources(RaptorVG
             Context.cppm
             VGModule.cppm)
 
+add_subdirectory(SVG)  # raptor.vg.svg — SVG -> VG (parsers/loader/renderer)
+
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
