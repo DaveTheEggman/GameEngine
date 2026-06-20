@@ -18,6 +18,8 @@ target_sources(RaptorVG
             Path.cppm
             Shapes.cppm
             Tessellation.cppm
+            Batch.cppm
+            Cache.cppm
             VGModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

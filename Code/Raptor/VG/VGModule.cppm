@@ -11,3 +11,5 @@ export import :curves;
 export import :path;
 export import :shapes;
 export import :tessellation;
+export import :batch;
+export import :cache;
