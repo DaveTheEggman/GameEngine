@@ -123,6 +123,24 @@ TEST_CASE("math: Mat4 rotation (row vectors): RotationZ(90) maps +X to +Y")
     CHECK(NearlyEqual(TransformDirection(Vec3::UnitZ, ry), Vec3::UnitX));
 }
 
+TEST_CASE("math: Mat4 2D affine helpers (TransformPoint2D, operator==)")
+{
+    CHECK(Mat4::Identity() == Mat4::Identity());
+    CHECK_FALSE(Mat4::Translation(Vec3{ 1, 0, 0 }) == Mat4::Identity());
+
+    // 2D translate.
+    const Mat4 t = Mat4::Translation(Vec3{ 5.0f, 7.0f, 0.0f });
+    CHECK(NearlyEqual(TransformPoint2D(Vec2{ 1.0f, 2.0f }, t), Vec2{ 6.0f, 9.0f }));
+
+    // 2D scale-then-translate (row vectors, left-to-right): v * (S * T).
+    const Mat4 st = Mat4::Scale(Vec3{ 2.0f, 3.0f, 1.0f }) * Mat4::Translation(Vec3{ 1.0f, 1.0f, 0.0f });
+    CHECK(NearlyEqual(TransformPoint2D(Vec2{ 1.0f, 1.0f }, st), Vec2{ 3.0f, 4.0f })); // (2,3)+(1,1)
+
+    // RotationZ(90) maps +X to +Y in 2D too.
+    const Mat4 rz = Mat4::RotationZ(DegreesToRadians(90.0f));
+    CHECK(NearlyEqual(TransformPoint2D(Vec2{ 1.0f, 0.0f }, rz), Vec2{ 0.0f, 1.0f }));
+}
+
 TEST_CASE("math: Mat4 composition reads left-to-right (scale then translate)")
 {
     // v * (S * T): scale first, then translate.

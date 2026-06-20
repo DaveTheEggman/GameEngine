@@ -14,6 +14,7 @@ export module raptor.core:mat4;
 
 import :base;
 import :math;
+import :vec2;
 import :vec3;
 import :vec4;
 
@@ -183,6 +184,23 @@ export namespace raptor::core
         return { d.x * m.m[0][0] + d.y * m.m[1][0] + d.z * m.m[2][0],
                  d.x * m.m[0][1] + d.y * m.m[1][1] + d.z * m.m[2][1],
                  d.x * m.m[0][2] + d.y * m.m[1][2] + d.z * m.m[2][2] };
+    }
+
+    // Transforms a 2D position (implicit z = 0, w = 1, translation applied;
+    // result projected back to 2D). For 2D affine transforms stored in a Mat4.
+    [[nodiscard]] constexpr Vec2 TransformPoint2D(Vec2 p, const Mat4& m) noexcept
+    {
+        return { p.x * m.m[0][0] + p.y * m.m[1][0] + m.m[3][0],
+                 p.x * m.m[0][1] + p.y * m.m[1][1] + m.m[3][1] };
+    }
+
+    // Exact element-wise equality (e.g. for an identity fast-path).
+    [[nodiscard]] constexpr bool operator==(const Mat4& a, const Mat4& b) noexcept
+    {
+        for (usize row = 0; row < 4; ++row)
+            for (usize col = 0; col < 4; ++col)
+                if (a.m[row][col] != b.m[row][col]) { return false; }
+        return true;
     }
 
     [[nodiscard]] inline bool NearlyEqual(const Mat4& a, const Mat4& b, f32 epsilon = kEpsilon) noexcept
