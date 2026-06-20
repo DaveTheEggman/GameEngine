@@ -141,4 +141,26 @@ export namespace raptor::core
         return Color{ static_cast<f32>(c.r) / 255.0f, static_cast<f32>(c.g) / 255.0f,
                       static_cast<f32>(c.b) / 255.0f, static_cast<f32>(c.a) / 255.0f };
     }
+
+    // sRGB <-> linear transfer functions (the standard IEC 61966-2-1 EOTF). For
+    // decoding sRGB-authored colors to linear before linear-space blending/shading.
+    [[nodiscard]] inline f32 SrgbToLinear(f32 c) noexcept
+    {
+        return (c <= 0.04045f) ? (c / 12.92f) : Pow((c + 0.055f) / 1.055f, 2.4f);
+    }
+
+    [[nodiscard]] inline f32 LinearToSrgb(f32 c) noexcept
+    {
+        return (c <= 0.0031308f) ? (c * 12.92f) : (1.055f * Pow(c, 1.0f / 2.4f) - 0.055f);
+    }
+
+    // Color32 (sRGB-authored) -> linear float Color (RGB through the sRGB EOTF;
+    // alpha is linear). For uploading UI/SVG colors to a linear/sRGB pipeline.
+    [[nodiscard]] inline Color ToLinear(Color32 c) noexcept
+    {
+        return Color{ SrgbToLinear(static_cast<f32>(c.r) / 255.0f),
+                      SrgbToLinear(static_cast<f32>(c.g) / 255.0f),
+                      SrgbToLinear(static_cast<f32>(c.b) / 255.0f),
+                      static_cast<f32>(c.a) / 255.0f };
+    }
 }

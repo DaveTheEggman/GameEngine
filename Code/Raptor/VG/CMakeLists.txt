@@ -24,6 +24,7 @@ target_sources(RaptorVG
             VGModule.cppm)
 
 add_subdirectory(SVG)  # raptor.vg.svg — SVG -> VG (parsers/loader/renderer)
+add_subdirectory(Renderer)  # raptor.vg.renderer — VGBatch -> RHI
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
