@@ -10,4 +10,5 @@ endif()
 add_subdirectory(Framework)
 if(TARGET Raptor::SamplesFramework)
     add_subdirectory(RHI)
+    add_subdirectory(VG)  # VG sandbox — end-to-end VG stack demo
 endif()
