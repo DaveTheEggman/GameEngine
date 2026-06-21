@@ -22,7 +22,7 @@ TEST_CASE("vg.batch: command/texture bookkeeping")
     VGBatch batch;
     CHECK(batch.IsEmpty());
 
-    batch.vertices.PushBack(VGVertex::Solid(Vec2{0,0}, Color32::Red));
+    batch.vertices.PushBack(VGVertex::Solid(Vec2{0,0}, Color::Red));
     batch.indices.PushBack(0);
     VGCommand cmd;
     cmd.indexCount = 1;
@@ -44,13 +44,13 @@ TEST_CASE("vg.cache: fill is tessellated once then reused")
     PathCache cache;
 
     Array<VGVertex> v1; Array<u32> i1;
-    cache.GetOrTessellateFill(square, Color32::Red, FillRule::NonZero, false, v1, i1);
+    cache.GetOrTessellateFill(square, Color::Red, FillRule::NonZero, false, v1, i1);
     REQUIRE(v1.Size() == 4u);
     REQUIRE(i1.Size() == 6u);
 
     // Same path+style: identical mesh appended again (served from cache).
     Array<VGVertex> v2; Array<u32> i2;
-    cache.GetOrTessellateFill(square, Color32::Red, FillRule::NonZero, false, v2, i2);
+    cache.GetOrTessellateFill(square, Color::Red, FillRule::NonZero, false, v2, i2);
     CHECK(v2.Size() == 4u);
     CHECK(i2.Size() == 6u);
 }
@@ -61,8 +61,8 @@ TEST_CASE("vg.cache: appended indices are offset by prior vertex count")
     PathCache cache;
 
     Array<VGVertex> verts; Array<u32> idx;
-    cache.GetOrTessellateFill(square, Color32::Green, FillRule::NonZero, false, verts, idx);
-    cache.GetOrTessellateFill(square, Color32::Green, FillRule::NonZero, false, verts, idx);
+    cache.GetOrTessellateFill(square, Color::Green, FillRule::NonZero, false, verts, idx);
+    cache.GetOrTessellateFill(square, Color::Green, FillRule::NonZero, false, verts, idx);
 
     CHECK(verts.Size() == 8u);  // two copies
     CHECK(idx.Size() == 12u);
@@ -80,7 +80,7 @@ TEST_CASE("vg.cache: stroke tessellation through the cache")
     StrokeStyle style(2.0f);
 
     Array<VGVertex> verts; Array<u32> idx;
-    cache.GetOrTessellateStroke(square, Color32::Blue, style, Span<const f32>{}, false, verts, idx);
+    cache.GetOrTessellateStroke(square, Color::Blue, style, Span<const f32>{}, false, verts, idx);
     CHECK(verts.Size() > 0u);
     CHECK(idx.Size() > 0u);
 }

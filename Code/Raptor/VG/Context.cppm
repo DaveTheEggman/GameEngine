@@ -4,7 +4,7 @@
 // vector-graphics API. Immediate-mode drawing of paths, shapes, images, 9-slice,
 // and text; produces a batched VGBatch for an external renderer to consume.
 // Ported from Sedulous.VG (VGState/VGContext). The 2D transform is a Mat4
-// (mirroring Sedulous's 4x4 Matrix); colors are Color32.
+// (mirroring Sedulous's 4x4 Matrix); colors are float Color (packed to Color32 only at the vertex).
 
 module;
 #include "Core/Prelude.h"
@@ -177,7 +177,7 @@ export namespace raptor::vg
         // === Path Drawing ===
 
         /// Fill a path with a solid color.
-        void FillPath(const Path& path, Color32 color, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
+        void FillPath(const Path& path, Color color, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
         {
             SetupForSolidDraw();
             const usize startVertex = m_batch.vertices.Size();
@@ -198,7 +198,7 @@ export namespace raptor::vg
         }
 
         /// Stroke a path with a solid color.
-        void StrokePath(const Path& path, Color32 color, StrokeStyle style, Span<const f32> dashPattern = {}, bool antiAlias = true)
+        void StrokePath(const Path& path, Color color, StrokeStyle style, Span<const f32> dashPattern = {}, bool antiAlias = true)
         {
             SetupForSolidDraw();
             const f32 scaledTolerance = GetScaledTolerance();
@@ -206,7 +206,7 @@ export namespace raptor::vg
             PathFlattener::Flatten(path, scaledTolerance, subPaths);
 
             const usize startVertex = m_batch.vertices.Size();
-            const Color32 opColor = ApplyOpacity(color);
+            const Color opColor = ApplyOpacity(color);
 
             for (usize s = 0; s < subPaths.Size(); ++s)
             {
@@ -222,7 +222,7 @@ export namespace raptor::vg
 
         // === Convenience: Filled Shapes ===
 
-        void FillRect(Rect rect, Color32 color)
+        void FillRect(Rect rect, Color color)
         {
             PathBuilder pb;
             pb.MoveTo(rect.x, rect.y);
@@ -233,9 +233,9 @@ export namespace raptor::vg
             FillPath(pb.ToPath(), color);
         }
 
-        void FillRoundedRect(Rect rect, f32 radius, Color32 color) { FillRoundedRect(rect, CornerRadii(radius), color); }
+        void FillRoundedRect(Rect rect, f32 radius, Color color) { FillRoundedRect(rect, CornerRadii(radius), color); }
 
-        void FillRoundedRect(Rect rect, CornerRadii radii, Color32 color)
+        void FillRoundedRect(Rect rect, CornerRadii radii, Color color)
         {
             if (radii.IsZero())
             {
@@ -247,28 +247,28 @@ export namespace raptor::vg
             FillPath(pb.ToPath(), color);
         }
 
-        void FillCircle(Vec2 center, f32 radius, Color32 color)
+        void FillCircle(Vec2 center, f32 radius, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildCircle(center, radius, pb);
             FillPath(pb.ToPath(), color);
         }
 
-        void FillEllipse(Vec2 center, f32 rx, f32 ry, Color32 color)
+        void FillEllipse(Vec2 center, f32 rx, f32 ry, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildEllipse(center, rx, ry, pb);
             FillPath(pb.ToPath(), color);
         }
 
-        void FillRegularPolygon(Vec2 center, f32 radius, i32 sides, Color32 color)
+        void FillRegularPolygon(Vec2 center, f32 radius, i32 sides, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildRegularPolygon(center, radius, sides, pb);
             FillPath(pb.ToPath(), color);
         }
 
-        void FillStar(Vec2 center, f32 outerRadius, f32 innerRadius, i32 points, Color32 color)
+        void FillStar(Vec2 center, f32 outerRadius, f32 innerRadius, i32 points, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildStar(center, outerRadius, innerRadius, points, pb);
@@ -277,7 +277,7 @@ export namespace raptor::vg
 
         // === Convenience: Stroked Shapes ===
 
-        void StrokeRect(Rect rect, Color32 color, f32 width = 1.0f)
+        void StrokeRect(Rect rect, Color color, f32 width = 1.0f)
         {
             PathBuilder pb;
             pb.MoveTo(rect.x, rect.y);
@@ -288,23 +288,23 @@ export namespace raptor::vg
             StrokePath(pb.ToPath(), color, StrokeStyle(width));
         }
 
-        void StrokeRoundedRect(Rect rect, f32 radius, Color32 color, f32 width = 1.0f) { StrokeRoundedRect(rect, CornerRadii(radius), color, width); }
+        void StrokeRoundedRect(Rect rect, f32 radius, Color color, f32 width = 1.0f) { StrokeRoundedRect(rect, CornerRadii(radius), color, width); }
 
-        void StrokeRoundedRect(Rect rect, CornerRadii radii, Color32 color, f32 width = 1.0f)
+        void StrokeRoundedRect(Rect rect, CornerRadii radii, Color color, f32 width = 1.0f)
         {
             PathBuilder pb;
             ShapeBuilder::BuildRoundedRect(rect, radii, pb);
             StrokePath(pb.ToPath(), color, StrokeStyle(width));
         }
 
-        void StrokeCircle(Vec2 center, f32 radius, Color32 color, f32 width = 1.0f)
+        void StrokeCircle(Vec2 center, f32 radius, Color color, f32 width = 1.0f)
         {
             PathBuilder pb;
             ShapeBuilder::BuildCircle(center, radius, pb);
             StrokePath(pb.ToPath(), color, StrokeStyle(width));
         }
 
-        void StrokeEllipse(Vec2 center, f32 rx, f32 ry, Color32 color, f32 width = 1.0f)
+        void StrokeEllipse(Vec2 center, f32 rx, f32 ry, Color color, f32 width = 1.0f)
         {
             PathBuilder pb;
             ShapeBuilder::BuildEllipse(center, rx, ry, pb);
@@ -313,7 +313,7 @@ export namespace raptor::vg
 
         // === UI Convenience ===
 
-        void DrawLine(Vec2 a, Vec2 b, Color32 color, f32 thickness = 1.0f)
+        void DrawLine(Vec2 a, Vec2 b, Color color, f32 thickness = 1.0f)
         {
             PathBuilder pb;
             pb.MoveTo(a.x, a.y);
@@ -322,16 +322,16 @@ export namespace raptor::vg
         }
 
         /// Draw a border rectangle with the stroke fully *inside* the rect bounds.
-        void DrawBorderRect(Rect rect, Color32 color, f32 thickness = 1.0f)
+        void DrawBorderRect(Rect rect, Color color, f32 thickness = 1.0f)
         {
             const f32 halfThick = thickness * 0.5f;
             const Rect insetRect{ rect.x + halfThick, rect.y + halfThick, rect.width - thickness, rect.height - thickness };
             StrokeRect(insetRect, color, thickness);
         }
 
-        void DrawBorderRoundedRect(Rect rect, f32 radius, Color32 color, f32 thickness = 1.0f) { DrawBorderRoundedRect(rect, CornerRadii(radius), color, thickness); }
+        void DrawBorderRoundedRect(Rect rect, f32 radius, Color color, f32 thickness = 1.0f) { DrawBorderRoundedRect(rect, CornerRadii(radius), color, thickness); }
 
-        void DrawBorderRoundedRect(Rect rect, CornerRadii radii, Color32 color, f32 thickness = 1.0f)
+        void DrawBorderRoundedRect(Rect rect, CornerRadii radii, Color color, f32 thickness = 1.0f)
         {
             const f32 halfThick = thickness * 0.5f;
             const Rect insetRect{ rect.x + halfThick, rect.y + halfThick, rect.width - thickness, rect.height - thickness };
@@ -361,7 +361,7 @@ export namespace raptor::vg
 
         [[nodiscard]] Vec2 CurrentPoint() const { return m_currentPath.CurrentPoint(); }
 
-        void Fill(Color32 color, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
+        void Fill(Color color, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
         {
             if (m_currentPath.CommandCount() == 0) return;
             FillPath(m_currentPath.ToPath(), color, fillRule, antiAlias);
@@ -373,13 +373,13 @@ export namespace raptor::vg
             FillPath(m_currentPath.ToPath(), fill, fillRule, antiAlias);
         }
 
-        void Stroke(Color32 color, StrokeStyle style, Span<const f32> dashPattern = {}, bool antiAlias = true)
+        void Stroke(Color color, StrokeStyle style, Span<const f32> dashPattern = {}, bool antiAlias = true)
         {
             if (m_currentPath.CommandCount() == 0) return;
             StrokePath(m_currentPath.ToPath(), color, style, dashPattern, antiAlias);
         }
 
-        void Stroke(Color32 color, f32 thickness = 1.0f)
+        void Stroke(Color color, f32 thickness = 1.0f)
         {
             if (m_currentPath.CommandCount() == 0) return;
             StrokePath(m_currentPath.ToPath(), color, StrokeStyle(thickness));
@@ -393,10 +393,10 @@ export namespace raptor::vg
             DrawImage(texture,
                 Rect{ position.x, position.y, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) },
                 Rect{ 0.0f, 0.0f, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) },
-                Color32::White);
+                Color::White);
         }
 
-        void DrawImage(const img::ImageData* texture, Vec2 position, Color32 tint)
+        void DrawImage(const img::ImageData* texture, Vec2 position, Color tint)
         {
             if (texture == nullptr) return;
             DrawImage(texture,
@@ -408,10 +408,10 @@ export namespace raptor::vg
         void DrawImage(const img::ImageData* texture, Rect destRect)
         {
             if (texture == nullptr) return;
-            DrawImage(texture, destRect, Rect{ 0.0f, 0.0f, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) }, Color32::White);
+            DrawImage(texture, destRect, Rect{ 0.0f, 0.0f, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) }, Color::White);
         }
 
-        void DrawImage(const img::ImageData* texture, Rect destRect, Rect srcRect, Color32 tint)
+        void DrawImage(const img::ImageData* texture, Rect destRect, Rect srcRect, Color tint)
         {
             if (texture == nullptr) return;
 
@@ -424,7 +424,7 @@ export namespace raptor::vg
         }
 
         /// Draw a 9-slice image scaled to fit a destination rectangle.
-        void DrawNineSlice(const img::ImageData* texture, Rect destRect, Rect srcRect, img::NineSlice slices, Color32 tint)
+        void DrawNineSlice(const img::ImageData* texture, Rect destRect, Rect srcRect, img::NineSlice slices, Color tint)
         {
             if (texture == nullptr) return;
 
@@ -432,7 +432,7 @@ export namespace raptor::vg
             SetupForTextureDraw(textureIndex);
 
             const usize startVertex = m_batch.vertices.Size();
-            const Color32 opTint = ApplyOpacity(tint);
+            const Color opTint = ApplyOpacity(tint);
 
             const f32 srcX0 = srcRect.x;
             const f32 srcX1 = srcRect.x + slices.left;
@@ -470,7 +470,7 @@ export namespace raptor::vg
         // === Text ===
 
         /// Draw text at a baseline position using a pre-rendered font atlas (low-level).
-        void DrawText(StringView text, const fonts::IFontAtlas* atlas, const img::ImageData* atlasTexture, Vec2 position, Color32 color)
+        void DrawText(StringView text, const fonts::IFontAtlas* atlas, const img::ImageData* atlasTexture, Vec2 position, Color color)
         {
             if (text.IsEmpty() || atlas == nullptr || atlasTexture == nullptr) return;
 
@@ -478,7 +478,7 @@ export namespace raptor::vg
             SetupForTextureDraw(textureIndex);
 
             const usize startVertex = m_batch.vertices.Size();
-            const Color32 opColor = ApplyOpacity(color);
+            const Color opColor = ApplyOpacity(color);
             f32 cursorX = position.x;
             const f32 cursorY = position.y;
 
@@ -496,7 +496,7 @@ export namespace raptor::vg
 
         /// Draw text with horizontal alignment within bounds (vertically centered).
         void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const img::ImageData* atlasTexture,
-                      Rect bounds, fonts::TextAlignment align, Color32 color)
+                      Rect bounds, fonts::TextAlignment align, Color color)
         {
             if (text.IsEmpty() || font == nullptr) return;
 
@@ -516,7 +516,7 @@ export namespace raptor::vg
 
         /// Draw text with horizontal and vertical alignment within bounds.
         void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const img::ImageData* atlasTexture,
-                      Rect bounds, fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color32 color)
+                      Rect bounds, fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color color)
         {
             if (text.IsEmpty() || font == nullptr) return;
 
@@ -544,7 +544,7 @@ export namespace raptor::vg
         }
 
         /// Convenience: draw text using a CachedFont (requires a FontService).
-        void DrawText(StringView text, fonts::CachedFont* font, Vec2 position, Color32 color)
+        void DrawText(StringView text, fonts::CachedFont* font, Vec2 position, Color color)
         {
             if (font == nullptr || m_fontService == nullptr) return;
             img::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
@@ -554,7 +554,7 @@ export namespace raptor::vg
 
         /// Convenience: draw text using a CachedFont with alignment.
         void DrawText(StringView text, fonts::CachedFont* font, Rect bounds,
-                      fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color32 color)
+                      fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color color)
         {
             if (font == nullptr || m_fontService == nullptr) return;
             img::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
@@ -563,7 +563,7 @@ export namespace raptor::vg
         }
 
         /// Draw pre-shaped glyphs at an offset (for scroll-offset text rendering).
-        void DrawPositionedGlyphs(const Array<fonts::GlyphPosition>& positions, fonts::CachedFont* font, f32 offsetX, f32 offsetY, Color32 color)
+        void DrawPositionedGlyphs(const Array<fonts::GlyphPosition>& positions, fonts::CachedFont* font, f32 offsetX, f32 offsetY, Color color)
         {
             if (positions.IsEmpty() || font == nullptr || m_fontService == nullptr) return;
             img::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
@@ -573,7 +573,7 @@ export namespace raptor::vg
             SetupForTextureDraw(textureIndex);
 
             const usize startVertex = m_batch.vertices.Size();
-            const Color32 opColor = ApplyOpacity(color);
+            const Color opColor = ApplyOpacity(color);
 
             for (usize p = 0; p < positions.Size(); ++p)
             {
@@ -588,7 +588,7 @@ export namespace raptor::vg
         }
 
         /// Draw text with word wrapping. Position is the top-left of the text block.
-        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Vec2 position, f32 maxWidth, Color32 color,
+        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Vec2 position, f32 maxWidth, Color color,
                              fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
         {
             if (text.IsEmpty() || font == nullptr || font->shaper == nullptr || m_fontService == nullptr) return;
@@ -606,7 +606,7 @@ export namespace raptor::vg
             DrawPositionedGlyphs(positions, font, position.x, position.y + font->font->Metrics().ascent, color);
         }
 
-        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Rect bounds, Color32 color,
+        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Rect bounds, Color color,
                              fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
         {
             DrawTextWrapped(text, font, Vec2{ bounds.x, bounds.y }, bounds.width, color, hAlign);
@@ -625,7 +625,7 @@ export namespace raptor::vg
         }
 
         /// Draw text using the default font at the given pixel size (requires a FontService).
-        void DrawText(StringView text, f32 fontSize, Vec2 position, Color32 color)
+        void DrawText(StringView text, f32 fontSize, Vec2 position, Color color)
         {
             if (text.IsEmpty() || m_fontService == nullptr) return;
             fonts::CachedFont* font = m_fontService->GetFont(fontSize);
@@ -634,7 +634,7 @@ export namespace raptor::vg
         }
 
         /// Fill a polygon defined by a span of points.
-        void FillPolygon(Span<const Vec2> points, Color32 color)
+        void FillPolygon(Span<const Vec2> points, Color color)
         {
             if (points.Size() < 3) return;
 
@@ -701,7 +701,7 @@ export namespace raptor::vg
         }
 
         /// Emit a glyph quad into the batch in untransformed coordinates.
-        void EmitGlyphQuad(const fonts::GlyphQuad& quad, Color32 color)
+        void EmitGlyphQuad(const fonts::GlyphQuad& quad, Color color)
         {
             const u32 baseIndex = static_cast<u32>(m_batch.vertices.Size());
 
@@ -719,7 +719,7 @@ export namespace raptor::vg
         }
 
         /// Emit a textured quad into the batch in untransformed coordinates (coverage 1.0).
-        void EmitTexturedQuad(Rect destRect, Rect srcRect, u32 texWidth, u32 texHeight, Color32 color)
+        void EmitTexturedQuad(Rect destRect, Rect srcRect, u32 texWidth, u32 texHeight, Color color)
         {
             if (destRect.width <= 0.0f || destRect.height <= 0.0f)
                 return;
@@ -823,19 +823,20 @@ export namespace raptor::vg
                 m_batch.vertices[i].position = TransformPoint2D(m_batch.vertices[i].position, m_currentState.transform);
         }
 
-        [[nodiscard]] Color32 ApplyOpacity(Color32 color) const
+        [[nodiscard]] Color ApplyOpacity(Color color) const
         {
             if (m_currentState.opacity >= 1.0f)
                 return color;
-            return Color32{ color.r, color.g, color.b, static_cast<u8>(static_cast<f32>(color.a) * m_currentState.opacity) };
+            return Color{ color.r, color.g, color.b, color.a * m_currentState.opacity };
         }
 
         void ApplyOpacityToVertices(usize startVertex)
         {
             if (m_currentState.opacity >= 1.0f)
                 return;
+            // Vertices store packed Color32; lift to float, apply, re-pack.
             for (usize i = startVertex; i < m_batch.vertices.Size(); ++i)
-                m_batch.vertices[i].color = ApplyOpacity(m_batch.vertices[i].color);
+                m_batch.vertices[i].color = ToColor32(ApplyOpacity(ToColor(m_batch.vertices[i].color)));
         }
 
         [[nodiscard]] Rect TransformRect(Rect rect) const

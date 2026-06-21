@@ -31,7 +31,7 @@ namespace
 TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
 {
     // White stays white (1,1,1); opaque alpha passes through.
-    const VGRenderVertex v(VGVertex::Solid(Vec2{ 2.0f, 3.0f }, Color32::White));
+    const VGRenderVertex v(VGVertex::Solid(Vec2{ 2.0f, 3.0f }, Color::White));
     CHECK(v.position[0] == doctest::Approx(2.0f));
     CHECK(v.position[1] == doctest::Approx(3.0f));
     CHECK(v.color[0] == doctest::Approx(1.0f));
@@ -39,7 +39,7 @@ TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
     CHECK(v.coverage == doctest::Approx(1.0f));
 
     // A mid-grey sRGB byte (188) decodes to ~0.5 linear, not 0.737.
-    const VGRenderVertex g(VGVertex::Solid(Vec2{}, Color32{ 188, 188, 188, 255 }));
+    const VGRenderVertex g(VGVertex::Solid(Vec2{}, ToColor(Color32{ 188, 188, 188, 255 })));
     CHECK(g.color[0] > 0.45f);
     CHECK(g.color[0] < 0.55f);
 }
@@ -58,8 +58,8 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
 
     // Produce a batch with VGContext.
     VGContext ctx;
-    ctx.FillRect(Rect{ 10, 10, 100, 50 }, Color32::Red);
-    ctx.FillCircle(Vec2{ 50, 50 }, 20, Color32::Blue);
+    ctx.FillRect(Rect{ 10, 10, 100, 50 }, Color::Red);
+    ctx.FillCircle(Vec2{ 50, 50 }, 20, Color::Blue);
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.VertexCount() > 0u);
 
@@ -71,7 +71,7 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
 
     // A second batch in the same frame gets a non-overlapping vertex range.
     VGContext ctx2;
-    ctx2.FillRect(Rect{ 0, 0, 10, 10 }, Color32::Green);
+    ctx2.FillRect(Rect{ 0, 0, 10, 10 }, Color::Green);
     const VGRenderSlice slice2 = renderer.Prepare(ctx2.GetBatch(), 0, 800, 600);
     CHECK(slice2.isValid);
     CHECK(slice2.vertexByteOffset > 0u);

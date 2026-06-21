@@ -95,7 +95,7 @@ private:
     void DrawSVGDemo(vg::VGContext& vgc, f32 x, f32 y);
 
     void LoadFontSize(StringView path, f32 pixelHeight);
-    static Color32 HSLToColor(f32 h, f32 s, f32 l);
+    static Color HSLToColor(f32 h, f32 s, f32 l);
     static f32 HueToRGB(f32 p, f32 q, f32 t);
     [[nodiscard]] bool HasFonts() const { return !StringView(reinterpret_cast<const utf8char*>(RAPTOR_VG_FONT_PATH)).IsEmpty(); }
 
@@ -209,7 +209,7 @@ void VGSandbox::DrawLineWidths(vg::VGContext& vgc, f32 x, f32 y)
         vg::PathBuilder pb;
         pb.MoveTo(x, y + static_cast<f32>(i) * 10.0f);
         pb.LineTo(x + 100.0f, y + static_cast<f32>(i) * 10.0f);
-        vgc.StrokePath(pb.ToPath(), Color32{ 255, 255, 255, 255 }, vg::StrokeStyle(lw));
+        vgc.StrokePath(pb.ToPath(), GC( 255, 255, 255, 255 ), vg::StrokeStyle(lw));
     }
 }
 
@@ -223,11 +223,11 @@ void VGSandbox::DrawLineCaps(vg::VGContext& vgc, f32 x, f32 y)
 
         vg::PathBuilder pb;
         pb.MoveTo(x, ly); pb.LineTo(x + 80.0f, ly);
-        vgc.StrokePath(pb.ToPath(), Color32{ 255, 255, 255, 160 }, style);
+        vgc.StrokePath(pb.ToPath(), GC( 255, 255, 255, 160 ), style);
 
         vg::PathBuilder rpb;
         rpb.MoveTo(x, ly); rpb.LineTo(x + 80.0f, ly);
-        vgc.StrokePath(rpb.ToPath(), Color32{ 0, 192, 255, 255 }, vg::StrokeStyle(1.0f));
+        vgc.StrokePath(rpb.ToPath(), GC( 0, 192, 255, 255 ), vg::StrokeStyle(1.0f));
     }
 }
 
@@ -278,8 +278,8 @@ void VGSandbox::DrawEyes(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
                 fill.AddStop(1.0f, GC(20, 30, 60, 255));
                 vgc.FillPath(pb.ToPath(), fill);
             }
-            vgc.FillCircle(Vec2{ irisX, irisY }, br * 0.45f, Color32{ 20, 20, 20, 255 });
-            vgc.FillCircle(Vec2{ irisX - br * 0.25f, irisY - br * 0.2f }, br * 0.15f, Color32{ 255, 255, 255, 200 });
+            vgc.FillCircle(Vec2{ irisX, irisY }, br * 0.45f, GC( 20, 20, 20, 255 ));
+            vgc.FillCircle(Vec2{ irisX - br * 0.25f, irisY - br * 0.2f }, br * 0.15f, GC( 255, 255, 255, 200 ));
         }
     }
 }
@@ -311,8 +311,8 @@ void VGSandbox::DrawLineJoins(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f3
             pb.LineTo(fx + pts[6], fy + pts[7]);
             const vg::Path path = pb.ToPath();
 
-            vgc.StrokePath(path, Color32{ 0, 0, 0, 160 }, vg::StrokeStyle(s * 0.3f, caps[j], joins[i]));
-            vgc.StrokePath(path, Color32{ 0, 192, 255, 255 }, vg::StrokeStyle(1.0f, vg::VGLineCap::Butt, vg::VGLineJoin::Miter));
+            vgc.StrokePath(path, GC( 0, 0, 0, 160 ), vg::StrokeStyle(s * 0.3f, caps[j], joins[i]));
+            vgc.StrokePath(path, GC( 0, 192, 255, 255 ), vg::StrokeStyle(1.0f, vg::VGLineCap::Butt, vg::VGLineJoin::Miter));
         }
 }
 
@@ -346,13 +346,13 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
         }
         pb.Close();
 
-        const Color32 c0 = HSLToColor(a0 / kTwoPi, 1.0f, 0.5f);
-        const Color32 c1 = HSLToColor(a1 / kTwoPi, 1.0f, 0.5f);
+        const Color c0 = HSLToColor(a0 / kTwoPi, 1.0f, 0.5f);
+        const Color c1 = HSLToColor(a1 / kTwoPi, 1.0f, 0.5f);
         vg::VGLinearGradientFill fill(
             Vec2{ cx + Cos(a0) * (r0 + r1) * 0.5f, cy + Sin(a0) * (r0 + r1) * 0.5f },
             Vec2{ cx + Cos(a1) * (r0 + r1) * 0.5f, cy + Sin(a1) * (r0 + r1) * 0.5f });
-        fill.AddStop(0.0f, ToColor(c0));
-        fill.AddStop(1.0f, ToColor(c1));
+        fill.AddStop(0.0f, c0);
+        fill.AddStop(1.0f, c1);
         vgc.FillPath(pb.ToPath(), fill);
     }
 
@@ -365,7 +365,7 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
         pb.MoveTo(r0 - 1.0f, -3.0f); pb.LineTo(r1 + 1.0f, -3.0f);
         pb.LineTo(r1 + 1.0f, 3.0f);  pb.LineTo(r0 - 1.0f, 3.0f);
         pb.Close();
-        vgc.StrokePath(pb.ToPath(), Color32{ 255, 255, 255, 192 }, vg::StrokeStyle(2.0f));
+        vgc.StrokePath(pb.ToPath(), GC( 255, 255, 255, 192 ), vg::StrokeStyle(2.0f));
         vgc.PopState();
     }
 
@@ -375,7 +375,7 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
         const f32 ax = cx + Cos(hue + kTwoPi / 3.0f) * r, ay = cy + Sin(hue + kTwoPi / 3.0f) * r;
         const f32 bx = cx + Cos(hue - kTwoPi / 3.0f) * r, by = cy + Sin(hue - kTwoPi / 3.0f) * r;
         const f32 cxx = cx + Cos(hue) * r, cyy = cy + Sin(hue) * r;
-        const Color32 hueColor = HSLToColor(hue / kTwoPi, 1.0f, 0.5f);
+        const Color hueColor = HSLToColor(hue / kTwoPi, 1.0f, 0.5f);
 
         vg::PathBuilder pb;
         pb.MoveTo(ax, ay); pb.LineTo(bx, by); pb.LineTo(cxx, cyy); pb.Close();
@@ -383,7 +383,7 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
 
         vg::VGLinearGradientFill fill1(Vec2{ ax, ay }, Vec2{ cxx, cyy });
         fill1.AddStop(0.0f, GC(255, 255, 255, 255));
-        fill1.AddStop(1.0f, ToColor(hueColor));
+        fill1.AddStop(1.0f, hueColor);
         vgc.FillPath(path, fill1);
 
         vg::VGLinearGradientFill fill2(Vec2{ (ax + bx) * 0.5f, (ay + by) * 0.5f }, Vec2{ cxx, cyy });
@@ -391,11 +391,11 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
         fill2.AddStop(1.0f, GC(0, 0, 0, 0));
         vgc.FillPath(path, fill2);
 
-        vgc.StrokePath(path, Color32{ 0, 0, 0, 64 }, vg::StrokeStyle(2.0f));
+        vgc.StrokePath(path, GC( 0, 0, 0, 64 ), vg::StrokeStyle(2.0f));
 
         const f32 selX = ax + (cxx - ax) * 0.3f + (bx - ax) * 0.4f;
         const f32 selY = ay + (cyy - ay) * 0.3f + (by - ay) * 0.4f;
-        vgc.StrokeCircle(Vec2{ selX, selY }, 5.0f, Color32{ 255, 255, 255, 192 }, 2.0f);
+        vgc.StrokeCircle(Vec2{ selX, selY }, 5.0f, GC( 255, 255, 255, 192 ), 2.0f);
         vgc.FillCircle(Vec2{ selX, selY }, 3.5f, hueColor);
     }
 }
@@ -460,9 +460,9 @@ void VGSandbox::DrawGraph(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
 
         vgc.PushState();
         vgc.Translate(0, 2);
-        vgc.StrokePath(path, Color32{ 0, 0, 0, 32 }, vg::StrokeStyle(3.0f, vg::VGLineCap::Round, vg::VGLineJoin::Round));
+        vgc.StrokePath(path, GC( 0, 0, 0, 32 ), vg::StrokeStyle(3.0f, vg::VGLineCap::Round, vg::VGLineJoin::Round));
         vgc.PopState();
-        vgc.StrokePath(path, Color32{ 0, 160, 192, 255 }, vg::StrokeStyle(3.0f, vg::VGLineCap::Round, vg::VGLineJoin::Round));
+        vgc.StrokePath(path, GC( 0, 160, 192, 255 ), vg::StrokeStyle(3.0f, vg::VGLineCap::Round, vg::VGLineJoin::Round));
     }
 
     // Sample dots.
@@ -478,8 +478,8 @@ void VGSandbox::DrawGraph(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
             fill.AddStop(1.0f, GC(0, 0, 0, 0));
             vgc.FillPath(pb.ToPath(), fill);
         }
-        vgc.FillCircle(Vec2{ sx, sy }, 4.0f, Color32{ 0, 160, 192, 255 });
-        vgc.FillCircle(Vec2{ sx, sy }, 2.0f, Color32{ 220, 240, 255, 255 });
+        vgc.FillCircle(Vec2{ sx, sy }, 4.0f, GC( 0, 160, 192, 255 ));
+        vgc.FillCircle(Vec2{ sx, sy }, 2.0f, GC( 220, 240, 255, 255 ));
     }
 }
 
@@ -488,17 +488,17 @@ void VGSandbox::DrawScissor(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     vgc.PushState();
     vgc.Translate(x, y);
     vgc.Rotate(5.0f * kPi / 180.0f);
-    vgc.FillRect(Rect{ -20, -20, 60, 40 }, Color32{ 255, 0, 0, 255 });
+    vgc.FillRect(Rect{ -20, -20, 60, 40 }, GC( 255, 0, 0, 255 ));
 
     vgc.PushClipRect(Rect{ -20, -20, 60, 40 });
     vgc.Translate(40, 0);
     vgc.Rotate(Sin(t) * 0.15f);
 
     vgc.PopClip();
-    vgc.FillRect(Rect{ -20, -10, 60, 30 }, Color32{ 255, 128, 0, 64 });
+    vgc.FillRect(Rect{ -20, -10, 60, 30 }, GC( 255, 128, 0, 64 ));
 
     vgc.PushClipRect(Rect{ -60, -30, 60, 40 });
-    vgc.FillRect(Rect{ -20, -10, 60, 30 }, Color32{ 255, 128, 0, 255 });
+    vgc.FillRect(Rect{ -20, -10, 60, 30 }, GC( 255, 128, 0, 255 ));
     vgc.PopClip();
 
     vgc.PopState();
@@ -511,8 +511,8 @@ void VGSandbox::DrawImages(vg::VGContext& vgc, f32 x, f32 y, f32 t)
 
     vgc.DrawImage(&m_checker, Vec2{ x, y });
     vgc.DrawImage(&m_checker, Rect{ x + 140, y, 80, 50 });
-    vgc.DrawImage(&m_checker, Rect{ x + 230, y, 80, 80 }, Rect{ 0, 0, tw, th }, Color32{ 255, 120, 120, 220 });
-    vgc.DrawImage(&m_checker, Rect{ x + 320, y, 80, 80 }, Rect{ 0, 0, 64, 64 }, Color32::White);
+    vgc.DrawImage(&m_checker, Rect{ x + 230, y, 80, 80 }, Rect{ 0, 0, tw, th }, GC( 255, 120, 120, 220 ));
+    vgc.DrawImage(&m_checker, Rect{ x + 320, y, 80, 80 }, Rect{ 0, 0, 64, 64 }, Color::White);
 
     vgc.PushState();
     vgc.Translate(x + 450, y + 40);
@@ -525,39 +525,39 @@ void VGSandbox::DrawTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t)
 {
     if (!HasFonts()) return;
 
-    vgc.DrawText(u8"Raptor.VG text rendering", m_fontLarge, Vec2{ x, y + 30 }, Color32{ 240, 240, 245, 255 });
-    vgc.DrawText(u8"Medium size - the quick brown fox", m_fontMedium, Vec2{ x, y + 60 }, Color32{ 180, 200, 255, 255 });
-    vgc.DrawText(u8"small caption @ 14px", m_fontSmall, Vec2{ x, y + 82 }, Color32{ 160, 170, 180, 255 });
+    vgc.DrawText(u8"Raptor.VG text rendering", m_fontLarge, Vec2{ x, y + 30 }, GC( 240, 240, 245, 255 ));
+    vgc.DrawText(u8"Medium size - the quick brown fox", m_fontMedium, Vec2{ x, y + 60 }, GC( 180, 200, 255, 255 ));
+    vgc.DrawText(u8"small caption @ 14px", m_fontSmall, Vec2{ x, y + 82 }, GC( 160, 170, 180, 255 ));
 
     const u8 pulse = static_cast<u8>(160.0f + Sin(t * 2.0f) * 60.0f);
-    vgc.DrawText(u8"pulsing tint", m_fontMedium, Vec2{ x, y + 108 }, Color32{ 255, pulse, 80, 255 });
+    vgc.DrawText(u8"pulsing tint", m_fontMedium, Vec2{ x, y + 108 }, GC( 255, pulse, 80, 255 ));
 
     const Rect boxRect{ x + 350, y + 50, 200, 60 };
-    vgc.StrokeRect(boxRect, Color32{ 80, 100, 120, 255 }, 1.0f);
+    vgc.StrokeRect(boxRect, GC( 80, 100, 120, 255 ), 1.0f);
     vgc.DrawText(u8"centered", m_fontMedium->font, m_fontMedium->atlas, m_fontService->GetAtlasTexture(m_fontMedium),
-                 boxRect, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, Color32{ 220, 220, 220, 255 });
+                 boxRect, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, GC( 220, 220, 220, 255 ));
 
     vgc.PushState();
     vgc.Translate(x + 280, y + 130);
     vgc.Rotate(Sin(t * 0.7f) * 0.3f);
-    vgc.DrawText(u8"rotated!", m_fontLarge, Vec2{ -60, 10 }, Color32{ 120, 255, 160, 255 });
+    vgc.DrawText(u8"rotated!", m_fontLarge, Vec2{ -60, 10 }, GC( 120, 255, 160, 255 ));
     vgc.PopState();
 }
 
 void VGSandbox::DrawUIConvenience(vg::VGContext& vgc, f32 x, f32 y)
 {
-    vgc.DrawLine(Vec2{ x, y + 5 }, Vec2{ x + 120, y + 5 }, Color32{ 200, 220, 255, 255 }, 1.0f);
-    vgc.DrawLine(Vec2{ x, y + 15 }, Vec2{ x + 120, y + 15 }, Color32{ 200, 220, 255, 255 }, 2.5f);
-    vgc.DrawLine(Vec2{ x, y + 30 }, Vec2{ x + 120, y + 30 }, Color32{ 200, 220, 255, 255 }, 5.0f);
+    vgc.DrawLine(Vec2{ x, y + 5 }, Vec2{ x + 120, y + 5 }, GC( 200, 220, 255, 255 ), 1.0f);
+    vgc.DrawLine(Vec2{ x, y + 15 }, Vec2{ x + 120, y + 15 }, GC( 200, 220, 255, 255 ), 2.5f);
+    vgc.DrawLine(Vec2{ x, y + 30 }, Vec2{ x + 120, y + 30 }, GC( 200, 220, 255, 255 ), 5.0f);
 
-    vgc.StrokeEllipse(Vec2{ x + 180, y + 20 }, 40, 18, Color32{ 255, 200, 140, 255 }, 2.0f);
+    vgc.StrokeEllipse(Vec2{ x + 180, y + 20 }, 40, 18, GC( 255, 200, 140, 255 ), 2.0f);
 
     const Rect compareRect{ x + 250, y, 60, 40 };
-    vgc.DrawBorderRect(compareRect, Color32{ 120, 255, 160, 255 }, 4.0f);
-    vgc.StrokeRect(compareRect, Color32{ 255, 255, 255, 60 }, 1.0f);
+    vgc.DrawBorderRect(compareRect, GC( 120, 255, 160, 255 ), 4.0f);
+    vgc.StrokeRect(compareRect, GC( 255, 255, 255, 60 ), 1.0f);
 
-    vgc.DrawBorderRoundedRect(Rect{ x + 330, y, 80, 40 }, 10.0f, Color32{ 180, 160, 255, 255 }, 3.0f);
-    vgc.DrawBorderRoundedRect(Rect{ x + 430, y, 80, 40 }, vg::CornerRadii(2, 12, 2, 12), Color32{ 255, 180, 220, 255 }, 2.0f);
+    vgc.DrawBorderRoundedRect(Rect{ x + 330, y, 80, 40 }, 10.0f, GC( 180, 160, 255, 255 ), 3.0f);
+    vgc.DrawBorderRoundedRect(Rect{ x + 430, y, 80, 40 }, vg::CornerRadii(2, 12, 2, 12), GC( 255, 180, 220, 255 ), 2.0f);
 }
 
 void VGSandbox::DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t)
@@ -567,7 +567,7 @@ void VGSandbox::DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     vgc.MoveTo(x, y + 25);
     vgc.CubicTo(x + 30, y + 25 - Sin(t * 1.5f) * 15, x + 60, y + 25 + Sin(t * 1.5f) * 15, x + 90, y + 25);
     vgc.CubicTo(x + 120, y + 25 - Sin(t * 1.5f + 1) * 15, x + 150, y + 25 + Sin(t * 1.5f + 1) * 15, x + 180, y + 25);
-    vgc.Stroke(Color32{ 120, 200, 255, 255 }, 3.0f);
+    vgc.Stroke(GC( 120, 200, 255, 255 ), 3.0f);
 
     // Filled star.
     const f32 cx = x + 230, cy = y + 25, outerR = 22.0f, innerR = 10.0f;
@@ -581,7 +581,7 @@ void VGSandbox::DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t)
         if (i == 0) vgc.MoveTo(px, py); else vgc.LineTo(px, py);
     }
     vgc.ClosePath();
-    vgc.Fill(Color32{ 255, 220, 120, 255 });
+    vgc.Fill(GC( 255, 220, 120, 255 ));
 
     // Teardrop with quads.
     vgc.BeginPath();
@@ -589,20 +589,20 @@ void VGSandbox::DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     vgc.QuadTo(x + 320, y + 25, x + 290, y + 45);
     vgc.QuadTo(x + 260, y + 25, x + 290, y + 5);
     vgc.ClosePath();
-    vgc.Fill(Color32{ 220, 140, 255, 255 });
-    vgc.Stroke(Color32{ 255, 255, 255, 120 }, 1.0f);
+    vgc.Fill(GC( 220, 140, 255, 255 ));
+    vgc.Stroke(GC( 255, 255, 255, 120 ), 1.0f);
 }
 
 void VGSandbox::DrawSVGDemo(vg::VGContext& vgc, f32 x, f32 y)
 {
     if (HasFonts())
-        vgc.DrawText(u8"SVG Rendering", m_fontMedium, Vec2{ x, y + 16 }, Color32{ 240, 240, 245, 255 });
+        vgc.DrawText(u8"SVG Rendering", m_fontMedium, Vec2{ x, y + 16 }, GC( 240, 240, 245, 255 ));
 
     if (m_hasBadge)
     {
         svg::SVGRenderer::Render(vgc, m_badge, Rect{ x, y + 24, 80, 80 });
         svg::SVGRenderer::Render(vgc, m_badge, Rect{ x + 90, y + 34, 48, 48 });
-        svg::SVGRenderer::Render(vgc, m_badge, Rect{ x + 148, y + 34, 48, 48 }, Optional<Color32>(Color32{ 255, 120, 80, 255 }));
+        svg::SVGRenderer::Render(vgc, m_badge, Rect{ x + 148, y + 34, 48, 48 }, Optional<Color>(GC( 255, 120, 80, 255 )));
     }
     if (m_hasIcon)
     {
@@ -613,7 +613,7 @@ void VGSandbox::DrawSVGDemo(vg::VGContext& vgc, f32 x, f32 y)
     }
 }
 
-Color32 VGSandbox::HSLToColor(f32 h, f32 s, f32 l)
+Color VGSandbox::HSLToColor(f32 h, f32 s, f32 l)
 {
     h = h - static_cast<f32>(static_cast<i32>(h)); // h % 1
     if (h < 0.0f) h += 1.0f;
@@ -628,7 +628,7 @@ Color32 VGSandbox::HSLToColor(f32 h, f32 s, f32 l)
         g = HueToRGB(p, q, h);
         b = HueToRGB(p, q, h - 1.0f / 3.0f);
     }
-    return Color32{ static_cast<u8>(r * 255.0f), static_cast<u8>(g * 255.0f), static_cast<u8>(b * 255.0f), 255 };
+    return GC( static_cast<u8>(r * 255.0f), static_cast<u8>(g * 255.0f), static_cast<u8>(b * 255.0f), 255 );
 }
 
 f32 VGSandbox::HueToRGB(f32 p, f32 q, f32 t)

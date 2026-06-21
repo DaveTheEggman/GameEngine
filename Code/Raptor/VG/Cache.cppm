@@ -32,13 +32,13 @@ export namespace raptor::vg
         [[nodiscard]] bool IsStrokeValid() const { return m_strokeValid; }
 
         /// Whether the cached fill matches the requested style.
-        [[nodiscard]] bool FillMatches(Color32 color, FillRule fillRule, bool antiAlias) const
+        [[nodiscard]] bool FillMatches(Color color, FillRule fillRule, bool antiAlias) const
         {
             return m_fillValid && m_fillColor == color && m_fillRule == fillRule && m_fillAA == antiAlias;
         }
 
         /// Whether the cached stroke matches the requested style.
-        [[nodiscard]] bool StrokeMatches(Color32 color, StrokeStyle style, bool antiAlias) const
+        [[nodiscard]] bool StrokeMatches(Color color, StrokeStyle style, bool antiAlias) const
         {
             return m_strokeValid && m_strokeColor == color
                 && m_strokeStyle.width == style.width
@@ -78,7 +78,7 @@ export namespace raptor::vg
         }
 
         /// Store fill tessellation data.
-        void SetFillData(const Array<VGVertex>& vertices, const Array<u32>& fillIndices, Color32 color, FillRule fillRule, bool antiAlias)
+        void SetFillData(const Array<VGVertex>& vertices, const Array<u32>& fillIndices, Color color, FillRule fillRule, bool antiAlias)
         {
             m_fillVertices = vertices;
             m_fillIndices = fillIndices;
@@ -89,7 +89,7 @@ export namespace raptor::vg
         }
 
         /// Store stroke tessellation data.
-        void SetStrokeData(const Array<VGVertex>& vertices, const Array<u32>& strokeIndices, Color32 color, StrokeStyle style, bool antiAlias)
+        void SetStrokeData(const Array<VGVertex>& vertices, const Array<u32>& strokeIndices, Color color, StrokeStyle style, bool antiAlias)
         {
             m_strokeVertices = vertices;
             m_strokeIndices = strokeIndices;
@@ -110,7 +110,7 @@ export namespace raptor::vg
         Array<VGVertex> m_fillVertices;
         Array<u32> m_fillIndices;
         bool m_fillValid = false;
-        Color32 m_fillColor;
+        Color m_fillColor;
         FillRule m_fillRule = FillRule::NonZero;
         bool m_fillAA = false;
 
@@ -118,7 +118,7 @@ export namespace raptor::vg
         Array<u32> m_strokeIndices;
         bool m_strokeValid = false;
         StrokeStyle m_strokeStyle;
-        Color32 m_strokeColor;
+        Color m_strokeColor;
         bool m_strokeAA = false;
     };
 
@@ -129,7 +129,7 @@ export namespace raptor::vg
         explicit PathCache(i32 capacity = 256) : m_capacity(capacity) {}
 
         /// Get or tessellate a filled path, appending the mesh to the outputs.
-        void GetOrTessellateFill(const Path& path, Color32 color, FillRule fillRule, bool antiAlias,
+        void GetOrTessellateFill(const Path& path, Color color, FillRule fillRule, bool antiAlias,
                                  Array<VGVertex>& outVertices, Array<u32>& outIndices, f32 tolerance = 0.25f)
         {
             CachedPath& cached = GetOrCreate(path);
@@ -151,7 +151,7 @@ export namespace raptor::vg
         }
 
         /// Get or tessellate a stroked path, appending the mesh to the outputs.
-        void GetOrTessellateStroke(const Path& path, Color32 color, StrokeStyle style, Span<const f32> dashPattern,
+        void GetOrTessellateStroke(const Path& path, Color color, StrokeStyle style, Span<const f32> dashPattern,
                                    bool antiAlias, Array<VGVertex>& outVertices, Array<u32>& outIndices, f32 tolerance = 0.25f)
         {
             CachedPath& cached = GetOrCreate(path);

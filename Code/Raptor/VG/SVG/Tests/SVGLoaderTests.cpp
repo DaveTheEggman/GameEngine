@@ -27,12 +27,12 @@ TEST_CASE("svg.loader: parses viewBox + shapes")
 
     CHECK(doc.elements[0].type == SVGElementType::Rect);
     REQUIRE(doc.elements[0].fillColor.HasValue());
-    CHECK(doc.elements[0].fillColor.Value() == Color32::Red);
+    CHECK(doc.elements[0].fillColor.Value() == Color::Red);
     CHECK(doc.elements[0].path.HasValue());
 
     CHECK(doc.elements[1].type == SVGElementType::Circle);
     REQUIRE(doc.elements[1].strokeColor.HasValue());
-    CHECK(doc.elements[1].strokeColor.Value() == Color32::Black);
+    CHECK(doc.elements[1].strokeColor.Value() == Color::Black);
     CHECK(doc.elements[1].strokeWidth == doctest::Approx(2.0f));
 }
 
@@ -82,6 +82,6 @@ TEST_CASE("svg.renderer: tint overrides fill")
     REQUIRE(r.HasValue());
 
     VGContext ctx;
-    SVGRenderer::Render(ctx, r.Value(), Rect{ 0, 0, 10, 10 }, Optional<Color32>(Color32::Blue));
+    SVGRenderer::Render(ctx, r.Value(), Rect{ 0, 0, 10, 10 }, Optional<Color>(Color::Blue));
     CHECK(ctx.GetBatch().VertexCount() > 0u);
 }

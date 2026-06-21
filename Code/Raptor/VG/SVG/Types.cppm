@@ -4,7 +4,7 @@
 // shape/group/text node with a tessellated Path + style), SVGDocument. Ported
 // from Sedulous.VG.SVG (SVGElementType/SVGElement/SVGDocument). Element trees are
 // value types (children owned by value); the transform is a Mat4 (mirroring
-// Sedulous's Matrix); colors are Color32.
+// Sedulous's Matrix); colors are float Color.
 
 module;
 #include "Core/Prelude.h"
@@ -34,8 +34,8 @@ export namespace raptor::vg::svg
         SVGElementType type = SVGElementType::Path;
         Optional<raptor::vg::Path> path;          ///< Tessellatable geometry (shapes/paths).
         Mat4 transform = Mat4::Identity();        ///< Element transform.
-        Optional<Color32> fillColor;              ///< Fill color (empty = none/inherit).
-        Optional<Color32> strokeColor;            ///< Stroke color (empty = none).
+        Optional<Color> fillColor;              ///< Fill color (empty = none/inherit).
+        Optional<Color> strokeColor;            ///< Stroke color (empty = none).
         f32 strokeWidth = 1.0f;
         f32 opacity = 1.0f;
         Array<SVGElement> children;               ///< Children (for group elements).

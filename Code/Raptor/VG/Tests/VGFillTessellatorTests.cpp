@@ -21,7 +21,7 @@ TEST_CASE("filltess: rectangle -> two triangles")
 {
     const Path path = Square();
     Array<VGVertex> vertices; Array<u32> indices;
-    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color32::White, false, vertices, indices);
+    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color::White, false, vertices, indices);
     CHECK(vertices.Size() == 4u);
     CHECK(indices.Size() == 6u);
 }
@@ -33,7 +33,7 @@ TEST_CASE("filltess: circle creates triangles")
     const Path path = b.ToPath();
 
     Array<VGVertex> vertices; Array<u32> indices;
-    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color32::Red, false, vertices, indices);
+    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color::Red, false, vertices, indices);
     CHECK(vertices.Size() > 8u);
     CHECK(indices.Size() > 8u);
     CHECK(indices.Size() % 3 == 0u);
@@ -44,10 +44,10 @@ TEST_CASE("filltess: AA has more vertices")
     const Path path = Square();
 
     Array<VGVertex> vertsNoAA; Array<u32> indicesNoAA;
-    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color32::White, false, vertsNoAA, indicesNoAA);
+    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color::White, false, vertsNoAA, indicesNoAA);
 
     Array<VGVertex> vertsAA; Array<u32> indicesAA;
-    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color32::White, true, vertsAA, indicesAA);
+    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color::White, true, vertsAA, indicesAA);
 
     CHECK(vertsAA.Size() > vertsNoAA.Size());
     CHECK(indicesAA.Size() > indicesNoAA.Size());
@@ -57,7 +57,7 @@ TEST_CASE("filltess: non-AA vertex coverage is one")
 {
     const Path path = Square();
     Array<VGVertex> vertices; Array<u32> indices;
-    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color32::White, false, vertices, indices);
+    FillTessellator::Tessellate(path, FillRule::EvenOdd, Color::White, false, vertices, indices);
     for (usize i = 0; i < vertices.Size(); ++i)
         CHECK(vertices[i].coverage == 1.0f);
 }

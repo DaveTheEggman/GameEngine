@@ -3,7 +3,7 @@
 // The standalone SVG attribute parsers (no XML dependency): SVGColorParser
 // (hex/#rgb/rgb()/named), SVGTransformParser (translate/scale/rotate/skew/matrix
 // -> Mat4), SVGPathParser (the `d` path-data string -> PathBuilder). Ported from
-// Sedulous.VG.SVG. Colors are Color32; transforms are Mat4.
+// Sedulous.VG.SVG. Public colors are float Color; transforms are Mat4.
 
 module;
 #include "Core/Prelude.h"
@@ -51,7 +51,17 @@ export namespace raptor::vg::svg
     class SVGColorParser
     {
     public:
-        static Result<Color32> Parse(StringView colorStr)
+        // Parse an SVG color string to the engine's float Color (VG's currency).
+        static Result<Color> Parse(StringView colorStr)
+        {
+            Result<Color32> bytes = ParseBytes(colorStr);
+            if (!bytes.HasValue()) return Err(bytes.Error());
+            return ToColor(bytes.Value());
+        }
+
+    private:
+        // The hex/#rgb/rgb()/named parse, producing packed bytes.
+        static Result<Color32> ParseBytes(StringView colorStr)
         {
             StringView s = colorStr;
             while (s.Size() > 0 && (s[0] == u8' ' || s[0] == u8'\t')) s = s.SubStr(1, s.Size() - 1);

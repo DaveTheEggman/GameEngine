@@ -12,7 +12,7 @@ TEST_CASE("vg.vertex: layout and solid helpers")
     CHECK(sizeof(VGVertex) == 24u);
     CHECK(VGVertex::SizeInBytes == 24);
 
-    const VGVertex v = VGVertex::Solid(Vec2{ 3.0f, 4.0f }, Color32::Red);
+    const VGVertex v = VGVertex::Solid(Vec2{ 3.0f, 4.0f }, Color::Red);
     CHECK(v.position == Vec2{ 3.0f, 4.0f });
     CHECK(v.texCoord == Vec2{ VGVertex::SolidUV, VGVertex::SolidUV });
     CHECK(v.color == Color32::Red);

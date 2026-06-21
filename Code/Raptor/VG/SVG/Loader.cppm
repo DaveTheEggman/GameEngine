@@ -232,18 +232,18 @@ export namespace raptor::vg::svg
             {
                 if (EqualsIgnoreCase(fillStr->AsView(), u8"none"))
                     element.fillColor = {};
-                else if (Result<Color32> c = SVGColorParser::Parse(fillStr->AsView()); c.HasValue())
+                else if (Result<Color> c = SVGColorParser::Parse(fillStr->AsView()); c.HasValue())
                     element.fillColor = c.Value();
             }
             else
             {
-                element.fillColor = Color32::Black; // SVG default fill is black.
+                element.fillColor = Color::Black; // SVG default fill is black.
             }
 
             if (const String* strokeStr = attrs.Find(String(u8"stroke")))
             {
                 if (!EqualsIgnoreCase(strokeStr->AsView(), u8"none"))
-                    if (Result<Color32> c = SVGColorParser::Parse(strokeStr->AsView()); c.HasValue())
+                    if (Result<Color> c = SVGColorParser::Parse(strokeStr->AsView()); c.HasValue())
                         element.strokeColor = c.Value();
             }
 

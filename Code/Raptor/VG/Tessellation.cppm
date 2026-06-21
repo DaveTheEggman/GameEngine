@@ -5,8 +5,8 @@
 //   * FillTessellator — filled paths, with an analytical-AA fringe ring
 //   * StrokeTessellator — stroked polylines with joins, caps, dashing, AA fringe
 // Ported from Sedulous.VG (Triangulator/FillTessellator/StrokeTessellator). The
-// vertex color is Color32 (byte); IVGFill returns float Color, packed at the
-// vertex via ToColor32.
+// colors are the engine's float Color throughout; packing to the vertex's
+// Color32 happens only in the VGVertex constructor.
 
 module;
 #include "Core/Prelude.h"
@@ -325,7 +325,7 @@ export namespace raptor::vg
     {
     public:
         /// Tessellate a filled path into vertices and indices.
-        static void Tessellate(const Path& path, FillRule fillRule, Color32 color, bool antiAlias,
+        static void Tessellate(const Path& path, FillRule fillRule, Color color, bool antiAlias,
                                Array<VGVertex>& vertices, Array<u32>& indices, f32 tolerance = 0.25f)
         {
             Array<FlattenedSubPath> subPaths;
@@ -367,7 +367,7 @@ export namespace raptor::vg
         {
             if (!fill.RequiresInterpolation())
             {
-                Tessellate(path, fillRule, ToColor32(fill.BaseColor()), antiAlias, vertices, indices, tolerance);
+                Tessellate(path, fillRule, fill.BaseColor(), antiAlias, vertices, indices, tolerance);
                 return;
             }
 
@@ -400,7 +400,7 @@ export namespace raptor::vg
                 {
                     const u32 baseIndex = static_cast<u32>(vertices.Size());
                     for (usize i = 0; i < pointCount; ++i)
-                        vertices.PushBack(VGVertex::Solid(points[i], ToColor32(fill.GetColorAt(points[i], bounds))));
+                        vertices.PushBack(VGVertex::Solid(points[i], fill.GetColorAt(points[i], bounds)));
                     Triangulator::Triangulate(points, fillRule, indices, baseIndex);
                 }
             }
@@ -455,7 +455,7 @@ export namespace raptor::vg
 
         /// Emit the inner-fill triangulation + the inner/outer fringe quad strip.
         static void EmitFringeRing(Span<const Vec2> points, FillRule fillRule, const Array<Vec2>& normals,
-                                   const Array<Color32>& innerColors, const Array<Color32>& outerColors,
+                                   const Array<Color>& innerColors, const Array<Color>& outerColors,
                                    Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const i32 n = static_cast<i32>(points.Size());
@@ -492,16 +492,16 @@ export namespace raptor::vg
             }
         }
 
-        static void TessellateWithAA(Span<const Vec2> points, FillRule fillRule, Color32 color,
+        static void TessellateWithAA(Span<const Vec2> points, FillRule fillRule, Color color,
                                      Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const usize n = points.Size();
             Array<Vec2> normals;
             ComputeFringeNormals(points, normals);
 
-            const Color32 transColor{ color.r, color.g, color.b, 0 };
-            Array<Color32> innerColors;
-            Array<Color32> outerColors;
+            const Color transColor{ color.r, color.g, color.b, 0.0f };
+            Array<Color> innerColors;
+            Array<Color> outerColors;
             innerColors.Resize(n);
             outerColors.Resize(n);
             for (usize i = 0; i < n; ++i) { innerColors[i] = color; outerColors[i] = transColor; }
@@ -516,15 +516,15 @@ export namespace raptor::vg
             Array<Vec2> normals;
             ComputeFringeNormals(points, normals);
 
-            Array<Color32> innerColors;
-            Array<Color32> outerColors;
+            Array<Color> innerColors;
+            Array<Color> outerColors;
             innerColors.Resize(n);
             outerColors.Resize(n);
             for (usize i = 0; i < n; ++i)
             {
-                const Color32 fc = ToColor32(fill.GetColorAt(points[i], bounds));
+                const Color fc = fill.GetColorAt(points[i], bounds);
                 innerColors[i] = fc;
-                outerColors[i] = Color32{ fc.r, fc.g, fc.b, 0 };
+                outerColors[i] = Color{ fc.r, fc.g, fc.b, 0.0f };
             }
 
             EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices, indices);
@@ -537,7 +537,7 @@ export namespace raptor::vg
     public:
         /// Tessellate a stroked polyline.
         static void Tessellate(Span<const Vec2> points, bool closed, StrokeStyle style, Span<const f32> dashPattern,
-                               bool antiAlias, Color32 color, Array<VGVertex>& vertices, Array<u32>& indices)
+                               bool antiAlias, Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             if (points.Size() < 2)
                 return;
@@ -561,7 +561,7 @@ export namespace raptor::vg
 
     private:
         static void TessellateSegment(Span<const Vec2> points, bool closed, StrokeStyle style,
-                                      bool antiAlias, Color32 color, Array<VGVertex>& vertices, Array<u32>& indices)
+                                      bool antiAlias, Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const i32 n = static_cast<i32>(points.Size());
             if (n < 2)
@@ -648,7 +648,7 @@ export namespace raptor::vg
 
             if (antiAlias)
             {
-                const Color32 transColor{ color.r, color.g, color.b, 0 };
+                const Color transColor{ color.r, color.g, color.b, 0.0f };
 
                 // Ring 0: outer fringe (left side, coverage=0).
                 const u32 outerLeftBase = static_cast<u32>(vertices.Size());
@@ -814,7 +814,7 @@ export namespace raptor::vg
         }
 
         static void AddJoin(Vec2 point, Vec2 prevNormal, Vec2 nextNormal, f32 halfWidth, VGLineJoin joinType,
-                            Color32 color, Array<VGVertex>& vertices, Array<u32>& indices)
+                            Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const f32 cross = prevNormal.x * nextNormal.y - prevNormal.y * nextNormal.x;
             if (Abs(cross) < 0.001f)
@@ -878,7 +878,7 @@ export namespace raptor::vg
         }
 
         static void AddCap(Vec2 point, Vec2 direction, Vec2 normal, f32 halfWidth, VGLineCap capType,
-                           Color32 color, Array<VGVertex>& vertices, Array<u32>& indices)
+                           Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             if (capType == VGLineCap::Square)
             {

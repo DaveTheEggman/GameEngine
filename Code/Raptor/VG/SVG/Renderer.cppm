@@ -23,7 +23,7 @@ export namespace raptor::vg::svg
     {
     public:
         /// Render scaled to fit `bounds`. `tint` (if set) overrides all colors.
-        static void Render(raptor::vg::VGContext& vg, const SVGDocument& document, Rect bounds, Optional<Color32> tint = {})
+        static void Render(raptor::vg::VGContext& vg, const SVGDocument& document, Rect bounds, Optional<Color> tint = {})
         {
             if (document.elements.IsEmpty()) return;
 
@@ -41,7 +41,7 @@ export namespace raptor::vg::svg
         }
 
         /// Render a single element and its children.
-        static void RenderElement(raptor::vg::VGContext& vg, const SVGElement& element, Optional<Color32> tint = {})
+        static void RenderElement(raptor::vg::VGContext& vg, const SVGElement& element, Optional<Color> tint = {})
         {
             if (element.opacity <= 0.0f) return;
 
@@ -79,7 +79,7 @@ export namespace raptor::vg::svg
         }
 
     private:
-        static void RenderText(raptor::vg::VGContext& vg, const SVGElement& element, Optional<Color32> tint)
+        static void RenderText(raptor::vg::VGContext& vg, const SVGElement& element, Optional<Color> tint)
         {
             if (element.textContent.AsView().IsEmpty() || vg.FontService() == nullptr)
                 return;
@@ -94,8 +94,8 @@ export namespace raptor::vg::svg
             raptor::fonts::CachedFont* font = vg.FontService()->GetFont(effectiveFontSize);
             if (font == nullptr) return;
 
-            const Color32 color = tint.HasValue() ? tint.Value()
-                                : (element.fillColor.HasValue() ? element.fillColor.Value() : Color32::Black);
+            const Color color = tint.HasValue() ? tint.Value()
+                                : (element.fillColor.HasValue() ? element.fillColor.Value() : Color::Black);
 
             // SVG position -> screen pixels via the current transform.
             const f32 screenX = transform.m[0][0] * element.textX + transform.m[1][0] * element.textY + transform.m[3][0];

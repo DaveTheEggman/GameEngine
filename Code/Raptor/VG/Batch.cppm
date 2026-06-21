@@ -106,7 +106,7 @@ export namespace raptor::vg
 
             // Tessellate the clip path; the renderer draws this to write the stencil buffer.
             const i32 startIndex = static_cast<i32>(batch.indices.Size());
-            FillTessellator::Tessellate(path, fillRule, Color32::White, false, batch.vertices, batch.indices, tolerance);
+            FillTessellator::Tessellate(path, fillRule, Color::White, false, batch.vertices, batch.indices, tolerance);
             const i32 indexCount = static_cast<i32>(batch.indices.Size()) - startIndex;
 
             if (indexCount > 0)

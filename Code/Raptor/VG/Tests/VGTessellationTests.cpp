@@ -26,7 +26,7 @@ TEST_CASE("vg.fill: solid square (no AA) -> 4 verts, 2 tris")
     const Path path = b.ToPath();
 
     Array<VGVertex> verts; Array<u32> idx;
-    FillTessellator::Tessellate(path, FillRule::NonZero, Color32::Red, /*antiAlias*/ false, verts, idx);
+    FillTessellator::Tessellate(path, FillRule::NonZero, Color::Red, /*antiAlias*/ false, verts, idx);
     CHECK(verts.Size() == 4u);
     CHECK(idx.Size() == 6u);
     for (usize i = 0; i < verts.Size(); ++i)
@@ -40,7 +40,7 @@ TEST_CASE("vg.fill: AA adds an inner+outer fringe ring")
     const Path path = b.ToPath();
 
     Array<VGVertex> verts; Array<u32> idx;
-    FillTessellator::Tessellate(path, FillRule::NonZero, Color32::Red, /*antiAlias*/ true, verts, idx);
+    FillTessellator::Tessellate(path, FillRule::NonZero, Color::Red, /*antiAlias*/ true, verts, idx);
     // Inner ring (4) + outer ring (4); fringe quads + inner fan.
     CHECK(verts.Size() == 8u);
     CHECK(idx.Size() > 6u);
@@ -78,7 +78,7 @@ TEST_CASE("vg.stroke: open polyline (no AA) produces a quad strip")
 
     Array<VGVertex> verts; Array<u32> idx;
     StrokeTessellator::Tessellate(Span<const Vec2>(line, 3), /*closed*/ false, style, Span<const f32>{},
-                                  /*antiAlias*/ false, Color32::Blue, verts, idx);
+                                  /*antiAlias*/ false, Color::Blue, verts, idx);
     CHECK(verts.Size() == 6u);   // 2 per point
     CHECK(idx.Size() == 12u);    // 2 segments * 2 tris * 3
 }
@@ -90,7 +90,7 @@ TEST_CASE("vg.stroke: AA produces 4 rings")
 
     Array<VGVertex> verts; Array<u32> idx;
     StrokeTessellator::Tessellate(Span<const Vec2>(line, 2), false, style, Span<const f32>{},
-                                  /*antiAlias*/ true, Color32::Blue, verts, idx);
+                                  /*antiAlias*/ true, Color::Blue, verts, idx);
     CHECK(verts.Size() == 8u);   // 4 rings * 2 points
     CHECK(idx.Size() > 0u);
 }
