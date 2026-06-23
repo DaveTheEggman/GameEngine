@@ -62,8 +62,10 @@ if(RAPTOR_WARNINGS_AS_ERRORS)
     # Clang on Windows emits a spurious "argument unused during compilation: '-c'"
     # during the CMake module-dependency scan step. Suppress just that diagnostic
     # so -Werror doesn't kill the build.
+    # Clang 22+ warns that __COUNTER__ is a "C2y extension" when used in C++ mode;
+    # doctest (and other widely-used macros) rely on it, so suppress the diagnostic.
     target_compile_options(raptor_policy INTERFACE
-        $<$<CXX_COMPILER_ID:Clang>:-Wno-error=unused-command-line-argument>)
+        $<$<CXX_COMPILER_ID:Clang>:-Wno-error=unused-command-line-argument;-Wno-c2y-extensions>)
 endif()
 
 # --- Targets -----------------------------------------------------------------
