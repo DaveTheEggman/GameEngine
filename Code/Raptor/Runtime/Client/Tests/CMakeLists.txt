@@ -15,7 +15,8 @@ add_executable(RaptorRuntimeClientTests
     TestsMain.cpp
     ApplicationTests.cpp)
 
-target_link_libraries(RaptorRuntimeClientTests PRIVATE Raptor::RuntimeClient doctest::doctest)
+target_link_libraries(RaptorRuntimeClientTests PRIVATE
+    Raptor::RuntimeClient Raptor::RuntimePlatformNull Raptor::RuntimeGraphics Raptor::RuntimeGraphicsNull doctest::doctest)
 
 target_compile_definitions(RaptorRuntimeClientTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

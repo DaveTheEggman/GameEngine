@@ -1,24 +1,30 @@
-// Raptor::RuntimeClient — the `raptor.runtime.client` module.
+// Raptor::RuntimeClient — `:app` partition.
 //
-// Application: the headless client. An abstract base class that owns a Context
-// and exposes the frame lifecycle — Start (configure -> register subsystems ->
-// Context startup -> ready), per-frame Tick (fixed-step accumulator + variable
-// update), and Stop. It is deliberately LOOP-AGNOSTIC: who owns the run loop is
-// platform-specific (a blocking while-loop on desktop, a browser callback on
-// Emscripten), so the platform layer drives Start/Tick/Stop — the Application
-// does not contain a loop. The base registers no subsystems and does no
-// rendering; it stays headless until Platform/RHI land (OnRender is a no-op for
-// now). Real logic lives in subsystems and the script driver; the On* hooks are
-// thin convenience sugar.
+// The application contract. There is exactly ONE application per host (not a list
+// of modules): the application IS the game/tool. It owns subsystem registration,
+// so the subsystem set is declared once by the app and is identical whether the
+// app runs standalone or embedded in the editor — subsystems are truly pluggable.
+// (This is the lesson from Sedulous, where the HOST — EngineApplication/Editor
+// Application — forced in its own default subsystems, so neither standalone nor
+// editor honored the game's actual subsystem set.)
+//
+//   IApplicationHost — what the app sees of its host (Context, services, windows).
+//   IApplication     — the app/game: registers subsystems + lifecycle hooks.
+//
+// DefaultApplication (the opinionated base that registers engine default
+// subsystems) lives in a SEPARATE library (raptor.runtime.defaultapp) so this base
+// client never pulls in the engine subsystem libraries — only apps that opt into
+// the defaults link it.
 
 module;
 #include "Core/Prelude.h"
 
-export module raptor.runtime.client;
+export module raptor.runtime.client:app;
 
 import raptor.core;
 import raptor.runtime;
 import raptor.runtime.platform;
+import raptor.runtime.graphics;
 
 namespace rc = raptor::core;
 
@@ -30,91 +36,46 @@ export namespace raptor::runtime
         rc::f32 maxFrameTime  = 0.25f;        // clamp per frame (avoids the spiral of death)
     };
 
-    class Application
+    // The host as seen by the application: register subsystems via Ctx(), reach the
+    // platform/graphics services, manage runtime windows, request exit. Implemented
+    // by ApplicationHost (and, later, by the editor for its embedded runtime).
+    class IApplicationHost
     {
     public:
-        Application() = default;
-        virtual ~Application() = default;
+        virtual ~IApplicationHost() = default;
 
-        Application(const Application&) = delete;
-        Application& operator=(const Application&) = delete;
+        [[nodiscard]] virtual Context& Ctx() noexcept = 0;
+        [[nodiscard]] virtual IPlatform* Platform() noexcept = 0;
+        [[nodiscard]] virtual GraphicsDevice* Graphics() noexcept = 0;
 
-        // Bring the application up: configure, register subsystems, start the
-        // Context, then signal ready. Idempotent. The platform runner calls this
-        // once (passing the platform), then Tick() each frame while IsRunning(),
-        // then Stop(). The platform is borrowed (the entry point owns it) and is
-        // available from OnInitialize on, so platform-backed subsystems can be
-        // wired there; it stays null for headless runs.
-        void Start(IPlatform* platform = nullptr)
-        {
-            if (m_started) { return; }
-            m_platform = platform;
-            OnConfigure(m_settings);
-            OnInitialize();
-            m_context.Startup();
-            OnStarted();
-            m_started = true;
-            m_running = true;
-        }
+        // Open/close OS windows at runtime (each backed by a RenderWindow). The
+        // basis for detachable UI windows. Close is deferred to frame end. Both
+        // return null / no-op when running headless (no platform/graphics).
+        virtual RenderWindow* OpenWindow(const WindowSettings& windowSettings, const RenderWindowDesc& renderDesc) = 0;
+        virtual void CloseWindow(RenderWindow* window) = 0;
 
-        // Advance exactly one frame with an explicit delta. The platform runner
-        // passes wall-clock time; call directly for deterministic stepping.
-        void Tick(rc::f32 deltaTime)
-        {
-            m_context.BeginFrame(deltaTime);
+        virtual void RequestExit(int code = 0) = 0;
+    };
 
-            m_accumulator += deltaTime;
-            while (m_accumulator >= m_settings.fixedTimeStep)
-            {
-                m_context.FixedUpdate(m_settings.fixedTimeStep);
-                m_accumulator -= m_settings.fixedTimeStep;
-            }
+    // The application/game. Exactly one per host. Configure() registers the app's
+    // subsystems (the ONLY place subsystems are registered — pluggable). OnLaunch/
+    // OnExit bracket "play": for a standalone host they fire once around the loop;
+    // an editor fires them on Play/Stop, so the same app runs embedded or standalone.
+    class IApplication
+    {
+    public:
+        virtual ~IApplication() = default;
 
-            m_context.Update(deltaTime);
-            OnUpdate(deltaTime);
-            m_context.PostUpdate(deltaTime);
-            OnRender();
-            m_context.EndFrame();
-        }
+        // Read once by the host before Configure() (frame pacing).
+        [[nodiscard]] virtual ApplicationSettings Settings() const { return {}; }
 
-        // Tear the application down: stop the Context, then notify. Idempotent.
-        void Stop()
-        {
-            if (!m_started) { return; }
-            m_context.Shutdown();
-            OnShutdown();
-            m_started = false;
-            m_running = false;
-        }
-
-        // Ask the platform loop to stop after the current frame (it polls
-        // IsRunning()). Does not itself tear down — the runner calls Stop() once
-        // the loop exits, and returns ExitCode() from the entry point.
-        void RequestExit(int code = 0) noexcept { m_running = false; m_exitCode = code; }
-
-        [[nodiscard]] Context& Ctx() noexcept { return m_context; }
-        // Borrowed platform service (null for headless runs). Use from
-        // OnInitialize on to wire platform-backed subsystems.
-        [[nodiscard]] IPlatform* Platform() noexcept { return m_platform; }
-        [[nodiscard]] const ApplicationSettings& Settings() const noexcept { return m_settings; }
-        [[nodiscard]] bool IsRunning() const noexcept { return m_running; }
-        [[nodiscard]] int ExitCode() const noexcept { return m_exitCode; }
-
-    protected:
-        virtual void OnConfigure(ApplicationSettings& /*settings*/) {}  // tweak settings, pre-init
-        virtual void OnInitialize() {}                                  // register subsystems (before Startup)
-        virtual void OnStarted() {}                                     // subsystems live (load scripts, set driver)
-        virtual void OnUpdate(rc::f32 /*deltaTime*/) {}                 // after Context::Update
-        virtual void OnRender() {}                                      // headless: no-op for now
-        virtual void OnShutdown() {}
-
-    private:
-        Context m_context;
-        ApplicationSettings m_settings;
-        IPlatform* m_platform = nullptr;  // borrowed; owned by the entry point
-        bool m_started = false;
-        bool m_running = false;
-        int m_exitCode = 0;
-        rc::f32 m_accumulator = 0.0f;
+        virtual void Configure(IApplicationHost& host) { (void)host; }                  // register subsystems/types
+        virtual void OnStartup(IApplicationHost& host) { (void)host; }                   // after Context.Startup
+        virtual void OnLaunch(IApplicationHost& host) { (void)host; }                    // enter play
+        virtual void OnUpdate(IApplicationHost& host, rc::f32 deltaTime) { (void)host; (void)deltaTime; }
+        virtual void OnFixedUpdate(IApplicationHost& host, rc::f32 fixedDeltaTime) { (void)host; (void)fixedDeltaTime; }
+        virtual void OnRenderWindow(IApplicationHost& host, FrameContext& frame) { (void)host; (void)frame; }
+        virtual void OnExit(IApplicationHost& host) { (void)host; }                      // leave play
+        virtual void OnShutdown(IApplicationHost& host) { (void)host; }                  // before Context.Shutdown
     };
 }

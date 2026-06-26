@@ -5,6 +5,9 @@
 import raptor.core;
 import raptor.runtime;
 import raptor.runtime.platform;
+import raptor.runtime.platform.null;
+import raptor.runtime.graphics;
+import raptor.runtime.graphics.null;
 import raptor.runtime.client;
 
 using namespace raptor::core;
@@ -12,13 +15,13 @@ using namespace raptor::runtime;
 
 namespace
 {
-    // A minimal in-process platform: counts ProcessEvents, and can be made to
-    // quit (as if the window closed) to exercise the runner's exit conditions.
+    // A minimal in-process platform: counts ProcessEvents and can be made to quit.
     class MockPlatform final : public IPlatform
     {
     public:
         int processed = 0;
         bool running = true;
+        IWindowManager* WindowManager() noexcept override { return nullptr; }
         IWindow* MainWindow() noexcept override { return nullptr; }
         IInputManager* Input() noexcept override { return nullptr; }
         void ProcessEvents() override { ++processed; }
@@ -26,7 +29,7 @@ namespace
         void RequestExit() override { running = false; }
     };
 
-    // Counts the frame phases the Application drives into the Context.
+    // Counts the frame phases the host drives into the Context.
     class CountingSys final : public Subsystem
     {
     public:
@@ -41,58 +44,63 @@ namespace
         void OnShutdown() override { ++shutdowns; }
     };
 
-    // Records the lifecycle hook order: 1=configure 2=initialize 3=started
-    // 4=update 5=shutdown. Uses a 0.5s fixed step so accumulator math is exact.
-    class LifecycleApp final : public Application
+    // Records the lifecycle hook order: 1=Configure 2=OnStartup 3=OnLaunch
+    // 4=OnUpdate 5=OnExit 6=OnShutdown. Registers its subsystem in Configure (the
+    // app owns subsystem registration). 0.5s fixed step for exact accumulator math.
+    class LifecycleApp final : public IApplication
     {
     public:
         Array<int> order;
         CountingSys* sys = nullptr;
-        bool sysLiveAtStarted = false;
-    protected:
-        void OnConfigure(ApplicationSettings& s) override { order.PushBack(1); s.fixedTimeStep = 0.5f; }
-        void OnInitialize() override { order.PushBack(2); sys = Ctx().AddSubsystem<CountingSys>(); }
-        void OnStarted() override { order.PushBack(3); sysLiveAtStarted = sys->IsInitialized(); }
-        void OnUpdate(f32) override { order.PushBack(4); }
-        void OnShutdown() override { order.PushBack(5); }
+        bool sysLiveAtStartup = false;
+
+        ApplicationSettings Settings() const override { ApplicationSettings s; s.fixedTimeStep = 0.5f; return s; }
+        void Configure(IApplicationHost& host) override { order.PushBack(1); sys = host.Ctx().AddSubsystem<CountingSys>(); }
+        void OnStartup(IApplicationHost&) override { order.PushBack(2); sysLiveAtStartup = sys->IsInitialized(); }
+        void OnLaunch(IApplicationHost&) override { order.PushBack(3); }
+        void OnUpdate(IApplicationHost&, f32) override { order.PushBack(4); }
+        void OnExit(IApplicationHost&) override { order.PushBack(5); }
+        void OnShutdown(IApplicationHost&) override { order.PushBack(6); }
     };
 }
 
-TEST_CASE("client: Start runs the lifecycle hooks in order and brings subsystems up")
+TEST_CASE("client: Start configures the app, starts subsystems, then launches")
 {
     LifecycleApp app;
-    app.Start();
+    ApplicationHost host;
+    host.Start(app);
 
     REQUIRE(app.order.Size() == 3u);
-    CHECK(app.order[0] == 1);          // OnConfigure
-    CHECK(app.order[1] == 2);          // OnInitialize
-    CHECK(app.order[2] == 3);          // OnStarted
-    CHECK(app.sysLiveAtStarted);       // subsystem Init ran before OnStarted
-    CHECK(app.IsRunning());
+    CHECK(app.order[0] == 1);          // Configure (app registers subsystems)
+    CHECK(app.order[1] == 2);          // OnStartup
+    CHECK(app.order[2] == 3);          // OnLaunch
+    CHECK(app.sysLiveAtStartup);       // Configure ran before Context.Startup, so Init happened
+    CHECK(host.IsRunning());
 
-    app.Stop();
-    CHECK_FALSE(app.IsRunning());
+    host.Stop();
+    CHECK_FALSE(host.IsRunning());
     CHECK(app.sys->shutdowns == 1);
-    CHECK(app.order[app.order.Size() - 1] == 5);  // OnShutdown last
+    CHECK(app.order[app.order.Size() - 1] == 6);  // OnExit then OnShutdown last
 }
 
 TEST_CASE("client: Tick drives Context phases with a fixed-step accumulator")
 {
     LifecycleApp app;
-    app.Start();
+    ApplicationHost host;
+    host.Start(app);
 
-    app.Tick(0.25f);                   // accumulator 0.25 < 0.5 -> no fixed step
+    host.Tick(0.25f);                   // accumulator 0.25 < 0.5 -> no fixed step
     CHECK(app.sys->begin == 1);
     CHECK(app.sys->update == 1);
     CHECK(app.sys->post == 1);
     CHECK(app.sys->end == 1);
     CHECK(app.sys->fixed == 0);
 
-    app.Tick(0.25f);                   // accumulator reaches 0.5 -> exactly one fixed step
+    host.Tick(0.25f);                   // reaches 0.5 -> exactly one fixed step
     CHECK(app.sys->fixed == 1);
     CHECK(app.sys->update == 2);
 
-    app.Tick(0.5f);                    // another full step
+    host.Tick(0.5f);                    // another full step
     CHECK(app.sys->fixed == 2);
 
     // OnUpdate fired once per Tick, after Context::Update each time.
@@ -100,72 +108,117 @@ TEST_CASE("client: Tick drives Context phases with a fixed-step accumulator")
     for (usize i = 0; i < app.order.Size(); ++i) { if (app.order[i] == 4) { ++updates; } }
     CHECK(updates == 3);
 
-    app.Stop();
+    host.Stop();
+}
+
+namespace
+{
+    class ClampApp final : public IApplication
+    {
+    public:
+        CountingSys* sys = nullptr;
+        ApplicationSettings Settings() const override { ApplicationSettings s; s.fixedTimeStep = 0.1f; s.maxFrameTime = 0.25f; return s; }
+        void Configure(IApplicationHost& host) override { sys = host.Ctx().AddSubsystem<CountingSys>(); }
+    };
 }
 
 TEST_CASE("client: maxFrameTime clamps a large delta")
 {
-    struct ClampApp final : Application
-    {
-        CountingSys* sys = nullptr;
-    protected:
-        void OnConfigure(ApplicationSettings& s) override { s.fixedTimeStep = 0.1f; s.maxFrameTime = 0.25f; }
-        void OnInitialize() override { sys = Ctx().AddSubsystem<CountingSys>(); }
-    } app;
-    app.Start();
+    ClampApp app;
+    ApplicationHost host;
+    host.Start(app);
 
-    // A 10s spike must be clamped by the caller; the runner is responsible for
-    // clamping to Settings().maxFrameTime before calling Tick.
+    // The runner clamps to Settings().maxFrameTime before calling Tick.
     f32 dt = 10.0f;
-    if (dt > app.Settings().maxFrameTime) { dt = app.Settings().maxFrameTime; }
-    app.Tick(dt);                      // 0.25 / 0.1 -> 2 fixed steps, not 100
+    if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
+    host.Tick(dt);                      // 0.25 / 0.1 -> 2 fixed steps, not 100
     CHECK(app.sys->fixed == 2);
 
-    app.Stop();
+    host.Stop();
 }
 
 TEST_CASE("client: RequestExit stops a manual run loop")
 {
     LifecycleApp app;
-    app.Start();
+    ApplicationHost host;
+    host.Start(app);
 
-    // Emulate a platform runner: tick while running, exit after 3 updates.
     int frames = 0;
-    while (app.IsRunning())
+    while (host.IsRunning())
     {
-        app.Tick(0.5f);
-        if (++frames == 3) { app.RequestExit(7); }
+        host.Tick(0.5f);
+        if (++frames == 3) { host.RequestExit(7); }
     }
-    app.Stop();
+    host.Stop();
 
     CHECK(frames == 3);
-    CHECK(app.ExitCode() == 7);
+    CHECK(host.ExitCode() == 7);
     CHECK(app.sys->update == 3);
 }
 
 namespace
 {
-    // App that records the borrowed platform it sees during OnInitialize.
-    class PlatformApp final : public Application
+    // Records the borrowed platform it sees during Configure.
+    class PlatformApp final : public IApplication
     {
     public:
         IPlatform* seenPlatform = nullptr;
-    protected:
-        void OnInitialize() override { seenPlatform = Platform(); }  // platform available at init
+        void Configure(IApplicationHost& host) override { seenPlatform = host.Platform(); }
     };
 }
 
-TEST_CASE("client: Start borrows the platform and exposes it from OnInitialize")
+TEST_CASE("client: the host borrows the platform and exposes it to the app")
 {
     MockPlatform platform;
     PlatformApp app;
+    ApplicationHost host;
 
-    CHECK(app.Platform() == nullptr);    // none until Start
-    app.Start(&platform);
-    CHECK(app.seenPlatform == &platform);  // visible during OnInitialize
-    CHECK(app.Platform() == &platform);
-    app.Stop();
+    host.Start(app, &platform);
+    CHECK(app.seenPlatform == &platform);   // visible during Configure
+    CHECK(host.Platform() == &platform);
+    host.Stop();
+}
 
-    // The runner (RunApplication) that drives ProcessEvents + Tick lives in the
-    // platform backend, not here; it is exercised by the desktop backend tests.
+namespace
+{
+    // Opens a second window at startup and counts per-window render calls.
+    class RenderApp final : public IApplication
+    {
+    public:
+        RenderWindow* second = nullptr;
+        int renders = 0;
+        void OnStartup(IApplicationHost& host) override { second = host.OpenWindow(WindowSettings{}, RenderWindowDesc{}); }
+        void OnRenderWindow(IApplicationHost&, FrameContext&) override { ++renders; }
+    };
+}
+
+TEST_CASE("client: with a graphics device, every window renders each Tick")
+{
+    NullPlatform platform;
+    auto created = CreateNullGraphicsDevice(2);
+    REQUIRE(created.HasValue());
+    UniquePtr<GraphicsDevice>& gd = created.Value();
+
+    RenderApp app;
+    ApplicationHost host;
+    host.Start(app, &platform, gd.Get());
+
+    CHECK(host.Windows().Size() == 2u);    // main (from Start) + the one opened in OnStartup
+    REQUIRE(app.second != nullptr);
+
+    host.Tick(0.016f);
+    CHECK(app.renders == 2);               // one per window
+
+    // Close is deferred to frame end: this Tick still renders BOTH (2 -> 4),
+    // then flushes the window away.
+    host.CloseWindow(app.second);
+    host.Tick(0.016f);
+    CHECK(host.Windows().Size() == 1u);
+    CHECK(app.renders == 4);
+
+    host.Tick(0.016f);                     // only the survivor renders now
+    CHECK(app.renders == 5);
+
+    host.Stop();
+    CHECK(host.Windows().Size() == 0u);
 }

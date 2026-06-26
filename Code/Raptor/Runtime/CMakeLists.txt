@@ -20,6 +20,7 @@ target_sources(RaptorRuntime
 # follows Client (its runner drives Application).
 add_subdirectory(Platform)
 add_subdirectory(Client)
+add_subdirectory(DefaultApp)
 add_subdirectory(Script)
 
 # Desktop (SDL3) backend — built when SDL3 is available (system/prebuilt).
