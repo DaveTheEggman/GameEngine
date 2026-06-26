@@ -58,6 +58,10 @@ export namespace raptor::runtime
     public:
         virtual ~IWindow() = default;
 
+        // Stable per-window id, unique within a platform run. Used to route OS
+        // events to the right window and to look windows up. 0 is never a valid id.
+        [[nodiscard]] virtual rc::u32 Id() const noexcept = 0;
+
         [[nodiscard]] virtual rc::u32 Width() const noexcept = 0;
         [[nodiscard]] virtual rc::u32 Height() const noexcept = 0;
         // Native handles for RHI surface creation (see NativeWindow).
@@ -69,12 +73,72 @@ export namespace raptor::runtime
         virtual void Close() = 0;
     };
 
+    // What happened to a window during the last ProcessEvents() pump. Delivered
+    // as a per-frame queue (IWindowManager::Events) rather than a callback —
+    // matches the pull-based event model and sidesteps callback lifetime in a
+    // -fno-exceptions/-fno-rtti world. The consumer (Application) drains it each
+    // frame and reacts (resize that window's swapchain, close it, etc.).
+    enum class WindowEventType : rc::u8
+    {
+        Resized,
+        Moved,
+        FocusGained,
+        FocusLost,
+        CloseRequested,
+    };
+
+    struct WindowEvent
+    {
+        WindowEventType type = WindowEventType::Resized;
+        rc::u32 windowId = 0;
+        rc::u32 width = 0;   // Resized
+        rc::u32 height = 0;  // Resized
+        rc::i32 x = 0;       // Moved
+        rc::i32 y = 0;       // Moved
+    };
+
+    // Owns the set of OS windows for a platform run. One manager per platform;
+    // the main window is just the first one created. Windows can be created and
+    // destroyed at runtime (the basis for detachable/dockable UI windows).
+    // Destruction is DEFERRED: DestroyWindow() marks a window closed, and
+    // FlushDestroyed() (called at frame end, after the GPU is done with it)
+    // actually frees it — so a window is never torn down mid-frame.
+    class IWindowManager
+    {
+    public:
+        virtual ~IWindowManager() = default;
+
+        [[nodiscard]] virtual rc::Result<IWindow*> CreateWindow(const WindowSettings& settings) = 0;
+        // Mark a window for destruction at the next FlushDestroyed(). Safe to call
+        // mid-frame. No-op if the window is unknown.
+        virtual void DestroyWindow(IWindow* window) = 0;
+
+        // All currently-live windows (closed-but-not-yet-flushed ones included
+        // until FlushDestroyed runs). The main window is Windows()[0] while open.
+        [[nodiscard]] virtual rc::Span<IWindow* const> Windows() noexcept = 0;
+        [[nodiscard]] virtual IWindow* MainWindow() noexcept = 0;       // first window, or null
+        [[nodiscard]] virtual IWindow* GetWindow(rc::u32 id) noexcept = 0;
+
+        // Window events accumulated during the last ProcessEvents() pump. Valid
+        // until the next pump. Drained by the runner/Application each frame.
+        [[nodiscard]] virtual rc::Span<const WindowEvent> Events() const noexcept = 0;
+
+        // Free windows marked by DestroyWindow(). Call once per frame, at end,
+        // after the GPU has finished the frame that may have used them.
+        virtual void FlushDestroyed() = 0;
+    };
+
     class IPlatform
     {
     public:
         virtual ~IPlatform() = default;
 
-        // The main window (may be null for a headless platform).
+        // The window manager (always present; owns 0..N windows). The main
+        // window is WindowManager()->MainWindow().
+        [[nodiscard]] virtual IWindowManager* WindowManager() noexcept = 0;
+
+        // Convenience for single-window callers: == WindowManager()->MainWindow().
+        // (Kept so single-window hosts like the RHI sample framework are unchanged.)
         [[nodiscard]] virtual IWindow* MainWindow() noexcept = 0;
 
         // Aggregate input devices (keyboard/mouse/gamepad/touch). Always present
