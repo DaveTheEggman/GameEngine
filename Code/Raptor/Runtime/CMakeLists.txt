@@ -30,6 +30,9 @@ else()
     message(STATUS "SDL3 not found — skipping Raptor::RuntimePlatformDesktop")
 endif()
 
+# RHI render host (GraphicsDevice/RenderWindow). Self-guards on the Vulkan RHI.
+add_subdirectory(Graphics)
+
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
