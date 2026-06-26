@@ -28,7 +28,8 @@ export module raptor.runtime.platform.desktop;
 
 import raptor.core;
 import raptor.runtime.platform;
-import raptor.runtime.client;   // Application (the desktop runner drives it)
+import raptor.runtime.graphics;  // GraphicsDevice (the runner hands it to the app)
+import raptor.runtime.client;    // Application (the desktop runner drives it)
 
 namespace rc = raptor::core;
 
@@ -43,6 +44,7 @@ export namespace raptor::runtime
             SDL_GetWindowSize(m_window, &w, &h);
             m_width = static_cast<rc::u32>(w);
             m_height = static_cast<rc::u32>(h);
+            m_id = static_cast<rc::u32>(SDL_GetWindowID(m_window));
         }
 
         ~SDL3Window() override { if (m_window != nullptr) { SDL_DestroyWindow(m_window); } }
@@ -50,6 +52,7 @@ export namespace raptor::runtime
         SDL3Window(const SDL3Window&) = delete;
         SDL3Window& operator=(const SDL3Window&) = delete;
 
+        [[nodiscard]] rc::u32 Id() const noexcept override { return m_id; }
         [[nodiscard]] rc::u32 Width() const noexcept override { return m_width; }
         [[nodiscard]] rc::u32 Height() const noexcept override { return m_height; }
 
@@ -98,9 +101,111 @@ export namespace raptor::runtime
 
     private:
         SDL_Window* m_window;
+        rc::u32 m_id = 0;
         rc::u32 m_width = 0;
         rc::u32 m_height = 0;
         bool m_open = true;
+    };
+
+    // Builds SDL window-creation flags. On Wayland a Vulkan-backed window is
+    // needed for client-side decorations (see SDL3Platform ctor note); skipped
+    // under the headless "dummy" driver so tests still get a window.
+    [[nodiscard]] inline SDL_WindowFlags Sdl3WindowFlags() noexcept
+    {
+        SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+#if defined(__linux__)
+        const char* driver = SDL_GetCurrentVideoDriver();
+        if (driver != nullptr && SDL_strcmp(driver, "dummy") != 0) { flags |= SDL_WINDOW_VULKAN; }
+#endif
+        return flags;
+    }
+
+    // Owns the SDL windows for the run. The main window is the first created.
+    // Window destruction is deferred to FlushDestroyed() so a window is never
+    // freed mid-frame while the GPU may still reference its swapchain.
+    class SDL3WindowManager final : public IWindowManager
+    {
+    public:
+        [[nodiscard]] rc::Result<IWindow*> CreateWindow(const WindowSettings& settings) override
+        {
+            const rc::String title = rc::String(settings.title);
+            SDL_Window* window = SDL_CreateWindow(
+                reinterpret_cast<const char*>(title.CStr()),
+                static_cast<int>(settings.width), static_cast<int>(settings.height),
+                Sdl3WindowFlags());
+            if (window == nullptr) { return rc::Err(rc::ErrorCode::Unknown); }
+
+            auto wrapped = rc::MakeUnique<SDL3Window>(rc::DefaultAllocator(), window);
+            IWindow* borrowed = wrapped.Get();
+            m_owned.PushBack(static_cast<rc::UniquePtr<SDL3Window>&&>(wrapped));
+            m_live.PushBack(borrowed);
+            return borrowed;
+        }
+
+        void DestroyWindow(IWindow* window) override
+        {
+            if (window == nullptr) { return; }
+            window->Close();
+            m_pendingDestroy.PushBack(window->Id());
+        }
+
+        [[nodiscard]] rc::Span<IWindow* const> Windows() noexcept override
+        {
+            return rc::Span<IWindow* const>(m_live.Data(), m_live.Size());
+        }
+        [[nodiscard]] IWindow* MainWindow() noexcept override
+        {
+            return m_live.IsEmpty() ? nullptr : m_live[0];
+        }
+        [[nodiscard]] IWindow* GetWindow(rc::u32 id) noexcept override
+        {
+            for (IWindow* w : m_live) { if (w->Id() == id) { return w; } }
+            return nullptr;
+        }
+        [[nodiscard]] rc::Span<const WindowEvent> Events() const noexcept override
+        {
+            return rc::Span<const WindowEvent>(m_events.Data(), m_events.Size());
+        }
+
+        void FlushDestroyed() override
+        {
+            for (rc::u32 id : m_pendingDestroy)
+            {
+                for (rc::usize i = 0; i < m_live.Size(); ++i)
+                {
+                    if (m_live[i]->Id() == id) { m_live.RemoveAt(i); break; }
+                }
+                for (rc::usize i = 0; i < m_owned.Size(); ++i)
+                {
+                    if (m_owned[i]->Id() == id) { m_owned.RemoveAt(i); break; }  // dtor destroys SDL window
+                }
+            }
+            m_pendingDestroy.Clear();
+        }
+
+        // --- event pump wiring (called by SDL3Platform::ProcessEvents) ---
+        SDL3Window* Find(rc::u32 id) noexcept
+        {
+            for (rc::UniquePtr<SDL3Window>& w : m_owned) { if (w->Id() == id) { return w.Get(); } }
+            return nullptr;
+        }
+        void ClearEvents() noexcept { m_events.Clear(); }
+        void PushEvent(const WindowEvent& e) { m_events.PushBack(e); }
+
+        // Destroy every window immediately (SDL3Window dtors call
+        // SDL_DestroyWindow). The platform calls this before SDL_Quit().
+        void DestroyAllNow()
+        {
+            m_live.Clear();
+            m_owned.Clear();
+            m_pendingDestroy.Clear();
+        }
+
+    private:
+        rc::Array<rc::UniquePtr<SDL3Window>> m_owned;
+        rc::Array<IWindow*> m_live;
+        rc::Array<rc::u32> m_pendingDestroy;
+        rc::Array<WindowEvent> m_events;
     };
 
     // -----------------------------------------------------------------------
@@ -425,53 +530,43 @@ export namespace raptor::runtime
     class SDL3Platform final : public IPlatform
     {
     public:
+        // Note on the Wayland Vulkan-window quirk: SDL only attaches libdecor
+        // client-side decorations to a window backed by a GPU surface, so a plain
+        // window comes up bare on GNOME/Mutter. Sdl3WindowFlags() flags every
+        // window as Vulkan on Linux (skipped under the "dummy" driver) to fix it.
         explicit SDL3Platform(const WindowSettings& settings = {}) noexcept
         {
             SDL_SetMainReady();
             if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) { m_running = false; return; }
             m_initialized = true;
 
-            SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
-#if defined(__linux__)
-            // On Wayland (GNOME/Mutter does no server-side decorations) SDL only
-            // attaches libdecor client-side decorations to a window backed by a
-            // GPU surface, so a plain window comes up bare. The desktop RHI here
-            // is Vulkan, so flag it as a Vulkan window. Skipped under the headless
-            // "dummy" driver (no Vulkan) so tests still get a window.
-            {
-                const char* driver = SDL_GetCurrentVideoDriver();
-                if (driver != nullptr && SDL_strcmp(driver, "dummy") != 0) { flags |= SDL_WINDOW_VULKAN; }
-            }
-#endif
-            const rc::String title = rc::String(settings.title);
-            SDL_Window* window = SDL_CreateWindow(
-                reinterpret_cast<const char*>(title.CStr()),
-                static_cast<int>(settings.width), static_cast<int>(settings.height),
-                flags);
-            if (window == nullptr) { m_running = false; return; }
-
-            m_window = rc::DefaultAllocator().New<SDL3Window>(window);
-            m_input.SetWindow(window);
+            rc::Result<IWindow*> main = m_windows.CreateWindow(settings);
+            if (!main.HasValue()) { m_running = false; return; }
+            if (SDL3Window* w = m_windows.Find(main.Value()->Id())) { m_input.SetWindow(w->Handle()); }
         }
 
         ~SDL3Platform() override
         {
-            // Release SDL-owned input resources before tearing SDL down.
+            // Release SDL-owned input resources and destroy windows before
+            // tearing SDL down (no SDL calls may happen after SDL_Quit).
             m_input.ReleaseDevices();
-            if (m_window != nullptr) { rc::DefaultAllocator().Delete(m_window); }
+            m_windows.DestroyAllNow();
             if (m_initialized) { SDL_Quit(); }
         }
 
         SDL3Platform(const SDL3Platform&) = delete;
         SDL3Platform& operator=(const SDL3Platform&) = delete;
 
-        [[nodiscard]] IWindow* MainWindow() noexcept override { return m_window; }
+        [[nodiscard]] IWindowManager* WindowManager() noexcept override { return &m_windows; }
+        [[nodiscard]] IWindow* MainWindow() noexcept override { return m_windows.MainWindow(); }
         [[nodiscard]] IInputManager* Input() noexcept override { return &m_input; }
 
         void ProcessEvents() override
         {
-            // Roll input state (current -> previous, clear deltas) before pumping.
+            // Roll input state (current -> previous, clear deltas) before pumping;
+            // clear last frame's window events (they're valid only until now).
             m_input.Update();
+            m_windows.ClearEvents();
 
             SDL_Event event;
             while (SDL_PollEvent(&event))
@@ -479,16 +574,43 @@ export namespace raptor::runtime
                 switch (event.type)
                 {
                     case SDL_EVENT_QUIT:
-                    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                        if (m_window != nullptr) { m_window->Close(); }
+                        // App-level quit: close the main window and stop the loop.
+                        if (IWindow* main = m_windows.MainWindow())
+                        {
+                            main->Close();
+                            m_windows.PushEvent(WindowEvent{ WindowEventType::CloseRequested, main->Id() });
+                        }
                         m_running = false;
                         break;
+                    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+                    {
+                        const rc::u32 id = static_cast<rc::u32>(event.window.windowID);
+                        m_windows.PushEvent(WindowEvent{ WindowEventType::CloseRequested, id });
+                        // Closing the main window stops the platform; the
+                        // Application handles secondary-window close via the event.
+                        IWindow* main = m_windows.MainWindow();
+                        if (main != nullptr && main->Id() == id) { main->Close(); m_running = false; }
+                        break;
+                    }
                     case SDL_EVENT_WINDOW_RESIZED:
-                        if (m_window != nullptr)
+                    {
+                        const rc::u32 id = static_cast<rc::u32>(event.window.windowID);
+                        if (SDL3Window* w = m_windows.Find(id))
                         {
-                            m_window->OnResized(static_cast<rc::u32>(event.window.data1),
-                                                static_cast<rc::u32>(event.window.data2));
+                            const rc::u32 nw = static_cast<rc::u32>(event.window.data1);
+                            const rc::u32 nh = static_cast<rc::u32>(event.window.data2);
+                            w->OnResized(nw, nh);
+                            m_windows.PushEvent(WindowEvent{ WindowEventType::Resized, id, nw, nh });
                         }
+                        break;
+                    }
+                    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                        m_windows.PushEvent(WindowEvent{ WindowEventType::FocusGained,
+                            static_cast<rc::u32>(event.window.windowID) });
+                        break;
+                    case SDL_EVENT_WINDOW_FOCUS_LOST:
+                        m_windows.PushEvent(WindowEvent{ WindowEventType::FocusLost,
+                            static_cast<rc::u32>(event.window.windowID) });
                         break;
 
                     // --- Keyboard ---
@@ -550,7 +672,8 @@ export namespace raptor::runtime
 
         [[nodiscard]] bool IsRunning() const noexcept override
         {
-            return m_running && m_window != nullptr && m_window->IsOpen();
+            IWindow* main = const_cast<SDL3WindowManager&>(m_windows).MainWindow();
+            return m_running && main != nullptr && main->IsOpen();
         }
 
         void RequestExit() override { m_running = false; }
@@ -641,7 +764,7 @@ export namespace raptor::runtime
             }
         }
 
-        SDL3Window* m_window = nullptr;
+        SDL3WindowManager m_windows;
         SDL3InputManager m_input;
         bool m_initialized = false;
         bool m_running = true;
@@ -659,20 +782,21 @@ export namespace raptor::runtime
     // client) because owning the loop is execution-model-specific — desktop
     // blocks, Emscripten uses a callback — and it must know both Application and
     // IPlatform. RAPTOR_APP_MAIN calls it on desktop. Returns the exit code.
-    inline int RunApplication(Application& app, IPlatform& platform)
+    inline int RunApplication(IApplication& app, IPlatform& platform, GraphicsDevice* graphics = nullptr)
     {
-        app.Start(&platform);
+        ApplicationHost host;
+        host.Start(app, &platform, graphics);
         auto previous = std::chrono::steady_clock::now();
-        while (platform.IsRunning() && app.IsRunning())
+        while (platform.IsRunning() && host.IsRunning())
         {
             platform.ProcessEvents();
             const auto now = std::chrono::steady_clock::now();
             rc::f32 dt = std::chrono::duration<rc::f32>(now - previous).count();
             previous = now;
-            if (dt > app.Settings().maxFrameTime) { dt = app.Settings().maxFrameTime; }
-            app.Tick(dt);
+            if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
+            host.Tick(dt);
         }
-        app.Stop();
-        return app.ExitCode();
+        host.Stop();
+        return host.ExitCode();
     }
 }

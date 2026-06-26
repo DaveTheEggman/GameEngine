@@ -32,12 +32,11 @@ namespace
     const ForceDummyDriver g_forceDummy;
 
     // Exits the run loop after a fixed number of frames.
-    class FrameCountApp final : public Application
+    class FrameCountApp final : public IApplication
     {
     public:
         int frames = 0;
-    protected:
-        void OnUpdate(f32) override { if (++frames == 5) { RequestExit(3); } }
+        void OnUpdate(IApplicationHost& host, f32) override { if (++frames == 5) { host.RequestExit(3); } }
     };
 }
 
@@ -227,5 +226,4 @@ TEST_CASE("platform.desktop: RunApplication drives the app until it exits")
 
     CHECK(code == 3);
     CHECK(app.frames == 5);            // RequestExit(3) ended the loop
-    CHECK_FALSE(app.IsRunning());      // Stop() ran
 }
