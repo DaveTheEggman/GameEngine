@@ -1,9 +1,12 @@
 # Raptor sample applications. Built when their required backends are available.
 
-if(TARGET Raptor::RuntimePlatformDesktop)
+# HelloWindow and MultiWindow both present through a GraphicsDevice, so both need
+# the desktop platform + the Vulkan GPU factory.
+if(TARGET Raptor::RuntimePlatformDesktop AND TARGET Raptor::RuntimeGraphicsGpu)
     add_subdirectory(HelloWindow)
+    add_subdirectory(MultiWindow)
 else()
-    message(STATUS "Samples: desktop platform unavailable (SDL3 not found) — skipping HelloWindow")
+    message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop platform + Vulkan GPU factory)")
 endif()
 
 # RHI sample framework + RHI samples (need Vulkan + Shaders too).
