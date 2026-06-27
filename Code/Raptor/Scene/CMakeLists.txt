@@ -11,6 +11,9 @@ target_sources(RaptorScene
     PUBLIC
         FILE_SET scene_modules TYPE CXX_MODULES FILES
             Entity.cppm
+            Phase.cppm
+            System.cppm
+            Component.cppm
             Scene.cppm
             SceneModule.cppm)
 

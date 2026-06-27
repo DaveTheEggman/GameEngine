@@ -8,4 +8,7 @@
 export module raptor.scene;
 
 export import :entity;
+export import :phase;
+export import :system;
+export import :component;
 export import :scene;
