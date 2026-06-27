@@ -96,7 +96,7 @@ protected:
         if (!m_meshRenderer->Initialize().IsOk()) { m_meshRenderer.Reset(); return; }
         m_registry.Register(m_meshRenderer.Get());
 
-        m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry);
+        m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight);
     }
 
     void OnReady() override {

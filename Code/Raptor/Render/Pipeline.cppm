@@ -138,13 +138,27 @@ private:
 // depth prepass + MRT forward + post, with automatic barriers and transient aliasing.)
 class ForwardPass {
 public:
-    explicit ForwardPass(rhi::Device& device) noexcept : m_device(&device) {}
-    ~ForwardPass() { ReleaseDepth(); }
+    ForwardPass(rhi::Device& device, u32 framesInFlight) noexcept
+        : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight) {}
+    ~ForwardPass() { ReleaseDepth(); ReleaseWorkerPools(); }
 
     ForwardPass(const ForwardPass&) = delete;
     ForwardPass& operator=(const ForwardPass&) = delete;
 
-    void Execute(const RenderView& view, const RendererRegistry& registry, rhi::CommandEncoder& encoder) {
+    // Once per frame, before composing views: provision + reset this frame's per-worker command
+    // pools (used for parallel emit). Reset happens ONCE per frame — a worker bundle's secondary
+    // command buffer must outlive the main submission that executes it, so it can't be freed
+    // between views. (No-op when the job system is absent — emit then runs serially.)
+    void BeginFrame(u32 frameIndex) {
+        if (!HasGlobalJobSystem()) { return; }
+        if (!EnsureWorkerPools(GlobalJobs().SlotCount())) { return; }
+        const u32 base = frameIndex * m_workerSlots;
+        for (u32 s = 0; s < m_workerSlots; ++s) {
+            if (m_workerPools[base + s] != nullptr) { m_workerPools[base + s]->Reset(); }
+        }
+    }
+
+    void Execute(const RenderView& view, const RendererRegistry& registry, rhi::CommandEncoder& encoder, u32 frameIndex) {
         rhi::TextureView* color = view.Target();
         if (color == nullptr || !EnsureDepth(view.Width(), view.Height())) { return; }
 
@@ -181,10 +195,12 @@ public:
             i = j;
         }
 
-        // EMIT: replay the resolved draws into a render bundle (recorded before BeginRenderPass —
-        // bundle recording requires the encoder in the recording state). Emission is pure command
-        // replay with no shared mutation — the seam where parallel recording (per-worker bundles)
-        // slots in. The bundle is then executed into the pass below.
+        // EMIT: replay the resolved draws into render bundle(s), recorded before BeginRenderPass
+        // (bundle recording requires the encoder in the recording state). Emission is pure command
+        // replay with no shared mutation, so it parallelizes: above a threshold, split the resolved
+        // draws into N contiguous chunks recorded into N bundles on N JobSystem workers, each using
+        // its OWN command pool (Vulkan pools aren't thread-safe). Below threshold (or no job
+        // system), record one bundle on the calling thread. Bundles are executed in draw order.
         rhi::RenderBundleDesc bd{};
         bd.colorFormats[0]     = view.TargetFormat();
         bd.colorFormatCount    = 1;
@@ -194,23 +210,28 @@ public:
         bd.height              = view.Height();
         bd.label               = u8"forward.bundle";
 
-        rhi::RenderBundle* bundle = nullptr;
-        if (rhi::RenderBundleEncoder* be = encoder.CreateRenderBundleEncoder(bd)) {
+        m_bundles.Clear();
+        const u32 total = static_cast<u32>(m_resolved.Size());
+        if (HasGlobalJobSystem() && total >= kParallelEmitThreshold) {
+            EmitParallel(bd, frameIndex);
+        } else if (rhi::RenderBundleEncoder* be = encoder.CreateRenderBundleEncoder(bd)) {
             for (const ResolvedDraw& d : m_resolved) { EmitDraw(*be, d); }
-            bundle = be->Finish();
+            m_bundles.PushBack(be->Finish());
         }
 
         // Depth target starts Undefined each frame (we clear it); move it to depth-write
         // before the pass. (The color target was transitioned to RenderTarget by the host.)
         encoder.TransitionTexture(m_depthTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilWrite);
 
-        // The pass body is supplied by the bundle (no inline draws — secondary contents).
+        // The pass body is supplied by the bundle(s) (no inline draws — secondary contents).
         rp.contents = rhi::RenderPassContents::SecondaryCommandBuffers;
         rhi::RenderPassEncoder* pass = encoder.BeginRenderPass(rp);
         if (pass == nullptr) { return; }
-        if (bundle != nullptr) {
-            rhi::RenderBundle* bundles[1] = { bundle };
-            pass->ExecuteBundles(Span<rhi::RenderBundle* const>{ bundles, 1 });
+        // Collect non-null bundles in draw order and replay them.
+        m_executeList.Clear();
+        for (rhi::RenderBundle* b : m_bundles) { if (b != nullptr) { m_executeList.PushBack(b); } }
+        if (!m_executeList.IsEmpty()) {
+            pass->ExecuteBundles(Span<rhi::RenderBundle* const>{ m_executeList.Data(), m_executeList.Size() });
         }
         pass->End();
     }
@@ -236,12 +257,89 @@ private:
         m_depthW = 0; m_depthH = 0;
     }
 
+    // Split the resolved draws into <= SlotCount contiguous chunks; record each into its own
+    // bundle on a JobSystem worker, using that chunk's OWN command pool (so no two threads touch
+    // a pool concurrently — pools are indexed by chunk, not worker slot). Bundles are kept in
+    // draw order in m_bundles. Pools were reset for this frame by BeginFrame.
+    void EmitParallel(const rhi::RenderBundleDesc& bd, u32 frameIndex) {
+        JobSystem& jobs = GlobalJobs();
+        const u32 slots = jobs.SlotCount();
+        if (!EnsureWorkerPools(slots) || m_workerSlots == 0) { return; }
+
+        const u32 total  = static_cast<u32>(m_resolved.Size());
+        const u32 grain  = (total + slots - 1u) / slots;                 // ~slots chunks
+        const u32 chunks = (grain > 0) ? ((total + grain - 1u) / grain) : 1u;   // <= slots
+
+        m_bundles.Resize(chunks);
+        const u32 base = frameIndex * m_workerSlots;
+        const ResolvedDraw* draws = m_resolved.Data();
+        jobs.ParallelFor(chunks, [&, draws, total, grain, base](u32 c) {
+            m_bundles[c] = nullptr;
+            rhi::CommandEncoder* enc = m_workerEncoders[base + c];       // unique pool per chunk c
+            if (enc == nullptr) { return; }
+            rhi::RenderBundleEncoder* be = enc->CreateRenderBundleEncoder(bd);
+            if (be == nullptr) { return; }
+            const u32 begin = c * grain;
+            const u32 end   = Min((c + 1u) * grain, total);
+            for (u32 k = begin; k < end; ++k) { EmitDraw(*be, draws[k]); }
+            m_bundles[c] = be->Finish();
+        });
+    }
+
+    // (Re)provision the per-(frameIndex, slot) command-pool grid + one persistent encoder each
+    // (the encoder is only a handle to its pool for CreateRenderBundleEncoder; its primary buffer
+    // is never recorded/submitted, so it is created once and reused — only the pool resets). Grows
+    // only. Returns false on failure (parallel emit then skips).
+    bool EnsureWorkerPools(u32 slotCount) {
+        if (slotCount <= m_workerSlots) { return m_workerSlots > 0; }
+        ReleaseWorkerPools();
+        const usize n = static_cast<usize>(m_framesInFlight) * slotCount;
+        m_workerPools.Resize(n, nullptr);
+        m_workerEncoders.Resize(n, nullptr);
+        for (usize i = 0; i < n; ++i) {
+            rhi::CommandPool* pool = nullptr;
+            if (!m_device->CreateCommandPool(rhi::QueueType::Graphics, pool).IsOk() || pool == nullptr) {
+                ReleaseWorkerPools(); m_workerSlots = 0; return false;
+            }
+            m_workerPools[i] = pool;
+            rhi::CommandEncoder* enc = nullptr;
+            (void)pool->CreateEncoder(enc);
+            m_workerEncoders[i] = enc;
+        }
+        m_workerSlots = slotCount;
+        return true;
+    }
+
+    void ReleaseWorkerPools() {
+        for (usize i = 0; i < m_workerPools.Size(); ++i) {
+            if (m_workerEncoders[i] != nullptr && m_workerPools[i] != nullptr) {
+                m_workerPools[i]->DestroyEncoder(m_workerEncoders[i]);
+            }
+            if (m_workerPools[i] != nullptr) { m_device->DestroyCommandPool(m_workerPools[i]); }
+        }
+        m_workerPools.Clear();
+        m_workerEncoders.Clear();
+        m_workerSlots = 0;
+    }
+
+    // Above this many resolved draws, emission fans out across the job system; below it, one
+    // bundle on the calling thread. (Parallel recording pays off only with many distinct draws —
+    // instanced batches collapse to one resolved draw each.)
+    static constexpr u32 kParallelEmitThreshold = 256;
+
     rhi::Device*       m_device;
+    u32                m_framesInFlight = 2;
     rhi::Texture*      m_depthTex   = nullptr;
     rhi::TextureView*  m_depthView  = nullptr;
     u32                m_depthW = 0, m_depthH = 0;
     rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;
-    Array<ResolvedDraw> m_resolved;   // reused resolve buffer (drained each Execute)
+    Array<ResolvedDraw>       m_resolved;     // reused resolve buffer (drained each Execute)
+    Array<rhi::RenderBundle*> m_bundles;      // per-chunk bundles (draw order)
+    Array<rhi::RenderBundle*> m_executeList;  // non-null bundles to ExecuteBundles
+    // Per-(frameIndex, slot) worker command pools + persistent encoders for parallel emit.
+    Array<rhi::CommandPool*>    m_workerPools;
+    Array<rhi::CommandEncoder*> m_workerEncoders;
+    u32                         m_workerSlots = 0;
 };
 
 // The single per-frame driver. Begin resets shared per-frame state; AddView collects a view
@@ -249,8 +347,8 @@ private:
 // for the whole frame and composes every view. One driver, all views — no per-view object.
 class RenderFrame {
 public:
-    RenderFrame(rhi::Device& device, RendererRegistry& registry) noexcept
-        : m_registry(&registry), m_pass(device) {}
+    RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight) noexcept
+        : m_registry(&registry), m_pass(device, framesInFlight) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) noexcept {
@@ -279,8 +377,9 @@ public:
         }
 
         for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
+        m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
         for (usize i = 0; i < m_views.ActiveCount(); ++i) {
-            m_pass.Execute(*m_views.At(i), *m_registry, *m_encoder);
+            m_pass.Execute(*m_views.At(i), *m_registry, *m_encoder, m_frameIndex);
         }
         for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }
 

@@ -65,7 +65,7 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
-    RenderFrame frame(h.device, registry);
+    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
     // a scene snapshot: one cube at the origin
     RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
@@ -105,7 +105,7 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
-    RenderFrame frame(h.device, registry);
+    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
     RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
     RefPtr<mat::Material> material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
@@ -134,6 +134,49 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     CHECK(psoCache.Size() == 1);
 }
 
+TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job system")
+{
+    RenderHarness h;
+    if (!h.Init(256, 256)) { return; }
+    InitGlobalJobSystem(4);
+    {
+        shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+        mat::PipelineStateCache psoCache(shaderSystem, h.device);
+        MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
+        REQUIRE(meshRenderer.Initialize().IsOk());
+        RendererRegistry registry;
+        registry.Register(&meshRenderer);
+        RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+
+        // 300 distinct materials (one shared mesh) -> 300 singleton draws (no batching) -> over
+        // the parallel-emit threshold, so emission fans out across the job system's worker pools.
+        RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
+        Array<RefPtr<mat::Material>> mats;   // keep the materials alive for the frame
+        ExtractedScene scene;
+        for (int n = 0; n < 300; ++n) {
+            RefPtr<mat::Material> m = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+            mats.PushBack(m);
+            MeshRenderData* rd = scene.Add<MeshRenderData>();
+            rd->world = Mat4::Identity(); rd->worldCenter = Vec3{ static_cast<f32>(n), 0, 0 };
+            rd->mesh = cube.Get(); rd->material = m.Get(); rd->category = RenderCategories::Opaque;
+        }
+
+        ViewCamera camera;
+        camera.view       = Mat4::LookAtRH(Vec3{ 0, 0, 20 }, Vec3{ 0, 0, 0 }, Vec3{ 0, 1, 0 });
+        camera.projection = Mat4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+        ViewSettings settings;
+
+        // Drive two frames to exercise the per-worker pool ring (reset between frame ring slots).
+        for (u32 f = 0; f < 2; ++f) {
+            frame.Begin(*h.encoder, f);
+            frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256, 256);
+            frame.End();   // parallel emit — must not crash or deadlock
+        }
+        CHECK(psoCache.Size() >= 1);
+    }
+    ShutdownGlobalJobSystem();
+}
+
 TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
 {
     RenderHarness h;
@@ -145,7 +188,7 @@ TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
-    RenderFrame frame(h.device, registry);
+    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
     ExtractedScene scene;   // no renderables
     ViewCamera camera;
