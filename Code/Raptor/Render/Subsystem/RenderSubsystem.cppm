@@ -48,6 +48,7 @@ public:
     void OnSceneCreated(scene::Scene& scene) override {
         scene.AddSystem<MeshComponentManager>();
         scene.AddSystem<CameraComponentManager>();
+        scene.AddSystem<LightComponentManager>();
     }
 
     [[nodiscard]] bool IsReady() const noexcept { return m_frame.Get() != nullptr; }
@@ -70,7 +71,8 @@ public:
         if (m_frame.Get() == nullptr || target == nullptr) { return; }
 
         ExtractedScene* snapshot = AcquireScene();
-        ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up
+        ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up (resets snapshot)
+        ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
 
         ViewCamera camera;
         if (cameraOverride != nullptr) { camera = cameraOverride->camera; }

@@ -37,6 +37,8 @@ struct RenderRecordContext {
     const RenderView*          view        = nullptr;
     rhi::RenderCommandEncoder* pass        = nullptr;
     Mat4                       viewProj    = Mat4::Identity();
+    Vec3                       cameraPos   = Vec3{ 0, 0, 0 };
+    Span<const GpuLight>       lights      = {};
     rhi::TextureFormat         colorFormat = rhi::TextureFormat::BGRA8Unorm;
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
 };
@@ -199,6 +201,8 @@ private:
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = view.Camera().ViewProjection();
+        ctx.cameraPos   = view.Camera().position;
+        ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
         ctx.colorFormat = view.TargetFormat();
         ctx.depthFormat = m_depthFormat;
 

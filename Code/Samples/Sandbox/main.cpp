@@ -73,8 +73,11 @@ namespace
                         const rc::f32 fx = static_cast<rc::f32>(x) - (kGrid - 1) * 0.5f;
                         const rc::f32 fy = static_cast<rc::f32>(y) - (kGrid - 1) * 0.5f;
                         m_scene->SetLocalPosition(e, rc::Vec3{ fx * 1.05f, fy * 1.05f, 0.0f });
-                        const rc::Vec4 baseColor{ static_cast<rc::f32>(x) / (kGrid - 1),
-                                                  static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
+                        // Desaturated toward a light gray so the LIGHT color (not the albedo)
+                        // dominates the shaded look, while keeping subtle per-cube variation.
+                        const rc::Vec4 baseColor{ 0.55f + 0.25f * static_cast<rc::f32>(x) / (kGrid - 1),
+                                                  0.55f + 0.25f * static_cast<rc::f32>(y) / (kGrid - 1),
+                                                  0.65f, 1.0f };
                         rd::MeshComponent& mc = meshes->Add(e);
                         mc.mesh = cube;
                         // Distinct mode: the MATERIAL's BaseColor drives the per-cube color (and the
@@ -88,6 +91,26 @@ namespace
                         m_cubes.PushBack(e);
                     }
                 }
+            }
+
+            // Lights: a dim directional key (down-forward) + a bright point light that orbits the
+            // grid in OnUpdate, so the per-light forward shade is visible (moving highlight).
+            if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
+                sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
+                rc::Transform kt = m_scene->GetLocalTransform(key);
+                kt.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.6f);
+                m_scene->SetLocalTransform(key, kt);
+                rd::LightComponent& kl = lights->Add(key);
+                kl.type = rd::LightType::Directional;
+                kl.color = rc::Color{ 0.5f, 0.65f, 1.0f, 1.0f };
+                kl.intensity = 0.25f;                       // dim cool fill, so the point light dominates
+
+                m_pointLight = m_scene->CreateEntity(u8"pointLight");
+                rd::LightComponent& pl = lights->Add(m_pointLight);
+                pl.type = rd::LightType::Point;
+                pl.color = rc::Color{ 1.0f, 0.45f, 0.12f, 1.0f };  // strong orange
+                pl.intensity = 12.0f;
+                pl.range = 13.0f;                           // tight, so it reads as a localized pool, not a wash
             }
 
             rc::ConsoleWrite(kDistinctMaterials
@@ -105,6 +128,13 @@ namespace
                 t.rotation = spin;
                 m_scene->SetLocalTransform(cube, t);
             }
+            // Orbit the point light through the grid (close in front, z = +3.5) on its OWN slower
+            // phase so its bright orange pool clearly sweeps independently of the cube spin.
+            if (m_pointLight.IsAssigned()) {
+                const rc::f32 a = m_angle * 0.55f;
+                m_scene->SetLocalPosition(m_pointLight,
+                    rc::Vec3{ 11.0f * rc::Cos(a), 11.0f * rc::Sin(a), 3.5f });
+            }
         }
 
         void OnShutdown(rt::IApplicationHost&) override
@@ -115,6 +145,7 @@ namespace
     private:
         sc::Scene*                  m_scene = nullptr;
         sc::EntityHandle            m_camera{};
+        sc::EntityHandle            m_pointLight{};
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
     };

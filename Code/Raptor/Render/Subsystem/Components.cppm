@@ -42,7 +42,22 @@ struct CameraComponent {
     bool primary     = true;
 };
 
+// A light on an entity. Directional uses the entity's forward (-Z); Point/Spot use its world
+// position (+ range). Extraction packs these into render::GpuLight shading inputs.
+enum class LightType : u32 { Directional = 0, Point = 1, Spot = 2 };
+
+struct LightComponent {
+    LightType type       = LightType::Directional;
+    Color     color      = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    f32       intensity  = 1.0f;
+    f32       range      = 10.0f;          // point/spot falloff distance
+    f32       innerAngle = 0.5f;           // spot cone inner half-angle (radians)
+    f32       outerAngle = 0.6f;           // spot cone outer half-angle (radians)
+    bool      enabled    = true;
+};
+
 class MeshComponentManager   final : public scene::ComponentManager<MeshComponent>   {};
 class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};
+class LightComponentManager  final : public scene::ComponentManager<LightComponent>  {};
 
 } // namespace raptor::render

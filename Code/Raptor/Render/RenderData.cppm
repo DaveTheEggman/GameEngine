@@ -71,6 +71,18 @@ struct MeshRenderData : RenderData {
 };
 static_assert(std::is_trivially_destructible_v<MeshRenderData>);
 
+// One light, packed for a GPU storage buffer (std430, 64 bytes = 4x float4). A shading input,
+// not a drawable — extracted into the ExtractedScene's light list, uploaded to a storage buffer,
+// and consumed by the forward shading loop. Directional: dir is the light direction; Point/Spot:
+// position + range (+ spot cone cosines). type: 0 = Directional, 1 = Point, 2 = Spot.
+struct GpuLight {
+    Vec3 positionWS = Vec3{ 0, 0, 0 };   f32 range     = 0.0f;   // xyz pos, w range
+    Vec3 color      = Vec3{ 1, 1, 1 };   f32 intensity = 1.0f;   // rgb color, a intensity
+    Vec3 directionWS= Vec3{ 0, -1, 0 };  f32 type      = 0.0f;   // xyz dir, w type
+    f32  innerCos = 1.0f; f32 outerCos = 1.0f; f32 pad0 = 0.0f; f32 pad1 = 0.0f;   // spot cone cosines
+};
+static_assert(sizeof(GpuLight) == 64);
+
 // A per-view draw entry: a sort key (computed against the view's camera) + the shared
 // render data it refers to. The per-view draw list is an Array<DrawItem> the renderer sorts
 // (radix) then walks. RenderData is borrowed from the ExtractedScene (immutable snapshot).
@@ -191,11 +203,17 @@ public:
     // pointers here single-threaded.
     void AddExternal(RenderData* data) { if (data != nullptr) { m_items.PushBack(data); } }
 
-    // Reset for a new frame: drop the item list, rewind the (internal) arena (chunks retained).
-    void Reset() noexcept { m_items.Clear(); m_arena.Reset(); }
+    // Add a light to the snapshot (shading input, not a drawable).
+    void AddLight(const GpuLight& light) { m_lights.PushBack(light); }
+
+    // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
+    }
+    [[nodiscard]] Span<const GpuLight> Lights() const noexcept {
+        return Span<const GpuLight>{ m_lights.Data(), m_lights.Size() };
     }
     [[nodiscard]] usize Size() const noexcept { return m_items.Size(); }
     [[nodiscard]] bool  IsEmpty() const noexcept { return m_items.IsEmpty(); }
@@ -203,6 +221,7 @@ public:
 private:
     FrameArena         m_arena;
     Array<RenderData*> m_items;
+    Array<GpuLight>    m_lights;
 };
 
 // ---- radix sort ------------------------------------------------------------------------

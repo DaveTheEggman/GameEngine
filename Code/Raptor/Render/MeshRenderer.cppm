@@ -44,6 +44,8 @@ export namespace raptor::render {
 inline constexpr const char8_t* kForwardVS = u8R"(
 cbuffer View : register(b0, space0) {
     row_major float4x4 ViewProj;   // Raptor matrices are row-major; annotate so HLSL reads them right.
+    float3 CameraPos; float LightCount;
+    uint   LightOffset; uint3 _viewPad;
 };
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
@@ -70,6 +72,7 @@ struct VSOutput {
     float4 color     : TEXCOORD1;
     float2 uv        : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
+    float3 worldPos  : TEXCOORD4;
 };
 VSOutput main(VSInput input) {
     VSOutput o;
@@ -86,27 +89,61 @@ VSOutput main(VSInput input) {
     o.color     = input.color * tint;                           // vertex color * per-instance tint
     o.uv        = input.uv;                                     // consume the full vertex layout
     o.tangentWS = mul(float4(input.tangent, 0.0), world).xyz;
+    o.worldPos  = worldPos.xyz;
     return o;
 }
 )";
 
 inline constexpr const char8_t* kForwardPS = u8R"(
+cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
+    row_major float4x4 ViewProj;
+    float3 CameraPos; float LightCount;
+    uint   LightOffset; uint3 _viewPad;
+};
+struct GpuLight {                            // matches render::GpuLight (64 bytes)
+    float3 positionWS; float range;
+    float3 color;      float intensity;
+    float3 directionWS;float type;           // 0=Directional, 1=Point, 2=Spot
+    float innerCos; float outerCos; float pad0; float pad1;
+};
+StructuredBuffer<GpuLight> Lights : register(t0, space0);
+cbuffer Material : register(b0, space2) {    // data-driven material set (inferred from properties)
+    float4 BaseColor;
+};
 struct PSInput {
     float4 clip      : SV_Position;
     float3 normalWS  : TEXCOORD0;
     float4 color     : TEXCOORD1;
     float2 uv        : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
-};
-cbuffer Material : register(b0, space2) {   // data-driven material set (inferred from properties)
-    float4 BaseColor;
+    float3 worldPos  : TEXCOORD4;
 };
 float4 main(PSInput input) : SV_Target {
     float3 N = normalize(input.normalWS);
-    float3 L = normalize(float3(0.4, 0.8, 0.5));
-    float  ndl = saturate(dot(N, L)) * 0.8 + 0.2;
     float3 albedo = input.color.rgb * BaseColor.rgb;           // (vertex color * tint) * material base color
-    return float4(ndl * albedo, 1.0);
+
+    float3 lit = albedo * 0.05;                                // small constant ambient
+    uint count = (uint)LightCount;
+    for (uint i = 0; i < count; ++i) {
+        GpuLight Lt = Lights[LightOffset + i];
+        float3 lightDir; float atten = 1.0;
+        if (Lt.type < 0.5) {                                   // directional
+            lightDir = -Lt.directionWS;
+        } else {                                               // point / spot
+            float3 toLight = Lt.positionWS - input.worldPos;
+            float  dist    = length(toLight);
+            lightDir = toLight / max(dist, 1e-4);
+            float t = saturate(1.0 - dist / max(Lt.range, 1e-4));
+            atten = t * t;
+            if (Lt.type > 1.5) {                               // spot cone
+                float cosA = dot(-lightDir, Lt.directionWS);
+                atten *= saturate((cosA - Lt.outerCos) / max(Lt.innerCos - Lt.outerCos, 1e-4));
+            }
+        }
+        float ndl = saturate(dot(N, lightDir));
+        lit += albedo * Lt.color * (Lt.intensity * atten * ndl);
+    }
+    return float4(lit, 1.0);
 }
 )";
 
@@ -120,7 +157,8 @@ public:
           m_viewRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.view"),
           m_objectRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.object"),
           m_instanceRing(device, framesInFlight, sizeof(InstanceData), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.instances"),
-          m_offsetsRing(device, framesInFlight, sizeof(DataOffsets), rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets") {}
+          m_offsetsRing(device, framesInFlight, sizeof(DataOffsets), rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets"),
+          m_lightRing(device, framesInFlight, sizeof(GpuLight), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.lights") {}
 
     ~MeshRenderer() override { Shutdown(); }
 
@@ -132,10 +170,15 @@ public:
         m_shaders->RegisterSource(u8"forward", shaders::ShaderStage::Vertex,   kForwardVS);
         m_shaders->RegisterSource(u8"forward", shaders::ShaderStage::Fragment, kForwardPS);
 
-        // set 0: per-view UBO (ViewProj), dynamic offset.
-        rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
+        // set 0: per-view UBO (ViewProj + camera + light range), dynamic offset, Vertex|Fragment;
+        // + the light list as a read-only StructuredBuffer (Fragment), bound whole.
+        rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
         viewEntry.hasDynamicOffset = true;
-        if (!MakeLayout(viewEntry, m_viewLayout)) { return Status{ ErrorCode::Unknown }; }
+        rhi::BindGroupLayoutEntry lightEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry };
+        rhi::BindGroupLayoutDesc s0d{};
+        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 2 };
+        if (!m_device->CreateBindGroupLayout(s0d, m_viewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 1 (non-instanced): per-object UBO (World + Tint), dynamic offset.
         rhi::BindGroupLayoutEntry objEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
@@ -171,25 +214,45 @@ public:
         m_ready = false;
         if (maxDraws == 0) { return; }
         if (!m_viewRing.Reserve(maxDraws) || !m_objectRing.Reserve(maxDraws) ||
-            !m_instanceRing.Reserve(maxDraws) || !m_offsetsRing.Reserve(maxDraws)) { return; }
-        if (!EnsureBindGroup(m_viewRing,     m_viewLayout,     sizeof(ViewData),   m_viewBG,     m_viewBGGen,     /*whole*/ false) ||
+            !m_instanceRing.Reserve(maxDraws) || !m_offsetsRing.Reserve(maxDraws) ||
+            !m_lightRing.Reserve(kMaxLights)) { return; }
+        if (!EnsureViewBindGroup() ||
             !EnsureBindGroup(m_objectRing,   m_objectLayout,   sizeof(ObjectData), m_objectBG,   m_objectBGGen,   /*whole*/ false) ||
             !EnsureBindGroup(m_instanceRing, m_instanceLayout, 0,                  m_instanceBG, m_instanceBGGen, /*whole*/ true)) { return; }
         m_viewRing.BeginFrame(frameIndex);
         m_objectRing.BeginFrame(frameIndex);
         m_instanceRing.BeginFrame(frameIndex);
         m_offsetsRing.BeginFrame(frameIndex);
+        m_lightRing.BeginFrame(frameIndex);
         m_ready = true;
     }
 
     void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) override {
         if (!m_ready || items.IsEmpty()) { return; }
 
-        // Per-view UBO (shared by every draw in this call): write ViewProj into a view slot. The
+        // Upload this view's lights into the light ring (bound whole at set 0; the shader reads
+        // Lights[lightOffset + i]). Clamp to the per-frame capacity.
+        u32 lightCount = static_cast<u32>(ctx.lights.Size());
+        if (lightCount > kMaxLights) { lightCount = kMaxLights; }
+        u32 lightOffset = 0;
+        if (lightCount > 0) {
+            const DynamicUniformRing::Range lr = m_lightRing.AllocateRange(lightCount);
+            if (lr.ok) {
+                MemCopy(lr.ptr, ctx.lights.Data(), static_cast<usize>(lightCount) * sizeof(GpuLight));
+                lightOffset = lr.slotIndex;
+            } else { lightCount = 0; }
+        }
+
+        // Per-view UBO (shared by every draw in this call): ViewProj + camera + light range. The
         // two pipeline layouts share set 0 (m_viewLayout), so the resolved binding is the same.
         const DynamicUniformRing::Range view = m_viewRing.Allocate();
         if (!view.ok) { return; }
-        *static_cast<ViewData*>(view.ptr) = ViewData{ ctx.viewProj };
+        ViewData vd{};
+        vd.viewProj    = ctx.viewProj;
+        vd.cameraPos   = ctx.cameraPos;
+        vd.lightCount  = static_cast<f32>(lightCount);
+        vd.lightOffset = lightOffset;
+        *static_cast<ViewData*>(view.ptr) = vd;
         const u32 viewOffset = view.byteOffset;
 
         const bool allowInstancing = (items[0].data->category != RenderCategories::Transparent);
@@ -226,12 +289,17 @@ public:
     }
 
 private:
-    struct ViewData     { Mat4 viewProj; };              // 64
+    struct ViewData {                                    // 96 (matches the View cbuffer)
+        Mat4 viewProj;                                   // 64
+        Vec3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
+        u32  lightOffset; u32 pad0, pad1, pad2;          // 16
+    };
     struct ObjectData   { Mat4 world; Color tint; };     // 80  (cbuffer Object: World + Tint)
     struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)
     struct DataOffsets  { u32 x, y, z, w; };             // 16  (instance-stepped vertex attr)
 
-    static constexpr u64 kViewSlot = 256;                // dynamic UBO offset alignment
+    static constexpr u64 kViewSlot  = 256;               // dynamic UBO offset alignment
+    static constexpr u32 kMaxLights = 256;               // per-view light budget (phase 4.1; clustered later)
 
     void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, const MeshRenderData& md,
                        const GpuMesh& mesh, Array<ResolvedDraw>& out) {
@@ -363,6 +431,31 @@ private:
         return true;
     }
 
+    // The set-0 bind group spans two rings: the per-view UBO (dynamic-offset window of one
+    // ViewData) + the light list (whole light buffer, read as Lights[lightOffset + i]). Rebuild
+    // when either ring (re)allocated this frame.
+    bool EnsureViewBindGroup() {
+        if (m_viewBG != nullptr &&
+            m_viewBGViewGen == m_viewRing.Generation() && m_viewBGLightGen == m_lightRing.Generation()) {
+            return true;
+        }
+        if (m_viewBG) { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
+        rhi::Buffer* viewBuf = m_viewRing.Buffer();
+        rhi::Buffer* lightBuf = m_lightRing.Buffer();
+        if (viewBuf == nullptr || lightBuf == nullptr) { return false; }
+        rhi::BindGroupEntry entries[] = {
+            rhi::BindGroupEntry::BufferEntry(viewBuf, 0, sizeof(ViewData)),
+            rhi::BindGroupEntry::BufferEntry(lightBuf, 0, m_lightRing.ByteCapacity()),
+        };
+        rhi::BindGroupDesc bgd{};
+        bgd.layout = m_viewLayout;
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 2 };
+        if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
+        m_viewBGViewGen = m_viewRing.Generation();
+        m_viewBGLightGen = m_lightRing.Generation();
+        return true;
+    }
+
     void Shutdown() {
         // Release material instances first (their dtors notify the still-live MaterialSystem).
         m_instances.Clear();
@@ -405,11 +498,14 @@ private:
     DynamicUniformRing m_objectRing;
     DynamicUniformRing m_instanceRing;
     DynamicUniformRing m_offsetsRing;
+    DynamicUniformRing m_lightRing;
 
     rhi::BindGroup* m_viewBG     = nullptr;
     rhi::BindGroup* m_objectBG   = nullptr;
     rhi::BindGroup* m_instanceBG = nullptr;
-    u32 m_viewBGGen = 0, m_objectBGGen = 0, m_instanceBGGen = 0;
+    // The set-0 bind group spans two rings (view UBO + light SB); rebuild it when either rolls over.
+    u32 m_viewBGViewGen = 0, m_viewBGLightGen = 0;
+    u32 m_objectBGGen = 0, m_instanceBGGen = 0;
     bool m_ready = false;
 };
 

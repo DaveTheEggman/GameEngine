@@ -128,4 +128,26 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
     return found;
 }
 
+// Packs every enabled LightComponent into `out` as a GpuLight shading input (world position +
+// forward direction from the entity's transform). Assumes transforms are current.
+inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
+    auto* lights = scene.GetSystem<LightComponentManager>();
+    if (lights == nullptr) { return; }
+    lights->ForEach([&](LightComponent& lc, scene::EntityHandle e) {
+        if (!lc.enabled) { return; }
+        const Mat4 world = scene.GetWorldMatrix(e);
+        GpuLight g;
+        g.positionWS  = TransformPoint(Vec3{ 0, 0, 0 }, world);
+        // Forward is -Z (row 2 negated) in world space (row-major, row-vector convention).
+        g.directionWS = Normalized(Vec3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
+        g.range       = lc.range;
+        g.color       = Vec3{ lc.color.r, lc.color.g, lc.color.b };
+        g.intensity   = lc.intensity;
+        g.type        = static_cast<f32>(static_cast<u32>(lc.type));
+        g.innerCos    = Cos(lc.innerAngle);
+        g.outerCos    = Cos(lc.outerAngle);
+        out.AddLight(g);
+    });
+}
+
 } // namespace raptor::render
