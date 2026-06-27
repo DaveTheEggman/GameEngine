@@ -381,4 +381,34 @@ export namespace raptor::core
         std::atomic<u32>        m_nextExternal{ 0 };
         bool                    m_stop = false;
     };
+
+    // ---- process-global JobSystem -----------------------------------------------------------
+    //
+    // The engine-wide JobSystem, mirroring DefaultAllocator()'s global-accessor shape (and
+    // Sedulous's static JobSystem). The client Application brackets its lifetime — init before
+    // any subsystem starts, shutdown after every subsystem + GPU teardown — so it outlives all
+    // users. Code that wants to parallelize must tolerate its absence (HasGlobalJobSystem()) and
+    // fall back to serial: in unit tests / headless tools that never start an Application it is
+    // never initialized. The JobSystem class itself stays instance-constructible (tests build
+    // their own); this is just a managed global instance.
+
+    namespace detail { inline JobSystem* g_globalJobs = nullptr; }
+
+    // Create the global JobSystem (no-op if already created). workerCount 0 => cores-1.
+    inline void InitGlobalJobSystem(u32 workerCount = 0) {
+        if (detail::g_globalJobs == nullptr) {
+            detail::g_globalJobs = DefaultAllocator().New<JobSystem>(workerCount);
+        }
+    }
+
+    // Destroy the global JobSystem (joins its workers; no-op if absent).
+    inline void ShutdownGlobalJobSystem() {
+        if (detail::g_globalJobs != nullptr) {
+            DefaultAllocator().Delete(detail::g_globalJobs);
+            detail::g_globalJobs = nullptr;
+        }
+    }
+
+    [[nodiscard]] inline bool       HasGlobalJobSystem() noexcept { return detail::g_globalJobs != nullptr; }
+    [[nodiscard]] inline JobSystem& GlobalJobs()         noexcept { return *detail::g_globalJobs; }
 }

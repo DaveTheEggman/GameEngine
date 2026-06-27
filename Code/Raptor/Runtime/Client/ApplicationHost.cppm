@@ -54,6 +54,10 @@ export namespace raptor::runtime
             m_graphics = graphics;
             m_settings = app.Settings();
 
+            // Bring up the engine-wide JobSystem before any subsystem starts, so it is
+            // available to all of them and outlives them (torn down last, in Stop()).
+            rc::InitGlobalJobSystem();
+
             m_app->Configure(*this);
             m_context.Startup();
 
@@ -121,6 +125,10 @@ export namespace raptor::runtime
 
             m_pendingClose.Clear();
             m_windows.Clear();  // RenderWindow dtors WaitIdle + free GPU resources
+
+            // Tear down the engine-wide JobSystem last — after every subsystem (Context.Shutdown)
+            // and all GPU resource frees (window dtors), so nothing references it afterward.
+            rc::ShutdownGlobalJobSystem();
 
             m_started = false;
             m_running = false;
