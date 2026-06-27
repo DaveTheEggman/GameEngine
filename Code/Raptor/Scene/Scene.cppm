@@ -227,6 +227,24 @@ public:
     template <typename T>
     [[nodiscard]] bool HasSystem() const noexcept { return m_systemsByType.Contains(&TypeOf<T>()); }
 
+    // Visits every component manager (systems that are managers), in UpdateOrder.
+    template <typename Fn>
+    void ForEachManager(Fn&& fn) {
+        for (SceneSystem* s : m_sortedSystems) {
+            if (ComponentManagerBase* m = s->AsComponentManager()) { fn(*m); }
+        }
+    }
+    // The serializable manager with this on-disk type id, or null (used on scene load
+    // to route a component record to its pool).
+    [[nodiscard]] ComponentManagerBase* FindManagerBySerializationId(StringView typeId) {
+        for (SceneSystem* s : m_sortedSystems) {
+            if (ComponentManagerBase* m = s->AsComponentManager()) {
+                if (m->IsSerializable() && m->SerializationTypeId() == typeId) { return m; }
+            }
+        }
+        return nullptr;
+    }
+
     // ---- play / edit state ----
 
     [[nodiscard]] bool IsStarted() const noexcept { return m_started; }

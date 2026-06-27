@@ -40,6 +40,17 @@ public:
     [[nodiscard]] virtual u32 ComponentCount() const = 0;
     // Stable per-component-type id (for type -> manager routing on load).
     [[nodiscard]] virtual const TypeInfo* ComponentType() const = 0;
+    // Owning entity of each stored component (parallel to the pool).
+    [[nodiscard]] virtual Span<const EntityHandle> OwnerHandles() const noexcept = 0;
+
+    // --- serialization (a manager opts in via SerializableComponentManager) ---
+    // Whether this manager's components persist, and a stable on-disk type id for
+    // routing on load (TypeOf<T>() is not disk-stable, so the id is explicit).
+    [[nodiscard]] virtual bool IsSerializable() const noexcept { return false; }
+    [[nodiscard]] virtual StringView SerializationTypeId() const noexcept { return {}; }
+    // Writes / reads one component's data for `entity` (read adds the component first).
+    virtual void WriteComponent(ISerializer& /*ar*/, EntityHandle /*entity*/) {}
+    virtual void ReadComponent(ISerializer& /*ar*/, EntityHandle /*entity*/) {}
 
     // Destroying an entity destroys its component in this manager.
     void OnEntityDestroyed(EntityHandle entity) override { RemoveComponent(entity); }
@@ -121,6 +132,7 @@ public:
     }
 
     [[nodiscard]] const TypeInfo* ComponentType() const override { return &TypeOf<T>(); }
+    [[nodiscard]] Span<const EntityHandle> OwnerHandles() const noexcept override { return Owners(); }
 
 protected:
     // Manager-driven lifecycle hooks (value-pool: hooks live on the manager, not the
@@ -146,6 +158,37 @@ private:
     Array<EntityHandle> m_owners;      // owning entity per dense slot
     HashMap<u32, u32>   m_sparse;      // entity.index -> dense index
     Array<EntityHandle> m_pendingInit; // entities awaiting OnComponentInitialized
+};
+
+// A ComponentManager<T> whose components persist. The component type T must have a
+// `Serialize(ISerializer&, T&)` overload (found by ADL); the manager drives it per
+// component. Construct with a stable on-disk type id (used to route records to this
+// manager on load). Subclass this (instead of ComponentManager<T>) for serializable
+// components — keeping serialization opt-in.
+template <typename T>
+class SerializableComponentManager : public ComponentManager<T> {
+public:
+    explicit SerializableComponentManager(StringView typeId) : m_typeId(typeId) {}
+
+    [[nodiscard]] bool IsSerializable() const noexcept override { return true; }
+    [[nodiscard]] StringView SerializationTypeId() const noexcept override { return m_typeId.AsView(); }
+
+    void WriteComponent(ISerializer& ar, EntityHandle entity) override {
+        if (T* c = this->Get(entity)) { SerializeOne(ar, *c); }
+    }
+    void ReadComponent(ISerializer& ar, EntityHandle entity) override {
+        T& c = this->Add(entity);
+        SerializeOne(ar, c);
+    }
+
+private:
+    // Unqualified call so ADL finds the user's Serialize(ar, T&); the using-declaration
+    // brings the core overloads into scope for the component's own field serialization.
+    static void SerializeOne(ISerializer& ar, T& value) {
+        using raptor::core::Serialize;
+        Serialize(ar, value);
+    }
+    String m_typeId;
 };
 
 } // namespace raptor::scene

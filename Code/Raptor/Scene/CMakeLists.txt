@@ -24,3 +24,6 @@ endif()
 
 # The Context-level scene driver + ISceneAware broker (bridges Scene + Runtime).
 add_subdirectory(Subsystem)
+
+# Whole-scene serialization: runtime load (Resource) + tooling save (Editor).
+add_subdirectory(Resource)
