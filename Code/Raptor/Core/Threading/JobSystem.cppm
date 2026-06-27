@@ -109,6 +109,20 @@ export namespace raptor::core
 
         [[nodiscard]] u32 WorkerCount() const noexcept { return m_workerCount; }
 
+        // The number of distinct slots a body may run on: one per worker plus one for any
+        // non-worker (external / caller-participating) thread. Size per-worker scratch (e.g.
+        // the renderer's per-worker frame arenas) by this and index with CurrentSlot().
+        [[nodiscard]] u32 SlotCount() const noexcept { return m_workerCount + 1; }
+
+        // The slot of the calling thread: [0, WorkerCount()) for a worker, or WorkerCount()
+        // for any non-worker thread. Stable for the duration of a job/body invocation, so it
+        // can index per-worker scratch without locking.
+        [[nodiscard]] u32 CurrentSlot() const noexcept
+        {
+            const i32 self = WorkerSlot();
+            return (self >= 0) ? static_cast<u32>(self) : m_workerCount;
+        }
+
         // ---- submission ----
 
         // Run `fn` sometime on the pool. Optionally decrement `signal` when it completes.
@@ -228,7 +242,7 @@ export namespace raptor::core
                 return;
             }
 
-            const i32 self = s_workerIndex;
+            const i32 self = WorkerSlot();
             u32 target;
             if (self >= 0) { target = static_cast<u32>(self); }
             else { target = m_nextExternal.fetch_add(1, std::memory_order_relaxed) % m_workerCount; }
@@ -255,7 +269,7 @@ export namespace raptor::core
 
         bool TryGetJob(detail::JobItem& out)
         {
-            const i32 self = s_workerIndex;
+            const i32 self = WorkerSlot();
 
             // 1) own deque (LIFO — cache-friendly)
             if (self >= 0)
@@ -318,7 +332,7 @@ export namespace raptor::core
 
         void WorkerLoop(u32 index)
         {
-            s_workerIndex = static_cast<i32>(index);
+            WorkerSlot() = static_cast<i32>(index);
             for (;;)
             {
                 if (RunOneJob()) { continue; }
@@ -346,7 +360,15 @@ export namespace raptor::core
 
         static void YieldThread() noexcept { std::this_thread::yield(); }
 
-        static thread_local i32 s_workerIndex;
+        // The calling thread's worker slot: a worker's index, or -1 for any non-worker thread.
+        // A function-local thread_local (single COMDAT instance across TUs) rather than a static
+        // data member — the latter, odr-used by an inline accessor from an importing TU, would
+        // emit a duplicate definition and fail to link.
+        static i32& WorkerSlot() noexcept
+        {
+            static thread_local i32 slot = -1;
+            return slot;
+        }
 
         u32                     m_workerCount = 0;
         Array<UniquePtr<Deque>> m_deques;          // one per worker
@@ -359,6 +381,4 @@ export namespace raptor::core
         std::atomic<u32>        m_nextExternal{ 0 };
         bool                    m_stop = false;
     };
-
-    thread_local i32 JobSystem::s_workerIndex = -1;
 }

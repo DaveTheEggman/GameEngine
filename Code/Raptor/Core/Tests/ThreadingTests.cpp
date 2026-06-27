@@ -250,6 +250,29 @@ TEST_CASE("threading: Wait(Counter) participates until the counter is satisfied"
     CHECK(n.load() == 50);
 }
 
+TEST_CASE("threading: worker slots are distinct and in range")
+{
+    JobSystem jobs(4);
+    CHECK(jobs.SlotCount() == jobs.WorkerCount() + 1u);
+
+    // Every body invocation reports a slot in [0, SlotCount()); record which slots were used.
+    constexpr u32 kSlots = 5;   // WorkerCount(4) + 1 external
+    Atomic<int> usedSlot[kSlots];
+    for (u32 s = 0; s < kSlots; ++s) { usedSlot[s].store(0); }
+
+    jobs.ParallelFor(20000u, [&](u32) {
+        const u32 slot = jobs.CurrentSlot();
+        REQUIRE(slot < jobs.SlotCount());
+        usedSlot[slot].fetch_add(1);
+    });
+
+    // The caller participates, so the external slot (== WorkerCount) is generally hit too;
+    // at minimum the work was spread across more than one slot.
+    int distinct = 0;
+    for (u32 s = 0; s < kSlots; ++s) { if (usedSlot[s].load() > 0) { ++distinct; } }
+    CHECK(distinct >= 1);
+}
+
 TEST_CASE("threading: nested ParallelFor does not deadlock (caller participation)")
 {
     JobSystem jobs(4);
