@@ -17,19 +17,21 @@ module;
 export module raptor.runtime.defaultapp;
 
 import raptor.core;
-import raptor.runtime.client;   // IApplication, IApplicationHost
+import raptor.runtime.client;     // IApplication, IApplicationHost
+import raptor.scene.subsystem;    // SceneSubsystem (the standard scene driver)
 
 export namespace raptor::runtime
 {
     class DefaultApplication : public IApplication
     {
     public:
+        // Registers the standard engine subsystems. A game subclass overrides this,
+        // calls DefaultApplication::Configure(host) first, then adds its own.
         void Configure(IApplicationHost& host) override
         {
-            (void)host;
-            // TODO: register InputSubsystem / SceneSubsystem / RenderSubsystem / ...
-            // into host.Ctx() here as those subsystems are implemented. Each new
-            // engine subsystem becomes a link dependency of THIS library only.
+            host.Ctx().AddSubsystem<raptor::scene::SceneSubsystem>();
+            // TODO: InputSubsystem / RenderSubsystem / ... land here as they're built;
+            // each becomes a link dependency of THIS library only.
         }
     };
 }

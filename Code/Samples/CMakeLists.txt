@@ -5,6 +5,7 @@
 if(TARGET Raptor::RuntimePlatformDesktop AND TARGET Raptor::RuntimeGraphicsGpu)
     add_subdirectory(HelloWindow)
     add_subdirectory(MultiWindow)
+    add_subdirectory(Sandbox)        # the dev harness we grow the engine in
 else()
     message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop platform + Vulkan GPU factory)")
 endif()
