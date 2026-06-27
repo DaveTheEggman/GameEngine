@@ -13,11 +13,15 @@
 
 module;
 #include "Core/Prelude.h"
+#include <type_traits>
 
 export module raptor.scene:scene;
 
 import raptor.core;
 import :entity;
+import :phase;
+import :system;
+import :component;
 
 using namespace raptor::core;
 
@@ -47,9 +51,12 @@ public:
         return CreateEntityInternal(id, name);
     }
 
-    // Destroys an entity and its whole subtree (immediate). No-op if the handle is stale.
+    // Destroys an entity and its whole subtree. No-op if the handle is stale. If called
+    // during Update (a system destroying entities), destruction is deferred to the
+    // frame's Cleanup so iteration stays stable.
     void DestroyEntity(EntityHandle entity) {
         if (!IsValid(entity)) { return; }
+        if (m_isUpdating) { m_pendingDestroys.PushBack(entity); return; }
         DestroyEntityImmediate(entity);
     }
 
@@ -84,7 +91,7 @@ public:
     void SetActive(EntityHandle entity, bool active) {
         if (!IsValid(entity)) { return; }
         m_entities[entity.index].active = active;
-        // (Phase 3) notify per-scene systems so component active-state stays in sync.
+        for (SceneSystem* s : m_sortedSystems) { s->OnEntityActiveChanged(entity, active); }
     }
 
     template <typename Fn>
@@ -197,6 +204,81 @@ public:
         return { m_transformsUpdatedThisFrame.Data(), m_transformsUpdatedThisFrame.Size() };
     }
 
+    // ---- per-scene systems ----
+
+    // Constructs + adds a system of type T (one per type); the Scene owns it. Returns a
+    // borrowed pointer. Runs OnSceneCreate immediately.
+    template <typename T, typename... Args>
+    T* AddSystem(Args&&... args) {
+        static_assert(std::is_base_of_v<SceneSystem, T>, "T must derive from SceneSystem");
+        T* system = m_allocator->New<T>(Forward<Args>(args)...);
+        m_systems.PushBack(UniquePtr<SceneSystem>(static_cast<SceneSystem*>(system), *m_allocator));
+        m_systemsByType.InsertOrAssign(&TypeOf<T>(), static_cast<SceneSystem*>(system));
+        InsertSortedSystem(static_cast<SceneSystem*>(system));
+        system->OnSceneCreate(*this);
+        return system;
+    }
+
+    template <typename T>
+    [[nodiscard]] T* GetSystem() noexcept {
+        SceneSystem* const* found = m_systemsByType.Find(&TypeOf<T>());
+        return (found != nullptr) ? static_cast<T*>(*found) : nullptr;
+    }
+    template <typename T>
+    [[nodiscard]] bool HasSystem() const noexcept { return m_systemsByType.Contains(&TypeOf<T>()); }
+
+    // ---- play / edit state ----
+
+    [[nodiscard]] bool IsStarted() const noexcept { return m_started; }
+    [[nodiscard]] bool SimulationEnabled() const noexcept { return m_simulationEnabled; }
+    void SetSimulationEnabled(bool enabled) noexcept { m_simulationEnabled = enabled; }
+
+    // Enters play mode: simulation on, notify systems. (Editor "stop" calls Stop.)
+    void Start() {
+        if (m_started) { return; }
+        m_started = true;
+        m_simulationEnabled = true;
+        for (SceneSystem* s : m_sortedSystems) { s->OnSceneStarted(); }
+    }
+    void Stop() {
+        if (!m_started) { return; }
+        for (SceneSystem* s : m_sortedSystems) { s->OnSceneStopped(); }
+        m_started = false;
+    }
+
+    // ---- update loop ----
+
+    // Runs one frame: initialize pending components, the gameplay phases, the transform
+    // recompute, render/spatial extraction, then deferred destruction. Phases run in
+    // ScenePhase order; within a phase, systems run in UpdateOrder. Simulation-only
+    // systems are skipped while SimulationEnabled is false.
+    void Update(f32 deltaTime) {
+        m_isUpdating = true;
+        InitializePendingComponents();                       // ScenePhase::Initialize
+        RunPhase(ScenePhase::PreUpdate, deltaTime);
+        RunPhase(ScenePhase::Update, deltaTime);
+        RunPhase(ScenePhase::AsyncUpdate, deltaTime);
+        RunPhase(ScenePhase::PostUpdate, deltaTime);
+        UpdateTransforms();                                  // ScenePhase::TransformUpdate (internal)
+        RunPhase(ScenePhase::PostTransform, deltaTime);
+        m_isUpdating = false;
+        ProcessPendingDestroys();                            // ScenePhase::Cleanup
+    }
+
+    void FixedUpdate(f32 fixedDeltaTime) {
+        for (SceneSystem* s : m_sortedSystems) {
+            if (s->IsSimulationOnly() && !m_simulationEnabled) { continue; }
+            s->OnFixedUpdate(fixedDeltaTime);
+        }
+    }
+
+    // Initializes components added since the last call (deferred init), across all managers.
+    void InitializePendingComponents() {
+        for (SceneSystem* s : m_sortedSystems) {
+            if (ComponentManagerBase* mgr = s->AsComponentManager()) { mgr->InitializePendingComponents(); }
+        }
+    }
+
 protected:
     struct EntitySlot {
         u32    generation = 0;
@@ -263,7 +345,7 @@ protected:
         }
 
         RemoveFromParent(entity);
-        // (Phase 3) notify per-scene systems: OnEntityDestroyed(entity).
+        for (SceneSystem* s : m_sortedSystems) { s->OnEntityDestroyed(entity); }   // managers free components
 
         EntitySlot& slot = m_entities[index];
         m_idMap.Remove(slot.persistentId);
@@ -354,6 +436,36 @@ protected:
         return false;
     }
 
+    // Runs one gameplay phase across systems in UpdateOrder, honoring sim gating.
+    void RunPhase(ScenePhase phase, f32 deltaTime) {
+        for (SceneSystem* s : m_sortedSystems) {
+            if (s->IsSimulationOnly() && !m_simulationEnabled) { continue; }
+            s->OnUpdate(phase, deltaTime);
+        }
+    }
+
+    // Insertion sort into m_sortedSystems, ascending by UpdateOrder (stable).
+    void InsertSortedSystem(SceneSystem* system) {
+        m_sortedSystems.PushBack(system);
+        usize i = m_sortedSystems.Size() - 1;
+        while (i > 0 && m_sortedSystems[i - 1]->UpdateOrder() > system->UpdateOrder()) {
+            m_sortedSystems[i] = m_sortedSystems[i - 1];
+            m_sortedSystems[i - 1] = system;
+            --i;
+        }
+    }
+
+    // Destroys entities queued during Update (snapshot, since destroying a subtree can
+    // be re-entrant). Stale/duplicate entries are skipped by the IsValid guard.
+    void ProcessPendingDestroys() {
+        if (m_pendingDestroys.IsEmpty()) { return; }
+        Array<EntityHandle> batch = Move(m_pendingDestroys);
+        m_pendingDestroys = Array<EntityHandle>{};
+        for (EntityHandle e : batch) {
+            if (IsValid(e)) { DestroyEntityImmediate(e); }
+        }
+    }
+
     IAllocator* m_allocator;
     String      m_name;
     Array<EntitySlot>    m_entities;        // entity pool (index = slot)
@@ -366,6 +478,15 @@ protected:
     Random               m_rng;
     u32                  m_aliveCount = 0;
     u64                  m_revision   = 0;
+
+    // per-scene systems
+    Array<UniquePtr<SceneSystem>>            m_systems;        // ownership
+    HashMap<const TypeInfo*, SceneSystem*>   m_systemsByType;  // lookup by type
+    Array<SceneSystem*>                      m_sortedSystems;  // non-owning, UpdateOrder-sorted
+    Array<EntityHandle>                      m_pendingDestroys;
+    bool                 m_isUpdating       = false;
+    bool                 m_started          = false;
+    bool                 m_simulationEnabled = true;
 };
 
 } // namespace raptor::scene

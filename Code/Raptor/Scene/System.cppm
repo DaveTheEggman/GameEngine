@@ -25,11 +25,17 @@ using namespace raptor::core;
 
 export namespace raptor::scene {
 
-class Scene;   // defined in :scene (same module)
+class Scene;                 // defined in :scene (same module)
+class ComponentManagerBase;  // defined in :component (same module)
 
 class SceneSystem {
 public:
     virtual ~SceneSystem() = default;
+
+    // Capability query (the As*() idiom, since Raptor is -fno-rtti): a system that is a
+    // component manager returns itself, so the Scene can drive component-init / lookup
+    // without a dynamic cast. Plain systems return null.
+    [[nodiscard]] virtual ComponentManagerBase* AsComponentManager() noexcept { return nullptr; }
 
     // --- lifecycle (Scene calls these) ---
     virtual void OnSceneCreate(Scene& /*scene*/) {}   // added to a scene

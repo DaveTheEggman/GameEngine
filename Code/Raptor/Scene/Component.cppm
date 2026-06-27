@@ -32,6 +32,8 @@ export namespace raptor::scene {
 // Non-generic interface a Scene uses to hold heterogeneous managers and route by type.
 class ComponentManagerBase : public SceneSystem {
 public:
+    [[nodiscard]] ComponentManagerBase* AsComponentManager() noexcept override { return this; }
+
     [[nodiscard]] virtual bool HasComponent(EntityHandle entity) const = 0;
     virtual void RemoveComponent(EntityHandle entity) = 0;
     virtual void InitializePendingComponents() {}
