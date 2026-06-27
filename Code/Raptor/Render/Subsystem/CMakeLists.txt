@@ -13,6 +13,7 @@ target_sources(RaptorRenderSubsystem
     PUBLIC
         FILE_SET render_subsystem_modules TYPE CXX_MODULES FILES
             Components.cppm
+            SceneRenderer.cppm
             Extract.cppm
             RenderSubsystem.cppm
             SubsystemModule.cppm)

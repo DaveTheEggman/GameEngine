@@ -57,11 +57,13 @@ export namespace raptor::runtime
             }
 
             const rhi::TextureFormat colorFormat = frame.window->Swap()->Format();
+            render->BeginRendering(*frame.encoder, frame.frameIndex);
             for (raptor::scene::Scene* scene : scenes->ActiveScenes())
             {
-                render->RenderScene(*scene, *frame.encoder, frame.backbufferView, colorFormat,
+                render->RenderScene(*scene, frame.backbufferView, colorFormat,
                                     frame.width, frame.height, rhi::ClearColor::CornflowerBlue());
             }
+            render->EndRendering();
         }
     };
 }

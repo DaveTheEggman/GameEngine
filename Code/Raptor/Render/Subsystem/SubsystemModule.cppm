@@ -9,5 +9,6 @@
 export module raptor.render.subsystem;
 
 export import :components;
+export import :scene_renderer;
 export import :extract;
 export import :subsystem;

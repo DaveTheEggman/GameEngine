@@ -14,7 +14,8 @@ endif()
 add_executable(RaptorRenderTests
     TestsMain.cpp
     MeshGpuTests.cpp
-    ForwardTests.cpp)
+    RenderDataTests.cpp
+    PipelineTests.cpp)
 
 target_link_libraries(RaptorRenderTests PRIVATE
     Raptor::Render Raptor::RHINull doctest::doctest)

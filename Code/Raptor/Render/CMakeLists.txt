@@ -13,8 +13,10 @@ target_sources(RaptorRender
     PUBLIC
         FILE_SET render_modules TYPE CXX_MODULES FILES
             RenderData.cppm
+            Views.cppm
+            Pipeline.cppm
             MeshGpu.cppm
-            Forward.cppm
+            MeshRenderer.cppm
             RenderModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

@@ -2,11 +2,14 @@
 ///
 /// RenderSubsystem: the Context-level driver that connects scenes to the (scene-agnostic)
 /// renderer. It owns the GPU systems — the DXC compiler, ShaderSystem, PipelineStateCache,
-/// and the ForwardRenderer — and, as an ISceneAware, injects the mesh/camera component
-/// managers into each scene on creation. The app calls RenderScene() in its render
-/// callback with the frame's target; the subsystem extracts the scene to a render::
-/// ExtractedView and pushes it to the ForwardRenderer. (No MaterialSystem yet — the
-/// built-in forward shader binds no material set; that lands with material binding.)
+/// the MeshRenderer + RendererRegistry, and the per-frame RenderFrame driver — and, as an
+/// ISceneAware, injects the mesh/camera component managers into each scene on creation.
+///
+/// It implements ISceneRenderer (Begin/RenderScene×N/End): the app's render callback brackets
+/// the frame with BeginRendering/EndRendering and calls RenderScene per active scene. Each
+/// RenderScene extracts the scene into an ExtractedScene snapshot and collects a RenderView;
+/// EndRendering composes all views. (No MaterialSystem yet — the built-in forward shader binds
+/// no material set; that lands with material binding in phase 3.)
 
 module;
 #include "Core/Prelude.h"
@@ -21,16 +24,19 @@ import raptor.scene.subsystem;    // SceneSubsystem (to register as scene-aware)
 import raptor.shaders;            // Compiler
 import raptor.shaders.system;     // ShaderSystem
 import raptor.materials.pso;      // PipelineStateCache
-import raptor.render;             // ForwardRenderer, ExtractedView
+import raptor.render;             // MeshRenderer, RendererRegistry, RenderFrame, ExtractedScene
 import :components;
 import :extract;
+import :scene_renderer;
 
 using namespace raptor::core;
 namespace rhi = raptor::rhi;
 
 export namespace raptor::render {
 
-class RenderSubsystem final : public raptor::runtime::Subsystem, public scene::ISceneAware {
+class RenderSubsystem final : public raptor::runtime::Subsystem,
+                              public ISceneRenderer,
+                              public scene::ISceneAware {
 public:
     explicit RenderSubsystem(rhi::Device& device) noexcept : m_device(&device) {}
 
@@ -42,16 +48,36 @@ public:
         scene.AddSystem<CameraComponentManager>();
     }
 
-    // Renders `scene` into a color target (called by the app in its render callback,
-    // after the scene has ticked so transforms are current).
-    void RenderScene(scene::Scene& scene, rhi::CommandEncoder& encoder, rhi::TextureView* colorTarget,
-                     rhi::TextureFormat colorFormat, u32 width, u32 height, rhi::ClearColor bg) {
-        if (m_forward.Get() == nullptr) { return; }
-        ExtractedView view = ExtractScene(scene);
-        m_forward->Render(view, encoder, colorTarget, colorFormat, width, height, bg);
+    [[nodiscard]] bool IsReady() const noexcept { return m_frame.Get() != nullptr; }
+
+    // ---- ISceneRenderer ----
+
+    void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) override {
+        if (m_frame.Get() == nullptr) { return; }
+        m_sceneCount = 0;
+        m_frame->Begin(encoder, frameIndex);
     }
 
-    [[nodiscard]] bool IsReady() const noexcept { return m_forward.Get() != nullptr; }
+    void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
+                     u32 width, u32 height, rhi::ClearColor clear,
+                     const CameraOverride* cameraOverride = nullptr) override {
+        if (m_frame.Get() == nullptr || target == nullptr) { return; }
+
+        ExtractedScene* snapshot = AcquireScene();
+        ExtractSceneInto(scene, *snapshot);
+
+        ViewCamera camera;
+        if (cameraOverride != nullptr) { camera = cameraOverride->camera; }
+        else { (void)ExtractPrimaryCamera(scene, camera); }   // no camera -> identity (still clears)
+
+        ViewSettings settings;
+        settings.clear = clear;
+        m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height);
+    }
+
+    void EndRendering() override {
+        if (m_frame.Get() != nullptr) { m_frame->End(); }
+    }
 
 protected:
     void OnInit() override {
@@ -60,8 +86,12 @@ protected:
         }
         m_shaders  = MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler, *m_device);
         m_psoCache = MakeUnique<materials::PipelineStateCache>(DefaultAllocator(), *m_shaders, *m_device);
-        m_forward  = MakeUnique<ForwardRenderer>(DefaultAllocator(), *m_device, *m_shaders, *m_psoCache);
-        if (!m_forward->Initialize().IsOk()) { m_forward.Reset(); return; }
+
+        m_meshRenderer = MakeUnique<MeshRenderer>(DefaultAllocator(), *m_device, *m_shaders, *m_psoCache);
+        if (!m_meshRenderer->Initialize().IsOk()) { m_meshRenderer.Reset(); return; }
+        m_registry.Register(m_meshRenderer.Get());
+
+        m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry);
     }
 
     void OnReady() override {
@@ -76,18 +106,36 @@ protected:
             if (auto* scenes = ctx->GetSubsystem<scene::SceneSubsystem>()) { scenes->UnregisterSceneAware(this); }
         }
         m_device->WaitIdle();   // GPU must finish before we free its buffers/PSOs/descriptors
-        m_forward.Reset();      // before the systems it borrows
+        m_frame.Reset();        // releases the forward pass's depth target
+        m_meshRenderer.Reset(); // before the systems it borrows
         m_psoCache.Reset();
         m_shaders.Reset();
         if (m_compiler != nullptr) { m_compiler->Destroy(); m_compiler = nullptr; }
     }
 
 private:
+    // A per-frame snapshot pool: one ExtractedScene per RenderScene call, kept alive (and its
+    // arena chunks reused) until the next BeginRendering. (Phase 8 shares one snapshot across
+    // multiple cameras of the same scene; phase 1 takes one per call.)
+    [[nodiscard]] ExtractedScene* AcquireScene() {
+        if (m_sceneCount == m_scenes.Size()) {
+            m_scenes.PushBack(MakeUnique<ExtractedScene>(DefaultAllocator()));
+        }
+        ExtractedScene* s = m_scenes[m_sceneCount++].Get();
+        s->Reset();
+        return s;
+    }
+
     rhi::Device*       m_device;
     shaders::Compiler* m_compiler = nullptr;
     UniquePtr<shaders::ShaderSystem>          m_shaders;
     UniquePtr<materials::PipelineStateCache>  m_psoCache;
-    UniquePtr<ForwardRenderer>                m_forward;
+    UniquePtr<MeshRenderer>                   m_meshRenderer;
+    RendererRegistry                          m_registry;
+    UniquePtr<RenderFrame>                    m_frame;
+
+    Array<UniquePtr<ExtractedScene>>          m_scenes;       // snapshot pool
+    usize                                     m_sceneCount = 0;
 };
 
 } // namespace raptor::render

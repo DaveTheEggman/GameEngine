@@ -1,7 +1,7 @@
-// Slice 1 — the scene->render extraction bridge: spawn a camera + mesh entities in a
-// scene and verify ExtractScene snapshots the camera view/projection and the per-mesh
-// world matrices + mesh/material into a renderer-agnostic ExtractedView (the data the
-// scene-agnostic renderer consumes).
+// The scene->render extraction bridge: spawn a camera + mesh entities in a scene and
+// verify ExtractSceneInto snapshots the per-mesh world matrices + mesh/material into an
+// ExtractedScene (the data the scene-agnostic renderer consumes), and ExtractPrimaryCamera
+// reads the camera view/projection.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -9,8 +9,8 @@ import raptor.core;
 import raptor.scene;
 import raptor.geometry;
 import raptor.materials;
-import raptor.render;             // ExtractedView / Renderable (scene-agnostic)
-import raptor.render.subsystem;   // components + ExtractScene (scene-coupled)
+import raptor.render;             // ExtractedScene / MeshRenderData / ViewCamera (scene-agnostic)
+import raptor.render.subsystem;   // components + ExtractSceneInto / ExtractPrimaryCamera
 
 using namespace raptor::core;
 using namespace raptor::render;
@@ -20,7 +20,7 @@ namespace mat = raptor::materials;
 
 namespace { bool Near(f32 a, f32 b) { return Abs(a - b) < 1e-3f; } }
 
-TEST_CASE("ExtractScene builds the draw list + camera from a scene")
+TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the camera")
 {
     sc::Scene scene(u8"world");
     auto* meshes  = scene.AddSystem<MeshComponentManager>();
@@ -43,24 +43,29 @@ TEST_CASE("ExtractScene builds the draw list + camera from a scene")
     { MeshComponent& m = meshes->Add(b); m.mesh = cube; m.material = material; }
 
     scene.UpdateTransforms();
-    ExtractedView ev = ExtractScene(scene);
 
-    REQUIRE(ev.hasCamera);
-    CHECK(Near(ev.view.m[3][2], -5.0f));                 // view = inverse(camera world)
-    CHECK_FALSE(Near(ev.projection.m[2][3], 0.0f));      // a real perspective projection
+    ViewCamera vc;
+    REQUIRE(ExtractPrimaryCamera(scene, vc));
+    CHECK(Near(vc.view.m[3][2], -5.0f));                 // view = inverse(camera world)
+    CHECK_FALSE(Near(vc.projection.m[2][3], 0.0f));      // a real perspective projection
 
-    REQUIRE(ev.renderables.Size() == 2);
+    ExtractedScene snapshot;
+    ExtractSceneInto(scene, snapshot);
+    REQUIRE(snapshot.Size() == 2);
+
     f32 sumX = 0.0f;
-    for (const Renderable& r : ev.renderables) {
-        CHECK(r.mesh == cube.Get());
-        CHECK(r.material == material.Get());
-        CHECK(r.id != 0);                                // tagged with a packed entity handle
-        sumX += r.worldMatrix.m[3][0];
+    for (RenderData* rd : snapshot.Items()) {
+        const auto* m = static_cast<const MeshRenderData*>(rd);
+        CHECK(m->category == RenderCategories::Opaque);  // opaque material -> opaque category
+        CHECK(m->mesh == cube.Get());
+        CHECK(m->material == material.Get());
+        CHECK(m->entityId != 0);                         // tagged with a packed entity handle
+        sumX += m->world.m[3][0];
     }
     CHECK(Near(sumX, 1.0f));                              // -2 + 3
 }
 
-TEST_CASE("ExtractScene skips invisible + mesh-less components, and non-primary cameras")
+TEST_CASE("ExtractSceneInto skips invisible + mesh-less components; no primary camera reported")
 {
     sc::Scene scene;
     auto* meshes  = scene.AddSystem<MeshComponentManager>();
@@ -80,18 +85,44 @@ TEST_CASE("ExtractScene skips invisible + mesh-less components, and non-primary 
     { CameraComponent& c = cameras->Add(cam2); c.primary = false; }
 
     scene.UpdateTransforms();
-    ExtractedView ev = ExtractScene(scene);
 
-    CHECK_FALSE(ev.hasCamera);                            // no primary camera
-    REQUIRE(ev.renderables.Size() == 1);                 // only the visible, meshed one
+    ViewCamera vc;
+    CHECK_FALSE(ExtractPrimaryCamera(scene, vc));         // no primary camera
+
+    ExtractedScene snapshot;
+    ExtractSceneInto(scene, snapshot);
+    REQUIRE(snapshot.Size() == 1);                        // only the visible, meshed one
 }
 
-TEST_CASE("ExtractScene on a scene without render managers yields an empty view")
+TEST_CASE("ExtractSceneInto on a scene without render managers yields an empty snapshot")
 {
     sc::Scene scene;
     scene.CreateEntity();
     scene.UpdateTransforms();
-    ExtractedView ev = ExtractScene(scene);
-    CHECK_FALSE(ev.hasCamera);
-    CHECK(ev.renderables.Size() == 0);
+
+    ViewCamera vc;
+    CHECK_FALSE(ExtractPrimaryCamera(scene, vc));
+
+    ExtractedScene snapshot;
+    ExtractSceneInto(scene, snapshot);
+    CHECK(snapshot.Size() == 0);
+}
+
+TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent category")
+{
+    sc::Scene scene;
+    auto* meshes = scene.AddSystem<MeshComponentManager>();
+
+    RefPtr<geo::StaticMesh> mesh = geo::Primitives::Quad();
+    RefPtr<mat::Material> glass = mat::MaterialBuilder(u8"glass").Shader(u8"forward").Transparent().Build();
+
+    sc::EntityHandle e = scene.CreateEntity();
+    { MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.material = glass; }
+    scene.UpdateTransforms();
+
+    ExtractedScene snapshot;
+    ExtractSceneInto(scene, snapshot);
+    REQUIRE(snapshot.Size() == 1);
+    const auto* md = static_cast<const MeshRenderData*>(snapshot.Items()[0]);
+    CHECK(md->category == RenderCategories::Transparent);
 }

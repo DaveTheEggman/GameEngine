@@ -1,14 +1,24 @@
 /// Raptor::Render — the `:data` partition.
 ///
-/// The render data the renderer consumes — and the boundary that keeps the renderer
-/// scene-agnostic. Render data is *extracted and pushed to* the renderer; the renderer
-/// never reaches back into a scene (one-way dependency: the scene-integration layer in
-/// raptor.render.subsystem depends on this, not the reverse). So `Renderable` carries
-/// only what a draw needs (a world matrix + mesh + material + an opaque producer tag),
-/// not an entity or a scene reference.
+/// The render-data contract — and the boundary that keeps the renderer scene-agnostic.
+/// Render data is *extracted and pushed to* the renderer; the renderer never reaches back
+/// into a scene (one-way: the scene-integration layer in raptor.render.subsystem depends
+/// on this, not the reverse).
+///
+/// A `RenderData` is a unit of renderable work: a `RenderCategory` tag plus the data a
+/// draw needs (e.g. `MeshRenderData` = world matrix + mesh + material). It is allocated
+/// from a per-frame `FrameArena` (bump allocator), is trivially destructible, and is valid
+/// for exactly one frame. An `ExtractedScene` is the per-scene, once-per-frame, immutable
+/// snapshot of all a scene's render data; every view of that scene shares it read-only.
+///
+/// A `RenderData` carries no view-dependent state: the sort key (which depends on the
+/// camera) lives on a per-view `DrawItem`, computed during the view's cull+sort against the
+/// shared snapshot. (§5/§9 of docs/design/renderer.md.)
 
 module;
 #include "Core/Prelude.h"
+#include <new>
+#include <type_traits>
 
 export module raptor.render:data;
 
@@ -20,24 +30,199 @@ using namespace raptor::core;
 
 export namespace raptor::render {
 
-// One thing to draw: a mesh + material at a world transform. Pointers are borrowed for
-// the frame (the producer keeps the resources alive). `id` is an opaque tag the
-// producer may set (e.g. a packed entity handle) for sorting/picking — meaningless to
-// the renderer.
-struct Renderable {
-    Mat4                  worldMatrix = Mat4::Identity();
-    geometry::StaticMesh* mesh        = nullptr;
-    materials::Material*  material     = nullptr;
-    u64                   id          = 0;
+// A renderable's category — the dispatch key that routes it to a `Renderer`. A plain u16
+// (not an enum class) so external subsystems (particles, world-space UI) can claim ids
+// beyond the built-ins without touching this enum. Values >= kBuiltinCategoryCount are
+// available to extensions; the `Renderer` registry sizes its table to kMaxCategories.
+using RenderCategory = u16;
+
+namespace RenderCategories {
+    inline constexpr RenderCategory Opaque         = 0;   // depth-sorted front-to-back
+    inline constexpr RenderCategory Masked         = 1;   // alpha-tested, opaque-ish
+    inline constexpr RenderCategory Transparent    = 2;   // depth-sorted back-to-front, blended
+    inline constexpr RenderCategory Sky            = 3;
+    inline constexpr RenderCategory Decal          = 4;
+    inline constexpr RenderCategory Light          = 5;
+    inline constexpr RenderCategory ReflectionProbe= 6;
+    inline constexpr RenderCategory GUI            = 7;
+    inline constexpr RenderCategory Particle       = 8;
+}
+inline constexpr u16 kBuiltinCategoryCount = 9;
+inline constexpr u16 kMaxCategories        = 64;   // registry table size (room for extensions)
+
+// Base for a unit of renderable work. Arena-allocated, trivially destructible, valid one
+// frame. Dispatch is by `category` (not virtual) — the registered `Renderer` knows the
+// concrete subclass and static_casts, so there is no vtable.
+struct RenderData {
+    RenderCategory category = RenderCategories::Opaque;
 };
 
-// A frame's worth of renderables + the camera that views them. This is the whole
-// contract between "extract from the world" and "draw on the GPU".
-struct ExtractedView {
-    Mat4              view       = Mat4::Identity();
-    Mat4              projection = Mat4::Identity();
-    bool              hasCamera  = false;
-    Array<Renderable> renderables;
+// One mesh draw: a mesh + material at a world transform. Pointers are borrowed for the
+// frame (the producer keeps the resources alive). `worldCenter` is the world-space bounds
+// center, used for view-depth sorting (and, later, culling). `entityId` is an opaque tag
+// the producer may set (e.g. a packed entity handle) for picking — meaningless to the core.
+struct MeshRenderData : RenderData {
+    Mat4                  world       = Mat4::Identity();
+    Vec3                  worldCenter = Vec3{ 0, 0, 0 };
+    geometry::StaticMesh* mesh        = nullptr;
+    materials::Material*  material     = nullptr;
+    u64                   entityId    = 0;
 };
+static_assert(std::is_trivially_destructible_v<MeshRenderData>);
+
+// A per-view draw entry: a sort key (computed against the view's camera) + the shared
+// render data it refers to. The per-view draw list is an Array<DrawItem> the renderer sorts
+// (radix) then walks. RenderData is borrowed from the ExtractedScene (immutable snapshot).
+struct DrawItem {
+    u64               key  = 0;
+    const RenderData* data = nullptr;
+};
+
+// ---- sort keys -------------------------------------------------------------------------
+//
+// 64-bit key, MSB-first significance so a single ascending radix sort yields the desired
+// order: [category:16][state:24][depth:24]. Category groups draws by Renderer; `state`
+// (material/PSO identity) clusters same-pipeline draws to minimize state changes; `depth`
+// orders within that — front-to-back for opaque (early-Z), back-to-front for transparent
+// (correct blending). The producer inverts depth for transparent before packing.
+
+inline constexpr u32 kSortDepthBits = 24;
+inline constexpr u32 kSortStateBits = 24;
+
+[[nodiscard]] inline u64 MakeSortKey(RenderCategory category, u32 stateBits, u32 depthBits) noexcept {
+    const u64 cat   = static_cast<u64>(category);
+    const u64 state = static_cast<u64>(stateBits) & ((1ull << kSortStateBits) - 1);
+    const u64 depth = static_cast<u64>(depthBits) & ((1ull << kSortDepthBits) - 1);
+    return (cat << (kSortStateBits + kSortDepthBits)) | (state << kSortDepthBits) | depth;
+}
+
+// Quantize a normalized [0,1] depth to the 24-bit depth field. `invert` for back-to-front.
+[[nodiscard]] inline u32 QuantizeDepth(f32 depth01, bool invert) noexcept {
+    f32 d = depth01 < 0.0f ? 0.0f : (depth01 > 1.0f ? 1.0f : depth01);
+    if (invert) { d = 1.0f - d; }
+    constexpr u32 kMax = (1u << kSortDepthBits) - 1;
+    return static_cast<u32>(d * static_cast<f32>(kMax));
+}
+
+// ---- frame arena -----------------------------------------------------------------------
+//
+// A growable, chunked bump allocator for one frame's RenderData. Allocations are valid
+// until Reset() (which keeps the chunks for reuse next frame — no per-frame churn). Only
+// trivially-destructible types (RenderData subclasses) are allocated, so Reset() reclaims
+// without running destructors. (Phase 2 swaps this for the double-buffered RenderContext
+// with per-worker arenas; the New<T>/Reset contract stays.)
+class FrameArena {
+public:
+    explicit FrameArena(usize chunkSize = kDefaultChunkSize) noexcept : m_chunkSize(chunkSize) {}
+    ~FrameArena() { for (Chunk& c : m_chunks) { DefaultAllocator().Free(c.data); } }
+
+    FrameArena(const FrameArena&) = delete;
+    FrameArena& operator=(const FrameArena&) = delete;
+
+    template <typename T, typename... Args>
+    [[nodiscard]] T* New(Args&&... args) {
+        static_assert(std::is_trivially_destructible_v<T>, "FrameArena types must be trivially destructible");
+        void* p = Allocate(sizeof(T), alignof(T));
+        return p != nullptr ? new (p) T{ static_cast<Args&&>(args)... } : nullptr;
+    }
+
+    [[nodiscard]] void* Allocate(usize size, usize alignment) {
+        // Walk to a chunk that fits (reusing chunks retained across Reset), else grow.
+        for (;;) {
+            if (m_current < m_chunks.Size()) {
+                Chunk& c = m_chunks[m_current];
+                const usize base    = reinterpret_cast<usize>(c.data);
+                const usize aligned = AlignUp(base + m_offset, alignment) - base;
+                if (aligned + size <= c.size) {
+                    m_offset = aligned + size;
+                    return c.data + aligned;
+                }
+                // doesn't fit this chunk — advance to the next
+                ++m_current;
+                m_offset = 0;
+                continue;
+            }
+            if (!AddChunk(size > m_chunkSize ? size : m_chunkSize)) { return nullptr; }
+        }
+    }
+
+    void Reset() noexcept { m_current = 0; m_offset = 0; }
+
+    [[nodiscard]] usize ChunkCount() const noexcept { return m_chunks.Size(); }
+
+private:
+    static constexpr usize kDefaultChunkSize = 64 * 1024;
+    static constexpr usize kChunkAlign       = 16;   // >= any RenderData alignment (Mat4 = 16)
+
+    struct Chunk { byte* data = nullptr; usize size = 0; };
+
+    bool AddChunk(usize size) {
+        void* mem = DefaultAllocator().Allocate(size, kChunkAlign);
+        if (mem == nullptr) { return false; }
+        m_chunks.PushBack(Chunk{ static_cast<byte*>(mem), size });
+        return true;
+    }
+
+    Array<Chunk> m_chunks;
+    usize        m_chunkSize;
+    usize        m_current = 0;   // index of the chunk being filled
+    usize        m_offset  = 0;   // bump cursor within m_chunks[m_current]
+};
+
+// ---- extracted scene -------------------------------------------------------------------
+//
+// The per-scene, once-per-frame, immutable snapshot pushed to the renderer: world-space
+// render data for one scene. Views of the same scene share it read-only (N cameras = 1
+// extraction). Lights + environment land in later phases; phase 1 carries renderables.
+class ExtractedScene {
+public:
+    // Allocate a RenderData subclass from the arena and register it in the snapshot.
+    template <typename T, typename... Args>
+    [[nodiscard]] T* Add(Args&&... args) {
+        T* p = m_arena.New<T>(static_cast<Args&&>(args)...);
+        if (p != nullptr) { m_items.PushBack(static_cast<RenderData*>(p)); }
+        return p;
+    }
+
+    // Reset for a new frame: drop the item list, rewind the arena (chunks retained).
+    void Reset() noexcept { m_items.Clear(); m_arena.Reset(); }
+
+    [[nodiscard]] Span<RenderData* const> Items() const noexcept {
+        return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
+    }
+    [[nodiscard]] usize Size() const noexcept { return m_items.Size(); }
+    [[nodiscard]] bool  IsEmpty() const noexcept { return m_items.IsEmpty(); }
+
+private:
+    FrameArena         m_arena;
+    Array<RenderData*> m_items;
+};
+
+// ---- radix sort ------------------------------------------------------------------------
+//
+// LSD radix sort of DrawItems by their 64-bit key, ascending — O(N), stable, 8 passes of
+// 8 bits. `scratch` is a caller-owned ping-pong buffer (reused across frames to avoid
+// per-frame allocation). After the call `items` is sorted; `scratch`'s contents are
+// unspecified.
+inline void RadixSortDrawItems(Array<DrawItem>& items, Array<DrawItem>& scratch) {
+    const usize n = items.Size();
+    if (n < 2) { return; }
+    scratch.Resize(n);
+
+    Array<DrawItem>* src = &items;
+    Array<DrawItem>* dst = &scratch;
+    for (u32 shift = 0; shift < 64; shift += 8) {
+        usize counts[256] = {};
+        for (usize i = 0; i < n; ++i) { ++counts[((*src)[i].key >> shift) & 0xFFu]; }
+        usize total = 0;
+        for (u32 b = 0; b < 256; ++b) { const usize c = counts[b]; counts[b] = total; total += c; }
+        for (usize i = 0; i < n; ++i) {
+            const u8 bucket = static_cast<u8>(((*src)[i].key >> shift) & 0xFFu);
+            (*dst)[counts[bucket]++] = (*src)[i];
+        }
+        Array<DrawItem>* tmp = src; src = dst; dst = tmp;
+    }
+    // 8 passes (even) → result ends back in `items`; nothing to copy.
+}
 
 } // namespace raptor::render
