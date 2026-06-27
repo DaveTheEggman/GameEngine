@@ -4,7 +4,7 @@
 // grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
-#include "Runtime/Client/AppMain.h"
+#include <cstring>
 
 import raptor.core;
 import raptor.runtime;
@@ -32,6 +32,8 @@ namespace
     class SandboxApp final : public rt::DefaultApplication
     {
     public:
+        bool useDistinctMaterials = true;   // set from the command line (--instanced / --distinct)
+
         void OnStartup(rt::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
@@ -47,12 +49,12 @@ namespace
                 cameras->Add(m_camera);   // default 60deg perspective
             }
 
-            // STRESS TOGGLE for parallel COMMAND recording: when true, every cube gets its OWN
-            // material, so they don't batch — ~400 distinct resolved draws, which exceeds the
-            // emit threshold and fans the EMIT phase out across the job system's worker threads
-            // (per-worker render bundles). When false, all cubes share one material and fuse into
-            // a single instanced draw (the serial emit path).
-            constexpr bool kDistinctMaterials = true;
+            // STRESS TOGGLE for parallel COMMAND recording (set from the command line, see main):
+            // when true, every cube gets its OWN material, so they don't batch — ~400 distinct
+            // resolved draws, which exceeds the emit threshold and fans the EMIT phase out across
+            // the job system's worker threads (per-worker render bundles). When false, all cubes
+            // share one material and fuse into a single instanced draw (the serial emit path).
+            const bool kDistinctMaterials = useDistinctMaterials;
 
             // A spinning 20x20 = 400-cube grid. Either way, extraction fans out across the job
             // system (> the parallel-extraction threshold). Each cube has a distinct color.
@@ -108,4 +110,25 @@ namespace
     };
 }
 
-RAPTOR_APP_MAIN(SandboxApp)
+// Custom entry point (instead of RAPTOR_APP_MAIN) so the render mode is command-line-selectable:
+//   --instanced  : all cubes share one material -> a single instanced draw (serial emit path)
+//   --distinct   : every cube gets its own material -> ~400 draws -> parallel command recording
+// (default: --distinct).
+int main(int argc, char** argv)
+{
+    bool distinct = true;
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::strcmp(argv[i], "--instanced") == 0) { distinct = false; }
+        else if (std::strcmp(argv[i], "--distinct") == 0) { distinct = true; }
+    }
+
+    auto platform = rt::CreatePlatform();
+    rt::GraphicsDeviceDesc gpuDesc{};
+    auto gpu = rt::CreateGraphicsDevice(gpuDesc);
+    rt::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
+
+    SandboxApp app;
+    app.useDistinctMaterials = distinct;
+    return rt::RunApplication(app, *platform, device);
+}

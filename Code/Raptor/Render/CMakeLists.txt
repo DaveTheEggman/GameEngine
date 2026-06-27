@@ -6,7 +6,7 @@ add_library(RaptorRender STATIC)
 add_library(Raptor::Render ALIAS RaptorRender)
 
 target_link_libraries(RaptorRender
-    PUBLIC Raptor::Core Raptor::RHI Raptor::Geometry Raptor::Materials
+    PUBLIC Raptor::Core Raptor::RHI Raptor::RenderGraph Raptor::Geometry Raptor::Materials
            Raptor::Shaders Raptor::ShaderSystem Raptor::PipelineCache Raptor::Policy)
 
 target_sources(RaptorRender

@@ -21,6 +21,7 @@ export module raptor.render:pipeline;
 
 import raptor.core;
 import raptor.rhi;
+import raptor.rendergraph;
 import :data;
 import :views;
 
@@ -140,7 +141,7 @@ class ForwardPass {
 public:
     ForwardPass(rhi::Device& device, u32 framesInFlight) noexcept
         : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight) {}
-    ~ForwardPass() { ReleaseDepth(); ReleaseWorkerPools(); }
+    ~ForwardPass() { ReleaseWorkerPools(); }
 
     ForwardPass(const ForwardPass&) = delete;
     ForwardPass& operator=(const ForwardPass&) = delete;
@@ -158,30 +159,47 @@ public:
         }
     }
 
-    void Execute(const RenderView& view, const RendererRegistry& registry, rhi::CommandEncoder& encoder, u32 frameIndex) {
+    // Declare this view's forward pass into the frame graph: a TRANSIENT depth target (the graph
+    // allocates it + inserts the depth barrier automatically — retiring the hand-rolled depth
+    // transition) + the IMPORTED color target (left in RenderTarget for the host to present). The
+    // pass body is a render bundle the graph executes (secondary contents). Resolve + emit run in
+    // the bundle callback at graph Execute time.
+    void DeclarePass(const RenderView& view, const RendererRegistry& registry,
+                     rendergraph::RenderGraph& graph, u32 frameIndex) {
         rhi::TextureView* color = view.Target();
-        if (color == nullptr || !EnsureDepth(view.Width(), view.Height())) { return; }
+        if (color == nullptr || view.Width() == 0 || view.Height() == 0) { return; }
 
-        rhi::RenderPassDesc rp{};
-        rhi::ColorAttachment ca{};
-        ca.view = color; ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
-        ca.clearValue = view.Settings().clear;
-        rp.colorAttachments.Add(ca);
-        rhi::DepthStencilAttachment ds{};
-        ds.view = m_depthView; ds.depthLoadOp = rhi::LoadOp::Clear; ds.depthStoreOp = rhi::StoreOp::Store;
-        ds.depthClearValue = 1.0f;
-        rp.depthStencilAttachment = ds;
-        rp.label = u8"forward";
+        const rendergraph::RGHandle depth = graph.CreateTransient(
+            u8"forward.depth", rendergraph::RGTextureDesc(m_depthFormat, view.Width(), view.Height()));
+        // current==final==RenderTarget: the host did Undefined->RenderTarget and will do
+        // RenderTarget->Present, so the graph touches no backbuffer barrier.
+        const rendergraph::RGHandle colorH = graph.ImportTarget(
+            u8"forward.color", nullptr, color, rhi::ResourceState::RenderTarget, rhi::ResourceState::RenderTarget);
 
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, frameIndex](rendergraph::PassBuilder& b) {
+            b.SetColorTarget(0, colorH, rhi::LoadOp::Clear, rhi::StoreOp::Store, view.Settings().clear);
+            b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+            b.NeverCull();
+            b.SetBundleExecute([this, &view, &registry, frameIndex](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, out);
+            });
+        });
+    }
+
+private:
+    // The bundle-pass body: resolve the view's draws (single-threaded) then emit them into render
+    // bundle(s) appended to `out` — serially below the threshold, else fanned out across the job
+    // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
+    void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
+                        rhi::CommandEncoder& encoder, u32 frameIndex, Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = view.Camera().ViewProjection();
         ctx.colorFormat = view.TargetFormat();
         ctx.depthFormat = m_depthFormat;
 
-        // RESOLVE (single-threaded): turn the sorted draw list into ResolvedDraws (PSO build,
-        // mesh upload, ring allocation all happen here). The list is sorted with category in the
-        // key's MSBs, so equal-category items are contiguous; each run goes to its renderer.
+        // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
+        // ring allocation). Equal-category items are contiguous; each run goes to its renderer.
         m_resolved.Clear();
         const Span<const DrawItem> items = view.DrawList();
         usize i = 0;
@@ -195,20 +213,15 @@ public:
             i = j;
         }
 
-        // EMIT: replay the resolved draws into render bundle(s), recorded before BeginRenderPass
-        // (bundle recording requires the encoder in the recording state). Emission is pure command
-        // replay with no shared mutation, so it parallelizes: above a threshold, split the resolved
-        // draws into N contiguous chunks recorded into N bundles on N JobSystem workers, each using
-        // its OWN command pool (Vulkan pools aren't thread-safe). Below threshold (or no job
-        // system), record one bundle on the calling thread. Bundles are executed in draw order.
+        // EMIT into bundles.
         rhi::RenderBundleDesc bd{};
-        bd.colorFormats[0]     = view.TargetFormat();
-        bd.colorFormatCount    = 1;
-        bd.depthStencilFormat  = m_depthFormat;
-        bd.sampleCount         = 1;
-        bd.width               = view.Width();
-        bd.height              = view.Height();
-        bd.label               = u8"forward.bundle";
+        bd.colorFormats[0]    = view.TargetFormat();
+        bd.colorFormatCount   = 1;
+        bd.depthStencilFormat = m_depthFormat;
+        bd.sampleCount        = 1;
+        bd.width              = view.Width();
+        bd.height             = view.Height();
+        bd.label              = u8"forward.bundle";
 
         m_bundles.Clear();
         const u32 total = static_cast<u32>(m_resolved.Size());
@@ -218,43 +231,7 @@ public:
             for (const ResolvedDraw& d : m_resolved) { EmitDraw(*be, d); }
             m_bundles.PushBack(be->Finish());
         }
-
-        // Depth target starts Undefined each frame (we clear it); move it to depth-write
-        // before the pass. (The color target was transitioned to RenderTarget by the host.)
-        encoder.TransitionTexture(m_depthTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilWrite);
-
-        // The pass body is supplied by the bundle(s) (no inline draws — secondary contents).
-        rp.contents = rhi::RenderPassContents::SecondaryCommandBuffers;
-        rhi::RenderPassEncoder* pass = encoder.BeginRenderPass(rp);
-        if (pass == nullptr) { return; }
-        // Collect non-null bundles in draw order and replay them.
-        m_executeList.Clear();
-        for (rhi::RenderBundle* b : m_bundles) { if (b != nullptr) { m_executeList.PushBack(b); } }
-        if (!m_executeList.IsEmpty()) {
-            pass->ExecuteBundles(Span<rhi::RenderBundle* const>{ m_executeList.Data(), m_executeList.Size() });
-        }
-        pass->End();
-    }
-
-private:
-    bool EnsureDepth(u32 width, u32 height) {
-        if (width == 0 || height == 0) { return false; }
-        if (m_depthTex != nullptr && m_depthW == width && m_depthH == height) { return true; }
-        ReleaseDepth();
-        rhi::TextureDesc td = rhi::TextureDesc::DepthBuffer(m_depthFormat, width, height, 1, u8"forward.depth");
-        if (!m_device->CreateTexture(td, m_depthTex).IsOk()) { m_depthTex = nullptr; return false; }
-        rhi::TextureViewDesc vd{};
-        vd.format = m_depthFormat; vd.dimension = rhi::TextureViewDimension::Texture2D;
-        vd.aspect = rhi::TextureAspect::DepthOnly;
-        if (!m_device->CreateTextureView(m_depthTex, vd, m_depthView).IsOk()) { m_depthView = nullptr; return false; }
-        m_depthW = width; m_depthH = height;
-        return true;
-    }
-
-    void ReleaseDepth() {
-        if (m_depthView) { m_device->DestroyTextureView(m_depthView); m_depthView = nullptr; }
-        if (m_depthTex)  { m_device->DestroyTexture(m_depthTex); m_depthTex = nullptr; }
-        m_depthW = 0; m_depthH = 0;
+        for (rhi::RenderBundle* b : m_bundles) { if (b != nullptr) { out.PushBack(b); } }
     }
 
     // Split the resolved draws into <= SlotCount contiguous chunks; record each into its own
@@ -329,13 +306,9 @@ private:
 
     rhi::Device*       m_device;
     u32                m_framesInFlight = 2;
-    rhi::Texture*      m_depthTex   = nullptr;
-    rhi::TextureView*  m_depthView  = nullptr;
-    u32                m_depthW = 0, m_depthH = 0;
-    rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;
-    Array<ResolvedDraw>       m_resolved;     // reused resolve buffer (drained each Execute)
+    rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;   // depth texture is a graph transient
+    Array<ResolvedDraw>       m_resolved;     // reused resolve buffer (drained each pass)
     Array<rhi::RenderBundle*> m_bundles;      // per-chunk bundles (draw order)
-    Array<rhi::RenderBundle*> m_executeList;  // non-null bundles to ExecuteBundles
     // Per-(frameIndex, slot) worker command pools + persistent encoders for parallel emit.
     Array<rhi::CommandPool*>    m_workerPools;
     Array<rhi::CommandEncoder*> m_workerEncoders;
@@ -348,13 +321,14 @@ private:
 class RenderFrame {
 public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight) noexcept
-        : m_registry(&registry), m_pass(device, framesInFlight) {}
+        : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
-    void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) noexcept {
+    void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
         m_encoder    = &encoder;
         m_frameIndex = frameIndex;
         m_views.Begin();
+        m_graph.BeginFrame(static_cast<i32>(frameIndex));   // one graph composes all this frame's views
     }
 
     // Collect a view over `scene`. Builds its sorted draw list now (parallelizable later);
@@ -378,23 +352,31 @@ public:
 
         for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
         m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
-        for (usize i = 0; i < m_views.ActiveCount(); ++i) {
-            m_pass.Execute(*m_views.At(i), *m_registry, *m_encoder, m_frameIndex);
-        }
-        for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }
 
+        // Declare every view's forward pass into the one frame graph, then let the graph compile
+        // (barriers + transient depth allocation/aliasing) + execute. (§9: one graph, all views.)
+        if (m_views.ActiveCount() > 0) {
+            m_graph.SetOutputSize(m_views.At(0)->Width(), m_views.At(0)->Height());
+        }
+        for (usize i = 0; i < m_views.ActiveCount(); ++i) {
+            m_pass.DeclarePass(*m_views.At(i), *m_registry, m_graph, m_frameIndex);
+        }
+        (void)m_graph.Execute(m_encoder);
+
+        for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }
         m_encoder = nullptr;
     }
 
     [[nodiscard]] usize ViewCount() const noexcept { return m_views.ActiveCount(); }
 
 private:
-    RendererRegistry*    m_registry;
-    ForwardPass          m_pass;
-    RenderViewPool       m_views;
-    Array<DrawItem>      m_sortScratch;   // reused radix-sort ping-pong buffer
-    rhi::CommandEncoder* m_encoder    = nullptr;
-    u32                  m_frameIndex = 0;
+    RendererRegistry*       m_registry;
+    ForwardPass             m_pass;
+    rendergraph::RenderGraph m_graph;       // one graph per frame, composes all views
+    RenderViewPool          m_views;
+    Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
+    rhi::CommandEncoder*    m_encoder    = nullptr;
+    u32                     m_frameIndex = 0;
 };
 
 } // namespace raptor::render
