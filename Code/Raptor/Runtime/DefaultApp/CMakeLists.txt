@@ -8,7 +8,8 @@ add_library(RaptorRuntimeDefaultApp STATIC)
 add_library(Raptor::RuntimeDefaultApp ALIAS RaptorRuntimeDefaultApp)
 
 target_link_libraries(RaptorRuntimeDefaultApp
-    PUBLIC Raptor::Core Raptor::RuntimeClient Raptor::SceneSubsystem Raptor::Policy)
+    PUBLIC Raptor::Core Raptor::RHI Raptor::RuntimeClient Raptor::RuntimeGraphics
+           Raptor::Scene Raptor::SceneSubsystem Raptor::RenderSubsystem Raptor::Policy)
 
 target_sources(RaptorRuntimeDefaultApp
     PUBLIC

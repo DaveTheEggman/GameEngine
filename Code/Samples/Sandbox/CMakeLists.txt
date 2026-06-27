@@ -14,4 +14,7 @@ target_link_libraries(Sandbox PRIVATE
     Raptor::RuntimeDefaultApp
     Raptor::Scene
     Raptor::SceneSubsystem
+    Raptor::RenderSubsystem
+    Raptor::Geometry
+    Raptor::Materials
     Raptor::Policy)

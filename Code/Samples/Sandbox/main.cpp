@@ -1,8 +1,7 @@
-// Sandbox — the running dev harness we grow the engine in. It extends
-// DefaultApplication (which registers the standard engine subsystems — currently the
-// SceneSubsystem), creates a scene to develop against, and clears the window each
-// frame. As the renderer lands, this app attaches mesh/camera components and the
-// RenderSubsystem draws the scene; for now it stands up the world and presents.
+// Sandbox — the running dev harness. It extends DefaultApplication (which registers
+// the SceneSubsystem + RenderSubsystem and renders active scenes each frame), creates a
+// scene with a camera and a spinning cube, and lets the engine draw it. As the renderer
+// grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
 #include "Runtime/Client/AppMain.h"
@@ -12,56 +11,60 @@ import raptor.runtime;
 import raptor.runtime.client;
 import raptor.runtime.platform;
 import raptor.runtime.platform.desktop;
-import raptor.runtime.graphics;       // GraphicsDevice + FrameContext
-import raptor.runtime.graphics.gpu;   // CreateGraphicsDevice
-import raptor.runtime.defaultapp;     // DefaultApplication (registers SceneSubsystem)
+import raptor.runtime.graphics;
+import raptor.runtime.graphics.gpu;
+import raptor.runtime.defaultapp;     // DefaultApplication (scene + render subsystems)
 import raptor.scene;
 import raptor.scene.subsystem;
+import raptor.render.subsystem;       // MeshComponent / CameraComponent + their managers
+import raptor.geometry;
+import raptor.materials;
 
 namespace rc = raptor::core;
 namespace rt = raptor::runtime;
 namespace sc = raptor::scene;
+namespace rd = raptor::render;
+namespace geo = raptor::geometry;
+namespace mat = raptor::materials;
 
 namespace
 {
     class SandboxApp final : public rt::DefaultApplication
     {
     public:
-        // DefaultApplication::Configure registers the SceneSubsystem; a game would add
-        // its own subsystems after calling the base. (We rely on the base for now.)
-        void Configure(rt::IApplicationHost& host) override
-        {
-            rt::DefaultApplication::Configure(host);
-            // TODO: host.Ctx().AddSubsystem<RenderSubsystem>(...) once the renderer lands.
-        }
-
         void OnStartup(rt::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
-            if (scenes != nullptr)
-            {
-                m_scene = scenes->CreateScene(u8"sandbox");
-                m_root = m_scene->CreateEntity(u8"root");
-                // The RenderSubsystem (ISceneAware) injects the MeshComponentManager +
-                // camera manager into this scene on creation. Here we'll just spawn
-                // entities and attach components (a Primitives::Cube mesh, a camera)
-                // once those component types exist.
-                rc::ConsoleWrite(u8"Sandbox: scene 'sandbox' created. Close the window to exit.\n");
+            if (scenes == nullptr) { return; }
+
+            // CreateScene triggers the RenderSubsystem to inject the render managers.
+            m_scene = scenes->CreateScene(u8"sandbox");
+
+            // camera, pulled back along +Z looking at the origin (down -Z by default)
+            m_camera = m_scene->CreateEntity(u8"camera");
+            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 0.0f, 4.0f });
+            if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
+                cameras->Add(m_camera);   // default 60deg perspective
             }
+
+            // a spinning cube at the origin, drawn with the built-in forward shader
+            m_cube = m_scene->CreateEntity(u8"cube");
+            if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
+                rd::MeshComponent& mc = meshes->Add(m_cube);
+                mc.mesh     = geo::Primitives::Cube(1.0f);
+                mc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+            }
+
+            rc::ConsoleWrite(u8"Sandbox: spinning cube. Close the window to exit.\n");
         }
 
         void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override
         {
-            // The SceneSubsystem ticks the scene for us (UpdateOrder -500). Drive
-            // anything app-specific here as systems land.
-            m_elapsed += deltaTime;
-        }
-
-        void OnRenderWindow(rt::IApplicationHost&, rt::FrameContext& frame) override
-        {
-            // No renderer yet — present a calm clear. The RenderSubsystem will draw
-            // the scene into `frame` once it exists.
-            frame.Clear(0.08f, 0.09f, 0.12f, 1.0f);
+            if (m_scene == nullptr) { return; }
+            m_angle += deltaTime;
+            rc::Transform t;
+            t.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);
+            m_scene->SetLocalTransform(m_cube, t);
         }
 
         void OnShutdown(rt::IApplicationHost&) override
@@ -70,9 +73,10 @@ namespace
         }
 
     private:
-        sc::Scene*        m_scene = nullptr;
-        sc::EntityHandle  m_root{};
-        rc::f32           m_elapsed = 0.0f;
+        sc::Scene*       m_scene = nullptr;
+        sc::EntityHandle m_camera{};
+        sc::EntityHandle m_cube{};
+        rc::f32          m_angle = 0.0f;
     };
 }
 

@@ -17,8 +17,14 @@ module;
 export module raptor.runtime.defaultapp;
 
 import raptor.core;
+import raptor.rhi;
 import raptor.runtime.client;     // IApplication, IApplicationHost
+import raptor.runtime.graphics;   // GraphicsDevice, FrameContext
+import raptor.scene;              // Scene
 import raptor.scene.subsystem;    // SceneSubsystem (the standard scene driver)
+import raptor.render.subsystem;   // RenderSubsystem (the standard renderer)
+
+namespace rhi = raptor::rhi;
 
 export namespace raptor::runtime
 {
@@ -30,8 +36,32 @@ export namespace raptor::runtime
         void Configure(IApplicationHost& host) override
         {
             host.Ctx().AddSubsystem<raptor::scene::SceneSubsystem>();
-            // TODO: InputSubsystem / RenderSubsystem / ... land here as they're built;
-            // each becomes a link dependency of THIS library only.
+            if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+            {
+                host.Ctx().AddSubsystem<raptor::render::RenderSubsystem>(*gfx->Raw());
+            }
+        }
+
+        // Default render: draw every active scene into the window via the RenderSubsystem.
+        // A game overrides this for custom rendering. (Single-scene for now — multiple
+        // active scenes would each clear; compositing is a later concern.)
+        void OnRenderWindow(IApplicationHost& host, FrameContext& frame) override
+        {
+            auto* render = host.Ctx().GetSubsystem<raptor::render::RenderSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<raptor::scene::SceneSubsystem>();
+            if (render == nullptr || !render->IsReady() || scenes == nullptr ||
+                frame.encoder == nullptr || frame.backbufferView == nullptr || frame.window == nullptr)
+            {
+                frame.Clear(0.08f, 0.09f, 0.12f, 1.0f);   // no renderer — present a clear
+                return;
+            }
+
+            const rhi::TextureFormat colorFormat = frame.window->Swap()->Format();
+            for (raptor::scene::Scene* scene : scenes->ActiveScenes())
+            {
+                render->RenderScene(*scene, *frame.encoder, frame.backbufferView, colorFormat,
+                                    frame.width, frame.height, rhi::ClearColor::CornflowerBlue());
+            }
         }
     };
 }
