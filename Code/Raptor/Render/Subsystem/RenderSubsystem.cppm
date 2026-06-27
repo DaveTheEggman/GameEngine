@@ -66,7 +66,7 @@ public:
     }
 
     void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
-                     u32 width, u32 height, rhi::ClearColor clear,
+                     u32 width, u32 height,
                      const CameraOverride* cameraOverride = nullptr) override {
         if (m_frame.Get() == nullptr || target == nullptr) { return; }
 
@@ -75,11 +75,12 @@ public:
         ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
 
         ViewCamera camera;
-        if (cameraOverride != nullptr) { camera = cameraOverride->camera; }
-        else { (void)ExtractPrimaryCamera(scene, camera); }   // no camera -> identity (still clears)
+        Color clearColor{ 0.392f, 0.584f, 0.929f, 1.0f };     // cornflower fallback (no primary camera)
+        if (cameraOverride != nullptr) { camera = cameraOverride->camera; clearColor = cameraOverride->clearColor; }
+        else { (void)ExtractPrimaryCamera(scene, camera, &clearColor); }   // clear comes from the camera
 
         ViewSettings settings;
-        settings.clear = clear;
+        settings.clear = rhi::ClearColor{ clearColor.r, clearColor.g, clearColor.b, clearColor.a };
         m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height);
     }
 

@@ -61,7 +61,7 @@ export namespace raptor::runtime
             for (raptor::scene::Scene* scene : scenes->ActiveScenes())
             {
                 render->RenderScene(*scene, frame.backbufferView, colorFormat,
-                                    frame.width, frame.height, rhi::ClearColor::CornflowerBlue());
+                                    frame.width, frame.height);   // clear comes from the scene's camera
             }
             render->EndRendering();
         }

@@ -37,6 +37,7 @@ export namespace raptor::render {
 // An explicit camera for a RenderScene call, bypassing the scene's primary CameraComponent.
 struct CameraOverride {
     ViewCamera camera;
+    Color      clearColor = Color{ 0.392f, 0.584f, 0.929f, 1.0f };   // the view's backdrop
 };
 
 // The scene-rendering coordinator. Implemented by RenderSubsystem; queried by the app via
@@ -50,9 +51,10 @@ public:
     virtual void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) = 0;
 
     // Collect `scene`, viewed from its primary camera (or `cameraOverride` if given), to be
-    // drawn into `target`. Must be called between Begin/EndRendering.
+    // drawn into `target`. The view's clear color comes from that camera. Must be called
+    // between Begin/EndRendering.
     virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
-                             u32 width, u32 height, rhi::ClearColor clear,
+                             u32 width, u32 height,
                              const CameraOverride* cameraOverride = nullptr) = 0;
 
     // Compose every collected view into the frame's encoder.

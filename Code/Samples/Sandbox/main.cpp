@@ -46,7 +46,8 @@ namespace
             m_camera = m_scene->CreateEntity(u8"camera");
             m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 0.0f, 22.0f });
             if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
-                cameras->Add(m_camera);   // default 60deg perspective
+                rd::CameraComponent& cam = cameras->Add(m_camera);   // default 60deg perspective
+                cam.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit cubes read
             }
 
             // STRESS TOGGLE for parallel COMMAND recording (set from the command line, see main):

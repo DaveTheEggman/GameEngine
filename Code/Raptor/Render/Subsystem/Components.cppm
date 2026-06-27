@@ -34,12 +34,15 @@ struct MeshComponent {
 
 // A camera frustum. The view transform is the inverse of the entity's world matrix;
 // these fields define the projection. `primary` marks the camera the renderer uses.
+// `clearColor` is the backdrop the view is cleared to (per-camera, like Unity/Godot);
+// defaults to the cornflower sentinel. (Clear *mode* — skybox/solid/depth-only — later.)
 struct CameraComponent {
-    f32  fovYRadians = 1.04719755f;          // 60 degrees
-    f32  aspect      = 16.0f / 9.0f;
-    f32  nearZ       = 0.1f;
-    f32  farZ        = 1000.0f;
-    bool primary     = true;
+    f32   fovYRadians = 1.04719755f;          // 60 degrees
+    f32   aspect      = 16.0f / 9.0f;
+    f32   nearZ       = 0.1f;
+    f32   farZ        = 1000.0f;
+    Color clearColor  = Color{ 0.392f, 0.584f, 0.929f, 1.0f };   // cornflower sentinel
+    bool  primary     = true;
 };
 
 // A light on an entity. Directional uses the entity's forward (-Z); Point/Spot use its world

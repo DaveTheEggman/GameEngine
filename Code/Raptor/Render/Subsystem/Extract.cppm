@@ -111,8 +111,9 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
 }
 
 // Reads the scene's primary camera into `out` (view = inverse world; projection from its
-// fields). Returns false if no primary CameraComponent exists.
-[[nodiscard]] inline bool ExtractPrimaryCamera(scene::Scene& scene, ViewCamera& out) {
+// fields). When `outClear` is given, also writes the camera's clear color. Returns false if
+// no primary CameraComponent exists.
+[[nodiscard]] inline bool ExtractPrimaryCamera(scene::Scene& scene, ViewCamera& out, Color* outClear = nullptr) {
     bool found = false;
     if (auto* cameras = scene.GetSystem<CameraComponentManager>()) {
         cameras->ForEach([&](CameraComponent& cam, scene::EntityHandle e) {
@@ -123,6 +124,7 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
             out.projection = Mat4::PerspectiveFovRH(cam.fovYRadians, cam.aspect, cam.nearZ, cam.farZ);
             out.position   = TransformPoint(Vec3{ 0, 0, 0 }, world);
             out.farZ       = cam.farZ;
+            if (outClear != nullptr) { *outClear = cam.clearColor; }
         });
     }
     return found;
