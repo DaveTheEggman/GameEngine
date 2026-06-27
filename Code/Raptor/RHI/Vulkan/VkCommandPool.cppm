@@ -48,12 +48,37 @@ public:
         for (auto* cb : m_trackedBuffers) delete cb;
         m_trackedBuffers.Clear();
         m_freeHandles.Clear();
+        for (auto* e : m_trackedBundleEncoders) delete e;   // each frees its produced bundle
+        m_trackedBundleEncoders.Clear();
+        m_liveSecondaries.Clear();
+        m_freeSecondaries.Clear();
 
         if (m_pool != VK_NULL_HANDLE) { vkDestroyCommandPool(m_device, m_pool, nullptr); m_pool = VK_NULL_HANDLE; }
     }
 
     // Called by encoder's finish() to register the command buffer.
     void trackCommandBuffer(VkCommandBufferImpl* cb) { m_trackedBuffers.PushBack(cb); }
+
+    // ---- render bundles (secondary command buffers) ----
+
+    // Allocate (or recycle) a SECONDARY command buffer for a render bundle encoder.
+    [[nodiscard]] VkCommandBuffer acquireSecondary() {
+        VkCommandBuffer cb = VK_NULL_HANDLE;
+        if (!m_freeSecondaries.IsEmpty()) { cb = m_freeSecondaries.Back(); m_freeSecondaries.PopBack(); }
+        else {
+            VkCommandBufferAllocateInfo ai{};
+            ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            ai.commandPool        = m_pool;
+            ai.level              = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+            ai.commandBufferCount = 1;
+            if (vkAllocateCommandBuffers(m_device, &ai, &cb) != VK_SUCCESS) return VK_NULL_HANDLE;
+        }
+        m_liveSecondaries.PushBack(cb);   // recycled on Reset
+        return cb;
+    }
+
+    // Track a bundle-encoder wrapper so it (and the bundle it owns) is freed on Reset.
+    void trackBundleEncoder(RenderBundleEncoder* e) { m_trackedBundleEncoders.PushBack(e); }
 
     [[nodiscard]] VkCommandPool handle() const { return m_pool; }
     [[nodiscard]] VkDevice      vkDevice() const { return m_device; }
@@ -67,6 +92,9 @@ private:
     u32                               m_familyIndex = 0;
     Array<VkCommandBuffer>      m_freeHandles;
     Array<VkCommandBufferImpl*> m_trackedBuffers;
+    Array<VkCommandBuffer>      m_freeSecondaries;        // recyclable secondary handles
+    Array<VkCommandBuffer>      m_liveSecondaries;        // handed out this cycle
+    Array<RenderBundleEncoder*> m_trackedBundleEncoders;  // wrappers freed on reset
 };
 
 } // namespace raptor::rhi::vk

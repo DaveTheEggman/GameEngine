@@ -92,6 +92,7 @@ public:
     void DrawIndexed(u32, u32, u32, i32, u32) override {}
     void DrawIndirect(Buffer*, u64, u32, u32) override {}
     void DrawIndexedIndirect(Buffer*, u64, u32, u32) override {}
+    void ExecuteBundles(Span<RenderBundle* const>) override {}
     void WriteTimestamp(QuerySet*, u32) override {}
     void BeginOcclusionQuery(QuerySet*, u32) override {}
     void EndOcclusionQuery(QuerySet*, u32) override {}
@@ -100,6 +101,23 @@ public:
     void DrawMeshTasks(u32, u32, u32) override {}
     void DrawMeshTasksIndirect(Buffer*, u64, u32, u32) override {}
     void DrawMeshTasksIndirectCount(Buffer*, u64, Buffer*, u64, u32, u32) override {}
+};
+
+class NullRenderBundle : public RenderBundle {};
+
+class NullRenderBundleEncoder : public RenderBundleEncoder {
+public:
+    void SetPipeline(RenderPipeline*) override {}
+    void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+    void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
+    void SetVertexBuffer(u32, Buffer*, u64) override {}
+    void SetIndexBuffer(Buffer*, IndexFormat, u64) override {}
+    void Draw(u32, u32, u32, u32) override {}
+    void DrawIndexed(u32, u32, u32, i32, u32) override {}
+    void DrawIndirect(Buffer*, u64, u32, u32) override {}
+    void DrawIndexedIndirect(Buffer*, u64, u32, u32) override {}
+    RenderBundle* Finish() override { return &bundle; }
+    NullRenderBundle bundle;
 };
 
 class NullComputePassEncoder : public ComputePassEncoder {
@@ -119,10 +137,12 @@ public:
     RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     NullRenderPassEncoder rpe;
     NullComputePassEncoder cpe;
+    NullRenderBundleEncoder rbe;
     NullCommandBuffer cb;
 
     RenderPassEncoder*  BeginRenderPass(const RenderPassDesc&) override { return &rpe; }
     ComputePassEncoder* BeginComputePass(StringView) override { return &cpe; }
+    RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc&) override { return &rbe; }
     void Barrier(const BarrierGroup&) override {}
     void CopyBufferToBuffer(Buffer*, u64, Buffer*, u64, u64) override {}
     void CopyBufferToTexture(Buffer*, Texture*, const BufferTextureCopyRegion&) override {}

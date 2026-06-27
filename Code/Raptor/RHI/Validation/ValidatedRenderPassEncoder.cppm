@@ -8,6 +8,7 @@ export module raptor.rhi.validation:validated_render_pass_encoder;
 
 import raptor.core;
 import raptor.rhi;
+import :validated_render_bundle_encoder;
 
 using namespace raptor::core;
 
@@ -105,6 +106,18 @@ public:
         if (!checkDrawReady("drawIndexedIndirect")) return;
         if (!buffer) { LogError("[Validation] drawIndexedIndirect: buffer is null"); return; }
         m_inner->DrawIndexedIndirect(buffer, offset, drawCount, stride);
+    }
+
+    void ExecuteBundles(Span<RenderBundle* const> bundles) override {
+        if (m_ended) { LogError("[Validation] executeBundles: render pass ended"); return; }
+        // Unwrap each ValidatedRenderBundle to its inner bundle before forwarding.
+        Array<RenderBundle*> inner(bundles.Size());
+        for (usize i = 0; i < bundles.Size(); ++i) {
+            auto* vb = static_cast<ValidatedRenderBundle*>(bundles[i]);
+            if (!vb) { LogErrorf("[Validation] executeBundles: bundle %d is null", static_cast<int>(i)); return; }
+            inner[i] = vb->inner();
+        }
+        m_inner->ExecuteBundles(Span<RenderBundle* const>{ inner.Data(), inner.Size() });
     }
 
     void WriteTimestamp(QuerySet* qs, u32 index) override {

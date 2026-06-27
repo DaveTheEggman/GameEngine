@@ -18,6 +18,7 @@ import :compute_pipeline;
 import :pipeline_layout;
 import :query_set;
 import :mesh_pipeline;
+import :render_bundle_encoder;
 
 using namespace raptor::core;
 
@@ -120,6 +121,14 @@ public:
     void EndOcclusionQuery(QuerySet* qs, u32 index) override {
         auto* q = static_cast<VkQuerySetImpl*>(qs);
         if (q) vkCmdEndQuery(m_cmdBuf, q->handle(), index);
+    }
+
+    void ExecuteBundles(Span<RenderBundle* const> bundles) override {
+        if (bundles.IsEmpty()) return;
+        Array<VkCommandBuffer> secs(bundles.Size());
+        for (usize i = 0; i < bundles.Size(); ++i)
+            secs[i] = static_cast<VkRenderBundleImpl*>(bundles[i])->handle();
+        vkCmdExecuteCommands(m_cmdBuf, static_cast<u32>(secs.Size()), secs.Data());
     }
 
     void End() override {

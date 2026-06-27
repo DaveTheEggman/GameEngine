@@ -41,6 +41,7 @@ target_sources(RaptorRHIDX12
             DxCommandBuffer.cppm
             DxCommandPool.cppm
             DxRenderPassEncoder.cppm
+            DxRenderBundleEncoder.cppm
             DxComputePassEncoder.cppm
             DxMeshPipeline.cppm
             DxAccelStruct.cppm

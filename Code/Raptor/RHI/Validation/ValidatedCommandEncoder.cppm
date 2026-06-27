@@ -10,6 +10,7 @@ import raptor.core;
 import raptor.rhi;
 import :validated_render_pass_encoder;
 import :validated_compute_pass_encoder;
+import :validated_render_bundle_encoder;
 
 using namespace raptor::core;
 
@@ -22,6 +23,12 @@ public:
     RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     explicit ValidatedCommandEncoder(CommandEncoder* inner)
         : m_inner(inner) {}
+
+    ~ValidatedCommandEncoder() override {
+        // Bundle encoders (and the bundles they own) live until the command encoder is
+        // destroyed — by then its submission has completed, so the inner bundles are done.
+        for (auto* e : m_bundleEncoders) delete e;
+    }
 
     // Called by sub-encoders when their end() fires.
     void onPassEnded() { m_state = EncoderState::Recording; }
@@ -49,6 +56,15 @@ public:
         auto* innerCpe = m_inner->BeginComputePass(label);
         m_cpe.begin(innerCpe, this);
         return &m_cpe;
+    }
+
+    RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) override {
+        if (!checkState("createRenderBundleEncoder", EncoderState::Recording)) return nullptr;
+        auto* inner = m_inner->CreateRenderBundleEncoder(desc);
+        if (!inner) return nullptr;   // backend does not support bundles
+        auto* wrapped = new ValidatedRenderBundleEncoder(inner);
+        m_bundleEncoders.PushBack(wrapped);   // owned: freed in this encoder's destructor
+        return wrapped;
     }
 
     void Barrier(const BarrierGroup& group) override {
@@ -231,6 +247,7 @@ private:
 
     ValidatedRenderPassEncoder  m_rpe;
     ValidatedComputePassEncoder m_cpe;
+    Array<ValidatedRenderBundleEncoder*> m_bundleEncoders;   // owned wrappers (freed in dtor)
 };
 
 // ---- Deferred end() implementations ----

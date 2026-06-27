@@ -29,6 +29,7 @@ export import :compute_pipeline;
 export import :command_buffer;
 export import :command_pool;
 export import :render_pass_encoder;
+export import :render_bundle_encoder;
 export import :compute_pass_encoder;
 export import :command_encoder;
 export import :transfer_batch;

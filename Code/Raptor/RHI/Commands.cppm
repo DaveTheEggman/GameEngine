@@ -14,16 +14,17 @@ using namespace raptor::core;
 
 export namespace raptor::rhi {
 
-// ---- Render Pass Encoder ----
+// ---- Render Command Encoder (shared draw-recording surface) ----
 
-/// Records draw commands within a render pass.
-class RenderPassEncoder {
+/// The draw-recording commands common to a render pass and a render bundle. A `Renderer` that
+/// takes a `RenderCommandEncoder*` records identically whether it targets a live pass (inline)
+/// or an off-thread `RenderBundleEncoder` — which is what makes parallel command recording
+/// fall out (split a draw list into N bundles recorded on N threads, then ExecuteBundles).
+/// This is exactly the subset valid inside a WebGPU render bundle: no pass-level dynamic state
+/// (viewport / scissor / blend constant / stencil ref are inherited from the pass), no queries.
+class RenderCommandEncoder {
 public:
-    virtual ~RenderPassEncoder() = default;
-
-    /// Cross-query for the mesh-shader extension (-fno-rtti replacement for a
-    /// sideways dynamic_cast). Encoders that support it return `this`.
-    [[nodiscard]] virtual MeshShaderPassExt* AsMeshShaderExt() noexcept { return nullptr; }
+    virtual ~RenderCommandEncoder() = default;
 
     /// Bind a graphics (rasterization) pipeline.
     virtual void SetPipeline(RenderPipeline* pipeline) = 0;
@@ -37,6 +38,26 @@ public:
     /// Bind an index buffer.
     virtual void SetIndexBuffer(Buffer* buffer, IndexFormat format, u64 offset = 0) = 0;
 
+    /// Issue a non-indexed draw call.
+    virtual void Draw(u32 vertexCount, u32 instanceCount = 1, u32 firstVertex = 0, u32 firstInstance = 0) = 0;
+    /// Issue an indexed draw call.
+    virtual void DrawIndexed(u32 indexCount, u32 instanceCount = 1, u32 firstIndex = 0, i32 baseVertex = 0, u32 firstInstance = 0) = 0;
+    /// Issue an indirect draw call.
+    virtual void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount = 1, u32 stride = 0) = 0;
+    /// Issue an indexed indirect draw call.
+    virtual void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount = 1, u32 stride = 0) = 0;
+};
+
+// ---- Render Pass Encoder ----
+
+/// Records draw commands within a render pass: the shared recording surface plus the pass-level
+/// dynamic state, queries, bundle execution, and pass control.
+class RenderPassEncoder : public RenderCommandEncoder {
+public:
+    /// Cross-query for the mesh-shader extension (-fno-rtti replacement for a
+    /// sideways dynamic_cast). Encoders that support it return `this`.
+    [[nodiscard]] virtual MeshShaderPassExt* AsMeshShaderExt() noexcept { return nullptr; }
+
     /// Set the viewport rectangle and depth range.
     virtual void SetViewport(f32 x, f32 y, f32 w, f32 h, f32 minDepth = 0.0f, f32 maxDepth = 1.0f) = 0;
     /// Set the scissor rectangle.
@@ -46,14 +67,9 @@ public:
     /// Set the stencil reference value.
     virtual void SetStencilReference(u32 reference) = 0;
 
-    /// Issue a non-indexed draw call.
-    virtual void Draw(u32 vertexCount, u32 instanceCount = 1, u32 firstVertex = 0, u32 firstInstance = 0) = 0;
-    /// Issue an indexed draw call.
-    virtual void DrawIndexed(u32 indexCount, u32 instanceCount = 1, u32 firstIndex = 0, i32 baseVertex = 0, u32 firstInstance = 0) = 0;
-    /// Issue an indirect draw call.
-    virtual void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount = 1, u32 stride = 0) = 0;
-    /// Issue an indexed indirect draw call.
-    virtual void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount = 1, u32 stride = 0) = 0;
+    /// Execute pre-recorded render bundles in order (replays their draws into this pass). The
+    /// pass must have been begun with RenderPassContents::SecondaryCommandBuffers.
+    virtual void ExecuteBundles(Span<RenderBundle* const> bundles) = 0;
 
     /// Write a timestamp query.
     virtual void WriteTimestamp(QuerySet* querySet, u32 index) = 0;
@@ -64,6 +80,23 @@ public:
 
     /// End the render pass.
     virtual void End() = 0;
+};
+
+// ---- Render Bundle ----
+
+/// An immutable, pre-recorded sequence of draw commands, replayable into any compatible render
+/// pass (matching attachment formats) via RenderPassEncoder::ExecuteBundles. Valid until its
+/// owning command pool is reset. Recorded off the main thread for parallel command recording.
+class RenderBundle {
+public:
+    virtual ~RenderBundle() = default;
+};
+
+/// Records draws into a render bundle (the shared recording surface only — no pass-level state).
+class RenderBundleEncoder : public RenderCommandEncoder {
+public:
+    /// Finish recording and return the immutable bundle (owned by the command pool).
+    [[nodiscard]] virtual RenderBundle* Finish() = 0;
 };
 
 // ---- Compute Pass Encoder ----
@@ -104,6 +137,10 @@ public:
     [[nodiscard]] virtual RenderPassEncoder* BeginRenderPass(const RenderPassDesc& desc) = 0;
     /// Begin a compute pass.
     [[nodiscard]] virtual ComputePassEncoder* BeginComputePass(StringView label = {}) = 0;
+    /// Begin recording a render bundle (a reusable, off-thread-recordable draw sequence
+    /// replayable into passes matching `desc`'s attachment signature). Returns null if the
+    /// backend does not support bundles.
+    [[nodiscard]] virtual RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) = 0;
 
     /// Insert resource barriers.
     virtual void Barrier(const BarrierGroup& group) = 0;

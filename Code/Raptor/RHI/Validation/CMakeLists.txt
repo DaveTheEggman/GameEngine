@@ -12,6 +12,7 @@ target_sources(RaptorRHIValidation
             ValidatedAdapter.cppm
             ValidatedFence.cppm
             ValidatedTransferBatch.cppm
+            ValidatedRenderBundleEncoder.cppm
             ValidatedCommandEncoder.cppm
             ValidatedComputePassEncoder.cppm
             ValidatedRenderPassEncoder.cppm

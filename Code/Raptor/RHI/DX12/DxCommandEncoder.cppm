@@ -28,6 +28,7 @@ import :descriptor_heap;
 import :gpu_descriptor_heap;
 import :descriptor_staging;
 import :render_pipeline;
+import :render_bundle_encoder;
 import :compute_pipeline;
 import :accel_struct;
 import :ray_tracing_pipeline;
@@ -51,9 +52,9 @@ public:
                          const DxComputePassContext& cpeCtx)
         : m_device(device), m_cmdList(cmdList), m_pool(pool),
           m_gpuSrvHeap(rpeCtx.gpuSrvHeap), m_gpuSamplerHeap(rpeCtx.gpuSamplerHeap),
-          m_rpe(rpeCtx), m_cpe(cpeCtx) {}
+          m_rpe(rpeCtx), m_cpe(cpeCtx), m_rpeCtx(rpeCtx) {}
 
-    ~DxCommandEncoderImpl() override = default;
+    ~DxCommandEncoderImpl() override { for (auto* e : m_bundleEncoders) delete e; }
 
     // ================================================================
     // CommandEncoder interface
@@ -134,6 +135,30 @@ public:
         ensureDescriptorHeaps();
         m_cpe.begin();
         return &m_cpe;
+    }
+
+    // BEST-EFFORT (untested on Windows): a render bundle is a BUNDLE-type command list, recorded
+    // by a render-pass encoder pointed at it, replayed via ExecuteBundle.
+    RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc&) override {
+        ID3D12Device* dev = m_device->handle();
+        ComPtr<ID3D12CommandAllocator> alloc;
+        if (FAILED(dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS(&alloc)))) return nullptr;
+        ComPtr<ID3D12GraphicsCommandList> list;
+        if (FAILED(dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, alloc.Get(), nullptr, IID_PPV_ARGS(&list))))
+            return nullptr;
+
+        // Bundles inherit the parent's descriptor heaps; bind matching heaps on the bundle.
+        ensureDescriptorHeaps();
+        ID3D12DescriptorHeap* heaps[2]; UINT n = 0;
+        if (m_gpuSrvHeap)     heaps[n++] = m_gpuSrvHeap->handle();
+        if (m_gpuSamplerHeap) heaps[n++] = m_gpuSamplerHeap->handle();
+        if (n > 0) list->SetDescriptorHeaps(n, heaps);
+
+        DxRenderPassContext ctx = m_rpeCtx;
+        ctx.cmdList = list.Get();
+        auto* enc = new DxRenderBundleEncoderImpl(ctx, list, alloc);
+        m_bundleEncoders.PushBack(enc);   // owned: freed in this encoder's destructor
+        return enc;
     }
 
     // ---- Barriers ----
@@ -879,6 +904,8 @@ private:
     // DxComputePassEncoder.cppm). Contexts carry the pointers the sub-encoders need.
     DxRenderPassEncoderImpl      m_rpe;
     DxComputePassEncoderImpl     m_cpe;
+    DxRenderPassContext          m_rpeCtx;                 // cloned for bundle encoders
+    Array<RenderBundleEncoder*>  m_bundleEncoders;         // owned wrappers (freed in dtor)
 };
 
 // ---- Deferred DxCommandPoolImpl method implementations ----

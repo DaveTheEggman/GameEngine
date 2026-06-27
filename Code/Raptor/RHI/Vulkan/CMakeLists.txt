@@ -35,6 +35,7 @@ target_sources(RaptorRHIVulkan
             VkSwapChain.cppm
             VkQueue.cppm
             VkCommandPool.cppm
+            VkRenderBundleEncoder.cppm
             VkRenderPassEncoder.cppm
             VkComputePassEncoder.cppm
             VkMeshPipeline.cppm

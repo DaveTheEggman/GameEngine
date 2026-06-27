@@ -29,7 +29,10 @@ class RayTracingPipeline;
 class CommandBuffer;
 class CommandPool;
 class CommandEncoder;
+class RenderCommandEncoder;
 class RenderPassEncoder;
+class RenderBundleEncoder;
+class RenderBundle;
 class ComputePassEncoder;
 class TransferBatch;
 

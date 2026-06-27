@@ -341,7 +341,25 @@ struct RenderPassDesc {
     QuerySet* timestampQuerySet    = nullptr;
     u32       beginTimestampIndex  = 0;
     u32       endTimestampIndex    = 0;
+    // How draws are supplied. Default Inline; set SecondaryCommandBuffers to execute render
+    // bundles into this pass (Vulkan needs to know at begin time; other backends ignore it).
+    RenderPassContents contents    = RenderPassContents::Inline;
     StringView label;
+};
+
+// Describes a render bundle's target signature so it can be validated against — and replayed
+// into — compatible render passes: the attachment formats + sample count it records for. The
+// render-area extent lets the Vulkan backend record a full-target viewport/scissor into the
+// secondary command buffer (bundles carry no pass-level dynamic state; other backends inherit
+// it from the pass and ignore the extent).
+struct RenderBundleDesc {
+    TextureFormat colorFormats[MaxColorAttachments] = { TextureFormat::Undefined };
+    u32           colorFormatCount   = 0;
+    TextureFormat depthStencilFormat = TextureFormat::Undefined;
+    u32           sampleCount        = 1;
+    u32           width              = 0;
+    u32           height             = 0;
+    StringView    label;
 };
 
 // ---- Barriers ----

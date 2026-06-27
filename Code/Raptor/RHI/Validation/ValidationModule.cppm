@@ -10,6 +10,7 @@ export import :validated_queue;
 export import :validated_command_pool;
 export import :validated_command_encoder;
 export import :validated_render_pass_encoder;
+export import :validated_render_bundle_encoder;
 export import :validated_compute_pass_encoder;
 export import :validated_swap_chain;
 export import :validated_fence;

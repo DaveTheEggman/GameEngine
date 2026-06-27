@@ -34,6 +34,7 @@ namespace
 
         rhi::RenderPassEncoder* BeginRenderPass(const rhi::RenderPassDesc&) override { return nullptr; }
         rhi::ComputePassEncoder* BeginComputePass(StringView) override { return nullptr; }
+        rhi::RenderBundleEncoder* CreateRenderBundleEncoder(const rhi::RenderBundleDesc&) override { return nullptr; }
         void CopyBufferToBuffer(rhi::Buffer*, u64, rhi::Buffer*, u64, u64) override {}
         void CopyBufferToTexture(rhi::Buffer*, rhi::Texture*, const rhi::BufferTextureCopyRegion&) override {}
         void CopyTextureToBuffer(rhi::Texture*, rhi::Buffer*, const rhi::BufferTextureCopyRegion&) override {}

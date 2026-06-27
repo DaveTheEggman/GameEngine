@@ -121,6 +121,12 @@ enum class BlendOperation : u32 { Add, Subtract, ReverseSubtract, Min, Max };
 enum class LoadOp  : u32 { Load, Clear, DontCare };
 enum class StoreOp : u32 { Store, DontCare };
 
+// How a render pass's draw commands are supplied. `Inline` records draws directly into the
+// pass (the default). `SecondaryCommandBuffers` means the pass body is supplied by executed
+// render bundles only (no inline draws) — Vulkan begins the rendering scope with the secondary-
+// command-buffer contents flag; DX12 / WebGPU ignore it (they allow bundles in any pass).
+enum class RenderPassContents : u32 { Inline, SecondaryCommandBuffers };
+
 enum class IndexFormat   : u32 { UInt16, UInt32 };
 enum class VertexStepMode: u32 { Vertex, Instance };
 

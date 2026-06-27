@@ -28,6 +28,18 @@ using namespace raptor::core;
 
 export namespace raptor::rhi::dx12 {
 
+// A recorded bundle command list (+ its allocator, which must outlive GPU execution). Lives
+// here (not in :render_bundle_encoder) so ExecuteBundles can use it without a module cycle.
+class DxRenderBundleImpl : public RenderBundle {
+public:
+    DxRenderBundleImpl(ComPtr<ID3D12GraphicsCommandList> list, ComPtr<ID3D12CommandAllocator> alloc)
+        : m_list(Move(list)), m_alloc(Move(alloc)) {}
+    [[nodiscard]] ID3D12GraphicsCommandList* handle() const { return m_list.Get(); }
+private:
+    ComPtr<ID3D12GraphicsCommandList> m_list;
+    ComPtr<ID3D12CommandAllocator>    m_alloc;
+};
+
 /// Pointers needed by the render pass encoder, provided by the command encoder.
 /// Avoids coupling to DxCommandEncoderImpl directly.
 struct DxRenderPassContext {
@@ -327,6 +339,12 @@ public:
     }
 
     // ---- End ----
+
+    void ExecuteBundles(Span<RenderBundle* const> bundles) override {
+        for (usize i = 0; i < bundles.Size(); ++i)
+            if (auto* b = static_cast<DxRenderBundleImpl*>(bundles[i]))
+                m_ctx.cmdList->ExecuteBundle(b->handle());
+    }
 
     void End() override {
         // Timestamp at pass end.
