@@ -24,3 +24,9 @@ endif()
 
 # Render-side PSO cache (needs the ShaderSystem on top of Materials).
 add_subdirectory(PSO)
+
+# Materials as resources (MaterialSource -> Material; depends on the ShaderResource).
+add_subdirectory(Resource)
+
+# Material authoring + cook (tooling: MaterialAsset -> MaterialSource).
+add_subdirectory(Editor)
