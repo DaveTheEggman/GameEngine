@@ -1,16 +1,16 @@
-/// Raptor::Render — the `:components` partition.
+/// Raptor::RenderSubsystem — the `:components` partition.
 ///
-/// The render-facing scene components + their managers. These are plain value
-/// components (the value-pool model): a MeshComponent references a mesh + material to
-/// draw at its entity's transform; a CameraComponent describes a view frustum (its
-/// view comes from the entity's world transform). The RenderSubsystem injects these
-/// managers into each scene (via ISceneAware), and the extraction (see :view) reads
-/// them to build the per-frame draw list.
+/// The render-facing scene components + their managers — the scene-coupled side of the
+/// renderer (raptor.render itself stays scene-agnostic). A MeshComponent references a
+/// mesh + material to draw at its entity's transform; a CameraComponent describes a
+/// view frustum (its view comes from the entity's world transform). The RenderSubsystem
+/// injects these managers into each scene (via ISceneAware); extraction (:extract) reads
+/// them into a render::ExtractedView that gets pushed to the renderer.
 
 module;
 #include "Core/Prelude.h"
 
-export module raptor.render:components;
+export module raptor.render.subsystem:components;
 
 import raptor.core;
 import raptor.scene;

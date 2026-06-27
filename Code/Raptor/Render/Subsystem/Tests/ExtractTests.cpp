@@ -1,6 +1,7 @@
 // Slice 1 — the scene->render extraction bridge: spawn a camera + mesh entities in a
 // scene and verify ExtractScene snapshots the camera view/projection and the per-mesh
-// world matrices + mesh/material into a renderer-agnostic draw list.
+// world matrices + mesh/material into a renderer-agnostic ExtractedView (the data the
+// scene-agnostic renderer consumes).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -8,7 +9,8 @@ import raptor.core;
 import raptor.scene;
 import raptor.geometry;
 import raptor.materials;
-import raptor.render;
+import raptor.render;             // ExtractedView / Renderable (scene-agnostic)
+import raptor.render.subsystem;   // components + ExtractScene (scene-coupled)
 
 using namespace raptor::core;
 using namespace raptor::render;
@@ -24,13 +26,11 @@ TEST_CASE("ExtractScene builds the draw list + camera from a scene")
     auto* meshes  = scene.AddSystem<MeshComponentManager>();
     auto* cameras = scene.AddSystem<CameraComponentManager>();
 
-    // a camera at (0,0,5)
     sc::EntityHandle camEntity = scene.CreateEntity(u8"camera");
     scene.SetLocalPosition(camEntity, Vec3{ 0, 0, 5 });
     CameraComponent& cam = cameras->Add(camEntity);
     cam.aspect = 1.0f;
 
-    // two mesh entities at different positions
     RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
     RefPtr<mat::Material> material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
@@ -45,21 +45,19 @@ TEST_CASE("ExtractScene builds the draw list + camera from a scene")
     scene.UpdateTransforms();
     ExtractedView ev = ExtractScene(scene);
 
-    // camera: view is the inverse of the camera's world transform (translate by -pos)
     REQUIRE(ev.hasCamera);
-    CHECK(Near(ev.view.m[3][2], -5.0f));
-    // a finite perspective projection was produced (not identity)
-    CHECK_FALSE(Near(ev.projection.m[2][3], 0.0f));
+    CHECK(Near(ev.view.m[3][2], -5.0f));                 // view = inverse(camera world)
+    CHECK_FALSE(Near(ev.projection.m[2][3], 0.0f));      // a real perspective projection
 
-    // two renderables, each with its world position + the shared mesh/material
     REQUIRE(ev.renderables.Size() == 2);
     f32 sumX = 0.0f;
     for (const Renderable& r : ev.renderables) {
         CHECK(r.mesh == cube.Get());
         CHECK(r.material == material.Get());
+        CHECK(r.id != 0);                                // tagged with a packed entity handle
         sumX += r.worldMatrix.m[3][0];
     }
-    CHECK(Near(sumX, 1.0f));   // -2 + 3
+    CHECK(Near(sumX, 1.0f));                              // -2 + 3
 }
 
 TEST_CASE("ExtractScene skips invisible + mesh-less components, and non-primary cameras")
@@ -76,10 +74,8 @@ TEST_CASE("ExtractScene skips invisible + mesh-less components, and non-primary 
     sc::EntityHandle hidden = scene.CreateEntity();
     { MeshComponent& m = meshes->Add(hidden); m.mesh = mesh; m.visible = false; }
 
-    sc::EntityHandle empty = scene.CreateEntity();
-    meshes->Add(empty);                                  // no mesh assigned
+    meshes->Add(scene.CreateEntity());                   // no mesh assigned
 
-    // a secondary (non-primary) camera should be ignored
     sc::EntityHandle cam2 = scene.CreateEntity();
     { CameraComponent& c = cameras->Add(cam2); c.primary = false; }
 
@@ -88,7 +84,6 @@ TEST_CASE("ExtractScene skips invisible + mesh-less components, and non-primary 
 
     CHECK_FALSE(ev.hasCamera);                            // no primary camera
     REQUIRE(ev.renderables.Size() == 1);                 // only the visible, meshed one
-    CHECK(ev.renderables[0].entity == visible);
 }
 
 TEST_CASE("ExtractScene on a scene without render managers yields an empty view")

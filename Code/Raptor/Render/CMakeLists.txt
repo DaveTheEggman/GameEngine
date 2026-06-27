@@ -1,19 +1,18 @@
-# Raptor::Render — `raptor.render`, the renderer. This phase is the scene -> render
-# extraction bridge (components + ExtractScene); the GPU forward path + RenderSubsystem
-# land in later partitions. Depends on Scene, Geometry, Materials (+ RHI once drawing).
+# Raptor::Render — `raptor.render`, the renderer (scene-agnostic). Consumes extracted
+# render data (ExtractedView) and draws it; knows nothing about the scene. This phase
+# is the render-data contract; the GPU forward path lands later (adds the RHI dep).
+# Scene integration lives in the Subsystem sub-library (one-way dependency -> here).
 add_library(RaptorRender STATIC)
 add_library(Raptor::Render ALIAS RaptorRender)
 
 target_link_libraries(RaptorRender
-    PUBLIC Raptor::Core Raptor::Scene Raptor::Geometry Raptor::Materials Raptor::Policy)
+    PUBLIC Raptor::Core Raptor::Geometry Raptor::Materials Raptor::Policy)
 
 target_sources(RaptorRender
     PUBLIC
         FILE_SET render_modules TYPE CXX_MODULES FILES
-            Components.cppm
-            View.cppm
+            RenderData.cppm
             RenderModule.cppm)
 
-if(RAPTOR_BUILD_TESTS)
-    add_subdirectory(Tests)
-endif()
+# Scene integration: components + extraction + (later) the RenderSubsystem.
+add_subdirectory(Subsystem)

@@ -1,4 +1,4 @@
-# Raptor::Render unit tests (doctest; extraction is pure data, no GPU).
+# Raptor::RenderSubsystem unit tests (doctest; extraction is pure data, no GPU).
 if(NOT TARGET doctest::doctest)
     include(FetchContent)
     FetchContent_Declare(doctest
@@ -11,18 +11,18 @@ if(NOT TARGET doctest::doctest)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
 endif()
 
-add_executable(RaptorRenderTests
+add_executable(RaptorRenderSubsystemTests
     TestsMain.cpp
     ExtractTests.cpp)
 
-target_link_libraries(RaptorRenderTests PRIVATE
-    Raptor::Render doctest::doctest)
+target_link_libraries(RaptorRenderSubsystemTests PRIVATE
+    Raptor::RenderSubsystem doctest::doctest)
 
-target_compile_definitions(RaptorRenderTests PRIVATE
+target_compile_definitions(RaptorRenderSubsystemTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 
-target_compile_options(RaptorRenderTests PRIVATE
+target_compile_options(RaptorRenderSubsystemTests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
-add_test(NAME RaptorRenderTests COMMAND RaptorRenderTests)
+add_test(NAME RaptorRenderSubsystemTests COMMAND RaptorRenderSubsystemTests)
