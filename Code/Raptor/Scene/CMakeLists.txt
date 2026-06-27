@@ -14,9 +14,13 @@ target_sources(RaptorScene
             Phase.cppm
             System.cppm
             Component.cppm
+            Aware.cppm
             Scene.cppm
             SceneModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
+
+# The Context-level scene driver + ISceneAware broker (bridges Scene + Runtime).
+add_subdirectory(Subsystem)

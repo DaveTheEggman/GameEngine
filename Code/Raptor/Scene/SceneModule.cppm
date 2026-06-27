@@ -11,4 +11,5 @@ export import :entity;
 export import :phase;
 export import :system;
 export import :component;
+export import :aware;
 export import :scene;
