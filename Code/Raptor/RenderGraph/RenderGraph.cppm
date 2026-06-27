@@ -671,10 +671,18 @@ export namespace raptor::rendergraph
 
         void ExecuteRenderPass(RenderGraphPass& pass, rhi::CommandEncoder& encoder)
         {
-            if (!static_cast<bool>(pass.executeCallback)) { return; }
+            const bool hasBundles = static_cast<bool>(pass.bundleCallback);
+            if (!static_cast<bool>(pass.executeCallback) && !hasBundles) { return; }
+
+            // A bundle pass records its bundles NOW (encoder in recording state, before the pass
+            // begins); the graph then begins with secondary contents + replays them. Done before
+            // building the pass desc so the encoder is still recording.
+            Array<rhi::RenderBundle*> bundles;
+            if (hasBundles) { pass.bundleCallback(encoder, bundles); }
 
             rhi::RenderPassDesc rpDesc{};
             rpDesc.label = pass.name.AsView();
+            if (hasBundles) { rpDesc.contents = rhi::RenderPassContents::SecondaryCommandBuffers; }
 
             for (usize i = 0; i < pass.colorTargets.Size(); ++i)
             {
@@ -717,7 +725,13 @@ export namespace raptor::rendergraph
             }
 
             rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(rpDesc);
-            pass.executeCallback(*rp);
+            if (hasBundles) {
+                if (!bundles.IsEmpty()) {
+                    rp->ExecuteBundles(Span<rhi::RenderBundle* const>{ bundles.Data(), bundles.Size() });
+                }
+            } else {
+                pass.executeCallback(*rp);
+            }
             rp->End();
         }
 

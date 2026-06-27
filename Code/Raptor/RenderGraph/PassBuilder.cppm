@@ -156,6 +156,9 @@ export namespace raptor::rendergraph
 
         // --- execute callbacks ---
         PassBuilder& SetExecute(RenderPassExecuteCallback callback) { m_pass->executeCallback = Move(callback); return *this; }
+        // A render pass whose body is supplied by render bundles (parallel command recording).
+        // The graph begins the pass with secondary-command-buffer contents + ExecuteBundles them.
+        PassBuilder& SetBundleExecute(RenderBundlePassCallback callback) { m_pass->bundleCallback = Move(callback); return *this; }
         PassBuilder& SetComputeExecute(ComputePassExecuteCallback callback) { m_pass->computeCallback = Move(callback); return *this; }
         PassBuilder& SetCopyExecute(CopyPassExecuteCallback callback) { m_pass->copyCallback = Move(callback); return *this; }
 

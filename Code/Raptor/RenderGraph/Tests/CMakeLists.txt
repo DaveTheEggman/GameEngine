@@ -9,8 +9,8 @@ if(NOT TARGET doctest::doctest)
 endif()
 
 add_executable(RaptorRenderGraphTests TestsMain.cpp RenderGraphTests.cpp BarrierTests.cpp
-    TypeTests.cpp DescriptorTests.cpp GraphCoreTests.cpp CullingTests.cpp DependencyTests.cpp PassBuilderTests.cpp ValidationTests.cpp DebugTests.cpp ProfilerTests.cpp)
-target_link_libraries(RaptorRenderGraphTests PRIVATE Raptor::RenderGraph doctest::doctest)
+    TypeTests.cpp DescriptorTests.cpp GraphCoreTests.cpp CullingTests.cpp DependencyTests.cpp PassBuilderTests.cpp ValidationTests.cpp DebugTests.cpp ProfilerTests.cpp BundlePassTests.cpp)
+target_link_libraries(RaptorRenderGraphTests PRIVATE Raptor::RenderGraph Raptor::RHINull doctest::doctest)
 target_compile_definitions(RaptorRenderGraphTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(RaptorRenderGraphTests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")

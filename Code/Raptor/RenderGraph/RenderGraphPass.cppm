@@ -107,6 +107,7 @@ export namespace raptor::rendergraph
 
         // --- typed execute callbacks (one is set per pass type) ---
         RenderPassExecuteCallback executeCallback;
+        RenderBundlePassCallback bundleCallback;   // render pass whose body is executed bundles
         ComputePassExecuteCallback computeCallback;
         CopyPassExecuteCallback copyCallback;
     };
