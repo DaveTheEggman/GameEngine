@@ -144,7 +144,10 @@ public:
         case VertexLayoutType::PositionUVColor: return 36;
         case VertexLayoutType::MeshNoTangent:   return 32;
         case VertexLayoutType::Mesh:            return 48;
-        case VertexLayoutType::SkinnedMesh:     return 72;
+        // A skinned mesh's buffer 0 IS the static stream (48B) — the skinning data
+        // is a SEPARATE buffer (see SkinningStream*), matching raptor.geometry's
+        // SkinnedMesh : StaticMesh layout. So a skinned draw binds two vertex buffers.
+        case VertexLayoutType::SkinnedMesh:     return 48;
         case VertexLayoutType::Custom:          return 0;
         }
         return 0;
@@ -156,7 +159,7 @@ public:
         case VertexLayoutType::PositionUVColor: return { kPositionUVColor, 3 };
         case VertexLayoutType::MeshNoTangent:   return { kMeshNoTangent,   3 };
         case VertexLayoutType::Mesh:            return { kMesh,            5 };
-        case VertexLayoutType::SkinnedMesh:     return { kSkinnedMesh,     7 };
+        case VertexLayoutType::SkinnedMesh:     return { kMesh,            5 };   // buffer 0 = static stream
         default:                                return {};
         }
     }
@@ -169,6 +172,20 @@ public:
         return l;
     }
 
+    // The second vertex buffer a skinned draw binds: joints (locations 6) + weights
+    // (location 7), stride 24 — matches raptor.geometry::VertexSkinning.
+    [[nodiscard]] static u32 SkinningStreamStride() noexcept { return 24; }
+    [[nodiscard]] static Span<const rhi::VertexAttribute> SkinningStreamAttributes() noexcept {
+        return { kSkinningStream, 2 };
+    }
+    [[nodiscard]] static rhi::VertexBufferLayout SkinningStreamBufferLayout() noexcept {
+        rhi::VertexBufferLayout l{};
+        l.stride = SkinningStreamStride();
+        l.stepMode = rhi::VertexStepMode::Vertex;
+        l.attributes = SkinningStreamAttributes();
+        return l;
+    }
+
 private:
     using VA = rhi::VertexAttribute;
     using VF = rhi::VertexFormat;
@@ -177,9 +194,8 @@ private:
     static constexpr VA kMeshNoTangent[3]   = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 } };
     static constexpr VA kMesh[5]            = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 },
                                                 { VF::Unorm8x4, 32, 3 }, { VF::Float32x3, 36, 4 } };
-    static constexpr VA kSkinnedMesh[7]     = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 },
-                                                { VF::Unorm8x4, 32, 3 }, { VF::Float32x3, 36, 4 },
-                                                { VF::Uint32x2, 48, 6 }, { VF::Float32x4, 56, 7 } };
+    // Skinning stream (buffer 1): joints (uint16x4 packed as uint32x2) + weights.
+    static constexpr VA kSkinningStream[2]  = { { VF::Uint32x2, 0, 6 }, { VF::Float32x4, 8, 7 } };
 };
 
 } // namespace raptor::materials
