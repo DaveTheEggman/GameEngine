@@ -94,7 +94,7 @@ export namespace raptor::texture
                 case rhi::TextureFormat::RGBA32Uint: case rhi::TextureFormat::RGBA32Sint: case rhi::TextureFormat::RGBA32Float:
                     return 16;
                 case rhi::TextureFormat::Depth32FloatStencil8:
-                    return 5;
+                    return 8;
                 default:
                     return 4;
             }

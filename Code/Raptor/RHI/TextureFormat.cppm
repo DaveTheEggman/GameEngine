@@ -139,7 +139,7 @@ enum class TextureFormat : u32 {
     case TextureFormat::Depth32Float:
         return 4;
     case TextureFormat::Depth32FloatStencil8:
-        return 5;
+        return 8;
     case TextureFormat::RG32Float:
     case TextureFormat::RG32Uint:
     case TextureFormat::RGBA16Float:
