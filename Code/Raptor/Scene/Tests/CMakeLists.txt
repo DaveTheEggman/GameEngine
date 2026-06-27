@@ -13,7 +13,8 @@ endif()
 
 add_executable(RaptorSceneTests
     TestsMain.cpp
-    EntityTests.cpp)
+    EntityTests.cpp
+    TransformTests.cpp)
 
 target_link_libraries(RaptorSceneTests PRIVATE
     Raptor::Scene doctest::doctest)
