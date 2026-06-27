@@ -42,7 +42,7 @@ namespace
 
             // camera, pulled back along +Z looking at the origin (down -Z by default)
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 0.0f, 10.0f });
+            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 0.0f, 22.0f });
             if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
                 cameras->Add(m_camera);   // default 60deg perspective
             }
@@ -50,16 +50,18 @@ namespace
             // A spinning grid of cubes, all sharing ONE mesh + material (so the renderer fuses
             // them into a single instanced draw) but each a distinct per-instance color.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
-                rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.7f);
+                rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.42f);
                 rc::RefPtr<mat::Material>   material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
-                constexpr int kGrid = 4;   // 4x4 = 16 cubes -> one instanced draw
+                // 20x20 = 400 cubes: exceeds the parallel-extraction threshold (so extraction
+                // fans out across the job system each frame) and all fuse into one instanced draw.
+                constexpr int kGrid = 20;
                 for (int y = 0; y < kGrid; ++y) {
                     for (int x = 0; x < kGrid; ++x) {
                         sc::EntityHandle e = m_scene->CreateEntity(u8"cube");
                         const rc::f32 fx = static_cast<rc::f32>(x) - (kGrid - 1) * 0.5f;
                         const rc::f32 fy = static_cast<rc::f32>(y) - (kGrid - 1) * 0.5f;
-                        m_scene->SetLocalPosition(e, rc::Vec3{ fx * 1.6f, fy * 1.6f, 0.0f });
+                        m_scene->SetLocalPosition(e, rc::Vec3{ fx * 1.05f, fy * 1.05f, 0.0f });
                         rd::MeshComponent& mc = meshes->Add(e);
                         mc.mesh     = cube;
                         mc.material = material;
@@ -70,7 +72,7 @@ namespace
                 }
             }
 
-            rc::ConsoleWrite(u8"Sandbox: spinning instanced cube grid. Close the window to exit.\n");
+            rc::ConsoleWrite(u8"Sandbox: 400 instanced cubes, parallel-extracted. Close the window to exit.\n");
         }
 
         void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override

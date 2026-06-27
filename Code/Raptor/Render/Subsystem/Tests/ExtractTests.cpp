@@ -111,6 +111,63 @@ TEST_CASE("ExtractSceneInto on a scene without render managers yields an empty s
     CHECK(snapshot.Size() == 0);
 }
 
+namespace {
+// Builds a scene of `n` quad meshes at world x = 0..n-1; returns the mesh/material alive.
+void BuildBigScene(sc::Scene& scene, int n, RefPtr<geo::StaticMesh>& mesh, RefPtr<mat::Material>& material) {
+    auto* meshes = scene.AddSystem<MeshComponentManager>();
+    mesh = geo::Primitives::Quad();
+    material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    for (int i = 0; i < n; ++i) {
+        sc::EntityHandle e = scene.CreateEntity();
+        scene.SetLocalPosition(e, Vec3{ static_cast<f32>(i), 0, 0 });
+        MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.material = material;
+    }
+    scene.UpdateTransforms();
+}
+// The world-x sum is a drop/dup-proof invariant: each entity contributes its index exactly once.
+f64 SumWorldX(const ExtractedScene& s) {
+    f64 sum = 0;
+    for (RenderData* rd : s.Items()) { sum += static_cast<MeshRenderData*>(rd)->world.m[3][0]; }
+    return sum;
+}
+}
+
+TEST_CASE("ExtractSceneInto (parallel) extracts every renderable exactly once")
+{
+    InitGlobalJobSystem(4);
+    {
+        constexpr int N = 2000;                              // > kParallelExtractThreshold
+        sc::Scene scene;
+        RefPtr<geo::StaticMesh> mesh; RefPtr<mat::Material> material;
+        BuildBigScene(scene, N, mesh, material);
+
+        RenderContext ctx;
+        ctx.BeginFrame(GlobalJobs().SlotCount());
+        ExtractedScene out;
+        ExtractSceneInto(scene, out, ctx);                   // takes the parallel path
+
+        REQUIRE(out.Size() == static_cast<usize>(N));        // no drops, no duplicates
+        CHECK(SumWorldX(out) == static_cast<f64>(N) * (N - 1) / 2.0);
+    }
+    ShutdownGlobalJobSystem();
+}
+
+TEST_CASE("ExtractSceneInto (ctx) falls back to serial with no job system")
+{
+    REQUIRE_FALSE(HasGlobalJobSystem());                     // none started in this test binary
+    sc::Scene scene;
+    RefPtr<geo::StaticMesh> mesh; RefPtr<mat::Material> material;
+    BuildBigScene(scene, 50, mesh, material);
+
+    RenderContext ctx;
+    ctx.BeginFrame(1);
+    ExtractedScene out;
+    ExtractSceneInto(scene, out, ctx);
+
+    REQUIRE(out.Size() == 50u);
+    CHECK(SumWorldX(out) == static_cast<f64>(50) * 49 / 2.0);
+}
+
 TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent category")
 {
     sc::Scene scene;

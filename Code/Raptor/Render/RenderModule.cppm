@@ -14,6 +14,7 @@ export module raptor.render;
 
 export import :data;
 export import :views;
+export import :extract_ctx;
 export import :resources;
 export import :pipeline;
 export import :mesh_gpu;

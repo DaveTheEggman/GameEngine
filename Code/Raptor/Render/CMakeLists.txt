@@ -14,6 +14,7 @@ target_sources(RaptorRender
         FILE_SET render_modules TYPE CXX_MODULES FILES
             RenderData.cppm
             Views.cppm
+            ExtractContext.cppm
             Resources.cppm
             Pipeline.cppm
             MeshGpu.cppm

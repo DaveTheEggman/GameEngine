@@ -56,6 +56,10 @@ public:
     void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) override {
         if (m_frame.Get() == nullptr) { return; }
         m_sceneCount = 0;
+        // Provision per-worker extraction arenas for this frame (one per job-system slot, or a
+        // single slot when the job system is absent — serial fallback).
+        const u32 slotCount = HasGlobalJobSystem() ? GlobalJobs().SlotCount() : 1u;
+        m_renderCtx.BeginFrame(slotCount);
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -65,7 +69,7 @@ public:
         if (m_frame.Get() == nullptr || target == nullptr) { return; }
 
         ExtractedScene* snapshot = AcquireScene();
-        ExtractSceneInto(scene, *snapshot);
+        ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up
 
         ViewCamera camera;
         if (cameraOverride != nullptr) { camera = cameraOverride->camera; }
@@ -138,6 +142,7 @@ private:
 
     Array<UniquePtr<ExtractedScene>>          m_scenes;       // snapshot pool
     usize                                     m_sceneCount = 0;
+    RenderContext                             m_renderCtx;    // per-worker extraction arenas
 };
 
 } // namespace raptor::render

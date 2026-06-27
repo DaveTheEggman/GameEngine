@@ -39,23 +39,75 @@ export namespace raptor::render {
     }
 }
 
-// Fills `out` with one MeshRenderData per visible MeshComponent in `scene`. Assumes the
-// scene's world transforms are current. `out` should be Reset by the caller before use.
+// Below this many mesh components, parallel extraction's overhead isn't worth it — extract
+// serially. (Tuned conservatively; the win is at thousands of renderables.)
+inline constexpr u32 kParallelExtractThreshold = 256;
+
+// Fill one MeshRenderData from a component (a pure read of precomputed transforms + borrowed
+// resource pointers — safe to call concurrently across components after UpdateTransforms).
+inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, scene::EntityHandle e,
+                               MeshRenderData& rd) {
+    rd.world       = scene.GetWorldMatrix(e);
+    rd.worldCenter = TransformPoint(Vec3{ 0, 0, 0 }, rd.world);   // mesh bounds center later
+    rd.color       = mc.color;
+    rd.mesh        = mc.mesh.Get();
+    rd.material    = mc.material.Get();
+    rd.entityId    = PackEntity(e);
+    rd.category    = CategoryForMaterial(mc.material.Get());
+}
+
+// Fills `out` with one MeshRenderData per visible MeshComponent in `scene`, allocating from
+// `out`'s own arena. Serial. Assumes transforms are current; `out` should be Reset beforehand.
 inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out) {
     if (auto* meshes = scene.GetSystem<MeshComponentManager>()) {
         meshes->ForEach([&](MeshComponent& mc, scene::EntityHandle e) {
             if (!mc.visible || mc.mesh.Get() == nullptr) { return; }
-            MeshRenderData* rd = out.Add<MeshRenderData>();
-            if (rd == nullptr) { return; }
-            rd->world       = scene.GetWorldMatrix(e);
-            rd->worldCenter = TransformPoint(Vec3{ 0, 0, 0 }, rd->world);   // mesh bounds center later
-            rd->color       = mc.color;
-            rd->mesh        = mc.mesh.Get();
-            rd->material    = mc.material.Get();
-            rd->entityId    = PackEntity(e);
-            rd->category    = CategoryForMaterial(mc.material.Get());
+            if (MeshRenderData* rd = out.Add<MeshRenderData>()) { FillMeshRenderData(scene, mc, e, *rd); }
         });
     }
+}
+
+// Same, but extraction is parallelized across the global JobSystem when present + worthwhile:
+// each worker fills its own RenderContext arena + item list (no contention), then a
+// single-threaded merge gathers them into `out`. Falls back to serial (into ctx slot 0) when
+// the job system is absent or the scene is small. `out` is Reset; `ctx` arenas accumulate
+// across the frame (the caller BeginFrame's it once per frame).
+inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderContext& ctx) {
+    out.Reset();
+    auto* meshes = scene.GetSystem<MeshComponentManager>();
+    if (meshes == nullptr) { return; }
+    const u32 count = meshes->Count();
+    if (count == 0) { return; }
+
+    ctx.ResetItems();
+    const Span<MeshComponent>            comps  = meshes->Dense();
+    const Span<const scene::EntityHandle> owners = meshes->Owners();
+
+    const bool parallel = HasGlobalJobSystem() && count >= kParallelExtractThreshold;
+    if (parallel) {
+        JobSystem& jobs = GlobalJobs();
+        jobs.ParallelFor(count, [&](u32 i) {
+            const MeshComponent& mc = comps[i];
+            if (!mc.visible || mc.mesh.Get() == nullptr) { return; }
+            const u32 slot = jobs.CurrentSlot();
+            MeshRenderData* rd = ctx.Arena(slot).New<MeshRenderData>();
+            if (rd == nullptr) { return; }
+            FillMeshRenderData(scene, mc, owners[i], *rd);
+            ctx.Items(slot).PushBack(static_cast<RenderData*>(rd));
+        });
+    } else {
+        FrameArena& arena = ctx.Arena(0);
+        Array<RenderData*>& items = ctx.Items(0);
+        for (u32 i = 0; i < count; ++i) {
+            const MeshComponent& mc = comps[i];
+            if (!mc.visible || mc.mesh.Get() == nullptr) { continue; }
+            MeshRenderData* rd = arena.New<MeshRenderData>();
+            if (rd == nullptr) { continue; }
+            FillMeshRenderData(scene, mc, owners[i], *rd);
+            items.PushBack(static_cast<RenderData*>(rd));
+        }
+    }
+    ctx.MergeInto(out);
 }
 
 // Reads the scene's primary camera into `out` (view = inverse world; projection from its

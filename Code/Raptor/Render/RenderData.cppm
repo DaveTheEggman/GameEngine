@@ -185,7 +185,13 @@ public:
         return p;
     }
 
-    // Reset for a new frame: drop the item list, rewind the arena (chunks retained).
+    // Adopt an externally-allocated RenderData into the snapshot (the data must outlive this
+    // snapshot's use — e.g. it lives in a RenderContext per-worker arena owned by the producer).
+    // Used by parallel extraction: workers fill their own arenas, then the merge adopts the
+    // pointers here single-threaded.
+    void AddExternal(RenderData* data) { if (data != nullptr) { m_items.PushBack(data); } }
+
+    // Reset for a new frame: drop the item list, rewind the (internal) arena (chunks retained).
     void Reset() noexcept { m_items.Clear(); m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
