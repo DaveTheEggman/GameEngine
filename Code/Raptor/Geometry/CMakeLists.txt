@@ -22,3 +22,6 @@ endif()
 
 # Meshes as resources (Static/SkinnedMeshSource -> Static/SkinnedMesh).
 add_subdirectory(Resource)
+
+# Mesh authoring + cook (tooling: Static/SkinnedMeshAsset -> source).
+add_subdirectory(Editor)
