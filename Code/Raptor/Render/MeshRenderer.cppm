@@ -208,7 +208,7 @@ public:
             }
             const u32 runLen = static_cast<u32>(j - i);
 
-            const MeshGpu* mesh = m_meshes.GetOrUpload(head->mesh);
+            const GpuMesh* mesh = m_meshes.GetOrUpload(head->mesh);
             if (mesh != nullptr) {
                 if (runLen >= 2) { ResolveInstanced(ctx, viewOffset, items, i, runLen, *head, *mesh, out); }
                 else             { ResolveSingle(ctx, viewOffset, *head, *mesh, out); }
@@ -234,7 +234,7 @@ private:
     static constexpr u64 kViewSlot = 256;                // dynamic UBO offset alignment
 
     void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, const MeshRenderData& md,
-                       const MeshGpu& mesh, Array<ResolvedDraw>& out) {
+                       const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         materials::PipelineConfig config = ConfigFor(md, ctx, /*instanced*/ false);
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutSingle, ctx.colorFormat);
         if (pso == nullptr) { return; }
@@ -255,7 +255,7 @@ private:
     }
 
     void ResolveInstanced(const RenderRecordContext& ctx, u32 viewOffset, Span<const DrawItem> items, usize first, u32 count,
-                          const MeshRenderData& head, const MeshGpu& mesh, Array<ResolvedDraw>& out) {
+                          const MeshRenderData& head, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         materials::PipelineConfig config = ConfigFor(head, ctx, /*instanced*/ true);
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutInstanced, ctx.colorFormat);
         if (pso == nullptr) { return; }
@@ -386,7 +386,7 @@ private:
     shaders::ShaderSystem*         m_shaders;
     materials::PipelineStateCache* m_psoCache;
     materials::MaterialSystem*     m_materials;
-    MeshGpuCache                   m_meshes;
+    GpuMeshCache                   m_meshes;
 
     rhi::BindGroupLayout* m_viewLayout     = nullptr;
     rhi::BindGroupLayout* m_objectLayout   = nullptr;

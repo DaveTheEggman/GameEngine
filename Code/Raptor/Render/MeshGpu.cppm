@@ -1,6 +1,6 @@
 /// Raptor::Render — the `:mesh_gpu` partition.
 ///
-/// MeshGpuCache: uploads a StaticMesh's vertex + index streams to the GPU on first use and
+/// GpuMeshCache: uploads a StaticMesh's vertex + index streams to the GPU on first use and
 /// caches them by mesh pointer (so repeated draws reuse the buffers). The streams are
 /// sub-allocated from shared vertex/index pools (§8 — no per-mesh buffers); a mesh records
 /// the pool buffer + its byte offset, and draws bind with that offset. Part of the
@@ -23,7 +23,7 @@ export namespace raptor::render {
 
 // GPU location of one mesh, ready to bind + draw: the (pooled) vertex + index buffers and the
 // byte offsets of this mesh's streams within them.
-struct MeshGpu {
+struct GpuMesh {
     rhi::Buffer*     vertexBuffer = nullptr;
     u64              vertexOffset = 0;
     rhi::Buffer*     indexBuffer  = nullptr;
@@ -32,29 +32,29 @@ struct MeshGpu {
     rhi::IndexFormat indexFormat  = rhi::IndexFormat::UInt32;
 };
 
-class MeshGpuCache {
+class GpuMeshCache {
 public:
-    explicit MeshGpuCache(rhi::Device& device) noexcept
+    explicit GpuMeshCache(rhi::Device& device) noexcept
         : m_queue(device.GetQueue(rhi::QueueType::Graphics)),
           m_vertexPool(device, rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, kVertexChunk, u8"mesh.vertexPool"),
           m_indexPool(device, rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst, kIndexChunk, u8"mesh.indexPool") {}
 
-    ~MeshGpuCache() { Clear(); }
+    ~GpuMeshCache() { Clear(); }
 
-    MeshGpuCache(const MeshGpuCache&) = delete;
-    MeshGpuCache& operator=(const MeshGpuCache&) = delete;
+    GpuMeshCache(const GpuMeshCache&) = delete;
+    GpuMeshCache& operator=(const GpuMeshCache&) = delete;
 
     // Uploads `mesh` on first request (sub-allocating from the pools), returns its cached GPU
     // location (null if empty or allocation failed). The pointer is stable until Clear().
-    [[nodiscard]] const MeshGpu* GetOrUpload(geometry::StaticMesh* mesh) {
+    [[nodiscard]] const GpuMesh* GetOrUpload(geometry::StaticMesh* mesh) {
         if (mesh == nullptr || mesh->VertexCount() == 0 || mesh->IndexCount() == 0) { return nullptr; }
-        if (MeshGpu* cached = m_cache.Find(mesh)) { return cached; }
+        if (GpuMesh* cached = m_cache.Find(mesh)) { return cached; }
 
         const GpuBufferPool::Alloc v = m_vertexPool.Allocate(mesh->VertexDataSize(), kVertexAlign);
         const GpuBufferPool::Alloc idx = m_indexPool.Allocate(mesh->indices.DataSize(), kIndexAlign);
         if (!v.ok || !idx.ok) { return nullptr; }
 
-        MeshGpu g;
+        GpuMesh g;
         g.vertexBuffer = v.buffer;   g.vertexOffset = v.offset;
         g.indexBuffer  = idx.buffer; g.indexOffset  = idx.offset;
         g.indexCount   = mesh->IndexCount();
@@ -93,7 +93,7 @@ private:
     rhi::Queue*   m_queue;
     GpuBufferPool m_vertexPool;
     GpuBufferPool m_indexPool;
-    HashMap<geometry::StaticMesh*, MeshGpu> m_cache;
+    HashMap<geometry::StaticMesh*, GpuMesh> m_cache;
 };
 
 } // namespace raptor::render
