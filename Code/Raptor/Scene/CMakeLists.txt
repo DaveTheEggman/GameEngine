@@ -27,3 +27,4 @@ add_subdirectory(Subsystem)
 
 # Whole-scene serialization: runtime load (Resource) + tooling save (Editor).
 add_subdirectory(Resource)
+add_subdirectory(Editor)
