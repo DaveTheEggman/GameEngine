@@ -29,3 +29,7 @@ endif()
 # The shader system (variant compile-on-demand + cache) needs the RHI to create
 # GPU modules, so it lives in its own module/library, gated on the RHI.
 add_subdirectory(System)
+
+# Shaders as resources (ShaderSource -> ShaderResource) + the editor asset side.
+add_subdirectory(Resource)
+add_subdirectory(Editor)
