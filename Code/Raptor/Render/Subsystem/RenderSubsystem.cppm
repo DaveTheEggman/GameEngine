@@ -38,7 +38,8 @@ class RenderSubsystem final : public raptor::runtime::Subsystem,
                               public ISceneRenderer,
                               public scene::ISceneAware {
 public:
-    explicit RenderSubsystem(rhi::Device& device) noexcept : m_device(&device) {}
+    RenderSubsystem(rhi::Device& device, u32 framesInFlight) noexcept
+        : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight) {}
 
     [[nodiscard]] i32 UpdateOrder() const noexcept override { return 1000; }   // late (renders, doesn't tick)
 
@@ -87,7 +88,7 @@ protected:
         m_shaders  = MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler, *m_device);
         m_psoCache = MakeUnique<materials::PipelineStateCache>(DefaultAllocator(), *m_shaders, *m_device);
 
-        m_meshRenderer = MakeUnique<MeshRenderer>(DefaultAllocator(), *m_device, *m_shaders, *m_psoCache);
+        m_meshRenderer = MakeUnique<MeshRenderer>(DefaultAllocator(), *m_device, *m_shaders, *m_psoCache, m_framesInFlight);
         if (!m_meshRenderer->Initialize().IsOk()) { m_meshRenderer.Reset(); return; }
         m_registry.Register(m_meshRenderer.Get());
 
@@ -127,6 +128,7 @@ private:
     }
 
     rhi::Device*       m_device;
+    u32                m_framesInFlight = 2;
     shaders::Compiler* m_compiler = nullptr;
     UniquePtr<shaders::ShaderSystem>          m_shaders;
     UniquePtr<materials::PipelineStateCache>  m_psoCache;

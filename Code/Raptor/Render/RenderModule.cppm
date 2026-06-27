@@ -14,6 +14,7 @@ export module raptor.render;
 
 export import :data;
 export import :views;
+export import :resources;
 export import :pipeline;
 export import :mesh_gpu;
 export import :mesh_renderer;

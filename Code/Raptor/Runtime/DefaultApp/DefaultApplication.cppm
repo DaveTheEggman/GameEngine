@@ -38,7 +38,7 @@ export namespace raptor::runtime
             host.Ctx().AddSubsystem<raptor::scene::SceneSubsystem>();
             if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                host.Ctx().AddSubsystem<raptor::render::RenderSubsystem>(*gfx->Raw());
+                host.Ctx().AddSubsystem<raptor::render::RenderSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
             }
         }
 

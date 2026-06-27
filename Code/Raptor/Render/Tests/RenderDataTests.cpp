@@ -5,6 +5,7 @@
 
 import raptor.core;
 import raptor.rhi;
+import raptor.rhi.null;
 import raptor.render;
 
 using namespace raptor::core;
@@ -141,6 +142,41 @@ TEST_CASE("RenderViewPool: Acquire hands out stable views; Begin rewinds")
     CHECK(pool.ActiveCount() == 0);
     RenderView* a2 = pool.Acquire();
     CHECK(a2 == a);                          // pooled storage reused, addresses stable
+}
+
+TEST_CASE("DynamicUniformRing: per-frame regions are disjoint; exhaustion + grow")
+{
+    rhi::null::NullDevice device;
+    const u32 framesInFlight = 3;
+    DynamicUniformRing ring(device, framesInFlight, /*slotSize*/ 256);
+    REQUIRE(ring.Reserve(4));                 // 4 slots per frame region
+    const u32 gen0 = ring.Generation();
+
+    // Each frame's first slot lands in a distinct region (frameIndex * slotsPerFrame * 256).
+    u32 firstOffset[3] = {};
+    for (u32 f = 0; f < framesInFlight; ++f) {
+        ring.BeginFrame(f);
+        DynamicUniformRing::Slot s = ring.Allocate();
+        REQUIRE(s.ok);
+        firstOffset[f] = s.dynamicOffset;
+        ring.EndFrame();
+    }
+    CHECK(firstOffset[0] == 0u);
+    CHECK(firstOffset[1] == 4u * 256u);       // region size = slotsPerFrame * slotSize
+    CHECK(firstOffset[2] == 8u * 256u);
+
+    // A region holds exactly slotsPerFrame slots; the next Allocate fails (no silent grow).
+    ring.BeginFrame(0);
+    for (int i = 0; i < 4; ++i) { CHECK(ring.Allocate().ok); }
+    CHECK_FALSE(ring.Allocate().ok);
+    ring.EndFrame();
+
+    // Reserving more grows (new generation); a smaller reserve does not.
+    REQUIRE(ring.Reserve(16));
+    CHECK(ring.Generation() != gen0);
+    const u32 gen1 = ring.Generation();
+    REQUIRE(ring.Reserve(4));
+    CHECK(ring.Generation() == gen1);          // no shrink, no realloc
 }
 
 TEST_CASE("RendererRegistry routes categories to renderers")

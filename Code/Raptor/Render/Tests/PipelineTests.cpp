@@ -61,7 +61,7 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
     mat::PipelineStateCache psoCache(shaderSystem, h.device);
 
-    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache);
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
@@ -101,7 +101,7 @@ TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
     mat::PipelineStateCache psoCache(shaderSystem, h.device);
-    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache);
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);

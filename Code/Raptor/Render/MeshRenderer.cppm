@@ -24,6 +24,7 @@ import raptor.materials.pso;
 import :data;
 import :views;
 import :pipeline;
+import :resources;
 import :mesh_gpu;
 
 using namespace raptor::core;
@@ -84,8 +85,9 @@ float4 main(PSInput input) : SV_Target {
 class MeshRenderer final : public Renderer {
 public:
     MeshRenderer(rhi::Device& device, shaders::ShaderSystem& shaderSystem,
-                 materials::PipelineStateCache& psoCache) noexcept
-        : m_device(&device), m_shaders(&shaderSystem), m_psoCache(&psoCache), m_meshes(device) {}
+                 materials::PipelineStateCache& psoCache, u32 framesInFlight) noexcept
+        : m_device(&device), m_shaders(&shaderSystem), m_psoCache(&psoCache), m_meshes(device),
+          m_objectRing(device, framesInFlight, kSlotSize) {}
 
     ~MeshRenderer() override { Shutdown(); }
 
@@ -118,27 +120,20 @@ public:
         return Span<const RenderCategory>{ kCats, 3 };
     }
 
-    // Size the object UBO for the whole frame's draws (once) and reset the write cursor.
-    void PrepareFrame(u32 maxDraws) override {
-        m_cursor = 0;
-        m_mapped = nullptr;
+    // Size the object ring for the whole frame's draws (once) and select this frame's region.
+    void PrepareFrame(u32 maxDraws, u32 frameIndex) override {
         if (maxDraws == 0) { return; }
-        if (!EnsureObjectBuffer(maxDraws)) { return; }
-        m_mapped = static_cast<u8*>(m_objectBuffer->Map());
+        if (!m_objectRing.Reserve(maxDraws) || !EnsureBindGroup()) { return; }
+        m_objectRing.BeginFrame(frameIndex);
     }
 
     void Record(const RenderRecordContext& ctx, Span<const DrawItem> items) override {
-        if (ctx.pass == nullptr || m_mapped == nullptr) { return; }
+        if (ctx.pass == nullptr || m_objectBindGroup == nullptr) { return; }
 
         for (usize n = 0; n < items.Size(); ++n) {
             const auto* md = static_cast<const MeshRenderData*>(items[n].data);
             const MeshGpu* mesh = m_meshes.GetOrUpload(md->mesh);
-            if (mesh == nullptr || m_cursor >= m_objectCapacity) { continue; }
-
-            // per-object data: world + the view's view-projection (row-vector: clip = p*W*VP).
-            ObjectData od{ md->world, ctx.viewProj };
-            const u32 slot = m_cursor++;
-            MemCopy(m_mapped + static_cast<usize>(slot) * kSlotSize, &od, sizeof(od));
+            if (mesh == nullptr) { continue; }
 
             materials::PipelineConfig config = (md->material != nullptr)
                 ? md->material->pipeline
@@ -148,7 +143,14 @@ public:
             rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayout, ctx.colorFormat);
             if (pso == nullptr) { continue; }
 
-            const u32 dynamicOffset = slot * static_cast<u32>(kSlotSize);
+            // per-object data: world + the view's view-projection (row-vector: clip = p*W*VP),
+            // into this frame's ring region (frames-in-flight safe, dynamic-offset bound).
+            const DynamicUniformRing::Slot slot = m_objectRing.Allocate();
+            if (!slot.ok) { continue; }   // region exhausted (Reserve sized it for the frame)
+            ObjectData od{ md->world, ctx.viewProj };
+            MemCopy(slot.ptr, &od, sizeof(od));
+
+            const u32 dynamicOffset = slot.dynamicOffset;
             ctx.pass->SetPipeline(pso);
             ctx.pass->SetBindGroup(0, m_objectBindGroup, Span<const u32>{ &dynamicOffset, 1 });
             ctx.pass->SetVertexBuffer(0, mesh->vertexBuffer);
@@ -157,43 +159,35 @@ public:
         }
     }
 
-    void FinishFrame() override {
-        if (m_mapped != nullptr && m_objectBuffer != nullptr) { m_objectBuffer->Unmap(); }
-        m_mapped = nullptr;
-    }
+    void FinishFrame() override { m_objectRing.EndFrame(); }
 
 private:
     struct ObjectData { Mat4 world; Mat4 viewProj; };          // 128 bytes
     static constexpr u64 kSlotSize = 256;                      // dynamic UBO offset alignment
 
-    bool EnsureObjectBuffer(u32 count) {
-        if (count <= m_objectCapacity && m_objectBuffer != nullptr) { return true; }
+    // (Re)create the object bind group over the ring's buffer when the ring (re)allocated.
+    bool EnsureBindGroup() {
+        if (m_objectBindGroup != nullptr && m_bgGeneration == m_objectRing.Generation()) { return true; }
         if (m_objectBindGroup) { m_device->DestroyBindGroup(m_objectBindGroup); m_objectBindGroup = nullptr; }
-        if (m_objectBuffer)    { m_device->DestroyBuffer(m_objectBuffer); m_objectBuffer = nullptr; }
 
-        rhi::BufferDesc bd{};
-        bd.size = static_cast<u64>(count) * kSlotSize;
-        bd.usage = rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst;
-        bd.memory = rhi::MemoryLocation::CpuToGpu;
-        bd.label = u8"forward.objects";
-        if (!m_device->CreateBuffer(bd, m_objectBuffer).IsOk()) { m_objectBuffer = nullptr; return false; }
-
-        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(m_objectBuffer, 0, sizeof(ObjectData));
+        rhi::Buffer* buffer = m_objectRing.Buffer();
+        if (buffer == nullptr) { return false; }
+        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(buffer, 0, sizeof(ObjectData));
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_objectLayout;
         bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
         if (!m_device->CreateBindGroup(bgd, m_objectBindGroup).IsOk()) { m_objectBindGroup = nullptr; return false; }
 
-        m_objectCapacity = count;
+        m_bgGeneration = m_objectRing.Generation();
         return true;
     }
 
     void Shutdown() {
         m_meshes.Clear();
         if (m_objectBindGroup) { m_device->DestroyBindGroup(m_objectBindGroup); m_objectBindGroup = nullptr; }
-        if (m_objectBuffer)    { m_device->DestroyBuffer(m_objectBuffer); m_objectBuffer = nullptr; }
         if (m_pipelineLayout)  { m_device->DestroyPipelineLayout(m_pipelineLayout); m_pipelineLayout = nullptr; }
         if (m_objectLayout)    { m_device->DestroyBindGroupLayout(m_objectLayout); m_objectLayout = nullptr; }
+        // m_objectRing frees its buffer in its destructor (after this, m_device still valid).
     }
 
     rhi::Device*                   m_device;
@@ -203,12 +197,9 @@ private:
 
     rhi::BindGroupLayout* m_objectLayout    = nullptr;
     rhi::PipelineLayout*  m_pipelineLayout  = nullptr;
-    rhi::Buffer*          m_objectBuffer    = nullptr;
     rhi::BindGroup*       m_objectBindGroup = nullptr;
-    u32                   m_objectCapacity  = 0;
-
-    u8*  m_mapped = nullptr;   // mapped object buffer for the current frame
-    u32  m_cursor = 0;         // next object slot (reset each frame in PrepareFrame)
+    DynamicUniformRing    m_objectRing;
+    u32                   m_bgGeneration    = 0;   // ring generation the bind group was built for
 };
 
 } // namespace raptor::render

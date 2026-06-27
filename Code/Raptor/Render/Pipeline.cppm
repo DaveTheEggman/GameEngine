@@ -51,8 +51,9 @@ public:
 
     // Bracket the frame: `maxDraws` is an upper bound on DrawItems this renderer may receive
     // across all views, so per-object transient (e.g. the object-UBO ring) is sized once and
-    // never reallocated mid-frame (which would invalidate already-recorded draws).
-    virtual void PrepareFrame(u32 maxDraws) { (void)maxDraws; }
+    // never reallocated mid-frame (which would invalidate already-recorded draws). `frameIndex`
+    // is the device ring slot, selecting this frame's region of any frames-in-flight ring.
+    virtual void PrepareFrame(u32 maxDraws, u32 frameIndex) { (void)maxDraws; (void)frameIndex; }
 
     // Record `items` (a sorted run of this renderer's categories) into `ctx.pass`.
     virtual void Record(const RenderRecordContext& ctx, Span<const DrawItem> items) = 0;
@@ -208,7 +209,7 @@ public:
             totalDraws += static_cast<u32>(m_views.At(i)->DrawList().Size());
         }
 
-        for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws); }
+        for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
         for (usize i = 0; i < m_views.ActiveCount(); ++i) {
             m_pass.Execute(*m_views.At(i), *m_registry, *m_encoder);
         }
