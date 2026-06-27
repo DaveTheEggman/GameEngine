@@ -18,9 +18,14 @@ target_sources(RaptorShaders
     PUBLIC
         FILE_SET shaders_modules TYPE CXX_MODULES FILES
             Types.cppm
+            Flags.cppm
             Compiler.cppm
             ShadersModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
+
+# The shader system (variant compile-on-demand + cache) needs the RHI to create
+# GPU modules, so it lives in its own module/library, gated on the RHI.
+add_subdirectory(System)
