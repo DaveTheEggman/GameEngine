@@ -234,8 +234,8 @@ private:
         ctx.pass->SetPipeline(pso);
         ctx.pass->SetBindGroup(0, m_viewBG, Span<const u32>{ &viewOffset, 1 });
         ctx.pass->SetBindGroup(1, m_objectBG, Span<const u32>{ &objOffset, 1 });
-        ctx.pass->SetVertexBuffer(0, mesh.vertexBuffer);
-        ctx.pass->SetIndexBuffer(mesh.indexBuffer, mesh.indexFormat);
+        ctx.pass->SetVertexBuffer(0, mesh.vertexBuffer, mesh.vertexOffset);
+        ctx.pass->SetIndexBuffer(mesh.indexBuffer, mesh.indexFormat, mesh.indexOffset);
         ctx.pass->DrawIndexed(mesh.indexCount);
     }
 
@@ -260,9 +260,9 @@ private:
         ctx.pass->SetPipeline(pso);
         ctx.pass->SetBindGroup(0, m_viewBG, Span<const u32>{ &viewOffset, 1 });
         ctx.pass->SetBindGroup(1, m_instanceBG, Span<const u32>{});      // whole buffer, no dynamic offset
-        ctx.pass->SetVertexBuffer(0, mesh.vertexBuffer);
+        ctx.pass->SetVertexBuffer(0, mesh.vertexBuffer, mesh.vertexOffset);
         ctx.pass->SetVertexBuffer(1, m_offsetsRing.Buffer(), offs.byteOffset);
-        ctx.pass->SetIndexBuffer(mesh.indexBuffer, mesh.indexFormat);
+        ctx.pass->SetIndexBuffer(mesh.indexBuffer, mesh.indexFormat, mesh.indexOffset);
         ctx.pass->DrawIndexed(mesh.indexCount, count);
     }
 

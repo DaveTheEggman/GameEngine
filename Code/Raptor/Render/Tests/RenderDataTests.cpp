@@ -188,6 +188,30 @@ TEST_CASE("DynamicUniformRing: per-frame regions are disjoint; exhaustion + grow
     CHECK(ring.Generation() == gen1);          // no shrink, no realloc
 }
 
+TEST_CASE("GpuBufferPool sub-allocates within a chunk and grows by adding chunks")
+{
+    rhi::null::NullDevice device;
+    GpuBufferPool pool(device, rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, /*chunk*/ 1024, u8"test");
+
+    GpuBufferPool::Alloc a = pool.Allocate(100, 16);
+    GpuBufferPool::Alloc b = pool.Allocate(100, 16);
+    REQUIRE(a.ok); REQUIRE(b.ok);
+    CHECK(a.offset == 0u);
+    CHECK(b.offset == 112u);                 // 100 rounded up to the next multiple of 16
+    CHECK(a.buffer == b.buffer);             // same chunk
+    CHECK(pool.ChunkCount() == 1u);
+
+    // An allocation that doesn't fit the remaining chunk space opens a new chunk.
+    GpuBufferPool::Alloc big = pool.Allocate(2000, 16);
+    REQUIRE(big.ok);
+    CHECK(big.offset == 0u);
+    CHECK(big.buffer != a.buffer);
+    CHECK(pool.ChunkCount() == 2u);
+
+    pool.Clear();
+    CHECK(pool.ChunkCount() == 0u);
+}
+
 TEST_CASE("RendererRegistry routes categories to renderers")
 {
     struct FakeRenderer final : Renderer {

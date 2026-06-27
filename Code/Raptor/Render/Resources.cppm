@@ -27,6 +27,70 @@ namespace rhi = raptor::rhi;
 
 export namespace raptor::render {
 
+// A chunked GPU buffer sub-allocator: hands out (buffer, offset) ranges from large shared
+// chunks instead of one buffer per allocation (§8 — "no per-mesh buffers"). Allocations are
+// bump-forward and persist until Clear(); the pool grows by adding a NEW chunk (existing
+// allocations keep their buffer, so growth never invalidates a live range). Used for mesh
+// vertex/index streams (uploaded once, kept for the resource's lifetime).
+class GpuBufferPool {
+public:
+    GpuBufferPool(rhi::Device& device, rhi::BufferUsage usage, u64 chunkSize, const char8_t* label) noexcept
+        : m_device(&device), m_usage(usage), m_chunkSize(chunkSize), m_label(label) {}
+
+    ~GpuBufferPool() { Clear(); }
+
+    GpuBufferPool(const GpuBufferPool&) = delete;
+    GpuBufferPool& operator=(const GpuBufferPool&) = delete;
+
+    struct Alloc { rhi::Buffer* buffer = nullptr; u64 offset = 0; bool ok = false; };
+
+    // Sub-allocate `size` bytes aligned to `alignment` from the current chunk, growing (a new
+    // chunk) if it doesn't fit. Returns the chunk buffer + the byte offset within it.
+    [[nodiscard]] Alloc Allocate(u64 size, u64 alignment) {
+        if (size == 0) { return Alloc{}; }
+        if (!m_chunks.IsEmpty()) {
+            Chunk& c = m_chunks[m_current];
+            const u64 aligned = AlignUp(c.used, alignment);
+            if (aligned + size <= c.size) { c.used = aligned + size; return Alloc{ c.buffer, aligned, true }; }
+        }
+        if (!AddChunk(size > m_chunkSize ? size : m_chunkSize)) { return Alloc{}; }
+        Chunk& c = m_chunks[m_current];
+        c.used = size;
+        return Alloc{ c.buffer, 0, true };
+    }
+
+    void Clear() {
+        for (Chunk& c : m_chunks) { if (c.buffer) { m_device->DestroyBuffer(c.buffer); } }
+        m_chunks.Clear();
+        m_current = 0;
+    }
+
+    [[nodiscard]] usize ChunkCount() const noexcept { return m_chunks.Size(); }
+
+private:
+    struct Chunk { rhi::Buffer* buffer = nullptr; u64 used = 0; u64 size = 0; };
+
+    bool AddChunk(u64 size) {
+        rhi::BufferDesc bd{};
+        bd.size = size;
+        bd.usage = m_usage;
+        bd.memory = rhi::MemoryLocation::GpuOnly;
+        bd.label = m_label;
+        rhi::Buffer* buffer = nullptr;
+        if (!m_device->CreateBuffer(bd, buffer).IsOk()) { return false; }
+        m_chunks.PushBack(Chunk{ buffer, 0, size });
+        m_current = m_chunks.Size() - 1;
+        return true;
+    }
+
+    rhi::Device*     m_device;
+    rhi::BufferUsage m_usage;
+    u64              m_chunkSize;
+    const char8_t*   m_label;
+    Array<Chunk>     m_chunks;
+    usize            m_current = 0;
+};
+
 class DynamicUniformRing {
 public:
     // `slotSize` is the per-allocation stride (256-aligned for dynamic-offset uniforms; the
