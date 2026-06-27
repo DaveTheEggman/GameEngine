@@ -1,0 +1,185 @@
+/// Raptor::Materials — the `:pipeline` partition.
+///
+/// PipelineConfig: the full render-state description for a material (shader name +
+/// variant flags, vertex layout, primitive/blend/depth state, render-target
+/// formats). It is the *key* a PSO cache hashes on — orthogonal to ShaderFlags:
+/// flags drive the shader permutation (compile-time #defines), PipelineConfig
+/// drives the fixed-function state. All value types so it hashes by content.
+///
+/// VertexLayoutHelper maps the predefined VertexLayoutType presets to concrete RHI
+/// vertex attributes / strides (mirrors Sedulous's common formats).
+
+module;
+#include "Core/Prelude.h"
+
+export module raptor.materials:pipeline;
+
+import raptor.core;
+import raptor.rhi;
+import raptor.shaders;
+import :types;
+
+using namespace raptor::core;
+namespace rhi = raptor::rhi;
+
+export namespace raptor::materials {
+
+// Full render-state for a material. Content-hashable PSO-cache key.
+struct PipelineConfig {
+    // --- shader identification ---
+    StringView           shaderName;
+    shaders::ShaderFlags shaderFlags = shaders::ShaderFlags::None;
+
+    // --- vertex input ---
+    VertexLayoutType vertexLayout        = VertexLayoutType::Mesh;
+    u32              customVertexStride  = 0;
+    u8               customAttributeCount = 0;
+
+    // --- primitive assembly ---
+    rhi::PrimitiveTopology topology  = rhi::PrimitiveTopology::TriangleList;
+    CullModeConfig         cullMode  = CullModeConfig::Back;
+    rhi::FrontFace         frontFace = rhi::FrontFace::CCW;   // CCW after Y-flip in projection
+    rhi::FillMode          fillMode  = rhi::FillMode::Solid;
+
+    // --- blend ---
+    BlendMode           blendMode      = BlendMode::Opaque;
+    rhi::ColorWriteMask colorWriteMask = rhi::ColorWriteMask::All;
+
+    // --- depth/stencil ---
+    DepthMode            depthMode           = DepthMode::ReadWrite;
+    rhi::CompareFunction depthCompare        = rhi::CompareFunction::Less;
+    rhi::TextureFormat   depthFormat         = rhi::TextureFormat::Depth32Float;
+    i16                  depthBias           = 0;
+    f32                  depthBiasSlopeScale = 0.0f;
+
+    // --- render targets ---
+    rhi::TextureFormat colorFormats[rhi::MaxColorAttachments] = { rhi::TextureFormat::BGRA8Unorm };
+    u8                 colorTargetCount = 1;
+    u8                 sampleCount      = 1;
+
+    // --- flags ---
+    bool depthOnly = false;
+
+    // Content hash: name bytes folded with the POD state. Used as the PSO-cache key.
+    [[nodiscard]] u64 HashCode() const noexcept {
+        u64 h = HashBytes(shaderName.Data(), shaderName.Size());
+        const auto mix = [&h](u64 v) { h = h * 31u + v; };
+        mix(static_cast<u64>(shaderFlags));
+        mix(static_cast<u64>(vertexLayout));
+        mix(customVertexStride);
+        mix(customAttributeCount);
+        mix(static_cast<u64>(topology));
+        mix(static_cast<u64>(cullMode));
+        mix(static_cast<u64>(frontFace));
+        mix(static_cast<u64>(fillMode));
+        mix(static_cast<u64>(blendMode));
+        mix(static_cast<u64>(colorWriteMask));
+        mix(static_cast<u64>(depthMode));
+        mix(static_cast<u64>(depthCompare));
+        mix(static_cast<u64>(depthFormat));
+        mix(static_cast<u64>(static_cast<u16>(depthBias)));
+        for (u8 i = 0; i < colorTargetCount && i < rhi::MaxColorAttachments; ++i) {
+            mix(static_cast<u64>(colorFormats[i]));
+        }
+        mix(colorTargetCount);
+        mix(sampleCount);
+        mix(depthOnly ? 1u : 0u);
+        return h;
+    }
+
+    [[nodiscard]] bool operator==(const PipelineConfig& o) const noexcept {
+        if (!(shaderName == o.shaderName && shaderFlags == o.shaderFlags &&
+              vertexLayout == o.vertexLayout && customVertexStride == o.customVertexStride &&
+              customAttributeCount == o.customAttributeCount && topology == o.topology &&
+              cullMode == o.cullMode && frontFace == o.frontFace && fillMode == o.fillMode &&
+              blendMode == o.blendMode && colorWriteMask == o.colorWriteMask &&
+              depthMode == o.depthMode && depthCompare == o.depthCompare &&
+              depthFormat == o.depthFormat && depthBias == o.depthBias &&
+              depthBiasSlopeScale == o.depthBiasSlopeScale &&
+              colorTargetCount == o.colorTargetCount && sampleCount == o.sampleCount &&
+              depthOnly == o.depthOnly)) {
+            return false;
+        }
+        for (u8 i = 0; i < colorTargetCount && i < rhi::MaxColorAttachments; ++i) {
+            if (colorFormats[i] != o.colorFormats[i]) { return false; }
+        }
+        return true;
+    }
+
+    // ---- presets (subset of Sedulous's) ----
+    [[nodiscard]] static PipelineConfig ForOpaqueMesh(StringView shader, shaders::ShaderFlags flags = shaders::ShaderFlags::None) {
+        PipelineConfig c{}; c.shaderName = shader; c.shaderFlags = flags;
+        c.vertexLayout = VertexLayoutType::Mesh; c.blendMode = BlendMode::Opaque; c.depthMode = DepthMode::ReadWrite;
+        return c;
+    }
+    [[nodiscard]] static PipelineConfig ForTransparentMesh(StringView shader, shaders::ShaderFlags flags = shaders::ShaderFlags::None) {
+        PipelineConfig c{}; c.shaderName = shader; c.shaderFlags = flags;
+        c.vertexLayout = VertexLayoutType::Mesh; c.blendMode = BlendMode::AlphaBlend; c.depthMode = DepthMode::ReadOnly;
+        return c;
+    }
+    [[nodiscard]] static PipelineConfig ForSkybox(StringView shader) {
+        PipelineConfig c{}; c.shaderName = shader; c.vertexLayout = VertexLayoutType::PositionOnly;
+        c.depthMode = DepthMode::ReadOnly; c.depthCompare = rhi::CompareFunction::LessEqual; c.cullMode = CullModeConfig::Front;
+        return c;
+    }
+    [[nodiscard]] static PipelineConfig ForSprites(StringView shader) {
+        PipelineConfig c{}; c.shaderName = shader; c.vertexLayout = VertexLayoutType::PositionUVColor;
+        c.blendMode = BlendMode::AlphaBlend; c.depthMode = DepthMode::ReadOnly; c.cullMode = CullModeConfig::None;
+        return c;
+    }
+    [[nodiscard]] static PipelineConfig ForFullscreen(StringView shader) {
+        PipelineConfig c{}; c.shaderName = shader; c.vertexLayout = VertexLayoutType::None;
+        c.depthMode = DepthMode::Disabled; c.cullMode = CullModeConfig::None;
+        return c;
+    }
+};
+
+// Maps VertexLayoutType -> concrete RHI vertex attributes + stride.
+class VertexLayoutHelper {
+public:
+    [[nodiscard]] static u32 Stride(VertexLayoutType t) noexcept {
+        switch (t) {
+        case VertexLayoutType::None:            return 0;
+        case VertexLayoutType::PositionOnly:    return 12;
+        case VertexLayoutType::PositionUVColor: return 36;
+        case VertexLayoutType::MeshNoTangent:   return 32;
+        case VertexLayoutType::Mesh:            return 48;
+        case VertexLayoutType::SkinnedMesh:     return 72;
+        case VertexLayoutType::Custom:          return 0;
+        }
+        return 0;
+    }
+
+    [[nodiscard]] static Span<const rhi::VertexAttribute> Attributes(VertexLayoutType t) noexcept {
+        switch (t) {
+        case VertexLayoutType::PositionOnly:    return { kPositionOnly,    1 };
+        case VertexLayoutType::PositionUVColor: return { kPositionUVColor, 3 };
+        case VertexLayoutType::MeshNoTangent:   return { kMeshNoTangent,   3 };
+        case VertexLayoutType::Mesh:            return { kMesh,            5 };
+        case VertexLayoutType::SkinnedMesh:     return { kSkinnedMesh,     7 };
+        default:                                return {};
+        }
+    }
+
+    [[nodiscard]] static rhi::VertexBufferLayout BufferLayout(VertexLayoutType t) noexcept {
+        rhi::VertexBufferLayout l{};
+        l.stride = Stride(t);
+        l.stepMode = rhi::VertexStepMode::Vertex;
+        l.attributes = Attributes(t);
+        return l;
+    }
+
+private:
+    using VA = rhi::VertexAttribute;
+    using VF = rhi::VertexFormat;
+    static constexpr VA kPositionOnly[1]    = { { VF::Float32x3, 0, 0 } };
+    static constexpr VA kPositionUVColor[3] = { { VF::Float32x3, 0, 0 }, { VF::Float32x2, 12, 1 }, { VF::Float32x4, 20, 2 } };
+    static constexpr VA kMeshNoTangent[3]   = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 } };
+    static constexpr VA kMesh[5]            = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 },
+                                                { VF::Unorm8x4, 32, 3 }, { VF::Float32x3, 36, 4 } };
+    static constexpr VA kSkinnedMesh[7]     = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 },
+                                                { VF::Unorm8x4, 32, 3 }, { VF::Float32x3, 36, 4 },
+                                                { VF::Uint32x2, 48, 6 }, { VF::Float32x4, 56, 7 } };
+};
+
+} // namespace raptor::materials
