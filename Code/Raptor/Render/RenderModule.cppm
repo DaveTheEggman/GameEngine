@@ -10,3 +10,4 @@ export module raptor.render;
 
 export import :data;
 export import :mesh_gpu;
+export import :forward;
