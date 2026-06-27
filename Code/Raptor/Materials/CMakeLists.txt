@@ -21,3 +21,6 @@ target_sources(RaptorMaterials
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
+
+# Render-side PSO cache (needs the ShaderSystem on top of Materials).
+add_subdirectory(PSO)
