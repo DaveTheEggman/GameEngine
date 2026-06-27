@@ -169,12 +169,11 @@ public:
         m_ready = true;
     }
 
-    void Record(const RenderRecordContext& ctx, Span<const DrawItem> items) override {
-        if (!m_ready || ctx.pass == nullptr || items.IsEmpty()) { return; }
+    void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) override {
+        if (!m_ready || items.IsEmpty()) { return; }
 
-        // Per-view UBO (shared by every draw in this call): write ViewProj into a view slot.
-        // The two pipeline layouts share set 0 (m_viewLayout), so the binding persists across
-        // pipeline switches; each draw (re)binds it after SetPipeline (sets follow the pipeline).
+        // Per-view UBO (shared by every draw in this call): write ViewProj into a view slot. The
+        // two pipeline layouts share set 0 (m_viewLayout), so the resolved binding is the same.
         const DynamicUniformRing::Range view = m_viewRing.Allocate();
         if (!view.ok) { return; }
         *static_cast<ViewData*>(view.ptr) = ViewData{ ctx.viewProj };
@@ -198,8 +197,8 @@ public:
 
             const MeshGpu* mesh = m_meshes.GetOrUpload(head->mesh);
             if (mesh != nullptr) {
-                if (runLen >= 2) { RecordInstanced(ctx, viewOffset, items, i, runLen, *head, *mesh); }
-                else             { RecordSingle(ctx, viewOffset, *head, *mesh); }
+                if (runLen >= 2) { ResolveInstanced(ctx, viewOffset, items, i, runLen, *head, *mesh, out); }
+                else             { ResolveSingle(ctx, viewOffset, *head, *mesh, out); }
             }
             i = j;
         }
@@ -221,7 +220,8 @@ private:
 
     static constexpr u64 kViewSlot = 256;                // dynamic UBO offset alignment
 
-    void RecordSingle(const RenderRecordContext& ctx, u32 viewOffset, const MeshRenderData& md, const MeshGpu& mesh) {
+    void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, const MeshRenderData& md,
+                       const MeshGpu& mesh, Array<ResolvedDraw>& out) {
         materials::PipelineConfig config = ConfigFor(md, ctx, /*instanced*/ false);
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutSingle, ctx.colorFormat);
         if (pso == nullptr) { return; }
@@ -230,17 +230,18 @@ private:
         if (!obj.ok) { return; }
         *static_cast<ObjectData*>(obj.ptr) = ObjectData{ md.world, md.color };
 
-        const u32 objOffset = obj.byteOffset;
-        ctx.pass->SetPipeline(pso);
-        ctx.pass->SetBindGroup(0, m_viewBG, Span<const u32>{ &viewOffset, 1 });
-        ctx.pass->SetBindGroup(1, m_objectBG, Span<const u32>{ &objOffset, 1 });
-        ctx.pass->SetVertexBuffer(0, mesh.vertexBuffer, mesh.vertexOffset);
-        ctx.pass->SetIndexBuffer(mesh.indexBuffer, mesh.indexFormat, mesh.indexOffset);
-        ctx.pass->DrawIndexed(mesh.indexCount);
+        ResolvedDraw d{};
+        d.pso = pso;
+        d.bindGroup0 = m_viewBG;   d.dynamicOffset0 = viewOffset;     d.hasDynamic0 = true;   // set 0: view
+        d.bindGroup1 = m_objectBG; d.dynamicOffset1 = obj.byteOffset; d.hasDynamic1 = true;   // set 1: object UBO
+        d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
+        d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
+        d.indexCount = mesh.indexCount; d.instanceCount = 1;
+        out.PushBack(d);
     }
 
-    void RecordInstanced(const RenderRecordContext& ctx, u32 viewOffset, Span<const DrawItem> items, usize first, u32 count,
-                         const MeshRenderData& head, const MeshGpu& mesh) {
+    void ResolveInstanced(const RenderRecordContext& ctx, u32 viewOffset, Span<const DrawItem> items, usize first, u32 count,
+                          const MeshRenderData& head, const MeshGpu& mesh, Array<ResolvedDraw>& out) {
         materials::PipelineConfig config = ConfigFor(head, ctx, /*instanced*/ true);
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutInstanced, ctx.colorFormat);
         if (pso == nullptr) { return; }
@@ -257,13 +258,15 @@ private:
             od[k] = DataOffsets{ inst.slotIndex + k, 0, 0, 0 };   // absolute index into Instances[]
         }
 
-        ctx.pass->SetPipeline(pso);
-        ctx.pass->SetBindGroup(0, m_viewBG, Span<const u32>{ &viewOffset, 1 });
-        ctx.pass->SetBindGroup(1, m_instanceBG, Span<const u32>{});      // whole buffer, no dynamic offset
-        ctx.pass->SetVertexBuffer(0, mesh.vertexBuffer, mesh.vertexOffset);
-        ctx.pass->SetVertexBuffer(1, m_offsetsRing.Buffer(), offs.byteOffset);
-        ctx.pass->SetIndexBuffer(mesh.indexBuffer, mesh.indexFormat, mesh.indexOffset);
-        ctx.pass->DrawIndexed(mesh.indexCount, count);
+        ResolvedDraw d{};
+        d.pso = pso;
+        d.bindGroup0 = m_viewBG;     d.dynamicOffset0 = viewOffset; d.hasDynamic0 = true;     // set 0: view
+        d.bindGroup1 = m_instanceBG; d.hasDynamic1 = false;                                   // set 1: instances (whole buffer)
+        d.vertexBuffer0 = mesh.vertexBuffer;    d.vertexOffset0 = mesh.vertexOffset;
+        d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;          // DataOffsets stream
+        d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
+        d.indexCount = mesh.indexCount; d.instanceCount = count;
+        out.PushBack(d);
     }
 
     [[nodiscard]] static materials::PipelineConfig ConfigFor(const MeshRenderData& md, const RenderRecordContext& ctx, bool instanced) {

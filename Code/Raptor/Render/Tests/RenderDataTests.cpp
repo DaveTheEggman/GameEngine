@@ -219,7 +219,7 @@ TEST_CASE("RendererRegistry routes categories to renderers")
             static constexpr RenderCategory cats[] = { RenderCategories::Opaque, RenderCategories::Masked };
             return Span<const RenderCategory>{ cats, 2 };
         }
-        void Record(const RenderRecordContext&, Span<const DrawItem>) override {}
+        void Resolve(const RenderRecordContext&, Span<const DrawItem>, Array<ResolvedDraw>&) override {}
     };
 
     FakeRenderer r;

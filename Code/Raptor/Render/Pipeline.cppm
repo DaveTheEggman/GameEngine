@@ -40,10 +40,51 @@ struct RenderRecordContext {
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
 };
 
-// A per-category drawer. Implemented by mesh/sprite/particle/etc. subsystems and registered
-// with the RendererRegistry. `Record` is called with a contiguous, pre-sorted run of this
-// renderer's DrawItems (all of one category) and an open render pass. PrepareFrame/FinishFrame
-// bracket the whole frame (all views) so a renderer can size + map its transient buffers once.
+// A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,
+// buffers bound), ready to EMIT as pure commands with NO shared mutation — so emission can run
+// in parallel across threads/bundles. Produced by Renderer::Resolve (single-threaded, where the
+// allocation/upload/caching happens); replayed by EmitDraw. Backend-agnostic (all RHI handles),
+// so the emit phase is renderer-agnostic.
+struct ResolvedDraw {
+    rhi::RenderPipeline* pso          = nullptr;
+    rhi::BindGroup*      bindGroup0   = nullptr;   // set 0 (view)
+    u32                  dynamicOffset0 = 0;
+    bool                 hasDynamic0  = false;
+    rhi::BindGroup*      bindGroup1   = nullptr;   // set 1 (object UBO / instance storage)
+    u32                  dynamicOffset1 = 0;
+    bool                 hasDynamic1  = false;
+    rhi::Buffer*         vertexBuffer0 = nullptr;  u64 vertexOffset0 = 0;
+    rhi::Buffer*         vertexBuffer1 = nullptr;  u64 vertexOffset1 = 0;   // optional instance stream
+    rhi::Buffer*         indexBuffer  = nullptr;   u64 indexOffset = 0;
+    rhi::IndexFormat     indexFormat  = rhi::IndexFormat::UInt32;
+    u32                  indexCount   = 0;
+    u32                  instanceCount = 1;
+};
+
+// Replay one resolved draw into any command sink (a live pass or an off-thread bundle). Pure
+// command emission — touches no shared state, so it is safe to run concurrently.
+inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
+    if (d.pso == nullptr || d.indexBuffer == nullptr) { return; }
+    enc.SetPipeline(d.pso);
+    if (d.bindGroup0 != nullptr) {
+        if (d.hasDynamic0) { enc.SetBindGroup(0, d.bindGroup0, Span<const u32>{ &d.dynamicOffset0, 1 }); }
+        else               { enc.SetBindGroup(0, d.bindGroup0, Span<const u32>{}); }
+    }
+    if (d.bindGroup1 != nullptr) {
+        if (d.hasDynamic1) { enc.SetBindGroup(1, d.bindGroup1, Span<const u32>{ &d.dynamicOffset1, 1 }); }
+        else               { enc.SetBindGroup(1, d.bindGroup1, Span<const u32>{}); }
+    }
+    if (d.vertexBuffer0 != nullptr) { enc.SetVertexBuffer(0, d.vertexBuffer0, d.vertexOffset0); }
+    if (d.vertexBuffer1 != nullptr) { enc.SetVertexBuffer(1, d.vertexBuffer1, d.vertexOffset1); }
+    enc.SetIndexBuffer(d.indexBuffer, d.indexFormat, d.indexOffset);
+    enc.DrawIndexed(d.indexCount, d.instanceCount);
+}
+
+// A per-category drawer. Implemented by mesh/sprite/particle/etc. subsystems and registered with
+// the RendererRegistry. Two phases: RESOLVE turns a sorted run of DrawItems into ResolvedDraws
+// (single-threaded — this is where mesh upload, PSO build, and ring allocation happen); the
+// ForwardPass then EMITs the resolved draws (serially or in parallel) with no shared mutation.
+// PrepareFrame/FinishFrame bracket the whole frame so a renderer sizes its transient buffers once.
 class Renderer {
 public:
     virtual ~Renderer() = default;
@@ -53,12 +94,13 @@ public:
 
     // Bracket the frame: `maxDraws` is an upper bound on DrawItems this renderer may receive
     // across all views, so per-object transient (e.g. the object-UBO ring) is sized once and
-    // never reallocated mid-frame (which would invalidate already-recorded draws). `frameIndex`
+    // never reallocated mid-frame (which would invalidate already-resolved draws). `frameIndex`
     // is the device ring slot, selecting this frame's region of any frames-in-flight ring.
     virtual void PrepareFrame(u32 maxDraws, u32 frameIndex) { (void)maxDraws; (void)frameIndex; }
 
-    // Record `items` (a sorted run of this renderer's categories) into `ctx.pass`.
-    virtual void Record(const RenderRecordContext& ctx, Span<const DrawItem> items) = 0;
+    // Resolve a sorted run of this renderer's DrawItems into `out` (append). Single-threaded:
+    // all GPU-state mutation (mesh upload, PSO build, ring allocation + writes) happens here.
+    virtual void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) = 0;
 
     virtual void FinishFrame() {}
 };
@@ -123,10 +165,26 @@ public:
         ctx.colorFormat = view.TargetFormat();
         ctx.depthFormat = m_depthFormat;
 
-        // Record the view's draws into a render bundle FIRST — bundle recording is independent
-        // of the pass and must happen before BeginRenderPass (the encoder must be in the
-        // recording state). This is the seam for parallel recording: a future split records N
-        // bundles on N threads here. The bundle is then replayed into the pass below.
+        // RESOLVE (single-threaded): turn the sorted draw list into ResolvedDraws (PSO build,
+        // mesh upload, ring allocation all happen here). The list is sorted with category in the
+        // key's MSBs, so equal-category items are contiguous; each run goes to its renderer.
+        m_resolved.Clear();
+        const Span<const DrawItem> items = view.DrawList();
+        usize i = 0;
+        while (i < items.Size()) {
+            const RenderCategory cat = items[i].data->category;
+            usize j = i + 1;
+            while (j < items.Size() && items[j].data->category == cat) { ++j; }
+            if (Renderer* r = registry.ForCategory(cat)) {
+                r->Resolve(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_resolved);
+            }
+            i = j;
+        }
+
+        // EMIT: replay the resolved draws into a render bundle (recorded before BeginRenderPass —
+        // bundle recording requires the encoder in the recording state). Emission is pure command
+        // replay with no shared mutation — the seam where parallel recording (per-worker bundles)
+        // slots in. The bundle is then executed into the pass below.
         rhi::RenderBundleDesc bd{};
         bd.colorFormats[0]     = view.TargetFormat();
         bd.colorFormatCount    = 1;
@@ -136,11 +194,9 @@ public:
         bd.height              = view.Height();
         bd.label               = u8"forward.bundle";
 
-        const Span<const DrawItem> items = view.DrawList();
         rhi::RenderBundle* bundle = nullptr;
         if (rhi::RenderBundleEncoder* be = encoder.CreateRenderBundleEncoder(bd)) {
-            ctx.pass = be;
-            RecordRange(items, 0, items.Size(), registry, ctx);
+            for (const ResolvedDraw& d : m_resolved) { EmitDraw(*be, d); }
             bundle = be->Finish();
         }
 
@@ -160,23 +216,6 @@ public:
     }
 
 private:
-    // Dispatch the sorted draw-list range [begin, end) to the registered Renderers. The list is
-    // sorted with category in the key's MSBs, so equal-category items are contiguous; each run
-    // goes to that category's renderer. (A parallel split calls this per chunk into its bundle.)
-    static void RecordRange(Span<const DrawItem> items, usize begin, usize end,
-                            const RendererRegistry& registry, const RenderRecordContext& ctx) {
-        usize i = begin;
-        while (i < end) {
-            const RenderCategory cat = items[i].data->category;
-            usize j = i + 1;
-            while (j < end && items[j].data->category == cat) { ++j; }
-            if (Renderer* r = registry.ForCategory(cat)) {
-                r->Record(ctx, Span<const DrawItem>{ items.Data() + i, j - i });
-            }
-            i = j;
-        }
-    }
-
     bool EnsureDepth(u32 width, u32 height) {
         if (width == 0 || height == 0) { return false; }
         if (m_depthTex != nullptr && m_depthW == width && m_depthH == height) { return true; }
@@ -202,6 +241,7 @@ private:
     rhi::TextureView*  m_depthView  = nullptr;
     u32                m_depthW = 0, m_depthH = 0;
     rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;
+    Array<ResolvedDraw> m_resolved;   // reused resolve buffer (drained each Execute)
 };
 
 // The single per-frame driver. Begin resets shared per-frame state; AddView collects a view
