@@ -6,13 +6,18 @@ add_library(RaptorRender STATIC)
 add_library(Raptor::Render ALIAS RaptorRender)
 
 target_link_libraries(RaptorRender
-    PUBLIC Raptor::Core Raptor::Geometry Raptor::Materials Raptor::Policy)
+    PUBLIC Raptor::Core Raptor::RHI Raptor::Geometry Raptor::Materials Raptor::Policy)
 
 target_sources(RaptorRender
     PUBLIC
         FILE_SET render_modules TYPE CXX_MODULES FILES
             RenderData.cppm
+            MeshGpu.cppm
             RenderModule.cppm)
+
+if(RAPTOR_BUILD_TESTS)
+    add_subdirectory(Tests)
+endif()
 
 # Scene integration: components + extraction + (later) the RenderSubsystem.
 add_subdirectory(Subsystem)
