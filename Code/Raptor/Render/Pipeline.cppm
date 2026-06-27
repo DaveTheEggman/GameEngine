@@ -29,13 +29,15 @@ namespace rhi = raptor::rhi;
 
 export namespace raptor::render {
 
-// What a Renderer needs to record draws into an open render pass for one view.
+// What a Renderer needs to record draws for one view. `pass` is a RenderCommandEncoder — the
+// shared draw-recording surface — so a renderer records identically whether it targets a live
+// render pass or an off-thread render bundle (the basis for parallel command recording).
 struct RenderRecordContext {
-    const RenderView*       view        = nullptr;
-    rhi::RenderPassEncoder* pass        = nullptr;
-    Mat4                    viewProj    = Mat4::Identity();
-    rhi::TextureFormat      colorFormat = rhi::TextureFormat::BGRA8Unorm;
-    rhi::TextureFormat      depthFormat = rhi::TextureFormat::Depth32Float;
+    const RenderView*          view        = nullptr;
+    rhi::RenderCommandEncoder* pass        = nullptr;
+    Mat4                       viewProj    = Mat4::Identity();
+    rhi::TextureFormat         colorFormat = rhi::TextureFormat::BGRA8Unorm;
+    rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
 };
 
 // A per-category drawer. Implemented by mesh/sprite/particle/etc. subsystems and registered
@@ -115,39 +117,66 @@ public:
         rp.depthStencilAttachment = ds;
         rp.label = u8"forward";
 
-        // Depth target starts Undefined each frame (we clear it); move it to depth-write
-        // before the pass. (The color target was transitioned to RenderTarget by the host.)
-        encoder.TransitionTexture(m_depthTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilWrite);
-
-        rhi::RenderPassEncoder* pass = encoder.BeginRenderPass(rp);
-        if (pass == nullptr) { return; }
-        pass->SetViewport(0.0f, 0.0f, static_cast<f32>(view.Width()), static_cast<f32>(view.Height()));
-        pass->SetScissor(0, 0, view.Width(), view.Height());
-
         RenderRecordContext ctx{};
         ctx.view        = &view;
-        ctx.pass        = pass;
         ctx.viewProj    = view.Camera().ViewProjection();
         ctx.colorFormat = view.TargetFormat();
         ctx.depthFormat = m_depthFormat;
 
-        // The draw list is sorted with category in the key's MSBs, so equal-category items
-        // are contiguous. Walk each run and hand it to that category's renderer.
+        // Record the view's draws into a render bundle FIRST — bundle recording is independent
+        // of the pass and must happen before BeginRenderPass (the encoder must be in the
+        // recording state). This is the seam for parallel recording: a future split records N
+        // bundles on N threads here. The bundle is then replayed into the pass below.
+        rhi::RenderBundleDesc bd{};
+        bd.colorFormats[0]     = view.TargetFormat();
+        bd.colorFormatCount    = 1;
+        bd.depthStencilFormat  = m_depthFormat;
+        bd.sampleCount         = 1;
+        bd.width               = view.Width();
+        bd.height              = view.Height();
+        bd.label               = u8"forward.bundle";
+
         const Span<const DrawItem> items = view.DrawList();
-        usize i = 0;
-        while (i < items.Size()) {
-            const RenderCategory cat = items[i].data->category;
-            usize j = i + 1;
-            while (j < items.Size() && items[j].data->category == cat) { ++j; }
-            if (Renderer* r = registry.ForCategory(cat)) {
-                r->Record(ctx, Span<const DrawItem>{ items.Data() + i, j - i });
-            }
-            i = j;
+        rhi::RenderBundle* bundle = nullptr;
+        if (rhi::RenderBundleEncoder* be = encoder.CreateRenderBundleEncoder(bd)) {
+            ctx.pass = be;
+            RecordRange(items, 0, items.Size(), registry, ctx);
+            bundle = be->Finish();
+        }
+
+        // Depth target starts Undefined each frame (we clear it); move it to depth-write
+        // before the pass. (The color target was transitioned to RenderTarget by the host.)
+        encoder.TransitionTexture(m_depthTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilWrite);
+
+        // The pass body is supplied by the bundle (no inline draws — secondary contents).
+        rp.contents = rhi::RenderPassContents::SecondaryCommandBuffers;
+        rhi::RenderPassEncoder* pass = encoder.BeginRenderPass(rp);
+        if (pass == nullptr) { return; }
+        if (bundle != nullptr) {
+            rhi::RenderBundle* bundles[1] = { bundle };
+            pass->ExecuteBundles(Span<rhi::RenderBundle* const>{ bundles, 1 });
         }
         pass->End();
     }
 
 private:
+    // Dispatch the sorted draw-list range [begin, end) to the registered Renderers. The list is
+    // sorted with category in the key's MSBs, so equal-category items are contiguous; each run
+    // goes to that category's renderer. (A parallel split calls this per chunk into its bundle.)
+    static void RecordRange(Span<const DrawItem> items, usize begin, usize end,
+                            const RendererRegistry& registry, const RenderRecordContext& ctx) {
+        usize i = begin;
+        while (i < end) {
+            const RenderCategory cat = items[i].data->category;
+            usize j = i + 1;
+            while (j < end && items[j].data->category == cat) { ++j; }
+            if (Renderer* r = registry.ForCategory(cat)) {
+                r->Record(ctx, Span<const DrawItem>{ items.Data() + i, j - i });
+            }
+            i = j;
+        }
+    }
+
     bool EnsureDepth(u32 width, u32 height) {
         if (width == 0 || height == 0) { return false; }
         if (m_depthTex != nullptr && m_depthW == width && m_depthH == height) { return true; }
