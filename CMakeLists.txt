@@ -83,6 +83,7 @@ add_subdirectory(Code/Raptor/Image)
 add_subdirectory(Code/Raptor/Model)
 add_subdirectory(Code/Raptor/Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
 add_subdirectory(Code/Raptor/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
+add_subdirectory(Code/Raptor/Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Raptor/Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Raptor/Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Raptor/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)

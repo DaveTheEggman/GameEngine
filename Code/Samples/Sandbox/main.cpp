@@ -42,8 +42,10 @@ namespace
             {
                 m_scene = scenes->CreateScene(u8"sandbox");
                 m_root = m_scene->CreateEntity(u8"root");
-                // TODO: m_scene->AddSystem<MeshComponentManager>()... attach Primitives::Cube,
-                // add a camera entity, once the renderer's components exist.
+                // The RenderSubsystem (ISceneAware) injects the MeshComponentManager +
+                // camera manager into this scene on creation. Here we'll just spawn
+                // entities and attach components (a Primitives::Cube mesh, a camera)
+                // once those component types exist.
                 rc::ConsoleWrite(u8"Sandbox: scene 'sandbox' created. Close the window to exit.\n");
             }
         }
