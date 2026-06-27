@@ -19,3 +19,6 @@ target_sources(RaptorGeometry
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
+
+# Meshes as resources (Static/SkinnedMeshSource -> Static/SkinnedMesh).
+add_subdirectory(Resource)
