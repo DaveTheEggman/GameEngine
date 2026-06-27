@@ -164,7 +164,7 @@ TEST_CASE("threading: SharedMutex allows shared reads and exclusive writes")
     CHECK(value == static_cast<i64>(kWriters) * kPerWriter);
 }
 
-TEST_CASE("threading: JobSystem runs all enqueued jobs")
+TEST_CASE("threading: JobSystem runs all submitted jobs")
 {
     JobSystem jobs(4);
     CHECK(jobs.WorkerCount() == 4u);
@@ -173,7 +173,7 @@ TEST_CASE("threading: JobSystem runs all enqueued jobs")
     constexpr int kJobs = 1000;
     for (int i = 0; i < kJobs; ++i)
     {
-        jobs.Enqueue([&sum, i]() { sum.fetch_add(i); });
+        jobs.Submit([&sum, i]() { sum.fetch_add(i); });
     }
     jobs.WaitForAll();
 
@@ -181,18 +181,83 @@ TEST_CASE("threading: JobSystem runs all enqueued jobs")
     for (int i = 0; i < kJobs; ++i) { expected += i; }
     CHECK(sum.load() == expected);
 
-    // WaitForAll with nothing pending returns immediately.
-    jobs.WaitForAll();
+    jobs.WaitForAll();   // nothing pending -> returns immediately
     CHECK(sum.load() == expected);
 }
 
-TEST_CASE("threading: JobSystem default worker count is sane")
+TEST_CASE("threading: JobSystem default pool runs everything (caller participates)")
 {
     JobSystem jobs;
-    CHECK(jobs.WorkerCount() >= 1u);
-
     Atomic<int> done{ 0 };
-    for (int i = 0; i < 50; ++i) { jobs.Enqueue([&done]() { done.fetch_add(1); }); }
+    for (int i = 0; i < 50; ++i) { jobs.Submit([&done]() { done.fetch_add(1); }); }
     jobs.WaitForAll();
     CHECK(done.load() == 50);
+}
+
+TEST_CASE("threading: ParallelFor covers the whole range exactly once")
+{
+    JobSystem jobs(4);
+
+    const u32 sizes[] = { 0u, 1u, 3u, 1000u, 99999u };
+    for (u32 n : sizes)
+    {
+        Atomic<i64> sum{ 0 };
+        Atomic<i64> visits{ 0 };
+        jobs.ParallelFor(n, [&](u32 i) { sum.fetch_add(static_cast<i64>(i)); visits.fetch_add(1); });
+        const i64 expected = static_cast<i64>(n) * (static_cast<i64>(n) - 1) / 2;
+        CHECK(sum.load() == expected);          // each index visited once
+        CHECK(visits.load() == static_cast<i64>(n));
+    }
+
+    // explicit grain size
+    Atomic<i64> v{ 0 };
+    jobs.ParallelFor(500u, [&](u32) { v.fetch_add(1); }, /*grain*/ 7u);
+    CHECK(v.load() == 500);
+}
+
+TEST_CASE("threading: dependencies — SubmitAfter runs only once its counter reaches 0")
+{
+    JobSystem jobs(4);
+    constexpr int kWork = 200;
+
+    Atomic<int> work{ 0 };
+    Atomic<int> workSeenByFinalize{ -1 };
+    Atomic<bool> finalizeRan{ false };
+
+    Counter gate{ static_cast<i32>(kWork) };
+    for (int i = 0; i < kWork; ++i)
+    {
+        jobs.Submit([&work]() { work.fetch_add(1); }, &gate);
+    }
+    jobs.SubmitAfter(gate, [&]() {
+        workSeenByFinalize.store(work.load());   // must observe all kWork done
+        finalizeRan.store(true);
+    });
+
+    jobs.WaitForAll();
+    CHECK(finalizeRan.load());                   // WaitForAll did not return before the continuation
+    CHECK(workSeenByFinalize.load() == kWork);   // continuation ran strictly after its dependencies
+}
+
+TEST_CASE("threading: Wait(Counter) participates until the counter is satisfied")
+{
+    JobSystem jobs(4);
+    Counter done{ 50 };
+    Atomic<int> n{ 0 };
+    for (int i = 0; i < 50; ++i) { jobs.Submit([&n]() { n.fetch_add(1); }, &done); }
+    jobs.Wait(done);
+    CHECK(done.Value() == 0);
+    CHECK(n.load() == 50);
+}
+
+TEST_CASE("threading: nested ParallelFor does not deadlock (caller participation)")
+{
+    JobSystem jobs(4);
+    Atomic<i64> total{ 0 };
+    // A ParallelFor whose body runs another ParallelFor — a worker that Waits on the inner
+    // loop participates in running it, so no worker is parked while work remains.
+    jobs.ParallelFor(8u, [&](u32) {
+        jobs.ParallelFor(8u, [&](u32) { total.fetch_add(1); });
+    });
+    CHECK(total.load() == 64);
 }
