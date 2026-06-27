@@ -5,13 +5,16 @@ add_library(RaptorRenderSubsystem STATIC)
 add_library(Raptor::RenderSubsystem ALIAS RaptorRenderSubsystem)
 
 target_link_libraries(RaptorRenderSubsystem
-    PUBLIC Raptor::Core Raptor::Scene Raptor::Render Raptor::Geometry Raptor::Materials Raptor::Policy)
+    PUBLIC Raptor::Core Raptor::Scene Raptor::SceneSubsystem Raptor::Render Raptor::Runtime
+           Raptor::Geometry Raptor::Materials Raptor::Shaders Raptor::ShaderSystem
+           Raptor::PipelineCache Raptor::Policy)
 
 target_sources(RaptorRenderSubsystem
     PUBLIC
         FILE_SET render_subsystem_modules TYPE CXX_MODULES FILES
             Components.cppm
             Extract.cppm
+            RenderSubsystem.cppm
             SubsystemModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)
