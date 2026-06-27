@@ -47,14 +47,19 @@ namespace
                 cameras->Add(m_camera);   // default 60deg perspective
             }
 
-            // A spinning grid of cubes, all sharing ONE mesh + material (so the renderer fuses
-            // them into a single instanced draw) but each a distinct per-instance color.
+            // STRESS TOGGLE for parallel COMMAND recording: when true, every cube gets its OWN
+            // material, so they don't batch — ~400 distinct resolved draws, which exceeds the
+            // emit threshold and fans the EMIT phase out across the job system's worker threads
+            // (per-worker render bundles). When false, all cubes share one material and fuse into
+            // a single instanced draw (the serial emit path).
+            constexpr bool kDistinctMaterials = true;
+
+            // A spinning 20x20 = 400-cube grid. Either way, extraction fans out across the job
+            // system (> the parallel-extraction threshold). Each cube has a distinct color.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.42f);
-                rc::RefPtr<mat::Material>   material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+                rc::RefPtr<mat::Material>   shared = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
-                // 20x20 = 400 cubes: exceeds the parallel-extraction threshold (so extraction
-                // fans out across the job system each frame) and all fuse into one instanced draw.
                 constexpr int kGrid = 20;
                 for (int y = 0; y < kGrid; ++y) {
                     for (int x = 0; x < kGrid; ++x) {
@@ -64,7 +69,8 @@ namespace
                         m_scene->SetLocalPosition(e, rc::Vec3{ fx * 1.05f, fy * 1.05f, 0.0f });
                         rd::MeshComponent& mc = meshes->Add(e);
                         mc.mesh     = cube;
-                        mc.material = material;
+                        mc.material = kDistinctMaterials ? mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build()
+                                                         : shared;
                         mc.color    = rc::Color{ static_cast<rc::f32>(x) / (kGrid - 1),
                                                  static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
                         m_cubes.PushBack(e);
@@ -72,7 +78,9 @@ namespace
                 }
             }
 
-            rc::ConsoleWrite(u8"Sandbox: 400 instanced cubes, parallel-extracted. Close the window to exit.\n");
+            rc::ConsoleWrite(kDistinctMaterials
+                ? u8"Sandbox: 400 cubes, distinct materials -> parallel command recording. Close to exit.\n"
+                : u8"Sandbox: 400 instanced cubes (shared material). Close to exit.\n");
         }
 
         void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override
