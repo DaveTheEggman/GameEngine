@@ -46,15 +46,17 @@ struct RenderRecordContext {
 // in parallel across threads/bundles. Produced by Renderer::Resolve (single-threaded, where the
 // allocation/upload/caching happens); replayed by EmitDraw. Backend-agnostic (all RHI handles),
 // so the emit phase is renderer-agnostic.
+// Bind groups are named by the engine's set-frequency convention (set 0 = view/per-frame,
+// set 1 = per-draw object/instance, set 2 = material), which every renderer follows.
 struct ResolvedDraw {
     rhi::RenderPipeline* pso          = nullptr;
-    rhi::BindGroup*      bindGroup0   = nullptr;   // set 0 (view)
-    u32                  dynamicOffset0 = 0;
-    bool                 hasDynamic0  = false;
-    rhi::BindGroup*      bindGroup1   = nullptr;   // set 1 (object UBO / instance storage)
-    u32                  dynamicOffset1 = 0;
-    bool                 hasDynamic1  = false;
-    rhi::BindGroup*      bindGroup2   = nullptr;   // set 2 (material — inferred from properties)
+    rhi::BindGroup*      viewSet      = nullptr;   // set 0 (view)
+    u32                  viewOffset   = 0;
+    bool                 viewDynamic  = false;
+    rhi::BindGroup*      drawSet      = nullptr;   // set 1 (object UBO / instance storage)
+    u32                  drawOffset   = 0;
+    bool                 drawDynamic  = false;
+    rhi::BindGroup*      materialSet  = nullptr;   // set 2 (material — inferred from properties)
     rhi::Buffer*         vertexBuffer0 = nullptr;  u64 vertexOffset0 = 0;
     rhi::Buffer*         vertexBuffer1 = nullptr;  u64 vertexOffset1 = 0;   // optional instance stream
     rhi::Buffer*         indexBuffer  = nullptr;   u64 indexOffset = 0;
@@ -68,15 +70,15 @@ struct ResolvedDraw {
 inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
     if (d.pso == nullptr || d.indexBuffer == nullptr) { return; }
     enc.SetPipeline(d.pso);
-    if (d.bindGroup0 != nullptr) {
-        if (d.hasDynamic0) { enc.SetBindGroup(0, d.bindGroup0, Span<const u32>{ &d.dynamicOffset0, 1 }); }
-        else               { enc.SetBindGroup(0, d.bindGroup0, Span<const u32>{}); }
+    if (d.viewSet != nullptr) {
+        if (d.viewDynamic) { enc.SetBindGroup(0, d.viewSet, Span<const u32>{ &d.viewOffset, 1 }); }
+        else               { enc.SetBindGroup(0, d.viewSet, Span<const u32>{}); }
     }
-    if (d.bindGroup1 != nullptr) {
-        if (d.hasDynamic1) { enc.SetBindGroup(1, d.bindGroup1, Span<const u32>{ &d.dynamicOffset1, 1 }); }
-        else               { enc.SetBindGroup(1, d.bindGroup1, Span<const u32>{}); }
+    if (d.drawSet != nullptr) {
+        if (d.drawDynamic) { enc.SetBindGroup(1, d.drawSet, Span<const u32>{ &d.drawOffset, 1 }); }
+        else               { enc.SetBindGroup(1, d.drawSet, Span<const u32>{}); }
     }
-    if (d.bindGroup2 != nullptr) { enc.SetBindGroup(2, d.bindGroup2, Span<const u32>{}); }   // material
+    if (d.materialSet != nullptr) { enc.SetBindGroup(2, d.materialSet, Span<const u32>{}); }   // material
     if (d.vertexBuffer0 != nullptr) { enc.SetVertexBuffer(0, d.vertexBuffer0, d.vertexOffset0); }
     if (d.vertexBuffer1 != nullptr) { enc.SetVertexBuffer(1, d.vertexBuffer1, d.vertexOffset1); }
     enc.SetIndexBuffer(d.indexBuffer, d.indexFormat, d.indexOffset);

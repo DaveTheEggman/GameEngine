@@ -245,9 +245,9 @@ private:
 
         ResolvedDraw d{};
         d.pso = pso;
-        d.bindGroup0 = m_viewBG;   d.dynamicOffset0 = viewOffset;     d.hasDynamic0 = true;   // set 0: view
-        d.bindGroup1 = m_objectBG; d.dynamicOffset1 = obj.byteOffset; d.hasDynamic1 = true;   // set 1: object UBO
-        d.bindGroup2 = MaterialBindGroup(md.material);                                        // set 2: material
+        d.viewSet = m_viewBG;   d.viewOffset = viewOffset;     d.viewDynamic = true;   // set 0: view
+        d.drawSet = m_objectBG; d.drawOffset = obj.byteOffset; d.drawDynamic = true;   // set 1: object UBO
+        d.materialSet = MaterialBindGroup(md.material);                                // set 2: material
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount; d.instanceCount = 1;
@@ -274,9 +274,9 @@ private:
 
         ResolvedDraw d{};
         d.pso = pso;
-        d.bindGroup0 = m_viewBG;     d.dynamicOffset0 = viewOffset; d.hasDynamic0 = true;     // set 0: view
-        d.bindGroup1 = m_instanceBG; d.hasDynamic1 = false;                                   // set 1: instances (whole buffer)
-        d.bindGroup2 = MaterialBindGroup(head.material);                                      // set 2: material
+        d.viewSet = m_viewBG;     d.viewOffset = viewOffset; d.viewDynamic = true;     // set 0: view
+        d.drawSet = m_instanceBG; d.drawDynamic = false;                               // set 1: instances (whole buffer)
+        d.materialSet = MaterialBindGroup(head.material);                              // set 2: material
         d.vertexBuffer0 = mesh.vertexBuffer;    d.vertexOffset0 = mesh.vertexOffset;
         d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;          // DataOffsets stream
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
