@@ -669,6 +669,31 @@ export namespace raptor::rendergraph
             return nullptr;
         }
 
+        // The full-target render area for a pass, from an attachment's resolved dimensions (the
+        // transient desc, else the backing texture). Used to set the parent pass's viewport +
+        // scissor before ExecuteBundles: render bundles INHERIT viewport/scissor from the parent
+        // pass (WebGPU + DX12 bundles cannot set them), so the parent must. Returns false if no
+        // attachment yields dimensions.
+        [[nodiscard]] bool PassRenderArea(RenderGraphPass& pass, u32& outW, u32& outH)
+        {
+            auto fromHandle = [&](RGHandle h, u32& w, u32& h2) -> bool {
+                if (RenderGraphResource* res = Resolve(h)) {
+                    if (res->textureDesc.width > 0 && res->textureDesc.height > 0) {
+                        w = res->textureDesc.width; h2 = res->textureDesc.height; return true;
+                    }
+                }
+                if (rhi::TextureView* v = GetTextureView(h)) {
+                    if (v->texture != nullptr && v->texture->desc.width > 0 && v->texture->desc.height > 0) {
+                        w = v->texture->desc.width; h2 = v->texture->desc.height; return true;
+                    }
+                }
+                return false;
+            };
+            for (const RGColorTarget& ct : pass.colorTargets) { if (fromHandle(ct.handle, outW, outH)) { return true; } }
+            if (pass.depthTarget.HasValue()) { if (fromHandle(pass.depthTarget.Value().handle, outW, outH)) { return true; } }
+            return false;
+        }
+
         void ExecuteRenderPass(RenderGraphPass& pass, rhi::CommandEncoder& encoder)
         {
             const bool hasBundles = static_cast<bool>(pass.bundleCallback);
@@ -727,6 +752,13 @@ export namespace raptor::rendergraph
             rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(rpDesc);
             if (hasBundles) {
                 if (!bundles.IsEmpty()) {
+                    // Bundles inherit viewport/scissor from the parent pass — set a full-target
+                    // viewport + scissor here (the backend applies its own Y/coord convention).
+                    u32 areaW = 0, areaH = 0;
+                    if (PassRenderArea(pass, areaW, areaH)) {
+                        rp->SetViewport(0.0f, 0.0f, static_cast<f32>(areaW), static_cast<f32>(areaH));
+                        rp->SetScissor(0, 0, areaW, areaH);
+                    }
                     rp->ExecuteBundles(Span<rhi::RenderBundle* const>{ bundles.Data(), bundles.Size() });
                 }
             } else {
