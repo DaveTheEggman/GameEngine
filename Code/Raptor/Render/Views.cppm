@@ -79,7 +79,10 @@ public:
             const f32  depth01 = (-vc.z) * invFar;
 
             const bool transparent = (data->category == RenderCategories::Transparent);
-            const u32  stateBits   = StateBitsFor(mesh->material);
+            // Opaque/masked: cluster by (mesh, material) so identical draws are contiguous and
+            // batchable into one instanced draw (depth sub-orders within a batch). Transparent:
+            // zero the state bits so depth dominates — back-to-front order must not be broken.
+            const u32  stateBits   = transparent ? 0u : BatchBits(mesh->mesh, mesh->material);
             const u32  depthBits   = QuantizeDepth(depth01, /*invert*/ transparent);
             const u64  key         = MakeSortKey(data->category, stateBits, depthBits);
 
@@ -101,13 +104,18 @@ public:
     }
 
 private:
-    // Cluster same-pipeline draws together in the sort key. Phase 1 derives identity from
-    // the material pointer (stable within a frame) — adequate for a per-frame sort. Phase 2
-    // replaces this with stable batch ids (the design's no-pointer-identity rule applies to
-    // the persistent batch CACHE, not a transient sort key).
-    [[nodiscard]] static u32 StateBitsFor(const materials::Material* material) noexcept {
-        const usize p = reinterpret_cast<usize>(material);
-        return static_cast<u32>((p >> 4) & ((1u << kSortStateBits) - 1));
+    // Cluster batchable draws (same mesh + material -> same PSO + vertex buffer) together in
+    // the sort key, so they end up contiguous and the renderer can fuse them into one instanced
+    // draw. Identity is the (mesh, material) pair folded to the 24-bit state field. Pointer-
+    // derived is fine for a *transient* per-frame sort key (the design's no-pointer-identity
+    // rule is about the persistent batch CACHE, not this); the renderer re-checks exact pointer
+    // equality when forming a batch, so a hash collision only costs a missed fusion, never a
+    // wrong draw.
+    [[nodiscard]] static u32 BatchBits(const void* mesh, const void* material) noexcept {
+        const usize m = reinterpret_cast<usize>(mesh);
+        const usize n = reinterpret_cast<usize>(material);
+        const usize mixed = (m >> 4) * 1099511628211ull + (n >> 4);
+        return static_cast<u32>(mixed & ((1u << kSortStateBits) - 1));
     }
 
     const ExtractedScene* m_scene        = nullptr;

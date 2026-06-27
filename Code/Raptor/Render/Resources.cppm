@@ -1,16 +1,18 @@
 /// Raptor::Render — the `:resources` partition.
 ///
-/// GPU resource primitives shared by the renderers. First up: `DynamicUniformRing`, a
-/// frames-in-flight ring of dynamic-offset uniform slots — the §8 replacement for the slice's
-/// grow-the-buffer object UBO. The buffer is partitioned into `framesInFlight` equal regions;
-/// each frame writes ONLY its own region (selected by the device ring index), so the CPU never
-/// overwrites data the GPU is still reading for a frame in flight. Per-object data is written
-/// into 256-byte-aligned slots and bound with a dynamic offset.
+/// GPU resource primitives shared by the renderers. `DynamicUniformRing` is a
+/// frames-in-flight ring of fixed-stride slots over one buffer (the §8 replacement for the
+/// slice's grow-the-buffer UBO). The buffer is partitioned into `framesInFlight` equal
+/// regions; each frame writes ONLY its own region (selected by the device ring index), so the
+/// CPU never overwrites data the GPU is still reading for a frame in flight.
 ///
-/// The ring grows by reallocating (rare — only when scene complexity exceeds the current
-/// per-frame capacity; steady state never grows), draining the GPU first so no in-flight frame
-/// references the old buffer. Each (re)allocation bumps a generation so a consumer can rebuild
-/// the bind group it created over `Buffer()`.
+/// It serves three roles by varying usage + stride: per-view / per-object dynamic-offset
+/// UNIFORM data (bound with the returned byte offset), per-instance STORAGE data (a
+/// StructuredBuffer bound whole + indexed by the returned absolute slot index), and the
+/// per-instance VERTEX offsets stream (bound with the returned byte offset). The ring grows
+/// by reallocating (rare — only when scene complexity exceeds the current per-frame capacity),
+/// draining the GPU first so no in-flight frame references the old buffer; each (re)allocation
+/// bumps a generation so a consumer can rebuild the bind group it created over `Buffer()`.
 
 module;
 #include "Core/Prelude.h"
@@ -27,10 +29,14 @@ export namespace raptor::render {
 
 class DynamicUniformRing {
 public:
-    // `slotSize` is the per-allocation stride (>= the largest struct, 256-aligned for dynamic
-    // offsets). `framesInFlight` is the device ring depth (>= 1).
-    DynamicUniformRing(rhi::Device& device, u32 framesInFlight, u64 slotSize = 256) noexcept
-        : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight), m_slotSize(slotSize) {}
+    // `slotSize` is the per-allocation stride (256-aligned for dynamic-offset uniforms; the
+    // natural struct size for a storage ring). `usage` selects the buffer role. `framesInFlight`
+    // is the device ring depth (>= 1).
+    DynamicUniformRing(rhi::Device& device, u32 framesInFlight, u64 slotSize,
+                       rhi::BufferUsage usage = rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst,
+                       const char8_t* label = u8"ring") noexcept
+        : m_device(&device), m_usage(usage), m_label(label),
+          m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight), m_slotSize(slotSize) {}
 
     ~DynamicUniformRing() { Release(); }
 
@@ -48,9 +54,9 @@ public:
 
         rhi::BufferDesc bd{};
         bd.size   = static_cast<u64>(m_framesInFlight) * static_cast<u64>(slotsPerFrame) * m_slotSize;
-        bd.usage  = rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst;
+        bd.usage  = m_usage;
         bd.memory = rhi::MemoryLocation::CpuToGpu;
-        bd.label  = u8"uniform.ring";
+        bd.label  = m_label;
         if (!m_device->CreateBuffer(bd, m_buffer).IsOk()) { m_buffer = nullptr; return false; }
 
         m_slotsPerFrame = slotsPerFrame;
@@ -58,25 +64,28 @@ public:
         return true;
     }
 
-    // Begin a frame: select the device ring slot's region + map it for writes. `frameIndex`
-    // is the device ring index (0..framesInFlight-1).
+    // Begin a frame: select the device ring slot's region + map it for writes.
     void BeginFrame(u32 frameIndex) {
         m_frameBase = static_cast<u32>(frameIndex % m_framesInFlight) * m_slotsPerFrame;
         m_cursor    = 0;
         m_mapped    = (m_buffer != nullptr) ? static_cast<u8*>(m_buffer->Map()) : nullptr;
     }
 
-    struct Slot { u32 dynamicOffset = 0; void* ptr = nullptr; bool ok = false; };
+    // A run of `count` contiguous slots in this frame's region. `slotIndex` is the absolute
+    // index of the first slot (for StructuredBuffer indexing); `byteOffset` is its byte offset
+    // (for dynamic-offset uniform binding / SetVertexBuffer offset); `ptr` is writable for the
+    // whole run. ok=false if the region is exhausted (never silently grows mid-frame).
+    struct Range { u32 slotIndex = 0; u32 byteOffset = 0; void* ptr = nullptr; bool ok = false; };
 
-    // Allocate one slot in this frame's region. Returns ok=false if the region is exhausted
-    // (the caller Reserve'd too few — never silently grows mid-frame, which would move offsets).
-    [[nodiscard]] Slot Allocate() {
-        if (m_mapped == nullptr || m_cursor >= m_slotsPerFrame) { return Slot{}; }
+    [[nodiscard]] Range AllocateRange(u32 count) {
+        if (m_mapped == nullptr || count == 0 || m_cursor + count > m_slotsPerFrame) { return Range{}; }
         const u32 slot = m_frameBase + m_cursor;
-        ++m_cursor;
-        const u64 offset = static_cast<u64>(slot) * m_slotSize;
-        return Slot{ static_cast<u32>(offset), m_mapped + offset, true };
+        m_cursor += count;
+        const u64 byteOffset = static_cast<u64>(slot) * m_slotSize;
+        return Range{ slot, static_cast<u32>(byteOffset), m_mapped + byteOffset, true };
     }
+
+    [[nodiscard]] Range Allocate() { return AllocateRange(1); }
 
     void EndFrame() {
         if (m_mapped != nullptr && m_buffer != nullptr) { m_buffer->Unmap(); }
@@ -84,7 +93,10 @@ public:
     }
 
     [[nodiscard]] rhi::Buffer* Buffer()     const noexcept { return m_buffer; }
-    [[nodiscard]] u64          SlotSize()   const noexcept { return m_slotSize; }
+    [[nodiscard]] u64          SlotSize()    const noexcept { return m_slotSize; }
+    [[nodiscard]] u64          ByteCapacity()const noexcept {
+        return static_cast<u64>(m_framesInFlight) * static_cast<u64>(m_slotsPerFrame) * m_slotSize;
+    }
     [[nodiscard]] u32          Generation() const noexcept { return m_generation; }   // bumps on realloc
 
 private:
@@ -93,15 +105,17 @@ private:
         m_mapped = nullptr;
     }
 
-    rhi::Device* m_device;
-    rhi::Buffer* m_buffer = nullptr;
-    u8*          m_mapped = nullptr;
-    u32          m_framesInFlight;
-    u64          m_slotSize;
-    u32          m_slotsPerFrame = 0;
-    u32          m_frameBase     = 0;
-    u32          m_cursor        = 0;
-    u32          m_generation    = 0;
+    rhi::Device*     m_device;
+    rhi::BufferUsage m_usage;
+    const char8_t*   m_label;
+    rhi::Buffer*     m_buffer = nullptr;
+    u8*              m_mapped = nullptr;
+    u32              m_framesInFlight;
+    u64              m_slotSize;
+    u32              m_slotsPerFrame = 0;
+    u32              m_frameBase     = 0;
+    u32              m_cursor        = 0;
+    u32              m_generation    = 0;
 };
 
 } // namespace raptor::render

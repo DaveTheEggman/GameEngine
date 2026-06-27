@@ -156,9 +156,10 @@ TEST_CASE("DynamicUniformRing: per-frame regions are disjoint; exhaustion + grow
     u32 firstOffset[3] = {};
     for (u32 f = 0; f < framesInFlight; ++f) {
         ring.BeginFrame(f);
-        DynamicUniformRing::Slot s = ring.Allocate();
+        DynamicUniformRing::Range s = ring.Allocate();
         REQUIRE(s.ok);
-        firstOffset[f] = s.dynamicOffset;
+        firstOffset[f] = s.byteOffset;
+        CHECK(s.slotIndex == f * 4u);         // absolute slot index = region base
         ring.EndFrame();
     }
     CHECK(firstOffset[0] == 0u);
@@ -169,6 +170,14 @@ TEST_CASE("DynamicUniformRing: per-frame regions are disjoint; exhaustion + grow
     ring.BeginFrame(0);
     for (int i = 0; i < 4; ++i) { CHECK(ring.Allocate().ok); }
     CHECK_FALSE(ring.Allocate().ok);
+    ring.EndFrame();
+
+    // AllocateRange hands out contiguous runs and also fails past the region.
+    ring.BeginFrame(1);
+    DynamicUniformRing::Range r = ring.AllocateRange(3);
+    REQUIRE(r.ok);
+    CHECK(r.slotIndex == 1u * 4u);            // region 1 base
+    CHECK_FALSE(ring.AllocateRange(2).ok);    // only 1 slot left in the region
     ring.EndFrame();
 
     // Reserving more grows (new generation); a smaller reserve does not.

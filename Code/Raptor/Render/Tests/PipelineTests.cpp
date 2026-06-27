@@ -94,6 +94,46 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     CHECK(psoCache.Size() == 1);
 }
 
+TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced draw")
+{
+    RenderHarness h;
+    if (!h.Init(256, 256)) { return; }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    mat::PipelineStateCache psoCache(shaderSystem, h.device);
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+    RenderFrame frame(h.device, registry);
+
+    RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
+    RefPtr<mat::Material> material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+
+    // Eight cubes, one shared mesh + material, distinct world + color -> one instanced batch.
+    ExtractedScene scene;
+    for (int n = 0; n < 8; ++n) {
+        MeshRenderData* rd = scene.Add<MeshRenderData>();
+        rd->world = Mat4::Identity();
+        rd->worldCenter = Vec3{ static_cast<f32>(n), 0, 0 };
+        rd->color = Color{ static_cast<f32>(n) / 8.0f, 0.5f, 0.5f, 1.0f };
+        rd->mesh = cube.Get(); rd->material = material.Get();
+        rd->category = RenderCategories::Opaque;
+    }
+
+    ViewCamera camera;
+    camera.view       = Mat4::LookAtRH(Vec3{ 0, 0, 20 }, Vec3{ 0, 0, 0 }, Vec3{ 0, 1, 0 });
+    camera.projection = Mat4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+
+    frame.Begin(*h.encoder, 0);
+    frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256, 256);
+    frame.End();
+
+    // The instanced permutation built exactly one pipeline (all eight share it).
+    CHECK(psoCache.Size() == 1);
+}
+
 TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
 {
     RenderHarness h;

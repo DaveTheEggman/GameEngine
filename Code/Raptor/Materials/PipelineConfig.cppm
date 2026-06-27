@@ -34,6 +34,10 @@ struct PipelineConfig {
     VertexLayoutType vertexLayout        = VertexLayoutType::Mesh;
     u32              customVertexStride  = 0;
     u8               customAttributeCount = 0;
+    // When set, the PSO gains a second, instance-stepped vertex buffer: a uint4 DataOffsets
+    // stream (location 5) whose .x indexes a per-instance StructuredBuffer. Pair with
+    // ShaderFlags::Instanced (the shader's INSTANCED permutation reads it).
+    bool             instanced            = false;
 
     // --- primitive assembly ---
     rhi::PrimitiveTopology topology  = rhi::PrimitiveTopology::TriangleList;
@@ -68,6 +72,7 @@ struct PipelineConfig {
         mix(static_cast<u64>(vertexLayout));
         mix(customVertexStride);
         mix(customAttributeCount);
+        mix(instanced ? 1u : 0u);
         mix(static_cast<u64>(topology));
         mix(static_cast<u64>(cullMode));
         mix(static_cast<u64>(frontFace));
@@ -90,7 +95,7 @@ struct PipelineConfig {
     [[nodiscard]] bool operator==(const PipelineConfig& o) const noexcept {
         if (!(shaderName == o.shaderName && shaderFlags == o.shaderFlags &&
               vertexLayout == o.vertexLayout && customVertexStride == o.customVertexStride &&
-              customAttributeCount == o.customAttributeCount && topology == o.topology &&
+              customAttributeCount == o.customAttributeCount && instanced == o.instanced && topology == o.topology &&
               cullMode == o.cullMode && frontFace == o.frontFace && fillMode == o.fillMode &&
               blendMode == o.blendMode && colorWriteMask == o.colorWriteMask &&
               depthMode == o.depthMode && depthCompare == o.depthCompare &&
@@ -172,6 +177,18 @@ public:
         return l;
     }
 
+    // The instance-stepped vertex buffer an instanced draw binds: a uint4 DataOffsets entry
+    // per instance (location 5), stride 16. `.x` indexes the per-instance StructuredBuffer;
+    // hardware instance stepping makes this portable (unlike the SV_InstanceID system value,
+    // which differs between DX12 and Vulkan). Bound as buffer 1 alongside the mesh stream.
+    [[nodiscard]] static rhi::VertexBufferLayout InstanceOffsetsBufferLayout() noexcept {
+        rhi::VertexBufferLayout l{};
+        l.stride = 16;
+        l.stepMode = rhi::VertexStepMode::Instance;
+        l.attributes = { kInstanceOffsets, 1 };
+        return l;
+    }
+
     // The second vertex buffer a skinned draw binds: joints (locations 6) + weights
     // (location 7), stride 24 — matches raptor.geometry::VertexSkinning.
     [[nodiscard]] static u32 SkinningStreamStride() noexcept { return 24; }
@@ -196,6 +213,8 @@ private:
                                                 { VF::Unorm8x4, 32, 3 }, { VF::Float32x3, 36, 4 } };
     // Skinning stream (buffer 1): joints (uint16x4 packed as uint32x2) + weights.
     static constexpr VA kSkinningStream[2]  = { { VF::Uint32x2, 0, 6 }, { VF::Float32x4, 8, 7 } };
+    // Instance offsets stream: a uint4 DataOffsets at location 5.
+    static constexpr VA kInstanceOffsets[1] = { { VF::Uint32x4, 0, 5 } };
 };
 
 } // namespace raptor::materials

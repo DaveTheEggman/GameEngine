@@ -42,30 +42,47 @@ namespace
 
             // camera, pulled back along +Z looking at the origin (down -Z by default)
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 0.0f, 4.0f });
+            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 0.0f, 10.0f });
             if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
                 cameras->Add(m_camera);   // default 60deg perspective
             }
 
-            // a spinning cube at the origin, drawn with the built-in forward shader
-            m_cube = m_scene->CreateEntity(u8"cube");
+            // A spinning grid of cubes, all sharing ONE mesh + material (so the renderer fuses
+            // them into a single instanced draw) but each a distinct per-instance color.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
-                rd::MeshComponent& mc = meshes->Add(m_cube);
-                mc.mesh     = geo::Primitives::Cube(1.0f);
-                mc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
-                mc.color    = rc::Color{ 1.0f, 0.55f, 0.2f, 1.0f };   // warm orange tint
+                rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.7f);
+                rc::RefPtr<mat::Material>   material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+
+                constexpr int kGrid = 4;   // 4x4 = 16 cubes -> one instanced draw
+                for (int y = 0; y < kGrid; ++y) {
+                    for (int x = 0; x < kGrid; ++x) {
+                        sc::EntityHandle e = m_scene->CreateEntity(u8"cube");
+                        const rc::f32 fx = static_cast<rc::f32>(x) - (kGrid - 1) * 0.5f;
+                        const rc::f32 fy = static_cast<rc::f32>(y) - (kGrid - 1) * 0.5f;
+                        m_scene->SetLocalPosition(e, rc::Vec3{ fx * 1.6f, fy * 1.6f, 0.0f });
+                        rd::MeshComponent& mc = meshes->Add(e);
+                        mc.mesh     = cube;
+                        mc.material = material;
+                        mc.color    = rc::Color{ static_cast<rc::f32>(x) / (kGrid - 1),
+                                                 static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
+                        m_cubes.PushBack(e);
+                    }
+                }
             }
 
-            rc::ConsoleWrite(u8"Sandbox: spinning cube. Close the window to exit.\n");
+            rc::ConsoleWrite(u8"Sandbox: spinning instanced cube grid. Close the window to exit.\n");
         }
 
         void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override
         {
             if (m_scene == nullptr) { return; }
             m_angle += deltaTime;
-            rc::Transform t;
-            t.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);
-            m_scene->SetLocalTransform(m_cube, t);
+            const rc::Quat spin = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);
+            for (sc::EntityHandle cube : m_cubes) {
+                rc::Transform t = m_scene->GetLocalTransform(cube);
+                t.rotation = spin;
+                m_scene->SetLocalTransform(cube, t);
+            }
         }
 
         void OnShutdown(rt::IApplicationHost&) override
@@ -74,10 +91,10 @@ namespace
         }
 
     private:
-        sc::Scene*       m_scene = nullptr;
-        sc::EntityHandle m_camera{};
-        sc::EntityHandle m_cube{};
-        rc::f32          m_angle = 0.0f;
+        sc::Scene*                  m_scene = nullptr;
+        sc::EntityHandle            m_camera{};
+        rc::Array<sc::EntityHandle> m_cubes;
+        rc::f32                     m_angle = 0.0f;
     };
 }
 

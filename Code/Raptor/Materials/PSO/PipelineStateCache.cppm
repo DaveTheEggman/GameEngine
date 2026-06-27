@@ -103,10 +103,13 @@ private:
         desc.label = config.shaderName;
 
         // --- vertex ---
-        const rhi::VertexBufferLayout buffer = VertexLayoutHelper::BufferLayout(config.vertexLayout);
-        const bool hasVertexInput = config.vertexLayout != VertexLayoutType::None;
+        // Up to two buffers: the mesh stream (buffer 0), plus the instance-stepped DataOffsets
+        // stream (buffer 1) when the config is instanced.
+        rhi::VertexBufferLayout buffers[2] = { VertexLayoutHelper::BufferLayout(config.vertexLayout), {} };
+        u32 bufferCount = (config.vertexLayout != VertexLayoutType::None) ? 1u : 0u;
+        if (config.instanced) { buffers[bufferCount++] = VertexLayoutHelper::InstanceOffsetsBufferLayout(); }
         desc.vertex.shader = rhi::ProgrammableStage{ vs, u8"main", rhi::ShaderStage::Vertex };
-        if (hasVertexInput) { desc.vertex.buffers = Span<const rhi::VertexBufferLayout>{ &buffer, 1 }; }
+        if (bufferCount > 0) { desc.vertex.buffers = Span<const rhi::VertexBufferLayout>{ buffers, bufferCount }; }
 
         // --- fragment (omitted for depth-only passes) ---
         rhi::ColorTargetState colorTarget{};
