@@ -115,8 +115,9 @@ export namespace raptor::texture
 
         [[nodiscard]] const TypeInfo* ProductType() const override { return &Texture::StaticType(); }
 
-        [[nodiscard]] RefPtr<Object> Create(raptor::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager, raptor::content::Instance& instance) override
         {
+            (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
             TextureResource* res = Cast<TextureResource>(object.Get());
             if (res == nullptr) { return RefPtr<Object>{}; }

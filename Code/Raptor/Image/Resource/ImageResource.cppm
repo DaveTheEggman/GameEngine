@@ -59,8 +59,9 @@ export namespace raptor::image
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override { return &ImageResource::StaticType(); }
 
-        [[nodiscard]] RefPtr<Object> Create(raptor::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager, raptor::content::Instance& instance) override
         {
+            (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
             ImageResource* image = Cast<ImageResource>(object.Get());
             if (image == nullptr) { return RefPtr<Object>{}; }

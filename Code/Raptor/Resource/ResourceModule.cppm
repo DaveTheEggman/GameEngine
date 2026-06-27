@@ -83,13 +83,18 @@ export namespace raptor::resource
     // IResourceFactory — builds a runtime product from a content instance (its
     // source object + data streams). One factory per product type.
     // =======================================================================
+    class ResourceManager;   // forward — factories receive it to resolve child resources
+
     class IResourceFactory
     {
     public:
         virtual ~IResourceFactory() = default;
 
         [[nodiscard]] virtual const TypeInfo* ProductType() const = 0;
-        [[nodiscard]] virtual RefPtr<Object> Create(raptor::content::Instance& instance) = 0;
+        // Build the runtime product. `manager` lets a composite resource resolve its
+        // child resources via manager.Bind<…>(childId) — and doing so AUTOMATICALLY
+        // records a dependency edge, so reloading a child reloads this resource too.
+        [[nodiscard]] virtual RefPtr<Object> Create(ResourceManager& manager, raptor::content::Instance& instance) = 0;
     };
 
     // =======================================================================
@@ -115,6 +120,10 @@ export namespace raptor::resource
         // flushed handle is rebuilt in place so existing proxies recover.
         [[nodiscard]] RefPtr<ResourceHandle> Bind(const TypeInfo& productType, const Guid& id)
         {
+            // If a factory is mid-build and Binds this id, it's a dependency of the
+            // resource currently building: record the edge so a reload propagates.
+            if (!m_buildStack.IsEmpty()) { RecordDependency(m_buildStack.Back(), id); }
+
             if (RefPtr<ResourceHandle>* cached = m_handles.Find(id))
             {
                 if ((*cached)->Get() == nullptr) { BuildInto(**cached, productType.id, id); }
@@ -133,13 +142,25 @@ export namespace raptor::resource
         [[nodiscard]] Proxy<T> Bind(const ResourceId<T>& rid) { return Bind<T>(rid.id); }
 
         // Rebuilds the product for an already-bound id (e.g. after the source
-        // changed on disk). All proxies see the new product. False if unbound.
+        // changed on disk) AND, transitively, every resource that depends on it.
+        // All proxies see the new products. False if `id` is unbound.
         bool Reload(const Guid& id)
         {
             RefPtr<ResourceHandle>* handle = m_handles.Find(id);
             if (handle == nullptr) { return false; }
-            BuildInto(**handle, (*handle)->ProductTypeId(), id);
+            Array<Guid> visited;
+            ReloadRecursive(id, visited);
             return (*handle)->Get() != nullptr;
+        }
+
+        // The ids that directly depend on `id` (introspection/tooling). Empty if none.
+        // (Edges are recorded automatically when a factory Binds a child mid-build;
+        // explicit declaration isn't exposed yet — every planned dependency, incl.
+        // include resources, resolves through Bind.)
+        [[nodiscard]] Span<const Guid> Dependents(const Guid& id) noexcept
+        {
+            Array<Guid>* d = m_dependents.Find(id);
+            return (d != nullptr) ? Span<const Guid>(d->Data(), d->Size()) : Span<const Guid>{};
         }
 
         // Drops the product from a handle without unbinding it; a later Bind/
@@ -155,6 +176,10 @@ export namespace raptor::resource
     private:
         void BuildInto(ResourceHandle& handle, TypeId productTypeId, const Guid& id)
         {
+            // A rebuild may resolve different children than before; drop the old
+            // forward edges so they're re-recorded fresh during this build.
+            ClearForwardDeps(id);
+
             handle.SetProductTypeId(productTypeId);
             handle.Replace(nullptr);
 
@@ -164,11 +189,72 @@ export namespace raptor::resource
             IResourceFactory* const* factory = m_factories.Find(productTypeId);
             if (factory == nullptr) { return; }
 
-            handle.Replace((*factory)->Create(*instance));
+            // While `id` is on the build stack, any Bind() the factory makes is
+            // recorded as a dependency of `id` (see Bind).
+            m_buildStack.PushBack(id);
+            handle.Replace((*factory)->Create(*this, *instance));
+            m_buildStack.PopBack();
+        }
+
+        // Rebuild `id`, then transitively every resource that depends on it. The
+        // visited list guards against cycles; dependents are snapshotted because a
+        // dependent's rebuild mutates m_dependents[id] (clear+re-record its edges).
+        void ReloadRecursive(const Guid& id, Array<Guid>& visited)
+        {
+            for (const Guid& v : visited) { if (v == id) { return; } }
+            visited.PushBack(id);
+
+            if (RefPtr<ResourceHandle>* handle = m_handles.Find(id))
+            {
+                BuildInto(**handle, (*handle)->ProductTypeId(), id);
+            }
+
+            Array<Guid> dependents;
+            if (Array<Guid>* d = m_dependents.Find(id))
+            {
+                for (const Guid& g : *d) { dependents.PushBack(g); }
+            }
+            for (const Guid& dep : dependents) { ReloadRecursive(dep, visited); }
+        }
+
+        void RecordDependency(const Guid& dependent, const Guid& dependency)
+        {
+            if (dependent == dependency) { return; }
+            AddEdgeUnique(m_dependencies, dependent, dependency);
+            AddEdgeUnique(m_dependents, dependency, dependent);
+        }
+
+        // Drop `id`'s outgoing edges (and the matching reverse entries).
+        void ClearForwardDeps(const Guid& id)
+        {
+            Array<Guid>* deps = m_dependencies.Find(id);
+            if (deps == nullptr) { return; }
+            for (const Guid& d : *deps)
+            {
+                if (Array<Guid>* rev = m_dependents.Find(d))
+                {
+                    for (usize i = 0; i < rev->Size(); ++i)
+                    {
+                        if ((*rev)[i] == id) { rev->RemoveAt(i); break; }
+                    }
+                }
+            }
+            deps->Clear();
+        }
+
+        static void AddEdgeUnique(HashMap<Guid, Array<Guid>>& map, const Guid& key, const Guid& value)
+        {
+            Array<Guid>* arr = map.Find(key);
+            if (arr == nullptr) { map.InsertOrAssign(key, Array<Guid>{}); arr = map.Find(key); }
+            for (const Guid& g : *arr) { if (g == value) { return; } }
+            arr->PushBack(value);
         }
 
         raptor::content::IContentDatabase* m_database;
         HashMap<TypeId, IResourceFactory*> m_factories;
         HashMap<Guid, RefPtr<ResourceHandle>> m_handles;
+        HashMap<Guid, Array<Guid>> m_dependencies;  // id -> resources it depends on
+        HashMap<Guid, Array<Guid>> m_dependents;    // id -> resources that depend on it
+        Array<Guid> m_buildStack;                   // ids currently building (auto-edge source)
     };
 }

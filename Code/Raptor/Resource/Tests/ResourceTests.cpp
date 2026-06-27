@@ -47,8 +47,14 @@ namespace
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override { return &Material::StaticType(); }
 
-        [[nodiscard]] RefPtr<Object> Create(raptor::content::Instance& instance) override
+        int builds = 0;                  // observe rebuilds (incl. dependency-propagated reloads)
+        HashMap<Guid, Guid> bindMap;     // when building key, Bind value (a child) -> auto-edge
+
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager, raptor::content::Instance& instance) override
         {
+            ++builds;
+            // Resolving a child via the manager mid-build auto-records a dependency.
+            if (Guid* child = bindMap.Find(instance.Id())) { (void)manager.Bind(Material::StaticType(), *child); }
             RefPtr<ISerializable> source = instance.ReadObject();
             MaterialResource* res = Cast<MaterialResource>(source.Get());
             if (res == nullptr) { return RefPtr<Object>{}; }
@@ -161,4 +167,138 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
     CHECK(p->shader == u8"pbr2");
 
     RemoveTree();
+}
+
+namespace
+{
+    // Cleanup for the dependency tests (its own db dir; one .rasset per instance).
+    void RemoveDepTree()
+    {
+        const StringView names[] = { u8"a", u8"b", u8"c", u8"parent", u8"child" };
+        for (StringView n : names)
+        {
+            String f = String(u8"raptor_resource_dep_db/");
+            f.Append(n);
+            f.Append(u8".rasset");
+            FileDelete(f.AsView());
+        }
+        RemoveDirectory(u8"raptor_resource_dep_db");
+    }
+
+    // Create an instance + write a MaterialResource source; returns its id.
+    Guid MakeInstance(raptor::content::ContentDatabase& db, StringView name, i32 shininess)
+    {
+        auto* inst = db.RootGroup()->CreateInstance(name, MaterialResource::StaticType());
+        WriteSource(db, inst->Id(), shininess, name);
+        return inst->Id();
+    }
+}
+
+TEST_CASE("resource: a factory-resolved child is an auto-recorded dependency")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    RemoveDepTree();
+    NativeFileSystem mount(u8"raptor_resource_dep_db");
+
+    Guid parentId, childId;
+    {
+        raptor::content::ContentDatabase db(mount);
+        childId  = MakeInstance(db, u8"child", 64);
+        parentId = MakeInstance(db, u8"parent", 32);
+    }
+
+    raptor::content::ContentDatabase db(mount);
+    MaterialFactory factory;
+    factory.bindMap.InsertOrAssign(parentId, childId);   // building parent Binds child
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+
+    Proxy<Material> parent = manager.Bind<Material>(parentId);   // builds parent -> binds child
+    REQUIRE(parent);
+    CHECK(factory.builds == 2);                                  // parent + the child it pulled in
+
+    Span<const Guid> deps = manager.Dependents(childId);         // edge was recorded
+    REQUIRE(deps.Size() == 1u);
+    CHECK(deps[0] == parentId);
+
+    const int b0 = factory.builds;
+    CHECK(manager.Reload(childId));                             // child reload propagates to parent
+    CHECK(factory.builds == b0 + 2);                           // both rebuilt (child + dependent parent)
+    REQUIRE(parent);                                           // proxy still valid after the swap
+
+    RemoveDepTree();
+}
+
+TEST_CASE("resource: reload propagates transitively, each resource once")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    RemoveDepTree();
+    NativeFileSystem mount(u8"raptor_resource_dep_db");
+
+    Guid a, b, c;
+    {
+        raptor::content::ContentDatabase db(mount);
+        a = MakeInstance(db, u8"a", 16);
+        b = MakeInstance(db, u8"b", 32);
+        c = MakeInstance(db, u8"c", 64);
+    }
+
+    raptor::content::ContentDatabase db(mount);
+    MaterialFactory factory;
+    factory.bindMap.InsertOrAssign(a, b);   // a -> b
+    factory.bindMap.InsertOrAssign(b, c);   // b -> c
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+
+    Proxy<Material> pa = manager.Bind<Material>(a);   // builds a -> b -> c
+    REQUIRE(pa);
+    CHECK(factory.builds == 3);
+
+    const int b0 = factory.builds;
+    CHECK(manager.Reload(c));               // c -> b -> a, each exactly once
+    CHECK(factory.builds == b0 + 3);
+
+    RemoveDepTree();
+}
+
+TEST_CASE("resource: a rebuild drops stale dependency edges")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    RemoveDepTree();
+    NativeFileSystem mount(u8"raptor_resource_dep_db");
+
+    Guid parentId, childId;
+    {
+        raptor::content::ContentDatabase db(mount);
+        childId  = MakeInstance(db, u8"child", 64);
+        parentId = MakeInstance(db, u8"parent", 32);
+    }
+
+    raptor::content::ContentDatabase db(mount);
+    MaterialFactory factory;
+    factory.bindMap.InsertOrAssign(parentId, childId);
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+
+    Proxy<Material> parent = manager.Bind<Material>(parentId);
+    REQUIRE(parent);
+    CHECK(manager.Dependents(childId).Size() == 1u);
+
+    // Parent stops referencing the child; rebuilding parent must drop the edge.
+    factory.bindMap.Remove(parentId);
+    CHECK(manager.Reload(parentId));
+    CHECK(manager.Dependents(childId).Size() == 0u);
+
+    // Now a child reload rebuilds only the child.
+    const int b0 = factory.builds;
+    CHECK(manager.Reload(childId));
+    CHECK(factory.builds == b0 + 1);
+
+    RemoveDepTree();
 }
