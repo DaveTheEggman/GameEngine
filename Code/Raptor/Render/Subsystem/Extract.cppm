@@ -49,6 +49,7 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out) {
             if (rd == nullptr) { return; }
             rd->world       = scene.GetWorldMatrix(e);
             rd->worldCenter = TransformPoint(Vec3{ 0, 0, 0 }, rd->world);   // mesh bounds center later
+            rd->color       = mc.color;
             rd->mesh        = mc.mesh.Get();
             rd->material    = mc.material.Get();
             rd->entityId    = PackEntity(e);

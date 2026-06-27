@@ -39,6 +39,7 @@ inline constexpr const char8_t* kForwardVS = u8R"(
 cbuffer Object : register(b0, space0) {
     row_major float4x4 World;      // Raptor matrices are row-major; HLSL defaults to
     row_major float4x4 ViewProj;   // column-major packing, so annotate to read them right.
+    float4             Tint;       // per-instance color tint
 };
 struct VSInput {
     float3 position : TEXCOORD0;
@@ -59,7 +60,7 @@ VSOutput main(VSInput input) {
     float4 worldPos = mul(float4(input.position, 1.0), World);
     o.clip      = mul(worldPos, ViewProj);
     o.normalWS  = normalize(mul(float4(input.normal, 0.0), World).xyz);
-    o.color     = input.color;                                  // carry all vertex inputs through
+    o.color     = input.color * Tint;                           // vertex color * per-instance tint
     o.uv        = input.uv;                                     // so the full vertex layout is consumed
     o.tangentWS = mul(float4(input.tangent, 0.0), World).xyz;
     return o;
@@ -147,7 +148,7 @@ public:
             // into this frame's ring region (frames-in-flight safe, dynamic-offset bound).
             const DynamicUniformRing::Slot slot = m_objectRing.Allocate();
             if (!slot.ok) { continue; }   // region exhausted (Reserve sized it for the frame)
-            ObjectData od{ md->world, ctx.viewProj };
+            ObjectData od{ md->world, ctx.viewProj, md->color };
             MemCopy(slot.ptr, &od, sizeof(od));
 
             const u32 dynamicOffset = slot.dynamicOffset;
@@ -162,7 +163,7 @@ public:
     void FinishFrame() override { m_objectRing.EndFrame(); }
 
 private:
-    struct ObjectData { Mat4 world; Mat4 viewProj; };          // 128 bytes
+    struct ObjectData { Mat4 world; Mat4 viewProj; Color color; };   // 144 bytes (fits the 256 slot)
     static constexpr u64 kSlotSize = 256;                      // dynamic UBO offset alignment
 
     // (Re)create the object bind group over the ring's buffer when the ring (re)allocated.

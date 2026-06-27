@@ -53,6 +53,7 @@ namespace
                 rd::MeshComponent& mc = meshes->Add(m_cube);
                 mc.mesh     = geo::Primitives::Cube(1.0f);
                 mc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+                mc.color    = rc::Color{ 1.0f, 0.55f, 0.2f, 1.0f };   // warm orange tint
             }
 
             rc::ConsoleWrite(u8"Sandbox: spinning cube. Close the window to exit.\n");

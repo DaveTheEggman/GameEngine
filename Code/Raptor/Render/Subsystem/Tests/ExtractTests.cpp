@@ -36,7 +36,7 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
 
     sc::EntityHandle a = scene.CreateEntity(u8"a");
     scene.SetLocalPosition(a, Vec3{ -2, 0, 0 });
-    { MeshComponent& m = meshes->Add(a); m.mesh = cube; m.material = material; }
+    { MeshComponent& m = meshes->Add(a); m.mesh = cube; m.material = material; m.color = Color{ 0.2f, 0.4f, 0.8f, 1.0f }; }
 
     sc::EntityHandle b = scene.CreateEntity(u8"b");
     scene.SetLocalPosition(b, Vec3{ 3, 0, 0 });
@@ -54,6 +54,7 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
     REQUIRE(snapshot.Size() == 2);
 
     f32 sumX = 0.0f;
+    bool sawBlue = false;
     for (RenderData* rd : snapshot.Items()) {
         const auto* m = static_cast<const MeshRenderData*>(rd);
         CHECK(m->category == RenderCategories::Opaque);  // opaque material -> opaque category
@@ -61,8 +62,10 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
         CHECK(m->material == material.Get());
         CHECK(m->entityId != 0);                         // tagged with a packed entity handle
         sumX += m->world.m[3][0];
+        if (Near(m->color.b, 0.8f)) { sawBlue = true; }  // per-instance color carried through
     }
     CHECK(Near(sumX, 1.0f));                              // -2 + 3
+    CHECK(sawBlue);
 }
 
 TEST_CASE("ExtractSceneInto skips invisible + mesh-less components; no primary camera reported")

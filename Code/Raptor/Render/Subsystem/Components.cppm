@@ -22,11 +22,14 @@ using namespace raptor::core;
 export namespace raptor::render {
 
 // What to draw at an entity: a mesh + the material to draw it with. Borrowed-strong
-// (RefPtr) so the component keeps its resources alive while attached.
+// (RefPtr) so the component keeps its resources alive while attached. `color` is a
+// per-instance tint (multiplied into the shaded color) — distinct per entity even when
+// many share one mesh + material, so it rides the per-instance data path.
 struct MeshComponent {
     RefPtr<geometry::StaticMesh> mesh;
     RefPtr<materials::Material>  material;
-    bool visible = true;
+    Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    bool                         visible = true;
 };
 
 // A camera frustum. The view transform is the inverse of the entity's world matrix;
