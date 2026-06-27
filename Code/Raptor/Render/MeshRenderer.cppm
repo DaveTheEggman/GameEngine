@@ -107,8 +107,12 @@ struct GpuLight {                            // matches render::GpuLight (64 byt
     float innerCos; float outerCos; float pad0; float pad1;
 };
 StructuredBuffer<GpuLight> Lights : register(t0, space0);
-cbuffer Material : register(b0, space2) {    // data-driven material set (inferred from properties)
+cbuffer Material : register(b0, space2) {    // data-driven PBR material (inferred from properties)
     float4 BaseColor;
+    float  Metallic;
+    float  Roughness;
+    float  _matPad0;
+    float  _matPad1;
 };
 struct PSInput {
     float4 clip      : SV_Position;
@@ -118,32 +122,92 @@ struct PSInput {
     float3 tangentWS : TEXCOORD3;
     float3 worldPos  : TEXCOORD4;
 };
+
+static const float PI = 3.14159265359;
+
+// GGX normal distribution function.
+float DistributionGGX(float NdotH, float roughness) {
+    float a  = roughness * roughness;
+    float a2 = a * a;
+    float d  = (NdotH * a2 - NdotH) * NdotH + 1.0;
+    return a2 / (PI * d * d);
+}
+// Height-correlated Smith GGX visibility (Karis 2013) — folds in 1/(4*NdotV*NdotL).
+float VisibilitySmithGGX(float NdotV, float NdotL, float roughness) {
+    float a = roughness * roughness;
+    float lambdaV = NdotL * (NdotV * (1.0 - a) + a);
+    float lambdaL = NdotV * (NdotL * (1.0 - a) + a);
+    return 0.5 / (lambdaV + lambdaL + 1e-5);
+}
+// Fresnel-Schlick with an F90 firefly clamp (limits grazing specular on low-F0 surfaces).
+float3 FresnelSchlick(float cosTheta, float3 F0) {
+    float f   = pow(saturate(1.0 - cosTheta), 5.0);
+    float F90 = saturate(50.0 * dot(F0, float3(0.2126, 0.7152, 0.0722)));
+    return F0 + (F90 - F0) * f;
+}
+// Range-windowed inverse-square attenuation.
+float Attenuation(float dist, float range) {
+    if (range <= 0.0) return 1.0;
+    float d  = dist / range;
+    float d2 = d * d;
+    float win = saturate(1.0 - d2 * d2);
+    return (win * win) / (dist * dist + 1e-4);
+}
+float SpotAttenuation(float3 L, float3 spotDir, float innerCos, float outerCos) {
+    float cosA = dot(-L, spotDir);
+    return saturate((cosA - outerCos) / (innerCos - outerCos + 1e-4));
+}
+// Cook-Torrance evaluation for a single light.
+float3 EvaluateLight(GpuLight light, float3 worldPos, float3 N, float3 V,
+                     float3 albedo, float roughness, float metallic, float3 F0) {
+    float3 L; float atten = 1.0;
+    if (light.type < 0.5) {                                    // directional
+        L = -light.directionWS;
+    } else {                                                   // point / spot
+        float3 toLight = light.positionWS - worldPos;
+        float  dist    = length(toLight);
+        L = toLight / max(dist, 1e-4);
+        atten = Attenuation(dist, light.range);
+        if (light.type > 1.5) {                                // spot cone
+            atten *= SpotAttenuation(L, light.directionWS, light.innerCos, light.outerCos);
+        }
+    }
+    float NdotL = saturate(dot(N, L));
+    if (NdotL <= 0.0) { return float3(0.0, 0.0, 0.0); }
+
+    float3 H     = normalize(V + L);
+    float  NdotH = saturate(dot(N, H));
+    float  NdotV = max(dot(N, V), 1e-3);
+    float  HdotV = saturate(dot(H, V));
+
+    float  D   = DistributionGGX(NdotH, roughness);
+    float  Vis = VisibilitySmithGGX(NdotV, NdotL, roughness);
+    float3 F   = FresnelSchlick(HdotV, F0);
+    float3 specular = D * Vis * F;                             // D*Vis already includes 1/(4*NdotV*NdotL)
+
+    float3 kD      = (1.0 - F) * (1.0 - metallic);
+    float3 diffuse = kD * albedo / PI;
+
+    return (diffuse + specular) * (light.color * light.intensity) * NdotL * atten;
+}
+
 float4 main(PSInput input) : SV_Target {
     float3 N = normalize(input.normalWS);
-    float3 albedo = input.color.rgb * BaseColor.rgb;           // (vertex color * tint) * material base color
+    float3 V = normalize(CameraPos - input.worldPos);
 
-    float3 lit = albedo * 0.05;                                // small constant ambient
+    float3 albedo    = input.color.rgb * BaseColor.rgb;        // (vertex color * tint) * base color
+    float  metallic  = saturate(Metallic);
+    float  roughness = clamp(Roughness, 0.045, 1.0);
+    float3 F0        = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+
+    float3 Lo = float3(0.0, 0.0, 0.0);
     uint count = (uint)LightCount;
     for (uint i = 0; i < count; ++i) {
-        GpuLight Lt = Lights[LightOffset + i];
-        float3 lightDir; float atten = 1.0;
-        if (Lt.type < 0.5) {                                   // directional
-            lightDir = -Lt.directionWS;
-        } else {                                               // point / spot
-            float3 toLight = Lt.positionWS - input.worldPos;
-            float  dist    = length(toLight);
-            lightDir = toLight / max(dist, 1e-4);
-            float t = saturate(1.0 - dist / max(Lt.range, 1e-4));
-            atten = t * t;
-            if (Lt.type > 1.5) {                               // spot cone
-                float cosA = dot(-lightDir, Lt.directionWS);
-                atten *= saturate((cosA - Lt.outerCos) / max(Lt.innerCos - Lt.outerCos, 1e-4));
-            }
-        }
-        float ndl = saturate(dot(N, lightDir));
-        lit += albedo * Lt.color * (Lt.intensity * atten * ndl);
+        Lo += EvaluateLight(Lights[LightOffset + i], input.worldPos, N, V, albedo, roughness, metallic, F0);
     }
-    return float4(lit, 1.0);
+
+    float3 ambient = albedo * 0.05;                            // simple constant ambient (env/IBL in 4.4)
+    return float4(ambient + Lo, 1.0);
 }
 )";
 
@@ -376,19 +440,22 @@ private:
         return m_device->CreatePipelineLayout(pld, out).IsOk();
     }
 
-    // A fallback material bind group (BaseColor = white) used for materials that declare no
-    // properties, so set 2 is always bound (the shader always expects a Material UBO).
+    // A fallback material bind group used for materials that declare no properties, so set 2 is
+    // always bound (the shader always expects the PBR Material UBO). Matches the cbuffer layout:
+    // {BaseColor, Metallic, Roughness, pad, pad} = 32 bytes.
     Status CreateDefaultMaterial() {
-        const Vec4 white{ 1.0f, 1.0f, 1.0f, 1.0f };
+        struct PbrDefault { Vec4 baseColor; f32 metallic; f32 roughness; f32 pad0; f32 pad1; };
+        const PbrDefault def{ Vec4{ 1.0f, 1.0f, 1.0f, 1.0f }, 0.0f, 0.5f, 0.0f, 0.0f };
+        static_assert(sizeof(PbrDefault) == 32);
         rhi::BufferDesc bd{};
-        bd.size = sizeof(Vec4);
+        bd.size = sizeof(PbrDefault);
         bd.usage = rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst;
         bd.memory = rhi::MemoryLocation::CpuToGpu;
         bd.label = u8"material.default";
         if (!m_device->CreateBuffer(bd, m_defaultMaterialBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
-        if (void* p = m_defaultMaterialBuffer->Map()) { MemCopy(p, &white, sizeof(white)); m_defaultMaterialBuffer->Unmap(); }
+        if (void* p = m_defaultMaterialBuffer->Map()) { MemCopy(p, &def, sizeof(def)); m_defaultMaterialBuffer->Unmap(); }
 
-        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(m_defaultMaterialBuffer, 0, sizeof(Vec4));
+        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(m_defaultMaterialBuffer, 0, sizeof(PbrDefault));
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_materialLayout;
         bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };

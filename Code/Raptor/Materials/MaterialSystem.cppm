@@ -215,7 +215,10 @@ private:
             buffer = *existing;
         } else {
             rhi::BufferDesc bd{};
-            bd.size = material->UniformDataSize();
+            // Round up to 16: an HLSL cbuffer is std140-padded to a 16-byte multiple, so the
+            // bound range must cover that even when the declared props sum to less (e.g. a
+            // {float4,float,float} PBR block is 24B of data but a 32B cbuffer).
+            bd.size = (material->UniformDataSize() + 15u) & ~15u;
             bd.usage = rhi::BufferUsage::Uniform;
             bd.memory = rhi::MemoryLocation::CpuToGpu;
             if (!m_device->CreateBuffer(bd, buffer).IsOk()) { return false; }
