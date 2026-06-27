@@ -1,14 +1,5 @@
 # Raptor RHI samples (GPU/display dependent — built, not run in CI).
 
-# Helper: copy SDL3.dll next to sample executables on Windows.
-function(raptor_copy_sdl3_dll target)
-    if(RAPTOR_SDL3_DLL)
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${RAPTOR_SDL3_DLL}" "$<TARGET_FILE_DIR:${target}>")
-    endif()
-endfunction()
-
 add_subdirectory(Sample001_Triangle)
 add_subdirectory(Sample002_Textures)
 add_subdirectory(Sample003_UniformBuffers)

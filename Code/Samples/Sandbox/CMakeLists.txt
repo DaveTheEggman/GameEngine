@@ -18,3 +18,4 @@ target_link_libraries(Sandbox PRIVATE
     Raptor::Geometry
     Raptor::Materials
     Raptor::Policy)
+raptor_copy_sdl3_dll(Sandbox)

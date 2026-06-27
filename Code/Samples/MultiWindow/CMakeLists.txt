@@ -13,3 +13,4 @@ target_link_libraries(MultiWindow PRIVATE
     Raptor::RuntimeGraphics
     Raptor::RuntimeGraphicsGpu
     Raptor::Policy)
+raptor_copy_sdl3_dll(MultiWindow)

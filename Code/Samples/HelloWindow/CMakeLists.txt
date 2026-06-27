@@ -12,3 +12,4 @@ target_link_libraries(HelloWindow PRIVATE
     Raptor::RuntimeGraphics
     Raptor::RuntimeGraphicsGpu
     Raptor::Policy)
+raptor_copy_sdl3_dll(HelloWindow)
