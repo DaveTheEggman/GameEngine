@@ -61,7 +61,9 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
     mat::PipelineStateCache psoCache(shaderSystem, h.device);
 
-    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
+    mat::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
@@ -101,7 +103,9 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
     mat::PipelineStateCache psoCache(shaderSystem, h.device);
-    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
+    mat::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
@@ -142,7 +146,9 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
     {
         shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
         mat::PipelineStateCache psoCache(shaderSystem, h.device);
-        MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
+        mat::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
         REQUIRE(meshRenderer.Initialize().IsOk());
         RendererRegistry registry;
         registry.Register(&meshRenderer);
@@ -184,7 +190,9 @@ TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
     mat::PipelineStateCache psoCache(shaderSystem, h.device);
-    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, /*framesInFlight*/ 2);
+    mat::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);

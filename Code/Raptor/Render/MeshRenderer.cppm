@@ -98,19 +98,25 @@ struct PSInput {
     float2 uv        : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
 };
+cbuffer Material : register(b0, space2) {   // data-driven material set (inferred from properties)
+    float4 BaseColor;
+};
 float4 main(PSInput input) : SV_Target {
     float3 N = normalize(input.normalWS);
     float3 L = normalize(float3(0.4, 0.8, 0.5));
     float  ndl = saturate(dot(N, L)) * 0.8 + 0.2;
-    return float4(ndl * input.color.rgb, 1.0);                  // lambert * (vertex color * tint)
+    float3 albedo = input.color.rgb * BaseColor.rgb;           // (vertex color * tint) * material base color
+    return float4(ndl * albedo, 1.0);
 }
 )";
 
 class MeshRenderer final : public Renderer {
 public:
     MeshRenderer(rhi::Device& device, shaders::ShaderSystem& shaderSystem,
-                 materials::PipelineStateCache& psoCache, u32 framesInFlight) noexcept
-        : m_device(&device), m_shaders(&shaderSystem), m_psoCache(&psoCache), m_meshes(device),
+                 materials::PipelineStateCache& psoCache, materials::MaterialSystem& materialSystem,
+                 u32 framesInFlight) noexcept
+        : m_device(&device), m_shaders(&shaderSystem), m_psoCache(&psoCache),
+          m_materials(&materialSystem), m_meshes(device),
           m_viewRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.view"),
           m_objectRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.object"),
           m_instanceRing(device, framesInFlight, sizeof(InstanceData), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.instances"),
@@ -140,9 +146,16 @@ public:
         rhi::BindGroupLayoutEntry instEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Vertex, /*readOnly*/ true);
         if (!MakeLayout(instEntry, m_instanceLayout)) { return Status{ ErrorCode::Unknown }; }
 
-        if (!MakePipelineLayout(m_viewLayout, m_objectLayout,   m_pipelineLayoutSingle))   { return Status{ ErrorCode::Unknown }; }
-        if (!MakePipelineLayout(m_viewLayout, m_instanceLayout, m_pipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
-        return Status{};
+        // set 2: material — a Fragment-stage UBO at b0 (the standard forward material's BaseColor
+        // etc). Inferred-per-material layouts share this shape, so one pipeline layout fits them;
+        // PrepareInstance is given THIS layout so the instance bind group is compatible.
+        rhi::BindGroupLayoutEntry matEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment);
+        if (!MakeLayout(matEntry, m_materialLayout)) { return Status{ ErrorCode::Unknown }; }
+
+        if (!MakePipelineLayout(m_viewLayout, m_objectLayout,   m_materialLayout, m_pipelineLayoutSingle))   { return Status{ ErrorCode::Unknown }; }
+        if (!MakePipelineLayout(m_viewLayout, m_instanceLayout, m_materialLayout, m_pipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
+
+        return CreateDefaultMaterial();
     }
 
     // ---- Renderer ----
@@ -234,6 +247,7 @@ private:
         d.pso = pso;
         d.bindGroup0 = m_viewBG;   d.dynamicOffset0 = viewOffset;     d.hasDynamic0 = true;   // set 0: view
         d.bindGroup1 = m_objectBG; d.dynamicOffset1 = obj.byteOffset; d.hasDynamic1 = true;   // set 1: object UBO
+        d.bindGroup2 = MaterialBindGroup(md.material);                                        // set 2: material
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount; d.instanceCount = 1;
@@ -262,6 +276,7 @@ private:
         d.pso = pso;
         d.bindGroup0 = m_viewBG;     d.dynamicOffset0 = viewOffset; d.hasDynamic0 = true;     // set 0: view
         d.bindGroup1 = m_instanceBG; d.hasDynamic1 = false;                                   // set 1: instances (whole buffer)
+        d.bindGroup2 = MaterialBindGroup(head.material);                                      // set 2: material
         d.vertexBuffer0 = mesh.vertexBuffer;    d.vertexOffset0 = mesh.vertexOffset;
         d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;          // DataOffsets stream
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
@@ -285,11 +300,50 @@ private:
         return m_device->CreateBindGroupLayout(ld, out).IsOk();
     }
 
-    bool MakePipelineLayout(rhi::BindGroupLayout* set0, rhi::BindGroupLayout* set1, rhi::PipelineLayout*& out) {
-        rhi::BindGroupLayout* layouts[] = { set0, set1 };
+    bool MakePipelineLayout(rhi::BindGroupLayout* set0, rhi::BindGroupLayout* set1, rhi::BindGroupLayout* set2,
+                            rhi::PipelineLayout*& out) {
+        rhi::BindGroupLayout* layouts[] = { set0, set1, set2 };
         rhi::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 2 };
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 3 };
         return m_device->CreatePipelineLayout(pld, out).IsOk();
+    }
+
+    // A fallback material bind group (BaseColor = white) used for materials that declare no
+    // properties, so set 2 is always bound (the shader always expects a Material UBO).
+    Status CreateDefaultMaterial() {
+        const Vec4 white{ 1.0f, 1.0f, 1.0f, 1.0f };
+        rhi::BufferDesc bd{};
+        bd.size = sizeof(Vec4);
+        bd.usage = rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst;
+        bd.memory = rhi::MemoryLocation::CpuToGpu;
+        bd.label = u8"material.default";
+        if (!m_device->CreateBuffer(bd, m_defaultMaterialBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        if (void* p = m_defaultMaterialBuffer->Map()) { MemCopy(p, &white, sizeof(white)); m_defaultMaterialBuffer->Unmap(); }
+
+        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(m_defaultMaterialBuffer, 0, sizeof(Vec4));
+        rhi::BindGroupDesc bgd{};
+        bgd.layout = m_materialLayout;
+        bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
+        if (!m_device->CreateBindGroup(bgd, m_defaultMaterialBG).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        return Status{};
+    }
+
+    // The material set-2 bind group for `material`: the data-driven bind group from the
+    // MaterialSystem (built from declared properties, sharing m_materialLayout), or the default
+    // white material if the material declares no set-2 properties. Auto-instanced per material.
+    [[nodiscard]] rhi::BindGroup* MaterialBindGroup(materials::Material* material) {
+        if (material == nullptr) { return m_defaultMaterialBG; }
+        materials::MaterialInstance* inst = nullptr;
+        if (materials::MaterialInstance** found = m_instances.Find(material)) {
+            inst = *found;
+        } else {
+            UniquePtr<materials::MaterialInstance> created = MakeUnique<materials::MaterialInstance>(DefaultAllocator(), material);
+            inst = created.Get();
+            m_instanceStorage.PushBack(Move(created));       // owns the instance
+            m_instances.InsertOrAssign(material, inst);       // raw lookup (HashMap can't hold UniquePtr)
+        }
+        rhi::BindGroup* bg = m_materials->PrepareInstance(*inst, m_materialLayout);
+        return (bg != nullptr) ? bg : m_defaultMaterialBG;   // material with no set-2 props -> default
     }
 
     // (Re)create a bind group over a ring's buffer when the ring (re)allocated. `whole` binds
@@ -310,7 +364,12 @@ private:
     }
 
     void Shutdown() {
+        // Release material instances first (their dtors notify the still-live MaterialSystem).
+        m_instances.Clear();
+        m_instanceStorage.Clear();
         m_meshes.Clear();
+        if (m_defaultMaterialBG)     { m_device->DestroyBindGroup(m_defaultMaterialBG); m_defaultMaterialBG = nullptr; }
+        if (m_defaultMaterialBuffer) { m_device->DestroyBuffer(m_defaultMaterialBuffer); m_defaultMaterialBuffer = nullptr; }
         if (m_viewBG)     { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
@@ -319,19 +378,28 @@ private:
         if (m_viewLayout)     { m_device->DestroyBindGroupLayout(m_viewLayout); m_viewLayout = nullptr; }
         if (m_objectLayout)   { m_device->DestroyBindGroupLayout(m_objectLayout); m_objectLayout = nullptr; }
         if (m_instanceLayout) { m_device->DestroyBindGroupLayout(m_instanceLayout); m_instanceLayout = nullptr; }
+        if (m_materialLayout) { m_device->DestroyBindGroupLayout(m_materialLayout); m_materialLayout = nullptr; }
         // rings free their buffers in their destructors (m_device still valid after this).
     }
 
     rhi::Device*                   m_device;
     shaders::ShaderSystem*         m_shaders;
     materials::PipelineStateCache* m_psoCache;
+    materials::MaterialSystem*     m_materials;
     MeshGpuCache                   m_meshes;
 
     rhi::BindGroupLayout* m_viewLayout     = nullptr;
     rhi::BindGroupLayout* m_objectLayout   = nullptr;
     rhi::BindGroupLayout* m_instanceLayout = nullptr;
+    rhi::BindGroupLayout* m_materialLayout = nullptr;
     rhi::PipelineLayout*  m_pipelineLayoutSingle    = nullptr;
     rhi::PipelineLayout*  m_pipelineLayoutInstanced = nullptr;
+
+    // Auto-instanced material set-2 resources.
+    rhi::Buffer*    m_defaultMaterialBuffer = nullptr;
+    rhi::BindGroup* m_defaultMaterialBG     = nullptr;
+    HashMap<materials::Material*, materials::MaterialInstance*>     m_instances;        // lookup (raw)
+    Array<UniquePtr<materials::MaterialInstance>>                  m_instanceStorage;  // ownership
 
     DynamicUniformRing m_viewRing;
     DynamicUniformRing m_objectRing;

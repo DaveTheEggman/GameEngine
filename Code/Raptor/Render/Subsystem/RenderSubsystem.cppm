@@ -23,6 +23,7 @@ import raptor.scene;              // Scene, ISceneAware
 import raptor.scene.subsystem;    // SceneSubsystem (to register as scene-aware)
 import raptor.shaders;            // Compiler
 import raptor.shaders.system;     // ShaderSystem
+import raptor.materials;          // MaterialSystem
 import raptor.materials.pso;      // PipelineStateCache
 import raptor.render;             // MeshRenderer, RendererRegistry, RenderFrame, ExtractedScene
 import :components;
@@ -91,8 +92,10 @@ protected:
         }
         m_shaders  = MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler, *m_device);
         m_psoCache = MakeUnique<materials::PipelineStateCache>(DefaultAllocator(), *m_shaders, *m_device);
+        m_materialSystem = MakeUnique<materials::MaterialSystem>(DefaultAllocator());
+        if (!m_materialSystem->Initialize(*m_device).IsOk()) { m_materialSystem.Reset(); return; }
 
-        m_meshRenderer = MakeUnique<MeshRenderer>(DefaultAllocator(), *m_device, *m_shaders, *m_psoCache, m_framesInFlight);
+        m_meshRenderer = MakeUnique<MeshRenderer>(DefaultAllocator(), *m_device, *m_shaders, *m_psoCache, *m_materialSystem, m_framesInFlight);
         if (!m_meshRenderer->Initialize().IsOk()) { m_meshRenderer.Reset(); return; }
         m_registry.Register(m_meshRenderer.Get());
 
@@ -111,8 +114,9 @@ protected:
             if (auto* scenes = ctx->GetSubsystem<scene::SceneSubsystem>()) { scenes->UnregisterSceneAware(this); }
         }
         m_device->WaitIdle();   // GPU must finish before we free its buffers/PSOs/descriptors
-        m_frame.Reset();        // releases the forward pass's depth target
-        m_meshRenderer.Reset(); // before the systems it borrows
+        m_frame.Reset();        // releases the forward pass's per-frame GPU resources
+        m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
+        m_materialSystem.Reset();
         m_psoCache.Reset();
         m_shaders.Reset();
         if (m_compiler != nullptr) { m_compiler->Destroy(); m_compiler = nullptr; }
@@ -136,6 +140,7 @@ private:
     shaders::Compiler* m_compiler = nullptr;
     UniquePtr<shaders::ShaderSystem>          m_shaders;
     UniquePtr<materials::PipelineStateCache>  m_psoCache;
+    UniquePtr<materials::MaterialSystem>      m_materialSystem;
     UniquePtr<MeshRenderer>                   m_meshRenderer;
     RendererRegistry                          m_registry;
     UniquePtr<RenderFrame>                    m_frame;

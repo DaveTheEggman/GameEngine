@@ -60,7 +60,11 @@ namespace
             // system (> the parallel-extraction threshold). Each cube has a distinct color.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.42f);
-                rc::RefPtr<mat::Material>   shared = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+                // The shared (instanced) material carries a warm BaseColor; distinct materials get
+                // a per-cube BaseColor below. BaseColor is a data-driven set-2 property the
+                // MaterialSystem infers + the forward shader multiplies into the shade.
+                rc::RefPtr<mat::Material> shared = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
+                    .Color(u8"BaseColor", rc::Vec4{ 1.0f, 0.78f, 0.55f, 1.0f }).Build();
 
                 constexpr int kGrid = 20;
                 for (int y = 0; y < kGrid; ++y) {
@@ -69,12 +73,18 @@ namespace
                         const rc::f32 fx = static_cast<rc::f32>(x) - (kGrid - 1) * 0.5f;
                         const rc::f32 fy = static_cast<rc::f32>(y) - (kGrid - 1) * 0.5f;
                         m_scene->SetLocalPosition(e, rc::Vec3{ fx * 1.05f, fy * 1.05f, 0.0f });
+                        const rc::Vec4 baseColor{ static_cast<rc::f32>(x) / (kGrid - 1),
+                                                  static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
                         rd::MeshComponent& mc = meshes->Add(e);
-                        mc.mesh     = cube;
-                        mc.material = kDistinctMaterials ? mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build()
-                                                         : shared;
-                        mc.color    = rc::Color{ static_cast<rc::f32>(x) / (kGrid - 1),
-                                                 static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
+                        mc.mesh = cube;
+                        // Distinct mode: the MATERIAL's BaseColor drives the per-cube color (and the
+                        // per-instance tint is white). Instanced mode: one shared material; the
+                        // per-instance color drives the variation.
+                        mc.material = kDistinctMaterials
+                            ? mat::MaterialBuilder(u8"lit").Shader(u8"forward").Color(u8"BaseColor", baseColor).Build()
+                            : shared;
+                        mc.color = kDistinctMaterials ? rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f }
+                                                      : rc::Color{ baseColor.x, baseColor.y, baseColor.z, 1.0f };
                         m_cubes.PushBack(e);
                     }
                 }

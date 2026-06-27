@@ -54,6 +54,7 @@ struct ResolvedDraw {
     rhi::BindGroup*      bindGroup1   = nullptr;   // set 1 (object UBO / instance storage)
     u32                  dynamicOffset1 = 0;
     bool                 hasDynamic1  = false;
+    rhi::BindGroup*      bindGroup2   = nullptr;   // set 2 (material — inferred from properties)
     rhi::Buffer*         vertexBuffer0 = nullptr;  u64 vertexOffset0 = 0;
     rhi::Buffer*         vertexBuffer1 = nullptr;  u64 vertexOffset1 = 0;   // optional instance stream
     rhi::Buffer*         indexBuffer  = nullptr;   u64 indexOffset = 0;
@@ -75,6 +76,7 @@ inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
         if (d.hasDynamic1) { enc.SetBindGroup(1, d.bindGroup1, Span<const u32>{ &d.dynamicOffset1, 1 }); }
         else               { enc.SetBindGroup(1, d.bindGroup1, Span<const u32>{}); }
     }
+    if (d.bindGroup2 != nullptr) { enc.SetBindGroup(2, d.bindGroup2, Span<const u32>{}); }   // material
     if (d.vertexBuffer0 != nullptr) { enc.SetVertexBuffer(0, d.vertexBuffer0, d.vertexOffset0); }
     if (d.vertexBuffer1 != nullptr) { enc.SetVertexBuffer(1, d.vertexBuffer1, d.vertexOffset1); }
     enc.SetIndexBuffer(d.indexBuffer, d.indexFormat, d.indexOffset);
