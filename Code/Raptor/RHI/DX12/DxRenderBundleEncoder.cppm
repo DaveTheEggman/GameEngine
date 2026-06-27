@@ -53,7 +53,7 @@ public:
     RenderBundle* Finish() override {
         if (m_bundle) return m_bundle;
         m_list->Close();
-        m_bundle = new DxRenderBundleImpl(m_list, m_alloc);
+        m_bundle = new DxRenderBundleImpl(m_list, m_alloc, m_rec.currentRootSig(), m_rec.currentPso());
         return m_bundle;
     }
 

@@ -137,6 +137,9 @@ void RenderBundlesSample::OnRender() {
     rpd.contents = dr::RenderPassContents::SecondaryCommandBuffers;   // pass body is supplied by bundles
 
     auto* rp = enc->BeginRenderPass(rpd);
+    // Viewport/scissor must be set on the parent pass — DX12 bundles inherit these.
+    rp->SetViewport(0, 0, static_cast<raptor::core::f32>(m_width), static_cast<raptor::core::f32>(m_height), 0, 1);
+    rp->SetScissor(0, 0, m_width, m_height);
     if (bundle) {
         dr::RenderBundle* bundles[1] = { bundle };
         rp->ExecuteBundles(raptor::core::Span<dr::RenderBundle* const>(bundles, 1));

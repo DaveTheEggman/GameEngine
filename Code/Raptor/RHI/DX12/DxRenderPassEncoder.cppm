@@ -32,12 +32,17 @@ export namespace raptor::rhi::dx12 {
 // here (not in :render_bundle_encoder) so ExecuteBundles can use it without a module cycle.
 class DxRenderBundleImpl : public RenderBundle {
 public:
-    DxRenderBundleImpl(ComPtr<ID3D12GraphicsCommandList> list, ComPtr<ID3D12CommandAllocator> alloc)
-        : m_list(Move(list)), m_alloc(Move(alloc)) {}
-    [[nodiscard]] ID3D12GraphicsCommandList* handle() const { return m_list.Get(); }
+    DxRenderBundleImpl(ComPtr<ID3D12GraphicsCommandList> list, ComPtr<ID3D12CommandAllocator> alloc,
+                       ID3D12RootSignature* rootSig = nullptr, ID3D12PipelineState* pso = nullptr)
+        : m_list(Move(list)), m_alloc(Move(alloc)), m_rootSig(rootSig), m_pso(pso) {}
+    [[nodiscard]] ID3D12GraphicsCommandList* handle()  const { return m_list.Get(); }
+    [[nodiscard]] ID3D12RootSignature*       rootSig() const { return m_rootSig; }
+    [[nodiscard]] ID3D12PipelineState*       pso()     const { return m_pso; }
 private:
     ComPtr<ID3D12GraphicsCommandList> m_list;
     ComPtr<ID3D12CommandAllocator>    m_alloc;
+    ID3D12RootSignature*              m_rootSig = nullptr;
+    ID3D12PipelineState*              m_pso     = nullptr;
 };
 
 /// Pointers needed by the render pass encoder, provided by the command encoder.
@@ -341,9 +346,15 @@ public:
     // ---- End ----
 
     void ExecuteBundles(Span<RenderBundle* const> bundles) override {
-        for (usize i = 0; i < bundles.Size(); ++i)
-            if (auto* b = static_cast<DxRenderBundleImpl*>(bundles[i]))
+        for (usize i = 0; i < bundles.Size(); ++i) {
+            if (auto* b = static_cast<DxRenderBundleImpl*>(bundles[i])) {
+                // DX12 requires the parent command list to have the same root signature
+                // and PSO set before ExecuteBundle.
+                if (b->rootSig()) m_ctx.cmdList->SetGraphicsRootSignature(b->rootSig());
+                if (b->pso())     m_ctx.cmdList->SetPipelineState(b->pso());
                 m_ctx.cmdList->ExecuteBundle(b->handle());
+            }
+        }
     }
 
     void End() override {
@@ -401,6 +412,13 @@ public:
 
         m_currentPipeline     = nullptr;
         m_currentMeshPipeline = nullptr;
+    }
+
+    // Accessors for bundle recording: the last pipeline/root-sig set on this encoder.
+    [[nodiscard]] ID3D12PipelineState*  currentPso() const { return m_currentPipeline ? m_currentPipeline->handle() : nullptr; }
+    [[nodiscard]] ID3D12RootSignature*  currentRootSig() const {
+        auto* l = m_currentPipeline ? m_currentPipeline->pipelineLayout() : nullptr;
+        return l ? l->handle() : nullptr;
     }
 
 private:

@@ -137,10 +137,10 @@ public:
         return &m_cpe;
     }
 
-    // BEST-EFFORT (untested on Windows): a render bundle is a BUNDLE-type command list, recorded
-    // by a render-pass encoder pointed at it, replayed via ExecuteBundle.
-    RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc&) override {
-        ID3D12Device* dev = m_device->handle();
+    RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& /*desc*/) override {
+        ComPtr<ID3D12Device> dev;
+        m_cmdList->GetDevice(IID_PPV_ARGS(&dev));
+        if (!dev) return nullptr;
         ComPtr<ID3D12CommandAllocator> alloc;
         if (FAILED(dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS(&alloc)))) return nullptr;
         ComPtr<ID3D12GraphicsCommandList> list;
@@ -150,8 +150,8 @@ public:
         // Bundles inherit the parent's descriptor heaps; bind matching heaps on the bundle.
         ensureDescriptorHeaps();
         ID3D12DescriptorHeap* heaps[2]; UINT n = 0;
-        if (m_gpuSrvHeap)     heaps[n++] = m_gpuSrvHeap->handle();
-        if (m_gpuSamplerHeap) heaps[n++] = m_gpuSamplerHeap->handle();
+        if (m_gpuSrvHeap)     heaps[n++] = m_gpuSrvHeap->heap();
+        if (m_gpuSamplerHeap) heaps[n++] = m_gpuSamplerHeap->heap();
         if (n > 0) list->SetDescriptorHeaps(n, heaps);
 
         DxRenderPassContext ctx = m_rpeCtx;
