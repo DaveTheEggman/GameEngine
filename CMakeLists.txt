@@ -44,7 +44,9 @@ target_compile_features(raptor_policy INTERFACE cxx_std_23)
 
 target_compile_definitions(raptor_policy INTERFACE
     $<$<CONFIG:Debug>:RAPTOR_DEBUG=1>
-    $<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:RAPTOR_RELEASE=1>)
+    $<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:RAPTOR_RELEASE=1>
+    # Instrumentation on in Debug/RelWithDebInfo; off (compiles to nothing) in shipping builds.
+    $<$<CONFIG:Debug,RelWithDebInfo>:RAPTOR_PROFILING=1>)
 
 target_compile_options(raptor_policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-fno-exceptions;-fno-rtti>
@@ -71,6 +73,7 @@ endif()
 # --- Targets -----------------------------------------------------------------
 add_subdirectory(ThirdParty)
 add_subdirectory(Code/Raptor/Core)
+add_subdirectory(Code/Raptor/Profiler)  # CPU scope profiler over Core (instrumented across the engine)
 add_subdirectory(Code/Raptor/Xml)       # DOM XML parser + writer over Core
 add_subdirectory(Code/Raptor/VFS)       # byte access over Core stream primitives
 add_subdirectory(Code/Raptor/Content)   # content database over Core + VFS
