@@ -96,9 +96,10 @@ namespace
                             * rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, 0.5f);
                 m_scene->SetLocalTransform(sun, st);
                 rd::LightComponent& sl = lights->Add(sun);
-                sl.type      = rd::LightType::Directional;
-                sl.color     = rc::Color{ 1.0f, 0.95f, 0.9f, 1.0f };
-                sl.intensity = 1.5f;
+                sl.type         = rd::LightType::Directional;
+                sl.color        = rc::Color{ 1.0f, 0.95f, 0.9f, 1.0f };
+                sl.intensity    = 1.5f;
+                sl.castsShadows = true;   // phase 5.1: the spheres cast shadows on the ground
             }
 
             // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).

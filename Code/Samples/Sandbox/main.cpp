@@ -89,6 +89,7 @@ namespace
                 kl.type = rd::LightType::Directional;
                 kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
                 kl.intensity = 0.12f;                       // very dim fill; the point lights dominate
+                kl.castsShadows = true;                     // phase 5.1 directional shadow caster
 
                 // A field of point lights hovering above the floor (X-Z grid) — the clustered
                 // light-culling demo. Each fragment only evaluates the lights in its froxel, so this
