@@ -467,7 +467,7 @@ public:
             // Per-(view, frame) slot — two views in one frame have different cluster buffers and
             // must not share a bind group (else it thrashes / frees a set still in flight).
             const u32 clusterSlot = ctx.viewIndex * m_framesInFlight + (ctx.frameIndex % m_framesInFlight);
-            clusterBG = EnsureClusterBindGroup(clusterSlot, ctx.cluster.offsets, ctx.cluster.lightIndices);
+            clusterBG = EnsureClusterBindGroup(clusterSlot, ctx.cluster.offsets, ctx.cluster.lightIndices, ctx.cluster.version);
         }
 
         const DynamicUniformRing::Range view = m_viewRing.Allocate();
@@ -876,9 +876,14 @@ private:
 
     // The set-3 bind group for a frame-in-flight slot, over the ClusterSystem's per-frame cluster
     // buffers. One per slot (the buffers alternate per frame) so a slot's group is stable.
-    rhi::BindGroup* EnsureClusterBindGroup(u32 slot, rhi::Buffer* offsets, rhi::Buffer* indices) {
+    // Rebuild when the cluster buffers' VERSION changes (the ClusterSystem bumps it on realloc).
+    // Pointer identity is NOT a safe "unchanged" test: a freed rhi::Buffer* address can be reused by
+    // the new allocation, so a stale bind group would point at a destroyed VkBuffer (use-after-free).
+    rhi::BindGroup* EnsureClusterBindGroup(u32 slot, rhi::Buffer* offsets, rhi::Buffer* indices, u32 version) {
         if (slot >= kMaxClusterSlots || offsets == nullptr || indices == nullptr) { return m_dummyClusterBG; }
-        if (m_clusterBGs[slot] != nullptr && m_clusterBGOffsets[slot] == offsets) { return m_clusterBGs[slot]; }
+        if (m_clusterBGs[slot] != nullptr && m_clusterBGOffsets[slot] == offsets && m_clusterBGVersion[slot] == version) {
+            return m_clusterBGs[slot];
+        }
         if (m_clusterBGs[slot] != nullptr) { m_device->DestroyBindGroup(m_clusterBGs[slot]); m_clusterBGs[slot] = nullptr; }
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(offsets, 0, offsets->desc.size),
@@ -889,6 +894,7 @@ private:
         bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 2 };
         if (!m_device->CreateBindGroup(bgd, m_clusterBGs[slot]).IsOk()) { m_clusterBGs[slot] = nullptr; return m_dummyClusterBG; }
         m_clusterBGOffsets[slot] = offsets;
+        m_clusterBGVersion[slot] = version;
         return m_clusterBGs[slot];
     }
 
@@ -983,6 +989,7 @@ private:
     rhi::BindGroup* m_dummyClusterBG      = nullptr;
     rhi::BindGroup* m_clusterBGs[kMaxClusterSlots] = {};
     rhi::Buffer*    m_clusterBGOffsets[kMaxClusterSlots] = {};
+    u32             m_clusterBGVersion[kMaxClusterSlots] = {};
 
     bool m_ready = false;
 };

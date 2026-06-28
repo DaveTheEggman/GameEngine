@@ -118,6 +118,10 @@ void main(uint3 dtid : SV_DispatchThreadID) {
 struct ClusterBinding {
     rhi::Buffer* offsets      = nullptr;   // uint2 per cluster: (indexStart, count)
     rhi::Buffer* lightIndices = nullptr;   // flat uint light-index list
+    // Bumped every time this slot's buffers are reallocated (resize). Consumers must invalidate any
+    // cached bind group on a version change — a freed rhi::Buffer* address can be REUSED by the new
+    // allocation, so pointer-equality is NOT a reliable "unchanged" test (use-after-free otherwise).
+    u32 version = 0;
     rendergraph::RGHandle offsetsHandle = {};   // graph handles so the forward pass can ReadBuffer them
     rendergraph::RGHandle indicesHandle = {};   // (orders the build write before the shading read)
     u32 gridX = 0, gridY = 0, sliceCount = 0, tileSize = 0;
@@ -251,6 +255,7 @@ public:
 
         binding.offsets = offsets;
         binding.lightIndices = indices;
+        binding.version = m_bufferVersion[bufferSlot];
         binding.offsetsHandle = offsetsH;
         binding.indicesHandle = indicesH;
         binding.gridX = gridX; binding.gridY = gridY; binding.sliceCount = kSliceCount; binding.tileSize = kTileSize;
@@ -297,6 +302,7 @@ private:
         if (!m_device->CreateBuffer(ibd, m_indices[bufferSlot]).IsOk()) { m_indices[bufferSlot] = nullptr; return false; }
         m_offsetsBytes[bufferSlot] = offsetsBytes;
         m_indicesBytes[bufferSlot] = indicesBytes;
+        ++m_bufferVersion[bufferSlot];   // signal consumers to rebuild cached bind groups (address may reuse)
         // The slot's bind group referenced the old buffers — drop it (GPU idle after WaitIdle).
         if (m_bindGroups[bufferSlot] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[bufferSlot]); m_bindGroups[bufferSlot] = nullptr; }
         m_bgOffsets[bufferSlot] = nullptr;
@@ -361,6 +367,7 @@ private:
     rhi::Buffer*           m_indices[kMaxBufferSlots] = {};      // per-(view,frame) flat light-index list
     u64                    m_offsetsBytes[kMaxBufferSlots] = {}; // size of each slot's buffers (views can differ)
     u64                    m_indicesBytes[kMaxBufferSlots] = {};
+    u32                    m_bufferVersion[kMaxBufferSlots] = {}; // ++ on realloc; consumers invalidate cached bind groups
 
     // One bind group per (view, frame) slot (each over its own buffers), so a slot's group is never
     // freed while still referenced by an in-flight frame.
