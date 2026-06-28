@@ -16,12 +16,14 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Profiler/Profiler.h"
 
 export module raptor.render:pipeline;
 
 import raptor.core;
 import raptor.rhi;
 import raptor.rendergraph;
+import raptor.profiler;
 import :data;
 import :views;
 import :cluster_system;
@@ -392,12 +394,17 @@ public:
             totalDraws += static_cast<u32>(m_views.At(i)->DrawList().Size());
         }
 
-        for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
-        if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
-        m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
+        {
+            RAPTOR_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
+            for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
+            if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
+            m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
+        }
 
         // Declare every view's forward pass into the one frame graph, then let the graph compile
         // (barriers + transient depth allocation/aliasing) + execute. (§9: one graph, all views.)
+        {
+        RAPTOR_PROFILE_SCOPE("Compose.Declare");   // build the frame graph (pass/resource declarations)
         if (m_views.ActiveCount() > 0) {
             m_graph.SetOutputSize(m_views.At(0)->Width(), m_views.At(0)->Height());
         }
@@ -448,7 +455,11 @@ public:
                                    v->TargetFormat(), cluster);
             }
         }
-        (void)m_graph.Execute(m_encoder);
+        }   // end Compose.Declare
+        {
+            RAPTOR_PROFILE_SCOPE("Compose.Execute");   // graph compile (barriers/transients) + record all passes
+            (void)m_graph.Execute(m_encoder);
+        }
 
         for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }
         m_encoder = nullptr;
