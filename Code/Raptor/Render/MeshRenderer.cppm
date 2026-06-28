@@ -47,7 +47,7 @@ cbuffer View : register(b0, space0) {
     row_major float4x4 ViewProj;   // Raptor matrices are row-major; annotate so HLSL reads them right.
     row_major float4x4 View;       // for view-space depth in the cluster lookup (PS only)
     float3 CameraPos; float LightCount;
-    uint   LightOffset; uint3 _viewPad;
+    uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
     float3 Ambient; float _ambPad;
@@ -104,7 +104,7 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;
     row_major float4x4 View;
     float3 CameraPos; float LightCount;
-    uint   LightOffset; uint3 _viewPad;
+    uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
     float3 Ambient; float _ambPad;
@@ -123,9 +123,11 @@ StructuredBuffer<uint>  ClusterLightIndices : register(t1, space3);
 
 // Maps a fragment's screen position + positive view-space depth to a linear cluster index.
 uint ClusterIndex(float2 screenPos, float viewDepth) {
-    uint tileX = (uint)screenPos.x / ClusterTileSize;
+    // SV_Position is in full-target pixels; the grid is viewport-local, so subtract the offset.
+    float2 local = screenPos - float2((float)ClusterVpX, (float)ClusterVpY);
+    uint tileX = (uint)local.x / ClusterTileSize;
     float screenH = (float)(ClusterGridY * ClusterTileSize);
-    uint tileY = (uint)((screenH - screenPos.y) / ClusterTileSize);   // flip Y (SV_Position y=0 at top)
+    uint tileY = (uint)((screenH - local.y) / ClusterTileSize);   // flip Y (SV_Position y=0 at top)
     tileX = min(tileX, ClusterGridX - 1);
     tileY = min(tileY, ClusterGridY - 1);
     float logDepth = log(max(viewDepth, ClusterNear));
@@ -380,6 +382,7 @@ public:
         if (ctx.cluster.Valid()) {
             vd.clusterGridX = ctx.cluster.gridX; vd.clusterGridY = ctx.cluster.gridY;
             vd.clusterSliceCount = ctx.cluster.sliceCount; vd.clusterTileSize = ctx.cluster.tileSize;
+            vd.clusterViewportX = ctx.cluster.viewportX; vd.clusterViewportY = ctx.cluster.viewportY;
             vd.clusterNear = ctx.cluster.nearZ; vd.clusterFar = ctx.cluster.farZ;
             vd.clusterLogScale = ctx.cluster.logScale; vd.clusterLogBias = ctx.cluster.logBias;
         }
@@ -424,7 +427,7 @@ private:
         Mat4 viewProj;                                   // 64
         Mat4 view;                                       // 64  (view-space depth for cluster lookup)
         Vec3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
-        u32  lightOffset; u32 pad0, pad1, pad2;          // 16
+        u32  lightOffset; i32 clusterViewportX, clusterViewportY; u32 pad0;   // 16 (cluster grid is viewport-local)
         u32  clusterGridX = 0, clusterGridY = 0, clusterSliceCount = 0, clusterTileSize = 0;   // 16
         f32  clusterNear = 0, clusterFar = 0, clusterLogScale = 0, clusterLogBias = 0;         // 16
         Vec3 ambient = Vec3{ 0, 0, 0 }; f32 ambientPad = 0;                                     // 16

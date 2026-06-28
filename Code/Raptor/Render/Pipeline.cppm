@@ -193,6 +193,8 @@ public:
         graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, frameIndex, viewIndex, cluster](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, rhi::LoadOp::Clear, rhi::StoreOp::Store, view.Settings().clear);
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+            // Render into this view's viewport sub-rect of the target (split-screen).
+            b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
             b.NeverCull();

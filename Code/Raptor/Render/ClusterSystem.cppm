@@ -121,6 +121,7 @@ struct ClusterBinding {
     rendergraph::RGHandle offsetsHandle = {};   // graph handles so the forward pass can ReadBuffer them
     rendergraph::RGHandle indicesHandle = {};   // (orders the build write before the shading read)
     u32 gridX = 0, gridY = 0, sliceCount = 0, tileSize = 0;
+    i32 viewportX = 0, viewportY = 0;      // grid is viewport-local; forward subtracts this from SV_Position
     f32 nearZ = 0.0f, farZ = 0.0f, logScale = 0.0f, logBias = 0.0f;
     [[nodiscard]] bool Valid() const noexcept { return offsets != nullptr && lightIndices != nullptr; }
 };
@@ -184,8 +185,10 @@ public:
         if (!m_ready || m_pipeline == nullptr || view.Width() == 0 || view.Height() == 0) { return binding; }
         if (viewIndex >= kMaxViewsPerFrame) { return binding; }   // beyond budget -> all-lights fallback
 
-        const u32 gridX = (view.Width()  + kTileSize - 1) / kTileSize;
-        const u32 gridY = (view.Height() + kTileSize - 1) / kTileSize;
+        // Grid covers the VIEWPORT (not the full target) in viewport-local screen space; the forward
+        // subtracts the viewport offset from SV_Position before tiling.
+        const u32 gridX = (view.ViewportWidth()  + kTileSize - 1) / kTileSize;
+        const u32 gridY = (view.ViewportHeight() + kTileSize - 1) / kTileSize;
         const u32 totalClusters = gridX * gridY * kSliceCount;
         if (totalClusters == 0) { return binding; }
 
@@ -251,6 +254,7 @@ public:
         binding.offsetsHandle = offsetsH;
         binding.indicesHandle = indicesH;
         binding.gridX = gridX; binding.gridY = gridY; binding.sliceCount = kSliceCount; binding.tileSize = kTileSize;
+        binding.viewportX = view.ViewportX(); binding.viewportY = view.ViewportY();
         binding.nearZ = nearZ; binding.farZ = farZ; binding.logScale = logScale; binding.logBias = logBias;
         return binding;
     }

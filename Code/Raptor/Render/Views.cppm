@@ -38,6 +38,9 @@ struct ViewCamera {
 // Per-view settings (grows with post config, layer mask, etc. in later phases).
 struct ViewSettings {
     rhi::ClearColor clear = rhi::ClearColor::CornflowerBlue();
+    // Viewport sub-rect within the target, in pixels (split-screen). Width 0 => the full target.
+    i32 viewportX = 0, viewportY = 0;
+    u32 viewportWidth = 0, viewportHeight = 0;
 };
 
 // A single view: what to draw (a shared ExtractedScene), from where (camera), into what
@@ -53,8 +56,13 @@ public:
         m_settings     = settings;
         m_target       = target;
         m_targetFormat = targetFormat;
-        m_width        = width;
+        m_width        = width;     // full target (color import + transient depth size)
         m_height       = height;
+        // Viewport sub-rect within the target (defaults to the whole target).
+        m_viewportX = (settings.viewportWidth > 0) ? settings.viewportX : 0;
+        m_viewportY = (settings.viewportWidth > 0) ? settings.viewportY : 0;
+        m_viewportW = (settings.viewportWidth  > 0) ? settings.viewportWidth  : width;
+        m_viewportH = (settings.viewportHeight > 0) ? settings.viewportHeight : height;
         m_drawList.Clear();
     }
 
@@ -97,8 +105,12 @@ public:
     [[nodiscard]] const ViewSettings&       Settings()    const noexcept { return m_settings; }
     [[nodiscard]] rhi::TextureView*         Target()      const noexcept { return m_target; }
     [[nodiscard]] rhi::TextureFormat        TargetFormat()const noexcept { return m_targetFormat; }
-    [[nodiscard]] u32                       Width()       const noexcept { return m_width; }
+    [[nodiscard]] u32                       Width()       const noexcept { return m_width; }   // full target
     [[nodiscard]] u32                       Height()      const noexcept { return m_height; }
+    [[nodiscard]] i32                       ViewportX()      const noexcept { return m_viewportX; }
+    [[nodiscard]] i32                       ViewportY()      const noexcept { return m_viewportY; }
+    [[nodiscard]] u32                       ViewportWidth()  const noexcept { return m_viewportW; }
+    [[nodiscard]] u32                       ViewportHeight() const noexcept { return m_viewportH; }
     [[nodiscard]] Span<const DrawItem>      DrawList()    const noexcept {
         return Span<const DrawItem>{ m_drawList.Data(), m_drawList.Size() };
     }
@@ -123,8 +135,12 @@ private:
     ViewSettings          m_settings;
     rhi::TextureView*     m_target        = nullptr;
     rhi::TextureFormat    m_targetFormat  = rhi::TextureFormat::BGRA8Unorm;
-    u32                   m_width         = 0;
+    u32                   m_width         = 0;   // full target size
     u32                   m_height        = 0;
+    i32                   m_viewportX     = 0;   // viewport sub-rect within the target
+    i32                   m_viewportY     = 0;
+    u32                   m_viewportW     = 0;
+    u32                   m_viewportH     = 0;
     Array<DrawItem>       m_drawList;   // per-view, owned (pooled storage)
 };
 
