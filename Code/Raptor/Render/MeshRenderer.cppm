@@ -212,11 +212,22 @@ float SampleLocalShadow(int idx, float3 worldPos) {
     return sum * (1.0 / 9.0);
 }
 
+// Pick a point light's cube face (0=+X,1=-X,2=+Y,3=-Y,4=+Z,5=-Z) from the light->fragment direction
+// — the dominant axis. Matches BuildPointShadowFace's face ordering.
+int CubeFace(float3 dir) {
+    float3 a = abs(dir);
+    if (a.x >= a.y && a.x >= a.z) { return dir.x > 0.0 ? 0 : 1; }
+    if (a.y >= a.z)               { return dir.y > 0.0 ? 2 : 3; }
+    return dir.z > 0.0 ? 4 : 5;
+}
+
 // Shadow attenuation for a shadowed light (caller checks shadowIndex >= 0): directional -> CSM,
-// spot/point -> the local atlas.
+// point -> the cube face of the atlas, spot -> the single atlas tile.
 float ShadowFactor(GpuLight L, float3 worldPos, float3 N, float viewDepth) {
-    if (L.type < 0.5) { return SampleCSM(worldPos, N, saturate(dot(N, -L.directionWS)), viewDepth); }
-    return SampleLocalShadow((int)LocalShadowBase + (int)L.shadowIndex, worldPos);
+    if (L.type < 0.5) { return SampleCSM(worldPos, N, saturate(dot(N, -L.directionWS)), viewDepth); }   // directional
+    int base = (int)LocalShadowBase + (int)L.shadowIndex;
+    if (L.type < 1.5) { return SampleLocalShadow(base + CubeFace(worldPos - L.positionWS), worldPos); } // point (6 faces)
+    return SampleLocalShadow(base, worldPos);                                                            // spot (1 tile)
 }
 
 // Clustered light culling (set 3): per-cluster (offset,count) + the flat light-index list. When

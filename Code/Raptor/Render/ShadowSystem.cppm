@@ -119,21 +119,17 @@ struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
     return AtlasTile{ (tileIndex % cols) * tileRes, (tileIndex / cols) * tileRes, tileRes, tileRes };
 }
 
-// Build a spot light's shadow entry: a perspective view-projection (fov = 2*outerAngle, looking down
-// the light direction) + the atlas scale/bias mapping its clip uv into tile `tileIndex`. The forward
+// Finish a local-shadow entry from a light-space view matrix + cone fov + assigned tile: builds the
+// perspective projection and the atlas scale/bias mapping its clip uv into `tileIndex`. The forward
 // shader does uv = ndc.xy*(0.5,-0.5)+0.5, then uv_atlas = uv*scale + offset.
-[[nodiscard]] inline GpuLocalShadow BuildSpotShadow(const LocalShadowCaster& c, u32 tileIndex,
-                                                    u32 atlasRes, u32 tileRes) {
+// Near plane scaled to the range: a tiny near (e.g. 0.05) wrecks perspective depth precision —
+// everything past a few units crams into ndc.z > 0.99 and occluder/receiver separation falls below
+// the depth bias (no shadow). range*0.05 keeps depth spread across the useful distances.
+[[nodiscard]] inline GpuLocalShadow MakeLocalShadow(const Mat4& view, f32 range, f32 fov,
+                                                    u32 tileIndex, u32 atlasRes, u32 tileRes) {
     GpuLocalShadow s;
-    const Vec3 dir   = Normalized(c.directionWS);
-    const Vec3 up    = (Abs(dir.y) > 0.95f) ? Vec3{ 0.0f, 0.0f, 1.0f } : Vec3{ 0.0f, 1.0f, 0.0f };
-    // Near plane scaled to the range: a tiny near (e.g. 0.05) wrecks perspective depth precision —
-    // everything past a few units crams into ndc.z > 0.99 and occluder/receiver separation falls
-    // below the depth bias (no shadow). range*0.05 keeps depth spread across the useful distances.
-    const f32  farZ  = Max(0.2f, c.range);
+    const f32  farZ  = Max(0.2f, range);
     const f32  nearZ = Max(0.2f, farZ * 0.05f);
-    const f32  fov   = Min(c.outerAngle * 2.0f + 0.05f, 3.0f);   // pad the cone a touch; keep < pi
-    const Mat4 view  = Mat4::LookAtRH(c.positionWS, c.positionWS + dir, up);
     const Mat4 proj  = Mat4::PerspectiveFovRH(fov, 1.0f, nearZ, farZ);
     s.viewProj = view * proj;
 
@@ -144,6 +140,31 @@ struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
                              static_cast<f32>(tileIndex % cols) * scale,
                              static_cast<f32>(tileIndex / cols) * scale };
     return s;
+}
+
+// A spot light's shadow entry: one perspective view (fov = 2*outerAngle) looking down the cone.
+[[nodiscard]] inline GpuLocalShadow BuildSpotShadow(const LocalShadowCaster& c, u32 tileIndex,
+                                                    u32 atlasRes, u32 tileRes) {
+    const Vec3 dir  = Normalized(c.directionWS);
+    const Vec3 up   = (Abs(dir.y) > 0.95f) ? Vec3{ 0.0f, 0.0f, 1.0f } : Vec3{ 0.0f, 1.0f, 0.0f };
+    const f32  fov  = Min(c.outerAngle * 2.0f + 0.05f, 3.0f);   // pad the cone a touch; keep < pi
+    const Mat4 view = Mat4::LookAtRH(c.positionWS, c.positionWS + dir, up);
+    return MakeLocalShadow(view, c.range, fov, tileIndex, atlasRes, tileRes);
+}
+
+// One cube face of a point light's shadow (face 0=+X,1=-X,2=+Y,3=-Y,4=+Z,5=-Z), a 90deg perspective
+// from the light position looking down that axis. The forward shader picks the face by the dominant
+// axis of (fragment - lightPos), so any consistent up works (it cancels in build+sample).
+[[nodiscard]] inline GpuLocalShadow BuildPointShadowFace(const LocalShadowCaster& c, u32 face,
+                                                         u32 tileIndex, u32 atlasRes, u32 tileRes) {
+    static const Vec3 kFaceDir[6] = { { 1,0,0 }, { -1,0,0 }, { 0,1,0 }, { 0,-1,0 }, { 0,0,1 }, { 0,0,-1 } };
+    const Vec3 dir  = kFaceDir[face < 6 ? face : 0];
+    const Vec3 up   = (face == 2) ? Vec3{ 0,0,-1 } : (face == 3) ? Vec3{ 0,0,1 } : Vec3{ 0,1,0 };  // ±Y can't use Y-up
+    const Mat4 view = Mat4::LookAtRH(c.positionWS, c.positionWS + dir, up);
+    // fov slightly WIDER than 90deg: the shader selects faces at the exact 45deg boundary, so a 90deg
+    // frustum would put boundary fragments at the tile EDGE and the PCF taps would fall off it / into
+    // the neighbour tile — a visible seam line. The pad (~100deg) pulls boundary uv inward off the edge.
+    return MakeLocalShadow(view, c.range, 1.745f /*~100deg*/, tileIndex, atlasRes, tileRes);
 }
 
 class ShadowSystem {

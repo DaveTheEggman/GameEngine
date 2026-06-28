@@ -495,16 +495,27 @@ public:
         rhi::TextureView* atlasView = nullptr;
         if (m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr) {
             const Span<const LocalShadowCaster> casters = primary->Scene()->LocalShadowCasters();
-            const u32 cap = Min(static_cast<u32>(casters.Size()), m_shadows->AtlasTileCapacity());
-            if (cap > 0) { atlasView = m_shadows->PrepareAtlas(m_frameIndex); }
+            const u32 capacity = m_shadows->AtlasTileCapacity();
+            if (!casters.IsEmpty()) { atlasView = m_shadows->PrepareAtlas(m_frameIndex); }
             if (atlasView != nullptr) {
                 const u32 atlasRes = m_shadows->AtlasResolution();
                 const u32 tileRes  = m_shadows->AtlasTileResolution();
-                for (u32 i = 0; i < cap; ++i) {
-                    const GpuLocalShadow s = BuildSpotShadow(casters[i], i, atlasRes, tileRes);
-                    const AtlasTile      t = AtlasTileRect(i, atlasRes, tileRes);
-                    m_localShadows.PushBack(s);
-                    m_localTiles.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h });
+                // Spot = 1 tile, point = 6 cube faces. The running `tile` base must match the
+                // shadowIndex extraction assigned (same caster order, same per-type tile counts).
+                u32 tile = 0;
+                for (usize i = 0; i < casters.Size(); ++i) {
+                    const LocalShadowCaster& c = casters[i];
+                    const u32 need = (c.type == 1u /*point*/) ? 6u : 1u;
+                    if (tile + need > capacity) { break; }
+                    for (u32 f = 0; f < need; ++f) {
+                        const u32 ti = tile + f;
+                        const GpuLocalShadow s = (need == 6u) ? BuildPointShadowFace(c, f, ti, atlasRes, tileRes)
+                                                              : BuildSpotShadow(c, ti, atlasRes, tileRes);
+                        const AtlasTile t = AtlasTileRect(ti, atlasRes, tileRes);
+                        m_localShadows.PushBack(s);
+                        m_localTiles.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h });
+                    }
+                    tile += need;
                 }
             }
         }

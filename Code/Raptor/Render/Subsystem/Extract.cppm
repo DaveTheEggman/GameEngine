@@ -138,7 +138,7 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
     auto* lights = scene.GetSystem<LightComponentManager>();
     if (lights == nullptr) { return; }
     bool haveShadow = false;
-    u32  localShadowCount = 0;   // assigns each spot/point caster's shadowIndex (into the atlas buffer)
+    u32  localTileCount = 0;   // atlas tiles used so far (spot = 1, point = 6); the next caster's base
     lights->ForEach([&](LightComponent& lc, scene::EntityHandle e) {
         if (!lc.enabled) { return; }
         const Mat4 world = scene.GetWorldMatrix(e);
@@ -160,12 +160,13 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
             ds.valid     = true;
             out.SetDirectionalShadow(ds);
         }
-        // Spot shadow casters (5.3a): assign the shadowIndex (into the local-shadow atlas buffer) here
-        // and register the caster; the ShadowSystem builds its tile + perspective matrix at frame time.
-        // (Point lights — 5.3b — will expand to 6 cube faces.) Capped at the atlas tile budget.
-        const bool localCaster = lc.castsShadows && lc.type == LightType::Spot;
-        if (localCaster && localShadowCount < kMaxLocalShadowCasters) {
-            g.shadowIndex = static_cast<f32>(localShadowCount);   // index into the GpuLocalShadow buffer
+        // Local (spot/point) shadow casters (5.3): assign shadowIndex = the caster's BASE atlas tile
+        // here, then register it; the ShadowSystem builds the perspective matrix/matrices at frame
+        // time. A spot uses 1 tile, a point 6 (cube faces). Capped at the atlas tile budget.
+        const bool localCaster = lc.castsShadows && (lc.type == LightType::Spot || lc.type == LightType::Point);
+        const u32  tilesNeeded = (lc.type == LightType::Point) ? 6u : 1u;
+        if (localCaster && localTileCount + tilesNeeded <= kMaxLocalShadowTiles) {
+            g.shadowIndex = static_cast<f32>(localTileCount);    // base tile into the GpuLocalShadow buffer
             LocalShadowCaster c;
             c.type        = static_cast<u32>(lc.type);
             c.positionWS  = g.positionWS;
@@ -173,7 +174,7 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
             c.range       = lc.range;
             c.outerAngle  = lc.outerAngle;
             out.AddLocalShadowCaster(c);
-            ++localShadowCount;
+            localTileCount += tilesNeeded;
         }
         out.AddLight(g);
     });

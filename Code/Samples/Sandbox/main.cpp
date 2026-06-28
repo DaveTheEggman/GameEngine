@@ -121,7 +121,7 @@ namespace
                 kl.type = rd::LightType::Directional;
                 kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
                 kl.intensity = 0.5f;                        // key light: bright enough that its shadow reads
-                kl.castsShadows = true;                     // directional CSM caster (phase 5.2) + spot atlas (5.3a)
+                kl.castsShadows = true;                     // directional CSM (5.2) + spot (5.3a) + point cube (5.3b)
 
                 // A field of point lights hovering above the floor (X-Z grid) — the clustered
                 // light-culling demo. Each fragment only evaluates the lights in its froxel, so this
@@ -160,6 +160,17 @@ namespace
                 sl.innerAngle   = 0.55f;
                 sl.outerAngle   = 0.75f;                                   // wide cone: cover both the box + sphere rows
                 sl.castsShadows = true;                                     // spot atlas shadow caster (5.3a)
+
+                // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
+                // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
+                sc::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
+                m_scene->SetLocalPosition(pt, rc::Vec3{ 4.0f, -2.0f, 13.0f });
+                rd::LightComponent& pls = lights->Add(pt);
+                pls.type         = rd::LightType::Point;
+                pls.color        = rc::Color{ 0.5f, 1.0f, 0.6f, 1.0f };     // green, distinct from the warm spot
+                pls.intensity    = 40.0f;
+                pls.range        = 16.0f;
+                pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
             }
 
             rc::ConsoleWrite(u8"Sandbox: split-screen — same scene from two cameras, 18 clustered "

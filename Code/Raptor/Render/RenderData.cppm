@@ -131,10 +131,10 @@ struct LocalShadowCaster {
     f32  outerAngle  = 0.6f;              // spot cone half-angle (radians); fov = 2 * outerAngle
 };
 
-// Max local (spot/point) shadow casters per frame — the atlas tile budget. Extraction assigns each
-// caster's shadowIndex (0-based, into the GpuLocalShadow buffer) and caps at this; the ShadowSystem's
-// atlas must hold at least this many tiles. (Point lights consume 6 each in 5.3b.)
-inline constexpr u32 kMaxLocalShadowCasters = 16;
+// Atlas tile budget for local (spot/point) shadows per frame. A spot consumes 1 tile, a point 6
+// (cube faces). Extraction assigns each caster's shadowIndex = its BASE tile (0-based, into the
+// GpuLocalShadow buffer) and caps total tiles here; the ShadowSystem's atlas must hold this many.
+inline constexpr u32 kMaxLocalShadowTiles = 16;
 
 // A per-view draw entry: a sort key (computed against the view's camera) + the shared
 // render data it refers to. The per-view draw list is an Array<DrawItem> the renderer sorts
