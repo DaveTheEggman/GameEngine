@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure (Clang)",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--preset", "clang"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "build/clang"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Clean Build",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "build/clang", "--clean-first"],
+            "group": "build",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "ctest",
+            "args": ["--test-dir", "build/clang", "--output-on-failure"],
+            "group": "test",
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,27 @@
+{
+    // CMake Tools — use the clang preset (works on both Linux and Windows)
+    "cmake.configureOnOpen": false,
+    "cmake.configureSettings": {},
+
+    // clangd
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build/clang",
+        "--background-index",
+        "--clang-tidy=false",
+        "--header-insertion=never"
+    ],
+
+    // Disable the Microsoft C/C++ IntelliSense in favor of clangd
+    "C_Cpp.intelliSenseEngine": "disabled",
+
+    // Files
+    "files.associations": {
+        "*.cppm": "cpp"
+    },
+    "files.exclude": {
+        "build": true,
+        ".claude": true
+    },
+
+    "editor.formatOnSave": false
+}
