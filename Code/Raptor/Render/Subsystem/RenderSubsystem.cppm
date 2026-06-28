@@ -128,10 +128,18 @@ protected:
         if (!m_meshRenderer->Initialize().IsOk()) { m_meshRenderer.Reset(); return; }
         m_registry.Register(m_meshRenderer.Get());
 
+        // Debug toggles: flip to false to isolate a subsystem (e.g. bisecting a rendering bug). When
+        // off, the renderer falls back gracefully — clustering off => the shader's all-lights path;
+        // shadows off => unshadowed. Kept as compile-time flags (zero cost when on).
+        constexpr bool kEnableClusters = true;
+        constexpr bool kEnableShadows  = true;
+
         // Clustered light culling: a build compute pass per view (declared into the frame graph by
         // RenderFrame). Optional — if it fails to init, the renderer runs without clustering.
-        m_clusterSystem = MakeUnique<ClusterSystem>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
-        if (!m_clusterSystem->Initialize().IsOk()) { m_clusterSystem.Reset(); }
+        if (kEnableClusters) {
+            m_clusterSystem = MakeUnique<ClusterSystem>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+            if (!m_clusterSystem->Initialize().IsOk()) { m_clusterSystem.Reset(); }
+        }
 
         // HDR resolve: forward renders linear HDR, this pass tonemaps to the LDR target. Optional —
         // if it fails to init, the renderer falls back to writing the LDR target directly.
@@ -139,8 +147,10 @@ protected:
         if (!m_tonemapPass->Initialize().IsOk()) { m_tonemapPass.Reset(); }
 
         // Directional shadow map (phase 5). Optional — if it fails to init, the scene renders unshadowed.
-        m_shadowSystem = MakeUnique<ShadowSystem>(DefaultAllocator(), *m_device, m_framesInFlight);
-        if (!m_shadowSystem->Initialize().IsOk()) { m_shadowSystem.Reset(); }
+        if (kEnableShadows) {
+            m_shadowSystem = MakeUnique<ShadowSystem>(DefaultAllocator(), *m_device, m_framesInFlight);
+            if (!m_shadowSystem->Initialize().IsOk()) { m_shadowSystem.Reset(); }
+        }
 
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
                                           m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get());
