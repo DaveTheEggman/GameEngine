@@ -35,6 +35,12 @@ struct ViewCamera {
     [[nodiscard]] Mat4 ViewProjection() const noexcept { return view * projection; }
 };
 
+// A viewport sub-rect within a render target, in pixels. Width 0 => the full target.
+struct ViewportRect {
+    i32 x = 0, y = 0;
+    u32 width = 0, height = 0;
+};
+
 // Per-view settings (grows with post config, layer mask, etc. in later phases).
 struct ViewSettings {
     rhi::ClearColor clear = rhi::ClearColor::CornflowerBlue();

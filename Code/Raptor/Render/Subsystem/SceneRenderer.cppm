@@ -53,8 +53,10 @@ public:
     // Collect `scene`, viewed from its primary camera (or `cameraOverride` if given), to be
     // drawn into `target`. The view's clear color comes from that camera. Must be called
     // between Begin/EndRendering.
+    // `viewport` is the sub-rect of `target` to render into (default = full target); pass distinct
+    // viewports + camera overrides across multiple RenderScene calls for split-screen.
     virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
-                             u32 width, u32 height,
+                             u32 width, u32 height, ViewportRect viewport = {},
                              const CameraOverride* cameraOverride = nullptr) = 0;
 
     // Compose every collected view into the frame's encoder.

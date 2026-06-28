@@ -16,6 +16,7 @@ import raptor.runtime.defaultapp;     // DefaultApplication (scene + render subs
 import raptor.scene;
 import raptor.scene.subsystem;
 import raptor.render.subsystem;       // MeshComponent / CameraComponent + their managers
+import raptor.render;                  // ViewCamera / ViewportRect (split-screen overrides)
 import raptor.geometry;
 import raptor.materials;
 
@@ -109,7 +110,44 @@ namespace
                 }
             }
 
-            rc::ConsoleWrite(u8"Sandbox: a floor + two cube grids lit by 18 clustered point lights. Close to exit.\n");
+            rc::ConsoleWrite(u8"Sandbox: split-screen — same scene from two cameras, 18 clustered "
+                             u8"point lights. Close to exit.\n");
+        }
+
+        // Split-screen: render the one scene TWICE — left half from one camera, right half from
+        // another — into the same backbuffer. Exercises the full multi-view path (two RenderViews,
+        // two cluster builds, two viewports, first-clears-rest-loads) every frame.
+        void OnRenderWindow(rt::IApplicationHost& host, rt::FrameContext& frame) override
+        {
+            auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>();
+            if (m_scene == nullptr || render == nullptr || !render->IsReady() ||
+                frame.encoder == nullptr || frame.backbufferView == nullptr || frame.window == nullptr) {
+                return;
+            }
+            auto fmt = frame.window->Swap()->Format();
+            const rc::u32 halfW  = frame.width / 2;
+            const rc::f32 aspect = static_cast<rc::f32>(halfW) / static_cast<rc::f32>(frame.height);
+
+            auto makeCam = [&](rc::Vec3 eye) {
+                rd::ViewCamera vc;
+                vc.view       = rc::Mat4::LookAtRH(eye, rc::Vec3{ 0.0f, -2.0f, 0.0f }, rc::Vec3{ 0.0f, 1.0f, 0.0f });
+                vc.projection = rc::Mat4::PerspectiveFovRH(1.0472f, aspect, 0.1f, 1000.0f);
+                vc.position   = eye;
+                vc.farZ       = 1000.0f;
+                return vc;
+            };
+
+            rd::CameraOverride camL; camL.camera = makeCam(rc::Vec3{ -6.0f, 14.0f, 30.0f });
+            camL.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
+            rd::CameraOverride camR; camR.camera = makeCam(rc::Vec3{  6.0f, 14.0f, 30.0f });
+            camR.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
+
+            render->BeginRendering(*frame.encoder, frame.frameIndex);
+            render->RenderScene(*m_scene, frame.backbufferView, fmt, frame.width, frame.height,
+                                rd::ViewportRect{ 0, 0, halfW, frame.height }, &camL);
+            render->RenderScene(*m_scene, frame.backbufferView, fmt, frame.width, frame.height,
+                                rd::ViewportRect{ static_cast<rc::i32>(halfW), 0, frame.width - halfW, frame.height }, &camR);
+            render->EndRendering();
         }
 
         void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override

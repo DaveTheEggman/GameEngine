@@ -239,14 +239,17 @@ private:
             i = j;
         }
 
-        // EMIT into bundles.
+        // EMIT into bundles. The bundle records its viewport up front (Vulkan secondaries / DX12
+        // bundles can't inherit it) — this view's sub-rect of the target, not the full target.
         rhi::RenderBundleDesc bd{};
         bd.colorFormats[0]    = view.TargetFormat();
         bd.colorFormatCount   = 1;
         bd.depthStencilFormat = m_depthFormat;
         bd.sampleCount        = 1;
-        bd.width              = view.Width();
-        bd.height             = view.Height();
+        bd.viewportX          = view.ViewportX();
+        bd.viewportY          = view.ViewportY();
+        bd.width              = view.ViewportWidth();
+        bd.height             = view.ViewportHeight();
         bd.label              = u8"forward.bundle";
 
         m_bundles.Clear();
