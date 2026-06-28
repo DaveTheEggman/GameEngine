@@ -68,7 +68,9 @@ export namespace raptor::runtime
             {
                 if (IWindow* main = m_platform->WindowManager()->MainWindow())
                 {
-                    auto rw = m_graphics->CreateRenderWindow(*main, RenderWindowDesc{});
+                    RenderWindowDesc mainDesc{};
+                    mainDesc.presentMode = m_settings.presentMode;   // honor the app's vsync choice
+                    auto rw = m_graphics->CreateRenderWindow(*main, mainDesc);
                     if (rw.HasValue()) { m_windows.PushBack(static_cast<rc::UniquePtr<RenderWindow>&&>(rw.Value())); }
                 }
             }

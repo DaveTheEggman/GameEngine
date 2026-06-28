@@ -16,6 +16,7 @@
 #include "Core/Prelude.h"
 
 import raptor.core;
+import raptor.rhi;                     // PresentMode (run the benchmark vsync-off)
 import raptor.runtime;
 import raptor.runtime.client;
 import raptor.runtime.platform;
@@ -30,6 +31,7 @@ import raptor.geometry;
 import raptor.materials;
 
 namespace rc  = raptor::core;
+namespace rhi = raptor::rhi;
 namespace rt  = raptor::runtime;
 namespace sc  = raptor::scene;
 namespace rd  = raptor::render;
@@ -45,6 +47,15 @@ namespace
         static constexpr rc::f32 kLookSens        = 0.003f;
 
     public:
+        // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
+        // refresh. The numbers tear visually — that's fine for a benchmark. Switch to Fifo to cap.
+        rt::ApplicationSettings Settings() const override
+        {
+            rt::ApplicationSettings s;
+            s.presentMode = rhi::PresentMode::Immediate;
+            return s;
+        }
+
         void OnStartup(rt::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();

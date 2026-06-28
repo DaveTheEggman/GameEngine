@@ -22,11 +22,13 @@ module;
 export module raptor.runtime.client:app;
 
 import raptor.core;
+import raptor.rhi;                // PresentMode for the main window's swapchain
 import raptor.runtime;
 import raptor.runtime.platform;
 import raptor.runtime.graphics;
 
-namespace rc = raptor::core;
+namespace rc  = raptor::core;
+namespace rhi = raptor::rhi;
 
 export namespace raptor::runtime
 {
@@ -34,6 +36,10 @@ export namespace raptor::runtime
     {
         rc::f32 fixedTimeStep = 1.0f / 60.0f; // seconds per fixed update
         rc::f32 maxFrameTime  = 0.25f;        // clamp per frame (avoids the spiral of death)
+        // Main-window present mode. Fifo (vsync) by default; Immediate/Mailbox uncap the frame
+        // rate — use those to measure true CPU/GPU throughput instead of the display-capped number.
+        // The host applies this when it creates the main window; runtime-opened windows set their own.
+        rhi::PresentMode presentMode = rhi::PresentMode::Fifo;
     };
 
     // The host as seen by the application: register subsystems via Ctx(), reach the
