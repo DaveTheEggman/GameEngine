@@ -111,12 +111,25 @@ export namespace raptor::runtime
                 for (auto& rw : m_windows)
                 {
                     rw->SyncSize();
-                    FrameContext frame = rw->BeginFrame();
+                    // Acquire BLOCKS the CPU until a swapchain image is free — under vsync (or a
+                    // GPU-bound frame) this is where the CPU waits for the display/GPU, so scope it
+                    // separately to tell a healthy present-wait from a real stall.
+                    FrameContext frame{};
+                    {
+                        RAPTOR_PROFILE_SCOPE("Render.Acquire");
+                        frame = rw->BeginFrame();
+                    }
                     if (!frame.valid) { continue; }
                     m_app->OnRenderWindow(*this, frame);
-                    rw->EndFrame(frame);
+                    {
+                        RAPTOR_PROFILE_SCOPE("Render.Present");   // record submit + queue present
+                        rw->EndFrame(frame);
+                    }
                 }
-                m_graphics->AdvanceFrame();
+                {
+                    RAPTOR_PROFILE_SCOPE("Render.Advance");   // ring step; may wait on the frame fence
+                    m_graphics->AdvanceFrame();
+                }
             }
 
             m_context.EndFrame();

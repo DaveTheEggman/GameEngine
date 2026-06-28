@@ -67,6 +67,7 @@ public:
     // ---- ISceneRenderer ----
 
     void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) override {
+        RAPTOR_PROFILE_SCOPE("Render.Begin");
         if (m_frame.Get() == nullptr) { return; }
         m_sceneCount = 0;
         // Provision per-worker extraction arenas for this frame (one per job-system slot, or a
@@ -102,7 +103,10 @@ public:
         settings.targetTexture = targetState.texture;
         settings.targetCurrentState = targetState.currentState;
         settings.targetFinalState = targetState.finalState;
-        m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height);
+        {
+            RAPTOR_PROFILE_SCOPE("Render.AddView");   // binds the view + builds/sorts its draw list
+            m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height);
+        }
     }
 
     void EndRendering() override {
