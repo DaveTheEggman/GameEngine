@@ -134,7 +134,12 @@ namespace
             }
             rhi::Device& device = *gfx->Raw();
             auto fmt = frame.window->Swap()->Format();
-            if (!EnsureOffscreen(device, fmt, frame.width, frame.height)) { return; }
+            // One offscreen per frame-in-flight: frame N+1 must not render into the target frame N's
+            // blit still reads. (A single shared offscreen across in-flight frames races on resize.)
+            const rc::u32 slot = frame.frameIndex < kOffscreenSlots ? frame.frameIndex : 0u;
+            if (!EnsureOffscreen(device, fmt, frame.width, frame.height, slot)) { return; }
+            rhi::Texture*     offTex  = m_offscreenTex[slot];
+            rhi::TextureView* offView = m_offscreenView[slot];
 
             const rc::u32 halfW  = frame.width / 2;
             const rc::f32 aspect = static_cast<rc::f32>(halfW) / static_cast<rc::f32>(frame.height);
@@ -155,38 +160,39 @@ namespace
             camR.camera = (m_controlledView == 1) ? flyCam : makeCam(rc::Vec3{  6.0f, 14.0f, 30.0f }, rc::Vec3{ 0.0f, -2.0f, 0.0f });
             camR.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
 
-            // Render both views into the offscreen texture; the graph leaves it in CopySrc.
-            rd::TargetState ts{ m_offscreenTex, m_offscreenState, rhi::ResourceState::CopySrc };
+            // Render both views into this slot's offscreen texture; the graph leaves it in CopySrc.
+            rd::TargetState ts{ offTex, m_offscreenState[slot], rhi::ResourceState::CopySrc };
             render->BeginRendering(*frame.encoder, frame.frameIndex);
-            render->RenderScene(*m_scene, m_offscreenView, fmt, frame.width, frame.height,
+            render->RenderScene(*m_scene, offView, fmt, frame.width, frame.height,
                                 rd::ViewportRect{ 0, 0, halfW, frame.height }, &camL, ts);
-            render->RenderScene(*m_scene, m_offscreenView, fmt, frame.width, frame.height,
+            render->RenderScene(*m_scene, offView, fmt, frame.width, frame.height,
                                 rd::ViewportRect{ static_cast<rc::i32>(halfW), 0, frame.width - halfW, frame.height }, &camR, ts);
             render->EndRendering();
-            m_offscreenState = rhi::ResourceState::CopySrc;
+            m_offscreenState[slot] = rhi::ResourceState::CopySrc;
 
             // Blit the offscreen result onto the backbuffer (the host then presents it).
             frame.encoder->TransitionTexture(frame.backbuffer, rhi::ResourceState::RenderTarget, rhi::ResourceState::CopyDst);
-            frame.encoder->Blit(m_offscreenTex, frame.backbuffer);
+            frame.encoder->Blit(offTex, frame.backbuffer);
             frame.encoder->TransitionTexture(frame.backbuffer, rhi::ResourceState::CopyDst, rhi::ResourceState::RenderTarget);
         }
 
-        // Create (or resize) the offscreen color target the scene renders into.
-        bool EnsureOffscreen(rhi::Device& device, rhi::TextureFormat fmt, rc::u32 w, rc::u32 h)
+        // Create (or resize) one frame-slot's offscreen color target. Each slot tracks its own size,
+        // so a resize lazily recreates each slot as it next renders.
+        bool EnsureOffscreen(rhi::Device& device, rhi::TextureFormat fmt, rc::u32 w, rc::u32 h, rc::u32 slot)
         {
-            if (m_offscreenTex != nullptr && m_offscreenW == w && m_offscreenH == h) { return true; }
+            if (m_offscreenTex[slot] != nullptr && m_offscreenW[slot] == w && m_offscreenH[slot] == h) { return true; }
             device.WaitIdle();
-            if (m_offscreenView != nullptr) { device.DestroyTextureView(m_offscreenView); m_offscreenView = nullptr; }
-            if (m_offscreenTex  != nullptr) { device.DestroyTexture(m_offscreenTex);       m_offscreenTex  = nullptr; }
+            if (m_offscreenView[slot] != nullptr) { device.DestroyTextureView(m_offscreenView[slot]); m_offscreenView[slot] = nullptr; }
+            if (m_offscreenTex[slot]  != nullptr) { device.DestroyTexture(m_offscreenTex[slot]);       m_offscreenTex[slot]  = nullptr; }
 
             rhi::TextureDesc td{};
             td.format = fmt; td.width = w; td.height = h;
             td.usage  = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled | rhi::TextureUsage::CopySrc;
             td.label  = u8"sandbox.offscreen";
-            if (!device.CreateTexture(td, m_offscreenTex).IsOk()) { m_offscreenTex = nullptr; return false; }
+            if (!device.CreateTexture(td, m_offscreenTex[slot]).IsOk()) { m_offscreenTex[slot] = nullptr; return false; }
             rhi::TextureViewDesc vd{}; vd.format = fmt;
-            if (!device.CreateTextureView(m_offscreenTex, vd, m_offscreenView).IsOk()) { m_offscreenView = nullptr; return false; }
-            m_offscreenW = w; m_offscreenH = h; m_offscreenState = rhi::ResourceState::Undefined;
+            if (!device.CreateTextureView(m_offscreenTex[slot], vd, m_offscreenView[slot]).IsOk()) { m_offscreenView[slot] = nullptr; return false; }
+            m_offscreenW[slot] = w; m_offscreenH[slot] = h; m_offscreenState[slot] = rhi::ResourceState::Undefined;
             return true;
         }
 
@@ -229,9 +235,11 @@ namespace
         {
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
                 rhi::Device& device = *gfx->Raw();
-                device.WaitIdle();   // GPU must finish before freeing the offscreen target
-                if (m_offscreenView != nullptr) { device.DestroyTextureView(m_offscreenView); m_offscreenView = nullptr; }
-                if (m_offscreenTex  != nullptr) { device.DestroyTexture(m_offscreenTex);       m_offscreenTex  = nullptr; }
+                device.WaitIdle();   // GPU must finish before freeing the offscreen targets
+                for (rc::u32 i = 0; i < kOffscreenSlots; ++i) {
+                    if (m_offscreenView[i] != nullptr) { device.DestroyTextureView(m_offscreenView[i]); m_offscreenView[i] = nullptr; }
+                    if (m_offscreenTex[i]  != nullptr) { device.DestroyTexture(m_offscreenTex[i]);       m_offscreenTex[i]  = nullptr; }
+                }
             }
             rc::ConsoleWrite(u8"Sandbox: shutting down.\n");
         }
@@ -287,10 +295,12 @@ namespace
     private:
         sc::Scene*                  m_scene = nullptr;
         sc::EntityHandle            m_camera{};
-        rhi::Texture*               m_offscreenTex   = nullptr;   // scene renders here, then we blit it
-        rhi::TextureView*           m_offscreenView  = nullptr;
-        rhi::ResourceState          m_offscreenState = rhi::ResourceState::Undefined;
-        rc::u32                     m_offscreenW = 0, m_offscreenH = 0;
+        // Offscreen render target, double-buffered per frame-in-flight (each slot tracks its own size).
+        static constexpr rc::u32    kOffscreenSlots = 3;
+        rhi::Texture*               m_offscreenTex[kOffscreenSlots]   = {};
+        rhi::TextureView*           m_offscreenView[kOffscreenSlots]  = {};
+        rhi::ResourceState          m_offscreenState[kOffscreenSlots] = { rhi::ResourceState::Undefined, rhi::ResourceState::Undefined, rhi::ResourceState::Undefined };
+        rc::u32                     m_offscreenW[kOffscreenSlots] = {}, m_offscreenH[kOffscreenSlots] = {};
         rc::Array<sc::EntityHandle> m_pointLights;
         rc::Array<rc::Vec3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
