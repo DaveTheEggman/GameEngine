@@ -54,6 +54,15 @@ export namespace raptor::rendergraph
             return Status{};
         }
 
+        // Reset the query set at the START of the frame's encoder — timestamps can only be written
+        // into a freshly-reset pool, and the reset must be outside any render pass.
+        void BeginFrame(rhi::CommandEncoder& encoder)
+        {
+            if (!m_initialized || !enabled) { return; }
+            encoder.ResetQuerySet(m_querySet, 0, static_cast<u32>(m_maxPasses * 2));
+            m_passNames.Clear();
+        }
+
         void BeginPass(rhi::CommandEncoder& encoder, i32 passIndex, StringView passName)
         {
             if (!m_initialized || !enabled || passIndex >= m_maxPasses) { return; }
@@ -68,12 +77,12 @@ export namespace raptor::rendergraph
             encoder.WriteTimestamp(m_querySet, static_cast<u32>(passIndex * 2 + 1));
         }
 
-        // Resolve queries into the readback buffer (call after recording all passes).
+        // Resolve queries into the readback buffer (call after recording all passes). The pool was
+        // already reset by BeginFrame, so this only copies the written timestamps out.
         void Resolve(rhi::CommandEncoder& encoder, i32 passCount)
         {
             if (!m_initialized || !enabled || passCount == 0) { return; }
             const u32 queryCount = static_cast<u32>(Min(passCount * 2, m_maxPasses * 2));
-            encoder.ResetQuerySet(m_querySet, 0, queryCount);
             encoder.ResolveQuerySet(m_querySet, 0, queryCount, m_readbackBuffer, 0);
         }
 

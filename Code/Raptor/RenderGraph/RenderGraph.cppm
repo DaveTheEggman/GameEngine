@@ -22,6 +22,7 @@ import :persistent_resource;
 import :pass;
 import :pass_builder;
 import :barrier_solver;
+import :profiler;
 import :transient_pool;
 
 using namespace raptor::core;
@@ -40,6 +41,20 @@ export namespace raptor::rendergraph
             const i32 slots = config.frameBufferCount > 0 ? config.frameBufferCount : 1;
             for (i32 i = 0; i < slots; ++i) { m_deferredDeletions.PushBack(Array<DeferredDeletion>{}); }
         }
+
+        // Turn on per-pass GPU timestamp profiling (lazy; needs the device). Idempotent.
+        void EnableGpuProfiling()
+        {
+            if (m_gpuProfiler.Get() != nullptr || m_device == nullptr) { return; }
+            m_gpuProfiler = MakeUnique<GraphProfiler>(DefaultAllocator());
+            if (!m_gpuProfiler->Init(*m_device).IsOk()) { m_gpuProfiler.Reset(); return; }
+            if (rhi::Queue* q = m_device->GetQueue(rhi::QueueType::Graphics)) { m_gpuProfiler->SetTimestampPeriod(q->TimestampPeriod()); }
+        }
+
+        // The GPU profiler (null if not enabled). Read its results after the GPU has finished (e.g.
+        // after WaitIdle on a P-key dump). `LastProfiledPassCount` is how many passes were timed.
+        [[nodiscard]] GraphProfiler* GpuProfiler() noexcept { return m_gpuProfiler.Get(); }
+        [[nodiscard]] i32 LastProfiledPassCount() const noexcept { return m_lastProfiledPassCount; }
 
         ~RenderGraph()
         {
@@ -95,6 +110,11 @@ export namespace raptor::rendergraph
 
             m_barrierSolver.Reset(ResourceSpan());
 
+            // GPU profiling: reset the timestamp pool up front (must be outside any render pass),
+            // then bracket each executed pass with begin/end timestamps.
+            if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->BeginFrame(*encoder); }
+            i32 profiledPassCount = 0;
+
             for (i32 passIdx : m_executionOrder)
             {
                 RenderGraphPass* pass = m_passes[static_cast<usize>(passIdx)];
@@ -102,6 +122,7 @@ export namespace raptor::rendergraph
                 if (static_cast<bool>(pass->condition) && !pass->condition()) { continue; }
 
                 encoder->BeginDebugLabel(pass->name.AsView());
+                if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->BeginPass(*encoder, profiledPassCount, pass->name.AsView()); }
                 m_barrierSolver.EmitBarriers(*pass, ResourceSpan(), *encoder);
 
                 switch (pass->type)
@@ -112,8 +133,11 @@ export namespace raptor::rendergraph
                 }
 
                 m_barrierSolver.EmitReadableAfterWriteBarriers(*pass, ResourceSpan(), *encoder);
+                if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->EndPass(*encoder, profiledPassCount); ++profiledPassCount; }
                 encoder->EndDebugLabel();
             }
+
+            if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->Resolve(*encoder, profiledPassCount); m_lastProfiledPassCount = profiledPassCount; }
 
             m_barrierSolver.EmitFinalTransitions(ResourceSpan(), *encoder);
             m_barrierSolver.UpdatePersistentStates(ResourceSpan());
@@ -791,6 +815,8 @@ export namespace raptor::rendergraph
         Array<RenderGraphPass*> m_passes;
         Array<i32> m_executionOrder;
         bool m_isCompiled = false;
+        UniquePtr<GraphProfiler> m_gpuProfiler;     // optional per-pass GPU timing
+        i32 m_lastProfiledPassCount = 0;
         BarrierSolver m_barrierSolver;
         UniquePtr<TransientTexturePool> m_texturePool;
         Array<Array<DeferredDeletion>> m_deferredDeletions;

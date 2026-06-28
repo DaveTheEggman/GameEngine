@@ -376,6 +376,13 @@ public:
         return view;
     }
 
+    // Turn on per-pass GPU timestamp profiling for the frame graph (idempotent).
+    void EnableGpuProfiling() { m_graph.EnableGpuProfiling(); }
+    // Append a per-pass GPU timing report (call only after the device is idle).
+    void ReadGpuProfile(String& out) {
+        if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
+    }
+
     // Compose all collected views into the frame's encoder.
     void End() {
         if (m_encoder == nullptr) { return; }

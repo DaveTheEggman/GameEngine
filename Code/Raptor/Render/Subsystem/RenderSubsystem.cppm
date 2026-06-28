@@ -122,6 +122,7 @@ protected:
 
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
                                           m_clusterSystem.Get(), m_tonemapPass.Get());
+        m_frame->EnableGpuProfiling();   // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
     void OnReady() override {
