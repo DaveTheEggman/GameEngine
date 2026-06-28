@@ -150,6 +150,12 @@ export namespace raptor::rendergraph
 
         // --- dependencies / flags ---
         PassBuilder& DependsOn(PassHandle pass) { m_pass->dependencies.PushBack(pass); return *this; }
+        // Override the pass's viewport + scissor (a sub-rect of the attachment, e.g. split-screen).
+        // Without it the pass covers the full attachment.
+        PassBuilder& SetViewport(i32 x, i32 y, u32 w, u32 h) {
+            m_pass->hasViewport = true; m_pass->viewportX = x; m_pass->viewportY = y;
+            m_pass->viewportW = w; m_pass->viewportH = h; return *this;
+        }
         PassBuilder& NeverCull() { m_pass->neverCull = true; return *this; }
         PassBuilder& HasSideEffects() { m_pass->hasSideEffects = true; return *this; }
         PassBuilder& EnableIf(Function<bool()> condition) { m_pass->condition = Move(condition); return *this; }

@@ -750,15 +750,18 @@ export namespace raptor::rendergraph
             }
 
             rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(rpDesc);
+            // Viewport/scissor: a per-pass override (split-screen sub-rect) if set, else the full
+            // attachment. Set here for bundle passes (bundles inherit it from the parent — WebGPU/
+            // DX12 can't set it inside a bundle); a plain execute callback may also rely on it.
+            i32 vpX = 0, vpY = 0; u32 vpW = 0, vpH = 0;
+            if (pass.hasViewport) { vpX = pass.viewportX; vpY = pass.viewportY; vpW = pass.viewportW; vpH = pass.viewportH; }
+            else { (void)PassRenderArea(pass, vpW, vpH); }
+            if (vpW > 0 && vpH > 0) {
+                rp->SetViewport(static_cast<f32>(vpX), static_cast<f32>(vpY), static_cast<f32>(vpW), static_cast<f32>(vpH));
+                rp->SetScissor(vpX, vpY, vpW, vpH);
+            }
             if (hasBundles) {
                 if (!bundles.IsEmpty()) {
-                    // Bundles inherit viewport/scissor from the parent pass — set a full-target
-                    // viewport + scissor here (the backend applies its own Y/coord convention).
-                    u32 areaW = 0, areaH = 0;
-                    if (PassRenderArea(pass, areaW, areaH)) {
-                        rp->SetViewport(0.0f, 0.0f, static_cast<f32>(areaW), static_cast<f32>(areaH));
-                        rp->SetScissor(0, 0, areaW, areaH);
-                    }
                     rp->ExecuteBundles(Span<rhi::RenderBundle* const>{ bundles.Data(), bundles.Size() });
                 }
             } else {

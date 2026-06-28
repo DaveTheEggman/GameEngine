@@ -98,6 +98,11 @@ export namespace raptor::rendergraph
         Optional<RGDepthTarget> depthTarget;
         Array<PassHandle> dependencies;
 
+        // --- optional per-pass viewport/scissor override (else the full attachment is used) ---
+        bool hasViewport = false;
+        i32  viewportX = 0, viewportY = 0;
+        u32  viewportW = 0, viewportH = 0;
+
         // --- compile flags ---
         bool isCulled = false;
         bool neverCull = false;

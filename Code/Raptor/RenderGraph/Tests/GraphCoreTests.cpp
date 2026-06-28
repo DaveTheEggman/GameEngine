@@ -82,3 +82,39 @@ TEST_CASE("rg.graph: reset keeps persistent, drops transient")
     CHECK(graph.GetResource(u8"Shadow").IsValid());
     CHECK_FALSE(graph.GetResource(u8"Temp").IsValid());
 }
+
+TEST_CASE("rg.graph: SetViewport records a per-pass viewport override")
+{
+    RenderGraph graph(nullptr);
+    graph.BeginFrame(0);
+    const RGHandle color = graph.CreateTransient(u8"Color", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
+
+    graph.AddRenderPass(u8"ViewportPass", [&](PassBuilder& b) {
+        b.SetColorTarget(0, color, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+        b.SetViewport(10, 20, 100, 200);
+        b.NeverCull();
+    });
+
+    REQUIRE(graph.Passes().Size() == 1u);
+    const RenderGraphPass* pass = graph.Passes()[0];
+    CHECK(pass->hasViewport);
+    CHECK(pass->viewportX == 10);
+    CHECK(pass->viewportY == 20);
+    CHECK(pass->viewportW == 100u);
+    CHECK(pass->viewportH == 200u);
+}
+
+TEST_CASE("rg.graph: a pass without SetViewport has no viewport override (full attachment)")
+{
+    RenderGraph graph(nullptr);
+    graph.BeginFrame(0);
+    const RGHandle color = graph.CreateTransient(u8"Color", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
+
+    graph.AddRenderPass(u8"FullPass", [&](PassBuilder& b) {
+        b.SetColorTarget(0, color, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+        b.NeverCull();
+    });
+
+    REQUIRE(graph.Passes().Size() == 1u);
+    CHECK_FALSE(graph.Passes()[0]->hasViewport);
+}
