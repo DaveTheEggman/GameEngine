@@ -7,7 +7,7 @@ add_library(Raptor::RenderSubsystem ALIAS RaptorRenderSubsystem)
 target_link_libraries(RaptorRenderSubsystem
     PUBLIC Raptor::Core Raptor::Scene Raptor::SceneSubsystem Raptor::Render Raptor::Runtime
            Raptor::Geometry Raptor::Materials Raptor::Shaders Raptor::ShaderSystem
-           Raptor::PipelineCache Raptor::Policy)
+           Raptor::PipelineCache Raptor::Profiler Raptor::Policy)
 
 target_sources(RaptorRenderSubsystem
     PUBLIC

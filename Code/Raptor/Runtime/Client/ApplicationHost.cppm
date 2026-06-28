@@ -18,6 +18,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Profiler/Profiler.h"
 
 export module raptor.runtime.client;
 
@@ -27,6 +28,7 @@ import raptor.core;
 import raptor.runtime;
 import raptor.runtime.platform;
 import raptor.runtime.graphics;
+import raptor.profiler;
 
 namespace rc = raptor::core;
 
@@ -82,23 +84,28 @@ export namespace raptor::runtime
         // passes wall-clock time; call directly for deterministic stepping.
         void Tick(rc::f32 deltaTime)
         {
+            RAPTOR_PROFILE_FRAME_BEGIN();
             m_context.BeginFrame(deltaTime);
 
-            m_accumulator += deltaTime;
-            while (m_accumulator >= m_settings.fixedTimeStep)
             {
-                m_context.FixedUpdate(m_settings.fixedTimeStep);
-                m_app->OnFixedUpdate(*this, m_settings.fixedTimeStep);
-                m_accumulator -= m_settings.fixedTimeStep;
-            }
+                RAPTOR_PROFILE_SCOPE("Update");
+                m_accumulator += deltaTime;
+                while (m_accumulator >= m_settings.fixedTimeStep)
+                {
+                    m_context.FixedUpdate(m_settings.fixedTimeStep);
+                    m_app->OnFixedUpdate(*this, m_settings.fixedTimeStep);
+                    m_accumulator -= m_settings.fixedTimeStep;
+                }
 
-            m_context.Update(deltaTime);
-            m_app->OnUpdate(*this, deltaTime);
-            m_context.PostUpdate(deltaTime);
+                m_context.Update(deltaTime);
+                m_app->OnUpdate(*this, deltaTime);
+                m_context.PostUpdate(deltaTime);
+            }
 
             // Render every window uniformly (main == windows[0]).
             if (m_graphics != nullptr)
             {
+                RAPTOR_PROFILE_SCOPE("Render");
                 for (auto& rw : m_windows)
                 {
                     rw->SyncSize();
@@ -112,6 +119,7 @@ export namespace raptor::runtime
 
             m_context.EndFrame();
             FlushPendingCloses();
+            RAPTOR_PROFILE_FRAME_END();
         }
 
         // Tear the application down: leave play, stop the Context, destroy windows.

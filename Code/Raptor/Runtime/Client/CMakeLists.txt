@@ -5,7 +5,7 @@ add_library(RaptorRuntimeClient STATIC)
 add_library(Raptor::RuntimeClient ALIAS RaptorRuntimeClient)
 
 target_link_libraries(RaptorRuntimeClient
-    PUBLIC Raptor::Runtime Raptor::RuntimePlatform Raptor::RuntimeGraphics Raptor::Policy)
+    PUBLIC Raptor::Runtime Raptor::RuntimePlatform Raptor::RuntimeGraphics Raptor::Profiler Raptor::Policy)
 
 target_sources(RaptorRuntimeClient
     PUBLIC

@@ -13,11 +13,13 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Profiler/Profiler.h"
 
 export module raptor.render.subsystem:subsystem;
 
 import raptor.core;
 import raptor.rhi;
+import raptor.profiler;
 import raptor.runtime;            // Subsystem, Context
 import raptor.scene;              // Scene, ISceneAware
 import raptor.scene.subsystem;    // SceneSubsystem (to register as scene-aware)
@@ -73,9 +75,12 @@ public:
         if (m_frame.Get() == nullptr || target == nullptr) { return; }
 
         ExtractedScene* snapshot = AcquireScene();
-        ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up (resets snapshot)
-        ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
-        ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
+        {
+            RAPTOR_PROFILE_SCOPE("Render.Extract");
+            ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up (resets snapshot)
+            ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
+            ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
+        }
 
         ViewCamera camera;
         Color clearColor{ 0.392f, 0.584f, 0.929f, 1.0f };     // cornflower fallback (no primary camera)
@@ -93,6 +98,7 @@ public:
     }
 
     void EndRendering() override {
+        RAPTOR_PROFILE_SCOPE("Render.Compose");
         if (m_frame.Get() != nullptr) { m_frame->End(); }
     }
 
