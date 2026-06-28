@@ -24,6 +24,7 @@ import raptor.rhi;
 import raptor.rendergraph;
 import :data;
 import :views;
+import :cluster_system;
 
 using namespace raptor::core;
 namespace rhi = raptor::rhi;
@@ -37,8 +38,11 @@ struct RenderRecordContext {
     const RenderView*          view        = nullptr;
     rhi::RenderCommandEncoder* pass        = nullptr;
     Mat4                       viewProj    = Mat4::Identity();
+    Mat4                       viewMatrix  = Mat4::Identity();   // for view-space depth (clustered shading)
     Vec3                       cameraPos   = Vec3{ 0, 0, 0 };
     Span<const GpuLight>       lights      = {};
+    ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
+    u32                        frameIndex  = 0;
     rhi::TextureFormat         colorFormat = rhi::TextureFormat::BGRA8Unorm;
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
 };
@@ -59,6 +63,7 @@ struct ResolvedDraw {
     u32                  drawOffset   = 0;
     bool                 drawDynamic  = false;
     rhi::BindGroup*      materialSet  = nullptr;   // set 2 (material — inferred from properties)
+    rhi::BindGroup*      clusterSet   = nullptr;   // set 3 (clustered light lists; dummy when off)
     rhi::Buffer*         vertexBuffer0 = nullptr;  u64 vertexOffset0 = 0;
     rhi::Buffer*         vertexBuffer1 = nullptr;  u64 vertexOffset1 = 0;   // optional instance stream
     rhi::Buffer*         indexBuffer  = nullptr;   u64 indexOffset = 0;
@@ -81,6 +86,7 @@ inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
         else               { enc.SetBindGroup(1, d.drawSet, Span<const u32>{}); }
     }
     if (d.materialSet != nullptr) { enc.SetBindGroup(2, d.materialSet, Span<const u32>{}); }   // material
+    if (d.clusterSet != nullptr) { enc.SetBindGroup(3, d.clusterSet, Span<const u32>{}); }     // cluster lists
     if (d.vertexBuffer0 != nullptr) { enc.SetVertexBuffer(0, d.vertexBuffer0, d.vertexOffset0); }
     if (d.vertexBuffer1 != nullptr) { enc.SetVertexBuffer(1, d.vertexBuffer1, d.vertexOffset1); }
     enc.SetIndexBuffer(d.indexBuffer, d.indexFormat, d.indexOffset);
@@ -171,7 +177,7 @@ public:
     // pass body is a render bundle the graph executes (secondary contents). Resolve + emit run in
     // the bundle callback at graph Execute time.
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
-                     rendergraph::RenderGraph& graph, u32 frameIndex) {
+                     rendergraph::RenderGraph& graph, u32 frameIndex, const ClusterBinding& cluster = {}) {
         rhi::TextureView* color = view.Target();
         if (color == nullptr || view.Width() == 0 || view.Height() == 0) { return; }
 
@@ -182,12 +188,14 @@ public:
         const rendergraph::RGHandle colorH = graph.ImportTarget(
             u8"forward.color", nullptr, color, rhi::ResourceState::RenderTarget, rhi::ResourceState::RenderTarget);
 
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, frameIndex](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, frameIndex, cluster](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, rhi::LoadOp::Clear, rhi::StoreOp::Store, view.Settings().clear);
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+            // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
+            if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, frameIndex](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, out);
+            b.SetBundleExecute([this, &view, &registry, frameIndex, cluster](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, cluster, out);
             });
         });
     }
@@ -197,12 +205,16 @@ private:
     // bundle(s) appended to `out` — serially below the threshold, else fanned out across the job
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
-                        rhi::CommandEncoder& encoder, u32 frameIndex, Array<rhi::RenderBundle*>& out) {
+                        rhi::CommandEncoder& encoder, u32 frameIndex, const ClusterBinding& cluster,
+                        Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = view.Camera().ViewProjection();
+        ctx.viewMatrix  = view.Camera().view;
         ctx.cameraPos   = view.Camera().position;
         ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
+        ctx.cluster     = cluster;
+        ctx.frameIndex  = frameIndex;
         ctx.colorFormat = view.TargetFormat();
         ctx.depthFormat = m_depthFormat;
 
@@ -328,8 +340,9 @@ private:
 // for the whole frame and composes every view. One driver, all views — no per-view object.
 class RenderFrame {
 public:
-    RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight) noexcept
-        : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device) {}
+    RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
+                ClusterSystem* clusters = nullptr) noexcept
+        : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device), m_clusters(clusters) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -359,6 +372,7 @@ public:
         }
 
         for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
+        if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
         m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
 
         // Declare every view's forward pass into the one frame graph, then let the graph compile
@@ -367,7 +381,11 @@ public:
             m_graph.SetOutputSize(m_views.At(0)->Width(), m_views.At(0)->Height());
         }
         for (usize i = 0; i < m_views.ActiveCount(); ++i) {
-            m_pass.DeclarePass(*m_views.At(i), *m_registry, m_graph, m_frameIndex);
+            // Cluster build (compute) declared before the view's forward pass so the graph orders
+            // the light-binning write ahead of the shading read; its binding feeds the forward pass.
+            ClusterBinding cluster;
+            if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *m_views.At(i), m_frameIndex); }
+            m_pass.DeclarePass(*m_views.At(i), *m_registry, m_graph, m_frameIndex, cluster);
         }
         (void)m_graph.Execute(m_encoder);
 
@@ -381,6 +399,7 @@ private:
     RendererRegistry*       m_registry;
     ForwardPass             m_pass;
     rendergraph::RenderGraph m_graph;       // one graph per frame, composes all views
+    ClusterSystem*          m_clusters = nullptr;   // borrowed; declares the per-view cluster build pass
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;

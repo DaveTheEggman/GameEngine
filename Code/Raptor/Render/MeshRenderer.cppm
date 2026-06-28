@@ -28,6 +28,7 @@ import raptor.materials.pso;
 import :data;
 import :views;
 import :pipeline;
+import :cluster_system;
 import :resources;
 import :mesh_gpu;
 
@@ -44,8 +45,11 @@ export namespace raptor::render {
 inline constexpr const char8_t* kForwardVS = u8R"(
 cbuffer View : register(b0, space0) {
     row_major float4x4 ViewProj;   // Raptor matrices are row-major; annotate so HLSL reads them right.
+    row_major float4x4 View;       // for view-space depth in the cluster lookup (PS only)
     float3 CameraPos; float LightCount;
     uint   LightOffset; uint3 _viewPad;
+    uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
+    float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
 };
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
@@ -97,8 +101,11 @@ VSOutput main(VSInput input) {
 inline constexpr const char8_t* kForwardPS = u8R"(
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;
+    row_major float4x4 View;
     float3 CameraPos; float LightCount;
     uint   LightOffset; uint3 _viewPad;
+    uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
+    float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -107,6 +114,23 @@ struct GpuLight {                            // matches render::GpuLight (64 byt
     float innerCos; float outerCos; float pad0; float pad1;
 };
 StructuredBuffer<GpuLight> Lights : register(t0, space0);
+// Clustered light culling (set 3): per-cluster (offset,count) + the flat light-index list. When
+// ClusterGridX == 0 (clustering unavailable) the shader falls back to looping all lights.
+StructuredBuffer<uint2> ClusterOffsets      : register(t0, space3);
+StructuredBuffer<uint>  ClusterLightIndices : register(t1, space3);
+
+// Maps a fragment's screen position + positive view-space depth to a linear cluster index.
+uint ClusterIndex(float2 screenPos, float viewDepth) {
+    uint tileX = (uint)screenPos.x / ClusterTileSize;
+    float screenH = (float)(ClusterGridY * ClusterTileSize);
+    uint tileY = (uint)((screenH - screenPos.y) / ClusterTileSize);   // flip Y (SV_Position y=0 at top)
+    tileX = min(tileX, ClusterGridX - 1);
+    tileY = min(tileY, ClusterGridY - 1);
+    float logDepth = log(max(viewDepth, ClusterNear));
+    int slice = (int)(logDepth * ClusterLogScale + ClusterLogBias);
+    slice = clamp(slice, 0, (int)ClusterSliceCount - 1);
+    return tileX + tileY * ClusterGridX + (uint)slice * ClusterGridX * ClusterGridY;
+}
 cbuffer Material : register(b0, space2) {    // data-driven PBR material (inferred from properties)
     float4 BaseColor;
     float  Metallic;
@@ -201,9 +225,22 @@ float4 main(PSInput input) : SV_Target {
     float3 F0        = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
 
     float3 Lo = float3(0.0, 0.0, 0.0);
-    uint count = (uint)LightCount;
-    for (uint i = 0; i < count; ++i) {
-        Lo += EvaluateLight(Lights[LightOffset + i], input.worldPos, N, V, albedo, roughness, metallic, F0);
+    if (ClusterGridX == 0) {
+        // Clustering unavailable — evaluate every light.
+        uint count = (uint)LightCount;
+        for (uint i = 0; i < count; ++i) {
+            Lo += EvaluateLight(Lights[LightOffset + i], input.worldPos, N, V, albedo, roughness, metallic, F0);
+        }
+    } else {
+        // Clustered — evaluate only the lights binned into this fragment's cluster.
+        float3 viewPos   = mul(float4(input.worldPos, 1.0), View).xyz;
+        float  viewDepth = -viewPos.z;
+        uint   cluster   = ClusterIndex(input.clip.xy, viewDepth);
+        uint2  oc = ClusterOffsets[cluster];
+        for (uint ci = 0; ci < oc.y; ++ci) {
+            uint li = ClusterLightIndices[oc.x + ci];
+            Lo += EvaluateLight(Lights[LightOffset + li], input.worldPos, N, V, albedo, roughness, metallic, F0);
+        }
     }
 
     float3 ambient = albedo * 0.05;                            // simple constant ambient (env/IBL in 4.4)
@@ -218,6 +255,7 @@ public:
                  u32 framesInFlight) noexcept
         : m_device(&device), m_shaders(&shaderSystem), m_psoCache(&psoCache),
           m_materials(&materialSystem), m_meshes(device),
+          m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight),
           m_viewRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.view"),
           m_objectRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.object"),
           m_instanceRing(device, framesInFlight, sizeof(InstanceData), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.instances"),
@@ -259,10 +297,19 @@ public:
         rhi::BindGroupLayoutEntry matEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment);
         if (!MakeLayout(matEntry, m_materialLayout)) { return Status{ ErrorCode::Unknown }; }
 
-        if (!MakePipelineLayout(m_viewLayout, m_objectLayout,   m_materialLayout, m_pipelineLayoutSingle))   { return Status{ ErrorCode::Unknown }; }
-        if (!MakePipelineLayout(m_viewLayout, m_instanceLayout, m_materialLayout, m_pipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
+        // set 3: clustered light lists — per-cluster (offset,count) SRV (t0) + flat index SRV (t1).
+        rhi::BindGroupLayoutEntry clOffEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+        rhi::BindGroupLayoutEntry clIdxEntry = rhi::BindGroupLayoutEntry::StorageBuffer(1, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+        rhi::BindGroupLayoutEntry set3[] = { clOffEntry, clIdxEntry };
+        rhi::BindGroupLayoutDesc s3d{};
+        s3d.entries = Span<const rhi::BindGroupLayoutEntry>{ set3, 2 };
+        if (!m_device->CreateBindGroupLayout(s3d, m_clusterLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
-        return CreateDefaultMaterial();
+        if (!MakePipelineLayout(m_viewLayout, m_objectLayout,   m_materialLayout, m_clusterLayout, m_pipelineLayoutSingle))   { return Status{ ErrorCode::Unknown }; }
+        if (!MakePipelineLayout(m_viewLayout, m_instanceLayout, m_materialLayout, m_clusterLayout, m_pipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
+
+        if (!CreateDefaultMaterial().IsOk()) { return Status{ ErrorCode::Unknown }; }
+        return CreateDummyClusters();
     }
 
     // ---- Renderer ----
@@ -309,13 +356,27 @@ public:
 
         // Per-view UBO (shared by every draw in this call): ViewProj + camera + light range. The
         // two pipeline layouts share set 0 (m_viewLayout), so the resolved binding is the same.
+        // The clustered light lists for this view (set 3). Empty binding -> dummy + ClusterGridX=0,
+        // which makes the shader fall back to looping all lights.
+        rhi::BindGroup* clusterBG = m_dummyClusterBG;
+        if (ctx.cluster.Valid()) {
+            clusterBG = EnsureClusterBindGroup(ctx.frameIndex % m_framesInFlight, ctx.cluster.offsets, ctx.cluster.lightIndices);
+        }
+
         const DynamicUniformRing::Range view = m_viewRing.Allocate();
         if (!view.ok) { return; }
         ViewData vd{};
         vd.viewProj    = ctx.viewProj;
+        vd.view        = ctx.viewMatrix;
         vd.cameraPos   = ctx.cameraPos;
         vd.lightCount  = static_cast<f32>(lightCount);
         vd.lightOffset = lightOffset;
+        if (ctx.cluster.Valid()) {
+            vd.clusterGridX = ctx.cluster.gridX; vd.clusterGridY = ctx.cluster.gridY;
+            vd.clusterSliceCount = ctx.cluster.sliceCount; vd.clusterTileSize = ctx.cluster.tileSize;
+            vd.clusterNear = ctx.cluster.nearZ; vd.clusterFar = ctx.cluster.farZ;
+            vd.clusterLogScale = ctx.cluster.logScale; vd.clusterLogBias = ctx.cluster.logBias;
+        }
         *static_cast<ViewData*>(view.ptr) = vd;
         const u32 viewOffset = view.byteOffset;
 
@@ -337,8 +398,8 @@ public:
 
             const GpuMesh* mesh = m_meshes.GetOrUpload(head->mesh);
             if (mesh != nullptr) {
-                if (runLen >= 2) { ResolveInstanced(ctx, viewOffset, items, i, runLen, *head, *mesh, out); }
-                else             { ResolveSingle(ctx, viewOffset, *head, *mesh, out); }
+                if (runLen >= 2) { ResolveInstanced(ctx, viewOffset, clusterBG, items, i, runLen, *head, *mesh, out); }
+                else             { ResolveSingle(ctx, viewOffset, clusterBG, *head, *mesh, out); }
             }
             i = j;
         }
@@ -353,10 +414,13 @@ public:
     }
 
 private:
-    struct ViewData {                                    // 96 (matches the View cbuffer)
+    struct ViewData {                                    // 192 (matches the View cbuffer)
         Mat4 viewProj;                                   // 64
+        Mat4 view;                                       // 64  (view-space depth for cluster lookup)
         Vec3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
         u32  lightOffset; u32 pad0, pad1, pad2;          // 16
+        u32  clusterGridX = 0, clusterGridY = 0, clusterSliceCount = 0, clusterTileSize = 0;   // 16
+        f32  clusterNear = 0, clusterFar = 0, clusterLogScale = 0, clusterLogBias = 0;         // 16
     };
     struct ObjectData   { Mat4 world; Color tint; };     // 80  (cbuffer Object: World + Tint)
     struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)
@@ -365,8 +429,8 @@ private:
     static constexpr u64 kViewSlot  = 256;               // dynamic UBO offset alignment
     static constexpr u32 kMaxLights = 256;               // per-view light budget (phase 4.1; clustered later)
 
-    void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, const MeshRenderData& md,
-                       const GpuMesh& mesh, Array<ResolvedDraw>& out) {
+    void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
+                       const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         materials::PipelineConfig config = ConfigFor(md, ctx, /*instanced*/ false);
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutSingle, ctx.colorFormat);
         if (pso == nullptr) { return; }
@@ -380,13 +444,15 @@ private:
         d.viewSet = m_viewBG;   d.viewOffset = viewOffset;     d.viewDynamic = true;   // set 0: view
         d.drawSet = m_objectBG; d.drawOffset = obj.byteOffset; d.drawDynamic = true;   // set 1: object UBO
         d.materialSet = MaterialBindGroup(md.material);                                // set 2: material
+        d.clusterSet = clusterBG;                                                      // set 3: cluster lists
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount; d.instanceCount = 1;
         out.PushBack(d);
     }
 
-    void ResolveInstanced(const RenderRecordContext& ctx, u32 viewOffset, Span<const DrawItem> items, usize first, u32 count,
+    void ResolveInstanced(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
+                          Span<const DrawItem> items, usize first, u32 count,
                           const MeshRenderData& head, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         materials::PipelineConfig config = ConfigFor(head, ctx, /*instanced*/ true);
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutInstanced, ctx.colorFormat);
@@ -409,6 +475,7 @@ private:
         d.viewSet = m_viewBG;     d.viewOffset = viewOffset; d.viewDynamic = true;     // set 0: view
         d.drawSet = m_instanceBG; d.drawDynamic = false;                               // set 1: instances (whole buffer)
         d.materialSet = MaterialBindGroup(head.material);                              // set 2: material
+        d.clusterSet = clusterBG;                                                      // set 3: cluster lists
         d.vertexBuffer0 = mesh.vertexBuffer;    d.vertexOffset0 = mesh.vertexOffset;
         d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;          // DataOffsets stream
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
@@ -433,10 +500,10 @@ private:
     }
 
     bool MakePipelineLayout(rhi::BindGroupLayout* set0, rhi::BindGroupLayout* set1, rhi::BindGroupLayout* set2,
-                            rhi::PipelineLayout*& out) {
-        rhi::BindGroupLayout* layouts[] = { set0, set1, set2 };
+                            rhi::BindGroupLayout* set3, rhi::PipelineLayout*& out) {
+        rhi::BindGroupLayout* layouts[] = { set0, set1, set2, set3 };
         rhi::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 3 };
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 4 };
         return m_device->CreatePipelineLayout(pld, out).IsOk();
     }
 
@@ -523,6 +590,42 @@ private:
         return true;
     }
 
+    // Tiny placeholder cluster buffers + a set-3 bind group over them, bound when clustering is
+    // unavailable. The shader's ClusterGridX==0 path never reads them, but set 3 must be bound.
+    Status CreateDummyClusters() {
+        rhi::BufferDesc obd{}; obd.size = sizeof(u32) * 2; obd.usage = rhi::BufferUsage::Storage; obd.memory = rhi::MemoryLocation::GpuOnly; obd.label = u8"cluster.dummyOffsets";
+        if (!m_device->CreateBuffer(obd, m_dummyClusterOffsets).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::BufferDesc ibd{}; ibd.size = sizeof(u32); ibd.usage = rhi::BufferUsage::Storage; ibd.memory = rhi::MemoryLocation::GpuOnly; ibd.label = u8"cluster.dummyIndices";
+        if (!m_device->CreateBuffer(ibd, m_dummyClusterIndices).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::BindGroupEntry entries[] = {
+            rhi::BindGroupEntry::BufferEntry(m_dummyClusterOffsets, 0, sizeof(u32) * 2),
+            rhi::BindGroupEntry::BufferEntry(m_dummyClusterIndices, 0, sizeof(u32)),
+        };
+        rhi::BindGroupDesc bgd{};
+        bgd.layout = m_clusterLayout;
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 2 };
+        if (!m_device->CreateBindGroup(bgd, m_dummyClusterBG).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        return Status{};
+    }
+
+    // The set-3 bind group for a frame-in-flight slot, over the ClusterSystem's per-frame cluster
+    // buffers. One per slot (the buffers alternate per frame) so a slot's group is stable.
+    rhi::BindGroup* EnsureClusterBindGroup(u32 slot, rhi::Buffer* offsets, rhi::Buffer* indices) {
+        if (slot >= kMaxFramesInFlight || offsets == nullptr || indices == nullptr) { return m_dummyClusterBG; }
+        if (m_clusterBGs[slot] != nullptr && m_clusterBGOffsets[slot] == offsets) { return m_clusterBGs[slot]; }
+        if (m_clusterBGs[slot] != nullptr) { m_device->DestroyBindGroup(m_clusterBGs[slot]); m_clusterBGs[slot] = nullptr; }
+        rhi::BindGroupEntry entries[] = {
+            rhi::BindGroupEntry::BufferEntry(offsets, 0, offsets->desc.size),
+            rhi::BindGroupEntry::BufferEntry(indices, 0, indices->desc.size),
+        };
+        rhi::BindGroupDesc bgd{};
+        bgd.layout = m_clusterLayout;
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 2 };
+        if (!m_device->CreateBindGroup(bgd, m_clusterBGs[slot]).IsOk()) { m_clusterBGs[slot] = nullptr; return m_dummyClusterBG; }
+        m_clusterBGOffsets[slot] = offsets;
+        return m_clusterBGs[slot];
+    }
+
     void Shutdown() {
         // Release material instances first (their dtors notify the still-live MaterialSystem).
         m_instances.Clear();
@@ -533,12 +636,19 @@ private:
         if (m_viewBG)     { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
+        for (u32 i = 0; i < kMaxFramesInFlight; ++i) {
+            if (m_clusterBGs[i] != nullptr) { m_device->DestroyBindGroup(m_clusterBGs[i]); m_clusterBGs[i] = nullptr; }
+        }
+        if (m_dummyClusterBG)      { m_device->DestroyBindGroup(m_dummyClusterBG); m_dummyClusterBG = nullptr; }
+        if (m_dummyClusterOffsets) { m_device->DestroyBuffer(m_dummyClusterOffsets); m_dummyClusterOffsets = nullptr; }
+        if (m_dummyClusterIndices) { m_device->DestroyBuffer(m_dummyClusterIndices); m_dummyClusterIndices = nullptr; }
         if (m_pipelineLayoutSingle)    { m_device->DestroyPipelineLayout(m_pipelineLayoutSingle); m_pipelineLayoutSingle = nullptr; }
         if (m_pipelineLayoutInstanced) { m_device->DestroyPipelineLayout(m_pipelineLayoutInstanced); m_pipelineLayoutInstanced = nullptr; }
         if (m_viewLayout)     { m_device->DestroyBindGroupLayout(m_viewLayout); m_viewLayout = nullptr; }
         if (m_objectLayout)   { m_device->DestroyBindGroupLayout(m_objectLayout); m_objectLayout = nullptr; }
         if (m_instanceLayout) { m_device->DestroyBindGroupLayout(m_instanceLayout); m_instanceLayout = nullptr; }
         if (m_materialLayout) { m_device->DestroyBindGroupLayout(m_materialLayout); m_materialLayout = nullptr; }
+        if (m_clusterLayout)  { m_device->DestroyBindGroupLayout(m_clusterLayout); m_clusterLayout = nullptr; }
         // rings free their buffers in their destructors (m_device still valid after this).
     }
 
@@ -547,11 +657,13 @@ private:
     materials::PipelineStateCache* m_psoCache;
     materials::MaterialSystem*     m_materials;
     GpuMeshCache                   m_meshes;
+    u32                            m_framesInFlight = 2;
 
     rhi::BindGroupLayout* m_viewLayout     = nullptr;
     rhi::BindGroupLayout* m_objectLayout   = nullptr;
     rhi::BindGroupLayout* m_instanceLayout = nullptr;
     rhi::BindGroupLayout* m_materialLayout = nullptr;
+    rhi::BindGroupLayout* m_clusterLayout  = nullptr;
     rhi::PipelineLayout*  m_pipelineLayoutSingle    = nullptr;
     rhi::PipelineLayout*  m_pipelineLayoutInstanced = nullptr;
 
@@ -573,6 +685,16 @@ private:
     // The set-0 bind group spans two rings (view UBO + light SB); rebuild it when either rolls over.
     u32 m_viewBGViewGen = 0, m_viewBGLightGen = 0;
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
+
+    // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise per-frame-in-
+    // flight bind groups over the ClusterSystem's alternating per-frame buffers.
+    static constexpr u32 kMaxFramesInFlight = 8;
+    rhi::Buffer*    m_dummyClusterOffsets = nullptr;
+    rhi::Buffer*    m_dummyClusterIndices = nullptr;
+    rhi::BindGroup* m_dummyClusterBG      = nullptr;
+    rhi::BindGroup* m_clusterBGs[kMaxFramesInFlight] = {};
+    rhi::Buffer*    m_clusterBGOffsets[kMaxFramesInFlight] = {};
+
     bool m_ready = false;
 };
 

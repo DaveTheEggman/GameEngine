@@ -19,6 +19,7 @@ target_sources(RaptorRender
             Pipeline.cppm
             MeshGpu.cppm
             MeshRenderer.cppm
+            ClusterSystem.cppm
             RenderModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

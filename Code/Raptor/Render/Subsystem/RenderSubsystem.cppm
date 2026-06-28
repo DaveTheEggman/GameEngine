@@ -102,7 +102,12 @@ protected:
         if (!m_meshRenderer->Initialize().IsOk()) { m_meshRenderer.Reset(); return; }
         m_registry.Register(m_meshRenderer.Get());
 
-        m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight);
+        // Clustered light culling: a build compute pass per view (declared into the frame graph by
+        // RenderFrame). Optional — if it fails to init, the renderer runs without clustering.
+        m_clusterSystem = MakeUnique<ClusterSystem>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+        if (!m_clusterSystem->Initialize().IsOk()) { m_clusterSystem.Reset(); }
+
+        m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight, m_clusterSystem.Get());
     }
 
     void OnReady() override {
@@ -118,6 +123,7 @@ protected:
         }
         m_device->WaitIdle();   // GPU must finish before we free its buffers/PSOs/descriptors
         m_frame.Reset();        // releases the forward pass's per-frame GPU resources
+        m_clusterSystem.Reset();// before the ShaderSystem it borrows
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
         m_psoCache.Reset();
@@ -145,6 +151,7 @@ private:
     UniquePtr<materials::PipelineStateCache>  m_psoCache;
     UniquePtr<materials::MaterialSystem>      m_materialSystem;
     UniquePtr<MeshRenderer>                   m_meshRenderer;
+    UniquePtr<ClusterSystem>                  m_clusterSystem;
     RendererRegistry                          m_registry;
     UniquePtr<RenderFrame>                    m_frame;
 

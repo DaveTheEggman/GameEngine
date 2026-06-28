@@ -19,3 +19,4 @@ export import :resources;
 export import :pipeline;
 export import :mesh_gpu;
 export import :mesh_renderer;
+export import :cluster_system;

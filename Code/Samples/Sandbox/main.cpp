@@ -47,11 +47,17 @@ namespace
                 cam.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit cubes read
             }
 
-            // Two side-by-side spinning grids, exercising BOTH draw paths every frame: the LEFT
-            // grid is instanced (one shared material -> a single instanced draw; the per-instance
-            // color supplies each cube's hue), the RIGHT grid is distinct (each cube its own
-            // material with a per-cube PBR matrix -> ~256 draws -> parallel command recording).
+            // A backdrop wall behind the grids (Quad normal = +Z) so the point lights cast visible
+            // pools on a flat surface, plus the two cube grids in front (instanced + distinct PBR).
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
+                sc::EntityHandle wall = m_scene->CreateEntity(u8"wall");
+                m_scene->SetLocalPosition(wall, rc::Vec3{ 0.0f, 0.0f, -1.5f });
+                rd::MeshComponent& wmc = meshes->Add(wall);
+                wmc.mesh = geo::Primitives::Quad(60.0f, 34.0f);
+                wmc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
+                    .Color(u8"BaseColor", rc::Vec4{ 0.55f, 0.55f, 0.58f, 1.0f })
+                    .Float(u8"Metallic", 0.0f).Float(u8"Roughness", 0.6f).Build();
+
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
                 BuildGrid(*meshes, cube, /*originX*/  8.0f, /*instanced*/ false);
@@ -66,19 +72,33 @@ namespace
                 m_scene->SetLocalTransform(key, kt);
                 rd::LightComponent& kl = lights->Add(key);
                 kl.type = rd::LightType::Directional;
-                kl.color = rc::Color{ 0.5f, 0.65f, 1.0f, 1.0f };
-                kl.intensity = 0.5f;                        // cool fill so the vivid albedo reads
+                kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
+                kl.intensity = 0.12f;                       // very dim fill; the point lights dominate
 
-                m_pointLight = m_scene->CreateEntity(u8"pointLight");
-                rd::LightComponent& pl = lights->Add(m_pointLight);
-                pl.type = rd::LightType::Point;
-                pl.color = rc::Color{ 1.0f, 0.45f, 0.12f, 1.0f };  // strong orange
-                pl.intensity = 30.0f;                       // bright (PBR diffuse carries 1/pi)
-                pl.range = 13.0f;                           // tight, so it reads as a localized pool, not a wash
+                // A field of point lights in front of the wall — the clustered light-culling demo.
+                // Each fragment only evaluates the lights in its froxel, so this scales far better
+                // than an all-lights loop. Ranges/spacing tuned for distinct, slightly-overlapping
+                // colored pools on the wall.
+                constexpr int kCols = 6, kRows = 4;         // 24 point lights
+                for (int j = 0; j < kRows; ++j) {
+                    for (int i = 0; i < kCols; ++i) {
+                        sc::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
+                        const rc::f32 fi = static_cast<rc::f32>(i) / (kCols - 1);
+                        const rc::f32 fj = static_cast<rc::f32>(j) / (kRows - 1);
+                        const rc::Vec3 base{ -16.0f + 32.0f * fi, -9.0f + 18.0f * fj, 3.0f };
+                        m_scene->SetLocalPosition(e, base);
+                        rd::LightComponent& pl = lights->Add(e);
+                        pl.type = rd::LightType::Point;
+                        pl.color = rc::Color{ 0.4f + 0.6f * fi, 0.4f + 0.6f * fj, 1.0f - 0.6f * fi, 1.0f };
+                        pl.intensity = 16.0f;
+                        pl.range = 5.0f;                    // pool radius on the wall ~= sqrt(range^2 - dist^2)
+                        m_pointLights.PushBack(e);
+                        m_lightBases.PushBack(base);
+                    }
+                }
             }
 
-            rc::ConsoleWrite(u8"Sandbox: two grids — left instanced (1 draw), right distinct "
-                             u8"(per-cube PBR, parallel recording). Close to exit.\n");
+            rc::ConsoleWrite(u8"Sandbox: a wall lit by 24 clustered point lights. Close to exit.\n");
         }
 
         void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override
@@ -91,12 +111,16 @@ namespace
                 t.rotation = spin;
                 m_scene->SetLocalTransform(cube, t);
             }
-            // Orbit the point light through the grid (close in front, z = +3.5) on its OWN slower
-            // phase so its bright orange pool clearly sweeps independently of the cube spin.
-            if (m_pointLight.IsAssigned()) {
-                const rc::f32 a = m_angle * 0.55f;
-                m_scene->SetLocalPosition(m_pointLight,
-                    rc::Vec3{ 11.0f * rc::Cos(a), 11.0f * rc::Sin(a), 3.5f });
+            // Bob each point light in Z (depth) on its own phase, so the lights cross froxel depth
+            // slices every frame — exercising the per-frame cluster rebuild, not a static binning.
+            // Sweep the whole light field left/right (so the colored pools clearly slide as a
+            // group — easy confirmation that pools exist and track the lights) + a gentle Z-bob.
+            const rc::f32 sweep = 5.0f * rc::Sin(m_angle * 0.6f);
+            for (rc::usize k = 0; k < m_pointLights.Size(); ++k) {
+                rc::Vec3 p = m_lightBases[k];
+                p.x += sweep;
+                p.z += 0.8f * rc::Sin(m_angle * 1.3f + static_cast<rc::f32>(k) * 0.5f);
+                m_scene->SetLocalPosition(m_pointLights[k], p);
             }
         }
 
@@ -156,7 +180,8 @@ namespace
     private:
         sc::Scene*                  m_scene = nullptr;
         sc::EntityHandle            m_camera{};
-        sc::EntityHandle            m_pointLight{};
+        rc::Array<sc::EntityHandle> m_pointLights;
+        rc::Array<rc::Vec3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
     };
