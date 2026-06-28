@@ -30,7 +30,7 @@ import :views;
 import :pipeline;
 import :cluster_system;
 import :resources;
-import :mesh_gpu;
+import :gpu_mesh;
 
 using namespace raptor::core;
 namespace rhi = raptor::rhi;

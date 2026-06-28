@@ -13,7 +13,7 @@ endif()
 
 add_executable(RaptorRenderTests
     TestsMain.cpp
-    MeshGpuTests.cpp
+    GpuMeshTests.cpp
     RenderDataTests.cpp
     PipelineTests.cpp)
 

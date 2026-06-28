@@ -1,4 +1,4 @@
-/// Raptor::Render — the `:mesh_gpu` partition.
+/// Raptor::Render — the `:gpu_mesh` partition.
 ///
 /// GpuMeshCache: uploads a StaticMesh's vertex + index streams to the GPU on first use and
 /// caches them by mesh pointer (so repeated draws reuse the buffers). The streams are
@@ -9,7 +9,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module raptor.render:mesh_gpu;
+export module raptor.render:gpu_mesh;
 
 import raptor.core;
 import raptor.rhi;

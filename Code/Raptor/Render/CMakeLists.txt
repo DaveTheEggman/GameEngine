@@ -17,7 +17,7 @@ target_sources(RaptorRender
             ExtractContext.cppm
             Resources.cppm
             Pipeline.cppm
-            MeshGpu.cppm
+            GpuMesh.cppm
             MeshRenderer.cppm
             ClusterSystem.cppm
             RenderModule.cppm)

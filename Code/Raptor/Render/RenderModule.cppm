@@ -8,7 +8,7 @@
 /// Partitions: `:data` (the render-data contract + frame arena + radix sort), `:views`
 /// (RenderView isolation boundary + pool), `:pipeline` (the Renderer/Pass extension seam +
 /// the single per-frame RenderFrame driver), `:mesh_renderer` (the built-in mesh drawer),
-/// `:mesh_gpu` (mesh GPU upload cache).
+/// `:gpu_mesh` (mesh GPU upload cache).
 
 export module raptor.render;
 
@@ -17,6 +17,6 @@ export import :views;
 export import :extract_ctx;
 export import :resources;
 export import :pipeline;
-export import :mesh_gpu;
+export import :gpu_mesh;
 export import :mesh_renderer;
 export import :cluster_system;
