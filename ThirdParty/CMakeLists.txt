@@ -15,8 +15,10 @@ endif()
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
     add_library(raptor_dxc_headers INTERFACE)
     add_library(Raptor::DXCHeaders ALIAS raptor_dxc_headers)
+    # SYSTEM so the vendored headers (DXC's WinAdapter shim has unused-parameter
+    # paths under NDEBUG) are exempt from our -Wall -Wextra -Werror.
     target_include_directories(raptor_dxc_headers
-        INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include)
+        SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include)
 
     if(WIN32)
         set(_dxc_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/DXC/lib/win-x64")

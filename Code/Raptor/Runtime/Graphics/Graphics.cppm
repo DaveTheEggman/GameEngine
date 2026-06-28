@@ -44,7 +44,15 @@ export namespace raptor::runtime
     struct GraphicsDeviceDesc
     {
         BackendType        backend          = BackendType::Vulkan;
+        // Validation (our RHI-layer wrapper AND the backend's own layers, e.g. Vulkan validation)
+        // defaults ON for dev builds and OFF for optimized/shipping builds (RAPTOR_RELEASE — set for
+        // Release/RelWithDebInfo/MinSizeRel). A profiling run (RelWithDebInfo) therefore measures the
+        // real cost, not the validation overhead. Override explicitly to force either way.
+#ifdef RAPTOR_RELEASE
+        bool               enableValidation = false;
+#else
         bool               enableValidation = true;
+#endif
         rc::u32            framesInFlight    = 2;     // CPU-ahead ring depth
         rhi::DeviceFeatures requiredFeatures = {};
     };
