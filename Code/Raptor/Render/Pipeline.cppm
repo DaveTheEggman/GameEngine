@@ -45,8 +45,8 @@ struct RenderRecordContext {
     Mat4                       viewMatrix  = Mat4::Identity();   // for view-space depth (clustered shading)
     Vec3                       cameraPos   = Vec3{ 0, 0, 0 };
     Vec3                       ambient     = Vec3{ 0.03f, 0.03f, 0.03f };   // scene environment ambient
-    Mat4                       lightViewProj = Mat4::Identity();            // directional shadow caster (phase 5)
-    bool                       hasShadow   = false;
+    ShadowCascades             cascades    = {};                 // this view's CSM cascades (phase 5.2)
+    u32                        cascadeLayerBase = 0;             // this view's first shadow-array layer
     Span<const GpuLight>       lights      = {};
     ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
     u32                        frameIndex  = 0;
@@ -85,10 +85,11 @@ struct ResolvedDraw {
 // the depth write + the map barriers to a shader-readable state), and the light-space matrix.
 // Defined here (not in :shadows) because the forward pass consumes it and :shadows imports :pipeline.
 struct ShadowBinding {
-    rhi::TextureView*     sampleView    = nullptr;
-    rendergraph::RGHandle handle        = {};
-    Mat4                  lightViewProj = Mat4::Identity();
-    bool                  valid         = false;
+    rhi::TextureView*     sampleView = nullptr;   // the cascade depth ARRAY (all views' layers)
+    rendergraph::RGHandle handle     = {};        // ReadTexture'd to order the cascade writes -> forward
+    ShadowCascades        cascades;               // THIS view's cascade matrices/splits
+    u32                   layerBase  = 0;         // this view's first array layer (viewIndex * cascades)
+    bool                  valid      = false;
     [[nodiscard]] bool Valid() const noexcept { return valid && sampleView != nullptr; }
 };
 
@@ -232,11 +233,15 @@ public:
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
-            // Read the shadow map the depth pass wrote (orders shadow -> this pass + barriers it readable).
-            if (shadow.Valid()) { b.ReadTexture(shadow.handle); }
+            // Read THIS view's shadow layers (orders its cascade passes -> this pass + barriers them
+            // readable). Scoped to the view's layer range so views don't over-depend on each other.
+            if (shadow.Valid()) {
+                rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = shadow.layerBase; sub.arrayLayerCount = ShadowCascades::kCount;
+                b.ReadTexture(shadow.handle, sub);
+            }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, out);
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, shadow, out);
             });
         });
     }
@@ -247,18 +252,15 @@ private:
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
-                        const ClusterBinding& cluster, Array<rhi::RenderBundle*>& out) {
+                        const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = view.Camera().ViewProjection();
         ctx.viewMatrix  = view.Camera().view;
         ctx.cameraPos   = view.Camera().position;
         ctx.ambient     = (view.Scene() != nullptr) ? view.Scene()->Ambient() : Vec3{ 0.03f, 0.03f, 0.03f };
-        if (view.Scene() != nullptr) {
-            const DirectionalShadow& ds = view.Scene()->DirectionalShadowData();
-            ctx.hasShadow     = ds.valid;
-            ctx.lightViewProj = ds.lightViewProj;
-        }
+        ctx.cascades    = shadow.cascades;            // this view's CSM cascades
+        ctx.cascadeLayerBase = shadow.layerBase;      // this view's first shadow-array layer
         ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
         ctx.cluster     = cluster;
         ctx.frameIndex  = frameIndex;
@@ -463,7 +465,10 @@ public:
         const RenderView* primary = (m_views.ActiveCount() > 0) ? m_views.At(0) : nullptr;
         const bool hasShadow = m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr
                             && primary->Scene()->DirectionalShadowData().valid;
-        rhi::TextureView* shadowMap = hasShadow ? m_shadows->PrepareFrame(m_frameIndex) : nullptr;
+        // One shadow ARRAY shared by all views, sized for per-view cascades (viewCount * cascades
+        // layers). Each view fits + renders its OWN cascades into its layer range, and samples them.
+        const u32 viewCount = static_cast<u32>(m_views.ActiveCount());
+        rhi::TextureView* shadowMap = hasShadow ? m_shadows->PrepareFrame(m_frameIndex, viewCount) : nullptr;
         const u64 shadowGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
 
         {
@@ -482,27 +487,15 @@ public:
             m_graph.SetOutputSize(m_views.At(0)->Width(), m_views.At(0)->Height());
         }
 
-        // Declare the directional shadow depth pass ONCE (before the forward passes that sample it).
-        // Casters come from the primary view's draw list; every forward pass ReadTextures the map.
-        ShadowBinding shadow;
-        if (hasShadow && shadowMap != nullptr && primary != nullptr) {
-            const rendergraph::RGHandle shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex);
-            const Mat4 lightVP = primary->Scene()->DirectionalShadowData().lightViewProj;
-            const u32  res     = m_shadows->Resolution();
-            const RenderView* casters = primary;
-            RendererRegistry* reg = m_registry;
-            m_graph.AddRenderPass(u8"shadow.depth", [this, shadowH, lightVP, res, casters, reg](rendergraph::PassBuilder& b) {
-                b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f);
-                b.SetViewport(0, 0, res, res);
-                b.SetExecute([this, lightVP, casters, reg](rhi::RenderPassEncoder& rp) {
-                    RecordShadowCasters(rp, *casters, *reg, lightVP);
-                });
-            });
-            shadow.sampleView    = shadowMap;
-            shadow.handle        = shadowH;
-            shadow.lightViewProj = lightVP;
-            shadow.valid         = true;
-        }
+        // Per-view CSM: import the shared cascade array once; each view fits its own cascades to its
+        // camera and renders them into its layer range (so split-screen views don't share a fit).
+        rendergraph::RGHandle shadowH;
+        const bool  shadowActive = hasShadow && shadowMap != nullptr;
+        const Vec3  lightDir      = (hasShadow && primary != nullptr) ? primary->Scene()->DirectionalShadowData().direction : Vec3{ 0, -1, 0 };
+        const u32   cascadeCount  = (m_shadows != nullptr) ? m_shadows->CascadeCount() : 4u;
+        const u32   shadowRes     = (m_shadows != nullptr) ? m_shadows->Resolution() : 1024u;
+        if (shadowActive) { shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex); }
+
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
         // resource). The first view to a target clears it; later views into the same target Load,
         // preserving earlier views' regions (split-screen). Targets are few — a linear scan is fine.
@@ -533,6 +526,33 @@ public:
             const u32 viewIndex = static_cast<u32>(i);
             ClusterBinding cluster;
             if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *v, m_frameIndex, viewIndex); }
+
+            // This view's CSM cascades, fit to ITS frustum, rendered into ITS layer range of the array.
+            ShadowBinding shadow;
+            if (shadowActive && viewIndex < ShadowSystem::kMaxShadowViews) {
+                const f32 shadowDistance = Min(v->Camera().farZ, 150.0f);
+                const ShadowCascades cascades = ComputeCascades(v->Camera(), lightDir, shadowDistance, shadowRes);
+                const u32 layerBase = viewIndex * cascadeCount;
+                const RenderView* casters = v;
+                RendererRegistry* reg = m_registry;
+                for (u32 c = 0; c < cascadeCount; ++c) {
+                    const Mat4 cascadeVP = cascades.viewProj[c];
+                    const u32  layer     = layerBase + c;
+                    m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, casters, reg](rendergraph::PassBuilder& b) {
+                        rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
+                        b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
+                        b.SetViewport(0, 0, shadowRes, shadowRes);
+                        b.SetExecute([this, cascadeVP, casters, reg](rhi::RenderPassEncoder& rp) {
+                            RecordShadowCasters(rp, *casters, *reg, cascadeVP);
+                        });
+                    });
+                }
+                shadow.sampleView = shadowMap;
+                shadow.handle     = shadowH;
+                shadow.cascades   = cascades;
+                shadow.layerBase  = layerBase;
+                shadow.valid      = true;
+            }
 
             if (m_tonemap != nullptr) {
                 // HDR path: forward renders linear HDR into a transient, then the tonemap pass

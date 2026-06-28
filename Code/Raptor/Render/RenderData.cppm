@@ -86,14 +86,24 @@ struct GpuLight {
 };
 static_assert(sizeof(GpuLight) == 64);
 
-// The active directional shadow caster for a scene (phase 5.1: one directional light's shadow,
-// a single map — CSM cascades come in 5.2). `lightViewProj` maps world -> light clip space; the
-// depth pass renders the scene with it, and the forward shader samples the depth map with it.
-// valid == false means no shadow caster this frame (the forward shader skips shadowing).
+// The active directional shadow caster for a scene (the extraction OUTPUT): just the light direction
+// + whether one exists. The cascade matrices are derived later (in RenderFrame, where the camera
+// frustum is available) since CSM fitting needs the camera. valid == false => no shadow this frame.
 struct DirectionalShadow {
-    Mat4 lightViewProj = Mat4::Identity();
-    Vec3 direction     = Vec3{ 0, -1, 0 };
-    bool valid         = false;
+    Vec3 direction = Vec3{ 0, -1, 0 };
+    bool valid     = false;
+};
+
+// Cascaded shadow map data for the directional caster (phase 5.2), computed per-frame from the
+// primary view's frustum + the light direction. kCount cascades, each a world->light-clip matrix +
+// the view-space depth where it ends (cascade selection) + the world size of one shadow texel (for
+// normal-offset bias). Shared by all views in 5.2 (fit to the primary camera).
+struct ShadowCascades {
+    static constexpr u32 kCount = 4;
+    Mat4 viewProj[kCount]       = { Mat4::Identity(), Mat4::Identity(), Mat4::Identity(), Mat4::Identity() };
+    f32  splitFar[kCount]       = { 0.0f, 0.0f, 0.0f, 0.0f };   // view-space far depth of each cascade
+    f32  texelWorldSize[kCount] = { 0.0f, 0.0f, 0.0f, 0.0f };   // world units per texel (normal-offset bias)
+    bool valid                  = false;
 };
 
 // A per-view draw entry: a sort key (computed against the view's camera) + the shared

@@ -79,6 +79,35 @@ namespace
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
                 BuildGrid(*meshes, cube, /*originX*/  8.0f, /*instanced*/ false);
+
+                // A row of cubes resting EXACTLY on the floor (bottom face flush at y=-7) — a static
+                // reference for judging shadow contact / peter-panning (the grids float in the air).
+                constexpr rc::f32 kBoxSize = 2.5f, kFloorY = -7.0f;
+                rc::RefPtr<geo::StaticMesh> box = geo::Primitives::Cube(kBoxSize);
+                rc::RefPtr<mat::Material> boxMat = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
+                    .Color(u8"BaseColor", rc::Vec4{ 0.85f, 0.55f, 0.2f, 1.0f })
+                    .Float(u8"Metallic", 0.0f).Float(u8"Roughness", 0.5f).Build();
+                for (int k = 0; k < 4; ++k) {
+                    sc::EntityHandle b = m_scene->CreateEntity(u8"floorBox");
+                    m_scene->SetLocalPosition(b, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
+                    rd::MeshComponent& bmc = meshes->Add(b);
+                    bmc.mesh = box; bmc.material = boxMat;
+                }
+
+                // Spheres resting ON the floor (bottom flush) — their contact shadow is mostly hidden
+                // under the sphere, so you see only the "half" extending away from the sun (vs the
+                // floating grids, whose full shadow ellipse is visible on the ground).
+                constexpr rc::f32 kBallR = 1.25f;
+                rc::RefPtr<geo::StaticMesh> ball = geo::Primitives::Sphere(kBallR, 24, 12);
+                rc::RefPtr<mat::Material> ballMat = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
+                    .Color(u8"BaseColor", rc::Vec4{ 0.7f, 0.75f, 0.8f, 1.0f })
+                    .Float(u8"Metallic", 0.1f).Float(u8"Roughness", 0.35f).Build();
+                for (int k = 0; k < 4; ++k) {
+                    sc::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
+                    m_scene->SetLocalPosition(s, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBallR, 16.0f });
+                    rd::MeshComponent& smc = meshes->Add(s);
+                    smc.mesh = ball; smc.material = ballMat;
+                }
             }
 
             // Lights: a dim directional key (down-forward) + a bright point light that orbits the
@@ -91,8 +120,8 @@ namespace
                 rd::LightComponent& kl = lights->Add(key);
                 kl.type = rd::LightType::Directional;
                 kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
-                kl.intensity = 0.12f;                       // very dim fill; the point lights dominate
-                kl.castsShadows = true;                     // phase 5.1 directional shadow caster
+                kl.intensity = 0.5f;                        // key light: bright enough that its shadow reads
+                kl.castsShadows = true;                     // directional CSM caster (phase 5.2)
 
                 // A field of point lights hovering above the floor (X-Z grid) — the clustered
                 // light-culling demo. Each fragment only evaluates the lights in its froxel, so this

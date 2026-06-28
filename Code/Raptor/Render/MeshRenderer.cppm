@@ -43,15 +43,19 @@ export namespace raptor::render {
 // DataOffsets vertex attribute (location 5). Vertex inputs use the RHI's TEXCOORDn convention
 // (semantic index = location), matching VertexLayoutType::Mesh at locations 0..4.
 inline constexpr const char8_t* kForwardVS = u8R"(
+#define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {
     row_major float4x4 ViewProj;   // Raptor matrices are row-major; annotate so HLSL reads them right.
-    row_major float4x4 View;       // for view-space depth in the cluster lookup (PS only)
-    row_major float4x4 LightViewProj;   // directional shadow caster's world->light-clip (phase 5)
+    row_major float4x4 View;       // for view-space depth (cluster lookup + CSM cascade select, PS only)
+    row_major float4x4 CascadeViewProj[CASCADE_COUNT];   // CSM: world -> each cascade's light clip
     float3 CameraPos; float LightCount;
     uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
-    float3 Ambient; float HasShadow;       // HasShadow != 0 -> sample the shadow map
+    float3 Ambient; float ShadowCascadeCount;          // 0 -> no shadow
+    float4 CascadeSplitFar;        // view-space far depth of each cascade (cascade selection)
+    float4 CascadeTexelSize;       // world units per shadow texel, per cascade (normal-offset bias)
+    float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; float _shadowPad;
 };
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
@@ -101,15 +105,19 @@ VSOutput main(VSInput input) {
 )";
 
 inline constexpr const char8_t* kForwardPS = u8R"(
+#define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;
     row_major float4x4 View;
-    row_major float4x4 LightViewProj;        // directional shadow caster's world->light-clip
+    row_major float4x4 CascadeViewProj[CASCADE_COUNT];
     float3 CameraPos; float LightCount;
     uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
-    float3 Ambient; float HasShadow;         // HasShadow != 0 -> sample the shadow map
+    float3 Ambient; float ShadowCascadeCount;
+    float4 CascadeSplitFar;
+    float4 CascadeTexelSize;
+    float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; float _shadowPad;
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -118,29 +126,57 @@ struct GpuLight {                            // matches render::GpuLight (64 byt
     float innerCos; float outerCos; float shadowIndex; float pad1;   // shadowIndex >= 0 -> casts shadow
 };
 StructuredBuffer<GpuLight> Lights : register(t0, space0);
-// Directional shadow map (t1) + a comparison sampler (s0): hardware-PCF the light-space depth.
-Texture2D              ShadowMap     : register(t1, space0);
+// CSM cascade depth ARRAY (t1, one layer per cascade) + a comparison sampler (s0) for hardware PCF.
+Texture2DArray         ShadowMap     : register(t1, space0);
 SamplerComparisonState ShadowSampler : register(s0, space0);
 
-// 5x5 hardware-PCF on the directional shadow map. worldPos -> light clip -> shadow UV + compare
-// depth; SampleCmpLevelZero does the depth test + bilinear per tap. 1 = lit, 0 = fully shadowed.
-// (5.2 will add normal-offset bias + CSM cascade selection; this is the single-map vertical slice.)
-float SampleDirectionalShadow(float3 worldPos) {
-    if (HasShadow == 0.0) { return 1.0; }
-    float4 lc = mul(float4(worldPos, 1.0), LightViewProj);
+static const float kShadowTexel = 1.0 / 1024.0;   // 1 / shadow resolution
+
+// Sample one cascade with a normal-offset bias (scaled by the cascade's world texel size, fading at
+// grazing angles) + 3x3 hardware PCF on its array layer. 1 = lit, 0 = fully shadowed.
+float SampleCascade(int cascade, float3 worldPos, float3 N, float NdotL) {
+    float texelWorld = CascadeTexelSize[cascade];
+    // Normal-offset bias: push along the surface normal, scaled by the cascade's world texel size and
+    // FADING TO ZERO as the surface faces the light (1 - NdotL). Face-on receivers get ~no offset (so
+    // no visible gap at contacts); only grazing surfaces, where acne is worst, get the full push.
+    float3 biasedPos = worldPos + N * (ShadowNormalBias * texelWorld * (1.0 - NdotL));
+    float4 lc  = mul(float4(biasedPos, 1.0), CascadeViewProj[cascade]);
     if (lc.w <= 0.0) { return 1.0; }
     float3 ndc = lc.xyz / lc.w;
-    float2 uv  = float2(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);   // DX-style (y down) shadow UV
+    float2 uv  = float2(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { return 1.0; }
-    float compareDepth = ndc.z - 0.0015;                          // constant depth bias
-    const float texel = 1.0 / 2048.0;
+    float compareDepth = ndc.z - ShadowDepthBias;
+    float layer = CascadeLayerBase + (float)cascade;   // this view's slice of the shared array
     float sum = 0.0;
-    [unroll] for (int y = -2; y <= 2; ++y) {
-        [unroll] for (int x = -2; x <= 2; ++x) {
-            sum += ShadowMap.SampleCmpLevelZero(ShadowSampler, uv + float2(x, y) * texel, compareDepth);
+    [unroll] for (int y = -1; y <= 1; ++y) {
+        [unroll] for (int x = -1; x <= 1; ++x) {
+            sum += ShadowMap.SampleCmpLevelZero(ShadowSampler, float3(uv + float2(x, y) * kShadowTexel, layer), compareDepth);
         }
     }
-    return sum * (1.0 / 25.0);
+    return sum * (1.0 / 9.0);
+}
+
+// Cascaded shadow: pick the cascade by view-space depth, sample it, and blend into the next cascade
+// over the last 15% of the range (hides the cascade seam).
+float SampleCSM(float3 worldPos, float3 N, float NdotL, float viewDepth) {
+    int count = (int)ShadowCascadeCount;
+    if (count <= 0) { return 1.0; }
+
+    int cascade = count - 1;
+    [unroll] for (int i = 0; i < CASCADE_COUNT; ++i) {
+        if (i < count && viewDepth < CascadeSplitFar[i]) { cascade = i; break; }
+    }
+
+    float shadow = SampleCascade(cascade, worldPos, N, NdotL);
+
+    float splitFar  = CascadeSplitFar[cascade];
+    float splitNear = (cascade == 0) ? 0.0 : CascadeSplitFar[cascade - 1];
+    float blendBand = (splitFar - splitNear) * 0.15;
+    if (cascade < count - 1 && viewDepth > splitFar - blendBand) {
+        float t = saturate((viewDepth - (splitFar - blendBand)) / max(blendBand, 1e-4));
+        shadow = lerp(shadow, SampleCascade(cascade + 1, worldPos, N, NdotL), t);
+    }
+    return shadow;
 }
 // Clustered light culling (set 3): per-cluster (offset,count) + the flat light-index list. When
 // ClusterGridX == 0 (clustering unavailable) the shader falls back to looping all lights.
@@ -254,7 +290,8 @@ float4 main(PSInput input) : SV_Target {
     float  roughness = clamp(Roughness, 0.045, 1.0);
     float3 F0        = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
 
-    float shadow = SampleDirectionalShadow(input.worldPos);    // 1 = lit, computed once per fragment
+    float3 viewPos   = mul(float4(input.worldPos, 1.0), View).xyz;
+    float  viewDepth = -viewPos.z;                             // cascade selection + cluster lookup
 
     float3 Lo = float3(0.0, 0.0, 0.0);
     if (ClusterGridX == 0) {
@@ -263,20 +300,22 @@ float4 main(PSInput input) : SV_Target {
         for (uint i = 0; i < count; ++i) {
             GpuLight L = Lights[LightOffset + i];
             float3 c = EvaluateLight(L, input.worldPos, N, V, albedo, roughness, metallic, F0);
-            if (L.shadowIndex >= 0.0) { c *= shadow; }            // the directional caster is shadowed
+            if (L.shadowIndex >= 0.0) {                         // the directional caster is shadowed
+                c *= SampleCSM(input.worldPos, N, saturate(dot(N, -L.directionWS)), viewDepth);
+            }
             Lo += c;
         }
     } else {
         // Clustered — evaluate only the lights binned into this fragment's cluster.
-        float3 viewPos   = mul(float4(input.worldPos, 1.0), View).xyz;
-        float  viewDepth = -viewPos.z;
-        uint   cluster   = ClusterIndex(input.clip.xy, viewDepth);
+        uint   cluster = ClusterIndex(input.clip.xy, viewDepth);
         uint2  oc = ClusterOffsets[cluster];
         for (uint ci = 0; ci < oc.y; ++ci) {
             uint li = ClusterLightIndices[oc.x + ci];
             GpuLight L = Lights[LightOffset + li];
             float3 c = EvaluateLight(L, input.worldPos, N, V, albedo, roughness, metallic, F0);
-            if (L.shadowIndex >= 0.0) { c *= shadow; }
+            if (L.shadowIndex >= 0.0) {
+                c *= SampleCSM(input.worldPos, N, saturate(dot(N, -L.directionWS)), viewDepth);
+            }
             Lo += c;
         }
     }
@@ -356,7 +395,7 @@ public:
         rhi::BindGroupLayoutEntry lightEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
         // Directional shadow map (t1) + comparison sampler (s0) live in set 0 (the bind-group budget
         // is 4 SETS, not 4 bindings — shadows fold into the view set rather than needing a 5th set).
-        rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
         rhi::BindGroupLayoutEntry shadowSampEntry{};
         shadowSampEntry.binding = 0; shadowSampEntry.visibility = rhi::ShaderStage::Fragment;
         shadowSampEntry.type = rhi::BindingType::ComparisonSampler;
@@ -427,7 +466,7 @@ public:
     void PrepareFrame(u32 maxDraws, u32 frameIndex) override {
         m_ready = false;
         if (maxDraws == 0) { return; }
-        const u32 drawCap = maxDraws * 2u;   // camera draws + shadow re-emit
+        const u32 drawCap = maxDraws * (1u + ShadowCascades::kCount);   // camera draws + per-cascade shadow re-emit
         if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights)) { return; }
@@ -476,12 +515,24 @@ public:
         ViewData vd{};
         vd.viewProj      = ctx.viewProj;
         vd.view          = ctx.viewMatrix;
-        vd.lightViewProj = ctx.lightViewProj;
         vd.cameraPos     = ctx.cameraPos;
         vd.ambient       = ctx.ambient;
-        vd.hasShadow     = ctx.hasShadow ? 1.0f : 0.0f;
         vd.lightCount    = static_cast<f32>(lightCount);
         vd.lightOffset   = lightOffset;
+        // CSM cascade data for THIS view (per-view fit, carried in ctx).
+        if (ctx.cascades.valid) {
+            for (u32 c = 0; c < ShadowCascades::kCount; ++c) { vd.cascadeViewProj[c] = ctx.cascades.viewProj[c]; }
+            vd.cascadeSplitFar     = Vec4{ ctx.cascades.splitFar[0], ctx.cascades.splitFar[1], ctx.cascades.splitFar[2], ctx.cascades.splitFar[3] };
+            vd.cascadeTexelSize    = Vec4{ ctx.cascades.texelWorldSize[0], ctx.cascades.texelWorldSize[1], ctx.cascades.texelWorldSize[2], ctx.cascades.texelWorldSize[3] };
+            vd.shadowCascadeCount  = static_cast<f32>(ShadowCascades::kCount);
+            vd.cascadeLayerBase    = static_cast<f32>(ctx.cascadeLayerBase);   // this view's first array layer
+            // Normal-offset is in TEXELS (scaled by the cascade's world texel size in the shader).
+            // Keep it tiny (Sedulous uses 0.02) — at large values it shifts the receiver enough to eat
+            // the light-facing side of a contact shadow, worse the bigger the cascade's texelWorld grows.
+            // Acne is carried by the hardware depth bias (ShadowConfigFor: 50 / 1.5), not this.
+            vd.shadowNormalBias    = 0.02f;
+            vd.shadowDepthBias     = 0.0009f;
+        }
         if (ctx.cluster.Valid()) {
             vd.clusterGridX = ctx.cluster.gridX; vd.clusterGridY = ctx.cluster.gridY;
             vd.clusterSliceCount = ctx.cluster.sliceCount; vd.clusterTileSize = ctx.cluster.tileSize;
@@ -558,15 +609,18 @@ public:
     }
 
 private:
-    struct ViewData {                                    // 272 (matches the View cbuffer)
+    struct ViewData {                                    // 512 (matches the View cbuffer)
         Mat4 viewProj;                                   // 64
-        Mat4 view;                                       // 64  (view-space depth for cluster lookup)
-        Mat4 lightViewProj;                              // 64  (directional shadow caster, phase 5)
+        Mat4 view;                                       // 64  (view-space depth: cluster + cascade select)
+        Mat4 cascadeViewProj[4];                         // 256 (CSM: world -> each cascade's light clip)
         Vec3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
         u32  lightOffset; i32 clusterViewportX, clusterViewportY; u32 pad0;   // 16 (cluster grid is viewport-local)
         u32  clusterGridX = 0, clusterGridY = 0, clusterSliceCount = 0, clusterTileSize = 0;   // 16
         f32  clusterNear = 0, clusterFar = 0, clusterLogScale = 0, clusterLogBias = 0;         // 16
-        Vec3 ambient = Vec3{ 0, 0, 0 }; f32 hasShadow = 0.0f;                                   // 16
+        Vec3 ambient = Vec3{ 0, 0, 0 }; f32 shadowCascadeCount = 0.0f;                          // 16
+        Vec4 cascadeSplitFar  = Vec4{ 0, 0, 0, 0 };                                             // 16
+        Vec4 cascadeTexelSize = Vec4{ 0, 0, 0, 0 };                                             // 16
+        f32  shadowNormalBias = 0, shadowDepthBias = 0, cascadeLayerBase = 0, shadowPad1 = 0;   // 16
     };
     struct ObjectData   { Mat4 world; Color tint; };     // 80  (cbuffer Object: World + Tint)
     struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)
@@ -574,7 +628,7 @@ private:
     struct ShadowViewData { Mat4 lightViewProj; };       // 64  (cbuffer ShadowView)
 
     static constexpr u64 kViewSlot         = 256;        // dynamic UBO offset alignment (object/shadow-view)
-    static constexpr u64 kViewDataSlot     = 512;        // view UBO slot (ViewData is 272B, > 256)
+    static constexpr u64 kViewDataSlot     = 1024;       // view UBO slot (ViewData is 512B with CSM cascades)
     static constexpr u32 kMaxLights        = 256;        // per-view light budget (phase 4.1; clustered later)
     static constexpr u32 kMaxShadowPasses  = 16;         // shadow-view UBO slots per frame (5.1 uses 1)
 
@@ -694,9 +748,17 @@ private:
         c.depthFormat       = ctx.depthFormat;
         c.depthMode         = materials::DepthMode::ReadWrite;
         c.depthCompare      = rhi::CompareFunction::Less;
+        // Render FRONT faces into the shadow map (cull back) — matches Sedulous (ShadowPipeline: .Back)
+        // and is the conventional default: flat/architectural casters get tight contacts. CURVED casters
+        // (spheres) keep a small grazing-contact gap inherent to shadow maps; the general fix is a later
+        // contact/screen-space shadow pass, not a cull-mode or bias change (back-face culling only trades
+        // the gap onto flat casters, which are far more common).
         c.cullMode          = materials::CullModeConfig::Back;
-        c.depthBias           = 2;
-        c.depthBiasSlopeScale = 2.0f;
+        // Hardware depth bias (ported from Sedulous): a constant offset + a slope-scaled term, applied
+        // in shadow-map depth space (so it adds little visible spatial gap, unlike the normal-offset).
+        // Pairs with the receiver-side (1 - NdotL) normal-offset bias in forward.frag for acne control.
+        c.depthBias           = 50;
+        c.depthBiasSlopeScale = 1.5f;
         return c;
     }
 
@@ -833,11 +895,13 @@ private:
         if (!m_device->CreateSampler(sd, m_shadowSampler).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         rhi::TextureDesc td{};
-        td.format = rhi::TextureFormat::Depth32Float; td.width = 1; td.height = 1;
+        td.format = rhi::TextureFormat::Depth32Float; td.width = 1; td.height = 1; td.arrayLayerCount = 1;
         td.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
         td.label = u8"mesh.dummyShadow";
         if (!m_device->CreateTexture(td, m_dummyShadowTex).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        // A Texture2DArray view (1 layer) so it matches the shader's Texture2DArray shadow binding.
         rhi::TextureViewDesc vd{}; vd.format = rhi::TextureFormat::Depth32Float; vd.aspect = rhi::TextureAspect::DepthOnly;
+        vd.dimension = rhi::TextureViewDimension::Texture2DArray; vd.arrayLayerCount = 1;
         if (!m_device->CreateTextureView(m_dummyShadowTex, vd, m_dummyShadowView).IsOk()) { return Status{ ErrorCode::Unknown }; }
         m_activeShadowView = m_dummyShadowView;
         return Status{};

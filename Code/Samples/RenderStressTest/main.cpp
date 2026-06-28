@@ -47,6 +47,7 @@ namespace
     {
         static constexpr rc::i32 kSpheresPerBatch = 8000;
         static constexpr rc::f32 kSphereSpacing   = 1.5f;
+        static constexpr rc::f32 kSphereHeight    = 2.5f;   // base height above the floor (radius 0.5)
 
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
@@ -177,9 +178,10 @@ namespace
                 constexpr rc::f32 amplitude = 1.0f, speed = 2.0f;
                 for (sc::EntityHandle e : m_spheres) {
                     rc::Transform t = meshScene->GetLocalTransform(e);
-                    // Phase from world X/Z (stable as the grid grows), lifted so min sits on the plane.
+                    // Phase from world X/Z (stable as the grid grows). Bob AROUND the base height so the
+                    // spheres stay above the floor (full, separated shadows) instead of dipping through it.
                     const rc::f32 phase = (t.position.x + t.position.z) * 0.2f;
-                    t.position.y = rc::Sin(m_time * speed + phase) * amplitude + amplitude;
+                    t.position.y = kSphereHeight + rc::Sin(m_time * speed + phase) * amplitude;
                     meshScene->SetLocalTransform(e, t);
                 }
             }
@@ -221,7 +223,7 @@ namespace
                 const rc::f32 z = (static_cast<rc::f32>(gz) - static_cast<rc::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
 
                 sc::EntityHandle e = m_scene->CreateEntity(u8"sphere");
-                m_scene->SetLocalPosition(e, rc::Vec3{ x, 0.5f, z });
+                m_scene->SetLocalPosition(e, rc::Vec3{ x, kSphereHeight, z });
                 rd::MeshComponent& mc = meshes->Add(e);
                 mc.mesh = m_sphere;
                 AssignSphereMaterial(mc, index);
