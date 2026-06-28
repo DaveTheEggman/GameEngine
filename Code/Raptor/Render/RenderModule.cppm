@@ -20,3 +20,4 @@ export import :pipeline;
 export import :gpu_mesh;
 export import :mesh_renderer;
 export import :cluster_system;
+export import :tonemap;

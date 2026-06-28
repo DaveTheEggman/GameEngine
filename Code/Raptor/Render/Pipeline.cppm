@@ -25,6 +25,7 @@ import raptor.rendergraph;
 import :data;
 import :views;
 import :cluster_system;
+import :tonemap;
 
 using namespace raptor::core;
 namespace rhi = raptor::rhi;
@@ -181,16 +182,19 @@ public:
     // `colorH` is the (shared) imported target handle; `clearColor` is true for the first view that
     // writes a given target (it clears the whole target), false for later views into the same target
     // (they Load so they don't wipe earlier views' regions). Depth is a per-view transient (each clears).
+    // `colorH` is the target the forward writes (an HDR transient when tonemapping, else the imported
+    // LDR target); `colorFormat` is its format (so the PSO matches). `clearColor` clears vs loads.
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
-                     rendergraph::RGHandle colorH, bool clearColor, const ClusterBinding& cluster = {}) {
+                     rendergraph::RGHandle colorH, bool clearColor, rhi::TextureFormat colorFormat,
+                     const ClusterBinding& cluster = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rendergraph::RGHandle depth = graph.CreateTransient(
             u8"forward.depth", rendergraph::RGTextureDesc(m_depthFormat, view.Width(), view.Height()));
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, frameIndex, viewIndex, cluster](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, colorFormat, frameIndex, viewIndex, cluster](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear);
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
@@ -198,8 +202,8 @@ public:
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, frameIndex, viewIndex, cluster](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, cluster, out);
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, out);
             });
         });
     }
@@ -209,8 +213,8 @@ private:
     // bundle(s) appended to `out` — serially below the threshold, else fanned out across the job
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
-                        rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, const ClusterBinding& cluster,
-                        Array<rhi::RenderBundle*>& out) {
+                        rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
+                        const ClusterBinding& cluster, Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = view.Camera().ViewProjection();
@@ -221,7 +225,7 @@ private:
         ctx.cluster     = cluster;
         ctx.frameIndex  = frameIndex;
         ctx.viewIndex   = viewIndex;
-        ctx.colorFormat = view.TargetFormat();
+        ctx.colorFormat = colorFormat;
         ctx.depthFormat = m_depthFormat;
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
@@ -242,7 +246,7 @@ private:
         // EMIT into bundles. The bundle records its viewport up front (Vulkan secondaries / DX12
         // bundles can't inherit it) — this view's sub-rect of the target, not the full target.
         rhi::RenderBundleDesc bd{};
-        bd.colorFormats[0]    = view.TargetFormat();
+        bd.colorFormats[0]    = colorFormat;
         bd.colorFormatCount   = 1;
         bd.depthStencilFormat = m_depthFormat;
         bd.sampleCount        = 1;
@@ -350,8 +354,9 @@ private:
 class RenderFrame {
 public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
-                ClusterSystem* clusters = nullptr) noexcept
-        : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device), m_clusters(clusters) {}
+                ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr) noexcept
+        : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
+          m_clusters(clusters), m_tonemap(tonemap) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -419,7 +424,22 @@ public:
             const u32 viewIndex = static_cast<u32>(i);
             ClusterBinding cluster;
             if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *v, m_frameIndex, viewIndex); }
-            m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, clearColor, cluster);
+
+            if (m_tonemap != nullptr) {
+                // HDR path: forward renders linear HDR into a transient, then the tonemap pass
+                // resolves it (exposure + tonemap + OETF) into the LDR target.
+                const rendergraph::RGHandle hdr = m_graph.CreateTransient(
+                    u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
+                m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, /*clear*/ true,
+                                   m_tonemap->HdrFormat(), cluster);
+                m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
+                                          v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
+                                          m_frameIndex, viewIndex);
+            } else {
+                // No tonemap: forward writes the LDR target directly.
+                m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, clearColor,
+                                   v->TargetFormat(), cluster);
+            }
         }
         (void)m_graph.Execute(m_encoder);
 
@@ -434,6 +454,7 @@ private:
     ForwardPass             m_pass;
     rendergraph::RenderGraph m_graph;       // one graph per frame, composes all views
     ClusterSystem*          m_clusters = nullptr;   // borrowed; declares the per-view cluster build pass
+    TonemapPass*            m_tonemap  = nullptr;   // borrowed; HDR-resolve pass (null => forward writes LDR direct)
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;

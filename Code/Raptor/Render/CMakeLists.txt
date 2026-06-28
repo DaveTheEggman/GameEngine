@@ -20,6 +20,7 @@ target_sources(RaptorRender
             GpuMesh.cppm
             MeshRenderer.cppm
             ClusterSystem.cppm
+            TonemapPass.cppm
             RenderModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)
