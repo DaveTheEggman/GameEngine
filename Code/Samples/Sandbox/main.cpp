@@ -121,7 +121,7 @@ namespace
                 kl.type = rd::LightType::Directional;
                 kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
                 kl.intensity = 0.5f;                        // key light: bright enough that its shadow reads
-                kl.castsShadows = true;                     // directional CSM caster (phase 5.2)
+                kl.castsShadows = true;                     // directional CSM caster (phase 5.2) + spot atlas (5.3a)
 
                 // A field of point lights hovering above the floor (X-Z grid) — the clustered
                 // light-culling demo. Each fragment only evaluates the lights in its froxel, so this
@@ -143,6 +143,23 @@ namespace
                         m_lightBases.PushBack(base);
                     }
                 }
+
+                // A bright spot light overhead, aimed down at the floor boxes/spheres — the phase 5.3
+                // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
+                // floor (distinct from the directional CSM), packed into the local-shadow atlas.
+                sc::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
+                m_scene->SetLocalPosition(spot, rc::Vec3{ 0.0f, 7.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
+                rc::Transform st = m_scene->GetLocalTransform(spot);
+                st.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
+                m_scene->SetLocalTransform(spot, st);
+                rd::LightComponent& sl = lights->Add(spot);
+                sl.type         = rd::LightType::Spot;
+                sl.color        = rc::Color{ 1.0f, 0.92f, 0.78f, 1.0f };   // warm, to contrast the blue key
+                sl.intensity    = 180.0f;                                  // inverse-square over ~14u to the floor
+                sl.range        = 30.0f;
+                sl.innerAngle   = 0.55f;
+                sl.outerAngle   = 0.75f;                                   // wide cone: cover both the box + sphere rows
+                sl.castsShadows = true;                                     // spot atlas shadow caster (5.3a)
             }
 
             rc::ConsoleWrite(u8"Sandbox: split-screen — same scene from two cameras, 18 clustered "

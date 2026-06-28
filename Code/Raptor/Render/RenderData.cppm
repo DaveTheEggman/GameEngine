@@ -106,6 +106,36 @@ struct ShadowCascades {
     bool valid                  = false;
 };
 
+// One local-light (spot, or a single point-light cube face) shadow entry, packed for a
+// StructuredBuffer (96 bytes). `GpuLight.shadowIndex` selects the entry (point lights use 6
+// consecutive face entries). `atlasScaleBias` maps the light-clip NDC into the light's tile in the
+// shared shadow atlas: uv_atlas = uv_ndc * scale + offset. Built per-frame by the ShadowSystem once
+// the atlas layout is known (so it carries the assigned tile), unlike the directional cascades.
+struct GpuLocalShadow {
+    Mat4 viewProj       = Mat4::Identity();             // world -> light clip (perspective)
+    Vec4 atlasScaleBias = Vec4{ 1, 1, 0, 0 };           // xy = uv scale, zw = uv offset (tile in atlas)
+    f32  depthBias      = 0.0015f;                      // constant depth-compare bias
+    f32  pad0 = 0.0f, pad1 = 0.0f, pad2 = 0.0f;
+};
+static_assert(sizeof(GpuLocalShadow) == 96);
+
+// A spot/point light that should cast a shadow — the extraction OUTPUT. The ShadowSystem assigns it
+// atlas tile(s) and builds its perspective view-projection(s) at frame time (when the atlas layout is
+// known), then patches the source light's shadowIndex to point at the built entry. type mirrors
+// GpuLight (1 = point, 2 = spot); point lights expand to 6 cube faces in 5.3b.
+struct LocalShadowCaster {
+    u32  type        = 2;                  // 1 = point, 2 = spot
+    Vec3 positionWS  = Vec3{ 0, 0, 0 };
+    Vec3 directionWS = Vec3{ 0, -1, 0 };
+    f32  range       = 10.0f;              // perspective far plane
+    f32  outerAngle  = 0.6f;              // spot cone half-angle (radians); fov = 2 * outerAngle
+};
+
+// Max local (spot/point) shadow casters per frame — the atlas tile budget. Extraction assigns each
+// caster's shadowIndex (0-based, into the GpuLocalShadow buffer) and caps at this; the ShadowSystem's
+// atlas must hold at least this many tiles. (Point lights consume 6 each in 5.3b.)
+inline constexpr u32 kMaxLocalShadowCasters = 16;
+
 // A per-view draw entry: a sort key (computed against the view's camera) + the shared
 // render data it refers to. The per-view draw list is an Array<DrawItem> the renderer sorts
 // (radix) then walks. RenderData is borrowed from the ExtractedScene (immutable snapshot).
@@ -229,6 +259,14 @@ public:
     // Add a light to the snapshot (shading input, not a drawable).
     void AddLight(const GpuLight& light) { m_lights.PushBack(light); }
 
+    // Register a spot/point light as a shadow caster (the ShadowSystem builds its atlas tile + matrix
+    // at frame time). `lightIndex` must equal the light's position in the list (the index AddLight
+    // assigns) so its shadowIndex can be patched once the atlas slot is known.
+    void AddLocalShadowCaster(const LocalShadowCaster& c) { m_localCasters.PushBack(c); }
+    [[nodiscard]] Span<const LocalShadowCaster> LocalShadowCasters() const noexcept {
+        return Span<const LocalShadowCaster>{ m_localCasters.Data(), m_localCasters.Size() };
+    }
+
     // The scene's environment ambient (a flat indirect term until IBL lands). Premultiplied
     // color × intensity, applied as `albedo * ambient` in the forward shader.
     void SetAmbient(const Vec3& ambient) noexcept { m_ambient = ambient; }
@@ -239,7 +277,7 @@ public:
     [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept { return m_shadow; }
 
     // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_shadow = {}; m_arena.Reset(); }
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_shadow = {}; m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
@@ -251,9 +289,10 @@ public:
     [[nodiscard]] bool  IsEmpty() const noexcept { return m_items.IsEmpty(); }
 
 private:
-    FrameArena         m_arena;
-    Array<RenderData*> m_items;
-    Array<GpuLight>    m_lights;
+    FrameArena              m_arena;
+    Array<RenderData*>      m_items;
+    Array<GpuLight>         m_lights;
+    Array<LocalShadowCaster> m_localCasters;             // spot/point shadow casters (phase 5.3)
     Vec3               m_ambient = Vec3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
     DirectionalShadow  m_shadow;                                  // active directional shadow caster
 };

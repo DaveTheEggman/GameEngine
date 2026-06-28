@@ -110,6 +110,42 @@ export namespace raptor::render {
     return out;
 }
 
+// A rectangular tile within the shadow atlas (pixels) — the depth pass's viewport for one caster.
+struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
+
+[[nodiscard]] inline AtlasTile AtlasTileRect(u32 tileIndex, u32 atlasRes, u32 tileRes) {
+    const u32 perRow = (tileRes > 0) ? (atlasRes / tileRes) : 1;
+    const u32 cols   = (perRow > 0) ? perRow : 1;
+    return AtlasTile{ (tileIndex % cols) * tileRes, (tileIndex / cols) * tileRes, tileRes, tileRes };
+}
+
+// Build a spot light's shadow entry: a perspective view-projection (fov = 2*outerAngle, looking down
+// the light direction) + the atlas scale/bias mapping its clip uv into tile `tileIndex`. The forward
+// shader does uv = ndc.xy*(0.5,-0.5)+0.5, then uv_atlas = uv*scale + offset.
+[[nodiscard]] inline GpuLocalShadow BuildSpotShadow(const LocalShadowCaster& c, u32 tileIndex,
+                                                    u32 atlasRes, u32 tileRes) {
+    GpuLocalShadow s;
+    const Vec3 dir   = Normalized(c.directionWS);
+    const Vec3 up    = (Abs(dir.y) > 0.95f) ? Vec3{ 0.0f, 0.0f, 1.0f } : Vec3{ 0.0f, 1.0f, 0.0f };
+    // Near plane scaled to the range: a tiny near (e.g. 0.05) wrecks perspective depth precision —
+    // everything past a few units crams into ndc.z > 0.99 and occluder/receiver separation falls
+    // below the depth bias (no shadow). range*0.05 keeps depth spread across the useful distances.
+    const f32  farZ  = Max(0.2f, c.range);
+    const f32  nearZ = Max(0.2f, farZ * 0.05f);
+    const f32  fov   = Min(c.outerAngle * 2.0f + 0.05f, 3.0f);   // pad the cone a touch; keep < pi
+    const Mat4 view  = Mat4::LookAtRH(c.positionWS, c.positionWS + dir, up);
+    const Mat4 proj  = Mat4::PerspectiveFovRH(fov, 1.0f, nearZ, farZ);
+    s.viewProj = view * proj;
+
+    const u32 perRow = (tileRes > 0) ? (atlasRes / tileRes) : 1;
+    const u32 cols   = (perRow > 0) ? perRow : 1;
+    const f32 scale  = static_cast<f32>(tileRes) / static_cast<f32>(atlasRes);
+    s.atlasScaleBias = Vec4{ scale, scale,
+                             static_cast<f32>(tileIndex % cols) * scale,
+                             static_cast<f32>(tileIndex / cols) * scale };
+    return s;
+}
+
 class ShadowSystem {
 public:
     ShadowSystem(rhi::Device& device, u32 framesInFlight) noexcept
@@ -161,6 +197,37 @@ public:
 
     [[nodiscard]] u32 CascadeCount() const noexcept { return kCascadeCount; }
 
+    // ---- local-light shadow atlas (5.3) ------------------------------------------------------
+    // Spot/point shadows pack into ONE 2D depth atlas (cascades stay in their own array). Each caster
+    // gets a fixed square tile; the depth pass clears the atlas once then renders each caster into its
+    // tile's viewport, and the forward samples by the per-light atlas rect.
+    static constexpr u32 kAtlasResolution = 2048;
+    static constexpr u32 kAtlasTile       = 512;                            // 4x4 = 16 tiles
+    [[nodiscard]] u32 AtlasResolution() const noexcept { return kAtlasResolution; }
+    [[nodiscard]] u32 AtlasTileResolution() const noexcept { return kAtlasTile; }
+    [[nodiscard]] u32 AtlasTileCapacity() const noexcept {
+        const u32 perRow = kAtlasResolution / kAtlasTile; return perRow * perRow;
+    }
+
+    // Ensure this frame's atlas exists; returns its sample view (null on failure). Created lazily and
+    // once (fixed size), so it costs nothing after the first shadowed frame.
+    rhi::TextureView* PrepareAtlas(u32 frameIndex) {
+        const u32 slot = frameIndex % m_framesInFlight;
+        return EnsureAtlas(slot) ? m_atlasSampleViews[slot] : nullptr;
+    }
+
+    // Import this frame's atlas into the graph: the atlas depth pass writes it, then it barriers to
+    // DepthStencilRead for the forward sample. Returns the handle (invalid if no atlas).
+    rendergraph::RGHandle ImportAtlas(rendergraph::RenderGraph& graph, u32 frameIndex) {
+        const u32 slot = frameIndex % m_framesInFlight;
+        if (m_atlasTextures[slot] == nullptr) { return {}; }
+        const rendergraph::RGHandle h = graph.ImportTarget(
+            u8"shadow.atlas", m_atlasTextures[slot], m_atlasAttachViews[slot], m_atlasSampleViews[slot],
+            rhi::ResourceState::DepthStencilRead, m_atlasStates[slot]);
+        m_atlasStates[slot] = rhi::ResourceState::DepthStencilRead;
+        return h;
+    }
+
 private:
     static constexpr rhi::TextureFormat kShadowFormat     = rhi::TextureFormat::Depth32Float;
     static constexpr u32                kShadowResolution = 1024;                  // per cascade
@@ -202,11 +269,38 @@ private:
         return true;
     }
 
+    // Create one frame-slot's local-shadow atlas (a single 2D depth texture) + its attachment/sample
+    // views. Fixed size, so this runs once per slot (the ++generation invalidates consumer caches).
+    bool EnsureAtlas(u32 slot) {
+        if (m_atlasTextures[slot] != nullptr) { return true; }
+        rhi::TextureDesc td{};
+        td.format = kShadowFormat;
+        td.width  = kAtlasResolution;
+        td.height = kAtlasResolution;
+        td.usage  = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
+        td.label  = u8"shadow.atlas";
+        if (!m_device->CreateTexture(td, m_atlasTextures[slot]).IsOk()) { m_atlasTextures[slot] = nullptr; return false; }
+        rhi::TextureViewDesc av{};
+        av.format = kShadowFormat; av.aspect = rhi::TextureAspect::DepthOnly;
+        av.dimension = rhi::TextureViewDimension::Texture2D;
+        if (!m_device->CreateTextureView(m_atlasTextures[slot], av, m_atlasAttachViews[slot]).IsOk()) { return false; }
+        rhi::TextureViewDesc sv{};
+        sv.format = kShadowFormat; sv.aspect = rhi::TextureAspect::DepthOnly;
+        sv.dimension = rhi::TextureViewDimension::Texture2D;
+        if (!m_device->CreateTextureView(m_atlasTextures[slot], sv, m_atlasSampleViews[slot]).IsOk()) { return false; }
+        m_atlasStates[slot] = rhi::ResourceState::Undefined;
+        ++m_generation;
+        return true;
+    }
+
     void Shutdown() {
         for (u32 i = 0; i < kMaxFramesInFlight; ++i) {
             if (m_sampleViews[i] != nullptr) { m_device->DestroyTextureView(m_sampleViews[i]); m_sampleViews[i] = nullptr; }
             if (m_attachViews[i] != nullptr) { m_device->DestroyTextureView(m_attachViews[i]); m_attachViews[i] = nullptr; }
             if (m_textures[i] != nullptr) { m_device->DestroyTexture(m_textures[i]); m_textures[i] = nullptr; }
+            if (m_atlasSampleViews[i] != nullptr) { m_device->DestroyTextureView(m_atlasSampleViews[i]); m_atlasSampleViews[i] = nullptr; }
+            if (m_atlasAttachViews[i] != nullptr) { m_device->DestroyTextureView(m_atlasAttachViews[i]); m_atlasAttachViews[i] = nullptr; }
+            if (m_atlasTextures[i] != nullptr) { m_device->DestroyTexture(m_atlasTextures[i]); m_atlasTextures[i] = nullptr; }
         }
     }
 
@@ -219,6 +313,12 @@ private:
     rhi::TextureView*  m_sampleViews[kMaxFramesInFlight] = {};   // sampled in the forward shader
     rhi::ResourceState m_states[kMaxFramesInFlight]      = {};   // last-known state (import current-state)
     u32                m_layerCounts[kMaxFramesInFlight] = {};   // current array layer count per slot
+
+    // Local-light shadow atlas (5.3): one 2D depth texture per frame slot.
+    rhi::Texture*      m_atlasTextures[kMaxFramesInFlight]    = {};
+    rhi::TextureView*  m_atlasAttachViews[kMaxFramesInFlight] = {};   // depth render target
+    rhi::TextureView*  m_atlasSampleViews[kMaxFramesInFlight] = {};   // sampled in the forward shader
+    rhi::ResourceState m_atlasStates[kMaxFramesInFlight]      = {};
 };
 
 } // namespace raptor::render

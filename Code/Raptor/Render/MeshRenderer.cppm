@@ -55,7 +55,7 @@ cbuffer View : register(b0, space0) {
     float3 Ambient; float ShadowCascadeCount;          // 0 -> no shadow
     float4 CascadeSplitFar;        // view-space far depth of each cascade (cascade selection)
     float4 CascadeTexelSize;       // world units per shadow texel, per cascade (normal-offset bias)
-    float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; float _shadowPad;
+    float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
 };
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
@@ -117,7 +117,7 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     float3 Ambient; float ShadowCascadeCount;
     float4 CascadeSplitFar;
     float4 CascadeTexelSize;
-    float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; float _shadowPad;
+    float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -178,6 +178,47 @@ float SampleCSM(float3 worldPos, float3 N, float NdotL, float viewDepth) {
     }
     return shadow;
 }
+
+// Local-light (spot/point) shadows: a shared 2D depth ATLAS (t2) + per-light entries (t3). Each entry
+// is a perspective world->light-clip matrix + the uv scale/bias of its tile in the atlas. Reuses the
+// comparison sampler. GpuLight.shadowIndex selects the entry (point lights use 6 faces in 5.3b).
+Texture2D ShadowAtlas : register(t2, space0);
+struct GpuLocalShadow {
+    row_major float4x4 viewProj;
+    float4 atlasScaleBias;       // xy = uv scale, zw = uv offset
+    float  depthBias; float3 _localPad;
+};
+StructuredBuffer<GpuLocalShadow> LocalShadows : register(t3, space0);
+
+static const float kAtlasTexel = 1.0 / 2048.0;   // 1 / atlas resolution
+
+// Sample one local-shadow entry: project into its light clip, map the clip uv into the entry's atlas
+// tile, 3x3 PCF. 1 = lit, 0 = shadowed. Acne is carried by the caster-side hardware depth bias.
+float SampleLocalShadow(int idx, float3 worldPos) {
+    GpuLocalShadow s = LocalShadows[idx];
+    float4 lc = mul(float4(worldPos, 1.0), s.viewProj);
+    if (lc.w <= 0.0) { return 1.0; }
+    float3 ndc = lc.xyz / lc.w;
+    float2 uv  = float2(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z <= 0.0 || ndc.z >= 1.0) { return 1.0; }
+    float2 atlasUV = uv * s.atlasScaleBias.xy + s.atlasScaleBias.zw;
+    float compareDepth = ndc.z - s.depthBias;
+    float sum = 0.0;
+    [unroll] for (int y = -1; y <= 1; ++y) {
+        [unroll] for (int x = -1; x <= 1; ++x) {
+            sum += ShadowAtlas.SampleCmpLevelZero(ShadowSampler, atlasUV + float2(x, y) * kAtlasTexel, compareDepth);
+        }
+    }
+    return sum * (1.0 / 9.0);
+}
+
+// Shadow attenuation for a shadowed light (caller checks shadowIndex >= 0): directional -> CSM,
+// spot/point -> the local atlas.
+float ShadowFactor(GpuLight L, float3 worldPos, float3 N, float viewDepth) {
+    if (L.type < 0.5) { return SampleCSM(worldPos, N, saturate(dot(N, -L.directionWS)), viewDepth); }
+    return SampleLocalShadow((int)LocalShadowBase + (int)L.shadowIndex, worldPos);
+}
+
 // Clustered light culling (set 3): per-cluster (offset,count) + the flat light-index list. When
 // ClusterGridX == 0 (clustering unavailable) the shader falls back to looping all lights.
 StructuredBuffer<uint2> ClusterOffsets      : register(t0, space3);
@@ -300,9 +341,7 @@ float4 main(PSInput input) : SV_Target {
         for (uint i = 0; i < count; ++i) {
             GpuLight L = Lights[LightOffset + i];
             float3 c = EvaluateLight(L, input.worldPos, N, V, albedo, roughness, metallic, F0);
-            if (L.shadowIndex >= 0.0) {                         // the directional caster is shadowed
-                c *= SampleCSM(input.worldPos, N, saturate(dot(N, -L.directionWS)), viewDepth);
-            }
+            if (L.shadowIndex >= 0.0) { c *= ShadowFactor(L, input.worldPos, N, viewDepth); }
             Lo += c;
         }
     } else {
@@ -313,9 +352,7 @@ float4 main(PSInput input) : SV_Target {
             uint li = ClusterLightIndices[oc.x + ci];
             GpuLight L = Lights[LightOffset + li];
             float3 c = EvaluateLight(L, input.worldPos, N, V, albedo, roughness, metallic, F0);
-            if (L.shadowIndex >= 0.0) {
-                c *= SampleCSM(input.worldPos, N, saturate(dot(N, -L.directionWS)), viewDepth);
-            }
+            if (L.shadowIndex >= 0.0) { c *= ShadowFactor(L, input.worldPos, N, viewDepth); }
             Lo += c;
         }
     }
@@ -376,7 +413,8 @@ public:
           m_objectRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.object"),
           m_instanceRing(device, framesInFlight, sizeof(InstanceData), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.instances"),
           m_offsetsRing(device, framesInFlight, sizeof(DataOffsets), rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets"),
-          m_lightRing(device, framesInFlight, sizeof(GpuLight), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.lights") {}
+          m_lightRing(device, framesInFlight, sizeof(GpuLight), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.lights"),
+          m_localShadowRing(device, framesInFlight, sizeof(GpuLocalShadow), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.localShadows") {}
 
     ~MeshRenderer() override { Shutdown(); }
 
@@ -396,12 +434,15 @@ public:
         // Directional shadow map (t1) + comparison sampler (s0) live in set 0 (the bind-group budget
         // is 4 SETS, not 4 bindings — shadows fold into the view set rather than needing a 5th set).
         rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
+        // Local-light (spot/point) shadow atlas (t2, Texture2D) + per-light shadow entries (t3, SRV).
+        rhi::BindGroupLayoutEntry atlasTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+        rhi::BindGroupLayoutEntry localShadowEntry = rhi::BindGroupLayoutEntry::StorageBuffer(3, rhi::ShaderStage::Fragment, /*readOnly*/ true);
         rhi::BindGroupLayoutEntry shadowSampEntry{};
         shadowSampEntry.binding = 0; shadowSampEntry.visibility = rhi::ShaderStage::Fragment;
         shadowSampEntry.type = rhi::BindingType::ComparisonSampler;
-        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, shadowSampEntry };
+        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, atlasTexEntry, localShadowEntry, shadowSampEntry };
         rhi::BindGroupLayoutDesc s0d{};
-        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 4 };
+        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 6 };
         if (!m_device->CreateBindGroupLayout(s0d, m_viewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 1 (non-instanced): per-object UBO (World + Tint), dynamic offset.
@@ -452,6 +493,30 @@ public:
         m_activeShadowGen  = (view != nullptr) ? generation : 0;   // dummy never changes
     }
 
+    // The local-light (spot/point) shadow atlas sampled this frame (the ShadowSystem's atlas when any
+    // local caster exists, else null -> the 1x1 dummy). Set by RenderFrame before PrepareFrame.
+    void SetShadowAtlas(rhi::TextureView* view, u64 generation, u32 passCount) override {
+        m_activeAtlasView = (view != nullptr) ? view : m_dummyAtlasView;
+        m_activeAtlasGen  = (view != nullptr) ? generation : 0;
+        m_localShadowPassCount = (view != nullptr) ? passCount : 0;   // each tile re-emits the casters
+    }
+
+    // Upload this frame's local-shadow entries into the local-shadow ring (bound whole at set 0;
+    // the shader reads LocalShadows[LocalShadowBase + shadowIndex]). Called once per frame (after
+    // PrepareFrame, which begins the ring). The base is stamped into each view's ViewData in Resolve.
+    void UploadLocalShadows(Span<const GpuLocalShadow> shadows, u32 frameIndex) override {
+        (void)frameIndex;
+        m_localShadowBase = 0;
+        u32 n = static_cast<u32>(shadows.Size());
+        if (n == 0 || !m_ready) { return; }
+        if (n > kMaxLocalShadows) { n = kMaxLocalShadows; }
+        const DynamicUniformRing::Range r = m_localShadowRing.AllocateRange(n);
+        if (r.ok) {
+            MemCopy(r.ptr, shadows.Data(), static_cast<usize>(n) * sizeof(GpuLocalShadow));
+            m_localShadowBase = r.slotIndex;
+        }
+    }
+
     // ---- Renderer ----
 
     [[nodiscard]] Span<const RenderCategory> SupportedCategories() const override {
@@ -466,10 +531,12 @@ public:
     void PrepareFrame(u32 maxDraws, u32 frameIndex) override {
         m_ready = false;
         if (maxDraws == 0) { return; }
-        const u32 drawCap = maxDraws * (1u + ShadowCascades::kCount);   // camera draws + per-cascade shadow re-emit
+        // camera draws + per-cascade re-emit (CSM) + per-spot-tile re-emit (local atlas).
+        const u32 drawCap = maxDraws * (1u + ShadowCascades::kCount + m_localShadowPassCount);
         if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
-            !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights)) { return; }
+            !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
+            !m_localShadowRing.Reserve(kMaxLocalShadows)) { return; }
         if (!EnsureViewBindGroup() || !EnsureShadowViewBindGroup() ||
             !EnsureBindGroup(m_objectRing,   m_objectLayout,   sizeof(ObjectData), m_objectBG,   m_objectBGGen,   /*whole*/ false) ||
             !EnsureBindGroup(m_instanceRing, m_instanceLayout, 0,                  m_instanceBG, m_instanceBGGen, /*whole*/ true)) { return; }
@@ -479,6 +546,7 @@ public:
         m_instanceRing.BeginFrame(frameIndex);
         m_offsetsRing.BeginFrame(frameIndex);
         m_lightRing.BeginFrame(frameIndex);
+        m_localShadowRing.BeginFrame(frameIndex);
         m_ready = true;
     }
 
@@ -533,6 +601,7 @@ public:
             vd.shadowNormalBias    = 0.02f;
             vd.shadowDepthBias     = 0.0009f;
         }
+        vd.localShadowBase = m_localShadowBase;   // base into the local-shadow ring (spot/point atlas)
         if (ctx.cluster.Valid()) {
             vd.clusterGridX = ctx.cluster.gridX; vd.clusterGridY = ctx.cluster.gridY;
             vd.clusterSliceCount = ctx.cluster.sliceCount; vd.clusterTileSize = ctx.cluster.tileSize;
@@ -620,7 +689,7 @@ private:
         Vec3 ambient = Vec3{ 0, 0, 0 }; f32 shadowCascadeCount = 0.0f;                          // 16
         Vec4 cascadeSplitFar  = Vec4{ 0, 0, 0, 0 };                                             // 16
         Vec4 cascadeTexelSize = Vec4{ 0, 0, 0, 0 };                                             // 16
-        f32  shadowNormalBias = 0, shadowDepthBias = 0, cascadeLayerBase = 0, shadowPad1 = 0;   // 16
+        f32  shadowNormalBias = 0, shadowDepthBias = 0, cascadeLayerBase = 0; u32 localShadowBase = 0;   // 16
     };
     struct ObjectData   { Mat4 world; Color tint; };     // 80  (cbuffer Object: World + Tint)
     struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)
@@ -630,7 +699,11 @@ private:
     static constexpr u64 kViewSlot         = 256;        // dynamic UBO offset alignment (object/shadow-view)
     static constexpr u64 kViewDataSlot     = 1024;       // view UBO slot (ViewData is 512B with CSM cascades)
     static constexpr u32 kMaxLights        = 256;        // per-view light budget (phase 4.1; clustered later)
-    static constexpr u32 kMaxShadowPasses  = 16;         // shadow-view UBO slots per frame (5.1 uses 1)
+    // shadow-view UBO slots per frame: one per (shadow pass × category run). Cascades (up to
+    // kMaxShadowViews*kCount) + local-shadow atlas tiles (up to kMaxLocalShadows), each × a few
+    // categories. Sized with headroom — a slot is tiny (256B).
+    static constexpr u32 kMaxShadowPasses  = 256;
+    static constexpr u32 kMaxLocalShadows  = 64;         // spot/point shadow entries per frame (atlas-bound)
 
     void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
                        const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
@@ -857,29 +930,41 @@ private:
     // when either ring (re)allocated this frame.
     bool EnsureViewBindGroup() {
         if (m_activeShadowView == nullptr) { m_activeShadowView = m_dummyShadowView; }
+        if (m_activeAtlasView == nullptr)  { m_activeAtlasView  = m_dummyAtlasView; }
         if (m_viewBG != nullptr && m_viewBGViewGen == m_viewRing.Generation() &&
             m_viewBGLightGen == m_lightRing.Generation() &&
-            m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen) {
+            m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen &&
+            m_viewBGAtlas == m_activeAtlasView && m_viewBGAtlasGen == m_activeAtlasGen &&
+            m_viewBGLocalGen == m_localShadowRing.Generation()) {
             return true;
         }
         if (m_viewBG) { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         rhi::Buffer* viewBuf = m_viewRing.Buffer();
         rhi::Buffer* lightBuf = m_lightRing.Buffer();
-        if (viewBuf == nullptr || lightBuf == nullptr || m_activeShadowView == nullptr || m_shadowSampler == nullptr) { return false; }
+        rhi::Buffer* localBuf = m_localShadowRing.Buffer();
+        if (viewBuf == nullptr || lightBuf == nullptr || localBuf == nullptr ||
+            m_activeShadowView == nullptr || m_activeAtlasView == nullptr || m_shadowSampler == nullptr) { return false; }
+        // Order must match the set-0 layout: view UBO, lights, cascade map (t1), local atlas (t2),
+        // local-shadow entries (t3), comparison sampler. Buffers bound whole + indexed in-shader.
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(viewBuf, 0, sizeof(ViewData)),
             rhi::BindGroupEntry::BufferEntry(lightBuf, 0, m_lightRing.ByteCapacity()),
             rhi::BindGroupEntry::TextureEntry(m_activeShadowView),
+            rhi::BindGroupEntry::TextureEntry(m_activeAtlasView),
+            rhi::BindGroupEntry::BufferEntry(localBuf, 0, m_localShadowRing.ByteCapacity()),
             rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 4 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 6 };
         if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
         m_viewBGViewGen = m_viewRing.Generation();
         m_viewBGLightGen = m_lightRing.Generation();
         m_viewBGShadow = m_activeShadowView;
         m_viewBGShadowGen = m_activeShadowGen;
+        m_viewBGAtlas = m_activeAtlasView;
+        m_viewBGAtlasGen = m_activeAtlasGen;
+        m_viewBGLocalGen = m_localShadowRing.Generation();
         return true;
     }
 
@@ -904,6 +989,18 @@ private:
         vd.dimension = rhi::TextureViewDimension::Texture2DArray; vd.arrayLayerCount = 1;
         if (!m_device->CreateTextureView(m_dummyShadowTex, vd, m_dummyShadowView).IsOk()) { return Status{ ErrorCode::Unknown }; }
         m_activeShadowView = m_dummyShadowView;
+
+        // A 1x1 Texture2D dummy for the local-shadow atlas (t2) + a 1-element dummy data buffer (t3),
+        // bound when no local shadow caster exists this frame (the descriptor set stays complete).
+        rhi::TextureDesc atd{};
+        atd.format = rhi::TextureFormat::Depth32Float; atd.width = 1; atd.height = 1; atd.arrayLayerCount = 1;
+        atd.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
+        atd.label = u8"mesh.dummyAtlas";
+        if (!m_device->CreateTexture(atd, m_dummyAtlasTex).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::TextureViewDesc avd{}; avd.format = rhi::TextureFormat::Depth32Float; avd.aspect = rhi::TextureAspect::DepthOnly;
+        avd.dimension = rhi::TextureViewDimension::Texture2D;
+        if (!m_device->CreateTextureView(m_dummyAtlasTex, avd, m_dummyAtlasView).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        m_activeAtlasView = m_dummyAtlasView;
         return Status{};
     }
 
@@ -976,6 +1073,8 @@ private:
         if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
         if (m_dummyShadowView) { m_device->DestroyTextureView(m_dummyShadowView); m_dummyShadowView = nullptr; }
         if (m_dummyShadowTex)  { m_device->DestroyTexture(m_dummyShadowTex); m_dummyShadowTex = nullptr; }
+        if (m_dummyAtlasView)  { m_device->DestroyTextureView(m_dummyAtlasView); m_dummyAtlasView = nullptr; }
+        if (m_dummyAtlasTex)   { m_device->DestroyTexture(m_dummyAtlasTex); m_dummyAtlasTex = nullptr; }
         if (m_shadowSampler)   { m_device->DestroySampler(m_shadowSampler); m_shadowSampler = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
@@ -1028,6 +1127,7 @@ private:
     DynamicUniformRing m_instanceRing;
     DynamicUniformRing m_offsetsRing;
     DynamicUniformRing m_lightRing;
+    DynamicUniformRing m_localShadowRing;   // per-frame GpuLocalShadow entries (spot/point atlas)
 
     rhi::BindGroup* m_viewBG       = nullptr;
     rhi::BindGroup* m_shadowViewBG = nullptr;
@@ -1050,6 +1150,17 @@ private:
     rhi::TextureView* m_dummyShadowView  = nullptr;
     rhi::TextureView* m_activeShadowView = nullptr;
     u64               m_activeShadowGen  = 0;
+    // Local-light (spot/point) shadow atlas (t2) + per-light entries (t3) — 5.3. The atlas view + its
+    // generation + the local-shadow ring generation extend the set-0 bind-group cache key.
+    rhi::Texture*     m_dummyAtlasTex    = nullptr;
+    rhi::TextureView* m_dummyAtlasView   = nullptr;
+    rhi::TextureView* m_activeAtlasView  = nullptr;
+    u64               m_activeAtlasGen   = 0;
+    rhi::TextureView* m_viewBGAtlas      = nullptr;
+    u64               m_viewBGAtlasGen   = 0;
+    u32               m_viewBGLocalGen   = 0;
+    u32               m_localShadowBase  = 0;   // this frame's base into m_localShadowRing
+    u32               m_localShadowPassCount = 0;   // # atlas depth passes (caster re-emits) this frame
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
     // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group

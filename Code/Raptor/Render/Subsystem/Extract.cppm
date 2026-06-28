@@ -138,6 +138,7 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
     auto* lights = scene.GetSystem<LightComponentManager>();
     if (lights == nullptr) { return; }
     bool haveShadow = false;
+    u32  localShadowCount = 0;   // assigns each spot/point caster's shadowIndex (into the atlas buffer)
     lights->ForEach([&](LightComponent& lc, scene::EntityHandle e) {
         if (!lc.enabled) { return; }
         const Mat4 world = scene.GetWorldMatrix(e);
@@ -158,6 +159,21 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
             ds.direction = g.directionWS;
             ds.valid     = true;
             out.SetDirectionalShadow(ds);
+        }
+        // Spot shadow casters (5.3a): assign the shadowIndex (into the local-shadow atlas buffer) here
+        // and register the caster; the ShadowSystem builds its tile + perspective matrix at frame time.
+        // (Point lights — 5.3b — will expand to 6 cube faces.) Capped at the atlas tile budget.
+        const bool localCaster = lc.castsShadows && lc.type == LightType::Spot;
+        if (localCaster && localShadowCount < kMaxLocalShadowCasters) {
+            g.shadowIndex = static_cast<f32>(localShadowCount);   // index into the GpuLocalShadow buffer
+            LocalShadowCaster c;
+            c.type        = static_cast<u32>(lc.type);
+            c.positionWS  = g.positionWS;
+            c.directionWS = g.directionWS;
+            c.range       = lc.range;
+            c.outerAngle  = lc.outerAngle;
+            out.AddLocalShadowCaster(c);
+            ++localShadowCount;
         }
         out.AddLight(g);
     });

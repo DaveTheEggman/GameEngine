@@ -90,6 +90,10 @@ struct ShadowBinding {
     ShadowCascades        cascades;               // THIS view's cascade matrices/splits
     u32                   layerBase  = 0;         // this view's first array layer (viewIndex * cascades)
     bool                  valid      = false;
+    // Local-light (spot/point) shadow atlas (5.3) — scene-global, one atlas shared by all views.
+    // ReadTexture'd by every forward pass so the atlas depth pass is ordered + barriered ahead of it.
+    rendergraph::RGHandle atlasHandle = {};
+    bool                  atlasValid  = false;
     [[nodiscard]] bool Valid() const noexcept { return valid && sampleView != nullptr; }
 };
 
@@ -149,6 +153,15 @@ public:
     // cache invalidates on a reused-address view. Called once per frame before PrepareFrame. Default
     // no-op (a renderer that doesn't shade ignores it).
     virtual void SetShadowMap(rhi::TextureView* shadowMap, u64 generation) { (void)shadowMap; (void)generation; }
+
+    // Hand this frame's local-light (spot/point) shadow atlas (null = none) + its generation, same
+    // contract/timing as SetShadowMap. `passCount` is how many atlas depth passes (one per caster
+    // tile) will re-emit this renderer's casters, so it can size its per-object rings. Default no-op.
+    virtual void SetShadowAtlas(rhi::TextureView* atlas, u64 generation, u32 passCount) { (void)atlas; (void)generation; (void)passCount; }
+
+    // Upload this frame's local-shadow entries (the atlas's per-light matrices/rects) for a renderer
+    // that binds them in set 0. Called once per frame after PrepareFrame. Default no-op.
+    virtual void UploadLocalShadows(Span<const GpuLocalShadow> shadows, u32 frameIndex) { (void)shadows; (void)frameIndex; }
 
     virtual void FinishFrame() {}
 };
@@ -239,6 +252,9 @@ public:
                 rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = shadow.layerBase; sub.arrayLayerCount = ShadowCascades::kCount;
                 b.ReadTexture(shadow.handle, sub);
             }
+            // Read the whole local-shadow atlas (orders the atlas depth pass -> this pass + barriers
+            // it readable). One atlas shared by all views, so the whole texture is the dependency.
+            if (shadow.atlasValid) { b.ReadTexture(shadow.atlasHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
                 ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, shadow, out);
@@ -471,10 +487,38 @@ public:
         rhi::TextureView* shadowMap = hasShadow ? m_shadows->PrepareFrame(m_frameIndex, viewCount) : nullptr;
         const u64 shadowGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
 
+        // Local-light (spot) shadows (5.3): build the per-caster perspective matrices + atlas tiles up
+        // front, scene-global (one atlas shared by all views). Doing it here lets the renderers size
+        // their per-object rings (SetShadowAtlas passCount) and upload the data before the forward.
+        m_localShadows.Clear();
+        m_localTiles.Clear();
+        rhi::TextureView* atlasView = nullptr;
+        if (m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr) {
+            const Span<const LocalShadowCaster> casters = primary->Scene()->LocalShadowCasters();
+            const u32 cap = Min(static_cast<u32>(casters.Size()), m_shadows->AtlasTileCapacity());
+            if (cap > 0) { atlasView = m_shadows->PrepareAtlas(m_frameIndex); }
+            if (atlasView != nullptr) {
+                const u32 atlasRes = m_shadows->AtlasResolution();
+                const u32 tileRes  = m_shadows->AtlasTileResolution();
+                for (u32 i = 0; i < cap; ++i) {
+                    const GpuLocalShadow s = BuildSpotShadow(casters[i], i, atlasRes, tileRes);
+                    const AtlasTile      t = AtlasTileRect(i, atlasRes, tileRes);
+                    m_localShadows.PushBack(s);
+                    m_localTiles.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h });
+                }
+            }
+        }
+        const u64 atlasGen       = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
+        const u32 localPassCount = static_cast<u32>(m_localTiles.Size());
+
         {
             RAPTOR_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
             for (Renderer* r : m_registry->Unique()) { r->SetShadowMap(shadowMap, shadowGen); }
+            for (Renderer* r : m_registry->Unique()) { r->SetShadowAtlas(atlasView, atlasGen, localPassCount); }
             for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
+            for (Renderer* r : m_registry->Unique()) {
+                r->UploadLocalShadows(Span<const GpuLocalShadow>{ m_localShadows.Data(), m_localShadows.Size() }, m_frameIndex);
+            }
             if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
             m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
         }
@@ -494,6 +538,31 @@ public:
         const Vec3  lightDir      = (hasShadow && primary != nullptr) ? primary->Scene()->DirectionalShadowData().direction : Vec3{ 0, -1, 0 };
         const u32   cascadeCount  = (m_shadows != nullptr) ? m_shadows->CascadeCount() : 4u;
         const u32   shadowRes     = (m_shadows != nullptr) ? m_shadows->Resolution() : 1024u;
+
+        // Local-light shadow atlas pass (5.3): scene-global, declared once. Clear the atlas, then
+        // render each caster's casters into its tile (per-tile viewport + scissor so tiles don't
+        // bleed). Every forward pass ReadTextures this handle, ordering it ahead + barriering readable.
+        rendergraph::RGHandle atlasH;
+        const bool atlasActive = atlasView != nullptr && !m_localTiles.IsEmpty();
+        if (atlasActive) {
+            atlasH = m_shadows->ImportAtlas(m_graph, m_frameIndex);
+            const RenderView* casters = primary;
+            RendererRegistry* reg     = m_registry;
+            Array<LocalShadowTile>* tiles = &m_localTiles;
+            const u32 atlasRes = m_shadows->AtlasResolution();
+            m_graph.AddRenderPass(u8"shadow.atlas", [this, atlasH, casters, reg, tiles, atlasRes](rendergraph::PassBuilder& b) {
+                b.SetDepthTarget(atlasH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f);
+                b.SetViewport(0, 0, atlasRes, atlasRes);   // pass default; each tile sets its own below
+                b.SetExecute([this, casters, reg, tiles](rhi::RenderPassEncoder& rp) {
+                    for (const LocalShadowTile& t : *tiles) {
+                        rp.SetViewport(static_cast<f32>(t.x), static_cast<f32>(t.y),
+                                       static_cast<f32>(t.w), static_cast<f32>(t.h));
+                        rp.SetScissor(static_cast<i32>(t.x), static_cast<i32>(t.y), t.w, t.h);
+                        RecordShadowCasters(rp, *casters, *reg, t.viewProj);
+                    }
+                });
+            });
+        }
         if (shadowActive) { shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex); }
 
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
@@ -553,6 +622,9 @@ public:
                 shadow.layerBase  = layerBase;
                 shadow.valid      = true;
             }
+            // The local-light atlas is scene-global (one pass for all views) — every view depends on it.
+            shadow.atlasHandle = atlasH;
+            shadow.atlasValid  = atlasActive;
 
             if (m_tonemap != nullptr) {
                 // HDR path: forward renders linear HDR into a transient, then the tonemap pass
@@ -590,6 +662,11 @@ private:
     TonemapPass*            m_tonemap  = nullptr;   // borrowed; HDR-resolve pass (null => forward writes LDR direct)
     ShadowSystem*           m_shadows  = nullptr;   // borrowed; owns the directional shadow depth texture
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
+    // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
+    // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
+    struct LocalShadowTile { Mat4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; };
+    Array<GpuLocalShadow>   m_localShadows;
+    Array<LocalShadowTile>  m_localTiles;
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;

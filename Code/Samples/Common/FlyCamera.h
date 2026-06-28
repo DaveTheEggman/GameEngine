@@ -13,6 +13,7 @@ struct FlyCamera {
     raptor::core::f32  pitch = -0.3f;      // tilt down a touch
     bool               mouseCaptured = false;
     raptor::core::f32  moveSpeed = 50.0f, fastSpeed = 200.0f, lookSensitivity = 0.003f;
+    raptor::core::f32  zoomSpeed = 3.0f;   // world units per wheel notch (dolly along forward)
 
     // Orientation as a quaternion (yaw about world Y, then pitch about local X). Default forward -Z.
     [[nodiscard]] raptor::core::Quat Rotation() const {
@@ -46,6 +47,9 @@ struct FlyCamera {
                 pitch -= mouse->DeltaY() * lookSensitivity;
                 pitch  = raptor::core::Clamp(pitch, -1.55f, 1.55f);
             }
+            // Wheel dollies along the view forward (zoom) — scroll up = move in, down = move out.
+            const raptor::core::f32 scroll = mouse->ScrollY();
+            if (scroll != 0.0f) { position = position + Forward() * (scroll * zoomSpeed); }
         }
 
         const Vec3 fwd   = Forward();
