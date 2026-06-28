@@ -40,6 +40,7 @@ struct RenderRecordContext {
     Mat4                       viewProj    = Mat4::Identity();
     Mat4                       viewMatrix  = Mat4::Identity();   // for view-space depth (clustered shading)
     Vec3                       cameraPos   = Vec3{ 0, 0, 0 };
+    Vec3                       ambient     = Vec3{ 0.03f, 0.03f, 0.03f };   // scene environment ambient
     Span<const GpuLight>       lights      = {};
     ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
     u32                        frameIndex  = 0;
@@ -212,6 +213,7 @@ private:
         ctx.viewProj    = view.Camera().ViewProjection();
         ctx.viewMatrix  = view.Camera().view;
         ctx.cameraPos   = view.Camera().position;
+        ctx.ambient     = (view.Scene() != nullptr) ? view.Scene()->Ambient() : Vec3{ 0.03f, 0.03f, 0.03f };
         ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
         ctx.cluster     = cluster;
         ctx.frameIndex  = frameIndex;

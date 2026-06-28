@@ -39,6 +39,12 @@ namespace
             // CreateScene triggers the RenderSubsystem to inject the render managers.
             m_scene = scenes->CreateScene(u8"sandbox");
 
+            // Per-scene environment ambient (a dim cool indirect term; IBL replaces it later).
+            if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
+                env->Environment().ambientColor     = rc::Color{ 0.12f, 0.16f, 0.28f, 1.0f };
+                env->Environment().ambientIntensity = 0.35f;
+            }
+
             // camera, pulled back along +Z looking at the origin (down -Z by default)
             // Raised + pitched down so the horizontal floor (lights above it) is clearly in view,
             // with the cube grids standing on it. Pitch ~28 deg below horizontal (looks toward the

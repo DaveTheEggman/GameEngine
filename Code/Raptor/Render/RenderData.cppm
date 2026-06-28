@@ -206,8 +206,13 @@ public:
     // Add a light to the snapshot (shading input, not a drawable).
     void AddLight(const GpuLight& light) { m_lights.PushBack(light); }
 
+    // The scene's environment ambient (a flat indirect term until IBL lands). Premultiplied
+    // color × intensity, applied as `albedo * ambient` in the forward shader.
+    void SetAmbient(const Vec3& ambient) noexcept { m_ambient = ambient; }
+    [[nodiscard]] const Vec3& Ambient() const noexcept { return m_ambient; }
+
     // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_arena.Reset(); }
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
@@ -222,6 +227,7 @@ private:
     FrameArena         m_arena;
     Array<RenderData*> m_items;
     Array<GpuLight>    m_lights;
+    Vec3               m_ambient = Vec3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
 };
 
 // ---- radix sort ------------------------------------------------------------------------

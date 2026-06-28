@@ -152,4 +152,13 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
     });
 }
 
+// Reads the scene's environment (ambient) into the snapshot. Defaults to the snapshot's own dim
+// ambient when the scene has no EnvironmentSystem. Premultiplies color × intensity.
+inline void ExtractEnvironmentInto(scene::Scene& scene, ExtractedScene& out) {
+    if (auto* env = scene.GetSystem<EnvironmentSystem>()) {
+        const EnvironmentSettings& e = env->Environment();
+        out.SetAmbient(Vec3{ e.ambientColor.r, e.ambientColor.g, e.ambientColor.b } * e.ambientIntensity);
+    }
+}
+
 } // namespace raptor::render

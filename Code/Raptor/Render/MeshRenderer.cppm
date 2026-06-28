@@ -50,6 +50,7 @@ cbuffer View : register(b0, space0) {
     uint   LightOffset; uint3 _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
+    float3 Ambient; float _ambPad;
 };
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
@@ -106,6 +107,7 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     uint   LightOffset; uint3 _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
+    float3 Ambient; float _ambPad;
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -243,7 +245,7 @@ float4 main(PSInput input) : SV_Target {
         }
     }
 
-    float3 ambient = albedo * 0.05;                            // simple constant ambient (env/IBL in 4.4)
+    float3 ambient = albedo * Ambient;                         // per-scene environment ambient (IBL later)
     return float4(ambient + Lo, 1.0);
 }
 )";
@@ -369,6 +371,7 @@ public:
         vd.viewProj    = ctx.viewProj;
         vd.view        = ctx.viewMatrix;
         vd.cameraPos   = ctx.cameraPos;
+        vd.ambient     = ctx.ambient;
         vd.lightCount  = static_cast<f32>(lightCount);
         vd.lightOffset = lightOffset;
         if (ctx.cluster.Valid()) {
@@ -421,6 +424,7 @@ private:
         u32  lightOffset; u32 pad0, pad1, pad2;          // 16
         u32  clusterGridX = 0, clusterGridY = 0, clusterSliceCount = 0, clusterTileSize = 0;   // 16
         f32  clusterNear = 0, clusterFar = 0, clusterLogScale = 0, clusterLogBias = 0;         // 16
+        Vec3 ambient = Vec3{ 0, 0, 0 }; f32 ambientPad = 0;                                     // 16
     };
     struct ObjectData   { Mat4 world; Color tint; };     // 80  (cbuffer Object: World + Tint)
     struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)

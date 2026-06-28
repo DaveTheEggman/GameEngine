@@ -63,4 +63,20 @@ class MeshComponentManager   final : public scene::ComponentManager<MeshComponen
 class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};
 class LightComponentManager  final : public scene::ComponentManager<LightComponent>  {};
 
+// The scene's environment — ONE per scene (not a component). Holds the ambient indirect term
+// for now (skybox / IBL later). A plain SceneSystem injected by the RenderSubsystem; extraction
+// reads it into the snapshot. `ambientColor × ambientIntensity` is applied as the forward ambient.
+struct EnvironmentSettings {
+    Color ambientColor     = Color{ 0.10f, 0.12f, 0.16f, 1.0f };
+    f32   ambientIntensity = 0.3f;
+};
+
+class EnvironmentSystem final : public scene::SceneSystem {
+public:
+    [[nodiscard]] EnvironmentSettings&       Environment()       noexcept { return m_env; }
+    [[nodiscard]] const EnvironmentSettings& Environment() const noexcept { return m_env; }
+private:
+    EnvironmentSettings m_env;
+};
+
 } // namespace raptor::render

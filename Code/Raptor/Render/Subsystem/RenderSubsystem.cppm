@@ -49,6 +49,7 @@ public:
         scene.AddSystem<MeshComponentManager>();
         scene.AddSystem<CameraComponentManager>();
         scene.AddSystem<LightComponentManager>();
+        scene.AddSystem<EnvironmentSystem>();
     }
 
     [[nodiscard]] bool IsReady() const noexcept { return m_frame.Get() != nullptr; }
@@ -73,6 +74,7 @@ public:
         ExtractedScene* snapshot = AcquireScene();
         ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up (resets snapshot)
         ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
+        ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
 
         ViewCamera camera;
         Color clearColor{ 0.392f, 0.584f, 0.929f, 1.0f };     // cornflower fallback (no primary camera)
