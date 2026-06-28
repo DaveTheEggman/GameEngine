@@ -403,9 +403,13 @@ public:
             bool found = false;
             for (const TargetImport& ti : imported) { if (ti.target == tgt) { colorH = ti.handle; found = true; break; } }
             if (!found) {
-                // current==final==RenderTarget: the host did Undefined->RenderTarget and will Present.
-                colorH = m_graph.ImportTarget(u8"forward.color", nullptr, tgt,
-                                              rhi::ResourceState::RenderTarget, rhi::ResourceState::RenderTarget);
+                // Backbuffer (targetTexture null): current==final==RenderTarget — the host did
+                // Undefined->RenderTarget and will Present, so the graph touches no barrier. Offscreen
+                // (targetTexture set): the graph barriers it current -> RenderTarget -> final (e.g.
+                // ShaderRead/CopySrc so the caller can sample/blit the result).
+                const ViewSettings& s = v->Settings();
+                colorH = m_graph.ImportTarget(u8"forward.color", s.targetTexture, tgt,
+                                              s.targetFinalState, s.targetCurrentState);
                 imported.PushBack(TargetImport{ tgt, colorH });
             }
             const bool clearColor = !found;   // first view to a target clears it; later views Load

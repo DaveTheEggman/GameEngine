@@ -47,6 +47,13 @@ struct ViewSettings {
     // Viewport sub-rect within the target, in pixels (split-screen). Width 0 => the full target.
     i32 viewportX = 0, viewportY = 0;
     u32 viewportWidth = 0, viewportHeight = 0;
+    // Target resource-state handling for the imported color target. `targetTexture` is the backing
+    // texture the graph barriers (null => host-managed backbuffer; the graph touches no barrier).
+    // `targetFinalState` is where the graph leaves it — RenderTarget for present, or ShaderRead /
+    // CopySrc for an offscreen target the caller then samples / blits.
+    rhi::Texture*      targetTexture       = nullptr;
+    rhi::ResourceState targetCurrentState  = rhi::ResourceState::RenderTarget;
+    rhi::ResourceState targetFinalState    = rhi::ResourceState::RenderTarget;
 };
 
 // A single view: what to draw (a shared ExtractedScene), from where (camera), into what

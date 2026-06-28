@@ -68,7 +68,8 @@ public:
 
     void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
                      u32 width, u32 height, ViewportRect viewport = {},
-                     const CameraOverride* cameraOverride = nullptr) override {
+                     const CameraOverride* cameraOverride = nullptr,
+                     const TargetState& targetState = {}) override {
         if (m_frame.Get() == nullptr || target == nullptr) { return; }
 
         ExtractedScene* snapshot = AcquireScene();
@@ -85,6 +86,9 @@ public:
         settings.clear = rhi::ClearColor{ clearColor.r, clearColor.g, clearColor.b, clearColor.a };
         settings.viewportX = viewport.x; settings.viewportY = viewport.y;
         settings.viewportWidth = viewport.width; settings.viewportHeight = viewport.height;
+        settings.targetTexture = targetState.texture;
+        settings.targetCurrentState = targetState.currentState;
+        settings.targetFinalState = targetState.finalState;
         m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height);
     }
 

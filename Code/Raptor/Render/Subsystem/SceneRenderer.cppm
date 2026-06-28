@@ -40,6 +40,15 @@ struct CameraOverride {
     Color      clearColor = Color{ 0.392f, 0.584f, 0.929f, 1.0f };   // the view's backdrop
 };
 
+// How the render target's resource state is handled. Default = the host-managed backbuffer (present).
+// For an offscreen target, give its `texture` (so the graph barriers it) + the state it's currently
+// in + the state to leave it in (ShaderRead to sample it next, CopySrc to blit it).
+struct TargetState {
+    rhi::Texture*      texture      = nullptr;
+    rhi::ResourceState currentState = rhi::ResourceState::RenderTarget;
+    rhi::ResourceState finalState   = rhi::ResourceState::RenderTarget;
+};
+
 // The scene-rendering coordinator. Implemented by RenderSubsystem; queried by the app via
 // the Context (a renderer-agnostic seam for tools/editor that render scenes themselves).
 class ISceneRenderer {
@@ -57,7 +66,8 @@ public:
     // viewports + camera overrides across multiple RenderScene calls for split-screen.
     virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
                              u32 width, u32 height, ViewportRect viewport = {},
-                             const CameraOverride* cameraOverride = nullptr) = 0;
+                             const CameraOverride* cameraOverride = nullptr,
+                             const TargetState& targetState = {}) = 0;
 
     // Compose every collected view into the frame's encoder.
     virtual void EndRendering() = 0;
