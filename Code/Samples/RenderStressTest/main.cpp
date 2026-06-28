@@ -30,9 +30,12 @@ import raptor.render.subsystem;
 import raptor.geometry;
 import raptor.materials;
 
+#include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
+
 namespace rc  = raptor::core;
 namespace rhi = raptor::rhi;
 namespace rt  = raptor::runtime;
+namespace smp = raptor::samples;
 namespace sc  = raptor::scene;
 namespace rd  = raptor::render;
 namespace geo = raptor::geometry;
@@ -44,7 +47,6 @@ namespace
     {
         static constexpr rc::i32 kSpheresPerBatch = 8000;
         static constexpr rc::f32 kSphereSpacing   = 1.5f;
-        static constexpr rc::f32 kLookSens        = 0.003f;
 
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
@@ -111,7 +113,7 @@ namespace
                 cam.farZ        = 2000.0f;
                 cam.clearColor  = rc::Color{ 0.04f, 0.05f, 0.07f, 1.0f };
             }
-            UpdateCameraTransform();
+            PushCameraToEntity();
 
             AddSphereBatch();   // start with one batch
 
@@ -145,8 +147,7 @@ namespace
 
             auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr;
             rt::IKeyboard* kb = input != nullptr ? input->Keyboard() : nullptr;
-            rt::IMouse*    mouse = input != nullptr ? input->Mouse() : nullptr;
-            if (kb == nullptr) { return; }
+            if (kb == nullptr) { return; }   // mouse-look is handled inside m_fly.Update
 
             if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
 
@@ -166,7 +167,8 @@ namespace
             }
             if (kb->IsKeyPressed(rt::KeyCode::H)) { m_showStats = !m_showStats; }
 
-            UpdateCamera(deltaTime, *kb, mouse);
+            m_fly.Update(host, deltaTime);
+            PushCameraToEntity();
 
             // --- sin-wave bob: rewrite every sphere's Y each frame (no static optimization possible) ---
             m_time += deltaTime;
@@ -191,49 +193,13 @@ namespace
         }
 
     private:
-        // Compose the camera entity's transform from the fly-cam yaw/pitch + position. Default camera
-        // forward is -Z; yaw rotates about world Y, pitch about local X.
-        void UpdateCameraTransform()
+        // Push the fly camera's pose onto the camera entity (the default render path reads it).
+        void PushCameraToEntity()
         {
-            const rc::Quat rot = rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, m_yaw)
-                               * rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, m_pitch);
             rc::Transform t = m_scene->GetLocalTransform(m_camera);
-            t.position = m_camPos;
-            t.rotation = rot;
+            t.position = m_fly.position;
+            t.rotation = m_fly.Rotation();
             m_scene->SetLocalTransform(m_camera, t);
-        }
-
-        void UpdateCamera(rc::f32 dt, rt::IKeyboard& kb, rt::IMouse* mouse)
-        {
-            if (mouse != nullptr) {
-                if (kb.IsKeyPressed(rt::KeyCode::Tab)) {
-                    m_mouseCaptured = !m_mouseCaptured;
-                    mouse->SetRelativeMode(m_mouseCaptured);
-                    mouse->SetCursorVisible(!m_mouseCaptured);
-                }
-                if (m_mouseCaptured || mouse->IsButtonDown(rt::MouseButton::Right)) {
-                    m_yaw   -= mouse->DeltaX() * kLookSens;
-                    m_pitch -= mouse->DeltaY() * kLookSens;
-                    m_pitch  = rc::Clamp(m_pitch, -1.55f, 1.55f);
-                }
-            }
-
-            const rc::Quat rot = rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, m_yaw)
-                               * rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, m_pitch);
-            const rc::Vec3 forward = rc::RotateVector(rot, rc::Vec3{ 0.0f, 0.0f, -1.0f });
-            const rc::Vec3 right   = rc::RotateVector(rot, rc::Vec3{ 1.0f, 0.0f, 0.0f });
-            const rc::f32  speed   = (kb.IsKeyDown(rt::KeyCode::LeftShift) ? 200.0f : 50.0f) * dt;
-
-            rc::Vec3 move{ 0.0f, 0.0f, 0.0f };
-            if (kb.IsKeyDown(rt::KeyCode::W)) { move = move + forward; }
-            if (kb.IsKeyDown(rt::KeyCode::S)) { move = move - forward; }
-            if (kb.IsKeyDown(rt::KeyCode::D)) { move = move + right; }
-            if (kb.IsKeyDown(rt::KeyCode::A)) { move = move - right; }
-            if (kb.IsKeyDown(rt::KeyCode::E)) { move = move + rc::Vec3{ 0.0f, 1.0f, 0.0f }; }
-            if (kb.IsKeyDown(rt::KeyCode::Q)) { move = move - rc::Vec3{ 0.0f, 1.0f, 0.0f }; }
-            if (rc::Dot(move, move) > 0.0f) { m_camPos = m_camPos + rc::Normalized(move) * speed; }
-
-            UpdateCameraTransform();
         }
 
         // Spawn 8000 more spheres on the auto-sized grid. Position only depends on a global index, so
@@ -374,11 +340,8 @@ namespace
         bool    m_bob = false;
         rc::f32 m_time = 0.0f;
 
-        // Fly camera
-        rc::Vec3 m_camPos{ 0.0f, 50.0f, 200.0f };
-        rc::f32  m_yaw   = 0.0f;     // 0 => looking down -Z (toward the grid at the origin)
-        rc::f32  m_pitch = -0.245f;  // tilted down to take in the grid
-        bool     m_mouseCaptured = false;
+        // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
+        smp::FlyCamera m_fly{ .position = rc::Vec3{ 0.0f, 50.0f, 200.0f }, .pitch = -0.245f };
 
         // Stats
         bool    m_showStats  = true;

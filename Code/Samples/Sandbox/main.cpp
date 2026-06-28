@@ -21,7 +21,10 @@ import raptor.render;                  // ViewCamera / ViewportRect (split-scree
 import raptor.geometry;
 import raptor.materials;
 
+#include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
+
 namespace rc = raptor::core;
+namespace smp = raptor::samples;
 namespace rhi = raptor::rhi;
 namespace rt = raptor::runtime;
 namespace sc = raptor::scene;
@@ -135,17 +138,21 @@ namespace
 
             const rc::u32 halfW  = frame.width / 2;
             const rc::f32 aspect = static_cast<rc::f32>(halfW) / static_cast<rc::f32>(frame.height);
-            auto makeCam = [&](rc::Vec3 eye) {
+            auto makeCam = [&](rc::Vec3 eye, rc::Vec3 target) {
                 rd::ViewCamera vc;
-                vc.view       = rc::Mat4::LookAtRH(eye, rc::Vec3{ 0.0f, -2.0f, 0.0f }, rc::Vec3{ 0.0f, 1.0f, 0.0f });
+                vc.view       = rc::Mat4::LookAtRH(eye, target, rc::Vec3{ 0.0f, 1.0f, 0.0f });
                 vc.projection = rc::Mat4::PerspectiveFovRH(1.0472f, aspect, 0.1f, 1000.0f);
                 vc.position   = eye;
                 vc.farZ       = 1000.0f;
                 return vc;
             };
-            rd::CameraOverride camL; camL.camera = makeCam(rc::Vec3{ -6.0f, 14.0f, 30.0f });
+            // The fly camera drives whichever view is selected (V toggles); the other stays put.
+            const rd::ViewCamera flyCam = makeCam(m_fly.position, m_fly.position + m_fly.Forward());
+            rd::CameraOverride camL;
+            camL.camera = (m_controlledView == 0) ? flyCam : makeCam(rc::Vec3{ -6.0f, 14.0f, 30.0f }, rc::Vec3{ 0.0f, -2.0f, 0.0f });
             camL.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
-            rd::CameraOverride camR; camR.camera = makeCam(rc::Vec3{  6.0f, 14.0f, 30.0f });
+            rd::CameraOverride camR;
+            camR.camera = (m_controlledView == 1) ? flyCam : makeCam(rc::Vec3{  6.0f, 14.0f, 30.0f }, rc::Vec3{ 0.0f, -2.0f, 0.0f });
             camR.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
 
             // Render both views into the offscreen texture; the graph leaves it in CopySrc.
@@ -186,6 +193,17 @@ namespace
         void OnUpdate(rt::IApplicationHost& host, rc::f32 deltaTime) override
         {
             rt::DefaultApplication::OnUpdate(host, deltaTime);   // keep the P-key profiling dump
+
+            // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). V toggles which split-screen view
+            // it drives; Esc exits.
+            m_fly.Update(host, deltaTime);
+            if (auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr) {
+                if (rt::IKeyboard* kb = input->Keyboard()) {
+                    if (kb->IsKeyPressed(rt::KeyCode::V)) { m_controlledView = 1u - m_controlledView; }
+                    if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
+                }
+            }
+
             if (m_scene == nullptr) { return; }
             m_angle += deltaTime;
             const rc::Quat spin = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);
@@ -277,6 +295,8 @@ namespace
         rc::Array<rc::Vec3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
+        smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
+        rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)
     };
 }
 
