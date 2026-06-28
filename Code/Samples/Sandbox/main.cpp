@@ -182,8 +182,9 @@ namespace
             return true;
         }
 
-        void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override
+        void OnUpdate(rt::IApplicationHost& host, rc::f32 deltaTime) override
         {
+            rt::DefaultApplication::OnUpdate(host, deltaTime);   // keep the P-key profiling dump
             if (m_scene == nullptr) { return; }
             m_angle += deltaTime;
             const rc::Quat spin = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);

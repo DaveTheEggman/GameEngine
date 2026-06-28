@@ -19,18 +19,40 @@ export module raptor.runtime.defaultapp;
 import raptor.core;
 import raptor.rhi;
 import raptor.runtime.client;     // IApplication, IApplicationHost
+import raptor.runtime.platform;   // IPlatform, IKeyboard, KeyCode (the profile-dump hotkey)
 import raptor.runtime.graphics;   // GraphicsDevice, FrameContext
 import raptor.scene;              // Scene
 import raptor.scene.subsystem;    // SceneSubsystem (the standard scene driver)
 import raptor.render.subsystem;   // RenderSubsystem (the standard renderer)
+import raptor.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = raptor::rhi;
+namespace rc  = raptor::core;
 
 export namespace raptor::runtime
 {
     class DefaultApplication : public IApplication
     {
     public:
+        // Press P to print the previous frame's CPU scope tree + per-pass GPU timing. A game
+        // subclass that overrides OnUpdate should call DefaultApplication::OnUpdate(host, dt) to
+        // keep the hotkey. (Reads the GPU timestamps after a device stall — fine for an on-demand dump.)
+        void OnUpdate(IApplicationHost& host, rc::f32 /*deltaTime*/) override
+        {
+            IPlatform* plat = host.Platform();
+            IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
+            IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
+            if (kb == nullptr || !kb->IsKeyPressed(KeyCode::P)) { return; }
+
+            rc::ConsoleWrite(raptor::profiler::Profiler::Get().BuildReport().AsView());
+            if (auto* renderer = host.Ctx().GetSubsystem<raptor::render::RenderSubsystem>())
+            {
+                rc::String gpu;
+                renderer->BuildGpuProfileReport(gpu);
+                rc::ConsoleWrite(gpu.AsView());
+            }
+        }
+
         // Registers the standard engine subsystems. A game subclass overrides this,
         // calls DefaultApplication::Configure(host) first, then adds its own.
         void Configure(IApplicationHost& host) override

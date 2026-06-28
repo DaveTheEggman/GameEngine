@@ -56,6 +56,14 @@ public:
 
     [[nodiscard]] bool IsReady() const noexcept { return m_frame.Get() != nullptr; }
 
+    // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
+    // are valid — intended for an on-demand dump (the P-key), not per-frame use.
+    void BuildGpuProfileReport(String& out) {
+        if (m_frame.Get() == nullptr || m_device == nullptr) { return; }
+        m_device->WaitIdle();
+        m_frame->ReadGpuProfile(out);
+    }
+
     // ---- ISceneRenderer ----
 
     void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) override {
