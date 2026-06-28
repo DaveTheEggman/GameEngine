@@ -138,8 +138,12 @@ protected:
         m_tonemapPass = MakeUnique<TonemapPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_tonemapPass->Initialize().IsOk()) { m_tonemapPass.Reset(); }
 
+        // Directional shadow map (phase 5). Optional — if it fails to init, the scene renders unshadowed.
+        m_shadowSystem = MakeUnique<ShadowSystem>(DefaultAllocator(), *m_device, m_framesInFlight);
+        if (!m_shadowSystem->Initialize().IsOk()) { m_shadowSystem.Reset(); }
+
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
-                                          m_clusterSystem.Get(), m_tonemapPass.Get());
+                                          m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get());
         m_frame->EnableGpuProfiling();   // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
@@ -158,6 +162,7 @@ protected:
         m_frame.Reset();        // releases the forward pass's per-frame GPU resources
         m_clusterSystem.Reset();// before the ShaderSystem it borrows
         m_tonemapPass.Reset();  // before the ShaderSystem it borrows
+        m_shadowSystem.Reset(); // shadow depth textures
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
         m_psoCache.Reset();
@@ -187,6 +192,7 @@ private:
     UniquePtr<MeshRenderer>                   m_meshRenderer;
     UniquePtr<ClusterSystem>                  m_clusterSystem;
     UniquePtr<TonemapPass>                    m_tonemapPass;
+    UniquePtr<ShadowSystem>                   m_shadowSystem;
     RendererRegistry                          m_registry;
     UniquePtr<RenderFrame>                    m_frame;
 

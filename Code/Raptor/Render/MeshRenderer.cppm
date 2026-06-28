@@ -46,11 +46,12 @@ inline constexpr const char8_t* kForwardVS = u8R"(
 cbuffer View : register(b0, space0) {
     row_major float4x4 ViewProj;   // Raptor matrices are row-major; annotate so HLSL reads them right.
     row_major float4x4 View;       // for view-space depth in the cluster lookup (PS only)
+    row_major float4x4 LightViewProj;   // directional shadow caster's world->light-clip (phase 5)
     float3 CameraPos; float LightCount;
     uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
-    float3 Ambient; float _ambPad;
+    float3 Ambient; float HasShadow;       // HasShadow != 0 -> sample the shadow map
 };
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
@@ -103,19 +104,44 @@ inline constexpr const char8_t* kForwardPS = u8R"(
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;
     row_major float4x4 View;
+    row_major float4x4 LightViewProj;        // directional shadow caster's world->light-clip
     float3 CameraPos; float LightCount;
     uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
-    float3 Ambient; float _ambPad;
+    float3 Ambient; float HasShadow;         // HasShadow != 0 -> sample the shadow map
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
     float3 color;      float intensity;
     float3 directionWS;float type;           // 0=Directional, 1=Point, 2=Spot
-    float innerCos; float outerCos; float pad0; float pad1;
+    float innerCos; float outerCos; float shadowIndex; float pad1;   // shadowIndex >= 0 -> casts shadow
 };
 StructuredBuffer<GpuLight> Lights : register(t0, space0);
+// Directional shadow map (t1) + a comparison sampler (s0): hardware-PCF the light-space depth.
+Texture2D              ShadowMap     : register(t1, space0);
+SamplerComparisonState ShadowSampler : register(s0, space0);
+
+// 5x5 hardware-PCF on the directional shadow map. worldPos -> light clip -> shadow UV + compare
+// depth; SampleCmpLevelZero does the depth test + bilinear per tap. 1 = lit, 0 = fully shadowed.
+// (5.2 will add normal-offset bias + CSM cascade selection; this is the single-map vertical slice.)
+float SampleDirectionalShadow(float3 worldPos) {
+    if (HasShadow == 0.0) { return 1.0; }
+    float4 lc = mul(float4(worldPos, 1.0), LightViewProj);
+    if (lc.w <= 0.0) { return 1.0; }
+    float3 ndc = lc.xyz / lc.w;
+    float2 uv  = float2(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);   // DX-style (y down) shadow UV
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { return 1.0; }
+    float compareDepth = ndc.z - 0.0015;                          // constant depth bias
+    const float texel = 1.0 / 2048.0;
+    float sum = 0.0;
+    [unroll] for (int y = -2; y <= 2; ++y) {
+        [unroll] for (int x = -2; x <= 2; ++x) {
+            sum += ShadowMap.SampleCmpLevelZero(ShadowSampler, uv + float2(x, y) * texel, compareDepth);
+        }
+    }
+    return sum * (1.0 / 25.0);
+}
 // Clustered light culling (set 3): per-cluster (offset,count) + the flat light-index list. When
 // ClusterGridX == 0 (clustering unavailable) the shader falls back to looping all lights.
 StructuredBuffer<uint2> ClusterOffsets      : register(t0, space3);
@@ -228,12 +254,17 @@ float4 main(PSInput input) : SV_Target {
     float  roughness = clamp(Roughness, 0.045, 1.0);
     float3 F0        = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
 
+    float shadow = SampleDirectionalShadow(input.worldPos);    // 1 = lit, computed once per fragment
+
     float3 Lo = float3(0.0, 0.0, 0.0);
     if (ClusterGridX == 0) {
         // Clustering unavailable — evaluate every light.
         uint count = (uint)LightCount;
         for (uint i = 0; i < count; ++i) {
-            Lo += EvaluateLight(Lights[LightOffset + i], input.worldPos, N, V, albedo, roughness, metallic, F0);
+            GpuLight L = Lights[LightOffset + i];
+            float3 c = EvaluateLight(L, input.worldPos, N, V, albedo, roughness, metallic, F0);
+            if (L.shadowIndex >= 0.0) { c *= shadow; }            // the directional caster is shadowed
+            Lo += c;
         }
     } else {
         // Clustered — evaluate only the lights binned into this fragment's cluster.
@@ -243,12 +274,53 @@ float4 main(PSInput input) : SV_Target {
         uint2  oc = ClusterOffsets[cluster];
         for (uint ci = 0; ci < oc.y; ++ci) {
             uint li = ClusterLightIndices[oc.x + ci];
-            Lo += EvaluateLight(Lights[LightOffset + li], input.worldPos, N, V, albedo, roughness, metallic, F0);
+            GpuLight L = Lights[LightOffset + li];
+            float3 c = EvaluateLight(L, input.worldPos, N, V, albedo, roughness, metallic, F0);
+            if (L.shadowIndex >= 0.0) { c *= shadow; }
+            Lo += c;
         }
     }
 
     float3 ambient = albedo * Ambient;                         // per-scene environment ambient (IBL later)
     return float4(ambient + Lo, 1.0);
+}
+)";
+
+// Depth-only shadow caster shader (vertex stage ONLY — the depth-only pipeline omits the
+// fragment). Transforms each vertex by world * LightViewProj into the light's clip space, so the
+// shadow pass writes light-space depth. Two permutations (INSTANCED or not) mirror the forward VS's
+// world-matrix source: a per-object UBO (set 1) or the per-instance StructuredBuffer (set 1).
+inline constexpr const char8_t* kShadowVS = u8R"(
+cbuffer ShadowView : register(b0, space0) {
+    row_major float4x4 LightViewProj;
+};
+#ifdef INSTANCED
+struct InstanceData { row_major float4x4 World; float4 Tint; };
+StructuredBuffer<InstanceData> Instances : register(t0, space1);
+#else
+cbuffer Object : register(b0, space1) {
+    row_major float4x4 World;
+    float4             Tint;
+};
+#endif
+struct VSInput {
+    float3 position : TEXCOORD0;
+    float3 normal   : TEXCOORD1;
+    float2 uv       : TEXCOORD2;
+    float4 color    : TEXCOORD3;
+    float3 tangent  : TEXCOORD4;
+#ifdef INSTANCED
+    uint4  dataOffsets : TEXCOORD5;   // .x = index into Instances[] (instance-stepped)
+#endif
+};
+float4 main(VSInput input) : SV_Position {
+#ifdef INSTANCED
+    float4x4 world = Instances[input.dataOffsets.x].World;
+#else
+    float4x4 world = World;
+#endif
+    float4 worldPos = mul(float4(input.position, 1.0), world);
+    return mul(worldPos, LightViewProj);
 }
 )";
 
@@ -260,7 +332,8 @@ public:
         : m_device(&device), m_shaders(&shaderSystem), m_psoCache(&psoCache),
           m_materials(&materialSystem), m_meshes(device),
           m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight),
-          m_viewRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.view"),
+          m_viewRing(device, framesInFlight, kViewDataSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.view"),
+          m_shadowViewRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.shadowView"),
           m_objectRing(device, framesInFlight, kViewSlot, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.object"),
           m_instanceRing(device, framesInFlight, sizeof(InstanceData), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.instances"),
           m_offsetsRing(device, framesInFlight, sizeof(DataOffsets), rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets"),
@@ -281,9 +354,15 @@ public:
         rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
         viewEntry.hasDynamicOffset = true;
         rhi::BindGroupLayoutEntry lightEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
-        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry };
+        // Directional shadow map (t1) + comparison sampler (s0) live in set 0 (the bind-group budget
+        // is 4 SETS, not 4 bindings — shadows fold into the view set rather than needing a 5th set).
+        rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry shadowSampEntry{};
+        shadowSampEntry.binding = 0; shadowSampEntry.visibility = rhi::ShaderStage::Fragment;
+        shadowSampEntry.type = rhi::BindingType::ComparisonSampler;
+        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, shadowSampEntry };
         rhi::BindGroupLayoutDesc s0d{};
-        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 2 };
+        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 4 };
         if (!m_device->CreateBindGroupLayout(s0d, m_viewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 1 (non-instanced): per-object UBO (World + Tint), dynamic offset.
@@ -312,8 +391,25 @@ public:
         if (!MakePipelineLayout(m_viewLayout, m_objectLayout,   m_materialLayout, m_clusterLayout, m_pipelineLayoutSingle))   { return Status{ ErrorCode::Unknown }; }
         if (!MakePipelineLayout(m_viewLayout, m_instanceLayout, m_materialLayout, m_clusterLayout, m_pipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
 
+        // Shadow depth-only path (phase 5): a vertex-only shader + a 2-set pipeline layout
+        // (set 0 = light view UBO, set 1 = the SAME object/instance layouts as forward, so the
+        // object/instance bind groups are reused). No material/cluster sets.
+        m_shaders->RegisterSource(u8"shadow_depth", shaders::ShaderStage::Vertex, kShadowVS);
+        rhi::BindGroupLayoutEntry shadowViewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
+        shadowViewEntry.hasDynamicOffset = true;
+        if (!MakeLayout(shadowViewEntry, m_shadowViewLayout)) { return Status{ ErrorCode::Unknown }; }
+        if (!MakePipelineLayout(m_shadowViewLayout, m_objectLayout,   m_shadowPipelineLayoutSingle))    { return Status{ ErrorCode::Unknown }; }
+        if (!MakePipelineLayout(m_shadowViewLayout, m_instanceLayout, m_shadowPipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
+
         if (!CreateDefaultMaterial().IsOk()) { return Status{ ErrorCode::Unknown }; }
+        if (!CreateShadowResources().IsOk()) { return Status{ ErrorCode::Unknown }; }
         return CreateDummyClusters();
+    }
+
+    // The directional shadow map sampled in the forward shader this frame (the ShadowSystem's
+    // texture when a caster exists, else null -> the 1x1 dummy). Set by RenderFrame before PrepareFrame.
+    void SetShadowMap(rhi::TextureView* view) override {
+        m_activeShadowView = (view != nullptr) ? view : m_dummyShadowView;
     }
 
     // ---- Renderer ----
@@ -324,17 +420,21 @@ public:
         return Span<const RenderCategory>{ kCats, 3 };
     }
 
-    // Size every ring for the whole frame's draws (once) + select this frame's region.
+    // Size every ring for the whole frame's draws (once) + select this frame's region. The
+    // per-object/instance rings are sized for 2x the camera draws so the shadow depth pass can
+    // re-emit the same geometry into the same rings without starving the forward pass.
     void PrepareFrame(u32 maxDraws, u32 frameIndex) override {
         m_ready = false;
         if (maxDraws == 0) { return; }
-        if (!m_viewRing.Reserve(maxDraws) || !m_objectRing.Reserve(maxDraws) ||
-            !m_instanceRing.Reserve(maxDraws) || !m_offsetsRing.Reserve(maxDraws) ||
-            !m_lightRing.Reserve(kMaxLights)) { return; }
-        if (!EnsureViewBindGroup() ||
+        const u32 drawCap = maxDraws * 2u;   // camera draws + shadow re-emit
+        if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
+            !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
+            !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights)) { return; }
+        if (!EnsureViewBindGroup() || !EnsureShadowViewBindGroup() ||
             !EnsureBindGroup(m_objectRing,   m_objectLayout,   sizeof(ObjectData), m_objectBG,   m_objectBGGen,   /*whole*/ false) ||
             !EnsureBindGroup(m_instanceRing, m_instanceLayout, 0,                  m_instanceBG, m_instanceBGGen, /*whole*/ true)) { return; }
         m_viewRing.BeginFrame(frameIndex);
+        m_shadowViewRing.BeginFrame(frameIndex);
         m_objectRing.BeginFrame(frameIndex);
         m_instanceRing.BeginFrame(frameIndex);
         m_offsetsRing.BeginFrame(frameIndex);
@@ -373,12 +473,14 @@ public:
         const DynamicUniformRing::Range view = m_viewRing.Allocate();
         if (!view.ok) { return; }
         ViewData vd{};
-        vd.viewProj    = ctx.viewProj;
-        vd.view        = ctx.viewMatrix;
-        vd.cameraPos   = ctx.cameraPos;
-        vd.ambient     = ctx.ambient;
-        vd.lightCount  = static_cast<f32>(lightCount);
-        vd.lightOffset = lightOffset;
+        vd.viewProj      = ctx.viewProj;
+        vd.view          = ctx.viewMatrix;
+        vd.lightViewProj = ctx.lightViewProj;
+        vd.cameraPos     = ctx.cameraPos;
+        vd.ambient       = ctx.ambient;
+        vd.hasShadow     = ctx.hasShadow ? 1.0f : 0.0f;
+        vd.lightCount    = static_cast<f32>(lightCount);
+        vd.lightOffset   = lightOffset;
         if (ctx.cluster.Valid()) {
             vd.clusterGridX = ctx.cluster.gridX; vd.clusterGridY = ctx.cluster.gridY;
             vd.clusterSliceCount = ctx.cluster.sliceCount; vd.clusterTileSize = ctx.cluster.tileSize;
@@ -414,8 +516,40 @@ public:
         }
     }
 
+    // Re-emit this view's draws as DEPTH-ONLY shadow casters (ctx.viewProj = light view-proj,
+    // ctx.depthFormat = shadow map format). Mirrors Resolve's run batching but produces depth-only
+    // ResolvedDraws (set 0 = light view, set 1 = object/instance; no material/cluster). Reuses the
+    // object/instance rings + their bind groups (sized 2x in PrepareFrame).
+    void ResolveDepthOnly(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) override {
+        if (!m_ready || items.IsEmpty()) { return; }
+
+        const DynamicUniformRing::Range sv = m_shadowViewRing.Allocate();
+        if (!sv.ok) { return; }
+        *static_cast<ShadowViewData*>(sv.ptr) = ShadowViewData{ ctx.viewProj };
+        const u32 shadowViewOffset = sv.byteOffset;
+
+        usize i = 0;
+        while (i < items.Size()) {
+            const auto* head = static_cast<const MeshRenderData*>(items[i].data);
+            usize j = i + 1;
+            while (j < items.Size()) {
+                const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
+                if (nd->mesh != head->mesh || nd->material != head->material) { break; }
+                ++j;
+            }
+            const u32 runLen = static_cast<u32>(j - i);
+            const GpuMesh* mesh = m_meshes.GetOrUpload(head->mesh);
+            if (mesh != nullptr) {
+                if (runLen >= 2) { ResolveDepthInstanced(ctx, shadowViewOffset, items, i, runLen, *mesh, out); }
+                else             { ResolveDepthSingle(ctx, shadowViewOffset, *head, *mesh, out); }
+            }
+            i = j;
+        }
+    }
+
     void FinishFrame() override {
         m_viewRing.EndFrame();
+        m_shadowViewRing.EndFrame();
         m_objectRing.EndFrame();
         m_instanceRing.EndFrame();
         m_offsetsRing.EndFrame();
@@ -423,21 +557,25 @@ public:
     }
 
 private:
-    struct ViewData {                                    // 192 (matches the View cbuffer)
+    struct ViewData {                                    // 272 (matches the View cbuffer)
         Mat4 viewProj;                                   // 64
         Mat4 view;                                       // 64  (view-space depth for cluster lookup)
+        Mat4 lightViewProj;                              // 64  (directional shadow caster, phase 5)
         Vec3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
         u32  lightOffset; i32 clusterViewportX, clusterViewportY; u32 pad0;   // 16 (cluster grid is viewport-local)
         u32  clusterGridX = 0, clusterGridY = 0, clusterSliceCount = 0, clusterTileSize = 0;   // 16
         f32  clusterNear = 0, clusterFar = 0, clusterLogScale = 0, clusterLogBias = 0;         // 16
-        Vec3 ambient = Vec3{ 0, 0, 0 }; f32 ambientPad = 0;                                     // 16
+        Vec3 ambient = Vec3{ 0, 0, 0 }; f32 hasShadow = 0.0f;                                   // 16
     };
     struct ObjectData   { Mat4 world; Color tint; };     // 80  (cbuffer Object: World + Tint)
     struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)
     struct DataOffsets  { u32 x, y, z, w; };             // 16  (instance-stepped vertex attr)
+    struct ShadowViewData { Mat4 lightViewProj; };       // 64  (cbuffer ShadowView)
 
-    static constexpr u64 kViewSlot  = 256;               // dynamic UBO offset alignment
-    static constexpr u32 kMaxLights = 256;               // per-view light budget (phase 4.1; clustered later)
+    static constexpr u64 kViewSlot         = 256;        // dynamic UBO offset alignment (object/shadow-view)
+    static constexpr u64 kViewDataSlot     = 512;        // view UBO slot (ViewData is 272B, > 256)
+    static constexpr u32 kMaxLights        = 256;        // per-view light budget (phase 4.1; clustered later)
+    static constexpr u32 kMaxShadowPasses  = 16;         // shadow-view UBO slots per frame (5.1 uses 1)
 
     void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
                        const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
@@ -493,6 +631,74 @@ private:
         out.PushBack(d);
     }
 
+    void ResolveDepthSingle(const RenderRecordContext& ctx, u32 shadowViewOffset,
+                            const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(ShadowConfigFor(ctx, /*instanced*/ false),
+                                                           m_shadowPipelineLayoutSingle, rhi::TextureFormat::Undefined);
+        if (pso == nullptr) { return; }
+        const DynamicUniformRing::Range obj = m_objectRing.Allocate();
+        if (!obj.ok) { return; }
+        *static_cast<ObjectData*>(obj.ptr) = ObjectData{ md.world, md.color };
+
+        ResolvedDraw d{};
+        d.pso = pso;
+        d.viewSet = m_shadowViewBG; d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
+        d.drawSet = m_objectBG;     d.drawOffset = obj.byteOffset;   d.drawDynamic = true;   // set 1: object UBO
+        // no material/cluster sets for depth-only
+        d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
+        d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
+        d.indexCount = mesh.indexCount; d.instanceCount = 1;
+        out.PushBack(d);
+    }
+
+    void ResolveDepthInstanced(const RenderRecordContext& ctx, u32 shadowViewOffset,
+                               Span<const DrawItem> items, usize first, u32 count,
+                               const GpuMesh& mesh, Array<ResolvedDraw>& out) {
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(ShadowConfigFor(ctx, /*instanced*/ true),
+                                                           m_shadowPipelineLayoutInstanced, rhi::TextureFormat::Undefined);
+        if (pso == nullptr) { return; }
+        const DynamicUniformRing::Range inst = m_instanceRing.AllocateRange(count);
+        const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
+        if (!inst.ok || !offs.ok) { return; }
+
+        InstanceData* id = static_cast<InstanceData*>(inst.ptr);
+        DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
+        for (u32 k = 0; k < count; ++k) {
+            const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
+            id[k] = InstanceData{ md->world, md->color };
+            od[k] = DataOffsets{ inst.slotIndex + k, 0, 0, 0 };
+        }
+
+        ResolvedDraw d{};
+        d.pso = pso;
+        d.viewSet = m_shadowViewBG; d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
+        d.drawSet = m_instanceBG;   d.drawDynamic = false;                                    // set 1: instances (whole)
+        d.vertexBuffer0 = mesh.vertexBuffer;      d.vertexOffset0 = mesh.vertexOffset;
+        d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;
+        d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
+        d.indexCount = mesh.indexCount; d.instanceCount = count;
+        out.PushBack(d);
+    }
+
+    // Depth-only PSO config for the shadow pass. Back-face cull + a small depth bias/slope to push
+    // shadow acne off lit surfaces (tuned on GPU; 5.2 refines with normal-offset bias in the shader).
+    [[nodiscard]] static materials::PipelineConfig ShadowConfigFor(const RenderRecordContext& ctx, bool instanced) {
+        materials::PipelineConfig c{};
+        c.shaderName   = u8"shadow_depth";
+        c.vertexLayout = materials::VertexLayoutType::Mesh;
+        c.instanced    = instanced;
+        if (instanced) { c.shaderFlags |= shaders::ShaderFlags::Instanced; }
+        c.depthOnly         = true;
+        c.colorTargetCount  = 0;
+        c.depthFormat       = ctx.depthFormat;
+        c.depthMode         = materials::DepthMode::ReadWrite;
+        c.depthCompare      = rhi::CompareFunction::Less;
+        c.cullMode          = materials::CullModeConfig::Back;
+        c.depthBias           = 2;
+        c.depthBiasSlopeScale = 2.0f;
+        return c;
+    }
+
     [[nodiscard]] static materials::PipelineConfig ConfigFor(const MeshRenderData& md, const RenderRecordContext& ctx, bool instanced) {
         materials::PipelineConfig config = (md.material != nullptr)
             ? md.material->pipeline
@@ -514,6 +720,14 @@ private:
         rhi::BindGroupLayout* layouts[] = { set0, set1, set2, set3 };
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 4 };
+        return m_device->CreatePipelineLayout(pld, out).IsOk();
+    }
+
+    // Two-set pipeline layout (the depth-only shadow pipelines: light-view + object/instance).
+    bool MakePipelineLayout(rhi::BindGroupLayout* set0, rhi::BindGroupLayout* set1, rhi::PipelineLayout*& out) {
+        rhi::BindGroupLayout* layouts[] = { set0, set1 };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 2 };
         return m_device->CreatePipelineLayout(pld, out).IsOk();
     }
 
@@ -579,24 +793,66 @@ private:
     // ViewData) + the light list (whole light buffer, read as Lights[lightOffset + i]). Rebuild
     // when either ring (re)allocated this frame.
     bool EnsureViewBindGroup() {
-        if (m_viewBG != nullptr &&
-            m_viewBGViewGen == m_viewRing.Generation() && m_viewBGLightGen == m_lightRing.Generation()) {
+        if (m_activeShadowView == nullptr) { m_activeShadowView = m_dummyShadowView; }
+        if (m_viewBG != nullptr && m_viewBGViewGen == m_viewRing.Generation() &&
+            m_viewBGLightGen == m_lightRing.Generation() && m_viewBGShadow == m_activeShadowView) {
             return true;
         }
         if (m_viewBG) { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         rhi::Buffer* viewBuf = m_viewRing.Buffer();
         rhi::Buffer* lightBuf = m_lightRing.Buffer();
-        if (viewBuf == nullptr || lightBuf == nullptr) { return false; }
+        if (viewBuf == nullptr || lightBuf == nullptr || m_activeShadowView == nullptr || m_shadowSampler == nullptr) { return false; }
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(viewBuf, 0, sizeof(ViewData)),
             rhi::BindGroupEntry::BufferEntry(lightBuf, 0, m_lightRing.ByteCapacity()),
+            rhi::BindGroupEntry::TextureEntry(m_activeShadowView),
+            rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 2 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 4 };
         if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
         m_viewBGViewGen = m_viewRing.Generation();
         m_viewBGLightGen = m_lightRing.Generation();
+        m_viewBGShadow = m_activeShadowView;
+        return true;
+    }
+
+    // The comparison sampler (hardware PCF) + a 1x1 dummy depth map bound into set 0 when no shadow
+    // caster exists this frame (so the descriptor set is always complete).
+    Status CreateShadowResources() {
+        rhi::SamplerDesc sd{};
+        sd.minFilter = rhi::FilterMode::Linear; sd.magFilter = rhi::FilterMode::Linear;
+        sd.mipmapFilter = rhi::MipmapFilterMode::Nearest;
+        sd.addressU = rhi::AddressMode::ClampToEdge; sd.addressV = rhi::AddressMode::ClampToEdge; sd.addressW = rhi::AddressMode::ClampToEdge;
+        sd.compare = rhi::CompareFunction::LessEqual;   // lit when fragment depth <= stored depth
+        sd.label = u8"mesh.shadowSampler";
+        if (!m_device->CreateSampler(sd, m_shadowSampler).IsOk()) { return Status{ ErrorCode::Unknown }; }
+
+        rhi::TextureDesc td{};
+        td.format = rhi::TextureFormat::Depth32Float; td.width = 1; td.height = 1;
+        td.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
+        td.label = u8"mesh.dummyShadow";
+        if (!m_device->CreateTexture(td, m_dummyShadowTex).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::TextureViewDesc vd{}; vd.format = rhi::TextureFormat::Depth32Float; vd.aspect = rhi::TextureAspect::DepthOnly;
+        if (!m_device->CreateTextureView(m_dummyShadowTex, vd, m_dummyShadowView).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        m_activeShadowView = m_dummyShadowView;
+        return Status{};
+    }
+
+    // The set-0 bind group for the shadow depth pass: just the light-view UBO (dynamic-offset
+    // window of one ShadowViewData). Rebuilt when the shadow-view ring (re)allocated.
+    bool EnsureShadowViewBindGroup() {
+        if (m_shadowViewBG != nullptr && m_shadowViewBGGen == m_shadowViewRing.Generation()) { return true; }
+        if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
+        rhi::Buffer* buf = m_shadowViewRing.Buffer();
+        if (buf == nullptr) { return false; }
+        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(buf, 0, sizeof(ShadowViewData));
+        rhi::BindGroupDesc bgd{};
+        bgd.layout = m_shadowViewLayout;
+        bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
+        if (!m_device->CreateBindGroup(bgd, m_shadowViewBG).IsOk()) { m_shadowViewBG = nullptr; return false; }
+        m_shadowViewBGGen = m_shadowViewRing.Generation();
         return true;
     }
 
@@ -643,7 +899,11 @@ private:
         m_meshes.Clear();
         if (m_defaultMaterialBG)     { m_device->DestroyBindGroup(m_defaultMaterialBG); m_defaultMaterialBG = nullptr; }
         if (m_defaultMaterialBuffer) { m_device->DestroyBuffer(m_defaultMaterialBuffer); m_defaultMaterialBuffer = nullptr; }
-        if (m_viewBG)     { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
+        if (m_viewBG)       { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
+        if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
+        if (m_dummyShadowView) { m_device->DestroyTextureView(m_dummyShadowView); m_dummyShadowView = nullptr; }
+        if (m_dummyShadowTex)  { m_device->DestroyTexture(m_dummyShadowTex); m_dummyShadowTex = nullptr; }
+        if (m_shadowSampler)   { m_device->DestroySampler(m_shadowSampler); m_shadowSampler = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
         for (u32 i = 0; i < kMaxClusterSlots; ++i) {
@@ -654,11 +914,14 @@ private:
         if (m_dummyClusterIndices) { m_device->DestroyBuffer(m_dummyClusterIndices); m_dummyClusterIndices = nullptr; }
         if (m_pipelineLayoutSingle)    { m_device->DestroyPipelineLayout(m_pipelineLayoutSingle); m_pipelineLayoutSingle = nullptr; }
         if (m_pipelineLayoutInstanced) { m_device->DestroyPipelineLayout(m_pipelineLayoutInstanced); m_pipelineLayoutInstanced = nullptr; }
+        if (m_shadowPipelineLayoutSingle)    { m_device->DestroyPipelineLayout(m_shadowPipelineLayoutSingle); m_shadowPipelineLayoutSingle = nullptr; }
+        if (m_shadowPipelineLayoutInstanced) { m_device->DestroyPipelineLayout(m_shadowPipelineLayoutInstanced); m_shadowPipelineLayoutInstanced = nullptr; }
         if (m_viewLayout)     { m_device->DestroyBindGroupLayout(m_viewLayout); m_viewLayout = nullptr; }
         if (m_objectLayout)   { m_device->DestroyBindGroupLayout(m_objectLayout); m_objectLayout = nullptr; }
         if (m_instanceLayout) { m_device->DestroyBindGroupLayout(m_instanceLayout); m_instanceLayout = nullptr; }
         if (m_materialLayout) { m_device->DestroyBindGroupLayout(m_materialLayout); m_materialLayout = nullptr; }
         if (m_clusterLayout)  { m_device->DestroyBindGroupLayout(m_clusterLayout); m_clusterLayout = nullptr; }
+        if (m_shadowViewLayout) { m_device->DestroyBindGroupLayout(m_shadowViewLayout); m_shadowViewLayout = nullptr; }
         // rings free their buffers in their destructors (m_device still valid after this).
     }
 
@@ -674,8 +937,11 @@ private:
     rhi::BindGroupLayout* m_instanceLayout = nullptr;
     rhi::BindGroupLayout* m_materialLayout = nullptr;
     rhi::BindGroupLayout* m_clusterLayout  = nullptr;
+    rhi::BindGroupLayout* m_shadowViewLayout = nullptr;   // set 0 for the depth-only shadow pipeline
     rhi::PipelineLayout*  m_pipelineLayoutSingle    = nullptr;
     rhi::PipelineLayout*  m_pipelineLayoutInstanced = nullptr;
+    rhi::PipelineLayout*  m_shadowPipelineLayoutSingle    = nullptr;
+    rhi::PipelineLayout*  m_shadowPipelineLayoutInstanced = nullptr;
 
     // Auto-instanced material set-2 resources.
     rhi::Buffer*    m_defaultMaterialBuffer = nullptr;
@@ -684,16 +950,27 @@ private:
     Array<UniquePtr<materials::MaterialInstance>>                  m_instanceStorage;  // ownership
 
     DynamicUniformRing m_viewRing;
+    DynamicUniformRing m_shadowViewRing;
     DynamicUniformRing m_objectRing;
     DynamicUniformRing m_instanceRing;
     DynamicUniformRing m_offsetsRing;
     DynamicUniformRing m_lightRing;
 
-    rhi::BindGroup* m_viewBG     = nullptr;
+    rhi::BindGroup* m_viewBG       = nullptr;
+    rhi::BindGroup* m_shadowViewBG = nullptr;
+    u32             m_shadowViewBGGen = 0;
     rhi::BindGroup* m_objectBG   = nullptr;
     rhi::BindGroup* m_instanceBG = nullptr;
-    // The set-0 bind group spans two rings (view UBO + light SB); rebuild it when either rolls over.
+    // The set-0 bind group spans the view UBO + light SB + shadow map + sampler; rebuild it when any
+    // of those change (rings roll over, or the active shadow map view changes).
     u32 m_viewBGViewGen = 0, m_viewBGLightGen = 0;
+    rhi::TextureView* m_viewBGShadow = nullptr;
+    // Shadow set-0 resources: the comparison sampler + a 1x1 dummy map; m_activeShadowView points at
+    // the real ShadowSystem map (set each frame) or the dummy.
+    rhi::Sampler*     m_shadowSampler    = nullptr;
+    rhi::Texture*     m_dummyShadowTex   = nullptr;
+    rhi::TextureView* m_dummyShadowView  = nullptr;
+    rhi::TextureView* m_activeShadowView = nullptr;
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
     // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group

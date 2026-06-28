@@ -28,6 +28,7 @@ import :data;
 import :views;
 import :cluster_system;
 import :tonemap;
+import :shadows;
 
 using namespace raptor::core;
 namespace rhi = raptor::rhi;
@@ -44,6 +45,8 @@ struct RenderRecordContext {
     Mat4                       viewMatrix  = Mat4::Identity();   // for view-space depth (clustered shading)
     Vec3                       cameraPos   = Vec3{ 0, 0, 0 };
     Vec3                       ambient     = Vec3{ 0.03f, 0.03f, 0.03f };   // scene environment ambient
+    Mat4                       lightViewProj = Mat4::Identity();            // directional shadow caster (phase 5)
+    bool                       hasShadow   = false;
     Span<const GpuLight>       lights      = {};
     ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
     u32                        frameIndex  = 0;
@@ -75,6 +78,18 @@ struct ResolvedDraw {
     rhi::IndexFormat     indexFormat  = rhi::IndexFormat::UInt32;
     u32                  indexCount   = 0;
     u32                  instanceCount = 1;
+};
+
+// What the directional shadow pass exposes to the forward pass: the depth map's sample view (bound
+// in set 0 by the mesh renderer), the graph handle (ReadTexture'd so the forward is ordered after
+// the depth write + the map barriers to a shader-readable state), and the light-space matrix.
+// Defined here (not in :shadows) because the forward pass consumes it and :shadows imports :pipeline.
+struct ShadowBinding {
+    rhi::TextureView*     sampleView    = nullptr;
+    rendergraph::RGHandle handle        = {};
+    Mat4                  lightViewProj = Mat4::Identity();
+    bool                  valid         = false;
+    [[nodiscard]] bool Valid() const noexcept { return valid && sampleView != nullptr; }
 };
 
 // Replay one resolved draw into any command sink (a live pass or an off-thread bundle). Pure
@@ -119,6 +134,18 @@ public:
     // Resolve a sorted run of this renderer's DrawItems into `out` (append). Single-threaded:
     // all GPU-state mutation (mesh upload, PSO build, ring allocation + writes) happens here.
     virtual void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) = 0;
+
+    // Resolve the same draws as DEPTH-ONLY casters for a shadow pass: `ctx.viewProj` is the light's
+    // world->clip matrix and `ctx.depthFormat` the shadow map's format. Produces depth-only
+    // ResolvedDraws (set 0 = light view, set 1 = object/instance; no material/cluster). Default
+    // no-op so a renderer opts in to casting shadows (the mesh renderer does; sprites need not).
+    virtual void ResolveDepthOnly(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) {
+        (void)ctx; (void)items; (void)out;
+    }
+
+    // Hand this frame's directional shadow map (null = none) to a renderer that samples it in set 0.
+    // Called once per frame before PrepareFrame. Default no-op (a renderer that doesn't shade ignores it).
+    virtual void SetShadowMap(rhi::TextureView* shadowMap) { (void)shadowMap; }
 
     virtual void FinishFrame() {}
 };
@@ -189,20 +216,22 @@ public:
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                      rendergraph::RGHandle colorH, bool clearColor, rhi::TextureFormat colorFormat,
-                     const ClusterBinding& cluster = {}) {
+                     const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rendergraph::RGHandle depth = graph.CreateTransient(
             u8"forward.depth", rendergraph::RGTextureDesc(m_depthFormat, view.Width(), view.Height()));
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, colorFormat, frameIndex, viewIndex, cluster](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, colorFormat, frameIndex, viewIndex, cluster, shadow](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear);
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
+            // Read the shadow map the depth pass wrote (orders shadow -> this pass + barriers it readable).
+            if (shadow.Valid()) { b.ReadTexture(shadow.handle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
                 ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, out);
@@ -223,6 +252,11 @@ private:
         ctx.viewMatrix  = view.Camera().view;
         ctx.cameraPos   = view.Camera().position;
         ctx.ambient     = (view.Scene() != nullptr) ? view.Scene()->Ambient() : Vec3{ 0.03f, 0.03f, 0.03f };
+        if (view.Scene() != nullptr) {
+            const DirectionalShadow& ds = view.Scene()->DirectionalShadowData();
+            ctx.hasShadow     = ds.valid;
+            ctx.lightViewProj = ds.lightViewProj;
+        }
         ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
         ctx.cluster     = cluster;
         ctx.frameIndex  = frameIndex;
@@ -356,9 +390,10 @@ private:
 class RenderFrame {
 public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
-                ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr) noexcept
+                ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
+                ShadowSystem* shadows = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
-          m_clusters(clusters), m_tonemap(tonemap) {}
+          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -385,6 +420,32 @@ public:
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
     }
 
+    // Resolve + emit the scene's casters as depth-only draws from the light's POV (the shadow depth
+    // pass body). lightViewProj is the depth shader's "camera". Runs at graph execute time, before
+    // the forward pass (which ReadTextures the shadow map), so it fills the rings ahead of forward.
+    void RecordShadowCasters(rhi::RenderPassEncoder& rp, const RenderView& view,
+                             const RendererRegistry& registry, const Mat4& lightViewProj) {
+        RenderRecordContext ctx{};
+        ctx.viewProj    = lightViewProj;
+        ctx.depthFormat = (m_shadows != nullptr) ? m_shadows->Format() : rhi::TextureFormat::Depth32Float;
+        ctx.frameIndex  = m_frameIndex;
+        ctx.viewIndex   = 0;
+
+        m_shadowResolved.Clear();
+        const Span<const DrawItem> items = view.DrawList();
+        usize i = 0;
+        while (i < items.Size()) {
+            const RenderCategory cat = items[i].data->category;
+            usize j = i + 1;
+            while (j < items.Size() && items[j].data->category == cat) { ++j; }
+            if (Renderer* r = registry.ForCategory(cat)) {
+                r->ResolveDepthOnly(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_shadowResolved);
+            }
+            i = j;
+        }
+        for (const ResolvedDraw& d : m_shadowResolved) { EmitDraw(rp, d); }
+    }
+
     // Compose all collected views into the frame's encoder.
     void End() {
         if (m_encoder == nullptr) { return; }
@@ -394,8 +455,17 @@ public:
             totalDraws += static_cast<u32>(m_views.At(i)->DrawList().Size());
         }
 
+        // The directional shadow map is shared by all views this frame (one caster in 5.1). Determine
+        // it from the first view's scene + ensure the texture BEFORE the renderers build set 0 (which
+        // binds the map). Renderers get the real map when a caster exists, else null -> their dummy.
+        const RenderView* primary = (m_views.ActiveCount() > 0) ? m_views.At(0) : nullptr;
+        const bool hasShadow = m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr
+                            && primary->Scene()->DirectionalShadowData().valid;
+        rhi::TextureView* shadowMap = hasShadow ? m_shadows->PrepareFrame(m_frameIndex) : nullptr;
+
         {
             RAPTOR_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
+            for (Renderer* r : m_registry->Unique()) { r->SetShadowMap(shadowMap); }
             for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
             if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
             m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
@@ -407,6 +477,28 @@ public:
         RAPTOR_PROFILE_SCOPE("Compose.Declare");   // build the frame graph (pass/resource declarations)
         if (m_views.ActiveCount() > 0) {
             m_graph.SetOutputSize(m_views.At(0)->Width(), m_views.At(0)->Height());
+        }
+
+        // Declare the directional shadow depth pass ONCE (before the forward passes that sample it).
+        // Casters come from the primary view's draw list; every forward pass ReadTextures the map.
+        ShadowBinding shadow;
+        if (hasShadow && shadowMap != nullptr && primary != nullptr) {
+            const rendergraph::RGHandle shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex);
+            const Mat4 lightVP = primary->Scene()->DirectionalShadowData().lightViewProj;
+            const u32  res     = m_shadows->Resolution();
+            const RenderView* casters = primary;
+            RendererRegistry* reg = m_registry;
+            m_graph.AddRenderPass(u8"shadow.depth", [this, shadowH, lightVP, res, casters, reg](rendergraph::PassBuilder& b) {
+                b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f);
+                b.SetViewport(0, 0, res, res);
+                b.SetExecute([this, lightVP, casters, reg](rhi::RenderPassEncoder& rp) {
+                    RecordShadowCasters(rp, *casters, *reg, lightVP);
+                });
+            });
+            shadow.sampleView    = shadowMap;
+            shadow.handle        = shadowH;
+            shadow.lightViewProj = lightVP;
+            shadow.valid         = true;
         }
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
         // resource). The first view to a target clears it; later views into the same target Load,
@@ -445,14 +537,14 @@ public:
                 const rendergraph::RGHandle hdr = m_graph.CreateTransient(
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, /*clear*/ true,
-                                   m_tonemap->HdrFormat(), cluster);
+                                   m_tonemap->HdrFormat(), cluster, shadow);
                 m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex);
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, clearColor,
-                                   v->TargetFormat(), cluster);
+                                   v->TargetFormat(), cluster, shadow);
             }
         }
         }   // end Compose.Declare
@@ -473,6 +565,8 @@ private:
     rendergraph::RenderGraph m_graph;       // one graph per frame, composes all views
     ClusterSystem*          m_clusters = nullptr;   // borrowed; declares the per-view cluster build pass
     TonemapPass*            m_tonemap  = nullptr;   // borrowed; HDR-resolve pass (null => forward writes LDR direct)
+    ShadowSystem*           m_shadows  = nullptr;   // borrowed; owns the directional shadow depth texture
+    Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;

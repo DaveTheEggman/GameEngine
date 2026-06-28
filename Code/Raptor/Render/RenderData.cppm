@@ -79,9 +79,22 @@ struct GpuLight {
     Vec3 positionWS = Vec3{ 0, 0, 0 };   f32 range     = 0.0f;   // xyz pos, w range
     Vec3 color      = Vec3{ 1, 1, 1 };   f32 intensity = 1.0f;   // rgb color, a intensity
     Vec3 directionWS= Vec3{ 0, -1, 0 };  f32 type      = 0.0f;   // xyz dir, w type
-    f32  innerCos = 1.0f; f32 outerCos = 1.0f; f32 pad0 = 0.0f; f32 pad1 = 0.0f;   // spot cone cosines
+    f32  innerCos = 1.0f; f32 outerCos = 1.0f;                   // spot cone cosines
+    // shadowIndex: -1 = this light casts no shadow; else an index into the shadow data (phase 5.1
+    // has a single directional shadow map, so any >= 0 selects it). pad1 reserved (cascade count).
+    f32  shadowIndex = -1.0f; f32 pad1 = 0.0f;
 };
 static_assert(sizeof(GpuLight) == 64);
+
+// The active directional shadow caster for a scene (phase 5.1: one directional light's shadow,
+// a single map — CSM cascades come in 5.2). `lightViewProj` maps world -> light clip space; the
+// depth pass renders the scene with it, and the forward shader samples the depth map with it.
+// valid == false means no shadow caster this frame (the forward shader skips shadowing).
+struct DirectionalShadow {
+    Mat4 lightViewProj = Mat4::Identity();
+    Vec3 direction     = Vec3{ 0, -1, 0 };
+    bool valid         = false;
+};
 
 // A per-view draw entry: a sort key (computed against the view's camera) + the shared
 // render data it refers to. The per-view draw list is an Array<DrawItem> the renderer sorts
@@ -211,8 +224,12 @@ public:
     void SetAmbient(const Vec3& ambient) noexcept { m_ambient = ambient; }
     [[nodiscard]] const Vec3& Ambient() const noexcept { return m_ambient; }
 
+    // The active directional shadow caster (phase 5.1). Set during light extraction.
+    void SetDirectionalShadow(const DirectionalShadow& s) noexcept { m_shadow = s; }
+    [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept { return m_shadow; }
+
     // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_arena.Reset(); }
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_shadow = {}; m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
@@ -228,6 +245,7 @@ private:
     Array<RenderData*> m_items;
     Array<GpuLight>    m_lights;
     Vec3               m_ambient = Vec3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
+    DirectionalShadow  m_shadow;                                  // active directional shadow caster
 };
 
 // ---- radix sort ------------------------------------------------------------------------

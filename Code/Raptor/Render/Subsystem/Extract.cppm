@@ -130,11 +130,29 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
     return found;
 }
 
+// A directional light's world->light-clip matrix for shadow mapping. Phase 5.1: a single
+// fixed-size ortho box centered on the world origin (CSM cascade fitting comes in 5.2). The box is
+// generous enough to cover the demo scenes; far/near give depth precision along the light axis.
+[[nodiscard]] inline Mat4 DirectionalLightViewProj(const Vec3& direction) {
+    const Vec3 dir    = Normalized(direction);
+    const f32  extent = 40.0f;          // half-size of the covered area (world units)
+    const f32  dist   = 80.0f;          // how far back along -dir the light camera sits
+    const Vec3 center = Vec3{ 0, 0, 0 };
+    const Vec3 eye    = center - dir * dist;
+    // Stable up: avoid degeneracy when the light points (nearly) straight up/down.
+    const Vec3 up     = (Abs(dir.y) > 0.95f) ? Vec3{ 0, 0, 1 } : Vec3{ 0, 1, 0 };
+    const Mat4 view   = Mat4::LookAtRH(eye, center, up);
+    const Mat4 proj   = Mat4::OrthographicRH(extent * 2.0f, extent * 2.0f, 0.1f, dist * 2.0f);
+    return view * proj;                 // row-vector convention: clip = worldPos * view * proj
+}
+
 // Packs every enabled LightComponent into `out` as a GpuLight shading input (world position +
-// forward direction from the entity's transform). Assumes transforms are current.
+// forward direction from the entity's transform). Assumes transforms are current. The FIRST enabled
+// directional light flagged castsShadows becomes the scene's shadow caster (phase 5.1: one map).
 inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
     auto* lights = scene.GetSystem<LightComponentManager>();
     if (lights == nullptr) { return; }
+    bool haveShadow = false;
     lights->ForEach([&](LightComponent& lc, scene::EntityHandle e) {
         if (!lc.enabled) { return; }
         const Mat4 world = scene.GetWorldMatrix(e);
@@ -148,6 +166,15 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
         g.type        = static_cast<f32>(static_cast<u32>(lc.type));
         g.innerCos    = Cos(lc.innerAngle);
         g.outerCos    = Cos(lc.outerAngle);
+        if (!haveShadow && lc.castsShadows && lc.type == LightType::Directional) {
+            haveShadow = true;
+            g.shadowIndex = 0.0f;       // selects the single shadow map in the forward shader
+            DirectionalShadow ds;
+            ds.direction     = g.directionWS;
+            ds.lightViewProj = DirectionalLightViewProj(g.directionWS);
+            ds.valid         = true;
+            out.SetDirectionalShadow(ds);
+        }
         out.AddLight(g);
     });
 }
