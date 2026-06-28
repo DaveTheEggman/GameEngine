@@ -143,9 +143,11 @@ public:
         (void)ctx; (void)items; (void)out;
     }
 
-    // Hand this frame's directional shadow map (null = none) to a renderer that samples it in set 0.
-    // Called once per frame before PrepareFrame. Default no-op (a renderer that doesn't shade ignores it).
-    virtual void SetShadowMap(rhi::TextureView* shadowMap) { (void)shadowMap; }
+    // Hand this frame's directional shadow map (null = none) to a renderer that samples it in set 0,
+    // with the ShadowSystem's generation (bumped on texture recreation) so the renderer's bind-group
+    // cache invalidates on a reused-address view. Called once per frame before PrepareFrame. Default
+    // no-op (a renderer that doesn't shade ignores it).
+    virtual void SetShadowMap(rhi::TextureView* shadowMap, u64 generation) { (void)shadowMap; (void)generation; }
 
     virtual void FinishFrame() {}
 };
@@ -462,10 +464,11 @@ public:
         const bool hasShadow = m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr
                             && primary->Scene()->DirectionalShadowData().valid;
         rhi::TextureView* shadowMap = hasShadow ? m_shadows->PrepareFrame(m_frameIndex) : nullptr;
+        const u64 shadowGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
 
         {
             RAPTOR_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
-            for (Renderer* r : m_registry->Unique()) { r->SetShadowMap(shadowMap); }
+            for (Renderer* r : m_registry->Unique()) { r->SetShadowMap(shadowMap, shadowGen); }
             for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
             if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
             m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)

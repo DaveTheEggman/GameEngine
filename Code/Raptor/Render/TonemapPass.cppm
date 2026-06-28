@@ -130,7 +130,7 @@ public:
                 b.NeverCull();
                 b.SetExecute([this, &graph, hdr, pipeline, slot](rhi::RenderPassEncoder& rp) {
                     rhi::TextureView* hdrView = graph.GetTextureView(hdr);
-                    rhi::BindGroup* bg = EnsureBindGroup(slot, hdrView);
+                    rhi::BindGroup* bg = EnsureBindGroup(slot, hdrView, graph.GetTextureGeneration(hdr));
                     if (bg == nullptr) { return; }
                     rp.SetPipeline(pipeline);
                     rp.SetBindGroup(0, bg, Span<const u32>{});
@@ -169,10 +169,15 @@ private:
         return m_pipeline;
     }
 
-    // One bind group per (view, frame) slot over its HDR view; rebuilt when the transient view changes.
-    rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* hdrView) {
+    // One bind group per (view, frame) slot over its HDR transient view. Rebuilt when the transient's
+    // GENERATION changes (the graph stamps a fresh id whenever a different physical texture backs the
+    // transient — e.g. on resize). Pointer identity alone is unsafe: a freed view address can be reused
+    // by the new allocation, leaving the cached bind group pointing at a destroyed texture.
+    rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* hdrView, u64 generation) {
         if (slot >= kMaxSlots || hdrView == nullptr) { return nullptr; }
-        if (m_bindGroups[slot] != nullptr && m_bgViews[slot] == hdrView) { return m_bindGroups[slot]; }
+        if (m_bindGroups[slot] != nullptr && m_bgViews[slot] == hdrView && m_bgGen[slot] == generation) {
+            return m_bindGroups[slot];
+        }
         if (m_bindGroups[slot] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[slot]); m_bindGroups[slot] = nullptr; }
         rhi::BindGroupEntry e = rhi::BindGroupEntry::TextureEntry(hdrView);
         rhi::BindGroupDesc bgd{};
@@ -180,6 +185,7 @@ private:
         bgd.entries = Span<const rhi::BindGroupEntry>{ &e, 1 };
         if (!m_device->CreateBindGroup(bgd, m_bindGroups[slot]).IsOk()) { m_bindGroups[slot] = nullptr; return nullptr; }
         m_bgViews[slot] = hdrView;
+        m_bgGen[slot]   = generation;
         return m_bindGroups[slot];
     }
 
@@ -203,6 +209,7 @@ private:
 
     rhi::BindGroup*        m_bindGroups[kMaxSlots] = {};
     rhi::TextureView*      m_bgViews[kMaxSlots] = {};
+    u64                    m_bgGen[kMaxSlots] = {};   // transient generation the cached BG was built for
 };
 
 } // namespace raptor::render

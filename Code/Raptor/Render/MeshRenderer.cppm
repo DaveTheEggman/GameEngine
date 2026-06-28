@@ -408,8 +408,9 @@ public:
 
     // The directional shadow map sampled in the forward shader this frame (the ShadowSystem's
     // texture when a caster exists, else null -> the 1x1 dummy). Set by RenderFrame before PrepareFrame.
-    void SetShadowMap(rhi::TextureView* view) override {
+    void SetShadowMap(rhi::TextureView* view, u64 generation) override {
         m_activeShadowView = (view != nullptr) ? view : m_dummyShadowView;
+        m_activeShadowGen  = (view != nullptr) ? generation : 0;   // dummy never changes
     }
 
     // ---- Renderer ----
@@ -795,7 +796,8 @@ private:
     bool EnsureViewBindGroup() {
         if (m_activeShadowView == nullptr) { m_activeShadowView = m_dummyShadowView; }
         if (m_viewBG != nullptr && m_viewBGViewGen == m_viewRing.Generation() &&
-            m_viewBGLightGen == m_lightRing.Generation() && m_viewBGShadow == m_activeShadowView) {
+            m_viewBGLightGen == m_lightRing.Generation() &&
+            m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen) {
             return true;
         }
         if (m_viewBG) { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
@@ -815,6 +817,7 @@ private:
         m_viewBGViewGen = m_viewRing.Generation();
         m_viewBGLightGen = m_lightRing.Generation();
         m_viewBGShadow = m_activeShadowView;
+        m_viewBGShadowGen = m_activeShadowGen;
         return true;
     }
 
@@ -970,13 +973,19 @@ private:
     // The set-0 bind group spans the view UBO + light SB + shadow map + sampler; rebuild it when any
     // of those change (rings roll over, or the active shadow map view changes).
     u32 m_viewBGViewGen = 0, m_viewBGLightGen = 0;
+    // The set-0 shadow binding is cached by (view pointer, ShadowSystem generation): a freed shadow
+    // texture's view address can be reused by a recreated one (5.2 atlas/resolution changes), so the
+    // generation — not the pointer alone — is what reliably invalidates the bind group. See the
+    // ClusterBinding::version + ShadowSystem::Generation() docs for the same rationale.
     rhi::TextureView* m_viewBGShadow = nullptr;
+    u64               m_viewBGShadowGen = 0;
     // Shadow set-0 resources: the comparison sampler + a 1x1 dummy map; m_activeShadowView points at
     // the real ShadowSystem map (set each frame) or the dummy.
     rhi::Sampler*     m_shadowSampler    = nullptr;
     rhi::Texture*     m_dummyShadowTex   = nullptr;
     rhi::TextureView* m_dummyShadowView  = nullptr;
     rhi::TextureView* m_activeShadowView = nullptr;
+    u64               m_activeShadowGen  = 0;
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
     // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group

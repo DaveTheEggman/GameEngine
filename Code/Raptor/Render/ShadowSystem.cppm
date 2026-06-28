@@ -48,6 +48,11 @@ public:
         return m_sampleViews[frameIndex % m_framesInFlight];
     }
 
+    // Bumped whenever a shadow texture is (re)created (lazily in 5.1; on resolution/atlas changes in
+    // 5.2+). A consumer caching a bind group over SampleView keys on this so a reused-address view
+    // can't alias a destroyed texture — same reason the cluster buffers carry a version.
+    [[nodiscard]] u64 Generation() const noexcept { return m_generation; }
+
     // Import this frame's shadow texture into the graph: the depth pass writes it, then it barriers to
     // DepthStencilRead so the forward pass samples it. Returns the graph handle (invalid if no texture).
     rendergraph::RGHandle ImportTarget(rendergraph::RenderGraph& graph, u32 frameIndex) {
@@ -81,6 +86,7 @@ private:
         rhi::TextureViewDesc sample{}; sample.format = kShadowFormat; sample.aspect = rhi::TextureAspect::DepthOnly;
         if (!m_device->CreateTextureView(m_textures[slot], sample, m_sampleViews[slot]).IsOk()) { return false; }
         m_states[slot] = rhi::ResourceState::Undefined;
+        ++m_generation;   // a new physical shadow texture exists -> invalidate consumer bind-group caches
         return true;
     }
 
@@ -94,6 +100,7 @@ private:
 
     rhi::Device* m_device;
     u32          m_framesInFlight = 2;
+    u64          m_generation = 0;   // ++ on every shadow texture (re)creation
 
     rhi::Texture*      m_textures[kMaxFramesInFlight]    = {};
     rhi::TextureView*  m_attachViews[kMaxFramesInFlight] = {};   // depth render target
