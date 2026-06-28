@@ -152,14 +152,16 @@ public:
         bi.pInheritanceInfo = &ii;
         vkBeginCommandBuffer(sec, &bi);
 
-        // Bundles carry no pass-level dynamic state + Vulkan secondaries don't inherit it, so
-        // record a full-target viewport + scissor up front (Y-flipped, like the pass encoder).
+        // Bundles carry no pass-level dynamic state + Vulkan secondaries don't inherit it, so record
+        // the bundle's viewport + scissor up front (Y-flipped, like the pass encoder). The viewport
+        // is the desc's sub-rect (split-screen), not necessarily the full target.
         if (desc.width > 0 && desc.height > 0) {
-            VkViewport vp{}; vp.x = 0; vp.y = static_cast<f32>(desc.height);
+            VkViewport vp{}; vp.x = static_cast<f32>(desc.viewportX);
+            vp.y = static_cast<f32>(desc.viewportY) + static_cast<f32>(desc.height);
             vp.width = static_cast<f32>(desc.width); vp.height = -static_cast<f32>(desc.height);
             vp.minDepth = 0.0f; vp.maxDepth = 1.0f;
             vkCmdSetViewport(sec, 0, 1, &vp);
-            VkRect2D scs{}; scs.offset = {0, 0}; scs.extent = { desc.width, desc.height };
+            VkRect2D scs{}; scs.offset = { desc.viewportX, desc.viewportY }; scs.extent = { desc.width, desc.height };
             vkCmdSetScissor(sec, 0, 1, &scs);
         }
 

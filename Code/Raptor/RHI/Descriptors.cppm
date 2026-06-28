@@ -357,6 +357,11 @@ struct RenderBundleDesc {
     u32           colorFormatCount   = 0;
     TextureFormat depthStencilFormat = TextureFormat::Undefined;
     u32           sampleCount        = 1;
+    // The bundle's viewport/scissor (a sub-rect of the target for split-screen). x/y default to 0;
+    // width/height are the viewport extent. A Vulkan secondary / DX12 bundle records this up front
+    // since it can't inherit dynamic viewport state from the parent.
+    i32           viewportX          = 0;
+    i32           viewportY          = 0;
     u32           width              = 0;
     u32           height             = 0;
     StringView    label;
