@@ -109,14 +109,18 @@ inline Status VkSwapChainImpl::CreateSwapChain(u32 w, u32 h, TextureFormat reqFo
            m_height = Clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height); }
     if (m_width == 0 || m_height == 0) return ErrorCode::Unknown;
 
-    m_bufferCount = Max(reqCount, caps.minImageCount);
+    auto presentMode = choosePresentMode(m_presentMode);
+
+    // Mailbox needs a 3rd image to race ahead of the display without stalling; 2 is fine for
+    // FIFO/Immediate.
+    u32 wantCount = reqCount;
+    if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR && wantCount < 3) { wantCount = 3; }
+    m_bufferCount = Max(wantCount, caps.minImageCount);
     if (caps.maxImageCount > 0) m_bufferCount = Min(m_bufferCount, caps.maxImageCount);
 
     auto surfFmt = chooseSurfaceFormat(reqFormat);
     m_format = fromVkFormat(surfFmt.format);
     if (m_format == TextureFormat::Undefined) m_format = reqFormat;
-
-    auto presentMode = choosePresentMode(m_presentMode);
 
     VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     if (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT) usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -168,9 +172,28 @@ inline VkPresentModeKHR VkSwapChainImpl::choosePresentMode(PresentMode requested
     vkGetPhysicalDeviceSurfacePresentModesKHR(m_physDevice, m_surface, &count, nullptr);
     Array<VkPresentModeKHR> modes(count);
     vkGetPhysicalDeviceSurfacePresentModesKHR(m_physDevice, m_surface, &count, modes.Data());
-    VkPresentModeKHR desired = toVkPresentMode(requested);
-    for (auto m : modes) if (m == desired) return m;
-    return VK_PRESENT_MODE_FIFO_KHR;
+    auto has = [&](VkPresentModeKHR m) { for (auto x : modes) if (x == m) return true; return false; };
+
+    const VkPresentModeKHR desired = toVkPresentMode(requested);
+    if (has(desired)) { return desired; }
+
+    // Requested mode unavailable: preserve the request's INTENT rather than dropping straight to
+    // vsync. Immediate and Mailbox both mean "don't block on the refresh" — so fall back to whichever
+    // uncapped mode the surface does expose (Wayland commonly offers Mailbox but NOT Immediate) before
+    // settling for FIFO. FIFO is the only mode guaranteed present by the spec.
+    VkPresentModeKHR chosen = VK_PRESENT_MODE_FIFO_KHR;
+    if (requested == PresentMode::Immediate || requested == PresentMode::Mailbox) {
+        if (has(VK_PRESENT_MODE_MAILBOX_KHR))        { chosen = VK_PRESENT_MODE_MAILBOX_KHR; }
+        else if (has(VK_PRESENT_MODE_IMMEDIATE_KHR)) { chosen = VK_PRESENT_MODE_IMMEDIATE_KHR; }
+    } else if (requested == PresentMode::FifoRelaxed && has(VK_PRESENT_MODE_FIFO_RELAXED_KHR)) {
+        chosen = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+    }
+
+    String msg;
+    AppendFormat(msg, u8"[swapchain] requested present mode (vk {}) unavailable; using vk {}\n",
+                 static_cast<u32>(desired), static_cast<u32>(chosen));
+    ConsoleWrite(msg.AsView());
+    return chosen;
 }
 
 inline Status VkSwapChainImpl::retrieveImages(VkFormat format) {
