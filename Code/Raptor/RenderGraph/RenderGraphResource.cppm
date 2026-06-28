@@ -123,6 +123,10 @@ export namespace raptor::rendergraph
         rhi::Texture* texture = nullptr;
         rhi::TextureView* textureView = nullptr;
         rhi::TextureView* depthOnlyView = nullptr;
+        // Stable id of the backing physical texture; changes when a transient is (re)allocated a
+        // different texture (e.g. on resize). Consumers caching a bind group over textureView key on
+        // this so a reused-address view does not alias a stale, destroyed texture.
+        u64 textureGeneration = 0;
 
         // --- buffer data ---
         RGBufferDesc bufferDesc;

@@ -269,6 +269,16 @@ export namespace raptor::rendergraph
             if (res == nullptr) { return nullptr; }
             return res->persistentData.Get() != nullptr ? res->persistentData->CurrentView() : res->textureView;
         }
+
+        // A stable id for the GPU texture currently backing `handle`. For a transient it changes when
+        // the graph (re)allocates a different physical texture (e.g. on resize) — even if the new view
+        // happens to reuse a freed address. A bind-group cache over GetTextureView MUST also key on
+        // this to stay correct across resizes. 0 when unresolved.
+        [[nodiscard]] u64 GetTextureGeneration(RGHandle handle)
+        {
+            RenderGraphResource* res = ResolveChecked(handle);
+            return res != nullptr ? res->textureGeneration : 0;
+        }
         [[nodiscard]] rhi::TextureView* GetDepthOnlyTextureView(RGHandle handle)
         {
             RenderGraphResource* res = ResolveChecked(handle);
@@ -613,10 +623,12 @@ export namespace raptor::rendergraph
                     rhi::TextureDesc rhiDesc = res->textureDesc.ToTextureDesc(res->name.AsView());
                     rhi::Texture* tex = nullptr;
                     rhi::TextureView* view = nullptr;
-                    if (m_texturePool.Get() != nullptr && m_texturePool->TryAcquire(rhiDesc, tex, view))
+                    u64 pooledGen = 0;
+                    if (m_texturePool.Get() != nullptr && m_texturePool->TryAcquire(rhiDesc, tex, view, pooledGen))
                     {
                         res->texture = tex;
                         res->textureView = view;
+                        res->textureGeneration = pooledGen;   // reused physical texture keeps its id
                         if (rhi::IsDepthFormat(res->textureDesc.format) && rhi::HasStencil(res->textureDesc.format))
                         {
                             rhi::TextureViewDesc depthDesc{};
@@ -629,6 +641,7 @@ export namespace raptor::rendergraph
                     else
                     {
                         (void)res->AllocateTexture(*m_device);
+                        res->textureGeneration = ++m_nextTransientGeneration;   // freshly created -> new id
                     }
                 }
                 else if (res->resourceType == RGResourceType::Buffer && m_device != nullptr)
@@ -650,7 +663,7 @@ export namespace raptor::rendergraph
                     if (m_texturePool.Get() != nullptr)
                     {
                         const rhi::TextureDesc rhiDesc = res->textureDesc.ToTextureDesc(res->name.AsView());
-                        m_texturePool->ReturnToPool(rhiDesc, res->texture, res->textureView);
+                        m_texturePool->ReturnToPool(rhiDesc, res->texture, res->textureView, res->textureGeneration);
                         if (res->depthOnlyView != nullptr) { DeferredDeletion d{}; d.view = res->depthOnlyView; deletions.PushBack(d); }
                     }
                     else
@@ -824,5 +837,6 @@ export namespace raptor::rendergraph
         i32 m_frameIndex = 0;
         u32 m_outputWidth = 1920;
         u32 m_outputHeight = 1080;
+        u64 m_nextTransientGeneration = 0;   // monotonic id stamped on each freshly created transient texture
     };
 }

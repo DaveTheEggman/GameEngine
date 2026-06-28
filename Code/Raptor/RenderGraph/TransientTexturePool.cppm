@@ -29,8 +29,10 @@ export namespace raptor::rendergraph
 
         i32 maxUnusedFrames = 4;
 
-        // Acquire a matching texture from the pool; true if one was found.
-        [[nodiscard]] bool TryAcquire(const rhi::TextureDesc& desc, rhi::Texture*& texture, rhi::TextureView*& view)
+        // Acquire a matching texture from the pool; true if one was found. `generation` receives the
+        // physical texture's stable id (preserved while it lives in the pool), so consumers can detect
+        // when a transient is backed by a DIFFERENT physical texture (a freed view address can reuse).
+        [[nodiscard]] bool TryAcquire(const rhi::TextureDesc& desc, rhi::Texture*& texture, rhi::TextureView*& view, u64& generation)
         {
             for (usize i = 0; i < m_pool.Size(); ++i)
             {
@@ -38,18 +40,20 @@ export namespace raptor::rendergraph
                 {
                     texture = m_pool[i].texture;
                     view = m_pool[i].view;
+                    generation = m_pool[i].generation;
                     m_pool.RemoveAt(i);
                     return true;
                 }
             }
             texture = nullptr;
             view = nullptr;
+            generation = 0;
             return false;
         }
 
-        void ReturnToPool(const rhi::TextureDesc& desc, rhi::Texture* texture, rhi::TextureView* view)
+        void ReturnToPool(const rhi::TextureDesc& desc, rhi::Texture* texture, rhi::TextureView* view, u64 generation)
         {
-            m_pool.PushBack(PooledTexture{ desc, texture, view, 0 });
+            m_pool.PushBack(PooledTexture{ desc, texture, view, generation, 0 });
         }
 
         // Age out entries unused for more than maxUnusedFrames.
@@ -85,6 +89,7 @@ export namespace raptor::rendergraph
             rhi::TextureDesc desc;
             rhi::Texture* texture = nullptr;
             rhi::TextureView* view = nullptr;
+            u64 generation = 0;     // stable id of this physical texture (carried across pool reuse)
             i32 unusedFrames = 0;
         };
 
