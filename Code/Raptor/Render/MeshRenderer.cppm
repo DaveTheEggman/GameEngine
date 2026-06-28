@@ -362,7 +362,10 @@ public:
         // which makes the shader fall back to looping all lights.
         rhi::BindGroup* clusterBG = m_dummyClusterBG;
         if (ctx.cluster.Valid()) {
-            clusterBG = EnsureClusterBindGroup(ctx.frameIndex % m_framesInFlight, ctx.cluster.offsets, ctx.cluster.lightIndices);
+            // Per-(view, frame) slot — two views in one frame have different cluster buffers and
+            // must not share a bind group (else it thrashes / frees a set still in flight).
+            const u32 clusterSlot = ctx.viewIndex * m_framesInFlight + (ctx.frameIndex % m_framesInFlight);
+            clusterBG = EnsureClusterBindGroup(clusterSlot, ctx.cluster.offsets, ctx.cluster.lightIndices);
         }
 
         const DynamicUniformRing::Range view = m_viewRing.Allocate();
@@ -615,7 +618,7 @@ private:
     // The set-3 bind group for a frame-in-flight slot, over the ClusterSystem's per-frame cluster
     // buffers. One per slot (the buffers alternate per frame) so a slot's group is stable.
     rhi::BindGroup* EnsureClusterBindGroup(u32 slot, rhi::Buffer* offsets, rhi::Buffer* indices) {
-        if (slot >= kMaxFramesInFlight || offsets == nullptr || indices == nullptr) { return m_dummyClusterBG; }
+        if (slot >= kMaxClusterSlots || offsets == nullptr || indices == nullptr) { return m_dummyClusterBG; }
         if (m_clusterBGs[slot] != nullptr && m_clusterBGOffsets[slot] == offsets) { return m_clusterBGs[slot]; }
         if (m_clusterBGs[slot] != nullptr) { m_device->DestroyBindGroup(m_clusterBGs[slot]); m_clusterBGs[slot] = nullptr; }
         rhi::BindGroupEntry entries[] = {
@@ -640,7 +643,7 @@ private:
         if (m_viewBG)     { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
-        for (u32 i = 0; i < kMaxFramesInFlight; ++i) {
+        for (u32 i = 0; i < kMaxClusterSlots; ++i) {
             if (m_clusterBGs[i] != nullptr) { m_device->DestroyBindGroup(m_clusterBGs[i]); m_clusterBGs[i] = nullptr; }
         }
         if (m_dummyClusterBG)      { m_device->DestroyBindGroup(m_dummyClusterBG); m_dummyClusterBG = nullptr; }
@@ -690,14 +693,16 @@ private:
     u32 m_viewBGViewGen = 0, m_viewBGLightGen = 0;
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
-    // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise per-frame-in-
-    // flight bind groups over the ClusterSystem's alternating per-frame buffers.
+    // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group
+    // per (view, frame-in-flight) slot over the ClusterSystem's per-view cluster buffers.
     static constexpr u32 kMaxFramesInFlight = 8;
+    static constexpr u32 kMaxViewsPerFrame  = 8;
+    static constexpr u32 kMaxClusterSlots   = kMaxViewsPerFrame * kMaxFramesInFlight;
     rhi::Buffer*    m_dummyClusterOffsets = nullptr;
     rhi::Buffer*    m_dummyClusterIndices = nullptr;
     rhi::BindGroup* m_dummyClusterBG      = nullptr;
-    rhi::BindGroup* m_clusterBGs[kMaxFramesInFlight] = {};
-    rhi::Buffer*    m_clusterBGOffsets[kMaxFramesInFlight] = {};
+    rhi::BindGroup* m_clusterBGs[kMaxClusterSlots] = {};
+    rhi::Buffer*    m_clusterBGOffsets[kMaxClusterSlots] = {};
 
     bool m_ready = false;
 };

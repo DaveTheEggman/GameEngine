@@ -44,6 +44,7 @@ struct RenderRecordContext {
     Span<const GpuLight>       lights      = {};
     ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
     u32                        frameIndex  = 0;
+    u32                        viewIndex   = 0;                  // this view's index in the frame (per-view buffer slots)
     rhi::TextureFormat         colorFormat = rhi::TextureFormat::BGRA8Unorm;
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
 };
@@ -178,7 +179,7 @@ public:
     // pass body is a render bundle the graph executes (secondary contents). Resolve + emit run in
     // the bundle callback at graph Execute time.
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
-                     rendergraph::RenderGraph& graph, u32 frameIndex, const ClusterBinding& cluster = {}) {
+                     rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex, const ClusterBinding& cluster = {}) {
         rhi::TextureView* color = view.Target();
         if (color == nullptr || view.Width() == 0 || view.Height() == 0) { return; }
 
@@ -189,14 +190,14 @@ public:
         const rendergraph::RGHandle colorH = graph.ImportTarget(
             u8"forward.color", nullptr, color, rhi::ResourceState::RenderTarget, rhi::ResourceState::RenderTarget);
 
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, frameIndex, cluster](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, frameIndex, viewIndex, cluster](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, rhi::LoadOp::Clear, rhi::StoreOp::Store, view.Settings().clear);
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, frameIndex, cluster](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, cluster, out);
+            b.SetBundleExecute([this, &view, &registry, frameIndex, viewIndex, cluster](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, cluster, out);
             });
         });
     }
@@ -206,7 +207,7 @@ private:
     // bundle(s) appended to `out` — serially below the threshold, else fanned out across the job
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
-                        rhi::CommandEncoder& encoder, u32 frameIndex, const ClusterBinding& cluster,
+                        rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, const ClusterBinding& cluster,
                         Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
@@ -217,6 +218,7 @@ private:
         ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
         ctx.cluster     = cluster;
         ctx.frameIndex  = frameIndex;
+        ctx.viewIndex   = viewIndex;
         ctx.colorFormat = view.TargetFormat();
         ctx.depthFormat = m_depthFormat;
 
@@ -385,9 +387,11 @@ public:
         for (usize i = 0; i < m_views.ActiveCount(); ++i) {
             // Cluster build (compute) declared before the view's forward pass so the graph orders
             // the light-binning write ahead of the shading read; its binding feeds the forward pass.
+            // viewIndex isolates per-view cluster buffers (two views/frame must not share a slot).
+            const u32 viewIndex = static_cast<u32>(i);
             ClusterBinding cluster;
-            if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *m_views.At(i), m_frameIndex); }
-            m_pass.DeclarePass(*m_views.At(i), *m_registry, m_graph, m_frameIndex, cluster);
+            if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *m_views.At(i), m_frameIndex, viewIndex); }
+            m_pass.DeclarePass(*m_views.At(i), *m_registry, m_graph, m_frameIndex, viewIndex, cluster);
         }
         (void)m_graph.Execute(m_encoder);
 

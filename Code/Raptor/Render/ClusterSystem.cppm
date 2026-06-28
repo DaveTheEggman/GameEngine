@@ -179,16 +179,19 @@ public:
     // Declare this view's cluster build compute pass into the graph (ordered before the forward
     // pass that reads the cluster buffers). Returns the binding the forward pass consumes, or an
     // empty binding if unavailable. The cluster grid is derived from the view's resolution + camera.
-    ClusterBinding DeclareBuild(rendergraph::RenderGraph& graph, const RenderView& view, u32 frameIndex) {
+    ClusterBinding DeclareBuild(rendergraph::RenderGraph& graph, const RenderView& view, u32 frameIndex, u32 viewIndex) {
         ClusterBinding binding;
         if (!m_ready || m_pipeline == nullptr || view.Width() == 0 || view.Height() == 0) { return binding; }
+        if (viewIndex >= kMaxViewsPerFrame) { return binding; }   // beyond budget -> all-lights fallback
 
         const u32 gridX = (view.Width()  + kTileSize - 1) / kTileSize;
         const u32 gridY = (view.Height() + kTileSize - 1) / kTileSize;
         const u32 totalClusters = gridX * gridY * kSliceCount;
         if (totalClusters == 0) { return binding; }
 
-        if (!EnsureBuffers(frameIndex, totalClusters)) { return binding; }
+        // Own buffers per (view, frame-in-flight): two views in one frame must not share a slot.
+        const u32 bufferSlot = viewIndex * m_framesInFlight + (frameIndex % m_framesInFlight);
+        if (!EnsureBuffers(bufferSlot, totalClusters)) { return binding; }
 
         const f32 nearZ = 0.1f;   // ViewCamera carries only farZ; near matches the CameraComponent default
         const f32 farZ  = (view.Camera().farZ > 0.0f) ? view.Camera().farZ : 1000.0f;
@@ -221,14 +224,13 @@ public:
         bp->viewMatrix = view.Camera().view;
         bp->invProjection = Inverse(view.Camera().projection);
 
-        const u32 slot = frameIndex % m_framesInFlight;
-        rhi::Buffer* offsets = m_offsets[slot];
-        rhi::Buffer* indices = m_indices[slot];
-        if (!EnsureBindGroup(slot, offsets, indices)) { return binding; }
+        rhi::Buffer* offsets = m_offsets[bufferSlot];
+        rhi::Buffer* indices = m_indices[bufferSlot];
+        if (!EnsureBindGroup(bufferSlot, offsets, indices)) { return binding; }
 
         const u32 paramsOffset = pr.byteOffset;
         const u32 groups = (totalClusters + 63u) / 64u;
-        rhi::BindGroup* bg = m_bindGroups[slot];
+        rhi::BindGroup* bg = m_bindGroups[bufferSlot];
         rhi::ComputePipeline* pipeline = m_pipeline;
 
         const rendergraph::RGHandle offsetsH = graph.ImportBuffer(u8"cluster.offsets", offsets);
@@ -270,66 +272,62 @@ private:
     static constexpr u64 kParamsSlot = 256;       // dynamic UBO offset alignment (>= sizeof(BuildParams))
     static constexpr u32 kMaxViewsPerFrame = 8;
 
-    // (Re)create the per-frame-in-flight cluster buffers when the cluster count grows.
-    bool EnsureBuffers(u32 frameIndex, u32 totalClusters) {
+    // (Re)create one (view,frame) slot's cluster buffers when its cluster count grows. Lazy: only
+    // the slots actually used by rendered views are allocated.
+    bool EnsureBuffers(u32 bufferSlot, u32 totalClusters) {
         const u64 offsetsBytes = static_cast<u64>(totalClusters) * sizeof(u32) * 2;            // uint2 per cluster
         const u64 indicesBytes = static_cast<u64>(totalClusters) * kMaxPerCluster * sizeof(u32); // flat index list
-        if (offsetsBytes <= m_offsetsBytes && m_offsets[frameIndex % m_framesInFlight] != nullptr) { return true; }
+        if (m_offsets[bufferSlot] != nullptr && offsetsBytes <= m_offsetsBytes[bufferSlot]) { return true; }
 
-        // Grow: recreate all frames' buffers to the new size (GPU is idle between frames here only
-        // at startup; resolution changes are rare, so the simple path is fine).
+        // Grow this slot (GPU idle at startup; resolution changes are rare).
         m_device->WaitIdle();
-        for (u32 i = 0; i < m_framesInFlight; ++i) {
-            if (m_offsets[i] != nullptr) { m_device->DestroyBuffer(m_offsets[i]); m_offsets[i] = nullptr; }
-            if (m_indices[i] != nullptr) { m_device->DestroyBuffer(m_indices[i]); m_indices[i] = nullptr; }
-            rhi::BufferDesc obd{};
-            obd.size = offsetsBytes; obd.usage = rhi::BufferUsage::Storage; obd.memory = rhi::MemoryLocation::GpuOnly;
-            obd.label = u8"cluster.offsets";
-            if (!m_device->CreateBuffer(obd, m_offsets[i]).IsOk()) { m_offsets[i] = nullptr; return false; }
-            rhi::BufferDesc ibd{};
-            ibd.size = indicesBytes; ibd.usage = rhi::BufferUsage::Storage; ibd.memory = rhi::MemoryLocation::GpuOnly;
-            ibd.label = u8"cluster.indices";
-            if (!m_device->CreateBuffer(ibd, m_indices[i]).IsOk()) { m_indices[i] = nullptr; return false; }
-        }
-        m_offsetsBytes = offsetsBytes;
-        m_indicesBytes = indicesBytes;
-        // The per-slot bind groups referenced the old buffers — drop them (GPU is idle after WaitIdle).
-        for (u32 i = 0; i < m_framesInFlight; ++i) {
-            if (m_bindGroups[i] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[i]); m_bindGroups[i] = nullptr; }
-            m_bgOffsets[i] = nullptr;
-        }
+        if (m_offsets[bufferSlot] != nullptr) { m_device->DestroyBuffer(m_offsets[bufferSlot]); m_offsets[bufferSlot] = nullptr; }
+        if (m_indices[bufferSlot] != nullptr) { m_device->DestroyBuffer(m_indices[bufferSlot]); m_indices[bufferSlot] = nullptr; }
+        rhi::BufferDesc obd{};
+        obd.size = offsetsBytes; obd.usage = rhi::BufferUsage::Storage; obd.memory = rhi::MemoryLocation::GpuOnly;
+        obd.label = u8"cluster.offsets";
+        if (!m_device->CreateBuffer(obd, m_offsets[bufferSlot]).IsOk()) { m_offsets[bufferSlot] = nullptr; return false; }
+        rhi::BufferDesc ibd{};
+        ibd.size = indicesBytes; ibd.usage = rhi::BufferUsage::Storage; ibd.memory = rhi::MemoryLocation::GpuOnly;
+        ibd.label = u8"cluster.indices";
+        if (!m_device->CreateBuffer(ibd, m_indices[bufferSlot]).IsOk()) { m_indices[bufferSlot] = nullptr; return false; }
+        m_offsetsBytes[bufferSlot] = offsetsBytes;
+        m_indicesBytes[bufferSlot] = indicesBytes;
+        // The slot's bind group referenced the old buffers — drop it (GPU idle after WaitIdle).
+        if (m_bindGroups[bufferSlot] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[bufferSlot]); m_bindGroups[bufferSlot] = nullptr; }
+        m_bgOffsets[bufferSlot] = nullptr;
         return true;
     }
 
-    // (Re)build the bind group for a frame-in-flight slot. One bind group PER slot (each over its
-    // own offsets buffer) so a slot's group is stable across frames — never freed while the
-    // previous frame's command buffer that referenced it is still in flight.
-    bool EnsureBindGroup(u32 slot, rhi::Buffer* offsets, rhi::Buffer* indices) {
+    // (Re)build the bind group for a (view,frame) slot. One bind group PER slot (each over its own
+    // buffers) so a slot's group is stable across frames — never freed while the previous frame's
+    // command buffer that referenced it is still in flight.
+    bool EnsureBindGroup(u32 bufferSlot, rhi::Buffer* offsets, rhi::Buffer* indices) {
         rhi::Buffer* lights = m_lightRing.Buffer();
-        const bool stable = m_bindGroups[slot] != nullptr && m_bgParamsGen[slot] == m_paramsRing.Generation()
-                         && m_bgLightGen[slot] == m_lightRing.Generation() && m_bgOffsets[slot] == offsets;
+        const bool stable = m_bindGroups[bufferSlot] != nullptr && m_bgParamsGen[bufferSlot] == m_paramsRing.Generation()
+                         && m_bgLightGen[bufferSlot] == m_lightRing.Generation() && m_bgOffsets[bufferSlot] == offsets;
         if (stable) { return true; }
-        if (m_bindGroups[slot] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[slot]); m_bindGroups[slot] = nullptr; }
+        if (m_bindGroups[bufferSlot] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[bufferSlot]); m_bindGroups[bufferSlot] = nullptr; }
         rhi::Buffer* params = m_paramsRing.Buffer();
         if (params == nullptr || lights == nullptr || offsets == nullptr || indices == nullptr) { return false; }
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(params,  0, sizeof(BuildParams)),
             rhi::BindGroupEntry::BufferEntry(lights,  0, m_lightRing.ByteCapacity()),
-            rhi::BindGroupEntry::BufferEntry(offsets, 0, m_offsetsBytes),
-            rhi::BindGroupEntry::BufferEntry(indices, 0, m_indicesBytes),
+            rhi::BindGroupEntry::BufferEntry(offsets, 0, m_offsetsBytes[bufferSlot]),
+            rhi::BindGroupEntry::BufferEntry(indices, 0, m_indicesBytes[bufferSlot]),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_layout;
         bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 4 };
-        if (!m_device->CreateBindGroup(bgd, m_bindGroups[slot]).IsOk()) { m_bindGroups[slot] = nullptr; return false; }
-        m_bgParamsGen[slot] = m_paramsRing.Generation();
-        m_bgLightGen[slot]  = m_lightRing.Generation();
-        m_bgOffsets[slot]   = offsets;
+        if (!m_device->CreateBindGroup(bgd, m_bindGroups[bufferSlot]).IsOk()) { m_bindGroups[bufferSlot] = nullptr; return false; }
+        m_bgParamsGen[bufferSlot] = m_paramsRing.Generation();
+        m_bgLightGen[bufferSlot]  = m_lightRing.Generation();
+        m_bgOffsets[bufferSlot]   = offsets;
         return true;
     }
 
     void Shutdown() {
-        for (u32 i = 0; i < m_framesInFlight; ++i) {
+        for (u32 i = 0; i < kMaxBufferSlots; ++i) {
             if (m_bindGroups[i] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[i]); m_bindGroups[i] = nullptr; }
             if (m_offsets[i] != nullptr) { m_device->DestroyBuffer(m_offsets[i]); m_offsets[i] = nullptr; }
             if (m_indices[i] != nullptr) { m_device->DestroyBuffer(m_indices[i]); m_indices[i] = nullptr; }
@@ -348,20 +346,24 @@ private:
     rhi::ComputePipeline*  m_pipeline = nullptr;
 
     static constexpr u32 kMaxFramesInFlight = 8;
+    // Cluster buffers are owned per (view, frame-in-flight) slot — two views in one frame must not
+    // share a buffer (the Sedulous "two pipelines stomp the same frameIndex%2 slot" bug). Slots are
+    // allocated LAZILY (the indices buffer is large), so unused view slots cost only a null pointer.
+    static constexpr u32 kMaxBufferSlots = kMaxViewsPerFrame * kMaxFramesInFlight;
 
     DynamicUniformRing     m_paramsRing;
     DynamicUniformRing     m_lightRing;     // ClusterSystem's own light copy (built before the forward uploads its)
-    rhi::Buffer*           m_offsets[kMaxFramesInFlight] = {};      // per-frame-in-flight cluster (offset,count)
-    rhi::Buffer*           m_indices[kMaxFramesInFlight] = {};      // per-frame-in-flight flat light-index list
-    u64                    m_offsetsBytes = 0;
-    u64                    m_indicesBytes = 0;
+    rhi::Buffer*           m_offsets[kMaxBufferSlots] = {};      // per-(view,frame) cluster (offset,count)
+    rhi::Buffer*           m_indices[kMaxBufferSlots] = {};      // per-(view,frame) flat light-index list
+    u64                    m_offsetsBytes[kMaxBufferSlots] = {}; // size of each slot's buffers (views can differ)
+    u64                    m_indicesBytes[kMaxBufferSlots] = {};
 
-    // One bind group per frame-in-flight slot (each over its own offsets buffer), so a slot's
-    // group is never freed while still referenced by an in-flight frame.
-    rhi::BindGroup*        m_bindGroups[kMaxFramesInFlight] = {};
-    u32                    m_bgParamsGen[kMaxFramesInFlight] = {};
-    u32                    m_bgLightGen[kMaxFramesInFlight] = {};
-    rhi::Buffer*           m_bgOffsets[kMaxFramesInFlight] = {};
+    // One bind group per (view, frame) slot (each over its own buffers), so a slot's group is never
+    // freed while still referenced by an in-flight frame.
+    rhi::BindGroup*        m_bindGroups[kMaxBufferSlots] = {};
+    u32                    m_bgParamsGen[kMaxBufferSlots] = {};
+    u32                    m_bgLightGen[kMaxBufferSlots] = {};
+    rhi::Buffer*           m_bgOffsets[kMaxBufferSlots] = {};
     bool                   m_ready = false;
 };
 
