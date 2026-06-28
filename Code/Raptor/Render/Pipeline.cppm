@@ -178,20 +178,20 @@ public:
     // transition) + the IMPORTED color target (left in RenderTarget for the host to present). The
     // pass body is a render bundle the graph executes (secondary contents). Resolve + emit run in
     // the bundle callback at graph Execute time.
+    // `colorH` is the (shared) imported target handle; `clearColor` is true for the first view that
+    // writes a given target (it clears the whole target), false for later views into the same target
+    // (they Load so they don't wipe earlier views' regions). Depth is a per-view transient (each clears).
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
-                     rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex, const ClusterBinding& cluster = {}) {
-        rhi::TextureView* color = view.Target();
-        if (color == nullptr || view.Width() == 0 || view.Height() == 0) { return; }
+                     rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
+                     rendergraph::RGHandle colorH, bool clearColor, const ClusterBinding& cluster = {}) {
+        if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rendergraph::RGHandle depth = graph.CreateTransient(
             u8"forward.depth", rendergraph::RGTextureDesc(m_depthFormat, view.Width(), view.Height()));
-        // current==final==RenderTarget: the host did Undefined->RenderTarget and will do
-        // RenderTarget->Present, so the graph touches no backbuffer barrier.
-        const rendergraph::RGHandle colorH = graph.ImportTarget(
-            u8"forward.color", nullptr, color, rhi::ResourceState::RenderTarget, rhi::ResourceState::RenderTarget);
 
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, frameIndex, viewIndex, cluster](rendergraph::PassBuilder& b) {
-            b.SetColorTarget(0, colorH, rhi::LoadOp::Clear, rhi::StoreOp::Store, view.Settings().clear);
+        const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, frameIndex, viewIndex, cluster](rendergraph::PassBuilder& b) {
+            b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear);
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
@@ -386,14 +386,33 @@ public:
         if (m_views.ActiveCount() > 0) {
             m_graph.SetOutputSize(m_views.At(0)->Width(), m_views.At(0)->Height());
         }
+        // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
+        // resource). The first view to a target clears it; later views into the same target Load,
+        // preserving earlier views' regions (split-screen). Targets are few — a linear scan is fine.
+        struct TargetImport { rhi::TextureView* target; rendergraph::RGHandle handle; };
+        Array<TargetImport> imported;
         for (usize i = 0; i < m_views.ActiveCount(); ++i) {
-            // Cluster build (compute) declared before the view's forward pass so the graph orders
-            // the light-binning write ahead of the shading read; its binding feeds the forward pass.
-            // viewIndex isolates per-view cluster buffers (two views/frame must not share a slot).
+            RenderView* v = m_views.At(i);
+            rhi::TextureView* tgt = v->Target();
+            if (tgt == nullptr) { continue; }
+
+            rendergraph::RGHandle colorH;
+            bool found = false;
+            for (const TargetImport& ti : imported) { if (ti.target == tgt) { colorH = ti.handle; found = true; break; } }
+            if (!found) {
+                // current==final==RenderTarget: the host did Undefined->RenderTarget and will Present.
+                colorH = m_graph.ImportTarget(u8"forward.color", nullptr, tgt,
+                                              rhi::ResourceState::RenderTarget, rhi::ResourceState::RenderTarget);
+                imported.PushBack(TargetImport{ tgt, colorH });
+            }
+            const bool clearColor = !found;   // first view to a target clears it; later views Load
+
+            // Cluster build (compute) declared before the forward pass so the graph orders the
+            // light-binning write ahead of the shading read. viewIndex isolates per-view buffers.
             const u32 viewIndex = static_cast<u32>(i);
             ClusterBinding cluster;
-            if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *m_views.At(i), m_frameIndex, viewIndex); }
-            m_pass.DeclarePass(*m_views.At(i), *m_registry, m_graph, m_frameIndex, viewIndex, cluster);
+            if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *v, m_frameIndex, viewIndex); }
+            m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, clearColor, cluster);
         }
         (void)m_graph.Execute(m_encoder);
 
