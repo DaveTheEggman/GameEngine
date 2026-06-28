@@ -40,23 +40,29 @@ namespace
             m_scene = scenes->CreateScene(u8"sandbox");
 
             // camera, pulled back along +Z looking at the origin (down -Z by default)
+            // Raised + pitched down so the horizontal floor (lights above it) is clearly in view,
+            // with the cube grids standing on it. Pitch ~28 deg below horizontal (looks toward the
+            // scene center). Default camera looks down -Z; rotating about +X by -pitch tilts it down.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 0.0f, 22.0f });
+            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 14.0f, 30.0f });
+            rc::Transform camT = m_scene->GetLocalTransform(m_camera);
+            camT.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.48f);
+            m_scene->SetLocalTransform(m_camera, camT);
             if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
                 rd::CameraComponent& cam = cameras->Add(m_camera);   // default 60deg perspective
-                cam.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit cubes read
+                cam.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit scene reads
             }
 
-            // A backdrop wall behind the grids (Quad normal = +Z) so the point lights cast visible
-            // pools on a flat surface, plus the two cube grids in front (instanced + distinct PBR).
+            // A large horizontal floor (Plane normal = +Y) under the scene — the point lights hover
+            // above it and cast visible pools on it. The two cube grids stand on the floor.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
-                sc::EntityHandle wall = m_scene->CreateEntity(u8"wall");
-                m_scene->SetLocalPosition(wall, rc::Vec3{ 0.0f, 0.0f, -1.5f });
-                rd::MeshComponent& wmc = meshes->Add(wall);
-                wmc.mesh = geo::Primitives::Quad(60.0f, 34.0f);
-                wmc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
-                    .Color(u8"BaseColor", rc::Vec4{ 0.55f, 0.55f, 0.58f, 1.0f })
-                    .Float(u8"Metallic", 0.0f).Float(u8"Roughness", 0.6f).Build();
+                sc::EntityHandle floor = m_scene->CreateEntity(u8"floor");
+                m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, -7.0f, 0.0f });
+                rd::MeshComponent& fmc = meshes->Add(floor);
+                fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
+                fmc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
+                    .Color(u8"BaseColor", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f })
+                    .Float(u8"Metallic", 0.0f).Float(u8"Roughness", 0.65f).Build();
 
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -75,30 +81,29 @@ namespace
                 kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
                 kl.intensity = 0.12f;                       // very dim fill; the point lights dominate
 
-                // A field of point lights in front of the wall — the clustered light-culling demo.
-                // Each fragment only evaluates the lights in its froxel, so this scales far better
-                // than an all-lights loop. Ranges/spacing tuned for distinct, slightly-overlapping
-                // colored pools on the wall.
-                constexpr int kCols = 6, kRows = 4;         // 24 point lights
+                // A field of point lights hovering above the floor (X-Z grid) — the clustered
+                // light-culling demo. Each fragment only evaluates the lights in its froxel, so this
+                // scales far better than an all-lights loop. Each casts a colored pool on the floor.
+                constexpr int kCols = 6, kRows = 3;         // 18 point lights over the floor
                 for (int j = 0; j < kRows; ++j) {
                     for (int i = 0; i < kCols; ++i) {
                         sc::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
                         const rc::f32 fi = static_cast<rc::f32>(i) / (kCols - 1);
                         const rc::f32 fj = static_cast<rc::f32>(j) / (kRows - 1);
-                        const rc::Vec3 base{ -16.0f + 32.0f * fi, -9.0f + 18.0f * fj, 3.0f };
+                        const rc::Vec3 base{ -15.0f + 30.0f * fi, -1.5f, -2.0f + 16.0f * fj };  // hover above floor
                         m_scene->SetLocalPosition(e, base);
                         rd::LightComponent& pl = lights->Add(e);
                         pl.type = rd::LightType::Point;
                         pl.color = rc::Color{ 0.4f + 0.6f * fi, 0.4f + 0.6f * fj, 1.0f - 0.6f * fi, 1.0f };
-                        pl.intensity = 16.0f;
-                        pl.range = 5.0f;                    // pool radius on the wall ~= sqrt(range^2 - dist^2)
+                        pl.intensity = 22.0f;
+                        pl.range = 8.0f;                    // floor pool radius ~= sqrt(range^2 - dist^2)
                         m_pointLights.PushBack(e);
                         m_lightBases.PushBack(base);
                     }
                 }
             }
 
-            rc::ConsoleWrite(u8"Sandbox: a wall lit by 24 clustered point lights. Close to exit.\n");
+            rc::ConsoleWrite(u8"Sandbox: a floor + two cube grids lit by 18 clustered point lights. Close to exit.\n");
         }
 
         void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override
