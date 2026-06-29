@@ -57,6 +57,15 @@ export namespace raptor::core
     [[nodiscard]] constexpr Quat Conjugate(Quat q) noexcept { return { -q.x, -q.y, -q.z, q.w }; }
     [[nodiscard]] constexpr f32 Dot(Quat a, Quat b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
 
+    // General inverse (= conjugate / |q|^2). For unit quaternions this equals the conjugate.
+    [[nodiscard]] inline Quat Inverse(Quat q) noexcept
+    {
+        const f32 lengthSq = Dot(q, q);
+        if (lengthSq <= kEpsilon * kEpsilon) { return Quat::Identity; }
+        const f32 inv = 1.0f / lengthSq;
+        return { -q.x * inv, -q.y * inv, -q.z * inv, q.w * inv };
+    }
+
     [[nodiscard]] inline Quat Normalized(Quat q) noexcept
     {
         const f32 lengthSq = Dot(q, q);

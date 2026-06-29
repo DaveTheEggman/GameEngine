@@ -58,6 +58,7 @@ export namespace raptor::core
     [[nodiscard]] constexpr Vec3 operator*(Vec3 v, f32 s) noexcept { return { v.x * s, v.y * s, v.z * s }; }
     [[nodiscard]] constexpr Vec3 operator*(f32 s, Vec3 v) noexcept { return { v.x * s, v.y * s, v.z * s }; }
     [[nodiscard]] constexpr Vec3 operator/(Vec3 v, f32 s) noexcept { return { v.x / s, v.y / s, v.z / s }; }
+    [[nodiscard]] constexpr Vec3 operator/(Vec3 a, Vec3 b) noexcept { return { a.x / b.x, a.y / b.y, a.z / b.z }; }   // component-wise
     [[nodiscard]] constexpr bool operator==(Vec3 a, Vec3 b) noexcept { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
     [[nodiscard]] constexpr f32 Dot(Vec3 a, Vec3 b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z; }

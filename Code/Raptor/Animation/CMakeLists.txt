@@ -16,6 +16,7 @@ target_sources(RaptorAnimation
             Clip.cppm
             Sampler.cppm
             Player.cppm
+            Graph.cppm
             AnimationModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

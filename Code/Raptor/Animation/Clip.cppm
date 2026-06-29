@@ -16,6 +16,10 @@ using namespace raptor::core;
 
 export namespace raptor::animation {
 
+// Event callback: (event name, event time in seconds). The engine's move-only delegate. Defined here
+// (with AnimationEvent) so both the player and the graph's IAnimationStateNode can use it.
+using AnimationEventHandler = core::Function<void(StringView, f32)>;
+
 // Keyframe interpolation mode.
 enum class InterpolationMode { Step, Linear, CubicSpline };
 

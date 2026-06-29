@@ -29,6 +29,15 @@ export namespace raptor::core
             other.m_ptr = nullptr;
         }
 
+        // Converting move from UniquePtr<U> where U derives from T (e.g. a derived node -> its
+        // interface). T must have a virtual destructor so Reset() frees the derived object.
+        template <typename U> requires (__is_base_of(T, U))
+        UniquePtr(UniquePtr<U>&& other) noexcept
+            : m_ptr(other.m_ptr), m_allocator(other.m_allocator)
+        {
+            other.m_ptr = nullptr;
+        }
+
         UniquePtr& operator=(UniquePtr&& other) noexcept
         {
             if (this != &other)
@@ -68,6 +77,8 @@ export namespace raptor::core
         [[nodiscard]] explicit operator bool() const noexcept { return m_ptr != nullptr; }
 
     private:
+        template <typename> friend class UniquePtr;   // converting move accesses another instantiation's members
+
         T* m_ptr = nullptr;
         IAllocator* m_allocator = nullptr;
     };

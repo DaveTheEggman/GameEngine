@@ -18,7 +18,8 @@ add_executable(RaptorAnimationTests
     SkeletonTests.cpp
     ClipTests.cpp
     SamplerTests.cpp
-    PlayerTests.cpp)
+    PlayerTests.cpp
+    GraphTests.cpp)
 
 target_link_libraries(RaptorAnimationTests PRIVATE
     Raptor::Animation doctest::doctest)

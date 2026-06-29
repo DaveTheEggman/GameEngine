@@ -13,3 +13,4 @@ export import :pose;
 export import :clip;
 export import :sampler;
 export import :player;
+export import :graph;

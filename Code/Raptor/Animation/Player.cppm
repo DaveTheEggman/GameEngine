@@ -20,9 +20,7 @@ using namespace raptor::core;
 export namespace raptor::animation {
 
 enum class PlaybackState { Stopped, Playing, Paused };
-
-// Event callback: (event name, event time in seconds).
-using AnimationEventHandler = core::Function<void(StringView, f32)>;
+// AnimationEventHandler is defined in :clip (shared with the graph).
 
 class AnimationPlayer {
 public:
@@ -34,6 +32,7 @@ public:
         ResetToBind();
     }
 
+    ~AnimationPlayer() = default;
     AnimationPlayer(const AnimationPlayer&) = delete;
     AnimationPlayer& operator=(const AnimationPlayer&) = delete;
 
