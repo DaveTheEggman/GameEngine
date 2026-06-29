@@ -189,8 +189,10 @@ public:
         return l;
     }
 
-    // The second vertex buffer a skinned draw binds: joints (locations 6) + weights
-    // (location 7), stride 24 — matches raptor.geometry::VertexSkinning.
+    // The second vertex buffer a skinned draw binds: joints (location 5) + weights
+    // (location 6), stride 24 — matches raptor.geometry::VertexSkinning. Locations are 5/6 (not 6/7)
+    // because the non-instanced skinned VS has no TEXCOORD5 and DXC assigns input locations
+    // sequentially by declaration order (skinned draws are never instanced, so location 5 is free).
     [[nodiscard]] static u32 SkinningStreamStride() noexcept { return 24; }
     [[nodiscard]] static Span<const rhi::VertexAttribute> SkinningStreamAttributes() noexcept {
         return { kSkinningStream, 2 };
@@ -211,8 +213,8 @@ private:
     static constexpr VA kMeshNoTangent[3]   = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 } };
     static constexpr VA kMesh[5]            = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 },
                                                 { VF::Unorm8x4, 32, 3 }, { VF::Float32x3, 36, 4 } };
-    // Skinning stream (buffer 1): joints (uint16x4 packed as uint32x2) + weights.
-    static constexpr VA kSkinningStream[2]  = { { VF::Uint32x2, 0, 6 }, { VF::Float32x4, 8, 7 } };
+    // Skinning stream (buffer 1): joints (uint16x4 packed as uint32x2) + weights, at locations 5/6.
+    static constexpr VA kSkinningStream[2]  = { { VF::Uint32x2, 0, 5 }, { VF::Float32x4, 8, 6 } };
     // Instance offsets stream: a uint4 DataOffsets at location 5.
     static constexpr VA kInstanceOffsets[1] = { { VF::Uint32x4, 0, 5 } };
 };

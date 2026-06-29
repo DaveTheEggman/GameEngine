@@ -68,7 +68,16 @@ struct MeshRenderData : RenderData {
     Color                 color       = Color{ 1.0f, 1.0f, 1.0f, 1.0f };   // per-instance tint
     geometry::StaticMesh* mesh        = nullptr;
     materials::Material*  material     = nullptr;
+    // Optional per-submesh materials (borrowed array, indexed by SubMesh::materialIndex). When present,
+    // the renderer draws each submesh with submeshMaterials[matIdx]; else `material` covers the mesh.
+    const RefPtr<materials::Material>* submeshMaterials = nullptr;
+    u32                   submeshMaterialCount = 0;
     u64                   entityId    = 0;
+    // GPU skinning: per-bone skinning matrices for a skinned mesh (borrowed for the frame, from an
+    // AnimationPlayer). When non-null + the mesh IsSkinned(), the renderer uploads them to its bone
+    // pool and draws the SKINNED permutation; otherwise the mesh draws static (bind pose).
+    const Mat4*           boneMatrices = nullptr;
+    u32                   boneCount    = 0;
 };
 static_assert(std::is_trivially_destructible_v<MeshRenderData>);
 

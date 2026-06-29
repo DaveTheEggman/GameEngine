@@ -28,8 +28,16 @@ export namespace raptor::render {
 struct MeshComponent {
     RefPtr<geometry::StaticMesh> mesh;
     RefPtr<materials::Material>  material;
+    // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
+    // non-empty the renderer draws each submesh with its own material; otherwise `material` covers all.
+    Array<RefPtr<materials::Material>> submeshMaterials;
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     bool                         visible = true;
+    // GPU skinning: per-bone skinning matrices for a skinned mesh, supplied per frame by the owner
+    // (e.g. an AnimationPlayer's GetSkinningMatrices()). Borrowed — valid for the frame it's set;
+    // null => the mesh draws static (bind pose). Extraction copies the pointer into MeshRenderData.
+    const Mat4*                  boneMatrices = nullptr;
+    u32                          boneCount    = 0;
 };
 
 // A camera frustum. The view transform is the inverse of the entity's world matrix;

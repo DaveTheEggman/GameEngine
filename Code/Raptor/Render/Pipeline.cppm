@@ -488,10 +488,12 @@ public:
     // are stable across camera motion (required for static caching) and include off-camera casters.
     void BuildShadowCasterList(const ExtractedScene& scene) {
         m_shadowCasters.Clear();
+        m_hasAnimatedCaster = false;
         for (RenderData* data : scene.Items()) {
             if (data == nullptr) { continue; }
             if (data->category != RenderCategories::Opaque && data->category != RenderCategories::Masked) { continue; }
             const auto* md = static_cast<const MeshRenderData*>(data);
+            if (md->boneMatrices != nullptr && md->boneCount > 0) { m_hasAnimatedCaster = true; }
             const usize m = reinterpret_cast<usize>(md->mesh), n = reinterpret_cast<usize>(md->material);
             const u32 stateBits = static_cast<u32>((((m >> 4) * 1099511628211ull + (n >> 4)) & ((1u << kSortStateBits) - 1)));
             m_shadowCasters.PushBack(DrawItem{ MakeSortKey(data->category, stateBits, 0u), data });
@@ -590,7 +592,12 @@ public:
             m_staticSig = staticSig;
             m_staticDirty = (m_shadows != nullptr) ? m_shadows->FramesInFlight() : 1u;
         }
-        const bool renderStatic = !m_staticTiles.IsEmpty() && m_staticDirty > 0;
+        // An animated (skinned) caster deforms its shadow every frame, but its node bounds are constant
+        // so the static-caster signature never trips. Re-render the static layer each frame while any
+        // animated caster is present, so a Static light's skinned-caster shadow animates instead of
+        // freezing. (Caching still holds for fully-static scenes; a finer per-caster static/dynamic
+        // split would keep static geometry cached while only animated casters re-render.)
+        const bool renderStatic = !m_staticTiles.IsEmpty() && (m_staticDirty > 0 || m_hasAnimatedCaster);
         if (renderStatic && m_staticDirty > 0) { --m_staticDirty; }
         // Per-renderer ring sizing: count only the atlas passes that actually re-emit casters this frame.
         const u32 localPassCount = static_cast<u32>(m_rtTiles.Size()) +
@@ -764,6 +771,7 @@ private:
     Array<LocalShadowTile>  m_rtTiles;             // realtime atlas layer tiles (re-rendered every frame)
     Array<LocalShadowTile>  m_staticTiles;         // static atlas layer tiles (cached; re-rendered on change)
     Array<DrawItem>         m_shadowCasters;       // camera-independent scene caster list (local shadows)
+    bool                    m_hasAnimatedCaster = false;   // any skinned caster this frame -> refresh static layer
     Array<DrawItem>         m_shadowCullScratch;   // per-tile sphere-culled subset (reused)
     u64                     m_staticSig   = 0;     // signature of the static caster set (cache-invalidation)
     u32                     m_staticDirty = 0;     // frames left to refresh the cached layer (per in-flight slot)

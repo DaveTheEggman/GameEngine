@@ -108,6 +108,8 @@ private:
         rhi::VertexBufferLayout buffers[2] = { VertexLayoutHelper::BufferLayout(config.vertexLayout), {} };
         u32 bufferCount = (config.vertexLayout != VertexLayoutType::None) ? 1u : 0u;
         if (config.instanced) { buffers[bufferCount++] = VertexLayoutHelper::InstanceOffsetsBufferLayout(); }
+        // Skinned meshes bind a second vertex buffer: the skinning stream (joints + weights).
+        else if (config.vertexLayout == VertexLayoutType::SkinnedMesh) { buffers[bufferCount++] = VertexLayoutHelper::SkinningStreamBufferLayout(); }
         desc.vertex.shader = rhi::ProgrammableStage{ vs, u8"main", rhi::ShaderStage::Vertex };
         if (bufferCount > 0) { desc.vertex.buffers = Span<const rhi::VertexBufferLayout>{ buffers, bufferCount }; }
 

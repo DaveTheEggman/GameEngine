@@ -67,6 +67,10 @@ inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, sce
     rd.material    = mc.material.Get();
     rd.entityId    = PackEntity(e);
     rd.category    = CategoryForMaterial(mc.material.Get());
+    rd.boneMatrices = mc.boneMatrices;   // borrowed for the frame (GPU skinning); null => static
+    rd.boneCount    = mc.boneCount;
+    rd.submeshMaterials     = mc.submeshMaterials.IsEmpty() ? nullptr : mc.submeshMaterials.Data();
+    rd.submeshMaterialCount = static_cast<u32>(mc.submeshMaterials.Size());
 }
 
 // Fills `out` with one MeshRenderData per visible MeshComponent in `scene`, allocating from

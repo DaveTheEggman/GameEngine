@@ -57,6 +57,24 @@ cbuffer View : register(b0, space0) {
     float4 CascadeTexelSize;       // world units per shadow texel, per cascade (normal-offset bias)
     float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
 };
+#ifdef SKINNED
+// GPU skinning: per-bone skinning matrices (= inverseBind * worldPose), v * skin (row-vector).
+// A per-frame pool shared by all skinned draws; BoneBase (Object cbuffer) selects this draw's run.
+// Stored as 4 explicit float4 ROWS (Sedulous-faithful) so the major-ness is unambiguous — DXC's
+// row_major modifier is unreliable on a StructuredBuffer matrix element.
+struct BoneMatrix { float4 Row0, Row1, Row2, Row3; };
+StructuredBuffer<BoneMatrix> BoneMatrices : register(t4, space0);
+float4x4 BlendBones(uint4 j, float4 w, uint base) {
+    BoneMatrix b0 = BoneMatrices[base + j.x];
+    BoneMatrix b1 = BoneMatrices[base + j.y];
+    BoneMatrix b2 = BoneMatrices[base + j.z];
+    BoneMatrix b3 = BoneMatrices[base + j.w];
+    return float4x4(b0.Row0 * w.x + b1.Row0 * w.y + b2.Row0 * w.z + b3.Row0 * w.w,
+                    b0.Row1 * w.x + b1.Row1 * w.y + b2.Row1 * w.z + b3.Row1 * w.w,
+                    b0.Row2 * w.x + b1.Row2 * w.y + b2.Row2 * w.z + b3.Row2 * w.w,
+                    b0.Row3 * w.x + b1.Row3 * w.y + b2.Row3 * w.z + b3.Row3 * w.w);
+}
+#endif
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
 StructuredBuffer<InstanceData> Instances : register(t0, space1);
@@ -64,6 +82,8 @@ StructuredBuffer<InstanceData> Instances : register(t0, space1);
 cbuffer Object : register(b0, space1) {
     row_major float4x4 World;
     float4             Tint;
+    uint               BoneBase;   // first bone matrix for this draw (skinning); 0 otherwise
+    uint3              _objPad;
 };
 #endif
 struct VSInput {
@@ -74,6 +94,12 @@ struct VSInput {
     float3 tangent  : TEXCOORD4;
 #ifdef INSTANCED
     uint4  dataOffsets : TEXCOORD5;   // .x = index into Instances[] (instance-stepped)
+#endif
+#ifdef SKINNED
+    // Locations 5/6 (NOT 6/7): the non-instanced skinned VS has no TEXCOORD5, and DXC assigns input
+    // locations sequentially by declaration order, so these land at 5/6. The skin stream layout matches.
+    uint2  jointsPacked : TEXCOORD5;  // 4x u16 bone indices packed into 2x u32
+    float4 weights      : TEXCOORD6;  // bone weights (sum 1)
 #endif
 };
 struct VSOutput {
@@ -93,12 +119,24 @@ VSOutput main(VSInput input) {
     float4x4 world = World;
     float4   tint  = Tint;
 #endif
-    float4 worldPos = mul(float4(input.position, 1.0), world);
+    float3 lp = input.position;
+    float3 ln = input.normal;
+    float3 lt = input.tangent;
+#ifdef SKINNED
+    // Blend the four influencing bones (joint indices packed 4x u16 -> 2x u32) into a skin matrix.
+    uint4 j = uint4(input.jointsPacked.x & 0xFFFFu, input.jointsPacked.x >> 16,
+                    input.jointsPacked.y & 0xFFFFu, input.jointsPacked.y >> 16);
+    float4x4 skin = BlendBones(j, input.weights, BoneBase);
+    lp = mul(float4(lp, 1.0), skin).xyz;
+    ln = mul(float4(ln, 0.0), skin).xyz;
+    lt = mul(float4(lt, 0.0), skin).xyz;
+#endif
+    float4 worldPos = mul(float4(lp, 1.0), world);
     o.clip      = mul(worldPos, ViewProj);
-    o.normalWS  = normalize(mul(float4(input.normal, 0.0), world).xyz);
+    o.normalWS  = normalize(mul(float4(ln, 0.0), world).xyz);
     o.color     = input.color * tint;                           // vertex color * per-instance tint
     o.uv        = input.uv;                                     // consume the full vertex layout
-    o.tangentWS = mul(float4(input.tangent, 0.0), world).xyz;
+    o.tangentWS = mul(float4(lt, 0.0), world).xyz;
     o.worldPos  = worldPos.xyz;
     return o;
 }
@@ -393,6 +431,21 @@ inline constexpr const char8_t* kShadowVS = u8R"(
 cbuffer ShadowView : register(b0, space0) {
     row_major float4x4 LightViewProj;
 };
+#ifdef SKINNED
+// Same skinning pool as the forward path (set-0 t4 SRV); skinned casters deform their shadow too.
+struct BoneMatrix { float4 Row0, Row1, Row2, Row3; };
+StructuredBuffer<BoneMatrix> BoneMatrices : register(t4, space0);
+float4x4 BlendBones(uint4 j, float4 w, uint base) {
+    BoneMatrix b0 = BoneMatrices[base + j.x];
+    BoneMatrix b1 = BoneMatrices[base + j.y];
+    BoneMatrix b2 = BoneMatrices[base + j.z];
+    BoneMatrix b3 = BoneMatrices[base + j.w];
+    return float4x4(b0.Row0 * w.x + b1.Row0 * w.y + b2.Row0 * w.z + b3.Row0 * w.w,
+                    b0.Row1 * w.x + b1.Row1 * w.y + b2.Row1 * w.z + b3.Row1 * w.w,
+                    b0.Row2 * w.x + b1.Row2 * w.y + b2.Row2 * w.z + b3.Row2 * w.w,
+                    b0.Row3 * w.x + b1.Row3 * w.y + b2.Row3 * w.z + b3.Row3 * w.w);
+}
+#endif
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; float4 Tint; };
 StructuredBuffer<InstanceData> Instances : register(t0, space1);
@@ -400,6 +453,8 @@ StructuredBuffer<InstanceData> Instances : register(t0, space1);
 cbuffer Object : register(b0, space1) {
     row_major float4x4 World;
     float4             Tint;
+    uint               BoneBase;
+    uint3              _objPad;
 };
 #endif
 struct VSInput {
@@ -411,6 +466,10 @@ struct VSInput {
 #ifdef INSTANCED
     uint4  dataOffsets : TEXCOORD5;   // .x = index into Instances[] (instance-stepped)
 #endif
+#ifdef SKINNED
+    uint2  jointsPacked : TEXCOORD5;  // locations 5/6 (no TEXCOORD5 in the non-instanced skinned VS)
+    float4 weights      : TEXCOORD6;
+#endif
 };
 float4 main(VSInput input) : SV_Position {
 #ifdef INSTANCED
@@ -418,7 +477,13 @@ float4 main(VSInput input) : SV_Position {
 #else
     float4x4 world = World;
 #endif
-    float4 worldPos = mul(float4(input.position, 1.0), world);
+    float3 lp = input.position;
+#ifdef SKINNED
+    uint4 j = uint4(input.jointsPacked.x & 0xFFFFu, input.jointsPacked.x >> 16,
+                    input.jointsPacked.y & 0xFFFFu, input.jointsPacked.y >> 16);
+    lp = mul(float4(lp, 1.0), BlendBones(j, input.weights, BoneBase)).xyz;
+#endif
+    float4 worldPos = mul(float4(lp, 1.0), world);
     return mul(worldPos, LightViewProj);
 }
 )";
@@ -437,7 +502,8 @@ public:
           m_instanceRing(device, framesInFlight, sizeof(InstanceData), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.instances"),
           m_offsetsRing(device, framesInFlight, sizeof(DataOffsets), rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets"),
           m_lightRing(device, framesInFlight, sizeof(GpuLight), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.lights"),
-          m_localShadowRing(device, framesInFlight, sizeof(GpuLocalShadow), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.localShadows") {}
+          m_localShadowRing(device, framesInFlight, sizeof(GpuLocalShadow), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.localShadows"),
+          m_boneRing(device, framesInFlight, sizeof(Mat4), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.bones") {}
 
     ~MeshRenderer() override { Shutdown(); }
 
@@ -463,9 +529,12 @@ public:
         rhi::BindGroupLayoutEntry shadowSampEntry{};
         shadowSampEntry.binding = 0; shadowSampEntry.visibility = rhi::ShaderStage::Fragment;
         shadowSampEntry.type = rhi::BindingType::ComparisonSampler;
-        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, atlasTexEntry, localShadowEntry, shadowSampEntry };
+        // t4: the GPU skinning bone-matrix pool (Vertex-visible SRV). Bound on every set-0 BG; the
+        // forward VS only reads it under the SKINNED permutation.
+        rhi::BindGroupLayoutEntry boneEntry = rhi::BindGroupLayoutEntry::StorageBuffer(4, rhi::ShaderStage::Vertex, /*readOnly*/ true);
+        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, atlasTexEntry, localShadowEntry, shadowSampEntry, boneEntry };
         rhi::BindGroupLayoutDesc s0d{};
-        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 6 };
+        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 7 };
         if (!m_device->CreateBindGroupLayout(s0d, m_viewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 1 (non-instanced): per-object UBO (World + Tint), dynamic offset.
@@ -501,7 +570,12 @@ public:
         m_shaders->RegisterSource(u8"shadow_depth", shaders::ShaderStage::Vertex, kShadowVS);
         rhi::BindGroupLayoutEntry shadowViewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
         shadowViewEntry.hasDynamicOffset = true;
-        if (!MakeLayout(shadowViewEntry, m_shadowViewLayout)) { return Status{ ErrorCode::Unknown }; }
+        // set 0 also carries the skinning bone-matrix pool (t4) so skinned casters deform their shadow.
+        rhi::BindGroupLayoutEntry shadowBoneEntry = rhi::BindGroupLayoutEntry::StorageBuffer(4, rhi::ShaderStage::Vertex, /*readOnly*/ true);
+        rhi::BindGroupLayoutEntry shadowSet0[] = { shadowViewEntry, shadowBoneEntry };
+        rhi::BindGroupLayoutDesc svd{};
+        svd.entries = Span<const rhi::BindGroupLayoutEntry>{ shadowSet0, 2 };
+        if (!m_device->CreateBindGroupLayout(svd, m_shadowViewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
         if (!MakePipelineLayout(m_shadowViewLayout, m_objectLayout,   m_shadowPipelineLayoutSingle))    { return Status{ ErrorCode::Unknown }; }
         if (!MakePipelineLayout(m_shadowViewLayout, m_instanceLayout, m_shadowPipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
 
@@ -560,7 +634,7 @@ public:
         if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
-            !m_localShadowRing.Reserve(kMaxLocalShadows)) { return; }
+            !m_localShadowRing.Reserve(kMaxLocalShadows) || !m_boneRing.Reserve(kMaxBoneMatrices)) { return; }
         if (!EnsureViewBindGroup() || !EnsureShadowViewBindGroup() ||
             !EnsureBindGroup(m_objectRing,   m_objectLayout,   sizeof(ObjectData), m_objectBG,   m_objectBGGen,   /*whole*/ false) ||
             !EnsureBindGroup(m_instanceRing, m_instanceLayout, 0,                  m_instanceBG, m_instanceBGGen, /*whole*/ true)) { return; }
@@ -571,6 +645,7 @@ public:
         m_offsetsRing.BeginFrame(frameIndex);
         m_lightRing.BeginFrame(frameIndex);
         m_localShadowRing.BeginFrame(frameIndex);
+        m_boneRing.BeginFrame(frameIndex);
         m_ready = true;
     }
 
@@ -697,6 +772,7 @@ public:
         m_shadowViewRing.EndFrame();
         m_objectRing.EndFrame();
         m_instanceRing.EndFrame();
+        m_boneRing.EndFrame();
         m_offsetsRing.EndFrame();
         m_ready = false;
     }
@@ -715,7 +791,7 @@ private:
         Vec4 cascadeTexelSize = Vec4{ 0, 0, 0, 0 };                                             // 16
         f32  shadowNormalBias = 0, shadowDepthBias = 0, cascadeLayerBase = 0; u32 localShadowBase = 0;   // 16
     };
-    struct ObjectData   { Mat4 world; Color tint; };     // 80  (cbuffer Object: World + Tint)
+    struct ObjectData   { Mat4 world; Color tint; u32 boneBase = 0; u32 p0 = 0, p1 = 0, p2 = 0; };   // 96 (cbuffer Object)
     struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)
     struct DataOffsets  { u32 x, y, z, w; };             // 16  (instance-stepped vertex attr)
     struct ShadowViewData { Mat4 lightViewProj; };       // 64  (cbuffer ShadowView)
@@ -728,31 +804,68 @@ private:
     // categories. Sized with headroom — a slot is tiny (256B).
     static constexpr u32 kMaxShadowPasses  = 256;
     static constexpr u32 kMaxLocalShadows  = 64;         // spot/point shadow entries per frame (atlas-bound)
+    static constexpr u32 kMaxBoneMatrices  = 8192;       // GPU skinning bone-matrix pool slots per frame
 
     void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
                        const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         materials::Material* mat = (md.material != nullptr) ? md.material : m_defaultMaterial.Get();
         materials::PipelineConfig config = ConfigFor(md, ctx, /*instanced*/ false);
-        rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mat);
-        rhi::PipelineLayout* plLayout = GetOrCreatePipelineLayout(set2, /*instanced*/ false);
-        if (plLayout == nullptr) { return; }
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
-        if (pso == nullptr) { return; }
+
+        // GPU skinning: a skinned mesh with per-bone matrices for this frame uploads them to the bone
+        // pool, draws the SKINNED + SkinnedMesh-layout permutation, and binds the skin stream (buffer 1).
+        u32 boneBase = 0;
+        const bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 &&
+                             md.mesh != nullptr && md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
+        if (skinned) {
+            const DynamicUniformRing::Range bones = m_boneRing.AllocateRange(md.boneCount);
+            if (!bones.ok) { return; }
+            MemCopy(bones.ptr, md.boneMatrices, static_cast<usize>(md.boneCount) * sizeof(Mat4));
+            boneBase = bones.slotIndex;
+            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+        }
 
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
         if (!obj.ok) { return; }
-        *static_cast<ObjectData*>(obj.ptr) = ObjectData{ md.world, md.color };
+        ObjectData od{ md.world, md.color }; od.boneBase = boneBase;
+        *static_cast<ObjectData*>(obj.ptr) = od;
 
-        ResolvedDraw d{};
-        d.pso = pso;
-        d.viewSet = m_viewBG;   d.viewOffset = viewOffset;     d.viewDynamic = true;   // set 0: view
-        d.drawSet = m_objectBG; d.drawOffset = obj.byteOffset; d.drawDynamic = true;   // set 1: object UBO
-        d.materialSet = m_materials->PrepareInstance(*InstanceFor(mat), set2);         // set 2: material (data-driven)
-        d.clusterSet = clusterBG;                                                      // set 3: cluster lists
-        d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
-        d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
-        d.indexCount = mesh.indexCount; d.instanceCount = 1;
-        out.PushBack(d);
+        // Shared per-submesh draw state (view/object/cluster sets + vertex/index buffers + skinning).
+        ResolvedDraw base{};
+        base.viewSet = m_viewBG;   base.viewOffset = viewOffset;     base.viewDynamic = true;   // set 0
+        base.drawSet = m_objectBG; base.drawOffset = obj.byteOffset; base.drawDynamic = true;   // set 1
+        base.clusterSet = clusterBG;                                                            // set 3
+        base.vertexBuffer0 = mesh.vertexBuffer; base.vertexOffset0 = mesh.vertexOffset;
+        if (skinned) { base.vertexBuffer1 = mesh.skinBuffer; base.vertexOffset1 = mesh.skinOffset; }
+        base.indexBuffer = mesh.indexBuffer; base.indexFormat = mesh.indexFormat; base.instanceCount = 1;
+
+        // Emit one draw for an index sub-range with `m`'s material (set 2 = its data-driven bind group).
+        const auto emit = [&](materials::Material* m, u64 indexOffset, u32 indexCount) {
+            materials::Material* use = (m != nullptr) ? m : mat;
+            rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*use);
+            rhi::PipelineLayout* plLayout = GetOrCreatePipelineLayout(set2, /*instanced*/ false);
+            if (plLayout == nullptr) { return; }
+            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
+            if (pso == nullptr) { return; }
+            ResolvedDraw d = base;
+            d.pso         = pso;
+            d.materialSet = m_materials->PrepareInstance(*InstanceFor(use), set2);
+            d.indexOffset = indexOffset;
+            d.indexCount  = indexCount;
+            out.PushBack(d);
+        };
+
+        // Multi-material: draw each submesh with its own material; else one draw for the whole mesh.
+        if (md.submeshMaterialCount > 0 && md.mesh != nullptr && !md.mesh->subMeshes.IsEmpty()) {
+            const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
+            for (const geometry::SubMesh& sub : md.mesh->subMeshes) {
+                materials::Material* m = (sub.materialIndex >= 0 && static_cast<u32>(sub.materialIndex) < md.submeshMaterialCount)
+                                            ? md.submeshMaterials[sub.materialIndex].Get() : nullptr;
+                emit(m, mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride, static_cast<u32>(sub.indexCount));
+            }
+        } else {
+            emit(mat, mesh.indexOffset, mesh.indexCount);
+        }
     }
 
     void ResolveInstanced(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
@@ -793,12 +906,24 @@ private:
 
     void ResolveDepthSingle(const RenderRecordContext& ctx, u32 shadowViewOffset,
                             const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(ShadowConfigFor(ctx, /*instanced*/ false),
-                                                           m_shadowPipelineLayoutSingle, rhi::TextureFormat::Undefined);
+        u32 boneBase = 0;
+        const bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 &&
+                             md.mesh != nullptr && md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
+        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ false);
+        if (skinned) {
+            const DynamicUniformRing::Range bones = m_boneRing.AllocateRange(md.boneCount);
+            if (!bones.ok) { return; }
+            MemCopy(bones.ptr, md.boneMatrices, static_cast<usize>(md.boneCount) * sizeof(Mat4));
+            boneBase = bones.slotIndex;
+            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+        }
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_shadowPipelineLayoutSingle, rhi::TextureFormat::Undefined);
         if (pso == nullptr) { return; }
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
         if (!obj.ok) { return; }
-        *static_cast<ObjectData*>(obj.ptr) = ObjectData{ md.world, md.color };
+        ObjectData od{ md.world, md.color }; od.boneBase = boneBase;
+        *static_cast<ObjectData*>(obj.ptr) = od;
 
         ResolvedDraw d{};
         d.pso = pso;
@@ -806,6 +931,7 @@ private:
         d.drawSet = m_objectBG;     d.drawOffset = obj.byteOffset;   d.drawDynamic = true;   // set 1: object UBO
         // no material/cluster sets for depth-only
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
+        if (skinned) { d.vertexBuffer1 = mesh.skinBuffer; d.vertexOffset1 = mesh.skinOffset; }   // buffer 1: skin stream
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount; d.instanceCount = 1;
         out.PushBack(d);
@@ -965,17 +1091,19 @@ private:
             m_viewBGLightGen == m_lightRing.Generation() &&
             m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen &&
             m_viewBGAtlas == m_activeAtlasView && m_viewBGAtlasGen == m_activeAtlasGen &&
-            m_viewBGLocalGen == m_localShadowRing.Generation()) {
+            m_viewBGLocalGen == m_localShadowRing.Generation() &&
+            m_viewBGBoneGen == m_boneRing.Generation()) {
             return true;
         }
         if (m_viewBG) { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         rhi::Buffer* viewBuf = m_viewRing.Buffer();
         rhi::Buffer* lightBuf = m_lightRing.Buffer();
         rhi::Buffer* localBuf = m_localShadowRing.Buffer();
-        if (viewBuf == nullptr || lightBuf == nullptr || localBuf == nullptr ||
+        rhi::Buffer* boneBuf  = m_boneRing.Buffer();
+        if (viewBuf == nullptr || lightBuf == nullptr || localBuf == nullptr || boneBuf == nullptr ||
             m_activeShadowView == nullptr || m_activeAtlasView == nullptr || m_shadowSampler == nullptr) { return false; }
         // Order must match the set-0 layout: view UBO, lights, cascade map (t1), local atlas (t2),
-        // local-shadow entries (t3), comparison sampler. Buffers bound whole + indexed in-shader.
+        // local-shadow entries (t3), comparison sampler, bone-matrix pool (t4). Buffers bound whole.
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(viewBuf, 0, sizeof(ViewData)),
             rhi::BindGroupEntry::BufferEntry(lightBuf, 0, m_lightRing.ByteCapacity()),
@@ -983,10 +1111,11 @@ private:
             rhi::BindGroupEntry::TextureEntry(m_activeAtlasView),
             rhi::BindGroupEntry::BufferEntry(localBuf, 0, m_localShadowRing.ByteCapacity()),
             rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),
+            rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneRing.ByteCapacity()),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 6 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 7 };
         if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
         m_viewBGViewGen = m_viewRing.Generation();
         m_viewBGLightGen = m_lightRing.Generation();
@@ -995,6 +1124,7 @@ private:
         m_viewBGAtlas = m_activeAtlasView;
         m_viewBGAtlasGen = m_activeAtlasGen;
         m_viewBGLocalGen = m_localShadowRing.Generation();
+        m_viewBGBoneGen = m_boneRing.Generation();
         return true;
     }
 
@@ -1037,16 +1167,22 @@ private:
     // The set-0 bind group for the shadow depth pass: just the light-view UBO (dynamic-offset
     // window of one ShadowViewData). Rebuilt when the shadow-view ring (re)allocated.
     bool EnsureShadowViewBindGroup() {
-        if (m_shadowViewBG != nullptr && m_shadowViewBGGen == m_shadowViewRing.Generation()) { return true; }
+        if (m_shadowViewBG != nullptr && m_shadowViewBGGen == m_shadowViewRing.Generation() &&
+            m_shadowViewBGBoneGen == m_boneRing.Generation()) { return true; }
         if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
         rhi::Buffer* buf = m_shadowViewRing.Buffer();
-        if (buf == nullptr) { return false; }
-        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(buf, 0, sizeof(ShadowViewData));
+        rhi::Buffer* boneBuf = m_boneRing.Buffer();
+        if (buf == nullptr || boneBuf == nullptr) { return false; }
+        rhi::BindGroupEntry be[] = {
+            rhi::BindGroupEntry::BufferEntry(buf, 0, sizeof(ShadowViewData)),
+            rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneRing.ByteCapacity()),   // t4: skinning pool
+        };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_shadowViewLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
         if (!m_device->CreateBindGroup(bgd, m_shadowViewBG).IsOk()) { m_shadowViewBG = nullptr; return false; }
         m_shadowViewBGGen = m_shadowViewRing.Generation();
+        m_shadowViewBGBoneGen = m_boneRing.Generation();
         return true;
     }
 
@@ -1157,10 +1293,12 @@ private:
     DynamicUniformRing m_offsetsRing;
     DynamicUniformRing m_lightRing;
     DynamicUniformRing m_localShadowRing;   // per-frame GpuLocalShadow entries (spot/point atlas)
+    DynamicUniformRing m_boneRing;          // per-frame GPU skinning bone-matrix pool (set-0 t4 SRV)
 
     rhi::BindGroup* m_viewBG       = nullptr;
     rhi::BindGroup* m_shadowViewBG = nullptr;
     u32             m_shadowViewBGGen = 0;
+    u32             m_shadowViewBGBoneGen = 0;
     rhi::BindGroup* m_objectBG   = nullptr;
     rhi::BindGroup* m_instanceBG = nullptr;
     // The set-0 bind group spans the view UBO + light SB + shadow map + sampler; rebuild it when any
@@ -1188,6 +1326,7 @@ private:
     rhi::TextureView* m_viewBGAtlas      = nullptr;
     u64               m_viewBGAtlasGen   = 0;
     u32               m_viewBGLocalGen   = 0;
+    u32               m_viewBGBoneGen    = 0;
     u32               m_localShadowBase  = 0;   // this frame's base into m_localShadowRing
     u32               m_localShadowPassCount = 0;   // # atlas depth passes (caster re-emits) this frame
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
