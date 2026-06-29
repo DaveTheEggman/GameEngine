@@ -103,13 +103,14 @@ private:
         desc.label = config.shaderName;
 
         // --- vertex ---
-        // Up to two buffers: the mesh stream (buffer 0), plus the instance-stepped DataOffsets
-        // stream (buffer 1) when the config is instanced.
-        rhi::VertexBufferLayout buffers[2] = { VertexLayoutHelper::BufferLayout(config.vertexLayout), {} };
+        // Up to three buffers, in slot order matching the renderer's draw bindings: mesh stream
+        // (slot 0); the skinning stream (slot 1, joints loc 6 + weights loc 7) when skinned; the
+        // instance-stepped DataOffsets stream (loc 5) when instanced. Skinned draws are always
+        // instanced -> [mesh, skin, offsets]; non-skinned instanced -> [mesh, offsets].
+        rhi::VertexBufferLayout buffers[3] = { VertexLayoutHelper::BufferLayout(config.vertexLayout), {}, {} };
         u32 bufferCount = (config.vertexLayout != VertexLayoutType::None) ? 1u : 0u;
+        if (config.vertexLayout == VertexLayoutType::SkinnedMesh) { buffers[bufferCount++] = VertexLayoutHelper::SkinningStreamBufferLayout(); }
         if (config.instanced) { buffers[bufferCount++] = VertexLayoutHelper::InstanceOffsetsBufferLayout(); }
-        // Skinned meshes bind a second vertex buffer: the skinning stream (joints + weights).
-        else if (config.vertexLayout == VertexLayoutType::SkinnedMesh) { buffers[bufferCount++] = VertexLayoutHelper::SkinningStreamBufferLayout(); }
         desc.vertex.shader = rhi::ProgrammableStage{ vs, u8"main", rhi::ShaderStage::Vertex };
         if (bufferCount > 0) { desc.vertex.buffers = Span<const rhi::VertexBufferLayout>{ buffers, bufferCount }; }
 

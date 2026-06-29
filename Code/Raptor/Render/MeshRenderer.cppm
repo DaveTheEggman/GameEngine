@@ -96,10 +96,10 @@ struct VSInput {
     uint4  dataOffsets : TEXCOORD5;   // .x = index into Instances[] (instance-stepped)
 #endif
 #ifdef SKINNED
-    // Locations 5/6 (NOT 6/7): the non-instanced skinned VS has no TEXCOORD5, and DXC assigns input
-    // locations sequentially by declaration order, so these land at 5/6. The skin stream layout matches.
-    uint2  jointsPacked : TEXCOORD5;  // 4x u16 bone indices packed into 2x u32
-    float4 weights      : TEXCOORD6;  // bone weights (sum 1)
+    // Locations 6/7: skinned draws are always instanced, so dataOffsets (declared above) takes 5 and
+    // DXC assigns these sequentially to 6/7. The skin stream's attribute layout matches.
+    uint2  jointsPacked : TEXCOORD6;  // 4x u16 bone indices packed into 2x u32
+    float4 weights      : TEXCOORD7;  // bone weights (sum 1)
 #endif
 };
 struct VSOutput {
@@ -123,10 +123,17 @@ VSOutput main(VSInput input) {
     float3 ln = input.normal;
     float3 lt = input.tangent;
 #ifdef SKINNED
-    // Blend the four influencing bones (joint indices packed 4x u16 -> 2x u32) into a skin matrix.
+    // Blend the four influencing bones (joint indices packed 4x u16 -> 2x u32) into a skin matrix. The
+    // bone base is per-instance (DataOffsets.y) for the instanced path; the device pool holds [cur][prev]
+    // per skeleton (DataOffsets.z = prev base, for motion vectors).
+  #ifdef INSTANCED
+    uint boneBase = input.dataOffsets.y;
+  #else
+    uint boneBase = BoneBase;
+  #endif
     uint4 j = uint4(input.jointsPacked.x & 0xFFFFu, input.jointsPacked.x >> 16,
                     input.jointsPacked.y & 0xFFFFu, input.jointsPacked.y >> 16);
-    float4x4 skin = BlendBones(j, input.weights, BoneBase);
+    float4x4 skin = BlendBones(j, input.weights, boneBase);
     lp = mul(float4(lp, 1.0), skin).xyz;
     ln = mul(float4(ln, 0.0), skin).xyz;
     lt = mul(float4(lt, 0.0), skin).xyz;
@@ -467,8 +474,8 @@ struct VSInput {
     uint4  dataOffsets : TEXCOORD5;   // .x = index into Instances[] (instance-stepped)
 #endif
 #ifdef SKINNED
-    uint2  jointsPacked : TEXCOORD5;  // locations 5/6 (no TEXCOORD5 in the non-instanced skinned VS)
-    float4 weights      : TEXCOORD6;
+    uint2  jointsPacked : TEXCOORD6;  // locations 6/7 (dataOffsets took 5; skinned is always instanced)
+    float4 weights      : TEXCOORD7;
 #endif
 };
 float4 main(VSInput input) : SV_Position {
@@ -479,9 +486,14 @@ float4 main(VSInput input) : SV_Position {
 #endif
     float3 lp = input.position;
 #ifdef SKINNED
+  #ifdef INSTANCED
+    uint boneBase = input.dataOffsets.y;
+  #else
+    uint boneBase = BoneBase;
+  #endif
     uint4 j = uint4(input.jointsPacked.x & 0xFFFFu, input.jointsPacked.x >> 16,
                     input.jointsPacked.y & 0xFFFFu, input.jointsPacked.y >> 16);
-    lp = mul(float4(lp, 1.0), BlendBones(j, input.weights, BoneBase)).xyz;
+    lp = mul(float4(lp, 1.0), BlendBones(j, input.weights, boneBase)).xyz;
 #endif
     float4 worldPos = mul(float4(lp, 1.0), world);
     return mul(worldPos, LightViewProj);
@@ -503,7 +515,7 @@ public:
           m_offsetsRing(device, framesInFlight, sizeof(DataOffsets), rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets"),
           m_lightRing(device, framesInFlight, sizeof(GpuLight), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.lights"),
           m_localShadowRing(device, framesInFlight, sizeof(GpuLocalShadow), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.localShadows"),
-          m_boneRing(device, framesInFlight, sizeof(Mat4), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.bones") {}
+          m_boneRing(device, framesInFlight, sizeof(Mat4), rhi::BufferUsage::Storage | rhi::BufferUsage::CopySrc, u8"mesh.bones.staging") {}
 
     ~MeshRenderer() override { Shutdown(); }
 
@@ -636,6 +648,7 @@ public:
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
             !m_localShadowRing.Reserve(kMaxLocalShadows) || !m_boneRing.Reserve(kMaxBoneMatrices)) { return; }
+        if (!EnsureBoneDevice()) { return; }   // device-local mirror of the bone staging ring (VS reads VRAM)
         if (!EnsureViewBindGroup() || !EnsureShadowViewBindGroup() ||
             !EnsureBindGroup(m_objectRing,   m_objectLayout,   sizeof(ObjectData), m_objectBG,   m_objectBGGen,   /*whole*/ false) ||
             !EnsureBindGroup(m_instanceRing, m_instanceLayout, 0,                  m_instanceBG, m_instanceBGGen, /*whole*/ true)) { return; }
@@ -648,6 +661,67 @@ public:
         m_localShadowRing.BeginFrame(frameIndex);
         m_boneRing.BeginFrame(frameIndex);
         m_ready = true;
+    }
+
+    // Device-local mirror of the bone staging ring: vertex skinning reads bones across many passes
+    // (forward + every cascade), so a CpuToGpu buffer would stream them over PCIe each read. One copy
+    // per frame into VRAM (UploadSkinning) makes subsequent reads land at device bandwidth.
+    bool EnsureBoneDevice() {
+        const u64 want = m_boneRing.ByteCapacity();
+        if (m_boneDevice != nullptr && m_boneDeviceBytes == want) { return true; }
+        m_device->WaitIdle();
+        if (m_boneDevice != nullptr) { m_device->DestroyBuffer(m_boneDevice); m_boneDevice = nullptr; }
+        rhi::BufferDesc bd{};
+        bd.size = want; bd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
+        bd.memory = rhi::MemoryLocation::GpuOnly; bd.label = u8"mesh.bones.device";
+        if (!m_device->CreateBuffer(bd, m_boneDevice).IsOk()) { m_boneDevice = nullptr; m_boneDeviceBytes = 0; return false; }
+        m_boneDeviceBytes = want;
+        ++m_boneDeviceGen;   // invalidate set-0 bind groups that bind the device buffer
+        return true;
+    }
+
+    // Write every distinct skinned instance's matrices into the bone pool ONCE this frame (current
+    // slab then previous slab, per Sedulous's [cur][prev] layout) + copy the populated range to the
+    // device mirror. Builds m_boneStart: boneMatrices ptr -> { current base, prev base } in MATRIX
+    // units, which Resolve uses for the per-draw bone base (DataOffsets.y/.z later). Called once per
+    // frame before any pass; replaces the old per-pass MemCopy into the ring.
+    void UploadSkinning(const ExtractedScene& scene, rhi::CommandEncoder& encoder) override {
+        m_boneStart.Clear();
+        m_skinnedScratch.Clear();
+        if (!m_ready) { return; }
+        // Pass 1: collect DISTINCT skinned instances (by boneMatrices ptr). Total matrices = sum of
+        // 2*boneCount (current slab + previous slab). The map reserves the key so dups are skipped.
+        u32 total = 0;
+        for (RenderData* data : scene.Items()) {
+            const auto* md = static_cast<const MeshRenderData*>(data);
+            if (md == nullptr || md->boneMatrices == nullptr || md->boneCount == 0) { continue; }
+            if (md->mesh == nullptr || !md->mesh->IsSkinned()) { continue; }
+            if (m_boneStart.Contains(md->boneMatrices)) { continue; }
+            m_boneStart.InsertOrAssign(md->boneMatrices, BoneSlot{});   // reserve; bases filled in pass 2
+            m_skinnedScratch.PushBack(SkinnedRef{ md->boneMatrices, md->prevBoneMatrices, md->boneCount });
+            total += md->boneCount * 2u;
+        }
+        if (total == 0) { m_boneStart.Clear(); return; }
+        const DynamicUniformRing::Range block = m_boneRing.AllocateRange(total);
+        if (!block.ok) { m_boneStart.Clear(); return; }
+
+        // Pass 2: write each distinct instance into the block (current then prev) + record its bases.
+        u32 cursor = 0;   // matrix-units offset within the block
+        for (const SkinnedRef& r : m_skinnedScratch) {
+            const u32 n        = r.count;
+            const u32 base     = block.slotIndex + cursor;
+            const u32 prevBase = base + n;
+            Mat4* dst = static_cast<Mat4*>(block.ptr) + cursor;
+            MemCopy(dst,     r.cur,                                    static_cast<usize>(n) * sizeof(Mat4));
+            MemCopy(dst + n, (r.prev != nullptr) ? r.prev : r.cur,    static_cast<usize>(n) * sizeof(Mat4));
+            if (BoneSlot* slot = m_boneStart.Find(r.cur)) { *slot = BoneSlot{ base, prevBase }; }
+            cursor += n * 2u;
+        }
+
+        // Mirror the populated range to VRAM, then make it visible to vertex-shader reads.
+        encoder.CopyBufferToBuffer(m_boneRing.Buffer(), block.byteOffset, m_boneDevice, block.byteOffset,
+                                   static_cast<u64>(total) * sizeof(Mat4));
+        encoder.TransitionBuffer(m_boneDevice, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
     }
 
     void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) override {
@@ -717,13 +791,12 @@ public:
         usize i = 0;
         while (i < items.Size()) {
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
-            // Skinned meshes can't be batched: the instanced path has no per-instance bone matrices, so
-            // batching them would collapse the group to one (bind) pose. Force each to a single draw
-            // (correct per-instance skinning). Instanced skinning is the persistent-buffer rewrite's job.
+            // Skinned meshes carry per-instance bones via DataOffsets.y now, so they batch like static
+            // meshes — identical (mesh, material) skinned instances collapse into one instanced draw.
             const bool headSkinned = head->mesh != nullptr && head->mesh->IsSkinned() && head->boneMatrices != nullptr;
             // Extend the run while mesh + material match (a batchable group).
             usize j = i + 1;
-            if (allowInstancing && !headSkinned) {
+            if (allowInstancing) {
                 while (j < items.Size()) {
                     const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
                     if (nd->mesh != head->mesh || nd->material != head->material) { break; }
@@ -734,8 +807,9 @@ public:
 
             const GpuMesh* mesh = m_meshes.GetOrUpload(head->mesh);
             if (mesh != nullptr) {
-                if (runLen >= 2) { ResolveInstanced(ctx, viewOffset, clusterBG, items, i, runLen, *head, *mesh, out); }
-                else             { ResolveSingle(ctx, viewOffset, clusterBG, *head, *mesh, out); }
+                // Skinned always uses the instanced path (even count 1) — the single path has no bone base.
+                if (runLen >= 2 || headSkinned) { ResolveInstanced(ctx, viewOffset, clusterBG, items, i, runLen, *head, *mesh, out); }
+                else                            { ResolveSingle(ctx, viewOffset, clusterBG, *head, *mesh, out); }
             }
             i = j;
         }
@@ -756,22 +830,19 @@ public:
         usize i = 0;
         while (i < items.Size()) {
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
-            // Skinned casters can't be batched (the instanced depth path has no per-instance bones) —
-            // force each to a single depth draw so its shadow animates. (See the forward pass.)
+            // Skinned casters batch like static ones now (per-instance bone base via DataOffsets.y).
             const bool headSkinned = head->mesh != nullptr && head->mesh->IsSkinned() && head->boneMatrices != nullptr;
             usize j = i + 1;
-            if (!headSkinned) {
-                while (j < items.Size()) {
-                    const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
-                    if (nd->mesh != head->mesh || nd->material != head->material) { break; }
-                    ++j;
-                }
+            while (j < items.Size()) {
+                const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
+                if (nd->mesh != head->mesh || nd->material != head->material) { break; }
+                ++j;
             }
             const u32 runLen = static_cast<u32>(j - i);
             const GpuMesh* mesh = m_meshes.GetOrUpload(head->mesh);
             if (mesh != nullptr) {
-                if (runLen >= 2) { ResolveDepthInstanced(ctx, shadowViewOffset, items, i, runLen, *mesh, out); }
-                else             { ResolveDepthSingle(ctx, shadowViewOffset, *head, *mesh, out); }
+                if (runLen >= 2 || headSkinned) { ResolveDepthInstanced(ctx, shadowViewOffset, items, i, runLen, *mesh, out); }
+                else                            { ResolveDepthSingle(ctx, shadowViewOffset, *head, *mesh, out); }
             }
             i = j;
         }
@@ -826,18 +897,21 @@ private:
         materials::Material* mat = (md.material != nullptr) ? md.material : m_defaultMaterial.Get();
         materials::PipelineConfig config = ConfigFor(md, ctx, /*instanced*/ false);
 
-        // GPU skinning: a skinned mesh with per-bone matrices for this frame uploads them to the bone
-        // pool, draws the SKINNED + SkinnedMesh-layout permutation, and binds the skin stream (buffer 1).
+        // GPU skinning: a skinned mesh draws the SKINNED + SkinnedMesh-layout permutation, binds the
+        // skin stream (buffer 1), and reads its bones from the shared device pool at boneBase (matrix
+        // units, computed once this frame by UploadSkinning). No per-pass upload here.
         u32 boneBase = 0;
-        const bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 &&
-                             md.mesh != nullptr && md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
+        bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 &&
+                       md.mesh != nullptr && md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
         if (skinned) {
-            const DynamicUniformRing::Range bones = m_boneRing.AllocateRange(md.boneCount);
-            if (!bones.ok) { return; }
-            MemCopy(bones.ptr, md.boneMatrices, static_cast<usize>(md.boneCount) * sizeof(Mat4));
-            boneBase = bones.slotIndex;
-            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
-            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+            const BoneSlot* s = m_boneStart.Find(md.boneMatrices);
+            if (s != nullptr) {
+                boneBase = s->base;
+                config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+                config.shaderFlags |= shaders::ShaderFlags::Skinned;
+            } else {
+                skinned = false;   // not uploaded (pool overflow) -> draw bind pose rather than garbage
+            }
         }
 
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
@@ -888,12 +962,14 @@ private:
                           const MeshRenderData& head, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         materials::Material* mat = (head.material != nullptr) ? head.material : m_defaultMaterial.Get();
         materials::PipelineConfig config = ConfigFor(head, ctx, /*instanced*/ true);
-        rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mat);
-        rhi::PipelineLayout* plLayout = GetOrCreatePipelineLayout(set2, /*instanced*/ true);
-        if (plLayout == nullptr) { return; }
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
-        if (pso == nullptr) { return; }
-
+        // Skinned instanced draw: the shared skin stream (joints/weights) is per-mesh; each instance's
+        // bone base rides in DataOffsets.y (current) / .z (prev) so one draw skins N characters.
+        const bool skinned = head.boneMatrices != nullptr && head.mesh != nullptr &&
+                             head.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
+        if (skinned) {
+            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+        }
         const DynamicUniformRing::Range inst = m_instanceRing.AllocateRange(count);
         const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
         if (!inst.ok || !offs.ok) { return; }
@@ -903,35 +979,69 @@ private:
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
             id[k] = InstanceData{ md->world, md->color };
-            od[k] = DataOffsets{ inst.slotIndex + k, 0, 0, 0 };   // absolute index into Instances[]
+            u32 boneBase = 0, prevBase = 0;
+            if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
+            od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };   // .x=Instances[] idx, .y/.z=bone bases
         }
 
-        ResolvedDraw d{};
-        d.pso = pso;
-        d.viewSet = m_viewBG;     d.viewOffset = viewOffset; d.viewDynamic = true;     // set 0: view
-        d.drawSet = m_instanceBG; d.drawDynamic = false;                               // set 1: instances (whole buffer)
-        d.materialSet = m_materials->PrepareInstance(*InstanceFor(mat), set2);         // set 2: material (data-driven)
-        d.clusterSet = clusterBG;                                                      // set 3: cluster lists
-        d.vertexBuffer0 = mesh.vertexBuffer;    d.vertexOffset0 = mesh.vertexOffset;
-        d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;          // DataOffsets stream
-        d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
-        d.indexCount = mesh.indexCount; d.instanceCount = count;
-        out.PushBack(d);
+        // Shared per-submesh draw state (view/instances/cluster sets + vertex/index buffers + skinning).
+        ResolvedDraw base{};
+        base.viewSet = m_viewBG;     base.viewOffset = viewOffset; base.viewDynamic = true;   // set 0: view
+        base.drawSet = m_instanceBG; base.drawDynamic = false;                                // set 1: instances (whole)
+        base.clusterSet = clusterBG;                                                          // set 3: cluster lists
+        base.vertexBuffer0 = mesh.vertexBuffer; base.vertexOffset0 = mesh.vertexOffset;
+        if (skinned) {
+            base.vertexBuffer1 = mesh.skinBuffer;        base.vertexOffset1 = mesh.skinOffset;   // slot 1: skin stream (6/7)
+            base.vertexBuffer2 = m_offsetsRing.Buffer(); base.vertexOffset2 = offs.byteOffset;    // slot 2: DataOffsets (5)
+        } else {
+            base.vertexBuffer1 = m_offsetsRing.Buffer(); base.vertexOffset1 = offs.byteOffset;    // slot 1: DataOffsets (5)
+        }
+        base.indexBuffer = mesh.indexBuffer; base.indexFormat = mesh.indexFormat; base.instanceCount = count;
+
+        // Emit one instanced draw for an index sub-range with `m`'s material (set 2 = its bind group).
+        const auto emit = [&](materials::Material* m, u64 indexOffset, u32 indexCount) {
+            materials::Material* use = (m != nullptr) ? m : mat;
+            rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*use);
+            rhi::PipelineLayout* plLayout = GetOrCreatePipelineLayout(set2, /*instanced*/ true);
+            if (plLayout == nullptr) { return; }
+            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
+            if (pso == nullptr) { return; }
+            ResolvedDraw d = base;
+            d.pso         = pso;
+            d.materialSet = m_materials->PrepareInstance(*InstanceFor(use), set2);
+            d.indexOffset = indexOffset;
+            d.indexCount  = indexCount;
+            out.PushBack(d);
+        };
+
+        // Multi-material: one instanced draw per submesh (its own material + index range); else one draw.
+        if (head.submeshMaterialCount > 0 && head.mesh != nullptr && !head.mesh->subMeshes.IsEmpty()) {
+            const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
+            for (const geometry::SubMesh& sub : head.mesh->subMeshes) {
+                materials::Material* m = (sub.materialIndex >= 0 && static_cast<u32>(sub.materialIndex) < head.submeshMaterialCount)
+                                            ? head.submeshMaterials[sub.materialIndex].Get() : nullptr;
+                emit(m, mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride, static_cast<u32>(sub.indexCount));
+            }
+        } else {
+            emit(mat, mesh.indexOffset, mesh.indexCount);
+        }
     }
 
     void ResolveDepthSingle(const RenderRecordContext& ctx, u32 shadowViewOffset,
                             const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         u32 boneBase = 0;
-        const bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 &&
-                             md.mesh != nullptr && md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
+        bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 &&
+                       md.mesh != nullptr && md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
         materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ false);
         if (skinned) {
-            const DynamicUniformRing::Range bones = m_boneRing.AllocateRange(md.boneCount);
-            if (!bones.ok) { return; }
-            MemCopy(bones.ptr, md.boneMatrices, static_cast<usize>(md.boneCount) * sizeof(Mat4));
-            boneBase = bones.slotIndex;
-            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
-            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+            const BoneSlot* s = m_boneStart.Find(md.boneMatrices);
+            if (s != nullptr) {
+                boneBase = s->base;   // shared device pool (uploaded once this frame)
+                config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+                config.shaderFlags |= shaders::ShaderFlags::Skinned;
+            } else {
+                skinned = false;
+            }
         }
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_shadowPipelineLayoutSingle, rhi::TextureFormat::Undefined);
         if (pso == nullptr) { return; }
@@ -955,8 +1065,15 @@ private:
     void ResolveDepthInstanced(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                Span<const DrawItem> items, usize first, u32 count,
                                const GpuMesh& mesh, Array<ResolvedDraw>& out) {
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(ShadowConfigFor(ctx, /*instanced*/ true),
-                                                           m_shadowPipelineLayoutInstanced, rhi::TextureFormat::Undefined);
+        const auto& head = *static_cast<const MeshRenderData*>(items[first].data);
+        const bool skinned = head.boneMatrices != nullptr && head.mesh != nullptr &&
+                             head.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
+        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ true);
+        if (skinned) {
+            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+        }
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_shadowPipelineLayoutInstanced, rhi::TextureFormat::Undefined);
         if (pso == nullptr) { return; }
         const DynamicUniformRing::Range inst = m_instanceRing.AllocateRange(count);
         const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
@@ -967,7 +1084,9 @@ private:
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
             id[k] = InstanceData{ md->world, md->color };
-            od[k] = DataOffsets{ inst.slotIndex + k, 0, 0, 0 };
+            u32 boneBase = 0, prevBase = 0;
+            if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
+            od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };
         }
 
         ResolvedDraw d{};
@@ -975,7 +1094,12 @@ private:
         d.viewSet = m_shadowViewBG; d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
         d.drawSet = m_instanceBG;   d.drawDynamic = false;                                    // set 1: instances (whole)
         d.vertexBuffer0 = mesh.vertexBuffer;      d.vertexOffset0 = mesh.vertexOffset;
-        d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;
+        if (skinned) {
+            d.vertexBuffer1 = mesh.skinBuffer;        d.vertexOffset1 = mesh.skinOffset;   // slot 1: skin stream
+            d.vertexBuffer2 = m_offsetsRing.Buffer(); d.vertexOffset2 = offs.byteOffset;    // slot 2: DataOffsets
+        } else {
+            d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;    // slot 1: DataOffsets
+        }
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount; d.instanceCount = count;
         out.PushBack(d);
@@ -1124,14 +1248,14 @@ private:
             m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen &&
             m_viewBGAtlas == m_activeAtlasView && m_viewBGAtlasGen == m_activeAtlasGen &&
             m_viewBGLocalGen == m_localShadowRing.Generation() &&
-            m_viewBGBoneGen == m_boneRing.Generation()) {
+            m_viewBGBoneGen == m_boneDeviceGen) {
             return true;
         }
         RetireBindGroup(m_viewBG); m_viewBG = nullptr;
         rhi::Buffer* viewBuf = m_viewRing.Buffer();
         rhi::Buffer* lightBuf = m_lightRing.Buffer();
         rhi::Buffer* localBuf = m_localShadowRing.Buffer();
-        rhi::Buffer* boneBuf  = m_boneRing.Buffer();
+        rhi::Buffer* boneBuf  = m_boneDevice;   // VS reads the device mirror, not the staging ring
         if (viewBuf == nullptr || lightBuf == nullptr || localBuf == nullptr || boneBuf == nullptr ||
             m_activeShadowView == nullptr || m_activeAtlasView == nullptr || m_shadowSampler == nullptr) { return false; }
         // Order must match the set-0 layout: view UBO, lights, cascade map (t1), local atlas (t2),
@@ -1143,7 +1267,7 @@ private:
             rhi::BindGroupEntry::TextureEntry(m_activeAtlasView),
             rhi::BindGroupEntry::BufferEntry(localBuf, 0, m_localShadowRing.ByteCapacity()),
             rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),
-            rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneRing.ByteCapacity()),
+            rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneDeviceBytes),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
@@ -1156,7 +1280,7 @@ private:
         m_viewBGAtlas = m_activeAtlasView;
         m_viewBGAtlasGen = m_activeAtlasGen;
         m_viewBGLocalGen = m_localShadowRing.Generation();
-        m_viewBGBoneGen = m_boneRing.Generation();
+        m_viewBGBoneGen = m_boneDeviceGen;
         return true;
     }
 
@@ -1200,21 +1324,21 @@ private:
     // window of one ShadowViewData). Rebuilt when the shadow-view ring (re)allocated.
     bool EnsureShadowViewBindGroup() {
         if (m_shadowViewBG != nullptr && m_shadowViewBGGen == m_shadowViewRing.Generation() &&
-            m_shadowViewBGBoneGen == m_boneRing.Generation()) { return true; }
+            m_shadowViewBGBoneGen == m_boneDeviceGen) { return true; }
         RetireBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr;
         rhi::Buffer* buf = m_shadowViewRing.Buffer();
-        rhi::Buffer* boneBuf = m_boneRing.Buffer();
+        rhi::Buffer* boneBuf = m_boneDevice;   // shared device mirror (same as the forward set 0)
         if (buf == nullptr || boneBuf == nullptr) { return false; }
         rhi::BindGroupEntry be[] = {
             rhi::BindGroupEntry::BufferEntry(buf, 0, sizeof(ShadowViewData)),
-            rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneRing.ByteCapacity()),   // t4: skinning pool
+            rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneDeviceBytes),   // t4: skinning pool
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_shadowViewLayout;
         bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
         if (!m_device->CreateBindGroup(bgd, m_shadowViewBG).IsOk()) { m_shadowViewBG = nullptr; return false; }
         m_shadowViewBGGen = m_shadowViewRing.Generation();
-        m_shadowViewBGBoneGen = m_boneRing.Generation();
+        m_shadowViewBGBoneGen = m_boneDeviceGen;
         return true;
     }
 
@@ -1271,6 +1395,7 @@ private:
         m_retiredBGs.Clear();
         if (m_viewBG)       { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
+        if (m_boneDevice)   { m_device->DestroyBuffer(m_boneDevice); m_boneDevice = nullptr; m_boneDeviceBytes = 0; }
         if (m_dummyShadowView) { m_device->DestroyTextureView(m_dummyShadowView); m_dummyShadowView = nullptr; }
         if (m_dummyShadowTex)  { m_device->DestroyTexture(m_dummyShadowTex); m_dummyShadowTex = nullptr; }
         if (m_dummyAtlasView)  { m_device->DestroyTextureView(m_dummyAtlasView); m_dummyAtlasView = nullptr; }
@@ -1327,7 +1452,15 @@ private:
     DynamicUniformRing m_offsetsRing;
     DynamicUniformRing m_lightRing;
     DynamicUniformRing m_localShadowRing;   // per-frame GpuLocalShadow entries (spot/point atlas)
-    DynamicUniformRing m_boneRing;          // per-frame GPU skinning bone-matrix pool (set-0 t4 SRV)
+    DynamicUniformRing m_boneRing;          // bone-matrix STAGING ring (CpuToGpu; written once/frame)
+    rhi::Buffer*       m_boneDevice = nullptr;   // GpuOnly device mirror the VS reads (set-0 t4 SRV)
+    u64               m_boneDeviceBytes = 0;
+    u32               m_boneDeviceGen   = 0;     // bumps on (re)create -> invalidates set-0 bind groups
+    // Per-frame map: a skinned instance's boneMatrices pointer -> its bases (matrix units) in the pool.
+    struct BoneSlot { u32 base = 0; u32 prevBase = 0; };
+    struct SkinnedRef { const Mat4* cur; const Mat4* prev; u32 count; };
+    HashMap<const Mat4*, BoneSlot> m_boneStart;
+    Array<SkinnedRef>              m_skinnedScratch;
 
     // Bind groups retired this/prior frames but possibly still referenced by in-flight command
     // buffers; freed by TickRetiredBindGroups once the frame ring has cycled (framesLeft hits 0).

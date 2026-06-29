@@ -73,7 +73,8 @@ struct ResolvedDraw {
     rhi::BindGroup*      materialSet  = nullptr;   // set 2 (material — inferred from properties)
     rhi::BindGroup*      clusterSet   = nullptr;   // set 3 (clustered light lists; dummy when off)
     rhi::Buffer*         vertexBuffer0 = nullptr;  u64 vertexOffset0 = 0;
-    rhi::Buffer*         vertexBuffer1 = nullptr;  u64 vertexOffset1 = 0;   // optional instance stream
+    rhi::Buffer*         vertexBuffer1 = nullptr;  u64 vertexOffset1 = 0;   // optional: skin stream (skinned) or instance offsets
+    rhi::Buffer*         vertexBuffer2 = nullptr;  u64 vertexOffset2 = 0;   // optional: instance offsets (skinned+instanced)
     rhi::Buffer*         indexBuffer  = nullptr;   u64 indexOffset = 0;
     rhi::IndexFormat     indexFormat  = rhi::IndexFormat::UInt32;
     u32                  indexCount   = 0;
@@ -114,6 +115,7 @@ inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
     if (d.clusterSet != nullptr) { enc.SetBindGroup(3, d.clusterSet, Span<const u32>{}); }     // cluster lists
     if (d.vertexBuffer0 != nullptr) { enc.SetVertexBuffer(0, d.vertexBuffer0, d.vertexOffset0); }
     if (d.vertexBuffer1 != nullptr) { enc.SetVertexBuffer(1, d.vertexBuffer1, d.vertexOffset1); }
+    if (d.vertexBuffer2 != nullptr) { enc.SetVertexBuffer(2, d.vertexBuffer2, d.vertexOffset2); }
     enc.SetIndexBuffer(d.indexBuffer, d.indexFormat, d.indexOffset);
     enc.DrawIndexed(d.indexCount, d.instanceCount);
 }
@@ -162,6 +164,12 @@ public:
     // Upload this frame's local-shadow entries (the atlas's per-light matrices/rects) for a renderer
     // that binds them in set 0. Called once per frame after PrepareFrame. Default no-op.
     virtual void UploadLocalShadows(Span<const GpuLocalShadow> shadows, u32 frameIndex) { (void)shadows; (void)frameIndex; }
+
+    // Pre-pass: write this frame's skinning matrices into the renderer's persistent bone pool ONCE
+    // (current + previous slab per distinct skeleton instance) and copy staging->device on `encoder`.
+    // Called once per frame after PrepareFrame and BEFORE the render graph executes, so the forward
+    // and shadow passes share one device-local bone buffer (no per-pass re-upload). Default no-op.
+    virtual void UploadSkinning(const ExtractedScene& scene, rhi::CommandEncoder& encoder) { (void)scene; (void)encoder; }
 
     virtual void FinishFrame() {}
 };
@@ -626,6 +634,12 @@ public:
             for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
             for (Renderer* r : m_registry->Unique()) {
                 r->UploadLocalShadows(Span<const GpuLocalShadow>{ m_localShadows.Data(), m_localShadows.Size() }, m_frameIndex);
+            }
+            // Skinning bone upload: write each distinct skeleton instance's matrices ONCE into the bone
+            // pool + copy staging->device, before any pass reads them. Scene-global (the primary scene's
+            // instances cover every view of it). Must run before the graph executes (below).
+            if (m_encoder != nullptr && primary != nullptr && primary->Scene() != nullptr) {
+                for (Renderer* r : m_registry->Unique()) { r->UploadSkinning(*primary->Scene(), *m_encoder); }
             }
             if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
             m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
