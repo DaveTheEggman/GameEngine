@@ -85,6 +85,7 @@ add_subdirectory(Code/Raptor/Shaders)
 add_subdirectory(Code/Raptor/Image)
 add_subdirectory(Code/Raptor/Model)
 add_subdirectory(Code/Raptor/Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
+add_subdirectory(Code/Raptor/Animation) # skeletal-animation foundation (Sedulous.Animation port; Core-only)
 add_subdirectory(Code/Raptor/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Raptor/Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Raptor/Fonts)     # font types/interfaces over Core + Image
