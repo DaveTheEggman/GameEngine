@@ -22,3 +22,9 @@ target_sources(RaptorAnimation
 if(RAPTOR_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
+
+# Skeletons + clips as cooked resources (Source -> Factory -> runtime types).
+add_subdirectory(Resource)
+
+# Authoring + cook (tooling: SkeletonAsset/AnimationClipAsset -> source).
+add_subdirectory(Editor)

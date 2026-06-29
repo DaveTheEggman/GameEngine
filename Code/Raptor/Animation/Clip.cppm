@@ -7,6 +7,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module raptor.animation:clip;
 
@@ -94,8 +95,10 @@ struct AnimationEvent {
     AnimationEvent(f32 t, StringView n) : time(t), name(n) {}
 };
 
-// All tracks + events for one animation.
-class AnimationClip {
+// All tracks + events for one animation. A resource product (Object) so a cooked AnimationClipSource
+// can build into it via the resource system.
+class AnimationClip : public Object {
+    RAPTOR_OBJECT(AnimationClip, Object)
 public:
     AnimationClip() = default;
     explicit AnimationClip(StringView name, f32 duration = 0.0f, bool isLooping = false)
@@ -202,5 +205,7 @@ private:
     Array<UniquePtr<Vec3Track>> m_scaleTracks;
     Array<AnimationEvent>       m_events;
 };
+
+RAPTOR_DEFINE_OBJECT(AnimationClip, "raptor::animation")
 
 } // namespace raptor::animation

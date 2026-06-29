@@ -9,6 +9,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module raptor.animation:skeleton;
 
@@ -33,7 +34,9 @@ struct Bone {
     Array<i32>    children;
 };
 
-class Skeleton {
+// A resource product (Object), so a cooked SkeletonSource can build into it via the resource system.
+class Skeleton : public Object {
+    RAPTOR_OBJECT(Skeleton, Object)
 public:
     Skeleton() = default;
     // Creates `boneCount` default bones with sequential indices (the loader fills the rest).
@@ -50,6 +53,7 @@ public:
     [[nodiscard]] const Array<Bone>& Bones() const noexcept { return m_bones; }
     [[nodiscard]] Span<const i32>    RootBones() const noexcept { return { m_rootBones.Data(), m_rootBones.Size() }; }
     [[nodiscard]] String&            Name() noexcept { return m_name; }
+    [[nodiscard]] const String&      Name() const noexcept { return m_name; }
 
     // Re-populate this same instance (resource hot-reload keeps outside references valid).
     void ClearForReload(i32 boneCount) {
@@ -178,5 +182,7 @@ private:
     HashMap<String, i32> m_nameMap;
     Array<Mat4>      m_worldScratch;   // reused world-pose scratch (skinning hot path)
 };
+
+RAPTOR_DEFINE_OBJECT(Skeleton, "raptor::animation")
 
 } // namespace raptor::animation

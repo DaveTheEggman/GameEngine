@@ -8,6 +8,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module raptor.animation:graph;
 
@@ -377,7 +378,9 @@ private:
 };
 
 // Shared graph definition: parameters + layers. Multiple players can reference one graph.
-class AnimationGraph {
+// A resource product (Object) so a cooked AnimationGraphSource can build into it.
+class AnimationGraph : public Object {
+    RAPTOR_OBJECT(AnimationGraph, Object)
 public:
     [[nodiscard]] Array<AnimationGraphParameter>&    Parameters() noexcept { return m_parameters; }
     [[nodiscard]] const Array<AnimationGraphParameter>& Parameters() const noexcept { return m_parameters; }
@@ -660,5 +663,7 @@ private:
     Array<Link1D> m_links1D;
     Array<Link2D> m_links2D;
 };
+
+RAPTOR_DEFINE_OBJECT(AnimationGraph, "raptor::animation")
 
 } // namespace raptor::animation
