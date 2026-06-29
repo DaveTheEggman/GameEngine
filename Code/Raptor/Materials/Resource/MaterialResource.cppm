@@ -34,7 +34,8 @@ class MaterialSource final : public ISerializable {
     RAPTOR_OBJECT(MaterialSource, ISerializable)
 public:
     String name;
-    Guid   shaderId;
+    Guid   shaderId;             // a cooked ShaderResource; nil -> use shaderName (a builtin)
+    String shaderName;           // builtin shader name fallback (when shaderId is nil)
     u32    shaderFlags  = 0;
     u8     blendMode    = static_cast<u8>(BlendMode::Opaque);
     u8     depthMode    = static_cast<u8>(DepthMode::ReadWrite);
@@ -50,8 +51,8 @@ public:
 
     void Serialize(ISerializer& ar) override {
         raptor::core::Serialize(ar, "name", name);
-        raptor::core::Serialize(ar, "shaderHigh", shaderId.high);
-        raptor::core::Serialize(ar, "shaderLow", shaderId.low);
+        raptor::core::Serialize(ar, "shaderId", shaderId);
+        raptor::core::Serialize(ar, "shaderName", shaderName);
         raptor::core::Serialize(ar, "shaderFlags", shaderFlags);
         raptor::core::Serialize(ar, "blendMode", blendMode);
         raptor::core::Serialize(ar, "depthMode", depthMode);
@@ -70,6 +71,7 @@ public:
     static void FromMaterial(const Material& material, const Guid& shaderId, MaterialSource& out) {
         out.name = String(material.name.AsView());
         out.shaderId = shaderId;
+        out.shaderName = String(material.shaderName.AsView());
         out.shaderFlags = static_cast<u32>(material.shaderFlags);
         out.blendMode    = static_cast<u8>(material.pipeline.blendMode);
         out.depthMode    = static_cast<u8>(material.pipeline.depthMode);
@@ -103,12 +105,18 @@ public:
         MaterialSource* src = Cast<MaterialSource>(object.Get());
         if (src == nullptr) { return RefPtr<Object>{}; }
 
-        // Bind the shader resource — mid-build, this records material->shader.
-        Proxy<shaders::ShaderResource> shader = manager.Bind<shaders::ShaderResource>(src->shaderId);
+        // Resolve the shader: a cooked ShaderResource (by id, recording the material->shader edge)
+        // or a builtin shader named directly (shaderName) when no resource id is given.
+        String shaderName;
+        if (!src->shaderId.IsNil()) {
+            Proxy<shaders::ShaderResource> shader = manager.Bind<shaders::ShaderResource>(src->shaderId);
+            if (shader) { shaderName = String(shader->Name()); }
+        }
+        if (shaderName.IsEmpty()) { shaderName = String(src->shaderName.AsView()); }
 
         RefPtr<Material> material = MakeRef<Material>(DefaultAllocator());
         material->name = String(src->name.AsView());
-        material->shaderName = shader ? String(shader->Name()) : String{};
+        material->shaderName = Move(shaderName);
         material->shaderFlags = static_cast<shaders::ShaderFlags>(src->shaderFlags);
 
         const usize count = src->propNames.Size();

@@ -78,6 +78,7 @@ export namespace raptor::texture
         {
             if (m_device != nullptr)
             {
+                if (m_view != nullptr)    { m_device->DestroyTextureView(m_view); }
                 if (m_sampler != nullptr) { m_device->DestroySampler(m_sampler); }
                 if (m_texture != nullptr) { m_device->DestroyTexture(m_texture); }
             }
@@ -85,14 +86,15 @@ export namespace raptor::texture
         Texture(const Texture&) = delete;
         Texture& operator=(const Texture&) = delete;
 
-        void Adopt(rhi::Device* device, rhi::Texture* texture, rhi::Sampler* sampler,
+        void Adopt(rhi::Device* device, rhi::Texture* texture, rhi::TextureView* view, rhi::Sampler* sampler,
                    u32 width, u32 height, rhi::TextureFormat format) noexcept
         {
-            m_device = device; m_texture = texture; m_sampler = sampler;
+            m_device = device; m_texture = texture; m_view = view; m_sampler = sampler;
             m_width = width; m_height = height; m_format = format;
         }
 
         [[nodiscard]] rhi::Texture* GpuTexture() const noexcept { return m_texture; }
+        [[nodiscard]] rhi::TextureView* View() const noexcept { return m_view; }   // default sampled view (full mips)
         [[nodiscard]] rhi::Sampler* Sampler() const noexcept { return m_sampler; }
         [[nodiscard]] u32 Width() const noexcept { return m_width; }
         [[nodiscard]] u32 Height() const noexcept { return m_height; }
@@ -101,6 +103,7 @@ export namespace raptor::texture
     private:
         rhi::Device* m_device = nullptr;     // non-owning
         rhi::Texture* m_texture = nullptr;   // owned (destroyed via device)
+        rhi::TextureView* m_view = nullptr;  // owned (default sampled view)
         rhi::Sampler* m_sampler = nullptr;   // owned
         u32 m_width = 0;
         u32 m_height = 0;
@@ -147,6 +150,15 @@ export namespace raptor::texture
             rhi::Texture* texture = nullptr;
             if (!m_device->CreateTexture(desc, texture).IsOk()) { return RefPtr<Object>{}; }
 
+            // Default sampled view spanning all mips/layers — the currency the material/renderer bind.
+            rhi::TextureViewDesc vd{};
+            vd.format = res->format;
+            vd.dimension = rhi::TextureViewDimension::Texture2D;
+            vd.mipLevelCount = res->mipLevels;
+            vd.arrayLayerCount = res->depthOrArrayLayers;
+            rhi::TextureView* view = nullptr;
+            if (!m_device->CreateTextureView(texture, vd, view).IsOk()) { m_device->DestroyTexture(texture); return RefPtr<Object>{}; }
+
             // Upload mip 0 via a transfer batch.
             if (!pixels.IsEmpty())
             {
@@ -176,7 +188,7 @@ export namespace raptor::texture
             (void)m_device->CreateSampler(sd, sampler);
 
             RefPtr<Texture> product = MakeRef<Texture>(DefaultAllocator());
-            product->Adopt(m_device, texture, sampler, res->width, res->height, res->format);
+            product->Adopt(m_device, texture, view, sampler, res->width, res->height, res->format);
             return product;
         }
 
