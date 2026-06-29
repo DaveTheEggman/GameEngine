@@ -16,6 +16,7 @@ if(TARGET Raptor::RuntimePlatformDesktop AND TARGET Raptor::RuntimeGraphicsGpu)
     add_subdirectory(MultiWindow)
     add_subdirectory(Sandbox)            # the dev harness we grow the engine in
     add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
+    add_subdirectory(AnimStressTest)     # animation/skinning benchmark (Sandbox copy, stripped toward a grid)
 else()
     message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop platform + Vulkan GPU factory)")
 endif()
