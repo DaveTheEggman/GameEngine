@@ -64,6 +64,7 @@ struct RenderData {
 struct MeshRenderData : RenderData {
     Mat4                  world       = Mat4::Identity();
     Vec3                  worldCenter = Vec3{ 0, 0, 0 };
+    f32                   worldRadius = 0.0f;                               // world-space bounding sphere radius
     Color                 color       = Color{ 1.0f, 1.0f, 1.0f, 1.0f };   // per-instance tint
     geometry::StaticMesh* mesh        = nullptr;
     materials::Material*  material     = nullptr;

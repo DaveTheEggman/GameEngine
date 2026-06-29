@@ -18,6 +18,7 @@ import raptor.core;
 import raptor.scene;
 import raptor.render;          // ExtractedScene / MeshRenderData / ViewCamera / categories
 import raptor.materials;       // BlendMode (category mapping)
+import raptor.geometry;        // StaticMesh::bounds (world bounding sphere for shadow-caster culling)
 import :components;
 
 using namespace raptor::core;
@@ -43,12 +44,24 @@ export namespace raptor::render {
 // serially. (Tuned conservatively; the win is at thousands of renderables.)
 inline constexpr u32 kParallelExtractThreshold = 256;
 
+// World-space bounding-sphere radius of a local AABB under a transform: the diagonal half-extent
+// scaled by the largest axis scale (basis-row length, row-vector convention) — conservative but
+// cheap. Used for sphere-vs-light culling of shadow casters (phase 5.4).
+[[nodiscard]] inline f32 WorldBoundsRadius(const AABB& local, const Mat4& world) {
+    const f32 sx = Length(Vec3{ world.m[0][0], world.m[0][1], world.m[0][2] });
+    const f32 sy = Length(Vec3{ world.m[1][0], world.m[1][1], world.m[1][2] });
+    const f32 sz = Length(Vec3{ world.m[2][0], world.m[2][1], world.m[2][2] });
+    return Length(local.Extents()) * Max(sx, Max(sy, sz));
+}
+
 // Fill one MeshRenderData from a component (a pure read of precomputed transforms + borrowed
 // resource pointers — safe to call concurrently across components after UpdateTransforms).
 inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, scene::EntityHandle e,
                                MeshRenderData& rd) {
     rd.world       = scene.GetWorldMatrix(e);
-    rd.worldCenter = TransformPoint(Vec3{ 0, 0, 0 }, rd.world);   // mesh bounds center later
+    const AABB lb  = (mc.mesh.Get() != nullptr) ? mc.mesh->bounds : AABB{ Vec3{ 0, 0, 0 }, Vec3{ 0, 0, 0 } };
+    rd.worldCenter = TransformPoint(lb.Center(), rd.world);       // bounds center (cull + depth sort)
+    rd.worldRadius = WorldBoundsRadius(lb, rd.world);
     rd.color       = mc.color;
     rd.mesh        = mc.mesh.Get();
     rd.material    = mc.material.Get();

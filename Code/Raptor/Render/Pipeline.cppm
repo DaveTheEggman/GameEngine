@@ -443,16 +443,33 @@ public:
     // Resolve + emit the scene's casters as depth-only draws from the light's POV (the shadow depth
     // pass body). lightViewProj is the depth shader's "camera". Runs at graph execute time, before
     // the forward pass (which ReadTextures the shadow map), so it fills the rings ahead of forward.
-    void RecordShadowCasters(rhi::RenderPassEncoder& rp, const RenderView& view,
-                             const RendererRegistry& registry, const Mat4& lightViewProj) {
+    // Re-emit a caster list as depth-only draws from a light's POV. `casters` is camera-independent for
+    // local lights (the scene-global list) or the view's draw list for cascades. When cullRadius > 0,
+    // casters whose world bounding sphere doesn't intersect the light sphere (cullCenter, cullRadius)
+    // are skipped — per-light shadow-caster culling (phase 5.4).
+    void RecordShadowCasters(rhi::RenderPassEncoder& rp, Span<const DrawItem> casters,
+                             const RendererRegistry& registry, const Mat4& lightViewProj,
+                             Vec3 cullCenter = {}, f32 cullRadius = 0.0f) {
         RenderRecordContext ctx{};
         ctx.viewProj    = lightViewProj;
         ctx.depthFormat = (m_shadows != nullptr) ? m_shadows->Format() : rhi::TextureFormat::Depth32Float;
         ctx.frameIndex  = m_frameIndex;
         ctx.viewIndex   = 0;
 
+        // Optional sphere cull into a scratch list (keeps the category-run batching below intact).
+        Span<const DrawItem> items = casters;
+        if (cullRadius > 0.0f) {
+            m_shadowCullScratch.Clear();
+            for (const DrawItem& it : casters) {
+                const auto* md = static_cast<const MeshRenderData*>(it.data);
+                const Vec3  d  = md->worldCenter - cullCenter;
+                const f32   r  = cullRadius + md->worldRadius;
+                if (Dot(d, d) <= r * r) { m_shadowCullScratch.PushBack(it); }
+            }
+            items = Span<const DrawItem>{ m_shadowCullScratch.Data(), m_shadowCullScratch.Size() };
+        }
+
         m_shadowResolved.Clear();
-        const Span<const DrawItem> items = view.DrawList();
         usize i = 0;
         while (i < items.Size()) {
             const RenderCategory cat = items[i].data->category;
@@ -464,6 +481,22 @@ public:
             i = j;
         }
         for (const ResolvedDraw& d : m_shadowResolved) { EmitDraw(rp, d); }
+    }
+
+    // Build the camera-independent shadow-caster list from a scene (opaque + masked meshes), grouped by
+    // (mesh, material) so the depth pass batches them. Used by local-light shadows so their atlas tiles
+    // are stable across camera motion (required for static caching) and include off-camera casters.
+    void BuildShadowCasterList(const ExtractedScene& scene) {
+        m_shadowCasters.Clear();
+        for (RenderData* data : scene.Items()) {
+            if (data == nullptr) { continue; }
+            if (data->category != RenderCategories::Opaque && data->category != RenderCategories::Masked) { continue; }
+            const auto* md = static_cast<const MeshRenderData*>(data);
+            const usize m = reinterpret_cast<usize>(md->mesh), n = reinterpret_cast<usize>(md->material);
+            const u32 stateBits = static_cast<u32>((((m >> 4) * 1099511628211ull + (n >> 4)) & ((1u << kSortStateBits) - 1)));
+            m_shadowCasters.PushBack(DrawItem{ MakeSortKey(data->category, stateBits, 0u), data });
+        }
+        RadixSortDrawItems(m_shadowCasters, m_sortScratch);
     }
 
     // Compose all collected views into the frame's encoder.
@@ -498,6 +531,7 @@ public:
             const u32 capacity = m_shadows->AtlasTileCapacity();
             if (!casters.IsEmpty()) { atlasView = m_shadows->PrepareAtlas(m_frameIndex); }
             if (atlasView != nullptr) {
+                BuildShadowCasterList(*primary->Scene());   // camera-independent casters for the tiles
                 const u32 atlasRes = m_shadows->AtlasResolution();
                 const u32 tileRes  = m_shadows->AtlasTileResolution();
                 // Spot = 1 tile, point = 6 cube faces. The running `tile` base must match the
@@ -512,8 +546,10 @@ public:
                         const GpuLocalShadow s = (need == 6u) ? BuildPointShadowFace(c, f, ti, atlasRes, tileRes)
                                                               : BuildSpotShadow(c, ti, atlasRes, tileRes);
                         const AtlasTile t = AtlasTileRect(ti, atlasRes, tileRes);
+                        // Cull casters to the light's bounding sphere (point/spot share pos + range).
+                        m_localTiles.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h,
+                                                               c.positionWS, Max(0.1f, c.range) });
                         m_localShadows.PushBack(s);
-                        m_localTiles.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h });
                     }
                     tile += need;
                 }
@@ -557,19 +593,20 @@ public:
         const bool atlasActive = atlasView != nullptr && !m_localTiles.IsEmpty();
         if (atlasActive) {
             atlasH = m_shadows->ImportAtlas(m_graph, m_frameIndex);
-            const RenderView* casters = primary;
             RendererRegistry* reg     = m_registry;
             Array<LocalShadowTile>* tiles = &m_localTiles;
             const u32 atlasRes = m_shadows->AtlasResolution();
-            m_graph.AddRenderPass(u8"shadow.atlas", [this, atlasH, casters, reg, tiles, atlasRes](rendergraph::PassBuilder& b) {
+            m_graph.AddRenderPass(u8"shadow.atlas", [this, atlasH, reg, tiles, atlasRes](rendergraph::PassBuilder& b) {
                 b.SetDepthTarget(atlasH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f);
                 b.SetViewport(0, 0, atlasRes, atlasRes);   // pass default; each tile sets its own below
-                b.SetExecute([this, casters, reg, tiles](rhi::RenderPassEncoder& rp) {
+                b.SetExecute([this, reg, tiles](rhi::RenderPassEncoder& rp) {
+                    // Camera-independent scene caster list, culled per tile to the light's sphere.
+                    const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
                     for (const LocalShadowTile& t : *tiles) {
                         rp.SetViewport(static_cast<f32>(t.x), static_cast<f32>(t.y),
                                        static_cast<f32>(t.w), static_cast<f32>(t.h));
                         rp.SetScissor(static_cast<i32>(t.x), static_cast<i32>(t.y), t.w, t.h);
-                        RecordShadowCasters(rp, *casters, *reg, t.viewProj);
+                        RecordShadowCasters(rp, casters, *reg, t.viewProj, t.cullCenter, t.cullRadius);
                     }
                 });
             });
@@ -623,7 +660,9 @@ public:
                         b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
                         b.SetViewport(0, 0, shadowRes, shadowRes);
                         b.SetExecute([this, cascadeVP, casters, reg](rhi::RenderPassEncoder& rp) {
-                            RecordShadowCasters(rp, *casters, *reg, cascadeVP);
+                            // Cascades stay on the view's (camera-culled) draw list — they're already
+                            // camera-coupled (refit per frame), so a camera-independent list buys nothing.
+                            RecordShadowCasters(rp, casters->DrawList(), *reg, cascadeVP);
                         });
                     });
                 }
@@ -675,9 +714,11 @@ private:
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
-    struct LocalShadowTile { Mat4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; };
+    struct LocalShadowTile { Mat4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; Vec3 cullCenter; f32 cullRadius = 0.0f; };
     Array<GpuLocalShadow>   m_localShadows;
     Array<LocalShadowTile>  m_localTiles;
+    Array<DrawItem>         m_shadowCasters;       // camera-independent scene caster list (local shadows)
+    Array<DrawItem>         m_shadowCullScratch;   // per-tile sphere-culled subset (reused)
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;
