@@ -268,9 +268,13 @@ private:
         const VkDebugUtilsMessengerCallbackDataEXT* data,
         void* /*userData*/)
     {
+        // Print straight to stderr (not only LogErrorf, whose sink may be swallowed) so validation
+        // is actually visible in dev builds — the point of running with it on.
         if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+            std::fprintf(stderr, "[Vulkan ERROR] %s\n", data->pMessage);
             LogErrorf("[Vulkan ERROR] %s", data->pMessage);
         } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+            std::fprintf(stderr, "[Vulkan WARN] %s\n", data->pMessage);
             LogWarningf("[Vulkan WARN] %s", data->pMessage);
         }
         return VK_FALSE;

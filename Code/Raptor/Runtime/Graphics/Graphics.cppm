@@ -48,8 +48,10 @@ export namespace raptor::runtime
         // defaults ON for dev builds and OFF for optimized/shipping builds (RAPTOR_RELEASE — set for
         // Release/RelWithDebInfo/MinSizeRel). A profiling run (RelWithDebInfo) therefore measures the
         // real cost, not the validation overhead. Override explicitly to force either way.
+        // Validation forced ON for now (both configs, incl. RelWithDebInfo) — it's the safety net that
+        // catches RHI/shader/descriptor mismatches. Revisit (gate by RAPTOR_RELEASE) once stable.
 #ifdef RAPTOR_RELEASE
-        bool               enableValidation = false;
+        bool               enableValidation = true;
 #else
         bool               enableValidation = true;
 #endif
