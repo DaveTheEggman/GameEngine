@@ -628,6 +628,7 @@ public:
     // re-emit the same geometry into the same rings without starving the forward pass.
     void PrepareFrame(u32 maxDraws, u32 frameIndex) override {
         m_ready = false;
+        TickRetiredBindGroups();   // free per-frame bind groups retired long enough ago to be idle
         if (maxDraws == 0) { return; }
         // camera draws + per-cascade re-emit (CSM) + per-spot-tile re-emit (local atlas).
         const u32 drawCap = maxDraws * (1u + ShadowCascades::kCount + m_localShadowPassCount);
@@ -1064,12 +1065,29 @@ private:
         return layout;
     }
 
+    // Per-frame bind groups (view/shadow-view/object/instance) are rebuilt when their inputs change —
+    // e.g. the directional shadow view alternates per in-flight slot, so the view BG rebuilds every
+    // frame. The OLD bind group may still be referenced by an in-flight command buffer, so it can't be
+    // freed immediately (vkFreeDescriptorSets-00309): retire it and free after the frame ring cycles.
+    void RetireBindGroup(rhi::BindGroup* bg) {
+        if (bg != nullptr) { m_retiredBGs.PushBack(RetiredBG{ bg, m_framesInFlight }); }
+    }
+    void TickRetiredBindGroups() {
+        usize w = 0;
+        for (usize i = 0; i < m_retiredBGs.Size(); ++i) {
+            RetiredBG r = m_retiredBGs[i];
+            if (r.framesLeft <= 1) { m_device->DestroyBindGroup(r.bg); }
+            else { r.framesLeft -= 1; m_retiredBGs[w++] = r; }
+        }
+        m_retiredBGs.Resize(w);
+    }
+
     // (Re)create a bind group over a ring's buffer when the ring (re)allocated. `whole` binds
     // the entire buffer (storage, indexed); otherwise a `bindSize` window (dynamic-offset UBO).
     bool EnsureBindGroup(DynamicUniformRing& ring, rhi::BindGroupLayout* layout, u64 bindSize,
                          rhi::BindGroup*& bg, u32& bgGen, bool whole) {
         if (bg != nullptr && bgGen == ring.Generation()) { return true; }
-        if (bg) { m_device->DestroyBindGroup(bg); bg = nullptr; }
+        RetireBindGroup(bg); bg = nullptr;
         rhi::Buffer* buffer = ring.Buffer();
         if (buffer == nullptr) { return false; }
         rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(buffer, 0, whole ? ring.ByteCapacity() : bindSize);
@@ -1095,7 +1113,7 @@ private:
             m_viewBGBoneGen == m_boneRing.Generation()) {
             return true;
         }
-        if (m_viewBG) { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
+        RetireBindGroup(m_viewBG); m_viewBG = nullptr;
         rhi::Buffer* viewBuf = m_viewRing.Buffer();
         rhi::Buffer* lightBuf = m_lightRing.Buffer();
         rhi::Buffer* localBuf = m_localShadowRing.Buffer();
@@ -1169,7 +1187,7 @@ private:
     bool EnsureShadowViewBindGroup() {
         if (m_shadowViewBG != nullptr && m_shadowViewBGGen == m_shadowViewRing.Generation() &&
             m_shadowViewBGBoneGen == m_boneRing.Generation()) { return true; }
-        if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
+        RetireBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr;
         rhi::Buffer* buf = m_shadowViewRing.Buffer();
         rhi::Buffer* boneBuf = m_boneRing.Buffer();
         if (buf == nullptr || boneBuf == nullptr) { return false; }
@@ -1235,6 +1253,8 @@ private:
         m_instanceStorage.Clear();
         m_defaultMaterial.Reset();
         m_meshes.Clear();
+        for (RetiredBG& r : m_retiredBGs) { m_device->DestroyBindGroup(r.bg); }
+        m_retiredBGs.Clear();
         if (m_viewBG)       { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
         if (m_dummyShadowView) { m_device->DestroyTextureView(m_dummyShadowView); m_dummyShadowView = nullptr; }
@@ -1294,6 +1314,11 @@ private:
     DynamicUniformRing m_lightRing;
     DynamicUniformRing m_localShadowRing;   // per-frame GpuLocalShadow entries (spot/point atlas)
     DynamicUniformRing m_boneRing;          // per-frame GPU skinning bone-matrix pool (set-0 t4 SRV)
+
+    // Bind groups retired this/prior frames but possibly still referenced by in-flight command
+    // buffers; freed by TickRetiredBindGroups once the frame ring has cycled (framesLeft hits 0).
+    struct RetiredBG { rhi::BindGroup* bg; u32 framesLeft; };
+    Array<RetiredBG> m_retiredBGs;
 
     rhi::BindGroup* m_viewBG       = nullptr;
     rhi::BindGroup* m_shadowViewBG = nullptr;
