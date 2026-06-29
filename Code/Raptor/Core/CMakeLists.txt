@@ -57,6 +57,7 @@ target_sources(RaptorCore
             Math/Mat3.cppm
             Math/Quat.cppm
             Math/Transform.cppm
+            Math/Easings.cppm
             Math/AABB.cppm
             Math/Plane.cppm
             Math/Rect.cppm

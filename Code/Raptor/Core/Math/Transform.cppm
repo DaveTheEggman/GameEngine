@@ -31,5 +31,18 @@ export namespace raptor::core
             result.m[3][2] = position.z;
             return result;
         }
+
+        // Component-wise interpolation: position/scale lerp, rotation slerp. (Sedulous BoneTransform.Lerp.)
+        [[nodiscard]] static Transform Lerp(const Transform& a, const Transform& b, f32 t) noexcept
+        {
+            return Transform{
+                raptor::core::Lerp(a.position, b.position, t),
+                raptor::core::Slerp(a.rotation, b.rotation, t),
+                raptor::core::Lerp(a.scale, b.scale, t),
+            };
+        }
     };
+
+    // Identity transform (position 0, rotation identity, scale 1) — the default-constructed value.
+    inline constexpr Transform IdentityTransform{};
 }

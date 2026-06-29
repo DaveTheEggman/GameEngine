@@ -43,6 +43,7 @@ export import :mat4;
 export import :mat3;
 export import :quat;
 export import :transform;
+export import :easings;
 export import :aabb;
 export import :plane;
 export import :rect;

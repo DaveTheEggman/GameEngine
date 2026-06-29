@@ -383,3 +383,60 @@ TEST_CASE("color32: packed byte color and conversions")
     }
     CHECK(exact);
 }
+
+// --- Math: easing functions (ported from Sedulous.Core.Mathematics.Easings) ---
+
+TEST_CASE("math: easing endpoints + known values")
+{
+    // Every easing maps 0 -> ~0 and 1 -> ~1 (the interpolation factor endpoints).
+    EasingFunction fns[] = {
+        EaseInLinear, EaseOutLinear,
+        EaseInQuadratic, EaseOutQuadratic, EaseInOutQuadratic,
+        EaseInCubic, EaseOutCubic, EaseInOutCubic,
+        EaseInQuartic, EaseOutQuartic, EaseInOutQuartic,
+        EaseInQuintic, EaseOutQuintic, EaseInOutQuintic,
+        EaseInSin, EaseOutSin, EaseInOutSin,
+        EaseInExponential, EaseOutExponential, EaseInOutExponential,
+        EaseInCircular, EaseOutCircular, EaseInOutCircular,
+        EaseInBack, EaseOutBack, EaseInOutBack,
+        EaseInElastic, EaseOutElastic, EaseInOutElastic,
+        EaseInBounce, EaseOutBounce, EaseInOutBounce,
+    };
+    for (EasingFunction f : fns)
+    {
+        CHECK(NearlyEqual(f(0.0f), 0.0f));
+        CHECK(NearlyEqual(f(1.0f), 1.0f));
+    }
+
+    // Specific known polynomial values.
+    CHECK(NearlyEqual(EaseInQuadratic(0.5f), 0.25f));
+    CHECK(NearlyEqual(EaseOutQuadratic(0.5f), 0.75f));
+    CHECK(NearlyEqual(EaseInOutQuadratic(0.5f), 0.5f));
+    CHECK(NearlyEqual(EaseInCubic(0.5f), 0.125f));
+    CHECK(NearlyEqual(EaseInOutCubic(0.5f), 0.5f));
+    CHECK(NearlyEqual(EaseInOutSin(0.5f), 0.5f));
+    // Symmetric in/out-out: in/out midpoints land on 0.5 for odd-symmetric families.
+    CHECK(NearlyEqual(EaseInOutQuartic(0.5f), 0.5f));
+    CHECK(NearlyEqual(EaseInOutQuintic(0.5f), 0.5f));
+    CHECK(NearlyEqual(EaseInOutCircular(0.5f), 0.5f));
+}
+
+// --- Math: Transform Lerp (BoneTransform.Lerp equivalent) ---
+
+TEST_CASE("math: Transform Lerp + identity")
+{
+    CHECK(NearlyEqual(IdentityTransform.position, Vec3::Zero));
+    CHECK(NearlyEqual(IdentityTransform.scale, Vec3::One));
+
+    Transform a{ Vec3{ 0, 0, 0 }, Quat::Identity, Vec3{ 1, 1, 1 } };
+    Transform b{ Vec3{ 2, 4, 6 }, Quat::Identity, Vec3{ 3, 3, 3 } };
+    Transform m = Transform::Lerp(a, b, 0.5f);
+    CHECK(NearlyEqual(m.position, Vec3{ 1, 2, 3 }));
+    CHECK(NearlyEqual(m.scale, Vec3{ 2, 2, 2 }));
+
+    // Endpoints return the inputs.
+    Transform at0 = Transform::Lerp(a, b, 0.0f);
+    Transform at1 = Transform::Lerp(a, b, 1.0f);
+    CHECK(NearlyEqual(at0.position, a.position));
+    CHECK(NearlyEqual(at1.position, b.position));
+}
