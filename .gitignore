@@ -18,3 +18,4 @@ Documentation/Planning/Core.md
 docs/design/shaders-materials-hot-reload.md
 docs/design/runtime-host.md
 docs/design/renderer.md
+.claude/settings.local.json
