@@ -11,7 +11,9 @@ target_link_libraries(RaptorModelImporter
     PUBLIC
         Raptor::Core Raptor::Policy
         Raptor::Model     Raptor::ModelIO  Raptor::ModelGltf  Raptor::ModelFbx
-        Raptor::Geometry  Raptor::MeshResource  Raptor::MeshEditor
+        Raptor::Geometry  Raptor::MeshResource     Raptor::MeshEditor
+        Raptor::Materials Raptor::MaterialResource Raptor::MaterialEditor
+        Raptor::TextureResource  Raptor::TextureEditor  Raptor::Image
         Raptor::Content   Raptor::Resource   Raptor::Editor)
 
 target_sources(RaptorModelImporter

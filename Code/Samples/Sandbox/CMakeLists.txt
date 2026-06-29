@@ -23,6 +23,8 @@ target_link_libraries(Sandbox PRIVATE
     Raptor::Resource
     Raptor::VFS
     Raptor::MeshResource
+    Raptor::MaterialResource
+    Raptor::TextureResource
     Raptor::Policy)
 
 # Absolute asset paths (cwd-independent), mirroring the VGSandbox font-path pattern:

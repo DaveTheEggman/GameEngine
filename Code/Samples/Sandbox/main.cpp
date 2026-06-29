@@ -21,6 +21,8 @@ import raptor.render;                  // ViewCamera / ViewportRect (split-scree
 import raptor.geometry;
 import raptor.geometry.resource;       // StaticMeshFactory + StaticMesh product
 import raptor.materials;
+import raptor.materials.resource;       // MaterialFactory (cooked materials)
+import raptor.texture.resource;         // TextureFactory (cooked textures)
 import raptor.vfs;                      // NativeFileSystem mount for the content DB
 import raptor.content;                  // ContentDatabase (cooked-resource output)
 import raptor.resource;                 // ResourceManager + Proxy
@@ -44,6 +46,7 @@ namespace sc = raptor::scene;
 namespace rd = raptor::render;
 namespace geo = raptor::geometry;
 namespace mat = raptor::materials;
+namespace tex = raptor::texture;
 namespace vfs = raptor::vfs;
 namespace ct  = raptor::content;
 namespace res = raptor::resource;
@@ -186,7 +189,7 @@ namespace
                 pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
             }
 
-            LoadImportedModel();   // cook + spawn a glTF model through the resource pipeline
+            LoadImportedModel(host);   // cook + spawn a glTF model through the resource pipeline
 
             rc::ConsoleWrite(u8"Sandbox: split-screen — same scene from two cameras, 18 clustered "
                              u8"point lights. Close to exit.\n");
@@ -197,7 +200,7 @@ namespace
         // MeshComponents reference the cooked StaticMesh resources. This is the clean runtime cook seam
         // the design calls for — an editor would cook offline and the runtime would only Bind, but the
         // wiring (factory -> Bind -> render) is identical.
-        void LoadImportedModel()
+        void LoadImportedModel(rt::IApplicationHost& host)
         {
             auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
             if (meshes == nullptr) { return; }
@@ -213,6 +216,11 @@ namespace
             m_resources = rc::MakeUnique<res::ResourceManager>(rc::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_modelFactory);
+            m_resources->AddFactory(&m_materialFactory);
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
+                m_textureFactory = rc::MakeUnique<tex::TextureFactory>(rc::DefaultAllocator(), *gfx->Raw());
+                m_resources->AddFactory(m_textureFactory.Get());
+            }
             mi::RegisterModelImporterTypes();   // make the cooked types deserializable
 
             // Cook a model into the DB (runtime cook seam; swap for an offline cook + plain Bind later).
@@ -263,6 +271,15 @@ namespace
                 rd::MeshComponent& mc = meshes->Add(entities[i]);
                 mc.mesh  = rc::RefPtr<geo::StaticMesh>(mesh);   // hold a ref (manager owns the handle)
                 mc.color = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+                // The cooked material for this mesh (its albedo texture wired in as a default).
+                const rc::i32 matIdx = (static_cast<rc::usize>(node.meshIndex) < m_model->meshMaterial.Size())
+                                           ? m_model->meshMaterial[static_cast<rc::usize>(node.meshIndex)] : -1;
+                if (matIdx >= 0 && static_cast<rc::usize>(matIdx) < m_model->materials.Size()) {
+                    if (mat::Material* material = m_model->materials[static_cast<rc::usize>(matIdx)].Get()) {
+                        mc.material = rc::RefPtr<mat::Material>(material);
+                    }
+                }
             }
             rc::ConsoleWrite(u8"Sandbox: imported model spawned\n");
         }
@@ -454,6 +471,8 @@ namespace
         rc::UniquePtr<ct::ContentDatabase>   m_contentDb;
         rc::UniquePtr<res::ResourceManager>  m_resources;
         geo::StaticMeshFactory               m_meshFactory;
+        mat::MaterialFactory                 m_materialFactory;
+        rc::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
         mi::ModelFactory                     m_modelFactory;
         res::Proxy<mi::ModelResource>        m_model;
         rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)

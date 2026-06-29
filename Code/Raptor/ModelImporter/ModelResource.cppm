@@ -17,12 +17,18 @@ export module raptor.modelimporter:resource;
 import raptor.core;
 import raptor.geometry;
 import raptor.geometry.resource;
+import raptor.materials;
+import raptor.materials.resource;
+import raptor.texture;
+import raptor.texture.resource;
 import raptor.resource;
 import raptor.content;
 
 using namespace raptor::core;
 using namespace raptor::resource;
 namespace geo = raptor::geometry;
+namespace mat = raptor::materials;
+namespace tex = raptor::texture;
 
 export namespace raptor::modelimporter {
 
@@ -52,17 +58,23 @@ class ModelManifestSource final : public ISerializable {
 public:
     Array<Guid>      meshGuids;     // cooked mesh resources
     Array<u8>        meshSkinned;   // 1 if the mesh is skinned (parallel to meshGuids)
+    Array<i32>       meshMaterial;  // material index per mesh (-1 = none); parallel to meshGuids
+    Array<Guid>      materialGuids; // cooked material resources
+    Array<Guid>      materialAlbedo;// albedo texture per material (nil = none); parallel to materialGuids
     Array<ModelNode> nodes;         // node hierarchy
     Vec3             boundsMin{};   // model-space AABB (for spawn-time auto-fit/placement)
     Vec3             boundsMax{};
 
     void Serialize(ISerializer& ar) override
     {
-        raptor::core::Serialize(ar, "meshGuids",   meshGuids);
-        raptor::core::Serialize(ar, "meshSkinned", meshSkinned);
-        raptor::core::Serialize(ar, "nodes",       nodes);
-        raptor::core::Serialize(ar, "boundsMin",   boundsMin);
-        raptor::core::Serialize(ar, "boundsMax",   boundsMax);
+        raptor::core::Serialize(ar, "meshGuids",      meshGuids);
+        raptor::core::Serialize(ar, "meshSkinned",    meshSkinned);
+        raptor::core::Serialize(ar, "meshMaterial",   meshMaterial);
+        raptor::core::Serialize(ar, "materialGuids",  materialGuids);
+        raptor::core::Serialize(ar, "materialAlbedo", materialAlbedo);
+        raptor::core::Serialize(ar, "nodes",          nodes);
+        raptor::core::Serialize(ar, "boundsMin",      boundsMin);
+        raptor::core::Serialize(ar, "boundsMax",      boundsMax);
     }
 };
 
@@ -75,6 +87,8 @@ public:
     Array<ModelNode>               nodes;
     Array<Proxy<geo::StaticMesh>>  meshes;
     Array<u8>                      meshSkinned;
+    Array<i32>                     meshMaterial;   // material index per mesh (-1 = none)
+    Array<Proxy<mat::Material>>    materials;      // resolved materials (albedo wired as default texture)
     Vec3                           boundsMin{};
     Vec3                           boundsMax{};
 };
@@ -94,7 +108,22 @@ public:
         RefPtr<ModelResource> model = MakeRef<ModelResource>(DefaultAllocator());
         for (const ModelNode& n : src->nodes)        { model->nodes.PushBack(n); }
         for (const u8 s : src->meshSkinned)          { model->meshSkinned.PushBack(s); }
+        for (const i32 m : src->meshMaterial)        { model->meshMaterial.PushBack(m); }
         for (const Guid& g : src->meshGuids)         { model->meshes.PushBack(manager.Bind<geo::StaticMesh>(g)); }
+
+        // Resolve materials + wire their albedo texture in as the material's default (the renderer's
+        // per-material instance reads default textures, so no per-instance assignment is needed).
+        for (usize i = 0; i < src->materialGuids.Size(); ++i) {
+            Proxy<mat::Material> material = manager.Bind<mat::Material>(src->materialGuids[i]);
+            if (material && i < src->materialAlbedo.Size() && !src->materialAlbedo[i].IsNil()) {
+                Proxy<tex::Texture> albedo = manager.Bind<tex::Texture>(src->materialAlbedo[i]);
+                if (albedo && albedo->View() != nullptr) {
+                    material->SetDefaultTexture(u8"AlbedoMap", albedo->View());
+                }
+            }
+            model->materials.PushBack(material);
+        }
+
         model->boundsMin = src->boundsMin;
         model->boundsMax = src->boundsMax;
         return model;
@@ -120,6 +149,14 @@ inline void RegisterModelImporterTypes()
     RegisterSerializable<geo::SkinnedMeshSource>();
     GlobalTypeRegistry().Register(geo::StaticMesh::StaticType());
     GlobalTypeRegistry().Register(geo::SkinnedMesh::StaticType());
+
+    GlobalTypeRegistry().Register(mat::MaterialSource::StaticType());
+    RegisterSerializable<mat::MaterialSource>();
+    GlobalTypeRegistry().Register(mat::Material::StaticType());
+
+    GlobalTypeRegistry().Register(tex::TextureResource::StaticType());
+    RegisterSerializable<tex::TextureResource>();
+    GlobalTypeRegistry().Register(tex::Texture::StaticType());
 }
 
 } // namespace raptor::modelimporter
