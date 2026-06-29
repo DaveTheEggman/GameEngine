@@ -717,9 +717,13 @@ public:
         usize i = 0;
         while (i < items.Size()) {
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
+            // Skinned meshes can't be batched: the instanced path has no per-instance bone matrices, so
+            // batching them would collapse the group to one (bind) pose. Force each to a single draw
+            // (correct per-instance skinning). Instanced skinning is the persistent-buffer rewrite's job.
+            const bool headSkinned = head->mesh != nullptr && head->mesh->IsSkinned() && head->boneMatrices != nullptr;
             // Extend the run while mesh + material match (a batchable group).
             usize j = i + 1;
-            if (allowInstancing) {
+            if (allowInstancing && !headSkinned) {
                 while (j < items.Size()) {
                     const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
                     if (nd->mesh != head->mesh || nd->material != head->material) { break; }
@@ -752,11 +756,16 @@ public:
         usize i = 0;
         while (i < items.Size()) {
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
+            // Skinned casters can't be batched (the instanced depth path has no per-instance bones) —
+            // force each to a single depth draw so its shadow animates. (See the forward pass.)
+            const bool headSkinned = head->mesh != nullptr && head->mesh->IsSkinned() && head->boneMatrices != nullptr;
             usize j = i + 1;
-            while (j < items.Size()) {
-                const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
-                if (nd->mesh != head->mesh || nd->material != head->material) { break; }
-                ++j;
+            if (!headSkinned) {
+                while (j < items.Size()) {
+                    const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
+                    if (nd->mesh != head->mesh || nd->material != head->material) { break; }
+                    ++j;
+                }
             }
             const u32 runLen = static_cast<u32>(j - i);
             const GpuMesh* mesh = m_meshes.GetOrUpload(head->mesh);
@@ -805,7 +814,12 @@ private:
     // categories. Sized with headroom — a slot is tiny (256B).
     static constexpr u32 kMaxShadowPasses  = 256;
     static constexpr u32 kMaxLocalShadows  = 64;         // spot/point shadow entries per frame (atlas-bound)
-    static constexpr u32 kMaxBoneMatrices  = 8192;       // GPU skinning bone-matrix pool slots per frame
+    static constexpr u32 kMaxBoneMatrices  = 1u << 20;   // GPU skinning bone-matrix pool slots per frame.
+                                                         // The current arch re-uploads each caster's bones
+                                                         // PER PASS (forward + 4 CSM cascades + local), so
+                                                         // usage is ~N*bones*(5+); sized big so the stress
+                                                         // test doesn't overflow (the persistent-buffer
+                                                         // rewrite uploads once, shared across passes).
 
     void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
                        const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
