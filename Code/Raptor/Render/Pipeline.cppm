@@ -246,12 +246,12 @@ public:
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
-            // Read THIS view's shadow layers (orders its cascade passes -> this pass + barriers them
-            // readable). Scoped to the view's layer range so views don't over-depend on each other.
-            if (shadow.Valid()) {
-                rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = shadow.layerBase; sub.arrayLayerCount = ShadowCascades::kCount;
-                b.ReadTexture(shadow.handle, sub);
-            }
+            // Read the WHOLE cascade array (orders all cascade passes -> this pass + barriers every
+            // layer readable). The forward shader binds the full-array sample view, so the descriptor
+            // spans all layers — every one must be in DepthStencilRead when this pass's secondary CB
+            // samples it, even layers belonging to other views (VUID-vkCmdExecuteCommands depth-layout).
+            // All cascade passes are declared up front, so depending on the whole array is correctly ordered.
+            if (shadow.Valid()) { b.ReadTexture(shadow.handle); }
             // Read the whole local-shadow atlas (orders the atlas depth pass -> this pass + barriers
             // it readable). One atlas shared by all views, so the whole texture is the dependency.
             if (shadow.atlasValid) { b.ReadTexture(shadow.atlasHandle); }
@@ -488,12 +488,16 @@ public:
     // are stable across camera motion (required for static caching) and include off-camera casters.
     void BuildShadowCasterList(const ExtractedScene& scene) {
         m_shadowCasters.Clear();
-        m_hasAnimatedCaster = false;
+        m_animatedSpheres.Clear();
         for (RenderData* data : scene.Items()) {
             if (data == nullptr) { continue; }
             if (data->category != RenderCategories::Opaque && data->category != RenderCategories::Masked) { continue; }
             const auto* md = static_cast<const MeshRenderData*>(data);
-            if (md->boneMatrices != nullptr && md->boneCount > 0) { m_hasAnimatedCaster = true; }
+            // Animated (skinned) casters deform every frame: remember each one's world bounding sphere so
+            // only the static atlas tiles whose light volume it overlaps get re-rendered (per-tile routing).
+            if (md->boneMatrices != nullptr && md->boneCount > 0) {
+                m_animatedSpheres.PushBack(Sphere{ md->worldCenter, md->worldRadius });
+            }
             const usize m = reinterpret_cast<usize>(md->mesh), n = reinterpret_cast<usize>(md->material);
             const u32 stateBits = static_cast<u32>((((m >> 4) * 1099511628211ull + (n >> 4)) & ((1u << kSortStateBits) - 1)));
             m_shadowCasters.PushBack(DrawItem{ MakeSortKey(data->category, stateBits, 0u), data });
@@ -584,24 +588,36 @@ public:
         }
         const u64 atlasGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
 
-        // Static atlas layer is rendered only when the static caster set changes (then cached). A
-        // signature over the static casters' transforms detects change; on change, refresh every
-        // in-flight slot (countdown = frames-in-flight) so each slot's cached layer gets filled.
+        // Static atlas layer: each tile is cached and re-rendered only when needed, tracked by a
+        // per-tile dirty COUNTDOWN (a tile must re-render for FramesInFlight frames to refresh every
+        // in-flight slot's copy). Two things dirty a tile:
+        //   1. The static caster set changed (signature trip) — dirty ALL tiles.
+        //   2. An animated caster's world sphere overlaps the tile's light volume — dirty THAT tile,
+        //      every frame it overlaps (skinned casters deform per frame; node bounds don't move, so
+        //      the signature never trips for them). This is the per-caster routing: only tiles actually
+        //      containing animation re-render; tiles with purely static geometry stay cached.
+        const u32 fif = (m_shadows != nullptr) ? m_shadows->FramesInFlight() : 1u;
+        m_staticTileDirty.Resize(m_staticTiles.Size());   // index-stable: static caster set is stable by contract
         const u64 staticSig = StaticCasterSignature(primary);
         if (staticSig != m_staticSig) {
             m_staticSig = staticSig;
-            m_staticDirty = (m_shadows != nullptr) ? m_shadows->FramesInFlight() : 1u;
+            for (u32& d : m_staticTileDirty) { d = fif; }
         }
-        // An animated (skinned) caster deforms its shadow every frame, but its node bounds are constant
-        // so the static-caster signature never trips. Re-render the static layer each frame while any
-        // animated caster is present, so a Static light's skinned-caster shadow animates instead of
-        // freezing. (Caching still holds for fully-static scenes; a finer per-caster static/dynamic
-        // split would keep static geometry cached while only animated casters re-render.)
-        const bool renderStatic = !m_staticTiles.IsEmpty() && (m_staticDirty > 0 || m_hasAnimatedCaster);
-        if (renderStatic && m_staticDirty > 0) { --m_staticDirty; }
+        for (usize ti = 0; ti < m_staticTiles.Size(); ++ti) {
+            const LocalShadowTile& t = m_staticTiles[ti];
+            for (const Sphere& s : m_animatedSpheres) {
+                if (Length(s.center - t.cullCenter) <= t.cullRadius + s.radius) { m_staticTileDirty[ti] = fif; break; }
+            }
+        }
+        // Collect this frame's static tiles to render (countdown > 0) and tick the countdowns down.
+        m_staticRenderTiles.Clear();
+        for (usize ti = 0; ti < m_staticTiles.Size(); ++ti) {
+            if (m_staticTileDirty[ti] > 0) { m_staticRenderTiles.PushBack(m_staticTiles[ti]); --m_staticTileDirty[ti]; }
+        }
+        const bool renderStatic = !m_staticRenderTiles.IsEmpty();
         // Per-renderer ring sizing: count only the atlas passes that actually re-emit casters this frame.
         const u32 localPassCount = static_cast<u32>(m_rtTiles.Size()) +
-                                   (renderStatic ? static_cast<u32>(m_staticTiles.Size()) : 0u);
+                                   static_cast<u32>(m_staticRenderTiles.Size());
 
         {
             RAPTOR_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
@@ -660,10 +676,47 @@ public:
                     });
                 });
             };
-            declareLayer(0u, &m_rtTiles);                            // realtime layer — every frame
-            if (renderStatic) { declareLayer(1u, &m_staticTiles); }  // static layer — only when dirty
+            declareLayer(0u, &m_rtTiles);                                  // realtime layer — every frame
+            if (renderStatic) { declareLayer(1u, &m_staticRenderTiles); }  // static layer — only dirty tiles
         }
         if (shadowActive) { shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex); }
+
+        // Declare EVERY view's cascade depth passes up front — before any forward pass. The cascade
+        // array is one imported resource: if a forward pass sampling the whole array were declared
+        // before a later view's cascade writes, those layers would still be in DepthStencilAttachment
+        // (not Read) when sampled (VUID-vkCmdExecuteCommands depth-layout). Fitting all cascades first
+        // means every layer is written + barriered to Read before the first forward sample.
+        Array<ShadowBinding> viewShadows;
+        viewShadows.Resize(m_views.ActiveCount());
+        if (shadowActive) {
+            for (usize i = 0; i < m_views.ActiveCount(); ++i) {
+                if (i >= ShadowSystem::kMaxShadowViews) { break; }
+                RenderView* v = m_views.At(i);
+                const f32 shadowDistance = Min(v->Camera().farZ, 150.0f);
+                const ShadowCascades cascades = ComputeCascades(v->Camera(), lightDir, shadowDistance, shadowRes);
+                const u32 layerBase = static_cast<u32>(i) * cascadeCount;
+                const RenderView* casters = v;
+                RendererRegistry* reg = m_registry;
+                for (u32 c = 0; c < cascadeCount; ++c) {
+                    const Mat4 cascadeVP = cascades.viewProj[c];
+                    const u32  layer     = layerBase + c;
+                    m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, casters, reg](rendergraph::PassBuilder& b) {
+                        rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
+                        b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
+                        b.SetViewport(0, 0, shadowRes, shadowRes);
+                        b.SetExecute([this, cascadeVP, casters, reg](rhi::RenderPassEncoder& rp) {
+                            RecordShadowCasters(rp, casters->DrawList(), *reg, cascadeVP);
+                        });
+                    });
+                }
+                ShadowBinding& sb = viewShadows[i];
+                sb.sampleView = shadowMap;
+                sb.handle     = shadowH;
+                sb.cascades   = cascades;
+                sb.layerBase  = layerBase;
+                sb.valid      = true;
+            }
+        }
 
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
         // resource). The first view to a target clears it; later views into the same target Load,
@@ -696,34 +749,9 @@ public:
             ClusterBinding cluster;
             if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *v, m_frameIndex, viewIndex); }
 
-            // This view's CSM cascades, fit to ITS frustum, rendered into ITS layer range of the array.
-            ShadowBinding shadow;
-            if (shadowActive && viewIndex < ShadowSystem::kMaxShadowViews) {
-                const f32 shadowDistance = Min(v->Camera().farZ, 150.0f);
-                const ShadowCascades cascades = ComputeCascades(v->Camera(), lightDir, shadowDistance, shadowRes);
-                const u32 layerBase = viewIndex * cascadeCount;
-                const RenderView* casters = v;
-                RendererRegistry* reg = m_registry;
-                for (u32 c = 0; c < cascadeCount; ++c) {
-                    const Mat4 cascadeVP = cascades.viewProj[c];
-                    const u32  layer     = layerBase + c;
-                    m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, casters, reg](rendergraph::PassBuilder& b) {
-                        rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
-                        b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
-                        b.SetViewport(0, 0, shadowRes, shadowRes);
-                        b.SetExecute([this, cascadeVP, casters, reg](rhi::RenderPassEncoder& rp) {
-                            // Cascades stay on the view's (camera-culled) draw list — they're already
-                            // camera-coupled (refit per frame), so a camera-independent list buys nothing.
-                            RecordShadowCasters(rp, casters->DrawList(), *reg, cascadeVP);
-                        });
-                    });
-                }
-                shadow.sampleView = shadowMap;
-                shadow.handle     = shadowH;
-                shadow.cascades   = cascades;
-                shadow.layerBase  = layerBase;
-                shadow.valid      = true;
-            }
+            // This view's CSM cascades (fit + declared up front, above). Cascades stay on the view's
+            // camera-culled draw list — they're already camera-coupled (refit per frame).
+            ShadowBinding shadow = viewShadows[i];
             // The local-light atlas is scene-global (one pass for all views) — every view depends on it.
             shadow.atlasHandle = atlasH;
             shadow.atlasValid  = atlasActive;
@@ -767,14 +795,16 @@ private:
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
     struct LocalShadowTile { Mat4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; Vec3 cullCenter; f32 cullRadius = 0.0f; };
+    struct Sphere { Vec3 center; f32 radius = 0.0f; };   // a caster's world bounding sphere
     Array<GpuLocalShadow>   m_localShadows;        // flat buffer in caster order (shadowIndex indexes it)
     Array<LocalShadowTile>  m_rtTiles;             // realtime atlas layer tiles (re-rendered every frame)
-    Array<LocalShadowTile>  m_staticTiles;         // static atlas layer tiles (cached; re-rendered on change)
+    Array<LocalShadowTile>  m_staticTiles;         // static atlas layer tiles (cached; re-rendered per-tile on change)
+    Array<LocalShadowTile>  m_staticRenderTiles;   // subset of m_staticTiles dirty THIS frame (rendered)
+    Array<u32>              m_staticTileDirty;     // per-static-tile refresh countdown (index-stable across frames)
+    Array<Sphere>           m_animatedSpheres;     // this frame's skinned-caster world spheres (per-tile routing)
     Array<DrawItem>         m_shadowCasters;       // camera-independent scene caster list (local shadows)
-    bool                    m_hasAnimatedCaster = false;   // any skinned caster this frame -> refresh static layer
     Array<DrawItem>         m_shadowCullScratch;   // per-tile sphere-culled subset (reused)
     u64                     m_staticSig   = 0;     // signature of the static caster set (cache-invalidation)
-    u32                     m_staticDirty = 0;     // frames left to refresh the cached layer (per in-flight slot)
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;
