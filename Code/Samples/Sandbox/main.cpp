@@ -202,15 +202,12 @@ namespace
         // wiring (factory -> Bind -> render) is identical.
         void LoadImportedModel(rt::IApplicationHost& host)
         {
-            auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
-            if (meshes == nullptr) { return; }
-
             const rc::StringView outputDir(reinterpret_cast<const rc::utf8char*>(RAPTOR_SANDBOX_OUTPUT_DIR));
             const rc::StringView modelDir(reinterpret_cast<const rc::utf8char*>(RAPTOR_SANDBOX_MODEL_DIR));
             if (outputDir.IsEmpty() || modelDir.IsEmpty()) { return; }
 
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
-            // manifest into a ModelResource, resolving its meshes via StaticMeshFactory (dependency edges).
+            // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs = rc::MakeUnique<vfs::NativeFileSystem>(rc::DefaultAllocator(), outputDir);
             m_contentDb = rc::MakeUnique<ct::ContentDatabase>(rc::DefaultAllocator(), *m_contentFs);
             m_resources = rc::MakeUnique<res::ResourceManager>(rc::DefaultAllocator(), *m_contentDb);
@@ -223,65 +220,69 @@ namespace
             }
             mi::RegisterModelImporterTypes();   // make the cooked types deserializable
 
-            // Cook a model into the DB (runtime cook seam; swap for an offline cook + plain Bind later).
-            const rc::String path = rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir);
+            // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
+            SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vec3{ -5.0f, -4.0f, 6.0f });
+            SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vec3{  5.0f, -7.0f, 6.0f });
+        }
+
+        // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model
+        // spawns its node hierarchy (local TRS + parent links) under a scaled model-root entity; mesh
+        // nodes get a MeshComponent referencing the cooked StaticMesh + material.
+        void SpawnModel(rc::StringView prefix, rc::StringView path, rc::Vec3 position)
+        {
+            auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
+            if (meshes == nullptr || m_contentDb.Get() == nullptr) { return; }
+
             rc::Guid modelGuid;
-            const mdl::ModelLoadResult r = mi::LoadAndCook(path.AsView(), *m_contentDb, u8"Duck", modelGuid);
-            if (r != mdl::ModelLoadResult::Ok) {
+            if (mi::LoadAndCook(path, *m_contentDb, prefix, modelGuid) != mdl::ModelLoadResult::Ok) {
                 rc::ConsoleWrite(u8"Sandbox: model import failed\n");
                 return;
             }
+            res::Proxy<mi::ModelResource> model = m_resources->Bind<mi::ModelResource>(modelGuid);
+            if (!model) { rc::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
 
-            // Bind the cooked model (one composite resource that pulls in its meshes), then spawn its
-            // node hierarchy: one entity per node, local TRS + parent links preserved; mesh nodes get a
-            // MeshComponent referencing the model's resolved StaticMesh.
-            m_model = m_resources->Bind<mi::ModelResource>(modelGuid);
-            if (!m_model) { rc::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
-
-            // Auto-fit: a model-root entity scaled so the model's largest extent maps to a target size,
-            // placed in the scene. All top-level nodes parent to it, so the whole model scales/places as
-            // one (models come in wildly different unit scales — the Duck is ~100 units tall).
+            // Auto-fit: the model-root scales the model's largest extent to a target size (models come in
+            // wildly different unit scales — the Duck is ~100 units, the Fox ~150).
             constexpr rc::f32 kTargetSize = 6.0f;
-            const rc::Vec3 extent = m_model->boundsMax - m_model->boundsMin;
+            const rc::Vec3 extent = model->boundsMax - model->boundsMin;
             const rc::f32 maxExtent = rc::Max(extent.x, rc::Max(extent.y, extent.z));
             const rc::f32 fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
-            sc::EntityHandle modelRoot = m_scene->CreateEntity(u8"modelRoot");
+            sc::EntityHandle modelRoot = m_scene->CreateEntity(prefix);
             rc::Transform rootT;
-            rootT.position = rc::Vec3{ 0.0f, -4.0f, 6.0f };   // in front of the camera, above the floor
+            rootT.position = position;
             rootT.scale    = rc::Vec3{ fit, fit, fit };
             m_scene->SetLocalTransform(modelRoot, rootT);
 
             rc::Array<sc::EntityHandle> entities;
-            entities.Reserve(m_model->nodes.Size());
-            for (const mi::ModelNode& node : m_model->nodes) {
+            entities.Reserve(model->nodes.Size());
+            for (const mi::ModelNode& node : model->nodes) {
                 sc::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
                 entities.PushBack(e);
             }
-            for (rc::usize i = 0; i < m_model->nodes.Size(); ++i) {
-                const mi::ModelNode& node = m_model->nodes[i];
+            for (rc::usize i = 0; i < model->nodes.Size(); ++i) {
+                const mi::ModelNode& node = model->nodes[i];
                 if (node.parentIndex >= 0 && static_cast<rc::usize>(node.parentIndex) < entities.Size()) {
                     m_scene->SetParent(entities[i], entities[static_cast<rc::usize>(node.parentIndex)]);
                 } else {
                     m_scene->SetParent(entities[i], modelRoot);   // top-level node -> the scaled model root
                 }
-                if (node.meshIndex < 0 || static_cast<rc::usize>(node.meshIndex) >= m_model->meshes.Size()) { continue; }
-                geo::StaticMesh* mesh = m_model->meshes[static_cast<rc::usize>(node.meshIndex)].Get();
+                if (node.meshIndex < 0 || static_cast<rc::usize>(node.meshIndex) >= model->meshes.Size()) { continue; }
+                geo::StaticMesh* mesh = model->meshes[static_cast<rc::usize>(node.meshIndex)].Get();
                 if (mesh == nullptr) { continue; }
                 rd::MeshComponent& mc = meshes->Add(entities[i]);
                 mc.mesh  = rc::RefPtr<geo::StaticMesh>(mesh);   // hold a ref (manager owns the handle)
                 mc.color = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 
-                // The cooked material for this mesh (its albedo texture wired in as a default).
-                const rc::i32 matIdx = (static_cast<rc::usize>(node.meshIndex) < m_model->meshMaterial.Size())
-                                           ? m_model->meshMaterial[static_cast<rc::usize>(node.meshIndex)] : -1;
-                if (matIdx >= 0 && static_cast<rc::usize>(matIdx) < m_model->materials.Size()) {
-                    if (mat::Material* material = m_model->materials[static_cast<rc::usize>(matIdx)].Get()) {
+                const rc::i32 matIdx = (static_cast<rc::usize>(node.meshIndex) < model->meshMaterial.Size())
+                                           ? model->meshMaterial[static_cast<rc::usize>(node.meshIndex)] : -1;
+                if (matIdx >= 0 && static_cast<rc::usize>(matIdx) < model->materials.Size()) {
+                    if (mat::Material* material = model->materials[static_cast<rc::usize>(matIdx)].Get()) {
                         mc.material = rc::RefPtr<mat::Material>(material);
                     }
                 }
             }
-            rc::ConsoleWrite(u8"Sandbox: imported model spawned\n");
+            m_models.PushBack(model);   // keep the model (and its resources) alive
         }
 
         // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
@@ -474,7 +475,7 @@ namespace
         mat::MaterialFactory                 m_materialFactory;
         rc::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
         mi::ModelFactory                     m_modelFactory;
-        res::Proxy<mi::ModelResource>        m_model;
+        rc::Array<res::Proxy<mi::ModelResource>> m_models;   // keep cooked models + their resources alive
         rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)
     };
 }
