@@ -1,0 +1,11 @@
+CompileFlags:
+  CompilationDatabase: Build/Default
+  Add:
+    - -Wno-unused-command-line-argument
+
+Diagnostics:
+  Suppress:
+    - pp_module_not_found
+  UnusedIncludes: None
+  ClangTidy:
+    Add: []
