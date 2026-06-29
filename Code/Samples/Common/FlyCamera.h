@@ -13,7 +13,13 @@ struct FlyCamera {
     raptor::core::f32  pitch = -0.3f;      // tilt down a touch
     bool               mouseCaptured = false;
     raptor::core::f32  moveSpeed = 50.0f, fastSpeed = 200.0f, lookSensitivity = 0.003f;
-    raptor::core::f32  zoomSpeed = 3.0f;   // world units per wheel notch (dolly along forward)
+    raptor::core::f32  zoomSpeed = 3.0f;       // world units per wheel notch (dolly along forward)
+    raptor::core::f32  focusDistance = 20.0f;  // pivot distance ahead (Alt+LMB turntable orbit)
+    raptor::core::f32  panSensitivity = 0.0015f;   // MMB pan speed (scaled by focus distance)
+
+    [[nodiscard]] raptor::core::Vec3 Up() const {
+        return raptor::core::RotateVector(Rotation(), raptor::core::Vec3{ 0.0f, 1.0f, 0.0f });
+    }
 
     // Orientation as a quaternion (yaw about world Y, then pitch about local X). Default forward -Z.
     [[nodiscard]] raptor::core::Quat Rotation() const {
@@ -27,7 +33,8 @@ struct FlyCamera {
         return raptor::core::RotateVector(Rotation(), raptor::core::Vec3{ 1.0f, 0.0f, 0.0f });
     }
 
-    // Apply this frame's input: mouse look (RMB held or Tab-captured) + WASD/QE move + Shift fast.
+    // Apply this frame's input. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable orbit
+    // about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift fast.
     void Update(raptor::runtime::IApplicationHost& host, raptor::core::f32 dt) {
         namespace rt = raptor::runtime;
         using raptor::core::Vec3;
@@ -42,14 +49,36 @@ struct FlyCamera {
                 mouse->SetRelativeMode(mouseCaptured);
                 mouse->SetCursorVisible(!mouseCaptured);
             }
-            if (mouseCaptured || mouse->IsButtonDown(rt::MouseButton::Right)) {
+            const bool alt = kb->IsKeyDown(rt::KeyCode::LeftAlt) || kb->IsKeyDown(rt::KeyCode::RightAlt);
+
+            if (alt && mouse->IsButtonDown(rt::MouseButton::Left)) {
+                // Turntable orbit: rotate about the focus point ahead, keeping it fixed.
+                const Vec3 focus = position + Forward() * focusDistance;
+                yaw   -= mouse->DeltaX() * lookSensitivity;
+                pitch -= mouse->DeltaY() * lookSensitivity;
+                pitch  = raptor::core::Clamp(pitch, -1.55f, 1.55f);
+                position = focus - Forward() * focusDistance;
+            } else if (mouseCaptured || mouse->IsButtonDown(rt::MouseButton::Right)) {
+                // Free look (rotate in place).
                 yaw   -= mouse->DeltaX() * lookSensitivity;
                 pitch -= mouse->DeltaY() * lookSensitivity;
                 pitch  = raptor::core::Clamp(pitch, -1.55f, 1.55f);
             }
-            // Wheel dollies along the view forward (zoom) — scroll up = move in, down = move out.
+
+            // MMB pan: drag moves the view laterally (content follows the cursor). Scaled by the focus
+            // distance so the pan feels consistent regardless of zoom.
+            if (mouse->IsButtonDown(rt::MouseButton::Middle)) {
+                const raptor::core::f32 s = panSensitivity * focusDistance;
+                position = position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
+            }
+
+            // Wheel dollies along the view forward (zoom) — scroll up = move in, down = move out — and
+            // shrinks the orbit pivot distance so the turntable pivot tracks the zoom.
             const raptor::core::f32 scroll = mouse->ScrollY();
-            if (scroll != 0.0f) { position = position + Forward() * (scroll * zoomSpeed); }
+            if (scroll != 0.0f) {
+                position = position + Forward() * (scroll * zoomSpeed);
+                focusDistance = raptor::core::Max(1.0f, focusDistance - scroll * zoomSpeed);
+            }
         }
 
         const Vec3 fwd   = Forward();
