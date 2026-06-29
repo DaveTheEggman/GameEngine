@@ -75,7 +75,10 @@ public:
 
         if (endsWithCI(path, u8".glb"))
             options.type = cgltf_file_type_glb;
-        options.json_token_count = 4096; // Ensure enough tokens for parsing.
+        // json_token_count = 0 lets cgltf size the JSON token pool itself (a counting pass first).
+        // A fixed cap (was 4096) silently fails to parse larger glTFs with invalid_json (result=3) —
+        // e.g. the Quaternius character (~1MB, >4096 JSON tokens).
+        options.json_token_count = 0;
 
         // Read file data ourselves (cgltf's fopen can fail with certain path formats on Windows).
         std::ifstream file(narrowPath, std::ios::binary | std::ios::ate);
