@@ -13,6 +13,16 @@
       }
     },
     {
+      "name": "clang-reldbg",
+      "displayName": "Clang (Ninja, RelWithDebInfo)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-reldbg",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
       "name": "gcc",
       "displayName": "GCC (Ninja, Debug)",
       "generator": "Ninja",
@@ -25,10 +35,12 @@
   ],
   "buildPresets": [
     { "name": "clang", "configurePreset": "clang" },
+    { "name": "clang-reldbg", "configurePreset": "clang-reldbg" },
     { "name": "gcc", "configurePreset": "gcc" }
   ],
   "testPresets": [
     { "name": "clang", "configurePreset": "clang", "output": { "outputOnFailure": true } },
+    { "name": "clang-reldbg", "configurePreset": "clang-reldbg", "output": { "outputOnFailure": true } },
     { "name": "gcc", "configurePreset": "gcc", "output": { "outputOnFailure": true } }
   ]
 }
