@@ -122,13 +122,15 @@ private:
 // Standard PBR material (mirrors Sedulous.Materials::CreatePBR): the BaseColor/Metallic/Roughness
 // uniforms + the five PBR maps + a sampler, in the order the forward set-2 contract expects. The
 // importer builds these and assigns the maps; unset maps fall back to neutral defaults in the renderer.
-[[nodiscard]] inline RefPtr<Material> CreatePBR(StringView name, StringView shaderName = u8"forward") {
+[[nodiscard]] inline RefPtr<Material> CreatePBR(StringView name, Vec4 baseColor = Vec4{ 1, 1, 1, 1 },
+                                               f32 metallic = 0.0f, f32 roughness = 0.5f,
+                                               StringView shaderName = u8"forward") {
     return MaterialBuilder(name)
         .Shader(shaderName)
         .VertexLayout(VertexLayoutType::Mesh)
-        .Color(u8"BaseColor", Vec4{ 1, 1, 1, 1 })
-        .Float(u8"Metallic", 0.0f)
-        .Float(u8"Roughness", 0.5f)
+        .Color(u8"BaseColor", baseColor)
+        .Float(u8"Metallic", metallic)
+        .Float(u8"Roughness", roughness)
         .Texture(u8"AlbedoMap")
         .Texture(u8"NormalMap")
         .Texture(u8"MetallicRoughnessMap")

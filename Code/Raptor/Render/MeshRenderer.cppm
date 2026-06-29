@@ -477,25 +477,12 @@ public:
         rhi::BindGroupLayoutEntry instEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Vertex, /*readOnly*/ true);
         if (!MakeLayout(instEntry, m_instanceLayout)) { return Status{ ErrorCode::Unknown }; }
 
-        // set 2: the FIXED standard-forward material contract — a Fragment UBO (b0: BaseColor/
-        // Metallic/Roughness) + an albedo texture (t0) + a sampler (s0). The renderer assembles every
-        // forward material's set-2 bind group to this shape (MaterialBindGroup): UBO from the material
-        // system, albedo from the material if it declares one else white. One pipeline layout fits all
-        // forward materials; textured (imported) and untextured (demo) materials share it.
-        rhi::BindGroupLayoutEntry matUbo = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment);
-        rhi::BindGroupLayoutEntry set2[] = {
-            matUbo,
-            rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // AlbedoMap (t0)
-            rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // NormalMap (t1)
-            rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // MetallicRoughnessMap (t2)
-            rhi::BindGroupLayoutEntry::SampledTexture(3, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // OcclusionMap (t3)
-            rhi::BindGroupLayoutEntry::SampledTexture(4, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // EmissiveMap (t4)
-            rhi::BindGroupLayoutEntry{},   // MainSampler (s0) — filled below
-        };
-        set2[6].binding = 0; set2[6].visibility = rhi::ShaderStage::Fragment; set2[6].type = rhi::BindingType::Sampler;
-        rhi::BindGroupLayoutDesc s2d{};
-        s2d.entries = Span<const rhi::BindGroupLayoutEntry>{ set2, 7 };
-        if (!m_device->CreateBindGroupLayout(s2d, m_materialLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        // set 2 (material) is NOT a fixed renderer layout: it is derived per material from the
+        // material's own property list (materials::MaterialSystem::GetOrCreateLayout) and the forward
+        // pipeline layout is assembled per set-2 layout (GetOrCreatePipelineLayout). This is what makes
+        // the renderer truly material-driven — a custom shader (e.g. toon) with a different property set
+        // gets its own set-2 layout + PSO with zero renderer changes. The set-0/1/3 layouts below are
+        // the stable "frame contract" every material plugs into.
 
         // set 3: clustered light lists — per-cluster (offset,count) SRV (t0) + flat index SRV (t1).
         rhi::BindGroupLayoutEntry clOffEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
@@ -505,8 +492,8 @@ public:
         s3d.entries = Span<const rhi::BindGroupLayoutEntry>{ set3, 2 };
         if (!m_device->CreateBindGroupLayout(s3d, m_clusterLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
-        if (!MakePipelineLayout(m_viewLayout, m_objectLayout,   m_materialLayout, m_clusterLayout, m_pipelineLayoutSingle))   { return Status{ ErrorCode::Unknown }; }
-        if (!MakePipelineLayout(m_viewLayout, m_instanceLayout, m_materialLayout, m_clusterLayout, m_pipelineLayoutInstanced)) { return Status{ ErrorCode::Unknown }; }
+        // Forward pipeline layouts (view + object/instance + material set-2 + cluster) are built
+        // on demand per material set-2 layout and cached in GetOrCreatePipelineLayout.
 
         // Shadow depth-only path (phase 5): a vertex-only shader + a 2-set pipeline layout
         // (set 0 = light view UBO, set 1 = the SAME object/instance layouts as forward, so the
@@ -744,8 +731,12 @@ private:
 
     void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
                        const MeshRenderData& md, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
+        materials::Material* mat = (md.material != nullptr) ? md.material : m_defaultMaterial.Get();
         materials::PipelineConfig config = ConfigFor(md, ctx, /*instanced*/ false);
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutSingle, ctx.colorFormat);
+        rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mat);
+        rhi::PipelineLayout* plLayout = GetOrCreatePipelineLayout(set2, /*instanced*/ false);
+        if (plLayout == nullptr) { return; }
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
         if (pso == nullptr) { return; }
 
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
@@ -756,7 +747,7 @@ private:
         d.pso = pso;
         d.viewSet = m_viewBG;   d.viewOffset = viewOffset;     d.viewDynamic = true;   // set 0: view
         d.drawSet = m_objectBG; d.drawOffset = obj.byteOffset; d.drawDynamic = true;   // set 1: object UBO
-        d.materialSet = MaterialBindGroup(md.material);                                // set 2: material
+        d.materialSet = m_materials->PrepareInstance(*InstanceFor(mat), set2);         // set 2: material (data-driven)
         d.clusterSet = clusterBG;                                                      // set 3: cluster lists
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
@@ -767,8 +758,12 @@ private:
     void ResolveInstanced(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
                           Span<const DrawItem> items, usize first, u32 count,
                           const MeshRenderData& head, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
+        materials::Material* mat = (head.material != nullptr) ? head.material : m_defaultMaterial.Get();
         materials::PipelineConfig config = ConfigFor(head, ctx, /*instanced*/ true);
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_pipelineLayoutInstanced, ctx.colorFormat);
+        rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mat);
+        rhi::PipelineLayout* plLayout = GetOrCreatePipelineLayout(set2, /*instanced*/ true);
+        if (plLayout == nullptr) { return; }
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
         if (pso == nullptr) { return; }
 
         const DynamicUniformRing::Range inst = m_instanceRing.AllocateRange(count);
@@ -787,7 +782,7 @@ private:
         d.pso = pso;
         d.viewSet = m_viewBG;     d.viewOffset = viewOffset; d.viewDynamic = true;     // set 0: view
         d.drawSet = m_instanceBG; d.drawDynamic = false;                               // set 1: instances (whole buffer)
-        d.materialSet = MaterialBindGroup(head.material);                              // set 2: material
+        d.materialSet = m_materials->PrepareInstance(*InstanceFor(mat), set2);         // set 2: material (data-driven)
         d.clusterSet = clusterBG;                                                      // set 3: cluster lists
         d.vertexBuffer0 = mesh.vertexBuffer;    d.vertexOffset0 = mesh.vertexOffset;
         d.vertexBuffer1 = m_offsetsRing.Buffer(); d.vertexOffset1 = offs.byteOffset;          // DataOffsets stream
@@ -904,99 +899,43 @@ private:
         return m_device->CreatePipelineLayout(pld, out).IsOk();
     }
 
-    // A fallback material bind group used for materials that declare no properties, so set 2 is
-    // always bound (the shader always expects the PBR Material UBO). Matches the cbuffer layout:
-    // {BaseColor, Metallic, Roughness, pad, pad} = 32 bytes.
+    // The default material — a standard PBR material (materials::CreatePBR) used whenever a draw
+    // carries no material. Its set-2 layout/bind group flow through the same data-driven path as any
+    // other material, so there is nothing special about the "no material" case.
     Status CreateDefaultMaterial() {
-        struct PbrDefault { Vec4 baseColor; f32 metallic; f32 roughness; f32 pad0; f32 pad1; };
-        const PbrDefault def{ Vec4{ 1.0f, 1.0f, 1.0f, 1.0f }, 0.0f, 0.5f, 0.0f, 0.0f };
-        static_assert(sizeof(PbrDefault) == 32);
-        rhi::BufferDesc bd{};
-        bd.size = sizeof(PbrDefault);
-        bd.usage = rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst;
-        bd.memory = rhi::MemoryLocation::CpuToGpu;
-        bd.label = u8"material.default";
-        if (!m_device->CreateBuffer(bd, m_defaultMaterialBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
-        if (void* p = m_defaultMaterialBuffer->Map()) { MemCopy(p, &def, sizeof(def)); m_defaultMaterialBuffer->Unmap(); }
-
-        // Match the set-2 PBR contract: UBO + 5 neutral maps (white, flat-normal) + default sampler.
-        rhi::TextureView* white  = m_materials->WhiteTexture();
-        rhi::TextureView* normal = m_materials->NormalTexture();
-        rhi::BindGroupEntry be[] = {
-            rhi::BindGroupEntry::BufferEntry(m_defaultMaterialBuffer, 0, sizeof(PbrDefault)),
-            rhi::BindGroupEntry::TextureEntry(white),    // AlbedoMap
-            rhi::BindGroupEntry::TextureEntry(normal),   // NormalMap
-            rhi::BindGroupEntry::TextureEntry(white),    // MetallicRoughnessMap
-            rhi::BindGroupEntry::TextureEntry(white),    // OcclusionMap
-            rhi::BindGroupEntry::TextureEntry(white),    // EmissiveMap
-            rhi::BindGroupEntry::SamplerEntry(m_materials->DefaultSampler()),
-        };
-        rhi::BindGroupDesc bgd{};
-        bgd.layout = m_materialLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ be, 7 };
-        if (!m_device->CreateBindGroup(bgd, m_defaultMaterialBG).IsOk()) { return Status{ ErrorCode::Unknown }; }
-        return Status{};
+        m_defaultMaterial = materials::CreatePBR(u8"__default_pbr");
+        return (m_defaultMaterial.Get() != nullptr) ? Status{} : Status{ ErrorCode::Unknown };
     }
 
-    // Resolve a named PBR texture slot from the material (its instance override), else a default.
-    [[nodiscard]] static rhi::TextureView* MaterialMapOr(const materials::Material& mat, const materials::MaterialInstance& inst,
-                                                         StringView name, rhi::TextureView* dflt) {
-        const isize i = mat.GetPropertyIndex(name);
-        if (i >= 0 && mat.GetProperty(static_cast<usize>(i)).IsTexture()) {
-            if (rhi::TextureView* t = inst.GetTexture(static_cast<usize>(i))) { return t; }
-        }
-        return dflt;
+    // The MaterialInstance the renderer owns for `material` (one per material, created lazily). The
+    // instance carries per-draw overrides (textures/uniforms) + caches its bind group in the system.
+    [[nodiscard]] materials::MaterialInstance* InstanceFor(materials::Material* material) {
+        if (materials::MaterialInstance** found = m_instances.Find(material)) { return *found; }
+        UniquePtr<materials::MaterialInstance> created = MakeUnique<materials::MaterialInstance>(DefaultAllocator(), material);
+        materials::MaterialInstance* inst = created.Get();
+        m_instanceStorage.PushBack(Move(created));       // owns the instance
+        m_instances.InsertOrAssign(material, inst);       // raw lookup (HashMap can't hold UniquePtr)
+        return inst;
     }
 
-    // The material set-2 bind group for `material`, assembled to the fixed forward PBR contract
-    // (UBO + 5 maps + sampler): UBO from the material system, each map from the material's named slot
-    // or a neutral default. Built once per material instance + cached.
+    // The set-2 (material) bind group for `material`, built data-driven from its property list by the
+    // material system (UBO + textures/samplers in declared order, with white/flat-normal/default-sampler
+    // fallbacks for unset slots). `material` is non-null (callers substitute the default material).
     [[nodiscard]] rhi::BindGroup* MaterialBindGroup(materials::Material* material) {
-        if (material == nullptr) { return m_defaultMaterialBG; }
-        materials::MaterialInstance* inst = nullptr;
-        if (materials::MaterialInstance** found = m_instances.Find(material)) {
-            inst = *found;
-        } else {
-            UniquePtr<materials::MaterialInstance> created = MakeUnique<materials::MaterialInstance>(DefaultAllocator(), material);
-            inst = created.Get();
-            m_instanceStorage.PushBack(Move(created));       // owns the instance
-            m_instances.InsertOrAssign(material, inst);       // raw lookup (HashMap can't hold UniquePtr)
-        }
-        // Assemble the fixed forward set-2 contract: UBO + albedo (material's BaseColorTexture, else
-        // white) + default sampler. The UBO is flushed every frame (cheap if clean); the bind group
-        // is built once per instance and cached (buffer pointer + textures are stable).
-        rhi::Buffer* ubo = m_materials->EnsureUniformBuffer(*inst);   // also flushes dirty uniforms
-        if (rhi::BindGroup** cached = m_forwardMatBGs.Find(inst)) { return *cached; }
+        rhi::BindGroupLayout* layout = m_materials->GetOrCreateLayout(*material);
+        return m_materials->PrepareInstance(*InstanceFor(material), layout);
+    }
 
-        u64 uboSize = kDefaultMaterialSize;
-        if (ubo == nullptr) { ubo = m_defaultMaterialBuffer; } else { uboSize = material->UniformDataSize(); }
-
-        // Resolve each PBR map from the material's named slot, else a neutral default. (Sedulous-aligned
-        // names; the renderer enforces the fixed forward contract regardless of declared property count.)
-        rhi::TextureView* white  = m_materials->WhiteTexture();
-        rhi::TextureView* normal = m_materials->NormalTexture();
-        rhi::TextureView* albedo   = MaterialMapOr(*material, *inst, u8"AlbedoMap", white);
-        rhi::TextureView* nrm      = MaterialMapOr(*material, *inst, u8"NormalMap", normal);
-        rhi::TextureView* mr       = MaterialMapOr(*material, *inst, u8"MetallicRoughnessMap", white);
-        rhi::TextureView* occ      = MaterialMapOr(*material, *inst, u8"OcclusionMap", white);
-        rhi::TextureView* emissive = MaterialMapOr(*material, *inst, u8"EmissiveMap", white);
-
-        rhi::BindGroupEntry entries[] = {
-            rhi::BindGroupEntry::BufferEntry(ubo, 0, uboSize),
-            rhi::BindGroupEntry::TextureEntry(albedo),
-            rhi::BindGroupEntry::TextureEntry(nrm),
-            rhi::BindGroupEntry::TextureEntry(mr),
-            rhi::BindGroupEntry::TextureEntry(occ),
-            rhi::BindGroupEntry::TextureEntry(emissive),
-            rhi::BindGroupEntry::SamplerEntry(m_materials->DefaultSampler()),
-        };
-        rhi::BindGroupDesc bgd{};
-        bgd.layout = m_materialLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 7 };
-        rhi::BindGroup* bg = nullptr;
-        if (!m_device->CreateBindGroup(bgd, bg).IsOk() || bg == nullptr) { return m_defaultMaterialBG; }
-        m_forwardMatBGs.InsertOrAssign(inst, bg);
-        return bg;
+    // The forward pipeline layout for a given material set-2 layout, cached by (set2 layout, instanced).
+    // set0 = view, set1 = object (single) / instances (instanced), set2 = material, set3 = clusters.
+    [[nodiscard]] rhi::PipelineLayout* GetOrCreatePipelineLayout(rhi::BindGroupLayout* set2, bool instanced) {
+        const u64 key = (reinterpret_cast<u64>(set2) * 2u) + (instanced ? 1u : 0u);
+        if (rhi::PipelineLayout** cached = m_pipelineLayouts.Find(key)) { return *cached; }
+        rhi::BindGroupLayout* set1 = instanced ? m_instanceLayout : m_objectLayout;
+        rhi::PipelineLayout* layout = nullptr;
+        if (!MakePipelineLayout(m_viewLayout, set1, set2, m_clusterLayout, layout)) { return nullptr; }
+        m_pipelineLayouts.InsertOrAssign(key, layout);
+        return layout;
     }
 
     // (Re)create a bind group over a ring's buffer when the ring (re)allocated. `whole` binds
@@ -1154,14 +1093,12 @@ private:
     }
 
     void Shutdown() {
-        // Release material instances first (their dtors notify the still-live MaterialSystem).
-        for (auto& kv : m_forwardMatBGs) { if (kv.value != nullptr) { m_device->DestroyBindGroup(kv.value); } }
-        m_forwardMatBGs.Clear();
+        // Release material instances first (their dtors notify the still-live MaterialSystem, which
+        // owns + destroys their data-driven bind groups). The default material's RefPtr then drops.
         m_instances.Clear();
         m_instanceStorage.Clear();
+        m_defaultMaterial.Reset();
         m_meshes.Clear();
-        if (m_defaultMaterialBG)     { m_device->DestroyBindGroup(m_defaultMaterialBG); m_defaultMaterialBG = nullptr; }
-        if (m_defaultMaterialBuffer) { m_device->DestroyBuffer(m_defaultMaterialBuffer); m_defaultMaterialBuffer = nullptr; }
         if (m_viewBG)       { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
         if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
         if (m_dummyShadowView) { m_device->DestroyTextureView(m_dummyShadowView); m_dummyShadowView = nullptr; }
@@ -1177,14 +1114,13 @@ private:
         if (m_dummyClusterBG)      { m_device->DestroyBindGroup(m_dummyClusterBG); m_dummyClusterBG = nullptr; }
         if (m_dummyClusterOffsets) { m_device->DestroyBuffer(m_dummyClusterOffsets); m_dummyClusterOffsets = nullptr; }
         if (m_dummyClusterIndices) { m_device->DestroyBuffer(m_dummyClusterIndices); m_dummyClusterIndices = nullptr; }
-        if (m_pipelineLayoutSingle)    { m_device->DestroyPipelineLayout(m_pipelineLayoutSingle); m_pipelineLayoutSingle = nullptr; }
-        if (m_pipelineLayoutInstanced) { m_device->DestroyPipelineLayout(m_pipelineLayoutInstanced); m_pipelineLayoutInstanced = nullptr; }
+        for (auto& kv : m_pipelineLayouts) { if (kv.value != nullptr) { m_device->DestroyPipelineLayout(kv.value); } }
+        m_pipelineLayouts.Clear();
         if (m_shadowPipelineLayoutSingle)    { m_device->DestroyPipelineLayout(m_shadowPipelineLayoutSingle); m_shadowPipelineLayoutSingle = nullptr; }
         if (m_shadowPipelineLayoutInstanced) { m_device->DestroyPipelineLayout(m_shadowPipelineLayoutInstanced); m_shadowPipelineLayoutInstanced = nullptr; }
         if (m_viewLayout)     { m_device->DestroyBindGroupLayout(m_viewLayout); m_viewLayout = nullptr; }
         if (m_objectLayout)   { m_device->DestroyBindGroupLayout(m_objectLayout); m_objectLayout = nullptr; }
         if (m_instanceLayout) { m_device->DestroyBindGroupLayout(m_instanceLayout); m_instanceLayout = nullptr; }
-        if (m_materialLayout) { m_device->DestroyBindGroupLayout(m_materialLayout); m_materialLayout = nullptr; }
         if (m_clusterLayout)  { m_device->DestroyBindGroupLayout(m_clusterLayout); m_clusterLayout = nullptr; }
         if (m_shadowViewLayout) { m_device->DestroyBindGroupLayout(m_shadowViewLayout); m_shadowViewLayout = nullptr; }
         // rings free their buffers in their destructors (m_device still valid after this).
@@ -1200,21 +1136,19 @@ private:
     rhi::BindGroupLayout* m_viewLayout     = nullptr;
     rhi::BindGroupLayout* m_objectLayout   = nullptr;
     rhi::BindGroupLayout* m_instanceLayout = nullptr;
-    rhi::BindGroupLayout* m_materialLayout = nullptr;
     rhi::BindGroupLayout* m_clusterLayout  = nullptr;
     rhi::BindGroupLayout* m_shadowViewLayout = nullptr;   // set 0 for the depth-only shadow pipeline
-    rhi::PipelineLayout*  m_pipelineLayoutSingle    = nullptr;
-    rhi::PipelineLayout*  m_pipelineLayoutInstanced = nullptr;
     rhi::PipelineLayout*  m_shadowPipelineLayoutSingle    = nullptr;
     rhi::PipelineLayout*  m_shadowPipelineLayoutInstanced = nullptr;
+    // Forward pipeline layouts, keyed by (material set-2 layout, instanced); built on demand so each
+    // material's own set-2 layout drives the PSO (material-driven; supports custom shaders).
+    HashMap<u64, rhi::PipelineLayout*> m_pipelineLayouts;
 
-    // Auto-instanced material set-2 resources.
-    static constexpr u64 kDefaultMaterialSize = 32;   // sizeof the default PbrDefault UBO
-    rhi::Buffer*    m_defaultMaterialBuffer = nullptr;
-    rhi::BindGroup* m_defaultMaterialBG     = nullptr;
-    HashMap<materials::Material*, materials::MaterialInstance*>     m_instances;        // lookup (raw)
-    Array<UniquePtr<materials::MaterialInstance>>                  m_instanceStorage;  // ownership
-    HashMap<materials::MaterialInstance*, rhi::BindGroup*>         m_forwardMatBGs;    // fixed forward set-2 BGs
+    // Material set-2 resources. The default material (standard PBR) backs draws with no material;
+    // instances carry per-material overrides and flow through the material system's data-driven BG path.
+    RefPtr<materials::Material>                                m_defaultMaterial;
+    HashMap<materials::Material*, materials::MaterialInstance*> m_instances;        // lookup (raw)
+    Array<UniquePtr<materials::MaterialInstance>>              m_instanceStorage;  // ownership
 
     DynamicUniformRing m_viewRing;
     DynamicUniformRing m_shadowViewRing;

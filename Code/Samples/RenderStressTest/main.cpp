@@ -73,9 +73,7 @@ namespace
 
             // Shared sphere material (gray PBR). Every sphere points at THIS one by default, so the
             // renderer can batch them. Unique mode (U) builds a per-sphere material instead.
-            m_sharedMat = mat::MaterialBuilder(u8"stress.shared").Shader(u8"forward")
-                .Color(u8"BaseColor", rc::Vec4{ 0.7f, 0.7f, 0.7f, 1.0f })
-                .Float(u8"Metallic", 0.1f).Float(u8"Roughness", 0.4f).Build();
+            m_sharedMat = mat::CreatePBR(u8"stress.shared", rc::Vec4{ 0.7f, 0.7f, 0.7f, 1.0f }, 0.1f, 0.4f);
 
             // One sphere mesh, shared by all instances (matches Sedulous: radius 0.5, 16x8).
             m_sphere = geo::Primitives::Sphere(0.5f, 16, 8);
@@ -86,9 +84,7 @@ namespace
                 m_scene->SetLocalPosition(ground, rc::Vec3{ 0.0f, 0.0f, 0.0f });
                 rd::MeshComponent& gm = meshes->Add(ground);
                 gm.mesh = geo::Primitives::Plane(500.0f, 500.0f);
-                gm.material = mat::MaterialBuilder(u8"stress.ground").Shader(u8"forward")
-                    .Color(u8"BaseColor", rc::Vec4{ 0.3f, 0.3f, 0.3f, 1.0f })
-                    .Float(u8"Metallic", 0.0f).Float(u8"Roughness", 0.8f).Build();
+                gm.material = mat::CreatePBR(u8"stress.ground", rc::Vec4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f);
             }
 
             // Directional key light.
@@ -256,9 +252,7 @@ namespace
             if (m_uniqueMaterials) {
                 const rc::f32 hue = static_cast<rc::f32>(index % 360) / 360.0f;
                 const rc::Vec3 c = HsvToRgb(hue, 0.8f, 0.9f);
-                rc::RefPtr<mat::Material> m = mat::MaterialBuilder(u8"stress.unique").Shader(u8"forward")
-                    .Color(u8"BaseColor", rc::Vec4{ c.x, c.y, c.z, 1.0f })
-                    .Float(u8"Metallic", 0.1f).Float(u8"Roughness", 0.4f).Build();
+                rc::RefPtr<mat::Material> m = mat::CreatePBR(u8"stress.unique", rc::Vec4{ c.x, c.y, c.z, 1.0f }, 0.1f, 0.4f);
                 mc.material = m;
                 mc.color    = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
                 m_uniqueMats.PushBack(static_cast<rc::RefPtr<mat::Material>&&>(m));

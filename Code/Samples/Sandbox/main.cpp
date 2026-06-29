@@ -72,9 +72,7 @@ namespace
                 m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, -7.0f, 0.0f });
                 rd::MeshComponent& fmc = meshes->Add(floor);
                 fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
-                fmc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
-                    .Color(u8"BaseColor", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f })
-                    .Float(u8"Metallic", 0.0f).Float(u8"Roughness", 0.65f).Build();
+                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
 
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -84,9 +82,7 @@ namespace
                 // reference for judging shadow contact / peter-panning (the grids float in the air).
                 constexpr rc::f32 kBoxSize = 2.5f, kFloorY = -7.0f;
                 rc::RefPtr<geo::StaticMesh> box = geo::Primitives::Cube(kBoxSize);
-                rc::RefPtr<mat::Material> boxMat = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
-                    .Color(u8"BaseColor", rc::Vec4{ 0.85f, 0.55f, 0.2f, 1.0f })
-                    .Float(u8"Metallic", 0.0f).Float(u8"Roughness", 0.5f).Build();
+                rc::RefPtr<mat::Material> boxMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.85f, 0.55f, 0.2f, 1.0f }, 0.0f, 0.5f);
                 for (int k = 0; k < 4; ++k) {
                     sc::EntityHandle b = m_scene->CreateEntity(u8"floorBox");
                     m_scene->SetLocalPosition(b, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
@@ -99,9 +95,7 @@ namespace
                 // floating grids, whose full shadow ellipse is visible on the ground).
                 constexpr rc::f32 kBallR = 1.25f;
                 rc::RefPtr<geo::StaticMesh> ball = geo::Primitives::Sphere(kBallR, 24, 12);
-                rc::RefPtr<mat::Material> ballMat = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
-                    .Color(u8"BaseColor", rc::Vec4{ 0.7f, 0.75f, 0.8f, 1.0f })
-                    .Float(u8"Metallic", 0.1f).Float(u8"Roughness", 0.35f).Build();
+                rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.7f, 0.75f, 0.8f, 1.0f }, 0.1f, 0.35f);
                 for (int k = 0; k < 4; ++k) {
                     sc::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
                     m_scene->SetLocalPosition(s, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBallR, 16.0f });
@@ -316,10 +310,7 @@ namespace
             rc::RefPtr<mat::Material> shared;
             if (instanced) {
                 // White base + middling PBR; the per-instance color supplies each cube's hue.
-                shared = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
-                    .Color(u8"BaseColor", rc::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f })
-                    .Float(u8"Metallic", 0.0f)
-                    .Float(u8"Roughness", 0.4f).Build();
+                shared = mat::CreatePBR(u8"lit", rc::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f }, 0.0f, 0.4f);
             }
 
             for (int y = 0; y < kGrid; ++y) {
@@ -339,10 +330,7 @@ namespace
                     } else {
                         const rc::f32 rough = 0.05f + 0.95f * static_cast<rc::f32>(x) / (kGrid - 1);
                         const rc::f32 metal = (y >= kGrid / 2) ? 1.0f : 0.0f;
-                        mc.material = mat::MaterialBuilder(u8"lit").Shader(u8"forward")
-                            .Color(u8"BaseColor", baseColor)
-                            .Float(u8"Metallic", metal)
-                            .Float(u8"Roughness", rough).Build();
+                        mc.material = mat::CreatePBR(u8"lit", baseColor, metal, rough);
                         mc.color = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
                     }
                     m_cubes.PushBack(e);
