@@ -75,19 +75,49 @@ Debug is **validation-bound**, not skinning-bound: `Compose.Execute` (command re
 Develop/correctness-check in Debug, but treat **release** as the perf baseline. (Both `Anim.Drive` and
 the GPU pass times are ~5× the release figures, as expected for an unoptimized build.)
 
-## Limitations this benchmark exposed (what the rewrite should fix)
+## AFTER — Sedulous skinning (persistent shared bone buffer + instanced skinned draws)
 
-1. **Bones re-uploaded per pass.** Each caster's bone matrices are uploaded separately for the forward
-   pass *and* every CSM cascade (and local-shadow passes) — roughly `N × bones × (5+)` matrices per
-   frame. This overflowed the old 262,144-slot per-frame ring at ~1,800 chars, silently dropping the
-   *forward* draws (characters vanished from the main view while their already-allocated shadow
-   casters kept rendering in the light pools). Worked around for the baseline by bumping
-   `kMaxBoneMatrices` to `1<<20` in `MeshRenderer.cppm`. The rewrite should upload each character's
-   bones **once** into a persistent buffer shared across all passes.
-2. **Skinned meshes can't be instanced.** The instanced draw path had no per-instance bone matrices,
-   so identical skinned meshes collapsed to a single bind pose. Fixed defensively (skinned draws are
-   forced to the single-draw path in both forward and shadow batching). Real instanced skinning is the
-   rewrite's job.
-3. **Full skeleton spawned as scene entities.** Each character spawns its entire node hierarchy
-   (~34 entities including skeleton joints) → 13,600 entities at 400 chars, inflating the scene
-   transform-update cost. Sedulous uses ~1 entity per character (the skeleton lives inside the player).
+The rewrite (1) writes each distinct skeleton's matrices ONCE per frame into a CpuToGpu staging pool
+([current][prev] slab), mirrors the populated range to a GpuOnly device buffer with one copy, and binds
+that device buffer for forward + all shadow passes (no per-pass re-upload); (2) batches identical
+(mesh, material) skinned instances into one instanced draw, flowing each instance's bone base through
+`DataOffsets.y` (current) / `.z` (prev) so one draw skins N characters, drawn per-submesh for correct
+multi-material rendering.
+
+| Build | Validation | BEFORE | AFTER | Gain |
+|-------|-----------|--------|-------|------|
+| **RelWithDebInfo** | off | 1,683 | **3,120 chars @ 50 fps** | **+85% (1.85×)** |
+
+### Frame breakdown @ 1,000 chars (RelWithDebInfo, validation off) — 86 → 143 fps (11.66 → 7.0 ms)
+
+```
+                 BEFORE      AFTER
+Update:          4.61 ms     3.27 ms    (Anim.Drive 4.32 -> 3.13)
+Render:          7.15 ms     1.73 ms    <- Compose.Execute 6.26 -> 0.67 ms
+  (per-pass bone re-upload + per-character draws gone)
+GPU passes:      4.44 ms     5.41 ms    (forward 1.03 -> 1.34; cascades similar)
+```
+
+The render-CPU cost collapsed (~4× on `Compose.Execute`): bones upload once, and skinned characters
+draw instanced. The frame is now **`Anim.Drive`-bound** (the per-player skeleton evaluation, recomputed
+on the CPU every frame) plus the scene transform-update over the ~34-entities-per-character hierarchy —
+the next two frontiers (CPU-side animation eval / collapsing the per-character entity count).
+
+Prev-frame bone matrices are stored + flowed (`DataOffsets.z`) but not yet consumed by a velocity
+target; when a motion-vector pass lands it's a shader-only change.
+
+## Limitations this benchmark exposed
+
+1. ✅ **FIXED — bones re-uploaded per pass.** Each caster's bone matrices were uploaded separately for
+   the forward pass *and* every CSM cascade (and local-shadow passes) — roughly `N × bones × (5+)`
+   matrices/frame, which overflowed the old 262,144-slot ring at ~1,800 chars and silently dropped
+   *forward* draws (characters vanished from the main view while their shadow casters kept rendering in
+   the light pools). The rewrite uploads each skeleton's matrices **once** into a staging pool +
+   GpuOnly device mirror, shared across all passes. (`kMaxBoneMatrices` stays `1<<20` as headroom.)
+2. ✅ **FIXED — skinned meshes can't be instanced.** The instanced path had no per-instance bones, so
+   identical skinned meshes collapsed to a single bind pose. The rewrite flows each instance's bone
+   base via `DataOffsets.y`, so skinned meshes batch into instanced draws like static ones.
+3. **Full skeleton spawned as scene entities (still open).** Each character spawns its entire node
+   hierarchy (~34 entities including skeleton joints) → 13,600 entities at 400 chars, inflating the
+   scene transform-update cost. Sedulous uses ~1 entity per character (the skeleton lives inside the
+   player). With the GPU side now cheap, this + the CPU `Anim.Drive` eval are the next frontiers.

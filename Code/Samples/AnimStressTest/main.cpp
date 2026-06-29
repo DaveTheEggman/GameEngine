@@ -339,6 +339,14 @@ namespace
             m_fly.position = rc::Vec3{ target.x, target.y + camY, target.z + dist };
             m_fly.yaw      = 0.0f;
             m_fly.pitch    = -rc::Atan2(camY, dist);   // look down onto the grid center
+            // Extend the far plane to cover the whole grid from this distance, so no characters get
+            // frustum-far-culled (which would make the throughput measurement cheaper than it is).
+            if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
+                if (rd::CameraComponent* cam = cameras->Get(m_camera)) {
+                    cam->nearZ = 0.5f;
+                    cam->farZ  = dist + extent * 2.0f + 100.0f;
+                }
+            }
         }
 
         void AddBatch()    { RebuildToCount(static_cast<rc::u32>(m_instances.Size()) + kBatchSize); }
@@ -390,11 +398,13 @@ namespace
                 for (Instance& inst : m_instances) {
                     if (inst.player.Get() == nullptr) { continue; }
                     inst.player->Update(deltaTime);
-                    const rc::Span<const rc::Mat4> mats = inst.player->GetSkinningMatrices();
+                    const rc::Span<const rc::Mat4> mats     = inst.player->GetSkinningMatrices();
+                    const rc::Span<const rc::Mat4> prevMats = inst.player->GetPrevSkinningMatrices();
                     for (sc::EntityHandle e : inst.meshEntities) {
                         if (rd::MeshComponent* mc = meshes->Get(e)) {
-                            mc->boneMatrices = mats.Data();
-                            mc->boneCount    = static_cast<rc::u32>(mats.Size());
+                            mc->boneMatrices     = mats.Data();
+                            mc->prevBoneMatrices = prevMats.Data();
+                            mc->boneCount        = static_cast<rc::u32>(mats.Size());
                         }
                     }
                 }
