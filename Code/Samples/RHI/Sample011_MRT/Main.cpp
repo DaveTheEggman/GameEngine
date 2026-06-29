@@ -22,7 +22,7 @@ public:
 protected:
     raptor::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { createRenderTargets(); }
+    void OnResize(raptor::core::u32 /*w*/, raptor::core::u32 /*h*/) override { createRenderTargets(); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kGBufShader[] = u8R"(
@@ -116,7 +116,8 @@ raptor::core::Status MRTSample::OnInit() {
     dr::PipelineLayoutDesc gpld{}; if (m_device->CreatePipelineLayout(gpld, m_gbPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState gbCt[2] = { {dr::TextureFormat::RGBA8Unorm}, {dr::TextureFormat::RGBA8Unorm} };
+    dr::ColorTargetState gbCt[2] = { {.format = dr::TextureFormat::RGBA8Unorm, .blend = {}, .writeMask = dr::ColorWriteMask::All},
+                                     {.format = dr::TextureFormat::RGBA8Unorm, .blend = {}, .writeMask = dr::ColorWriteMask::All} };
     dr::RenderPipelineDesc grpd{}; grpd.layout = m_gbPl;
     grpd.vertex.shader = { m_gbVs, u8"VSMain", dr::ShaderStage::Vertex };
     grpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
