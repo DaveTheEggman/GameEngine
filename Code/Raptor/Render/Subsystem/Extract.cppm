@@ -151,7 +151,8 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
     auto* lights = scene.GetSystem<LightComponentManager>();
     if (lights == nullptr) { return; }
     bool haveShadow = false;
-    u32  localTileCount = 0;   // atlas tiles used so far (spot = 1, point = 6); the next caster's base
+    u32  rtTiles = 0, stTiles = 0;   // tiles used per atlas layer (realtime / static); capped separately
+    u32  flatEntries = 0;            // running GpuLocalShadow entry index = the next caster's shadowIndex
     lights->ForEach([&](LightComponent& lc, scene::EntityHandle e) {
         if (!lc.enabled) { return; }
         const Mat4 world = scene.GetWorldMatrix(e);
@@ -178,16 +179,20 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
         // time. A spot uses 1 tile, a point 6 (cube faces). Capped at the atlas tile budget.
         const bool localCaster = lc.castsShadows && (lc.type == LightType::Spot || lc.type == LightType::Point);
         const u32  tilesNeeded = (lc.type == LightType::Point) ? 6u : 1u;
-        if (localCaster && localTileCount + tilesNeeded <= kMaxLocalShadowTiles) {
-            g.shadowIndex = static_cast<f32>(localTileCount);    // base tile into the GpuLocalShadow buffer
+        const bool isStatic    = (lc.shadowUpdate == ShadowUpdateMode::Static);
+        u32&       layerTiles  = isStatic ? stTiles : rtTiles;   // each atlas layer has its own budget
+        if (localCaster && layerTiles + tilesNeeded <= kMaxLocalShadowTiles) {
+            g.shadowIndex = static_cast<f32>(flatEntries);       // base entry into the GpuLocalShadow buffer
             LocalShadowCaster c;
             c.type        = static_cast<u32>(lc.type);
             c.positionWS  = g.positionWS;
             c.directionWS = g.directionWS;
             c.range       = lc.range;
             c.outerAngle  = lc.outerAngle;
+            c.isStatic    = isStatic;
             out.AddLocalShadowCaster(c);
-            localTileCount += tilesNeeded;
+            layerTiles  += tilesNeeded;
+            flatEntries += tilesNeeded;
         }
         out.AddLight(g);
     });

@@ -49,15 +49,21 @@ struct CameraComponent {
 // position (+ range). Extraction packs these into render::GpuLight shading inputs.
 enum class LightType : u32 { Directional = 0, Point = 1, Spot = 2 };
 
+// How a spot/point light's shadow updates (phase 5.4 static caching). Realtime = re-render every
+// frame (default). Static = render once into the cached atlas layer; the caster geometry is assumed
+// not to move (the cache only refreshes if the LIGHT itself moves / changes). Cheap for static scenes.
+enum class ShadowUpdateMode : u32 { Realtime = 0, Static = 1 };
+
 struct LightComponent {
-    LightType type       = LightType::Directional;
-    Color     color      = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
-    f32       intensity  = 1.0f;
-    f32       range      = 10.0f;          // point/spot falloff distance
-    f32       innerAngle = 0.5f;           // spot cone inner half-angle (radians)
-    f32       outerAngle = 0.6f;           // spot cone outer half-angle (radians)
-    bool      enabled      = true;
-    bool      castsShadows = false;        // phase 5: directional shadow caster (one supported in 5.1)
+    LightType        type       = LightType::Directional;
+    Color            color      = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    f32              intensity  = 1.0f;
+    f32              range      = 10.0f;          // point/spot falloff distance
+    f32              innerAngle = 0.5f;           // spot cone inner half-angle (radians)
+    f32              outerAngle = 0.6f;           // spot cone outer half-angle (radians)
+    ShadowUpdateMode shadowUpdate = ShadowUpdateMode::Realtime;   // spot/point shadow caching (5.4)
+    bool             enabled      = true;
+    bool             castsShadows = false;        // phase 5 shadow caster
 };
 
 class MeshComponentManager   final : public scene::ComponentManager<MeshComponent>   {};

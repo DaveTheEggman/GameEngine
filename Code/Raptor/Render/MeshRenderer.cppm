@@ -182,18 +182,18 @@ float SampleCSM(float3 worldPos, float3 N, float NdotL, float viewDepth) {
 // Local-light (spot/point) shadows: a shared 2D depth ATLAS (t2) + per-light entries (t3). Each entry
 // is a perspective world->light-clip matrix + the uv scale/bias of its tile in the atlas. Reuses the
 // comparison sampler. GpuLight.shadowIndex selects the entry (point lights use 6 faces in 5.3b).
-Texture2D ShadowAtlas : register(t2, space0);
+Texture2DArray ShadowAtlas : register(t2, space0);   // layer 0 = realtime, layer 1 = static (cached)
 struct GpuLocalShadow {
     row_major float4x4 viewProj;
     float4 atlasScaleBias;       // xy = uv scale, zw = uv offset
-    float  depthBias; float3 _localPad;
+    float  depthBias; float atlasSelect; float2 _localPad;   // atlasSelect = atlas array layer
 };
 StructuredBuffer<GpuLocalShadow> LocalShadows : register(t3, space0);
 
 static const float kAtlasTexel = 1.0 / 2048.0;   // 1 / atlas resolution
 
 // Sample one local-shadow entry: project into its light clip, map the clip uv into the entry's atlas
-// tile, 3x3 PCF. 1 = lit, 0 = shadowed. Acne is carried by the caster-side hardware depth bias.
+// tile (on its array layer), 3x3 PCF. 1 = lit, 0 = shadowed. Acne is on the caster-side depth bias.
 float SampleLocalShadow(int idx, float3 worldPos) {
     GpuLocalShadow s = LocalShadows[idx];
     float4 lc = mul(float4(worldPos, 1.0), s.viewProj);
@@ -206,7 +206,7 @@ float SampleLocalShadow(int idx, float3 worldPos) {
     float sum = 0.0;
     [unroll] for (int y = -1; y <= 1; ++y) {
         [unroll] for (int x = -1; x <= 1; ++x) {
-            sum += ShadowAtlas.SampleCmpLevelZero(ShadowSampler, atlasUV + float2(x, y) * kAtlasTexel, compareDepth);
+            sum += ShadowAtlas.SampleCmpLevelZero(ShadowSampler, float3(atlasUV + float2(x, y) * kAtlasTexel, s.atlasSelect), compareDepth);
         }
     }
     return sum * (1.0 / 9.0);
@@ -446,7 +446,7 @@ public:
         // is 4 SETS, not 4 bindings — shadows fold into the view set rather than needing a 5th set).
         rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
         // Local-light (spot/point) shadow atlas (t2, Texture2D) + per-light shadow entries (t3, SRV).
-        rhi::BindGroupLayoutEntry atlasTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+        rhi::BindGroupLayoutEntry atlasTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
         rhi::BindGroupLayoutEntry localShadowEntry = rhi::BindGroupLayoutEntry::StorageBuffer(3, rhi::ShaderStage::Fragment, /*readOnly*/ true);
         rhi::BindGroupLayoutEntry shadowSampEntry{};
         shadowSampEntry.binding = 0; shadowSampEntry.visibility = rhi::ShaderStage::Fragment;
@@ -1004,12 +1004,12 @@ private:
         // A 1x1 Texture2D dummy for the local-shadow atlas (t2) + a 1-element dummy data buffer (t3),
         // bound when no local shadow caster exists this frame (the descriptor set stays complete).
         rhi::TextureDesc atd{};
-        atd.format = rhi::TextureFormat::Depth32Float; atd.width = 1; atd.height = 1; atd.arrayLayerCount = 1;
+        atd.format = rhi::TextureFormat::Depth32Float; atd.width = 1; atd.height = 1; atd.arrayLayerCount = 2;
         atd.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
         atd.label = u8"mesh.dummyAtlas";
         if (!m_device->CreateTexture(atd, m_dummyAtlasTex).IsOk()) { return Status{ ErrorCode::Unknown }; }
         rhi::TextureViewDesc avd{}; avd.format = rhi::TextureFormat::Depth32Float; avd.aspect = rhi::TextureAspect::DepthOnly;
-        avd.dimension = rhi::TextureViewDimension::Texture2D;
+        avd.dimension = rhi::TextureViewDimension::Texture2DArray; avd.arrayLayerCount = 2;
         if (!m_device->CreateTextureView(m_dummyAtlasTex, avd, m_dummyAtlasView).IsOk()) { return Status{ ErrorCode::Unknown }; }
         m_activeAtlasView = m_dummyAtlasView;
         return Status{};

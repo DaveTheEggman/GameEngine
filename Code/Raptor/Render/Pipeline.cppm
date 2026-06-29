@@ -499,6 +499,26 @@ public:
         RadixSortDrawItems(m_shadowCasters, m_sortScratch);
     }
 
+    // A signature over the STATIC local casters' transforms (quantized) + count. When it changes, the
+    // cached static atlas layer is re-rendered for one frames-in-flight cycle. The Static-mode contract
+    // is that caster GEOMETRY doesn't move, so only the lights themselves feed the signature.
+    [[nodiscard]] u64 StaticCasterSignature(const RenderView* primary) const {
+        if (primary == nullptr || primary->Scene() == nullptr) { return 0; }
+        u64 sig = 1469598103934665603ull;   // FNV-1a offset basis
+        const auto mix = [&sig](f32 v) {
+            const u64 q = static_cast<u64>(static_cast<i64>(v * 1000.0f));   // ~1mm / 0.001 quantization
+            sig = (sig ^ q) * 1099511628211ull;
+        };
+        for (const LocalShadowCaster& c : primary->Scene()->LocalShadowCasters()) {
+            if (!c.isStatic) { continue; }
+            mix(static_cast<f32>(c.type));
+            mix(c.positionWS.x); mix(c.positionWS.y); mix(c.positionWS.z);
+            mix(c.directionWS.x); mix(c.directionWS.y); mix(c.directionWS.z);
+            mix(c.range); mix(c.outerAngle);
+        }
+        return sig;
+    }
+
     // Compose all collected views into the frame's encoder.
     void End() {
         if (m_encoder == nullptr) { return; }
@@ -524,39 +544,57 @@ public:
         // front, scene-global (one atlas shared by all views). Doing it here lets the renderers size
         // their per-object rings (SetShadowAtlas passCount) and upload the data before the forward.
         m_localShadows.Clear();
-        m_localTiles.Clear();
+        m_rtTiles.Clear();
+        m_staticTiles.Clear();
         rhi::TextureView* atlasView = nullptr;
         if (m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr) {
             const Span<const LocalShadowCaster> casters = primary->Scene()->LocalShadowCasters();
-            const u32 capacity = m_shadows->AtlasTileCapacity();
+            const u32 capacity = m_shadows->AtlasTileCapacity();   // per layer
             if (!casters.IsEmpty()) { atlasView = m_shadows->PrepareAtlas(m_frameIndex); }
             if (atlasView != nullptr) {
                 BuildShadowCasterList(*primary->Scene());   // camera-independent casters for the tiles
                 const u32 atlasRes = m_shadows->AtlasResolution();
                 const u32 tileRes  = m_shadows->AtlasTileResolution();
-                // Spot = 1 tile, point = 6 cube faces. The running `tile` base must match the
-                // shadowIndex extraction assigned (same caster order, same per-type tile counts).
-                u32 tile = 0;
+                // Each layer (realtime / static) has its own tile space; the running per-layer tile base
+                // must match the shadowIndex extraction assigned. m_localShadows stays in CASTER order
+                // (so shadowIndex indexes it), each entry tagged with its layer via atlasSelect.
+                u32 rtTile = 0, stTile = 0;
                 for (usize i = 0; i < casters.Size(); ++i) {
                     const LocalShadowCaster& c = casters[i];
                     const u32 need = (c.type == 1u /*point*/) ? 6u : 1u;
-                    if (tile + need > capacity) { break; }
+                    u32& tileCtr = c.isStatic ? stTile : rtTile;
+                    if (tileCtr + need > capacity) { continue; }   // matches extraction's per-layer cap
+                    Array<LocalShadowTile>& dst = c.isStatic ? m_staticTiles : m_rtTiles;
                     for (u32 f = 0; f < need; ++f) {
-                        const u32 ti = tile + f;
-                        const GpuLocalShadow s = (need == 6u) ? BuildPointShadowFace(c, f, ti, atlasRes, tileRes)
-                                                              : BuildSpotShadow(c, ti, atlasRes, tileRes);
+                        const u32 ti = tileCtr + f;   // tile index WITHIN the layer
+                        GpuLocalShadow s = (need == 6u) ? BuildPointShadowFace(c, f, ti, atlasRes, tileRes)
+                                                        : BuildSpotShadow(c, ti, atlasRes, tileRes);
+                        s.atlasSelect = c.isStatic ? 1.0f : 0.0f;   // sampled atlas array layer
                         const AtlasTile t = AtlasTileRect(ti, atlasRes, tileRes);
                         // Cull casters to the light's bounding sphere (point/spot share pos + range).
-                        m_localTiles.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h,
-                                                               c.positionWS, Max(0.1f, c.range) });
+                        dst.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h,
+                                                      c.positionWS, Max(0.1f, c.range) });
                         m_localShadows.PushBack(s);
                     }
-                    tile += need;
+                    tileCtr += need;
                 }
             }
         }
-        const u64 atlasGen       = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
-        const u32 localPassCount = static_cast<u32>(m_localTiles.Size());
+        const u64 atlasGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
+
+        // Static atlas layer is rendered only when the static caster set changes (then cached). A
+        // signature over the static casters' transforms detects change; on change, refresh every
+        // in-flight slot (countdown = frames-in-flight) so each slot's cached layer gets filled.
+        const u64 staticSig = StaticCasterSignature(primary);
+        if (staticSig != m_staticSig) {
+            m_staticSig = staticSig;
+            m_staticDirty = (m_shadows != nullptr) ? m_shadows->FramesInFlight() : 1u;
+        }
+        const bool renderStatic = !m_staticTiles.IsEmpty() && m_staticDirty > 0;
+        if (renderStatic && m_staticDirty > 0) { --m_staticDirty; }
+        // Per-renderer ring sizing: count only the atlas passes that actually re-emit casters this frame.
+        const u32 localPassCount = static_cast<u32>(m_rtTiles.Size()) +
+                                   (renderStatic ? static_cast<u32>(m_staticTiles.Size()) : 0u);
 
         {
             RAPTOR_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
@@ -586,30 +624,37 @@ public:
         const u32   cascadeCount  = (m_shadows != nullptr) ? m_shadows->CascadeCount() : 4u;
         const u32   shadowRes     = (m_shadows != nullptr) ? m_shadows->Resolution() : 1024u;
 
-        // Local-light shadow atlas pass (5.3): scene-global, declared once. Clear the atlas, then
-        // render each caster's casters into its tile (per-tile viewport + scissor so tiles don't
-        // bleed). Every forward pass ReadTextures this handle, ordering it ahead + barriering readable.
+        // Local-light shadow atlas (5.3/5.4): a 2-layer array. Layer 0 (realtime) re-renders every
+        // frame; layer 1 (static) only when the static set changed (renderStatic). Each pass targets
+        // its layer (subresource), clears it, and renders its tiles (per-tile viewport+scissor). Every
+        // forward pass ReadTextures the array, ordering both passes ahead + barriering it readable.
         rendergraph::RGHandle atlasH;
-        const bool atlasActive = atlasView != nullptr && !m_localTiles.IsEmpty();
+        const bool atlasActive = atlasView != nullptr && (!m_rtTiles.IsEmpty() || !m_staticTiles.IsEmpty());
         if (atlasActive) {
             atlasH = m_shadows->ImportAtlas(m_graph, m_frameIndex);
-            RendererRegistry* reg     = m_registry;
-            Array<LocalShadowTile>* tiles = &m_localTiles;
-            const u32 atlasRes = m_shadows->AtlasResolution();
-            m_graph.AddRenderPass(u8"shadow.atlas", [this, atlasH, reg, tiles, atlasRes](rendergraph::PassBuilder& b) {
-                b.SetDepthTarget(atlasH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f);
-                b.SetViewport(0, 0, atlasRes, atlasRes);   // pass default; each tile sets its own below
-                b.SetExecute([this, reg, tiles](rhi::RenderPassEncoder& rp) {
-                    // Camera-independent scene caster list, culled per tile to the light's sphere.
-                    const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
-                    for (const LocalShadowTile& t : *tiles) {
-                        rp.SetViewport(static_cast<f32>(t.x), static_cast<f32>(t.y),
-                                       static_cast<f32>(t.w), static_cast<f32>(t.h));
-                        rp.SetScissor(static_cast<i32>(t.x), static_cast<i32>(t.y), t.w, t.h);
-                        RecordShadowCasters(rp, casters, *reg, t.viewProj, t.cullCenter, t.cullRadius);
-                    }
+            RendererRegistry* reg  = m_registry;
+            const u32 atlasRes     = m_shadows->AtlasResolution();
+            // Declare one layer's depth pass over a tile list. (Lambda-per-pass; the graph runs them
+            // at execute time, ordered before the forward by its ReadTexture of atlasH.)
+            const auto declareLayer = [&](u32 layer, Array<LocalShadowTile>* tiles) {
+                if (tiles->IsEmpty()) { return; }
+                m_graph.AddRenderPass(u8"shadow.atlas", [this, atlasH, reg, tiles, atlasRes, layer](rendergraph::PassBuilder& b) {
+                    rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
+                    b.SetDepthTarget(atlasH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
+                    b.SetViewport(0, 0, atlasRes, atlasRes);   // pass default; each tile sets its own below
+                    b.SetExecute([this, reg, tiles](rhi::RenderPassEncoder& rp) {
+                        const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
+                        for (const LocalShadowTile& t : *tiles) {
+                            rp.SetViewport(static_cast<f32>(t.x), static_cast<f32>(t.y),
+                                           static_cast<f32>(t.w), static_cast<f32>(t.h));
+                            rp.SetScissor(static_cast<i32>(t.x), static_cast<i32>(t.y), t.w, t.h);
+                            RecordShadowCasters(rp, casters, *reg, t.viewProj, t.cullCenter, t.cullRadius);
+                        }
+                    });
                 });
-            });
+            };
+            declareLayer(0u, &m_rtTiles);                            // realtime layer — every frame
+            if (renderStatic) { declareLayer(1u, &m_staticTiles); }  // static layer — only when dirty
         }
         if (shadowActive) { shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex); }
 
@@ -715,10 +760,13 @@ private:
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
     struct LocalShadowTile { Mat4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; Vec3 cullCenter; f32 cullRadius = 0.0f; };
-    Array<GpuLocalShadow>   m_localShadows;
-    Array<LocalShadowTile>  m_localTiles;
+    Array<GpuLocalShadow>   m_localShadows;        // flat buffer in caster order (shadowIndex indexes it)
+    Array<LocalShadowTile>  m_rtTiles;             // realtime atlas layer tiles (re-rendered every frame)
+    Array<LocalShadowTile>  m_staticTiles;         // static atlas layer tiles (cached; re-rendered on change)
     Array<DrawItem>         m_shadowCasters;       // camera-independent scene caster list (local shadows)
     Array<DrawItem>         m_shadowCullScratch;   // per-tile sphere-culled subset (reused)
+    u64                     m_staticSig   = 0;     // signature of the static caster set (cache-invalidation)
+    u32                     m_staticDirty = 0;     // frames left to refresh the cached layer (per in-flight slot)
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;

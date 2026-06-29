@@ -116,7 +116,8 @@ struct GpuLocalShadow {
     Mat4 viewProj       = Mat4::Identity();             // world -> light clip (perspective)
     Vec4 atlasScaleBias = Vec4{ 1, 1, 0, 0 };           // xy = uv scale, zw = uv offset (tile in atlas)
     f32  depthBias      = 0.0015f;                      // constant depth-compare bias
-    f32  pad0 = 0.0f, pad1 = 0.0f, pad2 = 0.0f;
+    f32  atlasSelect    = 0.0f;                         // atlas array layer: 0 = realtime, 1 = static (5.4)
+    f32  pad1 = 0.0f, pad2 = 0.0f;
 };
 static_assert(sizeof(GpuLocalShadow) == 96);
 
@@ -130,6 +131,7 @@ struct LocalShadowCaster {
     Vec3 directionWS = Vec3{ 0, -1, 0 };
     f32  range       = 10.0f;              // perspective far plane
     f32  outerAngle  = 0.6f;              // spot cone half-angle (radians); fov = 2 * outerAngle
+    bool isStatic    = false;             // Static update mode -> cached static atlas layer (5.4)
 };
 
 // Atlas tile budget for local (spot/point) shadows per frame. A spot consumes 1 tile, a point 6

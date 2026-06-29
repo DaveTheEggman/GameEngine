@@ -180,8 +180,9 @@ public:
     // sampler that reads them lives in the MeshRenderer (it owns set 0 where the map is bound).
     Status Initialize() { return Status{}; }
 
-    [[nodiscard]] rhi::TextureFormat Format()     const noexcept { return kShadowFormat; }
-    [[nodiscard]] u32                Resolution() const noexcept { return kShadowResolution; }
+    [[nodiscard]] rhi::TextureFormat Format()         const noexcept { return kShadowFormat; }
+    [[nodiscard]] u32                Resolution()     const noexcept { return kShadowResolution; }
+    [[nodiscard]] u32                FramesInFlight() const noexcept { return m_framesInFlight; }
 
     static constexpr u32 kMaxShadowViews = 4;   // per-view cascades; array = views * cascades layers
 
@@ -218,15 +219,19 @@ public:
 
     [[nodiscard]] u32 CascadeCount() const noexcept { return kCascadeCount; }
 
-    // ---- local-light shadow atlas (5.3) ------------------------------------------------------
-    // Spot/point shadows pack into ONE 2D depth atlas (cascades stay in their own array). Each caster
-    // gets a fixed square tile; the depth pass clears the atlas once then renders each caster into its
-    // tile's viewport, and the forward samples by the per-light atlas rect.
-    static constexpr u32 kAtlasResolution = 2048;
-    static constexpr u32 kAtlasTile       = 512;                            // 4x4 = 16 tiles
+    // ---- local-light shadow atlas (5.3 / 5.4) ------------------------------------------------
+    // Spot/point shadows pack into a 2-LAYER depth atlas array (cascades stay in their own array).
+    // Layer 0 = REALTIME (cleared + re-rendered every frame); layer 1 = STATIC (rendered only when the
+    // static caster set changes, then cached — phase 5.4). Each caster gets a fixed square tile in its
+    // layer; the forward samples float3(uv_tile, layer).
+    static constexpr u32 kAtlasResolution   = 2048;
+    static constexpr u32 kAtlasTile         = 512;                          // 4x4 = 16 tiles per layer
+    static constexpr u32 kAtlasLayers       = 2;
+    static constexpr u32 kAtlasLayerRealtime = 0;
+    static constexpr u32 kAtlasLayerStatic   = 1;
     [[nodiscard]] u32 AtlasResolution() const noexcept { return kAtlasResolution; }
     [[nodiscard]] u32 AtlasTileResolution() const noexcept { return kAtlasTile; }
-    [[nodiscard]] u32 AtlasTileCapacity() const noexcept {
+    [[nodiscard]] u32 AtlasTileCapacity() const noexcept {                  // per layer
         const u32 perRow = kAtlasResolution / kAtlasTile; return perRow * perRow;
     }
 
@@ -290,24 +295,26 @@ private:
         return true;
     }
 
-    // Create one frame-slot's local-shadow atlas (a single 2D depth texture) + its attachment/sample
-    // views. Fixed size, so this runs once per slot (the ++generation invalidates consumer caches).
+    // Create one frame-slot's local-shadow atlas (a 2-LAYER depth array: realtime + static) + its
+    // whole-array attachment/sample views. Per-layer attachment views are derived by the graph
+    // (subresource) at pass time. Fixed size — runs once per slot (++generation invalidates caches).
     bool EnsureAtlas(u32 slot) {
         if (m_atlasTextures[slot] != nullptr) { return true; }
         rhi::TextureDesc td{};
-        td.format = kShadowFormat;
-        td.width  = kAtlasResolution;
-        td.height = kAtlasResolution;
-        td.usage  = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
-        td.label  = u8"shadow.atlas";
+        td.format          = kShadowFormat;
+        td.width           = kAtlasResolution;
+        td.height          = kAtlasResolution;
+        td.arrayLayerCount = kAtlasLayers;
+        td.usage           = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
+        td.label           = u8"shadow.atlas";
         if (!m_device->CreateTexture(td, m_atlasTextures[slot]).IsOk()) { m_atlasTextures[slot] = nullptr; return false; }
         rhi::TextureViewDesc av{};
         av.format = kShadowFormat; av.aspect = rhi::TextureAspect::DepthOnly;
-        av.dimension = rhi::TextureViewDimension::Texture2D;
+        av.dimension = rhi::TextureViewDimension::Texture2DArray; av.arrayLayerCount = kAtlasLayers;
         if (!m_device->CreateTextureView(m_atlasTextures[slot], av, m_atlasAttachViews[slot]).IsOk()) { return false; }
         rhi::TextureViewDesc sv{};
         sv.format = kShadowFormat; sv.aspect = rhi::TextureAspect::DepthOnly;
-        sv.dimension = rhi::TextureViewDimension::Texture2D;
+        sv.dimension = rhi::TextureViewDimension::Texture2DArray; sv.arrayLayerCount = kAtlasLayers;
         if (!m_device->CreateTextureView(m_atlasTextures[slot], sv, m_atlasSampleViews[slot]).IsOk()) { return false; }
         m_atlasStates[slot] = rhi::ResourceState::Undefined;
         ++m_generation;

@@ -160,6 +160,7 @@ namespace
                 sl.innerAngle   = 0.55f;
                 sl.outerAngle   = 0.75f;                                   // wide cone: cover both the box + sphere rows
                 sl.castsShadows = true;                                     // spot atlas shadow caster (5.3a)
+                sl.shadowUpdate = rd::ShadowUpdateMode::Static;            // static scene -> cached atlas layer (5.4b)
 
                 // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
