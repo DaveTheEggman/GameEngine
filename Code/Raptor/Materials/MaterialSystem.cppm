@@ -45,6 +45,21 @@ public:
     [[nodiscard]] rhi::TextureView* WhiteTexture() const noexcept { return m_whiteView; }
     [[nodiscard]] rhi::TextureView* NormalTexture() const noexcept { return m_normalView; }
 
+    // Ensures the instance's uniform buffer is up to date and returns it (null if the material
+    // declares no uniforms). Lets a renderer assemble its own fixed set-2 layout (UBO + textures)
+    // while still sourcing the packed uniform data from the material system.
+    [[nodiscard]] rhi::Buffer* EnsureUniformBuffer(MaterialInstance& instance) {
+        Material* material = instance.GetMaterial();
+        if (material == nullptr || material->UniformDataSize() == 0) { return nullptr; }
+        instance.SetSink(this);
+        if (instance.IsUniformDirty()) {
+            if (!UpdateUniformBuffer(instance)) { return nullptr; }
+            instance.ClearUniformDirty();
+        }
+        rhi::Buffer** buf = m_uniformBuffers.Find(&instance);
+        return (buf != nullptr) ? *buf : nullptr;
+    }
+
     // Bind-group layout inferred from the material's property definitions, cached.
     [[nodiscard]] rhi::BindGroupLayout* GetOrCreateLayout(Material& material) {
         const u64 hash = ComputeLayoutHash(material);

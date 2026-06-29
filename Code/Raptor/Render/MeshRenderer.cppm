@@ -256,6 +256,10 @@ cbuffer Material : register(b0, space2) {    // data-driven PBR material (inferr
     float  _matPad0;
     float  _matPad1;
 };
+// Albedo (base-color) texture + sampler — the fixed forward material contract (white when a material
+// declares no albedo, so untextured materials are unaffected). MetallicRoughness/normal land later.
+Texture2D    AlbedoTexture   : register(t0, space2);
+SamplerState MaterialSampler : register(s0, space2);
 struct PSInput {
     float4 clip      : SV_Position;
     float3 normalWS  : TEXCOORD0;
@@ -337,7 +341,7 @@ float4 main(PSInput input) : SV_Target {
     float3 N = normalize(input.normalWS);
     float3 V = normalize(CameraPos - input.worldPos);
 
-    float3 albedo    = input.color.rgb * BaseColor.rgb;        // (vertex color * tint) * base color
+    float3 albedo    = input.color.rgb * BaseColor.rgb * AlbedoTexture.Sample(MaterialSampler, input.uv).rgb;
     float  metallic  = saturate(Metallic);
     float  roughness = clamp(Roughness, 0.045, 1.0);
     float3 F0        = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
@@ -465,11 +469,19 @@ public:
         rhi::BindGroupLayoutEntry instEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Vertex, /*readOnly*/ true);
         if (!MakeLayout(instEntry, m_instanceLayout)) { return Status{ ErrorCode::Unknown }; }
 
-        // set 2: material — a Fragment-stage UBO at b0 (the standard forward material's BaseColor
-        // etc). Inferred-per-material layouts share this shape, so one pipeline layout fits them;
-        // PrepareInstance is given THIS layout so the instance bind group is compatible.
-        rhi::BindGroupLayoutEntry matEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment);
-        if (!MakeLayout(matEntry, m_materialLayout)) { return Status{ ErrorCode::Unknown }; }
+        // set 2: the FIXED standard-forward material contract — a Fragment UBO (b0: BaseColor/
+        // Metallic/Roughness) + an albedo texture (t0) + a sampler (s0). The renderer assembles every
+        // forward material's set-2 bind group to this shape (MaterialBindGroup): UBO from the material
+        // system, albedo from the material if it declares one else white. One pipeline layout fits all
+        // forward materials; textured (imported) and untextured (demo) materials share it.
+        rhi::BindGroupLayoutEntry matUbo  = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry matTex  = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+        rhi::BindGroupLayoutEntry matSamp{};
+        matSamp.binding = 0; matSamp.visibility = rhi::ShaderStage::Fragment; matSamp.type = rhi::BindingType::Sampler;
+        rhi::BindGroupLayoutEntry set2[] = { matUbo, matTex, matSamp };
+        rhi::BindGroupLayoutDesc s2d{};
+        s2d.entries = Span<const rhi::BindGroupLayoutEntry>{ set2, 3 };
+        if (!m_device->CreateBindGroupLayout(s2d, m_materialLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 3: clustered light lists — per-cluster (offset,count) SRV (t0) + flat index SRV (t1).
         rhi::BindGroupLayoutEntry clOffEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
@@ -893,10 +905,15 @@ private:
         if (!m_device->CreateBuffer(bd, m_defaultMaterialBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
         if (void* p = m_defaultMaterialBuffer->Map()) { MemCopy(p, &def, sizeof(def)); m_defaultMaterialBuffer->Unmap(); }
 
-        rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(m_defaultMaterialBuffer, 0, sizeof(PbrDefault));
+        // Match the set-2 contract: UBO + white albedo + default sampler.
+        rhi::BindGroupEntry be[] = {
+            rhi::BindGroupEntry::BufferEntry(m_defaultMaterialBuffer, 0, sizeof(PbrDefault)),
+            rhi::BindGroupEntry::TextureEntry(m_materials->WhiteTexture()),
+            rhi::BindGroupEntry::SamplerEntry(m_materials->DefaultSampler()),
+        };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_materialLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ be, 3 };
         if (!m_device->CreateBindGroup(bgd, m_defaultMaterialBG).IsOk()) { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }
@@ -915,8 +932,33 @@ private:
             m_instanceStorage.PushBack(Move(created));       // owns the instance
             m_instances.InsertOrAssign(material, inst);       // raw lookup (HashMap can't hold UniquePtr)
         }
-        rhi::BindGroup* bg = m_materials->PrepareInstance(*inst, m_materialLayout);
-        return (bg != nullptr) ? bg : m_defaultMaterialBG;   // material with no set-2 props -> default
+        // Assemble the fixed forward set-2 contract: UBO + albedo (material's BaseColorTexture, else
+        // white) + default sampler. The UBO is flushed every frame (cheap if clean); the bind group
+        // is built once per instance and cached (buffer pointer + textures are stable).
+        rhi::Buffer* ubo = m_materials->EnsureUniformBuffer(*inst);   // also flushes dirty uniforms
+        if (rhi::BindGroup** cached = m_forwardMatBGs.Find(inst)) { return *cached; }
+
+        u64 uboSize = kDefaultMaterialSize;
+        if (ubo == nullptr) { ubo = m_defaultMaterialBuffer; } else { uboSize = material->UniformDataSize(); }
+
+        rhi::TextureView* albedo = m_materials->WhiteTexture();
+        const isize ai = material->GetPropertyIndex(u8"AlbedoMap");   // standard PBR slot (Sedulous-aligned)
+        if (ai >= 0 && material->GetProperty(static_cast<usize>(ai)).IsTexture()) {
+            if (rhi::TextureView* t = inst->GetTexture(static_cast<usize>(ai))) { albedo = t; }
+        }
+
+        rhi::BindGroupEntry entries[] = {
+            rhi::BindGroupEntry::BufferEntry(ubo, 0, uboSize),
+            rhi::BindGroupEntry::TextureEntry(albedo),
+            rhi::BindGroupEntry::SamplerEntry(m_materials->DefaultSampler()),
+        };
+        rhi::BindGroupDesc bgd{};
+        bgd.layout = m_materialLayout;
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 3 };
+        rhi::BindGroup* bg = nullptr;
+        if (!m_device->CreateBindGroup(bgd, bg).IsOk() || bg == nullptr) { return m_defaultMaterialBG; }
+        m_forwardMatBGs.InsertOrAssign(inst, bg);
+        return bg;
     }
 
     // (Re)create a bind group over a ring's buffer when the ring (re)allocated. `whole` binds
@@ -1075,6 +1117,8 @@ private:
 
     void Shutdown() {
         // Release material instances first (their dtors notify the still-live MaterialSystem).
+        for (auto& kv : m_forwardMatBGs) { if (kv.value != nullptr) { m_device->DestroyBindGroup(kv.value); } }
+        m_forwardMatBGs.Clear();
         m_instances.Clear();
         m_instanceStorage.Clear();
         m_meshes.Clear();
@@ -1127,10 +1171,12 @@ private:
     rhi::PipelineLayout*  m_shadowPipelineLayoutInstanced = nullptr;
 
     // Auto-instanced material set-2 resources.
+    static constexpr u64 kDefaultMaterialSize = 32;   // sizeof the default PbrDefault UBO
     rhi::Buffer*    m_defaultMaterialBuffer = nullptr;
     rhi::BindGroup* m_defaultMaterialBG     = nullptr;
     HashMap<materials::Material*, materials::MaterialInstance*>     m_instances;        // lookup (raw)
     Array<UniquePtr<materials::MaterialInstance>>                  m_instanceStorage;  // ownership
+    HashMap<materials::MaterialInstance*, rhi::BindGroup*>         m_forwardMatBGs;    // fixed forward set-2 BGs
 
     DynamicUniformRing m_viewRing;
     DynamicUniformRing m_shadowViewRing;
