@@ -256,10 +256,16 @@ cbuffer Material : register(b0, space2) {    // data-driven PBR material (inferr
     float  _matPad0;
     float  _matPad1;
 };
-// Albedo (base-color) texture + sampler — the fixed forward material contract (white when a material
-// declares no albedo, so untextured materials are unaffected). MetallicRoughness/normal land later.
-Texture2D    AlbedoTexture   : register(t0, space2);
-SamplerState MaterialSampler : register(s0, space2);
+// Standard PBR material maps (the fixed forward set-2 contract, Sedulous-aligned). Unset maps bind a
+// neutral default (white for albedo/MR/AO, flat normal) so untextured materials are unaffected.
+// Sampled now: albedo, metallic-roughness (glTF: G=roughness, B=metallic), occlusion. Normal-map and
+// emissive are bound (importer can populate) but not yet sampled.
+Texture2D    AlbedoMap            : register(t0, space2);
+Texture2D    NormalMap            : register(t1, space2);
+Texture2D    MetallicRoughnessMap : register(t2, space2);
+Texture2D    OcclusionMap         : register(t3, space2);
+Texture2D    EmissiveMap          : register(t4, space2);
+SamplerState MainSampler          : register(s0, space2);
 struct PSInput {
     float4 clip      : SV_Position;
     float3 normalWS  : TEXCOORD0;
@@ -341,9 +347,10 @@ float4 main(PSInput input) : SV_Target {
     float3 N = normalize(input.normalWS);
     float3 V = normalize(CameraPos - input.worldPos);
 
-    float3 albedo    = input.color.rgb * BaseColor.rgb * AlbedoTexture.Sample(MaterialSampler, input.uv).rgb;
-    float  metallic  = saturate(Metallic);
-    float  roughness = clamp(Roughness, 0.045, 1.0);
+    float3 albedo    = input.color.rgb * BaseColor.rgb * AlbedoMap.Sample(MainSampler, input.uv).rgb;
+    float2 mr        = MetallicRoughnessMap.Sample(MainSampler, input.uv).gb;   // glTF: G=roughness, B=metallic
+    float  metallic  = saturate(Metallic * mr.y);
+    float  roughness = clamp(Roughness * mr.x, 0.045, 1.0);
     float3 F0        = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
 
     float3 viewPos   = mul(float4(input.worldPos, 1.0), View).xyz;
@@ -372,7 +379,8 @@ float4 main(PSInput input) : SV_Target {
         }
     }
 
-    float3 ambient = albedo * Ambient;                         // per-scene environment ambient (IBL later)
+    float  ao      = OcclusionMap.Sample(MainSampler, input.uv).r;
+    float3 ambient = albedo * Ambient * ao;                     // per-scene environment ambient (IBL later)
     return float4(ambient + Lo, 1.0);
 }
 )";
@@ -474,13 +482,19 @@ public:
         // forward material's set-2 bind group to this shape (MaterialBindGroup): UBO from the material
         // system, albedo from the material if it declares one else white. One pipeline layout fits all
         // forward materials; textured (imported) and untextured (demo) materials share it.
-        rhi::BindGroupLayoutEntry matUbo  = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment);
-        rhi::BindGroupLayoutEntry matTex  = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
-        rhi::BindGroupLayoutEntry matSamp{};
-        matSamp.binding = 0; matSamp.visibility = rhi::ShaderStage::Fragment; matSamp.type = rhi::BindingType::Sampler;
-        rhi::BindGroupLayoutEntry set2[] = { matUbo, matTex, matSamp };
+        rhi::BindGroupLayoutEntry matUbo = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry set2[] = {
+            matUbo,
+            rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // AlbedoMap (t0)
+            rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // NormalMap (t1)
+            rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // MetallicRoughnessMap (t2)
+            rhi::BindGroupLayoutEntry::SampledTexture(3, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // OcclusionMap (t3)
+            rhi::BindGroupLayoutEntry::SampledTexture(4, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D),  // EmissiveMap (t4)
+            rhi::BindGroupLayoutEntry{},   // MainSampler (s0) — filled below
+        };
+        set2[6].binding = 0; set2[6].visibility = rhi::ShaderStage::Fragment; set2[6].type = rhi::BindingType::Sampler;
         rhi::BindGroupLayoutDesc s2d{};
-        s2d.entries = Span<const rhi::BindGroupLayoutEntry>{ set2, 3 };
+        s2d.entries = Span<const rhi::BindGroupLayoutEntry>{ set2, 7 };
         if (!m_device->CreateBindGroupLayout(s2d, m_materialLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 3: clustered light lists — per-cluster (offset,count) SRV (t0) + flat index SRV (t1).
@@ -905,22 +919,38 @@ private:
         if (!m_device->CreateBuffer(bd, m_defaultMaterialBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
         if (void* p = m_defaultMaterialBuffer->Map()) { MemCopy(p, &def, sizeof(def)); m_defaultMaterialBuffer->Unmap(); }
 
-        // Match the set-2 contract: UBO + white albedo + default sampler.
+        // Match the set-2 PBR contract: UBO + 5 neutral maps (white, flat-normal) + default sampler.
+        rhi::TextureView* white  = m_materials->WhiteTexture();
+        rhi::TextureView* normal = m_materials->NormalTexture();
         rhi::BindGroupEntry be[] = {
             rhi::BindGroupEntry::BufferEntry(m_defaultMaterialBuffer, 0, sizeof(PbrDefault)),
-            rhi::BindGroupEntry::TextureEntry(m_materials->WhiteTexture()),
+            rhi::BindGroupEntry::TextureEntry(white),    // AlbedoMap
+            rhi::BindGroupEntry::TextureEntry(normal),   // NormalMap
+            rhi::BindGroupEntry::TextureEntry(white),    // MetallicRoughnessMap
+            rhi::BindGroupEntry::TextureEntry(white),    // OcclusionMap
+            rhi::BindGroupEntry::TextureEntry(white),    // EmissiveMap
             rhi::BindGroupEntry::SamplerEntry(m_materials->DefaultSampler()),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_materialLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ be, 3 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ be, 7 };
         if (!m_device->CreateBindGroup(bgd, m_defaultMaterialBG).IsOk()) { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }
 
-    // The material set-2 bind group for `material`: the data-driven bind group from the
-    // MaterialSystem (built from declared properties, sharing m_materialLayout), or the default
-    // white material if the material declares no set-2 properties. Auto-instanced per material.
+    // Resolve a named PBR texture slot from the material (its instance override), else a default.
+    [[nodiscard]] static rhi::TextureView* MaterialMapOr(const materials::Material& mat, const materials::MaterialInstance& inst,
+                                                         StringView name, rhi::TextureView* dflt) {
+        const isize i = mat.GetPropertyIndex(name);
+        if (i >= 0 && mat.GetProperty(static_cast<usize>(i)).IsTexture()) {
+            if (rhi::TextureView* t = inst.GetTexture(static_cast<usize>(i))) { return t; }
+        }
+        return dflt;
+    }
+
+    // The material set-2 bind group for `material`, assembled to the fixed forward PBR contract
+    // (UBO + 5 maps + sampler): UBO from the material system, each map from the material's named slot
+    // or a neutral default. Built once per material instance + cached.
     [[nodiscard]] rhi::BindGroup* MaterialBindGroup(materials::Material* material) {
         if (material == nullptr) { return m_defaultMaterialBG; }
         materials::MaterialInstance* inst = nullptr;
@@ -941,20 +971,28 @@ private:
         u64 uboSize = kDefaultMaterialSize;
         if (ubo == nullptr) { ubo = m_defaultMaterialBuffer; } else { uboSize = material->UniformDataSize(); }
 
-        rhi::TextureView* albedo = m_materials->WhiteTexture();
-        const isize ai = material->GetPropertyIndex(u8"AlbedoMap");   // standard PBR slot (Sedulous-aligned)
-        if (ai >= 0 && material->GetProperty(static_cast<usize>(ai)).IsTexture()) {
-            if (rhi::TextureView* t = inst->GetTexture(static_cast<usize>(ai))) { albedo = t; }
-        }
+        // Resolve each PBR map from the material's named slot, else a neutral default. (Sedulous-aligned
+        // names; the renderer enforces the fixed forward contract regardless of declared property count.)
+        rhi::TextureView* white  = m_materials->WhiteTexture();
+        rhi::TextureView* normal = m_materials->NormalTexture();
+        rhi::TextureView* albedo   = MaterialMapOr(*material, *inst, u8"AlbedoMap", white);
+        rhi::TextureView* nrm      = MaterialMapOr(*material, *inst, u8"NormalMap", normal);
+        rhi::TextureView* mr       = MaterialMapOr(*material, *inst, u8"MetallicRoughnessMap", white);
+        rhi::TextureView* occ      = MaterialMapOr(*material, *inst, u8"OcclusionMap", white);
+        rhi::TextureView* emissive = MaterialMapOr(*material, *inst, u8"EmissiveMap", white);
 
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(ubo, 0, uboSize),
             rhi::BindGroupEntry::TextureEntry(albedo),
+            rhi::BindGroupEntry::TextureEntry(nrm),
+            rhi::BindGroupEntry::TextureEntry(mr),
+            rhi::BindGroupEntry::TextureEntry(occ),
+            rhi::BindGroupEntry::TextureEntry(emissive),
             rhi::BindGroupEntry::SamplerEntry(m_materials->DefaultSampler()),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_materialLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 3 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 7 };
         rhi::BindGroup* bg = nullptr;
         if (!m_device->CreateBindGroup(bgd, bg).IsOk() || bg == nullptr) { return m_defaultMaterialBG; }
         m_forwardMatBGs.InsertOrAssign(inst, bg);
