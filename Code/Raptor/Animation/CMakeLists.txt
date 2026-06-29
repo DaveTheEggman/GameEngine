@@ -15,6 +15,7 @@ target_sources(RaptorAnimation
             Pose.cppm
             Clip.cppm
             Sampler.cppm
+            Player.cppm
             AnimationModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)
