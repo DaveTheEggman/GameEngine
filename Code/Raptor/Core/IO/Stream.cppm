@@ -123,6 +123,15 @@ export namespace raptor::core
             const u64 end = m_position + bytes;
             if (end > static_cast<u64>(m_data.Size()))
             {
+                // Grow capacity geometrically so a run of small writes (e.g. byte-at-a-time
+                // serialization of a large blob) stays amortized O(1) instead of O(n) per write
+                // (Array::Reserve allocates exactly, so Resize-to-exact each call would be O(n^2)).
+                if (end > static_cast<u64>(m_data.Capacity()))
+                {
+                    usize cap = (m_data.Capacity() == 0) ? 64u : m_data.Capacity();
+                    while (static_cast<u64>(cap) < end) { cap *= 2u; }
+                    m_data.Reserve(cap);
+                }
                 m_data.Resize(static_cast<usize>(end));
             }
             MemCopy(&m_data[static_cast<usize>(m_position)], source, static_cast<usize>(bytes));
