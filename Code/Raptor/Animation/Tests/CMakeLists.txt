@@ -15,7 +15,9 @@ add_executable(RaptorAnimationTests
     TestsMain.cpp
     EasingTypeTests.cpp
     PoseTests.cpp
-    SkeletonTests.cpp)
+    SkeletonTests.cpp
+    ClipTests.cpp
+    SamplerTests.cpp)
 
 target_link_libraries(RaptorAnimationTests PRIVATE
     Raptor::Animation doctest::doctest)

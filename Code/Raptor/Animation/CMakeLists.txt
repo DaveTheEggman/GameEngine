@@ -13,6 +13,8 @@ target_sources(RaptorAnimation
             Easing.cppm
             Skeleton.cppm
             Pose.cppm
+            Clip.cppm
+            Sampler.cppm
             AnimationModule.cppm)
 
 if(RAPTOR_BUILD_TESTS)

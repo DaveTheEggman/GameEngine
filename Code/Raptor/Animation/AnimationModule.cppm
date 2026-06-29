@@ -10,3 +10,5 @@ export module raptor.animation;
 export import :easing;
 export import :skeleton;
 export import :pose;
+export import :clip;
+export import :sampler;
