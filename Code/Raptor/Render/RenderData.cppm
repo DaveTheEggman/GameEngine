@@ -77,6 +77,7 @@ struct MeshRenderData : RenderData {
     // AnimationPlayer). When non-null + the mesh IsSkinned(), the renderer uploads them to its bone
     // pool and draws the SKINNED permutation; otherwise the mesh draws static (bind pose).
     const Mat4*           boneMatrices = nullptr;
+    const Mat4*           prevBoneMatrices = nullptr;   // previous-frame skinning matrices (motion vectors); null => reuse current
     u32                   boneCount    = 0;
 };
 static_assert(std::is_trivially_destructible_v<MeshRenderData>);

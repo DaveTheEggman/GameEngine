@@ -37,6 +37,7 @@ struct MeshComponent {
     // (e.g. an AnimationPlayer's GetSkinningMatrices()). Borrowed — valid for the frame it's set;
     // null => the mesh draws static (bind pose). Extraction copies the pointer into MeshRenderData.
     const Mat4*                  boneMatrices = nullptr;
+    const Mat4*                  prevBoneMatrices = nullptr;   // previous-frame matrices (motion vectors); null => reuse current
     u32                          boneCount    = 0;
 };
 
