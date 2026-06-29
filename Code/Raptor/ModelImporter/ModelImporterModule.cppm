@@ -1,0 +1,12 @@
+/// Raptor::ModelImporter — the `raptor.modelimporter` umbrella module.
+///
+/// The top-level model import pipeline: it converts a loaded `raptor.model` Model
+/// (the loader IR) into the engine's cooked *Source types and cooks them through the
+/// editor stack into a content database. Faithful-but-fit-for-Raptor: import is
+/// hierarchy-preserving (node -> entity), not Sedulous's unconditional mesh merge.
+export module raptor.modelimporter;
+
+export import :mesh_convert;
+export import :resource;
+export import :cook;
+export import :load;

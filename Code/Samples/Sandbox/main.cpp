@@ -19,9 +19,22 @@ import raptor.scene.subsystem;
 import raptor.render.subsystem;       // MeshComponent / CameraComponent + their managers
 import raptor.render;                  // ViewCamera / ViewportRect (split-screen overrides)
 import raptor.geometry;
+import raptor.geometry.resource;       // StaticMeshFactory + StaticMesh product
 import raptor.materials;
+import raptor.vfs;                      // NativeFileSystem mount for the content DB
+import raptor.content;                  // ContentDatabase (cooked-resource output)
+import raptor.resource;                 // ResourceManager + Proxy
+import raptor.model;                    // ModelLoadResult
+import raptor.modelimporter;            // LoadAndCook + ImportedModel manifest
 
 #include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
+
+#ifndef RAPTOR_SANDBOX_MODEL_DIR
+#define RAPTOR_SANDBOX_MODEL_DIR ""
+#endif
+#ifndef RAPTOR_SANDBOX_OUTPUT_DIR
+#define RAPTOR_SANDBOX_OUTPUT_DIR ""
+#endif
 
 namespace rc = raptor::core;
 namespace smp = raptor::samples;
@@ -31,6 +44,11 @@ namespace sc = raptor::scene;
 namespace rd = raptor::render;
 namespace geo = raptor::geometry;
 namespace mat = raptor::materials;
+namespace vfs = raptor::vfs;
+namespace ct  = raptor::content;
+namespace res = raptor::resource;
+namespace mdl = raptor::model;
+namespace mi  = raptor::modelimporter;
 
 namespace
 {
@@ -168,8 +186,85 @@ namespace
                 pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
             }
 
+            LoadImportedModel();   // cook + spawn a glTF model through the resource pipeline
+
             rc::ConsoleWrite(u8"Sandbox: split-screen — same scene from two cameras, 18 clustered "
                              u8"point lights. Close to exit.\n");
+        }
+
+        // The model-import seam: open the cooked-resource output DB, register the geometry factory,
+        // load+cook a glTF file through the importer, then spawn its node hierarchy as entities whose
+        // MeshComponents reference the cooked StaticMesh resources. This is the clean runtime cook seam
+        // the design calls for — an editor would cook offline and the runtime would only Bind, but the
+        // wiring (factory -> Bind -> render) is identical.
+        void LoadImportedModel()
+        {
+            auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
+            if (meshes == nullptr) { return; }
+
+            const rc::StringView outputDir(reinterpret_cast<const rc::utf8char*>(RAPTOR_SANDBOX_OUTPUT_DIR));
+            const rc::StringView modelDir(reinterpret_cast<const rc::utf8char*>(RAPTOR_SANDBOX_MODEL_DIR));
+            if (outputDir.IsEmpty() || modelDir.IsEmpty()) { return; }
+
+            // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
+            // manifest into a ModelResource, resolving its meshes via StaticMeshFactory (dependency edges).
+            m_contentFs = rc::MakeUnique<vfs::NativeFileSystem>(rc::DefaultAllocator(), outputDir);
+            m_contentDb = rc::MakeUnique<ct::ContentDatabase>(rc::DefaultAllocator(), *m_contentFs);
+            m_resources = rc::MakeUnique<res::ResourceManager>(rc::DefaultAllocator(), *m_contentDb);
+            m_resources->AddFactory(&m_meshFactory);
+            m_resources->AddFactory(&m_modelFactory);
+            mi::RegisterModelImporterTypes();   // make the cooked types deserializable
+
+            // Cook a model into the DB (runtime cook seam; swap for an offline cook + plain Bind later).
+            const rc::String path = rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir);
+            rc::Guid modelGuid;
+            const mdl::ModelLoadResult r = mi::LoadAndCook(path.AsView(), *m_contentDb, u8"Duck", modelGuid);
+            if (r != mdl::ModelLoadResult::Ok) {
+                rc::ConsoleWrite(u8"Sandbox: model import failed\n");
+                return;
+            }
+
+            // Bind the cooked model (one composite resource that pulls in its meshes), then spawn its
+            // node hierarchy: one entity per node, local TRS + parent links preserved; mesh nodes get a
+            // MeshComponent referencing the model's resolved StaticMesh.
+            m_model = m_resources->Bind<mi::ModelResource>(modelGuid);
+            if (!m_model) { rc::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
+
+            // Auto-fit: a model-root entity scaled so the model's largest extent maps to a target size,
+            // placed in the scene. All top-level nodes parent to it, so the whole model scales/places as
+            // one (models come in wildly different unit scales — the Duck is ~100 units tall).
+            constexpr rc::f32 kTargetSize = 6.0f;
+            const rc::Vec3 extent = m_model->boundsMax - m_model->boundsMin;
+            const rc::f32 maxExtent = rc::Max(extent.x, rc::Max(extent.y, extent.z));
+            const rc::f32 fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
+            sc::EntityHandle modelRoot = m_scene->CreateEntity(u8"modelRoot");
+            rc::Transform rootT;
+            rootT.position = rc::Vec3{ 0.0f, -4.0f, 6.0f };   // in front of the camera, above the floor
+            rootT.scale    = rc::Vec3{ fit, fit, fit };
+            m_scene->SetLocalTransform(modelRoot, rootT);
+
+            rc::Array<sc::EntityHandle> entities;
+            entities.Reserve(m_model->nodes.Size());
+            for (const mi::ModelNode& node : m_model->nodes) {
+                sc::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
+                m_scene->SetLocalTransform(e, node.localTransform);
+                entities.PushBack(e);
+            }
+            for (rc::usize i = 0; i < m_model->nodes.Size(); ++i) {
+                const mi::ModelNode& node = m_model->nodes[i];
+                if (node.parentIndex >= 0 && static_cast<rc::usize>(node.parentIndex) < entities.Size()) {
+                    m_scene->SetParent(entities[i], entities[static_cast<rc::usize>(node.parentIndex)]);
+                } else {
+                    m_scene->SetParent(entities[i], modelRoot);   // top-level node -> the scaled model root
+                }
+                if (node.meshIndex < 0 || static_cast<rc::usize>(node.meshIndex) >= m_model->meshes.Size()) { continue; }
+                geo::StaticMesh* mesh = m_model->meshes[static_cast<rc::usize>(node.meshIndex)].Get();
+                if (mesh == nullptr) { continue; }
+                rd::MeshComponent& mc = meshes->Add(entities[i]);
+                mc.mesh  = rc::RefPtr<geo::StaticMesh>(mesh);   // hold a ref (manager owns the handle)
+                mc.color = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+            }
+            rc::ConsoleWrite(u8"Sandbox: imported model spawned\n");
         }
 
         // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
@@ -352,6 +447,15 @@ namespace
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
         smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
+
+        // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
+        // the cooked products' handles; the content DB + its filesystem mount back the manager).
+        rc::UniquePtr<vfs::NativeFileSystem> m_contentFs;
+        rc::UniquePtr<ct::ContentDatabase>   m_contentDb;
+        rc::UniquePtr<res::ResourceManager>  m_resources;
+        geo::StaticMeshFactory               m_meshFactory;
+        mi::ModelFactory                     m_modelFactory;
+        res::Proxy<mi::ModelResource>        m_model;
         rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)
     };
 }

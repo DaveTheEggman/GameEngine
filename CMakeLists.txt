@@ -91,6 +91,7 @@ add_subdirectory(Code/Raptor/Render)    # renderer: scene->render extraction + (
 add_subdirectory(Code/Raptor/Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Raptor/Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Raptor/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
+add_subdirectory(Code/Raptor/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
 add_subdirectory(Code/Raptor/VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Raptor/Script)
 add_subdirectory(Code/Raptor/Runtime)
