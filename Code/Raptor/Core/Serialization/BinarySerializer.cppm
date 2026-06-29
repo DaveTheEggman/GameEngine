@@ -13,6 +13,7 @@ export module raptor.core:binary_serializer;
 import :base;
 import :serializer;
 import :string;
+import :guid;
 import :io;
 import :binary_io;
 
@@ -47,6 +48,9 @@ export namespace raptor::core
         }
 
         void Blob(void* data, usize size) override { RawBytes(data, size); }
+
+        // Compact: the raw 16 bytes (two u64 halves), not the canonical string. (Traktor-style.)
+        void GuidValue(Guid& value) override { RawBytes(&value, sizeof(Guid)); }
 
     private:
         // Moves `size` bytes in whichever direction this serializer runs.

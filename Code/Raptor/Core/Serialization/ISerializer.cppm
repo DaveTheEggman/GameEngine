@@ -12,6 +12,7 @@ export module raptor.core:iserializer;
 
 import :base;
 import :string;
+import :guid;
 
 export namespace raptor::core
 {
@@ -65,5 +66,10 @@ export namespace raptor::core
 
         // Moves an opaque byte blob (raw in binary; e.g. base64 in text).
         virtual void Blob(void* data, usize size) = 0;
+
+        // Moves a Guid as a backend-chosen primitive (Traktor-style): binary writes the raw 16
+        // bytes (compact); text writes the canonical 36-char string (readable, one copyable value).
+        // The Serializer base provides the text default; binary overrides for compactness.
+        virtual void GuidValue(Guid& value) = 0;
     };
 }

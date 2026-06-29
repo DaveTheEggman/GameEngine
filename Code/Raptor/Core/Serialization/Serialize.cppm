@@ -23,6 +23,7 @@ import :mat4;
 import :quat;
 import :string;
 import :array;
+import :guid;
 
 export namespace raptor::core
 {
@@ -117,6 +118,10 @@ export namespace raptor::core
         for (u32 i = 0; i < n; ++i) { Serialize(ar, m.Data()[i]); }
         ar.EndArray();
     }
+
+    // Guid: a backend-chosen primitive (Traktor-style) — compact raw 16 bytes in binary, canonical
+    // 36-char string in text. One copyable value, usable anywhere a guid reference is needed.
+    inline void Serialize(ISerializer& ar, Guid& g) { ar.GuidValue(g); }
 
     // ISerializable: dispatch to the object's own Serialize(), so serializable
     // members compose with Serialize(ar, "key", member) like any other type.

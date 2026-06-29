@@ -10,6 +10,8 @@ export module raptor.core:serializer;
 
 export import :iserializer;
 import :base;
+import :string;
+import :guid;
 
 export namespace raptor::core
 {
@@ -36,6 +38,25 @@ export namespace raptor::core
         void BeginObject() override {}
         void EndObject() override {}
         void EndArray() override {}
+
+        // Default Guid representation: the canonical 36-char string (readable in text backends).
+        // BinarySerializer overrides this with the compact raw-16-bytes form.
+        void GuidValue(Guid& value) override
+        {
+            String text;
+            if (m_mode == SerializeMode::Write)
+            {
+                utf8char buffer[37];
+                value.ToChars(buffer);
+                text = String{ StringView{ buffer, 36 } };
+            }
+            Text(text);
+            if (m_mode == SerializeMode::Read)
+            {
+                Guid parsed{};
+                if (Guid::TryParse(text.AsView(), parsed)) { value = parsed; }
+            }
+        }
 
     protected:
         void Fail(ErrorCode code) noexcept
