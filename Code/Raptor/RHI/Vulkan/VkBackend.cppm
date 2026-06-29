@@ -172,6 +172,8 @@ private:
 
     Status init(bool enableValidation) {
         m_validationEnabled = enableValidation;
+        // Announce validation state so a perf run can confirm the layers are OFF (they add real overhead).
+        std::fprintf(stderr, "[Vulkan] validation layers: %s\n", enableValidation ? "ENABLED" : "DISABLED");
 
         // ---- Application info ----
         VkApplicationInfo appInfo{};
