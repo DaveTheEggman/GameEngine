@@ -23,11 +23,13 @@ import raptor.geometry.resource;       // StaticMeshFactory + StaticMesh product
 import raptor.materials;
 import raptor.materials.resource;       // MaterialFactory (cooked materials)
 import raptor.texture.resource;         // TextureFactory (cooked textures)
+import raptor.animation.resource;       // Skeleton/AnimationClip factories
 import raptor.vfs;                      // NativeFileSystem mount for the content DB
 import raptor.content;                  // ContentDatabase (cooked-resource output)
 import raptor.resource;                 // ResourceManager + Proxy
 import raptor.model;                    // ModelLoadResult
 import raptor.modelimporter;            // LoadAndCook + ImportedModel manifest
+import raptor.animation;                // AnimationPlayer (drives GPU skinning)
 
 #include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
 
@@ -50,8 +52,9 @@ namespace tex = raptor::texture;
 namespace vfs = raptor::vfs;
 namespace ct  = raptor::content;
 namespace res = raptor::resource;
-namespace mdl = raptor::model;
-namespace mi  = raptor::modelimporter;
+namespace mdl  = raptor::model;
+namespace mi   = raptor::modelimporter;
+namespace anim = raptor::animation;
 
 namespace
 {
@@ -212,8 +215,11 @@ namespace
             m_contentDb = rc::MakeUnique<ct::ContentDatabase>(rc::DefaultAllocator(), *m_contentFs);
             m_resources = rc::MakeUnique<res::ResourceManager>(rc::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
+            m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
             m_resources->AddFactory(&m_materialFactory);
+            m_resources->AddFactory(&m_skeletonFactory);
+            m_resources->AddFactory(&m_clipFactory);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
                 m_textureFactory = rc::MakeUnique<tex::TextureFactory>(rc::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
@@ -223,6 +229,7 @@ namespace
             // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
             SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vec3{ -5.0f, -4.0f, 6.0f });
             SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vec3{  5.0f, -7.0f, 6.0f });
+            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, -7.0f, 12.0f });
         }
 
         // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model
@@ -234,8 +241,10 @@ namespace
             if (meshes == nullptr || m_contentDb.Get() == nullptr) { return; }
 
             rc::Guid modelGuid;
-            if (mi::LoadAndCook(path, *m_contentDb, prefix, modelGuid) != mdl::ModelLoadResult::Ok) {
-                rc::ConsoleWrite(u8"Sandbox: model import failed\n");
+            const mdl::ModelLoadResult r = mi::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+            if (r != mdl::ModelLoadResult::Ok) {
+                rc::ConsoleWrite(rc::Format(u8"Sandbox: model import failed ({}) for {}\n",
+                                            static_cast<rc::u32>(r), prefix));
                 return;
             }
             res::Proxy<mi::ModelResource> model = m_resources->Bind<mi::ModelResource>(modelGuid);
@@ -253,7 +262,14 @@ namespace
             rootT.scale    = rc::Vec3{ fit, fit, fit };
             m_scene->SetLocalTransform(modelRoot, rootT);
 
+            // All the model's materials, indexed by SubMesh::materialIndex (= model material index) for
+            // per-submesh (multi-material) rendering. The resource manager keeps them alive via m_models.
+            rc::Array<rc::RefPtr<mat::Material>> modelMats;
+            modelMats.Reserve(model->materials.Size());
+            for (auto& mp : model->materials) { modelMats.PushBack(rc::RefPtr<mat::Material>(mp.Get())); }
+
             rc::Array<sc::EntityHandle> entities;
+            rc::Array<sc::EntityHandle> skinnedEntities;
             entities.Reserve(model->nodes.Size());
             for (const mi::ModelNode& node : model->nodes) {
                 sc::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
@@ -274,6 +290,9 @@ namespace
                 mc.mesh  = rc::RefPtr<geo::StaticMesh>(mesh);   // hold a ref (manager owns the handle)
                 mc.color = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 
+                // Per-submesh materials (the mesh's submeshes index modelMats); + a single-material
+                // fallback (first submesh's material) for the whole-mesh path.
+                mc.submeshMaterials = modelMats;
                 const rc::i32 matIdx = (static_cast<rc::usize>(node.meshIndex) < model->meshMaterial.Size())
                                            ? model->meshMaterial[static_cast<rc::usize>(node.meshIndex)] : -1;
                 if (matIdx >= 0 && static_cast<rc::usize>(matIdx) < model->materials.Size()) {
@@ -281,8 +300,20 @@ namespace
                         mc.material = rc::RefPtr<mat::Material>(material);
                     }
                 }
+                if (mesh->IsSkinned()) { skinnedEntities.PushBack(entities[i]); }
             }
             m_models.PushBack(model);   // keep the model (and its resources) alive
+
+            // If the model is skinned + animated, drive it: one AnimationPlayer over its skeleton plays
+            // the first clip, and each frame feeds its skinning matrices to the skinned mesh components.
+            if (model->skeleton && model->animations.Size() > 0 && model->animations[0] &&
+                skinnedEntities.Size() > 0) {
+                AnimatedModel am;
+                am.player = rc::MakeUnique<anim::AnimationPlayer>(rc::DefaultAllocator(), *model->skeleton.Get());
+                am.player->Play(model->animations[0].Get());
+                am.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
+                m_animated.PushBack(static_cast<AnimatedModel&&>(am));
+            }
         }
 
         // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
@@ -376,6 +407,24 @@ namespace
             }
 
             if (m_scene == nullptr) { return; }
+
+            // Drive skinned models: advance each animation player, then hand its per-bone skinning
+            // matrices to the model's skinned mesh components (borrowed for the frame; extraction copies
+            // the pointer, the renderer uploads them to the bone pool).
+            if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
+                for (AnimatedModel& am : m_animated) {
+                    if (am.player.Get() == nullptr) { continue; }
+                    am.player->Update(deltaTime);
+                    const rc::Span<const rc::Mat4> mats = am.player->GetSkinningMatrices();
+                    for (sc::EntityHandle e : am.meshEntities) {
+                        if (rd::MeshComponent* mc = meshes->Get(e)) {
+                            mc->boneMatrices = mats.Data();
+                            mc->boneCount    = static_cast<rc::u32>(mats.Size());
+                        }
+                    }
+                }
+            }
+
             m_angle += deltaTime;
             const rc::Quat spin = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);
             for (sc::EntityHandle cube : m_cubes) {
@@ -472,10 +521,21 @@ namespace
         rc::UniquePtr<ct::ContentDatabase>   m_contentDb;
         rc::UniquePtr<res::ResourceManager>  m_resources;
         geo::StaticMeshFactory               m_meshFactory;
+        geo::SkinnedMeshFactory              m_skinnedMeshFactory;
         mat::MaterialFactory                 m_materialFactory;
+        anim::SkeletonFactory                m_skeletonFactory;
+        anim::AnimationClipFactory           m_clipFactory;
         rc::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
         mi::ModelFactory                     m_modelFactory;
         rc::Array<res::Proxy<mi::ModelResource>> m_models;   // keep cooked models + their resources alive
+
+        // A spawned skinned+animated model: a player over its skeleton + the skinned mesh entities it
+        // feeds. Driven each frame in OnUpdate (Update -> GetSkinningMatrices -> MeshComponent).
+        struct AnimatedModel {
+            rc::UniquePtr<anim::AnimationPlayer> player;
+            rc::Array<sc::EntityHandle>          meshEntities;
+        };
+        rc::Array<AnimatedModel>             m_animated;
         rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)
     };
 }
