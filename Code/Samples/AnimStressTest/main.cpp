@@ -116,68 +116,19 @@ namespace
                 fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
             }
 
-            // Lights: a dim directional key (down-forward) + a bright point light that orbits the
-            // grid in OnUpdate, so the per-light forward shade is visible (moving highlight).
+            // One directional shadow-casting key light — the whole scene (skinning benchmark, kept light
+            // to isolate skinning/animation cost, à la Flax's "5,000 basic characters" reference scene).
             if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                 sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 rc::Transform kt = m_scene->GetLocalTransform(key);
-                kt.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.6f);
+                kt.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.9f)
+                            * rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, 0.5f);
                 m_scene->SetLocalTransform(key, kt);
                 rd::LightComponent& kl = lights->Add(key);
-                kl.type = rd::LightType::Directional;
-                kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
-                kl.intensity = 0.5f;                        // key light: bright enough that its shadow reads
-                kl.castsShadows = true;                     // directional CSM (5.2) + spot (5.3a) + point cube (5.3b)
-
-                // A field of point lights hovering above the floor (X-Z grid) — the clustered
-                // light-culling demo. Each fragment only evaluates the lights in its froxel, so this
-                // scales far better than an all-lights loop. Each casts a colored pool on the floor.
-                constexpr int kCols = 6, kRows = 3;         // 18 point lights over the floor
-                for (int j = 0; j < kRows; ++j) {
-                    for (int i = 0; i < kCols; ++i) {
-                        sc::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
-                        const rc::f32 fi = static_cast<rc::f32>(i) / (kCols - 1);
-                        const rc::f32 fj = static_cast<rc::f32>(j) / (kRows - 1);
-                        const rc::Vec3 base{ -15.0f + 30.0f * fi, -1.5f, -2.0f + 16.0f * fj };  // hover above floor
-                        m_scene->SetLocalPosition(e, base);
-                        rd::LightComponent& pl = lights->Add(e);
-                        pl.type = rd::LightType::Point;
-                        pl.color = rc::Color{ 0.4f + 0.6f * fi, 0.4f + 0.6f * fj, 1.0f - 0.6f * fi, 1.0f };
-                        pl.intensity = 22.0f;
-                        pl.range = 8.0f;                    // floor pool radius ~= sqrt(range^2 - dist^2)
-                        m_pointLights.PushBack(e);
-                        m_lightBases.PushBack(base);
-                    }
-                }
-
-                // A bright spot light overhead, aimed down at the floor boxes/spheres — the phase 5.3
-                // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
-                // floor (distinct from the directional CSM), packed into the local-shadow atlas.
-                sc::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
-                m_scene->SetLocalPosition(spot, rc::Vec3{ 0.0f, 7.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
-                rc::Transform st = m_scene->GetLocalTransform(spot);
-                st.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
-                m_scene->SetLocalTransform(spot, st);
-                rd::LightComponent& sl = lights->Add(spot);
-                sl.type         = rd::LightType::Spot;
-                sl.color        = rc::Color{ 1.0f, 0.92f, 0.78f, 1.0f };   // warm, to contrast the blue key
-                sl.intensity    = 180.0f;                                  // inverse-square over ~14u to the floor
-                sl.range        = 30.0f;
-                sl.innerAngle   = 0.55f;
-                sl.outerAngle   = 0.75f;                                   // wide cone: cover both the box + sphere rows
-                sl.castsShadows = true;                                     // spot atlas shadow caster (5.3a)
-                sl.shadowUpdate = rd::ShadowUpdateMode::Static;            // static scene -> cached atlas layer (5.4b)
-
-                // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
-                // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
-                sc::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
-                m_scene->SetLocalPosition(pt, rc::Vec3{ 4.0f, -2.0f, 13.0f });
-                rd::LightComponent& pls = lights->Add(pt);
-                pls.type         = rd::LightType::Point;
-                pls.color        = rc::Color{ 0.5f, 1.0f, 0.6f, 1.0f };     // green, distinct from the warm spot
-                pls.intensity    = 40.0f;
-                pls.range        = 16.0f;
-                pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
+                kl.type         = rd::LightType::Directional;
+                kl.color        = rc::Color{ 1.0f, 0.97f, 0.92f, 1.0f };
+                kl.intensity    = 2.5f;
+                kl.castsShadows = true;   // directional CSM
             }
 
             LoadImportedModel(host);   // cook the character + spawn the initial grid
@@ -454,18 +405,6 @@ namespace
                 }
             }
 
-            m_angle += deltaTime;
-            // Bob each point light in Z (depth) on its own phase, so the lights cross froxel depth
-            // slices every frame — exercising the per-frame cluster rebuild, not a static binning.
-            // Sweep the whole light field left/right (so the colored pools clearly slide as a
-            // group — easy confirmation that pools exist and track the lights) + a gentle Z-bob.
-            const rc::f32 sweep = 5.0f * rc::Sin(m_angle * 0.6f);
-            for (rc::usize k = 0; k < m_pointLights.Size(); ++k) {
-                rc::Vec3 p = m_lightBases[k];
-                p.x += sweep;
-                p.z += 0.8f * rc::Sin(m_angle * 1.3f + static_cast<rc::f32>(k) * 0.5f);
-                m_scene->SetLocalPosition(m_pointLights[k], p);
-            }
         }
 
         void OnShutdown(rt::IApplicationHost& host) override
@@ -477,9 +416,6 @@ namespace
     private:
         sc::Scene*                  m_scene = nullptr;
         sc::EntityHandle            m_camera{};
-        rc::Array<sc::EntityHandle> m_pointLights;
-        rc::Array<rc::Vec3>         m_lightBases;
-        rc::f32                     m_angle = 0.0f;
         smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns

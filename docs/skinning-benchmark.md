@@ -86,7 +86,12 @@ multi-material rendering.
 
 | Build | Validation | BEFORE | AFTER | Gain |
 |-------|-----------|--------|-------|------|
-| **RelWithDebInfo** | off | 1,683 | **3,120 chars @ 50 fps** | **+85% (1.85×)** |
+| **RelWithDebInfo** | off | 1,683 | **~3,100 chars @ 50 fps** | **+85% (1.85×)** |
+
+(Baseline + before/after measured on the original heavy scene — 18 clustered point lights + spot +
+point-cube shadows. The scene was then **lightened to one directional shadow light + floor +
+characters** to isolate skinning, matching Flax's "basic characters" reference. The threshold barely
+moved — ~3,045 lightened vs ~3,120 heavy — which proves the scene was never lighting-bound.)
 
 ### Frame breakdown @ 1,000 chars (RelWithDebInfo, validation off) — 86 → 143 fps (11.66 → 7.0 ms)
 
@@ -102,6 +107,19 @@ The render-CPU cost collapsed (~4× on `Compose.Execute`): bones upload once, an
 draw instanced. The frame is now **`Anim.Drive`-bound** (the per-player skeleton evaluation, recomputed
 on the CPU every frame) plus the scene transform-update over the ~34-entities-per-character hierarchy —
 the next two frontiers (CPU-side animation eval / collapsing the per-character entity count).
+
+### Lightened scene (1 directional light) — confirms NOT lighting-bound
+
+Frame breakdown @ 1,000 chars (RelWithDebInfo) — 151 fps / 6.6 ms:
+```
+Update:   3.34 ms  (Anim.Drive 3.15 ms — per-character, light-independent)
+Render:   2.39 ms  (Compose.Execute 0.52 ms; Render.Acquire 1.17 ms = GPU backpressure)
+GPU:      5.29 ms  (shadow.cascade ×4 ~3.81 ms  <- dominant; forward 1.39; cluster.build 0.06)
+```
+GPU is essentially unchanged from the heavy scene (5.29 vs 5.41 ms) — the 18 point lights + spot +
+point-cube shadows cost ~0.1 ms. The real GPU cost is the **4-cascade CSM**, which re-draws every
+character's depth four times (a char-scaled cost). So beyond the CPU frontiers, fewer cascades / tighter
+per-cascade caster culling is the GPU lever — not lighting.
 
 Prev-frame bone matrices are stored + flowed (`DataOffsets.z`) but not yet consumed by a velocity
 target; when a motion-vector pass lands it's a shader-only change.
