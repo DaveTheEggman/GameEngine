@@ -11,6 +11,8 @@ import raptor.content;
 import raptor.resource;
 import raptor.geometry;
 import raptor.geometry.resource;
+import raptor.animation;
+import raptor.animation.resource;
 import raptor.model;
 import raptor.modelimporter;
 
@@ -24,6 +26,9 @@ namespace mi  = raptor::modelimporter;
 
 #ifndef RAPTOR_MI_TEST_DUCK
 #define RAPTOR_MI_TEST_DUCK ""
+#endif
+#ifndef RAPTOR_MI_TEST_FOX
+#define RAPTOR_MI_TEST_FOX ""
 #endif
 
 TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource system")
@@ -66,4 +71,52 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
         }
     }
     CHECK(sawMesh);
+}
+
+TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
+{
+    const StringView fox(reinterpret_cast<const utf8char*>(RAPTOR_MI_TEST_FOX));
+    if (fox.IsEmpty()) { return; }
+
+    mi::RegisterModelImporterTypes();
+
+    vfs::NativeFileSystem mount(u8"raptor_modelimporter_fox_db");
+    ct::ContentDatabase db(mount);
+
+    Guid modelGuid;
+    REQUIRE(mi::LoadAndCook(fox, db, u8"Fox", modelGuid) == mdl::ModelLoadResult::Ok);
+
+    res::ResourceManager manager(db);
+    geo::StaticMeshFactory   meshFactory;
+    geo::SkinnedMeshFactory  skinnedFactory;
+    mi::ModelFactory         modelFactory;
+    raptor::animation::SkeletonFactory      skeletonFactory;
+    raptor::animation::AnimationClipFactory clipFactory;
+    manager.AddFactory(&meshFactory);
+    manager.AddFactory(&skinnedFactory);
+    manager.AddFactory(&modelFactory);
+    manager.AddFactory(&skeletonFactory);
+    manager.AddFactory(&clipFactory);
+
+    res::Proxy<mi::ModelResource> model = manager.Bind<mi::ModelResource>(modelGuid);
+    REQUIRE(model);
+
+    // The Fox is skinned + animated: a resolved skeleton with bones + animation clips.
+    REQUIRE(model->skeleton);
+    CHECK(model->skeleton->BoneCount() > 0);
+    CHECK(model->animations.Size() > 0);
+    for (const auto& clip : model->animations) { REQUIRE(clip); CHECK(clip->duration > 0.0f); }
+
+    // The mesh is flagged skinned + resolved as a SkinnedMesh (skin stream present).
+    REQUIRE(model->meshes.Size() > 0);
+    bool anySkinned = false;
+    for (usize i = 0; i < model->meshSkinned.Size(); ++i) {
+        if (model->meshSkinned[i] != 0) {
+            anySkinned = true;
+            geo::StaticMesh* mesh = model->meshes[i].Get();
+            REQUIRE(mesh != nullptr);
+            CHECK(mesh->IsSkinned());
+        }
+    }
+    CHECK(anySkinned);
 }

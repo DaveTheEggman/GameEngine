@@ -7,6 +7,7 @@
 export module raptor.modelimporter;
 
 export import :mesh_convert;
+export import :anim_convert;
 export import :resource;
 export import :cook;
 export import :load;

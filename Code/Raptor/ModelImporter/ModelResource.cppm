@@ -21,14 +21,17 @@ import raptor.materials;
 import raptor.materials.resource;
 import raptor.texture;
 import raptor.texture.resource;
+import raptor.animation;
+import raptor.animation.resource;
 import raptor.resource;
 import raptor.content;
 
 using namespace raptor::core;
 using namespace raptor::resource;
-namespace geo = raptor::geometry;
-namespace mat = raptor::materials;
-namespace tex = raptor::texture;
+namespace geo  = raptor::geometry;
+namespace mat  = raptor::materials;
+namespace tex  = raptor::texture;
+namespace anim = raptor::animation;
 
 export namespace raptor::modelimporter {
 
@@ -62,6 +65,8 @@ public:
     Array<Guid>      materialGuids; // cooked material resources
     Array<Guid>      materialAlbedo;// albedo texture per material (nil = none); parallel to materialGuids
     Array<ModelNode> nodes;         // node hierarchy
+    Guid             skeletonGuid;  // cooked skeleton (nil if the model has no skin)
+    Array<Guid>      animationGuids;// cooked animation clips
     Vec3             boundsMin{};   // model-space AABB (for spawn-time auto-fit/placement)
     Vec3             boundsMax{};
 
@@ -73,6 +78,8 @@ public:
         raptor::core::Serialize(ar, "materialGuids",  materialGuids);
         raptor::core::Serialize(ar, "materialAlbedo", materialAlbedo);
         raptor::core::Serialize(ar, "nodes",          nodes);
+        raptor::core::Serialize(ar, "skeletonGuid",   skeletonGuid);
+        raptor::core::Serialize(ar, "animationGuids", animationGuids);
         raptor::core::Serialize(ar, "boundsMin",      boundsMin);
         raptor::core::Serialize(ar, "boundsMax",      boundsMax);
     }
@@ -85,10 +92,12 @@ class ModelResource final : public Object {
     RAPTOR_OBJECT(ModelResource, Object)
 public:
     Array<ModelNode>               nodes;
-    Array<Proxy<geo::StaticMesh>>  meshes;
+    Array<RefPtr<geo::StaticMesh>> meshes;         // base ptr (a SkinnedMesh upcasts here); skinned via meshSkinned
     Array<u8>                      meshSkinned;
     Array<i32>                     meshMaterial;   // material index per mesh (-1 = none)
     Array<Proxy<mat::Material>>    materials;      // resolved materials (albedo wired as default texture)
+    Proxy<anim::Skeleton>          skeleton;       // resolved skeleton (null if not skinned)
+    Array<Proxy<anim::AnimationClip>> animations; // resolved animation clips
     Vec3                           boundsMin{};
     Vec3                           boundsMax{};
 };
@@ -109,7 +118,20 @@ public:
         for (const ModelNode& n : src->nodes)        { model->nodes.PushBack(n); }
         for (const u8 s : src->meshSkinned)          { model->meshSkinned.PushBack(s); }
         for (const i32 m : src->meshMaterial)        { model->meshMaterial.PushBack(m); }
-        for (const Guid& g : src->meshGuids)         { model->meshes.PushBack(manager.Bind<geo::StaticMesh>(g)); }
+
+        // Resolve meshes (skinned ones bind as SkinnedMesh, stored as the StaticMesh base; the renderer
+        // checks IsSkinned() + uploads the skin stream). Bind records the model->mesh dependency edge.
+        for (usize i = 0; i < src->meshGuids.Size(); ++i) {
+            const bool skinned = (i < src->meshSkinned.Size() && src->meshSkinned[i] != 0);
+            geo::StaticMesh* mesh = skinned
+                ? static_cast<geo::StaticMesh*>(manager.Bind<geo::SkinnedMesh>(src->meshGuids[i]).Get())
+                : manager.Bind<geo::StaticMesh>(src->meshGuids[i]).Get();
+            model->meshes.PushBack(RefPtr<geo::StaticMesh>(mesh));
+        }
+
+        // Resolve the skeleton + animation clips (composite edges).
+        if (!src->skeletonGuid.IsNil()) { model->skeleton = manager.Bind<anim::Skeleton>(src->skeletonGuid); }
+        for (const Guid& g : src->animationGuids) { model->animations.PushBack(manager.Bind<anim::AnimationClip>(g)); }
 
         // Resolve materials + wire their albedo texture in as the material's default (the renderer's
         // per-material instance reads default textures, so no per-instance assignment is needed).
@@ -149,6 +171,7 @@ inline void RegisterModelImporterTypes()
     RegisterSerializable<geo::SkinnedMeshSource>();
     GlobalTypeRegistry().Register(geo::StaticMesh::StaticType());
     GlobalTypeRegistry().Register(geo::SkinnedMesh::StaticType());
+    RegisterSerializable<geo::SkinnedMeshSource>();
 
     GlobalTypeRegistry().Register(mat::MaterialSource::StaticType());
     RegisterSerializable<mat::MaterialSource>();
@@ -157,6 +180,13 @@ inline void RegisterModelImporterTypes()
     GlobalTypeRegistry().Register(tex::TextureResource::StaticType());
     RegisterSerializable<tex::TextureResource>();
     GlobalTypeRegistry().Register(tex::Texture::StaticType());
+
+    GlobalTypeRegistry().Register(anim::SkeletonSource::StaticType());
+    RegisterSerializable<anim::SkeletonSource>();
+    GlobalTypeRegistry().Register(anim::Skeleton::StaticType());
+    GlobalTypeRegistry().Register(anim::AnimationClipSource::StaticType());
+    RegisterSerializable<anim::AnimationClipSource>();
+    GlobalTypeRegistry().Register(anim::AnimationClip::StaticType());
 }
 
 } // namespace raptor::modelimporter

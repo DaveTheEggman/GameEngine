@@ -25,19 +25,24 @@ import raptor.materials;
 import raptor.materials.resource;
 import raptor.materials.editor;
 import raptor.texture.resource;
+import raptor.animation;
+import raptor.animation.resource;
+import raptor.animation.editor;
 import raptor.content;
 import raptor.editor;
 import :mesh_convert;
+import :anim_convert;
 import :resource;
 
 using namespace raptor::core;
-namespace rhi = raptor::rhi;
-namespace mdl = raptor::model;
-namespace geo = raptor::geometry;
-namespace mat = raptor::materials;
-namespace tex = raptor::texture;
-namespace ct  = raptor::content;
-namespace ed  = raptor::editor;
+namespace rhi  = raptor::rhi;
+namespace mdl  = raptor::model;
+namespace geo  = raptor::geometry;
+namespace mat  = raptor::materials;
+namespace tex  = raptor::texture;
+namespace anim = raptor::animation;
+namespace ct   = raptor::content;
+namespace ed   = raptor::editor;
 
 export namespace raptor::modelimporter {
 
@@ -130,23 +135,62 @@ inline void CookMaterials(const mdl::Model& model, ct::Group* root, StringView n
     CookTextures(model, root, namePrefix, textureGuids);
     CookMaterials(model, root, namePrefix, textureGuids, manifest.materialGuids, manifest.materialAlbedo);
 
-    geo::StaticMeshAssetBuilder meshBuilder;
+    // Skeleton + animations (skin 0 only for now). The skeleton's bone order = the skin's joint order;
+    // animation channels + bone parents are remapped from model bone indices into joint indices.
+    HashMap<i32, i32> boneToJoint;
+    const bool hasSkin = model.skins().Size() > 0;
+    if (hasSkin) {
+        const mdl::ModelSkin& skin = *model.skins()[0];
+        boneToJoint = BuildBoneToJoint(skin);
+
+        anim::SkeletonAsset skelAsset;
+        SkeletonSourceFromModel(model, skin, boneToJoint, skelAsset.source);
+        anim::SkeletonAssetBuilder skelBuilder;
+        ct::Instance* skelInst = root->CreateInstance(Format(u8"{}.skeleton", namePrefix).AsView(), anim::SkeletonSource::StaticType());
+        if (skelInst != nullptr) {
+            ed::AssetBuildContext ctx{ StringView{}, skelInst };
+            if (skelBuilder.Build(skelAsset, ctx).IsOk()) { manifest.skeletonGuid = skelInst->Id(); }
+        }
+
+        anim::AnimationClipAssetBuilder clipBuilder;
+        const Span<mdl::ModelAnimation* const> animations = model.animations();
+        for (usize a = 0; a < animations.Size(); ++a) {
+            anim::AnimationClipAsset clipAsset;
+            AnimationClipSourceFromModel(*animations[a], boneToJoint, Format(u8"{}.anim.{}", namePrefix, a).AsView(), clipAsset.source);
+            ct::Instance* clipInst = root->CreateInstance(Format(u8"{}.anim.{}", namePrefix, a).AsView(), anim::AnimationClipSource::StaticType());
+            if (clipInst == nullptr) { continue; }
+            ed::AssetBuildContext ctx{ StringView{}, clipInst };
+            if (clipBuilder.Build(clipAsset, ctx).IsOk()) { manifest.animationGuids.PushBack(clipInst->Id()); }
+        }
+    }
+
+    geo::StaticMeshAssetBuilder  meshBuilder;
+    geo::SkinnedMeshAssetBuilder skinnedBuilder;
     const Span<mdl::ModelMesh* const> meshes = model.meshes();
     for (usize i = 0; i < meshes.Size(); ++i) {
         const mdl::ModelMesh& m = *meshes[i];
-
-        geo::StaticMeshAsset asset;
-        StaticMeshSourceFromModel(m, asset.source);
-
+        const bool skinned = IsSkinnedMesh(m) && hasSkin;
         const String name = Format(u8"{}.mesh.{}", namePrefix, i);
-        ct::Instance* inst = root->CreateInstance(name.AsView(), geo::StaticMeshSource::StaticType());
+
+        ct::Instance* inst = root->CreateInstance(name.AsView(),
+            skinned ? geo::SkinnedMeshSource::StaticType() : geo::StaticMeshSource::StaticType());
         if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
         ed::AssetBuildContext ctx{ StringView{}, inst };
-        const Status s = meshBuilder.Build(asset, ctx);
+
+        Status s;
+        if (skinned) {
+            geo::SkinnedMeshAsset asset;
+            SkinnedMeshSourceFromModel(m, /*skeletonIndex*/ 0, asset.source);
+            s = skinnedBuilder.Build(asset, ctx);
+        } else {
+            geo::StaticMeshAsset asset;
+            StaticMeshSourceFromModel(m, asset.source);
+            s = meshBuilder.Build(asset, ctx);
+        }
         if (!s.IsOk()) { return s; }
 
         manifest.meshGuids.PushBack(inst->Id());
-        manifest.meshSkinned.PushBack(IsSkinnedMesh(m) ? u8{ 1 } : u8{ 0 });
+        manifest.meshSkinned.PushBack(skinned ? u8{ 1 } : u8{ 0 });
         // One material per mesh for now: the first submesh's material (single-material models).
         const Span<const mdl::ModelMeshPart> parts = m.parts();
         manifest.meshMaterial.PushBack(parts.Size() > 0 ? parts[0].materialIndex : -1);

@@ -14,12 +14,14 @@ target_link_libraries(RaptorModelImporter
         Raptor::Geometry  Raptor::MeshResource     Raptor::MeshEditor
         Raptor::Materials Raptor::MaterialResource Raptor::MaterialEditor
         Raptor::TextureResource  Raptor::TextureEditor  Raptor::Image
+        Raptor::Animation Raptor::AnimationResource Raptor::AnimationEditor
         Raptor::Content   Raptor::Resource   Raptor::Editor)
 
 target_sources(RaptorModelImporter
     PUBLIC
         FILE_SET modelimporter_modules TYPE CXX_MODULES FILES
             MeshConvert.cppm
+            AnimConvert.cppm
             ModelResource.cppm
             Cook.cppm
             Load.cppm
