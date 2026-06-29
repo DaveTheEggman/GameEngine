@@ -22,7 +22,8 @@ namespace rhi = raptor::rhi;
 export namespace raptor::render {
 
 // GPU location of one mesh, ready to bind + draw: the (pooled) vertex + index buffers and the
-// byte offsets of this mesh's streams within them.
+// byte offsets of this mesh's streams within them. Skinned meshes also carry a parallel skinning
+// stream (joints+weights) in a second vertex buffer (bound at slot 1 by the SKINNED pipeline).
 struct GpuMesh {
     rhi::Buffer*     vertexBuffer = nullptr;
     u64              vertexOffset = 0;
@@ -30,6 +31,8 @@ struct GpuMesh {
     u64              indexOffset  = 0;
     u32              indexCount   = 0;
     rhi::IndexFormat indexFormat  = rhi::IndexFormat::UInt32;
+    rhi::Buffer*     skinBuffer   = nullptr;   // skinning stream (null = static mesh)
+    u64              skinOffset   = 0;
 };
 
 class GpuMeshCache {
@@ -37,7 +40,8 @@ public:
     explicit GpuMeshCache(rhi::Device& device) noexcept
         : m_queue(device.GetQueue(rhi::QueueType::Graphics)),
           m_vertexPool(device, rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, kVertexChunk, u8"mesh.vertexPool"),
-          m_indexPool(device, rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst, kIndexChunk, u8"mesh.indexPool") {}
+          m_indexPool(device, rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst, kIndexChunk, u8"mesh.indexPool"),
+          m_skinPool(device, rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, kVertexChunk, u8"mesh.skinPool") {}
 
     ~GpuMeshCache() { Clear(); }
 
@@ -54,18 +58,32 @@ public:
         const GpuBufferPool::Alloc idx = m_indexPool.Allocate(mesh->indices.DataSize(), kIndexAlign);
         if (!v.ok || !idx.ok) { return nullptr; }
 
+        // Skinned meshes carry a parallel skin stream (joints+weights), uploaded to a second pool.
+        const Span<const geometry::VertexSkinning> skin = mesh->SkinningStream();
+        GpuBufferPool::Alloc sk{};
+        const bool hasSkin = mesh->IsSkinned() && !skin.IsEmpty();
+        if (hasSkin) {
+            sk = m_skinPool.Allocate(skin.Size() * sizeof(geometry::VertexSkinning), kVertexAlign);
+            if (!sk.ok) { return nullptr; }
+        }
+
         GpuMesh g;
         g.vertexBuffer = v.buffer;   g.vertexOffset = v.offset;
         g.indexBuffer  = idx.buffer; g.indexOffset  = idx.offset;
         g.indexCount   = mesh->IndexCount();
         g.indexFormat  = (mesh->indices.GetFormat() == geometry::IndexBuffer::Format::U16)
                             ? rhi::IndexFormat::UInt16 : rhi::IndexFormat::UInt32;
+        if (hasSkin) { g.skinBuffer = sk.buffer; g.skinOffset = sk.offset; }
 
         if (m_queue != nullptr) {
             rhi::TransferBatch* tb = nullptr;
             if (m_queue->CreateTransferBatch(tb).IsOk() && tb != nullptr) {
                 tb->WriteBuffer(g.vertexBuffer, g.vertexOffset, Span<const u8>{ mesh->VertexData(), mesh->VertexDataSize() });
                 tb->WriteBuffer(g.indexBuffer, g.indexOffset, Span<const u8>{ mesh->indices.RawData(), mesh->indices.DataSize() });
+                if (hasSkin) {
+                    tb->WriteBuffer(g.skinBuffer, g.skinOffset,
+                                    Span<const u8>{ reinterpret_cast<const u8*>(skin.Data()), skin.Size() * sizeof(geometry::VertexSkinning) });
+                }
                 (void)tb->Submit();
                 m_queue->DestroyTransferBatch(tb);
             }
@@ -79,6 +97,7 @@ public:
     void Clear() {
         m_vertexPool.Clear();
         m_indexPool.Clear();
+        m_skinPool.Clear();
         m_cache.Clear();
     }
 
@@ -93,6 +112,7 @@ private:
     rhi::Queue*   m_queue;
     GpuBufferPool m_vertexPool;
     GpuBufferPool m_indexPool;
+    GpuBufferPool m_skinPool;   // skinning streams (joints+weights) for skinned meshes
     HashMap<geometry::StaticMesh*, GpuMesh> m_cache;
 };
 
