@@ -17,6 +17,8 @@ target_link_libraries(Sandbox PRIVATE
     Draconic::RenderSubsystem
     Draconic::AnimationSubsystem
     Draconic::Imgui
+    Draconic::Image
+    Draconic::ImageIO
     Draconic::Geometry
     Draconic::Materials
     Draconic::ModelImporter
@@ -34,6 +36,7 @@ target_link_libraries(Sandbox PRIVATE
 # the raw model files (read by the loaders) + the cooked-resource output database.
 target_compile_definitions(Sandbox PRIVATE
     DRACONIC_SANDBOX_MODEL_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/models"
+    DRACONIC_SANDBOX_ENV_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/environment"
     DRACONIC_SANDBOX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output")
 
 draconic_copy_sdl3_dll(Sandbox)

@@ -20,6 +20,8 @@ import draconic.scene.subsystem;
 import draconic.render.subsystem;       // MeshComponent / CameraComponent + their managers
 import draconic.animation.subsystem;    // SkeletalAnimation/AnimationGraph components (engine-driven skinning)
 import draconic.imgui;                   // ImguiSubsystem (debug UI)
+import draconic.image;                   // Image (HDR equirect pixels)
+import draconic.image.io;                // LoadImage
 import draconic.render;                  // ViewCamera / ViewportRect (split-screen overrides)
 import draconic.geometry;
 import draconic.geometry.resource;       // StaticMeshFactory + StaticMesh product
@@ -94,6 +96,22 @@ namespace
                 e.skyZenith    = rc::Color{ 0.18f, 0.34f, 0.68f, 1.0f };
                 e.skyGround    = rc::Color{ 0.28f, 0.26f, 0.24f, 1.0f };
                 e.sunIntensity = 1.0f;
+            }
+
+            // Load an HDR equirectangular environment so F5 can cycle to it (mode starts Procedural).
+            if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                rc::String hdrPath = rc::Format(u8"{}/BlueSky.hdr",
+                    rc::StringView(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
+                draconic::image::Image img;
+                if (draconic::image::io::LoadImage(hdrPath.AsView(), img).IsOk() && img.Format() == draconic::image::PixelFormat::RGBA32F) {
+                    const rc::Span<const rc::u8> px = img.PixelData();
+                    const rc::Span<const rc::f32> rgba{ reinterpret_cast<const rc::f32*>(px.Data()), px.Size() / sizeof(rc::f32) };
+                    render->SetSkyEquirect(img.Width(), img.Height(), rgba);
+                    rc::ConsoleWrite(rc::Format(u8"Sandbox: loaded HDR sky {}x{} (F5 / Sky Mode combo to use it)\n",
+                                                img.Width(), img.Height()).AsView());
+                } else {
+                    rc::ConsoleWrite(rc::Format(u8"Sandbox: FAILED to load HDR sky from {}\n", hdrPath.AsView()).AsView());
+                }
             }
 
             // camera, pulled back along +Z looking at the origin (down -Z by default)
@@ -396,6 +414,17 @@ namespace
             }
         }
 
+        // Cycle the sky source: procedural gradient <-> HDR equirectangular (the .hdr was loaded at
+        // startup). Changing skyMode re-runs the IBL precompute from the new source next frame.
+        void CycleSkyMode()
+        {
+            if (m_scene == nullptr) { return; }
+            if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
+                rd::EnvironmentSettings& e = env->Environment();
+                e.skyMode = (e.skyMode == rd::SkyMode::Procedural) ? rd::SkyMode::HDREquirect : rd::SkyMode::Procedural;
+            }
+        }
+
         // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings —
         // editing these re-runs the IBL precompute next frame, so the ambient updates live.
         void BuildDebugUI()
@@ -404,6 +433,12 @@ namespace
             ImGui::Begin("Environment");
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
                 rd::EnvironmentSettings& e = env->Environment();
+                // Sky source selector (also F5 to cycle). Picking a mode re-runs the IBL precompute.
+                const char* modes[] = { "Procedural", "HDR Equirect" };
+                int modeIdx = (e.skyMode == rd::SkyMode::HDREquirect) ? 1 : 0;
+                if (ImGui::Combo("Sky Mode", &modeIdx, modes, 2)) {
+                    e.skyMode = (modeIdx == 1) ? rd::SkyMode::HDREquirect : rd::SkyMode::Procedural;
+                }
                 ImGui::SliderFloat("Sky Intensity", &e.skyIntensity, 0.0f, 4.0f);
                 ImGui::SliderFloat("Sun Intensity", &e.sunIntensity, 0.0f, 8.0f);
                 ImGui::SliderFloat("Sun Size (deg)", &e.sunAngularSize, 0.1f, 10.0f);
@@ -518,6 +553,8 @@ namespace
                     if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
                     // G fires the Character graph's "Next" trigger -> cross-fade to its next clip state.
                     if (kb->IsKeyPressed(rt::KeyCode::G)) { FireGraphNext(); }
+                    // F5 cycles the sky source (procedural <-> HDR equirectangular).
+                    if (kb->IsKeyPressed(rt::KeyCode::F5)) { CycleSkyMode(); }
                 }
             }
 
