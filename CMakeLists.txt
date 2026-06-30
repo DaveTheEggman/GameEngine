@@ -96,6 +96,7 @@ add_subdirectory(Code/Draconic/ModelImporter) # top-level model import: model IR
 add_subdirectory(Code/Draconic/VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/Script)
 add_subdirectory(Code/Draconic/Runtime)
+add_subdirectory(Code/Draconic/Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Code/Draconic/Core/Tests)
