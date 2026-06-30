@@ -5,17 +5,17 @@
 add_executable(RenderStressTest main.cpp)
 
 target_link_libraries(RenderStressTest PRIVATE
-    Raptor::Core
-    Raptor::Runtime
-    Raptor::RuntimeClient
-    Raptor::RuntimePlatformDesktop
-    Raptor::RuntimeGraphics
-    Raptor::RuntimeGraphicsGpu
-    Raptor::RuntimeDefaultApp
-    Raptor::Scene
-    Raptor::SceneSubsystem
-    Raptor::RenderSubsystem
-    Raptor::Geometry
-    Raptor::Materials
-    Raptor::Policy)
-raptor_copy_sdl3_dll(RenderStressTest)
+    Draconic::Core
+    Draconic::Runtime
+    Draconic::RuntimeClient
+    Draconic::RuntimePlatformDesktop
+    Draconic::RuntimeGraphics
+    Draconic::RuntimeGraphicsGpu
+    Draconic::RuntimeDefaultApp
+    Draconic::Scene
+    Draconic::SceneSubsystem
+    Draconic::RenderSubsystem
+    Draconic::Geometry
+    Draconic::Materials
+    Draconic::Policy)
+draconic_copy_sdl3_dll(RenderStressTest)

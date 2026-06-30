@@ -4,13 +4,13 @@
 add_executable(MultiWindow main.cpp)
 
 target_link_libraries(MultiWindow PRIVATE
-    Raptor::Core
-    Raptor::RHI
-    Raptor::Runtime
-    Raptor::RuntimeClient
-    Raptor::RuntimePlatform
-    Raptor::RuntimePlatformDesktop
-    Raptor::RuntimeGraphics
-    Raptor::RuntimeGraphicsGpu
-    Raptor::Policy)
-raptor_copy_sdl3_dll(MultiWindow)
+    Draconic::Core
+    Draconic::RHI
+    Draconic::Runtime
+    Draconic::RuntimeClient
+    Draconic::RuntimePlatform
+    Draconic::RuntimePlatformDesktop
+    Draconic::RuntimeGraphics
+    Draconic::RuntimeGraphicsGpu
+    Draconic::Policy)
+draconic_copy_sdl3_dll(MultiWindow)

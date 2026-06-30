@@ -7,22 +7,22 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class BlitSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample014 - Blit (Scaled Copy)"; }
+    draconic::core::StringView Title() const override { return u8"Sample014 - Blit (Scaled Copy)"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 private:
@@ -32,7 +32,7 @@ private:
         PSInput VSMain(VSInput i) { PSInput o; o.Position = float4(i.Position,1); o.Color = i.Color; return o; }
         float4 PSMain(PSInput i) : SV_TARGET { return i.Color; }
     )";
-    static constexpr raptor::core::u32 kOffscreenSize = 128;
+    static constexpr draconic::core::u32 kOffscreenSize = 128;
 
     void updateTriangle();
 
@@ -42,28 +42,28 @@ private:
     dr::PipelineLayout *m_pl = nullptr; dr::RenderPipeline *m_pipeline = nullptr;
     dr::Texture *m_offscreenTex = nullptr; dr::TextureView *m_offscreenView = nullptr;
     dr::CommandPool *m_pool = nullptr; dr::Fence *m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
 };
 
-raptor::core::Status BlitSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status BlitSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Triangle VB (CpuToGpu for per-frame rotation updates).
     dr::BufferDesc vbd{}; vbd.size = 84; vbd.usage = dr::BufferUsage::Vertex; vbd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::PipelineLayoutDesc pld{};
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Offscreen render target.
     dr::TextureDesc td{}; td.format = m_swapChain->Format(); td.width = kOffscreenSize; td.height = kOffscreenSize;
     td.mipLevelCount = 1; td.usage = dr::TextureUsage::RenderTarget | dr::TextureUsage::CopySrc | dr::TextureUsage::Sampled;
-    if (m_device->CreateTexture(td, m_offscreenTex) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_offscreenTex) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::TextureViewDesc tvd{}; tvd.format = m_swapChain->Format(); tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    if (m_device->CreateTextureView(m_offscreenTex, tvd, m_offscreenView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_offscreenTex, tvd, m_offscreenView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
@@ -73,11 +73,11 @@ raptor::core::Status BlitSample::OnInit() {
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
     rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void BlitSample::updateTriangle() {
@@ -97,15 +97,15 @@ void BlitSample::updateTriangle() {
 }
 
 void BlitSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     updateTriangle();
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Pass 1: Render spinning triangle to offscreen texture.
     enc->TransitionTexture(m_offscreenTex, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);

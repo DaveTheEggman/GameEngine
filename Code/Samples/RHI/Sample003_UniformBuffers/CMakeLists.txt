@@ -1,5 +1,5 @@
-add_executable(RaptorSample003_UniformBuffers Main.cpp)
-target_link_libraries(RaptorSample003_UniformBuffers PRIVATE Raptor::SamplesFramework Raptor::RHIVulkan Raptor::Core Raptor::Policy)
-target_compile_options(RaptorSample003_UniformBuffers PRIVATE
+add_executable(DraconicSample003_UniformBuffers Main.cpp)
+target_link_libraries(DraconicSample003_UniformBuffers PRIVATE Draconic::SamplesFramework Draconic::RHIVulkan Draconic::Core Draconic::Policy)
+target_compile_options(DraconicSample003_UniformBuffers PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
-raptor_copy_sdl3_dll(RaptorSample003_UniformBuffers)
+draconic_copy_sdl3_dll(DraconicSample003_UniformBuffers)

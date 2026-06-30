@@ -9,27 +9,27 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class Texture3DSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample027 - 3D Texture & 1D LUT"; }
+    draconic::core::StringView Title() const override { return u8"Sample027 - 3D Texture & 1D LUT"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 private:
-    raptor::core::Status createVolumeTexture();
-    raptor::core::Status createLUTTexture();
+    draconic::core::Status createVolumeTexture();
+    draconic::core::Status createLUTTexture();
 
     static constexpr const char8_t kShader[] = u8R"(
         Texture3D<float4> gVolume : register(t0, space0);
@@ -79,8 +79,8 @@ private:
         float _pad1;
     };
 
-    static constexpr raptor::core::u32 kVolumeSize = 32;
-    static constexpr raptor::core::u32 kLUTSize = 64;
+    static constexpr draconic::core::u32 kVolumeSize = 32;
+    static constexpr draconic::core::u32 kLUTSize = 64;
 
     ds::Compiler* m_compiler = nullptr;
     dr::ShaderModule* m_vs = nullptr;
@@ -102,18 +102,18 @@ private:
 
     dr::CommandPool* m_pool     = nullptr;
     dr::Fence*       m_fence    = nullptr;
-    raptor::core::u64       m_fenceVal = 0;
+    draconic::core::u64       m_fenceVal = 0;
 };
 
-raptor::core::Status Texture3DSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status Texture3DSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (createVolumeTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (createLUTTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (createVolumeTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (createLUTTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Sampler
     {
@@ -124,7 +124,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         sd.addressV = dr::AddressMode::Repeat;
         sd.addressW = dr::AddressMode::Repeat;
         sd.label = u8"VolSampler";
-        if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Bind group layout: 3D tex, 1D tex, sampler
@@ -137,7 +137,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 3);
         bgld.label = u8"VolBGL";
-        if (m_device->CreateBindGroupLayout(bgld, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Bind group
@@ -151,7 +151,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         bgd.layout = m_bgl;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 3);
         bgd.label = u8"VolBG";
-        if (m_device->CreateBindGroup(bgd, m_bg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Pipeline layout with push constants
@@ -166,7 +166,7 @@ raptor::core::Status Texture3DSample::OnInit() {
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
         pld.label = u8"VolPL";
-        if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Render pipeline (fullscreen triangle, no vertex input)
@@ -181,16 +181,16 @@ raptor::core::Status Texture3DSample::OnInit() {
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
         rpd.label = u8"VolPipeline";
-        if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
-raptor::core::Status Texture3DSample::createVolumeTexture() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status Texture3DSample::createVolumeTexture() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     dr::TextureDesc td{};
     td.dimension = dr::TextureDimension::Texture3D;
@@ -202,12 +202,12 @@ raptor::core::Status Texture3DSample::createVolumeTexture() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
     td.label = u8"VolumeTex3D";
-    if (m_device->CreateTexture(td, m_volumeTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_volumeTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};
     tvd.format = dr::TextureFormat::R8Unorm;
     tvd.dimension = dr::TextureViewDimension::Texture3D;
-    if (m_device->CreateTextureView(m_volumeTexture, tvd, m_volumeView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_volumeTexture, tvd, m_volumeView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Generate procedural 3D noise data
     constexpr u32 dataSize = kVolumeSize * kVolumeSize * kVolumeSize;
@@ -244,11 +244,11 @@ raptor::core::Status Texture3DSample::createVolumeTexture() {
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
-raptor::core::Status Texture3DSample::createLUTTexture() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status Texture3DSample::createLUTTexture() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     dr::TextureDesc td{};
     td.dimension = dr::TextureDimension::Texture1D;
@@ -260,12 +260,12 @@ raptor::core::Status Texture3DSample::createLUTTexture() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
     td.label = u8"LUTTex1D";
-    if (m_device->CreateTexture(td, m_lutTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_lutTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};
     tvd.format = dr::TextureFormat::RGBA8UnormSrgb;
     tvd.dimension = dr::TextureViewDimension::Texture1D;
-    if (m_device->CreateTextureView(m_lutTexture, tvd, m_lutView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_lutTexture, tvd, m_lutView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Generate gradient LUT: dark blue -> cyan -> green -> yellow -> red -> white
     u8 data[kLUTSize * 4];
@@ -307,18 +307,18 @@ raptor::core::Status Texture3DSample::createLUTTexture() {
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void Texture3DSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
 
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 

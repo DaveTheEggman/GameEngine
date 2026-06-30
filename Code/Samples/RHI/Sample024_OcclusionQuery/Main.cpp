@@ -7,24 +7,24 @@
 #include <cstdint>
 #include <cstdio>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class OcclusionQuerySample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample024 - Occlusion Queries & Debug Labels"; }
+    draconic::core::StringView Title() const override { return u8"Sample024 - Occlusion Queries & Debug Labels"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateDepth(w, h); }
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override { recreateDepth(w, h); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kShader[] = u8R"(
@@ -77,13 +77,13 @@ private:
          0.15f,  0.2f, 0.7f,  0.5f, 0.5f, 1.0f, 1.0f,
         -0.15f,  0.2f, 0.7f,  0.5f, 0.5f, 1.0f, 1.0f,
     };
-    static constexpr raptor::core::u16 kIdx[] = {
+    static constexpr draconic::core::u16 kIdx[] = {
         0, 1, 2, 0, 2, 3,
         4, 5, 6, 4, 6, 7,
         8, 9, 10, 8, 10, 11,
     };
 
-    void recreateDepth(raptor::core::u32 w, raptor::core::u32 h);
+    void recreateDepth(draconic::core::u32 w, draconic::core::u32 h);
 
     ds::Compiler* m_compiler = nullptr;
     dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
@@ -96,12 +96,12 @@ private:
     dr::Buffer *m_queryResultBuf = nullptr;
     dr::CommandPool *m_pool = nullptr;
     dr::Fence *m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
     int m_frameCount = 0;
     float m_lastReportTime = 0.0f;
 };
 
-void OcclusionQuerySample::recreateDepth(raptor::core::u32 w, raptor::core::u32 h) {
+void OcclusionQuerySample::recreateDepth(draconic::core::u32 w, draconic::core::u32 h) {
     if (m_depthView) { m_device->DestroyTextureView(m_depthView); m_depthView = nullptr; }
     if (m_depthTex) { m_device->DestroyTexture(m_depthTex); m_depthTex = nullptr; }
 
@@ -112,16 +112,16 @@ void OcclusionQuerySample::recreateDepth(raptor::core::u32 w, raptor::core::u32 
     m_device->CreateTextureView(m_depthTex, tvd, m_depthView);
 }
 
-raptor::core::Status OcclusionQuerySample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"OccVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"OccPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status OcclusionQuerySample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"OccVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"OccPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u8"OccVB";
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u8"OccIB";
-    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
@@ -129,7 +129,7 @@ raptor::core::Status OcclusionQuerySample::OnInit() {
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     dr::PipelineLayoutDesc pld{}; pld.label = u8"OccPL";
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     recreateDepth(m_width, m_height);
 
@@ -146,23 +146,23 @@ raptor::core::Status OcclusionQuerySample::OnInit() {
     rpd.depthStencil->depthWriteEnabled = true;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
     rpd.label = u8"OccPipeline";
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Occlusion query set: 2 queries (one per test quad).
     dr::QuerySetDesc qsd{}; qsd.type = dr::QueryType::Occlusion; qsd.count = 2; qsd.label = u8"OcclusionQS";
-    if (m_device->CreateQuerySet(qsd, m_occlusionQuerySet) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateQuerySet(qsd, m_occlusionQuerySet) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffer for query results (2 * uint64 = 16 bytes).
     dr::BufferDesc qbd{}; qbd.size = 16; qbd.usage = dr::BufferUsage::CopyDst; qbd.memory = dr::MemoryLocation::GpuToCpu; qbd.label = u8"OccResultBuf";
-    if (m_device->CreateBuffer(qbd, m_queryResultBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(qbd, m_queryResultBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void OcclusionQuerySample::OnRender() {
-    using raptor::core::f32, raptor::core::u64, raptor::core::Span;
+    using draconic::core::f32, draconic::core::u64, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
 
     // Read back previous frame's occlusion results (after fence wait ensures GPU is done).
@@ -182,11 +182,11 @@ void OcclusionQuerySample::OnRender() {
         }
     }
 
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Debug label: frame start.
     enc->InsertDebugLabel(u8"Frame Start", 0, 1, 0);

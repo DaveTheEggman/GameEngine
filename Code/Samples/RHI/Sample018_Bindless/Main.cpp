@@ -8,30 +8,30 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class BindlessSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample018 - Bindless Textures"; }
+    draconic::core::StringView Title() const override { return u8"Sample018 - Bindless Textures"; }
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{}; f.bindlessDescriptors = true; return f;
     }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 private:
-    raptor::core::Status createTextures();
-    void generatePixel(raptor::core::u32 texIndex, raptor::core::u32 x, raptor::core::u32 y, raptor::core::u8* rgba);
+    draconic::core::Status createTextures();
+    void generatePixel(draconic::core::u32 texIndex, draconic::core::u32 x, draconic::core::u32 y, draconic::core::u8* rgba);
 
     static constexpr const char8_t kShader[] = u8R"(
         Texture2D gTextures[] : register(t0, space0);
@@ -82,8 +82,8 @@ private:
         }
     )";
 
-    static constexpr raptor::core::u32 kTexSize = 64;
-    static constexpr raptor::core::u32 kNumTextures = 4;
+    static constexpr draconic::core::u32 kTexSize = 64;
+    static constexpr draconic::core::u32 kNumTextures = 4;
 
     ds::Compiler* m_compiler = nullptr;
     dr::ShaderModule* m_vs = nullptr;
@@ -106,24 +106,24 @@ private:
     dr::RenderPipeline*  m_pipeline = nullptr;
     dr::CommandPool*     m_pool     = nullptr;
     dr::Fence*           m_fence    = nullptr;
-    raptor::core::u64           m_fenceVal = 0;
+    draconic::core::u64           m_fenceVal = 0;
 };
 
-raptor::core::Status BindlessSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status BindlessSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"BindlessVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"BindlessPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"BindlessVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"BindlessPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create 4 procedural textures with different patterns
-    if (createTextures() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (createTextures() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Sampler
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
     sd.addressU = dr::AddressMode::Repeat; sd.addressV = dr::AddressMode::Repeat;
     sd.label = u8"BindlessSampler";
-    if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Bindless BGL (space0): unbounded texture array
     dr::BindGroupLayoutEntry bindlessEntry{};
@@ -135,11 +135,11 @@ raptor::core::Status BindlessSample::OnInit() {
     dr::BindGroupLayoutEntry blEntries[1] = { bindlessEntry };
     dr::BindGroupLayoutDesc blBgld{}; blBgld.entries = Span<const dr::BindGroupLayoutEntry>(blEntries, 1);
     blBgld.label = u8"BindlessBGL";
-    if (m_device->CreateBindGroupLayout(blBgld, m_bindlessBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(blBgld, m_bindlessBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create bindless bind group (no entries at creation - populated via updateBindless)
     dr::BindGroupDesc blBgd{}; blBgd.layout = m_bindlessBgl; blBgd.label = u8"BindlessBG";
-    if (m_device->CreateBindGroup(blBgd, m_bindlessBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(blBgd, m_bindlessBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Populate bindless slots
     dr::BindlessUpdateEntry bindlessUpdates[kNumTextures];
@@ -156,12 +156,12 @@ raptor::core::Status BindlessSample::OnInit() {
     dr::BindGroupLayoutEntry sEntries[1] = { samplerEntry };
     dr::BindGroupLayoutDesc sBgld{}; sBgld.entries = Span<const dr::BindGroupLayoutEntry>(sEntries, 1);
     sBgld.label = u8"SamplerBGL";
-    if (m_device->CreateBindGroupLayout(sBgld, m_samplerBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(sBgld, m_samplerBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::BindGroupEntry sBgEntries[1] = { dr::BindGroupEntry::SamplerEntry(m_sampler) };
     dr::BindGroupDesc sBgd{}; sBgd.layout = m_samplerBgl;
     sBgd.entries = Span<const dr::BindGroupEntry>(sBgEntries, 1); sBgd.label = u8"SamplerBG";
-    if (m_device->CreateBindGroup(sBgd, m_samplerBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(sBgd, m_samplerBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout: group 0 = bindless textures, group 1 = sampler, push constants
     dr::BindGroupLayout* sets[2] = { m_bindlessBgl, m_samplerBgl };
@@ -171,7 +171,7 @@ raptor::core::Status BindlessSample::OnInit() {
     dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 2);
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
     pld.label = u8"BindlessPL";
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Render pipeline (no vertex buffers - SV_VertexID driven)
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
@@ -181,15 +181,15 @@ raptor::core::Status BindlessSample::OnInit() {
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleStrip;
     rpd.label = u8"BindlessPipeline";
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
-raptor::core::Status BindlessSample::createTextures() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status BindlessSample::createTextures() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     constexpr u32 rowBytes = kTexSize * 4;
     constexpr u32 texBytes = rowBytes * kTexSize;
@@ -211,8 +211,8 @@ raptor::core::Status BindlessSample::createTextures() {
         td.width = kTexSize; td.height = kTexSize;
         td.mipLevelCount = 1; td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
         td.label = u8"BindlessTex";
-        if (m_device->CreateTexture(td, m_textures[t]) != raptor::core::ErrorCode::Ok) {
-            m_graphicsQueue->DestroyTransferBatch(batch); return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateTexture(td, m_textures[t]) != draconic::core::ErrorCode::Ok) {
+            m_graphicsQueue->DestroyTransferBatch(batch); return draconic::core::ErrorCode::Unknown;
         }
 
         dr::TextureDataLayout layout{}; layout.bytesPerRow = rowBytes; layout.rowsPerImage = kTexSize;
@@ -221,17 +221,17 @@ raptor::core::Status BindlessSample::createTextures() {
 
         dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm;
         tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-        if (m_device->CreateTextureView(m_textures[t], tvd, m_textureViews[t]) != raptor::core::ErrorCode::Ok) {
-            m_graphicsQueue->DestroyTransferBatch(batch); return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateTextureView(m_textures[t], tvd, m_textureViews[t]) != draconic::core::ErrorCode::Ok) {
+            m_graphicsQueue->DestroyTransferBatch(batch); return draconic::core::ErrorCode::Unknown;
         }
     }
 
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
-void BindlessSample::generatePixel(raptor::core::u32 texIndex, raptor::core::u32 x, raptor::core::u32 y, raptor::core::u8* rgba) {
+void BindlessSample::generatePixel(draconic::core::u32 texIndex, draconic::core::u32 x, draconic::core::u32 y, draconic::core::u8* rgba) {
     float fx = static_cast<float>(x) / static_cast<float>(kTexSize);
     float fy = static_cast<float>(y) / static_cast<float>(kTexSize);
 
@@ -245,10 +245,10 @@ void BindlessSample::generatePixel(raptor::core::u32 texIndex, raptor::core::u32
         break;
     }
     case 1: { // Green gradient with stripes
-        auto g = static_cast<raptor::core::u8>(fx * 255.0f);
+        auto g = static_cast<draconic::core::u8>(fx * 255.0f);
         bool stripe = (y % 16) < 8;
         rgba[0] = stripe ? 30 : 10;
-        rgba[1] = stripe ? g  : static_cast<raptor::core::u8>(g / 2);
+        rgba[1] = stripe ? g  : static_cast<draconic::core::u8>(g / 2);
         rgba[2] = stripe ? 50 : 30;
         rgba[3] = 255;
         break;
@@ -257,17 +257,17 @@ void BindlessSample::generatePixel(raptor::core::u32 texIndex, raptor::core::u32
         float cx = fx - 0.5f, cy = fy - 0.5f;
         float dist = std::sqrt(cx * cx + cy * cy);
         float rings = std::sin(dist * 30.0f) * 0.5f + 0.5f;
-        rgba[0] = static_cast<raptor::core::u8>(rings * 60);
-        rgba[1] = static_cast<raptor::core::u8>(rings * 100);
-        rgba[2] = static_cast<raptor::core::u8>(rings * 255);
+        rgba[0] = static_cast<draconic::core::u8>(rings * 60);
+        rgba[1] = static_cast<draconic::core::u8>(rings * 100);
+        rgba[2] = static_cast<draconic::core::u8>(rings * 255);
         rgba[3] = 255;
         break;
     }
     default: { // Yellow/purple diagonal
         float diag = std::sin((fx + fy) * 10.0f) * 0.5f + 0.5f;
-        rgba[0] = static_cast<raptor::core::u8>(diag * 255 + (1.0f - diag) * 120);
-        rgba[1] = static_cast<raptor::core::u8>(diag * 220);
-        rgba[2] = static_cast<raptor::core::u8>((1.0f - diag) * 200);
+        rgba[0] = static_cast<draconic::core::u8>(diag * 255 + (1.0f - diag) * 120);
+        rgba[1] = static_cast<draconic::core::u8>(diag * 220);
+        rgba[2] = static_cast<draconic::core::u8>((1.0f - diag) * 200);
         rgba[3] = 255;
         break;
     }
@@ -275,12 +275,12 @@ void BindlessSample::generatePixel(raptor::core::u32 texIndex, raptor::core::u32
 }
 
 void BindlessSample::OnRender() {
-    using raptor::core::f32, raptor::core::u32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::u32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
     enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
     dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();

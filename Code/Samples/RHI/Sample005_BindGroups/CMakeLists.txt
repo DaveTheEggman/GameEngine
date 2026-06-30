@@ -1,5 +1,5 @@
-add_executable(RaptorSample005_BindGroups Main.cpp)
-target_link_libraries(RaptorSample005_BindGroups PRIVATE Raptor::SamplesFramework Raptor::RHIVulkan Raptor::Core Raptor::Policy)
-target_compile_options(RaptorSample005_BindGroups PRIVATE
+add_executable(DraconicSample005_BindGroups Main.cpp)
+target_link_libraries(DraconicSample005_BindGroups PRIVATE Draconic::SamplesFramework Draconic::RHIVulkan Draconic::Core Draconic::Policy)
+target_compile_options(DraconicSample005_BindGroups PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
-raptor_copy_sdl3_dll(RaptorSample005_BindGroups)
+draconic_copy_sdl3_dll(DraconicSample005_BindGroups)

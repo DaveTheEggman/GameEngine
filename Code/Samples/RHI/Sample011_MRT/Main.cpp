@@ -5,24 +5,24 @@
 
 #include <cstdint>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class MRTSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample011 - MRT"; }
+    draconic::core::StringView Title() const override { return u8"Sample011 - MRT"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 /*w*/, raptor::core::u32 /*h*/) override { createRenderTargets(); }
+    void OnResize(draconic::core::u32 /*w*/, draconic::core::u32 /*h*/) override { createRenderTargets(); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kGBufShader[] = u8R"(
@@ -51,7 +51,7 @@ private:
         -.5f,-.5f,0, 1,.2f,.2f,1,  .5f,-.5f,0, 1,.2f,.2f,1,  0,.6f,0, 1,.8f,.2f,1,
         -.3f,-.3f,0, .2f,.3f,1,1,  .7f,-.1f,0, .2f,.3f,1,1,  .2f,.5f,0, .2f,.8f,1,1,
     };
-    static constexpr raptor::core::u16 kIdx[] = { 0,1,2, 3,4,5 };
+    static constexpr draconic::core::u16 kIdx[] = { 0,1,2, 3,4,5 };
 
     void createRenderTargets();
 
@@ -66,7 +66,7 @@ private:
     dr::Texture *m_colorRT=nullptr, *m_brightRT=nullptr;
     dr::TextureView *m_colorRTView=nullptr, *m_brightRTView=nullptr;
     dr::CommandPool* m_pool=nullptr; dr::Fence* m_fence=nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
 };
 
 void MRTSample::createRenderTargets() {
@@ -87,22 +87,22 @@ void MRTSample::createRenderTargets() {
     dr::BindGroupEntry bgE[3] = { dr::BindGroupEntry::TextureEntry(m_colorRTView),
                                    dr::BindGroupEntry::TextureEntry(m_brightRTView),
                                    dr::BindGroupEntry::SamplerEntry(m_sampler) };
-    dr::BindGroupDesc bgd{}; bgd.layout = m_compBgl; bgd.entries = raptor::core::Span<const dr::BindGroupEntry>(bgE, 3);
+    dr::BindGroupDesc bgd{}; bgd.layout = m_compBgl; bgd.entries = draconic::core::Span<const dr::BindGroupEntry>(bgE, 3);
     m_device->CreateBindGroup(bgd, m_compBg);
 }
 
-raptor::core::Status MRTSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"GBufVS", m_gbVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Fragment, u8"PSMain", u8"GBufPS", m_gbPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"CompVS", m_compVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Fragment, u8"PSMain", u8"CompPS", m_compPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status MRTSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"GBufVS", m_gbVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kGBufShader, ds::ShaderStage::Fragment, u8"PSMain", u8"GBufPS", m_gbPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"CompVS", m_compVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kCompShader, ds::ShaderStage::Fragment, u8"PSMain", u8"CompPS", m_compPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
     batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
@@ -110,10 +110,10 @@ raptor::core::Status MRTSample::OnInit() {
 
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Nearest; sd.magFilter = dr::FilterMode::Nearest;
     sd.addressU = dr::AddressMode::ClampToEdge; sd.addressV = dr::AddressMode::ClampToEdge;
-    if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // GBuffer pipeline (empty layout, 2 color targets).
-    dr::PipelineLayoutDesc gpld{}; if (m_device->CreatePipelineLayout(gpld, m_gbPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    dr::PipelineLayoutDesc gpld{}; if (m_device->CreatePipelineLayout(gpld, m_gbPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
     dr::ColorTargetState gbCt[2] = { {.format = dr::TextureFormat::RGBA8Unorm, .blend = {}, .writeMask = dr::ColorWriteMask::All},
@@ -123,7 +123,7 @@ raptor::core::Status MRTSample::OnInit() {
     grpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
     grpd.fragment = dr::FragmentState{}; grpd.fragment->shader = { m_gbPs, u8"PSMain", dr::ShaderStage::Fragment };
     grpd.fragment->targets = Span<const dr::ColorTargetState>(gbCt, 2);
-    if (m_device->CreateRenderPipeline(grpd, m_gbPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(grpd, m_gbPipe) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Composite BGL + pipeline (3 bindings: 2 textures + 1 sampler).
     dr::BindGroupLayoutEntry cE[3] = {
@@ -132,30 +132,30 @@ raptor::core::Status MRTSample::OnInit() {
         dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment),
     };
     dr::BindGroupLayoutDesc cBgld{}; cBgld.entries = Span<const dr::BindGroupLayoutEntry>(cE, 3);
-    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupLayout* cSets[1] = { m_compBgl };
     dr::PipelineLayoutDesc cpld{}; cpld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(cSets, 1);
-    if (m_device->CreatePipelineLayout(cpld, m_compPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(cpld, m_compPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::ColorTargetState compCt{}; compCt.format = m_swapChain->Format();
     dr::RenderPipelineDesc crpd{}; crpd.layout = m_compPl;
     crpd.vertex.shader = { m_compVs, u8"VSMain", dr::ShaderStage::Vertex };
     crpd.fragment = dr::FragmentState{}; crpd.fragment->shader = { m_compPs, u8"PSMain", dr::ShaderStage::Fragment };
     crpd.fragment->targets = Span<const dr::ColorTargetState>(&compCt, 1);
-    if (m_device->CreateRenderPipeline(crpd, m_compPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(crpd, m_compPipe) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     createRenderTargets();
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void MRTSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Pass 1: render to 2 RTs.
     enc->TransitionTexture(m_colorRT, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);

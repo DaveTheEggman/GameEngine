@@ -1,4 +1,4 @@
-# Raptor static analysis. Starter set — tighten as the codebase grows.
+# Draconic static analysis. Starter set — tighten as the codebase grows.
 Checks: >
   -*,
   bugprone-*,
@@ -11,5 +11,5 @@ Checks: >
   -bugprone-easily-swappable-parameters
 
 WarningsAsErrors: ''
-HeaderFilterRegex: 'Code/Raptor/.*'
+HeaderFilterRegex: 'Code/Draconic/.*'
 FormatStyle: file

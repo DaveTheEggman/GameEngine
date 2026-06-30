@@ -1,0 +1,32 @@
+# Draconic::ModelImporter — `draconic.modelimporter`, the top-level model import pipeline.
+# Bridges the model loaders (draconic.model IR) to the engine's cooked resources: it
+# converts a loaded Model into the geometry/material/texture/animation *Source types
+# and cooks them through the editor stack into a content database. This is the only
+# library that depends on BOTH draconic.model (the loader IR) and the engine resource
+# stack, keeping that dependency out of the lower libraries.
+add_library(DraconicModelImporter STATIC)
+add_library(Draconic::ModelImporter ALIAS DraconicModelImporter)
+
+target_link_libraries(DraconicModelImporter
+    PUBLIC
+        Draconic::Core Draconic::Policy
+        Draconic::Model     Draconic::ModelIO  Draconic::ModelGltf  Draconic::ModelFbx
+        Draconic::Geometry  Draconic::MeshResource     Draconic::MeshEditor
+        Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
+        Draconic::TextureResource  Draconic::TextureEditor  Draconic::Image
+        Draconic::Animation Draconic::AnimationResource Draconic::AnimationEditor
+        Draconic::Content   Draconic::Resource   Draconic::Editor)
+
+target_sources(DraconicModelImporter
+    PUBLIC
+        FILE_SET modelimporter_modules TYPE CXX_MODULES FILES
+            MeshConvert.cppm
+            AnimConvert.cppm
+            ModelResource.cppm
+            Cook.cppm
+            Load.cppm
+            ModelImporterModule.cppm)
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(Tests)
+endif()

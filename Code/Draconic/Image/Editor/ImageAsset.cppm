@@ -1,0 +1,77 @@
+// Draconic::ImageEditor — the `draconic.image.editor` module.
+//
+// Tooling: the source ImageAsset (an image file + color-space intent) and the
+// builder that cooks it into a runtime ImageResource (decode the file, write the
+// header + "pixels" stream into the output DB). Never linked by the runtime.
+
+module;
+#include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
+
+export module draconic.image.editor;
+
+import draconic.core;
+import draconic.editor;
+import draconic.image;
+import draconic.image.io;
+import draconic.image.resource;
+import draconic.content;
+
+using namespace draconic::core;
+
+export namespace draconic::image
+{
+    // Source asset: references an image file; colorSpace says how to interpret it.
+    class ImageAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(ImageAsset, draconic::editor::Asset)
+    public:
+        ImageColorSpace colorSpace = ImageColorSpace::Srgb;
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar); // fileName
+            draconic::core::Serialize(ar, "colorSpace", colorSpace);
+        }
+    };
+
+    // Cooks an ImageAsset -> ImageResource (decode file -> header + pixel stream).
+    class ImageAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override { return &ImageAsset::StaticType(); }
+
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
+        {
+            const ImageAsset& ia = static_cast<const ImageAsset&>(asset); // guarded by AssetType()
+            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+
+            const String path = ResolveSource(ctx, ia.fileName);
+            Image image;
+            const Status loaded = io::LoadImage(path, image);
+            if (!loaded.IsOk()) { return loaded; }
+
+            ImageResource resource;
+            resource.width = image.Width();
+            resource.height = image.Height();
+            resource.format = image.Format();
+            resource.colorSpace = ia.colorSpace;
+
+            const Status wrote = ctx.output->WriteObject(resource);
+            if (!wrote.IsOk()) { return wrote; }
+
+            const Span<const u8> px = image.PixelData();
+            return ctx.output->WriteData(u8"pixels",
+                Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
+        }
+    };
+
+    // Registers ImageAsset for content-DB construction + deserialization.
+    inline void RegisterImageAsset()
+    {
+        GlobalTypeRegistry().Register(ImageAsset::StaticType());
+        RegisterSerializable<ImageAsset>();
+    }
+
+    DRACONIC_DEFINE_OBJECT(ImageAsset, "draconic::image")
+}

@@ -1,5 +1,5 @@
-add_executable(RaptorSample025_MultiDrawIndirect Main.cpp)
-target_link_libraries(RaptorSample025_MultiDrawIndirect PRIVATE Raptor::SamplesFramework Raptor::RHIVulkan Raptor::Core Raptor::Policy)
-target_compile_options(RaptorSample025_MultiDrawIndirect PRIVATE
+add_executable(DraconicSample025_MultiDrawIndirect Main.cpp)
+target_link_libraries(DraconicSample025_MultiDrawIndirect PRIVATE Draconic::SamplesFramework Draconic::RHIVulkan Draconic::Core Draconic::Policy)
+target_compile_options(DraconicSample025_MultiDrawIndirect PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
-raptor_copy_sdl3_dll(RaptorSample025_MultiDrawIndirect)
+draconic_copy_sdl3_dll(DraconicSample025_MultiDrawIndirect)

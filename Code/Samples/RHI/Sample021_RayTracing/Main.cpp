@@ -6,29 +6,29 @@
 #include <cstdio>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class RayTracingSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample021 - Ray Tracing (TraceRays)"; }
+    draconic::core::StringView Title() const override { return u8"Sample021 - Ray Tracing (TraceRays)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};
         f.rayTracing = true;
         return f;
     }
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override;
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override;
     void OnShutdown() override;
 private:
     // Ray tracing shader library (compiled as lib_6_3).
@@ -112,20 +112,20 @@ private:
     dr::ResourceState m_outputTextureState = dr::ResourceState::Undefined;
 
     // SBT layout info (cached for traceRays).
-    raptor::core::u32 m_sbtAlignedStride = 0;
+    draconic::core::u32 m_sbtAlignedStride = 0;
 
     dr::CommandPool* m_pool     = nullptr;
     dr::Fence*       m_fence    = nullptr;
-    raptor::core::u64       m_fenceVal = 0;
+    draconic::core::u64       m_fenceVal = 0;
 };
 
-raptor::core::Status RayTracingSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span;
+draconic::core::Status RayTracingSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span;
 
     // ---- Check ray tracing support ----
     if (!m_device->features.rayTracing) {
         std::fprintf(stderr, "ERROR: Ray tracing is not supported by this device/backend\n");
-        return raptor::core::ErrorCode::Unknown;
+        return draconic::core::ErrorCode::Unknown;
     }
 
     std::printf("Ray tracing extension available:\n");
@@ -134,19 +134,19 @@ raptor::core::Status RayTracingSample::OnInit() {
     std::printf("  shaderGroupBaseAlignment:   %u\n", m_device->shaderGroupBaseAlignment);
 
     // ---- Shader compiler ----
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // ---- Compile RT shader library (lib_6_3) ----
     // Use ShaderStage::RayGen so stagePrefix yields "lib"; SM 6_3 for RT.
     if (sf::CompileToModule(m_compiler, m_device, kRtShaderSource, ds::ShaderStage::RayGen,
-                            u8"", u8"RTShaderLib", u8"6_3", m_rtShaderModule) != raptor::core::ErrorCode::Ok) {
+                            u8"", u8"RTShaderLib", u8"6_3", m_rtShaderModule) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "ERROR: RT shader library compilation failed\n");
-        return raptor::core::ErrorCode::Unknown;
+        return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Command pool and fence ----
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // ---- Create RT output texture (storage + copy source) ----
     {
@@ -160,11 +160,11 @@ raptor::core::Status RayTracingSample::OnInit() {
         td.sampleCount    = 1;
         td.usage          = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc;
         td.label          = u8"RTOutputTex";
-        if (m_device->CreateTexture(td, m_outputTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateTexture(td, m_outputTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         dr::TextureViewDesc tvd{};
         tvd.label = u8"RTOutputView";
-        if (m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create BLAS vertex buffer (3 vertices * 12 bytes = 36 bytes) ----
@@ -174,15 +174,15 @@ raptor::core::Status RayTracingSample::OnInit() {
         bd.usage  = dr::BufferUsage::AccelStructInput | dr::BufferUsage::CopyDst;
         bd.memory = dr::MemoryLocation::GpuOnly;
         bd.label  = u8"BLAS_VB";
-        if (m_device->CreateBuffer(bd, m_rtVertexBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBuffer(bd, m_rtVertexBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Upload BLAS vertex data.
     {
         dr::TransferBatch* transfer = nullptr;
-        if (m_graphicsQueue->CreateTransferBatch(transfer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_graphicsQueue->CreateTransferBatch(transfer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
         transfer->WriteBuffer(m_rtVertexBuffer, 0,
-            Span<const raptor::core::u8>(reinterpret_cast<const raptor::core::u8*>(kBlasVertexData), 36));
+            Span<const draconic::core::u8>(reinterpret_cast<const draconic::core::u8*>(kBlasVertexData), 36));
         transfer->Submit();
         m_graphicsQueue->DestroyTransferBatch(transfer);
     }
@@ -192,11 +192,11 @@ raptor::core::Status RayTracingSample::OnInit() {
         dr::AccelStructDesc asd{};
         asd.type  = dr::AccelStructType::BottomLevel;
         asd.label = u8"BLAS";
-        if (m_device->CreateAccelStruct(asd, m_blas) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateAccelStruct(asd, m_blas) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         asd.type  = dr::AccelStructType::TopLevel;
         asd.label = u8"TLAS";
-        if (m_device->CreateAccelStruct(asd, m_tlas) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateAccelStruct(asd, m_tlas) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create scratch buffer (256 KB) ----
@@ -206,7 +206,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         bd.usage  = dr::BufferUsage::AccelStructScratch;
         bd.memory = dr::MemoryLocation::GpuOnly;
         bd.label  = u8"ScratchBuffer";
-        if (m_device->CreateBuffer(bd, m_scratchBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBuffer(bd, m_scratchBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create instance buffer (64 bytes = sizeof(VkAccelerationStructureInstanceKHR)) ----
@@ -216,13 +216,13 @@ raptor::core::Status RayTracingSample::OnInit() {
         bd.usage  = dr::BufferUsage::AccelStructInput;
         bd.memory = dr::MemoryLocation::CpuToGpu;
         bd.label  = u8"InstanceBuffer";
-        if (m_device->CreateBuffer(bd, m_instanceBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBuffer(bd, m_instanceBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Fill instance data.
     {
-        auto* ptr = static_cast<raptor::core::u8*>(m_instanceBuffer->Map());
-        if (!ptr) { std::fprintf(stderr, "ERROR: Failed to map instance buffer\n"); return raptor::core::ErrorCode::Unknown; }
+        auto* ptr = static_cast<draconic::core::u8*>(m_instanceBuffer->Map());
+        if (!ptr) { std::fprintf(stderr, "ERROR: Failed to map instance buffer\n"); return draconic::core::ErrorCode::Unknown; }
         std::memset(ptr, 0, 64);
 
         // Identity transform (3x4 row-major float matrix).
@@ -240,7 +240,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         ptr[55] = 0x04; // VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR
 
         // accelerationStructureReference at offset 56.
-        *reinterpret_cast<raptor::core::u64*>(ptr + 56) = m_blas->DeviceAddress();
+        *reinterpret_cast<draconic::core::u64*>(ptr + 56) = m_blas->DeviceAddress();
 
         m_instanceBuffer->Unmap();
     }
@@ -248,7 +248,7 @@ raptor::core::Status RayTracingSample::OnInit() {
     // ---- Build BLAS and TLAS ----
     {
         dr::CommandEncoder* encoder = nullptr;
-        if (m_pool->CreateEncoder(encoder) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_pool->CreateEncoder(encoder) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         if (auto* rtEnc = encoder->AsRayTracingExt()) {
             // Build BLAS from triangle geometry.
@@ -278,7 +278,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         } else {
             std::fprintf(stderr, "ERROR: Command encoder does not support ray tracing\n");
             m_pool->DestroyEncoder(encoder);
-            return raptor::core::ErrorCode::Unknown;
+            return draconic::core::ErrorCode::Unknown;
         }
 
         dr::CommandBuffer* cb = encoder->Finish();
@@ -320,7 +320,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(layoutEntries, 2);
         bgld.label   = u8"RTBindGroupLayout";
-        if (m_device->CreateBindGroupLayout(bgld, m_rtBindGroupLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroupLayout(bgld, m_rtBindGroupLayout) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         // Create bind group with output texture + TLAS.
         dr::BindGroupEntry bgEntries[2]{};
@@ -331,7 +331,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         bgd.layout  = m_rtBindGroupLayout;
         bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2);
         bgd.label   = u8"RTBindGroup";
-        if (m_device->CreateBindGroup(bgd, m_rtBindGroup) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroup(bgd, m_rtBindGroup) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create RT pipeline layout with bind group ----
@@ -341,7 +341,7 @@ raptor::core::Status RayTracingSample::OnInit() {
         dr::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(bglArr, 1);
         pld.label = u8"RTPipelineLayout";
-        if (m_device->CreatePipelineLayout(pld, m_rtPipelineLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreatePipelineLayout(pld, m_rtPipelineLayout) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         // 3 stages: RayGen, ClosestHit, Miss - all from the same shader module.
         dr::ProgrammableStage stages[3]{};
@@ -366,43 +366,43 @@ raptor::core::Status RayTracingSample::OnInit() {
         rtpd.groups           = Span<const dr::RayTracingShaderGroup>(groups, 3);
         rtpd.maxRecursionDepth = 1;
         rtpd.label            = u8"RTPipeline";
-        if (m_device->CreateRayTracingPipeline(rtpd, m_rtPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRayTracingPipeline(rtpd, m_rtPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     std::printf("Ray tracing pipeline created successfully.\n");
 
     // ---- Build Shader Binding Table ----
     {
-        raptor::core::u32 handleSize     = m_device->shaderGroupHandleSize;
-        raptor::core::u32 baseAlignment  = m_device->shaderGroupBaseAlignment;
-        raptor::core::u32 groupCount     = 3;
+        draconic::core::u32 handleSize     = m_device->shaderGroupHandleSize;
+        draconic::core::u32 baseAlignment  = m_device->shaderGroupBaseAlignment;
+        draconic::core::u32 groupCount     = 3;
 
         // Aligned handle stride (round up to base alignment).
         m_sbtAlignedStride = (handleSize + baseAlignment - 1) & ~(baseAlignment - 1);
 
         // Get shader group handles.
-        raptor::core::u8 handleData[128]; // Enough for 3 handles (max ~32 bytes each).
+        draconic::core::u8 handleData[128]; // Enough for 3 handles (max ~32 bytes each).
         if (m_device->GetShaderGroupHandles(m_rtPipeline, 0, groupCount,
-                Span<raptor::core::u8>(handleData, handleSize * groupCount)) != raptor::core::ErrorCode::Ok) {
+                Span<draconic::core::u8>(handleData, handleSize * groupCount)) != draconic::core::ErrorCode::Ok) {
             std::fprintf(stderr, "ERROR: getShaderGroupHandles failed\n");
-            return raptor::core::ErrorCode::Unknown;
+            return draconic::core::ErrorCode::Unknown;
         }
 
         // Create SBT buffer: 3 entries, each aligned to baseAlignment.
-        raptor::core::u64 sbtSize = static_cast<raptor::core::u64>(m_sbtAlignedStride) * groupCount;
+        draconic::core::u64 sbtSize = static_cast<draconic::core::u64>(m_sbtAlignedStride) * groupCount;
         dr::BufferDesc sbd{};
         sbd.size   = sbtSize;
         sbd.usage  = dr::BufferUsage::ShaderBindingTable;
         sbd.memory = dr::MemoryLocation::CpuToGpu;
         sbd.label  = u8"SBTBuffer";
-        if (m_device->CreateBuffer(sbd, m_sbtBuffer) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBuffer(sbd, m_sbtBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         // Copy handles into SBT with proper alignment.
-        auto* sbtPtr = static_cast<raptor::core::u8*>(m_sbtBuffer->Map());
-        if (!sbtPtr) { std::fprintf(stderr, "ERROR: Failed to map SBT buffer\n"); return raptor::core::ErrorCode::Unknown; }
+        auto* sbtPtr = static_cast<draconic::core::u8*>(m_sbtBuffer->Map());
+        if (!sbtPtr) { std::fprintf(stderr, "ERROR: Failed to map SBT buffer\n"); return draconic::core::ErrorCode::Unknown; }
         std::memset(sbtPtr, 0, static_cast<size_t>(sbtSize));
 
-        for (raptor::core::u32 i = 0; i < groupCount; i++) {
+        for (draconic::core::u32 i = 0; i < groupCount; i++) {
             std::memcpy(sbtPtr + (i * m_sbtAlignedStride),
                         handleData + (i * handleSize),
                         handleSize);
@@ -415,22 +415,22 @@ raptor::core::Status RayTracingSample::OnInit() {
 
     std::printf("RT sample ready - TraceRays rendering active.\n");
 
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void RayTracingSample::OnRender() {
-    using raptor::core::Span;
+    using draconic::core::Span;
 
     // Wait for previous frame.
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
 
     // Acquire next swap chain image.
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     // Reset and create encoder.
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // ---- Transition output texture to ShaderWrite for TraceRays ----
     enc->TransitionTexture(m_outputTexture, m_outputTextureState, dr::ResourceState::ShaderWrite);
@@ -441,10 +441,10 @@ void RayTracingSample::OnRender() {
         rtEnc->SetBindGroup(0, m_rtBindGroup);
 
         // SBT layout: [0] = raygen, [1] = hit, [2] = miss.
-        raptor::core::u64 raygenOffset = 0;
-        raptor::core::u64 hitOffset    = static_cast<raptor::core::u64>(1) * m_sbtAlignedStride;
-        raptor::core::u64 missOffset   = static_cast<raptor::core::u64>(2) * m_sbtAlignedStride;
-        raptor::core::u64 stride       = static_cast<raptor::core::u64>(m_sbtAlignedStride);
+        draconic::core::u64 raygenOffset = 0;
+        draconic::core::u64 hitOffset    = static_cast<draconic::core::u64>(1) * m_sbtAlignedStride;
+        draconic::core::u64 missOffset   = static_cast<draconic::core::u64>(2) * m_sbtAlignedStride;
+        draconic::core::u64 stride       = static_cast<draconic::core::u64>(m_sbtAlignedStride);
 
         rtEnc->TraceRays(
             m_sbtBuffer, raygenOffset, stride,
@@ -492,8 +492,8 @@ void RayTracingSample::OnRender() {
     m_pool->DestroyEncoder(enc);
 }
 
-void RayTracingSample::OnResize(raptor::core::u32 w, raptor::core::u32 h) {
-    using raptor::core::Status, raptor::core::Span;
+void RayTracingSample::OnResize(draconic::core::u32 w, draconic::core::u32 h) {
+    using draconic::core::Status, draconic::core::Span;
     // Wait for GPU idle before destroying resources.
     if (m_fence) m_fence->Wait(m_fenceVal, ~0ull);
 

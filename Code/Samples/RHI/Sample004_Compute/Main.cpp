@@ -6,25 +6,25 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
-using raptor::core::Mat4;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
+using draconic::core::Mat4;
 
 class ComputeSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample004 - Compute (Animated Point Grid)"; }
+    draconic::core::StringView Title() const override { return u8"Sample004 - Compute (Animated Point Grid)"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { m_depthBuf.Recreate(m_device, w, h); }
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override { m_depthBuf.Recreate(m_device, w, h); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kComputeSrc[] = u8R"(
@@ -53,7 +53,7 @@ private:
         float4 PSMain(PSInput i) : SV_TARGET { return float4(i.Color, 1.0); }
     )";
 
-    static constexpr raptor::core::u32 kGrid = 64, kNumPts = kGrid*kGrid, kVertSz = 24, kBufSz = kNumPts*kVertSz;
+    static constexpr draconic::core::u32 kGrid = 64, kNumPts = kGrid*kGrid, kVertSz = 24, kBufSz = kNumPts*kVertSz;
 
     ds::Compiler* m_compiler = nullptr;
     dr::ShaderModule *m_cs = nullptr, *m_vs = nullptr, *m_ps = nullptr;
@@ -65,52 +65,52 @@ private:
     dr::ComputePipeline *m_compPipe = nullptr;
     dr::RenderPipeline *m_renPipe = nullptr;
     dr::CommandPool *m_pool = nullptr; dr::Fence *m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
     sf::DepthBuffer m_depthBuf;
 };
 
-raptor::core::Status ComputeSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kComputeSrc, ds::ShaderStage::Compute, u8"CSMain", u8"CS", m_cs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Vertex,  u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Fragment,u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status ComputeSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kComputeSrc, ds::ShaderStage::Compute, u8"CSMain", u8"CS", m_cs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Vertex,  u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Fragment,u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = kBufSz; vbd.usage = dr::BufferUsage::Storage | dr::BufferUsage::Vertex; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vtxBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vtxBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc pbd{}; pbd.size = 16; pbd.usage = dr::BufferUsage::Uniform; pbd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(pbd, m_paramsBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(pbd, m_paramsBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_paramsMapped = m_paramsBuf->Map();
     dr::BufferDesc vpd{}; vpd.size = 64; vpd.usage = dr::BufferUsage::Uniform; vpd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(vpd, m_vpBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vpd, m_vpBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_vpMapped = m_vpBuf->Map();
 
     // Compute BGL + BG + PL + pipeline.
     dr::BindGroupLayoutEntry cE[2] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Compute),
                                         dr::BindGroupLayoutEntry::StorageBuffer(0, dr::ShaderStage::Compute, false) };
     dr::BindGroupLayoutDesc cBgld{}; cBgld.entries = Span<const dr::BindGroupLayoutEntry>(cE, 2);
-    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry cBgE[2] = { dr::BindGroupEntry::BufferEntry(m_paramsBuf, 0, 16),
                                     dr::BindGroupEntry::BufferEntry(m_vtxBuf, 0, kBufSz) };
     dr::BindGroupDesc cBgd{}; cBgd.layout = m_compBgl; cBgd.entries = Span<const dr::BindGroupEntry>(cBgE, 2);
-    if (m_device->CreateBindGroup(cBgd, m_compBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(cBgd, m_compBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupLayout* cSets[1] = { m_compBgl };
     dr::PipelineLayoutDesc cPld{}; cPld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(cSets, 1);
-    if (m_device->CreatePipelineLayout(cPld, m_compPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(cPld, m_compPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::ComputePipelineDesc cpd{}; cpd.layout = m_compPl; cpd.compute = { m_cs, u8"CSMain", dr::ShaderStage::Compute };
-    if (m_device->CreateComputePipeline(cpd, m_compPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateComputePipeline(cpd, m_compPipe) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Render BGL + BG + PL + pipeline.
     dr::BindGroupLayoutEntry rE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex) };
     dr::BindGroupLayoutDesc rBgld{}; rBgld.entries = Span<const dr::BindGroupLayoutEntry>(rE, 1);
-    if (m_device->CreateBindGroupLayout(rBgld, m_renBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(rBgld, m_renBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry rBgE[1] = { dr::BindGroupEntry::BufferEntry(m_vpBuf, 0, 64) };
     dr::BindGroupDesc rBgd{}; rBgd.layout = m_renBgl; rBgd.entries = Span<const dr::BindGroupEntry>(rBgE, 1);
-    if (m_device->CreateBindGroup(rBgd, m_renBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(rBgd, m_renBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupLayout* rSets[1] = { m_renBgl };
     dr::PipelineLayoutDesc rPld{}; rPld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(rSets, 1);
-    if (m_device->CreatePipelineLayout(rPld, m_renPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(rPld, m_renPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     m_depthBuf.Recreate(m_device, m_width, m_height);
 
@@ -125,17 +125,17 @@ raptor::core::Status ComputeSample::OnInit() {
     rpd.primitive.topology = dr::PrimitiveTopology::PointList;
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
-    if (m_device->CreateRenderPipeline(rpd, m_renPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_renPipe) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void ComputeSample::OnRender() {
-    using raptor::core::u32, raptor::core::f32, raptor::core::Span;
+    using draconic::core::u32, draconic::core::f32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     // Update params.
     u32 numPts = kNumPts;
@@ -146,14 +146,14 @@ void ComputeSample::OnRender() {
     // Update VP.
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
     f32 camAngle = m_totalTime * 0.3f, camDist = 2.5f;
-    Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{std::sin(camAngle)*camDist, 1.2f, std::cos(camAngle)*camDist}, raptor::core::Vec3{ 0,0,0}, raptor::core::Vec3{0,1,0});
-    Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Mat4 view = Mat4::LookAtRH(draconic::core::Vec3{std::sin(camAngle)*camDist, 1.2f, std::cos(camAngle)*camDist}, draconic::core::Vec3{ 0,0,0}, draconic::core::Vec3{0,1,0});
+    Mat4 proj = Mat4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
     Mat4 vp = view * proj;
     std::memcpy(m_vpMapped, vp.Data(), 64);
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Compute pass.
     dr::BufferBarrier bb{}; bb.buffer = m_vtxBuf; bb.oldState = dr::ResourceState::VertexBuffer; bb.newState = dr::ResourceState::ShaderWrite;

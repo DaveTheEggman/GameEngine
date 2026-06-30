@@ -7,24 +7,24 @@
 
 #include <cstdint>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class ResolveTextureSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample029 - ResolveTexture (Explicit 4x MSAA)"; }
+    draconic::core::StringView Title() const override { return u8"Sample029 - ResolveTexture (Explicit 4x MSAA)"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateMsaaTarget(w, h); }
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override { recreateMsaaTarget(w, h); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kShader[] = u8R"(
@@ -66,7 +66,7 @@ private:
         -0.238f,  0.327f, 0.0f,   0.9f, 0.5f, 0.8f, 1.0f,
     };
 
-    static constexpr raptor::core::u16 kIdx[] = {
+    static constexpr draconic::core::u16 kIdx[] = {
         0, 1, 6,   0, 6, 2,
         0, 2, 7,   0, 7, 3,
         0, 3, 8,   0, 8, 4,
@@ -74,9 +74,9 @@ private:
         0, 5, 10,  0, 10, 1,
     };
 
-    static constexpr raptor::core::u32 kSamples = 4;
+    static constexpr draconic::core::u32 kSamples = 4;
 
-    void recreateMsaaTarget(raptor::core::u32 w, raptor::core::u32 h);
+    void recreateMsaaTarget(draconic::core::u32 w, draconic::core::u32 h);
 
     ds::Compiler* m_compiler = nullptr;
     dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
@@ -87,10 +87,10 @@ private:
     dr::TextureView *m_msaaView = nullptr;
     dr::CommandPool *m_pool = nullptr;
     dr::Fence *m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
 };
 
-void ResolveTextureSample::recreateMsaaTarget(raptor::core::u32 w, raptor::core::u32 h) {
+void ResolveTextureSample::recreateMsaaTarget(draconic::core::u32 w, draconic::core::u32 h) {
     if (m_msaaView) { m_device->DestroyTextureView(m_msaaView); m_msaaView = nullptr; }
     if (m_msaaTex) { m_device->DestroyTexture(m_msaaTex); m_msaaTex = nullptr; }
     // Need RenderTarget (to draw into) and CopySrc (source for resolveTexture).
@@ -103,17 +103,17 @@ void ResolveTextureSample::recreateMsaaTarget(raptor::core::u32 w, raptor::core:
     m_device->CreateTextureView(m_msaaTex, tvd, m_msaaView);
 }
 
-raptor::core::Status ResolveTextureSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"ResolveVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"ResolvePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status ResolveTextureSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"ResolveVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"ResolvePS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Vertex and index buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly; vbd.label = u8"ResolveVB";
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly; ibd.label = u8"ResolveIB";
-    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
@@ -122,7 +122,7 @@ raptor::core::Status ResolveTextureSample::OnInit() {
 
     // Pipeline layout (no bind groups).
     dr::PipelineLayoutDesc pld{}; pld.label = u8"ResolvePL";
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // MSAA render target.
     recreateMsaaTarget(m_width, m_height);
@@ -141,20 +141,20 @@ raptor::core::Status ResolveTextureSample::OnInit() {
     rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.multisample.count = kSamples;
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void ResolveTextureSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // === Step 1: Render star into MSAA texture ===
     enc->TransitionTexture(m_msaaTex, dr::ResourceState::CopySrc, dr::ResourceState::RenderTarget);

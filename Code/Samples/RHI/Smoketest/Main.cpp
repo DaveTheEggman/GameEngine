@@ -6,22 +6,22 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.rhi.vk;
-import raptor.rhi.null;
-import raptor.rhi.validation;
-import raptor.runtime.platform;
-import raptor.runtime.platform.desktop;
-#ifdef RAPTOR_HAS_SHADERS
-import raptor.shaders;
+import draconic.core;
+import draconic.rhi;
+import draconic.rhi.vk;
+import draconic.rhi.null;
+import draconic.rhi.validation;
+import draconic.runtime.platform;
+import draconic.runtime.platform.desktop;
+#ifdef DRACONIC_HAS_SHADERS
+import draconic.shaders;
 #endif
-#ifdef RAPTOR_HAS_DX12
-import raptor.rhi.dx12;
+#ifdef DRACONIC_HAS_DX12
+import draconic.rhi.dx12;
 #endif
 
-static const char* adapterTypeStr(raptor::rhi::AdapterType t) {
-    using raptor::rhi::AdapterType;
+static const char* adapterTypeStr(draconic::rhi::AdapterType t) {
+    using draconic::rhi::AdapterType;
     switch (t) {
     case AdapterType::DiscreteGpu:   return "DiscreteGpu";
     case AdapterType::IntegratedGpu: return "IntegratedGpu";
@@ -31,14 +31,14 @@ static const char* adapterTypeStr(raptor::rhi::AdapterType t) {
 }
 
 int main(int /*argc*/, char** /*argv*/) {
-    using namespace raptor::core;
-    using namespace raptor::rhi;
-    namespace vk = raptor::rhi::vk;
-    namespace rt = raptor::runtime;
+    using namespace draconic::core;
+    using namespace draconic::rhi;
+    namespace vk = draconic::rhi::vk;
+    namespace rt = draconic::runtime;
 
     // ---- Platform: window via the desktop (SDL3) platform ----
     rt::WindowSettings ws{};
-    ws.title  = u8"Raptor Smoketest";
+    ws.title  = u8"Draconic Smoketest";
     ws.width  = 1280;
     ws.height = 720;
     UniquePtr<rt::IPlatform> plat = rt::CreatePlatform(ws);
@@ -59,7 +59,7 @@ int main(int /*argc*/, char** /*argv*/) {
     // ---- VK backend (wrapped in validation layer) ----
     vk::VkBackendDesc vkDesc{ .enableValidation = true };
     Backend* rawBackend = nullptr;
-    if (vk::CreateBackend(vkDesc, rawBackend) != raptor::core::ErrorCode::Ok) {
+    if (vk::CreateBackend(vkDesc, rawBackend) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBackend failed\n");
         return 1;
     }
@@ -80,14 +80,14 @@ int main(int /*argc*/, char** /*argv*/) {
     dd.transferQueueCount = 1;
     dd.requiredFeatures.meshShaders = adapterInfo.supportedFeatures.meshShaders;
     Device* device = nullptr;
-    if (chosen->CreateDevice(dd, device) != raptor::core::ErrorCode::Ok) {
+    if (chosen->CreateDevice(dd, device) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createDevice failed\n");
         backend->Destroy(); return 1;
     }
 
     // ---- Surface + swap chain ----
     Surface* surface = nullptr;
-    if (backend->CreateSurface(native, display, surface) != raptor::core::ErrorCode::Ok) {
+    if (backend->CreateSurface(native, display, surface) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSurface failed\n");
         device->Destroy(); return 1;
     }
@@ -100,7 +100,7 @@ int main(int /*argc*/, char** /*argv*/) {
     sd.bufferCount = 2;
     sd.label = u8"main";
     SwapChain* swap = nullptr;
-    if (device->CreateSwapChain(surface, sd, swap) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateSwapChain(surface, sd, swap) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSwapChain failed\n");
         device->DestroySurface(surface);
         device->Destroy(); return 1;
@@ -114,7 +114,7 @@ int main(int /*argc*/, char** /*argv*/) {
     ubDesc.memory = MemoryLocation::CpuToGpu;
     ubDesc.label = u8"smoketest_uniform";
     Buffer* ub = nullptr;
-    if (device->CreateBuffer(ubDesc, ub) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateBuffer(ubDesc, ub) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBuffer failed\n");
     } else {
         void* mapped = ub->Map();
@@ -128,7 +128,7 @@ int main(int /*argc*/, char** /*argv*/) {
     sampDesc.maxAnisotropy = 16;
     sampDesc.label = u8"smoketest_sampler";
     Sampler* samp = nullptr;
-    if (device->CreateSampler(sampDesc, samp) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateSampler(sampDesc, samp) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createSampler failed\n");
     } else {
         std::printf("sampler created (aniso=%u)\n", samp->desc.maxAnisotropy);
@@ -151,7 +151,7 @@ int main(int /*argc*/, char** /*argv*/) {
     shDesc.code = Span<const u8>(reinterpret_cast<const u8*>(kSpvNoop), sizeof(kSpvNoop));
     shDesc.label = u8"smoketest_noop_fs";
     ShaderModule* sh = nullptr;
-    if (device->CreateShaderModule(shDesc, sh) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateShaderModule(shDesc, sh) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createShaderModule failed\n");
     } else {
         std::printf("shader module created (%zu bytes)\n", shDesc.code.Size());
@@ -167,7 +167,7 @@ int main(int /*argc*/, char** /*argv*/) {
     bglDesc.entries = Span<const BindGroupLayoutEntry>(layoutEntries, 2);
     bglDesc.label = u8"smoketest_bgl";
     BindGroupLayout* bgl = nullptr;
-    if (device->CreateBindGroupLayout(bglDesc, bgl) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateBindGroupLayout(bglDesc, bgl) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBindGroupLayout failed\n");
     } else {
         std::printf("bind group layout: %zu entries\n", bgl->Entries().Size());
@@ -178,7 +178,7 @@ int main(int /*argc*/, char** /*argv*/) {
     plDesc.bindGroupLayouts = Span<BindGroupLayout* const>(plSets, 1);
     plDesc.label = u8"smoketest_pl";
     PipelineLayout* pl = nullptr;
-    if (device->CreatePipelineLayout(plDesc, pl) != raptor::core::ErrorCode::Ok) {
+    if (device->CreatePipelineLayout(plDesc, pl) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createPipelineLayout failed\n");
     } else {
         std::printf("pipeline layout created\n");
@@ -187,7 +187,7 @@ int main(int /*argc*/, char** /*argv*/) {
     PipelineCacheDesc pcDesc{};
     pcDesc.label = u8"smoketest_pc";
     PipelineCache* pc = nullptr;
-    if (device->CreatePipelineCache(pcDesc, pc) != raptor::core::ErrorCode::Ok) {
+    if (device->CreatePipelineCache(pcDesc, pc) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createPipelineCache failed\n");
     } else {
         std::printf("pipeline cache created (size=%u)\n", pc->GetDataSize());
@@ -201,14 +201,14 @@ int main(int /*argc*/, char** /*argv*/) {
 
     // ---- Command pool + fence ----
     CommandPool* pool = nullptr;
-    if (device->CreateCommandPool(QueueType::Graphics, pool) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateCommandPool(QueueType::Graphics, pool) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createCommandPool failed\n");
     } else {
         std::printf("command pool created\n");
     }
 
     Fence* fence = nullptr;
-    if (device->CreateFence(0, fence) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateFence(0, fence) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createFence failed\n");
     } else {
         std::printf("fence created (initial=%llu)\n",
@@ -220,7 +220,7 @@ int main(int /*argc*/, char** /*argv*/) {
     qsDesc.count = 16;
     qsDesc.label = u8"smoketest_qs";
     QuerySet* qs = nullptr;
-    if (device->CreateQuerySet(qsDesc, qs) != raptor::core::ErrorCode::Ok) {
+    if (device->CreateQuerySet(qsDesc, qs) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createQuerySet failed\n");
     } else {
         std::printf("query set created (type=%u count=%u)\n",
@@ -232,13 +232,13 @@ int main(int /*argc*/, char** /*argv*/) {
     Queue* gfx = device->GetQueue(QueueType::Graphics);
     u64 fenceValue = 0;
     for (int frame = 0; frame < 3; ++frame) {
-        if (swap->AcquireNextImage() != raptor::core::ErrorCode::Ok) {
+        if (swap->AcquireNextImage() != draconic::core::ErrorCode::Ok) {
             std::fprintf(stderr, "acquireNextImage failed on frame %d\n", frame);
             break;
         }
 
         CommandEncoder* enc = nullptr;
-        if (pool && pool->CreateEncoder(enc) == raptor::core::ErrorCode::Ok && enc) {
+        if (pool && pool->CreateEncoder(enc) == draconic::core::ErrorCode::Ok && enc) {
             enc->TransitionTexture(swap->CurrentTexture(), ResourceState::Undefined, ResourceState::Present);
 
             CommandBuffer* cb = enc->Finish();
@@ -270,11 +270,11 @@ int main(int /*argc*/, char** /*argv*/) {
 
     // ---- Cleanup ----
     // ---- DXC shader compilation test ----
-#ifdef RAPTOR_HAS_SHADERS
+#ifdef DRACONIC_HAS_SHADERS
     {
-        namespace ds = raptor::shaders;
+        namespace ds = draconic::shaders;
         ds::Compiler* shaderc = nullptr;
-        if (ds::createCompiler(ds::CompilerDesc{}, shaderc) != raptor::core::ErrorCode::Ok) {
+        if (ds::createCompiler(ds::CompilerDesc{}, shaderc) != draconic::core::ErrorCode::Ok) {
             std::fprintf(stderr, "shaders: createCompiler failed\n");
         } else {
             static const char kHlsl[] =
@@ -285,10 +285,10 @@ int main(int /*argc*/, char** /*argv*/) {
             opts.shaderModel = u8"6_0";
             opts.optimizationLevel = 3;
             ds::CompileResult cr{};
-            raptor::core::Status r = shaderc->compile(
+            draconic::core::Status r = shaderc->compile(
                 reinterpret_cast<const u8*>(kHlsl), sizeof(kHlsl) - 1,
                 ds::ShaderStage::Fragment, u8"main", ds::ShaderTarget::SPIRV, opts, cr);
-            if (r == raptor::core::ErrorCode::Ok) {
+            if (r == draconic::core::ErrorCode::Ok) {
                 u32 magic = cr.bytecodeSize >= 4 ? *reinterpret_cast<const u32*>(cr.bytecode) : 0u;
                 std::printf("HLSL->SPIR-V: %zu bytes, magic=0x%08x %s\n",
                             cr.bytecodeSize, magic, magic == 0x07230203u ? "(SPIR-V OK)" : "(unexpected)");
@@ -317,7 +317,7 @@ int main(int /*argc*/, char** /*argv*/) {
     // ---- Null backend exercise ----
     std::printf("\n=== Null Backend ===\n");
     {
-        namespace null = raptor::rhi::null;
+        namespace null = draconic::rhi::null;
         Backend* nullBackend = nullptr;
         null::CreateNullBackend(nullBackend);
 
@@ -369,9 +369,9 @@ int main(int /*argc*/, char** /*argv*/) {
     }
 
     // ===== DX12 backend (Windows only) =====
-#ifdef RAPTOR_HAS_DX12
+#ifdef DRACONIC_HAS_DX12
     {
-        namespace dx12 = raptor::rhi::dx12;
+        namespace dx12 = draconic::rhi::dx12;
         std::printf("\n=== DX12 Backend ===\n");
 
         Backend* dx12Backend = nullptr;

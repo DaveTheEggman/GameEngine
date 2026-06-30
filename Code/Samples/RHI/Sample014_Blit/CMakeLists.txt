@@ -1,5 +1,5 @@
-add_executable(RaptorSample014_Blit Main.cpp)
-target_link_libraries(RaptorSample014_Blit PRIVATE Raptor::SamplesFramework Raptor::RHIVulkan Raptor::Core Raptor::Policy)
-target_compile_options(RaptorSample014_Blit PRIVATE
+add_executable(DraconicSample014_Blit Main.cpp)
+target_link_libraries(DraconicSample014_Blit PRIVATE Draconic::SamplesFramework Draconic::RHIVulkan Draconic::Core Draconic::Policy)
+target_compile_options(DraconicSample014_Blit PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
-raptor_copy_sdl3_dll(RaptorSample014_Blit)
+draconic_copy_sdl3_dll(DraconicSample014_Blit)

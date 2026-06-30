@@ -1,5 +1,5 @@
 // VG Sandbox — faithful port of Sedulous Samples/VG/VGSandbox. A NanoVG-style
-// demo exercising the whole VG stack (raptor.vg + .renderer + .svg + fonts +
+// demo exercising the whole VG stack (draconic.vg + .renderer + .svg + fonts +
 // image): line widths/caps/joins, animated eyes, an HSL color wheel, an area
 // graph, scissor clipping, image draws, text, UI convenience primitives,
 // immediate-mode paths, and SVG rendering. Window/device/swapchain via the
@@ -8,27 +8,27 @@
 #include <new>
 #include <cstdio>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.rhi.vk;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.image;
-import raptor.fonts;
-import raptor.fonts.ttf;
-import raptor.vg;
-import raptor.vg.renderer;
-import raptor.vg.svg;
+import draconic.core;
+import draconic.rhi;
+import draconic.rhi.vk;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.image;
+import draconic.fonts;
+import draconic.fonts.ttf;
+import draconic.vg;
+import draconic.vg.renderer;
+import draconic.vg.svg;
 
-using namespace raptor::core;
-namespace sf = raptor::samples::framework;
-namespace rhi = raptor::rhi;
-namespace ds = raptor::shaders;
-namespace img = raptor::image;
-namespace fonts = raptor::fonts;
-namespace vg = raptor::vg;
-namespace vgr = raptor::vg::renderer;
-namespace svg = raptor::vg::svg;
+using namespace draconic::core;
+namespace sf = draconic::samples::framework;
+namespace rhi = draconic::rhi;
+namespace ds = draconic::shaders;
+namespace img = draconic::image;
+namespace fonts = draconic::fonts;
+namespace vg = draconic::vg;
+namespace vgr = draconic::vg::renderer;
+namespace svg = draconic::vg::svg;
 
 namespace
 {
@@ -57,8 +57,8 @@ float4 main(PSInput input) : SV_Target {
 }
 )";
 
-#ifndef RAPTOR_VG_FONT_PATH
-#define RAPTOR_VG_FONT_PATH ""
+#ifndef DRACONIC_VG_FONT_PATH
+#define DRACONIC_VG_FONT_PATH ""
 #endif
 
     // Gradient stops take the engine's float Color; UI colors are byte Color32.
@@ -97,7 +97,7 @@ private:
     void LoadFontSize(StringView path, f32 pixelHeight);
     static Color HSLToColor(f32 h, f32 s, f32 l);
     static f32 HueToRGB(f32 p, f32 q, f32 t);
-    [[nodiscard]] bool HasFonts() const { return !StringView(reinterpret_cast<const utf8char*>(RAPTOR_VG_FONT_PATH)).IsEmpty(); }
+    [[nodiscard]] bool HasFonts() const { return !StringView(reinterpret_cast<const utf8char*>(DRACONIC_VG_FONT_PATH)).IsEmpty(); }
 
     ds::Compiler*      m_compiler = nullptr;
     rhi::ShaderModule* m_vs = nullptr;
@@ -136,7 +136,7 @@ Status VGSandbox::OnInit()
     m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
     if (HasFonts())
     {
-        const StringView fontPath(reinterpret_cast<const utf8char*>(RAPTOR_VG_FONT_PATH));
+        const StringView fontPath(reinterpret_cast<const utf8char*>(DRACONIC_VG_FONT_PATH));
         LoadFontSize(fontPath, 14.0f);
         LoadFontSize(fontPath, 20.0f);
         LoadFontSize(fontPath, 36.0f);
@@ -525,7 +525,7 @@ void VGSandbox::DrawTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t)
 {
     if (!HasFonts()) return;
 
-    vgc.DrawText(u8"Raptor.VG text rendering", m_fontLarge, Vec2{ x, y + 30 }, GC( 240, 240, 245, 255 ));
+    vgc.DrawText(u8"Draconic.VG text rendering", m_fontLarge, Vec2{ x, y + 30 }, GC( 240, 240, 245, 255 ));
     vgc.DrawText(u8"Medium size - the quick brown fox", m_fontMedium, Vec2{ x, y + 60 }, GC( 180, 200, 255, 255 ));
     vgc.DrawText(u8"small caption @ 14px", m_fontSmall, Vec2{ x, y + 82 }, GC( 160, 170, 180, 255 ));
 

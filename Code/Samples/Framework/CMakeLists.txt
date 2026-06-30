@@ -1,31 +1,31 @@
-# Raptor::SamplesFramework — `raptor.samples.framework` (RHI sample base + helpers).
+# Draconic::SamplesFramework — `draconic.samples.framework` (RHI sample base + helpers).
 # Needs the Vulkan backend, the desktop platform, and the shader compiler.
 
-if(NOT (TARGET Raptor::RHIVulkan AND TARGET Raptor::RuntimePlatformDesktop AND TARGET Raptor::Shaders))
-    message(STATUS "Skipping Raptor::SamplesFramework — needs Vulkan + Desktop platform + Shaders")
+if(NOT (TARGET Draconic::RHIVulkan AND TARGET Draconic::RuntimePlatformDesktop AND TARGET Draconic::Shaders))
+    message(STATUS "Skipping Draconic::SamplesFramework — needs Vulkan + Desktop platform + Shaders")
     return()
 endif()
 
-add_library(RaptorSamplesFramework STATIC)
-add_library(Raptor::SamplesFramework ALIAS RaptorSamplesFramework)
+add_library(DraconicSamplesFramework STATIC)
+add_library(Draconic::SamplesFramework ALIAS DraconicSamplesFramework)
 
-target_link_libraries(RaptorSamplesFramework PUBLIC
-    Raptor::Core
-    Raptor::RHI
-    Raptor::RHIVulkan
-    Raptor::RHIValidation
-    Raptor::RuntimePlatform
-    Raptor::RuntimePlatformDesktop
-    Raptor::Shaders
-    Raptor::Policy)
+target_link_libraries(DraconicSamplesFramework PUBLIC
+    Draconic::Core
+    Draconic::RHI
+    Draconic::RHIVulkan
+    Draconic::RHIValidation
+    Draconic::RuntimePlatform
+    Draconic::RuntimePlatformDesktop
+    Draconic::Shaders
+    Draconic::Policy)
 
 # DX12 backend — Windows only.
-if(TARGET Raptor::RHIDX12)
-    target_link_libraries(RaptorSamplesFramework PUBLIC Raptor::RHIDX12)
-    target_compile_definitions(RaptorSamplesFramework PUBLIC RAPTOR_HAS_DX12)
+if(TARGET Draconic::RHIDX12)
+    target_link_libraries(DraconicSamplesFramework PUBLIC Draconic::RHIDX12)
+    target_compile_definitions(DraconicSamplesFramework PUBLIC DRACONIC_HAS_DX12)
 endif()
 
-target_sources(RaptorSamplesFramework
+target_sources(DraconicSamplesFramework
     PUBLIC
         FILE_SET samples_framework_modules TYPE CXX_MODULES FILES
             DepthBuffer.cppm

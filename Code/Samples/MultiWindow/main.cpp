@@ -9,18 +9,18 @@
 
 #include "Core/Prelude.h"
 
-import raptor.core;
-import raptor.rhi;
-import raptor.runtime;
-import raptor.runtime.client;
-import raptor.runtime.platform;
-import raptor.runtime.platform.desktop;
-import raptor.runtime.graphics;
-import raptor.runtime.graphics.gpu;
+import draconic.core;
+import draconic.rhi;
+import draconic.runtime;
+import draconic.runtime.client;
+import draconic.runtime.platform;
+import draconic.runtime.platform.desktop;
+import draconic.runtime.graphics;
+import draconic.runtime.graphics.gpu;
 
-namespace rc = raptor::core;
-namespace rt = raptor::runtime;
-namespace rhi = raptor::rhi;
+namespace rc = draconic::core;
+namespace rt = draconic::runtime;
+namespace rhi = draconic::rhi;
 
 namespace
 {
@@ -33,7 +33,7 @@ namespace
             // Open a second OS window at runtime — the same call a detachable UI
             // panel would make.
             rt::WindowSettings ws;
-            ws.title  = u8"Raptor - Detached";
+            ws.title  = u8"Draconic - Detached";
             ws.width  = 480;
             ws.height = 360;
             m_second = host.OpenWindow(ws, rt::RenderWindowDesc{});
@@ -64,7 +64,7 @@ namespace
 int main(int /*argc*/, char** /*argv*/)
 {
     rt::WindowSettings ws;
-    ws.title  = u8"Raptor - Main";
+    ws.title  = u8"Draconic - Main";
     ws.width  = 800;
     ws.height = 600;
 

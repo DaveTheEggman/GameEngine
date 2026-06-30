@@ -6,23 +6,23 @@
 #include <cstdint>
 #include <span>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class TriangleSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample001 - Triangle"; }
+    draconic::core::StringView Title() const override { return u8"Sample001 - Triangle"; }
 
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void          OnRender() override;
     void          OnShutdown() override;
 
@@ -62,74 +62,74 @@ private:
     dr::RenderPipeline*  m_pipeline = nullptr;
     dr::CommandPool*     m_pool     = nullptr;
     dr::Fence*           m_fence    = nullptr;
-    raptor::core::u64           m_fenceVal = 0;
+    draconic::core::u64           m_fenceVal = 0;
 };
 
-raptor::core::Status TriangleSample::OnInit() {
-    using raptor::core::Status;
+draconic::core::Status TriangleSample::OnInit() {
+    using draconic::core::Status;
 
     // Shader compiler.
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u8"VSMain", u8"TriangleVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u8"PSMain", u8"TrianglePS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u8"VSMain", u8"TriangleVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u8"PSMain", u8"TrianglePS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Vertex buffer.
     dr::BufferDesc bd{}; bd.size = sizeof(kVertexData); bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
     bd.memory = dr::MemoryLocation::GpuOnly; bd.label = u8"TriangleVB";
-    if (m_device->CreateBuffer(bd, m_vertexBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(bd, m_vertexBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Upload.
     dr::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
-    batch->WriteBuffer(m_vertexBuf, 0, raptor::core::Span<const raptor::core::u8>(reinterpret_cast<const raptor::core::u8*>(kVertexData), sizeof(kVertexData)));
+    batch->WriteBuffer(m_vertexBuf, 0, draconic::core::Span<const draconic::core::u8>(reinterpret_cast<const draconic::core::u8*>(kVertexData), sizeof(kVertexData)));
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Pipeline layout (empty).
     dr::BindGroupLayoutDesc bglDesc{}; bglDesc.label = u8"EmptyBGL";
-    if (m_device->CreateBindGroupLayout(bglDesc, m_bgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(bglDesc, m_bgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::PipelineLayoutDesc pld{};
     dr::BindGroupLayout* sets[1] = { m_bgl };
-    pld.bindGroupLayouts = raptor::core::Span<dr::BindGroupLayout* const>(sets, 1);
+    pld.bindGroupLayouts = draconic::core::Span<dr::BindGroupLayout* const>(sets, 1);
     pld.label = u8"TrianglePL";
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Render pipeline.
     dr::VertexAttribute attrs[2] = {
         { dr::VertexFormat::Float32x3, 0,  0 },
         { dr::VertexFormat::Float32x3, 12, 1 },
     };
-    dr::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = raptor::core::Span<const dr::VertexAttribute>(attrs, 2);
+    dr::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = draconic::core::Span<const dr::VertexAttribute>(attrs, 2);
 
     dr::ColorTargetState ct{}; ct.format = m_swapChain->Format(); ct.writeMask = dr::ColorWriteMask::All;
 
     dr::RenderPipelineDesc rpd{};
     rpd.layout   = m_pl;
     rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-    rpd.vertex.buffers = raptor::core::Span<const dr::VertexBufferLayout>(&vbl, 1);
+    rpd.vertex.buffers = draconic::core::Span<const dr::VertexBufferLayout>(&vbl, 1);
     rpd.fragment = dr::FragmentState{};
     rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-    rpd.fragment->targets = raptor::core::Span<const dr::ColorTargetState>(&ct, 1);
+    rpd.fragment->targets = draconic::core::Span<const dr::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
     rpd.label = u8"TrianglePipeline";
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Command pool + fence.
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void TriangleSample::OnRender() {
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
 
@@ -143,7 +143,7 @@ void TriangleSample::OnRender() {
 
     auto* rp = enc->BeginRenderPass(rpd);
     rp->SetPipeline(m_pipeline);
-    rp->SetViewport(0, 0, static_cast<raptor::core::f32>(m_width), static_cast<raptor::core::f32>(m_height), 0, 1);
+    rp->SetViewport(0, 0, static_cast<draconic::core::f32>(m_width), static_cast<draconic::core::f32>(m_height), 0, 1);
     rp->SetScissor(0, 0, m_width, m_height);
     rp->SetVertexBuffer(0, m_vertexBuf, 0);
     rp->Draw(3);
@@ -154,7 +154,7 @@ void TriangleSample::OnRender() {
     dr::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
     dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(raptor::core::Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    m_graphicsQueue->Submit(draconic::core::Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
 
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);

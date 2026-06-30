@@ -1,4 +1,4 @@
-# Raptor
+# Draconic
 
 C++23 game engine ported from the Sedulous engine (Beef). Uses C++ modules, virtual inheritance for the RHI, and Vulkan 1.3 as the primary GPU backend with a DX12 backend on Windows.
 
@@ -57,12 +57,12 @@ Executables are in `build/<preset>/Code/Samples/`. Examples:
 
 ```bash
 # Windows
-build/clang/Code/Samples/RHI/Sample001_Triangle/RaptorSample001_Triangle.exe
+build/clang/Code/Samples/RHI/Sample001_Triangle/DraconicSample001_Triangle.exe
 build/clang/Code/Samples/HelloWindow/HelloWindow.exe
 build/clang/Code/Samples/VG/VGSandbox/VGSandbox.exe
 
 # Linux (no .exe extension)
-build/clang/Code/Samples/RHI/Sample001_Triangle/RaptorSample001_Triangle
+build/clang/Code/Samples/RHI/Sample001_Triangle/DraconicSample001_Triangle
 ```
 
 RHI samples accept `--vk` or `--dx12` to select the GPU backend (default varies by platform).
@@ -71,7 +71,7 @@ RHI samples accept `--vk` or `--dx12` to select the GPU backend (default varies 
 
 ```
 Code/
-  Raptor/
+  Draconic/
     Core/           Types, memory, containers, math, threading, logging, RTTI
     Animation/      Skeleton, clip, sampler, pose
     Content/        Content database over VFS

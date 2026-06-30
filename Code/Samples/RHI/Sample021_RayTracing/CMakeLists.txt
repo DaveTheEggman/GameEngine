@@ -1,5 +1,5 @@
-add_executable(RaptorSample021_RayTracing Main.cpp)
-target_link_libraries(RaptorSample021_RayTracing PRIVATE Raptor::SamplesFramework Raptor::RHIVulkan Raptor::Core Raptor::Policy)
-target_compile_options(RaptorSample021_RayTracing PRIVATE
+add_executable(DraconicSample021_RayTracing Main.cpp)
+target_link_libraries(DraconicSample021_RayTracing PRIVATE Draconic::SamplesFramework Draconic::RHIVulkan Draconic::Core Draconic::Policy)
+target_compile_options(DraconicSample021_RayTracing PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
-raptor_copy_sdl3_dll(RaptorSample021_RayTracing)
+draconic_copy_sdl3_dll(DraconicSample021_RayTracing)

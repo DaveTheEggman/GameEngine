@@ -6,25 +6,25 @@
 
 #include <cstdint>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class StencilOutlineSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample022 - Stencil Outline"; }
+    draconic::core::StringView Title() const override { return u8"Sample022 - Stencil Outline"; }
 
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateDepthStencil(w, h); }
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override { recreateDepthStencil(w, h); }
     void OnShutdown() override;
 
 private:
@@ -91,7 +91,7 @@ private:
         -0.3f,  -0.52f,  0.5f,   1.0f, 0.3f, 0.6f, 1.0f,
          0.3f,  -0.52f,  0.5f,   0.6f, 0.3f, 1.0f, 1.0f,
     };
-    static constexpr raptor::core::u16 kIdx[] = {
+    static constexpr draconic::core::u16 kIdx[] = {
         0, 1, 2,
         0, 2, 3,
         0, 3, 4,
@@ -100,7 +100,7 @@ private:
         0, 6, 1,
     };
 
-    void recreateDepthStencil(raptor::core::u32 w, raptor::core::u32 h);
+    void recreateDepthStencil(draconic::core::u32 w, draconic::core::u32 h);
 
     ds::Compiler* m_compiler = nullptr;
     dr::Buffer *m_vb = nullptr, *m_ib = nullptr;
@@ -112,10 +112,10 @@ private:
     dr::TextureView* m_depthStencilView = nullptr;
     dr::CommandPool* m_pool = nullptr;
     dr::Fence* m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
 };
 
-void StencilOutlineSample::recreateDepthStencil(raptor::core::u32 w, raptor::core::u32 h) {
+void StencilOutlineSample::recreateDepthStencil(draconic::core::u32 w, draconic::core::u32 h) {
     if (m_depthStencilView) { m_device->DestroyTextureView(m_depthStencilView); m_depthStencilView = nullptr; }
     if (m_depthStencilTex) { m_device->DestroyTexture(m_depthStencilTex); m_depthStencilTex = nullptr; }
 
@@ -126,18 +126,18 @@ void StencilOutlineSample::recreateDepthStencil(raptor::core::u32 w, raptor::cor
     m_device->CreateTextureView(m_depthStencilTex, tvd, m_depthStencilView);
 }
 
-raptor::core::Status StencilOutlineSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8;
+draconic::core::Status StencilOutlineSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"StencilVS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"StencilPS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"StencilVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"StencilPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Vertex & index buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
@@ -148,7 +148,7 @@ raptor::core::Status StencilOutlineSample::OnInit() {
     dr::PushConstantRange pcRange{ dr::ShaderStage::Vertex, 0, sizeof(PushData) };
     dr::PipelineLayoutDesc pld{};
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pcRange, 1);
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     recreateDepthStencil(m_width, m_height);
 
@@ -174,7 +174,7 @@ raptor::core::Status StencilOutlineSample::OnInit() {
         rpd.depthStencil->stencilWriteMask = 0xFF;
         rpd.depthStencil->stencilFront = { dr::CompareFunction::Always, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Replace };
         rpd.depthStencil->stencilBack  = { dr::CompareFunction::Always, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Replace };
-        if (m_device->CreateRenderPipeline(rpd, m_stencilWritePipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_stencilWritePipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Pipeline 2: Stencil test — draw outline, only where stencil != 1.
@@ -194,22 +194,22 @@ raptor::core::Status StencilOutlineSample::OnInit() {
         rpd.depthStencil->stencilWriteMask = 0x00;
         rpd.depthStencil->stencilFront = { dr::CompareFunction::NotEqual, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Keep };
         rpd.depthStencil->stencilBack  = { dr::CompareFunction::NotEqual, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Keep };
-        if (m_device->CreateRenderPipeline(rpd, m_stencilTestPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_stencilTestPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void StencilOutlineSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
     enc->TransitionTexture(m_depthStencilTex, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);

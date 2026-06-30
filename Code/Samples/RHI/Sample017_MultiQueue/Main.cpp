@@ -8,25 +8,25 @@
 #include <cstdio>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
-using raptor::core::Mat4;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
+using draconic::core::Mat4;
 
 class MultiQueueSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample017 - MultiQueue (Async Compute)"; }
+    draconic::core::StringView Title() const override { return u8"Sample017 - MultiQueue (Async Compute)"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { recreateDepth(w, h); }
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override { recreateDepth(w, h); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kComputeSrc[] = u8R"(
@@ -57,9 +57,9 @@ private:
         float4 PSMain(PSInput i) : SV_TARGET { return float4(i.Color, 1.0); }
     )";
 
-    static constexpr raptor::core::u32 kGrid = 64, kNumPts = kGrid*kGrid, kVertSz = 24, kBufSz = kNumPts*kVertSz;
+    static constexpr draconic::core::u32 kGrid = 64, kNumPts = kGrid*kGrid, kVertSz = 24, kBufSz = kNumPts*kVertSz;
 
-    void recreateDepth(raptor::core::u32 w, raptor::core::u32 h);
+    void recreateDepth(draconic::core::u32 w, draconic::core::u32 h);
 
     ds::Compiler* m_compiler = nullptr;
     dr::ShaderModule *m_cs = nullptr, *m_vs = nullptr, *m_ps = nullptr;
@@ -83,17 +83,17 @@ private:
 
     // Synchronization.
     dr::Fence *m_compFence = nullptr, *m_gfxFence = nullptr;
-    raptor::core::u64 m_compFenceVal = 0, m_gfxFenceVal = 0;
+    draconic::core::u64 m_compFenceVal = 0, m_gfxFenceVal = 0;
     bool m_hasDedicatedCompute = false;
     float m_lastReportTime = 0.0f;
 };
 
-void MultiQueueSample::recreateDepth(raptor::core::u32 w, raptor::core::u32 h) {
+void MultiQueueSample::recreateDepth(draconic::core::u32 w, draconic::core::u32 h) {
     m_depthBuf.Recreate(m_device, w, h);
 }
 
-raptor::core::Status MultiQueueSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status MultiQueueSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     // Check for dedicated compute queue.
     if (m_device->GetQueueCount(dr::QueueType::Compute) == 0) {
@@ -106,50 +106,50 @@ raptor::core::Status MultiQueueSample::OnInit() {
         std::printf("Using dedicated compute queue\n");
     }
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kComputeSrc, ds::ShaderStage::Compute,  u8"CSMain", u8"CS", m_cs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kComputeSrc, ds::ShaderStage::Compute,  u8"CSMain", u8"CS", m_cs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Shared vertex/storage buffer.
     dr::BufferDesc vbd{}; vbd.size = kBufSz; vbd.usage = dr::BufferUsage::Storage | dr::BufferUsage::Vertex; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vtxBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vtxBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compute params UBO.
     dr::BufferDesc pbd{}; pbd.size = 16; pbd.usage = dr::BufferUsage::Uniform; pbd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(pbd, m_paramsBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(pbd, m_paramsBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_paramsMapped = m_paramsBuf->Map();
 
     // View-projection UBO.
     dr::BufferDesc vpd{}; vpd.size = 64; vpd.usage = dr::BufferUsage::Uniform; vpd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(vpd, m_vpBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vpd, m_vpBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_vpMapped = m_vpBuf->Map();
 
     // Compute pipeline.
     dr::BindGroupLayoutEntry cE[2] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Compute),
                                         dr::BindGroupLayoutEntry::StorageBuffer(0, dr::ShaderStage::Compute, false) };
     dr::BindGroupLayoutDesc cBgld{}; cBgld.entries = Span<const dr::BindGroupLayoutEntry>(cE, 2);
-    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry cBgE[2] = { dr::BindGroupEntry::BufferEntry(m_paramsBuf, 0, 16),
                                     dr::BindGroupEntry::BufferEntry(m_vtxBuf, 0, kBufSz) };
     dr::BindGroupDesc cBgd{}; cBgd.layout = m_compBgl; cBgd.entries = Span<const dr::BindGroupEntry>(cBgE, 2);
-    if (m_device->CreateBindGroup(cBgd, m_compBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(cBgd, m_compBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupLayout* cSets[1] = { m_compBgl };
     dr::PipelineLayoutDesc cPld{}; cPld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(cSets, 1);
-    if (m_device->CreatePipelineLayout(cPld, m_compPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(cPld, m_compPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::ComputePipelineDesc cpd{}; cpd.layout = m_compPl; cpd.compute = { m_cs, u8"CSMain", dr::ShaderStage::Compute };
-    if (m_device->CreateComputePipeline(cpd, m_compPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateComputePipeline(cpd, m_compPipe) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Render pipeline.
     dr::BindGroupLayoutEntry rE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex) };
     dr::BindGroupLayoutDesc rBgld{}; rBgld.entries = Span<const dr::BindGroupLayoutEntry>(rE, 1);
-    if (m_device->CreateBindGroupLayout(rBgld, m_renBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(rBgld, m_renBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry rBgE[1] = { dr::BindGroupEntry::BufferEntry(m_vpBuf, 0, 64) };
     dr::BindGroupDesc rBgd{}; rBgd.layout = m_renBgl; rBgd.entries = Span<const dr::BindGroupEntry>(rBgE, 1);
-    if (m_device->CreateBindGroup(rBgd, m_renBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(rBgd, m_renBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupLayout* rSets[1] = { m_renBgl };
     dr::PipelineLayoutDesc rPld{}; rPld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(rSets, 1);
-    if (m_device->CreatePipelineLayout(rPld, m_renPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(rPld, m_renPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     m_depthBuf.Recreate(m_device, m_width, m_height);
 
@@ -164,22 +164,22 @@ raptor::core::Status MultiQueueSample::OnInit() {
     rpd.primitive.topology = dr::PrimitiveTopology::PointList;
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthWriteEnabled = true; rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
-    if (m_device->CreateRenderPipeline(rpd, m_renPipe) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_renPipe) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Command pools — one per queue type.
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_gfxPool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_gfxPool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     auto compPoolType = m_hasDedicatedCompute ? dr::QueueType::Compute : dr::QueueType::Graphics;
-    if (m_device->CreateCommandPool(compPoolType, m_computePool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(compPoolType, m_computePool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateFence(0, m_compFence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_gfxFence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateFence(0, m_compFence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_gfxFence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void MultiQueueSample::OnRender() {
-    using raptor::core::u32, raptor::core::f32, raptor::core::Span;
+    using draconic::core::u32, draconic::core::f32, draconic::core::Span;
     if (m_gfxFenceVal > 0) m_gfxFence->Wait(m_gfxFenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     // Update compute params.
     u32 numPts = kNumPts;
@@ -190,15 +190,15 @@ void MultiQueueSample::OnRender() {
     // Update VP.
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
     f32 camAngle = m_totalTime * 0.4f, camDist = 2.5f;
-    Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{std::sin(camAngle)*camDist, 1.2f, std::cos(camAngle)*camDist}, raptor::core::Vec3{ 0,0,0}, raptor::core::Vec3{0,1,0});
-    Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Mat4 view = Mat4::LookAtRH(draconic::core::Vec3{std::sin(camAngle)*camDist, 1.2f, std::cos(camAngle)*camDist}, draconic::core::Vec3{ 0,0,0}, draconic::core::Vec3{0,1,0});
+    Mat4 proj = Mat4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
     Mat4 vp = view * proj;
     std::memcpy(m_vpMapped, vp.Data(), 64);
 
     // === Compute pass on compute queue ===
     m_computePool->Reset();
     dr::CommandEncoder* cEnc = nullptr;
-    if (m_computePool->CreateEncoder(cEnc) != raptor::core::ErrorCode::Ok || !cEnc) return;
+    if (m_computePool->CreateEncoder(cEnc) != draconic::core::ErrorCode::Ok || !cEnc) return;
 
     dr::BufferBarrier bb{}; bb.buffer = m_vtxBuf; bb.oldState = dr::ResourceState::VertexBuffer; bb.newState = dr::ResourceState::ShaderWrite;
     dr::BarrierGroup bg1{}; bg1.bufferBarriers = Span<const dr::BufferBarrier>(&bb, 1);
@@ -217,7 +217,7 @@ void MultiQueueSample::OnRender() {
     // === Graphics pass — waits on compute fence before executing ===
     m_gfxPool->Reset();
     dr::CommandEncoder* gEnc = nullptr;
-    if (m_gfxPool->CreateEncoder(gEnc) != raptor::core::ErrorCode::Ok || !gEnc) return;
+    if (m_gfxPool->CreateEncoder(gEnc) != draconic::core::ErrorCode::Ok || !gEnc) return;
 
     gEnc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
     gEnc->TransitionTexture(m_depthBuf.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
@@ -241,10 +241,10 @@ void MultiQueueSample::OnRender() {
 
     // Submit graphics — wait on compute fence, signal graphics fence.
     dr::Fence* waitFences[1] = { m_compFence };
-    raptor::core::u64 waitValues[1] = { m_compFenceVal };
+    draconic::core::u64 waitValues[1] = { m_compFenceVal };
     m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(gCbs, 1),
                            Span<dr::Fence* const>(waitFences, 1),
-                           Span<const raptor::core::u64>(waitValues, 1),
+                           Span<const draconic::core::u64>(waitValues, 1),
                            m_gfxFence, m_gfxFenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_gfxPool->DestroyEncoder(gEnc);

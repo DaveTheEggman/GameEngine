@@ -4,60 +4,60 @@
 // As the renderer grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
-#include "Profiler/Profiler.h"   // RAPTOR_PROFILE_SCOPE (isolate animation-drive cost)
+#include "Profiler/Profiler.h"   // DRACONIC_PROFILE_SCOPE (isolate animation-drive cost)
 
-import raptor.core;
-import raptor.profiler;
-import raptor.rhi;                     // offscreen render target (Texture / ResourceState / Blit)
-import raptor.runtime;
-import raptor.runtime.client;
-import raptor.runtime.platform;
-import raptor.runtime.platform.desktop;
-import raptor.runtime.graphics;
-import raptor.runtime.graphics.gpu;
-import raptor.runtime.defaultapp;     // DefaultApplication (scene + render subsystems)
-import raptor.scene;
-import raptor.scene.subsystem;
-import raptor.render.subsystem;       // MeshComponent / CameraComponent + their managers
-import raptor.render;                  // ViewCamera / ViewportRect (split-screen overrides)
-import raptor.geometry;
-import raptor.geometry.resource;       // StaticMeshFactory + StaticMesh product
-import raptor.materials;
-import raptor.materials.resource;       // MaterialFactory (cooked materials)
-import raptor.texture.resource;         // TextureFactory (cooked textures)
-import raptor.animation.resource;       // Skeleton/AnimationClip factories
-import raptor.vfs;                      // NativeFileSystem mount for the content DB
-import raptor.content;                  // ContentDatabase (cooked-resource output)
-import raptor.resource;                 // ResourceManager + Proxy
-import raptor.model;                    // ModelLoadResult
-import raptor.modelimporter;            // LoadAndCook + ImportedModel manifest
-import raptor.animation;                // AnimationClip / Skeleton
-import raptor.animation.subsystem;      // SkeletalAnimationComponent(Manager) — engine-driven skinning
+import draconic.core;
+import draconic.profiler;
+import draconic.rhi;                     // offscreen render target (Texture / ResourceState / Blit)
+import draconic.runtime;
+import draconic.runtime.client;
+import draconic.runtime.platform;
+import draconic.runtime.platform.desktop;
+import draconic.runtime.graphics;
+import draconic.runtime.graphics.gpu;
+import draconic.runtime.defaultapp;     // DefaultApplication (scene + render subsystems)
+import draconic.scene;
+import draconic.scene.subsystem;
+import draconic.render.subsystem;       // MeshComponent / CameraComponent + their managers
+import draconic.render;                  // ViewCamera / ViewportRect (split-screen overrides)
+import draconic.geometry;
+import draconic.geometry.resource;       // StaticMeshFactory + StaticMesh product
+import draconic.materials;
+import draconic.materials.resource;       // MaterialFactory (cooked materials)
+import draconic.texture.resource;         // TextureFactory (cooked textures)
+import draconic.animation.resource;       // Skeleton/AnimationClip factories
+import draconic.vfs;                      // NativeFileSystem mount for the content DB
+import draconic.content;                  // ContentDatabase (cooked-resource output)
+import draconic.resource;                 // ResourceManager + Proxy
+import draconic.model;                    // ModelLoadResult
+import draconic.modelimporter;            // LoadAndCook + ImportedModel manifest
+import draconic.animation;                // AnimationClip / Skeleton
+import draconic.animation.subsystem;      // SkeletalAnimationComponent(Manager) — engine-driven skinning
 
 #include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
 
-#ifndef RAPTOR_SANDBOX_MODEL_DIR
-#define RAPTOR_SANDBOX_MODEL_DIR ""
+#ifndef DRACONIC_SANDBOX_MODEL_DIR
+#define DRACONIC_SANDBOX_MODEL_DIR ""
 #endif
-#ifndef RAPTOR_SANDBOX_OUTPUT_DIR
-#define RAPTOR_SANDBOX_OUTPUT_DIR ""
+#ifndef DRACONIC_SANDBOX_OUTPUT_DIR
+#define DRACONIC_SANDBOX_OUTPUT_DIR ""
 #endif
 
-namespace rc = raptor::core;
-namespace smp = raptor::samples;
-namespace rhi = raptor::rhi;
-namespace rt = raptor::runtime;
-namespace sc = raptor::scene;
-namespace rd = raptor::render;
-namespace geo = raptor::geometry;
-namespace mat = raptor::materials;
-namespace tex = raptor::texture;
-namespace vfs = raptor::vfs;
-namespace ct  = raptor::content;
-namespace res = raptor::resource;
-namespace mdl  = raptor::model;
-namespace mi   = raptor::modelimporter;
-namespace anim = raptor::animation;
+namespace rc = draconic::core;
+namespace smp = draconic::samples;
+namespace rhi = draconic::rhi;
+namespace rt = draconic::runtime;
+namespace sc = draconic::scene;
+namespace rd = draconic::render;
+namespace geo = draconic::geometry;
+namespace mat = draconic::materials;
+namespace tex = draconic::texture;
+namespace vfs = draconic::vfs;
+namespace ct  = draconic::content;
+namespace res = draconic::resource;
+namespace mdl  = draconic::model;
+namespace mi   = draconic::modelimporter;
+namespace anim = draconic::animation;
 
 namespace
 {
@@ -144,8 +144,8 @@ namespace
         // wiring (factory -> Bind -> render) is identical.
         void LoadImportedModel(rt::IApplicationHost& host)
         {
-            const rc::StringView outputDir(reinterpret_cast<const rc::utf8char*>(RAPTOR_SANDBOX_OUTPUT_DIR));
-            const rc::StringView modelDir(reinterpret_cast<const rc::utf8char*>(RAPTOR_SANDBOX_MODEL_DIR));
+            const rc::StringView outputDir(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_OUTPUT_DIR));
+            const rc::StringView modelDir(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_MODEL_DIR));
             if (outputDir.IsEmpty() || modelDir.IsEmpty()) { return; }
 
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
@@ -369,7 +369,7 @@ namespace
                     const rc::f32 fps = (m_frameTimeMs > 0.001f) ? (1000.0f / m_frameTimeMs) : 0.0f;
                     rc::ConsoleWrite(rc::Format(u8"=== AnimStressTest PROFILE: chars={}  fps={}  frame={} ms ===\n",
                         m_instances.Size(), static_cast<rc::u32>(fps + 0.5f), m_frameTimeMs));
-                    rc::ConsoleWrite(raptor::profiler::Profiler::Get().BuildReport().AsView());
+                    rc::ConsoleWrite(draconic::profiler::Profiler::Get().BuildReport().AsView());
                     if (auto* renderer = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
                         rc::String gpu; renderer->BuildGpuProfileReport(gpu); rc::ConsoleWrite(gpu.AsView());
                     }

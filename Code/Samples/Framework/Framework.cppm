@@ -1,7 +1,7 @@
-export module raptor.samples.framework;
+export module draconic.samples.framework;
 
-export import raptor.rhi;
-export import raptor.runtime.platform;
+export import draconic.rhi;
+export import draconic.runtime.platform;
 
 export import :sample_app;
 export import :depth_buffer;

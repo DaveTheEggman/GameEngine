@@ -7,22 +7,22 @@
 #include <cstdio>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class ReadbackSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample016 - GPU Readback"; }
+    draconic::core::StringView Title() const override { return u8"Sample016 - GPU Readback"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 private:
@@ -32,7 +32,7 @@ private:
         PSInput VSMain(VSInput i) { PSInput o; o.Position = float4(i.Position,1); o.Color = i.Color; return o; }
         float4 PSMain(PSInput i) : SV_TARGET { return i.Color; }
     )";
-    static constexpr raptor::core::u32 kTexSize = 16;
+    static constexpr draconic::core::u32 kTexSize = 16;
     static constexpr float kVerts[] = {
          0.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
          1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f, 1.0f,
@@ -49,37 +49,37 @@ private:
     dr::Texture *m_offTex = nullptr; dr::TextureView *m_offView = nullptr;
     dr::Buffer *m_readbackBuf = nullptr;
     dr::CommandPool *m_pool = nullptr; dr::Fence *m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
     bool m_hasReadback = false;
     float m_lastReportTime = 0.0f;
 };
 
-raptor::core::Status ReadbackSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status ReadbackSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     dr::PipelineLayoutDesc pld{};
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Small offscreen RGBA8 texture.
     dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm; td.width = kTexSize; td.height = kTexSize;
     td.mipLevelCount = 1; td.usage = dr::TextureUsage::RenderTarget | dr::TextureUsage::CopySrc;
-    if (m_device->CreateTexture(td, m_offTex) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_offTex) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm; tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    if (m_device->CreateTextureView(m_offTex, tvd, m_offView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_offTex, tvd, m_offView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Readback buffer with row alignment (256 bytes for DX12 compat).
     u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
     dr::BufferDesc rbd{}; rbd.size = bytesPerRow * kTexSize; rbd.usage = dr::BufferUsage::CopyDst; rbd.memory = dr::MemoryLocation::GpuToCpu;
-    if (m_device->CreateBuffer(rbd, m_readbackBuf) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(rbd, m_readbackBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
     dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
@@ -91,27 +91,27 @@ raptor::core::Status ReadbackSample::OnInit() {
     rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
     rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_offPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_offPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Pipeline for swapchain (different format).
     ct.format = m_swapChain->Format();
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_swapPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_swapPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void ReadbackSample::readbackPixels() {
     void* mapped = m_readbackBuf->Map();
     if (!mapped) return;
-    raptor::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
-    auto* data = static_cast<raptor::core::u8*>(mapped);
+    draconic::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
+    auto* data = static_cast<draconic::core::u8*>(mapped);
 
     std::printf("=== Readback: %ux%u RGBA8 texture ===\n", kTexSize, kTexSize);
-    auto printPixel = [&](raptor::core::u32 x, raptor::core::u32 y, const char* label) {
-        raptor::core::u32 off = y * bytesPerRow + x * 4;
+    auto printPixel = [&](draconic::core::u32 x, draconic::core::u32 y, const char* label) {
+        draconic::core::u32 off = y * bytesPerRow + x * 4;
         std::printf("  %s (%u,%u): R=%u G=%u B=%u A=%u\n", label, x, y,
             data[off], data[off+1], data[off+2], data[off+3]);
     };
@@ -122,9 +122,9 @@ void ReadbackSample::readbackPixels() {
     printPixel(kTexSize-1, kTexSize-1, "Bottom-right");
 
     int nonBlack = 0;
-    for (raptor::core::u32 y = 0; y < kTexSize; ++y)
-        for (raptor::core::u32 x = 0; x < kTexSize; ++x) {
-            raptor::core::u32 off = y * bytesPerRow + x * 4;
+    for (draconic::core::u32 y = 0; y < kTexSize; ++y)
+        for (draconic::core::u32 x = 0; x < kTexSize; ++x) {
+            draconic::core::u32 off = y * bytesPerRow + x * 4;
             if (data[off] > 0 || data[off+1] > 0 || data[off+2] > 0) nonBlack++;
         }
     std::printf("Non-black pixels: %d / %u (%.0f%%)\n", nonBlack, kTexSize * kTexSize,
@@ -133,7 +133,7 @@ void ReadbackSample::readbackPixels() {
 }
 
 void ReadbackSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
 
     if (m_hasReadback && (m_totalTime - m_lastReportTime >= 3.0f)) {
@@ -141,10 +141,10 @@ void ReadbackSample::OnRender() {
         m_lastReportTime = m_totalTime;
     }
 
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Render triangle to offscreen texture.
     enc->TransitionTexture(m_offTex, dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
@@ -164,7 +164,7 @@ void ReadbackSample::OnRender() {
     enc->TransitionTexture(m_offTex, dr::ResourceState::RenderTarget, dr::ResourceState::CopySrc);
 
     // Copy texture to readback buffer.
-    raptor::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
+    draconic::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
     dr::BufferTextureCopyRegion region{};
     region.bufferOffset = 0; region.bytesPerRow = bytesPerRow; region.rowsPerImage = kTexSize;
     region.textureExtent = dr::Extent3D{ kTexSize, kTexSize, 1 };

@@ -1,5 +1,5 @@
 // SampleApp — abstract base for RHI samples (adapted from the Draconic sample
-// framework to Raptor's platform). Brings up a window (raptor.runtime.platform),
+// framework to Draconic's platform). Brings up a window (draconic.runtime.platform),
 // a Vulkan backend (validation-wrapped), device, queue, and swap chain; pumps
 // events, tracks timing, and calls OnRender(). Resize is detected by polling the
 // window size; the loop skips rendering while minimized.
@@ -10,21 +10,21 @@ module;
 #include <cstdio>
 #include <cstring>
 
-export module raptor.samples.framework:sample_app;
+export module draconic.samples.framework:sample_app;
 
-import raptor.core;
-import raptor.rhi;
-import raptor.rhi.vk;
-#ifdef RAPTOR_HAS_DX12
-import raptor.rhi.dx12;
+import draconic.core;
+import draconic.rhi;
+import draconic.rhi.vk;
+#ifdef DRACONIC_HAS_DX12
+import draconic.rhi.dx12;
 #endif
-import raptor.rhi.validation;
-import raptor.runtime.platform;
-import raptor.runtime.platform.desktop;
+import draconic.rhi.validation;
+import draconic.runtime.platform;
+import draconic.runtime.platform.desktop;
 
-using namespace raptor::core;
+using namespace draconic::core;
 
-export namespace raptor::samples::framework {
+export namespace draconic::samples::framework {
 
 enum class BackendType { Vulkan, DX12 };
 
@@ -40,7 +40,7 @@ public:
     int Run(int argc = 0, char** argv = nullptr);
 
 protected:
-    virtual StringView          Title() const { return u8"Raptor Sample"; }
+    virtual StringView          Title() const { return u8"Draconic Sample"; }
     virtual rhi::DeviceFeatures RequiredFeatures() const { return {}; }
     virtual rhi::TextureFormat  SwapChainFormat() const { return rhi::TextureFormat::RGBA8UnormSrgb; }
     virtual rhi::PresentMode    PresentMode() const { return rhi::PresentMode::Fifo; }
@@ -157,7 +157,7 @@ inline Status SampleApp::CreateBackend() {
         break;
     }
     case BackendType::DX12: {
-#ifdef RAPTOR_HAS_DX12
+#ifdef DRACONIC_HAS_DX12
         rhi::dx12::DxBackendDesc desc{};
         desc.enableValidation = m_validationEnabled;
         if (!rhi::dx12::CreateDxBackend(desc, raw).IsOk()) {
@@ -231,4 +231,4 @@ inline void SampleApp::Shutdown() {
     m_platformOwner.Reset();   // destroys the window + platform
 }
 
-} // namespace raptor::samples::framework
+} // namespace draconic::samples::framework

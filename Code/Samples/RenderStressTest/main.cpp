@@ -15,31 +15,31 @@
 
 #include "Core/Prelude.h"
 
-import raptor.core;
-import raptor.rhi;                     // PresentMode (run the benchmark vsync-off)
-import raptor.runtime;
-import raptor.runtime.client;
-import raptor.runtime.platform;
-import raptor.runtime.platform.desktop;
-import raptor.runtime.graphics;
-import raptor.runtime.graphics.gpu;
-import raptor.runtime.defaultapp;
-import raptor.scene;
-import raptor.scene.subsystem;
-import raptor.render.subsystem;
-import raptor.geometry;
-import raptor.materials;
+import draconic.core;
+import draconic.rhi;                     // PresentMode (run the benchmark vsync-off)
+import draconic.runtime;
+import draconic.runtime.client;
+import draconic.runtime.platform;
+import draconic.runtime.platform.desktop;
+import draconic.runtime.graphics;
+import draconic.runtime.graphics.gpu;
+import draconic.runtime.defaultapp;
+import draconic.scene;
+import draconic.scene.subsystem;
+import draconic.render.subsystem;
+import draconic.geometry;
+import draconic.materials;
 
 #include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
 
-namespace rc  = raptor::core;
-namespace rhi = raptor::rhi;
-namespace rt  = raptor::runtime;
-namespace smp = raptor::samples;
-namespace sc  = raptor::scene;
-namespace rd  = raptor::render;
-namespace geo = raptor::geometry;
-namespace mat = raptor::materials;
+namespace rc  = draconic::core;
+namespace rhi = draconic::rhi;
+namespace rt  = draconic::runtime;
+namespace smp = draconic::samples;
+namespace sc  = draconic::scene;
+namespace rd  = draconic::render;
+namespace geo = draconic::geometry;
+namespace mat = draconic::materials;
 
 namespace
 {

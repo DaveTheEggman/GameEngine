@@ -7,25 +7,25 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
-using raptor::core::Mat4;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
+using draconic::core::Mat4;
 
 class MipmapSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample009 - Mipmaps"; }
+    draconic::core::StringView Title() const override { return u8"Sample009 - Mipmaps"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { m_depthBuf.Recreate(m_device, w, h); }
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override { m_depthBuf.Recreate(m_device, w, h); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kShader[] = u8R"(
@@ -41,7 +41,7 @@ private:
     static constexpr float kVerts[] = {
         -4, 0, 0, 0, 0,   4, 0, 0, 8, 0,   4, 0, -20, 8, 10,   -4, 0, -20, 0, 10
     };
-    static constexpr raptor::core::u16 kIdx[] = { 0,1,2, 0,2,3 };
+    static constexpr draconic::core::u16 kIdx[] = { 0,1,2, 0,2,3 };
 
     ds::Compiler* m_compiler = nullptr;
     dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
@@ -53,23 +53,23 @@ private:
     dr::BindGroup *m_texBg = nullptr, *m_uboBg = nullptr;
     dr::PipelineLayout* m_pl = nullptr; dr::RenderPipeline* m_pipeline = nullptr;
     dr::CommandPool* m_pool = nullptr; dr::Fence* m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
     sf::DepthBuffer m_depthBuf;
 };
 
-raptor::core::Status MipmapSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status MipmapSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc ubd{}; ubd.size = 64; ubd.usage = dr::BufferUsage::Uniform; ubd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(ubd, m_ub) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ubd, m_ub) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_ubMapped = m_ub->Map();
 
     // Checkerboard base texture 256x256 with 9 mip levels.
@@ -83,7 +83,7 @@ raptor::core::Status MipmapSample::OnInit() {
     dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm; td.width = tw; td.height = th;
     td.mipLevelCount = mipCount;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopySrc | dr::TextureUsage::CopyDst | dr::TextureUsage::RenderTarget;
-    if (m_device->CreateTexture(td, m_tex) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_tex) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Upload base mip + generate mips.
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
@@ -112,30 +112,30 @@ raptor::core::Status MipmapSample::OnInit() {
     tmpPool->DestroyEncoder(enc); m_device->DestroyCommandPool(tmpPool);
 
     dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm; tvd.mipLevelCount = mipCount; tvd.arrayLayerCount = 1;
-    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
-    sd.mipmapFilter = dr::MipmapFilterMode::Linear; sd.maxLod = static_cast<raptor::core::f32>(mipCount);
-    if (m_device->CreateSampler(sd, m_sampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    sd.mipmapFilter = dr::MipmapFilterMode::Linear; sd.maxLod = static_cast<draconic::core::f32>(mipCount);
+    if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Bind groups: set 0 = texture+sampler, set 1 = UBO.
     dr::BindGroupLayoutEntry tE[2] = { dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Fragment),
                                         dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment) };
     dr::BindGroupLayoutDesc tBgld{}; tBgld.entries = Span<const dr::BindGroupLayoutEntry>(tE, 2);
-    if (m_device->CreateBindGroupLayout(tBgld, m_texBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(tBgld, m_texBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry tBgE[2] = { dr::BindGroupEntry::TextureEntry(m_texView), dr::BindGroupEntry::SamplerEntry(m_sampler) };
     dr::BindGroupDesc tBgd{}; tBgd.layout = m_texBgl; tBgd.entries = Span<const dr::BindGroupEntry>(tBgE, 2);
-    if (m_device->CreateBindGroup(tBgd, m_texBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(tBgd, m_texBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::BindGroupLayoutEntry uE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex) };
     dr::BindGroupLayoutDesc uBgld{}; uBgld.entries = Span<const dr::BindGroupLayoutEntry>(uE, 1);
-    if (m_device->CreateBindGroupLayout(uBgld, m_uboBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(uBgld, m_uboBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry uBgE[1] = { dr::BindGroupEntry::BufferEntry(m_ub, 0, 64) };
     dr::BindGroupDesc uBgd{}; uBgd.layout = m_uboBgl; uBgd.entries = Span<const dr::BindGroupEntry>(uBgE, 1);
-    if (m_device->CreateBindGroup(uBgd, m_uboBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(uBgd, m_uboBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::BindGroupLayout* sets[2] = { m_texBgl, m_uboBgl };
     dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 2);
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_depthBuf.Recreate(m_device, m_width, m_height);
 
     dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x2, 12, 1} };
@@ -148,26 +148,26 @@ raptor::core::Status MipmapSample::OnInit() {
     rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void MipmapSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
-    Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{0, 2, 2}, raptor::core::Vec3{ 0, 0, -5}, raptor::core::Vec3{0,1,0});
-    Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(60.0f), aspect, 0.1f, 100.0f);
+    Mat4 view = Mat4::LookAtRH(draconic::core::Vec3{0, 2, 2}, draconic::core::Vec3{ 0, 0, -5}, draconic::core::Vec3{0,1,0});
+    Mat4 proj = Mat4::PerspectiveFovRH(draconic::core::DegreesToRadians(60.0f), aspect, 0.1f, 100.0f);
     Mat4 mvp = view * proj;
     std::memcpy(m_ubMapped, mvp.Data(), 64);
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
     enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
     enc->TransitionTexture(m_depthBuf.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
     dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();

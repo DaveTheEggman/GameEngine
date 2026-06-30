@@ -1,13 +1,13 @@
 /// Reusable depth buffer helper for samples.
 
-export module raptor.samples.framework:depth_buffer;
+export module draconic.samples.framework:depth_buffer;
 
-import raptor.core;
-import raptor.rhi;
+import draconic.core;
+import draconic.rhi;
 
-using namespace raptor::core;
+using namespace draconic::core;
 
-export namespace raptor::samples::framework {
+export namespace draconic::samples::framework {
 
 struct DepthBuffer {
     rhi::Texture*     texture = nullptr;
@@ -40,4 +40,4 @@ struct DepthBuffer {
     }
 };
 
-} // namespace raptor::samples::framework
+} // namespace draconic::samples::framework

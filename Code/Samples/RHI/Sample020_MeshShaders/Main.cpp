@@ -4,15 +4,15 @@
 
 #include <cstdio>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 struct PushData {
     float time;
@@ -24,14 +24,14 @@ struct PushData {
 class MeshShaderSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample020 - Mesh Shaders (Rotating Triangle)"; }
+    draconic::core::StringView Title() const override { return u8"Sample020 - Mesh Shaders (Rotating Triangle)"; }
 protected:
     dr::DeviceFeatures RequiredFeatures() const override {
         dr::DeviceFeatures f{};
         f.meshShaders = true;
         return f;
     }
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 private:
@@ -107,30 +107,30 @@ private:
     dr::MeshPipeline* m_meshPipeline = nullptr;
     dr::CommandPool* m_pool = nullptr;
     dr::Fence* m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
 };
 
-raptor::core::Status MeshShaderSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span;
+draconic::core::Status MeshShaderSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span;
 
     // Check mesh shader support.
     if (!m_device->features.meshShaders) {
         std::fprintf(stderr, "ERROR: Mesh shaders are not supported by this device/backend\n");
-        return raptor::core::ErrorCode::Unknown;
+        return draconic::core::ErrorCode::Unknown;
     }
 
     // Shader compiler.
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile mesh shader (SM 6.5 required for mesh shaders).
     if (sf::CompileToModule(m_compiler, m_device, kMeshShaderSource, ds::ShaderStage::Mesh,
-                            u8"MSMain", u8"MeshShader", u8"6_5", m_meshModule) != raptor::core::ErrorCode::Ok)
-        return raptor::core::ErrorCode::Unknown;
+                            u8"MSMain", u8"MeshShader", u8"6_5", m_meshModule) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Compile fragment shader.
     if (sf::CompileToModule(m_compiler, m_device, kFragmentShaderSource, ds::ShaderStage::Fragment,
-                            u8"PSMain", u8"FragmentShader", m_fragModule) != raptor::core::ErrorCode::Ok)
-        return raptor::core::ErrorCode::Unknown;
+                            u8"PSMain", u8"FragmentShader", m_fragModule) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout with push constants.
     dr::PushConstantRange pushRange{};
@@ -141,7 +141,7 @@ raptor::core::Status MeshShaderSample::OnInit() {
     dr::PipelineLayoutDesc pld{};
     pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pushRange, 1);
     pld.label = u8"MeshPipelineLayout";
-    if (m_device->CreatePipelineLayout(pld, m_pipelineLayout) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pipelineLayout) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create mesh pipeline.
     dr::ColorTargetState ct{};
@@ -156,24 +156,24 @@ raptor::core::Status MeshShaderSample::OnInit() {
     mpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
     mpd.colorTargets = Span<const dr::ColorTargetState>(&ct, 1);
     mpd.label        = u8"MeshShaderPipeline";
-    if (m_device->CreateMeshPipeline(mpd, m_meshPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateMeshPipeline(mpd, m_meshPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Command pool and fence.
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void MeshShaderSample::OnRender() {
-    using raptor::core::f32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::Span;
 
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Barrier: present -> render target.
     enc->TransitionTexture(m_swapChain->CurrentTexture(),

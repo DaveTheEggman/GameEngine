@@ -2,15 +2,15 @@
 /// Automatically selects SPIR-V (Vulkan) or DXIL (DX12) based on device type.
 /// Applies Vulkan binding shifts when targeting SPIR-V.
 
-export module raptor.samples.framework:shader_helpers;
+export module draconic.samples.framework:shader_helpers;
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
 
-using namespace raptor::core;
+using namespace draconic::core;
 
-export namespace raptor::samples::framework {
+export namespace draconic::samples::framework {
 
 /// Compile HLSL source to a ShaderModule with a specific shader model.
 inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
@@ -68,4 +68,4 @@ inline Status CompileToModule(shaders::Compiler* compiler, rhi::Device* device,
     return CompileToModule(compiler, device, hlslSource, stage, entryPoint, label, u8"6_0", out);
 }
 
-} // namespace raptor::samples::framework
+} // namespace draconic::samples::framework

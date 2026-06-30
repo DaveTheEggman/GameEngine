@@ -1,21 +1,21 @@
-// HelloWindow — the minimal Raptor app: opens a window and runs the frame loop
+// HelloWindow — the minimal Draconic app: opens a window and runs the frame loop
 // until the window is closed. Demonstrates the full path Core -> Runtime
 // (Context/Subsystem) -> Platform (SDL3) -> ApplicationHost driving an
-// IApplication, wired by RAPTOR_APP_MAIN. Run it directly; close the window to exit.
+// IApplication, wired by DRACONIC_APP_MAIN. Run it directly; close the window to exit.
 
 #include "Core/Prelude.h"
 #include "Runtime/Client/AppMain.h"
 
-import raptor.core;
-import raptor.runtime;
-import raptor.runtime.client;
-import raptor.runtime.platform;
-import raptor.runtime.platform.desktop;
-import raptor.runtime.graphics;       // GraphicsDevice + FrameContext (RAPTOR_APP_MAIN sets up the device)
-import raptor.runtime.graphics.gpu;   // CreateGraphicsDevice
+import draconic.core;
+import draconic.runtime;
+import draconic.runtime.client;
+import draconic.runtime.platform;
+import draconic.runtime.platform.desktop;
+import draconic.runtime.graphics;       // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
+import draconic.runtime.graphics.gpu;   // CreateGraphicsDevice
 
-namespace rc = raptor::core;
-namespace rt = raptor::runtime;
+namespace rc = draconic::core;
+namespace rt = draconic::runtime;
 
 namespace
 {
@@ -49,4 +49,4 @@ namespace
     };
 }
 
-RAPTOR_APP_MAIN(HelloApp)
+DRACONIC_APP_MAIN(HelloApp)

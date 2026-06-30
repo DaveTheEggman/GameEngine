@@ -10,27 +10,27 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
 
 class CubeMapSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample023 - Cube Map & Comparison Sampler"; }
+    draconic::core::StringView Title() const override { return u8"Sample023 - Cube Map & Comparison Sampler"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 private:
-    raptor::core::Status createCubeMap();
-    raptor::core::Status createDepthTexture();
+    draconic::core::Status createCubeMap();
+    draconic::core::Status createDepthTexture();
 
     // Skybox shader: fullscreen quad -> ray direction -> cube map lookup
     static constexpr const char8_t kSkyboxShader[] = u8R"(
@@ -160,27 +160,27 @@ private:
 
     dr::CommandPool* m_pool = nullptr;
     dr::Fence*       m_fence = nullptr;
-    raptor::core::u64       m_fenceVal = 0;
+    draconic::core::u64       m_fenceVal = 0;
 };
 
-raptor::core::Status CubeMapSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status CubeMapSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile skybox shaders
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"SkyboxVS", m_skyboxVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Fragment, u8"PSMain", u8"SkyboxPS", m_skyboxPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"SkyboxVS", m_skyboxVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Fragment, u8"PSMain", u8"SkyboxPS", m_skyboxPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile shadow shaders
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"ShadowVS", m_shadowVs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Fragment, u8"PSMain", u8"ShadowPS", m_shadowPs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"ShadowVS", m_shadowVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Fragment, u8"PSMain", u8"ShadowPS", m_shadowPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create procedural cube map (6 faces, 64x64, each a solid color)
-    if (createCubeMap() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (createCubeMap() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create depth texture for comparison sampler (gradient)
-    if (createDepthTexture() != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (createDepthTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create samplers
     {
@@ -188,7 +188,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         sd.minFilter = dr::FilterMode::Linear;
         sd.magFilter = dr::FilterMode::Linear;
         sd.label = u8"LinearSampler";
-        if (m_device->CreateSampler(sd, m_linearSampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateSampler(sd, m_linearSampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
     {
         dr::SamplerDesc sd{};
@@ -196,7 +196,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         sd.magFilter = dr::FilterMode::Linear;
         sd.compare = dr::CompareFunction::LessEqual;
         sd.label = u8"ComparisonSampler";
-        if (m_device->CreateSampler(sd, m_comparisonSampler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateSampler(sd, m_comparisonSampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox bind group layout: cube texture + sampler
@@ -208,7 +208,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
         bgld.label = u8"SkyboxBGL";
-        if (m_device->CreateBindGroupLayout(bgld, m_skyboxBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroupLayout(bgld, m_skyboxBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox bind group
@@ -221,7 +221,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         bgd.layout = m_skyboxBgl;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
         bgd.label = u8"SkyboxBG";
-        if (m_device->CreateBindGroup(bgd, m_skyboxBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroup(bgd, m_skyboxBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox pipeline layout
@@ -236,7 +236,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
         pld.label = u8"SkyboxPL";
-        if (m_device->CreatePipelineLayout(pld, m_skyboxPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreatePipelineLayout(pld, m_skyboxPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox pipeline (fullscreen triangle, no vertex input)
@@ -251,7 +251,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
         rpd.label = u8"SkyboxPipeline";
-        if (m_device->CreateRenderPipeline(rpd, m_skyboxPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_skyboxPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Shadow test quad vertices (bottom-right corner overlay)
@@ -272,7 +272,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
         bd.memory = dr::MemoryLocation::GpuOnly;
         bd.label = u8"ShadowQuadVB";
-        if (m_device->CreateBuffer(bd, m_quadVb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBuffer(bd, m_quadVb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         dr::TransferBatch* batch = nullptr;
         m_graphicsQueue->CreateTransferBatch(batch);
@@ -292,7 +292,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         dr::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
         bgld.label = u8"ShadowBGL";
-        if (m_device->CreateBindGroupLayout(bgld, m_shadowBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroupLayout(bgld, m_shadowBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Shadow bind group
@@ -305,7 +305,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         bgd.layout = m_shadowBgl;
         bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
         bgd.label = u8"ShadowBG";
-        if (m_device->CreateBindGroup(bgd, m_shadowBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroup(bgd, m_shadowBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Shadow pipeline layout
@@ -320,7 +320,7 @@ raptor::core::Status CubeMapSample::OnInit() {
         pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
         pld.label = u8"ShadowPL";
-        if (m_device->CreatePipelineLayout(pld, m_shadowPl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreatePipelineLayout(pld, m_shadowPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Shadow pipeline
@@ -345,16 +345,16 @@ raptor::core::Status CubeMapSample::OnInit() {
         rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
         rpd.label = u8"ShadowPipeline";
-        if (m_device->CreateRenderPipeline(rpd, m_shadowPipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_shadowPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
-raptor::core::Status CubeMapSample::createCubeMap() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
+draconic::core::Status CubeMapSample::createCubeMap() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     constexpr u32 faceSize = 64;
     constexpr u32 BytesPerPixel = 4;
@@ -371,7 +371,7 @@ raptor::core::Status CubeMapSample::createCubeMap() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
     td.label = u8"CubeMapTex";
-    if (m_device->CreateTexture(td, m_cubeTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_cubeTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create cube view
     dr::TextureViewDesc tvd{};
@@ -381,7 +381,7 @@ raptor::core::Status CubeMapSample::createCubeMap() {
     tvd.mipLevelCount = 1;
     tvd.baseArrayLayer = 0;
     tvd.arrayLayerCount = 6;
-    if (m_device->CreateTextureView(m_cubeTexture, tvd, m_cubeView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_cubeTexture, tvd, m_cubeView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Generate 6 face colors: +X red, -X cyan, +Y green, -Y magenta, +Z blue, -Z yellow
     u8 faceColors[6][4] = {
@@ -425,13 +425,13 @@ raptor::core::Status CubeMapSample::createCubeMap() {
 
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
-raptor::core::Status CubeMapSample::createDepthTexture() {
-    using raptor::core::Status;
+draconic::core::Status CubeMapSample::createDepthTexture() {
+    using draconic::core::Status;
 
-    constexpr raptor::core::u32 texSize = 64;
+    constexpr draconic::core::u32 texSize = 64;
 
     dr::TextureDesc td{};
     td.dimension = dr::TextureDimension::Texture2D;
@@ -443,29 +443,29 @@ raptor::core::Status CubeMapSample::createDepthTexture() {
     td.sampleCount = 1;
     td.usage = dr::TextureUsage::DepthStencil | dr::TextureUsage::Sampled;
     td.label = u8"ShadowDepthTex";
-    if (m_device->CreateTexture(td, m_depthTexture) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_depthTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     dr::TextureViewDesc tvd{};
     tvd.format = dr::TextureFormat::Depth32Float;
     tvd.dimension = dr::TextureViewDimension::Texture2D;
-    if (m_device->CreateTextureView(m_depthTexture, tvd, m_depthView) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_depthTexture, tvd, m_depthView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // We'll render a gradient depth in a render pass
     // For simplicity, just clear to 0.5 so the comparison sampler has something to compare against
     // (A real sample would render shadow casters here)
 
-    return raptor::core::ErrorCode::Ok;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void CubeMapSample::OnRender() {
-    using raptor::core::f32, raptor::core::u32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::u32, draconic::core::Span;
 
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
 

@@ -7,25 +7,25 @@
 #include <cstdint>
 #include <cstring>
 
-import raptor.core;
-import raptor.rhi;
-import raptor.shaders;
-import raptor.samples.framework;
-import raptor.rhi.vk;
+import draconic.core;
+import draconic.rhi;
+import draconic.shaders;
+import draconic.samples.framework;
+import draconic.rhi.vk;
 
-namespace sf = raptor::samples::framework;
-namespace dr = raptor::rhi;
-namespace ds = raptor::shaders;
-using raptor::core::Mat4;
+namespace sf = draconic::samples::framework;
+namespace dr = draconic::rhi;
+namespace ds = draconic::shaders;
+using draconic::core::Mat4;
 
 class BindGroupSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
-    raptor::core::StringView Title() const override { return u8"Sample005 - Multiple Bind Groups"; }
+    draconic::core::StringView Title() const override { return u8"Sample005 - Multiple Bind Groups"; }
 protected:
-    raptor::core::Status OnInit() override;
+    draconic::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(raptor::core::u32 w, raptor::core::u32 h) override { m_depthBuf.Recreate(m_device, w, h); }
+    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override { m_depthBuf.Recreate(m_device, w, h); }
     void OnShutdown() override;
 private:
     static constexpr const char8_t kShader[] = u8R"(
@@ -49,7 +49,7 @@ private:
     )";
 
     static constexpr int kGrid = 4, kObjCount = kGrid * kGrid;
-    static constexpr raptor::core::u32 kObjStride = 256; // DX12 CBV alignment
+    static constexpr draconic::core::u32 kObjStride = 256; // DX12 CBV alignment
 
     // Cube with face normals (24 verts, 36 indices).
     struct Vert { float px,py,pz, nx,ny,nz; };
@@ -61,7 +61,7 @@ private:
         {-.5f,.5f,-.5f,0,1,0},{.5f,.5f,-.5f,0,1,0},{.5f,.5f,.5f,0,1,0},{-.5f,.5f,.5f,0,1,0},
         {-.5f,-.5f,.5f,0,-1,0},{.5f,-.5f,.5f,0,-1,0},{.5f,-.5f,-.5f,0,-1,0},{-.5f,-.5f,-.5f,0,-1,0},
     };
-    static constexpr raptor::core::u16 kCubeI[36] = {
+    static constexpr draconic::core::u16 kCubeI[36] = {
         0,1,2,0,2,3, 4,5,6,4,6,7, 8,9,10,8,10,11, 12,13,14,12,14,15, 16,17,18,16,18,19, 20,21,22,20,22,23
     };
 
@@ -74,54 +74,54 @@ private:
     dr::PipelineLayout *m_pl = nullptr;
     dr::RenderPipeline *m_pipeline = nullptr;
     dr::CommandPool *m_pool = nullptr; dr::Fence *m_fence = nullptr;
-    raptor::core::u64 m_fenceVal = 0;
+    draconic::core::u64 m_fenceVal = 0;
     sf::DepthBuffer m_depthBuf;
 };
 
-raptor::core::Status BindGroupSample::OnInit() {
-    using raptor::core::Status, raptor::core::Span, raptor::core::u8, raptor::core::u32;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+draconic::core::Status BindGroupSample::OnInit() {
+    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
+    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffers.
     dr::BufferDesc vbd{}; vbd.size = sizeof(kCubeV); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BufferDesc ibd{}; ibd.size = sizeof(kCubeI); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeV), sizeof(kCubeV)));
     batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeI), sizeof(kCubeI)));
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     dr::BufferDesc gbd{}; gbd.size = 256; gbd.usage = dr::BufferUsage::Uniform; gbd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(gbd, m_globalUbo) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(gbd, m_globalUbo) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_globalMapped = m_globalUbo->Map();
     dr::BufferDesc obd{}; obd.size = kObjCount * kObjStride; obd.usage = dr::BufferUsage::Uniform; obd.memory = dr::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(obd, m_objUbo) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(obd, m_objUbo) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_objMapped = m_objUbo->Map();
 
     // Set 0: global VP.
     dr::BindGroupLayoutEntry gE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex) };
     dr::BindGroupLayoutDesc gBgld{}; gBgld.entries = Span<const dr::BindGroupLayoutEntry>(gE, 1);
-    if (m_device->CreateBindGroupLayout(gBgld, m_globalBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(gBgld, m_globalBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry gBgE[1] = { dr::BindGroupEntry::BufferEntry(m_globalUbo, 0, 64) };
     dr::BindGroupDesc gBgd{}; gBgd.layout = m_globalBgl; gBgd.entries = Span<const dr::BindGroupEntry>(gBgE, 1);
-    if (m_device->CreateBindGroup(gBgd, m_globalBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(gBgd, m_globalBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Set 1: per-object with dynamic offset.
     dr::BindGroupLayoutEntry oE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex | dr::ShaderStage::Fragment) };
     oE[0].hasDynamicOffset = true;
     dr::BindGroupLayoutDesc oBgld{}; oBgld.entries = Span<const dr::BindGroupLayoutEntry>(oE, 1);
-    if (m_device->CreateBindGroupLayout(oBgld, m_objBgl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(oBgld, m_objBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     dr::BindGroupEntry oBgE[1] = { dr::BindGroupEntry::BufferEntry(m_objUbo, 0, kObjStride) };
     dr::BindGroupDesc oBgd{}; oBgd.layout = m_objBgl; oBgd.entries = Span<const dr::BindGroupEntry>(oBgE, 1);
-    if (m_device->CreateBindGroup(oBgd, m_objBg) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(oBgd, m_objBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout with 2 sets.
     dr::BindGroupLayout* sets[2] = { m_globalBgl, m_objBgl };
     dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 2);
-    if (m_device->CreatePipelineLayout(pld, m_pl) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     m_depthBuf.Recreate(m_device, m_width, m_height);
 
@@ -136,23 +136,23 @@ raptor::core::Status BindGroupSample::OnInit() {
     rpd.primitive = { dr::PrimitiveTopology::TriangleList, dr::FrontFace::CW, dr::CullMode::Back };
     rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != raptor::core::ErrorCode::Ok) return raptor::core::ErrorCode::Unknown;
-    return raptor::core::ErrorCode::Ok;
+    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    return draconic::core::ErrorCode::Ok;
 }
 
 void BindGroupSample::OnRender() {
-    using raptor::core::f32, raptor::core::u32, raptor::core::Span;
+    using draconic::core::f32, draconic::core::u32, draconic::core::Span;
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != raptor::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     // Update VP.
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
     f32 camAngle = m_totalTime * 0.3f, camDist = 8.0f;
-    Mat4 view = Mat4::LookAtRH(raptor::core::Vec3{std::sin(camAngle)*camDist, 5.0f, -std::cos(camAngle)*camDist}, raptor::core::Vec3{ 0,0,0}, raptor::core::Vec3{0,1,0});
-    Mat4 proj = Mat4::PerspectiveFovRH(raptor::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Mat4 view = Mat4::LookAtRH(draconic::core::Vec3{std::sin(camAngle)*camDist, 5.0f, -std::cos(camAngle)*camDist}, draconic::core::Vec3{ 0,0,0}, draconic::core::Vec3{0,1,0});
+    Mat4 proj = Mat4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
     Mat4 vp = view * proj;
     std::memcpy(m_globalMapped, vp.Data(), 64);
 
@@ -167,14 +167,14 @@ void BindGroupSample::OnRender() {
         f32 angle = m_totalTime * (0.5f + idx * 0.1f);
         Mat4 model = Mat4::RotationY(angle);
         model.m[3][0] = c * spacing - half; model.m[3][1] = 0; model.m[3][2] = r * spacing - half;
-        auto* dest = static_cast<raptor::core::u8*>(m_objMapped) + idx * kObjStride;
+        auto* dest = static_cast<draconic::core::u8*>(m_objMapped) + idx * kObjStride;
         std::memcpy(dest, model.Data(), 64);
         std::memcpy(dest + 64, &kColors[idx * 4], 16);
     }
 
     m_pool->Reset();
     dr::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != raptor::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
     enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
     enc->TransitionTexture(m_depthBuf.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
 
