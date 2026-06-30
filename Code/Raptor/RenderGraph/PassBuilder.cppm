@@ -34,6 +34,15 @@ export namespace raptor::rendergraph
             return *this;
         }
 
+        // Sample a DEPTH texture in this pass's shader (e.g. a shadow map). Like ReadTexture — a read
+        // dependency + barrier, NOT a depth attachment (unlike ReadDepth) — but transitions to
+        // DepthStencilRead (DEPTH_STENCIL_READ_ONLY_OPTIMAL), the layout a depth sampler expects.
+        PassBuilder& SampleDepth(RGHandle handle, RGSubresourceRange subresource = {})
+        {
+            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::SampleDepthStencil, subresource });
+            return *this;
+        }
+
         PassBuilder& ReadDepth(RGHandle handle, RGSubresourceRange subresource = {})
         {
             RGDepthTarget dt{};

@@ -47,6 +47,7 @@ export namespace raptor::rendergraph
                 case RGAccessType::ReadTexture:          return u8"read";
                 case RGAccessType::ReadBuffer:           return u8"read";
                 case RGAccessType::ReadDepthStencil:     return u8"depth-read";
+                case RGAccessType::SampleDepthStencil:   return u8"depth-sample";
                 case RGAccessType::ReadCopySrc:          return u8"copy-src";
                 case RGAccessType::WriteColorTarget:     return u8"color-out";
                 case RGAccessType::WriteDepthTarget:     return u8"depth-out";

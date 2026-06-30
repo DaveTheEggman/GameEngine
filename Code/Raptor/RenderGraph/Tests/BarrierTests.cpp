@@ -286,6 +286,41 @@ TEST_CASE("barriers: all layers written collapses to uniform")
     CHECK(encoder.textureBarriers[0].arrayLayerCount == 0xFFFFFFFFu);
 }
 
+TEST_CASE("barriers: SampleDepth on a written cascade array reads as DepthStencilRead")
+{
+    // The real CSM scenario: each cascade writes one layer (DepthStencilWrite), then the
+    // forward pass samples the WHOLE array. SampleDepthStencil must transition it to
+    // DepthStencilRead (DEPTH_STENCIL_READ_ONLY_OPTIMAL) — the layout a depth sampler needs —
+    // not ShaderRead. After all layers are written uniform, the read is a whole-resource barrier.
+    BarrierSolver solver;
+    MockEncoder encoder;
+    rhi::Texture tex = MakeTexture(RS::Undefined, 1, 4); // 4 cascades
+
+    RenderGraphResource res(u8"ShadowArray", RGResourceType::Texture, RGResourceLifetime::Imported);
+    res.texture = &tex;
+    res.lastKnownState = RS::DepthStencilRead;
+    RenderGraphResource* resources[] = { &res };
+    const Span<RenderGraphResource* const> span(resources, 1);
+    solver.Reset(span);
+
+    for (u32 layer = 0; layer < 4; ++layer)
+    {
+        RenderGraphPass cascade(u8"Cascade", RGPassType::Render);
+        cascade.accesses.PushBack(Access(0, AT::WriteDepthTarget, RGSubresourceRange{ 0, 1, layer, 1 }));
+        solver.EmitBarriers(cascade, span, encoder);
+    }
+    encoder.textureBarriers.Clear();
+
+    RenderGraphPass forward(u8"Forward", RGPassType::Render);
+    forward.accesses.PushBack(Access(0, AT::SampleDepthStencil));
+    solver.EmitBarriers(forward, span, encoder);
+
+    REQUIRE(encoder.textureBarriers.Size() == 1u); // whole-resource (all layers uniform)
+    CHECK(encoder.textureBarriers[0].oldState == RS::DepthStencilWrite);
+    CHECK(encoder.textureBarriers[0].newState == RS::DepthStencilRead);
+    CHECK(encoder.textureBarriers[0].arrayLayerCount == 0xFFFFFFFFu);
+}
+
 TEST_CASE("barriers: per-mip different states")
 {
     BarrierSolver solver;

@@ -41,6 +41,7 @@ TEST_CASE("rg.type: access IsRead / IsWrite")
     CHECK(IsRead(RGAccessType::ReadTexture));
     CHECK(IsRead(RGAccessType::ReadBuffer));
     CHECK(IsRead(RGAccessType::ReadDepthStencil));
+    CHECK(IsRead(RGAccessType::SampleDepthStencil));
     CHECK(IsRead(RGAccessType::ReadCopySrc));
     CHECK(IsRead(RGAccessType::ReadWriteStorage));
     CHECK_FALSE(IsRead(RGAccessType::WriteColorTarget));
@@ -53,6 +54,7 @@ TEST_CASE("rg.type: access IsRead / IsWrite")
     CHECK(IsWrite(RGAccessType::ReadWriteStorage));
     CHECK_FALSE(IsWrite(RGAccessType::ReadTexture));
     CHECK_FALSE(IsWrite(RGAccessType::ReadBuffer));
+    CHECK_FALSE(IsWrite(RGAccessType::SampleDepthStencil));
 }
 
 TEST_CASE("rg.type: access -> resource state")
@@ -62,6 +64,9 @@ TEST_CASE("rg.type: access -> resource state")
     CHECK(ToResourceState(RGAccessType::WriteColorTarget) == RS::RenderTarget);
     CHECK(ToResourceState(RGAccessType::WriteDepthTarget) == RS::DepthStencilWrite);
     CHECK(ToResourceState(RGAccessType::ReadDepthStencil) == RS::DepthStencilRead);
+    // Sampling a depth texture in a shader uses the same read-only depth layout as a
+    // read-only depth attachment (DEPTH_STENCIL_READ_ONLY_OPTIMAL), not ShaderRead.
+    CHECK(ToResourceState(RGAccessType::SampleDepthStencil) == RS::DepthStencilRead);
     CHECK(ToResourceState(RGAccessType::ReadCopySrc) == RS::CopySrc);
     CHECK(ToResourceState(RGAccessType::WriteCopyDst) == RS::CopyDst);
     CHECK(ToResourceState(RGAccessType::WriteStorage) == RS::ShaderWrite);

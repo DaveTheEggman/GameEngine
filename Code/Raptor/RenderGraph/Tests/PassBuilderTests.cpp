@@ -74,6 +74,32 @@ TEST_CASE("rg.builder: ReadDepth sets read-only")
     CHECK(pass.accesses[0].type == RGAccessType::ReadDepthStencil);
 }
 
+TEST_CASE("rg.builder: SampleDepth reads without an attachment")
+{
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
+    PassBuilder builder(pass);
+    builder.SampleDepth(RGHandle{ 0, 1 });
+
+    // Unlike ReadDepth, sampling a depth texture in a shader is NOT a depth attachment:
+    // it adds a read access only, leaving depthTarget unset.
+    CHECK_FALSE(pass.depthTarget.HasValue());
+    REQUIRE(pass.accesses.Size() == 1u);
+    CHECK(pass.accesses[0].type == RGAccessType::SampleDepthStencil);
+    CHECK(pass.accesses[0].IsRead());
+    CHECK_FALSE(pass.accesses[0].IsWrite());
+}
+
+TEST_CASE("rg.builder: SampleDepth with subresource")
+{
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
+    PassBuilder builder(pass);
+    builder.SampleDepth(RGHandle{ 0, 1 }, RGSubresourceRange{ 0, 1, 3, 2 });
+
+    REQUIRE(pass.accesses.Size() == 1u);
+    CHECK(pass.accesses[0].subresource.baseArrayLayer == 3u);
+    CHECK(pass.accesses[0].subresource.arrayLayerCount == 2u);
+}
+
 TEST_CASE("rg.builder: NeverCull / HasSideEffects flags")
 {
     {

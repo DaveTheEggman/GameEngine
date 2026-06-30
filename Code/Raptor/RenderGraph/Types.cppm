@@ -53,6 +53,9 @@ export namespace raptor::rendergraph
     {
         // Reads
         ReadTexture, ReadBuffer, ReadDepthStencil, ReadCopySrc,
+        // Sample a DEPTH texture in a shader: like ReadTexture (sampled, not an attachment) but the
+        // layout must be DepthStencilRead (DEPTH_STENCIL_READ_ONLY_OPTIMAL), not ShaderRead.
+        SampleDepthStencil,
         // Writes
         WriteColorTarget, WriteDepthTarget, WriteStorage, WriteCopyDst,
         // Read + Write
@@ -66,6 +69,7 @@ export namespace raptor::rendergraph
             case RGAccessType::ReadTexture:
             case RGAccessType::ReadBuffer:
             case RGAccessType::ReadDepthStencil:
+            case RGAccessType::SampleDepthStencil:
             case RGAccessType::ReadCopySrc:
             case RGAccessType::ReadWriteStorage:
             case RGAccessType::ReadWriteDepthTarget:
@@ -101,6 +105,7 @@ export namespace raptor::rendergraph
             case RGAccessType::ReadTexture:           return RS::ShaderRead;
             case RGAccessType::ReadBuffer:            return RS::ShaderRead;
             case RGAccessType::ReadDepthStencil:      return RS::DepthStencilRead;
+            case RGAccessType::SampleDepthStencil:    return RS::DepthStencilRead;
             case RGAccessType::ReadCopySrc:           return RS::CopySrc;
             case RGAccessType::WriteColorTarget:      return RS::RenderTarget;
             case RGAccessType::WriteDepthTarget:      return RS::DepthStencilWrite;
