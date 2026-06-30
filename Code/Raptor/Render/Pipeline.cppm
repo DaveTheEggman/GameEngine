@@ -259,10 +259,10 @@ public:
             // spans all layers — every one must be in DepthStencilRead when this pass's secondary CB
             // samples it, even layers belonging to other views (VUID-vkCmdExecuteCommands depth-layout).
             // All cascade passes are declared up front, so depending on the whole array is correctly ordered.
-            if (shadow.Valid()) { b.ReadTexture(shadow.handle); }
+            if (shadow.Valid()) { b.SampleDepth(shadow.handle); }
             // Read the whole local-shadow atlas (orders the atlas depth pass -> this pass + barriers
             // it readable). One atlas shared by all views, so the whole texture is the dependency.
-            if (shadow.atlasValid) { b.ReadTexture(shadow.atlasHandle); }
+            if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
                 ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, shadow, out);

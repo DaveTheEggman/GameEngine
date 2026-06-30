@@ -689,6 +689,17 @@ public:
         m_boneStart.Clear();
         m_skinnedScratch.Clear();
         if (!m_ready) { return; }
+        // One-time: bring the out-of-graph dummy depth textures into the layout their descriptors
+        // expect, so they're never sampled while UNDEFINED on caster-less frames (VUID-09600).
+        if (!m_dummyDepthInit) {
+            if (m_dummyShadowTex != nullptr) {
+                encoder.TransitionTexture(m_dummyShadowTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilRead);
+            }
+            if (m_dummyAtlasTex != nullptr) {
+                encoder.TransitionTexture(m_dummyAtlasTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilRead);
+            }
+            m_dummyDepthInit = true;
+        }
         // Pass 1: collect DISTINCT skinned instances (by boneMatrices ptr). Total matrices = sum of
         // 2*boneCount (current slab + previous slab). The map reserves the key so dups are skipped.
         u32 total = 0;
@@ -1488,6 +1499,11 @@ private:
     rhi::Texture*     m_dummyShadowTex   = nullptr;
     rhi::TextureView* m_dummyShadowView  = nullptr;
     rhi::TextureView* m_activeShadowView = nullptr;
+    // The dummy shadow/atlas depth textures are bound (and statically sampled by the mesh shader) on
+    // frames with no real caster, but live OUTSIDE the render graph, so the barrier solver never
+    // transitions them out of UNDEFINED. Transition them once to DepthStencilRead the first frame we
+    // hold the command encoder, so the layout the descriptor expects always matches (VUID-09600).
+    bool              m_dummyDepthInit   = false;
     u64               m_activeShadowGen  = 0;
     // Local-light (spot/point) shadow atlas (t2) + per-light entries (t3) — 5.3. The atlas view + its
     // generation + the local-shadow ring generation extend the set-0 bind-group cache key.
