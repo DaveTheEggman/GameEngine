@@ -30,6 +30,7 @@ import :cluster_system;
 import :tonemap;
 import :shadows;
 import :ibl;
+import :sky;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -258,15 +259,14 @@ public:
     // (they Load so they don't wipe earlier views' regions). Depth is a per-view transient (each clears).
     // `colorH` is the target the forward writes (an HDR transient when tonemapping, else the imported
     // LDR target); `colorFormat` is its format (so the PSO matches). `clearColor` clears vs loads.
+    [[nodiscard]] rhi::TextureFormat DepthFormat() const noexcept { return m_depthFormat; }
+
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
-                     rendergraph::RGHandle colorH, bool clearColor, rhi::TextureFormat colorFormat,
+                     rendergraph::RGHandle colorH, rendergraph::RGHandle depth, bool clearColor, rhi::TextureFormat colorFormat,
                      const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                      const IblBinding& ibl = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
-
-        const rendergraph::RGHandle depth = graph.CreateTransient(
-            u8"forward.depth", rendergraph::RGTextureDesc(m_depthFormat, view.Width(), view.Height()));
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
         graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, colorFormat, frameIndex, viewIndex, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
@@ -443,9 +443,9 @@ class RenderFrame {
 public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
                 ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
-                ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr) noexcept
+                ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr, SkyPass* sky = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
-          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl) {}
+          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -817,20 +817,37 @@ public:
                 ibl.valid           = true;
             }
 
+            // Per-view depth, shared by the forward pass + the sky pass (sky depth-tests against it).
+            const rendergraph::RGHandle depth = m_graph.CreateTransient(
+                u8"forward.depth", rendergraph::RGTextureDesc(m_pass.DepthFormat(), v->Width(), v->Height()));
+
+            // Declare the visible sky into `colorTarget` after the forward pass (if IBL + sky active).
+            const auto declareSky = [&](rendergraph::RGHandle colorTarget, rhi::TextureFormat colorFmt) {
+                if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
+                const Mat4 invVP  = Inverse(v->Camera().ViewProjection());
+                m_sky->DeclareSky(m_graph, colorTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),
+                                  colorFmt, m_pass.DepthFormat(), invVP, v->Camera().position, m_ibl->SkyIntensity(),
+                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, m_ibl->SunIntensity(),
+                                  v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
+                                  m_frameIndex, viewIndex);
+            };
+
             if (m_tonemap != nullptr) {
                 // HDR path: forward renders linear HDR into a transient, then the tonemap pass
                 // resolves it (exposure + tonemap + OETF) into the LDR target.
                 const rendergraph::RGHandle hdr = m_graph.CreateTransient(
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
-                m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, /*clear*/ true,
+                m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
                                    m_tonemap->HdrFormat(), cluster, shadow, ibl);
+                declareSky(hdr, m_tonemap->HdrFormat());   // sky into HDR, before tonemap
                 m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex);
             } else {
                 // No tonemap: forward writes the LDR target directly.
-                m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, clearColor,
+                m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
                                    v->TargetFormat(), cluster, shadow, ibl);
+                declareSky(colorH, v->TargetFormat());
             }
         }
         }   // end Compose.Declare
@@ -853,6 +870,7 @@ private:
     TonemapPass*            m_tonemap  = nullptr;   // borrowed; HDR-resolve pass (null => forward writes LDR direct)
     ShadowSystem*           m_shadows  = nullptr;   // borrowed; owns the directional shadow depth texture
     IBLSystem*              m_ibl      = nullptr;   // borrowed; owns the IBL precompute products (env/SH/prefilter/BRDF)
+    SkyPass*                m_sky      = nullptr;   // borrowed; draws the visible environment background
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.

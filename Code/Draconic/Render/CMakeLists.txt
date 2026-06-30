@@ -23,6 +23,7 @@ target_sources(DraconicRender
             TonemapPass.cppm
             ShadowSystem.cppm
             IBLSystem.cppm
+            SkyPass.cppm
             RenderModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

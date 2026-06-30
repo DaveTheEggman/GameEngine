@@ -23,3 +23,4 @@ export import :cluster_system;
 export import :tonemap;
 export import :shadows;
 export import :ibl;
+export import :sky;

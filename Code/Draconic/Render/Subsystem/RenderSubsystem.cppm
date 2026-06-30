@@ -156,9 +156,13 @@ protected:
         m_iblSystem = MakeUnique<IBLSystem>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_iblSystem->Initialize().IsOk()) { m_iblSystem.Reset(); }
 
+        // Visible sky (background) from the IBL environment. Optional.
+        m_skyPass = MakeUnique<SkyPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+        if (!m_skyPass->Initialize().IsOk()) { m_skyPass.Reset(); }
+
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
                                           m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get(),
-                                          m_iblSystem.Get());
+                                          m_iblSystem.Get(), m_skyPass.Get());
         m_frame->EnableGpuProfiling();   // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
@@ -178,6 +182,7 @@ protected:
         m_clusterSystem.Reset();// before the ShaderSystem it borrows
         m_tonemapPass.Reset();  // before the ShaderSystem it borrows
         m_shadowSystem.Reset(); // shadow depth textures
+        m_skyPass.Reset();      // before the ShaderSystem it borrows
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
@@ -210,6 +215,7 @@ private:
     UniquePtr<TonemapPass>                    m_tonemapPass;
     UniquePtr<ShadowSystem>                   m_shadowSystem;
     UniquePtr<IBLSystem>                      m_iblSystem;
+    UniquePtr<SkyPass>                        m_skyPass;
     RendererRegistry                          m_registry;
     UniquePtr<RenderFrame>                    m_frame;
 

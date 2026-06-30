@@ -56,10 +56,12 @@ struct IblPush {
 };
 [[vk::push_constant]] IblPush pc;
 
-// Standard Vulkan cube-face direction from a face index + [0,1] face uv.
+// Canonical cube-face direction from a face index + [0,1] face uv. NOTE: no t.y negation — the cube
+// faces are rendered through the RHI's negative-viewport (Y-flipped) so the stored texel already
+// matches the standard cube-sampling convention; negating here would double-flip and break edge
+// continuity (visible seams).
 float3 DirForFace(int face, float2 uv) {
     float2 t = uv * 2.0 - 1.0;
-    t.y = -t.y;
     float3 d;
     if      (face == 0) d = float3( 1.0,  t.y, -t.x);   // +X
     else if (face == 1) d = float3(-1.0,  t.y,  t.x);   // -X
@@ -87,13 +89,11 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     } else {                                         // Procedural gradient (also HDR/cubemap fallback)
         sky = (dir.y >= 0.0) ? lerp(pc.Horizon.rgb, pc.Zenith.rgb, pow(saturate(dir.y), 0.5))
                              : lerp(pc.Horizon.rgb, pc.Ground.rgb, pow(saturate(-dir.y), 0.8));
-        // Sun disc + glow toward the light direction.
-        float3 sunDir   = normalize(-pc.Sun.xyz);
-        float  d        = max(dot(dir, sunDir), 0.0);
-        float  sunInt   = max(pc.Horizon.a, 0.0);
-        float  discCos  = cos(radians(max(pc.Sun.w, 0.05)));
-        sky += step(discCos, d) * sunInt * 3.0;
-        sky += pow(d, 256.0) * sunInt * 0.5;
+        // A soft, broad sun GLOW only (no sharp disc) — the crisp sun is drawn analytically at screen
+        // resolution by the sky pass; baking a sub-texel disc into the 256^2 cube would alias to a square.
+        float3 sunDir = normalize(-pc.Sun.xyz);
+        float  d      = max(dot(dir, sunDir), 0.0);
+        sky += pow(d, 64.0) * max(pc.Horizon.a, 0.0) * 0.3;
     }
     return float4(sky * max(pc.SkyIntensity, 0.0), 1.0);
 }
@@ -216,7 +216,7 @@ RWStructuredBuffer<float4> ShOut : register(u0, space0);
 static const float PI = 3.14159265359;
 
 float3 DirForFace(int face, float2 uv) {
-    float2 t = uv * 2.0 - 1.0; t.y = -t.y;
+    float2 t = uv * 2.0 - 1.0;
     float3 d;
     if      (face == 0) d = float3( 1.0,  t.y, -t.x);
     else if (face == 1) d = float3(-1.0,  t.y,  t.x);
@@ -300,7 +300,10 @@ public:
     // The scene's sky authoring (mode + intensity + gradient colors + sun + rotation). A changed value
     // re-dirties the precompute (env/SH/prefilter rebuild to match).
     void SetSky(const SkySnapshot& s) {
-        if (!SkyEqual(s, m_sky)) { m_sky = s; m_dirty = true; }
+        // Re-dirty the precompute only for fields baked into the env cube. sunAngularSize is analytic-
+        // only (the sky pass draws the disc live each frame), so it updates without a rebuild.
+        if (!PrecomputeEqual(s, m_sky)) { m_dirty = true; }
+        m_sky = s;   // always store the latest (the sky pass reads sun size/intensity live)
     }
 
     // Products bound into the forward set 0. Stable for a renderer's lifetime (textures recreated only
@@ -319,6 +322,14 @@ public:
     [[nodiscard]] rendergraph::RGHandle PrefilterHandle() const noexcept { return m_prefilterH; }
     [[nodiscard]] rendergraph::RGHandle BrdfHandle()      const noexcept { return m_brdfH; }
     [[nodiscard]] rendergraph::RGHandle ShHandle()        const noexcept { return m_shH; }
+    // The full-radiance environment cube — sampled by the sky pass (background) at full detail.
+    [[nodiscard]] rendergraph::RGHandle EnvHandle()       const noexcept { return m_envH; }
+    [[nodiscard]] rhi::TextureView*     EnvView()         const noexcept { return m_envSampleView; }
+    [[nodiscard]] f32                   SkyIntensity()    const noexcept { return m_sky.intensity; }
+    // Sun (from the directional light) for the sky pass's crisp analytic disc.
+    [[nodiscard]] Vec3                  SunDir()          const noexcept { return m_sunDir; }
+    [[nodiscard]] f32                   SunIntensity()    const noexcept { return m_sky.sunIntensity; }
+    [[nodiscard]] f32                   SunAngularSize()  const noexcept { return m_sky.sunAngularSize; }
 
     // Declare the precompute passes into this frame's graph (before forward). The products are imported
     // EVERY frame (so the forward can read this frame's handles); the env-dependent write passes only run
@@ -334,6 +345,10 @@ public:
                                      rhi::ResourceState::ShaderRead, m_brdfState);
         m_brdfState = rhi::ResourceState::ShaderRead;
         m_shH = graph.ImportBuffer(u8"ibl.sh", m_shBuffer);
+        // The env cube is imported every frame too (the sky pass reads it for the visible background).
+        m_envH = graph.ImportTarget(u8"ibl.env", m_envCube, m_envSampleView,
+                                    rhi::ResourceState::ShaderRead, m_envState);
+        m_envState = rhi::ResourceState::ShaderRead;
 
         // BRDF LUT: constant, generate exactly once.
         if (!m_brdfDone) { DeclareBrdf(graph, m_brdfH); m_brdfDone = true; }
@@ -343,10 +358,7 @@ public:
         ++m_generation;
 
         // (1) Source -> env cube: 6 procedural faces.
-        const rendergraph::RGHandle envH = graph.ImportTarget(
-            u8"ibl.env", m_envCube, m_envSampleView,
-            rhi::ResourceState::ShaderRead, m_envState);
-        m_envState = rhi::ResourceState::ShaderRead;
+        const rendergraph::RGHandle envH = m_envH;
         for (u32 face = 0; face < 6; ++face) {
             IblPush push = MakeSkyPush(static_cast<i32>(face));
             graph.AddRenderPass(u8"ibl.env.face", [this, envH, face, push](rendergraph::PassBuilder& b) {
@@ -389,12 +401,14 @@ private:
         return p;
     }
 
-    [[nodiscard]] static bool SkyEqual(const SkySnapshot& a, const SkySnapshot& b) {
+    // Equal w.r.t. the fields baked into the env cube (drives the precompute-rebuild decision).
+    // sunAngularSize is EXCLUDED — it only affects the analytic sky-pass sun, not the cube.
+    [[nodiscard]] static bool PrecomputeEqual(const SkySnapshot& a, const SkySnapshot& b) {
         return a.mode == b.mode && a.intensity == b.intensity && a.rotation == b.rotation &&
                a.horizon.x == b.horizon.x && a.horizon.y == b.horizon.y && a.horizon.z == b.horizon.z &&
                a.zenith.x == b.zenith.x && a.zenith.y == b.zenith.y && a.zenith.z == b.zenith.z &&
                a.ground.x == b.ground.x && a.ground.y == b.ground.y && a.ground.z == b.ground.z &&
-               a.sunIntensity == b.sunIntensity && a.sunAngularSize == b.sunAngularSize;
+               a.sunIntensity == b.sunIntensity;
     }
 
     void DeclareShProjection(rendergraph::RenderGraph& graph, rendergraph::RGHandle envH, rendergraph::RGHandle shH) {
@@ -634,6 +648,7 @@ private:
     rendergraph::RGHandle m_prefilterH = {};
     rendergraph::RGHandle m_brdfH = {};
     rendergraph::RGHandle m_shH = {};
+    rendergraph::RGHandle m_envH = {};
 
     Vec3        m_sunDir{ 0.0f, -1.0f, 0.0f };   // from the directional light (set per frame)
     SkySnapshot m_sky{};                          // current sky authoring
