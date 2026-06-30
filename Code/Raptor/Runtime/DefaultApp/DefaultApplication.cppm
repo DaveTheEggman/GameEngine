@@ -24,6 +24,7 @@ import raptor.runtime.graphics;   // GraphicsDevice, FrameContext
 import raptor.scene;              // Scene
 import raptor.scene.subsystem;    // SceneSubsystem (the standard scene driver)
 import raptor.render.subsystem;   // RenderSubsystem (the standard renderer)
+import raptor.animation.subsystem; // AnimationSubsystem (drives skeletal animation from the scene)
 import raptor.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = raptor::rhi;
@@ -61,6 +62,9 @@ export namespace raptor::runtime
             if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<raptor::render::RenderSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                // Drives skeletal animation from the scene tick (injects the SkeletalAnimation manager,
+                // ticks players, feeds bone matrices to mesh components). Needs the render managers.
+                host.Ctx().AddSubsystem<raptor::animation::AnimationSubsystem>();
             }
         }
 

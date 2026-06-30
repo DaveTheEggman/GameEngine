@@ -1,0 +1,47 @@
+/// Raptor::AnimationSubsystem — the `:subsystem` partition.
+///
+/// AnimationSubsystem: a Context-level subsystem that injects the animation component managers
+/// (skeletal single-clip + animation-graph) into every scene (via ISceneAware), so attaching a
+/// SkeletalAnimationComponent or AnimationGraphComponent is all an app needs — the SceneSubsystem's
+/// per-scene tick then advances the players (PostUpdate) and feeds the skinning matrices to the mesh
+/// components, before render extraction. The subsystem itself does no per-frame work; the managers
+/// (SceneSystems) do, driven by the scene.
+
+module;
+#include "Core/Prelude.h"
+
+export module raptor.animation.subsystem:subsystem;
+
+import raptor.core;
+import raptor.runtime;            // Subsystem, Context
+import raptor.scene;              // Scene, ISceneAware
+import raptor.scene.subsystem;    // SceneSubsystem (to register as scene-aware)
+import :components;
+
+export namespace raptor::animation {
+
+class AnimationSubsystem final : public raptor::runtime::Subsystem,
+                                 public raptor::scene::ISceneAware {
+public:
+    // Injects the animation managers into each new scene (they tick in PostUpdate): the graph
+    // manager (state machines / blend trees) runs first, then the simple single-clip manager.
+    void OnSceneCreated(raptor::scene::Scene& scene) override {
+        scene.AddSystem<AnimationGraphComponentManager>();
+        scene.AddSystem<SkeletalAnimationComponentManager>();
+    }
+
+protected:
+    void OnReady() override {
+        if (raptor::runtime::Context* ctx = GetContext()) {
+            if (auto* scenes = ctx->GetSubsystem<raptor::scene::SceneSubsystem>()) { scenes->RegisterSceneAware(this); }
+        }
+    }
+
+    void OnShutdown() override {
+        if (raptor::runtime::Context* ctx = GetContext()) {
+            if (auto* scenes = ctx->GetSubsystem<raptor::scene::SceneSubsystem>()) { scenes->UnregisterSceneAware(this); }
+        }
+    }
+};
+
+} // namespace raptor::animation

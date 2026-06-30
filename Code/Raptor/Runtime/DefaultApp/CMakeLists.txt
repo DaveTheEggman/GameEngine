@@ -9,7 +9,8 @@ add_library(Raptor::RuntimeDefaultApp ALIAS RaptorRuntimeDefaultApp)
 
 target_link_libraries(RaptorRuntimeDefaultApp
     PUBLIC Raptor::Core Raptor::RHI Raptor::RuntimeClient Raptor::RuntimePlatform Raptor::RuntimeGraphics
-           Raptor::Scene Raptor::SceneSubsystem Raptor::RenderSubsystem Raptor::Profiler Raptor::Policy)
+           Raptor::Scene Raptor::SceneSubsystem Raptor::RenderSubsystem Raptor::AnimationSubsystem
+           Raptor::Profiler Raptor::Policy)
 
 target_sources(RaptorRuntimeDefaultApp
     PUBLIC

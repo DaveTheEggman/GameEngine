@@ -28,3 +28,6 @@ add_subdirectory(Resource)
 
 # Authoring + cook (tooling: SkeletonAsset/AnimationClipAsset -> source).
 add_subdirectory(Editor)
+
+# NB: the scene-integration lib (Animation/Subsystem) is added from the ROOT CMakeLists AFTER
+# Render, because it links Raptor::RenderSubsystem (which doesn't exist this early in config).
