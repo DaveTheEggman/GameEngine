@@ -70,10 +70,18 @@ namespace
             // CreateScene triggers the RenderSubsystem to inject the render managers.
             m_scene = scenes->CreateScene(u8"sandbox");
 
-            // Per-scene environment ambient (a dim cool indirect term; IBL replaces it later).
+            // Per-scene environment: drives IBL (split-sum ambient from a procedural sky) + the flat
+            // fallback. The procedural sky's gradient + sun feed the SH9 diffuse + prefiltered specular.
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
-                env->Environment().ambientColor     = rc::Color{ 0.12f, 0.16f, 0.28f, 1.0f };
-                env->Environment().ambientIntensity = 0.35f;
+                rd::EnvironmentSettings& e = env->Environment();
+                e.ambientColor     = rc::Color{ 0.12f, 0.16f, 0.28f, 1.0f };   // flat fallback (IBL off)
+                e.ambientIntensity = 0.35f;
+                e.skyMode      = rd::SkyMode::Procedural;
+                e.skyIntensity = 1.0f;
+                e.skyHorizon   = rc::Color{ 0.62f, 0.70f, 0.85f, 1.0f };
+                e.skyZenith    = rc::Color{ 0.18f, 0.34f, 0.68f, 1.0f };
+                e.skyGround    = rc::Color{ 0.28f, 0.26f, 0.24f, 1.0f };
+                e.sunIntensity = 1.0f;
             }
 
             // camera, pulled back along +Z looking at the origin (down -Z by default)

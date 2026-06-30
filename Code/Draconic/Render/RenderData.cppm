@@ -248,6 +248,23 @@ private:
     usize        m_offset  = 0;   // bump cursor within m_chunks[m_current]
 };
 
+// How the scene's environment radiance (sky + IBL source) is produced. The canonical enum lives
+// here in the snapshot layer; the authoring EnvironmentSettings (render.subsystem) references it.
+enum class SkyMode : u32 { Procedural, Color, HDREquirect, Cubemap };
+
+// The per-frame environment snapshot driving IBL + sky. Plain types (colors as Vec3) so the
+// snapshot layer carries no authoring dependency.
+struct SkySnapshot {
+    SkyMode mode      = SkyMode::Procedural;
+    f32     intensity = 1.0f;
+    f32     rotation  = 0.0f;                          // yaw (radians) for HDR/cubemap
+    Vec3    horizon   = Vec3{ 0.60f, 0.70f, 0.85f };
+    Vec3    zenith    = Vec3{ 0.15f, 0.30f, 0.65f };   // also the Color-mode color
+    Vec3    ground    = Vec3{ 0.30f, 0.28f, 0.25f };
+    f32     sunIntensity   = 1.0f;
+    f32     sunAngularSize = 0.5f;                     // sun disc size (degrees)
+};
+
 // ---- extracted scene -------------------------------------------------------------------
 //
 // The per-scene, once-per-frame, immutable snapshot pushed to the renderer: world-space
@@ -285,12 +302,16 @@ public:
     void SetAmbient(const Vec3& ambient) noexcept { m_ambient = ambient; }
     [[nodiscard]] const Vec3& Ambient() const noexcept { return m_ambient; }
 
+    // The scene's sky/IBL environment settings for this frame.
+    void SetSky(const SkySnapshot& s) noexcept { m_sky = s; }
+    [[nodiscard]] const SkySnapshot& Sky() const noexcept { return m_sky; }
+
     // The active directional shadow caster (phase 5.1). Set during light extraction.
     void SetDirectionalShadow(const DirectionalShadow& s) noexcept { m_shadow = s; }
     [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept { return m_shadow; }
 
     // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_shadow = {}; m_arena.Reset(); }
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_sky = {}; m_shadow = {}; m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
@@ -307,6 +328,7 @@ private:
     Array<GpuLight>         m_lights;
     Array<LocalShadowCaster> m_localCasters;             // spot/point shadow casters (phase 5.3)
     Vec3               m_ambient = Vec3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
+    SkySnapshot        m_sky;                                     // sky/IBL environment for this frame
     DirectionalShadow  m_shadow;                                  // active directional shadow caster
 };
 

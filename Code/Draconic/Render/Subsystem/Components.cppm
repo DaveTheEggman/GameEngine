@@ -16,6 +16,7 @@ import draconic.core;
 import draconic.scene;
 import draconic.geometry;
 import draconic.materials;
+import draconic.render;   // SkySnapshot/SkyMode (snapshot layer; render.subsystem depends on render)
 
 using namespace draconic::core;
 
@@ -79,12 +80,25 @@ class MeshComponentManager   final : public scene::ComponentManager<MeshComponen
 class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};
 class LightComponentManager  final : public scene::ComponentManager<LightComponent>  {};
 
-// The scene's environment — ONE per scene (not a component). Holds the ambient indirect term
-// for now (skybox / IBL later). A plain SceneSystem injected by the RenderSubsystem; extraction
-// reads it into the snapshot. `ambientColor × ambientIntensity` is applied as the forward ambient.
+// SkyMode is defined in the snapshot layer (draconic.render :data) and reused here.
+
+// The scene's environment — ONE per scene (not a component). Drives both the IBL ambient and the
+// (upcoming) visible sky. A plain SceneSystem injected by the RenderSubsystem; extraction reads it
+// into the snapshot. When IBL is active these sky settings drive shading; `ambientColor ×
+// ambientIntensity` remains the flat fallback used when no environment is active.
 struct EnvironmentSettings {
-    Color ambientColor     = Color{ 0.10f, 0.12f, 0.16f, 1.0f };
-    f32   ambientIntensity = 0.3f;
+    Color   ambientColor     = Color{ 0.10f, 0.12f, 0.16f, 1.0f };   // flat fallback (IBL off)
+    f32     ambientIntensity = 0.3f;
+
+    SkyMode skyMode      = SkyMode::Procedural;
+    f32     skyIntensity = 1.0f;                                      // multiplier on env radiance
+    f32     skyRotation  = 0.0f;                                      // yaw (radians) for HDR/cubemap
+    // Procedural sky:
+    Color   skyHorizon   = Color{ 0.60f, 0.70f, 0.85f, 1.0f };
+    Color   skyZenith    = Color{ 0.15f, 0.30f, 0.65f, 1.0f };       // also the Color-mode color
+    Color   skyGround    = Color{ 0.30f, 0.28f, 0.25f, 1.0f };
+    f32     sunIntensity = 1.0f;
+    f32     sunAngularSize = 0.5f;                                    // sun disc size (degrees)
 };
 
 class EnvironmentSystem final : public scene::SceneSystem {

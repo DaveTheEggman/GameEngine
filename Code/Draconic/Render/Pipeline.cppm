@@ -694,7 +694,8 @@ public:
         // when dirty; the forward pass samples them in set 0. The procedural sky tracks the directional
         // light so its sun disc + ambient match the scene's key light.
         if (m_ibl != nullptr) {
-            m_ibl->SetSun(lightDir, 1.0f);
+            m_ibl->SetSun(lightDir);
+            if (primary != nullptr && primary->Scene() != nullptr) { m_ibl->SetSky(primary->Scene()->Sky()); }
             m_ibl->ProcessPending(m_graph);
         }
 

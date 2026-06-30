@@ -209,6 +209,16 @@ inline void ExtractEnvironmentInto(scene::Scene& scene, ExtractedScene& out) {
     if (auto* env = scene.GetSystem<EnvironmentSystem>()) {
         const EnvironmentSettings& e = env->Environment();
         out.SetAmbient(Vec3{ e.ambientColor.r, e.ambientColor.g, e.ambientColor.b } * e.ambientIntensity);
+        SkySnapshot s{};
+        s.mode      = e.skyMode;
+        s.intensity = e.skyIntensity;
+        s.rotation  = e.skyRotation;
+        s.horizon   = Vec3{ e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
+        s.zenith    = Vec3{ e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
+        s.ground    = Vec3{ e.skyGround.r, e.skyGround.g, e.skyGround.b };
+        s.sunIntensity   = e.sunIntensity;
+        s.sunAngularSize = e.sunAngularSize;
+        out.SetSky(s);
     }
 }
 

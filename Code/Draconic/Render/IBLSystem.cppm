@@ -24,6 +24,7 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
+import :data;   // SkySnapshot / SkyMode (the per-frame environment settings)
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -43,9 +44,16 @@ VSOut main(uint vid : SV_VertexID) {
 }
 )";
 
-// Per-face/mip params for the cube passes (tightly-packed push constants).
+// Per-face/mip params for the cube passes (tightly-packed push constants). Sky authoring (mode +
+// intensity + gradient colors + sun + rotation) rides here so the procedural env pass reads it.
 inline constexpr const char8_t* kIblCommon = u8R"(
-struct IblPush { int FaceIndex; float Roughness; float2 _pad; float4 SunDir; };
+struct IblPush {
+    int FaceIndex; int Mode; float Roughness; float SkyIntensity;
+    float4 Sun;        // xyz = direction, w = sun angular size (degrees)
+    float4 Horizon;    // rgb, a = sun intensity
+    float4 Zenith;     // rgb, a = sky rotation (radians)
+    float4 Ground;     // rgb
+};
 [[vk::push_constant]] IblPush pc;
 
 // Standard Vulkan cube-face direction from a face index + [0,1] face uv.
@@ -68,18 +76,26 @@ float3 DirForFace(int face, float2 uv) {
 inline constexpr const char8_t* kIblProcEnvPS = u8R"(
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float3 dir = DirForFace(pc.FaceIndex, uv);
-    float3 horizon = float3(0.6, 0.7, 0.85);
-    float3 zenith  = float3(0.15, 0.3, 0.65);
-    float3 ground  = float3(0.3, 0.28, 0.25);
-    float3 sky = (dir.y >= 0.0) ? lerp(horizon, zenith, pow(saturate(dir.y), 0.5))
-                                : lerp(horizon, ground, pow(saturate(-dir.y), 0.8));
-    // Sun disc + glow toward the light direction.
-    float3 sunDir = normalize(-pc.SunDir.xyz);
-    float  d = max(dot(dir, sunDir), 0.0);
-    float  intensity = max(pc.SunDir.w, 0.0);
-    sky += step(0.9995, d) * intensity * 3.0;
-    sky += pow(d, 256.0) * intensity * 0.5;
-    return float4(sky, 1.0);
+    // Yaw the sample direction by the sky rotation (matters for HDR/cubemap; harmless on the gradient).
+    float rot = pc.Zenith.a;
+    float cr = cos(rot), sr = sin(rot);
+    dir = float3(cr * dir.x + sr * dir.z, dir.y, -sr * dir.x + cr * dir.z);
+
+    float3 sky;
+    if (pc.Mode == 1) {                              // Color mode: uniform zenith color
+        sky = pc.Zenith.rgb;
+    } else {                                         // Procedural gradient (also HDR/cubemap fallback)
+        sky = (dir.y >= 0.0) ? lerp(pc.Horizon.rgb, pc.Zenith.rgb, pow(saturate(dir.y), 0.5))
+                             : lerp(pc.Horizon.rgb, pc.Ground.rgb, pow(saturate(-dir.y), 0.8));
+        // Sun disc + glow toward the light direction.
+        float3 sunDir   = normalize(-pc.Sun.xyz);
+        float  d        = max(dot(dir, sunDir), 0.0);
+        float  sunInt   = max(pc.Horizon.a, 0.0);
+        float  discCos  = cos(radians(max(pc.Sun.w, 0.05)));
+        sky += step(discCos, d) * sunInt * 3.0;
+        sky += pow(d, 256.0) * sunInt * 0.5;
+    }
+    return float4(sky * max(pc.SkyIntensity, 0.0), 1.0);
 }
 )";
 
@@ -275,11 +291,16 @@ public:
         return Status{};
     }
 
-    // The directional sun feeding the procedural sky (xyz = light direction, w = intensity). Setting a
-    // changed value re-dirties the precompute so the env reflects the new sun.
-    void SetSun(const Vec3& dir, f32 intensity) {
-        const Vec4 v{ dir.x, dir.y, dir.z, intensity };
-        if (v.x != m_sun.x || v.y != m_sun.y || v.z != m_sun.z || v.w != m_sun.w) { m_sun = v; m_dirty = true; }
+    // The directional sun feeding the procedural sky (xyz = light direction). A changed direction
+    // re-dirties the precompute so the env reflects the new sun.
+    void SetSun(const Vec3& dir) {
+        if (dir.x != m_sunDir.x || dir.y != m_sunDir.y || dir.z != m_sunDir.z) { m_sunDir = dir; m_dirty = true; }
+    }
+
+    // The scene's sky authoring (mode + intensity + gradient colors + sun + rotation). A changed value
+    // re-dirties the precompute (env/SH/prefilter rebuild to match).
+    void SetSky(const SkySnapshot& s) {
+        if (!SkyEqual(s, m_sky)) { m_sky = s; m_dirty = true; }
     }
 
     // Products bound into the forward set 0. Stable for a renderer's lifetime (textures recreated only
@@ -327,7 +348,7 @@ public:
             rhi::ResourceState::ShaderRead, m_envState);
         m_envState = rhi::ResourceState::ShaderRead;
         for (u32 face = 0; face < 6; ++face) {
-            IblPush push{}; push.faceIndex = static_cast<i32>(face); push.sun = m_sun;
+            IblPush push = MakeSkyPush(static_cast<i32>(face));
             graph.AddRenderPass(u8"ibl.env.face", [this, envH, face, push](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, envH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black(),
                                  rendergraph::RGSubresourceRange{ 0, 1, face, 1 });
@@ -347,7 +368,34 @@ public:
     }
 
 private:
-    struct IblPush { i32 faceIndex = 0; f32 roughness = 0.0f; f32 pad0 = 0.0f, pad1 = 0.0f; Vec4 sun{}; };
+    struct IblPush {
+        i32 faceIndex = 0; i32 mode = 0; f32 roughness = 0.0f; f32 skyIntensity = 1.0f;
+        Vec4 sun{};       // xyz = direction, w = sun angular size (deg)
+        Vec4 horizon{};   // rgb, a = sun intensity
+        Vec4 zenith{};    // rgb, a = rotation (radians)
+        Vec4 ground{};    // rgb
+    };
+
+    // Build the procedural-env push for one cube face from the current sky + sun direction.
+    [[nodiscard]] IblPush MakeSkyPush(i32 face) const {
+        IblPush p{};
+        p.faceIndex    = face;
+        p.mode         = static_cast<i32>(m_sky.mode);
+        p.skyIntensity = m_sky.intensity;
+        p.sun     = Vec4{ m_sunDir.x, m_sunDir.y, m_sunDir.z, m_sky.sunAngularSize };
+        p.horizon = Vec4{ m_sky.horizon.x, m_sky.horizon.y, m_sky.horizon.z, m_sky.sunIntensity };
+        p.zenith  = Vec4{ m_sky.zenith.x, m_sky.zenith.y, m_sky.zenith.z, m_sky.rotation };
+        p.ground  = Vec4{ m_sky.ground.x, m_sky.ground.y, m_sky.ground.z, 0.0f };
+        return p;
+    }
+
+    [[nodiscard]] static bool SkyEqual(const SkySnapshot& a, const SkySnapshot& b) {
+        return a.mode == b.mode && a.intensity == b.intensity && a.rotation == b.rotation &&
+               a.horizon.x == b.horizon.x && a.horizon.y == b.horizon.y && a.horizon.z == b.horizon.z &&
+               a.zenith.x == b.zenith.x && a.zenith.y == b.zenith.y && a.zenith.z == b.zenith.z &&
+               a.ground.x == b.ground.x && a.ground.y == b.ground.y && a.ground.z == b.ground.z &&
+               a.sunIntensity == b.sunIntensity && a.sunAngularSize == b.sunAngularSize;
+    }
 
     void DeclareShProjection(rendergraph::RenderGraph& graph, rendergraph::RGHandle envH, rendergraph::RGHandle shH) {
         graph.AddComputePass(u8"ibl.sh", [this, envH, shH](rendergraph::PassBuilder& b) {
@@ -587,7 +635,8 @@ private:
     rendergraph::RGHandle m_brdfH = {};
     rendergraph::RGHandle m_shH = {};
 
-    Vec4 m_sun{ 0.0f, -1.0f, 0.0f, 1.0f };
+    Vec3        m_sunDir{ 0.0f, -1.0f, 0.0f };   // from the directional light (set per frame)
+    SkySnapshot m_sky{};                          // current sky authoring
     bool m_ready = false;
     bool m_dirty = false;
     bool m_brdfDone = false;   // the BRDF LUT is constant — generated once, not per sky change
