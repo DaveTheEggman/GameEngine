@@ -63,6 +63,10 @@ public:
         if (m_iblSystem.Get() != nullptr) { m_iblSystem->SetEquirect(w, h, rgba); }
     }
 
+    // Linear exposure multiplier applied in the tonemap (default 1.0).
+    void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
+    [[nodiscard]] f32 Exposure() const noexcept { return m_exposure; }
+
     // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
     // are valid — intended for an on-demand dump (the P-key), not per-frame use.
     void BuildGpuProfileReport(String& out) {
@@ -81,6 +85,7 @@ public:
         // single slot when the job system is absent — serial fallback).
         const u32 slotCount = HasGlobalJobSystem() ? GlobalJobs().SlotCount() : 1u;
         m_renderCtx.BeginFrame(slotCount);
+        m_frame->SetExposure(m_exposure);
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -223,6 +228,7 @@ private:
     UniquePtr<ShadowSystem>                   m_shadowSystem;
     UniquePtr<IBLSystem>                      m_iblSystem;
     UniquePtr<SkyPass>                        m_skyPass;
+    f32                                       m_exposure = 1.0f;
     RendererRegistry                          m_registry;
     UniquePtr<RenderFrame>                    m_frame;
 

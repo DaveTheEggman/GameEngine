@@ -467,6 +467,9 @@ public:
 
     // Turn on per-pass GPU timestamp profiling for the frame graph (idempotent).
     void EnableGpuProfiling() { m_graph.EnableGpuProfiling(); }
+
+    // Linear exposure multiplier applied in the tonemap pass (scene/camera setting).
+    void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
     // Append a per-pass GPU timing report (call only after the device is idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
@@ -845,7 +848,7 @@ public:
                 declareSky(hdr, m_tonemap->HdrFormat());   // sky into HDR, before tonemap
                 m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                          m_frameIndex, viewIndex);
+                                          m_frameIndex, viewIndex, m_exposure);
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
@@ -874,6 +877,7 @@ private:
     ShadowSystem*           m_shadows  = nullptr;   // borrowed; owns the directional shadow depth texture
     IBLSystem*              m_ibl      = nullptr;   // borrowed; owns the IBL precompute products (env/SH/prefilter/BRDF)
     SkyPass*                m_sky      = nullptr;   // borrowed; draws the visible environment background
+    f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.

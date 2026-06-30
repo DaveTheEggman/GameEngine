@@ -38,6 +38,8 @@ VSOut main(uint vid : SV_VertexID) {
 // GLSL minimal-AgX values transposed for HLSL mul(M, v). Exposure is fixed at 1.0 for now.
 inline constexpr const char8_t* kTonemapPS = u8R"(
 Texture2D<float4> Hdr : register(t0, space0);
+struct TonemapPush { float Exposure; };
+[[vk::push_constant]] TonemapPush pc;
 
 // 6th-order polynomial fit of the AgX log->display sigmoid.
 float3 agxContrast(float3 x) {
@@ -58,7 +60,7 @@ float3 agxLook(float3 val) {
 
 float4 main(float4 pos : SV_Position) : SV_Target {
     float3 c = max(Hdr.Load(int3((int2)pos.xy, 0)).rgb, 0.0);
-    c *= 1.0;   // exposure (uniform later)
+    c *= max(pc.Exposure, 0.0);   // linear exposure multiplier (scene setting)
 
     const float3x3 agxInset = float3x3(
         0.842479062253094, 0.0423282422610123, 0.0423756549057051,
@@ -103,8 +105,10 @@ public:
         if (!m_device->CreateBindGroupLayout(ld, m_layout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         rhi::BindGroupLayout* layouts[] = { m_layout };
+        rhi::PushConstantRange pc{}; pc.stages = rhi::ShaderStage::Fragment; pc.offset = 0; pc.size = sizeof(f32);   // exposure
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 1 };
+        pld.pushConstantRanges = Span<const rhi::PushConstantRange>{ &pc, 1 };
         if (!m_device->CreatePipelineLayout(pld, m_pipelineLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }
@@ -116,24 +120,25 @@ public:
     // resolved at execute time) and draws a fullscreen triangle.
     void DeclareTonemap(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr, rendergraph::RGHandle ldr,
                         bool clearColor, const rhi::ClearColor& clear, rhi::TextureFormat ldrFormat,
-                        i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex) {
+                        i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex, f32 exposure = 1.0f) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr) { return; }
         const u32 slot = (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);
 
         const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
         graph.AddRenderPass(u8"tonemap",
-            [this, &graph, hdr, ldr, load, clear, vpX, vpY, vpW, vpH, pipeline, slot](rendergraph::PassBuilder& b) {
+            [this, &graph, hdr, ldr, load, clear, vpX, vpY, vpW, vpH, pipeline, slot, exposure](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, ldr, load, rhi::StoreOp::Store, clear);
                 b.ReadTexture(hdr);
                 b.SetViewport(vpX, vpY, vpW, vpH);
                 b.NeverCull();
-                b.SetExecute([this, &graph, hdr, pipeline, slot](rhi::RenderPassEncoder& rp) {
+                b.SetExecute([this, &graph, hdr, pipeline, slot, exposure](rhi::RenderPassEncoder& rp) {
                     rhi::TextureView* hdrView = graph.GetTextureView(hdr);
                     rhi::BindGroup* bg = EnsureBindGroup(slot, hdrView, graph.GetTextureGeneration(hdr));
                     if (bg == nullptr) { return; }
                     rp.SetPipeline(pipeline);
                     rp.SetBindGroup(0, bg, Span<const u32>{});
+                    rp.SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(f32), &exposure);
                     rp.Draw(3, 1, 0, 0);
                 });
             });

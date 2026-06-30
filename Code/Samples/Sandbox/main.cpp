@@ -427,10 +427,14 @@ namespace
 
         // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings —
         // editing these re-runs the IBL precompute next frame, so the ambient updates live.
-        void BuildDebugUI()
+        void BuildDebugUI(rd::RenderSubsystem* render)
         {
             if (m_scene == nullptr) { return; }
             ImGui::Begin("Environment");
+            if (render != nullptr) {
+                float exposure = render->Exposure();
+                if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 8.0f)) { render->SetExposure(exposure); }
+            }
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
                 rd::EnvironmentSettings& e = env->Environment();
                 // Sky source selector (also F5 to cycle). Picking a mode re-runs the IBL precompute.
@@ -541,7 +545,7 @@ namespace
             // data is rendered over the scene in OnRenderWindow.
             if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
                 g->NewFrame(host.Platform() != nullptr ? host.Platform()->Input() : nullptr, deltaTime);
-                BuildDebugUI();
+                BuildDebugUI(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
             }
 
             // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). V toggles which split-screen view
