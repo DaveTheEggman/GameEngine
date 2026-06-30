@@ -56,6 +56,13 @@ public:
 
     [[nodiscard]] bool IsReady() const noexcept { return m_frame.Get() != nullptr; }
 
+    // Set the scene's HDR equirectangular environment (RGBA32F, w*h*4 floats). The IBL env rebuilds
+    // from it when EnvironmentSettings.skyMode is HDREquirect. Owns a copy of the pixels (uploads next
+    // frame). No-op if IBL is unavailable.
+    void SetSkyEquirect(u32 w, u32 h, Span<const f32> rgba) {
+        if (m_iblSystem.Get() != nullptr) { m_iblSystem->SetEquirect(w, h, rgba); }
+    }
+
     // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
     // are valid — intended for an on-demand dump (the P-key), not per-frame use.
     void BuildGpuProfileReport(String& out) {

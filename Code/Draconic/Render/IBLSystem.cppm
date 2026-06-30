@@ -99,6 +99,23 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
 }
 )";
 
+// HDR equirectangular -> one env cube face: map the face direction to equirect uv and sample. Uses
+// the same DirForFace (canonical, negative-viewport-aware) as the procedural pass.
+inline constexpr const char8_t* kIblEquirectPS = u8R"(
+Texture2D    EquirectMap  : register(t0, space0);
+SamplerState EquirectSamp : register(s0, space0);
+static const float PI2 = 3.14159265359;
+float2 DirToEquirect(float3 d) {
+    float phi   = atan2(d.z, d.x);
+    float theta = asin(clamp(d.y, -1.0, 1.0));
+    return float2(phi / (2.0 * PI2) + 0.5, 1.0 - (theta / PI2 + 0.5));
+}
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
+    float3 dir = DirForFace(pc.FaceIndex, uv);
+    return float4(EquirectMap.SampleLevel(EquirectSamp, DirToEquirect(dir), 0.0).rgb * max(pc.SkyIntensity, 0.0), 1.0);
+}
+)";
+
 // GGX prefilter (Karis split-sum specular): importance-sample the env cube around the reflection
 // direction (= N = V) at this mip's roughness. 1024 Hammersley samples / texel.
 inline constexpr const char8_t* kIblPrefilterPS = u8R"(
@@ -281,6 +298,7 @@ public:
         m_shaders->RegisterSource(u8"ibl_fs", shaders::ShaderStage::Vertex, kIblFullscreenVS);
         // Cube/LUT fragment shaders share the fullscreen VS; the cube ones prepend kIblCommon.
         m_shaders->RegisterSource(u8"ibl_procenv",  shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblProcEnvPS));
+        m_shaders->RegisterSource(u8"ibl_equirect", shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblEquirectPS));
         m_shaders->RegisterSource(u8"ibl_prefilter",shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblPrefilterPS));
         m_shaders->RegisterSource(u8"ibl_brdf",     shaders::ShaderStage::Fragment, kIblBrdfPS);
         m_shaders->RegisterSource(u8"ibl_sh",       shaders::ShaderStage::Compute,  kIblShProjectCS);
@@ -330,6 +348,44 @@ public:
     [[nodiscard]] Vec3                  SunDir()          const noexcept { return m_sunDir; }
     [[nodiscard]] f32                   SunIntensity()    const noexcept { return m_sky.sunIntensity; }
     [[nodiscard]] f32                   SunAngularSize()  const noexcept { return m_sky.sunAngularSize; }
+    // The analytic sun disc is only for the procedural sky (textured envs carry their own sun).
+    [[nodiscard]] bool                  IsProcedural()    const noexcept { return m_sky.mode == SkyMode::Procedural; }
+
+    // Set the HDR equirectangular source (RGBA32F, w*h*4 floats). The env cube rebuilds from it when
+    // the sky mode is HDREquirect. Upload happens on the next frame's encoder (see Upload).
+    void SetEquirect(u32 w, u32 h, Span<const f32> rgba) {
+        if (!m_ready || w == 0 || h == 0 || rgba.Size() < static_cast<usize>(w) * h * 4u) { return; }
+        DestroyEquirect();
+        rhi::TextureDesc td{};
+        td.format = rhi::TextureFormat::RGBA32Float; td.width = w; td.height = h;
+        td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; td.label = u8"ibl.equirect";
+        if (!m_device->CreateTexture(td, m_equirectTex).IsOk()) { m_equirectTex = nullptr; return; }
+        rhi::TextureViewDesc vd{}; vd.format = rhi::TextureFormat::RGBA32Float; vd.dimension = rhi::TextureViewDimension::Texture2D;
+        if (!m_device->CreateTextureView(m_equirectTex, vd, m_equirectView).IsOk()) { DestroyEquirect(); return; }
+        const u64 bytes = static_cast<u64>(w) * h * 4u * sizeof(f32);
+        rhi::BufferDesc sd{}; sd.size = bytes; sd.usage = rhi::BufferUsage::CopySrc; sd.memory = rhi::MemoryLocation::CpuToGpu; sd.label = u8"ibl.equirectStaging";
+        if (!m_device->CreateBuffer(sd, m_equirectStaging).IsOk()) { DestroyEquirect(); return; }
+        if (void* p = m_equirectStaging->Map()) { MemCopy(p, rgba.Data(), bytes); m_equirectStaging->Unmap(); }
+        if (!EnsureEquirectPipeline()) { DestroyEquirect(); return; }
+        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_equirectView), rhi::BindGroupEntry::SamplerEntry(m_equirectSampler) };
+        rhi::BindGroupDesc bgd{}; bgd.layout = m_equirectLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
+        if (!m_device->CreateBindGroup(bgd, m_equirectBindGroup).IsOk()) { m_equirectBindGroup = nullptr; DestroyEquirect(); return; }
+        m_equirectW = w; m_equirectH = h; m_equirectPending = true; m_dirty = true;
+    }
+
+    // Pending texture uploads (equirect/cubemap staging -> texture) on the frame's encoder, BEFORE the
+    // graph executes — so the env-build passes sample an already-uploaded, shader-readable source.
+    void Upload(rhi::CommandEncoder& enc) {
+        if (m_equirectPending && m_equirectTex != nullptr && m_equirectStaging != nullptr) {
+            enc.TransitionTexture(m_equirectTex, rhi::ResourceState::Undefined, rhi::ResourceState::CopyDst);
+            rhi::BufferTextureCopyRegion r{};
+            r.bytesPerRow = m_equirectW * 4u * static_cast<u32>(sizeof(f32)); r.rowsPerImage = m_equirectH;
+            r.textureExtent = rhi::Extent3D{ m_equirectW, m_equirectH, 1 };
+            enc.CopyBufferToTexture(m_equirectStaging, m_equirectTex, r);
+            enc.TransitionTexture(m_equirectTex, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
+            m_equirectPending = false;
+        }
+    }
 
     // Declare the precompute passes into this frame's graph (before forward). The products are imported
     // EVERY frame (so the forward can read this frame's handles); the env-dependent write passes only run
@@ -357,17 +413,22 @@ public:
         m_dirty = false;
         ++m_generation;
 
-        // (1) Source -> env cube: 6 procedural faces.
+        // (1) Source -> env cube: 6 faces. Procedural (analytic gradient) or HDR equirect (sample the
+        // uploaded equirect map); both write the canonical cube faces.
         const rendergraph::RGHandle envH = m_envH;
+        const bool useEquirect = (m_sky.mode == SkyMode::HDREquirect) && m_equirectBindGroup != nullptr;
+        rhi::RenderPipeline* envPipe = useEquirect ? m_equirectPipeline : m_envPipeline;
+        rhi::BindGroup*      envBG   = useEquirect ? m_equirectBindGroup : nullptr;
         for (u32 face = 0; face < 6; ++face) {
             IblPush push = MakeSkyPush(static_cast<i32>(face));
-            graph.AddRenderPass(u8"ibl.env.face", [this, envH, face, push](rendergraph::PassBuilder& b) {
+            graph.AddRenderPass(u8"ibl.env.face", [envH, face, push, envPipe, envBG](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, envH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black(),
                                  rendergraph::RGSubresourceRange{ 0, 1, face, 1 });
                 b.SetViewport(0, 0, kEnvResolution, kEnvResolution);
                 b.NeverCull();
-                b.SetExecute([this, push](rhi::RenderPassEncoder& rp) {
-                    rp.SetPipeline(m_envPipeline);
+                b.SetExecute([push, envPipe, envBG](rhi::RenderPassEncoder& rp) {
+                    rp.SetPipeline(envPipe);
+                    if (envBG != nullptr) { rp.SetBindGroup(0, envBG, Span<const u32>{}); }
                     rp.SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(IblPush), &push);
                     rp.Draw(3, 1, 0, 0);
                 });
@@ -594,7 +655,49 @@ private:
         String s(StringView{ a }); s.Append(StringView{ b }); return s;
     }
 
+    // Lazily create the equirect->cube pipeline (2D source tex + sampler + push) — only when an HDR
+    // equirect is first set, since most scenes are procedural.
+    bool EnsureEquirectPipeline() {
+        if (m_equirectPipeline != nullptr) { return true; }
+        rhi::ShaderModule* vs = m_shaders->GetVariant(u8"ibl_fs", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+        if (vs == nullptr) { return false; }
+        rhi::BindGroupLayoutEntry tex  = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+        rhi::BindGroupLayoutEntry samp = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry e[] = { tex, samp };
+        rhi::BindGroupLayoutDesc ld{}; ld.entries = Span<const rhi::BindGroupLayoutEntry>{ e, 2 };
+        if (!m_device->CreateBindGroupLayout(ld, m_equirectLayout).IsOk()) { return false; }
+        rhi::PushConstantRange pc{}; pc.stages = rhi::ShaderStage::Fragment; pc.offset = 0; pc.size = sizeof(IblPush);
+        rhi::BindGroupLayout* layouts[] = { m_equirectLayout };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 1 };
+        pld.pushConstantRanges = Span<const rhi::PushConstantRange>{ &pc, 1 };
+        if (!m_device->CreatePipelineLayout(pld, m_equirectPipelineLayout).IsOk()) { return false; }
+        m_equirectPipeline = MakeFullscreenPipeline(vs, u8"ibl_equirect", m_equirectPipelineLayout, kCubeFormat);
+        if (m_equirectPipeline == nullptr) { return false; }
+        rhi::SamplerDesc ss{};
+        ss.minFilter = rhi::FilterMode::Linear; ss.magFilter = rhi::FilterMode::Linear; ss.mipmapFilter = rhi::MipmapFilterMode::Linear;
+        ss.addressU = rhi::AddressMode::Repeat; ss.addressV = rhi::AddressMode::ClampToEdge; ss.addressW = rhi::AddressMode::ClampToEdge;
+        ss.label = u8"ibl.equirectSampler";
+        if (!m_device->CreateSampler(ss, m_equirectSampler).IsOk()) { return false; }
+        return true;
+    }
+
+    // Free the per-source equirect texture/staging/view/bind-group (the pipeline + layout + sampler
+    // persist, recreated lazily once).
+    void DestroyEquirect() {
+        if (m_equirectBindGroup) { m_device->DestroyBindGroup(m_equirectBindGroup); m_equirectBindGroup = nullptr; }
+        if (m_equirectStaging) { m_device->DestroyBuffer(m_equirectStaging); m_equirectStaging = nullptr; }
+        if (m_equirectView) { m_device->DestroyTextureView(m_equirectView); m_equirectView = nullptr; }
+        if (m_equirectTex) { m_device->DestroyTexture(m_equirectTex); m_equirectTex = nullptr; }
+        m_equirectPending = false;
+    }
+
     void Shutdown() {
+        DestroyEquirect();
+        if (m_equirectPipeline) { m_device->DestroyRenderPipeline(m_equirectPipeline); m_equirectPipeline = nullptr; }
+        if (m_equirectPipelineLayout) { m_device->DestroyPipelineLayout(m_equirectPipelineLayout); m_equirectPipelineLayout = nullptr; }
+        if (m_equirectLayout) { m_device->DestroyBindGroupLayout(m_equirectLayout); m_equirectLayout = nullptr; }
+        if (m_equirectSampler) { m_device->DestroySampler(m_equirectSampler); m_equirectSampler = nullptr; }
         if (m_shBindGroup) { m_device->DestroyBindGroup(m_shBindGroup); m_shBindGroup = nullptr; }
         if (m_envBindGroup) { m_device->DestroyBindGroup(m_envBindGroup); m_envBindGroup = nullptr; }
         if (m_shPipeline) { m_device->DestroyComputePipeline(m_shPipeline); m_shPipeline = nullptr; }
@@ -619,6 +722,17 @@ private:
 
     rhi::Device*           m_device;
     shaders::ShaderSystem* m_shaders;
+
+    // HDR equirectangular source (optional): uploaded to a 2D texture, sampled by the equirect->cube pass.
+    rhi::Texture*     m_equirectTex = nullptr;    rhi::TextureView* m_equirectView = nullptr;
+    rhi::Buffer*      m_equirectStaging = nullptr;
+    rhi::Sampler*     m_equirectSampler = nullptr;
+    rhi::BindGroupLayout* m_equirectLayout = nullptr;
+    rhi::PipelineLayout*  m_equirectPipelineLayout = nullptr;
+    rhi::RenderPipeline*  m_equirectPipeline = nullptr;
+    rhi::BindGroup*       m_equirectBindGroup = nullptr;
+    u32  m_equirectW = 0, m_equirectH = 0;
+    bool m_equirectPending = false;
 
     rhi::Texture*     m_envCube = nullptr;        rhi::TextureView* m_envSampleView = nullptr;
     rhi::Texture*     m_prefilterCube = nullptr;  rhi::TextureView* m_prefilterView = nullptr;

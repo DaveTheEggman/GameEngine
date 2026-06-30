@@ -656,6 +656,7 @@ public:
             for (Renderer* r : m_registry->Unique()) { r->SetShadowMap(shadowMap, shadowGen); }
             for (Renderer* r : m_registry->Unique()) { r->SetShadowAtlas(atlasView, atlasGen, localPassCount); }
             if (m_ibl != nullptr && m_ibl->Ready()) {
+                m_ibl->Upload(*m_encoder);   // pending equirect/cubemap uploads, before the graph executes
                 for (Renderer* r : m_registry->Unique()) {
                     r->SetIBL(m_ibl->ShBuffer(), m_ibl->PrefilterView(), m_ibl->BrdfView(), m_ibl->MaxLod(), m_ibl->Generation());
                 }
@@ -825,9 +826,11 @@ public:
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rhi::TextureFormat colorFmt) {
                 if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
                 const Mat4 invVP  = Inverse(v->Camera().ViewProjection());
+                // The analytic sun disc is procedural-only; textured envs (HDR/cubemap) carry their own sun.
+                const f32 sunInt = m_ibl->IsProcedural() ? m_ibl->SunIntensity() : 0.0f;
                 m_sky->DeclareSky(m_graph, colorTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),
                                   colorFmt, m_pass.DepthFormat(), invVP, v->Camera().position, m_ibl->SkyIntensity(),
-                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, m_ibl->SunIntensity(),
+                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                   m_frameIndex, viewIndex);
             };
