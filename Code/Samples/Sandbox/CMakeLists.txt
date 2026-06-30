@@ -16,6 +16,7 @@ target_link_libraries(Sandbox PRIVATE
     Draconic::SceneSubsystem
     Draconic::RenderSubsystem
     Draconic::AnimationSubsystem
+    Draconic::Imgui
     Draconic::Geometry
     Draconic::Materials
     Draconic::ModelImporter

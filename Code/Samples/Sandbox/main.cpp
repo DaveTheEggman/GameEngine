@@ -4,6 +4,7 @@
 // As the renderer grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
+#include "imgui.h"   // Dear ImGui (debug UI) — used directly; the engine integration is draconic.imgui
 
 import draconic.core;
 import draconic.rhi;                     // offscreen render target (Texture / ResourceState / Blit)
@@ -18,6 +19,7 @@ import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.render.subsystem;       // MeshComponent / CameraComponent + their managers
 import draconic.animation.subsystem;    // SkeletalAnimation/AnimationGraph components (engine-driven skinning)
+import draconic.imgui;                   // ImguiSubsystem (debug UI)
 import draconic.render;                  // ViewCamera / ViewportRect (split-screen overrides)
 import draconic.geometry;
 import draconic.geometry.resource;       // StaticMeshFactory + StaticMesh product
@@ -56,12 +58,22 @@ namespace res = draconic::resource;
 namespace mdl  = draconic::model;
 namespace mi   = draconic::modelimporter;
 namespace anim = draconic::animation;
+namespace gui = draconic::imgui;
 
 namespace
 {
     class SandboxApp final : public rt::DefaultApplication
     {
     public:
+        // Register the standard subsystems (DefaultApplication) + the ImGui debug UI on top.
+        void Configure(rt::IApplicationHost& host) override
+        {
+            rt::DefaultApplication::Configure(host);
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
+                host.Ctx().AddSubsystem<gui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+            }
+        }
+
         void OnStartup(rt::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
@@ -384,6 +396,28 @@ namespace
             }
         }
 
+        // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings —
+        // editing these re-runs the IBL precompute next frame, so the ambient updates live.
+        void BuildDebugUI()
+        {
+            if (m_scene == nullptr) { return; }
+            ImGui::Begin("Environment");
+            if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
+                rd::EnvironmentSettings& e = env->Environment();
+                ImGui::SliderFloat("Sky Intensity", &e.skyIntensity, 0.0f, 4.0f);
+                ImGui::SliderFloat("Sun Intensity", &e.sunIntensity, 0.0f, 8.0f);
+                float h[3]  = { e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
+                if (ImGui::ColorEdit3("Horizon", h)) { e.skyHorizon = rc::Color{ h[0], h[1], h[2], 1.0f }; }
+                float z[3]  = { e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
+                if (ImGui::ColorEdit3("Zenith", z)) { e.skyZenith = rc::Color{ z[0], z[1], z[2], 1.0f }; }
+                float gr[3] = { e.skyGround.r, e.skyGround.g, e.skyGround.b };
+                if (ImGui::ColorEdit3("Ground", gr)) { e.skyGround = rc::Color{ gr[0], gr[1], gr[2], 1.0f }; }
+            }
+            ImGui::Checkbox("Show ImGui demo", &m_showImguiDemo);
+            ImGui::End();
+            if (m_showImguiDemo) { ImGui::ShowDemoWindow(&m_showImguiDemo); }
+        }
+
         // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
         // editor-shaped path (a view renders to a sampleable/copyable target, not straight to the
         // swapchain). Exercises the full multi-view path + the configurable target final state.
@@ -438,6 +472,9 @@ namespace
             frame.encoder->TransitionTexture(frame.backbuffer, rhi::ResourceState::RenderTarget, rhi::ResourceState::CopyDst);
             frame.encoder->Blit(offTex, frame.backbuffer);
             frame.encoder->TransitionTexture(frame.backbuffer, rhi::ResourceState::CopyDst, rhi::ResourceState::RenderTarget);
+
+            // Debug UI on top of the scene (backbuffer is RenderTarget again; ImGui loads + draws over it).
+            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) { g->Render(frame); }
         }
 
         // Create (or resize) one frame-slot's offscreen color target. Each slot tracks its own size,
@@ -463,6 +500,13 @@ namespace
         void OnUpdate(rt::IApplicationHost& host, rc::f32 deltaTime) override
         {
             rt::DefaultApplication::OnUpdate(host, deltaTime);   // keep the P-key profiling dump
+
+            // ImGui debug UI: open the frame (feed input + size) then build the tweakables. The draw
+            // data is rendered over the scene in OnRenderWindow.
+            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
+                g->NewFrame(host.Platform() != nullptr ? host.Platform()->Input() : nullptr, deltaTime);
+                BuildDebugUI();
+            }
 
             // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). V toggles which split-screen view
             // it drives; Esc exits.
@@ -590,6 +634,7 @@ namespace
         rc::Array<rc::RefPtr<anim::AnimationGraph>> m_graphs;
         sc::EntityHandle                            m_graphChar{};
         rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)
+        bool                        m_showImguiDemo  = false;   // debug-UI toggle
     };
 }
 
