@@ -22,6 +22,7 @@ target_sources(DraconicRender
             ClusterSystem.cppm
             TonemapPass.cppm
             ShadowSystem.cppm
+            IBLSystem.cppm
             RenderModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

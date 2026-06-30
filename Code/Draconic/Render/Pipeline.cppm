@@ -29,6 +29,7 @@ import :views;
 import :cluster_system;
 import :tonemap;
 import :shadows;
+import :ibl;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -98,6 +99,17 @@ struct ShadowBinding {
     [[nodiscard]] bool Valid() const noexcept { return valid && sampleView != nullptr; }
 };
 
+// What the IBL precompute exposes to the forward pass: this frame's graph handles for the products the
+// forward samples in set 0 (prefiltered specular cube, BRDF LUT, SH9 diffuse buffer). ReadTexture'd /
+// ReadBuffer'd so the graph orders any precompute writes -> forward and barriers them shader-readable.
+struct IblBinding {
+    rendergraph::RGHandle prefilterHandle = {};
+    rendergraph::RGHandle brdfHandle = {};
+    rendergraph::RGHandle shHandle = {};
+    bool                  valid = false;
+    [[nodiscard]] bool Valid() const noexcept { return valid; }
+};
+
 // Replay one resolved draw into any command sink (a live pass or an off-thread bundle). Pure
 // command emission — touches no shared state, so it is safe to run concurrently.
 inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
@@ -164,6 +176,15 @@ public:
     // Upload this frame's local-shadow entries (the atlas's per-light matrices/rects) for a renderer
     // that binds them in set 0. Called once per frame after PrepareFrame. Default no-op.
     virtual void UploadLocalShadows(Span<const GpuLocalShadow> shadows, u32 frameIndex) { (void)shadows; (void)frameIndex; }
+
+    // Hand this frame's IBL products to a renderer that samples them in set 0 (SH9 diffuse buffer +
+    // prefiltered specular cube + BRDF LUT), with the IBLSystem's generation for bind-group cache
+    // invalidation and the prefilter's max LOD (roughness -> mip). null views => the renderer uses its
+    // neutral fallbacks (flat ambient). Called once per frame before PrepareFrame. Default no-op.
+    virtual void SetIBL(rhi::Buffer* sh, rhi::TextureView* prefilter, rhi::TextureView* brdf,
+                        f32 maxLod, u64 generation) {
+        (void)sh; (void)prefilter; (void)brdf; (void)maxLod; (void)generation;
+    }
 
     // Pre-pass: write this frame's skinning matrices into the renderer's persistent bone pool ONCE
     // (current + previous slab per distinct skeleton instance) and copy staging->device on `encoder`.
@@ -240,14 +261,15 @@ public:
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                      rendergraph::RGHandle colorH, bool clearColor, rhi::TextureFormat colorFormat,
-                     const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {}) {
+                     const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
+                     const IblBinding& ibl = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rendergraph::RGHandle depth = graph.CreateTransient(
             u8"forward.depth", rendergraph::RGTextureDesc(m_depthFormat, view.Width(), view.Height()));
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, colorFormat, frameIndex, viewIndex, cluster, shadow](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, colorFormat, frameIndex, viewIndex, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear);
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
@@ -263,6 +285,8 @@ public:
             // Read the whole local-shadow atlas (orders the atlas depth pass -> this pass + barriers
             // it readable). One atlas shared by all views, so the whole texture is the dependency.
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
+            // Read the IBL products (orders any precompute writes -> this pass + barriers them readable).
+            if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
                 ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, shadow, out);
@@ -419,9 +443,9 @@ class RenderFrame {
 public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
                 ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
-                ShadowSystem* shadows = nullptr) noexcept
+                ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
-          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows) {}
+          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -631,6 +655,11 @@ public:
             DRACONIC_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
             for (Renderer* r : m_registry->Unique()) { r->SetShadowMap(shadowMap, shadowGen); }
             for (Renderer* r : m_registry->Unique()) { r->SetShadowAtlas(atlasView, atlasGen, localPassCount); }
+            if (m_ibl != nullptr && m_ibl->Ready()) {
+                for (Renderer* r : m_registry->Unique()) {
+                    r->SetIBL(m_ibl->ShBuffer(), m_ibl->PrefilterView(), m_ibl->BrdfView(), m_ibl->MaxLod(), m_ibl->Generation());
+                }
+            }
             for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
             for (Renderer* r : m_registry->Unique()) {
                 r->UploadLocalShadows(Span<const GpuLocalShadow>{ m_localShadows.Data(), m_localShadows.Size() }, m_frameIndex);
@@ -660,6 +689,14 @@ public:
         const Vec3  lightDir      = (hasShadow && primary != nullptr) ? primary->Scene()->DirectionalShadowData().direction : Vec3{ 0, -1, 0 };
         const u32   cascadeCount  = (m_shadows != nullptr) ? m_shadows->CascadeCount() : 4u;
         const u32   shadowRes     = (m_shadows != nullptr) ? m_shadows->Resolution() : 1024u;
+
+        // IBL precompute: the active sky source builds into persistent products (env/SH/prefilter/BRDF)
+        // when dirty; the forward pass samples them in set 0. The procedural sky tracks the directional
+        // light so its sun disc + ambient match the scene's key light.
+        if (m_ibl != nullptr) {
+            m_ibl->SetSun(lightDir, 1.0f);
+            m_ibl->ProcessPending(m_graph);
+        }
 
         // Local-light shadow atlas (5.3/5.4): a 2-layer array. Layer 0 (realtime) re-renders every
         // frame; layer 1 (static) only when the static set changed (renderStatic). Each pass targets
@@ -770,20 +807,29 @@ public:
             shadow.atlasHandle = atlasH;
             shadow.atlasValid  = atlasActive;
 
+            // IBL products (scene-global) for the forward to sample + barrier-order this frame.
+            IblBinding ibl;
+            if (m_ibl != nullptr && m_ibl->Ready()) {
+                ibl.prefilterHandle = m_ibl->PrefilterHandle();
+                ibl.brdfHandle      = m_ibl->BrdfHandle();
+                ibl.shHandle        = m_ibl->ShHandle();
+                ibl.valid           = true;
+            }
+
             if (m_tonemap != nullptr) {
                 // HDR path: forward renders linear HDR into a transient, then the tonemap pass
                 // resolves it (exposure + tonemap + OETF) into the LDR target.
                 const rendergraph::RGHandle hdr = m_graph.CreateTransient(
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, /*clear*/ true,
-                                   m_tonemap->HdrFormat(), cluster, shadow);
+                                   m_tonemap->HdrFormat(), cluster, shadow, ibl);
                 m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex);
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, clearColor,
-                                   v->TargetFormat(), cluster, shadow);
+                                   v->TargetFormat(), cluster, shadow, ibl);
             }
         }
         }   // end Compose.Declare
@@ -805,6 +851,7 @@ private:
     ClusterSystem*          m_clusters = nullptr;   // borrowed; declares the per-view cluster build pass
     TonemapPass*            m_tonemap  = nullptr;   // borrowed; HDR-resolve pass (null => forward writes LDR direct)
     ShadowSystem*           m_shadows  = nullptr;   // borrowed; owns the directional shadow depth texture
+    IBLSystem*              m_ibl      = nullptr;   // borrowed; owns the IBL precompute products (env/SH/prefilter/BRDF)
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.

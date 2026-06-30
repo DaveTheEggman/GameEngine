@@ -152,8 +152,13 @@ protected:
             if (!m_shadowSystem->Initialize().IsOk()) { m_shadowSystem.Reset(); }
         }
 
+        // Image-based lighting (phase 6). Optional — if it fails to init, the scene uses flat ambient.
+        m_iblSystem = MakeUnique<IBLSystem>(DefaultAllocator(), *m_device, *m_shaders);
+        if (!m_iblSystem->Initialize().IsOk()) { m_iblSystem.Reset(); }
+
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
-                                          m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get());
+                                          m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get(),
+                                          m_iblSystem.Get());
         m_frame->EnableGpuProfiling();   // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
@@ -173,6 +178,7 @@ protected:
         m_clusterSystem.Reset();// before the ShaderSystem it borrows
         m_tonemapPass.Reset();  // before the ShaderSystem it borrows
         m_shadowSystem.Reset(); // shadow depth textures
+        m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
         m_psoCache.Reset();
@@ -203,6 +209,7 @@ private:
     UniquePtr<ClusterSystem>                  m_clusterSystem;
     UniquePtr<TonemapPass>                    m_tonemapPass;
     UniquePtr<ShadowSystem>                   m_shadowSystem;
+    UniquePtr<IBLSystem>                      m_iblSystem;
     RendererRegistry                          m_registry;
     UniquePtr<RenderFrame>                    m_frame;
 

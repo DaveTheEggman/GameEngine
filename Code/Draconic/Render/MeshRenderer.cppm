@@ -49,7 +49,7 @@ cbuffer View : register(b0, space0) {
     row_major float4x4 View;       // for view-space depth (cluster lookup + CSM cascade select, PS only)
     row_major float4x4 CascadeViewProj[CASCADE_COUNT];   // CSM: world -> each cascade's light clip
     float3 CameraPos; float LightCount;
-    uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
+    uint   LightOffset; int ClusterVpX; int ClusterVpY; float IBLMaxLod;   // IBLMaxLod < 0 -> no IBL (flat ambient)
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
     float3 Ambient; float ShadowCascadeCount;          // 0 -> no shadow
@@ -156,7 +156,7 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 View;
     row_major float4x4 CascadeViewProj[CASCADE_COUNT];
     float3 CameraPos; float LightCount;
-    uint   LightOffset; int ClusterVpX; int ClusterVpY; uint _viewPad;
+    uint   LightOffset; int ClusterVpX; int ClusterVpY; float IBLMaxLod;   // IBLMaxLod < 0 -> no IBL (flat ambient)
     uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
     float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
     float3 Ambient; float ShadowCascadeCount;
@@ -174,6 +174,28 @@ StructuredBuffer<GpuLight> Lights : register(t0, space0);
 // CSM cascade depth ARRAY (t1, one layer per cascade) + a comparison sampler (s0) for hardware PCF.
 Texture2DArray         ShadowMap     : register(t1, space0);
 SamplerComparisonState ShadowSampler : register(s0, space0);
+
+// IBL (phase 6): SH9 diffuse irradiance coeffs (t5), prefiltered specular cube (t6), BRDF LUT (t7),
+// + a linear env sampler (s1). Diffuse uses spherical harmonics (no irradiance cube). Active only
+// when IBLMaxLod >= 0 (else the neutral dummies are bound and the flat-ambient path runs).
+StructuredBuffer<float4> IblSH       : register(t5, space0);
+TextureCube              PrefilterMap : register(t6, space0);
+Texture2D                BRDFLut      : register(t7, space0);
+SamplerState             EnvSampler   : register(s1, space0);
+
+// Evaluate the 9-coefficient SH irradiance in direction n (Ramamoorthi/Hanrahan cosine-convolved).
+float3 EvalSH9(float3 n) {
+    float3 r = IblSH[0].rgb * 0.886227;                       // l=0
+    r += IblSH[1].rgb * (2.0 * 0.511664 * n.y);              // l=1
+    r += IblSH[2].rgb * (2.0 * 0.511664 * n.z);
+    r += IblSH[3].rgb * (2.0 * 0.511664 * n.x);
+    r += IblSH[4].rgb * (2.0 * 0.429043 * n.x * n.y);        // l=2
+    r += IblSH[5].rgb * (2.0 * 0.429043 * n.y * n.z);
+    r += IblSH[6].rgb * (0.743125 * (3.0 * n.z * n.z - 1.0));
+    r += IblSH[7].rgb * (2.0 * 0.429043 * n.x * n.z);
+    r += IblSH[8].rgb * (0.429043 * (n.x * n.x - n.y * n.y));
+    return max(r, 0.0);
+}
 
 static const float kShadowTexel = 1.0 / 1024.0;   // 1 / shadow resolution
 
@@ -424,8 +446,25 @@ float4 main(PSInput input) : SV_Target {
         }
     }
 
-    float  ao      = OcclusionMap.Sample(MainSampler, input.uv).r;
-    float3 ambient = albedo * Ambient * ao;                     // per-scene environment ambient (IBL later)
+    float  ao = OcclusionMap.Sample(MainSampler, input.uv).r;
+    float3 ambient;
+    if (IBLMaxLod >= 0.0) {
+        // Image-based ambient: SH9 diffuse irradiance + split-sum prefiltered specular.
+        float  NdotV = max(dot(N, V), 1e-4);
+        float3 Fr    = max(float3(1.0 - roughness, 1.0 - roughness, 1.0 - roughness), F0) - F0;
+        float3 F_ibl = F0 + Fr * pow(1.0 - NdotV, 5.0);          // roughness-aware indirect Fresnel
+        float3 kD    = (1.0 - F_ibl) * (1.0 - metallic);
+        float3 diffuseIBL = kD * albedo * (EvalSH9(N) / PI);     // EvalSH9 -> irradiance E; Lambertian = albedo/pi * E
+        float3 R     = reflect(-V, N);
+        float3 prefiltered = PrefilterMap.SampleLevel(EnvSampler, R, roughness * IBLMaxLod).rgb;
+        float2 brdf  = BRDFLut.Sample(EnvSampler, float2(NdotV, roughness)).rg;
+        float3 specularIBL = prefiltered * (F_ibl * brdf.x + brdf.y);
+        float  Ess   = brdf.x + brdf.y;                          // multi-scatter energy compensation
+        specularIBL *= 1.0 + F0 * (1.0 / max(Ess, 1e-3) - 1.0);  // (Kulla-Conty) restore single-scatter's lost energy
+        ambient = (diffuseIBL + specularIBL) * ao;
+    } else {
+        ambient = albedo * Ambient * ao;                         // flat fallback (no environment active)
+    }
     return float4(ambient + Lo, 1.0);
 }
 )";
@@ -544,9 +583,16 @@ public:
         // t4: the GPU skinning bone-matrix pool (Vertex-visible SRV). Bound on every set-0 BG; the
         // forward VS only reads it under the SKINNED permutation.
         rhi::BindGroupLayoutEntry boneEntry = rhi::BindGroupLayoutEntry::StorageBuffer(4, rhi::ShaderStage::Vertex, /*readOnly*/ true);
-        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, atlasTexEntry, localShadowEntry, shadowSampEntry, boneEntry };
+        // IBL (phase 6) folds into set 0 too: SH9 diffuse coeffs (t5, SRV), prefiltered specular cube
+        // (t6), BRDF LUT (t7), + a linear-clamp env sampler (s1, distinct from the comparison sampler s0).
+        rhi::BindGroupLayoutEntry iblShEntry = rhi::BindGroupLayoutEntry::StorageBuffer(5, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+        rhi::BindGroupLayoutEntry prefilterEntry = rhi::BindGroupLayoutEntry::SampledTexture(6, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
+        rhi::BindGroupLayoutEntry brdfEntry = rhi::BindGroupLayoutEntry::SampledTexture(7, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+        rhi::BindGroupLayoutEntry envSampEntry = rhi::BindGroupLayoutEntry::Sampler(1, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, atlasTexEntry, localShadowEntry,
+                                             shadowSampEntry, boneEntry, iblShEntry, prefilterEntry, brdfEntry, envSampEntry };
         rhi::BindGroupLayoutDesc s0d{};
-        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 7 };
+        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 11 };
         if (!m_device->CreateBindGroupLayout(s0d, m_viewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 1 (non-instanced): per-object UBO (World + Tint), dynamic offset.
@@ -609,6 +655,18 @@ public:
         m_activeAtlasView = (view != nullptr) ? view : m_dummyAtlasView;
         m_activeAtlasGen  = (view != nullptr) ? generation : 0;
         m_localShadowPassCount = (view != nullptr) ? passCount : 0;   // each tile re-emits the casters
+    }
+
+    // This frame's IBL products (SH9 diffuse buffer + prefiltered specular cube + BRDF LUT), bound in
+    // set 0. null views -> the neutral 1x1 dummies (zero SH + black cube => flat fallback ambient).
+    void SetIBL(rhi::Buffer* sh, rhi::TextureView* prefilter, rhi::TextureView* brdf,
+                f32 maxLod, u64 generation) override {
+        m_activeShBuffer    = (sh != nullptr) ? sh : m_dummyShBuffer;
+        m_activePrefilter   = (prefilter != nullptr) ? prefilter : m_dummyCubeView;
+        m_activeBrdf        = (brdf != nullptr) ? brdf : m_dummyBrdfView;
+        m_iblMaxLod         = maxLod;
+        m_iblActive         = (sh != nullptr && prefilter != nullptr && brdf != nullptr);
+        m_activeIblGen      = m_iblActive ? generation : 0;
     }
 
     // Upload this frame's local-shadow entries into the local-shadow ring (bound whole at set 0;
@@ -698,6 +756,13 @@ public:
             if (m_dummyAtlasTex != nullptr) {
                 encoder.TransitionTexture(m_dummyAtlasTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilRead);
             }
+            // IBL color fallbacks (cube + BRDF LUT) — also out-of-graph, sampled when no env is active.
+            if (m_dummyCube != nullptr) {
+                encoder.TransitionTexture(m_dummyCube, rhi::ResourceState::Undefined, rhi::ResourceState::ShaderRead);
+            }
+            if (m_dummyBrdf != nullptr) {
+                encoder.TransitionTexture(m_dummyBrdf, rhi::ResourceState::Undefined, rhi::ResourceState::ShaderRead);
+            }
             m_dummyDepthInit = true;
         }
         // Pass 1: collect DISTINCT skinned instances (by boneMatrices ptr). Total matrices = sum of
@@ -770,6 +835,8 @@ public:
         vd.view          = ctx.viewMatrix;
         vd.cameraPos     = ctx.cameraPos;
         vd.ambient       = ctx.ambient;
+        vd.iblMaxLod     = m_iblActive ? m_iblMaxLod : -1.0f;   // <0 => forward uses flat ambient
+
         vd.lightCount    = static_cast<f32>(lightCount);
         vd.lightOffset   = lightOffset;
         // CSM cascade data for THIS view (per-view fit, carried in ctx).
@@ -875,7 +942,7 @@ private:
         Mat4 view;                                       // 64  (view-space depth: cluster + cascade select)
         Mat4 cascadeViewProj[4];                         // 256 (CSM: world -> each cascade's light clip)
         Vec3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
-        u32  lightOffset; i32 clusterViewportX, clusterViewportY; u32 pad0;   // 16 (cluster grid is viewport-local)
+        u32  lightOffset; i32 clusterViewportX, clusterViewportY; f32 iblMaxLod = -1.0f;   // 16 (iblMaxLod<0 => no IBL)
         u32  clusterGridX = 0, clusterGridY = 0, clusterSliceCount = 0, clusterTileSize = 0;   // 16
         f32  clusterNear = 0, clusterFar = 0, clusterLogScale = 0, clusterLogBias = 0;         // 16
         Vec3 ambient = Vec3{ 0, 0, 0 }; f32 shadowCascadeCount = 0.0f;                          // 16
@@ -1254,12 +1321,16 @@ private:
     bool EnsureViewBindGroup() {
         if (m_activeShadowView == nullptr) { m_activeShadowView = m_dummyShadowView; }
         if (m_activeAtlasView == nullptr)  { m_activeAtlasView  = m_dummyAtlasView; }
+        if (m_activeShBuffer == nullptr)   { m_activeShBuffer   = m_dummyShBuffer; }
+        if (m_activePrefilter == nullptr)  { m_activePrefilter  = m_dummyCubeView; }
+        if (m_activeBrdf == nullptr)       { m_activeBrdf       = m_dummyBrdfView; }
         if (m_viewBG != nullptr && m_viewBGViewGen == m_viewRing.Generation() &&
             m_viewBGLightGen == m_lightRing.Generation() &&
             m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen &&
             m_viewBGAtlas == m_activeAtlasView && m_viewBGAtlasGen == m_activeAtlasGen &&
             m_viewBGLocalGen == m_localShadowRing.Generation() &&
-            m_viewBGBoneGen == m_boneDeviceGen) {
+            m_viewBGBoneGen == m_boneDeviceGen &&
+            m_viewBGIblGen == m_activeIblGen && m_viewBGPrefilter == m_activePrefilter) {
             return true;
         }
         RetireBindGroup(m_viewBG); m_viewBG = nullptr;
@@ -1268,9 +1339,11 @@ private:
         rhi::Buffer* localBuf = m_localShadowRing.Buffer();
         rhi::Buffer* boneBuf  = m_boneDevice;   // VS reads the device mirror, not the staging ring
         if (viewBuf == nullptr || lightBuf == nullptr || localBuf == nullptr || boneBuf == nullptr ||
-            m_activeShadowView == nullptr || m_activeAtlasView == nullptr || m_shadowSampler == nullptr) { return false; }
+            m_activeShadowView == nullptr || m_activeAtlasView == nullptr || m_shadowSampler == nullptr ||
+            m_activeShBuffer == nullptr || m_activePrefilter == nullptr || m_activeBrdf == nullptr || m_envSampler == nullptr) { return false; }
         // Order must match the set-0 layout: view UBO, lights, cascade map (t1), local atlas (t2),
-        // local-shadow entries (t3), comparison sampler, bone-matrix pool (t4). Buffers bound whole.
+        // local-shadow entries (t3), comparison sampler (s0), bone-matrix pool (t4), IBL SH9 (t5),
+        // prefilter cube (t6), BRDF LUT (t7), env sampler (s1). Buffers bound whole.
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(viewBuf, 0, sizeof(ViewData)),
             rhi::BindGroupEntry::BufferEntry(lightBuf, 0, m_lightRing.ByteCapacity()),
@@ -1279,10 +1352,14 @@ private:
             rhi::BindGroupEntry::BufferEntry(localBuf, 0, m_localShadowRing.ByteCapacity()),
             rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),
             rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneDeviceBytes),
+            rhi::BindGroupEntry::BufferEntry(m_activeShBuffer, 0, kShBytes),
+            rhi::BindGroupEntry::TextureEntry(m_activePrefilter),
+            rhi::BindGroupEntry::TextureEntry(m_activeBrdf),
+            rhi::BindGroupEntry::SamplerEntry(m_envSampler),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 7 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 11 };
         if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
         m_viewBGViewGen = m_viewRing.Generation();
         m_viewBGLightGen = m_lightRing.Generation();
@@ -1292,6 +1369,8 @@ private:
         m_viewBGAtlasGen = m_activeAtlasGen;
         m_viewBGLocalGen = m_localShadowRing.Generation();
         m_viewBGBoneGen = m_boneDeviceGen;
+        m_viewBGIblGen = m_activeIblGen;
+        m_viewBGPrefilter = m_activePrefilter;
         return true;
     }
 
@@ -1328,6 +1407,37 @@ private:
         avd.dimension = rhi::TextureViewDimension::Texture2DArray; avd.arrayLayerCount = 2;
         if (!m_device->CreateTextureView(m_dummyAtlasTex, avd, m_dummyAtlasView).IsOk()) { return Status{ ErrorCode::Unknown }; }
         m_activeAtlasView = m_dummyAtlasView;
+
+        // IBL fallbacks (bound when no environment is active): a zero-filled SH9 buffer (=> no diffuse
+        // ambient), a 1x1x6 black cube (prefilter), a 1x1 black BRDF LUT, and a linear-clamp env
+        // sampler. The color dummies transition UNDEFINED->ShaderRead once (with the depth dummies).
+        rhi::SamplerDesc es{};
+        es.minFilter = rhi::FilterMode::Linear; es.magFilter = rhi::FilterMode::Linear; es.mipmapFilter = rhi::MipmapFilterMode::Linear;
+        es.addressU = rhi::AddressMode::ClampToEdge; es.addressV = rhi::AddressMode::ClampToEdge; es.addressW = rhi::AddressMode::ClampToEdge;
+        es.label = u8"mesh.envSampler";
+        if (!m_device->CreateSampler(es, m_envSampler).IsOk()) { return Status{ ErrorCode::Unknown }; }
+
+        rhi::BufferDesc shd{}; shd.size = kShBytes; shd.usage = rhi::BufferUsage::Storage; shd.memory = rhi::MemoryLocation::GpuOnly; shd.label = u8"mesh.dummySH";
+        if (!m_device->CreateBuffer(shd, m_dummyShBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
+
+        rhi::TextureDesc cd{};
+        cd.format = rhi::TextureFormat::RGBA16Float; cd.width = 1; cd.height = 1; cd.arrayLayerCount = 6;
+        cd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; cd.label = u8"mesh.dummyCube";
+        if (!m_device->CreateTexture(cd, m_dummyCube).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::TextureViewDesc cvd{}; cvd.format = rhi::TextureFormat::RGBA16Float;
+        cvd.dimension = rhi::TextureViewDimension::TextureCube; cvd.arrayLayerCount = 6;
+        if (!m_device->CreateTextureView(m_dummyCube, cvd, m_dummyCubeView).IsOk()) { return Status{ ErrorCode::Unknown }; }
+
+        rhi::TextureDesc ld{};
+        ld.format = rhi::TextureFormat::RG16Float; ld.width = 1; ld.height = 1;
+        ld.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; ld.label = u8"mesh.dummyBRDF";
+        if (!m_device->CreateTexture(ld, m_dummyBrdf).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::TextureViewDesc lvd{}; lvd.format = rhi::TextureFormat::RG16Float; lvd.dimension = rhi::TextureViewDimension::Texture2D;
+        if (!m_device->CreateTextureView(m_dummyBrdf, lvd, m_dummyBrdfView).IsOk()) { return Status{ ErrorCode::Unknown }; }
+
+        m_activeShBuffer  = m_dummyShBuffer;
+        m_activePrefilter = m_dummyCubeView;
+        m_activeBrdf      = m_dummyBrdfView;
         return Status{};
     }
 
@@ -1412,6 +1522,12 @@ private:
         if (m_dummyAtlasView)  { m_device->DestroyTextureView(m_dummyAtlasView); m_dummyAtlasView = nullptr; }
         if (m_dummyAtlasTex)   { m_device->DestroyTexture(m_dummyAtlasTex); m_dummyAtlasTex = nullptr; }
         if (m_shadowSampler)   { m_device->DestroySampler(m_shadowSampler); m_shadowSampler = nullptr; }
+        if (m_dummyCubeView)   { m_device->DestroyTextureView(m_dummyCubeView); m_dummyCubeView = nullptr; }
+        if (m_dummyCube)       { m_device->DestroyTexture(m_dummyCube); m_dummyCube = nullptr; }
+        if (m_dummyBrdfView)   { m_device->DestroyTextureView(m_dummyBrdfView); m_dummyBrdfView = nullptr; }
+        if (m_dummyBrdf)       { m_device->DestroyTexture(m_dummyBrdf); m_dummyBrdf = nullptr; }
+        if (m_dummyShBuffer)   { m_device->DestroyBuffer(m_dummyShBuffer); m_dummyShBuffer = nullptr; }
+        if (m_envSampler)      { m_device->DestroySampler(m_envSampler); m_envSampler = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
         for (u32 i = 0; i < kMaxClusterSlots; ++i) {
@@ -1518,6 +1634,22 @@ private:
     u32               m_localShadowBase  = 0;   // this frame's base into m_localShadowRing
     u32               m_localShadowPassCount = 0;   // # atlas depth passes (caster re-emits) this frame
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
+
+    // IBL (phase 6): SH9 diffuse buffer (t5) + prefiltered specular cube (t6) + BRDF LUT (t7) + a
+    // linear env sampler (s1), all set 0. Neutral 1x1 dummies are bound when no environment is active.
+    static constexpr u64 kShBytes = sizeof(f32) * 4 * 9;   // 9 RGB SH coeffs as float4
+    rhi::Sampler*     m_envSampler   = nullptr;
+    rhi::Buffer*      m_dummyShBuffer = nullptr;
+    rhi::Texture*     m_dummyCube     = nullptr;  rhi::TextureView* m_dummyCubeView = nullptr;
+    rhi::Texture*     m_dummyBrdf     = nullptr;  rhi::TextureView* m_dummyBrdfView = nullptr;
+    rhi::Buffer*      m_activeShBuffer = nullptr;
+    rhi::TextureView* m_activePrefilter = nullptr;
+    rhi::TextureView* m_activeBrdf      = nullptr;
+    rhi::TextureView* m_viewBGPrefilter = nullptr;   // bind-group cache key (active prefilter view)
+    f32               m_iblMaxLod    = 0.0f;
+    bool              m_iblActive    = false;
+    u64               m_activeIblGen = 0;
+    u64               m_viewBGIblGen = 0;
 
     // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group
     // per (view, frame-in-flight) slot over the ClusterSystem's per-view cluster buffers.

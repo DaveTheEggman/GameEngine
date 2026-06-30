@@ -22,3 +22,4 @@ export import :mesh_renderer;
 export import :cluster_system;
 export import :tonemap;
 export import :shadows;
+export import :ibl;
