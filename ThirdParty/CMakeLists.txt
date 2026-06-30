@@ -56,6 +56,20 @@ add_library(draconic_ufbx INTERFACE)
 add_library(Draconic::Ufbx ALIAS draconic_ufbx)
 target_include_directories(draconic_ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
 
+# Dear ImGui — vendored (copied from upstream, not a submodule). Compiled as a static library;
+# the include dir is PUBLIC + SYSTEM so consumers (the draconic.imgui lib + apps) can
+# #include "imgui.h" and call ImGui:: directly. Does NOT link draconic_policy, so the vendored
+# sources build without our -Werror. No stock backends — Draconic has its own RHI-based renderer.
+add_library(draconic_imgui STATIC
+    imgui/imgui.cpp
+    imgui/imgui_draw.cpp
+    imgui/imgui_tables.cpp
+    imgui/imgui_widgets.cpp
+    imgui/imgui_demo.cpp)
+add_library(Draconic::ImGui ALIAS draconic_imgui)
+target_include_directories(draconic_imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
+set_target_properties(draconic_imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # msdfgen — multi-channel signed distance field generator (compiled from source).
 # Import-time only: used by the font atlas baker, not linked at runtime.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/msdfgen/CMakeLists.txt)
