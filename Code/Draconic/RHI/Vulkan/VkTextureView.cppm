@@ -22,8 +22,12 @@ public:
     Status init(VkDevice device, VkTextureImpl* tex, const TextureViewDesc& d) {
         desc    = d;
         texture = tex;
-        m_width  = tex->desc.width;
-        m_height = tex->desc.height;
+        // Dimensions are the view's BASE MIP extent, not the texture's mip-0 size — a view onto mip N
+        // is half-sized per level. Render-pass renderArea/framebuffer is derived from these, so a stale
+        // mip-0 size here overruns a mip>0 attachment (GPU fault). Shadows only ever target mip 0; the
+        // IBL prefilter is the first mip>0 render target to exercise this.
+        m_width  = tex->desc.width  >> d.baseMipLevel; if (m_width  == 0) { m_width  = 1; }
+        m_height = tex->desc.height >> d.baseMipLevel; if (m_height == 0) { m_height = 1; }
 
         TextureFormat fmt = (d.format == TextureFormat::Undefined) ? tex->desc.format : d.format;
         m_format = fmt;

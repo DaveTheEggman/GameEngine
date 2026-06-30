@@ -269,8 +269,11 @@ public:
     [[nodiscard]] TextureFormat     Format()    const {
         return (m_viewDesc.format == TextureFormat::Undefined) ? m_texture->desc.format : m_viewDesc.format;
     }
-    [[nodiscard]] u32 Width()  const { return m_texture->desc.width;  }
-    [[nodiscard]] u32 Height() const { return m_texture->desc.height; }
+    // Base-mip extent (a view onto mip N is half-sized per level). DX12 has no Vulkan-style renderArea
+    // validation so a stale base size here wouldn't fault, but callers (e.g. the render graph's
+    // viewport default) expect the view's true dimensions — keep it correct + consistent with Vulkan.
+    [[nodiscard]] u32 Width()  const { u32 w = m_texture->desc.width  >> m_viewDesc.baseMipLevel; return w ? w : 1u; }
+    [[nodiscard]] u32 Height() const { u32 h = m_texture->desc.height >> m_viewDesc.baseMipLevel; return h ? h : 1u; }
 
 private:
     ID3D12Device*               m_device   = nullptr;
