@@ -15,6 +15,7 @@ target_link_libraries(Sandbox PRIVATE
     Raptor::Scene
     Raptor::SceneSubsystem
     Raptor::RenderSubsystem
+    Raptor::AnimationSubsystem
     Raptor::Geometry
     Raptor::Materials
     Raptor::ModelImporter

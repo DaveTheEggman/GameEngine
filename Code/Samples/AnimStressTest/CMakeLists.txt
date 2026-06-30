@@ -26,6 +26,7 @@ target_link_libraries(AnimStressTest PRIVATE
     Raptor::MaterialResource
     Raptor::TextureResource
     Raptor::Animation
+    Raptor::AnimationSubsystem
     Raptor::Profiler
     Raptor::Policy)
 

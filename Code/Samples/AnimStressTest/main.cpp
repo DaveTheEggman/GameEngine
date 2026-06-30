@@ -31,7 +31,8 @@ import raptor.content;                  // ContentDatabase (cooked-resource outp
 import raptor.resource;                 // ResourceManager + Proxy
 import raptor.model;                    // ModelLoadResult
 import raptor.modelimporter;            // LoadAndCook + ImportedModel manifest
-import raptor.animation;                // AnimationPlayer (drives GPU skinning)
+import raptor.animation;                // AnimationClip / Skeleton
+import raptor.animation.subsystem;      // SkeletalAnimationComponent(Manager) — engine-driven skinning
 
 #include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
 
@@ -248,15 +249,19 @@ namespace
                 if (mesh->IsSkinned()) { skinnedEntities.PushBack(entities[i]); }
             }
 
-            // Per-instance AnimationPlayer over the shared skeleton: random clip + speed jitter +
-            // randomized start time so the herd desyncs (faithful to Sedulous's EngineAnimationSandbox).
+            // Attach a SkeletalAnimationComponent on the root: the AnimationSubsystem ticks its player
+            // each frame (PostUpdate) and feeds the skinning matrices to the skinned mesh entities. Random
+            // clip + speed jitter + randomized start so the herd desyncs (à la Sedulous EngineAnimationSandbox).
             if (m_model->skeleton && !m_clips.IsEmpty() && skinnedEntities.Size() > 0) {
-                inst.player = rc::MakeUnique<anim::AnimationPlayer>(rc::DefaultAllocator(), *m_model->skeleton.Get());
-                anim::AnimationClip* clip = m_clips[static_cast<rc::usize>(m_rng.NextInt(0, static_cast<rc::i32>(m_clips.Size()) - 1))];
-                inst.player->Play(clip);
-                inst.player->speed = 0.85f + m_rng.NextFloat() * 0.3f;
-                if (clip != nullptr && clip->duration > 0.0f) { inst.player->SetCurrentTime(m_rng.NextFloat() * clip->duration); }
-                inst.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
+                if (auto* anims = m_scene->GetSystem<anim::SkeletalAnimationComponentManager>()) {
+                    anim::AnimationClip* clip = m_clips[static_cast<rc::usize>(m_rng.NextInt(0, static_cast<rc::i32>(m_clips.Size()) - 1))];
+                    anim::SkeletalAnimationComponent& a = anims->Add(modelRoot);
+                    a.skeleton     = m_model->skeleton.Get();
+                    a.clip         = clip;
+                    a.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
+                    a.speed        = 0.85f + m_rng.NextFloat() * 0.3f;
+                    a.startTime    = (clip != nullptr && clip->duration > 0.0f) ? m_rng.NextFloat() * clip->duration : 0.0f;
+                }
             }
             m_instances.PushBack(static_cast<Instance&&>(inst));
         }
@@ -342,24 +347,9 @@ namespace
 
             if (m_scene == nullptr) { return; }
 
-            // Drive every instance: advance its player, then hand its per-bone skinning matrices to its
-            // skinned mesh components (borrowed for the frame; extraction copies the pointer).
-            RAPTOR_PROFILE_SCOPE("Anim.Drive");
-            if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
-                for (Instance& inst : m_instances) {
-                    if (inst.player.Get() == nullptr) { continue; }
-                    inst.player->Update(deltaTime);
-                    const rc::Span<const rc::Mat4> mats     = inst.player->GetSkinningMatrices();
-                    const rc::Span<const rc::Mat4> prevMats = inst.player->GetPrevSkinningMatrices();
-                    for (sc::EntityHandle e : inst.meshEntities) {
-                        if (rd::MeshComponent* mc = meshes->Get(e)) {
-                            mc->boneMatrices     = mats.Data();
-                            mc->prevBoneMatrices = prevMats.Data();
-                            mc->boneCount        = static_cast<rc::u32>(mats.Size());
-                        }
-                    }
-                }
-            }
+            // Animation is now driven by the engine's AnimationSubsystem (it ticks each entity's
+            // SkeletalAnimationComponent in the scene's PostUpdate phase and feeds the bone matrices);
+            // the sample no longer drives players by hand.
 
             // Smoothed FPS/frame-ms readout once a second (vsync off -> real frame cost).
             m_frameTimeMs = m_frameTimeMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
@@ -435,12 +425,10 @@ namespace
         rc::Array<anim::AnimationClip*>      m_clips;       // clips for random per-instance selection
         rc::f32                              m_fit = 1.0f;  // auto-fit scale
 
-        // One spawned character: its root entity (DestroyEntity recurses), the skinned mesh entities it
-        // feeds, and its own AnimationPlayer. Driven each frame in OnUpdate.
+        // One spawned character: just its root entity (DestroyEntity recurses to free the hierarchy +
+        // its SkeletalAnimationComponent). The component (engine-driven) owns the player + targets.
         struct Instance {
-            sc::EntityHandle                     root{};
-            rc::Array<sc::EntityHandle>          meshEntities;
-            rc::UniquePtr<anim::AnimationPlayer> player;
+            sc::EntityHandle root{};
         };
         rc::Array<Instance> m_instances;
         rc::Random          m_rng{ 0x9e3779b97f4a7c15ull };

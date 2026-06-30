@@ -17,6 +17,7 @@ import raptor.runtime.defaultapp;     // DefaultApplication (scene + render subs
 import raptor.scene;
 import raptor.scene.subsystem;
 import raptor.render.subsystem;       // MeshComponent / CameraComponent + their managers
+import raptor.animation.subsystem;    // SkeletalAnimation/AnimationGraph components (engine-driven skinning)
 import raptor.render;                  // ViewCamera / ViewportRect (split-screen overrides)
 import raptor.geometry;
 import raptor.geometry.resource;       // StaticMeshFactory + StaticMesh product
@@ -195,7 +196,7 @@ namespace
             LoadImportedModel(host);   // cook + spawn a glTF model through the resource pipeline
 
             rc::ConsoleWrite(u8"Sandbox: split-screen — same scene from two cameras, 18 clustered "
-                             u8"point lights. Close to exit.\n");
+                             u8"point lights. G cycles the Character's animation-graph state. Close to exit.\n");
         }
 
         // The model-import seam: open the cooked-resource output DB, register the geometry factory,
@@ -229,13 +230,15 @@ namespace
             // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
             SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vec3{ -5.0f, -4.0f, 6.0f });
             SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vec3{  5.0f, -7.0f, 6.0f });
-            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, -7.0f, 12.0f });
+            // The Character is driven by an AnimationGraph (a state machine over its clips) rather than a
+            // single clip — press G to fire the graph's "Next" trigger and cross-fade to the next state.
+            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, -7.0f, 12.0f }, /*useGraph=*/true);
         }
 
         // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model
         // spawns its node hierarchy (local TRS + parent links) under a scaled model-root entity; mesh
         // nodes get a MeshComponent referencing the cooked StaticMesh + material.
-        void SpawnModel(rc::StringView prefix, rc::StringView path, rc::Vec3 position)
+        void SpawnModel(rc::StringView prefix, rc::StringView path, rc::Vec3 position, bool useGraph = false)
         {
             auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
             if (meshes == nullptr || m_contentDb.Get() == nullptr) { return; }
@@ -304,15 +307,72 @@ namespace
             }
             m_models.PushBack(model);   // keep the model (and its resources) alive
 
-            // If the model is skinned + animated, drive it: one AnimationPlayer over its skeleton plays
-            // the first clip, and each frame feeds its skinning matrices to the skinned mesh components.
+            // If the model is skinned + animated, hand it to the animation subsystem: attach a component
+            // to the model root + list its skinned mesh nodes as the feed targets. The subsystem ticks
+            // the player each frame and writes the skinning matrices into those MeshComponents — no
+            // per-frame driving in app code. A graph-driven model gets an AnimationGraphComponent (a
+            // state machine over its clips); everything else gets a single-clip SkeletalAnimationComponent.
             if (model->skeleton && model->animations.Size() > 0 && model->animations[0] &&
                 skinnedEntities.Size() > 0) {
-                AnimatedModel am;
-                am.player = rc::MakeUnique<anim::AnimationPlayer>(rc::DefaultAllocator(), *model->skeleton.Get());
-                am.player->Play(model->animations[0].Get());
-                am.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
-                m_animated.PushBack(static_cast<AnimatedModel&&>(am));
+                if (useGraph) {
+                    if (auto* graphMgr = m_scene->GetSystem<anim::AnimationGraphComponentManager>()) {
+                        rc::RefPtr<anim::AnimationGraph> graph = BuildClipCyclerGraph(*model);
+                        anim::AnimationGraphComponent& gc = graphMgr->Add(modelRoot);
+                        gc.skeleton     = model->skeleton.Get();
+                        gc.graph        = graph.Get();
+                        gc.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
+                        m_graphs.PushBack(static_cast<rc::RefPtr<anim::AnimationGraph>&&>(graph));   // keep alive
+                        m_graphChar = modelRoot;                                                     // G drives this one
+                    }
+                } else if (auto* skelMgr = m_scene->GetSystem<anim::SkeletalAnimationComponentManager>()) {
+                    anim::SkeletalAnimationComponent& sa = skelMgr->Add(modelRoot);
+                    sa.skeleton     = model->skeleton.Get();
+                    sa.clip         = model->animations[0].Get();
+                    sa.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
+                }
+            }
+        }
+
+        // Build a simple state-machine graph over a model's clips: one Clip state per animation, plus a
+        // "Next" trigger that cross-fades each state to the following one (wrapping). Demonstrates the
+        // AnimationGraph machinery (states, transitions, parameters, cross-fades) without authored data.
+        rc::RefPtr<anim::AnimationGraph> BuildClipCyclerGraph(mi::ModelResource& model)
+        {
+            rc::RefPtr<anim::AnimationGraph> graph = rc::MakeRef<anim::AnimationGraph>(rc::DefaultAllocator());
+            const rc::i32 nextParam = graph->AddParameter(u8"Next", anim::AnimationParameterType::Trigger);
+
+            auto layer = rc::MakeUnique<anim::AnimationLayer>(rc::DefaultAllocator(), rc::StringView(u8"Base"));
+            const rc::i32 clipCount = static_cast<rc::i32>(model.animations.Size());
+            for (rc::i32 i = 0; i < clipCount; ++i) {
+                anim::AnimationClip* clip = model.animations[static_cast<rc::usize>(i)].Get();
+                auto state = rc::MakeUnique<anim::AnimationGraphState>(
+                    rc::DefaultAllocator(), clip != nullptr ? clip->Name().AsView() : rc::StringView(u8"State"),
+                    rc::MakeUnique<anim::ClipStateNode>(rc::DefaultAllocator(), clip));
+                layer->AddState(static_cast<rc::UniquePtr<anim::AnimationGraphState>&&>(state));
+            }
+            // state[i] --Next--> state[(i+1) % N], cross-fading over 0.25s.
+            for (rc::i32 i = 0; i < clipCount; ++i) {
+                auto t = rc::MakeUnique<anim::AnimationGraphTransition>(rc::DefaultAllocator());
+                t->sourceStateIndex = i;
+                t->destStateIndex   = (i + 1) % clipCount;
+                t->duration         = 0.25f;
+                t->AddBoolCondition(nextParam, true);
+                layer->AddTransition(static_cast<rc::UniquePtr<anim::AnimationGraphTransition>&&>(t));
+            }
+            graph->AddLayer(static_cast<rc::UniquePtr<anim::AnimationLayer>&&>(layer));
+            return graph;
+        }
+
+        // Fire the Character graph's "Next" trigger, advancing its state machine to the next clip. The
+        // player is owned + created lazily by the AnimationGraphComponentManager, so reach it through the
+        // component (it exists once the subsystem has ticked at least once).
+        void FireGraphNext()
+        {
+            if (m_scene == nullptr || !m_graphChar.IsAssigned()) { return; }
+            auto* graphMgr = m_scene->GetSystem<anim::AnimationGraphComponentManager>();
+            if (graphMgr == nullptr) { return; }
+            if (anim::AnimationGraphComponent* gc = graphMgr->Get(m_graphChar)) {
+                if (gc->player.Get() != nullptr) { gc->player->SetTrigger(rc::StringView(u8"Next")); }
             }
         }
 
@@ -403,27 +463,15 @@ namespace
                 if (rt::IKeyboard* kb = input->Keyboard()) {
                     if (kb->IsKeyPressed(rt::KeyCode::V)) { m_controlledView = 1u - m_controlledView; }
                     if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
+                    // G fires the Character graph's "Next" trigger -> cross-fade to its next clip state.
+                    if (kb->IsKeyPressed(rt::KeyCode::G)) { FireGraphNext(); }
                 }
             }
 
             if (m_scene == nullptr) { return; }
 
-            // Drive skinned models: advance each animation player, then hand its per-bone skinning
-            // matrices to the model's skinned mesh components (borrowed for the frame; extraction copies
-            // the pointer, the renderer uploads them to the bone pool).
-            if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
-                for (AnimatedModel& am : m_animated) {
-                    if (am.player.Get() == nullptr) { continue; }
-                    am.player->Update(deltaTime);
-                    const rc::Span<const rc::Mat4> mats = am.player->GetSkinningMatrices();
-                    for (sc::EntityHandle e : am.meshEntities) {
-                        if (rd::MeshComponent* mc = meshes->Get(e)) {
-                            mc->boneMatrices = mats.Data();
-                            mc->boneCount    = static_cast<rc::u32>(mats.Size());
-                        }
-                    }
-                }
-            }
+            // Skinned models are advanced by the animation subsystem (SkeletalAnimation/AnimationGraph
+            // components ticked on the scene's PostUpdate phase) — no per-frame driving here anymore.
 
             m_angle += deltaTime;
             const rc::Quat spin = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);
@@ -529,13 +577,10 @@ namespace
         mi::ModelFactory                     m_modelFactory;
         rc::Array<res::Proxy<mi::ModelResource>> m_models;   // keep cooked models + their resources alive
 
-        // A spawned skinned+animated model: a player over its skeleton + the skinned mesh entities it
-        // feeds. Driven each frame in OnUpdate (Update -> GetSkinningMatrices -> MeshComponent).
-        struct AnimatedModel {
-            rc::UniquePtr<anim::AnimationPlayer> player;
-            rc::Array<sc::EntityHandle>          meshEntities;
-        };
-        rc::Array<AnimatedModel>             m_animated;
+        // Animation graphs owned by the demo (the AnimationGraphComponents borrow them); the entity whose
+        // graph the G key advances (the Character). Skinned models are otherwise driven by the subsystem.
+        rc::Array<rc::RefPtr<anim::AnimationGraph>> m_graphs;
+        sc::EntityHandle                            m_graphChar{};
         rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)
     };
 }
