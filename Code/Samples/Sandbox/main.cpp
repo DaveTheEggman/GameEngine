@@ -406,6 +406,7 @@ namespace
                 rd::EnvironmentSettings& e = env->Environment();
                 ImGui::SliderFloat("Sky Intensity", &e.skyIntensity, 0.0f, 4.0f);
                 ImGui::SliderFloat("Sun Intensity", &e.sunIntensity, 0.0f, 8.0f);
+                ImGui::SliderFloat("Sun Size (deg)", &e.sunAngularSize, 0.1f, 10.0f);
                 float h[3]  = { e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
                 if (ImGui::ColorEdit3("Horizon", h)) { e.skyHorizon = rc::Color{ h[0], h[1], h[2], 1.0f }; }
                 float z[3]  = { e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
