@@ -317,7 +317,7 @@ public:
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out);
             });
         });
     }
@@ -329,11 +329,11 @@ public:
     void DeclareTransparent(const RenderView& view, const RendererRegistry& registry,
                             rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                             rendergraph::RGHandle colorH, rendergraph::RGHandle depth, rhi::TextureFormat colorFormat,
-                            const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
+                            const Mat4& drawViewProj, const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
                             const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                             const IblBinding& ibl = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
-        graph.AddRenderPass(u8"transparent", [this, &view, &registry, depth, colorH, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"transparent", [this, &view, &registry, depth, colorH, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, rhi::LoadOp::Load, rhi::StoreOp::Store, view.Settings().clear);
             b.SetReadOnlyDepthTarget(depth);   // test against opaque depth, no write
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
@@ -342,8 +342,8 @@ public:
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out);
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out);
             });
         });
     }
@@ -354,11 +354,11 @@ private:
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
-                        const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter, bool transparentPass,
+                        const Mat4& drawViewProj, const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter, bool transparentPass,
                         const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
-        ctx.viewProj    = view.Camera().ViewProjection();
+        ctx.viewProj    = drawViewProj;   // opaque = jittered (TAA), transparent = unjittered (drawn post-TAA)
         ctx.prevViewProj = prevViewProj;
         ctx.jitter      = jitter;
         ctx.prevJitter  = prevJitter;
@@ -941,6 +941,7 @@ public:
             // TAA jitter: sub-pixel-offset the projection so the resolve accumulates supersamples. Applied
             // BEFORE reading the view-proj, so the prepass + forward + sky all use the SAME jittered matrix
             // (mismatched depth would break the prepass early-Z). Off when TAA is disabled.
+            const Mat4 unjitteredVP = v->Camera().ViewProjection();   // captured BEFORE jitter (transparent draws with this, post-TAA)
             Vec2 jitter{ 0.0f, 0.0f };
             if (m_taaEnabled && m_taa != nullptr) {
                 jitter = HaltonJitter(m_jitterIndex, v->Width(), v->Height());
@@ -992,16 +993,18 @@ public:
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
                                    m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(hdr, velocityT, m_tonemap->HdrFormat());   // sky into HDR (+ camera-motion velocity), before TAA
-                // Transparent (blended) after opaque + sky: color-only, depth read-only, back-to-front.
-                m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth,
-                                          m_tonemap->HdrFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
-                // TAA resolve: the composed HDR is jittered; reproject + accumulate against per-view history
-                // into a stable HDR. Bloom + tonemap then run on the RESOLVED color (not the jittered one).
+                // TAA resolve on the opaque+sky HDR (jittered) -> stable HDR. Then transparent composites
+                // on the RESOLVED image (see below), so it's never temporally accumulated (no ghost) or
+                // jittered (no wobble). Bloom + tonemap run on the resolved color.
                 rendergraph::RGHandle sceneColor = hdr;
                 if (m_taaEnabled && m_taa != nullptr) {
                     sceneColor = m_taa->DeclareTaa(m_graph, hdr, velocityT, depth, viewIndex, v->Width(), v->Height(),
                                                    m_taaBlend, m_taaGamma, m_taaMotionScale);
                 }
+                // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
+                // color-only, depth read-only against the opaque depth, back-to-front.
+                m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, sceneColor, depth,
+                                          m_tonemap->HdrFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 // Bloom pyramid over the resolved scene, composited by the tonemap.
                 rendergraph::RGHandle bloomH{};
                 if (m_bloom != nullptr && m_bloomIntensity > 0.0f) {
@@ -1023,7 +1026,7 @@ public:
                                    v->TargetFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(colorH, velocityT, v->TargetFormat());
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
-                                          v->TargetFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
+                                          v->TargetFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
             }
         }
         }   // end Compose.Declare
