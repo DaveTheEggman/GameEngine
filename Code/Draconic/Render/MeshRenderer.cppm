@@ -791,8 +791,11 @@ public:
         m_ready = false;
         TickRetiredBindGroups();   // free per-frame bind groups retired long enough ago to be idle
         if (maxDraws == 0) { return; }
-        // camera draws + per-cascade re-emit (CSM) + per-spot-tile re-emit (local atlas).
-        const u32 drawCap = maxDraws * (1u + ShadowCascades::kCount + m_localShadowPassCount);
+        // Per-frame ring capacity = draws x (passes that re-emit them): the depth PREPASS + the forward
+        // (2 camera passes) + per-cascade CSM re-emit + per-spot-tile local-atlas re-emit. Under-counting
+        // overflows the object/instance/offset rings at high draw counts -> Allocate() fails -> dropped
+        // draws (was missing the prepass, so the stress tests lost their spheres).
+        const u32 drawCap = maxDraws * (2u + ShadowCascades::kCount + m_localShadowPassCount);
         if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
