@@ -81,6 +81,16 @@ public:
     void SetBloomThreshold(f32 v) noexcept { m_bloomThreshold = v; }
     [[nodiscard]] f32 BloomThreshold() const noexcept { return m_bloomThreshold; }
 
+    // Temporal AA on/off (projection jitter + history resolve) + resolve tunables.
+    void SetTaaEnabled(bool on) noexcept { m_taaEnabled = on; }
+    [[nodiscard]] bool TaaEnabled() const noexcept { return m_taaEnabled; }
+    void SetTaaBlend(f32 v) noexcept { m_taaBlend = v; }
+    [[nodiscard]] f32 TaaBlend() const noexcept { return m_taaBlend; }
+    void SetTaaGamma(f32 v) noexcept { m_taaGamma = v; }
+    [[nodiscard]] f32 TaaGamma() const noexcept { return m_taaGamma; }
+    void SetTaaMotionScale(f32 v) noexcept { m_taaMotionScale = v; }
+    [[nodiscard]] f32 TaaMotionScale() const noexcept { return m_taaMotionScale; }
+
     // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
     // are valid — intended for an on-demand dump (the P-key), not per-frame use.
     void BuildGpuProfileReport(String& out) {
@@ -101,6 +111,7 @@ public:
         m_renderCtx.BeginFrame(slotCount);
         m_frame->SetExposure(m_exposure);
         m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
+        m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -191,9 +202,13 @@ protected:
         m_bloomPass = MakeUnique<BloomPass>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_bloomPass->Initialize().IsOk()) { m_bloomPass.Reset(); }
 
+        // Temporal AA resolve (per-view history). Optional.
+        m_taaPass = MakeUnique<TaaPass>(DefaultAllocator(), *m_device, *m_shaders);
+        if (!m_taaPass->Initialize().IsOk()) { m_taaPass.Reset(); }
+
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
                                           m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get(),
-                                          m_iblSystem.Get(), m_skyPass.Get(), m_bloomPass.Get());
+                                          m_iblSystem.Get(), m_skyPass.Get(), m_bloomPass.Get(), m_taaPass.Get());
         m_frame->EnableGpuProfiling();   // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
@@ -215,6 +230,7 @@ protected:
         m_shadowSystem.Reset(); // shadow depth textures
         m_skyPass.Reset();      // before the ShaderSystem it borrows
         m_bloomPass.Reset();    // before the ShaderSystem it borrows
+        m_taaPass.Reset();      // before the ShaderSystem it borrows
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
@@ -249,8 +265,13 @@ private:
     UniquePtr<IBLSystem>                      m_iblSystem;
     UniquePtr<SkyPass>                        m_skyPass;
     UniquePtr<BloomPass>                      m_bloomPass;
+    UniquePtr<TaaPass>                        m_taaPass;
     f32                                       m_exposure = 1.0f;
     bool                                      m_bloomEnabled   = true;
+    bool                                      m_taaEnabled     = false;   // TAA off by default (UI toggle)
+    f32                                       m_taaBlend       = 0.97f;   // history weight (stability)
+    f32                                       m_taaGamma       = 1.25f;   // variance-clip box half-width
+    f32                                       m_taaMotionScale = 32.0f;   // history drop-off with motion
     f32                                       m_bloomIntensity = 0.05f;   // 0 = bloom off
     f32                                       m_bloomThreshold = 1.0f;
     f32                                       m_bloomKnee      = 0.6f;

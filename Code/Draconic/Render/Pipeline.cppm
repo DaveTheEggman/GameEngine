@@ -31,12 +31,29 @@ import :tonemap;
 import :shadows;
 import :ibl;
 import :bloom;
+import :taa;
 import :sky;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
 
 export namespace draconic::render {
+
+// Halton(base) low-discrepancy sequence term (1-based index).
+[[nodiscard]] inline f32 HaltonSeq(u32 i, u32 base) {
+    f32 f = 1.0f, r = 0.0f;
+    u32 idx = i + 1u;
+    while (idx > 0u) { f /= static_cast<f32>(base); r += f * static_cast<f32>(idx % base); idx /= base; }
+    return r;
+}
+// TAA sub-pixel jitter for frame `index` (mod the sequence length), in clip space (matches Sedulous):
+// Halton(2,3) centered to [-0.5,0.5], scaled to a 1-texel clip offset. Add to projection (2,0)/(2,1).
+[[nodiscard]] inline Vec2 HaltonJitter(u32 index, u32 width, u32 height) {
+    const f32 x = HaltonSeq(index, 2u) - 0.5f;
+    const f32 y = HaltonSeq(index, 3u) - 0.5f;
+    return Vec2{ x * 2.0f / static_cast<f32>(width  > 0 ? width  : 1u),
+                 y * 2.0f / static_cast<f32>(height > 0 ? height : 1u) };
+}
 
 // What a Renderer needs to record draws for one view. `pass` is a RenderCommandEncoder — the
 // shared draw-recording surface — so a renderer records identically whether it targets a live
@@ -496,9 +513,9 @@ public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
                 ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
                 ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr, SkyPass* sky = nullptr,
-                BloomPass* bloom = nullptr) noexcept
+                BloomPass* bloom = nullptr, TaaPass* taa = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
-          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom) {}
+          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom), m_taa(taa) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -525,6 +542,12 @@ public:
     void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
     // Bloom composite strength + soft-knee prefilter (intensity 0 = off).
     void SetBloom(f32 intensity, f32 threshold, f32 knee) noexcept { m_bloomIntensity = intensity; m_bloomThreshold = threshold; m_bloomKnee = knee; }
+    // Temporal AA: jitters the projection + resolves against per-view history (off = no jitter, no resolve).
+    // blend = max history weight (stability), gamma = variance-clip box half-width, motionScale = how fast
+    // history drops with motion.
+    void SetTaa(bool on, f32 blend, f32 gamma, f32 motionScale) noexcept {
+        m_taaEnabled = on; m_taaBlend = blend; m_taaGamma = gamma; m_taaMotionScale = motionScale;
+    }
     // Append a per-pass GPU timing report (call only after the device is idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
@@ -915,14 +938,23 @@ public:
             const rendergraph::RGHandle velocityT = m_graph.CreateTransient(
                 u8"forward.velocity", rendergraph::RGTextureDesc(kGVelocityFormat, v->Width(), v->Height()));
 
-            // Motion vectors: this view's previous-frame view-proj (identity/no-motion on first sight).
-            // Jitter is zero until TAA (Phase C) enables it. Record this frame's for next frame.
-            const Mat4 curViewProj = v->Camera().ViewProjection();
+            // TAA jitter: sub-pixel-offset the projection so the resolve accumulates supersamples. Applied
+            // BEFORE reading the view-proj, so the prepass + forward + sky all use the SAME jittered matrix
+            // (mismatched depth would break the prepass early-Z). Off when TAA is disabled.
+            Vec2 jitter{ 0.0f, 0.0f };
+            if (m_taaEnabled && m_taa != nullptr) {
+                jitter = HaltonJitter(m_jitterIndex, v->Width(), v->Height());
+                v->ApplyProjectionJitter(jitter.x, jitter.y);
+            }
+            // Motion vectors: this view's previous-frame (jittered) view-proj + jitter (no motion on first
+            // sight). Record this frame's for next frame.
+            const Mat4 curViewProj = v->Camera().ViewProjection();   // jittered when TAA on
             const Mat4 prevViewProj = (viewIndex < m_prevViewProj.Size()) ? m_prevViewProj[viewIndex] : curViewProj;
             if (m_curViewProj.Size() <= viewIndex) { m_curViewProj.Resize(viewIndex + 1u, curViewProj); }
             m_curViewProj[viewIndex] = curViewProj;
-            const Vec2 jitter{ 0.0f, 0.0f };
-            const Vec2 prevJitter{ 0.0f, 0.0f };
+            const Vec2 prevJitter = (viewIndex < m_prevJitter.Size()) ? m_prevJitter[viewIndex] : Vec2{ 0.0f, 0.0f };
+            if (m_curJitter.Size() <= viewIndex) { m_curJitter.Resize(viewIndex + 1u, jitter); }
+            m_curJitter[viewIndex] = jitter;
 
             // Depth prepass: opaque-only, clears + writes the camera depth so the forward pass shades
             // each opaque pixel once (early-Z via LessEqual). Declared before the forward, which Loads it.
@@ -962,19 +994,26 @@ public:
                 // Transparent (blended) after opaque + sky: color-only, depth read-only, back-to-front.
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth,
                                           m_tonemap->HdrFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
-                // Bloom pyramid over the final HDR (opaque+sky+transparent), composited by the tonemap.
+                // TAA resolve: the composed HDR is jittered; reproject + accumulate against per-view history
+                // into a stable HDR. Bloom + tonemap then run on the RESOLVED color (not the jittered one).
+                rendergraph::RGHandle sceneColor = hdr;
+                if (m_taaEnabled && m_taa != nullptr) {
+                    sceneColor = m_taa->DeclareTaa(m_graph, hdr, velocityT, depth, viewIndex, v->Width(), v->Height(),
+                                                   m_taaBlend, m_taaGamma, m_taaMotionScale);
+                }
+                // Bloom pyramid over the resolved scene, composited by the tonemap.
                 rendergraph::RGHandle bloomH{};
                 if (m_bloom != nullptr && m_bloomIntensity > 0.0f) {
-                    bloomH = m_bloom->DeclareBloom(m_graph, hdr, v->Width(), v->Height(), m_bloomThreshold, m_bloomKnee);
+                    bloomH = m_bloom->DeclareBloom(m_graph, sceneColor, v->Width(), v->Height(), m_bloomThreshold, m_bloomKnee);
                 }
                 const f32 bloomStrength = bloomH.IsValid() ? m_bloomIntensity : 0.0f;
-                const rendergraph::RGHandle bloomTex = bloomH.IsValid() ? bloomH : hdr;   // valid binding even when off
+                const rendergraph::RGHandle bloomTex = bloomH.IsValid() ? bloomH : sceneColor;   // valid binding even when off
                 // Map the tonemap's fullscreen uv to this view's sub-rect of the (full-size) HDR/bloom,
                 // so split-screen views resolve their own region (the forward renders into the sub-rect).
                 const f32 fullW = static_cast<f32>(v->Width()), fullH = static_cast<f32>(v->Height());
                 const Vec2 uvScale{ static_cast<f32>(v->ViewportWidth()) / fullW, static_cast<f32>(v->ViewportHeight()) / fullH };
                 const Vec2 uvOffset{ static_cast<f32>(v->ViewportX()) / fullW, static_cast<f32>(v->ViewportY()) / fullH };
-                m_tonemap->DeclareTonemap(m_graph, hdr, bloomTex, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
+                m_tonemap->DeclareTonemap(m_graph, sceneColor, bloomTex, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset);
             } else {
@@ -994,6 +1033,8 @@ public:
 
         for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }
         m_prevViewProj = m_curViewProj;   // this frame's view-projs become next frame's "previous"
+        m_prevJitter   = m_curJitter;     // ...and jitters (for the motion-vector unjitter)
+        if (m_taaEnabled) { m_jitterIndex = (m_jitterIndex + 1u) % 8u; }   // Halton phase advances per frame
         m_encoder = nullptr;
     }
 
@@ -1009,14 +1050,22 @@ private:
     IBLSystem*              m_ibl      = nullptr;   // borrowed; owns the IBL precompute products (env/SH/prefilter/BRDF)
     SkyPass*                m_sky      = nullptr;   // borrowed; draws the visible environment background
     BloomPass*              m_bloom    = nullptr;   // borrowed; builds the HDR bloom pyramid (composited at tonemap)
+    TaaPass*                m_taa      = nullptr;   // borrowed; temporal AA resolve (per-view history)
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
     f32                     m_bloomIntensity = 0.05f;   // 0 = bloom off
     f32                     m_bloomThreshold = 1.0f;
     f32                     m_bloomKnee      = 0.6f;
-    // Motion vectors: last frame's view-proj per view index (this frame's collected into m_curViewProj,
-    // swapped in at End). Camera motion for static geometry comes from prev vs current view-proj.
+    bool                    m_taaEnabled     = false;
+    f32                     m_taaBlend       = 0.97f;
+    f32                     m_taaGamma       = 1.25f;
+    f32                     m_taaMotionScale = 32.0f;
+    u32                     m_jitterIndex    = 0;    // Halton phase, advances once per frame (mod 8)
+    // Motion vectors + TAA: last frame's view-proj + jitter per view index (this frame's collected into
+    // m_curViewProj/m_curJitter, swapped in at End). Camera motion = prev vs current (jittered) view-proj.
     Array<Mat4>             m_prevViewProj;
     Array<Mat4>             m_curViewProj;
+    Array<Vec2>             m_prevJitter;
+    Array<Vec2>             m_curJitter;
     Array<ResolvedDraw>     m_prepassResolved;      // reused depth-draw buffer for the camera depth prepass
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members

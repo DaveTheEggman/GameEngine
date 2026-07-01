@@ -513,11 +513,12 @@ float4 main(PSInput input) : SV_Target0 {
         ambient = albedo * Ambient * ao;                         // flat fallback (no environment active)
     }
 #ifdef GBUFFER
-    // Motion vector: current vs previous screen position, both unjittered (remove the per-frame TAA
-    // jitter baked into each clip), as a UV-space delta (history is sampled at uv - velocity). NDC.y is
-    // flipped vs UV.y, hence the (0.5, -0.5) scale.
-    float2 curNDC  = input.curClip.xy  / input.curClip.w  - Jitter.xy;
-    float2 prevNDC = input.prevClip.xy / input.prevClip.w - Jitter.zw;
+    // Motion vector: current vs previous screen position, both UNJITTERED so only geometric motion
+    // remains (else the TAA reprojection wobbles with the jitter). The jitter added to projection(2,0/1)
+    // shifts NDC by -Jitter (RH: clip.w = -viewZ), so we ADD Jitter back to recover the geometric NDC.
+    // NDC.y is flipped vs UV.y, hence the (0.5, -0.5) scale.
+    float2 curNDC  = input.curClip.xy  / input.curClip.w  + Jitter.xy;
+    float2 prevNDC = input.prevClip.xy / input.prevClip.w + Jitter.zw;
     float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
 
     PSOutput o;
