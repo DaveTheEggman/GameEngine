@@ -24,6 +24,7 @@ target_sources(DraconicRender
             ShadowSystem.cppm
             IBLSystem.cppm
             SkyPass.cppm
+            BloomPass.cppm
             RenderModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

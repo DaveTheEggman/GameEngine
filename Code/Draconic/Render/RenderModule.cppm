@@ -24,3 +24,4 @@ export import :tonemap;
 export import :shadows;
 export import :ibl;
 export import :sky;
+export import :bloom;
