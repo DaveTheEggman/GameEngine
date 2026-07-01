@@ -194,6 +194,22 @@ namespace
                     rd::MeshComponent& gmc = meshes->Add(g);
                     gmc.mesh = ball; gmc.material = glassMat;
                 }
+
+                // Masked (alpha-tested) spheres: a checkerboard alpha-cutout texture drives the discard,
+                // so they render with real holes (opaque where solid, gone where the texture alpha is 0).
+                if (rhi::Device* dev = (host.Graphics() != nullptr) ? host.Graphics()->Raw() : nullptr) {
+                    if (rhi::TextureView* cutout = CreateCutoutTexture(*dev)) {
+                        rc::RefPtr<mat::Material> maskMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.95f, 0.8f, 0.3f, 1.0f }, 0.0f, 0.45f);
+                        maskMat->pipeline.blendMode = mat::BlendMode::Masked;
+                        maskMat->SetDefaultTexture(u8"AlbedoMap", cutout);   // alpha holes -> discard
+                        for (int k = 0; k < 3; ++k) {
+                            sc::EntityHandle m = m_scene->CreateEntity(u8"maskedBall");
+                            m_scene->SetLocalPosition(m, rc::Vec3{ -5.0f + 5.0f * static_cast<rc::f32>(k), kFloorY + 3.5f, 24.0f });
+                            rd::MeshComponent& mmc = meshes->Add(m);
+                            mmc.mesh = ball; mmc.material = maskMat;
+                        }
+                    }
+                }
             }
 
             // Lights: a dim directional key (down-forward) + a bright point light that orbits the
@@ -655,8 +671,46 @@ namespace
                     if (m_offscreenView[i] != nullptr) { device.DestroyTextureView(m_offscreenView[i]); m_offscreenView[i] = nullptr; }
                     if (m_offscreenTex[i]  != nullptr) { device.DestroyTexture(m_offscreenTex[i]);       m_offscreenTex[i]  = nullptr; }
                 }
+                if (m_cutoutView != nullptr) { device.DestroyTextureView(m_cutoutView); m_cutoutView = nullptr; }
+                if (m_cutoutTex  != nullptr) { device.DestroyTexture(m_cutoutTex);       m_cutoutTex  = nullptr; }
             }
             rc::ConsoleWrite(u8"Sandbox: shutting down.\n");
+        }
+
+        // Build a small procedural alpha-cutout texture (checkerboard: opaque cells + fully-transparent
+        // holes) and upload it synchronously via an RHI transfer batch. Feeds the masked-material demo,
+        // whose alpha-test discard cuts the holes. Stores the texture/view for shutdown cleanup.
+        rhi::TextureView* CreateCutoutTexture(rhi::Device& device)
+        {
+            constexpr rc::u32 N = 64, cell = 8;
+            rc::Array<rc::u8> px; px.Resize(static_cast<rc::usize>(N) * N * 4);
+            for (rc::u32 y = 0; y < N; ++y) {
+                for (rc::u32 x = 0; x < N; ++x) {
+                    const bool solid = ((((x / cell) + (y / cell)) & 1u) == 0u);
+                    rc::u8* p = &px[(static_cast<rc::usize>(y) * N + x) * 4];
+                    p[0] = 255; p[1] = 255; p[2] = 255; p[3] = solid ? 255 : 0;
+                }
+            }
+            rhi::TextureDesc td{};
+            td.dimension = rhi::TextureDimension::Texture2D; td.format = rhi::TextureFormat::RGBA8UnormSrgb;
+            td.width = N; td.height = N; td.depth = 1; td.arrayLayerCount = 1; td.mipLevelCount = 1;
+            td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; td.label = u8"masked.cutout";
+            if (!device.CreateTexture(td, m_cutoutTex).IsOk()) { m_cutoutTex = nullptr; return nullptr; }
+            rhi::TextureViewDesc vd{}; vd.format = rhi::TextureFormat::RGBA8UnormSrgb;
+            vd.dimension = rhi::TextureViewDimension::Texture2D; vd.mipLevelCount = 1; vd.arrayLayerCount = 1;
+            if (!device.CreateTextureView(m_cutoutTex, vd, m_cutoutView).IsOk()) {
+                device.DestroyTexture(m_cutoutTex); m_cutoutTex = nullptr; m_cutoutView = nullptr; return nullptr;
+            }
+            if (rhi::Queue* q = device.GetQueue(rhi::QueueType::Graphics, 0)) {
+                rhi::TransferBatch* batch = nullptr;
+                if (q->CreateTransferBatch(batch).IsOk() && batch != nullptr) {
+                    rhi::TextureDataLayout layout{}; layout.bytesPerRow = N * 4; layout.rowsPerImage = N;
+                    batch->WriteTexture(m_cutoutTex, rc::Span<const rc::u8>(px.Data(), px.Size()), layout, rhi::Extent3D{ N, N, 1 });
+                    (void)batch->Submit();
+                    q->DestroyTransferBatch(batch);
+                }
+            }
+            return m_cutoutView;
         }
 
         // Builds one kGrid×kGrid spinning cube grid centered at (originX, 0). When `instanced`,
@@ -710,6 +764,8 @@ namespace
         rhi::TextureView*           m_offscreenView[kOffscreenSlots]  = {};
         rhi::ResourceState          m_offscreenState[kOffscreenSlots] = { rhi::ResourceState::Undefined, rhi::ResourceState::Undefined, rhi::ResourceState::Undefined };
         rc::u32                     m_offscreenW[kOffscreenSlots] = {}, m_offscreenH[kOffscreenSlots] = {};
+        rhi::Texture*               m_cutoutTex  = nullptr;   // masked-demo alpha-cutout texture
+        rhi::TextureView*           m_cutoutView = nullptr;
         sc::EntityHandle            m_keyLight;   // directional key light (intensity/color tweakable in the debug UI)
         rc::Array<sc::EntityHandle> m_pointLights;
         rc::Array<rc::Vec3>         m_lightBases;
