@@ -63,6 +63,12 @@ public:
         if (m_iblSystem.Get() != nullptr) { m_iblSystem->SetEquirect(w, h, rgba); }
     }
 
+    // Set the scene's cubemap environment: 6 RGBA8 faces (+X,-X,+Y,-Y,+Z,-Z) concatenated, each
+    // faceSize*faceSize*4 bytes. Used when EnvironmentSettings.skyMode is Cubemap.
+    void SetSkyCubemap(u32 faceSize, Span<const u8> sixFaces) {
+        if (m_iblSystem.Get() != nullptr) { m_iblSystem->SetCubemap(faceSize, sixFaces); }
+    }
+
     // Linear exposure multiplier applied in the tonemap (default 1.0).
     void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
     [[nodiscard]] f32 Exposure() const noexcept { return m_exposure; }

@@ -116,6 +116,18 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
 }
 )";
 
+// Loaded cubemap -> env cube face: resample the (possibly larger / LDR) source cube along the face
+// direction (downsamples + format-converts into the RGBA16F env cube). Shares the cube bind-group
+// layout with the prefilter.
+inline constexpr const char8_t* kIblCubemapPS = u8R"(
+TextureCube  SrcCube  : register(t0, space0);
+SamplerState SrcSamp  : register(s0, space0);
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
+    float3 dir = DirForFace(pc.FaceIndex, uv);
+    return float4(SrcCube.SampleLevel(SrcSamp, dir, 0.0).rgb * max(pc.SkyIntensity, 0.0), 1.0);
+}
+)";
+
 // GGX prefilter (Karis split-sum specular): importance-sample the env cube around the reflection
 // direction (= N = V) at this mip's roughness. 1024 Hammersley samples / texel.
 inline constexpr const char8_t* kIblPrefilterPS = u8R"(
@@ -299,6 +311,7 @@ public:
         // Cube/LUT fragment shaders share the fullscreen VS; the cube ones prepend kIblCommon.
         m_shaders->RegisterSource(u8"ibl_procenv",  shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblProcEnvPS));
         m_shaders->RegisterSource(u8"ibl_equirect", shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblEquirectPS));
+        m_shaders->RegisterSource(u8"ibl_cubemap",  shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblCubemapPS));
         m_shaders->RegisterSource(u8"ibl_prefilter",shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblPrefilterPS));
         m_shaders->RegisterSource(u8"ibl_brdf",     shaders::ShaderStage::Fragment, kIblBrdfPS);
         m_shaders->RegisterSource(u8"ibl_sh",       shaders::ShaderStage::Compute,  kIblShProjectCS);
@@ -373,6 +386,29 @@ public:
         m_equirectW = w; m_equirectH = h; m_equirectPending = true; m_dirty = true;
     }
 
+    // Set a cubemap source: 6 RGBA8 faces (+X,-X,+Y,-Y,+Z,-Z) concatenated, each faceSize*faceSize*4
+    // bytes. Resampled into the env cube when the mode is Cubemap (handles size + format conversion).
+    void SetCubemap(u32 faceSize, Span<const u8> sixFaces) {
+        const u64 faceBytes = static_cast<u64>(faceSize) * faceSize * 4u;
+        if (!m_ready || faceSize == 0 || sixFaces.Size() < faceBytes * 6u) { return; }
+        DestroyCubemap();
+        rhi::TextureDesc td{};
+        td.format = rhi::TextureFormat::RGBA8Unorm; td.width = faceSize; td.height = faceSize; td.arrayLayerCount = 6;
+        td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; td.label = u8"ibl.srcCube";
+        if (!m_device->CreateTexture(td, m_srcCube).IsOk()) { m_srcCube = nullptr; return; }
+        rhi::TextureViewDesc vd{}; vd.format = rhi::TextureFormat::RGBA8Unorm;
+        vd.dimension = rhi::TextureViewDimension::TextureCube; vd.arrayLayerCount = 6;
+        if (!m_device->CreateTextureView(m_srcCube, vd, m_srcCubeView).IsOk()) { DestroyCubemap(); return; }
+        rhi::BufferDesc sd{}; sd.size = faceBytes * 6u; sd.usage = rhi::BufferUsage::CopySrc; sd.memory = rhi::MemoryLocation::CpuToGpu; sd.label = u8"ibl.srcCubeStaging";
+        if (!m_device->CreateBuffer(sd, m_cubemapStaging).IsOk()) { DestroyCubemap(); return; }
+        if (void* p = m_cubemapStaging->Map()) { MemCopy(p, sixFaces.Data(), faceBytes * 6u); m_cubemapStaging->Unmap(); }
+        if (!EnsureCubemapPipeline()) { DestroyCubemap(); return; }
+        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_srcCubeView), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+        rhi::BindGroupDesc bgd{}; bgd.layout = m_envLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
+        if (!m_device->CreateBindGroup(bgd, m_cubemapBindGroup).IsOk()) { m_cubemapBindGroup = nullptr; DestroyCubemap(); return; }
+        m_cubemapFaceSize = faceSize; m_cubemapPending = true; m_dirty = true;
+    }
+
     // Pending texture uploads (equirect/cubemap staging -> texture) on the frame's encoder, BEFORE the
     // graph executes — so the env-build passes sample an already-uploaded, shader-readable source.
     void Upload(rhi::CommandEncoder& enc) {
@@ -384,6 +420,18 @@ public:
             enc.CopyBufferToTexture(m_equirectStaging, m_equirectTex, r);
             enc.TransitionTexture(m_equirectTex, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
             m_equirectPending = false;
+        }
+        if (m_cubemapPending && m_srcCube != nullptr && m_cubemapStaging != nullptr) {
+            enc.TransitionTexture(m_srcCube, rhi::ResourceState::Undefined, rhi::ResourceState::CopyDst);
+            const u64 faceBytes = static_cast<u64>(m_cubemapFaceSize) * m_cubemapFaceSize * 4u;
+            for (u32 f = 0; f < 6; ++f) {
+                rhi::BufferTextureCopyRegion r{};
+                r.bufferOffset = faceBytes * f; r.bytesPerRow = m_cubemapFaceSize * 4u; r.rowsPerImage = m_cubemapFaceSize;
+                r.textureArrayLayer = f; r.textureExtent = rhi::Extent3D{ m_cubemapFaceSize, m_cubemapFaceSize, 1 };
+                enc.CopyBufferToTexture(m_cubemapStaging, m_srcCube, r);
+            }
+            enc.TransitionTexture(m_srcCube, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
+            m_cubemapPending = false;
         }
     }
 
@@ -417,8 +465,9 @@ public:
         // uploaded equirect map); both write the canonical cube faces.
         const rendergraph::RGHandle envH = m_envH;
         const bool useEquirect = (m_sky.mode == SkyMode::HDREquirect) && m_equirectBindGroup != nullptr;
-        rhi::RenderPipeline* envPipe = useEquirect ? m_equirectPipeline : m_envPipeline;
-        rhi::BindGroup*      envBG   = useEquirect ? m_equirectBindGroup : nullptr;
+        const bool useCubemap  = (m_sky.mode == SkyMode::Cubemap) && m_cubemapBindGroup != nullptr;
+        rhi::RenderPipeline* envPipe = useEquirect ? m_equirectPipeline : useCubemap ? m_cubemapPipeline : m_envPipeline;
+        rhi::BindGroup*      envBG   = useEquirect ? m_equirectBindGroup : useCubemap ? m_cubemapBindGroup : nullptr;
         for (u32 face = 0; face < 6; ++face) {
             IblPush push = MakeSkyPush(static_cast<i32>(face));
             graph.AddRenderPass(u8"ibl.env.face", [envH, face, push, envPipe, envBG](rendergraph::PassBuilder& b) {
@@ -682,6 +731,25 @@ private:
         return true;
     }
 
+    // Lazily create the cubemap->cube pipeline (samples the source cube; reuses the prefilter's cube
+    // bind-group + pipeline layout — cube tex + sampler + push).
+    bool EnsureCubemapPipeline() {
+        if (m_cubemapPipeline != nullptr) { return true; }
+        if (m_prefilterLayout == nullptr || m_envLayout == nullptr) { return false; }
+        rhi::ShaderModule* vs = m_shaders->GetVariant(u8"ibl_fs", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+        if (vs == nullptr) { return false; }
+        m_cubemapPipeline = MakeFullscreenPipeline(vs, u8"ibl_cubemap", m_prefilterLayout, kCubeFormat);
+        return m_cubemapPipeline != nullptr;
+    }
+
+    void DestroyCubemap() {
+        if (m_cubemapBindGroup) { m_device->DestroyBindGroup(m_cubemapBindGroup); m_cubemapBindGroup = nullptr; }
+        if (m_cubemapStaging) { m_device->DestroyBuffer(m_cubemapStaging); m_cubemapStaging = nullptr; }
+        if (m_srcCubeView) { m_device->DestroyTextureView(m_srcCubeView); m_srcCubeView = nullptr; }
+        if (m_srcCube) { m_device->DestroyTexture(m_srcCube); m_srcCube = nullptr; }
+        m_cubemapPending = false;
+    }
+
     // Free the per-source equirect texture/staging/view/bind-group (the pipeline + layout + sampler
     // persist, recreated lazily once).
     void DestroyEquirect() {
@@ -693,6 +761,8 @@ private:
     }
 
     void Shutdown() {
+        DestroyCubemap();
+        if (m_cubemapPipeline) { m_device->DestroyRenderPipeline(m_cubemapPipeline); m_cubemapPipeline = nullptr; }
         DestroyEquirect();
         if (m_equirectPipeline) { m_device->DestroyRenderPipeline(m_equirectPipeline); m_equirectPipeline = nullptr; }
         if (m_equirectPipelineLayout) { m_device->DestroyPipelineLayout(m_equirectPipelineLayout); m_equirectPipelineLayout = nullptr; }
@@ -733,6 +803,14 @@ private:
     rhi::BindGroup*       m_equirectBindGroup = nullptr;
     u32  m_equirectW = 0, m_equirectH = 0;
     bool m_equirectPending = false;
+
+    // Cubemap source (optional): 6 RGBA8 faces resampled into the env cube by the cubemap->cube pass.
+    rhi::Texture*        m_srcCube = nullptr;       rhi::TextureView* m_srcCubeView = nullptr;
+    rhi::Buffer*         m_cubemapStaging = nullptr;
+    rhi::RenderPipeline* m_cubemapPipeline = nullptr;   // reuses m_prefilterLayout + m_envLayout
+    rhi::BindGroup*      m_cubemapBindGroup = nullptr;
+    u32  m_cubemapFaceSize = 0;
+    bool m_cubemapPending = false;
 
     rhi::Texture*     m_envCube = nullptr;        rhi::TextureView* m_envSampleView = nullptr;
     rhi::Texture*     m_prefilterCube = nullptr;  rhi::TextureView* m_prefilterView = nullptr;
