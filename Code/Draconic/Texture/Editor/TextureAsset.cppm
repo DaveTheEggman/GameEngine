@@ -9,7 +9,8 @@
 //   * TextureImporter: an authoring helper that produces a TextureAsset for an
 //     image file with a sensible preset (2D / equirectangular sky).
 //
-// Never linked by the runtime. Cubemap import is deferred.
+// Never linked by the runtime (an authoring/cook-seam helper). Cubemap import loads + validates +
+// combines 6 face files; cooking a cubemap TextureResource through the builder is still deferred.
 
 module;
 #include "Core/Prelude.h"
@@ -87,6 +88,12 @@ export namespace draconic::texture
             wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge; wrapW = TextureWrap::ClampToEdge;
             generateMipmaps = false; anisotropy = 1.0f;
         }
+        void SetupForCubemapSkybox()
+        {
+            shape = TextureShape::Cubemap; minFilter = TextureFilter::Linear; magFilter = TextureFilter::Linear;
+            wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge; wrapW = TextureWrap::ClampToEdge;
+            generateMipmaps = false; anisotropy = 1.0f;
+        }
     };
 
     // Cooks a TextureAsset -> TextureResource (decode + resolve RHI format ->
@@ -148,6 +155,85 @@ export namespace draconic::texture
         {
             outAsset.fileName = String(path);
             outAsset.SetupForEquirectangularSkybox();
+        }
+
+        // A cubemap sky from 6 face files (the first is stored as the asset source).
+        static void ImportCubemap(StringView firstFacePath, TextureAsset& outAsset)
+        {
+            outAsset.fileName = String(firstFacePath);
+            outAsset.SetupForCubemapSkybox();
+        }
+
+        // Load 6 cubemap faces into one combined buffer, faces concatenated in +X,-X,+Y,-Y,+Z,-Z order
+        // (the layout a 6-layer cube texture expects). All faces must be square, the same size, and the
+        // same format; the caller supplies the explicit paths. `outPixels` = 6 * faceSize*faceSize*bpp.
+        [[nodiscard]] static Status LoadCubemap(Span<const StringView> facePaths, Array<u8>& outPixels, u32& outFaceSize)
+        {
+            if (facePaths.Size() != 6) { return ErrorCode::InvalidArgument; }
+            img::Image faces[6];
+            u32 faceSize = 0;
+            usize faceBytes = 0;
+            for (usize i = 0; i < 6; ++i)
+            {
+                if (!img::io::LoadImage(facePaths[i], faces[i]).IsOk()) { return ErrorCode::Unknown; }
+                if (faces[i].Width() != faces[i].Height()) { return ErrorCode::Unknown; }   // cube faces are square
+                if (i == 0) { faceSize = faces[0].Width(); faceBytes = faces[0].PixelData().Size(); }
+                else if (faces[i].Width() != faceSize || faces[i].PixelData().Size() != faceBytes ||
+                         faces[i].Format() != faces[0].Format()) { return ErrorCode::Unknown; }   // all faces must match
+            }
+            if (faceSize == 0 || faceBytes == 0) { return ErrorCode::Unknown; }
+            outPixels.Resize(faceBytes * 6u);
+            for (usize i = 0; i < 6; ++i) { MemCopy(outPixels.Data() + faceBytes * i, faces[i].PixelData().Data(), faceBytes); }
+            outFaceSize = faceSize;
+            return Status{};
+        }
+
+        // Given ONE face path (e.g. ".../sky_px.png"), derive all 6 face paths by matching a common
+        // naming convention (px/nx/..., _posx/..., right/left/...) and rebuilding the set in
+        // +X,-X,+Y,-Y,+Z,-Z order. Pure string derivation (no filesystem); pair with LoadCubemap, which
+        // validates the files actually load. Returns Unknown if the path matches no known convention.
+        [[nodiscard]] static Status DetectCubemapFaces(StringView oneFacePath, Array<String>& outPaths)
+        {
+            const StringView dir  = PathParent(oneFacePath);
+            const StringView stem = PathStem(oneFacePath);
+            const StringView ext  = PathExtension(oneFacePath);
+            static const StringView conv[5][6] = {
+                { u8"px",    u8"nx",    u8"py",    u8"ny",     u8"pz",    u8"nz"    },
+                { u8"_px",   u8"_nx",   u8"_py",   u8"_ny",    u8"_pz",   u8"_nz"   },
+                { u8"_posx", u8"_negx", u8"_posy", u8"_negy",  u8"_posz", u8"_negz" },
+                { u8"_right",u8"_left", u8"_top",  u8"_bottom",u8"_front",u8"_back" },
+                { u8"right", u8"left",  u8"top",   u8"bottom", u8"front", u8"back"  },
+            };
+            for (const auto& c : conv)
+            {
+                int matched = -1;
+                for (int i = 0; i < 6; ++i) { if (EndsWithCI(stem, c[i])) { matched = i; break; } }
+                if (matched < 0) { continue; }
+                const StringView prefix = stem.SubStr(0, stem.Size() - c[matched].Size());
+                outPaths.Clear();
+                for (int i = 0; i < 6; ++i)
+                {
+                    String name{ prefix }; name.Append(c[i]); name.Append(ext);
+                    outPaths.PushBack(dir.IsEmpty() ? name : PathJoin(dir, name.AsView()));
+                }
+                return Status{};
+            }
+            return ErrorCode::Unknown;
+        }
+
+    private:
+        [[nodiscard]] static bool EndsWithCI(StringView s, StringView suffix) noexcept
+        {
+            if (s.Size() < suffix.Size()) { return false; }
+            const usize off = s.Size() - suffix.Size();
+            for (usize i = 0; i < suffix.Size(); ++i)
+            {
+                utf8char a = s[off + i], b = suffix[i];
+                if (a >= u8'A' && a <= u8'Z') { a = static_cast<utf8char>(a + 32); }
+                if (b >= u8'A' && b <= u8'Z') { b = static_cast<utf8char>(b + 32); }
+                if (a != b) { return false; }
+            }
+            return true;
         }
     };
 
