@@ -187,6 +187,7 @@ namespace
             // grid in OnUpdate, so the per-light forward shade is visible (moving highlight).
             if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                 sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
+                m_keyLight = key;
                 rc::Transform kt = m_scene->GetLocalTransform(key);
                 kt.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.6f);
                 m_scene->SetLocalTransform(key, kt);
@@ -488,6 +489,16 @@ namespace
                     if (ImGui::ColorEdit3("Ground", gr)) { e.skyGround = rc::Color{ gr[0], gr[1], gr[2], 1.0f }; }
                 }
             }
+            // Directional (key) light — the actual scene illumination + sky sun direction. Distinct from
+            // "Sun Intensity" above (that's the sky's sun disc brightness, not the light that shades surfaces).
+            if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
+                if (rd::LightComponent* kl = m_keyLight.IsAssigned() ? lights->Get(m_keyLight) : nullptr) {
+                    ImGui::SeparatorText("Directional Light");
+                    ImGui::SliderFloat("Light Intensity", &kl->intensity, 0.0f, 8.0f);
+                    float lc[3] = { kl->color.r, kl->color.g, kl->color.b };
+                    if (ImGui::ColorEdit3("Light Color", lc)) { kl->color = rc::Color{ lc[0], lc[1], lc[2], 1.0f }; }
+                }
+            }
             ImGui::Checkbox("Show ImGui demo", &m_showImguiDemo);
             ImGui::End();
             if (m_showImguiDemo) { ImGui::ShowDemoWindow(&m_showImguiDemo); }
@@ -686,6 +697,7 @@ namespace
         rhi::TextureView*           m_offscreenView[kOffscreenSlots]  = {};
         rhi::ResourceState          m_offscreenState[kOffscreenSlots] = { rhi::ResourceState::Undefined, rhi::ResourceState::Undefined, rhi::ResourceState::Undefined };
         rc::u32                     m_offscreenW[kOffscreenSlots] = {}, m_offscreenH[kOffscreenSlots] = {};
+        sc::EntityHandle            m_keyLight;   // directional key light (intensity/color tweakable in the debug UI)
         rc::Array<sc::EntityHandle> m_pointLights;
         rc::Array<rc::Vec3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
