@@ -115,16 +115,22 @@ private:
         if (bufferCount > 0) { desc.vertex.buffers = Span<const rhi::VertexBufferLayout>{ buffers, bufferCount }; }
 
         // --- fragment (omitted for depth-only passes) ---
-        rhi::ColorTargetState colorTarget{};
+        // Up to colorTargetCount targets (MRT): target 0 is the shaded color (blended per blendMode +
+        // format from colorOverride when set, e.g. the per-view HDR/LDR format); targets 1+ are the
+        // G-buffer aux outputs (view-normal, motion vector) — no blend, formats from config.colorFormats.
+        rhi::ColorTargetState colorTargets[rhi::MaxColorAttachments] = {};
         if (!config.depthOnly) {
             rhi::ShaderModule* fs = m_shaders->GetVariant(config.shaderName, shaders::ShaderStage::Fragment, config.shaderFlags);
             if (fs == nullptr) { return nullptr; }
-            colorTarget.format = (colorOverride != rhi::TextureFormat::Undefined) ? colorOverride : config.colorFormats[0];
-            colorTarget.blend = BlendFor(config.blendMode);
-            colorTarget.writeMask = config.colorWriteMask;
+            const u32 count = (config.colorTargetCount == 0) ? 1u : Min<u32>(config.colorTargetCount, rhi::MaxColorAttachments);
+            for (u32 i = 0; i < count; ++i) {
+                colorTargets[i].format    = (i == 0 && colorOverride != rhi::TextureFormat::Undefined) ? colorOverride : config.colorFormats[i];
+                colorTargets[i].blend     = (i == 0) ? BlendFor(config.blendMode) : Optional<rhi::BlendState>{};
+                colorTargets[i].writeMask = config.colorWriteMask;
+            }
             rhi::FragmentState frag{};
             frag.shader = rhi::ProgrammableStage{ fs, u8"main", rhi::ShaderStage::Fragment };
-            frag.targets = Span<const rhi::ColorTargetState>{ &colorTarget, 1 };
+            frag.targets = Span<const rhi::ColorTargetState>{ colorTargets, count };
             desc.fragment = frag;
         }
 

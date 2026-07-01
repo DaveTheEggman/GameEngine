@@ -410,7 +410,23 @@ float3 EvaluateLight(GpuLight light, float3 worldPos, float3 N, float3 V,
     return (diffuse + specular) * (light.color * light.intensity) * NdotL * atten;
 }
 
-float4 main(PSInput input) : SV_Target {
+// Octahedral encode a unit vector -> [-1,1]^2 (full sphere, no sign ambiguity). Used to pack the
+// view-space normal into the RG16F G-buffer target for the post stack (GTAO/TAA).
+float2 OctEncode(float3 n) {
+    n /= (abs(n.x) + abs(n.y) + abs(n.z));
+    float2 e = n.xy;
+    if (n.z < 0.0) { e = (1.0 - abs(float2(e.y, e.x))) * float2(e.x >= 0.0 ? 1.0 : -1.0, e.y >= 0.0 ? 1.0 : -1.0); }
+    return e;
+}
+
+// Forward MRT outputs: shaded HDR color + G-buffer aux (view-space normal, screen-space motion).
+struct PSOutput {
+    float4 color    : SV_Target0;   // shaded HDR (tonemapped later)
+    float2 normal   : SV_Target1;   // octahedral view-space normal
+    float2 velocity : SV_Target2;   // screen-space motion vector (UV delta); filled in a later pass
+};
+
+PSOutput main(PSInput input) {
     float3 N = normalize(input.normalWS);
     float3 V = normalize(CameraPos - input.worldPos);
 
@@ -465,7 +481,11 @@ float4 main(PSInput input) : SV_Target {
     } else {
         ambient = albedo * Ambient * ao;                         // flat fallback (no environment active)
     }
-    return float4(ambient + Lo, 1.0);
+    PSOutput o;
+    o.color    = float4(ambient + Lo, 1.0);
+    o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space normal (octahedral)
+    o.velocity = float2(0.0, 0.0);                                      // motion vectors: filled in A1b
+    return o;
 }
 )";
 
@@ -1217,6 +1237,11 @@ private:
         config.depthFormat = ctx.depthFormat;
         config.instanced   = instanced;
         if (instanced) { config.shaderFlags |= shaders::ShaderFlags::Instanced; }
+        // MRT: target 0 = shaded color (format overridden per-view at build); targets 1/2 = G-buffer
+        // aux (view-space normal + screen-space motion vector) the post stack consumes (TAA/GTAO).
+        config.colorTargetCount = 3;
+        config.colorFormats[1]  = kGNormalFormat;
+        config.colorFormats[2]  = kGVelocityFormat;
         return config;
     }
 

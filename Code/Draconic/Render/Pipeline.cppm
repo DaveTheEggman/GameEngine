@@ -264,13 +264,17 @@ public:
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                      rendergraph::RGHandle colorH, rendergraph::RGHandle depth, bool clearColor, rhi::TextureFormat colorFormat,
+                     rendergraph::RGHandle normalH, rendergraph::RGHandle velocityH,
                      const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                      const IblBinding& ibl = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, colorLoad, colorFormat, frameIndex, viewIndex, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear);
+            // MRT G-buffer aux (cleared each view): view-space normal + screen-space motion vector.
+            b.SetColorTarget(1, normalH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
+            b.SetColorTarget(2, velocityH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
             b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
@@ -335,7 +339,9 @@ private:
         // bundles can't inherit it) — this view's sub-rect of the target, not the full target.
         rhi::RenderBundleDesc bd{};
         bd.colorFormats[0]    = colorFormat;
-        bd.colorFormatCount   = 1;
+        bd.colorFormats[1]    = kGNormalFormat;     // MRT: view-space normal
+        bd.colorFormats[2]    = kGVelocityFormat;   // MRT: motion vector
+        bd.colorFormatCount   = 3;
         bd.depthStencilFormat = m_depthFormat;
         bd.sampleCount        = 1;
         bd.viewportX          = view.ViewportX();
@@ -824,6 +830,12 @@ public:
             // Per-view depth, shared by the forward pass + the sky pass (sky depth-tests against it).
             const rendergraph::RGHandle depth = m_graph.CreateTransient(
                 u8"forward.depth", rendergraph::RGTextureDesc(m_pass.DepthFormat(), v->Width(), v->Height()));
+            // Per-view MRT G-buffer aux targets (view-space normal + motion vector) — written by the
+            // forward pass, consumed by the post stack (TAA/GTAO). Unused this phase; transients free after.
+            const rendergraph::RGHandle normalT = m_graph.CreateTransient(
+                u8"forward.normal", rendergraph::RGTextureDesc(kGNormalFormat, v->Width(), v->Height()));
+            const rendergraph::RGHandle velocityT = m_graph.CreateTransient(
+                u8"forward.velocity", rendergraph::RGTextureDesc(kGVelocityFormat, v->Width(), v->Height()));
 
             // Declare the visible sky into `colorTarget` after the forward pass (if IBL + sky active).
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rhi::TextureFormat colorFmt) {
@@ -844,7 +856,7 @@ public:
                 const rendergraph::RGHandle hdr = m_graph.CreateTransient(
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
-                                   m_tonemap->HdrFormat(), cluster, shadow, ibl);
+                                   m_tonemap->HdrFormat(), normalT, velocityT, cluster, shadow, ibl);
                 declareSky(hdr, m_tonemap->HdrFormat());   // sky into HDR, before tonemap
                 m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
@@ -852,7 +864,7 @@ public:
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
-                                   v->TargetFormat(), cluster, shadow, ibl);
+                                   v->TargetFormat(), normalT, velocityT, cluster, shadow, ibl);
                 declareSky(colorH, v->TargetFormat());
             }
         }

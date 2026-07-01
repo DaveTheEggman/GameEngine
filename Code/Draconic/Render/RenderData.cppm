@@ -23,12 +23,21 @@ module;
 export module draconic.render:data;
 
 import draconic.core;
+import draconic.rhi;
 import draconic.geometry;
 import draconic.materials;
 
 using namespace draconic::core;
 
 export namespace draconic::render {
+
+namespace rhi = draconic::rhi;
+
+// Forward MRT G-buffer aux target formats, shared by the PSO config (:mesh_renderer) and the pass /
+// transient declarations (:pipeline): target 1 = view-space normal (octahedral XY), target 2 =
+// screen-space motion vector (UV-delta). RG16Float — enough range/precision for both.
+inline constexpr rhi::TextureFormat kGNormalFormat   = rhi::TextureFormat::RG16Float;
+inline constexpr rhi::TextureFormat kGVelocityFormat = rhi::TextureFormat::RG16Float;
 
 // A renderable's category — the dispatch key that routes it to a `Renderer`. A plain u16
 // (not an enum class) so external subsystems (particles, world-space UI) can claim ids
