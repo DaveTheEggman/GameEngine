@@ -14,6 +14,7 @@
 // hold RMB (or Tab to capture) to look, Shift to move fast, Esc to exit.
 
 #include "Core/Prelude.h"
+#include "imgui.h"   // Dear ImGui (HUD) — used directly; engine integration is draconic.imgui
 
 import draconic.core;
 import draconic.rhi;                     // PresentMode (run the benchmark vsync-off)
@@ -27,6 +28,7 @@ import draconic.runtime.defaultapp;
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.render.subsystem;
+import draconic.imgui;                    // ImguiSubsystem (HUD)
 import draconic.geometry;
 import draconic.materials;
 
@@ -38,6 +40,7 @@ namespace rt  = draconic::runtime;
 namespace smp = draconic::samples;
 namespace sc  = draconic::scene;
 namespace rd  = draconic::render;
+namespace gui = draconic::imgui;
 namespace geo = draconic::geometry;
 namespace mat = draconic::materials;
 
@@ -57,6 +60,15 @@ namespace
             rt::ApplicationSettings s;
             s.presentMode = rhi::PresentMode::Immediate;
             return s;
+        }
+
+        // Register the ImGui subsystem so the benchmark HUD can draw over the scene.
+        void Configure(rt::IApplicationHost& host) override
+        {
+            rt::DefaultApplication::Configure(host);
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
+                host.Ctx().AddSubsystem<gui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+            }
         }
 
         void OnStartup(rt::IApplicationHost& host) override
@@ -114,6 +126,9 @@ namespace
 
             AddSphereBatch();   // start with one batch
 
+            // Lower default exposure: the procedural-sky IBL + sun are bright, so AgX washes out at 1.0.
+            if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) { render->SetExposure(0.5f); }
+
             rc::ConsoleWrite(u8"=== Render Stress Test ===\n"
                              u8"  Space: +8000 spheres   Backspace: -8000\n"
                              u8"  U: toggle unique materials (defeats batching)\n"
@@ -135,11 +150,21 @@ namespace
                 }
             }
             rt::DefaultApplication::OnRenderWindow(host, frame);
+
+            // HUD over the scene (backbuffer is RenderTarget after the default render path).
+            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) { g->Render(frame); }
         }
 
         void OnUpdate(rt::IApplicationHost& host, rc::f32 deltaTime) override
         {
             rt::DefaultApplication::OnUpdate(host, deltaTime);   // inherited P-key profiler dump
+
+            // Smooth the frame time every frame + build the ImGui HUD (drawn in OnRenderWindow).
+            m_frameMs = m_frameMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
+            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
+                g->NewFrame(host.Platform() != nullptr ? host.Platform()->Input() : nullptr, deltaTime);
+                BuildHud(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
+            }
             if (m_scene == nullptr) { return; }
 
             auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr;
@@ -181,8 +206,6 @@ namespace
                     meshScene->SetLocalTransform(e, t);
                 }
             }
-
-            UpdateStats(deltaTime);
         }
 
         void OnShutdown(rt::IApplicationHost&) override
@@ -285,25 +308,29 @@ namespace
             rc::ConsoleWrite(s.AsView());
         }
 
-        // Smooth the frame time and emit a one-line console stat once per second (when enabled).
-        void UpdateStats(rc::f32 dt)
+        // ImGui HUD: benchmark stats + controls (H toggles it). Built in OnUpdate, drawn in OnRenderWindow.
+        void BuildHud(rd::RenderSubsystem* render)
         {
-            m_frameMs = m_frameMs * 0.9f + (dt * 1000.0f) * 0.1f;
-            m_statsTimer += dt;
-            if (!m_showStats || m_statsTimer < 1.0f) { return; }
-            m_statsTimer = 0.0f;
-
-            const rc::f32 fps = m_frameMs > 0.001f ? 1000.0f / m_frameMs : 0.0f;
-            const rc::i32 msWhole = static_cast<rc::i32>(m_frameMs);
-            const rc::i32 msTenth = static_cast<rc::i32>((m_frameMs - static_cast<rc::f32>(msWhole)) * 10.0f);
-
-            rc::String s;
-            rc::AppendFormat(s, u8"[stress] {} fps  {}.{} ms  | spheres {}  draws~{}  bob {}\n",
-                             static_cast<rc::i32>(fps + 0.5f), msWhole, msTenth,
-                             static_cast<rc::i32>(m_spheres.Size()),
-                             m_uniqueMaterials ? static_cast<rc::i32>(m_spheres.Size()) : 1,
-                             m_bob ? u8"on" : u8"off");
-            rc::ConsoleWrite(s.AsView());
+            if (!m_showStats) { return; }
+            ImGui::Begin("Render Stress Test");
+            const float fps = m_frameMs > 0.001f ? 1000.0f / m_frameMs : 0.0f;
+            ImGui::Text("%.0f fps   %.2f ms", static_cast<double>(fps), static_cast<double>(m_frameMs));
+            ImGui::Text("spheres %d   batches %d   grid %dx%d",
+                        static_cast<int>(m_spheres.Size()), m_batchCount, m_gridSize, m_gridSize);
+            ImGui::Text("materials: %s", m_uniqueMaterials ? "unique (a draw per sphere)" : "shared (batched)");
+            ImGui::Text("bob: %s", m_bob ? "on" : "off");
+            if (render != nullptr) {
+                ImGui::Separator();
+                float exposure = render->Exposure();
+                if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 4.0f)) { render->SetExposure(exposure); }
+                bool bloomOn = render->BloomEnabled();
+                if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
+            }
+            ImGui::Separator();
+            ImGui::TextUnformatted("Space +8000   Backspace -8000");
+            ImGui::TextUnformatted("U unique mats   B bob   H hide HUD   P profiler");
+            ImGui::TextUnformatted("WASD/QE move   RMB look   Shift fast   Esc exit");
+            ImGui::End();
         }
 
         static rc::Vec3 HsvToRgb(rc::f32 h, rc::f32 s, rc::f32 v)
@@ -340,9 +367,8 @@ namespace
         smp::FlyCamera m_fly{ .position = rc::Vec3{ 0.0f, 50.0f, 200.0f }, .pitch = -0.245f };
 
         // Stats
-        bool    m_showStats  = true;
+        bool    m_showStats  = true;   // HUD visibility (H)
         rc::f32 m_frameMs    = 0.0f;
-        rc::f32 m_statsTimer = 0.0f;
     };
 }
 

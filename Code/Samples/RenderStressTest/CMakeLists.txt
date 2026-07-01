@@ -15,6 +15,7 @@ target_link_libraries(RenderStressTest PRIVATE
     Draconic::Scene
     Draconic::SceneSubsystem
     Draconic::RenderSubsystem
+    Draconic::Imgui
     Draconic::Geometry
     Draconic::Materials
     Draconic::Policy)
