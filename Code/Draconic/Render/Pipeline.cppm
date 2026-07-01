@@ -33,6 +33,7 @@ import :ibl;
 import :bloom;
 import :taa;
 import :ao;
+import :fxaa;
 import :sky;
 
 using namespace draconic::core;
@@ -514,9 +515,9 @@ public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
                 ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
                 ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr, SkyPass* sky = nullptr,
-                BloomPass* bloom = nullptr, TaaPass* taa = nullptr, AoPass* ao = nullptr) noexcept
+                BloomPass* bloom = nullptr, TaaPass* taa = nullptr, AoPass* ao = nullptr, FxaaPass* fxaa = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
-          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom), m_taa(taa), m_ao(ao) {}
+          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -554,6 +555,8 @@ public:
     void SetAo(AoMode mode, f32 strength, f32 radius, f32 intensity, i32 debugMode = 0) noexcept {
         m_aoMode = mode; m_aoStrength = strength; m_aoRadius = radius; m_aoIntensity = intensity; m_aoDebug = debugMode;
     }
+    // FXAA (TAA-off fallback): run FXAA after tonemap when TAA is off. Never stacked with TAA.
+    void SetFxaa(bool on, f32 subpixelQuality) noexcept { m_fxaaEnabled = on; m_fxaaSubpixel = subpixelQuality; }
     // Append a per-pass GPU timing report (call only after the device is idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
@@ -1042,9 +1045,22 @@ public:
                 const f32 fullW = static_cast<f32>(v->Width()), fullH = static_cast<f32>(v->Height());
                 const Vec2 uvScale{ static_cast<f32>(v->ViewportWidth()) / fullW, static_cast<f32>(v->ViewportHeight()) / fullH };
                 const Vec2 uvOffset{ static_cast<f32>(v->ViewportX()) / fullW, static_cast<f32>(v->ViewportY()) / fullH };
-                m_tonemap->DeclareTonemap(m_graph, sceneColor, bloomTex, aoTex, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
+                // FXAA (TAA-off fallback) runs AFTER tonemap: tonemap -> LDR intermediate, FXAA -> final.
+                // Never stacked with TAA (TAA already resolves aliasing). Off/TAA-on -> tonemap writes final.
+                const bool fxaa = m_fxaa != nullptr && m_fxaaEnabled && !m_taaEnabled;
+                const rendergraph::RGHandle tonemapOut = fxaa
+                    ? m_graph.CreateTransient(u8"post.ldr", rendergraph::RGTextureDesc(v->TargetFormat(), v->Width(), v->Height()))
+                    : colorH;
+                m_tonemap->DeclareTonemap(m_graph, sceneColor, bloomTex, aoTex, tonemapOut, /*clearColor*/ fxaa || clearColor,
+                                          v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo);
+                if (fxaa) {
+                    const Vec2 texel{ 1.0f / fullW, 1.0f / fullH };
+                    m_fxaa->DeclareFxaa(m_graph, tonemapOut, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
+                                        v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
+                                        m_frameIndex, viewIndex, texel, uvScale, uvOffset, m_fxaaSubpixel);
+                }
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
@@ -1081,7 +1097,10 @@ private:
     BloomPass*              m_bloom    = nullptr;   // borrowed; builds the HDR bloom pyramid (composited at tonemap)
     TaaPass*                m_taa      = nullptr;   // borrowed; temporal AA resolve (per-view history)
     AoPass*                 m_ao       = nullptr;   // borrowed; ambient occlusion (GTAO/SSAO) from the G-buffer
+    FxaaPass*               m_fxaa     = nullptr;   // borrowed; TAA-off fallback AA (after tonemap)
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
+    bool                    m_fxaaEnabled = false;
+    f32                     m_fxaaSubpixel = 0.75f;
     AoMode                  m_aoMode      = AoMode::Off;
     i32                     m_aoDebug     = 0;
     f32                     m_aoStrength  = 0.6f;

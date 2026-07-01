@@ -94,6 +94,12 @@ public:
     void SetAoDebug(i32 mode) noexcept { m_aoDebug = mode; }   // 0=off, 1=AO, 2/3/4=N.xyz, 5=viewZ, 6=depth
     [[nodiscard]] i32 AoDebug() const noexcept { return m_aoDebug; }
 
+    // FXAA on/off (TAA-off fallback AA — ignored while TAA is on) + sub-pixel quality (0..1).
+    void SetFxaaEnabled(bool on) noexcept { m_fxaaEnabled = on; }
+    [[nodiscard]] bool FxaaEnabled() const noexcept { return m_fxaaEnabled; }
+    void SetFxaaSubpixel(f32 v) noexcept { m_fxaaSubpixel = v; }
+    [[nodiscard]] f32 FxaaSubpixel() const noexcept { return m_fxaaSubpixel; }
+
     // Temporal AA on/off (projection jitter + history resolve) + resolve tunables.
     void SetTaaEnabled(bool on) noexcept { m_taaEnabled = on; }
     [[nodiscard]] bool TaaEnabled() const noexcept { return m_taaEnabled; }
@@ -126,6 +132,7 @@ public:
         m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
         m_frame->SetAo(m_aoMode, m_aoStrength, m_aoRadius, m_aoIntensity, m_aoDebug);
+        m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -224,9 +231,14 @@ protected:
         m_aoPass = MakeUnique<AoPass>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_aoPass->Initialize().IsOk()) { m_aoPass.Reset(); }
 
+        // FXAA (TAA-off fallback AA). Optional.
+        m_fxaaPass = MakeUnique<FxaaPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+        if (!m_fxaaPass->Initialize().IsOk()) { m_fxaaPass.Reset(); }
+
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
                                           m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get(),
-                                          m_iblSystem.Get(), m_skyPass.Get(), m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get());
+                                          m_iblSystem.Get(), m_skyPass.Get(), m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get(),
+                                          m_fxaaPass.Get());
         m_frame->EnableGpuProfiling();   // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
@@ -250,6 +262,7 @@ protected:
         m_bloomPass.Reset();    // before the ShaderSystem it borrows
         m_taaPass.Reset();      // before the ShaderSystem it borrows
         m_aoPass.Reset();       // before the ShaderSystem it borrows
+        m_fxaaPass.Reset();     // before the ShaderSystem it borrows
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
@@ -286,6 +299,7 @@ private:
     UniquePtr<BloomPass>                      m_bloomPass;
     UniquePtr<TaaPass>                        m_taaPass;
     UniquePtr<AoPass>                         m_aoPass;
+    UniquePtr<FxaaPass>                        m_fxaaPass;
     f32                                       m_exposure = 1.0f;
     bool                                      m_bloomEnabled   = true;
     AoMode                                    m_aoMode         = AoMode::Off;   // AO off by default (UI combo)
@@ -293,6 +307,8 @@ private:
     f32                                       m_aoStrength     = 0.6f;          // partial by default (full darkens curved surfaces too much)
     f32                                       m_aoRadius       = 0.5f;
     f32                                       m_aoIntensity    = 1.0f;
+    bool                                      m_fxaaEnabled    = false;   // FXAA off by default (TAA-off fallback)
+    f32                                       m_fxaaSubpixel   = 0.75f;
     bool                                      m_taaEnabled     = false;   // TAA off by default (UI toggle)
     f32                                       m_taaBlend       = 0.97f;   // history weight (stability)
     f32                                       m_taaGamma       = 1.25f;   // variance-clip box half-width

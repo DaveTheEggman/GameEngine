@@ -517,6 +517,14 @@ namespace
                 }
                 bool taaOn = render->TaaEnabled();
                 if (ImGui::Checkbox("TAA", &taaOn)) { render->SetTaaEnabled(taaOn); }
+                if (!taaOn) {   // FXAA is the TAA-off fallback (never stacked with TAA)
+                    bool fxaaOn = render->FxaaEnabled();
+                    if (ImGui::Checkbox("FXAA", &fxaaOn)) { render->SetFxaaEnabled(fxaaOn); }
+                    if (fxaaOn) {
+                        float sq = render->FxaaSubpixel();
+                        if (ImGui::SliderFloat("FXAA Subpixel", &sq, 0.0f, 1.0f)) { render->SetFxaaSubpixel(sq); }
+                    }
+                }
                 if (taaOn) {
                     float b = render->TaaBlend();
                     if (ImGui::SliderFloat("TAA History", &b, 0.80f, 0.995f)) { render->SetTaaBlend(b); }
