@@ -27,3 +27,4 @@ export import :sky;
 export import :bloom;
 export import :taa;
 export import :ao;
+export import :fxaa;
