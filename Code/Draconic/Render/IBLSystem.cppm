@@ -171,13 +171,34 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
 }
 )";
 
+// Box-downsample one env cube mip from the previous (finer) mip: sample the source cube (bound as a
+// single-mip view) along the face direction with linear filtering — averages the 2x2 finer texels into
+// this half-res texel. Builds the env mip pyramid the prefilter samples by PDF (firefly suppression).
+inline constexpr const char8_t* kIblDownsamplePS = u8R"(
+TextureCube  SrcCube : register(t0, space0);
+SamplerState SrcSamp : register(s0, space0);
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
+    float3 dir = DirForFace(pc.FaceIndex, uv);
+    return float4(SrcCube.SampleLevel(SrcSamp, dir, 0.0).rgb, 1.0);
+}
+)";
+
 // GGX prefilter (Karis split-sum specular): importance-sample the env cube around the reflection
-// direction (= N = V) at this mip's roughness. 1024 Hammersley samples / texel.
+// direction (= N = V) at this mip's roughness. 1024 Hammersley samples / texel. Each sample reads a
+// PDF-selected env mip (solid-angle matched) so bright pixels are pre-averaged — kills specular fireflies.
 inline constexpr const char8_t* kIblPrefilterPS = u8R"(
 TextureCube<float4> EnvMap : register(t0, space0);
 SamplerState        EnvSamp : register(s0, space0);
 
 static const float PI = 3.14159265359;
+static const float ENV_RES = 256.0;   // env cube face resolution (mip 0)
+
+float DistributionGGX(float ndh, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float d = (ndh * ndh) * (a2 - 1.0) + 1.0;
+    return a2 / max(PI * d * d, 1e-7);
+}
 
 float RadicalInverse_VdC(uint bits) {
     bits = (bits << 16u) | (bits >> 16u);
@@ -213,7 +234,15 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
         float3 L = normalize(2.0 * dot(V, H) * H - V);
         float ndl = dot(N, L);
         if (ndl > 0.0) {
-            color += EnvMap.SampleLevel(EnvSamp, L, 0.0).rgb * ndl;
+            // Karis: pick the env mip whose texel solid angle matches this sample's solid angle, so
+            // sparse high-roughness samples average many source texels instead of aliasing bright ones.
+            float ndh = max(dot(N, H), 0.0);   // N == V, so NdotH == HdotV
+            float D   = DistributionGGX(ndh, pc.Roughness);
+            float pdf = (D * ndh / (4.0 * ndh)) + 1e-4;
+            float saTexel  = 4.0 * PI / (6.0 * ENV_RES * ENV_RES);
+            float saSample = 1.0 / (float(SAMPLES) * pdf + 1e-4);
+            float mip = (pc.Roughness < 1e-3) ? 0.0 : max(0.5 * log2(saSample / saTexel), 0.0);
+            color += EnvMap.SampleLevel(EnvSamp, L, mip).rgb * ndl;
             weight += ndl;
         }
     }
@@ -338,6 +367,7 @@ void main(uint3 dtid : SV_DispatchThreadID) {
 class IBLSystem {
 public:
     static constexpr u32 kEnvResolution    = 256;
+    static constexpr u32 kEnvMips          = 5;     // env mip pyramid (256..16) for prefilter PDF sampling
     static constexpr u32 kPrefilterRes     = 256;
     static constexpr u32 kPrefilterMips    = 5;     // roughness = mip / (kPrefilterMips - 1)
     static constexpr u32 kBrdfResolution   = 256;
@@ -356,6 +386,7 @@ public:
         m_shaders->RegisterSource(u8"ibl_analytic", shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblAnalyticPS));
         m_shaders->RegisterSource(u8"ibl_equirect", shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblEquirectPS));
         m_shaders->RegisterSource(u8"ibl_cubemap",  shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblCubemapPS));
+        m_shaders->RegisterSource(u8"ibl_downsample",shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblDownsamplePS));
         m_shaders->RegisterSource(u8"ibl_prefilter",shaders::ShaderStage::Fragment, Concat(kIblCommon, kIblPrefilterPS));
         m_shaders->RegisterSource(u8"ibl_brdf",     shaders::ShaderStage::Fragment, kIblBrdfPS);
         m_shaders->RegisterSource(u8"ibl_sh",       shaders::ShaderStage::Compute,  kIblShProjectCS);
@@ -533,7 +564,12 @@ public:
             });
         }
 
-        // (2) env -> SH9 diffuse (compute), (3) env -> prefilter mips.
+        // (2) Build the env mip pyramid: box-downsample each mip from the previous. Reads mip m-1 (a
+        // single-mip view) and writes mip m — non-overlapping subresources, so the graph orders + barriers
+        // it correctly. SH/prefilter (whole-resource reads) then run after the whole chain is written.
+        DeclareEnvMips(graph, envH);
+
+        // (3) env -> SH9 diffuse (compute), (4) env -> prefilter mips (PDF-samples the pyramid).
         DeclareShProjection(graph, envH, m_shH);
         DeclarePrefilter(graph, envH, m_prefilterH);
     }
@@ -583,6 +619,32 @@ private:
         });
     }
 
+    // Box-downsample the env cube's mip pyramid: mip m from mip m-1 (per face). Each pass reads only the
+    // finer mip (a single-mip source view/bind-group) and renders the coarser one, so read + write never
+    // touch the same subresource; the graph's per-subresource barriers serialize the chain by mip.
+    void DeclareEnvMips(rendergraph::RenderGraph& graph, rendergraph::RGHandle envH) {
+        for (u32 mip = 1; mip < kEnvMips; ++mip) {
+            const u32 res = kEnvResolution >> mip;
+            rhi::BindGroup* srcBG = m_envMipBG[mip - 1];
+            for (u32 face = 0; face < 6; ++face) {
+                IblPush push{}; push.faceIndex = static_cast<i32>(face);
+                graph.AddRenderPass(u8"ibl.env.mip", [this, envH, mip, face, res, push, srcBG](rendergraph::PassBuilder& b) {
+                    b.ReadTexture(envH, rendergraph::RGSubresourceRange{ mip - 1, 1, 0, 6 });
+                    b.SetColorTarget(0, envH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black(),
+                                     rendergraph::RGSubresourceRange{ mip, 1, face, 1 });
+                    b.SetViewport(0, 0, res, res);
+                    b.NeverCull();
+                    b.SetExecute([this, push, srcBG](rhi::RenderPassEncoder& rp) {
+                        rp.SetPipeline(m_downsamplePipeline);
+                        rp.SetBindGroup(0, srcBG, Span<const u32>{});
+                        rp.SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(IblPush), &push);
+                        rp.Draw(3, 1, 0, 0);
+                    });
+                });
+            }
+        }
+    }
+
     void DeclarePrefilter(rendergraph::RenderGraph& graph, rendergraph::RGHandle envH, rendergraph::RGHandle preH) {
         for (u32 mip = 0; mip < kPrefilterMips; ++mip) {
             const u32 res = kPrefilterRes >> mip;
@@ -622,15 +684,25 @@ private:
     static constexpr rhi::TextureFormat kBrdfFormat = rhi::TextureFormat::RG16Float;
 
     bool CreateResources() {
-        // Env cube (single mip — prefilter samples mip 0; the mip-sampling improvement adds a chain later).
+        // Env cube (mip pyramid): mip 0 holds the full-res source radiance; mips 1..N are box-downsampled
+        // so the prefilter can PDF-sample a pre-averaged mip per GGX sample (firefly suppression).
         rhi::TextureDesc ed{};
         ed.format = kCubeFormat; ed.width = kEnvResolution; ed.height = kEnvResolution;
-        ed.arrayLayerCount = 6; ed.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled;
+        ed.arrayLayerCount = 6; ed.mipLevelCount = kEnvMips;
+        ed.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled;
         ed.label = u8"ibl.env";
         if (!m_device->CreateTexture(ed, m_envCube).IsOk()) { return false; }
         rhi::TextureViewDesc ev{}; ev.format = kCubeFormat;
-        ev.dimension = rhi::TextureViewDimension::TextureCube; ev.arrayLayerCount = 6;
+        ev.dimension = rhi::TextureViewDimension::TextureCube; ev.arrayLayerCount = 6; ev.mipLevelCount = kEnvMips;
         if (!m_device->CreateTextureView(m_envCube, ev, m_envSampleView).IsOk()) { return false; }
+        // Single-mip cube views of each env mip — bound as the source when downsampling the NEXT mip, so
+        // the read descriptor covers only mip m (never the mip m+1 being rendered → no read/write hazard).
+        for (u32 m = 0; m < kEnvMips; ++m) {
+            rhi::TextureViewDesc mv{}; mv.format = kCubeFormat;
+            mv.dimension = rhi::TextureViewDimension::TextureCube;
+            mv.baseMipLevel = m; mv.mipLevelCount = 1; mv.arrayLayerCount = 6;
+            if (!m_device->CreateTextureView(m_envCube, mv, m_envMipView[m]).IsOk()) { return false; }
+        }
 
         // Prefilter cube (mip chain).
         rhi::TextureDesc pd{};
@@ -692,16 +764,24 @@ private:
         rhi::PipelineLayoutDesc brdfPld{};
         if (!m_device->CreatePipelineLayout(brdfPld, m_brdfPipelineLayout).IsOk()) { return false; }
 
-        m_envPipeline       = MakeFullscreenPipeline(vs, u8"ibl_procenv", m_envOnlyLayout, kCubeFormat);
-        m_analyticPipeline  = MakeFullscreenPipeline(vs, u8"ibl_analytic", m_envOnlyLayout, kCubeFormat);
-        m_prefilterPipeline = MakeFullscreenPipeline(vs, u8"ibl_prefilter", m_prefilterLayout, kCubeFormat);
-        m_brdfPipeline      = MakeFullscreenPipeline(vs, u8"ibl_brdf", m_brdfPipelineLayout, kBrdfFormat);
-        if (m_envPipeline == nullptr || m_analyticPipeline == nullptr || m_prefilterPipeline == nullptr || m_brdfPipeline == nullptr) { return false; }
+        m_envPipeline        = MakeFullscreenPipeline(vs, u8"ibl_procenv", m_envOnlyLayout, kCubeFormat);
+        m_analyticPipeline   = MakeFullscreenPipeline(vs, u8"ibl_analytic", m_envOnlyLayout, kCubeFormat);
+        m_downsamplePipeline = MakeFullscreenPipeline(vs, u8"ibl_downsample", m_prefilterLayout, kCubeFormat);
+        m_prefilterPipeline  = MakeFullscreenPipeline(vs, u8"ibl_prefilter", m_prefilterLayout, kCubeFormat);
+        m_brdfPipeline       = MakeFullscreenPipeline(vs, u8"ibl_brdf", m_brdfPipelineLayout, kBrdfFormat);
+        if (m_envPipeline == nullptr || m_analyticPipeline == nullptr || m_downsamplePipeline == nullptr ||
+            m_prefilterPipeline == nullptr || m_brdfPipeline == nullptr) { return false; }
 
-        // env sample bind group (for prefilter).
+        // env sample bind group (for prefilter/SH: full mip chain).
         rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_envSampleView), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
         rhi::BindGroupDesc bgd{}; bgd.layout = m_envLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
         if (!m_device->CreateBindGroup(bgd, m_envBindGroup).IsOk()) { return false; }
+        // Per-mip source bind groups (mip m as the downsample input for mip m+1).
+        for (u32 m = 0; m < kEnvMips; ++m) {
+            rhi::BindGroupEntry me[] = { rhi::BindGroupEntry::TextureEntry(m_envMipView[m]), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+            rhi::BindGroupDesc md{}; md.layout = m_envLayout; md.entries = Span<const rhi::BindGroupEntry>{ me, 2 };
+            if (!m_device->CreateBindGroup(md, m_envMipBG[m]).IsOk()) { return false; }
+        }
 
         // --- SH compute pipeline + bind group (t0 cube + s0 sampler + u0 SH buffer) ---
         rhi::ShaderModule* cs = m_shaders->GetVariant(u8"ibl_sh", shaders::ShaderStage::Compute, shaders::ShaderFlags::None);
@@ -820,9 +900,11 @@ private:
         if (m_equirectSampler) { m_device->DestroySampler(m_equirectSampler); m_equirectSampler = nullptr; }
         if (m_shBindGroup) { m_device->DestroyBindGroup(m_shBindGroup); m_shBindGroup = nullptr; }
         if (m_envBindGroup) { m_device->DestroyBindGroup(m_envBindGroup); m_envBindGroup = nullptr; }
+        for (u32 m = 0; m < kEnvMips; ++m) { if (m_envMipBG[m]) { m_device->DestroyBindGroup(m_envMipBG[m]); m_envMipBG[m] = nullptr; } }
         if (m_shPipeline) { m_device->DestroyComputePipeline(m_shPipeline); m_shPipeline = nullptr; }
         if (m_envPipeline) { m_device->DestroyRenderPipeline(m_envPipeline); m_envPipeline = nullptr; }
         if (m_analyticPipeline) { m_device->DestroyRenderPipeline(m_analyticPipeline); m_analyticPipeline = nullptr; }
+        if (m_downsamplePipeline) { m_device->DestroyRenderPipeline(m_downsamplePipeline); m_downsamplePipeline = nullptr; }
         if (m_prefilterPipeline) { m_device->DestroyRenderPipeline(m_prefilterPipeline); m_prefilterPipeline = nullptr; }
         if (m_brdfPipeline) { m_device->DestroyRenderPipeline(m_brdfPipeline); m_brdfPipeline = nullptr; }
         if (m_shPipelineLayout) { m_device->DestroyPipelineLayout(m_shPipelineLayout); m_shPipelineLayout = nullptr; }
@@ -834,6 +916,7 @@ private:
         if (m_sampler) { m_device->DestroySampler(m_sampler); m_sampler = nullptr; }
         if (m_shBuffer) { m_device->DestroyBuffer(m_shBuffer); m_shBuffer = nullptr; }
         if (m_envSampleView) { m_device->DestroyTextureView(m_envSampleView); m_envSampleView = nullptr; }
+        for (u32 m = 0; m < kEnvMips; ++m) { if (m_envMipView[m]) { m_device->DestroyTextureView(m_envMipView[m]); m_envMipView[m] = nullptr; } }
         if (m_envCube) { m_device->DestroyTexture(m_envCube); m_envCube = nullptr; }
         if (m_prefilterView) { m_device->DestroyTextureView(m_prefilterView); m_prefilterView = nullptr; }
         if (m_prefilterCube) { m_device->DestroyTexture(m_prefilterCube); m_prefilterCube = nullptr; }
@@ -864,6 +947,7 @@ private:
     bool m_cubemapPending = false;
 
     rhi::Texture*     m_envCube = nullptr;        rhi::TextureView* m_envSampleView = nullptr;
+    rhi::TextureView* m_envMipView[kEnvMips] = {};   // single-mip cube views (downsample sources)
     rhi::Texture*     m_prefilterCube = nullptr;  rhi::TextureView* m_prefilterView = nullptr;
     rhi::Texture*     m_brdfLut = nullptr;        rhi::TextureView* m_brdfView = nullptr;
     rhi::Buffer*      m_shBuffer = nullptr;
@@ -877,10 +961,12 @@ private:
     rhi::PipelineLayout*  m_shPipelineLayout = nullptr;
     rhi::RenderPipeline*  m_envPipeline = nullptr;
     rhi::RenderPipeline*  m_analyticPipeline = nullptr;   // Preetham; reuses m_envOnlyLayout (push only)
+    rhi::RenderPipeline*  m_downsamplePipeline = nullptr; // env mip pyramid; reuses m_prefilterLayout
     rhi::RenderPipeline*  m_prefilterPipeline = nullptr;
     rhi::RenderPipeline*  m_brdfPipeline = nullptr;
     rhi::ComputePipeline* m_shPipeline = nullptr;
     rhi::BindGroup*       m_envBindGroup = nullptr;
+    rhi::BindGroup*       m_envMipBG[kEnvMips] = {};       // per-mip source bind groups (downsample)
     rhi::BindGroup*       m_shBindGroup = nullptr;
 
     // Imported-target persisted states (carried across frames for the graph's barrier solver).
