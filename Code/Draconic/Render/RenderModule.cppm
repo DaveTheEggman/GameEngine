@@ -25,3 +25,4 @@ export import :shadows;
 export import :ibl;
 export import :sky;
 export import :bloom;
+export import :taa;
