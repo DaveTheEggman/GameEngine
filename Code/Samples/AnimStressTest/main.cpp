@@ -5,6 +5,7 @@
 
 #include "Core/Prelude.h"
 #include "Profiler/Profiler.h"   // DRACONIC_PROFILE_SCOPE (isolate animation-drive cost)
+#include "imgui.h"               // Dear ImGui (HUD) — used directly; integration is draconic.imgui
 
 import draconic.core;
 import draconic.profiler;
@@ -20,6 +21,7 @@ import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.render.subsystem;       // MeshComponent / CameraComponent + their managers
 import draconic.render;                  // ViewCamera / ViewportRect (split-screen overrides)
+import draconic.imgui;                    // ImguiSubsystem (HUD)
 import draconic.geometry;
 import draconic.geometry.resource;       // StaticMeshFactory + StaticMesh product
 import draconic.materials;
@@ -49,6 +51,7 @@ namespace rhi = draconic::rhi;
 namespace rt = draconic::runtime;
 namespace sc = draconic::scene;
 namespace rd = draconic::render;
+namespace gui = draconic::imgui;
 namespace geo = draconic::geometry;
 namespace mat = draconic::materials;
 namespace tex = draconic::texture;
@@ -77,6 +80,15 @@ namespace
             rt::ApplicationSettings s;
             s.presentMode = rhi::PresentMode::Immediate;
             return s;
+        }
+
+        // Register the ImGui subsystem so the benchmark HUD can draw over the scene.
+        void Configure(rt::IApplicationHost& host) override
+        {
+            rt::DefaultApplication::Configure(host);
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
+                host.Ctx().AddSubsystem<gui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+            }
         }
 
         void OnStartup(rt::IApplicationHost& host) override
@@ -133,6 +145,9 @@ namespace
             }
 
             LoadImportedModel(host);   // cook the character + spawn the initial grid
+
+            // Lower default exposure: the procedural-sky IBL + sun are bright, so AgX washes out at 1.0.
+            if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) { render->SetExposure(0.5f); }
 
             rc::ConsoleWrite(u8"AnimStressTest: [Space] add batch  [Backspace] remove batch  [P] profiler  [Esc] exit\n");
         }
@@ -323,11 +338,20 @@ namespace
                 }
             }
             rt::DefaultApplication::OnRenderWindow(host, frame);
+
+            // HUD over the scene (backbuffer is RenderTarget after the default render path).
+            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) { g->Render(frame); }
         }
 
         void OnUpdate(rt::IApplicationHost& host, rc::f32 deltaTime) override
         {
             rt::DefaultApplication::OnUpdate(host, deltaTime);   // keep the P-key profiling dump
+
+            // ImGui HUD: open the frame + build the stats window (drawn in OnRenderWindow).
+            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
+                g->NewFrame(host.Platform() != nullptr ? host.Platform()->Input() : nullptr, deltaTime);
+                BuildHud(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
+            }
 
             // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). Drives the scene camera entity; Esc exits.
             m_fly.Update(host, deltaTime);
@@ -335,6 +359,7 @@ namespace
                 if (rt::IKeyboard* kb = input->Keyboard()) {
                     if (kb->IsKeyPressed(rt::KeyCode::Space))     { AddBatch(); }
                     if (kb->IsKeyPressed(rt::KeyCode::Backspace)) { RemoveBatch(); }
+                    if (kb->IsKeyPressed(rt::KeyCode::H))         { m_showHud = !m_showHud; }
                     if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
                 }
             }
@@ -351,15 +376,8 @@ namespace
             // SkeletalAnimationComponent in the scene's PostUpdate phase and feeds the bone matrices);
             // the sample no longer drives players by hand.
 
-            // Smoothed FPS/frame-ms readout once a second (vsync off -> real frame cost).
+            // Smoothed FPS/frame-ms (vsync off -> real frame cost); shown in the ImGui HUD.
             m_frameTimeMs = m_frameTimeMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
-            m_reportTimer += deltaTime;
-            if (m_reportTimer >= 1.0f) {
-                m_reportTimer = 0.0f;
-                const rc::f32 fps = (m_frameTimeMs > 0.001f) ? (1000.0f / m_frameTimeMs) : 0.0f;
-                rc::ConsoleWrite(rc::Format(u8"AnimStressTest: chars={}  fps={}  frame={} ms\n",
-                    m_instances.Size(), static_cast<rc::u32>(fps + 0.5f), m_frameTimeMs));
-            }
 
             // TEMP headless auto-profile: hold a fixed count, warm up, then dump CPU + GPU profiler
             // reports (same as the P key) and exit — for capturing the baseline frame breakdown.
@@ -395,6 +413,28 @@ namespace
                 }
             }
 
+        }
+
+        // ImGui HUD: character count + frame stats + exposure/bloom controls (H toggles it).
+        void BuildHud(rd::RenderSubsystem* render)
+        {
+            if (!m_showHud) { return; }
+            ImGui::Begin("Anim Stress Test");
+            const float fps = m_frameTimeMs > 0.001f ? 1000.0f / m_frameTimeMs : 0.0f;
+            ImGui::Text("%.0f fps   %.2f ms", static_cast<double>(fps), static_cast<double>(m_frameTimeMs));
+            ImGui::Text("characters: %d", static_cast<int>(m_instances.Size()));
+            if (render != nullptr) {
+                ImGui::Separator();
+                float exposure = render->Exposure();
+                if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 4.0f)) { render->SetExposure(exposure); }
+                bool bloomOn = render->BloomEnabled();
+                if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
+            }
+            ImGui::Separator();
+            ImGui::TextUnformatted("Space +batch   Backspace -batch");
+            ImGui::TextUnformatted("H hide HUD   P profiler   Esc exit");
+            ImGui::TextUnformatted("WASD/QE move   RMB look   Shift fast");
+            ImGui::End();
         }
 
         void OnShutdown(rt::IApplicationHost& host) override
@@ -433,7 +473,7 @@ namespace
         rc::Array<Instance> m_instances;
         rc::Random          m_rng{ 0x9e3779b97f4a7c15ull };
         rc::f32             m_frameTimeMs = 16.6f;
-        rc::f32             m_reportTimer = 0.0f;
+        bool                m_showHud     = true;   // HUD visibility (H)
 
         // Measurement aid (off by default): auto-ramp the character count until FPS <= 50, then
         // report + exit. Flip to true for a headless throughput baseline; normal use is interactive.

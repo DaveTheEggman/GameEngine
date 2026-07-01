@@ -15,6 +15,7 @@ target_link_libraries(AnimStressTest PRIVATE
     Draconic::Scene
     Draconic::SceneSubsystem
     Draconic::RenderSubsystem
+    Draconic::Imgui
     Draconic::Geometry
     Draconic::Materials
     Draconic::ModelImporter
