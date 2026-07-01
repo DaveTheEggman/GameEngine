@@ -57,9 +57,10 @@ struct IblPush {
 [[vk::push_constant]] IblPush pc;
 
 // Canonical cube-face direction from a face index + [0,1] face uv. NOTE: no t.y negation — the cube
-// faces are rendered through the RHI's negative-viewport (Y-flipped) so the stored texel already
+// faces are rendered through the RHI's negative-viewport (Y-flipped), so the stored texel already
 // matches the standard cube-sampling convention; negating here would double-flip and break edge
-// continuity (visible seams).
+// continuity. (Verified correct in-engine: the sky background samples this cube by world ray and the
+// procedural gradient reads right-side-up.)
 float3 DirForFace(int face, float2 uv) {
     float2 t = uv * 2.0 - 1.0;
     float3 d;
