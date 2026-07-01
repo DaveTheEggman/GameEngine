@@ -1282,6 +1282,10 @@ private:
         config.colorTargetCount = 3;
         config.colorFormats[1]  = kGNormalFormat;
         config.colorFormats[2]  = kGVelocityFormat;
+        // Only opaque/masked geometry populates the G-buffer; transparent/blended draws bind the aux
+        // targets but don't write them (they'd clobber the opaque normal/velocity they blend over).
+        config.writeAuxTargets  = (config.blendMode == materials::BlendMode::Opaque ||
+                                   config.blendMode == materials::BlendMode::Masked);
         return config;
     }
 

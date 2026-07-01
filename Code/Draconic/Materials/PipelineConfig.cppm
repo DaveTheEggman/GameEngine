@@ -63,6 +63,10 @@ struct PipelineConfig {
 
     // --- flags ---
     bool depthOnly = false;
+    // MRT: write the G-buffer aux targets (normal/velocity, slots 1+). False for transparent/blended
+    // draws so they don't clobber the opaque G-buffer they blend over (they still bind all targets to
+    // match the render pass, but with the aux write masks disabled).
+    bool writeAuxTargets = true;
 
     // Content hash: name bytes folded with the POD state. Used as the PSO-cache key.
     [[nodiscard]] u64 HashCode() const noexcept {
@@ -89,6 +93,7 @@ struct PipelineConfig {
         mix(colorTargetCount);
         mix(sampleCount);
         mix(depthOnly ? 1u : 0u);
+        mix(writeAuxTargets ? 1u : 0u);
         return h;
     }
 
@@ -102,7 +107,7 @@ struct PipelineConfig {
               depthFormat == o.depthFormat && depthBias == o.depthBias &&
               depthBiasSlopeScale == o.depthBiasSlopeScale &&
               colorTargetCount == o.colorTargetCount && sampleCount == o.sampleCount &&
-              depthOnly == o.depthOnly)) {
+              depthOnly == o.depthOnly && writeAuxTargets == o.writeAuxTargets)) {
             return false;
         }
         for (u8 i = 0; i < colorTargetCount && i < rhi::MaxColorAttachments; ++i) {

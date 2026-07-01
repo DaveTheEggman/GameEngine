@@ -126,7 +126,9 @@ private:
             for (u32 i = 0; i < count; ++i) {
                 colorTargets[i].format    = (i == 0 && colorOverride != rhi::TextureFormat::Undefined) ? colorOverride : config.colorFormats[i];
                 colorTargets[i].blend     = (i == 0) ? BlendFor(config.blendMode) : Optional<rhi::BlendState>{};
-                colorTargets[i].writeMask = config.colorWriteMask;
+                // Aux G-buffer targets (1+) only write when writeAuxTargets is set — transparent draws
+                // bind them (to match the pass) but leave the opaque normal/velocity underneath intact.
+                colorTargets[i].writeMask = (i == 0 || config.writeAuxTargets) ? config.colorWriteMask : rhi::ColorWriteMask::None;
             }
             rhi::FragmentState frag{};
             frag.shader = rhi::ProgrammableStage{ fs, u8"main", rhi::ShaderStage::Fragment };
