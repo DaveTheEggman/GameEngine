@@ -56,6 +56,8 @@ cbuffer View : register(b0, space0) {
     float4 CascadeSplitFar;        // view-space far depth of each cascade (cascade selection)
     float4 CascadeTexelSize;       // world units per shadow texel, per cascade (normal-offset bias)
     float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
+    row_major float4x4 PrevViewProj;   // last frame's world->clip (motion vectors)
+    float4 Jitter;                     // xy = this frame's NDC jitter, zw = last frame's (TAA)
 };
 #ifdef SKINNED
 // GPU skinning: per-bone skinning matrices (= inverseBind * worldPose), v * skin (row-vector).
@@ -76,14 +78,16 @@ float4x4 BlendBones(uint4 j, float4 w, uint base) {
 }
 #endif
 #ifdef INSTANCED
-struct InstanceData { row_major float4x4 World; float4 Tint; };
+struct InstanceData { row_major float4x4 World; row_major float4x4 PrevWorld; float4 Tint; };
 StructuredBuffer<InstanceData> Instances : register(t0, space1);
 #else
 cbuffer Object : register(b0, space1) {
     row_major float4x4 World;
+    row_major float4x4 PrevWorld;   // last frame's world (motion vectors)
     float4             Tint;
-    uint               BoneBase;   // first bone matrix for this draw (skinning); 0 otherwise
-    uint3              _objPad;
+    uint               BoneBase;      // first bone matrix for this draw (skinning); 0 otherwise
+    uint               PrevBoneBase;  // last frame's bone base (skinned motion vectors)
+    uint2              _objPad;
 };
 #endif
 struct VSInput {
@@ -109,42 +113,54 @@ struct VSOutput {
     float2 uv        : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
     float3 worldPos  : TEXCOORD4;
+    float4 curClip   : TEXCOORD5;   // unjittered current clip pos (motion vectors)
+    float4 prevClip  : TEXCOORD6;   // unjittered previous clip pos (motion vectors)
 };
 VSOutput main(VSInput input) {
     VSOutput o;
 #ifdef INSTANCED
-    float4x4 world = Instances[input.dataOffsets.x].World;
-    float4   tint  = Instances[input.dataOffsets.x].Tint;
+    float4x4 world     = Instances[input.dataOffsets.x].World;
+    float4x4 prevWorld = Instances[input.dataOffsets.x].PrevWorld;
+    float4   tint      = Instances[input.dataOffsets.x].Tint;
 #else
-    float4x4 world = World;
-    float4   tint  = Tint;
+    float4x4 world     = World;
+    float4x4 prevWorld = PrevWorld;
+    float4   tint      = Tint;
 #endif
     float3 lp = input.position;
     float3 ln = input.normal;
     float3 lt = input.tangent;
+    float3 lpPrev = input.position;   // previous-frame local position (differs from lp only when skinned)
 #ifdef SKINNED
     // Blend the four influencing bones (joint indices packed 4x u16 -> 2x u32) into a skin matrix. The
     // bone base is per-instance (DataOffsets.y) for the instanced path; the device pool holds [cur][prev]
     // per skeleton (DataOffsets.z = prev base, for motion vectors).
   #ifdef INSTANCED
-    uint boneBase = input.dataOffsets.y;
+    uint boneBase     = input.dataOffsets.y;
+    uint prevBoneBase = input.dataOffsets.z;
   #else
-    uint boneBase = BoneBase;
+    uint boneBase     = BoneBase;
+    uint prevBoneBase = PrevBoneBase;
   #endif
     uint4 j = uint4(input.jointsPacked.x & 0xFFFFu, input.jointsPacked.x >> 16,
                     input.jointsPacked.y & 0xFFFFu, input.jointsPacked.y >> 16);
-    float4x4 skin = BlendBones(j, input.weights, boneBase);
+    float4x4 skin     = BlendBones(j, input.weights, boneBase);
+    float4x4 skinPrev = BlendBones(j, input.weights, prevBoneBase);
+    lpPrev = mul(float4(input.position, 1.0), skinPrev).xyz;   // deform with LAST frame's pose
     lp = mul(float4(lp, 1.0), skin).xyz;
     ln = mul(float4(ln, 0.0), skin).xyz;
     lt = mul(float4(lt, 0.0), skin).xyz;
 #endif
-    float4 worldPos = mul(float4(lp, 1.0), world);
+    float4 worldPos     = mul(float4(lp, 1.0), world);
+    float4 prevWorldPos = mul(float4(lpPrev, 1.0), prevWorld);
     o.clip      = mul(worldPos, ViewProj);
     o.normalWS  = normalize(mul(float4(ln, 0.0), world).xyz);
     o.color     = input.color * tint;                           // vertex color * per-instance tint
     o.uv        = input.uv;                                     // consume the full vertex layout
     o.tangentWS = mul(float4(lt, 0.0), world).xyz;
     o.worldPos  = worldPos.xyz;
+    o.curClip   = o.clip;                                        // (jitter is baked into ViewProj; PS unjitters)
+    o.prevClip  = mul(prevWorldPos, PrevViewProj);
     return o;
 }
 )";
@@ -163,6 +179,8 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     float4 CascadeSplitFar;
     float4 CascadeTexelSize;
     float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
+    row_major float4x4 PrevViewProj;   // (shared with VS; PS only reads Jitter)
+    float4 Jitter;                     // xy = this frame's NDC jitter, zw = last frame's
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -340,6 +358,8 @@ struct PSInput {
     float2 uv        : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
     float3 worldPos  : TEXCOORD4;
+    float4 curClip   : TEXCOORD5;   // motion vectors (unjittered current/previous clip pos)
+    float4 prevClip  : TEXCOORD6;
 };
 
 static const float PI = 3.14159265359;
@@ -481,10 +501,17 @@ PSOutput main(PSInput input) {
     } else {
         ambient = albedo * Ambient * ao;                         // flat fallback (no environment active)
     }
+    // Motion vector: current vs previous screen position, both unjittered (remove the per-frame TAA
+    // jitter baked into each clip), as a UV-space delta (history is sampled at uv - velocity). NDC.y is
+    // flipped vs UV.y, hence the (0.5, -0.5) scale.
+    float2 curNDC  = input.curClip.xy  / input.curClip.w  - Jitter.xy;
+    float2 prevNDC = input.prevClip.xy / input.prevClip.w - Jitter.zw;
+    float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
+
     PSOutput o;
     o.color    = float4(ambient + Lo, 1.0);
     o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space normal (octahedral)
-    o.velocity = float2(0.0, 0.0);                                      // motion vectors: filled in A1b
+    o.velocity = velocity;
     return o;
 }
 )";
@@ -512,15 +539,19 @@ float4x4 BlendBones(uint4 j, float4 w, uint base) {
                     b0.Row3 * w.x + b1.Row3 * w.y + b2.Row3 * w.z + b3.Row3 * w.w);
 }
 #endif
+// Layouts mirror the forward path's Object/InstanceData exactly (shared C++ ring buffers) — the extra
+// PrevWorld/PrevBoneBase fields keep the strides/offsets aligned even though the depth pass ignores them.
 #ifdef INSTANCED
-struct InstanceData { row_major float4x4 World; float4 Tint; };
+struct InstanceData { row_major float4x4 World; row_major float4x4 PrevWorld; float4 Tint; };
 StructuredBuffer<InstanceData> Instances : register(t0, space1);
 #else
 cbuffer Object : register(b0, space1) {
     row_major float4x4 World;
+    row_major float4x4 PrevWorld;
     float4             Tint;
     uint               BoneBase;
-    uint3              _objPad;
+    uint               PrevBoneBase;
+    uint2              _objPad;
 };
 #endif
 struct VSInput {
@@ -852,6 +883,8 @@ public:
         if (!view.ok) { return; }
         ViewData vd{};
         vd.viewProj      = ctx.viewProj;
+        vd.prevViewProj  = ctx.prevViewProj;   // motion vectors (camera)
+        vd.jitter        = Vec4{ ctx.jitter.x, ctx.jitter.y, ctx.prevJitter.x, ctx.prevJitter.y };
         vd.view          = ctx.viewMatrix;
         vd.cameraPos     = ctx.cameraPos;
         vd.ambient       = ctx.ambient;
@@ -953,6 +986,9 @@ public:
         m_instanceRing.EndFrame();
         m_boneRing.EndFrame();
         m_offsetsRing.EndFrame();
+        // This frame's world matrices become next frame's "previous" (motion vectors).
+        m_prevWorld = Move(m_curWorld);
+        m_curWorld.Clear();
         m_ready = false;
     }
 
@@ -969,9 +1005,11 @@ private:
         Vec4 cascadeSplitFar  = Vec4{ 0, 0, 0, 0 };                                             // 16
         Vec4 cascadeTexelSize = Vec4{ 0, 0, 0, 0 };                                             // 16
         f32  shadowNormalBias = 0, shadowDepthBias = 0, cascadeLayerBase = 0; u32 localShadowBase = 0;   // 16
+        Mat4 prevViewProj = Mat4::Identity();            // 64  (motion vectors: last frame's world->clip)
+        Vec4 jitter = Vec4{ 0, 0, 0, 0 };                // 16  (xy = this frame's NDC jitter, zw = last frame's)
     };
-    struct ObjectData   { Mat4 world; Color tint; u32 boneBase = 0; u32 p0 = 0, p1 = 0, p2 = 0; };   // 96 (cbuffer Object)
-    struct InstanceData { Mat4 world; Color tint; };     // 80  (StructuredBuffer element)
+    struct ObjectData   { Mat4 world; Mat4 prevWorld; Color tint; u32 boneBase = 0, prevBoneBase = 0, p1 = 0, p2 = 0; };   // 160 (cbuffer Object)
+    struct InstanceData { Mat4 world; Mat4 prevWorld; Color tint; };     // 144 (StructuredBuffer element)
     struct DataOffsets  { u32 x, y, z, w; };             // 16  (instance-stepped vertex attr)
     struct ShadowViewData { Mat4 lightViewProj; };       // 64  (cbuffer ShadowView)
 
@@ -1014,7 +1052,8 @@ private:
 
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
         if (!obj.ok) { return; }
-        ObjectData od{ md.world, md.color }; od.boneBase = boneBase;
+        ObjectData od{}; od.world = md.world; od.prevWorld = PrevWorldFor(md.entityId, md.world);
+        od.tint = md.color; od.boneBase = boneBase; od.prevBoneBase = boneBase;
         *static_cast<ObjectData*>(obj.ptr) = od;
 
         // Shared per-submesh draw state (view/object/cluster sets + vertex/index buffers + skinning).
@@ -1076,7 +1115,7 @@ private:
         DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
-            id[k] = InstanceData{ md->world, md->color };
+            id[k] = InstanceData{ md->world, PrevWorldFor(md->entityId, md->world), md->color };
             u32 boneBase = 0, prevBase = 0;
             if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
             od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };   // .x=Instances[] idx, .y/.z=bone bases
@@ -1145,7 +1184,8 @@ private:
         if (pso == nullptr) { return; }
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
         if (!obj.ok) { return; }
-        ObjectData od{ md.world, md.color }; od.boneBase = boneBase;
+        ObjectData od{}; od.world = md.world; od.prevWorld = md.world;   // depth pass ignores prevWorld
+        od.tint = md.color; od.boneBase = boneBase;
         *static_cast<ObjectData*>(obj.ptr) = od;
 
         ResolvedDraw d{};
@@ -1181,7 +1221,7 @@ private:
         DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
-            id[k] = InstanceData{ md->world, md->color };
+            id[k] = InstanceData{ md->world, md->world, md->color };   // depth pass ignores prevWorld
             u32 boneBase = 0, prevBase = 0;
             if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
             od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };
@@ -1613,6 +1653,21 @@ private:
     struct SkinnedRef { const Mat4* cur; const Mat4* prev; u32 count; };
     HashMap<const Mat4*, BoneSlot> m_boneStart;
     Array<SkinnedRef>              m_skinnedScratch;
+
+    // Per-entity previous-frame world matrix, for rigid-object motion vectors. m_prevWorld holds LAST
+    // frame's worlds (read by every view this frame); resolves write THIS frame's into m_curWorld; the
+    // two swap at FinishFrame. Keyed by MeshRenderData::entityId (stable per entity). No entry -> no
+    // motion (prev == cur), so newly-visible objects don't smear on their first frame.
+    HashMap<u64, Mat4> m_prevWorld;
+    HashMap<u64, Mat4> m_curWorld;
+
+    // Look up an entity's previous-frame world (defaulting to `cur` when unknown) and record `cur` as
+    // this frame's world for next frame. Idempotent across a frame's views (all read the same m_prevWorld).
+    [[nodiscard]] Mat4 PrevWorldFor(u64 entityId, const Mat4& cur) {
+        m_curWorld.InsertOrAssign(entityId, cur);
+        const Mat4* p = m_prevWorld.Find(entityId);
+        return (p != nullptr) ? *p : cur;
+    }
 
     // Bind groups retired this/prior frames but possibly still referenced by in-flight command
     // buffers; freed by TickRetiredBindGroups once the frame ring has cycled (framesLeft hits 0).

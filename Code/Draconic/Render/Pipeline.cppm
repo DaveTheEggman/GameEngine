@@ -44,6 +44,9 @@ struct RenderRecordContext {
     const RenderView*          view        = nullptr;
     rhi::RenderCommandEncoder* pass        = nullptr;
     Mat4                       viewProj    = Mat4::Identity();
+    Mat4                       prevViewProj = Mat4::Identity();  // last frame's view-proj (camera motion vectors)
+    Vec2                       jitter      = Vec2{ 0, 0 };       // this frame's NDC sub-pixel TAA jitter
+    Vec2                       prevJitter  = Vec2{ 0, 0 };       // last frame's jitter (unjitter the reprojection)
     Mat4                       viewMatrix  = Mat4::Identity();   // for view-space depth (clustered shading)
     Vec3                       cameraPos   = Vec3{ 0, 0, 0 };
     Vec3                       ambient     = Vec3{ 0.03f, 0.03f, 0.03f };   // scene environment ambient
@@ -265,12 +268,13 @@ public:
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                      rendergraph::RGHandle colorH, rendergraph::RGHandle depth, bool clearColor, rhi::TextureFormat colorFormat,
                      rendergraph::RGHandle normalH, rendergraph::RGHandle velocityH,
+                     const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
                      const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                      const IblBinding& ibl = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear);
             // MRT G-buffer aux (cleared each view): view-space normal + screen-space motion vector.
             b.SetColorTarget(1, normalH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
@@ -292,8 +296,8 @@ public:
             // Read the IBL products (orders any precompute writes -> this pass + barriers them readable).
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, cluster, shadow, out);
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, prevViewProj, jitter, prevJitter, cluster, shadow, out);
             });
         });
     }
@@ -304,10 +308,14 @@ private:
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
+                        const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
                         const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = view.Camera().ViewProjection();
+        ctx.prevViewProj = prevViewProj;
+        ctx.jitter      = jitter;
+        ctx.prevJitter  = prevJitter;
         ctx.viewMatrix  = view.Camera().view;
         ctx.cameraPos   = view.Camera().position;
         ctx.ambient     = (view.Scene() != nullptr) ? view.Scene()->Ambient() : Vec3{ 0.03f, 0.03f, 0.03f };
@@ -837,6 +845,15 @@ public:
             const rendergraph::RGHandle velocityT = m_graph.CreateTransient(
                 u8"forward.velocity", rendergraph::RGTextureDesc(kGVelocityFormat, v->Width(), v->Height()));
 
+            // Motion vectors: this view's previous-frame view-proj (identity/no-motion on first sight).
+            // Jitter is zero until TAA (Phase C) enables it. Record this frame's for next frame.
+            const Mat4 curViewProj = v->Camera().ViewProjection();
+            const Mat4 prevViewProj = (viewIndex < m_prevViewProj.Size()) ? m_prevViewProj[viewIndex] : curViewProj;
+            if (m_curViewProj.Size() <= viewIndex) { m_curViewProj.Resize(viewIndex + 1u, curViewProj); }
+            m_curViewProj[viewIndex] = curViewProj;
+            const Vec2 jitter{ 0.0f, 0.0f };
+            const Vec2 prevJitter{ 0.0f, 0.0f };
+
             // Declare the visible sky into `colorTarget` after the forward pass (if IBL + sky active).
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rhi::TextureFormat colorFmt) {
                 if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
@@ -856,7 +873,7 @@ public:
                 const rendergraph::RGHandle hdr = m_graph.CreateTransient(
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
-                                   m_tonemap->HdrFormat(), normalT, velocityT, cluster, shadow, ibl);
+                                   m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(hdr, m_tonemap->HdrFormat());   // sky into HDR, before tonemap
                 m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
@@ -864,7 +881,7 @@ public:
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
-                                   v->TargetFormat(), normalT, velocityT, cluster, shadow, ibl);
+                                   v->TargetFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(colorH, v->TargetFormat());
             }
         }
@@ -875,6 +892,7 @@ public:
         }
 
         for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }
+        m_prevViewProj = m_curViewProj;   // this frame's view-projs become next frame's "previous"
         m_encoder = nullptr;
     }
 
@@ -890,6 +908,10 @@ private:
     IBLSystem*              m_ibl      = nullptr;   // borrowed; owns the IBL precompute products (env/SH/prefilter/BRDF)
     SkyPass*                m_sky      = nullptr;   // borrowed; draws the visible environment background
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
+    // Motion vectors: last frame's view-proj per view index (this frame's collected into m_curViewProj,
+    // swapped in at End). Camera motion for static geometry comes from prev vs current view-proj.
+    Array<Mat4>             m_prevViewProj;
+    Array<Mat4>             m_curViewProj;
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
