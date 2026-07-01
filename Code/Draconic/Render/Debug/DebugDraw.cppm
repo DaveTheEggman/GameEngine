@@ -166,6 +166,30 @@ public:
         DrawCircle(center, Vec3{ 0, 1, 0 }, Vec3{ 0, 0, 1 }, radius, color, segments, overlay);
         DrawCircle(center, Vec3{ 1, 0, 0 }, Vec3{ 0, 0, 1 }, radius, color, segments, overlay);
     }
+    void DrawWireSphereOverlay(Vec3 center, f32 radius, Color color, i32 segments = 24) { DrawWireSphere(center, radius, color, segments, true); }
+    void DrawCircleOverlay(Vec3 center, Vec3 u, Vec3 v, f32 radius, Color color, i32 segments = 32) { DrawCircle(center, u, v, radius, color, segments, true); }
+    // Wireframe capsule (cylinder body + two hemisphere caps).
+    void DrawCapsule(Vec3 center, f32 radius, f32 height, Color color, i32 segments = 16, bool overlay = false) {
+        const f32 halfHeight = height * 0.5f - radius;
+        const Vec3 top = center + Vec3{ 0, halfHeight, 0 }, bottom = center - Vec3{ 0, halfHeight, 0 };
+        const f32 step = kPi * 2.0f / static_cast<f32>(segments);
+        for (i32 i = 0; i < segments; ++i) {   // vertical lines + the two end circles
+            const f32 a0 = static_cast<f32>(i) * step, a1 = static_cast<f32>(i + 1) * step;
+            const Vec3 o0{ Cos(a0) * radius, 0, Sin(a0) * radius }, o1{ Cos(a1) * radius, 0, Sin(a1) * radius };
+            DrawLine(top + o0, bottom + o0, color, overlay);
+            DrawLine(top + o0, top + o1, color, overlay);
+            DrawLine(bottom + o0, bottom + o1, color, overlay);
+        }
+        const i32 halfSeg = segments / 2;
+        const f32 halfStep = kPi / static_cast<f32>(halfSeg);
+        for (i32 i = 0; i < halfSeg; ++i) {     // hemisphere arcs (XY + ZY planes, top + bottom)
+            const f32 a0 = static_cast<f32>(i) * halfStep, a1 = static_cast<f32>(i + 1) * halfStep;
+            DrawLine(top + Vec3{ Sin(a0) * radius, Cos(a0) * radius, 0 }, top + Vec3{ Sin(a1) * radius, Cos(a1) * radius, 0 }, color, overlay);
+            DrawLine(top + Vec3{ 0, Cos(a0) * radius, Sin(a0) * radius }, top + Vec3{ 0, Cos(a1) * radius, Sin(a1) * radius }, color, overlay);
+            DrawLine(bottom + Vec3{ Sin(a0) * radius, -Cos(a0) * radius, 0 }, bottom + Vec3{ Sin(a1) * radius, -Cos(a1) * radius, 0 }, color, overlay);
+            DrawLine(bottom + Vec3{ 0, -Cos(a0) * radius, Sin(a0) * radius }, bottom + Vec3{ 0, -Cos(a1) * radius, Sin(a1) * radius }, color, overlay);
+        }
+    }
     // World basis axes of a transform (red=X, green=Y, blue=Z). Rows are the basis (row-vector convention).
     void DrawAxis(const Mat4& transform, f32 size = 1.0f, bool overlay = false) {
         const Vec3 o{ transform(3, 0), transform(3, 1), transform(3, 2) };
