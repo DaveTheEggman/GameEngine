@@ -829,8 +829,8 @@ public:
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rhi::TextureFormat colorFmt) {
                 if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
                 const Mat4 invVP  = Inverse(v->Camera().ViewProjection());
-                // The analytic sun disc is procedural-only; textured envs (HDR/cubemap) carry their own sun.
-                const f32 sunInt = m_ibl->IsProcedural() ? m_ibl->SunIntensity() : 0.0f;
+                // The crisp analytic sun disc is for untextured skies; textured envs carry their own sun.
+                const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
                 m_sky->DeclareSky(m_graph, colorTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),
                                   colorFmt, m_pass.DepthFormat(), invVP, v->Camera().position, m_ibl->SkyIntensity(),
                                   m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, sunInt,

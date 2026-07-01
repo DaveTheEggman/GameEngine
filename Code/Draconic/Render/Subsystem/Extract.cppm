@@ -218,6 +218,7 @@ inline void ExtractEnvironmentInto(scene::Scene& scene, ExtractedScene& out) {
         s.ground    = Vec3{ e.skyGround.r, e.skyGround.g, e.skyGround.b };
         s.sunIntensity   = e.sunIntensity;
         s.sunAngularSize = e.sunAngularSize;
+        s.turbidity      = e.turbidity;
         out.SetSky(s);
     }
 }

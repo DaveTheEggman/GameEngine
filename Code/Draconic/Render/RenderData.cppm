@@ -250,7 +250,7 @@ private:
 
 // How the scene's environment radiance (sky + IBL source) is produced. The canonical enum lives
 // here in the snapshot layer; the authoring EnvironmentSettings (render.subsystem) references it.
-enum class SkyMode : u32 { Procedural, Color, HDREquirect, Cubemap };
+enum class SkyMode : u32 { Procedural, Analytic, Color, HDREquirect, Cubemap };
 
 // The per-frame environment snapshot driving IBL + sky. Plain types (colors as Vec3) so the
 // snapshot layer carries no authoring dependency.
@@ -263,6 +263,7 @@ struct SkySnapshot {
     Vec3    ground    = Vec3{ 0.30f, 0.28f, 0.25f };
     f32     sunIntensity   = 1.0f;
     f32     sunAngularSize = 0.5f;                     // sun disc size (degrees)
+    f32     turbidity      = 3.0f;                     // Analytic (Preetham) atmospheric turbidity (~2..10)
 };
 
 // ---- extracted scene -------------------------------------------------------------------

@@ -99,6 +99,7 @@ struct EnvironmentSettings {
     Color   skyGround    = Color{ 0.30f, 0.28f, 0.25f, 1.0f };
     f32     sunIntensity = 1.0f;
     f32     sunAngularSize = 0.5f;                                    // sun disc size (degrees)
+    f32     turbidity    = 3.0f;                                      // Analytic (Preetham) haze (~2..10)
 };
 
 class EnvironmentSystem final : public scene::SceneSystem {
