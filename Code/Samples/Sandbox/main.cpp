@@ -495,6 +495,26 @@ namespace
             if (render != nullptr) {
                 float exposure = render->Exposure();
                 if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 8.0f)) { render->SetExposure(exposure); }
+                {
+                    // Ambient occlusion mode (Off/GTAO/SSAO, mutually exclusive) + shared knobs.
+                    const char* aoItems[] = { "Off", "GTAO", "SSAO" };
+                    int aoMode = static_cast<int>(render->GetAoMode());
+                    if (ImGui::Combo("AO Mode", &aoMode, aoItems, 3)) { render->SetAoMode(static_cast<rd::AoMode>(aoMode)); }
+                    if (render->GetAoMode() != rd::AoMode::Off) {
+                        float s = render->AoStrength();
+                        if (ImGui::SliderFloat("AO Strength", &s, 0.0f, 1.0f)) { render->SetAoStrength(s); }
+                        float rad = render->AoRadius();
+                        if (ImGui::SliderFloat("AO Radius", &rad, 0.1f, 3.0f)) { render->SetAoRadius(rad); }
+                        float inten = render->AoIntensity();
+                        if (ImGui::SliderFloat("AO Power", &inten, 0.5f, 4.0f)) { render->SetAoIntensity(inten); }
+                    }
+                    // Debug view (forces a generator on, shows the chosen buffer straight to screen): a good
+                    // view-space normal ramps smoothly with orientation; View Z ramps with distance; AO
+                    // should darken only in creases.
+                    const char* dbgItems[] = { "Off", "AO", "Normal.x", "Normal.y", "Normal.z", "View Z", "Raw Depth" };
+                    int dbg = render->AoDebug();
+                    if (ImGui::Combo("AO Debug", &dbg, dbgItems, 7)) { render->SetAoDebug(dbg); }
+                }
                 bool taaOn = render->TaaEnabled();
                 if (ImGui::Checkbox("TAA", &taaOn)) { render->SetTaaEnabled(taaOn); }
                 if (taaOn) {
