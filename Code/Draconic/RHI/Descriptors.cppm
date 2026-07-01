@@ -222,9 +222,25 @@ struct BlendState {
     BlendComponent color;
     BlendComponent alpha;
 
+    // Standard alpha blending: srcAlpha*src + (1-srcAlpha)*dst.
     static constexpr BlendState AlphaBlend() {
         return { { BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha, BlendOperation::Add },
                  { BlendFactor::One,      BlendFactor::OneMinusSrcAlpha, BlendOperation::Add } };
+    }
+    // Premultiplied alpha: src + (1-srcAlpha)*dst.
+    static constexpr BlendState PremultipliedAlpha() {
+        return { { BlendFactor::One, BlendFactor::OneMinusSrcAlpha, BlendOperation::Add },
+                 { BlendFactor::One, BlendFactor::OneMinusSrcAlpha, BlendOperation::Add } };
+    }
+    // Additive: src + dst — accumulate, e.g. the bloom upsample chain.
+    static constexpr BlendState Additive() {
+        return { { BlendFactor::One, BlendFactor::One, BlendOperation::Add },
+                 { BlendFactor::One, BlendFactor::One, BlendOperation::Add } };
+    }
+    // Multiply: src * dst.
+    static constexpr BlendState Multiply() {
+        return { { BlendFactor::Dst,      BlendFactor::Zero, BlendOperation::Add },
+                 { BlendFactor::DstAlpha, BlendFactor::Zero, BlendOperation::Add } };
     }
 };
 
