@@ -495,6 +495,16 @@ namespace
             if (render != nullptr) {
                 float exposure = render->Exposure();
                 if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 8.0f)) { render->SetExposure(exposure); }
+                bool taaOn = render->TaaEnabled();
+                if (ImGui::Checkbox("TAA", &taaOn)) { render->SetTaaEnabled(taaOn); }
+                if (taaOn) {
+                    float b = render->TaaBlend();
+                    if (ImGui::SliderFloat("TAA History", &b, 0.80f, 0.995f)) { render->SetTaaBlend(b); }
+                    float g = render->TaaGamma();
+                    if (ImGui::SliderFloat("TAA Variance", &g, 0.5f, 2.5f)) { render->SetTaaGamma(g); }
+                    float m = render->TaaMotionScale();
+                    if (ImGui::SliderFloat("TAA Motion", &m, 0.0f, 128.0f)) { render->SetTaaMotionScale(m); }
+                }
                 bool bloomOn = render->BloomEnabled();
                 if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
                 if (bloomOn) {
