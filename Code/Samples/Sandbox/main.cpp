@@ -92,7 +92,7 @@ namespace
                 e.ambientColor     = rc::Color{ 0.12f, 0.16f, 0.28f, 1.0f };   // flat fallback (IBL off)
                 e.ambientIntensity = 0.35f;
                 e.skyMode      = rd::SkyMode::Procedural;
-                e.skyIntensity = 1.0f;
+                e.skyIntensity = 0.7f;   // dimmer sky -> less washed-out IBL ambient
                 e.skyHorizon   = rc::Color{ 0.62f, 0.70f, 0.85f, 1.0f };
                 e.skyZenith    = rc::Color{ 0.18f, 0.34f, 0.68f, 1.0f };
                 e.skyGround    = rc::Color{ 0.28f, 0.26f, 0.24f, 1.0f };
@@ -101,6 +101,9 @@ namespace
 
             // Load an HDR equirectangular environment so F5 can cycle to it (mode starts Procedural).
             if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                // Default exposure below 1.0 — the procedural sky + IBL ambient are bright, so the AgX
+                // tonemap washes out at 1.0. Tune live via the Environment window's Exposure slider.
+                render->SetExposure(0.5f);
                 rc::String hdrPath = rc::Format(u8"{}/BlueSky.hdr",
                     rc::StringView(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
                 draconic::image::Image img;
@@ -217,9 +220,7 @@ namespace
             if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                 sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 m_keyLight = key;
-                rc::Transform kt = m_scene->GetLocalTransform(key);
-                kt.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.6f);
-                m_scene->SetLocalTransform(key, kt);
+                ApplyKeyLightDir();   // pitch/yaw -> entity rotation (steeper downward tilt by default)
                 rd::LightComponent& kl = lights->Add(key);
                 kl.type = rd::LightType::Directional;
                 kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
@@ -240,7 +241,7 @@ namespace
                         rd::LightComponent& pl = lights->Add(e);
                         pl.type = rd::LightType::Point;
                         pl.color = rc::Color{ 0.4f + 0.6f * fi, 0.4f + 0.6f * fj, 1.0f - 0.6f * fi, 1.0f };
-                        pl.intensity = 22.0f;
+                        pl.intensity = 14.0f;
                         pl.range = 8.0f;                    // floor pool radius ~= sqrt(range^2 - dist^2)
                         m_pointLights.PushBack(e);
                         m_lightBases.PushBack(base);
@@ -258,7 +259,7 @@ namespace
                 rd::LightComponent& sl = lights->Add(spot);
                 sl.type         = rd::LightType::Spot;
                 sl.color        = rc::Color{ 1.0f, 0.92f, 0.78f, 1.0f };   // warm, to contrast the blue key
-                sl.intensity    = 180.0f;                                  // inverse-square over ~14u to the floor
+                sl.intensity    = 120.0f;                                  // inverse-square over ~14u to the floor
                 sl.range        = 30.0f;
                 sl.innerAngle   = 0.55f;
                 sl.outerAngle   = 0.75f;                                   // wide cone: cover both the box + sphere rows
@@ -272,7 +273,7 @@ namespace
                 rd::LightComponent& pls = lights->Add(pt);
                 pls.type         = rd::LightType::Point;
                 pls.color        = rc::Color{ 0.5f, 1.0f, 0.6f, 1.0f };     // green, distinct from the warm spot
-                pls.intensity    = 40.0f;
+                pls.intensity    = 28.0f;
                 pls.range        = 16.0f;
                 pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
             }
@@ -460,6 +461,17 @@ namespace
             }
         }
 
+        // Aim the directional key light from pitch (downward tilt) + yaw (compass) angles. The light
+        // shines along the entity's forward (-Z), so rotation = yaw(Y) * pitch(X); the sky sun tracks it.
+        void ApplyKeyLightDir()
+        {
+            if (m_scene == nullptr || !m_keyLight.IsAssigned()) { return; }
+            rc::Transform t = m_scene->GetLocalTransform(m_keyLight);
+            t.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, m_keyYaw)
+                       * rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, m_keyPitch);
+            m_scene->SetLocalTransform(m_keyLight, t);
+        }
+
         // Cycle the sky source (Procedural -> Analytic -> HDR Equirect -> Cubemap -> ...). Changing
         // skyMode re-runs the IBL precompute from the new source next frame.
         void CycleSkyMode()
@@ -526,6 +538,11 @@ namespace
                     ImGui::SliderFloat("Light Intensity", &kl->intensity, 0.0f, 8.0f);
                     float lc[3] = { kl->color.r, kl->color.g, kl->color.b };
                     if (ImGui::ColorEdit3("Light Color", lc)) { kl->color = rc::Color{ lc[0], lc[1], lc[2], 1.0f }; }
+                    // Aim the light live (pitch = downward tilt, yaw = compass). SliderAngle shows degrees.
+                    bool dirChanged = false;
+                    dirChanged |= ImGui::SliderAngle("Pitch", &m_keyPitch, -89.0f, 0.0f);
+                    dirChanged |= ImGui::SliderAngle("Yaw",   &m_keyYaw,  -180.0f, 180.0f);
+                    if (dirChanged) { ApplyKeyLightDir(); }
                 }
             }
             ImGui::Checkbox("Show ImGui demo", &m_showImguiDemo);
@@ -767,6 +784,8 @@ namespace
         rhi::Texture*               m_cutoutTex  = nullptr;   // masked-demo alpha-cutout texture
         rhi::TextureView*           m_cutoutView = nullptr;
         sc::EntityHandle            m_keyLight;   // directional key light (intensity/color tweakable in the debug UI)
+        rc::f32                     m_keyPitch = -1.05f;   // downward tilt (~-60 deg); Environment window slider
+        rc::f32                     m_keyYaw   =  0.35f;   // compass heading
         rc::Array<sc::EntityHandle> m_pointLights;
         rc::Array<rc::Vec3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
