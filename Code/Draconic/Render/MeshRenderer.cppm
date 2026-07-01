@@ -453,6 +453,11 @@ PSOutput main(PSInput input) {
     float4 albedoTex = AlbedoMap.Sample(MainSampler, input.uv);
     float3 albedo    = input.color.rgb * BaseColor.rgb * albedoTex.rgb;
     float  alpha     = saturate(input.color.a * BaseColor.a * albedoTex.a);   // surface opacity (alpha blend)
+#ifdef ALPHA_TEST
+    // Masked geometry: cut out sub-cutoff fragments before shading (skips lighting + writes no depth/
+    // G-buffer for the hole). 0.5 matches the glTF alpha-cutoff default.
+    if (alpha < 0.5) { discard; }
+#endif
     float2 mr        = MetallicRoughnessMap.Sample(MainSampler, input.uv).gb;   // glTF: G=roughness, B=metallic
     float  metallic  = saturate(Metallic * mr.y);
     float  roughness = clamp(Roughness * mr.x, 0.045, 1.0);
@@ -1288,6 +1293,9 @@ private:
         // targets but don't write them (they'd clobber the opaque normal/velocity they blend over).
         config.writeAuxTargets  = (config.blendMode == materials::BlendMode::Opaque ||
                                    config.blendMode == materials::BlendMode::Masked);
+        // Masked (alpha-tested) geometry: enable the shader's alpha-test discard permutation. It's
+        // opaque-like (writes depth + G-buffer) but cuts out sub-cutoff fragments before shading.
+        if (config.blendMode == materials::BlendMode::Masked) { config.shaderFlags |= shaders::ShaderFlags::AlphaTest; }
         return config;
     }
 
