@@ -99,8 +99,11 @@ public:
         for (u32 r = 0; r < rng; ++r) {
             for (u32 s = 0; s < seg; ++s) {
                 const u32 i0 = r * rowStride + s, i1 = i0 + 1, i2 = i0 + rowStride, i3 = i2 + 1;
-                mesh->indices.AddTriangle(i0, i2, i1);
-                mesh->indices.AddTriangle(i1, i2, i3);
+                // CCW-from-outside winding (matches SedulousEngine CreateSphere: (a,b,c),(b,d,c) with
+                // a=i0,b=i1,c=i2,d=i3). The port had (i0,i2,i1)/(i1,i2,i3) — last two swapped — which
+                // reversed the front face to inward, so back-face culling hid the outer shell.
+                mesh->indices.AddTriangle(i0, i1, i2);
+                mesh->indices.AddTriangle(i1, i3, i2);
             }
         }
         Finish(*mesh);
