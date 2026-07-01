@@ -28,6 +28,7 @@ import draconic.geometry.resource;       // StaticMeshFactory + StaticMesh produ
 import draconic.materials;
 import draconic.materials.resource;       // MaterialFactory (cooked materials)
 import draconic.texture.resource;         // TextureFactory (cooked textures)
+import draconic.texture.editor;           // TextureImporter::LoadCubemap
 import draconic.animation.resource;       // Skeleton/AnimationClip factories
 import draconic.vfs;                      // NativeFileSystem mount for the content DB
 import draconic.content;                  // ContentDatabase (cooked-resource output)
@@ -111,6 +112,21 @@ namespace
                                                 img.Width(), img.Height()).AsView());
                 } else {
                     rc::ConsoleWrite(rc::Format(u8"Sandbox: FAILED to load HDR sky from {}\n", hdrPath.AsView()).AsView());
+                }
+
+                // Cubemap source: point at ONE face; the importer detects the other 5 (px/nx/...) and
+                // loads + combines them. (Explicit 6-path LoadCubemap also works.)
+                rc::String oneFace = rc::Format(u8"{}/cube_sky/px.png",
+                    rc::StringView(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
+                rc::Array<rc::String> facePaths;
+                if (tex::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths).IsOk() && facePaths.Size() == 6) {
+                    rc::StringView faceViews[6];
+                    for (int i = 0; i < 6; ++i) { faceViews[i] = facePaths[static_cast<rc::usize>(i)].AsView(); }
+                    rc::Array<rc::u8> cube; rc::u32 cubeFace = 0;
+                    if (tex::TextureImporter::LoadCubemap(rc::Span<const rc::StringView>{ faceViews, 6 }, cube, cubeFace).IsOk()) {
+                        render->SetSkyCubemap(cubeFace, rc::Span<const rc::u8>{ cube.Data(), cube.Size() });
+                        rc::ConsoleWrite(rc::Format(u8"Sandbox: loaded cubemap sky {}x{} x6\n", cubeFace, cubeFace).AsView());
+                    }
                 }
             }
 
@@ -421,7 +437,9 @@ namespace
             if (m_scene == nullptr) { return; }
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
                 rd::EnvironmentSettings& e = env->Environment();
-                e.skyMode = (e.skyMode == rd::SkyMode::Procedural) ? rd::SkyMode::HDREquirect : rd::SkyMode::Procedural;
+                e.skyMode = (e.skyMode == rd::SkyMode::Procedural)   ? rd::SkyMode::HDREquirect :
+                            (e.skyMode == rd::SkyMode::HDREquirect)  ? rd::SkyMode::Cubemap :
+                                                                       rd::SkyMode::Procedural;
             }
         }
 
@@ -438,10 +456,10 @@ namespace
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
                 rd::EnvironmentSettings& e = env->Environment();
                 // Sky source selector (also F5 to cycle). Picking a mode re-runs the IBL precompute.
-                const char* modes[] = { "Procedural", "HDR Equirect" };
-                int modeIdx = (e.skyMode == rd::SkyMode::HDREquirect) ? 1 : 0;
-                if (ImGui::Combo("Sky Mode", &modeIdx, modes, 2)) {
-                    e.skyMode = (modeIdx == 1) ? rd::SkyMode::HDREquirect : rd::SkyMode::Procedural;
+                const char* modes[] = { "Procedural", "HDR Equirect", "Cubemap" };
+                int modeIdx = (e.skyMode == rd::SkyMode::HDREquirect) ? 1 : (e.skyMode == rd::SkyMode::Cubemap) ? 2 : 0;
+                if (ImGui::Combo("Sky Mode", &modeIdx, modes, 3)) {
+                    e.skyMode = (modeIdx == 1) ? rd::SkyMode::HDREquirect : (modeIdx == 2) ? rd::SkyMode::Cubemap : rd::SkyMode::Procedural;
                 }
                 ImGui::SliderFloat("Sky Intensity", &e.skyIntensity, 0.0f, 4.0f);
                 ImGui::SliderFloat("Sun Intensity", &e.sunIntensity, 0.0f, 8.0f);

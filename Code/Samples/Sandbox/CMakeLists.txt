@@ -29,6 +29,7 @@ target_link_libraries(Sandbox PRIVATE
     Draconic::MeshResource
     Draconic::MaterialResource
     Draconic::TextureResource
+    Draconic::TextureEditor
     Draconic::Animation
     Draconic::Policy)
 
