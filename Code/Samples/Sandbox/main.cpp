@@ -181,6 +181,19 @@ namespace
                     rd::MeshComponent& smc = meshes->Add(s);
                     smc.mesh = ball; smc.material = ballMat;
                 }
+
+                // Transparent (alpha-blended) spheres hovering in front of the opaque row — exercises the
+                // transparent path: routed to the Transparent category (blend mode), sorted back-to-front,
+                // blended with depth-test/no-write. Base-color alpha (<1) makes them see-through.
+                rc::RefPtr<mat::Material> glassMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.35f, 0.6f, 0.95f, 0.4f }, 0.0f, 0.12f);
+                glassMat->pipeline.blendMode = mat::BlendMode::AlphaBlend;
+                glassMat->pipeline.depthMode = mat::DepthMode::ReadOnly;   // test against opaque depth, don't write
+                for (int k = 0; k < 3; ++k) {
+                    sc::EntityHandle g = m_scene->CreateEntity(u8"glassBall");
+                    m_scene->SetLocalPosition(g, rc::Vec3{ -5.0f + 5.0f * static_cast<rc::f32>(k), kFloorY + 3.5f, 20.0f });
+                    rd::MeshComponent& gmc = meshes->Add(g);
+                    gmc.mesh = ball; gmc.material = glassMat;
+                }
             }
 
             // Lights: a dim directional key (down-forward) + a bright point light that orbits the

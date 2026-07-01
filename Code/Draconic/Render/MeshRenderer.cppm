@@ -450,7 +450,9 @@ PSOutput main(PSInput input) {
     float3 N = normalize(input.normalWS);
     float3 V = normalize(CameraPos - input.worldPos);
 
-    float3 albedo    = input.color.rgb * BaseColor.rgb * AlbedoMap.Sample(MainSampler, input.uv).rgb;
+    float4 albedoTex = AlbedoMap.Sample(MainSampler, input.uv);
+    float3 albedo    = input.color.rgb * BaseColor.rgb * albedoTex.rgb;
+    float  alpha     = saturate(input.color.a * BaseColor.a * albedoTex.a);   // surface opacity (alpha blend)
     float2 mr        = MetallicRoughnessMap.Sample(MainSampler, input.uv).gb;   // glTF: G=roughness, B=metallic
     float  metallic  = saturate(Metallic * mr.y);
     float  roughness = clamp(Roughness * mr.x, 0.045, 1.0);
@@ -509,7 +511,7 @@ PSOutput main(PSInput input) {
     float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
 
     PSOutput o;
-    o.color    = float4(ambient + Lo, 1.0);
+    o.color    = float4(ambient + Lo, alpha);   // alpha drives AlphaBlend for transparent materials
     o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space normal (octahedral)
     o.velocity = velocity;
     return o;
