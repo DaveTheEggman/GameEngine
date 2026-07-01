@@ -32,6 +32,7 @@ import :shadows;
 import :ibl;
 import :bloom;
 import :taa;
+import :ao;
 import :sky;
 
 using namespace draconic::core;
@@ -513,9 +514,9 @@ public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
                 ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
                 ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr, SkyPass* sky = nullptr,
-                BloomPass* bloom = nullptr, TaaPass* taa = nullptr) noexcept
+                BloomPass* bloom = nullptr, TaaPass* taa = nullptr, AoPass* ao = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
-          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom), m_taa(taa) {}
+          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom), m_taa(taa), m_ao(ao) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -547,6 +548,11 @@ public:
     // history drops with motion.
     void SetTaa(bool on, f32 blend, f32 gamma, f32 motionScale) noexcept {
         m_taaEnabled = on; m_taaBlend = blend; m_taaGamma = gamma; m_taaMotionScale = motionScale;
+    }
+    // Ambient occlusion: mode (Off/GTAO/SSAO) + knobs. AO is applied to the HDR before TAA (strength 0
+    // or Off = no AO). debugMode != 0 forces the AO on and shows the debug channel straight to screen.
+    void SetAo(AoMode mode, f32 strength, f32 radius, f32 intensity, i32 debugMode = 0) noexcept {
+        m_aoMode = mode; m_aoStrength = strength; m_aoRadius = radius; m_aoIntensity = intensity; m_aoDebug = debugMode;
     }
     // Append a per-pass GPU timing report (call only after the device is idle).
     void ReadGpuProfile(String& out) {
@@ -993,12 +999,28 @@ public:
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
                                    m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(hdr, velocityT, m_tonemap->HdrFormat());   // sky into HDR (+ camera-motion velocity), before TAA
-                // TAA resolve on the opaque+sky HDR (jittered) -> stable HDR. Then transparent composites
+                // AO (GTAO or SSAO) from the opaque depth+normal G-buffer, computed BEFORE the TAA resolve
+                // and multiplied into the HDR pre-TAA, so TAA stabilizes it (applying AO post-TAA wobbles,
+                // since the AO is computed from the jittered G-buffer and shifts sub-pixel each frame).
+                const bool aoActive = (m_aoMode != AoMode::Off) || m_aoDebug != 0;
+                const AoMode aoMode = (m_aoMode != AoMode::Off) ? m_aoMode : AoMode::GTAO;   // debug needs a generator
+                rendergraph::RGHandle aoH{};
+                if (m_ao != nullptr && aoActive) {
+                    aoH = m_ao->DeclareAo(m_graph, depth, normalT, v->Width(), v->Height(),
+                                          Inverse(v->Camera().projection), v->Camera().projection,
+                                          m_aoRadius, m_aoIntensity, m_frameIndex, aoMode, m_aoDebug);
+                }
+                const bool showAo = aoH.IsValid() && m_aoDebug != 0;   // debug: AO/channel straight to screen
+                rendergraph::RGHandle litHdr = hdr;
+                if (aoH.IsValid() && m_aoMode != AoMode::Off && m_aoDebug == 0) {
+                    litHdr = m_ao->DeclareApply(m_graph, hdr, aoH, v->Width(), v->Height(), m_aoStrength);
+                }
+                // TAA resolve on the opaque+sky+AO HDR (jittered) -> stable HDR. Then transparent composites
                 // on the RESOLVED image (see below), so it's never temporally accumulated (no ghost) or
                 // jittered (no wobble). Bloom + tonemap run on the resolved color.
-                rendergraph::RGHandle sceneColor = hdr;
+                rendergraph::RGHandle sceneColor = litHdr;
                 if (m_taaEnabled && m_taa != nullptr) {
-                    sceneColor = m_taa->DeclareTaa(m_graph, hdr, velocityT, depth, viewIndex, v->Width(), v->Height(),
+                    sceneColor = m_taa->DeclareTaa(m_graph, litHdr, velocityT, depth, viewIndex, v->Width(), v->Height(),
                                                    m_taaBlend, m_taaGamma, m_taaMotionScale);
                 }
                 // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
@@ -1012,14 +1034,17 @@ public:
                 }
                 const f32 bloomStrength = bloomH.IsValid() ? m_bloomIntensity : 0.0f;
                 const rendergraph::RGHandle bloomTex = bloomH.IsValid() ? bloomH : sceneColor;   // valid binding even when off
+                // AO already applied pre-TAA; tonemap only needs the AO handle for the debug view.
+                const f32 aoStrength = 0.0f;
+                const rendergraph::RGHandle aoTex = aoH.IsValid() ? aoH : sceneColor;   // valid binding when off
                 // Map the tonemap's fullscreen uv to this view's sub-rect of the (full-size) HDR/bloom,
                 // so split-screen views resolve their own region (the forward renders into the sub-rect).
                 const f32 fullW = static_cast<f32>(v->Width()), fullH = static_cast<f32>(v->Height());
                 const Vec2 uvScale{ static_cast<f32>(v->ViewportWidth()) / fullW, static_cast<f32>(v->ViewportHeight()) / fullH };
                 const Vec2 uvOffset{ static_cast<f32>(v->ViewportX()) / fullW, static_cast<f32>(v->ViewportY()) / fullH };
-                m_tonemap->DeclareTonemap(m_graph, sceneColor, bloomTex, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
+                m_tonemap->DeclareTonemap(m_graph, sceneColor, bloomTex, aoTex, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                          m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset);
+                                          m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo);
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
@@ -1055,7 +1080,13 @@ private:
     SkyPass*                m_sky      = nullptr;   // borrowed; draws the visible environment background
     BloomPass*              m_bloom    = nullptr;   // borrowed; builds the HDR bloom pyramid (composited at tonemap)
     TaaPass*                m_taa      = nullptr;   // borrowed; temporal AA resolve (per-view history)
+    AoPass*                 m_ao       = nullptr;   // borrowed; ambient occlusion (GTAO/SSAO) from the G-buffer
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
+    AoMode                  m_aoMode      = AoMode::Off;
+    i32                     m_aoDebug     = 0;
+    f32                     m_aoStrength  = 0.6f;
+    f32                     m_aoRadius    = 0.5f;
+    f32                     m_aoIntensity = 1.0f;
     f32                     m_bloomIntensity = 0.05f;   // 0 = bloom off
     f32                     m_bloomThreshold = 1.0f;
     f32                     m_bloomKnee      = 0.6f;

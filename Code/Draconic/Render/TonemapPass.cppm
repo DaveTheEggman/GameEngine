@@ -41,10 +41,12 @@ VSOut main(uint vid : SV_VertexID) {
 inline constexpr const char8_t* kTonemapPS = u8R"(
 Texture2D<float4> Hdr       : register(t0, space0);
 Texture2D<float4> Bloom     : register(t1, space0);
+Texture2D<float4> Ao        : register(t2, space0);
 SamplerState      BloomSamp : register(s0, space0);
 // UvScale/UvOffset map the fullscreen [0,1] uv to this view's sub-rect of the (full-size) HDR/bloom
 // transients — so split-screen views resolve their own region instead of the whole target.
-struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; };
+// AoStrength lerps the AO factor in (0 = GTAO off).
+struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; };
 [[vk::push_constant]] TonemapPush pc;
 
 // 6th-order polynomial fit of the AgX log->display sigmoid.
@@ -68,7 +70,11 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     // Sample HDR + bloom with the SAME (top-origin) uv, mapped to this view's sub-rect. Both via Sample
     // (Sedulous-style — mixing Load(pos) with Sample(uv) is what caused the mirrored bloom ghost).
     float2 st = pc.UvOffset + uv * pc.UvScale;
+    // Debug: show the GTAO buffer (or a debug channel it wrote) straight to screen, no tonemap.
+    if (pc.DebugShowAo > 0.5) { return float4(Ao.SampleLevel(BloomSamp, st, 0).rrr, 1.0); }
     float3 c = max(Hdr.SampleLevel(BloomSamp, st, 0).rgb, 0.0);
+    float ao = lerp(1.0, Ao.SampleLevel(BloomSamp, st, 0).r, saturate(pc.AoStrength));   // GTAO
+    c *= ao;                                                                       // occlude before adding bloom
     c += Bloom.SampleLevel(BloomSamp, st, 0).rgb * max(pc.BloomIntensity, 0.0);   // additive bloom (linear HDR)
     c *= max(pc.Exposure, 0.0);   // linear exposure multiplier (scene setting)
 
@@ -108,17 +114,18 @@ public:
         m_shaders->RegisterSource(u8"tonemap", shaders::ShaderStage::Vertex,   kTonemapVS);
         m_shaders->RegisterSource(u8"tonemap", shaders::ShaderStage::Fragment, kTonemapPS);
 
-        // set 0: HDR (t0, texel Load) + bloom (t1, sampled) + a linear sampler (s0) for the bloom composite.
+        // set 0: HDR (t0) + bloom (t1) + AO (t2), all sampled, + a linear sampler (s0).
         rhi::BindGroupLayoutEntry hdrEntry   = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry bloomEntry = rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry aoEntry    = rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry sampEntry  = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
-        rhi::BindGroupLayoutEntry entries[] = { hdrEntry, bloomEntry, sampEntry };
+        rhi::BindGroupLayoutEntry entries[] = { hdrEntry, bloomEntry, aoEntry, sampEntry };
         rhi::BindGroupLayoutDesc ld{};
-        ld.entries = Span<const rhi::BindGroupLayoutEntry>{ entries, 3 };
+        ld.entries = Span<const rhi::BindGroupLayoutEntry>{ entries, 4 };
         if (!m_device->CreateBindGroupLayout(ld, m_layout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         rhi::BindGroupLayout* layouts[] = { m_layout };
-        rhi::PushConstantRange pc{}; pc.stages = rhi::ShaderStage::Fragment; pc.offset = 0; pc.size = sizeof(f32) * 6;   // exposure + bloom intensity + uvScale.xy + uvOffset.xy
+        rhi::PushConstantRange pc{}; pc.stages = rhi::ShaderStage::Fragment; pc.offset = 0; pc.size = sizeof(f32) * 8;   // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength + pad
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 1 };
         pld.pushConstantRanges = Span<const rhi::PushConstantRange>{ &pc, 1 };
@@ -137,26 +144,28 @@ public:
     // Declare the tonemap pass: read `hdr`, write `ldr` (clearColor decides clear vs load), into the
     // view's viewport sub-rect. The execute builds/binds the HDR bind group (the view is a transient,
     // resolved at execute time) and draws a fullscreen triangle.
-    void DeclareTonemap(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr, rendergraph::RGHandle bloom, rendergraph::RGHandle ldr,
-                        bool clearColor, const rhi::ClearColor& clear, rhi::TextureFormat ldrFormat,
+    void DeclareTonemap(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr, rendergraph::RGHandle bloom, rendergraph::RGHandle ao,
+                        rendergraph::RGHandle ldr, bool clearColor, const rhi::ClearColor& clear, rhi::TextureFormat ldrFormat,
                         i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex, f32 exposure = 1.0f, f32 bloomIntensity = 0.0f,
-                        Vec2 uvScale = Vec2{ 1, 1 }, Vec2 uvOffset = Vec2{ 0, 0 }) {
+                        Vec2 uvScale = Vec2{ 1, 1 }, Vec2 uvOffset = Vec2{ 0, 0 }, f32 aoStrength = 0.0f, bool debugShowAo = false) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr) { return; }
         const u32 slot = (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);
-        const f32 push[6] = { exposure, bloomIntensity, uvScale.x, uvScale.y, uvOffset.x, uvOffset.y };
+        const f32 push[8] = { exposure, bloomIntensity, uvScale.x, uvScale.y, uvOffset.x, uvOffset.y, aoStrength, debugShowAo ? 1.0f : 0.0f };
 
         const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
         graph.AddRenderPass(u8"tonemap",
-            [this, &graph, hdr, bloom, ldr, load, clear, vpX, vpY, vpW, vpH, pipeline, slot, push](rendergraph::PassBuilder& b) {
+            [this, &graph, hdr, bloom, ao, ldr, load, clear, vpX, vpY, vpW, vpH, pipeline, slot, push](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, ldr, load, rhi::StoreOp::Store, clear);
                 b.ReadTexture(hdr);
                 b.ReadTexture(bloom);
+                b.ReadTexture(ao);
                 b.SetViewport(vpX, vpY, vpW, vpH);
                 b.NeverCull();
-                b.SetExecute([this, &graph, hdr, bloom, pipeline, slot, push](rhi::RenderPassEncoder& rp) {
-                    rhi::BindGroup* bg = EnsureBindGroup(slot, graph.GetTextureView(hdr), graph.GetTextureView(bloom),
-                                                         graph.GetTextureGeneration(hdr) ^ (graph.GetTextureGeneration(bloom) * 1099511628211ull));
+                b.SetExecute([this, &graph, hdr, bloom, ao, pipeline, slot, push](rhi::RenderPassEncoder& rp) {
+                    rhi::BindGroup* bg = EnsureBindGroup(slot, graph.GetTextureView(hdr), graph.GetTextureView(bloom), graph.GetTextureView(ao),
+                                                         graph.GetTextureGeneration(hdr) ^ (graph.GetTextureGeneration(bloom) * 1099511628211ull)
+                                                         ^ (graph.GetTextureGeneration(ao) * 14695981039346656037ull));
                     if (bg == nullptr) { return; }
                     rp.SetPipeline(pipeline);
                     rp.SetBindGroup(0, bg, Span<const u32>{});
@@ -200,23 +209,25 @@ private:
     // GENERATION changes (the graph stamps a fresh id whenever a different physical texture backs the
     // transient — e.g. on resize). Pointer identity alone is unsafe: a freed view address can be reused
     // by the new allocation, leaving the cached bind group pointing at a destroyed texture.
-    rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* hdrView, rhi::TextureView* bloomView, u64 generation) {
-        if (slot >= kMaxSlots || hdrView == nullptr || bloomView == nullptr) { return nullptr; }
-        if (m_bindGroups[slot] != nullptr && m_bgViews[slot] == hdrView && m_bgBloom[slot] == bloomView && m_bgGen[slot] == generation) {
+    rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* hdrView, rhi::TextureView* bloomView, rhi::TextureView* aoView, u64 generation) {
+        if (slot >= kMaxSlots || hdrView == nullptr || bloomView == nullptr || aoView == nullptr) { return nullptr; }
+        if (m_bindGroups[slot] != nullptr && m_bgViews[slot] == hdrView && m_bgBloom[slot] == bloomView && m_bgAo[slot] == aoView && m_bgGen[slot] == generation) {
             return m_bindGroups[slot];
         }
         if (m_bindGroups[slot] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[slot]); m_bindGroups[slot] = nullptr; }
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::TextureEntry(hdrView),
             rhi::BindGroupEntry::TextureEntry(bloomView),
+            rhi::BindGroupEntry::TextureEntry(aoView),
             rhi::BindGroupEntry::SamplerEntry(m_sampler),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_layout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 3 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 4 };
         if (!m_device->CreateBindGroup(bgd, m_bindGroups[slot]).IsOk()) { m_bindGroups[slot] = nullptr; return nullptr; }
         m_bgViews[slot] = hdrView;
         m_bgBloom[slot] = bloomView;
+        m_bgAo[slot]    = aoView;
         m_bgGen[slot]   = generation;
         return m_bindGroups[slot];
     }
@@ -244,6 +255,7 @@ private:
     rhi::BindGroup*        m_bindGroups[kMaxSlots] = {};
     rhi::TextureView*      m_bgViews[kMaxSlots] = {};
     rhi::TextureView*      m_bgBloom[kMaxSlots] = {};
+    rhi::TextureView*      m_bgAo[kMaxSlots] = {};
     u64                    m_bgGen[kMaxSlots] = {};   // transient generation the cached BG was built for
 };
 
