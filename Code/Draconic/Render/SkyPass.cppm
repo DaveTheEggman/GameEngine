@@ -16,6 +16,7 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
+import :data;   // kGVelocityFormat (sky writes camera-motion velocity for TAA)
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -24,19 +25,27 @@ export namespace draconic::render {
 
 // Fullscreen-triangle VS: emit far-plane NDC (z=1) + reconstruct the world-space ray via inverse
 // view-proj (row-vector mul). PS samples the env cube along that ray.
-inline constexpr const char8_t* kSkyVS = u8R"(
+// Sky uniform, shared by VS+PS. PrevViewProj (last frame, unjittered-equivalent via the Jitter unjitter)
+// + Jitter let the sky write a camera-motion velocity so TAA reprojects the background under rotation.
+inline constexpr const char8_t* kSkyCommon = u8R"(
 cbuffer Sky : register(b0, space0) {
-    row_major float4x4 InvViewProj;
+    row_major float4x4 InvViewProj;    // inverse of this frame's (jittered) view-proj
+    row_major float4x4 PrevViewProj;   // last frame's view-proj (motion vectors)
     float4 CamPosIntensity;   // xyz = camera world pos, w = sky intensity
     float4 SunDir;            // xyz = light direction, w = sun angular size (deg)
     float4 SunColor;          // rgb = sun color, w = sun intensity
+    float4 Jitter;            // xy = this frame's NDC jitter, zw = last frame's
 };
-struct VSOut { float4 pos : SV_Position; float3 dir : TEXCOORD0; };
+)";
+
+inline constexpr const char8_t* kSkyVS = u8R"(
+struct VSOut { float4 pos : SV_Position; float3 dir : TEXCOORD0; float2 ndc : TEXCOORD1; };
 VSOut main(uint vid : SV_VertexID) {
     float2 uv  = float2((vid << 1) & 2, vid & 2);
     float2 ndc = uv * 2.0 - 1.0;
     VSOut o;
     o.pos = float4(ndc, 1.0, 1.0);                        // far plane (depth = 1)
+    o.ndc = ndc;
     // Reconstruct the world ray: at a given screen pixel the interpolated NDC matches what the scene's
     // geometry uses there (both go through the same viewport), so unproject the emitted NDC directly.
     float4 world = mul(float4(ndc, 1.0, 1.0), InvViewProj);  // clip -> world
@@ -46,13 +55,11 @@ VSOut main(uint vid : SV_VertexID) {
 )";
 
 inline constexpr const char8_t* kSkyPS = u8R"(
-cbuffer Sky : register(b0, space0) {
-    row_major float4x4 InvViewProj; float4 CamPosIntensity; float4 SunDir; float4 SunColor;
-};
 TextureCube  EnvMap  : register(t0, space0);
 SamplerState EnvSamp : register(s0, space0);
-struct PSIn { float4 pos : SV_Position; float3 dir : TEXCOORD0; };
-float4 main(PSIn i) : SV_Target {
+struct PSIn { float4 pos : SV_Position; float3 dir : TEXCOORD0; float2 ndc : TEXCOORD1; };
+struct PSOut { float4 color : SV_Target0; float2 velocity : SV_Target1; };
+PSOut main(PSIn i) {
     float3 dir = normalize(i.dir);
     float3 c = EnvMap.SampleLevel(EnvSamp, dir, 0.0).rgb * CamPosIntensity.w;
     // Crisp analytic sun disc (screen resolution, round) toward the light, with a soft ~1.5deg edge.
@@ -61,7 +68,15 @@ float4 main(PSIn i) : SV_Target {
     float  inner = cos(radians(max(SunDir.w, 0.1)));
     float  outer = cos(radians(max(SunDir.w, 0.1) + 1.5));
     c += smoothstep(outer, inner, cd) * SunColor.rgb * SunColor.w;
-    return float4(c, 1.0);
+
+    // Camera-motion velocity: reproject the (infinite) view ray through last frame's view-proj (w=0, a
+    // direction), unjitter the previous NDC (see the forward path for the +Jitter sign), and take the UV
+    // delta. curNDC is the fixed fullscreen NDC (unjittered). Lets TAA reproject the sky under rotation.
+    float4 prevClip = mul(float4(dir, 0.0), PrevViewProj);
+    float2 prevNDC  = prevClip.xy / prevClip.w + Jitter.zw;
+    float2 velocity = (i.ndc - prevNDC) * float2(0.5, -0.5);
+
+    PSOut o; o.color = float4(c, 1.0); o.velocity = velocity; return o;
 }
 )";
 
@@ -74,8 +89,8 @@ public:
     SkyPass& operator=(const SkyPass&) = delete;
 
     Status Initialize() {
-        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Vertex,   kSkyVS);
-        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Fragment, kSkyPS);
+        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Vertex,   Concat(kSkyCommon, kSkyVS));
+        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Fragment, Concat(kSkyCommon, kSkyPS));
         rhi::BindGroupLayoutEntry uboE  = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry texE  = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
         rhi::BindGroupLayoutEntry sampE = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
@@ -97,10 +112,11 @@ public:
     // Declare the sky pass: load `color`, depth-test (read-only) against `depth`, read `envH`, draw a
     // fullscreen triangle sampling the env cube along the per-pixel world ray. `invViewProj` = inverse
     // of this view's view*proj; `camPos`/`intensity` scale the result.
-    void DeclareSky(rendergraph::RenderGraph& graph, rendergraph::RGHandle color, rendergraph::RGHandle depth,
-                    rendergraph::RGHandle envH, rhi::TextureView* envView,
+    void DeclareSky(rendergraph::RenderGraph& graph, rendergraph::RGHandle color, rendergraph::RGHandle velocity,
+                    rendergraph::RGHandle depth, rendergraph::RGHandle envH, rhi::TextureView* envView,
                     rhi::TextureFormat colorFormat, rhi::TextureFormat depthFormat,
-                    const Mat4& invViewProj, const Vec3& camPos, f32 intensity,
+                    const Mat4& invViewProj, const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
+                    const Vec3& camPos, f32 intensity,
                     const Vec3& sunDir, f32 sunSize, const Vec3& sunColor, f32 sunIntensity,
                     i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(colorFormat, depthFormat);
@@ -108,13 +124,16 @@ public:
         const u32 slot = (viewIndex % kMaxViews) * m_fif + (frameIndex % m_fif);
         SkyUniform u{};
         u.invViewProj = invViewProj;
+        u.prevViewProj = prevViewProj;
         u.camPosIntensity = Vec4{ camPos.x, camPos.y, camPos.z, intensity };
         u.sunDir   = Vec4{ sunDir.x, sunDir.y, sunDir.z, sunSize };
         u.sunColor = Vec4{ sunColor.x, sunColor.y, sunColor.z, sunIntensity };
+        u.jitter   = Vec4{ jitter.x, jitter.y, prevJitter.x, prevJitter.y };
 
         graph.AddRenderPass(u8"sky",
-            [this, color, depth, envH, envView, pipeline, slot, u, vpX, vpY, vpW, vpH](rendergraph::PassBuilder& b) {
+            [this, color, velocity, depth, envH, envView, pipeline, slot, u, vpX, vpY, vpW, vpH](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, color, rhi::LoadOp::Load, rhi::StoreOp::Store);
+                b.SetColorTarget(1, velocity, rhi::LoadOp::Load, rhi::StoreOp::Store);   // camera-motion velocity for TAA
                 b.SetReadOnlyDepthTarget(depth);     // depth test on, no write
                 b.ReadTexture(envH);                 // order precompute -> sky + barrier readable
                 b.SetViewport(vpX, vpY, vpW, vpH);
@@ -133,7 +152,9 @@ private:
     static constexpr u32 kMaxFIF = 4;
     static constexpr u32 kMaxViews = 8;
     static constexpr u32 kMaxSlots = kMaxViews * kMaxFIF;
-    struct SkyUniform { Mat4 invViewProj; Vec4 camPosIntensity; Vec4 sunDir; Vec4 sunColor; };
+    struct SkyUniform { Mat4 invViewProj; Mat4 prevViewProj; Vec4 camPosIntensity; Vec4 sunDir; Vec4 sunColor; Vec4 jitter; };
+
+    static String Concat(const char8_t* a, const char8_t* b) { String s(StringView{ a }); s.Append(StringView{ b }); return s; }
 
     rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFmt, rhi::TextureFormat depthFmt) {
         if (m_pipeline != nullptr && m_colorFormat == colorFmt && m_depthFormat == depthFmt) { return m_pipeline; }
@@ -142,9 +163,12 @@ private:
         if (vs == nullptr || ps == nullptr) { return nullptr; }
         if (m_pipeline != nullptr) { m_device->DestroyRenderPipeline(m_pipeline); m_pipeline = nullptr; }
 
-        rhi::ColorTargetState color{}; color.format = colorFmt;
+        // 2 targets: color (matches the HDR target) + velocity (camera-motion, for TAA). No blend.
+        rhi::ColorTargetState targets[2] = {};
+        targets[0].format = colorFmt;
+        targets[1].format = kGVelocityFormat;
         rhi::FragmentState frag{}; frag.shader = rhi::ProgrammableStage{ ps, u8"main", rhi::ShaderStage::Fragment };
-        frag.targets = Span<const rhi::ColorTargetState>{ &color, 1 };
+        frag.targets = Span<const rhi::ColorTargetState>{ targets, 2 };
         rhi::DepthStencilState ds{}; ds.format = depthFmt; ds.depthTestEnabled = true; ds.depthWriteEnabled = false;
         ds.depthCompare = rhi::CompareFunction::LessEqual;   // pass at the far plane (background only)
 

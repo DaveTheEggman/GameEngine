@@ -971,13 +971,14 @@ public:
             }
 
             // Declare the visible sky into `colorTarget` after the forward pass (if IBL + sky active).
-            const auto declareSky = [&](rendergraph::RGHandle colorTarget, rhi::TextureFormat colorFmt) {
+            const auto declareSky = [&](rendergraph::RGHandle colorTarget, rendergraph::RGHandle velocityTarget, rhi::TextureFormat colorFmt) {
                 if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
-                const Mat4 invVP  = Inverse(v->Camera().ViewProjection());
+                const Mat4 invVP  = Inverse(curViewProj);   // jittered (matches the forward)
                 // The crisp analytic sun disc is for untextured skies; textured envs carry their own sun.
                 const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
-                m_sky->DeclareSky(m_graph, colorTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),
-                                  colorFmt, m_pass.DepthFormat(), invVP, v->Camera().position, m_ibl->SkyIntensity(),
+                m_sky->DeclareSky(m_graph, colorTarget, velocityTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),
+                                  colorFmt, m_pass.DepthFormat(), invVP, prevViewProj, jitter, prevJitter,
+                                  v->Camera().position, m_ibl->SkyIntensity(),
                                   m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                   m_frameIndex, viewIndex);
@@ -990,7 +991,7 @@ public:
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
                                    m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
-                declareSky(hdr, m_tonemap->HdrFormat());   // sky into HDR, before tonemap
+                declareSky(hdr, velocityT, m_tonemap->HdrFormat());   // sky into HDR (+ camera-motion velocity), before TAA
                 // Transparent (blended) after opaque + sky: color-only, depth read-only, back-to-front.
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth,
                                           m_tonemap->HdrFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
@@ -1020,7 +1021,7 @@ public:
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
                                    v->TargetFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
-                declareSky(colorH, v->TargetFormat());
+                declareSky(colorH, velocityT, v->TargetFormat());
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
                                           v->TargetFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
             }
