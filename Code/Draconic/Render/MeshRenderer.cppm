@@ -583,7 +583,15 @@ struct VSInput {
     float4 weights      : TEXCOORD7;
 #endif
 };
+// ALPHA_TEST (masked casters): pass UV so the fragment can sample the cutout alpha. Otherwise the
+// depth pass is vertex-only (no fragment) and outputs just clip position.
+#ifdef ALPHA_TEST
+struct ShadowVSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
+ShadowVSOut main(VSInput input) {
+    ShadowVSOut o;
+#else
 float4 main(VSInput input) : SV_Position {
+#endif
 #ifdef INSTANCED
     float4x4 world = Instances[input.dataOffsets.x].World;
 #else
@@ -601,7 +609,23 @@ float4 main(VSInput input) : SV_Position {
     lp = mul(float4(lp, 1.0), BlendBones(j, input.weights, boneBase)).xyz;
 #endif
     float4 worldPos = mul(float4(lp, 1.0), world);
+#ifdef ALPHA_TEST
+    o.pos = mul(worldPos, LightViewProj);
+    o.uv  = input.uv;
+    return o;
+#else
     return mul(worldPos, LightViewProj);
+#endif
+}
+)";
+
+// Masked shadow fragment: sample the material's albedo cutout alpha + discard, so alpha-tested casters
+// (foliage/fences) drop holey shadows. Depth-only (no color target); pairs with the ALPHA_TEST VS.
+inline constexpr const char8_t* kShadowMaskedPS = u8R"(
+Texture2D    AlbedoMap   : register(t0, space2);
+SamplerState MainSampler : register(s0, space2);
+void main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
+    if (AlbedoMap.Sample(MainSampler, uv).a < 0.5) { discard; }
 }
 )";
 
@@ -692,6 +716,7 @@ public:
         // (set 0 = light view UBO, set 1 = the SAME object/instance layouts as forward, so the
         // object/instance bind groups are reused). No material/cluster sets.
         m_shaders->RegisterSource(u8"shadow_depth", shaders::ShaderStage::Vertex, kShadowVS);
+        m_shaders->RegisterSource(u8"shadow_depth", shaders::ShaderStage::Fragment, kShadowMaskedPS);   // masked casters (alpha-test)
         rhi::BindGroupLayoutEntry shadowViewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
         shadowViewEntry.hasDynamicOffset = true;
         // set 0 also carries the skinning bone-matrix pool (t4) so skinned casters deform their shadow.
@@ -1184,7 +1209,9 @@ private:
         u32 boneBase = 0;
         bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 &&
                        md.mesh != nullptr && md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
-        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ false);
+        // Masked casters cast holey shadows via the alpha-test fragment (needs the material set 2).
+        const bool masked = md.material != nullptr && md.material->pipeline.blendMode == materials::BlendMode::Masked;
+        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ false, masked);
         if (skinned) {
             const BoneSlot* s = m_boneStart.Find(md.boneMatrices);
             if (s != nullptr) {
@@ -1195,7 +1222,15 @@ private:
                 skinned = false;
             }
         }
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_shadowPipelineLayoutSingle, rhi::TextureFormat::Undefined);
+        rhi::BindGroup* matSet = nullptr;
+        rhi::PipelineLayout* layout = m_shadowPipelineLayoutSingle;
+        if (masked) {
+            rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*md.material);
+            layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ false);
+            matSet = m_materials->PrepareInstance(*InstanceFor(md.material), set2);
+            if (layout == nullptr) { layout = m_shadowPipelineLayoutSingle; matSet = nullptr; config = ShadowConfigFor(ctx, false, false); }
+        }
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, layout, rhi::TextureFormat::Undefined);
         if (pso == nullptr) { return; }
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
         if (!obj.ok) { return; }
@@ -1207,7 +1242,7 @@ private:
         d.pso = pso;
         d.viewSet = m_shadowViewBG; d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
         d.drawSet = m_objectBG;     d.drawOffset = obj.byteOffset;   d.drawDynamic = true;   // set 1: object UBO
-        // no material/cluster sets for depth-only
+        d.materialSet = matSet;     // set 2: material (masked casters only — for the alpha-test sample)
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
         if (skinned) { d.vertexBuffer1 = mesh.skinBuffer; d.vertexOffset1 = mesh.skinOffset; }   // buffer 1: skin stream
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
@@ -1221,12 +1256,21 @@ private:
         const auto& head = *static_cast<const MeshRenderData*>(items[first].data);
         const bool skinned = head.boneMatrices != nullptr && head.mesh != nullptr &&
                              head.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
-        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ true);
+        const bool masked = head.material != nullptr && head.material->pipeline.blendMode == materials::BlendMode::Masked;
+        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ true, masked);
         if (skinned) {
             config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
             config.shaderFlags |= shaders::ShaderFlags::Skinned;
         }
-        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, m_shadowPipelineLayoutInstanced, rhi::TextureFormat::Undefined);
+        rhi::BindGroup* matSet = nullptr;
+        rhi::PipelineLayout* layout = m_shadowPipelineLayoutInstanced;
+        if (masked) {
+            rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*head.material);
+            layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ true);
+            matSet = m_materials->PrepareInstance(*InstanceFor(head.material), set2);
+            if (layout == nullptr) { layout = m_shadowPipelineLayoutInstanced; matSet = nullptr; config = ShadowConfigFor(ctx, true, false); }
+        }
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, layout, rhi::TextureFormat::Undefined);
         if (pso == nullptr) { return; }
         const DynamicUniformRing::Range inst = m_instanceRing.AllocateRange(count);
         const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
@@ -1246,6 +1290,7 @@ private:
         d.pso = pso;
         d.viewSet = m_shadowViewBG; d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
         d.drawSet = m_instanceBG;   d.drawDynamic = false;                                    // set 1: instances (whole)
+        d.materialSet = matSet;     // set 2: material (masked casters only — alpha-test sample)
         d.vertexBuffer0 = mesh.vertexBuffer;      d.vertexOffset0 = mesh.vertexOffset;
         if (skinned) {
             d.vertexBuffer1 = mesh.skinBuffer;        d.vertexOffset1 = mesh.skinOffset;   // slot 1: skin stream
@@ -1260,14 +1305,17 @@ private:
 
     // Depth-only PSO config for the shadow pass. Back-face cull + a small depth bias/slope to push
     // shadow acne off lit surfaces (tuned on GPU; 5.2 refines with normal-offset bias in the shader).
-    [[nodiscard]] static materials::PipelineConfig ShadowConfigFor(const RenderRecordContext& ctx, bool instanced) {
+    [[nodiscard]] static materials::PipelineConfig ShadowConfigFor(const RenderRecordContext& ctx, bool instanced, bool masked = false) {
         materials::PipelineConfig c{};
         c.shaderName   = u8"shadow_depth";
         c.vertexLayout = materials::VertexLayoutType::Mesh;
         c.instanced    = instanced;
         if (instanced) { c.shaderFlags |= shaders::ShaderFlags::Instanced; }
-        c.depthOnly         = true;
+        // Masked casters run the alpha-test fragment (samples cutout alpha -> discard) so their shadows
+        // have holes; opaque casters stay vertex-only (depthOnly, no fragment).
+        c.depthOnly         = !masked;
         c.colorTargetCount  = 0;
+        if (masked) { c.shaderFlags |= shaders::ShaderFlags::AlphaTest; }
         c.depthFormat       = ctx.depthFormat;
         c.depthMode         = materials::DepthMode::ReadWrite;
         c.depthCompare      = rhi::CompareFunction::Less;
@@ -1336,6 +1384,28 @@ private:
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 2 };
         return m_device->CreatePipelineLayout(pld, out).IsOk();
+    }
+
+    // Three-set pipeline layout (masked shadow: light-view + object/instance + material) — the material
+    // set feeds the alpha-test fragment's albedo sample.
+    bool MakePipelineLayout3(rhi::BindGroupLayout* set0, rhi::BindGroupLayout* set1, rhi::BindGroupLayout* set2,
+                             rhi::PipelineLayout*& out) {
+        rhi::BindGroupLayout* layouts[] = { set0, set1, set2 };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 3 };
+        return m_device->CreatePipelineLayout(pld, out).IsOk();
+    }
+
+    // Masked-shadow pipeline layout for a material set-2 layout, cached by (set2, instanced): light-view
+    // (0) + object/instance (1) + material (2). Retired with the renderer.
+    [[nodiscard]] rhi::PipelineLayout* GetOrCreateShadowMaskedLayout(rhi::BindGroupLayout* set2, bool instanced) {
+        const u64 key = (reinterpret_cast<u64>(set2) * 2u) + (instanced ? 1u : 0u);
+        if (rhi::PipelineLayout** cached = m_shadowMaskedLayouts.Find(key)) { return *cached; }
+        rhi::BindGroupLayout* set1 = instanced ? m_instanceLayout : m_objectLayout;
+        rhi::PipelineLayout* layout = nullptr;
+        if (!MakePipelineLayout3(m_shadowViewLayout, set1, set2, layout)) { return nullptr; }
+        m_shadowMaskedLayouts.InsertOrAssign(key, layout);
+        return layout;
     }
 
     // The default material — a standard PBR material (materials::CreatePBR) used whenever a draw
@@ -1634,6 +1704,8 @@ private:
         if (m_dummyClusterIndices) { m_device->DestroyBuffer(m_dummyClusterIndices); m_dummyClusterIndices = nullptr; }
         for (auto& kv : m_pipelineLayouts) { if (kv.value != nullptr) { m_device->DestroyPipelineLayout(kv.value); } }
         m_pipelineLayouts.Clear();
+        for (auto& kv : m_shadowMaskedLayouts) { if (kv.value != nullptr) { m_device->DestroyPipelineLayout(kv.value); } }
+        m_shadowMaskedLayouts.Clear();
         if (m_shadowPipelineLayoutSingle)    { m_device->DestroyPipelineLayout(m_shadowPipelineLayoutSingle); m_shadowPipelineLayoutSingle = nullptr; }
         if (m_shadowPipelineLayoutInstanced) { m_device->DestroyPipelineLayout(m_shadowPipelineLayoutInstanced); m_shadowPipelineLayoutInstanced = nullptr; }
         if (m_viewLayout)     { m_device->DestroyBindGroupLayout(m_viewLayout); m_viewLayout = nullptr; }
@@ -1661,6 +1733,7 @@ private:
     // Forward pipeline layouts, keyed by (material set-2 layout, instanced); built on demand so each
     // material's own set-2 layout drives the PSO (material-driven; supports custom shaders).
     HashMap<u64, rhi::PipelineLayout*> m_pipelineLayouts;
+    HashMap<u64, rhi::PipelineLayout*> m_shadowMaskedLayouts;   // masked-shadow 3-set layouts (by set-2, instanced)
 
     // Material set-2 resources. The default material (standard PBR) backs draws with no material;
     // instances carry per-material overrides and flow through the material system's data-driven BG path.

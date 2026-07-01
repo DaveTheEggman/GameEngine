@@ -122,7 +122,9 @@ private:
         if (!config.depthOnly) {
             rhi::ShaderModule* fs = m_shaders->GetVariant(config.shaderName, shaders::ShaderStage::Fragment, config.shaderFlags);
             if (fs == nullptr) { return nullptr; }
-            const u32 count = (config.colorTargetCount == 0) ? 1u : Min<u32>(config.colorTargetCount, rhi::MaxColorAttachments);
+            // Honor colorTargetCount exactly — 0 means a fragment that writes no color (e.g. the masked
+            // shadow pass: alpha-test discard + depth only). No fallback to 1.
+            const u32 count = Min<u32>(config.colorTargetCount, rhi::MaxColorAttachments);
             for (u32 i = 0; i < count; ++i) {
                 colorTargets[i].format    = (i == 0 && colorOverride != rhi::TextureFormat::Undefined) ? colorOverride : config.colorFormats[i];
                 colorTargets[i].blend     = (i == 0) ? BlendFor(config.blendMode) : Optional<rhi::BlendState>{};
