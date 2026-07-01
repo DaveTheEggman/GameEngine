@@ -495,6 +495,14 @@ namespace
             if (render != nullptr) {
                 float exposure = render->Exposure();
                 if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 8.0f)) { render->SetExposure(exposure); }
+                bool bloomOn = render->BloomEnabled();
+                if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
+                if (bloomOn) {
+                    float bloom = render->BloomIntensity();
+                    if (ImGui::SliderFloat("Bloom Intensity", &bloom, 0.0f, 0.5f)) { render->SetBloomIntensity(bloom); }
+                    float bloomThresh = render->BloomThreshold();
+                    if (ImGui::SliderFloat("Bloom Threshold", &bloomThresh, 0.0f, 4.0f)) { render->SetBloomThreshold(bloomThresh); }
+                }
             }
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
                 rd::EnvironmentSettings& e = env->Environment();
