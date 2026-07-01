@@ -28,6 +28,8 @@ target_sources(DraconicRender
             TaaPass.cppm
             AoPass.cppm
             FxaaPass.cppm
+            Debug/DebugFont.cppm
+            Debug/DebugDraw.cppm
             RenderModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

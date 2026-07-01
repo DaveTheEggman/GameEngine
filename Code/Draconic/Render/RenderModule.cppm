@@ -28,3 +28,5 @@ export import :bloom;
 export import :taa;
 export import :ao;
 export import :fxaa;
+export import :debug_font;
+export import :debug_draw;
