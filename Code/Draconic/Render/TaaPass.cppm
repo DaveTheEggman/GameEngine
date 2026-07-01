@@ -39,9 +39,11 @@ VSOut main(uint vid : SV_VertexID) {
 }
 )";
 
-// Resolve. Ported from Sedulous taa.frag.hlsl (tone-weighted neighborhood clip-to-center + luma-adaptive
-// blend). Outputs the resolved color (SV_Target0, consumed by bloom/tonemap) AND the next-frame history
-// (SV_Target1). Params ride in push constants.
+// Resolve. Improved over Sedulous taa.frag.hlsl: YCoCg VARIANCE clipping (mean +/- gamma*stddev — a
+// statistically-tight neighborhood box, the key anti-flicker lever, vs a loose min/max AABB), CATMULL-ROM
+// history sampling (sharp — kills the over-blur), closest-depth motion selection, and a luma- AND
+// motion-adaptive blend (max stability on near-static pixels). Outputs the resolved color (SV_Target0,
+// for bloom/tonemap) + next-frame history (SV_Target1). Params in push constants.
 inline constexpr const char8_t* kTaaPS = u8R"(
 Texture2D    CurrentColor  : register(t0, space0);
 Texture2D    HistoryColor  : register(t1, space0);
@@ -52,24 +54,47 @@ SamplerState LinearSamp    : register(s1, space0);
 
 struct TaaPush {
     float2 TexelSize;      // 1 / size
-    float  BlendFactor;    // base history weight (0.95)
+    float  BlendFactor;    // max history weight on stable pixels (~0.97)
     float  HistoryValid;   // 0 = first frame (no history)
-    float2 JitterOffset;   // (unused in the resolve; reserved)
-    float2 PrevJitterOffset;
+    float  VarianceGamma;  // neighborhood clip box half-width in stddevs (~1.25; larger = softer/steadier)
+    float  MotionScale;    // how fast history is dropped as motion grows (0 = ignore motion)
+    float2 _pad;
 };
 [[vk::push_constant]] TaaPush pc;
 
-float Luminance(float3 c) { return dot(c, float3(0.2126, 0.7152, 0.0722)); }
-float3 ToneWeight(float3 c)        { return c / (1.0 + Luminance(c)); }
-float3 InverseToneWeight(float3 c) { return c / max(1.0 - Luminance(c), 1e-5); }
+float  Luminance(float3 c)  { return dot(c, float3(0.2126, 0.7152, 0.0722)); }
+float3 RGBToYCoCg(float3 c) { return float3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
+float3 YCoCgToRGB(float3 c) { float t = c.x - c.z; return float3(t + c.y, c.x + c.z, t - c.y); }
 
 float3 ClipToAABB(float3 color, float3 aabbMin, float3 aabbMax) {
     float3 center  = (aabbMax + aabbMin) * 0.5;
     float3 extents = (aabbMax - aabbMin) * 0.5;
     float3 shift   = color - center;
-    float3 absUnit = abs(shift / max(extents, 0.0001));
+    float3 absUnit = abs(shift / max(extents, 1e-4));
     float  maxUnit = max(max(absUnit.x, absUnit.y), absUnit.z);
     return maxUnit > 1.0 ? center + (shift / maxUnit) : color;
+}
+
+// 5-tap Catmull-Rom (Karis) — sharp bicubic history reconstruction from a bilinear sampler.
+float3 SampleHistoryCatmullRom(float2 uv, float2 texSize) {
+    float2 samplePos = uv * texSize;
+    float2 tc1 = floor(samplePos - 0.5) + 0.5;
+    float2 f  = samplePos - tc1;
+    float2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    float2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    float2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    float2 w3 = f * f * (-0.5 + 0.5 * f);
+    float2 w12 = w1 + w2;
+    float2 tc0  = (tc1 - 1.0) / texSize;
+    float2 tc3  = (tc1 + 2.0) / texSize;
+    float2 tc12 = (tc1 + w2 / w12) / texSize;
+    float3 r = float3(0,0,0); float wSum = 0.0;
+    r += HistoryColor.SampleLevel(LinearSamp, float2(tc12.x, tc0.y),  0).rgb * (w12.x * w0.y);  wSum += w12.x * w0.y;
+    r += HistoryColor.SampleLevel(LinearSamp, float2(tc0.x,  tc12.y), 0).rgb * (w0.x  * w12.y); wSum += w0.x  * w12.y;
+    r += HistoryColor.SampleLevel(LinearSamp, float2(tc12.x, tc12.y), 0).rgb * (w12.x * w12.y); wSum += w12.x * w12.y;
+    r += HistoryColor.SampleLevel(LinearSamp, float2(tc3.x,  tc12.y), 0).rgb * (w3.x  * w12.y); wSum += w3.x  * w12.y;
+    r += HistoryColor.SampleLevel(LinearSamp, float2(tc12.x, tc3.y),  0).rgb * (w12.x * w3.y);  wSum += w12.x * w3.y;
+    return max(r / max(wSum, 1e-5), 0.0);
 }
 
 struct PSOut { float4 Color : SV_Target0; float4 History : SV_Target1; };
@@ -91,31 +116,37 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     float2 historyUV = uv - motion;
 
     PSOut o;
-    // No valid history (first frame) or reprojection off-screen -> take current, seed history.
     if (pc.HistoryValid < 0.5 || any(historyUV < 0.0) || any(historyUV > 1.0)) {
         o.Color = float4(current, 1.0); o.History = float4(current, 1.0); return o;
     }
 
-    float3 history = HistoryColor.Sample(LinearSamp, historyUV).rgb;
-
-    // Tone-weighted 3x3 neighborhood AABB (fireflies carry less weight), clip history toward its center.
-    float3 currentW = ToneWeight(current);
-    float3 nMin = currentW, nMax = currentW;
+    // YCoCg neighborhood statistics: mean (m1) + mean-of-squares (m2) over the 3x3 -> variance box.
+    float3 m1 = float3(0,0,0), m2 = float3(0,0,0);
     for (int ny = -1; ny <= 1; ++ny) {
         for (int nx = -1; nx <= 1; ++nx) {
-            if (nx == 0 && ny == 0) { continue; }
-            float3 sW = ToneWeight(CurrentColor.Sample(PointSamp, uv + float2(nx, ny) * pc.TexelSize).rgb);
-            nMin = min(nMin, sW); nMax = max(nMax, sW);
+            float3 y = RGBToYCoCg(CurrentColor.Sample(PointSamp, uv + float2(nx, ny) * pc.TexelSize).rgb);
+            m1 += y; m2 += y * y;
         }
     }
-    float3 historyW = ClipToAABB(ToneWeight(history), nMin, nMax);
+    m1 /= 9.0; m2 /= 9.0;
+    float3 sigma  = sqrt(max(m2 - m1 * m1, 0.0));
+    float3 boxMin = m1 - pc.VarianceGamma * sigma;
+    float3 boxMax = m1 + pc.VarianceGamma * sigma;
 
-    // Luminance-adaptive blend: high (stable) when cur/history match, low (responsive) when they diverge.
-    float lum0 = Luminance(currentW), lum1 = Luminance(historyW);
-    float lumaDiff = 1.0 - abs(lum0 - lum1) / max(lum0, max(lum1, 0.1));
-    float blend = lerp(0.85, pc.BlendFactor, saturate(lumaDiff * lumaDiff));
+    // Catmull-Rom history, clipped (in YCoCg) to the variance box toward its center.
+    float3 texSize   = float3(1.0 / pc.TexelSize.x, 1.0 / pc.TexelSize.y, 0.0);
+    float3 curY      = RGBToYCoCg(current);
+    float3 histY     = RGBToYCoCg(SampleHistoryCatmullRom(historyUV, texSize.xy));
+    histY            = ClipToAABB(histY, boxMin, boxMax);
 
-    float3 result = InverseToneWeight(lerp(currentW, historyW, blend));
+    // Blend: fixed-high history weight for stability; the variance clip (above) already handles change
+    // and disocclusion, so we DON'T reduce blend on luma mismatch (that collapsed to the jittered current
+    // at edges -> wobble). Only real motion drops history a little (less smear on fast movement).
+    float motionMag = saturate(length(motion) * pc.MotionScale);   // UV-delta; drops history as it grows
+    float blend     = pc.BlendFactor * (1.0 - 0.5 * motionMag);
+
+    float3 result = YCoCgToRGB(lerp(curY, histY, blend));
+    result = max(result, 0.0);
     o.Color = float4(result, 1.0); o.History = float4(result, 1.0); return o;
 }
 )";
@@ -174,7 +205,8 @@ public:
     // `blendFactor` ~0.95. Returns the resolved handle, or `current` unchanged if the view is invalid.
     [[nodiscard]] rendergraph::RGHandle DeclareTaa(rendergraph::RenderGraph& graph, rendergraph::RGHandle current,
                                                    rendergraph::RGHandle motion, rendergraph::RGHandle depth,
-                                                   u32 viewIndex, u32 w, u32 h, f32 blendFactor) {
+                                                   u32 viewIndex, u32 w, u32 h,
+                                                   f32 blendFactor, f32 varianceGamma, f32 motionScale) {
         if (viewIndex >= kMaxViews || w == 0 || h == 0) { return current; }
         ViewHistory& hist = m_views[viewIndex];
         if (!EnsureHistory(hist, w, h)) { return current; }
@@ -193,6 +225,8 @@ public:
         push.texelSize = Vec2{ 1.0f / static_cast<f32>(w), 1.0f / static_cast<f32>(h) };
         push.blendFactor = blendFactor;
         push.historyValid = hist.valid ? 1.0f : 0.0f;
+        push.varianceGamma = varianceGamma;
+        push.motionScale = motionScale;
 
         rhi::TextureView* histPrevView = hist.view[prev];
         graph.AddRenderPass(u8"taa", [this, &graph, current, motion, depth, histPrev, resolved, histCur, histPrevView, push](rendergraph::PassBuilder& b) {
@@ -221,7 +255,7 @@ public:
     }
 
 private:
-    struct TaaPush { Vec2 texelSize{}; f32 blendFactor = 0.95f; f32 historyValid = 0.0f; Vec2 jitter{}; Vec2 prevJitter{}; };
+    struct TaaPush { Vec2 texelSize{}; f32 blendFactor = 0.97f; f32 historyValid = 0.0f; f32 varianceGamma = 1.25f; f32 motionScale = 32.0f; Vec2 pad{}; };
 
     struct ViewHistory {
         rhi::Texture*     tex[2]  = {};
