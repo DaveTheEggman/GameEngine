@@ -58,6 +58,7 @@ struct RenderRecordContext {
     u32                        viewIndex   = 0;                  // this view's index in the frame (per-view buffer slots)
     rhi::TextureFormat         colorFormat = rhi::TextureFormat::BGRA8Unorm;
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
+    bool                       depthPrepass = false;   // camera depth-only prepass: no depth bias (match forward exactly)
 };
 
 // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,
@@ -279,7 +280,8 @@ public:
             // MRT G-buffer aux (cleared each view): view-space normal + screen-space motion vector.
             b.SetColorTarget(1, normalH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
             b.SetColorTarget(2, velocityH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
-            b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+            // Depth was cleared + populated (opaque) by the depth prepass; load it (early-Z via LessEqual).
+            b.SetDepthTarget(depth, rhi::LoadOp::Load, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).
@@ -522,6 +524,35 @@ public:
     // Append a per-pass GPU timing report (call only after the device is idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
+    }
+
+    // Depth prepass body: emit the view's OPAQUE draws as depth-only from the camera POV (no bias, so
+    // the depth equals the forward pass's exactly -> LessEqual early-Z). Masked isn't prepassed (the
+    // depth-only shader can't alpha-discard); transparent doesn't write depth. Runs at graph execute.
+    void RecordDepthPrepass(rhi::RenderPassEncoder& rp, const RenderView& view,
+                            const RendererRegistry& registry, u32 viewIndex) {
+        RenderRecordContext ctx{};
+        ctx.viewProj     = view.Camera().ViewProjection();
+        ctx.depthFormat  = m_pass.DepthFormat();
+        ctx.depthPrepass = true;
+        ctx.frameIndex   = m_frameIndex;
+        ctx.viewIndex    = viewIndex;
+
+        m_prepassResolved.Clear();
+        const Span<const DrawItem> items = view.DrawList();
+        usize i = 0;
+        while (i < items.Size()) {
+            const RenderCategory cat = items[i].data->category;
+            usize j = i + 1;
+            while (j < items.Size() && items[j].data->category == cat) { ++j; }
+            if (cat == RenderCategories::Opaque) {
+                if (Renderer* r = registry.ForCategory(cat)) {
+                    r->ResolveDepthOnly(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_prepassResolved);
+                }
+            }
+            i = j;
+        }
+        for (const ResolvedDraw& d : m_prepassResolved) { EmitDraw(rp, d); }
     }
 
     // Resolve + emit the scene's casters as depth-only draws from the light's POV (the shadow depth
@@ -889,6 +920,20 @@ public:
             const Vec2 jitter{ 0.0f, 0.0f };
             const Vec2 prevJitter{ 0.0f, 0.0f };
 
+            // Depth prepass: opaque-only, clears + writes the camera depth so the forward pass shades
+            // each opaque pixel once (early-Z via LessEqual). Declared before the forward, which Loads it.
+            {
+                RenderView* pv = v;
+                RendererRegistry* reg = m_registry;
+                const u32 vi = viewIndex;
+                m_graph.AddRenderPass(u8"depth.prepass", [this, depth, pv, reg, vi](rendergraph::PassBuilder& b) {
+                    b.SetDepthTarget(depth, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+                    b.SetViewport(pv->ViewportX(), pv->ViewportY(), pv->ViewportWidth(), pv->ViewportHeight());
+                    b.NeverCull();
+                    b.SetExecute([this, pv, reg, vi](rhi::RenderPassEncoder& rp) { RecordDepthPrepass(rp, *pv, *reg, vi); });
+                });
+            }
+
             // Declare the visible sky into `colorTarget` after the forward pass (if IBL + sky active).
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rhi::TextureFormat colorFmt) {
                 if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
@@ -952,6 +997,7 @@ private:
     // swapped in at End). Camera motion for static geometry comes from prev vs current view-proj.
     Array<Mat4>             m_prevViewProj;
     Array<Mat4>             m_curViewProj;
+    Array<ResolvedDraw>     m_prepassResolved;      // reused depth-draw buffer for the camera depth prepass
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.

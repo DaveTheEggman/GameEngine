@@ -1280,8 +1280,12 @@ private:
         // Hardware depth bias (ported from Sedulous): a constant offset + a slope-scaled term, applied
         // in shadow-map depth space (so it adds little visible spatial gap, unlike the normal-offset).
         // Pairs with the receiver-side (1 - NdotL) normal-offset bias in forward.frag for acne control.
-        c.depthBias           = 50;
-        c.depthBiasSlopeScale = 1.5f;
+        // The camera depth PREPASS must NOT bias — its depth has to equal the forward pass's exactly so
+        // the LessEqual early-Z accepts the re-drawn opaque fragments (bias would z-fight / reject them).
+        if (!ctx.depthPrepass) {
+            c.depthBias           = 50;
+            c.depthBiasSlopeScale = 1.5f;
+        }
         return c;
     }
 
@@ -1302,6 +1306,8 @@ private:
             config.colorFormats[1]  = kGNormalFormat;
             config.colorFormats[2]  = kGVelocityFormat;
             config.shaderFlags     |= shaders::ShaderFlags::GBuffer;
+            // Equal-depth fragments from the depth prepass must pass (early-Z shades each opaque pixel once).
+            config.depthCompare     = rhi::CompareFunction::LessEqual;
             // Masked: enable the alpha-test discard permutation (opaque-like, but cuts sub-cutoff pixels).
             if (config.blendMode == materials::BlendMode::Masked) { config.shaderFlags |= shaders::ShaderFlags::AlphaTest; }
         } else {
