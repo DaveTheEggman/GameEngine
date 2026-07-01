@@ -297,7 +297,33 @@ public:
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, prevViewProj, jitter, prevJitter, cluster, shadow, out);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out);
+            });
+        });
+    }
+
+    // The transparent pass: blended geometry into the (already-lit) color target only — no G-buffer, no
+    // depth write. Runs after opaque + sky, depth-tested read-only against the opaque depth, back-to-front
+    // (the draw list is pre-sorted). Transparent is lit, so it still binds the cluster/shadow/IBL set-0
+    // resources. colorH is loaded (preserves opaque + sky); the PSO is the color-only forward permutation.
+    void DeclareTransparent(const RenderView& view, const RendererRegistry& registry,
+                            rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
+                            rendergraph::RGHandle colorH, rendergraph::RGHandle depth, rhi::TextureFormat colorFormat,
+                            const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
+                            const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
+                            const IblBinding& ibl = {}) {
+        if (view.Width() == 0 || view.Height() == 0) { return; }
+        graph.AddRenderPass(u8"transparent", [this, &view, &registry, depth, colorH, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
+            b.SetColorTarget(0, colorH, rhi::LoadOp::Load, rhi::StoreOp::Store, view.Settings().clear);
+            b.SetReadOnlyDepthTarget(depth);   // test against opaque depth, no write
+            b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
+            if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
+            if (shadow.Valid()) { b.SampleDepth(shadow.handle); }
+            if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
+            if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
+            b.NeverCull();
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out);
             });
         });
     }
@@ -308,7 +334,7 @@ private:
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
-                        const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
+                        const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter, bool transparentPass,
                         const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
@@ -337,8 +363,13 @@ private:
             const RenderCategory cat = items[i].data->category;
             usize j = i + 1;
             while (j < items.Size() && items[j].data->category == cat) { ++j; }
-            if (Renderer* r = registry.ForCategory(cat)) {
-                r->Resolve(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_resolved);
+            // Split by pass: the opaque MRT pass takes categories below Transparent; the color-only
+            // transparent pass takes Transparent (+ any higher blended categories).
+            const bool isTransparent = (cat >= RenderCategories::Transparent);
+            if (isTransparent == transparentPass) {
+                if (Renderer* r = registry.ForCategory(cat)) {
+                    r->Resolve(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_resolved);
+                }
             }
             i = j;
         }
@@ -347,9 +378,13 @@ private:
         // bundles can't inherit it) — this view's sub-rect of the target, not the full target.
         rhi::RenderBundleDesc bd{};
         bd.colorFormats[0]    = colorFormat;
-        bd.colorFormats[1]    = kGNormalFormat;     // MRT: view-space normal
-        bd.colorFormats[2]    = kGVelocityFormat;   // MRT: motion vector
-        bd.colorFormatCount   = 3;
+        if (transparentPass) {
+            bd.colorFormatCount = 1;                 // color-only pass
+        } else {
+            bd.colorFormats[1]  = kGNormalFormat;    // MRT: view-space normal
+            bd.colorFormats[2]  = kGVelocityFormat;  // MRT: motion vector
+            bd.colorFormatCount = 3;
+        }
         bd.depthStencilFormat = m_depthFormat;
         bd.sampleCount        = 1;
         bd.viewportX          = view.ViewportX();
@@ -875,6 +910,9 @@ public:
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
                                    m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(hdr, m_tonemap->HdrFormat());   // sky into HDR, before tonemap
+                // Transparent (blended) after opaque + sky: color-only, depth read-only, back-to-front.
+                m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth,
+                                          m_tonemap->HdrFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex, m_exposure);
@@ -883,6 +921,8 @@ public:
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
                                    v->TargetFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(colorH, v->TargetFormat());
+                m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
+                                          v->TargetFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
             }
         }
         }   // end Compose.Declare

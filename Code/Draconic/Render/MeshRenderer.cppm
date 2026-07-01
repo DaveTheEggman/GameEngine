@@ -439,14 +439,18 @@ float2 OctEncode(float3 n) {
     return e;
 }
 
-// Forward MRT outputs: shaded HDR color + G-buffer aux (view-space normal, screen-space motion).
+// Forward outputs. GBUFFER (opaque/masked MRT pass): shaded color + view-normal + motion vector.
+// Otherwise (the color-only transparent pass): just the blended color.
+#ifdef GBUFFER
 struct PSOutput {
     float4 color    : SV_Target0;   // shaded HDR (tonemapped later)
     float2 normal   : SV_Target1;   // octahedral view-space normal
-    float2 velocity : SV_Target2;   // screen-space motion vector (UV delta); filled in a later pass
+    float2 velocity : SV_Target2;   // screen-space motion vector (UV delta)
 };
-
 PSOutput main(PSInput input) {
+#else
+float4 main(PSInput input) : SV_Target0 {
+#endif
     float3 N = normalize(input.normalWS);
     float3 V = normalize(CameraPos - input.worldPos);
 
@@ -508,6 +512,7 @@ PSOutput main(PSInput input) {
     } else {
         ambient = albedo * Ambient * ao;                         // flat fallback (no environment active)
     }
+#ifdef GBUFFER
     // Motion vector: current vs previous screen position, both unjittered (remove the per-frame TAA
     // jitter baked into each clip), as a UV-space delta (history is sampled at uv - velocity). NDC.y is
     // flipped vs UV.y, hence the (0.5, -0.5) scale.
@@ -516,10 +521,13 @@ PSOutput main(PSInput input) {
     float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
 
     PSOutput o;
-    o.color    = float4(ambient + Lo, alpha);   // alpha drives AlphaBlend for transparent materials
+    o.color    = float4(ambient + Lo, alpha);
     o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space normal (octahedral)
     o.velocity = velocity;
     return o;
+#else
+    return float4(ambient + Lo, alpha);   // color-only (transparent pass): alpha drives AlphaBlend
+#endif
 }
 )";
 
@@ -1284,18 +1292,21 @@ private:
         config.depthFormat = ctx.depthFormat;
         config.instanced   = instanced;
         if (instanced) { config.shaderFlags |= shaders::ShaderFlags::Instanced; }
-        // MRT: target 0 = shaded color (format overridden per-view at build); targets 1/2 = G-buffer
-        // aux (view-space normal + screen-space motion vector) the post stack consumes (TAA/GTAO).
-        config.colorTargetCount = 3;
-        config.colorFormats[1]  = kGNormalFormat;
-        config.colorFormats[2]  = kGVelocityFormat;
-        // Only opaque/masked geometry populates the G-buffer; transparent/blended draws bind the aux
-        // targets but don't write them (they'd clobber the opaque normal/velocity they blend over).
-        config.writeAuxTargets  = (config.blendMode == materials::BlendMode::Opaque ||
-                                   config.blendMode == materials::BlendMode::Masked);
-        // Masked (alpha-tested) geometry: enable the shader's alpha-test discard permutation. It's
-        // opaque-like (writes depth + G-buffer) but cuts out sub-cutoff fragments before shading.
-        if (config.blendMode == materials::BlendMode::Masked) { config.shaderFlags |= shaders::ShaderFlags::AlphaTest; }
+        // Opaque + masked render the MRT G-buffer pass: target 0 = shaded color (format overridden
+        // per-view at build); targets 1/2 = view-space normal + motion vector (the GBUFFER permutation
+        // writes them). Transparent renders a separate color-only pass, so it stays single-target.
+        const bool gbuffer = (config.blendMode == materials::BlendMode::Opaque ||
+                              config.blendMode == materials::BlendMode::Masked);
+        if (gbuffer) {
+            config.colorTargetCount = 3;
+            config.colorFormats[1]  = kGNormalFormat;
+            config.colorFormats[2]  = kGVelocityFormat;
+            config.shaderFlags     |= shaders::ShaderFlags::GBuffer;
+            // Masked: enable the alpha-test discard permutation (opaque-like, but cuts sub-cutoff pixels).
+            if (config.blendMode == materials::BlendMode::Masked) { config.shaderFlags |= shaders::ShaderFlags::AlphaTest; }
+        } else {
+            config.colorTargetCount = 1;   // transparent: color-only
+        }
         return config;
     }
 

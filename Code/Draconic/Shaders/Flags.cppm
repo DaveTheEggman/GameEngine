@@ -24,6 +24,7 @@ enum class ShaderFlags : u32 {
     Emissive       = 1u << 4,   // -> #define EMISSIVE
     VertexColors   = 1u << 5,   // -> #define VERTEX_COLORS
     ReceiveShadows = 1u << 6,   // -> #define RECEIVE_SHADOWS
+    GBuffer        = 1u << 7,   // -> #define GBUFFER (forward MRT: also output view-normal + motion)
 };
 
 [[nodiscard]] constexpr ShaderFlags operator|(ShaderFlags a, ShaderFlags b) noexcept
@@ -47,6 +48,7 @@ inline void AppendDefines(ShaderFlags flags, Array<ShaderDefine>& out)
     if (HasFlag(flags, ShaderFlags::Skinned))        { out.PushBack(ShaderDefine{ u8"SKINNED", u8"1" }); }
     if (HasFlag(flags, ShaderFlags::Instanced))      { out.PushBack(ShaderDefine{ u8"INSTANCED", u8"1" }); }
     if (HasFlag(flags, ShaderFlags::AlphaTest))      { out.PushBack(ShaderDefine{ u8"ALPHA_TEST", u8"1" }); }
+    if (HasFlag(flags, ShaderFlags::GBuffer))        { out.PushBack(ShaderDefine{ u8"GBUFFER", u8"1" }); }
     if (HasFlag(flags, ShaderFlags::NormalMap))      { out.PushBack(ShaderDefine{ u8"NORMAL_MAP", u8"1" }); }
     if (HasFlag(flags, ShaderFlags::Emissive))       { out.PushBack(ShaderDefine{ u8"EMISSIVE", u8"1" }); }
     if (HasFlag(flags, ShaderFlags::VertexColors))   { out.PushBack(ShaderDefine{ u8"VERTEX_COLORS", u8"1" }); }
