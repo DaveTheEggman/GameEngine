@@ -430,16 +430,17 @@ namespace
             }
         }
 
-        // Cycle the sky source: procedural gradient <-> HDR equirectangular (the .hdr was loaded at
-        // startup). Changing skyMode re-runs the IBL precompute from the new source next frame.
+        // Cycle the sky source (Procedural -> Analytic -> HDR Equirect -> Cubemap -> ...). Changing
+        // skyMode re-runs the IBL precompute from the new source next frame.
         void CycleSkyMode()
         {
             if (m_scene == nullptr) { return; }
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
                 rd::EnvironmentSettings& e = env->Environment();
-                e.skyMode = (e.skyMode == rd::SkyMode::Procedural)   ? rd::SkyMode::HDREquirect :
-                            (e.skyMode == rd::SkyMode::HDREquirect)  ? rd::SkyMode::Cubemap :
-                                                                       rd::SkyMode::Procedural;
+                e.skyMode = (e.skyMode == rd::SkyMode::Procedural)  ? rd::SkyMode::Analytic :
+                            (e.skyMode == rd::SkyMode::Analytic)    ? rd::SkyMode::HDREquirect :
+                            (e.skyMode == rd::SkyMode::HDREquirect) ? rd::SkyMode::Cubemap :
+                                                                      rd::SkyMode::Procedural;
             }
         }
 
@@ -456,20 +457,36 @@ namespace
             if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
                 rd::EnvironmentSettings& e = env->Environment();
                 // Sky source selector (also F5 to cycle). Picking a mode re-runs the IBL precompute.
-                const char* modes[] = { "Procedural", "HDR Equirect", "Cubemap" };
-                int modeIdx = (e.skyMode == rd::SkyMode::HDREquirect) ? 1 : (e.skyMode == rd::SkyMode::Cubemap) ? 2 : 0;
-                if (ImGui::Combo("Sky Mode", &modeIdx, modes, 3)) {
-                    e.skyMode = (modeIdx == 1) ? rd::SkyMode::HDREquirect : (modeIdx == 2) ? rd::SkyMode::Cubemap : rd::SkyMode::Procedural;
+                const char* modes[] = { "Procedural", "Analytic (Preetham)", "HDR Equirect", "Cubemap" };
+                int modeIdx = (e.skyMode == rd::SkyMode::Analytic)    ? 1 :
+                              (e.skyMode == rd::SkyMode::HDREquirect)  ? 2 :
+                              (e.skyMode == rd::SkyMode::Cubemap)      ? 3 : 0;
+                if (ImGui::Combo("Sky Mode", &modeIdx, modes, 4)) {
+                    e.skyMode = (modeIdx == 1) ? rd::SkyMode::Analytic :
+                                (modeIdx == 2) ? rd::SkyMode::HDREquirect :
+                                (modeIdx == 3) ? rd::SkyMode::Cubemap : rd::SkyMode::Procedural;
                 }
                 ImGui::SliderFloat("Sky Intensity", &e.skyIntensity, 0.0f, 4.0f);
-                ImGui::SliderFloat("Sun Intensity", &e.sunIntensity, 0.0f, 8.0f);
-                ImGui::SliderFloat("Sun Size (deg)", &e.sunAngularSize, 0.1f, 10.0f);
-                float h[3]  = { e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
-                if (ImGui::ColorEdit3("Horizon", h)) { e.skyHorizon = rc::Color{ h[0], h[1], h[2], 1.0f }; }
-                float z[3]  = { e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
-                if (ImGui::ColorEdit3("Zenith", z)) { e.skyZenith = rc::Color{ z[0], z[1], z[2], 1.0f }; }
-                float gr[3] = { e.skyGround.r, e.skyGround.g, e.skyGround.b };
-                if (ImGui::ColorEdit3("Ground", gr)) { e.skyGround = rc::Color{ gr[0], gr[1], gr[2], 1.0f }; }
+
+                const bool procedural = (e.skyMode == rd::SkyMode::Procedural);
+                const bool analytic   = (e.skyMode == rd::SkyMode::Analytic);
+                const bool untextured = procedural || analytic;   // has an analytic sun disc
+                // Only show controls relevant to the selected mode.
+                if (untextured) {
+                    ImGui::SliderFloat("Sun Intensity", &e.sunIntensity, 0.0f, 8.0f);
+                    ImGui::SliderFloat("Sun Size (deg)", &e.sunAngularSize, 0.1f, 10.0f);
+                }
+                if (analytic) {
+                    ImGui::SliderFloat("Turbidity", &e.turbidity, 1.7f, 10.0f);
+                }
+                if (procedural) {
+                    float h[3]  = { e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
+                    if (ImGui::ColorEdit3("Horizon", h)) { e.skyHorizon = rc::Color{ h[0], h[1], h[2], 1.0f }; }
+                    float z[3]  = { e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
+                    if (ImGui::ColorEdit3("Zenith", z)) { e.skyZenith = rc::Color{ z[0], z[1], z[2], 1.0f }; }
+                    float gr[3] = { e.skyGround.r, e.skyGround.g, e.skyGround.b };
+                    if (ImGui::ColorEdit3("Ground", gr)) { e.skyGround = rc::Color{ gr[0], gr[1], gr[2], 1.0f }; }
+                }
             }
             ImGui::Checkbox("Show ImGui demo", &m_showImguiDemo);
             ImGui::End();
