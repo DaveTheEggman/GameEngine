@@ -30,6 +30,7 @@ import :cluster_system;
 import :tonemap;
 import :shadows;
 import :ibl;
+import :bloom;
 import :sky;
 
 using namespace draconic::core;
@@ -494,9 +495,10 @@ class RenderFrame {
 public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
                 ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
-                ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr, SkyPass* sky = nullptr) noexcept
+                ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr, SkyPass* sky = nullptr,
+                BloomPass* bloom = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
-          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky) {}
+          m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom) {}
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -521,6 +523,8 @@ public:
 
     // Linear exposure multiplier applied in the tonemap pass (scene/camera setting).
     void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
+    // Bloom composite strength + soft-knee prefilter (intensity 0 = off).
+    void SetBloom(f32 intensity, f32 threshold, f32 knee) noexcept { m_bloomIntensity = intensity; m_bloomThreshold = threshold; m_bloomKnee = knee; }
     // Append a per-pass GPU timing report (call only after the device is idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
@@ -958,9 +962,21 @@ public:
                 // Transparent (blended) after opaque + sky: color-only, depth read-only, back-to-front.
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth,
                                           m_tonemap->HdrFormat(), prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
-                m_tonemap->DeclareTonemap(m_graph, hdr, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
+                // Bloom pyramid over the final HDR (opaque+sky+transparent), composited by the tonemap.
+                rendergraph::RGHandle bloomH{};
+                if (m_bloom != nullptr && m_bloomIntensity > 0.0f) {
+                    bloomH = m_bloom->DeclareBloom(m_graph, hdr, v->Width(), v->Height(), m_bloomThreshold, m_bloomKnee);
+                }
+                const f32 bloomStrength = bloomH.IsValid() ? m_bloomIntensity : 0.0f;
+                const rendergraph::RGHandle bloomTex = bloomH.IsValid() ? bloomH : hdr;   // valid binding even when off
+                // Map the tonemap's fullscreen uv to this view's sub-rect of the (full-size) HDR/bloom,
+                // so split-screen views resolve their own region (the forward renders into the sub-rect).
+                const f32 fullW = static_cast<f32>(v->Width()), fullH = static_cast<f32>(v->Height());
+                const Vec2 uvScale{ static_cast<f32>(v->ViewportWidth()) / fullW, static_cast<f32>(v->ViewportHeight()) / fullH };
+                const Vec2 uvOffset{ static_cast<f32>(v->ViewportX()) / fullW, static_cast<f32>(v->ViewportY()) / fullH };
+                m_tonemap->DeclareTonemap(m_graph, hdr, bloomTex, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                          m_frameIndex, viewIndex, m_exposure);
+                                          m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset);
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
@@ -992,7 +1008,11 @@ private:
     ShadowSystem*           m_shadows  = nullptr;   // borrowed; owns the directional shadow depth texture
     IBLSystem*              m_ibl      = nullptr;   // borrowed; owns the IBL precompute products (env/SH/prefilter/BRDF)
     SkyPass*                m_sky      = nullptr;   // borrowed; draws the visible environment background
+    BloomPass*              m_bloom    = nullptr;   // borrowed; builds the HDR bloom pyramid (composited at tonemap)
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
+    f32                     m_bloomIntensity = 0.05f;   // 0 = bloom off
+    f32                     m_bloomThreshold = 1.0f;
+    f32                     m_bloomKnee      = 0.6f;
     // Motion vectors: last frame's view-proj per view index (this frame's collected into m_curViewProj,
     // swapped in at End). Camera motion for static geometry comes from prev vs current view-proj.
     Array<Mat4>             m_prevViewProj;

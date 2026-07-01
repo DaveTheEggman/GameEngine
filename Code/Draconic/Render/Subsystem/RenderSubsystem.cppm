@@ -73,6 +73,14 @@ public:
     void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
     [[nodiscard]] f32 Exposure() const noexcept { return m_exposure; }
 
+    // Bloom on/off (skips the whole pyramid when off) + composite strength + soft-knee prefilter.
+    void SetBloomEnabled(bool on) noexcept { m_bloomEnabled = on; }
+    [[nodiscard]] bool BloomEnabled() const noexcept { return m_bloomEnabled; }
+    void SetBloomIntensity(f32 v) noexcept { m_bloomIntensity = v; }
+    [[nodiscard]] f32 BloomIntensity() const noexcept { return m_bloomIntensity; }
+    void SetBloomThreshold(f32 v) noexcept { m_bloomThreshold = v; }
+    [[nodiscard]] f32 BloomThreshold() const noexcept { return m_bloomThreshold; }
+
     // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
     // are valid — intended for an on-demand dump (the P-key), not per-frame use.
     void BuildGpuProfileReport(String& out) {
@@ -92,6 +100,7 @@ public:
         const u32 slotCount = HasGlobalJobSystem() ? GlobalJobs().SlotCount() : 1u;
         m_renderCtx.BeginFrame(slotCount);
         m_frame->SetExposure(m_exposure);
+        m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -178,9 +187,13 @@ protected:
         m_skyPass = MakeUnique<SkyPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_skyPass->Initialize().IsOk()) { m_skyPass.Reset(); }
 
+        // HDR bloom (composited at tonemap). Optional.
+        m_bloomPass = MakeUnique<BloomPass>(DefaultAllocator(), *m_device, *m_shaders);
+        if (!m_bloomPass->Initialize().IsOk()) { m_bloomPass.Reset(); }
+
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
                                           m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get(),
-                                          m_iblSystem.Get(), m_skyPass.Get());
+                                          m_iblSystem.Get(), m_skyPass.Get(), m_bloomPass.Get());
         m_frame->EnableGpuProfiling();   // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
@@ -201,6 +214,7 @@ protected:
         m_tonemapPass.Reset();  // before the ShaderSystem it borrows
         m_shadowSystem.Reset(); // shadow depth textures
         m_skyPass.Reset();      // before the ShaderSystem it borrows
+        m_bloomPass.Reset();    // before the ShaderSystem it borrows
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
@@ -234,7 +248,12 @@ private:
     UniquePtr<ShadowSystem>                   m_shadowSystem;
     UniquePtr<IBLSystem>                      m_iblSystem;
     UniquePtr<SkyPass>                        m_skyPass;
+    UniquePtr<BloomPass>                      m_bloomPass;
     f32                                       m_exposure = 1.0f;
+    bool                                      m_bloomEnabled   = true;
+    f32                                       m_bloomIntensity = 0.05f;   // 0 = bloom off
+    f32                                       m_bloomThreshold = 1.0f;
+    f32                                       m_bloomKnee      = 0.6f;
     RendererRegistry                          m_registry;
     UniquePtr<RenderFrame>                    m_frame;
 
