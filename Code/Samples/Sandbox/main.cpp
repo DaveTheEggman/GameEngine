@@ -28,7 +28,8 @@ import draconic.geometry.resource;       // StaticMeshFactory + StaticMesh produ
 import draconic.materials;
 import draconic.materials.resource;       // MaterialFactory (cooked materials)
 import draconic.texture.resource;         // TextureFactory (cooked textures)
-import draconic.texture.editor;           // TextureImporter::LoadCubemap
+import draconic.texture.editor;           // TextureImporter / TextureAssetBuilder
+import draconic.editor;                    // AssetBuildContext (cook an asset into a content instance)
 import draconic.animation.resource;       // Skeleton/AnimationClip factories
 import draconic.vfs;                      // NativeFileSystem mount for the content DB
 import draconic.content;                  // ContentDatabase (cooked-resource output)
@@ -327,6 +328,68 @@ namespace
             // The Character is driven by an AnimationGraph (a state machine over its clips) rather than a
             // single clip — press G to fire the graph's "Next" trigger and cross-fade to the next state.
             SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
+
+            SpawnSpriteDemo();   // billboards (all orientation + blend modes) using the imported logo
+        }
+
+        // Import the Draconic logo PNG through the asset pipeline (TextureImporter -> cook into the content
+        // DB -> Bind the runtime Texture) and return its GPU view. The Proxy is stored to keep it alive.
+        [[nodiscard]] rhi::TextureView* LoadLogoTexture()
+        {
+            if (m_resources.Get() == nullptr || m_textureFactory.Get() == nullptr) { return nullptr; }
+            const rc::StringView imageDir(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_IMAGE_DIR));
+
+            tex::TextureAsset asset;
+            tex::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
+                                           draconic::image::ImageColorSpace::Srgb, asset);   // sRGB albedo
+
+            // Create a content instance of the cooked record type, then cook the asset into it.
+            ct::Group* root = m_contentDb->RootGroup();
+            ct::Instance* inst = root->CreateInstance(u8"logo.tex", tex::TextureResource::StaticType());
+            if (inst == nullptr) { return nullptr; }
+            tex::TextureAssetBuilder builder;
+            draconic::editor::AssetBuildContext ctx{ imageDir, inst };   // assetRoot resolves the PNG
+            if (!builder.Build(asset, ctx).IsOk()) { return nullptr; }
+
+            // The runtime factory product is a tex::Texture (not the cooked record); it owns the GPU view.
+            m_logoTex = m_resources->Bind<tex::Texture>(inst->Id());
+            return m_logoTex ? m_logoTex->View() : nullptr;
+        }
+
+        // One textured billboard per (orientation, blend) combination, in a row, so the modes are easy to
+        // compare by flying the camera around (V toggles which split view the fly cam drives):
+        //   0 camera-facing (full), 1 camera-facing about world-Y, 2 world-aligned (fixed XY); + additive.
+        void SpawnSpriteDemo()
+        {
+            if (m_scene == nullptr) { return; }
+            auto* sprites = m_scene->GetSystem<rd::SpriteComponentManager>();
+            if (sprites == nullptr) { return; }
+            rhi::TextureView* logo = LoadLogoTexture();
+            if (logo == nullptr) { rc::ConsoleWrite(u8"Sandbox: sprite demo skipped (logo import failed)\n"); return; }
+
+            struct Variant { const char8_t* name; rc::u32 mode; bool additive; rc::Color tint; };
+            const Variant variants[] = {
+                { u8"spriteFace",   0u, false, rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing
+                { u8"spriteFaceY",  1u, false, rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing about Y
+                { u8"spriteWorld",  2u, false, rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // world-aligned XY
+                { u8"spriteAdd",    0u, true,  rc::Color{ 2.6f, 2.2f, 1.4f, 1.0f } },   // additive glow (HDR tint so it reads over the bright scene)
+                { u8"spriteTint",   0u, false, rc::Color{ 0.4f, 0.9f, 1.0f, 1.0f } },   // tinted cyan
+            };
+            const rc::f32 spacing = 4.5f;
+            const rc::f32 x0 = -0.5f * spacing * static_cast<rc::f32>((sizeof(variants) / sizeof(variants[0])) - 1);
+            for (rc::usize i = 0; i < sizeof(variants) / sizeof(variants[0]); ++i) {
+                const Variant& v = variants[i];
+                sc::EntityHandle e = m_scene->CreateEntity(v.name);
+                rd::SpriteComponent& sp = sprites->Add(e);
+                sp.texture     = logo;
+                sp.size        = rc::Vec2{ 3.0f, 3.0f };
+                sp.tint        = v.tint;
+                sp.orientation = v.mode;
+                sp.additive    = v.additive;
+                // Above the cube grids (which top out at y=13) and in front of them (z=-8), so the row
+                // reads as a clear banner over the scene and the billboard modes are easy to compare.
+                m_scene->SetLocalPosition(e, rc::Vec3{ x0 + spacing * static_cast<rc::f32>(i), 16.0f, -8.0f });
+            }
         }
 
         // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model
@@ -889,6 +952,7 @@ namespace
         anim::SkeletonFactory                m_skeletonFactory;
         anim::AnimationClipFactory           m_clipFactory;
         rc::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
+        res::Proxy<tex::Texture>             m_logoTex;          // sprite-demo logo (kept alive for its GPU view)
         mi::ModelFactory                     m_modelFactory;
         rc::Array<res::Proxy<mi::ModelResource>> m_models;   // keep cooked models + their resources alive
 

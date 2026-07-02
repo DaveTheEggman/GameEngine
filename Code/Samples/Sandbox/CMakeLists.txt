@@ -38,6 +38,7 @@ target_link_libraries(Sandbox PRIVATE
 target_compile_definitions(Sandbox PRIVATE
     DRACONIC_SANDBOX_MODEL_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/models"
     DRACONIC_SANDBOX_ENV_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/environment"
+    DRACONIC_SANDBOX_IMAGE_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/images"
     DRACONIC_SANDBOX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output/Sandbox")   # per-sample cooked-output DB (isolated from other samples)
 
 draconic_copy_sdl3_dll(Sandbox)
