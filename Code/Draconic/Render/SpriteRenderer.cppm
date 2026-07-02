@@ -164,7 +164,6 @@ public:
         m_viewRing.Reserve(kMaxViews);
         m_instanceRing.BeginFrame(frameIndex);
         m_viewRing.BeginFrame(frameIndex);
-        m_viewBindDirty = true;   // ring may have realloced; rebuild the (single) view bind group
     }
 
     void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) override {
@@ -227,14 +226,18 @@ private:
     static constexpr u32 kMaxViews     = 8;
     static constexpr u64 kViewSlotSize = 256;   // 2x mat4 padded to the dynamic-uniform alignment
 
+    // One bind group over the whole view ring (per-draw dynamic offset selects the slot). Rebuilt ONLY
+    // when the ring reallocates (generation bump) — which drains the GPU first (Reserve's WaitIdle) — so
+    // we never free a descriptor set an in-flight frame still references.
     rhi::BindGroup* EnsureViewBindGroup() {
-        if (m_viewBg != nullptr && !m_viewBindDirty) { return m_viewBg; }
+        const u32 gen = m_viewRing.Generation();
+        if (m_viewBg != nullptr && m_viewBgGen == gen) { return m_viewBg; }
         if (m_viewBg != nullptr) { m_device->DestroyBindGroup(m_viewBg); m_viewBg = nullptr; }
         if (m_viewRing.Buffer() == nullptr) { return nullptr; }
         rhi::BindGroupEntry e = rhi::BindGroupEntry::BufferEntry(m_viewRing.Buffer(), 0, kViewSlotSize);
         rhi::BindGroupDesc bgd{}; bgd.layout = m_viewLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ &e, 1 };
         if (!m_device->CreateBindGroup(bgd, m_viewBg).IsOk()) { m_viewBg = nullptr; return nullptr; }
-        m_viewBindDirty = false;
+        m_viewBgGen = gen;
         return m_viewBg;
     }
 
@@ -273,7 +276,13 @@ private:
 
         rhi::ColorTargetState target{};
         target.format = colorFormat;
-        target.blend  = additive ? rhi::BlendState::Additive() : rhi::BlendState::AlphaBlend();
+        // Additive sprites use ALPHA-WEIGHTED additive (dst + src.rgb*src.a), not the plain {One,One}
+        // accumulate preset — so a texture's transparent (alpha 0) texels add nothing instead of dumping
+        // their (often white) RGB into the scene. Only the opaque logo glows.
+        const rhi::BlendState addBlend{
+            { rhi::BlendFactor::SrcAlpha, rhi::BlendFactor::One, rhi::BlendOperation::Add },
+            { rhi::BlendFactor::One,      rhi::BlendFactor::One, rhi::BlendOperation::Add } };
+        target.blend  = additive ? addBlend : rhi::BlendState::AlphaBlend();
 
         rhi::FragmentState frag{}; frag.shader = rhi::ProgrammableStage{ ps, u8"main", rhi::ShaderStage::Fragment };
         frag.targets = Span<const rhi::ColorTargetState>{ &target, 1 };
@@ -322,7 +331,7 @@ private:
     rhi::Sampler*          m_sampler = nullptr;
     rhi::Buffer*           m_indexBuffer = nullptr;
     rhi::BindGroup*        m_viewBg = nullptr;
-    bool                   m_viewBindDirty = true;
+    u32                    m_viewBgGen = 0xFFFFFFFFu;   // generation the view bind group was built for
     Pipelines              m_alpha;
     Pipelines              m_additive;
     rhi::TextureFormat     m_depthFormat = rhi::TextureFormat::Depth32Float;
