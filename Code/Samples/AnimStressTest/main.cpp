@@ -75,11 +75,11 @@ namespace
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU skinning work, not the
         // display refresh — same as RenderStressTest. The image tears; fine for a benchmark.
-        rt::ApplicationSettings Settings() const override
+        rt::RenderWindowDesc MainRenderWindow() const override
         {
-            rt::ApplicationSettings s;
-            s.presentMode = rhi::PresentMode::Immediate;
-            return s;
+            rt::RenderWindowDesc d;
+            d.presentMode = rhi::PresentMode::Immediate;
+            return d;
         }
 
         // Register the ImGui subsystem so the benchmark HUD can draw over the scene.

@@ -32,14 +32,12 @@ namespace rhi = draconic::rhi;
 
 export namespace draconic::runtime
 {
+    // App/loop-level settings (frame pacing). Graphics/window config for the main window lives in its
+    // RenderWindowDesc (see IApplication::MainRenderWindow) — the same descriptor runtime windows use.
     struct ApplicationSettings
     {
         rc::f32 fixedTimeStep = 1.0f / 60.0f; // seconds per fixed update
         rc::f32 maxFrameTime  = 0.25f;        // clamp per frame (avoids the spiral of death)
-        // Main-window present mode. Fifo (vsync) by default; Immediate/Mailbox uncap the frame
-        // rate — use those to measure true CPU/GPU throughput instead of the display-capped number.
-        // The host applies this when it creates the main window; runtime-opened windows set their own.
-        rhi::PresentMode presentMode = rhi::PresentMode::Fifo;
     };
 
     // The host as seen by the application: register subsystems via Ctx(), reach the
@@ -74,6 +72,12 @@ export namespace draconic::runtime
 
         // Read once by the host before Configure() (frame pacing).
         [[nodiscard]] virtual ApplicationSettings Settings() const { return {}; }
+
+        // The main window's render config (present mode / swapchain format / buffer count) — the SAME
+        // descriptor runtime windows take via OpenWindow, so the main and runtime windows configure
+        // through one path. Read once by the host when it wraps the platform's main window. Default =
+        // Fifo (vsync), sRGB, double-buffered. Override to uncap the frame rate (Immediate/Mailbox), etc.
+        [[nodiscard]] virtual RenderWindowDesc MainRenderWindow() const { return {}; }
 
         virtual void Configure(IApplicationHost& host) { (void)host; }                  // register subsystems/types
         virtual void OnStartup(IApplicationHost& host) { (void)host; }                   // after Context.Startup

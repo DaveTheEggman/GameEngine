@@ -68,8 +68,7 @@ export namespace draconic::runtime
             {
                 if (IWindow* main = m_platform->WindowManager()->MainWindow())
                 {
-                    RenderWindowDesc mainDesc{};
-                    mainDesc.presentMode = m_settings.presentMode;   // honor the app's vsync choice
+                    const RenderWindowDesc mainDesc = app.MainRenderWindow();   // app's main-window render config
                     auto rw = m_graphics->CreateRenderWindow(*main, mainDesc);
                     if (rw.HasValue()) { m_windows.PushBack(static_cast<rc::UniquePtr<RenderWindow>&&>(rw.Value())); }
                 }

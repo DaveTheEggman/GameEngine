@@ -71,11 +71,11 @@ namespace
     public:
         // Run uncapped (vsync off) so the FPS/frame-ms readout reflects real CPU+GPU cost, not the
         // display refresh — matches AnimStressTest. The image may tear; fine for a dev sandbox.
-        rt::ApplicationSettings Settings() const override
+        rt::RenderWindowDesc MainRenderWindow() const override
         {
-            rt::ApplicationSettings s;
-            s.presentMode = rhi::PresentMode::Immediate;
-            return s;
+            rt::RenderWindowDesc d;
+            d.presentMode = rhi::PresentMode::Immediate;
+            return d;
         }
 
         // Register the standard subsystems (DefaultApplication) + the ImGui debug UI on top.
