@@ -131,6 +131,10 @@ public:
     [[nodiscard]] Span<const DrawItem>      DrawList()    const noexcept {
         return Span<const DrawItem>{ m_drawList.Data(), m_drawList.Size() };
     }
+    // Opaque per-scene debug-draw list for this view (set by the subsystem; cast back in RenderFrame).
+    // Stored as void* to keep Views decoupled from the :debug_draw partition.
+    void                                    SetDebugScene(const void* d) noexcept { m_debugScene = d; }
+    [[nodiscard]] const void*               DebugScene()  const noexcept { return m_debugScene; }
 
 private:
     // Cluster batchable draws (same mesh + material -> same PSO + vertex buffer) together in
@@ -158,6 +162,7 @@ private:
     i32                   m_viewportY     = 0;
     u32                   m_viewportW     = 0;
     u32                   m_viewportH     = 0;
+    const void*           m_debugScene    = nullptr;   // opaque debug::DebugDraw* for this view's scene
     Array<DrawItem>       m_drawList;   // per-view, owned (pooled storage)
 };
 

@@ -100,6 +100,14 @@ public:
     void SetFxaaSubpixel(f32 v) noexcept { m_fxaaSubpixel = v; }
     [[nodiscard]] f32 FxaaSubpixel() const noexcept { return m_fxaaSubpixel; }
 
+    // Debug draw (immediate-mode, cleared each frame after rendering). Debug() = global (drawn in every
+    // scene/view); Debug(scene) = per-scene (drawn only when that scene renders — no side-by-side bleed).
+    [[nodiscard]] debug::DebugDraw& Debug() noexcept { return m_debugGlobal; }
+    [[nodiscard]] debug::DebugDraw& Debug(scene::Scene& s) {
+        if (debug::DebugDraw* p = m_debugScenes.Find(&s)) { return *p; }
+        return m_debugScenes.InsertOrAssign(&s, debug::DebugDraw{});
+    }
+
     // Temporal AA on/off (projection jitter + history resolve) + resolve tunables.
     void SetTaaEnabled(bool on) noexcept { m_taaEnabled = on; }
     [[nodiscard]] bool TaaEnabled() const noexcept { return m_taaEnabled; }
@@ -133,6 +141,7 @@ public:
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
         m_frame->SetAo(m_aoMode, m_aoStrength, m_aoRadius, m_aoIntensity, m_aoDebug);
         m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
+        m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal);
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -164,13 +173,18 @@ public:
         settings.targetFinalState = targetState.finalState;
         {
             DRACONIC_PROFILE_SCOPE("Render.AddView");   // binds the view + builds/sorts its draw list
-            m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height);
+            const void* sceneDebug = m_debugScenes.Find(&scene);   // this scene's per-scene gizmo list (or null)
+            m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height, sceneDebug);
         }
     }
 
     void EndRendering() override {
         DRACONIC_PROFILE_SCOPE("Render.Compose");
         if (m_frame.Get() != nullptr) { m_frame->End(); }
+        // Immediate-mode: clear all debug lists AFTER rendering, so next frame's draws start empty
+        // (the app accumulates during its update, before the next BeginRendering).
+        m_debugGlobal.Clear();
+        for (auto& kv : m_debugScenes) { kv.value.Clear(); }
     }
 
 protected:
@@ -235,6 +249,10 @@ protected:
         m_fxaaPass = MakeUnique<FxaaPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_fxaaPass->Initialize().IsOk()) { m_fxaaPass.Reset(); }
 
+        // Debug draw (per-view gizmos + screen text). Optional.
+        m_debugPass = MakeUnique<DebugDrawPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+        if (!m_debugPass->Initialize().IsOk()) { m_debugPass.Reset(); }
+
         m_frame = MakeUnique<RenderFrame>(DefaultAllocator(), *m_device, m_registry, m_framesInFlight,
                                           m_clusterSystem.Get(), m_tonemapPass.Get(), m_shadowSystem.Get(),
                                           m_iblSystem.Get(), m_skyPass.Get(), m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get(),
@@ -263,6 +281,7 @@ protected:
         m_taaPass.Reset();      // before the ShaderSystem it borrows
         m_aoPass.Reset();       // before the ShaderSystem it borrows
         m_fxaaPass.Reset();     // before the ShaderSystem it borrows
+        m_debugPass.Reset();    // before the ShaderSystem it borrows
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
@@ -300,6 +319,9 @@ private:
     UniquePtr<TaaPass>                        m_taaPass;
     UniquePtr<AoPass>                         m_aoPass;
     UniquePtr<FxaaPass>                        m_fxaaPass;
+    UniquePtr<DebugDrawPass>                   m_debugPass;
+    debug::DebugDraw                           m_debugGlobal;                 // global gizmos (all views)
+    HashMap<scene::Scene*, debug::DebugDraw>   m_debugScenes;                 // per-scene gizmos
     f32                                       m_exposure = 1.0f;
     bool                                      m_bloomEnabled   = true;
     AoMode                                    m_aoMode         = AoMode::Off;   // AO off by default (UI combo)

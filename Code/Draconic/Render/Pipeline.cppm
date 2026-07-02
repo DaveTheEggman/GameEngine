@@ -34,6 +34,8 @@ import :bloom;
 import :taa;
 import :ao;
 import :fxaa;
+import :debug_draw;
+import :debug_pass;
 import :sky;
 
 using namespace draconic::core;
@@ -530,12 +532,17 @@ public:
     // Collect a view over `scene`. Builds its sorted draw list now (parallelizable later);
     // the GPU recording is deferred to End so transient buffers are sized once per frame.
     RenderView* AddView(const ExtractedScene& scene, const ViewCamera& camera, const ViewSettings& settings,
-                        rhi::TextureView* target, rhi::TextureFormat targetFormat, u32 width, u32 height) {
+                        rhi::TextureView* target, rhi::TextureFormat targetFormat, u32 width, u32 height,
+                        const void* debugScene = nullptr) {
         RenderView* view = m_views.Acquire();
         view->Bind(scene, camera, settings, target, targetFormat, width, height);
+        view->SetDebugScene(debugScene);
         view->BuildDrawList(m_sortScratch);
         return view;
     }
+
+    // Per-frame debug draw: the pass + the GLOBAL list (per-scene lists ride on each RenderView).
+    void SetDebug(DebugDrawPass* pass, const debug::DebugDraw* global) noexcept { m_debugPass = pass; m_debugGlobal = global; }
 
     // Turn on per-pass GPU timestamp profiling for the frame graph (idempotent).
     void EnableGpuProfiling() { m_graph.EnableGpuProfiling(); }
@@ -1069,6 +1076,20 @@ public:
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
                                           v->TargetFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
             }
+
+            // Debug draw (per view): global + this view's scene gizmos, projected by the UNJITTERED VP,
+            // into the final LDR (geometry depth-tested against the scene depth; screen text on top).
+            // Keyed per-scene (+ global) so side-by-side scenes/views don't bleed.
+            if (m_debugPass != nullptr) {
+                const debug::DebugDraw* sceneDbg = static_cast<const debug::DebugDraw*>(v->DebugScene());
+                if (m_debugGlobal != nullptr || sceneDbg != nullptr) {
+                    m_debugPass->DeclareGeometry(m_graph, colorH, depth, unjitteredVP, m_debugGlobal, sceneDbg,
+                                                 v->TargetFormat(), m_pass.DepthFormat(),
+                                                 v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(), m_frameIndex, viewIndex);
+                    m_debugPass->DeclareScreen(m_graph, colorH, unjitteredVP, m_debugGlobal, sceneDbg, v->TargetFormat(),
+                                               v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(), m_frameIndex, viewIndex);
+                }
+            }
         }
         }   // end Compose.Declare
         {
@@ -1098,6 +1119,8 @@ private:
     TaaPass*                m_taa      = nullptr;   // borrowed; temporal AA resolve (per-view history)
     AoPass*                 m_ao       = nullptr;   // borrowed; ambient occlusion (GTAO/SSAO) from the G-buffer
     FxaaPass*               m_fxaa     = nullptr;   // borrowed; TAA-off fallback AA (after tonemap)
+    DebugDrawPass*          m_debugPass = nullptr;  // borrowed; per-view debug gizmo/text pass
+    const debug::DebugDraw* m_debugGlobal = nullptr;   // borrowed; global (all-views) debug list
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
     bool                    m_fxaaEnabled = false;
     f32                     m_fxaaSubpixel = 0.75f;
