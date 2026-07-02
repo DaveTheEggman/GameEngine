@@ -30,3 +30,4 @@ export import :ao;
 export import :fxaa;
 export import :debug_font;
 export import :debug_draw;
+export import :debug_pass;
