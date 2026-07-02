@@ -1,14 +1,16 @@
 /// Draconic::Render — the `:taa` partition.
 ///
 /// Temporal anti-aliasing resolve (ported from Sedulous taa.frag.hlsl). Blends the current jittered
-/// HDR frame with the reprojected history: closest-depth motion selection, a tone-weighted 3x3
-/// neighborhood AABB clip-to-center (kills fireflies + ghosting), and a luminance-adaptive blend
-/// (stable when matched, responsive on change). Runs in linear HDR after the scene is composed
-/// (opaque+sky+transparent) and before bloom/tonemap. Per-view color-history ping-pong (persistent),
-/// managed here; jitter is applied to the projection by the caller (RenderFrame).
+/// HDR frame with the reprojected history: closest-depth motion selection, a YCoCg variance clip, a
+/// Catmull-Rom history sample, a luma/motion-adaptive blend, and a depth-disocclusion reject. Runs in
+/// linear HDR after the scene is composed (opaque+sky+transparent) and before bloom/tonemap. Per-view
+/// color-history ping-pong (persistent), managed here; jitter is applied to the projection by the caller.
 ///
-/// (Depth-based disocclusion is a follow-up — the neighborhood clip carries most of it; adding it needs
-/// a persisted previous-frame depth. Variance clip + Catmull-Rom history are the planned refinements.)
+/// Depth-disocclusion (ported from Sedulous, hardens ghost-on-reveal): compares this frame's linearized
+/// depth against the previous frame's depth at the reprojected historyUV, rejecting history on a large
+/// relative mismatch (a surface revealed/occluded). We avoid a separate prev-depth ping-pong by carrying
+/// the previous frame's LINEAR depth in the color-history texture's alpha channel (unused downstream);
+/// linear depth in half-float keeps ~0.05% relative precision everywhere vs the 10% reject threshold.
 
 module;
 #include "Core/Prelude.h"
@@ -58,9 +60,14 @@ struct TaaPush {
     float  HistoryValid;   // 0 = first frame (no history)
     float  VarianceGamma;  // neighborhood clip box half-width in stddevs (~1.25; larger = softer/steadier)
     float  MotionScale;    // how fast history is dropped as motion grows (0 = ignore motion)
-    float2 _pad;
+    float  NearPlane;      // camera near — linearize depth for the disocclusion test
+    float  FarPlane;       // camera far
 };
 [[vk::push_constant]] TaaPush pc;
+
+// Linearize a non-reverse-Z depth (0=near, 1=far) to view-space Z, so the disocclusion threshold is
+// depth-independent. Sky/background (d=1) maps to FarPlane; there's no divide-by-zero in [0,1].
+float LinearizeDepth(float d, float n, float f) { return (n * f) / (f - d * (f - n)); }
 
 float  Luminance(float3 c)  { return dot(c, float3(0.2126, 0.7152, 0.0722)); }
 float3 RGBToYCoCg(float3 c) { return float3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
@@ -102,6 +109,10 @@ struct PSOut { float4 Color : SV_Target0; float4 History : SV_Target1; };
 PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     float3 current = CurrentColor.Sample(PointSamp, uv).rgb;
 
+    // This pixel's surface depth (linear) — stored in the history alpha so next frame can compare against
+    // it at the reprojected position (the disocclusion test below).
+    float centerLin = LinearizeDepth(DepthTexture.Sample(PointSamp, uv).r, pc.NearPlane, pc.FarPlane);
+
     // Closest depth in a 3x3 neighborhood -> stable motion-vector selection (reduces silhouette ghosting).
     float  closestDepth = 1.0;
     float2 closestUV    = uv;
@@ -117,7 +128,18 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
 
     PSOut o;
     if (pc.HistoryValid < 0.5 || any(historyUV < 0.0) || any(historyUV > 1.0)) {
-        o.Color = float4(current, 1.0); o.History = float4(current, 1.0); return o;
+        o.Color = float4(current, 1.0); o.History = float4(current, centerLin); return o;
+    }
+
+    // Depth-based disocclusion reject: the previous frame's linear depth at historyUV lives in the history
+    // alpha. If it disagrees with this frame's (closest) linear depth beyond a relative threshold, the
+    // reprojected texel sampled a different surface (occluder revealed / geometry newly occluded) -> drop
+    // history to avoid a ghost-on-reveal. linPrev==0 only where no depth was ever stored -> skip the test.
+    float linPrev = HistoryColor.Sample(PointSamp, historyUV).a;
+    if (linPrev > 0.0) {
+        float linCur   = LinearizeDepth(closestDepth, pc.NearPlane, pc.FarPlane);
+        float relDiff  = abs(linCur - linPrev) / max(min(linCur, linPrev), 0.001);
+        if (relDiff > 0.1) { o.Color = float4(current, 1.0); o.History = float4(current, centerLin); return o; }
     }
 
     // YCoCg neighborhood statistics: mean (m1) + mean-of-squares (m2) over the 3x3 -> variance box.
@@ -147,7 +169,7 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
 
     float3 result = YCoCgToRGB(lerp(curY, histY, blend));
     result = max(result, 0.0);
-    o.Color = float4(result, 1.0); o.History = float4(result, 1.0); return o;
+    o.Color = float4(result, 1.0); o.History = float4(result, centerLin); return o;
 }
 )";
 
@@ -206,7 +228,8 @@ public:
     [[nodiscard]] rendergraph::RGHandle DeclareTaa(rendergraph::RenderGraph& graph, rendergraph::RGHandle current,
                                                    rendergraph::RGHandle motion, rendergraph::RGHandle depth,
                                                    u32 viewIndex, u32 w, u32 h,
-                                                   f32 blendFactor, f32 varianceGamma, f32 motionScale) {
+                                                   f32 blendFactor, f32 varianceGamma, f32 motionScale,
+                                                   f32 nearPlane, f32 farPlane) {
         if (viewIndex >= kMaxViews || w == 0 || h == 0) { return current; }
         ViewHistory& hist = m_views[viewIndex];
         if (!EnsureHistory(hist, w, h)) { return current; }
@@ -227,6 +250,8 @@ public:
         push.historyValid = hist.valid ? 1.0f : 0.0f;
         push.varianceGamma = varianceGamma;
         push.motionScale = motionScale;
+        push.nearPlane = nearPlane;
+        push.farPlane = (farPlane > nearPlane) ? farPlane : 1000.0f;
 
         rhi::TextureView* histPrevView = hist.view[prev];
         graph.AddRenderPass(u8"taa", [this, &graph, current, motion, depth, histPrev, resolved, histCur, histPrevView, push](rendergraph::PassBuilder& b) {
@@ -255,7 +280,7 @@ public:
     }
 
 private:
-    struct TaaPush { Vec2 texelSize{}; f32 blendFactor = 0.97f; f32 historyValid = 0.0f; f32 varianceGamma = 1.25f; f32 motionScale = 32.0f; Vec2 pad{}; };
+    struct TaaPush { Vec2 texelSize{}; f32 blendFactor = 0.97f; f32 historyValid = 0.0f; f32 varianceGamma = 1.25f; f32 motionScale = 32.0f; f32 nearPlane = 0.1f; f32 farPlane = 1000.0f; };
 
     struct ViewHistory {
         rhi::Texture*     tex[2]  = {};

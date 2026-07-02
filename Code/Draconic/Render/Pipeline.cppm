@@ -1033,8 +1033,9 @@ public:
                 // jittered (no wobble). Bloom + tonemap run on the resolved color.
                 rendergraph::RGHandle sceneColor = litHdr;
                 if (m_taaEnabled && m_taa != nullptr) {
+                    const f32 taaFar  = (v->Camera().farZ > 0.0f) ? v->Camera().farZ : 1000.0f;
                     sceneColor = m_taa->DeclareTaa(m_graph, litHdr, velocityT, depth, viewIndex, v->Width(), v->Height(),
-                                                   m_taaBlend, m_taaGamma, m_taaMotionScale);
+                                                   m_taaBlend, m_taaGamma, m_taaMotionScale, /*near*/ 0.1f, taaFar);
                 }
                 // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
                 // color-only, depth read-only against the opaque depth, back-to-front.
