@@ -723,6 +723,25 @@ namespace
                 p.z += 0.8f * rc::Sin(m_angle * 1.3f + static_cast<rc::f32>(k) * 0.5f);
                 m_scene->SetLocalPosition(m_pointLights[k], p);
             }
+
+            // Debug-draw demo: per-scene gizmos (wire boxes/spheres on the resting props, origin axes,
+            // a ground grid, an arrow from the spot, 3D + screen text). Both split-screen views render
+            // these, each projected through its OWN camera — and they're keyed to this scene, so a second
+            // scene's gizmos would never bleed in.
+            if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                auto& dbg = render->Debug(*m_scene);
+                for (int k = 0; k < 4; ++k) {
+                    const rc::Vec3 boxC{ -7.5f + 5.0f * static_cast<rc::f32>(k), -5.75f, 10.0f };
+                    dbg.DrawWireBoxCenter(boxC, rc::Vec3{ 1.3f, 1.3f, 1.3f }, rc::Color{ 1.0f, 1.0f, 0.0f, 1.0f });
+                    const rc::Vec3 ballC{ -7.5f + 5.0f * static_cast<rc::f32>(k), -5.75f, 16.0f };
+                    dbg.DrawWireSphere(rc::BoundingSphere{ ballC, 1.4f }, rc::Color{ 0.2f, 0.9f, 1.0f, 1.0f });
+                }
+                dbg.DrawAxis(rc::Mat4::Identity(), 3.0f, /*overlay*/ true);
+                dbg.DrawGrid(rc::Vec3{ 0.0f, -6.99f, 0.0f }, 60.0f, 30, rc::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
+                dbg.DrawArrow(rc::Vec3{ 0.0f, 7.0f, 13.0f }, rc::Vec3{ 0.0f, -6.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
+                dbg.DrawText3D(rc::Vec3{ 0.0f, 0.5f, 0.0f }, rc::StringView(u8"origin"), rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
+                render->Debug().DrawScreenText(12.0f, 12.0f, rc::StringView(u8"Draconic Debug Draw"), rc::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
+            }
         }
 
         void OnShutdown(rt::IApplicationHost& host) override
