@@ -19,6 +19,7 @@ target_sources(DraconicRender
             Pipeline.cppm
             GpuMesh.cppm
             MeshRenderer.cppm
+            SpriteRenderer.cppm
             ClusterSystem.cppm
             TonemapPass.cppm
             ShadowSystem.cppm

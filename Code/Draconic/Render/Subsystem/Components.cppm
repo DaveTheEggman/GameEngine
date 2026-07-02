@@ -16,6 +16,7 @@ import draconic.core;
 import draconic.scene;
 import draconic.geometry;
 import draconic.materials;
+import draconic.rhi;      // rhi::TextureView (a SpriteComponent references a texture to draw)
 import draconic.render;   // SkySnapshot/SkyMode (snapshot layer; render.subsystem depends on render)
 
 using namespace draconic::core;
@@ -76,7 +77,21 @@ struct LightComponent {
     bool             castsShadows = false;        // phase 5 shadow caster
 };
 
+// A textured billboard on an entity — drawn at the entity's world position, sized in world units,
+// facing the camera (or world-aligned). `texture` is borrowed: the app/resource owns it and must keep
+// it alive while the component is attached. Extraction reads this into a render::SpriteRenderData.
+struct SpriteComponent {
+    rhi::TextureView* texture = nullptr;
+    Vec2  size        = Vec2{ 1.0f, 1.0f };                 // world-unit width/height
+    Vec4  uvRect      = Vec4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) — whole texture by default
+    Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
+    bool  additive    = false;  // false = alpha over, true = additive (glow)
+    bool  visible     = true;
+};
+
 class MeshComponentManager   final : public scene::ComponentManager<MeshComponent>   {};
+class SpriteComponentManager final : public scene::ComponentManager<SpriteComponent> {};
 class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};
 class LightComponentManager  final : public scene::ComponentManager<LightComponent>  {};
 

@@ -131,6 +131,28 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
     ctx.MergeInto(out);
 }
 
+// Fills `out` with one SpriteRenderData per visible SpriteComponent (serial — sprites are few). Stamps
+// the sprite renderer's dispatch id so emission routes them to the SpriteRenderer, and category
+// Transparent so they sort back-to-front and ride the blended forward pass alongside transparent meshes.
+inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spriteRendererId) {
+    auto* sprites = scene.GetSystem<SpriteComponentManager>();
+    if (sprites == nullptr) { return; }
+    sprites->ForEach([&](SpriteComponent& sc, scene::EntityHandle e) {
+        if (!sc.visible || sc.texture == nullptr) { return; }
+        SpriteRenderData* rd = out.Add<SpriteRenderData>();
+        if (rd == nullptr) { return; }
+        rd->category    = RenderCategories::Transparent;
+        rd->rendererId  = spriteRendererId;
+        rd->worldCenter = TransformPoint(Vec3{ 0, 0, 0 }, scene.GetWorldMatrix(e));
+        rd->size        = sc.size;
+        rd->uvRect      = sc.uvRect;
+        rd->tint        = sc.tint;
+        rd->orientation = sc.orientation;
+        rd->additive    = sc.additive;
+        rd->texture     = sc.texture;
+    });
+}
+
 // Reads the scene's primary camera into `out` (view = inverse world; projection from its
 // fields). When `outClear` is given, also writes the camera's clear color. Returns false if
 // no primary CameraComponent exists.

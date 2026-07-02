@@ -49,6 +49,7 @@ public:
     // Injects the render component managers into each new scene.
     void OnSceneCreated(scene::Scene& scene) override {
         scene.AddSystem<MeshComponentManager>();
+        scene.AddSystem<SpriteComponentManager>();
         scene.AddSystem<CameraComponentManager>();
         scene.AddSystem<LightComponentManager>();
         scene.AddSystem<EnvironmentSystem>();
@@ -158,6 +159,9 @@ public:
         {
             DRACONIC_PROFILE_SCOPE("Render.Extract");
             ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up (resets snapshot)
+            if (m_spriteRenderer.Get() != nullptr) {           // billboards (into the same snapshot, after meshes)
+                ExtractSpritesInto(scene, *snapshot, m_spriteRenderer->RendererId());
+            }
             ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
             ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
         }
@@ -203,7 +207,12 @@ protected:
 
         m_meshRenderer = MakeUnique<MeshRenderer>(DefaultAllocator(), *m_device, *m_shaders, *m_psoCache, *m_materialSystem, m_framesInFlight);
         if (!m_meshRenderer->Initialize().IsOk()) { m_meshRenderer.Reset(); return; }
-        m_registry.Register(m_meshRenderer.Get());
+        m_registry.Register(m_meshRenderer.Get());   // FIRST -> renderer id 0 (the RenderData default)
+
+        // Sprites: registered after the mesh renderer (id 1); shares the blended forward pass.
+        m_spriteRenderer = MakeUnique<SpriteRenderer>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+        if (m_spriteRenderer->Initialize().IsOk()) { m_registry.Register(m_spriteRenderer.Get()); }
+        else { m_spriteRenderer.Reset(); }
 
         // Debug toggles: flip to false to isolate a subsystem (e.g. bisecting a rendering bug). When
         // off, the renderer falls back gracefully — clustering off => the shader's all-lights path;
@@ -287,6 +296,7 @@ protected:
         m_fxaaPass.Reset();     // before the ShaderSystem it borrows
         m_debugPass.Reset();    // before the ShaderSystem it borrows
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
+        m_spriteRenderer.Reset(); // before the ShaderSystem it borrows
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
         m_psoCache.Reset();
@@ -314,6 +324,7 @@ private:
     UniquePtr<materials::PipelineStateCache>  m_psoCache;
     UniquePtr<materials::MaterialSystem>      m_materialSystem;
     UniquePtr<MeshRenderer>                   m_meshRenderer;
+    UniquePtr<SpriteRenderer>                 m_spriteRenderer;
     UniquePtr<ClusterSystem>                  m_clusterSystem;
     UniquePtr<TonemapPass>                    m_tonemapPass;
     UniquePtr<ShadowSystem>                   m_shadowSystem;

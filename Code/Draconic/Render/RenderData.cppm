@@ -159,6 +159,20 @@ struct MeshRenderData : RenderData {
 };
 static_assert(std::is_trivially_destructible_v<MeshRenderData>);
 
+// One textured billboard quad. A camera-facing (or world-aligned) sprite drawn by the SpriteRenderer,
+// which shares the blended forward pass with transparent meshes (interleaved by depth). Its world
+// position is the RenderData base `worldCenter`; extraction sets category = Transparent and stamps
+// rendererId with the sprite renderer's id. `texture` is borrowed (the app/resource keeps it alive).
+struct SpriteRenderData : RenderData {
+    Vec2  size        = Vec2{ 1.0f, 1.0f };                 // world-unit width/height
+    Vec4  uvRect      = Vec4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h)
+    Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
+    bool  additive    = false;  // blend: false = alpha over, true = additive
+    rhi::TextureView* texture = nullptr;
+};
+static_assert(std::is_trivially_destructible_v<SpriteRenderData>);
+
 // One light, packed for a GPU storage buffer (std430, 64 bytes = 4x float4). A shading input,
 // not a drawable — extracted into the ExtractedScene's light list, uploaded to a storage buffer,
 // and consumed by the forward shading loop. Directional: dir is the light direction; Point/Spot:
