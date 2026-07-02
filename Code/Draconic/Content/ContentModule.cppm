@@ -376,7 +376,12 @@ export namespace draconic::content
     inline Instance* Group::CreateInstance(StringView name, const TypeInfo& primaryType)
     {
         if (Instance* existing = GetInstance(name)) { return existing; }
-        const Guid id = Guid::Generate(m_db->Rng());
+        // Mint a GUID that isn't already in use. The RNG is deterministic and Scan() (load-from-disk)
+        // does NOT advance it past the instances it loads — so a fresh instance added to a scanned DB
+        // would otherwise reproduce the FIRST-cooked instance's GUID and alias it (e.g. a runtime-cooked
+        // texture colliding with a model's first texture). Re-roll until the id is free.
+        Guid id = Guid::Generate(m_db->Rng());
+        while (m_db->GetInstance(id) != nullptr) { id = Guid::Generate(m_db->Rng()); }
         // TypeInfo names are narrow ASCII; wrap in StringView.
         const StringView ns(reinterpret_cast<const utf8char*>(primaryType.namespaceName));
         const StringView nm(reinterpret_cast<const utf8char*>(primaryType.name));
