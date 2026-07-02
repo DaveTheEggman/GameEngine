@@ -864,8 +864,9 @@ public:
         // 2*boneCount (current slab + previous slab). The map reserves the key so dups are skipped.
         u32 total = 0;
         for (RenderData* data : scene.Items()) {
+            if (data == nullptr || data->rendererId != RendererId()) { continue; }   // skip non-mesh (e.g. sprite) items
             const auto* md = static_cast<const MeshRenderData*>(data);
-            if (md == nullptr || md->boneMatrices == nullptr || md->boneCount == 0) { continue; }
+            if (md->boneMatrices == nullptr || md->boneCount == 0) { continue; }
             if (md->mesh == nullptr || !md->mesh->IsSkinned()) { continue; }
             if (m_boneStart.Contains(md->boneMatrices)) { continue; }
             m_boneStart.InsertOrAssign(md->boneMatrices, BoneSlot{});   // reserve; bases filled in pass 2

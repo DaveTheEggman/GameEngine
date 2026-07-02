@@ -642,13 +642,18 @@ public:
             items = Span<const DrawItem>{ m_shadowCullScratch.Data(), m_shadowCullScratch.Size() };
         }
 
+        // Group by RENDERER (not category): the caster list is the view's draw list, whose blended span
+        // now mixes transparent meshes (id 0) and sprites (id 1) interleaved by depth. Dispatching a
+        // whole category run to the first item's renderer would hand sprite data to the mesh renderer
+        // (read as MeshRenderData -> garbage/UAF). Same-renderer runs route correctly; sprites' depth-only
+        // resolve is a no-op (they don't cast shadows).
         m_shadowResolved.Clear();
         usize i = 0;
         while (i < items.Size()) {
-            const RenderCategory cat = items[i].data->category;
+            const u16 rid = items[i].data->rendererId;
             usize j = i + 1;
-            while (j < items.Size() && items[j].data->category == cat) { ++j; }
-            if (Renderer* r = registry.ById(items[i].data->rendererId)) {
+            while (j < items.Size() && items[j].data->rendererId == rid) { ++j; }
+            if (Renderer* r = registry.ById(rid)) {
                 r->ResolveDepthOnly(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_shadowResolved);
             }
             i = j;
