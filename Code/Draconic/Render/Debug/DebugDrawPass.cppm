@@ -26,12 +26,26 @@ namespace rhi = draconic::rhi;
 export namespace draconic::render {
 
 // World-space geometry: position (world) transformed by the view's ViewProj (push), unlit vertex color.
+// A tiny clip-space depth nudge toward the camera (constant NDC-z bias = kDepthBias, applied as
+// z -= bias*w so it survives the perspective divide) keeps coplanar gizmos (grid/axes on a surface)
+// from shimmering: the debug geometry is projected UNJITTERED but depth-tests against the scene depth,
+// which is rendered with the TAA sub-pixel jitter — so without a bias the depth-test margin oscillates
+// as the jitter walks its sequence each frame. A rasterizer depth bias won't help (it doesn't apply to
+// line primitives on D3D12/Vulkan), so we bias in clip space where it covers both lines and triangles.
+// Harmless for the overlay pipelines (Always depth-compare ignores it).
 inline constexpr const char8_t* kDebugGeomVS = u8R"(
 struct VSIn  { float3 pos : TEXCOORD0; float4 col : TEXCOORD1; };
 struct VSOut { float4 pos : SV_Position; float4 col : TEXCOORD0; };
 struct GeomPush { row_major float4x4 ViewProj; };
 [[vk::push_constant]] GeomPush pc;
-VSOut main(VSIn i) { VSOut o; o.pos = mul(float4(i.pos, 1.0), pc.ViewProj); o.col = i.col; return o; }
+static const float kDepthBias = 0.0005;
+VSOut main(VSIn i) {
+    VSOut o;
+    o.pos = mul(float4(i.pos, 1.0), pc.ViewProj);
+    o.pos.z -= kDepthBias * o.pos.w;   // pull toward camera (NDC 0=near) to beat TAA-jitter depth noise
+    o.col = i.col;
+    return o;
+}
 )";
 inline constexpr const char8_t* kDebugGeomPS = u8R"(
 float4 main(float4 pos : SV_Position, float4 col : TEXCOORD0) : SV_Target { return col; }
