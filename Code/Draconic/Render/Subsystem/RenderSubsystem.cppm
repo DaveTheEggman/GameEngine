@@ -100,13 +100,16 @@ public:
     void SetFxaaSubpixel(f32 v) noexcept { m_fxaaSubpixel = v; }
     [[nodiscard]] f32 FxaaSubpixel() const noexcept { return m_fxaaSubpixel; }
 
-    // Debug draw (immediate-mode, cleared each frame after rendering). Debug() = global (drawn in every
-    // scene/view); Debug(scene) = per-scene (drawn only when that scene renders — no side-by-side bleed).
-    [[nodiscard]] debug::DebugDraw& Debug() noexcept { return m_debugGlobal; }
-    [[nodiscard]] debug::DebugDraw& Debug(scene::Scene& s) {
+    // Debug draw (immediate-mode, cleared each frame after rendering). Three destinations by WHERE the
+    // draw lands: DebugGlobal() = drawn in EVERY view (world gizmos + per-view HUD, replicated per view);
+    // DebugScene(scene) = only where that scene renders (no side-by-side bleed); DebugScreen() = ONCE over
+    // the whole window (screen-space HUD — text/rects; 3D calls have no camera here and are ignored).
+    [[nodiscard]] debug::DebugDraw& DebugGlobal() noexcept { return m_debugGlobal; }
+    [[nodiscard]] debug::DebugDraw& DebugScene(scene::Scene& s) {
         if (debug::DebugDraw* p = m_debugScenes.Find(&s)) { return *p; }
         return m_debugScenes.InsertOrAssign(&s, debug::DebugDraw{});
     }
+    [[nodiscard]] debug::DebugDraw& DebugScreen() noexcept { return m_debugScreen; }
 
     // Temporal AA on/off (projection jitter + history resolve) + resolve tunables.
     void SetTaaEnabled(bool on) noexcept { m_taaEnabled = on; }
@@ -141,7 +144,7 @@ public:
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
         m_frame->SetAo(m_aoMode, m_aoStrength, m_aoRadius, m_aoIntensity, m_aoDebug);
         m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
-        m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal);
+        m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal, &m_debugScreen);
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -184,6 +187,7 @@ public:
         // Immediate-mode: clear all debug lists AFTER rendering, so next frame's draws start empty
         // (the app accumulates during its update, before the next BeginRendering).
         m_debugGlobal.Clear();
+        m_debugScreen.Clear();
         for (auto& kv : m_debugScenes) { kv.value.Clear(); }
     }
 
@@ -321,6 +325,7 @@ private:
     UniquePtr<FxaaPass>                        m_fxaaPass;
     UniquePtr<DebugDrawPass>                   m_debugPass;
     debug::DebugDraw                           m_debugGlobal;                 // global gizmos (all views)
+    debug::DebugDraw                           m_debugScreen;                 // whole-window HUD (drawn once)
     HashMap<scene::Scene*, debug::DebugDraw>   m_debugScenes;                 // per-scene gizmos
     f32                                       m_exposure = 1.0f;
     bool                                      m_bloomEnabled   = true;

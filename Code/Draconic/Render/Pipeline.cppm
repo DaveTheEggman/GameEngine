@@ -541,8 +541,11 @@ public:
         return view;
     }
 
-    // Per-frame debug draw: the pass + the GLOBAL list (per-scene lists ride on each RenderView).
-    void SetDebug(DebugDrawPass* pass, const debug::DebugDraw* global) noexcept { m_debugPass = pass; m_debugGlobal = global; }
+    // Per-frame debug draw: the pass + the GLOBAL list (drawn in every view) + the SCREEN list (drawn
+    // once, whole-window). Per-scene lists ride on each RenderView.
+    void SetDebug(DebugDrawPass* pass, const debug::DebugDraw* global, const debug::DebugDraw* screen) noexcept {
+        m_debugPass = pass; m_debugGlobal = global; m_debugScreen = screen;
+    }
 
     // Turn on per-pass GPU timestamp profiling for the frame graph (idempotent).
     void EnableGpuProfiling() { m_graph.EnableGpuProfiling(); }
@@ -900,7 +903,7 @@ public:
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
         // resource). The first view to a target clears it; later views into the same target Load,
         // preserving earlier views' regions (split-screen). Targets are few — a linear scan is fine.
-        struct TargetImport { rhi::TextureView* target; rendergraph::RGHandle handle; };
+        struct TargetImport { rhi::TextureView* target; rendergraph::RGHandle handle; u32 w; u32 h; rhi::TextureFormat fmt; };
         Array<TargetImport> imported;
         for (usize i = 0; i < m_views.ActiveCount(); ++i) {
             RenderView* v = m_views.At(i);
@@ -918,7 +921,7 @@ public:
                 const ViewSettings& s = v->Settings();
                 colorH = m_graph.ImportTarget(u8"forward.color", s.targetTexture, tgt,
                                               s.targetFinalState, s.targetCurrentState);
-                imported.PushBack(TargetImport{ tgt, colorH });
+                imported.PushBack(TargetImport{ tgt, colorH, v->Width(), v->Height(), v->TargetFormat() });
             }
             const bool clearColor = !found;   // first view to a target clears it; later views Load
 
@@ -1091,6 +1094,19 @@ public:
                 }
             }
         }
+
+        // View-independent screen HUD: drawn ONCE per distinct target at that target's full extent
+        // (not per viewport), so a whole-window overlay isn't duplicated across split-screen views.
+        // Declared after every view's passes so it composites on top. Screen-space only (identity VP;
+        // 3D calls need a camera and are ignored here). Each target gets its own buffer slot.
+        if (m_debugPass != nullptr && m_debugScreen != nullptr) {
+            u32 overlayIndex = static_cast<u32>(m_views.ActiveCount());
+            for (const TargetImport& ti : imported) {
+                m_debugPass->DeclareScreen(m_graph, ti.handle, Mat4::Identity(), m_debugScreen, nullptr,
+                                           ti.fmt, 0, 0, ti.w, ti.h, m_frameIndex, overlayIndex);
+                ++overlayIndex;
+            }
+        }
         }   // end Compose.Declare
         {
             DRACONIC_PROFILE_SCOPE("Compose.Execute");   // graph compile (barriers/transients) + record all passes
@@ -1121,6 +1137,7 @@ private:
     FxaaPass*               m_fxaa     = nullptr;   // borrowed; TAA-off fallback AA (after tonemap)
     DebugDrawPass*          m_debugPass = nullptr;  // borrowed; per-view debug gizmo/text pass
     const debug::DebugDraw* m_debugGlobal = nullptr;   // borrowed; global (all-views) debug list
+    const debug::DebugDraw* m_debugScreen = nullptr;   // borrowed; whole-window screen HUD (drawn once)
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
     bool                    m_fxaaEnabled = false;
     f32                     m_fxaaSubpixel = 0.75f;

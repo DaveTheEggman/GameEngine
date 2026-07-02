@@ -738,7 +738,7 @@ namespace
             // these, each projected through its OWN camera — and they're keyed to this scene, so a second
             // scene's gizmos would never bleed in.
             if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
-                auto& dbg = render->Debug(*m_scene);
+                auto& dbg = render->DebugScene(*m_scene);
                 for (int k = 0; k < 4; ++k) {
                     const rc::Vec3 boxC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 10.0f };
                     dbg.DrawWireBoxCenter(boxC, rc::Vec3{ 1.3f, 1.3f, 1.3f }, rc::Color{ 1.0f, 1.0f, 0.0f, 1.0f });
@@ -749,7 +749,7 @@ namespace
                 dbg.DrawGrid(rc::Vec3{ 0.0f, 0.01f, 0.0f }, 60.0f, 30, rc::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
                 dbg.DrawArrow(rc::Vec3{ 0.0f, 14.0f, 13.0f }, rc::Vec3{ 0.0f, 0.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
                 dbg.DrawText3D(rc::Vec3{ 0.0f, 0.5f, 0.0f }, rc::StringView(u8"origin"), rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
-                render->Debug().DrawScreenText(12.0f, 12.0f, rc::StringView(u8"Draconic Debug Draw"), rc::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
+                render->DebugScreen().DrawScreenText(12.0f, 12.0f, rc::StringView(u8"Draconic Debug Draw"), rc::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
 
                 // FPS / frame-time readout (smoothed). Format() has no float-precision spec, so round
                 // to whole FPS and tenths-of-a-millisecond by hand.
@@ -760,7 +760,7 @@ namespace
                 const int msWhole = static_cast<int>(ms);
                 const int msTenth = static_cast<int>((ms - static_cast<rc::f32>(msWhole)) * 10.0f + 0.5f);
                 const rc::String fpsText = rc::Format(u8"{} FPS  {}.{} ms", fpsWhole, msWhole, msTenth);
-                render->Debug().DrawScreenText(12.0f, 34.0f, fpsText.AsView(), rc::Color{ 1.0f, 1.0f, 0.4f, 1.0f }, 2.0f);
+                render->DebugScreen().DrawScreenText(12.0f, 34.0f, fpsText.AsView(), rc::Color{ 1.0f, 1.0f, 0.4f, 1.0f }, 2.0f);
             }
         }
 
