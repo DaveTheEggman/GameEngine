@@ -46,6 +46,7 @@ export import :transform;
 export import :easings;
 export import :aabb;
 export import :plane;
+export import :bounds;
 export import :rect;
 export import :type_info;
 export import :type_registry;
