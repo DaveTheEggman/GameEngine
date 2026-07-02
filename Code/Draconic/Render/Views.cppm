@@ -91,20 +91,18 @@ public:
 
         for (RenderData* data : m_scene->Items()) {
             if (data == nullptr) { continue; }
-            // Phase 1 only knows mesh data; other categories route through their own
-            // producers + renderers and would compute their own keys.
-            const auto* mesh = static_cast<const MeshRenderData*>(data);
-
+            // Category-generic: read the base sort fields (worldCenter/sortBatchKey the producer set)
+            // + the category's sort mode from the dynamic registry — no downcast to a concrete type,
+            // so any renderer's data (mesh, sprite, particle) sorts through this one path.
             // view-space depth: forward is -z in RH view space, so distance ~ -z_view.
-            const Vec3 vc      = TransformPoint(mesh->worldCenter, viewMat);
+            const Vec3 vc      = TransformPoint(data->worldCenter, viewMat);
             const f32  depth01 = (-vc.z) * invFar;
 
-            const bool transparent = (data->category == RenderCategories::Transparent);
-            // Opaque/masked: cluster by (mesh, material) so identical draws are contiguous and
-            // batchable into one instanced draw (depth sub-orders within a batch). Transparent:
-            // zero the state bits so depth dominates — back-to-front order must not be broken.
-            const u32  stateBits   = transparent ? 0u : BatchBits(mesh->mesh, mesh->material);
-            const u32  depthBits   = QuantizeDepth(depth01, /*invert*/ transparent);
+            const bool backToFront = (Categories().Sort(data->category) == SortMode::BackToFront);
+            // Front-to-back categories cluster by the producer's batch key so identical draws stay
+            // contiguous (fusable); back-to-front zeroes it so depth dominates (blend order intact).
+            const u32  stateBits   = backToFront ? 0u : data->sortBatchKey;
+            const u32  depthBits   = QuantizeDepth(depth01, /*invert*/ backToFront);
             const u64  key         = MakeSortKey(data->category, stateBits, depthBits);
 
             m_drawList.PushBack(DrawItem{ key, data });
@@ -137,20 +135,6 @@ public:
     [[nodiscard]] const void*               DebugScene()  const noexcept { return m_debugScene; }
 
 private:
-    // Cluster batchable draws (same mesh + material -> same PSO + vertex buffer) together in
-    // the sort key, so they end up contiguous and the renderer can fuse them into one instanced
-    // draw. Identity is the (mesh, material) pair folded to the 24-bit state field. Pointer-
-    // derived is fine for a *transient* per-frame sort key (the design's no-pointer-identity
-    // rule is about the persistent batch CACHE, not this); the renderer re-checks exact pointer
-    // equality when forming a batch, so a hash collision only costs a missed fusion, never a
-    // wrong draw.
-    [[nodiscard]] static u32 BatchBits(const void* mesh, const void* material) noexcept {
-        const usize m = reinterpret_cast<usize>(mesh);
-        const usize n = reinterpret_cast<usize>(material);
-        const usize mixed = (m >> 4) * 1099511628211ull + (n >> 4);
-        return static_cast<u32>(mixed & ((1u << kSortStateBits) - 1));
-    }
-
     const ExtractedScene* m_scene        = nullptr;
     ViewCamera            m_camera;
     ViewSettings          m_settings;

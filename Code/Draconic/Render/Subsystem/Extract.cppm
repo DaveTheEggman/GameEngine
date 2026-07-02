@@ -67,6 +67,9 @@ inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, sce
     rd.material    = mc.material.Get();
     rd.entityId    = PackEntity(e);
     rd.category    = CategoryForMaterial(mc.material.Get());
+    // Batch-cluster key for the sort (opaque draws stay contiguous by mesh+material). rendererId keeps
+    // its default 0 — the MeshRenderer is the first-registered renderer, so mesh data routes to it.
+    rd.sortBatchKey = BatchKey(mc.mesh.Get(), mc.material.Get());
     rd.boneMatrices = mc.boneMatrices;   // borrowed for the frame (GPU skinning); null => static
     rd.prevBoneMatrices = mc.prevBoneMatrices;   // borrowed; null => reuse current (no motion)
     rd.boneCount    = mc.boneCount;

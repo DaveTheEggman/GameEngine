@@ -220,24 +220,32 @@ public:
     virtual void UploadSkinning(const ExtractedScene& scene, rhi::CommandEncoder& encoder) { (void)scene; (void)encoder; }
 
     virtual void FinishFrame() {}
+
+    // This renderer's dispatch id — its index in the RendererRegistry, assigned at Register. Producers
+    // stamp it onto their RenderData::rendererId so emission routes each draw back to its owner (so
+    // several renderers can share a category and still be dispatched correctly). Set by the registry.
+    [[nodiscard]] u16  RendererId() const noexcept { return m_rendererId; }
+    void SetRendererId(u16 id) noexcept { m_rendererId = id; }
+
+private:
+    u16 m_rendererId = 0;
 };
 
-// Routes a RenderCategory to its registered Renderer. A small dense table keyed by category
-// id (so external categories beyond the built-ins just index higher slots), plus the list of
-// distinct renderers for frame-bracket iteration.
+// Holds the registered renderers and dispatches a draw to its owner by RenderData::rendererId.
+// Dispatch is per-item (not per-category) so several renderers can share a category and still be
+// routed correctly (ezEngine-style). The id is the renderer's registration index; the FIRST renderer
+// registered gets id 0, which is the RenderData::rendererId default (so plain mesh data needs no tag).
 class RendererRegistry {
 public:
-    // Register `renderer` (borrowed; the caller owns its lifetime) for all its categories.
+    // Register `renderer` (borrowed; the caller owns its lifetime); assigns its dispatch id.
     void Register(Renderer* renderer) {
         if (renderer == nullptr) { return; }
+        renderer->SetRendererId(static_cast<u16>(m_unique.Size()));
         m_unique.PushBack(renderer);
-        for (RenderCategory c : renderer->SupportedCategories()) {
-            if (c < kMaxCategories) { m_byCategory[c] = renderer; }
-        }
     }
 
-    [[nodiscard]] Renderer* ForCategory(RenderCategory c) const noexcept {
-        return (c < kMaxCategories) ? m_byCategory[c] : nullptr;
+    [[nodiscard]] Renderer* ById(u16 id) const noexcept {
+        return (id < m_unique.Size()) ? m_unique[id] : nullptr;
     }
 
     [[nodiscard]] Span<Renderer* const> Unique() const noexcept {
@@ -246,7 +254,6 @@ public:
 
 private:
     Array<Renderer*> m_unique;
-    Renderer*        m_byCategory[kMaxCategories] = {};
 };
 
 // The phase-1 forward pass: opens one render pass against a view's color target + an owned
@@ -379,21 +386,26 @@ private:
         ctx.depthFormat = m_depthFormat;
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
-        // ring allocation). Equal-category items are contiguous; each run goes to its renderer.
+        // ring allocation). Split by the category's pass affinity (which pass draws it), then walk
+        // runs of the SAME renderer within this pass and hand each to its owner (dispatched by
+        // rendererId, not category — so blended meshes + sprites interleave by depth yet each run
+        // still batches within one renderer). The list is category-sorted, so this-pass items are
+        // contiguous; within the blended span, depth order mixes renderers as needed.
+        const auto inThisPass = [&](const DrawItem& it) noexcept {
+            const PassAffinity a = Categories().Affinity(it.data->category);
+            if (a == PassAffinity::None) { return false; }
+            return (a == PassAffinity::Blended) == transparentPass;
+        };
         m_resolved.Clear();
         const Span<const DrawItem> items = view.DrawList();
         usize i = 0;
         while (i < items.Size()) {
-            const RenderCategory cat = items[i].data->category;
+            if (!inThisPass(items[i])) { ++i; continue; }
+            const u16 rid = items[i].data->rendererId;
             usize j = i + 1;
-            while (j < items.Size() && items[j].data->category == cat) { ++j; }
-            // Split by pass: the opaque MRT pass takes categories below Transparent; the color-only
-            // transparent pass takes Transparent (+ any higher blended categories).
-            const bool isTransparent = (cat >= RenderCategories::Transparent);
-            if (isTransparent == transparentPass) {
-                if (Renderer* r = registry.ForCategory(cat)) {
-                    r->Resolve(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_resolved);
-                }
+            while (j < items.Size() && inThisPass(items[j]) && items[j].data->rendererId == rid) { ++j; }
+            if (Renderer* r = registry.ById(rid)) {
+                r->Resolve(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_resolved);
             }
             i = j;
         }
@@ -592,7 +604,7 @@ public:
             usize j = i + 1;
             while (j < items.Size() && items[j].data->category == cat) { ++j; }
             if (cat == RenderCategories::Opaque) {
-                if (Renderer* r = registry.ForCategory(cat)) {
+                if (Renderer* r = registry.ById(items[i].data->rendererId)) {
                     r->ResolveDepthOnly(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_prepassResolved);
                 }
             }
@@ -636,7 +648,7 @@ public:
             const RenderCategory cat = items[i].data->category;
             usize j = i + 1;
             while (j < items.Size() && items[j].data->category == cat) { ++j; }
-            if (Renderer* r = registry.ForCategory(cat)) {
+            if (Renderer* r = registry.ById(items[i].data->rendererId)) {
                 r->ResolveDepthOnly(ctx, Span<const DrawItem>{ items.Data() + i, j - i }, m_shadowResolved);
             }
             i = j;

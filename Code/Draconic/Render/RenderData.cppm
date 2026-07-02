@@ -59,11 +59,79 @@ namespace RenderCategories {
 inline constexpr u16 kBuiltinCategoryCount = 9;
 inline constexpr u16 kMaxCategories        = 64;   // registry table size (room for extensions)
 
+// How a category's draws are depth-ordered (packed into the sort key). FrontToBack for opaque
+// (early-Z + state clustering); BackToFront for blended (correct alpha over-compositing).
+enum class SortMode : u8 { FrontToBack, BackToFront };
+
+// Which forward pass emits a category — the split that used to be a hard-coded `cat >= Transparent`.
+// Opaque = the MRT opaque pass; Blended = the color-only pass after TAA; None = not emitted by the
+// forward passes at all (Sky/Decal/Light have their own dedicated passes or are shading-only inputs).
+enum class PassAffinity : u8 { Opaque, Blended, None };
+
+// A dynamic registry of render categories (ezEngine-style): categories carry a name + sort/pass
+// metadata and are assigned ids at RegisterCategory time, so extensions (sprites, particles, custom
+// passes) add categories WITHOUT editing the built-in enum. The core pre-registers its built-ins at
+// their well-known ids (so the RenderCategories:: constants stay valid); Register is idempotent by
+// name. One process-wide instance (Categories()); registration happens at init (single-threaded),
+// reads (Sort/Affinity, during draw-list build) are lock-free afterward.
+class CategoryRegistry {
+public:
+    CategoryRegistry() {
+        // Built-ins, in id order (0..8) so the ids match the RenderCategories:: constants.
+        Register(u8"Opaque",         SortMode::FrontToBack, PassAffinity::Opaque);
+        Register(u8"Masked",         SortMode::FrontToBack, PassAffinity::Opaque);
+        Register(u8"Transparent",    SortMode::BackToFront, PassAffinity::Blended);
+        Register(u8"Sky",            SortMode::FrontToBack, PassAffinity::None);   // dedicated sky pass
+        Register(u8"Decal",          SortMode::FrontToBack, PassAffinity::None);   // dedicated decal pass
+        Register(u8"Light",          SortMode::FrontToBack, PassAffinity::None);   // shading input, not drawn
+        Register(u8"ReflectionProbe",SortMode::FrontToBack, PassAffinity::None);
+        Register(u8"GUI",            SortMode::BackToFront, PassAffinity::Blended);
+        Register(u8"Particle",       SortMode::BackToFront, PassAffinity::Blended);
+    }
+
+    // Register a category by name (idempotent — returns the existing id if the name is taken).
+    // Names are borrowed string literals (must outlive the registry). Returns kMaxCategories on overflow.
+    RenderCategory Register(StringView name, SortMode sort, PassAffinity affinity) {
+        for (u16 i = 0; i < m_count; ++i) { if (m_info[i].name == name) { return i; } }
+        if (m_count >= kMaxCategories) { return kMaxCategories; }
+        m_info[m_count] = Info{ name, sort, affinity };
+        return m_count++;
+    }
+
+    [[nodiscard]] SortMode     Sort(RenderCategory c)     const noexcept { return (c < m_count) ? m_info[c].sort     : SortMode::FrontToBack; }
+    [[nodiscard]] PassAffinity Affinity(RenderCategory c) const noexcept { return (c < m_count) ? m_info[c].affinity : PassAffinity::None; }
+    [[nodiscard]] StringView   Name(RenderCategory c)     const noexcept { return (c < m_count) ? m_info[c].name     : StringView{}; }
+    [[nodiscard]] u16          Count()                    const noexcept { return m_count; }
+
+private:
+    struct Info { StringView name; SortMode sort = SortMode::FrontToBack; PassAffinity affinity = PassAffinity::None; };
+    Info m_info[kMaxCategories];
+    u16  m_count = 0;
+};
+
+// The one process-wide category registry (built-ins pre-registered on first use).
+[[nodiscard]] inline CategoryRegistry& Categories() noexcept {
+    static CategoryRegistry s_registry;
+    return s_registry;
+}
+
 // Base for a unit of renderable work. Arena-allocated, trivially destructible, valid one
 // frame. Dispatch is by `category` (not virtual) — the registered `Renderer` knows the
 // concrete subclass and static_casts, so there is no vtable.
 struct RenderData {
     RenderCategory category = RenderCategories::Opaque;
+    // Which renderer draws this item — the per-item dispatch key (ezEngine-style), so several
+    // renderers can share a category (e.g. sprites + transparent meshes both blended) and still be
+    // routed correctly. Its value is the renderer's registration id (RendererRegistry assigns them in
+    // order); the DEFAULT 0 is the first-registered renderer (the MeshRenderer), so existing mesh data
+    // needs no change. Non-mesh producers (sprites, particles) set this to their renderer's id.
+    u16            rendererId = 0;
+    // View-space depth sort center (world-space) + a batch-clustering key, read GENERICALLY by the
+    // draw-list builder (it no longer downcasts to a concrete type). worldCenter drives the depth sort;
+    // sortBatchKey folds (mesh,material)-like identity into the sort so same-state draws stay contiguous
+    // (opaque only — blended zeroes it so depth dominates). Producers set both at extraction.
+    Vec3           worldCenter  = Vec3{ 0, 0, 0 };
+    u32            sortBatchKey = 0;
 };
 
 // One mesh draw: a mesh + material at a world transform. Pointers are borrowed for the
@@ -72,7 +140,7 @@ struct RenderData {
 // the producer may set (e.g. a packed entity handle) for picking — meaningless to the core.
 struct MeshRenderData : RenderData {
     Mat4                  world       = Mat4::Identity();
-    Vec3                  worldCenter = Vec3{ 0, 0, 0 };
+    // worldCenter lives on the RenderData base now (generic depth sort); see it there.
     f32                   worldRadius = 0.0f;                               // world-space bounding sphere radius
     Color                 color       = Color{ 1.0f, 1.0f, 1.0f, 1.0f };   // per-instance tint
     geometry::StaticMesh* mesh        = nullptr;
@@ -176,6 +244,16 @@ struct DrawItem {
 
 inline constexpr u32 kSortDepthBits = 24;
 inline constexpr u32 kSortStateBits = 24;
+
+// Fold two borrowed resource pointers into a batch-clustering key for the sort (was Views::BatchBits).
+// Pointer-derived identity is fine for a transient per-frame key — the renderer re-checks exact
+// equality when fusing draws, so a hash collision only costs a missed fusion, never a wrong draw.
+[[nodiscard]] inline u32 BatchKey(const void* a, const void* b) noexcept {
+    const usize m = reinterpret_cast<usize>(a);
+    const usize n = reinterpret_cast<usize>(b);
+    const usize mixed = (m >> 4) * 1099511628211ull + (n >> 4);
+    return static_cast<u32>(mixed & ((1u << kSortStateBits) - 1));
+}
 
 [[nodiscard]] inline u64 MakeSortKey(RenderCategory category, u32 stateBits, u32 depthBits) noexcept {
     const u64 cat   = static_cast<u64>(category);
