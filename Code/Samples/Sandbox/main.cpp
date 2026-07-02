@@ -68,6 +68,15 @@ namespace
     class SandboxApp final : public rt::DefaultApplication
     {
     public:
+        // Run uncapped (vsync off) so the FPS/frame-ms readout reflects real CPU+GPU cost, not the
+        // display refresh — matches AnimStressTest. The image may tear; fine for a dev sandbox.
+        rt::ApplicationSettings Settings() const override
+        {
+            rt::ApplicationSettings s;
+            s.presentMode = rhi::PresentMode::Immediate;
+            return s;
+        }
+
         // Register the standard subsystems (DefaultApplication) + the ImGui debug UI on top.
         void Configure(rt::IApplicationHost& host) override
         {
