@@ -750,6 +750,17 @@ namespace
                 dbg.DrawArrow(rc::Vec3{ 0.0f, 14.0f, 13.0f }, rc::Vec3{ 0.0f, 0.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
                 dbg.DrawText3D(rc::Vec3{ 0.0f, 0.5f, 0.0f }, rc::StringView(u8"origin"), rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
                 render->Debug().DrawScreenText(12.0f, 12.0f, rc::StringView(u8"Draconic Debug Draw"), rc::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
+
+                // FPS / frame-time readout (smoothed). Format() has no float-precision spec, so round
+                // to whole FPS and tenths-of-a-millisecond by hand.
+                const rc::f32 inst = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
+                m_fpsSmoothed = (m_fpsSmoothed > 0.0f) ? (m_fpsSmoothed * 0.9f + inst * 0.1f) : inst;
+                const rc::f32 ms = (m_fpsSmoothed > 0.0f) ? (1000.0f / m_fpsSmoothed) : 0.0f;
+                const int fpsWhole = static_cast<int>(m_fpsSmoothed + 0.5f);
+                const int msWhole = static_cast<int>(ms);
+                const int msTenth = static_cast<int>((ms - static_cast<rc::f32>(msWhole)) * 10.0f + 0.5f);
+                const rc::String fpsText = rc::Format(u8"{} FPS  {}.{} ms", fpsWhole, msWhole, msTenth);
+                render->Debug().DrawScreenText(12.0f, 34.0f, fpsText.AsView(), rc::Color{ 1.0f, 1.0f, 0.4f, 1.0f }, 2.0f);
             }
         }
 
@@ -864,6 +875,7 @@ namespace
         rc::Array<rc::Vec3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
+        rc::f32                     m_fpsSmoothed = 0.0f;   // exponential moving average of 1/deltaTime
         smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 17.0f, 26.0f }, .pitch = -0.25f };
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
