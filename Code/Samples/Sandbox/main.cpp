@@ -138,7 +138,7 @@ namespace
             // with the cube grids standing on it. Pitch ~28 deg below horizontal (looks toward the
             // scene center). Default camera looks down -Z; rotating about +X by -pitch tilts it down.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 14.0f, 30.0f });
+            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 21.0f, 30.0f });
             rc::Transform camT = m_scene->GetLocalTransform(m_camera);
             camT.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.48f);
             m_scene->SetLocalTransform(m_camera, camT);
@@ -151,7 +151,7 @@ namespace
             // above it and cast visible pools on it. The two cube grids stand on the floor.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
                 sc::EntityHandle floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, -7.0f, 0.0f });
+                m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, 0.0f, 0.0f });
                 rd::MeshComponent& fmc = meshes->Add(floor);
                 fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
                 fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
@@ -162,7 +162,7 @@ namespace
 
                 // A row of cubes resting EXACTLY on the floor (bottom face flush at y=-7) — a static
                 // reference for judging shadow contact / peter-panning (the grids float in the air).
-                constexpr rc::f32 kBoxSize = 2.5f, kFloorY = -7.0f;
+                constexpr rc::f32 kBoxSize = 2.5f, kFloorY = 0.0f;
                 rc::RefPtr<geo::StaticMesh> box = geo::Primitives::Cube(kBoxSize);
                 rc::RefPtr<mat::Material> boxMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.85f, 0.55f, 0.2f, 1.0f }, 0.0f, 0.5f);
                 for (int k = 0; k < 4; ++k) {
@@ -236,7 +236,7 @@ namespace
                         sc::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
                         const rc::f32 fi = static_cast<rc::f32>(i) / (kCols - 1);
                         const rc::f32 fj = static_cast<rc::f32>(j) / (kRows - 1);
-                        const rc::Vec3 base{ -15.0f + 30.0f * fi, -1.5f, -2.0f + 16.0f * fj };  // hover above floor
+                        const rc::Vec3 base{ -15.0f + 30.0f * fi, 5.5f, -2.0f + 16.0f * fj };  // hover above floor
                         m_scene->SetLocalPosition(e, base);
                         rd::LightComponent& pl = lights->Add(e);
                         pl.type = rd::LightType::Point;
@@ -252,7 +252,7 @@ namespace
                 // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
                 // floor (distinct from the directional CSM), packed into the local-shadow atlas.
                 sc::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
-                m_scene->SetLocalPosition(spot, rc::Vec3{ 0.0f, 7.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
+                m_scene->SetLocalPosition(spot, rc::Vec3{ 0.0f, 14.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
                 rc::Transform st = m_scene->GetLocalTransform(spot);
                 st.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
                 m_scene->SetLocalTransform(spot, st);
@@ -269,7 +269,7 @@ namespace
                 // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
                 sc::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
-                m_scene->SetLocalPosition(pt, rc::Vec3{ 4.0f, -2.0f, 13.0f });
+                m_scene->SetLocalPosition(pt, rc::Vec3{ 4.0f, 5.0f, 13.0f });
                 rd::LightComponent& pls = lights->Add(pt);
                 pls.type         = rd::LightType::Point;
                 pls.color        = rc::Color{ 0.5f, 1.0f, 0.6f, 1.0f };     // green, distinct from the warm spot
@@ -313,11 +313,11 @@ namespace
             mi::RegisterModelImporterTypes();   // make the cooked types deserializable
 
             // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
-            SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vec3{ -5.0f, -4.0f, 6.0f });
-            SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vec3{  5.0f, -7.0f, 6.0f });
+            SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vec3{ -5.0f, 3.0f, 6.0f });
+            SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vec3{  5.0f, 0.0f, 6.0f });
             // The Character is driven by an AnimationGraph (a state machine over its clips) rather than a
             // single clip — press G to fire the graph's "Next" trigger and cross-fade to the next state.
-            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, -7.0f, 12.0f }, /*useGraph=*/true);
+            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
         }
 
         // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model
@@ -630,10 +630,10 @@ namespace
             // The fly camera drives whichever view is selected (V toggles); the other stays put.
             const rd::ViewCamera flyCam = makeCam(m_fly.position, m_fly.position + m_fly.Forward());
             rd::CameraOverride camL;
-            camL.camera = (m_controlledView == 0) ? flyCam : makeCam(rc::Vec3{ -6.0f, 14.0f, 30.0f }, rc::Vec3{ 0.0f, -2.0f, 0.0f });
+            camL.camera = (m_controlledView == 0) ? flyCam : makeCam(rc::Vec3{ -6.0f, 21.0f, 30.0f }, rc::Vec3{ 0.0f, 5.0f, 0.0f });
             camL.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
             rd::CameraOverride camR;
-            camR.camera = (m_controlledView == 1) ? flyCam : makeCam(rc::Vec3{  6.0f, 14.0f, 30.0f }, rc::Vec3{ 0.0f, -2.0f, 0.0f });
+            camR.camera = (m_controlledView == 1) ? flyCam : makeCam(rc::Vec3{  6.0f, 21.0f, 30.0f }, rc::Vec3{ 0.0f, 5.0f, 0.0f });
             camR.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
 
             // Render both views into this slot's offscreen texture; the graph leaves it in CopySrc.
@@ -731,14 +731,14 @@ namespace
             if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
                 auto& dbg = render->Debug(*m_scene);
                 for (int k = 0; k < 4; ++k) {
-                    const rc::Vec3 boxC{ -7.5f + 5.0f * static_cast<rc::f32>(k), -5.75f, 10.0f };
+                    const rc::Vec3 boxC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 10.0f };
                     dbg.DrawWireBoxCenter(boxC, rc::Vec3{ 1.3f, 1.3f, 1.3f }, rc::Color{ 1.0f, 1.0f, 0.0f, 1.0f });
-                    const rc::Vec3 ballC{ -7.5f + 5.0f * static_cast<rc::f32>(k), -5.75f, 16.0f };
+                    const rc::Vec3 ballC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 16.0f };
                     dbg.DrawWireSphere(rc::BoundingSphere{ ballC, 1.4f }, rc::Color{ 0.2f, 0.9f, 1.0f, 1.0f });
                 }
                 dbg.DrawAxis(rc::Mat4::Identity(), 3.0f, /*overlay*/ true);
-                dbg.DrawGrid(rc::Vec3{ 0.0f, -6.99f, 0.0f }, 60.0f, 30, rc::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
-                dbg.DrawArrow(rc::Vec3{ 0.0f, 7.0f, 13.0f }, rc::Vec3{ 0.0f, -6.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
+                dbg.DrawGrid(rc::Vec3{ 0.0f, 0.01f, 0.0f }, 60.0f, 30, rc::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
+                dbg.DrawArrow(rc::Vec3{ 0.0f, 14.0f, 13.0f }, rc::Vec3{ 0.0f, 0.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
                 dbg.DrawText3D(rc::Vec3{ 0.0f, 0.5f, 0.0f }, rc::StringView(u8"origin"), rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
                 render->Debug().DrawScreenText(12.0f, 12.0f, rc::StringView(u8"Draconic Debug Draw"), rc::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
             }
@@ -817,7 +817,7 @@ namespace
                     sc::EntityHandle e = m_scene->CreateEntity(u8"cube");
                     const rc::f32 fx = static_cast<rc::f32>(x) - (kGrid - 1) * 0.5f;
                     const rc::f32 fy = static_cast<rc::f32>(y) - (kGrid - 1) * 0.5f;
-                    m_scene->SetLocalPosition(e, rc::Vec3{ originX + fx * kSpacing, fy * kSpacing, 0.0f });
+                    m_scene->SetLocalPosition(e, rc::Vec3{ originX + fx * kSpacing, fy * kSpacing + 7.0f, 0.0f });
 
                     const rc::Vec4 baseColor{ static_cast<rc::f32>(x) / (kGrid - 1),
                                               static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
@@ -855,7 +855,7 @@ namespace
         rc::Array<rc::Vec3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
-        smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
+        smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 17.0f, 26.0f }, .pitch = -0.25f };
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
