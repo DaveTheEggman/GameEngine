@@ -166,6 +166,7 @@ public:
         DrawCircle(center, Vec3{ 0, 1, 0 }, Vec3{ 0, 0, 1 }, radius, color, segments, overlay);
         DrawCircle(center, Vec3{ 1, 0, 0 }, Vec3{ 0, 0, 1 }, radius, color, segments, overlay);
     }
+    void DrawWireSphere(const BoundingSphere& sphere, Color color, i32 segments = 24, bool overlay = false) { DrawWireSphere(sphere.center, sphere.radius, color, segments, overlay); }
     void DrawWireSphereOverlay(Vec3 center, f32 radius, Color color, i32 segments = 24) { DrawWireSphere(center, radius, color, segments, true); }
     void DrawCircleOverlay(Vec3 center, Vec3 u, Vec3 v, f32 radius, Color color, i32 segments = 32) { DrawCircle(center, u, v, radius, color, segments, true); }
     // Wireframe capsule (cylinder body + two hemisphere caps).
