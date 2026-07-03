@@ -135,8 +135,15 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     // alpha. If it disagrees with this frame's (closest) linear depth beyond a relative threshold, the
     // reprojected texel sampled a different surface (occluder revealed / geometry newly occluded) -> drop
     // history to avoid a ghost-on-reveal. linPrev==0 only where no depth was ever stored -> skip the test.
-    float linPrev = HistoryColor.Sample(PointSamp, historyUV).a;
-    if (linPrev > 0.0) {
+    //
+    // Gate it on real motion: disocclusion can only happen when something moves, but at a STATIC silhouette
+    // the TAA jitter flips each boundary pixel's coverage (near plane <-> far sky) every frame. That depth
+    // flip is not a reveal — it is the sub-pixel coverage we want history to ACCUMULATE into an AA'd edge.
+    // Without the gate the reject fires on every boundary pixel each frame, so the edge shows the raw
+    // jittered current and the jaggies crawl. Motion is geometric (jitter-free) so static == exactly 0.
+    float linPrev  = HistoryColor.Sample(PointSamp, historyUV).a;
+    float motionPx = length(motion / pc.TexelSize);   // motion-vector magnitude in pixels
+    if (linPrev > 0.0 && motionPx > 0.5) {
         float linCur   = LinearizeDepth(closestDepth, pc.NearPlane, pc.FarPlane);
         float relDiff  = abs(linCur - linPrev) / max(min(linCur, linPrev), 0.001);
         if (relDiff > 0.1) { o.Color = float4(current, 1.0); o.History = float4(current, centerLin); return o; }
