@@ -24,6 +24,7 @@ export import :cluster_system;
 export import :tonemap;
 export import :shadows;
 export import :ibl;
+export import :probes;
 export import :sky;
 export import :bloom;
 export import :taa;

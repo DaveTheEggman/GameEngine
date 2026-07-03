@@ -169,6 +169,9 @@ public:
             ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
             ExtractReflectionProbesInto(scene, *snapshot);     // reflection probes (capture/prefilter inputs)
             ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
+            if (m_probeSystem.Get() != nullptr) {              // map probes to persistent array slots (capture in P1b)
+                m_probeSystem->Assign(snapshot->ReflectionProbes());
+            }
         }
 
         ViewCamera camera;
@@ -247,6 +250,9 @@ protected:
         m_iblSystem = MakeUnique<IBLSystem>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_iblSystem->Initialize().IsOk()) { m_iblSystem.Reset(); }
 
+        m_probeSystem = MakeUnique<ReflectionProbeSystem>(DefaultAllocator(), *m_device, *m_shaders);
+        if (!m_probeSystem->Initialize().IsOk()) { m_probeSystem.Reset(); }
+
         // Visible sky (background) from the IBL environment. Optional.
         m_skyPass = MakeUnique<SkyPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_skyPass->Initialize().IsOk()) { m_skyPass.Reset(); }
@@ -305,6 +311,7 @@ protected:
         m_fxaaPass.Reset();     // before the ShaderSystem it borrows
         m_decalPass.Reset();    // before the ShaderSystem it borrows
         m_debugPass.Reset();    // before the ShaderSystem it borrows
+        m_probeSystem.Reset();  // probe textures/buffers (before the ShaderSystem it borrows)
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_spriteRenderer.Reset(); // before the ShaderSystem it borrows
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
@@ -339,6 +346,7 @@ private:
     UniquePtr<TonemapPass>                    m_tonemapPass;
     UniquePtr<ShadowSystem>                   m_shadowSystem;
     UniquePtr<IBLSystem>                      m_iblSystem;
+    UniquePtr<ReflectionProbeSystem>         m_probeSystem;
     UniquePtr<SkyPass>                        m_skyPass;
     UniquePtr<BloomPass>                      m_bloomPass;
     UniquePtr<TaaPass>                        m_taaPass;

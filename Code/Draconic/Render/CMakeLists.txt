@@ -24,6 +24,7 @@ target_sources(DraconicRender
             TonemapPass.cppm
             ShadowSystem.cppm
             IBLSystem.cppm
+            ReflectionProbeSystem.cppm
             SkyPass.cppm
             BloomPass.cppm
             TaaPass.cppm
