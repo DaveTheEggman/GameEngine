@@ -330,6 +330,31 @@ namespace
             SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
 
             SpawnSpriteDemo();   // billboards (all orientation + blend modes) using the imported logo
+            SpawnDecalDemo();    // project the same logo onto the floor (screen-space decal)
+        }
+
+        // Project the imported logo onto the floor as a screen-space decal: a box straddling the floor,
+        // oriented so its local +Z points straight down (-Y). The decal "sprays" onto whatever the box
+        // covers (here, the floor at y=0).
+        void SpawnDecalDemo()
+        {
+            if (m_scene == nullptr) { return; }
+            auto* decals = m_scene->GetSystem<rd::DecalComponentManager>();
+            if (decals == nullptr) { return; }
+            rhi::TextureView* logo = m_logoTex ? m_logoTex->View() : LoadLogoTexture();
+            if (logo == nullptr) { return; }
+
+            sc::EntityHandle e = m_scene->CreateEntity(u8"floorDecal");
+            rd::DecalComponent& dc = decals->Add(e);
+            dc.texture   = logo;
+            dc.size      = rc::Vec3{ 8.0f, 8.0f, 6.0f };   // 8x8 floor footprint; 6-unit box depth spans y=0
+            dc.fadeStart = 0.0f;
+            dc.fadeEnd   = 1.4f;                           // ~80deg — fully faded on near-vertical surfaces
+            // Sit on a clear patch of floor (props start at z>=6) and rotate so +Z projects down.
+            rc::Transform t;
+            t.position = rc::Vec3{ 0.0f, 0.0f, -3.0f };
+            t.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, 1.5707963f);   // +90deg about X
+            m_scene->SetLocalTransform(e, t);
         }
 
         // Import the Draconic logo PNG through the asset pipeline (TextureImporter -> cook into the content
