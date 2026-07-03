@@ -33,14 +33,21 @@ struct FlyCamera {
         return draconic::core::RotateVector(Rotation(), draconic::core::Vec3{ 1.0f, 0.0f, 0.0f });
     }
 
-    // Apply this frame's input. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable orbit
-    // about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift fast.
+    // Convenience overload: drive from the platform's global devices.
     void Update(draconic::runtime::IApplicationHost& host, draconic::core::f32 dt) {
         namespace rt = draconic::runtime;
-        using draconic::core::Vec3;
         auto* input = (host.Platform() != nullptr) ? host.Platform()->Input() : nullptr;
         rt::IKeyboard* kb    = (input != nullptr) ? input->Keyboard() : nullptr;
         rt::IMouse*    mouse = (input != nullptr) ? input->Mouse() : nullptr;
+        Update(kb, mouse, dt);
+    }
+
+    // Apply this frame's input from explicit devices — pass an InputSurface's gated Keyboard()/Mouse()
+    // to confine the camera to one viewport. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable
+    // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
+    void Update(draconic::runtime::IKeyboard* kb, draconic::runtime::IMouse* mouse, draconic::core::f32 dt) {
+        namespace rt = draconic::runtime;
+        using draconic::core::Vec3;
         if (kb == nullptr) { return; }
 
         if (mouse != nullptr) {

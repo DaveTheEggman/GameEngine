@@ -290,8 +290,8 @@ namespace
 
             LoadImportedModel(host);   // cook + spawn a glTF model through the resource pipeline
 
-            rc::ConsoleWrite(u8"Sandbox: split-screen — same scene from two cameras, 18 clustered "
-                             u8"point lights. G cycles the Character's animation-graph state. Close to exit.\n");
+            rc::ConsoleWrite(u8"Sandbox: split-screen — click a half to fly its camera (WASD/QE, Shift fast); "
+                             u8"RMB-drag looks in the hovered half. G cycles the Character graph. Close to exit.\n");
         }
 
         // The model-import seam: open the cooked-resource output DB, register the geometry factory,
@@ -382,7 +382,7 @@ namespace
         }
 
         // One textured billboard per (orientation, blend) combination, in a row, so the modes are easy to
-        // compare by flying the camera around (V toggles which split view the fly cam drives):
+        // compare by flying the camera around (click a split half to fly its camera):
         //   0 camera-facing (full), 1 camera-facing about world-Y, 2 world-aligned (fixed XY); + additive.
         void SpawnSpriteDemo()
         {
@@ -693,6 +693,38 @@ namespace
             if (m_showImguiDemo) { ImGui::ShowDemoWindow(&m_showImguiDemo); }
         }
 
+        // Build (lazily) the input router + one surface per split half, then refit each surface's region
+        // to the current window split. Each half's content-space equals its own pixel rect (region ==
+        // contentSize, Stretch), so a viewport mouse reads [0..halfW]x[0..H] local to that view.
+        void UpdateInputRouting(rt::IInputManager& input, rt::IWindow& win)
+        {
+            const rc::f32 w = static_cast<rc::f32>(win.Width());
+            const rc::f32 h = static_cast<rc::f32>(win.Height());
+            const rc::f32 halfW = w * 0.5f;
+
+            if (!m_inputRouter) {
+                rc::ContentFit fitL{ .region = rc::Rect{ 0.0f, 0.0f, halfW, h },
+                                     .contentSize = rc::Vec2{ halfW, h }, .mode = rc::FitMode::Stretch };
+                rc::ContentFit fitR{ .region = rc::Rect{ halfW, 0.0f, w - halfW, h },
+                                     .contentSize = rc::Vec2{ w - halfW, h }, .mode = rc::FitMode::Stretch };
+                m_surfaceL = rc::MakeUnique<rt::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitL);
+                m_surfaceR = rc::MakeUnique<rt::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitR);
+                m_inputRouter = rc::MakeUnique<rt::InputRouter>(rc::DefaultAllocator(), &input);
+                m_inputRouter->AddSurface(m_surfaceL.Get());
+                m_inputRouter->AddSurface(m_surfaceR.Get());
+                // Click-to-focus (router default): a click sets keyboard focus to that half, so WASD/QE
+                // drive it; mouse-look (RMB drag) still follows the hovered half via pointer capture.
+            }
+
+            // Keep regions in sync with the live window size (resize/DPI).
+            m_surfaceL->SetRegion(rc::Rect{ 0.0f, 0.0f, halfW, h });
+            m_surfaceL->SetContentSize(rc::Vec2{ halfW, h });
+            m_surfaceR->SetRegion(rc::Rect{ halfW, 0.0f, w - halfW, h });
+            m_surfaceR->SetContentSize(rc::Vec2{ w - halfW, h });
+
+            m_inputRouter->Update();
+        }
+
         // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
         // editor-shaped path (a view renders to a sampleable/copyable target, not straight to the
         // swapchain). Exercises the full multi-view path + the configurable target final state.
@@ -724,13 +756,12 @@ namespace
                 vc.farZ       = 1000.0f;
                 return vc;
             };
-            // The fly camera drives whichever view is selected (V toggles); the other stays put.
-            const rd::ViewCamera flyCam = makeCam(m_fly.position, m_fly.position + m_fly.Forward());
+            // Each half is driven by its own fly camera (hover a half to control it — see UpdateInputRouting).
             rd::CameraOverride camL;
-            camL.camera = (m_controlledView == 0) ? flyCam : makeCam(rc::Vec3{ -6.0f, 21.0f, 30.0f }, rc::Vec3{ 0.0f, 5.0f, 0.0f });
+            camL.camera = makeCam(m_flyL.position, m_flyL.position + m_flyL.Forward());
             camL.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
             rd::CameraOverride camR;
-            camR.camera = (m_controlledView == 1) ? flyCam : makeCam(rc::Vec3{  6.0f, 21.0f, 30.0f }, rc::Vec3{ 0.0f, 5.0f, 0.0f });
+            camR.camera = makeCam(m_flyR.position, m_flyR.position + m_flyR.Forward());
             camR.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
 
             // Render both views into this slot's offscreen texture; the graph leaves it in CopySrc.
@@ -783,12 +814,23 @@ namespace
                 BuildDebugUI(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
             }
 
-            // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). V toggles which split-screen view
-            // it drives; Esc exits.
-            m_fly.Update(host, deltaTime);
-            if (auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr) {
+            // Viewport-input routing. Build the router + one surface per split half once the platform
+            // and window exist, then keep each surface's region in sync with the live split so a resize
+            // (or DPI change) just re-fits. The router resolves the hovered surface and gates input.
+            auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr;
+            rt::IWindow* win = host.Platform() != nullptr ? host.Platform()->MainWindow() : nullptr;
+            if (input != nullptr && win != nullptr) {
+                UpdateInputRouting(*input, *win);
+            }
+
+            // Per-view fly camera: each is driven by its surface's gated devices, so it only responds
+            // while the pointer is over that half. WASD/QE move, RMB/Tab look, Shift fast.
+            if (m_surfaceL) { m_flyL.Update(m_surfaceL->Keyboard(), m_surfaceL->Mouse(), deltaTime); }
+            if (m_surfaceR) { m_flyR.Update(m_surfaceR->Keyboard(), m_surfaceR->Mouse(), deltaTime); }
+
+            // Global (non-viewport) keys still read the raw keyboard.
+            if (input != nullptr) {
                 if (rt::IKeyboard* kb = input->Keyboard()) {
-                    if (kb->IsKeyPressed(rt::KeyCode::V)) { m_controlledView = 1u - m_controlledView; }
                     if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
                     // G fires the Character graph's "Next" trigger -> cross-fade to its next clip state.
                     if (kb->IsKeyPressed(rt::KeyCode::G)) { FireGraphNext(); }
@@ -964,7 +1006,16 @@ namespace
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
         rc::f32                     m_fpsSmoothed = 0.0f;   // exponential moving average of 1/deltaTime
-        smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 17.0f, 26.0f }, .pitch = -0.25f };
+        // One fly camera per split view; hovering a view routes input to its camera (no V toggle).
+        smp::FlyCamera              m_flyL{ .position = rc::Vec3{ -6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
+        smp::FlyCamera              m_flyR{ .position = rc::Vec3{  6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
+
+        // Viewport-input routing: each split half is an InputSurface (a ContentFit slice of the window);
+        // the router picks the hovered surface and gates/transforms input into it. Created lazily once
+        // the platform + window exist. focus-follows-hover so the pointer alone selects the active view.
+        rc::UniquePtr<rt::InputRouter>  m_inputRouter;
+        rc::UniquePtr<rt::InputSurface> m_surfaceL;
+        rc::UniquePtr<rt::InputSurface> m_surfaceR;
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
@@ -985,7 +1036,6 @@ namespace
         // graph the G key advances (the Character). Skinned models are otherwise driven by the subsystem.
         rc::Array<rc::RefPtr<anim::AnimationGraph>> m_graphs;
         sc::EntityHandle                            m_graphChar{};
-        rc::u32                     m_controlledView = 0;   // which split-screen view the fly cam drives (V toggles)
         bool                        m_showImguiDemo  = false;   // debug-UI toggle
     };
 }
