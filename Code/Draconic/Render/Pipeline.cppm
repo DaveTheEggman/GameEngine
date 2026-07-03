@@ -627,9 +627,10 @@ public:
     }
     // FXAA (TAA-off fallback): run FXAA after tonemap when TAA is off. Never stacked with TAA.
     void SetFxaa(bool on, f32 subpixelQuality) noexcept { m_fxaaEnabled = on; m_fxaaSubpixel = subpixelQuality; }
-    // Append a per-pass GPU timing report (call only after the device is idle).
+    // Append a per-pass GPU timing report + the per-pass CPU record cost (call only after device idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
+        m_graph.AppendCpuPassReport(out);
     }
 
     // Depth prepass body: emit the view's OPAQUE draws as depth-only from the camera POV (no bias, so

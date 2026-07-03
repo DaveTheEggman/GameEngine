@@ -56,6 +56,25 @@ export namespace draconic::rendergraph
         [[nodiscard]] GraphProfiler* GpuProfiler() noexcept { return m_gpuProfiler.Get(); }
         [[nodiscard]] i32 LastProfiledPassCount() const noexcept { return m_lastProfiledPassCount; }
 
+        // Aggregate this frame's per-pass CPU RECORD time by pass name (most-expensive first). The graph
+        // execute is often CPU-bound (recording/bundle build) while the GPU is idle — this shows where.
+        void AppendCpuPassReport(String& out) const {
+            struct Agg { StringView name; u64 ticks = 0; i32 n = 0; };
+            Array<Agg> agg; u64 total = 0;
+            for (const PassCpu& p : m_passCpu) {
+                total += p.ticks;
+                bool found = false;
+                for (Agg& a : agg) { if (a.name == p.name) { a.ticks += p.ticks; ++a.n; found = true; break; } }
+                if (!found) { Agg a; a.name = p.name; a.ticks = p.ticks; a.n = 1; agg.PushBack(a); }
+            }
+            for (usize i = 0; i < agg.Size(); ++i)
+                for (usize j = i + 1; j < agg.Size(); ++j)
+                    if (agg[j].ticks > agg[i].ticks) { const Agg t = agg[i]; agg[i] = agg[j]; agg[j] = t; }
+            out.Append(u8"=== CPU by pass name (record cost, expensive first) ===\n");
+            for (const Agg& a : agg) { AppendFormat(out, u8"  {} ms  (x{})  {}\n", TicksToMilliseconds(a.ticks), a.n, a.name); }
+            AppendFormat(out, u8"  --------\n  {} ms  TOTAL (pass record)\n", TicksToMilliseconds(total));
+        }
+
         ~RenderGraph()
         {
             for (Array<DeferredDeletion>& list : m_deferredDeletions)
@@ -112,7 +131,8 @@ export namespace draconic::rendergraph
 
             // GPU profiling: reset the timestamp pool up front (must be outside any render pass),
             // then bracket each executed pass with begin/end timestamps.
-            if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->BeginFrame(*encoder); }
+            const bool prof = (m_gpuProfiler.Get() != nullptr);
+            if (prof) { m_gpuProfiler->BeginFrame(*encoder); m_passCpu.Clear(); }
             i32 profiledPassCount = 0;
 
             for (i32 passIdx : m_executionOrder)
@@ -121,8 +141,11 @@ export namespace draconic::rendergraph
                 if (pass->isCulled) { continue; }
                 if (static_cast<bool>(pass->condition) && !pass->condition()) { continue; }
 
+                // Per-pass CPU cost (barriers + record/execute, incl. any bundle build/wait): the graph's
+                // execute is often CPU-bound while the GPU is idle, so this shows which pass RECORDING is slow.
+                const u64 cpuStart = prof ? core::GetTicks() : 0;
                 encoder->BeginDebugLabel(pass->name.AsView());
-                if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->BeginPass(*encoder, profiledPassCount, pass->name.AsView()); }
+                if (prof) { m_gpuProfiler->BeginPass(*encoder, profiledPassCount, pass->name.AsView()); }
                 m_barrierSolver.EmitBarriers(*pass, ResourceSpan(), *encoder);
 
                 switch (pass->type)
@@ -133,8 +156,9 @@ export namespace draconic::rendergraph
                 }
 
                 m_barrierSolver.EmitReadableAfterWriteBarriers(*pass, ResourceSpan(), *encoder);
-                if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->EndPass(*encoder, profiledPassCount); ++profiledPassCount; }
+                if (prof) { m_gpuProfiler->EndPass(*encoder, profiledPassCount); ++profiledPassCount; }
                 encoder->EndDebugLabel();
+                if (prof) { m_passCpu.PushBack(PassCpu{ pass->name.AsView(), core::GetTicks() - cpuStart }); }
             }
 
             if (m_gpuProfiler.Get() != nullptr) { m_gpuProfiler->Resolve(*encoder, profiledPassCount); m_lastProfiledPassCount = profiledPassCount; }
@@ -830,6 +854,8 @@ export namespace draconic::rendergraph
         bool m_isCompiled = false;
         UniquePtr<GraphProfiler> m_gpuProfiler;     // optional per-pass GPU timing
         i32 m_lastProfiledPassCount = 0;
+        struct PassCpu { StringView name; u64 ticks = 0; };   // per-pass CPU record time (name -> pass->name, valid pre-Reset)
+        Array<PassCpu> m_passCpu;
         BarrierSolver m_barrierSolver;
         UniquePtr<TransientTexturePool> m_texturePool;
         Array<Array<DeferredDeletion>> m_deferredDeletions;

@@ -113,6 +113,24 @@ export namespace draconic::rendergraph
             }
             AppendFormat(outReport, u8"  --------\n  {} ms  TOTAL\n", totalMs);
 
+            // Aggregate by pass NAME so many same-named passes (e.g. 24x probes.prefilter) read as one
+            // line — a "which pass category is expensive" summary, sorted most-expensive first.
+            struct Agg { StringView name; f32 sum = 0.0f; i32 n = 0; };
+            Array<Agg> agg;
+            for (i32 i = 0; i < count; ++i)
+            {
+                const StringView nm = i < static_cast<i32>(m_passNames.Size())
+                                    ? m_passNames[static_cast<usize>(i)].AsView() : StringView(u8"???");
+                bool found = false;
+                for (Agg& a : agg) { if (a.name == nm) { a.sum += m_passTimesMs[static_cast<usize>(i)]; ++a.n; found = true; break; } }
+                if (!found) { Agg a; a.name = nm; a.sum = m_passTimesMs[static_cast<usize>(i)]; a.n = 1; agg.PushBack(a); }
+            }
+            for (usize i = 0; i < agg.Size(); ++i)   // selection sort by total (few entries)
+                for (usize j = i + 1; j < agg.Size(); ++j)
+                    if (agg[j].sum > agg[i].sum) { const Agg t = agg[i]; agg[i] = agg[j]; agg[j] = t; }
+            outReport.Append(u8"=== GPU by pass name (expensive first) ===\n");
+            for (const Agg& a : agg) { AppendFormat(outReport, u8"  {} ms  (x{})  {}\n", a.sum, a.n, a.name); }
+
             m_readbackBuffer->Unmap();
         }
 
