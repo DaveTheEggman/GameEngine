@@ -530,7 +530,8 @@ float4 main(PSInput input) : SV_Target0 {
                 float  dist = min(min(tFar.x, tFar.y), tFar.z);        // nearest exit = box hit along +R
                 Rp = (input.worldPos + R * dist) - ProbeCenter.xyz;    // re-aim from the capture center
             }
-            float3 probeSpec = ProbeArray.SampleLevel(EnvSampler, float4(Rp, ProbeBoxMin.w), 0.0).rgb;
+            // Roughness -> prefiltered mip (GGX). Probe prefilter has 5 mips, so max LOD = 4.
+            float3 probeSpec = ProbeArray.SampleLevel(EnvSampler, float4(Rp, ProbeBoxMin.w), roughness * 4.0).rgb;
             prefiltered = probeSpec * ProbeBoxMax.w;
         }
         float2 brdf  = BRDFLut.Sample(EnvSampler, float2(NdotV, roughness)).rg;

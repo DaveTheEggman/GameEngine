@@ -1052,9 +1052,11 @@ public:
                                   m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   0, 0, res, res, m_frameIndex, /*viewIndex*/ 2u + face, sub);
             }
-            // Bridge captured -> prefiltered (flip blit — corrects the RH-LookAt mirror) so the forward
-            // samples a SEPARATE texture, never the captured cube it just wrote. GGX convolve later.
+            // Bridge captured -> prefiltered mip 0 (flip blit — corrects the RH-LookAt mirror) so the forward
+            // samples a SEPARATE texture, never the captured cube it just wrote; then GGX-convolve mip 0 into
+            // the rougher mips (roughness reflections).
             m_probeSystem->DeclareBlit(m_graph, capturedH, probePrefilteredH, task.slot);
+            m_probeSystem->DeclarePrefilter(m_graph, probePrefilteredH, task.slot);
             m_probeSystem->MarkCaptured(task.slot);
         }
 

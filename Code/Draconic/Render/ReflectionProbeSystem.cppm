@@ -63,6 +63,65 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
 }
 )";
 
+// GGX prefilter PS: convolve the CORRECTED probe cube (prefiltered mip 0) into a rougher mip. Karis
+// split-sum importance sampling (same math as IBLSystem). Reads mip 0, writes mip M (roughness=M/(mips-1));
+// the forward samples roughness*maxLod so rough surfaces get progressively blurrier reflections.
+inline constexpr const char8_t* kProbePrefilterPS = u8R"(
+struct Push { int FaceIndex; float Roughness; float2 Pad; };
+[[vk::push_constant]] Push pc;
+TextureCube<float4> Src  : register(t0, space0);
+SamplerState        Samp : register(s0, space0);
+static const float PI = 3.14159265359;
+float3 DirForFace(int face, float2 uv) {
+    float2 t = uv * 2.0 - 1.0;
+    float3 d;
+    if      (face == 0) d = float3( 1.0,  t.y, -t.x);
+    else if (face == 1) d = float3(-1.0,  t.y,  t.x);
+    else if (face == 2) d = float3( t.x,  1.0, -t.y);
+    else if (face == 3) d = float3( t.x, -1.0,  t.y);
+    else if (face == 4) d = float3( t.x,  t.y,  1.0);
+    else                d = float3(-t.x,  t.y, -1.0);
+    return normalize(d);
+}
+float RadicalInverse_VdC(uint bits) {
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10;
+}
+float2 Hammersley(uint i, uint n) { return float2(float(i) / float(n), RadicalInverse_VdC(i)); }
+float3 ImportanceSampleGGX(float2 xi, float3 n, float roughness) {
+    float a = roughness * roughness;
+    float phi = 2.0 * PI * xi.x;
+    float cosT = sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
+    float sinT = sqrt(1.0 - cosT * cosT);
+    float3 h = float3(cos(phi) * sinT, sin(phi) * sinT, cosT);
+    float3 up = abs(n.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
+    float3 tx = normalize(cross(up, n));
+    float3 ty = cross(n, tx);
+    return normalize(tx * h.x + ty * h.y + n * h.z);
+}
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
+    float3 N = DirForFace(pc.FaceIndex, uv);
+    float3 V = N;
+    const uint SAMPLES = 128u;   // per-probe, may run every frame (Realtime) -> fewer than IBL's 1024
+    float3 color = 0.0; float weight = 0.0;
+    for (uint i = 0u; i < SAMPLES; ++i) {
+        float2 xi = Hammersley(i, SAMPLES);
+        float3 H  = ImportanceSampleGGX(xi, N, pc.Roughness);
+        float3 L  = normalize(2.0 * dot(V, H) * H - V);
+        float  ndl = dot(N, L);
+        if (ndl > 0.0) { color += Src.SampleLevel(Samp, L, 0.0).rgb * ndl; weight += ndl; }
+    }
+    return float4(color / max(weight, 1e-4), 1.0);
+}
+)";
+
+struct PrefilterPush { i32 faceIndex = 0; f32 roughness = 0.0f; f32 pad0 = 0.0f, pad1 = 0.0f; };
+static_assert(sizeof(PrefilterPush) == 16);
+
 class ReflectionProbeSystem {
 public:
     // One fixed array resolution for all probe slices (a cube-array can't vary per-slice; the component's
@@ -82,7 +141,8 @@ public:
         if (!CreateResources()) { return Status{ ErrorCode::Unknown }; }
         m_shaders->RegisterSource(u8"probe_blit_vs", shaders::ShaderStage::Vertex,   kProbeBlitVS);
         m_shaders->RegisterSource(u8"probe_blit_ps", shaders::ShaderStage::Fragment, kProbeBlitPS);
-        if (!CreateBlitPipeline()) { return Status{ ErrorCode::Unknown }; }
+        m_shaders->RegisterSource(u8"probe_prefilter_ps", shaders::ShaderStage::Fragment, kProbePrefilterPS);
+        if (!CreateBlitPipeline() || !CreatePrefilterPipeline()) { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }
 
@@ -195,6 +255,35 @@ public:
                     rp.Draw(3, 1, 0, 0);
                 });
             });
+        }
+    }
+
+    // GGX-convolve prefiltered mip 0 (the corrected cube) into mips 1..N-1 (roughness = mip/(mips-1)).
+    // Reads mip 0, writes each rougher mip/face; the graph orders after DeclareBlit (which wrote mip 0)
+    // via the shared prefilteredH. The forward samples roughness*(mips-1) -> blurrier at higher roughness.
+    void DeclarePrefilter(rendergraph::RenderGraph& graph, rendergraph::RGHandle prefilteredH, u32 slot) {
+        rhi::BindGroup* srcBG = EnsurePrefilterSource(slot);
+        if (srcBG == nullptr) { return; }
+        for (u32 mip = 1; mip < kPrefilterMips; ++mip) {
+            const f32 roughness = static_cast<f32>(mip) / static_cast<f32>(kPrefilterMips - 1);
+            const u32 mipRes = kPrefilterRes >> mip;
+            for (u32 face = 0; face < 6; ++face) {
+                graph.AddRenderPass(u8"probes.prefilter", [this, prefilteredH, slot, mip, face, roughness, mipRes, srcBG](rendergraph::PassBuilder& b) {
+                    rendergraph::RGSubresourceRange src{}; src.baseMipLevel = 0;   src.mipLevelCount = 1; src.baseArrayLayer = slot * 6u;        src.arrayLayerCount = 6;
+                    rendergraph::RGSubresourceRange dst{}; dst.baseMipLevel = mip; dst.mipLevelCount = 1; dst.baseArrayLayer = slot * 6u + face; dst.arrayLayerCount = 1;
+                    b.ReadTexture(prefilteredH, src);
+                    b.SetColorTarget(0, prefilteredH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black(), dst);
+                    b.SetViewport(0, 0, mipRes, mipRes);
+                    b.NeverCull();
+                    b.SetExecute([this, face, roughness, srcBG](rhi::RenderPassEncoder& rp) {
+                        PrefilterPush push{}; push.faceIndex = static_cast<i32>(face); push.roughness = roughness;
+                        rp.SetPipeline(m_prefilterPipeline);
+                        rp.SetBindGroup(0, srcBG, Span<const u32>{});
+                        rp.SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(PrefilterPush), &push);
+                        rp.Draw(3, 1, 0, 0);
+                    });
+                });
+            }
         }
     }
 
@@ -325,12 +414,66 @@ private:
         return m_blitFaceBG[idx];
     }
 
+    bool CreatePrefilterPipeline() {
+        rhi::ShaderModule* vs = m_shaders->GetVariant(u8"probe_blit_vs", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+        rhi::ShaderModule* ps = m_shaders->GetVariant(u8"probe_prefilter_ps", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+        if (vs == nullptr || ps == nullptr) { return false; }
+
+        rhi::BindGroupLayoutEntry srcTex  = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
+        rhi::BindGroupLayoutEntry srcSamp = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry entries[] = { srcTex, srcSamp };
+        rhi::BindGroupLayoutDesc ld{}; ld.entries = Span<const rhi::BindGroupLayoutEntry>{ entries, 2 };
+        if (!m_device->CreateBindGroupLayout(ld, m_prefilterLayout).IsOk()) { return false; }
+
+        rhi::PushConstantRange pcRange{}; pcRange.stages = rhi::ShaderStage::Fragment; pcRange.offset = 0; pcRange.size = sizeof(PrefilterPush);
+        rhi::BindGroupLayout* layouts[] = { m_prefilterLayout };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts   = Span<rhi::BindGroupLayout* const>{ layouts, 1 };
+        pld.pushConstantRanges = Span<const rhi::PushConstantRange>{ &pcRange, 1 };
+        if (!m_device->CreatePipelineLayout(pld, m_prefilterPipeLayout).IsOk()) { return false; }
+
+        rhi::ColorTargetState color{}; color.format = kCubeFormat;
+        rhi::FragmentState frag{}; frag.shader = rhi::ProgrammableStage{ ps, u8"main", rhi::ShaderStage::Fragment };
+        frag.targets = Span<const rhi::ColorTargetState>{ &color, 1 };
+        rhi::RenderPipelineDesc pd{};
+        pd.layout = m_prefilterPipeLayout;
+        pd.vertex.shader = rhi::ProgrammableStage{ vs, u8"main", rhi::ShaderStage::Vertex };
+        pd.fragment = frag;
+        pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
+        pd.primitive.cullMode = rhi::CullMode::None;
+        pd.label = u8"probes.prefilter";
+        if (!m_device->CreateRenderPipeline(pd, m_prefilterPipeline).IsOk()) { return false; }
+        return true;
+    }
+
+    // Per-slot source cube view (prefiltered mip 0 as a TextureCube) + its prefilter bind group.
+    rhi::BindGroup* EnsurePrefilterSource(u32 slot) {
+        if (m_prefilterSrcBG[slot] != nullptr) { return m_prefilterSrcBG[slot]; }
+        rhi::TextureViewDesc vd{}; vd.format = kCubeFormat;
+        vd.dimension = rhi::TextureViewDimension::TextureCube;
+        vd.baseMipLevel = 0; vd.mipLevelCount = 1;
+        vd.baseArrayLayer = slot * 6u; vd.arrayLayerCount = 6;
+        if (!m_device->CreateTextureView(m_prefilterCube, vd, m_prefilterSrcView[slot]).IsOk()) { return nullptr; }
+        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_prefilterSrcView[slot]), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+        rhi::BindGroupDesc bgd{}; bgd.layout = m_prefilterLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
+        if (!m_device->CreateBindGroup(bgd, m_prefilterSrcBG[slot]).IsOk()) { m_prefilterSrcBG[slot] = nullptr; return nullptr; }
+        return m_prefilterSrcBG[slot];
+    }
+
+
     void DestroyResources() {
         if (m_device == nullptr) { return; }
         for (u32 i = 0; i < kMaxProbes * 6; ++i) {
             if (m_blitFaceBG[i] != nullptr)       { m_device->DestroyBindGroup(m_blitFaceBG[i]); m_blitFaceBG[i] = nullptr; }
             if (m_capturedFaceView[i] != nullptr) { m_device->DestroyTextureView(m_capturedFaceView[i]); m_capturedFaceView[i] = nullptr; }
         }
+        for (u32 i = 0; i < kMaxProbes; ++i) {
+            if (m_prefilterSrcBG[i] != nullptr)   { m_device->DestroyBindGroup(m_prefilterSrcBG[i]); m_prefilterSrcBG[i] = nullptr; }
+            if (m_prefilterSrcView[i] != nullptr) { m_device->DestroyTextureView(m_prefilterSrcView[i]); m_prefilterSrcView[i] = nullptr; }
+        }
+        if (m_prefilterPipeline != nullptr)   { m_device->DestroyRenderPipeline(m_prefilterPipeline); m_prefilterPipeline = nullptr; }
+        if (m_prefilterPipeLayout != nullptr) { m_device->DestroyPipelineLayout(m_prefilterPipeLayout); m_prefilterPipeLayout = nullptr; }
+        if (m_prefilterLayout != nullptr)     { m_device->DestroyBindGroupLayout(m_prefilterLayout); m_prefilterLayout = nullptr; }
         if (m_blitPipeline != nullptr)   { m_device->DestroyRenderPipeline(m_blitPipeline); m_blitPipeline = nullptr; }
         if (m_blitPipeLayout != nullptr) { m_device->DestroyPipelineLayout(m_blitPipeLayout); m_blitPipeLayout = nullptr; }
         if (m_blitLayout != nullptr)     { m_device->DestroyBindGroupLayout(m_blitLayout); m_blitLayout = nullptr; }
@@ -352,6 +495,13 @@ private:
     rhi::RenderPipeline*  m_blitPipeline   = nullptr;
     rhi::TextureView*     m_capturedFaceView[kMaxProbes * 6] = {};
     rhi::BindGroup*       m_blitFaceBG[kMaxProbes * 6]       = {};
+
+    // GGX roughness prefilter (prefiltered mip 0 -> mips 1..N-1).
+    rhi::BindGroupLayout* m_prefilterLayout     = nullptr;
+    rhi::PipelineLayout*  m_prefilterPipeLayout = nullptr;
+    rhi::RenderPipeline*  m_prefilterPipeline   = nullptr;
+    rhi::TextureView*     m_prefilterSrcView[kMaxProbes] = {};   // per-slot mip-0 cube view (convolution source)
+    rhi::BindGroup*       m_prefilterSrcBG[kMaxProbes]   = {};
 
     rhi::Texture*     m_capturedCube        = nullptr;
     rhi::TextureView* m_capturedArrayView   = nullptr;

@@ -188,9 +188,11 @@ namespace
                 // floating grids, whose full shadow ellipse is visible on the ground).
                 constexpr rc::f32 kBallR = 1.25f;
                 rc::RefPtr<geo::StaticMesh> ball = geo::Primitives::Sphere(kBallR, 24, 12);
-                // Chrome: fully metallic + near-mirror roughness so the probe reflection dominates.
-                rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.90f, 0.90f, 0.92f, 1.0f }, 1.0f, 0.05f);
+                // Metal spheres with INCREASING roughness across the row (0.05 -> 0.59), all fully metallic,
+                // so the probe reflection goes mirror-sharp -> blurry — showcasing the GGX roughness prefilter.
                 for (int k = 0; k < 4; ++k) {
+                    rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.90f, 0.90f, 0.92f, 1.0f },
+                                                                      1.0f, 0.05f + 0.18f * static_cast<rc::f32>(k));
                     sc::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
                     m_scene->SetLocalPosition(s, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBallR, 16.0f });
                     rd::MeshComponent& smc = meshes->Add(s);
