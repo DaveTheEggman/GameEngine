@@ -1012,7 +1012,11 @@ public:
             const u32 res   = ReflectionProbeSystem::kCaptureRes;
             const f32 nearZ = ReflectionProbeSystem::kCaptureNear;
             const f32 farZ  = ReflectionProbeSystem::kCaptureFar;
-            const ReflectionProbeSystem::CaptureTask task = m_probeSystem->Captures()[0];
+            // Round-robin: capture ONE dirty probe per frame, cycling through them. Keeps the capture to 6
+            // faces/frame (fits the sky-uniform slots 2..7) and amortizes multi-probe / Realtime re-capture.
+            const Span<const ReflectionProbeSystem::CaptureTask> captures = m_probeSystem->Captures();
+            const ReflectionProbeSystem::CaptureTask task = captures[m_probeCaptureCursor % captures.Size()];
+            ++m_probeCaptureCursor;
             const u32 layerBase = ReflectionProbeSystem::LayerBase(task.slot);
             const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
             for (u32 face = 0; face < 6; ++face) {
@@ -1313,6 +1317,7 @@ private:
     DecalPass*              m_decalPass = nullptr;  // borrowed; per-view screen-space decal pass
     ReflectionProbeSystem*  m_probeSystem = nullptr; // borrowed; dirty probes captured before the main views
     RenderView              m_captureViews[6];       // persistent 6-face capture views (outlive graph execute)
+    u32                     m_probeCaptureCursor = 0; // round-robin: which dirty probe to capture this frame
     DebugDrawPass*          m_debugPass = nullptr;  // borrowed; per-view debug gizmo/text pass
     const debug::DebugDraw* m_debugGlobal = nullptr;   // borrowed; global (all-views) debug list
     const debug::DebugDraw* m_debugScreen = nullptr;   // borrowed; whole-window screen HUD (drawn once)

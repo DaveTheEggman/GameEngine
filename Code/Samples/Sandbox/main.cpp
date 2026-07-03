@@ -294,16 +294,23 @@ namespace
                 pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
             }
 
-            // Reflection probe (P0 data model; unconsumed until the capture/prefilter phase). One box probe
-            // covering the prop area (the metallic balls + glass) so its parallax-corrected reflections have
-            // something to show. Centered above the floor; Static = capture once + cache.
+            // TWO reflection probes, side by side with an overlap in the middle, to show multi-probe blending:
+            // each captures from its own center (so their local reflections differ), and fragments in the
+            // overlap blend the two by influence weight. Realtime -> round-robin re-captures one per frame.
             if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
-                m_probeEntity = m_scene->CreateEntity(u8"reflectionProbe");
-                m_scene->SetLocalPosition(m_probeEntity, rc::Vec3{ 0.0f, 6.0f, 17.0f });
-                rd::ReflectionProbeComponent& rp = probes->Add(m_probeEntity);
-                rp.halfExtents = rc::Vec3{ 18.0f, 12.0f, 14.0f };   // covers box/ball/glass rows (z=10..24)
-                rp.resolution  = 128;
-                rp.update      = rd::ProbeUpdateMode::Realtime;   // re-capture every frame (F5 sky changes show live)
+                m_probeEntity = m_scene->CreateEntity(u8"reflectionProbeL");   // left probe (F6/UI toggles this one)
+                m_scene->SetLocalPosition(m_probeEntity, rc::Vec3{ -8.0f, 6.0f, 16.0f });
+                rd::ReflectionProbeComponent& rpL = probes->Add(m_probeEntity);
+                rpL.halfExtents   = rc::Vec3{ 12.0f, 12.0f, 14.0f };   // covers x[-20,4]
+                rpL.blendDistance = 4.0f;
+                rpL.update        = rd::ProbeUpdateMode::Realtime;
+
+                sc::EntityHandle probeR = m_scene->CreateEntity(u8"reflectionProbeR");   // right probe
+                m_scene->SetLocalPosition(probeR, rc::Vec3{ 8.0f, 6.0f, 16.0f });
+                rd::ReflectionProbeComponent& rpR = probes->Add(probeR);
+                rpR.halfExtents   = rc::Vec3{ 12.0f, 12.0f, 14.0f };   // covers x[-4,20] -> overlap x[-4,4]
+                rpR.blendDistance = 4.0f;
+                rpR.update        = rd::ProbeUpdateMode::Realtime;
             }
 
             LoadImportedModel(host);   // cook + spawn a glTF model through the resource pipeline
