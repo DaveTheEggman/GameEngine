@@ -301,17 +301,20 @@ public:
                      rendergraph::RGHandle normalH, rendergraph::RGHandle velocityH,
                      const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
                      const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
-                     const IblBinding& ibl = {}) {
+                     const IblBinding& ibl = {},
+                     rhi::LoadOp depthLoad = rhi::LoadOp::Load,
+                     rendergraph::RGSubresourceRange colorSub = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
-            b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear);
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, depthLoad, colorSub](rendergraph::PassBuilder& b) {
+            // colorSub targets a single layer when capturing into a cube-array face (default {} = whole target).
+            b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear, colorSub);
             // MRT G-buffer aux (cleared each view): view-space normal + screen-space motion vector.
             b.SetColorTarget(1, normalH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
             b.SetColorTarget(2, velocityH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
-            // Depth was cleared + populated (opaque) by the depth prepass; load it (early-Z via LessEqual).
-            b.SetDepthTarget(depth, rhi::LoadOp::Load, rhi::StoreOp::Store);
+            // Depth: loaded after the prepass for early-Z; capture (no prepass) passes Clear.
+            b.SetDepthTarget(depth, depthLoad, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
             // Read the cluster lists the build compute pass wrote (orders compute -> this pass).

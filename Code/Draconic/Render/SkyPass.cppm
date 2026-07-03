@@ -121,7 +121,8 @@ public:
                     const Mat4& invViewProj, const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
                     const Vec3& camPos, f32 intensity,
                     const Vec3& sunDir, f32 sunSize, const Vec3& sunColor, f32 sunIntensity,
-                    i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex) {
+                    i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
+                    rendergraph::RGSubresourceRange colorSub = {}) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(colorFormat, depthFormat);
         if (pipeline == nullptr || envView == nullptr) { return; }
         const u32 slot = (viewIndex % kMaxViews) * m_fif + (frameIndex % m_fif);
@@ -134,8 +135,8 @@ public:
         u.jitter   = Vec4{ jitter.x, jitter.y, prevJitter.x, prevJitter.y };
 
         graph.AddRenderPass(u8"sky",
-            [this, color, velocity, depth, envH, envView, pipeline, slot, u, vpX, vpY, vpW, vpH](rendergraph::PassBuilder& b) {
-                b.SetColorTarget(0, color, rhi::LoadOp::Load, rhi::StoreOp::Store);
+            [this, color, velocity, depth, envH, envView, pipeline, slot, u, vpX, vpY, vpW, vpH, colorSub](rendergraph::PassBuilder& b) {
+                b.SetColorTarget(0, color, rhi::LoadOp::Load, rhi::StoreOp::Store, rhi::ClearColor::Black(), colorSub);
                 b.SetColorTarget(1, velocity, rhi::LoadOp::Load, rhi::StoreOp::Store);   // camera-motion velocity for TAA
                 b.SetReadOnlyDepthTarget(depth);     // depth test on, no write
                 b.ReadTexture(envH);                 // order precompute -> sky + barrier readable

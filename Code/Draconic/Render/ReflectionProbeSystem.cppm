@@ -65,6 +65,7 @@ public:
     // in P1b/P1c.) Probes beyond kMaxProbes are dropped (logged by the caller if it cares).
     u32 Assign(Span<const ReflectionProbe> probes) {
         m_active = 0;
+        m_captures.Clear();
         for (const ReflectionProbe& p : probes) {
             if (m_active >= kMaxProbes) { break; }
             const u32 slot = SlotFor(p.key);
@@ -88,6 +89,7 @@ public:
             }
             st.signature = sig;
             st.probeKey  = p.key;
+            if (st.dirty) { m_captures.PushBack(CaptureTask{ slot, p.center }); }
             ++m_active;
         }
         return m_active;
@@ -96,6 +98,31 @@ public:
     [[nodiscard]] u32 ActiveCount() const noexcept { return m_active; }
     [[nodiscard]] Span<const GpuProbe> CpuProbes() const noexcept {
         return Span<const GpuProbe>{ m_cpuProbes, m_active };
+    }
+
+    // A probe that needs (re)capture this frame: its array slot + world capture center. The capture loop
+    // renders the scene into layers [LayerBase(slot) .. +6) then calls MarkCaptured(slot).
+    struct CaptureTask { u32 slot; Vec3 center; };
+    [[nodiscard]] Span<const CaptureTask> Captures() const noexcept {
+        return Span<const CaptureTask>{ m_captures.Data(), m_captures.Size() };
+    }
+    [[nodiscard]] static u32 LayerBase(u32 slot) noexcept { return slot * 6u; }
+    void MarkCaptured(u32 slot) noexcept {
+        if (slot < kMaxProbes) { m_slotState[slot].captured = true; m_slotState[slot].dirty = false; }
+    }
+
+    // Near/far planes for the 90°-FOV face cameras (cover the box interior out to distant geometry + sky).
+    static constexpr f32 kCaptureNear = 0.1f;
+    static constexpr f32 kCaptureFar  = 1000.0f;
+
+    // Import the captured cube-array into the graph (whole resource; the capture passes target individual
+    // layers via subresource ranges). Persists its resource state across frames like the shadow atlas.
+    rendergraph::RGHandle ImportCaptured(rendergraph::RenderGraph& graph) {
+        const rendergraph::RGHandle h = graph.ImportTarget(
+            u8"probes.captured", m_capturedCube, m_capturedArrayView,
+            rhi::ResourceState::ShaderRead, m_capturedState);
+        m_capturedState = rhi::ResourceState::ShaderRead;
+        return h;
     }
 
     // Resources (consumed by the forward in P2, and by capture/prefilter in P1b/c).
@@ -143,6 +170,10 @@ private:
         cd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled;
         cd.label = u8"probes.captured";
         if (!m_device->CreateTexture(cd, m_capturedCube).IsOk()) { return false; }
+        rhi::TextureViewDesc cv{}; cv.format = kCubeFormat;
+        cv.dimension = rhi::TextureViewDimension::TextureCubeArray;
+        cv.arrayLayerCount = layers; cv.mipLevelCount = 1;
+        if (!m_device->CreateTextureView(m_capturedCube, cv, m_capturedArrayView).IsOk()) { return false; }
 
         // Prefiltered specular cube-array (mip chain): GGX split-sum per probe, sampled by the forward.
         rhi::TextureDesc pd{};
@@ -177,6 +208,7 @@ private:
         if (m_device == nullptr) { return; }
         if (m_prefilterArrayView != nullptr) { m_device->DestroyTextureView(m_prefilterArrayView); m_prefilterArrayView = nullptr; }
         if (m_prefilterCube != nullptr) { m_device->DestroyTexture(m_prefilterCube); m_prefilterCube = nullptr; }
+        if (m_capturedArrayView != nullptr) { m_device->DestroyTextureView(m_capturedArrayView); m_capturedArrayView = nullptr; }
         if (m_capturedCube != nullptr) { m_device->DestroyTexture(m_capturedCube); m_capturedCube = nullptr; }
         if (m_probeBuffer != nullptr) { m_device->DestroyBuffer(m_probeBuffer); m_probeBuffer = nullptr; }
         if (m_sampler != nullptr) { m_device->DestroySampler(m_sampler); m_sampler = nullptr; }
@@ -186,10 +218,14 @@ private:
     [[maybe_unused]] shaders::ShaderSystem* m_shaders = nullptr;   // prefilter pipelines (P1c)
 
     rhi::Texture*     m_capturedCube        = nullptr;
+    rhi::TextureView* m_capturedArrayView   = nullptr;
+    rhi::ResourceState m_capturedState      = rhi::ResourceState::Undefined;   // persists across frames (import)
     rhi::Texture*     m_prefilterCube       = nullptr;
     rhi::TextureView* m_prefilterArrayView  = nullptr;
     rhi::Buffer*      m_probeBuffer         = nullptr;
     rhi::Sampler*     m_sampler             = nullptr;
+
+    Array<CaptureTask> m_captures;   // dirty probes to (re)capture this frame
 
     HashMap<u64, u32> m_slots;                    // ProbeKey -> array slot (persistent)
     u32               m_nextSlot = 0;
