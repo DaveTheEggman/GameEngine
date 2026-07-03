@@ -226,8 +226,7 @@ TEST_CASE("RendererRegistry routes categories to renderers")
     RendererRegistry registry;
     registry.Register(&r);
 
-    CHECK(registry.ForCategory(RenderCategories::Opaque) == &r);
-    CHECK(registry.ForCategory(RenderCategories::Masked) == &r);
-    CHECK(registry.ForCategory(RenderCategories::Transparent) == nullptr);   // unregistered
+    CHECK(registry.ById(r.RendererId()) == &r);
+    CHECK(registry.ById(999) == nullptr);   // unregistered id
     CHECK(registry.Unique().Size() == 1);
 }

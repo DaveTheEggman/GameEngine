@@ -78,13 +78,13 @@ TEST_CASE("system: file write / read / seek / size round-trip")
 
         char buffer[32] = {};
         CHECK(FileRead(f, buffer, length) == static_cast<i64>(length));
-        CHECK(buffer[0] == 'R');
+        CHECK(buffer[0] == 'D');
 
         // Seek back to a known offset and re-read.
         CHECK(FileSeek(f, 7, SeekOrigin::Begin) == 7);
         char c = 0;
         CHECK(FileRead(f, &c, 1) == 1);
-        CHECK(c == 'f'); // "Draconic file IO"[7]
+        CHECK(c == 'c'); // "Draconic file IO"[7]
 
         FileClose(f);
     }
