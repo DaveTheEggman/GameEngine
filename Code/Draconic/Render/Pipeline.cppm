@@ -83,6 +83,7 @@ struct RenderRecordContext {
     rhi::TextureFormat         colorFormat = rhi::TextureFormat::BGRA8Unorm;
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
     bool                       depthPrepass = false;   // camera depth-only prepass: no depth bias (match forward exactly)
+    bool                       probesEnabled = true;    // false during probe capture: reflect the sky IBL, not the probe (no feedback/self-black)
 };
 
 // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,
@@ -348,8 +349,8 @@ public:
             // array to ShaderRead, incl. uncaptured slices) — the forward samples it (t8) for local reflections.
             if (probeValid) { b.ReadTexture(probeHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out);
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, probeValid](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out, /*probesEnabled*/ probeValid);
             });
         });
     }
@@ -387,7 +388,8 @@ private:
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
                         const Mat4& drawViewProj, const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter, bool transparentPass,
-                        const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out) {
+                        const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out,
+                        bool probesEnabled = true) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = drawViewProj;   // opaque = jittered (TAA), transparent = unjittered (drawn post-TAA)
@@ -405,6 +407,7 @@ private:
         ctx.viewIndex   = viewIndex;
         ctx.colorFormat = colorFormat;
         ctx.depthFormat = m_depthFormat;
+        ctx.probesEnabled = probesEnabled;
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
         // ring allocation). Split by the category's pass affinity (which pass draws it), then walk
@@ -542,8 +545,11 @@ private:
     u32                         m_workerSlots = 0;
 };
 
-// A 90°-FOV camera looking along one cube face (+X,-X,+Y,-Y,+Z,-Z) from a probe center, for reflection-
-// probe capture. Standard cubemap face basis; orientation is verified against the cube sampler downstream.
+// A 90 degrees-FOV camera looking along one cube face (+X,-X,+Y,-Y,+Z,-Z) from a probe center, for reflection-
+// probe capture. Uses LookAtRH (right-handed => correct triangle winding, so back-face culling works).
+// RH LookAt produces HORIZONTALLY-MIRRORED faces vs the cube sampler; that mirror is corrected in image
+// space by a horizontal-flip blit (captured -> prefiltered), NOT in the camera — negating a camera axis
+// would flip winding and break culling. Forwards/ups match Sedulous's probe + point-shadow convention.
 [[nodiscard]] inline ViewCamera ProbeFaceCamera(Vec3 center, u32 face, f32 nearZ, f32 farZ) {
     static const Vec3 dirs[6] = { {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1} };
     static const Vec3 ups[6]  = { {0,1,0}, {0,1,0}, {0,0,-1}, {0,0,1}, {0,1,0}, {0,1,0} };
@@ -1034,16 +1040,19 @@ public:
                                    capNormal, capVel, faceVP, Vec2{ 0, 0 }, Vec2{ 0, 0 },
                                    ClusterBinding{}, capShadow, capIbl, rhi::LoadOp::Clear, sub);
                 // Sky into the same face, after the forward (loads the captured depth).
+                // Distinct sky uniform slot per capture face (2..7), so the capture never shares SkyPass's
+                // per-view slot with a main view (0,1) or with another face — otherwise the last recorder
+                // wins the shared slot and the captured sky reads a main view's camera (cross-view leak).
                 m_sky->DeclareSky(m_graph, capturedH, capVel, capDepth, m_ibl->EnvHandle(), m_ibl->EnvView(),
                                   ReflectionProbeSystem::kCubeFormat, m_pass.DepthFormat(),
                                   Inverse(faceVP), faceVP, Vec2{ 0, 0 }, Vec2{ 0, 0 },
                                   task.center, m_ibl->SkyIntensity(),
                                   m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, sunInt,
-                                  0, 0, res, res, m_frameIndex, /*viewIndex*/ 0u, sub);
+                                  0, 0, res, res, m_frameIndex, /*viewIndex*/ 2u + face, sub);
             }
-            // Bridge captured -> prefiltered (copy, sharp for now) so the forward samples a SEPARATE texture,
-            // never the captured cube it just wrote (that would be a read/write hazard). GGX convolve later.
-            m_probeSystem->DeclareCopy(m_graph, capturedH, probePrefilteredH, task.slot);
+            // Bridge captured -> prefiltered (flip blit — corrects the RH-LookAt mirror) so the forward
+            // samples a SEPARATE texture, never the captured cube it just wrote. GGX convolve later.
+            m_probeSystem->DeclareBlit(m_graph, capturedH, probePrefilteredH, task.slot);
             m_probeSystem->MarkCaptured(task.slot);
         }
 

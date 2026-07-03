@@ -969,7 +969,9 @@ public:
         vd.cameraPos     = ctx.cameraPos;
         vd.ambient       = ctx.ambient;
         vd.iblMaxLod     = m_iblActive ? m_iblMaxLod : -1.0f;   // <0 => forward uses flat ambient
-        vd.probeCenter   = m_activeProbeCenter;                 // xyz center, w = probe count (0 => none)
+        // Probes disabled during probe capture (ctx.probesEnabled=false) -> count 0 so metallics reflect the
+        // sky (global IBL), not the not-yet-built probe (which would bake them black — self-reflection).
+        vd.probeCenter   = ctx.probesEnabled ? m_activeProbeCenter : Vec4{ 0, 0, 0, 0 };
         vd.probeBoxMin   = m_activeProbeBoxMin;                 // xyz box min, w = cube slice
         vd.probeBoxMax   = m_activeProbeBoxMax;                 // xyz box max, w = intensity
 

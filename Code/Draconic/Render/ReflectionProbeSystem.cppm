@@ -39,6 +39,30 @@ struct GpuProbe {
 };
 static_assert(sizeof(GpuProbe) == 64);
 
+// Fullscreen-triangle VS (uv from SV_VertexID) for the captured->prefiltered blit.
+inline constexpr const char8_t* kProbeBlitVS = u8R"(
+struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
+VSOut main(uint vid : SV_VertexID) {
+    float2 uv = float2((vid << 1) & 2, vid & 2);
+    VSOut o; o.uv = uv; o.pos = float4(uv * 2.0 - 1.0, 0.0, 1.0); return o;
+}
+)";
+
+// Blit PS: copy one captured face into the prefiltered face, correcting the RH-LookAt horizontal mirror
+// by flipping u. Samples the captured face as a plain Texture2D (NOT the cube sampler) so filtering never
+// crosses a face boundary — the cube-sampler path shows the face seams in smooth gradients (sky). This is
+// Sedulous's probe_blit. Image-space flip => winding stays correct (a camera-axis flip breaks culling).
+inline constexpr const char8_t* kProbeBlitPS = u8R"(
+Texture2D<float4> SrcFace : register(t0, space0);
+SamplerState      Samp    : register(s0, space0);
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
+    // flip-u corrects the RH-LookAt mirror; flip-v corrects the vertical inversion from the capture +
+    // blit both passing through the negative viewport. (Retested after fixing the sky-slot collision that
+    // had scrambled the earlier read.)
+    return SrcFace.SampleLevel(Samp, float2(1.0 - uv.x, 1.0 - uv.y), 0.0);
+}
+)";
+
 class ReflectionProbeSystem {
 public:
     // One fixed array resolution for all probe slices (a cube-array can't vary per-slice; the component's
@@ -56,6 +80,9 @@ public:
 
     Status Initialize() {
         if (!CreateResources()) { return Status{ ErrorCode::Unknown }; }
+        m_shaders->RegisterSource(u8"probe_blit_vs", shaders::ShaderStage::Vertex,   kProbeBlitVS);
+        m_shaders->RegisterSource(u8"probe_blit_ps", shaders::ShaderStage::Fragment, kProbeBlitPS);
+        if (!CreateBlitPipeline()) { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }
 
@@ -147,23 +174,28 @@ public:
         return h;
     }
 
-    // Bridge captured -> prefiltered for one slot's 6 faces (mip 0). A straight copy for now (sharp
-    // reflections); a GGX roughness convolution replaces this copy later. Declares the graph ordering
-    // (capture-write -> copy -> forward-read) via CopySrc/CopyDst.
-    void DeclareCopy(rendergraph::RenderGraph& graph, rendergraph::RGHandle capturedH,
+    // Bridge captured -> prefiltered for one slot's 6 faces (mip 0), correcting the RH-LookAt horizontal
+    // mirror via a flip blit (sharp for now; a GGX roughness convolution replaces this later). One render
+    // pass per face samples the captured cube-array and writes the prefiltered layer; the graph orders
+    // capture-write -> blit-read + blit-write -> forward-read.
+    void DeclareBlit(rendergraph::RenderGraph& graph, rendergraph::RGHandle capturedH,
                      rendergraph::RGHandle prefilteredH, u32 slot) {
-        graph.AddCopyPass(u8"probes.copy", [this, capturedH, prefilteredH, slot](rendergraph::PassBuilder& b) {
-            b.CopySrc(capturedH);
-            b.CopyDst(prefilteredH);
-            b.SetCopyExecute([this, slot](rhi::CommandEncoder& enc) {
-                for (u32 f = 0; f < 6; ++f) {
-                    rhi::TextureCopyRegion region{};
-                    region.srcArrayLayer = slot * 6u + f; region.dstArrayLayer = slot * 6u + f;
-                    region.extent = rhi::Extent3D{ kCaptureRes, kCaptureRes, 1u };
-                    enc.CopyTextureToTexture(m_capturedCube, m_prefilterCube, region);
-                }
+        for (u32 face = 0; face < 6; ++face) {
+            rhi::BindGroup* faceBG = EnsureFaceBlit(slot, face);
+            if (faceBG == nullptr) { continue; }
+            graph.AddRenderPass(u8"probes.blit", [this, capturedH, prefilteredH, slot, face, faceBG](rendergraph::PassBuilder& b) {
+                rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = slot * 6u + face; sub.arrayLayerCount = 1;
+                b.SetColorTarget(0, prefilteredH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black(), sub);
+                b.ReadTexture(capturedH);
+                b.SetViewport(0, 0, kPrefilterRes, kPrefilterRes);
+                b.NeverCull();
+                b.SetExecute([this, faceBG](rhi::RenderPassEncoder& rp) {
+                    rp.SetPipeline(m_blitPipeline);
+                    rp.SetBindGroup(0, faceBG, Span<const u32>{});
+                    rp.Draw(3, 1, 0, 0);
+                });
             });
-        });
+        }
     }
 
     // Resources (consumed by the forward in P2, and by capture/prefilter in P1b/c).
@@ -248,8 +280,60 @@ private:
         return true;
     }
 
+    bool CreateBlitPipeline() {
+        rhi::ShaderModule* vs = m_shaders->GetVariant(u8"probe_blit_vs", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+        rhi::ShaderModule* ps = m_shaders->GetVariant(u8"probe_blit_ps", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+        if (vs == nullptr || ps == nullptr) { return false; }
+
+        rhi::BindGroupLayoutEntry srcTex  = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+        rhi::BindGroupLayoutEntry srcSamp = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry entries[] = { srcTex, srcSamp };
+        rhi::BindGroupLayoutDesc ld{}; ld.entries = Span<const rhi::BindGroupLayoutEntry>{ entries, 2 };
+        if (!m_device->CreateBindGroupLayout(ld, m_blitLayout).IsOk()) { return false; }
+
+        rhi::BindGroupLayout* layouts[] = { m_blitLayout };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 1 };
+        if (!m_device->CreatePipelineLayout(pld, m_blitPipeLayout).IsOk()) { return false; }
+
+        rhi::ColorTargetState color{}; color.format = kCubeFormat;
+        rhi::FragmentState frag{}; frag.shader = rhi::ProgrammableStage{ ps, u8"main", rhi::ShaderStage::Fragment };
+        frag.targets = Span<const rhi::ColorTargetState>{ &color, 1 };
+        rhi::RenderPipelineDesc pd{};
+        pd.layout = m_blitPipeLayout;
+        pd.vertex.shader = rhi::ProgrammableStage{ vs, u8"main", rhi::ShaderStage::Vertex };
+        pd.fragment = frag;
+        pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
+        pd.primitive.cullMode = rhi::CullMode::None;
+        pd.label = u8"probes.blit";
+        if (!m_device->CreateRenderPipeline(pd, m_blitPipeline).IsOk()) { return false; }
+        return true;
+    }
+
+    // Lazily create (and cache) a probe slot+face's captured 2D-layer SRV + its blit bind group. Sampling
+    // the single face layer as a Texture2D (not the cube) keeps filtering inside the face -> no seams.
+    rhi::BindGroup* EnsureFaceBlit(u32 slot, u32 face) {
+        const u32 idx = slot * 6u + face;
+        if (m_blitFaceBG[idx] != nullptr) { return m_blitFaceBG[idx]; }
+        rhi::TextureViewDesc vd{}; vd.format = kCubeFormat;
+        vd.dimension = rhi::TextureViewDimension::Texture2D;
+        vd.baseArrayLayer = idx; vd.arrayLayerCount = 1; vd.mipLevelCount = 1;
+        if (!m_device->CreateTextureView(m_capturedCube, vd, m_capturedFaceView[idx]).IsOk()) { return nullptr; }
+        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_capturedFaceView[idx]), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+        rhi::BindGroupDesc bgd{}; bgd.layout = m_blitLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
+        if (!m_device->CreateBindGroup(bgd, m_blitFaceBG[idx]).IsOk()) { m_blitFaceBG[idx] = nullptr; return nullptr; }
+        return m_blitFaceBG[idx];
+    }
+
     void DestroyResources() {
         if (m_device == nullptr) { return; }
+        for (u32 i = 0; i < kMaxProbes * 6; ++i) {
+            if (m_blitFaceBG[i] != nullptr)       { m_device->DestroyBindGroup(m_blitFaceBG[i]); m_blitFaceBG[i] = nullptr; }
+            if (m_capturedFaceView[i] != nullptr) { m_device->DestroyTextureView(m_capturedFaceView[i]); m_capturedFaceView[i] = nullptr; }
+        }
+        if (m_blitPipeline != nullptr)   { m_device->DestroyRenderPipeline(m_blitPipeline); m_blitPipeline = nullptr; }
+        if (m_blitPipeLayout != nullptr) { m_device->DestroyPipelineLayout(m_blitPipeLayout); m_blitPipeLayout = nullptr; }
+        if (m_blitLayout != nullptr)     { m_device->DestroyBindGroupLayout(m_blitLayout); m_blitLayout = nullptr; }
         if (m_prefilterArrayView != nullptr) { m_device->DestroyTextureView(m_prefilterArrayView); m_prefilterArrayView = nullptr; }
         if (m_prefilterCube != nullptr) { m_device->DestroyTexture(m_prefilterCube); m_prefilterCube = nullptr; }
         if (m_capturedArrayView != nullptr) { m_device->DestroyTextureView(m_capturedArrayView); m_capturedArrayView = nullptr; }
@@ -259,7 +343,15 @@ private:
     }
 
     rhi::Device*           m_device  = nullptr;
-    [[maybe_unused]] shaders::ShaderSystem* m_shaders = nullptr;   // prefilter pipelines (P1c)
+    shaders::ShaderSystem* m_shaders = nullptr;
+
+    // Captured -> prefiltered flip-blit (corrects RH-LookAt mirror). Per-face 2D SRVs + bind groups so
+    // filtering stays within a face (no cross-face seams in smooth gradients like the sky).
+    rhi::BindGroupLayout* m_blitLayout     = nullptr;
+    rhi::PipelineLayout*  m_blitPipeLayout = nullptr;
+    rhi::RenderPipeline*  m_blitPipeline   = nullptr;
+    rhi::TextureView*     m_capturedFaceView[kMaxProbes * 6] = {};
+    rhi::BindGroup*       m_blitFaceBG[kMaxProbes * 6]       = {};
 
     rhi::Texture*     m_capturedCube        = nullptr;
     rhi::TextureView* m_capturedArrayView   = nullptr;
