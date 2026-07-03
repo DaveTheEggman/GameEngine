@@ -156,6 +156,9 @@ export namespace draconic::runtime
         [[nodiscard]] ITouch*    Touch()    override { return &m_touch; }
         [[nodiscard]] rc::i32    GamepadCount() const override { return 0; }
         [[nodiscard]] IGamepad*  GetGamepad(rc::i32) override { return nullptr; }
+        [[nodiscard]] rc::Span<const InputEvent> Events() const override { return {}; }
+        [[nodiscard]] rc::u32    HoverWindow()   const override { return 0; }
+        [[nodiscard]] rc::u32    FocusedWindow() const override { return 0; }
         void Update() override {}
 
     private:

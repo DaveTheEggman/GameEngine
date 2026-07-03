@@ -136,4 +136,38 @@ export namespace draconic::runtime
         rc::f32 y        = 0.0f;
         rc::f32 pressure = 1.0f;
     };
+
+    // ---- Input events (the event-first source of truth) -------------------
+    //
+    // Every input state change is emitted as an InputEvent, tagged with the source
+    // window. The manager's polled device snapshot is a fold over the frame's events,
+    // and the (upcoming) viewport surfaces / UI dispatch consume the same stream — so
+    // poll and event views never disagree. See docs/design/viewport-input.md §4.2.
+
+    enum class InputEventKind : rc::u8
+    {
+        KeyDown, KeyUp, TextInput,
+        MouseMove, MouseButtonDown, MouseButtonUp, MouseWheel,
+        GamepadButtonDown, GamepadButtonUp, GamepadAxis,
+        TouchDown, TouchMove, TouchUp,
+    };
+
+    struct InputEvent
+    {
+        InputEventKind kind{};
+        rc::u32        window = 0;    // source window id (0 = unknown/global)
+
+        // Payload — interpret by `kind`:
+        KeyCode        key{};                          // KeyDown/KeyUp
+        KeyModifiers   modifiers{};                    // KeyDown/KeyUp
+        MouseButton    button{};                       // MouseButton*
+        GamepadButton  padButton{};                    // GamepadButton*
+        GamepadAxis    padAxis{};                      // GamepadAxis
+        rc::i32        gamepad = 0;                     // Gamepad* device index
+        rc::f32        x = 0.0f, y = 0.0f;             // window-space pos (MouseMove/Touch) / wheel delta
+        rc::f32        dx = 0.0f, dy = 0.0f;           // relative movement (MouseMove)
+        rc::f32        value = 0.0f;                    // GamepadAxis value / touch pressure
+        rc::u64        touchId = 0;                     // Touch*
+        rc::utf8char   text[32] = {};                   // TextInput (UTF-8, null-terminated)
+    };
 }

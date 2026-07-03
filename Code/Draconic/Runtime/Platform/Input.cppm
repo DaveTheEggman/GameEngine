@@ -92,7 +92,16 @@ export namespace draconic::runtime
         [[nodiscard]] virtual rc::i32    GamepadCount() const = 0;
         [[nodiscard]] virtual IGamepad*  GetGamepad(rc::i32 index) = 0;
 
-        // Rolls per-frame state (current -> previous, clears deltas). The
+        // This frame's input events (the event-first source of truth; the device
+        // snapshots above are a fold over these). Cleared each frame by Update().
+        [[nodiscard]] virtual rc::Span<const InputEvent> Events() const = 0;
+
+        // Routing authority (per docs/design/viewport-input.md §4.1): the window under
+        // the pointer (mouse routing) and the keyboard/gamepad-focused window. 0 = none.
+        [[nodiscard]] virtual rc::u32 HoverWindow()   const = 0;
+        [[nodiscard]] virtual rc::u32 FocusedWindow() const = 0;
+
+        // Rolls per-frame state (current -> previous, clears deltas + events). The
         // platform calls this once per frame before pumping OS events.
         virtual void Update() = 0;
     };
