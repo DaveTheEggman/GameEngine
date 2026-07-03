@@ -11,6 +11,7 @@ target_sources(DraconicRuntimePlatform
         FILE_SET runtime_platform_modules TYPE CXX_MODULES FILES
             InputTypes.cppm
             Input.cppm
+            InputSurface.cppm
             Platform.cppm)
 
 # Null backend only needs the interface. The Desktop backend depends on the

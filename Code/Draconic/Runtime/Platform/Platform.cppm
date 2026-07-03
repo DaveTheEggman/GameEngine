@@ -16,6 +16,7 @@ export module draconic.runtime.platform;
 
 export import :input_types;
 export import :input;
+export import :surface;
 
 import draconic.core;
 
