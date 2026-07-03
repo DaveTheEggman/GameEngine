@@ -1016,7 +1016,11 @@ public:
             // Declare the visible sky into `colorTarget` after the forward pass (if IBL + sky active).
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rendergraph::RGHandle velocityTarget, rhi::TextureFormat colorFmt) {
                 if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
-                const Mat4 invVP  = Inverse(curViewProj);   // jittered (matches the forward)
+                // Reconstruct the sky ray from the UNJITTERED view-proj: the background is at infinity, so
+                // jittering its sampling buys ~no AA but makes it oscillate sub-pixel each frame — which TAA
+                // can only partly cancel, i.e. the wobble. Unjittered => temporally invariant sky under a
+                // static camera; the sky pass still writes a geometric motion vector so rotation reprojects.
+                const Mat4 invVP  = Inverse(unjitteredVP);
                 // The crisp analytic sun disc is for untextured skies; textured envs carry their own sun.
                 const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
                 m_sky->DeclareSky(m_graph, colorTarget, velocityTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),

@@ -29,7 +29,7 @@ export namespace draconic::render {
 // + Jitter let the sky write a camera-motion velocity so TAA reprojects the background under rotation.
 inline constexpr const char8_t* kSkyCommon = u8R"(
 cbuffer Sky : register(b0, space0) {
-    row_major float4x4 InvViewProj;    // inverse of this frame's (jittered) view-proj
+    row_major float4x4 InvViewProj;    // inverse of this frame's UNJITTERED view-proj (stable sky ray under TAA)
     row_major float4x4 PrevViewProj;   // last frame's view-proj (motion vectors)
     float4 CamPosIntensity;   // xyz = camera world pos, w = sky intensity
     float4 SunDir;            // xyz = light direction, w = sun angular size (deg)
@@ -70,11 +70,14 @@ PSOut main(PSIn i) {
     c += smoothstep(outer, inner, cd) * SunColor.rgb * SunColor.w;
 
     // Camera-motion velocity: reproject the (infinite) view ray through last frame's view-proj (w=0, a
-    // direction), unjitter the previous NDC (see the forward path for the +Jitter sign), and take the UV
-    // delta. curNDC is the fixed fullscreen NDC (unjittered). Lets TAA reproject the sky under rotation.
+    // direction) and take the UV delta, in UNJITTERED NDC. The ray is reconstructed through the UNJITTERED
+    // InvViewProj (so the background is temporally invariant under a static camera — no per-pixel jitter
+    // oscillation for TAA to chase), which makes i.ndc the geometric current NDC directly. The previous
+    // term still unjitters (PrevViewProj carries last frame's jitter; +Jitter.zw removes it).
     float4 prevClip = mul(float4(dir, 0.0), PrevViewProj);
+    float2 curNDC   = i.ndc;
     float2 prevNDC  = prevClip.xy / prevClip.w + Jitter.zw;
-    float2 velocity = (i.ndc - prevNDC) * float2(0.5, -0.5);
+    float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
 
     PSOut o; o.color = float4(c, 1.0); o.velocity = velocity; return o;
 }
