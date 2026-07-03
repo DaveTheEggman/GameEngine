@@ -315,6 +315,11 @@ export namespace draconic::runtime
         // pointer). Off (default): focus changes on a click over a surface.
         void SetFocusFollowsHover(bool on) noexcept { m_focusFollowsHover = on; }
 
+        // Let an external overlay (e.g. ImGui, via io.WantCaptureMouse/WantCaptureKeyboard) swallow input:
+        // while set, no surface is hovered/focused, so the viewport cameras ignore the wheel/clicks/keys the
+        // overlay is using. Call each frame before Update() (after the overlay's NewFrame).
+        void SetExternalCapture(bool mouse, bool keyboard) noexcept { m_extMouseCapture = mouse; m_extKeyboardCapture = keyboard; }
+
         [[nodiscard]] InputSurface* Hovered() const noexcept { return m_hovered; }
         [[nodiscard]] InputSurface* Focused() const noexcept { return m_focused; }
 
@@ -327,12 +332,17 @@ export namespace draconic::runtime
             const rc::Vec2 delta{ rawMouse->DeltaX(), rawMouse->DeltaY() };
             const rc::u32  hoverWindow = m_raw->HoverWindow();
 
-            // Which surface is under the pointer? Last match wins (topmost added).
+            // Which surface is under the pointer? Last match wins (topmost added). When an external overlay
+            // (e.g. an ImGui window under the pointer) has captured the mouse this frame, NO surface is
+            // hovered — so the overlay swallows the wheel/clicks and the viewport cameras don't also react.
             m_hovered = nullptr;
-            for (InputSurface* s : m_surfaces)
+            if (!m_extMouseCapture)
             {
-                if (s->Window() != hoverWindow) { continue; }
-                if (s->Fit().DstRect().Contains(pos)) { m_hovered = s; }
+                for (InputSurface* s : m_surfaces)
+                {
+                    if (s->Window() != hoverWindow) { continue; }
+                    if (s->Fit().DstRect().Contains(pos)) { m_hovered = s; }
+                }
             }
 
             // Pointer capture: a held button pins the target to the surface the
@@ -346,13 +356,18 @@ export namespace draconic::runtime
                 rawMouse->IsButtonPressed(MouseButton::Right) ||
                 rawMouse->IsButtonPressed(MouseButton::Middle);
 
-            if (m_captured != nullptr && !anyDown) { m_captured = nullptr; }
-            if (m_captured == nullptr && m_hovered != nullptr && anyPressed) { m_captured = m_hovered; }
+            if (m_captured != nullptr && (!anyDown || m_extMouseCapture)) { m_captured = nullptr; }
+            if (!m_extMouseCapture && m_captured == nullptr && m_hovered != nullptr && anyPressed) { m_captured = m_hovered; }
 
             InputSurface* target = (m_captured != nullptr) ? m_captured : m_hovered;
 
-            // Focus resolution.
-            if (m_focusFollowsHover)
+            // Focus resolution. An external overlay capturing the keyboard (e.g. an ImGui text field) drops
+            // surface focus so typing doesn't also drive the viewport (WASD etc.).
+            if (m_extKeyboardCapture)
+            {
+                m_focused = nullptr;
+            }
+            else if (m_focusFollowsHover)
             {
                 if (m_hovered != nullptr) { m_focused = m_hovered; }
                 // else: keep last focus so keyboard survives a brief pointer exit.
@@ -394,5 +409,7 @@ export namespace draconic::runtime
         InputSurface* m_focused = nullptr;
         InputSurface* m_captured = nullptr;
         bool m_focusFollowsHover = false;
+        bool m_extMouseCapture = false;     // external overlay (ImGui) owns the mouse this frame
+        bool m_extKeyboardCapture = false;  // external overlay owns the keyboard this frame
     };
 }
