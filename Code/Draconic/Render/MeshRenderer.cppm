@@ -463,6 +463,7 @@ struct PSOutput {
     float4 color    : SV_Target0;   // shaded HDR (tonemapped later)
     float2 normal   : SV_Target1;   // octahedral view-space normal
     float2 velocity : SV_Target2;   // screen-space motion vector (UV delta)
+    float2 material : SV_Target3;   // R=roughness, G=metallic (for SSR)
 };
 PSOutput main(PSInput input) {
 #else
@@ -574,6 +575,7 @@ float4 main(PSInput input) : SV_Target0 {
     o.color    = float4(ambient + Lo, alpha);
     o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space normal (octahedral)
     o.velocity = velocity;
+    o.material = float2(roughness, metallic);   // SSR reads these to gate/fade reflections
     return o;
 #else
     return float4(ambient + Lo, alpha);   // color-only (transparent pass): alpha drives AlphaBlend
@@ -1431,9 +1433,10 @@ private:
         const bool gbuffer = (config.blendMode == materials::BlendMode::Opaque ||
                               config.blendMode == materials::BlendMode::Masked);
         if (gbuffer) {
-            config.colorTargetCount = 3;
+            config.colorTargetCount = 4;
             config.colorFormats[1]  = kGNormalFormat;
             config.colorFormats[2]  = kGVelocityFormat;
+            config.colorFormats[3]  = kGMaterialFormat;   // SSR: roughness/metallic
             config.shaderFlags     |= shaders::ShaderFlags::GBuffer;
             // Equal-depth fragments from the depth prepass must pass (early-Z shades each opaque pixel once).
             config.depthCompare     = rhi::CompareFunction::LessEqual;

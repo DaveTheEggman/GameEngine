@@ -38,6 +38,10 @@ namespace rhi = draconic::rhi;
 // screen-space motion vector (UV-delta). RG16Float — enough range/precision for both.
 inline constexpr rhi::TextureFormat kGNormalFormat   = rhi::TextureFormat::RG16Float;
 inline constexpr rhi::TextureFormat kGVelocityFormat = rhi::TextureFormat::RG16Float;
+// Target 3 = material params (R=roughness, G=metallic), both in [0,1] → RG8Unorm. Consumed by the
+// screen-space reflection pass (roughness gates/fades SSR; metallic tints it). Written only by the
+// opaque/masked GBUFFER permutation, same as normal/velocity.
+inline constexpr rhi::TextureFormat kGMaterialFormat = rhi::TextureFormat::RG8Unorm;
 
 // A renderable's category — the dispatch key that routes it to a `Renderer`. A plain u16
 // (not an enum class) so external subsystems (particles, world-space UI) can claim ids

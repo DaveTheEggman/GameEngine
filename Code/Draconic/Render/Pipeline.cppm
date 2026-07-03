@@ -312,7 +312,7 @@ public:
     void DeclarePass(const RenderView& view, const RendererRegistry& registry,
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                      rendergraph::RGHandle colorH, rendergraph::RGHandle depth, bool clearColor, rhi::TextureFormat colorFormat,
-                     rendergraph::RGHandle normalH, rendergraph::RGHandle velocityH,
+                     rendergraph::RGHandle normalH, rendergraph::RGHandle velocityH, rendergraph::RGHandle materialH,
                      const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
                      const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                      const IblBinding& ibl = {},
@@ -322,12 +322,13 @@ public:
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, depthLoad, colorSub, probeHandle, probeValid](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, materialH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, depthLoad, colorSub, probeHandle, probeValid](rendergraph::PassBuilder& b) {
             // colorSub targets a single layer when capturing into a cube-array face (default {} = whole target).
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear, colorSub);
-            // MRT G-buffer aux (cleared each view): view-space normal + screen-space motion vector.
+            // MRT G-buffer aux (cleared each view): view-space normal + motion vector + roughness/metallic (SSR).
             b.SetColorTarget(1, normalH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
             b.SetColorTarget(2, velocityH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
+            b.SetColorTarget(3, materialH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
             // Depth: loaded after the prepass for early-Z; capture (no prepass) passes Clear.
             b.SetDepthTarget(depth, depthLoad, rhi::StoreOp::Store);
             // Render into this view's viewport sub-rect of the target (split-screen).
@@ -443,7 +444,8 @@ private:
         } else {
             bd.colorFormats[1]  = kGNormalFormat;    // MRT: view-space normal
             bd.colorFormats[2]  = kGVelocityFormat;  // MRT: motion vector
-            bd.colorFormatCount = 3;
+            bd.colorFormats[3]  = kGMaterialFormat;  // MRT: roughness/metallic (SSR)
+            bd.colorFormatCount = 4;
         }
         bd.depthStencilFormat = m_depthFormat;
         bd.sampleCount        = 1;
@@ -1032,6 +1034,8 @@ public:
                     u8"probe.normal", rendergraph::RGTextureDesc(kGNormalFormat, res, res));
                 const rendergraph::RGHandle capVel = m_graph.CreateTransient(
                     u8"probe.velocity", rendergraph::RGTextureDesc(kGVelocityFormat, res, res));
+                const rendergraph::RGHandle capMaterial = m_graph.CreateTransient(
+                    u8"probe.material", rendergraph::RGTextureDesc(kGMaterialFormat, res, res));
 
                 rendergraph::RGSubresourceRange sub{};
                 sub.baseArrayLayer = layerBase + face; sub.arrayLayerCount = 1;
@@ -1041,7 +1045,7 @@ public:
                 // clear depth (no prepass); write only color slot 0 into this cube face.
                 m_pass.DeclarePass(cv, *m_registry, m_graph, m_frameIndex, /*viewIndex*/ 0u,
                                    capturedH, capDepth, /*clearColor*/ true, ReflectionProbeSystem::kCubeFormat,
-                                   capNormal, capVel, faceVP, Vec2{ 0, 0 }, Vec2{ 0, 0 },
+                                   capNormal, capVel, capMaterial, faceVP, Vec2{ 0, 0 }, Vec2{ 0, 0 },
                                    ClusterBinding{}, capShadow, capIbl, rhi::LoadOp::Clear, sub);
                 // Sky into the same face, after the forward (loads the captured depth).
                 // Distinct sky uniform slot per capture face (2..7), so the capture never shares SkyPass's
@@ -1120,6 +1124,9 @@ public:
                 u8"forward.normal", rendergraph::RGTextureDesc(kGNormalFormat, v->Width(), v->Height()));
             const rendergraph::RGHandle velocityT = m_graph.CreateTransient(
                 u8"forward.velocity", rendergraph::RGTextureDesc(kGVelocityFormat, v->Width(), v->Height()));
+            // Roughness/metallic G-buffer — consumed by the SSR pass (roughness gates/fades reflections).
+            const rendergraph::RGHandle materialT = m_graph.CreateTransient(
+                u8"forward.material", rendergraph::RGTextureDesc(kGMaterialFormat, v->Width(), v->Height()));
 
             // TAA jitter: sub-pixel-offset the projection so the resolve accumulates supersamples. Applied
             // BEFORE reading the view-proj, so the prepass + forward + sky all use the SAME jittered matrix
@@ -1178,7 +1185,7 @@ public:
                 const rendergraph::RGHandle hdr = m_graph.CreateTransient(
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
-                                   m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
+                                   m_tonemap->HdrFormat(), normalT, velocityT, materialT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
                                    rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive);
                 declareSky(hdr, velocityT, m_tonemap->HdrFormat());   // sky into HDR (+ camera-motion velocity), before TAA
                 // Screen-space decals: project onto the opaque depth + blend into the lit HDR, AFTER sky
@@ -1252,7 +1259,7 @@ public:
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
-                                   v->TargetFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
+                                   v->TargetFormat(), normalT, velocityT, materialT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
                                    rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive);
                 declareSky(colorH, velocityT, v->TargetFormat());
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
