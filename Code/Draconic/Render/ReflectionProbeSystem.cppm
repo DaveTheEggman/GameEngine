@@ -113,7 +113,13 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
         float3 H  = ImportanceSampleGGX(xi, N, pc.Roughness);
         float3 L  = normalize(2.0 * dot(V, H) * H - V);
         float  ndl = dot(N, L);
-        if (ndl > 0.0) { color += Src.SampleLevel(Samp, L, 0.0).rgb * ndl; weight += ndl; }
+        if (ndl > 0.0) {
+            float3 s = Src.SampleLevel(Samp, L, 0.0).rgb;
+            // Karis firefly reduction: down-weight bright samples (tone weight) so sparse importance-sample
+            // hits on tiny bright sources (moving point lights in the low-res capture) don't alias/flicker.
+            float fw = ndl / (1.0 + dot(s, float3(0.2126, 0.7152, 0.0722)));
+            color += s * fw; weight += fw;
+        }
     }
     return float4(color / max(weight, 1e-4), 1.0);
 }
