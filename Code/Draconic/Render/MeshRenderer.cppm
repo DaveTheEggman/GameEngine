@@ -749,6 +749,9 @@ public:
         m_localShadowPassCount = (view != nullptr) ? passCount : 0;   // each tile re-emits the casters
     }
 
+    // Reflection-probe capture faces re-emit the draws (one forward pass each) — count them into the ring.
+    void SetCaptureFacePasses(u32 passes) override { m_captureFacePasses = passes; }
+
     // This frame's IBL products (SH9 diffuse buffer + prefiltered specular cube + BRDF LUT), bound in
     // set 0. null views -> the neutral 1x1 dummies (zero SH + black cube => flat fallback ambient).
     void SetIBL(rhi::Buffer* sh, rhi::TextureView* prefilter, rhi::TextureView* brdf,
@@ -796,7 +799,7 @@ public:
         // (2 camera passes) + per-cascade CSM re-emit + per-spot-tile local-atlas re-emit. Under-counting
         // overflows the object/instance/offset rings at high draw counts -> Allocate() fails -> dropped
         // draws (was missing the prepass, so the stress tests lost their spheres).
-        const u32 drawCap = maxDraws * (2u + ShadowCascades::kCount + m_localShadowPassCount);
+        const u32 drawCap = maxDraws * (2u + ShadowCascades::kCount + m_localShadowPassCount + m_captureFacePasses);
         if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
@@ -1822,6 +1825,7 @@ private:
     u32               m_viewBGBoneGen    = 0;
     u32               m_localShadowBase  = 0;   // this frame's base into m_localShadowRing
     u32               m_localShadowPassCount = 0;   // # atlas depth passes (caster re-emits) this frame
+    u32               m_captureFacePasses    = 0;   // # probe-capture face passes (caster re-emits) this frame
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
     // IBL (phase 6): SH9 diffuse buffer (t5) + prefiltered specular cube (t6) + BRDF LUT (t7) + a

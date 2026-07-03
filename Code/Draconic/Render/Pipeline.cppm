@@ -30,6 +30,7 @@ import :cluster_system;
 import :tonemap;
 import :shadows;
 import :ibl;
+import :probes;
 import :bloom;
 import :taa;
 import :ao;
@@ -200,6 +201,11 @@ public:
     // contract/timing as SetShadowMap. `passCount` is how many atlas depth passes (one per caster
     // tile) will re-emit this renderer's casters, so it can size its per-object rings. Default no-op.
     virtual void SetShadowAtlas(rhi::TextureView* atlas, u64 generation, u32 passCount) { (void)atlas; (void)generation; (void)passCount; }
+
+    // How many reflection-probe capture faces will re-emit this renderer's draws this frame (one forward
+    // pass per face). Lets it size its per-object rings for the extra draw-resolving passes. Called once
+    // per frame before PrepareFrame. Default no-op.
+    virtual void SetCaptureFacePasses(u32 passes) { (void)passes; }
 
     // Upload this frame's local-shadow entries (the atlas's per-light matrices/rects) for a renderer
     // that binds them in set 0. Called once per frame after PrepareFrame. Default no-op.
@@ -525,6 +531,19 @@ private:
     u32                         m_workerSlots = 0;
 };
 
+// A 90°-FOV camera looking along one cube face (+X,-X,+Y,-Y,+Z,-Z) from a probe center, for reflection-
+// probe capture. Standard cubemap face basis; orientation is verified against the cube sampler downstream.
+[[nodiscard]] inline ViewCamera ProbeFaceCamera(Vec3 center, u32 face, f32 nearZ, f32 farZ) {
+    static const Vec3 dirs[6] = { {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1} };
+    static const Vec3 ups[6]  = { {0,1,0}, {0,1,0}, {0,0,-1}, {0,0,1}, {0,1,0}, {0,1,0} };
+    ViewCamera vc;
+    vc.view       = Mat4::LookAtRH(center, center + dirs[face], ups[face]);
+    vc.projection = Mat4::PerspectiveFovRH(1.57079633f, 1.0f, nearZ, farZ);   // 90° square
+    vc.position   = center;
+    vc.farZ       = farZ;
+    return vc;
+}
+
 // The single per-frame driver. Begin resets shared per-frame state; AddView collects a view
 // (extracting its draw list from a scene snapshot); End sizes the renderers' transient once
 // for the whole frame and composes every view. One driver, all views — no per-view object.
@@ -565,6 +584,11 @@ public:
 
     // Per-frame decal pass (borrowed); null = no decals. Declared per view after sky, before AO.
     void SetDecal(DecalPass* pass) noexcept { m_decalPass = pass; }
+
+    // Reflection-probe system (borrowed); null = no probes. Dirty probes are captured (6 faces each,
+    // lit forward + sky into their cube-array slices) before the main views, so the forward can sample
+    // the prefiltered result. Set once per frame before End.
+    void SetProbes(ReflectionProbeSystem* probes) noexcept { m_probeSystem = probes; }
 
     // Turn on per-pass GPU timestamp profiling for the frame graph (idempotent).
     void EnableGpuProfiling() { m_graph.EnableGpuProfiling(); }
@@ -808,6 +832,10 @@ public:
             DRACONIC_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
             for (Renderer* r : m_registry->Unique()) { r->SetShadowMap(shadowMap, shadowGen); }
             for (Renderer* r : m_registry->Unique()) { r->SetShadowAtlas(atlasView, atlasGen, localPassCount); }
+            // Probe capture re-emits the draws once per face (P1b caps at 1 probe/frame = 6 forward passes);
+            // count them into the per-object rings or the extra passes would starve the forward (silent drops).
+            const u32 captureFaces = (m_probeSystem != nullptr && !m_probeSystem->Captures().IsEmpty()) ? 6u : 0u;
+            for (Renderer* r : m_registry->Unique()) { r->SetCaptureFacePasses(captureFaces); }
             if (m_ibl != nullptr && m_ibl->Ready()) {
                 m_ibl->Upload(*m_encoder);   // pending equirect/cubemap uploads, before the graph executes
                 for (Renderer* r : m_registry->Unique()) {
@@ -922,6 +950,65 @@ public:
                 sb.layerBase  = layerBase;
                 sb.valid      = true;
             }
+        }
+
+        // ---- Reflection probe capture (P1b) --------------------------------------------------------
+        // Render each dirty probe's 6 faces (lit forward + sky, HDR) into its captured-cube slices, BEFORE
+        // the main views (which will sample the prefiltered result in P2). Feedback-safe: the capture
+        // forward samples the GLOBAL IBL only, never the probe array. Capped at one probe/frame for P1b.
+        if (m_probeSystem != nullptr && m_ibl != nullptr && m_ibl->Ready() && primary != nullptr &&
+            primary->Scene() != nullptr && !m_probeSystem->Captures().IsEmpty()) {
+            const rendergraph::RGHandle capturedH = m_probeSystem->ImportCaptured(m_graph);
+            IblBinding capIbl;
+            capIbl.prefilterHandle = m_ibl->PrefilterHandle();
+            capIbl.brdfHandle      = m_ibl->BrdfHandle();
+            capIbl.shHandle        = m_ibl->ShHandle();
+            capIbl.valid           = true;
+            // Reuse the primary view's CSM binding (handle + cascades) + the local atlas. The capture
+            // forward's shader statically samples both depth textures, so the binding MUST be valid or the
+            // graph won't barrier them to DEPTH_STENCIL_READ_ONLY (they'd still be in ATTACHMENT layout).
+            // The cascades are geometrically the primary camera's (approximate for a face) — fine for P1b.
+            ShadowBinding capShadow = viewShadows.IsEmpty() ? ShadowBinding{} : viewShadows[0];
+            capShadow.atlasHandle = atlasH;
+            capShadow.atlasValid  = atlasActive;
+            const u32 res   = ReflectionProbeSystem::kCaptureRes;
+            const f32 nearZ = ReflectionProbeSystem::kCaptureNear;
+            const f32 farZ  = ReflectionProbeSystem::kCaptureFar;
+            const ReflectionProbeSystem::CaptureTask task = m_probeSystem->Captures()[0];
+            const u32 layerBase = ReflectionProbeSystem::LayerBase(task.slot);
+            const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
+            for (u32 face = 0; face < 6; ++face) {
+                const ViewCamera fc = ProbeFaceCamera(task.center, face, nearZ, farZ);
+                RenderView& cv = m_captureViews[face];
+                cv.Bind(*primary->Scene(), fc, ViewSettings{}, nullptr, ReflectionProbeSystem::kCubeFormat, res, res);
+                cv.BuildDrawList(m_sortScratch);
+
+                const rendergraph::RGHandle capDepth = m_graph.CreateTransient(
+                    u8"probe.depth", rendergraph::RGTextureDesc(m_pass.DepthFormat(), res, res));
+                const rendergraph::RGHandle capNormal = m_graph.CreateTransient(
+                    u8"probe.normal", rendergraph::RGTextureDesc(kGNormalFormat, res, res));
+                const rendergraph::RGHandle capVel = m_graph.CreateTransient(
+                    u8"probe.velocity", rendergraph::RGTextureDesc(kGVelocityFormat, res, res));
+
+                rendergraph::RGSubresourceRange sub{};
+                sub.baseArrayLayer = layerBase + face; sub.arrayLayerCount = 1;
+
+                const Mat4 faceVP = fc.ViewProjection();
+                // Lit forward: cluster {} -> dummy cluster -> all-lights fallback (no per-face build);
+                // clear depth (no prepass); write only color slot 0 into this cube face.
+                m_pass.DeclarePass(cv, *m_registry, m_graph, m_frameIndex, /*viewIndex*/ 0u,
+                                   capturedH, capDepth, /*clearColor*/ true, ReflectionProbeSystem::kCubeFormat,
+                                   capNormal, capVel, faceVP, Vec2{ 0, 0 }, Vec2{ 0, 0 },
+                                   ClusterBinding{}, capShadow, capIbl, rhi::LoadOp::Clear, sub);
+                // Sky into the same face, after the forward (loads the captured depth).
+                m_sky->DeclareSky(m_graph, capturedH, capVel, capDepth, m_ibl->EnvHandle(), m_ibl->EnvView(),
+                                  ReflectionProbeSystem::kCubeFormat, m_pass.DepthFormat(),
+                                  Inverse(faceVP), faceVP, Vec2{ 0, 0 }, Vec2{ 0, 0 },
+                                  task.center, m_ibl->SkyIntensity(),
+                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, sunInt,
+                                  0, 0, res, res, m_frameIndex, /*viewIndex*/ 0u, sub);
+            }
+            m_probeSystem->MarkCaptured(task.slot);
         }
 
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
@@ -1176,6 +1263,8 @@ private:
     AoPass*                 m_ao       = nullptr;   // borrowed; ambient occlusion (GTAO/SSAO) from the G-buffer
     FxaaPass*               m_fxaa     = nullptr;   // borrowed; TAA-off fallback AA (after tonemap)
     DecalPass*              m_decalPass = nullptr;  // borrowed; per-view screen-space decal pass
+    ReflectionProbeSystem*  m_probeSystem = nullptr; // borrowed; dirty probes captured before the main views
+    RenderView              m_captureViews[6];       // persistent 6-face capture views (outlive graph execute)
     DebugDrawPass*          m_debugPass = nullptr;  // borrowed; per-view debug gizmo/text pass
     const debug::DebugDraw* m_debugGlobal = nullptr;   // borrowed; global (all-views) debug list
     const debug::DebugDraw* m_debugScreen = nullptr;   // borrowed; whole-window screen HUD (drawn once)

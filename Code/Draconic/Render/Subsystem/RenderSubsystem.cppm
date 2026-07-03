@@ -149,6 +149,7 @@ public:
         m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
         m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal, &m_debugScreen);
         m_frame->SetDecal(m_decalPass.Get());
+        m_frame->SetProbes(m_probeSystem.Get());
         m_frame->Begin(encoder, frameIndex);
     }
 
