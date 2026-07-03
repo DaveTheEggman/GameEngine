@@ -164,7 +164,8 @@ namespace
                 m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, 0.0f, 0.0f });
                 rd::MeshComponent& fmc = meshes->Add(floor);
                 fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
-                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
+                // Distinct matte green so the floor reads clearly when reflected in the metallic spheres.
+                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.10f, 0.42f, 0.20f, 1.0f }, 0.0f, 0.7f);
 
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -187,7 +188,8 @@ namespace
                 // floating grids, whose full shadow ellipse is visible on the ground).
                 constexpr rc::f32 kBallR = 1.25f;
                 rc::RefPtr<geo::StaticMesh> ball = geo::Primitives::Sphere(kBallR, 24, 12);
-                rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.7f, 0.75f, 0.8f, 1.0f }, 0.1f, 0.35f);
+                // Chrome: fully metallic + near-mirror roughness so the probe reflection dominates.
+                rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.90f, 0.90f, 0.92f, 1.0f }, 1.0f, 0.05f);
                 for (int k = 0; k < 4; ++k) {
                     sc::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
                     m_scene->SetLocalPosition(s, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBallR, 16.0f });
@@ -203,7 +205,9 @@ namespace
                 glassMat->pipeline.depthMode = mat::DepthMode::ReadOnly;   // test against opaque depth, don't write
                 for (int k = 0; k < 3; ++k) {
                     sc::EntityHandle g = m_scene->CreateEntity(u8"glassBall");
-                    m_scene->SetLocalPosition(g, rc::Vec3{ -5.0f + 5.0f * static_cast<rc::f32>(k), kFloorY + 3.5f, 20.0f });
+                    // Moved well off to the left (x ~ -26, outside the probe box) + higher, to isolate them
+                    // from the chrome spheres while inspecting reflections.
+                    m_scene->SetLocalPosition(g, rc::Vec3{ -26.0f, kFloorY + 6.0f + 3.0f * static_cast<rc::f32>(k), 16.0f });
                     rd::MeshComponent& gmc = meshes->Add(g);
                     gmc.mesh = ball; gmc.material = glassMat;
                 }
@@ -286,6 +290,18 @@ namespace
                 pls.intensity    = 28.0f;
                 pls.range        = 16.0f;
                 pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
+            }
+
+            // Reflection probe (P0 data model; unconsumed until the capture/prefilter phase). One box probe
+            // covering the prop area (the metallic balls + glass) so its parallax-corrected reflections have
+            // something to show. Centered above the floor; Static = capture once + cache.
+            if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
+                sc::EntityHandle probe = m_scene->CreateEntity(u8"reflectionProbe");
+                m_scene->SetLocalPosition(probe, rc::Vec3{ 0.0f, 6.0f, 17.0f });
+                rd::ReflectionProbeComponent& rp = probes->Add(probe);
+                rp.halfExtents = rc::Vec3{ 18.0f, 12.0f, 14.0f };   // covers box/ball/glass rows (z=10..24)
+                rp.resolution  = 128;
+                rp.update      = rd::ProbeUpdateMode::Realtime;   // re-capture every frame (F5 sky changes show live)
             }
 
             LoadImportedModel(host);   // cook + spawn a glTF model through the resource pipeline
