@@ -115,6 +115,7 @@ struct ReflectionProbeComponent {
     u32             resolution    = 128;                        // captured cube face size (64/128/256)
     u32             priority      = 0;                          // tie-break when volumes overlap (higher wins)
     ProbeUpdateMode update        = ProbeUpdateMode::Static;
+    bool            parallax      = true;                       // box-project the reflection ray (vs infinite env)
     bool            enabled       = true;
 };
 

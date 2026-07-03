@@ -105,7 +105,7 @@ public:
             g.center = Vec4{ p.center.x, p.center.y, p.center.z, p.intensity };
             g.boxMin = Vec4{ boxMin.x, boxMin.y, boxMin.z, p.blendDistance };
             g.boxMax = Vec4{ boxMax.x, boxMax.y, boxMax.z, static_cast<f32>(slot) };
-            g.params = Vec4{ static_cast<f32>(kPrefilterMips), static_cast<f32>(p.priority), 0.0f, 0.0f };
+            g.params = Vec4{ static_cast<f32>(kPrefilterMips), static_cast<f32>(p.priority), p.parallax ? 1.0f : 0.0f, 0.0f };
             m_cpuProbes[m_active] = g;
 
             // Dirty tracking for static caching: recapture on a new slot or a moved probe.

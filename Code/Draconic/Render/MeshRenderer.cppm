@@ -513,12 +513,24 @@ float4 main(PSInput input) : SV_Target0 {
         float3 diffuseIBL = kD * albedo * (EvalSH9(N) / PI);     // EvalSH9 -> irradiance E; Lambertian = albedo/pi * E
         float3 R     = reflect(-V, N);
         float3 prefiltered = PrefilterMap.SampleLevel(EnvSampler, R, roughness * IBLMaxLod).rgb;
-        // Reflection probe (P2): if the fragment lies inside a probe's box, replace the global env
-        // reflection with the probe's LOCAL captured radiance (raw reflect ray — parallax lands in P3).
-        // Sharp for now (mip 0 of the captured cube-array; roughness prefilter is a later refinement).
+        // Reflection probe (P3): if the fragment lies inside a probe's box, replace the global env
+        // reflection with the probe's LOCAL captured radiance, PARALLAX-corrected. A cube captured from a
+        // point only matches surfaces at that point; intersect the reflection ray with the probe box and
+        // re-aim from the box center so the reflection tracks real geometry as the camera moves (Lagarde
+        // box-projected cubemap). Sharp for now (mip 0; roughness prefilter is a later refinement).
+        // ProbeCenter.w: 0 = no probe, 1 = probe (no parallax), 2 = probe with box parallax (toggleable).
         if (ProbeCenter.w > 0.5 &&
             all(input.worldPos >= ProbeBoxMin.xyz) && all(input.worldPos <= ProbeBoxMax.xyz)) {
-            float3 probeSpec = ProbeArray.SampleLevel(EnvSampler, float4(R, ProbeBoxMin.w), 0.0).rgb;
+            float3 Rp = R;                                               // no-parallax: raw reflect (infinite env)
+            if (ProbeCenter.w > 1.5) {
+                float3 invR = 1.0 / R;                                   // R==0 on an axis -> +-inf, handled by max/min
+                float3 tMin = (ProbeBoxMin.xyz - input.worldPos) * invR;
+                float3 tMax = (ProbeBoxMax.xyz - input.worldPos) * invR;
+                float3 tFar = max(tMin, tMax);                           // far slab crossing per axis
+                float  dist = min(min(tFar.x, tFar.y), tFar.z);        // nearest exit = box hit along +R
+                Rp = (input.worldPos + R * dist) - ProbeCenter.xyz;    // re-aim from the capture center
+            }
+            float3 probeSpec = ProbeArray.SampleLevel(EnvSampler, float4(Rp, ProbeBoxMin.w), 0.0).rgb;
             prefiltered = probeSpec * ProbeBoxMax.w;
         }
         float2 brdf  = BRDFLut.Sample(EnvSampler, float2(NdotV, roughness)).rg;

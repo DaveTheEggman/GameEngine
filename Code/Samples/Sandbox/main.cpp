@@ -296,9 +296,9 @@ namespace
             // covering the prop area (the metallic balls + glass) so its parallax-corrected reflections have
             // something to show. Centered above the floor; Static = capture once + cache.
             if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
-                sc::EntityHandle probe = m_scene->CreateEntity(u8"reflectionProbe");
-                m_scene->SetLocalPosition(probe, rc::Vec3{ 0.0f, 6.0f, 17.0f });
-                rd::ReflectionProbeComponent& rp = probes->Add(probe);
+                m_probeEntity = m_scene->CreateEntity(u8"reflectionProbe");
+                m_scene->SetLocalPosition(m_probeEntity, rc::Vec3{ 0.0f, 6.0f, 17.0f });
+                rd::ReflectionProbeComponent& rp = probes->Add(m_probeEntity);
                 rp.halfExtents = rc::Vec3{ 18.0f, 12.0f, 14.0f };   // covers box/ball/glass rows (z=10..24)
                 rp.resolution  = 128;
                 rp.update      = rd::ProbeUpdateMode::Realtime;   // re-capture every frame (F5 sky changes show live)
@@ -599,6 +599,15 @@ namespace
             }
         }
 
+        // Flip the reflection probe's box-parallax on/off (F6) to compare parallax-corrected vs infinite-env.
+        void ToggleProbeParallax()
+        {
+            if (m_scene == nullptr) { return; }
+            if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
+                if (auto* rp = probes->Get(m_probeEntity)) { rp->parallax = !rp->parallax; }
+            }
+        }
+
         // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings —
         // editing these re-runs the IBL precompute next frame, so the ambient updates live.
         void BuildDebugUI(rd::RenderSubsystem* render)
@@ -702,6 +711,14 @@ namespace
                     dirChanged |= ImGui::SliderAngle("Pitch", &m_keyPitch, -89.0f, 0.0f);
                     dirChanged |= ImGui::SliderAngle("Yaw",   &m_keyYaw,  -180.0f, 180.0f);
                     if (dirChanged) { ApplyKeyLightDir(); }
+                }
+            }
+            // Reflection probe: toggle box parallax (also F6) to compare parallax-corrected vs infinite-env.
+            if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
+                if (rd::ReflectionProbeComponent* rp = m_probeEntity.IsAssigned() ? probes->Get(m_probeEntity) : nullptr) {
+                    ImGui::SeparatorText("Reflection Probe");
+                    ImGui::Checkbox("Box Parallax", &rp->parallax);
+                    ImGui::SliderFloat("Probe Intensity", &rp->intensity, 0.0f, 4.0f);
                 }
             }
             ImGui::Checkbox("Show ImGui demo", &m_showImguiDemo);
@@ -852,6 +869,8 @@ namespace
                     if (kb->IsKeyPressed(rt::KeyCode::G)) { FireGraphNext(); }
                     // F5 cycles the sky source (procedural <-> HDR equirectangular).
                     if (kb->IsKeyPressed(rt::KeyCode::F5)) { CycleSkyMode(); }
+                    // F6 toggles reflection-probe box parallax (compare parallax vs infinite-env reflection).
+                    if (kb->IsKeyPressed(rt::KeyCode::F6)) { ToggleProbeParallax(); }
                 }
             }
 
@@ -1052,6 +1071,7 @@ namespace
         // graph the G key advances (the Character). Skinned models are otherwise driven by the subsystem.
         rc::Array<rc::RefPtr<anim::AnimationGraph>> m_graphs;
         sc::EntityHandle                            m_graphChar{};
+        sc::EntityHandle                            m_probeEntity{};   // reflection probe (F6 toggles its parallax)
         bool                        m_showImguiDemo  = false;   // debug-UI toggle
     };
 }

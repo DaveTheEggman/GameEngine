@@ -857,7 +857,9 @@ public:
             // slice/intensity/count into set 0 so the forward can do the local reflection. count 0 -> no probe.
             if (m_probeSystem != nullptr && m_probeSystem->ActiveCount() > 0) {
                 const GpuProbe& gp = m_probeSystem->CpuProbes()[0];
-                const Vec4 pc{ gp.center.x, gp.center.y, gp.center.z, static_cast<f32>(m_probeSystem->ActiveCount()) };
+                // ProbeCenter.w mode: 2 = probe + box parallax, 1 = probe no-parallax (params.z = parallax flag).
+                const f32 mode = (gp.params.z > 0.5f) ? 2.0f : 1.0f;
+                const Vec4 pc{ gp.center.x, gp.center.y, gp.center.z, mode };
                 const Vec4 bmin{ gp.boxMin.x, gp.boxMin.y, gp.boxMin.z, gp.boxMax.w };   // boxMax.w = cube slice
                 const Vec4 bmax{ gp.boxMax.x, gp.boxMax.y, gp.boxMax.z, gp.center.w };   // center.w = intensity
                 for (Renderer* r : m_registry->Unique()) { r->SetProbes(m_probeSystem->PrefilterArrayView(), pc, bmin, bmax); }

@@ -285,6 +285,7 @@ inline void ExtractReflectionProbesInto(scene::Scene& scene, ExtractedScene& out
         p.resolution    = pc.resolution;
         p.priority      = pc.priority;
         p.update        = pc.update;
+        p.parallax      = pc.parallax;
         out.AddReflectionProbe(p);
         ++count;
     });
