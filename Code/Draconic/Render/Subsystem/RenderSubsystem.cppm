@@ -53,6 +53,7 @@ public:
         scene.AddSystem<DecalComponentManager>();
         scene.AddSystem<CameraComponentManager>();
         scene.AddSystem<LightComponentManager>();
+        scene.AddSystem<ReflectionProbeComponentManager>();
         scene.AddSystem<EnvironmentSystem>();
     }
 
@@ -166,6 +167,7 @@ public:
             }
             ExtractDecalsInto(scene, *snapshot);               // screen-space decals (DecalPass, not the Renderer path)
             ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
+            ExtractReflectionProbesInto(scene, *snapshot);     // reflection probes (capture/prefilter inputs)
             ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
         }
 

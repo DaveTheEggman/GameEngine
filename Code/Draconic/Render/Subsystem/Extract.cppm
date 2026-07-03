@@ -266,4 +266,28 @@ inline void ExtractEnvironmentInto(scene::Scene& scene, ExtractedScene& out) {
     }
 }
 
+// Reads the scene's reflection probes into the snapshot. Each enabled probe becomes a render::ReflectionProbe
+// with its world-space capture center + box half-extents. Capped at kMaxReflectionProbes. The
+// ReflectionProbeSystem consumes the list (capture + prefilter + froxel assignment) at frame time.
+inline void ExtractReflectionProbesInto(scene::Scene& scene, ExtractedScene& out) {
+    auto* probes = scene.GetSystem<ReflectionProbeComponentManager>();
+    if (probes == nullptr) { return; }
+    u32 count = 0;
+    probes->ForEach([&](ReflectionProbeComponent& pc, scene::EntityHandle e) {
+        if (!pc.enabled || count >= kMaxReflectionProbes) { return; }
+        const Mat4 world = scene.GetWorldMatrix(e);
+        ReflectionProbe p;
+        p.key           = PackEntity(e);
+        p.center        = TransformPoint(Vec3{ 0, 0, 0 }, world);
+        p.halfExtents   = pc.halfExtents;
+        p.blendDistance = pc.blendDistance;
+        p.intensity     = pc.intensity;
+        p.resolution    = pc.resolution;
+        p.priority      = pc.priority;
+        p.update        = pc.update;
+        out.AddReflectionProbe(p);
+        ++count;
+    });
+}
+
 } // namespace draconic::render

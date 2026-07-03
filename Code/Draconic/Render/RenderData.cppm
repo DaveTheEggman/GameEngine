@@ -252,6 +252,30 @@ struct LocalShadowCaster {
 // GpuLocalShadow buffer) and caps total tiles here; the ShadowSystem's atlas must hold this many.
 inline constexpr u32 kMaxLocalShadowTiles = 16;
 
+// How a reflection probe's captured cubemap refreshes (defined in the snapshot layer, reused by the
+// ReflectionProbeComponent). Static = capture once + full prefilter, cache until the probe moves/
+// invalidates. Realtime = re-capture on a round-robin cadence (cheap prefilter). Manual = only on request.
+enum class ProbeUpdateMode : u32 { Static = 0, Realtime = 1, Manual = 2 };
+
+// A reflection probe (extraction OUTPUT). The ReflectionProbeSystem captures the scene into a cubemap
+// from `center`, prefilters it, and the forward samples it with parallax correction against the box
+// [center - halfExtents, center + halfExtents] (world-axis-aligned for now; OBB later). `blendDistance`
+// softens the influence toward the box edge so overlapping probes blend without a seam. `key` is a
+// stable per-entity tag (PackEntity) so the system maps a probe to a persistent GPU slot across frames.
+struct ReflectionProbe {
+    u64             key           = 0;
+    Vec3            center        = Vec3{ 0, 0, 0 };            // capture center (world)
+    Vec3            halfExtents   = Vec3{ 5, 5, 5 };            // box half-extents (world; influence + parallax proxy)
+    f32             blendDistance = 1.0f;                       // soft falloff width inward from the box edge
+    f32             intensity     = 1.0f;                       // reflection multiplier
+    u32             resolution    = 128;                        // captured cube face size
+    u32             priority      = 0;                          // tie-break when volumes overlap (higher wins)
+    ProbeUpdateMode update        = ProbeUpdateMode::Static;
+};
+
+// Reflection-probe budget per frame (bounds the prefiltered cube-array slices + the metadata buffer).
+inline constexpr u32 kMaxReflectionProbes = 16;
+
 // A per-view draw entry: a sort key (computed against the view's camera) + the shared
 // render data it refers to. The per-view draw list is an Array<DrawItem> the renderer sorts
 // (radix) then walks. RenderData is borrowed from the ExtractedScene (immutable snapshot).
@@ -417,6 +441,12 @@ public:
         return Span<const DecalInstance>{ m_decals.Data(), m_decals.Size() };
     }
 
+    // Reflection probes (consumed by the ReflectionProbeSystem: capture + prefilter + froxel assignment).
+    void AddReflectionProbe(const ReflectionProbe& p) { m_probes.PushBack(p); }
+    [[nodiscard]] Span<const ReflectionProbe> ReflectionProbes() const noexcept {
+        return Span<const ReflectionProbe>{ m_probes.Data(), m_probes.Size() };
+    }
+
     // The scene's environment ambient (a flat indirect term until IBL lands). Premultiplied
     // color × intensity, applied as `albedo * ambient` in the forward shader.
     void SetAmbient(const Vec3& ambient) noexcept { m_ambient = ambient; }
@@ -431,7 +461,7 @@ public:
     [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept { return m_shadow; }
 
     // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_decals.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_sky = {}; m_shadow = {}; m_arena.Reset(); }
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_decals.Clear(); m_probes.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_sky = {}; m_shadow = {}; m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
@@ -448,6 +478,7 @@ private:
     Array<GpuLight>         m_lights;
     Array<LocalShadowCaster> m_localCasters;             // spot/point shadow casters (phase 5.3)
     Array<DecalInstance>    m_decals;                    // screen-space decals (consumed by DecalPass)
+    Array<ReflectionProbe>  m_probes;                    // reflection probes (consumed by ReflectionProbeSystem)
     Vec3               m_ambient = Vec3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
     SkySnapshot        m_sky;                                     // sky/IBL environment for this frame
     DirectionalShadow  m_shadow;                                  // active directional shadow caster

@@ -103,11 +103,27 @@ struct DecalComponent {
     bool  visible   = true;
 };
 
+// A local reflection probe: captures the scene into a cubemap from the entity's world position and gives
+// parallax-corrected specular reflections to surfaces inside its box volume. The box (world-axis-aligned,
+// from `halfExtents`) is BOTH the influence volume and the parallax proxy; `blendDistance` softens the
+// influence toward the box edge so overlapping probes blend without a seam. `update` selects the capture
+// cadence (ProbeUpdateMode, from the snapshot layer). Extraction reads this into a render::ReflectionProbe.
+struct ReflectionProbeComponent {
+    Vec3            halfExtents   = Vec3{ 5.0f, 5.0f, 5.0f };   // box influence/proxy half-extents (world units)
+    f32             blendDistance = 1.0f;                       // soft falloff width inward from the box edge
+    f32             intensity     = 1.0f;                       // reflection multiplier
+    u32             resolution    = 128;                        // captured cube face size (64/128/256)
+    u32             priority      = 0;                          // tie-break when volumes overlap (higher wins)
+    ProbeUpdateMode update        = ProbeUpdateMode::Static;
+    bool            enabled       = true;
+};
+
 class MeshComponentManager   final : public scene::ComponentManager<MeshComponent>   {};
 class SpriteComponentManager final : public scene::ComponentManager<SpriteComponent> {};
 class DecalComponentManager  final : public scene::ComponentManager<DecalComponent>  {};
 class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};
 class LightComponentManager  final : public scene::ComponentManager<LightComponent>  {};
+class ReflectionProbeComponentManager final : public scene::ComponentManager<ReflectionProbeComponent> {};
 
 // SkyMode is defined in the snapshot layer (draconic.render :data) and reused here.
 
