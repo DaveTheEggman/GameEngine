@@ -58,6 +58,9 @@ cbuffer View : register(b0, space0) {
     float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
     row_major float4x4 PrevViewProj;   // last frame's world->clip (motion vectors)
     float4 Jitter;                     // xy = this frame's NDC jitter, zw = last frame's (TAA)
+    float4 ProbeCenter;                // xyz = reflection-probe center (world), w = probe count (0 = none)
+    float4 ProbeBoxMin;                // xyz = probe box min corner,  w = probe cube slice (index into ProbeArray)
+    float4 ProbeBoxMax;                // xyz = probe box max corner,  w = probe intensity
 };
 #ifdef SKINNED
 // GPU skinning: per-bone skinning matrices (= inverseBind * worldPose), v * skin (row-vector).
@@ -181,6 +184,9 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
     row_major float4x4 PrevViewProj;   // (shared with VS; PS only reads Jitter)
     float4 Jitter;                     // xy = this frame's NDC jitter, zw = last frame's
+    float4 ProbeCenter;                // xyz = reflection-probe center (world), w = probe count (0 = none)
+    float4 ProbeBoxMin;                // xyz = probe box min corner,  w = probe cube slice (index into ProbeArray)
+    float4 ProbeBoxMax;                // xyz = probe box max corner,  w = probe intensity
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -200,6 +206,9 @@ StructuredBuffer<float4> IblSH       : register(t5, space0);
 TextureCube              PrefilterMap : register(t6, space0);
 Texture2D                BRDFLut      : register(t7, space0);
 SamplerState             EnvSampler   : register(s1, space0);
+// Reflection probes (P2): a cube-ARRAY of captured/prefiltered probe radiance, sampled with the shared
+// EnvSampler. ProbeCenter.w = count (0 => none); ProbeBoxMin.w = slice; box = a local influence volume.
+TextureCubeArray         ProbeArray   : register(t8, space0);
 
 // Evaluate the 9-coefficient SH irradiance in direction n (Ramamoorthi/Hanrahan cosine-convolved).
 float3 EvalSH9(float3 n) {
@@ -504,6 +513,14 @@ float4 main(PSInput input) : SV_Target0 {
         float3 diffuseIBL = kD * albedo * (EvalSH9(N) / PI);     // EvalSH9 -> irradiance E; Lambertian = albedo/pi * E
         float3 R     = reflect(-V, N);
         float3 prefiltered = PrefilterMap.SampleLevel(EnvSampler, R, roughness * IBLMaxLod).rgb;
+        // Reflection probe (P2): if the fragment lies inside a probe's box, replace the global env
+        // reflection with the probe's LOCAL captured radiance (raw reflect ray — parallax lands in P3).
+        // Sharp for now (mip 0 of the captured cube-array; roughness prefilter is a later refinement).
+        if (ProbeCenter.w > 0.5 &&
+            all(input.worldPos >= ProbeBoxMin.xyz) && all(input.worldPos <= ProbeBoxMax.xyz)) {
+            float3 probeSpec = ProbeArray.SampleLevel(EnvSampler, float4(R, ProbeBoxMin.w), 0.0).rgb;
+            prefiltered = probeSpec * ProbeBoxMax.w;
+        }
         float2 brdf  = BRDFLut.Sample(EnvSampler, float2(NdotV, roughness)).rg;
         float3 specularIBL = prefiltered * (F_ibl * brdf.x + brdf.y);
         float  Ess   = brdf.x + brdf.y;                          // multi-scatter energy compensation
@@ -680,10 +697,12 @@ public:
         rhi::BindGroupLayoutEntry prefilterEntry = rhi::BindGroupLayoutEntry::SampledTexture(6, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
         rhi::BindGroupLayoutEntry brdfEntry = rhi::BindGroupLayoutEntry::SampledTexture(7, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
         rhi::BindGroupLayoutEntry envSampEntry = rhi::BindGroupLayoutEntry::Sampler(1, rhi::ShaderStage::Fragment);
+        // Reflection probes (t8): a cube-ARRAY of local probe radiance, sampled with the env sampler (s1).
+        rhi::BindGroupLayoutEntry probeEntry = rhi::BindGroupLayoutEntry::SampledTexture(8, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCubeArray);
         rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, atlasTexEntry, localShadowEntry,
-                                             shadowSampEntry, boneEntry, iblShEntry, prefilterEntry, brdfEntry, envSampEntry };
+                                             shadowSampEntry, boneEntry, iblShEntry, prefilterEntry, brdfEntry, envSampEntry, probeEntry };
         rhi::BindGroupLayoutDesc s0d{};
-        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 11 };
+        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 12 };
         if (!m_device->CreateBindGroupLayout(s0d, m_viewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 1 (non-instanced): per-object UBO (World + Tint), dynamic offset.
@@ -751,6 +770,16 @@ public:
 
     // Reflection-probe capture faces re-emit the draws (one forward pass each) — count them into the ring.
     void SetCaptureFacePasses(u32 passes) override { m_captureFacePasses = passes; }
+
+    // This frame's active reflection probe (P2, single probe): the captured cube-ARRAY view (set-0 t8) +
+    // the probe's box/slice/intensity/count for the forward's local-reflection path. null view => dummy
+    // cube-array + count 0 (the forward keeps the global IBL reflection).
+    void SetProbes(rhi::TextureView* cubeArray, const Vec4& center, const Vec4& boxMin, const Vec4& boxMax) override {
+        m_activeProbeCube   = (cubeArray != nullptr) ? cubeArray : m_dummyProbeCubeView;
+        m_activeProbeCenter = center;   // xyz center, w = count
+        m_activeProbeBoxMin = boxMin;   // xyz box min, w = slice
+        m_activeProbeBoxMax = boxMax;   // xyz box max, w = intensity
+    }
 
     // This frame's IBL products (SH9 diffuse buffer + prefiltered specular cube + BRDF LUT), bound in
     // set 0. null views -> the neutral 1x1 dummies (zero SH + black cube => flat fallback ambient).
@@ -861,6 +890,9 @@ public:
             if (m_dummyBrdf != nullptr) {
                 encoder.TransitionTexture(m_dummyBrdf, rhi::ResourceState::Undefined, rhi::ResourceState::ShaderRead);
             }
+            if (m_dummyProbeCube != nullptr) {
+                encoder.TransitionTexture(m_dummyProbeCube, rhi::ResourceState::Undefined, rhi::ResourceState::ShaderRead);
+            }
             m_dummyDepthInit = true;
         }
         // Pass 1: collect DISTINCT skinned instances (by boneMatrices ptr). Total matrices = sum of
@@ -937,6 +969,9 @@ public:
         vd.cameraPos     = ctx.cameraPos;
         vd.ambient       = ctx.ambient;
         vd.iblMaxLod     = m_iblActive ? m_iblMaxLod : -1.0f;   // <0 => forward uses flat ambient
+        vd.probeCenter   = m_activeProbeCenter;                 // xyz center, w = probe count (0 => none)
+        vd.probeBoxMin   = m_activeProbeBoxMin;                 // xyz box min, w = cube slice
+        vd.probeBoxMax   = m_activeProbeBoxMax;                 // xyz box max, w = intensity
 
         vd.lightCount    = static_cast<f32>(lightCount);
         vd.lightOffset   = lightOffset;
@@ -1055,6 +1090,9 @@ private:
         f32  shadowNormalBias = 0, shadowDepthBias = 0, cascadeLayerBase = 0; u32 localShadowBase = 0;   // 16
         Mat4 prevViewProj = Mat4::Identity();            // 64  (motion vectors: last frame's world->clip)
         Vec4 jitter = Vec4{ 0, 0, 0, 0 };                // 16  (xy = this frame's NDC jitter, zw = last frame's)
+        Vec4 probeCenter = Vec4{ 0, 0, 0, 0 };           // 16  (xyz = probe center, w = probe count [0 = none])
+        Vec4 probeBoxMin = Vec4{ 0, 0, 0, 0 };           // 16  (xyz = box min, w = probe cube slice)
+        Vec4 probeBoxMax = Vec4{ 0, 0, 0, 0 };           // 16  (xyz = box max, w = probe intensity)
     };
     struct ObjectData   { Mat4 world; Mat4 prevWorld; Color tint; u32 boneBase = 0, prevBoneBase = 0, p1 = 0, p2 = 0; };   // 160 (cbuffer Object)
     struct InstanceData { Mat4 world; Mat4 prevWorld; Color tint; };     // 144 (StructuredBuffer element)
@@ -1498,13 +1536,15 @@ private:
         if (m_activeShBuffer == nullptr)   { m_activeShBuffer   = m_dummyShBuffer; }
         if (m_activePrefilter == nullptr)  { m_activePrefilter  = m_dummyCubeView; }
         if (m_activeBrdf == nullptr)       { m_activeBrdf       = m_dummyBrdfView; }
+        if (m_activeProbeCube == nullptr)  { m_activeProbeCube  = m_dummyProbeCubeView; }
         if (m_viewBG != nullptr && m_viewBGViewGen == m_viewRing.Generation() &&
             m_viewBGLightGen == m_lightRing.Generation() &&
             m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen &&
             m_viewBGAtlas == m_activeAtlasView && m_viewBGAtlasGen == m_activeAtlasGen &&
             m_viewBGLocalGen == m_localShadowRing.Generation() &&
             m_viewBGBoneGen == m_boneDeviceGen &&
-            m_viewBGIblGen == m_activeIblGen && m_viewBGPrefilter == m_activePrefilter) {
+            m_viewBGIblGen == m_activeIblGen && m_viewBGPrefilter == m_activePrefilter &&
+            m_viewBGProbeCube == m_activeProbeCube) {
             return true;
         }
         RetireBindGroup(m_viewBG); m_viewBG = nullptr;
@@ -1530,10 +1570,11 @@ private:
             rhi::BindGroupEntry::TextureEntry(m_activePrefilter),
             rhi::BindGroupEntry::TextureEntry(m_activeBrdf),
             rhi::BindGroupEntry::SamplerEntry(m_envSampler),
+            rhi::BindGroupEntry::TextureEntry(m_activeProbeCube),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 11 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 12 };
         if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
         m_viewBGViewGen = m_viewRing.Generation();
         m_viewBGLightGen = m_lightRing.Generation();
@@ -1545,6 +1586,7 @@ private:
         m_viewBGBoneGen = m_boneDeviceGen;
         m_viewBGIblGen = m_activeIblGen;
         m_viewBGPrefilter = m_activePrefilter;
+        m_viewBGProbeCube = m_activeProbeCube;
         return true;
     }
 
@@ -1609,9 +1651,20 @@ private:
         rhi::TextureViewDesc lvd{}; lvd.format = rhi::TextureFormat::RG16Float; lvd.dimension = rhi::TextureViewDimension::Texture2D;
         if (!m_device->CreateTextureView(m_dummyBrdf, lvd, m_dummyBrdfView).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
+        // Dummy probe cube-ARRAY (6 layers = 1 cube) bound when no probe is active — count 0 keeps the
+        // forward on the global IBL reflection, so the content is irrelevant.
+        rhi::TextureDesc pcd{};
+        pcd.format = rhi::TextureFormat::RGBA16Float; pcd.width = 1; pcd.height = 1; pcd.arrayLayerCount = 6;
+        pcd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; pcd.label = u8"mesh.dummyProbeCube";
+        if (!m_device->CreateTexture(pcd, m_dummyProbeCube).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::TextureViewDesc pcv{}; pcv.format = rhi::TextureFormat::RGBA16Float;
+        pcv.dimension = rhi::TextureViewDimension::TextureCubeArray; pcv.arrayLayerCount = 6;
+        if (!m_device->CreateTextureView(m_dummyProbeCube, pcv, m_dummyProbeCubeView).IsOk()) { return Status{ ErrorCode::Unknown }; }
+
         m_activeShBuffer  = m_dummyShBuffer;
         m_activePrefilter = m_dummyCubeView;
         m_activeBrdf      = m_dummyBrdfView;
+        m_activeProbeCube = m_dummyProbeCubeView;
         return Status{};
     }
 
@@ -1700,6 +1753,8 @@ private:
         if (m_dummyCube)       { m_device->DestroyTexture(m_dummyCube); m_dummyCube = nullptr; }
         if (m_dummyBrdfView)   { m_device->DestroyTextureView(m_dummyBrdfView); m_dummyBrdfView = nullptr; }
         if (m_dummyBrdf)       { m_device->DestroyTexture(m_dummyBrdf); m_dummyBrdf = nullptr; }
+        if (m_dummyProbeCubeView) { m_device->DestroyTextureView(m_dummyProbeCubeView); m_dummyProbeCubeView = nullptr; }
+        if (m_dummyProbeCube)  { m_device->DestroyTexture(m_dummyProbeCube); m_dummyProbeCube = nullptr; }
         if (m_dummyShBuffer)   { m_device->DestroyBuffer(m_dummyShBuffer); m_dummyShBuffer = nullptr; }
         if (m_envSampler)      { m_device->DestroySampler(m_envSampler); m_envSampler = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
@@ -1843,6 +1898,14 @@ private:
     bool              m_iblActive    = false;
     u64               m_activeIblGen = 0;
     u64               m_viewBGIblGen = 0;
+
+    // Reflection probes (P2): captured cube-ARRAY (t8) + the active probe's box/slice/intensity/count.
+    rhi::Texture*     m_dummyProbeCube     = nullptr;  rhi::TextureView* m_dummyProbeCubeView = nullptr;
+    rhi::TextureView* m_activeProbeCube    = nullptr;
+    rhi::TextureView* m_viewBGProbeCube    = nullptr;   // bind-group cache key (view is created once => stable)
+    Vec4              m_activeProbeCenter  = Vec4{ 0, 0, 0, 0 };
+    Vec4              m_activeProbeBoxMin  = Vec4{ 0, 0, 0, 0 };
+    Vec4              m_activeProbeBoxMax  = Vec4{ 0, 0, 0, 0 };
 
     // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group
     // per (view, frame-in-flight) slot over the ClusterSystem's per-view cluster buffers.

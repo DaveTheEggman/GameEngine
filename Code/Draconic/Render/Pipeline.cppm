@@ -207,6 +207,13 @@ public:
     // per frame before PrepareFrame. Default no-op.
     virtual void SetCaptureFacePasses(u32 passes) { (void)passes; }
 
+    // This frame's active reflection probe (set-0 t8 captured cube-ARRAY + the probe's box/slice/intensity/
+    // count packed as: center{xyz,count}, boxMin{xyz,slice}, boxMax{xyz,intensity}). null view => no probe.
+    // Called once per frame before PrepareFrame. Default no-op.
+    virtual void SetProbes(rhi::TextureView* cubeArray, const Vec4& center, const Vec4& boxMin, const Vec4& boxMax) {
+        (void)cubeArray; (void)center; (void)boxMin; (void)boxMax;
+    }
+
     // Upload this frame's local-shadow entries (the atlas's per-light matrices/rects) for a renderer
     // that binds them in set 0. Called once per frame after PrepareFrame. Default no-op.
     virtual void UploadLocalShadows(Span<const GpuLocalShadow> shadows, u32 frameIndex) { (void)shadows; (void)frameIndex; }
@@ -309,11 +316,12 @@ public:
                      const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                      const IblBinding& ibl = {},
                      rhi::LoadOp depthLoad = rhi::LoadOp::Load,
-                     rendergraph::RGSubresourceRange colorSub = {}) {
+                     rendergraph::RGSubresourceRange colorSub = {},
+                     rendergraph::RGHandle probeHandle = {}, bool probeValid = false) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, depthLoad, colorSub](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, depthLoad, colorSub, probeHandle, probeValid](rendergraph::PassBuilder& b) {
             // colorSub targets a single layer when capturing into a cube-array face (default {} = whole target).
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear, colorSub);
             // MRT G-buffer aux (cleared each view): view-space normal + screen-space motion vector.
@@ -336,6 +344,9 @@ public:
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
             // Read the IBL products (orders any precompute writes -> this pass + barriers them readable).
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
+            // Read the probe captured cube-array (orders probe capture -> this forward + barriers the whole
+            // array to ShaderRead, incl. uncaptured slices) — the forward samples it (t8) for local reflections.
+            if (probeValid) { b.ReadTexture(probeHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
                 ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out);
@@ -836,6 +847,17 @@ public:
             // count them into the per-object rings or the extra passes would starve the forward (silent drops).
             const u32 captureFaces = (m_probeSystem != nullptr && !m_probeSystem->Captures().IsEmpty()) ? 6u : 0u;
             for (Renderer* r : m_registry->Unique()) { r->SetCaptureFacePasses(captureFaces); }
+            // Reflection probe (P2, single probe): bind the captured cube-array + the active probe's box/
+            // slice/intensity/count into set 0 so the forward can do the local reflection. count 0 -> no probe.
+            if (m_probeSystem != nullptr && m_probeSystem->ActiveCount() > 0) {
+                const GpuProbe& gp = m_probeSystem->CpuProbes()[0];
+                const Vec4 pc{ gp.center.x, gp.center.y, gp.center.z, static_cast<f32>(m_probeSystem->ActiveCount()) };
+                const Vec4 bmin{ gp.boxMin.x, gp.boxMin.y, gp.boxMin.z, gp.boxMax.w };   // boxMax.w = cube slice
+                const Vec4 bmax{ gp.boxMax.x, gp.boxMax.y, gp.boxMax.z, gp.center.w };   // center.w = intensity
+                for (Renderer* r : m_registry->Unique()) { r->SetProbes(m_probeSystem->PrefilterArrayView(), pc, bmin, bmax); }
+            } else {
+                for (Renderer* r : m_registry->Unique()) { r->SetProbes(nullptr, Vec4{ 0, 0, 0, 0 }, Vec4{ 0, 0, 0, 0 }, Vec4{ 0, 0, 0, 0 }); }
+            }
             if (m_ibl != nullptr && m_ibl->Ready()) {
                 m_ibl->Upload(*m_encoder);   // pending equirect/cubemap uploads, before the graph executes
                 for (Renderer* r : m_registry->Unique()) {
@@ -952,13 +974,24 @@ public:
             }
         }
 
+        // Reflection probe (P2): init the captured-cube layout once (so uncaptured slices are ShaderRead, not
+        // UNDEFINED, under the whole-array SRV) + import it ONCE so both the capture passes AND the main
+        // forward's ReadTexture share one imported resource (which orders capture->forward + barriers it).
+        rendergraph::RGHandle probeCapturedH, probePrefilteredH; bool probeActive = false;
+        if (m_probeSystem != nullptr && m_probeSystem->ActiveCount() > 0 && m_encoder != nullptr) {
+            m_probeSystem->InitLayouts(*m_encoder);
+            probeCapturedH    = m_probeSystem->ImportCaptured(m_graph);
+            probePrefilteredH = m_probeSystem->ImportPrefiltered(m_graph);   // the SEPARATE texture the forward samples
+            probeActive = true;
+        }
+
         // ---- Reflection probe capture (P1b) --------------------------------------------------------
         // Render each dirty probe's 6 faces (lit forward + sky, HDR) into its captured-cube slices, BEFORE
-        // the main views (which will sample the prefiltered result in P2). Feedback-safe: the capture
-        // forward samples the GLOBAL IBL only, never the probe array. Capped at one probe/frame for P1b.
-        if (m_probeSystem != nullptr && m_ibl != nullptr && m_ibl->Ready() && primary != nullptr &&
+        // the main views (which sample the result). Feedback-safe: the capture forward samples the GLOBAL
+        // IBL only, never the probe array. Capped at one probe/frame for P1b.
+        if (probeActive && m_ibl != nullptr && m_ibl->Ready() && primary != nullptr &&
             primary->Scene() != nullptr && !m_probeSystem->Captures().IsEmpty()) {
-            const rendergraph::RGHandle capturedH = m_probeSystem->ImportCaptured(m_graph);
+            const rendergraph::RGHandle capturedH = probeCapturedH;
             IblBinding capIbl;
             capIbl.prefilterHandle = m_ibl->PrefilterHandle();
             capIbl.brdfHandle      = m_ibl->BrdfHandle();
@@ -1008,6 +1041,9 @@ public:
                                   m_ibl->SunDir(), m_ibl->SunAngularSize(), Vec3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   0, 0, res, res, m_frameIndex, /*viewIndex*/ 0u, sub);
             }
+            // Bridge captured -> prefiltered (copy, sharp for now) so the forward samples a SEPARATE texture,
+            // never the captured cube it just wrote (that would be a read/write hazard). GGX convolve later.
+            m_probeSystem->DeclareCopy(m_graph, capturedH, probePrefilteredH, task.slot);
             m_probeSystem->MarkCaptured(task.slot);
         }
 
@@ -1127,7 +1163,8 @@ public:
                 const rendergraph::RGHandle hdr = m_graph.CreateTransient(
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
-                                   m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
+                                   m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
+                                   rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive);
                 declareSky(hdr, velocityT, m_tonemap->HdrFormat());   // sky into HDR (+ camera-motion velocity), before TAA
                 // Screen-space decals: project onto the opaque depth + blend into the lit HDR, AFTER sky
                 // and BEFORE AO/TAA (so decals get TAA-resolved). Uses the jittered view-proj (matches the
@@ -1200,7 +1237,8 @@ public:
             } else {
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
-                                   v->TargetFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
+                                   v->TargetFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
+                                   rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive);
                 declareSky(colorH, velocityT, v->TargetFormat());
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
                                           v->TargetFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);

@@ -115,6 +115,18 @@ public:
     static constexpr f32 kCaptureNear = 0.1f;
     static constexpr f32 kCaptureFar  = 1000.0f;
 
+    // Transition the WHOLE captured cube-array to ShaderRead once (out of graph, at first encoder hold),
+    // so uncaptured slices aren't left UNDEFINED when the forward binds the whole-array SRV (same reason
+    // the mesh renderer's dummy textures are pre-transitioned). Idempotent.
+    void InitLayouts(rhi::CommandEncoder& encoder) {
+        if (m_layoutsInit) { return; }
+        encoder.TransitionTexture(m_capturedCube, rhi::ResourceState::Undefined, rhi::ResourceState::ShaderRead);
+        encoder.TransitionTexture(m_prefilterCube, rhi::ResourceState::Undefined, rhi::ResourceState::ShaderRead);
+        m_capturedState = rhi::ResourceState::ShaderRead;
+        m_prefilterState = rhi::ResourceState::ShaderRead;
+        m_layoutsInit = true;
+    }
+
     // Import the captured cube-array into the graph (whole resource; the capture passes target individual
     // layers via subresource ranges). Persists its resource state across frames like the shadow atlas.
     rendergraph::RGHandle ImportCaptured(rendergraph::RenderGraph& graph) {
@@ -125,7 +137,39 @@ public:
         return h;
     }
 
+    // Import the prefiltered cube-array (the SEPARATE texture the forward samples at t8 — never a capture
+    // render target, so no read/write hazard with the capture passes; captured is copied into it below).
+    rendergraph::RGHandle ImportPrefiltered(rendergraph::RenderGraph& graph) {
+        const rendergraph::RGHandle h = graph.ImportTarget(
+            u8"probes.prefilter", m_prefilterCube, m_prefilterArrayView,
+            rhi::ResourceState::ShaderRead, m_prefilterState);
+        m_prefilterState = rhi::ResourceState::ShaderRead;
+        return h;
+    }
+
+    // Bridge captured -> prefiltered for one slot's 6 faces (mip 0). A straight copy for now (sharp
+    // reflections); a GGX roughness convolution replaces this copy later. Declares the graph ordering
+    // (capture-write -> copy -> forward-read) via CopySrc/CopyDst.
+    void DeclareCopy(rendergraph::RenderGraph& graph, rendergraph::RGHandle capturedH,
+                     rendergraph::RGHandle prefilteredH, u32 slot) {
+        graph.AddCopyPass(u8"probes.copy", [this, capturedH, prefilteredH, slot](rendergraph::PassBuilder& b) {
+            b.CopySrc(capturedH);
+            b.CopyDst(prefilteredH);
+            b.SetCopyExecute([this, slot](rhi::CommandEncoder& enc) {
+                for (u32 f = 0; f < 6; ++f) {
+                    rhi::TextureCopyRegion region{};
+                    region.srcArrayLayer = slot * 6u + f; region.dstArrayLayer = slot * 6u + f;
+                    region.extent = rhi::Extent3D{ kCaptureRes, kCaptureRes, 1u };
+                    enc.CopyTextureToTexture(m_capturedCube, m_prefilterCube, region);
+                }
+            });
+        });
+    }
+
     // Resources (consumed by the forward in P2, and by capture/prefilter in P1b/c).
+    // The captured cube-ARRAY as a sample view (set-0 t8; P2 samples this directly, sharp mip 0). Reuses
+    // the whole-array view used for the render-target import — a stable, single-allocation view.
+    [[nodiscard]] rhi::TextureView* CapturedSampleView() const noexcept { return m_capturedArrayView; }
     [[nodiscard]] rhi::TextureView* PrefilterArrayView() const noexcept { return m_prefilterArrayView; }
     [[nodiscard]] rhi::Buffer*      ProbeBuffer()        const noexcept { return m_probeBuffer; }
     [[nodiscard]] rhi::Sampler*     Sampler()            const noexcept { return m_sampler; }
@@ -167,7 +211,7 @@ private:
         rhi::TextureDesc cd{};
         cd.format = kCubeFormat; cd.width = kCaptureRes; cd.height = kCaptureRes;
         cd.arrayLayerCount = layers; cd.mipLevelCount = 1;
-        cd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled;
+        cd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled | rhi::TextureUsage::CopySrc;
         cd.label = u8"probes.captured";
         if (!m_device->CreateTexture(cd, m_capturedCube).IsOk()) { return false; }
         rhi::TextureViewDesc cv{}; cv.format = kCubeFormat;
@@ -179,7 +223,7 @@ private:
         rhi::TextureDesc pd{};
         pd.format = kCubeFormat; pd.width = kPrefilterRes; pd.height = kPrefilterRes;
         pd.arrayLayerCount = layers; pd.mipLevelCount = kPrefilterMips;
-        pd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled;
+        pd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
         pd.label = u8"probes.prefilter";
         if (!m_device->CreateTexture(pd, m_prefilterCube).IsOk()) { return false; }
         rhi::TextureViewDesc pv{}; pv.format = kCubeFormat;
@@ -220,8 +264,10 @@ private:
     rhi::Texture*     m_capturedCube        = nullptr;
     rhi::TextureView* m_capturedArrayView   = nullptr;
     rhi::ResourceState m_capturedState      = rhi::ResourceState::Undefined;   // persists across frames (import)
+    bool              m_layoutsInit         = false;                           // one-time whole-array ShaderRead init
     rhi::Texture*     m_prefilterCube       = nullptr;
     rhi::TextureView* m_prefilterArrayView  = nullptr;
+    rhi::ResourceState m_prefilterState     = rhi::ResourceState::Undefined;   // persists across frames (import)
     rhi::Buffer*      m_probeBuffer         = nullptr;
     rhi::Sampler*     m_sampler             = nullptr;
 
