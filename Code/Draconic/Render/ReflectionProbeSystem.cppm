@@ -187,6 +187,15 @@ public:
         return Span<const GpuProbe>{ m_cpuProbes, m_active };
     }
 
+    // Upload this frame's probe records into the metadata buffer (set-0 t9). Call once per frame after Assign.
+    void Upload() {
+        if (m_probeBuffer == nullptr || m_active == 0) { return; }
+        if (void* p = m_probeBuffer->Map()) {
+            MemCopy(p, m_cpuProbes, static_cast<usize>(m_active) * sizeof(GpuProbe));
+            m_probeBuffer->Unmap();
+        }
+    }
+
     // A probe that needs (re)capture this frame: its array slot + world capture center. The capture loop
     // renders the scene into layers [LayerBase(slot) .. +6) then calls MarkCaptured(slot).
     struct CaptureTask { u32 slot; Vec3 center; };
@@ -352,10 +361,11 @@ private:
         pv.arrayLayerCount = layers; pv.mipLevelCount = kPrefilterMips;
         if (!m_device->CreateTextureView(m_prefilterCube, pv, m_prefilterArrayView).IsOk()) { return false; }
 
-        // Probe-metadata buffer (set-0 t9).
+        // Probe-metadata buffer (set-0 t9, StructuredBuffer<GpuProbe>). Host-visible so the forward reads
+        // this frame's probes directly (small: kMaxProbes*64B); uploaded each frame in Upload().
         rhi::BufferDesc bd{};
         bd.size = sizeof(GpuProbe) * kMaxProbes; bd.usage = rhi::BufferUsage::Storage;
-        bd.memory = rhi::MemoryLocation::GpuOnly; bd.label = u8"probes.meta";
+        bd.memory = rhi::MemoryLocation::CpuToGpu; bd.label = u8"probes.meta";
         if (!m_device->CreateBuffer(bd, m_probeBuffer).IsOk()) { return false; }
 
         // Linear-clamp sampler.

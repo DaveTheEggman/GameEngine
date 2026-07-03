@@ -206,9 +206,17 @@ StructuredBuffer<float4> IblSH       : register(t5, space0);
 TextureCube              PrefilterMap : register(t6, space0);
 Texture2D                BRDFLut      : register(t7, space0);
 SamplerState             EnvSampler   : register(s1, space0);
-// Reflection probes (P2): a cube-ARRAY of captured/prefiltered probe radiance, sampled with the shared
-// EnvSampler. ProbeCenter.w = count (0 => none); ProbeBoxMin.w = slice; box = a local influence volume.
+// Reflection probes (P2-P4): a cube-ARRAY of prefiltered probe radiance (t8) + a probe metadata buffer
+// (t9). ProbeCenter.w carries the probe COUNT; the forward loops Probes[0..count], box-tests + parallax-
+// projects + blends each by an influence weight (blendDistance falloff) over the global IBL.
 TextureCubeArray         ProbeArray   : register(t8, space0);
+struct GpuProbe {
+    float4 center;   // xyz = capture center, w = intensity
+    float4 boxMin;   // xyz = box min,        w = blendDistance
+    float4 boxMax;   // xyz = box max,        w = cube slice (array index)
+    float4 params;   // x = mipCount, y = priority, z = parallax (0/1), w = pad
+};
+StructuredBuffer<GpuProbe> Probes : register(t9, space0);
 
 // Evaluate the 9-coefficient SH irradiance in direction n (Ramamoorthi/Hanrahan cosine-convolved).
 float3 EvalSH9(float3 n) {
@@ -513,26 +521,37 @@ float4 main(PSInput input) : SV_Target0 {
         float3 diffuseIBL = kD * albedo * (EvalSH9(N) / PI);     // EvalSH9 -> irradiance E; Lambertian = albedo/pi * E
         float3 R     = reflect(-V, N);
         float3 prefiltered = PrefilterMap.SampleLevel(EnvSampler, R, roughness * IBLMaxLod).rgb;
-        // Reflection probe (P3): if the fragment lies inside a probe's box, replace the global env
-        // reflection with the probe's LOCAL captured radiance, PARALLAX-corrected. A cube captured from a
-        // point only matches surfaces at that point; intersect the reflection ray with the probe box and
-        // re-aim from the box center so the reflection tracks real geometry as the camera moves (Lagarde
-        // box-projected cubemap). Sharp for now (mip 0; roughness prefilter is a later refinement).
-        // ProbeCenter.w: 0 = no probe, 1 = probe (no parallax), 2 = probe with box parallax (toggleable).
-        if (ProbeCenter.w > 0.5 &&
-            all(input.worldPos >= ProbeBoxMin.xyz) && all(input.worldPos <= ProbeBoxMax.xyz)) {
-            float3 Rp = R;                                               // no-parallax: raw reflect (infinite env)
-            if (ProbeCenter.w > 1.5) {
-                float3 invR = 1.0 / R;                                   // R==0 on an axis -> +-inf, handled by max/min
-                float3 tMin = (ProbeBoxMin.xyz - input.worldPos) * invR;
-                float3 tMax = (ProbeBoxMax.xyz - input.worldPos) * invR;
-                float3 tFar = max(tMin, tMax);                           // far slab crossing per axis
-                float  dist = min(min(tFar.x, tFar.y), tFar.z);        // nearest exit = box hit along +R
-                Rp = (input.worldPos + R * dist) - ProbeCenter.xyz;    // re-aim from the capture center
+        // Reflection probes (P4): loop the active probes, and for each whose box contains the fragment,
+        // box-project the reflection ray (parallax) + sample its prefiltered cube at roughness*maxLod, then
+        // blend all by an influence weight that fades to 0 over blendDistance near the box edge (soft seam).
+        // The accumulated probe reflection blends over the global IBL by the total weight (parallax = Lagarde
+        // box-projected cubemap; a cube captured from a point tracks geometry only after this projection).
+        uint probeCount = (uint)ProbeCenter.w;
+        float3 probeAccum = float3(0, 0, 0);
+        float  probeWeight = 0.0;
+        for (uint pi = 0u; pi < probeCount; ++pi) {
+            GpuProbe pr = Probes[pi];
+            float3 bmin = pr.boxMin.xyz, bmax = pr.boxMax.xyz;
+            // Influence: distance to the nearest box face (negative outside) -> fade over blendDistance.
+            float3 d = min(input.worldPos - bmin, bmax - input.worldPos);
+            float  edge = min(min(d.x, d.y), d.z);
+            float  w = saturate(edge / max(pr.boxMin.w, 1e-3));
+            if (w <= 0.0) { continue; }
+            float3 Rp = R;                                              // no-parallax: raw reflect (infinite env)
+            if (pr.params.z > 0.5) {
+                float3 invR = 1.0 / R;                                  // R==0 on an axis -> +-inf, handled by max/min
+                float3 tMin = (bmin - input.worldPos) * invR;
+                float3 tMax = (bmax - input.worldPos) * invR;
+                float  dist = min(min(max(tMin.x, tMax.x), max(tMin.y, tMax.y)), max(tMin.z, tMax.z));
+                Rp = (input.worldPos + R * dist) - pr.center.xyz;     // re-aim from the capture center
             }
-            // Roughness -> prefiltered mip (GGX). Probe prefilter has 5 mips, so max LOD = 4.
-            float3 probeSpec = ProbeArray.SampleLevel(EnvSampler, float4(Rp, ProbeBoxMin.w), roughness * 4.0).rgb;
-            prefiltered = probeSpec * ProbeBoxMax.w;
+            float3 spec = ProbeArray.SampleLevel(EnvSampler, float4(Rp, pr.boxMax.w), roughness * 4.0).rgb * pr.center.w;
+            probeAccum += w * spec;
+            probeWeight += w;
+        }
+        if (probeWeight > 0.0) {
+            float3 probeSpec = probeAccum / probeWeight;               // weighted blend across overlapping probes
+            prefiltered = lerp(prefiltered, probeSpec, saturate(probeWeight));   // fade to global IBL at box edges
         }
         float2 brdf  = BRDFLut.Sample(EnvSampler, float2(NdotV, roughness)).rg;
         float3 specularIBL = prefiltered * (F_ibl * brdf.x + brdf.y);
@@ -710,12 +729,13 @@ public:
         rhi::BindGroupLayoutEntry prefilterEntry = rhi::BindGroupLayoutEntry::SampledTexture(6, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
         rhi::BindGroupLayoutEntry brdfEntry = rhi::BindGroupLayoutEntry::SampledTexture(7, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
         rhi::BindGroupLayoutEntry envSampEntry = rhi::BindGroupLayoutEntry::Sampler(1, rhi::ShaderStage::Fragment);
-        // Reflection probes (t8): a cube-ARRAY of local probe radiance, sampled with the env sampler (s1).
-        rhi::BindGroupLayoutEntry probeEntry = rhi::BindGroupLayoutEntry::SampledTexture(8, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCubeArray);
+        // Reflection probes: a cube-ARRAY of local probe radiance (t8) + a probe metadata buffer (t9, SRV).
+        rhi::BindGroupLayoutEntry probeEntry    = rhi::BindGroupLayoutEntry::SampledTexture(8, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCubeArray);
+        rhi::BindGroupLayoutEntry probeBufEntry = rhi::BindGroupLayoutEntry::StorageBuffer(9, rhi::ShaderStage::Fragment, /*readOnly*/ true);
         rhi::BindGroupLayoutEntry set0[] = { viewEntry, lightEntry, shadowTexEntry, atlasTexEntry, localShadowEntry,
-                                             shadowSampEntry, boneEntry, iblShEntry, prefilterEntry, brdfEntry, envSampEntry, probeEntry };
+                                             shadowSampEntry, boneEntry, iblShEntry, prefilterEntry, brdfEntry, envSampEntry, probeEntry, probeBufEntry };
         rhi::BindGroupLayoutDesc s0d{};
-        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 12 };
+        s0d.entries = Span<const rhi::BindGroupLayoutEntry>{ set0, 13 };
         if (!m_device->CreateBindGroupLayout(s0d, m_viewLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         // set 1 (non-instanced): per-object UBO (World + Tint), dynamic offset.
@@ -787,11 +807,11 @@ public:
     // This frame's active reflection probe (P2, single probe): the captured cube-ARRAY view (set-0 t8) +
     // the probe's box/slice/intensity/count for the forward's local-reflection path. null view => dummy
     // cube-array + count 0 (the forward keeps the global IBL reflection).
-    void SetProbes(rhi::TextureView* cubeArray, const Vec4& center, const Vec4& boxMin, const Vec4& boxMax) override {
-        m_activeProbeCube   = (cubeArray != nullptr) ? cubeArray : m_dummyProbeCubeView;
-        m_activeProbeCenter = center;   // xyz center, w = count
-        m_activeProbeBoxMin = boxMin;   // xyz box min, w = slice
-        m_activeProbeBoxMax = boxMax;   // xyz box max, w = intensity
+    void SetProbes(rhi::TextureView* cubeArray, rhi::Buffer* probeBuffer, u32 count) override {
+        const bool has = (cubeArray != nullptr && probeBuffer != nullptr && count > 0);
+        m_activeProbeCube   = has ? cubeArray : m_dummyProbeCubeView;
+        m_activeProbeBuffer = has ? probeBuffer : m_dummyProbeBuffer;
+        m_activeProbeCount  = has ? count : 0;   // -> ViewData.probeCenter.w (the forward's loop bound)
     }
 
     // This frame's IBL products (SH9 diffuse buffer + prefiltered specular cube + BRDF LUT), bound in
@@ -984,9 +1004,9 @@ public:
         vd.iblMaxLod     = m_iblActive ? m_iblMaxLod : -1.0f;   // <0 => forward uses flat ambient
         // Probes disabled during probe capture (ctx.probesEnabled=false) -> count 0 so metallics reflect the
         // sky (global IBL), not the not-yet-built probe (which would bake them black — self-reflection).
-        vd.probeCenter   = ctx.probesEnabled ? m_activeProbeCenter : Vec4{ 0, 0, 0, 0 };
-        vd.probeBoxMin   = m_activeProbeBoxMin;                 // xyz box min, w = cube slice
-        vd.probeBoxMax   = m_activeProbeBoxMax;                 // xyz box max, w = intensity
+        // ProbeCenter.w = the probe count (the forward's loop bound over the Probes SRV); box/slice/etc. per
+        // probe live in the Probes buffer now.
+        vd.probeCenter   = Vec4{ 0, 0, 0, ctx.probesEnabled ? static_cast<f32>(m_activeProbeCount) : 0.0f };
 
         vd.lightCount    = static_cast<f32>(lightCount);
         vd.lightOffset   = lightOffset;
@@ -1551,7 +1571,8 @@ private:
         if (m_activeShBuffer == nullptr)   { m_activeShBuffer   = m_dummyShBuffer; }
         if (m_activePrefilter == nullptr)  { m_activePrefilter  = m_dummyCubeView; }
         if (m_activeBrdf == nullptr)       { m_activeBrdf       = m_dummyBrdfView; }
-        if (m_activeProbeCube == nullptr)  { m_activeProbeCube  = m_dummyProbeCubeView; }
+        if (m_activeProbeCube == nullptr)   { m_activeProbeCube   = m_dummyProbeCubeView; }
+        if (m_activeProbeBuffer == nullptr) { m_activeProbeBuffer = m_dummyProbeBuffer; }
         if (m_viewBG != nullptr && m_viewBGViewGen == m_viewRing.Generation() &&
             m_viewBGLightGen == m_lightRing.Generation() &&
             m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen &&
@@ -1559,7 +1580,7 @@ private:
             m_viewBGLocalGen == m_localShadowRing.Generation() &&
             m_viewBGBoneGen == m_boneDeviceGen &&
             m_viewBGIblGen == m_activeIblGen && m_viewBGPrefilter == m_activePrefilter &&
-            m_viewBGProbeCube == m_activeProbeCube) {
+            m_viewBGProbeCube == m_activeProbeCube && m_viewBGProbeBuf == m_activeProbeBuffer) {
             return true;
         }
         RetireBindGroup(m_viewBG); m_viewBG = nullptr;
@@ -1586,10 +1607,11 @@ private:
             rhi::BindGroupEntry::TextureEntry(m_activeBrdf),
             rhi::BindGroupEntry::SamplerEntry(m_envSampler),
             rhi::BindGroupEntry::TextureEntry(m_activeProbeCube),
+            rhi::BindGroupEntry::BufferEntry(m_activeProbeBuffer, 0, kProbeBufferBytes),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 12 };
+        bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 13 };
         if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
         m_viewBGViewGen = m_viewRing.Generation();
         m_viewBGLightGen = m_lightRing.Generation();
@@ -1602,6 +1624,7 @@ private:
         m_viewBGIblGen = m_activeIblGen;
         m_viewBGPrefilter = m_activePrefilter;
         m_viewBGProbeCube = m_activeProbeCube;
+        m_viewBGProbeBuf  = m_activeProbeBuffer;
         return true;
     }
 
@@ -1675,11 +1698,17 @@ private:
         rhi::TextureViewDesc pcv{}; pcv.format = rhi::TextureFormat::RGBA16Float;
         pcv.dimension = rhi::TextureViewDimension::TextureCubeArray; pcv.arrayLayerCount = 6;
         if (!m_device->CreateTextureView(m_dummyProbeCube, pcv, m_dummyProbeCubeView).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        // Dummy probe-metadata buffer (t9) for the no-probe path — never read (count 0), just a valid SRV.
+        rhi::BufferDesc pbd{};
+        pbd.size = kProbeBufferBytes; pbd.usage = rhi::BufferUsage::Storage;
+        pbd.memory = rhi::MemoryLocation::GpuOnly; pbd.label = u8"mesh.dummyProbeBuf";
+        if (!m_device->CreateBuffer(pbd, m_dummyProbeBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
-        m_activeShBuffer  = m_dummyShBuffer;
-        m_activePrefilter = m_dummyCubeView;
-        m_activeBrdf      = m_dummyBrdfView;
-        m_activeProbeCube = m_dummyProbeCubeView;
+        m_activeShBuffer    = m_dummyShBuffer;
+        m_activePrefilter   = m_dummyCubeView;
+        m_activeBrdf        = m_dummyBrdfView;
+        m_activeProbeCube   = m_dummyProbeCubeView;
+        m_activeProbeBuffer = m_dummyProbeBuffer;
         return Status{};
     }
 
@@ -1770,6 +1799,7 @@ private:
         if (m_dummyBrdf)       { m_device->DestroyTexture(m_dummyBrdf); m_dummyBrdf = nullptr; }
         if (m_dummyProbeCubeView) { m_device->DestroyTextureView(m_dummyProbeCubeView); m_dummyProbeCubeView = nullptr; }
         if (m_dummyProbeCube)  { m_device->DestroyTexture(m_dummyProbeCube); m_dummyProbeCube = nullptr; }
+        if (m_dummyProbeBuffer) { m_device->DestroyBuffer(m_dummyProbeBuffer); m_dummyProbeBuffer = nullptr; }
         if (m_dummyShBuffer)   { m_device->DestroyBuffer(m_dummyShBuffer); m_dummyShBuffer = nullptr; }
         if (m_envSampler)      { m_device->DestroySampler(m_envSampler); m_envSampler = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
@@ -1914,13 +1944,15 @@ private:
     u64               m_activeIblGen = 0;
     u64               m_viewBGIblGen = 0;
 
-    // Reflection probes (P2): captured cube-ARRAY (t8) + the active probe's box/slice/intensity/count.
+    // Reflection probes (P2-P4): prefiltered cube-ARRAY (t8) + probe-metadata SRV (t9) + probe count.
+    static constexpr u64 kProbeBufferBytes = 64u * 16u;   // sizeof(GpuProbe)=64 * kMaxReflectionProbes=16
     rhi::Texture*     m_dummyProbeCube     = nullptr;  rhi::TextureView* m_dummyProbeCubeView = nullptr;
+    rhi::Buffer*      m_dummyProbeBuffer   = nullptr;   // 1 zeroed record for the no-probe path
     rhi::TextureView* m_activeProbeCube    = nullptr;
+    rhi::Buffer*      m_activeProbeBuffer  = nullptr;
     rhi::TextureView* m_viewBGProbeCube    = nullptr;   // bind-group cache key (view is created once => stable)
-    Vec4              m_activeProbeCenter  = Vec4{ 0, 0, 0, 0 };
-    Vec4              m_activeProbeBoxMin  = Vec4{ 0, 0, 0, 0 };
-    Vec4              m_activeProbeBoxMax  = Vec4{ 0, 0, 0, 0 };
+    rhi::Buffer*      m_viewBGProbeBuf     = nullptr;
+    u32               m_activeProbeCount   = 0;
 
     // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group
     // per (view, frame-in-flight) slot over the ClusterSystem's per-view cluster buffers.

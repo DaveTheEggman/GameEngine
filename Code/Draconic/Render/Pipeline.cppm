@@ -208,11 +208,11 @@ public:
     // per frame before PrepareFrame. Default no-op.
     virtual void SetCaptureFacePasses(u32 passes) { (void)passes; }
 
-    // This frame's active reflection probe (set-0 t8 captured cube-ARRAY + the probe's box/slice/intensity/
-    // count packed as: center{xyz,count}, boxMin{xyz,slice}, boxMax{xyz,intensity}). null view => no probe.
-    // Called once per frame before PrepareFrame. Default no-op.
-    virtual void SetProbes(rhi::TextureView* cubeArray, const Vec4& center, const Vec4& boxMin, const Vec4& boxMax) {
-        (void)cubeArray; (void)center; (void)boxMin; (void)boxMax;
+    // This frame's reflection probes: the prefiltered cube-ARRAY (set-0 t8) + the probe-metadata SRV (t9)
+    // + the active probe count (the forward loops Probes[0..count]). null => no probes. Called once per
+    // frame before PrepareFrame. Default no-op.
+    virtual void SetProbes(rhi::TextureView* cubeArray, rhi::Buffer* probeBuffer, u32 count) {
+        (void)cubeArray; (void)probeBuffer; (void)count;
     }
 
     // Upload this frame's local-shadow entries (the atlas's per-light matrices/rects) for a renderer
@@ -853,18 +853,15 @@ public:
             // count them into the per-object rings or the extra passes would starve the forward (silent drops).
             const u32 captureFaces = (m_probeSystem != nullptr && !m_probeSystem->Captures().IsEmpty()) ? 6u : 0u;
             for (Renderer* r : m_registry->Unique()) { r->SetCaptureFacePasses(captureFaces); }
-            // Reflection probe (P2, single probe): bind the captured cube-array + the active probe's box/
-            // slice/intensity/count into set 0 so the forward can do the local reflection. count 0 -> no probe.
+            // Reflection probes (P4, multi-probe): upload this frame's records + bind the prefiltered cube-
+            // array (t8) + the probe-metadata SRV (t9) + count. The forward loops + blends them. 0 -> no probe.
             if (m_probeSystem != nullptr && m_probeSystem->ActiveCount() > 0) {
-                const GpuProbe& gp = m_probeSystem->CpuProbes()[0];
-                // ProbeCenter.w mode: 2 = probe + box parallax, 1 = probe no-parallax (params.z = parallax flag).
-                const f32 mode = (gp.params.z > 0.5f) ? 2.0f : 1.0f;
-                const Vec4 pc{ gp.center.x, gp.center.y, gp.center.z, mode };
-                const Vec4 bmin{ gp.boxMin.x, gp.boxMin.y, gp.boxMin.z, gp.boxMax.w };   // boxMax.w = cube slice
-                const Vec4 bmax{ gp.boxMax.x, gp.boxMax.y, gp.boxMax.z, gp.center.w };   // center.w = intensity
-                for (Renderer* r : m_registry->Unique()) { r->SetProbes(m_probeSystem->PrefilterArrayView(), pc, bmin, bmax); }
+                m_probeSystem->Upload();
+                for (Renderer* r : m_registry->Unique()) {
+                    r->SetProbes(m_probeSystem->PrefilterArrayView(), m_probeSystem->ProbeBuffer(), m_probeSystem->ActiveCount());
+                }
             } else {
-                for (Renderer* r : m_registry->Unique()) { r->SetProbes(nullptr, Vec4{ 0, 0, 0, 0 }, Vec4{ 0, 0, 0, 0 }, Vec4{ 0, 0, 0, 0 }); }
+                for (Renderer* r : m_registry->Unique()) { r->SetProbes(nullptr, nullptr, 0); }
             }
             if (m_ibl != nullptr && m_ibl->Ready()) {
                 m_ibl->Upload(*m_encoder);   // pending equirect/cubemap uploads, before the graph executes
