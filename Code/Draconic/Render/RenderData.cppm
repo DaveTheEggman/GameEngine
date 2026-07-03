@@ -173,6 +173,18 @@ struct SpriteRenderData : RenderData {
 };
 static_assert(std::is_trivially_destructible_v<SpriteRenderData>);
 
+// One screen-space projected decal — NOT a `RenderData`/drawable (it isn't dispatched through the
+// Renderer path); it's a snapshot list consumed by the standalone DecalPass, like the light list.
+// `world` is the decal's oriented unit box (scale = box size); it projects along its local +Z axis.
+// `texture` is borrowed (the app/resource keeps it alive).
+struct DecalInstance {
+    Mat4  world     = Mat4::Identity();
+    Color color     = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    f32   fadeStart = 0.0f;    // angle-fade start (radians): full opacity until the surface tilts past this
+    f32   fadeEnd   = 1.30f;   // angle-fade end (radians ~75deg): fully faded once the surface tilts past this
+    rhi::TextureView* texture = nullptr;
+};
+
 // One light, packed for a GPU storage buffer (std430, 64 bytes = 4x float4). A shading input,
 // not a drawable — extracted into the ExtractedScene's light list, uploaded to a storage buffer,
 // and consumed by the forward shading loop. Directional: dir is the light direction; Point/Spot:
@@ -399,6 +411,12 @@ public:
         return Span<const LocalShadowCaster>{ m_localCasters.Data(), m_localCasters.Size() };
     }
 
+    // Screen-space decals (consumed by the standalone DecalPass, not the Renderer dispatch).
+    void AddDecal(const DecalInstance& d) { m_decals.PushBack(d); }
+    [[nodiscard]] Span<const DecalInstance> Decals() const noexcept {
+        return Span<const DecalInstance>{ m_decals.Data(), m_decals.Size() };
+    }
+
     // The scene's environment ambient (a flat indirect term until IBL lands). Premultiplied
     // color × intensity, applied as `albedo * ambient` in the forward shader.
     void SetAmbient(const Vec3& ambient) noexcept { m_ambient = ambient; }
@@ -413,7 +431,7 @@ public:
     [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept { return m_shadow; }
 
     // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_sky = {}; m_shadow = {}; m_arena.Reset(); }
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_decals.Clear(); m_ambient = Vec3{ 0.03f, 0.03f, 0.03f }; m_sky = {}; m_shadow = {}; m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
@@ -429,6 +447,7 @@ private:
     Array<RenderData*>      m_items;
     Array<GpuLight>         m_lights;
     Array<LocalShadowCaster> m_localCasters;             // spot/point shadow casters (phase 5.3)
+    Array<DecalInstance>    m_decals;                    // screen-space decals (consumed by DecalPass)
     Vec3               m_ambient = Vec3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
     SkySnapshot        m_sky;                                     // sky/IBL environment for this frame
     DirectionalShadow  m_shadow;                                  // active directional shadow caster

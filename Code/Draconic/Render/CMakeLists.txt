@@ -29,6 +29,7 @@ target_sources(DraconicRender
             TaaPass.cppm
             AoPass.cppm
             FxaaPass.cppm
+            DecalPass.cppm
             Debug/DebugFont.cppm
             Debug/DebugDraw.cppm
             Debug/DebugDrawPass.cppm

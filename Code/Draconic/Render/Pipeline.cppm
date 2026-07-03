@@ -36,6 +36,7 @@ import :ao;
 import :fxaa;
 import :debug_draw;
 import :debug_pass;
+import :decal_pass;
 import :sky;
 
 using namespace draconic::core;
@@ -559,6 +560,9 @@ public:
         m_debugPass = pass; m_debugGlobal = global; m_debugScreen = screen;
     }
 
+    // Per-frame decal pass (borrowed); null = no decals. Declared per view after sky, before AO.
+    void SetDecal(DecalPass* pass) noexcept { m_decalPass = pass; }
+
     // Turn on per-pass GPU timestamp profiling for the frame graph (idempotent).
     void EnableGpuProfiling() { m_graph.EnableGpuProfiling(); }
 
@@ -922,6 +926,8 @@ public:
         // preserving earlier views' regions (split-screen). Targets are few — a linear scan is fine.
         struct TargetImport { rhi::TextureView* target; rendergraph::RGHandle handle; u32 w; u32 h; rhi::TextureFormat fmt; };
         Array<TargetImport> imported;
+        // Bracket the decal ring ONCE for the whole per-view loop (each view accumulates its own slots).
+        if (m_decalPass != nullptr) { m_decalPass->BeginFrame(m_frameIndex); }
         for (usize i = 0; i < m_views.ActiveCount(); ++i) {
             RenderView* v = m_views.At(i);
             rhi::TextureView* tgt = v->Target();
@@ -1029,6 +1035,14 @@ public:
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
                                    m_tonemap->HdrFormat(), normalT, velocityT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
                 declareSky(hdr, velocityT, m_tonemap->HdrFormat());   // sky into HDR (+ camera-motion velocity), before TAA
+                // Screen-space decals: project onto the opaque depth + blend into the lit HDR, AFTER sky
+                // and BEFORE AO/TAA (so decals get TAA-resolved). Uses the jittered view-proj (matches the
+                // depth). Per-scene decal list rides on the view's snapshot.
+                if (m_decalPass != nullptr && v->Scene() != nullptr) {
+                    m_decalPass->DeclareDecals(m_graph, hdr, depth, v->Scene()->Decals(), curViewProj,
+                                               v->Width(), v->Height(),
+                                               v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight());
+                }
                 // AO (GTAO or SSAO) from the opaque depth+normal G-buffer, computed BEFORE the TAA resolve
                 // and multiplied into the HDR pre-TAA, so TAA stabilizes it (applying AO post-TAA wobbles,
                 // since the AO is computed from the jittered G-buffer and shifts sub-pixel each frame).
@@ -1126,6 +1140,7 @@ public:
             }
         }
         }   // end Compose.Declare
+        if (m_decalPass != nullptr) { m_decalPass->EndFrame(); }   // unmap the decal ring before execute
         {
             DRACONIC_PROFILE_SCOPE("Compose.Execute");   // graph compile (barriers/transients) + record all passes
             (void)m_graph.Execute(m_encoder);
@@ -1153,6 +1168,7 @@ private:
     TaaPass*                m_taa      = nullptr;   // borrowed; temporal AA resolve (per-view history)
     AoPass*                 m_ao       = nullptr;   // borrowed; ambient occlusion (GTAO/SSAO) from the G-buffer
     FxaaPass*               m_fxaa     = nullptr;   // borrowed; TAA-off fallback AA (after tonemap)
+    DecalPass*              m_decalPass = nullptr;  // borrowed; per-view screen-space decal pass
     DebugDrawPass*          m_debugPass = nullptr;  // borrowed; per-view debug gizmo/text pass
     const debug::DebugDraw* m_debugGlobal = nullptr;   // borrowed; global (all-views) debug list
     const debug::DebugDraw* m_debugScreen = nullptr;   // borrowed; whole-window screen HUD (drawn once)

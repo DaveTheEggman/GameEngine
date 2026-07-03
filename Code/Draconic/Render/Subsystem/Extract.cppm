@@ -153,6 +153,24 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
     });
 }
 
+// Fills `out`'s decal list from the scene's DecalComponents (serial — decals are few). The box world
+// bakes the component `size` as an extra scale on top of the entity transform (Scale then world, row-
+// vector order), so the entity's rotation orients the projection axis and `size` sets the box extents.
+inline void ExtractDecalsInto(scene::Scene& scene, ExtractedScene& out) {
+    auto* decals = scene.GetSystem<DecalComponentManager>();
+    if (decals == nullptr) { return; }
+    decals->ForEach([&](DecalComponent& dc, scene::EntityHandle e) {
+        if (!dc.visible || dc.texture == nullptr) { return; }
+        DecalInstance di;
+        di.world     = Mat4::Scale(dc.size) * scene.GetWorldMatrix(e);
+        di.color     = dc.color;
+        di.fadeStart = dc.fadeStart;
+        di.fadeEnd   = dc.fadeEnd;
+        di.texture   = dc.texture;
+        out.AddDecal(di);
+    });
+}
+
 // Reads the scene's primary camera into `out` (view = inverse world; projection from its
 // fields). When `outClear` is given, also writes the camera's clear color. Returns false if
 // no primary CameraComponent exists.

@@ -90,8 +90,22 @@ struct SpriteComponent {
     bool  visible     = true;
 };
 
+// A screen-space projected decal on an entity — sprays `texture` onto whatever surface is under its
+// oriented box. The box projects along the entity's local +Z; `size` is the box extents (x,y = the
+// footprint, z = how far along the projection axis it reaches). Orient the entity so local +Z points
+// into the surface (e.g. rotate so +Z points down to project onto a floor). `texture` is borrowed.
+struct DecalComponent {
+    rhi::TextureView* texture = nullptr;
+    Vec3  size      = Vec3{ 1.0f, 1.0f, 1.0f };
+    Color color     = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    f32   fadeStart = 0.0f;     // angle-fade start (radians)
+    f32   fadeEnd   = 1.30f;    // angle-fade end (radians ~75deg)
+    bool  visible   = true;
+};
+
 class MeshComponentManager   final : public scene::ComponentManager<MeshComponent>   {};
 class SpriteComponentManager final : public scene::ComponentManager<SpriteComponent> {};
+class DecalComponentManager  final : public scene::ComponentManager<DecalComponent>  {};
 class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};
 class LightComponentManager  final : public scene::ComponentManager<LightComponent>  {};
 

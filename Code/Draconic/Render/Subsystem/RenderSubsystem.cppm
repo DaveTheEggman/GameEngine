@@ -50,6 +50,7 @@ public:
     void OnSceneCreated(scene::Scene& scene) override {
         scene.AddSystem<MeshComponentManager>();
         scene.AddSystem<SpriteComponentManager>();
+        scene.AddSystem<DecalComponentManager>();
         scene.AddSystem<CameraComponentManager>();
         scene.AddSystem<LightComponentManager>();
         scene.AddSystem<EnvironmentSystem>();
@@ -146,6 +147,7 @@ public:
         m_frame->SetAo(m_aoMode, m_aoStrength, m_aoRadius, m_aoIntensity, m_aoDebug);
         m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
         m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal, &m_debugScreen);
+        m_frame->SetDecal(m_decalPass.Get());
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -162,6 +164,7 @@ public:
             if (m_spriteRenderer.Get() != nullptr) {           // billboards (into the same snapshot, after meshes)
                 ExtractSpritesInto(scene, *snapshot, m_spriteRenderer->RendererId());
             }
+            ExtractDecalsInto(scene, *snapshot);               // screen-space decals (DecalPass, not the Renderer path)
             ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
             ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
         }
@@ -262,6 +265,10 @@ protected:
         m_fxaaPass = MakeUnique<FxaaPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_fxaaPass->Initialize().IsOk()) { m_fxaaPass.Reset(); }
 
+        // Screen-space decals (project onto depth, blend into HDR before AO/TAA). Optional.
+        m_decalPass = MakeUnique<DecalPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+        if (!m_decalPass->Initialize().IsOk()) { m_decalPass.Reset(); }
+
         // Debug draw (per-view gizmos + screen text). Optional.
         m_debugPass = MakeUnique<DebugDrawPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_debugPass->Initialize().IsOk()) { m_debugPass.Reset(); }
@@ -294,6 +301,7 @@ protected:
         m_taaPass.Reset();      // before the ShaderSystem it borrows
         m_aoPass.Reset();       // before the ShaderSystem it borrows
         m_fxaaPass.Reset();     // before the ShaderSystem it borrows
+        m_decalPass.Reset();    // before the ShaderSystem it borrows
         m_debugPass.Reset();    // before the ShaderSystem it borrows
         m_iblSystem.Reset();    // IBL textures/buffers (before the ShaderSystem it borrows)
         m_spriteRenderer.Reset(); // before the ShaderSystem it borrows
@@ -334,6 +342,7 @@ private:
     UniquePtr<TaaPass>                        m_taaPass;
     UniquePtr<AoPass>                         m_aoPass;
     UniquePtr<FxaaPass>                        m_fxaaPass;
+    UniquePtr<DecalPass>                       m_decalPass;
     UniquePtr<DebugDrawPass>                   m_debugPass;
     debug::DebugDraw                           m_debugGlobal;                 // global gizmos (all views)
     debug::DebugDraw                           m_debugScreen;                 // whole-window HUD (drawn once)
