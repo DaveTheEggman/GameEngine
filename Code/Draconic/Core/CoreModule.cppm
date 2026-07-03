@@ -48,6 +48,7 @@ export import :aabb;
 export import :plane;
 export import :bounds;
 export import :rect;
+export import :content_fit;
 export import :type_info;
 export import :type_registry;
 export import :object;

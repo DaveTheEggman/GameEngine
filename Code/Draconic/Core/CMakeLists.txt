@@ -62,6 +62,7 @@ target_sources(DraconicCore
             Math/Plane.cppm
             Math/BoundingVolumes.cppm
             Math/Rect.cppm
+            Math/ContentFit.cppm
             RTTI/TypeInfo.cppm
             RTTI/TypeRegistry.cppm
             RTTI/Object.cppm
