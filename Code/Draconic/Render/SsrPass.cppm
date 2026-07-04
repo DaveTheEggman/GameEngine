@@ -106,17 +106,18 @@ float2 FullToLocal(float2 fuv) { return (fuv - pc.VpMin) / pc.VpSize; } // full-
 // Interleaved-gradient noise (denoises cleanly under TAA; frame-rotated so TAA averages it out).
 float Ign(float2 p) { return frac(52.9829189 * frac(dot(p, float2(0.06711056, 0.00583715)))); }
 
+// Trace outputs the REFLECTION buffer (rgb = reflected radiance, a = confidence/weight). Compositing
+// into the HDR happens in the resolve pass (after temporal accumulation). No reflection -> (0,0,0,0).
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
-    float3 hdr = SceneTex.SampleLevel(PointSamp, uv, 0).rgb;
     float  depth = DepthTex.SampleLevel(PointSamp, uv, 0).r;
-    if (depth >= 1.0) { return float4(hdr, 1.0); }   // background: no reflector
+    if (depth >= 1.0) { return float4(0.0, 0.0, 0.0, 0.0); }   // background: no reflector
 
     float2 mat       = MaterialTex.SampleLevel(PointSamp, uv, 0).rg;
     float  roughness = mat.r;
     float  metallic  = mat.g;
     // Rough surfaces fall back to the IBL/probe reflection already in the HDR (SSR is a sharp mirror term).
     float  roughFade = saturate(1.0 - roughness / max(pc.RoughnessCutoff, 1e-3));
-    if (roughFade <= 0.0) { return float4(hdr, 1.0); }
+    if (roughFade <= 0.0) { return float4(0.0, 0.0, 0.0, 0.0); }
 
     float2 luv = FullToLocal(uv);                 // this pixel's viewport-local uv
     float3 P = ViewPos(luv, depth);
@@ -148,9 +149,9 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     luv1 = luv0 + (luv1 - luv0) * tExit;
     iz1  = lerp(iz0, iz1, tExit);                  // 1/w is linear in the segment parameter
 
-    // Static (per-pixel, not frame-rotated) dither: decorrelates step banding but stays stable frame-to-
-    // frame, so SSR doesn't shimmer without TAA. Frame-rotation returns once the temporal pass can resolve it.
-    float jit = Ign(pos.xy);
+    // Frame-rotated dither (FrameMod animates it); the temporal resolve accumulates it away. When temporal
+    // is off the caller passes FrameMod=0 -> a static per-pixel dither that's stable without TAA.
+    float jit = frac(Ign(pos.xy) + float(pc.FrameMod) * 0.6180339887);
     bool  hit = false;
     float jHit = 0.0, jPrev = 0.0;
     [loop] for (int i = 1; i <= pc.MaxSteps; ++i) {
@@ -165,7 +166,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
         if (dif > 0.05 && dif < pc.Thickness) { hit = true; jHit = j; break; }
         jPrev = j;
     }
-    if (!hit) { return (pc.Debug > 0) ? float4(0.0, 0.0, 0.0, 1.0) : float4(hdr, 1.0); }
+    if (!hit) { return float4(0.0, 0.0, 0.0, 0.0); }   // miss: no reflection (resolve keeps the HDR)
 
     // Binary refine the crossing within [jPrev, jHit] for a sub-pixel-sharp hit (4 iters).
     float a = jPrev, b = jHit;
@@ -204,10 +205,94 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float  F0 = lerp(0.04, 1.0, metallic);
     float  fresnel = F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
     float  weight = saturate(edgeFade * fresnel * roughFade * pc.Intensity);
-    if (pc.Debug == 1) { return float4(refl, 1.0); }                  // raw reflected color at the hit
     if (pc.Debug == 2) { return float4(hitLocal, 0.0, 1.0); }         // hit uv (R=x, G=y, viewport-local)
     if (pc.Debug == 3) { return float4(weight, weight, weight, 1.0); }// composite weight
-    return float4(lerp(hdr, refl, weight), 1.0);
+    return float4(refl, weight);   // rgb = reflected radiance, a = confidence
+}
+)";
+
+// Temporal resolve + composite. Reprojects the previous accumulated reflection by surface velocity
+// (viewport-aware), YCoCg variance-clips it to the current neighborhood (kills ghosting/ fireflies),
+// blends toward history (motion-adaptive), then LERP-composites the accumulated reflection into the HDR.
+// MRT: SV_Target0 = composited HDR (downstream), SV_Target1 = next-frame reflection history.
+inline constexpr const char8_t* kSsrResolvePS = u8R"(
+Texture2D<float4> ReflTex     : register(t0, space0);   // current reflection (rgb + confidence)
+Texture2D<float4> HistoryTex  : register(t1, space0);   // previous accumulated reflection
+Texture2D         VelocityTex : register(t2, space0);   // screen-space motion (viewport-local uv delta)
+Texture2D<float4> HdrTex      : register(t3, space0);   // scene HDR to composite into
+SamplerState      PointSamp   : register(s0, space0);
+SamplerState      LinearSamp  : register(s1, space0);
+
+struct SsrResolvePush {
+    float2 VpMin;          // view sub-rect origin in full-texture uv
+    float2 VpSize;         // view sub-rect size in full-texture uv
+    float2 TexelSize;      // 1 / full size
+    float  BlendFactor;    // max history weight (~0.9)
+    float  HistoryValid;   // 0 = first frame (no history)
+    float  VarianceGamma;  // neighborhood clip half-width in stddevs (~1.0)
+    float  MotionScale;    // how fast history drops with motion
+    int    TemporalOn;     // 0 = skip history blend (pass current through)
+    int    Debug;          // >0 = output raw reflection (no composite)
+    float  GhostReject;    // history-vs-current luma-diff rejection strength (higher = less ghosting)
+};
+[[vk::push_constant]] SsrResolvePush pc;
+
+float3 RGBToYCoCg(float3 c) { return float3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
+float3 YCoCgToRGB(float3 c) { float t = c.x - c.z; return float3(t + c.y, c.x + c.z, t - c.y); }
+float3 ClipToAABB(float3 color, float3 aabbMin, float3 aabbMax) {
+    float3 center  = (aabbMax + aabbMin) * 0.5;
+    float3 extents = (aabbMax - aabbMin) * 0.5;
+    float3 shift   = color - center;
+    float3 absUnit = abs(shift / max(extents, 1e-4));
+    float  maxUnit = max(max(absUnit.x, absUnit.y), absUnit.z);
+    return maxUnit > 1.0 ? center + (shift / maxUnit) : color;
+}
+
+struct PSOut { float4 Color : SV_Target0; float4 History : SV_Target1; };
+
+PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
+    float4 curR  = ReflTex.SampleLevel(PointSamp, uv, 0);   // rgb + confidence
+    float4 accum = curR;
+
+    if (pc.TemporalOn != 0 && pc.HistoryValid > 0.5 && pc.Debug == 0) {
+        float2 localUv = (uv - pc.VpMin) / pc.VpSize;
+        float2 vel     = VelocityTex.SampleLevel(PointSamp, uv, 0).rg;   // viewport-local uv delta
+        float2 histLoc = localUv - vel;
+        if (all(histLoc >= 0.0) && all(histLoc <= 1.0)) {
+            // YCoCg neighborhood variance box from the CURRENT reflection (3x3).
+            float3 m1 = float3(0,0,0), m2 = float3(0,0,0);
+            [unroll] for (int ny = -1; ny <= 1; ++ny) {
+                [unroll] for (int nx = -1; nx <= 1; ++nx) {
+                    float3 y = RGBToYCoCg(ReflTex.SampleLevel(PointSamp, uv + float2(nx, ny) * pc.TexelSize, 0).rgb);
+                    m1 += y; m2 += y * y;
+                }
+            }
+            m1 /= 9.0; m2 /= 9.0;
+            float3 sigma  = sqrt(max(m2 - m1 * m1, 0.0));
+            float3 boxMin = m1 - pc.VarianceGamma * sigma;
+            float3 boxMax = m1 + pc.VarianceGamma * sigma;
+
+            float2 histFull = pc.VpMin + histLoc * pc.VpSize;
+            float4 hist    = HistoryTex.SampleLevel(LinearSamp, histFull, 0);
+            float3 rawHistY = RGBToYCoCg(hist.rgb);
+            float3 histY   = ClipToAABB(rawHistY, boxMin, boxMax);
+            float3 curY    = RGBToYCoCg(curR.rgb);
+            // Content-change rejection: where the reprojected history's luma disagrees with the current
+            // reflection (a moving reflected object trailed into this pixel), drop history and trust current.
+            // This is what kills ghosting that surface-velocity reprojection can't (the surface is static
+            // but its reflection moved). Plus a motion-adaptive term for camera movement.
+            float  ghost = saturate(1.0 - abs(rawHistY.x - curY.x) * pc.GhostReject);
+            float  motionMag = saturate(length(vel) * pc.MotionScale);
+            float  blend = pc.BlendFactor * (1.0 - 0.5 * motionMag) * ghost;
+            accum = float4(max(YCoCgToRGB(lerp(curY, histY, blend)), 0.0), lerp(curR.a, hist.a, blend));
+        }
+    }
+
+    PSOut o;
+    o.History = accum;
+    float3 hdr = HdrTex.SampleLevel(PointSamp, uv, 0).rgb;
+    o.Color = (pc.Debug > 0) ? float4(accum.rgb, 1.0) : float4(lerp(hdr, accum.rgb, saturate(accum.a)), 1.0);
+    return o;
 }
 )";
 
@@ -269,55 +354,98 @@ public:
         pd.primitive.cullMode = rhi::CullMode::None;
         pd.label = u8"ssr";
         if (!m_device->CreateRenderPipeline(pd, m_pipeline).IsOk()) { return Status{ ErrorCode::Unknown }; }
+
+        // --- Resolve pipeline (temporal accumulate + composite): reflection(t0) history(t1) velocity(t2)
+        //     hdr(t3) + point(s0) linear(s1). MRT out = composited HDR + next-frame reflection history. ---
+        m_shaders->RegisterSource(u8"ssr_resolve", shaders::ShaderStage::Vertex,   kSsrVS);
+        m_shaders->RegisterSource(u8"ssr_resolve", shaders::ShaderStage::Fragment, kSsrResolvePS);
+        rhi::BindGroupLayoutEntry re[] = {
+            rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment),
+            rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment),
+            rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment),
+            rhi::BindGroupLayoutEntry::SampledTexture(3, rhi::ShaderStage::Fragment),
+            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
+            rhi::BindGroupLayoutEntry::Sampler(1, rhi::ShaderStage::Fragment),
+        };
+        rhi::BindGroupLayoutDesc rld{}; rld.entries = Span<const rhi::BindGroupLayoutEntry>{ re, 6 };
+        if (!m_device->CreateBindGroupLayout(rld, m_resolveLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::BindGroupLayout* rgl[] = { m_resolveLayout };
+        rhi::PushConstantRange rpc{}; rpc.stages = rhi::ShaderStage::Fragment; rpc.offset = 0; rpc.size = sizeof(SsrResolvePushC);
+        rhi::PipelineLayoutDesc rpld{}; rpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ rgl, 1 };
+        rpld.pushConstantRanges = Span<const rhi::PushConstantRange>{ &rpc, 1 };
+        if (!m_device->CreatePipelineLayout(rpld, m_resolvePipelineLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
+        rhi::ShaderModule* rvs = m_shaders->GetVariant(u8"ssr_resolve", shaders::ShaderStage::Vertex,   shaders::ShaderFlags::None);
+        rhi::ShaderModule* rps = m_shaders->GetVariant(u8"ssr_resolve", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+        if (rvs == nullptr || rps == nullptr) { return Status{ ErrorCode::Unknown }; }
+        rhi::ColorTargetState rtargets[2] = {};
+        rtargets[0].format = kHdrFormat;   // composited HDR
+        rtargets[1].format = kHdrFormat;   // reflection history
+        rhi::FragmentState rfrag{}; rfrag.shader = rhi::ProgrammableStage{ rps, u8"main", rhi::ShaderStage::Fragment };
+        rfrag.targets = Span<const rhi::ColorTargetState>{ rtargets, 2 };
+        rhi::RenderPipelineDesc rpd{};
+        rpd.layout = m_resolvePipelineLayout;
+        rpd.vertex.shader = rhi::ProgrammableStage{ rvs, u8"main", rhi::ShaderStage::Vertex };
+        rpd.fragment = rfrag;
+        rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
+        rpd.primitive.cullMode = rhi::CullMode::None;
+        rpd.label = u8"ssr_resolve";
+        if (!m_device->CreateRenderPipeline(rpd, m_resolvePipeline).IsOk()) { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }
 
     // Tunables (driven from the render subsystem / UI).
     struct Params {
-        f32 intensity       = 1.0f;
-        f32 thickness       = 0.5f;    // view-space linear-depth hit-acceptance band
-        f32 edgeFade        = 0.1f;    // uv fraction faded at each screen border
-        f32 roughnessCutoff = 0.8f;    // roughness at/above which SSR is off (rougher = blurred cone-gather)
-        f32 glossy          = 1.0f;    // glossy blur scale (0 = sharp mirror, higher = blurrier)
-        i32 maxSteps        = 96;      // ray-march samples along the segment
-        i32 debug           = 0;       // 0=off, 1=raw refl, 2=hit uv, 3=weight, 4=reflect dir
+        f32  intensity       = 1.0f;
+        f32  thickness       = 0.5f;    // view-space linear-depth hit-acceptance band
+        f32  edgeFade        = 0.1f;    // uv fraction faded at each screen border
+        f32  roughnessCutoff = 0.8f;    // roughness at/above which SSR is off (rougher = blurred cone-gather)
+        f32  glossy          = 1.0f;    // glossy blur scale (0 = sharp mirror, higher = blurrier)
+        i32  maxSteps        = 96;      // ray-march samples along the segment
+        i32  debug           = 0;       // 0=off, 1=raw refl, 2=hit uv, 3=weight, 4=reflect dir
+        bool temporal        = true;    // temporal accumulate (reproject + variance-clip history)
+        f32  historyBlend    = 0.88f;   // max history weight on stable pixels
+        f32  varianceGamma   = 1.0f;    // neighborhood clip half-width (stddevs)
+        f32  motionScale     = 24.0f;   // how fast history drops with motion
+        f32  ghostReject     = 6.0f;    // history-vs-current luma-diff rejection (higher = less ghosting)
     };
 
-    // Reflect `hdr` into a fresh HDR transient and return it. w,h = full target size; vx/vy/vw/vh = this
-    // view's viewport sub-rect (so split-screen views reconstruct/project in their own local uv, while
-    // sampling the full texture). invProj/proj = camera inverse-proj / proj (proj z-row carries TAA jitter).
+    // Reflect the scene into a fresh HDR transient (returned). Two passes: trace -> reflection buffer,
+    // then resolve (temporal accumulate + composite). w,h = full target size; vx/vy/vw/vh = this view's
+    // sub-rect (split-screen views reconstruct/project in local uv, sample the full texture). velocity =
+    // the G-buffer motion vectors (for reprojection). invProj/proj = camera inverse-proj / proj.
     [[nodiscard]] rendergraph::RGHandle DeclareSsr(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr,
                                                    rendergraph::RGHandle depth, rendergraph::RGHandle normal,
-                                                   rendergraph::RGHandle material, u32 w, u32 h,
-                                                   i32 vx, i32 vy, u32 vw, u32 vh, const Mat4& invProj,
-                                                   const Mat4& proj, const Params& p, u32 frameIndex) {
-        if (w == 0 || h == 0 || m_pipeline == nullptr) { return hdr; }
+                                                   rendergraph::RGHandle material, rendergraph::RGHandle velocity,
+                                                   u32 w, u32 h, i32 vx, i32 vy, u32 vw, u32 vh, const Mat4& invProj,
+                                                   const Mat4& proj, const Params& p, u32 viewIndex, u32 frameIndex) {
+        if (w == 0 || h == 0 || m_pipeline == nullptr || m_resolvePipeline == nullptr || viewIndex >= kMaxViews) { return hdr; }
         Tick(frameIndex);
-        const rendergraph::RGHandle out = graph.CreateTransient(u8"ssr.scene", rendergraph::RGTextureDesc(kHdrFormat, w, h));
-
         const f32 fw = static_cast<f32>(w), fh = static_cast<f32>(h);
+        const Vec2 vpMin{ static_cast<f32>(vx) / fw, static_cast<f32>(vy) / fh };
+        const Vec2 vpSize{ static_cast<f32>(vw) / fw, static_cast<f32>(vh) / fh };
+        const bool temporalOn = p.temporal;
+
+        // --- Trace: reflection buffer (rgb reflected radiance, a = confidence) ---
+        const rendergraph::RGHandle refl = graph.CreateTransient(u8"ssr.refl", rendergraph::RGTextureDesc(kHdrFormat, w, h));
         SsrPushC pc{};
         pc.invProj    = invProj;
-        pc.vpMin      = Vec2{ static_cast<f32>(vx) / fw, static_cast<f32>(vy) / fh };
-        pc.vpSize     = Vec2{ static_cast<f32>(vw) / fw, static_cast<f32>(vh) / fh };
-        pc.jitter     = Vec2{ proj(2, 0), proj(2, 1) };   // NDC jitter (proj z-row)
-        pc.projXX     = proj(0, 0);
-        pc.projYY     = proj(1, 1);
-        pc.thickness  = p.thickness;
-        pc.intensity  = p.intensity;
+        pc.vpMin      = vpMin;  pc.vpSize = vpSize;
+        pc.jitter     = Vec2{ proj(2, 0), proj(2, 1) };
+        pc.projXX     = proj(0, 0);  pc.projYY = proj(1, 1);
+        pc.thickness  = p.thickness;  pc.intensity = p.intensity;
         pc.edgeFade   = (p.edgeFade > 1e-4f) ? p.edgeFade : 1e-4f;
         pc.roughCutoff = p.roughnessCutoff;
         pc.maxSteps   = (p.maxSteps > 1) ? p.maxSteps : 1;
-        pc.frameMod   = static_cast<i32>(frameIndex & 63u);
+        // STATIC per-pixel dither (frameMod=0): a frame-rotated dither shimmers, and the temporal pass
+        // can't average it away without also re-admitting the ghosting the reject term suppresses. Static
+        // dither is deterministic per (pixel, camera) -> under a still camera current==history -> the
+        // temporal accumulation is stable, while ghost-reject still handles moving reflected content.
+        pc.frameMod   = 0;
         pc.debug      = p.debug;
         pc.glossy     = (p.glossy >= 0.0f) ? p.glossy : 0.0f;
-
-        graph.AddRenderPass(u8"ssr", [this, &graph, hdr, depth, normal, material, out, w, h, pc](rendergraph::PassBuilder& b) {
-            b.SetColorTarget(0, out, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
-            b.ReadTexture(hdr);
-            b.ReadTexture(depth);
-            b.ReadTexture(normal);
-            b.ReadTexture(material);
+        graph.AddRenderPass(u8"ssr.trace", [this, &graph, hdr, depth, normal, material, refl, w, h, pc](rendergraph::PassBuilder& b) {
+            b.SetColorTarget(0, refl, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
+            b.ReadTexture(hdr); b.ReadTexture(depth); b.ReadTexture(normal); b.ReadTexture(material);
             b.SetViewport(0, 0, w, h);
             b.NeverCull();
             b.SetExecute([this, &graph, hdr, depth, normal, material, pc](rhi::RenderPassEncoder& rp) {
@@ -331,6 +459,49 @@ public:
                 rp.Draw(3, 1, 0, 0);
             });
         });
+
+        // --- Resolve: reproject + variance-clip + accumulate history, then composite into the HDR ---
+        ViewHistory& hist = m_views[viewIndex];
+        if (!EnsureHistory(hist, w, h)) { return hdr; }
+        const u32 cur = hist.cur, prev = cur ^ 1u;
+        const rendergraph::RGHandle out = graph.CreateTransient(u8"ssr.scene", rendergraph::RGTextureDesc(kHdrFormat, w, h));
+        const rendergraph::RGHandle histPrev = graph.ImportTarget(u8"ssr.histPrev", hist.tex[prev], hist.view[prev],
+                                                                  rhi::ResourceState::ShaderRead, hist.state[prev]);
+        hist.state[prev] = rhi::ResourceState::ShaderRead;
+        const rendergraph::RGHandle histCur = graph.ImportTarget(u8"ssr.histCur", hist.tex[cur], hist.view[cur],
+                                                                 rhi::ResourceState::RenderTarget, hist.state[cur]);
+        hist.state[cur] = rhi::ResourceState::RenderTarget;
+
+        SsrResolvePushC rpc2{};
+        rpc2.vpMin = vpMin;  rpc2.vpSize = vpSize;
+        rpc2.texelSize = Vec2{ 1.0f / fw, 1.0f / fh };
+        rpc2.blendFactor = p.historyBlend;
+        rpc2.historyValid = hist.valid ? 1.0f : 0.0f;
+        rpc2.varianceGamma = p.varianceGamma;
+        rpc2.motionScale = p.motionScale;
+        rpc2.temporalOn = temporalOn ? 1 : 0;
+        rpc2.debug = p.debug;
+        rpc2.ghostReject = p.ghostReject;
+
+        rhi::TextureView* histPrevView = hist.view[prev];
+        graph.AddRenderPass(u8"ssr.resolve", [this, &graph, refl, histPrev, velocity, hdr, out, histCur, histPrevView, rpc2](rendergraph::PassBuilder& b) {
+            b.SetColorTarget(0, out,     rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
+            b.SetColorTarget(1, histCur, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black());
+            b.ReadTexture(refl); b.ReadTexture(histPrev); b.ReadTexture(velocity); b.ReadTexture(hdr);
+            b.NeverCull();
+            b.SetExecute([this, &graph, refl, velocity, hdr, histPrevView, rpc2](rhi::RenderPassEncoder& rp) {
+                rhi::BindGroup* bg = EnsureResolveBindGroup(graph.GetTextureView(refl), histPrevView,
+                                                            graph.GetTextureView(velocity), graph.GetTextureView(hdr),
+                                                            graph.GetTextureGeneration(refl) ^ (graph.GetTextureGeneration(hdr) * 1099511628211ull));
+                if (bg == nullptr) { return; }
+                rp.SetPipeline(m_resolvePipeline);
+                rp.SetBindGroup(0, bg, Span<const u32>{});
+                rp.SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(SsrResolvePushC), &rpc2);
+                rp.Draw(3, 1, 0, 0);
+            });
+        });
+        hist.cur = prev;   // this frame's history output becomes next frame's read
+        hist.valid = true;
         return out;
     }
 
@@ -354,6 +525,53 @@ private:
         f32  glossy = 1.0f;
     };
     static_assert(sizeof(SsrPushC) <= 128, "SSR push exceeds the portable 128-byte push-constant limit");
+
+    // Byte-identical to the HLSL SsrResolvePush.
+    struct SsrResolvePushC {
+        Vec2 vpMin{ 0.0f, 0.0f };
+        Vec2 vpSize{ 1.0f, 1.0f };
+        Vec2 texelSize{};
+        f32  blendFactor = 0.88f;
+        f32  historyValid = 0.0f;
+        f32  varianceGamma = 1.0f;
+        f32  motionScale = 24.0f;
+        i32  temporalOn = 1;
+        i32  debug = 0;
+        f32  ghostReject = 6.0f;
+    };
+    static_assert(sizeof(SsrResolvePushC) <= 128, "SSR resolve push exceeds the portable 128-byte limit");
+
+    static constexpr u32 kMaxViews = 8;
+    struct ViewHistory {
+        rhi::Texture*      tex[2]  = {};
+        rhi::TextureView*  view[2] = {};
+        rhi::ResourceState state[2] = { rhi::ResourceState::Undefined, rhi::ResourceState::Undefined };
+        u32  w = 0, h = 0, cur = 0;
+        bool valid = false;
+    };
+
+    bool EnsureHistory(ViewHistory& hist, u32 w, u32 h) {
+        if (hist.tex[0] != nullptr && hist.w == w && hist.h == h) { return true; }
+        DestroyHistory(hist);
+        for (u32 i = 0; i < 2; ++i) {
+            rhi::TextureDesc td{};
+            td.format = kHdrFormat; td.width = w; td.height = h;
+            td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled; td.label = u8"ssr.history";
+            if (!m_device->CreateTexture(td, hist.tex[i]).IsOk()) { hist.tex[i] = nullptr; DestroyHistory(hist); return false; }
+            rhi::TextureViewDesc vd{}; vd.format = kHdrFormat; vd.dimension = rhi::TextureViewDimension::Texture2D;
+            if (!m_device->CreateTextureView(hist.tex[i], vd, hist.view[i]).IsOk()) { hist.view[i] = nullptr; DestroyHistory(hist); return false; }
+            hist.state[i] = rhi::ResourceState::Undefined;
+        }
+        hist.w = w; hist.h = h; hist.cur = 0; hist.valid = false;
+        return true;
+    }
+    void DestroyHistory(ViewHistory& hist) {
+        for (u32 i = 0; i < 2; ++i) {
+            if (hist.view[i]) { m_device->DestroyTextureView(hist.view[i]); hist.view[i] = nullptr; }
+            if (hist.tex[i])  { m_device->DestroyTexture(hist.tex[i]);       hist.tex[i]  = nullptr; }
+        }
+        hist.w = hist.h = 0; hist.valid = false;
+    }
 
     // Combine four transient generations into one cache key (same FNV-ish mixing as :ao).
     static u64 Combine(rendergraph::RenderGraph& g, rendergraph::RGHandle a, rendergraph::RGHandle b,
@@ -400,19 +618,46 @@ private:
         return bg;
     }
 
+    // Resolve bind group (reflection, history, velocity, hdr + 2 samplers), cached by (history view, gen).
+    rhi::BindGroup* EnsureResolveBindGroup(rhi::TextureView* refl, rhi::TextureView* histPrev,
+                                           rhi::TextureView* velocity, rhi::TextureView* hdr, u64 generation) {
+        if (refl == nullptr || histPrev == nullptr || velocity == nullptr || hdr == nullptr) { return nullptr; }
+        if (ResolveEntry* e = m_resolveBindGroups.Find(histPrev)) {
+            if (e->gen == generation && e->refl == refl && e->velocity == velocity && e->hdr == hdr && e->bg != nullptr) { return e->bg; }
+            if (e->bg != nullptr) { m_retired.PushBack(Retired{ e->bg, kRetireFrames }); e->bg = nullptr; }
+        }
+        rhi::BindGroupEntry ent[] = {
+            rhi::BindGroupEntry::TextureEntry(refl), rhi::BindGroupEntry::TextureEntry(histPrev),
+            rhi::BindGroupEntry::TextureEntry(velocity), rhi::BindGroupEntry::TextureEntry(hdr),
+            rhi::BindGroupEntry::SamplerEntry(m_sampler), rhi::BindGroupEntry::SamplerEntry(m_linearSampler),
+        };
+        rhi::BindGroupDesc bgd{}; bgd.layout = m_resolveLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ ent, 6 };
+        rhi::BindGroup* bg = nullptr;
+        if (!m_device->CreateBindGroup(bgd, bg).IsOk()) { return nullptr; }
+        m_resolveBindGroups.InsertOrAssign(histPrev, ResolveEntry{ bg, refl, velocity, hdr, generation });
+        return bg;
+    }
+
     void Shutdown() {
         for (auto& kv : m_bindGroups) { if (kv.value.bg != nullptr) { m_device->DestroyBindGroup(kv.value.bg); } }
         m_bindGroups.Clear();
+        for (auto& kv : m_resolveBindGroups) { if (kv.value.bg != nullptr) { m_device->DestroyBindGroup(kv.value.bg); } }
+        m_resolveBindGroups.Clear();
         for (auto& r : m_retired) { m_device->DestroyBindGroup(r.bg); }
         m_retired.Clear();
+        for (u32 v = 0; v < kMaxViews; ++v) { DestroyHistory(m_views[v]); }
         if (m_pipeline != nullptr) { m_device->DestroyRenderPipeline(m_pipeline); m_pipeline = nullptr; }
+        if (m_resolvePipeline != nullptr) { m_device->DestroyRenderPipeline(m_resolvePipeline); m_resolvePipeline = nullptr; }
         if (m_sampler != nullptr) { m_device->DestroySampler(m_sampler); m_sampler = nullptr; }
         if (m_linearSampler != nullptr) { m_device->DestroySampler(m_linearSampler); m_linearSampler = nullptr; }
         if (m_pipelineLayout != nullptr) { m_device->DestroyPipelineLayout(m_pipelineLayout); m_pipelineLayout = nullptr; }
+        if (m_resolvePipelineLayout != nullptr) { m_device->DestroyPipelineLayout(m_resolvePipelineLayout); m_resolvePipelineLayout = nullptr; }
         if (m_layout != nullptr) { m_device->DestroyBindGroupLayout(m_layout); m_layout = nullptr; }
+        if (m_resolveLayout != nullptr) { m_device->DestroyBindGroupLayout(m_resolveLayout); m_resolveLayout = nullptr; }
     }
 
     struct Entry { rhi::BindGroup* bg = nullptr; rhi::TextureView* depth = nullptr; rhi::TextureView* normal = nullptr; rhi::TextureView* material = nullptr; u64 gen = 0; };
+    struct ResolveEntry { rhi::BindGroup* bg = nullptr; rhi::TextureView* refl = nullptr; rhi::TextureView* velocity = nullptr; rhi::TextureView* hdr = nullptr; u64 gen = 0; };
     struct Retired { rhi::BindGroup* bg = nullptr; u32 left = 0; };
     static constexpr u32 kRetireFrames = 4;
 
@@ -420,10 +665,15 @@ private:
     shaders::ShaderSystem* m_shaders;
     rhi::BindGroupLayout*  m_layout = nullptr;
     rhi::PipelineLayout*   m_pipelineLayout = nullptr;
-    rhi::RenderPipeline*   m_pipeline = nullptr;
+    rhi::RenderPipeline*   m_pipeline = nullptr;               // trace
+    rhi::BindGroupLayout*  m_resolveLayout = nullptr;
+    rhi::PipelineLayout*   m_resolvePipelineLayout = nullptr;
+    rhi::RenderPipeline*   m_resolvePipeline = nullptr;        // temporal resolve + composite
     rhi::Sampler*          m_sampler = nullptr;         // point: depth/reconstruction
     rhi::Sampler*          m_linearSampler = nullptr;   // linear: glossy color gather
-    HashMap<rhi::TextureView*, Entry> m_bindGroups;
+    ViewHistory            m_views[kMaxViews];
+    HashMap<rhi::TextureView*, Entry>        m_bindGroups;
+    HashMap<rhi::TextureView*, ResolveEntry> m_resolveBindGroups;
     Array<Retired>                    m_retired;
     u32                               m_lastFrame = 0xFFFFFFFFu;
 };

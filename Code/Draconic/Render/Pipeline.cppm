@@ -1208,10 +1208,10 @@ public:
                 // G-buffer to gate/fade; LERP-replaces the IBL specular where it hits. Produces a fresh HDR.
                 rendergraph::RGHandle sceneHdr = hdr;
                 if (m_ssr != nullptr && m_ssrEnabled) {
-                    sceneHdr = m_ssr->DeclareSsr(m_graph, hdr, depth, normalT, materialT, v->Width(), v->Height(),
+                    sceneHdr = m_ssr->DeclareSsr(m_graph, hdr, depth, normalT, materialT, velocityT, v->Width(), v->Height(),
                                                  v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                                  Inverse(v->Camera().projection), v->Camera().projection,
-                                                 m_ssrParams, m_frameIndex);
+                                                 m_ssrParams, viewIndex, m_frameIndex);
                 }
                 // AO (GTAO or SSAO) from the opaque depth+normal G-buffer, computed BEFORE the TAA resolve
                 // and multiplied into the HDR pre-TAA, so TAA stabilizes it (applying AO post-TAA wobbles,

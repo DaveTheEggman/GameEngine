@@ -652,11 +652,16 @@ namespace
                 if (ImGui::Checkbox("SSR (screen-space reflections)", &ssrOn)) { render->SetSsrEnabled(ssrOn); }
                 if (ssrOn) {
                     auto& p = render->SsrParams();
+                    ImGui::Checkbox("SSR Temporal", &p.temporal);
                     ImGui::SliderFloat("SSR Intensity", &p.intensity, 0.0f, 1.0f);
                     ImGui::SliderFloat("SSR Glossy (0=sharp)", &p.glossy, 0.0f, 2.0f);
                     ImGui::SliderFloat("SSR Thickness", &p.thickness, 0.05f, 3.0f);
                     ImGui::SliderFloat("SSR Rough Cutoff", &p.roughnessCutoff, 0.0f, 1.0f);
                     ImGui::SliderInt("SSR Steps", &p.maxSteps, 16, 256);
+                    if (p.temporal) {
+                        ImGui::SliderFloat("SSR History", &p.historyBlend, 0.0f, 0.98f);
+                        ImGui::SliderFloat("SSR Ghost Reject", &p.ghostReject, 0.0f, 20.0f);
+                    }
                     const char* ssrDbg[] = { "Off", "Raw Reflection", "Hit UV", "Weight", "Reflect Dir" };
                     ImGui::Combo("SSR Debug", &p.debug, ssrDbg, 5);
                 }
