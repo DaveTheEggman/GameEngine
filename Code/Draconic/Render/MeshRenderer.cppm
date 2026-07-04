@@ -880,6 +880,7 @@ public:
         m_lightRing.BeginFrame(frameIndex);
         m_localShadowRing.BeginFrame(frameIndex);
         m_boneRing.BeginFrame(frameIndex);
+        m_instShareCache.Clear();   // per-frame: the camera prepass fills it, the forward reuses it (ring offsets are frame-scoped)
         m_ready = true;
     }
 
@@ -1234,18 +1235,27 @@ private:
             config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
             config.shaderFlags |= shaders::ShaderFlags::Skinned;
         }
-        const DynamicUniformRing::Range inst = m_instanceRing.AllocateRange(count);
-        const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
-        if (!inst.ok || !offs.ok) { return; }
-
-        InstanceData* id = static_cast<InstanceData*>(inst.ptr);
-        DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
-        for (u32 k = 0; k < count; ++k) {
-            const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
-            id[k] = InstanceData{ md->world, ctx.needsMotion ? PrevWorldFor(md->entityId, md->world) : md->world, md->color };
-            u32 boneBase = 0, prevBase = 0;
-            if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
-            od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };   // .x=Instances[] idx, .y/.z=bone bases
+        // The camera depth prepass already filled this group's InstanceData + DataOffsets (identical objects,
+        // same order) and cached the range — REUSE it instead of allocating + re-filling (build once). Falls
+        // back to a fresh fill on a miss (no prepass, count mismatch, or ring exhausted).
+        u64 offsByteOffset;
+        const InstShare* shared = m_instShareCache.Find(InstShareKey(ctx.view, head.mesh, head.material));
+        if (shared != nullptr && shared->count == count) {
+            offsByteOffset = shared->offsByteOffset;
+        } else {
+            const DynamicUniformRing::Range inst = m_instanceRing.AllocateRange(count);
+            const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
+            if (!inst.ok || !offs.ok) { return; }
+            InstanceData* id = static_cast<InstanceData*>(inst.ptr);
+            DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
+            for (u32 k = 0; k < count; ++k) {
+                const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
+                id[k] = InstanceData{ md->world, ctx.needsMotion ? PrevWorldFor(md->entityId, md->world) : md->world, md->color };
+                u32 boneBase = 0, prevBase = 0;
+                if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
+                od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };   // .x=Instances[] idx, .y/.z=bone bases
+            }
+            offsByteOffset = offs.byteOffset;
         }
 
         // Shared per-submesh draw state (view/instances/cluster sets + vertex/index buffers + skinning).
@@ -1256,9 +1266,9 @@ private:
         base.vertexBuffer0 = mesh.vertexBuffer; base.vertexOffset0 = mesh.vertexOffset;
         if (skinned) {
             base.vertexBuffer1 = mesh.skinBuffer;        base.vertexOffset1 = mesh.skinOffset;   // slot 1: skin stream (6/7)
-            base.vertexBuffer2 = m_offsetsRing.Buffer(); base.vertexOffset2 = offs.byteOffset;    // slot 2: DataOffsets (5)
+            base.vertexBuffer2 = m_offsetsRing.Buffer(); base.vertexOffset2 = offsByteOffset;     // slot 2: DataOffsets (5)
         } else {
-            base.vertexBuffer1 = m_offsetsRing.Buffer(); base.vertexOffset1 = offs.byteOffset;    // slot 1: DataOffsets (5)
+            base.vertexBuffer1 = m_offsetsRing.Buffer(); base.vertexOffset1 = offsByteOffset;     // slot 1: DataOffsets (5)
         }
         base.indexBuffer = mesh.indexBuffer; base.indexFormat = mesh.indexFormat; base.instanceCount = count;
 
@@ -1365,12 +1375,20 @@ private:
 
         InstanceData* id = static_cast<InstanceData*>(inst.ptr);
         DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
+        // When this prepass feeds the forward (camera depth prepass, fillInstanceCache), build the FULL
+        // InstanceData incl. REAL prevWorld so the forward can reuse it for motion vectors. Shadow casters
+        // leave prevWorld = world (the depth/shadow shaders ignore it — no extra prev-world lookup).
+        const bool feedsForward = ctx.fillInstanceCache;
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
-            id[k] = InstanceData{ md->world, md->world, md->color };   // depth pass ignores prevWorld
+            const Mat4 prev = (feedsForward && ctx.needsMotion) ? PrevWorldFor(md->entityId, md->world) : md->world;
+            id[k] = InstanceData{ md->world, prev, md->color };
             u32 boneBase = 0, prevBase = 0;
             if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
             od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };
+        }
+        if (feedsForward) {   // record this group's DataOffsets range for the forward to reuse
+            m_instShareCache.InsertOrAssign(InstShareKey(ctx.view, head.mesh, head.material), InstShare{ offs.byteOffset, count });
         }
 
         ResolvedDraw d{};
@@ -1890,6 +1908,22 @@ private:
         if (idx >= m_curWorld.Size()) { m_curWorld.Resize(idx + 1u); }   // grows toward the max live index, then stable
         m_curWorld[idx] = cur;
         return (idx < m_prevWorld.Size()) ? m_prevWorld[idx] : cur;
+    }
+
+    // Camera depth-prepass -> forward instance sharing. The prepass fills the FULL InstanceData (world +
+    // real prevWorld + tint) for each opaque (mesh,material) group once and records the group's DataOffsets
+    // range here; the forward looks it up and REUSES that instance data instead of re-filling it (build once,
+    // not twice). Keyed by (viewIndex, mesh, material); cleared each frame. Instanced path only.
+    struct InstShare { u64 offsByteOffset = 0; u32 count = 0; };
+    HashMap<u64, InstShare> m_instShareCache;
+    // Keyed by the VIEW pointer (not viewIndex): the main view's prepass + forward share one RenderView, but
+    // probe-capture forwards reuse viewIndex 0 with a different draw list — a distinct pointer avoids collision.
+    static u64 InstShareKey(const void* view, const void* mesh, const void* mat) noexcept {
+        u64 k = 1469598103934665603ull;
+        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(view))) * 1099511628211ull;
+        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mesh))) * 1099511628211ull;
+        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mat)))  * 1099511628211ull;
+        return k;
     }
 
     // Bind groups retired this/prior frames but possibly still referenced by in-flight command

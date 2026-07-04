@@ -360,6 +360,13 @@ namespace
                     if (kb->IsKeyPressed(rt::KeyCode::Space))     { AddBatch(); }
                     if (kb->IsKeyPressed(rt::KeyCode::Backspace)) { RemoveBatch(); }
                     if (kb->IsKeyPressed(rt::KeyCode::H))         { m_showHud = !m_showHud; }
+                    if (kb->IsKeyPressed(rt::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B)
+                        if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                            const bool on = !render->InstanceSharing();
+                            render->SetInstanceSharing(on);
+                            rc::ConsoleWrite(on ? u8"Instance sharing: ON\n" : u8"Instance sharing: OFF (forward re-fills)\n");
+                        }
+                    }
                     if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
                 }
             }

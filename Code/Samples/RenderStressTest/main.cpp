@@ -196,6 +196,14 @@ namespace
                     rc::ConsoleWrite(on ? u8"TAA: ON (motion vectors active)\n" : u8"TAA: OFF\n");
                 }
             }
+            if (kb->IsKeyPressed(rt::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B regression/perf)
+                if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                    const bool on = !render->InstanceSharing();
+                    render->SetInstanceSharing(on);
+                    rc::ConsoleWrite(on ? u8"Instance sharing: ON (prepass builds once, forward reuses)\n"
+                                        : u8"Instance sharing: OFF (forward re-fills = old double-build)\n");
+                }
+            }
             if (kb->IsKeyPressed(rt::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
                 if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                     if (rd::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {

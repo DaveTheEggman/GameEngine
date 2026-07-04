@@ -86,6 +86,7 @@ struct RenderRecordContext {
     bool                       depthPrepass = false;   // camera depth-only prepass: no depth bias (match forward exactly)
     bool                       probesEnabled = true;    // false during probe capture: reflect the sky IBL, not the probe (no feedback/self-black)
     bool                       needsMotion = true;      // false = no temporal effect consumes velocity -> skip the per-instance prev-world lookup
+    bool                       fillInstanceCache = false; // camera depth prepass: build the FULL instance data + cache the per-group range so the forward reuses it (build once, not twice)
 };
 
 // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,
@@ -646,6 +647,10 @@ public:
     }
     // FXAA (TAA-off fallback): run FXAA after tonemap when TAA is off. Never stacked with TAA.
     void SetFxaa(bool on, f32 subpixelQuality) noexcept { m_fxaaEnabled = on; m_fxaaSubpixel = subpixelQuality; }
+    // Instance-data sharing between the camera depth-prepass and the forward (build once vs twice). On by
+    // default; off re-fills in the forward (for A/B / regression checks).
+    void SetInstanceSharing(bool on) noexcept { m_instanceSharing = on; }
+    [[nodiscard]] bool InstanceSharing() const noexcept { return m_instanceSharing; }
     // Append a per-pass GPU timing report + the per-pass CPU record cost (call only after device idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
@@ -658,11 +663,17 @@ public:
     void RecordDepthPrepass(rhi::RenderPassEncoder& rp, const RenderView& view,
                             const RendererRegistry& registry, u32 viewIndex) {
         RenderRecordContext ctx{};
+        ctx.view         = &view;   // instance-share cache is keyed by view pointer (prepass fills, forward reuses)
         ctx.viewProj     = view.Camera().ViewProjection();
         ctx.depthFormat  = m_pass.DepthFormat();
         ctx.depthPrepass = true;
         ctx.frameIndex   = m_frameIndex;
         ctx.viewIndex    = viewIndex;
+        // Build the FULL per-instance data here (once) and cache each opaque group's range so the forward
+        // reuses it instead of re-filling (matches Sedulous's build-instance-offsets-once). Needs the same
+        // prevWorld the forward would use, so mirror the motion-needed condition.
+        ctx.fillInstanceCache = m_instanceSharing;   // toggleable: off => forward re-fills (old double-build), for A/B
+        ctx.needsMotion = m_taaEnabled || (m_ssr != nullptr && m_ssrEnabled && m_ssrParams.temporal);
 
         m_prepassResolved.Clear();
         const Span<const DrawItem> items = view.DrawList();
@@ -1362,6 +1373,7 @@ private:
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
     bool                    m_fxaaEnabled = false;
     f32                     m_fxaaSubpixel = 0.75f;
+    bool                    m_instanceSharing = true;   // share prepass->forward instance data (A/B toggle)
     AoMode                  m_aoMode      = AoMode::Off;
     i32                     m_aoDebug     = 0;
     f32                     m_aoStrength  = 0.6f;

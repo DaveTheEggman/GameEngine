@@ -164,9 +164,9 @@ namespace
                 m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, 0.0f, 0.0f });
                 rd::MeshComponent& fmc = meshes->Add(floor);
                 fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
-                // Brushed blue-steel METAL — glossy (not mirror) so the SSR roughness cone-gather is
-                // visible: reflections of the spheres / cubes / lights are soft, not razor-sharp.
-                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.55f, 0.60f, 0.70f, 1.0f }, 1.0f, 0.25f);
+                // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
+                // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
+                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.12f, 0.45f, 0.22f, 1.0f }, 0.0f, 0.45f);
 
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -627,6 +627,8 @@ namespace
             if (render != nullptr) {
                 float exposure = render->Exposure();
                 if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 8.0f)) { render->SetExposure(exposure); }
+                bool instShare = render->InstanceSharing();   // prepass->forward instance-data sharing (A/B / regression)
+                if (ImGui::Checkbox("Instance Sharing", &instShare)) { render->SetInstanceSharing(instShare); }
                 {
                     // Ambient occlusion mode (Off/GTAO/SSAO, mutually exclusive) + shared knobs.
                     const char* aoItems[] = { "Off", "GTAO", "SSAO" };
