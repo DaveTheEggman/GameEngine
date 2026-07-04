@@ -34,6 +34,7 @@ import :probes;
 import :bloom;
 import :taa;
 import :ao;
+import :ssr;
 import :fxaa;
 import :debug_draw;
 import :debug_pass;
@@ -603,6 +604,12 @@ public:
 
     // Per-frame decal pass (borrowed); null = no decals. Declared per view after sky, before AO.
     void SetDecal(DecalPass* pass) noexcept { m_decalPass = pass; }
+
+    // Screen-space reflections (borrowed pass); null = no SSR. Declared per view after sky+decals, before
+    // AO/TAA (so TAA stabilizes the march). Set once per frame before End.
+    void SetSsr(SsrPass* pass) noexcept { m_ssr = pass; }
+    // SSR enable + tunables (enabled=false leaves the scene HDR untouched).
+    void SetSsrParams(bool enabled, const SsrPass::Params& params) noexcept { m_ssrEnabled = enabled; m_ssrParams = params; }
 
     // Reflection-probe system (borrowed); null = no probes. Dirty probes are captured (6 faces each,
     // lit forward + sky into their cube-array slices) before the main views, so the forward can sample
@@ -1196,6 +1203,16 @@ public:
                                                v->Width(), v->Height(),
                                                v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight());
                 }
+                // Screen-space reflections: reflect the lit HDR (sky + opaque + decals) into itself, AFTER
+                // decals and BEFORE AO/TAA (pre-TAA so the resolve stabilizes the march). Reads the roughness
+                // G-buffer to gate/fade; LERP-replaces the IBL specular where it hits. Produces a fresh HDR.
+                rendergraph::RGHandle sceneHdr = hdr;
+                if (m_ssr != nullptr && m_ssrEnabled) {
+                    sceneHdr = m_ssr->DeclareSsr(m_graph, hdr, depth, normalT, materialT, v->Width(), v->Height(),
+                                                 v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
+                                                 Inverse(v->Camera().projection), v->Camera().projection,
+                                                 m_ssrParams, m_frameIndex);
+                }
                 // AO (GTAO or SSAO) from the opaque depth+normal G-buffer, computed BEFORE the TAA resolve
                 // and multiplied into the HDR pre-TAA, so TAA stabilizes it (applying AO post-TAA wobbles,
                 // since the AO is computed from the jittered G-buffer and shifts sub-pixel each frame).
@@ -1208,9 +1225,9 @@ public:
                                           m_aoRadius, m_aoIntensity, m_frameIndex, aoMode, m_aoDebug);
                 }
                 const bool showAo = aoH.IsValid() && m_aoDebug != 0;   // debug: AO/channel straight to screen
-                rendergraph::RGHandle litHdr = hdr;
+                rendergraph::RGHandle litHdr = sceneHdr;
                 if (aoH.IsValid() && m_aoMode != AoMode::Off && m_aoDebug == 0) {
-                    litHdr = m_ao->DeclareApply(m_graph, hdr, aoH, v->Width(), v->Height(), m_aoStrength);
+                    litHdr = m_ao->DeclareApply(m_graph, sceneHdr, aoH, v->Width(), v->Height(), m_aoStrength);
                 }
                 // TAA resolve on the opaque+sky+AO HDR (jittered) -> stable HDR. Then transparent composites
                 // on the RESOLVED image (see below), so it's never temporally accumulated (no ghost) or
@@ -1323,6 +1340,9 @@ private:
     AoPass*                 m_ao       = nullptr;   // borrowed; ambient occlusion (GTAO/SSAO) from the G-buffer
     FxaaPass*               m_fxaa     = nullptr;   // borrowed; TAA-off fallback AA (after tonemap)
     DecalPass*              m_decalPass = nullptr;  // borrowed; per-view screen-space decal pass
+    SsrPass*                m_ssr       = nullptr;  // borrowed; screen-space reflections (after sky/decals, pre-TAA)
+    bool                    m_ssrEnabled = false;
+    SsrPass::Params         m_ssrParams{};
     ReflectionProbeSystem*  m_probeSystem = nullptr; // borrowed; dirty probes captured before the main views
     RenderView              m_captureViews[6];       // persistent 6-face capture views (outlive graph execute)
     u32                     m_probeCaptureCursor = 0; // round-robin: which dirty probe to capture this frame

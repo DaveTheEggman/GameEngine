@@ -97,6 +97,12 @@ public:
     void SetAoDebug(i32 mode) noexcept { m_aoDebug = mode; }   // 0=off, 1=AO, 2/3/4=N.xyz, 5=viewZ, 6=depth
     [[nodiscard]] i32 AoDebug() const noexcept { return m_aoDebug; }
 
+    // Screen-space reflections: on/off + tunables (intensity, max view-space ray length, hit thickness,
+    // screen-edge fade, roughness cutoff, march steps). Reflects the lit HDR before AO/TAA.
+    void SetSsrEnabled(bool on) noexcept { m_ssrEnabled = on; }
+    [[nodiscard]] bool SsrEnabled() const noexcept { return m_ssrEnabled; }
+    [[nodiscard]] SsrPass::Params& SsrParams() noexcept { return m_ssrParams; }
+
     // FXAA on/off (TAA-off fallback AA — ignored while TAA is on) + sub-pixel quality (0..1).
     void SetFxaaEnabled(bool on) noexcept { m_fxaaEnabled = on; }
     [[nodiscard]] bool FxaaEnabled() const noexcept { return m_fxaaEnabled; }
@@ -149,6 +155,8 @@ public:
         m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
         m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal, &m_debugScreen);
         m_frame->SetDecal(m_decalPass.Get());
+        m_frame->SetSsr(m_ssrPass.Get());
+        m_frame->SetSsrParams(m_ssrEnabled, m_ssrParams);
         m_frame->SetProbes(m_probeSystem.Get());
         m_frame->Begin(encoder, frameIndex);
     }
@@ -270,6 +278,10 @@ protected:
         m_aoPass = MakeUnique<AoPass>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_aoPass->Initialize().IsOk()) { m_aoPass.Reset(); }
 
+        // Screen-space reflections (reflect the lit HDR before AO/TAA). Optional.
+        m_ssrPass = MakeUnique<SsrPass>(DefaultAllocator(), *m_device, *m_shaders);
+        if (!m_ssrPass->Initialize().IsOk()) { m_ssrPass.Reset(); }
+
         // FXAA (TAA-off fallback AA). Optional.
         m_fxaaPass = MakeUnique<FxaaPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_fxaaPass->Initialize().IsOk()) { m_fxaaPass.Reset(); }
@@ -309,6 +321,7 @@ protected:
         m_bloomPass.Reset();    // before the ShaderSystem it borrows
         m_taaPass.Reset();      // before the ShaderSystem it borrows
         m_aoPass.Reset();       // before the ShaderSystem it borrows
+        m_ssrPass.Reset();      // before the ShaderSystem it borrows
         m_fxaaPass.Reset();     // before the ShaderSystem it borrows
         m_decalPass.Reset();    // before the ShaderSystem it borrows
         m_debugPass.Reset();    // before the ShaderSystem it borrows
@@ -352,6 +365,7 @@ private:
     UniquePtr<BloomPass>                      m_bloomPass;
     UniquePtr<TaaPass>                        m_taaPass;
     UniquePtr<AoPass>                         m_aoPass;
+    UniquePtr<SsrPass>                         m_ssrPass;
     UniquePtr<FxaaPass>                        m_fxaaPass;
     UniquePtr<DecalPass>                       m_decalPass;
     UniquePtr<DebugDrawPass>                   m_debugPass;
@@ -365,6 +379,8 @@ private:
     f32                                       m_aoStrength     = 0.6f;          // partial by default (full darkens curved surfaces too much)
     f32                                       m_aoRadius       = 0.5f;
     f32                                       m_aoIntensity    = 1.0f;
+    bool                                      m_ssrEnabled     = false;   // SSR off by default (UI toggle)
+    SsrPass::Params                           m_ssrParams{};
     bool                                      m_fxaaEnabled    = false;   // FXAA off by default (TAA-off fallback)
     f32                                       m_fxaaSubpixel   = 0.75f;
     bool                                      m_taaEnabled     = false;   // TAA off by default (UI toggle)

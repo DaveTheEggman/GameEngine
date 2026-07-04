@@ -164,8 +164,9 @@ namespace
                 m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, 0.0f, 0.0f });
                 rd::MeshComponent& fmc = meshes->Add(floor);
                 fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
-                // Distinct matte green so the floor reads clearly when reflected in the metallic spheres.
-                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.10f, 0.42f, 0.20f, 1.0f }, 0.0f, 0.7f);
+                // Brushed blue-steel METAL — glossy (not mirror) so the SSR roughness cone-gather is
+                // visible: reflections of the spheres / cubes / lights are soft, not razor-sharp.
+                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.55f, 0.60f, 0.70f, 1.0f }, 1.0f, 0.25f);
 
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -646,6 +647,20 @@ namespace
                     int dbg = render->AoDebug();
                     if (ImGui::Combo("AO Debug", &dbg, dbgItems, 7)) { render->SetAoDebug(dbg); }
                 }
+                ImGui::Separator();
+                bool ssrOn = render->SsrEnabled();
+                if (ImGui::Checkbox("SSR (screen-space reflections)", &ssrOn)) { render->SetSsrEnabled(ssrOn); }
+                if (ssrOn) {
+                    auto& p = render->SsrParams();
+                    ImGui::SliderFloat("SSR Intensity", &p.intensity, 0.0f, 1.0f);
+                    ImGui::SliderFloat("SSR Glossy (0=sharp)", &p.glossy, 0.0f, 2.0f);
+                    ImGui::SliderFloat("SSR Thickness", &p.thickness, 0.05f, 3.0f);
+                    ImGui::SliderFloat("SSR Rough Cutoff", &p.roughnessCutoff, 0.0f, 1.0f);
+                    ImGui::SliderInt("SSR Steps", &p.maxSteps, 16, 256);
+                    const char* ssrDbg[] = { "Off", "Raw Reflection", "Hit UV", "Weight", "Reflect Dir" };
+                    ImGui::Combo("SSR Debug", &p.debug, ssrDbg, 5);
+                }
+                ImGui::Separator();
                 bool taaOn = render->TaaEnabled();
                 if (ImGui::Checkbox("TAA", &taaOn)) { render->SetTaaEnabled(taaOn); }
                 if (!taaOn) {   // FXAA is the TAA-off fallback (never stacked with TAA)
