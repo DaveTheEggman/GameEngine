@@ -722,7 +722,8 @@ public:
     // are skipped — per-light shadow-caster culling (phase 5.4).
     void RecordShadowCasters(rhi::RenderPassEncoder& rp, Span<const DrawItem> casters,
                              const RendererRegistry& registry, const Mat4& lightViewProj,
-                             Vec3 cullCenter = {}, f32 cullRadius = 0.0f, bool frustumCull = false) {
+                             Vec3 cullCenter = {}, f32 cullRadius = 0.0f, bool frustumCull = false,
+                             Span<const Vec4> cullBounds = {}) {
         RenderRecordContext ctx{};
         ctx.viewProj    = lightViewProj;
         ctx.depthFormat = (m_shadows != nullptr) ? m_shadows->Format() : rhi::TextureFormat::Depth32Float;
@@ -737,12 +738,29 @@ public:
         // - sphere cull (cullRadius > 0): local point/spot lights vs the light's reach.
         Span<const DrawItem> items = casters;
         if (frustumCull) {
+            DRACONIC_PROFILE_SCOPE("shadow.cull");   // per-cascade frustum scan
             const BoundingFrustum frustum{ lightViewProj };
             m_shadowCullScratch.Clear();
-            for (const DrawItem& it : casters) {
-                const auto* md = static_cast<const MeshRenderData*>(it.data);
-                if (Intersects(frustum, BoundingSphere{ md->worldCenter, md->worldRadius })) {
-                    m_shadowCullScratch.PushBack(it);
+            // Prefer the compact bounds SoA (linear, cache-friendly) over chasing it.data->worldCenter.
+            if (cullBounds.Size() == casters.Size()) {
+                for (usize k = 0; k < casters.Size(); ++k) {
+                    const Vec4 b = cullBounds[k];
+                    const Vec3 c{ b.x, b.y, b.z };
+                    // Inline sphere-vs-frustum with early-out: reject if the sphere is fully outside any
+                    // plane (outward normals). Avoids BoundingSphere construction + the enum/switch
+                    // Intersects() runs per plane — this is the hot path (~448k tests/frame at 112k casters).
+                    bool inside = true;
+                    for (i32 p = 0; p < BoundingFrustum::kPlaneCount; ++p) {
+                        if (Dot(frustum.planes[p].normal, c) + frustum.planes[p].d > b.w) { inside = false; break; }
+                    }
+                    if (inside) { m_shadowCullScratch.PushBack(casters[k]); }
+                }
+            } else {
+                for (const DrawItem& it : casters) {
+                    const auto* md = static_cast<const MeshRenderData*>(it.data);
+                    if (Intersects(frustum, BoundingSphere{ md->worldCenter, md->worldRadius })) {
+                        m_shadowCullScratch.PushBack(it);
+                    }
                 }
             }
             items = Span<const DrawItem>{ m_shadowCullScratch.Data(), m_shadowCullScratch.Size() };
@@ -762,6 +780,7 @@ public:
         // whole category run to the first item's renderer would hand sprite data to the mesh renderer
         // (read as MeshRenderData -> garbage/UAF). Same-renderer runs route correctly; sprites' depth-only
         // resolve is a no-op (they don't cast shadows).
+        DRACONIC_PROFILE_SCOPE("shadow.resolve");   // per-survivor instance resolve + emit
         m_shadowResolved.Clear();
         usize i = 0;
         while (i < items.Size()) {
@@ -796,6 +815,15 @@ public:
             m_shadowCasters.PushBack(DrawItem{ MakeSortKey(data->category, stateBits, 0u), data });
         }
         RadixSortDrawItems(m_shadowCasters, m_sortScratch);
+        // Compact bounds SoA (xyz = worldCenter, w = worldRadius) aligned to the SORTED caster order, so the
+        // per-cascade frustum cull streams 16B/item linearly (4 per cache line) instead of chasing
+        // it.data->worldCenter into scattered ~200B MeshRenderData — the dominant shadow-record cost at scale.
+        m_shadowCasterBounds.Clear();
+        m_shadowCasterBounds.Reserve(m_shadowCasters.Size());
+        for (const DrawItem& it : m_shadowCasters) {
+            const auto* md = static_cast<const MeshRenderData*>(it.data);
+            m_shadowCasterBounds.PushBack(Vec4{ md->worldCenter.x, md->worldCenter.y, md->worldCenter.z, md->worldRadius });
+        }
     }
 
     // A signature over the STATIC local casters' transforms (quantized) + count. When it changes, the
@@ -1053,7 +1081,8 @@ public:
                         b.SetViewport(0, 0, shadowRes, shadowRes);
                         b.SetExecute([this, cascadeVP, reg](rhi::RenderPassEncoder& rp) {
                             const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
-                            RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true);
+                            const Span<const Vec4> bounds{ m_shadowCasterBounds.Data(), m_shadowCasterBounds.Size() };
+                            RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true, bounds);
                         });
                     });
                 }
@@ -1465,6 +1494,7 @@ private:
     Array<u32>              m_staticTileDirty;     // per-static-tile refresh countdown (index-stable across frames)
     Array<Sphere>           m_animatedSpheres;     // this frame's skinned-caster world spheres (per-tile routing)
     Array<DrawItem>         m_shadowCasters;       // camera-independent scene caster list (local shadows)
+    Array<Vec4>             m_shadowCasterBounds;  // aligned to m_shadowCasters: xyz=worldCenter, w=radius (cache-friendly cascade cull)
     Array<DrawItem>         m_shadowCullScratch;   // per-tile sphere-culled subset (reused)
     u64                     m_staticSig   = 0;     // signature of the static caster set (cache-invalidation)
     RenderViewPool          m_views;
