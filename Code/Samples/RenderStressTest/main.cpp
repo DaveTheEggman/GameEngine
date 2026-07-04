@@ -372,18 +372,41 @@ namespace
             ImGui::Text("%.0f fps   %.2f ms", static_cast<double>(fps), static_cast<double>(m_frameMs));
             ImGui::Text("spheres %d   batches %d   grid %dx%d",
                         static_cast<int>(m_spheres.Size()), m_batchCount, m_gridSize, m_gridSize);
-            ImGui::Text("materials: %s", m_uniqueMaterials ? "unique (a draw per sphere)" : "shared (batched)");
-            ImGui::Text("bob: %s", m_bob ? "on" : "off");
+            ImGui::Separator();
+            if (ImGui::Button("+ batch (Space)")) { AddSphereBatch(); }
+            ImGui::SameLine();
+            if (ImGui::Button("- batch (Backspace)")) { RemoveLastBatch(); }
+            // Scene toggles (also the hot-keys U/B/T/I/K).
+            bool uniq = m_uniqueMaterials;
+            if (ImGui::Checkbox("Unique materials (U)", &uniq)) { m_uniqueMaterials = uniq; RebuildSphereMaterials(); }
+            ImGui::Checkbox("Sin-wave bob (B)", &m_bob);
+            if (render != nullptr) {
+                bool taa = render->TaaEnabled();
+                if (ImGui::Checkbox("TAA (T)", &taa)) { render->SetTaaEnabled(taa); }
+                bool inst = render->InstanceSharing();
+                if (ImGui::Checkbox("Instance sharing (I)", &inst)) { render->SetInstanceSharing(inst); }
+            }
+            if (m_scene != nullptr) {
+                if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
+                    if (rd::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
+                        bool sh = sl->castsShadows;
+                        if (ImGui::Checkbox("Directional shadows (K)", &sh)) { sl->castsShadows = sh; }
+                    }
+                }
+            }
             if (render != nullptr) {
                 ImGui::Separator();
                 float exposure = render->Exposure();
                 if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 4.0f)) { render->SetExposure(exposure); }
                 bool bloomOn = render->BloomEnabled();
                 if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
+                float shadowDist = render->ShadowDistance();
+                if (ImGui::SliderFloat("Shadow dist", &shadowDist, 50.0f, 1000.0f, "%.0f")) { render->SetShadowDistance(shadowDist); }
+                float shadowFade = render->ShadowFarFade();
+                if (ImGui::SliderFloat("Shadow fade", &shadowFade, 2.0f, 150.0f, "%.0f")) { render->SetShadowFarFade(shadowFade); }
             }
             ImGui::Separator();
-            ImGui::TextUnformatted("Space +8000   Backspace -8000");
-            ImGui::TextUnformatted("U unique mats   B bob   H hide HUD   P profiler");
+            ImGui::TextUnformatted("H hide HUD   P profiler");
             ImGui::TextUnformatted("WASD/QE move   RMB look   Shift fast   Esc exit");
             ImGui::End();
         }

@@ -443,6 +443,8 @@ namespace
                 if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 4.0f)) { render->SetExposure(exposure); }
                 bool bloomOn = render->BloomEnabled();
                 if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
+                bool inst = render->InstanceSharing();
+                if (ImGui::Checkbox("Instance sharing (I)", &inst)) { render->SetInstanceSharing(inst); }
                 ImGui::Separator();
                 ImGui::TextUnformatted("Directional shadows");
                 float shadowDist = render->ShadowDistance();
@@ -452,7 +454,9 @@ namespace
                 ImGui::TextDisabled("shadows fade out over the last %.0f units", static_cast<double>(shadowFade));
             }
             ImGui::Separator();
-            ImGui::TextUnformatted("Space +batch   Backspace -batch");
+            if (ImGui::Button("+ batch (Space)")) { AddBatch(); }
+            ImGui::SameLine();
+            if (ImGui::Button("- batch (Backspace)")) { RemoveBatch(); }
             ImGui::TextUnformatted("H hide HUD   P profiler   Esc exit");
             ImGui::TextUnformatted("WASD/QE move   RMB look   Shift fast");
             ImGui::End();

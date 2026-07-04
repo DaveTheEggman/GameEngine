@@ -752,6 +752,12 @@ namespace
                     ImGui::SliderFloat("Probe Intensity", &rp->intensity, 0.0f, 4.0f);
                 }
             }
+            // Animation graph: fire the "Next" transition trigger (also the G hot-key).
+            if (m_graphChar.IsAssigned()) {
+                ImGui::SeparatorText("Animation");
+                if (ImGui::Button("Fire graph 'Next' (G)")) { FireGraphNext(); }
+            }
+            ImGui::SeparatorText("Debug");
             ImGui::Checkbox("Debug Draw (gizmos/grid/axes)", &m_showDebugDraw);
             ImGui::Checkbox("Show ImGui demo", &m_showImguiDemo);
             ImGui::End();
