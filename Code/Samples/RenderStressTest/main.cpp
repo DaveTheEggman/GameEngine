@@ -189,6 +189,13 @@ namespace
                                        : u8"Sin-wave bob: OFF\n");
             }
             if (kb->IsKeyPressed(rt::KeyCode::H)) { m_showStats = !m_showStats; }
+            if (kb->IsKeyPressed(rt::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
+                if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                    const bool on = !render->TaaEnabled();
+                    render->SetTaaEnabled(on);
+                    rc::ConsoleWrite(on ? u8"TAA: ON (motion vectors active)\n" : u8"TAA: OFF\n");
+                }
+            }
             if (kb->IsKeyPressed(rt::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
                 if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                     if (rd::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {

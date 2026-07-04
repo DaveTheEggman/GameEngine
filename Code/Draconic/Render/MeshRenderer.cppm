@@ -1106,9 +1106,14 @@ public:
         m_instanceRing.EndFrame();
         m_boneRing.EndFrame();
         m_offsetsRing.EndFrame();
-        // This frame's world matrices become next frame's "previous" (motion vectors).
+        // This frame's world matrices become next frame's "previous" (motion vectors). SWAP the maps'
+        // buckets (3-move) rather than Move+Clear: Move zeroes m_curWorld's capacity, forcing it to re-grow
+        // from empty (rehashing ~log2(N) times) every frame — the bulk of the motion-vector cost with TAA
+        // on. Swapping lets m_curWorld reuse the prior cycle's capacity, so next frame's inserts never grow.
+        HashMap<u64, Mat4> recycled = Move(m_prevWorld);
         m_prevWorld = Move(m_curWorld);
-        m_curWorld.Clear();
+        m_curWorld  = Move(recycled);
+        m_curWorld.Clear();   // reset entries, KEEP bucket capacity
         m_ready = false;
     }
 
