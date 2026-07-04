@@ -1106,14 +1106,13 @@ public:
         m_instanceRing.EndFrame();
         m_boneRing.EndFrame();
         m_offsetsRing.EndFrame();
-        // This frame's world matrices become next frame's "previous" (motion vectors). SWAP the maps'
-        // buckets (3-move) rather than Move+Clear: Move zeroes m_curWorld's capacity, forcing it to re-grow
-        // from empty (rehashing ~log2(N) times) every frame — the bulk of the motion-vector cost with TAA
-        // on. Swapping lets m_curWorld reuse the prior cycle's capacity, so next frame's inserts never grow.
-        HashMap<u64, Mat4> recycled = Move(m_prevWorld);
+        // This frame's world matrices become next frame's "previous" (motion vectors). Flat swap: O(1)
+        // pointer moves, no clear — each visible entity overwrites its own slot when resolved, and slots
+        // for now-invisible entities are never read (their draws don't resolve). Both buffers keep their
+        // capacity, so steady state does zero allocation.
+        Array<Mat4> recycled = Move(m_prevWorld);
         m_prevWorld = Move(m_curWorld);
         m_curWorld  = Move(recycled);
-        m_curWorld.Clear();   // reset entries, KEEP bucket capacity
         m_ready = false;
     }
 
@@ -1874,19 +1873,23 @@ private:
     HashMap<const Mat4*, BoneSlot> m_boneStart;
     Array<SkinnedRef>              m_skinnedScratch;
 
-    // Per-entity previous-frame world matrix, for rigid-object motion vectors. m_prevWorld holds LAST
-    // frame's worlds (read by every view this frame); resolves write THIS frame's into m_curWorld; the
-    // two swap at FinishFrame. Keyed by MeshRenderData::entityId (stable per entity). No entry -> no
-    // motion (prev == cur), so newly-visible objects don't smear on their first frame.
-    HashMap<u64, Mat4> m_prevWorld;
-    HashMap<u64, Mat4> m_curWorld;
+    // Per-entity previous-frame world matrix, for rigid-object motion vectors. FLAT double-buffer indexed
+    // by entity INDEX (entityId low 32 bits) — not a hashmap: direct O(1) index, no hashing/probing/rehash
+    // (the per-instance Find was the motion-vector hot cost at scale). m_prevWorld holds LAST frame's worlds
+    // (read by every view this frame); resolves write THIS frame's into m_curWorld; the two swap at
+    // FinishFrame. Out-of-range / never-written -> prev == cur (no motion), so newly-visible objects don't
+    // smear on their first frame.
+    Array<Mat4> m_prevWorld;
+    Array<Mat4> m_curWorld;
 
-    // Look up an entity's previous-frame world (defaulting to `cur` when unknown) and record `cur` as
-    // this frame's world for next frame. Idempotent across a frame's views (all read the same m_prevWorld).
+    // Record `cur` as this frame's world (idempotent across a frame's views — same value each time) and
+    // return the entity's previous-frame world (or `cur` if unknown). Indexed by entity index so multiple
+    // views resolving the same object read a STABLE prev (writing cur never clobbers prev — separate buffers).
     [[nodiscard]] Mat4 PrevWorldFor(u64 entityId, const Mat4& cur) {
-        m_curWorld.InsertOrAssign(entityId, cur);
-        const Mat4* p = m_prevWorld.Find(entityId);
-        return (p != nullptr) ? *p : cur;
+        const u32 idx = static_cast<u32>(entityId);   // entityId = (generation << 32) | index
+        if (idx >= m_curWorld.Size()) { m_curWorld.Resize(idx + 1u); }   // grows toward the max live index, then stable
+        m_curWorld[idx] = cur;
+        return (idx < m_prevWorld.Size()) ? m_prevWorld[idx] : cur;
     }
 
     // Bind groups retired this/prior frames but possibly still referenced by in-flight command
