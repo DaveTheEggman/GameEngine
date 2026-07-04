@@ -107,6 +107,16 @@ public:
     void SetInstanceSharing(bool on) noexcept { m_instanceSharing = on; }
     [[nodiscard]] bool InstanceSharing() const noexcept { return m_instanceSharing; }
 
+    // View-frustum culling: skip renderables outside the camera frustum per view. Off by default (a no-op
+    // for benchmarks that frame everything; a win for real scenes with lots off-screen). Shadow casters are
+    // sourced independently, so culling the camera view never drops a shadow.
+    void SetViewCulling(bool on) noexcept { m_viewCulling = on; }
+    [[nodiscard]] bool ViewCulling() const noexcept { return m_viewCulling; }
+    // Last frame's cull totals (culled / considered, summed over views). 0/0 when culling was off.
+    void ViewCullStats(u32& culled, u32& total) const noexcept {
+        if (m_frame.Get() != nullptr) { m_frame->CullStats(culled, total); } else { culled = 0; total = 0; }
+    }
+
     // FXAA on/off (TAA-off fallback AA — ignored while TAA is on) + sub-pixel quality (0..1).
     void SetFxaaEnabled(bool on) noexcept { m_fxaaEnabled = on; }
     [[nodiscard]] bool FxaaEnabled() const noexcept { return m_fxaaEnabled; }
@@ -167,6 +177,7 @@ public:
         m_frame->SetAo(m_aoMode, m_aoStrength, m_aoRadius, m_aoIntensity, m_aoDebug);
         m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
         m_frame->SetInstanceSharing(m_instanceSharing);
+        m_frame->SetViewCulling(m_viewCulling);
         m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal, &m_debugScreen);
         m_frame->SetDecal(m_decalPass.Get());
         m_frame->SetSsr(m_ssrPass.Get());
@@ -396,6 +407,7 @@ private:
     bool                                      m_ssrEnabled     = false;   // SSR off by default (UI toggle)
     SsrPass::Params                           m_ssrParams{};
     bool                                      m_instanceSharing = true;   // prepass->forward instance-data sharing (A/B toggle)
+    bool                                      m_viewCulling     = false;  // view-frustum cull camera draw lists (default off)
     bool                                      m_fxaaEnabled    = false;   // FXAA off by default (TAA-off fallback)
     f32                                       m_fxaaSubpixel   = 0.75f;
     bool                                      m_taaEnabled     = false;   // TAA off by default (UI toggle)

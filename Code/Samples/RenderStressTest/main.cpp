@@ -385,6 +385,12 @@ namespace
                 if (ImGui::Checkbox("TAA (T)", &taa)) { render->SetTaaEnabled(taa); }
                 bool inst = render->InstanceSharing();
                 if (ImGui::Checkbox("Instance sharing (I)", &inst)) { render->SetInstanceSharing(inst); }
+                bool cull = render->ViewCulling();
+                if (ImGui::Checkbox("View-frustum cull", &cull)) { render->SetViewCulling(cull); }
+                if (cull) {
+                    rc::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
+                    ImGui::SameLine(); ImGui::TextDisabled("(%u/%u culled)", culled, total);
+                }
             }
             if (m_scene != nullptr) {
                 if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {

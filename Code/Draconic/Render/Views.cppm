@@ -80,17 +80,30 @@ public:
     }
 
     // Build the per-view draw list from the bound scene: assign each renderable a category +
-    // a view-dependent sort key (state bits + view-space depth), then radix-sort. Phase 1
-    // does no frustum culling (everything is drawn); the cull step slots in here later.
-    void BuildDrawList(Array<DrawItem>& sortScratch) {
+    // a view-dependent sort key (state bits + view-space depth), then radix-sort. When `cull` is set,
+    // reject renderables whose world bounding sphere falls entirely outside the camera frustum first.
+    void BuildDrawList(Array<DrawItem>& sortScratch, bool cull = false) {
         m_drawList.Clear();
+        m_sceneItemCount = 0;
+        m_culledCount    = 0;
         if (m_scene == nullptr) { return; }
 
         const Mat4 viewMat = m_camera.view;
         const f32  invFar  = (m_camera.farZ > 0.0f) ? (1.0f / m_camera.farZ) : 1.0f;
+        // View frustum for culling (6 planes from the camera VP; D3D z in [0,1], same extraction the
+        // shadow cull uses). Built once per view; skipped entirely when culling is off.
+        BoundingFrustum frustum{};
+        if (cull) { frustum = BoundingFrustum{ m_camera.ViewProjection() }; }
 
         for (RenderData* data : m_scene->Items()) {
             if (data == nullptr) { continue; }
+            ++m_sceneItemCount;
+            // View-frustum cull (category-generic): reject when the world bounding sphere is fully
+            // outside the frustum. Every producer sets worldCenter/worldRadius on the RenderData base.
+            if (cull && !Intersects(frustum, BoundingSphere{ data->worldCenter, data->worldRadius })) {
+                ++m_culledCount;
+                continue;
+            }
             // Category-generic: read the base sort fields (worldCenter/sortBatchKey the producer set)
             // + the category's sort mode from the dynamic registry — no downcast to a concrete type,
             // so any renderer's data (mesh, sprite, particle) sorts through this one path.
@@ -129,6 +142,9 @@ public:
     [[nodiscard]] Span<const DrawItem>      DrawList()    const noexcept {
         return Span<const DrawItem>{ m_drawList.Data(), m_drawList.Size() };
     }
+    // Cull stats for the last BuildDrawList (0/0 when culling was off — nothing tested).
+    [[nodiscard]] u32                       SceneItemCount() const noexcept { return m_sceneItemCount; }
+    [[nodiscard]] u32                       CulledCount()    const noexcept { return m_culledCount; }
     // Opaque per-scene debug-draw list for this view (set by the subsystem; cast back in RenderFrame).
     // Stored as void* to keep Views decoupled from the :debug_draw partition.
     void                                    SetDebugScene(const void* d) noexcept { m_debugScene = d; }
@@ -148,6 +164,8 @@ private:
     u32                   m_viewportH     = 0;
     const void*           m_debugScene    = nullptr;   // opaque debug::DebugDraw* for this view's scene
     Array<DrawItem>       m_drawList;   // per-view, owned (pooled storage)
+    u32                   m_sceneItemCount = 0;   // items considered by the last BuildDrawList
+    u32                   m_culledCount    = 0;   // of those, rejected by the view-frustum cull
 };
 
 // A per-frame pool of views. `Begin` rewinds it (keeping the RenderView storage + their

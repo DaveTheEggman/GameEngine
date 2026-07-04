@@ -758,6 +758,14 @@ namespace
                 if (ImGui::Button("Fire graph 'Next' (G)")) { FireGraphNext(); }
             }
             ImGui::SeparatorText("Debug");
+            if (render != nullptr) {
+                bool cull = render->ViewCulling();
+                if (ImGui::Checkbox("View-frustum cull", &cull)) { render->SetViewCulling(cull); }
+                if (cull) {
+                    rc::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
+                    ImGui::SameLine(); ImGui::TextDisabled("(%u/%u)", culled, total);
+                }
+            }
             ImGui::Checkbox("Debug Draw (gizmos/grid/axes)", &m_showDebugDraw);
             ImGui::Checkbox("Show ImGui demo", &m_showImguiDemo);
             ImGui::End();

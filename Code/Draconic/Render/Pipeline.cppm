@@ -608,7 +608,7 @@ public:
         RenderView* view = m_views.Acquire();
         view->Bind(scene, camera, settings, target, targetFormat, width, height);
         view->SetDebugScene(debugScene);
-        view->BuildDrawList(m_sortScratch);
+        view->BuildDrawList(m_sortScratch, m_viewCulling);
         return view;
     }
 
@@ -656,6 +656,17 @@ public:
     // default; off re-fills in the forward (for A/B / regression checks).
     void SetInstanceSharing(bool on) noexcept { m_instanceSharing = on; }
     [[nodiscard]] bool InstanceSharing() const noexcept { return m_instanceSharing; }
+    // View-frustum culling: reject renderables outside the camera frustum when building each view's draw
+    // list. Off by default (no-op for benchmarks that frame everything; a win for real off-screen-heavy
+    // scenes). Directional shadows source casters independently so culling never drops shadow casters.
+    void SetViewCulling(bool on) noexcept { m_viewCulling = on; }
+    [[nodiscard]] bool ViewCulling() const noexcept { return m_viewCulling; }
+    // Last frame's view-frustum cull totals, summed over active views (0/0 when culling was off). Read
+    // before Begin() rewinds the view pool (e.g. from the sample's OnUpdate) to see the previous frame.
+    void CullStats(u32& culled, u32& total) const noexcept {
+        culled = 0; total = 0;
+        for (usize i = 0; i < m_views.ActiveCount(); ++i) { culled += m_views.At(i)->CulledCount(); total += m_views.At(i)->SceneItemCount(); }
+    }
     // Directional-shadow reach (world units, clamped to the camera far plane) + the far-fade width (also
     // world units — a fixed-thickness soft edge, distance-independent). Larger distance covers more ground
     // but spreads cascade texel density; the fade dissolves the coverage boundary so it doesn't pop along
@@ -828,6 +839,19 @@ public:
         rhi::TextureView* shadowMap = hasShadow ? m_shadows->PrepareFrame(m_frameIndex, viewCount) : nullptr;
         const u64 shadowGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
 
+        // Camera-INDEPENDENT caster list (opaque+masked, off-camera casters included), built once per
+        // frame from the primary scene. Shared by BOTH the directional cascades and the local-light atlas
+        // tiles: sourcing shadows from this — not the per-view camera draw list — means view-frustum
+        // culling the camera never drops a shadow caster (and directional shadows now match local lights /
+        // Sedulous: transparent + sprites don't cast). Directional shadows are already primary-scene-based.
+        m_shadowCasters.Clear();
+        m_animatedSpheres.Clear();
+        const bool anyLocalCasters = primary != nullptr && primary->Scene() != nullptr
+                                  && !primary->Scene()->LocalShadowCasters().IsEmpty();
+        if ((hasShadow || anyLocalCasters) && primary != nullptr && primary->Scene() != nullptr) {
+            BuildShadowCasterList(*primary->Scene());
+        }
+
         // Local-light (spot) shadows (5.3): build the per-caster perspective matrices + atlas tiles up
         // front, scene-global (one atlas shared by all views). Doing it here lets the renderers size
         // their per-object rings (SetShadowAtlas passCount) and upload the data before the forward.
@@ -840,7 +864,7 @@ public:
             const u32 capacity = m_shadows->AtlasTileCapacity();   // per layer
             if (!casters.IsEmpty()) { atlasView = m_shadows->PrepareAtlas(m_frameIndex); }
             if (atlasView != nullptr) {
-                BuildShadowCasterList(*primary->Scene());   // camera-independent casters for the tiles
+                // m_shadowCasters already built above (shared by directional + local shadows).
                 const u32 atlasRes = m_shadows->AtlasResolution();
                 const u32 tileRes  = m_shadows->AtlasTileResolution();
                 // Each layer (realtime / static) has its own tile space; the running per-layer tile base
@@ -1016,17 +1040,20 @@ public:
                 const f32 shadowDistance = Min(v->Camera().farZ, m_shadowDistance);
                 const ShadowCascades cascades = ComputeCascades(v->Camera(), lightDir, shadowDistance, shadowRes);
                 const u32 layerBase = static_cast<u32>(i) * cascadeCount;
-                const RenderView* casters = v;
                 RendererRegistry* reg = m_registry;
                 for (u32 c = 0; c < cascadeCount; ++c) {
                     const Mat4 cascadeVP = cascades.viewProj[c];
                     const u32  layer     = layerBase + c;
-                    m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, casters, reg](rendergraph::PassBuilder& b) {
+                    // Casters come from the camera-INDEPENDENT m_shadowCasters (built above), not this
+                    // view's culled draw list — so view-frustum culling can't drop an off-camera caster
+                    // whose shadow is visible. Per-cascade frustum cull then keeps each caster to ~1 cascade.
+                    m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, reg](rendergraph::PassBuilder& b) {
                         rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
                         b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
                         b.SetViewport(0, 0, shadowRes, shadowRes);
-                        b.SetExecute([this, cascadeVP, casters, reg](rhi::RenderPassEncoder& rp) {
-                            RecordShadowCasters(rp, casters->DrawList(), *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true);
+                        b.SetExecute([this, cascadeVP, reg](rhi::RenderPassEncoder& rp) {
+                            const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
+                            RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true);
                         });
                     });
                 }
@@ -1403,6 +1430,7 @@ private:
     bool                    m_fxaaEnabled = false;
     f32                     m_fxaaSubpixel = 0.75f;
     bool                    m_instanceSharing = true;   // share prepass->forward instance data (A/B toggle)
+    bool                    m_viewCulling    = false;   // view-frustum cull camera draw lists (default off)
     f32                     m_shadowDistance = 300.0f;  // directional-shadow reach (clamped to camera farZ)
     f32                     m_shadowFarFade  = 40.0f;   // far-fade width in world units
     AoMode                  m_aoMode      = AoMode::Off;

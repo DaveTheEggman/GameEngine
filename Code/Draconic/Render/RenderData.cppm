@@ -135,6 +135,9 @@ struct RenderData {
     // sortBatchKey folds (mesh,material)-like identity into the sort so same-state draws stay contiguous
     // (opaque only — blended zeroes it so depth dominates). Producers set both at extraction.
     Vec3           worldCenter  = Vec3{ 0, 0, 0 };
+    // World-space bounding-sphere radius about worldCenter. Read generically by the draw-list builder
+    // for view-frustum culling (every producer sets it: meshes from local bounds, sprites from size).
+    f32            worldRadius  = 0.0f;
     u32            sortBatchKey = 0;
 };
 
@@ -144,8 +147,7 @@ struct RenderData {
 // the producer may set (e.g. a packed entity handle) for picking — meaningless to the core.
 struct MeshRenderData : RenderData {
     Mat4                  world       = Mat4::Identity();
-    // worldCenter lives on the RenderData base now (generic depth sort); see it there.
-    f32                   worldRadius = 0.0f;                               // world-space bounding sphere radius
+    // worldCenter + worldRadius live on the RenderData base now (generic depth sort + cull); see them there.
     Color                 color       = Color{ 1.0f, 1.0f, 1.0f, 1.0f };   // per-instance tint
     geometry::StaticMesh* mesh        = nullptr;
     materials::Material*  material     = nullptr;

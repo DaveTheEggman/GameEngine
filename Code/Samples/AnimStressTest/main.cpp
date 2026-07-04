@@ -445,6 +445,12 @@ namespace
                 if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
                 bool inst = render->InstanceSharing();
                 if (ImGui::Checkbox("Instance sharing (I)", &inst)) { render->SetInstanceSharing(inst); }
+                bool cull = render->ViewCulling();
+                if (ImGui::Checkbox("View-frustum cull", &cull)) { render->SetViewCulling(cull); }
+                if (cull) {
+                    rc::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
+                    ImGui::SameLine(); ImGui::TextDisabled("(%u/%u culled)", culled, total);
+                }
                 ImGui::Separator();
                 ImGui::TextUnformatted("Directional shadows");
                 float shadowDist = render->ShadowDistance();

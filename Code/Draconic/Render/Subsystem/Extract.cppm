@@ -144,6 +144,9 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
         rd->category    = RenderCategories::Transparent;
         rd->rendererId  = spriteRendererId;
         rd->worldCenter = TransformPoint(Vec3{ 0, 0, 0 }, scene.GetWorldMatrix(e));
+        // Bounding-sphere radius for view-frustum culling: half the billboard's diagonal. size is in
+        // world units (the sprite renderer sizes the quad directly), so entity scale isn't folded in.
+        rd->worldRadius = 0.5f * Length(sc.size);
         rd->size        = sc.size;
         rd->uvRect      = sc.uvRect;
         rd->tint        = sc.tint;
