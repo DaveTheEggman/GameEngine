@@ -111,6 +111,7 @@ namespace
                 sl.color        = rc::Color{ 1.0f, 0.95f, 0.9f, 1.0f };
                 sl.intensity    = 1.5f;
                 sl.castsShadows = true;   // phase 5.1: the spheres cast shadows on the ground
+                m_sun = sun;              // K toggles its shadows (for shadowed-vs-unshadowed benchmarking)
             }
 
             // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
@@ -188,6 +189,15 @@ namespace
                                        : u8"Sin-wave bob: OFF\n");
             }
             if (kb->IsKeyPressed(rt::KeyCode::H)) { m_showStats = !m_showStats; }
+            if (kb->IsKeyPressed(rt::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
+                if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
+                    if (rd::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
+                        sl->castsShadows = !sl->castsShadows;
+                        rc::ConsoleWrite(sl->castsShadows ? u8"Directional shadows: ON (CSM)\n"
+                                                          : u8"Directional shadows: OFF (matches Sedulous stress test)\n");
+                    }
+                }
+            }
 
             m_fly.Update(host, deltaTime);
             PushCameraToEntity();
@@ -352,6 +362,7 @@ namespace
 
         sc::Scene*                       m_scene = nullptr;
         sc::EntityHandle                 m_camera{};
+        sc::EntityHandle                 m_sun{};
         rc::RefPtr<geo::StaticMesh>      m_sphere;
         rc::RefPtr<mat::Material>        m_sharedMat;
         rc::Array<sc::EntityHandle>      m_spheres;
