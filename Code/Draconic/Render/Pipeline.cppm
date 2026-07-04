@@ -701,16 +701,31 @@ public:
     // are skipped — per-light shadow-caster culling (phase 5.4).
     void RecordShadowCasters(rhi::RenderPassEncoder& rp, Span<const DrawItem> casters,
                              const RendererRegistry& registry, const Mat4& lightViewProj,
-                             Vec3 cullCenter = {}, f32 cullRadius = 0.0f) {
+                             Vec3 cullCenter = {}, f32 cullRadius = 0.0f, bool frustumCull = false) {
         RenderRecordContext ctx{};
         ctx.viewProj    = lightViewProj;
         ctx.depthFormat = (m_shadows != nullptr) ? m_shadows->Format() : rhi::TextureFormat::Depth32Float;
         ctx.frameIndex  = m_frameIndex;
         ctx.viewIndex   = 0;
 
-        // Optional sphere cull into a scratch list (keeps the category-run batching below intact).
+        // Optional cull into a scratch list (keeps the category-run batching below intact).
+        // - frustum cull: CSM cascades — reject casters whose world sphere doesn't intersect THIS
+        //   cascade's ortho frustum. The cascade VP already extends toward the light (see
+        //   ComputeCascades), so its frustum is the correct assignment volume — each caster lands in
+        //   ~1 cascade instead of all 4 (was Sedulous's compiled-out !FRUSTUM_CULL_SHADOWS fallback).
+        // - sphere cull (cullRadius > 0): local point/spot lights vs the light's reach.
         Span<const DrawItem> items = casters;
-        if (cullRadius > 0.0f) {
+        if (frustumCull) {
+            const BoundingFrustum frustum{ lightViewProj };
+            m_shadowCullScratch.Clear();
+            for (const DrawItem& it : casters) {
+                const auto* md = static_cast<const MeshRenderData*>(it.data);
+                if (Intersects(frustum, BoundingSphere{ md->worldCenter, md->worldRadius })) {
+                    m_shadowCullScratch.PushBack(it);
+                }
+            }
+            items = Span<const DrawItem>{ m_shadowCullScratch.Data(), m_shadowCullScratch.Size() };
+        } else if (cullRadius > 0.0f) {
             m_shadowCullScratch.Clear();
             for (const DrawItem& it : casters) {
                 const auto* md = static_cast<const MeshRenderData*>(it.data);
@@ -997,7 +1012,7 @@ public:
                         b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
                         b.SetViewport(0, 0, shadowRes, shadowRes);
                         b.SetExecute([this, cascadeVP, casters, reg](rhi::RenderPassEncoder& rp) {
-                            RecordShadowCasters(rp, casters->DrawList(), *reg, cascadeVP);
+                            RecordShadowCasters(rp, casters->DrawList(), *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true);
                         });
                     });
                 }
