@@ -85,6 +85,7 @@ struct RenderRecordContext {
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
     bool                       depthPrepass = false;   // camera depth-only prepass: no depth bias (match forward exactly)
     bool                       probesEnabled = true;    // false during probe capture: reflect the sky IBL, not the probe (no feedback/self-black)
+    bool                       needsMotion = true;      // false = no temporal effect consumes velocity -> skip the per-instance prev-world lookup
 };
 
 // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,
@@ -285,6 +286,10 @@ public:
     ForwardPass(const ForwardPass&) = delete;
     ForwardPass& operator=(const ForwardPass&) = delete;
 
+    // Whether any temporal effect (TAA / SSR-temporal) consumes motion vectors this frame. When false,
+    // the forward resolve skips the per-instance prev-world lookup (velocity written as 0). Set per frame.
+    void SetMotionNeeded(bool needed) noexcept { m_motionNeeded = needed; }
+
     // Once per frame, before composing views: provision + reset this frame's per-worker command
     // pools (used for parallel emit). Reset happens ONCE per frame — a worker bundle's secondary
     // command buffer must outlive the main submission that executes it, so it can't be freed
@@ -410,6 +415,7 @@ private:
         ctx.colorFormat = colorFormat;
         ctx.depthFormat = m_depthFormat;
         ctx.probesEnabled = probesEnabled;
+        ctx.needsMotion = m_motionNeeded;   // skip per-instance prev-world when no temporal effect reads velocity
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
         // ring allocation). Split by the category's pass affinity (which pass draws it), then walk
@@ -540,6 +546,7 @@ private:
     rhi::Device*       m_device;
     u32                m_framesInFlight = 2;
     rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;   // depth texture is a graph transient
+    bool               m_motionNeeded = true;   // per-frame: does any temporal effect read velocity this frame
     Array<ResolvedDraw>       m_resolved;     // reused resolve buffer (drained each pass)
     Array<rhi::RenderBundle*> m_bundles;      // per-chunk bundles (draw order)
     // Per-(frameIndex, slot) worker command pools + persistent encoders for parallel emit.
@@ -581,6 +588,9 @@ public:
         m_encoder    = &encoder;
         m_frameIndex = frameIndex;
         m_views.Begin();
+        // Motion vectors are only consumed by TAA + SSR-temporal; when neither is active, the forward skips
+        // the per-instance prev-world lookup (a full-scene hashmap rebuild/frame at stress scale).
+        m_pass.SetMotionNeeded(m_taaEnabled || (m_ssr != nullptr && m_ssrEnabled && m_ssrParams.temporal));
         m_graph.BeginFrame(static_cast<i32>(frameIndex));   // one graph composes all this frame's views
     }
 

@@ -1175,7 +1175,7 @@ private:
 
         const DynamicUniformRing::Range obj = m_objectRing.Allocate();
         if (!obj.ok) { return; }
-        ObjectData od{}; od.world = md.world; od.prevWorld = PrevWorldFor(md.entityId, md.world);
+        ObjectData od{}; od.world = md.world; od.prevWorld = ctx.needsMotion ? PrevWorldFor(md.entityId, md.world) : md.world;
         od.tint = md.color; od.boneBase = boneBase; od.prevBoneBase = boneBase;
         *static_cast<ObjectData*>(obj.ptr) = od;
 
@@ -1238,7 +1238,7 @@ private:
         DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
-            id[k] = InstanceData{ md->world, PrevWorldFor(md->entityId, md->world), md->color };
+            id[k] = InstanceData{ md->world, ctx.needsMotion ? PrevWorldFor(md->entityId, md->world) : md->world, md->color };
             u32 boneBase = 0, prevBase = 0;
             if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
             od[k] = DataOffsets{ inst.slotIndex + k, boneBase, prevBase, 0 };   // .x=Instances[] idx, .y/.z=bone bases
