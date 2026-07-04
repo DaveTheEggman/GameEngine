@@ -87,6 +87,7 @@ struct RenderRecordContext {
     bool                       probesEnabled = true;    // false during probe capture: reflect the sky IBL, not the probe (no feedback/self-black)
     bool                       needsMotion = true;      // false = no temporal effect consumes velocity -> skip the per-instance prev-world lookup
     bool                       fillInstanceCache = false; // camera depth prepass: build the FULL instance data + cache the per-group range so the forward reuses it (build once, not twice)
+    f32                        shadowFarFade = 40.0f;   // CSM far-fade width in world units (SampleCSM dissolves shadows over the last cascade's far edge)
 };
 
 // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,
@@ -290,6 +291,7 @@ public:
     // Whether any temporal effect (TAA / SSR-temporal) consumes motion vectors this frame. When false,
     // the forward resolve skips the per-instance prev-world lookup (velocity written as 0). Set per frame.
     void SetMotionNeeded(bool needed) noexcept { m_motionNeeded = needed; }
+    void SetShadowFarFade(f32 v) noexcept { m_shadowFarFade = v; }
 
     // Once per frame, before composing views: provision + reset this frame's per-worker command
     // pools (used for parallel emit). Reset happens ONCE per frame — a worker bundle's secondary
@@ -417,6 +419,7 @@ private:
         ctx.depthFormat = m_depthFormat;
         ctx.probesEnabled = probesEnabled;
         ctx.needsMotion = m_motionNeeded;   // skip per-instance prev-world when no temporal effect reads velocity
+        ctx.shadowFarFade = m_shadowFarFade;
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
         // ring allocation). Split by the category's pass affinity (which pass draws it), then walk
@@ -548,6 +551,7 @@ private:
     u32                m_framesInFlight = 2;
     rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;   // depth texture is a graph transient
     bool               m_motionNeeded = true;   // per-frame: does any temporal effect read velocity this frame
+    f32                m_shadowFarFade = 40.0f; // CSM far-fade width (world units)
     Array<ResolvedDraw>       m_resolved;     // reused resolve buffer (drained each pass)
     Array<rhi::RenderBundle*> m_bundles;      // per-chunk bundles (draw order)
     // Per-(frameIndex, slot) worker command pools + persistent encoders for parallel emit.
@@ -592,6 +596,7 @@ public:
         // Motion vectors are only consumed by TAA + SSR-temporal; when neither is active, the forward skips
         // the per-instance prev-world lookup (a full-scene hashmap rebuild/frame at stress scale).
         m_pass.SetMotionNeeded(m_taaEnabled || (m_ssr != nullptr && m_ssrEnabled && m_ssrParams.temporal));
+        m_pass.SetShadowFarFade(m_shadowFarFade);
         m_graph.BeginFrame(static_cast<i32>(frameIndex));   // one graph composes all this frame's views
     }
 
@@ -651,6 +656,11 @@ public:
     // default; off re-fills in the forward (for A/B / regression checks).
     void SetInstanceSharing(bool on) noexcept { m_instanceSharing = on; }
     [[nodiscard]] bool InstanceSharing() const noexcept { return m_instanceSharing; }
+    // Directional-shadow reach (world units, clamped to the camera far plane) + the far-fade width (also
+    // world units — a fixed-thickness soft edge, distance-independent). Larger distance covers more ground
+    // but spreads cascade texel density; the fade dissolves the coverage boundary so it doesn't pop along
+    // a diagonal on a tilted camera.
+    void SetShadowParams(f32 distance, f32 farFade) noexcept { m_shadowDistance = distance; m_shadowFarFade = farFade; }
     // Append a per-pass GPU timing report + the per-pass CPU record cost (call only after device idle).
     void ReadGpuProfile(String& out) {
         if (auto* p = m_graph.GpuProfiler()) { p->ReadResults(m_graph.LastProfiledPassCount(), out); }
@@ -999,7 +1009,11 @@ public:
             for (usize i = 0; i < m_views.ActiveCount(); ++i) {
                 if (i >= ShadowSystem::kMaxShadowViews) { break; }
                 RenderView* v = m_views.At(i);
-                const f32 shadowDistance = Min(v->Camera().farZ, 150.0f);
+                // Shadow distance: how far directional shadows reach. Per-cascade frustum culling keeps
+                // this affordable (casters only touch the one cascade they fall in), and SampleCSM
+                // far-fades over the last cascade so the boundary dissolves instead of popping. Larger
+                // reach covers more ground but spreads cascade texel density (softer near shadows).
+                const f32 shadowDistance = Min(v->Camera().farZ, m_shadowDistance);
                 const ShadowCascades cascades = ComputeCascades(v->Camera(), lightDir, shadowDistance, shadowRes);
                 const u32 layerBase = static_cast<u32>(i) * cascadeCount;
                 const RenderView* casters = v;
@@ -1389,6 +1403,8 @@ private:
     bool                    m_fxaaEnabled = false;
     f32                     m_fxaaSubpixel = 0.75f;
     bool                    m_instanceSharing = true;   // share prepass->forward instance data (A/B toggle)
+    f32                     m_shadowDistance = 300.0f;  // directional-shadow reach (clamped to camera farZ)
+    f32                     m_shadowFarFade  = 40.0f;   // far-fade width in world units
     AoMode                  m_aoMode      = AoMode::Off;
     i32                     m_aoDebug     = 0;
     f32                     m_aoStrength  = 0.6f;

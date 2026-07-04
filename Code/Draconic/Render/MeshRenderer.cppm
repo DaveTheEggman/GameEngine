@@ -61,6 +61,7 @@ cbuffer View : register(b0, space0) {
     float4 ProbeCenter;                // xyz = reflection-probe center (world), w = probe count (0 = none)
     float4 ProbeBoxMin;                // xyz = probe box min corner,  w = probe cube slice (index into ProbeArray)
     float4 ProbeBoxMax;                // xyz = probe box max corner,  w = probe intensity
+    float4 ShadowParams;               // x = CSM far-fade width in WORLD UNITS; yzw spare
 };
 #ifdef SKINNED
 // GPU skinning: per-bone skinning matrices (= inverseBind * worldPose), v * skin (row-vector).
@@ -187,6 +188,7 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     float4 ProbeCenter;                // xyz = reflection-probe center (world), w = probe count (0 = none)
     float4 ProbeBoxMin;                // xyz = probe box min corner,  w = probe cube slice (index into ProbeArray)
     float4 ProbeBoxMax;                // xyz = probe box max corner,  w = probe intensity
+    float4 ShadowParams;               // x = CSM far-fade width in WORLD UNITS; yzw spare
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -278,6 +280,16 @@ float SampleCSM(float3 worldPos, float3 N, float NdotL, float viewDepth) {
         float t = saturate((viewDepth - (splitFar - blendBand)) / max(blendBand, 1e-4));
         shadow = lerp(shadow, SampleCascade(cascade + 1, worldPos, N, NdotL), t);
     }
+
+    // Far fade: dissolve shadow toward fully-lit as viewDepth approaches the last cascade's far edge
+    // (the shadow distance). Without this the coverage boundary is a hard line -- on a tilted camera
+    // it reads as a diagonal where directional shadows pop in/out while rotating. ShadowParams.x is a
+    // fixed fade WIDTH in world units (distance-independent), so the soft edge is the same physical
+    // thickness whatever the reach.
+    float shadowFar = CascadeSplitFar[count - 1];
+    float fadeBand  = max(ShadowParams.x, 0.5);
+    float farFade   = saturate((shadowFar - viewDepth) / fadeBand);
+    shadow = lerp(1.0, shadow, farFade);
     return shadow;
 }
 
@@ -1026,6 +1038,7 @@ public:
             // Acne is carried by the hardware depth bias (ShadowConfigFor: 50 / 1.5), not this.
             vd.shadowNormalBias    = 0.02f;
             vd.shadowDepthBias     = 0.0009f;
+            vd.shadowParams.x      = ctx.shadowFarFade;   // CSM far-fade band (runtime-tunable)
         }
         vd.localShadowBase = m_localShadowBase;   // base into the local-shadow ring (spot/point atlas)
         if (ctx.cluster.Valid()) {
@@ -1118,7 +1131,7 @@ public:
     }
 
 private:
-    struct ViewData {                                    // 512 (matches the View cbuffer)
+    struct ViewData {                                    // 528 (matches the View cbuffer)
         Mat4 viewProj;                                   // 64
         Mat4 view;                                       // 64  (view-space depth: cluster + cascade select)
         Mat4 cascadeViewProj[4];                         // 256 (CSM: world -> each cascade's light clip)
@@ -1135,6 +1148,7 @@ private:
         Vec4 probeCenter = Vec4{ 0, 0, 0, 0 };           // 16  (xyz = probe center, w = probe count [0 = none])
         Vec4 probeBoxMin = Vec4{ 0, 0, 0, 0 };           // 16  (xyz = box min, w = probe cube slice)
         Vec4 probeBoxMax = Vec4{ 0, 0, 0, 0 };           // 16  (xyz = box max, w = probe intensity)
+        Vec4 shadowParams = Vec4{ 40.0f, 0, 0, 0 };      // 16  (x = CSM far-fade width in world units; yzw spare)
     };
     struct ObjectData   { Mat4 world; Mat4 prevWorld; Color tint; u32 boneBase = 0, prevBoneBase = 0, p1 = 0, p2 = 0; };   // 160 (cbuffer Object)
     struct InstanceData { Mat4 world; Mat4 prevWorld; Color tint; };     // 144 (StructuredBuffer element)
@@ -1142,7 +1156,7 @@ private:
     struct ShadowViewData { Mat4 lightViewProj; };       // 64  (cbuffer ShadowView)
 
     static constexpr u64 kViewSlot         = 256;        // dynamic UBO offset alignment (object/shadow-view)
-    static constexpr u64 kViewDataSlot     = 1024;       // view UBO slot (ViewData is 512B with CSM cascades)
+    static constexpr u64 kViewDataSlot     = 1024;       // view UBO slot (ViewData is 528B with CSM cascades)
     static constexpr u32 kMaxLights        = 256;        // per-view light budget (phase 4.1; clustered later)
     // shadow-view UBO slots per frame: one per (shadow pass × category run). Cascades (up to
     // kMaxShadowViews*kCount) + local-shadow atlas tiles (up to kMaxLocalShadows), each × a few

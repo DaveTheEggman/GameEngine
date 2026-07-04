@@ -443,6 +443,13 @@ namespace
                 if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 4.0f)) { render->SetExposure(exposure); }
                 bool bloomOn = render->BloomEnabled();
                 if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
+                ImGui::Separator();
+                ImGui::TextUnformatted("Directional shadows");
+                float shadowDist = render->ShadowDistance();
+                if (ImGui::SliderFloat("Distance", &shadowDist, 50.0f, 1000.0f, "%.0f")) { render->SetShadowDistance(shadowDist); }
+                float shadowFade = render->ShadowFarFade();
+                if (ImGui::SliderFloat("Far fade", &shadowFade, 2.0f, 150.0f, "%.0f")) { render->SetShadowFarFade(shadowFade); }
+                ImGui::TextDisabled("shadows fade out over the last %.0f units", static_cast<double>(shadowFade));
             }
             ImGui::Separator();
             ImGui::TextUnformatted("Space +batch   Backspace -batch");
