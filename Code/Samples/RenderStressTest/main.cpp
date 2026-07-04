@@ -51,6 +51,7 @@ namespace
         static constexpr rc::i32 kSpheresPerBatch = 8000;
         static constexpr rc::f32 kSphereSpacing   = 1.5f;
         static constexpr rc::f32 kSphereHeight    = 2.5f;   // base height above the floor (radius 0.5)
+        static constexpr rc::f32 kFloorBaseSize   = 500.0f; // base ground-plane size (scaled to cover the grid)
 
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
@@ -92,10 +93,10 @@ namespace
 
             // Large ground plane so the bobbing spheres read against a surface.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
-                sc::EntityHandle ground = m_scene->CreateEntity(u8"ground");
-                m_scene->SetLocalPosition(ground, rc::Vec3{ 0.0f, 0.0f, 0.0f });
-                rd::MeshComponent& gm = meshes->Add(ground);
-                gm.mesh = geo::Primitives::Plane(500.0f, 500.0f);
+                m_ground = m_scene->CreateEntity(u8"ground");
+                m_scene->SetLocalPosition(m_ground, rc::Vec3{ 0.0f, 0.0f, 0.0f });
+                rd::MeshComponent& gm = meshes->Add(m_ground);
+                gm.mesh = geo::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
                 gm.material = mat::CreatePBR(u8"stress.ground", rc::Vec4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f);
             }
 
@@ -248,6 +249,33 @@ namespace
             m_scene->SetLocalTransform(m_camera, t);
         }
 
+        // Grow the ground plane to cover the current grid, and re-frame the fly camera so the whole grid
+        // is in view (called on every batch change) — like AnimStressTest. Keeps the ground under the
+        // whole field and the far plane wide enough that no spheres get frustum-far-culled.
+        void FitFloorAndCamera()
+        {
+            const rc::f32 gridWidth = static_cast<rc::f32>(m_gridSize) * kSphereSpacing;   // full grid extent
+            // Floor: scale the base plane so it covers the grid + a margin (uniform XZ; Y stays flat).
+            const rc::f32 scale = rc::Max(0.1f, (gridWidth + 40.0f) / kFloorBaseSize);
+            rc::Transform ft = m_scene->GetLocalTransform(m_ground);
+            ft.scale = rc::Vec3{ scale, 1.0f, scale };
+            m_scene->SetLocalTransform(m_ground, ft);
+
+            // Camera: pull back + up so the grid fits the 60° FOV, looking down at the center.
+            const rc::f32 extent = gridWidth * 0.5f + 6.0f;
+            const rc::f32 dist   = extent / rc::Tan(0.5236f) + 10.0f;   // half of 60° = 0.5236 rad
+            const rc::f32 camY   = extent * 0.55f + kSphereHeight;
+            m_fly.position = rc::Vec3{ 0.0f, kSphereHeight + camY, dist };
+            m_fly.yaw      = 0.0f;
+            m_fly.pitch    = -rc::Atan2(camY, dist);   // look down onto the grid center
+            if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
+                if (rd::CameraComponent* cam = cameras->Get(m_camera)) {
+                    cam->farZ = dist + extent * 2.0f + 200.0f;   // cover the grid; don't far-cull spheres
+                }
+            }
+            PushCameraToEntity();
+        }
+
         // Spawn 8000 more spheres on the auto-sized grid. Position only depends on a global index, so
         // existing spheres keep their world positions when the grid widens.
         void AddSphereBatch()
@@ -275,6 +303,7 @@ namespace
             }
 
             ++m_batchCount;
+            FitFloorAndCamera();
             PrintCounts();
         }
 
@@ -291,6 +320,7 @@ namespace
                 if (m_uniqueMaterials && !m_uniqueMats.IsEmpty()) { m_uniqueMats.PopBack(); }
             }
             --m_batchCount;
+            FitFloorAndCamera();
             PrintCounts();
         }
 
@@ -378,6 +408,7 @@ namespace
         sc::Scene*                       m_scene = nullptr;
         sc::EntityHandle                 m_camera{};
         sc::EntityHandle                 m_sun{};
+        sc::EntityHandle                 m_ground{};
         rc::RefPtr<geo::StaticMesh>      m_sphere;
         rc::RefPtr<mat::Material>        m_sharedMat;
         rc::Array<sc::EntityHandle>      m_spheres;

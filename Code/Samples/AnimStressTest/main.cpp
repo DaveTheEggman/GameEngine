@@ -69,6 +69,7 @@ namespace
     static constexpr rc::f32 kCharacterSpacing = 8.0f;   // grid spacing (world units)
     static constexpr rc::f32 kCharacterSize    = 6.0f;   // auto-fit target height (matches CookModel)
     static constexpr rc::f32 kFloorY           = -7.0f;
+    static constexpr rc::f32 kFloorBaseSize    = 120.0f; // base floor-plane size (scaled to cover the grid)
 
     class AnimStressTestApp final : public rt::DefaultApplication
     {
@@ -122,10 +123,10 @@ namespace
             // A large horizontal floor (Plane normal = +Y) under the scene — the animated models stand
             // on it and the lights cast their shadows onto it.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
-                sc::EntityHandle floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, -7.0f, 0.0f });
-                rd::MeshComponent& fmc = meshes->Add(floor);
-                fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
+                m_floor = m_scene->CreateEntity(u8"floor");
+                m_scene->SetLocalPosition(m_floor, rc::Vec3{ 0.0f, -7.0f, 0.0f });
+                rd::MeshComponent& fmc = meshes->Add(m_floor);
+                fmc.mesh = geo::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
                 fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
             }
 
@@ -300,10 +301,16 @@ namespace
             rc::ConsoleWrite(rc::Format(u8"AnimStressTest: characters={}\n", m_instances.Size()));
         }
 
-        // Position the fly camera so the whole side×side grid is in frame (called on every batch change).
+        // Position the fly camera so the whole side×side grid is in frame + grow the floor under it (called
+        // on every batch change).
         void AutoFrame(rc::u32 side)
         {
             const rc::f32 extent = (static_cast<rc::f32>(side) - 1.0f) * kCharacterSpacing * 0.5f + kCharacterSize;
+            // Floor: scale the base plane so it covers the whole grid + margin (uniform XZ; Y stays flat).
+            const rc::f32 fscale = rc::Max(1.0f, (extent * 2.0f + 40.0f) / kFloorBaseSize);
+            rc::Transform ft = m_scene->GetLocalTransform(m_floor);
+            ft.scale = rc::Vec3{ fscale, 1.0f, fscale };
+            m_scene->SetLocalTransform(m_floor, ft);
             const rc::Vec3 target{ 0.0f, kFloorY + kCharacterSize * 0.5f, 0.0f };   // grid center
             const rc::f32 dist = extent / rc::Tan(0.5236f) + kCharacterSize * 2.0f;  // fit 60° FOV horizontally + margin
             const rc::f32 camY = extent * 0.55f + kCharacterSize;
@@ -453,6 +460,7 @@ namespace
     private:
         sc::Scene*                  m_scene = nullptr;
         sc::EntityHandle            m_camera{};
+        sc::EntityHandle            m_floor{};
         smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
