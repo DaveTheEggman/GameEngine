@@ -20,7 +20,7 @@ TEST_CASE("vg.path: builder + bounds + length on a unit square")
     CHECK(path.SubPathCount() == 1u);
     CHECK(path.CommandCount() == 5u);
 
-    const Rect bounds = path.GetBounds();
+    const Rectangle bounds = path.GetBounds();
     CHECK(bounds.x == doctest::Approx(0.0f));
     CHECK(bounds.width == doctest::Approx(10.0f));
     CHECK(bounds.height == doctest::Approx(10.0f));
@@ -39,10 +39,10 @@ TEST_CASE("vg.path: contains via fill rules")
     b.Close();
     const Path path = b.ToPath();
 
-    CHECK(path.Contains(Vec2{ 5.0f, 5.0f }, FillRule::NonZero));
-    CHECK(path.Contains(Vec2{ 5.0f, 5.0f }, FillRule::EvenOdd));
-    CHECK_FALSE(path.Contains(Vec2{ 20.0f, 5.0f }, FillRule::NonZero));
-    CHECK_FALSE(path.Contains(Vec2{ -1.0f, 5.0f }, FillRule::EvenOdd));
+    CHECK(path.Contains(Vector2{ 5.0f, 5.0f }, FillRule::NonZero));
+    CHECK(path.Contains(Vector2{ 5.0f, 5.0f }, FillRule::EvenOdd));
+    CHECK_FALSE(path.Contains(Vector2{ 20.0f, 5.0f }, FillRule::NonZero));
+    CHECK_FALSE(path.Contains(Vector2{ -1.0f, 5.0f }, FillRule::EvenOdd));
 }
 
 TEST_CASE("vg.path: point/tangent at distance along a line")
@@ -52,14 +52,14 @@ TEST_CASE("vg.path: point/tangent at distance along a line")
     b.LineTo(10.0f, 0.0f);
     const Path path = b.ToPath();
 
-    CHECK(NearlyEqual(path.GetPointAtDistance(4.0f), Vec2{ 4.0f, 0.0f }));
-    CHECK(NearlyEqual(path.GetTangentAtDistance(4.0f), Vec2{ 1.0f, 0.0f }));
+    CHECK(NearlyEqual(path.GetPointAtDistance(4.0f), Vector2{ 4.0f, 0.0f }));
+    CHECK(NearlyEqual(path.GetTangentAtDistance(4.0f), Vector2{ 1.0f, 0.0f }));
 }
 
 TEST_CASE("vg.shapes: rounded rect flattens to a closed loop")
 {
     PathBuilder b;
-    ShapeBuilder::BuildRoundedRect(Rect{ 0.0f, 0.0f, 20.0f, 20.0f }, CornerRadii(4.0f), b);
+    ShapeBuilder::BuildRoundedRect(Rectangle{ 0.0f, 0.0f, 20.0f, 20.0f }, CornerRadii(4.0f), b);
     const Path path = b.ToPath();
 
     Array<FlattenedSubPath> subPaths;
@@ -68,7 +68,7 @@ TEST_CASE("vg.shapes: rounded rect flattens to a closed loop")
     CHECK(subPaths[0].isClosed);
     CHECK(subPaths[0].points.Size() > 4u); // corners add curve points
 
-    const Rect bounds = path.GetBounds();
+    const Rectangle bounds = path.GetBounds();
     CHECK(bounds.width == doctest::Approx(20.0f));
     CHECK(bounds.height == doctest::Approx(20.0f));
 }
@@ -76,9 +76,9 @@ TEST_CASE("vg.shapes: rounded rect flattens to a closed loop")
 TEST_CASE("vg.shapes: circle bounds")
 {
     PathBuilder b;
-    ShapeBuilder::BuildCircle(Vec2{ 50.0f, 50.0f }, 10.0f, b);
+    ShapeBuilder::BuildCircle(Vector2{ 50.0f, 50.0f }, 10.0f, b);
     const Path path = b.ToPath();
-    const Rect bounds = path.GetBounds();
+    const Rectangle bounds = path.GetBounds();
     CHECK(bounds.Center().x == doctest::Approx(50.0f));
     CHECK(bounds.Center().y == doctest::Approx(50.0f));
     CHECK(bounds.width == doctest::Approx(20.0f));
@@ -86,10 +86,10 @@ TEST_CASE("vg.shapes: circle bounds")
 
 TEST_CASE("vg.dash: splits a line into dashes")
 {
-    Vec2 line[] = { Vec2{ 0.0f, 0.0f }, Vec2{ 10.0f, 0.0f } };
+    Vector2 line[] = { Vector2{ 0.0f, 0.0f }, Vector2{ 10.0f, 0.0f } };
     f32 pattern[] = { 2.0f, 2.0f }; // 2 on, 2 off
-    Array<Array<Vec2>> dashes;
-    DashGenerator::GenerateDashes(Span<const Vec2>(line, 2), false, Span<const f32>(pattern, 2), 0.0f, dashes);
+    Array<Array<Vector2>> dashes;
+    DashGenerator::GenerateDashes(Span<const Vector2>(line, 2), false, Span<const f32>(pattern, 2), 0.0f, dashes);
 
     // 10 units / 4 per cycle => dashes at [0,2],[4,6],[8,10] = 3 segments.
     CHECK(dashes.Size() == 3u);

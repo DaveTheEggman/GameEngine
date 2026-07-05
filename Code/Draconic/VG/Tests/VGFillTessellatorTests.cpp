@@ -29,7 +29,7 @@ TEST_CASE("filltess: rectangle -> two triangles")
 TEST_CASE("filltess: circle creates triangles")
 {
     PathBuilder b;
-    ShapeBuilder::BuildCircle(Vec2{50, 50}, 25, b);
+    ShapeBuilder::BuildCircle(Vector2{50, 50}, 25, b);
     const Path path = b.ToPath();
 
     Array<VGVertex> vertices; Array<u32> indices;

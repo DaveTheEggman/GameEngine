@@ -16,7 +16,7 @@ import draconic.rhi.vk;
 namespace sf = draconic::samples::framework;
 namespace dr = draconic::rhi;
 namespace ds = draconic::shaders;
-using draconic::core::Mat4;
+using draconic::core::Matrix4;
 
 class MipmapSample : public sf::SampleApp {
 public:
@@ -160,9 +160,9 @@ void MipmapSample::OnRender() {
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
-    Mat4 view = Mat4::LookAtRH(draconic::core::Vec3{0, 2, 2}, draconic::core::Vec3{ 0, 0, -5}, draconic::core::Vec3{0,1,0});
-    Mat4 proj = Mat4::PerspectiveFovRH(draconic::core::DegreesToRadians(60.0f), aspect, 0.1f, 100.0f);
-    Mat4 mvp = view * proj;
+    Matrix4 view = Matrix4::LookAtRH(draconic::core::Vector3{0, 2, 2}, draconic::core::Vector3{ 0, 0, -5}, draconic::core::Vector3{0,1,0});
+    Matrix4 proj = Matrix4::PerspectiveFovRH(draconic::core::DegreesToRadians(60.0f), aspect, 0.1f, 100.0f);
+    Matrix4 mvp = view * proj;
     std::memcpy(m_ubMapped, mvp.Data(), 64);
 
     m_pool->Reset();

@@ -32,8 +32,8 @@ TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transf
     EntityHandle root  = a.CreateEntity(u8"root");
     EntityHandle child = a.CreateEntity(u8"child");
     a.SetParent(child, root);
-    a.SetLocalPosition(root, Vec3{ 1, 2, 3 });
-    a.SetLocalPosition(child, Vec3{ 4, 0, 0 });
+    a.SetLocalPosition(root, Vector3{ 1, 2, 3 });
+    a.SetLocalPosition(child, Vector3{ 4, 0, 0 });
     mgrA->Add(root).value = 50.0f;
     mgrA->Add(child).value = 75.0f;
     a.SetActive(child, false);

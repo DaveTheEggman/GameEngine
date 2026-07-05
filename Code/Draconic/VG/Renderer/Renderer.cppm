@@ -34,7 +34,7 @@ export namespace draconic::vg::renderer
     /// Projection uniform (one per slice, padded to UniformSlotSize on the GPU).
     struct VGUniforms
     {
-        Mat4 projection = Mat4::Identity();
+        Matrix4 projection = Matrix4::Identity();
     };
 
     /// A handle to one batch's data inside the shared frame buffers. Returned by
@@ -264,10 +264,10 @@ export namespace draconic::vg::renderer
             }
         }
 
-        static Mat4 OrthoOffCenter(f32 width, f32 height)
+        static Matrix4 OrthoOffCenter(f32 width, f32 height)
         {
             // CreateOrthographicOffCenter(0, width, height, 0, -1, 1) (row-vector).
-            Mat4 m = Mat4::Identity();
+            Matrix4 m = Matrix4::Identity();
             m.m[0][0] = 2.0f / width;
             m.m[1][1] = -2.0f / height;
             m.m[2][2] = -0.5f;

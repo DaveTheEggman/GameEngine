@@ -33,8 +33,8 @@ export namespace draconic::vg
     struct PathSegment
     {
         PathCommand command = PathCommand::MoveTo; ///< The command type for this segment.
-        Span<const Vec2> points;                   ///< Points for this command (not the start point).
-        Vec2 startPoint;                           ///< The pen position before this segment.
+        Span<const Vector2> points;                   ///< Points for this command (not the start point).
+        Vector2 startPoint;                           ///< The pen position before this segment.
     };
 
     /// Iterates over a Path, yielding PathSegment values.
@@ -42,7 +42,7 @@ export namespace draconic::vg
     {
     public:
         PathIterator() = default;
-        PathIterator(Span<const PathCommand> commands, Span<const Vec2> points)
+        PathIterator(Span<const PathCommand> commands, Span<const Vector2> points)
             : m_commands(commands), m_points(points) {}
 
         /// Get the next segment. Returns false when iteration is complete.
@@ -81,7 +81,7 @@ export namespace draconic::vg
                 m_pointIndex += 3;
                 break;
             case PathCommand::Close:
-                segment.points = Span<const Vec2>{};
+                segment.points = Span<const Vector2>{};
                 m_currentPoint = m_subPathStart;
                 break;
             }
@@ -92,18 +92,18 @@ export namespace draconic::vg
 
     private:
         Span<const PathCommand> m_commands;
-        Span<const Vec2> m_points;
+        Span<const Vector2> m_points;
         usize m_commandIndex = 0;
         usize m_pointIndex = 0;
-        Vec2 m_currentPoint;
-        Vec2 m_subPathStart;
+        Vector2 m_currentPoint;
+        Vector2 m_subPathStart;
     };
 
     /// A flattened sub-path consisting of line segments.
     class FlattenedSubPath
     {
     public:
-        Array<Vec2> points;       ///< The points forming this polyline.
+        Array<Vector2> points;       ///< The points forming this polyline.
         bool isClosed = false;    ///< Whether this sub-path is closed.
 
         FlattenedSubPath() = default;
@@ -118,13 +118,13 @@ export namespace draconic::vg
         Path() = default;
 
         /// Create a path from pre-built command and point lists (takes ownership).
-        Path(Array<PathCommand> commands, Array<Vec2> points)
+        Path(Array<PathCommand> commands, Array<Vector2> points)
             : m_commands(Move(commands)), m_points(Move(points)) {}
 
         /// The commands that define this path.
         [[nodiscard]] Span<const PathCommand> Commands() const { return Span<const PathCommand>(m_commands.Data(), m_commands.Size()); }
         /// The points referenced by commands.
-        [[nodiscard]] Span<const Vec2> Points() const { return Span<const Vec2>(m_points.Data(), m_points.Size()); }
+        [[nodiscard]] Span<const Vector2> Points() const { return Span<const Vector2>(m_points.Data(), m_points.Size()); }
 
         [[nodiscard]] usize CommandCount() const { return m_commands.Size(); }
         [[nodiscard]] usize PointCount() const { return m_points.Size(); }
@@ -143,10 +143,10 @@ export namespace draconic::vg
         }
 
         /// Calculate the axis-aligned bounding box of this path.
-        [[nodiscard]] Rect GetBounds() const
+        [[nodiscard]] Rectangle GetBounds() const
         {
             if (m_points.IsEmpty())
-                return Rect{};
+                return Rectangle{};
 
             f32 minX = m_points[0].x;
             f32 minY = m_points[0].y;
@@ -155,24 +155,24 @@ export namespace draconic::vg
 
             for (usize i = 0; i < m_points.Size(); ++i)
             {
-                const Vec2 p = m_points[i];
+                const Vector2 p = m_points[i];
                 if (p.x < minX) minX = p.x;
                 if (p.y < minY) minY = p.y;
                 if (p.x > maxX) maxX = p.x;
                 if (p.y > maxY) maxY = p.y;
             }
 
-            return Rect{ minX, minY, maxX - minX, maxY - minY };
+            return Rectangle{ minX, minY, maxX - minX, maxY - minY };
         }
 
         /// Test whether a point is inside this path using the given fill rule.
-        [[nodiscard]] bool Contains(Vec2 point, FillRule fillRule) const
+        [[nodiscard]] bool Contains(Vector2 point, FillRule fillRule) const
         {
             PathIterator iter = GetIterator();
             PathSegment seg;
             i32 windingNumber = 0;
-            Vec2 penPos = Vec2::Zero;
-            Vec2 subPathStart = Vec2::Zero;
+            Vector2 penPos = Vector2::Zero;
+            Vector2 subPathStart = Vector2::Zero;
 
             while (iter.GetNext(seg))
             {
@@ -184,21 +184,21 @@ export namespace draconic::vg
                     break;
                 case PathCommand::LineTo:
                 {
-                    const Vec2 endPt = seg.points[0];
+                    const Vector2 endPt = seg.points[0];
                     windingNumber += RayCrossing(point, penPos, endPt);
                     penPos = endPt;
                     break;
                 }
                 case PathCommand::QuadTo:
                 {
-                    const Vec2 cp = seg.points[0];
-                    const Vec2 endPt = seg.points[1];
+                    const Vector2 cp = seg.points[0];
+                    const Vector2 endPt = seg.points[1];
                     const i32 steps = 8;
-                    Vec2 prev = penPos;
+                    Vector2 prev = penPos;
                     for (i32 i = 1; i <= steps; ++i)
                     {
                         const f32 t = static_cast<f32>(i) / static_cast<f32>(steps);
-                        const Vec2 next = CurveUtils::QuadraticPointAt(penPos, cp, endPt, t);
+                        const Vector2 next = CurveUtils::QuadraticPointAt(penPos, cp, endPt, t);
                         windingNumber += RayCrossing(point, prev, next);
                         prev = next;
                     }
@@ -207,15 +207,15 @@ export namespace draconic::vg
                 }
                 case PathCommand::CubicTo:
                 {
-                    const Vec2 cp1 = seg.points[0];
-                    const Vec2 cp2 = seg.points[1];
-                    const Vec2 endPt = seg.points[2];
+                    const Vector2 cp1 = seg.points[0];
+                    const Vector2 cp2 = seg.points[1];
+                    const Vector2 endPt = seg.points[2];
                     const i32 steps = 16;
-                    Vec2 prev = penPos;
+                    Vector2 prev = penPos;
                     for (i32 i = 1; i <= steps; ++i)
                     {
                         const f32 t = static_cast<f32>(i) / static_cast<f32>(steps);
-                        const Vec2 next = CurveUtils::CubicPointAt(penPos, cp1, cp2, endPt, t);
+                        const Vector2 next = CurveUtils::CubicPointAt(penPos, cp1, cp2, endPt, t);
                         windingNumber += RayCrossing(point, prev, next);
                         prev = next;
                     }
@@ -265,7 +265,7 @@ export namespace draconic::vg
         }
 
         /// Get the point at a given distance along the path.
-        [[nodiscard]] Vec2 GetPointAtDistance(f32 distance) const
+        [[nodiscard]] Vector2 GetPointAtDistance(f32 distance) const
         {
             f32 remaining = distance;
             PathIterator iter = GetIterator();
@@ -300,11 +300,11 @@ export namespace draconic::vg
             // Past end - return last point.
             if (!m_points.IsEmpty())
                 return m_points[m_points.Size() - 1];
-            return Vec2::Zero;
+            return Vector2::Zero;
         }
 
         /// Get the tangent direction at a given distance along the path.
-        [[nodiscard]] Vec2 GetTangentAtDistance(f32 distance) const
+        [[nodiscard]] Vector2 GetTangentAtDistance(f32 distance) const
         {
             f32 remaining = distance;
             PathIterator iter = GetIterator();
@@ -320,11 +320,11 @@ export namespace draconic::vg
                     segLen = Distance(seg.startPoint, seg.points[0]);
                     if (remaining <= segLen)
                     {
-                        const Vec2 tangent = seg.points[0] - seg.startPoint;
+                        const Vector2 tangent = seg.points[0] - seg.startPoint;
                         const f32 len = Length(tangent);
                         if (len > 0.0001f)
                             return tangent / len;
-                        return Vec2{ 1.0f, 0.0f };
+                        return Vector2{ 1.0f, 0.0f };
                     }
                     break;
                 case PathCommand::QuadTo:
@@ -342,12 +342,12 @@ export namespace draconic::vg
                 remaining -= segLen;
             }
 
-            return Vec2{ 1.0f, 0.0f };
+            return Vector2{ 1.0f, 0.0f };
         }
 
     private:
         /// Ray crossing test for point-in-polygon. +1/-1 for crossing direction, 0 for none.
-        [[nodiscard]] static i32 RayCrossing(Vec2 point, Vec2 a, Vec2 b)
+        [[nodiscard]] static i32 RayCrossing(Vector2 point, Vector2 a, Vector2 b)
         {
             if (a.y <= point.y)
             {
@@ -370,10 +370,10 @@ export namespace draconic::vg
             return 0;
         }
 
-        [[nodiscard]] static f32 CrossProduct(Vec2 a, Vec2 b) { return a.x * b.y - a.y * b.x; }
+        [[nodiscard]] static f32 CrossProduct(Vector2 a, Vector2 b) { return a.x * b.y - a.y * b.x; }
 
         Array<PathCommand> m_commands;
-        Array<Vec2> m_points;
+        Array<Vector2> m_points;
     };
 
     /// Mutable builder for constructing Path objects.
@@ -384,52 +384,52 @@ export namespace draconic::vg
         void MoveTo(f32 x, f32 y)
         {
             m_commands.PushBack(PathCommand::MoveTo);
-            m_points.PushBack(Vec2{ x, y });
-            m_currentPoint = Vec2{ x, y };
+            m_points.PushBack(Vector2{ x, y });
+            m_currentPoint = Vector2{ x, y };
             m_subPathStart = m_currentPoint;
             m_hasMoveTo = true;
         }
-        void MoveTo(Vec2 point) { MoveTo(point.x, point.y); }
+        void MoveTo(Vector2 point) { MoveTo(point.x, point.y); }
 
         /// Draw a straight line to the given point.
         void LineTo(f32 x, f32 y)
         {
             EnsureMoveTo();
             m_commands.PushBack(PathCommand::LineTo);
-            m_points.PushBack(Vec2{ x, y });
-            m_currentPoint = Vec2{ x, y };
+            m_points.PushBack(Vector2{ x, y });
+            m_currentPoint = Vector2{ x, y };
         }
-        void LineTo(Vec2 point) { LineTo(point.x, point.y); }
+        void LineTo(Vector2 point) { LineTo(point.x, point.y); }
 
         /// Draw a quadratic Bezier curve.
         void QuadTo(f32 cx, f32 cy, f32 x, f32 y)
         {
             EnsureMoveTo();
             m_commands.PushBack(PathCommand::QuadTo);
-            m_points.PushBack(Vec2{ cx, cy });
-            m_points.PushBack(Vec2{ x, y });
-            m_currentPoint = Vec2{ x, y };
+            m_points.PushBack(Vector2{ cx, cy });
+            m_points.PushBack(Vector2{ x, y });
+            m_currentPoint = Vector2{ x, y };
         }
-        void QuadTo(Vec2 control, Vec2 end) { QuadTo(control.x, control.y, end.x, end.y); }
+        void QuadTo(Vector2 control, Vector2 end) { QuadTo(control.x, control.y, end.x, end.y); }
 
         /// Draw a cubic Bezier curve.
         void CubicTo(f32 c1x, f32 c1y, f32 c2x, f32 c2y, f32 x, f32 y)
         {
             EnsureMoveTo();
             m_commands.PushBack(PathCommand::CubicTo);
-            m_points.PushBack(Vec2{ c1x, c1y });
-            m_points.PushBack(Vec2{ c2x, c2y });
-            m_points.PushBack(Vec2{ x, y });
-            m_currentPoint = Vec2{ x, y };
+            m_points.PushBack(Vector2{ c1x, c1y });
+            m_points.PushBack(Vector2{ c2x, c2y });
+            m_points.PushBack(Vector2{ x, y });
+            m_currentPoint = Vector2{ x, y };
         }
-        void CubicTo(Vec2 control1, Vec2 control2, Vec2 end) { CubicTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y); }
+        void CubicTo(Vector2 control1, Vector2 control2, Vector2 end) { CubicTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y); }
 
         /// Draw an SVG-style endpoint arc.
         void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, f32 x, f32 y)
         {
             EnsureMoveTo();
-            const Vec2 to{ x, y };
-            Array<Vec2> cubicPoints;
+            const Vector2 to{ x, y };
+            Array<Vector2> cubicPoints;
             CurveUtils::ArcToCubics(m_currentPoint, rx, ry, xAxisRotation, largeArc, sweep, to, cubicPoints);
 
             // Each 3 points = one cubic segment (cp1, cp2, endpoint).
@@ -443,7 +443,7 @@ export namespace draconic::vg
 
             m_currentPoint = to;
         }
-        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Vec2 to) { ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to.x, to.y); }
+        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Vector2 to) { ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to.x, to.y); }
 
         /// Close the current sub-path.
         void Close()
@@ -463,13 +463,13 @@ export namespace draconic::vg
         {
             m_commands.Clear();
             m_points.Clear();
-            m_currentPoint = Vec2::Zero;
-            m_subPathStart = Vec2::Zero;
+            m_currentPoint = Vector2::Zero;
+            m_subPathStart = Vector2::Zero;
             m_hasMoveTo = false;
         }
 
         /// Current pen position.
-        [[nodiscard]] Vec2 CurrentPoint() const { return m_currentPoint; }
+        [[nodiscard]] Vector2 CurrentPoint() const { return m_currentPoint; }
         /// Number of commands added so far.
         [[nodiscard]] usize CommandCount() const { return m_commands.Size(); }
 
@@ -481,9 +481,9 @@ export namespace draconic::vg
         }
 
         Array<PathCommand> m_commands;
-        Array<Vec2> m_points;
-        Vec2 m_currentPoint;
-        Vec2 m_subPathStart;
+        Array<Vector2> m_points;
+        Vector2 m_currentPoint;
+        Vector2 m_subPathStart;
         bool m_hasMoveTo = false;
     };
 
@@ -535,7 +535,7 @@ export namespace draconic::vg
                         // zero-length closing edges that produce degenerate normals.
                         if (current->points.Size() > 2)
                         {
-                            const Vec2 first = current->points[0];
+                            const Vector2 first = current->points[0];
                             while (current->points.Size() > 2 && PointsEqual(current->points[current->points.Size() - 1], first))
                                 current->points.RemoveAt(current->points.Size() - 1);
                         }
@@ -549,7 +549,7 @@ export namespace draconic::vg
         static constexpr f32 DistTol = 0.01f;
 
         /// Add a point only if it's not coincident with the last point.
-        static void AddPoint(Array<Vec2>& points, Vec2 p)
+        static void AddPoint(Array<Vector2>& points, Vector2 p)
         {
             if (!points.IsEmpty() && PointsEqual(points[points.Size() - 1], p))
                 return;
@@ -557,7 +557,7 @@ export namespace draconic::vg
         }
 
         /// Remove any newly-added points that are coincident with their predecessor.
-        static void DeduplicateFrom(Array<Vec2>& points, usize startIdx)
+        static void DeduplicateFrom(Array<Vector2>& points, usize startIdx)
         {
             if (startIdx == 0)
                 startIdx = 1;
@@ -572,7 +572,7 @@ export namespace draconic::vg
         }
 
         /// Check if two points are within distance tolerance.
-        [[nodiscard]] static bool PointsEqual(Vec2 a, Vec2 b)
+        [[nodiscard]] static bool PointsEqual(Vector2 a, Vector2 b)
         {
             const f32 dx = b.x - a.x;
             const f32 dy = b.y - a.y;

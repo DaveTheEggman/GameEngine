@@ -71,9 +71,9 @@ TEST_CASE("script: reflected types register with a manager")
     RegisterReflectedTypes(*manager);
 
     CHECK(manager->Count() >= 10u);
-    CHECK(manager->Has(TypeOf<Vec3>()));
+    CHECK(manager->Has(TypeOf<Vector3>()));
     CHECK(manager->Has(TypeOf<Guid>()));
-    CHECK(manager->Has(TypeOf<Mat4>()));
+    CHECK(manager->Has(TypeOf<Matrix4>()));
 }
 
 TEST_CASE("script: context round-trips value and object globals as Variant")
@@ -83,8 +83,8 @@ TEST_CASE("script: context round-trips value and object globals as Variant")
     REQUIRE(static_cast<bool>(ctx));
 
     // Value global.
-    ctx->SetGlobal(u8"pos", Variant::From(Vec3{ 1.0f, 2.0f, 3.0f }));
-    CHECK(ctx->GetGlobal(u8"pos").Get<Vec3>() == Vec3{ 1.0f, 2.0f, 3.0f });
+    ctx->SetGlobal(u8"pos", Variant::From(Vector3{ 1.0f, 2.0f, 3.0f }));
+    CHECK(ctx->GetGlobal(u8"pos").Get<Vector3>() == Vector3{ 1.0f, 2.0f, 3.0f });
 
     // Object global keeps the object alive and reports its dynamic type.
     RefPtr<Widget> widget = MakeRef<Widget>(DefaultAllocator());

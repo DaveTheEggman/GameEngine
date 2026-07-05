@@ -120,7 +120,7 @@ export namespace draconic::vg::svg
             }
             else if (EqualsIgnoreCase(tag, u8"rect"))
             {
-                element.type = SVGElementType::Rect;
+                element.type = SVGElementType::Rectangle;
                 f32 x = Attr(attrs, u8"x"), y = Attr(attrs, u8"y"), w = Attr(attrs, u8"width"), h = Attr(attrs, u8"height");
                 f32 rx = Attr(attrs, u8"rx"), ry = Attr(attrs, u8"ry");
                 if (ry == 0.0f) ry = rx;
@@ -128,7 +128,7 @@ export namespace draconic::vg::svg
 
                 PathBuilder pb;
                 if (rx > 0.0f || ry > 0.0f)
-                    ShapeBuilder::BuildRoundedRect(Rect{ x, y, w, h }, CornerRadii(rx), pb);
+                    ShapeBuilder::BuildRoundedRect(Rectangle{ x, y, w, h }, CornerRadii(rx), pb);
                 else
                 {
                     pb.MoveTo(x, y);
@@ -143,14 +143,14 @@ export namespace draconic::vg::svg
             {
                 element.type = SVGElementType::Circle;
                 PathBuilder pb;
-                ShapeBuilder::BuildCircle(Vec2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"r"), pb);
+                ShapeBuilder::BuildCircle(Vector2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"r"), pb);
                 element.path = pb.ToPath();
             }
             else if (EqualsIgnoreCase(tag, u8"ellipse"))
             {
                 element.type = SVGElementType::Ellipse;
                 PathBuilder pb;
-                ShapeBuilder::BuildEllipse(Vec2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"rx"), Attr(attrs, u8"ry"), pb);
+                ShapeBuilder::BuildEllipse(Vector2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"rx"), Attr(attrs, u8"ry"), pb);
                 element.path = pb.ToPath();
             }
             else if (EqualsIgnoreCase(tag, u8"line"))
@@ -254,7 +254,7 @@ export namespace draconic::vg::svg
                 if (const Optional<f32> v = ParseFloatValue(opStr->AsView())) element.opacity = v.Value();
 
             if (const String* trStr = attrs.Find(String(u8"transform")))
-                if (Result<Mat4> m = SVGTransformParser::Parse(trStr->AsView()); m.HasValue())
+                if (Result<Matrix4> m = SVGTransformParser::Parse(trStr->AsView()); m.HasValue())
                     element.transform = m.Value();
 
             elements.PushBack(Move(element));

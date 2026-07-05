@@ -15,11 +15,11 @@ static void BuildChain(Skeleton& s)
 {
     Array<Bone>& bones = s.Bones();
     bones[0].index = 0; bones[0].parentIndex = -1; bones[0].name = String{ u8"root" };
-    bones[0].localBindPose.position = Vec3{ 0, 10, 0 };
+    bones[0].localBindPose.position = Vector3{ 0, 10, 0 };
     bones[1].index = 1; bones[1].parentIndex = 0;  bones[1].name = String{ u8"child" };
-    bones[1].localBindPose.position = Vec3{ 0, 5, 0 };
+    bones[1].localBindPose.position = Vector3{ 0, 5, 0 };
     bones[2].index = 2; bones[2].parentIndex = 1;  bones[2].name = String{ u8"grandchild" };
-    bones[2].localBindPose.position = Vec3{ 0, 2, 0 };
+    bones[2].localBindPose.position = Vector3{ 0, 2, 0 };
     s.BuildNameMap();
     s.FindRootBones();
     s.BuildChildIndices();
@@ -42,8 +42,8 @@ TEST_CASE("skeleton: world poses accumulate down the hierarchy (bind pose)")
     Skeleton s{ 3 };
     BuildChain(s);
 
-    Mat4 world[3];
-    s.ComputeWorldPoses(Span<const BoneTransform>{}, Span<Mat4>{ world, 3 });
+    Matrix4 world[3];
+    s.ComputeWorldPoses(Span<const BoneTransform>{}, Span<Matrix4>{ world, 3 });
 
     // Pure translations compose additively along the chain (+Y).
     CHECK(NearlyEqual(world[0].m[3][1], 10.0f));
@@ -57,8 +57,8 @@ TEST_CASE("skeleton: skinning matrices are identity at the bind pose")
     BuildChain(s);
     s.ComputeInverseBindPoses();
 
-    Mat4 skin[3];
-    s.ComputeSkinningMatrices(Span<const BoneTransform>{}, Span<Mat4>{ skin, 3 });
+    Matrix4 skin[3];
+    s.ComputeSkinningMatrices(Span<const BoneTransform>{}, Span<Matrix4>{ skin, 3 });
 
     // skin = inverseBind * world; evaluated at the bind pose this is identity for every bone.
     for (int i = 0; i < 3; ++i)
@@ -79,13 +79,13 @@ TEST_CASE("skeleton: hierarchical order lists parents before children")
     Array<Bone>& bones = s.Bones();
     bones[0].index = 0; bones[0].parentIndex = 1;   // bone 0's parent is bone 1
     bones[1].index = 1; bones[1].parentIndex = -1;  // bone 1 is the root
-    bones[0].localBindPose.position = Vec3{ 0, 1, 0 };
-    bones[1].localBindPose.position = Vec3{ 0, 100, 0 };
+    bones[0].localBindPose.position = Vector3{ 0, 1, 0 };
+    bones[1].localBindPose.position = Vector3{ 0, 100, 0 };
     s.FindRootBones();
     s.BuildChildIndices();
 
-    Mat4 world[2];
-    s.ComputeWorldPoses(Span<const BoneTransform>{}, Span<Mat4>{ world, 2 });
+    Matrix4 world[2];
+    s.ComputeWorldPoses(Span<const BoneTransform>{}, Span<Matrix4>{ world, 2 });
     // If order were wrong, bone 0 would miss bone 1's transform. Expect 100 + 1 = 101.
     CHECK(NearlyEqual(world[0].m[3][1], 101.0f));
     CHECK(NearlyEqual(world[1].m[3][1], 100.0f));

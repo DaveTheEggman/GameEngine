@@ -72,10 +72,10 @@ public:
         // Per-frame-in-flight projection UBO + bind group (font/sampler shared; UBO per slot so an
         // in-flight frame's projection isn't overwritten).
         for (u32 i = 0; i < m_fif; ++i) {
-            rhi::BufferDesc ud{}; ud.size = sizeof(Mat4); ud.usage = rhi::BufferUsage::Uniform; ud.memory = rhi::MemoryLocation::CpuToGpu; ud.label = u8"imgui.proj";
+            rhi::BufferDesc ud{}; ud.size = sizeof(Matrix4); ud.usage = rhi::BufferUsage::Uniform; ud.memory = rhi::MemoryLocation::CpuToGpu; ud.label = u8"imgui.proj";
             if (!m_device->CreateBuffer(ud, m_frames[i].ubo).IsOk()) { return Status{ ErrorCode::Unknown }; }
             rhi::BindGroupEntry be[] = {
-                rhi::BindGroupEntry::BufferEntry(m_frames[i].ubo, 0, sizeof(Mat4)),
+                rhi::BindGroupEntry::BufferEntry(m_frames[i].ubo, 0, sizeof(Matrix4)),
                 rhi::BindGroupEntry::TextureEntry(m_fontView),
                 rhi::BindGroupEntry::SamplerEntry(m_sampler),
             };
@@ -101,10 +101,10 @@ public:
         // Ortho off-center (0..W, 0..H, y-down) as a row-major matrix for row-vector mul.
         const f32 W = (drawData->DisplaySize.x > 0.0f) ? drawData->DisplaySize.x : static_cast<f32>(width);
         const f32 H = (drawData->DisplaySize.y > 0.0f) ? drawData->DisplaySize.y : static_cast<f32>(height);
-        Mat4 proj{};
+        Matrix4 proj{};
         proj.m[0][0] = 2.0f / W; proj.m[1][1] = -2.0f / H; proj.m[2][2] = 1.0f; proj.m[3][3] = 1.0f;
         proj.m[3][0] = -1.0f;    proj.m[3][1] = 1.0f;
-        if (void* p = slot.ubo->Map()) { MemCopy(p, &proj, sizeof(Mat4)); slot.ubo->Unmap(); }
+        if (void* p = slot.ubo->Map()) { MemCopy(p, &proj, sizeof(Matrix4)); slot.ubo->Unmap(); }
 
         rhi::ColorAttachment ca{}; ca.view = target; ca.loadOp = rhi::LoadOp::Load; ca.storeOp = rhi::StoreOp::Store;
         rhi::RenderPassDesc rp{}; rp.colorAttachments.Add(ca); rp.label = u8"imgui";

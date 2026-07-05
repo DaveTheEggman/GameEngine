@@ -174,7 +174,7 @@ export namespace draconic::vg
                 const FlattenedSubPath& subPath = subPaths[s];
                 if (subPath.points.Size() >= 2)
                 {
-                    StrokeTessellator::Tessellate(Span<const Vec2>(subPath.points.Data(), subPath.points.Size()),
+                    StrokeTessellator::Tessellate(Span<const Vector2>(subPath.points.Data(), subPath.points.Size()),
                                                   subPath.isClosed, style, dashPattern, antiAlias, color, tempVerts, tempIndices);
                 }
             }

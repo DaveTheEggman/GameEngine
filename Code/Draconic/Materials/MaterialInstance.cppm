@@ -67,10 +67,10 @@ public:
 
     // --- property setters (write override + mark dirty) ---
     void SetFloat(StringView n, f32 v)  { WriteUniform(n, &v, sizeof(v)); }
-    void SetFloat2(StringView n, Vec2 v){ WriteUniform(n, &v, sizeof(v)); }
-    void SetFloat3(StringView n, Vec3 v){ WriteUniform(n, &v, sizeof(v)); }
-    void SetFloat4(StringView n, Vec4 v){ WriteUniform(n, &v, sizeof(v)); }
-    void SetColor(StringView n, Vec4 c) { SetFloat4(n, c); }
+    void SetFloat2(StringView n, Vector2 v){ WriteUniform(n, &v, sizeof(v)); }
+    void SetFloat3(StringView n, Vector3 v){ WriteUniform(n, &v, sizeof(v)); }
+    void SetFloat4(StringView n, Vector4 v){ WriteUniform(n, &v, sizeof(v)); }
+    void SetColor(StringView n, Vector4 c) { SetFloat4(n, c); }
 
     void SetTexture(StringView n, rhi::TextureView* tex) {
         const isize i = m_material->GetPropertyIndex(n);

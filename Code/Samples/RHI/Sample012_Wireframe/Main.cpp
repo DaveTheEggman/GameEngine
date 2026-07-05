@@ -14,7 +14,7 @@ import draconic.rhi.vk;
 namespace sf = draconic::samples::framework;
 namespace dr = draconic::rhi;
 namespace ds = draconic::shaders;
-using draconic::core::Mat4;
+using draconic::core::Matrix4;
 
 class WireframeSample : public sf::SampleApp {
 public:
@@ -119,13 +119,13 @@ void WireframeSample::OnRender() {
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
-    Mat4 model = Mat4::RotationY(m_totalTime * 0.8f);
+    Matrix4 model = Matrix4::RotationY(m_totalTime * 0.8f);
     // Row-vector view: identity rotation, camera 3 units along +Z (RH: looking toward -Z).
     // Translation in row 3: m[3][2] = 3.
     f32 view[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,3,1 };
-    Mat4 proj = Mat4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Mat4 vMat; std::memcpy(vMat.Data(), view, 64);
-    Mat4 mvp = model * vMat * proj;
+    Matrix4 proj = Matrix4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Matrix4 vMat; std::memcpy(vMat.Data(), view, 64);
+    Matrix4 mvp = model * vMat * proj;
     std::memcpy(m_ubMapped, mvp.Data(), 64);
 
     m_pool->Reset();

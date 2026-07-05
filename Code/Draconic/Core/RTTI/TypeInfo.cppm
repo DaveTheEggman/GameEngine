@@ -47,7 +47,7 @@ export namespace draconic::core
         const Attribute* attributes = nullptr;
         u32 attributeCount = 0;
         const ContainerInfo* container = nullptr; // non-null for reflected containers
-        const ConstantInfo* constants = nullptr; // named static values (e.g. Vec3::Zero)
+        const ConstantInfo* constants = nullptr; // named static values (e.g. Vector3::Zero)
         u32 constantCount = 0;
         const ConstructorInfo* constructors = nullptr; // reflected constructors (overloads)
         u32 constructorCount = 0;

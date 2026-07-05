@@ -252,7 +252,7 @@ public:
         hist.state[cur] = rhi::ResourceState::RenderTarget;
 
         TaaPush push{};
-        push.texelSize = Vec2{ 1.0f / static_cast<f32>(w), 1.0f / static_cast<f32>(h) };
+        push.texelSize = Vector2{ 1.0f / static_cast<f32>(w), 1.0f / static_cast<f32>(h) };
         push.blendFactor = blendFactor;
         push.historyValid = hist.valid ? 1.0f : 0.0f;
         push.varianceGamma = varianceGamma;
@@ -287,7 +287,7 @@ public:
     }
 
 private:
-    struct TaaPush { Vec2 texelSize{}; f32 blendFactor = 0.97f; f32 historyValid = 0.0f; f32 varianceGamma = 1.25f; f32 motionScale = 32.0f; f32 nearPlane = 0.1f; f32 farPlane = 1000.0f; };
+    struct TaaPush { Vector2 texelSize{}; f32 blendFactor = 0.97f; f32 historyValid = 0.0f; f32 varianceGamma = 1.25f; f32 motionScale = 32.0f; f32 nearPlane = 0.1f; f32 farPlane = 1000.0f; };
 
     struct ViewHistory {
         rhi::Texture*     tex[2]  = {};

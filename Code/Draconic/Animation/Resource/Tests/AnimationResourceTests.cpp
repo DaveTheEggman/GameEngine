@@ -31,7 +31,7 @@ namespace
     {
         s.Bones()[0].index = 0; s.Bones()[0].parentIndex = -1; s.Bones()[0].name = String{ u8"root" };
         s.Bones()[1].index = 1; s.Bones()[1].parentIndex = 0;  s.Bones()[1].name = String{ u8"child" };
-        s.Bones()[1].localBindPose.position = Vec3{ 0, 5, 0 };
+        s.Bones()[1].localBindPose.position = Vector3{ 0, 5, 0 };
         s.BuildNameMap(); s.FindRootBones(); s.BuildChildIndices(); s.ComputeInverseBindPoses();
     }
 }
@@ -70,8 +70,8 @@ TEST_CASE("skeleton resource: round-trips through the resource manager")
     CHECK(skel->RootBones().Size() == 1);           // hierarchy rebuilt
 
     // Skinning at the bind pose is identity (inverse-bind reconstructed correctly).
-    Mat4 skin[2];
-    skel->ComputeSkinningMatrices(Span<const BoneTransform>{}, Span<Mat4>{ skin, 2 });
+    Matrix4 skin[2];
+    skel->ComputeSkinningMatrices(Span<const BoneTransform>{}, Span<Matrix4>{ skin, 2 });
     CHECK(NearlyEqual(skin[1].m[0][0], 1.0f));
     CHECK(NearlyEqual(skin[1].m[3][1], 0.0f));
 
@@ -95,9 +95,9 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
 
         AnimationClip clip{ u8"move", 1.0f, /*looping*/ true };
         AnimationClip::Vec3Track* pos = clip.GetOrCreatePositionTrack(0);
-        pos->AddKeyframe(0.0f, Vec3{ 0, 0, 0 });
-        pos->AddKeyframe(1.0f, Vec3{ 0, 10, 0 });
-        clip.GetOrCreateRotationTrack(1)->AddKeyframe(0.0f, Quat::Identity);
+        pos->AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
+        pos->AddKeyframe(1.0f, Vector3{ 0, 10, 0 });
+        clip.GetOrCreateRotationTrack(1)->AddKeyframe(0.0f, Quaternion::Identity);
         clip.AddEvent(0.5f, u8"Footstep");
 
         AnimationClipSource src;
@@ -126,7 +126,7 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
     skel.FindRootBones(); skel.BuildChildIndices();
     BoneTransform poses[2] = {};
     SampleClip(*clip.Get(), skel, 0.5f, Span<BoneTransform>{ poses, 2 });
-    CHECK(NearlyEqual(poses[0].position, Vec3{ 0, 5, 0 }));
+    CHECK(NearlyEqual(poses[0].position, Vector3{ 0, 5, 0 }));
 
     RemoveTree();
 }
@@ -154,7 +154,7 @@ TEST_CASE("animation graph resource: composite — resolves clip refs through th
         const Guid walkId = clipInst->Id();
         {
             AnimationClip walk{ u8"walk", 2.0f, true };
-            walk.GetOrCreatePositionTrack(0)->AddKeyframe(0.0f, Vec3{ 0, 0, 0 });
+            walk.GetOrCreatePositionTrack(0)->AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
             AnimationClipSource csrc; AnimationClipSource::FromClip(walk, csrc);
             REQUIRE(clipInst->WriteObject(csrc).IsOk());
         }

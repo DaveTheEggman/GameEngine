@@ -29,8 +29,8 @@ struct Bone {
     i32           index           = 0;
     i32           parentIndex     = -1;             // -1 = root
     BoneTransform localBindPose   = {};             // local transform relative to parent (bind pose)
-    Mat4          inverseBindPose = Mat4::Identity();// model space -> bone space
-    Mat4          rootCorrection  = Mat4::Identity();// missing-ancestor transform for roots (e.g. FBX axis conv)
+    Matrix4          inverseBindPose = Matrix4::Identity();// model space -> bone space
+    Matrix4          rootCorrection  = Matrix4::Identity();// missing-ancestor transform for roots (e.g. FBX axis conv)
     Array<i32>    children;
 };
 
@@ -105,12 +105,12 @@ public:
     void ComputeInverseBindPoses() {
         const usize n = m_bones.Size();
         m_worldScratch.Resize(n);
-        ComputeWorldPoses(Span<const BoneTransform>{}, Span<Mat4>{ m_worldScratch.Data(), n });   // bind pose
+        ComputeWorldPoses(Span<const BoneTransform>{}, Span<Matrix4>{ m_worldScratch.Data(), n });   // bind pose
         for (usize i = 0; i < n; ++i) { m_bones[i].inverseBindPose = Inverse(m_worldScratch[i]); }
     }
 
     // World-space matrices from local transforms (empty `localPoses` => bind pose), parents first.
-    void ComputeWorldPoses(Span<const BoneTransform> localPoses, Span<Mat4> outWorldPoses) {
+    void ComputeWorldPoses(Span<const BoneTransform> localPoses, Span<Matrix4> outWorldPoses) {
         if (!m_hierarchicalOrder.IsEmpty()) {
             for (i32 boneIndex : m_hierarchicalOrder) { ComputeBoneWorldPose(boneIndex, localPoses, outWorldPoses); }
         } else {
@@ -119,10 +119,10 @@ public:
     }
 
     // Final skinning matrices = inverseBindPose * worldPose (row-vector: vertex * skin = v * IBM * world).
-    void ComputeSkinningMatrices(Span<const BoneTransform> localPoses, Span<Mat4> outSkinningMatrices) {
+    void ComputeSkinningMatrices(Span<const BoneTransform> localPoses, Span<Matrix4> outSkinningMatrices) {
         const usize n = m_bones.Size();
         m_worldScratch.Resize(n);
-        ComputeWorldPoses(localPoses, Span<Mat4>{ m_worldScratch.Data(), n });
+        ComputeWorldPoses(localPoses, Span<Matrix4>{ m_worldScratch.Data(), n });
         for (usize i = 0; i < n; ++i) {
             if (i < outSkinningMatrices.Size()) {
                 outSkinningMatrices[i] = m_bones[i].inverseBindPose * m_worldScratch[i];
@@ -133,13 +133,13 @@ public:
 private:
     [[nodiscard]] bool InBounds(i32 i) const noexcept { return i >= 0 && static_cast<usize>(i) < m_bones.Size(); }
 
-    void ComputeBoneWorldPose(i32 boneIndex, Span<const BoneTransform> localPoses, Span<Mat4> outWorldPoses) {
+    void ComputeBoneWorldPose(i32 boneIndex, Span<const BoneTransform> localPoses, Span<Matrix4> outWorldPoses) {
         const usize bi = static_cast<usize>(boneIndex);
         if (!InBounds(boneIndex) || bi >= outWorldPoses.Size()) { return; }
         const Bone& bone = m_bones[bi];
 
         const BoneTransform local = (bi < localPoses.Size()) ? localPoses[bi] : bone.localBindPose;
-        const Mat4 localMatrix = local.ToMatrix();
+        const Matrix4 localMatrix = local.ToMatrix();
 
         if (bone.parentIndex >= 0 && InBounds(bone.parentIndex) && static_cast<usize>(bone.parentIndex) < outWorldPoses.Size()) {
             outWorldPoses[bi] = localMatrix * outWorldPoses[static_cast<usize>(bone.parentIndex)];   // child = local * parent
@@ -180,7 +180,7 @@ private:
     Array<i32>       m_rootBones;
     Array<i32>       m_hierarchicalOrder;
     HashMap<String, i32> m_nameMap;
-    Array<Mat4>      m_worldScratch;   // reused world-pose scratch (skinning hot path)
+    Array<Matrix4>      m_worldScratch;   // reused world-pose scratch (skinning hot path)
 };
 
 DRACONIC_DEFINE_OBJECT(Skeleton, "draconic::animation")

@@ -38,7 +38,7 @@ inline void SkeletonSourceFromModel(const mdl::Model& model, const mdl::ModelSki
 {
     out.name = String(u8"skeleton");
     const Span<const i32>  joints = skin.joints();
-    const Span<const Mat4> ibms   = skin.inverseBindMatrices();
+    const Span<const Matrix4> ibms   = skin.inverseBindMatrices();
     const Span<mdl::ModelBone* const> bones = model.bones();
 
     for (usize j = 0; j < joints.Size(); ++j) {
@@ -52,10 +52,10 @@ inline void SkeletonSourceFromModel(const mdl::Model& model, const mdl::ModelSki
             if (p != nullptr) { parentJoint = *p; }
         }
         out.parentIndices.PushBack(parentJoint);
-        out.translations.PushBack(b != nullptr ? b->translation : Vec3{ 0, 0, 0 });
-        out.rotations.PushBack(b != nullptr ? b->rotation : Quat::Identity);
-        out.scales.PushBack(b != nullptr ? b->scale : Vec3{ 1, 1, 1 });
-        out.inverseBindPoses.PushBack(j < ibms.Size() ? ibms[j] : Mat4::Identity());
+        out.translations.PushBack(b != nullptr ? b->translation : Vector3{ 0, 0, 0 });
+        out.rotations.PushBack(b != nullptr ? b->rotation : Quaternion::Identity);
+        out.scales.PushBack(b != nullptr ? b->scale : Vector3{ 1, 1, 1 });
+        out.inverseBindPoses.PushBack(j < ibms.Size() ? ibms[j] : Matrix4::Identity());
     }
 }
 

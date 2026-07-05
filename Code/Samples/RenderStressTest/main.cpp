@@ -88,7 +88,7 @@ namespace
 
             // Shared sphere material (gray PBR). Every sphere points at THIS one by default, so the
             // renderer can batch them. Unique mode (U) builds a per-sphere material instead.
-            m_sharedMat = mat::CreatePBR(u8"stress.shared", rc::Vec4{ 0.7f, 0.7f, 0.7f, 1.0f }, 0.1f, 0.4f);
+            m_sharedMat = mat::CreatePBR(u8"stress.shared", rc::Vector4{ 0.7f, 0.7f, 0.7f, 1.0f }, 0.1f, 0.4f);
 
             // One sphere mesh, shared by all instances (matches Sedulous: radius 0.5, 16x8).
             m_sphere = geo::Primitives::Sphere(0.5f, 16, 8);
@@ -96,18 +96,18 @@ namespace
             // Large ground plane so the bobbing spheres read against a surface.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
                 m_ground = m_scene->CreateEntity(u8"ground");
-                m_scene->SetLocalPosition(m_ground, rc::Vec3{ 0.0f, 0.0f, 0.0f });
+                m_scene->SetLocalPosition(m_ground, rc::Vector3{ 0.0f, 0.0f, 0.0f });
                 rd::MeshComponent& gm = meshes->Add(m_ground);
                 gm.mesh = geo::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                gm.material = mat::CreatePBR(u8"stress.ground", rc::Vec4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f);
+                gm.material = mat::CreatePBR(u8"stress.ground", rc::Vector4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f);
             }
 
             // Directional key light.
             if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                 sc::EntityHandle sun = m_scene->CreateEntity(u8"sun");
                 rc::Transform st = m_scene->GetLocalTransform(sun);
-                st.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.9f)
-                            * rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, 0.5f);
+                st.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f)
+                            * rc::Quaternion::FromAxisAngle(rc::Vector3{ 0.0f, 1.0f, 0.0f }, 0.5f);
                 m_scene->SetLocalTransform(sun, st);
                 rd::LightComponent& sl = lights->Add(sun);
                 sl.type         = rd::LightType::Directional;
@@ -260,14 +260,14 @@ namespace
             // Floor: scale the base plane so it covers the grid + a margin (uniform XZ; Y stays flat).
             const rc::f32 scale = rc::Max(0.1f, (gridWidth + 40.0f) / kFloorBaseSize);
             rc::Transform ft = m_scene->GetLocalTransform(m_ground);
-            ft.scale = rc::Vec3{ scale, 1.0f, scale };
+            ft.scale = rc::Vector3{ scale, 1.0f, scale };
             m_scene->SetLocalTransform(m_ground, ft);
 
             // Camera: pull back + up so the grid fits the 60° FOV, looking down at the center.
             const rc::f32 extent = gridWidth * 0.5f + 6.0f;
             const rc::f32 dist   = extent / rc::Tan(0.5236f) + 10.0f;   // half of 60° = 0.5236 rad
             const rc::f32 camY   = extent * 0.55f + kSphereHeight;
-            m_fly.position = rc::Vec3{ 0.0f, kSphereHeight + camY, dist };
+            m_fly.position = rc::Vector3{ 0.0f, kSphereHeight + camY, dist };
             m_fly.yaw      = 0.0f;
             m_fly.pitch    = -rc::Atan2(camY, dist);   // look down onto the grid center
             if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
@@ -297,7 +297,7 @@ namespace
                 const rc::f32 z = (static_cast<rc::f32>(gz) - static_cast<rc::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
 
                 sc::EntityHandle e = m_scene->CreateEntity(u8"sphere");
-                m_scene->SetLocalPosition(e, rc::Vec3{ x, kSphereHeight, z });
+                m_scene->SetLocalPosition(e, rc::Vector3{ x, kSphereHeight, z });
                 rd::MeshComponent& mc = meshes->Add(e);
                 mc.mesh = m_sphere;
                 AssignSphereMaterial(mc, index);
@@ -331,8 +331,8 @@ namespace
         {
             if (m_uniqueMaterials) {
                 const rc::f32 hue = static_cast<rc::f32>(index % 360) / 360.0f;
-                const rc::Vec3 c = HsvToRgb(hue, 0.8f, 0.9f);
-                rc::RefPtr<mat::Material> m = mat::CreatePBR(u8"stress.unique", rc::Vec4{ c.x, c.y, c.z, 1.0f }, 0.1f, 0.4f);
+                const rc::Vector3 c = HsvToRgb(hue, 0.8f, 0.9f);
+                rc::RefPtr<mat::Material> m = mat::CreatePBR(u8"stress.unique", rc::Vector4{ c.x, c.y, c.z, 1.0f }, 0.1f, 0.4f);
                 mc.material = m;
                 mc.color    = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
                 m_uniqueMats.PushBack(static_cast<rc::RefPtr<mat::Material>&&>(m));
@@ -419,7 +419,7 @@ namespace
             ImGui::End();
         }
 
-        static rc::Vec3 HsvToRgb(rc::f32 h, rc::f32 s, rc::f32 v)
+        static rc::Vector3 HsvToRgb(rc::f32 h, rc::f32 s, rc::f32 v)
         {
             const rc::i32 i = static_cast<rc::i32>(h * 6.0f);
             const rc::f32 f = h * 6.0f - static_cast<rc::f32>(i);
@@ -427,12 +427,12 @@ namespace
             const rc::f32 q = v * (1.0f - f * s);
             const rc::f32 t = v * (1.0f - (1.0f - f) * s);
             switch (i % 6) {
-                case 0:  return rc::Vec3{ v, t, p };
-                case 1:  return rc::Vec3{ q, v, p };
-                case 2:  return rc::Vec3{ p, v, t };
-                case 3:  return rc::Vec3{ p, q, v };
-                case 4:  return rc::Vec3{ t, p, v };
-                default: return rc::Vec3{ v, p, q };
+                case 0:  return rc::Vector3{ v, t, p };
+                case 1:  return rc::Vector3{ q, v, p };
+                case 2:  return rc::Vector3{ p, v, t };
+                case 3:  return rc::Vector3{ p, q, v };
+                case 4:  return rc::Vector3{ t, p, v };
+                default: return rc::Vector3{ v, p, q };
             }
         }
 
@@ -452,7 +452,7 @@ namespace
         rc::f32 m_time = 0.0f;
 
         // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
-        smp::FlyCamera m_fly{ .position = rc::Vec3{ 0.0f, 50.0f, 200.0f }, .pitch = -0.245f };
+        smp::FlyCamera m_fly{ .position = rc::Vector3{ 0.0f, 50.0f, 200.0f }, .pitch = -0.245f };
 
         // Stats
         bool    m_showStats  = true;   // HUD visibility (H)

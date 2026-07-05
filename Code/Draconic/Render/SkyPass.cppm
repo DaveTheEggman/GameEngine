@@ -118,9 +118,9 @@ public:
     void DeclareSky(rendergraph::RenderGraph& graph, rendergraph::RGHandle color, rendergraph::RGHandle velocity,
                     rendergraph::RGHandle depth, rendergraph::RGHandle envH, rhi::TextureView* envView,
                     rhi::TextureFormat colorFormat, rhi::TextureFormat depthFormat,
-                    const Mat4& invViewProj, const Mat4& prevViewProj, Vec2 jitter, Vec2 prevJitter,
-                    const Vec3& camPos, f32 intensity,
-                    const Vec3& sunDir, f32 sunSize, const Vec3& sunColor, f32 sunIntensity,
+                    const Matrix4& invViewProj, const Matrix4& prevViewProj, Vector2 jitter, Vector2 prevJitter,
+                    const Vector3& camPos, f32 intensity,
+                    const Vector3& sunDir, f32 sunSize, const Vector3& sunColor, f32 sunIntensity,
                     i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
                     rendergraph::RGSubresourceRange colorSub = {}) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(colorFormat, depthFormat);
@@ -129,10 +129,10 @@ public:
         SkyUniform u{};
         u.invViewProj = invViewProj;
         u.prevViewProj = prevViewProj;
-        u.camPosIntensity = Vec4{ camPos.x, camPos.y, camPos.z, intensity };
-        u.sunDir   = Vec4{ sunDir.x, sunDir.y, sunDir.z, sunSize };
-        u.sunColor = Vec4{ sunColor.x, sunColor.y, sunColor.z, sunIntensity };
-        u.jitter   = Vec4{ jitter.x, jitter.y, prevJitter.x, prevJitter.y };
+        u.camPosIntensity = Vector4{ camPos.x, camPos.y, camPos.z, intensity };
+        u.sunDir   = Vector4{ sunDir.x, sunDir.y, sunDir.z, sunSize };
+        u.sunColor = Vector4{ sunColor.x, sunColor.y, sunColor.z, sunIntensity };
+        u.jitter   = Vector4{ jitter.x, jitter.y, prevJitter.x, prevJitter.y };
 
         graph.AddRenderPass(u8"sky",
             [this, color, velocity, depth, envH, envView, pipeline, slot, u, vpX, vpY, vpW, vpH, colorSub](rendergraph::PassBuilder& b) {
@@ -156,7 +156,7 @@ private:
     static constexpr u32 kMaxFIF = 4;
     static constexpr u32 kMaxViews = 8;
     static constexpr u32 kMaxSlots = kMaxViews * kMaxFIF;
-    struct SkyUniform { Mat4 invViewProj; Mat4 prevViewProj; Vec4 camPosIntensity; Vec4 sunDir; Vec4 sunColor; Vec4 jitter; };
+    struct SkyUniform { Matrix4 invViewProj; Matrix4 prevViewProj; Vector4 camPosIntensity; Vector4 sunDir; Vector4 sunColor; Vector4 jitter; };
 
     static String Concat(const char8_t* a, const char8_t* b) { String s(StringView{ a }); s.Append(StringView{ b }); return s; }
 

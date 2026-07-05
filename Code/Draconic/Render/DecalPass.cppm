@@ -37,11 +37,11 @@ inline constexpr rhi::TextureFormat kDecalHdrFormat = rhi::TextureFormat::RGBA16
 
 // One decal, uploaded to the per-decal UBO (set 1, dynamic offset). 224 bytes.
 struct DecalUniforms {
-    Mat4 world;         // decal box world transform (scale = box size); projects along local +Z
-    Mat4 invWorld;      // world -> decal-local (the box clip)
-    Mat4 invViewProj;   // (ndc, depth) -> world, for depth reconstruction (this view, jittered)
-    Vec4 color;         // rgba tint
-    Vec4 params;        // x,y = 1/full-target-size ; z,w = cos(angleFadeStart), cos(angleFadeEnd)
+    Matrix4 world;         // decal box world transform (scale = box size); projects along local +Z
+    Matrix4 invWorld;      // world -> decal-local (the box clip)
+    Matrix4 invViewProj;   // (ndc, depth) -> world, for depth reconstruction (this view, jittered)
+    Vector4 color;         // rgba tint
+    Vector4 params;        // x,y = 1/full-target-size ; z,w = cos(angleFadeStart), cos(angleFadeEnd)
 };
 static_assert(sizeof(DecalUniforms) == 224);
 
@@ -172,12 +172,12 @@ public:
     // whose inverse reconstructs world position from `depth`. Allocates its own ring slots (accumulating
     // across views within the frame). No-op if there are no decals. Bracket with BeginFrame/EndFrame.
     void DeclareDecals(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr, rendergraph::RGHandle depth,
-                       Span<const DecalInstance> decals, const Mat4& viewProj, u32 w, u32 h,
+                       Span<const DecalInstance> decals, const Matrix4& viewProj, u32 w, u32 h,
                        i32 vpX, i32 vpY, u32 vpW, u32 vpH) {
         if (decals.IsEmpty() || w == 0 || h == 0 || m_decalRing.Buffer() == nullptr) { return; }
 
-        const Mat4 invViewProj = Inverse(viewProj);
-        const Vec2 invSize{ 1.0f / static_cast<f32>(w), 1.0f / static_cast<f32>(h) };
+        const Matrix4 invViewProj = Inverse(viewProj);
+        const Vector2 invSize{ 1.0f / static_cast<f32>(w), 1.0f / static_cast<f32>(h) };
 
         // This view's decals -> fresh ring slots (its own InvViewProj). Local list, captured by value into
         // the pass so it survives to execute time (a shared member would be clobbered by the next view).
@@ -190,8 +190,8 @@ public:
             u.world       = d.world;
             u.invWorld    = Inverse(d.world);
             u.invViewProj = invViewProj;
-            u.color       = Vec4{ d.color.r, d.color.g, d.color.b, d.color.a };
-            u.params      = Vec4{ invSize.x, invSize.y, Cos(d.fadeStart), Cos(d.fadeEnd) };
+            u.color       = Vector4{ d.color.r, d.color.g, d.color.b, d.color.a };
+            u.params      = Vector4{ invSize.x, invSize.y, Cos(d.fadeStart), Cos(d.fadeEnd) };
             MemCopy(r.ptr, &u, sizeof(u));
             viewDraws.PushBack(Draw{ r.byteOffset, d.texture });
         }

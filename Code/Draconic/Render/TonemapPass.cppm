@@ -147,7 +147,7 @@ public:
     void DeclareTonemap(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr, rendergraph::RGHandle bloom, rendergraph::RGHandle ao,
                         rendergraph::RGHandle ldr, bool clearColor, const rhi::ClearColor& clear, rhi::TextureFormat ldrFormat,
                         i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex, f32 exposure = 1.0f, f32 bloomIntensity = 0.0f,
-                        Vec2 uvScale = Vec2{ 1, 1 }, Vec2 uvOffset = Vec2{ 0, 0 }, f32 aoStrength = 0.0f, bool debugShowAo = false) {
+                        Vector2 uvScale = Vector2{ 1, 1 }, Vector2 uvOffset = Vector2{ 0, 0 }, f32 aoStrength = 0.0f, bool debugShowAo = false) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr) { return; }
         const u32 slot = (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);

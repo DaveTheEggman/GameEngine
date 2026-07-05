@@ -76,7 +76,7 @@ export namespace draconic::fonts
         {
             return Span<const u8>(m_pixelData.Data(), m_pixelData.Size());
         }
-        [[nodiscard]] Vec2 WhitePixelUV() const override { return Vec2(m_whitePixelU, m_whitePixelV); }
+        [[nodiscard]] Vector2 WhitePixelUV() const override { return Vector2(m_whitePixelU, m_whitePixelV); }
 
         [[nodiscard]] bool TryGetRegion(i32 codepoint, AtlasRegion& region) const override
         {

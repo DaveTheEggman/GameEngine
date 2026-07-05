@@ -37,7 +37,7 @@ TEST_CASE("baked.font: glyph table")
     infoA.glyphIndex = 17;
     infoA.advanceWidth = 12.5f;
     infoA.leftSideBearing = 0.5f;
-    infoA.boundingBox = draconic::fonts::Rect(0, -10, 12, 10);
+    infoA.boundingBox = draconic::fonts::Rectangle(0, -10, 12, 10);
     infoA.hasBitmap = true;
     font.SetGlyph(static_cast<i32>('A'), infoA);
 
@@ -139,7 +139,7 @@ TEST_CASE("baked.atlas: region table")
     CHECK(got.height == 14);
     CHECK(got.advanceX == 13.5f);
 
-    const Vec2 white = atlas.WhitePixelUV();
+    const Vector2 white = atlas.WhitePixelUV();
     CHECK(white.x == 0.99f);
     CHECK(white.y == 0.99f);
 }

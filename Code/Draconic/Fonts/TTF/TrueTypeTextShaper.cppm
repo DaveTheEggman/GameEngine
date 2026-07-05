@@ -222,7 +222,7 @@ export namespace draconic::fonts
         }
 
         void GetSelectionRects(IFont&, Span<const GlyphPosition> positions, SelectionRange selection,
-                               f32 lineHeight, Array<Rect>& outRects) override
+                               f32 lineHeight, Array<Rectangle>& outRects) override
         {
             outRects.Clear();
             if (positions.Size() == 0 || selection.IsEmpty())
@@ -244,7 +244,7 @@ export namespace draconic::fonts
                 if (Abs(pos.y - currentLineY) > lineHeight * 0.5f)
                 {
                     if (rectEndX > rectStartX)
-                        outRects.PushBack(Rect(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
+                        outRects.PushBack(Rectangle(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
                     currentLineY = pos.y;
                     rectStartX = pos.x;
                 }
@@ -252,7 +252,7 @@ export namespace draconic::fonts
             }
 
             if (rectEndX > rectStartX)
-                outRects.PushBack(Rect(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
+                outRects.PushBack(Rectangle(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
         }
     };
 }

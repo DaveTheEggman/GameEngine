@@ -2,8 +2,8 @@
 //
 // The standalone SVG attribute parsers (no XML dependency): SVGColorParser
 // (hex/#rgb/rgb()/named), SVGTransformParser (translate/scale/rotate/skew/matrix
-// -> Mat4), SVGPathParser (the `d` path-data string -> PathBuilder). Ported from
-// Sedulous.VG.SVG. Public colors are float Color; transforms are Mat4.
+// -> Matrix4), SVGPathParser (the `d` path-data string -> PathBuilder). Ported from
+// Sedulous.VG.SVG. Public colors are float Color; transforms are Matrix4.
 
 module;
 #include "Core/Prelude.h"
@@ -186,13 +186,13 @@ export namespace draconic::vg::svg
         }
     };
 
-    /// Parses SVG transform attribute strings into a Mat4.
+    /// Parses SVG transform attribute strings into a Matrix4.
     class SVGTransformParser
     {
     public:
-        static Result<Mat4> Parse(StringView transform)
+        static Result<Matrix4> Parse(StringView transform)
         {
-            Mat4 result = Mat4::Identity();
+            Matrix4 result = Matrix4::Identity();
             usize pos = 0;
 
             while (pos < transform.Size())
@@ -215,7 +215,7 @@ export namespace draconic::vg::svg
                         ty = v.Value();
                     }
                     if (!SkipCloseParen(transform, pos)) return Err(ErrorCode::InvalidArgument);
-                    result = Mat4::Translation(Vec3{ tx.Value(), ty, 0.0f }) * result;
+                    result = Matrix4::Translation(Vector3{ tx.Value(), ty, 0.0f }) * result;
                 }
                 else if (StartsWith(transform, pos, u8"scale"))
                 {
@@ -232,7 +232,7 @@ export namespace draconic::vg::svg
                         sy = v.Value();
                     }
                     if (!SkipCloseParen(transform, pos)) return Err(ErrorCode::InvalidArgument);
-                    result = Mat4::Scale(Vec3{ sx.Value(), sy, 1.0f }) * result;
+                    result = Matrix4::Scale(Vector3{ sx.Value(), sy, 1.0f }) * result;
                 }
                 else if (StartsWith(transform, pos, u8"rotate"))
                 {
@@ -257,13 +257,13 @@ export namespace draconic::vg::svg
 
                     if (cx != 0.0f || cy != 0.0f)
                     {
-                        result = Mat4::Translation(Vec3{ -cx, -cy, 0.0f }) * result;
-                        result = Mat4::RotationZ(angle) * result;
-                        result = Mat4::Translation(Vec3{ cx, cy, 0.0f }) * result;
+                        result = Matrix4::Translation(Vector3{ -cx, -cy, 0.0f }) * result;
+                        result = Matrix4::RotationZ(angle) * result;
+                        result = Matrix4::Translation(Vector3{ cx, cy, 0.0f }) * result;
                     }
                     else
                     {
-                        result = Mat4::RotationZ(angle) * result;
+                        result = Matrix4::RotationZ(angle) * result;
                     }
                 }
                 else if (StartsWith(transform, pos, u8"skewX"))
@@ -273,7 +273,7 @@ export namespace draconic::vg::svg
                     Optional<f32> a = ParseFloat(transform, pos);
                     if (!a) return Err(ErrorCode::InvalidArgument);
                     if (!SkipCloseParen(transform, pos)) return Err(ErrorCode::InvalidArgument);
-                    Mat4 skew = Mat4::Identity();
+                    Matrix4 skew = Matrix4::Identity();
                     skew.m[1][0] = Tan(a.Value() * kPi / 180.0f); // M21
                     result = skew * result;
                 }
@@ -284,7 +284,7 @@ export namespace draconic::vg::svg
                     Optional<f32> a = ParseFloat(transform, pos);
                     if (!a) return Err(ErrorCode::InvalidArgument);
                     if (!SkipCloseParen(transform, pos)) return Err(ErrorCode::InvalidArgument);
-                    Mat4 skew = Mat4::Identity();
+                    Matrix4 skew = Matrix4::Identity();
                     skew.m[0][1] = Tan(a.Value() * kPi / 180.0f); // M12
                     result = skew * result;
                 }
@@ -302,7 +302,7 @@ export namespace draconic::vg::svg
                     if (!SkipCloseParen(transform, pos)) return Err(ErrorCode::InvalidArgument);
 
                     // SVG matrix(a,b,c,d,e,f) -> M11=a M12=b M21=c M22=d M41=e M42=f.
-                    Mat4 mat = Mat4::Identity();
+                    Matrix4 mat = Matrix4::Identity();
                     mat.m[0][0] = v[0]; mat.m[0][1] = v[1];
                     mat.m[1][0] = v[2]; mat.m[1][1] = v[3];
                     mat.m[3][0] = v[4]; mat.m[3][1] = v[5];

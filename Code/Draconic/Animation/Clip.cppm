@@ -113,8 +113,8 @@ public:
     [[nodiscard]] String&       Name() noexcept { return m_name; }
     [[nodiscard]] const String& Name() const noexcept { return m_name; }
 
-    using Vec3Track = AnimationTrack<Vec3>;
-    using QuatTrack = AnimationTrack<Quat>;
+    using Vec3Track = AnimationTrack<Vector3>;
+    using QuatTrack = AnimationTrack<Quaternion>;
 
     [[nodiscard]] Array<UniquePtr<Vec3Track>>& PositionTracks() noexcept { return m_positionTracks; }
     [[nodiscard]] Array<UniquePtr<QuatTrack>>& RotationTracks() noexcept { return m_rotationTracks; }

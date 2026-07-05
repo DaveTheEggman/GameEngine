@@ -24,159 +24,159 @@ TEST_CASE("math: scalar helpers")
     static_assert(Abs(-1.0f) == 1.0f);
 }
 
-// --- Math: Vec3 ------------------------------------------------------------
+// --- Math: Vector3 ------------------------------------------------------------
 
-TEST_CASE("math: Vec3 arithmetic")
+TEST_CASE("math: Vector3 arithmetic")
 {
-    Vec3 a{ 1.0f, 2.0f, 3.0f };
-    Vec3 b{ 4.0f, 5.0f, 6.0f };
+    Vector3 a{ 1.0f, 2.0f, 3.0f };
+    Vector3 b{ 4.0f, 5.0f, 6.0f };
 
-    CHECK((a + b) == Vec3{ 5.0f, 7.0f, 9.0f });
-    CHECK((b - a) == Vec3{ 3.0f, 3.0f, 3.0f });
-    CHECK((a * 2.0f) == Vec3{ 2.0f, 4.0f, 6.0f });
-    CHECK((2.0f * a) == Vec3{ 2.0f, 4.0f, 6.0f });
-    CHECK((-a) == Vec3{ -1.0f, -2.0f, -3.0f });
+    CHECK((a + b) == Vector3{ 5.0f, 7.0f, 9.0f });
+    CHECK((b - a) == Vector3{ 3.0f, 3.0f, 3.0f });
+    CHECK((a * 2.0f) == Vector3{ 2.0f, 4.0f, 6.0f });
+    CHECK((2.0f * a) == Vector3{ 2.0f, 4.0f, 6.0f });
+    CHECK((-a) == Vector3{ -1.0f, -2.0f, -3.0f });
 
     a += b;
-    CHECK(a == Vec3{ 5.0f, 7.0f, 9.0f });
+    CHECK(a == Vector3{ 5.0f, 7.0f, 9.0f });
 
     CHECK(a[0] == 5.0f);
     CHECK(a[2] == 9.0f);
 
-    static_assert(Vec3{ 1.0f, 0.0f, 0.0f } == Vec3::UnitX);
+    static_assert(Vector3{ 1.0f, 0.0f, 0.0f } == Vector3::UnitX);
 }
 
-TEST_CASE("math: Vec3 dot, cross, length, normalize")
+TEST_CASE("math: Vector3 dot, cross, length, normalize")
 {
-    CHECK(Dot(Vec3{ 1.0f, 2.0f, 3.0f }, Vec3{ 4.0f, 5.0f, 6.0f }) == 32.0f);
+    CHECK(Dot(Vector3{ 1.0f, 2.0f, 3.0f }, Vector3{ 4.0f, 5.0f, 6.0f }) == 32.0f);
 
     // Right-handed cross: X x Y = Z
-    CHECK(Cross(Vec3::UnitX, Vec3::UnitY) == Vec3::UnitZ);
-    CHECK(Cross(Vec3::UnitY, Vec3::UnitZ) == Vec3::UnitX);
+    CHECK(Cross(Vector3::UnitX, Vector3::UnitY) == Vector3::UnitZ);
+    CHECK(Cross(Vector3::UnitY, Vector3::UnitZ) == Vector3::UnitX);
 
-    CHECK(LengthSquared(Vec3{ 3.0f, 4.0f, 0.0f }) == 25.0f);
-    CHECK(NearlyEqual(Length(Vec3{ 3.0f, 4.0f, 0.0f }), 5.0f));
+    CHECK(LengthSquared(Vector3{ 3.0f, 4.0f, 0.0f }) == 25.0f);
+    CHECK(NearlyEqual(Length(Vector3{ 3.0f, 4.0f, 0.0f }), 5.0f));
 
-    Vec3 n = Normalized(Vec3{ 0.0f, 8.0f, 0.0f });
-    CHECK(NearlyEqual(n, Vec3::UnitY));
+    Vector3 n = Normalized(Vector3{ 0.0f, 8.0f, 0.0f });
+    CHECK(NearlyEqual(n, Vector3::UnitY));
     CHECK(NearlyEqual(Length(n), 1.0f));
 
     // Degenerate input -> Zero, no NaN/divide-by-zero.
-    CHECK(Normalized(Vec3::Zero) == Vec3::Zero);
+    CHECK(Normalized(Vector3::Zero) == Vector3::Zero);
 }
 
-TEST_CASE("math: Vec3 lerp/min/max")
+TEST_CASE("math: Vector3 lerp/min/max")
 {
-    CHECK(Lerp(Vec3::Zero, Vec3{ 4.0f, 8.0f, 12.0f }, 0.5f) == Vec3{ 2.0f, 4.0f, 6.0f });
-    CHECK(Min(Vec3{ 1.0f, 5.0f, 3.0f }, Vec3{ 4.0f, 2.0f, 6.0f }) == Vec3{ 1.0f, 2.0f, 3.0f });
-    CHECK(Max(Vec3{ 1.0f, 5.0f, 3.0f }, Vec3{ 4.0f, 2.0f, 6.0f }) == Vec3{ 4.0f, 5.0f, 6.0f });
+    CHECK(Lerp(Vector3::Zero, Vector3{ 4.0f, 8.0f, 12.0f }, 0.5f) == Vector3{ 2.0f, 4.0f, 6.0f });
+    CHECK(Min(Vector3{ 1.0f, 5.0f, 3.0f }, Vector3{ 4.0f, 2.0f, 6.0f }) == Vector3{ 1.0f, 2.0f, 3.0f });
+    CHECK(Max(Vector3{ 1.0f, 5.0f, 3.0f }, Vector3{ 4.0f, 2.0f, 6.0f }) == Vector3{ 4.0f, 5.0f, 6.0f });
 }
 
-// --- Math: Vec2 / Vec4 -----------------------------------------------------
+// --- Math: Vector2 / Vector4 -----------------------------------------------------
 
-TEST_CASE("math: Vec2 and Vec4 basics")
+TEST_CASE("math: Vector2 and Vector4 basics")
 {
-    CHECK(Dot(Vec2{ 1.0f, 2.0f }, Vec2{ 3.0f, 4.0f }) == 11.0f);
-    CHECK(NearlyEqual(Length(Vec2{ 3.0f, 4.0f }), 5.0f));
+    CHECK(Dot(Vector2{ 1.0f, 2.0f }, Vector2{ 3.0f, 4.0f }) == 11.0f);
+    CHECK(NearlyEqual(Length(Vector2{ 3.0f, 4.0f }), 5.0f));
 
-    Vec4 v{ Vec3{ 1.0f, 2.0f, 3.0f }, 1.0f };
-    CHECK(v.XYZ() == Vec3{ 1.0f, 2.0f, 3.0f });
+    Vector4 v{ Vector3{ 1.0f, 2.0f, 3.0f }, 1.0f };
+    CHECK(v.XYZ() == Vector3{ 1.0f, 2.0f, 3.0f });
     CHECK(v.w == 1.0f);
-    CHECK(Dot(Vec4::One, Vec4::One) == 4.0f);
+    CHECK(Dot(Vector4::One, Vector4::One) == 4.0f);
 }
 
-// --- Math: Mat4 ------------------------------------------------------------
+// --- Math: Matrix4 ------------------------------------------------------------
 
-TEST_CASE("math: Mat4 identity and multiply")
+TEST_CASE("math: Matrix4 identity and multiply")
 {
-    const Mat4 id = Mat4::Identity();
-    const Mat4 t = Mat4::Translation(Vec3{ 1.0f, 2.0f, 3.0f });
+    const Matrix4 id = Matrix4::Identity();
+    const Matrix4 t = Matrix4::Translation(Vector3{ 1.0f, 2.0f, 3.0f });
 
     CHECK(NearlyEqual(id * t, t));
     CHECK(NearlyEqual(t * id, t));
 
-    static_assert(Mat4::Identity()(0, 0) == 1.0f);
-    static_assert(Mat4::Identity()(0, 1) == 0.0f);
+    static_assert(Matrix4::Identity()(0, 0) == 1.0f);
+    static_assert(Matrix4::Identity()(0, 1) == 0.0f);
 }
 
-TEST_CASE("math: Mat4 translation lives in the last row (row vectors)")
+TEST_CASE("math: Matrix4 translation lives in the last row (row vectors)")
 {
-    const Mat4 t = Mat4::Translation(Vec3{ 10.0f, 20.0f, 30.0f });
+    const Matrix4 t = Matrix4::Translation(Vector3{ 10.0f, 20.0f, 30.0f });
     CHECK(t.m[3][0] == 10.0f);
     CHECK(t.m[3][1] == 20.0f);
     CHECK(t.m[3][2] == 30.0f);
 
-    const Vec3 p = TransformPoint(Vec3{ 1.0f, 1.0f, 1.0f }, t);
-    CHECK(NearlyEqual(p, Vec3{ 11.0f, 21.0f, 31.0f }));
+    const Vector3 p = TransformPoint(Vector3{ 1.0f, 1.0f, 1.0f }, t);
+    CHECK(NearlyEqual(p, Vector3{ 11.0f, 21.0f, 31.0f }));
 
     // Directions ignore translation.
-    CHECK(NearlyEqual(TransformDirection(Vec3{ 1.0f, 0.0f, 0.0f }, t), Vec3{ 1.0f, 0.0f, 0.0f }));
+    CHECK(NearlyEqual(TransformDirection(Vector3{ 1.0f, 0.0f, 0.0f }, t), Vector3{ 1.0f, 0.0f, 0.0f }));
 }
 
-TEST_CASE("math: Mat4 rotation (row vectors): RotationZ(90) maps +X to +Y")
+TEST_CASE("math: Matrix4 rotation (row vectors): RotationZ(90) maps +X to +Y")
 {
-    const Mat4 rz = Mat4::RotationZ(DegreesToRadians(90.0f));
-    CHECK(NearlyEqual(TransformDirection(Vec3::UnitX, rz), Vec3::UnitY));
+    const Matrix4 rz = Matrix4::RotationZ(DegreesToRadians(90.0f));
+    CHECK(NearlyEqual(TransformDirection(Vector3::UnitX, rz), Vector3::UnitY));
 
-    const Mat4 ry = Mat4::RotationY(DegreesToRadians(90.0f));
+    const Matrix4 ry = Matrix4::RotationY(DegreesToRadians(90.0f));
     // RotationY(90) maps +Z to +X.
-    CHECK(NearlyEqual(TransformDirection(Vec3::UnitZ, ry), Vec3::UnitX));
+    CHECK(NearlyEqual(TransformDirection(Vector3::UnitZ, ry), Vector3::UnitX));
 }
 
-TEST_CASE("math: Mat4 2D affine helpers (TransformPoint2D, operator==)")
+TEST_CASE("math: Matrix4 2D affine helpers (TransformPoint2D, operator==)")
 {
-    CHECK(Mat4::Identity() == Mat4::Identity());
-    CHECK_FALSE(Mat4::Translation(Vec3{ 1, 0, 0 }) == Mat4::Identity());
+    CHECK(Matrix4::Identity() == Matrix4::Identity());
+    CHECK_FALSE(Matrix4::Translation(Vector3{ 1, 0, 0 }) == Matrix4::Identity());
 
     // 2D translate.
-    const Mat4 t = Mat4::Translation(Vec3{ 5.0f, 7.0f, 0.0f });
-    CHECK(NearlyEqual(TransformPoint2D(Vec2{ 1.0f, 2.0f }, t), Vec2{ 6.0f, 9.0f }));
+    const Matrix4 t = Matrix4::Translation(Vector3{ 5.0f, 7.0f, 0.0f });
+    CHECK(NearlyEqual(TransformPoint2D(Vector2{ 1.0f, 2.0f }, t), Vector2{ 6.0f, 9.0f }));
 
     // 2D scale-then-translate (row vectors, left-to-right): v * (S * T).
-    const Mat4 st = Mat4::Scale(Vec3{ 2.0f, 3.0f, 1.0f }) * Mat4::Translation(Vec3{ 1.0f, 1.0f, 0.0f });
-    CHECK(NearlyEqual(TransformPoint2D(Vec2{ 1.0f, 1.0f }, st), Vec2{ 3.0f, 4.0f })); // (2,3)+(1,1)
+    const Matrix4 st = Matrix4::Scale(Vector3{ 2.0f, 3.0f, 1.0f }) * Matrix4::Translation(Vector3{ 1.0f, 1.0f, 0.0f });
+    CHECK(NearlyEqual(TransformPoint2D(Vector2{ 1.0f, 1.0f }, st), Vector2{ 3.0f, 4.0f })); // (2,3)+(1,1)
 
     // RotationZ(90) maps +X to +Y in 2D too.
-    const Mat4 rz = Mat4::RotationZ(DegreesToRadians(90.0f));
-    CHECK(NearlyEqual(TransformPoint2D(Vec2{ 1.0f, 0.0f }, rz), Vec2{ 0.0f, 1.0f }));
+    const Matrix4 rz = Matrix4::RotationZ(DegreesToRadians(90.0f));
+    CHECK(NearlyEqual(TransformPoint2D(Vector2{ 1.0f, 0.0f }, rz), Vector2{ 0.0f, 1.0f }));
 }
 
-TEST_CASE("math: Mat4 composition reads left-to-right (scale then translate)")
+TEST_CASE("math: Matrix4 composition reads left-to-right (scale then translate)")
 {
     // v * (S * T): scale first, then translate.
-    const Mat4 st = Mat4::Scale(Vec3{ 2.0f, 2.0f, 2.0f }) * Mat4::Translation(Vec3{ 1.0f, 0.0f, 0.0f });
-    const Vec3 p = TransformPoint(Vec3{ 1.0f, 1.0f, 1.0f }, st);
-    CHECK(NearlyEqual(p, Vec3{ 3.0f, 2.0f, 2.0f })); // (2,2,2) + (1,0,0)
+    const Matrix4 st = Matrix4::Scale(Vector3{ 2.0f, 2.0f, 2.0f }) * Matrix4::Translation(Vector3{ 1.0f, 0.0f, 0.0f });
+    const Vector3 p = TransformPoint(Vector3{ 1.0f, 1.0f, 1.0f }, st);
+    CHECK(NearlyEqual(p, Vector3{ 3.0f, 2.0f, 2.0f })); // (2,2,2) + (1,0,0)
 }
 
 TEST_CASE("math: perspective has the expected projective structure")
 {
-    const Mat4 proj = Mat4::PerspectiveFovRH(DegreesToRadians(90.0f), 1.0f, 1.0f, 100.0f);
+    const Matrix4 proj = Matrix4::PerspectiveFovRH(DegreesToRadians(90.0f), 1.0f, 1.0f, 100.0f);
     CHECK(proj.m[2][3] == -1.0f);              // w' = -z (RH)
     CHECK(NearlyEqual(proj.m[0][0], 1.0f));    // xScale = 1/tan(45) at aspect 1
 }
 
-// --- Math: Quat ------------------------------------------------------------
+// --- Math: Quaternion ------------------------------------------------------------
 
-TEST_CASE("math: Quat rotates vectors and agrees with its matrix")
+TEST_CASE("math: Quaternion rotates vectors and agrees with its matrix")
 {
-    const Quat q = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(90.0f));
+    const Quaternion q = Quaternion::FromAxisAngle(Vector3::UnitZ, DegreesToRadians(90.0f));
 
     // 90 deg about Z maps +X to +Y.
-    CHECK(NearlyEqual(RotateVector(q, Vec3::UnitX), Vec3::UnitY));
+    CHECK(NearlyEqual(RotateVector(q, Vector3::UnitX), Vector3::UnitY));
 
     // Quaternion rotation and its matrix agree.
-    const Mat4 r = RotationMatrix(q);
-    CHECK(NearlyEqual(RotateVector(q, Vec3::UnitX), TransformDirection(Vec3::UnitX, r)));
-    CHECK(NearlyEqual(RotateVector(q, Vec3{ 0.3f, -0.5f, 0.8f }),
-                      TransformDirection(Vec3{ 0.3f, -0.5f, 0.8f }, r)));
+    const Matrix4 r = RotationMatrix(q);
+    CHECK(NearlyEqual(RotateVector(q, Vector3::UnitX), TransformDirection(Vector3::UnitX, r)));
+    CHECK(NearlyEqual(RotateVector(q, Vector3{ 0.3f, -0.5f, 0.8f }),
+                      TransformDirection(Vector3{ 0.3f, -0.5f, 0.8f }, r)));
 
     // Identity does nothing.
-    CHECK(NearlyEqual(RotateVector(Quat::Identity, Vec3{ 1.0f, 2.0f, 3.0f }), Vec3{ 1.0f, 2.0f, 3.0f }));
+    CHECK(NearlyEqual(RotateVector(Quaternion::Identity, Vector3{ 1.0f, 2.0f, 3.0f }), Vector3{ 1.0f, 2.0f, 3.0f }));
 
     // Composition: two 45-deg rotations == one 90-deg.
-    const Quat half = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(45.0f));
-    CHECK(NearlyEqual(RotateVector(half * half, Vec3::UnitX), Vec3::UnitY));
+    const Quaternion half = Quaternion::FromAxisAngle(Vector3::UnitZ, DegreesToRadians(45.0f));
+    CHECK(NearlyEqual(RotateVector(half * half, Vector3::UnitX), Vector3::UnitY));
 }
 
 // --- Math: Transform -------------------------------------------------------
@@ -184,164 +184,164 @@ TEST_CASE("math: Quat rotates vectors and agrees with its matrix")
 TEST_CASE("math: Transform composes scale, rotation, translation")
 {
     Transform xform;
-    xform.scale = Vec3{ 2.0f, 2.0f, 2.0f };
-    xform.rotation = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(90.0f));
-    xform.position = Vec3{ 5.0f, 0.0f, 0.0f };
+    xform.scale = Vector3{ 2.0f, 2.0f, 2.0f };
+    xform.rotation = Quaternion::FromAxisAngle(Vector3::UnitZ, DegreesToRadians(90.0f));
+    xform.position = Vector3{ 5.0f, 0.0f, 0.0f };
 
-    const Mat4 m = xform.ToMatrix();
+    const Matrix4 m = xform.ToMatrix();
 
     // (1,0,0) -> scale*2 -> (2,0,0) -> rot90Z -> (0,2,0) -> +translate -> (5,2,0)
-    const Vec3 p = TransformPoint(Vec3::UnitX, m);
-    CHECK(NearlyEqual(p, Vec3{ 5.0f, 2.0f, 0.0f }));
+    const Vector3 p = TransformPoint(Vector3::UnitX, m);
+    CHECK(NearlyEqual(p, Vector3{ 5.0f, 2.0f, 0.0f }));
 
     // Identity transform is a no-op.
     Transform identity;
-    CHECK(NearlyEqual(TransformPoint(Vec3{ 7.0f, 8.0f, 9.0f }, identity.ToMatrix()),
-                      Vec3{ 7.0f, 8.0f, 9.0f }));
+    CHECK(NearlyEqual(TransformPoint(Vector3{ 7.0f, 8.0f, 9.0f }, identity.ToMatrix()),
+                      Vector3{ 7.0f, 8.0f, 9.0f }));
 }
 
-// --- Math: Mat4 determinant / inverse --------------------------------------
+// --- Math: Matrix4 determinant / inverse --------------------------------------
 
-TEST_CASE("math: Mat4 determinant")
+TEST_CASE("math: Matrix4 determinant")
 {
-    CHECK(NearlyEqual(Determinant(Mat4::Identity()), 1.0f));
-    CHECK(NearlyEqual(Determinant(Mat4::Scale(Vec3{ 2.0f, 3.0f, 4.0f })), 24.0f));
+    CHECK(NearlyEqual(Determinant(Matrix4::Identity()), 1.0f));
+    CHECK(NearlyEqual(Determinant(Matrix4::Scale(Vector3{ 2.0f, 3.0f, 4.0f })), 24.0f));
 }
 
-TEST_CASE("math: Mat4 inverse undoes the transform")
+TEST_CASE("math: Matrix4 inverse undoes the transform")
 {
     Transform xform;
-    xform.scale = Vec3{ 2.0f, 0.5f, 3.0f };
-    xform.rotation = Quat::FromAxisAngle(Normalized(Vec3{ 1.0f, 2.0f, 3.0f }), DegreesToRadians(50.0f));
-    xform.position = Vec3{ 5.0f, -2.0f, 1.0f };
+    xform.scale = Vector3{ 2.0f, 0.5f, 3.0f };
+    xform.rotation = Quaternion::FromAxisAngle(Normalized(Vector3{ 1.0f, 2.0f, 3.0f }), DegreesToRadians(50.0f));
+    xform.position = Vector3{ 5.0f, -2.0f, 1.0f };
 
-    const Mat4 m = xform.ToMatrix();
-    const Mat4 inv = Inverse(m);
+    const Matrix4 m = xform.ToMatrix();
+    const Matrix4 inv = Inverse(m);
 
-    CHECK(NearlyEqual(m * inv, Mat4::Identity(), 1.0e-3f));
-    CHECK(NearlyEqual(inv * m, Mat4::Identity(), 1.0e-3f));
+    CHECK(NearlyEqual(m * inv, Matrix4::Identity(), 1.0e-3f));
+    CHECK(NearlyEqual(inv * m, Matrix4::Identity(), 1.0e-3f));
 
     // A point transformed then inverse-transformed returns to itself.
-    const Vec3 p{ 3.0f, 4.0f, 5.0f };
-    const Vec3 roundTrip = TransformPoint(TransformPoint(p, m), inv);
+    const Vector3 p{ 3.0f, 4.0f, 5.0f };
+    const Vector3 roundTrip = TransformPoint(TransformPoint(p, m), inv);
     CHECK(NearlyEqual(roundTrip, p, 1.0e-3f));
 
     // Singular matrix -> Identity (no divide-by-zero).
-    CHECK(NearlyEqual(Inverse(Mat4::Scale(Vec3::Zero)), Mat4::Identity()));
+    CHECK(NearlyEqual(Inverse(Matrix4::Scale(Vector3::Zero)), Matrix4::Identity()));
 }
 
-// --- Math: Quat Slerp ------------------------------------------------------
+// --- Math: Quaternion Slerp ------------------------------------------------------
 
-TEST_CASE("math: Quat Slerp endpoints and midpoint")
+TEST_CASE("math: Quaternion Slerp endpoints and midpoint")
 {
-    const Quat a = Quat::Identity;
-    const Quat b = Quat::FromAxisAngle(Vec3::UnitZ, DegreesToRadians(90.0f));
+    const Quaternion a = Quaternion::Identity;
+    const Quaternion b = Quaternion::FromAxisAngle(Vector3::UnitZ, DegreesToRadians(90.0f));
 
     CHECK(NearlyEqual(Slerp(a, b, 0.0f), a));
     CHECK(NearlyEqual(Slerp(a, b, 1.0f), b));
 
     // Halfway between 0 and 90 deg about Z is 45 deg: maps +X to (cos45, sin45, 0).
-    const Quat mid = Slerp(a, b, 0.5f);
-    const Vec3 rotated = RotateVector(mid, Vec3::UnitX);
+    const Quaternion mid = Slerp(a, b, 0.5f);
+    const Vector3 rotated = RotateVector(mid, Vector3::UnitX);
     const f32 c = Cos(DegreesToRadians(45.0f));
-    CHECK(NearlyEqual(rotated, Vec3{ c, c, 0.0f }, 1.0e-4f));
+    CHECK(NearlyEqual(rotated, Vector3{ c, c, 0.0f }, 1.0e-4f));
 }
 
-// --- Math: Vec2 / Vec4 normalize -------------------------------------------
+// --- Math: Vector2 / Vector4 normalize -------------------------------------------
 
-TEST_CASE("math: Vec2 and Vec4 Normalized")
+TEST_CASE("math: Vector2 and Vector4 Normalized")
 {
-    CHECK(NearlyEqual(Length(Normalized(Vec2{ 3.0f, 4.0f })), 1.0f));
-    CHECK(Normalized(Vec2::Zero) == Vec2::Zero);
+    CHECK(NearlyEqual(Length(Normalized(Vector2{ 3.0f, 4.0f })), 1.0f));
+    CHECK(Normalized(Vector2::Zero) == Vector2::Zero);
 
-    CHECK(NearlyEqual(Length(Normalized(Vec4{ 1.0f, 2.0f, 2.0f, 4.0f })), 1.0f));
-    CHECK(Normalized(Vec4::Zero) == Vec4::Zero);
+    CHECK(NearlyEqual(Length(Normalized(Vector4{ 1.0f, 2.0f, 2.0f, 4.0f })), 1.0f));
+    CHECK(Normalized(Vector4::Zero) == Vector4::Zero);
 }
 
-// --- Math: Mat3 ------------------------------------------------------------
+// --- Math: Matrix3 ------------------------------------------------------------
 
-TEST_CASE("math: Mat3 identity, multiply, transpose")
+TEST_CASE("math: Matrix3 identity, multiply, transpose")
 {
-    const Mat3 id = Mat3::Identity();
-    const Mat3 r = Mat3::FromMat4(Mat4::RotationZ(DegreesToRadians(90.0f)));
+    const Matrix3 id = Matrix3::Identity();
+    const Matrix3 r = Matrix3::FromMat4(Matrix4::RotationZ(DegreesToRadians(90.0f)));
 
     CHECK(NearlyEqual(id * r, r));
     CHECK(NearlyEqual(Transpose(Transpose(r)), r));
 
-    static_assert(Mat3::Identity()(1, 1) == 1.0f);
+    static_assert(Matrix3::Identity()(1, 1) == 1.0f);
 }
 
-TEST_CASE("math: Mat3 row-vector rotation matches Mat4")
+TEST_CASE("math: Matrix3 row-vector rotation matches Matrix4")
 {
-    const Mat3 rz = Mat3::FromMat4(Mat4::RotationZ(DegreesToRadians(90.0f)));
-    CHECK(NearlyEqual(Vec3::UnitX * rz, Vec3::UnitY));
+    const Matrix3 rz = Matrix3::FromMat4(Matrix4::RotationZ(DegreesToRadians(90.0f)));
+    CHECK(NearlyEqual(Vector3::UnitX * rz, Vector3::UnitY));
 }
 
-TEST_CASE("math: Mat3 determinant and inverse")
+TEST_CASE("math: Matrix3 determinant and inverse")
 {
-    const Mat3 rz = Mat3::FromMat4(Mat4::RotationZ(DegreesToRadians(37.0f)));
+    const Matrix3 rz = Matrix3::FromMat4(Matrix4::RotationZ(DegreesToRadians(37.0f)));
     CHECK(NearlyEqual(Determinant(rz), 1.0f)); // pure rotation
 
-    const Mat3 inv = Inverse(rz);
-    CHECK(NearlyEqual(rz * inv, Mat3::Identity(), 1.0e-4f));
+    const Matrix3 inv = Inverse(rz);
+    CHECK(NearlyEqual(rz * inv, Matrix3::Identity(), 1.0e-4f));
 
     // For a rotation, the inverse equals the transpose.
     CHECK(NearlyEqual(inv, Transpose(rz), 1.0e-4f));
 
     // Singular -> Identity.
-    Mat3 zero{};
-    CHECK(NearlyEqual(Inverse(zero), Mat3::Identity()));
+    Matrix3 zero{};
+    CHECK(NearlyEqual(Inverse(zero), Matrix3::Identity()));
 }
 
 // --- Math: geometry --------------------------------------------------------
 
 TEST_CASE("geometry: AABB contains, expand, merge")
 {
-    AABB box{ Vec3{ 0.0f, 0.0f, 0.0f }, Vec3{ 2.0f, 2.0f, 2.0f } };
-    CHECK(box.Contains(Vec3{ 1.0f, 1.0f, 1.0f }));
-    CHECK_FALSE(box.Contains(Vec3{ 3.0f, 1.0f, 1.0f }));
-    CHECK(NearlyEqual(box.Center(), Vec3{ 1.0f, 1.0f, 1.0f }));
-    CHECK(NearlyEqual(box.Extents(), Vec3{ 1.0f, 1.0f, 1.0f }));
+    AABB box{ Vector3{ 0.0f, 0.0f, 0.0f }, Vector3{ 2.0f, 2.0f, 2.0f } };
+    CHECK(box.Contains(Vector3{ 1.0f, 1.0f, 1.0f }));
+    CHECK_FALSE(box.Contains(Vector3{ 3.0f, 1.0f, 1.0f }));
+    CHECK(NearlyEqual(box.Center(), Vector3{ 1.0f, 1.0f, 1.0f }));
+    CHECK(NearlyEqual(box.Extents(), Vector3{ 1.0f, 1.0f, 1.0f }));
 
     // Build from points via Empty + Expand.
     AABB grown = AABB::Empty();
     CHECK_FALSE(grown.IsValid());
-    grown.Expand(Vec3{ -1.0f, 0.0f, 5.0f });
-    grown.Expand(Vec3{ 3.0f, 4.0f, -2.0f });
+    grown.Expand(Vector3{ -1.0f, 0.0f, 5.0f });
+    grown.Expand(Vector3{ 3.0f, 4.0f, -2.0f });
     CHECK(grown.IsValid());
-    CHECK(NearlyEqual(grown.min, Vec3{ -1.0f, 0.0f, -2.0f }));
-    CHECK(NearlyEqual(grown.max, Vec3{ 3.0f, 4.0f, 5.0f }));
+    CHECK(NearlyEqual(grown.min, Vector3{ -1.0f, 0.0f, -2.0f }));
+    CHECK(NearlyEqual(grown.max, Vector3{ 3.0f, 4.0f, 5.0f }));
 
-    AABB a{ Vec3{ 0.0f, 0.0f, 0.0f }, Vec3{ 1.0f, 1.0f, 1.0f } };
-    AABB b{ Vec3{ 2.0f, 2.0f, 2.0f }, Vec3{ 3.0f, 3.0f, 3.0f } };
+    AABB a{ Vector3{ 0.0f, 0.0f, 0.0f }, Vector3{ 1.0f, 1.0f, 1.0f } };
+    AABB b{ Vector3{ 2.0f, 2.0f, 2.0f }, Vector3{ 3.0f, 3.0f, 3.0f } };
     CHECK_FALSE(a.Intersects(b));
     AABB m = Merge(a, b);
-    CHECK(NearlyEqual(m.min, Vec3::Zero));
-    CHECK(NearlyEqual(m.max, Vec3{ 3.0f, 3.0f, 3.0f }));
+    CHECK(NearlyEqual(m.min, Vector3::Zero));
+    CHECK(NearlyEqual(m.max, Vector3{ 3.0f, 3.0f, 3.0f }));
     CHECK(m.Intersects(a));
 }
 
 TEST_CASE("geometry: Plane signed distance")
 {
     // XZ plane at y = 0, normal +Y.
-    const Plane plane = Plane::FromPointNormal(Vec3::Zero, Vec3::UnitY);
-    CHECK(NearlyEqual(plane.SignedDistance(Vec3{ 5.0f, 0.0f, -3.0f }), 0.0f));
-    CHECK(NearlyEqual(plane.SignedDistance(Vec3{ 0.0f, 2.0f, 0.0f }), 2.0f));
-    CHECK(NearlyEqual(plane.SignedDistance(Vec3{ 0.0f, -4.0f, 0.0f }), -4.0f));
+    const Plane plane = Plane::FromPointNormal(Vector3::Zero, Vector3::UnitY);
+    CHECK(NearlyEqual(plane.SignedDistance(Vector3{ 5.0f, 0.0f, -3.0f }), 0.0f));
+    CHECK(NearlyEqual(plane.SignedDistance(Vector3{ 0.0f, 2.0f, 0.0f }), 2.0f));
+    CHECK(NearlyEqual(plane.SignedDistance(Vector3{ 0.0f, -4.0f, 0.0f }), -4.0f));
 
-    const Plane unnormalized{ Vec3{ 0.0f, 3.0f, 0.0f }, 0.0f };
+    const Plane unnormalized{ Vector3{ 0.0f, 3.0f, 0.0f }, 0.0f };
     CHECK(NearlyEqual(Length(unnormalized.Normalized().normal), 1.0f));
 }
 
-TEST_CASE("geometry: Rect contains and intersects")
+TEST_CASE("geometry: Rectangle contains and intersects")
 {
-    Rect r{ 0.0f, 0.0f, 4.0f, 2.0f };
-    CHECK(r.Contains(Vec2{ 2.0f, 1.0f }));
-    CHECK_FALSE(r.Contains(Vec2{ 5.0f, 1.0f }));
-    CHECK(NearlyEqual(r.Center(), Vec2{ 2.0f, 1.0f }));
+    Rectangle r{ 0.0f, 0.0f, 4.0f, 2.0f };
+    CHECK(r.Contains(Vector2{ 2.0f, 1.0f }));
+    CHECK_FALSE(r.Contains(Vector2{ 5.0f, 1.0f }));
+    CHECK(NearlyEqual(r.Center(), Vector2{ 2.0f, 1.0f }));
 
-    CHECK(r.Intersects(Rect{ 3.0f, 1.0f, 2.0f, 2.0f }));
-    CHECK_FALSE(r.Intersects(Rect{ 10.0f, 10.0f, 1.0f, 1.0f }));
+    CHECK(r.Intersects(Rectangle{ 3.0f, 1.0f, 2.0f, 2.0f }));
+    CHECK_FALSE(r.Intersects(Rectangle{ 10.0f, 10.0f, 1.0f, 1.0f }));
 }
 
 // --- Math: Color -----------------------------------------------------------
@@ -425,14 +425,14 @@ TEST_CASE("math: easing endpoints + known values")
 
 TEST_CASE("math: Transform Lerp + identity")
 {
-    CHECK(NearlyEqual(IdentityTransform.position, Vec3::Zero));
-    CHECK(NearlyEqual(IdentityTransform.scale, Vec3::One));
+    CHECK(NearlyEqual(IdentityTransform.position, Vector3::Zero));
+    CHECK(NearlyEqual(IdentityTransform.scale, Vector3::One));
 
-    Transform a{ Vec3{ 0, 0, 0 }, Quat::Identity, Vec3{ 1, 1, 1 } };
-    Transform b{ Vec3{ 2, 4, 6 }, Quat::Identity, Vec3{ 3, 3, 3 } };
+    Transform a{ Vector3{ 0, 0, 0 }, Quaternion::Identity, Vector3{ 1, 1, 1 } };
+    Transform b{ Vector3{ 2, 4, 6 }, Quaternion::Identity, Vector3{ 3, 3, 3 } };
     Transform m = Transform::Lerp(a, b, 0.5f);
-    CHECK(NearlyEqual(m.position, Vec3{ 1, 2, 3 }));
-    CHECK(NearlyEqual(m.scale, Vec3{ 2, 2, 2 }));
+    CHECK(NearlyEqual(m.position, Vector3{ 1, 2, 3 }));
+    CHECK(NearlyEqual(m.scale, Vector3{ 2, 2, 2 }));
 
     // Endpoints return the inputs.
     Transform at0 = Transform::Lerp(a, b, 0.0f);

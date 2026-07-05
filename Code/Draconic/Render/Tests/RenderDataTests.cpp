@@ -85,7 +85,7 @@ TEST_CASE("RenderView::BuildDrawList sorts opaque front-to-back, transparent bac
     ExtractedScene scene;
     auto add = [&](f32 z, u64 tag, RenderCategory cat) {
         MeshRenderData* rd = scene.Add<MeshRenderData>();
-        rd->worldCenter = Vec3{ 0, 0, z };   // camera looks down -z, so z<0 is in front
+        rd->worldCenter = Vector3{ 0, 0, z };   // camera looks down -z, so z<0 is in front
         rd->entityId    = tag;
         rd->category    = cat;
     };

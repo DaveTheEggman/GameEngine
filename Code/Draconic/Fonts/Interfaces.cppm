@@ -55,7 +55,7 @@ export namespace draconic::fonts
         [[nodiscard]] virtual bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY, GlyphQuad& quad) const = 0;
         [[nodiscard]] virtual bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y, GlyphQuad& quad) const = 0;
         [[nodiscard]] virtual bool Contains(i32 codepoint) const = 0;
-        [[nodiscard]] virtual Vec2 WhitePixelUV() const = 0;          // UV of a solid white texel
+        [[nodiscard]] virtual Vector2 WhitePixelUV() const = 0;          // UV of a solid white texel
     };
 
     // Text shaping/layout + UI helpers.
@@ -71,7 +71,7 @@ export namespace draconic::fonts
         [[nodiscard]] virtual HitTestResult HitTest(IFont& font, Span<const GlyphPosition> positions, f32 x, f32 y) = 0;
         [[nodiscard]] virtual HitTestResult HitTestWrapped(IFont& font, Span<const GlyphPosition> positions, f32 x, f32 y, f32 lineHeight) = 0;
         [[nodiscard]] virtual f32 GetCursorPosition(IFont& font, Span<const GlyphPosition> positions, i32 characterIndex) = 0;
-        virtual void GetSelectionRects(IFont& font, Span<const GlyphPosition> positions, SelectionRange selection, f32 lineHeight, Array<Rect>& outRects) = 0;
+        virtual void GetSelectionRects(IFont& font, Span<const GlyphPosition> positions, SelectionRange selection, f32 lineHeight, Array<Rectangle>& outRects) = 0;
     };
 
     // Owning aggregate of a loaded font + its atlas (+ optional shaper).

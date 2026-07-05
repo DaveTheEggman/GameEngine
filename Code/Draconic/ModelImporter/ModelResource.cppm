@@ -67,8 +67,8 @@ public:
     Array<ModelNode> nodes;         // node hierarchy
     Guid             skeletonGuid;  // cooked skeleton (nil if the model has no skin)
     Array<Guid>      animationGuids;// cooked animation clips
-    Vec3             boundsMin{};   // model-space AABB (for spawn-time auto-fit/placement)
-    Vec3             boundsMax{};
+    Vector3             boundsMin{};   // model-space AABB (for spawn-time auto-fit/placement)
+    Vector3             boundsMax{};
 
     void Serialize(ISerializer& ar) override
     {
@@ -98,8 +98,8 @@ public:
     Array<Proxy<mat::Material>>    materials;      // resolved materials (albedo wired as default texture)
     Proxy<anim::Skeleton>          skeleton;       // resolved skeleton (null if not skinned)
     Array<Proxy<anim::AnimationClip>> animations; // resolved animation clips
-    Vec3                           boundsMin{};
-    Vec3                           boundsMax{};
+    Vector3                           boundsMin{};
+    Vector3                           boundsMax{};
 };
 
 // Builds a ModelResource from a ModelManifestSource: copies the hierarchy + resolves each

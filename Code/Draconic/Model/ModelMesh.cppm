@@ -188,7 +188,7 @@ public:
     }
 
     /// Scales vertex positions by a non-uniform scale vector.
-    void scalePositions(Vec3 scale) {
+    void scalePositions(Vector3 scale) {
         i32 posOffset = -1;
         for (auto& elem : m_vertexElements) {
             if (elem.semantic == VertexSemantic::Position) {
@@ -200,7 +200,7 @@ public:
 
         for (i32 i = 0; i < m_vertexCount; ++i) {
             i32 off = i * m_vertexStride + posOffset;
-            auto* pos = reinterpret_cast<Vec3*>(&m_vertexData[off]);
+            auto* pos = reinterpret_cast<Vector3*>(&m_vertexData[off]);
             pos->x *= scale.x;
             pos->y *= scale.y;
             pos->z *= scale.z;
@@ -249,13 +249,13 @@ public:
             return;
         }
 
-        Vec3 bmin(std::numeric_limits<f32>::max());
-        Vec3 bmax(std::numeric_limits<f32>::lowest());
+        Vector3 bmin(std::numeric_limits<f32>::max());
+        Vector3 bmax(std::numeric_limits<f32>::lowest());
 
         for (i32 i = 0; i < m_vertexCount; ++i) {
             i32 off = i * m_vertexStride + posOffset;
-            Vec3 pos{};
-            std::memcpy(&pos, &m_vertexData[off], sizeof(Vec3));
+            Vector3 pos{};
+            std::memcpy(&pos, &m_vertexData[off], sizeof(Vector3));
             bmin = Min(bmin, pos);
             bmax = Max(bmax, pos);
         }

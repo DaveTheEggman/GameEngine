@@ -32,10 +32,10 @@ export namespace draconic::render {
 // GPU-side probe record (set-0 t9 StructuredBuffer), 64 bytes. Packed so the forward can, per froxel,
 // pick the probe, box-project the reflection ray, and index its cube-array slice.
 struct GpuProbe {
-    Vec4 center;   // xyz = capture center (world),          w = intensity
-    Vec4 boxMin;   // xyz = box min corner (world),          w = blendDistance
-    Vec4 boxMax;   // xyz = box max corner (world),          w = sliceBase (float; cube index into the array)
-    Vec4 params;   // x = mipCount, y = priority,            zw = pad
+    Vector4 center;   // xyz = capture center (world),          w = intensity
+    Vector4 boxMin;   // xyz = box min corner (world),          w = blendDistance
+    Vector4 boxMax;   // xyz = box max corner (world),          w = sliceBase (float; cube index into the array)
+    Vector4 params;   // x = mipCount, y = priority,            zw = pad
 };
 static_assert(sizeof(GpuProbe) == 64);
 
@@ -164,14 +164,14 @@ public:
             const u32 slot = SlotFor(p.key);
             if (slot == kInvalidSlot) { continue; }
 
-            const Vec3 boxMin = p.center - p.halfExtents;
-            const Vec3 boxMax = p.center + p.halfExtents;
+            const Vector3 boxMin = p.center - p.halfExtents;
+            const Vector3 boxMax = p.center + p.halfExtents;
 
             GpuProbe g{};
-            g.center = Vec4{ p.center.x, p.center.y, p.center.z, p.intensity };
-            g.boxMin = Vec4{ boxMin.x, boxMin.y, boxMin.z, p.blendDistance };
-            g.boxMax = Vec4{ boxMax.x, boxMax.y, boxMax.z, static_cast<f32>(slot) };
-            g.params = Vec4{ static_cast<f32>(kPrefilterMips), static_cast<f32>(p.priority), p.parallax ? 1.0f : 0.0f, 0.0f };
+            g.center = Vector4{ p.center.x, p.center.y, p.center.z, p.intensity };
+            g.boxMin = Vector4{ boxMin.x, boxMin.y, boxMin.z, p.blendDistance };
+            g.boxMax = Vector4{ boxMax.x, boxMax.y, boxMax.z, static_cast<f32>(slot) };
+            g.params = Vector4{ static_cast<f32>(kPrefilterMips), static_cast<f32>(p.priority), p.parallax ? 1.0f : 0.0f, 0.0f };
             m_cpuProbes[m_active] = g;
 
             // Dirty tracking for static caching: recapture on a new slot or a moved probe.
@@ -204,7 +204,7 @@ public:
 
     // A probe that needs (re)capture this frame: its array slot + world capture center. The capture loop
     // renders the scene into layers [LayerBase(slot) .. +6) then calls MarkCaptured(slot).
-    struct CaptureTask { u32 slot; Vec3 center; };
+    struct CaptureTask { u32 slot; Vector3 center; };
     [[nodiscard]] Span<const CaptureTask> Captures() const noexcept {
         return Span<const CaptureTask>{ m_captures.Data(), m_captures.Size() };
     }

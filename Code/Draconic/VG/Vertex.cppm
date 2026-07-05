@@ -20,8 +20,8 @@ export namespace draconic::vg
     /// Vertex structure for vector graphics with analytical AA support.
     struct VGVertex
     {
-        Vec2 position;    ///< Position in screen/world coordinates.
-        Vec2 texCoord;    ///< Texture coordinates (UV).
+        Vector2 position;    ///< Position in screen/world coordinates.
+        Vector2 texCoord;    ///< Texture coordinates (UV).
         Color32 color;    ///< Vertex color, stored packed RGBA (byte). The API/math
                           ///< work in float Color; conversion happens here at emission.
         f32 coverage = 1.0f; ///< Analytical-AA coverage (0 = transparent fringe, 1 = opaque).
@@ -35,16 +35,16 @@ export namespace draconic::vg
         constexpr VGVertex() noexcept = default;
 
         // Constructors take float Color and pack to Color32 at emission.
-        constexpr VGVertex(Vec2 inPosition, Vec2 inTexCoord, Color inColor, f32 inCoverage = 1.0f) noexcept
+        constexpr VGVertex(Vector2 inPosition, Vector2 inTexCoord, Color inColor, f32 inCoverage = 1.0f) noexcept
             : position(inPosition), texCoord(inTexCoord), color(ToColor32(inColor)), coverage(inCoverage) {}
 
         constexpr VGVertex(f32 x, f32 y, f32 u, f32 v, Color inColor, f32 inCoverage = 1.0f) noexcept
             : position(x, y), texCoord(u, v), color(ToColor32(inColor)), coverage(inCoverage) {}
 
         /// Create a solid-color vertex (no texture).
-        [[nodiscard]] static constexpr VGVertex Solid(Vec2 position, Color color, f32 coverage = 1.0f) noexcept
+        [[nodiscard]] static constexpr VGVertex Solid(Vector2 position, Color color, f32 coverage = 1.0f) noexcept
         {
-            return VGVertex(position, Vec2{ SolidUV, SolidUV }, color, coverage);
+            return VGVertex(position, Vector2{ SolidUV, SolidUV }, color, coverage);
         }
 
         /// Create a solid-color vertex (no texture).

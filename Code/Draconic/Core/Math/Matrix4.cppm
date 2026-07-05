@@ -1,5 +1,5 @@
-// Draconic Core — :mat4 partition
-// Mat4: 4x4 row-major matrix — transforms, projections (Perspective/Ortho/
+// Draconic Core — :matrix4 partition
+// Matrix4: 4x4 row-major matrix — transforms, projections (Perspective/Ortho/
 // LookAt RH), multiply, Transpose/Determinant/Inverse, point/direction xform.
 //
 // Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
@@ -10,20 +10,20 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:mat4;
+export module draconic.core:matrix4;
 
 import :base;
 import :math;
-import :vec2;
-import :vec3;
-import :vec4;
+import :vector2;
+import :vector3;
+import :vector4;
 
 export namespace draconic::core
 {
     // =======================================================================
-    // Mat4 — 4x4, row-major, row-vector convention.
+    // Matrix4 — 4x4, row-major, row-vector convention.
     // =======================================================================
-    struct Mat4
+    struct Matrix4
     {
         f32 m[4][4];
 
@@ -42,87 +42,87 @@ export namespace draconic::core
             return m[row][col];
         }
 
-        [[nodiscard]] static constexpr Mat4 Identity() noexcept
+        [[nodiscard]] static constexpr Matrix4 Identity() noexcept
         {
-            return Mat4{ { { 1.0f, 0.0f, 0.0f, 0.0f },
+            return Matrix4{ { { 1.0f, 0.0f, 0.0f, 0.0f },
                            { 0.0f, 1.0f, 0.0f, 0.0f },
                            { 0.0f, 0.0f, 1.0f, 0.0f },
                            { 0.0f, 0.0f, 0.0f, 1.0f } } };
         }
 
-        [[nodiscard]] static constexpr Mat4 Translation(Vec3 t) noexcept
+        [[nodiscard]] static constexpr Matrix4 Translation(Vector3 t) noexcept
         {
-            return Mat4{ { { 1.0f, 0.0f, 0.0f, 0.0f },
+            return Matrix4{ { { 1.0f, 0.0f, 0.0f, 0.0f },
                            { 0.0f, 1.0f, 0.0f, 0.0f },
                            { 0.0f, 0.0f, 1.0f, 0.0f },
                            { t.x,  t.y,  t.z,  1.0f } } };
         }
 
-        [[nodiscard]] static constexpr Mat4 Scale(Vec3 s) noexcept
+        [[nodiscard]] static constexpr Matrix4 Scale(Vector3 s) noexcept
         {
-            return Mat4{ { { s.x,  0.0f, 0.0f, 0.0f },
+            return Matrix4{ { { s.x,  0.0f, 0.0f, 0.0f },
                            { 0.0f, s.y,  0.0f, 0.0f },
                            { 0.0f, 0.0f, s.z,  0.0f },
                            { 0.0f, 0.0f, 0.0f, 1.0f } } };
         }
 
-        [[nodiscard]] static Mat4 RotationX(f32 radians) noexcept
+        [[nodiscard]] static Matrix4 RotationX(f32 radians) noexcept
         {
             const f32 c = Cos(radians);
             const f32 s = Sin(radians);
-            return Mat4{ { { 1.0f, 0.0f, 0.0f, 0.0f },
+            return Matrix4{ { { 1.0f, 0.0f, 0.0f, 0.0f },
                            { 0.0f, c,    s,    0.0f },
                            { 0.0f, -s,   c,    0.0f },
                            { 0.0f, 0.0f, 0.0f, 1.0f } } };
         }
 
-        [[nodiscard]] static Mat4 RotationY(f32 radians) noexcept
+        [[nodiscard]] static Matrix4 RotationY(f32 radians) noexcept
         {
             const f32 c = Cos(radians);
             const f32 s = Sin(radians);
-            return Mat4{ { { c,    0.0f, -s,   0.0f },
+            return Matrix4{ { { c,    0.0f, -s,   0.0f },
                            { 0.0f, 1.0f, 0.0f, 0.0f },
                            { s,    0.0f, c,    0.0f },
                            { 0.0f, 0.0f, 0.0f, 1.0f } } };
         }
 
-        [[nodiscard]] static Mat4 RotationZ(f32 radians) noexcept
+        [[nodiscard]] static Matrix4 RotationZ(f32 radians) noexcept
         {
             const f32 c = Cos(radians);
             const f32 s = Sin(radians);
-            return Mat4{ { { c,    s,    0.0f, 0.0f },
+            return Matrix4{ { { c,    s,    0.0f, 0.0f },
                            { -s,   c,    0.0f, 0.0f },
                            { 0.0f, 0.0f, 1.0f, 0.0f },
                            { 0.0f, 0.0f, 0.0f, 1.0f } } };
         }
 
         // Right-handed perspective, NDC z in [0, 1] (XNA / D3D style).
-        [[nodiscard]] static Mat4 PerspectiveFovRH(f32 fovYRadians, f32 aspect, f32 zNear, f32 zFar) noexcept
+        [[nodiscard]] static Matrix4 PerspectiveFovRH(f32 fovYRadians, f32 aspect, f32 zNear, f32 zFar) noexcept
         {
             const f32 yScale = 1.0f / Tan(fovYRadians * 0.5f);
             const f32 xScale = yScale / aspect;
             const f32 zRange = zFar / (zNear - zFar);
-            return Mat4{ { { xScale, 0.0f,   0.0f,           0.0f },
+            return Matrix4{ { { xScale, 0.0f,   0.0f,           0.0f },
                            { 0.0f,   yScale, 0.0f,           0.0f },
                            { 0.0f,   0.0f,   zRange,         -1.0f },
                            { 0.0f,   0.0f,   zNear * zRange, 0.0f } } };
         }
 
-        [[nodiscard]] static Mat4 OrthographicRH(f32 width, f32 height, f32 zNear, f32 zFar) noexcept
+        [[nodiscard]] static Matrix4 OrthographicRH(f32 width, f32 height, f32 zNear, f32 zFar) noexcept
         {
             const f32 zRange = 1.0f / (zNear - zFar);
-            return Mat4{ { { 2.0f / width, 0.0f,          0.0f,           0.0f },
+            return Matrix4{ { { 2.0f / width, 0.0f,          0.0f,           0.0f },
                            { 0.0f,         2.0f / height, 0.0f,           0.0f },
                            { 0.0f,         0.0f,          zRange,         0.0f },
                            { 0.0f,         0.0f,          zNear * zRange, 1.0f } } };
         }
 
-        [[nodiscard]] static Mat4 LookAtRH(Vec3 eye, Vec3 target, Vec3 up) noexcept
+        [[nodiscard]] static Matrix4 LookAtRH(Vector3 eye, Vector3 target, Vector3 up) noexcept
         {
-            const Vec3 zAxis = Normalized(eye - target); // camera looks down -z
-            const Vec3 xAxis = Normalized(Cross(up, zAxis));
-            const Vec3 yAxis = Cross(zAxis, xAxis);
-            return Mat4{ { { xAxis.x, yAxis.x, zAxis.x, 0.0f },
+            const Vector3 zAxis = Normalized(eye - target); // camera looks down -z
+            const Vector3 xAxis = Normalized(Cross(up, zAxis));
+            const Vector3 yAxis = Cross(zAxis, xAxis);
+            return Matrix4{ { { xAxis.x, yAxis.x, zAxis.x, 0.0f },
                            { xAxis.y, yAxis.y, zAxis.y, 0.0f },
                            { xAxis.z, yAxis.z, zAxis.z, 0.0f },
                            { -Dot(xAxis, eye), -Dot(yAxis, eye), -Dot(zAxis, eye), 1.0f } } };
@@ -130,9 +130,9 @@ export namespace draconic::core
 
     };
 
-    [[nodiscard]] constexpr Mat4 operator*(const Mat4& a, const Mat4& b) noexcept
+    [[nodiscard]] constexpr Matrix4 operator*(const Matrix4& a, const Matrix4& b) noexcept
     {
-        Mat4 result{};
+        Matrix4 result{};
         for (usize row = 0; row < 4; ++row)
         {
             for (usize col = 0; col < 4; ++col)
@@ -149,7 +149,7 @@ export namespace draconic::core
     }
 
     // Row-vector transform: v' = v * M.
-    [[nodiscard]] constexpr Vec4 operator*(Vec4 v, const Mat4& m) noexcept
+    [[nodiscard]] constexpr Vector4 operator*(Vector4 v, const Matrix4& m) noexcept
     {
         return { v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + v.w * m.m[3][0],
                  v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + v.w * m.m[3][1],
@@ -157,9 +157,9 @@ export namespace draconic::core
                  v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + v.w * m.m[3][3] };
     }
 
-    [[nodiscard]] constexpr Mat4 Transpose(const Mat4& a) noexcept
+    [[nodiscard]] constexpr Matrix4 Transpose(const Matrix4& a) noexcept
     {
-        Mat4 result{};
+        Matrix4 result{};
         for (usize row = 0; row < 4; ++row)
         {
             for (usize col = 0; col < 4; ++col)
@@ -171,7 +171,7 @@ export namespace draconic::core
     }
 
     // Transforms a position (implicit w = 1, translation applied).
-    [[nodiscard]] constexpr Vec3 TransformPoint(Vec3 p, const Mat4& m) noexcept
+    [[nodiscard]] constexpr Vector3 TransformPoint(Vector3 p, const Matrix4& m) noexcept
     {
         return { p.x * m.m[0][0] + p.y * m.m[1][0] + p.z * m.m[2][0] + m.m[3][0],
                  p.x * m.m[0][1] + p.y * m.m[1][1] + p.z * m.m[2][1] + m.m[3][1],
@@ -179,7 +179,7 @@ export namespace draconic::core
     }
 
     // Transforms a direction (implicit w = 0, translation ignored).
-    [[nodiscard]] constexpr Vec3 TransformDirection(Vec3 d, const Mat4& m) noexcept
+    [[nodiscard]] constexpr Vector3 TransformDirection(Vector3 d, const Matrix4& m) noexcept
     {
         return { d.x * m.m[0][0] + d.y * m.m[1][0] + d.z * m.m[2][0],
                  d.x * m.m[0][1] + d.y * m.m[1][1] + d.z * m.m[2][1],
@@ -187,15 +187,15 @@ export namespace draconic::core
     }
 
     // Transforms a 2D position (implicit z = 0, w = 1, translation applied;
-    // result projected back to 2D). For 2D affine transforms stored in a Mat4.
-    [[nodiscard]] constexpr Vec2 TransformPoint2D(Vec2 p, const Mat4& m) noexcept
+    // result projected back to 2D). For 2D affine transforms stored in a Matrix4.
+    [[nodiscard]] constexpr Vector2 TransformPoint2D(Vector2 p, const Matrix4& m) noexcept
     {
         return { p.x * m.m[0][0] + p.y * m.m[1][0] + m.m[3][0],
                  p.x * m.m[0][1] + p.y * m.m[1][1] + m.m[3][1] };
     }
 
     // Exact element-wise equality (e.g. for an identity fast-path).
-    [[nodiscard]] constexpr bool operator==(const Mat4& a, const Mat4& b) noexcept
+    [[nodiscard]] constexpr bool operator==(const Matrix4& a, const Matrix4& b) noexcept
     {
         for (usize row = 0; row < 4; ++row)
             for (usize col = 0; col < 4; ++col)
@@ -203,7 +203,7 @@ export namespace draconic::core
         return true;
     }
 
-    [[nodiscard]] inline bool NearlyEqual(const Mat4& a, const Mat4& b, f32 epsilon = kEpsilon) noexcept
+    [[nodiscard]] inline bool NearlyEqual(const Matrix4& a, const Matrix4& b, f32 epsilon = kEpsilon) noexcept
     {
         for (usize row = 0; row < 4; ++row)
         {
@@ -215,7 +215,7 @@ export namespace draconic::core
         return true;
     }
 
-    [[nodiscard]] inline f32 Determinant(const Mat4& mat) noexcept
+    [[nodiscard]] inline f32 Determinant(const Matrix4& mat) noexcept
     {
         const f32* m = &mat.m[0][0];
         const f32 s0 = m[0] * m[5] - m[1] * m[4];
@@ -235,7 +235,7 @@ export namespace draconic::core
 
     // Full 4x4 inverse (adjugate / determinant). Returns Identity for a
     // singular matrix.
-    [[nodiscard]] inline Mat4 Inverse(const Mat4& mat) noexcept
+    [[nodiscard]] inline Matrix4 Inverse(const Matrix4& mat) noexcept
     {
         const f32* m = &mat.m[0][0];
         f32 inv[16];
@@ -260,11 +260,11 @@ export namespace draconic::core
         f32 det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12];
         if (NearlyZero(det))
         {
-            return Mat4::Identity();
+            return Matrix4::Identity();
         }
 
         const f32 invDet = 1.0f / det;
-        Mat4 result{};
+        Matrix4 result{};
         f32* out = &result.m[0][0];
         for (usize i = 0; i < 16; ++i)
         {

@@ -1,7 +1,7 @@
 // Draconic::Fonts — :types partition
 //
 // Value types for font/glyph/text-layout data. Ported from Sedulous.Fonts
-// (Rect/GlyphInfo/GlyphQuad/GlyphPosition/AtlasRegion/FontMetrics/
+// (Rectangle/GlyphInfo/GlyphQuad/GlyphPosition/AtlasRegion/FontMetrics/
 // TextDecorationMetrics/SelectionRange/HitTestResult/FontLoadOptions/
 // FontLoadResult/FontCacheKey + alignment enums).
 
@@ -17,12 +17,12 @@ using namespace draconic::core;
 export namespace draconic::fonts
 {
     // Simple rectangle for glyph bounds.
-    struct Rect
+    struct Rectangle
     {
         f32 x = 0, y = 0, width = 0, height = 0;
 
-        constexpr Rect() = default;
-        constexpr Rect(f32 x_, f32 y_, f32 w_, f32 h_) : x(x_), y(y_), width(w_), height(h_) {}
+        constexpr Rectangle() = default;
+        constexpr Rectangle(f32 x_, f32 y_, f32 w_, f32 h_) : x(x_), y(y_), width(w_), height(h_) {}
 
         [[nodiscard]] constexpr f32 Left() const { return x; }
         [[nodiscard]] constexpr f32 Top() const { return y; }
@@ -33,9 +33,9 @@ export namespace draconic::fonts
         {
             return px >= x && px < x + width && py >= y && py < y + height;
         }
-        [[nodiscard]] static constexpr Rect FromBounds(f32 left, f32 top, f32 right, f32 bottom)
+        [[nodiscard]] static constexpr Rectangle FromBounds(f32 left, f32 top, f32 right, f32 bottom)
         {
-            return Rect{ left, top, right - left, bottom - top };
+            return Rectangle{ left, top, right - left, bottom - top };
         }
     };
 
@@ -46,7 +46,7 @@ export namespace draconic::fonts
         i32 glyphIndex = 0;       // 0 = missing glyph
         f32 advanceWidth = 0;
         f32 leftSideBearing = 0;
-        Rect boundingBox;          // in pixels, relative to baseline
+        Rectangle boundingBox;          // in pixels, relative to baseline
         bool hasBitmap = false;
     };
 

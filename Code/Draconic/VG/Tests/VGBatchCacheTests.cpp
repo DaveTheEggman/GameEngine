@@ -22,7 +22,7 @@ TEST_CASE("vg.batch: command/texture bookkeeping")
     VGBatch batch;
     CHECK(batch.IsEmpty());
 
-    batch.vertices.PushBack(VGVertex::Solid(Vec2{0,0}, Color::Red));
+    batch.vertices.PushBack(VGVertex::Solid(Vector2{0,0}, Color::Red));
     batch.indices.PushBack(0);
     VGCommand cmd;
     cmd.indexCount = 1;

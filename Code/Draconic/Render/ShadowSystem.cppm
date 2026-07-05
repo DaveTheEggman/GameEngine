@@ -24,17 +24,17 @@ namespace rhi = draconic::rhi;
 export namespace draconic::render {
 
 // Unproject an NDC corner (clip xy in [-1,1], z in [0,1]) to world space via the inverse view-proj.
-[[nodiscard]] inline Vec3 UnprojectNDC(const Mat4& invViewProj, f32 ndcX, f32 ndcY, f32 ndcZ) {
-    const Vec4 c = Vec4{ ndcX, ndcY, ndcZ, 1.0f } * invViewProj;
+[[nodiscard]] inline Vector3 UnprojectNDC(const Matrix4& invViewProj, f32 ndcX, f32 ndcY, f32 ndcZ) {
+    const Vector4 c = Vector4{ ndcX, ndcY, ndcZ, 1.0f } * invViewProj;
     const f32 invW = (Abs(c.w) > 1e-6f) ? (1.0f / c.w) : 1.0f;
-    return Vec3{ c.x * invW, c.y * invW, c.z * invW };
+    return Vector3{ c.x * invW, c.y * invW, c.z * invW };
 }
 
 // Fit CSM cascades to the camera frustum. Practical split (lambda blend of log + uniform), a bounding
 // SPHERE fit per cascade (stable under camera rotation) with radius snapping, plus light-space TEXEL
 // snapping — the anti-shimmer fix Sedulous lacks (the survey flagged it). `lightDir` is the direction
 // light travels; the light camera looks along it. Cascades cover [near, shadowDistance].
-[[nodiscard]] inline ShadowCascades ComputeCascades(const ViewCamera& cam, Vec3 lightDir,
+[[nodiscard]] inline ShadowCascades ComputeCascades(const ViewCamera& cam, Vector3 lightDir,
                                                     f32 shadowDistance, u32 resolution) {
     ShadowCascades out;
     out.valid = true;
@@ -55,8 +55,8 @@ export namespace draconic::render {
         splits[i] = lambda * logS + (1.0f - lambda) * uniS;
     }
 
-    const Mat4 invVP = Inverse(cam.ViewProjection());
-    Vec3 nearC[4], farC[4];
+    const Matrix4 invVP = Inverse(cam.ViewProjection());
+    Vector3 nearC[4], farC[4];
     const f32 xs[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
     const f32 ys[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
     for (int i = 0; i < 4; ++i) {
@@ -64,23 +64,23 @@ export namespace draconic::render {
         farC[i]  = UnprojectNDC(invVP, xs[i], ys[i], 1.0f);
     }
 
-    const Vec3 dir = Normalized(lightDir);
-    const Vec3 up  = (Abs(dir.y) > 0.95f) ? Vec3{ 0.0f, 0.0f, 1.0f } : Vec3{ 0.0f, 1.0f, 0.0f };
+    const Vector3 dir = Normalized(lightDir);
+    const Vector3 up  = (Abs(dir.y) > 0.95f) ? Vector3{ 0.0f, 0.0f, 1.0f } : Vector3{ 0.0f, 1.0f, 0.0f };
 
     for (u32 c = 0; c < N; ++c) {
         // Slice corners: interpolate the camera frustum edges (near->far) by each split's fraction of
         // the camera's depth range (camFar), so a near split gives a SMALL near-cascade slice.
         const f32 fNear = (splits[c]     - nearZ) / (camFar - nearZ);
         const f32 fFar  = (splits[c + 1] - nearZ) / (camFar - nearZ);
-        Vec3 corners[8];
+        Vector3 corners[8];
         for (int i = 0; i < 4; ++i) {
-            const Vec3 edge = farC[i] - nearC[i];
+            const Vector3 edge = farC[i] - nearC[i];
             corners[i]     = nearC[i] + edge * fNear;
             corners[i + 4] = nearC[i] + edge * fFar;
         }
 
         // Bounding sphere of the slice.
-        Vec3 center{ 0.0f, 0.0f, 0.0f };
+        Vector3 center{ 0.0f, 0.0f, 0.0f };
         for (int i = 0; i < 8; ++i) { center = center + corners[i]; }
         center = center * (1.0f / 8.0f);
         f32 radius = 0.0f;
@@ -91,14 +91,14 @@ export namespace draconic::render {
         out.splitFar[c]       = splits[c + 1];
 
         const f32  shadowDepth = radius * 6.0f;
-        const Vec3 eye  = center - dir * (radius * 3.0f);
-        const Mat4 view = Mat4::LookAtRH(eye, center, up);
-        const Mat4 proj = Mat4::OrthographicRH(radius * 2.0f, radius * 2.0f, 0.0f, shadowDepth);
-        Mat4 vp = view * proj;
+        const Vector3 eye  = center - dir * (radius * 3.0f);
+        const Matrix4 view = Matrix4::LookAtRH(eye, center, up);
+        const Matrix4 proj = Matrix4::OrthographicRH(radius * 2.0f, radius * 2.0f, 0.0f, shadowDepth);
+        Matrix4 vp = view * proj;
 
         // Texel snap: shift the cascade so its origin lands on whole-texel increments in light clip
         // space, so the shadow texels step in integer units as the camera moves (no edge crawl).
-        const Vec3 originClip = TransformPoint(Vec3{ 0.0f, 0.0f, 0.0f }, vp);   // ortho => w=1, no divide
+        const Vector3 originClip = TransformPoint(Vector3{ 0.0f, 0.0f, 0.0f }, vp);   // ortho => w=1, no divide
         const f32  half = static_cast<f32>(resolution) * 0.5f;
         const f32  ox = (Floor(originClip.x * half + 0.5f) - originClip.x * half) / half;
         const f32  oy = (Floor(originClip.y * half + 0.5f) - originClip.y * half) / half;
@@ -125,18 +125,18 @@ struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
 // Near plane scaled to the range: a tiny near (e.g. 0.05) wrecks perspective depth precision —
 // everything past a few units crams into ndc.z > 0.99 and occluder/receiver separation falls below
 // the depth bias (no shadow). range*0.05 keeps depth spread across the useful distances.
-[[nodiscard]] inline GpuLocalShadow MakeLocalShadow(const Mat4& view, f32 range, f32 fov,
+[[nodiscard]] inline GpuLocalShadow MakeLocalShadow(const Matrix4& view, f32 range, f32 fov,
                                                     u32 tileIndex, u32 atlasRes, u32 tileRes) {
     GpuLocalShadow s;
     const f32  farZ  = Max(0.2f, range);
     const f32  nearZ = Max(0.2f, farZ * 0.05f);
-    const Mat4 proj  = Mat4::PerspectiveFovRH(fov, 1.0f, nearZ, farZ);
+    const Matrix4 proj  = Matrix4::PerspectiveFovRH(fov, 1.0f, nearZ, farZ);
     s.viewProj = view * proj;
 
     const u32 perRow = (tileRes > 0) ? (atlasRes / tileRes) : 1;
     const u32 cols   = (perRow > 0) ? perRow : 1;
     const f32 scale  = static_cast<f32>(tileRes) / static_cast<f32>(atlasRes);
-    s.atlasScaleBias = Vec4{ scale, scale,
+    s.atlasScaleBias = Vector4{ scale, scale,
                              static_cast<f32>(tileIndex % cols) * scale,
                              static_cast<f32>(tileIndex / cols) * scale };
     return s;
@@ -145,10 +145,10 @@ struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
 // A spot light's shadow entry: one perspective view (fov = 2*outerAngle) looking down the cone.
 [[nodiscard]] inline GpuLocalShadow BuildSpotShadow(const LocalShadowCaster& c, u32 tileIndex,
                                                     u32 atlasRes, u32 tileRes) {
-    const Vec3 dir  = Normalized(c.directionWS);
-    const Vec3 up   = (Abs(dir.y) > 0.95f) ? Vec3{ 0.0f, 0.0f, 1.0f } : Vec3{ 0.0f, 1.0f, 0.0f };
+    const Vector3 dir  = Normalized(c.directionWS);
+    const Vector3 up   = (Abs(dir.y) > 0.95f) ? Vector3{ 0.0f, 0.0f, 1.0f } : Vector3{ 0.0f, 1.0f, 0.0f };
     const f32  fov  = Min(c.outerAngle * 2.0f + 0.05f, 3.0f);   // pad the cone a touch; keep < pi
-    const Mat4 view = Mat4::LookAtRH(c.positionWS, c.positionWS + dir, up);
+    const Matrix4 view = Matrix4::LookAtRH(c.positionWS, c.positionWS + dir, up);
     return MakeLocalShadow(view, c.range, fov, tileIndex, atlasRes, tileRes);
 }
 
@@ -157,10 +157,10 @@ struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
 // axis of (fragment - lightPos), so any consistent up works (it cancels in build+sample).
 [[nodiscard]] inline GpuLocalShadow BuildPointShadowFace(const LocalShadowCaster& c, u32 face,
                                                          u32 tileIndex, u32 atlasRes, u32 tileRes) {
-    static const Vec3 kFaceDir[6] = { { 1,0,0 }, { -1,0,0 }, { 0,1,0 }, { 0,-1,0 }, { 0,0,1 }, { 0,0,-1 } };
-    const Vec3 dir  = kFaceDir[face < 6 ? face : 0];
-    const Vec3 up   = (face == 2) ? Vec3{ 0,0,-1 } : (face == 3) ? Vec3{ 0,0,1 } : Vec3{ 0,1,0 };  // ±Y can't use Y-up
-    const Mat4 view = Mat4::LookAtRH(c.positionWS, c.positionWS + dir, up);
+    static const Vector3 kFaceDir[6] = { { 1,0,0 }, { -1,0,0 }, { 0,1,0 }, { 0,-1,0 }, { 0,0,1 }, { 0,0,-1 } };
+    const Vector3 dir  = kFaceDir[face < 6 ? face : 0];
+    const Vector3 up   = (face == 2) ? Vector3{ 0,0,-1 } : (face == 3) ? Vector3{ 0,0,1 } : Vector3{ 0,1,0 };  // ±Y can't use Y-up
+    const Matrix4 view = Matrix4::LookAtRH(c.positionWS, c.positionWS + dir, up);
     // fov slightly WIDER than 90deg: the shader selects faces at the exact 45deg boundary, so a 90deg
     // frustum would put boundary fragments at the tile EDGE and the PCF taps would fall off it / into
     // the neighbour tile — a visible seam line. The pad (~100deg) pulls boundary uv inward off the edge.

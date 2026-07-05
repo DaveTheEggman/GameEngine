@@ -10,7 +10,7 @@ export module draconic.core:aabb;
 
 import :base;
 import :math;
-import :vec3;
+import :vector3;
 
 export namespace draconic::core
 {
@@ -19,27 +19,27 @@ export namespace draconic::core
     // =======================================================================
     struct AABB
     {
-        Vec3 min;
-        Vec3 max;
+        Vector3 min;
+        Vector3 max;
 
         // An inverted box (min > max) so the first Expand sets real bounds.
         [[nodiscard]] static AABB Empty() noexcept
         {
-            return AABB{ Vec3{ kFloatMax, kFloatMax, kFloatMax },
-                         Vec3{ -kFloatMax, -kFloatMax, -kFloatMax } };
+            return AABB{ Vector3{ kFloatMax, kFloatMax, kFloatMax },
+                         Vector3{ -kFloatMax, -kFloatMax, -kFloatMax } };
         }
 
-        [[nodiscard]] static AABB FromCenterExtents(Vec3 center, Vec3 extents) noexcept
+        [[nodiscard]] static AABB FromCenterExtents(Vector3 center, Vector3 extents) noexcept
         {
             return AABB{ center - extents, center + extents };
         }
 
-        [[nodiscard]] Vec3 Center() const noexcept { return (min + max) * 0.5f; }
-        [[nodiscard]] Vec3 Size() const noexcept { return max - min; }
-        [[nodiscard]] Vec3 Extents() const noexcept { return (max - min) * 0.5f; }
+        [[nodiscard]] Vector3 Center() const noexcept { return (min + max) * 0.5f; }
+        [[nodiscard]] Vector3 Size() const noexcept { return max - min; }
+        [[nodiscard]] Vector3 Extents() const noexcept { return (max - min) * 0.5f; }
         [[nodiscard]] bool IsValid() const noexcept { return min.x <= max.x && min.y <= max.y && min.z <= max.z; }
 
-        [[nodiscard]] bool Contains(Vec3 p) const noexcept
+        [[nodiscard]] bool Contains(Vector3 p) const noexcept
         {
             return p.x >= min.x && p.x <= max.x
                 && p.y >= min.y && p.y <= max.y
@@ -54,7 +54,7 @@ export namespace draconic::core
         }
 
         // Grows the box to include a point.
-        void Expand(Vec3 p) noexcept
+        void Expand(Vector3 p) noexcept
         {
             min = Min(min, p);
             max = Max(max, p);

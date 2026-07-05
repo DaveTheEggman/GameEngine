@@ -47,10 +47,10 @@ inline constexpr u32 kParallelExtractThreshold = 256;
 // World-space bounding-sphere radius of a local AABB under a transform: the diagonal half-extent
 // scaled by the largest axis scale (basis-row length, row-vector convention) — conservative but
 // cheap. Used for sphere-vs-light culling of shadow casters (phase 5.4).
-[[nodiscard]] inline f32 WorldBoundsRadius(const AABB& local, const Mat4& world) {
-    const f32 sx = Length(Vec3{ world.m[0][0], world.m[0][1], world.m[0][2] });
-    const f32 sy = Length(Vec3{ world.m[1][0], world.m[1][1], world.m[1][2] });
-    const f32 sz = Length(Vec3{ world.m[2][0], world.m[2][1], world.m[2][2] });
+[[nodiscard]] inline f32 WorldBoundsRadius(const AABB& local, const Matrix4& world) {
+    const f32 sx = Length(Vector3{ world.m[0][0], world.m[0][1], world.m[0][2] });
+    const f32 sy = Length(Vector3{ world.m[1][0], world.m[1][1], world.m[1][2] });
+    const f32 sz = Length(Vector3{ world.m[2][0], world.m[2][1], world.m[2][2] });
     return Length(local.Extents()) * Max(sx, Max(sy, sz));
 }
 
@@ -59,7 +59,7 @@ inline constexpr u32 kParallelExtractThreshold = 256;
 inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, scene::EntityHandle e,
                                MeshRenderData& rd) {
     rd.world       = scene.GetWorldMatrix(e);
-    const AABB lb  = (mc.mesh.Get() != nullptr) ? mc.mesh->bounds : AABB{ Vec3{ 0, 0, 0 }, Vec3{ 0, 0, 0 } };
+    const AABB lb  = (mc.mesh.Get() != nullptr) ? mc.mesh->bounds : AABB{ Vector3{ 0, 0, 0 }, Vector3{ 0, 0, 0 } };
     rd.worldCenter = TransformPoint(lb.Center(), rd.world);       // bounds center (cull + depth sort)
     rd.worldRadius = WorldBoundsRadius(lb, rd.world);
     rd.color       = mc.color;
@@ -143,7 +143,7 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
         if (rd == nullptr) { return; }
         rd->category    = RenderCategories::Transparent;
         rd->rendererId  = spriteRendererId;
-        rd->worldCenter = TransformPoint(Vec3{ 0, 0, 0 }, scene.GetWorldMatrix(e));
+        rd->worldCenter = TransformPoint(Vector3{ 0, 0, 0 }, scene.GetWorldMatrix(e));
         // Bounding-sphere radius for view-frustum culling: half the billboard's diagonal. size is in
         // world units (the sprite renderer sizes the quad directly), so entity scale isn't folded in.
         rd->worldRadius = 0.5f * Length(sc.size);
@@ -165,7 +165,7 @@ inline void ExtractDecalsInto(scene::Scene& scene, ExtractedScene& out) {
     decals->ForEach([&](DecalComponent& dc, scene::EntityHandle e) {
         if (!dc.visible || dc.texture == nullptr) { return; }
         DecalInstance di;
-        di.world     = Mat4::Scale(dc.size) * scene.GetWorldMatrix(e);
+        di.world     = Matrix4::Scale(dc.size) * scene.GetWorldMatrix(e);
         di.color     = dc.color;
         di.fadeStart = dc.fadeStart;
         di.fadeEnd   = dc.fadeEnd;
@@ -183,10 +183,10 @@ inline void ExtractDecalsInto(scene::Scene& scene, ExtractedScene& out) {
         cameras->ForEach([&](CameraComponent& cam, scene::EntityHandle e) {
             if (found || !cam.primary) { return; }
             found = true;
-            const Mat4 world = scene.GetWorldMatrix(e);
+            const Matrix4 world = scene.GetWorldMatrix(e);
             out.view       = Inverse(world);
-            out.projection = Mat4::PerspectiveFovRH(cam.fovYRadians, cam.aspect, cam.nearZ, cam.farZ);
-            out.position   = TransformPoint(Vec3{ 0, 0, 0 }, world);
+            out.projection = Matrix4::PerspectiveFovRH(cam.fovYRadians, cam.aspect, cam.nearZ, cam.farZ);
+            out.position   = TransformPoint(Vector3{ 0, 0, 0 }, world);
             out.farZ       = cam.farZ;
             if (outClear != nullptr) { *outClear = cam.clearColor; }
         });
@@ -206,13 +206,13 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
     u32  flatEntries = 0;            // running GpuLocalShadow entry index = the next caster's shadowIndex
     lights->ForEach([&](LightComponent& lc, scene::EntityHandle e) {
         if (!lc.enabled) { return; }
-        const Mat4 world = scene.GetWorldMatrix(e);
+        const Matrix4 world = scene.GetWorldMatrix(e);
         GpuLight g;
-        g.positionWS  = TransformPoint(Vec3{ 0, 0, 0 }, world);
+        g.positionWS  = TransformPoint(Vector3{ 0, 0, 0 }, world);
         // Forward is -Z (row 2 negated) in world space (row-major, row-vector convention).
-        g.directionWS = Normalized(Vec3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
+        g.directionWS = Normalized(Vector3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
         g.range       = lc.range;
-        g.color       = Vec3{ lc.color.r, lc.color.g, lc.color.b };
+        g.color       = Vector3{ lc.color.r, lc.color.g, lc.color.b };
         g.intensity   = lc.intensity;
         g.type        = static_cast<f32>(static_cast<u32>(lc.type));
         g.innerCos    = Cos(lc.innerAngle);
@@ -254,14 +254,14 @@ inline void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out) {
 inline void ExtractEnvironmentInto(scene::Scene& scene, ExtractedScene& out) {
     if (auto* env = scene.GetSystem<EnvironmentSystem>()) {
         const EnvironmentSettings& e = env->Environment();
-        out.SetAmbient(Vec3{ e.ambientColor.r, e.ambientColor.g, e.ambientColor.b } * e.ambientIntensity);
+        out.SetAmbient(Vector3{ e.ambientColor.r, e.ambientColor.g, e.ambientColor.b } * e.ambientIntensity);
         SkySnapshot s{};
         s.mode      = e.skyMode;
         s.intensity = e.skyIntensity;
         s.rotation  = e.skyRotation;
-        s.horizon   = Vec3{ e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
-        s.zenith    = Vec3{ e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
-        s.ground    = Vec3{ e.skyGround.r, e.skyGround.g, e.skyGround.b };
+        s.horizon   = Vector3{ e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
+        s.zenith    = Vector3{ e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
+        s.ground    = Vector3{ e.skyGround.r, e.skyGround.g, e.skyGround.b };
         s.sunIntensity   = e.sunIntensity;
         s.sunAngularSize = e.sunAngularSize;
         s.turbidity      = e.turbidity;
@@ -278,10 +278,10 @@ inline void ExtractReflectionProbesInto(scene::Scene& scene, ExtractedScene& out
     u32 count = 0;
     probes->ForEach([&](ReflectionProbeComponent& pc, scene::EntityHandle e) {
         if (!pc.enabled || count >= kMaxReflectionProbes) { return; }
-        const Mat4 world = scene.GetWorldMatrix(e);
+        const Matrix4 world = scene.GetWorldMatrix(e);
         ReflectionProbe p;
         p.key           = PackEntity(e);
-        p.center        = TransformPoint(Vec3{ 0, 0, 0 }, world);
+        p.center        = TransformPoint(Vector3{ 0, 0, 0 }, world);
         p.halfExtents   = pc.halfExtents;
         p.blendDistance = pc.blendDistance;
         p.intensity     = pc.intensity;

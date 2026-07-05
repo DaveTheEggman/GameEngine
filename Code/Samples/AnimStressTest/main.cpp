@@ -113,9 +113,9 @@ namespace
             // with the cube grids standing on it. Pitch ~28 deg below horizontal (looks toward the
             // scene center). Default camera looks down -Z; rotating about +X by -pitch tilts it down.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 14.0f, 30.0f });
+            m_scene->SetLocalPosition(m_camera, rc::Vector3{ 0.0f, 14.0f, 30.0f });
             rc::Transform camT = m_scene->GetLocalTransform(m_camera);
-            camT.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.48f);
+            camT.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -0.48f);
             m_scene->SetLocalTransform(m_camera, camT);
             if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
                 rd::CameraComponent& cam = cameras->Add(m_camera);   // default 60deg perspective
@@ -126,10 +126,10 @@ namespace
             // on it and the lights cast their shadows onto it.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
                 m_floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(m_floor, rc::Vec3{ 0.0f, -7.0f, 0.0f });
+                m_scene->SetLocalPosition(m_floor, rc::Vector3{ 0.0f, -7.0f, 0.0f });
                 rd::MeshComponent& fmc = meshes->Add(m_floor);
                 fmc.mesh = geo::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
+                fmc.material = mat::CreatePBR(u8"lit", rc::Vector4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
             }
 
             // One directional shadow-casting key light — the whole scene (skinning benchmark, kept light
@@ -137,8 +137,8 @@ namespace
             if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                 sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 rc::Transform kt = m_scene->GetLocalTransform(key);
-                kt.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.9f)
-                            * rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, 0.5f);
+                kt.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f)
+                            * rc::Quaternion::FromAxisAngle(rc::Vector3{ 0.0f, 1.0f, 0.0f }, 0.5f);
                 m_scene->SetLocalTransform(key, kt);
                 rd::LightComponent& kl = lights->Add(key);
                 kl.type         = rd::LightType::Directional;
@@ -208,7 +208,7 @@ namespace
 
             // Auto-fit: scale the model's largest extent to a target size.
             constexpr rc::f32 kTargetSize = 6.0f;
-            const rc::Vec3 extent = m_model->boundsMax - m_model->boundsMin;
+            const rc::Vector3 extent = m_model->boundsMax - m_model->boundsMin;
             const rc::f32 maxExtent = rc::Max(extent.x, rc::Max(extent.y, extent.z));
             m_fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
 
@@ -224,7 +224,7 @@ namespace
         // Spawn one instance of the cooked model at `position`: its own node hierarchy under a scaled
         // root (mesh nodes get MeshComponents referencing the SHARED cooked meshes/materials), plus its
         // own AnimationPlayer over the shared skeleton.
-        void SpawnInstance(rc::Vec3 position)
+        void SpawnInstance(rc::Vector3 position)
         {
             auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
             if (meshes == nullptr || !m_model) { return; }
@@ -232,7 +232,7 @@ namespace
             sc::EntityHandle modelRoot = m_scene->CreateEntity(u8"char");
             rc::Transform rootT;
             rootT.position = position;
-            rootT.scale    = rc::Vec3{ m_fit, m_fit, m_fit };
+            rootT.scale    = rc::Vector3{ m_fit, m_fit, m_fit };
             m_scene->SetLocalTransform(modelRoot, rootT);
             Instance inst;
             inst.root = modelRoot;
@@ -296,7 +296,7 @@ namespace
             for (rc::u32 i = 0; i < count; ++i) {
                 const rc::f32 px = (static_cast<rc::f32>(i % side) - half) * kCharacterSpacing;
                 const rc::f32 pz = (static_cast<rc::f32>(i / side) - half) * kCharacterSpacing;
-                SpawnInstance(rc::Vec3{ px, kFloorY, pz });
+                SpawnInstance(rc::Vector3{ px, kFloorY, pz });
             }
             AutoFrame(side);
             m_frameTimeMs = 16.6f;   // reset the smoother so the rebuild hitch doesn't skew the reading
@@ -311,12 +311,12 @@ namespace
             // Floor: scale the base plane so it covers the whole grid + margin (uniform XZ; Y stays flat).
             const rc::f32 fscale = rc::Max(1.0f, (extent * 2.0f + 40.0f) / kFloorBaseSize);
             rc::Transform ft = m_scene->GetLocalTransform(m_floor);
-            ft.scale = rc::Vec3{ fscale, 1.0f, fscale };
+            ft.scale = rc::Vector3{ fscale, 1.0f, fscale };
             m_scene->SetLocalTransform(m_floor, ft);
-            const rc::Vec3 target{ 0.0f, kFloorY + kCharacterSize * 0.5f, 0.0f };   // grid center
+            const rc::Vector3 target{ 0.0f, kFloorY + kCharacterSize * 0.5f, 0.0f };   // grid center
             const rc::f32 dist = extent / rc::Tan(0.5236f) + kCharacterSize * 2.0f;  // fit 60° FOV horizontally + margin
             const rc::f32 camY = extent * 0.55f + kCharacterSize;
-            m_fly.position = rc::Vec3{ target.x, target.y + camY, target.z + dist };
+            m_fly.position = rc::Vector3{ target.x, target.y + camY, target.z + dist };
             m_fly.yaw      = 0.0f;
             m_fly.pitch    = -rc::Atan2(camY, dist);   // look down onto the grid center
             // Extend the far plane to cover the whole grid from this distance, so no characters get
@@ -480,7 +480,7 @@ namespace
         sc::Scene*                  m_scene = nullptr;
         sc::EntityHandle            m_camera{};
         sc::EntityHandle            m_floor{};
-        smp::FlyCamera              m_fly{ .position = rc::Vec3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
+        smp::FlyCamera              m_fly{ .position = rc::Vector3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).

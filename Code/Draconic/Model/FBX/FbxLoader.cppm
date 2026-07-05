@@ -176,7 +176,7 @@ private:
                 // PBR: base color.
                 if (mat->pbr.base_color.has_value) {
                     auto c = mat->pbr.base_color.value_vec4;
-                    material->baseColorFactor = Vec4(
+                    material->baseColorFactor = Vector4(
                         static_cast<f32>(c.x), static_cast<f32>(c.y),
                         static_cast<f32>(c.z), static_cast<f32>(c.w));
                 }
@@ -185,7 +185,7 @@ private:
                         mat->pbr.base_color.texture, model);
                     // When using use_blender_pbr_material, the base_color value is often the
                     // legacy diffuse color (0.8,0.8,0.8) which shouldn't tint the texture.
-                    material->baseColorFactor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                    material->baseColorFactor = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
                 }
 
                 // PBR: metallic + roughness.
@@ -220,7 +220,7 @@ private:
                     auto e = mat->pbr.emission_color.value_vec3;
                     f32 factor = mat->pbr.emission_factor.has_value
                         ? static_cast<f32>(mat->pbr.emission_factor.value_real) : 1.0f;
-                    material->emissiveFactor = Vec3(
+                    material->emissiveFactor = Vector3(
                         static_cast<f32>(e.x) * factor,
                         static_cast<f32>(e.y) * factor,
                         static_cast<f32>(e.z) * factor);
@@ -234,7 +234,7 @@ private:
                     auto c = mat->fbx.diffuse_color.value_vec4;
                     f32 factor = mat->fbx.diffuse_factor.has_value
                         ? static_cast<f32>(mat->fbx.diffuse_factor.value_real) : 1.0f;
-                    material->baseColorFactor = Vec4(
+                    material->baseColorFactor = Vector4(
                         static_cast<f32>(c.x) * factor,
                         static_cast<f32>(c.y) * factor,
                         static_cast<f32>(c.z) * factor, 1.0f);
@@ -242,7 +242,7 @@ private:
                 if (mat->fbx.diffuse_color.texture) {
                     material->baseColorTextureIndex = getOrCreateTextureIndex(
                         mat->fbx.diffuse_color.texture, model);
-                    material->baseColorFactor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                    material->baseColorFactor = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
                 }
 
                 // Normal map.
@@ -257,7 +257,7 @@ private:
                     auto e = mat->fbx.emission_color.value_vec3;
                     f32 factor = mat->fbx.emission_factor.has_value
                         ? static_cast<f32>(mat->fbx.emission_factor.value_real) : 1.0f;
-                    material->emissiveFactor = Vec3(
+                    material->emissiveFactor = Vector3(
                         static_cast<f32>(e.x) * factor,
                         static_cast<f32>(e.y) * factor,
                         static_cast<f32>(e.z) * factor);
@@ -582,15 +582,15 @@ private:
             // Setup vertex format (matching GltfLoader layout).
             i32 stride = 0;
             i32 positionOffset = stride;
-            stride += static_cast<i32>(sizeof(Vec3));
+            stride += static_cast<i32>(sizeof(Vector3));
             mesh->addVertexElement(VertexElement(VertexSemantic::Position, VertexElementFormat::Float3, positionOffset));
 
             i32 normalOffset = stride;
-            stride += static_cast<i32>(sizeof(Vec3));
+            stride += static_cast<i32>(sizeof(Vector3));
             mesh->addVertexElement(VertexElement(VertexSemantic::Normal, VertexElementFormat::Float3, normalOffset));
 
             i32 texCoordOffset = stride;
-            stride += static_cast<i32>(sizeof(Vec2));
+            stride += static_cast<i32>(sizeof(Vector2));
             mesh->addVertexElement(VertexElement(VertexSemantic::TexCoord, VertexElementFormat::Float2, texCoordOffset));
 
             i32 colorOffset = stride;
@@ -598,7 +598,7 @@ private:
             mesh->addVertexElement(VertexElement(VertexSemantic::Color, VertexElementFormat::Byte4, colorOffset));
 
             i32 tangentOffset = stride;
-            stride += static_cast<i32>(sizeof(Vec3));
+            stride += static_cast<i32>(sizeof(Vector3));
             mesh->addVertexElement(VertexElement(VertexSemantic::Tangent, VertexElementFormat::Float3, tangentOffset));
 
             i32 jointsOffset = 0;
@@ -609,7 +609,7 @@ private:
                 mesh->addVertexElement(VertexElement(VertexSemantic::Joints, VertexElementFormat::UShort4, jointsOffset));
 
                 weightsOffset = stride;
-                stride += static_cast<i32>(sizeof(Vec4));
+                stride += static_cast<i32>(sizeof(Vector4));
                 mesh->addVertexElement(VertexElement(VertexSemantic::Weights, VertexElementFormat::Float4, weightsOffset));
             }
 
@@ -783,16 +783,16 @@ private:
         u8* vertex = &vertexBytes[oldCount];
 
         // Position.
-        *reinterpret_cast<Vec3*>(vertex + positionOffset) =
-            Vec3(static_cast<f32>(pos.x), static_cast<f32>(pos.y), static_cast<f32>(pos.z));
+        *reinterpret_cast<Vector3*>(vertex + positionOffset) =
+            Vector3(static_cast<f32>(pos.x), static_cast<f32>(pos.y), static_cast<f32>(pos.z));
 
         // Normal.
-        *reinterpret_cast<Vec3*>(vertex + normalOffset) =
-            Vec3(static_cast<f32>(normal.x), static_cast<f32>(normal.y), static_cast<f32>(normal.z));
+        *reinterpret_cast<Vector3*>(vertex + normalOffset) =
+            Vector3(static_cast<f32>(normal.x), static_cast<f32>(normal.y), static_cast<f32>(normal.z));
 
         // TexCoord.
-        *reinterpret_cast<Vec2*>(vertex + texCoordOffset) =
-            Vec2(static_cast<f32>(uv.x), static_cast<f32>(uv.y));
+        *reinterpret_cast<Vector2*>(vertex + texCoordOffset) =
+            Vector2(static_cast<f32>(uv.x), static_cast<f32>(uv.y));
 
         // Color (pack to RGBA8).
         u8 cr = static_cast<u8>(Clamp(static_cast<f32>(color.x) * 255.0f, 0.0f, 255.0f));
@@ -804,16 +804,16 @@ private:
             (static_cast<u32>(cb) << 16) | (static_cast<u32>(ca) << 24);
 
         // Tangent.
-        *reinterpret_cast<Vec3*>(vertex + tangentOffset) =
-            Vec3(static_cast<f32>(tangent.x), static_cast<f32>(tangent.y), static_cast<f32>(tangent.z));
+        *reinterpret_cast<Vector3*>(vertex + tangentOffset) =
+            Vector3(static_cast<f32>(tangent.x), static_cast<f32>(tangent.y), static_cast<f32>(tangent.z));
 
         // Skinning.
         if (isSkinned) {
             auto* jointsDst = reinterpret_cast<u16*>(vertex + jointsOffset);
             jointsDst[0] = joints[0]; jointsDst[1] = joints[1];
             jointsDst[2] = joints[2]; jointsDst[3] = joints[3];
-            *reinterpret_cast<Vec4*>(vertex + weightsOffset) =
-                Vec4(weights[0], weights[1], weights[2], weights[3]);
+            *reinterpret_cast<Vector4*>(vertex + weightsOffset) =
+                Vector4(weights[0], weights[1], weights[2], weights[3]);
         }
 
         vtxMap.InsertOrAssign(hash, newIndex);
@@ -941,16 +941,16 @@ private:
 
             // Extract TRS from local transform.
             ufbx_transform t = node->local_transform;
-            bone->translation = Vec3(
+            bone->translation = Vector3(
                 static_cast<f32>(t.translation.x),
                 static_cast<f32>(t.translation.y),
                 static_cast<f32>(t.translation.z));
-            bone->rotation = Quat(
+            bone->rotation = Quaternion(
                 static_cast<f32>(t.rotation.x),
                 static_cast<f32>(t.rotation.y),
                 static_cast<f32>(t.rotation.z),
                 static_cast<f32>(t.rotation.w));
-            bone->scale = Vec3(
+            bone->scale = Vector3(
                 static_cast<f32>(t.scale.x),
                 static_cast<f32>(t.scale.y),
                 static_cast<f32>(t.scale.z));
@@ -1014,7 +1014,7 @@ private:
                     continue;
 
                 // Convert geometry_to_bone matrix to our inverse bind matrix.
-                Mat4 ibm = convertMatrix(cluster->geometry_to_bone);
+                Matrix4 ibm = convertMatrix(cluster->geometry_to_bone);
 
                 skin->addJoint(jointIndex, ibm);
 
@@ -1088,7 +1088,7 @@ private:
                     for (size_t ki = 0; ki < bakedNode->translation_keys.count; ++ki) {
                         ufbx_baked_vec3* key = &bakedNode->translation_keys.data[ki];
                         channel->addKeyframe(static_cast<f32>(key->time),
-                            Vec4(static_cast<f32>(key->value.x),
+                            Vector4(static_cast<f32>(key->value.x),
                                  static_cast<f32>(key->value.y),
                                  static_cast<f32>(key->value.z), 0));
                     }
@@ -1105,7 +1105,7 @@ private:
                     for (size_t ki = 0; ki < bakedNode->rotation_keys.count; ++ki) {
                         ufbx_baked_quat* key = &bakedNode->rotation_keys.data[ki];
                         channel->addKeyframe(static_cast<f32>(key->time),
-                            Vec4(static_cast<f32>(key->value.x),
+                            Vector4(static_cast<f32>(key->value.x),
                                  static_cast<f32>(key->value.y),
                                  static_cast<f32>(key->value.z),
                                  static_cast<f32>(key->value.w)));
@@ -1123,7 +1123,7 @@ private:
                     for (size_t ki = 0; ki < bakedNode->scale_keys.count; ++ki) {
                         ufbx_baked_vec3* key = &bakedNode->scale_keys.data[ki];
                         channel->addKeyframe(static_cast<f32>(key->time),
-                            Vec4(static_cast<f32>(key->value.x),
+                            Vector4(static_cast<f32>(key->value.x),
                                  static_cast<f32>(key->value.y),
                                  static_cast<f32>(key->value.z), 0));
                     }
@@ -1162,10 +1162,10 @@ private:
     // Matrix Conversion
     // -----------------------------------------------------------------------
 
-    /// Converts a ufbx 3x4 matrix to our 4x4 Mat4.
-    /// ufbx column -> Mat4 row (same pattern as GltfLoader's column-major transpose).
-    static Mat4 convertMatrix(ufbx_matrix m) {
-        return Mat4{{
+    /// Converts a ufbx 3x4 matrix to our 4x4 Matrix4.
+    /// ufbx column -> Matrix4 row (same pattern as GltfLoader's column-major transpose).
+    static Matrix4 convertMatrix(ufbx_matrix m) {
+        return Matrix4{{
             { static_cast<f32>(m.m00), static_cast<f32>(m.m10), static_cast<f32>(m.m20), 0 },
             { static_cast<f32>(m.m01), static_cast<f32>(m.m11), static_cast<f32>(m.m21), 0 },
             { static_cast<f32>(m.m02), static_cast<f32>(m.m12), static_cast<f32>(m.m22), 0 },

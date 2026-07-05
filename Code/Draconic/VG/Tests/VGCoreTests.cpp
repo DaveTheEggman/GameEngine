@@ -12,9 +12,9 @@ TEST_CASE("vg.vertex: layout and solid helpers")
     CHECK(sizeof(VGVertex) == 24u);
     CHECK(VGVertex::SizeInBytes == 24);
 
-    const VGVertex v = VGVertex::Solid(Vec2{ 3.0f, 4.0f }, Color::Red);
-    CHECK(v.position == Vec2{ 3.0f, 4.0f });
-    CHECK(v.texCoord == Vec2{ VGVertex::SolidUV, VGVertex::SolidUV });
+    const VGVertex v = VGVertex::Solid(Vector2{ 3.0f, 4.0f }, Color::Red);
+    CHECK(v.position == Vector2{ 3.0f, 4.0f });
+    CHECK(v.texCoord == Vector2{ VGVertex::SolidUV, VGVertex::SolidUV });
     CHECK(v.color == Color32::Red);
     CHECK(v.coverage == doctest::Approx(1.0f));
 }
@@ -37,14 +37,14 @@ TEST_CASE("vg.fills: solid and linear gradient")
 {
     VGSolidFill solid(Color::Green);
     CHECK_FALSE(solid.RequiresInterpolation());
-    CHECK(NearlyEqual(solid.GetColorAt(Vec2{ 10.0f, 10.0f }, Rect{ 0, 0, 100, 100 }), Color::Green));
+    CHECK(NearlyEqual(solid.GetColorAt(Vector2{ 10.0f, 10.0f }, Rectangle{ 0, 0, 100, 100 }), Color::Green));
 
-    VGLinearGradientFill grad(Vec2{ 0.0f, 0.0f }, Vec2{ 10.0f, 0.0f });
+    VGLinearGradientFill grad(Vector2{ 0.0f, 0.0f }, Vector2{ 10.0f, 0.0f });
     grad.AddStop(0.0f, Color::Black);
     grad.AddStop(1.0f, Color::White);
     CHECK(grad.RequiresInterpolation());
     CHECK(NearlyEqual(grad.BaseColor(), Color::Black));
-    CHECK(NearlyEqual(grad.GetColorAt(Vec2{ 5.0f, 0.0f }, Rect{ 0, 0, 10, 10 }), Color{ 0.5f, 0.5f, 0.5f, 1.0f }));
+    CHECK(NearlyEqual(grad.GetColorAt(Vector2{ 5.0f, 0.0f }, Rectangle{ 0, 0, 10, 10 }), Color{ 0.5f, 0.5f, 0.5f, 1.0f }));
 }
 
 TEST_CASE("vg.style: defaults")

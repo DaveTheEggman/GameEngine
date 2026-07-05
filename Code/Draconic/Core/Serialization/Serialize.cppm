@@ -16,11 +16,11 @@ import :base;
 import :serializer;
 import :iserializable;
 import :math;
-import :vec2;
-import :vec3;
-import :vec4;
-import :mat4;
-import :quat;
+import :vector2;
+import :vector3;
+import :vector4;
+import :matrix4;
+import :quaternion;
 import :string;
 import :array;
 import :guid;
@@ -76,14 +76,14 @@ export namespace draconic::core
 
     // Math value types: named fields, so text output is readable and binary is
     // decomposed (no struct-padding / endianness surprises).
-    inline void Serialize(ISerializer& ar, Vec2& v)
+    inline void Serialize(ISerializer& ar, Vector2& v)
     {
         ar.BeginObject();
         ar.Key("x"); Serialize(ar, v.x);
         ar.Key("y"); Serialize(ar, v.y);
         ar.EndObject();
     }
-    inline void Serialize(ISerializer& ar, Vec3& v)
+    inline void Serialize(ISerializer& ar, Vector3& v)
     {
         ar.BeginObject();
         ar.Key("x"); Serialize(ar, v.x);
@@ -91,7 +91,7 @@ export namespace draconic::core
         ar.Key("z"); Serialize(ar, v.z);
         ar.EndObject();
     }
-    inline void Serialize(ISerializer& ar, Vec4& v)
+    inline void Serialize(ISerializer& ar, Vector4& v)
     {
         ar.BeginObject();
         ar.Key("x"); Serialize(ar, v.x);
@@ -100,7 +100,7 @@ export namespace draconic::core
         ar.Key("w"); Serialize(ar, v.w);
         ar.EndObject();
     }
-    inline void Serialize(ISerializer& ar, Quat& q)
+    inline void Serialize(ISerializer& ar, Quaternion& q)
     {
         ar.BeginObject();
         ar.Key("x"); Serialize(ar, q.x);
@@ -109,7 +109,7 @@ export namespace draconic::core
         ar.Key("w"); Serialize(ar, q.w);
         ar.EndObject();
     }
-    inline void Serialize(ISerializer& ar, Mat4& m)
+    inline void Serialize(ISerializer& ar, Matrix4& m)
     {
         // 16 elements, row-major.
         u32 count = 16;

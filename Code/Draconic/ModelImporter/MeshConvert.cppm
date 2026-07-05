@@ -32,20 +32,20 @@ namespace draconic::modelimporter {
     return nullptr;
 }
 
-[[nodiscard]] Vec3 ReadVec3(const u8* vtx, const mdl::VertexElement* e, Vec3 dflt) noexcept
+[[nodiscard]] Vector3 ReadVec3(const u8* vtx, const mdl::VertexElement* e, Vector3 dflt) noexcept
 {
     if (e == nullptr) { return dflt; }
-    Vec3 r; MemCopy(&r, vtx + e->offset, sizeof(Vec3)); return r;
+    Vector3 r; MemCopy(&r, vtx + e->offset, sizeof(Vector3)); return r;
 }
-[[nodiscard]] Vec2 ReadVec2(const u8* vtx, const mdl::VertexElement* e, Vec2 dflt) noexcept
+[[nodiscard]] Vector2 ReadVec2(const u8* vtx, const mdl::VertexElement* e, Vector2 dflt) noexcept
 {
     if (e == nullptr) { return dflt; }
-    Vec2 r; MemCopy(&r, vtx + e->offset, sizeof(Vec2)); return r;
+    Vector2 r; MemCopy(&r, vtx + e->offset, sizeof(Vector2)); return r;
 }
-[[nodiscard]] Vec4 ReadVec4(const u8* vtx, const mdl::VertexElement* e, Vec4 dflt) noexcept
+[[nodiscard]] Vector4 ReadVec4(const u8* vtx, const mdl::VertexElement* e, Vector4 dflt) noexcept
 {
     if (e == nullptr) { return dflt; }
-    Vec4 r; MemCopy(&r, vtx + e->offset, sizeof(Vec4)); return r;
+    Vector4 r; MemCopy(&r, vtx + e->offset, sizeof(Vector4)); return r;
 }
 [[nodiscard]] u32 ReadU32(const u8* vtx, const mdl::VertexElement* e, u32 dflt) noexcept
 {
@@ -117,11 +117,11 @@ void StaticMeshSourceFromModel(const mdl::ModelMesh& mesh, geo::StaticMeshSource
     for (i32 i = 0; i < count; ++i) {
         const u8* v = base + static_cast<usize>(i) * static_cast<usize>(stride);
         geo::StaticMeshVertex sv{};
-        sv.position = ReadVec3(v, ePos, Vec3{ 0, 0, 0 });
-        sv.normal   = ReadVec3(v, eNrm, Vec3{ 0, 1, 0 });
-        sv.texCoord = ReadVec2(v, eUv,  Vec2{ 0, 0 });
+        sv.position = ReadVec3(v, ePos, Vector3{ 0, 0, 0 });
+        sv.normal   = ReadVec3(v, eNrm, Vector3{ 0, 1, 0 });
+        sv.texCoord = ReadVec2(v, eUv,  Vector2{ 0, 0 });
         sv.color    = ReadU32 (v, eCol, 0xFFFFFFFFu);
-        sv.tangent  = ReadVec3(v, eTan, Vec3{ 1, 0, 0 });
+        sv.tangent  = ReadVec3(v, eTan, Vector3{ 1, 0, 0 });
         dst[i] = sv;
     }
 
@@ -151,7 +151,7 @@ void SkinnedMeshSourceFromModel(const mdl::ModelMesh& mesh, i32 skeletonIndex, g
         const u8* v = base + static_cast<usize>(i) * static_cast<usize>(stride);
         geo::VertexSkinning vs{};
         if (eJnt != nullptr) { MemCopy(vs.joints, v + eJnt->offset, sizeof(vs.joints)); }
-        vs.weights = ReadVec4(v, eWt, Vec4{ 1, 0, 0, 0 });
+        vs.weights = ReadVec4(v, eWt, Vector4{ 1, 0, 0, 0 });
         dst[i] = vs;
     }
 }

@@ -1,5 +1,5 @@
 // Draconic Core — :transform partition
-// Transform: position / rotation / scale, composed as S * R * T into a Mat4.
+// Transform: position / rotation / scale, composed as S * R * T into a Matrix4.
 
 module;
 #include "Core/Prelude.h"
@@ -8,9 +8,9 @@ module;
 export module draconic.core:transform;
 
 import :base;
-import :vec3;
-import :mat4;
-import :quat;
+import :vector3;
+import :matrix4;
+import :quaternion;
 
 export namespace draconic::core
 {
@@ -19,13 +19,13 @@ export namespace draconic::core
     // =======================================================================
     struct Transform
     {
-        Vec3 position = Vec3::Zero;
-        Quat rotation = Quat::Identity;
-        Vec3 scale = Vec3::One;
+        Vector3 position = Vector3::Zero;
+        Quaternion rotation = Quaternion::Identity;
+        Vector3 scale = Vector3::One;
 
-        [[nodiscard]] Mat4 ToMatrix() const noexcept
+        [[nodiscard]] Matrix4 ToMatrix() const noexcept
         {
-            Mat4 result = Mat4::Scale(scale) * RotationMatrix(rotation);
+            Matrix4 result = Matrix4::Scale(scale) * RotationMatrix(rotation);
             result.m[3][0] = position.x;
             result.m[3][1] = position.y;
             result.m[3][2] = position.z;

@@ -114,21 +114,21 @@ public:
             SampleClip(*m_currentClip, *m_skeleton, m_currentTime, Span<BoneTransform>{ m_localPoses.Data(), m_localPoses.Size() });
         }
         m_skeleton->ComputeSkinningMatrices(Span<const BoneTransform>{ m_localPoses.Data(), m_localPoses.Size() },
-                                            Span<Mat4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() });
+                                            Span<Matrix4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() });
         m_matricesDirty = false;
     }
 
     // Current skinning matrices for GPU upload (evaluates if needed).
-    [[nodiscard]] Span<const Mat4> GetSkinningMatrices() {
+    [[nodiscard]] Span<const Matrix4> GetSkinningMatrices() {
         Evaluate();
-        return Span<const Mat4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() };
+        return Span<const Matrix4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() };
     }
-    [[nodiscard]] Span<const Mat4> GetPrevSkinningMatrices() const {
-        return Span<const Mat4>{ m_prevSkinningMatrices.Data(), m_prevSkinningMatrices.Size() };
+    [[nodiscard]] Span<const Matrix4> GetPrevSkinningMatrices() const {
+        return Span<const Matrix4>{ m_prevSkinningMatrices.Data(), m_prevSkinningMatrices.Size() };
     }
 
     // Push externally-computed matrices (used by the graph player to drive this player's output).
-    void OverrideSkinningMatrices(Span<const Mat4> current, Span<const Mat4> prev) {
+    void OverrideSkinningMatrices(Span<const Matrix4> current, Span<const Matrix4> prev) {
         const usize c = Min(current.Size(), m_skinningMatrices.Size());
         for (usize i = 0; i < c; ++i) { m_skinningMatrices[i] = current[i]; }
         const usize p = Min(prev.Size(), m_prevSkinningMatrices.Size());
@@ -166,8 +166,8 @@ private:
     bool           m_matricesDirty = true;
 
     Array<BoneTransform> m_localPoses;
-    Array<Mat4>          m_skinningMatrices;
-    Array<Mat4>          m_prevSkinningMatrices;
+    Array<Matrix4>          m_skinningMatrices;
+    Array<Matrix4>          m_prevSkinningMatrices;
     AnimationEventHandler m_eventHandler;
 };
 

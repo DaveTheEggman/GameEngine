@@ -9,57 +9,57 @@ import draconic.animation;
 using namespace draconic::core;
 using namespace draconic::animation;
 
-TEST_CASE("sampler: Vec3 track linear interpolation")
+TEST_CASE("sampler: Vector3 track linear interpolation")
 {
-    AnimationTrack<Vec3> track;
-    track.AddKeyframe(0.0f, Vec3{ 0, 0, 0 });
-    track.AddKeyframe(1.0f, Vec3{ 10, 0, 0 });
-    CHECK(NearlyEqual(SampleVec3(&track, 0.0f), Vec3{ 0, 0, 0 }));
-    CHECK(NearlyEqual(SampleVec3(&track, 0.5f), Vec3{ 5, 0, 0 }));
-    CHECK(NearlyEqual(SampleVec3(&track, 1.0f), Vec3{ 10, 0, 0 }));
-    CHECK(NearlyEqual(SampleVec3(&track, 2.0f), Vec3{ 10, 0, 0 }));   // clamps past last
+    AnimationTrack<Vector3> track;
+    track.AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
+    track.AddKeyframe(1.0f, Vector3{ 10, 0, 0 });
+    CHECK(NearlyEqual(SampleVec3(&track, 0.0f), Vector3{ 0, 0, 0 }));
+    CHECK(NearlyEqual(SampleVec3(&track, 0.5f), Vector3{ 5, 0, 0 }));
+    CHECK(NearlyEqual(SampleVec3(&track, 1.0f), Vector3{ 10, 0, 0 }));
+    CHECK(NearlyEqual(SampleVec3(&track, 2.0f), Vector3{ 10, 0, 0 }));   // clamps past last
     // empty / null returns the default
-    CHECK(NearlyEqual(SampleVec3(nullptr, 0.5f, Vec3{ 9, 9, 9 }), Vec3{ 9, 9, 9 }));
+    CHECK(NearlyEqual(SampleVec3(nullptr, 0.5f, Vector3{ 9, 9, 9 }), Vector3{ 9, 9, 9 }));
 }
 
 TEST_CASE("sampler: Step interpolation holds previous value")
 {
-    AnimationTrack<Vec3> track;
+    AnimationTrack<Vector3> track;
     track.interpolation = InterpolationMode::Step;
-    track.AddKeyframe(0.0f, Vec3{ 0, 0, 0 });
-    track.AddKeyframe(1.0f, Vec3{ 10, 0, 0 });
-    CHECK(NearlyEqual(SampleVec3(&track, 0.5f), Vec3{ 0, 0, 0 }));   // holds prev until next key
+    track.AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
+    track.AddKeyframe(1.0f, Vector3{ 10, 0, 0 });
+    CHECK(NearlyEqual(SampleVec3(&track, 0.5f), Vector3{ 0, 0, 0 }));   // holds prev until next key
 }
 
 TEST_CASE("sampler: SampleClip animates targeted bones, bind pose otherwise")
 {
     Skeleton skel{ 2 };
-    skel.Bones()[0].localBindPose.position = Vec3{ 0, 0, 0 };
-    skel.Bones()[1].localBindPose.position = Vec3{ 7, 7, 7 };
+    skel.Bones()[0].localBindPose.position = Vector3{ 0, 0, 0 };
+    skel.Bones()[1].localBindPose.position = Vector3{ 7, 7, 7 };
 
     AnimationClip clip{ u8"move", 1.0f };
     AnimationClip::Vec3Track* pos = clip.GetOrCreatePositionTrack(0);
-    pos->AddKeyframe(0.0f, Vec3{ 0, 0, 0 });
-    pos->AddKeyframe(1.0f, Vec3{ 0, 10, 0 });
+    pos->AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
+    pos->AddKeyframe(1.0f, Vector3{ 0, 10, 0 });
 
     BoneTransform poses[2] = {};
     SampleClip(clip, skel, 0.5f, Span<BoneTransform>{ poses, 2 });
-    CHECK(NearlyEqual(poses[0].position, Vec3{ 0, 5, 0 }));     // animated
-    CHECK(NearlyEqual(poses[1].position, Vec3{ 7, 7, 7 }));     // untouched -> bind pose
+    CHECK(NearlyEqual(poses[0].position, Vector3{ 0, 5, 0 }));     // animated
+    CHECK(NearlyEqual(poses[1].position, Vector3{ 7, 7, 7 }));     // untouched -> bind pose
 }
 
 TEST_CASE("sampler: BlendPoses + AdditivePoses")
 {
-    BoneTransform a[1] = {}; a[0].position = Vec3{ 0, 0, 0 };  a[0].scale = Vec3{ 1, 1, 1 };
-    BoneTransform b[1] = {}; b[0].position = Vec3{ 10, 0, 0 }; b[0].scale = Vec3{ 3, 3, 3 };
+    BoneTransform a[1] = {}; a[0].position = Vector3{ 0, 0, 0 };  a[0].scale = Vector3{ 1, 1, 1 };
+    BoneTransform b[1] = {}; b[0].position = Vector3{ 10, 0, 0 }; b[0].scale = Vector3{ 3, 3, 3 };
     BoneTransform out[1] = {};
 
     BlendPoses(Span<const BoneTransform>{ a, 1 }, Span<const BoneTransform>{ b, 1 }, 0.5f, Span<BoneTransform>{ out, 1 });
-    CHECK(NearlyEqual(out[0].position, Vec3{ 5, 0, 0 }));
-    CHECK(NearlyEqual(out[0].scale, Vec3{ 2, 2, 2 }));
+    CHECK(NearlyEqual(out[0].position, Vector3{ 5, 0, 0 }));
+    CHECK(NearlyEqual(out[0].scale, Vector3{ 2, 2, 2 }));
 
-    BoneTransform base[1] = {}; base[0].position = Vec3{ 1, 0, 0 }; base[0].scale = Vec3{ 1, 1, 1 };
-    BoneTransform add[1]  = {}; add[0].position  = Vec3{ 0, 5, 0 }; add[0].scale  = Vec3{ 1, 1, 1 };
+    BoneTransform base[1] = {}; base[0].position = Vector3{ 1, 0, 0 }; base[0].scale = Vector3{ 1, 1, 1 };
+    BoneTransform add[1]  = {}; add[0].position  = Vector3{ 0, 5, 0 }; add[0].scale  = Vector3{ 1, 1, 1 };
     AdditivePoses(Span<const BoneTransform>{ base, 1 }, Span<const BoneTransform>{ add, 1 }, 1.0f, Span<BoneTransform>{ out, 1 });
-    CHECK(NearlyEqual(out[0].position, Vec3{ 1, 5, 0 }));   // base + additive*weight
+    CHECK(NearlyEqual(out[0].position, Vector3{ 1, 5, 0 }));   // base + additive*weight
 }

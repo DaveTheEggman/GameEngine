@@ -38,8 +38,8 @@ struct MeshComponent {
     // GPU skinning: per-bone skinning matrices for a skinned mesh, supplied per frame by the owner
     // (e.g. an AnimationPlayer's GetSkinningMatrices()). Borrowed — valid for the frame it's set;
     // null => the mesh draws static (bind pose). Extraction copies the pointer into MeshRenderData.
-    const Mat4*                  boneMatrices = nullptr;
-    const Mat4*                  prevBoneMatrices = nullptr;   // previous-frame matrices (motion vectors); null => reuse current
+    const Matrix4*                  boneMatrices = nullptr;
+    const Matrix4*                  prevBoneMatrices = nullptr;   // previous-frame matrices (motion vectors); null => reuse current
     u32                          boneCount    = 0;
 };
 
@@ -82,8 +82,8 @@ struct LightComponent {
 // it alive while the component is attached. Extraction reads this into a render::SpriteRenderData.
 struct SpriteComponent {
     rhi::TextureView* texture = nullptr;
-    Vec2  size        = Vec2{ 1.0f, 1.0f };                 // world-unit width/height
-    Vec4  uvRect      = Vec4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) — whole texture by default
+    Vector2  size        = Vector2{ 1.0f, 1.0f };                 // world-unit width/height
+    Vector4  uvRect      = Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) — whole texture by default
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
     bool  additive    = false;  // false = alpha over, true = additive (glow)
@@ -96,7 +96,7 @@ struct SpriteComponent {
 // into the surface (e.g. rotate so +Z points down to project onto a floor). `texture` is borrowed.
 struct DecalComponent {
     rhi::TextureView* texture = nullptr;
-    Vec3  size      = Vec3{ 1.0f, 1.0f, 1.0f };
+    Vector3  size      = Vector3{ 1.0f, 1.0f, 1.0f };
     Color color     = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     f32   fadeStart = 0.0f;     // angle-fade start (radians)
     f32   fadeEnd   = 1.30f;    // angle-fade end (radians ~75deg)
@@ -109,7 +109,7 @@ struct DecalComponent {
 // influence toward the box edge so overlapping probes blend without a seam. `update` selects the capture
 // cadence (ProbeUpdateMode, from the snapshot layer). Extraction reads this into a render::ReflectionProbe.
 struct ReflectionProbeComponent {
-    Vec3            halfExtents   = Vec3{ 5.0f, 5.0f, 5.0f };   // box influence/proxy half-extents (world units)
+    Vector3            halfExtents   = Vector3{ 5.0f, 5.0f, 5.0f };   // box influence/proxy half-extents (world units)
     f32             blendDistance = 1.0f;                       // soft falloff width inward from the box edge
     f32             intensity     = 1.0f;                       // reflection multiplier
     u32             resolution    = 128;                        // captured cube face size (64/128/256)

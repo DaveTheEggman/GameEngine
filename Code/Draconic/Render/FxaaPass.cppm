@@ -165,7 +165,7 @@ public:
     void DeclareFxaa(rendergraph::RenderGraph& graph, rendergraph::RGHandle src, rendergraph::RGHandle ldr,
                      bool clearColor, const rhi::ClearColor& clear, rhi::TextureFormat ldrFormat,
                      i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
-                     Vec2 texelSize, Vec2 uvScale, Vec2 uvOffset, f32 subpixelQuality = 0.75f) {
+                     Vector2 texelSize, Vector2 uvScale, Vector2 uvOffset, f32 subpixelQuality = 0.75f) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr) { return; }
         const u32 slot = (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);

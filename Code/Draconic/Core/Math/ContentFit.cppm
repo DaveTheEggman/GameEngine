@@ -13,8 +13,8 @@ module;
 export module draconic.core:content_fit;
 
 import :base;
-import :vec2;
-import :rect;
+import :vector2;
+import :rectangle;
 
 export namespace draconic::core
 {
@@ -27,61 +27,61 @@ export namespace draconic::core
 
     struct ContentFit
     {
-        Rect    region      = Rect{ 0, 0, 0, 0 };   // outer rect, REGION-space
-        Vec2    contentSize = Vec2{ 0, 0 };         // logical content resolution
+        Rectangle    region      = Rectangle{ 0, 0, 0, 0 };   // outer rect, REGION-space
+        Vector2    contentSize = Vector2{ 0, 0 };         // logical content resolution
         FitMode mode        = FitMode::Stretch;
 
         // Where the content is drawn within `region` (region-space). For Letterbox/IntegerScale
         // this is the centered, aspect-preserved sub-rect (the rest is bars); for Stretch/Crop it
         // is the whole region.
-        [[nodiscard]] Rect DstRect() const noexcept { return Compute().dst; }
+        [[nodiscard]] Rectangle DstRect() const noexcept { return Compute().dst; }
 
         // Which content texels are sampled ([0..contentSize]). For Crop this is the centered,
         // aspect-preserved slice; otherwise the whole content.
-        [[nodiscard]] Rect SrcRect() const noexcept { return Compute().src; }
+        [[nodiscard]] Rectangle SrcRect() const noexcept { return Compute().src; }
 
         // Region-space point -> content-space. Returns false when the point is outside the drawn
         // content (e.g. a letterbox bar) — the "no hit" contract for input.
-        [[nodiscard]] bool ToContent(Vec2 pt, Vec2& out) const noexcept
+        [[nodiscard]] bool ToContent(Vector2 pt, Vector2& out) const noexcept
         {
             const Placement p = Compute();
             if (p.dst.width <= 0.0f || p.dst.height <= 0.0f) { return false; }
             if (!p.dst.Contains(pt)) { return false; }
             const f32 rx = (pt.x - p.dst.x) / p.dst.width;
             const f32 ry = (pt.y - p.dst.y) / p.dst.height;
-            out = Vec2{ p.src.x + rx * p.src.width, p.src.y + ry * p.src.height };
+            out = Vector2{ p.src.x + rx * p.src.width, p.src.y + ry * p.src.height };
             return true;
         }
 
         // Content-space point -> region-space (inverse of ToContent). Used e.g. to place an IME
         // caret rect in window space for a text field inside a fitted surface.
-        [[nodiscard]] Vec2 FromContent(Vec2 pt) const noexcept
+        [[nodiscard]] Vector2 FromContent(Vector2 pt) const noexcept
         {
             const Placement p = Compute();
             const f32 rx = (p.src.width  != 0.0f) ? (pt.x - p.src.x) / p.src.width  : 0.0f;
             const f32 ry = (p.src.height != 0.0f) ? (pt.y - p.src.y) / p.src.height : 0.0f;
-            return Vec2{ p.dst.x + rx * p.dst.width, p.dst.y + ry * p.dst.height };
+            return Vector2{ p.dst.x + rx * p.dst.width, p.dst.y + ry * p.dst.height };
         }
 
         // Region -> content scale factor (content units per region unit), for scaling relative
         // input (mouse delta) so sensitivity is invariant to region size. Per-axis (equal for the
         // aspect-preserving modes).
-        [[nodiscard]] Vec2 Scale() const noexcept
+        [[nodiscard]] Vector2 Scale() const noexcept
         {
             const Placement p = Compute();
-            return Vec2{
+            return Vector2{
                 (p.dst.width  != 0.0f) ? p.src.width  / p.dst.width  : 0.0f,
                 (p.dst.height != 0.0f) ? p.src.height / p.dst.height : 0.0f,
             };
         }
 
     private:
-        struct Placement { Rect dst; Rect src; };
+        struct Placement { Rectangle dst; Rectangle src; };
 
         [[nodiscard]] Placement Compute() const noexcept
         {
             const f32 cw = contentSize.x, ch = contentSize.y;
-            const Rect fullSrc{ 0.0f, 0.0f, cw, ch };
+            const Rectangle fullSrc{ 0.0f, 0.0f, cw, ch };
             if (cw <= 0.0f || ch <= 0.0f || region.width <= 0.0f || region.height <= 0.0f)
             {
                 return Placement{ region, fullSrc };
@@ -103,14 +103,14 @@ export namespace draconic::core
                 const f32 dw = cw * s, dh = ch * s;
                 const f32 dx = region.x + (region.width  - dw) * 0.5f;
                 const f32 dy = region.y + (region.height - dh) * 0.5f;
-                return Placement{ Rect{ dx, dy, dw, dh }, fullSrc };
+                return Placement{ Rectangle{ dx, dy, dw, dh }, fullSrc };
             }
             case FitMode::Crop:
             {
                 const f32 s = (sx > sy) ? sx : sy;           // fill, overflow cropped
                 const f32 vw = region.width / s, vh = region.height / s;   // visible content size
                 const f32 sxo = (cw - vw) * 0.5f, syo = (ch - vh) * 0.5f;  // centered slice
-                return Placement{ region, Rect{ sxo, syo, vw, vh } };
+                return Placement{ region, Rectangle{ sxo, syo, vw, vh } };
             }
             case FitMode::Stretch:
             default:

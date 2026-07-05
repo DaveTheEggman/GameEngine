@@ -69,8 +69,8 @@ public:
             }
             a.player->speed = a.speed;
             a.player->Update(deltaTime);
-            const Span<const Mat4> mats = a.player->GetSkinningMatrices();
-            const Span<const Mat4> prev = a.player->GetPrevSkinningMatrices();
+            const Span<const Matrix4> mats = a.player->GetSkinningMatrices();
+            const Span<const Matrix4> prev = a.player->GetPrevSkinningMatrices();
             const auto feed = [&](sc::EntityHandle e) {
                 if (render::MeshComponent* mc = meshes->Get(e)) {
                     mc->boneMatrices     = mats.Data();
@@ -126,8 +126,8 @@ public:
             }
             if (!a.active) { return; }
             a.player->Update(deltaTime);
-            const Span<const Mat4> mats = a.player->GetSkinningMatrices();
-            const Span<const Mat4> prev = a.player->GetPrevSkinningMatrices();
+            const Span<const Matrix4> mats = a.player->GetSkinningMatrices();
+            const Span<const Matrix4> prev = a.player->GetPrevSkinningMatrices();
             const auto feed = [&](sc::EntityHandle e) {
                 if (render::MeshComponent* mc = meshes->Get(e)) {
                     mc->boneMatrices     = mats.Data();

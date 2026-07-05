@@ -63,25 +63,25 @@ public:
         m_material->SetDefaultFloat(name, v);
         return *this;
     }
-    MaterialBuilder& Float2(StringView name, Vec2 v = {}) {
+    MaterialBuilder& Float2(StringView name, Vector2 v = {}) {
         AddUniform(name, MaterialPropertyType::Float2, 8, false);
         m_material->AllocateDefaultUniformData();
         m_material->SetDefaultFloat2(name, v);
         return *this;
     }
-    MaterialBuilder& Float3(StringView name, Vec3 v = {}) {
+    MaterialBuilder& Float3(StringView name, Vector3 v = {}) {
         AddUniform(name, MaterialPropertyType::Float3, 12, /*align16*/ true);   // float3 occupies 16 (std140)
         m_material->AllocateDefaultUniformData();
         m_material->SetDefaultFloat3(name, v);
         return *this;
     }
-    MaterialBuilder& Float4(StringView name, Vec4 v = {}) {
+    MaterialBuilder& Float4(StringView name, Vector4 v = {}) {
         AddUniform(name, MaterialPropertyType::Float4, 16, true);
         m_material->AllocateDefaultUniformData();
         m_material->SetDefaultFloat4(name, v);
         return *this;
     }
-    MaterialBuilder& Color(StringView name, Vec4 v = Vec4{ 1, 1, 1, 1 }) { return Float4(name, v); }
+    MaterialBuilder& Color(StringView name, Vector4 v = Vector4{ 1, 1, 1, 1 }) { return Float4(name, v); }
 
     // --- resource properties (become bind-group entries) ---
     MaterialBuilder& Texture(StringView name, rhi::TextureView* def = nullptr) {
@@ -122,7 +122,7 @@ private:
 // Standard PBR material (mirrors Sedulous.Materials::CreatePBR): the BaseColor/Metallic/Roughness
 // uniforms + the five PBR maps + a sampler, in the order the forward set-2 contract expects. The
 // importer builds these and assigns the maps; unset maps fall back to neutral defaults in the renderer.
-[[nodiscard]] inline RefPtr<Material> CreatePBR(StringView name, Vec4 baseColor = Vec4{ 1, 1, 1, 1 },
+[[nodiscard]] inline RefPtr<Material> CreatePBR(StringView name, Vector4 baseColor = Vector4{ 1, 1, 1, 1 },
                                                f32 metallic = 0.0f, f32 roughness = 0.5f,
                                                StringView shaderName = u8"forward") {
     return MaterialBuilder(name)

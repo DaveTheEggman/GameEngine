@@ -1,5 +1,5 @@
 // Ported from Sedulous.VG.Tests/VGContextTests.bf. (Sedulous Color32.Yellow is
-// inlined; Mat4 != uses the C++20 rewrite of operator==.)
+// inlined; Matrix4 != uses the C++20 rewrite of operator==.)
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -11,7 +11,7 @@ using namespace draconic::vg;
 TEST_CASE("vgcontext: FillRect produces vertices and indices")
 {
     VGContext ctx;
-    ctx.FillRect(Rect{10, 10, 100, 50}, Color::Red);
+    ctx.FillRect(Rectangle{10, 10, 100, 50}, Color::Red);
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
     CHECK(batch.IndexCount() > 0u);
@@ -21,7 +21,7 @@ TEST_CASE("vgcontext: FillRect produces vertices and indices")
 TEST_CASE("vgcontext: StrokeRect produces output")
 {
     VGContext ctx;
-    ctx.StrokeRect(Rect{10, 10, 100, 50}, Color::Blue, 2.0f);
+    ctx.StrokeRect(Rectangle{10, 10, 100, 50}, Color::Blue, 2.0f);
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
     CHECK(batch.IndexCount() > 0u);
@@ -30,24 +30,24 @@ TEST_CASE("vgcontext: StrokeRect produces output")
 TEST_CASE("vgcontext: state stack restores transform")
 {
     VGContext ctx;
-    const Mat4 identity = ctx.GetTransform();
+    const Matrix4 identity = ctx.GetTransform();
 
     ctx.PushState();
     ctx.Translate(100, 200);
-    const Mat4 translated = ctx.GetTransform();
+    const Matrix4 translated = ctx.GetTransform();
     CHECK(translated != identity);
 
     ctx.PopState();
-    const Mat4 restored = ctx.GetTransform();
+    const Matrix4 restored = ctx.GetTransform();
     CHECK(restored == identity);
 }
 
 TEST_CASE("vgcontext: clip rect affects commands")
 {
     VGContext ctx;
-    ctx.FillRect(Rect{0, 0, 10, 10}, Color::Red);
-    ctx.PushClipRect(Rect{0, 0, 50, 50});
-    ctx.FillRect(Rect{5, 5, 10, 10}, Color::Blue);
+    ctx.FillRect(Rectangle{0, 0, 10, 10}, Color::Red);
+    ctx.PushClipRect(Rectangle{0, 0, 50, 50});
+    ctx.FillRect(Rectangle{5, 5, 10, 10}, Color::Blue);
     ctx.PopClip();
 
     VGBatch& batch = ctx.GetBatch();
@@ -58,7 +58,7 @@ TEST_CASE("vgcontext: opacity applied to vertex color")
 {
     VGContext ctx;
     ctx.PushOpacity(0.5f);
-    ctx.FillRect(Rect{0, 0, 10, 10}, Color::White);
+    ctx.FillRect(Rectangle{0, 0, 10, 10}, Color::White);
 
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.VertexCount() > 0u);
@@ -69,7 +69,7 @@ TEST_CASE("vgcontext: opacity applied to vertex color")
 TEST_CASE("vgcontext: FillCircle produces output")
 {
     VGContext ctx;
-    ctx.FillCircle(Vec2{50, 50}, 25, Color::Green);
+    ctx.FillCircle(Vector2{50, 50}, 25, Color::Green);
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 8u);
     CHECK(batch.IndexCount() > 0u);
@@ -78,7 +78,7 @@ TEST_CASE("vgcontext: FillCircle produces output")
 TEST_CASE("vgcontext: rounded rect per-corner radii")
 {
     VGContext ctx;
-    ctx.FillRoundedRect(Rect{0, 0, 100, 100}, CornerRadii(10, 20, 30, 40), Color::White);
+    ctx.FillRoundedRect(Rectangle{0, 0, 100, 100}, CornerRadii(10, 20, 30, 40), Color::White);
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 4u);
     CHECK(batch.IndexCount() > 6u);
@@ -87,7 +87,7 @@ TEST_CASE("vgcontext: rounded rect per-corner radii")
 TEST_CASE("vgcontext: clear resets everything")
 {
     VGContext ctx;
-    ctx.FillRect(Rect{0, 0, 10, 10}, Color::Red);
+    ctx.FillRect(Rectangle{0, 0, 10, 10}, Color::Red);
     CHECK(ctx.GetBatch().VertexCount() > 0u);
 
     ctx.Clear();
@@ -97,7 +97,7 @@ TEST_CASE("vgcontext: clear resets everything")
 TEST_CASE("vgcontext: FillStar produces output")
 {
     VGContext ctx;
-    ctx.FillStar(Vec2{50, 50}, 30, 15, 5, ToColor(Color32{255, 255, 0, 255})); // Sedulous Color32.Yellow
+    ctx.FillStar(Vector2{50, 50}, 30, 15, 5, ToColor(Color32{255, 255, 0, 255})); // Sedulous Color32.Yellow
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
 }

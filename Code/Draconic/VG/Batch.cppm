@@ -29,7 +29,7 @@ export namespace draconic::vg
         i32 startIndex = 0;        ///< Starting index in the index buffer.
         i32 indexCount = 0;        ///< Number of indices to draw.
         i32 textureIndex = -1;     ///< Index into the texture list (-1 for none).
-        Rect clipRect;             ///< Clip rectangle in screen coordinates.
+        Rectangle clipRect;             ///< Clip rectangle in screen coordinates.
         VGClipMode clipMode = VGClipMode::None;
         VGBlendMode blendMode = VGBlendMode::Normal;
         i32 stencilRef = 0;        ///< Stencil reference value (for stencil clipping).

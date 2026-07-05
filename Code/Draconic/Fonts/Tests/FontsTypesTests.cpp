@@ -1,4 +1,4 @@
-// Ported from Sedulous.Fonts.Tests: Rect/AtlasRegion/GlyphInfo/FontMetrics/
+// Ported from Sedulous.Fonts.Tests: Rectangle/AtlasRegion/GlyphInfo/FontMetrics/
 // FontLoadOptions tests (the GPU/TTF-free type coverage).
 #include <doctest/doctest.h>
 
@@ -12,11 +12,11 @@ using namespace draconic::fonts;
 
 TEST_CASE("fonts.rect: construction, bounds, contains, FromBounds")
 {
-    const draconic::fonts::Rect def;
+    const draconic::fonts::Rectangle def;
     CHECK(def.x == 0); CHECK(def.y == 0); CHECK(def.width == 0); CHECK(def.height == 0);
     CHECK(def.IsEmpty());
 
-    const draconic::fonts::Rect r(10, 20, 100, 50);
+    const draconic::fonts::Rectangle r(10, 20, 100, 50);
     CHECK(r.x == 10); CHECK(r.width == 100);
     CHECK_FALSE(r.IsEmpty());
     CHECK(r.Left() == 10); CHECK(r.Top() == 20); CHECK(r.Right() == 110); CHECK(r.Bottom() == 70);
@@ -27,7 +27,7 @@ TEST_CASE("fonts.rect: construction, bounds, contains, FromBounds")
     CHECK_FALSE(r.Contains(5, 40));
     CHECK_FALSE(r.Contains(50, 100));
 
-    const draconic::fonts::Rect b = draconic::fonts::Rect::FromBounds(10, 20, 110, 70);
+    const draconic::fonts::Rectangle b = draconic::fonts::Rectangle::FromBounds(10, 20, 110, 70);
     CHECK(b.x == 10); CHECK(b.y == 20); CHECK(b.width == 100); CHECK(b.height == 50);
 }
 

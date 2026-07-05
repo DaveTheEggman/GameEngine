@@ -171,16 +171,16 @@ TEST_CASE("image.normalmap: test pattern varies in X and Y, Z stays up")
 
 TEST_CASE("image.normalmap: CalculateNormalFromHeight")
 {
-    const Vec3 flatNormal = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.5f, 0.5f);
+    const Vector3 flatNormal = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.5f, 0.5f);
     CHECK(Abs(flatNormal.x) < 0.01f);
     CHECK(Abs(flatNormal.y) < 0.01f);
     CHECK(flatNormal.z > 0.99f);
 
-    const Vec3 rightSlope = Image::CalculateNormalFromHeight(0.0f, 1.0f, 0.5f, 0.5f);
+    const Vector3 rightSlope = Image::CalculateNormalFromHeight(0.0f, 1.0f, 0.5f, 0.5f);
     CHECK(rightSlope.x < 0.0f);  // normal points against the slope
     CHECK(rightSlope.z > 0.0f);
 
-    const Vec3 downSlope = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.0f, 1.0f);
+    const Vector3 downSlope = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.0f, 1.0f);
     CHECK(downSlope.y < 0.0f);
     CHECK(downSlope.z > 0.0f);
 }

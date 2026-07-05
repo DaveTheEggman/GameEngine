@@ -30,10 +30,10 @@ public:
     String        name;
     Array<String> boneNames;
     Array<i32>    parentIndices;
-    Array<Vec3>   translations;
-    Array<Quat>   rotations;
-    Array<Vec3>   scales;
-    Array<Mat4>   inverseBindPoses;
+    Array<Vector3>   translations;
+    Array<Quaternion>   rotations;
+    Array<Vector3>   scales;
+    Array<Matrix4>   inverseBindPoses;
 
     void Serialize(ISerializer& ar) override {
         draconic::core::Serialize(ar, "name", name);
@@ -71,9 +71,9 @@ public:
             bones[i].parentIndex = parentIndices[i];
             if (i < boneNames.Size())        { bones[i].name = String(boneNames[i].AsView()); }
             bones[i].localBindPose = BoneTransform{
-                i < translations.Size() ? translations[i] : Vec3{ 0, 0, 0 },
-                i < rotations.Size()    ? rotations[i]    : Quat::Identity,
-                i < scales.Size()       ? scales[i]       : Vec3{ 1, 1, 1 } };
+                i < translations.Size() ? translations[i] : Vector3{ 0, 0, 0 },
+                i < rotations.Size()    ? rotations[i]    : Quaternion::Identity,
+                i < scales.Size()       ? scales[i]       : Vector3{ 1, 1, 1 } };
             if (i < inverseBindPoses.Size()) { bones[i].inverseBindPose = inverseBindPoses[i]; }
         }
         skel.BuildNameMap();
@@ -98,7 +98,7 @@ public:
 
 // ---- animation clip ------------------------------------------------------------------------
 
-// Cooked clip: per-track metadata + a dense keyframe pool (times + Vec4 values: xyz for
+// Cooked clip: per-track metadata + a dense keyframe pool (times + Vector4 values: xyz for
 // position/scale, xyzw for rotation), plus events.
 class AnimationClipSource : public ISerializable {
     DRACONIC_OBJECT(AnimationClipSource, ISerializable)
@@ -114,7 +114,7 @@ public:
     Array<u32>    trackStart;     // first keyframe index into keyTimes/keyValues
     Array<u32>    trackCount;     // keyframe count
     Array<f32>    keyTimes;
-    Array<Vec4>   keyValues;      // position/scale in xyz; rotation in xyzw
+    Array<Vector4>   keyValues;      // position/scale in xyz; rotation in xyzw
     Array<f32>    eventTimes;
     Array<String> eventNames;
 
@@ -157,19 +157,19 @@ public:
             const u32 start = trackStart[i];
             const u32 count = trackCount[i];
             if (kind == TrackKind::Rotation) {
-                AnimationTrack<Quat>* track = clip.GetOrCreateRotationTrack(trackBone[i]);
+                AnimationTrack<Quaternion>* track = clip.GetOrCreateRotationTrack(trackBone[i]);
                 track->interpolation = interp;
                 for (u32 j = 0; j < count; ++j) {
-                    const Vec4 v = keyValues[start + j];
-                    track->AddKeyframe(keyTimes[start + j], Quat{ v.x, v.y, v.z, v.w });
+                    const Vector4 v = keyValues[start + j];
+                    track->AddKeyframe(keyTimes[start + j], Quaternion{ v.x, v.y, v.z, v.w });
                 }
             } else {
-                AnimationTrack<Vec3>* track = (kind == TrackKind::Scale) ? clip.GetOrCreateScaleTrack(trackBone[i])
+                AnimationTrack<Vector3>* track = (kind == TrackKind::Scale) ? clip.GetOrCreateScaleTrack(trackBone[i])
                                                                          : clip.GetOrCreatePositionTrack(trackBone[i]);
                 track->interpolation = interp;
                 for (u32 j = 0; j < count; ++j) {
-                    const Vec4 v = keyValues[start + j];
-                    track->AddKeyframe(keyTimes[start + j], Vec3{ v.x, v.y, v.z });
+                    const Vector4 v = keyValues[start + j];
+                    track->AddKeyframe(keyTimes[start + j], Vector3{ v.x, v.y, v.z });
                 }
             }
         }
@@ -179,26 +179,26 @@ public:
     }
 
 private:
-    static void AppendVec3Track(AnimationClipSource& out, const AnimationTrack<Vec3>& track, TrackKind kind) {
+    static void AppendVec3Track(AnimationClipSource& out, const AnimationTrack<Vector3>& track, TrackKind kind) {
         out.trackBone.PushBack(track.boneIndex);
         out.trackKind.PushBack(static_cast<u8>(kind));
         out.trackInterp.PushBack(static_cast<u8>(track.interpolation));
         out.trackStart.PushBack(static_cast<u32>(out.keyTimes.Size()));
         out.trackCount.PushBack(static_cast<u32>(track.Keyframes().Size()));
-        for (const Keyframe<Vec3>& k : track.Keyframes()) {
+        for (const Keyframe<Vector3>& k : track.Keyframes()) {
             out.keyTimes.PushBack(k.time);
-            out.keyValues.PushBack(Vec4{ k.value.x, k.value.y, k.value.z, 0.0f });
+            out.keyValues.PushBack(Vector4{ k.value.x, k.value.y, k.value.z, 0.0f });
         }
     }
-    static void AppendQuatTrack(AnimationClipSource& out, const AnimationTrack<Quat>& track) {
+    static void AppendQuatTrack(AnimationClipSource& out, const AnimationTrack<Quaternion>& track) {
         out.trackBone.PushBack(track.boneIndex);
         out.trackKind.PushBack(static_cast<u8>(TrackKind::Rotation));
         out.trackInterp.PushBack(static_cast<u8>(track.interpolation));
         out.trackStart.PushBack(static_cast<u32>(out.keyTimes.Size()));
         out.trackCount.PushBack(static_cast<u32>(track.Keyframes().Size()));
-        for (const Keyframe<Quat>& k : track.Keyframes()) {
+        for (const Keyframe<Quaternion>& k : track.Keyframes()) {
             out.keyTimes.PushBack(k.time);
-            out.keyValues.PushBack(Vec4{ k.value.x, k.value.y, k.value.z, k.value.w });
+            out.keyValues.PushBack(Vector4{ k.value.x, k.value.y, k.value.z, k.value.w });
         }
     }
 };
@@ -232,7 +232,7 @@ struct GraphNodeData {
     i32  paramIndex  = -1;          // blend1d driver
     i32  paramIndexX = -1, paramIndexY = -1;   // blend2d drivers
     Array<f32>  entryThresholds;    // blend1d, parallel to entryClips
-    Array<Vec2> entryPositions;     // blend2d, parallel to entryClips
+    Array<Vector2> entryPositions;     // blend2d, parallel to entryClips
     Array<Guid> entryClips;
 };
 inline void Serialize(ISerializer& ar, GraphNodeData& n) {
@@ -369,7 +369,7 @@ private:
             UniquePtr<BlendTree2D> t = MakeUnique<BlendTree2D>(DefaultAllocator());
             t->parameterIndexX = n.paramIndexX; t->parameterIndexY = n.paramIndexY;
             for (usize i = 0; i < n.entryClips.Size(); ++i) {
-                t->AddEntry(i < n.entryPositions.Size() ? n.entryPositions[i] : Vec2{ 0, 0 }, ResolveClip(manager, n.entryClips[i]));
+                t->AddEntry(i < n.entryPositions.Size() ? n.entryPositions[i] : Vector2{ 0, 0 }, ResolveClip(manager, n.entryClips[i]));
             }
             return t;
         }

@@ -361,12 +361,12 @@ public:
     // Declare AO for one view; returns the (blurred) AO handle, or invalid if mode is Off. invProj =
     // inverse camera projection, proj = camera projection (GTAO uses proj(1,1); SSAO uses proj(0,0)/(1,1)).
     [[nodiscard]] rendergraph::RGHandle DeclareAo(rendergraph::RenderGraph& graph, rendergraph::RGHandle depth,
-                                                  rendergraph::RGHandle normal, u32 w, u32 h, const Mat4& invProj,
-                                                  const Mat4& proj, f32 radius, f32 intensity, u32 frameIndex,
+                                                  rendergraph::RGHandle normal, u32 w, u32 h, const Matrix4& invProj,
+                                                  const Matrix4& proj, f32 radius, f32 intensity, u32 frameIndex,
                                                   AoMode mode, i32 debugMode = 0) {
         if (mode == AoMode::Off || w == 0 || h == 0) { return {}; }
         Tick(frameIndex);
-        const Vec2 texel{ 1.0f / static_cast<f32>(w), 1.0f / static_cast<f32>(h) };
+        const Vector2 texel{ 1.0f / static_cast<f32>(w), 1.0f / static_cast<f32>(h) };
         const rendergraph::RGHandle aoRaw = graph.CreateTransient(u8"ao.raw", rendergraph::RGTextureDesc(kAoFormat, w, h));
         const rendergraph::RGHandle aoTmp = graph.CreateTransient(u8"ao.tmp", rendergraph::RGTextureDesc(kAoFormat, w, h));
         const rendergraph::RGHandle aoOut = graph.CreateTransient(u8"ao.ao",  rendergraph::RGTextureDesc(kAoFormat, w, h));
@@ -379,7 +379,7 @@ public:
             push = PushBuf::From(gp); pipeline = m_gtaoPipeline;
         } else {
             SsaoPushC sp{}; sp.invProj = invProj; sp.texelSize = texel; sp.projXX = proj(0, 0); sp.projYY = proj(1, 1);
-            sp.jitter = Vec2{ proj(2, 0), proj(2, 1) };   // NDC jitter (proj z-row) so back-projection matches the jittered depth
+            sp.jitter = Vector2{ proj(2, 0), proj(2, 1) };   // NDC jitter (proj z-row) so back-projection matches the jittered depth
             sp.radius = radius; sp.intensity = intensity; sp.bias = 0.05f; sp.sampleCount = 16; sp.debugMode = debugMode;
             push = PushBuf::From(sp); pipeline = m_ssaoPipeline;
         }
@@ -402,8 +402,8 @@ public:
         });
         // Non-AO debug channels are raw per-pixel values — skip the bilateral blur that would smear them.
         if (debugMode >= 2) { return aoRaw; }
-        DeclareBlur(graph, aoRaw, depth, aoTmp, w, h, texel, Vec2{ 1.0f, 0.0f });
-        DeclareBlur(graph, aoTmp, depth, aoOut, w, h, texel, Vec2{ 0.0f, 1.0f });
+        DeclareBlur(graph, aoRaw, depth, aoTmp, w, h, texel, Vector2{ 1.0f, 0.0f });
+        DeclareBlur(graph, aoTmp, depth, aoOut, w, h, texel, Vector2{ 0.0f, 1.0f });
         return aoOut;
     }
 
@@ -435,9 +435,9 @@ public:
 
 private:
     static constexpr rhi::TextureFormat kHdrFormat = rhi::TextureFormat::RGBA16Float;   // matches the scene HDR
-    struct GtaoPushC { Mat4 invProj{}; Vec2 texelSize{}; f32 radius = 0.5f; f32 intensity = 1.0f; f32 projScaleY = 1.0f; i32 frameMod = 0; i32 debugMode = 0; i32 pad = 0; };
-    struct SsaoPushC { Mat4 invProj{}; Vec2 texelSize{}; Vec2 jitter{}; f32 projXX = 1.0f; f32 projYY = 1.0f; f32 radius = 0.5f; f32 intensity = 1.0f; f32 bias = 0.05f; i32 sampleCount = 16; i32 debugMode = 0; };
-    struct BlurPushC { Vec2 dir{}; Vec2 texelSize{}; f32 depthSigma = 120.0f; f32 p0 = 0, p1 = 0, p2 = 0; };
+    struct GtaoPushC { Matrix4 invProj{}; Vector2 texelSize{}; f32 radius = 0.5f; f32 intensity = 1.0f; f32 projScaleY = 1.0f; i32 frameMod = 0; i32 debugMode = 0; i32 pad = 0; };
+    struct SsaoPushC { Matrix4 invProj{}; Vector2 texelSize{}; Vector2 jitter{}; f32 projXX = 1.0f; f32 projYY = 1.0f; f32 radius = 0.5f; f32 intensity = 1.0f; f32 bias = 0.05f; i32 sampleCount = 16; i32 debugMode = 0; };
+    struct BlurPushC { Vector2 dir{}; Vector2 texelSize{}; f32 depthSigma = 120.0f; f32 p0 = 0, p1 = 0, p2 = 0; };
     struct ApplyPushC { f32 strength = 1.0f; f32 p0 = 0, p1 = 0, p2 = 0; };
 
     // A fixed byte buffer so a generate push (GTAO or SSAO) can be captured by value into the pass lambda.
@@ -467,7 +467,7 @@ private:
     }
 
     void DeclareBlur(rendergraph::RenderGraph& graph, rendergraph::RGHandle ao, rendergraph::RGHandle depth,
-                     rendergraph::RGHandle out, u32 w, u32 h, Vec2 texel, Vec2 dir) {
+                     rendergraph::RGHandle out, u32 w, u32 h, Vector2 texel, Vector2 dir) {
         BlurPushC bp{}; bp.dir = dir; bp.texelSize = texel;
         graph.AddRenderPass(u8"ao.blur", [this, &graph, ao, depth, out, w, h, bp](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, out, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::White());

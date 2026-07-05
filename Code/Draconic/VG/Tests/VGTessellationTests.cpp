@@ -9,11 +9,11 @@ using namespace draconic::vg;
 
 TEST_CASE("vg.triangulator: convex quad fans into two triangles")
 {
-    Vec2 quad[] = { Vec2{0,0}, Vec2{10,0}, Vec2{10,10}, Vec2{0,10} };
-    CHECK(Triangulator::PolygonArea(Span<const Vec2>(quad, 4)) == doctest::Approx(100.0f));
+    Vector2 quad[] = { Vector2{0,0}, Vector2{10,0}, Vector2{10,10}, Vector2{0,10} };
+    CHECK(Triangulator::PolygonArea(Span<const Vector2>(quad, 4)) == doctest::Approx(100.0f));
 
     Array<u32> indices;
-    Triangulator::Triangulate(Span<const Vec2>(quad, 4), FillRule::NonZero, indices, 0);
+    Triangulator::Triangulate(Span<const Vector2>(quad, 4), FillRule::NonZero, indices, 0);
     CHECK(indices.Size() == 6u); // 2 triangles
     for (usize i = 0; i < indices.Size(); ++i)
         CHECK(indices[i] < 4u);
@@ -57,7 +57,7 @@ TEST_CASE("vg.fill: gradient fill interpolates per-vertex color (no AA)")
     b.MoveTo(0, 0); b.LineTo(10, 0); b.LineTo(10, 10); b.LineTo(0, 10); b.Close();
     const Path path = b.ToPath();
 
-    VGLinearGradientFill grad(Vec2{0,0}, Vec2{10,0});
+    VGLinearGradientFill grad(Vector2{0,0}, Vector2{10,0});
     grad.AddStop(0.0f, Color::Black);
     grad.AddStop(1.0f, Color::White);
 
@@ -73,11 +73,11 @@ TEST_CASE("vg.fill: gradient fill interpolates per-vertex color (no AA)")
 
 TEST_CASE("vg.stroke: open polyline (no AA) produces a quad strip")
 {
-    Vec2 line[] = { Vec2{0,0}, Vec2{10,0}, Vec2{20,0} };
+    Vector2 line[] = { Vector2{0,0}, Vector2{10,0}, Vector2{20,0} };
     StrokeStyle style(2.0f);
 
     Array<VGVertex> verts; Array<u32> idx;
-    StrokeTessellator::Tessellate(Span<const Vec2>(line, 3), /*closed*/ false, style, Span<const f32>{},
+    StrokeTessellator::Tessellate(Span<const Vector2>(line, 3), /*closed*/ false, style, Span<const f32>{},
                                   /*antiAlias*/ false, Color::Blue, verts, idx);
     CHECK(verts.Size() == 6u);   // 2 per point
     CHECK(idx.Size() == 12u);    // 2 segments * 2 tris * 3
@@ -85,11 +85,11 @@ TEST_CASE("vg.stroke: open polyline (no AA) produces a quad strip")
 
 TEST_CASE("vg.stroke: AA produces 4 rings")
 {
-    Vec2 line[] = { Vec2{0,0}, Vec2{10,0} };
+    Vector2 line[] = { Vector2{0,0}, Vector2{10,0} };
     StrokeStyle style(2.0f);
 
     Array<VGVertex> verts; Array<u32> idx;
-    StrokeTessellator::Tessellate(Span<const Vec2>(line, 2), false, style, Span<const f32>{},
+    StrokeTessellator::Tessellate(Span<const Vector2>(line, 2), false, style, Span<const f32>{},
                                   /*antiAlias*/ true, Color::Blue, verts, idx);
     CHECK(verts.Size() == 8u);   // 4 rings * 2 points
     CHECK(idx.Size() > 0u);

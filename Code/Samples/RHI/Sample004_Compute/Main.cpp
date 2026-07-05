@@ -15,7 +15,7 @@ import draconic.rhi.vk;
 namespace sf = draconic::samples::framework;
 namespace dr = draconic::rhi;
 namespace ds = draconic::shaders;
-using draconic::core::Mat4;
+using draconic::core::Matrix4;
 
 class ComputeSample : public sf::SampleApp {
 public:
@@ -146,9 +146,9 @@ void ComputeSample::OnRender() {
     // Update VP.
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
     f32 camAngle = m_totalTime * 0.3f, camDist = 2.5f;
-    Mat4 view = Mat4::LookAtRH(draconic::core::Vec3{std::sin(camAngle)*camDist, 1.2f, std::cos(camAngle)*camDist}, draconic::core::Vec3{ 0,0,0}, draconic::core::Vec3{0,1,0});
-    Mat4 proj = Mat4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Mat4 vp = view * proj;
+    Matrix4 view = Matrix4::LookAtRH(draconic::core::Vector3{std::sin(camAngle)*camDist, 1.2f, std::cos(camAngle)*camDist}, draconic::core::Vector3{ 0,0,0}, draconic::core::Vector3{0,1,0});
+    Matrix4 proj = Matrix4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Matrix4 vp = view * proj;
     std::memcpy(m_vpMapped, vp.Data(), 64);
 
     m_pool->Reset();

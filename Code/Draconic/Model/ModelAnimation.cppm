@@ -33,10 +33,10 @@ enum class AnimationPath : u32 {
 /// Keyframe data for an animation.
 struct AnimationKeyframe {
     f32  time  = 0.0f;
-    Vec4 value{}; // Translation (xyz), Rotation (xyzw), Scale (xyz), or single Weight.
+    Vector4 value{}; // Translation (xyz), Rotation (xyzw), Scale (xyz), or single Weight.
 
     constexpr AnimationKeyframe() = default;
-    constexpr AnimationKeyframe(f32 t, Vec4 v) : time(t), value(v) {}
+    constexpr AnimationKeyframe(f32 t, Vector4 v) : time(t), value(v) {}
 };
 
 /// An animation channel targeting a specific bone/node property.
@@ -46,7 +46,7 @@ public:
     ~AnimationChannel() = default;
 
     /// Add a keyframe.
-    void addKeyframe(f32 time, Vec4 value) {
+    void addKeyframe(f32 time, Vector4 value) {
         m_keyframes.PushBack(AnimationKeyframe(time, value));
     }
 
@@ -58,7 +58,7 @@ public:
     }
 
     /// Sample the animation at a given time.
-    [[nodiscard]] Vec4 sample(f32 time) const {
+    [[nodiscard]] Vector4 sample(f32 time) const {
         if (m_keyframes.IsEmpty()) return {};
         if (m_keyframes.Size() == 1) return m_keyframes[0].value;
 
@@ -84,10 +84,10 @@ public:
         case AnimationInterpolation::Linear:
             if (path == AnimationPath::Rotation) {
                 // Quaternion slerp.
-                Quat q0(k0.value.x, k0.value.y, k0.value.z, k0.value.w);
-                Quat q1(k1.value.x, k1.value.y, k1.value.z, k1.value.w);
-                Quat result = Slerp(q0, q1, t);
-                return Vec4(result.x, result.y, result.z, result.w);
+                Quaternion q0(k0.value.x, k0.value.y, k0.value.z, k0.value.w);
+                Quaternion q1(k1.value.x, k1.value.y, k1.value.z, k1.value.w);
+                Quaternion result = Slerp(q0, q1, t);
+                return Vector4(result.x, result.y, result.z, result.w);
             } else {
                 return Lerp(k0.value, k1.value, t);
             }

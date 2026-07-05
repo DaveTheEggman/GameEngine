@@ -22,7 +22,7 @@ TEST_CASE("vg.context: white texture sits at index 0")
 TEST_CASE("vg.context: FillRect produces geometry + a solid command")
 {
     VGContext ctx;
-    ctx.FillRect(Rect{ 0, 0, 10, 10 }, Color::Red);
+    ctx.FillRect(Rectangle{ 0, 0, 10, 10 }, Color::Red);
 
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
@@ -35,7 +35,7 @@ TEST_CASE("vg.context: transform is baked into emitted vertices")
 {
     VGContext ctx;
     ctx.Translate(100.0f, 50.0f);
-    ctx.FillRect(Rect{ 0, 0, 10, 10 }, Color::Green);
+    ctx.FillRect(Rectangle{ 0, 0, 10, 10 }, Color::Green);
 
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.VertexCount() > 0u);
@@ -50,7 +50,7 @@ TEST_CASE("vg.context: opacity scales vertex alpha")
 {
     VGContext ctx;
     ctx.PushOpacity(0.5f);
-    ctx.FillRect(Rect{ 0, 0, 10, 10 }, ToColor(Color32{ 255, 255, 255, 255 }));
+    ctx.FillRect(Rectangle{ 0, 0, 10, 10 }, ToColor(Color32{ 255, 255, 255, 255 }));
     ctx.PopOpacity();
 
     VGBatch& batch = ctx.GetBatch();
@@ -94,8 +94,8 @@ TEST_CASE("vg.context: DrawImage registers the texture and switches command")
     const u8 px[4] = { 10, 20, 30, 40 };
     img::OwnedImageData tex(1, 1, img::PixelFormat::RGBA8, Span<const u8>(px, 4));
 
-    ctx.FillRect(Rect{ 0, 0, 5, 5 }, Color::Red); // solid command (tex 0)
-    ctx.DrawImage(&tex, Vec2{ 0, 0 });              // textured command (tex 1)
+    ctx.FillRect(Rectangle{ 0, 0, 5, 5 }, Color::Red); // solid command (tex 0)
+    ctx.DrawImage(&tex, Vector2{ 0, 0 });              // textured command (tex 1)
 
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.textures.Size() == 2u);
@@ -108,7 +108,7 @@ TEST_CASE("vg.context: DrawImage registers the texture and switches command")
 TEST_CASE("vg.context: clear resets and re-seeds the white texture")
 {
     VGContext ctx;
-    ctx.FillRect(Rect{ 0, 0, 5, 5 }, Color::Red);
+    ctx.FillRect(Rectangle{ 0, 0, 5, 5 }, Color::Red);
     ctx.Clear();
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() == 0u);

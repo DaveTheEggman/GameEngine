@@ -43,14 +43,14 @@ TEST_CASE("world matrix composes local with parent (after UpdateTransforms)")
     Scene scene;
     EntityHandle parent = scene.CreateEntity();
     EntityHandle child  = scene.CreateEntity();
-    scene.SetLocalPosition(parent, Vec3{ 10, 0, 0 });
-    scene.SetLocalPosition(child,  Vec3{ 5, 0, 0 });
+    scene.SetLocalPosition(parent, Vector3{ 10, 0, 0 });
+    scene.SetLocalPosition(child,  Vector3{ 5, 0, 0 });
     scene.SetParent(child, parent);
 
     scene.UpdateTransforms();
 
-    const Vec3 pw = scene.GetWorldPosition(parent);
-    const Vec3 cw = scene.GetWorldPosition(child);
+    const Vector3 pw = scene.GetWorldPosition(parent);
+    const Vector3 cw = scene.GetWorldPosition(child);
     CHECK(Near(pw.x, 10.0f));
     CHECK(Near(cw.x, 15.0f));               // child = parent(10) + local(5)
     CHECK(scene.IsTransformUpdatedThisFrame(child));
@@ -71,7 +71,7 @@ TEST_CASE("dirty cascade: moving a parent recomputes its descendants; nothing el
     CHECK(scene.TransformsUpdatedThisFrame().Size() == 0);
 
     // move the parent: parent + child recompute, `other` does not
-    scene.SetLocalPosition(parent, Vec3{ 0, 7, 0 });
+    scene.SetLocalPosition(parent, Vector3{ 0, 7, 0 });
     scene.UpdateTransforms();
     CHECK(scene.IsTransformUpdatedThisFrame(parent));
     CHECK(scene.IsTransformUpdatedThisFrame(child));
@@ -83,11 +83,11 @@ TEST_CASE("motion vectors: previous world matrix snapshots the prior frame")
 {
     Scene scene;
     EntityHandle e = scene.CreateEntity();
-    scene.SetLocalPosition(e, Vec3{ 1, 0, 0 });
+    scene.SetLocalPosition(e, Vector3{ 1, 0, 0 });
     scene.UpdateTransforms();
     CHECK(Near(scene.GetWorldPosition(e).x, 1.0f));
 
-    scene.SetLocalPosition(e, Vec3{ 4, 0, 0 });
+    scene.SetLocalPosition(e, Vector3{ 4, 0, 0 });
     scene.UpdateTransforms();
     CHECK(Near(scene.GetWorldPosition(e).x, 4.0f));                 // current
     CHECK(Near(scene.GetPrevWorldMatrix(e).m[3][0], 1.0f));         // previous frame's position

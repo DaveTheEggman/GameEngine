@@ -9,7 +9,7 @@ export module draconic.core:plane;
 
 import :base;
 import :math;
-import :vec3;
+import :vector3;
 
 export namespace draconic::core
 {
@@ -18,16 +18,16 @@ export namespace draconic::core
     // =======================================================================
     struct Plane
     {
-        Vec3 normal;
+        Vector3 normal;
         f32 d;
 
-        [[nodiscard]] static Plane FromPointNormal(Vec3 point, Vec3 unitNormal) noexcept
+        [[nodiscard]] static Plane FromPointNormal(Vector3 point, Vector3 unitNormal) noexcept
         {
             return Plane{ unitNormal, -Dot(unitNormal, point) };
         }
 
         // Signed distance: > 0 in front (normal side), < 0 behind, ~0 on the plane.
-        [[nodiscard]] f32 SignedDistance(Vec3 p) const noexcept { return Dot(normal, p) + d; }
+        [[nodiscard]] f32 SignedDistance(Vector3 p) const noexcept { return Dot(normal, p) + d; }
 
         [[nodiscard]] Plane Normalized() const noexcept
         {

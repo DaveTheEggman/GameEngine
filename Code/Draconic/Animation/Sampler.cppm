@@ -17,12 +17,12 @@ using namespace draconic::core;
 export namespace draconic::animation {
 
 // --- cubic spline (Hermite) helpers ---
-[[nodiscard]] inline Vec3 CubicSplineVec3(const Keyframe<Vec3>& prev, const Keyframe<Vec3>& next, f32 t, f32 duration) {
+[[nodiscard]] inline Vector3 CubicSplineVec3(const Keyframe<Vector3>& prev, const Keyframe<Vector3>& next, f32 t, f32 duration) {
     const f32 t2 = t * t, t3 = t2 * t;
-    const Vec3 p0 = prev.value;
-    const Vec3 m0 = prev.outTangent * duration;
-    const Vec3 p1 = next.value;
-    const Vec3 m1 = next.inTangent * duration;
+    const Vector3 p0 = prev.value;
+    const Vector3 m0 = prev.outTangent * duration;
+    const Vector3 p1 = next.value;
+    const Vector3 m1 = next.inTangent * duration;
     const f32 h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
     const f32 h10 = t3 - 2.0f * t2 + t;
     const f32 h01 = -2.0f * t3 + 3.0f * t2;
@@ -30,7 +30,7 @@ export namespace draconic::animation {
     return p0 * h00 + m0 * h10 + p1 * h01 + m1 * h11;
 }
 
-[[nodiscard]] inline Quat CubicSplineQuat(const Keyframe<Quat>& prev, const Keyframe<Quat>& next, f32 t, f32 /*duration*/) {
+[[nodiscard]] inline Quaternion CubicSplineQuat(const Keyframe<Quaternion>& prev, const Keyframe<Quaternion>& next, f32 t, f32 /*duration*/) {
     // Simplified Hermite + normalize (squad would be more accurate), matching Sedulous.
     const f32 t2 = t * t, t3 = t2 * t;
     const f32 h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
@@ -38,13 +38,13 @@ export namespace draconic::animation {
     return Normalized(Slerp(prev.value, next.value, h01 / (h00 + h01)));
 }
 
-// Sample a Vec3 track at `time` (returns `defaultValue` if empty).
-[[nodiscard]] inline Vec3 SampleVec3(const AnimationTrack<Vec3>* track, f32 time, Vec3 defaultValue = Vec3{ 0, 0, 0 }) {
+// Sample a Vector3 track at `time` (returns `defaultValue` if empty).
+[[nodiscard]] inline Vector3 SampleVec3(const AnimationTrack<Vector3>* track, f32 time, Vector3 defaultValue = Vector3{ 0, 0, 0 }) {
     if (track == nullptr || track->Keyframes().IsEmpty()) { return defaultValue; }
     const KeyframeLookup k = track->FindKeyframes(time);
     if (k.prev < 0) { return defaultValue; }
-    const Keyframe<Vec3>& prev = track->Keyframes()[static_cast<usize>(k.prev)];
-    const Keyframe<Vec3>& next = track->Keyframes()[static_cast<usize>(k.next)];
+    const Keyframe<Vector3>& prev = track->Keyframes()[static_cast<usize>(k.prev)];
+    const Keyframe<Vector3>& next = track->Keyframes()[static_cast<usize>(k.next)];
     switch (track->interpolation) {
     case InterpolationMode::Step:   return prev.value;
     case InterpolationMode::Linear: return Lerp(prev.value, next.value, k.t);
@@ -53,13 +53,13 @@ export namespace draconic::animation {
     return prev.value;
 }
 
-// Sample a Quat track at `time` (returns `defaultValue` if empty).
-[[nodiscard]] inline Quat SampleQuat(const AnimationTrack<Quat>* track, f32 time, Quat defaultValue = Quat::Identity) {
+// Sample a Quaternion track at `time` (returns `defaultValue` if empty).
+[[nodiscard]] inline Quaternion SampleQuat(const AnimationTrack<Quaternion>* track, f32 time, Quaternion defaultValue = Quaternion::Identity) {
     if (track == nullptr || track->Keyframes().IsEmpty()) { return defaultValue; }
     const KeyframeLookup k = track->FindKeyframes(time);
     if (k.prev < 0) { return defaultValue; }
-    const Keyframe<Quat>& prev = track->Keyframes()[static_cast<usize>(k.prev)];
-    const Keyframe<Quat>& next = track->Keyframes()[static_cast<usize>(k.next)];
+    const Keyframe<Quaternion>& prev = track->Keyframes()[static_cast<usize>(k.prev)];
+    const Keyframe<Quaternion>& next = track->Keyframes()[static_cast<usize>(k.next)];
     switch (track->interpolation) {
     case InterpolationMode::Step:   return prev.value;
     case InterpolationMode::Linear: return Slerp(prev.value, next.value, k.t);
@@ -115,8 +115,8 @@ inline void AdditivePoses(Span<const BoneTransform> base, Span<const BoneTransfo
     const usize count = Min(Min(base.Size(), additive.Size()), out.Size());
     for (usize i = 0; i < count; ++i) {
         out[i].position = base[i].position + additive[i].position * weight;
-        out[i].rotation = Slerp(Quat::Identity, additive[i].rotation, weight) * base[i].rotation;
-        out[i].scale    = base[i].scale * Lerp(Vec3::One, additive[i].scale, weight);
+        out[i].rotation = Slerp(Quaternion::Identity, additive[i].rotation, weight) * base[i].rotation;
+        out[i].scale    = base[i].scale * Lerp(Vector3::One, additive[i].scale, weight);
     }
 }
 

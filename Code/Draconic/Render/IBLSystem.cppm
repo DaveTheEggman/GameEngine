@@ -400,7 +400,7 @@ public:
 
     // The directional sun feeding the procedural sky (xyz = light direction). A changed direction
     // re-dirties the precompute so the env reflects the new sun.
-    void SetSun(const Vec3& dir) {
+    void SetSun(const Vector3& dir) {
         if (dir.x != m_sunDir.x || dir.y != m_sunDir.y || dir.z != m_sunDir.z) { m_sunDir = dir; m_dirty = true; }
     }
 
@@ -434,7 +434,7 @@ public:
     [[nodiscard]] rhi::TextureView*     EnvView()         const noexcept { return m_envSampleView; }
     [[nodiscard]] f32                   SkyIntensity()    const noexcept { return m_sky.intensity; }
     // Sun (from the directional light) for the sky pass's crisp analytic disc.
-    [[nodiscard]] Vec3                  SunDir()          const noexcept { return m_sunDir; }
+    [[nodiscard]] Vector3                  SunDir()          const noexcept { return m_sunDir; }
     [[nodiscard]] f32                   SunIntensity()    const noexcept { return m_sky.sunIntensity; }
     [[nodiscard]] f32                   SunAngularSize()  const noexcept { return m_sky.sunAngularSize; }
     // The sky pass draws a crisp analytic sun disc for the untextured skies (procedural + Preetham);
@@ -578,10 +578,10 @@ public:
 private:
     struct IblPush {
         i32 faceIndex = 0; i32 mode = 0; f32 roughness = 0.0f; f32 skyIntensity = 1.0f;
-        Vec4 sun{};       // xyz = direction, w = sun angular size (deg)
-        Vec4 horizon{};   // rgb, a = sun intensity
-        Vec4 zenith{};    // rgb, a = rotation (radians)
-        Vec4 ground{};    // rgb
+        Vector4 sun{};       // xyz = direction, w = sun angular size (deg)
+        Vector4 horizon{};   // rgb, a = sun intensity
+        Vector4 zenith{};    // rgb, a = rotation (radians)
+        Vector4 ground{};    // rgb
     };
 
     // Build the procedural-env push for one cube face from the current sky + sun direction.
@@ -590,10 +590,10 @@ private:
         p.faceIndex    = face;
         p.mode         = static_cast<i32>(m_sky.mode);
         p.skyIntensity = m_sky.intensity;
-        p.sun     = Vec4{ m_sunDir.x, m_sunDir.y, m_sunDir.z, m_sky.sunAngularSize };
-        p.horizon = Vec4{ m_sky.horizon.x, m_sky.horizon.y, m_sky.horizon.z, m_sky.sunIntensity };
-        p.zenith  = Vec4{ m_sky.zenith.x, m_sky.zenith.y, m_sky.zenith.z, m_sky.rotation };
-        p.ground  = Vec4{ m_sky.ground.x, m_sky.ground.y, m_sky.ground.z, m_sky.turbidity };
+        p.sun     = Vector4{ m_sunDir.x, m_sunDir.y, m_sunDir.z, m_sky.sunAngularSize };
+        p.horizon = Vector4{ m_sky.horizon.x, m_sky.horizon.y, m_sky.horizon.z, m_sky.sunIntensity };
+        p.zenith  = Vector4{ m_sky.zenith.x, m_sky.zenith.y, m_sky.zenith.z, m_sky.rotation };
+        p.ground  = Vector4{ m_sky.ground.x, m_sky.ground.y, m_sky.ground.z, m_sky.turbidity };
         return p;
     }
 
@@ -981,7 +981,7 @@ private:
     rendergraph::RGHandle m_shH = {};
     rendergraph::RGHandle m_envH = {};
 
-    Vec3        m_sunDir{ 0.0f, -1.0f, 0.0f };   // from the directional light (set per frame)
+    Vector3        m_sunDir{ 0.0f, -1.0f, 0.0f };   // from the directional light (set per frame)
     SkySnapshot m_sky{};                          // current sky authoring
     bool m_ready = false;
     bool m_dirty = false;

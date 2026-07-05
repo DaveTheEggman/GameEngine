@@ -33,15 +33,15 @@ struct SubMesh {
 // The static vertex stream — 48 bytes, matching VertexLayoutType::Mesh (locations
 // 0..4). Trivially copyable so the array uploads straight to a GPU vertex buffer.
 struct StaticMeshVertex {
-    Vec3 position{ 0, 0, 0 };       // 12
-    Vec3 normal{ 0, 1, 0 };         // 12
-    Vec2 texCoord{ 0, 0 };          //  8
+    Vector3 position{ 0, 0, 0 };       // 12
+    Vector3 normal{ 0, 1, 0 };         // 12
+    Vector2 texCoord{ 0, 0 };          //  8
     u32  color = 0xFFFFFFFFu;       //  4  packed RGBA, R in the low byte (Unorm8x4)
-    Vec3 tangent{ 1, 0, 0 };        // 12
+    Vector3 tangent{ 1, 0, 0 };        // 12
     // total: 48
 
     constexpr StaticMeshVertex() noexcept = default;
-    constexpr StaticMeshVertex(Vec3 pos, Vec3 nrm, Vec2 uv, u32 col, Vec3 tan) noexcept
+    constexpr StaticMeshVertex(Vector3 pos, Vector3 nrm, Vector2 uv, u32 col, Vector3 tan) noexcept
         : position(pos), normal(nrm), texCoord(uv), color(col), tangent(tan) {}
 };
 
@@ -50,7 +50,7 @@ struct StaticMeshVertex {
 // interleaving, so the static stream stays substitutable for a static mesh.
 struct VertexSkinning {
     u16  joints[4] = { 0, 0, 0, 0 };    //  8  bone indices (uint16x4, packed uint32x2)
-    Vec4 weights{ 1, 0, 0, 0 };         // 16  bone weights (sum to 1)
+    Vector4 weights{ 1, 0, 0, 0 };         // 16  bone weights (sum to 1)
     // total: 24
 };
 

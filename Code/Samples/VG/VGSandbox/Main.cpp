@@ -247,8 +247,8 @@ void VGSandbox::DrawEyes(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
         // Shadow
         {
             vg::PathBuilder pb;
-            vg::ShapeBuilder::BuildEllipse(Vec2{ cx + 1.0f, cy + 2.0f }, ex + 1.0f, ey + 1.0f, pb);
-            vg::VGRadialGradientFill fill(Vec2{ cx, cy }, Max(ex, ey));
+            vg::ShapeBuilder::BuildEllipse(Vector2{ cx + 1.0f, cy + 2.0f }, ex + 1.0f, ey + 1.0f, pb);
+            vg::VGRadialGradientFill fill(Vector2{ cx, cy }, Max(ex, ey));
             fill.AddStop(0.0f, GC(0, 0, 0, 40));
             fill.AddStop(1.0f, GC(0, 0, 0, 0));
             vgc.FillPath(pb.ToPath(), fill);
@@ -256,8 +256,8 @@ void VGSandbox::DrawEyes(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
         // White
         {
             vg::PathBuilder pb;
-            vg::ShapeBuilder::BuildEllipse(Vec2{ cx, cy }, ex, ey, pb);
-            vg::VGLinearGradientFill fill(Vec2{ cx, cy - ey * 0.5f }, Vec2{ cx, cy + ey * 0.5f });
+            vg::ShapeBuilder::BuildEllipse(Vector2{ cx, cy }, ex, ey, pb);
+            vg::VGLinearGradientFill fill(Vector2{ cx, cy - ey * 0.5f }, Vector2{ cx, cy + ey * 0.5f });
             fill.AddStop(0.0f, GC(255, 255, 255, 255));
             fill.AddStop(1.0f, GC(220, 220, 220, 255));
             vgc.FillPath(pb.ToPath(), fill);
@@ -271,15 +271,15 @@ void VGSandbox::DrawEyes(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
             const f32 irisY = cy + dy * (ey - br) * 0.5f;
             {
                 vg::PathBuilder pb;
-                vg::ShapeBuilder::BuildCircle(Vec2{ irisX, irisY }, br, pb);
-                vg::VGRadialGradientFill fill(Vec2{ irisX, irisY }, br);
+                vg::ShapeBuilder::BuildCircle(Vector2{ irisX, irisY }, br, pb);
+                vg::VGRadialGradientFill fill(Vector2{ irisX, irisY }, br);
                 fill.AddStop(0.0f, GC(60, 90, 160, 255));
                 fill.AddStop(0.7f, GC(30, 50, 90, 255));
                 fill.AddStop(1.0f, GC(20, 30, 60, 255));
                 vgc.FillPath(pb.ToPath(), fill);
             }
-            vgc.FillCircle(Vec2{ irisX, irisY }, br * 0.45f, GC( 20, 20, 20, 255 ));
-            vgc.FillCircle(Vec2{ irisX - br * 0.25f, irisY - br * 0.2f }, br * 0.15f, GC( 255, 255, 255, 200 ));
+            vgc.FillCircle(Vector2{ irisX, irisY }, br * 0.45f, GC( 20, 20, 20, 255 ));
+            vgc.FillCircle(Vector2{ irisX - br * 0.25f, irisY - br * 0.2f }, br * 0.15f, GC( 255, 255, 255, 200 ));
         }
     }
 }
@@ -349,8 +349,8 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
         const Color c0 = HSLToColor(a0 / kTwoPi, 1.0f, 0.5f);
         const Color c1 = HSLToColor(a1 / kTwoPi, 1.0f, 0.5f);
         vg::VGLinearGradientFill fill(
-            Vec2{ cx + Cos(a0) * (r0 + r1) * 0.5f, cy + Sin(a0) * (r0 + r1) * 0.5f },
-            Vec2{ cx + Cos(a1) * (r0 + r1) * 0.5f, cy + Sin(a1) * (r0 + r1) * 0.5f });
+            Vector2{ cx + Cos(a0) * (r0 + r1) * 0.5f, cy + Sin(a0) * (r0 + r1) * 0.5f },
+            Vector2{ cx + Cos(a1) * (r0 + r1) * 0.5f, cy + Sin(a1) * (r0 + r1) * 0.5f });
         fill.AddStop(0.0f, c0);
         fill.AddStop(1.0f, c1);
         vgc.FillPath(pb.ToPath(), fill);
@@ -381,12 +381,12 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
         pb.MoveTo(ax, ay); pb.LineTo(bx, by); pb.LineTo(cxx, cyy); pb.Close();
         const vg::Path path = pb.ToPath();
 
-        vg::VGLinearGradientFill fill1(Vec2{ ax, ay }, Vec2{ cxx, cyy });
+        vg::VGLinearGradientFill fill1(Vector2{ ax, ay }, Vector2{ cxx, cyy });
         fill1.AddStop(0.0f, GC(255, 255, 255, 255));
         fill1.AddStop(1.0f, hueColor);
         vgc.FillPath(path, fill1);
 
-        vg::VGLinearGradientFill fill2(Vec2{ (ax + bx) * 0.5f, (ay + by) * 0.5f }, Vec2{ cxx, cyy });
+        vg::VGLinearGradientFill fill2(Vector2{ (ax + bx) * 0.5f, (ay + by) * 0.5f }, Vector2{ cxx, cyy });
         fill2.AddStop(0.0f, GC(0, 0, 0, 128));
         fill2.AddStop(1.0f, GC(0, 0, 0, 0));
         vgc.FillPath(path, fill2);
@@ -395,8 +395,8 @@ void VGSandbox::DrawColorWheel(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f
 
         const f32 selX = ax + (cxx - ax) * 0.3f + (bx - ax) * 0.4f;
         const f32 selY = ay + (cyy - ay) * 0.3f + (by - ay) * 0.4f;
-        vgc.StrokeCircle(Vec2{ selX, selY }, 5.0f, GC( 255, 255, 255, 192 ), 2.0f);
-        vgc.FillCircle(Vec2{ selX, selY }, 3.5f, hueColor);
+        vgc.StrokeCircle(Vector2{ selX, selY }, 5.0f, GC( 255, 255, 255, 192 ), 2.0f);
+        vgc.FillCircle(Vector2{ selX, selY }, 3.5f, hueColor);
     }
 }
 
@@ -435,7 +435,7 @@ void VGSandbox::DrawGraph(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
         }
         pb.LineTo(x + w, y + h);
         pb.Close();
-        vg::VGLinearGradientFill fill(Vec2{ x, y }, Vec2{ x, y + h });
+        vg::VGLinearGradientFill fill(Vector2{ x, y }, Vector2{ x, y + h });
         fill.AddStop(0.0f, GC(0, 160, 192, 128));
         fill.AddStop(1.0f, GC(0, 160, 192, 16));
         vgc.FillPath(pb.ToPath(), fill);
@@ -472,14 +472,14 @@ void VGSandbox::DrawGraph(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
         const f32 sy = y + h * (1.0f - samples[i] * 0.8f);
         {
             vg::PathBuilder pb;
-            vg::ShapeBuilder::BuildCircle(Vec2{ sx, sy + 2.0f }, 4.0f, pb);
-            vg::VGRadialGradientFill fill(Vec2{ sx, sy + 2.0f }, 6.0f);
+            vg::ShapeBuilder::BuildCircle(Vector2{ sx, sy + 2.0f }, 4.0f, pb);
+            vg::VGRadialGradientFill fill(Vector2{ sx, sy + 2.0f }, 6.0f);
             fill.AddStop(0.0f, GC(0, 0, 0, 32));
             fill.AddStop(1.0f, GC(0, 0, 0, 0));
             vgc.FillPath(pb.ToPath(), fill);
         }
-        vgc.FillCircle(Vec2{ sx, sy }, 4.0f, GC( 0, 160, 192, 255 ));
-        vgc.FillCircle(Vec2{ sx, sy }, 2.0f, GC( 220, 240, 255, 255 ));
+        vgc.FillCircle(Vector2{ sx, sy }, 4.0f, GC( 0, 160, 192, 255 ));
+        vgc.FillCircle(Vector2{ sx, sy }, 2.0f, GC( 220, 240, 255, 255 ));
     }
 }
 
@@ -488,17 +488,17 @@ void VGSandbox::DrawScissor(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     vgc.PushState();
     vgc.Translate(x, y);
     vgc.Rotate(5.0f * kPi / 180.0f);
-    vgc.FillRect(Rect{ -20, -20, 60, 40 }, GC( 255, 0, 0, 255 ));
+    vgc.FillRect(Rectangle{ -20, -20, 60, 40 }, GC( 255, 0, 0, 255 ));
 
-    vgc.PushClipRect(Rect{ -20, -20, 60, 40 });
+    vgc.PushClipRect(Rectangle{ -20, -20, 60, 40 });
     vgc.Translate(40, 0);
     vgc.Rotate(Sin(t) * 0.15f);
 
     vgc.PopClip();
-    vgc.FillRect(Rect{ -20, -10, 60, 30 }, GC( 255, 128, 0, 64 ));
+    vgc.FillRect(Rectangle{ -20, -10, 60, 30 }, GC( 255, 128, 0, 64 ));
 
-    vgc.PushClipRect(Rect{ -60, -30, 60, 40 });
-    vgc.FillRect(Rect{ -20, -10, 60, 30 }, GC( 255, 128, 0, 255 ));
+    vgc.PushClipRect(Rectangle{ -60, -30, 60, 40 });
+    vgc.FillRect(Rectangle{ -20, -10, 60, 30 }, GC( 255, 128, 0, 255 ));
     vgc.PopClip();
 
     vgc.PopState();
@@ -509,15 +509,15 @@ void VGSandbox::DrawImages(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     const f32 tw = static_cast<f32>(m_checker.Width());
     const f32 th = static_cast<f32>(m_checker.Height());
 
-    vgc.DrawImage(&m_checker, Vec2{ x, y });
-    vgc.DrawImage(&m_checker, Rect{ x + 140, y, 80, 50 });
-    vgc.DrawImage(&m_checker, Rect{ x + 230, y, 80, 80 }, Rect{ 0, 0, tw, th }, GC( 255, 120, 120, 220 ));
-    vgc.DrawImage(&m_checker, Rect{ x + 320, y, 80, 80 }, Rect{ 0, 0, 64, 64 }, Color::White);
+    vgc.DrawImage(&m_checker, Vector2{ x, y });
+    vgc.DrawImage(&m_checker, Rectangle{ x + 140, y, 80, 50 });
+    vgc.DrawImage(&m_checker, Rectangle{ x + 230, y, 80, 80 }, Rectangle{ 0, 0, tw, th }, GC( 255, 120, 120, 220 ));
+    vgc.DrawImage(&m_checker, Rectangle{ x + 320, y, 80, 80 }, Rectangle{ 0, 0, 64, 64 }, Color::White);
 
     vgc.PushState();
     vgc.Translate(x + 450, y + 40);
     vgc.Rotate(t * 0.6f);
-    vgc.DrawImage(&m_checker, Rect{ -40, -40, 80, 80 });
+    vgc.DrawImage(&m_checker, Rectangle{ -40, -40, 80, 80 });
     vgc.PopState();
 }
 
@@ -525,14 +525,14 @@ void VGSandbox::DrawTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t)
 {
     if (!HasFonts()) return;
 
-    vgc.DrawText(u8"Draconic.VG text rendering", m_fontLarge, Vec2{ x, y + 30 }, GC( 240, 240, 245, 255 ));
-    vgc.DrawText(u8"Medium size - the quick brown fox", m_fontMedium, Vec2{ x, y + 60 }, GC( 180, 200, 255, 255 ));
-    vgc.DrawText(u8"small caption @ 14px", m_fontSmall, Vec2{ x, y + 82 }, GC( 160, 170, 180, 255 ));
+    vgc.DrawText(u8"Draconic.VG text rendering", m_fontLarge, Vector2{ x, y + 30 }, GC( 240, 240, 245, 255 ));
+    vgc.DrawText(u8"Medium size - the quick brown fox", m_fontMedium, Vector2{ x, y + 60 }, GC( 180, 200, 255, 255 ));
+    vgc.DrawText(u8"small caption @ 14px", m_fontSmall, Vector2{ x, y + 82 }, GC( 160, 170, 180, 255 ));
 
     const u8 pulse = static_cast<u8>(160.0f + Sin(t * 2.0f) * 60.0f);
-    vgc.DrawText(u8"pulsing tint", m_fontMedium, Vec2{ x, y + 108 }, GC( 255, pulse, 80, 255 ));
+    vgc.DrawText(u8"pulsing tint", m_fontMedium, Vector2{ x, y + 108 }, GC( 255, pulse, 80, 255 ));
 
-    const Rect boxRect{ x + 350, y + 50, 200, 60 };
+    const Rectangle boxRect{ x + 350, y + 50, 200, 60 };
     vgc.StrokeRect(boxRect, GC( 80, 100, 120, 255 ), 1.0f);
     vgc.DrawText(u8"centered", m_fontMedium->font, m_fontMedium->atlas, m_fontService->GetAtlasTexture(m_fontMedium),
                  boxRect, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, GC( 220, 220, 220, 255 ));
@@ -540,24 +540,24 @@ void VGSandbox::DrawTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     vgc.PushState();
     vgc.Translate(x + 280, y + 130);
     vgc.Rotate(Sin(t * 0.7f) * 0.3f);
-    vgc.DrawText(u8"rotated!", m_fontLarge, Vec2{ -60, 10 }, GC( 120, 255, 160, 255 ));
+    vgc.DrawText(u8"rotated!", m_fontLarge, Vector2{ -60, 10 }, GC( 120, 255, 160, 255 ));
     vgc.PopState();
 }
 
 void VGSandbox::DrawUIConvenience(vg::VGContext& vgc, f32 x, f32 y)
 {
-    vgc.DrawLine(Vec2{ x, y + 5 }, Vec2{ x + 120, y + 5 }, GC( 200, 220, 255, 255 ), 1.0f);
-    vgc.DrawLine(Vec2{ x, y + 15 }, Vec2{ x + 120, y + 15 }, GC( 200, 220, 255, 255 ), 2.5f);
-    vgc.DrawLine(Vec2{ x, y + 30 }, Vec2{ x + 120, y + 30 }, GC( 200, 220, 255, 255 ), 5.0f);
+    vgc.DrawLine(Vector2{ x, y + 5 }, Vector2{ x + 120, y + 5 }, GC( 200, 220, 255, 255 ), 1.0f);
+    vgc.DrawLine(Vector2{ x, y + 15 }, Vector2{ x + 120, y + 15 }, GC( 200, 220, 255, 255 ), 2.5f);
+    vgc.DrawLine(Vector2{ x, y + 30 }, Vector2{ x + 120, y + 30 }, GC( 200, 220, 255, 255 ), 5.0f);
 
-    vgc.StrokeEllipse(Vec2{ x + 180, y + 20 }, 40, 18, GC( 255, 200, 140, 255 ), 2.0f);
+    vgc.StrokeEllipse(Vector2{ x + 180, y + 20 }, 40, 18, GC( 255, 200, 140, 255 ), 2.0f);
 
-    const Rect compareRect{ x + 250, y, 60, 40 };
+    const Rectangle compareRect{ x + 250, y, 60, 40 };
     vgc.DrawBorderRect(compareRect, GC( 120, 255, 160, 255 ), 4.0f);
     vgc.StrokeRect(compareRect, GC( 255, 255, 255, 60 ), 1.0f);
 
-    vgc.DrawBorderRoundedRect(Rect{ x + 330, y, 80, 40 }, 10.0f, GC( 180, 160, 255, 255 ), 3.0f);
-    vgc.DrawBorderRoundedRect(Rect{ x + 430, y, 80, 40 }, vg::CornerRadii(2, 12, 2, 12), GC( 255, 180, 220, 255 ), 2.0f);
+    vgc.DrawBorderRoundedRect(Rectangle{ x + 330, y, 80, 40 }, 10.0f, GC( 180, 160, 255, 255 ), 3.0f);
+    vgc.DrawBorderRoundedRect(Rectangle{ x + 430, y, 80, 40 }, vg::CornerRadii(2, 12, 2, 12), GC( 255, 180, 220, 255 ), 2.0f);
 }
 
 void VGSandbox::DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t)
@@ -596,20 +596,20 @@ void VGSandbox::DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t)
 void VGSandbox::DrawSVGDemo(vg::VGContext& vgc, f32 x, f32 y)
 {
     if (HasFonts())
-        vgc.DrawText(u8"SVG Rendering", m_fontMedium, Vec2{ x, y + 16 }, GC( 240, 240, 245, 255 ));
+        vgc.DrawText(u8"SVG Rendering", m_fontMedium, Vector2{ x, y + 16 }, GC( 240, 240, 245, 255 ));
 
     if (m_hasBadge)
     {
-        svg::SVGRenderer::Render(vgc, m_badge, Rect{ x, y + 24, 80, 80 });
-        svg::SVGRenderer::Render(vgc, m_badge, Rect{ x + 90, y + 34, 48, 48 });
-        svg::SVGRenderer::Render(vgc, m_badge, Rect{ x + 148, y + 34, 48, 48 }, Optional<Color>(GC( 255, 120, 80, 255 )));
+        svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x, y + 24, 80, 80 });
+        svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x + 90, y + 34, 48, 48 });
+        svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x + 148, y + 34, 48, 48 }, Optional<Color>(GC( 255, 120, 80, 255 )));
     }
     if (m_hasIcon)
     {
-        svg::SVGRenderer::Render(vgc, m_icon, Rect{ x + 210, y + 30, 56, 56 });
-        svg::SVGRenderer::Render(vgc, m_icon, Rect{ x + 272, y + 38, 40, 40 });
-        svg::SVGRenderer::Render(vgc, m_icon, Rect{ x + 318, y + 46, 28, 28 });
-        svg::SVGRenderer::Render(vgc, m_icon, Rect{ x + 352, y + 50, 20, 20 });
+        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 210, y + 30, 56, 56 });
+        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 272, y + 38, 40, 40 });
+        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 318, y + 46, 28, 28 });
+        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 352, y + 50, 20, 20 });
     }
 }
 

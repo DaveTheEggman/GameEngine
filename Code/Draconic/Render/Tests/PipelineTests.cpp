@@ -74,12 +74,12 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     RefPtr<mat::Material> material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
     ExtractedScene scene;
     MeshRenderData* rd = scene.Add<MeshRenderData>();
-    rd->world = Mat4::Identity(); rd->mesh = cube.Get(); rd->material = material.Get();
+    rd->world = Matrix4::Identity(); rd->mesh = cube.Get(); rd->material = material.Get();
     rd->category = RenderCategories::Opaque;
 
     ViewCamera camera;
-    camera.view       = Mat4::LookAtRH(Vec3{ 0, 0, 5 }, Vec3{ 0, 0, 0 }, Vec3{ 0, 1, 0 });
-    camera.projection = Mat4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    camera.view       = Matrix4::LookAtRH(Vector3{ 0, 0, 5 }, Vector3{ 0, 0, 0 }, Vector3{ 0, 1, 0 });
+    camera.projection = Matrix4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
     ViewSettings settings;
 
     frame.Begin(*h.encoder, 0);
@@ -118,16 +118,16 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     ExtractedScene scene;
     for (int n = 0; n < 8; ++n) {
         MeshRenderData* rd = scene.Add<MeshRenderData>();
-        rd->world = Mat4::Identity();
-        rd->worldCenter = Vec3{ static_cast<f32>(n), 0, 0 };
+        rd->world = Matrix4::Identity();
+        rd->worldCenter = Vector3{ static_cast<f32>(n), 0, 0 };
         rd->color = Color{ static_cast<f32>(n) / 8.0f, 0.5f, 0.5f, 1.0f };
         rd->mesh = cube.Get(); rd->material = material.Get();
         rd->category = RenderCategories::Opaque;
     }
 
     ViewCamera camera;
-    camera.view       = Mat4::LookAtRH(Vec3{ 0, 0, 20 }, Vec3{ 0, 0, 0 }, Vec3{ 0, 1, 0 });
-    camera.projection = Mat4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    camera.view       = Matrix4::LookAtRH(Vector3{ 0, 0, 20 }, Vector3{ 0, 0, 0 }, Vector3{ 0, 1, 0 });
+    camera.projection = Matrix4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
     ViewSettings settings;
 
     frame.Begin(*h.encoder, 0);
@@ -163,13 +163,13 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
             RefPtr<mat::Material> m = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
             mats.PushBack(m);
             MeshRenderData* rd = scene.Add<MeshRenderData>();
-            rd->world = Mat4::Identity(); rd->worldCenter = Vec3{ static_cast<f32>(n), 0, 0 };
+            rd->world = Matrix4::Identity(); rd->worldCenter = Vector3{ static_cast<f32>(n), 0, 0 };
             rd->mesh = cube.Get(); rd->material = m.Get(); rd->category = RenderCategories::Opaque;
         }
 
         ViewCamera camera;
-        camera.view       = Mat4::LookAtRH(Vec3{ 0, 0, 20 }, Vec3{ 0, 0, 0 }, Vec3{ 0, 1, 0 });
-        camera.projection = Mat4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+        camera.view       = Matrix4::LookAtRH(Vector3{ 0, 0, 20 }, Vector3{ 0, 0, 0 }, Vector3{ 0, 1, 0 });
+        camera.projection = Matrix4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
         ViewSettings settings;
 
         // Drive two frames to exercise the per-worker pool ring (reset between frame ring slots).

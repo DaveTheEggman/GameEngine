@@ -25,7 +25,7 @@ TEST_CASE("svg.loader: parses viewBox + shapes")
     CHECK(doc.height == doctest::Approx(100.0f));
     REQUIRE(doc.elements.Size() == 2u);
 
-    CHECK(doc.elements[0].type == SVGElementType::Rect);
+    CHECK(doc.elements[0].type == SVGElementType::Rectangle);
     REQUIRE(doc.elements[0].fillColor.HasValue());
     CHECK(doc.elements[0].fillColor.Value() == Color::Red);
     CHECK(doc.elements[0].path.HasValue());
@@ -68,7 +68,7 @@ TEST_CASE("svg.renderer: renders a document into a VG batch")
     REQUIRE(r.HasValue());
 
     VGContext ctx;
-    SVGRenderer::Render(ctx, r.Value(), Rect{ 0, 0, 200, 200 });
+    SVGRenderer::Render(ctx, r.Value(), Rectangle{ 0, 0, 200, 200 });
 
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
@@ -82,6 +82,6 @@ TEST_CASE("svg.renderer: tint overrides fill")
     REQUIRE(r.HasValue());
 
     VGContext ctx;
-    SVGRenderer::Render(ctx, r.Value(), Rect{ 0, 0, 10, 10 }, Optional<Color>(Color::Blue));
+    SVGRenderer::Render(ctx, r.Value(), Rectangle{ 0, 0, 10, 10 }, Optional<Color>(Color::Blue));
     CHECK(ctx.GetBatch().VertexCount() > 0u);
 }

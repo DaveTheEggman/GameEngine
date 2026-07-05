@@ -43,7 +43,7 @@ public:
     /// Order: Scale -> Rotate -> Translate.
     void updateLocalTransform() {
         // Build scale matrix.
-        Mat4 s = Mat4::Identity();
+        Matrix4 s = Matrix4::Identity();
         s.m[0][0]  = scale.x;
         s.m[1][1]  = scale.y;
         s.m[2][2] = scale.z;
@@ -59,7 +59,7 @@ public:
         f32 wy = rotation.w * rotation.y;
         f32 wz = rotation.w * rotation.z;
 
-        Mat4 r = Mat4::Identity();
+        Matrix4 r = Matrix4::Identity();
         r.m[0][0]  = 1.0f - 2.0f * (yy + zz);
         r.m[0][1]  = 2.0f * (xy + wz);
         r.m[0][2]  = 2.0f * (xz - wy);
@@ -71,7 +71,7 @@ public:
         r.m[2][2] = 1.0f - 2.0f * (xx + yy);
 
         // Build translation matrix.
-        Mat4 t = Mat4::Identity();
+        Matrix4 t = Matrix4::Identity();
         t.m[0][3]  = translation.x;
         t.m[1][3]  = translation.y;
         t.m[2][3] = translation.z;
@@ -89,19 +89,19 @@ public:
     i32 parentIndex = -1;
 
     /// Local transform relative to parent.
-    Mat4 localTransform = Mat4::Identity();
+    Matrix4 localTransform = Matrix4::Identity();
 
     /// Inverse bind matrix for skinning (mesh space -> bone space).
-    Mat4 inverseBindMatrix = Mat4::Identity();
+    Matrix4 inverseBindMatrix = Matrix4::Identity();
 
     /// Translation component of local transform.
-    Vec3 translation{};
+    Vector3 translation{};
 
     /// Rotation component of local transform (quaternion).
-    Quat rotation = Quat::Identity;
+    Quaternion rotation = Quaternion::Identity;
 
     /// Scale component of local transform.
-    Vec3 scale{ 1, 1, 1 };
+    Vector3 scale{ 1, 1, 1 };
 
     /// Mesh index if this node has a mesh (-1 if none).
     i32 meshIndex = -1;

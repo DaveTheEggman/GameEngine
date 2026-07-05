@@ -138,8 +138,8 @@ export namespace draconic::shell
 
         // --- configuration ---
         void SetFit(const rc::ContentFit& fit) noexcept { m_fit = fit; }
-        void SetRegion(rc::Rect region) noexcept        { m_fit.region = region; }
-        void SetContentSize(rc::Vec2 size) noexcept     { m_fit.contentSize = size; }
+        void SetRegion(rc::Rectangle region) noexcept        { m_fit.region = region; }
+        void SetContentSize(rc::Vector2 size) noexcept     { m_fit.contentSize = size; }
         void SetFitMode(rc::FitMode mode) noexcept      { m_fit.mode = mode; }
         [[nodiscard]] const rc::ContentFit& Fit() const noexcept { return m_fit; }
         [[nodiscard]] rc::u32 Window() const noexcept   { return m_window; }
@@ -150,8 +150,8 @@ export namespace draconic::shell
         [[nodiscard]] bool Captured() const noexcept { return m_captured; }
         [[nodiscard]] bool MouseActive() const noexcept { return m_hovered || m_captured; }
 
-        [[nodiscard]] rc::Vec2 ContentMouse() const noexcept { return m_contentMouse; }
-        [[nodiscard]] rc::Vec2 ContentDelta() const noexcept { return m_contentDelta; }
+        [[nodiscard]] rc::Vector2 ContentMouse() const noexcept { return m_contentMouse; }
+        [[nodiscard]] rc::Vector2 ContentDelta() const noexcept { return m_contentDelta; }
 
         // --- transformed + gated device facades ---
         [[nodiscard]] IMouse*    Mouse()    noexcept { return &m_mouse; }
@@ -167,7 +167,7 @@ export namespace draconic::shell
 
         // Called by InputRouter once per frame with this surface's resolved gate.
         void ApplyGate(bool hovered, bool focused, bool captured,
-                       rc::Vec2 contentMouse, rc::Vec2 contentDelta) noexcept
+                       rc::Vector2 contentMouse, rc::Vector2 contentDelta) noexcept
         {
             m_hovered = hovered; m_focused = focused; m_captured = captured;
             m_contentMouse = contentMouse; m_contentDelta = contentDelta;
@@ -181,8 +181,8 @@ export namespace draconic::shell
         rc::ContentFit m_fit;
 
         bool m_hovered = false, m_focused = false, m_captured = false;
-        rc::Vec2 m_contentMouse{ 0, 0 };
-        rc::Vec2 m_contentDelta{ 0, 0 };
+        rc::Vector2 m_contentMouse{ 0, 0 };
+        rc::Vector2 m_contentDelta{ 0, 0 };
 
         SurfaceMouse    m_mouse{ this };
         SurfaceKeyboard m_keyboard{ this };
@@ -328,8 +328,8 @@ export namespace draconic::shell
         void Update()
         {
             IMouse* rawMouse = m_raw->Mouse();
-            const rc::Vec2 pos{ rawMouse->X(), rawMouse->Y() };
-            const rc::Vec2 delta{ rawMouse->DeltaX(), rawMouse->DeltaY() };
+            const rc::Vector2 pos{ rawMouse->X(), rawMouse->Y() };
+            const rc::Vector2 delta{ rawMouse->DeltaX(), rawMouse->DeltaY() };
             const rc::u32  hoverWindow = m_raw->HoverWindow();
 
             // Which surface is under the pointer? Last match wins (topmost added). When an external overlay
@@ -384,18 +384,18 @@ export namespace draconic::shell
                 const bool captured = (s == m_captured);
                 const bool focused  = (s == m_focused);
 
-                rc::Vec2 content = s->ContentMouse();  // keep last if not over this surface
+                rc::Vector2 content = s->ContentMouse();  // keep last if not over this surface
                 if (s->Window() == hoverWindow)
                 {
-                    rc::Vec2 c;
+                    rc::Vector2 c;
                     if (s->Fit().ToContent(pos, c)) { content = c; }
                 }
 
-                rc::Vec2 cdelta{ 0, 0 };
+                rc::Vector2 cdelta{ 0, 0 };
                 if (s == target)
                 {
-                    const rc::Vec2 scale = s->Fit().Scale();
-                    cdelta = rc::Vec2{ delta.x * scale.x, delta.y * scale.y };
+                    const rc::Vector2 scale = s->Fit().Scale();
+                    cdelta = rc::Vector2{ delta.x * scale.x, delta.y * scale.y };
                 }
 
                 s->ApplyGate(hovered, focused, captured, content, cdelta);

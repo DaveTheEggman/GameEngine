@@ -150,9 +150,9 @@ namespace
             // with the cube grids standing on it. Pitch ~28 deg below horizontal (looks toward the
             // scene center). Default camera looks down -Z; rotating about +X by -pitch tilts it down.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, rc::Vec3{ 0.0f, 21.0f, 30.0f });
+            m_scene->SetLocalPosition(m_camera, rc::Vector3{ 0.0f, 21.0f, 30.0f });
             rc::Transform camT = m_scene->GetLocalTransform(m_camera);
-            camT.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -0.48f);
+            camT.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -0.48f);
             m_scene->SetLocalTransform(m_camera, camT);
             if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
                 rd::CameraComponent& cam = cameras->Add(m_camera);   // default 60deg perspective
@@ -163,12 +163,12 @@ namespace
             // above it and cast visible pools on it. The two cube grids stand on the floor.
             if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
                 sc::EntityHandle floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(floor, rc::Vec3{ 0.0f, 0.0f, 0.0f });
+                m_scene->SetLocalPosition(floor, rc::Vector3{ 0.0f, 0.0f, 0.0f });
                 rd::MeshComponent& fmc = meshes->Add(floor);
                 fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
                 // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
                 // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
-                fmc.material = mat::CreatePBR(u8"lit", rc::Vec4{ 0.12f, 0.45f, 0.22f, 1.0f }, 0.0f, 0.45f);
+                fmc.material = mat::CreatePBR(u8"lit", rc::Vector4{ 0.12f, 0.45f, 0.22f, 1.0f }, 0.0f, 0.45f);
 
                 rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -178,10 +178,10 @@ namespace
                 // reference for judging shadow contact / peter-panning (the grids float in the air).
                 constexpr rc::f32 kBoxSize = 2.5f, kFloorY = 0.0f;
                 rc::RefPtr<geo::StaticMesh> box = geo::Primitives::Cube(kBoxSize);
-                rc::RefPtr<mat::Material> boxMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.85f, 0.55f, 0.2f, 1.0f }, 0.0f, 0.5f);
+                rc::RefPtr<mat::Material> boxMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.85f, 0.55f, 0.2f, 1.0f }, 0.0f, 0.5f);
                 for (int k = 0; k < 4; ++k) {
                     sc::EntityHandle b = m_scene->CreateEntity(u8"floorBox");
-                    m_scene->SetLocalPosition(b, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
+                    m_scene->SetLocalPosition(b, rc::Vector3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
                     rd::MeshComponent& bmc = meshes->Add(b);
                     bmc.mesh = box; bmc.material = boxMat;
                 }
@@ -194,10 +194,10 @@ namespace
                 // Metal spheres with INCREASING roughness across the row (0.05 -> 0.59), all fully metallic,
                 // so the probe reflection goes mirror-sharp -> blurry — showcasing the GGX roughness prefilter.
                 for (int k = 0; k < 4; ++k) {
-                    rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.90f, 0.90f, 0.92f, 1.0f },
+                    rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.90f, 0.90f, 0.92f, 1.0f },
                                                                       1.0f, 0.05f + 0.18f * static_cast<rc::f32>(k));
                     sc::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
-                    m_scene->SetLocalPosition(s, rc::Vec3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBallR, 16.0f });
+                    m_scene->SetLocalPosition(s, rc::Vector3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBallR, 16.0f });
                     rd::MeshComponent& smc = meshes->Add(s);
                     smc.mesh = ball; smc.material = ballMat;
                 }
@@ -205,14 +205,14 @@ namespace
                 // Transparent (alpha-blended) spheres hovering in front of the opaque row — exercises the
                 // transparent path: routed to the Transparent category (blend mode), sorted back-to-front,
                 // blended with depth-test/no-write. Base-color alpha (<1) makes them see-through.
-                rc::RefPtr<mat::Material> glassMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.35f, 0.6f, 0.95f, 0.4f }, 0.0f, 0.12f);
+                rc::RefPtr<mat::Material> glassMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.35f, 0.6f, 0.95f, 0.4f }, 0.0f, 0.12f);
                 glassMat->pipeline.blendMode = mat::BlendMode::AlphaBlend;
                 glassMat->pipeline.depthMode = mat::DepthMode::ReadOnly;   // test against opaque depth, don't write
                 for (int k = 0; k < 3; ++k) {
                     sc::EntityHandle g = m_scene->CreateEntity(u8"glassBall");
                     // Moved well off to the left (x ~ -26, outside the probe box) + higher, to isolate them
                     // from the chrome spheres while inspecting reflections.
-                    m_scene->SetLocalPosition(g, rc::Vec3{ -26.0f, kFloorY + 6.0f + 3.0f * static_cast<rc::f32>(k), 16.0f });
+                    m_scene->SetLocalPosition(g, rc::Vector3{ -26.0f, kFloorY + 6.0f + 3.0f * static_cast<rc::f32>(k), 16.0f });
                     rd::MeshComponent& gmc = meshes->Add(g);
                     gmc.mesh = ball; gmc.material = glassMat;
                 }
@@ -221,12 +221,12 @@ namespace
                 // so they render with real holes (opaque where solid, gone where the texture alpha is 0).
                 if (rhi::Device* dev = (host.Graphics() != nullptr) ? host.Graphics()->Raw() : nullptr) {
                     if (rhi::TextureView* cutout = CreateCutoutTexture(*dev)) {
-                        rc::RefPtr<mat::Material> maskMat = mat::CreatePBR(u8"lit", rc::Vec4{ 0.95f, 0.8f, 0.3f, 1.0f }, 0.0f, 0.45f);
+                        rc::RefPtr<mat::Material> maskMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.95f, 0.8f, 0.3f, 1.0f }, 0.0f, 0.45f);
                         maskMat->pipeline.blendMode = mat::BlendMode::Masked;
                         maskMat->SetDefaultTexture(u8"AlbedoMap", cutout);   // alpha holes -> discard
                         for (int k = 0; k < 3; ++k) {
                             sc::EntityHandle m = m_scene->CreateEntity(u8"maskedBall");
-                            m_scene->SetLocalPosition(m, rc::Vec3{ -5.0f + 5.0f * static_cast<rc::f32>(k), kFloorY + 3.5f, 24.0f });
+                            m_scene->SetLocalPosition(m, rc::Vector3{ -5.0f + 5.0f * static_cast<rc::f32>(k), kFloorY + 3.5f, 24.0f });
                             rd::MeshComponent& mmc = meshes->Add(m);
                             mmc.mesh = ball; mmc.material = maskMat;
                         }
@@ -255,7 +255,7 @@ namespace
                         sc::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
                         const rc::f32 fi = static_cast<rc::f32>(i) / (kCols - 1);
                         const rc::f32 fj = static_cast<rc::f32>(j) / (kRows - 1);
-                        const rc::Vec3 base{ -15.0f + 30.0f * fi, 5.5f, -2.0f + 16.0f * fj };  // hover above floor
+                        const rc::Vector3 base{ -15.0f + 30.0f * fi, 5.5f, -2.0f + 16.0f * fj };  // hover above floor
                         m_scene->SetLocalPosition(e, base);
                         rd::LightComponent& pl = lights->Add(e);
                         pl.type = rd::LightType::Point;
@@ -271,9 +271,9 @@ namespace
                 // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
                 // floor (distinct from the directional CSM), packed into the local-shadow atlas.
                 sc::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
-                m_scene->SetLocalPosition(spot, rc::Vec3{ 0.0f, 14.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
+                m_scene->SetLocalPosition(spot, rc::Vector3{ 0.0f, 14.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
                 rc::Transform st = m_scene->GetLocalTransform(spot);
-                st.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
+                st.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
                 m_scene->SetLocalTransform(spot, st);
                 rd::LightComponent& sl = lights->Add(spot);
                 sl.type         = rd::LightType::Spot;
@@ -288,7 +288,7 @@ namespace
                 // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
                 sc::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
-                m_scene->SetLocalPosition(pt, rc::Vec3{ 4.0f, 5.0f, 13.0f });
+                m_scene->SetLocalPosition(pt, rc::Vector3{ 4.0f, 5.0f, 13.0f });
                 rd::LightComponent& pls = lights->Add(pt);
                 pls.type         = rd::LightType::Point;
                 pls.color        = rc::Color{ 0.5f, 1.0f, 0.6f, 1.0f };     // green, distinct from the warm spot
@@ -302,16 +302,16 @@ namespace
             // overlap blend the two by influence weight. Realtime -> round-robin re-captures one per frame.
             if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
                 m_probeEntity = m_scene->CreateEntity(u8"reflectionProbeL");   // left probe (F6/UI toggles this one)
-                m_scene->SetLocalPosition(m_probeEntity, rc::Vec3{ -8.0f, 6.0f, 16.0f });
+                m_scene->SetLocalPosition(m_probeEntity, rc::Vector3{ -8.0f, 6.0f, 16.0f });
                 rd::ReflectionProbeComponent& rpL = probes->Add(m_probeEntity);
-                rpL.halfExtents   = rc::Vec3{ 12.0f, 12.0f, 14.0f };   // covers x[-20,4]
+                rpL.halfExtents   = rc::Vector3{ 12.0f, 12.0f, 14.0f };   // covers x[-20,4]
                 rpL.blendDistance = 4.0f;
                 rpL.update        = rd::ProbeUpdateMode::Realtime;
 
                 sc::EntityHandle probeR = m_scene->CreateEntity(u8"reflectionProbeR");   // right probe
-                m_scene->SetLocalPosition(probeR, rc::Vec3{ 8.0f, 6.0f, 16.0f });
+                m_scene->SetLocalPosition(probeR, rc::Vector3{ 8.0f, 6.0f, 16.0f });
                 rd::ReflectionProbeComponent& rpR = probes->Add(probeR);
-                rpR.halfExtents   = rc::Vec3{ 12.0f, 12.0f, 14.0f };   // covers x[-4,20] -> overlap x[-4,4]
+                rpR.halfExtents   = rc::Vector3{ 12.0f, 12.0f, 14.0f };   // covers x[-4,20] -> overlap x[-4,4]
                 rpR.blendDistance = 4.0f;
                 rpR.update        = rd::ProbeUpdateMode::Realtime;
             }
@@ -351,11 +351,11 @@ namespace
             mi::RegisterModelImporterTypes();   // make the cooked types deserializable
 
             // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
-            SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vec3{ -5.0f, 3.0f, 6.0f });
-            SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vec3{  5.0f, 0.0f, 6.0f });
+            SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vector3{ -5.0f, 3.0f, 6.0f });
+            SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vector3{  5.0f, 0.0f, 6.0f });
             // The Character is driven by an AnimationGraph (a state machine over its clips) rather than a
             // single clip — press G to fire the graph's "Next" trigger and cross-fade to the next state.
-            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vec3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
+            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vector3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
 
             SpawnSpriteDemo();   // billboards (all orientation + blend modes) using the imported logo
             SpawnDecalDemo();    // project the same logo onto the floor (screen-space decal)
@@ -375,13 +375,13 @@ namespace
             sc::EntityHandle e = m_scene->CreateEntity(u8"floorDecal");
             rd::DecalComponent& dc = decals->Add(e);
             dc.texture   = logo;
-            dc.size      = rc::Vec3{ 8.0f, 8.0f, 6.0f };   // 8x8 floor footprint; 6-unit box depth spans y=0
+            dc.size      = rc::Vector3{ 8.0f, 8.0f, 6.0f };   // 8x8 floor footprint; 6-unit box depth spans y=0
             dc.fadeStart = 0.0f;
             dc.fadeEnd   = 1.4f;                           // ~80deg — fully faded on near-vertical surfaces
             // Sit on a clear patch of floor (props start at z>=6) and rotate so +Z projects down.
             rc::Transform t;
-            t.position = rc::Vec3{ 0.0f, 0.0f, -3.0f };
-            t.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, 1.5707963f);   // +90deg about X
+            t.position = rc::Vector3{ 0.0f, 0.0f, -3.0f };
+            t.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, 1.5707963f);   // +90deg about X
             m_scene->SetLocalTransform(e, t);
         }
 
@@ -435,20 +435,20 @@ namespace
                 sc::EntityHandle e = m_scene->CreateEntity(v.name);
                 rd::SpriteComponent& sp = sprites->Add(e);
                 sp.texture     = logo;
-                sp.size        = rc::Vec2{ 3.0f, 3.0f };
+                sp.size        = rc::Vector2{ 3.0f, 3.0f };
                 sp.tint        = v.tint;
                 sp.orientation = v.mode;
                 sp.additive    = v.additive;
                 // Above the cube grids (which top out at y=13) and in front of them (z=-8), so the row
                 // reads as a clear banner over the scene and the billboard modes are easy to compare.
-                m_scene->SetLocalPosition(e, rc::Vec3{ x0 + spacing * static_cast<rc::f32>(i), 16.0f, -8.0f });
+                m_scene->SetLocalPosition(e, rc::Vector3{ x0 + spacing * static_cast<rc::f32>(i), 16.0f, -8.0f });
             }
         }
 
         // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model
         // spawns its node hierarchy (local TRS + parent links) under a scaled model-root entity; mesh
         // nodes get a MeshComponent referencing the cooked StaticMesh + material.
-        void SpawnModel(rc::StringView prefix, rc::StringView path, rc::Vec3 position, bool useGraph = false)
+        void SpawnModel(rc::StringView prefix, rc::StringView path, rc::Vector3 position, bool useGraph = false)
         {
             auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
             if (meshes == nullptr || m_contentDb.Get() == nullptr) { return; }
@@ -466,13 +466,13 @@ namespace
             // Auto-fit: the model-root scales the model's largest extent to a target size (models come in
             // wildly different unit scales — the Duck is ~100 units, the Fox ~150).
             constexpr rc::f32 kTargetSize = 6.0f;
-            const rc::Vec3 extent = model->boundsMax - model->boundsMin;
+            const rc::Vector3 extent = model->boundsMax - model->boundsMin;
             const rc::f32 maxExtent = rc::Max(extent.x, rc::Max(extent.y, extent.z));
             const rc::f32 fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
             sc::EntityHandle modelRoot = m_scene->CreateEntity(prefix);
             rc::Transform rootT;
             rootT.position = position;
-            rootT.scale    = rc::Vec3{ fit, fit, fit };
+            rootT.scale    = rc::Vector3{ fit, fit, fit };
             m_scene->SetLocalTransform(modelRoot, rootT);
 
             // All the model's materials, indexed by SubMesh::materialIndex (= model material index) for
@@ -592,8 +592,8 @@ namespace
         {
             if (m_scene == nullptr || !m_keyLight.IsAssigned()) { return; }
             rc::Transform t = m_scene->GetLocalTransform(m_keyLight);
-            t.rotation = rc::Quat::FromAxisAngle(rc::Vec3{ 0.0f, 1.0f, 0.0f }, m_keyYaw)
-                       * rc::Quat::FromAxisAngle(rc::Vec3{ 1.0f, 0.0f, 0.0f }, m_keyPitch);
+            t.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 0.0f, 1.0f, 0.0f }, m_keyYaw)
+                       * rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, m_keyPitch);
             m_scene->SetLocalTransform(m_keyLight, t);
         }
 
@@ -784,10 +784,10 @@ namespace
             const rc::f32 halfW = w * 0.5f;
 
             if (!m_inputRouter) {
-                rc::ContentFit fitL{ .region = rc::Rect{ 0.0f, 0.0f, halfW, h },
-                                     .contentSize = rc::Vec2{ halfW, h }, .mode = rc::FitMode::Stretch };
-                rc::ContentFit fitR{ .region = rc::Rect{ halfW, 0.0f, w - halfW, h },
-                                     .contentSize = rc::Vec2{ w - halfW, h }, .mode = rc::FitMode::Stretch };
+                rc::ContentFit fitL{ .region = rc::Rectangle{ 0.0f, 0.0f, halfW, h },
+                                     .contentSize = rc::Vector2{ halfW, h }, .mode = rc::FitMode::Stretch };
+                rc::ContentFit fitR{ .region = rc::Rectangle{ halfW, 0.0f, w - halfW, h },
+                                     .contentSize = rc::Vector2{ w - halfW, h }, .mode = rc::FitMode::Stretch };
                 m_surfaceL = rc::MakeUnique<sh::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitL);
                 m_surfaceR = rc::MakeUnique<sh::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitR);
                 m_inputRouter = rc::MakeUnique<sh::InputRouter>(rc::DefaultAllocator(), &input);
@@ -798,10 +798,10 @@ namespace
             }
 
             // Keep regions in sync with the live window size (resize/DPI).
-            m_surfaceL->SetRegion(rc::Rect{ 0.0f, 0.0f, halfW, h });
-            m_surfaceL->SetContentSize(rc::Vec2{ halfW, h });
-            m_surfaceR->SetRegion(rc::Rect{ halfW, 0.0f, w - halfW, h });
-            m_surfaceR->SetContentSize(rc::Vec2{ w - halfW, h });
+            m_surfaceL->SetRegion(rc::Rectangle{ 0.0f, 0.0f, halfW, h });
+            m_surfaceL->SetContentSize(rc::Vector2{ halfW, h });
+            m_surfaceR->SetRegion(rc::Rectangle{ halfW, 0.0f, w - halfW, h });
+            m_surfaceR->SetContentSize(rc::Vector2{ w - halfW, h });
 
             // Let ImGui swallow input it's using this frame (e.g. scrolling the debug window) so the
             // viewport cameras don't also react. WantCapture* are valid after ImGui::NewFrame (above).
@@ -835,10 +835,10 @@ namespace
 
             const rc::u32 halfW  = frame.width / 2;
             const rc::f32 aspect = static_cast<rc::f32>(halfW) / static_cast<rc::f32>(frame.height);
-            auto makeCam = [&](rc::Vec3 eye, rc::Vec3 target) {
+            auto makeCam = [&](rc::Vector3 eye, rc::Vector3 target) {
                 rd::ViewCamera vc;
-                vc.view       = rc::Mat4::LookAtRH(eye, target, rc::Vec3{ 0.0f, 1.0f, 0.0f });
-                vc.projection = rc::Mat4::PerspectiveFovRH(1.0472f, aspect, 0.1f, 1000.0f);
+                vc.view       = rc::Matrix4::LookAtRH(eye, target, rc::Vector3{ 0.0f, 1.0f, 0.0f });
+                vc.projection = rc::Matrix4::PerspectiveFovRH(1.0472f, aspect, 0.1f, 1000.0f);
                 vc.position   = eye;
                 vc.farZ       = 1000.0f;
                 return vc;
@@ -934,7 +934,7 @@ namespace
             // components ticked on the scene's PostUpdate phase) — no per-frame driving here anymore.
 
             m_angle += deltaTime;
-            const rc::Quat spin = rc::Quat::FromAxisAngle(rc::Vec3{ 0.3f, 1.0f, 0.0f }, m_angle);
+            const rc::Quaternion spin = rc::Quaternion::FromAxisAngle(rc::Vector3{ 0.3f, 1.0f, 0.0f }, m_angle);
             for (sc::EntityHandle cube : m_cubes) {
                 rc::Transform t = m_scene->GetLocalTransform(cube);
                 t.rotation = spin;
@@ -946,7 +946,7 @@ namespace
             // group — easy confirmation that pools exist and track the lights) + a gentle Z-bob.
             const rc::f32 sweep = 5.0f * rc::Sin(m_angle * 0.6f);
             for (rc::usize k = 0; k < m_pointLights.Size(); ++k) {
-                rc::Vec3 p = m_lightBases[k];
+                rc::Vector3 p = m_lightBases[k];
                 p.x += sweep;
                 p.z += 0.8f * rc::Sin(m_angle * 1.3f + static_cast<rc::f32>(k) * 0.5f);
                 m_scene->SetLocalPosition(m_pointLights[k], p);
@@ -961,15 +961,15 @@ namespace
                 if (m_showDebugDraw) {
                     auto& dbg = render->DebugScene(*m_scene);
                     for (int k = 0; k < 4; ++k) {
-                        const rc::Vec3 boxC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 10.0f };
-                        dbg.DrawWireBoxCenter(boxC, rc::Vec3{ 1.3f, 1.3f, 1.3f }, rc::Color{ 1.0f, 1.0f, 0.0f, 1.0f });
-                        const rc::Vec3 ballC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 16.0f };
+                        const rc::Vector3 boxC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 10.0f };
+                        dbg.DrawWireBoxCenter(boxC, rc::Vector3{ 1.3f, 1.3f, 1.3f }, rc::Color{ 1.0f, 1.0f, 0.0f, 1.0f });
+                        const rc::Vector3 ballC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 16.0f };
                         dbg.DrawWireSphere(rc::BoundingSphere{ ballC, 1.4f }, rc::Color{ 0.2f, 0.9f, 1.0f, 1.0f });
                     }
-                    dbg.DrawAxis(rc::Mat4::Identity(), 3.0f, /*overlay*/ true);
-                    dbg.DrawGrid(rc::Vec3{ 0.0f, 0.01f, 0.0f }, 60.0f, 30, rc::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
-                    dbg.DrawArrow(rc::Vec3{ 0.0f, 14.0f, 13.0f }, rc::Vec3{ 0.0f, 0.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
-                    dbg.DrawText3D(rc::Vec3{ 0.0f, 0.5f, 0.0f }, rc::StringView(u8"origin"), rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
+                    dbg.DrawAxis(rc::Matrix4::Identity(), 3.0f, /*overlay*/ true);
+                    dbg.DrawGrid(rc::Vector3{ 0.0f, 0.01f, 0.0f }, 60.0f, 30, rc::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
+                    dbg.DrawArrow(rc::Vector3{ 0.0f, 14.0f, 13.0f }, rc::Vector3{ 0.0f, 0.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
+                    dbg.DrawText3D(rc::Vector3{ 0.0f, 0.5f, 0.0f }, rc::StringView(u8"origin"), rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
                     render->DebugScreen().DrawScreenText(12.0f, 12.0f, rc::StringView(u8"Draconic Debug Draw"), rc::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
                 }
 
@@ -1051,7 +1051,7 @@ namespace
             rc::RefPtr<mat::Material> shared;
             if (instanced) {
                 // White base + middling PBR; the per-instance color supplies each cube's hue.
-                shared = mat::CreatePBR(u8"lit", rc::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f }, 0.0f, 0.4f);
+                shared = mat::CreatePBR(u8"lit", rc::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }, 0.0f, 0.4f);
             }
 
             for (int y = 0; y < kGrid; ++y) {
@@ -1059,9 +1059,9 @@ namespace
                     sc::EntityHandle e = m_scene->CreateEntity(u8"cube");
                     const rc::f32 fx = static_cast<rc::f32>(x) - (kGrid - 1) * 0.5f;
                     const rc::f32 fy = static_cast<rc::f32>(y) - (kGrid - 1) * 0.5f;
-                    m_scene->SetLocalPosition(e, rc::Vec3{ originX + fx * kSpacing, fy * kSpacing + 7.0f, 0.0f });
+                    m_scene->SetLocalPosition(e, rc::Vector3{ originX + fx * kSpacing, fy * kSpacing + 7.0f, 0.0f });
 
-                    const rc::Vec4 baseColor{ static_cast<rc::f32>(x) / (kGrid - 1),
+                    const rc::Vector4 baseColor{ static_cast<rc::f32>(x) / (kGrid - 1),
                                               static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
                     rd::MeshComponent& mc = meshes.Add(e);
                     mc.mesh = cube;
@@ -1094,13 +1094,13 @@ namespace
         rc::f32                     m_keyPitch = -1.05f;   // downward tilt (~-60 deg); Environment window slider
         rc::f32                     m_keyYaw   =  0.35f;   // compass heading
         rc::Array<sc::EntityHandle> m_pointLights;
-        rc::Array<rc::Vec3>         m_lightBases;
+        rc::Array<rc::Vector3>         m_lightBases;
         rc::Array<sc::EntityHandle> m_cubes;
         rc::f32                     m_angle = 0.0f;
         rc::f32                     m_fpsSmoothed = 0.0f;   // exponential moving average of 1/deltaTime
         // One fly camera per split view; hovering a view routes input to its camera (no V toggle).
-        smp::FlyCamera              m_flyL{ .position = rc::Vec3{ -6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
-        smp::FlyCamera              m_flyR{ .position = rc::Vec3{  6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
+        smp::FlyCamera              m_flyL{ .position = rc::Vector3{ -6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
+        smp::FlyCamera              m_flyR{ .position = rc::Vector3{  6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
 
         // Viewport-input routing: each split half is an InputSurface (a ContentFit slice of the window);
         // the router picks the hovered surface and gates/transforms input into it. Created lazily once

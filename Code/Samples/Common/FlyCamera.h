@@ -8,7 +8,7 @@
 namespace draconic::samples {
 
 struct FlyCamera {
-    draconic::core::Vec3 position{ 0.0f, 14.0f, 30.0f };
+    draconic::core::Vector3 position{ 0.0f, 14.0f, 30.0f };
     draconic::core::f32  yaw   = 0.0f;       // 0 => looking down -Z
     draconic::core::f32  pitch = -0.3f;      // tilt down a touch
     bool               mouseCaptured = false;
@@ -17,20 +17,20 @@ struct FlyCamera {
     draconic::core::f32  focusDistance = 20.0f;  // pivot distance ahead (Alt+LMB turntable orbit)
     draconic::core::f32  panSensitivity = 0.0015f;   // MMB pan speed (scaled by focus distance)
 
-    [[nodiscard]] draconic::core::Vec3 Up() const {
-        return draconic::core::RotateVector(Rotation(), draconic::core::Vec3{ 0.0f, 1.0f, 0.0f });
+    [[nodiscard]] draconic::core::Vector3 Up() const {
+        return draconic::core::RotateVector(Rotation(), draconic::core::Vector3{ 0.0f, 1.0f, 0.0f });
     }
 
     // Orientation as a quaternion (yaw about world Y, then pitch about local X). Default forward -Z.
-    [[nodiscard]] draconic::core::Quat Rotation() const {
-        return draconic::core::Quat::FromAxisAngle(draconic::core::Vec3{ 0.0f, 1.0f, 0.0f }, yaw)
-             * draconic::core::Quat::FromAxisAngle(draconic::core::Vec3{ 1.0f, 0.0f, 0.0f }, pitch);
+    [[nodiscard]] draconic::core::Quaternion Rotation() const {
+        return draconic::core::Quaternion::FromAxisAngle(draconic::core::Vector3{ 0.0f, 1.0f, 0.0f }, yaw)
+             * draconic::core::Quaternion::FromAxisAngle(draconic::core::Vector3{ 1.0f, 0.0f, 0.0f }, pitch);
     }
-    [[nodiscard]] draconic::core::Vec3 Forward() const {
-        return draconic::core::RotateVector(Rotation(), draconic::core::Vec3{ 0.0f, 0.0f, -1.0f });
+    [[nodiscard]] draconic::core::Vector3 Forward() const {
+        return draconic::core::RotateVector(Rotation(), draconic::core::Vector3{ 0.0f, 0.0f, -1.0f });
     }
-    [[nodiscard]] draconic::core::Vec3 Right() const {
-        return draconic::core::RotateVector(Rotation(), draconic::core::Vec3{ 1.0f, 0.0f, 0.0f });
+    [[nodiscard]] draconic::core::Vector3 Right() const {
+        return draconic::core::RotateVector(Rotation(), draconic::core::Vector3{ 1.0f, 0.0f, 0.0f });
     }
 
     // Convenience overload: drive from the shell's global devices.
@@ -49,7 +49,7 @@ struct FlyCamera {
     void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, draconic::core::f32 dt) {
         namespace rt = draconic::runtime;
         namespace sh = draconic::shell;
-        using draconic::core::Vec3;
+        using draconic::core::Vector3;
         if (kb == nullptr) { return; }
 
         if (mouse != nullptr) {
@@ -62,7 +62,7 @@ struct FlyCamera {
 
             if (alt && mouse->IsButtonDown(sh::MouseButton::Left)) {
                 // Turntable orbit: rotate about the focus point ahead, keeping it fixed.
-                const Vec3 focus = position + Forward() * focusDistance;
+                const Vector3 focus = position + Forward() * focusDistance;
                 yaw   -= mouse->DeltaX() * lookSensitivity;
                 pitch -= mouse->DeltaY() * lookSensitivity;
                 pitch  = draconic::core::Clamp(pitch, -1.55f, 1.55f);
@@ -90,16 +90,16 @@ struct FlyCamera {
             }
         }
 
-        const Vec3 fwd   = Forward();
-        const Vec3 right = Right();
+        const Vector3 fwd   = Forward();
+        const Vector3 right = Right();
         const draconic::core::f32 speed = (kb->IsKeyDown(sh::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
-        Vec3 move{ 0.0f, 0.0f, 0.0f };
+        Vector3 move{ 0.0f, 0.0f, 0.0f };
         if (kb->IsKeyDown(sh::KeyCode::W)) { move = move + fwd; }
         if (kb->IsKeyDown(sh::KeyCode::S)) { move = move - fwd; }
         if (kb->IsKeyDown(sh::KeyCode::D)) { move = move + right; }
         if (kb->IsKeyDown(sh::KeyCode::A)) { move = move - right; }
-        if (kb->IsKeyDown(sh::KeyCode::E)) { move = move + Vec3{ 0.0f, 1.0f, 0.0f }; }
-        if (kb->IsKeyDown(sh::KeyCode::Q)) { move = move - Vec3{ 0.0f, 1.0f, 0.0f }; }
+        if (kb->IsKeyDown(sh::KeyCode::E)) { move = move + Vector3{ 0.0f, 1.0f, 0.0f }; }
+        if (kb->IsKeyDown(sh::KeyCode::Q)) { move = move - Vector3{ 0.0f, 1.0f, 0.0f }; }
         if (draconic::core::Dot(move, move) > 0.0f) { position = position + draconic::core::Normalized(move) * speed; }
     }
 };

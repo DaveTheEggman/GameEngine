@@ -31,7 +31,7 @@ public:
     void setName(StringView n) { m_name = String(n); }
 
     // -- Base color --
-    Vec4 baseColorFactor{ 1, 1, 1, 1 };
+    Vector4 baseColorFactor{ 1, 1, 1, 1 };
     i32  baseColorTextureIndex = -1;
 
     // -- Metallic-Roughness --
@@ -48,7 +48,7 @@ public:
     i32 occlusionTextureIndex = -1;
 
     // -- Emissive --
-    Vec3 emissiveFactor{};
+    Vector3 emissiveFactor{};
     i32  emissiveTextureIndex = -1;
 
     // -- Alpha --

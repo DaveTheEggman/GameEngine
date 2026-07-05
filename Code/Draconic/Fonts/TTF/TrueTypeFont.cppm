@@ -86,7 +86,7 @@ export namespace draconic::fonts
 
                 int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
                 stbtt_GetGlyphBitmapBox(&m_fontInfo, info.glyphIndex, m_scale, m_scale, &x0, &y0, &x1, &y1);
-                info.boundingBox = Rect(static_cast<f32>(x0), static_cast<f32>(y0),
+                info.boundingBox = Rectangle(static_cast<f32>(x0), static_cast<f32>(y0),
                                         static_cast<f32>(x1 - x0), static_cast<f32>(y1 - y0));
                 info.hasBitmap = (x1 - x0) > 0 && (y1 - y0) > 0;
             }

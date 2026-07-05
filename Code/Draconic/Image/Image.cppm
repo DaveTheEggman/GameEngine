@@ -235,7 +235,7 @@ public:
                 const f32 heightDown = Sin(fx * kPi * waveFrequencyX) * amplitude + Sin((fy + 1.0f / static_cast<f32>(height)) * kPi * waveFrequencyY) * amplitude * 0.7f;
                 const f32 dx = heightRight - heightValue;
                 const f32 dy = heightDown - heightValue;
-                image.SetPixel(x, y, EncodeNormal(Normalized(Vec3{ -dx * 20.0f, -dy * 20.0f, 1.0f })));
+                image.SetPixel(x, y, EncodeNormal(Normalized(Vector3{ -dx * 20.0f, -dy * 20.0f, 1.0f })));
             }
         }
         return image;
@@ -262,12 +262,12 @@ public:
                 const bool isVerticalMortar = localX < mortarWidth || localX >= (brickWidth - mortarWidth);
                 const bool isMortar = isHorizontalMortar || isVerticalMortar;
 
-                Vec3 normal;
+                Vector3 normal;
                 if (isMortar) {
-                    normal = Vec3{ 0.0f, 0.0f, 1.0f - mortarDepth * 2.0f };
+                    normal = Vector3{ 0.0f, 0.0f, 1.0f - mortarDepth * 2.0f };
                 } else {
                     const f32 brickVariation = Sin(static_cast<f32>(localX) * 0.2f) * Sin(static_cast<f32>(localY) * 0.15f) * 0.1f;
-                    normal = Vec3{ 0.0f, 0.0f, 1.0f + brickVariation };
+                    normal = Vector3{ 0.0f, 0.0f, 1.0f + brickVariation };
                 }
                 image.SetPixel(x, y, EncodeNormal(Normalized(normal)));
             }
@@ -288,15 +288,15 @@ public:
                 const f32 dy = static_cast<f32>(y) - centerY;
                 const f32 distance = Sqrt(dx * dx + dy * dy);
 
-                Vec3 normal;
+                Vector3 normal;
                 if (distance < maxRadius && distance > 0.001f) {
                     const f32 normalizedDist = distance / maxRadius;
                     const f32 heightDerivative = -falloff * Pow(1.0f - normalizedDist, falloff - 1.0f) * bumpHeight * 3.0f / maxRadius;
                     const f32 nx = (dx / distance) * heightDerivative;
                     const f32 ny = (dy / distance) * heightDerivative;
-                    normal = Normalized(Vec3{ nx, ny, 1.0f });
+                    normal = Normalized(Vector3{ nx, ny, 1.0f });
                 } else {
-                    normal = Vec3{ 0.0f, 0.0f, 1.0f };
+                    normal = Vector3{ 0.0f, 0.0f, 1.0f };
                 }
                 image.SetPixel(x, y, EncodeNormal(normal));
             }
@@ -358,7 +358,7 @@ public:
 
                 const f32 dx = heightR - heightL;
                 const f32 dy = heightD - heightU;
-                image.SetPixel(x, y, EncodeNormal(Normalized(Vec3{ -dx * 8.0f, -dy * 8.0f, 1.0f })));
+                image.SetPixel(x, y, EncodeNormal(Normalized(Vector3{ -dx * 8.0f, -dy * 8.0f, 1.0f })));
             }
         }
         return image;
@@ -371,15 +371,15 @@ public:
                 const f32 fx = static_cast<f32>(x) / static_cast<f32>(width);
                 const f32 fy = static_cast<f32>(y) / static_cast<f32>(height);
 
-                Vec3 normal;
+                Vector3 normal;
                 if (fx < 0.5f && fy < 0.5f) {
-                    normal = Vec3{ 0.0f, 0.0f, 1.0f }; // Top-left: flat.
+                    normal = Vector3{ 0.0f, 0.0f, 1.0f }; // Top-left: flat.
                 } else if (fx >= 0.5f && fy < 0.5f) {
                     const f32 bump = Sin(fx * kPi * 16.0f) * 0.5f; // Top-right: X bumps.
-                    normal = Normalized(Vec3{ bump, 0.0f, 1.0f });
+                    normal = Normalized(Vector3{ bump, 0.0f, 1.0f });
                 } else if (fx < 0.5f && fy >= 0.5f) {
                     const f32 bump = Sin(fy * kPi * 16.0f) * 0.5f; // Bottom-left: Y bumps.
-                    normal = Normalized(Vec3{ 0.0f, bump, 1.0f });
+                    normal = Normalized(Vector3{ 0.0f, bump, 1.0f });
                 } else {
                     const f32 centerX = 0.75f, centerY = 0.75f; // Bottom-right: circular.
                     const f32 dx = fx - centerX;
@@ -387,9 +387,9 @@ public:
                     const f32 dist = Sqrt(dx * dx + dy * dy);
                     if (dist < 0.2f) {
                         const f32 angle = Atan2(dy, dx);
-                        normal = Normalized(Vec3{ Cos(angle) * 0.3f, Sin(angle) * 0.3f, 1.0f });
+                        normal = Normalized(Vector3{ Cos(angle) * 0.3f, Sin(angle) * 0.3f, 1.0f });
                     } else {
-                        normal = Vec3{ 0.0f, 0.0f, 1.0f };
+                        normal = Vector3{ 0.0f, 0.0f, 1.0f };
                     }
                 }
                 image.SetPixel(x, y, EncodeNormal(normal));
@@ -399,15 +399,15 @@ public:
     }
 
     /// Build a normal from neighbouring heights (heightmap -> normal conversion).
-    [[nodiscard]] static Vec3 CalculateNormalFromHeight(f32 heightL, f32 heightR, f32 heightU, f32 heightD, f32 scale = 1.0f) {
+    [[nodiscard]] static Vector3 CalculateNormalFromHeight(f32 heightL, f32 heightR, f32 heightU, f32 heightD, f32 scale = 1.0f) {
         const f32 dx = (heightR - heightL) * scale;
         const f32 dy = (heightD - heightU) * scale;
-        return Normalized(Vec3{ -dx, -dy, 1.0f });
+        return Normalized(Vector3{ -dx, -dy, 1.0f });
     }
 
 private:
     /// Encode a unit normal into a packed RGB color ((n*0.5+0.5)*255), alpha 255.
-    [[nodiscard]] static Color32 EncodeNormal(Vec3 n) {
+    [[nodiscard]] static Color32 EncodeNormal(Vector3 n) {
         return Color32(static_cast<u8>((n.x * 0.5f + 0.5f) * 255.0f),
                        static_cast<u8>((n.y * 0.5f + 0.5f) * 255.0f),
                        static_cast<u8>((n.z * 0.5f + 0.5f) * 255.0f), 255);
