@@ -20,7 +20,7 @@ import draconic.core;
 import draconic.rhi;
 import draconic.runtime.client;     // IApplication, IApplicationHost
 import draconic.shell;   // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
-import draconic.runtime.graphics;   // GraphicsDevice, FrameContext
+import draconic.graphics;   // GraphicsDevice, FrameContext
 import draconic.scene;              // Scene
 import draconic.scene.subsystem;    // SceneSubsystem (the standard scene driver)
 import draconic.render.subsystem;   // RenderSubsystem (the standard renderer)
@@ -30,6 +30,7 @@ import draconic.profiler;           // the CPU scope profiler (P-key dump)
 namespace rhi = draconic::rhi;
 namespace core  = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
+using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 
 export namespace draconic::runtime
 {

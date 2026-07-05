@@ -15,8 +15,8 @@ import draconic.runtime.client;
 import draconic.shell;
 import draconic.runtime.desktop;
 import draconic.shell.desktop;
-import draconic.runtime.graphics;
-import draconic.runtime.graphics.gpu;
+import draconic.graphics;
+import draconic.graphics.gpu;
 import draconic.runtime.defaultapp;     // DefaultApplication (scene + render subsystems)
 import draconic.scene;
 import draconic.scene.subsystem;
@@ -50,6 +50,7 @@ namespace core = draconic::core;
 namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace runtime = draconic::runtime;
+namespace graphics = draconic::graphics;
         namespace shell = draconic::shell;
 namespace scene = draconic::scene;
 namespace render = draconic::render;
@@ -78,9 +79,9 @@ namespace
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU skinning work, not the
         // display refresh — same as RenderStressTest. The image tears; fine for a benchmark.
-        runtime::RenderWindowDesc MainRenderWindow() const override
+        graphics::RenderWindowDesc MainRenderWindow() const override
         {
-            runtime::RenderWindowDesc d;
+            graphics::RenderWindowDesc d;
             d.presentMode = rhi::PresentMode::Immediate;
             return d;
         }
@@ -337,7 +338,7 @@ namespace
 
         // Single full-screen view via the default render path (reads the scene's primary camera).
         // Keep the camera's aspect synced to the backbuffer before delegating.
-        void OnRenderWindow(runtime::IApplicationHost& host, runtime::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
             if (m_scene != nullptr && frame.height > 0) {
                 if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
@@ -524,9 +525,9 @@ namespace
 int main(int, char**)
 {
     auto shell = shell::CreateShell();
-    runtime::GraphicsDeviceDesc gpuDesc{};
-    auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
-    runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
+    graphics::GraphicsDeviceDesc gpuDesc{};
+    auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
+    graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     AnimStressTestApp app;
     return runtime::RunApplication(app, *shell, device);

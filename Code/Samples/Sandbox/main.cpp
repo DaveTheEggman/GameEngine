@@ -13,8 +13,8 @@ import draconic.runtime.client;
 import draconic.shell;
 import draconic.runtime.desktop;
 import draconic.shell.desktop;
-import draconic.runtime.graphics;
-import draconic.runtime.graphics.gpu;
+import draconic.graphics;
+import draconic.graphics.gpu;
 import draconic.runtime.defaultapp;     // DefaultApplication (scene + render subsystems)
 import draconic.scene;
 import draconic.scene.subsystem;
@@ -52,6 +52,7 @@ namespace core = draconic::core;
 namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace runtime = draconic::runtime;
+namespace graphics = draconic::graphics;
 namespace shell = draconic::shell;
 namespace scene = draconic::scene;
 namespace render = draconic::render;
@@ -73,9 +74,9 @@ namespace
     public:
         // Run uncapped (vsync off) so the FPS/frame-ms readout reflects real CPU+GPU cost, not the
         // display refresh — matches AnimStressTest. The image may tear; fine for a dev sandbox.
-        runtime::RenderWindowDesc MainRenderWindow() const override
+        graphics::RenderWindowDesc MainRenderWindow() const override
         {
-            runtime::RenderWindowDesc d;
+            graphics::RenderWindowDesc d;
             d.presentMode = rhi::PresentMode::Immediate;
             return d;
         }
@@ -815,7 +816,7 @@ namespace
         // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
         // editor-shaped path (a view renders to a sampleable/copyable target, not straight to the
         // swapchain). Exercises the full multi-view path + the configurable target final state.
-        void OnRenderWindow(runtime::IApplicationHost& host, runtime::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
             auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>();
             auto* gfx    = host.Graphics();
@@ -1137,9 +1138,9 @@ namespace
 int main(int, char**)
 {
     auto shell = shell::CreateShell();
-    runtime::GraphicsDeviceDesc gpuDesc{};
-    auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
-    runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
+    graphics::GraphicsDeviceDesc gpuDesc{};
+    auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
+    graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     SandboxApp app;
     return runtime::RunApplication(app, *shell, device);

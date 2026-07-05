@@ -5,7 +5,7 @@ add_library(DraconicRuntimeClient STATIC)
 add_library(Draconic::RuntimeClient ALIAS DraconicRuntimeClient)
 
 target_link_libraries(DraconicRuntimeClient
-    PUBLIC Draconic::Runtime Draconic::Shell Draconic::RuntimeGraphics Draconic::Profiler Draconic::Policy)
+    PUBLIC Draconic::Runtime Draconic::Shell Draconic::Graphics Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRuntimeClient
     PUBLIC

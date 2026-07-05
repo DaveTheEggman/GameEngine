@@ -27,11 +27,12 @@ export import :app;   // ApplicationSettings, IApplicationHost, IApplication
 import draconic.core;
 import draconic.runtime;
 import draconic.shell;
-import draconic.runtime.graphics;
+import draconic.graphics;
 import draconic.profiler;
 
 namespace core = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
+using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 
 export namespace draconic::runtime
 {

@@ -11,7 +11,7 @@ endfunction()
 
 # HelloWindow and MultiWindow both present through a GraphicsDevice, so both need
 # the desktop shell + the Vulkan GPU factory.
-if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::RuntimeGraphicsGpu)
+if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::GraphicsGpu)
     add_subdirectory(HelloWindow)
     add_subdirectory(MultiWindow)
     add_subdirectory(Sandbox)            # the dev harness we grow the engine in

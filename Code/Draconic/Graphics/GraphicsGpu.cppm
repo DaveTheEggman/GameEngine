@@ -1,4 +1,4 @@
-// Draconic::RuntimeGraphicsGpu — the `draconic.runtime.graphics.gpu` module.
+// Draconic::GraphicsGpu — the `draconic.graphics.gpu` module.
 //
 // The GPU-backend factory for GraphicsDevice: turns a GraphicsDeviceDesc into a
 // live device on Vulkan or DX12 (validation-wrapped on request), then delegates
@@ -10,7 +10,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.graphics.gpu;
+export module draconic.graphics.gpu;
 
 import draconic.core;
 import draconic.rhi;
@@ -19,13 +19,13 @@ import draconic.rhi.vk;
 import draconic.rhi.dx12;
 #endif
 import draconic.rhi.validation;
-import draconic.runtime.graphics;
-import draconic.runtime.graphics.null;   // Null backend delegation
+import draconic.graphics;
+import draconic.graphics.null;   // Null backend delegation
 
 namespace core = draconic::core;
 namespace rhi = draconic::rhi;
 
-export namespace draconic::runtime
+export namespace draconic::graphics
 {
     // Create a GraphicsDevice for the requested backend. Returns an error if the
     // backend is unavailable (e.g. DX12 off this platform) or bring-up fails.

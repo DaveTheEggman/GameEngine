@@ -16,10 +16,11 @@ export module draconic.runtime.desktop;
 
 import draconic.core;
 import draconic.shell;              // IShell (interface only — the concrete shell is handed in)
-import draconic.runtime.graphics;   // GraphicsDevice (handed to the app)
+import draconic.graphics;   // GraphicsDevice (handed to the app)
 import draconic.runtime.client;     // IApplication + ApplicationHost (the runner drives these)
 
 namespace core = draconic::core;
+using namespace draconic::graphics;   // GraphicsDevice (moved from draconic::runtime)
 
 export namespace draconic::runtime
 {

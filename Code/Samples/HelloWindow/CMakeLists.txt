@@ -9,7 +9,7 @@ target_link_libraries(HelloWindow PRIVATE
     Draconic::Runtime
     Draconic::RuntimeClient
     Draconic::ShellDesktop Draconic::RuntimeDesktop
-    Draconic::RuntimeGraphics
-    Draconic::RuntimeGraphicsGpu
+    Draconic::Graphics
+    Draconic::GraphicsGpu
     Draconic::Policy)
 draconic_copy_sdl3_dll(HelloWindow)

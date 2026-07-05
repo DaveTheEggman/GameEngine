@@ -25,10 +25,11 @@ import draconic.core;
 import draconic.rhi;                // PresentMode for the main window's swapchain
 import draconic.runtime;
 import draconic.shell;
-import draconic.runtime.graphics;
+import draconic.graphics;
 
 namespace core  = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
+using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 namespace rhi = draconic::rhi;
 
 export namespace draconic::runtime

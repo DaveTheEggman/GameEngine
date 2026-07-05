@@ -9,8 +9,8 @@ target_link_libraries(AnimStressTest PRIVATE
     Draconic::Runtime
     Draconic::RuntimeClient
     Draconic::ShellDesktop Draconic::RuntimeDesktop
-    Draconic::RuntimeGraphics
-    Draconic::RuntimeGraphicsGpu
+    Draconic::Graphics
+    Draconic::GraphicsGpu
     Draconic::RuntimeDefaultApp
     Draconic::Scene
     Draconic::SceneSubsystem

@@ -8,7 +8,7 @@ add_library(DraconicRuntimeDefaultApp STATIC)
 add_library(Draconic::RuntimeDefaultApp ALIAS DraconicRuntimeDefaultApp)
 
 target_link_libraries(DraconicRuntimeDefaultApp
-    PUBLIC Draconic::Core Draconic::RHI Draconic::RuntimeClient Draconic::Shell Draconic::RuntimeGraphics
+    PUBLIC Draconic::Core Draconic::RHI Draconic::RuntimeClient Draconic::Shell Draconic::Graphics
            Draconic::Scene Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
            Draconic::Profiler Draconic::Policy)
 

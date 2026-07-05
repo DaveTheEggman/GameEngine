@@ -1,4 +1,4 @@
-// Draconic::RuntimeGraphics — the `draconic.runtime.graphics` module.
+// Draconic::Graphics — the `draconic.graphics` module.
 //
 // The RHI render host, promoted out of the per-sample bring-up code so samples,
 // the UI, and the renderer share one tested path. Two pieces:
@@ -22,7 +22,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.graphics;
+export module draconic.graphics;
 
 import draconic.core;
 import draconic.rhi;
@@ -30,14 +30,14 @@ import draconic.shell;
 // Backend factories live in sibling modules so this core host imports only the
 // base RHI (keeps it GPU-backend-agnostic and avoids importing heavy backend
 // modules into this interface — which GCC's module reader chokes on):
-//   draconic.runtime.graphics.null — CreateNullGraphicsDevice (headless)
-//   draconic.runtime.graphics.gpu  — CreateGraphicsDevice (Vulkan/DX12)
+//   draconic.graphics.null — CreateNullGraphicsDevice (headless)
+//   draconic.graphics.gpu  — CreateGraphicsDevice (Vulkan/DX12)
 
 namespace core = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 namespace rhi = draconic::rhi;
 
-export namespace draconic::runtime
+export namespace draconic::graphics
 {
     // Null is a real headless option (CI / servers / tests) — no GPU required.
     enum class BackendType : core::u8 { Vulkan, DX12, Null };
@@ -187,7 +187,7 @@ export namespace draconic::runtime
         // Build a GraphicsDevice from an already-created backend (takes
         // ownership): enumerate adapters, create the logical device + graphics
         // queue. Backend-agnostic — GPU backends (Vulkan/DX12) are built by the
-        // `draconic.runtime.graphics.gpu` factory, which then calls this. On failure
+        // `draconic.graphics.gpu` factory, which then calls this. On failure
         // the backend is destroyed.
         static core::Result<core::UniquePtr<GraphicsDevice>> FromBackend(
             rhi::Backend* backend, core::u32 framesInFlight, const rhi::DeviceFeatures& features = {})

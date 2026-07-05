@@ -20,9 +20,6 @@ add_subdirectory(Client)
 add_subdirectory(DefaultApp)
 add_subdirectory(Script)
 
-# RHI render host (GraphicsDevice/RenderWindow). Self-guards on the Vulkan RHI.
-add_subdirectory(Graphics)
-
 # Desktop runner (draconic.runtime.desktop): the blocking desktop run loop that drives an
 # IApplication (client) against an IShell (shell) with a GraphicsDevice — depends on all three,
 # so it follows them. Backend-agnostic (works through IShell); its web runner will live alongside.

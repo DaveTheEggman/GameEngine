@@ -8,7 +8,7 @@ add_library(DraconicRuntimeDesktop STATIC)
 add_library(Draconic::RuntimeDesktop ALIAS DraconicRuntimeDesktop)
 
 target_link_libraries(DraconicRuntimeDesktop
-    PUBLIC Draconic::Shell Draconic::RuntimeClient Draconic::RuntimeGraphics Draconic::Policy)
+    PUBLIC Draconic::Shell Draconic::RuntimeClient Draconic::Graphics Draconic::Policy)
 
 target_sources(DraconicRuntimeDesktop
     PUBLIC

@@ -16,11 +16,12 @@ import draconic.runtime.client;
 import draconic.shell;
 import draconic.runtime.desktop;
 import draconic.shell.desktop;
-import draconic.runtime.graphics;
-import draconic.runtime.graphics.gpu;
+import draconic.graphics;
+import draconic.graphics.gpu;
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
+namespace graphics = draconic::graphics;
         namespace shell = draconic::shell;
 namespace rhi = draconic::rhi;
 
@@ -38,11 +39,11 @@ namespace
             ws.title  = u8"Draconic - Detached";
             ws.width  = 480;
             ws.height = 360;
-            m_second = host.OpenWindow(ws, runtime::RenderWindowDesc{});
+            m_second = host.OpenWindow(ws, graphics::RenderWindowDesc{});
             core::ConsoleWrite(u8"MultiWindow: two windows up - close the main window to exit.\n");
         }
 
-        void OnRenderWindow(runtime::IApplicationHost&, runtime::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost&, graphics::FrameContext& frame) override
         {
             // Each window clears to its own color, proving independent per-window
             // presentation through the shared device.
@@ -59,7 +60,7 @@ namespace
         }
 
     private:
-        runtime::RenderWindow* m_second = nullptr;
+        graphics::RenderWindow* m_second = nullptr;
     };
 }
 
@@ -77,10 +78,10 @@ int main(int /*argc*/, char** /*argv*/)
         return 1;
     }
 
-    runtime::GraphicsDeviceDesc gdd;
-    gdd.backend          = runtime::BackendType::Vulkan;
+    graphics::GraphicsDeviceDesc gdd;
+    gdd.backend          = graphics::BackendType::Vulkan;
     gdd.enableValidation = true;
-    auto gpu = runtime::CreateGraphicsDevice(gdd);
+    auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {
         core::ConsoleWrite(u8"MultiWindow: graphics device creation failed.\n");

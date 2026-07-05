@@ -6,13 +6,14 @@ import draconic.core;
 import draconic.runtime;
 import draconic.shell;
 import draconic.shell.null;
-import draconic.runtime.graphics;
-import draconic.runtime.graphics.null;
+import draconic.graphics;
+import draconic.graphics.null;
 import draconic.runtime.client;
 
 using namespace draconic::core;
 using namespace draconic::runtime;
 using namespace draconic::shell;
+using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 
 namespace
 {

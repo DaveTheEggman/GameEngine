@@ -16,7 +16,7 @@ import draconic.core;
 import draconic.rhi;
 import draconic.runtime;             // Subsystem
 import draconic.shell;    // IInputManager / IMouse / IKeyboard / KeyCode / MouseButton
-import draconic.runtime.graphics;    // FrameContext
+import draconic.graphics;    // FrameContext
 import draconic.shaders;
 import draconic.shaders.system;
 import :renderer;
@@ -46,7 +46,7 @@ public:
 
     // Finish the UI frame + render it onto the frame's backbuffer (drawn over the scene). Call after the
     // app has rendered its scene to the backbuffer, before present.
-    void Render(draconic::runtime::FrameContext& frame) {
+    void Render(draconic::graphics::FrameContext& frame) {
         if (!m_ready) { return; }
         if (!m_frameOpen) { ImGui::NewFrame(); }   // keep ImGui balanced even if NewFrame was skipped
         m_frameOpen = false;

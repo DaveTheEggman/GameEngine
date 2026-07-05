@@ -5,7 +5,7 @@
 //   - draconic.runtime.client          (IApplication)
 //   - draconic.runtime.desktop         (RunApplication — the desktop runner)
 //   - draconic.shell.desktop           (CreateShell)
-//   - draconic.runtime.graphics + draconic.runtime.graphics.gpu (the GPU device)
+//   - draconic.graphics + draconic.graphics.gpu (the GPU device)
 // The entry point creates the shell window, a GraphicsDevice (so the window
 // actually presents — without one the window never becomes visible on Wayland),
 // the app, and hands all three to the desktop runner (which drives an
@@ -15,8 +15,8 @@
 //   import draconic.runtime.client;
 //   import draconic.runtime.desktop;
 //   import draconic.shell.desktop;
-//   import draconic.runtime.graphics;
-//   import draconic.runtime.graphics.gpu;
+//   import draconic.graphics;
+//   import draconic.graphics.gpu;
 //   #include "Runtime/Client/AppMain.h"
 //   class MyApp final : public draconic::runtime::IApplication { ... };
 //   DRACONIC_APP_MAIN(MyApp)
@@ -32,9 +32,9 @@
     int main(int /*argc*/, char** /*argv*/)                                           \
     {                                                                                 \
         auto shell = ::draconic::shell::CreateShell();                                \
-        ::draconic::runtime::GraphicsDeviceDesc draconicGpuDesc{};                        \
-        auto draconicGpu = ::draconic::runtime::CreateGraphicsDevice(draconicGpuDesc);      \
-        ::draconic::runtime::GraphicsDevice* draconicDevice =                             \
+        ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                        \
+        auto draconicGpu = ::draconic::graphics::CreateGraphicsDevice(draconicGpuDesc);      \
+        ::draconic::graphics::GraphicsDevice* draconicDevice =                             \
             draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                 \
         AppType app;                                                                  \
         return ::draconic::runtime::RunApplication(app, *shell, draconicDevice);       \

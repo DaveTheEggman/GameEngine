@@ -6,13 +6,13 @@
 #include "Core/Prelude.h"
 
 import draconic.core;
-import draconic.runtime.graphics;
-import draconic.runtime.graphics.null;
+import draconic.graphics;
+import draconic.graphics.null;
 import draconic.shell;
 import draconic.shell.null;
 
 using namespace draconic::core;
-using namespace draconic::runtime;
+using namespace draconic::graphics;   // GraphicsDevice etc. (moved from draconic::runtime)
 using namespace draconic::shell;
 
 TEST_CASE("graphics: GraphicsDevice brings up over the null backend")

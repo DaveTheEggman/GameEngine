@@ -23,8 +23,8 @@ import draconic.runtime.client;
 import draconic.shell;
 import draconic.runtime.desktop;
 import draconic.shell.desktop;
-import draconic.runtime.graphics;
-import draconic.runtime.graphics.gpu;
+import draconic.graphics;
+import draconic.graphics.gpu;
 import draconic.runtime.defaultapp;
 import draconic.scene;
 import draconic.scene.subsystem;
@@ -38,6 +38,7 @@ import draconic.materials;
 namespace core  = draconic::core;
 namespace rhi = draconic::rhi;
 namespace runtime  = draconic::runtime;
+namespace graphics = draconic::graphics;
 namespace shell  = draconic::shell;
 namespace samples = draconic::samples;
 namespace scene  = draconic::scene;
@@ -58,9 +59,9 @@ namespace
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
         // refresh. The numbers tear visually — that's fine for a benchmark. Switch to Fifo to cap.
-        runtime::RenderWindowDesc MainRenderWindow() const override
+        graphics::RenderWindowDesc MainRenderWindow() const override
         {
-            runtime::RenderWindowDesc d;
+            graphics::RenderWindowDesc d;
             d.presentMode = rhi::PresentMode::Immediate;
             return d;
         }
@@ -144,7 +145,7 @@ namespace
 
         // The default render path reads the camera's aspect straight from the component, so keep it in
         // sync with the backbuffer before delegating to DefaultApplication's single-view render.
-        void OnRenderWindow(runtime::IApplicationHost& host, runtime::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
             if (m_scene != nullptr && frame.height > 0) {
                 if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
@@ -463,9 +464,9 @@ namespace
 int main(int, char**)
 {
     auto shell = shell::CreateShell();
-    runtime::GraphicsDeviceDesc gpuDesc{};
-    auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
-    runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
+    graphics::GraphicsDeviceDesc gpuDesc{};
+    auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
+    graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     StressTestApp app;
     return runtime::RunApplication(app, *shell, device);
