@@ -20,11 +20,11 @@ export import :surface;
 
 import draconic.core;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::shell
 {
-    enum class WindowSystem : rc::u8
+    enum class WindowSystem : core::u8
     {
         Unknown,
         Win32,
@@ -49,9 +49,9 @@ export namespace draconic::shell
 
     struct WindowSettings
     {
-        rc::StringView title = u8"Draconic";
-        rc::u32 width = 1280;
-        rc::u32 height = 720;
+        core::StringView title = u8"Draconic";
+        core::u32 width = 1280;
+        core::u32 height = 720;
     };
 
     class IWindow
@@ -61,10 +61,10 @@ export namespace draconic::shell
 
         // Stable per-window id, unique within a shell run. Used to route OS
         // events to the right window and to look windows up. 0 is never a valid id.
-        [[nodiscard]] virtual rc::u32 Id() const noexcept = 0;
+        [[nodiscard]] virtual core::u32 Id() const noexcept = 0;
 
-        [[nodiscard]] virtual rc::u32 Width() const noexcept = 0;
-        [[nodiscard]] virtual rc::u32 Height() const noexcept = 0;
+        [[nodiscard]] virtual core::u32 Width() const noexcept = 0;
+        [[nodiscard]] virtual core::u32 Height() const noexcept = 0;
         // Native handles for RHI surface creation (see NativeWindow).
         [[nodiscard]] virtual NativeWindow Native() const noexcept = 0;
         [[nodiscard]] virtual bool IsOpen() const noexcept = 0;
@@ -79,7 +79,7 @@ export namespace draconic::shell
     // matches the pull-based event model and sidesteps callback lifetime in a
     // -fno-exceptions/-fno-rtti world. The consumer (Application) drains it each
     // frame and reacts (resize that window's swapchain, close it, etc.).
-    enum class WindowEventType : rc::u8
+    enum class WindowEventType : core::u8
     {
         Resized,
         Moved,
@@ -91,11 +91,11 @@ export namespace draconic::shell
     struct WindowEvent
     {
         WindowEventType type = WindowEventType::Resized;
-        rc::u32 windowId = 0;
-        rc::u32 width = 0;   // Resized
-        rc::u32 height = 0;  // Resized
-        rc::i32 x = 0;       // Moved
-        rc::i32 y = 0;       // Moved
+        core::u32 windowId = 0;
+        core::u32 width = 0;   // Resized
+        core::u32 height = 0;  // Resized
+        core::i32 x = 0;       // Moved
+        core::i32 y = 0;       // Moved
     };
 
     // Owns the set of OS windows for a shell run. One manager per shell;
@@ -109,20 +109,20 @@ export namespace draconic::shell
     public:
         virtual ~IWindowManager() = default;
 
-        [[nodiscard]] virtual rc::Result<IWindow*> CreateWindow(const WindowSettings& settings) = 0;
+        [[nodiscard]] virtual core::Result<IWindow*> CreateWindow(const WindowSettings& settings) = 0;
         // Mark a window for destruction at the next FlushDestroyed(). Safe to call
         // mid-frame. No-op if the window is unknown.
         virtual void DestroyWindow(IWindow* window) = 0;
 
         // All currently-live windows (closed-but-not-yet-flushed ones included
         // until FlushDestroyed runs). The main window is Windows()[0] while open.
-        [[nodiscard]] virtual rc::Span<IWindow* const> Windows() noexcept = 0;
+        [[nodiscard]] virtual core::Span<IWindow* const> Windows() noexcept = 0;
         [[nodiscard]] virtual IWindow* MainWindow() noexcept = 0;       // first window, or null
-        [[nodiscard]] virtual IWindow* GetWindow(rc::u32 id) noexcept = 0;
+        [[nodiscard]] virtual IWindow* GetWindow(core::u32 id) noexcept = 0;
 
         // Window events accumulated during the last ProcessEvents() pump. Valid
         // until the next pump. Drained by the runner/Application each frame.
-        [[nodiscard]] virtual rc::Span<const WindowEvent> Events() const noexcept = 0;
+        [[nodiscard]] virtual core::Span<const WindowEvent> Events() const noexcept = 0;
 
         // Free windows marked by DestroyWindow(). Call once per frame, at end,
         // after the GPU has finished the frame that may have used them.

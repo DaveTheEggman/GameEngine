@@ -16,7 +16,7 @@ import draconic.core;
 import draconic.rhi;
 import draconic.shaders;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 namespace rhi = draconic::rhi;
 
 export namespace draconic::shaders {
@@ -35,27 +35,27 @@ public:
     ShaderSystem& operator=(const ShaderSystem&) = delete;
 
     // Register a shader's HLSL source for a stage (owned copy).
-    void RegisterSource(rc::StringView name, ShaderStage stage, rc::StringView hlsl)
+    void RegisterSource(core::StringView name, ShaderStage stage, core::StringView hlsl)
     {
-        m_sources.InsertOrAssign(SourceKey(name, stage), rc::String(hlsl));
+        m_sources.InsertOrAssign(SourceKey(name, stage), core::String(hlsl));
     }
 
     // Include search paths for DXC #include resolution of shared .hlsli (owned).
-    void SetIncludePaths(rc::Span<const rc::StringView> paths)
+    void SetIncludePaths(core::Span<const core::StringView> paths)
     {
         m_includePaths.Clear();
-        for (rc::usize i = 0; i < paths.Size(); ++i) { m_includePaths.PushBack(rc::String(paths[i])); }
+        for (core::usize i = 0; i < paths.Size(); ++i) { m_includePaths.PushBack(core::String(paths[i])); }
     }
 
     // Get (compile-on-demand + cache) the GPU module for a variant. Returns null
     // if the source is unknown or compilation fails (failures are NOT cached, so a
     // later request retries — e.g. after a fix).
-    [[nodiscard]] rhi::ShaderModule* GetVariant(rc::StringView name, ShaderStage stage, ShaderFlags flags)
+    [[nodiscard]] rhi::ShaderModule* GetVariant(core::StringView name, ShaderStage stage, ShaderFlags flags)
     {
         const ShaderVariantKey key{ ShaderNameHash(name), stage, flags };
         if (rhi::ShaderModule** cached = m_cache.Find(key)) { return *cached; }
 
-        rc::String* source = m_sources.Find(SourceKey(name, stage));
+        core::String* source = m_sources.Find(SourceKey(name, stage));
         if (source == nullptr) { return nullptr; }
 
         rhi::ShaderModule* module = Compile(source->AsView(), stage, flags);
@@ -68,10 +68,10 @@ public:
     // Drop + destroy every cached variant of a shader and BUMP its version (the
     // reload signal consumers poll). Call on a shader reload. The next GetVariant
     // recompiles. Returns how many variants were invalidated.
-    rc::usize InvalidateShader(rc::StringView name)
+    core::usize InvalidateShader(core::StringView name)
     {
-        const rc::u64 nameHash = ShaderNameHash(name);
-        rc::Array<ShaderVariantKey> toRemove;
+        const core::u64 nameHash = ShaderNameHash(name);
+        core::Array<ShaderVariantKey> toRemove;
         for (auto& e : m_cache)
         {
             if (e.key.nameHash == nameHash)
@@ -88,29 +88,29 @@ public:
     // Monotonic version of a shader: bumped each InvalidateShader (i.e. each
     // reload). The PSO cache stamps pipelines with this and rebuilds when it
     // changes. 0 if the shader was never registered/invalidated.
-    [[nodiscard]] rc::u64 Version(rc::StringView name) noexcept
+    [[nodiscard]] core::u64 Version(core::StringView name) noexcept
     {
-        rc::u64* v = m_versions.Find(ShaderNameHash(name));
+        core::u64* v = m_versions.Find(ShaderNameHash(name));
         return (v != nullptr) ? *v : 0ull;
     }
 
 private:
-    [[nodiscard]] rhi::ShaderModule* Compile(rc::StringView source, ShaderStage stage, ShaderFlags flags)
+    [[nodiscard]] rhi::ShaderModule* Compile(core::StringView source, ShaderStage stage, ShaderFlags flags)
     {
         const bool isDX12 = (m_device->type == rhi::DeviceType::DX12);
         const ShaderTarget target = isDX12 ? ShaderTarget::DXIL : ShaderTarget::SPIRV;
 
-        rc::Array<ShaderDefine> defines;
+        core::Array<ShaderDefine> defines;
         AppendDefines(flags, defines);
 
-        rc::Array<rc::StringView> includeViews;
-        for (const rc::String& p : m_includePaths) { includeViews.PushBack(p.AsView()); }
+        core::Array<core::StringView> includeViews;
+        for (const core::String& p : m_includePaths) { includeViews.PushBack(p.AsView()); }
 
         CompileOptions opts{};
         opts.shaderModel       = u8"6_0";
         opts.optimizationLevel = 3;
-        opts.defines           = rc::Span<const ShaderDefine>(defines.Data(), defines.Size());
-        opts.includePaths      = rc::Span<const rc::StringView>(includeViews.Data(), includeViews.Size());
+        opts.defines           = core::Span<const ShaderDefine>(defines.Data(), defines.Size());
+        opts.includePaths      = core::Span<const core::StringView>(includeViews.Data(), includeViews.Size());
         if (!isDX12)
         {
             // Vulkan: shift register spaces so HLSL b/t/u/s registers don't collide
@@ -123,11 +123,11 @@ private:
         }
 
         CompileResult cr{};
-        const rc::Status r = m_compiler->compile(
-            reinterpret_cast<const rc::u8*>(source.Data()), source.Size(),
+        const core::Status r = m_compiler->compile(
+            reinterpret_cast<const core::u8*>(source.Data()), source.Size(),
             stage, u8"main", target, opts, cr);
 
-        if (r != rc::ErrorCode::Ok || !cr.success)
+        if (r != core::ErrorCode::Ok || !cr.success)
         {
             if (cr.messages != nullptr) { rhi::LogErrorf("Shader variant compile failed: %s", cr.messages); }
             m_compiler->freeResult(cr);
@@ -135,11 +135,11 @@ private:
         }
 
         rhi::ShaderModuleDesc desc{};
-        desc.code = rc::Span<const rc::u8>(cr.bytecode, cr.bytecodeSize);
+        desc.code = core::Span<const core::u8>(cr.bytecode, cr.bytecodeSize);
         rhi::ShaderModule* module = nullptr;
-        const rc::Status mr = m_device->CreateShaderModule(desc, module);
+        const core::Status mr = m_device->CreateShaderModule(desc, module);
         m_compiler->freeResult(cr);
-        return (mr == rc::ErrorCode::Ok) ? module : nullptr;
+        return (mr == core::ErrorCode::Ok) ? module : nullptr;
     }
 
     void DestroyAll()
@@ -148,24 +148,24 @@ private:
         m_cache.Clear();
     }
 
-    [[nodiscard]] static rc::u64 SourceKey(rc::StringView name, ShaderStage stage) noexcept
+    [[nodiscard]] static core::u64 SourceKey(core::StringView name, ShaderStage stage) noexcept
     {
-        return (ShaderNameHash(name) * 1099511628211ull) ^ static_cast<rc::u64>(stage);
+        return (ShaderNameHash(name) * 1099511628211ull) ^ static_cast<core::u64>(stage);
     }
 
-    void BumpVersion(rc::u64 nameHash)
+    void BumpVersion(core::u64 nameHash)
     {
-        rc::u64* v = m_versions.Find(nameHash);
+        core::u64* v = m_versions.Find(nameHash);
         if (v == nullptr) { m_versions.InsertOrAssign(nameHash, 0ull); v = m_versions.Find(nameHash); }
         ++(*v);
     }
 
     Compiler*    m_compiler;   // borrowed
     rhi::Device* m_device;     // borrowed
-    rc::HashMap<rc::u64, rc::String> m_sources;                  // (name,stage) -> HLSL
-    rc::HashMap<ShaderVariantKey, rhi::ShaderModule*> m_cache;   // variant -> GPU module (owned)
-    rc::HashMap<rc::u64, rc::u64> m_versions;                    // nameHash -> version
-    rc::Array<rc::String> m_includePaths;
+    core::HashMap<core::u64, core::String> m_sources;                  // (name,stage) -> HLSL
+    core::HashMap<ShaderVariantKey, rhi::ShaderModule*> m_cache;   // variant -> GPU module (owned)
+    core::HashMap<core::u64, core::u64> m_versions;                    // nameHash -> version
+    core::Array<core::String> m_includePaths;
 };
 
 } // namespace draconic::shaders

@@ -48,48 +48,48 @@ import draconic.animation;                // AnimationPlayer (drives GPU skinnin
 #define DRACONIC_SANDBOX_OUTPUT_DIR ""
 #endif
 
-namespace rc = draconic::core;
-namespace smp = draconic::samples;
+namespace core = draconic::core;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
-namespace rt = draconic::runtime;
+namespace runtime = draconic::runtime;
 namespace sh = draconic::shell;
 namespace sc = draconic::scene;
-namespace rd = draconic::render;
-namespace geo = draconic::geometry;
-namespace mat = draconic::materials;
+namespace render = draconic::render;
+namespace geometry = draconic::geometry;
+namespace materials = draconic::materials;
 namespace tex = draconic::texture;
 namespace vfs = draconic::vfs;
 namespace ct  = draconic::content;
 namespace res = draconic::resource;
 namespace mdl  = draconic::model;
-namespace mi   = draconic::modelimporter;
-namespace anim = draconic::animation;
-namespace gui = draconic::imgui;
+namespace modelimporter   = draconic::modelimporter;
+namespace animation = draconic::animation;
+namespace imgui = draconic::imgui;
 
 namespace
 {
-    class SandboxApp final : public rt::DefaultApplication
+    class SandboxApp final : public runtime::DefaultApplication
     {
     public:
         // Run uncapped (vsync off) so the FPS/frame-ms readout reflects real CPU+GPU cost, not the
         // display refresh — matches AnimStressTest. The image may tear; fine for a dev sandbox.
-        rt::RenderWindowDesc MainRenderWindow() const override
+        runtime::RenderWindowDesc MainRenderWindow() const override
         {
-            rt::RenderWindowDesc d;
+            runtime::RenderWindowDesc d;
             d.presentMode = rhi::PresentMode::Immediate;
             return d;
         }
 
         // Register the standard subsystems (DefaultApplication) + the ImGui debug UI on top.
-        void Configure(rt::IApplicationHost& host) override
+        void Configure(runtime::IApplicationHost& host) override
         {
-            rt::DefaultApplication::Configure(host);
+            runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
-                host.Ctx().AddSubsystem<gui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
             }
         }
 
-        void OnStartup(rt::IApplicationHost& host) override
+        void OnStartup(runtime::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
             if (scenes == nullptr) { return; }
@@ -99,48 +99,48 @@ namespace
 
             // Per-scene environment: drives IBL (split-sum ambient from a procedural sky) + the flat
             // fallback. The procedural sky's gradient + sun feed the SH9 diffuse + prefiltered specular.
-            if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
-                rd::EnvironmentSettings& e = env->Environment();
-                e.ambientColor     = rc::Color{ 0.12f, 0.16f, 0.28f, 1.0f };   // flat fallback (IBL off)
+            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {
+                render::EnvironmentSettings& e = env->Environment();
+                e.ambientColor     = core::Color{ 0.12f, 0.16f, 0.28f, 1.0f };   // flat fallback (IBL off)
                 e.ambientIntensity = 0.35f;
-                e.skyMode      = rd::SkyMode::Procedural;
+                e.skyMode      = render::SkyMode::Procedural;
                 e.skyIntensity = 0.7f;   // dimmer sky -> less washed-out IBL ambient
-                e.skyHorizon   = rc::Color{ 0.62f, 0.70f, 0.85f, 1.0f };
-                e.skyZenith    = rc::Color{ 0.18f, 0.34f, 0.68f, 1.0f };
-                e.skyGround    = rc::Color{ 0.28f, 0.26f, 0.24f, 1.0f };
+                e.skyHorizon   = core::Color{ 0.62f, 0.70f, 0.85f, 1.0f };
+                e.skyZenith    = core::Color{ 0.18f, 0.34f, 0.68f, 1.0f };
+                e.skyGround    = core::Color{ 0.28f, 0.26f, 0.24f, 1.0f };
                 e.sunIntensity = 1.0f;
             }
 
             // Load an HDR equirectangular environment so F5 can cycle to it (mode starts Procedural).
-            if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                 // Default exposure below 1.0 — the procedural sky + IBL ambient are bright, so the AgX
                 // tonemap washes out at 1.0. Tune live via the Environment window's Exposure slider.
                 render->SetExposure(0.5f);
-                rc::String hdrPath = rc::Format(u8"{}/BlueSky.hdr",
-                    rc::StringView(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
+                core::String hdrPath = core::Format(u8"{}/BlueSky.hdr",
+                    core::StringView(reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
                 draconic::image::Image img;
                 if (draconic::image::io::LoadImage(hdrPath.AsView(), img).IsOk() && img.Format() == draconic::image::PixelFormat::RGBA32F) {
-                    const rc::Span<const rc::u8> px = img.PixelData();
-                    const rc::Span<const rc::f32> rgba{ reinterpret_cast<const rc::f32*>(px.Data()), px.Size() / sizeof(rc::f32) };
+                    const core::Span<const core::u8> px = img.PixelData();
+                    const core::Span<const core::f32> rgba{ reinterpret_cast<const core::f32*>(px.Data()), px.Size() / sizeof(core::f32) };
                     render->SetSkyEquirect(img.Width(), img.Height(), rgba);
-                    rc::ConsoleWrite(rc::Format(u8"Sandbox: loaded HDR sky {}x{} (F5 / Sky Mode combo to use it)\n",
+                    core::ConsoleWrite(core::Format(u8"Sandbox: loaded HDR sky {}x{} (F5 / Sky Mode combo to use it)\n",
                                                 img.Width(), img.Height()).AsView());
                 } else {
-                    rc::ConsoleWrite(rc::Format(u8"Sandbox: FAILED to load HDR sky from {}\n", hdrPath.AsView()).AsView());
+                    core::ConsoleWrite(core::Format(u8"Sandbox: FAILED to load HDR sky from {}\n", hdrPath.AsView()).AsView());
                 }
 
                 // Cubemap source: point at ONE face; the importer detects the other 5 (px/nx/...) and
                 // loads + combines them. (Explicit 6-path LoadCubemap also works.)
-                rc::String oneFace = rc::Format(u8"{}/cube_sky/px.png",
-                    rc::StringView(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
-                rc::Array<rc::String> facePaths;
+                core::String oneFace = core::Format(u8"{}/cube_sky/px.png",
+                    core::StringView(reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
+                core::Array<core::String> facePaths;
                 if (tex::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths).IsOk() && facePaths.Size() == 6) {
-                    rc::StringView faceViews[6];
-                    for (int i = 0; i < 6; ++i) { faceViews[i] = facePaths[static_cast<rc::usize>(i)].AsView(); }
-                    rc::Array<rc::u8> cube; rc::u32 cubeFace = 0;
-                    if (tex::TextureImporter::LoadCubemap(rc::Span<const rc::StringView>{ faceViews, 6 }, cube, cubeFace).IsOk()) {
-                        render->SetSkyCubemap(cubeFace, rc::Span<const rc::u8>{ cube.Data(), cube.Size() });
-                        rc::ConsoleWrite(rc::Format(u8"Sandbox: loaded cubemap sky {}x{} x6\n", cubeFace, cubeFace).AsView());
+                    core::StringView faceViews[6];
+                    for (int i = 0; i < 6; ++i) { faceViews[i] = facePaths[static_cast<core::usize>(i)].AsView(); }
+                    core::Array<core::u8> cube; core::u32 cubeFace = 0;
+                    if (tex::TextureImporter::LoadCubemap(core::Span<const core::StringView>{ faceViews, 6 }, cube, cubeFace).IsOk()) {
+                        render->SetSkyCubemap(cubeFace, core::Span<const core::u8>{ cube.Data(), cube.Size() });
+                        core::ConsoleWrite(core::Format(u8"Sandbox: loaded cubemap sky {}x{} x6\n", cubeFace, cubeFace).AsView());
                     }
                 }
             }
@@ -150,70 +150,70 @@ namespace
             // with the cube grids standing on it. Pitch ~28 deg below horizontal (looks toward the
             // scene center). Default camera looks down -Z; rotating about +X by -pitch tilts it down.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, rc::Vector3{ 0.0f, 21.0f, 30.0f });
-            rc::Transform camT = m_scene->GetLocalTransform(m_camera);
-            camT.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -0.48f);
+            m_scene->SetLocalPosition(m_camera, core::Vector3{ 0.0f, 21.0f, 30.0f });
+            core::Transform camT = m_scene->GetLocalTransform(m_camera);
+            camT.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -0.48f);
             m_scene->SetLocalTransform(m_camera, camT);
-            if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
-                rd::CameraComponent& cam = cameras->Add(m_camera);   // default 60deg perspective
-                cam.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit scene reads
+            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
+                render::CameraComponent& cam = cameras->Add(m_camera);   // default 60deg perspective
+                cam.clearColor = core::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit scene reads
             }
 
             // A large horizontal floor (Plane normal = +Y) under the scene — the point lights hover
             // above it and cast visible pools on it. The two cube grids stand on the floor.
-            if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
+            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
                 sc::EntityHandle floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(floor, rc::Vector3{ 0.0f, 0.0f, 0.0f });
-                rd::MeshComponent& fmc = meshes->Add(floor);
-                fmc.mesh = geo::Primitives::Plane(120.0f, 120.0f);
+                m_scene->SetLocalPosition(floor, core::Vector3{ 0.0f, 0.0f, 0.0f });
+                render::MeshComponent& fmc = meshes->Add(floor);
+                fmc.mesh = geometry::Primitives::Plane(120.0f, 120.0f);
                 // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
                 // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
-                fmc.material = mat::CreatePBR(u8"lit", rc::Vector4{ 0.12f, 0.45f, 0.22f, 1.0f }, 0.0f, 0.45f);
+                fmc.material = materials::CreatePBR(u8"lit", core::Vector4{ 0.12f, 0.45f, 0.22f, 1.0f }, 0.0f, 0.45f);
 
-                rc::RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(0.35f);
+                core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
                 BuildGrid(*meshes, cube, /*originX*/  8.0f, /*instanced*/ false);
 
                 // A row of cubes resting EXACTLY on the floor (bottom face flush at y=-7) — a static
                 // reference for judging shadow contact / peter-panning (the grids float in the air).
-                constexpr rc::f32 kBoxSize = 2.5f, kFloorY = 0.0f;
-                rc::RefPtr<geo::StaticMesh> box = geo::Primitives::Cube(kBoxSize);
-                rc::RefPtr<mat::Material> boxMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.85f, 0.55f, 0.2f, 1.0f }, 0.0f, 0.5f);
+                constexpr core::f32 kBoxSize = 2.5f, kFloorY = 0.0f;
+                core::RefPtr<geometry::StaticMesh> box = geometry::Primitives::Cube(kBoxSize);
+                core::RefPtr<materials::Material> boxMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.85f, 0.55f, 0.2f, 1.0f }, 0.0f, 0.5f);
                 for (int k = 0; k < 4; ++k) {
                     sc::EntityHandle b = m_scene->CreateEntity(u8"floorBox");
-                    m_scene->SetLocalPosition(b, rc::Vector3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
-                    rd::MeshComponent& bmc = meshes->Add(b);
+                    m_scene->SetLocalPosition(b, core::Vector3{ -7.5f + 5.0f * static_cast<core::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
+                    render::MeshComponent& bmc = meshes->Add(b);
                     bmc.mesh = box; bmc.material = boxMat;
                 }
 
                 // Spheres resting ON the floor (bottom flush) — their contact shadow is mostly hidden
                 // under the sphere, so you see only the "half" extending away from the sun (vs the
                 // floating grids, whose full shadow ellipse is visible on the ground).
-                constexpr rc::f32 kBallR = 1.25f;
-                rc::RefPtr<geo::StaticMesh> ball = geo::Primitives::Sphere(kBallR, 24, 12);
+                constexpr core::f32 kBallR = 1.25f;
+                core::RefPtr<geometry::StaticMesh> ball = geometry::Primitives::Sphere(kBallR, 24, 12);
                 // Metal spheres with INCREASING roughness across the row (0.05 -> 0.59), all fully metallic,
                 // so the probe reflection goes mirror-sharp -> blurry — showcasing the GGX roughness prefilter.
                 for (int k = 0; k < 4; ++k) {
-                    rc::RefPtr<mat::Material> ballMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.90f, 0.90f, 0.92f, 1.0f },
-                                                                      1.0f, 0.05f + 0.18f * static_cast<rc::f32>(k));
+                    core::RefPtr<materials::Material> ballMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.90f, 0.90f, 0.92f, 1.0f },
+                                                                      1.0f, 0.05f + 0.18f * static_cast<core::f32>(k));
                     sc::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
-                    m_scene->SetLocalPosition(s, rc::Vector3{ -7.5f + 5.0f * static_cast<rc::f32>(k), kFloorY + kBallR, 16.0f });
-                    rd::MeshComponent& smc = meshes->Add(s);
+                    m_scene->SetLocalPosition(s, core::Vector3{ -7.5f + 5.0f * static_cast<core::f32>(k), kFloorY + kBallR, 16.0f });
+                    render::MeshComponent& smc = meshes->Add(s);
                     smc.mesh = ball; smc.material = ballMat;
                 }
 
                 // Transparent (alpha-blended) spheres hovering in front of the opaque row — exercises the
                 // transparent path: routed to the Transparent category (blend mode), sorted back-to-front,
                 // blended with depth-test/no-write. Base-color alpha (<1) makes them see-through.
-                rc::RefPtr<mat::Material> glassMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.35f, 0.6f, 0.95f, 0.4f }, 0.0f, 0.12f);
-                glassMat->pipeline.blendMode = mat::BlendMode::AlphaBlend;
-                glassMat->pipeline.depthMode = mat::DepthMode::ReadOnly;   // test against opaque depth, don't write
+                core::RefPtr<materials::Material> glassMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.35f, 0.6f, 0.95f, 0.4f }, 0.0f, 0.12f);
+                glassMat->pipeline.blendMode = materials::BlendMode::AlphaBlend;
+                glassMat->pipeline.depthMode = materials::DepthMode::ReadOnly;   // test against opaque depth, don't write
                 for (int k = 0; k < 3; ++k) {
                     sc::EntityHandle g = m_scene->CreateEntity(u8"glassBall");
                     // Moved well off to the left (x ~ -26, outside the probe box) + higher, to isolate them
                     // from the chrome spheres while inspecting reflections.
-                    m_scene->SetLocalPosition(g, rc::Vector3{ -26.0f, kFloorY + 6.0f + 3.0f * static_cast<rc::f32>(k), 16.0f });
-                    rd::MeshComponent& gmc = meshes->Add(g);
+                    m_scene->SetLocalPosition(g, core::Vector3{ -26.0f, kFloorY + 6.0f + 3.0f * static_cast<core::f32>(k), 16.0f });
+                    render::MeshComponent& gmc = meshes->Add(g);
                     gmc.mesh = ball; gmc.material = glassMat;
                 }
 
@@ -221,13 +221,13 @@ namespace
                 // so they render with real holes (opaque where solid, gone where the texture alpha is 0).
                 if (rhi::Device* dev = (host.Graphics() != nullptr) ? host.Graphics()->Raw() : nullptr) {
                     if (rhi::TextureView* cutout = CreateCutoutTexture(*dev)) {
-                        rc::RefPtr<mat::Material> maskMat = mat::CreatePBR(u8"lit", rc::Vector4{ 0.95f, 0.8f, 0.3f, 1.0f }, 0.0f, 0.45f);
-                        maskMat->pipeline.blendMode = mat::BlendMode::Masked;
+                        core::RefPtr<materials::Material> maskMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.95f, 0.8f, 0.3f, 1.0f }, 0.0f, 0.45f);
+                        maskMat->pipeline.blendMode = materials::BlendMode::Masked;
                         maskMat->SetDefaultTexture(u8"AlbedoMap", cutout);   // alpha holes -> discard
                         for (int k = 0; k < 3; ++k) {
                             sc::EntityHandle m = m_scene->CreateEntity(u8"maskedBall");
-                            m_scene->SetLocalPosition(m, rc::Vector3{ -5.0f + 5.0f * static_cast<rc::f32>(k), kFloorY + 3.5f, 24.0f });
-                            rd::MeshComponent& mmc = meshes->Add(m);
+                            m_scene->SetLocalPosition(m, core::Vector3{ -5.0f + 5.0f * static_cast<core::f32>(k), kFloorY + 3.5f, 24.0f });
+                            render::MeshComponent& mmc = meshes->Add(m);
                             mmc.mesh = ball; mmc.material = maskMat;
                         }
                     }
@@ -236,13 +236,13 @@ namespace
 
             // Lights: a dim directional key (down-forward) + a bright point light that orbits the
             // grid in OnUpdate, so the per-light forward shade is visible (moving highlight).
-            if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
+            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                 sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 m_keyLight = key;
                 ApplyKeyLightDir();   // pitch/yaw -> entity rotation (steeper downward tilt by default)
-                rd::LightComponent& kl = lights->Add(key);
-                kl.type = rd::LightType::Directional;
-                kl.color = rc::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
+                render::LightComponent& kl = lights->Add(key);
+                kl.type = render::LightType::Directional;
+                kl.color = core::Color{ 0.4f, 0.5f, 0.7f, 1.0f };
                 kl.intensity = 0.5f;                        // key light: bright enough that its shadow reads
                 kl.castsShadows = true;                     // directional CSM (5.2) + spot (5.3a) + point cube (5.3b)
 
@@ -253,13 +253,13 @@ namespace
                 for (int j = 0; j < kRows; ++j) {
                     for (int i = 0; i < kCols; ++i) {
                         sc::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
-                        const rc::f32 fi = static_cast<rc::f32>(i) / (kCols - 1);
-                        const rc::f32 fj = static_cast<rc::f32>(j) / (kRows - 1);
-                        const rc::Vector3 base{ -15.0f + 30.0f * fi, 5.5f, -2.0f + 16.0f * fj };  // hover above floor
+                        const core::f32 fi = static_cast<core::f32>(i) / (kCols - 1);
+                        const core::f32 fj = static_cast<core::f32>(j) / (kRows - 1);
+                        const core::Vector3 base{ -15.0f + 30.0f * fi, 5.5f, -2.0f + 16.0f * fj };  // hover above floor
                         m_scene->SetLocalPosition(e, base);
-                        rd::LightComponent& pl = lights->Add(e);
-                        pl.type = rd::LightType::Point;
-                        pl.color = rc::Color{ 0.4f + 0.6f * fi, 0.4f + 0.6f * fj, 1.0f - 0.6f * fi, 1.0f };
+                        render::LightComponent& pl = lights->Add(e);
+                        pl.type = render::LightType::Point;
+                        pl.color = core::Color{ 0.4f + 0.6f * fi, 0.4f + 0.6f * fj, 1.0f - 0.6f * fi, 1.0f };
                         pl.intensity = 14.0f;
                         pl.range = 8.0f;                    // floor pool radius ~= sqrt(range^2 - dist^2)
                         m_pointLights.PushBack(e);
@@ -271,27 +271,27 @@ namespace
                 // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
                 // floor (distinct from the directional CSM), packed into the local-shadow atlas.
                 sc::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
-                m_scene->SetLocalPosition(spot, rc::Vector3{ 0.0f, 14.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
-                rc::Transform st = m_scene->GetLocalTransform(spot);
-                st.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
+                m_scene->SetLocalPosition(spot, core::Vector3{ 0.0f, 14.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
+                core::Transform st = m_scene->GetLocalTransform(spot);
+                st.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
                 m_scene->SetLocalTransform(spot, st);
-                rd::LightComponent& sl = lights->Add(spot);
-                sl.type         = rd::LightType::Spot;
-                sl.color        = rc::Color{ 1.0f, 0.92f, 0.78f, 1.0f };   // warm, to contrast the blue key
+                render::LightComponent& sl = lights->Add(spot);
+                sl.type         = render::LightType::Spot;
+                sl.color        = core::Color{ 1.0f, 0.92f, 0.78f, 1.0f };   // warm, to contrast the blue key
                 sl.intensity    = 120.0f;                                  // inverse-square over ~14u to the floor
                 sl.range        = 30.0f;
                 sl.innerAngle   = 0.55f;
                 sl.outerAngle   = 0.75f;                                   // wide cone: cover both the box + sphere rows
                 sl.castsShadows = true;                                     // spot atlas shadow caster (5.3a)
-                sl.shadowUpdate = rd::ShadowUpdateMode::Static;            // static scene -> cached atlas layer (5.4b)
+                sl.shadowUpdate = render::ShadowUpdateMode::Static;            // static scene -> cached atlas layer (5.4b)
 
                 // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
                 sc::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
-                m_scene->SetLocalPosition(pt, rc::Vector3{ 4.0f, 5.0f, 13.0f });
-                rd::LightComponent& pls = lights->Add(pt);
-                pls.type         = rd::LightType::Point;
-                pls.color        = rc::Color{ 0.5f, 1.0f, 0.6f, 1.0f };     // green, distinct from the warm spot
+                m_scene->SetLocalPosition(pt, core::Vector3{ 4.0f, 5.0f, 13.0f });
+                render::LightComponent& pls = lights->Add(pt);
+                pls.type         = render::LightType::Point;
+                pls.color        = core::Color{ 0.5f, 1.0f, 0.6f, 1.0f };     // green, distinct from the warm spot
                 pls.intensity    = 28.0f;
                 pls.range        = 16.0f;
                 pls.castsShadows = true;                                     // point cube atlas caster (5.3b)
@@ -300,25 +300,25 @@ namespace
             // TWO reflection probes, side by side with an overlap in the middle, to show multi-probe blending:
             // each captures from its own center (so their local reflections differ), and fragments in the
             // overlap blend the two by influence weight. Realtime -> round-robin re-captures one per frame.
-            if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
+            if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>()) {
                 m_probeEntity = m_scene->CreateEntity(u8"reflectionProbeL");   // left probe (F6/UI toggles this one)
-                m_scene->SetLocalPosition(m_probeEntity, rc::Vector3{ -8.0f, 6.0f, 16.0f });
-                rd::ReflectionProbeComponent& rpL = probes->Add(m_probeEntity);
-                rpL.halfExtents   = rc::Vector3{ 12.0f, 12.0f, 14.0f };   // covers x[-20,4]
+                m_scene->SetLocalPosition(m_probeEntity, core::Vector3{ -8.0f, 6.0f, 16.0f });
+                render::ReflectionProbeComponent& rpL = probes->Add(m_probeEntity);
+                rpL.halfExtents   = core::Vector3{ 12.0f, 12.0f, 14.0f };   // covers x[-20,4]
                 rpL.blendDistance = 4.0f;
-                rpL.update        = rd::ProbeUpdateMode::Realtime;
+                rpL.update        = render::ProbeUpdateMode::Realtime;
 
                 sc::EntityHandle probeR = m_scene->CreateEntity(u8"reflectionProbeR");   // right probe
-                m_scene->SetLocalPosition(probeR, rc::Vector3{ 8.0f, 6.0f, 16.0f });
-                rd::ReflectionProbeComponent& rpR = probes->Add(probeR);
-                rpR.halfExtents   = rc::Vector3{ 12.0f, 12.0f, 14.0f };   // covers x[-4,20] -> overlap x[-4,4]
+                m_scene->SetLocalPosition(probeR, core::Vector3{ 8.0f, 6.0f, 16.0f });
+                render::ReflectionProbeComponent& rpR = probes->Add(probeR);
+                rpR.halfExtents   = core::Vector3{ 12.0f, 12.0f, 14.0f };   // covers x[-4,20] -> overlap x[-4,4]
                 rpR.blendDistance = 4.0f;
-                rpR.update        = rd::ProbeUpdateMode::Realtime;
+                rpR.update        = render::ProbeUpdateMode::Realtime;
             }
 
             LoadImportedModel(host);   // cook + spawn a glTF model through the resource pipeline
 
-            rc::ConsoleWrite(u8"Sandbox: split-screen — click a half to fly its camera (WASD/QE, Shift fast); "
+            core::ConsoleWrite(u8"Sandbox: split-screen — click a half to fly its camera (WASD/QE, Shift fast); "
                              u8"RMB-drag looks in the hovered half. G cycles the Character graph. Close to exit.\n");
         }
 
@@ -327,17 +327,17 @@ namespace
         // MeshComponents reference the cooked StaticMesh resources. This is the clean runtime cook seam
         // the design calls for — an editor would cook offline and the runtime would only Bind, but the
         // wiring (factory -> Bind -> render) is identical.
-        void LoadImportedModel(rt::IApplicationHost& host)
+        void LoadImportedModel(runtime::IApplicationHost& host)
         {
-            const rc::StringView outputDir(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_OUTPUT_DIR));
-            const rc::StringView modelDir(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_MODEL_DIR));
+            const core::StringView outputDir(reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_OUTPUT_DIR));
+            const core::StringView modelDir(reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_MODEL_DIR));
             if (outputDir.IsEmpty() || modelDir.IsEmpty()) { return; }
 
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
-            m_contentFs = rc::MakeUnique<vfs::NativeFileSystem>(rc::DefaultAllocator(), outputDir);
-            m_contentDb = rc::MakeUnique<ct::ContentDatabase>(rc::DefaultAllocator(), *m_contentFs);
-            m_resources = rc::MakeUnique<res::ResourceManager>(rc::DefaultAllocator(), *m_contentDb);
+            m_contentFs = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
+            m_contentDb = core::MakeUnique<ct::ContentDatabase>(core::DefaultAllocator(), *m_contentFs);
+            m_resources = core::MakeUnique<res::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
@@ -345,17 +345,17 @@ namespace
             m_resources->AddFactory(&m_skeletonFactory);
             m_resources->AddFactory(&m_clipFactory);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
-                m_textureFactory = rc::MakeUnique<tex::TextureFactory>(rc::DefaultAllocator(), *gfx->Raw());
+                m_textureFactory = core::MakeUnique<tex::TextureFactory>(core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
-            mi::RegisterModelImporterTypes();   // make the cooked types deserializable
+            modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
 
             // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
-            SpawnModel(u8"Duck", rc::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), rc::Vector3{ -5.0f, 3.0f, 6.0f });
-            SpawnModel(u8"Fox",  rc::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), rc::Vector3{  5.0f, 0.0f, 6.0f });
+            SpawnModel(u8"Duck", core::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), core::Vector3{ -5.0f, 3.0f, 6.0f });
+            SpawnModel(u8"Fox",  core::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), core::Vector3{  5.0f, 0.0f, 6.0f });
             // The Character is driven by an AnimationGraph (a state machine over its clips) rather than a
             // single clip — press G to fire the graph's "Next" trigger and cross-fade to the next state.
-            SpawnModel(u8"Char", rc::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), rc::Vector3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
+            SpawnModel(u8"Char", core::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), core::Vector3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
 
             SpawnSpriteDemo();   // billboards (all orientation + blend modes) using the imported logo
             SpawnDecalDemo();    // project the same logo onto the floor (screen-space decal)
@@ -367,21 +367,21 @@ namespace
         void SpawnDecalDemo()
         {
             if (m_scene == nullptr) { return; }
-            auto* decals = m_scene->GetSystem<rd::DecalComponentManager>();
+            auto* decals = m_scene->GetSystem<render::DecalComponentManager>();
             if (decals == nullptr) { return; }
             rhi::TextureView* logo = m_logoTex ? m_logoTex->View() : LoadLogoTexture();
             if (logo == nullptr) { return; }
 
             sc::EntityHandle e = m_scene->CreateEntity(u8"floorDecal");
-            rd::DecalComponent& dc = decals->Add(e);
+            render::DecalComponent& dc = decals->Add(e);
             dc.texture   = logo;
-            dc.size      = rc::Vector3{ 8.0f, 8.0f, 6.0f };   // 8x8 floor footprint; 6-unit box depth spans y=0
+            dc.size      = core::Vector3{ 8.0f, 8.0f, 6.0f };   // 8x8 floor footprint; 6-unit box depth spans y=0
             dc.fadeStart = 0.0f;
             dc.fadeEnd   = 1.4f;                           // ~80deg — fully faded on near-vertical surfaces
             // Sit on a clear patch of floor (props start at z>=6) and rotate so +Z projects down.
-            rc::Transform t;
-            t.position = rc::Vector3{ 0.0f, 0.0f, -3.0f };
-            t.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, 1.5707963f);   // +90deg about X
+            core::Transform t;
+            t.position = core::Vector3{ 0.0f, 0.0f, -3.0f };
+            t.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, 1.5707963f);   // +90deg about X
             m_scene->SetLocalTransform(e, t);
         }
 
@@ -390,7 +390,7 @@ namespace
         [[nodiscard]] rhi::TextureView* LoadLogoTexture()
         {
             if (m_resources.Get() == nullptr || m_textureFactory.Get() == nullptr) { return nullptr; }
-            const rc::StringView imageDir(reinterpret_cast<const rc::utf8char*>(DRACONIC_SANDBOX_IMAGE_DIR));
+            const core::StringView imageDir(reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_IMAGE_DIR));
 
             tex::TextureAsset asset;
             tex::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
@@ -415,102 +415,102 @@ namespace
         void SpawnSpriteDemo()
         {
             if (m_scene == nullptr) { return; }
-            auto* sprites = m_scene->GetSystem<rd::SpriteComponentManager>();
+            auto* sprites = m_scene->GetSystem<render::SpriteComponentManager>();
             if (sprites == nullptr) { return; }
             rhi::TextureView* logo = LoadLogoTexture();
-            if (logo == nullptr) { rc::ConsoleWrite(u8"Sandbox: sprite demo skipped (logo import failed)\n"); return; }
+            if (logo == nullptr) { core::ConsoleWrite(u8"Sandbox: sprite demo skipped (logo import failed)\n"); return; }
 
-            struct Variant { const char8_t* name; rc::u32 mode; bool additive; rc::Color tint; };
+            struct Variant { const char8_t* name; core::u32 mode; bool additive; core::Color tint; };
             const Variant variants[] = {
-                { u8"spriteFace",   0u, false, rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing
-                { u8"spriteFaceY",  1u, false, rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing about Y
-                { u8"spriteWorld",  2u, false, rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // world-aligned XY
-                { u8"spriteAdd",    0u, true,  rc::Color{ 2.6f, 2.2f, 1.4f, 1.0f } },   // additive glow (HDR tint so it reads over the bright scene)
-                { u8"spriteTint",   0u, false, rc::Color{ 0.4f, 0.9f, 1.0f, 1.0f } },   // tinted cyan
+                { u8"spriteFace",   0u, false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing
+                { u8"spriteFaceY",  1u, false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing about Y
+                { u8"spriteWorld",  2u, false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // world-aligned XY
+                { u8"spriteAdd",    0u, true,  core::Color{ 2.6f, 2.2f, 1.4f, 1.0f } },   // additive glow (HDR tint so it reads over the bright scene)
+                { u8"spriteTint",   0u, false, core::Color{ 0.4f, 0.9f, 1.0f, 1.0f } },   // tinted cyan
             };
-            const rc::f32 spacing = 4.5f;
-            const rc::f32 x0 = -0.5f * spacing * static_cast<rc::f32>((sizeof(variants) / sizeof(variants[0])) - 1);
-            for (rc::usize i = 0; i < sizeof(variants) / sizeof(variants[0]); ++i) {
+            const core::f32 spacing = 4.5f;
+            const core::f32 x0 = -0.5f * spacing * static_cast<core::f32>((sizeof(variants) / sizeof(variants[0])) - 1);
+            for (core::usize i = 0; i < sizeof(variants) / sizeof(variants[0]); ++i) {
                 const Variant& v = variants[i];
                 sc::EntityHandle e = m_scene->CreateEntity(v.name);
-                rd::SpriteComponent& sp = sprites->Add(e);
+                render::SpriteComponent& sp = sprites->Add(e);
                 sp.texture     = logo;
-                sp.size        = rc::Vector2{ 3.0f, 3.0f };
+                sp.size        = core::Vector2{ 3.0f, 3.0f };
                 sp.tint        = v.tint;
                 sp.orientation = v.mode;
                 sp.additive    = v.additive;
                 // Above the cube grids (which top out at y=13) and in front of them (z=-8), so the row
                 // reads as a clear banner over the scene and the billboard modes are easy to compare.
-                m_scene->SetLocalPosition(e, rc::Vector3{ x0 + spacing * static_cast<rc::f32>(i), 16.0f, -8.0f });
+                m_scene->SetLocalPosition(e, core::Vector3{ x0 + spacing * static_cast<core::f32>(i), 16.0f, -8.0f });
             }
         }
 
         // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model
         // spawns its node hierarchy (local TRS + parent links) under a scaled model-root entity; mesh
         // nodes get a MeshComponent referencing the cooked StaticMesh + material.
-        void SpawnModel(rc::StringView prefix, rc::StringView path, rc::Vector3 position, bool useGraph = false)
+        void SpawnModel(core::StringView prefix, core::StringView path, core::Vector3 position, bool useGraph = false)
         {
-            auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
             if (meshes == nullptr || m_contentDb.Get() == nullptr) { return; }
 
-            rc::Guid modelGuid;
-            const mdl::ModelLoadResult r = mi::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+            core::Guid modelGuid;
+            const mdl::ModelLoadResult r = modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
             if (r != mdl::ModelLoadResult::Ok) {
-                rc::ConsoleWrite(rc::Format(u8"Sandbox: model import failed ({}) for {}\n",
-                                            static_cast<rc::u32>(r), prefix));
+                core::ConsoleWrite(core::Format(u8"Sandbox: model import failed ({}) for {}\n",
+                                            static_cast<core::u32>(r), prefix));
                 return;
             }
-            res::Proxy<mi::ModelResource> model = m_resources->Bind<mi::ModelResource>(modelGuid);
-            if (!model) { rc::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
+            res::Proxy<modelimporter::ModelResource> model = m_resources->Bind<modelimporter::ModelResource>(modelGuid);
+            if (!model) { core::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
 
             // Auto-fit: the model-root scales the model's largest extent to a target size (models come in
             // wildly different unit scales — the Duck is ~100 units, the Fox ~150).
-            constexpr rc::f32 kTargetSize = 6.0f;
-            const rc::Vector3 extent = model->boundsMax - model->boundsMin;
-            const rc::f32 maxExtent = rc::Max(extent.x, rc::Max(extent.y, extent.z));
-            const rc::f32 fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
+            constexpr core::f32 kTargetSize = 6.0f;
+            const core::Vector3 extent = model->boundsMax - model->boundsMin;
+            const core::f32 maxExtent = core::Max(extent.x, core::Max(extent.y, extent.z));
+            const core::f32 fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
             sc::EntityHandle modelRoot = m_scene->CreateEntity(prefix);
-            rc::Transform rootT;
+            core::Transform rootT;
             rootT.position = position;
-            rootT.scale    = rc::Vector3{ fit, fit, fit };
+            rootT.scale    = core::Vector3{ fit, fit, fit };
             m_scene->SetLocalTransform(modelRoot, rootT);
 
             // All the model's materials, indexed by SubMesh::materialIndex (= model material index) for
             // per-submesh (multi-material) rendering. The resource manager keeps them alive via m_models.
-            rc::Array<rc::RefPtr<mat::Material>> modelMats;
+            core::Array<core::RefPtr<materials::Material>> modelMats;
             modelMats.Reserve(model->materials.Size());
-            for (auto& mp : model->materials) { modelMats.PushBack(rc::RefPtr<mat::Material>(mp.Get())); }
+            for (auto& mp : model->materials) { modelMats.PushBack(core::RefPtr<materials::Material>(mp.Get())); }
 
-            rc::Array<sc::EntityHandle> entities;
-            rc::Array<sc::EntityHandle> skinnedEntities;
+            core::Array<sc::EntityHandle> entities;
+            core::Array<sc::EntityHandle> skinnedEntities;
             entities.Reserve(model->nodes.Size());
-            for (const mi::ModelNode& node : model->nodes) {
+            for (const modelimporter::ModelNode& node : model->nodes) {
                 sc::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
                 entities.PushBack(e);
             }
-            for (rc::usize i = 0; i < model->nodes.Size(); ++i) {
-                const mi::ModelNode& node = model->nodes[i];
-                if (node.parentIndex >= 0 && static_cast<rc::usize>(node.parentIndex) < entities.Size()) {
-                    m_scene->SetParent(entities[i], entities[static_cast<rc::usize>(node.parentIndex)]);
+            for (core::usize i = 0; i < model->nodes.Size(); ++i) {
+                const modelimporter::ModelNode& node = model->nodes[i];
+                if (node.parentIndex >= 0 && static_cast<core::usize>(node.parentIndex) < entities.Size()) {
+                    m_scene->SetParent(entities[i], entities[static_cast<core::usize>(node.parentIndex)]);
                 } else {
                     m_scene->SetParent(entities[i], modelRoot);   // top-level node -> the scaled model root
                 }
-                if (node.meshIndex < 0 || static_cast<rc::usize>(node.meshIndex) >= model->meshes.Size()) { continue; }
-                geo::StaticMesh* mesh = model->meshes[static_cast<rc::usize>(node.meshIndex)].Get();
+                if (node.meshIndex < 0 || static_cast<core::usize>(node.meshIndex) >= model->meshes.Size()) { continue; }
+                geometry::StaticMesh* mesh = model->meshes[static_cast<core::usize>(node.meshIndex)].Get();
                 if (mesh == nullptr) { continue; }
-                rd::MeshComponent& mc = meshes->Add(entities[i]);
-                mc.mesh  = rc::RefPtr<geo::StaticMesh>(mesh);   // hold a ref (manager owns the handle)
-                mc.color = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+                render::MeshComponent& mc = meshes->Add(entities[i]);
+                mc.mesh  = core::RefPtr<geometry::StaticMesh>(mesh);   // hold a ref (manager owns the handle)
+                mc.color = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 
                 // Per-submesh materials (the mesh's submeshes index modelMats); + a single-material
                 // fallback (first submesh's material) for the whole-mesh path.
                 mc.submeshMaterials = modelMats;
-                const rc::i32 matIdx = (static_cast<rc::usize>(node.meshIndex) < model->meshMaterial.Size())
-                                           ? model->meshMaterial[static_cast<rc::usize>(node.meshIndex)] : -1;
-                if (matIdx >= 0 && static_cast<rc::usize>(matIdx) < model->materials.Size()) {
-                    if (mat::Material* material = model->materials[static_cast<rc::usize>(matIdx)].Get()) {
-                        mc.material = rc::RefPtr<mat::Material>(material);
+                const core::i32 matIdx = (static_cast<core::usize>(node.meshIndex) < model->meshMaterial.Size())
+                                           ? model->meshMaterial[static_cast<core::usize>(node.meshIndex)] : -1;
+                if (matIdx >= 0 && static_cast<core::usize>(matIdx) < model->materials.Size()) {
+                    if (materials::Material* material = model->materials[static_cast<core::usize>(matIdx)].Get()) {
+                        mc.material = core::RefPtr<materials::Material>(material);
                     }
                 }
                 if (mesh->IsSkinned()) { skinnedEntities.PushBack(entities[i]); }
@@ -525,20 +525,20 @@ namespace
             if (model->skeleton && model->animations.Size() > 0 && model->animations[0] &&
                 skinnedEntities.Size() > 0) {
                 if (useGraph) {
-                    if (auto* graphMgr = m_scene->GetSystem<anim::AnimationGraphComponentManager>()) {
-                        rc::RefPtr<anim::AnimationGraph> graph = BuildClipCyclerGraph(*model);
-                        anim::AnimationGraphComponent& gc = graphMgr->Add(modelRoot);
+                    if (auto* graphMgr = m_scene->GetSystem<animation::AnimationGraphComponentManager>()) {
+                        core::RefPtr<animation::AnimationGraph> graph = BuildClipCyclerGraph(*model);
+                        animation::AnimationGraphComponent& gc = graphMgr->Add(modelRoot);
                         gc.skeleton     = model->skeleton.Get();
                         gc.graph        = graph.Get();
-                        gc.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
-                        m_graphs.PushBack(static_cast<rc::RefPtr<anim::AnimationGraph>&&>(graph));   // keep alive
+                        gc.meshEntities = static_cast<core::Array<sc::EntityHandle>&&>(skinnedEntities);
+                        m_graphs.PushBack(static_cast<core::RefPtr<animation::AnimationGraph>&&>(graph));   // keep alive
                         m_graphChar = modelRoot;                                                     // G drives this one
                     }
-                } else if (auto* skelMgr = m_scene->GetSystem<anim::SkeletalAnimationComponentManager>()) {
-                    anim::SkeletalAnimationComponent& sa = skelMgr->Add(modelRoot);
+                } else if (auto* skelMgr = m_scene->GetSystem<animation::SkeletalAnimationComponentManager>()) {
+                    animation::SkeletalAnimationComponent& sa = skelMgr->Add(modelRoot);
                     sa.skeleton     = model->skeleton.Get();
                     sa.clip         = model->animations[0].Get();
-                    sa.meshEntities = static_cast<rc::Array<sc::EntityHandle>&&>(skinnedEntities);
+                    sa.meshEntities = static_cast<core::Array<sc::EntityHandle>&&>(skinnedEntities);
                 }
             }
         }
@@ -546,30 +546,30 @@ namespace
         // Build a simple state-machine graph over a model's clips: one Clip state per animation, plus a
         // "Next" trigger that cross-fades each state to the following one (wrapping). Demonstrates the
         // AnimationGraph machinery (states, transitions, parameters, cross-fades) without authored data.
-        rc::RefPtr<anim::AnimationGraph> BuildClipCyclerGraph(mi::ModelResource& model)
+        core::RefPtr<animation::AnimationGraph> BuildClipCyclerGraph(modelimporter::ModelResource& model)
         {
-            rc::RefPtr<anim::AnimationGraph> graph = rc::MakeRef<anim::AnimationGraph>(rc::DefaultAllocator());
-            const rc::i32 nextParam = graph->AddParameter(u8"Next", anim::AnimationParameterType::Trigger);
+            core::RefPtr<animation::AnimationGraph> graph = core::MakeRef<animation::AnimationGraph>(core::DefaultAllocator());
+            const core::i32 nextParam = graph->AddParameter(u8"Next", animation::AnimationParameterType::Trigger);
 
-            auto layer = rc::MakeUnique<anim::AnimationLayer>(rc::DefaultAllocator(), rc::StringView(u8"Base"));
-            const rc::i32 clipCount = static_cast<rc::i32>(model.animations.Size());
-            for (rc::i32 i = 0; i < clipCount; ++i) {
-                anim::AnimationClip* clip = model.animations[static_cast<rc::usize>(i)].Get();
-                auto state = rc::MakeUnique<anim::AnimationGraphState>(
-                    rc::DefaultAllocator(), clip != nullptr ? clip->Name().AsView() : rc::StringView(u8"State"),
-                    rc::MakeUnique<anim::ClipStateNode>(rc::DefaultAllocator(), clip));
-                layer->AddState(static_cast<rc::UniquePtr<anim::AnimationGraphState>&&>(state));
+            auto layer = core::MakeUnique<animation::AnimationLayer>(core::DefaultAllocator(), core::StringView(u8"Base"));
+            const core::i32 clipCount = static_cast<core::i32>(model.animations.Size());
+            for (core::i32 i = 0; i < clipCount; ++i) {
+                animation::AnimationClip* clip = model.animations[static_cast<core::usize>(i)].Get();
+                auto state = core::MakeUnique<animation::AnimationGraphState>(
+                    core::DefaultAllocator(), clip != nullptr ? clip->Name().AsView() : core::StringView(u8"State"),
+                    core::MakeUnique<animation::ClipStateNode>(core::DefaultAllocator(), clip));
+                layer->AddState(static_cast<core::UniquePtr<animation::AnimationGraphState>&&>(state));
             }
             // state[i] --Next--> state[(i+1) % N], cross-fading over 0.25s.
-            for (rc::i32 i = 0; i < clipCount; ++i) {
-                auto t = rc::MakeUnique<anim::AnimationGraphTransition>(rc::DefaultAllocator());
+            for (core::i32 i = 0; i < clipCount; ++i) {
+                auto t = core::MakeUnique<animation::AnimationGraphTransition>(core::DefaultAllocator());
                 t->sourceStateIndex = i;
                 t->destStateIndex   = (i + 1) % clipCount;
                 t->duration         = 0.25f;
                 t->AddBoolCondition(nextParam, true);
-                layer->AddTransition(static_cast<rc::UniquePtr<anim::AnimationGraphTransition>&&>(t));
+                layer->AddTransition(static_cast<core::UniquePtr<animation::AnimationGraphTransition>&&>(t));
             }
-            graph->AddLayer(static_cast<rc::UniquePtr<anim::AnimationLayer>&&>(layer));
+            graph->AddLayer(static_cast<core::UniquePtr<animation::AnimationLayer>&&>(layer));
             return graph;
         }
 
@@ -579,10 +579,10 @@ namespace
         void FireGraphNext()
         {
             if (m_scene == nullptr || !m_graphChar.IsAssigned()) { return; }
-            auto* graphMgr = m_scene->GetSystem<anim::AnimationGraphComponentManager>();
+            auto* graphMgr = m_scene->GetSystem<animation::AnimationGraphComponentManager>();
             if (graphMgr == nullptr) { return; }
-            if (anim::AnimationGraphComponent* gc = graphMgr->Get(m_graphChar)) {
-                if (gc->player.Get() != nullptr) { gc->player->SetTrigger(rc::StringView(u8"Next")); }
+            if (animation::AnimationGraphComponent* gc = graphMgr->Get(m_graphChar)) {
+                if (gc->player.Get() != nullptr) { gc->player->SetTrigger(core::StringView(u8"Next")); }
             }
         }
 
@@ -591,9 +591,9 @@ namespace
         void ApplyKeyLightDir()
         {
             if (m_scene == nullptr || !m_keyLight.IsAssigned()) { return; }
-            rc::Transform t = m_scene->GetLocalTransform(m_keyLight);
-            t.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 0.0f, 1.0f, 0.0f }, m_keyYaw)
-                       * rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, m_keyPitch);
+            core::Transform t = m_scene->GetLocalTransform(m_keyLight);
+            t.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 0.0f, 1.0f, 0.0f }, m_keyYaw)
+                       * core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, m_keyPitch);
             m_scene->SetLocalTransform(m_keyLight, t);
         }
 
@@ -602,12 +602,12 @@ namespace
         void CycleSkyMode()
         {
             if (m_scene == nullptr) { return; }
-            if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
-                rd::EnvironmentSettings& e = env->Environment();
-                e.skyMode = (e.skyMode == rd::SkyMode::Procedural)  ? rd::SkyMode::Analytic :
-                            (e.skyMode == rd::SkyMode::Analytic)    ? rd::SkyMode::HDREquirect :
-                            (e.skyMode == rd::SkyMode::HDREquirect) ? rd::SkyMode::Cubemap :
-                                                                      rd::SkyMode::Procedural;
+            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {
+                render::EnvironmentSettings& e = env->Environment();
+                e.skyMode = (e.skyMode == render::SkyMode::Procedural)  ? render::SkyMode::Analytic :
+                            (e.skyMode == render::SkyMode::Analytic)    ? render::SkyMode::HDREquirect :
+                            (e.skyMode == render::SkyMode::HDREquirect) ? render::SkyMode::Cubemap :
+                                                                      render::SkyMode::Procedural;
             }
         }
 
@@ -615,14 +615,14 @@ namespace
         void ToggleProbeParallax()
         {
             if (m_scene == nullptr) { return; }
-            if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
+            if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>()) {
                 if (auto* rp = probes->Get(m_probeEntity)) { rp->parallax = !rp->parallax; }
             }
         }
 
         // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings —
         // editing these re-runs the IBL precompute next frame, so the ambient updates live.
-        void BuildDebugUI(rd::RenderSubsystem* render)
+        void BuildDebugUI(render::RenderSubsystem* render)
         {
             if (m_scene == nullptr) { return; }
             ImGui::Begin("Environment");
@@ -635,8 +635,8 @@ namespace
                     // Ambient occlusion mode (Off/GTAO/SSAO, mutually exclusive) + shared knobs.
                     const char* aoItems[] = { "Off", "GTAO", "SSAO" };
                     int aoMode = static_cast<int>(render->GetAoMode());
-                    if (ImGui::Combo("AO Mode", &aoMode, aoItems, 3)) { render->SetAoMode(static_cast<rd::AoMode>(aoMode)); }
-                    if (render->GetAoMode() != rd::AoMode::Off) {
+                    if (ImGui::Combo("AO Mode", &aoMode, aoItems, 3)) { render->SetAoMode(static_cast<render::AoMode>(aoMode)); }
+                    if (render->GetAoMode() != render::AoMode::Off) {
                         float s = render->AoStrength();
                         if (ImGui::SliderFloat("AO Strength", &s, 0.0f, 1.0f)) { render->SetAoStrength(s); }
                         float rad = render->AoRadius();
@@ -697,22 +697,22 @@ namespace
                     if (ImGui::SliderFloat("Bloom Threshold", &bloomThresh, 0.0f, 4.0f)) { render->SetBloomThreshold(bloomThresh); }
                 }
             }
-            if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
-                rd::EnvironmentSettings& e = env->Environment();
+            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {
+                render::EnvironmentSettings& e = env->Environment();
                 // Sky source selector (also F5 to cycle). Picking a mode re-runs the IBL precompute.
                 const char* modes[] = { "Procedural", "Analytic (Preetham)", "HDR Equirect", "Cubemap" };
-                int modeIdx = (e.skyMode == rd::SkyMode::Analytic)    ? 1 :
-                              (e.skyMode == rd::SkyMode::HDREquirect)  ? 2 :
-                              (e.skyMode == rd::SkyMode::Cubemap)      ? 3 : 0;
+                int modeIdx = (e.skyMode == render::SkyMode::Analytic)    ? 1 :
+                              (e.skyMode == render::SkyMode::HDREquirect)  ? 2 :
+                              (e.skyMode == render::SkyMode::Cubemap)      ? 3 : 0;
                 if (ImGui::Combo("Sky Mode", &modeIdx, modes, 4)) {
-                    e.skyMode = (modeIdx == 1) ? rd::SkyMode::Analytic :
-                                (modeIdx == 2) ? rd::SkyMode::HDREquirect :
-                                (modeIdx == 3) ? rd::SkyMode::Cubemap : rd::SkyMode::Procedural;
+                    e.skyMode = (modeIdx == 1) ? render::SkyMode::Analytic :
+                                (modeIdx == 2) ? render::SkyMode::HDREquirect :
+                                (modeIdx == 3) ? render::SkyMode::Cubemap : render::SkyMode::Procedural;
                 }
                 ImGui::SliderFloat("Sky Intensity", &e.skyIntensity, 0.0f, 4.0f);
 
-                const bool procedural = (e.skyMode == rd::SkyMode::Procedural);
-                const bool analytic   = (e.skyMode == rd::SkyMode::Analytic);
+                const bool procedural = (e.skyMode == render::SkyMode::Procedural);
+                const bool analytic   = (e.skyMode == render::SkyMode::Analytic);
                 const bool untextured = procedural || analytic;   // has an analytic sun disc
                 // Only show controls relevant to the selected mode.
                 if (untextured) {
@@ -724,21 +724,21 @@ namespace
                 }
                 if (procedural) {
                     float h[3]  = { e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b };
-                    if (ImGui::ColorEdit3("Horizon", h)) { e.skyHorizon = rc::Color{ h[0], h[1], h[2], 1.0f }; }
+                    if (ImGui::ColorEdit3("Horizon", h)) { e.skyHorizon = core::Color{ h[0], h[1], h[2], 1.0f }; }
                     float z[3]  = { e.skyZenith.r, e.skyZenith.g, e.skyZenith.b };
-                    if (ImGui::ColorEdit3("Zenith", z)) { e.skyZenith = rc::Color{ z[0], z[1], z[2], 1.0f }; }
+                    if (ImGui::ColorEdit3("Zenith", z)) { e.skyZenith = core::Color{ z[0], z[1], z[2], 1.0f }; }
                     float gr[3] = { e.skyGround.r, e.skyGround.g, e.skyGround.b };
-                    if (ImGui::ColorEdit3("Ground", gr)) { e.skyGround = rc::Color{ gr[0], gr[1], gr[2], 1.0f }; }
+                    if (ImGui::ColorEdit3("Ground", gr)) { e.skyGround = core::Color{ gr[0], gr[1], gr[2], 1.0f }; }
                 }
             }
             // Directional (key) light — the actual scene illumination + sky sun direction. Distinct from
             // "Sun Intensity" above (that's the sky's sun disc brightness, not the light that shades surfaces).
-            if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
-                if (rd::LightComponent* kl = m_keyLight.IsAssigned() ? lights->Get(m_keyLight) : nullptr) {
+            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
+                if (render::LightComponent* kl = m_keyLight.IsAssigned() ? lights->Get(m_keyLight) : nullptr) {
                     ImGui::SeparatorText("Directional Light");
                     ImGui::SliderFloat("Light Intensity", &kl->intensity, 0.0f, 8.0f);
                     float lc[3] = { kl->color.r, kl->color.g, kl->color.b };
-                    if (ImGui::ColorEdit3("Light Color", lc)) { kl->color = rc::Color{ lc[0], lc[1], lc[2], 1.0f }; }
+                    if (ImGui::ColorEdit3("Light Color", lc)) { kl->color = core::Color{ lc[0], lc[1], lc[2], 1.0f }; }
                     // Aim the light live (pitch = downward tilt, yaw = compass). SliderAngle shows degrees.
                     bool dirChanged = false;
                     dirChanged |= ImGui::SliderAngle("Pitch", &m_keyPitch, -89.0f, 0.0f);
@@ -747,8 +747,8 @@ namespace
                 }
             }
             // Reflection probe: toggle box parallax (also F6) to compare parallax-corrected vs infinite-env.
-            if (auto* probes = m_scene->GetSystem<rd::ReflectionProbeComponentManager>()) {
-                if (rd::ReflectionProbeComponent* rp = m_probeEntity.IsAssigned() ? probes->Get(m_probeEntity) : nullptr) {
+            if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>()) {
+                if (render::ReflectionProbeComponent* rp = m_probeEntity.IsAssigned() ? probes->Get(m_probeEntity) : nullptr) {
                     ImGui::SeparatorText("Reflection Probe");
                     ImGui::Checkbox("Box Parallax", &rp->parallax);
                     ImGui::SliderFloat("Probe Intensity", &rp->intensity, 0.0f, 4.0f);
@@ -764,7 +764,7 @@ namespace
                 bool cull = render->ViewCulling();
                 if (ImGui::Checkbox("View-frustum cull", &cull)) { render->SetViewCulling(cull); }
                 if (cull) {
-                    rc::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
+                    core::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
                     ImGui::SameLine(); ImGui::TextDisabled("(%u/%u)", culled, total);
                 }
             }
@@ -779,18 +779,18 @@ namespace
         // contentSize, Stretch), so a viewport mouse reads [0..halfW]x[0..H] local to that view.
         void UpdateInputRouting(sh::IInputManager& input, sh::IWindow& win)
         {
-            const rc::f32 w = static_cast<rc::f32>(win.Width());
-            const rc::f32 h = static_cast<rc::f32>(win.Height());
-            const rc::f32 halfW = w * 0.5f;
+            const core::f32 w = static_cast<core::f32>(win.Width());
+            const core::f32 h = static_cast<core::f32>(win.Height());
+            const core::f32 halfW = w * 0.5f;
 
             if (!m_inputRouter) {
-                rc::ContentFit fitL{ .region = rc::Rectangle{ 0.0f, 0.0f, halfW, h },
-                                     .contentSize = rc::Vector2{ halfW, h }, .mode = rc::FitMode::Stretch };
-                rc::ContentFit fitR{ .region = rc::Rectangle{ halfW, 0.0f, w - halfW, h },
-                                     .contentSize = rc::Vector2{ w - halfW, h }, .mode = rc::FitMode::Stretch };
-                m_surfaceL = rc::MakeUnique<sh::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitL);
-                m_surfaceR = rc::MakeUnique<sh::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitR);
-                m_inputRouter = rc::MakeUnique<sh::InputRouter>(rc::DefaultAllocator(), &input);
+                core::ContentFit fitL{ .region = core::Rectangle{ 0.0f, 0.0f, halfW, h },
+                                     .contentSize = core::Vector2{ halfW, h }, .mode = core::FitMode::Stretch };
+                core::ContentFit fitR{ .region = core::Rectangle{ halfW, 0.0f, w - halfW, h },
+                                     .contentSize = core::Vector2{ w - halfW, h }, .mode = core::FitMode::Stretch };
+                m_surfaceL = core::MakeUnique<sh::InputSurface>(core::DefaultAllocator(), &input, win.Id(), fitL);
+                m_surfaceR = core::MakeUnique<sh::InputSurface>(core::DefaultAllocator(), &input, win.Id(), fitR);
+                m_inputRouter = core::MakeUnique<sh::InputRouter>(core::DefaultAllocator(), &input);
                 m_inputRouter->AddSurface(m_surfaceL.Get());
                 m_inputRouter->AddSurface(m_surfaceR.Get());
                 // Click-to-focus (router default): a click sets keyboard focus to that half, so WASD/QE
@@ -798,10 +798,10 @@ namespace
             }
 
             // Keep regions in sync with the live window size (resize/DPI).
-            m_surfaceL->SetRegion(rc::Rectangle{ 0.0f, 0.0f, halfW, h });
-            m_surfaceL->SetContentSize(rc::Vector2{ halfW, h });
-            m_surfaceR->SetRegion(rc::Rectangle{ halfW, 0.0f, w - halfW, h });
-            m_surfaceR->SetContentSize(rc::Vector2{ w - halfW, h });
+            m_surfaceL->SetRegion(core::Rectangle{ 0.0f, 0.0f, halfW, h });
+            m_surfaceL->SetContentSize(core::Vector2{ halfW, h });
+            m_surfaceR->SetRegion(core::Rectangle{ halfW, 0.0f, w - halfW, h });
+            m_surfaceR->SetContentSize(core::Vector2{ w - halfW, h });
 
             // Let ImGui swallow input it's using this frame (e.g. scrolling the debug window) so the
             // viewport cameras don't also react. WantCapture* are valid after ImGui::NewFrame (above).
@@ -815,9 +815,9 @@ namespace
         // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
         // editor-shaped path (a view renders to a sampleable/copyable target, not straight to the
         // swapchain). Exercises the full multi-view path + the configurable target final state.
-        void OnRenderWindow(rt::IApplicationHost& host, rt::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost& host, runtime::FrameContext& frame) override
         {
-            auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>();
+            auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>();
             auto* gfx    = host.Graphics();
             if (m_scene == nullptr || render == nullptr || !render->IsReady() ||
                 gfx == nullptr || gfx->Raw() == nullptr || frame.encoder == nullptr ||
@@ -828,36 +828,36 @@ namespace
             auto fmt = frame.window->Swap()->Format();
             // One offscreen per frame-in-flight: frame N+1 must not render into the target frame N's
             // blit still reads. (A single shared offscreen across in-flight frames races on resize.)
-            const rc::u32 slot = frame.frameIndex < kOffscreenSlots ? frame.frameIndex : 0u;
+            const core::u32 slot = frame.frameIndex < kOffscreenSlots ? frame.frameIndex : 0u;
             if (!EnsureOffscreen(device, fmt, frame.width, frame.height, slot)) { return; }
             rhi::Texture*     offTex  = m_offscreenTex[slot];
             rhi::TextureView* offView = m_offscreenView[slot];
 
-            const rc::u32 halfW  = frame.width / 2;
-            const rc::f32 aspect = static_cast<rc::f32>(halfW) / static_cast<rc::f32>(frame.height);
-            auto makeCam = [&](rc::Vector3 eye, rc::Vector3 target) {
-                rd::ViewCamera vc;
-                vc.view       = rc::Matrix4::LookAtRH(eye, target, rc::Vector3{ 0.0f, 1.0f, 0.0f });
-                vc.projection = rc::Matrix4::PerspectiveFovRH(1.0472f, aspect, 0.1f, 1000.0f);
+            const core::u32 halfW  = frame.width / 2;
+            const core::f32 aspect = static_cast<core::f32>(halfW) / static_cast<core::f32>(frame.height);
+            auto makeCam = [&](core::Vector3 eye, core::Vector3 target) {
+                render::ViewCamera vc;
+                vc.view       = core::Matrix4::LookAtRH(eye, target, core::Vector3{ 0.0f, 1.0f, 0.0f });
+                vc.projection = core::Matrix4::PerspectiveFovRH(1.0472f, aspect, 0.1f, 1000.0f);
                 vc.position   = eye;
                 vc.farZ       = 1000.0f;
                 return vc;
             };
             // Each half is driven by its own fly camera (hover a half to control it — see UpdateInputRouting).
-            rd::CameraOverride camL;
+            render::CameraOverride camL;
             camL.camera = makeCam(m_flyL.position, m_flyL.position + m_flyL.Forward());
-            camL.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
-            rd::CameraOverride camR;
+            camL.clearColor = core::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
+            render::CameraOverride camR;
             camR.camera = makeCam(m_flyR.position, m_flyR.position + m_flyR.Forward());
-            camR.clearColor = rc::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
+            camR.clearColor = core::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
 
             // Render both views into this slot's offscreen texture; the graph leaves it in CopySrc.
-            rd::TargetState ts{ offTex, m_offscreenState[slot], rhi::ResourceState::CopySrc };
+            render::TargetState ts{ offTex, m_offscreenState[slot], rhi::ResourceState::CopySrc };
             render->BeginRendering(*frame.encoder, frame.frameIndex);
             render->RenderScene(*m_scene, offView, fmt, frame.width, frame.height,
-                                rd::ViewportRect{ 0, 0, halfW, frame.height }, &camL, ts);
+                                render::ViewportRect{ 0, 0, halfW, frame.height }, &camL, ts);
             render->RenderScene(*m_scene, offView, fmt, frame.width, frame.height,
-                                rd::ViewportRect{ static_cast<rc::i32>(halfW), 0, frame.width - halfW, frame.height }, &camR, ts);
+                                render::ViewportRect{ static_cast<core::i32>(halfW), 0, frame.width - halfW, frame.height }, &camR, ts);
             render->EndRendering();
             m_offscreenState[slot] = rhi::ResourceState::CopySrc;
 
@@ -867,12 +867,12 @@ namespace
             frame.encoder->TransitionTexture(frame.backbuffer, rhi::ResourceState::CopyDst, rhi::ResourceState::RenderTarget);
 
             // Debug UI on top of the scene (backbuffer is RenderTarget again; ImGui loads + draws over it).
-            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) { g->Render(frame); }
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) { g->Render(frame); }
         }
 
         // Create (or resize) one frame-slot's offscreen color target. Each slot tracks its own size,
         // so a resize lazily recreates each slot as it next renders.
-        bool EnsureOffscreen(rhi::Device& device, rhi::TextureFormat fmt, rc::u32 w, rc::u32 h, rc::u32 slot)
+        bool EnsureOffscreen(rhi::Device& device, rhi::TextureFormat fmt, core::u32 w, core::u32 h, core::u32 slot)
         {
             if (m_offscreenTex[slot] != nullptr && m_offscreenW[slot] == w && m_offscreenH[slot] == h) { return true; }
             device.WaitIdle();
@@ -890,15 +890,15 @@ namespace
             return true;
         }
 
-        void OnUpdate(rt::IApplicationHost& host, rc::f32 deltaTime) override
+        void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            rt::DefaultApplication::OnUpdate(host, deltaTime);   // keep the P-key profiling dump
+            runtime::DefaultApplication::OnUpdate(host, deltaTime);   // keep the P-key profiling dump
 
             // ImGui debug UI: open the frame (feed input + size) then build the tweakables. The draw
             // data is rendered over the scene in OnRenderWindow.
-            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
-                BuildDebugUI(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
+                BuildDebugUI(host.Ctx().GetSubsystem<render::RenderSubsystem>());
             }
 
             // Viewport-input routing. Build the router + one surface per split half once the shell
@@ -934,9 +934,9 @@ namespace
             // components ticked on the scene's PostUpdate phase) — no per-frame driving here anymore.
 
             m_angle += deltaTime;
-            const rc::Quaternion spin = rc::Quaternion::FromAxisAngle(rc::Vector3{ 0.3f, 1.0f, 0.0f }, m_angle);
+            const core::Quaternion spin = core::Quaternion::FromAxisAngle(core::Vector3{ 0.3f, 1.0f, 0.0f }, m_angle);
             for (sc::EntityHandle cube : m_cubes) {
-                rc::Transform t = m_scene->GetLocalTransform(cube);
+                core::Transform t = m_scene->GetLocalTransform(cube);
                 t.rotation = spin;
                 m_scene->SetLocalTransform(cube, t);
             }
@@ -944,11 +944,11 @@ namespace
             // slices every frame — exercising the per-frame cluster rebuild, not a static binning.
             // Sweep the whole light field left/right (so the colored pools clearly slide as a
             // group — easy confirmation that pools exist and track the lights) + a gentle Z-bob.
-            const rc::f32 sweep = 5.0f * rc::Sin(m_angle * 0.6f);
-            for (rc::usize k = 0; k < m_pointLights.Size(); ++k) {
-                rc::Vector3 p = m_lightBases[k];
+            const core::f32 sweep = 5.0f * core::Sin(m_angle * 0.6f);
+            for (core::usize k = 0; k < m_pointLights.Size(); ++k) {
+                core::Vector3 p = m_lightBases[k];
                 p.x += sweep;
-                p.z += 0.8f * rc::Sin(m_angle * 1.3f + static_cast<rc::f32>(k) * 0.5f);
+                p.z += 0.8f * core::Sin(m_angle * 1.3f + static_cast<core::f32>(k) * 0.5f);
                 m_scene->SetLocalPosition(m_pointLights[k], p);
             }
 
@@ -956,49 +956,49 @@ namespace
             // a ground grid, an arrow from the spot, 3D + screen text). Both split-screen views render
             // these, each projected through its OWN camera — and they're keyed to this scene, so a second
             // scene's gizmos would never bleed in.
-            if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                 // Debug gizmos toggle (ImGui "Debug Draw" checkbox). The FPS readout below stays on.
                 if (m_showDebugDraw) {
                     auto& dbg = render->DebugScene(*m_scene);
                     for (int k = 0; k < 4; ++k) {
-                        const rc::Vector3 boxC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 10.0f };
-                        dbg.DrawWireBoxCenter(boxC, rc::Vector3{ 1.3f, 1.3f, 1.3f }, rc::Color{ 1.0f, 1.0f, 0.0f, 1.0f });
-                        const rc::Vector3 ballC{ -7.5f + 5.0f * static_cast<rc::f32>(k), 1.25f, 16.0f };
-                        dbg.DrawWireSphere(rc::BoundingSphere{ ballC, 1.4f }, rc::Color{ 0.2f, 0.9f, 1.0f, 1.0f });
+                        const core::Vector3 boxC{ -7.5f + 5.0f * static_cast<core::f32>(k), 1.25f, 10.0f };
+                        dbg.DrawWireBoxCenter(boxC, core::Vector3{ 1.3f, 1.3f, 1.3f }, core::Color{ 1.0f, 1.0f, 0.0f, 1.0f });
+                        const core::Vector3 ballC{ -7.5f + 5.0f * static_cast<core::f32>(k), 1.25f, 16.0f };
+                        dbg.DrawWireSphere(core::BoundingSphere{ ballC, 1.4f }, core::Color{ 0.2f, 0.9f, 1.0f, 1.0f });
                     }
-                    dbg.DrawAxis(rc::Matrix4::Identity(), 3.0f, /*overlay*/ true);
-                    dbg.DrawGrid(rc::Vector3{ 0.0f, 0.01f, 0.0f }, 60.0f, 30, rc::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
-                    dbg.DrawArrow(rc::Vector3{ 0.0f, 14.0f, 13.0f }, rc::Vector3{ 0.0f, 0.5f, 13.0f }, rc::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
-                    dbg.DrawText3D(rc::Vector3{ 0.0f, 0.5f, 0.0f }, rc::StringView(u8"origin"), rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
-                    render->DebugScreen().DrawScreenText(12.0f, 12.0f, rc::StringView(u8"Draconic Debug Draw"), rc::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
+                    dbg.DrawAxis(core::Matrix4::Identity(), 3.0f, /*overlay*/ true);
+                    dbg.DrawGrid(core::Vector3{ 0.0f, 0.01f, 0.0f }, 60.0f, 30, core::Color{ 0.25f, 0.25f, 0.30f, 1.0f });
+                    dbg.DrawArrow(core::Vector3{ 0.0f, 14.0f, 13.0f }, core::Vector3{ 0.0f, 0.5f, 13.0f }, core::Color{ 1.0f, 0.5f, 0.0f, 1.0f });
+                    dbg.DrawText3D(core::Vector3{ 0.0f, 0.5f, 0.0f }, core::StringView(u8"origin"), core::Color{ 1.0f, 1.0f, 1.0f, 1.0f });
+                    render->DebugScreen().DrawScreenText(12.0f, 12.0f, core::StringView(u8"Draconic Debug Draw"), core::Color{ 0.6f, 1.0f, 0.6f, 1.0f }, 2.0f);
                 }
 
                 // FPS / frame-time readout (smoothed). Format() has no float-precision spec, so round
                 // to whole FPS and tenths-of-a-millisecond by hand.
-                const rc::f32 inst = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
+                const core::f32 inst = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
                 m_fpsSmoothed = (m_fpsSmoothed > 0.0f) ? (m_fpsSmoothed * 0.9f + inst * 0.1f) : inst;
-                const rc::f32 ms = (m_fpsSmoothed > 0.0f) ? (1000.0f / m_fpsSmoothed) : 0.0f;
+                const core::f32 ms = (m_fpsSmoothed > 0.0f) ? (1000.0f / m_fpsSmoothed) : 0.0f;
                 const int fpsWhole = static_cast<int>(m_fpsSmoothed + 0.5f);
                 const int msWhole = static_cast<int>(ms);
-                const int msTenth = static_cast<int>((ms - static_cast<rc::f32>(msWhole)) * 10.0f + 0.5f);
-                const rc::String fpsText = rc::Format(u8"{} FPS  {}.{} ms", fpsWhole, msWhole, msTenth);
-                render->DebugScreen().DrawScreenText(12.0f, 34.0f, fpsText.AsView(), rc::Color{ 1.0f, 1.0f, 0.4f, 1.0f }, 2.0f);
+                const int msTenth = static_cast<int>((ms - static_cast<core::f32>(msWhole)) * 10.0f + 0.5f);
+                const core::String fpsText = core::Format(u8"{} FPS  {}.{} ms", fpsWhole, msWhole, msTenth);
+                render->DebugScreen().DrawScreenText(12.0f, 34.0f, fpsText.AsView(), core::Color{ 1.0f, 1.0f, 0.4f, 1.0f }, 2.0f);
             }
         }
 
-        void OnShutdown(rt::IApplicationHost& host) override
+        void OnShutdown(runtime::IApplicationHost& host) override
         {
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
                 rhi::Device& device = *gfx->Raw();
                 device.WaitIdle();   // GPU must finish before freeing the offscreen targets
-                for (rc::u32 i = 0; i < kOffscreenSlots; ++i) {
+                for (core::u32 i = 0; i < kOffscreenSlots; ++i) {
                     if (m_offscreenView[i] != nullptr) { device.DestroyTextureView(m_offscreenView[i]); m_offscreenView[i] = nullptr; }
                     if (m_offscreenTex[i]  != nullptr) { device.DestroyTexture(m_offscreenTex[i]);       m_offscreenTex[i]  = nullptr; }
                 }
                 if (m_cutoutView != nullptr) { device.DestroyTextureView(m_cutoutView); m_cutoutView = nullptr; }
                 if (m_cutoutTex  != nullptr) { device.DestroyTexture(m_cutoutTex);       m_cutoutTex  = nullptr; }
             }
-            rc::ConsoleWrite(u8"Sandbox: shutting down.\n");
+            core::ConsoleWrite(u8"Sandbox: shutting down.\n");
         }
 
         // Build a small procedural alpha-cutout texture (checkerboard: opaque cells + fully-transparent
@@ -1006,12 +1006,12 @@ namespace
         // whose alpha-test discard cuts the holes. Stores the texture/view for shutdown cleanup.
         rhi::TextureView* CreateCutoutTexture(rhi::Device& device)
         {
-            constexpr rc::u32 N = 64, cell = 8;
-            rc::Array<rc::u8> px; px.Resize(static_cast<rc::usize>(N) * N * 4);
-            for (rc::u32 y = 0; y < N; ++y) {
-                for (rc::u32 x = 0; x < N; ++x) {
+            constexpr core::u32 N = 64, cell = 8;
+            core::Array<core::u8> px; px.Resize(static_cast<core::usize>(N) * N * 4);
+            for (core::u32 y = 0; y < N; ++y) {
+                for (core::u32 x = 0; x < N; ++x) {
                     const bool solid = ((((x / cell) + (y / cell)) & 1u) == 0u);
-                    rc::u8* p = &px[(static_cast<rc::usize>(y) * N + x) * 4];
+                    core::u8* p = &px[(static_cast<core::usize>(y) * N + x) * 4];
                     p[0] = 255; p[1] = 255; p[2] = 255; p[3] = solid ? 255 : 0;
                 }
             }
@@ -1029,7 +1029,7 @@ namespace
                 rhi::TransferBatch* batch = nullptr;
                 if (q->CreateTransferBatch(batch).IsOk() && batch != nullptr) {
                     rhi::TextureDataLayout layout{}; layout.bytesPerRow = N * 4; layout.rowsPerImage = N;
-                    batch->WriteTexture(m_cutoutTex, rc::Span<const rc::u8>(px.Data(), px.Size()), layout, rhi::Extent3D{ N, N, 1 });
+                    batch->WriteTexture(m_cutoutTex, core::Span<const core::u8>(px.Data(), px.Size()), layout, rhi::Extent3D{ N, N, 1 });
                     (void)batch->Submit();
                     q->DestroyTransferBatch(batch);
                 }
@@ -1042,37 +1042,37 @@ namespace
         // supplies each cube's hue). Otherwise each cube gets its own material with a per-cube PBR
         // matrix (roughness sweeps smooth→rough across X, top half metallic) -> many distinct
         // draws -> parallel command recording. Both grids run every frame.
-        void BuildGrid(rd::MeshComponentManager& meshes, const rc::RefPtr<geo::StaticMesh>& cube,
-                       rc::f32 originX, bool instanced)
+        void BuildGrid(render::MeshComponentManager& meshes, const core::RefPtr<geometry::StaticMesh>& cube,
+                       core::f32 originX, bool instanced)
         {
             constexpr int    kGrid    = 16;     // 256 cubes -> the distinct grid trips the parallel-emit threshold
-            constexpr rc::f32 kSpacing = 0.8f;
+            constexpr core::f32 kSpacing = 0.8f;
 
-            rc::RefPtr<mat::Material> shared;
+            core::RefPtr<materials::Material> shared;
             if (instanced) {
                 // White base + middling PBR; the per-instance color supplies each cube's hue.
-                shared = mat::CreatePBR(u8"lit", rc::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }, 0.0f, 0.4f);
+                shared = materials::CreatePBR(u8"lit", core::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }, 0.0f, 0.4f);
             }
 
             for (int y = 0; y < kGrid; ++y) {
                 for (int x = 0; x < kGrid; ++x) {
                     sc::EntityHandle e = m_scene->CreateEntity(u8"cube");
-                    const rc::f32 fx = static_cast<rc::f32>(x) - (kGrid - 1) * 0.5f;
-                    const rc::f32 fy = static_cast<rc::f32>(y) - (kGrid - 1) * 0.5f;
-                    m_scene->SetLocalPosition(e, rc::Vector3{ originX + fx * kSpacing, fy * kSpacing + 7.0f, 0.0f });
+                    const core::f32 fx = static_cast<core::f32>(x) - (kGrid - 1) * 0.5f;
+                    const core::f32 fy = static_cast<core::f32>(y) - (kGrid - 1) * 0.5f;
+                    m_scene->SetLocalPosition(e, core::Vector3{ originX + fx * kSpacing, fy * kSpacing + 7.0f, 0.0f });
 
-                    const rc::Vector4 baseColor{ static_cast<rc::f32>(x) / (kGrid - 1),
-                                              static_cast<rc::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
-                    rd::MeshComponent& mc = meshes.Add(e);
+                    const core::Vector4 baseColor{ static_cast<core::f32>(x) / (kGrid - 1),
+                                              static_cast<core::f32>(y) / (kGrid - 1), 0.6f, 1.0f };
+                    render::MeshComponent& mc = meshes.Add(e);
                     mc.mesh = cube;
                     if (instanced) {
                         mc.material = shared;
-                        mc.color = rc::Color{ baseColor.x, baseColor.y, baseColor.z, 1.0f };   // per-instance hue
+                        mc.color = core::Color{ baseColor.x, baseColor.y, baseColor.z, 1.0f };   // per-instance hue
                     } else {
-                        const rc::f32 rough = 0.05f + 0.95f * static_cast<rc::f32>(x) / (kGrid - 1);
-                        const rc::f32 metal = (y >= kGrid / 2) ? 1.0f : 0.0f;
-                        mc.material = mat::CreatePBR(u8"lit", baseColor, metal, rough);
-                        mc.color = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+                        const core::f32 rough = 0.05f + 0.95f * static_cast<core::f32>(x) / (kGrid - 1);
+                        const core::f32 metal = (y >= kGrid / 2) ? 1.0f : 0.0f;
+                        mc.material = materials::CreatePBR(u8"lit", baseColor, metal, rough);
+                        mc.color = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
                     }
                     m_cubes.PushBack(e);
                 }
@@ -1083,50 +1083,50 @@ namespace
         sc::Scene*                  m_scene = nullptr;
         sc::EntityHandle            m_camera{};
         // Offscreen render target, double-buffered per frame-in-flight (each slot tracks its own size).
-        static constexpr rc::u32    kOffscreenSlots = 3;
+        static constexpr core::u32    kOffscreenSlots = 3;
         rhi::Texture*               m_offscreenTex[kOffscreenSlots]   = {};
         rhi::TextureView*           m_offscreenView[kOffscreenSlots]  = {};
         rhi::ResourceState          m_offscreenState[kOffscreenSlots] = { rhi::ResourceState::Undefined, rhi::ResourceState::Undefined, rhi::ResourceState::Undefined };
-        rc::u32                     m_offscreenW[kOffscreenSlots] = {}, m_offscreenH[kOffscreenSlots] = {};
+        core::u32                     m_offscreenW[kOffscreenSlots] = {}, m_offscreenH[kOffscreenSlots] = {};
         rhi::Texture*               m_cutoutTex  = nullptr;   // masked-demo alpha-cutout texture
         rhi::TextureView*           m_cutoutView = nullptr;
         sc::EntityHandle            m_keyLight;   // directional key light (intensity/color tweakable in the debug UI)
-        rc::f32                     m_keyPitch = -1.05f;   // downward tilt (~-60 deg); Environment window slider
-        rc::f32                     m_keyYaw   =  0.35f;   // compass heading
-        rc::Array<sc::EntityHandle> m_pointLights;
-        rc::Array<rc::Vector3>         m_lightBases;
-        rc::Array<sc::EntityHandle> m_cubes;
-        rc::f32                     m_angle = 0.0f;
-        rc::f32                     m_fpsSmoothed = 0.0f;   // exponential moving average of 1/deltaTime
+        core::f32                     m_keyPitch = -1.05f;   // downward tilt (~-60 deg); Environment window slider
+        core::f32                     m_keyYaw   =  0.35f;   // compass heading
+        core::Array<sc::EntityHandle> m_pointLights;
+        core::Array<core::Vector3>         m_lightBases;
+        core::Array<sc::EntityHandle> m_cubes;
+        core::f32                     m_angle = 0.0f;
+        core::f32                     m_fpsSmoothed = 0.0f;   // exponential moving average of 1/deltaTime
         // One fly camera per split view; hovering a view routes input to its camera (no V toggle).
-        smp::FlyCamera              m_flyL{ .position = rc::Vector3{ -6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
-        smp::FlyCamera              m_flyR{ .position = rc::Vector3{  6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
+        samples::FlyCamera              m_flyL{ .position = core::Vector3{ -6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
+        samples::FlyCamera              m_flyR{ .position = core::Vector3{  6.0f, 21.0f, 30.0f }, .pitch = -0.45f };
 
         // Viewport-input routing: each split half is an InputSurface (a ContentFit slice of the window);
         // the router picks the hovered surface and gates/transforms input into it. Created lazily once
         // the shell + window exist. focus-follows-hover so the pointer alone selects the active view.
-        rc::UniquePtr<sh::InputRouter>  m_inputRouter;
-        rc::UniquePtr<sh::InputSurface> m_surfaceL;
-        rc::UniquePtr<sh::InputSurface> m_surfaceR;
+        core::UniquePtr<sh::InputRouter>  m_inputRouter;
+        core::UniquePtr<sh::InputSurface> m_surfaceL;
+        core::UniquePtr<sh::InputSurface> m_surfaceR;
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
-        rc::UniquePtr<vfs::NativeFileSystem> m_contentFs;
-        rc::UniquePtr<ct::ContentDatabase>   m_contentDb;
-        rc::UniquePtr<res::ResourceManager>  m_resources;
-        geo::StaticMeshFactory               m_meshFactory;
-        geo::SkinnedMeshFactory              m_skinnedMeshFactory;
-        mat::MaterialFactory                 m_materialFactory;
-        anim::SkeletonFactory                m_skeletonFactory;
-        anim::AnimationClipFactory           m_clipFactory;
-        rc::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
+        core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
+        core::UniquePtr<ct::ContentDatabase>   m_contentDb;
+        core::UniquePtr<res::ResourceManager>  m_resources;
+        geometry::StaticMeshFactory               m_meshFactory;
+        geometry::SkinnedMeshFactory              m_skinnedMeshFactory;
+        materials::MaterialFactory                 m_materialFactory;
+        animation::SkeletonFactory                m_skeletonFactory;
+        animation::AnimationClipFactory           m_clipFactory;
+        core::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
         res::Proxy<tex::Texture>             m_logoTex;          // sprite-demo logo (kept alive for its GPU view)
-        mi::ModelFactory                     m_modelFactory;
-        rc::Array<res::Proxy<mi::ModelResource>> m_models;   // keep cooked models + their resources alive
+        modelimporter::ModelFactory                     m_modelFactory;
+        core::Array<res::Proxy<modelimporter::ModelResource>> m_models;   // keep cooked models + their resources alive
 
         // Animation graphs owned by the demo (the AnimationGraphComponents borrow them); the entity whose
         // graph the G key advances (the Character). Skinned models are otherwise driven by the subsystem.
-        rc::Array<rc::RefPtr<anim::AnimationGraph>> m_graphs;
+        core::Array<core::RefPtr<animation::AnimationGraph>> m_graphs;
         sc::EntityHandle                            m_graphChar{};
         sc::EntityHandle                            m_probeEntity{};   // reflection probe (F6 toggles its parallax)
         bool                        m_showDebugDraw  = true;    // debug gizmos (grid/axes/wire volumes/text)
@@ -1137,10 +1137,10 @@ namespace
 int main(int, char**)
 {
     auto shell = sh::CreateShell();
-    rt::GraphicsDeviceDesc gpuDesc{};
-    auto gpu = rt::CreateGraphicsDevice(gpuDesc);
-    rt::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
+    runtime::GraphicsDeviceDesc gpuDesc{};
+    auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
+    runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     SandboxApp app;
-    return rt::RunApplication(app, *shell, device);
+    return runtime::RunApplication(app, *shell, device);
 }

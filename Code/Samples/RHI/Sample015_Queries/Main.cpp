@@ -14,8 +14,8 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 class QuerySample : public sf::SampleApp {
 public:
@@ -39,13 +39,13 @@ private:
     };
     static constexpr draconic::core::u16 kIdx[] = { 0, 1, 2 };
 
-    ds::Compiler* m_compiler = nullptr;
-    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
-    dr::Buffer *m_vb = nullptr, *m_ib = nullptr;
-    dr::PipelineLayout *m_pl = nullptr; dr::RenderPipeline *m_pipeline = nullptr;
-    dr::QuerySet *m_tsQuerySet = nullptr;
-    dr::Buffer *m_queryResultBuf = nullptr;
-    dr::CommandPool *m_pool = nullptr; dr::Fence *m_fence = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
+    rhi::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    rhi::Buffer *m_vb = nullptr, *m_ib = nullptr;
+    rhi::PipelineLayout *m_pl = nullptr; rhi::RenderPipeline *m_pipeline = nullptr;
+    rhi::QuerySet *m_tsQuerySet = nullptr;
+    rhi::Buffer *m_queryResultBuf = nullptr;
+    rhi::CommandPool *m_pool = nullptr; rhi::Fence *m_fence = nullptr;
     draconic::core::u64 m_fenceVal = 0;
     int m_frameCount = 0;
     float m_lastReportTime = 0.0f;
@@ -53,42 +53,42 @@ private:
 
 draconic::core::Status QuerySample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst; ibd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    rhi::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
     batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
-    dr::PipelineLayoutDesc pld{};
+    rhi::PipelineLayoutDesc pld{};
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
-    dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
-    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-    rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-    rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
+    rhi::VertexAttribute attrs[2] = { {rhi::VertexFormat::Float32x3, 0, 0}, {rhi::VertexFormat::Float32x4, 12, 1} };
+    rhi::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
+    rhi::ColorTargetState ct{}; ct.format = m_swapChain->Format();
+    rhi::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+    rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
+    rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+    rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Timestamp query set: 2 queries (before + after render pass).
-    dr::QuerySetDesc qsd{}; qsd.type = dr::QueryType::Timestamp; qsd.count = 2;
+    rhi::QuerySetDesc qsd{}; qsd.type = rhi::QueryType::Timestamp; qsd.count = 2;
     if (m_device->CreateQuerySet(qsd, m_tsQuerySet) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffer to receive resolved query results (2 * uint64 = 16 bytes).
-    dr::BufferDesc qbd{}; qbd.size = 16; qbd.usage = dr::BufferUsage::CopyDst; qbd.memory = dr::MemoryLocation::GpuToCpu;
+    rhi::BufferDesc qbd{}; qbd.size = 16; qbd.usage = rhi::BufferUsage::CopyDst; qbd.memory = rhi::MemoryLocation::GpuToCpu;
     if (m_device->CreateBuffer(qbd, m_queryResultBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
@@ -116,27 +116,27 @@ void QuerySample::OnRender() {
 
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Reset queries for this frame.
     enc->ResetQuerySet(m_tsQuerySet, 0, 2);
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
 
     // Timestamp before render pass.
     enc->WriteTimestamp(m_tsQuerySet, 0);
 
-    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
-    dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
+    rhi::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
+    ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+    rhi::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
     rp->SetPipeline(m_pipeline);
     rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0, 1);
     rp->SetScissor(0, 0, m_width, m_height);
     rp->SetVertexBuffer(0, m_vb, 0);
-    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
+    rp->SetIndexBuffer(m_ib, rhi::IndexFormat::UInt16, 0);
     rp->DrawIndexed(3);
     rp->End();
 
@@ -146,10 +146,10 @@ void QuerySample::OnRender() {
     // Resolve timestamps to buffer.
     enc->ResolveQuerySet(m_tsQuerySet, 0, 2, m_queryResultBuf, 0);
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
+    rhi::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
     m_frameCount++;

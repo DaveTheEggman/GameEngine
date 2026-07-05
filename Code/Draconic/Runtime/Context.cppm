@@ -13,14 +13,14 @@ export module draconic.runtime:context;
 import draconic.core;
 import :subsystem;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::runtime
 {
     class Context
     {
     public:
-        explicit Context(rc::IAllocator& allocator = rc::DefaultAllocator()) noexcept
+        explicit Context(core::IAllocator& allocator = core::DefaultAllocator()) noexcept
             : m_allocator(&allocator) {}
 
         ~Context() { Dispose(); }
@@ -37,9 +37,9 @@ export namespace draconic::runtime
         T* AddSubsystem(Args&&... args)
         {
             static_assert(std::is_base_of_v<Subsystem, T>, "T must derive from Subsystem");
-            T* subsystem = m_allocator->New<T>(rc::Forward<Args>(args)...);
-            m_owned.PushBack(rc::UniquePtr<Subsystem>(static_cast<Subsystem*>(subsystem), *m_allocator));
-            RegisterInternal(&rc::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
+            T* subsystem = m_allocator->New<T>(core::Forward<Args>(args)...);
+            m_owned.PushBack(core::UniquePtr<Subsystem>(static_cast<Subsystem*>(subsystem), *m_allocator));
+            RegisterInternal(&core::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
             return subsystem;
         }
 
@@ -50,7 +50,7 @@ export namespace draconic::runtime
         T* RegisterSubsystem(T* subsystem)
         {
             static_assert(std::is_base_of_v<Subsystem, T>, "T must derive from Subsystem");
-            RegisterInternal(&rc::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
+            RegisterInternal(&core::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
             return subsystem;
         }
 
@@ -59,20 +59,20 @@ export namespace draconic::runtime
         template <typename T>
         void RemoveSubsystem()
         {
-            RemoveByType(&rc::TypeOf<T>());
+            RemoveByType(&core::TypeOf<T>());
         }
 
         template <typename T>
         [[nodiscard]] T* GetSubsystem() noexcept
         {
-            Subsystem* const* found = m_byType.Find(&rc::TypeOf<T>());
+            Subsystem* const* found = m_byType.Find(&core::TypeOf<T>());
             return (found != nullptr) ? static_cast<T*>(*found) : nullptr;
         }
 
         template <typename T>
         [[nodiscard]] bool HasSubsystem() const noexcept
         {
-            return m_byType.Contains(&rc::TypeOf<T>());
+            return m_byType.Contains(&core::TypeOf<T>());
         }
 
         // Init then Ready, in UpdateOrder; marks the context running.
@@ -83,18 +83,18 @@ export namespace draconic::runtime
             m_running = true;
         }
 
-        void BeginFrame(rc::f32 dt)  { for (Subsystem* s : m_sorted) { s->BeginFrame(dt); } }
-        void FixedUpdate(rc::f32 dt) { for (Subsystem* s : m_sorted) { s->FixedUpdate(dt); } }
-        void Update(rc::f32 dt)      { for (Subsystem* s : m_sorted) { s->Update(dt); } }
-        void PostUpdate(rc::f32 dt)  { for (Subsystem* s : m_sorted) { s->PostUpdate(dt); } }
+        void BeginFrame(core::f32 dt)  { for (Subsystem* s : m_sorted) { s->BeginFrame(dt); } }
+        void FixedUpdate(core::f32 dt) { for (Subsystem* s : m_sorted) { s->FixedUpdate(dt); } }
+        void Update(core::f32 dt)      { for (Subsystem* s : m_sorted) { s->Update(dt); } }
+        void PostUpdate(core::f32 dt)  { for (Subsystem* s : m_sorted) { s->PostUpdate(dt); } }
         void EndFrame()              { for (Subsystem* s : m_sorted) { s->EndFrame(); } }
 
         // PrepareShutdown then Shutdown, in reverse UpdateOrder.
         void Shutdown()
         {
             m_running = false;
-            for (rc::usize i = m_sorted.Size(); i-- > 0;) { m_sorted[i]->PrepareShutdown(); }
-            for (rc::usize i = m_sorted.Size(); i-- > 0;) { m_sorted[i]->Shutdown(); }
+            for (core::usize i = m_sorted.Size(); i-- > 0;) { m_sorted[i]->PrepareShutdown(); }
+            for (core::usize i = m_sorted.Size(); i-- > 0;) { m_sorted[i]->Shutdown(); }
         }
 
         // Shuts down (if running) and destroys all subsystems. Idempotent.
@@ -110,7 +110,7 @@ export namespace draconic::runtime
     private:
         // Registers an already-constructed subsystem: index by type, insert into
         // the sorted phase list, wire the context, and bring it up if running.
-        void RegisterInternal(const rc::TypeInfo* type, Subsystem* subsystem)
+        void RegisterInternal(const core::TypeInfo* type, Subsystem* subsystem)
         {
             m_byType.InsertOrAssign(type, subsystem);
             InsertSorted(subsystem);
@@ -120,7 +120,7 @@ export namespace draconic::runtime
 
         // Detaches a subsystem by type: shut it down (if running), unregister,
         // drop from the lookup/phase lists, and destroy it if Context-owned.
-        void RemoveByType(const rc::TypeInfo* type)
+        void RemoveByType(const core::TypeInfo* type)
         {
             Subsystem* const* found = m_byType.Find(type);
             if (found == nullptr) { return; }
@@ -130,14 +130,14 @@ export namespace draconic::runtime
             subsystem->Shutdown();
             subsystem->OnUnregister();
 
-            for (rc::usize i = 0; i < m_sorted.Size(); ++i)
+            for (core::usize i = 0; i < m_sorted.Size(); ++i)
             {
                 if (m_sorted[i] == subsystem) { m_sorted.RemoveAt(i); break; }
             }
             m_byType.Remove(type);
 
             // If the Context owns it, destroying the UniquePtr frees the object.
-            for (rc::usize i = 0; i < m_owned.Size(); ++i)
+            for (core::usize i = 0; i < m_owned.Size(); ++i)
             {
                 if (m_owned[i].Get() == subsystem) { m_owned.RemoveAt(i); break; }
             }
@@ -147,7 +147,7 @@ export namespace draconic::runtime
         void InsertSorted(Subsystem* subsystem)
         {
             m_sorted.PushBack(subsystem);
-            rc::usize i = m_sorted.Size() - 1;
+            core::usize i = m_sorted.Size() - 1;
             while (i > 0 && m_sorted[i - 1]->UpdateOrder() > subsystem->UpdateOrder())
             {
                 Subsystem* prev = m_sorted[i - 1];
@@ -157,10 +157,10 @@ export namespace draconic::runtime
             }
         }
 
-        rc::IAllocator* m_allocator;
-        rc::HashMap<const rc::TypeInfo*, Subsystem*> m_byType;
-        rc::Array<Subsystem*> m_sorted;                 // non-owning, UpdateOrder-sorted
-        rc::Array<rc::UniquePtr<Subsystem>> m_owned;    // ownership
+        core::IAllocator* m_allocator;
+        core::HashMap<const core::TypeInfo*, Subsystem*> m_byType;
+        core::Array<Subsystem*> m_sorted;                 // non-owning, UpdateOrder-sorted
+        core::Array<core::UniquePtr<Subsystem>> m_owned;    // ownership
         bool m_running = false;
         bool m_disposed = false;
     };

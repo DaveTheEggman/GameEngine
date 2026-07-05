@@ -28,7 +28,7 @@ import draconic.animation.subsystem; // AnimationSubsystem (drives skeletal anim
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
-namespace rc  = draconic::core;
+namespace core  = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 
 export namespace draconic::runtime
@@ -39,19 +39,19 @@ export namespace draconic::runtime
         // Press P to print the previous frame's CPU scope tree + per-pass GPU timing. A game
         // subclass that overrides OnUpdate should call DefaultApplication::OnUpdate(host, dt) to
         // keep the hotkey. (Reads the GPU timestamps after a device stall — fine for an on-demand dump.)
-        void OnUpdate(IApplicationHost& host, rc::f32 /*deltaTime*/) override
+        void OnUpdate(IApplicationHost& host, core::f32 /*deltaTime*/) override
         {
             IShell* plat = host.Shell();
             IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
             IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
             if (kb == nullptr || !kb->IsKeyPressed(KeyCode::P)) { return; }
 
-            rc::ConsoleWrite(draconic::profiler::Profiler::Get().BuildReport().AsView());
+            core::ConsoleWrite(draconic::profiler::Profiler::Get().BuildReport().AsView());
             if (auto* renderer = host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>())
             {
-                rc::String gpu;
+                core::String gpu;
                 renderer->BuildGpuProfileReport(gpu);
-                rc::ConsoleWrite(gpu.AsView());
+                core::ConsoleWrite(gpu.AsView());
             }
         }
 

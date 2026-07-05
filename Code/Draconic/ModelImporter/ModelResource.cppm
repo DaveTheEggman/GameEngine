@@ -28,10 +28,10 @@ import draconic.content;
 
 using namespace draconic::core;
 using namespace draconic::resource;
-namespace geo  = draconic::geometry;
-namespace mat  = draconic::materials;
+namespace geometry  = draconic::geometry;
+namespace materials  = draconic::materials;
 namespace tex  = draconic::texture;
-namespace anim = draconic::animation;
+namespace animation = draconic::animation;
 
 export namespace draconic::modelimporter {
 
@@ -92,12 +92,12 @@ class ModelResource final : public Object {
     DRACONIC_OBJECT(ModelResource, Object)
 public:
     Array<ModelNode>               nodes;
-    Array<RefPtr<geo::StaticMesh>> meshes;         // base ptr (a SkinnedMesh upcasts here); skinned via meshSkinned
+    Array<RefPtr<geometry::StaticMesh>> meshes;         // base ptr (a SkinnedMesh upcasts here); skinned via meshSkinned
     Array<u8>                      meshSkinned;
     Array<i32>                     meshMaterial;   // material index per mesh (-1 = none)
-    Array<Proxy<mat::Material>>    materials;      // resolved materials (albedo wired as default texture)
-    Proxy<anim::Skeleton>          skeleton;       // resolved skeleton (null if not skinned)
-    Array<Proxy<anim::AnimationClip>> animations; // resolved animation clips
+    Array<Proxy<materials::Material>>    materials;      // resolved materials (albedo wired as default texture)
+    Proxy<animation::Skeleton>          skeleton;       // resolved skeleton (null if not skinned)
+    Array<Proxy<animation::AnimationClip>> animations; // resolved animation clips
     Vector3                           boundsMin{};
     Vector3                           boundsMax{};
 };
@@ -123,20 +123,20 @@ public:
         // checks IsSkinned() + uploads the skin stream). Bind records the model->mesh dependency edge.
         for (usize i = 0; i < src->meshGuids.Size(); ++i) {
             const bool skinned = (i < src->meshSkinned.Size() && src->meshSkinned[i] != 0);
-            geo::StaticMesh* mesh = skinned
-                ? static_cast<geo::StaticMesh*>(manager.Bind<geo::SkinnedMesh>(src->meshGuids[i]).Get())
-                : manager.Bind<geo::StaticMesh>(src->meshGuids[i]).Get();
-            model->meshes.PushBack(RefPtr<geo::StaticMesh>(mesh));
+            geometry::StaticMesh* mesh = skinned
+                ? static_cast<geometry::StaticMesh*>(manager.Bind<geometry::SkinnedMesh>(src->meshGuids[i]).Get())
+                : manager.Bind<geometry::StaticMesh>(src->meshGuids[i]).Get();
+            model->meshes.PushBack(RefPtr<geometry::StaticMesh>(mesh));
         }
 
         // Resolve the skeleton + animation clips (composite edges).
-        if (!src->skeletonGuid.IsNil()) { model->skeleton = manager.Bind<anim::Skeleton>(src->skeletonGuid); }
-        for (const Guid& g : src->animationGuids) { model->animations.PushBack(manager.Bind<anim::AnimationClip>(g)); }
+        if (!src->skeletonGuid.IsNil()) { model->skeleton = manager.Bind<animation::Skeleton>(src->skeletonGuid); }
+        for (const Guid& g : src->animationGuids) { model->animations.PushBack(manager.Bind<animation::AnimationClip>(g)); }
 
         // Resolve materials + wire their albedo texture in as the material's default (the renderer's
         // per-material instance reads default textures, so no per-instance assignment is needed).
         for (usize i = 0; i < src->materialGuids.Size(); ++i) {
-            Proxy<mat::Material> material = manager.Bind<mat::Material>(src->materialGuids[i]);
+            Proxy<materials::Material> material = manager.Bind<materials::Material>(src->materialGuids[i]);
             if (material && i < src->materialAlbedo.Size() && !src->materialAlbedo[i].IsNil()) {
                 Proxy<tex::Texture> albedo = manager.Bind<tex::Texture>(src->materialAlbedo[i]);
                 if (albedo && albedo->View() != nullptr) {
@@ -165,28 +165,28 @@ inline void RegisterModelImporterTypes()
     RegisterSerializable<ModelManifestSource>();
     GlobalTypeRegistry().Register(ModelResource::StaticType());
 
-    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
-    RegisterSerializable<geo::StaticMeshSource>();
-    GlobalTypeRegistry().Register(geo::SkinnedMeshSource::StaticType());
-    RegisterSerializable<geo::SkinnedMeshSource>();
-    GlobalTypeRegistry().Register(geo::StaticMesh::StaticType());
-    GlobalTypeRegistry().Register(geo::SkinnedMesh::StaticType());
-    RegisterSerializable<geo::SkinnedMeshSource>();
+    GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
+    RegisterSerializable<geometry::StaticMeshSource>();
+    GlobalTypeRegistry().Register(geometry::SkinnedMeshSource::StaticType());
+    RegisterSerializable<geometry::SkinnedMeshSource>();
+    GlobalTypeRegistry().Register(geometry::StaticMesh::StaticType());
+    GlobalTypeRegistry().Register(geometry::SkinnedMesh::StaticType());
+    RegisterSerializable<geometry::SkinnedMeshSource>();
 
-    GlobalTypeRegistry().Register(mat::MaterialSource::StaticType());
-    RegisterSerializable<mat::MaterialSource>();
-    GlobalTypeRegistry().Register(mat::Material::StaticType());
+    GlobalTypeRegistry().Register(materials::MaterialSource::StaticType());
+    RegisterSerializable<materials::MaterialSource>();
+    GlobalTypeRegistry().Register(materials::Material::StaticType());
 
     GlobalTypeRegistry().Register(tex::TextureResource::StaticType());
     RegisterSerializable<tex::TextureResource>();
     GlobalTypeRegistry().Register(tex::Texture::StaticType());
 
-    GlobalTypeRegistry().Register(anim::SkeletonSource::StaticType());
-    RegisterSerializable<anim::SkeletonSource>();
-    GlobalTypeRegistry().Register(anim::Skeleton::StaticType());
-    GlobalTypeRegistry().Register(anim::AnimationClipSource::StaticType());
-    RegisterSerializable<anim::AnimationClipSource>();
-    GlobalTypeRegistry().Register(anim::AnimationClip::StaticType());
+    GlobalTypeRegistry().Register(animation::SkeletonSource::StaticType());
+    RegisterSerializable<animation::SkeletonSource>();
+    GlobalTypeRegistry().Register(animation::Skeleton::StaticType());
+    GlobalTypeRegistry().Register(animation::AnimationClipSource::StaticType());
+    RegisterSerializable<animation::AnimationClipSource>();
+    GlobalTypeRegistry().Register(animation::AnimationClip::StaticType());
 }
 
 } // namespace draconic::modelimporter

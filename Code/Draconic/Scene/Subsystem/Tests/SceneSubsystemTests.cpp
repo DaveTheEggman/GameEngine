@@ -11,7 +11,7 @@ import draconic.scene.subsystem;
 
 using namespace draconic::core;
 using namespace draconic::scene;
-namespace rt = draconic::runtime;
+namespace runtime = draconic::runtime;
 
 namespace
 {
@@ -22,7 +22,7 @@ namespace
     };
 
     // A Context-level subsystem that reacts to scene lifecycle (the ISceneAware role).
-    class FakeRenderSubsystem : public rt::Subsystem, public ISceneAware {
+    class FakeRenderSubsystem : public runtime::Subsystem, public ISceneAware {
     public:
         int created = 0, ready = 0, destroyed = 0;
 
@@ -39,7 +39,7 @@ namespace
 
 TEST_CASE("scene-aware subsystem injects a per-scene system on scene creation (two-pass)")
 {
-    rt::Context ctx;
+    runtime::Context ctx;
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();                                   // OnReady -> render registers with the broker
@@ -57,7 +57,7 @@ TEST_CASE("scene-aware subsystem injects a per-scene system on scene creation (t
 
 TEST_CASE("the subsystem ticks its scenes each Context update")
 {
-    rt::Context ctx;
+    runtime::Context ctx;
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();
@@ -76,7 +76,7 @@ TEST_CASE("the subsystem ticks its scenes each Context update")
 
 TEST_CASE("destroying a scene notifies aware subsystems + drops it from the active list")
 {
-    rt::Context ctx;
+    runtime::Context ctx;
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();
@@ -97,7 +97,7 @@ TEST_CASE("destroying a scene notifies aware subsystems + drops it from the acti
 
 TEST_CASE("scene-aware registration is idempotent; unregister stops notifications")
 {
-    rt::Context ctx;
+    runtime::Context ctx;
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();

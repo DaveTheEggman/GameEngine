@@ -12,21 +12,21 @@ export module draconic.script:script_manager;
 import draconic.core;
 import :script_context;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::script
 {
-    class IScriptManager : public rc::Object
+    class IScriptManager : public core::Object
     {
     public:
         // Expose a reflected type to scripts. The backend introspects the
         // TypeInfo (properties / methods / constructors / constants) and installs
         // the corresponding bindings.
-        virtual void RegisterType(const rc::TypeInfo& type) = 0;
+        virtual void RegisterType(const core::TypeInfo& type) = 0;
 
         // Create a fresh, isolated execution context. Contexts see the classes
         // registered up to their creation.
-        [[nodiscard]] virtual rc::RefPtr<IScriptContext> CreateContext() = 0;
+        [[nodiscard]] virtual core::RefPtr<IScriptContext> CreateContext() = 0;
 
         // Single-step garbage collection, for backends that need it kept small in
         // real-time loops. Default: no-op.

@@ -12,14 +12,14 @@ export module draconic.script:script_register;
 import draconic.core;
 import :script_manager;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::script
 {
     inline void RegisterReflectedTypes(IScriptManager& manager,
-                                       const rc::TypeRegistry& registry = rc::GlobalTypeRegistry())
+                                       const core::TypeRegistry& registry = core::GlobalTypeRegistry())
     {
-        for (const rc::TypeInfo* type : registry.All())
+        for (const core::TypeInfo* type : registry.All())
         {
             manager.RegisterType(*type);
         }

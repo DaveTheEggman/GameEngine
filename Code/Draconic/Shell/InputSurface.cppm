@@ -30,7 +30,7 @@ import draconic.core;
 import :input;
 import :input_types;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::shell
 {
@@ -45,12 +45,12 @@ export namespace draconic::shell
     public:
         explicit SurfaceMouse(InputSurface* s) noexcept : m_s(s) {}
 
-        [[nodiscard]] rc::f32 X()       const override;  // content-space
-        [[nodiscard]] rc::f32 Y()       const override;
-        [[nodiscard]] rc::f32 DeltaX()  const override;  // content-space, gated
-        [[nodiscard]] rc::f32 DeltaY()  const override;
-        [[nodiscard]] rc::f32 ScrollX() const override;
-        [[nodiscard]] rc::f32 ScrollY() const override;
+        [[nodiscard]] core::f32 X()       const override;  // content-space
+        [[nodiscard]] core::f32 Y()       const override;
+        [[nodiscard]] core::f32 DeltaX()  const override;  // content-space, gated
+        [[nodiscard]] core::f32 DeltaY()  const override;
+        [[nodiscard]] core::f32 ScrollX() const override;
+        [[nodiscard]] core::f32 ScrollY() const override;
 
         [[nodiscard]] bool IsButtonDown(MouseButton b)     const override;
         [[nodiscard]] bool IsButtonPressed(MouseButton b)  const override;
@@ -87,23 +87,23 @@ export namespace draconic::shell
     {
     public:
         SurfaceGamepad() noexcept = default;
-        void Bind(InputSurface* s, rc::i32 index) noexcept { m_s = s; m_index = index; }
+        void Bind(InputSurface* s, core::i32 index) noexcept { m_s = s; m_index = index; }
 
-        [[nodiscard]] rc::i32        Index()     const override;
-        [[nodiscard]] rc::StringView Name()      const override;
+        [[nodiscard]] core::i32        Index()     const override;
+        [[nodiscard]] core::StringView Name()      const override;
         [[nodiscard]] bool           Connected() const override;
 
         [[nodiscard]] bool IsButtonDown(GamepadButton b)     const override;
         [[nodiscard]] bool IsButtonPressed(GamepadButton b)  const override;
         [[nodiscard]] bool IsButtonReleased(GamepadButton b) const override;
-        [[nodiscard]] rc::f32 Axis(GamepadAxis a)            const override;
+        [[nodiscard]] core::f32 Axis(GamepadAxis a)            const override;
 
-        void SetRumble(rc::f32 lo, rc::f32 hi, rc::u32 durationMs) override;
+        void SetRumble(core::f32 lo, core::f32 hi, core::u32 durationMs) override;
 
     private:
         [[nodiscard]] IGamepad* Raw() const;  // resolves raw->GetGamepad(m_index)
         InputSurface* m_s = nullptr;
-        rc::i32       m_index = 0;
+        core::i32       m_index = 0;
     };
 
     // Touch, gated by hover (coordinate transform is a v1 follow-up; the demo path
@@ -113,8 +113,8 @@ export namespace draconic::shell
     public:
         explicit SurfaceTouch(InputSurface* s) noexcept : m_s(s) {}
 
-        [[nodiscard]] rc::i32 TouchCount() const override;
-        [[nodiscard]] bool GetTouchPoint(rc::i32 index, TouchPoint& out) const override;
+        [[nodiscard]] core::i32 TouchCount() const override;
+        [[nodiscard]] bool GetTouchPoint(core::i32 index, TouchPoint& out) const override;
         [[nodiscard]] bool HasTouch() const override;
 
     private:
@@ -126,10 +126,10 @@ export namespace draconic::shell
     class InputSurface
     {
     public:
-        InputSurface(IInputManager* raw, rc::u32 window, const rc::ContentFit& fit) noexcept
+        InputSurface(IInputManager* raw, core::u32 window, const core::ContentFit& fit) noexcept
             : m_raw(raw), m_window(window), m_fit(fit)
         {
-            for (rc::i32 i = 0; i < kMaxGamepads; ++i) { m_gamepads[i].Bind(this, i); }
+            for (core::i32 i = 0; i < kMaxGamepads; ++i) { m_gamepads[i].Bind(this, i); }
         }
 
         // Non-copyable, non-movable: facades hold a stable `this`.
@@ -137,12 +137,12 @@ export namespace draconic::shell
         InputSurface& operator=(const InputSurface&) = delete;
 
         // --- configuration ---
-        void SetFit(const rc::ContentFit& fit) noexcept { m_fit = fit; }
-        void SetRegion(rc::Rectangle region) noexcept        { m_fit.region = region; }
-        void SetContentSize(rc::Vector2 size) noexcept     { m_fit.contentSize = size; }
-        void SetFitMode(rc::FitMode mode) noexcept      { m_fit.mode = mode; }
-        [[nodiscard]] const rc::ContentFit& Fit() const noexcept { return m_fit; }
-        [[nodiscard]] rc::u32 Window() const noexcept   { return m_window; }
+        void SetFit(const core::ContentFit& fit) noexcept { m_fit = fit; }
+        void SetRegion(core::Rectangle region) noexcept        { m_fit.region = region; }
+        void SetContentSize(core::Vector2 size) noexcept     { m_fit.contentSize = size; }
+        void SetFitMode(core::FitMode mode) noexcept      { m_fit.mode = mode; }
+        [[nodiscard]] const core::ContentFit& Fit() const noexcept { return m_fit; }
+        [[nodiscard]] core::u32 Window() const noexcept   { return m_window; }
 
         // --- gate state (read by anyone; set by InputRouter) ---
         [[nodiscard]] bool Hovered()  const noexcept { return m_hovered; }
@@ -150,14 +150,14 @@ export namespace draconic::shell
         [[nodiscard]] bool Captured() const noexcept { return m_captured; }
         [[nodiscard]] bool MouseActive() const noexcept { return m_hovered || m_captured; }
 
-        [[nodiscard]] rc::Vector2 ContentMouse() const noexcept { return m_contentMouse; }
-        [[nodiscard]] rc::Vector2 ContentDelta() const noexcept { return m_contentDelta; }
+        [[nodiscard]] core::Vector2 ContentMouse() const noexcept { return m_contentMouse; }
+        [[nodiscard]] core::Vector2 ContentDelta() const noexcept { return m_contentDelta; }
 
         // --- transformed + gated device facades ---
         [[nodiscard]] IMouse*    Mouse()    noexcept { return &m_mouse; }
         [[nodiscard]] IKeyboard* Keyboard() noexcept { return &m_keyboard; }
         [[nodiscard]] ITouch*    Touch()    noexcept { return &m_touch; }
-        [[nodiscard]] IGamepad*  Gamepad(rc::i32 index) noexcept
+        [[nodiscard]] IGamepad*  Gamepad(core::i32 index) noexcept
         {
             return (index >= 0 && index < kMaxGamepads) ? &m_gamepads[index] : nullptr;
         }
@@ -167,22 +167,22 @@ export namespace draconic::shell
 
         // Called by InputRouter once per frame with this surface's resolved gate.
         void ApplyGate(bool hovered, bool focused, bool captured,
-                       rc::Vector2 contentMouse, rc::Vector2 contentDelta) noexcept
+                       core::Vector2 contentMouse, core::Vector2 contentDelta) noexcept
         {
             m_hovered = hovered; m_focused = focused; m_captured = captured;
             m_contentMouse = contentMouse; m_contentDelta = contentDelta;
         }
 
     private:
-        static constexpr rc::i32 kMaxGamepads = 8;
+        static constexpr core::i32 kMaxGamepads = 8;
 
         IInputManager* m_raw;
-        rc::u32        m_window;
-        rc::ContentFit m_fit;
+        core::u32        m_window;
+        core::ContentFit m_fit;
 
         bool m_hovered = false, m_focused = false, m_captured = false;
-        rc::Vector2 m_contentMouse{ 0, 0 };
-        rc::Vector2 m_contentDelta{ 0, 0 };
+        core::Vector2 m_contentMouse{ 0, 0 };
+        core::Vector2 m_contentDelta{ 0, 0 };
 
         SurfaceMouse    m_mouse{ this };
         SurfaceKeyboard m_keyboard{ this };
@@ -192,15 +192,15 @@ export namespace draconic::shell
 
     // --- facade bodies (InputSurface now complete) ------------------------------
 
-    inline rc::f32 SurfaceMouse::X() const { return m_s->ContentMouse().x; }
-    inline rc::f32 SurfaceMouse::Y() const { return m_s->ContentMouse().y; }
-    inline rc::f32 SurfaceMouse::DeltaX() const { return m_s->ContentDelta().x; }
-    inline rc::f32 SurfaceMouse::DeltaY() const { return m_s->ContentDelta().y; }
-    inline rc::f32 SurfaceMouse::ScrollX() const
+    inline core::f32 SurfaceMouse::X() const { return m_s->ContentMouse().x; }
+    inline core::f32 SurfaceMouse::Y() const { return m_s->ContentMouse().y; }
+    inline core::f32 SurfaceMouse::DeltaX() const { return m_s->ContentDelta().x; }
+    inline core::f32 SurfaceMouse::DeltaY() const { return m_s->ContentDelta().y; }
+    inline core::f32 SurfaceMouse::ScrollX() const
     {
         return m_s->MouseActive() ? m_s->Raw()->Mouse()->ScrollX() : 0.0f;
     }
-    inline rc::f32 SurfaceMouse::ScrollY() const
+    inline core::f32 SurfaceMouse::ScrollY() const
     {
         return m_s->MouseActive() ? m_s->Raw()->Mouse()->ScrollY() : 0.0f;
     }
@@ -243,11 +243,11 @@ export namespace draconic::shell
     {
         return (m_s != nullptr) ? m_s->Raw()->GetGamepad(m_index) : nullptr;
     }
-    inline rc::i32 SurfaceGamepad::Index() const { return m_index; }
-    inline rc::StringView SurfaceGamepad::Name() const
+    inline core::i32 SurfaceGamepad::Index() const { return m_index; }
+    inline core::StringView SurfaceGamepad::Name() const
     {
         IGamepad* g = Raw();
-        return g ? g->Name() : rc::StringView{};
+        return g ? g->Name() : core::StringView{};
     }
     inline bool SurfaceGamepad::Connected() const
     {
@@ -269,22 +269,22 @@ export namespace draconic::shell
         IGamepad* g = Raw();
         return m_s->Focused() && g != nullptr && g->IsButtonReleased(b);
     }
-    inline rc::f32 SurfaceGamepad::Axis(GamepadAxis a) const
+    inline core::f32 SurfaceGamepad::Axis(GamepadAxis a) const
     {
         IGamepad* g = Raw();
         return (m_s->Focused() && g != nullptr) ? g->Axis(a) : 0.0f;
     }
-    inline void SurfaceGamepad::SetRumble(rc::f32 lo, rc::f32 hi, rc::u32 durationMs)
+    inline void SurfaceGamepad::SetRumble(core::f32 lo, core::f32 hi, core::u32 durationMs)
     {
         IGamepad* g = Raw();
         if (g != nullptr) { g->SetRumble(lo, hi, durationMs); }
     }
 
-    inline rc::i32 SurfaceTouch::TouchCount() const
+    inline core::i32 SurfaceTouch::TouchCount() const
     {
         return m_s->Hovered() ? m_s->Raw()->Touch()->TouchCount() : 0;
     }
-    inline bool SurfaceTouch::GetTouchPoint(rc::i32 index, TouchPoint& out) const
+    inline bool SurfaceTouch::GetTouchPoint(core::i32 index, TouchPoint& out) const
     {
         return m_s->Hovered() && m_s->Raw()->Touch()->GetTouchPoint(index, out);
     }
@@ -303,7 +303,7 @@ export namespace draconic::shell
         void AddSurface(InputSurface* s) { if (s != nullptr) { m_surfaces.PushBack(s); } }
         void RemoveSurface(InputSurface* s)
         {
-            for (rc::usize i = 0; i < m_surfaces.Size(); ++i)
+            for (core::usize i = 0; i < m_surfaces.Size(); ++i)
             {
                 if (m_surfaces[i] == s) { m_surfaces.RemoveAt(i); break; }
             }
@@ -328,9 +328,9 @@ export namespace draconic::shell
         void Update()
         {
             IMouse* rawMouse = m_raw->Mouse();
-            const rc::Vector2 pos{ rawMouse->X(), rawMouse->Y() };
-            const rc::Vector2 delta{ rawMouse->DeltaX(), rawMouse->DeltaY() };
-            const rc::u32  hoverWindow = m_raw->HoverWindow();
+            const core::Vector2 pos{ rawMouse->X(), rawMouse->Y() };
+            const core::Vector2 delta{ rawMouse->DeltaX(), rawMouse->DeltaY() };
+            const core::u32  hoverWindow = m_raw->HoverWindow();
 
             // Which surface is under the pointer? Last match wins (topmost added). When an external overlay
             // (e.g. an ImGui window under the pointer) has captured the mouse this frame, NO surface is
@@ -384,18 +384,18 @@ export namespace draconic::shell
                 const bool captured = (s == m_captured);
                 const bool focused  = (s == m_focused);
 
-                rc::Vector2 content = s->ContentMouse();  // keep last if not over this surface
+                core::Vector2 content = s->ContentMouse();  // keep last if not over this surface
                 if (s->Window() == hoverWindow)
                 {
-                    rc::Vector2 c;
+                    core::Vector2 c;
                     if (s->Fit().ToContent(pos, c)) { content = c; }
                 }
 
-                rc::Vector2 cdelta{ 0, 0 };
+                core::Vector2 cdelta{ 0, 0 };
                 if (s == target)
                 {
-                    const rc::Vector2 scale = s->Fit().Scale();
-                    cdelta = rc::Vector2{ delta.x * scale.x, delta.y * scale.y };
+                    const core::Vector2 scale = s->Fit().Scale();
+                    cdelta = core::Vector2{ delta.x * scale.x, delta.y * scale.y };
                 }
 
                 s->ApplyGate(hovered, focused, captured, content, cdelta);
@@ -404,7 +404,7 @@ export namespace draconic::shell
 
     private:
         IInputManager* m_raw;
-        rc::Array<InputSurface*> m_surfaces;
+        core::Array<InputSurface*> m_surfaces;
         InputSurface* m_hovered = nullptr;
         InputSurface* m_focused = nullptr;
         InputSurface* m_captured = nullptr;

@@ -16,16 +16,16 @@ import draconic.rhi;
 import draconic.rhi.null;
 import draconic.runtime.graphics;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 namespace rhi = draconic::rhi;
 
 export namespace draconic::runtime
 {
     // Create a headless GraphicsDevice backed by the Null RHI. No Vulkan required.
-    rc::Result<rc::UniquePtr<GraphicsDevice>> CreateNullGraphicsDevice(rc::u32 framesInFlight = 2)
+    core::Result<core::UniquePtr<GraphicsDevice>> CreateNullGraphicsDevice(core::u32 framesInFlight = 2)
     {
         rhi::Backend* raw = nullptr;
-        if (!rhi::null::CreateNullBackend(raw).IsOk()) { return rc::Err(rc::ErrorCode::Unknown); }
+        if (!rhi::null::CreateNullBackend(raw).IsOk()) { return core::Err(core::ErrorCode::Unknown); }
         return GraphicsDevice::FromBackend(raw, framesInFlight);
     }
 }

@@ -28,7 +28,7 @@ export module draconic.shell.desktop;
 import draconic.core;
 import draconic.shell;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::shell
 {
@@ -39,9 +39,9 @@ export namespace draconic::shell
         {
             int w = 0, h = 0;
             SDL_GetWindowSize(m_window, &w, &h);
-            m_width = static_cast<rc::u32>(w);
-            m_height = static_cast<rc::u32>(h);
-            m_id = static_cast<rc::u32>(SDL_GetWindowID(m_window));
+            m_width = static_cast<core::u32>(w);
+            m_height = static_cast<core::u32>(h);
+            m_id = static_cast<core::u32>(SDL_GetWindowID(m_window));
         }
 
         ~SDL3Window() override { if (m_window != nullptr) { SDL_DestroyWindow(m_window); } }
@@ -49,9 +49,9 @@ export namespace draconic::shell
         SDL3Window(const SDL3Window&) = delete;
         SDL3Window& operator=(const SDL3Window&) = delete;
 
-        [[nodiscard]] rc::u32 Id() const noexcept override { return m_id; }
-        [[nodiscard]] rc::u32 Width() const noexcept override { return m_width; }
-        [[nodiscard]] rc::u32 Height() const noexcept override { return m_height; }
+        [[nodiscard]] core::u32 Id() const noexcept override { return m_id; }
+        [[nodiscard]] core::u32 Width() const noexcept override { return m_width; }
+        [[nodiscard]] core::u32 Height() const noexcept override { return m_height; }
 
         // Extract the real native handles from SDL's window properties so RHI can
         // create its own surface (it does not use SDL's Vulkan helpers).
@@ -94,13 +94,13 @@ export namespace draconic::shell
         void Close() override { m_open = false; }
 
         [[nodiscard]] SDL_Window* Handle() const noexcept { return m_window; }
-        void OnResized(rc::u32 w, rc::u32 h) noexcept { m_width = w; m_height = h; }
+        void OnResized(core::u32 w, core::u32 h) noexcept { m_width = w; m_height = h; }
 
     private:
         SDL_Window* m_window;
-        rc::u32 m_id = 0;
-        rc::u32 m_width = 0;
-        rc::u32 m_height = 0;
+        core::u32 m_id = 0;
+        core::u32 m_width = 0;
+        core::u32 m_height = 0;
         bool m_open = true;
     };
 
@@ -123,18 +123,18 @@ export namespace draconic::shell
     class SDL3WindowManager final : public IWindowManager
     {
     public:
-        [[nodiscard]] rc::Result<IWindow*> CreateWindow(const WindowSettings& settings) override
+        [[nodiscard]] core::Result<IWindow*> CreateWindow(const WindowSettings& settings) override
         {
-            const rc::String title = rc::String(settings.title);
+            const core::String title = core::String(settings.title);
             SDL_Window* window = SDL_CreateWindow(
                 reinterpret_cast<const char*>(title.CStr()),
                 static_cast<int>(settings.width), static_cast<int>(settings.height),
                 Sdl3WindowFlags());
-            if (window == nullptr) { return rc::Err(rc::ErrorCode::Unknown); }
+            if (window == nullptr) { return core::Err(core::ErrorCode::Unknown); }
 
-            auto wrapped = rc::MakeUnique<SDL3Window>(rc::DefaultAllocator(), window);
+            auto wrapped = core::MakeUnique<SDL3Window>(core::DefaultAllocator(), window);
             IWindow* borrowed = wrapped.Get();
-            m_owned.PushBack(static_cast<rc::UniquePtr<SDL3Window>&&>(wrapped));
+            m_owned.PushBack(static_cast<core::UniquePtr<SDL3Window>&&>(wrapped));
             m_live.PushBack(borrowed);
             return borrowed;
         }
@@ -146,33 +146,33 @@ export namespace draconic::shell
             m_pendingDestroy.PushBack(window->Id());
         }
 
-        [[nodiscard]] rc::Span<IWindow* const> Windows() noexcept override
+        [[nodiscard]] core::Span<IWindow* const> Windows() noexcept override
         {
-            return rc::Span<IWindow* const>(m_live.Data(), m_live.Size());
+            return core::Span<IWindow* const>(m_live.Data(), m_live.Size());
         }
         [[nodiscard]] IWindow* MainWindow() noexcept override
         {
             return m_live.IsEmpty() ? nullptr : m_live[0];
         }
-        [[nodiscard]] IWindow* GetWindow(rc::u32 id) noexcept override
+        [[nodiscard]] IWindow* GetWindow(core::u32 id) noexcept override
         {
             for (IWindow* w : m_live) { if (w->Id() == id) { return w; } }
             return nullptr;
         }
-        [[nodiscard]] rc::Span<const WindowEvent> Events() const noexcept override
+        [[nodiscard]] core::Span<const WindowEvent> Events() const noexcept override
         {
-            return rc::Span<const WindowEvent>(m_events.Data(), m_events.Size());
+            return core::Span<const WindowEvent>(m_events.Data(), m_events.Size());
         }
 
         void FlushDestroyed() override
         {
-            for (rc::u32 id : m_pendingDestroy)
+            for (core::u32 id : m_pendingDestroy)
             {
-                for (rc::usize i = 0; i < m_live.Size(); ++i)
+                for (core::usize i = 0; i < m_live.Size(); ++i)
                 {
                     if (m_live[i]->Id() == id) { m_live.RemoveAt(i); break; }
                 }
-                for (rc::usize i = 0; i < m_owned.Size(); ++i)
+                for (core::usize i = 0; i < m_owned.Size(); ++i)
                 {
                     if (m_owned[i]->Id() == id) { m_owned.RemoveAt(i); break; }  // dtor destroys SDL window
                 }
@@ -181,9 +181,9 @@ export namespace draconic::shell
         }
 
         // --- event pump wiring (called by SDL3Shell::ProcessEvents) ---
-        SDL3Window* Find(rc::u32 id) noexcept
+        SDL3Window* Find(core::u32 id) noexcept
         {
-            for (rc::UniquePtr<SDL3Window>& w : m_owned) { if (w->Id() == id) { return w.Get(); } }
+            for (core::UniquePtr<SDL3Window>& w : m_owned) { if (w->Id() == id) { return w.Get(); } }
             return nullptr;
         }
         void ClearEvents() noexcept { m_events.Clear(); }
@@ -199,19 +199,19 @@ export namespace draconic::shell
         }
 
     private:
-        rc::Array<rc::UniquePtr<SDL3Window>> m_owned;
-        rc::Array<IWindow*> m_live;
-        rc::Array<rc::u32> m_pendingDestroy;
-        rc::Array<WindowEvent> m_events;
+        core::Array<core::UniquePtr<SDL3Window>> m_owned;
+        core::Array<IWindow*> m_live;
+        core::Array<core::u32> m_pendingDestroy;
+        core::Array<WindowEvent> m_events;
     };
 
     // -----------------------------------------------------------------------
     // Input devices — double-buffered state fed by the SDL3 event pump.
     // -----------------------------------------------------------------------
-    inline constexpr rc::u32 kKeyCount           = static_cast<rc::u32>(KeyCode::Count);
-    inline constexpr rc::u32 kMouseButtonCount   = static_cast<rc::u32>(MouseButton::Count);
-    inline constexpr rc::u32 kGamepadButtonCount = static_cast<rc::u32>(GamepadButton::Count);
-    inline constexpr rc::u32 kCursorCount        = static_cast<rc::u32>(CursorType::Count);
+    inline constexpr core::u32 kKeyCount           = static_cast<core::u32>(KeyCode::Count);
+    inline constexpr core::u32 kMouseButtonCount   = static_cast<core::u32>(MouseButton::Count);
+    inline constexpr core::u32 kGamepadButtonCount = static_cast<core::u32>(GamepadButton::Count);
+    inline constexpr core::u32 kCursorCount        = static_cast<core::u32>(CursorType::Count);
 
     class SDL3Keyboard final : public IKeyboard
     {
@@ -219,24 +219,24 @@ export namespace draconic::shell
         [[nodiscard]] bool IsKeyDown(KeyCode key) const override { return m_current[Index(key)]; }
         [[nodiscard]] bool IsKeyPressed(KeyCode key) const override
         {
-            const rc::u32 i = Index(key);
+            const core::u32 i = Index(key);
             return m_current[i] && !m_previous[i];
         }
         [[nodiscard]] bool IsKeyReleased(KeyCode key) const override
         {
-            const rc::u32 i = Index(key);
+            const core::u32 i = Index(key);
             return !m_current[i] && m_previous[i];
         }
         [[nodiscard]] KeyModifiers Modifiers() const override { return m_mods; }
 
         void SetKey(KeyCode key, bool down) { m_current[Index(key)] = down; }
         void SetModifiers(KeyModifiers mods) { m_mods = mods; }
-        void BeginFrame() { for (rc::u32 i = 0; i < kKeyCount; ++i) { m_previous[i] = m_current[i]; } }
+        void BeginFrame() { for (core::u32 i = 0; i < kKeyCount; ++i) { m_previous[i] = m_current[i]; } }
 
     private:
-        static rc::u32 Index(KeyCode key) noexcept
+        static core::u32 Index(KeyCode key) noexcept
         {
-            const rc::u32 i = static_cast<rc::u32>(key);
+            const core::u32 i = static_cast<core::u32>(key);
             return i < kKeyCount ? i : 0;
         }
         bool m_current[kKeyCount] = {};
@@ -247,21 +247,21 @@ export namespace draconic::shell
     class SDL3Mouse final : public IMouse
     {
     public:
-        [[nodiscard]] rc::f32 X() const override { return m_x; }
-        [[nodiscard]] rc::f32 Y() const override { return m_y; }
-        [[nodiscard]] rc::f32 DeltaX() const override { return m_dx; }
-        [[nodiscard]] rc::f32 DeltaY() const override { return m_dy; }
-        [[nodiscard]] rc::f32 ScrollX() const override { return m_sx; }
-        [[nodiscard]] rc::f32 ScrollY() const override { return m_sy; }
+        [[nodiscard]] core::f32 X() const override { return m_x; }
+        [[nodiscard]] core::f32 Y() const override { return m_y; }
+        [[nodiscard]] core::f32 DeltaX() const override { return m_dx; }
+        [[nodiscard]] core::f32 DeltaY() const override { return m_dy; }
+        [[nodiscard]] core::f32 ScrollX() const override { return m_sx; }
+        [[nodiscard]] core::f32 ScrollY() const override { return m_sy; }
         [[nodiscard]] bool IsButtonDown(MouseButton b) const override { return m_current[Index(b)]; }
         [[nodiscard]] bool IsButtonPressed(MouseButton b) const override
         {
-            const rc::u32 i = Index(b);
+            const core::u32 i = Index(b);
             return m_current[i] && !m_previous[i];
         }
         [[nodiscard]] bool IsButtonReleased(MouseButton b) const override
         {
-            const rc::u32 i = Index(b);
+            const core::u32 i = Index(b);
             return !m_current[i] && m_previous[i];
         }
         [[nodiscard]] bool RelativeMode() const override { return m_relative; }
@@ -278,7 +278,7 @@ export namespace draconic::shell
         }
         void SetCursor(CursorType cursor) override
         {
-            const rc::u32 i = static_cast<rc::u32>(cursor);
+            const core::u32 i = static_cast<core::u32>(cursor);
             if (i >= kCursorCount) { return; }
             if (m_cursors[i] == nullptr) { m_cursors[i] = SDL_CreateSystemCursor(MapSystemCursor(cursor)); }
             if (m_cursors[i] != nullptr) { SDL_SetCursor(m_cursors[i]); m_cursor = cursor; }
@@ -294,22 +294,22 @@ export namespace draconic::shell
                 if (c != nullptr) { SDL_DestroyCursor(c); c = nullptr; }
             }
         }
-        void OnMotion(rc::f32 x, rc::f32 y, rc::f32 relX, rc::f32 relY)
+        void OnMotion(core::f32 x, core::f32 y, core::f32 relX, core::f32 relY)
         {
             m_x = x; m_y = y; m_dx += relX; m_dy += relY;
         }
-        void OnButton(rc::u32 index, bool down) { if (index < kMouseButtonCount) { m_current[index] = down; } }
-        void OnWheel(rc::f32 x, rc::f32 y) { m_sx += x; m_sy += y; }
+        void OnButton(core::u32 index, bool down) { if (index < kMouseButtonCount) { m_current[index] = down; } }
+        void OnWheel(core::f32 x, core::f32 y) { m_sx += x; m_sy += y; }
         void BeginFrame()
         {
-            for (rc::u32 i = 0; i < kMouseButtonCount; ++i) { m_previous[i] = m_current[i]; }
+            for (core::u32 i = 0; i < kMouseButtonCount; ++i) { m_previous[i] = m_current[i]; }
             m_dx = m_dy = m_sx = m_sy = 0.0f;
         }
 
     private:
-        static rc::u32 Index(MouseButton b) noexcept
+        static core::u32 Index(MouseButton b) noexcept
         {
-            const rc::u32 i = static_cast<rc::u32>(b);
+            const core::u32 i = static_cast<core::u32>(b);
             return i < kMouseButtonCount ? i : 0;
         }
 
@@ -342,7 +342,7 @@ export namespace draconic::shell
         }
 
         SDL_Window* m_window = nullptr;
-        rc::f32 m_x = 0, m_y = 0, m_dx = 0, m_dy = 0, m_sx = 0, m_sy = 0;
+        core::f32 m_x = 0, m_y = 0, m_dx = 0, m_dy = 0, m_sx = 0, m_sy = 0;
         bool m_current[kMouseButtonCount] = {};
         bool m_previous[kMouseButtonCount] = {};
         bool m_relative = false;
@@ -354,57 +354,57 @@ export namespace draconic::shell
     class SDL3Gamepad final : public IGamepad
     {
     public:
-        SDL3Gamepad(SDL_Gamepad* pad, SDL_JoystickID id, rc::i32 index, rc::String name) noexcept
-            : m_pad(pad), m_id(id), m_index(index), m_name(static_cast<rc::String&&>(name)) {}
+        SDL3Gamepad(SDL_Gamepad* pad, SDL_JoystickID id, core::i32 index, core::String name) noexcept
+            : m_pad(pad), m_id(id), m_index(index), m_name(static_cast<core::String&&>(name)) {}
 
-        [[nodiscard]] rc::i32 Index() const override { return m_index; }
-        [[nodiscard]] rc::StringView Name() const override { return m_name; }
+        [[nodiscard]] core::i32 Index() const override { return m_index; }
+        [[nodiscard]] core::StringView Name() const override { return m_name; }
         [[nodiscard]] bool Connected() const override { return m_pad != nullptr; }
         [[nodiscard]] bool IsButtonDown(GamepadButton b) const override { return m_current[Index(b)]; }
         [[nodiscard]] bool IsButtonPressed(GamepadButton b) const override
         {
-            const rc::u32 i = Index(b);
+            const core::u32 i = Index(b);
             return m_current[i] && !m_previous[i];
         }
         [[nodiscard]] bool IsButtonReleased(GamepadButton b) const override
         {
-            const rc::u32 i = Index(b);
+            const core::u32 i = Index(b);
             return !m_current[i] && m_previous[i];
         }
-        [[nodiscard]] rc::f32 Axis(GamepadAxis a) const override
+        [[nodiscard]] core::f32 Axis(GamepadAxis a) const override
         {
             if (m_pad == nullptr) { return 0.0f; }
-            const auto raw = SDL_GetGamepadAxis(m_pad, static_cast<SDL_GamepadAxis>(static_cast<rc::u32>(a)));
-            return static_cast<rc::f32>(raw) / 32767.0f;
+            const auto raw = SDL_GetGamepadAxis(m_pad, static_cast<SDL_GamepadAxis>(static_cast<core::u32>(a)));
+            return static_cast<core::f32>(raw) / 32767.0f;
         }
-        void SetRumble(rc::f32 lowFreq, rc::f32 highFreq, rc::u32 durationMs) override
+        void SetRumble(core::f32 lowFreq, core::f32 highFreq, core::u32 durationMs) override
         {
             if (m_pad != nullptr)
             {
                 SDL_RumbleGamepad(m_pad,
-                                  static_cast<rc::u16>(lowFreq * 65535.0f),
-                                  static_cast<rc::u16>(highFreq * 65535.0f),
+                                  static_cast<core::u16>(lowFreq * 65535.0f),
+                                  static_cast<core::u16>(highFreq * 65535.0f),
                                   durationMs);
             }
         }
 
         [[nodiscard]] SDL_JoystickID Id() const noexcept { return m_id; }
         [[nodiscard]] SDL_Gamepad* Handle() const noexcept { return m_pad; }
-        void SetIndex(rc::i32 index) noexcept { m_index = index; }
+        void SetIndex(core::i32 index) noexcept { m_index = index; }
         void SetButton(GamepadButton b, bool down) { m_current[Index(b)] = down; }
         void Disconnect() noexcept { m_pad = nullptr; }
-        void BeginFrame() { for (rc::u32 i = 0; i < kGamepadButtonCount; ++i) { m_previous[i] = m_current[i]; } }
+        void BeginFrame() { for (core::u32 i = 0; i < kGamepadButtonCount; ++i) { m_previous[i] = m_current[i]; } }
 
     private:
-        static rc::u32 Index(GamepadButton b) noexcept
+        static core::u32 Index(GamepadButton b) noexcept
         {
-            const rc::u32 i = static_cast<rc::u32>(b);
+            const core::u32 i = static_cast<core::u32>(b);
             return i < kGamepadButtonCount ? i : 0;
         }
         SDL_Gamepad* m_pad;
         SDL_JoystickID m_id;
-        rc::i32 m_index;
-        rc::String m_name;
+        core::i32 m_index;
+        core::String m_name;
         bool m_current[kGamepadButtonCount] = {};
         bool m_previous[kGamepadButtonCount] = {};
     };
@@ -412,33 +412,33 @@ export namespace draconic::shell
     class SDL3Touch final : public ITouch
     {
     public:
-        [[nodiscard]] rc::i32 TouchCount() const override { return static_cast<rc::i32>(m_points.Size()); }
-        [[nodiscard]] bool GetTouchPoint(rc::i32 index, TouchPoint& out) const override
+        [[nodiscard]] core::i32 TouchCount() const override { return static_cast<core::i32>(m_points.Size()); }
+        [[nodiscard]] bool GetTouchPoint(core::i32 index, TouchPoint& out) const override
         {
-            if (index < 0 || static_cast<rc::usize>(index) >= m_points.Size()) { return false; }
-            out = m_points[static_cast<rc::usize>(index)];
+            if (index < 0 || static_cast<core::usize>(index) >= m_points.Size()) { return false; }
+            out = m_points[static_cast<core::usize>(index)];
             return true;
         }
         [[nodiscard]] bool HasTouch() const override { return !m_points.IsEmpty(); }
 
         void AddOrUpdate(const TouchPoint& tp)
         {
-            for (rc::usize i = 0; i < m_points.Size(); ++i)
+            for (core::usize i = 0; i < m_points.Size(); ++i)
             {
                 if (m_points[i].id == tp.id) { m_points[i] = tp; return; }
             }
             m_points.PushBack(tp);
         }
-        void Remove(rc::u64 id)
+        void Remove(core::u64 id)
         {
-            for (rc::usize i = 0; i < m_points.Size(); ++i)
+            for (core::usize i = 0; i < m_points.Size(); ++i)
             {
                 if (m_points[i].id == id) { m_points.RemoveAtSwap(i); return; }
             }
         }
 
     private:
-        rc::Array<TouchPoint> m_points;
+        core::Array<TouchPoint> m_points;
     };
 
     class SDL3InputManager final : public IInputManager
@@ -454,7 +454,7 @@ export namespace draconic::shell
             for (SDL3Gamepad* g : m_gamepads)
             {
                 if (g->Handle() != nullptr) { SDL_CloseGamepad(g->Handle()); }
-                rc::DefaultAllocator().Delete(g);
+                core::DefaultAllocator().Delete(g);
             }
             m_gamepads.Clear();
             m_mouse.ReleaseCursors();
@@ -463,18 +463,18 @@ export namespace draconic::shell
         [[nodiscard]] IKeyboard* Keyboard() override { return &m_keyboard; }
         [[nodiscard]] IMouse*    Mouse()    override { return &m_mouse; }
         [[nodiscard]] ITouch*    Touch()    override { return &m_touch; }
-        [[nodiscard]] rc::i32    GamepadCount() const override { return static_cast<rc::i32>(m_gamepads.Size()); }
-        [[nodiscard]] IGamepad*  GetGamepad(rc::i32 index) override
+        [[nodiscard]] core::i32    GamepadCount() const override { return static_cast<core::i32>(m_gamepads.Size()); }
+        [[nodiscard]] IGamepad*  GetGamepad(core::i32 index) override
         {
-            if (index < 0 || static_cast<rc::usize>(index) >= m_gamepads.Size()) { return nullptr; }
-            return m_gamepads[static_cast<rc::usize>(index)];
+            if (index < 0 || static_cast<core::usize>(index) >= m_gamepads.Size()) { return nullptr; }
+            return m_gamepads[static_cast<core::usize>(index)];
         }
-        [[nodiscard]] rc::Span<const InputEvent> Events() const override
+        [[nodiscard]] core::Span<const InputEvent> Events() const override
         {
-            return rc::Span<const InputEvent>{ m_events.Data(), m_events.Size() };
+            return core::Span<const InputEvent>{ m_events.Data(), m_events.Size() };
         }
-        [[nodiscard]] rc::u32 HoverWindow()   const override { return m_hoverWindow; }
-        [[nodiscard]] rc::u32 FocusedWindow() const override { return m_focusWindow; }
+        [[nodiscard]] core::u32 HoverWindow()   const override { return m_hoverWindow; }
+        [[nodiscard]] core::u32 FocusedWindow() const override { return m_focusWindow; }
         void Update() override
         {
             m_keyboard.BeginFrame();
@@ -492,8 +492,8 @@ export namespace draconic::shell
         // Emit an input event onto this frame's stream (also apply it to the snapshot at the
         // call site — the snapshot is a fold over these events).
         void Emit(const InputEvent& e) { m_events.PushBack(e); }
-        void SetHoverWindow(rc::u32 id)   noexcept { m_hoverWindow = id; }
-        void SetFocusWindow(rc::u32 id)   noexcept { m_focusWindow = id; }
+        void SetHoverWindow(core::u32 id)   noexcept { m_hoverWindow = id; }
+        void SetFocusWindow(core::u32 id)   noexcept { m_focusWindow = id; }
 
         void AddGamepad(SDL_JoystickID id)
         {
@@ -502,23 +502,23 @@ export namespace draconic::shell
             if (pad == nullptr) { return; }
 
             const char* n = SDL_GetGamepadName(pad);
-            rc::String name = (n != nullptr)
-                ? rc::String(rc::StringView(reinterpret_cast<const rc::utf8char*>(n)))
-                : rc::String{};
-            const rc::i32 index = static_cast<rc::i32>(m_gamepads.Size());
-            m_gamepads.PushBack(rc::DefaultAllocator().New<SDL3Gamepad>(pad, id, index, static_cast<rc::String&&>(name)));
+            core::String name = (n != nullptr)
+                ? core::String(core::StringView(reinterpret_cast<const core::utf8char*>(n)))
+                : core::String{};
+            const core::i32 index = static_cast<core::i32>(m_gamepads.Size());
+            m_gamepads.PushBack(core::DefaultAllocator().New<SDL3Gamepad>(pad, id, index, static_cast<core::String&&>(name)));
         }
 
         void RemoveGamepad(SDL_JoystickID id)
         {
-            for (rc::usize i = 0; i < m_gamepads.Size(); ++i)
+            for (core::usize i = 0; i < m_gamepads.Size(); ++i)
             {
                 if (m_gamepads[i]->Id() == id)
                 {
                     if (m_gamepads[i]->Handle() != nullptr) { SDL_CloseGamepad(m_gamepads[i]->Handle()); }
-                    rc::DefaultAllocator().Delete(m_gamepads[i]);
+                    core::DefaultAllocator().Delete(m_gamepads[i]);
                     m_gamepads.RemoveAt(i);
-                    for (rc::usize j = 0; j < m_gamepads.Size(); ++j) { m_gamepads[j]->SetIndex(static_cast<rc::i32>(j)); }
+                    for (core::usize j = 0; j < m_gamepads.Size(); ++j) { m_gamepads[j]->SetIndex(static_cast<core::i32>(j)); }
                     return;
                 }
             }
@@ -534,10 +534,10 @@ export namespace draconic::shell
         SDL3Keyboard m_keyboard;
         SDL3Mouse    m_mouse;
         SDL3Touch    m_touch;
-        rc::Array<SDL3Gamepad*> m_gamepads;
-        rc::Array<InputEvent>   m_events;         // this frame's event stream
-        rc::u32                 m_hoverWindow = 0; // window under the pointer
-        rc::u32                 m_focusWindow = 0; // keyboard-focused window
+        core::Array<SDL3Gamepad*> m_gamepads;
+        core::Array<InputEvent>   m_events;         // this frame's event stream
+        core::u32                 m_hoverWindow = 0; // window under the pointer
+        core::u32                 m_focusWindow = 0; // keyboard-focused window
     };
 
     class SDL3Shell final : public IShell
@@ -553,7 +553,7 @@ export namespace draconic::shell
             if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) { m_running = false; return; }
             m_initialized = true;
 
-            rc::Result<IWindow*> main = m_windows.CreateWindow(settings);
+            core::Result<IWindow*> main = m_windows.CreateWindow(settings);
             if (!main.HasValue()) { m_running = false; return; }
             if (SDL3Window* w = m_windows.Find(main.Value()->Id())) { m_input.SetWindow(w->Handle()); }
         }
@@ -597,7 +597,7 @@ export namespace draconic::shell
                         break;
                     case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
                     {
-                        const rc::u32 id = static_cast<rc::u32>(event.window.windowID);
+                        const core::u32 id = static_cast<core::u32>(event.window.windowID);
                         m_windows.PushEvent(WindowEvent{ WindowEventType::CloseRequested, id });
                         // Closing the main window stops the shell; the
                         // Application handles secondary-window close via the event.
@@ -607,11 +607,11 @@ export namespace draconic::shell
                     }
                     case SDL_EVENT_WINDOW_RESIZED:
                     {
-                        const rc::u32 id = static_cast<rc::u32>(event.window.windowID);
+                        const core::u32 id = static_cast<core::u32>(event.window.windowID);
                         if (SDL3Window* w = m_windows.Find(id))
                         {
-                            const rc::u32 nw = static_cast<rc::u32>(event.window.data1);
-                            const rc::u32 nh = static_cast<rc::u32>(event.window.data2);
+                            const core::u32 nw = static_cast<core::u32>(event.window.data1);
+                            const core::u32 nh = static_cast<core::u32>(event.window.data2);
                             w->OnResized(nw, nh);
                             m_windows.PushEvent(WindowEvent{ WindowEventType::Resized, id, nw, nh });
                         }
@@ -619,23 +619,23 @@ export namespace draconic::shell
                     }
                     case SDL_EVENT_WINDOW_FOCUS_GAINED:
                     {
-                        const rc::u32 id = static_cast<rc::u32>(event.window.windowID);
+                        const core::u32 id = static_cast<core::u32>(event.window.windowID);
                         m_input.SetFocusWindow(id);   // keyboard/gamepad routing authority
                         m_windows.PushEvent(WindowEvent{ WindowEventType::FocusGained, id });
                         break;
                     }
                     case SDL_EVENT_WINDOW_FOCUS_LOST:
                     {
-                        const rc::u32 id = static_cast<rc::u32>(event.window.windowID);
+                        const core::u32 id = static_cast<core::u32>(event.window.windowID);
                         if (m_input.FocusedWindow() == id) { m_input.SetFocusWindow(0); }
                         m_windows.PushEvent(WindowEvent{ WindowEventType::FocusLost, id });
                         break;
                     }
                     case SDL_EVENT_WINDOW_MOUSE_ENTER:
-                        m_input.SetHoverWindow(static_cast<rc::u32>(event.window.windowID));
+                        m_input.SetHoverWindow(static_cast<core::u32>(event.window.windowID));
                         break;
                     case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-                        if (m_input.HoverWindow() == static_cast<rc::u32>(event.window.windowID))
+                        if (m_input.HoverWindow() == static_cast<core::u32>(event.window.windowID))
                         {
                             m_input.SetHoverWindow(0);
                         }
@@ -647,7 +647,7 @@ export namespace draconic::shell
                     {
                         InputEvent e{};
                         e.kind = event.key.down ? InputEventKind::KeyDown : InputEventKind::KeyUp;
-                        e.window = static_cast<rc::u32>(event.key.windowID);
+                        e.window = static_cast<core::u32>(event.key.windowID);
                         e.key = MapKeyCode(event.key.scancode);
                         e.modifiers = MapModifiers(event.key.mod);
                         m_input.Emit(e);
@@ -659,15 +659,15 @@ export namespace draconic::shell
                     {
                         InputEvent e{};
                         e.kind = InputEventKind::TextInput;
-                        e.window = static_cast<rc::u32>(event.text.windowID);
+                        e.window = static_cast<core::u32>(event.text.windowID);
                         if (event.text.text != nullptr)
                         {
-                            rc::usize n = 0;
+                            core::usize n = 0;
                             while (n + 1 < sizeof(e.text) && event.text.text[n] != '\0')
                             {
-                                e.text[n] = static_cast<rc::utf8char>(event.text.text[n]); ++n;
+                                e.text[n] = static_cast<core::utf8char>(event.text.text[n]); ++n;
                             }
-                            e.text[n] = static_cast<rc::utf8char>('\0');
+                            e.text[n] = static_cast<core::utf8char>('\0');
                         }
                         m_input.Emit(e);
                         break;
@@ -676,10 +676,10 @@ export namespace draconic::shell
                     // --- Mouse ---
                     case SDL_EVENT_MOUSE_MOTION:
                     {
-                        m_input.SetHoverWindow(static_cast<rc::u32>(event.motion.windowID));
+                        m_input.SetHoverWindow(static_cast<core::u32>(event.motion.windowID));
                         InputEvent e{};
                         e.kind = InputEventKind::MouseMove;
-                        e.window = static_cast<rc::u32>(event.motion.windowID);
+                        e.window = static_cast<core::u32>(event.motion.windowID);
                         e.x = event.motion.x; e.y = event.motion.y;
                         e.dx = event.motion.xrel; e.dy = event.motion.yrel;
                         m_input.Emit(e);
@@ -689,11 +689,11 @@ export namespace draconic::shell
                     case SDL_EVENT_MOUSE_BUTTON_DOWN:
                     case SDL_EVENT_MOUSE_BUTTON_UP:
                     {
-                        const rc::u32 btn = static_cast<rc::u32>(event.button.button) - 1;
+                        const core::u32 btn = static_cast<core::u32>(event.button.button) - 1;
                         const bool down = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
                         InputEvent e{};
                         e.kind = down ? InputEventKind::MouseButtonDown : InputEventKind::MouseButtonUp;
-                        e.window = static_cast<rc::u32>(event.button.windowID);
+                        e.window = static_cast<core::u32>(event.button.windowID);
                         e.button = MapMouseButton(btn);
                         e.x = event.button.x; e.y = event.button.y;
                         m_input.Emit(e);
@@ -704,7 +704,7 @@ export namespace draconic::shell
                     {
                         InputEvent e{};
                         e.kind = InputEventKind::MouseWheel;
-                        e.window = static_cast<rc::u32>(event.wheel.windowID);
+                        e.window = static_cast<core::u32>(event.wheel.windowID);
                         e.x = event.wheel.x; e.y = event.wheel.y;
                         m_input.Emit(e);
                         m_input.Ms().OnWheel(event.wheel.x, event.wheel.y);
@@ -717,8 +717,8 @@ export namespace draconic::shell
                     {
                         InputEvent e{};
                         e.kind = (event.type == SDL_EVENT_FINGER_DOWN) ? InputEventKind::TouchDown : InputEventKind::TouchMove;
-                        e.window = static_cast<rc::u32>(event.tfinger.windowID);
-                        e.touchId = static_cast<rc::u64>(event.tfinger.fingerID);
+                        e.window = static_cast<core::u32>(event.tfinger.windowID);
+                        e.touchId = static_cast<core::u64>(event.tfinger.fingerID);
                         e.x = event.tfinger.x; e.y = event.tfinger.y; e.value = event.tfinger.pressure;
                         m_input.Emit(e);
                         m_input.Tc().AddOrUpdate(TouchPoint{ e.touchId, e.x, e.y, e.value });
@@ -728,8 +728,8 @@ export namespace draconic::shell
                     {
                         InputEvent e{};
                         e.kind = InputEventKind::TouchUp;
-                        e.window = static_cast<rc::u32>(event.tfinger.windowID);
-                        e.touchId = static_cast<rc::u64>(event.tfinger.fingerID);
+                        e.window = static_cast<core::u32>(event.tfinger.windowID);
+                        e.touchId = static_cast<core::u64>(event.tfinger.fingerID);
                         e.x = event.tfinger.x; e.y = event.tfinger.y;
                         m_input.Emit(e);
                         m_input.Tc().Remove(e.touchId);
@@ -770,7 +770,7 @@ export namespace draconic::shell
                                 e.kind = InputEventKind::GamepadAxis;
                                 e.window = m_input.FocusedWindow();
                                 e.gamepad = pad->Index(); e.padAxis = a;
-                                e.value = static_cast<rc::f32>(event.gaxis.value) / 32767.0f;   // snapshot reads axes live
+                                e.value = static_cast<core::f32>(event.gaxis.value) / 32767.0f;   // snapshot reads axes live
                                 m_input.Emit(e);
                             }
                         }
@@ -794,12 +794,12 @@ export namespace draconic::shell
         static KeyCode MapKeyCode(SDL_Scancode sc) noexcept
         {
             if (sc >= SDL_SCANCODE_A && sc <= SDL_SCANCODE_Z)
-                return static_cast<KeyCode>(static_cast<rc::u32>(KeyCode::A) + (sc - SDL_SCANCODE_A));
+                return static_cast<KeyCode>(static_cast<core::u32>(KeyCode::A) + (sc - SDL_SCANCODE_A));
             if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9)
-                return static_cast<KeyCode>(static_cast<rc::u32>(KeyCode::Num1) + (sc - SDL_SCANCODE_1));
+                return static_cast<KeyCode>(static_cast<core::u32>(KeyCode::Num1) + (sc - SDL_SCANCODE_1));
             if (sc == SDL_SCANCODE_0) return KeyCode::Num0;
             if (sc >= SDL_SCANCODE_F1 && sc <= SDL_SCANCODE_F12)
-                return static_cast<KeyCode>(static_cast<rc::u32>(KeyCode::F1) + (sc - SDL_SCANCODE_F1));
+                return static_cast<KeyCode>(static_cast<core::u32>(KeyCode::F1) + (sc - SDL_SCANCODE_F1));
             switch (sc)
             {
                 case SDL_SCANCODE_RETURN:    return KeyCode::Return;
@@ -877,7 +877,7 @@ export namespace draconic::shell
         }
 
         // SDL mouse button number (1-based) minus 1 -> MouseButton (Left/Middle/Right/X1/X2).
-        static MouseButton MapMouseButton(rc::u32 idx) noexcept
+        static MouseButton MapMouseButton(core::u32 idx) noexcept
         {
             switch (idx)
             {
@@ -911,9 +911,9 @@ export namespace draconic::shell
     };
 
     // Factory the DRACONIC_APP_MAIN entry point calls to create the shell.
-    [[nodiscard]] rc::UniquePtr<IShell> CreateShell(const WindowSettings& settings = {})
+    [[nodiscard]] core::UniquePtr<IShell> CreateShell(const WindowSettings& settings = {})
     {
-        IShell* shell = rc::DefaultAllocator().New<SDL3Shell>(settings);
-        return rc::UniquePtr<IShell>(shell, rc::DefaultAllocator());
+        IShell* shell = core::DefaultAllocator().New<SDL3Shell>(settings);
+        return core::UniquePtr<IShell>(shell, core::DefaultAllocator());
     }
 }

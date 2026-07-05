@@ -11,8 +11,8 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 struct PushData {
     float time;
@@ -26,8 +26,8 @@ public:
     using sf::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample020 - Mesh Shaders (Rotating Triangle)"; }
 protected:
-    dr::DeviceFeatures RequiredFeatures() const override {
-        dr::DeviceFeatures f{};
+    rhi::DeviceFeatures RequiredFeatures() const override {
+        rhi::DeviceFeatures f{};
         f.meshShaders = true;
         return f;
     }
@@ -100,13 +100,13 @@ private:
         }
     )";
 
-    ds::Compiler* m_compiler = nullptr;
-    dr::ShaderModule* m_meshModule = nullptr;
-    dr::ShaderModule* m_fragModule = nullptr;
-    dr::PipelineLayout* m_pipelineLayout = nullptr;
-    dr::MeshPipeline* m_meshPipeline = nullptr;
-    dr::CommandPool* m_pool = nullptr;
-    dr::Fence* m_fence = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
+    rhi::ShaderModule* m_meshModule = nullptr;
+    rhi::ShaderModule* m_fragModule = nullptr;
+    rhi::PipelineLayout* m_pipelineLayout = nullptr;
+    rhi::MeshPipeline* m_meshPipeline = nullptr;
+    rhi::CommandPool* m_pool = nullptr;
+    rhi::Fence* m_fence = nullptr;
     draconic::core::u64 m_fenceVal = 0;
 };
 
@@ -120,46 +120,46 @@ draconic::core::Status MeshShaderSample::OnInit() {
     }
 
     // Shader compiler.
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile mesh shader (SM 6.5 required for mesh shaders).
-    if (sf::CompileToModule(m_compiler, m_device, kMeshShaderSource, ds::ShaderStage::Mesh,
+    if (sf::CompileToModule(m_compiler, m_device, kMeshShaderSource, shaders::ShaderStage::Mesh,
                             u8"MSMain", u8"MeshShader", u8"6_5", m_meshModule) != draconic::core::ErrorCode::Ok)
         return draconic::core::ErrorCode::Unknown;
 
     // Compile fragment shader.
-    if (sf::CompileToModule(m_compiler, m_device, kFragmentShaderSource, ds::ShaderStage::Fragment,
+    if (sf::CompileToModule(m_compiler, m_device, kFragmentShaderSource, shaders::ShaderStage::Fragment,
                             u8"PSMain", u8"FragmentShader", m_fragModule) != draconic::core::ErrorCode::Ok)
         return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout with push constants.
-    dr::PushConstantRange pushRange{};
-    pushRange.stages = dr::ShaderStage::Mesh;
+    rhi::PushConstantRange pushRange{};
+    pushRange.stages = rhi::ShaderStage::Mesh;
     pushRange.offset = 0;
     pushRange.size   = sizeof(PushData);
 
-    dr::PipelineLayoutDesc pld{};
-    pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pushRange, 1);
+    rhi::PipelineLayoutDesc pld{};
+    pld.pushConstantRanges = Span<const rhi::PushConstantRange>(&pushRange, 1);
     pld.label = u8"MeshPipelineLayout";
     if (m_device->CreatePipelineLayout(pld, m_pipelineLayout) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create mesh pipeline.
-    dr::ColorTargetState ct{};
+    rhi::ColorTargetState ct{};
     ct.format   = m_swapChain->Format();
-    ct.writeMask = dr::ColorWriteMask::All;
+    ct.writeMask = rhi::ColorWriteMask::All;
 
-    dr::MeshPipelineDesc mpd{};
+    rhi::MeshPipelineDesc mpd{};
     mpd.layout       = m_pipelineLayout;
-    mpd.mesh         = { m_meshModule, u8"MSMain", dr::ShaderStage::Mesh };
-    mpd.fragment     = dr::FragmentState{};
-    mpd.fragment->shader  = { m_fragModule, u8"PSMain", dr::ShaderStage::Fragment };
-    mpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-    mpd.colorTargets = Span<const dr::ColorTargetState>(&ct, 1);
+    mpd.mesh         = { m_meshModule, u8"MSMain", rhi::ShaderStage::Mesh };
+    mpd.fragment     = rhi::FragmentState{};
+    mpd.fragment->shader  = { m_fragModule, u8"PSMain", rhi::ShaderStage::Fragment };
+    mpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+    mpd.colorTargets = Span<const rhi::ColorTargetState>(&ct, 1);
     mpd.label        = u8"MeshShaderPipeline";
     if (m_device->CreateMeshPipeline(mpd, m_meshPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Command pool and fence.
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     return draconic::core::ErrorCode::Ok;
@@ -172,21 +172,21 @@ void MeshShaderSample::OnRender() {
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // Barrier: present -> render target.
     enc->TransitionTexture(m_swapChain->CurrentTexture(),
-                           dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+                           rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
 
     // Begin render pass.
-    dr::ColorAttachment ca{};
+    rhi::ColorAttachment ca{};
     ca.view       = m_swapChain->CurrentTextureView();
-    ca.loadOp     = dr::LoadOp::Clear;
-    ca.storeOp    = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
+    ca.loadOp     = rhi::LoadOp::Clear;
+    ca.storeOp    = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
 
-    dr::RenderPassDesc rpd{};
+    rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
@@ -203,7 +203,7 @@ void MeshShaderSample::OnRender() {
         pushData.aspectRatio = static_cast<float>(m_width) / static_cast<float>(m_height);
         pushData.pad0        = 0.0f;
         pushData.pad1        = 0.0f;
-        rp->SetPushConstants(dr::ShaderStage::Mesh, 0, sizeof(PushData), &pushData);
+        rp->SetPushConstants(rhi::ShaderStage::Mesh, 0, sizeof(PushData), &pushData);
 
         meshPass->DrawMeshTasks(1);
     }
@@ -212,12 +212,12 @@ void MeshShaderSample::OnRender() {
 
     // Barrier: render target -> present.
     enc->TransitionTexture(m_swapChain->CurrentTexture(),
-                           dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+                           rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish();
+    rhi::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }

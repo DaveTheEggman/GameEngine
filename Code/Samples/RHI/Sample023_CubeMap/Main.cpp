@@ -17,8 +17,8 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 class CubeMapSample : public sf::SampleApp {
 public:
@@ -133,48 +133,48 @@ private:
         float _pad1;
     };
 
-    ds::Compiler* m_compiler = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
 
     // Skybox resources
-    dr::ShaderModule* m_skyboxVs = nullptr;
-    dr::ShaderModule* m_skyboxPs = nullptr;
-    dr::Texture*      m_cubeTexture = nullptr;
-    dr::TextureView*  m_cubeView = nullptr;
-    dr::Sampler*      m_linearSampler = nullptr;
-    dr::BindGroupLayout* m_skyboxBgl = nullptr;
-    dr::BindGroup*       m_skyboxBg = nullptr;
-    dr::PipelineLayout*  m_skyboxPl = nullptr;
-    dr::RenderPipeline*  m_skyboxPipeline = nullptr;
+    rhi::ShaderModule* m_skyboxVs = nullptr;
+    rhi::ShaderModule* m_skyboxPs = nullptr;
+    rhi::Texture*      m_cubeTexture = nullptr;
+    rhi::TextureView*  m_cubeView = nullptr;
+    rhi::Sampler*      m_linearSampler = nullptr;
+    rhi::BindGroupLayout* m_skyboxBgl = nullptr;
+    rhi::BindGroup*       m_skyboxBg = nullptr;
+    rhi::PipelineLayout*  m_skyboxPl = nullptr;
+    rhi::RenderPipeline*  m_skyboxPipeline = nullptr;
 
     // Shadow comparison resources
-    dr::ShaderModule* m_shadowVs = nullptr;
-    dr::ShaderModule* m_shadowPs = nullptr;
-    dr::Texture*      m_depthTexture = nullptr;
-    dr::TextureView*  m_depthView = nullptr;
-    dr::Sampler*      m_comparisonSampler = nullptr;
-    dr::Buffer*       m_quadVb = nullptr;
-    dr::BindGroupLayout* m_shadowBgl = nullptr;
-    dr::BindGroup*       m_shadowBg = nullptr;
-    dr::PipelineLayout*  m_shadowPl = nullptr;
-    dr::RenderPipeline*  m_shadowPipeline = nullptr;
+    rhi::ShaderModule* m_shadowVs = nullptr;
+    rhi::ShaderModule* m_shadowPs = nullptr;
+    rhi::Texture*      m_depthTexture = nullptr;
+    rhi::TextureView*  m_depthView = nullptr;
+    rhi::Sampler*      m_comparisonSampler = nullptr;
+    rhi::Buffer*       m_quadVb = nullptr;
+    rhi::BindGroupLayout* m_shadowBgl = nullptr;
+    rhi::BindGroup*       m_shadowBg = nullptr;
+    rhi::PipelineLayout*  m_shadowPl = nullptr;
+    rhi::RenderPipeline*  m_shadowPipeline = nullptr;
 
-    dr::CommandPool* m_pool = nullptr;
-    dr::Fence*       m_fence = nullptr;
+    rhi::CommandPool* m_pool = nullptr;
+    rhi::Fence*       m_fence = nullptr;
     draconic::core::u64       m_fenceVal = 0;
 };
 
 draconic::core::Status CubeMapSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile skybox shaders
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"SkyboxVS", m_skyboxVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, ds::ShaderStage::Fragment, u8"PSMain", u8"SkyboxPS", m_skyboxPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"SkyboxVS", m_skyboxVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"SkyboxPS", m_skyboxPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile shadow shaders
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"ShadowVS", m_shadowVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, ds::ShaderStage::Fragment, u8"PSMain", u8"ShadowPS", m_shadowPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"ShadowVS", m_shadowVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"ShadowPS", m_shadowPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create procedural cube map (6 faces, 64x64, each a solid color)
     if (createCubeMap() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
@@ -184,72 +184,72 @@ draconic::core::Status CubeMapSample::OnInit() {
 
     // Create samplers
     {
-        dr::SamplerDesc sd{};
-        sd.minFilter = dr::FilterMode::Linear;
-        sd.magFilter = dr::FilterMode::Linear;
+        rhi::SamplerDesc sd{};
+        sd.minFilter = rhi::FilterMode::Linear;
+        sd.magFilter = rhi::FilterMode::Linear;
         sd.label = u8"LinearSampler";
         if (m_device->CreateSampler(sd, m_linearSampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
     {
-        dr::SamplerDesc sd{};
-        sd.minFilter = dr::FilterMode::Linear;
-        sd.magFilter = dr::FilterMode::Linear;
-        sd.compare = dr::CompareFunction::LessEqual;
+        rhi::SamplerDesc sd{};
+        sd.minFilter = rhi::FilterMode::Linear;
+        sd.magFilter = rhi::FilterMode::Linear;
+        sd.compare = rhi::CompareFunction::LessEqual;
         sd.label = u8"ComparisonSampler";
         if (m_device->CreateSampler(sd, m_comparisonSampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox bind group layout: cube texture + sampler
     {
-        dr::BindGroupLayoutEntry entries[2] = {
-            dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, dr::TextureViewDimension::TextureCube),
-            dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment)
+        rhi::BindGroupLayoutEntry entries[2] = {
+            rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube),
+            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment)
         };
-        dr::BindGroupLayoutDesc bgld{};
-        bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
+        rhi::BindGroupLayoutDesc bgld{};
+        bgld.entries = Span<const rhi::BindGroupLayoutEntry>(entries, 2);
         bgld.label = u8"SkyboxBGL";
         if (m_device->CreateBindGroupLayout(bgld, m_skyboxBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox bind group
     {
-        dr::BindGroupEntry entries[2] = {
-            dr::BindGroupEntry::TextureEntry(m_cubeView),
-            dr::BindGroupEntry::SamplerEntry(m_linearSampler)
+        rhi::BindGroupEntry entries[2] = {
+            rhi::BindGroupEntry::TextureEntry(m_cubeView),
+            rhi::BindGroupEntry::SamplerEntry(m_linearSampler)
         };
-        dr::BindGroupDesc bgd{};
+        rhi::BindGroupDesc bgd{};
         bgd.layout = m_skyboxBgl;
-        bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
+        bgd.entries = Span<const rhi::BindGroupEntry>(entries, 2);
         bgd.label = u8"SkyboxBG";
         if (m_device->CreateBindGroup(bgd, m_skyboxBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox pipeline layout
     {
-        dr::BindGroupLayout* sets[1] = { m_skyboxBgl };
-        dr::PushConstantRange pcr{};
-        pcr.stages = dr::ShaderStage::Vertex | dr::ShaderStage::Fragment;
+        rhi::BindGroupLayout* sets[1] = { m_skyboxBgl };
+        rhi::PushConstantRange pcr{};
+        pcr.stages = rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment;
         pcr.offset = 0;
         pcr.size = sizeof(PushData);
-        dr::PushConstantRange pushRanges[1] = { pcr };
-        dr::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
-        pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
+        rhi::PushConstantRange pushRanges[1] = { pcr };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
+        pld.pushConstantRanges = Span<const rhi::PushConstantRange>(pushRanges, 1);
         pld.label = u8"SkyboxPL";
         if (m_device->CreatePipelineLayout(pld, m_skyboxPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Skybox pipeline (fullscreen triangle, no vertex input)
     {
-        dr::ColorTargetState ct{};
+        rhi::ColorTargetState ct{};
         ct.format = m_swapChain->Format();
-        dr::RenderPipelineDesc rpd{};
+        rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_skyboxPl;
-        rpd.vertex.shader = { m_skyboxVs, u8"VSMain", dr::ShaderStage::Vertex };
-        rpd.fragment = dr::FragmentState{};
-        rpd.fragment->shader = { m_skyboxPs, u8"PSMain", dr::ShaderStage::Fragment };
-        rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-        rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
+        rpd.vertex.shader = { m_skyboxVs, u8"VSMain", rhi::ShaderStage::Vertex };
+        rpd.fragment = rhi::FragmentState{};
+        rpd.fragment->shader = { m_skyboxPs, u8"PSMain", rhi::ShaderStage::Fragment };
+        rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+        rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         rpd.label = u8"SkyboxPipeline";
         if (m_device->CreateRenderPipeline(rpd, m_skyboxPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
@@ -267,14 +267,14 @@ draconic::core::Status CubeMapSample::OnInit() {
         };
 
         u32 vbSize = sizeof(quadVerts);
-        dr::BufferDesc bd{};
+        rhi::BufferDesc bd{};
         bd.size = vbSize;
-        bd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst;
-        bd.memory = dr::MemoryLocation::GpuOnly;
+        bd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
+        bd.memory = rhi::MemoryLocation::GpuOnly;
         bd.label = u8"ShadowQuadVB";
         if (m_device->CreateBuffer(bd, m_quadVb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-        dr::TransferBatch* batch = nullptr;
+        rhi::TransferBatch* batch = nullptr;
         m_graphicsQueue->CreateTransferBatch(batch);
         batch->WriteBuffer(m_quadVb, 0, Span<const u8>(reinterpret_cast<const u8*>(quadVerts), vbSize));
         batch->Submit();
@@ -283,72 +283,72 @@ draconic::core::Status CubeMapSample::OnInit() {
 
     // Shadow bind group layout: depth texture + comparison sampler
     {
-        dr::BindGroupLayoutEntry entries[2];
-        entries[0] = dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Fragment, dr::TextureViewDimension::Texture2D);
+        rhi::BindGroupLayoutEntry entries[2];
+        entries[0] = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
         entries[1] = {};
         entries[1].binding = 0;
-        entries[1].visibility = dr::ShaderStage::Fragment;
-        entries[1].type = dr::BindingType::ComparisonSampler;
-        dr::BindGroupLayoutDesc bgld{};
-        bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 2);
+        entries[1].visibility = rhi::ShaderStage::Fragment;
+        entries[1].type = rhi::BindingType::ComparisonSampler;
+        rhi::BindGroupLayoutDesc bgld{};
+        bgld.entries = Span<const rhi::BindGroupLayoutEntry>(entries, 2);
         bgld.label = u8"ShadowBGL";
         if (m_device->CreateBindGroupLayout(bgld, m_shadowBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Shadow bind group
     {
-        dr::BindGroupEntry entries[2] = {
-            dr::BindGroupEntry::TextureEntry(m_depthView),
-            dr::BindGroupEntry::SamplerEntry(m_comparisonSampler)
+        rhi::BindGroupEntry entries[2] = {
+            rhi::BindGroupEntry::TextureEntry(m_depthView),
+            rhi::BindGroupEntry::SamplerEntry(m_comparisonSampler)
         };
-        dr::BindGroupDesc bgd{};
+        rhi::BindGroupDesc bgd{};
         bgd.layout = m_shadowBgl;
-        bgd.entries = Span<const dr::BindGroupEntry>(entries, 2);
+        bgd.entries = Span<const rhi::BindGroupEntry>(entries, 2);
         bgd.label = u8"ShadowBG";
         if (m_device->CreateBindGroup(bgd, m_shadowBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Shadow pipeline layout
     {
-        dr::BindGroupLayout* sets[1] = { m_shadowBgl };
-        dr::PushConstantRange pcr{};
-        pcr.stages = dr::ShaderStage::Vertex | dr::ShaderStage::Fragment;
+        rhi::BindGroupLayout* sets[1] = { m_shadowBgl };
+        rhi::PushConstantRange pcr{};
+        pcr.stages = rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment;
         pcr.offset = 0;
         pcr.size = sizeof(PushData);
-        dr::PushConstantRange pushRanges[1] = { pcr };
-        dr::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
-        pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
+        rhi::PushConstantRange pushRanges[1] = { pcr };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
+        pld.pushConstantRanges = Span<const rhi::PushConstantRange>(pushRanges, 1);
         pld.label = u8"ShadowPL";
         if (m_device->CreatePipelineLayout(pld, m_shadowPl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Shadow pipeline
     {
-        dr::VertexAttribute attrs[2] = {
-            { dr::VertexFormat::Float32x3, 0, 0 },
-            { dr::VertexFormat::Float32x2, 12, 1 }
+        rhi::VertexAttribute attrs[2] = {
+            { rhi::VertexFormat::Float32x3, 0, 0 },
+            { rhi::VertexFormat::Float32x2, 12, 1 }
         };
-        dr::VertexBufferLayout vbl{};
+        rhi::VertexBufferLayout vbl{};
         vbl.stride = 20;
-        vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
+        vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
 
-        dr::ColorTargetState ct{};
+        rhi::ColorTargetState ct{};
         ct.format = m_swapChain->Format();
 
-        dr::RenderPipelineDesc rpd{};
+        rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_shadowPl;
-        rpd.vertex.shader = { m_shadowVs, u8"VSMain", dr::ShaderStage::Vertex };
-        rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{};
-        rpd.fragment->shader = { m_shadowPs, u8"PSMain", dr::ShaderStage::Fragment };
-        rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-        rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
+        rpd.vertex.shader = { m_shadowVs, u8"VSMain", rhi::ShaderStage::Vertex };
+        rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
+        rpd.fragment = rhi::FragmentState{};
+        rpd.fragment->shader = { m_shadowPs, u8"PSMain", rhi::ShaderStage::Fragment };
+        rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+        rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         rpd.label = u8"ShadowPipeline";
         if (m_device->CreateRenderPipeline(rpd, m_shadowPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
@@ -361,22 +361,22 @@ draconic::core::Status CubeMapSample::createCubeMap() {
     constexpr u32 faceBytes = faceSize * faceSize * BytesPerPixel;
 
     // Create cube map texture: 2D with 6 array layers
-    dr::TextureDesc td{};
-    td.dimension = dr::TextureDimension::Texture2D;
-    td.format = dr::TextureFormat::RGBA8UnormSrgb;
+    rhi::TextureDesc td{};
+    td.dimension = rhi::TextureDimension::Texture2D;
+    td.format = rhi::TextureFormat::RGBA8UnormSrgb;
     td.width = faceSize;
     td.height = faceSize;
     td.arrayLayerCount = 6;
     td.mipLevelCount = 1;
     td.sampleCount = 1;
-    td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
+    td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
     td.label = u8"CubeMapTex";
     if (m_device->CreateTexture(td, m_cubeTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create cube view
-    dr::TextureViewDesc tvd{};
-    tvd.format = dr::TextureFormat::RGBA8UnormSrgb;
-    tvd.dimension = dr::TextureViewDimension::TextureCube;
+    rhi::TextureViewDesc tvd{};
+    tvd.format = rhi::TextureFormat::RGBA8UnormSrgb;
+    tvd.dimension = rhi::TextureViewDimension::TextureCube;
     tvd.baseMipLevel = 0;
     tvd.mipLevelCount = 1;
     tvd.baseArrayLayer = 0;
@@ -394,7 +394,7 @@ draconic::core::Status CubeMapSample::createCubeMap() {
     };
 
     u8 stagingBuf[faceBytes];
-    dr::TransferBatch* batch = nullptr;
+    rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
 
     for (int face = 0; face < 6; face++) {
@@ -414,12 +414,12 @@ draconic::core::Status CubeMapSample::createCubeMap() {
             }
         }
 
-        dr::TextureDataLayout layout{};
+        rhi::TextureDataLayout layout{};
         layout.bytesPerRow = faceSize * BytesPerPixel;
         layout.rowsPerImage = faceSize;
         batch->WriteTexture(m_cubeTexture,
             Span<const u8>(stagingBuf, faceBytes),
-            layout, dr::Extent3D{faceSize, faceSize, 1},
+            layout, rhi::Extent3D{faceSize, faceSize, 1},
             0, static_cast<u32>(face));
     }
 
@@ -433,21 +433,21 @@ draconic::core::Status CubeMapSample::createDepthTexture() {
 
     constexpr draconic::core::u32 texSize = 64;
 
-    dr::TextureDesc td{};
-    td.dimension = dr::TextureDimension::Texture2D;
-    td.format = dr::TextureFormat::Depth32Float;
+    rhi::TextureDesc td{};
+    td.dimension = rhi::TextureDimension::Texture2D;
+    td.format = rhi::TextureFormat::Depth32Float;
     td.width = texSize;
     td.height = texSize;
     td.arrayLayerCount = 1;
     td.mipLevelCount = 1;
     td.sampleCount = 1;
-    td.usage = dr::TextureUsage::DepthStencil | dr::TextureUsage::Sampled;
+    td.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
     td.label = u8"ShadowDepthTex";
     if (m_device->CreateTexture(td, m_depthTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::TextureViewDesc tvd{};
-    tvd.format = dr::TextureFormat::Depth32Float;
-    tvd.dimension = dr::TextureViewDimension::Texture2D;
+    rhi::TextureViewDesc tvd{};
+    tvd.format = rhi::TextureFormat::Depth32Float;
+    tvd.dimension = rhi::TextureViewDimension::Texture2D;
     if (m_device->CreateTextureView(m_depthTexture, tvd, m_depthView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // We'll render a gradient depth in a render pass
@@ -464,37 +464,37 @@ void CubeMapSample::OnRender() {
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
 
     // Render a depth value into the shadow depth texture
-    enc->TransitionTexture(m_depthTexture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(m_depthTexture, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilWrite);
     {
-        dr::DepthStencilAttachment dsa{};
+        rhi::DepthStencilAttachment dsa{};
         dsa.view = m_depthView;
-        dsa.depthLoadOp = dr::LoadOp::Clear;
-        dsa.depthStoreOp = dr::StoreOp::Store;
+        dsa.depthLoadOp = rhi::LoadOp::Clear;
+        dsa.depthStoreOp = rhi::StoreOp::Store;
         dsa.depthClearValue = 0.5f;
-        dr::RenderPassDesc rpd{};
+        rhi::RenderPassDesc rpd{};
         rpd.depthStencilAttachment = dsa;
         auto* rp = enc->BeginRenderPass(rpd);
         rp->End();
     }
 
     // Transition depth texture from DepthStencilWrite -> ShaderRead for sampling
-    enc->TransitionTexture(m_depthTexture, dr::ResourceState::DepthStencilWrite, dr::ResourceState::ShaderRead);
+    enc->TransitionTexture(m_depthTexture, rhi::ResourceState::DepthStencilWrite, rhi::ResourceState::ShaderRead);
 
     // Transition swapchain
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{};
+    rhi::ColorAttachment ca{};
     ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = dr::LoadOp::Clear;
-    ca.storeOp = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
-    dr::RenderPassDesc rpd{};
+    ca.loadOp = rhi::LoadOp::Clear;
+    ca.storeOp = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
+    rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
@@ -507,27 +507,27 @@ void CubeMapSample::OnRender() {
     PushData pc{};
     pc.time = m_totalTime;
     pc.aspectRatio = aspect;
-    rp->SetPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
+    rp->SetPushConstants(rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
     rp->Draw(3);
 
     // Draw shadow comparison overlay quad
     rp->SetPipeline(m_shadowPipeline);
     rp->SetBindGroup(0, m_shadowBg);
-    rp->SetPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
+    rp->SetPushConstants(rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
     rp->SetVertexBuffer(0, m_quadVb, 0);
     rp->Draw(6);
 
     rp->End();
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
 
     // Transition depth texture back to DepthStencilWrite for next frame
-    enc->TransitionTexture(m_depthTexture, dr::ResourceState::ShaderRead, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(m_depthTexture, rhi::ResourceState::ShaderRead, rhi::ResourceState::DepthStencilWrite);
 
-    dr::CommandBuffer* cb = enc->Finish();
+    rhi::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }

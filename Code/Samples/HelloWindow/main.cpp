@@ -15,39 +15,39 @@ import draconic.shell.desktop;
 import draconic.runtime.graphics;       // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
 import draconic.runtime.graphics.gpu;   // CreateGraphicsDevice
 
-namespace rc = draconic::core;
-namespace rt = draconic::runtime;
+namespace core = draconic::core;
+namespace runtime = draconic::runtime;
         namespace sh = draconic::shell;
 
 namespace
 {
-    class HelloApp final : public rt::IApplication
+    class HelloApp final : public runtime::IApplication
     {
     public:
-        void OnStartup(rt::IApplicationHost&) override
+        void OnStartup(runtime::IApplicationHost&) override
         {
-            rc::ConsoleWrite(u8"HelloWindow: started - close the window to exit.\n");
+            core::ConsoleWrite(u8"HelloWindow: started - close the window to exit.\n");
         }
 
-        void OnUpdate(rt::IApplicationHost&, rc::f32 deltaTime) override
+        void OnUpdate(runtime::IApplicationHost&, core::f32 deltaTime) override
         {
             m_elapsed += deltaTime;
             ++m_frames;
         }
 
-        void OnRenderWindow(rt::IApplicationHost&, rt::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost&, runtime::FrameContext& frame) override
         {
             frame.Clear(0.10f, 0.10f, 0.12f, 1.0f);   // a calm dark grey
         }
 
-        void OnShutdown(rt::IApplicationHost&) override
+        void OnShutdown(runtime::IApplicationHost&) override
         {
-            rc::ConsoleWrite(u8"HelloWindow: shutting down.\n");
+            core::ConsoleWrite(u8"HelloWindow: shutting down.\n");
         }
 
     private:
-        rc::f32 m_elapsed = 0.0f;
-        rc::u64 m_frames = 0;
+        core::f32 m_elapsed = 0.0f;
+        core::u64 m_frames = 0;
     };
 }
 

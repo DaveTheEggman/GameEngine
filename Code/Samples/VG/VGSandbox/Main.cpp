@@ -23,7 +23,7 @@ import draconic.vg.svg;
 using namespace draconic::core;
 namespace sf = draconic::samples::framework;
 namespace rhi = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace shaders = draconic::shaders;
 namespace img = draconic::image;
 namespace fonts = draconic::fonts;
 namespace vg = draconic::vg;
@@ -99,7 +99,7 @@ private:
     static f32 HueToRGB(f32 p, f32 q, f32 t);
     [[nodiscard]] bool HasFonts() const { return !StringView(reinterpret_cast<const utf8char*>(DRACONIC_VG_FONT_PATH)).IsEmpty(); }
 
-    ds::Compiler*      m_compiler = nullptr;
+    shaders::Compiler*      m_compiler = nullptr;
     rhi::ShaderModule* m_vs = nullptr;
     rhi::ShaderModule* m_fs = nullptr;
     rhi::CommandPool*  m_pool = nullptr;
@@ -122,9 +122,9 @@ private:
 
 Status VGSandbox::OnInit()
 {
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kVertSrc, ds::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kFragSrc, ds::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kVertSrc, shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kFragSrc, shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
 
     if (!m_renderer.Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames)).IsOk())
         return ErrorCode::Unknown;

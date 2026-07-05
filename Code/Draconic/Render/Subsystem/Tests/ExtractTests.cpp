@@ -15,8 +15,8 @@ import draconic.render.subsystem;   // components + ExtractSceneInto / ExtractPr
 using namespace draconic::core;
 using namespace draconic::render;
 namespace sc = draconic::scene;
-namespace geo = draconic::geometry;
-namespace mat = draconic::materials;
+namespace geometry = draconic::geometry;
+namespace materials = draconic::materials;
 
 namespace { bool Near(f32 a, f32 b) { return Abs(a - b) < 1e-3f; } }
 
@@ -31,8 +31,8 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
     CameraComponent& cam = cameras->Add(camEntity);
     cam.aspect = 1.0f;
 
-    RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
-    RefPtr<mat::Material> material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<materials::Material> material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
     sc::EntityHandle a = scene.CreateEntity(u8"a");
     scene.SetLocalPosition(a, Vector3{ -2, 0, 0 });
@@ -74,7 +74,7 @@ TEST_CASE("ExtractSceneInto skips invisible + mesh-less components; no primary c
     auto* meshes  = scene.AddSystem<MeshComponentManager>();
     auto* cameras = scene.AddSystem<CameraComponentManager>();
 
-    RefPtr<geo::StaticMesh> mesh = geo::Primitives::Quad();
+    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad();
 
     sc::EntityHandle visible = scene.CreateEntity();
     { MeshComponent& m = meshes->Add(visible); m.mesh = mesh; }
@@ -113,10 +113,10 @@ TEST_CASE("ExtractSceneInto on a scene without render managers yields an empty s
 
 namespace {
 // Builds a scene of `n` quad meshes at world x = 0..n-1; returns the mesh/material alive.
-void BuildBigScene(sc::Scene& scene, int n, RefPtr<geo::StaticMesh>& mesh, RefPtr<mat::Material>& material) {
+void BuildBigScene(sc::Scene& scene, int n, RefPtr<geometry::StaticMesh>& mesh, RefPtr<materials::Material>& material) {
     auto* meshes = scene.AddSystem<MeshComponentManager>();
-    mesh = geo::Primitives::Quad();
-    material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    mesh = geometry::Primitives::Quad();
+    material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
     for (int i = 0; i < n; ++i) {
         sc::EntityHandle e = scene.CreateEntity();
         scene.SetLocalPosition(e, Vector3{ static_cast<f32>(i), 0, 0 });
@@ -138,7 +138,7 @@ TEST_CASE("ExtractSceneInto (parallel) extracts every renderable exactly once")
     {
         constexpr int N = 2000;                              // > kParallelExtractThreshold
         sc::Scene scene;
-        RefPtr<geo::StaticMesh> mesh; RefPtr<mat::Material> material;
+        RefPtr<geometry::StaticMesh> mesh; RefPtr<materials::Material> material;
         BuildBigScene(scene, N, mesh, material);
 
         RenderContext ctx;
@@ -156,7 +156,7 @@ TEST_CASE("ExtractSceneInto (ctx) falls back to serial with no job system")
 {
     REQUIRE_FALSE(HasGlobalJobSystem());                     // none started in this test binary
     sc::Scene scene;
-    RefPtr<geo::StaticMesh> mesh; RefPtr<mat::Material> material;
+    RefPtr<geometry::StaticMesh> mesh; RefPtr<materials::Material> material;
     BuildBigScene(scene, 50, mesh, material);
 
     RenderContext ctx;
@@ -173,8 +173,8 @@ TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent categ
     sc::Scene scene;
     auto* meshes = scene.AddSystem<MeshComponentManager>();
 
-    RefPtr<geo::StaticMesh> mesh = geo::Primitives::Quad();
-    RefPtr<mat::Material> glass = mat::MaterialBuilder(u8"glass").Shader(u8"forward").Transparent().Build();
+    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad();
+    RefPtr<materials::Material> glass = materials::MaterialBuilder(u8"glass").Shader(u8"forward").Transparent().Build();
 
     sc::EntityHandle e = scene.CreateEntity();
     { MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.material = glass; }

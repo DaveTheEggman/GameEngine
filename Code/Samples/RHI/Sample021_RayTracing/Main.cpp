@@ -13,16 +13,16 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 class RayTracingSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample021 - Ray Tracing (TraceRays)"; }
 protected:
-    dr::DeviceFeatures RequiredFeatures() const override {
-        dr::DeviceFeatures f{};
+    rhi::DeviceFeatures RequiredFeatures() const override {
+        rhi::DeviceFeatures f{};
         f.rayTracing = true;
         return f;
     }
@@ -91,31 +91,31 @@ private:
          0.5f, -0.5f, 0.0f
     };
 
-    ds::Compiler* m_compiler = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
 
     // RT resources.
-    dr::ShaderModule*       m_rtShaderModule    = nullptr;
-    dr::RayTracingPipeline* m_rtPipeline        = nullptr;
-    dr::AccelStruct*        m_blas              = nullptr;
-    dr::AccelStruct*        m_tlas              = nullptr;
-    dr::Buffer*             m_scratchBuffer     = nullptr;
-    dr::Buffer*             m_rtVertexBuffer    = nullptr;   // Triangle for BLAS.
-    dr::Buffer*             m_instanceBuffer    = nullptr;   // TLAS instance data.
-    dr::Buffer*             m_sbtBuffer         = nullptr;   // Shader binding table.
-    dr::PipelineLayout*     m_rtPipelineLayout  = nullptr;
-    dr::BindGroupLayout*    m_rtBindGroupLayout = nullptr;
-    dr::BindGroup*          m_rtBindGroup       = nullptr;
+    rhi::ShaderModule*       m_rtShaderModule    = nullptr;
+    rhi::RayTracingPipeline* m_rtPipeline        = nullptr;
+    rhi::AccelStruct*        m_blas              = nullptr;
+    rhi::AccelStruct*        m_tlas              = nullptr;
+    rhi::Buffer*             m_scratchBuffer     = nullptr;
+    rhi::Buffer*             m_rtVertexBuffer    = nullptr;   // Triangle for BLAS.
+    rhi::Buffer*             m_instanceBuffer    = nullptr;   // TLAS instance data.
+    rhi::Buffer*             m_sbtBuffer         = nullptr;   // Shader binding table.
+    rhi::PipelineLayout*     m_rtPipelineLayout  = nullptr;
+    rhi::BindGroupLayout*    m_rtBindGroupLayout = nullptr;
+    rhi::BindGroup*          m_rtBindGroup       = nullptr;
 
     // RT output texture.
-    dr::Texture*     m_outputTexture      = nullptr;
-    dr::TextureView* m_outputTextureView  = nullptr;
-    dr::ResourceState m_outputTextureState = dr::ResourceState::Undefined;
+    rhi::Texture*     m_outputTexture      = nullptr;
+    rhi::TextureView* m_outputTextureView  = nullptr;
+    rhi::ResourceState m_outputTextureState = rhi::ResourceState::Undefined;
 
     // SBT layout info (cached for traceRays).
     draconic::core::u32 m_sbtAlignedStride = 0;
 
-    dr::CommandPool* m_pool     = nullptr;
-    dr::Fence*       m_fence    = nullptr;
+    rhi::CommandPool* m_pool     = nullptr;
+    rhi::Fence*       m_fence    = nullptr;
     draconic::core::u64       m_fenceVal = 0;
 };
 
@@ -134,52 +134,52 @@ draconic::core::Status RayTracingSample::OnInit() {
     std::printf("  shaderGroupBaseAlignment:   %u\n", m_device->shaderGroupBaseAlignment);
 
     // ---- Shader compiler ----
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // ---- Compile RT shader library (lib_6_3) ----
     // Use ShaderStage::RayGen so stagePrefix yields "lib"; SM 6_3 for RT.
-    if (sf::CompileToModule(m_compiler, m_device, kRtShaderSource, ds::ShaderStage::RayGen,
+    if (sf::CompileToModule(m_compiler, m_device, kRtShaderSource, shaders::ShaderStage::RayGen,
                             u8"", u8"RTShaderLib", u8"6_3", m_rtShaderModule) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "ERROR: RT shader library compilation failed\n");
         return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Command pool and fence ----
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // ---- Create RT output texture (storage + copy source) ----
     {
-        dr::TextureDesc td{};
-        td.dimension      = dr::TextureDimension::Texture2D;
-        td.format         = dr::TextureFormat::RGBA8Unorm;
+        rhi::TextureDesc td{};
+        td.dimension      = rhi::TextureDimension::Texture2D;
+        td.format         = rhi::TextureFormat::RGBA8Unorm;
         td.width          = m_width;
         td.height         = m_height;
         td.arrayLayerCount = 1;
         td.mipLevelCount  = 1;
         td.sampleCount    = 1;
-        td.usage          = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc;
+        td.usage          = rhi::TextureUsage::Storage | rhi::TextureUsage::CopySrc;
         td.label          = u8"RTOutputTex";
         if (m_device->CreateTexture(td, m_outputTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-        dr::TextureViewDesc tvd{};
+        rhi::TextureViewDesc tvd{};
         tvd.label = u8"RTOutputView";
         if (m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create BLAS vertex buffer (3 vertices * 12 bytes = 36 bytes) ----
     {
-        dr::BufferDesc bd{};
+        rhi::BufferDesc bd{};
         bd.size   = 36;
-        bd.usage  = dr::BufferUsage::AccelStructInput | dr::BufferUsage::CopyDst;
-        bd.memory = dr::MemoryLocation::GpuOnly;
+        bd.usage  = rhi::BufferUsage::AccelStructInput | rhi::BufferUsage::CopyDst;
+        bd.memory = rhi::MemoryLocation::GpuOnly;
         bd.label  = u8"BLAS_VB";
         if (m_device->CreateBuffer(bd, m_rtVertexBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Upload BLAS vertex data.
     {
-        dr::TransferBatch* transfer = nullptr;
+        rhi::TransferBatch* transfer = nullptr;
         if (m_graphicsQueue->CreateTransferBatch(transfer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
         transfer->WriteBuffer(m_rtVertexBuffer, 0,
             Span<const draconic::core::u8>(reinterpret_cast<const draconic::core::u8*>(kBlasVertexData), 36));
@@ -189,32 +189,32 @@ draconic::core::Status RayTracingSample::OnInit() {
 
     // ---- Create acceleration structures ----
     {
-        dr::AccelStructDesc asd{};
-        asd.type  = dr::AccelStructType::BottomLevel;
+        rhi::AccelStructDesc asd{};
+        asd.type  = rhi::AccelStructType::BottomLevel;
         asd.label = u8"BLAS";
         if (m_device->CreateAccelStruct(asd, m_blas) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-        asd.type  = dr::AccelStructType::TopLevel;
+        asd.type  = rhi::AccelStructType::TopLevel;
         asd.label = u8"TLAS";
         if (m_device->CreateAccelStruct(asd, m_tlas) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create scratch buffer (256 KB) ----
     {
-        dr::BufferDesc bd{};
+        rhi::BufferDesc bd{};
         bd.size   = 256 * 1024;
-        bd.usage  = dr::BufferUsage::AccelStructScratch;
-        bd.memory = dr::MemoryLocation::GpuOnly;
+        bd.usage  = rhi::BufferUsage::AccelStructScratch;
+        bd.memory = rhi::MemoryLocation::GpuOnly;
         bd.label  = u8"ScratchBuffer";
         if (m_device->CreateBuffer(bd, m_scratchBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create instance buffer (64 bytes = sizeof(VkAccelerationStructureInstanceKHR)) ----
     {
-        dr::BufferDesc bd{};
+        rhi::BufferDesc bd{};
         bd.size   = 64;
-        bd.usage  = dr::BufferUsage::AccelStructInput;
-        bd.memory = dr::MemoryLocation::CpuToGpu;
+        bd.usage  = rhi::BufferUsage::AccelStructInput;
+        bd.memory = rhi::MemoryLocation::CpuToGpu;
         bd.label  = u8"InstanceBuffer";
         if (m_device->CreateBuffer(bd, m_instanceBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
@@ -247,29 +247,29 @@ draconic::core::Status RayTracingSample::OnInit() {
 
     // ---- Build BLAS and TLAS ----
     {
-        dr::CommandEncoder* encoder = nullptr;
+        rhi::CommandEncoder* encoder = nullptr;
         if (m_pool->CreateEncoder(encoder) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         if (auto* rtEnc = encoder->AsRayTracingExt()) {
             // Build BLAS from triangle geometry.
-            dr::AccelStructGeometryTriangles triGeom{};
+            rhi::AccelStructGeometryTriangles triGeom{};
             triGeom.vertexBuffer = m_rtVertexBuffer;
             triGeom.vertexOffset = 0;
             triGeom.vertexCount  = 3;
             triGeom.vertexStride = 12;
-            triGeom.vertexFormat = dr::VertexFormat::Float32x3;
-            triGeom.flags        = dr::GeometryFlags::Opaque;
+            triGeom.vertexFormat = rhi::VertexFormat::Float32x3;
+            triGeom.flags        = rhi::GeometryFlags::Opaque;
 
             rtEnc->BuildBottomLevelAccelStruct(m_blas, m_scratchBuffer, 0,
-                Span<const dr::AccelStructGeometryTriangles>(&triGeom, 1),
-                Span<const dr::AccelStructGeometryAABBs>{});
+                Span<const rhi::AccelStructGeometryTriangles>(&triGeom, 1),
+                Span<const rhi::AccelStructGeometryAABBs>{});
 
             // Barrier between BLAS and TLAS build.
-            dr::MemoryBarrier mb{};
-            mb.oldState = dr::ResourceState::AccelStructWrite;
-            mb.newState = dr::ResourceState::AccelStructRead;
-            dr::BarrierGroup bg{};
-            bg.memoryBarriers = Span<const dr::MemoryBarrier>(&mb, 1);
+            rhi::MemoryBarrier mb{};
+            mb.oldState = rhi::ResourceState::AccelStructWrite;
+            mb.newState = rhi::ResourceState::AccelStructRead;
+            rhi::BarrierGroup bg{};
+            bg.memoryBarriers = Span<const rhi::MemoryBarrier>(&mb, 1);
             encoder->Barrier(bg);
 
             // Build TLAS from instances.
@@ -281,10 +281,10 @@ draconic::core::Status RayTracingSample::OnInit() {
             return draconic::core::ErrorCode::Unknown;
         }
 
-        dr::CommandBuffer* cb = encoder->Finish();
+        rhi::CommandBuffer* cb = encoder->Finish();
         m_fenceVal++;
-        dr::CommandBuffer* cbs[1] = { cb };
-        m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+        rhi::CommandBuffer* cbs[1] = { cb };
+        m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
 
         // Wait for build to complete.
         m_fence->Wait(m_fenceVal);
@@ -302,68 +302,68 @@ draconic::core::Status RayTracingSample::OnInit() {
         // binding 0 (t0): RaytracingAccelerationStructure - TLAS
         // Both use register 0 in different HLSL spaces (u vs t),
         // mapped to different Vulkan bindings via shifts (UAV=2000, SRV=1000).
-        dr::BindGroupLayoutEntry layoutEntries[2]{};
+        rhi::BindGroupLayoutEntry layoutEntries[2]{};
 
         // Storage texture (read-write).
         layoutEntries[0].binding     = 0;
-        layoutEntries[0].visibility  = dr::ShaderStage::RayGen;
-        layoutEntries[0].type        = dr::BindingType::StorageTextureReadWrite;
-        layoutEntries[0].storageTextureFormat = dr::TextureFormat::RGBA8Unorm;
+        layoutEntries[0].visibility  = rhi::ShaderStage::RayGen;
+        layoutEntries[0].type        = rhi::BindingType::StorageTextureReadWrite;
+        layoutEntries[0].storageTextureFormat = rhi::TextureFormat::RGBA8Unorm;
         layoutEntries[0].count       = 1;
 
         // Acceleration structure.
         layoutEntries[1].binding     = 0;
-        layoutEntries[1].visibility  = dr::ShaderStage::RayGen;
-        layoutEntries[1].type        = dr::BindingType::AccelerationStructure;
+        layoutEntries[1].visibility  = rhi::ShaderStage::RayGen;
+        layoutEntries[1].type        = rhi::BindingType::AccelerationStructure;
         layoutEntries[1].count       = 1;
 
-        dr::BindGroupLayoutDesc bgld{};
-        bgld.entries = Span<const dr::BindGroupLayoutEntry>(layoutEntries, 2);
+        rhi::BindGroupLayoutDesc bgld{};
+        bgld.entries = Span<const rhi::BindGroupLayoutEntry>(layoutEntries, 2);
         bgld.label   = u8"RTBindGroupLayout";
         if (m_device->CreateBindGroupLayout(bgld, m_rtBindGroupLayout) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         // Create bind group with output texture + TLAS.
-        dr::BindGroupEntry bgEntries[2]{};
-        bgEntries[0] = dr::BindGroupEntry::TextureEntry(m_outputTextureView);
-        bgEntries[1] = dr::BindGroupEntry::AccelStructEntry(m_tlas);
+        rhi::BindGroupEntry bgEntries[2]{};
+        bgEntries[0] = rhi::BindGroupEntry::TextureEntry(m_outputTextureView);
+        bgEntries[1] = rhi::BindGroupEntry::AccelStructEntry(m_tlas);
 
-        dr::BindGroupDesc bgd{};
+        rhi::BindGroupDesc bgd{};
         bgd.layout  = m_rtBindGroupLayout;
-        bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2);
+        bgd.entries = Span<const rhi::BindGroupEntry>(bgEntries, 2);
         bgd.label   = u8"RTBindGroup";
         if (m_device->CreateBindGroup(bgd, m_rtBindGroup) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // ---- Create RT pipeline layout with bind group ----
     {
-        dr::BindGroupLayout* bglArr[1] = { m_rtBindGroupLayout };
+        rhi::BindGroupLayout* bglArr[1] = { m_rtBindGroupLayout };
 
-        dr::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(bglArr, 1);
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(bglArr, 1);
         pld.label = u8"RTPipelineLayout";
         if (m_device->CreatePipelineLayout(pld, m_rtPipelineLayout) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
         // 3 stages: RayGen, ClosestHit, Miss - all from the same shader module.
-        dr::ProgrammableStage stages[3]{};
-        stages[0] = { m_rtShaderModule, u8"RayGen",     dr::ShaderStage::RayGen };
-        stages[1] = { m_rtShaderModule, u8"ClosestHit", dr::ShaderStage::ClosestHit };
-        stages[2] = { m_rtShaderModule, u8"Miss",       dr::ShaderStage::Miss };
+        rhi::ProgrammableStage stages[3]{};
+        stages[0] = { m_rtShaderModule, u8"RayGen",     rhi::ShaderStage::RayGen };
+        stages[1] = { m_rtShaderModule, u8"ClosestHit", rhi::ShaderStage::ClosestHit };
+        stages[2] = { m_rtShaderModule, u8"Miss",       rhi::ShaderStage::Miss };
 
         // 3 groups: raygen (general), hit group (triangles), miss (general).
-        dr::RayTracingShaderGroup groups[3]{};
-        groups[0].type               = dr::RayTracingShaderGroup::Type::General;
+        rhi::RayTracingShaderGroup groups[3]{};
+        groups[0].type               = rhi::RayTracingShaderGroup::Type::General;
         groups[0].generalShaderIndex = 0;
 
-        groups[1].type                   = dr::RayTracingShaderGroup::Type::TrianglesHitGroup;
+        groups[1].type                   = rhi::RayTracingShaderGroup::Type::TrianglesHitGroup;
         groups[1].closestHitShaderIndex  = 1;
 
-        groups[2].type               = dr::RayTracingShaderGroup::Type::General;
+        groups[2].type               = rhi::RayTracingShaderGroup::Type::General;
         groups[2].generalShaderIndex = 2;
 
-        dr::RayTracingPipelineDesc rtpd{};
+        rhi::RayTracingPipelineDesc rtpd{};
         rtpd.layout           = m_rtPipelineLayout;
-        rtpd.stages           = Span<const dr::ProgrammableStage>(stages, 3);
-        rtpd.groups           = Span<const dr::RayTracingShaderGroup>(groups, 3);
+        rtpd.stages           = Span<const rhi::ProgrammableStage>(stages, 3);
+        rtpd.groups           = Span<const rhi::RayTracingShaderGroup>(groups, 3);
         rtpd.maxRecursionDepth = 1;
         rtpd.label            = u8"RTPipeline";
         if (m_device->CreateRayTracingPipeline(rtpd, m_rtPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
@@ -390,10 +390,10 @@ draconic::core::Status RayTracingSample::OnInit() {
 
         // Create SBT buffer: 3 entries, each aligned to baseAlignment.
         draconic::core::u64 sbtSize = static_cast<draconic::core::u64>(m_sbtAlignedStride) * groupCount;
-        dr::BufferDesc sbd{};
+        rhi::BufferDesc sbd{};
         sbd.size   = sbtSize;
-        sbd.usage  = dr::BufferUsage::ShaderBindingTable;
-        sbd.memory = dr::MemoryLocation::CpuToGpu;
+        sbd.usage  = rhi::BufferUsage::ShaderBindingTable;
+        sbd.memory = rhi::MemoryLocation::CpuToGpu;
         sbd.label  = u8"SBTBuffer";
         if (m_device->CreateBuffer(sbd, m_sbtBuffer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
@@ -429,11 +429,11 @@ void RayTracingSample::OnRender() {
 
     // Reset and create encoder.
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
     // ---- Transition output texture to ShaderWrite for TraceRays ----
-    enc->TransitionTexture(m_outputTexture, m_outputTextureState, dr::ResourceState::ShaderWrite);
+    enc->TransitionTexture(m_outputTexture, m_outputTextureState, rhi::ResourceState::ShaderWrite);
 
     // ---- Dispatch TraceRays ----
     if (auto* rtEnc = enc->AsRayTracingExt()) {
@@ -455,37 +455,37 @@ void RayTracingSample::OnRender() {
 
     // ---- Transition: output texture ShaderWrite -> CopySrc, swapchain Present -> CopyDst ----
     {
-        dr::TextureBarrier texBarriers[2]{};
+        rhi::TextureBarrier texBarriers[2]{};
         texBarriers[0].texture  = m_outputTexture;
-        texBarriers[0].oldState = dr::ResourceState::ShaderWrite;
-        texBarriers[0].newState = dr::ResourceState::CopySrc;
+        texBarriers[0].oldState = rhi::ResourceState::ShaderWrite;
+        texBarriers[0].newState = rhi::ResourceState::CopySrc;
 
         texBarriers[1].texture  = m_swapChain->CurrentTexture();
-        texBarriers[1].oldState = dr::ResourceState::Present;
-        texBarriers[1].newState = dr::ResourceState::CopyDst;
+        texBarriers[1].oldState = rhi::ResourceState::Present;
+        texBarriers[1].newState = rhi::ResourceState::CopyDst;
 
-        dr::BarrierGroup bg{};
-        bg.textureBarriers = Span<const dr::TextureBarrier>(texBarriers, 2);
+        rhi::BarrierGroup bg{};
+        bg.textureBarriers = Span<const rhi::TextureBarrier>(texBarriers, 2);
         enc->Barrier(bg);
     }
 
     // ---- Copy RT output to swapchain ----
-    m_outputTextureState = dr::ResourceState::CopySrc;
+    m_outputTextureState = rhi::ResourceState::CopySrc;
     {
-        dr::TextureCopyRegion region{};
-        region.extent = dr::Extent3D{ m_width, m_height, 1 };
+        rhi::TextureCopyRegion region{};
+        region.extent = rhi::Extent3D{ m_width, m_height, 1 };
         enc->CopyTextureToTexture(m_outputTexture, m_swapChain->CurrentTexture(), region);
     }
 
     // ---- Transition swapchain CopyDst -> Present ----
     enc->TransitionTexture(m_swapChain->CurrentTexture(),
-                           dr::ResourceState::CopyDst, dr::ResourceState::Present);
+                           rhi::ResourceState::CopyDst, rhi::ResourceState::Present);
 
     // Finish and submit.
-    dr::CommandBuffer* cb = enc->Finish();
+    rhi::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
 
     // Present.
     m_swapChain->Present(m_graphicsQueue);
@@ -504,32 +504,32 @@ void RayTracingSample::OnResize(draconic::core::u32 w, draconic::core::u32 h) {
     m_rtBindGroup = nullptr; m_outputTextureView = nullptr; m_outputTexture = nullptr;
 
     // Recreate output texture at new size.
-    dr::TextureDesc td{};
-    td.dimension       = dr::TextureDimension::Texture2D;
-    td.format          = dr::TextureFormat::RGBA8Unorm;
+    rhi::TextureDesc td{};
+    td.dimension       = rhi::TextureDimension::Texture2D;
+    td.format          = rhi::TextureFormat::RGBA8Unorm;
     td.width           = w;
     td.height          = h;
     td.arrayLayerCount = 1;
     td.mipLevelCount   = 1;
     td.sampleCount     = 1;
-    td.usage           = dr::TextureUsage::Storage | dr::TextureUsage::CopySrc;
+    td.usage           = rhi::TextureUsage::Storage | rhi::TextureUsage::CopySrc;
     td.label           = u8"RTOutputTex";
     m_device->CreateTexture(td, m_outputTexture);
 
-    dr::TextureViewDesc tvd{}; tvd.label = u8"RTOutputView";
+    rhi::TextureViewDesc tvd{}; tvd.label = u8"RTOutputView";
     m_device->CreateTextureView(m_outputTexture, tvd, m_outputTextureView);
 
     // Recreate bind group with new texture view + same TLAS.
-    dr::BindGroupEntry bgEntries[2]{};
-    bgEntries[0] = dr::BindGroupEntry::TextureEntry(m_outputTextureView);
-    bgEntries[1] = dr::BindGroupEntry::AccelStructEntry(m_tlas);
-    dr::BindGroupDesc bgd{};
+    rhi::BindGroupEntry bgEntries[2]{};
+    bgEntries[0] = rhi::BindGroupEntry::TextureEntry(m_outputTextureView);
+    bgEntries[1] = rhi::BindGroupEntry::AccelStructEntry(m_tlas);
+    rhi::BindGroupDesc bgd{};
     bgd.layout  = m_rtBindGroupLayout;
-    bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 2);
+    bgd.entries = Span<const rhi::BindGroupEntry>(bgEntries, 2);
     bgd.label   = u8"RTBindGroup";
     m_device->CreateBindGroup(bgd, m_rtBindGroup);
 
-    m_outputTextureState = dr::ResourceState::Undefined;
+    m_outputTextureState = rhi::ResourceState::Undefined;
 }
 
 void RayTracingSample::OnShutdown() {

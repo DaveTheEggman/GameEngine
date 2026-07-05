@@ -20,7 +20,7 @@ import draconic.geometry.resource;
 
 using namespace draconic::core;
 namespace mdl = draconic::model;
-namespace geo = draconic::geometry;
+namespace geometry = draconic::geometry;
 
 namespace draconic::modelimporter {
 
@@ -73,7 +73,7 @@ void CopyIndices(const mdl::ModelMesh& mesh, Array<u32>& out)
 
 // ---- parts -> submesh ranges ----
 
-void CopyParts(const mdl::ModelMesh& mesh, geo::StaticMeshSource& out)
+void CopyParts(const mdl::ModelMesh& mesh, geometry::StaticMeshSource& out)
 {
     out.subStart.Clear(); out.subCount.Clear(); out.subMaterial.Clear(); out.subPrim.Clear();
     const Span<const mdl::ModelMeshPart> parts = mesh.parts();
@@ -82,21 +82,21 @@ void CopyParts(const mdl::ModelMesh& mesh, geo::StaticMeshSource& out)
         out.subStart.PushBack(0);
         out.subCount.PushBack(mesh.indexCount());
         out.subMaterial.PushBack(-1);
-        out.subPrim.PushBack(static_cast<u8>(geo::PrimitiveType::Triangles));
+        out.subPrim.PushBack(static_cast<u8>(geometry::PrimitiveType::Triangles));
         return;
     }
     for (const mdl::ModelMeshPart& p : parts) {
         out.subStart.PushBack(p.indexStart);
         out.subCount.PushBack(p.indexCount);
         out.subMaterial.PushBack(p.materialIndex);
-        out.subPrim.PushBack(static_cast<u8>(geo::PrimitiveType::Triangles));
+        out.subPrim.PushBack(static_cast<u8>(geometry::PrimitiveType::Triangles));
     }
 }
 
 export {
 
 // Fill a StaticMeshSource from a model mesh's static streams (pos/normal/uv/color/tangent).
-void StaticMeshSourceFromModel(const mdl::ModelMesh& mesh, geo::StaticMeshSource& out)
+void StaticMeshSourceFromModel(const mdl::ModelMesh& mesh, geometry::StaticMeshSource& out)
 {
     out.name = String(mesh.name());
 
@@ -112,11 +112,11 @@ void StaticMeshSourceFromModel(const mdl::ModelMesh& mesh, geo::StaticMeshSource
     const u8* base   = mesh.getVertexData();
 
     out.vertexBlob.Clear();
-    out.vertexBlob.Resize(static_cast<usize>(count) * sizeof(geo::StaticMeshVertex));
-    auto* dst = reinterpret_cast<geo::StaticMeshVertex*>(out.vertexBlob.Data());
+    out.vertexBlob.Resize(static_cast<usize>(count) * sizeof(geometry::StaticMeshVertex));
+    auto* dst = reinterpret_cast<geometry::StaticMeshVertex*>(out.vertexBlob.Data());
     for (i32 i = 0; i < count; ++i) {
         const u8* v = base + static_cast<usize>(i) * static_cast<usize>(stride);
-        geo::StaticMeshVertex sv{};
+        geometry::StaticMeshVertex sv{};
         sv.position = ReadVec3(v, ePos, Vector3{ 0, 0, 0 });
         sv.normal   = ReadVec3(v, eNrm, Vector3{ 0, 1, 0 });
         sv.texCoord = ReadVec2(v, eUv,  Vector2{ 0, 0 });
@@ -131,7 +131,7 @@ void StaticMeshSourceFromModel(const mdl::ModelMesh& mesh, geo::StaticMeshSource
 
 // Fill a SkinnedMeshSource: the static streams above + the parallel skinning stream
 // (joints u16x4 + weights) and the owning skeleton index.
-void SkinnedMeshSourceFromModel(const mdl::ModelMesh& mesh, i32 skeletonIndex, geo::SkinnedMeshSource& out)
+void SkinnedMeshSourceFromModel(const mdl::ModelMesh& mesh, i32 skeletonIndex, geometry::SkinnedMeshSource& out)
 {
     StaticMeshSourceFromModel(mesh, out);
     out.skeletonIndex = skeletonIndex;
@@ -145,11 +145,11 @@ void SkinnedMeshSourceFromModel(const mdl::ModelMesh& mesh, i32 skeletonIndex, g
     const u8* base   = mesh.getVertexData();
 
     out.skinningBlob.Clear();
-    out.skinningBlob.Resize(static_cast<usize>(count) * sizeof(geo::VertexSkinning));
-    auto* dst = reinterpret_cast<geo::VertexSkinning*>(out.skinningBlob.Data());
+    out.skinningBlob.Resize(static_cast<usize>(count) * sizeof(geometry::VertexSkinning));
+    auto* dst = reinterpret_cast<geometry::VertexSkinning*>(out.skinningBlob.Data());
     for (i32 i = 0; i < count; ++i) {
         const u8* v = base + static_cast<usize>(i) * static_cast<usize>(stride);
-        geo::VertexSkinning vs{};
+        geometry::VertexSkinning vs{};
         if (eJnt != nullptr) { MemCopy(vs.joints, v + eJnt->offset, sizeof(vs.joints)); }
         vs.weights = ReadVec4(v, eWt, Vector4{ 1, 0, 0, 0 });
         dst[i] = vs;

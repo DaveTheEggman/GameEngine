@@ -16,32 +16,32 @@ export module draconic.shell.null;
 import draconic.core;
 import draconic.shell;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::shell
 {
     class NullWindow final : public IWindow
     {
     public:
-        NullWindow(rc::u32 id, const WindowSettings& settings) noexcept
+        NullWindow(core::u32 id, const WindowSettings& settings) noexcept
             : m_id(id), m_width(settings.width), m_height(settings.height) {}
 
-        [[nodiscard]] rc::u32 Id() const noexcept override { return m_id; }
-        [[nodiscard]] rc::u32 Width() const noexcept override { return m_width; }
-        [[nodiscard]] rc::u32 Height() const noexcept override { return m_height; }
+        [[nodiscard]] core::u32 Id() const noexcept override { return m_id; }
+        [[nodiscard]] core::u32 Width() const noexcept override { return m_width; }
+        [[nodiscard]] core::u32 Height() const noexcept override { return m_height; }
         [[nodiscard]] NativeWindow Native() const noexcept override { return {}; }  // headless: no handles
         [[nodiscard]] bool IsOpen() const noexcept override { return m_open; }
         [[nodiscard]] bool IsMinimized() const noexcept override { return m_minimized; }
         void Close() override { m_open = false; }
 
         // --- test/headless controls (no OS to drive these) ---
-        void Resize(rc::u32 w, rc::u32 h) noexcept { m_width = w; m_height = h; }
+        void Resize(core::u32 w, core::u32 h) noexcept { m_width = w; m_height = h; }
         void SetMinimized(bool m) noexcept { m_minimized = m; }
 
     private:
-        rc::u32 m_id;
-        rc::u32 m_width;
-        rc::u32 m_height;
+        core::u32 m_id;
+        core::u32 m_width;
+        core::u32 m_height;
         bool m_open = true;
         bool m_minimized = false;
     };
@@ -51,12 +51,12 @@ export namespace draconic::shell
     public:
         explicit NullWindowManager(const WindowSettings& main) { (void)CreateWindow(main); }
 
-        [[nodiscard]] rc::Result<IWindow*> CreateWindow(const WindowSettings& settings) override
+        [[nodiscard]] core::Result<IWindow*> CreateWindow(const WindowSettings& settings) override
         {
-            const rc::u32 id = m_nextId++;
-            auto window = rc::MakeUnique<NullWindow>(rc::DefaultAllocator(), id, settings);
+            const core::u32 id = m_nextId++;
+            auto window = core::MakeUnique<NullWindow>(core::DefaultAllocator(), id, settings);
             IWindow* borrowed = window.Get();
-            m_owned.PushBack(static_cast<rc::UniquePtr<NullWindow>&&>(window));
+            m_owned.PushBack(static_cast<core::UniquePtr<NullWindow>&&>(window));
             m_live.PushBack(borrowed);
             return borrowed;
         }
@@ -68,33 +68,33 @@ export namespace draconic::shell
             m_pendingDestroy.PushBack(window->Id());
         }
 
-        [[nodiscard]] rc::Span<IWindow* const> Windows() noexcept override
+        [[nodiscard]] core::Span<IWindow* const> Windows() noexcept override
         {
-            return rc::Span<IWindow* const>(m_live.Data(), m_live.Size());
+            return core::Span<IWindow* const>(m_live.Data(), m_live.Size());
         }
         [[nodiscard]] IWindow* MainWindow() noexcept override
         {
             return m_live.IsEmpty() ? nullptr : m_live[0];
         }
-        [[nodiscard]] IWindow* GetWindow(rc::u32 id) noexcept override
+        [[nodiscard]] IWindow* GetWindow(core::u32 id) noexcept override
         {
             for (IWindow* w : m_live) { if (w->Id() == id) { return w; } }
             return nullptr;
         }
-        [[nodiscard]] rc::Span<const WindowEvent> Events() const noexcept override
+        [[nodiscard]] core::Span<const WindowEvent> Events() const noexcept override
         {
-            return rc::Span<const WindowEvent>(m_events.Data(), m_events.Size());
+            return core::Span<const WindowEvent>(m_events.Data(), m_events.Size());
         }
 
         void FlushDestroyed() override
         {
-            for (rc::u32 id : m_pendingDestroy)
+            for (core::u32 id : m_pendingDestroy)
             {
-                for (rc::usize i = 0; i < m_live.Size(); ++i)
+                for (core::usize i = 0; i < m_live.Size(); ++i)
                 {
                     if (m_live[i]->Id() == id) { m_live.RemoveAt(i); break; }
                 }
-                for (rc::usize i = 0; i < m_owned.Size(); ++i)
+                for (core::usize i = 0; i < m_owned.Size(); ++i)
                 {
                     if (m_owned[i]->Id() == id) { m_owned.RemoveAt(i); break; }
                 }
@@ -103,11 +103,11 @@ export namespace draconic::shell
         }
 
     private:
-        rc::Array<rc::UniquePtr<NullWindow>> m_owned;
-        rc::Array<IWindow*> m_live;          // borrowed parallel pointers for the span
-        rc::Array<rc::u32> m_pendingDestroy; // window ids
-        rc::Array<WindowEvent> m_events;     // always empty (no OS event source)
-        rc::u32 m_nextId = 1;
+        core::Array<core::UniquePtr<NullWindow>> m_owned;
+        core::Array<IWindow*> m_live;          // borrowed parallel pointers for the span
+        core::Array<core::u32> m_pendingDestroy; // window ids
+        core::Array<WindowEvent> m_events;     // always empty (no OS event source)
+        core::u32 m_nextId = 1;
     };
 
     // No-op input devices: report nothing held/pressed so headless callers can
@@ -124,12 +124,12 @@ export namespace draconic::shell
     class NullMouse final : public IMouse
     {
     public:
-        [[nodiscard]] rc::f32 X() const override { return 0.0f; }
-        [[nodiscard]] rc::f32 Y() const override { return 0.0f; }
-        [[nodiscard]] rc::f32 DeltaX() const override { return 0.0f; }
-        [[nodiscard]] rc::f32 DeltaY() const override { return 0.0f; }
-        [[nodiscard]] rc::f32 ScrollX() const override { return 0.0f; }
-        [[nodiscard]] rc::f32 ScrollY() const override { return 0.0f; }
+        [[nodiscard]] core::f32 X() const override { return 0.0f; }
+        [[nodiscard]] core::f32 Y() const override { return 0.0f; }
+        [[nodiscard]] core::f32 DeltaX() const override { return 0.0f; }
+        [[nodiscard]] core::f32 DeltaY() const override { return 0.0f; }
+        [[nodiscard]] core::f32 ScrollX() const override { return 0.0f; }
+        [[nodiscard]] core::f32 ScrollY() const override { return 0.0f; }
         [[nodiscard]] bool IsButtonDown(MouseButton) const override { return false; }
         [[nodiscard]] bool IsButtonPressed(MouseButton) const override { return false; }
         [[nodiscard]] bool IsButtonReleased(MouseButton) const override { return false; }
@@ -143,8 +143,8 @@ export namespace draconic::shell
     class NullTouch final : public ITouch
     {
     public:
-        [[nodiscard]] rc::i32 TouchCount() const override { return 0; }
-        [[nodiscard]] bool GetTouchPoint(rc::i32, TouchPoint&) const override { return false; }
+        [[nodiscard]] core::i32 TouchCount() const override { return 0; }
+        [[nodiscard]] bool GetTouchPoint(core::i32, TouchPoint&) const override { return false; }
         [[nodiscard]] bool HasTouch() const override { return false; }
     };
 
@@ -154,11 +154,11 @@ export namespace draconic::shell
         [[nodiscard]] IKeyboard* Keyboard() override { return &m_keyboard; }
         [[nodiscard]] IMouse*    Mouse()    override { return &m_mouse; }
         [[nodiscard]] ITouch*    Touch()    override { return &m_touch; }
-        [[nodiscard]] rc::i32    GamepadCount() const override { return 0; }
-        [[nodiscard]] IGamepad*  GetGamepad(rc::i32) override { return nullptr; }
-        [[nodiscard]] rc::Span<const InputEvent> Events() const override { return {}; }
-        [[nodiscard]] rc::u32    HoverWindow()   const override { return 0; }
-        [[nodiscard]] rc::u32    FocusedWindow() const override { return 0; }
+        [[nodiscard]] core::i32    GamepadCount() const override { return 0; }
+        [[nodiscard]] IGamepad*  GetGamepad(core::i32) override { return nullptr; }
+        [[nodiscard]] core::Span<const InputEvent> Events() const override { return {}; }
+        [[nodiscard]] core::u32    HoverWindow()   const override { return 0; }
+        [[nodiscard]] core::u32    FocusedWindow() const override { return 0; }
         void Update() override {}
 
     private:

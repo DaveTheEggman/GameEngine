@@ -35,83 +35,83 @@ import draconic.materials;
 
 #include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
 
-namespace rc  = draconic::core;
+namespace core  = draconic::core;
 namespace rhi = draconic::rhi;
-namespace rt  = draconic::runtime;
+namespace runtime  = draconic::runtime;
 namespace sh  = draconic::shell;
-namespace smp = draconic::samples;
+namespace samples = draconic::samples;
 namespace sc  = draconic::scene;
-namespace rd  = draconic::render;
-namespace gui = draconic::imgui;
-namespace geo = draconic::geometry;
-namespace mat = draconic::materials;
+namespace render  = draconic::render;
+namespace imgui = draconic::imgui;
+namespace geometry = draconic::geometry;
+namespace materials = draconic::materials;
 
 namespace
 {
-    class StressTestApp final : public rt::DefaultApplication
+    class StressTestApp final : public runtime::DefaultApplication
     {
-        static constexpr rc::i32 kSpheresPerBatch = 8000;
-        static constexpr rc::f32 kSphereSpacing   = 1.5f;
-        static constexpr rc::f32 kSphereHeight    = 2.5f;   // base height above the floor (radius 0.5)
-        static constexpr rc::f32 kFloorBaseSize   = 500.0f; // base ground-plane size (scaled to cover the grid)
+        static constexpr core::i32 kSpheresPerBatch = 8000;
+        static constexpr core::f32 kSphereSpacing   = 1.5f;
+        static constexpr core::f32 kSphereHeight    = 2.5f;   // base height above the floor (radius 0.5)
+        static constexpr core::f32 kFloorBaseSize   = 500.0f; // base ground-plane size (scaled to cover the grid)
 
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
         // refresh. The numbers tear visually — that's fine for a benchmark. Switch to Fifo to cap.
-        rt::RenderWindowDesc MainRenderWindow() const override
+        runtime::RenderWindowDesc MainRenderWindow() const override
         {
-            rt::RenderWindowDesc d;
+            runtime::RenderWindowDesc d;
             d.presentMode = rhi::PresentMode::Immediate;
             return d;
         }
 
         // Register the ImGui subsystem so the benchmark HUD can draw over the scene.
-        void Configure(rt::IApplicationHost& host) override
+        void Configure(runtime::IApplicationHost& host) override
         {
-            rt::DefaultApplication::Configure(host);
+            runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
-                host.Ctx().AddSubsystem<gui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
             }
         }
 
-        void OnStartup(rt::IApplicationHost& host) override
+        void OnStartup(runtime::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
             if (scenes == nullptr) { return; }
             m_scene = scenes->CreateScene(u8"stress");
 
             // A modest ambient so unlit-facing hemispheres aren't pure black.
-            if (auto* env = m_scene->GetSystem<rd::EnvironmentSystem>()) {
-                env->Environment().ambientColor     = rc::Color{ 0.10f, 0.12f, 0.16f, 1.0f };
+            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {
+                env->Environment().ambientColor     = core::Color{ 0.10f, 0.12f, 0.16f, 1.0f };
                 env->Environment().ambientIntensity = 0.30f;
             }
 
             // Shared sphere material (gray PBR). Every sphere points at THIS one by default, so the
             // renderer can batch them. Unique mode (U) builds a per-sphere material instead.
-            m_sharedMat = mat::CreatePBR(u8"stress.shared", rc::Vector4{ 0.7f, 0.7f, 0.7f, 1.0f }, 0.1f, 0.4f);
+            m_sharedMat = materials::CreatePBR(u8"stress.shared", core::Vector4{ 0.7f, 0.7f, 0.7f, 1.0f }, 0.1f, 0.4f);
 
             // One sphere mesh, shared by all instances (matches Sedulous: radius 0.5, 16x8).
-            m_sphere = geo::Primitives::Sphere(0.5f, 16, 8);
+            m_sphere = geometry::Primitives::Sphere(0.5f, 16, 8);
 
             // Large ground plane so the bobbing spheres read against a surface.
-            if (auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>()) {
+            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
                 m_ground = m_scene->CreateEntity(u8"ground");
-                m_scene->SetLocalPosition(m_ground, rc::Vector3{ 0.0f, 0.0f, 0.0f });
-                rd::MeshComponent& gm = meshes->Add(m_ground);
-                gm.mesh = geo::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                gm.material = mat::CreatePBR(u8"stress.ground", rc::Vector4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f);
+                m_scene->SetLocalPosition(m_ground, core::Vector3{ 0.0f, 0.0f, 0.0f });
+                render::MeshComponent& gm = meshes->Add(m_ground);
+                gm.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
+                gm.material = materials::CreatePBR(u8"stress.ground", core::Vector4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f);
             }
 
             // Directional key light.
-            if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
+            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                 sc::EntityHandle sun = m_scene->CreateEntity(u8"sun");
-                rc::Transform st = m_scene->GetLocalTransform(sun);
-                st.rotation = rc::Quaternion::FromAxisAngle(rc::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f)
-                            * rc::Quaternion::FromAxisAngle(rc::Vector3{ 0.0f, 1.0f, 0.0f }, 0.5f);
+                core::Transform st = m_scene->GetLocalTransform(sun);
+                st.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f)
+                            * core::Quaternion::FromAxisAngle(core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.5f);
                 m_scene->SetLocalTransform(sun, st);
-                rd::LightComponent& sl = lights->Add(sun);
-                sl.type         = rd::LightType::Directional;
-                sl.color        = rc::Color{ 1.0f, 0.95f, 0.9f, 1.0f };
+                render::LightComponent& sl = lights->Add(sun);
+                sl.type         = render::LightType::Directional;
+                sl.color        = core::Color{ 1.0f, 0.95f, 0.9f, 1.0f };
                 sl.intensity    = 1.5f;
                 sl.castsShadows = true;   // phase 5.1: the spheres cast shadows on the ground
                 m_sun = sun;              // K toggles its shadows (for shadowed-vs-unshadowed benchmarking)
@@ -119,21 +119,21 @@ namespace
 
             // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
-                rd::CameraComponent& cam = cameras->Add(m_camera);
+            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
+                render::CameraComponent& cam = cameras->Add(m_camera);
                 cam.fovYRadians = 1.04719755f;   // 60 deg
                 cam.nearZ       = 0.1f;
                 cam.farZ        = 2000.0f;
-                cam.clearColor  = rc::Color{ 0.04f, 0.05f, 0.07f, 1.0f };
+                cam.clearColor  = core::Color{ 0.04f, 0.05f, 0.07f, 1.0f };
             }
             PushCameraToEntity();
 
             AddSphereBatch();   // start with one batch
 
             // Lower default exposure: the procedural-sky IBL + sun are bright, so AgX washes out at 1.0.
-            if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) { render->SetExposure(0.5f); }
+            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) { render->SetExposure(0.5f); }
 
-            rc::ConsoleWrite(u8"=== Render Stress Test ===\n"
+            core::ConsoleWrite(u8"=== Render Stress Test ===\n"
                              u8"  Space: +8000 spheres   Backspace: -8000\n"
                              u8"  U: toggle unique materials (defeats batching)\n"
                              u8"  B: toggle sin-wave bob (defeats static caching)\n"
@@ -144,30 +144,30 @@ namespace
 
         // The default render path reads the camera's aspect straight from the component, so keep it in
         // sync with the backbuffer before delegating to DefaultApplication's single-view render.
-        void OnRenderWindow(rt::IApplicationHost& host, rt::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost& host, runtime::FrameContext& frame) override
         {
             if (m_scene != nullptr && frame.height > 0) {
-                if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
-                    if (rd::CameraComponent* cam = cameras->Get(m_camera)) {
-                        cam->aspect = static_cast<rc::f32>(frame.width) / static_cast<rc::f32>(frame.height);
+                if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
+                    if (render::CameraComponent* cam = cameras->Get(m_camera)) {
+                        cam->aspect = static_cast<core::f32>(frame.width) / static_cast<core::f32>(frame.height);
                     }
                 }
             }
-            rt::DefaultApplication::OnRenderWindow(host, frame);
+            runtime::DefaultApplication::OnRenderWindow(host, frame);
 
             // HUD over the scene (backbuffer is RenderTarget after the default render path).
-            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) { g->Render(frame); }
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) { g->Render(frame); }
         }
 
-        void OnUpdate(rt::IApplicationHost& host, rc::f32 deltaTime) override
+        void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            rt::DefaultApplication::OnUpdate(host, deltaTime);   // inherited P-key profiler dump
+            runtime::DefaultApplication::OnUpdate(host, deltaTime);   // inherited P-key profiler dump
 
             // Smooth the frame time every frame + build the ImGui HUD (drawn in OnRenderWindow).
             m_frameMs = m_frameMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
-            if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
-                BuildHud(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
+                BuildHud(host.Ctx().GetSubsystem<render::RenderSubsystem>());
             }
             if (m_scene == nullptr) { return; }
 
@@ -183,35 +183,35 @@ namespace
             if (kb->IsKeyPressed(sh::KeyCode::U)) {
                 m_uniqueMaterials = !m_uniqueMaterials;
                 RebuildSphereMaterials();
-                rc::ConsoleWrite(m_uniqueMaterials ? u8"Unique materials: ON (a draw per sphere)\n"
+                core::ConsoleWrite(m_uniqueMaterials ? u8"Unique materials: ON (a draw per sphere)\n"
                                                    : u8"Unique materials: OFF (shared, batched)\n");
             }
             if (kb->IsKeyPressed(sh::KeyCode::B)) {
                 m_bob = !m_bob;
-                rc::ConsoleWrite(m_bob ? u8"Sin-wave bob: ON (transforms rewritten every frame)\n"
+                core::ConsoleWrite(m_bob ? u8"Sin-wave bob: ON (transforms rewritten every frame)\n"
                                        : u8"Sin-wave bob: OFF\n");
             }
             if (kb->IsKeyPressed(sh::KeyCode::H)) { m_showStats = !m_showStats; }
             if (kb->IsKeyPressed(sh::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
-                if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                     const bool on = !render->TaaEnabled();
                     render->SetTaaEnabled(on);
-                    rc::ConsoleWrite(on ? u8"TAA: ON (motion vectors active)\n" : u8"TAA: OFF\n");
+                    core::ConsoleWrite(on ? u8"TAA: ON (motion vectors active)\n" : u8"TAA: OFF\n");
                 }
             }
             if (kb->IsKeyPressed(sh::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B regression/perf)
-                if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
+                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                     const bool on = !render->InstanceSharing();
                     render->SetInstanceSharing(on);
-                    rc::ConsoleWrite(on ? u8"Instance sharing: ON (prepass builds once, forward reuses)\n"
+                    core::ConsoleWrite(on ? u8"Instance sharing: ON (prepass builds once, forward reuses)\n"
                                         : u8"Instance sharing: OFF (forward re-fills = old double-build)\n");
                 }
             }
             if (kb->IsKeyPressed(sh::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
-                if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
-                    if (rd::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
+                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
+                    if (render::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
                         sl->castsShadows = !sl->castsShadows;
-                        rc::ConsoleWrite(sl->castsShadows ? u8"Directional shadows: ON (CSM)\n"
+                        core::ConsoleWrite(sl->castsShadows ? u8"Directional shadows: ON (CSM)\n"
                                                           : u8"Directional shadows: OFF (matches Sedulous stress test)\n");
                     }
                 }
@@ -224,28 +224,28 @@ namespace
             m_time += deltaTime;
             if (m_bob) {
                 auto* meshScene = m_scene;
-                constexpr rc::f32 amplitude = 1.0f, speed = 2.0f;
+                constexpr core::f32 amplitude = 1.0f, speed = 2.0f;
                 for (sc::EntityHandle e : m_spheres) {
-                    rc::Transform t = meshScene->GetLocalTransform(e);
+                    core::Transform t = meshScene->GetLocalTransform(e);
                     // Phase from world X/Z (stable as the grid grows). Bob AROUND the base height so the
                     // spheres stay above the floor (full, separated shadows) instead of dipping through it.
-                    const rc::f32 phase = (t.position.x + t.position.z) * 0.2f;
-                    t.position.y = kSphereHeight + rc::Sin(m_time * speed + phase) * amplitude;
+                    const core::f32 phase = (t.position.x + t.position.z) * 0.2f;
+                    t.position.y = kSphereHeight + core::Sin(m_time * speed + phase) * amplitude;
                     meshScene->SetLocalTransform(e, t);
                 }
             }
         }
 
-        void OnShutdown(rt::IApplicationHost&) override
+        void OnShutdown(runtime::IApplicationHost&) override
         {
-            rc::ConsoleWrite(u8"=== Stress Test Shutdown ===\n");
+            core::ConsoleWrite(u8"=== Stress Test Shutdown ===\n");
         }
 
     private:
         // Push the fly camera's pose onto the camera entity (the default render path reads it).
         void PushCameraToEntity()
         {
-            rc::Transform t = m_scene->GetLocalTransform(m_camera);
+            core::Transform t = m_scene->GetLocalTransform(m_camera);
             t.position = m_fly.position;
             t.rotation = m_fly.Rotation();
             m_scene->SetLocalTransform(m_camera, t);
@@ -256,22 +256,22 @@ namespace
         // whole field and the far plane wide enough that no spheres get frustum-far-culled.
         void FitFloorAndCamera()
         {
-            const rc::f32 gridWidth = static_cast<rc::f32>(m_gridSize) * kSphereSpacing;   // full grid extent
+            const core::f32 gridWidth = static_cast<core::f32>(m_gridSize) * kSphereSpacing;   // full grid extent
             // Floor: scale the base plane so it covers the grid + a margin (uniform XZ; Y stays flat).
-            const rc::f32 scale = rc::Max(0.1f, (gridWidth + 40.0f) / kFloorBaseSize);
-            rc::Transform ft = m_scene->GetLocalTransform(m_ground);
-            ft.scale = rc::Vector3{ scale, 1.0f, scale };
+            const core::f32 scale = core::Max(0.1f, (gridWidth + 40.0f) / kFloorBaseSize);
+            core::Transform ft = m_scene->GetLocalTransform(m_ground);
+            ft.scale = core::Vector3{ scale, 1.0f, scale };
             m_scene->SetLocalTransform(m_ground, ft);
 
             // Camera: pull back + up so the grid fits the 60° FOV, looking down at the center.
-            const rc::f32 extent = gridWidth * 0.5f + 6.0f;
-            const rc::f32 dist   = extent / rc::Tan(0.5236f) + 10.0f;   // half of 60° = 0.5236 rad
-            const rc::f32 camY   = extent * 0.55f + kSphereHeight;
-            m_fly.position = rc::Vector3{ 0.0f, kSphereHeight + camY, dist };
+            const core::f32 extent = gridWidth * 0.5f + 6.0f;
+            const core::f32 dist   = extent / core::Tan(0.5236f) + 10.0f;   // half of 60° = 0.5236 rad
+            const core::f32 camY   = extent * 0.55f + kSphereHeight;
+            m_fly.position = core::Vector3{ 0.0f, kSphereHeight + camY, dist };
             m_fly.yaw      = 0.0f;
-            m_fly.pitch    = -rc::Atan2(camY, dist);   // look down onto the grid center
-            if (auto* cameras = m_scene->GetSystem<rd::CameraComponentManager>()) {
-                if (rd::CameraComponent* cam = cameras->Get(m_camera)) {
+            m_fly.pitch    = -core::Atan2(camY, dist);   // look down onto the grid center
+            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
+                if (render::CameraComponent* cam = cameras->Get(m_camera)) {
                     cam->farZ = dist + extent * 2.0f + 200.0f;   // cover the grid; don't far-cull spheres
                 }
             }
@@ -282,23 +282,23 @@ namespace
         // existing spheres keep their world positions when the grid widens.
         void AddSphereBatch()
         {
-            auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
             if (meshes == nullptr) { return; }
 
-            const rc::i32 startIndex = m_batchCount * kSpheresPerBatch;
-            const rc::i32 newTotal   = (m_batchCount + 1) * kSpheresPerBatch;
-            m_gridSize = static_cast<rc::i32>(rc::Ceil(rc::Sqrt(static_cast<rc::f32>(newTotal))));
+            const core::i32 startIndex = m_batchCount * kSpheresPerBatch;
+            const core::i32 newTotal   = (m_batchCount + 1) * kSpheresPerBatch;
+            m_gridSize = static_cast<core::i32>(core::Ceil(core::Sqrt(static_cast<core::f32>(newTotal))));
 
-            for (rc::i32 i = 0; i < kSpheresPerBatch; ++i) {
-                const rc::i32 index = startIndex + i;
-                const rc::i32 gx = index % m_gridSize;
-                const rc::i32 gz = index / m_gridSize;
-                const rc::f32 x = (static_cast<rc::f32>(gx) - static_cast<rc::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
-                const rc::f32 z = (static_cast<rc::f32>(gz) - static_cast<rc::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
+            for (core::i32 i = 0; i < kSpheresPerBatch; ++i) {
+                const core::i32 index = startIndex + i;
+                const core::i32 gx = index % m_gridSize;
+                const core::i32 gz = index / m_gridSize;
+                const core::f32 x = (static_cast<core::f32>(gx) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
+                const core::f32 z = (static_cast<core::f32>(gz) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
 
                 sc::EntityHandle e = m_scene->CreateEntity(u8"sphere");
-                m_scene->SetLocalPosition(e, rc::Vector3{ x, kSphereHeight, z });
-                rd::MeshComponent& mc = meshes->Add(e);
+                m_scene->SetLocalPosition(e, core::Vector3{ x, kSphereHeight, z });
+                render::MeshComponent& mc = meshes->Add(e);
                 mc.mesh = m_sphere;
                 AssignSphereMaterial(mc, index);
                 m_spheres.PushBack(e);
@@ -312,11 +312,11 @@ namespace
         void RemoveLastBatch()
         {
             if (m_batchCount <= 0) { return; }
-            rc::i32 removeCount = kSpheresPerBatch;
-            if (static_cast<rc::usize>(removeCount) > m_spheres.Size()) {
-                removeCount = static_cast<rc::i32>(m_spheres.Size());
+            core::i32 removeCount = kSpheresPerBatch;
+            if (static_cast<core::usize>(removeCount) > m_spheres.Size()) {
+                removeCount = static_cast<core::i32>(m_spheres.Size());
             }
-            for (rc::i32 i = 0; i < removeCount; ++i) {
+            for (core::i32 i = 0; i < removeCount; ++i) {
                 m_scene->DestroyEntity(m_spheres[m_spheres.Size() - 1]);
                 m_spheres.PopBack();
                 if (m_uniqueMaterials && !m_uniqueMats.IsEmpty()) { m_uniqueMats.PopBack(); }
@@ -327,18 +327,18 @@ namespace
         }
 
         // Point a sphere's mesh component at the right material for the current mode.
-        void AssignSphereMaterial(rd::MeshComponent& mc, rc::i32 index)
+        void AssignSphereMaterial(render::MeshComponent& mc, core::i32 index)
         {
             if (m_uniqueMaterials) {
-                const rc::f32 hue = static_cast<rc::f32>(index % 360) / 360.0f;
-                const rc::Vector3 c = HsvToRgb(hue, 0.8f, 0.9f);
-                rc::RefPtr<mat::Material> m = mat::CreatePBR(u8"stress.unique", rc::Vector4{ c.x, c.y, c.z, 1.0f }, 0.1f, 0.4f);
+                const core::f32 hue = static_cast<core::f32>(index % 360) / 360.0f;
+                const core::Vector3 c = HsvToRgb(hue, 0.8f, 0.9f);
+                core::RefPtr<materials::Material> m = materials::CreatePBR(u8"stress.unique", core::Vector4{ c.x, c.y, c.z, 1.0f }, 0.1f, 0.4f);
                 mc.material = m;
-                mc.color    = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
-                m_uniqueMats.PushBack(static_cast<rc::RefPtr<mat::Material>&&>(m));
+                mc.color    = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+                m_uniqueMats.PushBack(static_cast<core::RefPtr<materials::Material>&&>(m));
             } else {
                 mc.material = m_sharedMat;
-                mc.color    = rc::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+                mc.color    = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
             }
         }
 
@@ -346,27 +346,27 @@ namespace
         // tracks the mode exactly (in shared mode we drop all the unique materials).
         void RebuildSphereMaterials()
         {
-            auto* meshes = m_scene->GetSystem<rd::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
             if (meshes == nullptr) { return; }
             m_uniqueMats.Clear();
-            for (rc::usize i = 0; i < m_spheres.Size(); ++i) {
-                if (rd::MeshComponent* mc = meshes->Get(m_spheres[i])) {
-                    AssignSphereMaterial(*mc, static_cast<rc::i32>(i));
+            for (core::usize i = 0; i < m_spheres.Size(); ++i) {
+                if (render::MeshComponent* mc = meshes->Get(m_spheres[i])) {
+                    AssignSphereMaterial(*mc, static_cast<core::i32>(i));
                 }
             }
         }
 
         void PrintCounts()
         {
-            rc::String s;
-            rc::AppendFormat(s, u8"  spheres {}  batches {}  grid {}x{}  materials {}\n",
-                             static_cast<rc::i32>(m_spheres.Size()), m_batchCount, m_gridSize, m_gridSize,
-                             m_uniqueMaterials ? static_cast<rc::i32>(m_uniqueMats.Size()) : 1);
-            rc::ConsoleWrite(s.AsView());
+            core::String s;
+            core::AppendFormat(s, u8"  spheres {}  batches {}  grid {}x{}  materials {}\n",
+                             static_cast<core::i32>(m_spheres.Size()), m_batchCount, m_gridSize, m_gridSize,
+                             m_uniqueMaterials ? static_cast<core::i32>(m_uniqueMats.Size()) : 1);
+            core::ConsoleWrite(s.AsView());
         }
 
         // ImGui HUD: benchmark stats + controls (H toggles it). Built in OnUpdate, drawn in OnRenderWindow.
-        void BuildHud(rd::RenderSubsystem* render)
+        void BuildHud(render::RenderSubsystem* render)
         {
             if (!m_showStats) { return; }
             ImGui::Begin("Render Stress Test");
@@ -390,13 +390,13 @@ namespace
                 bool cull = render->ViewCulling();
                 if (ImGui::Checkbox("View-frustum cull", &cull)) { render->SetViewCulling(cull); }
                 if (cull) {
-                    rc::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
+                    core::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
                     ImGui::SameLine(); ImGui::TextDisabled("(%u/%u culled)", culled, total);
                 }
             }
             if (m_scene != nullptr) {
-                if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
-                    if (rd::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
+                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
+                    if (render::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
                         bool sh = sl->castsShadows;
                         if (ImGui::Checkbox("Directional shadows (K)", &sh)) { sl->castsShadows = sh; }
                     }
@@ -419,20 +419,20 @@ namespace
             ImGui::End();
         }
 
-        static rc::Vector3 HsvToRgb(rc::f32 h, rc::f32 s, rc::f32 v)
+        static core::Vector3 HsvToRgb(core::f32 h, core::f32 s, core::f32 v)
         {
-            const rc::i32 i = static_cast<rc::i32>(h * 6.0f);
-            const rc::f32 f = h * 6.0f - static_cast<rc::f32>(i);
-            const rc::f32 p = v * (1.0f - s);
-            const rc::f32 q = v * (1.0f - f * s);
-            const rc::f32 t = v * (1.0f - (1.0f - f) * s);
+            const core::i32 i = static_cast<core::i32>(h * 6.0f);
+            const core::f32 f = h * 6.0f - static_cast<core::f32>(i);
+            const core::f32 p = v * (1.0f - s);
+            const core::f32 q = v * (1.0f - f * s);
+            const core::f32 t = v * (1.0f - (1.0f - f) * s);
             switch (i % 6) {
-                case 0:  return rc::Vector3{ v, t, p };
-                case 1:  return rc::Vector3{ q, v, p };
-                case 2:  return rc::Vector3{ p, v, t };
-                case 3:  return rc::Vector3{ p, q, v };
-                case 4:  return rc::Vector3{ t, p, v };
-                default: return rc::Vector3{ v, p, q };
+                case 0:  return core::Vector3{ v, t, p };
+                case 1:  return core::Vector3{ q, v, p };
+                case 2:  return core::Vector3{ p, v, t };
+                case 3:  return core::Vector3{ p, q, v };
+                case 4:  return core::Vector3{ t, p, v };
+                default: return core::Vector3{ v, p, q };
             }
         }
 
@@ -440,33 +440,33 @@ namespace
         sc::EntityHandle                 m_camera{};
         sc::EntityHandle                 m_sun{};
         sc::EntityHandle                 m_ground{};
-        rc::RefPtr<geo::StaticMesh>      m_sphere;
-        rc::RefPtr<mat::Material>        m_sharedMat;
-        rc::Array<sc::EntityHandle>      m_spheres;
-        rc::Array<rc::RefPtr<mat::Material>> m_uniqueMats;
+        core::RefPtr<geometry::StaticMesh>      m_sphere;
+        core::RefPtr<materials::Material>        m_sharedMat;
+        core::Array<sc::EntityHandle>      m_spheres;
+        core::Array<core::RefPtr<materials::Material>> m_uniqueMats;
 
-        rc::i32 m_batchCount = 0;
-        rc::i32 m_gridSize   = 0;
+        core::i32 m_batchCount = 0;
+        core::i32 m_gridSize   = 0;
         bool    m_uniqueMaterials = false;
         bool    m_bob = false;
-        rc::f32 m_time = 0.0f;
+        core::f32 m_time = 0.0f;
 
         // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
-        smp::FlyCamera m_fly{ .position = rc::Vector3{ 0.0f, 50.0f, 200.0f }, .pitch = -0.245f };
+        samples::FlyCamera m_fly{ .position = core::Vector3{ 0.0f, 50.0f, 200.0f }, .pitch = -0.245f };
 
         // Stats
         bool    m_showStats  = true;   // HUD visibility (H)
-        rc::f32 m_frameMs    = 0.0f;
+        core::f32 m_frameMs    = 0.0f;
     };
 }
 
 int main(int, char**)
 {
     auto shell = sh::CreateShell();
-    rt::GraphicsDeviceDesc gpuDesc{};
-    auto gpu = rt::CreateGraphicsDevice(gpuDesc);
-    rt::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
+    runtime::GraphicsDeviceDesc gpuDesc{};
+    auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
+    runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     StressTestApp app;
-    return rt::RunApplication(app, *shell, device);
+    return runtime::RunApplication(app, *shell, device);
 }

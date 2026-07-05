@@ -19,8 +19,8 @@ import draconic.render;
 using namespace draconic::core;
 using namespace draconic::render;
 namespace rhi = draconic::rhi;
-namespace geo = draconic::geometry;
-namespace mat = draconic::materials;
+namespace geometry = draconic::geometry;
+namespace materials = draconic::materials;
 namespace shaders = draconic::shaders;
 
 namespace {
@@ -59,9 +59,9 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     if (!h.Init(256, 256)) { MESSAGE("DXC/Null unavailable; skipping"); return; }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
-    mat::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
 
-    mat::MaterialSystem materialSystem;
+    materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());
     MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());
@@ -70,8 +70,8 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
     // a scene snapshot: one cube at the origin
-    RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
-    RefPtr<mat::Material> material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<materials::Material> material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
     ExtractedScene scene;
     MeshRenderData* rd = scene.Add<MeshRenderData>();
     rd->world = Matrix4::Identity(); rd->mesh = cube.Get(); rd->material = material.Get();
@@ -102,8 +102,8 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     if (!h.Init(256, 256)) { return; }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
-    mat::PipelineStateCache psoCache(shaderSystem, h.device);
-    mat::MaterialSystem materialSystem;
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());
     MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());
@@ -111,8 +111,8 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     registry.Register(&meshRenderer);
     RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
-    RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
-    RefPtr<mat::Material> material = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<materials::Material> material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
     // Eight cubes, one shared mesh + material, distinct world + color -> one instanced batch.
     ExtractedScene scene;
@@ -145,8 +145,8 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
     InitGlobalJobSystem(4);
     {
         shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
-        mat::PipelineStateCache psoCache(shaderSystem, h.device);
-        mat::MaterialSystem materialSystem;
+        materials::PipelineStateCache psoCache(shaderSystem, h.device);
+        materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());
     MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
         REQUIRE(meshRenderer.Initialize().IsOk());
@@ -156,11 +156,11 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
 
         // 300 distinct materials (one shared mesh) -> 300 singleton draws (no batching) -> over
         // the parallel-emit threshold, so emission fans out across the job system's worker pools.
-        RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
-        Array<RefPtr<mat::Material>> mats;   // keep the materials alive for the frame
+        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+        Array<RefPtr<materials::Material>> mats;   // keep the materials alive for the frame
         ExtractedScene scene;
         for (int n = 0; n < 300; ++n) {
-            RefPtr<mat::Material> m = mat::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+            RefPtr<materials::Material> m = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
             mats.PushBack(m);
             MeshRenderData* rd = scene.Add<MeshRenderData>();
             rd->world = Matrix4::Identity(); rd->worldCenter = Vector3{ static_cast<f32>(n), 0, 0 };
@@ -189,8 +189,8 @@ TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
     if (!h.Init(64, 64)) { return; }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
-    mat::PipelineStateCache psoCache(shaderSystem, h.device);
-    mat::MaterialSystem materialSystem;
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());
     MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
     REQUIRE(meshRenderer.Initialize().IsOk());

@@ -19,17 +19,17 @@ import draconic.shell.desktop;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.gpu;
 
-namespace rc = draconic::core;
-namespace rt = draconic::runtime;
+namespace core = draconic::core;
+namespace runtime = draconic::runtime;
         namespace sh = draconic::shell;
 namespace rhi = draconic::rhi;
 
 namespace
 {
-    class MultiWindowApp final : public rt::IApplication
+    class MultiWindowApp final : public runtime::IApplication
     {
     public:
-        void OnStartup(rt::IApplicationHost& host) override
+        void OnStartup(runtime::IApplicationHost& host) override
         {
             // windows[0] (the main window) already has a RenderWindow from Start().
             // Open a second OS window at runtime — the same call a detachable UI
@@ -38,11 +38,11 @@ namespace
             ws.title  = u8"Draconic - Detached";
             ws.width  = 480;
             ws.height = 360;
-            m_second = host.OpenWindow(ws, rt::RenderWindowDesc{});
-            rc::ConsoleWrite(u8"MultiWindow: two windows up - close the main window to exit.\n");
+            m_second = host.OpenWindow(ws, runtime::RenderWindowDesc{});
+            core::ConsoleWrite(u8"MultiWindow: two windows up - close the main window to exit.\n");
         }
 
-        void OnRenderWindow(rt::IApplicationHost&, rt::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost&, runtime::FrameContext& frame) override
         {
             // Each window clears to its own color, proving independent per-window
             // presentation through the shared device.
@@ -53,13 +53,13 @@ namespace
             frame.EndBackbufferPass();
         }
 
-        void OnShutdown(rt::IApplicationHost&) override
+        void OnShutdown(runtime::IApplicationHost&) override
         {
-            rc::ConsoleWrite(u8"MultiWindow: shutting down.\n");
+            core::ConsoleWrite(u8"MultiWindow: shutting down.\n");
         }
 
     private:
-        rt::RenderWindow* m_second = nullptr;
+        runtime::RenderWindow* m_second = nullptr;
     };
 }
 
@@ -73,20 +73,20 @@ int main(int /*argc*/, char** /*argv*/)
     auto shell = sh::CreateShell(ws);
     if (shell.Get() == nullptr || shell->MainWindow() == nullptr)
     {
-        rc::ConsoleWrite(u8"MultiWindow: shell/window init failed.\n");
+        core::ConsoleWrite(u8"MultiWindow: shell/window init failed.\n");
         return 1;
     }
 
-    rt::GraphicsDeviceDesc gdd;
-    gdd.backend          = rt::BackendType::Vulkan;
+    runtime::GraphicsDeviceDesc gdd;
+    gdd.backend          = runtime::BackendType::Vulkan;
     gdd.enableValidation = true;
-    auto gpu = rt::CreateGraphicsDevice(gdd);
+    auto gpu = runtime::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {
-        rc::ConsoleWrite(u8"MultiWindow: graphics device creation failed.\n");
+        core::ConsoleWrite(u8"MultiWindow: graphics device creation failed.\n");
         return 1;
     }
 
     MultiWindowApp app;
-    return rt::RunApplication(app, *shell, gpu.Value().Get());
+    return runtime::RunApplication(app, *shell, gpu.Value().Get());
 }

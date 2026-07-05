@@ -12,13 +12,13 @@ export module draconic.shell:input_types;
 
 import draconic.core;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::shell
 {
     // ---- Keyboard ---------------------------------------------------------
 
-    enum class KeyCode : rc::u32
+    enum class KeyCode : core::u32
     {
         Unknown = 0,
         A, B, C, D, E, F, G, H, I, J, K, L, M,
@@ -45,7 +45,7 @@ export namespace draconic::shell
         Count,
     };
 
-    enum class KeyModifiers : rc::u32
+    enum class KeyModifiers : core::u32
     {
         None       = 0,
         LeftShift  = 1 << 0,
@@ -68,11 +68,11 @@ export namespace draconic::shell
 
     inline constexpr KeyModifiers operator|(KeyModifiers a, KeyModifiers b) noexcept
     {
-        return static_cast<KeyModifiers>(static_cast<rc::u32>(a) | static_cast<rc::u32>(b));
+        return static_cast<KeyModifiers>(static_cast<core::u32>(a) | static_cast<core::u32>(b));
     }
     inline constexpr KeyModifiers operator&(KeyModifiers a, KeyModifiers b) noexcept
     {
-        return static_cast<KeyModifiers>(static_cast<rc::u32>(a) & static_cast<rc::u32>(b));
+        return static_cast<KeyModifiers>(static_cast<core::u32>(a) & static_cast<core::u32>(b));
     }
     inline constexpr KeyModifiers& operator|=(KeyModifiers& a, KeyModifiers b) noexcept
     {
@@ -86,14 +86,14 @@ export namespace draconic::shell
 
     // ---- Mouse ------------------------------------------------------------
 
-    enum class MouseButton : rc::u32
+    enum class MouseButton : core::u32
     {
         Left, Middle, Right, X1, X2,
 
         Count,
     };
 
-    enum class CursorType : rc::u32
+    enum class CursorType : core::u32
     {
         Default, Text, Wait, Crosshair, Progress,
         ResizeNWSE, ResizeNESW, ResizeEW, ResizeNS,
@@ -106,7 +106,7 @@ export namespace draconic::shell
 
     // ---- Gamepad ----------------------------------------------------------
 
-    enum class GamepadButton : rc::u32
+    enum class GamepadButton : core::u32
     {
         South, East, West, North,
         LeftShoulder, RightShoulder,
@@ -119,7 +119,7 @@ export namespace draconic::shell
         Count,
     };
 
-    enum class GamepadAxis : rc::u32
+    enum class GamepadAxis : core::u32
     {
         LeftX, LeftY, RightX, RightY,
         LeftTrigger, RightTrigger,
@@ -131,10 +131,10 @@ export namespace draconic::shell
 
     struct TouchPoint
     {
-        rc::u64 id       = 0;
-        rc::f32 x        = 0.0f;
-        rc::f32 y        = 0.0f;
-        rc::f32 pressure = 1.0f;
+        core::u64 id       = 0;
+        core::f32 x        = 0.0f;
+        core::f32 y        = 0.0f;
+        core::f32 pressure = 1.0f;
     };
 
     // ---- Input events (the event-first source of truth) -------------------
@@ -144,7 +144,7 @@ export namespace draconic::shell
     // and the (upcoming) viewport surfaces / UI dispatch consume the same stream — so
     // poll and event views never disagree. See docs/design/viewport-input.md §4.2.
 
-    enum class InputEventKind : rc::u8
+    enum class InputEventKind : core::u8
     {
         KeyDown, KeyUp, TextInput,
         MouseMove, MouseButtonDown, MouseButtonUp, MouseWheel,
@@ -155,7 +155,7 @@ export namespace draconic::shell
     struct InputEvent
     {
         InputEventKind kind{};
-        rc::u32        window = 0;    // source window id (0 = unknown/global)
+        core::u32        window = 0;    // source window id (0 = unknown/global)
 
         // Payload — interpret by `kind`:
         KeyCode        key{};                          // KeyDown/KeyUp
@@ -163,11 +163,11 @@ export namespace draconic::shell
         MouseButton    button{};                       // MouseButton*
         GamepadButton  padButton{};                    // GamepadButton*
         GamepadAxis    padAxis{};                      // GamepadAxis
-        rc::i32        gamepad = 0;                     // Gamepad* device index
-        rc::f32        x = 0.0f, y = 0.0f;             // window-space pos (MouseMove/Touch) / wheel delta
-        rc::f32        dx = 0.0f, dy = 0.0f;           // relative movement (MouseMove)
-        rc::f32        value = 0.0f;                    // GamepadAxis value / touch pressure
-        rc::u64        touchId = 0;                     // Touch*
-        rc::utf8char   text[32] = {};                   // TextInput (UTF-8, null-terminated)
+        core::i32        gamepad = 0;                     // Gamepad* device index
+        core::f32        x = 0.0f, y = 0.0f;             // window-space pos (MouseMove/Touch) / wheel delta
+        core::f32        dx = 0.0f, dy = 0.0f;           // relative movement (MouseMove)
+        core::f32        value = 0.0f;                    // GamepadAxis value / touch pressure
+        core::u64        touchId = 0;                     // Touch*
+        core::utf8char   text[32] = {};                   // TextInput (UTF-8, null-terminated)
     };
 }

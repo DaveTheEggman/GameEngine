@@ -30,7 +30,7 @@ import draconic.shell;
 import draconic.runtime.graphics;
 import draconic.profiler;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 
 export namespace draconic::runtime
@@ -59,7 +59,7 @@ export namespace draconic::runtime
 
             // Bring up the engine-wide JobSystem before any subsystem starts, so it is
             // available to all of them and outlives them (torn down last, in Stop()).
-            rc::InitGlobalJobSystem();
+            core::InitGlobalJobSystem();
 
             m_app->Configure(*this);
             m_context.Startup();
@@ -71,7 +71,7 @@ export namespace draconic::runtime
                 {
                     const RenderWindowDesc mainDesc = app.MainRenderWindow();   // app's main-window render config
                     auto rw = m_graphics->CreateRenderWindow(*main, mainDesc);
-                    if (rw.HasValue()) { m_windows.PushBack(static_cast<rc::UniquePtr<RenderWindow>&&>(rw.Value())); }
+                    if (rw.HasValue()) { m_windows.PushBack(static_cast<core::UniquePtr<RenderWindow>&&>(rw.Value())); }
                 }
             }
 
@@ -84,7 +84,7 @@ export namespace draconic::runtime
 
         // Advance exactly one frame with an explicit delta. The shell runner
         // passes wall-clock time; call directly for deterministic stepping.
-        void Tick(rc::f32 deltaTime)
+        void Tick(core::f32 deltaTime)
         {
             DRACONIC_PROFILE_FRAME_BEGIN();
             m_context.BeginFrame(deltaTime);
@@ -151,7 +151,7 @@ export namespace draconic::runtime
 
             // Tear down the engine-wide JobSystem last — after every subsystem (Context.Shutdown)
             // and all GPU resource frees (window dtors), so nothing references it afterward.
-            rc::ShutdownGlobalJobSystem();
+            core::ShutdownGlobalJobSystem();
 
             m_started = false;
             m_running = false;
@@ -182,7 +182,7 @@ export namespace draconic::runtime
             }
 
             RenderWindow* ptr = rw.Value().Get();
-            m_windows.PushBack(static_cast<rc::UniquePtr<RenderWindow>&&>(rw.Value()));
+            m_windows.PushBack(static_cast<core::UniquePtr<RenderWindow>&&>(rw.Value()));
             return ptr;
         }
 
@@ -196,9 +196,9 @@ export namespace draconic::runtime
         [[nodiscard]] const ApplicationSettings& Settings() const noexcept { return m_settings; }
         [[nodiscard]] bool IsRunning() const noexcept { return m_running; }
         [[nodiscard]] int ExitCode() const noexcept { return m_exitCode; }
-        [[nodiscard]] rc::Span<const rc::UniquePtr<RenderWindow>> Windows() const noexcept
+        [[nodiscard]] core::Span<const core::UniquePtr<RenderWindow>> Windows() const noexcept
         {
-            return rc::Span<const rc::UniquePtr<RenderWindow>>(m_windows.Data(), m_windows.Size());
+            return core::Span<const core::UniquePtr<RenderWindow>>(m_windows.Data(), m_windows.Size());
         }
 
     private:
@@ -212,7 +212,7 @@ export namespace draconic::runtime
             for (RenderWindow* dead : m_pendingClose)
             {
                 IWindow* osWindow = &dead->Window();
-                for (rc::usize i = 0; i < m_windows.Size(); ++i)
+                for (core::usize i = 0; i < m_windows.Size(); ++i)
                 {
                     if (m_windows[i].Get() == dead) { m_windows.RemoveAt(i); break; }  // dtor frees GPU resources
                 }
@@ -227,11 +227,11 @@ export namespace draconic::runtime
         IApplication* m_app = nullptr;         // borrowed; owned by the entry point
         IShell* m_shell = nullptr;       // borrowed; owned by the entry point
         GraphicsDevice* m_graphics = nullptr;  // borrowed; owned by the entry point
-        rc::Array<rc::UniquePtr<RenderWindow>> m_windows;   // [0] == main
-        rc::Array<RenderWindow*> m_pendingClose;            // deferred destroy
+        core::Array<core::UniquePtr<RenderWindow>> m_windows;   // [0] == main
+        core::Array<RenderWindow*> m_pendingClose;            // deferred destroy
         bool m_started = false;
         bool m_running = false;
         int m_exitCode = 0;
-        rc::f32 m_accumulator = 0.0f;
+        core::f32 m_accumulator = 0.0f;
     };
 }

@@ -272,22 +272,22 @@ int main(int /*argc*/, char** /*argv*/) {
     // ---- DXC shader compilation test ----
 #ifdef DRACONIC_HAS_SHADERS
     {
-        namespace ds = draconic::shaders;
-        ds::Compiler* shaderc = nullptr;
-        if (ds::createCompiler(ds::CompilerDesc{}, shaderc) != draconic::core::ErrorCode::Ok) {
+        namespace shaders = draconic::shaders;
+        shaders::Compiler* shaderc = nullptr;
+        if (shaders::createCompiler(shaders::CompilerDesc{}, shaderc) != draconic::core::ErrorCode::Ok) {
             std::fprintf(stderr, "shaders: createCompiler failed\n");
         } else {
             static const char kHlsl[] =
                 "float4 main(float2 uv : TEXCOORD0) : SV_Target {\n"
                 "    return float4(uv, 0.0, 1.0);\n"
                 "}\n";
-            ds::CompileOptions opts{};
+            shaders::CompileOptions opts{};
             opts.shaderModel = u8"6_0";
             opts.optimizationLevel = 3;
-            ds::CompileResult cr{};
+            shaders::CompileResult cr{};
             draconic::core::Status r = shaderc->compile(
                 reinterpret_cast<const u8*>(kHlsl), sizeof(kHlsl) - 1,
-                ds::ShaderStage::Fragment, u8"main", ds::ShaderTarget::SPIRV, opts, cr);
+                shaders::ShaderStage::Fragment, u8"main", shaders::ShaderTarget::SPIRV, opts, cr);
             if (r == draconic::core::ErrorCode::Ok) {
                 u32 magic = cr.bytecodeSize >= 4 ? *reinterpret_cast<const u32*>(cr.bytecode) : 0u;
                 std::printf("HLSL->SPIR-V: %zu bytes, magic=0x%08x %s\n",

@@ -16,8 +16,8 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 class Texture3DSample : public sf::SampleApp {
 public:
@@ -82,109 +82,109 @@ private:
     static constexpr draconic::core::u32 kVolumeSize = 32;
     static constexpr draconic::core::u32 kLUTSize = 64;
 
-    ds::Compiler* m_compiler = nullptr;
-    dr::ShaderModule* m_vs = nullptr;
-    dr::ShaderModule* m_ps = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
+    rhi::ShaderModule* m_vs = nullptr;
+    rhi::ShaderModule* m_ps = nullptr;
 
     // 3D volume texture
-    dr::Texture*     m_volumeTexture = nullptr;
-    dr::TextureView* m_volumeView    = nullptr;
+    rhi::Texture*     m_volumeTexture = nullptr;
+    rhi::TextureView* m_volumeView    = nullptr;
 
     // 1D LUT texture
-    dr::Texture*     m_lutTexture = nullptr;
-    dr::TextureView* m_lutView    = nullptr;
+    rhi::Texture*     m_lutTexture = nullptr;
+    rhi::TextureView* m_lutView    = nullptr;
 
-    dr::Sampler*         m_sampler  = nullptr;
-    dr::BindGroupLayout* m_bgl     = nullptr;
-    dr::BindGroup*       m_bg      = nullptr;
-    dr::PipelineLayout*  m_pl      = nullptr;
-    dr::RenderPipeline*  m_pipeline = nullptr;
+    rhi::Sampler*         m_sampler  = nullptr;
+    rhi::BindGroupLayout* m_bgl     = nullptr;
+    rhi::BindGroup*       m_bg      = nullptr;
+    rhi::PipelineLayout*  m_pl      = nullptr;
+    rhi::RenderPipeline*  m_pipeline = nullptr;
 
-    dr::CommandPool* m_pool     = nullptr;
-    dr::Fence*       m_fence    = nullptr;
+    rhi::CommandPool* m_pool     = nullptr;
+    rhi::Fence*       m_fence    = nullptr;
     draconic::core::u64       m_fenceVal = 0;
 };
 
 draconic::core::Status Texture3DSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     if (createVolumeTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (createLUTTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Sampler
     {
-        dr::SamplerDesc sd{};
-        sd.minFilter = dr::FilterMode::Linear;
-        sd.magFilter = dr::FilterMode::Linear;
-        sd.addressU = dr::AddressMode::Repeat;
-        sd.addressV = dr::AddressMode::Repeat;
-        sd.addressW = dr::AddressMode::Repeat;
+        rhi::SamplerDesc sd{};
+        sd.minFilter = rhi::FilterMode::Linear;
+        sd.magFilter = rhi::FilterMode::Linear;
+        sd.addressU = rhi::AddressMode::Repeat;
+        sd.addressV = rhi::AddressMode::Repeat;
+        sd.addressW = rhi::AddressMode::Repeat;
         sd.label = u8"VolSampler";
         if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Bind group layout: 3D tex, 1D tex, sampler
     {
-        dr::BindGroupLayoutEntry entries[3] = {
-            dr::BindGroupLayoutEntry::SampledTexture(0, dr::ShaderStage::Fragment, dr::TextureViewDimension::Texture3D),
-            dr::BindGroupLayoutEntry::SampledTexture(1, dr::ShaderStage::Fragment, dr::TextureViewDimension::Texture1D),
-            dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment)
+        rhi::BindGroupLayoutEntry entries[3] = {
+            rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture3D),
+            rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture1D),
+            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment)
         };
-        dr::BindGroupLayoutDesc bgld{};
-        bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 3);
+        rhi::BindGroupLayoutDesc bgld{};
+        bgld.entries = Span<const rhi::BindGroupLayoutEntry>(entries, 3);
         bgld.label = u8"VolBGL";
         if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Bind group
     {
-        dr::BindGroupEntry entries[3] = {
-            dr::BindGroupEntry::TextureEntry(m_volumeView),
-            dr::BindGroupEntry::TextureEntry(m_lutView),
-            dr::BindGroupEntry::SamplerEntry(m_sampler)
+        rhi::BindGroupEntry entries[3] = {
+            rhi::BindGroupEntry::TextureEntry(m_volumeView),
+            rhi::BindGroupEntry::TextureEntry(m_lutView),
+            rhi::BindGroupEntry::SamplerEntry(m_sampler)
         };
-        dr::BindGroupDesc bgd{};
+        rhi::BindGroupDesc bgd{};
         bgd.layout = m_bgl;
-        bgd.entries = Span<const dr::BindGroupEntry>(entries, 3);
+        bgd.entries = Span<const rhi::BindGroupEntry>(entries, 3);
         bgd.label = u8"VolBG";
         if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Pipeline layout with push constants
     {
-        dr::BindGroupLayout* sets[1] = { m_bgl };
-        dr::PushConstantRange pcr{};
-        pcr.stages = dr::ShaderStage::Fragment;
+        rhi::BindGroupLayout* sets[1] = { m_bgl };
+        rhi::PushConstantRange pcr{};
+        pcr.stages = rhi::ShaderStage::Fragment;
         pcr.offset = 0;
         pcr.size = sizeof(PushData);
-        dr::PushConstantRange pushRanges[1] = { pcr };
-        dr::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
-        pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
+        rhi::PushConstantRange pushRanges[1] = { pcr };
+        rhi::PipelineLayoutDesc pld{};
+        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
+        pld.pushConstantRanges = Span<const rhi::PushConstantRange>(pushRanges, 1);
         pld.label = u8"VolPL";
         if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Render pipeline (fullscreen triangle, no vertex input)
     {
-        dr::ColorTargetState ct{};
+        rhi::ColorTargetState ct{};
         ct.format = m_swapChain->Format();
-        dr::RenderPipelineDesc rpd{};
+        rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-        rpd.fragment = dr::FragmentState{};
-        rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-        rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-        rpd.primitive.topology = dr::PrimitiveTopology::TriangleList;
+        rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+        rpd.fragment = rhi::FragmentState{};
+        rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+        rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+        rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         rpd.label = u8"VolPipeline";
         if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
@@ -192,21 +192,21 @@ draconic::core::Status Texture3DSample::OnInit() {
 draconic::core::Status Texture3DSample::createVolumeTexture() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    dr::TextureDesc td{};
-    td.dimension = dr::TextureDimension::Texture3D;
-    td.format = dr::TextureFormat::R8Unorm;
+    rhi::TextureDesc td{};
+    td.dimension = rhi::TextureDimension::Texture3D;
+    td.format = rhi::TextureFormat::R8Unorm;
     td.width = kVolumeSize;
     td.height = kVolumeSize;
     td.depth = kVolumeSize;
     td.mipLevelCount = 1;
     td.sampleCount = 1;
-    td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
+    td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
     td.label = u8"VolumeTex3D";
     if (m_device->CreateTexture(td, m_volumeTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::TextureViewDesc tvd{};
-    tvd.format = dr::TextureFormat::R8Unorm;
-    tvd.dimension = dr::TextureViewDimension::Texture3D;
+    rhi::TextureViewDesc tvd{};
+    tvd.format = rhi::TextureFormat::R8Unorm;
+    tvd.dimension = rhi::TextureViewDimension::Texture3D;
     if (m_device->CreateTextureView(m_volumeTexture, tvd, m_volumeView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Generate procedural 3D noise data
@@ -233,14 +233,14 @@ draconic::core::Status Texture3DSample::createVolumeTexture() {
         }
     }
 
-    dr::TransferBatch* batch = nullptr;
+    rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
-    dr::TextureDataLayout layout{};
+    rhi::TextureDataLayout layout{};
     layout.bytesPerRow = kVolumeSize;
     layout.rowsPerImage = kVolumeSize;
     batch->WriteTexture(m_volumeTexture,
         Span<const u8>(data, dataSize),
-        layout, dr::Extent3D{kVolumeSize, kVolumeSize, kVolumeSize});
+        layout, rhi::Extent3D{kVolumeSize, kVolumeSize, kVolumeSize});
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
@@ -250,21 +250,21 @@ draconic::core::Status Texture3DSample::createVolumeTexture() {
 draconic::core::Status Texture3DSample::createLUTTexture() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    dr::TextureDesc td{};
-    td.dimension = dr::TextureDimension::Texture1D;
-    td.format = dr::TextureFormat::RGBA8UnormSrgb;
+    rhi::TextureDesc td{};
+    td.dimension = rhi::TextureDimension::Texture1D;
+    td.format = rhi::TextureFormat::RGBA8UnormSrgb;
     td.width = kLUTSize;
     td.height = 1;
     td.arrayLayerCount = 1;
     td.mipLevelCount = 1;
     td.sampleCount = 1;
-    td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
+    td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
     td.label = u8"LUTTex1D";
     if (m_device->CreateTexture(td, m_lutTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::TextureViewDesc tvd{};
-    tvd.format = dr::TextureFormat::RGBA8UnormSrgb;
-    tvd.dimension = dr::TextureViewDimension::Texture1D;
+    rhi::TextureViewDesc tvd{};
+    tvd.format = rhi::TextureFormat::RGBA8UnormSrgb;
+    tvd.dimension = rhi::TextureViewDimension::Texture1D;
     if (m_device->CreateTextureView(m_lutTexture, tvd, m_lutView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Generate gradient LUT: dark blue -> cyan -> green -> yellow -> red -> white
@@ -296,14 +296,14 @@ draconic::core::Status Texture3DSample::createLUTTexture() {
         data[idx + 3] = 255;
     }
 
-    dr::TransferBatch* batch = nullptr;
+    rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
-    dr::TextureDataLayout layout{};
+    rhi::TextureDataLayout layout{};
     layout.bytesPerRow = kLUTSize * 4;
     layout.rowsPerImage = 1;
     batch->WriteTexture(m_lutTexture,
         Span<const u8>(data, kLUTSize * 4),
-        layout, dr::Extent3D{kLUTSize, 1, 1});
+        layout, rhi::Extent3D{kLUTSize, 1, 1});
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
@@ -317,17 +317,17 @@ void Texture3DSample::OnRender() {
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{};
+    rhi::ColorAttachment ca{};
     ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = dr::LoadOp::Clear;
-    ca.storeOp = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.02f, 0.02f, 0.05f, 1.0f);
-    dr::RenderPassDesc rpd{};
+    ca.loadOp = rhi::LoadOp::Clear;
+    ca.storeOp = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.02f, 0.02f, 0.05f, 1.0f);
+    rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
 
     auto* rp = enc->BeginRenderPass(rpd);
@@ -342,18 +342,18 @@ void Texture3DSample::OnRender() {
     PushData pc{};
     pc.sliceZ = sliceZ;
     pc.time = m_totalTime;
-    rp->SetPushConstants(dr::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
+    rp->SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(PushData), &pc);
 
     rp->Draw(3); // Fullscreen triangle
 
     rp->End();
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish();
+    rhi::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }

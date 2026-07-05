@@ -13,8 +13,8 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 class StencilOutlineSample : public sf::SampleApp {
 public:
@@ -102,16 +102,16 @@ private:
 
     void recreateDepthStencil(draconic::core::u32 w, draconic::core::u32 h);
 
-    ds::Compiler* m_compiler = nullptr;
-    dr::Buffer *m_vb = nullptr, *m_ib = nullptr;
-    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
-    dr::PipelineLayout* m_pl = nullptr;
-    dr::RenderPipeline* m_stencilWritePipeline = nullptr;
-    dr::RenderPipeline* m_stencilTestPipeline = nullptr;
-    dr::Texture* m_depthStencilTex = nullptr;
-    dr::TextureView* m_depthStencilView = nullptr;
-    dr::CommandPool* m_pool = nullptr;
-    dr::Fence* m_fence = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
+    rhi::Buffer *m_vb = nullptr, *m_ib = nullptr;
+    rhi::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    rhi::PipelineLayout* m_pl = nullptr;
+    rhi::RenderPipeline* m_stencilWritePipeline = nullptr;
+    rhi::RenderPipeline* m_stencilTestPipeline = nullptr;
+    rhi::Texture* m_depthStencilTex = nullptr;
+    rhi::TextureView* m_depthStencilView = nullptr;
+    rhi::CommandPool* m_pool = nullptr;
+    rhi::Fence* m_fence = nullptr;
     draconic::core::u64 m_fenceVal = 0;
 };
 
@@ -119,9 +119,9 @@ void StencilOutlineSample::recreateDepthStencil(draconic::core::u32 w, draconic:
     if (m_depthStencilView) { m_device->DestroyTextureView(m_depthStencilView); m_depthStencilView = nullptr; }
     if (m_depthStencilTex) { m_device->DestroyTexture(m_depthStencilTex); m_depthStencilTex = nullptr; }
 
-    dr::TextureDesc td = dr::TextureDesc::DepthBuffer(dr::TextureFormat::Depth24PlusStencil8, w, h, 1, u8"StencilDSTex");
+    rhi::TextureDesc td = rhi::TextureDesc::DepthBuffer(rhi::TextureFormat::Depth24PlusStencil8, w, h, 1, u8"StencilDSTex");
     m_device->CreateTexture(td, m_depthStencilTex);
-    dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::Depth24PlusStencil8; tvd.dimension = dr::TextureViewDimension::Texture2D;
+    rhi::TextureViewDesc tvd{}; tvd.format = rhi::TextureFormat::Depth24PlusStencil8; tvd.dimension = rhi::TextureViewDimension::Texture2D;
     tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
     m_device->CreateTextureView(m_depthStencilTex, tvd, m_depthStencilView);
 }
@@ -129,75 +129,75 @@ void StencilOutlineSample::recreateDepthStencil(draconic::core::u32 w, draconic:
 draconic::core::Status StencilOutlineSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"StencilVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"StencilPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"StencilVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"StencilPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Vertex & index buffers.
-    dr::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    dr::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst; ibd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    rhi::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
     batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Pipeline layout with push constants (no bind groups).
-    dr::PushConstantRange pcRange{ dr::ShaderStage::Vertex, 0, sizeof(PushData) };
-    dr::PipelineLayoutDesc pld{};
-    pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pcRange, 1);
+    rhi::PushConstantRange pcRange{ rhi::ShaderStage::Vertex, 0, sizeof(PushData) };
+    rhi::PipelineLayoutDesc pld{};
+    pld.pushConstantRanges = Span<const rhi::PushConstantRange>(&pcRange, 1);
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     recreateDepthStencil(m_width, m_height);
 
     // Shared vertex layout.
-    dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x4, 12, 1} };
-    dr::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
+    rhi::VertexAttribute attrs[2] = { {rhi::VertexFormat::Float32x3, 0, 0}, {rhi::VertexFormat::Float32x4, 12, 1} };
+    rhi::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
+    rhi::ColorTargetState ct{}; ct.format = m_swapChain->Format();
 
     // Pipeline 1: Stencil write — draw solid, always pass depth, write stencil = ref (1).
     {
-        dr::RenderPipelineDesc rpd{};
+        rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-        rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-        rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-        rpd.depthStencil = dr::DepthStencilState{};
-        rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
+        rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+        rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
+        rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+        rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+        rpd.depthStencil = rhi::DepthStencilState{};
+        rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
         rpd.depthStencil->depthWriteEnabled = true;
-        rpd.depthStencil->depthCompare = dr::CompareFunction::Always;
+        rpd.depthStencil->depthCompare = rhi::CompareFunction::Always;
         rpd.depthStencil->stencilEnabled = true;
         rpd.depthStencil->stencilReadMask = 0xFF;
         rpd.depthStencil->stencilWriteMask = 0xFF;
-        rpd.depthStencil->stencilFront = { dr::CompareFunction::Always, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Replace };
-        rpd.depthStencil->stencilBack  = { dr::CompareFunction::Always, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Replace };
+        rpd.depthStencil->stencilFront = { rhi::CompareFunction::Always, rhi::StencilOperation::Keep, rhi::StencilOperation::Keep, rhi::StencilOperation::Replace };
+        rpd.depthStencil->stencilBack  = { rhi::CompareFunction::Always, rhi::StencilOperation::Keep, rhi::StencilOperation::Keep, rhi::StencilOperation::Replace };
         if (m_device->CreateRenderPipeline(rpd, m_stencilWritePipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
     // Pipeline 2: Stencil test — draw outline, only where stencil != 1.
     {
-        dr::RenderPipelineDesc rpd{};
+        rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-        rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-        rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-        rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-        rpd.depthStencil = dr::DepthStencilState{};
-        rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
+        rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+        rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
+        rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+        rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+        rpd.depthStencil = rhi::DepthStencilState{};
+        rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
         rpd.depthStencil->depthWriteEnabled = false;
-        rpd.depthStencil->depthCompare = dr::CompareFunction::Always;
+        rpd.depthStencil->depthCompare = rhi::CompareFunction::Always;
         rpd.depthStencil->stencilEnabled = true;
         rpd.depthStencil->stencilReadMask = 0xFF;
         rpd.depthStencil->stencilWriteMask = 0x00;
-        rpd.depthStencil->stencilFront = { dr::CompareFunction::NotEqual, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Keep };
-        rpd.depthStencil->stencilBack  = { dr::CompareFunction::NotEqual, dr::StencilOperation::Keep, dr::StencilOperation::Keep, dr::StencilOperation::Keep };
+        rpd.depthStencil->stencilFront = { rhi::CompareFunction::NotEqual, rhi::StencilOperation::Keep, rhi::StencilOperation::Keep, rhi::StencilOperation::Keep };
+        rpd.depthStencil->stencilBack  = { rhi::CompareFunction::NotEqual, rhi::StencilOperation::Keep, rhi::StencilOperation::Keep, rhi::StencilOperation::Keep };
         if (m_device->CreateRenderPipeline(rpd, m_stencilTestPipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
@@ -208,21 +208,21 @@ void StencilOutlineSample::OnRender() {
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
 
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    enc->TransitionTexture(m_depthStencilTex, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_depthStencilTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilWrite);
 
-    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+    rhi::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
+    ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
 
-    dr::DepthStencilAttachment dsa{}; dsa.view = m_depthStencilView;
-    dsa.depthLoadOp = dr::LoadOp::Clear; dsa.depthStoreOp = dr::StoreOp::Store; dsa.depthClearValue = 1.0f;
-    dsa.stencilLoadOp = dr::LoadOp::Clear; dsa.stencilStoreOp = dr::StoreOp::Store; dsa.stencilClearValue = 0;
+    rhi::DepthStencilAttachment dsa{}; dsa.view = m_depthStencilView;
+    dsa.depthLoadOp = rhi::LoadOp::Clear; dsa.depthStoreOp = rhi::StoreOp::Store; dsa.depthClearValue = 1.0f;
+    dsa.stencilLoadOp = rhi::LoadOp::Clear; dsa.stencilStoreOp = rhi::StoreOp::Store; dsa.stencilClearValue = 0;
 
-    dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
+    rhi::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
     auto* rp = enc->BeginRenderPass(rpd);
 
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
@@ -232,26 +232,26 @@ void StencilOutlineSample::OnRender() {
     rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0.0f, 1.0f);
     rp->SetScissor(0, 0, m_width, m_height);
     rp->SetVertexBuffer(0, m_vb, 0);
-    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
+    rp->SetIndexBuffer(m_ib, rhi::IndexFormat::UInt16, 0);
     rp->SetStencilReference(1);
     PushData pc1{ 1.0f, aspect, m_totalTime, 0.0f };
-    rp->SetPushConstants(dr::ShaderStage::Vertex, 0, sizeof(PushData), &pc1);
+    rp->SetPushConstants(rhi::ShaderStage::Vertex, 0, sizeof(PushData), &pc1);
     rp->DrawIndexed(18);
 
     // Pass 2: Draw scaled-up hexagon, only where stencil != 1 (outline ring).
     rp->SetPipeline(m_stencilTestPipeline);
     rp->SetStencilReference(1);
     PushData pc2{ 1.15f, aspect, m_totalTime, 0.0f };
-    rp->SetPushConstants(dr::ShaderStage::Vertex, 0, sizeof(PushData), &pc2);
+    rp->SetPushConstants(rhi::ShaderStage::Vertex, 0, sizeof(PushData), &pc2);
     rp->DrawIndexed(18);
 
     rp->End();
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    rhi::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }

@@ -37,12 +37,12 @@ import :resource;
 using namespace draconic::core;
 namespace rhi  = draconic::rhi;
 namespace mdl  = draconic::model;
-namespace geo  = draconic::geometry;
-namespace mat  = draconic::materials;
+namespace geometry  = draconic::geometry;
+namespace materials  = draconic::materials;
 namespace tex  = draconic::texture;
-namespace anim = draconic::animation;
+namespace animation = draconic::animation;
 namespace ct   = draconic::content;
-namespace ed   = draconic::editor;
+namespace editor   = draconic::editor;
 
 export namespace draconic::modelimporter {
 
@@ -91,23 +91,23 @@ inline void CookTextures(const mdl::Model& model, ct::Group* root, StringView na
 inline void CookMaterials(const mdl::Model& model, ct::Group* root, StringView namePrefix,
                           const Array<Guid>& textureGuids, Array<Guid>& outMatGuids, Array<Guid>& outAlbedo)
 {
-    mat::MaterialAssetBuilder builder;
+    materials::MaterialAssetBuilder builder;
     const Span<mdl::ModelMaterial* const> materials = model.materials();
     for (usize i = 0; i < materials.Size(); ++i) {
         const mdl::ModelMaterial& m = *materials[i];
 
         // Build a standard PBR material carrying the model's factors, capture it into a source that
         // names the builtin "forward" shader (no cooked ShaderResource needed).
-        RefPtr<mat::Material> built = mat::CreatePBR(Format(u8"{}.mat.{}", namePrefix, i).AsView(),
+        RefPtr<materials::Material> built = materials::CreatePBR(Format(u8"{}.mat.{}", namePrefix, i).AsView(),
                                                      m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
-        mat::MaterialAsset asset;
-        mat::MaterialImporter::Import(*built, Guid{}, asset);   // nil shaderId -> use shaderName
+        materials::MaterialAsset asset;
+        materials::MaterialImporter::Import(*built, Guid{}, asset);   // nil shaderId -> use shaderName
         asset.source.shaderName = String(u8"forward");
 
         const String name = Format(u8"{}.mat.{}", namePrefix, i);
-        ct::Instance* inst = root->CreateInstance(name.AsView(), mat::MaterialSource::StaticType());
+        ct::Instance* inst = root->CreateInstance(name.AsView(), materials::MaterialSource::StaticType());
         if (inst == nullptr) { outMatGuids.PushBack(Guid{}); outAlbedo.PushBack(Guid{}); continue; }
-        ed::AssetBuildContext ctx{ StringView{}, inst };
+        editor::AssetBuildContext ctx{ StringView{}, inst };
         if (builder.Build(asset, ctx).IsOk()) { outMatGuids.PushBack(inst->Id()); }
         else                                  { outMatGuids.PushBack(Guid{}); }
 
@@ -143,29 +143,29 @@ inline void CookMaterials(const mdl::Model& model, ct::Group* root, StringView n
         const mdl::ModelSkin& skin = *model.skins()[0];
         boneToJoint = BuildBoneToJoint(skin);
 
-        anim::SkeletonAsset skelAsset;
+        animation::SkeletonAsset skelAsset;
         SkeletonSourceFromModel(model, skin, boneToJoint, skelAsset.source);
-        anim::SkeletonAssetBuilder skelBuilder;
-        ct::Instance* skelInst = root->CreateInstance(Format(u8"{}.skeleton", namePrefix).AsView(), anim::SkeletonSource::StaticType());
+        animation::SkeletonAssetBuilder skelBuilder;
+        ct::Instance* skelInst = root->CreateInstance(Format(u8"{}.skeleton", namePrefix).AsView(), animation::SkeletonSource::StaticType());
         if (skelInst != nullptr) {
-            ed::AssetBuildContext ctx{ StringView{}, skelInst };
+            editor::AssetBuildContext ctx{ StringView{}, skelInst };
             if (skelBuilder.Build(skelAsset, ctx).IsOk()) { manifest.skeletonGuid = skelInst->Id(); }
         }
 
-        anim::AnimationClipAssetBuilder clipBuilder;
+        animation::AnimationClipAssetBuilder clipBuilder;
         const Span<mdl::ModelAnimation* const> animations = model.animations();
         for (usize a = 0; a < animations.Size(); ++a) {
-            anim::AnimationClipAsset clipAsset;
+            animation::AnimationClipAsset clipAsset;
             AnimationClipSourceFromModel(*animations[a], boneToJoint, Format(u8"{}.anim.{}", namePrefix, a).AsView(), clipAsset.source);
-            ct::Instance* clipInst = root->CreateInstance(Format(u8"{}.anim.{}", namePrefix, a).AsView(), anim::AnimationClipSource::StaticType());
+            ct::Instance* clipInst = root->CreateInstance(Format(u8"{}.anim.{}", namePrefix, a).AsView(), animation::AnimationClipSource::StaticType());
             if (clipInst == nullptr) { continue; }
-            ed::AssetBuildContext ctx{ StringView{}, clipInst };
+            editor::AssetBuildContext ctx{ StringView{}, clipInst };
             if (clipBuilder.Build(clipAsset, ctx).IsOk()) { manifest.animationGuids.PushBack(clipInst->Id()); }
         }
     }
 
-    geo::StaticMeshAssetBuilder  meshBuilder;
-    geo::SkinnedMeshAssetBuilder skinnedBuilder;
+    geometry::StaticMeshAssetBuilder  meshBuilder;
+    geometry::SkinnedMeshAssetBuilder skinnedBuilder;
     const Span<mdl::ModelMesh* const> meshes = model.meshes();
     for (usize i = 0; i < meshes.Size(); ++i) {
         const mdl::ModelMesh& m = *meshes[i];
@@ -173,17 +173,17 @@ inline void CookMaterials(const mdl::Model& model, ct::Group* root, StringView n
         const String name = Format(u8"{}.mesh.{}", namePrefix, i);
 
         ct::Instance* inst = root->CreateInstance(name.AsView(),
-            skinned ? geo::SkinnedMeshSource::StaticType() : geo::StaticMeshSource::StaticType());
+            skinned ? geometry::SkinnedMeshSource::StaticType() : geometry::StaticMeshSource::StaticType());
         if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
-        ed::AssetBuildContext ctx{ StringView{}, inst };
+        editor::AssetBuildContext ctx{ StringView{}, inst };
 
         Status s;
         if (skinned) {
-            geo::SkinnedMeshAsset asset;
+            geometry::SkinnedMeshAsset asset;
             SkinnedMeshSourceFromModel(m, /*skeletonIndex*/ 0, asset.source);
             s = skinnedBuilder.Build(asset, ctx);
         } else {
-            geo::StaticMeshAsset asset;
+            geometry::StaticMeshAsset asset;
             StaticMeshSourceFromModel(m, asset.source);
             s = meshBuilder.Build(asset, ctx);
         }

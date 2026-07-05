@@ -22,14 +22,14 @@ import draconic.rhi.validation;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.null;   // Null backend delegation
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 namespace rhi = draconic::rhi;
 
 export namespace draconic::runtime
 {
     // Create a GraphicsDevice for the requested backend. Returns an error if the
     // backend is unavailable (e.g. DX12 off this platform) or bring-up fails.
-    rc::Result<rc::UniquePtr<GraphicsDevice>> CreateGraphicsDevice(const GraphicsDeviceDesc& desc)
+    core::Result<core::UniquePtr<GraphicsDevice>> CreateGraphicsDevice(const GraphicsDeviceDesc& desc)
     {
         if (desc.backend == BackendType::Null)
         {
@@ -43,7 +43,7 @@ export namespace draconic::runtime
             {
                 rhi::vk::VkBackendDesc bd{};
                 bd.enableValidation = desc.enableValidation;
-                if (!rhi::vk::CreateBackend(bd, raw).IsOk()) { return rc::Err(rc::ErrorCode::Unknown); }
+                if (!rhi::vk::CreateBackend(bd, raw).IsOk()) { return core::Err(core::ErrorCode::Unknown); }
                 break;
             }
             case BackendType::DX12:
@@ -51,9 +51,9 @@ export namespace draconic::runtime
 #ifdef DRACONIC_HAS_DX12
                 rhi::dx12::DxBackendDesc bd{};
                 bd.enableValidation = desc.enableValidation;
-                if (!rhi::dx12::CreateDxBackend(bd, raw).IsOk()) { return rc::Err(rc::ErrorCode::Unknown); }
+                if (!rhi::dx12::CreateDxBackend(bd, raw).IsOk()) { return core::Err(core::ErrorCode::Unknown); }
 #else
-                return rc::Err(rc::ErrorCode::Unknown);
+                return core::Err(core::ErrorCode::Unknown);
 #endif
                 break;
             }

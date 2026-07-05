@@ -15,15 +15,15 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 class BindlessSample : public sf::SampleApp {
 public:
     using sf::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample018 - Bindless Textures"; }
-    dr::DeviceFeatures RequiredFeatures() const override {
-        dr::DeviceFeatures f{}; f.bindlessDescriptors = true; return f;
+    rhi::DeviceFeatures RequiredFeatures() const override {
+        rhi::DeviceFeatures f{}; f.bindlessDescriptors = true; return f;
     }
 protected:
     draconic::core::Status OnInit() override;
@@ -85,105 +85,105 @@ private:
     static constexpr draconic::core::u32 kTexSize = 64;
     static constexpr draconic::core::u32 kNumTextures = 4;
 
-    ds::Compiler* m_compiler = nullptr;
-    dr::ShaderModule* m_vs = nullptr;
-    dr::ShaderModule* m_ps = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
+    rhi::ShaderModule* m_vs = nullptr;
+    rhi::ShaderModule* m_ps = nullptr;
 
     // Textures
-    dr::Texture*     m_textures[kNumTextures]     = {};
-    dr::TextureView* m_textureViews[kNumTextures] = {};
-    dr::Sampler* m_sampler = nullptr;
+    rhi::Texture*     m_textures[kNumTextures]     = {};
+    rhi::TextureView* m_textureViews[kNumTextures] = {};
+    rhi::Sampler* m_sampler = nullptr;
 
     // Bindless bind group (space0: bindless textures)
-    dr::BindGroupLayout* m_bindlessBgl = nullptr;
-    dr::BindGroup*       m_bindlessBg  = nullptr;
+    rhi::BindGroupLayout* m_bindlessBgl = nullptr;
+    rhi::BindGroup*       m_bindlessBg  = nullptr;
 
     // Sampler bind group (space1: sampler)
-    dr::BindGroupLayout* m_samplerBgl = nullptr;
-    dr::BindGroup*       m_samplerBg  = nullptr;
+    rhi::BindGroupLayout* m_samplerBgl = nullptr;
+    rhi::BindGroup*       m_samplerBg  = nullptr;
 
-    dr::PipelineLayout*  m_pl       = nullptr;
-    dr::RenderPipeline*  m_pipeline = nullptr;
-    dr::CommandPool*     m_pool     = nullptr;
-    dr::Fence*           m_fence    = nullptr;
+    rhi::PipelineLayout*  m_pl       = nullptr;
+    rhi::RenderPipeline*  m_pipeline = nullptr;
+    rhi::CommandPool*     m_pool     = nullptr;
+    rhi::Fence*           m_fence    = nullptr;
     draconic::core::u64           m_fenceVal = 0;
 };
 
 draconic::core::Status BindlessSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"BindlessVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"BindlessPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"BindlessVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"BindlessPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create 4 procedural textures with different patterns
     if (createTextures() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Sampler
-    dr::SamplerDesc sd{}; sd.minFilter = dr::FilterMode::Linear; sd.magFilter = dr::FilterMode::Linear;
-    sd.addressU = dr::AddressMode::Repeat; sd.addressV = dr::AddressMode::Repeat;
+    rhi::SamplerDesc sd{}; sd.minFilter = rhi::FilterMode::Linear; sd.magFilter = rhi::FilterMode::Linear;
+    sd.addressU = rhi::AddressMode::Repeat; sd.addressV = rhi::AddressMode::Repeat;
     sd.label = u8"BindlessSampler";
     if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Bindless BGL (space0): unbounded texture array
-    dr::BindGroupLayoutEntry bindlessEntry{};
+    rhi::BindGroupLayoutEntry bindlessEntry{};
     bindlessEntry.binding    = 0;
-    bindlessEntry.visibility = dr::ShaderStage::Fragment;
-    bindlessEntry.type       = dr::BindingType::BindlessTextures;
-    bindlessEntry.textureDimension = dr::TextureViewDimension::Texture2D;
+    bindlessEntry.visibility = rhi::ShaderStage::Fragment;
+    bindlessEntry.type       = rhi::BindingType::BindlessTextures;
+    bindlessEntry.textureDimension = rhi::TextureViewDimension::Texture2D;
     bindlessEntry.count      = 0xFFFFFFFF;
-    dr::BindGroupLayoutEntry blEntries[1] = { bindlessEntry };
-    dr::BindGroupLayoutDesc blBgld{}; blBgld.entries = Span<const dr::BindGroupLayoutEntry>(blEntries, 1);
+    rhi::BindGroupLayoutEntry blEntries[1] = { bindlessEntry };
+    rhi::BindGroupLayoutDesc blBgld{}; blBgld.entries = Span<const rhi::BindGroupLayoutEntry>(blEntries, 1);
     blBgld.label = u8"BindlessBGL";
     if (m_device->CreateBindGroupLayout(blBgld, m_bindlessBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create bindless bind group (no entries at creation - populated via updateBindless)
-    dr::BindGroupDesc blBgd{}; blBgd.layout = m_bindlessBgl; blBgd.label = u8"BindlessBG";
+    rhi::BindGroupDesc blBgd{}; blBgd.layout = m_bindlessBgl; blBgd.label = u8"BindlessBG";
     if (m_device->CreateBindGroup(blBgd, m_bindlessBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Populate bindless slots
-    dr::BindlessUpdateEntry bindlessUpdates[kNumTextures];
+    rhi::BindlessUpdateEntry bindlessUpdates[kNumTextures];
     for (u32 i = 0; i < kNumTextures; ++i) {
         bindlessUpdates[i] = {};
         bindlessUpdates[i].layoutIndex = 0;
         bindlessUpdates[i].arrayIndex  = i;
         bindlessUpdates[i].textureView = m_textureViews[i];
     }
-    m_bindlessBg->UpdateBindless(Span<const dr::BindlessUpdateEntry>(bindlessUpdates, kNumTextures));
+    m_bindlessBg->UpdateBindless(Span<const rhi::BindlessUpdateEntry>(bindlessUpdates, kNumTextures));
 
     // Sampler BGL (space1)
-    dr::BindGroupLayoutEntry samplerEntry = dr::BindGroupLayoutEntry::Sampler(0, dr::ShaderStage::Fragment);
-    dr::BindGroupLayoutEntry sEntries[1] = { samplerEntry };
-    dr::BindGroupLayoutDesc sBgld{}; sBgld.entries = Span<const dr::BindGroupLayoutEntry>(sEntries, 1);
+    rhi::BindGroupLayoutEntry samplerEntry = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
+    rhi::BindGroupLayoutEntry sEntries[1] = { samplerEntry };
+    rhi::BindGroupLayoutDesc sBgld{}; sBgld.entries = Span<const rhi::BindGroupLayoutEntry>(sEntries, 1);
     sBgld.label = u8"SamplerBGL";
     if (m_device->CreateBindGroupLayout(sBgld, m_samplerBgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::BindGroupEntry sBgEntries[1] = { dr::BindGroupEntry::SamplerEntry(m_sampler) };
-    dr::BindGroupDesc sBgd{}; sBgd.layout = m_samplerBgl;
-    sBgd.entries = Span<const dr::BindGroupEntry>(sBgEntries, 1); sBgd.label = u8"SamplerBG";
+    rhi::BindGroupEntry sBgEntries[1] = { rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+    rhi::BindGroupDesc sBgd{}; sBgd.layout = m_samplerBgl;
+    sBgd.entries = Span<const rhi::BindGroupEntry>(sBgEntries, 1); sBgd.label = u8"SamplerBG";
     if (m_device->CreateBindGroup(sBgd, m_samplerBg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout: group 0 = bindless textures, group 1 = sampler, push constants
-    dr::BindGroupLayout* sets[2] = { m_bindlessBgl, m_samplerBgl };
-    dr::PushConstantRange pcr{}; pcr.stages = dr::ShaderStage::Vertex | dr::ShaderStage::Fragment;
+    rhi::BindGroupLayout* sets[2] = { m_bindlessBgl, m_samplerBgl };
+    rhi::PushConstantRange pcr{}; pcr.stages = rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment;
     pcr.offset = 0; pcr.size = 16;
-    dr::PushConstantRange pushRanges[1] = { pcr };
-    dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 2);
-    pld.pushConstantRanges = Span<const dr::PushConstantRange>(pushRanges, 1);
+    rhi::PushConstantRange pushRanges[1] = { pcr };
+    rhi::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 2);
+    pld.pushConstantRanges = Span<const rhi::PushConstantRange>(pushRanges, 1);
     pld.label = u8"BindlessPL";
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Render pipeline (no vertex buffers - SV_VertexID driven)
-    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
-    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-    rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-    rpd.primitive.topology = dr::PrimitiveTopology::TriangleStrip;
+    rhi::ColorTargetState ct{}; ct.format = m_swapChain->Format();
+    rhi::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+    rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+    rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+    rpd.primitive.topology = rhi::PrimitiveTopology::TriangleStrip;
     rpd.label = u8"BindlessPipeline";
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
@@ -195,7 +195,7 @@ draconic::core::Status BindlessSample::createTextures() {
     constexpr u32 texBytes = rowBytes * kTexSize;
     u8 pixels[texBytes];
 
-    dr::TransferBatch* batch = nullptr;
+    rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
 
     for (u32 t = 0; t < kNumTextures; ++t) {
@@ -207,19 +207,19 @@ draconic::core::Status BindlessSample::createTextures() {
             }
         }
 
-        dr::TextureDesc td{}; td.format = dr::TextureFormat::RGBA8Unorm;
+        rhi::TextureDesc td{}; td.format = rhi::TextureFormat::RGBA8Unorm;
         td.width = kTexSize; td.height = kTexSize;
-        td.mipLevelCount = 1; td.usage = dr::TextureUsage::Sampled | dr::TextureUsage::CopyDst;
+        td.mipLevelCount = 1; td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
         td.label = u8"BindlessTex";
         if (m_device->CreateTexture(td, m_textures[t]) != draconic::core::ErrorCode::Ok) {
             m_graphicsQueue->DestroyTransferBatch(batch); return draconic::core::ErrorCode::Unknown;
         }
 
-        dr::TextureDataLayout layout{}; layout.bytesPerRow = rowBytes; layout.rowsPerImage = kTexSize;
+        rhi::TextureDataLayout layout{}; layout.bytesPerRow = rowBytes; layout.rowsPerImage = kTexSize;
         batch->WriteTexture(m_textures[t], Span<const u8>(pixels, texBytes),
-            layout, dr::Extent3D{kTexSize, kTexSize, 1});
+            layout, rhi::Extent3D{kTexSize, kTexSize, 1});
 
-        dr::TextureViewDesc tvd{}; tvd.format = dr::TextureFormat::RGBA8Unorm;
+        rhi::TextureViewDesc tvd{}; tvd.format = rhi::TextureFormat::RGBA8Unorm;
         tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
         if (m_device->CreateTextureView(m_textures[t], tvd, m_textureViews[t]) != draconic::core::ErrorCode::Ok) {
             m_graphicsQueue->DestroyTransferBatch(batch); return draconic::core::ErrorCode::Unknown;
@@ -279,14 +279,14 @@ void BindlessSample::OnRender() {
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.08f, 0.06f, 0.12f, 1.0f);
-    dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
+    rhi::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
+    ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.08f, 0.06f, 0.12f, 1.0f);
+    rhi::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
     rp->SetPipeline(m_pipeline);
@@ -303,15 +303,15 @@ void BindlessSample::OnRender() {
         u32 pushData[4] = { i, 0, 0, 0 };
         std::memcpy(&pushData[1], &offsets[i * 2],     4);
         std::memcpy(&pushData[2], &offsets[i * 2 + 1], 4);
-        rp->SetPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, 16, pushData);
+        rp->SetPushConstants(rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment, 0, 16, pushData);
         rp->Draw(4);
     }
 
     rp->End();
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
+    rhi::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }

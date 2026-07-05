@@ -20,49 +20,49 @@ import draconic.core;
 import draconic.runtime;
 import draconic.script;
 
-namespace rc = draconic::core;
-namespace rs = draconic::script;
+namespace core = draconic::core;
+namespace script = draconic::script;
 
 export namespace draconic::runtime
 {
     class ScriptSubsystem final : public Subsystem
     {
     public:
-        explicit ScriptSubsystem(rc::RefPtr<rs::IScriptManager> manager,
-                                 const rc::TypeRegistry& registry = rc::GlobalTypeRegistry()) noexcept
-            : m_manager(rc::Move(manager)), m_registry(&registry) {}
+        explicit ScriptSubsystem(core::RefPtr<script::IScriptManager> manager,
+                                 const core::TypeRegistry& registry = core::GlobalTypeRegistry()) noexcept
+            : m_manager(core::Move(manager)), m_registry(&registry) {}
 
-        [[nodiscard]] rs::IScriptManager* Manager() noexcept { return m_manager.Get(); }
-        [[nodiscard]] rs::IScriptContext* Context() noexcept { return m_context.Get(); }
+        [[nodiscard]] script::IScriptManager* Manager() noexcept { return m_manager.Get(); }
+        [[nodiscard]] script::IScriptContext* Context() noexcept { return m_context.Get(); }
 
         // Compile and run script source in the main context. Defaults to the
         // "main" module so the reflected foreign classes are in scope.
-        rc::Status Load(rc::StringView source, rc::StringView chunkName = u8"main")
+        core::Status Load(core::StringView source, core::StringView chunkName = u8"main")
         {
             return (m_context.Get() != nullptr) ? m_context->Load(source, chunkName)
-                                          : rc::Status{ rc::ErrorCode::Internal };
+                                          : core::Status{ core::ErrorCode::Internal };
         }
 
         // Instantiate a script-defined class (see IScriptContext::CreateInstance).
-        [[nodiscard]] rc::RefPtr<rs::ScriptObject> CreateInstance(
-            rc::StringView className, rc::Span<rc::Variant> args)
+        [[nodiscard]] core::RefPtr<script::ScriptObject> CreateInstance(
+            core::StringView className, core::Span<core::Variant> args)
         {
             return (m_context.Get() != nullptr) ? m_context->CreateInstance(className, args)
-                                          : rc::RefPtr<rs::ScriptObject>{};
+                                          : core::RefPtr<script::ScriptObject>{};
         }
 
         // Set (or clear, with null) the global driver object. While set, it
         // receives update(dt) each frame. The subsystem holds a strong reference.
-        void SetDriver(rc::RefPtr<rs::ScriptObject> driver) noexcept { m_driver = rc::Move(driver); }
-        [[nodiscard]] rs::ScriptObject* Driver() noexcept { return m_driver.Get(); }
+        void SetDriver(core::RefPtr<script::ScriptObject> driver) noexcept { m_driver = core::Move(driver); }
+        [[nodiscard]] script::ScriptObject* Driver() noexcept { return m_driver.Get(); }
 
         // Forward the per-frame update to the driver script (if any).
-        void Update(rc::f32 deltaTime) override
+        void Update(core::f32 deltaTime) override
         {
             if (m_driver.Get() != nullptr)
             {
-                rc::Variant args[] = { rc::Variant::From<rc::f32>(deltaTime) };
-                (void)m_driver->Invoke(u8"update", rc::Span<rc::Variant>{ args, 1 });
+                core::Variant args[] = { core::Variant::From<core::f32>(deltaTime) };
+                (void)m_driver->Invoke(u8"update", core::Span<core::Variant>{ args, 1 });
             }
         }
 
@@ -72,7 +72,7 @@ export namespace draconic::runtime
         void OnInit() override
         {
             if (m_manager.Get() == nullptr) { return; }
-            rs::RegisterReflectedTypes(*m_manager, *m_registry);
+            script::RegisterReflectedTypes(*m_manager, *m_registry);
             m_context = m_manager->CreateContext();
         }
 
@@ -83,9 +83,9 @@ export namespace draconic::runtime
         }
 
     private:
-        rc::RefPtr<rs::IScriptManager> m_manager;
-        const rc::TypeRegistry* m_registry;
-        rc::RefPtr<rs::IScriptContext> m_context;
-        rc::RefPtr<rs::ScriptObject> m_driver;
+        core::RefPtr<script::IScriptManager> m_manager;
+        const core::TypeRegistry* m_registry;
+        core::RefPtr<script::IScriptContext> m_context;
+        core::RefPtr<script::ScriptObject> m_driver;
     };
 }

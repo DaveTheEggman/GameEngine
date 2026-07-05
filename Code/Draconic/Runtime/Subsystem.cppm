@@ -11,7 +11,7 @@ export module draconic.runtime:subsystem;
 
 import draconic.core;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::runtime
 {
@@ -26,7 +26,7 @@ export namespace draconic::runtime
         [[nodiscard]] bool IsInitialized() const noexcept { return m_initialized; }
 
         // Lower runs earlier in each frame phase (and in Init/Ready order).
-        [[nodiscard]] virtual rc::i32 UpdateOrder() const noexcept { return 0; }
+        [[nodiscard]] virtual core::i32 UpdateOrder() const noexcept { return 0; }
 
         // --- registration (called by Context) ---
         virtual void OnRegister(Context* context) { m_context = context; }
@@ -39,10 +39,10 @@ export namespace draconic::runtime
         void Shutdown()        { if (m_initialized) { OnShutdown(); m_initialized = false; } }
 
         // --- per-frame phases ---
-        virtual void BeginFrame(rc::f32 /*deltaTime*/) {}
-        virtual void FixedUpdate(rc::f32 /*fixedDeltaTime*/) {}
-        virtual void Update(rc::f32 /*deltaTime*/) {}
-        virtual void PostUpdate(rc::f32 /*deltaTime*/) {}
+        virtual void BeginFrame(core::f32 /*deltaTime*/) {}
+        virtual void FixedUpdate(core::f32 /*fixedDeltaTime*/) {}
+        virtual void Update(core::f32 /*deltaTime*/) {}
+        virtual void PostUpdate(core::f32 /*deltaTime*/) {}
         virtual void EndFrame() {}
 
     protected:

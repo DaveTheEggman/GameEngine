@@ -33,14 +33,14 @@ import draconic.shell;
 //   draconic.runtime.graphics.null — CreateNullGraphicsDevice (headless)
 //   draconic.runtime.graphics.gpu  — CreateGraphicsDevice (Vulkan/DX12)
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 namespace rhi = draconic::rhi;
 
 export namespace draconic::runtime
 {
     // Null is a real headless option (CI / servers / tests) — no GPU required.
-    enum class BackendType : rc::u8 { Vulkan, DX12, Null };
+    enum class BackendType : core::u8 { Vulkan, DX12, Null };
 
     struct GraphicsDeviceDesc
     {
@@ -56,7 +56,7 @@ export namespace draconic::runtime
 #else
         bool               enableValidation = true;
 #endif
-        rc::u32            framesInFlight    = 2;     // CPU-ahead ring depth
+        core::u32            framesInFlight    = 2;     // CPU-ahead ring depth
         rhi::DeviceFeatures requiredFeatures = {};
     };
 
@@ -64,7 +64,7 @@ export namespace draconic::runtime
     {
         rhi::TextureFormat format      = rhi::TextureFormat::BGRA8UnormSrgb;
         rhi::PresentMode   presentMode = rhi::PresentMode::Fifo;
-        rc::u32            bufferCount = 2;            // swapchain images
+        core::u32            bufferCount = 2;            // swapchain images
     };
 
     class GraphicsDevice;   // forward (RenderWindow refs it; defined complete below)
@@ -84,9 +84,9 @@ export namespace draconic::runtime
     {
         bool                 valid          = false;   // false => skip (minimized/acquire failed)
         RenderWindow*        window         = nullptr; // which window this frame targets
-        rc::u32              frameIndex     = 0;       // device ring index (0..framesInFlight-1)
-        rc::u32              width          = 0;
-        rc::u32              height         = 0;
+        core::u32              frameIndex     = 0;       // device ring index (0..framesInFlight-1)
+        core::u32              width          = 0;
+        core::u32              height         = 0;
         rhi::CommandEncoder* encoder        = nullptr; // primary, host-created
         rhi::CommandPool*    pool           = nullptr; // this frame's pool (extra encoders)
         rhi::Texture*        backbuffer     = nullptr;
@@ -113,7 +113,7 @@ export namespace draconic::runtime
         // One-call clear of the backbuffer (open a clear pass, close it). For
         // minimal apps that just want a visible, cleared window without touching
         // RHI types.
-        void Clear(rc::f32 r, rc::f32 g, rc::f32 b, rc::f32 a = 1.0f)
+        void Clear(core::f32 r, core::f32 g, core::f32 b, core::f32 a = 1.0f)
         {
             rhi::ClearColor c; c.r = r; c.g = g; c.b = b; c.a = a;
             BeginBackbufferPass(c);
@@ -134,10 +134,10 @@ export namespace draconic::runtime
         // objects. Arrays are sized to framesInFlight.
         RenderWindow(GraphicsDevice& device, IWindow& window,
                      rhi::Surface* surface, rhi::SwapChain* swapChain,
-                     rc::Array<rhi::CommandPool*>&& pools, rc::Array<rhi::Fence*>&& fences) noexcept
+                     core::Array<rhi::CommandPool*>&& pools, core::Array<rhi::Fence*>&& fences) noexcept
             : m_device(&device), m_window(&window), m_surface(surface), m_swapChain(swapChain),
-              m_pools(static_cast<rc::Array<rhi::CommandPool*>&&>(pools)),
-              m_fences(static_cast<rc::Array<rhi::Fence*>&&>(fences)),
+              m_pools(static_cast<core::Array<rhi::CommandPool*>&&>(pools)),
+              m_fences(static_cast<core::Array<rhi::Fence*>&&>(fences)),
               m_width(window.Width()), m_height(window.Height())
         {
             m_fenceValues.Resize(m_fences.Size(), 0ull);
@@ -166,19 +166,19 @@ export namespace draconic::runtime
         void EndFrame(FrameContext& frame);
 
         [[nodiscard]] IRenderWindowData* Data() noexcept { return m_data.Get(); }
-        void SetData(rc::UniquePtr<IRenderWindowData> data) noexcept { m_data = static_cast<rc::UniquePtr<IRenderWindowData>&&>(data); }
+        void SetData(core::UniquePtr<IRenderWindowData> data) noexcept { m_data = static_cast<core::UniquePtr<IRenderWindowData>&&>(data); }
 
     private:
         GraphicsDevice* m_device;        // borrowed
         IWindow*        m_window;        // borrowed
         rhi::Surface*   m_surface;       // owned
         rhi::SwapChain* m_swapChain;     // owned
-        rc::Array<rhi::CommandPool*> m_pools;   // owned, one per frame-in-flight
-        rc::Array<rhi::Fence*>       m_fences;  // owned, one per frame-in-flight
-        rc::Array<rc::u64>           m_fenceValues;
-        rc::u32 m_width;
-        rc::u32 m_height;
-        rc::UniquePtr<IRenderWindowData> m_data;  // optional typed payload
+        core::Array<rhi::CommandPool*> m_pools;   // owned, one per frame-in-flight
+        core::Array<rhi::Fence*>       m_fences;  // owned, one per frame-in-flight
+        core::Array<core::u64>           m_fenceValues;
+        core::u32 m_width;
+        core::u32 m_height;
+        core::UniquePtr<IRenderWindowData> m_data;  // optional typed payload
     };
 
     class GraphicsDevice
@@ -189,29 +189,29 @@ export namespace draconic::runtime
         // queue. Backend-agnostic — GPU backends (Vulkan/DX12) are built by the
         // `draconic.runtime.graphics.gpu` factory, which then calls this. On failure
         // the backend is destroyed.
-        static rc::Result<rc::UniquePtr<GraphicsDevice>> FromBackend(
-            rhi::Backend* backend, rc::u32 framesInFlight, const rhi::DeviceFeatures& features = {})
+        static core::Result<core::UniquePtr<GraphicsDevice>> FromBackend(
+            rhi::Backend* backend, core::u32 framesInFlight, const rhi::DeviceFeatures& features = {})
         {
-            if (backend == nullptr) { return rc::Err(rc::ErrorCode::Unknown); }
+            if (backend == nullptr) { return core::Err(core::ErrorCode::Unknown); }
 
-            rc::Span<rhi::Adapter* const> adapters = backend->EnumerateAdapters();
-            if (adapters.Size() == 0) { backend->Destroy(); return rc::Err(rc::ErrorCode::Unknown); }
+            core::Span<rhi::Adapter* const> adapters = backend->EnumerateAdapters();
+            if (adapters.Size() == 0) { backend->Destroy(); return core::Err(core::ErrorCode::Unknown); }
 
             rhi::DeviceDesc dd{};
             dd.graphicsQueueCount = 1;
             dd.requiredFeatures   = features;
             rhi::Device* device = nullptr;
-            if (!adapters[0]->CreateDevice(dd, device).IsOk()) { backend->Destroy(); return rc::Err(rc::ErrorCode::Unknown); }
+            if (!adapters[0]->CreateDevice(dd, device).IsOk()) { backend->Destroy(); return core::Err(core::ErrorCode::Unknown); }
 
             rhi::Queue* queue = device->GetQueue(rhi::QueueType::Graphics);
-            if (queue == nullptr) { device->Destroy(); backend->Destroy(); return rc::Err(rc::ErrorCode::Unknown); }
+            if (queue == nullptr) { device->Destroy(); backend->Destroy(); return core::Err(core::ErrorCode::Unknown); }
 
-            const rc::u32 frames = framesInFlight == 0 ? 1 : framesInFlight;
-            auto gd = rc::MakeUnique<GraphicsDevice>(rc::DefaultAllocator(), backend, device, queue, frames);
-            return rc::Result<rc::UniquePtr<GraphicsDevice>>(static_cast<rc::UniquePtr<GraphicsDevice>&&>(gd));
+            const core::u32 frames = framesInFlight == 0 ? 1 : framesInFlight;
+            auto gd = core::MakeUnique<GraphicsDevice>(core::DefaultAllocator(), backend, device, queue, frames);
+            return core::Result<core::UniquePtr<GraphicsDevice>>(static_cast<core::UniquePtr<GraphicsDevice>&&>(gd));
         }
 
-        GraphicsDevice(rhi::Backend* backend, rhi::Device* device, rhi::Queue* queue, rc::u32 framesInFlight) noexcept
+        GraphicsDevice(rhi::Backend* backend, rhi::Device* device, rhi::Queue* queue, core::u32 framesInFlight) noexcept
             : m_backend(backend), m_device(device), m_queue(queue), m_framesInFlight(framesInFlight) {}
 
         ~GraphicsDevice()
@@ -225,11 +225,11 @@ export namespace draconic::runtime
 
         // Create a presentation target (surface + swapchain + per-frame pools/
         // fences) for a window. The window must outlive the RenderWindow.
-        rc::Result<rc::UniquePtr<RenderWindow>> CreateRenderWindow(IWindow& window, const RenderWindowDesc& desc)
+        core::Result<core::UniquePtr<RenderWindow>> CreateRenderWindow(IWindow& window, const RenderWindowDesc& desc)
         {
             const NativeWindow nw = window.Native();
             rhi::Surface* surface = nullptr;
-            if (!m_backend->CreateSurface(nw.window, nw.display, surface).IsOk()) { return rc::Err(rc::ErrorCode::Unknown); }
+            if (!m_backend->CreateSurface(nw.window, nw.display, surface).IsOk()) { return core::Err(core::ErrorCode::Unknown); }
 
             rhi::SwapChainDesc sd{};
             sd.width       = window.Width();
@@ -242,12 +242,12 @@ export namespace draconic::runtime
             if (!m_device->CreateSwapChain(surface, sd, swapChain).IsOk())
             {
                 m_device->DestroySurface(surface);
-                return rc::Err(rc::ErrorCode::Unknown);
+                return core::Err(core::ErrorCode::Unknown);
             }
 
-            rc::Array<rhi::CommandPool*> pools;
-            rc::Array<rhi::Fence*> fences;
-            for (rc::u32 i = 0; i < m_framesInFlight; ++i)
+            core::Array<rhi::CommandPool*> pools;
+            core::Array<rhi::Fence*> fences;
+            for (core::u32 i = 0; i < m_framesInFlight; ++i)
             {
                 rhi::CommandPool* pool = nullptr;
                 rhi::Fence* fence = nullptr;
@@ -259,22 +259,22 @@ export namespace draconic::runtime
                     if (pool != nullptr) { m_device->DestroyCommandPool(pool); }
                     m_device->DestroySwapChain(swapChain);
                     m_device->DestroySurface(surface);
-                    return rc::Err(rc::ErrorCode::Unknown);
+                    return core::Err(core::ErrorCode::Unknown);
                 }
                 pools.PushBack(pool);
                 fences.PushBack(fence);
             }
 
-            auto rw = rc::MakeUnique<RenderWindow>(rc::DefaultAllocator(), *this, window, surface, swapChain,
-                static_cast<rc::Array<rhi::CommandPool*>&&>(pools),
-                static_cast<rc::Array<rhi::Fence*>&&>(fences));
-            return rc::Result<rc::UniquePtr<RenderWindow>>(static_cast<rc::UniquePtr<RenderWindow>&&>(rw));
+            auto rw = core::MakeUnique<RenderWindow>(core::DefaultAllocator(), *this, window, surface, swapChain,
+                static_cast<core::Array<rhi::CommandPool*>&&>(pools),
+                static_cast<core::Array<rhi::Fence*>&&>(fences));
+            return core::Result<core::UniquePtr<RenderWindow>>(static_cast<core::UniquePtr<RenderWindow>&&>(rw));
         }
 
         [[nodiscard]] rhi::Device* Raw() noexcept { return m_device; }
         [[nodiscard]] rhi::Queue*  GfxQueue() noexcept { return m_queue; }
-        [[nodiscard]] rc::u32 FramesInFlight() const noexcept { return m_framesInFlight; }
-        [[nodiscard]] rc::u32 CurrentFrame() const noexcept { return m_currentFrame; }
+        [[nodiscard]] core::u32 FramesInFlight() const noexcept { return m_framesInFlight; }
+        [[nodiscard]] core::u32 CurrentFrame() const noexcept { return m_currentFrame; }
 
         // Advance the CPU frame ring once per app frame (after all windows are
         // rendered). Consumers key per-frame GPU resources on CurrentFrame().
@@ -284,8 +284,8 @@ export namespace draconic::runtime
         rhi::Backend* m_backend;   // owned
         rhi::Device*  m_device;    // owned
         rhi::Queue*   m_queue;     // borrowed from device
-        rc::u32 m_framesInFlight;
-        rc::u32 m_currentFrame = 0;
+        core::u32 m_framesInFlight;
+        core::u32 m_currentFrame = 0;
     };
 
     // ----- RenderWindow out-of-line defs (need GraphicsDevice complete) -----
@@ -302,8 +302,8 @@ export namespace draconic::runtime
 
     inline bool RenderWindow::SyncSize()
     {
-        const rc::u32 nw = m_window->Width();
-        const rc::u32 nh = m_window->Height();
+        const core::u32 nw = m_window->Width();
+        const core::u32 nh = m_window->Height();
         if (nw == 0 || nh == 0) { return false; }
         if (nw == m_width && nh == m_height) { return false; }
         m_width = nw;
@@ -317,7 +317,7 @@ export namespace draconic::runtime
     {
         if (m_window->IsMinimized() || m_window->Width() == 0 || m_window->Height() == 0) { return FrameContext{}; }
 
-        const rc::u32 fi = m_device->CurrentFrame();
+        const core::u32 fi = m_device->CurrentFrame();
         // Guard reuse of this slot's pool/backbuffer: wait the GPU's last
         // submission against this window's fence at this ring slot.
         if (m_fenceValues[fi] > 0) { m_fences[fi]->Wait(m_fenceValues[fi], ~0ull); }
@@ -348,7 +348,7 @@ export namespace draconic::runtime
     inline void RenderWindow::EndFrame(FrameContext& frame)
     {
         if (!frame.valid) { return; }
-        const rc::u32 fi = frame.frameIndex;
+        const core::u32 fi = frame.frameIndex;
 
         frame.encoder->TransitionTexture(m_swapChain->CurrentTexture(),
                                          rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
@@ -356,7 +356,7 @@ export namespace draconic::runtime
 
         ++m_fenceValues[fi];
         rhi::CommandBuffer* cbs[1] = { cb };
-        m_device->GfxQueue()->Submit(rc::Span<rhi::CommandBuffer* const>(cbs, 1), m_fences[fi], m_fenceValues[fi]);
+        m_device->GfxQueue()->Submit(core::Span<rhi::CommandBuffer* const>(cbs, 1), m_fences[fi], m_fenceValues[fi]);
 
         m_swapChain->Present(m_device->GfxQueue());
         m_pools[fi]->DestroyEncoder(frame.encoder);

@@ -22,7 +22,7 @@ import draconic.render.subsystem;   // MeshComponentManager / MeshComponent (the
 
 using namespace draconic::core;
 namespace sc   = draconic::scene;
-namespace anim = draconic::animation;
+namespace animation = draconic::animation;
 
 export namespace draconic::animation {
 
@@ -32,9 +32,9 @@ export namespace draconic::animation {
 // mesh nodes); empty => feed the component's own entity. All borrowed resources must outlive the
 // component (the resource manager / model keeps the skeleton + clip alive).
 struct SkeletalAnimationComponent {
-    anim::Skeleton*                  skeleton = nullptr;   // borrowed; shared across instances
-    anim::AnimationClip*             clip     = nullptr;   // borrowed; the clip to play (autoPlay)
-    UniquePtr<anim::AnimationPlayer> player;               // created lazily by the manager
+    animation::Skeleton*                  skeleton = nullptr;   // borrowed; shared across instances
+    animation::AnimationClip*             clip     = nullptr;   // borrowed; the clip to play (autoPlay)
+    UniquePtr<animation::AnimationPlayer> player;               // created lazily by the manager
     Array<sc::EntityHandle>          meshEntities;         // feed targets (empty => own entity)
     f32                              speed     = 1.0f;
     f32                              startTime = 0.0f;     // initial clock (desync a herd); applied on first tick
@@ -61,7 +61,7 @@ public:
         ForEach([&](SkeletalAnimationComponent& a, sc::EntityHandle owner) {
             if (a.skeleton == nullptr) { return; }
             if (a.player.Get() == nullptr) {
-                a.player = MakeUnique<anim::AnimationPlayer>(DefaultAllocator(), *a.skeleton);
+                a.player = MakeUnique<animation::AnimationPlayer>(DefaultAllocator(), *a.skeleton);
                 if (a.autoPlay && a.clip != nullptr) {
                     a.player->Play(a.clip);
                     if (a.startTime != 0.0f) { a.player->SetCurrentTime(a.startTime); }
@@ -94,9 +94,9 @@ private:
 // feed contract: `meshEntities` are the MeshComponents that receive the matrices (empty => own
 // entity). All borrowed resources must outlive the component.
 struct AnimationGraphComponent {
-    anim::Skeleton*                       skeleton = nullptr;  // borrowed; shared across instances
-    anim::AnimationGraph*                 graph    = nullptr;  // borrowed; the state machine to evaluate
-    UniquePtr<anim::AnimationGraphPlayer> player;              // created lazily by the manager
+    animation::Skeleton*                       skeleton = nullptr;  // borrowed; shared across instances
+    animation::AnimationGraph*                 graph    = nullptr;  // borrowed; the state machine to evaluate
+    UniquePtr<animation::AnimationGraphPlayer> player;              // created lazily by the manager
     Array<sc::EntityHandle>               meshEntities;        // feed targets (empty => own entity)
     bool                                  active   = true;     // evaluate this frame?
 };
@@ -122,7 +122,7 @@ public:
         ForEach([&](AnimationGraphComponent& a, sc::EntityHandle owner) {
             if (a.skeleton == nullptr || a.graph == nullptr) { return; }
             if (a.player.Get() == nullptr) {
-                a.player = MakeUnique<anim::AnimationGraphPlayer>(DefaultAllocator(), *a.graph, *a.skeleton);
+                a.player = MakeUnique<animation::AnimationGraphPlayer>(DefaultAllocator(), *a.graph, *a.skeleton);
             }
             if (!a.active) { return; }
             a.player->Update(deltaTime);

@@ -12,7 +12,7 @@ export module draconic.script:script_context;
 
 import draconic.core;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::script
 {
@@ -27,9 +27,9 @@ export namespace draconic::script
     struct ScriptError
     {
         ScriptErrorKind kind;
-        rc::StringView module;  // may be empty
-        rc::i32 line;           // 1-based source line, or -1 if unknown
-        rc::StringView message;
+        core::StringView module;  // may be empty
+        core::i32 line;           // 1-based source line, or -1 if unknown
+        core::StringView message;
     };
 
     // Host-provided sink for script errors (compile + runtime). Non-owning: the
@@ -46,17 +46,17 @@ export namespace draconic::script
     // for as long as it exists. This is the shared primitive script integration
     // builds on: a global "driver" object the runtime ticks (tier 1), or — later,
     // when an ECS exists — per-entity script components an ECS system ticks.
-    class ScriptObject : public rc::Object
+    class ScriptObject : public core::Object
     {
     public:
         // Invoke a method on this object with reflected args. Returns its result
         // (empty Variant for a void method), or an error if the method is missing
         // or the script faults.
-        [[nodiscard]] virtual rc::Result<rc::Variant> Invoke(
-            rc::StringView method, rc::Span<rc::Variant> args) = 0;
+        [[nodiscard]] virtual core::Result<core::Variant> Invoke(
+            core::StringView method, core::Span<core::Variant> args) = 0;
     };
 
-    class IScriptContext : public rc::Object
+    class IScriptContext : public core::Object
     {
     public:
         // Sets (or clears, with nullptr) the error sink. When unset, backends
@@ -65,24 +65,24 @@ export namespace draconic::script
 
         // Compile and run a chunk of script source. NotSupported if the backend
         // has no compiler (e.g. it only loads precompiled blobs).
-        virtual rc::Status Load(rc::StringView source, rc::StringView chunkName) = 0;
+        virtual core::Status Load(core::StringView source, core::StringView chunkName) = 0;
 
         // Globals are exchanged as Variants (values or objects).
-        virtual void SetGlobal(rc::StringView name, const rc::Variant& value) = 0;
-        [[nodiscard]] virtual rc::Variant GetGlobal(rc::StringView name) = 0;
+        virtual void SetGlobal(core::StringView name, const core::Variant& value) = 0;
+        [[nodiscard]] virtual core::Variant GetGlobal(core::StringView name) = 0;
 
         // True if a callable global by that name exists.
-        [[nodiscard]] virtual bool HasFunction(rc::StringView name) const = 0;
+        [[nodiscard]] virtual bool HasFunction(core::StringView name) const = 0;
 
         // Call a global function with reflected args; returns its result (void
         // -> empty Variant), or an error if missing / on a script fault.
-        [[nodiscard]] virtual rc::Result<rc::Variant> Call(
-            rc::StringView function, rc::Span<rc::Variant> args) = 0;
+        [[nodiscard]] virtual core::Result<core::Variant> Call(
+            core::StringView function, core::Span<core::Variant> args) = 0;
 
         // Instantiate a script-defined class by name, passing reflected
         // constructor args. Returns null if the class is unknown or construction
         // faults. The returned object outlives this call and retains the context.
-        [[nodiscard]] virtual rc::RefPtr<ScriptObject> CreateInstance(
-            rc::StringView className, rc::Span<rc::Variant> args) = 0;
+        [[nodiscard]] virtual core::RefPtr<ScriptObject> CreateInstance(
+            core::StringView className, core::Span<core::Variant> args) = 0;
     };
 }

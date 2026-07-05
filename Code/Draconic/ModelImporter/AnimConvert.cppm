@@ -18,7 +18,7 @@ import draconic.animation.resource;
 
 using namespace draconic::core;
 namespace mdl = draconic::model;
-namespace anim = draconic::animation;
+namespace animation = draconic::animation;
 
 export namespace draconic::modelimporter {
 
@@ -34,7 +34,7 @@ export namespace draconic::modelimporter {
 // Build a SkeletonSource from a skin: one bone per joint (joint order), local bind TRS from the
 // model bone, inverse-bind from the skin, parent remapped into joint space.
 inline void SkeletonSourceFromModel(const mdl::Model& model, const mdl::ModelSkin& skin,
-                                    const HashMap<i32, i32>& boneToJoint, anim::SkeletonSource& out)
+                                    const HashMap<i32, i32>& boneToJoint, animation::SkeletonSource& out)
 {
     out.name = String(u8"skeleton");
     const Span<const i32>  joints = skin.joints();
@@ -62,7 +62,7 @@ inline void SkeletonSourceFromModel(const mdl::Model& model, const mdl::ModelSki
 // Build an AnimationClipSource from a model animation: each channel becomes a dense track keyed by
 // JOINT index (channels targeting bones outside the skin, or morph-weight channels, are skipped).
 inline void AnimationClipSourceFromModel(const mdl::ModelAnimation& animation, const HashMap<i32, i32>& boneToJoint,
-                                         StringView name, anim::AnimationClipSource& out)
+                                         StringView name, animation::AnimationClipSource& out)
 {
     out.name      = String(name);
     out.duration  = animation.duration;
@@ -75,14 +75,14 @@ inline void AnimationClipSourceFromModel(const mdl::ModelAnimation& animation, c
 
         u8 kind = 0;
         switch (ch->path) {
-        case mdl::AnimationPath::Translation: kind = static_cast<u8>(anim::AnimationClipSource::TrackKind::Position); break;
-        case mdl::AnimationPath::Rotation:    kind = static_cast<u8>(anim::AnimationClipSource::TrackKind::Rotation); break;
-        case mdl::AnimationPath::Scale:       kind = static_cast<u8>(anim::AnimationClipSource::TrackKind::Scale);    break;
+        case mdl::AnimationPath::Translation: kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Position); break;
+        case mdl::AnimationPath::Rotation:    kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Rotation); break;
+        case mdl::AnimationPath::Scale:       kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Scale);    break;
         default: continue;   // Weights (morph) not supported
         }
-        u8 interp = static_cast<u8>(anim::InterpolationMode::Linear);
-        if (ch->interpolation == mdl::AnimationInterpolation::Step)        { interp = static_cast<u8>(anim::InterpolationMode::Step); }
-        else if (ch->interpolation == mdl::AnimationInterpolation::CubicSpline) { interp = static_cast<u8>(anim::InterpolationMode::CubicSpline); }
+        u8 interp = static_cast<u8>(animation::InterpolationMode::Linear);
+        if (ch->interpolation == mdl::AnimationInterpolation::Step)        { interp = static_cast<u8>(animation::InterpolationMode::Step); }
+        else if (ch->interpolation == mdl::AnimationInterpolation::CubicSpline) { interp = static_cast<u8>(animation::InterpolationMode::CubicSpline); }
 
         const Span<const mdl::AnimationKeyframe> keys = ch->keyframes();
         out.trackBone.PushBack(*pj);

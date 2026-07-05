@@ -27,7 +27,7 @@ import draconic.runtime;
 import draconic.shell;
 import draconic.runtime.graphics;
 
-namespace rc  = draconic::core;
+namespace core  = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 namespace rhi = draconic::rhi;
 
@@ -37,8 +37,8 @@ export namespace draconic::runtime
     // RenderWindowDesc (see IApplication::MainRenderWindow) — the same descriptor runtime windows use.
     struct ApplicationSettings
     {
-        rc::f32 fixedTimeStep = 1.0f / 60.0f; // seconds per fixed update
-        rc::f32 maxFrameTime  = 0.25f;        // clamp per frame (avoids the spiral of death)
+        core::f32 fixedTimeStep = 1.0f / 60.0f; // seconds per fixed update
+        core::f32 maxFrameTime  = 0.25f;        // clamp per frame (avoids the spiral of death)
     };
 
     // The host as seen by the application: register subsystems via Ctx(), reach the
@@ -83,8 +83,8 @@ export namespace draconic::runtime
         virtual void Configure(IApplicationHost& host) { (void)host; }                  // register subsystems/types
         virtual void OnStartup(IApplicationHost& host) { (void)host; }                   // after Context.Startup
         virtual void OnLaunch(IApplicationHost& host) { (void)host; }                    // enter play
-        virtual void OnUpdate(IApplicationHost& host, rc::f32 deltaTime) { (void)host; (void)deltaTime; }
-        virtual void OnFixedUpdate(IApplicationHost& host, rc::f32 fixedDeltaTime) { (void)host; (void)fixedDeltaTime; }
+        virtual void OnUpdate(IApplicationHost& host, core::f32 deltaTime) { (void)host; (void)deltaTime; }
+        virtual void OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime) { (void)host; (void)fixedDeltaTime; }
         virtual void OnRenderWindow(IApplicationHost& host, FrameContext& frame) { (void)host; (void)frame; }
         virtual void OnExit(IApplicationHost& host) { (void)host; }                      // leave play
         virtual void OnShutdown(IApplicationHost& host) { (void)host; }                  // before Context.Shutdown

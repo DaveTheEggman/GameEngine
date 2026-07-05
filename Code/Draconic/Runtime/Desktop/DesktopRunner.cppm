@@ -19,7 +19,7 @@ import draconic.shell;              // IShell (interface only — the concrete s
 import draconic.runtime.graphics;   // GraphicsDevice (handed to the app)
 import draconic.runtime.client;     // IApplication + ApplicationHost (the runner drives these)
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::runtime
 {
@@ -34,7 +34,7 @@ export namespace draconic::runtime
         {
             shell.ProcessEvents();
             const auto now = std::chrono::steady_clock::now();
-            rc::f32 dt = std::chrono::duration<rc::f32>(now - previous).count();
+            core::f32 dt = std::chrono::duration<core::f32>(now - previous).count();
             previous = now;
             if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
             host.Tick(dt);

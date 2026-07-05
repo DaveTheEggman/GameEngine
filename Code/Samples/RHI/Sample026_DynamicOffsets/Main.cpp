@@ -15,8 +15,8 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 
 class DynamicOffsetSample : public sf::SampleApp {
 public:
@@ -67,23 +67,23 @@ private:
         float _pad[56];
     };
 
-    ds::Compiler* m_compiler = nullptr;
-    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
-    dr::Buffer *m_vb = nullptr, *m_ib = nullptr, *m_ub = nullptr;
-    dr::BindGroupLayout *m_bgl = nullptr;
-    dr::BindGroup *m_bg = nullptr;
-    dr::PipelineLayout *m_pl = nullptr;
-    dr::RenderPipeline *m_pipeline = nullptr;
-    dr::CommandPool *m_pool = nullptr;
-    dr::Fence *m_fence = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
+    rhi::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    rhi::Buffer *m_vb = nullptr, *m_ib = nullptr, *m_ub = nullptr;
+    rhi::BindGroupLayout *m_bgl = nullptr;
+    rhi::BindGroup *m_bg = nullptr;
+    rhi::PipelineLayout *m_pl = nullptr;
+    rhi::RenderPipeline *m_pipeline = nullptr;
+    rhi::CommandPool *m_pool = nullptr;
+    rhi::Fence *m_fence = nullptr;
     draconic::core::u64 m_fenceVal = 0;
 };
 
 draconic::core::Status DynamicOffsetSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Vertex,   u8"VSMain", u8"DynVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, ds::ShaderStage::Fragment, u8"PSMain", u8"DynPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"DynVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"DynPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Unit quad vertices (will be transformed by UBO data).
     static constexpr float verts[] = {
@@ -94,58 +94,58 @@ draconic::core::Status DynamicOffsetSample::OnInit() {
     };
     static constexpr draconic::core::u16 indices[] = { 0, 1, 2, 0, 2, 3 };
 
-    dr::BufferDesc vbd{}; vbd.size = sizeof(verts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc vbd{}; vbd.size = sizeof(verts); vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    dr::BufferDesc ibd{}; ibd.size = sizeof(indices); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc ibd{}; ibd.size = sizeof(indices); ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst; ibd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    rhi::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(verts), sizeof(verts)));
     batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(indices), sizeof(indices)));
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Uniform buffer: 4 ObjectData structs (256 bytes each = 1024 total).
-    dr::BufferDesc ubd{}; ubd.size = 256 * 4; ubd.usage = dr::BufferUsage::Uniform; ubd.memory = dr::MemoryLocation::CpuToGpu;
+    rhi::BufferDesc ubd{}; ubd.size = 256 * 4; ubd.usage = rhi::BufferUsage::Uniform; ubd.memory = rhi::MemoryLocation::CpuToGpu;
     if (m_device->CreateBuffer(ubd, m_ub) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Initialize UBO data.
     updateUBO();
 
     // Bind group layout with dynamic offset UBO.
-    dr::BindGroupLayoutEntry entry = dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex | dr::ShaderStage::Fragment);
+    rhi::BindGroupLayoutEntry entry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
     entry.hasDynamicOffset = true;
-    dr::BindGroupLayoutEntry entries[1] = { entry };
-    dr::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const dr::BindGroupLayoutEntry>(entries, 1);
+    rhi::BindGroupLayoutEntry entries[1] = { entry };
+    rhi::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const rhi::BindGroupLayoutEntry>(entries, 1);
     if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Bind group (bind the whole buffer, dynamic offset selects the slice).
-    dr::BindGroupEntry bgEntries[1] = { dr::BindGroupEntry::BufferEntry(m_ub, 0, 256) };
-    dr::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const dr::BindGroupEntry>(bgEntries, 1);
+    rhi::BindGroupEntry bgEntries[1] = { rhi::BindGroupEntry::BufferEntry(m_ub, 0, 256) };
+    rhi::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const rhi::BindGroupEntry>(bgEntries, 1);
     if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout.
-    dr::BindGroupLayout* sets[1] = { m_bgl };
-    dr::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
+    rhi::BindGroupLayout* sets[1] = { m_bgl };
+    rhi::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Pipeline with blend constant support.
-    dr::VertexAttribute attrs[1] = { { dr::VertexFormat::Float32x3, 0, 0 } };
-    dr::VertexBufferLayout vbl{}; vbl.stride = 12; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 1);
+    rhi::VertexAttribute attrs[1] = { { rhi::VertexFormat::Float32x3, 0, 0 } };
+    rhi::VertexBufferLayout vbl{}; vbl.stride = 12; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 1);
 
-    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format(); ct.writeMask = dr::ColorWriteMask::All;
-    ct.blend = dr::BlendState{
-        { dr::BlendFactor::Constant, dr::BlendFactor::OneMinusConstant, dr::BlendOperation::Add },
-        { dr::BlendFactor::One,      dr::BlendFactor::Zero,             dr::BlendOperation::Add }
+    rhi::ColorTargetState ct{}; ct.format = m_swapChain->Format(); ct.writeMask = rhi::ColorWriteMask::All;
+    ct.blend = rhi::BlendState{
+        { rhi::BlendFactor::Constant, rhi::BlendFactor::OneMinusConstant, rhi::BlendOperation::Add },
+        { rhi::BlendFactor::One,      rhi::BlendFactor::Zero,             rhi::BlendOperation::Add }
     };
 
-    dr::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-    rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-    rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
+    rhi::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+    rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+    rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
+    rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+    rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
@@ -182,21 +182,21 @@ void DynamicOffsetSample::OnRender() {
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
 
-    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
-    dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
+    rhi::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
+    ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+    rhi::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
     rp->SetPipeline(m_pipeline);
     rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0, 1);
     rp->SetScissor(0, 0, m_width, m_height);
     rp->SetVertexBuffer(0, m_vb, 0);
-    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
+    rp->SetIndexBuffer(m_ib, rhi::IndexFormat::UInt16, 0);
 
     // Animate blend constant: pulsing between full visibility and half.
     f32 pulse = 0.5f + 0.5f * std::sin(m_totalTime * 2.0f);
@@ -210,10 +210,10 @@ void DynamicOffsetSample::OnRender() {
     }
 
     rp->End();
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
-    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
+    rhi::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }

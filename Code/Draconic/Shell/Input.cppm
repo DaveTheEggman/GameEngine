@@ -14,7 +14,7 @@ export module draconic.shell:input;
 import draconic.core;
 import :input_types;
 
-namespace rc = draconic::core;
+namespace core = draconic::core;
 
 export namespace draconic::shell
 {
@@ -34,12 +34,12 @@ export namespace draconic::shell
     public:
         virtual ~IMouse() = default;
 
-        [[nodiscard]] virtual rc::f32 X()       const = 0;  // window-space position
-        [[nodiscard]] virtual rc::f32 Y()       const = 0;
-        [[nodiscard]] virtual rc::f32 DeltaX()  const = 0;  // movement this frame
-        [[nodiscard]] virtual rc::f32 DeltaY()  const = 0;
-        [[nodiscard]] virtual rc::f32 ScrollX() const = 0;  // wheel this frame
-        [[nodiscard]] virtual rc::f32 ScrollY() const = 0;
+        [[nodiscard]] virtual core::f32 X()       const = 0;  // window-space position
+        [[nodiscard]] virtual core::f32 Y()       const = 0;
+        [[nodiscard]] virtual core::f32 DeltaX()  const = 0;  // movement this frame
+        [[nodiscard]] virtual core::f32 DeltaY()  const = 0;
+        [[nodiscard]] virtual core::f32 ScrollX() const = 0;  // wheel this frame
+        [[nodiscard]] virtual core::f32 ScrollY() const = 0;
 
         [[nodiscard]] virtual bool IsButtonDown(MouseButton button)     const = 0;
         [[nodiscard]] virtual bool IsButtonPressed(MouseButton button)  const = 0;
@@ -57,17 +57,17 @@ export namespace draconic::shell
     public:
         virtual ~IGamepad() = default;
 
-        [[nodiscard]] virtual rc::i32        Index()     const = 0;
-        [[nodiscard]] virtual rc::StringView Name()      const = 0;
+        [[nodiscard]] virtual core::i32        Index()     const = 0;
+        [[nodiscard]] virtual core::StringView Name()      const = 0;
         [[nodiscard]] virtual bool           Connected() const = 0;
 
         [[nodiscard]] virtual bool IsButtonDown(GamepadButton button)     const = 0;
         [[nodiscard]] virtual bool IsButtonPressed(GamepadButton button)  const = 0;
         [[nodiscard]] virtual bool IsButtonReleased(GamepadButton button) const = 0;
-        [[nodiscard]] virtual rc::f32 Axis(GamepadAxis axis)              const = 0;  // [-1,1], triggers [0,1]
+        [[nodiscard]] virtual core::f32 Axis(GamepadAxis axis)              const = 0;  // [-1,1], triggers [0,1]
 
         // Low/high-frequency motor strengths in [0,1] for durationMs milliseconds.
-        virtual void SetRumble(rc::f32 lowFreq, rc::f32 highFreq, rc::u32 durationMs) = 0;
+        virtual void SetRumble(core::f32 lowFreq, core::f32 highFreq, core::u32 durationMs) = 0;
     };
 
     class ITouch
@@ -75,8 +75,8 @@ export namespace draconic::shell
     public:
         virtual ~ITouch() = default;
 
-        [[nodiscard]] virtual rc::i32 TouchCount() const = 0;
-        [[nodiscard]] virtual bool GetTouchPoint(rc::i32 index, TouchPoint& out) const = 0;
+        [[nodiscard]] virtual core::i32 TouchCount() const = 0;
+        [[nodiscard]] virtual bool GetTouchPoint(core::i32 index, TouchPoint& out) const = 0;
         [[nodiscard]] virtual bool HasTouch() const = 0;
     };
 
@@ -89,17 +89,17 @@ export namespace draconic::shell
         [[nodiscard]] virtual IKeyboard* Keyboard() = 0;
         [[nodiscard]] virtual IMouse*    Mouse()    = 0;
         [[nodiscard]] virtual ITouch*    Touch()    = 0;
-        [[nodiscard]] virtual rc::i32    GamepadCount() const = 0;
-        [[nodiscard]] virtual IGamepad*  GetGamepad(rc::i32 index) = 0;
+        [[nodiscard]] virtual core::i32    GamepadCount() const = 0;
+        [[nodiscard]] virtual IGamepad*  GetGamepad(core::i32 index) = 0;
 
         // This frame's input events (the event-first source of truth; the device
         // snapshots above are a fold over these). Cleared each frame by Update().
-        [[nodiscard]] virtual rc::Span<const InputEvent> Events() const = 0;
+        [[nodiscard]] virtual core::Span<const InputEvent> Events() const = 0;
 
         // Routing authority (per docs/design/viewport-input.md §4.1): the window under
         // the pointer (mouse routing) and the keyboard/gamepad-focused window. 0 = none.
-        [[nodiscard]] virtual rc::u32 HoverWindow()   const = 0;
-        [[nodiscard]] virtual rc::u32 FocusedWindow() const = 0;
+        [[nodiscard]] virtual core::u32 HoverWindow()   const = 0;
+        [[nodiscard]] virtual core::u32 FocusedWindow() const = 0;
 
         // Rolls per-frame state (current -> previous, clears deltas + events). The
         // shell calls this once per frame before pumping OS events.

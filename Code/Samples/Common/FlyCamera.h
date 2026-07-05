@@ -35,7 +35,7 @@ struct FlyCamera {
 
     // Convenience overload: drive from the shell's global devices.
     void Update(draconic::runtime::IApplicationHost& host, draconic::core::f32 dt) {
-        namespace rt = draconic::runtime;
+        namespace runtime = draconic::runtime;
         namespace sh = draconic::shell;
         auto* input = (host.Shell() != nullptr) ? host.Shell()->Input() : nullptr;
         sh::IKeyboard* kb    = (input != nullptr) ? input->Keyboard() : nullptr;
@@ -47,7 +47,7 @@ struct FlyCamera {
     // to confine the camera to one viewport. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable
     // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
     void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, draconic::core::f32 dt) {
-        namespace rt = draconic::runtime;
+        namespace runtime = draconic::runtime;
         namespace sh = draconic::shell;
         using draconic::core::Vector3;
         if (kb == nullptr) { return; }

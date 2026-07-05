@@ -13,8 +13,8 @@ import draconic.samples.framework;
 import draconic.rhi.vk;
 
 namespace sf = draconic::samples::framework;
-namespace dr = draconic::rhi;
-namespace ds = draconic::shaders;
+namespace rhi = draconic::rhi;
+namespace shaders = draconic::shaders;
 using draconic::core::Matrix4;
 
 class UniformBufferSample : public sf::SampleApp {
@@ -49,15 +49,15 @@ private:
         0,2,1, 0,3,2,  4,5,6, 4,6,7,  4,7,3, 4,3,0,  1,2,6, 1,6,5,  3,7,6, 3,6,2,  4,0,1, 4,1,5,
     };
 
-    ds::Compiler* m_compiler = nullptr;
-    dr::Buffer *m_vb = nullptr, *m_ib = nullptr, *m_ub = nullptr;
-    dr::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
-    dr::BindGroupLayout* m_bgl = nullptr;
-    dr::BindGroup* m_bg = nullptr;
-    dr::PipelineLayout* m_pl = nullptr;
-    dr::RenderPipeline* m_pipeline = nullptr;
-    dr::CommandPool* m_pool = nullptr;
-    dr::Fence* m_fence = nullptr;
+    shaders::Compiler* m_compiler = nullptr;
+    rhi::Buffer *m_vb = nullptr, *m_ib = nullptr, *m_ub = nullptr;
+    rhi::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
+    rhi::BindGroupLayout* m_bgl = nullptr;
+    rhi::BindGroup* m_bg = nullptr;
+    rhi::PipelineLayout* m_pl = nullptr;
+    rhi::RenderPipeline* m_pipeline = nullptr;
+    rhi::CommandPool* m_pool = nullptr;
+    rhi::Fence* m_fence = nullptr;
     draconic::core::u64 m_fenceVal = 0;
     void* m_ubMapped = nullptr;
     sf::DepthBuffer m_depthBuf;
@@ -66,62 +66,62 @@ private:
 draconic::core::Status UniformBufferSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8;
 
-    if (ds::createCompiler(ds::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Vertex,   u8"VSMain", u8"CubeVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, ds::ShaderStage::Fragment, u8"PSMain", u8"CubePS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, shaders::ShaderStage::Vertex,   u8"VSMain", u8"CubeVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, shaders::ShaderStage::Fragment, u8"PSMain", u8"CubePS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffers.
-    dr::BufferDesc vbd{}; vbd.size = sizeof(kCubeVerts); vbd.usage = dr::BufferUsage::Vertex | dr::BufferUsage::CopyDst; vbd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc vbd{}; vbd.size = sizeof(kCubeVerts); vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    dr::BufferDesc ibd{}; ibd.size = sizeof(kCubeIdx); ibd.usage = dr::BufferUsage::Index | dr::BufferUsage::CopyDst; ibd.memory = dr::MemoryLocation::GpuOnly;
+    rhi::BufferDesc ibd{}; ibd.size = sizeof(kCubeIdx); ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst; ibd.memory = rhi::MemoryLocation::GpuOnly;
     if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    dr::BufferDesc ubd{}; ubd.size = 64; ubd.usage = dr::BufferUsage::Uniform; ubd.memory = dr::MemoryLocation::CpuToGpu;
+    rhi::BufferDesc ubd{}; ubd.size = 64; ubd.usage = rhi::BufferUsage::Uniform; ubd.memory = rhi::MemoryLocation::CpuToGpu;
     if (m_device->CreateBuffer(ubd, m_ub) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     m_ubMapped = m_ub->Map();
 
     // Upload.
-    dr::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
+    rhi::TransferBatch* batch = nullptr; m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeVerts), sizeof(kCubeVerts)));
     batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kCubeIdx), sizeof(kCubeIdx)));
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
     // Bind group layout + group.
-    dr::BindGroupLayoutEntry bglE[1] = { dr::BindGroupLayoutEntry::UniformBuffer(0, dr::ShaderStage::Vertex | dr::ShaderStage::Fragment) };
-    dr::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const dr::BindGroupLayoutEntry>(bglE, 1);
+    rhi::BindGroupLayoutEntry bglE[1] = { rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment) };
+    rhi::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const rhi::BindGroupLayoutEntry>(bglE, 1);
     if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    dr::BindGroupEntry bgE[1] = { dr::BindGroupEntry::BufferEntry(m_ub, 0, 64) };
-    dr::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const dr::BindGroupEntry>(bgE, 1);
+    rhi::BindGroupEntry bgE[1] = { rhi::BindGroupEntry::BufferEntry(m_ub, 0, 64) };
+    rhi::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const rhi::BindGroupEntry>(bgE, 1);
     if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout with push constants.
-    dr::BindGroupLayout* sets[1] = { m_bgl };
-    dr::PushConstantRange pc{ dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, 16 };
-    dr::PipelineLayoutDesc pld{};
-    pld.bindGroupLayouts = Span<dr::BindGroupLayout* const>(sets, 1);
-    pld.pushConstantRanges = Span<const dr::PushConstantRange>(&pc, 1);
+    rhi::BindGroupLayout* sets[1] = { m_bgl };
+    rhi::PushConstantRange pc{ rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment, 0, 16 };
+    rhi::PipelineLayoutDesc pld{};
+    pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
+    pld.pushConstantRanges = Span<const rhi::PushConstantRange>(&pc, 1);
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Depth buffer.
     m_depthBuf.Recreate(m_device, m_width, m_height);
 
     // Render pipeline.
-    dr::VertexAttribute attrs[2] = { {dr::VertexFormat::Float32x3, 0, 0}, {dr::VertexFormat::Float32x3, 12, 1} };
-    dr::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = Span<const dr::VertexAttribute>(attrs, 2);
-    dr::ColorTargetState ct{}; ct.format = m_swapChain->Format();
+    rhi::VertexAttribute attrs[2] = { {rhi::VertexFormat::Float32x3, 0, 0}, {rhi::VertexFormat::Float32x3, 12, 1} };
+    rhi::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
+    rhi::ColorTargetState ct{}; ct.format = m_swapChain->Format();
 
-    dr::RenderPipelineDesc rpd{};
+    rhi::RenderPipelineDesc rpd{};
     rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u8"VSMain", dr::ShaderStage::Vertex };
-    rpd.vertex.buffers = Span<const dr::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = dr::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", dr::ShaderStage::Fragment };
-    rpd.fragment->targets = Span<const dr::ColorTargetState>(&ct, 1);
-    rpd.primitive = { dr::PrimitiveTopology::TriangleList, dr::FrontFace::CW, dr::CullMode::Back };
-    rpd.depthStencil = dr::DepthStencilState{}; rpd.depthStencil->format = dr::TextureFormat::Depth24PlusStencil8;
-    rpd.depthStencil->depthCompare = dr::CompareFunction::Less;
+    rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+    rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
+    rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+    rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+    rpd.primitive = { rhi::PrimitiveTopology::TriangleList, rhi::FrontFace::CW, rhi::CullMode::Back };
+    rpd.depthStencil = rhi::DepthStencilState{}; rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
+    rpd.depthStencil->depthCompare = rhi::CompareFunction::Less;
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(dr::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
@@ -140,37 +140,37 @@ void UniformBufferSample::OnRender() {
     std::memcpy(m_ubMapped, mvp.Data(), 64);
 
     m_pool->Reset();
-    dr::CommandEncoder* enc = nullptr;
+    rhi::CommandEncoder* enc = nullptr;
     if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::Undefined, dr::ResourceState::RenderTarget);
-    enc->TransitionTexture(m_depthBuf.texture, dr::ResourceState::Undefined, dr::ResourceState::DepthStencilWrite);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_depthBuf.texture, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilWrite);
 
-    dr::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = dr::LoadOp::Clear; ca.storeOp = dr::StoreOp::Store;
-    ca.clearValue = dr::ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
-    dr::DepthStencilAttachment dsa{}; dsa.view = m_depthBuf.view;
-    dsa.depthLoadOp = dr::LoadOp::Clear; dsa.depthStoreOp = dr::StoreOp::Store; dsa.depthClearValue = 1.0f;
-    dr::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
+    rhi::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
+    ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
+    ca.clearValue = rhi::ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+    rhi::DepthStencilAttachment dsa{}; dsa.view = m_depthBuf.view;
+    dsa.depthLoadOp = rhi::LoadOp::Clear; dsa.depthStoreOp = rhi::StoreOp::Store; dsa.depthClearValue = 1.0f;
+    rhi::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca); rpd.depthStencilAttachment = dsa;
 
     auto* rp = enc->BeginRenderPass(rpd);
     rp->SetPipeline(m_pipeline);
     rp->SetBindGroup(0, m_bg);
     draconic::core::f32 pulse = (std::sin(m_totalTime * 2.0f) * 0.3f + 0.7f);
     draconic::core::f32 tint[4] = { pulse, pulse, pulse, 1.0f };
-    rp->SetPushConstants(dr::ShaderStage::Vertex | dr::ShaderStage::Fragment, 0, 16, tint);
+    rp->SetPushConstants(rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment, 0, 16, tint);
     rp->SetViewport(0, 0, static_cast<draconic::core::f32>(m_width), static_cast<draconic::core::f32>(m_height), 0, 1);
     rp->SetScissor(0, 0, m_width, m_height);
     rp->SetVertexBuffer(0, m_vb, 0);
-    rp->SetIndexBuffer(m_ib, dr::IndexFormat::UInt16, 0);
+    rp->SetIndexBuffer(m_ib, rhi::IndexFormat::UInt16, 0);
     rp->DrawIndexed(36);
     rp->End();
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), dr::ResourceState::RenderTarget, dr::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
 
-    dr::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
-    dr::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(draconic::core::Span<dr::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
+    rhi::CommandBuffer* cb = enc->Finish(); m_fenceVal++;
+    rhi::CommandBuffer* cbs[1] = { cb };
+    m_graphicsQueue->Submit(draconic::core::Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }
