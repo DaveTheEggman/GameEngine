@@ -3,7 +3,7 @@
 // ApplicationHost: the concrete, generic host that drives exactly ONE IApplication.
 // Owns a Context, an optional (borrowed) GraphicsDevice, and the LIST of
 // RenderWindows it presents. It is infrastructure, NOT subclassed — all behavior
-// lives in the IApplication. It is deliberately LOOP-AGNOSTIC: the platform layer
+// lives in the IApplication. It is deliberately LOOP-AGNOSTIC: the shell layer
 // drives Start/Tick/Stop (a blocking loop on desktop, a callback on Emscripten),
 // so the host contains no run loop.
 //
@@ -26,11 +26,12 @@ export import :app;   // ApplicationSettings, IApplicationHost, IApplication
 
 import draconic.core;
 import draconic.runtime;
-import draconic.runtime.platform;
+import draconic.shell;
 import draconic.runtime.graphics;
 import draconic.profiler;
 
 namespace rc = draconic::core;
+using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 
 export namespace draconic::runtime
 {
@@ -44,15 +45,15 @@ export namespace draconic::runtime
         ApplicationHost& operator=(const ApplicationHost&) = delete;
 
         // Bring the application up: read settings, register subsystems (app's
-        // Configure), start the Context, create the main RenderWindow (if platform
+        // Configure), start the Context, create the main RenderWindow (if shell
         // +graphics), then enter play (app OnLaunch). Idempotent. The application,
-        // platform, and graphics device are all BORROWED (owned by the entry point);
-        // platform/graphics stay null for headless runs.
-        void Start(IApplication& app, IPlatform* platform = nullptr, GraphicsDevice* graphics = nullptr)
+        // shell, and graphics device are all BORROWED (owned by the entry point);
+        // shell/graphics stay null for headless runs.
+        void Start(IApplication& app, IShell* shell = nullptr, GraphicsDevice* graphics = nullptr)
         {
             if (m_started) { return; }
             m_app = &app;
-            m_platform = platform;
+            m_shell = shell;
             m_graphics = graphics;
             m_settings = app.Settings();
 
@@ -63,10 +64,10 @@ export namespace draconic::runtime
             m_app->Configure(*this);
             m_context.Startup();
 
-            // The main window already exists on the platform; give it a RenderWindow.
-            if (m_platform != nullptr && m_graphics != nullptr && m_platform->WindowManager() != nullptr)
+            // The main window already exists on the shell; give it a RenderWindow.
+            if (m_shell != nullptr && m_graphics != nullptr && m_shell->WindowManager() != nullptr)
             {
-                if (IWindow* main = m_platform->WindowManager()->MainWindow())
+                if (IWindow* main = m_shell->WindowManager()->MainWindow())
                 {
                     const RenderWindowDesc mainDesc = app.MainRenderWindow();   // app's main-window render config
                     auto rw = m_graphics->CreateRenderWindow(*main, mainDesc);
@@ -81,7 +82,7 @@ export namespace draconic::runtime
             m_running = true;
         }
 
-        // Advance exactly one frame with an explicit delta. The platform runner
+        // Advance exactly one frame with an explicit delta. The shell runner
         // passes wall-clock time; call directly for deterministic stepping.
         void Tick(rc::f32 deltaTime)
         {
@@ -160,13 +161,13 @@ export namespace draconic::runtime
         void RequestExit(int code = 0) noexcept override { m_running = false; m_exitCode = code; }
 
         [[nodiscard]] Context& Ctx() noexcept override { return m_context; }
-        [[nodiscard]] IPlatform* Platform() noexcept override { return m_platform; }
+        [[nodiscard]] IShell* Shell() noexcept override { return m_shell; }
         [[nodiscard]] GraphicsDevice* Graphics() noexcept override { return m_graphics; }
 
         RenderWindow* OpenWindow(const WindowSettings& windowSettings, const RenderWindowDesc& renderDesc) override
         {
-            if (m_platform == nullptr || m_graphics == nullptr) { return nullptr; }
-            IWindowManager* wm = m_platform->WindowManager();
+            if (m_shell == nullptr || m_graphics == nullptr) { return nullptr; }
+            IWindowManager* wm = m_shell->WindowManager();
             if (wm == nullptr) { return nullptr; }
 
             auto osWindow = wm->CreateWindow(windowSettings);
@@ -206,7 +207,7 @@ export namespace draconic::runtime
         void FlushPendingCloses()
         {
             if (m_pendingClose.IsEmpty()) { return; }
-            IWindowManager* wm = (m_platform != nullptr) ? m_platform->WindowManager() : nullptr;
+            IWindowManager* wm = (m_shell != nullptr) ? m_shell->WindowManager() : nullptr;
 
             for (RenderWindow* dead : m_pendingClose)
             {
@@ -224,7 +225,7 @@ export namespace draconic::runtime
         Context m_context;
         ApplicationSettings m_settings;
         IApplication* m_app = nullptr;         // borrowed; owned by the entry point
-        IPlatform* m_platform = nullptr;       // borrowed; owned by the entry point
+        IShell* m_shell = nullptr;       // borrowed; owned by the entry point
         GraphicsDevice* m_graphics = nullptr;  // borrowed; owned by the entry point
         rc::Array<rc::UniquePtr<RenderWindow>> m_windows;   // [0] == main
         rc::Array<RenderWindow*> m_pendingClose;            // deferred destroy

@@ -1,8 +1,8 @@
 # Draconic::SamplesFramework — `draconic.samples.framework` (RHI sample base + helpers).
-# Needs the Vulkan backend, the desktop platform, and the shader compiler.
+# Needs the Vulkan backend, the desktop shell, and the shader compiler.
 
-if(NOT (TARGET Draconic::RHIVulkan AND TARGET Draconic::RuntimePlatformDesktop AND TARGET Draconic::Shaders))
-    message(STATUS "Skipping Draconic::SamplesFramework — needs Vulkan + Desktop platform + Shaders")
+if(NOT (TARGET Draconic::RHIVulkan AND TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::Shaders))
+    message(STATUS "Skipping Draconic::SamplesFramework — needs Vulkan + Desktop shell + Shaders")
     return()
 endif()
 
@@ -14,8 +14,8 @@ target_link_libraries(DraconicSamplesFramework PUBLIC
     Draconic::RHI
     Draconic::RHIVulkan
     Draconic::RHIValidation
-    Draconic::RuntimePlatform
-    Draconic::RuntimePlatformDesktop
+    Draconic::Shell
+    Draconic::ShellDesktop Draconic::RuntimeDesktop
     Draconic::Shaders
     Draconic::Policy)
 

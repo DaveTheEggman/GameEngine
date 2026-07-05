@@ -1,5 +1,5 @@
 // Headless tests for the RHI render host (GraphicsDevice + RenderWindow +
-// FrameContext) over the Null RHI backend + null platform — no GPU required.
+// FrameContext) over the Null RHI backend + null shell — no GPU required.
 // Covers device bring-up, per-window frame begin/end, the frame-in-flight ring,
 // multi-window rendering, resize, and the minimized-skip path.
 #include <doctest/doctest.h>
@@ -8,11 +8,12 @@
 import draconic.core;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.null;
-import draconic.runtime.platform;
-import draconic.runtime.platform.null;
+import draconic.shell;
+import draconic.shell.null;
 
 using namespace draconic::core;
 using namespace draconic::runtime;
+using namespace draconic::shell;
 
 TEST_CASE("graphics: GraphicsDevice brings up over the null backend")
 {
@@ -28,12 +29,12 @@ TEST_CASE("graphics: GraphicsDevice brings up over the null backend")
 
 TEST_CASE("graphics: a window renders, and the frame ring advances")
 {
-    NullPlatform platform;
+    NullShell shell;
     auto created = CreateNullGraphicsDevice(2);
     REQUIRE(created.HasValue());
     UniquePtr<GraphicsDevice>& gd = created.Value();
 
-    auto rwResult = gd->CreateRenderWindow(*platform.MainWindow(), RenderWindowDesc{});
+    auto rwResult = gd->CreateRenderWindow(*shell.MainWindow(), RenderWindowDesc{});
     REQUIRE(rwResult.HasValue());
     UniquePtr<RenderWindow>& rw = rwResult.Value();
 
@@ -65,8 +66,8 @@ TEST_CASE("graphics: a window renders, and the frame ring advances")
 
 TEST_CASE("graphics: two windows render independently in one app frame")
 {
-    NullPlatform platform;
-    IWindowManager* wm = platform.WindowManager();
+    NullShell shell;
+    IWindowManager* wm = shell.WindowManager();
     Result<IWindow*> second = wm->CreateWindow(WindowSettings{});
     REQUIRE(second.HasValue());
 
@@ -74,7 +75,7 @@ TEST_CASE("graphics: two windows render independently in one app frame")
     REQUIRE(created.HasValue());
     UniquePtr<GraphicsDevice>& gd = created.Value();
 
-    auto a = gd->CreateRenderWindow(*platform.MainWindow(), RenderWindowDesc{});
+    auto a = gd->CreateRenderWindow(*shell.MainWindow(), RenderWindowDesc{});
     auto b = gd->CreateRenderWindow(*second.Value(), RenderWindowDesc{});
     REQUIRE(a.HasValue());
     REQUIRE(b.HasValue());
@@ -95,18 +96,18 @@ TEST_CASE("graphics: two windows render independently in one app frame")
 
 TEST_CASE("graphics: SyncSize resizes the swapchain when the window changes")
 {
-    NullPlatform platform;
+    NullShell shell;
     auto created = CreateNullGraphicsDevice();
     REQUIRE(created.HasValue());
     UniquePtr<GraphicsDevice>& gd = created.Value();
 
-    auto rwResult = gd->CreateRenderWindow(*platform.MainWindow(), RenderWindowDesc{});
+    auto rwResult = gd->CreateRenderWindow(*shell.MainWindow(), RenderWindowDesc{});
     REQUIRE(rwResult.HasValue());
     UniquePtr<RenderWindow>& rw = rwResult.Value();
 
     CHECK_FALSE(rw->SyncSize());                       // nothing changed yet
 
-    static_cast<NullWindow*>(platform.MainWindow())->Resize(1600, 900);
+    static_cast<NullWindow*>(shell.MainWindow())->Resize(1600, 900);
     CHECK(rw->SyncSize());                             // picked up the change
     CHECK(rw->Swap()->Width() == 1600u);
     CHECK(rw->Swap()->Height() == 900u);
@@ -115,16 +116,16 @@ TEST_CASE("graphics: SyncSize resizes the swapchain when the window changes")
 
 TEST_CASE("graphics: a minimized window yields an invalid frame")
 {
-    NullPlatform platform;
+    NullShell shell;
     auto created = CreateNullGraphicsDevice();
     REQUIRE(created.HasValue());
     UniquePtr<GraphicsDevice>& gd = created.Value();
 
-    auto rwResult = gd->CreateRenderWindow(*platform.MainWindow(), RenderWindowDesc{});
+    auto rwResult = gd->CreateRenderWindow(*shell.MainWindow(), RenderWindowDesc{});
     REQUIRE(rwResult.HasValue());
     UniquePtr<RenderWindow>& rw = rwResult.Value();
 
-    static_cast<NullWindow*>(platform.MainWindow())->SetMinimized(true);
+    static_cast<NullWindow*>(shell.MainWindow())->SetMinimized(true);
     FrameContext f = rw->BeginFrame();
     CHECK_FALSE(f.valid);
     rw->EndFrame(f);                                   // must be a harmless no-op

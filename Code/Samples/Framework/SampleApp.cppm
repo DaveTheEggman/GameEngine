@@ -1,5 +1,5 @@
 // SampleApp — abstract base for RHI samples (adapted from the Draconic sample
-// framework to Draconic's platform). Brings up a window (draconic.runtime.platform),
+// framework to Draconic's shell). Brings up a window (draconic.shell),
 // a Vulkan backend (validation-wrapped), device, queue, and swap chain; pumps
 // events, tracks timing, and calls OnRender(). Resize is detected by polling the
 // window size; the loop skips rendering while minimized.
@@ -19,8 +19,8 @@ import draconic.rhi.vk;
 import draconic.rhi.dx12;
 #endif
 import draconic.rhi.validation;
-import draconic.runtime.platform;
-import draconic.runtime.platform.desktop;
+import draconic.shell;
+import draconic.shell.desktop;
 
 using namespace draconic::core;
 
@@ -51,8 +51,8 @@ protected:
     virtual void   OnResize(u32, u32) {}
     virtual void   OnShutdown() = 0;
 
-    runtime::IPlatform* m_platform = nullptr;   // borrowed from m_platformOwner
-    runtime::IWindow*   m_window   = nullptr;
+    shell::IShell* m_shell = nullptr;   // borrowed from m_shellOwner
+    shell::IWindow*   m_window   = nullptr;
     rhi::Backend*       m_backend  = nullptr;
     rhi::Device*        m_device   = nullptr;
     rhi::Queue*         m_graphicsQueue = nullptr;
@@ -70,7 +70,7 @@ protected:
 private:
     BackendType m_backendType;
     bool        m_validationEnabled;
-    UniquePtr<runtime::IPlatform> m_platformOwner;
+    UniquePtr<shell::IShell> m_shellOwner;
 
     Status Init();
     void   MainLoop();
@@ -98,23 +98,23 @@ inline int SampleApp::Run(int argc, char** argv) {
 }
 
 inline Status SampleApp::Init() {
-    runtime::WindowSettings ws{};
+    shell::WindowSettings ws{};
     ws.title  = Title();
     ws.width  = m_width;
     ws.height = m_height;
 
-    m_platformOwner = runtime::CreatePlatform(ws);
-    m_platform = m_platformOwner.Get();
-    if (m_platform == nullptr || m_platform->MainWindow() == nullptr) {
-        rhi::LogError("SampleApp: platform/window init failed"); return ErrorCode::Unknown;
+    m_shellOwner = shell::CreateShell(ws);
+    m_shell = m_shellOwner.Get();
+    if (m_shell == nullptr || m_shell->MainWindow() == nullptr) {
+        rhi::LogError("SampleApp: shell/window init failed"); return ErrorCode::Unknown;
     }
-    m_window = m_platform->MainWindow();
+    m_window = m_shell->MainWindow();
     m_width  = m_window->Width();
     m_height = m_window->Height();
 
     if (!CreateBackend().IsOk()) return ErrorCode::Unknown;
 
-    const runtime::NativeWindow nw = m_window->Native();
+    const shell::NativeWindow nw = m_window->Native();
     if (!m_backend->CreateSurface(nw.window, nw.display, m_surface).IsOk()) {
         rhi::LogError("SampleApp: createSurface failed"); return ErrorCode::Unknown;
     }
@@ -195,8 +195,8 @@ inline void SampleApp::MainLoop() {
     m_running = true;
     auto lastTime = clock::now();
 
-    while (m_running && m_platform->IsRunning()) {
-        m_platform->ProcessEvents();
+    while (m_running && m_shell->IsRunning()) {
+        m_shell->ProcessEvents();
 
         const auto now = clock::now();
         m_deltaTime = dur(now - lastTime).count();
@@ -228,7 +228,7 @@ inline void SampleApp::Shutdown() {
     if (m_surface)   { m_device->DestroySurface(m_surface);     m_surface   = nullptr; }
     if (m_device)    { m_device->Destroy();                    m_device    = nullptr; }
     if (m_backend)   { m_backend->Destroy();                   m_backend   = nullptr; }
-    m_platformOwner.Reset();   // destroys the window + platform
+    m_shellOwner.Reset();   // destroys the window + shell
 }
 
 } // namespace draconic::samples::framework

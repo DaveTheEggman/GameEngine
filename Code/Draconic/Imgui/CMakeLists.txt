@@ -4,7 +4,7 @@ add_library(DraconicImgui STATIC)
 add_library(Draconic::Imgui ALIAS DraconicImgui)
 
 target_link_libraries(DraconicImgui
-    PUBLIC Draconic::Core Draconic::RHI Draconic::Runtime Draconic::RuntimePlatform
+    PUBLIC Draconic::Core Draconic::RHI Draconic::Runtime Draconic::Shell
            Draconic::RuntimeGraphics Draconic::Shaders Draconic::ShaderSystem
            Draconic::ImGui Draconic::Policy)
 

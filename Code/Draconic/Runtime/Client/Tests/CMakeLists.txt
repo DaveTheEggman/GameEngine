@@ -16,7 +16,7 @@ add_executable(DraconicRuntimeClientTests
     ApplicationTests.cpp)
 
 target_link_libraries(DraconicRuntimeClientTests PRIVATE
-    Draconic::RuntimeClient Draconic::RuntimePlatformNull Draconic::RuntimeGraphics Draconic::RuntimeGraphicsNull doctest::doctest)
+    Draconic::RuntimeClient Draconic::ShellNull Draconic::RuntimeGraphics Draconic::RuntimeGraphicsNull doctest::doctest)
 
 target_compile_definitions(DraconicRuntimeClientTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

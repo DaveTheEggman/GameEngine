@@ -1,0 +1,45 @@
+// draconic.runtime.desktop — the desktop application runner.
+//
+// RunApplication is the DESKTOP execution model: a blocking wall-clock loop that drives an
+// IApplication (via ApplicationHost) against an IShell until either stops. It lives here —
+// separate from the shell backend (draconic.shell.desktop) and from the execution-model-agnostic
+// client (draconic.runtime.client) — precisely BECAUSE the loop is execution-model-specific:
+// desktop blocks in a while-loop, whereas Emscripten must yield to the browser via a callback
+// (its runner will be this module's sibling). The loop works entirely through the abstract IShell
+// interface, so it is windowing-backend agnostic; the concrete shell is constructed by the entry
+// point and passed in.
+module;
+#include "Core/Prelude.h"
+#include <chrono>
+
+export module draconic.runtime.desktop;
+
+import draconic.core;
+import draconic.shell;              // IShell (interface only — the concrete shell is handed in)
+import draconic.runtime.graphics;   // GraphicsDevice (handed to the app)
+import draconic.runtime.client;     // IApplication + ApplicationHost (the runner drives these)
+
+namespace rc = draconic::core;
+
+export namespace draconic::runtime
+{
+    // Desktop runner: block-loop the app against the shell until either stops, clamped to
+    // maxFrameTime. DRACONIC_APP_MAIN calls it on desktop; returns the app's exit code.
+    inline int RunApplication(IApplication& app, shell::IShell& shell, GraphicsDevice* graphics = nullptr)
+    {
+        ApplicationHost host;
+        host.Start(app, &shell, graphics);
+        auto previous = std::chrono::steady_clock::now();
+        while (shell.IsRunning() && host.IsRunning())
+        {
+            shell.ProcessEvents();
+            const auto now = std::chrono::steady_clock::now();
+            rc::f32 dt = std::chrono::duration<rc::f32>(now - previous).count();
+            previous = now;
+            if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
+            host.Tick(dt);
+        }
+        host.Stop();
+        return host.ExitCode();
+    }
+}

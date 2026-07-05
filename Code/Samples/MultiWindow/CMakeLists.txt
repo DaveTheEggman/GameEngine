@@ -8,8 +8,8 @@ target_link_libraries(MultiWindow PRIVATE
     Draconic::RHI
     Draconic::Runtime
     Draconic::RuntimeClient
-    Draconic::RuntimePlatform
-    Draconic::RuntimePlatformDesktop
+    Draconic::Shell
+    Draconic::ShellDesktop Draconic::RuntimeDesktop
     Draconic::RuntimeGraphics
     Draconic::RuntimeGraphicsGpu
     Draconic::Policy)

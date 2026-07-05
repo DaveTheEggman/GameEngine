@@ -1,6 +1,6 @@
-// Draconic::RuntimePlatformNull — the `draconic.runtime.platform.null` module.
+// Draconic::ShellNull — the `draconic.shell.null` module.
 //
-// A headless IPlatform implementation: no real window or OS events. Useful for
+// A headless IShell implementation: no real window or OS events. Useful for
 // tests, tools, and headless servers, and as the reference for what a real
 // backend must provide. ProcessEvents is a no-op; IsRunning stays true until
 // RequestExit (or the main window is closed), so the runner relies on the
@@ -11,14 +11,14 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.platform.null;
+export module draconic.shell.null;
 
 import draconic.core;
-import draconic.runtime.platform;
+import draconic.shell;
 
 namespace rc = draconic::core;
 
-export namespace draconic::runtime
+export namespace draconic::shell
 {
     class NullWindow final : public IWindow
     {
@@ -167,10 +167,10 @@ export namespace draconic::runtime
         NullTouch    m_touch;
     };
 
-    class NullPlatform final : public IPlatform
+    class NullShell final : public IShell
     {
     public:
-        explicit NullPlatform(const WindowSettings& settings = {}) noexcept : m_windows(settings) {}
+        explicit NullShell(const WindowSettings& settings = {}) noexcept : m_windows(settings) {}
 
         [[nodiscard]] IWindowManager* WindowManager() noexcept override { return &m_windows; }
         [[nodiscard]] IWindow* MainWindow() noexcept override { return m_windows.MainWindow(); }

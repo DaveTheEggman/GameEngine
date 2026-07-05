@@ -4,7 +4,7 @@
 // the main one plus a second opened at runtime via OpenWindow() — and clears each
 // to a different color every frame. Close the main window to exit.
 //
-// The path: CreatePlatform (SDL3) -> CreateGraphicsDevice (Vulkan) -> Application
+// The path: CreateShell (SDL3) -> CreateGraphicsDevice (Vulkan) -> Application
 // (+ OpenWindow) -> RunApplication. No bespoke swapchain/loop code in the app.
 
 #include "Core/Prelude.h"
@@ -13,13 +13,15 @@ import draconic.core;
 import draconic.rhi;
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.platform;
-import draconic.runtime.platform.desktop;
+import draconic.shell;
+import draconic.runtime.desktop;
+import draconic.shell.desktop;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.gpu;
 
 namespace rc = draconic::core;
 namespace rt = draconic::runtime;
+        namespace sh = draconic::shell;
 namespace rhi = draconic::rhi;
 
 namespace
@@ -32,7 +34,7 @@ namespace
             // windows[0] (the main window) already has a RenderWindow from Start().
             // Open a second OS window at runtime — the same call a detachable UI
             // panel would make.
-            rt::WindowSettings ws;
+            sh::WindowSettings ws;
             ws.title  = u8"Draconic - Detached";
             ws.width  = 480;
             ws.height = 360;
@@ -63,15 +65,15 @@ namespace
 
 int main(int /*argc*/, char** /*argv*/)
 {
-    rt::WindowSettings ws;
+    sh::WindowSettings ws;
     ws.title  = u8"Draconic - Main";
     ws.width  = 800;
     ws.height = 600;
 
-    auto platform = rt::CreatePlatform(ws);
-    if (platform.Get() == nullptr || platform->MainWindow() == nullptr)
+    auto shell = sh::CreateShell(ws);
+    if (shell.Get() == nullptr || shell->MainWindow() == nullptr)
     {
-        rc::ConsoleWrite(u8"MultiWindow: platform/window init failed.\n");
+        rc::ConsoleWrite(u8"MultiWindow: shell/window init failed.\n");
         return 1;
     }
 
@@ -86,5 +88,5 @@ int main(int /*argc*/, char** /*argv*/)
     }
 
     MultiWindowApp app;
-    return rt::RunApplication(app, *platform, gpu.Value().Get());
+    return rt::RunApplication(app, *shell, gpu.Value().Get());
 }

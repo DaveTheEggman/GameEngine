@@ -20,8 +20,9 @@ import draconic.core;
 import draconic.rhi;                     // PresentMode (run the benchmark vsync-off)
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.platform;
-import draconic.runtime.platform.desktop;
+import draconic.shell;
+import draconic.runtime.desktop;
+import draconic.shell.desktop;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.gpu;
 import draconic.runtime.defaultapp;
@@ -37,6 +38,7 @@ import draconic.materials;
 namespace rc  = draconic::core;
 namespace rhi = draconic::rhi;
 namespace rt  = draconic::runtime;
+namespace sh  = draconic::shell;
 namespace smp = draconic::samples;
 namespace sc  = draconic::scene;
 namespace rd  = draconic::render;
@@ -164,40 +166,40 @@ namespace
             // Smooth the frame time every frame + build the ImGui HUD (drawn in OnRenderWindow).
             m_frameMs = m_frameMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
             if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
-                g->NewFrame(host.Platform() != nullptr ? host.Platform()->Input() : nullptr, deltaTime);
+                g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
                 BuildHud(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
             }
             if (m_scene == nullptr) { return; }
 
-            auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr;
-            rt::IKeyboard* kb = input != nullptr ? input->Keyboard() : nullptr;
+            auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
+            sh::IKeyboard* kb = input != nullptr ? input->Keyboard() : nullptr;
             if (kb == nullptr) { return; }   // mouse-look is handled inside m_fly.Update
 
-            if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
+            if (kb->IsKeyPressed(sh::KeyCode::Escape)) { host.RequestExit(0); return; }
 
             // --- load controls ---
-            if (kb->IsKeyPressed(rt::KeyCode::Space))     { AddSphereBatch(); }
-            if (kb->IsKeyPressed(rt::KeyCode::Backspace)) { RemoveLastBatch(); }
-            if (kb->IsKeyPressed(rt::KeyCode::U)) {
+            if (kb->IsKeyPressed(sh::KeyCode::Space))     { AddSphereBatch(); }
+            if (kb->IsKeyPressed(sh::KeyCode::Backspace)) { RemoveLastBatch(); }
+            if (kb->IsKeyPressed(sh::KeyCode::U)) {
                 m_uniqueMaterials = !m_uniqueMaterials;
                 RebuildSphereMaterials();
                 rc::ConsoleWrite(m_uniqueMaterials ? u8"Unique materials: ON (a draw per sphere)\n"
                                                    : u8"Unique materials: OFF (shared, batched)\n");
             }
-            if (kb->IsKeyPressed(rt::KeyCode::B)) {
+            if (kb->IsKeyPressed(sh::KeyCode::B)) {
                 m_bob = !m_bob;
                 rc::ConsoleWrite(m_bob ? u8"Sin-wave bob: ON (transforms rewritten every frame)\n"
                                        : u8"Sin-wave bob: OFF\n");
             }
-            if (kb->IsKeyPressed(rt::KeyCode::H)) { m_showStats = !m_showStats; }
-            if (kb->IsKeyPressed(rt::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
+            if (kb->IsKeyPressed(sh::KeyCode::H)) { m_showStats = !m_showStats; }
+            if (kb->IsKeyPressed(sh::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
                 if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
                     const bool on = !render->TaaEnabled();
                     render->SetTaaEnabled(on);
                     rc::ConsoleWrite(on ? u8"TAA: ON (motion vectors active)\n" : u8"TAA: OFF\n");
                 }
             }
-            if (kb->IsKeyPressed(rt::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B regression/perf)
+            if (kb->IsKeyPressed(sh::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B regression/perf)
                 if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
                     const bool on = !render->InstanceSharing();
                     render->SetInstanceSharing(on);
@@ -205,7 +207,7 @@ namespace
                                         : u8"Instance sharing: OFF (forward re-fills = old double-build)\n");
                 }
             }
-            if (kb->IsKeyPressed(rt::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
+            if (kb->IsKeyPressed(sh::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
                 if (auto* lights = m_scene->GetSystem<rd::LightComponentManager>()) {
                     if (rd::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
                         sl->castsShadows = !sl->castsShadows;
@@ -460,11 +462,11 @@ namespace
 
 int main(int, char**)
 {
-    auto platform = rt::CreatePlatform();
+    auto shell = sh::CreateShell();
     rt::GraphicsDeviceDesc gpuDesc{};
     auto gpu = rt::CreateGraphicsDevice(gpuDesc);
     rt::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     StressTestApp app;
-    return rt::RunApplication(app, *platform, device);
+    return rt::RunApplication(app, *shell, device);
 }

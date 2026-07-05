@@ -1,7 +1,7 @@
-// Draconic::RuntimePlatform — `:input` partition.
+// Draconic::Shell — `:input` partition.
 //
 // Abstract input device interfaces: IKeyboard, IMouse, IGamepad, ITouch, and
-// IInputManager (the aggregate the platform exposes). State is double-buffered
+// IInputManager (the aggregate the shell exposes). State is double-buffered
 // per frame so callers can ask Down (held), Pressed (this frame), and Released
 // (this frame). Backends implement these; IInputManager::Update() rolls the
 // frame. Ported from Draconic (itself a Sedulous port).
@@ -9,14 +9,14 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.platform:input;
+export module draconic.shell:input;
 
 import draconic.core;
 import :input_types;
 
 namespace rc = draconic::core;
 
-export namespace draconic::runtime
+export namespace draconic::shell
 {
     class IKeyboard
     {
@@ -80,7 +80,7 @@ export namespace draconic::runtime
         [[nodiscard]] virtual bool HasTouch() const = 0;
     };
 
-    // Aggregate exposed by IPlatform::Input(). Devices are owned by the manager.
+    // Aggregate exposed by IShell::Input(). Devices are owned by the manager.
     class IInputManager
     {
     public:
@@ -102,7 +102,7 @@ export namespace draconic::runtime
         [[nodiscard]] virtual rc::u32 FocusedWindow() const = 0;
 
         // Rolls per-frame state (current -> previous, clears deltas + events). The
-        // platform calls this once per frame before pumping OS events.
+        // shell calls this once per frame before pumping OS events.
         virtual void Update() = 0;
     };
 }

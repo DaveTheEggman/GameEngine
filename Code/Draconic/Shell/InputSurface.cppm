@@ -1,17 +1,17 @@
-// Draconic::RuntimePlatform — `:surface` partition.
+// Draconic::Shell — `:surface` partition.
 //
 // InputSurface + InputRouter: the viewport-input layer that sits above the raw
-// platform devices (see docs/design/viewport-input.md §4).
+// shell devices (see docs/design/viewport-input.md §4).
 //
 //   InputSurface  — a rectangular slice of a window (a `ContentFit`) that presents
 //                   the SAME device interfaces (IMouse/IKeyboard/IGamepad/ITouch)
-//                   as the platform, but TRANSFORMED into the surface's content
+//                   as the shell, but TRANSFORMED into the surface's content
 //                   space and GATED by whether the surface is hovered/focused.
 //                   Drop-in: any code written against IMouse works unchanged when
-//                   handed a surface's mouse instead of the platform's.
+//                   handed a surface's mouse instead of the shell's.
 //
 //   InputRouter   — the single owner of hover/focus/capture across a set of
-//                   surfaces. Once per frame (after the platform pumps events) it
+//                   surfaces. Once per frame (after the shell pumps events) it
 //                   reads the raw pointer + event stream and updates every surface's
 //                   gate. Exactly one surface is hovered, one focused, one captures
 //                   the pointer while a button is held.
@@ -24,7 +24,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.platform:surface;
+export module draconic.shell:surface;
 
 import draconic.core;
 import :input;
@@ -32,7 +32,7 @@ import :input_types;
 
 namespace rc = draconic::core;
 
-export namespace draconic::runtime
+export namespace draconic::shell
 {
     class InputSurface;  // defined below; facades hold a back-pointer.
 
@@ -323,7 +323,7 @@ export namespace draconic::runtime
         [[nodiscard]] InputSurface* Hovered() const noexcept { return m_hovered; }
         [[nodiscard]] InputSurface* Focused() const noexcept { return m_focused; }
 
-        // Once per frame, after the platform pumps OS events. Resolves hover/focus/
+        // Once per frame, after the shell pumps OS events. Resolves hover/focus/
         // capture and pushes each surface's gate.
         void Update()
         {

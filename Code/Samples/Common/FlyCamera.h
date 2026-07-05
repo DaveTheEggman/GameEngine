@@ -2,7 +2,7 @@
 // Shared free-fly camera for the dev samples: WASD/QE move, hold RMB (or Tab to capture) to look,
 // Shift to move fast. Provides position + orientation; the sample consumes it as it likes (set a
 // camera-entity transform, or build a ViewCamera). The including translation unit must have
-// imported draconic.core + draconic.runtime.platform + draconic.runtime.client (this header uses their
+// imported draconic.core + draconic.shell + draconic.runtime.client (this header uses their
 // types via fully-qualified names).
 
 namespace draconic::samples {
@@ -33,39 +33,41 @@ struct FlyCamera {
         return draconic::core::RotateVector(Rotation(), draconic::core::Vec3{ 1.0f, 0.0f, 0.0f });
     }
 
-    // Convenience overload: drive from the platform's global devices.
+    // Convenience overload: drive from the shell's global devices.
     void Update(draconic::runtime::IApplicationHost& host, draconic::core::f32 dt) {
         namespace rt = draconic::runtime;
-        auto* input = (host.Platform() != nullptr) ? host.Platform()->Input() : nullptr;
-        rt::IKeyboard* kb    = (input != nullptr) ? input->Keyboard() : nullptr;
-        rt::IMouse*    mouse = (input != nullptr) ? input->Mouse() : nullptr;
+        namespace sh = draconic::shell;
+        auto* input = (host.Shell() != nullptr) ? host.Shell()->Input() : nullptr;
+        sh::IKeyboard* kb    = (input != nullptr) ? input->Keyboard() : nullptr;
+        sh::IMouse*    mouse = (input != nullptr) ? input->Mouse() : nullptr;
         Update(kb, mouse, dt);
     }
 
     // Apply this frame's input from explicit devices — pass an InputSurface's gated Keyboard()/Mouse()
     // to confine the camera to one viewport. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable
     // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
-    void Update(draconic::runtime::IKeyboard* kb, draconic::runtime::IMouse* mouse, draconic::core::f32 dt) {
+    void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, draconic::core::f32 dt) {
         namespace rt = draconic::runtime;
+        namespace sh = draconic::shell;
         using draconic::core::Vec3;
         if (kb == nullptr) { return; }
 
         if (mouse != nullptr) {
-            if (kb->IsKeyPressed(rt::KeyCode::Tab)) {
+            if (kb->IsKeyPressed(sh::KeyCode::Tab)) {
                 mouseCaptured = !mouseCaptured;
                 mouse->SetRelativeMode(mouseCaptured);
                 mouse->SetCursorVisible(!mouseCaptured);
             }
-            const bool alt = kb->IsKeyDown(rt::KeyCode::LeftAlt) || kb->IsKeyDown(rt::KeyCode::RightAlt);
+            const bool alt = kb->IsKeyDown(sh::KeyCode::LeftAlt) || kb->IsKeyDown(sh::KeyCode::RightAlt);
 
-            if (alt && mouse->IsButtonDown(rt::MouseButton::Left)) {
+            if (alt && mouse->IsButtonDown(sh::MouseButton::Left)) {
                 // Turntable orbit: rotate about the focus point ahead, keeping it fixed.
                 const Vec3 focus = position + Forward() * focusDistance;
                 yaw   -= mouse->DeltaX() * lookSensitivity;
                 pitch -= mouse->DeltaY() * lookSensitivity;
                 pitch  = draconic::core::Clamp(pitch, -1.55f, 1.55f);
                 position = focus - Forward() * focusDistance;
-            } else if (mouseCaptured || mouse->IsButtonDown(rt::MouseButton::Right)) {
+            } else if (mouseCaptured || mouse->IsButtonDown(sh::MouseButton::Right)) {
                 // Free look (rotate in place).
                 yaw   -= mouse->DeltaX() * lookSensitivity;
                 pitch -= mouse->DeltaY() * lookSensitivity;
@@ -74,7 +76,7 @@ struct FlyCamera {
 
             // MMB pan: drag moves the view laterally (content follows the cursor). Scaled by the focus
             // distance so the pan feels consistent regardless of zoom.
-            if (mouse->IsButtonDown(rt::MouseButton::Middle)) {
+            if (mouse->IsButtonDown(sh::MouseButton::Middle)) {
                 const draconic::core::f32 s = panSensitivity * focusDistance;
                 position = position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
             }
@@ -90,14 +92,14 @@ struct FlyCamera {
 
         const Vec3 fwd   = Forward();
         const Vec3 right = Right();
-        const draconic::core::f32 speed = (kb->IsKeyDown(rt::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
+        const draconic::core::f32 speed = (kb->IsKeyDown(sh::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
         Vec3 move{ 0.0f, 0.0f, 0.0f };
-        if (kb->IsKeyDown(rt::KeyCode::W)) { move = move + fwd; }
-        if (kb->IsKeyDown(rt::KeyCode::S)) { move = move - fwd; }
-        if (kb->IsKeyDown(rt::KeyCode::D)) { move = move + right; }
-        if (kb->IsKeyDown(rt::KeyCode::A)) { move = move - right; }
-        if (kb->IsKeyDown(rt::KeyCode::E)) { move = move + Vec3{ 0.0f, 1.0f, 0.0f }; }
-        if (kb->IsKeyDown(rt::KeyCode::Q)) { move = move - Vec3{ 0.0f, 1.0f, 0.0f }; }
+        if (kb->IsKeyDown(sh::KeyCode::W)) { move = move + fwd; }
+        if (kb->IsKeyDown(sh::KeyCode::S)) { move = move - fwd; }
+        if (kb->IsKeyDown(sh::KeyCode::D)) { move = move + right; }
+        if (kb->IsKeyDown(sh::KeyCode::A)) { move = move - right; }
+        if (kb->IsKeyDown(sh::KeyCode::E)) { move = move + Vec3{ 0.0f, 1.0f, 0.0f }; }
+        if (kb->IsKeyDown(sh::KeyCode::Q)) { move = move - Vec3{ 0.0f, 1.0f, 0.0f }; }
         if (draconic::core::Dot(move, move) > 0.0f) { position = position + draconic::core::Normalized(move) * speed; }
     }
 };

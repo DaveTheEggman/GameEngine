@@ -14,25 +14,19 @@ target_sources(DraconicRuntime
             Plugin.cppm
             PluginHost.cppm)
 
-# Platform service (interface + null backend), the client Application loop, and
-# scripting integration (separate targets). Order matters: the platform
-# interface precedes Client (Client links it), and the SDL3 desktop backend
-# follows Client (its runner drives Application).
-add_subdirectory(Platform)
+# The client Application loop + scripting integration. (The shell service is now a top-level
+# layer — Draconic::Shell — added before Runtime, since Client links it.)
 add_subdirectory(Client)
 add_subdirectory(DefaultApp)
 add_subdirectory(Script)
 
-# Desktop (SDL3) backend — built when SDL3 is available (system/prebuilt).
-find_package(SDL3 QUIET)
-if(SDL3_FOUND)
-    add_subdirectory(Platform/Desktop)
-else()
-    message(STATUS "SDL3 not found — skipping Draconic::RuntimePlatformDesktop")
-endif()
-
 # RHI render host (GraphicsDevice/RenderWindow). Self-guards on the Vulkan RHI.
 add_subdirectory(Graphics)
+
+# Desktop runner (draconic.runtime.desktop): the blocking desktop run loop that drives an
+# IApplication (client) against an IShell (shell) with a GraphicsDevice — depends on all three,
+# so it follows them. Backend-agnostic (works through IShell); its web runner will live alongside.
+add_subdirectory(Desktop)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

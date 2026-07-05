@@ -15,7 +15,7 @@ export module draconic.imgui:subsystem;
 import draconic.core;
 import draconic.rhi;
 import draconic.runtime;             // Subsystem
-import draconic.runtime.platform;    // IInputManager / IMouse / IKeyboard / KeyCode / MouseButton
+import draconic.shell;    // IInputManager / IMouse / IKeyboard / KeyCode / MouseButton
 import draconic.runtime.graphics;    // FrameContext
 import draconic.shaders;
 import draconic.shaders.system;
@@ -23,7 +23,7 @@ import :renderer;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
-namespace plat = draconic::runtime;
+namespace plat = draconic::shell;
 
 export namespace draconic::imgui {
 

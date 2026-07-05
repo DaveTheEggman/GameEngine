@@ -24,10 +24,11 @@ export module draconic.runtime.client:app;
 import draconic.core;
 import draconic.rhi;                // PresentMode for the main window's swapchain
 import draconic.runtime;
-import draconic.runtime.platform;
+import draconic.shell;
 import draconic.runtime.graphics;
 
 namespace rc  = draconic::core;
+using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 namespace rhi = draconic::rhi;
 
 export namespace draconic::runtime
@@ -41,7 +42,7 @@ export namespace draconic::runtime
     };
 
     // The host as seen by the application: register subsystems via Ctx(), reach the
-    // platform/graphics services, manage runtime windows, request exit. Implemented
+    // shell/graphics services, manage runtime windows, request exit. Implemented
     // by ApplicationHost (and, later, by the editor for its embedded runtime).
     class IApplicationHost
     {
@@ -49,12 +50,12 @@ export namespace draconic::runtime
         virtual ~IApplicationHost() = default;
 
         [[nodiscard]] virtual Context& Ctx() noexcept = 0;
-        [[nodiscard]] virtual IPlatform* Platform() noexcept = 0;
+        [[nodiscard]] virtual IShell* Shell() noexcept = 0;
         [[nodiscard]] virtual GraphicsDevice* Graphics() noexcept = 0;
 
         // Open/close OS windows at runtime (each backed by a RenderWindow). The
         // basis for detachable UI windows. Close is deferred to frame end. Both
-        // return null / no-op when running headless (no platform/graphics).
+        // return null / no-op when running headless (no shell/graphics).
         virtual RenderWindow* OpenWindow(const WindowSettings& windowSettings, const RenderWindowDesc& renderDesc) = 0;
         virtual void CloseWindow(RenderWindow* window) = 0;
 
@@ -75,7 +76,7 @@ export namespace draconic::runtime
 
         // The main window's render config (present mode / swapchain format / buffer count) — the SAME
         // descriptor runtime windows take via OpenWindow, so the main and runtime windows configure
-        // through one path. Read once by the host when it wraps the platform's main window. Default =
+        // through one path. Read once by the host when it wraps the shell's main window. Default =
         // Fifo (vsync), sRGB, double-buffered. Override to uncap the frame rate (Immediate/Mailbox), etc.
         [[nodiscard]] virtual RenderWindowDesc MainRenderWindow() const { return {}; }
 

@@ -8,12 +8,14 @@
 
 import draconic.core;
 import draconic.runtime;
-import draconic.runtime.platform;
+import draconic.shell;
 import draconic.runtime.client;
-import draconic.runtime.platform.desktop;
+import draconic.runtime.desktop;   // RunApplication (the desktop runner)
+import draconic.shell.desktop;
 
 using namespace draconic::core;
 using namespace draconic::runtime;
+using namespace draconic::shell;
 
 namespace
 {
@@ -40,45 +42,45 @@ namespace
     };
 }
 
-TEST_CASE("platform.desktop: SDL3 platform creates a window and reports state")
+TEST_CASE("shell.desktop: SDL3 shell creates a window and reports state")
 {
     WindowSettings settings;
     settings.title = u8"Draconic Test";
     settings.width = 640;
     settings.height = 480;
 
-    SDL3Platform platform(settings);
-    if (platform.MainWindow() == nullptr)
+    SDL3Shell shell(settings);
+    if (shell.MainWindow() == nullptr)
     {
         MESSAGE("SDL video init/window creation unavailable; skipping");
-        CHECK_FALSE(platform.IsRunning());
+        CHECK_FALSE(shell.IsRunning());
         return;
     }
 
-    CHECK(platform.MainWindow()->Width() == 640u);
-    CHECK(platform.MainWindow()->Height() == 480u);
-    CHECK(platform.IsRunning());
+    CHECK(shell.MainWindow()->Width() == 640u);
+    CHECK(shell.MainWindow()->Height() == 480u);
+    CHECK(shell.IsRunning());
 
-    // Under the dummy driver the reported window system is platform-dependent:
+    // Under the dummy driver the reported window system is shell-dependent:
     // Linux reports Unknown (no real display), Windows still reports Win32.
     // Native() must be callable and self-consistent either way.
-    const NativeWindow native = platform.MainWindow()->Native();
+    const NativeWindow native = shell.MainWindow()->Native();
 #if DRACONIC_PLATFORM_WINDOWS
     CHECK(native.system == WindowSystem::Win32);
 #else
     CHECK(native.system == WindowSystem::Unknown);
 #endif
 
-    platform.ProcessEvents();   // pump (no pending events) — must not change state
-    CHECK(platform.IsRunning());
+    shell.ProcessEvents();   // pump (no pending events) — must not change state
+    CHECK(shell.IsRunning());
 }
 
-TEST_CASE("platform.desktop: a window-close event stops the platform")
+TEST_CASE("shell.desktop: a window-close event stops the shell")
 {
-    SDL3Platform platform;
-    if (platform.MainWindow() == nullptr) { return; }
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
 
-    auto* window = static_cast<SDL3Window*>(platform.MainWindow())->Handle();
+    auto* window = static_cast<SDL3Window*>(shell.MainWindow())->Handle();
     REQUIRE(window != nullptr);
 
     SDL_Event event{};
@@ -86,22 +88,22 @@ TEST_CASE("platform.desktop: a window-close event stops the platform")
     event.window.windowID = SDL_GetWindowID(window);
     SDL_PushEvent(&event);
 
-    platform.ProcessEvents();
-    CHECK_FALSE(platform.IsRunning());
-    CHECK_FALSE(platform.MainWindow()->IsOpen());
+    shell.ProcessEvents();
+    CHECK_FALSE(shell.IsRunning());
+    CHECK_FALSE(shell.MainWindow()->IsOpen());
 }
 
-TEST_CASE("platform.desktop: keyboard events drive double-buffered key state")
+TEST_CASE("shell.desktop: keyboard events drive double-buffered key state")
 {
-    SDL3Platform platform;
-    if (platform.MainWindow() == nullptr) { return; }
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
 
-    IInputManager* input = platform.Input();
+    IInputManager* input = shell.Input();
     REQUIRE(input != nullptr);
     REQUIRE(input->Keyboard() != nullptr);
     IKeyboard* kb = input->Keyboard();
 
-    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(platform.MainWindow())->Handle());
+    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
 
     auto pushKey = [winId](bool down) {
         SDL_Event e{};
@@ -115,34 +117,34 @@ TEST_CASE("platform.desktop: keyboard events drive double-buffered key state")
 
     // Frame 1: key goes down -> Down and Pressed this frame.
     pushKey(true);
-    platform.ProcessEvents();
+    shell.ProcessEvents();
     CHECK(kb->IsKeyDown(KeyCode::A));
     CHECK(kb->IsKeyPressed(KeyCode::A));
     CHECK(HasFlag(kb->Modifiers(), KeyModifiers::LeftShift));
 
     // Frame 2: still held, no longer "pressed this frame".
-    platform.ProcessEvents();
+    shell.ProcessEvents();
     CHECK(kb->IsKeyDown(KeyCode::A));
     CHECK_FALSE(kb->IsKeyPressed(KeyCode::A));
 
     // Frame 3: key goes up -> Released this frame, no longer down.
     pushKey(false);
-    platform.ProcessEvents();
+    shell.ProcessEvents();
     CHECK_FALSE(kb->IsKeyDown(KeyCode::A));
     CHECK(kb->IsKeyReleased(KeyCode::A));
 }
 
-TEST_CASE("platform.desktop: mouse motion and buttons are tracked")
+TEST_CASE("shell.desktop: mouse motion and buttons are tracked")
 {
-    SDL3Platform platform;
-    if (platform.MainWindow() == nullptr) { return; }
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
 
-    IInputManager* input = platform.Input();
+    IInputManager* input = shell.Input();
     REQUIRE(input != nullptr);
     IMouse* mouse = input->Mouse();
     REQUIRE(mouse != nullptr);
 
-    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(platform.MainWindow())->Handle());
+    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
 
     SDL_Event motion{};
     motion.type = SDL_EVENT_MOUSE_MOTION;
@@ -158,7 +160,7 @@ TEST_CASE("platform.desktop: mouse motion and buttons are tracked")
     button.button.down = true;
     SDL_PushEvent(&button);
 
-    platform.ProcessEvents();
+    shell.ProcessEvents();
     CHECK(mouse->X() == 12.0f);
     CHECK(mouse->Y() == 34.0f);
     CHECK(mouse->DeltaX() == 12.0f);
@@ -166,18 +168,18 @@ TEST_CASE("platform.desktop: mouse motion and buttons are tracked")
     CHECK(mouse->IsButtonPressed(MouseButton::Left));
 
     // Next frame with no events: deltas reset, button still held.
-    platform.ProcessEvents();
+    shell.ProcessEvents();
     CHECK(mouse->DeltaX() == 0.0f);
     CHECK(mouse->IsButtonDown(MouseButton::Left));
     CHECK_FALSE(mouse->IsButtonPressed(MouseButton::Left));
 }
 
-TEST_CASE("platform.desktop: cursor state is settable")
+TEST_CASE("shell.desktop: cursor state is settable")
 {
-    SDL3Platform platform;
-    if (platform.MainWindow() == nullptr) { return; }
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
 
-    IMouse* mouse = platform.Input()->Mouse();
+    IMouse* mouse = shell.Input()->Mouse();
     REQUIRE(mouse != nullptr);
 
     CHECK(mouse->CursorVisible());
@@ -195,34 +197,34 @@ TEST_CASE("platform.desktop: cursor state is settable")
     mouse->SetCursor(CursorType::Default);
 }
 
-TEST_CASE("platform.desktop: input exposes a gamepad list")
+TEST_CASE("shell.desktop: input exposes a gamepad list")
 {
-    SDL3Platform platform;
-    if (platform.MainWindow() == nullptr) { return; }
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
 
-    IInputManager* input = platform.Input();
+    IInputManager* input = shell.Input();
     REQUIRE(input != nullptr);
     // No physical gamepads under the dummy driver; the list is simply empty.
     CHECK(input->GamepadCount() == 0);
     CHECK(input->GetGamepad(0) == nullptr);
 }
 
-TEST_CASE("platform.desktop: RequestExit stops the platform")
+TEST_CASE("shell.desktop: RequestExit stops the shell")
 {
-    SDL3Platform platform;
-    if (platform.MainWindow() == nullptr) { return; }
-    CHECK(platform.IsRunning());
-    platform.RequestExit();
-    CHECK_FALSE(platform.IsRunning());
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
+    CHECK(shell.IsRunning());
+    shell.RequestExit();
+    CHECK_FALSE(shell.IsRunning());
 }
 
-TEST_CASE("platform.desktop: RunApplication drives the app until it exits")
+TEST_CASE("shell.desktop: RunApplication drives the app until it exits")
 {
-    SDL3Platform platform;
-    if (platform.MainWindow() == nullptr) { return; }
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
 
     FrameCountApp app;
-    const int code = RunApplication(app, platform);   // the desktop runner lives here
+    const int code = RunApplication(app, shell);   // the desktop runner (draconic.runtime.desktop)
 
     CHECK(code == 3);
     CHECK(app.frames == 5);            // RequestExit(3) ended the loop

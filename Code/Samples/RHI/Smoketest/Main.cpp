@@ -11,8 +11,8 @@ import draconic.rhi;
 import draconic.rhi.vk;
 import draconic.rhi.null;
 import draconic.rhi.validation;
-import draconic.runtime.platform;
-import draconic.runtime.platform.desktop;
+import draconic.shell;
+import draconic.shell.desktop;
 #ifdef DRACONIC_HAS_SHADERS
 import draconic.shaders;
 #endif
@@ -34,25 +34,25 @@ int main(int /*argc*/, char** /*argv*/) {
     using namespace draconic::core;
     using namespace draconic::rhi;
     namespace vk = draconic::rhi::vk;
-    namespace rt = draconic::runtime;
+        namespace shl = draconic::shell;
 
-    // ---- Platform: window via the desktop (SDL3) platform ----
-    rt::WindowSettings ws{};
+    // ---- Shell: window via the desktop (SDL3) shell ----
+    shl::WindowSettings ws{};
     ws.title  = u8"Draconic Smoketest";
     ws.width  = 1280;
     ws.height = 720;
-    UniquePtr<rt::IPlatform> plat = rt::CreatePlatform(ws);
+    UniquePtr<shl::IShell> plat = shl::CreateShell(ws);
     if (!plat || plat->MainWindow() == nullptr) {
-        std::fprintf(stderr, "platform/window init failed\n");
+        std::fprintf(stderr, "shell/window init failed\n");
         return 1;
     }
-    rt::IWindow* window = plat->MainWindow();
+    shl::IWindow* window = plat->MainWindow();
 
-    const rt::NativeWindow nw = window->Native();
+    const shl::NativeWindow nw = window->Native();
     void* native  = nw.window;
     void* display = nw.display;
     if (!native) {
-        std::fprintf(stderr, "no native handle on platform window\n");
+        std::fprintf(stderr, "no native handle on shell window\n");
         return 1;
     }
 

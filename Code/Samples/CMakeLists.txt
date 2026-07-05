@@ -10,15 +10,15 @@ function(draconic_copy_sdl3_dll target)
 endfunction()
 
 # HelloWindow and MultiWindow both present through a GraphicsDevice, so both need
-# the desktop platform + the Vulkan GPU factory.
-if(TARGET Draconic::RuntimePlatformDesktop AND TARGET Draconic::RuntimeGraphicsGpu)
+# the desktop shell + the Vulkan GPU factory.
+if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::RuntimeGraphicsGpu)
     add_subdirectory(HelloWindow)
     add_subdirectory(MultiWindow)
     add_subdirectory(Sandbox)            # the dev harness we grow the engine in
     add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
     add_subdirectory(AnimStressTest)     # animation/skinning benchmark (Sandbox copy, stripped toward a grid)
 else()
-    message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop platform + Vulkan GPU factory)")
+    message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop shell + Vulkan GPU factory)")
 endif()
 
 # RHI sample framework + RHI samples (need Vulkan + Shaders too).

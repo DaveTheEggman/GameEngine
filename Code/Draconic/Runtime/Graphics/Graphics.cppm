@@ -26,7 +26,7 @@ export module draconic.runtime.graphics;
 
 import draconic.core;
 import draconic.rhi;
-import draconic.runtime.platform;
+import draconic.shell;
 // Backend factories live in sibling modules so this core host imports only the
 // base RHI (keeps it GPU-backend-agnostic and avoids importing heavy backend
 // modules into this interface — which GCC's module reader chokes on):
@@ -34,6 +34,7 @@ import draconic.runtime.platform;
 //   draconic.runtime.graphics.gpu  — CreateGraphicsDevice (Vulkan/DX12)
 
 namespace rc = draconic::core;
+using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 namespace rhi = draconic::rhi;
 
 export namespace draconic::runtime

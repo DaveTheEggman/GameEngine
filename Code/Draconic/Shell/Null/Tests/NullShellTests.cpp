@@ -3,49 +3,49 @@
 #include "Core/Prelude.h"
 
 import draconic.core;
-import draconic.runtime.platform;
-import draconic.runtime.platform.null;
+import draconic.shell;
+import draconic.shell.null;
 
 using namespace draconic::core;
-using namespace draconic::runtime;
+using namespace draconic::shell;
 
-TEST_CASE("platform.null: a headless platform reports a window and run state")
+TEST_CASE("shell.null: a headless shell reports a window and run state")
 {
     WindowSettings settings;
     settings.width = 800;
     settings.height = 600;
 
-    NullPlatform platform(settings);
-    REQUIRE(platform.MainWindow() != nullptr);
-    CHECK(platform.MainWindow()->Width() == 800u);
-    CHECK(platform.MainWindow()->Height() == 600u);
-    CHECK(platform.MainWindow()->Native().system == WindowSystem::Unknown);  // headless: no handles
-    CHECK(platform.MainWindow()->Native().window == nullptr);
-    CHECK(platform.IsRunning());
+    NullShell shell(settings);
+    REQUIRE(shell.MainWindow() != nullptr);
+    CHECK(shell.MainWindow()->Width() == 800u);
+    CHECK(shell.MainWindow()->Height() == 600u);
+    CHECK(shell.MainWindow()->Native().system == WindowSystem::Unknown);  // headless: no handles
+    CHECK(shell.MainWindow()->Native().window == nullptr);
+    CHECK(shell.IsRunning());
 
-    platform.ProcessEvents();  // no-op, must not change run state
-    CHECK(platform.IsRunning());
+    shell.ProcessEvents();  // no-op, must not change run state
+    CHECK(shell.IsRunning());
 
-    platform.RequestExit();
-    CHECK_FALSE(platform.IsRunning());
+    shell.RequestExit();
+    CHECK_FALSE(shell.IsRunning());
 }
 
-TEST_CASE("platform.null: closing the window stops the platform")
+TEST_CASE("shell.null: closing the window stops the shell")
 {
-    NullPlatform platform;
-    CHECK(platform.IsRunning());
-    platform.MainWindow()->Close();
-    CHECK_FALSE(platform.MainWindow()->IsOpen());
-    CHECK_FALSE(platform.IsRunning());
+    NullShell shell;
+    CHECK(shell.IsRunning());
+    shell.MainWindow()->Close();
+    CHECK_FALSE(shell.MainWindow()->IsOpen());
+    CHECK_FALSE(shell.IsRunning());
 }
 
-TEST_CASE("platform.null: window manager creates, lists, and looks up windows")
+TEST_CASE("shell.null: window manager creates, lists, and looks up windows")
 {
-    NullPlatform platform;
-    IWindowManager* wm = platform.WindowManager();
+    NullShell shell;
+    IWindowManager* wm = shell.WindowManager();
     REQUIRE(wm != nullptr);
 
-    // The platform seeds one main window; it is Windows()[0] and MainWindow().
+    // The shell seeds one main window; it is Windows()[0] and MainWindow().
     REQUIRE(wm->Windows().Size() == 1u);
     IWindow* main = wm->MainWindow();
     REQUIRE(main != nullptr);
@@ -64,10 +64,10 @@ TEST_CASE("platform.null: window manager creates, lists, and looks up windows")
     CHECK(second.Value()->Width() == 320u);
 }
 
-TEST_CASE("platform.null: DestroyWindow defers until FlushDestroyed")
+TEST_CASE("shell.null: DestroyWindow defers until FlushDestroyed")
 {
-    NullPlatform platform;
-    IWindowManager* wm = platform.WindowManager();
+    NullShell shell;
+    IWindowManager* wm = shell.WindowManager();
     Result<IWindow*> second = wm->CreateWindow(WindowSettings{});
     REQUIRE(second.HasValue());
     const u32 secondId = second.Value()->Id();
@@ -84,17 +84,17 @@ TEST_CASE("platform.null: DestroyWindow defers until FlushDestroyed")
     CHECK(wm->MainWindow() != nullptr);            // main survived
 }
 
-TEST_CASE("platform.null: window events queue is empty (no OS source)")
+TEST_CASE("shell.null: window events queue is empty (no OS source)")
 {
-    NullPlatform platform;
-    platform.ProcessEvents();
-    CHECK(platform.WindowManager()->Events().Size() == 0u);
+    NullShell shell;
+    shell.ProcessEvents();
+    CHECK(shell.WindowManager()->Events().Size() == 0u);
 }
 
-TEST_CASE("platform.null: NullWindow resize hook updates reported size")
+TEST_CASE("shell.null: NullWindow resize hook updates reported size")
 {
-    NullPlatform platform;
-    auto* main = static_cast<NullWindow*>(platform.MainWindow());
+    NullShell shell;
+    auto* main = static_cast<NullWindow*>(shell.MainWindow());
     main->Resize(1024, 768);
     CHECK(main->Width() == 1024u);
     CHECK(main->Height() == 768u);
@@ -102,10 +102,10 @@ TEST_CASE("platform.null: NullWindow resize hook updates reported size")
     CHECK(main->IsMinimized());
 }
 
-TEST_CASE("platform.null: input is present and reports no activity")
+TEST_CASE("shell.null: input is present and reports no activity")
 {
-    NullPlatform platform;
-    IInputManager* input = platform.Input();
+    NullShell shell;
+    IInputManager* input = shell.Input();
     REQUIRE(input != nullptr);
 
     // Devices are reachable so callers need no null checks.

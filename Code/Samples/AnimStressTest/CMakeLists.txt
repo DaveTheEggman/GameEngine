@@ -1,5 +1,5 @@
 # AnimStressTest — the running dev harness: a windowed DefaultApplication with a scene we
-# grow the engine in. Needs the desktop platform + Vulkan GPU factory (to present)
+# grow the engine in. Needs the desktop shell + Vulkan GPU factory (to present)
 # plus the default-app + scene libraries.
 
 add_executable(AnimStressTest main.cpp)
@@ -8,7 +8,7 @@ target_link_libraries(AnimStressTest PRIVATE
     Draconic::Core
     Draconic::Runtime
     Draconic::RuntimeClient
-    Draconic::RuntimePlatformDesktop
+    Draconic::ShellDesktop Draconic::RuntimeDesktop
     Draconic::RuntimeGraphics
     Draconic::RuntimeGraphicsGpu
     Draconic::RuntimeDefaultApp

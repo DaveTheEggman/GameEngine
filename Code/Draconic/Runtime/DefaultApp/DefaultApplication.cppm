@@ -19,7 +19,7 @@ export module draconic.runtime.defaultapp;
 import draconic.core;
 import draconic.rhi;
 import draconic.runtime.client;     // IApplication, IApplicationHost
-import draconic.runtime.platform;   // IPlatform, IKeyboard, KeyCode (the profile-dump hotkey)
+import draconic.shell;   // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
 import draconic.runtime.graphics;   // GraphicsDevice, FrameContext
 import draconic.scene;              // Scene
 import draconic.scene.subsystem;    // SceneSubsystem (the standard scene driver)
@@ -29,6 +29,7 @@ import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
 namespace rc  = draconic::core;
+using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 
 export namespace draconic::runtime
 {
@@ -40,7 +41,7 @@ export namespace draconic::runtime
         // keep the hotkey. (Reads the GPU timestamps after a device stall — fine for an on-demand dump.)
         void OnUpdate(IApplicationHost& host, rc::f32 /*deltaTime*/) override
         {
-            IPlatform* plat = host.Platform();
+            IShell* plat = host.Shell();
             IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
             IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
             if (kb == nullptr || !kb->IsKeyPressed(KeyCode::P)) { return; }

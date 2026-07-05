@@ -1,39 +1,36 @@
-// Draconic::RuntimePlatformDesktop — the `draconic.runtime.platform.desktop` module.
+// Draconic::ShellDesktop — the `draconic.shell.desktop` module.
 //
-// The desktop platform target (Windows/Linux/macOS), implemented on SDL3:
-// SDL3Platform covers Wayland, X11, Win32, and Cocoa in one backend, plus input,
+// The desktop shell target (Windows/Linux/macOS), implemented on SDL3:
+// SDL3Shell covers Wayland, X11, Win32, and Cocoa in one backend, plus input,
 // clipboard, and Vulkan-surface creation for RHI. SDL is linked dynamically
 // (system/prebuilt) and bundled for distribution. We own the entry point
 // (SDL_MAIN_HANDLED), so SDL does not hijack main; SDL_SetMainReady() is called
 // before SDL_Init.
 //
 // Other SDL-based targets (Emscripten, Android) get their own modules/folders:
-// they share this SDL3 IPlatform shape but differ in run loop (callback vs
+// they share this SDL3 IShell shape but differ in run loop (callback vs
 // blocking), entry point, and build flags. If the impl ends up duplicated it can
 // be extracted into a shared module then.
 //
-// If SDL video init or window creation fails (e.g. no display), the platform
+// If SDL video init or window creation fails (e.g. no display), the shell
 // degrades: MainWindow() is null and IsRunning() is false, so a runner exits
 // immediately rather than crashing.
 
 module;
 #include "Core/Prelude.h"
-#include <chrono>
 #include <cstdint>
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>   // SDL_SetMainReady (no main hijack with SDL_MAIN_HANDLED)
 
-export module draconic.runtime.platform.desktop;
+export module draconic.shell.desktop;
 
 import draconic.core;
-import draconic.runtime.platform;
-import draconic.runtime.graphics;  // GraphicsDevice (the runner hands it to the app)
-import draconic.runtime.client;    // Application (the desktop runner drives it)
+import draconic.shell;
 
 namespace rc = draconic::core;
 
-export namespace draconic::runtime
+export namespace draconic::shell
 {
     class SDL3Window final : public IWindow
     {
@@ -108,7 +105,7 @@ export namespace draconic::runtime
     };
 
     // Builds SDL window-creation flags. On Wayland a Vulkan-backed window is
-    // needed for client-side decorations (see SDL3Platform ctor note); skipped
+    // needed for client-side decorations (see SDL3Shell ctor note); skipped
     // under the headless "dummy" driver so tests still get a window.
     [[nodiscard]] inline SDL_WindowFlags Sdl3WindowFlags() noexcept
     {
@@ -183,7 +180,7 @@ export namespace draconic::runtime
             m_pendingDestroy.Clear();
         }
 
-        // --- event pump wiring (called by SDL3Platform::ProcessEvents) ---
+        // --- event pump wiring (called by SDL3Shell::ProcessEvents) ---
         SDL3Window* Find(rc::u32 id) noexcept
         {
             for (rc::UniquePtr<SDL3Window>& w : m_owned) { if (w->Id() == id) { return w.Get(); } }
@@ -193,7 +190,7 @@ export namespace draconic::runtime
         void PushEvent(const WindowEvent& e) { m_events.PushBack(e); }
 
         // Destroy every window immediately (SDL3Window dtors call
-        // SDL_DestroyWindow). The platform calls this before SDL_Quit().
+        // SDL_DestroyWindow). The shell calls this before SDL_Quit().
         void DestroyAllNow()
         {
             m_live.Clear();
@@ -450,7 +447,7 @@ export namespace draconic::runtime
         ~SDL3InputManager() override { ReleaseDevices(); }
 
         // Frees all SDL-owned input resources (open gamepads, system cursors).
-        // The platform calls this before SDL_Quit; idempotent so the destructor
+        // The shell calls this before SDL_Quit; idempotent so the destructor
         // can call it again harmlessly.
         void ReleaseDevices()
         {
@@ -486,7 +483,7 @@ export namespace draconic::runtime
             m_events.Clear();   // events are valid only for the frame they were pumped in
         }
 
-        // --- backend wiring (called by the platform event pump) ---
+        // --- backend wiring (called by the shell event pump) ---
         SDL3Keyboard& Kb() noexcept { return m_keyboard; }
         SDL3Mouse&    Ms() noexcept { return m_mouse; }
         SDL3Touch&    Tc() noexcept { return m_touch; }
@@ -543,14 +540,14 @@ export namespace draconic::runtime
         rc::u32                 m_focusWindow = 0; // keyboard-focused window
     };
 
-    class SDL3Platform final : public IPlatform
+    class SDL3Shell final : public IShell
     {
     public:
         // Note on the Wayland Vulkan-window quirk: SDL only attaches libdecor
         // client-side decorations to a window backed by a GPU surface, so a plain
         // window comes up bare on GNOME/Mutter. Sdl3WindowFlags() flags every
         // window as Vulkan on Linux (skipped under the "dummy" driver) to fix it.
-        explicit SDL3Platform(const WindowSettings& settings = {}) noexcept
+        explicit SDL3Shell(const WindowSettings& settings = {}) noexcept
         {
             SDL_SetMainReady();
             if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) { m_running = false; return; }
@@ -561,7 +558,7 @@ export namespace draconic::runtime
             if (SDL3Window* w = m_windows.Find(main.Value()->Id())) { m_input.SetWindow(w->Handle()); }
         }
 
-        ~SDL3Platform() override
+        ~SDL3Shell() override
         {
             // Release SDL-owned input resources and destroy windows before
             // tearing SDL down (no SDL calls may happen after SDL_Quit).
@@ -570,8 +567,8 @@ export namespace draconic::runtime
             if (m_initialized) { SDL_Quit(); }
         }
 
-        SDL3Platform(const SDL3Platform&) = delete;
-        SDL3Platform& operator=(const SDL3Platform&) = delete;
+        SDL3Shell(const SDL3Shell&) = delete;
+        SDL3Shell& operator=(const SDL3Shell&) = delete;
 
         [[nodiscard]] IWindowManager* WindowManager() noexcept override { return &m_windows; }
         [[nodiscard]] IWindow* MainWindow() noexcept override { return m_windows.MainWindow(); }
@@ -602,7 +599,7 @@ export namespace draconic::runtime
                     {
                         const rc::u32 id = static_cast<rc::u32>(event.window.windowID);
                         m_windows.PushEvent(WindowEvent{ WindowEventType::CloseRequested, id });
-                        // Closing the main window stops the platform; the
+                        // Closing the main window stops the shell; the
                         // Application handles secondary-window close via the event.
                         IWindow* main = m_windows.MainWindow();
                         if (main != nullptr && main->Id() == id) { main->Close(); m_running = false; }
@@ -913,33 +910,10 @@ export namespace draconic::runtime
         bool m_running = true;
     };
 
-    // Factory the DRACONIC_APP_MAIN entry point calls to create the platform.
-    [[nodiscard]] rc::UniquePtr<IPlatform> CreatePlatform(const WindowSettings& settings = {})
+    // Factory the DRACONIC_APP_MAIN entry point calls to create the shell.
+    [[nodiscard]] rc::UniquePtr<IShell> CreateShell(const WindowSettings& settings = {})
     {
-        IPlatform* platform = rc::DefaultAllocator().New<SDL3Platform>(settings);
-        return rc::UniquePtr<IPlatform>(platform, rc::DefaultAllocator());
-    }
-
-    // The desktop runner: a blocking wall-clock loop driving the Application
-    // against the platform, clamped to maxFrameTime. This lives here (not in the
-    // client) because owning the loop is execution-model-specific — desktop
-    // blocks, Emscripten uses a callback — and it must know both Application and
-    // IPlatform. DRACONIC_APP_MAIN calls it on desktop. Returns the exit code.
-    inline int RunApplication(IApplication& app, IPlatform& platform, GraphicsDevice* graphics = nullptr)
-    {
-        ApplicationHost host;
-        host.Start(app, &platform, graphics);
-        auto previous = std::chrono::steady_clock::now();
-        while (platform.IsRunning() && host.IsRunning())
-        {
-            platform.ProcessEvents();
-            const auto now = std::chrono::steady_clock::now();
-            rc::f32 dt = std::chrono::duration<rc::f32>(now - previous).count();
-            previous = now;
-            if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
-            host.Tick(dt);
-        }
-        host.Stop();
-        return host.ExitCode();
+        IShell* shell = rc::DefaultAllocator().New<SDL3Shell>(settings);
+        return rc::UniquePtr<IShell>(shell, rc::DefaultAllocator());
     }
 }

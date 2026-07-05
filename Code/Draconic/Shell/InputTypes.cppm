@@ -1,4 +1,4 @@
-// Draconic::RuntimePlatform — `:input_types` partition.
+// Draconic::Shell — `:input_types` partition.
 //
 // Input-related enums and POD structs: keyboard codes/modifiers, mouse buttons
 // and cursor types, gamepad buttons/axes, and touch points. Backend-neutral;
@@ -8,13 +8,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.platform:input_types;
+export module draconic.shell:input_types;
 
 import draconic.core;
 
 namespace rc = draconic::core;
 
-export namespace draconic::runtime
+export namespace draconic::shell
 {
     // ---- Keyboard ---------------------------------------------------------
 

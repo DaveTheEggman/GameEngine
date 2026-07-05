@@ -10,7 +10,7 @@ target_link_libraries(DraconicRuntimeGraphics
     PUBLIC
         Draconic::Core
         Draconic::RHI
-        Draconic::RuntimePlatform
+        Draconic::Shell
         Draconic::Policy)
 
 target_sources(DraconicRuntimeGraphics

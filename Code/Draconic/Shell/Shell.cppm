@@ -1,18 +1,18 @@
-// Draconic::RuntimePlatform — the `draconic.runtime.platform` module.
+// Draconic::Shell — the `draconic.shell` module.
 //
-// IPlatform is the raw platform service (Sedulous calls this the "shell"):
+// IShell is the raw OS/window service — the "shell" (Sedulous's term for it):
 // windowing, the OS event pump, run state, and raw input devices (keyboard,
 // mouse, gamepad, touch — see the :input / :input_types partitions). It is a
 // PASSIVE service, not a subsystem and not the loop owner: the runner drives it
 // (ProcessEvents once per frame) and the Application borrows it to wire
-// platform-backed subsystems (e.g. a future InputSubsystem). Native backends
+// shell-backed subsystems (e.g. a future InputSubsystem). Native backends
 // (Win32/Linux/...) implement it; a null backend serves headless and test runs.
 // Interfaces only — depends on Core, nothing higher.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.platform;
+export module draconic.shell;
 
 export import :input_types;
 export import :input;
@@ -22,7 +22,7 @@ import draconic.core;
 
 namespace rc = draconic::core;
 
-export namespace draconic::runtime
+export namespace draconic::shell
 {
     enum class WindowSystem : rc::u8
     {
@@ -34,7 +34,7 @@ export namespace draconic::runtime
     };
 
     // The native handles RHI needs to create a surface/swapchain itself (RHI does
-    // surface creation internally — the platform only hands over the handles).
+    // surface creation internally — the shell only hands over the handles).
     // Interpretation depends on `system`:
     //   Win32   — display = HINSTANCE,   window = HWND
     //   X11     — display = Display*,     window = Window (XID, via uintptr)
@@ -59,7 +59,7 @@ export namespace draconic::runtime
     public:
         virtual ~IWindow() = default;
 
-        // Stable per-window id, unique within a platform run. Used to route OS
+        // Stable per-window id, unique within a shell run. Used to route OS
         // events to the right window and to look windows up. 0 is never a valid id.
         [[nodiscard]] virtual rc::u32 Id() const noexcept = 0;
 
@@ -98,7 +98,7 @@ export namespace draconic::runtime
         rc::i32 y = 0;       // Moved
     };
 
-    // Owns the set of OS windows for a platform run. One manager per platform;
+    // Owns the set of OS windows for a shell run. One manager per shell;
     // the main window is just the first one created. Windows can be created and
     // destroyed at runtime (the basis for detachable/dockable UI windows).
     // Destruction is DEFERRED: DestroyWindow() marks a window closed, and
@@ -129,10 +129,10 @@ export namespace draconic::runtime
         virtual void FlushDestroyed() = 0;
     };
 
-    class IPlatform
+    class IShell
     {
     public:
-        virtual ~IPlatform() = default;
+        virtual ~IShell() = default;
 
         // The window manager (always present; owns 0..N windows). The main
         // window is WindowManager()->MainWindow().
@@ -150,11 +150,11 @@ export namespace draconic::runtime
         // backend rolls input state (Input()->Update()) before pumping.
         virtual void ProcessEvents() = 0;
 
-        // OS-level run state: false once the platform should quit (e.g. the main
+        // OS-level run state: false once the shell should quit (e.g. the main
         // window closed). Distinct from Application::IsRunning() (app-level exit).
         [[nodiscard]] virtual bool IsRunning() const noexcept = 0;
 
-        // Ask the platform to quit (flips IsRunning()).
+        // Ask the shell to quit (flips IsRunning()).
         virtual void RequestExit() = 0;
     };
 }

@@ -12,8 +12,9 @@ import draconic.profiler;
 import draconic.rhi;                     // offscreen render target (Texture / ResourceState / Blit)
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.platform;
-import draconic.runtime.platform.desktop;
+import draconic.shell;
+import draconic.runtime.desktop;
+import draconic.shell.desktop;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.gpu;
 import draconic.runtime.defaultapp;     // DefaultApplication (scene + render subsystems)
@@ -49,6 +50,7 @@ namespace rc = draconic::core;
 namespace smp = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace rt = draconic::runtime;
+        namespace sh = draconic::shell;
 namespace sc = draconic::scene;
 namespace rd = draconic::render;
 namespace gui = draconic::imgui;
@@ -356,25 +358,25 @@ namespace
 
             // ImGui HUD: open the frame + build the stats window (drawn in OnRenderWindow).
             if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
-                g->NewFrame(host.Platform() != nullptr ? host.Platform()->Input() : nullptr, deltaTime);
+                g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
                 BuildHud(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
             }
 
             // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). Drives the scene camera entity; Esc exits.
             m_fly.Update(host, deltaTime);
-            if (auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr) {
-                if (rt::IKeyboard* kb = input->Keyboard()) {
-                    if (kb->IsKeyPressed(rt::KeyCode::Space))     { AddBatch(); }
-                    if (kb->IsKeyPressed(rt::KeyCode::Backspace)) { RemoveBatch(); }
-                    if (kb->IsKeyPressed(rt::KeyCode::H))         { m_showHud = !m_showHud; }
-                    if (kb->IsKeyPressed(rt::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B)
+            if (auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr) {
+                if (sh::IKeyboard* kb = input->Keyboard()) {
+                    if (kb->IsKeyPressed(sh::KeyCode::Space))     { AddBatch(); }
+                    if (kb->IsKeyPressed(sh::KeyCode::Backspace)) { RemoveBatch(); }
+                    if (kb->IsKeyPressed(sh::KeyCode::H))         { m_showHud = !m_showHud; }
+                    if (kb->IsKeyPressed(sh::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B)
                         if (auto* render = host.Ctx().GetSubsystem<rd::RenderSubsystem>()) {
                             const bool on = !render->InstanceSharing();
                             render->SetInstanceSharing(on);
                             rc::ConsoleWrite(on ? u8"Instance sharing: ON\n" : u8"Instance sharing: OFF (forward re-fills)\n");
                         }
                     }
-                    if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
+                    if (kb->IsKeyPressed(sh::KeyCode::Escape)) { host.RequestExit(0); return; }
                 }
             }
             if (m_scene != nullptr) {
@@ -521,11 +523,11 @@ namespace
 
 int main(int, char**)
 {
-    auto platform = rt::CreatePlatform();
+    auto shell = sh::CreateShell();
     rt::GraphicsDeviceDesc gpuDesc{};
     auto gpu = rt::CreateGraphicsDevice(gpuDesc);
     rt::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     AnimStressTestApp app;
-    return rt::RunApplication(app, *platform, device);
+    return rt::RunApplication(app, *shell, device);
 }

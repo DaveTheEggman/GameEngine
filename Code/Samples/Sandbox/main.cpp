@@ -10,8 +10,9 @@ import draconic.core;
 import draconic.rhi;                     // offscreen render target (Texture / ResourceState / Blit)
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.platform;
-import draconic.runtime.platform.desktop;
+import draconic.shell;
+import draconic.runtime.desktop;
+import draconic.shell.desktop;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.gpu;
 import draconic.runtime.defaultapp;     // DefaultApplication (scene + render subsystems)
@@ -51,6 +52,7 @@ namespace rc = draconic::core;
 namespace smp = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace rt = draconic::runtime;
+namespace sh = draconic::shell;
 namespace sc = draconic::scene;
 namespace rd = draconic::render;
 namespace geo = draconic::geometry;
@@ -775,7 +777,7 @@ namespace
         // Build (lazily) the input router + one surface per split half, then refit each surface's region
         // to the current window split. Each half's content-space equals its own pixel rect (region ==
         // contentSize, Stretch), so a viewport mouse reads [0..halfW]x[0..H] local to that view.
-        void UpdateInputRouting(rt::IInputManager& input, rt::IWindow& win)
+        void UpdateInputRouting(sh::IInputManager& input, sh::IWindow& win)
         {
             const rc::f32 w = static_cast<rc::f32>(win.Width());
             const rc::f32 h = static_cast<rc::f32>(win.Height());
@@ -786,9 +788,9 @@ namespace
                                      .contentSize = rc::Vec2{ halfW, h }, .mode = rc::FitMode::Stretch };
                 rc::ContentFit fitR{ .region = rc::Rect{ halfW, 0.0f, w - halfW, h },
                                      .contentSize = rc::Vec2{ w - halfW, h }, .mode = rc::FitMode::Stretch };
-                m_surfaceL = rc::MakeUnique<rt::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitL);
-                m_surfaceR = rc::MakeUnique<rt::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitR);
-                m_inputRouter = rc::MakeUnique<rt::InputRouter>(rc::DefaultAllocator(), &input);
+                m_surfaceL = rc::MakeUnique<sh::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitL);
+                m_surfaceR = rc::MakeUnique<sh::InputSurface>(rc::DefaultAllocator(), &input, win.Id(), fitR);
+                m_inputRouter = rc::MakeUnique<sh::InputRouter>(rc::DefaultAllocator(), &input);
                 m_inputRouter->AddSurface(m_surfaceL.Get());
                 m_inputRouter->AddSurface(m_surfaceR.Get());
                 // Click-to-focus (router default): a click sets keyboard focus to that half, so WASD/QE
@@ -895,15 +897,15 @@ namespace
             // ImGui debug UI: open the frame (feed input + size) then build the tweakables. The draw
             // data is rendered over the scene in OnRenderWindow.
             if (auto* g = host.Ctx().GetSubsystem<gui::ImguiSubsystem>()) {
-                g->NewFrame(host.Platform() != nullptr ? host.Platform()->Input() : nullptr, deltaTime);
+                g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
                 BuildDebugUI(host.Ctx().GetSubsystem<rd::RenderSubsystem>());
             }
 
-            // Viewport-input routing. Build the router + one surface per split half once the platform
+            // Viewport-input routing. Build the router + one surface per split half once the shell
             // and window exist, then keep each surface's region in sync with the live split so a resize
             // (or DPI change) just re-fits. The router resolves the hovered surface and gates input.
-            auto* input = host.Platform() != nullptr ? host.Platform()->Input() : nullptr;
-            rt::IWindow* win = host.Platform() != nullptr ? host.Platform()->MainWindow() : nullptr;
+            auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
+            sh::IWindow* win = host.Shell() != nullptr ? host.Shell()->MainWindow() : nullptr;
             if (input != nullptr && win != nullptr) {
                 UpdateInputRouting(*input, *win);
             }
@@ -915,14 +917,14 @@ namespace
 
             // Global (non-viewport) keys still read the raw keyboard.
             if (input != nullptr) {
-                if (rt::IKeyboard* kb = input->Keyboard()) {
-                    if (kb->IsKeyPressed(rt::KeyCode::Escape)) { host.RequestExit(0); return; }
+                if (sh::IKeyboard* kb = input->Keyboard()) {
+                    if (kb->IsKeyPressed(sh::KeyCode::Escape)) { host.RequestExit(0); return; }
                     // G fires the Character graph's "Next" trigger -> cross-fade to its next clip state.
-                    if (kb->IsKeyPressed(rt::KeyCode::G)) { FireGraphNext(); }
+                    if (kb->IsKeyPressed(sh::KeyCode::G)) { FireGraphNext(); }
                     // F5 cycles the sky source (procedural <-> HDR equirectangular).
-                    if (kb->IsKeyPressed(rt::KeyCode::F5)) { CycleSkyMode(); }
+                    if (kb->IsKeyPressed(sh::KeyCode::F5)) { CycleSkyMode(); }
                     // F6 toggles reflection-probe box parallax (compare parallax vs infinite-env reflection).
-                    if (kb->IsKeyPressed(rt::KeyCode::F6)) { ToggleProbeParallax(); }
+                    if (kb->IsKeyPressed(sh::KeyCode::F6)) { ToggleProbeParallax(); }
                 }
             }
 
@@ -1102,10 +1104,10 @@ namespace
 
         // Viewport-input routing: each split half is an InputSurface (a ContentFit slice of the window);
         // the router picks the hovered surface and gates/transforms input into it. Created lazily once
-        // the platform + window exist. focus-follows-hover so the pointer alone selects the active view.
-        rc::UniquePtr<rt::InputRouter>  m_inputRouter;
-        rc::UniquePtr<rt::InputSurface> m_surfaceL;
-        rc::UniquePtr<rt::InputSurface> m_surfaceR;
+        // the shell + window exist. focus-follows-hover so the pointer alone selects the active view.
+        rc::UniquePtr<sh::InputRouter>  m_inputRouter;
+        rc::UniquePtr<sh::InputSurface> m_surfaceL;
+        rc::UniquePtr<sh::InputSurface> m_surfaceR;
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
@@ -1134,11 +1136,11 @@ namespace
 
 int main(int, char**)
 {
-    auto platform = rt::CreatePlatform();
+    auto shell = sh::CreateShell();
     rt::GraphicsDeviceDesc gpuDesc{};
     auto gpu = rt::CreateGraphicsDevice(gpuDesc);
     rt::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     SandboxApp app;
-    return rt::RunApplication(app, *platform, device);
+    return rt::RunApplication(app, *shell, device);
 }

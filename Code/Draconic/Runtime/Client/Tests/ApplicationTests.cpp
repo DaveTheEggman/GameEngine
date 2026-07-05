@@ -4,19 +4,20 @@
 
 import draconic.core;
 import draconic.runtime;
-import draconic.runtime.platform;
-import draconic.runtime.platform.null;
+import draconic.shell;
+import draconic.shell.null;
 import draconic.runtime.graphics;
 import draconic.runtime.graphics.null;
 import draconic.runtime.client;
 
 using namespace draconic::core;
 using namespace draconic::runtime;
+using namespace draconic::shell;
 
 namespace
 {
-    // A minimal in-process platform: counts ProcessEvents and can be made to quit.
-    class MockPlatform final : public IPlatform
+    // A minimal in-process shell: counts ProcessEvents and can be made to quit.
+    class MockShell final : public IShell
     {
     public:
         int processed = 0;
@@ -158,24 +159,24 @@ TEST_CASE("client: RequestExit stops a manual run loop")
 
 namespace
 {
-    // Records the borrowed platform it sees during Configure.
+    // Records the borrowed shell it sees during Configure.
     class PlatformApp final : public IApplication
     {
     public:
-        IPlatform* seenPlatform = nullptr;
-        void Configure(IApplicationHost& host) override { seenPlatform = host.Platform(); }
+        IShell* seenShell = nullptr;
+        void Configure(IApplicationHost& host) override { seenShell = host.Shell(); }
     };
 }
 
-TEST_CASE("client: the host borrows the platform and exposes it to the app")
+TEST_CASE("client: the host borrows the shell and exposes it to the app")
 {
-    MockPlatform platform;
+    MockShell shell;
     PlatformApp app;
     ApplicationHost host;
 
-    host.Start(app, &platform);
-    CHECK(app.seenPlatform == &platform);   // visible during Configure
-    CHECK(host.Platform() == &platform);
+    host.Start(app, &shell);
+    CHECK(app.seenShell == &shell);   // visible during Configure
+    CHECK(host.Shell() == &shell);
     host.Stop();
 }
 
@@ -194,14 +195,14 @@ namespace
 
 TEST_CASE("client: with a graphics device, every window renders each Tick")
 {
-    NullPlatform platform;
+    NullShell shell;
     auto created = CreateNullGraphicsDevice(2);
     REQUIRE(created.HasValue());
     UniquePtr<GraphicsDevice>& gd = created.Value();
 
     RenderApp app;
     ApplicationHost host;
-    host.Start(app, &platform, gd.Get());
+    host.Start(app, &shell, gd.Get());
 
     CHECK(host.Windows().Size() == 2u);    // main (from Start) + the one opened in OnStartup
     REQUIRE(app.second != nullptr);
