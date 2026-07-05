@@ -56,6 +56,12 @@ add_library(draconic_ufbx INTERFACE)
 add_library(Draconic::Ufbx ALIAS draconic_ufbx)
 target_include_directories(draconic_ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
 
+# doctest — vendored single-header test framework (github.com/doctest/doctest v2.4.11, MIT).
+# A copy of the source (not a submodule / not FetchContent); tests link doctest::doctest.
+add_library(draconic_doctest INTERFACE)
+add_library(doctest::doctest ALIAS draconic_doctest)
+target_include_directories(draconic_doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/doctest)
+
 # Dear ImGui — vendored (copied from upstream, not a submodule). Compiled as a static library;
 # the include dir is PUBLIC + SYSTEM so consumers (the draconic.imgui lib + apps) can
 # #include "imgui.h" and call ImGui:: directly. Does NOT link draconic_policy, so the vendored

@@ -3,16 +3,7 @@
 # doctest is configured for -fno-exceptions (DOCTEST_CONFIG_NO_EXCEPTIONS_*),
 # matching the engine-wide policy propagated via Draconic::Core -> Draconic::Policy.
 
-include(FetchContent)
-FetchContent_Declare(doctest
-    GIT_REPOSITORY https://github.com/doctest/doctest.git
-    GIT_TAG v2.4.11
-    GIT_SHALLOW TRUE
-    SYSTEM) # third-party: don't apply our -Wall/-Werror to doctest headers
-# doctest 2.4.11 ships a pre-3.5 cmake_minimum_required that CMake 4+ rejects.
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-FetchContent_MakeAvailable(doctest)
-unset(CMAKE_POLICY_VERSION_MINIMUM)
+# doctest (the test framework) is vendored in ThirdParty/ as doctest::doctest.
 
 # One file per subsystem; TestsMain.cpp is the only TU that emits main.
 add_executable(DraconicCoreTests

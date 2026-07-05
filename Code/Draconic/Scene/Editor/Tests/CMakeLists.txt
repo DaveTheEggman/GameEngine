@@ -1,15 +1,4 @@
 # Draconic::SceneEditor unit tests (doctest; content DB save/load round-trip).
-if(NOT TARGET doctest::doctest)
-    include(FetchContent)
-    FetchContent_Declare(doctest
-        GIT_REPOSITORY https://github.com/doctest/doctest.git
-        GIT_TAG v2.4.11
-        GIT_SHALLOW TRUE
-        SYSTEM)
-    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-    FetchContent_MakeAvailable(doctest)
-    unset(CMAKE_POLICY_VERSION_MINIMUM)
-endif()
 
 add_executable(DraconicSceneEditorTests
     TestsMain.cpp
