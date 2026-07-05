@@ -147,17 +147,17 @@ export namespace draconic::shell
             m_pendingDestroy.PushBack(window->Id());
         }
 
-        [[nodiscard]] core::Span<IWindow* const> Windows() noexcept override
+        [[nodiscard]] core::Span<IWindow* const> Windows() const noexcept override
         {
             return core::Span<IWindow* const>(m_live.Data(), m_live.Size());
         }
-        [[nodiscard]] IWindow* MainWindow() noexcept override
+        [[nodiscard]] IWindow* MainWindow() const noexcept override
         {
             // Tracked by id, so destroying/flushing the main window never promotes another
             // window into its place; returns null once the main window is gone.
             return GetWindow(m_mainWindowId);
         }
-        [[nodiscard]] IWindow* GetWindow(core::u32 id) noexcept override
+        [[nodiscard]] IWindow* GetWindow(core::u32 id) const noexcept override
         {
             for (IWindow* w : m_live) { if (w->Id() == id) { return w; } }
             return nullptr;
@@ -369,6 +369,12 @@ export namespace draconic::shell
     public:
         SDL3Gamepad(SDL_Gamepad* pad, SDL_JoystickID id, core::i32 index, core::String name) noexcept
             : m_pad(pad), m_id(id), m_index(index), m_name(static_cast<core::String&&>(name)) {}
+        // Owns the SDL_Gamepad; closing it here means the owning UniquePtr frees the whole device
+        // with no manual bookkeeping. Must run before SDL_Quit, which the shell guarantees by
+        // clearing the device list in ReleaseDevices().
+        ~SDL3Gamepad() override { if (m_pad != nullptr) { SDL_CloseGamepad(m_pad); } }
+        SDL3Gamepad(const SDL3Gamepad&) = delete;
+        SDL3Gamepad& operator=(const SDL3Gamepad&) = delete;
 
         [[nodiscard]] core::i32 Index() const override { return m_index; }
         [[nodiscard]] core::StringView Name() const override { return m_name; }
@@ -464,12 +470,7 @@ export namespace draconic::shell
         // can call it again harmlessly.
         void ReleaseDevices()
         {
-            for (SDL3Gamepad* g : m_gamepads)
-            {
-                if (g->Handle() != nullptr) { SDL_CloseGamepad(g->Handle()); }
-                core::DefaultAllocator().Delete(g);
-            }
-            m_gamepads.Clear();
+            m_gamepads.Clear();   // UniquePtr dtors close each SDL handle
             m_mouse.ReleaseCursors();
         }
 
@@ -480,7 +481,7 @@ export namespace draconic::shell
         [[nodiscard]] IGamepad*  GetGamepad(core::i32 index) override
         {
             if (index < 0 || static_cast<core::usize>(index) >= m_gamepads.Size()) { return nullptr; }
-            return m_gamepads[static_cast<core::usize>(index)];
+            return m_gamepads[static_cast<core::usize>(index)].Get();
         }
         [[nodiscard]] core::Span<const InputEvent> Events() const override
         {
@@ -492,7 +493,7 @@ export namespace draconic::shell
         {
             m_keyboard.BeginFrame();
             m_mouse.BeginFrame();
-            for (SDL3Gamepad* g : m_gamepads) { g->BeginFrame(); }
+            for (auto& g : m_gamepads) { g->BeginFrame(); }
             m_events.Clear();   // events are valid only for the frame they were pumped in
         }
 
@@ -519,7 +520,7 @@ export namespace draconic::shell
                 ? core::String(core::StringView(reinterpret_cast<const core::utf8char*>(n)))
                 : core::String{};
             const core::i32 index = static_cast<core::i32>(m_gamepads.Size());
-            m_gamepads.PushBack(core::DefaultAllocator().New<SDL3Gamepad>(pad, id, index, static_cast<core::String&&>(name)));
+            m_gamepads.PushBack(core::MakeUnique<SDL3Gamepad>(core::DefaultAllocator(), pad, id, index, static_cast<core::String&&>(name)));
         }
 
         void RemoveGamepad(SDL_JoystickID id)
@@ -528,9 +529,7 @@ export namespace draconic::shell
             {
                 if (m_gamepads[i]->Id() == id)
                 {
-                    if (m_gamepads[i]->Handle() != nullptr) { SDL_CloseGamepad(m_gamepads[i]->Handle()); }
-                    core::DefaultAllocator().Delete(m_gamepads[i]);
-                    m_gamepads.RemoveAt(i);
+                    m_gamepads.RemoveAt(i);   // UniquePtr dtor closes the SDL handle
                     for (core::usize j = 0; j < m_gamepads.Size(); ++j) { m_gamepads[j]->SetIndex(static_cast<core::i32>(j)); }
                     return;
                 }
@@ -539,7 +538,7 @@ export namespace draconic::shell
 
         SDL3Gamepad* FindGamepadById(SDL_JoystickID id)
         {
-            for (SDL3Gamepad* g : m_gamepads) { if (g->Id() == id) { return g; } }
+            for (auto& g : m_gamepads) { if (g->Id() == id) { return g.Get(); } }
             return nullptr;
         }
 
@@ -547,7 +546,7 @@ export namespace draconic::shell
         SDL3Keyboard m_keyboard;
         SDL3Mouse    m_mouse;
         SDL3Touch    m_touch;
-        core::Array<SDL3Gamepad*> m_gamepads;
+        core::Array<core::UniquePtr<SDL3Gamepad>> m_gamepads;
         core::Array<InputEvent>   m_events;         // this frame's event stream
         core::u32                 m_hoverWindow = 0; // window under the pointer
         core::u32                 m_focusWindow = 0; // keyboard-focused window
@@ -797,7 +796,7 @@ export namespace draconic::shell
 
         [[nodiscard]] bool IsRunning() const noexcept override
         {
-            IWindow* main = const_cast<SDL3WindowManager&>(m_windows).MainWindow();
+            IWindow* main = m_windows.MainWindow();   // MainWindow() is const now — no const_cast needed
             return m_running && main != nullptr && main->IsOpen();
         }
 

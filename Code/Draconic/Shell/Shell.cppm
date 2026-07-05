@@ -116,12 +116,12 @@ export namespace draconic::shell
 
         // All currently-live windows, in creation order (closed-but-not-yet-flushed
         // ones included until FlushDestroyed runs).
-        [[nodiscard]] virtual core::Span<IWindow* const> Windows() noexcept = 0;
+        [[nodiscard]] virtual core::Span<IWindow* const> Windows() const noexcept = 0;
         // The main window: the first window created, tracked by identity. Returns null once it has
         // been destroyed; it is never re-assigned to a different window (closing the main window is
         // not masked by other open windows).
-        [[nodiscard]] virtual IWindow* MainWindow() noexcept = 0;
-        [[nodiscard]] virtual IWindow* GetWindow(core::u32 id) noexcept = 0;
+        [[nodiscard]] virtual IWindow* MainWindow() const noexcept = 0;
+        [[nodiscard]] virtual IWindow* GetWindow(core::u32 id) const noexcept = 0;
 
         // Window events accumulated during the last ProcessEvents() pump. Valid
         // until the next pump. Drained by the runner/Application each frame.
