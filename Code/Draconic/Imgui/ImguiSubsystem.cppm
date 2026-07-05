@@ -23,7 +23,7 @@ import :renderer;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
-namespace plat = draconic::shell;
+namespace shell = draconic::shell;
 
 export namespace draconic::imgui {
 
@@ -34,7 +34,7 @@ public:
 
     // Begin a UI frame: stamp display size (cached from the last Render) + dt, feed input, NewFrame.
     // Call at the top of the app's update, before any ImGui:: widget calls.
-    void NewFrame(plat::IInputManager* input, f32 deltaTime) {
+    void NewFrame(shell::IInputManager* input, f32 deltaTime) {
         if (!m_ready) { return; }
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(m_width), static_cast<float>(m_height));
@@ -88,18 +88,18 @@ protected:
     }
 
 private:
-    void FeedInput(ImGuiIO& io, plat::IInputManager* input) {
+    void FeedInput(ImGuiIO& io, shell::IInputManager* input) {
         if (input == nullptr) { return; }
-        if (plat::IMouse* m = input->Mouse()) {
+        if (shell::IMouse* m = input->Mouse()) {
             io.AddMousePosEvent(m->X(), m->Y());
-            io.AddMouseButtonEvent(0, m->IsButtonDown(plat::MouseButton::Left));
-            io.AddMouseButtonEvent(1, m->IsButtonDown(plat::MouseButton::Right));
-            io.AddMouseButtonEvent(2, m->IsButtonDown(plat::MouseButton::Middle));
+            io.AddMouseButtonEvent(0, m->IsButtonDown(shell::MouseButton::Left));
+            io.AddMouseButtonEvent(1, m->IsButtonDown(shell::MouseButton::Right));
+            io.AddMouseButtonEvent(2, m->IsButtonDown(shell::MouseButton::Middle));
             const f32 sx = m->ScrollX(), sy = m->ScrollY();
             if (sx != 0.0f || sy != 0.0f) { io.AddMouseWheelEvent(sx, sy); }
         }
-        if (plat::IKeyboard* k = input->Keyboard()) {
-            using K = plat::KeyCode;
+        if (shell::IKeyboard* k = input->Keyboard()) {
+            using K = shell::KeyCode;
             io.AddKeyEvent(ImGuiMod_Ctrl,  k->IsKeyDown(K::LeftCtrl)  || k->IsKeyDown(K::RightCtrl));
             io.AddKeyEvent(ImGuiMod_Shift, k->IsKeyDown(K::LeftShift) || k->IsKeyDown(K::RightShift));
             io.AddKeyEvent(ImGuiMod_Alt,   k->IsKeyDown(K::LeftAlt)   || k->IsKeyDown(K::RightAlt));

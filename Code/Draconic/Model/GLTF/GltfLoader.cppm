@@ -271,7 +271,6 @@ private:
     }
 
     void loadTextures(Model& model) {
-        namespace iio = draconic::image::io;
 
         for (cgltf_size i = 0; i < m_data->textures_count; ++i) {
             cgltf_texture* tex = &m_data->textures[i];
@@ -307,7 +306,7 @@ private:
                             std::filesystem::path(m_basePath) / uriC;
                         const std::string imgPath = imagePath.string();
                         draconic::image::Image img;
-                        if (iio::LoadImage(Utf8FromC(imgPath.c_str()), img) == ErrorCode::Ok)
+                        if (image::io::LoadImage(Utf8FromC(imgPath.c_str()), img) == ErrorCode::Ok)
                             storeImageData(img, texture);
                     }
                 } else if (gltfImage->buffer_view) {
@@ -316,7 +315,7 @@ private:
                     size_t size = gltfImage->buffer_view->size;
                     if (bufferData && size > 0) {
                         draconic::image::Image img;
-                        if (iio::LoadImageFromMemory(
+                        if (image::io::LoadImageFromMemory(
                                 Span<const u8>(bufferData, size), img) == ErrorCode::Ok)
                             storeImageData(img, texture);
                     }
@@ -380,7 +379,6 @@ private:
     }
 
     bool loadImageFromDataUri(const char* dataUri, draconic::image::Image& outImage) {
-        namespace iio = draconic::image::io;
 
         // Format: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
         const char* comma = std::strchr(dataUri, ',');
@@ -399,7 +397,7 @@ private:
                 != cgltf_result_success)
             return false;
 
-        bool ok = iio::LoadImageFromMemory(
+        bool ok = image::io::LoadImageFromMemory(
             Span<const u8>(static_cast<const u8*>(decodedData), estimatedSize),
             outImage) == ErrorCode::Ok;
 

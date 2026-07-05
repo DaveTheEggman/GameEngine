@@ -18,7 +18,6 @@ using namespace draconic::core;
 using namespace draconic::vfs;
 using namespace draconic::resource;
 using namespace draconic::image;
-namespace iio = draconic::image::io;
 
 namespace
 {
@@ -42,7 +41,7 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
         Image src(2, 2, PixelFormat::RGBA8);
         Span<u8> px = src.PixelDataMut();
         for (usize i = 0; i < px.Size(); ++i) { px.Data()[i] = static_cast<u8>(i * 7); }
-        REQUIRE(iio::SaveImage(src, u8"draconic_imgpipe_src.png", iio::ImageFileFormat::PNG).IsOk());
+        REQUIRE(draconic::image::io::SaveImage(src, u8"draconic_imgpipe_src.png", draconic::image::io::ImageFileFormat::PNG).IsOk());
     }
 
     NativeFileSystem outMount(u8"draconic_imgpipe_out_db");

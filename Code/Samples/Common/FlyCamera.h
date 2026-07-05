@@ -36,10 +36,10 @@ struct FlyCamera {
     // Convenience overload: drive from the shell's global devices.
     void Update(draconic::runtime::IApplicationHost& host, draconic::core::f32 dt) {
         namespace runtime = draconic::runtime;
-        namespace sh = draconic::shell;
+        namespace shell = draconic::shell;
         auto* input = (host.Shell() != nullptr) ? host.Shell()->Input() : nullptr;
-        sh::IKeyboard* kb    = (input != nullptr) ? input->Keyboard() : nullptr;
-        sh::IMouse*    mouse = (input != nullptr) ? input->Mouse() : nullptr;
+        shell::IKeyboard* kb    = (input != nullptr) ? input->Keyboard() : nullptr;
+        shell::IMouse*    mouse = (input != nullptr) ? input->Mouse() : nullptr;
         Update(kb, mouse, dt);
     }
 
@@ -48,26 +48,26 @@ struct FlyCamera {
     // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
     void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, draconic::core::f32 dt) {
         namespace runtime = draconic::runtime;
-        namespace sh = draconic::shell;
+        namespace shell = draconic::shell;
         using draconic::core::Vector3;
         if (kb == nullptr) { return; }
 
         if (mouse != nullptr) {
-            if (kb->IsKeyPressed(sh::KeyCode::Tab)) {
+            if (kb->IsKeyPressed(shell::KeyCode::Tab)) {
                 mouseCaptured = !mouseCaptured;
                 mouse->SetRelativeMode(mouseCaptured);
                 mouse->SetCursorVisible(!mouseCaptured);
             }
-            const bool alt = kb->IsKeyDown(sh::KeyCode::LeftAlt) || kb->IsKeyDown(sh::KeyCode::RightAlt);
+            const bool alt = kb->IsKeyDown(shell::KeyCode::LeftAlt) || kb->IsKeyDown(shell::KeyCode::RightAlt);
 
-            if (alt && mouse->IsButtonDown(sh::MouseButton::Left)) {
+            if (alt && mouse->IsButtonDown(shell::MouseButton::Left)) {
                 // Turntable orbit: rotate about the focus point ahead, keeping it fixed.
                 const Vector3 focus = position + Forward() * focusDistance;
                 yaw   -= mouse->DeltaX() * lookSensitivity;
                 pitch -= mouse->DeltaY() * lookSensitivity;
                 pitch  = draconic::core::Clamp(pitch, -1.55f, 1.55f);
                 position = focus - Forward() * focusDistance;
-            } else if (mouseCaptured || mouse->IsButtonDown(sh::MouseButton::Right)) {
+            } else if (mouseCaptured || mouse->IsButtonDown(shell::MouseButton::Right)) {
                 // Free look (rotate in place).
                 yaw   -= mouse->DeltaX() * lookSensitivity;
                 pitch -= mouse->DeltaY() * lookSensitivity;
@@ -76,7 +76,7 @@ struct FlyCamera {
 
             // MMB pan: drag moves the view laterally (content follows the cursor). Scaled by the focus
             // distance so the pan feels consistent regardless of zoom.
-            if (mouse->IsButtonDown(sh::MouseButton::Middle)) {
+            if (mouse->IsButtonDown(shell::MouseButton::Middle)) {
                 const draconic::core::f32 s = panSensitivity * focusDistance;
                 position = position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
             }
@@ -92,14 +92,14 @@ struct FlyCamera {
 
         const Vector3 fwd   = Forward();
         const Vector3 right = Right();
-        const draconic::core::f32 speed = (kb->IsKeyDown(sh::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
+        const draconic::core::f32 speed = (kb->IsKeyDown(shell::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
         Vector3 move{ 0.0f, 0.0f, 0.0f };
-        if (kb->IsKeyDown(sh::KeyCode::W)) { move = move + fwd; }
-        if (kb->IsKeyDown(sh::KeyCode::S)) { move = move - fwd; }
-        if (kb->IsKeyDown(sh::KeyCode::D)) { move = move + right; }
-        if (kb->IsKeyDown(sh::KeyCode::A)) { move = move - right; }
-        if (kb->IsKeyDown(sh::KeyCode::E)) { move = move + Vector3{ 0.0f, 1.0f, 0.0f }; }
-        if (kb->IsKeyDown(sh::KeyCode::Q)) { move = move - Vector3{ 0.0f, 1.0f, 0.0f }; }
+        if (kb->IsKeyDown(shell::KeyCode::W)) { move = move + fwd; }
+        if (kb->IsKeyDown(shell::KeyCode::S)) { move = move - fwd; }
+        if (kb->IsKeyDown(shell::KeyCode::D)) { move = move + right; }
+        if (kb->IsKeyDown(shell::KeyCode::A)) { move = move - right; }
+        if (kb->IsKeyDown(shell::KeyCode::E)) { move = move + Vector3{ 0.0f, 1.0f, 0.0f }; }
+        if (kb->IsKeyDown(shell::KeyCode::Q)) { move = move - Vector3{ 0.0f, 1.0f, 0.0f }; }
         if (draconic::core::Dot(move, move) > 0.0f) { position = position + draconic::core::Normalized(move) * speed; }
     }
 };

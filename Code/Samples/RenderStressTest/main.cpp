@@ -38,7 +38,7 @@ import draconic.materials;
 namespace core  = draconic::core;
 namespace rhi = draconic::rhi;
 namespace runtime  = draconic::runtime;
-namespace sh  = draconic::shell;
+namespace shell  = draconic::shell;
 namespace samples = draconic::samples;
 namespace scene  = draconic::scene;
 namespace render  = draconic::render;
@@ -172,34 +172,34 @@ namespace
             if (m_scene == nullptr) { return; }
 
             auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
-            sh::IKeyboard* kb = input != nullptr ? input->Keyboard() : nullptr;
+            shell::IKeyboard* kb = input != nullptr ? input->Keyboard() : nullptr;
             if (kb == nullptr) { return; }   // mouse-look is handled inside m_fly.Update
 
-            if (kb->IsKeyPressed(sh::KeyCode::Escape)) { host.RequestExit(0); return; }
+            if (kb->IsKeyPressed(shell::KeyCode::Escape)) { host.RequestExit(0); return; }
 
             // --- load controls ---
-            if (kb->IsKeyPressed(sh::KeyCode::Space))     { AddSphereBatch(); }
-            if (kb->IsKeyPressed(sh::KeyCode::Backspace)) { RemoveLastBatch(); }
-            if (kb->IsKeyPressed(sh::KeyCode::U)) {
+            if (kb->IsKeyPressed(shell::KeyCode::Space))     { AddSphereBatch(); }
+            if (kb->IsKeyPressed(shell::KeyCode::Backspace)) { RemoveLastBatch(); }
+            if (kb->IsKeyPressed(shell::KeyCode::U)) {
                 m_uniqueMaterials = !m_uniqueMaterials;
                 RebuildSphereMaterials();
                 core::ConsoleWrite(m_uniqueMaterials ? u8"Unique materials: ON (a draw per sphere)\n"
                                                    : u8"Unique materials: OFF (shared, batched)\n");
             }
-            if (kb->IsKeyPressed(sh::KeyCode::B)) {
+            if (kb->IsKeyPressed(shell::KeyCode::B)) {
                 m_bob = !m_bob;
                 core::ConsoleWrite(m_bob ? u8"Sin-wave bob: ON (transforms rewritten every frame)\n"
                                        : u8"Sin-wave bob: OFF\n");
             }
-            if (kb->IsKeyPressed(sh::KeyCode::H)) { m_showStats = !m_showStats; }
-            if (kb->IsKeyPressed(sh::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
+            if (kb->IsKeyPressed(shell::KeyCode::H)) { m_showStats = !m_showStats; }
+            if (kb->IsKeyPressed(shell::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
                 if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                     const bool on = !render->TaaEnabled();
                     render->SetTaaEnabled(on);
                     core::ConsoleWrite(on ? u8"TAA: ON (motion vectors active)\n" : u8"TAA: OFF\n");
                 }
             }
-            if (kb->IsKeyPressed(sh::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B regression/perf)
+            if (kb->IsKeyPressed(shell::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B regression/perf)
                 if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                     const bool on = !render->InstanceSharing();
                     render->SetInstanceSharing(on);
@@ -207,7 +207,7 @@ namespace
                                         : u8"Instance sharing: OFF (forward re-fills = old double-build)\n");
                 }
             }
-            if (kb->IsKeyPressed(sh::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
+            if (kb->IsKeyPressed(shell::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
                 if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                     if (render::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
                         sl->castsShadows = !sl->castsShadows;
@@ -462,7 +462,7 @@ namespace
 
 int main(int, char**)
 {
-    auto shell = sh::CreateShell();
+    auto shell = shell::CreateShell();
     runtime::GraphicsDeviceDesc gpuDesc{};
     auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
     runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;

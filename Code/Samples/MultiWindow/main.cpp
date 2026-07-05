@@ -21,7 +21,7 @@ import draconic.runtime.graphics.gpu;
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
-        namespace sh = draconic::shell;
+        namespace shell = draconic::shell;
 namespace rhi = draconic::rhi;
 
 namespace
@@ -34,7 +34,7 @@ namespace
             // windows[0] (the main window) already has a RenderWindow from Start().
             // Open a second OS window at runtime — the same call a detachable UI
             // panel would make.
-            sh::WindowSettings ws;
+            shell::WindowSettings ws;
             ws.title  = u8"Draconic - Detached";
             ws.width  = 480;
             ws.height = 360;
@@ -65,12 +65,12 @@ namespace
 
 int main(int /*argc*/, char** /*argv*/)
 {
-    sh::WindowSettings ws;
+    shell::WindowSettings ws;
     ws.title  = u8"Draconic - Main";
     ws.width  = 800;
     ws.height = 600;
 
-    auto shell = sh::CreateShell(ws);
+    auto shell = shell::CreateShell(ws);
     if (shell.Get() == nullptr || shell->MainWindow() == nullptr)
     {
         core::ConsoleWrite(u8"MultiWindow: shell/window init failed.\n");

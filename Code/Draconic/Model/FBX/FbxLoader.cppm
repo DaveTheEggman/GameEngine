@@ -320,7 +320,6 @@ private:
     // -----------------------------------------------------------------------
 
     void loadTextures(Model& model) {
-        namespace iio = draconic::image::io;
 
         for (size_t i = 0; i < m_scene->textures.count; ++i) {
             ufbx_texture* tex = m_scene->textures.data[i];
@@ -343,7 +342,7 @@ private:
             if (tex->content.size > 0 && tex->content.data) {
                 // Embedded texture data.
                 draconic::image::Image img;
-                if (iio::LoadImageFromMemory(
+                if (image::io::LoadImageFromMemory(
                         Span<const u8>(static_cast<const u8*>(tex->content.data),
                                        tex->content.size),
                         img) == ErrorCode::Ok)
@@ -370,7 +369,7 @@ private:
 
                     if (std::filesystem::exists(imagePath)) {
                         draconic::image::Image img;
-                        if (iio::LoadImage(Utf8FromC(imagePath.c_str()), img)
+                        if (image::io::LoadImage(Utf8FromC(imagePath.c_str()), img)
                                 == ErrorCode::Ok) {
                             storeImageData(img, modelTex);
                             resolvedPath = imagePath;
@@ -387,7 +386,7 @@ private:
                             auto candidatePath = (parentDir / relPath).string();
                             if (std::filesystem::exists(candidatePath)) {
                                 draconic::image::Image img;
-                                if (iio::LoadImage(Utf8FromC(candidatePath.c_str()),
+                                if (image::io::LoadImage(Utf8FromC(candidatePath.c_str()),
                                         img) == ErrorCode::Ok) {
                                     storeImageData(img, modelTex);
                                     resolvedPath = candidatePath;
@@ -403,7 +402,7 @@ private:
                 if (!loaded && tex->filename.data && tex->filename.length > 0) {
                     std::string absPath(tex->filename.data, tex->filename.length);
                     draconic::image::Image img;
-                    if (iio::LoadImage(Utf8FromC(absPath.c_str()), img)
+                    if (image::io::LoadImage(Utf8FromC(absPath.c_str()), img)
                             == ErrorCode::Ok) {
                         storeImageData(img, modelTex);
                         resolvedPath = absPath;

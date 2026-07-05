@@ -34,21 +34,21 @@ int main(int /*argc*/, char** /*argv*/) {
     using namespace draconic::core;
     using namespace draconic::rhi;
     namespace vk = draconic::rhi::vk;
-        namespace shl = draconic::shell;
+        namespace shell = draconic::shell;
 
     // ---- Shell: window via the desktop (SDL3) shell ----
-    shl::WindowSettings ws{};
+    shell::WindowSettings ws{};
     ws.title  = u8"Draconic Smoketest";
     ws.width  = 1280;
     ws.height = 720;
-    UniquePtr<shl::IShell> plat = shl::CreateShell(ws);
+    UniquePtr<shell::IShell> plat = shell::CreateShell(ws);
     if (!plat || plat->MainWindow() == nullptr) {
         std::fprintf(stderr, "shell/window init failed\n");
         return 1;
     }
-    shl::IWindow* window = plat->MainWindow();
+    shell::IWindow* window = plat->MainWindow();
 
-    const shl::NativeWindow nw = window->Native();
+    const shell::NativeWindow nw = window->Native();
     void* native  = nw.window;
     void* display = nw.display;
     if (!native) {

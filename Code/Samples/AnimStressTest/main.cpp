@@ -50,7 +50,7 @@ namespace core = draconic::core;
 namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace runtime = draconic::runtime;
-        namespace sh = draconic::shell;
+        namespace shell = draconic::shell;
 namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace imgui = draconic::imgui;
@@ -365,18 +365,18 @@ namespace
             // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). Drives the scene camera entity; Esc exits.
             m_fly.Update(host, deltaTime);
             if (auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr) {
-                if (sh::IKeyboard* kb = input->Keyboard()) {
-                    if (kb->IsKeyPressed(sh::KeyCode::Space))     { AddBatch(); }
-                    if (kb->IsKeyPressed(sh::KeyCode::Backspace)) { RemoveBatch(); }
-                    if (kb->IsKeyPressed(sh::KeyCode::H))         { m_showHud = !m_showHud; }
-                    if (kb->IsKeyPressed(sh::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B)
+                if (shell::IKeyboard* kb = input->Keyboard()) {
+                    if (kb->IsKeyPressed(shell::KeyCode::Space))     { AddBatch(); }
+                    if (kb->IsKeyPressed(shell::KeyCode::Backspace)) { RemoveBatch(); }
+                    if (kb->IsKeyPressed(shell::KeyCode::H))         { m_showHud = !m_showHud; }
+                    if (kb->IsKeyPressed(shell::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B)
                         if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                             const bool on = !render->InstanceSharing();
                             render->SetInstanceSharing(on);
                             core::ConsoleWrite(on ? u8"Instance sharing: ON\n" : u8"Instance sharing: OFF (forward re-fills)\n");
                         }
                     }
-                    if (kb->IsKeyPressed(sh::KeyCode::Escape)) { host.RequestExit(0); return; }
+                    if (kb->IsKeyPressed(shell::KeyCode::Escape)) { host.RequestExit(0); return; }
                 }
             }
             if (m_scene != nullptr) {
@@ -523,7 +523,7 @@ namespace
 
 int main(int, char**)
 {
-    auto shell = sh::CreateShell();
+    auto shell = shell::CreateShell();
     runtime::GraphicsDeviceDesc gpuDesc{};
     auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
     runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;

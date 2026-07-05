@@ -52,7 +52,7 @@ namespace core = draconic::core;
 namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace runtime = draconic::runtime;
-namespace sh = draconic::shell;
+namespace shell = draconic::shell;
 namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace geometry = draconic::geometry;
@@ -777,7 +777,7 @@ namespace
         // Build (lazily) the input router + one surface per split half, then refit each surface's region
         // to the current window split. Each half's content-space equals its own pixel rect (region ==
         // contentSize, Stretch), so a viewport mouse reads [0..halfW]x[0..H] local to that view.
-        void UpdateInputRouting(sh::IInputManager& input, sh::IWindow& win)
+        void UpdateInputRouting(shell::IInputManager& input, shell::IWindow& win)
         {
             const core::f32 w = static_cast<core::f32>(win.Width());
             const core::f32 h = static_cast<core::f32>(win.Height());
@@ -788,9 +788,9 @@ namespace
                                      .contentSize = core::Vector2{ halfW, h }, .mode = core::FitMode::Stretch };
                 core::ContentFit fitR{ .region = core::Rectangle{ halfW, 0.0f, w - halfW, h },
                                      .contentSize = core::Vector2{ w - halfW, h }, .mode = core::FitMode::Stretch };
-                m_surfaceL = core::MakeUnique<sh::InputSurface>(core::DefaultAllocator(), &input, win.Id(), fitL);
-                m_surfaceR = core::MakeUnique<sh::InputSurface>(core::DefaultAllocator(), &input, win.Id(), fitR);
-                m_inputRouter = core::MakeUnique<sh::InputRouter>(core::DefaultAllocator(), &input);
+                m_surfaceL = core::MakeUnique<shell::InputSurface>(core::DefaultAllocator(), &input, win.Id(), fitL);
+                m_surfaceR = core::MakeUnique<shell::InputSurface>(core::DefaultAllocator(), &input, win.Id(), fitR);
+                m_inputRouter = core::MakeUnique<shell::InputRouter>(core::DefaultAllocator(), &input);
                 m_inputRouter->AddSurface(m_surfaceL.Get());
                 m_inputRouter->AddSurface(m_surfaceR.Get());
                 // Click-to-focus (router default): a click sets keyboard focus to that half, so WASD/QE
@@ -905,7 +905,7 @@ namespace
             // and window exist, then keep each surface's region in sync with the live split so a resize
             // (or DPI change) just re-fits. The router resolves the hovered surface and gates input.
             auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
-            sh::IWindow* win = host.Shell() != nullptr ? host.Shell()->MainWindow() : nullptr;
+            shell::IWindow* win = host.Shell() != nullptr ? host.Shell()->MainWindow() : nullptr;
             if (input != nullptr && win != nullptr) {
                 UpdateInputRouting(*input, *win);
             }
@@ -917,14 +917,14 @@ namespace
 
             // Global (non-viewport) keys still read the raw keyboard.
             if (input != nullptr) {
-                if (sh::IKeyboard* kb = input->Keyboard()) {
-                    if (kb->IsKeyPressed(sh::KeyCode::Escape)) { host.RequestExit(0); return; }
+                if (shell::IKeyboard* kb = input->Keyboard()) {
+                    if (kb->IsKeyPressed(shell::KeyCode::Escape)) { host.RequestExit(0); return; }
                     // G fires the Character graph's "Next" trigger -> cross-fade to its next clip state.
-                    if (kb->IsKeyPressed(sh::KeyCode::G)) { FireGraphNext(); }
+                    if (kb->IsKeyPressed(shell::KeyCode::G)) { FireGraphNext(); }
                     // F5 cycles the sky source (procedural <-> HDR equirectangular).
-                    if (kb->IsKeyPressed(sh::KeyCode::F5)) { CycleSkyMode(); }
+                    if (kb->IsKeyPressed(shell::KeyCode::F5)) { CycleSkyMode(); }
                     // F6 toggles reflection-probe box parallax (compare parallax vs infinite-env reflection).
-                    if (kb->IsKeyPressed(sh::KeyCode::F6)) { ToggleProbeParallax(); }
+                    if (kb->IsKeyPressed(shell::KeyCode::F6)) { ToggleProbeParallax(); }
                 }
             }
 
@@ -1105,9 +1105,9 @@ namespace
         // Viewport-input routing: each split half is an InputSurface (a ContentFit slice of the window);
         // the router picks the hovered surface and gates/transforms input into it. Created lazily once
         // the shell + window exist. focus-follows-hover so the pointer alone selects the active view.
-        core::UniquePtr<sh::InputRouter>  m_inputRouter;
-        core::UniquePtr<sh::InputSurface> m_surfaceL;
-        core::UniquePtr<sh::InputSurface> m_surfaceR;
+        core::UniquePtr<shell::InputRouter>  m_inputRouter;
+        core::UniquePtr<shell::InputSurface> m_surfaceL;
+        core::UniquePtr<shell::InputSurface> m_surfaceR;
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
@@ -1136,7 +1136,7 @@ namespace
 
 int main(int, char**)
 {
-    auto shell = sh::CreateShell();
+    auto shell = shell::CreateShell();
     runtime::GraphicsDeviceDesc gpuDesc{};
     auto gpu = runtime::CreateGraphicsDevice(gpuDesc);
     runtime::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;

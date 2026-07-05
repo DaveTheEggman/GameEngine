@@ -27,7 +27,6 @@ namespace shaders = draconic::shaders;
 namespace image = draconic::image;
 namespace fonts = draconic::fonts;
 namespace vg = draconic::vg;
-namespace vgr = draconic::vg::renderer;
 namespace svg = draconic::vg::svg;
 
 namespace
@@ -109,7 +108,7 @@ private:
 
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
     UniquePtr<vg::VGContext> m_vg;
-    vgr::VGRenderer    m_renderer;
+    vg::renderer::VGRenderer    m_renderer;
     image::OwnedImageData m_checker;
 
     fonts::CachedFont* m_fontSmall = nullptr;
@@ -651,7 +650,7 @@ void VGSandbox::OnRender()
     vg::VGBatch& batch = m_vg->GetBatch();
 
     m_renderer.BeginFrame(static_cast<i32>(m_frameIndex));
-    const vgr::VGRenderSlice slice = m_renderer.Prepare(batch, static_cast<i32>(m_frameIndex), m_width, m_height);
+    const vg::renderer::VGRenderSlice slice = m_renderer.Prepare(batch, static_cast<i32>(m_frameIndex), m_width, m_height);
 
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;

@@ -17,7 +17,7 @@ import draconic.runtime.graphics.gpu;   // CreateGraphicsDevice
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
-        namespace sh = draconic::shell;
+        namespace shell = draconic::shell;
 
 namespace
 {

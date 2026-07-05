@@ -23,7 +23,6 @@ using namespace draconic::vfs;
 using namespace draconic::resource;
 using namespace draconic::texture;
 namespace image = draconic::image;
-namespace iio = draconic::image::io;
 namespace rhi = draconic::rhi;
 
 namespace
@@ -48,7 +47,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
         image::Image src(2, 2, image::PixelFormat::RGBA8);
         Span<u8> px = src.PixelDataMut();
         for (usize i = 0; i < px.Size(); ++i) { px.Data()[i] = static_cast<u8>(i * 5); }
-        REQUIRE(iio::SaveImage(src, u8"draconic_texpipe_src.png", iio::ImageFileFormat::PNG).IsOk());
+        REQUIRE(image::io::SaveImage(src, u8"draconic_texpipe_src.png", image::io::ImageFileFormat::PNG).IsOk());
     }
 
     NativeFileSystem outMount(u8"draconic_texpipe_out_db");
