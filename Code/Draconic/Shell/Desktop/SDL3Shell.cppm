@@ -484,20 +484,20 @@ export namespace draconic::shell
         }
 
         // --- backend wiring (called by the shell event pump) ---
-        SDL3Keyboard& Kb() noexcept { return m_keyboard; }
-        SDL3Mouse&    Ms() noexcept { return m_mouse; }
-        SDL3Touch&    Tc() noexcept { return m_touch; }
+        SDL3Keyboard& KeyboardDevice() noexcept { return m_keyboard; }
+        SDL3Mouse&    MouseDevice() noexcept { return m_mouse; }
+        SDL3Touch&    TouchDevice() noexcept { return m_touch; }
         void SetWindow(SDL_Window* window) { m_mouse.SetWindow(window); }
 
         // Emit an input event onto this frame's stream (also apply it to the snapshot at the
         // call site — the snapshot is a fold over these events).
-        void Emit(const InputEvent& e) { m_events.PushBack(e); }
+        void EmitEvent(const InputEvent& e) { m_events.PushBack(e); }
         void SetHoverWindow(core::u32 id)   noexcept { m_hoverWindow = id; }
         void SetFocusWindow(core::u32 id)   noexcept { m_focusWindow = id; }
 
         void AddGamepad(SDL_JoystickID id)
         {
-            if (FindById(id) != nullptr) { return; }
+            if (FindGamepadById(id) != nullptr) { return; }
             SDL_Gamepad* pad = SDL_OpenGamepad(id);
             if (pad == nullptr) { return; }
 
@@ -524,7 +524,7 @@ export namespace draconic::shell
             }
         }
 
-        SDL3Gamepad* FindById(SDL_JoystickID id)
+        SDL3Gamepad* FindGamepadById(SDL_JoystickID id)
         {
             for (SDL3Gamepad* g : m_gamepads) { if (g->Id() == id) { return g; } }
             return nullptr;
@@ -650,9 +650,9 @@ export namespace draconic::shell
                         e.window = static_cast<core::u32>(event.key.windowID);
                         e.key = MapKeyCode(event.key.scancode);
                         e.modifiers = MapModifiers(event.key.mod);
-                        m_input.Emit(e);
-                        m_input.Kb().SetKey(e.key, event.key.down);
-                        m_input.Kb().SetModifiers(e.modifiers);
+                        m_input.EmitEvent(e);
+                        m_input.KeyboardDevice().SetKey(e.key, event.key.down);
+                        m_input.KeyboardDevice().SetModifiers(e.modifiers);
                         break;
                     }
                     case SDL_EVENT_TEXT_INPUT:   // only arrives after SDL_StartTextInput (focus-driven, later)
@@ -669,7 +669,7 @@ export namespace draconic::shell
                             }
                             e.text[n] = static_cast<core::utf8char>('\0');
                         }
-                        m_input.Emit(e);
+                        m_input.EmitEvent(e);
                         break;
                     }
 
@@ -682,8 +682,8 @@ export namespace draconic::shell
                         e.window = static_cast<core::u32>(event.motion.windowID);
                         e.x = event.motion.x; e.y = event.motion.y;
                         e.dx = event.motion.xrel; e.dy = event.motion.yrel;
-                        m_input.Emit(e);
-                        m_input.Ms().OnMotion(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
+                        m_input.EmitEvent(e);
+                        m_input.MouseDevice().OnMotion(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
                         break;
                     }
                     case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -696,8 +696,8 @@ export namespace draconic::shell
                         e.window = static_cast<core::u32>(event.button.windowID);
                         e.button = MapMouseButton(btn);
                         e.x = event.button.x; e.y = event.button.y;
-                        m_input.Emit(e);
-                        m_input.Ms().OnButton(btn, down);
+                        m_input.EmitEvent(e);
+                        m_input.MouseDevice().OnButton(btn, down);
                         break;
                     }
                     case SDL_EVENT_MOUSE_WHEEL:
@@ -706,8 +706,8 @@ export namespace draconic::shell
                         e.kind = InputEventKind::MouseWheel;
                         e.window = static_cast<core::u32>(event.wheel.windowID);
                         e.x = event.wheel.x; e.y = event.wheel.y;
-                        m_input.Emit(e);
-                        m_input.Ms().OnWheel(event.wheel.x, event.wheel.y);
+                        m_input.EmitEvent(e);
+                        m_input.MouseDevice().OnWheel(event.wheel.x, event.wheel.y);
                         break;
                     }
 
@@ -720,8 +720,8 @@ export namespace draconic::shell
                         e.window = static_cast<core::u32>(event.tfinger.windowID);
                         e.touchId = static_cast<core::u64>(event.tfinger.fingerID);
                         e.x = event.tfinger.x; e.y = event.tfinger.y; e.value = event.tfinger.pressure;
-                        m_input.Emit(e);
-                        m_input.Tc().AddOrUpdate(TouchPoint{ e.touchId, e.x, e.y, e.value });
+                        m_input.EmitEvent(e);
+                        m_input.TouchDevice().AddOrUpdate(TouchPoint{ e.touchId, e.x, e.y, e.value });
                         break;
                     }
                     case SDL_EVENT_FINGER_UP:
@@ -731,8 +731,8 @@ export namespace draconic::shell
                         e.window = static_cast<core::u32>(event.tfinger.windowID);
                         e.touchId = static_cast<core::u64>(event.tfinger.fingerID);
                         e.x = event.tfinger.x; e.y = event.tfinger.y;
-                        m_input.Emit(e);
-                        m_input.Tc().Remove(e.touchId);
+                        m_input.EmitEvent(e);
+                        m_input.TouchDevice().Remove(e.touchId);
                         break;
                     }
 
@@ -745,7 +745,7 @@ export namespace draconic::shell
                         break;
                     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
                     case SDL_EVENT_GAMEPAD_BUTTON_UP:
-                        if (SDL3Gamepad* pad = m_input.FindById(event.gbutton.which))
+                        if (SDL3Gamepad* pad = m_input.FindGamepadById(event.gbutton.which))
                         {
                             const GamepadButton b = MapGamepadButton(static_cast<SDL_GamepadButton>(event.gbutton.button));
                             if (b != GamepadButton::Count)
@@ -755,13 +755,13 @@ export namespace draconic::shell
                                 e.kind = down ? InputEventKind::GamepadButtonDown : InputEventKind::GamepadButtonUp;
                                 e.window = m_input.FocusedWindow();
                                 e.gamepad = pad->Index(); e.padButton = b;
-                                m_input.Emit(e);
+                                m_input.EmitEvent(e);
                                 pad->SetButton(b, down);
                             }
                         }
                         break;
                     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-                        if (SDL3Gamepad* pad = m_input.FindById(event.gaxis.which))
+                        if (SDL3Gamepad* pad = m_input.FindGamepadById(event.gaxis.which))
                         {
                             const GamepadAxis a = MapGamepadAxis(static_cast<SDL_GamepadAxis>(event.gaxis.axis));
                             if (a != GamepadAxis::Count)
@@ -771,7 +771,7 @@ export namespace draconic::shell
                                 e.window = m_input.FocusedWindow();
                                 e.gamepad = pad->Index(); e.padAxis = a;
                                 e.value = static_cast<core::f32>(event.gaxis.value) / 32767.0f;   // snapshot reads axes live
-                                m_input.Emit(e);
+                                m_input.EmitEvent(e);
                             }
                         }
                         break;
