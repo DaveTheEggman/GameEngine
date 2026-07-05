@@ -1,4 +1,4 @@
-// Draconic::VG — :batch partition.
+// Draconic::VG - :batch partition.
 //
 // The batched output an external renderer consumes: VGCommand (a run of indices
 // sharing state), VGBatch (vertices/indices/commands/textures), and the
@@ -45,7 +45,7 @@ export namespace draconic::vg
         Array<u32> indices;        ///< Index data for all geometry.
         Array<VGCommand> commands; ///< Draw commands (batched by state).
         // Textures referenced by commands (by textureIndex). NOT owned by the
-        // batch — VGContext manages lifetime. By convention index 0 is a 1x1
+        // batch - VGContext manages lifetime. By convention index 0 is a 1x1
         // white texture for solid-color draws.
         Array<const image::ImageData*> textures;
 
@@ -69,7 +69,7 @@ export namespace draconic::vg
         [[nodiscard]] usize VertexCount() const { return vertices.Size(); }
         [[nodiscard]] usize IndexCount() const { return indices.Size(); }
 
-        /// Clear all data for reuse. Also clears the texture list — the caller
+        /// Clear all data for reuse. Also clears the texture list - the caller
         /// re-adds required textures (e.g. the white fallback at index 0).
         void Clear()
         {

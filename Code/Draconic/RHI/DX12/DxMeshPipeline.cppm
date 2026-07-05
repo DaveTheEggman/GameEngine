@@ -48,7 +48,7 @@ public:
         alignas(8) u8 streamBuffer[2048]{};
         usize offset = 0;
 
-        // Root signature (manual — pointer type cannot use writeSubobject<T>).
+        // Root signature (manual - pointer type cannot use writeSubobject<T>).
         {
             offset = (offset + 7) & ~usize(7);
             std::memcpy(&streamBuffer[offset], &(const D3D12_PIPELINE_STATE_SUBOBJECT_TYPE&)

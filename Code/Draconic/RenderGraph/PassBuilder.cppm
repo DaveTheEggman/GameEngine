@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :pass_builder partition
+// Draconic::RenderGraph - :pass_builder partition
 //
 // Fluent builder handed to a pass's setup callback to declare reads/writes,
 // attachments, dependencies, flags, and the execute callback. Ported from
@@ -34,8 +34,8 @@ export namespace draconic::rendergraph
             return *this;
         }
 
-        // Sample a DEPTH texture in this pass's shader (e.g. a shadow map). Like ReadTexture — a read
-        // dependency + barrier, NOT a depth attachment (unlike ReadDepth) — but transitions to
+        // Sample a DEPTH texture in this pass's shader (e.g. a shadow map). Like ReadTexture - a read
+        // dependency + barrier, NOT a depth attachment (unlike ReadDepth) - but transitions to
         // DepthStencilRead (DEPTH_STENCIL_READ_ONLY_OPTIMAL), the layout a depth sampler expects.
         PassBuilder& SampleDepth(RGHandle handle, RGSubresourceRange subresource = {})
         {

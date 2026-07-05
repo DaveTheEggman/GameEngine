@@ -1,7 +1,7 @@
-# Draconic::RuntimeDefaultApp — `draconic.runtime.defaultapp` (DefaultApplication: the
+# Draconic::RuntimeDefaultApp - `draconic.runtime.defaultapp` (DefaultApplication: the
 # opinionated IApplication that registers the standard engine subsystems). Kept in
 # its own library so the base client (Draconic::RuntimeClient) never pulls in the
-# engine subsystem libraries — only apps that opt into the defaults link this.
+# engine subsystem libraries - only apps that opt into the defaults link this.
 # As engine subsystems land, add them as link dependencies HERE.
 
 add_library(DraconicRuntimeDefaultApp STATIC)

@@ -1,4 +1,4 @@
-# Draconic::MeshResource — `draconic.geometry.resource` (meshes as resources:
+# Draconic::MeshResource - `draconic.geometry.resource` (meshes as resources:
 # Static/SkinnedMeshSource -> Static/SkinnedMesh via factories).
 add_library(DraconicMeshResource STATIC)
 add_library(Draconic::MeshResource ALIAS DraconicMeshResource)

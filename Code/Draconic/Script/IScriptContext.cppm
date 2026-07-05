@@ -1,8 +1,8 @@
-// Draconic Script — :script_context partition
+// Draconic Script - :script_context partition
 //
 // IScriptContext: an isolated script execution environment. Everything crossing
-// the boundary uses Core's reflection currency — Variant for values/objects,
-// TypeInfo for types — so the interface is VM-agnostic. Backends (Lua, ...) are
+// the boundary uses Core's reflection currency - Variant for values/objects,
+// TypeInfo for types - so the interface is VM-agnostic. Backends (Lua, ...) are
 // plugins implementing this; see Documentation/Planning.
 
 module;
@@ -41,11 +41,11 @@ export namespace draconic::script
         virtual void OnError(const ScriptError& error) = 0;
     };
 
-    // A handle to a live script-side object — typically an instance of a
+    // A handle to a live script-side object - typically an instance of a
     // script-defined class. Reference-counted; it keeps its owning context alive
     // for as long as it exists. This is the shared primitive script integration
-    // builds on: a global "driver" object the runtime ticks (tier 1), or — later,
-    // when an ECS exists — per-entity script components an ECS system ticks.
+    // builds on: a global "driver" object the runtime ticks (tier 1), or - later,
+    // when an ECS exists - per-entity script components an ECS system ticks.
     class ScriptObject : public core::Object
     {
     public:

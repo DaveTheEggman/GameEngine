@@ -1,6 +1,6 @@
 // The render-side PSO cache: build a pipeline from a PipelineConfig pulling variants
 // from the ShaderSystem, verify it caches, and verify the version-polling hot-reload
-// path — invalidating the shader makes GetPipeline rebuild and retire the stale PSO.
+// path - invalidating the shader makes GetPipeline rebuild and retire the stale PSO.
 // Real DXC + Null RHI.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

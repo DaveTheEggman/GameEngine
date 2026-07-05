@@ -30,7 +30,7 @@ using namespace draconic::core;
 using namespace draconic::model;
 
 // cgltf hands back char* (UTF-8); the engine String is UTF-8 too, so this just
-// wraps the bytes in an owned String — no transcoding.
+// wraps the bytes in an owned String - no transcoding.
 inline String Utf8FromC(const char* s) {
     if (!s) return String{};
     return String(StringView(reinterpret_cast<const utf8char*>(s)));
@@ -76,7 +76,7 @@ public:
         if (endsWithCI(path, u8".glb"))
             options.type = cgltf_file_type_glb;
         // json_token_count = 0 lets cgltf size the JSON token pool itself (a counting pass first).
-        // A fixed cap (was 4096) silently fails to parse larger glTFs with invalid_json (result=3) —
+        // A fixed cap (was 4096) silently fails to parse larger glTFs with invalid_json (result=3) -
         // e.g. the Quaternius character (~1MB, >4096 JSON tokens).
         options.json_token_count = 0;
 

@@ -1,4 +1,4 @@
-/// Draconic::ModelImporter:anim_convert — Model IR skin/animation -> animation *Source.
+/// Draconic::ModelImporter:anim_convert - Model IR skin/animation -> animation *Source.
 ///
 /// Converts a model's skin (joints + inverse-bind matrices + the bone hierarchy) into a
 /// SkeletonSource, and its animation channels into AnimationClipSources. The skeleton's

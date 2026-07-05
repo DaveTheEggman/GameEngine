@@ -1,5 +1,5 @@
-// Draconic Core — :matrix4 partition
-// Matrix4: 4x4 row-major matrix — transforms, projections (Perspective/Ortho/
+// Draconic Core - :matrix4 partition
+// Matrix4: 4x4 row-major matrix - transforms, projections (Perspective/Ortho/
 // LookAt RH), multiply, Transpose/Determinant/Inverse, point/direction xform.
 //
 // Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
@@ -21,7 +21,7 @@ import :vector4;
 export namespace draconic::core
 {
     // =======================================================================
-    // Matrix4 — 4x4, row-major, row-vector convention.
+    // Matrix4 - 4x4, row-major, row-vector convention.
     // =======================================================================
     struct Matrix4
     {

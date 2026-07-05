@@ -1,10 +1,10 @@
-// Draconic::TextureEditor — the `draconic.texture.editor` module (tooling).
+// Draconic::TextureEditor - the `draconic.texture.editor` module (tooling).
 //
 // Source-side texture authoring + cook:
 //   * TextureAsset (editor::Asset): references an image file + the GPU-texture
 //     intent (color space, shape, sampler state). Presets mirror Sedulous's.
 //   * TextureAssetBuilder (DefaultAssetBuilder): cooks a TextureAsset into a
-//     runtime TextureResource — decode the file, resolve the RHI format from the
+//     runtime TextureResource - decode the file, resolve the RHI format from the
 //     pixel format + color space, write the cooked record + "data" pixel stream.
 //   * TextureImporter: an authoring helper that produces a TextureAsset for an
 //     image file with a sensible preset (2D / equirectangular sky).

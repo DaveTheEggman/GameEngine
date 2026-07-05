@@ -1,4 +1,4 @@
-// Draconic Core — :serializable_registry partition
+// Draconic Core - :serializable_registry partition
 //
 // SerializableRegistry: maps a reflected TypeId to a factory that default-builds
 // the concrete ISerializable. The polymorphic load path (content database) reads
@@ -6,7 +6,7 @@
 // this registry to create the object before running Serialize() on it.
 //
 // Registration is explicit (RegisterSerializable<T>()), matching the reflection
-// registration convention — no static-init-order reliance.
+// registration convention - no static-init-order reliance.
 
 module;
 #include "Core/Prelude.h"

@@ -1,13 +1,13 @@
-/// Draconic::Render — the `:decal_pass` partition.
+/// Draconic::Render - the `:decal_pass` partition.
 ///
 /// Screen-space projected decals, ported from SedulousEngine's DecalPass/decal.frag: reconstruct the
 /// world position under each pixel from the scene depth, transform it into a decal's oriented unit box,
-/// clip to the box, and alpha-blend the decal texture onto the lit HDR — a "sprayed" sticker that lands
+/// clip to the box, and alpha-blend the decal texture onto the lit HDR - a "sprayed" sticker that lands
 /// on whatever surface is under the box (including animated meshes, since it reads the depth buffer).
 ///
 /// Runs after the forward+sky pass and BEFORE AO/TAA, blending into the HDR (so decals get TAA-resolved).
 /// Draconic matches Sedulous's shader assumptions (row-major, D3D-style [0,1] clip depth, top-origin uv
-/// under the negative viewport — same reconstruction as AoPass), so the projection math ports verbatim.
+/// under the negative viewport - same reconstruction as AoPass), so the projection math ports verbatim.
 ///
 /// v1 draws a FULLSCREEN triangle per decal (robust across split-screen sub-rects + no box winding/cull
 /// pitfalls); the box test lives in the fragment shader. Receiver normal for angle-fade comes from the
@@ -46,7 +46,7 @@ struct DecalUniforms {
 static_assert(sizeof(DecalUniforms) == 224);
 
 // Fullscreen triangle that EMITS its clip-space NDC (like SkyPass): the interpolated NDC at a pixel is
-// exactly what the scene geometry used there (same viewport), so unprojecting it is robust — no
+// exactly what the scene geometry used there (same viewport), so unprojecting it is robust - no
 // hand-derived negative-viewport flip. SV_Position is still used to sample depth at the right texel.
 inline constexpr const char8_t* kDecalVS = u8R"(
 struct VSOut { float4 pos : SV_Position; float2 ndc : TEXCOORD0; };
@@ -75,7 +75,7 @@ cbuffer DecalUniforms : register(b0, space1) {
 
 float4 main(float4 pos : SV_Position, float2 ndc : TEXCOORD0) : SV_Target {
     // Sample the scene depth at THIS framebuffer pixel (SV_Position is the framebuffer position, so
-    // pixel/size reads the texel the forward pass wrote here — no flip needed for a same-pixel read).
+    // pixel/size reads the texel the forward pass wrote here - no flip needed for a same-pixel read).
     float2 uv    = pos.xy * Params.xy;
     float  depth = SceneDepth.SampleLevel(DepthSamp, uv, 0).r;
 
@@ -158,7 +158,7 @@ public:
     }
 
     // Bracket the frame ONCE (before the per-view loop). The per-decal uniform ring must NOT be reset per
-    // view — DeclareDecals is called once per view, and the GPU reads the ring at graph-execute time
+    // view - DeclareDecals is called once per view, and the GPU reads the ring at graph-execute time
     // (after ALL views have recorded), so per-view resets would make every view read the last view's
     // slot (its InvViewProj) -> decals reconstruct with the wrong matrix and swim / couple across views.
     void BeginFrame(u32 frameIndex) {
@@ -225,7 +225,7 @@ private:
     struct Draw { u32 offset; rhi::TextureView* texture; };
 
     static constexpr u32 kRetireFrames      = 3;
-    static constexpr u32 kMaxDecalsPerFrame = 256;   // ring capacity (across all views) — reserved once
+    static constexpr u32 kMaxDecalsPerFrame = 256;   // ring capacity (across all views) - reserved once
 
     rhi::RenderPipeline* MakePipeline() {
         rhi::ShaderModule* vs = m_shaders->GetVariant(u8"decal", shaders::ShaderStage::Vertex,   shaders::ShaderFlags::None);
@@ -249,7 +249,7 @@ private:
     }
 
     // One bind group over the decal-uniform ring (dynamic offset per decal). Rebuilt only on ring
-    // realloc (generation), which drains the GPU first — never freeing an in-flight set.
+    // realloc (generation), which drains the GPU first - never freeing an in-flight set.
     rhi::BindGroup* EnsureUboBindGroup() {
         const u32 gen = m_decalRing.Generation();
         if (m_uboBg != nullptr && m_uboBgGen == gen) { return m_uboBg; }
@@ -262,7 +262,7 @@ private:
         return m_uboBg;
     }
 
-    // Depth bind group (set 0), cached by (view, generation) with a defer-free retire list — the depth
+    // Depth bind group (set 0), cached by (view, generation) with a defer-free retire list - the depth
     // transient is aliased/recreated, so a raw-pointer cache would free a set an in-flight frame still uses.
     rhi::BindGroup* EnsureDepthBindGroup(rhi::TextureView* depth, u64 generation) {
         if (depth == nullptr) { return nullptr; }

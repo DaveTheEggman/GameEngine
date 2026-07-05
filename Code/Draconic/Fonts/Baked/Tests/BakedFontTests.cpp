@@ -1,4 +1,4 @@
-// Ported from Sedulous.Fonts.Tests/BakedFontTests.bf — pure-data exercises of
+// Ported from Sedulous.Fonts.Tests/BakedFontTests.bf - pure-data exercises of
 // BakedFont + BakedFontAtlas (no rasterizer / no TTF).
 #include <doctest/doctest.h>
 

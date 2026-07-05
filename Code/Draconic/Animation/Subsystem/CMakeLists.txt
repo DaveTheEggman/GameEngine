@@ -1,4 +1,4 @@
-# Draconic::AnimationSubsystem — `draconic.animation.subsystem`, the scene side of skeletal
+# Draconic::AnimationSubsystem - `draconic.animation.subsystem`, the scene side of skeletal
 # animation (SkeletalAnimationComponent + manager + AnimationSubsystem). Sits at the
 # animation<->render seam: depends on Animation + Scene + RenderSubsystem (one-way).
 add_library(DraconicAnimationSubsystem STATIC)

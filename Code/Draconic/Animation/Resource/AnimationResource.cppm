@@ -1,7 +1,7 @@
-/// Draconic::AnimationResource — the `draconic.animation.resource` module.
+/// Draconic::AnimationResource - the `draconic.animation.resource` module.
 ///
 /// Skeletons + animation clips as resources: a cooked SkeletonSource / AnimationClipSource
-/// (ISerializable — flat parallel arrays) is built by a factory into the runtime
+/// (ISerializable - flat parallel arrays) is built by a factory into the runtime
 /// animation::Skeleton / animation::AnimationClip. Mirrors draconic.geometry.resource
 /// (Source -> Factory -> Product). The graph resource (composite, references clips) lands later.
 
@@ -220,10 +220,10 @@ public:
 // ---- animation graph (authored, composite) -------------------------------------------------
 // The graph is authored directly (its source IS the authoritative form, unlike skeleton/clip which
 // are captured from models). The factory builds a runtime AnimationGraph, resolving each clip
-// reference (Guid) via manager.Bind<AnimationClip> — which records a dependency edge, so the manager
+// reference (Guid) via manager.Bind<AnimationClip> - which records a dependency edge, so the manager
 // keeps the clips alive while the graph is bound (the graph's nodes hold borrowed AnimationClip*).
 
-// Authored sub-records — plain copyable value structs (so they live in Array<T>), each with a free
+// Authored sub-records - plain copyable value structs (so they live in Array<T>), each with a free
 // Serialize overload found by ADL from the Array<T> serializer. (Not ISerializable, which is
 // non-copyable.) One state node: a clip, or a 1D/2D blend tree; clips referenced by resource id.
 struct GraphNodeData {

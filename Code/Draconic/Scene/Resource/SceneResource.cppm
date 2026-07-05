@@ -1,4 +1,4 @@
-/// Draconic::SceneResource — the `draconic.scene.resource` module.
+/// Draconic::SceneResource - the `draconic.scene.resource` module.
 ///
 /// Whole-scene serialization (the runtime LOAD side; the editor save side is in
 /// draconic.scene.editor). A scene is stored as one content-DB Instance: a small
@@ -8,7 +8,7 @@
 /// SerializeScene is the bidirectional core: it runs the entity / transform / component
 /// outer-join over an ISerializer. Entities persist by Guid (parent links + component
 /// owners are stored as Guids and relinked on load). Components are serialized by their
-/// owning manager (the typed manager is the serializer — value components carry no
+/// owning manager (the typed manager is the serializer - value components carry no
 /// vtable) and routed back on load by a stable string type id. The thin "component
 /// type -> manager" routing is the only scene-specific registry; the managers
 /// themselves already exist on the target scene (injected via ISceneAware), so load
@@ -113,7 +113,7 @@ inline void SerializeScene(ISerializer& ar, Scene& scene) {
 
     // --- components (owner-id, type-id, data) ---
     // NOTE: records are written inline; load requires the owning manager to be present
-    // on `scene` (the normal case — managers are injected before load). Skipping an
+    // on `scene` (the normal case - managers are injected before load). Skipping an
     // unknown component type (length-prefixed records) is a future robustness item.
     u32 componentCount = 0;
     struct Record { ComponentManagerBase* manager; EntityHandle owner; };

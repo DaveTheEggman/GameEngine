@@ -1,9 +1,9 @@
-/// Draconic::Profiler — `draconic.profiler`.
+/// Draconic::Profiler - `draconic.profiler`.
 ///
 /// A lightweight hierarchical CPU scope profiler (the design ported from Sedulous.Profiler, made
 /// C++-idiomatic). Scopes nest into a per-thread tree; at frame end every thread's samples merge
 /// into the completed-frame snapshot. Timing uses core::GetTicks (the high-res monotonic counter).
-/// Instrument with the DRACONIC_PROFILE_SCOPE macro (Profiler.h) — it compiles to nothing when
+/// Instrument with the DRACONIC_PROFILE_SCOPE macro (Profiler.h) - it compiles to nothing when
 /// DRACONIC_PROFILING is off. Thread-safe: scopes touch only thread-local state; the registry +
 /// frame swap are mutex-guarded, and the merge runs at frame end when workers are idle.
 

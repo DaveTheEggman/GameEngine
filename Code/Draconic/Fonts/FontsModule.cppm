@@ -1,4 +1,4 @@
-// Draconic::Fonts — the `draconic.fonts` module.
+// Draconic::Fonts - the `draconic.fonts` module.
 //
 // Font/glyph/text-layout types and abstract interfaces (IFont, IFontAtlas,
 // ITextShaper, IFontService) plus shared helpers. Backends (TTF, baked) and the

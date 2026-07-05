@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :types partition
+// Draconic::RenderGraph - :types partition
 //
 // Core value types: resource/pass handles, pass + access enums, subresource
 // ranges. Ported from Sedulous.RenderGraph (Types.bf). Access types map to RHI

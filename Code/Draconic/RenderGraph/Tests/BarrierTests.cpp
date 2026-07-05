@@ -1,4 +1,4 @@
-// Ported from Sedulous.RenderGraph.Tests/BarrierTests.bf — validates the
+// Ported from Sedulous.RenderGraph.Tests/BarrierTests.bf - validates the
 // BarrierSolver directly via a recording mock encoder and plain RHI textures
 // (rhi::Texture is concrete, so no texture mock is needed; its pointer identity
 // is what the solver keys on).
@@ -290,7 +290,7 @@ TEST_CASE("barriers: SampleDepth on a written cascade array reads as DepthStenci
 {
     // The real CSM scenario: each cascade writes one layer (DepthStencilWrite), then the
     // forward pass samples the WHOLE array. SampleDepthStencil must transition it to
-    // DepthStencilRead (DEPTH_STENCIL_READ_ONLY_OPTIMAL) — the layout a depth sampler needs —
+    // DepthStencilRead (DEPTH_STENCIL_READ_ONLY_OPTIMAL) - the layout a depth sampler needs -
     // not ShaderRead. After all layers are written uniform, the read is a whole-resource barrier.
     BarrierSolver solver;
     MockEncoder encoder;
@@ -509,7 +509,7 @@ TEST_CASE("barriers: transient reused across frames starts from Undefined")
         encoder.textureBarriers.Clear();
     }
 
-    // Frame 2: same texture, fresh resource — must restart from Undefined.
+    // Frame 2: same texture, fresh resource - must restart from Undefined.
     {
         RenderGraphResource res(u8"PipelineOutput", RGResourceType::Texture, RGResourceLifetime::Transient);
         res.texture = &tex;

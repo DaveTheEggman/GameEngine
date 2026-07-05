@@ -1,5 +1,5 @@
 /// Concrete image loading and saving via stb_image / stb_image_write.
-/// No abstract loader/writer — direct stb dependency.
+/// No abstract loader/writer - direct stb dependency.
 /// Works with draconic::image::Image directly.
 
 module;

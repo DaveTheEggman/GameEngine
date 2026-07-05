@@ -1,4 +1,4 @@
-# Draconic::MeshEditor unit tests (doctest; content DB — no GPU).
+# Draconic::MeshEditor unit tests (doctest; content DB - no GPU).
 
 add_executable(DraconicMeshEditorTests
     TestsMain.cpp

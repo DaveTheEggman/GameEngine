@@ -1,4 +1,4 @@
-// Draconic::ScriptWren — Wren VM backend (draconic.script.wren).
+// Draconic::ScriptWren - Wren VM backend (draconic.script.wren).
 //
 // Implements Draconic::Script on Wren and binds reflected types into the VM:
 // each registered type with a constructor becomes a Wren `foreign class` whose
@@ -84,7 +84,7 @@ namespace draconic::script::wren
         if (const core::u64* u = value.TryGet<core::u64>()) { wrenSetSlotDouble(vm, slot, static_cast<double>(*u)); return true; }
         if (const core::String* s = value.TryGet<core::String>())
         {
-            // Engine String is UTF-8, as are Wren strings — pass bytes directly.
+            // Engine String is UTF-8, as are Wren strings - pass bytes directly.
             wrenSetSlotBytes(vm, slot, CStr(*s), s->Size());
             return true;
         }
@@ -274,7 +274,7 @@ namespace draconic::script::wren
 
     // Reserve a trampoline for a binding. Identical bindings (same kind/type/
     // member) dispatch identically and are VM-independent, so they're deduped and
-    // share a slot — keeping the pool bounded by the distinct reflected surface
+    // share a slot - keeping the pool bounded by the distinct reflected surface
     // rather than the number of contexts created. Returns null if full.
     inline WrenForeignMethodFn Reserve(const Binding& binding)
     {

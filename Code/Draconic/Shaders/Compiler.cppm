@@ -1,4 +1,4 @@
-/// DXC shader compiler — loads dxcompiler.dll/libdxcompiler.so at runtime.
+/// DXC shader compiler - loads dxcompiler.dll/libdxcompiler.so at runtime.
 /// Ported from Sedulous.Shaders/ShaderCompiler.bf via the draconic_port.
 
 module;
@@ -270,7 +270,7 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
             path = "libdxcompiler.so";
 #endif
         } else {
-            // dxcompilerPath is already UTF-8 — feed it to dlopen directly.
+            // dxcompilerPath is already UTF-8 - feed it to dlopen directly.
             path.assign(reinterpret_cast<const char*>(desc.dxcompilerPath.Data()), desc.dxcompilerPath.Size());
         }
         s->dxcompiler = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);

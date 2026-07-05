@@ -1,7 +1,7 @@
-// Draconic::Xml — :result partition
+// Draconic::Xml - :result partition
 //
 // XmlResult: the parse/lex outcome. Success is Ok; every other value is a
-// specific (FourCC-coded) error. No exceptions — all XML operations return
+// specific (FourCC-coded) error. No exceptions - all XML operations return
 // this. Ported from Sedulous.Xml/XmlResult.bf.
 
 module;

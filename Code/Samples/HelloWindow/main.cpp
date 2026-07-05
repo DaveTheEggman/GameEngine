@@ -1,4 +1,4 @@
-// HelloWindow — the minimal Draconic app: opens a window and runs the frame loop
+// HelloWindow - the minimal Draconic app: opens a window and runs the frame loop
 // until the window is closed. Demonstrates the full path Core -> Runtime
 // (Context/Subsystem) -> Shell (SDL3) -> ApplicationHost driving an
 // IApplication, wired by DRACONIC_APP_MAIN. Run it directly; close the window to exit.

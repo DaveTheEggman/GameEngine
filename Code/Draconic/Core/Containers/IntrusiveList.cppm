@@ -10,7 +10,7 @@ import :base;
 export namespace draconic::core
 {
     // =======================================================================
-    // IntrusiveList — doubly-linked list whose link lives in the element.
+    // IntrusiveList - doubly-linked list whose link lives in the element.
     // Non-owning: the caller owns the elements. T must derive from
     // IntrusiveListNode. O(1) insert/remove given the element.
     // =======================================================================

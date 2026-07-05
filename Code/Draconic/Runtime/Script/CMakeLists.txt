@@ -1,4 +1,4 @@
-# Draconic::RuntimeScript — `draconic.runtime.script` (ScriptSubsystem: scripting in
+# Draconic::RuntimeScript - `draconic.runtime.script` (ScriptSubsystem: scripting in
 # the runtime). Bridges Draconic::Runtime and Draconic::Script; the VM backend is
 # injected at runtime, so this does not depend on any concrete backend.
 

@@ -1,10 +1,10 @@
-/// Draconic::AnimationSubsystem — the `:components` partition.
+/// Draconic::AnimationSubsystem - the `:components` partition.
 ///
 /// The scene-facing side of skeletal animation. Two components, each with a manager that ticks its
 /// players every frame and feeds the resulting skinning matrices into the target MeshComponent(s)
 /// for GPU skinning: SkeletalAnimationComponent (a single clip via AnimationPlayer) and
 /// AnimationGraphComponent (a state machine / blend trees via AnimationGraphPlayer). This is what
-/// replaces driving players by hand in app code — the engine now animates skinned meshes from the
+/// replaces driving players by hand in app code - the engine now animates skinned meshes from the
 /// scene tick.
 ///
 /// It sits at the animation<->render seam (depends on both draconic.animation and the render
@@ -43,7 +43,7 @@ struct SkeletalAnimationComponent {
 
 // Ticks every SkeletalAnimationComponent in ScenePhase::PostUpdate (the "animation" phase, before
 // render extraction): advance each player, then write its current + previous skinning matrices into
-// the target MeshComponent(s) (borrowed for the frame — the player, owned by the component, keeps
+// the target MeshComponent(s) (borrowed for the frame - the player, owned by the component, keeps
 // the matrix storage alive). Lazily creates each component's player on first tick.
 class SkeletalAnimationComponentManager final : public scene::ComponentManager<SkeletalAnimationComponent> {
 public:
@@ -88,7 +88,7 @@ private:
 };
 
 // State-machine-driven skeletal animation: a graph player (over a borrowed, shared skeleton +
-// AnimationGraph) evaluates the graph each frame — state transitions, blend trees, layer blending —
+// AnimationGraph) evaluates the graph each frame - state transitions, blend trees, layer blending -
 // and produces per-bone skinning matrices. The richer counterpart to SkeletalAnimationComponent
 // (single clip); drive transitions via the player's parameters (SetFloat/SetBool/SetTrigger). Same
 // feed contract: `meshEntities` are the MeshComponents that receive the matrices (empty => own
@@ -104,7 +104,7 @@ struct AnimationGraphComponent {
 // Ticks every AnimationGraphComponent in ScenePhase::PostUpdate, same as the skeletal manager but
 // evaluating an AnimationGraphPlayer. Runs at a LOWER UpdateOrder (before SkeletalAnimationComponent-
 // Manager), mirroring Sedulous's graph-before-clip ordering; an entity is expected to use one or the
-// other (mixing both pushes to the same MeshComponent — the later writer wins).
+// other (mixing both pushes to the same MeshComponent - the later writer wins).
 class AnimationGraphComponentManager final : public scene::ComponentManager<AnimationGraphComponent> {
 public:
     void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }

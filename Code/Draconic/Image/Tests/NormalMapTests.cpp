@@ -1,4 +1,4 @@
-// Ported from Sedulous.Images.Tests/NormalMapTests.bf — the Image normal-map
+// Ported from Sedulous.Images.Tests/NormalMapTests.bf - the Image normal-map
 // generators + CalculateNormalFromHeight. Mirrors the Sedulous assertions
 // (Test.Assert -> CHECK; pixel.R/G/B/A -> .r/.g/.b/.a; Vector3.X/Y/Z -> .x/.y/.z).
 #include <doctest/doctest.h>

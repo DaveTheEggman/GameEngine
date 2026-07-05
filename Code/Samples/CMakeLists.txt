@@ -25,5 +25,5 @@ endif()
 add_subdirectory(Framework)
 if(TARGET Draconic::SamplesFramework)
     add_subdirectory(RHI)
-    add_subdirectory(VG)  # VG sandbox — end-to-end VG stack demo
+    add_subdirectory(VG)  # VG sandbox - end-to-end VG stack demo
 endif()

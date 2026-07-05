@@ -1,12 +1,12 @@
-// RenderStressTest — a deliberate worst-case renderer benchmark, ported from Sedulous's
+// RenderStressTest - a deliberate worst-case renderer benchmark, ported from Sedulous's
 // EngineRenderStressTest. It keeps us honest as rendering features land: a flat grid of
 // spheres positioned so the camera sees ALL of them at once (frustum culling can't help),
 // growable 8000 at a time. Two axes of stress:
 //
-//   * Batching   — by default every sphere shares ONE material + mesh, so the renderer
+//   * Batching   - by default every sphere shares ONE material + mesh, so the renderer
 //                  should collapse them into a single instanced draw. Press U to give each
 //                  sphere its OWN material (unique hue) → defeats batching → a draw per sphere.
-//   * Static opt — press B for a sin-wave bob that rewrites EVERY sphere's transform each
+//   * Static opt - press B for a sin-wave bob that rewrites EVERY sphere's transform each
 //                  frame, so nothing can be cached as static (full extraction every frame).
 //
 // No HUD yet (UI/VG deferred): stats print to the console once per second (toggle H), and the
@@ -14,7 +14,7 @@
 // hold RMB (or Tab to capture) to look, Shift to move fast, Esc to exit.
 
 #include "Core/Prelude.h"
-#include "imgui.h"   // Dear ImGui (HUD) — used directly; engine integration is draconic.imgui
+#include "imgui.h"   // Dear ImGui (HUD) - used directly; engine integration is draconic.imgui
 
 import draconic.core;
 import draconic.rhi;                     // PresentMode (run the benchmark vsync-off)
@@ -58,7 +58,7 @@ namespace
 
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
-        // refresh. The numbers tear visually — that's fine for a benchmark. Switch to Fifo to cap.
+        // refresh. The numbers tear visually - that's fine for a benchmark. Switch to Fifo to cap.
         graphics::RenderWindowDesc MainRenderWindow() const override
         {
             graphics::RenderWindowDesc d;
@@ -253,7 +253,7 @@ namespace
         }
 
         // Grow the ground plane to cover the current grid, and re-frame the fly camera so the whole grid
-        // is in view (called on every batch change) — like AnimStressTest. Keeps the ground under the
+        // is in view (called on every batch change) - like AnimStressTest. Keeps the ground under the
         // whole field and the far plane wide enough that no spheres get frustum-far-culled.
         void FitFloorAndCamera()
         {

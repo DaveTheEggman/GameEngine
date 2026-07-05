@@ -1,9 +1,9 @@
-// Draconic::VFS — :vfs partition
+// Draconic::VFS - :vfs partition
 //
 // VirtualFileSystem: a scheme mount table. Paths are `scheme://locator`; the
 // scheme selects a mounted backend and the locator (mount-relative, no scheme)
 // is forwarded to it. It is a router, so it does not itself advertise
-// capabilities — resolve a specific mount via GetMount(scheme) and query that
+// capabilities - resolve a specific mount via GetMount(scheme) and query that
 // mount's As*() instead. Mounts are non-owning.
 
 module;

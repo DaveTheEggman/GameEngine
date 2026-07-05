@@ -1,9 +1,9 @@
-// Draconic::FontsBaked — the `draconic.fonts.baked` module.
+// Draconic::FontsBaked - the `draconic.fonts.baked` module.
 //
 // Pre-baked IFont / IFontAtlas implementations with no rasterizer dependency:
 // shipped games get every glyph + region from disk (resource deserialization)
 // and never touch stb_truetype. Ported from Sedulous.Fonts.Baked
-// (BakedFont.bf, BakedFontAtlas.bf) — its own library, matching Sedulous.
+// (BakedFont.bf, BakedFontAtlas.bf) - its own library, matching Sedulous.
 
 module;
 #include "Core/Prelude.h"

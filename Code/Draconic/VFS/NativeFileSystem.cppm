@@ -1,4 +1,4 @@
-// Draconic::VFS — :native_filesystem partition
+// Draconic::VFS - :native_filesystem partition
 //
 // NativeFileSystem: backs logical paths with a real directory prefix. Supports
 // read, enumerate, and write (the watch capability is not implemented yet).
@@ -16,7 +16,7 @@ using namespace draconic::core;
 export namespace draconic::vfs
 {
     // =======================================================================
-    // NativeFileSystem — backs logical paths with a real directory prefix.
+    // NativeFileSystem - backs logical paths with a real directory prefix.
     // =======================================================================
     class NativeFileSystem final
         : public IFileSystem

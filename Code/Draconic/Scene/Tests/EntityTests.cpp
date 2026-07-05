@@ -1,4 +1,4 @@
-// Phase 1 — the entity table: generational handles, free-list slot reuse + stale-handle
+// Phase 1 - the entity table: generational handles, free-list slot reuse + stale-handle
 // detection, persistent-Guid <-> handle mapping, active/name state. These encode the
 // entity-lifecycle/validity behaviors pinned from the Sedulous test suite.
 #include <doctest/doctest.h>

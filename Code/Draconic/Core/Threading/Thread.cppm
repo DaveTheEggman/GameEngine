@@ -1,4 +1,4 @@
-// Draconic Core — :thread partition
+// Draconic Core - :thread partition
 //
 // Thread owns an OS thread running a callable; join or detach before destroy.
 

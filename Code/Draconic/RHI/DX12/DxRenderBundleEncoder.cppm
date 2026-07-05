@@ -3,12 +3,12 @@
 /// A render bundle is an ID3D12GraphicsCommandList of type D3D12_COMMAND_LIST_TYPE_BUNDLE,
 /// recorded once and replayed into a direct command list via ExecuteBundle
 /// (RenderPassEncoder::ExecuteBundles). DX12 bundles inherit the parent's descriptor heaps,
-/// viewport, scissor, and render targets — but NOT pipeline state / topology, which the bundle
+/// viewport, scissor, and render targets - but NOT pipeline state / topology, which the bundle
 /// sets itself (handled by SetPipeline). Draw recording is delegated to a DxRenderPassEncoderImpl
 /// whose context points at the bundle list, reusing the full root-signature / descriptor-table
 /// binding logic.
 ///
-/// BEST-EFFORT (authored without a Windows toolchain to compile against — shake out on Windows):
+/// BEST-EFFORT (authored without a Windows toolchain to compile against - shake out on Windows):
 /// the structure + DX12 bundle semantics are in place; details (heap inheritance, signature
 /// caching, lifetime vs frames-in-flight) may need adjustment.
 

@@ -1,7 +1,7 @@
 /// Shader feature flags + variant key. Flags are compile-time permutation bits:
 /// each set flag becomes a `#define` prepended before compilation, so shaders
 /// #ifdef-gate features into specialized, branch-free permutations. Render state
-/// (blend/cull/depth) is NOT here — that's PipelineConfig in the material layer.
+/// (blend/cull/depth) is NOT here - that's PipelineConfig in the material layer.
 
 module;
 #include "Core/Prelude.h"   // <new> for placement-new at GCC container instantiation sites
@@ -41,7 +41,7 @@ constexpr ShaderFlags& operator|=(ShaderFlags& a, ShaderFlags b) noexcept { a = 
     return (static_cast<u32>(v) & static_cast<u32>(f)) != 0u;
 }
 
-// Append a `#define NAME 1` for each set flag (static-literal names — safe to
+// Append a `#define NAME 1` for each set flag (static-literal names - safe to
 // reference for the duration of a compile).
 inline void AppendDefines(ShaderFlags flags, Array<ShaderDefine>& out)
 {

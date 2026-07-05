@@ -1,4 +1,4 @@
-# Draconic::ShellNull — `draconic.shell.null` (headless IShell).
+# Draconic::ShellNull - `draconic.shell.null` (headless IShell).
 
 add_library(DraconicShellNull STATIC)
 add_library(Draconic::ShellNull ALIAS DraconicShellNull)

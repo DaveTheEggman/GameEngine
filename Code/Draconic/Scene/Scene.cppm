@@ -1,10 +1,10 @@
-/// Draconic::Scene — the `:scene` partition.
+/// Draconic::Scene - the `:scene` partition.
 ///
 /// Scene: an isolated world of entities with a transform hierarchy (and, in later
 /// phases, per-scene systems). Two parallel pools indexed by entity slot:
-///   * the entity table — generation-guarded, free-list reuse, persistent-Guid <->
+///   * the entity table - generation-guarded, free-list reuse, persistent-Guid <->
 ///     handle map, active/name state.
-///   * the transform hierarchy — local TRS + cached world matrix per entity, in a
+///   * the transform hierarchy - local TRS + cached world matrix per entity, in a
 ///     doubly-linked parent/child/sibling tree with O(1) splice (head+tail+back
 ///     pointers), a dirty-flag cascade, and a two-pass UpdateTransforms that snapshots
 ///     the previous world matrix (for motion vectors) and recomputes only dirty
@@ -198,7 +198,7 @@ public:
     }
 
     // Entity indices whose world matrix was recomputed in the most recent UpdateTransforms.
-    // Lifetime hazard: an index here may belong to an entity destroyed afterwards — gate
+    // Lifetime hazard: an index here may belong to an entity destroyed afterwards - gate
     // reads on IsValid(handle). Rewritten each UpdateTransforms.
     [[nodiscard]] Span<const u32> TransformsUpdatedThisFrame() const noexcept {
         return { m_transformsUpdatedThisFrame.Data(), m_transformsUpdatedThisFrame.Size() };
@@ -413,7 +413,7 @@ protected:
         }
     }
 
-    // O(1) append to a (head, tail) sibling list — tail pointer avoids an O(n) walk.
+    // O(1) append to a (head, tail) sibling list - tail pointer avoids an O(n) walk.
     void AppendToList(EntityHandle entity, EntityHandle& head, EntityHandle& tail) {
         TransformData& e = m_transforms[entity.index];
         e.nextSibling = EntityHandle::Invalid();

@@ -1,4 +1,4 @@
-// Draconic Core — :bounds partition
+// Draconic Core - :bounds partition
 //
 // Bounding-volume suite ported from SedulousEngine (Sedulous.Core.Mathematics): ContainmentType,
 // PlaneIntersectionType, Ray, BoundingSphere, BoundingFrustum, plus BoundingBox helpers over the
@@ -37,7 +37,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Ray — position + direction.
+    // Ray - position + direction.
     // =======================================================================
     struct Ray
     {
@@ -51,7 +51,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // BoundingSphere — center + radius.
+    // BoundingSphere - center + radius.
     // =======================================================================
     struct BoundingSphere
     {
@@ -130,7 +130,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // BoundingFrustum — 6 planes + 8 corners derived from a view-projection matrix.
+    // BoundingFrustum - 6 planes + 8 corners derived from a view-projection matrix.
     // =======================================================================
     struct BoundingFrustum
     {
@@ -151,7 +151,7 @@ export namespace draconic::core
         [[nodiscard]] const Plane& Top()    const noexcept { return planes[4]; }
         [[nodiscard]] const Plane& Bottom() const noexcept { return planes[5]; }
 
-        // Gribb-Hartmann plane extraction for a row-vector row-major view-proj, NDC z in [0,1] — the exact
+        // Gribb-Hartmann plane extraction for a row-vector row-major view-proj, NDC z in [0,1] - the exact
         // column combinations Sedulous uses (M{r}{c} 1-indexed -> m(r-1,c-1)); planes point OUTWARD.
         void SetMatrix(const Matrix4& m) noexcept
         {

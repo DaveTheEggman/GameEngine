@@ -1,4 +1,4 @@
-/// Draconic::Geometry — the `:index_buffer` partition.
+/// Draconic::Geometry - the `:index_buffer` partition.
 ///
 /// A format-tagged index buffer (16- or 32-bit), stored as raw bytes so it uploads
 /// straight to a GPU index buffer. An internal write cursor supports streaming

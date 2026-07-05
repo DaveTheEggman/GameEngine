@@ -1,4 +1,4 @@
-// Draconic Core — :allocator partition (foundation)
+// Draconic Core - :allocator partition (foundation)
 //
 // The allocator vocabulary every consumer needs: alignment / raw-memory
 // helpers, Construct/Destruct, the IAllocator interface, the default
@@ -127,7 +127,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // SystemAllocator — aligned heap allocations from the OS/CRT.
+    // SystemAllocator - aligned heap allocations from the OS/CRT.
     // =======================================================================
     class SystemAllocator final : public IAllocator
     {

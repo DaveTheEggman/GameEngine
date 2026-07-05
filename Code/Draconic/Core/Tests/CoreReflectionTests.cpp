@@ -222,7 +222,7 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
     CHECK(MethodCount(vec3) >= 5u);  // Dot, Length, Normalized, Mul x2
 
     // Iterate methods by index and read each signature via ParamCount/ParamAt
-    // — exactly how a binding generator would walk the type. Two 2-arg methods
+    // - exactly how a binding generator would walk the type. Two 2-arg methods
     // start with (Vector3, f32) / (Vector3, Vector3): the Mul overloads.
     usize vec3FirstParam = 0;
     for (usize i = 0; i < MethodCount(vec3); ++i)

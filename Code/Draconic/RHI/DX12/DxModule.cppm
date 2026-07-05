@@ -1,5 +1,5 @@
 /// Primary module for draconic.rhi.dx12. Re-exports all partitions.
-/// DX12 backend — Windows only.
+/// DX12 backend - Windows only.
 
 module;
 #include "Core/Prelude.h"

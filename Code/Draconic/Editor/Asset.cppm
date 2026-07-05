@@ -1,9 +1,9 @@
-// Draconic::Editor — the `draconic.editor` module.
+// Draconic::Editor - the `draconic.editor` module.
 //
 // The tooling/authoring base for the asset pipeline (Traktor-style): an `Asset`
 // is the editor/source object (references an external source file + import
 // settings) and an `IAssetBuilder` cooks it into a runtime *resource* written to
-// the output content database. The runtime never links this module — it loads
+// the output content database. The runtime never links this module - it loads
 // only cooked resources. (Asset = source/editor; Resource = runtime/cooked.)
 
 module;

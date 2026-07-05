@@ -178,7 +178,7 @@ inline VkPresentModeKHR VkSwapChainImpl::choosePresentMode(PresentMode requested
     if (has(desired)) { return desired; }
 
     // Requested mode unavailable: preserve the request's INTENT rather than dropping straight to
-    // vsync. Immediate and Mailbox both mean "don't block on the refresh" — so fall back to whichever
+    // vsync. Immediate and Mailbox both mean "don't block on the refresh" - so fall back to whichever
     // uncapped mode the surface does expose (Wayland commonly offers Mailbox but NOT Immediate) before
     // settling for FIFO. FIFO is the only mode guaranteed present by the spec.
     VkPresentModeKHR chosen = VK_PRESENT_MODE_FIFO_KHR;

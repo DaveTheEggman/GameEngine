@@ -1,4 +1,4 @@
-# Draconic::Xml — `draconic.xml` (DOM XML parser + writer, UTF-8).
+# Draconic::Xml - `draconic.xml` (DOM XML parser + writer, UTF-8).
 # Faithful port of the hand-written Sedulous.Xml library. Depends only on Core.
 
 add_library(DraconicXml STATIC)
@@ -18,7 +18,7 @@ target_sources(DraconicXml
             Document.cppm
             XmlModule.cppm)
 
-add_subdirectory(Serialization)  # draconic.xml.serialization — XML serializer backend
+add_subdirectory(Serialization)  # draconic.xml.serialization - XML serializer backend
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

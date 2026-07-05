@@ -1,4 +1,4 @@
-// Draconic Core — :linear_allocator partition
+// Draconic Core - :linear_allocator partition
 //
 // LinearAllocator: bump-pointer arena over a caller buffer; bulk Reset().
 
@@ -14,7 +14,7 @@ import :allocator;
 export namespace draconic::core
 {
     // =======================================================================
-    // LinearAllocator — bump-pointer arena over a caller-provided buffer.
+    // LinearAllocator - bump-pointer arena over a caller-provided buffer.
     //   Individual frees are no-ops; reclaim all at once with Reset().
     //   Allocate returns nullptr when the arena is exhausted.
     // =======================================================================

@@ -1,4 +1,4 @@
-// Draconic Core — :io partition (streams)
+// Draconic Core - :io partition (streams)
 //
 // IStream is the read/write/seek abstraction; FileStream wraps the System file
 // primitives, MemoryStream is an in-memory growable buffer. The serialization
@@ -52,7 +52,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // FileStream — IStream over a System file handle.
+    // FileStream - IStream over a System file handle.
     // =======================================================================
     class FileStream final : public IStream
     {
@@ -94,7 +94,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // MemoryStream — IStream over a growable in-memory byte buffer.
+    // MemoryStream - IStream over a growable in-memory byte buffer.
     // =======================================================================
     class MemoryStream final : public IStream
     {
@@ -177,7 +177,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // BufferedStream — buffers reads/writes over an underlying IStream to cut
+    // BufferedStream - buffers reads/writes over an underlying IStream to cut
     // the number of small transfers. Buffers in one direction at a time;
     // switching direction (or seeking) syncs the buffer first. The underlying
     // stream must outlive the BufferedStream.

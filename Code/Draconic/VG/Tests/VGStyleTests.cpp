@@ -1,6 +1,6 @@
 // Ported from Sedulous.VG.Tests/StyleTests.bf. Our IVGFill uses the engine's
 // float Color (Sedulous used Color32), so fills take float Color inputs and we
-// convert outputs via ToColor32 for the byte-channel assertions — keeping the
+// convert outputs via ToColor32 for the byte-channel assertions - keeping the
 // Sedulous checks (R==0, R in (100,155), etc.) identical in spirit.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

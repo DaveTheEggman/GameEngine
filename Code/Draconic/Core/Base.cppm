@@ -1,12 +1,12 @@
-// Draconic Core — :base partition
+// Draconic Core - :base partition
 //
 // The foundation: fundamental exported types, widely-used utilities, and the
 // project-wide error vocabulary (Status / Result). Lives at the Core root.
-// Macros live in Prelude.h, not here — modules cannot export macros.
+// Macros live in Prelude.h, not here - modules cannot export macros.
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Debug/Assert.h"  // classic header — no module cycle (see Assert.h)
+#include "Core/Debug/Assert.h"  // classic header - no module cycle (see Assert.h)
 #include <bit>          // std::byteswap
 #include <cstdint>
 #include <cstddef>
@@ -165,8 +165,8 @@ export namespace draconic::core
 
     // =======================================================================
     // Error vocabulary (exceptions are disabled engine-wide)
-    //   Status      — success or an error code, no payload.
-    //   Result<T,E> — a value (T) or an error (E). Use Err(e) to build the
+    //   Status      - success or an error code, no payload.
+    //   Result<T,E> - a value (T) or an error (E). Use Err(e) to build the
     //                 error case; a T converts implicitly to the value case.
     // =======================================================================
     enum class ErrorCode : u32
@@ -192,7 +192,7 @@ export namespace draconic::core
         [[nodiscard]] constexpr bool IsOk() const { return m_code == ErrorCode::Ok; }
         [[nodiscard]] constexpr explicit operator bool() const { return IsOk(); }
 
-        // NB: explicit, not `= default` — GCC 15 ICEs on defaulted comparison
+        // NB: explicit, not `= default` - GCC 15 ICEs on defaulted comparison
         // operators inside a module.
         friend constexpr bool operator==(Status a, Status b) { return a.m_code == b.m_code; }
 
@@ -321,7 +321,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // Optional<T> — a value that may be absent. (Use Result when the absence
+    // Optional<T> - a value that may be absent. (Use Result when the absence
     // carries an error; Optional when absence is ordinary.)
     // =======================================================================
     struct NullOptType

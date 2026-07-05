@@ -1,5 +1,5 @@
 #include <new>
-/// Sample006 — Alpha Blending. Ported from Sedulous Sample006_Blending.
+/// Sample006 - Alpha Blending. Ported from Sedulous Sample006_Blending.
 /// Renders overlapping semi-transparent colored quads.
 
 #include <cstdint>

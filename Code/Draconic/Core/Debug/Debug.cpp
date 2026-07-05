@@ -1,4 +1,4 @@
-// Draconic Core — Debug runtime (classic TU; see Assert.h for the rationale).
+// Draconic Core - Debug runtime (classic TU; see Assert.h for the rationale).
 
 #include "Core/Debug/Assert.h"
 

@@ -1,6 +1,6 @@
 # Skinning Benchmark & Baseline
 
-`Code/Samples/AnimStressTest` is the skeletal-animation throughput benchmark — a port of
+`Code/Samples/AnimStressTest` is the skeletal-animation throughput benchmark - a port of
 Sedulous's `EngineAnimationSandbox`. It spawns a grid of the Quaternius `Char` humanoid; every
 instance gets its own `AnimationPlayer` (random clip + small speed jitter + desynced start) while
 sharing one cooked model (mesh / skeleton / clips / materials).
@@ -11,11 +11,11 @@ Flax/Sedulous persistent-shared-bone-buffer + instanced-skinning rewrite.
 ## Running
 
 ```
-# Debug (validation ON — correctness, not throughput)
+# Debug (validation ON - correctness, not throughput)
 cmake --build build/clang --target AnimStressTest
 ./build/clang/Code/Samples/AnimStressTest/AnimStressTest
 
-# Release (RelWithDebInfo, validation OFF — true perf)
+# Release (RelWithDebInfo, validation OFF - true perf)
 cmake --build build/relwithdebinfo --target AnimStressTest
 ./build/relwithdebinfo/Code/Samples/AnimStressTest/AnimStressTest
 ```
@@ -30,16 +30,16 @@ it to `true` for a headless run that ramps the character count until FPS ≤ 50,
 and exits. The backend prints `[Vulkan] validation layers: ENABLED/DISABLED` at startup so a perf run
 can confirm validation is off.
 
-## BEFORE baseline — current non-instanced skinning (captured 2026-06-29)
+## BEFORE baseline - current non-instanced skinning (captured 2026-06-29)
 
 | Build | Validation | Result |
 |-------|-----------|--------|
 | **RelWithDebInfo** | off | **~1,683 fully-rendered animated characters @ 50 fps (≈20 ms)** |
-| Debug | on | ~100 chars @ 31 fps (validation-dominated — not a throughput measure) |
+| Debug | on | ~100 chars @ 31 fps (validation-dominated - not a throughput measure) |
 
 **~1,683 chars @ 50 fps is the number the rewrite must beat.**
 
-### Frame breakdown @ 1,000 chars (RelWithDebInfo, validation off) — 86 fps / 11.66 ms
+### Frame breakdown @ 1,000 chars (RelWithDebInfo, validation off) - 86 fps / 11.66 ms
 
 ```
 Update:            4.61 ms   (CPU)
@@ -50,7 +50,7 @@ Render:            7.15 ms   (CPU)
     Compose.Execute: 6.26 ms   record + submit + wait on GPU
 
 GPU passes (total 4.44 ms):
-  shadow.cascade ×4   ~3.16 ms   (CSM — the dominant GPU cost)
+  shadow.cascade ×4   ~3.16 ms   (CSM - the dominant GPU cost)
   forward             1.03 ms
   shadow.atlas ×2     ~0.14 ms
   cluster.build       0.08 ms
@@ -62,7 +62,7 @@ Read: the frame is **CPU-bound** (Update 4.6 + Render 7.1 ≈ 11.7 ms serial, wh
 computation, redone every frame) and the per-pass bone uploads inside `Compose.Execute`. GPU-side, a
 persistent shared bone buffer + instanced skinned draws should cut the forward + cascade draw counts.
 
-### Frame breakdown @ 1,000 chars (Debug, validation ON) — 5 fps / 221 ms
+### Frame breakdown @ 1,000 chars (Debug, validation ON) - 5 fps / 221 ms
 
 ```
 Update:           24.3 ms   (Anim.Drive 23.8 ms)
@@ -71,11 +71,11 @@ GPU passes:       23.0 ms   (forward 6.1, cascades ~12.9, cluster 3.2)
 ```
 
 Debug is **validation-bound**, not skinning-bound: `Compose.Execute` (command record + submit) is
-~236 ms because the validation layers inspect every command — ~95% of the frame, vs 6.3 ms in release.
+~236 ms because the validation layers inspect every command - ~95% of the frame, vs 6.3 ms in release.
 Develop/correctness-check in Debug, but treat **release** as the perf baseline. (Both `Anim.Drive` and
 the GPU pass times are ~5× the release figures, as expected for an unoptimized build.)
 
-## AFTER — Sedulous skinning (persistent shared bone buffer + instanced skinned draws)
+## AFTER - Sedulous skinning (persistent shared bone buffer + instanced skinned draws)
 
 The rewrite (1) writes each distinct skeleton's matrices ONCE per frame into a CpuToGpu staging pool
 ([current][prev] slab), mirrors the populated range to a GpuOnly device buffer with one copy, and binds
@@ -88,12 +88,12 @@ multi-material rendering.
 |-------|-----------|--------|-------|------|
 | **RelWithDebInfo** | off | 1,683 | **~3,100 chars @ 50 fps** | **+85% (1.85×)** |
 
-(Baseline + before/after measured on the original heavy scene — 18 clustered point lights + spot +
+(Baseline + before/after measured on the original heavy scene - 18 clustered point lights + spot +
 point-cube shadows. The scene was then **lightened to one directional shadow light + floor +
 characters** to isolate skinning, matching Flax's "basic characters" reference. The threshold barely
-moved — ~3,045 lightened vs ~3,120 heavy — which proves the scene was never lighting-bound.)
+moved - ~3,045 lightened vs ~3,120 heavy - which proves the scene was never lighting-bound.)
 
-### Frame breakdown @ 1,000 chars (RelWithDebInfo, validation off) — 86 → 143 fps (11.66 → 7.0 ms)
+### Frame breakdown @ 1,000 chars (RelWithDebInfo, validation off) - 86 → 143 fps (11.66 → 7.0 ms)
 
 ```
                  BEFORE      AFTER
@@ -105,34 +105,34 @@ GPU passes:      4.44 ms     5.41 ms    (forward 1.03 -> 1.34; cascades similar)
 
 The render-CPU cost collapsed (~4× on `Compose.Execute`): bones upload once, and skinned characters
 draw instanced. The frame is now **`Anim.Drive`-bound** (the per-player skeleton evaluation, recomputed
-on the CPU every frame) plus the scene transform-update over the ~34-entities-per-character hierarchy —
+on the CPU every frame) plus the scene transform-update over the ~34-entities-per-character hierarchy -
 the next two frontiers (CPU-side animation eval / collapsing the per-character entity count).
 
-### Lightened scene (1 directional light) — confirms NOT lighting-bound
+### Lightened scene (1 directional light) - confirms NOT lighting-bound
 
-Frame breakdown @ 1,000 chars (RelWithDebInfo) — 151 fps / 6.6 ms:
+Frame breakdown @ 1,000 chars (RelWithDebInfo) - 151 fps / 6.6 ms:
 ```
-Update:   3.34 ms  (Anim.Drive 3.15 ms — per-character, light-independent)
+Update:   3.34 ms  (Anim.Drive 3.15 ms - per-character, light-independent)
 Render:   2.39 ms  (Compose.Execute 0.52 ms; Render.Acquire 1.17 ms = GPU backpressure)
 GPU:      5.29 ms  (shadow.cascade ×4 ~3.81 ms  <- dominant; forward 1.39; cluster.build 0.06)
 ```
-GPU is essentially unchanged from the heavy scene (5.29 vs 5.41 ms) — the 18 point lights + spot +
+GPU is essentially unchanged from the heavy scene (5.29 vs 5.41 ms) - the 18 point lights + spot +
 point-cube shadows cost ~0.1 ms. The real GPU cost is the **4-cascade CSM**, which re-draws every
 character's depth four times (a char-scaled cost). So beyond the CPU frontiers, fewer cascades / tighter
-per-cascade caster culling is the GPU lever — not lighting.
+per-cascade caster culling is the GPU lever - not lighting.
 
 Prev-frame bone matrices are stored + flowed (`DataOffsets.z`) but not yet consumed by a velocity
 target; when a motion-vector pass lands it's a shader-only change.
 
 ## Limitations this benchmark exposed
 
-1. ✅ **FIXED — bones re-uploaded per pass.** Each caster's bone matrices were uploaded separately for
-   the forward pass *and* every CSM cascade (and local-shadow passes) — roughly `N × bones × (5+)`
+1. ✅ **FIXED - bones re-uploaded per pass.** Each caster's bone matrices were uploaded separately for
+   the forward pass *and* every CSM cascade (and local-shadow passes) - roughly `N × bones × (5+)`
    matrices/frame, which overflowed the old 262,144-slot ring at ~1,800 chars and silently dropped
    *forward* draws (characters vanished from the main view while their shadow casters kept rendering in
    the light pools). The rewrite uploads each skeleton's matrices **once** into a staging pool +
    GpuOnly device mirror, shared across all passes. (`kMaxBoneMatrices` stays `1<<20` as headroom.)
-2. ✅ **FIXED — skinned meshes can't be instanced.** The instanced path had no per-instance bones, so
+2. ✅ **FIXED - skinned meshes can't be instanced.** The instanced path had no per-instance bones, so
    identical skinned meshes collapsed to a single bind pose. The rewrite flows each instance's bone
    base via `DataOffsets.y`, so skinned meshes batch into instanced draws like static ones.
 3. **Full skeleton spawned as scene entities (still open).** Each character spawns its entire node

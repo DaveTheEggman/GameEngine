@@ -1,4 +1,4 @@
-// Draconic::Xml — :document partition
+// Draconic::Xml - :document partition
 //
 // XmlDocument: the DOM root, recursive-descent parser, node factory, and query
 // methods. Also supplies the out-of-line definitions of XmlNode::OwnerDocument

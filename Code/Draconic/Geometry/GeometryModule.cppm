@@ -1,4 +1,4 @@
-/// Draconic::Geometry — `draconic.geometry`, the engine's runtime mesh format.
+/// Draconic::Geometry - `draconic.geometry`, the engine's runtime mesh format.
 ///
 /// Distinct from draconic.model (the importer's representation of a loaded file): this
 /// is the canonical, GPU-upload-ready mesh the renderer and scene components consume.

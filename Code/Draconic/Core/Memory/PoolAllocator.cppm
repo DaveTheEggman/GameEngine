@@ -1,4 +1,4 @@
-// Draconic Core — :pool_allocator partition
+// Draconic Core - :pool_allocator partition
 //
 // PoolAllocator: fixed-size block allocator over a caller buffer; O(1)
 // allocate/free via an intrusive free list.
@@ -15,7 +15,7 @@ import :allocator;
 export namespace draconic::core
 {
     // =======================================================================
-    // PoolAllocator — fixed-size block allocator over a caller buffer.
+    // PoolAllocator - fixed-size block allocator over a caller buffer.
     //   O(1) allocate/free via an intrusive free list. Allocations must fit in
     //   the block size; returns nullptr when exhausted.
     // =======================================================================

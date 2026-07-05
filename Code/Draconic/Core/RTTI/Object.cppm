@@ -1,4 +1,4 @@
-// Draconic Core — :object partition
+// Draconic Core - :object partition
 //
 // Object: the polymorphic reflection root (derives RefCounted), plus the
 // Cast/IsA helpers that replace dynamic_cast by walking the base chain.
@@ -15,7 +15,7 @@ import :type_info;
 export namespace draconic::core
 {
     // =======================================================================
-    // Object — polymorphic reflection root. Derives from RefCounted, so every
+    // Object - polymorphic reflection root. Derives from RefCounted, so every
     // Object is held via RefPtr<Object> (§4.10).
     // =======================================================================
     class Object : public RefCounted
@@ -37,7 +37,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // Cast / IsA — replace dynamic_cast by walking the single-inheritance chain.
+    // Cast / IsA - replace dynamic_cast by walking the single-inheritance chain.
     // =======================================================================
     [[nodiscard]] inline bool IsDerivedFrom(const TypeInfo* type, const TypeInfo* base) noexcept
     {

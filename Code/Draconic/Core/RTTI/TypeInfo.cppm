@@ -1,4 +1,4 @@
-// Draconic Core — :type_info partition
+// Draconic Core - :type_info partition
 //
 // The type-system foundation: stable type identity (TypeId / TypeInfo),
 // ComputeTypeId, and TypeOf<T>. Registry, Object, casting, and the reflection

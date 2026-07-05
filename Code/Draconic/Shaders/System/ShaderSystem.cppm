@@ -1,4 +1,4 @@
-/// Draconic::ShaderSystem — the `draconic.shaders.system` module.
+/// Draconic::ShaderSystem - the `draconic.shaders.system` module.
 ///
 /// Compile-on-demand + cache for shader VARIANTS. A shader is registered by name
 /// per stage (its HLSL source); GetVariant(name, stage, flags) compiles the
@@ -22,7 +22,7 @@ namespace rhi = draconic::rhi;
 export namespace draconic::shaders {
 
 // Compile-on-demand variant cache. The Compiler and Device are borrowed (owned by
-// the caller). Sources are registered per (name, stage) — vertex and fragment are
+// the caller). Sources are registered per (name, stage) - vertex and fragment are
 // separate HLSL with `main` entry points (as in the Sedulous shader set).
 class ShaderSystem {
 public:
@@ -49,7 +49,7 @@ public:
 
     // Get (compile-on-demand + cache) the GPU module for a variant. Returns null
     // if the source is unknown or compilation fails (failures are NOT cached, so a
-    // later request retries — e.g. after a fix).
+    // later request retries - e.g. after a fix).
     [[nodiscard]] rhi::ShaderModule* GetVariant(core::StringView name, ShaderStage stage, ShaderFlags flags)
     {
         const ShaderVariantKey key{ ShaderNameHash(name), stage, flags };

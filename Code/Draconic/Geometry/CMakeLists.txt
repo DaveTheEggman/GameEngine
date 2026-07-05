@@ -1,4 +1,4 @@
-# Draconic::Geometry — `draconic.geometry`, the engine's runtime mesh format
+# Draconic::Geometry - `draconic.geometry`, the engine's runtime mesh format
 # (StaticMesh/SkinnedMesh + index buffer + procedural primitives). Pure data on
 # top of Core; the renderer uploads the raw vertex/index streams.
 add_library(DraconicGeometry STATIC)

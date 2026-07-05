@@ -1,6 +1,6 @@
-/// Draconic::Materials — the `:material` partition.
+/// Draconic::Materials - the `:material` partition.
 ///
-/// Material: the shared, immutable template — a shader name + variant flags, a list
+/// Material: the shared, immutable template - a shader name + variant flags, a list
 /// of declared properties, a PipelineConfig, and default values. It is *data*: the
 /// MaterialSystem reads the property list to infer the GPU bind-group layout, so a
 /// custom material/shader needs no renderer changes. Per-use overrides live in a

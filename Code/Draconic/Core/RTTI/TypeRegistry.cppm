@@ -1,4 +1,4 @@
-// Draconic Core — :type_registry partition
+// Draconic Core - :type_registry partition
 //
 // Explicit type registration; lookup by id or qualified name.
 
@@ -15,7 +15,7 @@ import :hash_map;
 export namespace draconic::core
 {
     // =======================================================================
-    // Type registry — explicit registration; lookup by id or qualified name.
+    // Type registry - explicit registration; lookup by id or qualified name.
     // =======================================================================
     class TypeRegistry
     {

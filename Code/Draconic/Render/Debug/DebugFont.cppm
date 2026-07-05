@@ -1,9 +1,9 @@
-/// Draconic::Render — the `:debug_font` partition (Debug layer).
+/// Draconic::Render - the `:debug_font` partition (Debug layer).
 ///
 /// Embedded 8x8 bitmap font for debug text rendering, ported faithfully from SedulousEngine's
 /// Sedulous.DebugFont. Covers printable ASCII (32..126). Data is 8 bytes per glyph (one byte per
 /// row, MSB = left pixel). Baked at runtime into a single-channel (R8) atlas with a trailing solid
-/// white block (used for filled rects). Lives inside the renderer under Debug — not a separate library.
+/// white block (used for filled rects). Lives inside the renderer under Debug - not a separate library.
 
 module;
 #include "Core/Prelude.h"
@@ -26,7 +26,7 @@ inline constexpr i32 kCharsPerRow   = 16;
 inline constexpr i32 kTextureWidth  = kCharsPerRow * kCharWidth;     // 128
 inline constexpr i32 kTextureHeight = ((kCharCount + kCharsPerRow - 1) / kCharsPerRow) * kCharHeight;   // 48
 
-// Font bitmap — 8 bytes per glyph (one byte per row). Classic 8x8 bitmap font.
+// Font bitmap - 8 bytes per glyph (one byte per row). Classic 8x8 bitmap font.
 inline constexpr u8 kFontData[kCharCount * 8] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,  // ' ' (32)
     0x18,0x18,0x18,0x18,0x18,0x00,0x18,0x00,  // ! (33)

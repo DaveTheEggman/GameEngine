@@ -1,4 +1,4 @@
-// Draconic Core — :reflection partition (RTTI phases c-f)
+// Draconic Core - :reflection partition (RTTI phases c-f)
 //
 // Reflection runtime built on Variant/Instance: properties, methods, enums'
 // attributes, container reflection, and the TypeBuilder used by DRACONIC_REFLECT.
@@ -122,7 +122,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Methods (RTTI phase d) — instance, const, and static, via Variant args.
+    // Methods (RTTI phase d) - instance, const, and static, via Variant args.
     // =======================================================================
     struct ParamInfo
     {
@@ -175,7 +175,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Constructors — let scripting instantiate a type. invoke() validates its
+    // Constructors - let scripting instantiate a type. invoke() validates its
     // args and returns the new instance as a Variant (a value, or object mode
     // for Object-derived types). A type may have several (overloads).
     // =======================================================================
@@ -260,7 +260,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Attributes (phase e) — freeform key -> Variant metadata on a type.
+    // Attributes (phase e) - freeform key -> Variant metadata on a type.
     // =======================================================================
     struct Attribute
     {
@@ -293,7 +293,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Constants — named static values exposed for scripting (e.g. Vector3::Zero,
+    // Constants - named static values exposed for scripting (e.g. Vector3::Zero,
     // Quaternion::Identity, Guid::Nil). Each holds its value as a Variant.
     // =======================================================================
     struct ConstantInfo
@@ -328,7 +328,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Container reflection (phase f) — generic indexed access to Array<T>, so
+    // Container reflection (phase f) - generic indexed access to Array<T>, so
     // tools/scripting can iterate without knowing the element type statically.
     // =======================================================================
     struct ContainerInfo

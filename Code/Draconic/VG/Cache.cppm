@@ -1,9 +1,9 @@
-// Draconic::VG — :cache partition.
+// Draconic::VG - :cache partition.
 //
 // Pre-tessellated path reuse across frames: CachedPath (cached fill/stroke
 // meshes + the style they were tessellated for) and PathCache (an LRU map from
 // path identity to CachedPath). Ported from Sedulous.VG (CachedPath/PathCache).
-// Keyed by Path pointer identity — the caller keeps the Path objects alive.
+// Keyed by Path pointer identity - the caller keeps the Path objects alive.
 
 module;
 #include "Core/Prelude.h"

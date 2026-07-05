@@ -74,7 +74,7 @@ public:
     /// Initialize from an existing resource (e.g. swap chain buffer). Does not own.
     void initFromExisting(ID3D12Resource* resource, const TextureDesc& d) {
         m_resource.Attach(resource);
-        m_resource->AddRef(); // ComPtr will Release — balance it
+        m_resource->AddRef(); // ComPtr will Release - balance it
         desc = d;
         m_ownsResource = false;
         m_state = D3D12_RESOURCE_STATE_PRESENT;

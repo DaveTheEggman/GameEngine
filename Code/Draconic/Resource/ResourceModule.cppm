@@ -1,4 +1,4 @@
-// Draconic::Resource — the `draconic.resource` module.
+// Draconic::Resource - the `draconic.resource` module.
 //
 // The resource manager: turns content-database *source* objects (ISerializable,
 // full editor fidelity) into runtime *products* (lean Objects) via factories,
@@ -34,7 +34,7 @@ export namespace draconic::resource
     };
 
     // =======================================================================
-    // ResourceHandle — a shared, replaceable slot holding one runtime product.
+    // ResourceHandle - a shared, replaceable slot holding one runtime product.
     // Proxies hold the handle (not the product), so a Reload that Replace()s the
     // product is seen by every holder. Remembers its product type so the manager
     // can rebuild it without being told the type again.
@@ -55,7 +55,7 @@ export namespace draconic::resource
     };
 
     // =======================================================================
-    // Proxy<T> — typed accessor over a ResourceHandle. Cheap to copy/store; it
+    // Proxy<T> - typed accessor over a ResourceHandle. Cheap to copy/store; it
     // follows the handle, so it always sees the current product.
     // =======================================================================
     template <typename T>
@@ -80,10 +80,10 @@ export namespace draconic::resource
     };
 
     // =======================================================================
-    // IResourceFactory — builds a runtime product from a content instance (its
+    // IResourceFactory - builds a runtime product from a content instance (its
     // source object + data streams). One factory per product type.
     // =======================================================================
-    class ResourceManager;   // forward — factories receive it to resolve child resources
+    class ResourceManager;   // forward - factories receive it to resolve child resources
 
     class IResourceFactory
     {
@@ -92,13 +92,13 @@ export namespace draconic::resource
 
         [[nodiscard]] virtual const TypeInfo* ProductType() const = 0;
         // Build the runtime product. `manager` lets a composite resource resolve its
-        // child resources via manager.Bind<…>(childId) — and doing so AUTOMATICALLY
+        // child resources via manager.Bind<…>(childId) - and doing so AUTOMATICALLY
         // records a dependency edge, so reloading a child reloads this resource too.
         [[nodiscard]] virtual RefPtr<Object> Create(ResourceManager& manager, draconic::content::Instance& instance) = 0;
     };
 
     // =======================================================================
-    // ResourceManager — binds Guids to products over a content database, caching
+    // ResourceManager - binds Guids to products over a content database, caching
     // handles and supporting hot reload. Factories are non-owning (registered by
     // the caller).
     // =======================================================================
@@ -155,7 +155,7 @@ export namespace draconic::resource
 
         // The ids that directly depend on `id` (introspection/tooling). Empty if none.
         // (Edges are recorded automatically when a factory Binds a child mid-build;
-        // explicit declaration isn't exposed yet — every planned dependency, incl.
+        // explicit declaration isn't exposed yet - every planned dependency, incl.
         // include resources, resolves through Bind.)
         [[nodiscard]] Span<const Guid> Dependents(const Guid& id) noexcept
         {

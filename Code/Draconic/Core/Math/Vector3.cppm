@@ -1,6 +1,6 @@
-// Draconic Core — :vector3 partition
+// Draconic Core - :vector3 partition
 //
-// Vector3: 3D f32 vector — arithmetic, Dot/Cross/Length/Normalized, Min/Max,
+// Vector3: 3D f32 vector - arithmetic, Dot/Cross/Length/Normalized, Min/Max,
 // Lerp, component constants. Converts from Vector2.
 
 module;

@@ -1,6 +1,6 @@
-# Draconic::ShellDesktop — `draconic.shell.desktop` (SDL3-based IShell for Windows/Linux/macOS:
+# Draconic::ShellDesktop - `draconic.shell.desktop` (SDL3-based IShell for Windows/Linux/macOS:
 # windowing, input, events). The desktop run loop lives in draconic.runtime.desktop, so this
-# backend needs only the shell interface + SDL3 — no client/graphics dependency.
+# backend needs only the shell interface + SDL3 - no client/graphics dependency.
 
 add_library(DraconicShellDesktop STATIC)
 add_library(Draconic::ShellDesktop ALIAS DraconicShellDesktop)

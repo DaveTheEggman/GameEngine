@@ -1,5 +1,5 @@
 #include <new>
-/// Sample015 — GPU Queries. Ported from Sedulous Sample015_Queries.
+/// Sample015 - GPU Queries. Ported from Sedulous Sample015_Queries.
 /// Demonstrates GPU timestamp queries to measure render pass duration.
 /// Prints render pass GPU time to console every 2 seconds.
 

@@ -1,4 +1,4 @@
-# Draconic::RuntimeDesktop — `draconic.runtime.desktop` (the desktop application runner:
+# Draconic::RuntimeDesktop - `draconic.runtime.desktop` (the desktop application runner:
 # a blocking wall-clock loop driving an IApplication against an IShell). Works through the
 # abstract IShell interface, so it needs the shell interface (not a backend) plus the client
 # (IApplication/ApplicationHost) and graphics (GraphicsDevice). The web/emscripten runner will

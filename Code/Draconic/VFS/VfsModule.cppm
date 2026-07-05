@@ -1,4 +1,4 @@
-// Draconic::VFS — the `draconic.vfs` module.
+// Draconic::VFS - the `draconic.vfs` module.
 //
 // The virtual filesystem: byte access addressed by logical path, decoupled from
 // any specific backend (disk, archive, memory, ...). Sits between Core (stream

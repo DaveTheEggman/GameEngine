@@ -35,7 +35,7 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
         auto* inst = db.RootGroup()->CreateInstance(u8"skel", SkeletonSource::StaticType());
         id = inst->Id();
 
-        // Author a skeleton asset (source populated from a runtime skeleton — model importer later).
+        // Author a skeleton asset (source populated from a runtime skeleton - model importer later).
         Skeleton skel{ 2 };
         skel.Bones()[0].index = 0; skel.Bones()[0].parentIndex = -1; skel.Bones()[0].name = String{ u8"root" };
         skel.Bones()[1].index = 1; skel.Bones()[1].parentIndex = 0;  skel.Bones()[1].name = String{ u8"child" };

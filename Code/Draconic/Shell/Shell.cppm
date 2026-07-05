@@ -1,13 +1,13 @@
-// Draconic::Shell — the `draconic.shell` module.
+// Draconic::Shell - the `draconic.shell` module.
 //
-// IShell is the raw OS/window service — the "shell" (Sedulous's term for it):
+// IShell is the raw OS/window service - the "shell" (Sedulous's term for it):
 // windowing, the OS event pump, run state, and raw input devices (keyboard,
-// mouse, gamepad, touch — see the :input / :input_types partitions). It is a
+// mouse, gamepad, touch - see the :input / :input_types partitions). It is a
 // PASSIVE service, not a subsystem and not the loop owner: the runner drives it
 // (ProcessEvents once per frame) and the Application borrows it to wire
 // shell-backed subsystems (e.g. a future InputSubsystem). Native backends
 // (Win32/Linux/...) implement it; a null backend serves headless and test runs.
-// Interfaces only — depends on Core, nothing higher.
+// Interfaces only - depends on Core, nothing higher.
 
 module;
 #include "Core/Prelude.h"
@@ -34,12 +34,12 @@ export namespace draconic::shell
     };
 
     // The native handles RHI needs to create a surface/swapchain itself (RHI does
-    // surface creation internally — the shell only hands over the handles).
+    // surface creation internally - the shell only hands over the handles).
     // Interpretation depends on `system`:
-    //   Win32   — display = HINSTANCE,   window = HWND
-    //   X11     — display = Display*,     window = Window (XID, via uintptr)
-    //   Wayland — display = wl_display*,  window = wl_surface*
-    //   Cocoa   — display = nullptr,      window = NSWindow*
+    //   Win32   - display = HINSTANCE,   window = HWND
+    //   X11     - display = Display*,     window = Window (XID, via uintptr)
+    //   Wayland - display = wl_display*,  window = wl_surface*
+    //   Cocoa   - display = nullptr,      window = NSWindow*
     struct NativeWindow
     {
         WindowSystem system = WindowSystem::Unknown;
@@ -75,7 +75,7 @@ export namespace draconic::shell
     };
 
     // What happened to a window during the last ProcessEvents() pump. Delivered
-    // as a per-frame queue (IWindowManager::Events) rather than a callback —
+    // as a per-frame queue (IWindowManager::Events) rather than a callback -
     // matches the pull-based event model and sidesteps callback lifetime in a
     // -fno-exceptions/-fno-rtti world. The consumer (Application) drains it each
     // frame and reacts (resize that window's swapchain, close it, etc.).
@@ -103,7 +103,7 @@ export namespace draconic::shell
     // destroyed at runtime (the basis for detachable/dockable UI windows).
     // Destruction is DEFERRED: DestroyWindow() marks a window closed, and
     // FlushDestroyed() (called at frame end, after the GPU is done with it)
-    // actually frees it — so a window is never torn down mid-frame.
+    // actually frees it - so a window is never torn down mid-frame.
     class IWindowManager
     {
     public:
@@ -146,7 +146,7 @@ export namespace draconic::shell
         [[nodiscard]] virtual IWindow* MainWindow() noexcept = 0;
 
         // Aggregate input devices (keyboard/mouse/gamepad/touch). Always present
-        // — the null backend returns a no-op manager, so callers need not check.
+        // - the null backend returns a no-op manager, so callers need not check.
         [[nodiscard]] virtual IInputManager* Input() noexcept = 0;
 
         // Pump pending OS events once per frame (the runner calls this). The

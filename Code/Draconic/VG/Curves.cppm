@@ -1,4 +1,4 @@
-// Draconic::VG — :curves partition.
+// Draconic::VG - :curves partition.
 //
 // Bezier curve math: point/tangent evaluation, arc-length approximation,
 // adaptive flattening to polylines, and SVG endpoint-arc -> cubic conversion.

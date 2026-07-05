@@ -1,4 +1,4 @@
-// Draconic::VG — :enums partition.
+// Draconic::VG - :enums partition.
 //
 // Small enumerations for vector-graphics draw state. Ported from
 // Sedulous.VG (FillRule/VGBlendMode/VGClipMode/VGLineCap/VGLineJoin).

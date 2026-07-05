@@ -4,7 +4,7 @@ target_link_libraries(DraconicSmoketest PRIVATE
     Draconic::ShellDesktop Draconic::RuntimeDesktop Draconic::Core Draconic::Policy)
 target_compile_definitions(DraconicSmoketest PRIVATE DRACONIC_HAS_SHADERS)
 
-# DX12 backend — Windows only.
+# DX12 backend - Windows only.
 if(TARGET Draconic::RHIDX12)
     target_link_libraries(DraconicSmoketest PRIVATE Draconic::RHIDX12)
     target_compile_definitions(DraconicSmoketest PRIVATE DRACONIC_HAS_DX12)

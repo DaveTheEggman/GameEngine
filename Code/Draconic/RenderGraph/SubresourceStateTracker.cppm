@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :state_tracker partition
+// Draconic::RenderGraph - :state_tracker partition
 //
 // Tracks ResourceState per subresource (mip x layer) with a uniform fast path:
 // while all subresources share a state, only one value is stored; a per-

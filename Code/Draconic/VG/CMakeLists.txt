@@ -1,5 +1,5 @@
-# Draconic::VG — `draconic.vg` (2D vector-graphics core: paths, tessellation, context).
-# Ported from Sedulous.VG. Pure CPU — emits a VGBatch of vertices/commands that
+# Draconic::VG - `draconic.vg` (2D vector-graphics core: paths, tessellation, context).
+# Ported from Sedulous.VG. Pure CPU - emits a VGBatch of vertices/commands that
 # draconic.vg.renderer uploads to the GPU. Deps: Core (math/containers) + Image.
 
 add_library(DraconicVG STATIC)
@@ -23,8 +23,8 @@ target_sources(DraconicVG
             Context.cppm
             VGModule.cppm)
 
-add_subdirectory(SVG)  # draconic.vg.svg — SVG -> VG (parsers/loader/renderer)
-add_subdirectory(Renderer)  # draconic.vg.renderer — VGBatch -> RHI
+add_subdirectory(SVG)  # draconic.vg.svg - SVG -> VG (parsers/loader/renderer)
+add_subdirectory(Renderer)  # draconic.vg.renderer - VGBatch -> RHI
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

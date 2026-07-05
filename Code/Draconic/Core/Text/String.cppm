@@ -1,4 +1,4 @@
-// Draconic Core — :string partition
+// Draconic Core - :string partition
 //
 // String types. `String` is the primary type (UTF-8 / char8_t);
 // `WideString` is the secondary UTF-16 type (Win32 edge). Both are aliases of one
@@ -36,7 +36,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // BasicStringView — non-owning view over a contiguous character range.
+    // BasicStringView - non-owning view over a contiguous character range.
     // =======================================================================
     template <typename CharT>
     class BasicStringView
@@ -85,7 +85,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // BasicString — null-terminated, growable string with small-string
+    // BasicString - null-terminated, growable string with small-string
     // optimization: short strings live inline; longer ones move to the heap.
     // =======================================================================
     template <typename CharT>
@@ -202,7 +202,7 @@ export namespace draconic::core
             data[m_size] = CharT(0);
         }
 
-        // Single-character append (alias for PushBack) — lets WideString serve as a
+        // Single-character append (alias for PushBack) - lets WideString serve as a
         // format sink alongside its Append(view)/Append(ptr,len) overloads.
         void Append(CharT ch) { PushBack(ch); }
 
@@ -335,7 +335,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Aliases — String is UTF-8 (primary); WideString is UTF-16 (Win32 edge).
+    // Aliases - String is UTF-8 (primary); WideString is UTF-16 (Win32 edge).
     // =======================================================================
     using StringView = BasicStringView<utf8char>;
     using String = BasicString<utf8char>;
@@ -344,7 +344,7 @@ export namespace draconic::core
     using WideString = BasicString<widechar>;
 
     // =======================================================================
-    // StringBuilder — incrementally builds a string, including numbers
+    // StringBuilder - incrementally builds a string, including numbers
     // (formatted as ASCII via <charconv>). Templated over the code unit:
     // `StringBuilder` is UTF-8 (primary), `WideStringBuilder` is UTF-16.
     // =======================================================================

@@ -1,5 +1,5 @@
 #include <new>
-/// Sample022 — Stencil Outline. Ported from Sedulous Sample022_StencilOutline.
+/// Sample022 - Stencil Outline. Ported from Sedulous Sample022_StencilOutline.
 /// Demonstrates stencil buffer operations for object outlining.
 /// Pass 1: Draw solid hexagon, write stencil = 1.
 /// Pass 2: Draw scaled-up hexagon, only where stencil != 1 (outline effect).
@@ -157,7 +157,7 @@ draconic::core::Status StencilOutlineSample::OnInit() {
     rhi::VertexBufferLayout vbl{}; vbl.stride = 28; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
     rhi::ColorTargetState ct{}; ct.format = m_swapChain->Format();
 
-    // Pipeline 1: Stencil write — draw solid, always pass depth, write stencil = ref (1).
+    // Pipeline 1: Stencil write - draw solid, always pass depth, write stencil = ref (1).
     {
         rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
@@ -177,7 +177,7 @@ draconic::core::Status StencilOutlineSample::OnInit() {
         if (m_device->CreateRenderPipeline(rpd, m_stencilWritePipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     }
 
-    // Pipeline 2: Stencil test — draw outline, only where stencil != 1.
+    // Pipeline 2: Stencil test - draw outline, only where stencil != 1.
     {
         rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;

@@ -1,4 +1,4 @@
-# Draconic::VGRenderer — `draconic.vg.renderer` (VGBatch -> RHI).
+# Draconic::VGRenderer - `draconic.vg.renderer` (VGBatch -> RHI).
 # Ported from Sedulous.VG.Renderer. Shader source: shaders/vg.{vert,frag}.hlsl
 # (compile via draconic.shaders and pass the modules to VGRenderer::Initialize).
 

@@ -232,7 +232,7 @@ struct BlendState {
         return { { BlendFactor::One, BlendFactor::OneMinusSrcAlpha, BlendOperation::Add },
                  { BlendFactor::One, BlendFactor::OneMinusSrcAlpha, BlendOperation::Add } };
     }
-    // Additive: src + dst — accumulate, e.g. the bloom upsample chain.
+    // Additive: src + dst - accumulate, e.g. the bloom upsample chain.
     static constexpr BlendState Additive() {
         return { { BlendFactor::One, BlendFactor::One, BlendOperation::Add },
                  { BlendFactor::One, BlendFactor::One, BlendOperation::Add } };
@@ -363,8 +363,8 @@ struct RenderPassDesc {
     StringView label;
 };
 
-// Describes a render bundle's target signature so it can be validated against — and replayed
-// into — compatible render passes: the attachment formats + sample count it records for. The
+// Describes a render bundle's target signature so it can be validated against - and replayed
+// into - compatible render passes: the attachment formats + sample count it records for. The
 // render-area extent lets the Vulkan backend record a full-target viewport/scissor into the
 // secondary command buffer (bundles carry no pass-level dynamic state; other backends inherit
 // it from the pass and ignore the extent).

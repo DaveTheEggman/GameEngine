@@ -1,4 +1,4 @@
-// Draconic::ShaderEditor — the `draconic.shaders.editor` module (tooling).
+// Draconic::ShaderEditor - the `draconic.shaders.editor` module (tooling).
 //
 // Source-side shader authoring + cook:
 //   * ShaderAsset (editor::Asset): a shader name + the two HLSL source files

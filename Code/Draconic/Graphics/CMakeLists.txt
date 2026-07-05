@@ -1,5 +1,5 @@
-# Draconic::Graphics — `draconic.graphics` (GraphicsDevice + RenderWindow
-# + FrameContext: the shared RHI render host). Backend-agnostic — imports only the
+# Draconic::Graphics - `draconic.graphics` (GraphicsDevice + RenderWindow
+# + FrameContext: the shared RHI render host). Backend-agnostic - imports only the
 # base RHI, so it builds everywhere (incl. headless, no Vulkan). Backend factories
 # (Null / Vulkan) are sibling modules so heavy backend modules never enter this
 # interface (GCC's module reader rejects that).
@@ -18,7 +18,7 @@ target_sources(DraconicGraphics
         FILE_SET graphics_modules TYPE CXX_MODULES FILES
             Graphics.cppm)
 
-# Draconic::GraphicsNull — `draconic.graphics.null` (headless device
+# Draconic::GraphicsNull - `draconic.graphics.null` (headless device
 # factory over the Null RHI backend). No GPU/Vulkan required.
 add_library(DraconicGraphicsNull STATIC)
 add_library(Draconic::GraphicsNull ALIAS DraconicGraphicsNull)
@@ -36,7 +36,7 @@ target_sources(DraconicGraphicsNull
         FILE_SET graphics_null_modules TYPE CXX_MODULES FILES
             GraphicsNull.cppm)
 
-# Draconic::GraphicsGpu — `draconic.graphics.gpu` (the Vulkan/DX12
+# Draconic::GraphicsGpu - `draconic.graphics.gpu` (the Vulkan/DX12
 # backend factory). The only Vulkan-coupled part; skipped without the Vulkan RHI.
 if(TARGET Draconic::RHIVulkan)
     add_library(DraconicGraphicsGpu STATIC)
@@ -62,7 +62,7 @@ if(TARGET Draconic::RHIVulkan)
             FILE_SET graphics_gpu_modules TYPE CXX_MODULES FILES
                 GraphicsGpu.cppm)
 else()
-    message(STATUS "Vulkan RHI not available — skipping Draconic::GraphicsGpu")
+    message(STATUS "Vulkan RHI not available - skipping Draconic::GraphicsGpu")
 endif()
 
 if(DRACONIC_BUILD_TESTS)

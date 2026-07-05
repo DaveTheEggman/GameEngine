@@ -10,7 +10,7 @@ import :allocator;
 export namespace draconic::core
 {
     // =======================================================================
-    // RingBuffer — fixed-capacity circular FIFO. PushBack/PopFront; full pushes
+    // RingBuffer - fixed-capacity circular FIFO. PushBack/PopFront; full pushes
     // are rejected (returns false). Move-only.
     // =======================================================================
     template <typename T>

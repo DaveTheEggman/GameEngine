@@ -1,8 +1,8 @@
-/// Draconic::Render — the `:debug_pass` partition (Debug layer).
+/// Draconic::Render - the `:debug_pass` partition (Debug layer).
 ///
 /// The GPU side of debug draw (SedulousEngine's DebugDrawSystem + DebugGeometryPass + DebugScreenPass,
 /// folded into one owner adapted to the render graph). Owns the font atlas + per-(view,frame) dynamic
-/// vertex buffers + the pipelines, and exposes DeclareGeometry / DeclareScreen — each declared PER VIEW
+/// vertex buffers + the pipelines, and exposes DeclareGeometry / DeclareScreen - each declared PER VIEW
 /// in the frame, merging a GLOBAL + a per-SCENE DebugDraw and projecting through that view's ViewProj
 /// into the LDR target's sub-rect (so side-by-side scenes/views don't bleed). Geometry has depth-tested
 /// (LessEqual, read-only depth) + overlay (Always) buckets; screen text/rects are always-on-top.
@@ -29,7 +29,7 @@ export namespace draconic::render {
 // A tiny clip-space depth nudge toward the camera (constant NDC-z bias = kDepthBias, applied as
 // z -= bias*w so it survives the perspective divide) keeps coplanar gizmos (grid/axes on a surface)
 // from shimmering: the debug geometry is projected UNJITTERED but depth-tests against the scene depth,
-// which is rendered with the TAA sub-pixel jitter — so without a bias the depth-test margin oscillates
+// which is rendered with the TAA sub-pixel jitter - so without a bias the depth-test margin oscillates
 // as the jitter walks its sequence each frame. A rasterizer depth bias won't help (it doesn't apply to
 // line primitives on D3D12/Vulkan), so we bias in clip space where it covers both lines and triangles.
 // Harmless for the overlay pipelines (Always depth-compare ignores it).

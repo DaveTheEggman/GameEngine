@@ -123,7 +123,7 @@ enum class StoreOp : u32 { Store, DontCare };
 
 // How a render pass's draw commands are supplied. `Inline` records draws directly into the
 // pass (the default). `SecondaryCommandBuffers` means the pass body is supplied by executed
-// render bundles only (no inline draws) — Vulkan begins the rendering scope with the secondary-
+// render bundles only (no inline draws) - Vulkan begins the rendering scope with the secondary-
 // command-buffer contents flag; DX12 / WebGPU ignore it (they allow bundles in any pass).
 enum class RenderPassContents : u32 { Inline, SecondaryCommandBuffers };
 

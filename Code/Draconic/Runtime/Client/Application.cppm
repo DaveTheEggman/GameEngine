@@ -1,19 +1,19 @@
-// Draconic::RuntimeClient — `:app` partition.
+// Draconic::RuntimeClient - `:app` partition.
 //
 // The application contract. There is exactly ONE application per host (not a list
 // of modules): the application IS the game/tool. It owns subsystem registration,
 // so the subsystem set is declared once by the app and is identical whether the
-// app runs standalone or embedded in the editor — subsystems are truly pluggable.
-// (This is the lesson from Sedulous, where the HOST — EngineApplication/Editor
-// Application — forced in its own default subsystems, so neither standalone nor
+// app runs standalone or embedded in the editor - subsystems are truly pluggable.
+// (This is the lesson from Sedulous, where the HOST - EngineApplication/Editor
+// Application - forced in its own default subsystems, so neither standalone nor
 // editor honored the game's actual subsystem set.)
 //
-//   IApplicationHost — what the app sees of its host (Context, services, windows).
-//   IApplication     — the app/game: registers subsystems + lifecycle hooks.
+//   IApplicationHost - what the app sees of its host (Context, services, windows).
+//   IApplication     - the app/game: registers subsystems + lifecycle hooks.
 //
 // DefaultApplication (the opinionated base that registers engine default
 // subsystems) lives in a SEPARATE library (draconic.runtime.defaultapp) so this base
-// client never pulls in the engine subsystem libraries — only apps that opt into
+// client never pulls in the engine subsystem libraries - only apps that opt into
 // the defaults link it.
 
 module;
@@ -35,7 +35,7 @@ namespace rhi = draconic::rhi;
 export namespace draconic::runtime
 {
     // App/loop-level settings (frame pacing). Graphics/window config for the main window lives in its
-    // RenderWindowDesc (see IApplication::MainRenderWindow) — the same descriptor runtime windows use.
+    // RenderWindowDesc (see IApplication::MainRenderWindow) - the same descriptor runtime windows use.
     struct ApplicationSettings
     {
         core::f32 fixedTimeStep = 1.0f / 60.0f; // seconds per fixed update
@@ -64,7 +64,7 @@ export namespace draconic::runtime
     };
 
     // The application/game. Exactly one per host. Configure() registers the app's
-    // subsystems (the ONLY place subsystems are registered — pluggable). OnLaunch/
+    // subsystems (the ONLY place subsystems are registered - pluggable). OnLaunch/
     // OnExit bracket "play": for a standalone host they fire once around the loop;
     // an editor fires them on Play/Stop, so the same app runs embedded or standalone.
     class IApplication
@@ -75,7 +75,7 @@ export namespace draconic::runtime
         // Read once by the host before Configure() (frame pacing).
         [[nodiscard]] virtual ApplicationSettings Settings() const { return {}; }
 
-        // The main window's render config (present mode / swapchain format / buffer count) — the SAME
+        // The main window's render config (present mode / swapchain format / buffer count) - the SAME
         // descriptor runtime windows take via OpenWindow, so the main and runtime windows configure
         // through one path. Read once by the host when it wraps the shell's main window. Default =
         // Fifo (vsync), sRGB, double-buffered. Override to uncap the frame rate (Immediate/Mailbox), etc.

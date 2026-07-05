@@ -1,9 +1,9 @@
-// draconic.runtime.desktop — the desktop application runner.
+// draconic.runtime.desktop - the desktop application runner.
 //
 // RunApplication is the DESKTOP execution model: a blocking wall-clock loop that drives an
-// IApplication (via ApplicationHost) against an IShell until either stops. It lives here —
+// IApplication (via ApplicationHost) against an IShell until either stops. It lives here -
 // separate from the shell backend (draconic.shell.desktop) and from the execution-model-agnostic
-// client (draconic.runtime.client) — precisely BECAUSE the loop is execution-model-specific:
+// client (draconic.runtime.client) - precisely BECAUSE the loop is execution-model-specific:
 // desktop blocks in a while-loop, whereas Emscripten must yield to the browser via a callback
 // (its runner will be this module's sibling). The loop works entirely through the abstract IShell
 // interface, so it is windowing-backend agnostic; the concrete shell is constructed by the entry
@@ -15,7 +15,7 @@ module;
 export module draconic.runtime.desktop;
 
 import draconic.core;
-import draconic.shell;              // IShell (interface only — the concrete shell is handed in)
+import draconic.shell;              // IShell (interface only - the concrete shell is handed in)
 import draconic.graphics;   // GraphicsDevice (handed to the app)
 import draconic.runtime.client;     // IApplication + ApplicationHost (the runner drives these)
 

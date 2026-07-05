@@ -1,7 +1,7 @@
-/// Draconic::Geometry — the `:primitives` partition.
+/// Draconic::Geometry - the `:primitives` partition.
 ///
 /// Procedural primitive meshes (debug shapes / placeholders / tests). Each returns a
-/// fully-formed StaticMesh — static vertex stream + 32-bit indices + one submesh +
+/// fully-formed StaticMesh - static vertex stream + 32-bit indices + one submesh +
 /// generated tangents + bounds. These build the typed StaticMesh directly (no generic
 /// untyped vertex-buffer indirection).
 
@@ -100,7 +100,7 @@ public:
             for (u32 s = 0; s < seg; ++s) {
                 const u32 i0 = r * rowStride + s, i1 = i0 + 1, i2 = i0 + rowStride, i3 = i2 + 1;
                 // CCW-from-outside winding (matches SedulousEngine CreateSphere: (a,b,c),(b,d,c) with
-                // a=i0,b=i1,c=i2,d=i3). The port had (i0,i2,i1)/(i1,i2,i3) — last two swapped — which
+                // a=i0,b=i1,c=i2,d=i3). The port had (i0,i2,i1)/(i1,i2,i3) - last two swapped - which
                 // reversed the front face to inward, so back-face culling hid the outer shell.
                 mesh->indices.AddTriangle(i0, i1, i2);
                 mesh->indices.AddTriangle(i1, i3, i2);

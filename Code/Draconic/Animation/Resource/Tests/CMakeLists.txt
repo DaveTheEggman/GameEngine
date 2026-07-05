@@ -1,4 +1,4 @@
-# Draconic::AnimationResource unit tests (doctest; content DB round-trip — no GPU).
+# Draconic::AnimationResource unit tests (doctest; content DB round-trip - no GPU).
 
 add_executable(DraconicAnimationResourceTests
     TestsMain.cpp

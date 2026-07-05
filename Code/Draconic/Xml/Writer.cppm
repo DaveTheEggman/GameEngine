@@ -1,4 +1,4 @@
-// Draconic::Xml — :writer partition
+// Draconic::Xml - :writer partition
 //
 // XmlWriter: serializes a node/tree to UTF-8 text with optional pretty-printing.
 // WriteDocument is declared here but defined in :document (it needs XmlDocument

@@ -1,4 +1,4 @@
-// Draconic Core — :instance partition
+// Draconic Core - :instance partition
 //
 // Instance: a borrowed, type-erased { void*, TypeInfo* } target for member
 // access (the `this` of a reflected property/method call). Non-owning.
@@ -14,7 +14,7 @@ import :type_info;
 export namespace draconic::core
 {
     // =======================================================================
-    // Instance — a borrowed, type-erased pointer to a live object.
+    // Instance - a borrowed, type-erased pointer to a live object.
     // =======================================================================
     class Instance
     {

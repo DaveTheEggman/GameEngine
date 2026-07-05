@@ -1,4 +1,4 @@
-// Draconic Core — :frame_allocator partition
+// Draconic Core - :frame_allocator partition
 //
 // FrameAllocator: double-buffered linear allocator; NextFrame() swaps halves
 // so a frame's allocations stay valid through the following frame.
@@ -15,7 +15,7 @@ import :linear_allocator;
 export namespace draconic::core
 {
     // =======================================================================
-    // FrameAllocator — double-buffered linear allocator. Splits a buffer in
+    // FrameAllocator - double-buffered linear allocator. Splits a buffer in
     // two; allocations come from the current half. NextFrame() swaps halves and
     // resets the new current, so a frame's allocations stay valid through the
     // following frame (transient cross-frame data). Free is a no-op.

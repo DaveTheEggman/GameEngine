@@ -1,8 +1,8 @@
-/// Draconic::Render — the `:tonemap` partition.
+/// Draconic::Render - the `:tonemap` partition.
 ///
 /// The HDR resolve: the forward pass renders linear HDR into a transient (RGBA16F); this fullscreen
 /// pass reads it, applies exposure + a tonemap operator + the display OETF, and writes the LDR
-/// target. Keeps the renderer in a strict linear working space (docs/design/renderer.md §12) — the
+/// target. Keeps the renderer in a strict linear working space (docs/design/renderer.md §12) - the
 /// foundation IBL/post are designed against. CM1a uses a trivial clamp; CM1b swaps in AgX.
 
 module;
@@ -44,7 +44,7 @@ Texture2D<float4> Bloom     : register(t1, space0);
 Texture2D<float4> Ao        : register(t2, space0);
 SamplerState      BloomSamp : register(s0, space0);
 // UvScale/UvOffset map the fullscreen [0,1] uv to this view's sub-rect of the (full-size) HDR/bloom
-// transients — so split-screen views resolve their own region instead of the whole target.
+// transients - so split-screen views resolve their own region instead of the whole target.
 // AoStrength lerps the AO factor in (0 = GTAO off).
 struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; };
 [[vk::push_constant]] TonemapPush pc;
@@ -68,7 +68,7 @@ float3 agxLook(float3 val) {
 
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     // Sample HDR + bloom with the SAME (top-origin) uv, mapped to this view's sub-rect. Both via Sample
-    // (Sedulous-style — mixing Load(pos) with Sample(uv) is what caused the mirrored bloom ghost).
+    // (Sedulous-style - mixing Load(pos) with Sample(uv) is what caused the mirrored bloom ghost).
     float2 st = pc.UvOffset + uv * pc.UvScale;
     // Debug: show the GTAO buffer (or a debug channel it wrote) straight to screen, no tonemap.
     if (pc.DebugShowAo > 0.5) { return float4(Ao.SampleLevel(BloomSamp, st, 0).rrr, 1.0); }
@@ -181,7 +181,7 @@ private:
     static constexpr u32 kMaxViews = 8;
     static constexpr u32 kMaxSlots = kMaxViews * kMaxFramesInFlight;
 
-    // Build the fullscreen pipeline for `fmt` (rebuilt if the LDR target format changes — usually one).
+    // Build the fullscreen pipeline for `fmt` (rebuilt if the LDR target format changes - usually one).
     rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat fmt) {
         if (m_pipeline != nullptr && m_pipelineFormat == fmt) { return m_pipeline; }
         rhi::ShaderModule* vs = m_shaders->GetVariant(u8"tonemap", shaders::ShaderStage::Vertex,   shaders::ShaderFlags::None);
@@ -207,7 +207,7 @@ private:
 
     // One bind group per (view, frame) slot over its HDR transient view. Rebuilt when the transient's
     // GENERATION changes (the graph stamps a fresh id whenever a different physical texture backs the
-    // transient — e.g. on resize). Pointer identity alone is unsafe: a freed view address can be reused
+    // transient - e.g. on resize). Pointer identity alone is unsafe: a freed view address can be reused
     // by the new allocation, leaving the cached bind group pointing at a destroyed texture.
     rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* hdrView, rhi::TextureView* bloomView, rhi::TextureView* aoView, u64 generation) {
         if (slot >= kMaxSlots || hdrView == nullptr || bloomView == nullptr || aoView == nullptr) { return nullptr; }

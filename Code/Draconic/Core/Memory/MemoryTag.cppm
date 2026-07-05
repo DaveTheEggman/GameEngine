@@ -1,4 +1,4 @@
-// Draconic Core — :memory_tag partition
+// Draconic Core - :memory_tag partition
 //
 // Memory tagging: attribute allocations to a named category via an open
 // registry (Core does not enumerate subsystems). TaggedAllocator records
@@ -17,7 +17,7 @@ import :allocator;
 export namespace draconic::core
 {
     // =======================================================================
-    // Memory tagging — attribute allocations to a category. Core does NOT
+    // Memory tagging - attribute allocations to a category. Core does NOT
     // enumerate subsystems (that would couple it to higher layers); instead it
     // hands out opaque tags by name via a small registry. Higher layers do:
     //     static const MemoryTag kGraphics = RegisterMemoryTag("Graphics");

@@ -14,7 +14,7 @@ C++23 game engine ported from the Sedulous engine (Beef). Uses C++ modules, virt
 - Windows SDK
 
 ### Linux
-- Clang 17+ (**required** — GCC's C++ module support is not sufficient)
+- Clang 17+ (**required** - GCC's C++ module support is not sufficient)
 - Vulkan development libraries
 - SDL3 build dependencies
 
@@ -119,9 +119,9 @@ Data/
 
 ## Third-party dependencies
 
-- **SDL3** — pre-built development libraries (Windows); system package on Linux.
-- **DXC** — vendored headers and pre-built binaries for HLSL compilation. No manual setup needed.
-- **Vulkan SDK** — system install required for `vulkan.h` and the Vulkan loader.
-- **stb** — header-only libraries (truetype, image, image_write).
-- **cgltf / ufbx** — header-only model loaders (glTF, FBX).
-- **msdfgen** — multi-channel signed distance field generator for font atlas baking.
+- **SDL3** - pre-built development libraries (Windows); system package on Linux.
+- **DXC** - vendored headers and pre-built binaries for HLSL compilation. No manual setup needed.
+- **Vulkan SDK** - system install required for `vulkan.h` and the Vulkan loader.
+- **stb** - header-only libraries (truetype, image, image_write).
+- **cgltf / ufbx** - header-only model loaders (glTF, FBX).
+- **msdfgen** - multi-channel signed distance field generator for font atlas baking.

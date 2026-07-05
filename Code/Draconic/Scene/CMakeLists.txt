@@ -1,4 +1,4 @@
-# Draconic::Scene — `draconic.scene`, the scene / ECS foundation (entities, transform
+# Draconic::Scene - `draconic.scene`, the scene / ECS foundation (entities, transform
 # hierarchy, components + per-scene systems, SceneSubsystem). Pure data + logic on
 # top of Core; renderer-agnostic.
 add_library(DraconicScene STATIC)

@@ -1,11 +1,11 @@
-// Draconic Core — :ref_counted partition
+// Draconic Core - :ref_counted partition
 //
 // Intrusive strong+weak reference counting (no std:: equivalent). One
 // mechanism: a co-allocated RefControl shared by the object and its weak refs.
 //
-//   RefCounted    — intrusive strong+weak base (Object derives from it).
-//   RefPtr<T>     — strong shared ownership of a RefCounted-derived type.
-//   WeakRefPtr<T> — non-owning weak reference; Lock() promotes to RefPtr.
+//   RefCounted    - intrusive strong+weak base (Object derives from it).
+//   RefPtr<T>     - strong shared ownership of a RefCounted-derived type.
+//   WeakRefPtr<T> - non-owning weak reference; Lock() promotes to RefPtr.
 //
 // Lifetime model (std::shared_ptr semantics, single allocation):
 //   * strong = number of RefPtr owners.
@@ -66,7 +66,7 @@ export namespace draconic::core
     struct AdoptRef {}; // tag: take ownership of an already-counted reference
 
     // =======================================================================
-    // RefCounted — intrusive strong+weak base. Heap-allocate via MakeRef.
+    // RefCounted - intrusive strong+weak base. Heap-allocate via MakeRef.
     // =======================================================================
     class RefCounted
     {
@@ -84,7 +84,7 @@ export namespace draconic::core
             if (control->strong.fetch_sub(1, std::memory_order_acq_rel) == 1)
             {
                 // Last strong owner: destroy the object (this runs ~T, which
-                // also ends this RefCounted subobject's lifetime — but `control`
+                // also ends this RefCounted subobject's lifetime - but `control`
                 // lives independently), then drop the "alive" weak ref.
                 control->destroyObject(control->object);
                 detail::ReleaseWeak(control);
@@ -116,7 +116,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // RefPtr — strong intrusive shared pointer.
+    // RefPtr - strong intrusive shared pointer.
     // =======================================================================
     template <typename T>
     class RefPtr
@@ -228,7 +228,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // WeakRefPtr — non-owning weak reference; Lock() promotes to RefPtr.
+    // WeakRefPtr - non-owning weak reference; Lock() promotes to RefPtr.
     // =======================================================================
     template <typename T>
     class WeakRefPtr

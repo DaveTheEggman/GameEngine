@@ -1,8 +1,8 @@
-/// Draconic::Materials — the `:pipeline` partition.
+/// Draconic::Materials - the `:pipeline` partition.
 ///
 /// PipelineConfig: the full render-state description for a material (shader name +
 /// variant flags, vertex layout, primitive/blend/depth state, render-target
-/// formats). It is the *key* a PSO cache hashes on — orthogonal to ShaderFlags:
+/// formats). It is the *key* a PSO cache hashes on - orthogonal to ShaderFlags:
 /// flags drive the shader permutation (compile-time #defines), PipelineConfig
 /// drives the fixed-function state. All value types so it hashes by content.
 ///
@@ -154,7 +154,7 @@ public:
         case VertexLayoutType::PositionUVColor: return 36;
         case VertexLayoutType::MeshNoTangent:   return 32;
         case VertexLayoutType::Mesh:            return 48;
-        // A skinned mesh's buffer 0 IS the static stream (48B) — the skinning data
+        // A skinned mesh's buffer 0 IS the static stream (48B) - the skinning data
         // is a SEPARATE buffer (see SkinningStream*), matching draconic.geometry's
         // SkinnedMesh : StaticMesh layout. So a skinned draw binds two vertex buffers.
         case VertexLayoutType::SkinnedMesh:     return 48;
@@ -195,7 +195,7 @@ public:
     }
 
     // The skinning vertex buffer a skinned draw binds: joints (location 6) + weights (location 7),
-    // stride 24 — matches draconic.geometry::VertexSkinning. Skinned draws are ALWAYS instanced now, so
+    // stride 24 - matches draconic.geometry::VertexSkinning. Skinned draws are ALWAYS instanced now, so
     // the instance-stepped DataOffsets takes location 5 and DXC (which assigns input locations
     // sequentially by declaration order, dataOffsets declared before joints/weights) lands these at 6/7.
     [[nodiscard]] static u32 SkinningStreamStride() noexcept { return 24; }

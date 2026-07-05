@@ -1,15 +1,15 @@
-/// Draconic::Render — the `:ssr` partition.
+/// Draconic::Render - the `:ssr` partition.
 ///
 /// Screen-space reflections. A single fullscreen pass that reflects the lit HDR scene into itself:
 /// reconstruct view-space position + normal from the G-buffer, reflect the view ray, march it against
-/// the depth buffer, and — on a hit — sample the scene color at the hit and composite it back into the
+/// the depth buffer, and - on a hit - sample the scene color at the hit and composite it back into the
 /// HDR (LERP by a reflectivity weight, so SSR *replaces* the surface's IBL/probe specular rather than
 /// adding to it, which avoids double-counting the reflection).
 ///
 /// Inputs (all render-graph transients from the forward G-buffer): scene HDR (t0), depth (t1),
 /// octahedral view-normal (t2), material = roughness/metallic (t3). Runs AFTER sky/decals and BEFORE
 /// AO + the TAA resolve, so TAA temporally stabilizes the (necessarily noisy) march. Everything is done
-/// in view space — the normal is already view-space, so no world round-trip is needed.
+/// in view space - the normal is already view-space, so no world round-trip is needed.
 ///
 /// Structurally a sibling of `:ao` (same fullscreen VS, same view reconstruction, same generation-keyed
 /// bind-group cache + deferred free), but with a 4-texture bind group and its own march shader.
@@ -584,7 +584,7 @@ private:
     }
 
     // Advance the deferred-free list once per frame (the graph aliases transients, so replaced sets must
-    // outlive in-flight frames before being freed — a raw-pointer cache would thrash mid-frame).
+    // outlive in-flight frames before being freed - a raw-pointer cache would thrash mid-frame).
     void Tick(u32 frameIndex) {
         if (frameIndex == m_lastFrame) { return; }
         m_lastFrame = frameIndex;

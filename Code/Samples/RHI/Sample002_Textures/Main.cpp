@@ -1,5 +1,5 @@
 #include <new>
-/// Sample002 — Textured Quad. Ported from Sedulous Sample002_Textures.
+/// Sample002 - Textured Quad. Ported from Sedulous Sample002_Textures.
 /// Renders a checkerboard-textured quad using texture, sampler, bind group.
 
 #include <cstdint>

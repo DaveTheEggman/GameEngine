@@ -1,9 +1,9 @@
-/// Draconic::Scene — the `:entity` partition.
+/// Draconic::Scene - the `:entity` partition.
 ///
-/// EntityHandle: a lightweight, copyable reference to an entity in a Scene — a pool
+/// EntityHandle: a lightweight, copyable reference to an entity in a Scene - a pool
 /// index plus a generation counter. The generation makes a stale handle (one whose
 /// slot was destroyed and reused) detectable in O(1) without any lookup table. Never
-/// store a raw pointer to entity/component data — always hold a handle and resolve it
+/// store a raw pointer to entity/component data - always hold a handle and resolve it
 /// through the Scene (the data-oriented discipline: pools move, handles don't).
 
 module;
@@ -26,7 +26,7 @@ struct EntityHandle {
     // The unassigned handle.
     [[nodiscard]] static constexpr EntityHandle Invalid() noexcept { return EntityHandle{ kInvalidIndex, 0 }; }
 
-    // Whether this handle was ever assigned (not necessarily still valid in a Scene —
+    // Whether this handle was ever assigned (not necessarily still valid in a Scene -
     // ask Scene::IsValid for that).
     [[nodiscard]] constexpr bool IsAssigned() const noexcept { return index != kInvalidIndex; }
 

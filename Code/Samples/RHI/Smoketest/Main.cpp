@@ -1,5 +1,5 @@
 #include <new>
-// RHI Smoketest — low-level API tour exercising the VK backend directly.
+// RHI Smoketest - low-level API tour exercising the VK backend directly.
 // No framework dependency; useful for debugging the RHI itself.
 
 #include <cstdio>

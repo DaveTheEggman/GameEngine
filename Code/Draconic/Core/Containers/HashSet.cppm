@@ -12,7 +12,7 @@ import :hash_map;
 export namespace draconic::core
 {
     // =======================================================================
-    // HashSet — a set of keys, built on HashMap. Iterates keys.
+    // HashSet - a set of keys, built on HashMap. Iterates keys.
     // =======================================================================
     template <typename K, typename Hasher = Hash<K>>
     class HashSet

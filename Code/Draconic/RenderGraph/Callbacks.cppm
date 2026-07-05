@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :callbacks partition
+// Draconic::RenderGraph - :callbacks partition
 //
 // Pass execution callbacks. Sedulous uses Beef delegates; here they are Core
 // Function objects over the RHI encoder a pass records into.

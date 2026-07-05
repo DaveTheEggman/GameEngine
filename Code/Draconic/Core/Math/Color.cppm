@@ -10,7 +10,7 @@ import :math;
 export namespace draconic::core
 {
     // =======================================================================
-    // Color — linear RGBA, float components (typically 0..1).
+    // Color - linear RGBA, float components (typically 0..1).
     // =======================================================================
     struct Color
     {
@@ -74,7 +74,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Color32 — packed 8-bit RGBA, for compact storage: image pixels, vertex
+    // Color32 - packed 8-bit RGBA, for compact storage: image pixels, vertex
     // colors, asset interchange. The byte-color counterpart of the float Color
     // (which stays the linear/HDR runtime currency). Conversions are plain
     // 0..255 <-> 0..1 with NO gamma; sRGB<->linear is handled explicitly at the

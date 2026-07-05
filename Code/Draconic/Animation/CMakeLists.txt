@@ -1,4 +1,4 @@
-# Draconic::Animation — `draconic.animation`, the skeletal-animation foundation
+# Draconic::Animation - `draconic.animation`, the skeletal-animation foundation
 # (skeleton/pose/clip/sampler/player + animation graph). A faithful port of
 # Sedulous.Animation; pure logic over Core math + containers, no renderer dep.
 add_library(DraconicAnimation STATIC)

@@ -1,4 +1,4 @@
-# Draconic::Texture — `draconic.texture` (texture descriptors + image->RHI format map).
+# Draconic::Texture - `draconic.texture` (texture descriptors + image->RHI format map).
 # Ported from Sedulous.Textures (deps: RHI, Images).
 
 add_library(DraconicTexture STATIC)
@@ -14,8 +14,8 @@ target_sources(DraconicTexture
             TextureData.cppm
             TextureModule.cppm)
 
-add_subdirectory(Resource)  # draconic.texture.resource — runtime cooked resource + GPU factory
-add_subdirectory(Editor)    # draconic.texture.editor   — tooling: asset + builder + importer
+add_subdirectory(Resource)  # draconic.texture.resource - runtime cooked resource + GPU factory
+add_subdirectory(Editor)    # draconic.texture.editor   - tooling: asset + builder + importer
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

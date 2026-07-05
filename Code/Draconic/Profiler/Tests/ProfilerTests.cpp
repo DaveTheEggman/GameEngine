@@ -59,7 +59,7 @@ TEST_CASE("profiler: disabled records nothing")
     { ScopedProfile s("Ignored"); }
     p.EndFrame();
     p.SetEnabled(true);
-    CHECK(p.CompletedFrame().samples.Size() == 0u);     // unchanged — disabled did nothing
+    CHECK(p.CompletedFrame().samples.Size() == 0u);     // unchanged - disabled did nothing
 }
 
 TEST_CASE("profiler: frame number advances and a report builds")

@@ -1,4 +1,4 @@
-/// Null RHI backend — stub implementations for all interfaces.
+/// Null RHI backend - stub implementations for all interfaces.
 /// Useful for headless testing, CI, or when no GPU is available.
 
 module;

@@ -1,4 +1,4 @@
-// Draconic Core — System backend (classic header).
+// Draconic Core - System backend (classic header).
 //
 // Platform-specific OS services are implemented in per-platform .cpp files
 // (System/Linux, System/Win32) as plain external-linkage functions. The

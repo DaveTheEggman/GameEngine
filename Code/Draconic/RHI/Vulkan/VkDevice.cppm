@@ -516,7 +516,7 @@ void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs,
     for (usize i = 0; i < cmdBufs.Size(); ++i)
         bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
 
-    // 5-arg submit does NOT consume swap chain sync — matching Sedulous.
+    // 5-arg submit does NOT consume swap chain sync - matching Sedulous.
     // The 2-arg submit (used by the first queue submit each frame) handles it.
     Array<VkSemaphore>          waitSems(waitFences.Size());
     Array<VkPipelineStageFlags> waitStages(waitFences.Size());

@@ -1,4 +1,4 @@
-/// Draconic::ModelImporter:mesh_convert — Model IR mesh -> geometry *Source.
+/// Draconic::ModelImporter:mesh_convert - Model IR mesh -> geometry *Source.
 ///
 /// Converts a `model::ModelMesh` (raw interleaved vertex bytes described by a
 /// VertexElement layout + index buffer + material parts) into a cooked

@@ -1,4 +1,4 @@
-# Draconic::RenderGraph — `draconic.rendergraph` (render graph over the RHI:
+# Draconic::RenderGraph - `draconic.rendergraph` (render graph over the RHI:
 # pass dependency resolution, transient resource aliasing, automatic barriers).
 # Ported from Sedulous.RenderGraph.
 

@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :graph partition
+// Draconic::RenderGraph - :graph partition
 //
 // The orchestrator. GPU work is declared as passes with resource accesses; the
 // graph builds dependencies, culls unused work, topologically sorts, allocates/
@@ -57,7 +57,7 @@ export namespace draconic::rendergraph
         [[nodiscard]] i32 LastProfiledPassCount() const noexcept { return m_lastProfiledPassCount; }
 
         // Aggregate this frame's per-pass CPU RECORD time by pass name (most-expensive first). The graph
-        // execute is often CPU-bound (recording/bundle build) while the GPU is idle — this shows where.
+        // execute is often CPU-bound (recording/bundle build) while the GPU is idle - this shows where.
         void AppendCpuPassReport(String& out) const {
             struct Agg { StringView name; u64 ticks = 0; i32 n = 0; };
             Array<Agg> agg; u64 total = 0;
@@ -295,7 +295,7 @@ export namespace draconic::rendergraph
         }
 
         // A stable id for the GPU texture currently backing `handle`. For a transient it changes when
-        // the graph (re)allocates a different physical texture (e.g. on resize) — even if the new view
+        // the graph (re)allocates a different physical texture (e.g. on resize) - even if the new view
         // happens to reuse a freed address. A bind-group cache over GetTextureView MUST also key on
         // this to stay correct across resizes. 0 when unresolved.
         [[nodiscard]] u64 GetTextureGeneration(RGHandle handle)
@@ -403,7 +403,7 @@ export namespace draconic::rendergraph
             if (res == nullptr || res->generation != handle.generation) { return nullptr; }
             return res;
         }
-        // Validate a handle (bounds only; ignores generation) — for mutators.
+        // Validate a handle (bounds only; ignores generation) - for mutators.
         [[nodiscard]] RenderGraphResource* Resolve(RGHandle handle)
         {
             if (!handle.IsValid() || handle.index >= m_resources.Size()) { return nullptr; }
@@ -812,7 +812,7 @@ export namespace draconic::rendergraph
 
             rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(rpDesc);
             // Viewport/scissor: a per-pass override (split-screen sub-rect) if set, else the full
-            // attachment. Set here for bundle passes (bundles inherit it from the parent — WebGPU/
+            // attachment. Set here for bundle passes (bundles inherit it from the parent - WebGPU/
             // DX12 can't set it inside a bundle); a plain execute callback may also rely on it.
             i32 vpX = 0, vpY = 0; u32 vpW = 0, vpH = 0;
             if (pass.hasViewport) { vpX = pass.viewportX; vpY = pass.viewportY; vpW = pass.viewportW; vpH = pass.viewportH; }

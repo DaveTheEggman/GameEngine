@@ -1,4 +1,4 @@
-# Draconic::MeshResource unit tests (doctest; content DB — no GPU).
+# Draconic::MeshResource unit tests (doctest; content DB - no GPU).
 
 add_executable(DraconicMeshResourceTests
     TestsMain.cpp

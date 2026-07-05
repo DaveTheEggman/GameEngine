@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:service partition
+// Draconic::FontsTTF - draconic.fonts.ttf:service partition
 //
 // IFontService that loads TrueType/OpenType fonts through the source-format
 // pipeline (parse -> bake -> expand-to-RGBA8). With a VFS file system set, the
@@ -113,7 +113,7 @@ export namespace draconic::fonts
             return nullptr;
         }
 
-        // Fonts are owned by the service — releasing is a no-op.
+        // Fonts are owned by the service - releasing is a no-op.
         void ReleaseFont(CachedFont*) override {}
 
     private:

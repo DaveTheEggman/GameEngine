@@ -1,4 +1,4 @@
-# Draconic::VFS — `draconic.vfs` (virtual filesystem: byte access by logical path,
+# Draconic::VFS - `draconic.vfs` (virtual filesystem: byte access by logical path,
 # decoupled from the backing store). Depends only on Core (stream primitives).
 
 add_library(DraconicVFS STATIC)

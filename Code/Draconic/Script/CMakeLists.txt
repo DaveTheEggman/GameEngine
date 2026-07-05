@@ -1,4 +1,4 @@
-# Draconic::Script — the `draconic.script` module.
+# Draconic::Script - the `draconic.script` module.
 #
 # A thin, VM-agnostic scripting abstraction over Core's reflection. Concrete VM
 # backends (Lua, ...) are separate plugins implementing these interfaces.

@@ -9,7 +9,7 @@ import :base;
 export namespace draconic::core
 {
     // =======================================================================
-    // Span — non-owning view over contiguous elements.
+    // Span - non-owning view over contiguous elements.
     // =======================================================================
     template <typename T>
     class Span

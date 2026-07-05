@@ -1,4 +1,4 @@
-/// Draconic::Animation — the `:clip` partition.
+/// Draconic::Animation - the `:clip` partition.
 ///
 /// Animation data: keyframed tracks (position/rotation/scale per bone) + timed events, grouped into
 /// an AnimationClip. Ported faithfully from Sedulous.Animation.AnimationClip / AnimationTrack /

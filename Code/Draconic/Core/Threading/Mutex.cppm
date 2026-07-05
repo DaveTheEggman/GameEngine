@@ -1,4 +1,4 @@
-// Draconic Core — :mutex partition
+// Draconic Core - :mutex partition
 //
 // Mutex over opaque OS storage.
 

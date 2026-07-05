@@ -1,4 +1,4 @@
-// Draconic Core — :binary_io partition
+// Draconic Core - :binary_io partition
 //
 // BinaryWriter / BinaryReader: thin typed wrappers over an IStream for raw
 // binary I/O. They track a sticky "ok" flag (set false on a short transfer) so
@@ -18,7 +18,7 @@ import :io;
 export namespace draconic::core
 {
     // =======================================================================
-    // BinaryWriter — typed binary output over an IStream.
+    // BinaryWriter - typed binary output over an IStream.
     // =======================================================================
     class BinaryWriter
     {
@@ -58,7 +58,7 @@ export namespace draconic::core
     };
 
     // =======================================================================
-    // BinaryReader — typed binary input over an IStream.
+    // BinaryReader - typed binary input over an IStream.
     // =======================================================================
     class BinaryReader
     {

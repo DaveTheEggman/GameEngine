@@ -1,4 +1,4 @@
-// Draconic::ShellNull — the `draconic.shell.null` module.
+// Draconic::ShellNull - the `draconic.shell.null` module.
 //
 // A headless IShell implementation: no real window or OS events. Useful for
 // tests, tools, and headless servers, and as the reference for what a real
@@ -192,7 +192,7 @@ export namespace draconic::shell
         [[nodiscard]] bool IsRunning() const noexcept override
         {
             // Running until RequestExit() or the main window is closed/destroyed.
-            IWindow* main = m_windows.MainWindow();   // MainWindow() is const now — no const_cast needed
+            IWindow* main = m_windows.MainWindow();   // MainWindow() is const now - no const_cast needed
             return m_running && main != nullptr && main->IsOpen();
         }
         void RequestExit() override { m_running = false; }

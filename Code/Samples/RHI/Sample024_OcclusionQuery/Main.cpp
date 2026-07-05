@@ -1,5 +1,5 @@
 #include <new>
-/// Sample024 — Occlusion Queries & Debug Labels. Ported from Sedulous Sample024_OcclusionQuery.
+/// Sample024 - Occlusion Queries & Debug Labels. Ported from Sedulous Sample024_OcclusionQuery.
 /// Demonstrates occlusion queries and debug labels.
 /// Renders an occluder quad, then two test quads behind it with occlusion queries.
 /// Prints pixel counts to console. Uses debug labels to mark render sections.

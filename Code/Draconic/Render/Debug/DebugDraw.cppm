@@ -1,8 +1,8 @@
-/// Draconic::Render — the `:debug_draw` partition (Debug layer).
+/// Draconic::Render - the `:debug_draw` partition (Debug layer).
 ///
 /// Instance-based immediate-mode debug drawing, ported from SedulousEngine's Sedulous.Renderer.Debug
 /// DebugDraw. Game code accumulates world-space lines/triangles/wireframes + screen/3D text over a
-/// frame; the debug passes flush them. Each `DebugDraw` is one accumulator — the RenderSubsystem owns a
+/// frame; the debug passes flush them. Each `DebugDraw` is one accumulator - the RenderSubsystem owns a
 /// GLOBAL one (drawn in every view) + one per SCENE (drawn only when that scene renders), which is what
 /// keeps side-by-side scenes from bleeding. Every 3D method takes `overlay`: false = depth-tested,
 /// true = always-on-top. Immediate-mode: Clear() once per frame.

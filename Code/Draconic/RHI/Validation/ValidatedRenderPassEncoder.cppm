@@ -110,8 +110,8 @@ public:
 
     void ExecuteBundles(Span<RenderBundle* const> bundles) override {
         if (m_ended) { LogError("[Validation] executeBundles: render pass ended"); return; }
-        if (!m_viewportSet) LogWarning("[Validation] executeBundles: viewport not set — bundles inherit viewport from the parent pass");
-        if (!m_scissorSet)  LogWarning("[Validation] executeBundles: scissor not set — bundles inherit scissor from the parent pass");
+        if (!m_viewportSet) LogWarning("[Validation] executeBundles: viewport not set - bundles inherit viewport from the parent pass");
+        if (!m_scissorSet)  LogWarning("[Validation] executeBundles: scissor not set - bundles inherit scissor from the parent pass");
         // Unwrap each ValidatedRenderBundle to its inner bundle before forwarding.
         Array<RenderBundle*> inner(bundles.Size());
         for (usize i = 0; i < bundles.Size(); ++i) {

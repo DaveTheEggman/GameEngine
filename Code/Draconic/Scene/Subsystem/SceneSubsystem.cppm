@@ -1,4 +1,4 @@
-/// Draconic::SceneSubsystem — `draconic.scene.subsystem`.
+/// Draconic::SceneSubsystem - `draconic.scene.subsystem`.
 ///
 /// The Context-level driver for scenes (the scene MANAGER is the subsystem; the Scene
 /// itself is data). Owns the scene list, drives each scene's per-frame update + fixed

@@ -1,7 +1,7 @@
 // Source-side material cook: author a Material in code, capture it into a MaterialAsset
 // referencing a shader id, cook through MaterialAssetBuilder into an output content DB,
 // and verify the cooked MaterialSource carries the shader id, declared properties, and
-// default uniforms. No GPU/DXC — pure authoring data.
+// default uniforms. No GPU/DXC - pure authoring data.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"

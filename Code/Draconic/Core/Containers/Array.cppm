@@ -11,7 +11,7 @@ import :span;
 export namespace draconic::core
 {
     // =======================================================================
-    // Array — growable, allocator-backed dynamic array.
+    // Array - growable, allocator-backed dynamic array.
     // =======================================================================
     template <typename T>
     class Array

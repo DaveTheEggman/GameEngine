@@ -1,4 +1,4 @@
-// Draconic::ImageEditor — the `draconic.image.editor` module.
+// Draconic::ImageEditor - the `draconic.image.editor` module.
 //
 // Tooling: the source ImageAsset (an image file + color-space intent) and the
 // builder that cooks it into a runtime ImageResource (decode the file, write the

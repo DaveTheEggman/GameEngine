@@ -122,7 +122,7 @@ TEST_CASE("graph: state defaults + node ownership")
     CHECK(idle.OwnsNode() == false);
     CHECK(idle.Duration() == 0.0f);
 
-    // Owned node freed on destruction (UniquePtr) — no leak/crash.
+    // Owned node freed on destruction (UniquePtr) - no leak/crash.
     {
         AnimationGraphState owned{ u8"Owned", MakeUnique<ClipStateNode>(DefaultAllocator(), static_cast<AnimationClip*>(nullptr)) };
         CHECK(owned.OwnsNode() == true);

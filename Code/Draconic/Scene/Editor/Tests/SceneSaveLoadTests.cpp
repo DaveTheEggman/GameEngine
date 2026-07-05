@@ -1,4 +1,4 @@
-// Phase 5 (editor + resource) — full content-DB round-trip: SaveScene captures a live
+// Phase 5 (editor + resource) - full content-DB round-trip: SaveScene captures a live
 // scene into a content-DB instance (SceneDocument primary + "scene" data stream), and
 // LoadScene reads it back into a fresh scene whose managers were injected beforehand.
 #include <doctest/doctest.h>

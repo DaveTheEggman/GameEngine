@@ -1,10 +1,10 @@
-// Sandbox — the running dev harness. It extends DefaultApplication (which registers
+// Sandbox - the running dev harness. It extends DefaultApplication (which registers
 // the SceneSubsystem + RenderSubsystem and renders active scenes each frame), creates a
 // scene with two spinning cube grids (instanced + distinct), and lets the engine draw it.
 // As the renderer grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
-#include "imgui.h"   // Dear ImGui (debug UI) — used directly; the engine integration is draconic.imgui
+#include "imgui.h"   // Dear ImGui (debug UI) - used directly; the engine integration is draconic.imgui
 
 import draconic.core;
 import draconic.rhi;                     // offscreen render target (Texture / ResourceState / Blit)
@@ -73,7 +73,7 @@ namespace
     {
     public:
         // Run uncapped (vsync off) so the FPS/frame-ms readout reflects real CPU+GPU cost, not the
-        // display refresh — matches AnimStressTest. The image may tear; fine for a dev sandbox.
+        // display refresh - matches AnimStressTest. The image may tear; fine for a dev sandbox.
         graphics::RenderWindowDesc MainRenderWindow() const override
         {
             graphics::RenderWindowDesc d;
@@ -114,7 +114,7 @@ namespace
 
             // Load an HDR equirectangular environment so F5 can cycle to it (mode starts Procedural).
             if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
-                // Default exposure below 1.0 — the procedural sky + IBL ambient are bright, so the AgX
+                // Default exposure below 1.0 - the procedural sky + IBL ambient are bright, so the AgX
                 // tonemap washes out at 1.0. Tune live via the Environment window's Exposure slider.
                 render->SetExposure(0.5f);
                 core::String hdrPath = core::Format(u8"{}/BlueSky.hdr",
@@ -160,7 +160,7 @@ namespace
                 cam.clearColor = core::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit scene reads
             }
 
-            // A large horizontal floor (Plane normal = +Y) under the scene — the point lights hover
+            // A large horizontal floor (Plane normal = +Y) under the scene - the point lights hover
             // above it and cast visible pools on it. The two cube grids stand on the floor.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
                 scene::EntityHandle floor = m_scene->CreateEntity(u8"floor");
@@ -175,7 +175,7 @@ namespace
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
                 BuildGrid(*meshes, cube, /*originX*/  8.0f, /*instanced*/ false);
 
-                // A row of cubes resting EXACTLY on the floor (bottom face flush at y=-7) — a static
+                // A row of cubes resting EXACTLY on the floor (bottom face flush at y=-7) - a static
                 // reference for judging shadow contact / peter-panning (the grids float in the air).
                 constexpr core::f32 kBoxSize = 2.5f, kFloorY = 0.0f;
                 core::RefPtr<geometry::StaticMesh> box = geometry::Primitives::Cube(kBoxSize);
@@ -187,13 +187,13 @@ namespace
                     bmc.mesh = box; bmc.material = boxMat;
                 }
 
-                // Spheres resting ON the floor (bottom flush) — their contact shadow is mostly hidden
+                // Spheres resting ON the floor (bottom flush) - their contact shadow is mostly hidden
                 // under the sphere, so you see only the "half" extending away from the sun (vs the
                 // floating grids, whose full shadow ellipse is visible on the ground).
                 constexpr core::f32 kBallR = 1.25f;
                 core::RefPtr<geometry::StaticMesh> ball = geometry::Primitives::Sphere(kBallR, 24, 12);
                 // Metal spheres with INCREASING roughness across the row (0.05 -> 0.59), all fully metallic,
-                // so the probe reflection goes mirror-sharp -> blurry — showcasing the GGX roughness prefilter.
+                // so the probe reflection goes mirror-sharp -> blurry - showcasing the GGX roughness prefilter.
                 for (int k = 0; k < 4; ++k) {
                     core::RefPtr<materials::Material> ballMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.90f, 0.90f, 0.92f, 1.0f },
                                                                       1.0f, 0.05f + 0.18f * static_cast<core::f32>(k));
@@ -203,7 +203,7 @@ namespace
                     smc.mesh = ball; smc.material = ballMat;
                 }
 
-                // Transparent (alpha-blended) spheres hovering in front of the opaque row — exercises the
+                // Transparent (alpha-blended) spheres hovering in front of the opaque row - exercises the
                 // transparent path: routed to the Transparent category (blend mode), sorted back-to-front,
                 // blended with depth-test/no-write. Base-color alpha (<1) makes them see-through.
                 core::RefPtr<materials::Material> glassMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.35f, 0.6f, 0.95f, 0.4f }, 0.0f, 0.12f);
@@ -247,7 +247,7 @@ namespace
                 kl.intensity = 0.5f;                        // key light: bright enough that its shadow reads
                 kl.castsShadows = true;                     // directional CSM (5.2) + spot (5.3a) + point cube (5.3b)
 
-                // A field of point lights hovering above the floor (X-Z grid) — the clustered
+                // A field of point lights hovering above the floor (X-Z grid) - the clustered
                 // light-culling demo. Each fragment only evaluates the lights in its froxel, so this
                 // scales far better than an all-lights loop. Each casts a colored pool on the floor.
                 constexpr int kCols = 6, kRows = 3;         // 18 point lights over the floor
@@ -268,7 +268,7 @@ namespace
                     }
                 }
 
-                // A bright spot light overhead, aimed down at the floor boxes/spheres — the phase 5.3
+                // A bright spot light overhead, aimed down at the floor boxes/spheres - the phase 5.3
                 // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
                 // floor (distinct from the directional CSM), packed into the local-shadow atlas.
                 scene::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
@@ -286,7 +286,7 @@ namespace
                 sl.castsShadows = true;                                     // spot atlas shadow caster (5.3a)
                 sl.shadowUpdate = render::ShadowUpdateMode::Static;            // static scene -> cached atlas layer (5.4b)
 
-                // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
+                // A shadow-casting POINT light hovering among the floor boxes/spheres - the phase 5.3b
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
                 scene::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
                 m_scene->SetLocalPosition(pt, core::Vector3{ 4.0f, 5.0f, 13.0f });
@@ -319,14 +319,14 @@ namespace
 
             LoadImportedModel(host);   // cook + spawn a glTF model through the resource pipeline
 
-            core::ConsoleWrite(u8"Sandbox: split-screen — click a half to fly its camera (WASD/QE, Shift fast); "
+            core::ConsoleWrite(u8"Sandbox: split-screen - click a half to fly its camera (WASD/QE, Shift fast); "
                              u8"RMB-drag looks in the hovered half. G cycles the Character graph. Close to exit.\n");
         }
 
         // The model-import seam: open the cooked-resource output DB, register the geometry factory,
         // load+cook a glTF file through the importer, then spawn its node hierarchy as entities whose
         // MeshComponents reference the cooked StaticMesh resources. This is the clean runtime cook seam
-        // the design calls for — an editor would cook offline and the runtime would only Bind, but the
+        // the design calls for - an editor would cook offline and the runtime would only Bind, but the
         // wiring (factory -> Bind -> render) is identical.
         void LoadImportedModel(runtime::IApplicationHost& host)
         {
@@ -355,7 +355,7 @@ namespace
             SpawnModel(u8"Duck", core::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), core::Vector3{ -5.0f, 3.0f, 6.0f });
             SpawnModel(u8"Fox",  core::Format(u8"{}/Fox/glTF/Fox.gltf",  modelDir).AsView(), core::Vector3{  5.0f, 0.0f, 6.0f });
             // The Character is driven by an AnimationGraph (a state machine over its clips) rather than a
-            // single clip — press G to fire the graph's "Next" trigger and cross-fade to the next state.
+            // single clip - press G to fire the graph's "Next" trigger and cross-fade to the next state.
             SpawnModel(u8"Char", core::Format(u8"{}/QuaterniusCharacter/glTF/Character.gltf", modelDir).AsView(), core::Vector3{ 0.0f, 0.0f, 12.0f }, /*useGraph=*/true);
 
             SpawnSpriteDemo();   // billboards (all orientation + blend modes) using the imported logo
@@ -378,7 +378,7 @@ namespace
             dc.texture   = logo;
             dc.size      = core::Vector3{ 8.0f, 8.0f, 6.0f };   // 8x8 floor footprint; 6-unit box depth spans y=0
             dc.fadeStart = 0.0f;
-            dc.fadeEnd   = 1.4f;                           // ~80deg — fully faded on near-vertical surfaces
+            dc.fadeEnd   = 1.4f;                           // ~80deg - fully faded on near-vertical surfaces
             // Sit on a clear patch of floor (props start at z>=6) and rotate so +Z projects down.
             core::Transform t;
             t.position = core::Vector3{ 0.0f, 0.0f, -3.0f };
@@ -465,7 +465,7 @@ namespace
             if (!model) { core::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
 
             // Auto-fit: the model-root scales the model's largest extent to a target size (models come in
-            // wildly different unit scales — the Duck is ~100 units, the Fox ~150).
+            // wildly different unit scales - the Duck is ~100 units, the Fox ~150).
             constexpr core::f32 kTargetSize = 6.0f;
             const core::Vector3 extent = model->boundsMax - model->boundsMin;
             const core::f32 maxExtent = core::Max(extent.x, core::Max(extent.y, extent.z));
@@ -520,7 +520,7 @@ namespace
 
             // If the model is skinned + animated, hand it to the animation subsystem: attach a component
             // to the model root + list its skinned mesh nodes as the feed targets. The subsystem ticks
-            // the player each frame and writes the skinning matrices into those MeshComponents — no
+            // the player each frame and writes the skinning matrices into those MeshComponents - no
             // per-frame driving in app code. A graph-driven model gets an AnimationGraphComponent (a
             // state machine over its clips); everything else gets a single-clip SkeletalAnimationComponent.
             if (model->skeleton && model->animations.Size() > 0 && model->animations[0] &&
@@ -621,7 +621,7 @@ namespace
             }
         }
 
-        // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings —
+        // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings -
         // editing these re-runs the IBL precompute next frame, so the ambient updates live.
         void BuildDebugUI(render::RenderSubsystem* render)
         {
@@ -732,7 +732,7 @@ namespace
                     if (ImGui::ColorEdit3("Ground", gr)) { e.skyGround = core::Color{ gr[0], gr[1], gr[2], 1.0f }; }
                 }
             }
-            // Directional (key) light — the actual scene illumination + sky sun direction. Distinct from
+            // Directional (key) light - the actual scene illumination + sky sun direction. Distinct from
             // "Sun Intensity" above (that's the sky's sun disc brightness, not the light that shades surfaces).
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                 if (render::LightComponent* kl = m_keyLight.IsAssigned() ? lights->Get(m_keyLight) : nullptr) {
@@ -813,7 +813,7 @@ namespace
             m_inputRouter->Update();
         }
 
-        // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer — the
+        // Split-screen rendered into an OFFSCREEN texture, then blitted to the backbuffer - the
         // editor-shaped path (a view renders to a sampleable/copyable target, not straight to the
         // swapchain). Exercises the full multi-view path + the configurable target final state.
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
@@ -844,7 +844,7 @@ namespace
                 vc.farZ       = 1000.0f;
                 return vc;
             };
-            // Each half is driven by its own fly camera (hover a half to control it — see UpdateInputRouting).
+            // Each half is driven by its own fly camera (hover a half to control it - see UpdateInputRouting).
             render::CameraOverride camL;
             camL.camera = makeCam(m_flyL.position, m_flyL.position + m_flyL.Forward());
             camL.clearColor = core::Color{ 0.02f, 0.02f, 0.03f, 1.0f };
@@ -932,7 +932,7 @@ namespace
             if (m_scene == nullptr) { return; }
 
             // Skinned models are advanced by the animation subsystem (SkeletalAnimation/AnimationGraph
-            // components ticked on the scene's PostUpdate phase) — no per-frame driving here anymore.
+            // components ticked on the scene's PostUpdate phase) - no per-frame driving here anymore.
 
             m_angle += deltaTime;
             const core::Quaternion spin = core::Quaternion::FromAxisAngle(core::Vector3{ 0.3f, 1.0f, 0.0f }, m_angle);
@@ -942,9 +942,9 @@ namespace
                 m_scene->SetLocalTransform(cube, t);
             }
             // Bob each point light in Z (depth) on its own phase, so the lights cross froxel depth
-            // slices every frame — exercising the per-frame cluster rebuild, not a static binning.
+            // slices every frame - exercising the per-frame cluster rebuild, not a static binning.
             // Sweep the whole light field left/right (so the colored pools clearly slide as a
-            // group — easy confirmation that pools exist and track the lights) + a gentle Z-bob.
+            // group - easy confirmation that pools exist and track the lights) + a gentle Z-bob.
             const core::f32 sweep = 5.0f * core::Sin(m_angle * 0.6f);
             for (core::usize k = 0; k < m_pointLights.Size(); ++k) {
                 core::Vector3 p = m_lightBases[k];
@@ -955,7 +955,7 @@ namespace
 
             // Debug-draw demo: per-scene gizmos (wire boxes/spheres on the resting props, origin axes,
             // a ground grid, an arrow from the spot, 3D + screen text). Both split-screen views render
-            // these, each projected through its OWN camera — and they're keyed to this scene, so a second
+            // these, each projected through its OWN camera - and they're keyed to this scene, so a second
             // scene's gizmos would never bleed in.
             if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
                 // Debug gizmos toggle (ImGui "Debug Draw" checkbox). The FPS readout below stays on.
@@ -1110,7 +1110,7 @@ namespace
         core::UniquePtr<shell::InputSurface> m_surfaceL;
         core::UniquePtr<shell::InputSurface> m_surfaceR;
 
-        // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
+        // Model-import pipeline state (must outlive the spawned entities - the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase>   m_contentDb;

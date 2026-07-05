@@ -1,10 +1,10 @@
-/// Draconic::Animation — the `:skeleton` partition.
+/// Draconic::Animation - the `:skeleton` partition.
 ///
 /// The skeletal hierarchy (ported faithfully from Sedulous.Animation.Skeleton/Bone). A `Bone` is a
 /// node with a local bind pose + inverse bind matrix; the `Skeleton` owns the bones and computes
 /// world-space + skinning matrices from a set of local poses, evaluated parents-before-children.
 ///
-/// `BoneTransform` reuses `core::Transform` (position/rotation/scale, S*R*T) — byte-for-byte the
+/// `BoneTransform` reuses `core::Transform` (position/rotation/scale, S*R*T) - byte-for-byte the
 /// Sedulous BoneTransform, with Lerp/ToMatrix already in core math.
 
 module;

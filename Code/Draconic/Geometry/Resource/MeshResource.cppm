@@ -1,6 +1,6 @@
-/// Draconic::MeshResource — the `draconic.geometry.resource` module.
+/// Draconic::MeshResource - the `draconic.geometry.resource` module.
 ///
-/// Meshes as resources: a StaticMeshSource / SkinnedMeshSource (cooked content — the
+/// Meshes as resources: a StaticMeshSource / SkinnedMeshSource (cooked content - the
 /// raw vertex stream, indices, submeshes, and for skinned the parallel skinning
 /// stream + skeleton ref) is built by a factory into the runtime StaticMesh /
 /// SkinnedMesh. Two source/factory pairs, mirroring the mesh hierarchy: SkinnedMeshSource

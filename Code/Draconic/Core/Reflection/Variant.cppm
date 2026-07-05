@@ -1,11 +1,11 @@
-// Draconic Core — :variant partition
+// Draconic Core - :variant partition
 //
-// Variant  — an owned, type-erased value (small-buffer optimized) used for
+// Variant  - an owned, type-erased value (small-buffer optimized) used for
 //            property values, method args/returns. Two modes:
-//              * value mode  — owns a copy of any value type T (SBO + heap).
-//              * object mode — owns a RefPtr<Object> and reports the object's
+//              * value mode  - owns a copy of any value type T (SBO + heap).
+//              * object mode - owns a RefPtr<Object> and reports the object's
 //                dynamic GetType() (so scripting can wrap it as the right type).
-// Instance — a borrowed { void*, TypeInfo* } target for member access. Variant
+// Instance - a borrowed { void*, TypeInfo* } target for member access. Variant
 //            ALWAYS owns its value (no reference mode); see §4.10.
 
 module;
@@ -51,7 +51,7 @@ namespace draconic::core::detail
         &VariantTypeInfo<T>, static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T))
     };
 
-    // Detects RefPtr<U> where U derives Object — routed to Variant's object mode.
+    // Detects RefPtr<U> where U derives Object - routed to Variant's object mode.
     template <typename T>
     struct ObjectRef { static constexpr bool value = false; };
     template <typename U>

@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :pass partition
+// Draconic::RenderGraph - :pass partition
 //
 // A single pass: its declared resource accesses, attachments, dependencies, and
 // typed execute callback. GetInputs/GetOutputs fold attachment load/store ops
@@ -29,7 +29,7 @@ export namespace draconic::rendergraph
             : name(passName), type(passType) {}
 
         // Explicitly defaulted so the (move-only, due to Function members) special
-        // members are synthesized in this module and usable by importers — GCC's
+        // members are synthesized in this module and usable by importers - GCC's
         // module support otherwise reports the implicit destructor as deleted.
         ~RenderGraphPass() = default;
         RenderGraphPass(RenderGraphPass&&) = default;

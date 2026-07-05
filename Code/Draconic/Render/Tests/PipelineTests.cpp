@@ -176,7 +176,7 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
         for (u32 f = 0; f < 2; ++f) {
             frame.Begin(*h.encoder, f);
             frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256, 256);
-            frame.End();   // parallel emit — must not crash or deadlock
+            frame.End();   // parallel emit - must not crash or deadlock
         }
         CHECK(psoCache.Size() >= 1);
     }

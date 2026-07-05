@@ -1,4 +1,4 @@
-/// Draconic::Animation — the `:easing` partition.
+/// Draconic::Animation - the `:easing` partition.
 ///
 /// EasingType: a serializable enum mapping 1:1 to the core easing functions (draconic.core :easings).
 /// Ported faithfully from Sedulous.Animation.EasingType. The functions themselves live in core math;
@@ -15,7 +15,7 @@ using namespace draconic::core;
 
 export namespace draconic::animation {
 
-// Serializable easing type (1:1 with the core Easings family). Order matters — it's the serialized
+// Serializable easing type (1:1 with the core Easings family). Order matters - it's the serialized
 // value and several tools index by it.
 enum class EasingType : i32 {
     Linear = 0,

@@ -1,10 +1,10 @@
-/// Draconic::Render — the `:fxaa` partition.
+/// Draconic::Render - the `:fxaa` partition.
 ///
 /// FXAA (Fast Approximate Anti-Aliasing), the TAA-OFF fallback AA. A single fullscreen LDR pass after
 /// tonemap: perceptual-luma edge detect + directional edge search + sub-pixel blend (ported from the
-/// SedulousEngine fxaa.frag quality variant). Only run when TAA is off — the two are never stacked
+/// SedulousEngine fxaa.frag quality variant). Only run when TAA is off - the two are never stacked
 /// (locked decision) since TAA already resolves aliasing and FXAA on top would double-blur. Reads the
-/// tonemapped LDR (a transient), writes the final target — both mapped to the view's sub-rect (so
+/// tonemapped LDR (a transient), writes the final target - both mapped to the view's sub-rect (so
 /// split-screen views FXAA their own region), exactly like the tonemap.
 
 module;
@@ -37,7 +37,7 @@ VSOut main(uint vid : SV_VertexID) {
 
 // FXAA PS (quality variant). UvScale/UvOffset map the fullscreen uv to this view's sub-rect of the
 // (full-size) tonemapped LDR; TexelSize is 1/full-size (the sub-rect is a contiguous region, so a
-// full-texel neighbor step is a 1-pixel step within it — it only bleeds a texel across the split seam).
+// full-texel neighbor step is a 1-pixel step within it - it only bleeds a texel across the split seam).
 inline constexpr const char8_t* kFxaaPS = u8R"(
 Texture2D    SceneColor : register(t0, space0);
 SamplerState LinearSamp : register(s0, space0);

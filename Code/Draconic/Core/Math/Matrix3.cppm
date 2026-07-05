@@ -1,5 +1,5 @@
-// Draconic Core — :matrix3 partition
-// Matrix3: 3x3 row-major matrix (rotation / normal matrices) — multiply,
+// Draconic Core - :matrix3 partition
+// Matrix3: 3x3 row-major matrix (rotation / normal matrices) - multiply,
 // Transpose/Determinant/Inverse, and FromMat4 (upper-left 3x3).
 //
 // Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
@@ -20,7 +20,7 @@ import :matrix4;
 export namespace draconic::core
 {
     // =======================================================================
-    // Matrix3 — 3x3, row-major, row-vector convention. Rotation / normal matrices.
+    // Matrix3 - 3x3, row-major, row-vector convention. Rotation / normal matrices.
     // =======================================================================
     struct Matrix3
     {

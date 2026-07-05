@@ -1,4 +1,4 @@
-// Draconic Core — :ring_log_sink partition
+// Draconic Core - :ring_log_sink partition
 //
 // RingLogSink: keeps the most recent records in a ring buffer (tools / in-app
 // consoles). Fixed-size records; long category/message text is truncated.

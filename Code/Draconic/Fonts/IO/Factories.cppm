@@ -1,4 +1,4 @@
-// Draconic::FontsIO — draconic.fonts.io:factories partition
+// Draconic::FontsIO - draconic.fonts.io:factories partition
 //
 // Process-global registries + dispatchers for IFontParser / IFontAtlasBaker.
 // Extension-based routing: each parser/baker declares the extensions it

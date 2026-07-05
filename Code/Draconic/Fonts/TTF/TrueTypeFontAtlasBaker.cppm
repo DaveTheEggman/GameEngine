@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:atlas_baker partition
+// Draconic::FontsTTF - draconic.fonts.ttf:atlas_baker partition
 //
 // IFontAtlasBaker for TrueType/OpenType: bakes a TrueTypeFont into a
 // TrueTypeFontAtlas via stb's pack-font-range. Requires a concrete

@@ -1,4 +1,4 @@
-// Draconic Core — :aabb partition
+// Draconic Core - :aabb partition
 //
 // AABB: axis-aligned bounding box (Min/Max corners) with Contains/
 // Intersects/Expand and Merge.
@@ -15,7 +15,7 @@ import :vector3;
 export namespace draconic::core
 {
     // =======================================================================
-    // AABB — axis-aligned bounding box.
+    // AABB - axis-aligned bounding box.
     // =======================================================================
     struct AABB
     {

@@ -1,11 +1,11 @@
-/// Draconic::Render — the `:ibl` partition.
+/// Draconic::Render - the `:ibl` partition.
 ///
 /// Image-Based Lighting: the split-sum environment pipeline (ported from Sedulous.Renderer/IBL with
 /// improvements). Owns the precompute products + declares the render-graph passes that build them:
 ///   - env cubemap (256², RGBA16F)        : the source radiance, written from the active sky source
 ///                                          (procedural gradient now; HDR equirect + analytic later).
 ///   - SH9 diffuse irradiance (buffer)    : 9 RGB spherical-harmonic coeffs projected from the env
-///                                          cube (REPLACES Sedulous's 32² irradiance cube — cheaper,
+///                                          cube (REPLACES Sedulous's 32² irradiance cube - cheaper,
 ///                                          smoother, seamless). Improvement over Sedulous.
 ///   - GGX prefiltered specular (cube+mips): Karis split-sum, importance-sampled per roughness mip.
 ///   - BRDF integration LUT (256², RG16F) : generated at runtime (Sedulous embeds a baked array).
@@ -56,7 +56,7 @@ struct IblPush {
 };
 [[vk::push_constant]] IblPush pc;
 
-// Canonical cube-face direction from a face index + [0,1] face uv. NOTE: no t.y negation — the cube
+// Canonical cube-face direction from a face index + [0,1] face uv. NOTE: no t.y negation - the cube
 // faces are rendered through the RHI's negative-viewport (Y-flipped), so the stored texel already
 // matches the standard cube-sampling convention; negating here would double-flip and break edge
 // continuity. (Verified correct in-engine: the sky background samples this cube by world ray and the
@@ -90,7 +90,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     } else {                                         // Procedural gradient (also HDR/cubemap fallback)
         sky = (dir.y >= 0.0) ? lerp(pc.Horizon.rgb, pc.Zenith.rgb, pow(saturate(dir.y), 0.5))
                              : lerp(pc.Horizon.rgb, pc.Ground.rgb, pow(saturate(-dir.y), 0.8));
-        // A soft, broad sun GLOW only (no sharp disc) — the crisp sun is drawn analytically at screen
+        // A soft, broad sun GLOW only (no sharp disc) - the crisp sun is drawn analytically at screen
         // resolution by the sky pass; baking a sub-texel disc into the 256^2 cube would alias to a square.
         float3 sunDir = normalize(-pc.Sun.xyz);
         float  d      = max(dot(dir, sunDir), 0.0);
@@ -173,7 +173,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
 )";
 
 // Box-downsample one env cube mip from the previous (finer) mip: sample the source cube (bound as a
-// single-mip view) along the face direction with linear filtering — averages the 2x2 finer texels into
+// single-mip view) along the face direction with linear filtering - averages the 2x2 finer texels into
 // this half-res texel. Builds the env mip pyramid the prefilter samples by PDF (firefly suppression).
 inline constexpr const char8_t* kIblDownsamplePS = u8R"(
 TextureCube  SrcCube : register(t0, space0);
@@ -186,7 +186,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
 
 // GGX prefilter (Karis split-sum specular): importance-sample the env cube around the reflection
 // direction (= N = V) at this mip's roughness. 1024 Hammersley samples / texel. Each sample reads a
-// PDF-selected env mip (solid-angle matched) so bright pixels are pre-averaged — kills specular fireflies.
+// PDF-selected env mip (solid-angle matched) so bright pixels are pre-averaged - kills specular fireflies.
 inline constexpr const char8_t* kIblPrefilterPS = u8R"(
 TextureCube<float4> EnvMap : register(t0, space0);
 SamplerState        EnvSamp : register(s0, space0);
@@ -429,7 +429,7 @@ public:
     [[nodiscard]] rendergraph::RGHandle PrefilterHandle() const noexcept { return m_prefilterH; }
     [[nodiscard]] rendergraph::RGHandle BrdfHandle()      const noexcept { return m_brdfH; }
     [[nodiscard]] rendergraph::RGHandle ShHandle()        const noexcept { return m_shH; }
-    // The full-radiance environment cube — sampled by the sky pass (background) at full detail.
+    // The full-radiance environment cube - sampled by the sky pass (background) at full detail.
     [[nodiscard]] rendergraph::RGHandle EnvHandle()       const noexcept { return m_envH; }
     [[nodiscard]] rhi::TextureView*     EnvView()         const noexcept { return m_envSampleView; }
     [[nodiscard]] f32                   SkyIntensity()    const noexcept { return m_sky.intensity; }
@@ -469,7 +469,7 @@ public:
         const u64 faceBytes = static_cast<u64>(faceSize) * faceSize * 4u;
         if (!m_ready || faceSize == 0 || sixFaces.Size() < faceBytes * 6u) { return; }
         DestroyCubemap();
-        // sRGB format so the hardware decodes the (sRGB-encoded LDR) faces to linear on sample — the
+        // sRGB format so the hardware decodes the (sRGB-encoded LDR) faces to linear on sample - the
         // env cube is a linear working-space texture. Without this the sky reads washed out.
         rhi::TextureDesc td{};
         td.format = rhi::TextureFormat::RGBA8UnormSrgb; td.width = faceSize; td.height = faceSize; td.arrayLayerCount = 6;
@@ -489,7 +489,7 @@ public:
     }
 
     // Pending texture uploads (equirect/cubemap staging -> texture) on the frame's encoder, BEFORE the
-    // graph executes — so the env-build passes sample an already-uploaded, shader-readable source.
+    // graph executes - so the env-build passes sample an already-uploaded, shader-readable source.
     void Upload(rhi::CommandEncoder& enc) {
         if (m_equirectPending && m_equirectTex != nullptr && m_equirectStaging != nullptr) {
             enc.TransitionTexture(m_equirectTex, rhi::ResourceState::Undefined, rhi::ResourceState::CopyDst);
@@ -566,7 +566,7 @@ public:
         }
 
         // (2) Build the env mip pyramid: box-downsample each mip from the previous. Reads mip m-1 (a
-        // single-mip view) and writes mip m — non-overlapping subresources, so the graph orders + barriers
+        // single-mip view) and writes mip m - non-overlapping subresources, so the graph orders + barriers
         // it correctly. SH/prefilter (whole-resource reads) then run after the whole chain is written.
         DeclareEnvMips(graph, envH);
 
@@ -598,7 +598,7 @@ private:
     }
 
     // Equal w.r.t. the fields baked into the env cube (drives the precompute-rebuild decision).
-    // sunAngularSize is EXCLUDED — it only affects the analytic sky-pass sun, not the cube.
+    // sunAngularSize is EXCLUDED - it only affects the analytic sky-pass sun, not the cube.
     [[nodiscard]] static bool PrecomputeEqual(const SkySnapshot& a, const SkySnapshot& b) {
         return a.mode == b.mode && a.intensity == b.intensity && a.rotation == b.rotation &&
                a.horizon.x == b.horizon.x && a.horizon.y == b.horizon.y && a.horizon.z == b.horizon.z &&
@@ -696,7 +696,7 @@ private:
         rhi::TextureViewDesc ev{}; ev.format = kCubeFormat;
         ev.dimension = rhi::TextureViewDimension::TextureCube; ev.arrayLayerCount = 6; ev.mipLevelCount = kEnvMips;
         if (!m_device->CreateTextureView(m_envCube, ev, m_envSampleView).IsOk()) { return false; }
-        // Single-mip cube views of each env mip — bound as the source when downsampling the NEXT mip, so
+        // Single-mip cube views of each env mip - bound as the source when downsampling the NEXT mip, so
         // the read descriptor covers only mip m (never the mip m+1 being rendered → no read/write hazard).
         for (u32 m = 0; m < kEnvMips; ++m) {
             rhi::TextureViewDesc mv{}; mv.format = kCubeFormat;
@@ -835,7 +835,7 @@ private:
         String s(StringView{ a }); s.Append(StringView{ b }); return s;
     }
 
-    // Lazily create the equirect->cube pipeline (2D source tex + sampler + push) — only when an HDR
+    // Lazily create the equirect->cube pipeline (2D source tex + sampler + push) - only when an HDR
     // equirect is first set, since most scenes are procedural.
     bool EnsureEquirectPipeline() {
         if (m_equirectPipeline != nullptr) { return true; }
@@ -863,7 +863,7 @@ private:
     }
 
     // Lazily create the cubemap->cube pipeline (samples the source cube; reuses the prefilter's cube
-    // bind-group + pipeline layout — cube tex + sampler + push).
+    // bind-group + pipeline layout - cube tex + sampler + push).
     bool EnsureCubemapPipeline() {
         if (m_cubemapPipeline != nullptr) { return true; }
         if (m_prefilterLayout == nullptr || m_envLayout == nullptr) { return false; }
@@ -985,7 +985,7 @@ private:
     SkySnapshot m_sky{};                          // current sky authoring
     bool m_ready = false;
     bool m_dirty = false;
-    bool m_brdfDone = false;   // the BRDF LUT is constant — generated once, not per sky change
+    bool m_brdfDone = false;   // the BRDF LUT is constant - generated once, not per sky change
     u64  m_generation = 0;
 };
 

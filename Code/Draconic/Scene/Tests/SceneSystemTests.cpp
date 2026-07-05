@@ -1,4 +1,4 @@
-// Phase 3b — systems wired into the Scene: ownership + lookup, the phase-ordered update
+// Phase 3b - systems wired into the Scene: ownership + lookup, the phase-ordered update
 // loop, deferred destroy during update, entity-destroy freeing components, active-change
 // + start/stop notification, UpdateOrder, and simulation gating.
 #include <doctest/doctest.h>

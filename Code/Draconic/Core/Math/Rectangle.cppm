@@ -1,4 +1,4 @@
-// Draconic Core — :rectangle partition
+// Draconic Core - :rectangle partition
 //
 // Rectangle: 2D rectangle (x,y is the min corner) with Contains/Intersects.
 
@@ -13,7 +13,7 @@ import :vector2;
 export namespace draconic::core
 {
     // =======================================================================
-    // Rectangle — 2D rectangle (x, y is the min corner).
+    // Rectangle - 2D rectangle (x, y is the min corner).
     // =======================================================================
     struct Rectangle
     {

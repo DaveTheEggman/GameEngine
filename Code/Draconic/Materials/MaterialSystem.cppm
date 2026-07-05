@@ -1,6 +1,6 @@
-/// Draconic::Materials — the `:system` partition.
+/// Draconic::Materials - the `:system` partition.
 ///
-/// MaterialSystem: owns material instances' GPU resources and — the key idea —
+/// MaterialSystem: owns material instances' GPU resources and - the key idea -
 /// INFERS the bind-group layout from a material's declared property list (uniforms
 /// -> one uniform buffer at binding 0; each texture/sampler -> its own entry). A new
 /// material or custom shader therefore needs no renderer changes. Layouts are cached

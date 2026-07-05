@@ -1,4 +1,4 @@
-// Draconic Core — :stack_allocator partition
+// Draconic Core - :stack_allocator partition
 //
 // StackAllocator: LIFO bump allocator with markers; reclaim to a marker.
 
@@ -14,7 +14,7 @@ import :allocator;
 export namespace draconic::core
 {
     // =======================================================================
-    // StackAllocator — LIFO bump allocator with markers. Free is a no-op;
+    // StackAllocator - LIFO bump allocator with markers. Free is a no-op;
     // reclaim back to a saved marker (or Reset to reclaim everything).
     // =======================================================================
     class StackAllocator final : public IAllocator

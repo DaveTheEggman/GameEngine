@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:mesh_renderer` partition.
+/// Draconic::Render - the `:mesh_renderer` partition.
 ///
 /// `MeshRenderer` is the `Renderer` for the mesh categories (Opaque/Masked/Transparent). It
 /// owns the built-in forward shader (two permutations), the GPU rings, and the mesh cache,
@@ -9,7 +9,7 @@
 /// view-projection from a shared per-view UBO (set 0). The per-object path adds a per-object
 /// UBO (set 1, world + tint, dynamic offset); the instanced path adds a per-instance
 /// `StructuredBuffer<InstanceData>` (set 1) indexed by a uint4 DataOffsets vertex stream
-/// (location 5, instance-stepped) — the portable base+offset addressing (NOT SV_InstanceID,
+/// (location 5, instance-stepped) - the portable base+offset addressing (NOT SV_InstanceID,
 /// which differs between DX12 and Vulkan). Transparent draws are never instanced (back-to-front
 /// order must dominate). Material set-2 binding + real lighting are later phases.
 
@@ -66,7 +66,7 @@ cbuffer View : register(b0, space0) {
 #ifdef SKINNED
 // GPU skinning: per-bone skinning matrices (= inverseBind * worldPose), v * skin (row-vector).
 // A per-frame pool shared by all skinned draws; BoneBase (Object cbuffer) selects this draw's run.
-// Stored as 4 explicit float4 ROWS (Sedulous-faithful) so the major-ness is unambiguous — DXC's
+// Stored as 4 explicit float4 ROWS (Sedulous-faithful) so the major-ness is unambiguous - DXC's
 // row_major modifier is unreliable on a StructuredBuffer matrix element.
 struct BoneMatrix { float4 Row0, Row1, Row2, Row3; };
 StructuredBuffer<BoneMatrix> BoneMatrices : register(t4, space0);
@@ -327,7 +327,7 @@ float SampleLocalShadow(int idx, float3 worldPos) {
 }
 
 // Pick a point light's cube face (0=+X,1=-X,2=+Y,3=-Y,4=+Z,5=-Z) from the light->fragment direction
-// — the dominant axis. Matches BuildPointShadowFace's face ordering.
+// - the dominant axis. Matches BuildPointShadowFace's face ordering.
 int CubeFace(float3 dir) {
     float3 a = abs(dir);
     if (a.x >= a.y && a.x >= a.z) { return dir.x > 0.0 ? 0 : 1; }
@@ -400,7 +400,7 @@ float DistributionGGX(float NdotH, float roughness) {
     float d  = (NdotH * a2 - NdotH) * NdotH + 1.0;
     return a2 / (PI * d * d);
 }
-// Height-correlated Smith GGX visibility (Karis 2013) — folds in 1/(4*NdotV*NdotL).
+// Height-correlated Smith GGX visibility (Karis 2013) - folds in 1/(4*NdotV*NdotL).
 float VisibilitySmithGGX(float NdotV, float NdotL, float roughness) {
     float a = roughness * roughness;
     float lambdaV = NdotL * (NdotV * (1.0 - a) + a);
@@ -502,7 +502,7 @@ float4 main(PSInput input) : SV_Target0 {
 
     float3 Lo = float3(0.0, 0.0, 0.0);
     if (ClusterGridX == 0) {
-        // Clustering unavailable — evaluate every light.
+        // Clustering unavailable - evaluate every light.
         uint count = (uint)LightCount;
         for (uint i = 0; i < count; ++i) {
             GpuLight L = Lights[LightOffset + i];
@@ -511,7 +511,7 @@ float4 main(PSInput input) : SV_Target0 {
             Lo += c;
         }
     } else {
-        // Clustered — evaluate only the lights binned into this fragment's cluster.
+        // Clustered - evaluate only the lights binned into this fragment's cluster.
         uint   cluster = ClusterIndex(input.clip.xy, viewDepth);
         uint2  oc = ClusterOffsets[cluster];
         for (uint ci = 0; ci < oc.y; ++ci) {
@@ -595,7 +595,7 @@ float4 main(PSInput input) : SV_Target0 {
 }
 )";
 
-// Depth-only shadow caster shader (vertex stage ONLY — the depth-only pipeline omits the
+// Depth-only shadow caster shader (vertex stage ONLY - the depth-only pipeline omits the
 // fragment). Transforms each vertex by world * LightViewProj into the light's clip space, so the
 // shadow pass writes light-space depth. Two permutations (INSTANCED or not) mirror the forward VS's
 // world-matrix source: a per-object UBO (set 1) or the per-instance StructuredBuffer (set 1).
@@ -618,7 +618,7 @@ float4x4 BlendBones(uint4 j, float4 w, uint base) {
                     b0.Row3 * w.x + b1.Row3 * w.y + b2.Row3 * w.z + b3.Row3 * w.w);
 }
 #endif
-// Layouts mirror the forward path's Object/InstanceData exactly (shared C++ ring buffers) — the extra
+// Layouts mirror the forward path's Object/InstanceData exactly (shared C++ ring buffers) - the extra
 // PrevWorld/PrevBoneBase fields keep the strides/offsets aligned even though the depth pass ignores them.
 #ifdef INSTANCED
 struct InstanceData { row_major float4x4 World; row_major float4x4 PrevWorld; float4 Tint; };
@@ -726,7 +726,7 @@ public:
         viewEntry.hasDynamicOffset = true;
         rhi::BindGroupLayoutEntry lightEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
         // Directional shadow map (t1) + comparison sampler (s0) live in set 0 (the bind-group budget
-        // is 4 SETS, not 4 bindings — shadows fold into the view set rather than needing a 5th set).
+        // is 4 SETS, not 4 bindings - shadows fold into the view set rather than needing a 5th set).
         rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
         // Local-light (spot/point) shadow atlas (t2, Texture2D) + per-light shadow entries (t3, SRV).
         rhi::BindGroupLayoutEntry atlasTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
@@ -764,11 +764,11 @@ public:
         // set 2 (material) is NOT a fixed renderer layout: it is derived per material from the
         // material's own property list (materials::MaterialSystem::GetOrCreateLayout) and the forward
         // pipeline layout is assembled per set-2 layout (GetOrCreatePipelineLayout). This is what makes
-        // the renderer truly material-driven — a custom shader (e.g. toon) with a different property set
+        // the renderer truly material-driven - a custom shader (e.g. toon) with a different property set
         // gets its own set-2 layout + PSO with zero renderer changes. The set-0/1/3 layouts below are
         // the stable "frame contract" every material plugs into.
 
-        // set 3: clustered light lists — per-cluster (offset,count) SRV (t0) + flat index SRV (t1).
+        // set 3: clustered light lists - per-cluster (offset,count) SRV (t0) + flat index SRV (t1).
         rhi::BindGroupLayoutEntry clOffEntry = rhi::BindGroupLayoutEntry::StorageBuffer(0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
         rhi::BindGroupLayoutEntry clIdxEntry = rhi::BindGroupLayoutEntry::StorageBuffer(1, rhi::ShaderStage::Fragment, /*readOnly*/ true);
         rhi::BindGroupLayoutEntry set3[] = { clOffEntry, clIdxEntry };
@@ -815,7 +815,7 @@ public:
         m_localShadowPassCount = (view != nullptr) ? passCount : 0;   // each tile re-emits the casters
     }
 
-    // Reflection-probe capture faces re-emit the draws (one forward pass each) — count them into the ring.
+    // Reflection-probe capture faces re-emit the draws (one forward pass each) - count them into the ring.
     void SetCaptureFacePasses(u32 passes) override { m_captureFacePasses = passes; }
 
     // This frame's active reflection probe (P2, single probe): the captured cube-ARRAY view (set-0 t8) +
@@ -931,7 +931,7 @@ public:
             if (m_dummyAtlasTex != nullptr) {
                 encoder.TransitionTexture(m_dummyAtlasTex, rhi::ResourceState::Undefined, rhi::ResourceState::DepthStencilRead);
             }
-            // IBL color fallbacks (cube + BRDF LUT) — also out-of-graph, sampled when no env is active.
+            // IBL color fallbacks (cube + BRDF LUT) - also out-of-graph, sampled when no env is active.
             if (m_dummyCube != nullptr) {
                 encoder.TransitionTexture(m_dummyCube, rhi::ResourceState::Undefined, rhi::ResourceState::ShaderRead);
             }
@@ -1001,7 +1001,7 @@ public:
         // which makes the shader fall back to looping all lights.
         rhi::BindGroup* clusterBG = m_dummyClusterBG;
         if (ctx.cluster.Valid()) {
-            // Per-(view, frame) slot — two views in one frame have different cluster buffers and
+            // Per-(view, frame) slot - two views in one frame have different cluster buffers and
             // must not share a bind group (else it thrashes / frees a set still in flight).
             const u32 clusterSlot = ctx.viewIndex * m_framesInFlight + (ctx.frameIndex % m_framesInFlight);
             clusterBG = EnsureClusterBindGroup(clusterSlot, ctx.cluster.offsets, ctx.cluster.lightIndices, ctx.cluster.version);
@@ -1018,7 +1018,7 @@ public:
         vd.ambient       = ctx.ambient;
         vd.iblMaxLod     = m_iblActive ? m_iblMaxLod : -1.0f;   // <0 => forward uses flat ambient
         // Probes disabled during probe capture (ctx.probesEnabled=false) -> count 0 so metallics reflect the
-        // sky (global IBL), not the not-yet-built probe (which would bake them black — self-reflection).
+        // sky (global IBL), not the not-yet-built probe (which would bake them black - self-reflection).
         // ProbeCenter.w = the probe count (the forward's loop bound over the Probes SRV); box/slice/etc. per
         // probe live in the Probes buffer now.
         vd.probeCenter   = Vector4{ 0, 0, 0, ctx.probesEnabled ? static_cast<f32>(m_activeProbeCount) : 0.0f };
@@ -1033,7 +1033,7 @@ public:
             vd.shadowCascadeCount  = static_cast<f32>(ShadowCascades::kCount);
             vd.cascadeLayerBase    = static_cast<f32>(ctx.cascadeLayerBase);   // this view's first array layer
             // Normal-offset is in TEXELS (scaled by the cascade's world texel size in the shader).
-            // Keep it tiny (Sedulous uses 0.02) — at large values it shifts the receiver enough to eat
+            // Keep it tiny (Sedulous uses 0.02) - at large values it shifts the receiver enough to eat
             // the light-facing side of a contact shadow, worse the bigger the cascade's texelWorld grows.
             // Acne is carried by the hardware depth bias (ShadowConfigFor: 50 / 1.5), not this.
             vd.shadowNormalBias    = 0.02f;
@@ -1057,7 +1057,7 @@ public:
         while (i < items.Size()) {
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
             // Skinned meshes carry per-instance bones via DataOffsets.y now, so they batch like static
-            // meshes — identical (mesh, material) skinned instances collapse into one instanced draw.
+            // meshes - identical (mesh, material) skinned instances collapse into one instanced draw.
             const bool headSkinned = head->mesh != nullptr && head->mesh->IsSkinned() && head->boneMatrices != nullptr;
             // Extend the run while mesh + material match (a batchable group).
             usize j = i + 1;
@@ -1072,7 +1072,7 @@ public:
 
             const GpuMesh* mesh = m_meshes.GetOrUpload(head->mesh);
             if (mesh != nullptr) {
-                // Skinned always uses the instanced path (even count 1) — the single path has no bone base.
+                // Skinned always uses the instanced path (even count 1) - the single path has no bone base.
                 if (runLen >= 2 || headSkinned) { ResolveInstanced(ctx, viewOffset, clusterBG, items, i, runLen, *head, *mesh, out); }
                 else                            { ResolveSingle(ctx, viewOffset, clusterBG, *head, *mesh, out); }
             }
@@ -1121,7 +1121,7 @@ public:
         m_boneRing.EndFrame();
         m_offsetsRing.EndFrame();
         // This frame's world matrices become next frame's "previous" (motion vectors). Flat swap: O(1)
-        // pointer moves, no clear — each visible entity overwrites its own slot when resolved, and slots
+        // pointer moves, no clear - each visible entity overwrites its own slot when resolved, and slots
         // for now-invisible entities are never read (their draws don't resolve). Both buffers keep their
         // capacity, so steady state does zero allocation.
         Array<Matrix4> recycled = Move(m_prevWorld);
@@ -1160,7 +1160,7 @@ private:
     static constexpr u32 kMaxLights        = 256;        // per-view light budget (phase 4.1; clustered later)
     // shadow-view UBO slots per frame: one per (shadow pass × category run). Cascades (up to
     // kMaxShadowViews*kCount) + local-shadow atlas tiles (up to kMaxLocalShadows), each × a few
-    // categories. Sized with headroom — a slot is tiny (256B).
+    // categories. Sized with headroom - a slot is tiny (256B).
     static constexpr u32 kMaxShadowPasses  = 256;
     static constexpr u32 kMaxLocalShadows  = 64;         // spot/point shadow entries per frame (atlas-bound)
     static constexpr u32 kMaxBoneMatrices  = 1u << 20;   // GPU skinning bone-matrix pool slots per frame.
@@ -1250,7 +1250,7 @@ private:
             config.shaderFlags |= shaders::ShaderFlags::Skinned;
         }
         // The camera depth prepass already filled this group's InstanceData + DataOffsets (identical objects,
-        // same order) and cached the range — REUSE it instead of allocating + re-filling (build once). Falls
+        // same order) and cached the range - REUSE it instead of allocating + re-filling (build once). Falls
         // back to a fresh fill on a miss (no prepass, count mismatch, or ring exhausted).
         u64 offsByteOffset;
         const InstShare* shared = m_instShareCache.Find(InstShareKey(ctx.view, head.mesh, head.material));
@@ -1353,7 +1353,7 @@ private:
         d.pso = pso;
         d.viewSet = m_shadowViewBG; d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
         d.drawSet = m_objectBG;     d.drawOffset = obj.byteOffset;   d.drawDynamic = true;   // set 1: object UBO
-        d.materialSet = matSet;     // set 2: material (masked casters only — for the alpha-test sample)
+        d.materialSet = matSet;     // set 2: material (masked casters only - for the alpha-test sample)
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
         if (skinned) { d.vertexBuffer1 = mesh.skinBuffer; d.vertexOffset1 = mesh.skinOffset; }   // buffer 1: skin stream
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
@@ -1391,7 +1391,7 @@ private:
         DataOffsets*  od = static_cast<DataOffsets*>(offs.ptr);
         // When this prepass feeds the forward (camera depth prepass, fillInstanceCache), build the FULL
         // InstanceData incl. REAL prevWorld so the forward can reuse it for motion vectors. Shadow casters
-        // leave prevWorld = world (the depth/shadow shaders ignore it — no extra prev-world lookup).
+        // leave prevWorld = world (the depth/shadow shaders ignore it - no extra prev-world lookup).
         const bool feedsForward = ctx.fillInstanceCache;
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
@@ -1409,7 +1409,7 @@ private:
         d.pso = pso;
         d.viewSet = m_shadowViewBG; d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
         d.drawSet = m_instanceBG;   d.drawDynamic = false;                                    // set 1: instances (whole)
-        d.materialSet = matSet;     // set 2: material (masked casters only — alpha-test sample)
+        d.materialSet = matSet;     // set 2: material (masked casters only - alpha-test sample)
         d.vertexBuffer0 = mesh.vertexBuffer;      d.vertexOffset0 = mesh.vertexOffset;
         if (skinned) {
             d.vertexBuffer1 = mesh.skinBuffer;        d.vertexOffset1 = mesh.skinOffset;   // slot 1: skin stream
@@ -1438,7 +1438,7 @@ private:
         c.depthFormat       = ctx.depthFormat;
         c.depthMode         = materials::DepthMode::ReadWrite;
         c.depthCompare      = rhi::CompareFunction::Less;
-        // Render FRONT faces into the shadow map (cull back) — matches Sedulous (ShadowPipeline: .Back)
+        // Render FRONT faces into the shadow map (cull back) - matches Sedulous (ShadowPipeline: .Back)
         // and is the conventional default: flat/architectural casters get tight contacts. CURVED casters
         // (spheres) keep a small grazing-contact gap inherent to shadow maps; the general fix is a later
         // contact/screen-space shadow pass, not a cull-mode or bias change (back-face culling only trades
@@ -1447,7 +1447,7 @@ private:
         // Hardware depth bias (ported from Sedulous): a constant offset + a slope-scaled term, applied
         // in shadow-map depth space (so it adds little visible spatial gap, unlike the normal-offset).
         // Pairs with the receiver-side (1 - NdotL) normal-offset bias in forward.frag for acne control.
-        // The camera depth PREPASS must NOT bias — its depth has to equal the forward pass's exactly so
+        // The camera depth PREPASS must NOT bias - its depth has to equal the forward pass's exactly so
         // the LessEqual early-Z accepts the re-drawn opaque fragments (bias would z-fight / reject them).
         if (!ctx.depthPrepass) {
             c.depthBias           = 50;
@@ -1506,7 +1506,7 @@ private:
         return m_device->CreatePipelineLayout(pld, out).IsOk();
     }
 
-    // Three-set pipeline layout (masked shadow: light-view + object/instance + material) — the material
+    // Three-set pipeline layout (masked shadow: light-view + object/instance + material) - the material
     // set feeds the alpha-test fragment's albedo sample.
     bool MakePipelineLayout3(rhi::BindGroupLayout* set0, rhi::BindGroupLayout* set1, rhi::BindGroupLayout* set2,
                              rhi::PipelineLayout*& out) {
@@ -1528,7 +1528,7 @@ private:
         return layout;
     }
 
-    // The default material — a standard PBR material (materials::CreatePBR) used whenever a draw
+    // The default material - a standard PBR material (materials::CreatePBR) used whenever a draw
     // carries no material. Its set-2 layout/bind group flow through the same data-driven path as any
     // other material, so there is nothing special about the "no material" case.
     Status CreateDefaultMaterial() {
@@ -1567,7 +1567,7 @@ private:
         return layout;
     }
 
-    // Per-frame bind groups (view/shadow-view/object/instance) are rebuilt when their inputs change —
+    // Per-frame bind groups (view/shadow-view/object/instance) are rebuilt when their inputs change -
     // e.g. the directional shadow view alternates per in-flight slot, so the view BG rebuilds every
     // frame. The OLD bind group may still be referenced by an in-flight command buffer, so it can't be
     // freed immediately (vkFreeDescriptorSets-00309): retire it and free after the frame ring cycles.
@@ -1728,7 +1728,7 @@ private:
         rhi::TextureViewDesc lvd{}; lvd.format = rhi::TextureFormat::RG16Float; lvd.dimension = rhi::TextureViewDimension::Texture2D;
         if (!m_device->CreateTextureView(m_dummyBrdf, lvd, m_dummyBrdfView).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
-        // Dummy probe cube-ARRAY (6 layers = 1 cube) bound when no probe is active — count 0 keeps the
+        // Dummy probe cube-ARRAY (6 layers = 1 cube) bound when no probe is active - count 0 keeps the
         // forward on the global IBL reflection, so the content is irrelevant.
         rhi::TextureDesc pcd{};
         pcd.format = rhi::TextureFormat::RGBA16Float; pcd.width = 1; pcd.height = 1; pcd.arrayLayerCount = 6;
@@ -1737,7 +1737,7 @@ private:
         rhi::TextureViewDesc pcv{}; pcv.format = rhi::TextureFormat::RGBA16Float;
         pcv.dimension = rhi::TextureViewDimension::TextureCubeArray; pcv.arrayLayerCount = 6;
         if (!m_device->CreateTextureView(m_dummyProbeCube, pcv, m_dummyProbeCubeView).IsOk()) { return Status{ ErrorCode::Unknown }; }
-        // Dummy probe-metadata buffer (t9) for the no-probe path — never read (count 0), just a valid SRV.
+        // Dummy probe-metadata buffer (t9) for the no-probe path - never read (count 0), just a valid SRV.
         rhi::BufferDesc pbd{};
         pbd.size = kProbeBufferBytes; pbd.usage = rhi::BufferUsage::Storage;
         pbd.memory = rhi::MemoryLocation::GpuOnly; pbd.label = u8"mesh.dummyProbeBuf";
@@ -1906,7 +1906,7 @@ private:
     Array<SkinnedRef>              m_skinnedScratch;
 
     // Per-entity previous-frame world matrix, for rigid-object motion vectors. FLAT double-buffer indexed
-    // by entity INDEX (entityId low 32 bits) — not a hashmap: direct O(1) index, no hashing/probing/rehash
+    // by entity INDEX (entityId low 32 bits) - not a hashmap: direct O(1) index, no hashing/probing/rehash
     // (the per-instance Find was the motion-vector hot cost at scale). m_prevWorld holds LAST frame's worlds
     // (read by every view this frame); resolves write THIS frame's into m_curWorld; the two swap at
     // FinishFrame. Out-of-range / never-written -> prev == cur (no motion), so newly-visible objects don't
@@ -1914,9 +1914,9 @@ private:
     Array<Matrix4> m_prevWorld;
     Array<Matrix4> m_curWorld;
 
-    // Record `cur` as this frame's world (idempotent across a frame's views — same value each time) and
+    // Record `cur` as this frame's world (idempotent across a frame's views - same value each time) and
     // return the entity's previous-frame world (or `cur` if unknown). Indexed by entity index so multiple
-    // views resolving the same object read a STABLE prev (writing cur never clobbers prev — separate buffers).
+    // views resolving the same object read a STABLE prev (writing cur never clobbers prev - separate buffers).
     [[nodiscard]] Matrix4 PrevWorldFor(u64 entityId, const Matrix4& cur) {
         const u32 idx = static_cast<u32>(entityId);   // entityId = (generation << 32) | index
         if (idx >= m_curWorld.Size()) { m_curWorld.Resize(idx + 1u); }   // grows toward the max live index, then stable
@@ -1931,7 +1931,7 @@ private:
     struct InstShare { u64 offsByteOffset = 0; u32 count = 0; };
     HashMap<u64, InstShare> m_instShareCache;
     // Keyed by the VIEW pointer (not viewIndex): the main view's prepass + forward share one RenderView, but
-    // probe-capture forwards reuse viewIndex 0 with a different draw list — a distinct pointer avoids collision.
+    // probe-capture forwards reuse viewIndex 0 with a different draw list - a distinct pointer avoids collision.
     static u64 InstShareKey(const void* view, const void* mesh, const void* mat) noexcept {
         u64 k = 1469598103934665603ull;
         k = (k ^ static_cast<u64>(reinterpret_cast<usize>(view))) * 1099511628211ull;
@@ -1956,7 +1956,7 @@ private:
     u32 m_viewBGViewGen = 0, m_viewBGLightGen = 0;
     // The set-0 shadow binding is cached by (view pointer, ShadowSystem generation): a freed shadow
     // texture's view address can be reused by a recreated one (5.2 atlas/resolution changes), so the
-    // generation — not the pointer alone — is what reliably invalidates the bind group. See the
+    // generation - not the pointer alone - is what reliably invalidates the bind group. See the
     // ClusterBinding::version + ShadowSystem::Generation() docs for the same rationale.
     rhi::TextureView* m_viewBGShadow = nullptr;
     u64               m_viewBGShadowGen = 0;
@@ -1972,7 +1972,7 @@ private:
     // hold the command encoder, so the layout the descriptor expects always matches (VUID-09600).
     bool              m_dummyDepthInit   = false;
     u64               m_activeShadowGen  = 0;
-    // Local-light (spot/point) shadow atlas (t2) + per-light entries (t3) — 5.3. The atlas view + its
+    // Local-light (spot/point) shadow atlas (t2) + per-light entries (t3) - 5.3. The atlas view + its
     // generation + the local-shadow ring generation extend the set-0 bind-group cache key.
     rhi::Texture*     m_dummyAtlasTex    = nullptr;
     rhi::TextureView* m_dummyAtlasView   = nullptr;

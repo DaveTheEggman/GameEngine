@@ -1,4 +1,4 @@
-// Draconic Core — :plane partition
+// Draconic Core - :plane partition
 //
 // Plane: normal·p + d = 0, with signed-distance and normalization.
 
@@ -14,7 +14,7 @@ import :vector3;
 export namespace draconic::core
 {
     // =======================================================================
-    // Plane — normal·p + d = 0.
+    // Plane - normal·p + d = 0.
     // =======================================================================
     struct Plane
     {

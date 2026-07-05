@@ -1,4 +1,4 @@
-# Draconic::MaterialResource — `draconic.materials.resource` (materials as resources:
+# Draconic::MaterialResource - `draconic.materials.resource` (materials as resources:
 # MaterialSource -> Material via MaterialFactory; depends on the ShaderResource).
 add_library(DraconicMaterialResource STATIC)
 add_library(Draconic::MaterialResource ALIAS DraconicMaterialResource)

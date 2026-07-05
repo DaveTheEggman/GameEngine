@@ -52,7 +52,7 @@ public:
             info.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
             info.imageView   = view ? view->handle() : VK_NULL_HANDLE;
             info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            // Update texture layout tracking — dynamic rendering implicitly
+            // Update texture layout tracking - dynamic rendering implicitly
             // transitions attachments to the specified layout.
             if (view) {
                 if (auto* vkTex = static_cast<VkTextureImpl*>(view->texture))
@@ -369,7 +369,7 @@ public:
         ldep.imageMemoryBarrierCount = 1; ldep.pImageMemoryBarriers = &lb;
         vkCmdPipelineBarrier2(m_cmdBuf, &ldep);
 
-        // Update tracked layout — all mips now in TRANSFER_SRC.
+        // Update tracked layout - all mips now in TRANSFER_SRC.
         vkTex->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 

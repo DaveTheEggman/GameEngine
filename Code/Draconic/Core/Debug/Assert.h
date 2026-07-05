@@ -1,9 +1,9 @@
-// Draconic Core — Debug / assertions
+// Draconic Core - Debug / assertions
 //
 // Assertions are macro-based, so they live in a classic header (macros cannot
 // be exported by modules). The reporting functions have external linkage in the
-// global module, which lets *any* translation unit — including other module
-// units' global-module-fragments (e.g. :base) — include this and call them with
+// global module, which lets *any* translation unit - including other module
+// units' global-module-fragments (e.g. :base) - include this and call them with
 // no module-import cycle.
 //
 // Usage: `#include "Core/Debug/Assert.h"` in a global module fragment.

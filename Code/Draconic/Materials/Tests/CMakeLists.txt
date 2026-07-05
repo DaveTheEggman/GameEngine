@@ -1,4 +1,4 @@
-# Draconic::Materials unit tests (doctest; Null RHI — no GPU/DXC).
+# Draconic::Materials unit tests (doctest; Null RHI - no GPU/DXC).
 
 add_executable(DraconicMaterialsTests
     TestsMain.cpp

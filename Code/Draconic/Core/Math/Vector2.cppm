@@ -1,6 +1,6 @@
-// Draconic Core — :vector2 partition
+// Draconic Core - :vector2 partition
 //
-// Vector2: 2D f32 vector — arithmetic, Dot/Length/Normalized, component
+// Vector2: 2D f32 vector - arithmetic, Dot/Length/Normalized, component
 // constants. Built on the :math scalar functions.
 
 module;

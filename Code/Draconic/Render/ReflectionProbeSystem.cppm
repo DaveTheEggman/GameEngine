@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:probes` partition.
+/// Draconic::Render - the `:probes` partition.
 ///
 /// Reflection probes: local, parallax-corrected, cluster-assigned cubemap reflections
 /// (docs/design/reflection-probes.md). This system owns the per-probe GPU resources and (in later
@@ -50,7 +50,7 @@ VSOut main(uint vid : SV_VertexID) {
 
 // Blit PS: copy one captured face into the prefiltered face, correcting the RH-LookAt horizontal mirror
 // by flipping u. Samples the captured face as a plain Texture2D (NOT the cube sampler) so filtering never
-// crosses a face boundary — the cube-sampler path shows the face seams in smooth gradients (sky). This is
+// crosses a face boundary - the cube-sampler path shows the face seams in smooth gradients (sky). This is
 // Sedulous's probe_blit. Image-space flip => winding stays correct (a camera-axis flip breaks culling).
 inline constexpr const char8_t* kProbeBlitPS = u8R"(
 Texture2D<float4> SrcFace : register(t0, space0);
@@ -239,7 +239,7 @@ public:
         return h;
     }
 
-    // Import the prefiltered cube-array (the SEPARATE texture the forward samples at t8 — never a capture
+    // Import the prefiltered cube-array (the SEPARATE texture the forward samples at t8 - never a capture
     // render target, so no read/write hazard with the capture passes; captured is copied into it below).
     rendergraph::RGHandle ImportPrefiltered(rendergraph::RenderGraph& graph) {
         const rendergraph::RGHandle h = graph.ImportTarget(
@@ -304,7 +304,7 @@ public:
 
     // Resources (consumed by the forward in P2, and by capture/prefilter in P1b/c).
     // The captured cube-ARRAY as a sample view (set-0 t8; P2 samples this directly, sharp mip 0). Reuses
-    // the whole-array view used for the render-target import — a stable, single-allocation view.
+    // the whole-array view used for the render-target import - a stable, single-allocation view.
     [[nodiscard]] rhi::TextureView* CapturedSampleView() const noexcept { return m_capturedArrayView; }
     [[nodiscard]] rhi::TextureView* PrefilterArrayView() const noexcept { return m_prefilterArrayView; }
     [[nodiscard]] rhi::Buffer*      ProbeBuffer()        const noexcept { return m_probeBuffer; }

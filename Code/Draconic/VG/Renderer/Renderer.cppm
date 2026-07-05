@@ -1,4 +1,4 @@
-// Draconic::VG::Renderer — :renderer partition.
+// Draconic::VG::Renderer - :renderer partition.
 //
 // VGRenderer: draws VGContext/VGBatch content through the RHI. Owns per-frame
 // vertex/index/uniform ring buffers (byte-offset sub-allocated across slices),
@@ -7,7 +7,7 @@
 //
 // Deviations from Sedulous (deliberate, documented):
 //   * Initialize takes the two pre-compiled rhi::ShaderModule* (vert, frag)
-//     rather than a ShaderSystem — shader compilation (DXC) is the caller's job
+//     rather than a ShaderSystem - shader compilation (DXC) is the caller's job
 //     via draconic.shaders, keeping this lib's dependency to pure RHI.
 //   * The shared cross-renderer external texture cache (VGExternalTextureCache)
 //     is omitted (a multi-renderer sharing optimisation); add later if needed.

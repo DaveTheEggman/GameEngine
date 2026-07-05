@@ -215,7 +215,7 @@ TEST_CASE("threading: ParallelFor covers the whole range exactly once")
     CHECK(v.load() == 500);
 }
 
-TEST_CASE("threading: dependencies — SubmitAfter runs only once its counter reaches 0")
+TEST_CASE("threading: dependencies - SubmitAfter runs only once its counter reaches 0")
 {
     JobSystem jobs(4);
     constexpr int kWork = 200;
@@ -277,7 +277,7 @@ TEST_CASE("threading: nested ParallelFor does not deadlock (caller participation
 {
     JobSystem jobs(4);
     Atomic<i64> total{ 0 };
-    // A ParallelFor whose body runs another ParallelFor — a worker that Waits on the inner
+    // A ParallelFor whose body runs another ParallelFor - a worker that Waits on the inner
     // loop participates in running it, so no worker is parked while work remains.
     jobs.ParallelFor(8u, [&](u32) {
         jobs.ParallelFor(8u, [&](u32) { total.fetch_add(1); });

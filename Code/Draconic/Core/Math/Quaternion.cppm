@@ -1,5 +1,5 @@
-// Draconic Core — :quaternion partition
-// Quaternion: unit quaternion rotation — FromAxisAngle, Hamilton product,
+// Draconic Core - :quaternion partition
+// Quaternion: unit quaternion rotation - FromAxisAngle, Hamilton product,
 // Conjugate/Dot/Normalized/Slerp, RotateVector, and RotationMatrix (-> Matrix4).
 //
 // Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
@@ -20,7 +20,7 @@ import :matrix4;
 export namespace draconic::core
 {
     // =======================================================================
-    // Quaternion — unit quaternion rotation (x, y, z, w).
+    // Quaternion - unit quaternion rotation (x, y, z, w).
     // =======================================================================
     struct Quaternion
     {
@@ -97,7 +97,7 @@ export namespace draconic::core
             cosTheta = -cosTheta;
         }
 
-        if (cosTheta > 0.9995f) // nearly parallel — lerp + normalize
+        if (cosTheta > 0.9995f) // nearly parallel - lerp + normalize
         {
             return Normalized(Quaternion{ a.x + (b.x - a.x) * t,
                                     a.y + (b.y - a.y) * t,

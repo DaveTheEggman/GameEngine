@@ -1,4 +1,4 @@
-/// Draconic::ModelImporter:load — load a model file + cook it in one call.
+/// Draconic::ModelImporter:load - load a model file + cook it in one call.
 ///
 /// Convenience over the model loaders + the cook step: registers the glTF/FBX
 /// loaders, loads `path` into a Model IR, then cooks it into `db`, yielding the
@@ -27,7 +27,7 @@ export namespace draconic::modelimporter {
 // Load a glTF/GLB/FBX/OBJ file and cook it into `db`. `prefix` namespaces the created
 // content instances. Returns the load result (Ok on success); on a load failure the
 // cook is skipped. On Ok, `outModelGuid` is the cooked manifest (ModelResource) Guid to
-// Bind at runtime — it pulls in the model's meshes via dependency edges.
+// Bind at runtime - it pulls in the model's meshes via dependency edges.
 [[nodiscard]] inline model::ModelLoadResult LoadAndCook(StringView path, content::ContentDatabase& db,
                                                       StringView prefix, Guid& outModelGuid)
 {

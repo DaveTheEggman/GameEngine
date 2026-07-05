@@ -1,4 +1,4 @@
-# Draconic::ModelImporter unit tests (doctest; loads a real glTF + cooks into a content DB — no GPU).
+# Draconic::ModelImporter unit tests (doctest; loads a real glTF + cooks into a content DB - no GPU).
 
 add_executable(DraconicModelImporterTests
     TestsMain.cpp

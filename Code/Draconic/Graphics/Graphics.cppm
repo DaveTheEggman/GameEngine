@@ -1,13 +1,13 @@
-// Draconic::Graphics — the `draconic.graphics` module.
+// Draconic::Graphics - the `draconic.graphics` module.
 //
 // The RHI render host, promoted out of the per-sample bring-up code so samples,
 // the UI, and the renderer share one tested path. Two pieces:
 //
-//   GraphicsDevice — the SHARED GPU: backend (validation-wrapped) + adapter +
+//   GraphicsDevice - the SHARED GPU: backend (validation-wrapped) + adapter +
 //     logical device + graphics queue, plus the CPU frame-in-flight ring index.
 //     Created once for the whole app. Hands out RenderWindows.
 //
-//   RenderWindow — a single window's PRESENTATION target: surface + swapchain +
+//   RenderWindow - a single window's PRESENTATION target: surface + swapchain +
 //     a per-window ring of command pools/fences. Created/destroyed at runtime
 //     (the basis for detachable UI windows). The main window is just the first.
 //
@@ -16,7 +16,7 @@
 // sync / submit / present and the backbuffer state transitions; the consumer
 // records content (or calls BeginBackbufferPass for the common clear+pass case).
 //
-// Multi-window is uniform: there is no "main window" special case here — an app
+// Multi-window is uniform: there is no "main window" special case here - an app
 // renders a list of RenderWindows, each independent, sharing one GraphicsDevice.
 
 module;
@@ -29,9 +29,9 @@ import draconic.rhi;
 import draconic.shell;
 // Backend factories live in sibling modules so this core host imports only the
 // base RHI (keeps it GPU-backend-agnostic and avoids importing heavy backend
-// modules into this interface — which GCC's module reader chokes on):
-//   draconic.graphics.null — CreateNullGraphicsDevice (headless)
-//   draconic.graphics.gpu  — CreateGraphicsDevice (Vulkan/DX12)
+// modules into this interface - which GCC's module reader chokes on):
+//   draconic.graphics.null - CreateNullGraphicsDevice (headless)
+//   draconic.graphics.gpu  - CreateGraphicsDevice (Vulkan/DX12)
 
 namespace core = draconic::core;
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
@@ -39,17 +39,17 @@ namespace rhi = draconic::rhi;
 
 export namespace draconic::graphics
 {
-    // Null is a real headless option (CI / servers / tests) — no GPU required.
+    // Null is a real headless option (CI / servers / tests) - no GPU required.
     enum class BackendType : core::u8 { Vulkan, DX12, Null };
 
     struct GraphicsDeviceDesc
     {
         BackendType        backend          = BackendType::Vulkan;
         // Validation (our RHI-layer wrapper AND the backend's own layers, e.g. Vulkan validation)
-        // defaults ON for dev builds and OFF for optimized/shipping builds (DRACONIC_RELEASE — set for
+        // defaults ON for dev builds and OFF for optimized/shipping builds (DRACONIC_RELEASE - set for
         // Release/RelWithDebInfo/MinSizeRel). A profiling run (RelWithDebInfo) therefore measures the
         // real cost, not the validation overhead. Override explicitly to force either way.
-        // NB: DRACONIC_RELEASE is ALWAYS defined (0 in dev, 1 in optimized builds — see Core/Prelude.h),
+        // NB: DRACONIC_RELEASE is ALWAYS defined (0 in dev, 1 in optimized builds - see Core/Prelude.h),
         // so this must be `#if`, not `#ifdef` (which would always take the release branch).
 #if DRACONIC_RELEASE
         bool               enableValidation = false;
@@ -71,7 +71,7 @@ export namespace draconic::graphics
     class RenderWindow;     // forward (FrameContext refs it)
 
     // Typed per-window payload. The UI layer stashes its {RootView, VGContext,
-    // VGRenderer} here without the host knowing the type — capability As*() idiom.
+    // VGRenderer} here without the host knowing the type - capability As*() idiom.
     class IRenderWindowData
     {
     public:
@@ -158,7 +158,7 @@ export namespace draconic::graphics
         // Acquire this window's backbuffer and open a host-created encoder from the
         // current frame's pool (after the per-window fence guards reuse). The
         // returned FrameContext is invalid when the window is minimized/zero-sized
-        // or acquisition fails — the caller skips rendering it this frame.
+        // or acquisition fails - the caller skips rendering it this frame.
         FrameContext BeginFrame();
 
         // Transition the backbuffer to Present, submit (signalling the per-window
@@ -186,7 +186,7 @@ export namespace draconic::graphics
     public:
         // Build a GraphicsDevice from an already-created backend (takes
         // ownership): enumerate adapters, create the logical device + graphics
-        // queue. Backend-agnostic — GPU backends (Vulkan/DX12) are built by the
+        // queue. Backend-agnostic - GPU backends (Vulkan/DX12) are built by the
         // `draconic.graphics.gpu` factory, which then calls this. On failure
         // the backend is destroyed.
         static core::Result<core::UniquePtr<GraphicsDevice>> FromBackend(

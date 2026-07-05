@@ -62,7 +62,7 @@ namespace
             RefPtr<Material> material = MakeRef<Material>(DefaultAllocator());
             material->specular = static_cast<f32>(res->shininess) / 128.0f;
             material->shader = res->shader;
-            // editorNote is intentionally dropped — the product is runtime-only.
+            // editorNote is intentionally dropped - the product is runtime-only.
             return material;
         }
     };

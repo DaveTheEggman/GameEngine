@@ -1,4 +1,4 @@
-// Draconic Core — :path partition
+// Draconic Core - :path partition
 //
 // UTF-8 path string manipulation (POSIX '/' separator). Non-owning queries
 // return StringView into the input; PathJoin builds a new String.

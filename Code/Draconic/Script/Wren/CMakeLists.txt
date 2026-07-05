@@ -1,4 +1,4 @@
-# Draconic::ScriptWren — the Wren VM backend for Draconic::Script.
+# Draconic::ScriptWren - the Wren VM backend for Draconic::Script.
 #
 # Vendors the Wren VM (https://wren.io) via FetchContent and builds it as a C
 # static lib, then the C++-module backend that implements IScriptManager /
@@ -23,7 +23,7 @@ file(GLOB WREN_SOURCES CONFIGURE_DEPENDS
 
 add_library(wren_vm STATIC ${WREN_SOURCES})
 set_target_properties(wren_vm PROPERTIES C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
-# SYSTEM: third-party — keep our -Wall/-Werror off Wren's headers and sources.
+# SYSTEM: third-party - keep our -Wall/-Werror off Wren's headers and sources.
 target_include_directories(wren_vm SYSTEM
     PUBLIC ${wren_SOURCE_DIR}/src/include
     PRIVATE ${wren_SOURCE_DIR}/src/vm ${wren_SOURCE_DIR}/src/optional)

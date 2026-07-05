@@ -1,10 +1,10 @@
-/// Draconic::Materials — the `:types` partition.
+/// Draconic::Materials - the `:types` partition.
 ///
 /// Value-type vocabulary for the data-driven material model: property kinds (the
 /// declared shape a material exposes to shaders), pipeline-state presets (blend /
 /// depth / cull, orthogonal to shader variant flags), and the predefined vertex
 /// layouts. A material is *data*: a list of MaterialPropertyDefs + a PipelineConfig
-/// + a shader name — the MaterialSystem infers the GPU bind-group layout from the
+/// + a shader name - the MaterialSystem infers the GPU bind-group layout from the
 /// declared properties, so a new material/shader needs no renderer changes.
 
 module;
@@ -56,7 +56,7 @@ struct MaterialPropertyDef {
     }
 };
 
-// Blend preset — resolved to concrete BlendState by the PSO builder.
+// Blend preset - resolved to concrete BlendState by the PSO builder.
 enum class BlendMode : u8 {
     Opaque, Masked, AlphaBlend, Additive, Multiply, PremultipliedAlpha,
 };
@@ -72,11 +72,11 @@ enum class CullModeConfig : u8 {
     None, Back, Front,
 };
 
-// Predefined vertex layouts — the byte formats meshes/sprites/etc. supply.
+// Predefined vertex layouts - the byte formats meshes/sprites/etc. supply.
 enum class VertexLayoutType : u8 {
     None,             // procedural (no vertex input)
-    PositionOnly,     // float3                              — skybox / shadow depth
-    PositionUVColor,  // float3 + float2 + float4            — sprites / particles
+    PositionOnly,     // float3                              - skybox / shadow depth
+    PositionUVColor,  // float3 + float2 + float4            - sprites / particles
     MeshNoTangent,    // float3 + float3 + float2 (32 bytes)
     Mesh,             // + color(ubyte4) + tangent(float3) (48 bytes)
     SkinnedMesh,      // + joints(uint2) + weights(float4) (72 bytes)

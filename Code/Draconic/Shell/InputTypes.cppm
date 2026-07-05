@@ -1,4 +1,4 @@
-// Draconic::Shell — `:input_types` partition.
+// Draconic::Shell - `:input_types` partition.
 //
 // Input-related enums and POD structs: keyboard codes/modifiers, mouse buttons
 // and cursor types, gamepad buttons/axes, and touch points. Backend-neutral;
@@ -141,7 +141,7 @@ export namespace draconic::shell
     //
     // Every input state change is emitted as an InputEvent, tagged with the source
     // window. The manager's polled device snapshot is a fold over the frame's events,
-    // and the (upcoming) viewport surfaces / UI dispatch consume the same stream — so
+    // and the (upcoming) viewport surfaces / UI dispatch consume the same stream - so
     // poll and event views never disagree. See docs/design/viewport-input.md §4.2.
 
     enum class InputEventKind : core::u8
@@ -157,7 +157,7 @@ export namespace draconic::shell
         InputEventKind kind{};
         core::u32        window = 0;    // source window id (0 = unknown/global)
 
-        // Payload — interpret by `kind`:
+        // Payload - interpret by `kind`:
         KeyCode        key{};                          // KeyDown/KeyUp
         KeyModifiers   modifiers{};                    // KeyDown/KeyUp
         MouseButton    button{};                       // MouseButton*

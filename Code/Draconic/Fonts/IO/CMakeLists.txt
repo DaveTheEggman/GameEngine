@@ -1,4 +1,4 @@
-# Draconic::FontsIO — `draconic.fonts.io` (parser/baker pipeline + FontManager).
+# Draconic::FontsIO - `draconic.fonts.io` (parser/baker pipeline + FontManager).
 # Ported from Sedulous.Fonts.IO (deps: Sedulous.Fonts).
 
 add_library(DraconicFontsIO STATIC)

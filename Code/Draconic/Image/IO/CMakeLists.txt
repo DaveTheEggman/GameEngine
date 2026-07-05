@@ -1,4 +1,4 @@
-# Draconic::ImageIO — `draconic.image.io` (load/save via stb).
+# Draconic::ImageIO - `draconic.image.io` (load/save via stb).
 add_library(DraconicImageIO STATIC)
 add_library(Draconic::ImageIO ALIAS DraconicImageIO)
 target_link_libraries(DraconicImageIO PUBLIC Draconic::Image Draconic::Core Draconic::Policy PRIVATE Draconic::Stb)

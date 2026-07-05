@@ -1,5 +1,5 @@
 #include <new>
-/// Sample007 — Instanced Rendering. Ported from Sedulous Sample007_Instancing.
+/// Sample007 - Instanced Rendering. Ported from Sedulous Sample007_Instancing.
 /// Renders 64 small quads in a grid using instanced draw with per-instance offset + color.
 /// Instance buffer is CpuToGpu with per-frame wobble animation.
 
@@ -101,7 +101,7 @@ draconic::core::Status InstancingSample::OnInit() {
     m_instMapped = m_instBuf->Map();
     if (!m_instMapped) return draconic::core::ErrorCode::Unknown;
 
-    // Pipeline layout (empty — no bind groups needed).
+    // Pipeline layout (empty - no bind groups needed).
     rhi::PipelineLayoutDesc pld{};
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 

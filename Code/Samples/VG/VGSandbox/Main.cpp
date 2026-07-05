@@ -1,4 +1,4 @@
-// VG Sandbox — faithful port of Sedulous Samples/VG/VGSandbox. A NanoVG-style
+// VG Sandbox - faithful port of Sedulous Samples/VG/VGSandbox. A NanoVG-style
 // demo exercising the whole VG stack (draconic.vg + .renderer + .svg + fonts +
 // image): line widths/caps/joins, animated eyes, an HSL color wheel, an area
 // graph, scissor clipping, image draws, text, UI convenience primitives,
@@ -409,7 +409,7 @@ void VGSandbox::DrawGraph(vg::VGContext& vgc, f32 x, f32 y, f32 w, f32 h, f32 t)
             + Sin(t * 1.1642f + static_cast<f32>(i) * static_cast<f32>(i) * 0.54f)) * 0.25f;
         // Clamp >= 0. The raw value ranges [-0.5, 1.0]; a negative sample pushes the
         // curve point below the baseline (y+h), so the area-fill "ribbon" self-
-        // intersects and ear-clipping emits sliver triangles — the stray line
+        // intersects and ear-clipping emits sliver triangles - the stray line
         // artifacts seen in the original Sedulous sample. (Latent data-gen bug.)
         samples[i] = Max(0.0f, raw);
     }

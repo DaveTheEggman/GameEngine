@@ -1,8 +1,8 @@
-/// Draconic::AnimationSubsystem — the `:subsystem` partition.
+/// Draconic::AnimationSubsystem - the `:subsystem` partition.
 ///
 /// AnimationSubsystem: a Context-level subsystem that injects the animation component managers
 /// (skeletal single-clip + animation-graph) into every scene (via ISceneAware), so attaching a
-/// SkeletalAnimationComponent or AnimationGraphComponent is all an app needs — the SceneSubsystem's
+/// SkeletalAnimationComponent or AnimationGraphComponent is all an app needs - the SceneSubsystem's
 /// per-scene tick then advances the players (PostUpdate) and feeds the skinning matrices to the mesh
 /// components, before render extraction. The subsystem itself does no per-frame work; the managers
 /// (SceneSystems) do, driven by the scene.

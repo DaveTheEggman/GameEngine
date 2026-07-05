@@ -16,7 +16,7 @@ namespace rhi = draconic::rhi;
 
 namespace
 {
-    // Fails to compile unless NORMAL_MAP is defined — proves flags->defines apply.
+    // Fails to compile unless NORMAL_MAP is defined - proves flags->defines apply.
     constexpr const char8_t* kNeedsNormalMap =
         u8"float4 main() : SV_Target {\n"
         u8"#ifndef NORMAL_MAP\n"

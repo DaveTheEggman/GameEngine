@@ -1,4 +1,4 @@
-# Draconic — game engine root build
+# Draconic - game engine root build
 #
 # C++23, C++ modules. Requires CMake >= 3.28 and a modules-capable toolchain
 # (Clang 17+, GCC 14+, or MSVC 19.36+) with the Ninja generator.

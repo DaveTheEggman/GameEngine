@@ -1,5 +1,5 @@
 #include <new>
-/// Sample003 — Rotating Cube with Uniform Buffers + Push Constants.
+/// Sample003 - Rotating Cube with Uniform Buffers + Push Constants.
 /// Ported from Sedulous Sample003_UniformBuffers.
 
 #include <cmath>

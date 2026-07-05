@@ -1,11 +1,11 @@
-/// Draconic::ModelImporter:resource — the imported model as a cooked composite resource.
+/// Draconic::ModelImporter:resource - the imported model as a cooked composite resource.
 ///
 /// A model import produces many leaf resources (meshes, later materials/textures/
 /// skeleton/animations) PLUS a manifest tying them together with the node hierarchy.
 /// The manifest is itself a resource: `ModelManifestSource` (authored/cooked data) is
 /// built by `ModelFactory` into a runtime `ModelResource` that resolves every leaf via
 /// manager.Bind (so the model->mesh edges are recorded automatically, Traktor-style).
-/// The runtime binds ONE ModelResource and instantiates its node hierarchy — like a
+/// The runtime binds ONE ModelResource and instantiates its node hierarchy - like a
 /// prefab. Spawning into a scene lives in the app/engine (keeps scene/render deps out).
 
 module;

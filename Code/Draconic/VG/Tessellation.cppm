@@ -1,9 +1,9 @@
-// Draconic::VG — :tessellation partition.
+// Draconic::VG - :tessellation partition.
 //
 // Converts paths/polylines into triangle meshes:
-//   * Triangulator    — ear-clipping fill triangulation (+ holes), winding helpers
-//   * FillTessellator — filled paths, with an analytical-AA fringe ring
-//   * StrokeTessellator — stroked polylines with joins, caps, dashing, AA fringe
+//   * Triangulator    - ear-clipping fill triangulation (+ holes), winding helpers
+//   * FillTessellator - filled paths, with an analytical-AA fringe ring
+//   * StrokeTessellator - stroked polylines with joins, caps, dashing, AA fringe
 // Ported from Sedulous.VG (Triangulator/FillTessellator/StrokeTessellator). The
 // colors are the engine's float Color throughout; packing to the vertex's
 // Color32 happens only in the VGVertex constructor.
@@ -308,7 +308,7 @@ export namespace draconic::vg
                 holeVerts.PushBack(hole[(rightmostIdx + i) % hole.Size()]);
             holeVerts.PushBack(bridgePoint);
 
-            // Insert holeVerts into outer at insertPos (rebuild — Array has no range insert).
+            // Insert holeVerts into outer at insertPos (rebuild - Array has no range insert).
             Array<Vector2> rebuilt;
             for (usize i = 0; i < insertPos; ++i)
                 rebuilt.PushBack(outer[i]);

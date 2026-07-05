@@ -2,8 +2,8 @@
 ///
 /// A render bundle is a SECONDARY VkCommandBuffer recorded with
 /// VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT and dynamic-rendering inheritance info
-/// (the attachment formats it is compatible with). It is replayed into a primary pass —
-/// begun with VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT — via vkCmdExecuteCommands
+/// (the attachment formats it is compatible with). It is replayed into a primary pass -
+/// begun with VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT - via vkCmdExecuteCommands
 /// (RenderPassEncoder::ExecuteBundles). Because bundles carry no pass-level dynamic state and
 /// Vulkan secondaries don't inherit it, the encoder records a full-target viewport + scissor up
 /// front (from the desc extent). The draw-recording methods mirror VkRenderPassEncoderImpl.

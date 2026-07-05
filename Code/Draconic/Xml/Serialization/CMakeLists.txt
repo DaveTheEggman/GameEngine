@@ -1,4 +1,4 @@
-# Draconic::XmlSerialization — `draconic.xml.serialization`.
+# Draconic::XmlSerialization - `draconic.xml.serialization`.
 # An XML backend for Core's ISerializer contract. Depends on Core + Xml.
 
 add_library(DraconicXmlSerialization STATIC)

@@ -1,7 +1,7 @@
-// Draconic::RenderGraph — :persistent_resource partition
+// Draconic::RenderGraph - :persistent_resource partition
 //
 // A persistent resource that survives across frames with tracked state.
-// Externally owned — the graph never creates or destroys these. The ping-pong
+// Externally owned - the graph never creates or destroys these. The ping-pong
 // variant carries two slots (current + previous frame) for temporal effects.
 // Ported from Sedulous.RenderGraph (PersistentResource.bf).
 

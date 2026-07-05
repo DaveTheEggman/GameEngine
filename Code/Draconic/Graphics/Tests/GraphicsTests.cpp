@@ -1,5 +1,5 @@
 // Headless tests for the RHI render host (GraphicsDevice + RenderWindow +
-// FrameContext) over the Null RHI backend + null shell — no GPU required.
+// FrameContext) over the Null RHI backend + null shell - no GPU required.
 // Covers device bring-up, per-window frame begin/end, the frame-in-flight ring,
 // multi-window rendering, resize, and the minimized-skip path.
 #include <doctest/doctest.h>

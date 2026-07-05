@@ -7,7 +7,7 @@ import draconic.model;
 using namespace draconic::core;
 using namespace draconic::model;
 
-TEST_CASE("model: core data types — names round-trip as wide strings")
+TEST_CASE("model: core data types - names round-trip as wide strings")
 {
     ModelMaterial mat;
     mat.setName(u8"steel");

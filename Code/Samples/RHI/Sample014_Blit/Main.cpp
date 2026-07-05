@@ -1,5 +1,5 @@
 #include <new>
-/// Sample014 — Blit (Scaled Copy). Ported from Sedulous Sample014_Blit.
+/// Sample014 - Blit (Scaled Copy). Ported from Sedulous Sample014_Blit.
 /// Renders a spinning triangle to a small 128x128 offscreen texture, then blits
 /// it to the full swapchain (scaled up with linear filtering).
 

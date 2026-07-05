@@ -1,7 +1,7 @@
-/// Draconic::Render — the `:bloom` partition.
+/// Draconic::Render - the `:bloom` partition.
 ///
 /// HDR bloom via a downsample/upsample pyramid (Jimenez "Next Generation Post Processing in Call of
-/// Duty" — 13-tap downsample + 9-tap tent upsample, additive). The first downsample soft-knee-
+/// Duty" - 13-tap downsample + 9-tap tent upsample, additive). The first downsample soft-knee-
 /// thresholds + Karis-averages to keep fireflies out. The pyramid is built from render-graph
 /// transients (sized per view, so no resize handling); the result is composited additively by the
 /// tonemap pass. Runs on the linear HDR scene, before tonemap.
@@ -23,7 +23,7 @@ namespace rhi = draconic::rhi;
 export namespace draconic::render {
 
 // Fullscreen-triangle VS with a top-origin [0,1] uv (uv.y=0 at the top). The RHI's negative-viewport
-// Y-flip means a naive uv would run bottom-up, so every RT-sampling pass would flip Y — flip uv.y here
+// Y-flip means a naive uv would run bottom-up, so every RT-sampling pass would flip Y - flip uv.y here
 // once so the whole pyramid (and the tonemap composite) stays orientation-consistent with the RTs.
 inline constexpr const char8_t* kBloomVS = u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };

@@ -1,14 +1,14 @@
-/// Draconic::Render — the `:pipeline` partition.
+/// Draconic::Render - the `:pipeline` partition.
 ///
 /// The frame driver + extension seam. A `Renderer` is a per-category drawer; subsystems
 /// (meshes here, particles/sprites/world-UI later) register one with the `RendererRegistry`
-/// and contribute draws with ZERO core changes — the keeper architecture validated by
+/// and contribute draws with ZERO core changes - the keeper architecture validated by
 /// Sedulous's particles being a separate library. The core sorts a view's `DrawItem`s by
 /// category and dispatches each run to its registered `Renderer`. (§6.)
 ///
-/// `RenderFrame` is the SINGLE per-frame driver (not a per-view god object — the explicit
+/// `RenderFrame` is the SINGLE per-frame driver (not a per-view god object - the explicit
 /// replacement for Sedulous's Pipeline/ShadowPipeline/ProbePipeline). Its lifecycle mirrors
-/// Sedulous's useful `ISceneRenderer` shape — Begin / AddView×N / End — so multiple scenes
+/// Sedulous's useful `ISceneRenderer` shape - Begin / AddView×N / End - so multiple scenes
 /// and views share per-frame state (the view pool, the renderers' transient buffers) without
 /// clobbering each other. Views are collected, then composed together at End. (§9.) Phase 1
 /// records directly into the command encoder via `ForwardPass`; phase 3 routes the same
@@ -62,8 +62,8 @@ export namespace draconic::render {
                  y * 2.0f / static_cast<f32>(height > 0 ? height : 1u) };
 }
 
-// What a Renderer needs to record draws for one view. `pass` is a RenderCommandEncoder — the
-// shared draw-recording surface — so a renderer records identically whether it targets a live
+// What a Renderer needs to record draws for one view. `pass` is a RenderCommandEncoder - the
+// shared draw-recording surface - so a renderer records identically whether it targets a live
 // render pass or an off-thread render bundle (the basis for parallel command recording).
 struct RenderRecordContext {
     const RenderView*          view        = nullptr;
@@ -91,7 +91,7 @@ struct RenderRecordContext {
 };
 
 // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,
-// buffers bound), ready to EMIT as pure commands with NO shared mutation — so emission can run
+// buffers bound), ready to EMIT as pure commands with NO shared mutation - so emission can run
 // in parallel across threads/bundles. Produced by Renderer::Resolve (single-threaded, where the
 // allocation/upload/caching happens); replayed by EmitDraw. Backend-agnostic (all RHI handles),
 // so the emit phase is renderer-agnostic.
@@ -105,7 +105,7 @@ struct ResolvedDraw {
     rhi::BindGroup*      drawSet      = nullptr;   // set 1 (object UBO / instance storage)
     u32                  drawOffset   = 0;
     bool                 drawDynamic  = false;
-    rhi::BindGroup*      materialSet  = nullptr;   // set 2 (material — inferred from properties)
+    rhi::BindGroup*      materialSet  = nullptr;   // set 2 (material - inferred from properties)
     rhi::BindGroup*      clusterSet   = nullptr;   // set 3 (clustered light lists; dummy when off)
     rhi::Buffer*         vertexBuffer0 = nullptr;  u64 vertexOffset0 = 0;
     rhi::Buffer*         vertexBuffer1 = nullptr;  u64 vertexOffset1 = 0;   // optional: skin stream (skinned) or instance offsets
@@ -126,7 +126,7 @@ struct ShadowBinding {
     ShadowCascades        cascades;               // THIS view's cascade matrices/splits
     u32                   layerBase  = 0;         // this view's first array layer (viewIndex * cascades)
     bool                  valid      = false;
-    // Local-light (spot/point) shadow atlas (5.3) — scene-global, one atlas shared by all views.
+    // Local-light (spot/point) shadow atlas (5.3) - scene-global, one atlas shared by all views.
     // ReadTexture'd by every forward pass so the atlas depth pass is ordered + barriered ahead of it.
     rendergraph::RGHandle atlasHandle = {};
     bool                  atlasValid  = false;
@@ -145,7 +145,7 @@ struct IblBinding {
 };
 
 // Replay one resolved draw into any command sink (a live pass or an off-thread bundle). Pure
-// command emission — touches no shared state, so it is safe to run concurrently.
+// command emission - touches no shared state, so it is safe to run concurrently.
 inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
     if (d.pso == nullptr || d.indexBuffer == nullptr) { return; }
     enc.SetPipeline(d.pso);
@@ -168,7 +168,7 @@ inline void EmitDraw(rhi::RenderCommandEncoder& enc, const ResolvedDraw& d) {
 
 // A per-category drawer. Implemented by mesh/sprite/particle/etc. subsystems and registered with
 // the RendererRegistry. Two phases: RESOLVE turns a sorted run of DrawItems into ResolvedDraws
-// (single-threaded — this is where mesh upload, PSO build, and ring allocation happen); the
+// (single-threaded - this is where mesh upload, PSO build, and ring allocation happen); the
 // ForwardPass then EMITs the resolved draws (serially or in parallel) with no shared mutation.
 // PrepareFrame/FinishFrame bracket the whole frame so a renderer sizes its transient buffers once.
 class Renderer {
@@ -240,7 +240,7 @@ public:
 
     virtual void FinishFrame() {}
 
-    // This renderer's dispatch id — its index in the RendererRegistry, assigned at Register. Producers
+    // This renderer's dispatch id - its index in the RendererRegistry, assigned at Register. Producers
     // stamp it onto their RenderData::rendererId so emission routes each draw back to its owner (so
     // several renderers can share a category and still be dispatched correctly). Set by the registry.
     [[nodiscard]] u16  RendererId() const noexcept { return m_rendererId; }
@@ -294,9 +294,9 @@ public:
     void SetShadowFarFade(f32 v) noexcept { m_shadowFarFade = v; }
 
     // Once per frame, before composing views: provision + reset this frame's per-worker command
-    // pools (used for parallel emit). Reset happens ONCE per frame — a worker bundle's secondary
+    // pools (used for parallel emit). Reset happens ONCE per frame - a worker bundle's secondary
     // command buffer must outlive the main submission that executes it, so it can't be freed
-    // between views. (No-op when the job system is absent — emit then runs serially.)
+    // between views. (No-op when the job system is absent - emit then runs serially.)
     void BeginFrame(u32 frameIndex) {
         if (!HasGlobalJobSystem()) { return; }
         if (!EnsureWorkerPools(GlobalJobs().SlotCount())) { return; }
@@ -307,7 +307,7 @@ public:
     }
 
     // Declare this view's forward pass into the frame graph: a TRANSIENT depth target (the graph
-    // allocates it + inserts the depth barrier automatically — retiring the hand-rolled depth
+    // allocates it + inserts the depth barrier automatically - retiring the hand-rolled depth
     // transition) + the IMPORTED color target (left in RenderTarget for the host to present). The
     // pass body is a render bundle the graph executes (secondary contents). Resolve + emit run in
     // the bundle callback at graph Execute time.
@@ -346,7 +346,7 @@ public:
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
             // Read the WHOLE cascade array (orders all cascade passes -> this pass + barriers every
             // layer readable). The forward shader binds the full-array sample view, so the descriptor
-            // spans all layers — every one must be in DepthStencilRead when this pass's secondary CB
+            // spans all layers - every one must be in DepthStencilRead when this pass's secondary CB
             // samples it, even layers belonging to other views (VUID-vkCmdExecuteCommands depth-layout).
             // All cascade passes are declared up front, so depending on the whole array is correctly ordered.
             if (shadow.Valid()) { b.SampleDepth(shadow.handle); }
@@ -356,7 +356,7 @@ public:
             // Read the IBL products (orders any precompute writes -> this pass + barriers them readable).
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             // Read the probe captured cube-array (orders probe capture -> this forward + barriers the whole
-            // array to ShaderRead, incl. uncaptured slices) — the forward samples it (t8) for local reflections.
+            // array to ShaderRead, incl. uncaptured slices) - the forward samples it (t8) for local reflections.
             if (probeValid) { b.ReadTexture(probeHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, probeValid](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
@@ -365,7 +365,7 @@ public:
         });
     }
 
-    // The transparent pass: blended geometry into the (already-lit) color target only — no G-buffer, no
+    // The transparent pass: blended geometry into the (already-lit) color target only - no G-buffer, no
     // depth write. Runs after opaque + sky, depth-tested read-only against the opaque depth, back-to-front
     // (the draw list is pre-sorted). Transparent is lit, so it still binds the cluster/shadow/IBL set-0
     // resources. colorH is loaded (preserves opaque + sky); the PSO is the color-only forward permutation.
@@ -393,7 +393,7 @@ public:
 
 private:
     // The bundle-pass body: resolve the view's draws (single-threaded) then emit them into render
-    // bundle(s) appended to `out` — serially below the threshold, else fanned out across the job
+    // bundle(s) appended to `out` - serially below the threshold, else fanned out across the job
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
@@ -424,7 +424,7 @@ private:
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
         // ring allocation). Split by the category's pass affinity (which pass draws it), then walk
         // runs of the SAME renderer within this pass and hand each to its owner (dispatched by
-        // rendererId, not category — so blended meshes + sprites interleave by depth yet each run
+        // rendererId, not category - so blended meshes + sprites interleave by depth yet each run
         // still batches within one renderer). The list is category-sorted, so this-pass items are
         // contiguous; within the blended span, depth order mixes renderers as needed.
         const auto inThisPass = [&](const DrawItem& it) noexcept {
@@ -447,7 +447,7 @@ private:
         }
 
         // EMIT into bundles. The bundle records its viewport up front (Vulkan secondaries / DX12
-        // bundles can't inherit it) — this view's sub-rect of the target, not the full target.
+        // bundles can't inherit it) - this view's sub-rect of the target, not the full target.
         rhi::RenderBundleDesc bd{};
         bd.colorFormats[0]    = colorFormat;
         if (transparentPass) {
@@ -479,7 +479,7 @@ private:
 
     // Split the resolved draws into <= SlotCount contiguous chunks; record each into its own
     // bundle on a JobSystem worker, using that chunk's OWN command pool (so no two threads touch
-    // a pool concurrently — pools are indexed by chunk, not worker slot). Bundles are kept in
+    // a pool concurrently - pools are indexed by chunk, not worker slot). Bundles are kept in
     // draw order in m_bundles. Pools were reset for this frame by BeginFrame.
     void EmitParallel(const rhi::RenderBundleDesc& bd, u32 frameIndex) {
         JobSystem& jobs = GlobalJobs();
@@ -508,7 +508,7 @@ private:
 
     // (Re)provision the per-(frameIndex, slot) command-pool grid + one persistent encoder each
     // (the encoder is only a handle to its pool for CreateRenderBundleEncoder; its primary buffer
-    // is never recorded/submitted, so it is created once and reused — only the pool resets). Grows
+    // is never recorded/submitted, so it is created once and reused - only the pool resets). Grows
     // only. Returns false on failure (parallel emit then skips).
     bool EnsureWorkerPools(u32 slotCount) {
         if (slotCount <= m_workerSlots) { return m_workerSlots > 0; }
@@ -543,7 +543,7 @@ private:
     }
 
     // Above this many resolved draws, emission fans out across the job system; below it, one
-    // bundle on the calling thread. (Parallel recording pays off only with many distinct draws —
+    // bundle on the calling thread. (Parallel recording pays off only with many distinct draws -
     // instanced batches collapse to one resolved draw each.)
     static constexpr u32 kParallelEmitThreshold = 256;
 
@@ -563,7 +563,7 @@ private:
 // A 90 degrees-FOV camera looking along one cube face (+X,-X,+Y,-Y,+Z,-Z) from a probe center, for reflection-
 // probe capture. Uses LookAtRH (right-handed => correct triangle winding, so back-face culling works).
 // RH LookAt produces HORIZONTALLY-MIRRORED faces vs the cube sampler; that mirror is corrected in image
-// space by a horizontal-flip blit (captured -> prefiltered), NOT in the camera — negating a camera axis
+// space by a horizontal-flip blit (captured -> prefiltered), NOT in the camera - negating a camera axis
 // would flip winding and break culling. Forwards/ups match Sedulous's probe + point-shadow convention.
 [[nodiscard]] inline ViewCamera ProbeFaceCamera(Vector3 center, u32 face, f32 nearZ, f32 farZ) {
     static const Vector3 dirs[6] = { {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1} };
@@ -578,7 +578,7 @@ private:
 
 // The single per-frame driver. Begin resets shared per-frame state; AddView collects a view
 // (extracting its draw list from a scene snapshot); End sizes the renderers' transient once
-// for the whole frame and composes every view. One driver, all views — no per-view object.
+// for the whole frame and composes every view. One driver, all views - no per-view object.
 class RenderFrame {
 public:
     RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
@@ -668,7 +668,7 @@ public:
         for (usize i = 0; i < m_views.ActiveCount(); ++i) { culled += m_views.At(i)->CulledCount(); total += m_views.At(i)->SceneItemCount(); }
     }
     // Directional-shadow reach (world units, clamped to the camera far plane) + the far-fade width (also
-    // world units — a fixed-thickness soft edge, distance-independent). Larger distance covers more ground
+    // world units - a fixed-thickness soft edge, distance-independent). Larger distance covers more ground
     // but spreads cascade texel density; the fade dissolves the coverage boundary so it doesn't pop along
     // a diagonal on a tilted camera.
     void SetShadowParams(f32 distance, f32 farFade) noexcept { m_shadowDistance = distance; m_shadowFarFade = farFade; }
@@ -719,7 +719,7 @@ public:
     // Re-emit a caster list as depth-only draws from a light's POV. `casters` is camera-independent for
     // local lights (the scene-global list) or the view's draw list for cascades. When cullRadius > 0,
     // casters whose world bounding sphere doesn't intersect the light sphere (cullCenter, cullRadius)
-    // are skipped — per-light shadow-caster culling (phase 5.4).
+    // are skipped - per-light shadow-caster culling (phase 5.4).
     void RecordShadowCasters(rhi::RenderPassEncoder& rp, Span<const DrawItem> casters,
                              const RendererRegistry& registry, const Matrix4& lightViewProj,
                              Vector3 cullCenter = {}, f32 cullRadius = 0.0f, bool frustumCull = false,
@@ -731,9 +731,9 @@ public:
         ctx.viewIndex   = 0;
 
         // Optional cull into a scratch list (keeps the category-run batching below intact).
-        // - frustum cull: CSM cascades — reject casters whose world sphere doesn't intersect THIS
+        // - frustum cull: CSM cascades - reject casters whose world sphere doesn't intersect THIS
         //   cascade's ortho frustum. The cascade VP already extends toward the light (see
-        //   ComputeCascades), so its frustum is the correct assignment volume — each caster lands in
+        //   ComputeCascades), so its frustum is the correct assignment volume - each caster lands in
         //   ~1 cascade instead of all 4 (was Sedulous's compiled-out !FRUSTUM_CULL_SHADOWS fallback).
         // - sphere cull (cullRadius > 0): local point/spot lights vs the light's reach.
         Span<const DrawItem> items = casters;
@@ -748,7 +748,7 @@ public:
                     const Vector3 c{ b.x, b.y, b.z };
                     // Inline sphere-vs-frustum with early-out: reject if the sphere is fully outside any
                     // plane (outward normals). Avoids BoundingSphere construction + the enum/switch
-                    // Intersects() runs per plane — this is the hot path (~448k tests/frame at 112k casters).
+                    // Intersects() runs per plane - this is the hot path (~448k tests/frame at 112k casters).
                     bool inside = true;
                     for (i32 p = 0; p < BoundingFrustum::kPlaneCount; ++p) {
                         if (Dot(frustum.planes[p].normal, c) + frustum.planes[p].d > b.w) { inside = false; break; }
@@ -817,7 +817,7 @@ public:
         RadixSortDrawItems(m_shadowCasters, m_sortScratch);
         // Compact bounds SoA (xyz = worldCenter, w = worldRadius) aligned to the SORTED caster order, so the
         // per-cascade frustum cull streams 16B/item linearly (4 per cache line) instead of chasing
-        // it.data->worldCenter into scattered ~200B MeshRenderData — the dominant shadow-record cost at scale.
+        // it.data->worldCenter into scattered ~200B MeshRenderData - the dominant shadow-record cost at scale.
         m_shadowCasterBounds.Clear();
         m_shadowCasterBounds.Reserve(m_shadowCasters.Size());
         for (const DrawItem& it : m_shadowCasters) {
@@ -869,7 +869,7 @@ public:
 
         // Camera-INDEPENDENT caster list (opaque+masked, off-camera casters included), built once per
         // frame from the primary scene. Shared by BOTH the directional cascades and the local-light atlas
-        // tiles: sourcing shadows from this — not the per-view camera draw list — means view-frustum
+        // tiles: sourcing shadows from this - not the per-view camera draw list - means view-frustum
         // culling the camera never drops a shadow caster (and directional shadows now match local lights /
         // Sedulous: transparent + sprites don't cast). Directional shadows are already primary-scene-based.
         m_shadowCasters.Clear();
@@ -925,8 +925,8 @@ public:
         // Static atlas layer: each tile is cached and re-rendered only when needed, tracked by a
         // per-tile dirty COUNTDOWN (a tile must re-render for FramesInFlight frames to refresh every
         // in-flight slot's copy). Two things dirty a tile:
-        //   1. The static caster set changed (signature trip) — dirty ALL tiles.
-        //   2. An animated caster's world sphere overlaps the tile's light volume — dirty THAT tile,
+        //   1. The static caster set changed (signature trip) - dirty ALL tiles.
+        //   2. An animated caster's world sphere overlaps the tile's light volume - dirty THAT tile,
         //      every frame it overlaps (skinned casters deform per frame; node bounds don't move, so
         //      the signature never trips for them). This is the per-caster routing: only tiles actually
         //      containing animation re-render; tiles with purely static geometry stay cached.
@@ -1045,12 +1045,12 @@ public:
                     });
                 });
             };
-            declareLayer(0u, &m_rtTiles);                                  // realtime layer — every frame
-            if (renderStatic) { declareLayer(1u, &m_staticRenderTiles); }  // static layer — only dirty tiles
+            declareLayer(0u, &m_rtTiles);                                  // realtime layer - every frame
+            if (renderStatic) { declareLayer(1u, &m_staticRenderTiles); }  // static layer - only dirty tiles
         }
         if (shadowActive) { shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex); }
 
-        // Declare EVERY view's cascade depth passes up front — before any forward pass. The cascade
+        // Declare EVERY view's cascade depth passes up front - before any forward pass. The cascade
         // array is one imported resource: if a forward pass sampling the whole array were declared
         // before a later view's cascade writes, those layers would still be in DepthStencilAttachment
         // (not Read) when sampled (VUID-vkCmdExecuteCommands depth-layout). Fitting all cascades first
@@ -1073,7 +1073,7 @@ public:
                     const Matrix4 cascadeVP = cascades.viewProj[c];
                     const u32  layer     = layerBase + c;
                     // Casters come from the camera-INDEPENDENT m_shadowCasters (built above), not this
-                    // view's culled draw list — so view-frustum culling can't drop an off-camera caster
+                    // view's culled draw list - so view-frustum culling can't drop an off-camera caster
                     // whose shadow is visible. Per-cascade frustum cull then keeps each caster to ~1 cascade.
                     m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, reg](rendergraph::PassBuilder& b) {
                         rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
@@ -1121,7 +1121,7 @@ public:
             // Reuse the primary view's CSM binding (handle + cascades) + the local atlas. The capture
             // forward's shader statically samples both depth textures, so the binding MUST be valid or the
             // graph won't barrier them to DEPTH_STENCIL_READ_ONLY (they'd still be in ATTACHMENT layout).
-            // The cascades are geometrically the primary camera's (approximate for a face) — fine for P1b.
+            // The cascades are geometrically the primary camera's (approximate for a face) - fine for P1b.
             ShadowBinding capShadow = viewShadows.IsEmpty() ? ShadowBinding{} : viewShadows[0];
             capShadow.atlasHandle = atlasH;
             capShadow.atlasValid  = atlasActive;
@@ -1162,7 +1162,7 @@ public:
                                    ClusterBinding{}, capShadow, capIbl, rhi::LoadOp::Clear, sub);
                 // Sky into the same face, after the forward (loads the captured depth).
                 // Distinct sky uniform slot per capture face (2..7), so the capture never shares SkyPass's
-                // per-view slot with a main view (0,1) or with another face — otherwise the last recorder
+                // per-view slot with a main view (0,1) or with another face - otherwise the last recorder
                 // wins the shared slot and the captured sky reads a main view's camera (cross-view leak).
                 m_sky->DeclareSky(m_graph, capturedH, capVel, capDepth, m_ibl->EnvHandle(), m_ibl->EnvView(),
                                   ReflectionProbeSystem::kCubeFormat, m_pass.DepthFormat(),
@@ -1171,7 +1171,7 @@ public:
                                   m_ibl->SunDir(), m_ibl->SunAngularSize(), Vector3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   0, 0, res, res, m_frameIndex, /*viewIndex*/ 2u + face, sub);
             }
-            // Bridge captured -> prefiltered mip 0 (flip blit — corrects the RH-LookAt mirror) so the forward
+            // Bridge captured -> prefiltered mip 0 (flip blit - corrects the RH-LookAt mirror) so the forward
             // samples a SEPARATE texture, never the captured cube it just wrote; then GGX-convolve mip 0 into
             // the rougher mips (roughness reflections).
             m_probeSystem->DeclareBlit(m_graph, capturedH, probePrefilteredH, task.slot);
@@ -1181,7 +1181,7 @@ public:
 
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
         // resource). The first view to a target clears it; later views into the same target Load,
-        // preserving earlier views' regions (split-screen). Targets are few — a linear scan is fine.
+        // preserving earlier views' regions (split-screen). Targets are few - a linear scan is fine.
         struct TargetImport { rhi::TextureView* target; rendergraph::RGHandle handle; u32 w; u32 h; rhi::TextureFormat fmt; };
         Array<TargetImport> imported;
         // Bracket the decal ring ONCE for the whole per-view loop (each view accumulates its own slots).
@@ -1195,7 +1195,7 @@ public:
             bool found = false;
             for (const TargetImport& ti : imported) { if (ti.target == tgt) { colorH = ti.handle; found = true; break; } }
             if (!found) {
-                // Backbuffer (targetTexture null): current==final==RenderTarget — the host did
+                // Backbuffer (targetTexture null): current==final==RenderTarget - the host did
                 // Undefined->RenderTarget and will Present, so the graph touches no barrier. Offscreen
                 // (targetTexture set): the graph barriers it current -> RenderTarget -> final (e.g.
                 // ShaderRead/CopySrc so the caller can sample/blit the result).
@@ -1213,9 +1213,9 @@ public:
             if (m_clusters != nullptr) { cluster = m_clusters->DeclareBuild(m_graph, *v, m_frameIndex, viewIndex); }
 
             // This view's CSM cascades (fit + declared up front, above). Cascades stay on the view's
-            // camera-culled draw list — they're already camera-coupled (refit per frame).
+            // camera-culled draw list - they're already camera-coupled (refit per frame).
             ShadowBinding shadow = viewShadows[i];
-            // The local-light atlas is scene-global (one pass for all views) — every view depends on it.
+            // The local-light atlas is scene-global (one pass for all views) - every view depends on it.
             shadow.atlasHandle = atlasH;
             shadow.atlasValid  = atlasActive;
 
@@ -1231,13 +1231,13 @@ public:
             // Per-view depth, shared by the forward pass + the sky pass (sky depth-tests against it).
             const rendergraph::RGHandle depth = m_graph.CreateTransient(
                 u8"forward.depth", rendergraph::RGTextureDesc(m_pass.DepthFormat(), v->Width(), v->Height()));
-            // Per-view MRT G-buffer aux targets (view-space normal + motion vector) — written by the
+            // Per-view MRT G-buffer aux targets (view-space normal + motion vector) - written by the
             // forward pass, consumed by the post stack (TAA/GTAO). Unused this phase; transients free after.
             const rendergraph::RGHandle normalT = m_graph.CreateTransient(
                 u8"forward.normal", rendergraph::RGTextureDesc(kGNormalFormat, v->Width(), v->Height()));
             const rendergraph::RGHandle velocityT = m_graph.CreateTransient(
                 u8"forward.velocity", rendergraph::RGTextureDesc(kGVelocityFormat, v->Width(), v->Height()));
-            // Roughness/metallic G-buffer — consumed by the SSR pass (roughness gates/fades reflections).
+            // Roughness/metallic G-buffer - consumed by the SSR pass (roughness gates/fades reflections).
             const rendergraph::RGHandle materialT = m_graph.CreateTransient(
                 u8"forward.material", rendergraph::RGTextureDesc(kGMaterialFormat, v->Width(), v->Height()));
 
@@ -1278,7 +1278,7 @@ public:
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rendergraph::RGHandle velocityTarget, rhi::TextureFormat colorFmt) {
                 if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
                 // Reconstruct the sky ray from the UNJITTERED view-proj: the background is at infinity, so
-                // jittering its sampling buys ~no AA but makes it oscillate sub-pixel each frame — which TAA
+                // jittering its sampling buys ~no AA but makes it oscillate sub-pixel each frame - which TAA
                 // can only partly cancel, i.e. the wobble. Unjittered => temporally invariant sky under a
                 // static camera; the sky pass still writes a geometric motion vector so rotation reprojects.
                 const Matrix4 invVP  = Inverse(unjitteredVP);

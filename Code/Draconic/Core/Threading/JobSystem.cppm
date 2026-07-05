@@ -1,14 +1,14 @@
-// Draconic Core — :job_system partition
+// Draconic Core - :job_system partition
 //
 // A stackless work-stealing job system: a fixed (pre-sized) worker pool with per-worker
 // deques, ParallelFor fan-out, and counter-based dependencies (Submit / SubmitAfter /
-// Wait). NO fibers — the renderer's parallelism is broad data-parallel fan-out plus a few
+// Wait). NO fibers - the renderer's parallelism is broad data-parallel fan-out plus a few
 // dependent stages, and fibers don't translate to WASM (Asyncify-only).
 //
 // The load-bearing property is CALLER PARTICIPATION: a thread that Waits (on a Counter, a
 // ParallelFor, or all jobs) runs jobs itself instead of blocking. This (a) keeps the
 // calling thread busy, (b) is WASM-safe (the main thread never blocks indefinitely on a
-// condition variable — it works then returns), and (c) gives a correct single-threaded
+// condition variable - it works then returns), and (c) gives a correct single-threaded
 // fallback for free when worker count is 0 (the caller runs everything).
 //
 // WASM constraints honored: the worker pool is pre-sized at construction (no spawn
@@ -50,7 +50,7 @@ export namespace draconic::core
     }
 
     // A completion counter: jobs SIGNAL it (decrement on completion) and may DEPEND on it
-    // (run only once it reaches 0). Caller-owned — keep it alive until it reaches 0 and all
+    // (run only once it reaches 0). Caller-owned - keep it alive until it reaches 0 and all
     // waits/continuations on it are done (typically a stack local in the frame loop). Not
     // copyable/movable (a stable address is referenced by in-flight jobs).
     class Counter
@@ -271,7 +271,7 @@ export namespace draconic::core
         {
             const i32 self = WorkerSlot();
 
-            // 1) own deque (LIFO — cache-friendly)
+            // 1) own deque (LIFO - cache-friendly)
             if (self >= 0)
             {
                 Deque& d = *m_deques[static_cast<u32>(self)];
@@ -279,7 +279,7 @@ export namespace draconic::core
                 if (!d.items.IsEmpty()) { out = d.items.Back(); d.items.PopBack(); return true; }
             }
 
-            // 2) steal from other worker deques (FIFO — take the oldest, least contended)
+            // 2) steal from other worker deques (FIFO - take the oldest, least contended)
             for (u32 k = 0; k < m_workerCount; ++k)
             {
                 if (self >= 0 && k == static_cast<u32>(self)) { continue; }
@@ -302,7 +302,7 @@ export namespace draconic::core
             job.destroy(job.data);
 
             // Handle the completion signal (and schedule its dependents) BEFORE dropping
-            // this job from m_pending — a continuation is added to m_pending before its
+            // this job from m_pending - a continuation is added to m_pending before its
             // predecessor leaves, so m_pending never momentarily hits 0 while a dependent is
             // still pending (which would let WaitForAll return early).
             if (Counter* signal = job.signal; signal != nullptr)
@@ -310,7 +310,7 @@ export namespace draconic::core
                 // Decrement INSIDE the lock: this holds m_lock across the count's 1->0
                 // transition, which (paired with the fence in Wait) stops a released waiter
                 // from destroying the Counter while we are still touching it. Once we leave
-                // this scope with the count at 0, `signal` may be freed — never touch it again.
+                // this scope with the count at 0, `signal` may be freed - never touch it again.
                 bool last = false;
                 Array<detail::JobItem> ready;
                 {
@@ -337,7 +337,7 @@ export namespace draconic::core
             {
                 if (RunOneJob()) { continue; }
 
-                // No work found — sleep until notified or stopped (re-check under the lock
+                // No work found - sleep until notified or stopped (re-check under the lock
                 // to close the lost-wakeup window; Schedule fences on m_idleMutex).
                 ScopedLock lock(m_idleMutex);
                 if (m_stop) { return; }
@@ -362,7 +362,7 @@ export namespace draconic::core
 
         // The calling thread's worker slot: a worker's index, or -1 for any non-worker thread.
         // A function-local thread_local (single COMDAT instance across TUs) rather than a static
-        // data member — the latter, odr-used by an inline accessor from an importing TU, would
+        // data member - the latter, odr-used by an inline accessor from an importing TU, would
         // emit a duplicate definition and fail to link.
         static i32& WorkerSlot() noexcept
         {
@@ -385,8 +385,8 @@ export namespace draconic::core
     // ---- process-global JobSystem -----------------------------------------------------------
     //
     // The engine-wide JobSystem, mirroring DefaultAllocator()'s global-accessor shape (and
-    // Sedulous's static JobSystem). The client Application brackets its lifetime — init before
-    // any subsystem starts, shutdown after every subsystem + GPU teardown — so it outlives all
+    // Sedulous's static JobSystem). The client Application brackets its lifetime - init before
+    // any subsystem starts, shutdown after every subsystem + GPU teardown - so it outlives all
     // users. Code that wants to parallelize must tolerate its absence (HasGlobalJobSystem()) and
     // fall back to serial: in unit tests / headless tools that never start an Application it is
     // never initialized. The JobSystem class itself stays instance-constructible (tests build

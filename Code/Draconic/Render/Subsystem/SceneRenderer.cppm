@@ -1,6 +1,6 @@
-/// Draconic::RenderSubsystem — the `:scene_renderer` partition.
+/// Draconic::RenderSubsystem - the `:scene_renderer` partition.
 ///
-/// `ISceneRenderer` — the scene-coupled frame coordinator the RenderSubsystem implements.
+/// `ISceneRenderer` - the scene-coupled frame coordinator the RenderSubsystem implements.
 /// Its lifecycle mirrors the useful shape of Sedulous's ISceneRenderer:
 ///
 ///     BeginRendering(encoder, frameIndex);
@@ -13,10 +13,10 @@
 /// collects a view over it; EndRendering composes every collected view into the frame. The
 /// caller owns the encoder + targets + frame pacing. A `CameraOverride` supplies an explicit
 /// camera (editor previews, reflection captures, multi-camera-of-one-scene) instead of the
-/// scene's primary CameraComponent — the seam for secondary views (built out in phase 8).
+/// scene's primary CameraComponent - the seam for secondary views (built out in phase 8).
 ///
 /// NOTE: we deliberately adopt this Begin/RenderScene/End *lifecycle* but NOT Sedulous's
-/// per-(scene, viewportKey) `Pipeline` objects — those are the god-objects our design (§9)
+/// per-(scene, viewportKey) `Pipeline` objects - those are the god-objects our design (§9)
 /// replaced with `RenderView` + the single `RenderFrame` driver + one frame graph.
 
 module;

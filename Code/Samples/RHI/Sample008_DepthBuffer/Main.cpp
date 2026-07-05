@@ -1,7 +1,7 @@
 #include <new>
-/// Sample008 — Depth Buffer. Ported from Sedulous Sample008_DepthBuffer.
+/// Sample008 - Depth Buffer. Ported from Sedulous Sample008_DepthBuffer.
 /// Three overlapping quads at different Z depths demonstrate depth testing.
-/// Red (z=0.8, far), Green (z=0.5, mid), Blue (z=0.2, near) — drawn far-to-near,
+/// Red (z=0.8, far), Green (z=0.5, mid), Blue (z=0.2, near) - drawn far-to-near,
 /// depth buffer ensures correct visibility.
 
 #include <cstdint>
@@ -53,17 +53,17 @@ private:
     // Three overlapping quads drawn in order: red (far), green (middle), blue (near).
     // Stride: 7 floats per vertex (pos xyz + color rgba).
     static constexpr float kVerts[] = {
-        // Quad 0: Red — large, behind (z=0.8), drawn first.
+        // Quad 0: Red - large, behind (z=0.8), drawn first.
         -0.6f, -0.6f, 0.8f,   1.0f, 0.2f, 0.2f, 1.0f,
          0.4f, -0.6f, 0.8f,   1.0f, 0.2f, 0.2f, 1.0f,
          0.4f,  0.6f, 0.8f,   1.0f, 0.2f, 0.2f, 1.0f,
         -0.6f,  0.6f, 0.8f,   1.0f, 0.2f, 0.2f, 1.0f,
-        // Quad 1: Green — overlaps red, closer (z=0.5), drawn second.
+        // Quad 1: Green - overlaps red, closer (z=0.5), drawn second.
         -0.2f, -0.4f, 0.5f,   0.2f, 1.0f, 0.2f, 1.0f,
          0.6f, -0.4f, 0.5f,   0.2f, 1.0f, 0.2f, 1.0f,
          0.6f,  0.4f, 0.5f,   0.2f, 1.0f, 0.2f, 1.0f,
         -0.2f,  0.4f, 0.5f,   0.2f, 1.0f, 0.2f, 1.0f,
-        // Quad 2: Blue — overlaps both, nearest (z=0.2), drawn third.
+        // Quad 2: Blue - overlaps both, nearest (z=0.2), drawn third.
         -0.4f, -0.7f, 0.2f,   0.2f, 0.3f, 1.0f, 1.0f,
          0.2f, -0.7f, 0.2f,   0.2f, 0.3f, 1.0f, 1.0f,
          0.2f,  0.7f, 0.2f,   0.2f, 0.3f, 1.0f, 1.0f,
@@ -115,7 +115,7 @@ draconic::core::Status DepthBufferSample::OnInit() {
     batch->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
     batch->Submit(); m_graphicsQueue->DestroyTransferBatch(batch);
 
-    // Pipeline layout (empty — no bind groups needed).
+    // Pipeline layout (empty - no bind groups needed).
     rhi::PipelineLayoutDesc pld{};
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
@@ -164,7 +164,7 @@ void DepthBufferSample::OnRender() {
     rp->SetScissor(0, 0, m_width, m_height);
     rp->SetVertexBuffer(0, m_vb, 0);
     rp->SetIndexBuffer(m_ib, rhi::IndexFormat::UInt16, 0);
-    // Draw all 3 quads — depth buffer determines visibility.
+    // Draw all 3 quads - depth buffer determines visibility.
     rp->DrawIndexed(18);
     rp->End();
 

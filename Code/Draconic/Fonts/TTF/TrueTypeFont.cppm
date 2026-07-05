@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:font partition
+// Draconic::FontsTTF - draconic.fonts.ttf:font partition
 //
 // TrueType/OpenType IFont backed by stb_truetype. Owns the raw font bytes and
 // an stbtt_fontinfo, caches per-codepoint GlyphInfo, and extracts the family
@@ -59,7 +59,7 @@ export namespace draconic::fonts
             return FontLoadResult::Success;
         }
 
-        // Raw font bytes — the atlas baker needs these for stb's pack API.
+        // Raw font bytes - the atlas baker needs these for stb's pack API.
         [[nodiscard]] const unsigned char* RawData() const { return m_fontData.Data(); }
 
         // --- IFont ---------------------------------------------------------

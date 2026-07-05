@@ -1,4 +1,4 @@
-# Draconic C++ style — Allman braces, 4-space indent, 100-col.
+# Draconic C++ style - Allman braces, 4-space indent, 100-col.
 ---
 Language: Cpp
 BasedOnStyle: LLVM

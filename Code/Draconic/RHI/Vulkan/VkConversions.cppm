@@ -15,7 +15,7 @@ using namespace draconic::core;
 
 export namespace draconic::rhi::vk {
 
-/// Depth format support flags — set once at VkDevice init via setDepthFormatSupport().
+/// Depth format support flags - set once at VkDevice init via setDepthFormatSupport().
 /// Defaults to supported; probing overrides if hardware lacks D24.
 namespace detail {
     inline bool g_depth24S8Supported = true;

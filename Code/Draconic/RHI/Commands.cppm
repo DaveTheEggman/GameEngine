@@ -18,7 +18,7 @@ export namespace draconic::rhi {
 
 /// The draw-recording commands common to a render pass and a render bundle. A `Renderer` that
 /// takes a `RenderCommandEncoder*` records identically whether it targets a live pass (inline)
-/// or an off-thread `RenderBundleEncoder` — which is what makes parallel command recording
+/// or an off-thread `RenderBundleEncoder` - which is what makes parallel command recording
 /// fall out (split a draw list into N bundles recorded on N threads, then ExecuteBundles).
 /// This is exactly the subset valid inside a WebGPU render bundle: no pass-level dynamic state
 /// (viewport / scissor / blend constant / stencil ref are inherited from the pass), no queries.
@@ -92,7 +92,7 @@ public:
     virtual ~RenderBundle() = default;
 };
 
-/// Records draws into a render bundle (the shared recording surface only — no pass-level state).
+/// Records draws into a render bundle (the shared recording surface only - no pass-level state).
 class RenderBundleEncoder : public RenderCommandEncoder {
 public:
     /// Finish recording and return the immutable bundle (owned by the command pool).

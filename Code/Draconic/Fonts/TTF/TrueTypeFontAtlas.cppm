@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:atlas partition
+// Draconic::FontsTTF - draconic.fonts.ttf:atlas partition
 //
 // IFontAtlas produced by stb_truetype's packed-font API. Holds the packed
 // 8-bit coverage buffer + per-codepoint stbtt_packedchar records and maps

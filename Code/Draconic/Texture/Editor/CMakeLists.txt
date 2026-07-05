@@ -1,4 +1,4 @@
-# Draconic::TextureEditor — `draconic.texture.editor` (tooling: TextureAsset + builder + importer).
+# Draconic::TextureEditor - `draconic.texture.editor` (tooling: TextureAsset + builder + importer).
 add_library(DraconicTextureEditor STATIC)
 add_library(Draconic::TextureEditor ALIAS DraconicTextureEditor)
 target_link_libraries(DraconicTextureEditor PUBLIC

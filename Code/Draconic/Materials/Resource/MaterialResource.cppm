@@ -1,6 +1,6 @@
-/// Draconic::MaterialResource — the `draconic.materials.resource` module.
+/// Draconic::MaterialResource - the `draconic.materials.resource` module.
 ///
-/// Materials as resources: a `MaterialSource` (authored content — references a shader
+/// Materials as resources: a `MaterialSource` (authored content - references a shader
 /// by Guid, plus declared properties + render-state presets + the default-uniform
 /// blob) is built by `MaterialFactory` into a runtime `Material`. The factory Binds
 /// the referenced `ShaderResource` mid-build, which AUTOMATICALLY records a

@@ -1,4 +1,4 @@
-# Draconic::RenderSubsystem — `draconic.render.subsystem`, the scene side of rendering
+# Draconic::RenderSubsystem - `draconic.render.subsystem`, the scene side of rendering
 # (render components + extraction + later the RenderSubsystem). Depends on Scene AND
 # Render (one-way: the renderer never depends back on this or on Scene).
 add_library(DraconicRenderSubsystem STATIC)

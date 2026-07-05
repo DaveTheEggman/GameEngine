@@ -1,6 +1,6 @@
-// Draconic::Image — :atlas_builder partition.
+// Draconic::Image - :atlas_builder partition.
 //
-// RectI (integer rectangle for atlas regions) and ImageAtlasBuilder — a
+// RectI (integer rectangle for atlas regions) and ImageAtlasBuilder - a
 // general-purpose shelf-packing atlas packer that combines multiple RGBA8
 // images into one atlas texture (UI themes, sprite sheets, ...). Ported from
 // Sedulous.Images/ImageAtlasBuilder.bf.

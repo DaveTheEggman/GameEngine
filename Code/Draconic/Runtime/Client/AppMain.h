@@ -1,13 +1,13 @@
-// DRACONIC_APP_MAIN(AppType) — generates the program entry point for a client app.
+// DRACONIC_APP_MAIN(AppType) - generates the program entry point for a client app.
 //
 // This is a classic header (macros can't live in a module). Use it in the app's
 // main translation unit, which must import:
 //   - draconic.runtime.client          (IApplication)
-//   - draconic.runtime.desktop         (RunApplication — the desktop runner)
+//   - draconic.runtime.desktop         (RunApplication - the desktop runner)
 //   - draconic.shell.desktop           (CreateShell)
 //   - draconic.graphics + draconic.graphics.gpu (the GPU device)
 // The entry point creates the shell window, a GraphicsDevice (so the window
-// actually presents — without one the window never becomes visible on Wayland),
+// actually presents - without one the window never becomes visible on Wayland),
 // the app, and hands all three to the desktop runner (which drives an
 // ApplicationHost). AppType must be an IApplication (or DefaultApplication), and
 // should clear/draw in OnRenderWindow (e.g. `frame.Clear(...)`).

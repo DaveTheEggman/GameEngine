@@ -1,4 +1,4 @@
-/// Draconic::AnimationSubsystem — `draconic.animation.subsystem`, the scene side of skeletal animation.
+/// Draconic::AnimationSubsystem - `draconic.animation.subsystem`, the scene side of skeletal animation.
 ///
 /// SkeletalAnimationComponent (single clip) + AnimationGraphComponent (state machine / blend trees),
 /// their managers (the animation<->render seam), and the AnimationSubsystem that injects the managers

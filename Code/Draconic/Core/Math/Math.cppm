@@ -1,4 +1,4 @@
-// Draconic Core — :math partition (scalar constants & functions)
+// Draconic Core - :math partition (scalar constants & functions)
 //
 // Scalar math foundation: constants (kPi, kEpsilon, ...) and f32 functions
 // (Abs/Sqrt/Sin/.../Lerp/NearlyEqual). Vector types live in :vector; matrices

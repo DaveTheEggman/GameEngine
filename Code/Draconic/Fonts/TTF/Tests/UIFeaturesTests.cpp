@@ -1,4 +1,4 @@
-// Ported from Sedulous.Fonts.Tests/UIFeaturesTests.bf — the font-driven shaper
+// Ported from Sedulous.Fonts.Tests/UIFeaturesTests.bf - the font-driven shaper
 // UI helpers (hit testing, cursor position, selection rects, font decoration
 // metrics) over the bundled Roboto asset. The pure value-type cases live in
 // the core types suite.

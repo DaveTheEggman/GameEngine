@@ -1,4 +1,4 @@
-// Draconic::Content — the `draconic.content` module.
+// Draconic::Content - the `draconic.content` module.
 //
 // A content database: a hierarchical store of serializable objects, addressed by
 // Guid (stable) or by path. A Group is a folder; an Instance is one stored unit
@@ -39,7 +39,7 @@ export namespace draconic::content
     inline bool ReadEnvelopeHeader(IStream& in, Guid& outId, String& outNs, String& outName);
 
     // =======================================================================
-    // Instance — one stored unit: identity + a primary object + data streams.
+    // Instance - one stored unit: identity + a primary object + data streams.
     // =======================================================================
     class Instance
     {
@@ -82,7 +82,7 @@ export namespace draconic::content
     };
 
     // =======================================================================
-    // Group — a folder in the tree: child groups + instances.
+    // Group - a folder in the tree: child groups + instances.
     // =======================================================================
     class Group
     {
@@ -123,7 +123,7 @@ export namespace draconic::content
     };
 
     // =======================================================================
-    // IContentDatabase — the database surface (backends implement it).
+    // IContentDatabase - the database surface (backends implement it).
     // =======================================================================
     class IContentDatabase
     {
@@ -137,7 +137,7 @@ export namespace draconic::content
     };
 
     // =======================================================================
-    // ContentDatabase — VFS-backed. Scans the mount on construction; reads and
+    // ContentDatabase - VFS-backed. Scans the mount on construction; reads and
     // writes through the mount's enumerable/writable capabilities.
     // =======================================================================
     class ContentDatabase final : public IContentDatabase
@@ -377,7 +377,7 @@ export namespace draconic::content
     {
         if (Instance* existing = GetInstance(name)) { return existing; }
         // Mint a GUID that isn't already in use. The RNG is deterministic and Scan() (load-from-disk)
-        // does NOT advance it past the instances it loads — so a fresh instance added to a scanned DB
+        // does NOT advance it past the instances it loads - so a fresh instance added to a scanned DB
         // would otherwise reproduce the FIRST-cooked instance's GUID and alias it (e.g. a runtime-cooked
         // texture colliding with a model's first texture). Re-roll until the id is free.
         Guid id = Guid::Generate(m_db->Rng());

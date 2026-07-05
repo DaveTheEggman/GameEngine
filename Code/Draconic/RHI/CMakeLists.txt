@@ -1,4 +1,4 @@
-# Draconic::RHI — the `draconic.rhi` module (the backend-agnostic RHI interface).
+# Draconic::RHI - the `draconic.rhi` module (the backend-agnostic RHI interface).
 # Ported from the Draconic RHI, adapted to Draconic types (draconic.core) and the
 # minimal-STL / -fno-exceptions / -fno-rtti policy. Backends (Null, Vulkan, DX12,
 # Validation) are separate targets.
@@ -30,15 +30,15 @@ target_sources(DraconicRHI
 add_subdirectory(Null)
 add_subdirectory(Validation)
 
-# Vulkan backend — built when the Vulkan SDK is available.
+# Vulkan backend - built when the Vulkan SDK is available.
 find_package(Vulkan QUIET)
 if(Vulkan_FOUND)
     add_subdirectory(Vulkan)
 else()
-    message(STATUS "Vulkan not found — skipping Draconic::RHIVulkan")
+    message(STATUS "Vulkan not found - skipping Draconic::RHIVulkan")
 endif()
 
-# DX12 backend — Windows only.
+# DX12 backend - Windows only.
 if(WIN32)
     add_subdirectory(DX12)
 endif()

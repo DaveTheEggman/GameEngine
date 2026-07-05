@@ -1,4 +1,4 @@
-// Draconic Runtime — :context partition
+// Draconic Runtime - :context partition
 //
 // Context: owns the engine's subsystems, looks them up by type, and drives
 // their lifecycle and per-frame phases in UpdateOrder. Type identity uses the

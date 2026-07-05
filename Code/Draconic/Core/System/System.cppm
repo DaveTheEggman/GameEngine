@@ -1,4 +1,4 @@
-// Draconic Core — :system partition
+// Draconic Core - :system partition
 //
 // Platform abstraction. Exports thin wrappers that forward to the per-platform
 // backend (see SystemBackend.h). Higher-level subsystems (IO, Threading,

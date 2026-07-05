@@ -1,4 +1,4 @@
-/// Shader compilation helpers — wraps DXC compile + createShaderModule into one call.
+/// Shader compilation helpers - wraps DXC compile + createShaderModule into one call.
 /// Automatically selects SPIR-V (Vulkan) or DXIL (DX12) based on device type.
 /// Applies Vulkan binding shifts when targeting SPIR-V.
 

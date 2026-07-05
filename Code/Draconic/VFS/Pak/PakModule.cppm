@@ -1,4 +1,4 @@
-// Draconic::VFS::Pak — the `draconic.vfs.pak` module.
+// Draconic::VFS::Pak - the `draconic.vfs.pak` module.
 //
 // A packed, read-only archive backend for the VFS (the shipping counterpart to
 // the disk backend). PakFileSystem implements read + enumerate over a single
@@ -35,7 +35,7 @@ export namespace draconic::vfs
     inline constexpr u16 kCompressionNone = 0u;
 
     // =======================================================================
-    // PakFileSystem — read + enumerate over a .pak archive. Immutable.
+    // PakFileSystem - read + enumerate over a .pak archive. Immutable.
     // =======================================================================
     class PakFileSystem final : public IFileSystem, public IEnumerableFileSystem
     {
@@ -194,7 +194,7 @@ export namespace draconic::vfs
     };
 
     // =======================================================================
-    // PakBuilder — offline writer. Add entries, then Write the archive.
+    // PakBuilder - offline writer. Add entries, then Write the archive.
     // =======================================================================
     class PakBuilder
     {

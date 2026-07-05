@@ -35,7 +35,7 @@ public:
     // ---- Adapter interface ----
 
     void GetInfo(AdapterInfo& out) override {
-        // DXGI Description is a WCHAR[] (UTF-16) — transcode to the UTF-8 String.
+        // DXGI Description is a WCHAR[] (UTF-16) - transcode to the UTF-8 String.
         out.name = ToUTF8(WideStringView(reinterpret_cast<const widechar*>(m_desc.Description)));
         out.vendorId = m_desc.VendorId;
         out.deviceId = m_desc.DeviceId;

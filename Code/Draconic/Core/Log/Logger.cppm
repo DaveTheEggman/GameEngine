@@ -1,4 +1,4 @@
-// Draconic Core — :logger partition
+// Draconic Core - :logger partition
 //
 // Logging frontend: log levels, the ILogSink interface, the Logger (sink list
 // + level filter) and the Logf frontend behind the DRACONIC_LOG_* macros.
@@ -77,7 +77,7 @@ export namespace draconic::core
     }
 
     // -----------------------------------------------------------------------
-    // Logger — owns the sink list and the active level filter.
+    // Logger - owns the sink list and the active level filter.
     // -----------------------------------------------------------------------
     // Thread-safe: an atomic level filters cheaply on the hot path; a mutex
     // guards sink registration and dispatch.
@@ -135,7 +135,7 @@ export namespace draconic::core
     }
 
     // -----------------------------------------------------------------------
-    // Frontend — formats and dispatches (used by the DRACONIC_LOG_* macros).
+    // Frontend - formats and dispatches (used by the DRACONIC_LOG_* macros).
     // The format buffer is UTF-8, matching the Logger/sink UTF-8 API.
     // -----------------------------------------------------------------------
     template <typename... Args>

@@ -1,4 +1,4 @@
-# Draconic::AnimationResource — `draconic.animation.resource`: skeletons + clips as
+# Draconic::AnimationResource - `draconic.animation.resource`: skeletons + clips as
 # cooked resources (Source -> Factory -> runtime Skeleton/AnimationClip).
 add_library(DraconicAnimationResource STATIC)
 add_library(Draconic::AnimationResource ALIAS DraconicAnimationResource)

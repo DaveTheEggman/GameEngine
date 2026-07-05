@@ -1,4 +1,4 @@
-# Draconic::Core — the foundation module (`draconic.core`).
+# Draconic::Core - the foundation module (`draconic.core`).
 #
 # One named module composed of partitions (one per subsystem), re-exported by
 # CoreModule.cppm. Built as a static library for now.

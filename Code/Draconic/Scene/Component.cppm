@@ -1,19 +1,19 @@
-/// Draconic::Scene — the `:component` partition.
+/// Draconic::Scene - the `:component` partition.
 ///
 /// The value-pool component contract. A component is plain value data; the typed
 /// ComponentManager<T> owns its storage, lifecycle, iteration, and serialization, and
 /// is the only thing that touches the concrete type. Storage is a **sparse set**:
-///   * m_dense  — a truly contiguous Array<T> (no holes), for cache-friendly ForEach /
+///   * m_dense  - a truly contiguous Array<T> (no holes), for cache-friendly ForEach /
 ///                Dense() iteration and direct GPU/system extraction.
-///   * m_owners — the owning EntityHandle per dense slot (parallel to m_dense).
-///   * m_sparse — entity-index -> dense-index, for O(1) Has/Get/Remove by entity.
+///   * m_owners - the owning EntityHandle per dense slot (parallel to m_dense).
+///   * m_sparse - entity-index -> dense-index, for O(1) Has/Get/Remove by entity.
 /// Removal is swap-with-last (keeps m_dense packed). Components are referenced by their
-/// owning entity (the EntityHandle's generation is the staleness check) — never by a
+/// owning entity (the EntityHandle's generation is the staleness check) - never by a
 /// stashed pointer (the pools move). At most one component of type T per entity.
 ///
 /// A specific manager that needs stable addresses or in-pool polymorphism can swap its
-/// internal storage (e.g. to UniquePtr<T> slots) behind this same API — the escape
-/// hatch from the storage decision — with no consumer impact.
+/// internal storage (e.g. to UniquePtr<T> slots) behind this same API - the escape
+/// hatch from the storage decision - with no consumer impact.
 
 module;
 #include "Core/Prelude.h"
@@ -60,7 +60,7 @@ public:
 template <typename T>
 class ComponentManager : public ComponentManagerBase {
 public:
-    // Adds a component for `entity` (one per type per entity — asserts otherwise) and
+    // Adds a component for `entity` (one per type per entity - asserts otherwise) and
     // returns a transient reference. Do not stash the reference across structural
     // changes; re-resolve via Get(entity). Initialization is deferred to the next
     // InitializePendingComponents (so sibling components can be set up first).
@@ -149,7 +149,7 @@ private:
         const u32* found = m_sparse.Find(entity.index);
         if (found == nullptr) { return kInvalid; }
         const u32 dense = *found;
-        // The stored owner carries the full handle — a stale (reused-slot) entity
+        // The stored owner carries the full handle - a stale (reused-slot) entity
         // handle won't match its generation, so it reads as absent.
         return (m_owners[dense] == entity) ? dense : kInvalid;
     }
@@ -164,7 +164,7 @@ private:
 // `Serialize(ISerializer&, T&)` overload (found by ADL); the manager drives it per
 // component. Construct with a stable on-disk type id (used to route records to this
 // manager on load). Subclass this (instead of ComponentManager<T>) for serializable
-// components — keeping serialization opt-in.
+// components - keeping serialization opt-in.
 template <typename T>
 class SerializableComponentManager : public ComponentManager<T> {
 public:

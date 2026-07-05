@@ -1,5 +1,5 @@
 #include <new>
-/// Sample005 — Multiple Bind Groups with Dynamic Offsets.
+/// Sample005 - Multiple Bind Groups with Dynamic Offsets.
 /// Ported from Sedulous Sample005_BindGroups.
 /// 4x4 grid of lit cubes, each with unique color via dynamic offset.
 

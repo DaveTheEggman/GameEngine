@@ -1,4 +1,4 @@
-// Draconic Core — :unique_ptr partition
+// Draconic Core - :unique_ptr partition
 //
 // UniquePtr<T>: sole ownership; frees through the owning allocator. Allocation
 // is explicit (the allocator is passed at creation), matching engine policy.

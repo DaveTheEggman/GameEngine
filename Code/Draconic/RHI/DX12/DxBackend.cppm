@@ -121,7 +121,7 @@ private:
     Array<Adapter*>               m_adapterPtrs;
 };
 
-/// Creates a DX12 backend. Caller owns the returned pointer — dispose via destroy().
+/// Creates a DX12 backend. Caller owns the returned pointer - dispose via destroy().
 [[nodiscard]] Status CreateDxBackend(const DxBackendDesc& desc, Backend*& out) {
     out = nullptr;
     auto* b = new DxBackendImpl();

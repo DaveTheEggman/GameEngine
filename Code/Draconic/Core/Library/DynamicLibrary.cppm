@@ -1,8 +1,8 @@
-// Draconic Core — :library partition
+// Draconic Core - :library partition
 //
 // DynamicLibrary: an RAII handle over the System raw dynamic-library calls,
 // with typed symbol resolution. Foundation for the future plugin/module system
-// (discover, load, init/shutdown lifecycle, hot-reload) — S4.9.
+// (discover, load, init/shutdown lifecycle, hot-reload) - S4.9.
 
 module;
 #include "Core/Prelude.h"

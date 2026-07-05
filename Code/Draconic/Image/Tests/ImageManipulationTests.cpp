@@ -1,4 +1,4 @@
-// Ported from Sedulous.Images.Tests/ImageTests.bf — Image construction, pixel
+// Ported from Sedulous.Images.Tests/ImageTests.bf - Image construction, pixel
 // get/set, clear/fill, flips, format conversion, channel helpers. Mirrors the
 // Sedulous assertions (Test.Assert -> CHECK; pixel.R/G/B/A -> .r/.g/.b/.a;
 // ConvertFormat returns Image directly so no `.Value`; Sedulous Color32.Lime

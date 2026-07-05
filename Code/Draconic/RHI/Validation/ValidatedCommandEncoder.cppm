@@ -26,7 +26,7 @@ public:
 
     ~ValidatedCommandEncoder() override {
         // Bundle encoders (and the bundles they own) live until the command encoder is
-        // destroyed — by then its submission has completed, so the inner bundles are done.
+        // destroyed - by then its submission has completed, so the inner bundles are done.
         for (auto* e : m_bundleEncoders) delete e;
     }
 

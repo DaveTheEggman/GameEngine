@@ -32,7 +32,7 @@ struct BindingShifts {
         case BindingType::BindlessTextures:
         case BindingType::AccelerationStructure:
         // A read-only StructuredBuffer is an SRV in HLSL (a `t` register), so it takes the SRV
-        // shift — unlike RWStructuredBuffer (a `u` register / UAV). DXC shifts the SPIR-V
+        // shift - unlike RWStructuredBuffer (a `u` register / UAV). DXC shifts the SPIR-V
         // binding accordingly, so the layout must use the same class to match.
         case BindingType::StorageBufferReadOnly:
             return binding + srvShift;

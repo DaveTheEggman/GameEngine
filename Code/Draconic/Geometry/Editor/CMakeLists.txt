@@ -1,4 +1,4 @@
-# Draconic::MeshEditor — `draconic.geometry.editor` (tooling: Static/SkinnedMeshAsset ->
+# Draconic::MeshEditor - `draconic.geometry.editor` (tooling: Static/SkinnedMeshAsset ->
 # Static/SkinnedMeshSource cook). Never linked by the runtime.
 add_library(DraconicMeshEditor STATIC)
 add_library(Draconic::MeshEditor ALIAS DraconicMeshEditor)

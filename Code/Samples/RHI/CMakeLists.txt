@@ -1,4 +1,4 @@
-# Draconic RHI samples (GPU/display dependent — built, not run in CI).
+# Draconic RHI samples (GPU/display dependent - built, not run in CI).
 
 add_subdirectory(Sample001_Triangle)
 add_subdirectory(Sample002_Textures)

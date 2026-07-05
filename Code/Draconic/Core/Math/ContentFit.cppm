@@ -1,8 +1,8 @@
-// Draconic Core — :content_fit partition
+// Draconic Core - :content_fit partition
 //
 // ContentFit: how a content box (of `contentSize`) is placed inside an outer `region`
 // through a FitMode, and the maps between REGION-space and content-space. Pure geometry
-// — the outer rect is region-space (the caller's coordinate space); it is NOT inherently
+// - the outer rect is region-space (the caller's coordinate space); it is NOT inherently
 // a window. The renderer places the image with DstRect/SrcRect; input remaps points with
 // ToContent/FromContent. One computation shared by both, so they can never drift.
 // (See docs/design/viewport-input.md §4.3.)
@@ -19,10 +19,10 @@ import :rectangle;
 export namespace draconic::core
 {
     // How content is scaled to fit its region:
-    //  Stretch      — fill the region, ignore aspect (may distort).
-    //  Letterbox    — preserve aspect, fit inside, bars on the short axis.
-    //  Crop         — preserve aspect, fill the region, overflow cropped (source sliced).
-    //  IntegerScale — like Letterbox but the scale is floored to a whole number (pixel-art).
+    //  Stretch      - fill the region, ignore aspect (may distort).
+    //  Letterbox    - preserve aspect, fit inside, bars on the short axis.
+    //  Crop         - preserve aspect, fill the region, overflow cropped (source sliced).
+    //  IntegerScale - like Letterbox but the scale is floored to a whole number (pixel-art).
     enum class FitMode { Stretch, Letterbox, Crop, IntegerScale };
 
     struct ContentFit
@@ -41,7 +41,7 @@ export namespace draconic::core
         [[nodiscard]] Rectangle SrcRect() const noexcept { return Compute().src; }
 
         // Region-space point -> content-space. Returns false when the point is outside the drawn
-        // content (e.g. a letterbox bar) — the "no hit" contract for input.
+        // content (e.g. a letterbox bar) - the "no hit" contract for input.
         [[nodiscard]] bool ToContent(Vector2 pt, Vector2& out) const noexcept
         {
             const Placement p = Compute();

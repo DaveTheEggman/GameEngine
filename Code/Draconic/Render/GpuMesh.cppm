@@ -1,10 +1,10 @@
-/// Draconic::Render — the `:gpu_mesh` partition.
+/// Draconic::Render - the `:gpu_mesh` partition.
 ///
 /// GpuMeshCache: uploads a StaticMesh's vertex + index streams to the GPU on first use and
 /// caches them by mesh pointer (so repeated draws reuse the buffers). The streams are
-/// sub-allocated from shared vertex/index pools (§8 — no per-mesh buffers); a mesh records
+/// sub-allocated from shared vertex/index pools (§8 - no per-mesh buffers); a mesh records
 /// the pool buffer + its byte offset, and draws bind with that offset. Part of the
-/// scene-agnostic renderer — it consumes geometry, not a scene. Skinning streams are later.
+/// scene-agnostic renderer - it consumes geometry, not a scene. Skinning streams are later.
 
 module;
 #include "Core/Prelude.h"

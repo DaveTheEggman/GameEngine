@@ -1,9 +1,9 @@
-/// Draconic::Render — the `:sky` partition.
+/// Draconic::Render - the `:sky` partition.
 ///
 /// Draws the environment as the visible background: a fullscreen triangle at the far plane, depth-
 /// tested (LessEqual, no write) against the forward depth so it only fills pixels no geometry covered,
 /// reconstructing a world-space view ray per pixel (inverse view-proj) and sampling the env cubemap.
-/// Runs after the forward pass, into the same (HDR) color target, before tonemap — so the sky is in
+/// Runs after the forward pass, into the same (HDR) color target, before tonemap - so the sky is in
 /// the linear working space and gets tonemapped with the scene.
 
 module;
@@ -71,7 +71,7 @@ PSOut main(PSIn i) {
 
     // Camera-motion velocity: reproject the (infinite) view ray through last frame's view-proj (w=0, a
     // direction) and take the UV delta, in UNJITTERED NDC. The ray is reconstructed through the UNJITTERED
-    // InvViewProj (so the background is temporally invariant under a static camera — no per-pixel jitter
+    // InvViewProj (so the background is temporally invariant under a static camera - no per-pixel jitter
     // oscillation for TAA to chase), which makes i.ndc the geometric current NDC directly. The previous
     // term still unjitters (PrevViewProj carries last frame's jitter; +Jitter.zw removes it).
     float4 prevClip = mul(float4(dir, 0.0), PrevViewProj);

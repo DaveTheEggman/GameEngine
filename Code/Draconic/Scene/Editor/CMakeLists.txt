@@ -1,4 +1,4 @@
-# Draconic::SceneEditor — `draconic.scene.editor` (tooling: the scene SAVE/cook path).
+# Draconic::SceneEditor - `draconic.scene.editor` (tooling: the scene SAVE/cook path).
 # Never linked by the runtime.
 add_library(DraconicSceneEditor STATIC)
 add_library(Draconic::SceneEditor ALIAS DraconicSceneEditor)

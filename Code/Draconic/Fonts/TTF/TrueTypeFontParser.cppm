@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:parser partition
+// Draconic::FontsTTF - draconic.fonts.ttf:parser partition
 //
 // IFontParser for TrueType/OpenType (.ttf/.ttc/.otf): copies source bytes into
 // an owned buffer and builds a TrueTypeFont. Atlas baking is a separate step.

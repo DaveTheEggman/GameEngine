@@ -1,4 +1,4 @@
-// SampleApp — abstract base for RHI samples (adapted from the Draconic sample
+// SampleApp - abstract base for RHI samples (adapted from the Draconic sample
 // framework to Draconic's shell). Brings up a window (draconic.shell),
 // a Vulkan backend (validation-wrapped), device, queue, and swap chain; pumps
 // events, tracks timing, and calls OnRender(). Resize is detected by polling the

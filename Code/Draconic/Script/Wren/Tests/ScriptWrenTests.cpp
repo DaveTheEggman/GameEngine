@@ -97,7 +97,7 @@ TEST_CASE("wren: errors are surfaced to a handler")
     CHECK(errors.lastKind == ScriptErrorKind::Runtime);
     CHECK(!errors.lastMessage.IsEmpty());
 
-    // Clearing the handler restores default (console) reporting — no more captures.
+    // Clearing the handler restores default (console) reporting - no more captures.
     ctx->SetErrorHandler(nullptr);
     const int afterRuntime = errors.count;
     CHECK_FALSE(ctx->Load(u8"more @#$ garbage", u8"main").IsOk());

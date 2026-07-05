@@ -1,4 +1,4 @@
-# Draconic::Render unit tests (doctest; Null RHI — no real GPU).
+# Draconic::Render unit tests (doctest; Null RHI - no real GPU).
 
 add_executable(DraconicRenderTests
     TestsMain.cpp

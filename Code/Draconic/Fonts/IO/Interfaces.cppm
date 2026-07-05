@@ -1,8 +1,8 @@
-// Draconic::FontsIO — draconic.fonts.io:interfaces partition
+// Draconic::FontsIO - draconic.fonts.io:interfaces partition
 //
 // The source-format load pipeline contracts: IFontParser (source bytes -> a
 // queryable IFont) and IFontAtlasBaker (a parsed IFont -> a renderable
-// IFontAtlas). Baked `.font` resources skip this pipeline entirely — they are
+// IFontAtlas). Baked `.font` resources skip this pipeline entirely - they are
 // pre-completed (IFont, IFontAtlas) pairs. Ported from Sedulous.Fonts.IO
 // (IFontParser.bf, IFontAtlasBaker.bf).
 

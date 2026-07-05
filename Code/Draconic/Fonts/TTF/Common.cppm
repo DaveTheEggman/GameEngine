@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:common partition
+// Draconic::FontsTTF - draconic.fonts.ttf:common partition
 //
 // Small helpers shared by the TTF parser + atlas baker: the supported
 // extension list and a case-insensitive extension compare. Sedulous duplicated
@@ -32,7 +32,7 @@ export namespace draconic::fonts
         return true;
     }
 
-    // .ttf / .ttc / .otf — the formats the TTF backend handles.
+    // .ttf / .ttc / .otf - the formats the TTF backend handles.
     [[nodiscard]] inline Span<const StringView> TrueTypeExtensions()
     {
         static const StringView exts[] = { StringView(u8".ttf"), StringView(u8".ttc"), StringView(u8".otf") };

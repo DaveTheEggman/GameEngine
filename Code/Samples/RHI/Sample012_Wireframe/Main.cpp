@@ -1,5 +1,5 @@
 #include <new>
-/// Sample012 — Wireframe. Ported from Sedulous Sample012_Wireframe.
+/// Sample012 - Wireframe. Ported from Sedulous Sample012_Wireframe.
 /// Renders a rotating icosahedron in wireframe mode.
 
 #include <cmath>

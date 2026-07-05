@@ -1,4 +1,4 @@
-# Draconic::Profiler — `draconic.profiler` (lightweight hierarchical CPU scope profiler over Core).
+# Draconic::Profiler - `draconic.profiler` (lightweight hierarchical CPU scope profiler over Core).
 # Instrumented across the engine via the DRACONIC_PROFILE_SCOPE macro (Profiler.h); compiles to
 # nothing when DRACONIC_PROFILING is off.
 

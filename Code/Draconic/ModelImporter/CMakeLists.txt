@@ -1,4 +1,4 @@
-# Draconic::ModelImporter — `draconic.modelimporter`, the top-level model import pipeline.
+# Draconic::ModelImporter - `draconic.modelimporter`, the top-level model import pipeline.
 # Bridges the model loaders (draconic.model IR) to the engine's cooked resources: it
 # converts a loaded Model into the geometry/material/texture/animation *Source types
 # and cooks them through the editor stack into a content database. This is the only

@@ -1,6 +1,6 @@
 /// Abstract Backend, Adapter, and Device interfaces.
 ///
-/// Backend is the entry point — it enumerates GPU adapters and creates
+/// Backend is the entry point - it enumerates GPU adapters and creates
 /// presentation surfaces. Adapter represents a physical GPU. Device is
 /// the central factory for all GPU resources.
 ///
@@ -74,7 +74,7 @@ public:
     virtual Status CreateDevice(const DeviceDesc& desc, Device*& out) = 0;
 };
 
-/// Selection preference for an adapter type — lower is more preferred.
+/// Selection preference for an adapter type - lower is more preferred.
 /// Defines the single source of truth for "best GPU first" ordering.
 [[nodiscard]] inline int AdapterPreferenceRank(AdapterType type) {
     switch (type) {

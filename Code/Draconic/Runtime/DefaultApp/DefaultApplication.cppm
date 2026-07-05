@@ -1,4 +1,4 @@
-// Draconic::RuntimeDefaultApp — the `draconic.runtime.defaultapp` module.
+// Draconic::RuntimeDefaultApp - the `draconic.runtime.defaultapp` module.
 //
 // DefaultApplication: an opinionated IApplication base that registers the standard
 // engine subsystems. A game that wants the batteries-included engine writes
@@ -6,7 +6,7 @@
 // (calling the base first); a game that wants only its own subsystems implements
 // IApplication directly and links none of this.
 //
-// This lives in its OWN library — separate from draconic.runtime.client — precisely
+// This lives in its OWN library - separate from draconic.runtime.client - precisely
 // so the base client never pulls in the engine subsystem libraries. As the
 // standard subsystems (input/scene/render/...) land, this library gains the
 // dependencies; the base client stays lean. Stub for now (no subsystems exist).
@@ -39,7 +39,7 @@ export namespace draconic::runtime
     public:
         // Press P to print the previous frame's CPU scope tree + per-pass GPU timing. A game
         // subclass that overrides OnUpdate should call DefaultApplication::OnUpdate(host, dt) to
-        // keep the hotkey. (Reads the GPU timestamps after a device stall — fine for an on-demand dump.)
+        // keep the hotkey. (Reads the GPU timestamps after a device stall - fine for an on-demand dump.)
         void OnUpdate(IApplicationHost& host, core::f32 /*deltaTime*/) override
         {
             IShell* plat = host.Shell();
@@ -71,7 +71,7 @@ export namespace draconic::runtime
         }
 
         // Default render: draw every active scene into the window via the RenderSubsystem.
-        // A game overrides this for custom rendering. (Single-scene for now — multiple
+        // A game overrides this for custom rendering. (Single-scene for now - multiple
         // active scenes would each clear; compositing is a later concern.)
         void OnRenderWindow(IApplicationHost& host, FrameContext& frame) override
         {
@@ -80,7 +80,7 @@ export namespace draconic::runtime
             if (render == nullptr || !render->IsReady() || scenes == nullptr ||
                 frame.encoder == nullptr || frame.backbufferView == nullptr || frame.window == nullptr)
             {
-                frame.Clear(0.08f, 0.09f, 0.12f, 1.0f);   // no renderer — present a clear
+                frame.Clear(0.08f, 0.09f, 0.12f, 1.0f);   // no renderer - present a clear
                 return;
             }
 

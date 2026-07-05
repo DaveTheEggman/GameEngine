@@ -1,4 +1,4 @@
-# Draconic::ShaderSystem — `draconic.shaders.system` (variant compile-on-demand + cache).
+# Draconic::ShaderSystem - `draconic.shaders.system` (variant compile-on-demand + cache).
 # Needs the RHI (to create GPU modules) on top of the RHI-free draconic.shaders.
 
 add_library(DraconicShaderSystem STATIC)

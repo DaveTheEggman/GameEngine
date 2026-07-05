@@ -1,4 +1,4 @@
-// Draconic Core — System backend, Win32 implementation.
+// Draconic Core - System backend, Win32 implementation.
 //
 // NOTE: written against SystemBackend.h for Windows/MSVC; not compiled in the
 // Linux dev environment. Validate on Windows.

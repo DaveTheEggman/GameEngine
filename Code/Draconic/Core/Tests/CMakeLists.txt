@@ -39,7 +39,7 @@ target_compile_definitions(DraconicCoreTests PRIVATE
     DRACONIC_TEST_PLUGIN_PATH="$<TARGET_FILE:DraconicTestPlugin>")
 
 # doctest 2.4.11 includes <ciso646>, which emits a deprecation #warning under
-# C++23. It's third-party noise — de-promote just that warning for this target;
+# C++23. It's third-party noise - de-promote just that warning for this target;
 # our own code keeps -Werror.
 target_compile_options(DraconicCoreTests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"

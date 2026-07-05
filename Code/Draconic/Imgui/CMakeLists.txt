@@ -1,4 +1,4 @@
-# Draconic::Imgui — `draconic.imgui`, the Dear ImGui debug-UI integration (RHI renderer + subsystem).
+# Draconic::Imgui - `draconic.imgui`, the Dear ImGui debug-UI integration (RHI renderer + subsystem).
 # Links the vendored Draconic::ImGui PUBLIC so consumers (apps) get imgui.h + the ImGui:: API directly.
 add_library(DraconicImgui STATIC)
 add_library(Draconic::Imgui ALIAS DraconicImgui)

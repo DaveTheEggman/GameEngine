@@ -1,14 +1,14 @@
-/// Draconic::RenderSubsystem — the `:subsystem` partition.
+/// Draconic::RenderSubsystem - the `:subsystem` partition.
 ///
 /// RenderSubsystem: the Context-level driver that connects scenes to the (scene-agnostic)
-/// renderer. It owns the GPU systems — the DXC compiler, ShaderSystem, PipelineStateCache,
-/// the MeshRenderer + RendererRegistry, and the per-frame RenderFrame driver — and, as an
+/// renderer. It owns the GPU systems - the DXC compiler, ShaderSystem, PipelineStateCache,
+/// the MeshRenderer + RendererRegistry, and the per-frame RenderFrame driver - and, as an
 /// ISceneAware, injects the mesh/camera component managers into each scene on creation.
 ///
 /// It implements ISceneRenderer (Begin/RenderScene×N/End): the app's render callback brackets
 /// the frame with BeginRendering/EndRendering and calls RenderScene per active scene. Each
 /// RenderScene extracts the scene into an ExtractedScene snapshot and collects a RenderView;
-/// EndRendering composes all views. (No MaterialSystem yet — the built-in forward shader binds
+/// EndRendering composes all views. (No MaterialSystem yet - the built-in forward shader binds
 /// no material set; that lands with material binding in phase 3.)
 
 module;
@@ -117,7 +117,7 @@ public:
         if (m_frame.Get() != nullptr) { m_frame->CullStats(culled, total); } else { culled = 0; total = 0; }
     }
 
-    // FXAA on/off (TAA-off fallback AA — ignored while TAA is on) + sub-pixel quality (0..1).
+    // FXAA on/off (TAA-off fallback AA - ignored while TAA is on) + sub-pixel quality (0..1).
     void SetFxaaEnabled(bool on) noexcept { m_fxaaEnabled = on; }
     [[nodiscard]] bool FxaaEnabled() const noexcept { return m_fxaaEnabled; }
     void SetFxaaSubpixel(f32 v) noexcept { m_fxaaSubpixel = v; }
@@ -126,7 +126,7 @@ public:
     // Debug draw (immediate-mode, cleared each frame after rendering). Three destinations by WHERE the
     // draw lands: DebugGlobal() = drawn in EVERY view (world gizmos + per-view HUD, replicated per view);
     // DebugScene(scene) = only where that scene renders (no side-by-side bleed); DebugScreen() = ONCE over
-    // the whole window (screen-space HUD — text/rects; 3D calls have no camera here and are ignored).
+    // the whole window (screen-space HUD - text/rects; 3D calls have no camera here and are ignored).
     [[nodiscard]] debug::DebugDraw& DebugGlobal() noexcept { return m_debugGlobal; }
     [[nodiscard]] debug::DebugDraw& DebugScene(scene::Scene& s) {
         if (debug::DebugDraw* p = m_debugScenes.Find(&s)) { return *p; }
@@ -153,7 +153,7 @@ public:
     [[nodiscard]] f32 ShadowFarFade() const noexcept { return m_shadowFarFade; }
 
     // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
-    // are valid — intended for an on-demand dump (the P-key), not per-frame use.
+    // are valid - intended for an on-demand dump (the P-key), not per-frame use.
     void BuildGpuProfileReport(String& out) {
         if (m_frame.Get() == nullptr || m_device == nullptr) { return; }
         m_device->WaitIdle();
@@ -167,7 +167,7 @@ public:
         if (m_frame.Get() == nullptr) { return; }
         m_sceneCount = 0;
         // Provision per-worker extraction arenas for this frame (one per job-system slot, or a
-        // single slot when the job system is absent — serial fallback).
+        // single slot when the job system is absent - serial fallback).
         const u32 slotCount = HasGlobalJobSystem() ? GlobalJobs().SlotCount() : 1u;
         m_renderCtx.BeginFrame(slotCount);
         m_frame->SetExposure(m_exposure);
@@ -240,7 +240,7 @@ public:
 protected:
     void OnInit() override {
         if (!shaders::createCompiler(shaders::CompilerDesc{}, m_compiler).IsOk() || m_compiler == nullptr) {
-            return;   // no shader compiler — renderer stays inert
+            return;   // no shader compiler - renderer stays inert
         }
         m_shaders  = MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler, *m_device);
         m_psoCache = MakeUnique<materials::PipelineStateCache>(DefaultAllocator(), *m_shaders, *m_device);
@@ -257,30 +257,30 @@ protected:
         else { m_spriteRenderer.Reset(); }
 
         // Debug toggles: flip to false to isolate a subsystem (e.g. bisecting a rendering bug). When
-        // off, the renderer falls back gracefully — clustering off => the shader's all-lights path;
+        // off, the renderer falls back gracefully - clustering off => the shader's all-lights path;
         // shadows off => unshadowed. Kept as compile-time flags (zero cost when on).
         constexpr bool kEnableClusters = true;
         constexpr bool kEnableShadows  = true;
 
         // Clustered light culling: a build compute pass per view (declared into the frame graph by
-        // RenderFrame). Optional — if it fails to init, the renderer runs without clustering.
+        // RenderFrame). Optional - if it fails to init, the renderer runs without clustering.
         if (kEnableClusters) {
             m_clusterSystem = MakeUnique<ClusterSystem>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
             if (!m_clusterSystem->Initialize().IsOk()) { m_clusterSystem.Reset(); }
         }
 
-        // HDR resolve: forward renders linear HDR, this pass tonemaps to the LDR target. Optional —
+        // HDR resolve: forward renders linear HDR, this pass tonemaps to the LDR target. Optional -
         // if it fails to init, the renderer falls back to writing the LDR target directly.
         m_tonemapPass = MakeUnique<TonemapPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
         if (!m_tonemapPass->Initialize().IsOk()) { m_tonemapPass.Reset(); }
 
-        // Directional shadow map (phase 5). Optional — if it fails to init, the scene renders unshadowed.
+        // Directional shadow map (phase 5). Optional - if it fails to init, the scene renders unshadowed.
         if (kEnableShadows) {
             m_shadowSystem = MakeUnique<ShadowSystem>(DefaultAllocator(), *m_device, m_framesInFlight);
             if (!m_shadowSystem->Initialize().IsOk()) { m_shadowSystem.Reset(); }
         }
 
-        // Image-based lighting (phase 6). Optional — if it fails to init, the scene uses flat ambient.
+        // Image-based lighting (phase 6). Optional - if it fails to init, the scene uses flat ambient.
         m_iblSystem = MakeUnique<IBLSystem>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_iblSystem->Initialize().IsOk()) { m_iblSystem.Reset(); }
 

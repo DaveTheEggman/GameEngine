@@ -21,7 +21,7 @@ import :surface;
 
 using namespace draconic::core;
 
-// Linux surface types — forward-declared to avoid header pollution. In the module
+// Linux surface types - forward-declared to avoid header pollution. In the module
 // purview (not the GMF): GCC requires the GMF to contain only #includes.
 #if defined(__linux__)
 extern "C" { typedef struct _XDisplay Display; }
@@ -271,7 +271,7 @@ private:
         void* /*userData*/)
     {
         // Print straight to stderr (not only LogErrorf, whose sink may be swallowed) so validation
-        // is actually visible in dev builds — the point of running with it on.
+        // is actually visible in dev builds - the point of running with it on.
         if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
             std::fprintf(stderr, "[Vulkan ERROR] %s\n", data->pMessage);
             LogErrorf("[Vulkan ERROR] %s", data->pMessage);
@@ -334,7 +334,7 @@ private:
 #endif
 };
 
-/// Creates a Vulkan backend. Caller owns the returned pointer — dispose via destroy().
+/// Creates a Vulkan backend. Caller owns the returned pointer - dispose via destroy().
 [[nodiscard]] Status CreateBackend(const VkBackendDesc& desc, Backend*& out) {
     out = nullptr;
     auto* b = new VkBackendImpl();

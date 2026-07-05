@@ -1,4 +1,4 @@
-// Draconic::Fonts — :types partition
+// Draconic::Fonts - :types partition
 //
 // Value types for font/glyph/text-layout data. Ported from Sedulous.Fonts
 // (Rectangle/GlyphInfo/GlyphQuad/GlyphPosition/AtlasRegion/FontMetrics/
@@ -231,7 +231,7 @@ export namespace draconic::core
 {
     // Hash for FontCacheKey, mirroring Sedulous: path hash combined with the
     // pixel height quantized to hundredths. Equality (operator==) uses a 0.001
-    // tolerance — fine for the discrete font sizes a cache ever sees.
+    // tolerance - fine for the discrete font sizes a cache ever sees.
     template <>
     struct Hash<draconic::fonts::FontCacheKey>
     {

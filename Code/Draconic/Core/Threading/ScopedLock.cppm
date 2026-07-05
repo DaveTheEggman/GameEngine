@@ -1,4 +1,4 @@
-// Draconic Core — :scoped_lock partition
+// Draconic Core - :scoped_lock partition
 //
 // Generic RAII lock guard for any type with Lock()/Unlock().
 

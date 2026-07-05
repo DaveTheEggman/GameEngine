@@ -131,7 +131,7 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
     RemoveTree();
 }
 
-TEST_CASE("animation graph resource: composite — resolves clip refs through the manager")
+TEST_CASE("animation graph resource: composite - resolves clip refs through the manager")
 {
     GlobalTypeRegistry().Register(AnimationClipSource::StaticType());
     RegisterSerializable<AnimationClipSource>();

@@ -9,7 +9,7 @@ import :base;
 export namespace draconic::core
 {
     // =======================================================================
-    // Random — PCG32. Deterministic and seedable (good for replays/tests).
+    // Random - PCG32. Deterministic and seedable (good for replays/tests).
     // =======================================================================
     class Random
     {

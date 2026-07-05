@@ -1,4 +1,4 @@
-# Draconic::ShaderEditor — `draconic.shaders.editor` (tooling: ShaderAsset -> ShaderSource
+# Draconic::ShaderEditor - `draconic.shaders.editor` (tooling: ShaderAsset -> ShaderSource
 # cook). Reads .hlsl text through the VFS; never linked by the runtime.
 add_library(DraconicShaderEditor STATIC)
 add_library(Draconic::ShaderEditor ALIAS DraconicShaderEditor)

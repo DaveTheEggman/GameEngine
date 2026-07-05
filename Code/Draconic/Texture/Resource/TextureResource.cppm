@@ -1,10 +1,10 @@
-// Draconic::TextureResource — the `draconic.texture.resource` module (runtime).
+// Draconic::TextureResource - the `draconic.texture.resource` module (runtime).
 //
 // The GPU texture as a runtime resource (model A, Traktor-style):
 //   * TextureResource (ISerializable): the cooked *record* loaded from the output
-//     DB — dims/RHI-format/mips/shape + sampler state. Cooked pixels live in the
+//     DB - dims/RHI-format/mips/shape + sampler state. Cooked pixels live in the
 //     "data" stream. This is what the factory reads (not bound directly).
-//   * Texture (Object): the runtime product — owns the live rhi::Texture +
+//   * Texture (Object): the runtime product - owns the live rhi::Texture +
 //     rhi::Sampler (created from the record + uploaded "data"). What a renderer
 //     binds.
 //   * TextureFactory (IResourceFactory): device-backed; cooked resource -> GPU
@@ -150,7 +150,7 @@ export namespace draconic::texture
             rhi::Texture* texture = nullptr;
             if (!m_device->CreateTexture(desc, texture).IsOk()) { return RefPtr<Object>{}; }
 
-            // Default sampled view spanning all mips/layers — the currency the material/renderer bind.
+            // Default sampled view spanning all mips/layers - the currency the material/renderer bind.
             rhi::TextureViewDesc vd{};
             vd.format = res->format;
             vd.dimension = rhi::TextureViewDimension::Texture2D;

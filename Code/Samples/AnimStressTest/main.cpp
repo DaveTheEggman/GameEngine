@@ -1,11 +1,11 @@
-// Sandbox — the running dev harness. It extends DefaultApplication (which registers
+// Sandbox - the running dev harness. It extends DefaultApplication (which registers
 // the SceneSubsystem + RenderSubsystem and renders active scenes each frame), creates a
 // scene with two spinning cube grids (instanced + distinct), and lets the engine draw it.
 // As the renderer grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
 #include "Profiler/Profiler.h"   // DRACONIC_PROFILE_SCOPE (isolate animation-drive cost)
-#include "imgui.h"               // Dear ImGui (HUD) — used directly; integration is draconic.imgui
+#include "imgui.h"               // Dear ImGui (HUD) - used directly; integration is draconic.imgui
 
 import draconic.core;
 import draconic.profiler;
@@ -35,7 +35,7 @@ import draconic.resource;                 // ResourceManager + Proxy
 import draconic.model;                    // ModelLoadResult
 import draconic.modelimporter;            // LoadAndCook + ImportedModel manifest
 import draconic.animation;                // AnimationClip / Skeleton
-import draconic.animation.subsystem;      // SkeletalAnimationComponent(Manager) — engine-driven skinning
+import draconic.animation.subsystem;      // SkeletalAnimationComponent(Manager) - engine-driven skinning
 
 #include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
 
@@ -78,7 +78,7 @@ namespace
     {
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU skinning work, not the
-        // display refresh — same as RenderStressTest. The image tears; fine for a benchmark.
+        // display refresh - same as RenderStressTest. The image tears; fine for a benchmark.
         graphics::RenderWindowDesc MainRenderWindow() const override
         {
             graphics::RenderWindowDesc d;
@@ -123,7 +123,7 @@ namespace
                 cam.clearColor = core::Color{ 0.02f, 0.02f, 0.03f, 1.0f };   // dark backdrop so the lit scene reads
             }
 
-            // A large horizontal floor (Plane normal = +Y) under the scene — the animated models stand
+            // A large horizontal floor (Plane normal = +Y) under the scene - the animated models stand
             // on it and the lights cast their shadows onto it.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
                 m_floor = m_scene->CreateEntity(u8"floor");
@@ -133,7 +133,7 @@ namespace
                 fmc.material = materials::CreatePBR(u8"lit", core::Vector4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
             }
 
-            // One directional shadow-casting key light — the whole scene (skinning benchmark, kept light
+            // One directional shadow-casting key light - the whole scene (skinning benchmark, kept light
             // to isolate skinning/animation cost, à la Flax's "5,000 basic characters" reference scene).
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                 scene::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
@@ -159,7 +159,7 @@ namespace
         // The model-import seam: open the cooked-resource output DB, register the geometry factory,
         // load+cook a glTF file through the importer, then spawn its node hierarchy as entities whose
         // MeshComponents reference the cooked StaticMesh resources. This is the clean runtime cook seam
-        // the design calls for — an editor would cook offline and the runtime would only Bind, but the
+        // the design calls for - an editor would cook offline and the runtime would only Bind, but the
         // wiring (factory -> Bind -> render) is identical.
         void LoadImportedModel(runtime::IApplicationHost& host)
         {
@@ -397,7 +397,7 @@ namespace
             m_frameTimeMs = m_frameTimeMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
 
             // TEMP headless auto-profile: hold a fixed count, warm up, then dump CPU + GPU profiler
-            // reports (same as the P key) and exit — for capturing the baseline frame breakdown.
+            // reports (same as the P key) and exit - for capturing the baseline frame breakdown.
             if (kAutoProfile) {
                 m_profileElapsed += deltaTime;
                 if (m_profileElapsed >= 5.0f) {
@@ -483,7 +483,7 @@ namespace
         scene::EntityHandle            m_floor{};
         samples::FlyCamera              m_fly{ .position = core::Vector3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
 
-        // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
+        // Model-import pipeline state (must outlive the spawned entities - the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase>   m_contentDb;

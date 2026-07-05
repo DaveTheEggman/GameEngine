@@ -1,4 +1,4 @@
-# Draconic::Image — `draconic.image` (CPU-side image data + manipulation).
+# Draconic::Image - `draconic.image` (CPU-side image data + manipulation).
 add_library(DraconicImage STATIC)
 add_library(Draconic::Image ALIAS DraconicImage)
 target_link_libraries(DraconicImage PUBLIC Draconic::Core Draconic::Policy)

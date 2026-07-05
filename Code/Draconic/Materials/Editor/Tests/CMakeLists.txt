@@ -1,4 +1,4 @@
-# Draconic::MaterialEditor unit tests (doctest; content DB — no GPU/DXC).
+# Draconic::MaterialEditor unit tests (doctest; content DB - no GPU/DXC).
 
 add_executable(DraconicMaterialEditorTests
     TestsMain.cpp

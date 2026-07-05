@@ -1,6 +1,6 @@
-/// Draconic::Render — the `:data` partition.
+/// Draconic::Render - the `:data` partition.
 ///
-/// The render-data contract — and the boundary that keeps the renderer scene-agnostic.
+/// The render-data contract - and the boundary that keeps the renderer scene-agnostic.
 /// Render data is *extracted and pushed to* the renderer; the renderer never reaches back
 /// into a scene (one-way: the scene-integration layer in draconic.render.subsystem depends
 /// on this, not the reverse).
@@ -35,7 +35,7 @@ namespace rhi = draconic::rhi;
 
 // Forward MRT G-buffer aux target formats, shared by the PSO config (:mesh_renderer) and the pass /
 // transient declarations (:pipeline): target 1 = view-space normal (octahedral XY), target 2 =
-// screen-space motion vector (UV-delta). RG16Float — enough range/precision for both.
+// screen-space motion vector (UV-delta). RG16Float - enough range/precision for both.
 inline constexpr rhi::TextureFormat kGNormalFormat   = rhi::TextureFormat::RG16Float;
 inline constexpr rhi::TextureFormat kGVelocityFormat = rhi::TextureFormat::RG16Float;
 // Target 3 = material params (R=roughness, G=metallic), both in [0,1] → RG8Unorm. Consumed by the
@@ -43,7 +43,7 @@ inline constexpr rhi::TextureFormat kGVelocityFormat = rhi::TextureFormat::RG16F
 // opaque/masked GBUFFER permutation, same as normal/velocity.
 inline constexpr rhi::TextureFormat kGMaterialFormat = rhi::TextureFormat::RG8Unorm;
 
-// A renderable's category — the dispatch key that routes it to a `Renderer`. A plain u16
+// A renderable's category - the dispatch key that routes it to a `Renderer`. A plain u16
 // (not an enum class) so external subsystems (particles, world-space UI) can claim ids
 // beyond the built-ins without touching this enum. Values >= kBuiltinCategoryCount are
 // available to extensions; the `Renderer` registry sizes its table to kMaxCategories.
@@ -67,7 +67,7 @@ inline constexpr u16 kMaxCategories        = 64;   // registry table size (room 
 // (early-Z + state clustering); BackToFront for blended (correct alpha over-compositing).
 enum class SortMode : u8 { FrontToBack, BackToFront };
 
-// Which forward pass emits a category — the split that used to be a hard-coded `cat >= Transparent`.
+// Which forward pass emits a category - the split that used to be a hard-coded `cat >= Transparent`.
 // Opaque = the MRT opaque pass; Blended = the color-only pass after TAA; None = not emitted by the
 // forward passes at all (Sky/Decal/Light have their own dedicated passes or are shading-only inputs).
 enum class PassAffinity : u8 { Opaque, Blended, None };
@@ -93,7 +93,7 @@ public:
         Register(u8"Particle",       SortMode::BackToFront, PassAffinity::Blended);
     }
 
-    // Register a category by name (idempotent — returns the existing id if the name is taken).
+    // Register a category by name (idempotent - returns the existing id if the name is taken).
     // Names are borrowed string literals (must outlive the registry). Returns kMaxCategories on overflow.
     RenderCategory Register(StringView name, SortMode sort, PassAffinity affinity) {
         for (u16 i = 0; i < m_count; ++i) { if (m_info[i].name == name) { return i; } }
@@ -120,11 +120,11 @@ private:
 }
 
 // Base for a unit of renderable work. Arena-allocated, trivially destructible, valid one
-// frame. Dispatch is by `category` (not virtual) — the registered `Renderer` knows the
+// frame. Dispatch is by `category` (not virtual) - the registered `Renderer` knows the
 // concrete subclass and static_casts, so there is no vtable.
 struct RenderData {
     RenderCategory category = RenderCategories::Opaque;
-    // Which renderer draws this item — the per-item dispatch key (ezEngine-style), so several
+    // Which renderer draws this item - the per-item dispatch key (ezEngine-style), so several
     // renderers can share a category (e.g. sprites + transparent meshes both blended) and still be
     // routed correctly. Its value is the renderer's registration id (RendererRegistry assigns them in
     // order); the DEFAULT 0 is the first-registered renderer (the MeshRenderer), so existing mesh data
@@ -133,7 +133,7 @@ struct RenderData {
     // View-space depth sort center (world-space) + a batch-clustering key, read GENERICALLY by the
     // draw-list builder (it no longer downcasts to a concrete type). worldCenter drives the depth sort;
     // sortBatchKey folds (mesh,material)-like identity into the sort so same-state draws stay contiguous
-    // (opaque only — blended zeroes it so depth dominates). Producers set both at extraction.
+    // (opaque only - blended zeroes it so depth dominates). Producers set both at extraction.
     Vector3           worldCenter  = Vector3{ 0, 0, 0 };
     // World-space bounding-sphere radius about worldCenter. Read generically by the draw-list builder
     // for view-frustum culling (every producer sets it: meshes from local bounds, sprites from size).
@@ -144,7 +144,7 @@ struct RenderData {
 // One mesh draw: a mesh + material at a world transform. Pointers are borrowed for the
 // frame (the producer keeps the resources alive). `worldCenter` is the world-space bounds
 // center, used for view-depth sorting (and, later, culling). `entityId` is an opaque tag
-// the producer may set (e.g. a packed entity handle) for picking — meaningless to the core.
+// the producer may set (e.g. a packed entity handle) for picking - meaningless to the core.
 struct MeshRenderData : RenderData {
     Matrix4                  world       = Matrix4::Identity();
     // worldCenter + worldRadius live on the RenderData base now (generic depth sort + cull); see them there.
@@ -179,7 +179,7 @@ struct SpriteRenderData : RenderData {
 };
 static_assert(std::is_trivially_destructible_v<SpriteRenderData>);
 
-// One screen-space projected decal — NOT a `RenderData`/drawable (it isn't dispatched through the
+// One screen-space projected decal - NOT a `RenderData`/drawable (it isn't dispatched through the
 // Renderer path); it's a snapshot list consumed by the standalone DecalPass, like the light list.
 // `world` is the decal's oriented unit box (scale = box size); it projects along its local +Z axis.
 // `texture` is borrowed (the app/resource keeps it alive).
@@ -192,7 +192,7 @@ struct DecalInstance {
 };
 
 // One light, packed for a GPU storage buffer (std430, 64 bytes = 4x float4). A shading input,
-// not a drawable — extracted into the ExtractedScene's light list, uploaded to a storage buffer,
+// not a drawable - extracted into the ExtractedScene's light list, uploaded to a storage buffer,
 // and consumed by the forward shading loop. Directional: dir is the light direction; Point/Spot:
 // position + range (+ spot cone cosines). type: 0 = Directional, 1 = Point, 2 = Spot.
 struct GpuLight {
@@ -240,7 +240,7 @@ struct GpuLocalShadow {
 };
 static_assert(sizeof(GpuLocalShadow) == 96);
 
-// A spot/point light that should cast a shadow — the extraction OUTPUT. The ShadowSystem assigns it
+// A spot/point light that should cast a shadow - the extraction OUTPUT. The ShadowSystem assigns it
 // atlas tile(s) and builds its perspective view-projection(s) at frame time (when the atlas layout is
 // known), then patches the source light's shadowIndex to point at the built entry. type mirrors
 // GpuLight (1 = point, 2 = spot); point lights expand to 6 cube faces in 5.3b.
@@ -296,14 +296,14 @@ struct DrawItem {
 // 64-bit key, MSB-first significance so a single ascending radix sort yields the desired
 // order: [category:16][state:24][depth:24]. Category groups draws by Renderer; `state`
 // (material/PSO identity) clusters same-pipeline draws to minimize state changes; `depth`
-// orders within that — front-to-back for opaque (early-Z), back-to-front for transparent
+// orders within that - front-to-back for opaque (early-Z), back-to-front for transparent
 // (correct blending). The producer inverts depth for transparent before packing.
 
 inline constexpr u32 kSortDepthBits = 24;
 inline constexpr u32 kSortStateBits = 24;
 
 // Fold two borrowed resource pointers into a batch-clustering key for the sort (was Views::BatchBits).
-// Pointer-derived identity is fine for a transient per-frame key — the renderer re-checks exact
+// Pointer-derived identity is fine for a transient per-frame key - the renderer re-checks exact
 // equality when fusing draws, so a hash collision only costs a missed fusion, never a wrong draw.
 [[nodiscard]] inline u32 BatchKey(const void* a, const void* b) noexcept {
     const usize m = reinterpret_cast<usize>(a);
@@ -330,7 +330,7 @@ inline constexpr u32 kSortStateBits = 24;
 // ---- frame arena -----------------------------------------------------------------------
 //
 // A growable, chunked bump allocator for one frame's RenderData. Allocations are valid
-// until Reset() (which keeps the chunks for reuse next frame — no per-frame churn). Only
+// until Reset() (which keeps the chunks for reuse next frame - no per-frame churn). Only
 // trivially-destructible types (RenderData subclasses) are allocated, so Reset() reclaims
 // without running destructors. (Phase 2 swaps this for the double-buffered RenderContext
 // with per-worker arenas; the New<T>/Reset contract stays.)
@@ -360,7 +360,7 @@ public:
                     m_offset = aligned + size;
                     return c.data + aligned;
                 }
-                // doesn't fit this chunk — advance to the next
+                // doesn't fit this chunk - advance to the next
                 ++m_current;
                 m_offset = 0;
                 continue;
@@ -426,7 +426,7 @@ public:
     }
 
     // Adopt an externally-allocated RenderData into the snapshot (the data must outlive this
-    // snapshot's use — e.g. it lives in a RenderContext per-worker arena owned by the producer).
+    // snapshot's use - e.g. it lives in a RenderContext per-worker arena owned by the producer).
     // Used by parallel extraction: workers fill their own arenas, then the merge adopts the
     // pointers here single-threaded.
     void AddExternal(RenderData* data) { if (data != nullptr) { m_items.PushBack(data); } }
@@ -493,7 +493,7 @@ private:
 
 // ---- radix sort ------------------------------------------------------------------------
 //
-// LSD radix sort of DrawItems by their 64-bit key, ascending — O(N), stable, 8 passes of
+// LSD radix sort of DrawItems by their 64-bit key, ascending - O(N), stable, 8 passes of
 // 8 bits. `scratch` is a caller-owned ping-pong buffer (reused across frames to avoid
 // per-frame allocation). After the call `items` is sorted; `scratch`'s contents are
 // unspecified.

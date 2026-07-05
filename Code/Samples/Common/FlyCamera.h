@@ -43,7 +43,7 @@ struct FlyCamera {
         Update(kb, mouse, dt);
     }
 
-    // Apply this frame's input from explicit devices — pass an InputSurface's gated Keyboard()/Mouse()
+    // Apply this frame's input from explicit devices - pass an InputSurface's gated Keyboard()/Mouse()
     // to confine the camera to one viewport. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable
     // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
     void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, draconic::core::f32 dt) {
@@ -81,7 +81,7 @@ struct FlyCamera {
                 position = position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
             }
 
-            // Wheel dollies along the view forward (zoom) — scroll up = move in, down = move out — and
+            // Wheel dollies along the view forward (zoom) - scroll up = move in, down = move out - and
             // shrinks the orbit pivot distance so the turntable pivot tracks the zoom.
             const draconic::core::f32 scroll = mouse->ScrollY();
             if (scroll != 0.0f) {

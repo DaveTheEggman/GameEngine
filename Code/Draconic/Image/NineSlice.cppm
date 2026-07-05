@@ -1,6 +1,6 @@
-// Draconic::Image — :nine_slice partition.
+// Draconic::Image - :nine_slice partition.
 //
-// NineSlice: border insets for 9-slice image scaling — corners stay fixed,
+// NineSlice: border insets for 9-slice image scaling - corners stay fixed,
 // edges stretch along one axis, the center stretches both ways. Ported from
 // Sedulous.Images/NineSlice.bf.
 

@@ -1,9 +1,9 @@
-// Draconic::VG::Renderer — :vertex partition.
+// Draconic::VG::Renderer - :vertex partition.
 //
 // VGRenderVertex: the GPU vertex layout (float2 pos, float2 uv, float4 color,
 // float coverage) the vg shader expects. Built from the CPU VGVertex; the byte
 // Color32 is expanded to float4 with an sRGB->linear decode on RGB (UI/SVG
-// colors are authored sRGB and the swapchain re-encodes on write — decoding here
+// colors are authored sRGB and the swapchain re-encodes on write - decoding here
 // avoids double-encoding). Ported from Sedulous.VG.Renderer/VGRenderVertex.bf.
 
 module;

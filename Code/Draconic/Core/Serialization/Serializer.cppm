@@ -1,4 +1,4 @@
-// Draconic Core — :serializer partition
+// Draconic Core - :serializer partition
 //
 // Serializer: the concrete base over ISerializer that holds the mode, version,
 // and a sticky error Status. Backends (e.g. BinarySerializer) extend this.
@@ -33,7 +33,7 @@ export namespace draconic::core
 
         // Naming and object/array scopes carry no information in unkeyed formats;
         // default them to no-ops. Keyed/text backends override what they need.
-        // (BeginArray/Scalar/Text/Blob stay pure — every backend must move data.)
+        // (BeginArray/Scalar/Text/Blob stay pure - every backend must move data.)
         void Key(const char* name) noexcept override { (void)name; }
         void BeginObject() override {}
         void EndObject() override {}

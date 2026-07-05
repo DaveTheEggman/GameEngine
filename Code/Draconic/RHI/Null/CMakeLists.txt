@@ -1,4 +1,4 @@
-# Draconic::RHINull — `draconic.rhi.null` (headless no-op RHI backend, for tests/tools).
+# Draconic::RHINull - `draconic.rhi.null` (headless no-op RHI backend, for tests/tools).
 
 add_library(DraconicRHINull STATIC)
 add_library(Draconic::RHINull ALIAS DraconicRHINull)

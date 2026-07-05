@@ -1,4 +1,4 @@
-// Draconic::Texture — :format_utils partition
+// Draconic::Texture - :format_utils partition
 //
 // Maps an image PixelFormat to the RHI TextureFormat, honoring the source
 // data's color space. Ported from Sedulous.Textures/TextureFormatUtils.bf.

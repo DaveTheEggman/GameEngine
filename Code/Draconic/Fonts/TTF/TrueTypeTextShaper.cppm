@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:text_shaper partition
+// Draconic::FontsTTF - draconic.fonts.ttf:text_shaper partition
 //
 // Basic left-to-right text shaper + UI helpers (hit testing, cursor/selection
 // geometry, word wrapping) over any IFont. Ported faithfully from
@@ -96,7 +96,7 @@ export namespace draconic::fonts
                 {
                     if (lastSpaceIdx >= lineStartIdx && lastSpaceIdx >= 0)
                     {
-                        // Wrap at the last space — reflow glyphs after it.
+                        // Wrap at the last space - reflow glyphs after it.
                         y += lineHeight;
                         f32 reflowX = 0;
                         i32 lastReflowedCodepoint = 0;
@@ -114,7 +114,7 @@ export namespace draconic::fonts
                     }
                     else
                     {
-                        // No break opportunity — hard wrap.
+                        // No break opportunity - hard wrap.
                         y += lineHeight;
                         x = 0;
                         kern = 0;

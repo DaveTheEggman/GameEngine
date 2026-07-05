@@ -1,4 +1,4 @@
-// Phase 5 — whole-scene serialization round-trip: serialize a scene (entities +
+// Phase 5 - whole-scene serialization round-trip: serialize a scene (entities +
 // transform hierarchy + components) to bytes and deserialize into a fresh scene,
 // preserving Guids, names, parent links, transforms, and component data.
 #include <doctest/doctest.h>

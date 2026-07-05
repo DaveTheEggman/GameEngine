@@ -1,4 +1,4 @@
-/// Draconic::Geometry — the `:types` partition.
+/// Draconic::Geometry - the `:types` partition.
 ///
 /// Value-type vocabulary for the engine's runtime mesh format (distinct from
 /// draconic.model, which is the importer's representation of a loaded file): the
@@ -30,7 +30,7 @@ struct SubMesh {
     PrimitiveType primitiveType = PrimitiveType::Triangles;
 };
 
-// The static vertex stream — 48 bytes, matching VertexLayoutType::Mesh (locations
+// The static vertex stream - 48 bytes, matching VertexLayoutType::Mesh (locations
 // 0..4). Trivially copyable so the array uploads straight to a GPU vertex buffer.
 struct StaticMeshVertex {
     Vector3 position{ 0, 0, 0 };       // 12
@@ -45,7 +45,7 @@ struct StaticMeshVertex {
         : position(pos), normal(nrm), texCoord(uv), color(col), tangent(tan) {}
 };
 
-// The parallel skinning stream — 24 bytes (locations 6/7). One per static vertex; a
+// The parallel skinning stream - 24 bytes (locations 6/7). One per static vertex; a
 // skinned mesh stores this alongside the inherited static stream rather than
 // interleaving, so the static stream stays substitutable for a static mesh.
 struct VertexSkinning {

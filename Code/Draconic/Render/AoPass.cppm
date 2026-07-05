@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:ao` partition.
+/// Draconic::Render - the `:ao` partition.
 ///
 /// Ambient occlusion. Two interchangeable generators feed one shared pipeline:
 ///   - GTAO: Ground-Truth AO (Jimenez horizon integration over screen-space slices).
@@ -24,7 +24,7 @@ namespace rhi = draconic::rhi;
 
 export namespace draconic::render {
 
-// Which AO generator to run (mutually exclusive — both write the same AO buffer).
+// Which AO generator to run (mutually exclusive - both write the same AO buffer).
 enum class AoMode : u32 { Off = 0, GTAO = 1, SSAO = 2 };
 
 // Fullscreen-triangle VS, top-origin uv (matches the other post passes under the negative-viewport flip).
@@ -400,7 +400,7 @@ public:
                 rp.Draw(3, 1, 0, 0);
             });
         });
-        // Non-AO debug channels are raw per-pixel values — skip the bilateral blur that would smear them.
+        // Non-AO debug channels are raw per-pixel values - skip the bilateral blur that would smear them.
         if (debugMode >= 2) { return aoRaw; }
         DeclareBlur(graph, aoRaw, depth, aoTmp, w, h, texel, Vector2{ 1.0f, 0.0f });
         DeclareBlur(graph, aoTmp, depth, aoOut, w, h, texel, Vector2{ 0.0f, 1.0f });
@@ -507,7 +507,7 @@ private:
     }
 
     // Advance the deferred-free list once per frame (frees bind groups retired long enough ago to be
-    // idle). The graph aliases transients, so a raw-pointer cache thrashes mid-frame — replaced sets go
+    // idle). The graph aliases transients, so a raw-pointer cache thrashes mid-frame - replaced sets go
     // to the retire list (freed after kRetireFrames) instead of being freed while still in-flight.
     void Tick(u32 frameIndex) {
         if (frameIndex == m_lastFrame) { return; }
@@ -521,7 +521,7 @@ private:
     }
 
     // Two-texture bind group (t0, t1) + sampler, cached by (t0 view, combined generation). Shared by every
-    // AO pass (gen depth+normal, blur ao+depth, apply hdr+ao) — same layout.
+    // AO pass (gen depth+normal, blur ao+depth, apply hdr+ao) - same layout.
     rhi::BindGroup* EnsureBindGroup(rhi::TextureView* a, rhi::TextureView* bView, u64 generation) {
         if (a == nullptr || bView == nullptr) { return nullptr; }
         if (Entry* e = m_bindGroups.Find(a)) {

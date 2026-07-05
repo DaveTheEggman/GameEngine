@@ -1,4 +1,4 @@
-// Draconic Core — :binary_serializer partition
+// Draconic Core - :binary_serializer partition
 //
 // Raw binary backend (as-stored bytes) over an IStream, built on BinaryReader /
 // BinaryWriter. Names and object scopes carry no information here, so they are

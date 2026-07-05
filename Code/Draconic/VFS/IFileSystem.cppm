@@ -1,10 +1,10 @@
-// Draconic::VFS — :ifilesystem partition
+// Draconic::VFS - :ifilesystem partition
 //
 // The filesystem contract: a minimal read interface (IFileSystem) plus optional
 // capability interfaces a backend implements only if it can (enumerate, write,
 // watch). C++ has no real interfaces and Draconic builds -fno-rtti, so capability
 // discovery is done with virtual As*() query methods that return the interface
-// pointer or null — the same idiom the RHI uses (see RHI/Commands.cppm). The
+// pointer or null - the same idiom the RHI uses (see RHI/Commands.cppm). The
 // capability interfaces are independent bases (not derived from IFileSystem), so
 // there is no diamond; the As*() override returns `this` (a correct compile-time
 // upcast).
@@ -42,7 +42,7 @@ export namespace draconic::vfs
         [[nodiscard]] virtual UniquePtr<IStream> Open(StringView path, FileMode mode) = 0;
         [[nodiscard]] virtual bool Exists(StringView path) = 0;
 
-        // Capability queries — default null; capable backends override to return
+        // Capability queries - default null; capable backends override to return
         // `this`. Consumers do `if (auto* w = fs.AsWritable())` rather than cast.
         [[nodiscard]] virtual IEnumerableFileSystem* AsEnumerable() noexcept { return nullptr; }
         [[nodiscard]] virtual IWritableFileSystem*   AsWritable()   noexcept { return nullptr; }
@@ -82,7 +82,7 @@ export namespace draconic::vfs
         [[nodiscard]] virtual bool Poll(Array<String>& outChanged) = 0;
     };
 
-    // Capability: expose a change source for hot reload. (Seam — no backend
+    // Capability: expose a change source for hot reload. (Seam - no backend
     // implements this yet; lands with the hot-reload pass.)
     class IWatchableFileSystem
     {

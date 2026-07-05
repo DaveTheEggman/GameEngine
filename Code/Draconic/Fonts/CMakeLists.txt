@@ -1,4 +1,4 @@
-# Draconic::Fonts — `draconic.fonts` (font/glyph/text-layout types + interfaces).
+# Draconic::Fonts - `draconic.fonts` (font/glyph/text-layout types + interfaces).
 # Ported from Sedulous.Fonts (excluding Fonts.Resources).
 
 add_library(DraconicFonts STATIC)
@@ -17,10 +17,10 @@ target_sources(DraconicFonts
             FontsModule.cppm)
 
 # Sedulous draws each of these as its own library; mirror those module lines.
-add_subdirectory(Baked)     # draconic.fonts.baked  — rasterizer-free IFont/IFontAtlas
-add_subdirectory(IO)        # draconic.fonts.io     — parser/baker pipeline + FontManager
-add_subdirectory(TTF)       # draconic.fonts.ttf    — stb_truetype backend + VFS service
-add_subdirectory(Importer)  # draconic.fonts.importer — editor-time TTF -> baked
+add_subdirectory(Baked)     # draconic.fonts.baked  - rasterizer-free IFont/IFontAtlas
+add_subdirectory(IO)        # draconic.fonts.io     - parser/baker pipeline + FontManager
+add_subdirectory(TTF)       # draconic.fonts.ttf    - stb_truetype backend + VFS service
+add_subdirectory(Importer)  # draconic.fonts.importer - editor-time TTF -> baked
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

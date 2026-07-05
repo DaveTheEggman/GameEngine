@@ -1,8 +1,8 @@
-/// Draconic::RenderSubsystem — the `:extract` partition.
+/// Draconic::RenderSubsystem - the `:extract` partition.
 ///
 /// Extraction: read a Scene's render components into a render::ExtractedScene (world-space
 /// RenderData) + a render::ViewCamera, both pushed to the (scene-agnostic) renderer. This is
-/// the one-way seam — this layer depends on both draconic.scene and draconic.render; the renderer
+/// the one-way seam - this layer depends on both draconic.scene and draconic.render; the renderer
 /// depends on neither. Run after the scene's transforms are current (the tick).
 ///
 /// These are the providers in the design's terms (§5): a MeshComponent provider and the
@@ -40,12 +40,12 @@ export namespace draconic::render {
     }
 }
 
-// Below this many mesh components, parallel extraction's overhead isn't worth it — extract
+// Below this many mesh components, parallel extraction's overhead isn't worth it - extract
 // serially. (Tuned conservatively; the win is at thousands of renderables.)
 inline constexpr u32 kParallelExtractThreshold = 256;
 
 // World-space bounding-sphere radius of a local AABB under a transform: the diagonal half-extent
-// scaled by the largest axis scale (basis-row length, row-vector convention) — conservative but
+// scaled by the largest axis scale (basis-row length, row-vector convention) - conservative but
 // cheap. Used for sphere-vs-light culling of shadow casters (phase 5.4).
 [[nodiscard]] inline f32 WorldBoundsRadius(const AABB& local, const Matrix4& world) {
     const f32 sx = Length(Vector3{ world.m[0][0], world.m[0][1], world.m[0][2] });
@@ -55,7 +55,7 @@ inline constexpr u32 kParallelExtractThreshold = 256;
 }
 
 // Fill one MeshRenderData from a component (a pure read of precomputed transforms + borrowed
-// resource pointers — safe to call concurrently across components after UpdateTransforms).
+// resource pointers - safe to call concurrently across components after UpdateTransforms).
 inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, scene::EntityHandle e,
                                MeshRenderData& rd) {
     rd.world       = scene.GetWorldMatrix(e);
@@ -68,7 +68,7 @@ inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, sce
     rd.entityId    = PackEntity(e);
     rd.category    = CategoryForMaterial(mc.material.Get());
     // Batch-cluster key for the sort (opaque draws stay contiguous by mesh+material). rendererId keeps
-    // its default 0 — the MeshRenderer is the first-registered renderer, so mesh data routes to it.
+    // its default 0 - the MeshRenderer is the first-registered renderer, so mesh data routes to it.
     rd.sortBatchKey = BatchKey(mc.mesh.Get(), mc.material.Get());
     rd.boneMatrices = mc.boneMatrices;   // borrowed for the frame (GPU skinning); null => static
     rd.prevBoneMatrices = mc.prevBoneMatrices;   // borrowed; null => reuse current (no motion)
@@ -131,7 +131,7 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
     ctx.MergeInto(out);
 }
 
-// Fills `out` with one SpriteRenderData per visible SpriteComponent (serial — sprites are few). Stamps
+// Fills `out` with one SpriteRenderData per visible SpriteComponent (serial - sprites are few). Stamps
 // the sprite renderer's dispatch id so emission routes them to the SpriteRenderer, and category
 // Transparent so they sort back-to-front and ride the blended forward pass alongside transparent meshes.
 inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spriteRendererId) {
@@ -156,7 +156,7 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
     });
 }
 
-// Fills `out`'s decal list from the scene's DecalComponents (serial — decals are few). The box world
+// Fills `out`'s decal list from the scene's DecalComponents (serial - decals are few). The box world
 // bakes the component `size` as an extra scale on top of the entity transform (Scale then world, row-
 // vector order), so the entity's rotation orients the projection axis and `size` sets the box extents.
 inline void ExtractDecalsInto(scene::Scene& scene, ExtractedScene& out) {

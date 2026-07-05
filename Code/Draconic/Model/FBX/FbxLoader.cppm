@@ -31,7 +31,7 @@ using namespace draconic::core;
 using namespace draconic::model;
 
 // ufbx hands back char* (UTF-8); the engine String is UTF-8 too, so these just
-// wrap the bytes in an owned String — no transcoding.
+// wrap the bytes in an owned String - no transcoding.
 inline String Utf8FromC(const char* s) {
     if (!s) return String{};
     return String(StringView(reinterpret_cast<const utf8char*>(s)));
@@ -348,7 +348,7 @@ private:
                         img) == ErrorCode::Ok)
                     storeImageData(img, modelTex);
             } else if (tex->has_file) {
-                // External file — try relative path, then walk parent directories, then absolute.
+                // External file - try relative path, then walk parent directories, then absolute.
                 std::string relPath;
                 if (tex->relative_filename.data && tex->relative_filename.length > 0)
                     relPath = std::string(tex->relative_filename.data,
@@ -362,7 +362,7 @@ private:
                     auto imagePath = (std::filesystem::path(m_basePath) / relPath).string();
 
                     if (!std::filesystem::exists(imagePath)) {
-                        // Rel path may be wrong — try just the filename.
+                        // Rel path may be wrong - try just the filename.
                         auto fileName = std::filesystem::path(relPath).filename().string();
                         imagePath = (std::filesystem::path(m_basePath) / fileName).string();
                     }
@@ -666,7 +666,7 @@ private:
                         mesh->addPart(ModelMeshPart(indexStart, indexCount, materialIndex));
                 }
             } else {
-                // No material parts — process all faces as a single part.
+                // No material parts - process all faces as a single part.
                 i32 indexCount = 0;
 
                 for (size_t fi = 0; fi < fbxMesh->faces.count; ++fi) {
@@ -1052,7 +1052,7 @@ private:
             if (stack->element.name.data && stack->element.name.length > 0)
                 animation->setName(Utf8FromUfbx(stack->element.name));
 
-            // Bake the animation — this pre-computes T/R/S keyframes per node
+            // Bake the animation - this pre-computes T/R/S keyframes per node
             // in the target coordinate system (Y-up), handling Euler-to-quaternion
             // conversion and layer blending automatically.
             ufbx_bake_opts bakeOpts = {};

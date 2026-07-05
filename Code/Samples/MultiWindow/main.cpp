@@ -1,7 +1,7 @@
-// MultiWindow — the runtime-host smoke test (NOT an RHI sample). It exercises the
+// MultiWindow - the runtime-host smoke test (NOT an RHI sample). It exercises the
 // promoted render host end to end: a shared GraphicsDevice, the Application's
-// per-window render loop, and runtime window creation. It opens TWO OS windows —
-// the main one plus a second opened at runtime via OpenWindow() — and clears each
+// per-window render loop, and runtime window creation. It opens TWO OS windows -
+// the main one plus a second opened at runtime via OpenWindow() - and clears each
 // to a different color every frame. Close the main window to exit.
 //
 // The path: CreateShell (SDL3) -> CreateGraphicsDevice (Vulkan) -> Application
@@ -33,7 +33,7 @@ namespace
         void OnStartup(runtime::IApplicationHost& host) override
         {
             // windows[0] (the main window) already has a RenderWindow from Start().
-            // Open a second OS window at runtime — the same call a detachable UI
+            // Open a second OS window at runtime - the same call a detachable UI
             // panel would make.
             shell::WindowSettings ws;
             ws.title  = u8"Draconic - Detached";

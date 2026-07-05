@@ -1,4 +1,4 @@
-/// Draconic::PipelineCache — the `draconic.materials.pso` module.
+/// Draconic::PipelineCache - the `draconic.materials.pso` module.
 ///
 /// The render-side PSO cache: the one piece of the shader/material stack that lives
 /// outside the resource system (the "lone exception" from the hot-reload design). It
@@ -9,8 +9,8 @@
 /// Hot reload is handled by VERSION POLLING at point of use: each cached entry records
 /// the ShaderSystem version of its shader at build time; GetPipeline compares against
 /// the current version and lazily rebuilds when a shader was invalidated (reloaded).
-/// This costs one HashMap lookup + integer compare per draw — the same as a dirty-flag
-/// check — with no listener bookkeeping. Superseded pipelines are retired to a
+/// This costs one HashMap lookup + integer compare per draw - the same as a dirty-flag
+/// check - with no listener bookkeeping. Superseded pipelines are retired to a
 /// graveyard and freed by ReleaseRetired() once the GPU is done with them.
 
 module;
@@ -75,7 +75,7 @@ public:
         m_retired.Clear();
     }
 
-    // Destroys all live pipelines (retires nothing — call at shutdown).
+    // Destroys all live pipelines (retires nothing - call at shutdown).
     void Clear() {
         for (auto& e : m_entries) { if (e.value.pipeline != nullptr) { m_device->DestroyRenderPipeline(e.value.pipeline); } }
         m_entries.Clear();
@@ -117,18 +117,18 @@ private:
         // --- fragment (omitted for depth-only passes) ---
         // Up to colorTargetCount targets (MRT): target 0 is the shaded color (blended per blendMode +
         // format from colorOverride when set, e.g. the per-view HDR/LDR format); targets 1+ are the
-        // G-buffer aux outputs (view-normal, motion vector) — no blend, formats from config.colorFormats.
+        // G-buffer aux outputs (view-normal, motion vector) - no blend, formats from config.colorFormats.
         rhi::ColorTargetState colorTargets[rhi::MaxColorAttachments] = {};
         if (!config.depthOnly) {
             rhi::ShaderModule* fs = m_shaders->GetVariant(config.shaderName, shaders::ShaderStage::Fragment, config.shaderFlags);
             if (fs == nullptr) { return nullptr; }
-            // Honor colorTargetCount exactly — 0 means a fragment that writes no color (e.g. the masked
+            // Honor colorTargetCount exactly - 0 means a fragment that writes no color (e.g. the masked
             // shadow pass: alpha-test discard + depth only). No fallback to 1.
             const u32 count = Min<u32>(config.colorTargetCount, rhi::MaxColorAttachments);
             for (u32 i = 0; i < count; ++i) {
                 colorTargets[i].format    = (i == 0 && colorOverride != rhi::TextureFormat::Undefined) ? colorOverride : config.colorFormats[i];
                 colorTargets[i].blend     = (i == 0) ? BlendFor(config.blendMode) : Optional<rhi::BlendState>{};
-                // Aux G-buffer targets (1+) only write when writeAuxTargets is set — transparent draws
+                // Aux G-buffer targets (1+) only write when writeAuxTargets is set - transparent draws
                 // bind them (to match the pass) but leave the opaque normal/velocity underneath intact.
                 colorTargets[i].writeMask = (i == 0 || config.writeAuxTargets) ? config.colorWriteMask : rhi::ColorWriteMask::None;
             }

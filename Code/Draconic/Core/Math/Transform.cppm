@@ -1,4 +1,4 @@
-// Draconic Core — :transform partition
+// Draconic Core - :transform partition
 // Transform: position / rotation / scale, composed as S * R * T into a Matrix4.
 
 module;
@@ -15,7 +15,7 @@ import :quaternion;
 export namespace draconic::core
 {
     // =======================================================================
-    // Transform — position / rotation / scale, composed as S * R * T.
+    // Transform - position / rotation / scale, composed as S * R * T.
     // =======================================================================
     struct Transform
     {
@@ -43,6 +43,6 @@ export namespace draconic::core
         }
     };
 
-    // Identity transform (position 0, rotation identity, scale 1) — the default-constructed value.
+    // Identity transform (position 0, rotation identity, scale 1) - the default-constructed value.
     inline constexpr Transform IdentityTransform{};
 }

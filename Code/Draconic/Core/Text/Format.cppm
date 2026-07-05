@@ -1,4 +1,4 @@
-// Draconic Core — :format partition
+// Draconic Core - :format partition
 //
 // Lightweight typesafe text formatting (no iostreams, no exceptions). Output
 // targets a growable, allocator-backed UTF-8 buffer; `{}` marks a substitution,

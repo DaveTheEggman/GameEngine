@@ -1,8 +1,8 @@
-// Draconic Core — :iserializer partition
+// Draconic Core - :iserializer partition
 //
 // The serialization contract: a mode-aware, format-agnostic interface. One
 // Serialize() path runs either direction, and the interface speaks in *intent*
-// (typed scalars, named fields, structured scopes) rather than raw bytes — so a
+// (typed scalars, named fields, structured scopes) rather than raw bytes - so a
 // binary backend and a keyed/text backend (JSON, …) can both implement it.
 
 module;
@@ -35,7 +35,7 @@ export namespace draconic::core
     };
 
     // Format-agnostic pure interface. Backends extend Serializer, not this
-    // directly — Serializer supplies no-op defaults for the naming/scope ops
+    // directly - Serializer supplies no-op defaults for the naming/scope ops
     // that unkeyed formats (e.g. binary) ignore.
     //
     // Keyed/text backends use Key()/object scopes to produce `"name": value`.

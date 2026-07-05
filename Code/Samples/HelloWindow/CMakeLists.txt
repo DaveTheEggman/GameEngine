@@ -1,4 +1,4 @@
-# HelloWindow — minimal windowed Draconic app: opens an SDL3 window, clears it each
+# HelloWindow - minimal windowed Draconic app: opens an SDL3 window, clears it each
 # frame through a GraphicsDevice, runs until closed. Needs the Vulkan GPU factory
 # (so the window actually presents) in addition to the desktop shell.
 

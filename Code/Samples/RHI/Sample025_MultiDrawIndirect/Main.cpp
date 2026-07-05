@@ -1,5 +1,5 @@
 #include <new>
-/// Sample025 — Multi-Draw Indirect & Lines. Ported from Sedulous Sample025_MultiDrawIndirect.
+/// Sample025 - Multi-Draw Indirect & Lines. Ported from Sedulous Sample025_MultiDrawIndirect.
 /// Renders 4 colored quads using a single drawIndexedIndirect call with drawCount=4,
 /// then overlays white line wireframes using LineList topology.
 
@@ -89,7 +89,7 @@ draconic::core::Status MultiDrawIndirectSample::OnInit() {
     if (createIndirectBuffer() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (createLineGeometry() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
-    // Pipeline layout (empty — no bind groups needed).
+    // Pipeline layout (empty - no bind groups needed).
     rhi::PipelineLayoutDesc pld{};
     if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
@@ -188,7 +188,7 @@ draconic::core::Status MultiDrawIndirectSample::createGeometry() {
 draconic::core::Status MultiDrawIndirectSample::createIndirectBuffer() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8;
 
-    // 4 indirect draw commands — one per quad.
+    // 4 indirect draw commands - one per quad.
     DrawIndexedIndirectArgs args[4] = {
         { 6, 1,  0, 0, 0 },
         { 6, 1,  6, 0, 0 },

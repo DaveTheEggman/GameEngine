@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :validator partition
+// Draconic::RenderGraph - :validator partition
 //
 // Validates a graph for common authoring errors: reads of never-written
 // resources (error), passes with no execute callback (warning), and redundant
@@ -68,7 +68,7 @@ export namespace draconic::rendergraph
         }
 
     private:
-        // Reads of resources that no prior pass wrote (transient only — imported
+        // Reads of resources that no prior pass wrote (transient only - imported
         // and persistent are considered externally initialized).
         static void CheckUninitializedReads(RenderGraph& graph, Array<ValidationMessage>& out)
         {

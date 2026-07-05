@@ -1,4 +1,4 @@
-# Draconic::ShaderResource — `draconic.shaders.resource` (shaders as resources: ShaderSource
+# Draconic::ShaderResource - `draconic.shaders.resource` (shaders as resources: ShaderSource
 # -> ShaderResource via ShaderFactory; ties into the resource manager + ShaderSystem).
 add_library(DraconicShaderResource STATIC)
 add_library(Draconic::ShaderResource ALIAS DraconicShaderResource)

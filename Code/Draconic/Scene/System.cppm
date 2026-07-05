@@ -1,11 +1,11 @@
-/// Draconic::Scene — the `:system` partition.
+/// Draconic::Scene - the `:system` partition.
 ///
-/// SceneSystem: the base for a per-scene system — the unit a Scene owns, ticks per
+/// SceneSystem: the base for a per-scene system - the unit a Scene owns, ticks per
 /// phase, and notifies of entity lifecycle. A ComponentManager is the most common
 /// SceneSystem (it stores + drives components), but a system need not own components
 /// (a spatial index, a physics world, an audio listener could be plain systems).
 ///
-/// Behavior lives here (and in scripts), not on the components themselves — which is
+/// Behavior lives here (and in scripts), not on the components themselves - which is
 /// what lets components be plain value data in contiguous pools (see :component).
 ///
 /// `Scene` is forward-declared (defined in :scene): a system only needs the incomplete

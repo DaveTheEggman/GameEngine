@@ -1,4 +1,4 @@
-# VG Sandbox — end-to-end VG stack demo (window + VGRenderer).
+# VG Sandbox - end-to-end VG stack demo (window + VGRenderer).
 add_executable(VGSandbox Main.cpp)
 target_link_libraries(VGSandbox PRIVATE
     Draconic::Core Draconic::RHI Draconic::RHIVulkan Draconic::Shaders Draconic::SamplesFramework

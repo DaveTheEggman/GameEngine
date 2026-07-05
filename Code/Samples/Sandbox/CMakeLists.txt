@@ -1,4 +1,4 @@
-# Sandbox — the running dev harness: a windowed DefaultApplication with a scene we
+# Sandbox - the running dev harness: a windowed DefaultApplication with a scene we
 # grow the engine in. Needs the desktop shell + Vulkan GPU factory (to present)
 # plus the default-app + scene libraries.
 

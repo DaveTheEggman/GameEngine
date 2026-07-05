@@ -1,7 +1,7 @@
-// Draconic Core — RTTI declaration macros (classic header).
+// Draconic Core - RTTI declaration macros (classic header).
 //
 // Use inside an Object-derived class to wire up type identity, then define the
-// type once in a .cpp. Registration stays explicit — call
+// type once in a .cpp. Registration stays explicit - call
 // GlobalTypeRegistry().Register(Type::StaticType()) from a RegisterTypes()
 // function (see Documentation/Planning/Core.md §4.10).
 //

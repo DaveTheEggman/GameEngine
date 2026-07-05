@@ -1,5 +1,5 @@
-# Draconic::Editor — `draconic.editor` (asset-pipeline authoring base: Asset + builders).
-# Tooling only — the runtime never links this.
+# Draconic::Editor - `draconic.editor` (asset-pipeline authoring base: Asset + builders).
+# Tooling only - the runtime never links this.
 
 add_library(DraconicEditor STATIC)
 add_library(Draconic::Editor ALIAS DraconicEditor)

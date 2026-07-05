@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:taa` partition.
+/// Draconic::Render - the `:taa` partition.
 ///
 /// Temporal anti-aliasing resolve (ported from Sedulous taa.frag.hlsl). Blends the current jittered
 /// HDR frame with the reprojected history: closest-depth motion selection, a YCoCg variance clip, a
@@ -28,7 +28,7 @@ namespace rhi = draconic::rhi;
 
 export namespace draconic::render {
 
-// Fullscreen-triangle VS, top-origin uv (see BloomPass — the negative-viewport flip requires it so RT
+// Fullscreen-triangle VS, top-origin uv (see BloomPass - the negative-viewport flip requires it so RT
 // sampling stays oriented). All TAA inputs are sampled by this uv.
 inline constexpr const char8_t* kTaaVS = u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
@@ -41,9 +41,9 @@ VSOut main(uint vid : SV_VertexID) {
 }
 )";
 
-// Resolve. Improved over Sedulous taa.frag.hlsl: YCoCg VARIANCE clipping (mean +/- gamma*stddev — a
+// Resolve. Improved over Sedulous taa.frag.hlsl: YCoCg VARIANCE clipping (mean +/- gamma*stddev - a
 // statistically-tight neighborhood box, the key anti-flicker lever, vs a loose min/max AABB), CATMULL-ROM
-// history sampling (sharp — kills the over-blur), closest-depth motion selection, and a luma- AND
+// history sampling (sharp - kills the over-blur), closest-depth motion selection, and a luma- AND
 // motion-adaptive blend (max stability on near-static pixels). Outputs the resolved color (SV_Target0,
 // for bloom/tonemap) + next-frame history (SV_Target1). Params in push constants.
 inline constexpr const char8_t* kTaaPS = u8R"(
@@ -60,7 +60,7 @@ struct TaaPush {
     float  HistoryValid;   // 0 = first frame (no history)
     float  VarianceGamma;  // neighborhood clip box half-width in stddevs (~1.25; larger = softer/steadier)
     float  MotionScale;    // how fast history is dropped as motion grows (0 = ignore motion)
-    float  NearPlane;      // camera near — linearize depth for the disocclusion test
+    float  NearPlane;      // camera near - linearize depth for the disocclusion test
     float  FarPlane;       // camera far
 };
 [[vk::push_constant]] TaaPush pc;
@@ -82,7 +82,7 @@ float3 ClipToAABB(float3 color, float3 aabbMin, float3 aabbMax) {
     return maxUnit > 1.0 ? center + (shift / maxUnit) : color;
 }
 
-// 5-tap Catmull-Rom (Karis) — sharp bicubic history reconstruction from a bilinear sampler.
+// 5-tap Catmull-Rom (Karis) - sharp bicubic history reconstruction from a bilinear sampler.
 float3 SampleHistoryCatmullRom(float2 uv, float2 texSize) {
     float2 samplePos = uv * texSize;
     float2 tc1 = floor(samplePos - 0.5) + 0.5;
@@ -109,7 +109,7 @@ struct PSOut { float4 Color : SV_Target0; float4 History : SV_Target1; };
 PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     float3 current = CurrentColor.Sample(PointSamp, uv).rgb;
 
-    // This pixel's surface depth (linear) — stored in the history alpha so next frame can compare against
+    // This pixel's surface depth (linear) - stored in the history alpha so next frame can compare against
     // it at the reprojected position (the disocclusion test below).
     float centerLin = LinearizeDepth(DepthTexture.Sample(PointSamp, uv).r, pc.NearPlane, pc.FarPlane);
 
@@ -138,7 +138,7 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     //
     // Gate it on real motion: disocclusion can only happen when something moves, but at a STATIC silhouette
     // the TAA jitter flips each boundary pixel's coverage (near plane <-> far sky) every frame. That depth
-    // flip is not a reveal — it is the sub-pixel coverage we want history to ACCUMULATE into an AA'd edge.
+    // flip is not a reveal - it is the sub-pixel coverage we want history to ACCUMULATE into an AA'd edge.
     // Without the gate the reject fires on every boundary pixel each frame, so the edge shows the raw
     // jittered current and the jaggies crawl. Motion is geometric (jitter-free) so static == exactly 0.
     float linPrev  = HistoryColor.Sample(PointSamp, historyUV).a;
@@ -342,7 +342,7 @@ private:
         return p;
     }
 
-    // Bind group over the 4 inputs, cached by (current view, generation) — the transients are pooled with
+    // Bind group over the 4 inputs, cached by (current view, generation) - the transients are pooled with
     // stable generations, the history view is stable per size, so this rebuilds only on resize.
     rhi::BindGroup* EnsureBindGroup(rhi::TextureView* cur, rhi::TextureView* histPrev, rhi::TextureView* motion,
                                     rhi::TextureView* depth, u64 generation) {

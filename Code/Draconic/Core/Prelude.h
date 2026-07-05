@@ -1,4 +1,4 @@
-// Draconic Core — Prelude
+// Draconic Core - Prelude
 //
 // The one classic header allowed to cross the module boundary. Holds everything
 // macro-based (platform/compiler detection, attributes, build config), since
@@ -84,9 +84,9 @@
 
 // ---------------------------------------------------------------------------
 // Build configuration
-//   DRACONIC_DEBUG    — asserts on, no/low optimization
-//   DRACONIC_RELEASE  — optimized, asserts on
-//   DRACONIC_SHIPPING — optimized, asserts compiled out
+//   DRACONIC_DEBUG    - asserts on, no/low optimization
+//   DRACONIC_RELEASE  - optimized, asserts on
+//   DRACONIC_SHIPPING - optimized, asserts compiled out
 // Define exactly one via the build system; default to DRACONIC_DEBUG.
 // ---------------------------------------------------------------------------
 #if !defined(DRACONIC_DEBUG) && !defined(DRACONIC_RELEASE) && !defined(DRACONIC_SHIPPING)

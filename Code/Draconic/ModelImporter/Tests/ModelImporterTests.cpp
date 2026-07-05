@@ -1,4 +1,4 @@
-// Draconic::ModelImporter tests — load a real glTF, cook it through the importer into a
+// Draconic::ModelImporter tests - load a real glTF, cook it through the importer into a
 // content DB, then bind the cooked ModelResource back through the resource manager and
 // verify the whole convert -> cook -> bind chain (manifest nodes + resolved meshes).
 

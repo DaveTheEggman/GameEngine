@@ -1,9 +1,9 @@
-// Draconic::MeshEditor — the `draconic.geometry.editor` module (tooling).
+// Draconic::MeshEditor - the `draconic.geometry.editor` module (tooling).
 //
 // Source-side mesh authoring + cook:
 //   * StaticMeshAsset / SkinnedMeshAsset (editor::Asset): wrap a cooked
 //     Static/SkinnedMeshSource. (A real pipeline cooks these from an imported model
-//     via a ModelMesh->StaticMesh converter — the tooling we did not port; the asset
+//     via a ModelMesh->StaticMesh converter - the tooling we did not port; the asset
 //     here carries the already-resolved source.)
 //   * The asset builders write the resolved source into the product DB (where the
 //     mesh factories build it into a Static/SkinnedMesh).

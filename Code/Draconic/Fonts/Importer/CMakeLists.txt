@@ -1,4 +1,4 @@
-# Draconic::FontsImporter — `draconic.fonts.importer` (editor-time TTF -> baked).
+# Draconic::FontsImporter - `draconic.fonts.importer` (editor-time TTF -> baked).
 # Ported from Sedulous.Fonts.Importer (deps: Fonts, Fonts.Baked, Fonts.TTF).
 
 add_library(DraconicFontsImporter STATIC)

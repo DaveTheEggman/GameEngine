@@ -1,4 +1,4 @@
-/// Draconic::Geometry — the `:mesh` partition.
+/// Draconic::Geometry - the `:mesh` partition.
 ///
 /// StaticMesh is the engine's runtime mesh: a static vertex stream (48B), an index
 /// buffer, submeshes, bounds, and the geometry ops (normals/tangents/bounds) that
@@ -7,7 +7,7 @@
 /// SkinnedMesh IS-A StaticMesh: it inherits the entire static stream + all the ops
 /// and adds only a *parallel* skinning stream (joints/weights, 24B) + a skeleton
 /// reference. Because the static data is byte-identical and in the same place, a
-/// SkinnedMesh can be passed anywhere a StaticMesh& is expected — the static draw
+/// SkinnedMesh can be passed anywhere a StaticMesh& is expected - the static draw
 /// path just works; the skinned path additionally binds the skinning stream. The
 /// virtual IsSkinned()/SkinningStream() hooks let a consumer holding a StaticMesh&
 /// discover + bind the skinning stream without RTTI.

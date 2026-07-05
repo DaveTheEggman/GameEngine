@@ -1,4 +1,4 @@
-// Draconic::SceneEditor — the `draconic.scene.editor` module (tooling).
+// Draconic::SceneEditor - the `draconic.scene.editor` module (tooling).
 //
 // The scene SAVE / cook path: capture a live Scene into a content-DB instance (a
 // SceneDocument primary + the serialized world in the "scene" data stream), using the

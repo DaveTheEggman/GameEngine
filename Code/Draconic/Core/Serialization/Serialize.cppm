@@ -1,4 +1,4 @@
-// Draconic Core — :serialize partition
+// Draconic Core - :serialize partition
 //
 // Serialize(ISerializer&, T&) free functions for Core's own types: describe a
 // type's data once, runs either direction and works for any backend (binary or
@@ -28,7 +28,7 @@ import :guid;
 export namespace draconic::core
 {
     // -----------------------------------------------------------------------
-    // Scalar type mapping — C++ type to ScalarKind (enums via underlying type).
+    // Scalar type mapping - C++ type to ScalarKind (enums via underlying type).
     // -----------------------------------------------------------------------
     template <typename T>
     constexpr ScalarKind ScalarKindOf() noexcept
@@ -63,7 +63,7 @@ export namespace draconic::core
     }
 
     // -----------------------------------------------------------------------
-    // Serialize() — describe a type's data once; runs either direction.
+    // Serialize() - describe a type's data once; runs either direction.
     // -----------------------------------------------------------------------
 
     // Arithmetic and enum types: one typed scalar.
@@ -119,7 +119,7 @@ export namespace draconic::core
         ar.EndArray();
     }
 
-    // Guid: a backend-chosen primitive (Traktor-style) — compact raw 16 bytes in binary, canonical
+    // Guid: a backend-chosen primitive (Traktor-style) - compact raw 16 bytes in binary, canonical
     // 36-char string in text. One copyable value, usable anywhere a guid reference is needed.
     inline void Serialize(ISerializer& ar, Guid& g) { ar.GuidValue(g); }
 

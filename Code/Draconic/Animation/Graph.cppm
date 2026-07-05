@@ -1,9 +1,9 @@
-/// Draconic::Animation — the `:graph` partition.
+/// Draconic::Animation - the `:graph` partition.
 ///
 /// The animation graph stack, ported faithfully from Sedulous.Animation: state nodes (clip + 1D/2D
 /// blend trees), per-bone masks, parameters + conditions + transitions, states, layers, the graph
 /// definition, and the per-instance AnimationGraphPlayer (state machine + layer blending). Resource
-/// refs (editor/serialization) are dropped — this is the runtime foundation. Polymorphic node
+/// refs (editor/serialization) are dropped - this is the runtime foundation. Polymorphic node
 /// dispatch uses a NodeType tag + static_cast (the engine builds with -fno-rtti, so no dynamic_cast).
 
 module;
@@ -444,7 +444,7 @@ public:
             m_layerRuntimes.PushBack(static_cast<AnimationGraphLayerRuntime&&>(rt));
         }
 
-        // Auto-link blend trees from their stored parameter indices (NodeType tag — no RTTI).
+        // Auto-link blend trees from their stored parameter indices (NodeType tag - no RTTI).
         for (auto& layer : graph.Layers()) {
             for (auto& state : layer->States()) {
                 IAnimationStateNode* node = state->Node();

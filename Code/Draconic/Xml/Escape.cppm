@@ -1,7 +1,7 @@
-// Draconic::Xml — :escape partition
+// Draconic::Xml - :escape partition
 //
 // XML text/attribute escaping. Shared by node GetOuterXml and the XmlWriter
-// (which re-exposes these as static methods) — kept here so neither has to
+// (which re-exposes these as static methods) - kept here so neither has to
 // depend on the other. Ported from Sedulous.Xml/XmlWriter.bf escaping.
 
 module;

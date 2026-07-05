@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:sprite_renderer` partition.
+/// Draconic::Render - the `:sprite_renderer` partition.
 ///
 /// A Renderer that draws textured billboard quads (sprites). Ported from SedulousEngine's
 /// SpriteRenderer/sprite.hlsl: a 6-vertex quad is generated in the vertex shader from SV_VertexID and
@@ -227,7 +227,7 @@ private:
     static constexpr u64 kViewSlotSize = 256;   // 2x mat4 padded to the dynamic-uniform alignment
 
     // One bind group over the whole view ring (per-draw dynamic offset selects the slot). Rebuilt ONLY
-    // when the ring reallocates (generation bump) — which drains the GPU first (Reserve's WaitIdle) — so
+    // when the ring reallocates (generation bump) - which drains the GPU first (Reserve's WaitIdle) - so
     // we never free a descriptor set an in-flight frame still references.
     rhi::BindGroup* EnsureViewBindGroup() {
         const u32 gen = m_viewRing.Generation();
@@ -277,7 +277,7 @@ private:
         rhi::ColorTargetState target{};
         target.format = colorFormat;
         // Additive sprites use ALPHA-WEIGHTED additive (dst + src.rgb*src.a), not the plain {One,One}
-        // accumulate preset — so a texture's transparent (alpha 0) texels add nothing instead of dumping
+        // accumulate preset - so a texture's transparent (alpha 0) texels add nothing instead of dumping
         // their (often white) RGB into the scene. Only the opaque logo glows.
         const rhi::BlendState addBlend{
             { rhi::BlendFactor::SrcAlpha, rhi::BlendFactor::One, rhi::BlendOperation::Add },

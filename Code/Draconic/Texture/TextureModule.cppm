@@ -1,4 +1,4 @@
-// Draconic::Texture — the `draconic.texture` module.
+// Draconic::Texture - the `draconic.texture` module.
 //
 // Logical texture types + a CPU-side upload descriptor (TextureData) and
 // image->RHI format conversion. The descriptor layer between draconic.image (CPU)

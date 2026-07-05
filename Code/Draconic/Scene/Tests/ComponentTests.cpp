@@ -1,4 +1,4 @@
-// Phase 3a — the value-pool component manager (sparse set): add/get/has/remove by
+// Phase 3a - the value-pool component manager (sparse set): add/get/has/remove by
 // entity, dense contiguous iteration, swap-remove keeping the pack dense, generation
 // staleness, the one-per-entity invariant, and manager-driven deferred lifecycle.
 #include <doctest/doctest.h>
@@ -91,7 +91,7 @@ TEST_CASE("manager-driven lifecycle: create immediately, init deferred, destroy 
     mgr.Add(E(0));
     mgr.Add(E(1));
     CHECK(mgr.created == 2);
-    CHECK(mgr.initialized == 0);                     // not yet — deferred
+    CHECK(mgr.initialized == 0);                     // not yet - deferred
 
     mgr.InitializePendingComponents();
     CHECK(mgr.initialized == 2);

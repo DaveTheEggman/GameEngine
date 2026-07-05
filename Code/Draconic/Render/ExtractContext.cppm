@@ -1,14 +1,14 @@
-/// Draconic::Render — the `:extract_ctx` partition.
+/// Draconic::Render - the `:extract_ctx` partition.
 ///
 /// `RenderContext` provisions the per-worker scratch that parallel extraction writes into: one
 /// `FrameArena` + one item list per job-system slot (worker threads + the caller, == the job
 /// system's SlotCount). Each worker fills ONLY its own slot (indexed by JobSystem::CurrentSlot),
 /// so there is no contention and no locking; a single-threaded merge then gathers every slot's
-/// items into the immutable `ExtractedScene` (§5 — "per-worker arenas, single-threaded merge").
+/// items into the immutable `ExtractedScene` (§5 - "per-worker arenas, single-threaded merge").
 ///
 /// Arenas are reset once per frame (BeginFrame) and accumulate across the frame's scenes; the
 /// item lists are cleared per extraction (ResetItems). (Phase 2 is single-buffered; the design's
-/// double-buffered extraction — extract N while submit N-1 — slots in here later.)
+/// double-buffered extraction - extract N while submit N-1 - slots in here later.)
 
 module;
 #include "Core/Prelude.h"

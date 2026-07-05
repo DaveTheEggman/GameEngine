@@ -1,4 +1,4 @@
-# Draconic::Resource — `draconic.resource` (resource manager: source->product via
+# Draconic::Resource - `draconic.resource` (resource manager: source->product via
 # factories, replaceable handles + proxies, caching + hot reload over content).
 
 add_library(DraconicResource STATIC)

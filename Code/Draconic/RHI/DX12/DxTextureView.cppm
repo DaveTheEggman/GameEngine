@@ -271,7 +271,7 @@ public:
     }
     // Base-mip extent (a view onto mip N is half-sized per level). DX12 has no Vulkan-style renderArea
     // validation so a stale base size here wouldn't fault, but callers (e.g. the render graph's
-    // viewport default) expect the view's true dimensions — keep it correct + consistent with Vulkan.
+    // viewport default) expect the view's true dimensions - keep it correct + consistent with Vulkan.
     [[nodiscard]] u32 Width()  const { u32 w = m_texture->desc.width  >> m_viewDesc.baseMipLevel; return w ? w : 1u; }
     [[nodiscard]] u32 Height() const { u32 h = m_texture->desc.height >> m_viewDesc.baseMipLevel; return h ? h : 1u; }
 

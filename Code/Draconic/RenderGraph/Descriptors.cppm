@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :descriptors partition
+// Draconic::RenderGraph - :descriptors partition
 //
 // Render-graph resource descriptors (transient texture/buffer) and pass target
 // attachments. Ported from Sedulous.RenderGraph (Descriptors.bf). RGTextureDesc

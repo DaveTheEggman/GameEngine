@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:resources` partition.
+/// Draconic::Render - the `:resources` partition.
 ///
 /// GPU resource primitives shared by the renderers. `DynamicUniformRing` is a
 /// frames-in-flight ring of fixed-stride slots over one buffer (the §8 replacement for the
@@ -10,7 +10,7 @@
 /// UNIFORM data (bound with the returned byte offset), per-instance STORAGE data (a
 /// StructuredBuffer bound whole + indexed by the returned absolute slot index), and the
 /// per-instance VERTEX offsets stream (bound with the returned byte offset). The ring grows
-/// by reallocating (rare — only when scene complexity exceeds the current per-frame capacity),
+/// by reallocating (rare - only when scene complexity exceeds the current per-frame capacity),
 /// draining the GPU first so no in-flight frame references the old buffer; each (re)allocation
 /// bumps a generation so a consumer can rebuild the bind group it created over `Buffer()`.
 
@@ -28,7 +28,7 @@ namespace rhi = draconic::rhi;
 export namespace draconic::render {
 
 // A chunked GPU buffer sub-allocator: hands out (buffer, offset) ranges from large shared
-// chunks instead of one buffer per allocation (§8 — "no per-mesh buffers"). Allocations are
+// chunks instead of one buffer per allocation (§8 - "no per-mesh buffers"). Allocations are
 // bump-forward and persist until Clear(); the pool grows by adding a NEW chunk (existing
 // allocations keep their buffer, so growth never invalidates a live range). Used for mesh
 // vertex/index streams (uploaded once, kept for the resource's lifetime).

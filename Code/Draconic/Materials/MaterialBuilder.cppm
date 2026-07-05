@@ -1,4 +1,4 @@
-/// Draconic::Materials — the `:builder` partition.
+/// Draconic::Materials - the `:builder` partition.
 ///
 /// Fluent builder for authoring a Material in code: declare the shader, pipeline
 /// state, and typed properties; the builder lays out the uniform buffer (std140-ish

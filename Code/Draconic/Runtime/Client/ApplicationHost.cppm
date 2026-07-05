@@ -1,20 +1,20 @@
-// Draconic::RuntimeClient — the `draconic.runtime.client` module.
+// Draconic::RuntimeClient - the `draconic.runtime.client` module.
 //
 // ApplicationHost: the concrete, generic host that drives exactly ONE IApplication.
 // Owns a Context, an optional (borrowed) GraphicsDevice, and the LIST of
-// RenderWindows it presents. It is infrastructure, NOT subclassed — all behavior
+// RenderWindows it presents. It is infrastructure, NOT subclassed - all behavior
 // lives in the IApplication. It is deliberately LOOP-AGNOSTIC: the shell layer
 // drives Start/Tick/Stop (a blocking loop on desktop, a callback on Emscripten),
 // so the host contains no run loop.
 //
 // The host implements IApplicationHost (the view the application gets of it). The
-// application registers its subsystems in Configure() — the host forces in none —
+// application registers its subsystems in Configure() - the host forces in none -
 // so the subsystem set is the application's alone and identical standalone or in
 // the editor.
 //
 // Multi-window is uniform: the main window is windows[0]; every frame renders the
-// whole list. Windows can be opened/closed at runtime (OpenWindow/CloseWindow) —
-// the basis for detachable UI windows — with close deferred to frame end.
+// whole list. Windows can be opened/closed at runtime (OpenWindow/CloseWindow) -
+// the basis for detachable UI windows - with close deferred to frame end.
 
 module;
 #include "Core/Prelude.h"
@@ -112,7 +112,7 @@ export namespace draconic::runtime
                 for (auto& rw : m_windows)
                 {
                     rw->SyncSize();
-                    // Acquire BLOCKS the CPU until a swapchain image is free — under vsync (or a
+                    // Acquire BLOCKS the CPU until a swapchain image is free - under vsync (or a
                     // GPU-bound frame) this is where the CPU waits for the display/GPU, so scope it
                     // separately to tell a healthy present-wait from a real stall.
                     FrameContext frame{};
@@ -150,7 +150,7 @@ export namespace draconic::runtime
             m_pendingClose.Clear();
             m_windows.Clear();  // RenderWindow dtors WaitIdle + free GPU resources
 
-            // Tear down the engine-wide JobSystem last — after every subsystem (Context.Shutdown)
+            // Tear down the engine-wide JobSystem last - after every subsystem (Context.Shutdown)
             // and all GPU resource frees (window dtors), so nothing references it afterward.
             core::ShutdownGlobalJobSystem();
 

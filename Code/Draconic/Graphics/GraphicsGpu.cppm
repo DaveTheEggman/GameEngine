@@ -1,10 +1,10 @@
-// Draconic::GraphicsGpu — the `draconic.graphics.gpu` module.
+// Draconic::GraphicsGpu - the `draconic.graphics.gpu` module.
 //
 // The GPU-backend factory for GraphicsDevice: turns a GraphicsDeviceDesc into a
 // live device on Vulkan or DX12 (validation-wrapped on request), then delegates
 // the backend-agnostic bring-up to GraphicsDevice::FromBackend. This is the only
-// Vulkan-coupled part of the render host, kept separate so the host types — and
-// everything built on them (Application, the UI, the renderer) — stay GPU-backend
+// Vulkan-coupled part of the render host, kept separate so the host types - and
+// everything built on them (Application, the UI, the renderer) - stay GPU-backend
 // agnostic and build headlessly. Null is delegated to GraphicsDevice::CreateNull.
 
 module;

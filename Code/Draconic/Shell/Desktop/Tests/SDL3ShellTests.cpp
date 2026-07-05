@@ -71,7 +71,7 @@ TEST_CASE("shell.desktop: SDL3 shell creates a window and reports state")
     CHECK(native.system == WindowSystem::Unknown);
 #endif
 
-    shell.ProcessEvents();   // pump (no pending events) — must not change state
+    shell.ProcessEvents();   // pump (no pending events) - must not change state
     CHECK(shell.IsRunning());
 }
 

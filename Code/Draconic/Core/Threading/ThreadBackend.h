@@ -1,4 +1,4 @@
-// Draconic Core — Threading backend (classic header).
+// Draconic Core - Threading backend (classic header).
 //
 // OS threading primitives implemented per-platform (Threading/Linux,
 // Threading/Win32). Mutex/condition storage is an opaque fixed buffer so the

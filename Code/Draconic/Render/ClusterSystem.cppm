@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:cluster_system` partition.
+/// Draconic::Render - the `:cluster_system` partition.
 ///
 /// Clustered light culling (phase 4.3). Bins lights into a 3D froxel grid (screen tiles ×
 /// logarithmic depth slices) once per frame via a compute pass, so the forward shader evaluates
@@ -119,7 +119,7 @@ struct ClusterBinding {
     rhi::Buffer* offsets      = nullptr;   // uint2 per cluster: (indexStart, count)
     rhi::Buffer* lightIndices = nullptr;   // flat uint light-index list
     // Bumped every time this slot's buffers are reallocated (resize). Consumers must invalidate any
-    // cached bind group on a version change — a freed rhi::Buffer* address can be REUSED by the new
+    // cached bind group on a version change - a freed rhi::Buffer* address can be REUSED by the new
     // allocation, so pointer-equality is NOT a reliable "unchanged" test (use-after-free otherwise).
     u32 version = 0;
     rendergraph::RGHandle offsetsHandle = {};   // graph handles so the forward pass can ReadBuffer them
@@ -207,7 +207,7 @@ public:
         const f32 logScale = static_cast<f32>(kSliceCount) / Log(farZ / nearZ);
         const f32 logBias  = -Log(nearZ) * logScale;
 
-        // Upload this view's lights into the cluster light buffer (its own copy — the build runs
+        // Upload this view's lights into the cluster light buffer (its own copy - the build runs
         // before the forward uploads its lights; the stored indices are valid for both, same order).
         const Span<const GpuLight> lights = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
         u32 lightCount = static_cast<u32>(lights.Size());
@@ -303,14 +303,14 @@ private:
         m_offsetsBytes[bufferSlot] = offsetsBytes;
         m_indicesBytes[bufferSlot] = indicesBytes;
         ++m_bufferVersion[bufferSlot];   // signal consumers to rebuild cached bind groups (address may reuse)
-        // The slot's bind group referenced the old buffers — drop it (GPU idle after WaitIdle).
+        // The slot's bind group referenced the old buffers - drop it (GPU idle after WaitIdle).
         if (m_bindGroups[bufferSlot] != nullptr) { m_device->DestroyBindGroup(m_bindGroups[bufferSlot]); m_bindGroups[bufferSlot] = nullptr; }
         m_bgOffsets[bufferSlot] = nullptr;
         return true;
     }
 
     // (Re)build the bind group for a (view,frame) slot. One bind group PER slot (each over its own
-    // buffers) so a slot's group is stable across frames — never freed while the previous frame's
+    // buffers) so a slot's group is stable across frames - never freed while the previous frame's
     // command buffer that referenced it is still in flight.
     bool EnsureBindGroup(u32 bufferSlot, rhi::Buffer* offsets, rhi::Buffer* indices) {
         rhi::Buffer* lights = m_lightRing.Buffer();
@@ -356,7 +356,7 @@ private:
     rhi::ComputePipeline*  m_pipeline = nullptr;
 
     static constexpr u32 kMaxFramesInFlight = 8;
-    // Cluster buffers are owned per (view, frame-in-flight) slot — two views in one frame must not
+    // Cluster buffers are owned per (view, frame-in-flight) slot - two views in one frame must not
     // share a buffer (the Sedulous "two pipelines stomp the same frameIndex%2 slot" bug). Slots are
     // allocated LAZILY (the indices buffer is large), so unused view slots cost only a null pointer.
     static constexpr u32 kMaxBufferSlots = kMaxViewsPerFrame * kMaxFramesInFlight;

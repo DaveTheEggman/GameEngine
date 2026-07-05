@@ -1,6 +1,6 @@
-// Draconic Core — :vector4 partition
+// Draconic Core - :vector4 partition
 //
-// Vector4: 4D f32 vector — arithmetic, Dot/Length/Normalized, XYZ(), component
+// Vector4: 4D f32 vector - arithmetic, Dot/Length/Normalized, XYZ(), component
 // constants. Converts from Vector3.
 
 module;

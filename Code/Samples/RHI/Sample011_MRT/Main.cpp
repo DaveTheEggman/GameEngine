@@ -1,5 +1,5 @@
 #include <new>
-/// Sample011 — Multiple Render Targets. Ported from Sedulous Sample011_MRT.
+/// Sample011 - Multiple Render Targets. Ported from Sedulous Sample011_MRT.
 /// Pass 1: Renders triangles to 2 render targets (color + brightness).
 /// Pass 2: Composites both side-by-side via fullscreen triangle.
 

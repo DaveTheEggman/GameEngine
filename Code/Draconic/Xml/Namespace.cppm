@@ -1,4 +1,4 @@
-// Draconic::Xml — :namespace partition
+// Draconic::Xml - :namespace partition
 //
 // Well-known XML namespace constants + namespace-declaration helpers. Ported
 // from Sedulous.Xml/XmlNamespace.bf.

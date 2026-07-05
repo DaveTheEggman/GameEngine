@@ -1,4 +1,4 @@
-/// Draconic::Render — the `:shadows` partition.
+/// Draconic::Render - the `:shadows` partition.
 ///
 /// Shadow mapping (phase 5). 5.1 is the directional vertical slice: a single shadow map rendered
 /// from the scene's directional shadow caster's point of view, sampled with PCF in the forward
@@ -32,7 +32,7 @@ export namespace draconic::render {
 
 // Fit CSM cascades to the camera frustum. Practical split (lambda blend of log + uniform), a bounding
 // SPHERE fit per cascade (stable under camera rotation) with radius snapping, plus light-space TEXEL
-// snapping — the anti-shimmer fix Sedulous lacks (the survey flagged it). `lightDir` is the direction
+// snapping - the anti-shimmer fix Sedulous lacks (the survey flagged it). `lightDir` is the direction
 // light travels; the light camera looks along it. Cascades cover [near, shadowDistance].
 [[nodiscard]] inline ShadowCascades ComputeCascades(const ViewCamera& cam, Vector3 lightDir,
                                                     f32 shadowDistance, u32 resolution) {
@@ -110,7 +110,7 @@ export namespace draconic::render {
     return out;
 }
 
-// A rectangular tile within the shadow atlas (pixels) — the depth pass's viewport for one caster.
+// A rectangular tile within the shadow atlas (pixels) - the depth pass's viewport for one caster.
 struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
 
 [[nodiscard]] inline AtlasTile AtlasTileRect(u32 tileIndex, u32 atlasRes, u32 tileRes) {
@@ -122,7 +122,7 @@ struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
 // Finish a local-shadow entry from a light-space view matrix + cone fov + assigned tile: builds the
 // perspective projection and the atlas scale/bias mapping its clip uv into `tileIndex`. The forward
 // shader does uv = ndc.xy*(0.5,-0.5)+0.5, then uv_atlas = uv*scale + offset.
-// Near plane scaled to the range: a tiny near (e.g. 0.05) wrecks perspective depth precision —
+// Near plane scaled to the range: a tiny near (e.g. 0.05) wrecks perspective depth precision -
 // everything past a few units crams into ndc.z > 0.99 and occluder/receiver separation falls below
 // the depth bias (no shadow). range*0.05 keeps depth spread across the useful distances.
 [[nodiscard]] inline GpuLocalShadow MakeLocalShadow(const Matrix4& view, f32 range, f32 fov,
@@ -163,7 +163,7 @@ struct AtlasTile { u32 x = 0, y = 0, w = 0, h = 0; };
     const Matrix4 view = Matrix4::LookAtRH(c.positionWS, c.positionWS + dir, up);
     // fov slightly WIDER than 90deg: the shader selects faces at the exact 45deg boundary, so a 90deg
     // frustum would put boundary fragments at the tile EDGE and the PCF taps would fall off it / into
-    // the neighbour tile — a visible seam line. The pad (~100deg) pulls boundary uv inward off the edge.
+    // the neighbour tile - a visible seam line. The pad (~100deg) pulls boundary uv inward off the edge.
     return MakeLocalShadow(view, c.range, 1.745f /*~100deg*/, tileIndex, atlasRes, tileRes);
 }
 
@@ -202,7 +202,7 @@ public:
 
     // Bumped whenever a shadow texture is (re)created (lazily in 5.1; on resolution/atlas changes in
     // 5.2+). A consumer caching a bind group over SampleView keys on this so a reused-address view
-    // can't alias a destroyed texture — same reason the cluster buffers carry a version.
+    // can't alias a destroyed texture - same reason the cluster buffers carry a version.
     [[nodiscard]] u64 Generation() const noexcept { return m_generation; }
 
     // Import this frame's shadow texture into the graph: the depth pass writes it, then it barriers to
@@ -222,7 +222,7 @@ public:
     // ---- local-light shadow atlas (5.3 / 5.4) ------------------------------------------------
     // Spot/point shadows pack into a 2-LAYER depth atlas array (cascades stay in their own array).
     // Layer 0 = REALTIME (cleared + re-rendered every frame); layer 1 = STATIC (rendered only when the
-    // static caster set changes, then cached — phase 5.4). Each caster gets a fixed square tile in its
+    // static caster set changes, then cached - phase 5.4). Each caster gets a fixed square tile in its
     // layer; the forward samples float3(uv_tile, layer).
     static constexpr u32 kAtlasResolution   = 2048;
     static constexpr u32 kAtlasTile         = 512;                          // 4x4 = 16 tiles per layer
@@ -297,7 +297,7 @@ private:
 
     // Create one frame-slot's local-shadow atlas (a 2-LAYER depth array: realtime + static) + its
     // whole-array attachment/sample views. Per-layer attachment views are derived by the graph
-    // (subresource) at pass time. Fixed size — runs once per slot (++generation invalidates caches).
+    // (subresource) at pass time. Fixed size - runs once per slot (++generation invalidates caches).
     bool EnsureAtlas(u32 slot) {
         if (m_atlasTextures[slot] != nullptr) { return true; }
         rhi::TextureDesc td{};

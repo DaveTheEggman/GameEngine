@@ -1,8 +1,8 @@
-/// Draconic::Render — the `:views` partition.
+/// Draconic::Render - the `:views` partition.
 ///
 /// `RenderView` is the renderer's unit of work *and* its isolation boundary: render one
 /// scene's extracted data, from one camera, into one target. A frame renders a SET of
-/// views — primary cameras, plus (later) derived shadow/probe views — and `RenderView`
+/// views - primary cameras, plus (later) derived shadow/probe views - and `RenderView`
 /// owning all per-frame-mutable state (the culled+sorted draw list, and later the view
 /// UBO, cluster grid, shadow slots, HDR/depth targets) is what guarantees views don't
 /// trash each other. The only state shared across views is the immutable `ExtractedScene`
@@ -49,7 +49,7 @@ struct ViewSettings {
     u32 viewportWidth = 0, viewportHeight = 0;
     // Target resource-state handling for the imported color target. `targetTexture` is the backing
     // texture the graph barriers (null => host-managed backbuffer; the graph touches no barrier).
-    // `targetFinalState` is where the graph leaves it — RenderTarget for present, or ShaderRead /
+    // `targetFinalState` is where the graph leaves it - RenderTarget for present, or ShaderRead /
     // CopySrc for an offscreen target the caller then samples / blits.
     rhi::Texture*      targetTexture       = nullptr;
     rhi::ResourceState targetCurrentState  = rhi::ResourceState::RenderTarget;
@@ -57,7 +57,7 @@ struct ViewSettings {
 };
 
 // A single view: what to draw (a shared ExtractedScene), from where (camera), into what
-// (target). Owns the per-view draw list. Pooled — `Reset` rebinds it for a new use without
+// (target). Owns the per-view draw list. Pooled - `Reset` rebinds it for a new use without
 // freeing the draw-list storage.
 class RenderView {
 public:
@@ -105,7 +105,7 @@ public:
                 continue;
             }
             // Category-generic: read the base sort fields (worldCenter/sortBatchKey the producer set)
-            // + the category's sort mode from the dynamic registry — no downcast to a concrete type,
+            // + the category's sort mode from the dynamic registry - no downcast to a concrete type,
             // so any renderer's data (mesh, sprite, particle) sorts through this one path.
             // view-space depth: forward is -z in RH view space, so distance ~ -z_view.
             const Vector3 vc      = TransformPoint(data->worldCenter, viewMat);
@@ -142,7 +142,7 @@ public:
     [[nodiscard]] Span<const DrawItem>      DrawList()    const noexcept {
         return Span<const DrawItem>{ m_drawList.Data(), m_drawList.Size() };
     }
-    // Cull stats for the last BuildDrawList (0/0 when culling was off — nothing tested).
+    // Cull stats for the last BuildDrawList (0/0 when culling was off - nothing tested).
     [[nodiscard]] u32                       SceneItemCount() const noexcept { return m_sceneItemCount; }
     [[nodiscard]] u32                       CulledCount()    const noexcept { return m_culledCount; }
     // Opaque per-scene debug-draw list for this view (set by the subsystem; cast back in RenderFrame).

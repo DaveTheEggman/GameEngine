@@ -1,5 +1,5 @@
 {
-    // CMake Tools — use the clang preset (works on both Linux and Windows)
+    // CMake Tools - use the clang preset (works on both Linux and Windows)
     "cmake.configureOnOpen": false,
     "cmake.configureSettings": {},
 

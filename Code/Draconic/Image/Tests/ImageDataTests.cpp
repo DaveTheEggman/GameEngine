@@ -1,4 +1,4 @@
-// Ported from Sedulous.Images.Tests/ImageDataTests.bf — OwnedImageData,
+// Ported from Sedulous.Images.Tests/ImageDataTests.bf - OwnedImageData,
 // NineSlice, ImageAtlasBuilder, PixelFormat. Mirrors the Sedulous assertions so
 // the ported lib inherits that suite's coverage. (Test.Assert -> CHECK; Beef
 // scope/new -> stack/Array; nullable RectangleI -> const RectI*.)

@@ -1,4 +1,4 @@
-// Draconic::FontsTTF — draconic.fonts.ttf:init partition
+// Draconic::FontsTTF - draconic.fonts.ttf:init partition
 //
 // Registers/unregisters the TTF parser + atlas baker with the IO factories.
 // Ported from Sedulous.Fonts.TTF/TrueTypeFonts.bf. Initialize news the parser

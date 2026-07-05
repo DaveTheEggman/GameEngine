@@ -1,4 +1,4 @@
-# Draconic::MaterialEditor — `draconic.materials.editor` (tooling: MaterialAsset ->
+# Draconic::MaterialEditor - `draconic.materials.editor` (tooling: MaterialAsset ->
 # MaterialSource cook). Never linked by the runtime.
 add_library(DraconicMaterialEditor STATIC)
 add_library(Draconic::MaterialEditor ALIAS DraconicMaterialEditor)

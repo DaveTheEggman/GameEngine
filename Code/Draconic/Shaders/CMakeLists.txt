@@ -1,9 +1,9 @@
-# Draconic::Shaders — `draconic.shaders` (HLSL compilation via DXC). The Compiler is
+# Draconic::Shaders - `draconic.shaders` (HLSL compilation via DXC). The Compiler is
 # a third-party edge (DXC's wide-char API), so it uses std strings/containers;
 # the public Types use Draconic types.
 
 if(NOT TARGET Draconic::DXCHeaders)
-    message(STATUS "Skipping Draconic::Shaders — DXC headers not available")
+    message(STATUS "Skipping Draconic::Shaders - DXC headers not available")
     return()
 endif()
 

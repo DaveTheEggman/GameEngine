@@ -1,8 +1,8 @@
-# Draconic::SamplesFramework — `draconic.samples.framework` (RHI sample base + helpers).
+# Draconic::SamplesFramework - `draconic.samples.framework` (RHI sample base + helpers).
 # Needs the Vulkan backend, the desktop shell, and the shader compiler.
 
 if(NOT (TARGET Draconic::RHIVulkan AND TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::Shaders))
-    message(STATUS "Skipping Draconic::SamplesFramework — needs Vulkan + Desktop shell + Shaders")
+    message(STATUS "Skipping Draconic::SamplesFramework - needs Vulkan + Desktop shell + Shaders")
     return()
 endif()
 
@@ -19,7 +19,7 @@ target_link_libraries(DraconicSamplesFramework PUBLIC
     Draconic::Shaders
     Draconic::Policy)
 
-# DX12 backend — Windows only.
+# DX12 backend - Windows only.
 if(TARGET Draconic::RHIDX12)
     target_link_libraries(DraconicSamplesFramework PUBLIC Draconic::RHIDX12)
     target_compile_definitions(DraconicSamplesFramework PUBLIC DRACONIC_HAS_DX12)

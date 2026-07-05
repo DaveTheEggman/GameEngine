@@ -1,5 +1,5 @@
 #include <new>
-/// Sample009 — Mipmaps. Ported from Sedulous Sample009_Mipmaps.
+/// Sample009 - Mipmaps. Ported from Sedulous Sample009_Mipmaps.
 /// Textured quad that recedes into the distance showing mip level selection.
 /// Uses generateMipmaps() to auto-generate mip chain from a base texture.
 

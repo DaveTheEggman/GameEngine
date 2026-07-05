@@ -1,11 +1,11 @@
-// Draconic::RuntimeScript — the `draconic.runtime.script` module.
+// Draconic::RuntimeScript - the `draconic.runtime.script` module.
 //
 // ScriptSubsystem: hosts scripting inside the runtime. It owns a script manager
-// (the VM backend is injected — e.g. Wren — so the runtime stays backend-
+// (the VM backend is injected - e.g. Wren - so the runtime stays backend-
 // agnostic) and its main context, exposes reflected engine types to scripts,
 // loads script source, and instantiates script objects.
 //
-// A single "driver" script object can be set to receive the frame loop — tier 1
+// A single "driver" script object can be set to receive the frame loop - tier 1
 // of the scripting design: a global script that drives the game (no states/
 // stages). Tier 2 (per-entity script components ticked by an ECS) reuses the
 // same CreateInstance/Invoke primitives once an ECS exists, so it needs no new

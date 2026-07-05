@@ -1,4 +1,4 @@
-// Draconic Core — System backend, Linux implementation.
+// Draconic Core - System backend, Linux implementation.
 
 #include "Core/System/SystemBackend.h"
 
@@ -35,7 +35,7 @@ namespace draconic::core::sys
         timespec rem{};
         while (nanosleep(&req, &rem) == -1)
         {
-            req = rem; // interrupted by a signal — resume for the remainder
+            req = rem; // interrupted by a signal - resume for the remainder
         }
     }
 

@@ -1,6 +1,6 @@
-/// Draconic::Animation — the `:player` partition.
+/// Draconic::Animation - the `:player` partition.
 ///
-/// AnimationPlayer: single-clip playback for one skeleton instance — time advance, looping/clamping,
+/// AnimationPlayer: single-clip playback for one skeleton instance - time advance, looping/clamping,
 /// event firing, and evaluation into skinning matrices (+ previous frame for motion vectors). Ported
 /// faithfully from Sedulous.Animation.AnimationPlayer. The skeleton + clip are borrowed (not owned).
 

@@ -1,4 +1,4 @@
-// Draconic::Xml — :lexer partition
+// Draconic::Xml - :lexer partition
 //
 // Low-level UTF-8 scanning primitives: name/value/content reading, entity and
 // character-reference decoding, CDATA/comment/PI bodies. Operates on byte

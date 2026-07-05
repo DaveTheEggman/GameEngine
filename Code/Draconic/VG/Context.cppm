@@ -1,6 +1,6 @@
-// Draconic::VG — :context partition.
+// Draconic::VG - :context partition.
 //
-// VGState (the per-state-stack snapshot) and VGContext — the main user-facing
+// VGState (the per-state-stack snapshot) and VGContext - the main user-facing
 // vector-graphics API. Immediate-mode drawing of paths, shapes, images, 9-slice,
 // and text; produces a batched VGBatch for an external renderer to consume.
 // Ported from Sedulous.VG (VGState/VGContext). The 2D transform is a Matrix4

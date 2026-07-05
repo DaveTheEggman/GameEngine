@@ -1,4 +1,4 @@
-// Draconic Core — :hash partition
+// Draconic Core - :hash partition
 //
 // Hashing utilities: a byte hash (FNV-1a, 64-bit), an integer finalizer, and
 // the Hash<T> function object used by hashed containers. (Hash specializations
@@ -28,7 +28,7 @@ export namespace draconic::core
         return hash;
     }
 
-    // splitmix64 finalizer — good avalanche for integer keys.
+    // splitmix64 finalizer - good avalanche for integer keys.
     [[nodiscard]] constexpr u64 HashInteger(u64 x) noexcept
     {
         x ^= x >> 33;

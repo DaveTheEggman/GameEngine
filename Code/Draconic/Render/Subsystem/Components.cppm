@@ -1,6 +1,6 @@
-/// Draconic::RenderSubsystem — the `:components` partition.
+/// Draconic::RenderSubsystem - the `:components` partition.
 ///
-/// The render-facing scene components + their managers — the scene-coupled side of the
+/// The render-facing scene components + their managers - the scene-coupled side of the
 /// renderer (draconic.render itself stays scene-agnostic). A MeshComponent references a
 /// mesh + material to draw at its entity's transform; a CameraComponent describes a
 /// view frustum (its view comes from the entity's world transform). The RenderSubsystem
@@ -25,7 +25,7 @@ export namespace draconic::render {
 
 // What to draw at an entity: a mesh + the material to draw it with. Borrowed-strong
 // (RefPtr) so the component keeps its resources alive while attached. `color` is a
-// per-instance tint (multiplied into the shaded color) — distinct per entity even when
+// per-instance tint (multiplied into the shaded color) - distinct per entity even when
 // many share one mesh + material, so it rides the per-instance data path.
 struct MeshComponent {
     RefPtr<geometry::StaticMesh> mesh;
@@ -36,7 +36,7 @@ struct MeshComponent {
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     bool                         visible = true;
     // GPU skinning: per-bone skinning matrices for a skinned mesh, supplied per frame by the owner
-    // (e.g. an AnimationPlayer's GetSkinningMatrices()). Borrowed — valid for the frame it's set;
+    // (e.g. an AnimationPlayer's GetSkinningMatrices()). Borrowed - valid for the frame it's set;
     // null => the mesh draws static (bind pose). Extraction copies the pointer into MeshRenderData.
     const Matrix4*                  boneMatrices = nullptr;
     const Matrix4*                  prevBoneMatrices = nullptr;   // previous-frame matrices (motion vectors); null => reuse current
@@ -46,7 +46,7 @@ struct MeshComponent {
 // A camera frustum. The view transform is the inverse of the entity's world matrix;
 // these fields define the projection. `primary` marks the camera the renderer uses.
 // `clearColor` is the backdrop the view is cleared to (per-camera, like Unity/Godot);
-// defaults to the cornflower sentinel. (Clear *mode* — skybox/solid/depth-only — later.)
+// defaults to the cornflower sentinel. (Clear *mode* - skybox/solid/depth-only - later.)
 struct CameraComponent {
     f32   fovYRadians = 1.04719755f;          // 60 degrees
     f32   aspect      = 16.0f / 9.0f;
@@ -77,20 +77,20 @@ struct LightComponent {
     bool             castsShadows = false;        // phase 5 shadow caster
 };
 
-// A textured billboard on an entity — drawn at the entity's world position, sized in world units,
+// A textured billboard on an entity - drawn at the entity's world position, sized in world units,
 // facing the camera (or world-aligned). `texture` is borrowed: the app/resource owns it and must keep
 // it alive while the component is attached. Extraction reads this into a render::SpriteRenderData.
 struct SpriteComponent {
     rhi::TextureView* texture = nullptr;
     Vector2  size        = Vector2{ 1.0f, 1.0f };                 // world-unit width/height
-    Vector4  uvRect      = Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) — whole texture by default
+    Vector4  uvRect      = Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) - whole texture by default
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
     bool  additive    = false;  // false = alpha over, true = additive (glow)
     bool  visible     = true;
 };
 
-// A screen-space projected decal on an entity — sprays `texture` onto whatever surface is under its
+// A screen-space projected decal on an entity - sprays `texture` onto whatever surface is under its
 // oriented box. The box projects along the entity's local +Z; `size` is the box extents (x,y = the
 // footprint, z = how far along the projection axis it reaches). Orient the entity so local +Z points
 // into the surface (e.g. rotate so +Z points down to project onto a floor). `texture` is borrowed.
@@ -128,7 +128,7 @@ class ReflectionProbeComponentManager final : public scene::ComponentManager<Ref
 
 // SkyMode is defined in the snapshot layer (draconic.render :data) and reused here.
 
-// The scene's environment — ONE per scene (not a component). Drives both the IBL ambient and the
+// The scene's environment - ONE per scene (not a component). Drives both the IBL ambient and the
 // (upcoming) visible sky. A plain SceneSystem injected by the RenderSubsystem; extraction reads it
 // into the snapshot. When IBL is active these sky settings drive shading; `ambientColor ×
 // ambientIntensity` remains the flat fallback used when no environment is active.

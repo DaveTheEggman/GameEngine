@@ -1,4 +1,4 @@
-// Draconic Core — Threading backend, Win32 implementation.
+// Draconic Core - Threading backend, Win32 implementation.
 //
 // NOTE: written against ThreadBackend.h for Windows/MSVC; not compiled in the
 // Linux dev environment. Validate on Windows. Mutex uses CRITICAL_SECTION and

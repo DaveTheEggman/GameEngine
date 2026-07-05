@@ -1,5 +1,5 @@
 #include <new>
-/// Sample016 — GPU Readback. Ported from Sedulous Sample016_Readback.
+/// Sample016 - GPU Readback. Ported from Sedulous Sample016_Readback.
 /// Renders a colored triangle to a small offscreen texture, copies it to a
 /// readback buffer, then reads pixel values on the CPU and prints them.
 

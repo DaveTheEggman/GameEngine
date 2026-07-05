@@ -1,4 +1,4 @@
-// Phase 4 — the Context-level scene driver + ISceneAware injection: a scene-aware
+// Phase 4 - the Context-level scene driver + ISceneAware injection: a scene-aware
 // subsystem registers with the broker and injects a per-scene system into each new
 // scene; the SceneSubsystem owns scenes, ticks them, and notifies create/ready/destroy.
 #include <doctest/doctest.h>

@@ -1,4 +1,4 @@
-// Draconic::Fonts — :atlas_texture partition
+// Draconic::Fonts - :atlas_texture partition
 //
 // Expands a font atlas's single-channel R8 coverage buffer into a renderer-
 // friendly RGBA8 image (white RGB, alpha = coverage). Ported from

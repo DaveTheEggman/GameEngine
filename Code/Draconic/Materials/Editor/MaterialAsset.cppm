@@ -1,7 +1,7 @@
-// Draconic::MaterialEditor — the `draconic.materials.editor` module (tooling).
+// Draconic::MaterialEditor - the `draconic.materials.editor` module (tooling).
 //
 // Source-side material authoring + cook:
-//   * MaterialAsset (editor::Asset): wraps a MaterialSource (the authored material —
+//   * MaterialAsset (editor::Asset): wraps a MaterialSource (the authored material -
 //     shader reference + declared properties + render-state presets + default
 //     uniforms). A material has no external source file to decode, so the asset IS
 //     the authored data; cooking resolves it into the product DB.

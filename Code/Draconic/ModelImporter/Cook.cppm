@@ -1,4 +1,4 @@
-/// Draconic::ModelImporter:cook — cook a loaded Model into a content database.
+/// Draconic::ModelImporter:cook - cook a loaded Model into a content database.
 ///
 /// Cooks a model's textures, materials, and meshes through the editor stack (Asset ->
 /// builder -> content Instance) into the output DB, then writes a manifest
@@ -57,7 +57,7 @@ export namespace draconic::modelimporter {
 
 // Cook the model's textures into outDb. The model loaders DECODE every texture into raw
 // RGBA8 pixels (storeImageData) for external files, data-URIs, AND embedded GLB buffer-views
-// alike, so we cook directly from ModelTexture's pixel bytes — no file re-read, and embedded
+// alike, so we cook directly from ModelTexture's pixel bytes - no file re-read, and embedded
 // textures work. Returns one Guid per model texture (nil if it has no usable RGBA8 data).
 inline void CookTextures(const model::Model& model, content::Group* root, StringView namePrefix, Array<Guid>& outGuids)
 {

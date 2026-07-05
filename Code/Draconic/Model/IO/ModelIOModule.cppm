@@ -1,4 +1,4 @@
-/// Model IO — loader abstraction and registry.
+/// Model IO - loader abstraction and registry.
 /// Format-specific loaders (GLTF, FBX) register here.
 /// Callers use loadModel(path, model) which selects the right loader by extension.
 

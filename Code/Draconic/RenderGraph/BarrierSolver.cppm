@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :barrier_solver partition
+// Draconic::RenderGraph - :barrier_solver partition
 //
 // Computes and emits resource barriers between passes. State is tracked at two
 // levels: per-resource-handle (buffers; convenience for textures) and per-
@@ -71,7 +71,7 @@ export namespace draconic::rendergraph
                 {
                     if (SubresourceStateTracker** existing = m_textureStates.Find(res->texture))
                     {
-                        // Same GPU texture via another handle — unify.
+                        // Same GPU texture via another handle - unify.
                         SubresourceStateTracker* tracker = *existing;
                         if (initialState == rhi::ResourceState::Undefined && tracker->IsUniform()
                             && tracker->UniformState() != rhi::ResourceState::Undefined)

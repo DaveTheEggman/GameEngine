@@ -1,4 +1,4 @@
-# Draconic::SceneResource — `draconic.scene.resource` (whole-scene serialization +
+# Draconic::SceneResource - `draconic.scene.resource` (whole-scene serialization +
 # runtime LoadScene from a content-DB instance).
 add_library(DraconicSceneResource STATIC)
 add_library(Draconic::SceneResource ALIAS DraconicSceneResource)

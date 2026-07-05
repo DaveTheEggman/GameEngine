@@ -10,7 +10,7 @@ import :span;
 export namespace draconic::core
 {
     // =======================================================================
-    // FixedArray — fixed-capacity, stack-allocated array with a live count.
+    // FixedArray - fixed-capacity, stack-allocated array with a live count.
     // For small collections with a known upper bound (e.g. render-pass color
     // attachments). No heap allocation; copyable as a value.
     // =======================================================================

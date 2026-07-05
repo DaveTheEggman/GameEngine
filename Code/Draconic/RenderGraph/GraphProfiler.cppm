@@ -1,4 +1,4 @@
-// Draconic::RenderGraph — :profiler partition
+// Draconic::RenderGraph - :profiler partition
 //
 // Optional GPU profiler: per-pass timing via timestamp queries. BeginPass/EndPass
 // write timestamps around each pass; Resolve copies the query results to a
@@ -54,7 +54,7 @@ export namespace draconic::rendergraph
             return Status{};
         }
 
-        // Reset the query set at the START of the frame's encoder — timestamps can only be written
+        // Reset the query set at the START of the frame's encoder - timestamps can only be written
         // into a freshly-reset pool, and the reset must be outside any render pass.
         void BeginFrame(rhi::CommandEncoder& encoder)
         {
@@ -114,7 +114,7 @@ export namespace draconic::rendergraph
             AppendFormat(outReport, u8"  --------\n  {} ms  TOTAL\n", totalMs);
 
             // Aggregate by pass NAME so many same-named passes (e.g. 24x probes.prefilter) read as one
-            // line — a "which pass category is expensive" summary, sorted most-expensive first.
+            // line - a "which pass category is expensive" summary, sorted most-expensive first.
             struct Agg { StringView name; f32 sum = 0.0f; i32 n = 0; };
             Array<Agg> agg;
             for (i32 i = 0; i < count; ++i)

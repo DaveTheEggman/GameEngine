@@ -384,7 +384,7 @@ TEST_CASE("io: directory create / exists / remove")
 
 // --- IO: Virtual file system -----------------------------------------------
 
-// VFS (NativeFileSystem / VirtualFileSystem) moved to draconic.vfs — see
+// VFS (NativeFileSystem / VirtualFileSystem) moved to draconic.vfs - see
 // Code/Draconic/VFS/Tests/VfsTests.cpp.
 
 // --- Serialization: ISerializable ------------------------------------------

@@ -1,5 +1,5 @@
 #include <new>
-/// Sample013 — Border Sampler. Ported from Sedulous Sample013_BorderSampler.
+/// Sample013 - Border Sampler. Ported from Sedulous Sample013_BorderSampler.
 /// Demonstrates sampler border colors: TransparentBlack, OpaqueBlack, OpaqueWhite.
 /// Three quads with UVs extending beyond [0,1] to show the border region.
 

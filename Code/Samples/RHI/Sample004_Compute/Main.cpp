@@ -1,5 +1,5 @@
 #include <new>
-/// Sample004 — Compute Shader (Animated Point Grid).
+/// Sample004 - Compute Shader (Animated Point Grid).
 /// Ported from Sedulous Sample004_Compute.
 
 #include <cmath>

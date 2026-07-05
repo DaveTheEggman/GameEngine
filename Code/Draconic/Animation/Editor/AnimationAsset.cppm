@@ -1,8 +1,8 @@
-/// Draconic::AnimationEditor — the `draconic.animation.editor` module.
+/// Draconic::AnimationEditor - the `draconic.animation.editor` module.
 ///
 /// Authoring/cook side: a SkeletonAsset / AnimationClipAsset wraps the cooked source + the source
 /// file reference; the builders cook them into the content DB (Source -> product at load). Mirrors
-/// draconic.geometry.editor. (The model importer — draconic.model IR -> these sources — lands later;
+/// draconic.geometry.editor. (The model importer - draconic.model IR -> these sources - lands later;
 /// for now sources are populated round-trip from the runtime types via the resource layer.)
 
 module;

@@ -1,4 +1,4 @@
-# Draconic::TextureResource — `draconic.texture.resource` (runtime cooked record + GPU factory).
+# Draconic::TextureResource - `draconic.texture.resource` (runtime cooked record + GPU factory).
 add_library(DraconicTextureResource STATIC)
 add_library(Draconic::TextureResource ALIAS DraconicTextureResource)
 target_link_libraries(DraconicTextureResource PUBLIC Draconic::Core Draconic::RHI Draconic::Texture Draconic::Content Draconic::Resource Draconic::Policy)

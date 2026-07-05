@@ -1,4 +1,4 @@
-// Draconic::ShellDesktop — the `draconic.shell.desktop` module.
+// Draconic::ShellDesktop - the `draconic.shell.desktop` module.
 //
 // The desktop shell target (Windows/Linux/macOS), implemented on SDL3:
 // SDL3Shell covers Wayland, X11, Win32, and Cocoa in one backend, plus input,
@@ -219,7 +219,7 @@ export namespace draconic::shell
     };
 
     // -----------------------------------------------------------------------
-    // Input devices — double-buffered state fed by the SDL3 event pump.
+    // Input devices - double-buffered state fed by the SDL3 event pump.
     // -----------------------------------------------------------------------
     inline constexpr core::u32 kKeyCount           = static_cast<core::u32>(KeyCode::Count);
     inline constexpr core::u32 kMouseButtonCount   = static_cast<core::u32>(MouseButton::Count);
@@ -504,7 +504,7 @@ export namespace draconic::shell
         void SetWindow(SDL_Window* window) { m_mouse.SetWindow(window); }
 
         // Emit an input event onto this frame's stream (also apply it to the snapshot at the
-        // call site — the snapshot is a fold over these events).
+        // call site - the snapshot is a fold over these events).
         void EmitEvent(const InputEvent& e) { m_events.PushBack(e); }
         void SetHoverWindow(core::u32 id)   noexcept { m_hoverWindow = id; }
         void SetFocusWindow(core::u32 id)   noexcept { m_focusWindow = id; }
@@ -796,7 +796,7 @@ export namespace draconic::shell
 
         [[nodiscard]] bool IsRunning() const noexcept override
         {
-            IWindow* main = m_windows.MainWindow();   // MainWindow() is const now — no const_cast needed
+            IWindow* main = m_windows.MainWindow();   // MainWindow() is const now - no const_cast needed
             return m_running && main != nullptr && main->IsOpen();
         }
 

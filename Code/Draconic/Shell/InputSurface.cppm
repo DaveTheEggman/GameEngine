@@ -1,16 +1,16 @@
-// Draconic::Shell — `:surface` partition.
+// Draconic::Shell - `:surface` partition.
 //
 // InputSurface + InputRouter: the viewport-input layer that sits above the raw
 // shell devices (see docs/design/viewport-input.md §4).
 //
-//   InputSurface  — a rectangular slice of a window (a `ContentFit`) that presents
+//   InputSurface  - a rectangular slice of a window (a `ContentFit`) that presents
 //                   the SAME device interfaces (IMouse/IKeyboard/IGamepad/ITouch)
 //                   as the shell, but TRANSFORMED into the surface's content
 //                   space and GATED by whether the surface is hovered/focused.
 //                   Drop-in: any code written against IMouse works unchanged when
 //                   handed a surface's mouse instead of the shell's.
 //
-//   InputRouter   — the single owner of hover/focus/capture across a set of
+//   InputRouter   - the single owner of hover/focus/capture across a set of
 //                   surfaces. Once per frame (after the shell pumps events) it
 //                   reads the raw pointer + event stream and updates every surface's
 //                   gate. Exactly one surface is hovered, one focused, one captures
@@ -56,7 +56,7 @@ export namespace draconic::shell
         [[nodiscard]] bool IsButtonPressed(MouseButton b)  const override;
         [[nodiscard]] bool IsButtonReleased(MouseButton b) const override;
 
-        // Cursor/relative state is global device state — pass through to the raw
+        // Cursor/relative state is global device state - pass through to the raw
         // mouse (the active surface drives it).
         [[nodiscard]] bool RelativeMode() const override;
         void SetRelativeMode(bool enabled) override;
@@ -334,7 +334,7 @@ export namespace draconic::shell
 
             // Which surface is under the pointer? Last match wins (topmost added). When an external overlay
             // (e.g. an ImGui window under the pointer) has captured the mouse this frame, NO surface is
-            // hovered — so the overlay swallows the wheel/clicks and the viewport cameras don't also react.
+            // hovered - so the overlay swallows the wheel/clicks and the viewport cameras don't also react.
             m_hovered = nullptr;
             if (!m_extMouseCapture)
             {

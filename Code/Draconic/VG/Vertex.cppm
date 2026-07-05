@@ -1,4 +1,4 @@
-// Draconic::VG — :vertex partition.
+// Draconic::VG - :vertex partition.
 //
 // VGVertex: the GPU vertex for vector graphics with analytical-AA coverage.
 // Ported from Sedulous.VG/VGVertex.bf. Color is stored as a packed Color32

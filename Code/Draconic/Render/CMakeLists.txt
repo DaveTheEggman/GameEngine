@@ -1,4 +1,4 @@
-# Draconic::Render — `draconic.render`, the renderer (scene-agnostic). Consumes extracted
+# Draconic::Render - `draconic.render`, the renderer (scene-agnostic). Consumes extracted
 # render data (ExtractedView) and draws it; knows nothing about the scene. This phase
 # is the render-data contract; the GPU forward path lands later (adds the RHI dep).
 # Scene integration lives in the Subsystem sub-library (one-way dependency -> here).

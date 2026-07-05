@@ -1,4 +1,4 @@
-# Draconic::RHIVulkan — `draconic.rhi.vk` (the Vulkan RHI backend). Links the Vulkan
+# Draconic::RHIVulkan - `draconic.rhi.vk` (the Vulkan RHI backend). Links the Vulkan
 # loader; built only when the Vulkan SDK/headers are available.
 
 add_library(DraconicRHIVulkan STATIC)

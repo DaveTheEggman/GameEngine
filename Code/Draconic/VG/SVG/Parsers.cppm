@@ -1,4 +1,4 @@
-// Draconic::VG::SVG — :parsers partition.
+// Draconic::VG::SVG - :parsers partition.
 //
 // The standalone SVG attribute parsers (no XML dependency): SVGColorParser
 // (hex/#rgb/rgb()/named), SVGTransformParser (translate/scale/rotate/skew/matrix

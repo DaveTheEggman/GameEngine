@@ -1,4 +1,4 @@
-// Draconic::XmlSerialization — the `draconic.xml.serialization` module.
+// Draconic::XmlSerialization - the `draconic.xml.serialization` module.
 //
 // An XML backend for Core's format-agnostic ISerializer/Serializer contract:
 // the first text-based serialization backend. One Serialize() path runs either
@@ -7,7 +7,7 @@
 // element tags + a `name` attribute), adapted to Draconic's leaner interface.
 //
 // Layering: kept out of Core (which can't depend on Xml) and out of the XML DOM
-// library (which stays serialization-agnostic) — mirrors Sedulous.Serialization.Xml.
+// library (which stays serialization-agnostic) - mirrors Sedulous.Serialization.Xml.
 
 module;
 #include "Core/Prelude.h"

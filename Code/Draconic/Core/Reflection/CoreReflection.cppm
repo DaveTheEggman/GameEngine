@@ -1,4 +1,4 @@
-// Draconic Core — :core_reflection partition
+// Draconic Core - :core_reflection partition
 //
 // Reflects Core's value types (vectors, color, quaternion, transform, geometry
 // primitives, matrices, Guid) so they can be introspected and bound to

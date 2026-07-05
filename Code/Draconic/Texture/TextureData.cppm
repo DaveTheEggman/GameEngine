@@ -1,7 +1,7 @@
-// Draconic::Texture — :data partition
+// Draconic::Texture - :data partition
 //
 // TextureData: a CPU-side descriptor of pixel data staged for GPU upload (it
-// owns no GPU handle — the consumer creates the rhi::Texture from this). Ported
+// owns no GPU handle - the consumer creates the rhi::Texture from this). Ported
 // from Sedulous.Textures/TextureData.bf.
 
 module;

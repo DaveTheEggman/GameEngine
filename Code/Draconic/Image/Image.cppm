@@ -1,4 +1,4 @@
-/// Image — owns a CPU-side pixel buffer with manipulation methods.
+/// Image - owns a CPU-side pixel buffer with manipulation methods.
 /// Implements ImageData so it can be passed to anything accepting the base type.
 /// Ported from Sedulous.Images.Image.
 
@@ -21,7 +21,7 @@ using namespace draconic::core;
 export namespace draconic::image {
 
 // Pixel access uses the engine's packed byte color, core::Color32 (the image
-// library previously defined its own duplicate `Color` — unified away).
+// library previously defined its own duplicate `Color` - unified away).
 
 /// Image that owns a pixel buffer. Inherits ImageData for polymorphic use.
 /// Supports pixel access, flips, format conversion, and procedural factories.
