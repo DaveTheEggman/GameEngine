@@ -21,7 +21,7 @@ import draconic.animation;          // Skeleton, AnimationClip, AnimationPlayer,
 import draconic.render.subsystem;   // MeshComponentManager / MeshComponent (the feed target)
 
 using namespace draconic::core;
-namespace sc   = draconic::scene;
+namespace scene   = draconic::scene;
 namespace animation = draconic::animation;
 
 export namespace draconic::animation {
@@ -35,7 +35,7 @@ struct SkeletalAnimationComponent {
     animation::Skeleton*                  skeleton = nullptr;   // borrowed; shared across instances
     animation::AnimationClip*             clip     = nullptr;   // borrowed; the clip to play (autoPlay)
     UniquePtr<animation::AnimationPlayer> player;               // created lazily by the manager
-    Array<sc::EntityHandle>          meshEntities;         // feed targets (empty => own entity)
+    Array<scene::EntityHandle>          meshEntities;         // feed targets (empty => own entity)
     f32                              speed     = 1.0f;
     f32                              startTime = 0.0f;     // initial clock (desync a herd); applied on first tick
     bool                             autoPlay  = true;     // Play(clip) on first tick
@@ -45,20 +45,20 @@ struct SkeletalAnimationComponent {
 // render extraction): advance each player, then write its current + previous skinning matrices into
 // the target MeshComponent(s) (borrowed for the frame — the player, owned by the component, keeps
 // the matrix storage alive). Lazily creates each component's player on first tick.
-class SkeletalAnimationComponentManager final : public sc::ComponentManager<SkeletalAnimationComponent> {
+class SkeletalAnimationComponentManager final : public scene::ComponentManager<SkeletalAnimationComponent> {
 public:
-    void OnSceneCreate(sc::Scene& scene) override { m_scene = &scene; }
+    void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
     // Animation is gameplay-side state; only advance it while the scene is simulating? Keep it
     // always-on for now so apps animate without an explicit Start() (revisit with edit-mode).
     [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
 
-    void OnUpdate(sc::ScenePhase phase, f32 deltaTime) override {
-        if (phase != sc::ScenePhase::PostUpdate || m_scene == nullptr) { return; }
+    void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override {
+        if (phase != scene::ScenePhase::PostUpdate || m_scene == nullptr) { return; }
         auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
         if (meshes == nullptr) { return; }
 
-        ForEach([&](SkeletalAnimationComponent& a, sc::EntityHandle owner) {
+        ForEach([&](SkeletalAnimationComponent& a, scene::EntityHandle owner) {
             if (a.skeleton == nullptr) { return; }
             if (a.player.Get() == nullptr) {
                 a.player = MakeUnique<animation::AnimationPlayer>(DefaultAllocator(), *a.skeleton);
@@ -71,7 +71,7 @@ public:
             a.player->Update(deltaTime);
             const Span<const Matrix4> mats = a.player->GetSkinningMatrices();
             const Span<const Matrix4> prev = a.player->GetPrevSkinningMatrices();
-            const auto feed = [&](sc::EntityHandle e) {
+            const auto feed = [&](scene::EntityHandle e) {
                 if (render::MeshComponent* mc = meshes->Get(e)) {
                     mc->boneMatrices     = mats.Data();
                     mc->prevBoneMatrices = prev.Data();
@@ -79,12 +79,12 @@ public:
                 }
             };
             if (a.meshEntities.IsEmpty()) { feed(owner); }
-            else { for (sc::EntityHandle e : a.meshEntities) { feed(e); } }
+            else { for (scene::EntityHandle e : a.meshEntities) { feed(e); } }
         });
     }
 
 private:
-    sc::Scene* m_scene = nullptr;
+    scene::Scene* m_scene = nullptr;
 };
 
 // State-machine-driven skeletal animation: a graph player (over a borrowed, shared skeleton +
@@ -97,7 +97,7 @@ struct AnimationGraphComponent {
     animation::Skeleton*                       skeleton = nullptr;  // borrowed; shared across instances
     animation::AnimationGraph*                 graph    = nullptr;  // borrowed; the state machine to evaluate
     UniquePtr<animation::AnimationGraphPlayer> player;              // created lazily by the manager
-    Array<sc::EntityHandle>               meshEntities;        // feed targets (empty => own entity)
+    Array<scene::EntityHandle>               meshEntities;        // feed targets (empty => own entity)
     bool                                  active   = true;     // evaluate this frame?
 };
 
@@ -105,21 +105,21 @@ struct AnimationGraphComponent {
 // evaluating an AnimationGraphPlayer. Runs at a LOWER UpdateOrder (before SkeletalAnimationComponent-
 // Manager), mirroring Sedulous's graph-before-clip ordering; an entity is expected to use one or the
 // other (mixing both pushes to the same MeshComponent — the later writer wins).
-class AnimationGraphComponentManager final : public sc::ComponentManager<AnimationGraphComponent> {
+class AnimationGraphComponentManager final : public scene::ComponentManager<AnimationGraphComponent> {
 public:
-    void OnSceneCreate(sc::Scene& scene) override { m_scene = &scene; }
+    void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
     [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
 
     // Run before the simple-clip manager (UpdateOrder 0) so the graph drives graph-backed entities.
     [[nodiscard]] i32 UpdateOrder() const noexcept override { return -1; }
 
-    void OnUpdate(sc::ScenePhase phase, f32 deltaTime) override {
-        if (phase != sc::ScenePhase::PostUpdate || m_scene == nullptr) { return; }
+    void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override {
+        if (phase != scene::ScenePhase::PostUpdate || m_scene == nullptr) { return; }
         auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
         if (meshes == nullptr) { return; }
 
-        ForEach([&](AnimationGraphComponent& a, sc::EntityHandle owner) {
+        ForEach([&](AnimationGraphComponent& a, scene::EntityHandle owner) {
             if (a.skeleton == nullptr || a.graph == nullptr) { return; }
             if (a.player.Get() == nullptr) {
                 a.player = MakeUnique<animation::AnimationGraphPlayer>(DefaultAllocator(), *a.graph, *a.skeleton);
@@ -128,7 +128,7 @@ public:
             a.player->Update(deltaTime);
             const Span<const Matrix4> mats = a.player->GetSkinningMatrices();
             const Span<const Matrix4> prev = a.player->GetPrevSkinningMatrices();
-            const auto feed = [&](sc::EntityHandle e) {
+            const auto feed = [&](scene::EntityHandle e) {
                 if (render::MeshComponent* mc = meshes->Get(e)) {
                     mc->boneMatrices     = mats.Data();
                     mc->prevBoneMatrices = prev.Data();
@@ -136,12 +136,12 @@ public:
                 }
             };
             if (a.meshEntities.IsEmpty()) { feed(owner); }
-            else { for (sc::EntityHandle e : a.meshEntities) { feed(e); } }
+            else { for (scene::EntityHandle e : a.meshEntities) { feed(e); } }
         });
     }
 
 private:
-    sc::Scene* m_scene = nullptr;
+    scene::Scene* m_scene = nullptr;
 };
 
 } // namespace draconic::animation

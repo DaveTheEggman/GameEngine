@@ -31,14 +31,14 @@ using namespace draconic::core;
 
 export namespace draconic::texture
 {
-    namespace img = draconic::image;
+    namespace image = draconic::image;
 
     // Source asset: an image file + how it should become a GPU texture.
     class TextureAsset final : public draconic::editor::Asset
     {
         DRACONIC_OBJECT(TextureAsset, draconic::editor::Asset)
     public:
-        img::ImageColorSpace colorSpace = img::ImageColorSpace::Srgb;
+        image::ImageColorSpace colorSpace = image::ImageColorSpace::Srgb;
         TextureShape shape = TextureShape::Texture2D;
         TextureFilter minFilter = TextureFilter::Linear;
         TextureFilter magFilter = TextureFilter::Linear;
@@ -83,7 +83,7 @@ export namespace draconic::texture
         }
         void SetupForEquirectangularSkybox()
         {
-            colorSpace = img::ImageColorSpace::Linear;
+            colorSpace = image::ImageColorSpace::Linear;
             shape = TextureShape::Texture2D; minFilter = TextureFilter::Linear; magFilter = TextureFilter::Linear;
             wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge; wrapW = TextureWrap::ClampToEdge;
             generateMipmaps = false; anisotropy = 1.0f;
@@ -109,8 +109,8 @@ export namespace draconic::texture
             if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
 
             const String path = ResolveSource(ctx, ta.fileName);
-            img::Image image;
-            const Status loaded = img::io::LoadImage(path, image);
+            image::Image image;
+            const Status loaded = image::io::LoadImage(path, image);
             if (!loaded.IsOk()) { return loaded; }
 
             TextureResource resource;
@@ -143,7 +143,7 @@ export namespace draconic::texture
     {
     public:
         // A standard 2D texture (3D preset: mips + anisotropy).
-        static void Import2D(StringView path, img::ImageColorSpace colorSpace, TextureAsset& outAsset)
+        static void Import2D(StringView path, image::ImageColorSpace colorSpace, TextureAsset& outAsset)
         {
             outAsset.fileName = String(path);
             outAsset.SetupFor3D();
@@ -170,12 +170,12 @@ export namespace draconic::texture
         [[nodiscard]] static Status LoadCubemap(Span<const StringView> facePaths, Array<u8>& outPixels, u32& outFaceSize)
         {
             if (facePaths.Size() != 6) { return ErrorCode::InvalidArgument; }
-            img::Image faces[6];
+            image::Image faces[6];
             u32 faceSize = 0;
             usize faceBytes = 0;
             for (usize i = 0; i < 6; ++i)
             {
-                if (!img::io::LoadImage(facePaths[i], faces[i]).IsOk()) { return ErrorCode::Unknown; }
+                if (!image::io::LoadImage(facePaths[i], faces[i]).IsOk()) { return ErrorCode::Unknown; }
                 if (faces[i].Width() != faces[i].Height()) { return ErrorCode::Unknown; }   // cube faces are square
                 if (i == 0) { faceSize = faces[0].Width(); faceBytes = faces[0].PixelData().Size(); }
                 else if (faces[i].Width() != faceSize || faces[i].PixelData().Size() != faceBytes ||

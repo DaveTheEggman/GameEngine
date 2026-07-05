@@ -17,13 +17,13 @@ import draconic.animation;
 import draconic.animation.resource;
 
 using namespace draconic::core;
-namespace mdl = draconic::model;
+namespace model = draconic::model;
 namespace animation = draconic::animation;
 
 export namespace draconic::modelimporter {
 
 // model bone index -> skeleton joint index (the skin's joint order). -1 for bones not in the skin.
-[[nodiscard]] inline HashMap<i32, i32> BuildBoneToJoint(const mdl::ModelSkin& skin)
+[[nodiscard]] inline HashMap<i32, i32> BuildBoneToJoint(const model::ModelSkin& skin)
 {
     HashMap<i32, i32> map;
     const Span<const i32> joints = skin.joints();
@@ -33,17 +33,17 @@ export namespace draconic::modelimporter {
 
 // Build a SkeletonSource from a skin: one bone per joint (joint order), local bind TRS from the
 // model bone, inverse-bind from the skin, parent remapped into joint space.
-inline void SkeletonSourceFromModel(const mdl::Model& model, const mdl::ModelSkin& skin,
+inline void SkeletonSourceFromModel(const model::Model& model, const model::ModelSkin& skin,
                                     const HashMap<i32, i32>& boneToJoint, animation::SkeletonSource& out)
 {
     out.name = String(u8"skeleton");
     const Span<const i32>  joints = skin.joints();
     const Span<const Matrix4> ibms   = skin.inverseBindMatrices();
-    const Span<mdl::ModelBone* const> bones = model.bones();
+    const Span<model::ModelBone* const> bones = model.bones();
 
     for (usize j = 0; j < joints.Size(); ++j) {
         const i32 boneIdx = joints[j];
-        const mdl::ModelBone* b = (boneIdx >= 0 && static_cast<usize>(boneIdx) < bones.Size()) ? bones[boneIdx] : nullptr;
+        const model::ModelBone* b = (boneIdx >= 0 && static_cast<usize>(boneIdx) < bones.Size()) ? bones[boneIdx] : nullptr;
 
         out.boneNames.PushBack(b != nullptr ? String(b->name()) : String{});
         i32 parentJoint = -1;
@@ -61,36 +61,36 @@ inline void SkeletonSourceFromModel(const mdl::Model& model, const mdl::ModelSki
 
 // Build an AnimationClipSource from a model animation: each channel becomes a dense track keyed by
 // JOINT index (channels targeting bones outside the skin, or morph-weight channels, are skipped).
-inline void AnimationClipSourceFromModel(const mdl::ModelAnimation& animation, const HashMap<i32, i32>& boneToJoint,
+inline void AnimationClipSourceFromModel(const model::ModelAnimation& animation, const HashMap<i32, i32>& boneToJoint,
                                          StringView name, animation::AnimationClipSource& out)
 {
     out.name      = String(name);
     out.duration  = animation.duration;
     out.isLooping = true;
 
-    for (const mdl::AnimationChannel* ch : animation.channels()) {
+    for (const model::AnimationChannel* ch : animation.channels()) {
         if (ch == nullptr) { continue; }
         const i32* pj = boneToJoint.Find(ch->targetBone);
         if (pj == nullptr) { continue; }   // channel targets a bone not in this skin
 
         u8 kind = 0;
         switch (ch->path) {
-        case mdl::AnimationPath::Translation: kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Position); break;
-        case mdl::AnimationPath::Rotation:    kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Rotation); break;
-        case mdl::AnimationPath::Scale:       kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Scale);    break;
+        case model::AnimationPath::Translation: kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Position); break;
+        case model::AnimationPath::Rotation:    kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Rotation); break;
+        case model::AnimationPath::Scale:       kind = static_cast<u8>(animation::AnimationClipSource::TrackKind::Scale);    break;
         default: continue;   // Weights (morph) not supported
         }
         u8 interp = static_cast<u8>(animation::InterpolationMode::Linear);
-        if (ch->interpolation == mdl::AnimationInterpolation::Step)        { interp = static_cast<u8>(animation::InterpolationMode::Step); }
-        else if (ch->interpolation == mdl::AnimationInterpolation::CubicSpline) { interp = static_cast<u8>(animation::InterpolationMode::CubicSpline); }
+        if (ch->interpolation == model::AnimationInterpolation::Step)        { interp = static_cast<u8>(animation::InterpolationMode::Step); }
+        else if (ch->interpolation == model::AnimationInterpolation::CubicSpline) { interp = static_cast<u8>(animation::InterpolationMode::CubicSpline); }
 
-        const Span<const mdl::AnimationKeyframe> keys = ch->keyframes();
+        const Span<const model::AnimationKeyframe> keys = ch->keyframes();
         out.trackBone.PushBack(*pj);
         out.trackKind.PushBack(kind);
         out.trackInterp.PushBack(interp);
         out.trackStart.PushBack(static_cast<u32>(out.keyTimes.Size()));
         out.trackCount.PushBack(static_cast<u32>(keys.Size()));
-        for (const mdl::AnimationKeyframe& k : keys) {
+        for (const model::AnimationKeyframe& k : keys) {
             out.keyTimes.PushBack(k.time);
             out.keyValues.PushBack(k.value);   // xyz for pos/scale, xyzw for rotation (matches FillClip)
         }

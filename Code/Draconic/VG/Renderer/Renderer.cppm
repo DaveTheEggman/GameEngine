@@ -29,7 +29,7 @@ using namespace draconic::core;
 export namespace draconic::vg::renderer
 {
     namespace rhi = draconic::rhi;
-    namespace img = draconic::image;
+    namespace image = draconic::image;
 
     /// Projection uniform (one per slice, padded to UniformSlotSize on the GPU).
     struct VGUniforms
@@ -243,7 +243,7 @@ export namespace draconic::vg::renderer
     private:
         struct CachedTexture
         {
-            const img::ImageData* source = nullptr;
+            const image::ImageData* source = nullptr;
             rhi::Texture* gpuTexture = nullptr;
             rhi::TextureView* view = nullptr;
             Array<rhi::BindGroup*> bindGroups; // per frame
@@ -367,7 +367,7 @@ export namespace draconic::vg::renderer
             return ErrorCode::Ok;
         }
 
-        CachedTexture* GetOrCreateCachedTexture(const img::ImageData* texture)
+        CachedTexture* GetOrCreateCachedTexture(const image::ImageData* texture)
         {
             if (texture == nullptr) return nullptr;
 
@@ -398,7 +398,7 @@ export namespace draconic::vg::renderer
                 if (m_queue->CreateTransferBatch(batch).IsOk() && batch != nullptr)
                 {
                     rhi::TextureDataLayout layout{};
-                    layout.bytesPerRow = w * img::BytesPerPixel(texture->Format());
+                    layout.bytesPerRow = w * image::BytesPerPixel(texture->Format());
                     layout.rowsPerImage = h;
                     batch->WriteTexture(gpuTexture, pixels, layout, rhi::Extent3D{ w, h, 1 });
                     (void)batch->Submit();
@@ -428,7 +428,7 @@ export namespace draconic::vg::renderer
         void UpdateTextureBindGroup(i32 textureIndex, i32 frameIndex)
         {
             if (textureIndex >= static_cast<i32>(m_batchTextures.Size())) return;
-            const img::ImageData* texture = m_batchTextures[static_cast<usize>(textureIndex)];
+            const image::ImageData* texture = m_batchTextures[static_cast<usize>(textureIndex)];
             if (texture == nullptr) return;
 
             CachedTexture* cached = GetOrCreateCachedTexture(texture);
@@ -454,7 +454,7 @@ export namespace draconic::vg::renderer
             const i32 effectiveIndex = (textureIndex < 0) ? 0 : textureIndex; // solid draws -> white at 0
             if (effectiveIndex >= static_cast<i32>(m_batchTextures.Size())) return nullptr;
 
-            const img::ImageData* texture = m_batchTextures[static_cast<usize>(effectiveIndex)];
+            const image::ImageData* texture = m_batchTextures[static_cast<usize>(effectiveIndex)];
             if (texture == nullptr) return nullptr;
 
             for (usize i = 0; i < m_textureCache.Size(); ++i)
@@ -493,7 +493,7 @@ export namespace draconic::vg::renderer
         Array<rhi::Buffer*> m_uniformBuffers;
 
         Array<UniquePtr<CachedTexture>> m_textureCache;
-        Array<const img::ImageData*> m_batchTextures;
+        Array<const image::ImageData*> m_batchTextures;
         Array<draconic::vg::VGCommand> m_drawCommands;
 
         Array<u32> m_frameVertexOffsets;

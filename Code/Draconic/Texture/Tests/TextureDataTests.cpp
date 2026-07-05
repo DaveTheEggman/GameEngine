@@ -8,7 +8,7 @@ import draconic.texture;
 using namespace draconic::core;
 using namespace draconic::texture;
 namespace rhi = draconic::rhi;
-namespace img = draconic::image;
+namespace image = draconic::image;
 
 TEST_CASE("textures.data: Create2D / mips / cube / array")
 {
@@ -55,8 +55,8 @@ TEST_CASE("textures.data: mip size halves")
 
 TEST_CASE("textures.format: PixelFormat -> TextureFormat with color space")
 {
-    using img::PixelFormat;
-    using img::ImageColorSpace;
+    using image::PixelFormat;
+    using image::ImageColorSpace;
     // sRGB color imagery selects the sRGB GPU format.
     CHECK(TextureFormatUtils::Convert(PixelFormat::RGBA8, ImageColorSpace::Srgb) == rhi::TextureFormat::RGBA8UnormSrgb);
     CHECK(TextureFormatUtils::Convert(PixelFormat::RGB8, ImageColorSpace::Srgb) == rhi::TextureFormat::RGBA8UnormSrgb);
@@ -72,8 +72,8 @@ TEST_CASE("textures.format: PixelFormat -> TextureFormat with color space")
 
 TEST_CASE("textures.data: FromImage")
 {
-    img::Image image(2, 2, img::PixelFormat::RGBA8);
-    TextureData t = TextureData::FromImage(image, img::ImageColorSpace::Srgb);
+    image::Image image(2, 2, image::PixelFormat::RGBA8);
+    TextureData t = TextureData::FromImage(image, image::ImageColorSpace::Srgb);
     CHECK(t.width == 2u);
     CHECK(t.height == 2u);
     CHECK(t.format == rhi::TextureFormat::RGBA8UnormSrgb);

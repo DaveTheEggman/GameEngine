@@ -24,7 +24,7 @@ using namespace draconic::core;
 namespace sf = draconic::samples::framework;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
-namespace img = draconic::image;
+namespace image = draconic::image;
 namespace fonts = draconic::fonts;
 namespace vg = draconic::vg;
 namespace vgr = draconic::vg::renderer;
@@ -110,7 +110,7 @@ private:
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
     UniquePtr<vg::VGContext> m_vg;
     vgr::VGRenderer    m_renderer;
-    img::OwnedImageData m_checker;
+    image::OwnedImageData m_checker;
 
     fonts::CachedFont* m_fontSmall = nullptr;
     fonts::CachedFont* m_fontMedium = nullptr;
@@ -149,11 +149,11 @@ Status VGSandbox::OnInit()
 
     // 128x128 checkerboard image for the DrawImage demos.
     {
-        img::Image checker = img::Image::CreateCheckerboard(128, Color32{ 230, 230, 230, 255 }, Color32{ 60, 60, 70, 255 }, 16);
+        image::Image checker = image::Image::CreateCheckerboard(128, Color32{ 230, 230, 230, 255 }, Color32{ 60, 60, 70, 255 }, 16);
         const Span<const u8> px = checker.PixelData();
         Array<u8> copy; copy.Resize(px.Size());
         if (px.Size() > 0) MemCopy(copy.Data(), px.Data(), px.Size());
-        m_checker = img::OwnedImageData(checker.Width(), checker.Height(), img::PixelFormat::RGBA8, Move(copy));
+        m_checker = image::OwnedImageData(checker.Width(), checker.Height(), image::PixelFormat::RGBA8, Move(copy));
     }
 
     // SVG badge + star icon.

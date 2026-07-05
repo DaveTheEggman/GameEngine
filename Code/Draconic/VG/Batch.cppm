@@ -21,7 +21,7 @@ using namespace draconic::core;
 
 export namespace draconic::vg
 {
-    namespace img = draconic::image;
+    namespace image = draconic::image;
 
     /// A single draw command: a run of geometry sharing render state.
     struct VGCommand
@@ -47,7 +47,7 @@ export namespace draconic::vg
         // Textures referenced by commands (by textureIndex). NOT owned by the
         // batch — VGContext manages lifetime. By convention index 0 is a 1x1
         // white texture for solid-color draws.
-        Array<const img::ImageData*> textures;
+        Array<const image::ImageData*> textures;
 
         /// Vertex data as a span for GPU upload.
         [[nodiscard]] Span<VGVertex> GetVertexData() { return Span<VGVertex>(vertices.Data(), vertices.Size()); }
@@ -58,7 +58,7 @@ export namespace draconic::vg
         [[nodiscard]] VGCommand GetCommand(usize index) const { return commands[index]; }
 
         /// The texture for a command (null if the command has no valid texture).
-        [[nodiscard]] const img::ImageData* GetTextureForCommand(usize index) const
+        [[nodiscard]] const image::ImageData* GetTextureForCommand(usize index) const
         {
             const VGCommand cmd = commands[index];
             if (cmd.textureIndex >= 0 && static_cast<usize>(cmd.textureIndex) < textures.Size())

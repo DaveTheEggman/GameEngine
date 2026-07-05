@@ -53,15 +53,15 @@ namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace runtime = draconic::runtime;
 namespace sh = draconic::shell;
-namespace sc = draconic::scene;
+namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
-namespace tex = draconic::texture;
+namespace texture = draconic::texture;
 namespace vfs = draconic::vfs;
-namespace ct  = draconic::content;
-namespace res = draconic::resource;
-namespace mdl  = draconic::model;
+namespace content  = draconic::content;
+namespace resource = draconic::resource;
+namespace model  = draconic::model;
 namespace modelimporter   = draconic::modelimporter;
 namespace animation = draconic::animation;
 namespace imgui = draconic::imgui;
@@ -91,7 +91,7 @@ namespace
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
 
             // CreateScene triggers the RenderSubsystem to inject the render managers.
@@ -134,11 +134,11 @@ namespace
                 core::String oneFace = core::Format(u8"{}/cube_sky/px.png",
                     core::StringView(reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_ENV_DIR)));
                 core::Array<core::String> facePaths;
-                if (tex::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths).IsOk() && facePaths.Size() == 6) {
+                if (texture::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths).IsOk() && facePaths.Size() == 6) {
                     core::StringView faceViews[6];
                     for (int i = 0; i < 6; ++i) { faceViews[i] = facePaths[static_cast<core::usize>(i)].AsView(); }
                     core::Array<core::u8> cube; core::u32 cubeFace = 0;
-                    if (tex::TextureImporter::LoadCubemap(core::Span<const core::StringView>{ faceViews, 6 }, cube, cubeFace).IsOk()) {
+                    if (texture::TextureImporter::LoadCubemap(core::Span<const core::StringView>{ faceViews, 6 }, cube, cubeFace).IsOk()) {
                         render->SetSkyCubemap(cubeFace, core::Span<const core::u8>{ cube.Data(), cube.Size() });
                         core::ConsoleWrite(core::Format(u8"Sandbox: loaded cubemap sky {}x{} x6\n", cubeFace, cubeFace).AsView());
                     }
@@ -162,7 +162,7 @@ namespace
             // A large horizontal floor (Plane normal = +Y) under the scene — the point lights hover
             // above it and cast visible pools on it. The two cube grids stand on the floor.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
-                sc::EntityHandle floor = m_scene->CreateEntity(u8"floor");
+                scene::EntityHandle floor = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(floor, core::Vector3{ 0.0f, 0.0f, 0.0f });
                 render::MeshComponent& fmc = meshes->Add(floor);
                 fmc.mesh = geometry::Primitives::Plane(120.0f, 120.0f);
@@ -180,7 +180,7 @@ namespace
                 core::RefPtr<geometry::StaticMesh> box = geometry::Primitives::Cube(kBoxSize);
                 core::RefPtr<materials::Material> boxMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.85f, 0.55f, 0.2f, 1.0f }, 0.0f, 0.5f);
                 for (int k = 0; k < 4; ++k) {
-                    sc::EntityHandle b = m_scene->CreateEntity(u8"floorBox");
+                    scene::EntityHandle b = m_scene->CreateEntity(u8"floorBox");
                     m_scene->SetLocalPosition(b, core::Vector3{ -7.5f + 5.0f * static_cast<core::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
                     render::MeshComponent& bmc = meshes->Add(b);
                     bmc.mesh = box; bmc.material = boxMat;
@@ -196,7 +196,7 @@ namespace
                 for (int k = 0; k < 4; ++k) {
                     core::RefPtr<materials::Material> ballMat = materials::CreatePBR(u8"lit", core::Vector4{ 0.90f, 0.90f, 0.92f, 1.0f },
                                                                       1.0f, 0.05f + 0.18f * static_cast<core::f32>(k));
-                    sc::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
+                    scene::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
                     m_scene->SetLocalPosition(s, core::Vector3{ -7.5f + 5.0f * static_cast<core::f32>(k), kFloorY + kBallR, 16.0f });
                     render::MeshComponent& smc = meshes->Add(s);
                     smc.mesh = ball; smc.material = ballMat;
@@ -209,7 +209,7 @@ namespace
                 glassMat->pipeline.blendMode = materials::BlendMode::AlphaBlend;
                 glassMat->pipeline.depthMode = materials::DepthMode::ReadOnly;   // test against opaque depth, don't write
                 for (int k = 0; k < 3; ++k) {
-                    sc::EntityHandle g = m_scene->CreateEntity(u8"glassBall");
+                    scene::EntityHandle g = m_scene->CreateEntity(u8"glassBall");
                     // Moved well off to the left (x ~ -26, outside the probe box) + higher, to isolate them
                     // from the chrome spheres while inspecting reflections.
                     m_scene->SetLocalPosition(g, core::Vector3{ -26.0f, kFloorY + 6.0f + 3.0f * static_cast<core::f32>(k), 16.0f });
@@ -225,7 +225,7 @@ namespace
                         maskMat->pipeline.blendMode = materials::BlendMode::Masked;
                         maskMat->SetDefaultTexture(u8"AlbedoMap", cutout);   // alpha holes -> discard
                         for (int k = 0; k < 3; ++k) {
-                            sc::EntityHandle m = m_scene->CreateEntity(u8"maskedBall");
+                            scene::EntityHandle m = m_scene->CreateEntity(u8"maskedBall");
                             m_scene->SetLocalPosition(m, core::Vector3{ -5.0f + 5.0f * static_cast<core::f32>(k), kFloorY + 3.5f, 24.0f });
                             render::MeshComponent& mmc = meshes->Add(m);
                             mmc.mesh = ball; mmc.material = maskMat;
@@ -237,7 +237,7 @@ namespace
             // Lights: a dim directional key (down-forward) + a bright point light that orbits the
             // grid in OnUpdate, so the per-light forward shade is visible (moving highlight).
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
-                sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
+                scene::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 m_keyLight = key;
                 ApplyKeyLightDir();   // pitch/yaw -> entity rotation (steeper downward tilt by default)
                 render::LightComponent& kl = lights->Add(key);
@@ -252,7 +252,7 @@ namespace
                 constexpr int kCols = 6, kRows = 3;         // 18 point lights over the floor
                 for (int j = 0; j < kRows; ++j) {
                     for (int i = 0; i < kCols; ++i) {
-                        sc::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
+                        scene::EntityHandle e = m_scene->CreateEntity(u8"pointLight");
                         const core::f32 fi = static_cast<core::f32>(i) / (kCols - 1);
                         const core::f32 fj = static_cast<core::f32>(j) / (kRows - 1);
                         const core::Vector3 base{ -15.0f + 30.0f * fi, 5.5f, -2.0f + 16.0f * fj };  // hover above floor
@@ -270,7 +270,7 @@ namespace
                 // A bright spot light overhead, aimed down at the floor boxes/spheres — the phase 5.3
                 // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
                 // floor (distinct from the directional CSM), packed into the local-shadow atlas.
-                sc::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
+                scene::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
                 m_scene->SetLocalPosition(spot, core::Vector3{ 0.0f, 14.0f, 13.0f });   // between box row (z=10) and sphere row (z=16)
                 core::Transform st = m_scene->GetLocalTransform(spot);
                 st.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -1.5f);  // nearly straight down
@@ -287,7 +287,7 @@ namespace
 
                 // A shadow-casting POINT light hovering among the floor boxes/spheres — the phase 5.3b
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
-                sc::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
+                scene::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
                 m_scene->SetLocalPosition(pt, core::Vector3{ 4.0f, 5.0f, 13.0f });
                 render::LightComponent& pls = lights->Add(pt);
                 pls.type         = render::LightType::Point;
@@ -308,7 +308,7 @@ namespace
                 rpL.blendDistance = 4.0f;
                 rpL.update        = render::ProbeUpdateMode::Realtime;
 
-                sc::EntityHandle probeR = m_scene->CreateEntity(u8"reflectionProbeR");   // right probe
+                scene::EntityHandle probeR = m_scene->CreateEntity(u8"reflectionProbeR");   // right probe
                 m_scene->SetLocalPosition(probeR, core::Vector3{ 8.0f, 6.0f, 16.0f });
                 render::ReflectionProbeComponent& rpR = probes->Add(probeR);
                 rpR.halfExtents   = core::Vector3{ 12.0f, 12.0f, 14.0f };   // covers x[-4,20] -> overlap x[-4,4]
@@ -336,8 +336,8 @@ namespace
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
-            m_contentDb = core::MakeUnique<ct::ContentDatabase>(core::DefaultAllocator(), *m_contentFs);
-            m_resources = core::MakeUnique<res::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), *m_contentFs);
+            m_resources = core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
@@ -345,7 +345,7 @@ namespace
             m_resources->AddFactory(&m_skeletonFactory);
             m_resources->AddFactory(&m_clipFactory);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
-                m_textureFactory = core::MakeUnique<tex::TextureFactory>(core::DefaultAllocator(), *gfx->Raw());
+                m_textureFactory = core::MakeUnique<texture::TextureFactory>(core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
             modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
@@ -372,7 +372,7 @@ namespace
             rhi::TextureView* logo = m_logoTex ? m_logoTex->View() : LoadLogoTexture();
             if (logo == nullptr) { return; }
 
-            sc::EntityHandle e = m_scene->CreateEntity(u8"floorDecal");
+            scene::EntityHandle e = m_scene->CreateEntity(u8"floorDecal");
             render::DecalComponent& dc = decals->Add(e);
             dc.texture   = logo;
             dc.size      = core::Vector3{ 8.0f, 8.0f, 6.0f };   // 8x8 floor footprint; 6-unit box depth spans y=0
@@ -392,20 +392,20 @@ namespace
             if (m_resources.Get() == nullptr || m_textureFactory.Get() == nullptr) { return nullptr; }
             const core::StringView imageDir(reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_IMAGE_DIR));
 
-            tex::TextureAsset asset;
-            tex::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
+            texture::TextureAsset asset;
+            texture::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
                                            draconic::image::ImageColorSpace::Srgb, asset);   // sRGB albedo
 
             // Create a content instance of the cooked record type, then cook the asset into it.
-            ct::Group* root = m_contentDb->RootGroup();
-            ct::Instance* inst = root->CreateInstance(u8"logo.tex", tex::TextureResource::StaticType());
+            content::Group* root = m_contentDb->RootGroup();
+            content::Instance* inst = root->CreateInstance(u8"logo.tex", texture::TextureResource::StaticType());
             if (inst == nullptr) { return nullptr; }
-            tex::TextureAssetBuilder builder;
+            texture::TextureAssetBuilder builder;
             draconic::editor::AssetBuildContext ctx{ imageDir, inst };   // assetRoot resolves the PNG
             if (!builder.Build(asset, ctx).IsOk()) { return nullptr; }
 
-            // The runtime factory product is a tex::Texture (not the cooked record); it owns the GPU view.
-            m_logoTex = m_resources->Bind<tex::Texture>(inst->Id());
+            // The runtime factory product is a texture::Texture (not the cooked record); it owns the GPU view.
+            m_logoTex = m_resources->Bind<texture::Texture>(inst->Id());
             return m_logoTex ? m_logoTex->View() : nullptr;
         }
 
@@ -432,7 +432,7 @@ namespace
             const core::f32 x0 = -0.5f * spacing * static_cast<core::f32>((sizeof(variants) / sizeof(variants[0])) - 1);
             for (core::usize i = 0; i < sizeof(variants) / sizeof(variants[0]); ++i) {
                 const Variant& v = variants[i];
-                sc::EntityHandle e = m_scene->CreateEntity(v.name);
+                scene::EntityHandle e = m_scene->CreateEntity(v.name);
                 render::SpriteComponent& sp = sprites->Add(e);
                 sp.texture     = logo;
                 sp.size        = core::Vector2{ 3.0f, 3.0f };
@@ -454,13 +454,13 @@ namespace
             if (meshes == nullptr || m_contentDb.Get() == nullptr) { return; }
 
             core::Guid modelGuid;
-            const mdl::ModelLoadResult r = modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
-            if (r != mdl::ModelLoadResult::Ok) {
+            const model::ModelLoadResult r = modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+            if (r != model::ModelLoadResult::Ok) {
                 core::ConsoleWrite(core::Format(u8"Sandbox: model import failed ({}) for {}\n",
                                             static_cast<core::u32>(r), prefix));
                 return;
             }
-            res::Proxy<modelimporter::ModelResource> model = m_resources->Bind<modelimporter::ModelResource>(modelGuid);
+            resource::Proxy<modelimporter::ModelResource> model = m_resources->Bind<modelimporter::ModelResource>(modelGuid);
             if (!model) { core::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
 
             // Auto-fit: the model-root scales the model's largest extent to a target size (models come in
@@ -469,7 +469,7 @@ namespace
             const core::Vector3 extent = model->boundsMax - model->boundsMin;
             const core::f32 maxExtent = core::Max(extent.x, core::Max(extent.y, extent.z));
             const core::f32 fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
-            sc::EntityHandle modelRoot = m_scene->CreateEntity(prefix);
+            scene::EntityHandle modelRoot = m_scene->CreateEntity(prefix);
             core::Transform rootT;
             rootT.position = position;
             rootT.scale    = core::Vector3{ fit, fit, fit };
@@ -481,11 +481,11 @@ namespace
             modelMats.Reserve(model->materials.Size());
             for (auto& mp : model->materials) { modelMats.PushBack(core::RefPtr<materials::Material>(mp.Get())); }
 
-            core::Array<sc::EntityHandle> entities;
-            core::Array<sc::EntityHandle> skinnedEntities;
+            core::Array<scene::EntityHandle> entities;
+            core::Array<scene::EntityHandle> skinnedEntities;
             entities.Reserve(model->nodes.Size());
             for (const modelimporter::ModelNode& node : model->nodes) {
-                sc::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
+                scene::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
                 entities.PushBack(e);
             }
@@ -530,7 +530,7 @@ namespace
                         animation::AnimationGraphComponent& gc = graphMgr->Add(modelRoot);
                         gc.skeleton     = model->skeleton.Get();
                         gc.graph        = graph.Get();
-                        gc.meshEntities = static_cast<core::Array<sc::EntityHandle>&&>(skinnedEntities);
+                        gc.meshEntities = static_cast<core::Array<scene::EntityHandle>&&>(skinnedEntities);
                         m_graphs.PushBack(static_cast<core::RefPtr<animation::AnimationGraph>&&>(graph));   // keep alive
                         m_graphChar = modelRoot;                                                     // G drives this one
                     }
@@ -538,7 +538,7 @@ namespace
                     animation::SkeletalAnimationComponent& sa = skelMgr->Add(modelRoot);
                     sa.skeleton     = model->skeleton.Get();
                     sa.clip         = model->animations[0].Get();
-                    sa.meshEntities = static_cast<core::Array<sc::EntityHandle>&&>(skinnedEntities);
+                    sa.meshEntities = static_cast<core::Array<scene::EntityHandle>&&>(skinnedEntities);
                 }
             }
         }
@@ -935,7 +935,7 @@ namespace
 
             m_angle += deltaTime;
             const core::Quaternion spin = core::Quaternion::FromAxisAngle(core::Vector3{ 0.3f, 1.0f, 0.0f }, m_angle);
-            for (sc::EntityHandle cube : m_cubes) {
+            for (scene::EntityHandle cube : m_cubes) {
                 core::Transform t = m_scene->GetLocalTransform(cube);
                 t.rotation = spin;
                 m_scene->SetLocalTransform(cube, t);
@@ -1056,7 +1056,7 @@ namespace
 
             for (int y = 0; y < kGrid; ++y) {
                 for (int x = 0; x < kGrid; ++x) {
-                    sc::EntityHandle e = m_scene->CreateEntity(u8"cube");
+                    scene::EntityHandle e = m_scene->CreateEntity(u8"cube");
                     const core::f32 fx = static_cast<core::f32>(x) - (kGrid - 1) * 0.5f;
                     const core::f32 fy = static_cast<core::f32>(y) - (kGrid - 1) * 0.5f;
                     m_scene->SetLocalPosition(e, core::Vector3{ originX + fx * kSpacing, fy * kSpacing + 7.0f, 0.0f });
@@ -1080,8 +1080,8 @@ namespace
         }
 
     private:
-        sc::Scene*                  m_scene = nullptr;
-        sc::EntityHandle            m_camera{};
+        scene::Scene*                  m_scene = nullptr;
+        scene::EntityHandle            m_camera{};
         // Offscreen render target, double-buffered per frame-in-flight (each slot tracks its own size).
         static constexpr core::u32    kOffscreenSlots = 3;
         rhi::Texture*               m_offscreenTex[kOffscreenSlots]   = {};
@@ -1090,12 +1090,12 @@ namespace
         core::u32                     m_offscreenW[kOffscreenSlots] = {}, m_offscreenH[kOffscreenSlots] = {};
         rhi::Texture*               m_cutoutTex  = nullptr;   // masked-demo alpha-cutout texture
         rhi::TextureView*           m_cutoutView = nullptr;
-        sc::EntityHandle            m_keyLight;   // directional key light (intensity/color tweakable in the debug UI)
+        scene::EntityHandle            m_keyLight;   // directional key light (intensity/color tweakable in the debug UI)
         core::f32                     m_keyPitch = -1.05f;   // downward tilt (~-60 deg); Environment window slider
         core::f32                     m_keyYaw   =  0.35f;   // compass heading
-        core::Array<sc::EntityHandle> m_pointLights;
+        core::Array<scene::EntityHandle> m_pointLights;
         core::Array<core::Vector3>         m_lightBases;
-        core::Array<sc::EntityHandle> m_cubes;
+        core::Array<scene::EntityHandle> m_cubes;
         core::f32                     m_angle = 0.0f;
         core::f32                     m_fpsSmoothed = 0.0f;   // exponential moving average of 1/deltaTime
         // One fly camera per split view; hovering a view routes input to its camera (no V toggle).
@@ -1112,23 +1112,23 @@ namespace
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
-        core::UniquePtr<ct::ContentDatabase>   m_contentDb;
-        core::UniquePtr<res::ResourceManager>  m_resources;
+        core::UniquePtr<content::ContentDatabase>   m_contentDb;
+        core::UniquePtr<resource::ResourceManager>  m_resources;
         geometry::StaticMeshFactory               m_meshFactory;
         geometry::SkinnedMeshFactory              m_skinnedMeshFactory;
         materials::MaterialFactory                 m_materialFactory;
         animation::SkeletonFactory                m_skeletonFactory;
         animation::AnimationClipFactory           m_clipFactory;
-        core::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
-        res::Proxy<tex::Texture>             m_logoTex;          // sprite-demo logo (kept alive for its GPU view)
+        core::UniquePtr<texture::TextureFactory>   m_textureFactory;   // needs the device
+        resource::Proxy<texture::Texture>             m_logoTex;          // sprite-demo logo (kept alive for its GPU view)
         modelimporter::ModelFactory                     m_modelFactory;
-        core::Array<res::Proxy<modelimporter::ModelResource>> m_models;   // keep cooked models + their resources alive
+        core::Array<resource::Proxy<modelimporter::ModelResource>> m_models;   // keep cooked models + their resources alive
 
         // Animation graphs owned by the demo (the AnimationGraphComponents borrow them); the entity whose
         // graph the G key advances (the Character). Skinned models are otherwise driven by the subsystem.
         core::Array<core::RefPtr<animation::AnimationGraph>> m_graphs;
-        sc::EntityHandle                            m_graphChar{};
-        sc::EntityHandle                            m_probeEntity{};   // reflection probe (F6 toggles its parallax)
+        scene::EntityHandle                            m_graphChar{};
+        scene::EntityHandle                            m_probeEntity{};   // reflection probe (F6 toggles its parallax)
         bool                        m_showDebugDraw  = true;    // debug gizmos (grid/axes/wire volumes/text)
         bool                        m_showImguiDemo  = false;   // debug-UI toggle
     };

@@ -51,16 +51,16 @@ namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace runtime = draconic::runtime;
         namespace sh = draconic::shell;
-namespace sc = draconic::scene;
+namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace imgui = draconic::imgui;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
-namespace tex = draconic::texture;
+namespace texture = draconic::texture;
 namespace vfs = draconic::vfs;
-namespace ct  = draconic::content;
-namespace res = draconic::resource;
-namespace mdl  = draconic::model;
+namespace content  = draconic::content;
+namespace resource = draconic::resource;
+namespace model  = draconic::model;
 namespace modelimporter   = draconic::modelimporter;
 namespace animation = draconic::animation;
 
@@ -96,7 +96,7 @@ namespace
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
 
             // CreateScene triggers the RenderSubsystem to inject the render managers.
@@ -135,7 +135,7 @@ namespace
             // One directional shadow-casting key light — the whole scene (skinning benchmark, kept light
             // to isolate skinning/animation cost, à la Flax's "5,000 basic characters" reference scene).
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
-                sc::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
+                scene::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 core::Transform kt = m_scene->GetLocalTransform(key);
                 kt.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f)
                             * core::Quaternion::FromAxisAngle(core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.5f);
@@ -169,8 +169,8 @@ namespace
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
-            m_contentDb = core::MakeUnique<ct::ContentDatabase>(core::DefaultAllocator(), *m_contentFs);
-            m_resources = core::MakeUnique<res::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), *m_contentFs);
+            m_resources = core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
@@ -178,7 +178,7 @@ namespace
             m_resources->AddFactory(&m_skeletonFactory);
             m_resources->AddFactory(&m_clipFactory);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
-                m_textureFactory = core::MakeUnique<tex::TextureFactory>(core::DefaultAllocator(), *gfx->Raw());
+                m_textureFactory = core::MakeUnique<texture::TextureFactory>(core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
             modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
@@ -198,8 +198,8 @@ namespace
         {
             if (m_contentDb.Get() == nullptr) { return false; }
             core::Guid modelGuid;
-            const mdl::ModelLoadResult r = modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
-            if (r != mdl::ModelLoadResult::Ok) {
+            const model::ModelLoadResult r = modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+            if (r != model::ModelLoadResult::Ok) {
                 core::ConsoleWrite(core::Format(u8"AnimStressTest: model import failed ({})\n", static_cast<core::u32>(r)));
                 return false;
             }
@@ -229,7 +229,7 @@ namespace
             auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
             if (meshes == nullptr || !m_model) { return; }
 
-            sc::EntityHandle modelRoot = m_scene->CreateEntity(u8"char");
+            scene::EntityHandle modelRoot = m_scene->CreateEntity(u8"char");
             core::Transform rootT;
             rootT.position = position;
             rootT.scale    = core::Vector3{ m_fit, m_fit, m_fit };
@@ -237,11 +237,11 @@ namespace
             Instance inst;
             inst.root = modelRoot;
 
-            core::Array<sc::EntityHandle> entities;
-            core::Array<sc::EntityHandle> skinnedEntities;
+            core::Array<scene::EntityHandle> entities;
+            core::Array<scene::EntityHandle> skinnedEntities;
             entities.Reserve(m_model->nodes.Size());
             for (const modelimporter::ModelNode& node : m_model->nodes) {
-                sc::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
+                scene::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
                 entities.PushBack(e);
             }
@@ -276,7 +276,7 @@ namespace
                     animation::SkeletalAnimationComponent& a = anims->Add(modelRoot);
                     a.skeleton     = m_model->skeleton.Get();
                     a.clip         = clip;
-                    a.meshEntities = static_cast<core::Array<sc::EntityHandle>&&>(skinnedEntities);
+                    a.meshEntities = static_cast<core::Array<scene::EntityHandle>&&>(skinnedEntities);
                     a.speed        = 0.85f + m_rng.NextFloat() * 0.3f;
                     a.startTime    = (clip != nullptr && clip->duration > 0.0f) ? m_rng.NextFloat() * clip->duration : 0.0f;
                 }
@@ -477,24 +477,24 @@ namespace
         }
 
     private:
-        sc::Scene*                  m_scene = nullptr;
-        sc::EntityHandle            m_camera{};
-        sc::EntityHandle            m_floor{};
+        scene::Scene*                  m_scene = nullptr;
+        scene::EntityHandle            m_camera{};
+        scene::EntityHandle            m_floor{};
         samples::FlyCamera              m_fly{ .position = core::Vector3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
 
         // Model-import pipeline state (must outlive the spawned entities — the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
-        core::UniquePtr<ct::ContentDatabase>   m_contentDb;
-        core::UniquePtr<res::ResourceManager>  m_resources;
+        core::UniquePtr<content::ContentDatabase>   m_contentDb;
+        core::UniquePtr<resource::ResourceManager>  m_resources;
         geometry::StaticMeshFactory               m_meshFactory;
         geometry::SkinnedMeshFactory              m_skinnedMeshFactory;
         materials::MaterialFactory                 m_materialFactory;
         animation::SkeletonFactory                m_skeletonFactory;
         animation::AnimationClipFactory           m_clipFactory;
-        core::UniquePtr<tex::TextureFactory>   m_textureFactory;   // needs the device
+        core::UniquePtr<texture::TextureFactory>   m_textureFactory;   // needs the device
         modelimporter::ModelFactory                     m_modelFactory;
-        res::Proxy<modelimporter::ModelResource>        m_model;       // the one cooked model, shared by every instance
+        resource::Proxy<modelimporter::ModelResource>        m_model;       // the one cooked model, shared by every instance
         core::Array<core::RefPtr<materials::Material>> m_modelMats;   // its materials (indexed by submesh material index)
         core::Array<animation::AnimationClip*>      m_clips;       // clips for random per-instance selection
         core::f32                              m_fit = 1.0f;  // auto-fit scale
@@ -502,7 +502,7 @@ namespace
         // One spawned character: just its root entity (DestroyEntity recurses to free the hierarchy +
         // its SkeletalAnimationComponent). The component (engine-driven) owns the player + targets.
         struct Instance {
-            sc::EntityHandle root{};
+            scene::EntityHandle root{};
         };
         core::Array<Instance> m_instances;
         core::Random          m_rng{ 0x9e3779b97f4a7c15ull };

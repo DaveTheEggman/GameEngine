@@ -40,7 +40,7 @@ namespace rhi = draconic::rhi;
 namespace runtime  = draconic::runtime;
 namespace sh  = draconic::shell;
 namespace samples = draconic::samples;
-namespace sc  = draconic::scene;
+namespace scene  = draconic::scene;
 namespace render  = draconic::render;
 namespace imgui = draconic::imgui;
 namespace geometry = draconic::geometry;
@@ -76,7 +76,7 @@ namespace
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<sc::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
             m_scene = scenes->CreateScene(u8"stress");
 
@@ -104,7 +104,7 @@ namespace
 
             // Directional key light.
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
-                sc::EntityHandle sun = m_scene->CreateEntity(u8"sun");
+                scene::EntityHandle sun = m_scene->CreateEntity(u8"sun");
                 core::Transform st = m_scene->GetLocalTransform(sun);
                 st.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f)
                             * core::Quaternion::FromAxisAngle(core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.5f);
@@ -225,7 +225,7 @@ namespace
             if (m_bob) {
                 auto* meshScene = m_scene;
                 constexpr core::f32 amplitude = 1.0f, speed = 2.0f;
-                for (sc::EntityHandle e : m_spheres) {
+                for (scene::EntityHandle e : m_spheres) {
                     core::Transform t = meshScene->GetLocalTransform(e);
                     // Phase from world X/Z (stable as the grid grows). Bob AROUND the base height so the
                     // spheres stay above the floor (full, separated shadows) instead of dipping through it.
@@ -296,7 +296,7 @@ namespace
                 const core::f32 x = (static_cast<core::f32>(gx) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
                 const core::f32 z = (static_cast<core::f32>(gz) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
 
-                sc::EntityHandle e = m_scene->CreateEntity(u8"sphere");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
                 m_scene->SetLocalPosition(e, core::Vector3{ x, kSphereHeight, z });
                 render::MeshComponent& mc = meshes->Add(e);
                 mc.mesh = m_sphere;
@@ -436,13 +436,13 @@ namespace
             }
         }
 
-        sc::Scene*                       m_scene = nullptr;
-        sc::EntityHandle                 m_camera{};
-        sc::EntityHandle                 m_sun{};
-        sc::EntityHandle                 m_ground{};
+        scene::Scene*                       m_scene = nullptr;
+        scene::EntityHandle                 m_camera{};
+        scene::EntityHandle                 m_sun{};
+        scene::EntityHandle                 m_ground{};
         core::RefPtr<geometry::StaticMesh>      m_sphere;
         core::RefPtr<materials::Material>        m_sharedMat;
-        core::Array<sc::EntityHandle>      m_spheres;
+        core::Array<scene::EntityHandle>      m_spheres;
         core::Array<core::RefPtr<materials::Material>> m_uniqueMats;
 
         core::i32 m_batchCount = 0;

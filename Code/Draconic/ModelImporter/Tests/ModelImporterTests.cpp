@@ -18,10 +18,10 @@ import draconic.modelimporter;
 
 using namespace draconic::core;
 namespace vfs = draconic::vfs;
-namespace ct  = draconic::content;
-namespace res = draconic::resource;
+namespace content  = draconic::content;
+namespace resource = draconic::resource;
 namespace geometry = draconic::geometry;
-namespace mdl = draconic::model;
+namespace model = draconic::model;
 namespace modelimporter  = draconic::modelimporter;
 
 #ifndef DRACONIC_MI_TEST_DUCK
@@ -39,22 +39,22 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
     modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
 
     vfs::NativeFileSystem mount(u8"draconic_modelimporter_test_db");
-    ct::ContentDatabase db(mount);
+    content::ContentDatabase db(mount);
 
     // Cook the model file into the DB; get back the manifest (ModelResource) Guid.
     Guid modelGuid;
-    const mdl::ModelLoadResult r = modelimporter::LoadAndCook(duck, db, u8"Duck", modelGuid);
-    REQUIRE(r == mdl::ModelLoadResult::Ok);
+    const model::ModelLoadResult r = modelimporter::LoadAndCook(duck, db, u8"Duck", modelGuid);
+    REQUIRE(r == model::ModelLoadResult::Ok);
     REQUIRE_FALSE(modelGuid.IsNil());
 
     // Bind the composite model: ModelFactory resolves its meshes via StaticMeshFactory.
-    res::ResourceManager manager(db);
+    resource::ResourceManager manager(db);
     geometry::StaticMeshFactory meshFactory;
     modelimporter::ModelFactory       modelFactory;
     manager.AddFactory(&meshFactory);
     manager.AddFactory(&modelFactory);
 
-    res::Proxy<modelimporter::ModelResource> model = manager.Bind<modelimporter::ModelResource>(modelGuid);
+    resource::Proxy<modelimporter::ModelResource> model = manager.Bind<modelimporter::ModelResource>(modelGuid);
     REQUIRE(model);
     CHECK(model->nodes.Size() > 0);
     CHECK(model->meshes.Size() > 0);
@@ -81,12 +81,12 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
     modelimporter::RegisterModelImporterTypes();
 
     vfs::NativeFileSystem mount(u8"draconic_modelimporter_fox_db");
-    ct::ContentDatabase db(mount);
+    content::ContentDatabase db(mount);
 
     Guid modelGuid;
-    REQUIRE(modelimporter::LoadAndCook(fox, db, u8"Fox", modelGuid) == mdl::ModelLoadResult::Ok);
+    REQUIRE(modelimporter::LoadAndCook(fox, db, u8"Fox", modelGuid) == model::ModelLoadResult::Ok);
 
-    res::ResourceManager manager(db);
+    resource::ResourceManager manager(db);
     geometry::StaticMeshFactory   meshFactory;
     geometry::SkinnedMeshFactory  skinnedFactory;
     modelimporter::ModelFactory         modelFactory;
@@ -98,7 +98,7 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
     manager.AddFactory(&skeletonFactory);
     manager.AddFactory(&clipFactory);
 
-    res::Proxy<modelimporter::ModelResource> model = manager.Bind<modelimporter::ModelResource>(modelGuid);
+    resource::Proxy<modelimporter::ModelResource> model = manager.Bind<modelimporter::ModelResource>(modelGuid);
     REQUIRE(model);
 
     // The Fox is skinned + animated: a resolved skeleton with bones + animation clips.

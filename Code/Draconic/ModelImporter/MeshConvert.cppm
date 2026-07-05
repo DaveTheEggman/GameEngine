@@ -19,35 +19,35 @@ import draconic.geometry;
 import draconic.geometry.resource;
 
 using namespace draconic::core;
-namespace mdl = draconic::model;
+namespace model = draconic::model;
 namespace geometry = draconic::geometry;
 
 namespace draconic::modelimporter {
 
 // ---- per-element readers (by semantic; default if the element is absent) ----
 
-[[nodiscard]] const mdl::VertexElement* FindElement(Span<const mdl::VertexElement> elems, mdl::VertexSemantic sem) noexcept
+[[nodiscard]] const model::VertexElement* FindElement(Span<const model::VertexElement> elems, model::VertexSemantic sem) noexcept
 {
-    for (const mdl::VertexElement& e : elems) { if (e.semantic == sem) { return &e; } }
+    for (const model::VertexElement& e : elems) { if (e.semantic == sem) { return &e; } }
     return nullptr;
 }
 
-[[nodiscard]] Vector3 ReadVec3(const u8* vtx, const mdl::VertexElement* e, Vector3 dflt) noexcept
+[[nodiscard]] Vector3 ReadVec3(const u8* vtx, const model::VertexElement* e, Vector3 dflt) noexcept
 {
     if (e == nullptr) { return dflt; }
     Vector3 r; MemCopy(&r, vtx + e->offset, sizeof(Vector3)); return r;
 }
-[[nodiscard]] Vector2 ReadVec2(const u8* vtx, const mdl::VertexElement* e, Vector2 dflt) noexcept
+[[nodiscard]] Vector2 ReadVec2(const u8* vtx, const model::VertexElement* e, Vector2 dflt) noexcept
 {
     if (e == nullptr) { return dflt; }
     Vector2 r; MemCopy(&r, vtx + e->offset, sizeof(Vector2)); return r;
 }
-[[nodiscard]] Vector4 ReadVec4(const u8* vtx, const mdl::VertexElement* e, Vector4 dflt) noexcept
+[[nodiscard]] Vector4 ReadVec4(const u8* vtx, const model::VertexElement* e, Vector4 dflt) noexcept
 {
     if (e == nullptr) { return dflt; }
     Vector4 r; MemCopy(&r, vtx + e->offset, sizeof(Vector4)); return r;
 }
-[[nodiscard]] u32 ReadU32(const u8* vtx, const mdl::VertexElement* e, u32 dflt) noexcept
+[[nodiscard]] u32 ReadU32(const u8* vtx, const model::VertexElement* e, u32 dflt) noexcept
 {
     if (e == nullptr) { return dflt; }
     u32 r; MemCopy(&r, vtx + e->offset, sizeof(u32)); return r;
@@ -55,7 +55,7 @@ namespace draconic::modelimporter {
 
 // ---- index conversion (Model IR is u16 or u32; cooked sources are u32) ----
 
-void CopyIndices(const mdl::ModelMesh& mesh, Array<u32>& out)
+void CopyIndices(const model::ModelMesh& mesh, Array<u32>& out)
 {
     const i32 count = mesh.indexCount();
     out.Clear();
@@ -73,10 +73,10 @@ void CopyIndices(const mdl::ModelMesh& mesh, Array<u32>& out)
 
 // ---- parts -> submesh ranges ----
 
-void CopyParts(const mdl::ModelMesh& mesh, geometry::StaticMeshSource& out)
+void CopyParts(const model::ModelMesh& mesh, geometry::StaticMeshSource& out)
 {
     out.subStart.Clear(); out.subCount.Clear(); out.subMaterial.Clear(); out.subPrim.Clear();
-    const Span<const mdl::ModelMeshPart> parts = mesh.parts();
+    const Span<const model::ModelMeshPart> parts = mesh.parts();
     if (parts.Size() == 0) {
         // No explicit parts: one submesh covering the whole index buffer.
         out.subStart.PushBack(0);
@@ -85,7 +85,7 @@ void CopyParts(const mdl::ModelMesh& mesh, geometry::StaticMeshSource& out)
         out.subPrim.PushBack(static_cast<u8>(geometry::PrimitiveType::Triangles));
         return;
     }
-    for (const mdl::ModelMeshPart& p : parts) {
+    for (const model::ModelMeshPart& p : parts) {
         out.subStart.PushBack(p.indexStart);
         out.subCount.PushBack(p.indexCount);
         out.subMaterial.PushBack(p.materialIndex);
@@ -96,16 +96,16 @@ void CopyParts(const mdl::ModelMesh& mesh, geometry::StaticMeshSource& out)
 export {
 
 // Fill a StaticMeshSource from a model mesh's static streams (pos/normal/uv/color/tangent).
-void StaticMeshSourceFromModel(const mdl::ModelMesh& mesh, geometry::StaticMeshSource& out)
+void StaticMeshSourceFromModel(const model::ModelMesh& mesh, geometry::StaticMeshSource& out)
 {
     out.name = String(mesh.name());
 
-    const Span<const mdl::VertexElement> elems = mesh.vertexElements();
-    const mdl::VertexElement* ePos = FindElement(elems, mdl::VertexSemantic::Position);
-    const mdl::VertexElement* eNrm = FindElement(elems, mdl::VertexSemantic::Normal);
-    const mdl::VertexElement* eUv  = FindElement(elems, mdl::VertexSemantic::TexCoord);
-    const mdl::VertexElement* eCol = FindElement(elems, mdl::VertexSemantic::Color);
-    const mdl::VertexElement* eTan = FindElement(elems, mdl::VertexSemantic::Tangent);
+    const Span<const model::VertexElement> elems = mesh.vertexElements();
+    const model::VertexElement* ePos = FindElement(elems, model::VertexSemantic::Position);
+    const model::VertexElement* eNrm = FindElement(elems, model::VertexSemantic::Normal);
+    const model::VertexElement* eUv  = FindElement(elems, model::VertexSemantic::TexCoord);
+    const model::VertexElement* eCol = FindElement(elems, model::VertexSemantic::Color);
+    const model::VertexElement* eTan = FindElement(elems, model::VertexSemantic::Tangent);
 
     const i32 count  = mesh.vertexCount();
     const i32 stride = mesh.vertexStride();
@@ -131,14 +131,14 @@ void StaticMeshSourceFromModel(const mdl::ModelMesh& mesh, geometry::StaticMeshS
 
 // Fill a SkinnedMeshSource: the static streams above + the parallel skinning stream
 // (joints u16x4 + weights) and the owning skeleton index.
-void SkinnedMeshSourceFromModel(const mdl::ModelMesh& mesh, i32 skeletonIndex, geometry::SkinnedMeshSource& out)
+void SkinnedMeshSourceFromModel(const model::ModelMesh& mesh, i32 skeletonIndex, geometry::SkinnedMeshSource& out)
 {
     StaticMeshSourceFromModel(mesh, out);
     out.skeletonIndex = skeletonIndex;
 
-    const Span<const mdl::VertexElement> elems = mesh.vertexElements();
-    const mdl::VertexElement* eJnt = FindElement(elems, mdl::VertexSemantic::Joints);
-    const mdl::VertexElement* eWt  = FindElement(elems, mdl::VertexSemantic::Weights);
+    const Span<const model::VertexElement> elems = mesh.vertexElements();
+    const model::VertexElement* eJnt = FindElement(elems, model::VertexSemantic::Joints);
+    const model::VertexElement* eWt  = FindElement(elems, model::VertexSemantic::Weights);
 
     const i32 count  = mesh.vertexCount();
     const i32 stride = mesh.vertexStride();

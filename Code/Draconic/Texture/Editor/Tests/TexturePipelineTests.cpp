@@ -22,7 +22,7 @@ using namespace draconic::core;
 using namespace draconic::vfs;
 using namespace draconic::resource;
 using namespace draconic::texture;
-namespace img = draconic::image;
+namespace image = draconic::image;
 namespace iio = draconic::image::io;
 namespace rhi = draconic::rhi;
 
@@ -45,7 +45,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // A known 2x2 RGBA source image on disk.
     {
-        img::Image src(2, 2, img::PixelFormat::RGBA8);
+        image::Image src(2, 2, image::PixelFormat::RGBA8);
         Span<u8> px = src.PixelDataMut();
         for (usize i = 0; i < px.Size(); ++i) { px.Data()[i] = static_cast<u8>(i * 5); }
         REQUIRE(iio::SaveImage(src, u8"draconic_texpipe_src.png", iio::ImageFileFormat::PNG).IsOk());
@@ -63,7 +63,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
         TextureAsset asset;
         asset.fileName = u8"draconic_texpipe_src.png";
         asset.SetupForUI();                 // clamp, no mips
-        asset.colorSpace = img::ImageColorSpace::Srgb;
+        asset.colorSpace = image::ImageColorSpace::Srgb;
 
         TextureAssetBuilder builder;
         REQUIRE(builder.AssetType() == &TextureAsset::StaticType());
@@ -92,15 +92,15 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 TEST_CASE("texture.importer: produces a TextureAsset with the right preset")
 {
     TextureAsset a;
-    TextureImporter::Import2D(u8"art/brick.png", img::ImageColorSpace::Srgb, a);
+    TextureImporter::Import2D(u8"art/brick.png", image::ImageColorSpace::Srgb, a);
     CHECK(a.fileName == String(u8"art/brick.png"));
-    CHECK(a.colorSpace == img::ImageColorSpace::Srgb);
+    CHECK(a.colorSpace == image::ImageColorSpace::Srgb);
     CHECK(a.generateMipmaps);                       // 3D preset
     CHECK(a.minFilter == TextureFilter::MipmapLinear);
 
     TextureAsset sky;
     TextureImporter::ImportEquirectangular(u8"sky/dusk.hdr", sky);
-    CHECK(sky.colorSpace == img::ImageColorSpace::Linear);
+    CHECK(sky.colorSpace == image::ImageColorSpace::Linear);
     CHECK(sky.wrapU == TextureWrap::ClampToEdge);
     CHECK_FALSE(sky.generateMipmaps);
 }

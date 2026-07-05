@@ -19,7 +19,7 @@ using namespace draconic::core;
 export namespace draconic::texture
 {
     namespace rhi = draconic::rhi;
-    namespace img = draconic::image;
+    namespace image = draconic::image;
 
     // Raw texture data for upload to the GPU. Fields are lowercase (descriptor
     // convention, matching RHI descs); the caller provides correctly-formatted
@@ -61,7 +61,7 @@ export namespace draconic::texture
         // Builds 2D texture data from an image. `colorSpace` selects the sRGB GPU
         // format (hardware sRGB->linear on sample) for color imagery, or a linear
         // format for data textures (normal maps, masks, HDR).
-        [[nodiscard]] static TextureData FromImage(const img::Image& image, img::ImageColorSpace colorSpace)
+        [[nodiscard]] static TextureData FromImage(const image::Image& image, image::ImageColorSpace colorSpace)
         {
             const Span<const u8> data = image.PixelData();
             return Create2D(data.Data(), static_cast<u64>(data.Size()), image.Width(), image.Height(),

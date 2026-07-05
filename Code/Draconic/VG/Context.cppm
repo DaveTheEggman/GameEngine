@@ -27,7 +27,7 @@ using namespace draconic::core;
 
 export namespace draconic::vg
 {
-    namespace img = draconic::image;
+    namespace image = draconic::image;
     namespace fonts = draconic::fonts;
 
     /// Internal per-state-stack snapshot for VGContext.
@@ -52,7 +52,7 @@ export namespace draconic::vg
 
             // 1x1 white texture for solid-color draws (Textures[0] -> color passthrough).
             const u8 whitePixel[4] = { 255, 255, 255, 255 };
-            m_whiteTexture = img::OwnedImageData(1, 1, img::PixelFormat::RGBA8, Span<const u8>(whitePixel, 4));
+            m_whiteTexture = image::OwnedImageData(1, 1, image::PixelFormat::RGBA8, Span<const u8>(whitePixel, 4));
             m_batch.textures.PushBack(&m_whiteTexture);
         }
 
@@ -387,7 +387,7 @@ export namespace draconic::vg
 
         // === Images ===
 
-        void DrawImage(const img::ImageData* texture, Vector2 position)
+        void DrawImage(const image::ImageData* texture, Vector2 position)
         {
             if (texture == nullptr) return;
             DrawImage(texture,
@@ -396,7 +396,7 @@ export namespace draconic::vg
                 Color::White);
         }
 
-        void DrawImage(const img::ImageData* texture, Vector2 position, Color tint)
+        void DrawImage(const image::ImageData* texture, Vector2 position, Color tint)
         {
             if (texture == nullptr) return;
             DrawImage(texture,
@@ -405,13 +405,13 @@ export namespace draconic::vg
                 tint);
         }
 
-        void DrawImage(const img::ImageData* texture, Rectangle destRect)
+        void DrawImage(const image::ImageData* texture, Rectangle destRect)
         {
             if (texture == nullptr) return;
             DrawImage(texture, destRect, Rectangle{ 0.0f, 0.0f, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) }, Color::White);
         }
 
-        void DrawImage(const img::ImageData* texture, Rectangle destRect, Rectangle srcRect, Color tint)
+        void DrawImage(const image::ImageData* texture, Rectangle destRect, Rectangle srcRect, Color tint)
         {
             if (texture == nullptr) return;
 
@@ -424,7 +424,7 @@ export namespace draconic::vg
         }
 
         /// Draw a 9-slice image scaled to fit a destination rectangle.
-        void DrawNineSlice(const img::ImageData* texture, Rectangle destRect, Rectangle srcRect, img::NineSlice slices, Color tint)
+        void DrawNineSlice(const image::ImageData* texture, Rectangle destRect, Rectangle srcRect, image::NineSlice slices, Color tint)
         {
             if (texture == nullptr) return;
 
@@ -470,7 +470,7 @@ export namespace draconic::vg
         // === Text ===
 
         /// Draw text at a baseline position using a pre-rendered font atlas (low-level).
-        void DrawText(StringView text, const fonts::IFontAtlas* atlas, const img::ImageData* atlasTexture, Vector2 position, Color color)
+        void DrawText(StringView text, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture, Vector2 position, Color color)
         {
             if (text.IsEmpty() || atlas == nullptr || atlasTexture == nullptr) return;
 
@@ -495,7 +495,7 @@ export namespace draconic::vg
         }
 
         /// Draw text with horizontal alignment within bounds (vertically centered).
-        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const img::ImageData* atlasTexture,
+        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture,
                       Rectangle bounds, fonts::TextAlignment align, Color color)
         {
             if (text.IsEmpty() || font == nullptr) return;
@@ -515,7 +515,7 @@ export namespace draconic::vg
         }
 
         /// Draw text with horizontal and vertical alignment within bounds.
-        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const img::ImageData* atlasTexture,
+        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture,
                       Rectangle bounds, fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color color)
         {
             if (text.IsEmpty() || font == nullptr) return;
@@ -547,7 +547,7 @@ export namespace draconic::vg
         void DrawText(StringView text, fonts::CachedFont* font, Vector2 position, Color color)
         {
             if (font == nullptr || m_fontService == nullptr) return;
-            img::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
+            image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
             if (atlasTex == nullptr) return;
             DrawText(text, font->atlas, atlasTex, position, color);
         }
@@ -557,7 +557,7 @@ export namespace draconic::vg
                       fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color color)
         {
             if (font == nullptr || m_fontService == nullptr) return;
-            img::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
+            image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
             if (atlasTex == nullptr) return;
             DrawText(text, font->font, font->atlas, atlasTex, bounds, hAlign, vAlign, color);
         }
@@ -566,7 +566,7 @@ export namespace draconic::vg
         void DrawPositionedGlyphs(const Array<fonts::GlyphPosition>& positions, fonts::CachedFont* font, f32 offsetX, f32 offsetY, Color color)
         {
             if (positions.IsEmpty() || font == nullptr || m_fontService == nullptr) return;
-            img::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
+            image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
             if (atlasTex == nullptr || font->atlas == nullptr) return;
 
             const i32 textureIndex = GetOrAddTexture(atlasTex);
@@ -592,7 +592,7 @@ export namespace draconic::vg
                              fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
         {
             if (text.IsEmpty() || font == nullptr || font->shaper == nullptr || m_fontService == nullptr) return;
-            img::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
+            image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
             if (atlasTex == nullptr) return;
 
             Array<fonts::GlyphPosition> positions;
@@ -745,7 +745,7 @@ export namespace draconic::vg
         }
 
         /// Look up a texture in the batch or append it. Index 0 is the white texture.
-        i32 GetOrAddTexture(const img::ImageData* tex)
+        i32 GetOrAddTexture(const image::ImageData* tex)
         {
             if (tex == nullptr) return 0;
             for (usize i = 0; i < m_batch.textures.Size(); ++i)
@@ -850,7 +850,7 @@ export namespace draconic::vg
         }
 
         VGBatch m_batch;
-        img::OwnedImageData m_whiteTexture;
+        image::OwnedImageData m_whiteTexture;
         PathBuilder m_currentPath;
         fonts::IFontService* m_fontService = nullptr;
 

@@ -7,7 +7,7 @@ import draconic.vg;
 
 using namespace draconic::core;
 using namespace draconic::vg;
-namespace img = draconic::image;
+namespace image = draconic::image;
 
 TEST_CASE("vg.context: white texture sits at index 0")
 {
@@ -92,7 +92,7 @@ TEST_CASE("vg.context: DrawImage registers the texture and switches command")
 {
     VGContext ctx;
     const u8 px[4] = { 10, 20, 30, 40 };
-    img::OwnedImageData tex(1, 1, img::PixelFormat::RGBA8, Span<const u8>(px, 4));
+    image::OwnedImageData tex(1, 1, image::PixelFormat::RGBA8, Span<const u8>(px, 4));
 
     ctx.FillRect(Rectangle{ 0, 0, 5, 5 }, Color::Red); // solid command (tex 0)
     ctx.DrawImage(&tex, Vector2{ 0, 0 });              // textured command (tex 1)

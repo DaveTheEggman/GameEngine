@@ -30,7 +30,7 @@ using namespace draconic::core;
 using namespace draconic::resource;
 namespace geometry  = draconic::geometry;
 namespace materials  = draconic::materials;
-namespace tex  = draconic::texture;
+namespace texture  = draconic::texture;
 namespace animation = draconic::animation;
 
 export namespace draconic::modelimporter {
@@ -138,7 +138,7 @@ public:
         for (usize i = 0; i < src->materialGuids.Size(); ++i) {
             Proxy<materials::Material> material = manager.Bind<materials::Material>(src->materialGuids[i]);
             if (material && i < src->materialAlbedo.Size() && !src->materialAlbedo[i].IsNil()) {
-                Proxy<tex::Texture> albedo = manager.Bind<tex::Texture>(src->materialAlbedo[i]);
+                Proxy<texture::Texture> albedo = manager.Bind<texture::Texture>(src->materialAlbedo[i]);
                 if (albedo && albedo->View() != nullptr) {
                     material->SetDefaultTexture(u8"AlbedoMap", albedo->View());
                 }
@@ -177,9 +177,9 @@ inline void RegisterModelImporterTypes()
     RegisterSerializable<materials::MaterialSource>();
     GlobalTypeRegistry().Register(materials::Material::StaticType());
 
-    GlobalTypeRegistry().Register(tex::TextureResource::StaticType());
-    RegisterSerializable<tex::TextureResource>();
-    GlobalTypeRegistry().Register(tex::Texture::StaticType());
+    GlobalTypeRegistry().Register(texture::TextureResource::StaticType());
+    RegisterSerializable<texture::TextureResource>();
+    GlobalTypeRegistry().Register(texture::Texture::StaticType());
 
     GlobalTypeRegistry().Register(animation::SkeletonSource::StaticType());
     RegisterSerializable<animation::SkeletonSource>();
