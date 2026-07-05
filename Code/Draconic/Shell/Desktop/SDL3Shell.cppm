@@ -136,12 +136,13 @@ export namespace draconic::shell
             IWindow* borrowed = wrapped.Get();
             m_owned.PushBack(static_cast<core::UniquePtr<SDL3Window>&&>(wrapped));
             m_live.PushBack(borrowed);
+            if (m_mainWindowId == 0) { m_mainWindowId = borrowed->Id(); }   // the first window created is the main window
             return borrowed;
         }
 
         void DestroyWindow(IWindow* window) override
         {
-            if (window == nullptr) { return; }
+            if (!Owns(window)) { return; }   // no-op for null or windows this manager does not own
             window->Close();
             m_pendingDestroy.PushBack(window->Id());
         }
@@ -152,7 +153,9 @@ export namespace draconic::shell
         }
         [[nodiscard]] IWindow* MainWindow() noexcept override
         {
-            return m_live.IsEmpty() ? nullptr : m_live[0];
+            // Tracked by id, so destroying/flushing the main window never promotes another
+            // window into its place; returns null once the main window is gone.
+            return GetWindow(m_mainWindowId);
         }
         [[nodiscard]] IWindow* GetWindow(core::u32 id) noexcept override
         {
@@ -199,10 +202,20 @@ export namespace draconic::shell
         }
 
     private:
+        // True only for windows this manager owns (present in m_live). Rejects nullptr too, so
+        // DestroyWindow() is a no-op for null/unknown windows. Checked by pointer identity, NOT id:
+        // a window from another manager can share an id, and acting on it would corrupt bookkeeping.
+        [[nodiscard]] bool Owns(IWindow* window) const noexcept
+        {
+            for (IWindow* w : m_live) { if (w == window) { return true; } }
+            return false;
+        }
+
         core::Array<core::UniquePtr<SDL3Window>> m_owned;
         core::Array<IWindow*> m_live;
         core::Array<core::u32> m_pendingDestroy;
         core::Array<WindowEvent> m_events;
+        core::u32 m_mainWindowId = 0;   // id of the main window (first created); 0 = none
     };
 
     // -----------------------------------------------------------------------

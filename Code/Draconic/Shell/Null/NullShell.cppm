@@ -58,12 +58,13 @@ export namespace draconic::shell
             IWindow* borrowed = window.Get();
             m_owned.PushBack(static_cast<core::UniquePtr<NullWindow>&&>(window));
             m_live.PushBack(borrowed);
+            if (m_mainWindowId == 0) { m_mainWindowId = id; }   // the first window created is the main window
             return borrowed;
         }
 
         void DestroyWindow(IWindow* window) override
         {
-            if (window == nullptr) { return; }
+            if (!Owns(window)) { return; }   // no-op for null or windows this manager does not own
             window->Close();
             m_pendingDestroy.PushBack(window->Id());
         }
@@ -74,7 +75,9 @@ export namespace draconic::shell
         }
         [[nodiscard]] IWindow* MainWindow() noexcept override
         {
-            return m_live.IsEmpty() ? nullptr : m_live[0];
+            // Tracked by id, so destroying/flushing the main window never promotes another
+            // window into its place; returns null once the main window is gone.
+            return GetWindow(m_mainWindowId);
         }
         [[nodiscard]] IWindow* GetWindow(core::u32 id) noexcept override
         {
@@ -103,11 +106,21 @@ export namespace draconic::shell
         }
 
     private:
+        // True only for windows this manager owns (present in m_live). Rejects nullptr too, so
+        // DestroyWindow() is a no-op for null/unknown windows. Checked by pointer identity, NOT id:
+        // a window from another manager can share an id, and acting on it would corrupt bookkeeping.
+        [[nodiscard]] bool Owns(IWindow* window) const noexcept
+        {
+            for (IWindow* w : m_live) { if (w == window) { return true; } }
+            return false;
+        }
+
         core::Array<core::UniquePtr<NullWindow>> m_owned;
         core::Array<IWindow*> m_live;          // borrowed parallel pointers for the span
         core::Array<core::u32> m_pendingDestroy; // window ids
         core::Array<WindowEvent> m_events;     // always empty (no OS event source)
         core::u32 m_nextId = 1;
+        core::u32 m_mainWindowId = 0;          // id of the main window (first created); 0 = none
     };
 
     // No-op input devices: report nothing held/pressed so headless callers can
@@ -178,9 +191,9 @@ export namespace draconic::shell
         void ProcessEvents() override {}  // no OS event source
         [[nodiscard]] bool IsRunning() const noexcept override
         {
-            // Running while the main window (if any) is open.
+            // Running until RequestExit() or the main window is closed/destroyed.
             IWindow* main = const_cast<NullWindowManager&>(m_windows).MainWindow();
-            return m_running && (main == nullptr || main->IsOpen());
+            return m_running && main != nullptr && main->IsOpen();
         }
         void RequestExit() override { m_running = false; }
 

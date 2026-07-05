@@ -124,3 +124,62 @@ TEST_CASE("shell.null: input is present and reports no activity")
 
     input->Update();  // must be a harmless no-op
 }
+
+TEST_CASE("shell.null: destroying the main window does not promote another window")
+{
+    NullShell shell;
+    IWindowManager* wm = shell.WindowManager();
+    IWindow* main = wm->MainWindow();
+    REQUIRE(main != nullptr);
+    const u32 mainId = main->Id();
+
+    // A second window is open alongside the main window.
+    Result<IWindow*> second = wm->CreateWindow(WindowSettings{});
+    REQUIRE(second.HasValue());
+    IWindow* secondary = second.Value();
+    REQUIRE(secondary != main);
+    REQUIRE(wm->MainWindow() == main);   // still the first window, not the newest
+
+    // Close and destroy the main window while the secondary stays open.
+    main->Close();
+    CHECK_FALSE(shell.IsRunning());      // main window closed -> shell stops
+    wm->DestroyWindow(main);
+    wm->FlushDestroyed();
+
+    // The secondary is still live and open, but must NOT be promoted to main,
+    // and IsRunning() must not flip back to true.
+    CHECK(wm->GetWindow(secondary->Id()) == secondary);
+    CHECK(secondary->IsOpen());
+    CHECK(wm->MainWindow() == nullptr);
+    CHECK(wm->GetWindow(mainId) == nullptr);
+    CHECK_FALSE(shell.IsRunning());
+}
+
+TEST_CASE("shell.null: DestroyWindow ignores windows it does not own")
+{
+    NullShell a;
+    NullShell b;
+    IWindowManager* wmA = a.WindowManager();
+    IWindowManager* wmB = b.WindowManager();
+
+    IWindow* aMain = wmA->MainWindow();
+    IWindow* bMain = wmB->MainWindow();
+    REQUIRE(aMain != nullptr);
+    REQUIRE(bMain != nullptr);
+    // Each manager numbers ids independently, so the two main windows collide on
+    // id: DestroyWindow must reject by pointer identity, not by id.
+    REQUIRE(aMain->Id() == bMain->Id());
+
+    // Ask A to destroy B's window (and a null). Both must be no-ops: B's window
+    // stays open, and A's bookkeeping (its own same-id window) is untouched.
+    wmA->DestroyWindow(bMain);
+    wmA->DestroyWindow(nullptr);
+    wmA->FlushDestroyed();
+
+    CHECK(bMain->IsOpen());                  // foreign window not closed
+    CHECK(wmB->MainWindow() == bMain);       // B unaffected
+    CHECK(wmA->MainWindow() == aMain);       // A's same-id window survived
+    CHECK(wmA->Windows().Size() == 1u);
+    CHECK(a.IsRunning());
+    CHECK(b.IsRunning());
+}
