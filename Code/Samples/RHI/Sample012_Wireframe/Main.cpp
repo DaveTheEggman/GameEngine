@@ -121,8 +121,10 @@ void WireframeSample::OnRender() {
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
     Matrix4 model = Matrix4::RotationY(m_totalTime * 0.8f);
     // Row-vector view: identity rotation, camera 3 units along +Z (RH: looking toward -Z).
-    // Translation in row 3: m[3][2] = 3.
-    f32 view[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,3,1 };
+    // The view is the inverse of the camera transform, so the translation is the NEGATED
+    // eye position: m[3][2] = -3 (puts the object at view-space z=-3, in front of the camera).
+    // PerspectiveFovRH gives clip.w = -viewZ, so geometry must have negative view z.
+    f32 view[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-3,1 };
     Matrix4 proj = Matrix4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
     Matrix4 vMat; std::memcpy(vMat.Data(), view, 64);
     Matrix4 mvp = model * vMat * proj;
