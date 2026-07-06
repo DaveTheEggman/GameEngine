@@ -131,6 +131,53 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
     ctx.MergeInto(out);
 }
 
+// Fills `out` with ONE MultiMeshRenderData per visible InstancedMeshComponent - the set, not the
+// instances (per-frame CPU is O(1) in the instance count; the renderer holds the transforms in a
+// persistent GPU buffer keyed by the entity). The merged world bounds (center + sphere radius) are
+// recomputed ONLY when the component's version changed (a static set recomputes once), so the whole
+// set culls as a single AABB. Run after transforms are current, like the other extractors.
+inline void ExtractInstancedMeshesInto(scene::Scene& scene, ExtractedScene& out) {
+    auto* mgr = scene.GetSystem<InstancedMeshComponentManager>();
+    if (mgr == nullptr) { return; }
+    mgr->ForEach([&](InstancedMeshComponent& c, scene::EntityHandle e) {
+        if (!c.visible || c.mesh.Get() == nullptr || c.Count() == 0) { return; }
+
+        // Merged bounds: union of the mesh's local AABB transformed by every instance. Cached on the
+        // component and only rebuilt when the instance set changed (boundsVersion tracks version).
+        if (c.boundsVersion != c.version) {
+            const AABB lb  = c.mesh->bounds;
+            AABB       acc = AABB::Empty();
+            for (const Matrix4& xf : c.instances) {
+                const Vector3 ctr = TransformPoint(lb.Center(), xf);
+                const f32     r   = WorldBoundsRadius(lb, xf);
+                acc.Expand(ctr - Vector3{ r, r, r });
+                acc.Expand(ctr + Vector3{ r, r, r });
+            }
+            c.cachedCenter  = acc.Center();
+            c.cachedRadius  = Length(acc.Extents());
+            c.boundsVersion = c.version;
+        }
+
+        MultiMeshRenderData* rd = out.Add<MultiMeshRenderData>();
+        if (rd == nullptr) { return; }
+        rd->multiMesh     = true;
+        rd->key           = PackEntity(e);
+        rd->transforms    = c.instances.Data();   // borrowed for the frame (immutable snapshot)
+        rd->instanceCount = c.Count();
+        rd->version       = c.version;
+        rd->mesh          = c.mesh.Get();
+        rd->material      = c.material.Get();
+        rd->color         = c.color;
+        rd->worldCenter   = c.cachedCenter;        // merged bounds -> single-AABB cull + depth sort
+        rd->worldRadius   = c.cachedRadius;
+        rd->entityId      = PackEntity(e);
+        rd->category      = CategoryForMaterial(c.material.Get());
+        rd->sortBatchKey  = BatchKey(c.mesh.Get(), c.material.Get());
+        // rendererId stays 0 (the MeshRenderer draws it); `world` stays identity (per-instance
+        // transforms ride in `transforms`, uploaded to the renderer's persistent buffer).
+    });
+}
+
 // Fills `out` with one SpriteRenderData per visible SpriteComponent (serial - sprites are few). Stamps
 // the sprite renderer's dispatch id so emission routes them to the SpriteRenderer, and category
 // Transparent so they sort back-to-front and ride the blended forward pass alongside transparent meshes.

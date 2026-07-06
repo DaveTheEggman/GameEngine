@@ -49,6 +49,7 @@ public:
     // Injects the render component managers into each new scene.
     void OnSceneCreated(scene::Scene& scene) override {
         scene.AddSystem<MeshComponentManager>();
+        scene.AddSystem<InstancedMeshComponentManager>();
         scene.AddSystem<SpriteComponentManager>();
         scene.AddSystem<DecalComponentManager>();
         scene.AddSystem<CameraComponentManager>();
@@ -196,6 +197,7 @@ public:
         {
             DRACONIC_PROFILE_SCOPE("Render.Extract");
             ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up (resets snapshot)
+            ExtractInstancedMeshesInto(scene, *snapshot);      // instanced sets (MultiMesh): one item each, O(1)/frame
             if (m_spriteRenderer.Get() != nullptr) {           // billboards (into the same snapshot, after meshes)
                 ExtractSpritesInto(scene, *snapshot, m_spriteRenderer->RendererId());
             }

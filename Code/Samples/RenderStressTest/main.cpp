@@ -138,6 +138,7 @@ namespace
                              u8"  Space: +8000 spheres   Backspace: -8000\n"
                              u8"  U: toggle unique materials (defeats batching)\n"
                              u8"  B: toggle sin-wave bob (defeats static caching)\n"
+                             u8"  M: toggle MultiMesh (whole grid as ONE instanced set, O(1)/frame CPU)\n"
                              u8"  H: toggle console stats   P: profiler dump\n"
                              u8"  WASD/QE move, RMB look, Tab capture, Shift fast, Esc exit\n"
                              u8"==========================\n");
@@ -191,6 +192,12 @@ namespace
                 m_bob = !m_bob;
                 core::ConsoleWrite(m_bob ? u8"Sin-wave bob: ON (transforms rewritten every frame)\n"
                                        : u8"Sin-wave bob: OFF\n");
+            }
+            if (kb->IsKeyPressed(shell::KeyCode::M)) {
+                m_multiMesh = !m_multiMesh;
+                RebuildMultiMesh();
+                core::ConsoleWrite(m_multiMesh ? u8"MultiMesh: ON (whole grid = ONE instanced set, O(1)/frame CPU)\n"
+                                             : u8"MultiMesh: OFF (per-entity spheres)\n");
             }
             if (kb->IsKeyPressed(shell::KeyCode::H)) { m_showStats = !m_showStats; }
             if (kb->IsKeyPressed(shell::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
@@ -281,49 +288,70 @@ namespace
 
         // Spawn 8000 more spheres on the auto-sized grid. Position only depends on a global index, so
         // existing spheres keep their world positions when the grid widens.
+        // Grid position of sphere `index` for the current grid size (existing spheres keep their spot as
+        // the grid widens; only new indices use the new size).
+        [[nodiscard]] core::Vector3 SphereTranslation(core::i32 index) const
+        {
+            const core::i32 gx = index % m_gridSize;
+            const core::i32 gz = index / m_gridSize;
+            const core::f32 x = (static_cast<core::f32>(gx) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
+            const core::f32 z = (static_cast<core::f32>(gz) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
+            return core::Vector3{ x, kSphereHeight, z };
+        }
+
         void AddSphereBatch()
         {
-            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
-            if (meshes == nullptr) { return; }
-
             const core::i32 startIndex = m_batchCount * kSpheresPerBatch;
             const core::i32 newTotal   = (m_batchCount + 1) * kSpheresPerBatch;
             m_gridSize = static_cast<core::i32>(core::Ceil(core::Sqrt(static_cast<core::f32>(newTotal))));
 
-            for (core::i32 i = 0; i < kSpheresPerBatch; ++i) {
-                const core::i32 index = startIndex + i;
-                const core::i32 gx = index % m_gridSize;
-                const core::i32 gz = index / m_gridSize;
-                const core::f32 x = (static_cast<core::f32>(gx) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
-                const core::f32 z = (static_cast<core::f32>(gz) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
-
-                scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
-                m_scene->SetLocalPosition(e, core::Vector3{ x, kSphereHeight, z });
-                render::MeshComponent& mc = meshes->Add(e);
-                mc.mesh = m_sphere;
-                AssignSphereMaterial(mc, index);
-                m_spheres.PushBack(e);
+            if (m_multiMesh) {
+                // MultiMesh: no per-entity entities exist - grow the canonical transform list + the set.
+                m_mmTransforms.Reserve(static_cast<core::u32>(newTotal));
+                for (core::i32 i = 0; i < kSpheresPerBatch; ++i) {
+                    m_mmTransforms.PushBack(core::Matrix4::Translation(SphereTranslation(startIndex + i)));
+                }
+            } else {
+                auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
+                if (meshes == nullptr) { return; }
+                for (core::i32 i = 0; i < kSpheresPerBatch; ++i) {
+                    const core::i32 index = startIndex + i;
+                    scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
+                    m_scene->SetLocalPosition(e, SphereTranslation(index));
+                    render::MeshComponent& mc = meshes->Add(e);
+                    mc.mesh = m_sphere;
+                    AssignSphereMaterial(mc, index);
+                    m_spheres.PushBack(e);
+                }
             }
 
             ++m_batchCount;
             FitFloorAndCamera();
+            if (m_multiMesh) { PushMultiMesh(); }
             PrintCounts();
         }
 
         void RemoveLastBatch()
         {
             if (m_batchCount <= 0) { return; }
-            core::i32 removeCount = kSpheresPerBatch;
-            if (static_cast<core::usize>(removeCount) > m_spheres.Size()) {
-                removeCount = static_cast<core::i32>(m_spheres.Size());
-            }
-            for (core::i32 i = 0; i < removeCount; ++i) {
-                m_scene->DestroyEntity(m_spheres[m_spheres.Size() - 1]);
-                m_spheres.PopBack();
-                if (m_uniqueMaterials && !m_uniqueMats.IsEmpty()) { m_uniqueMats.PopBack(); }
+            if (m_multiMesh) {
+                core::usize remove = static_cast<core::usize>(kSpheresPerBatch);
+                if (remove > m_mmTransforms.Size()) { remove = m_mmTransforms.Size(); }
+                m_mmTransforms.Resize(m_mmTransforms.Size() - remove);
+            } else {
+                core::i32 removeCount = kSpheresPerBatch;
+                if (static_cast<core::usize>(removeCount) > m_spheres.Size()) {
+                    removeCount = static_cast<core::i32>(m_spheres.Size());
+                }
+                for (core::i32 i = 0; i < removeCount; ++i) {
+                    m_scene->DestroyEntity(m_spheres[m_spheres.Size() - 1]);
+                    m_spheres.PopBack();
+                    if (m_uniqueMaterials && !m_uniqueMats.IsEmpty()) { m_uniqueMats.PopBack(); }
+                }
             }
             --m_batchCount;
             FitFloorAndCamera();
+            if (m_multiMesh) { PushMultiMesh(); }
             PrintCounts();
         }
 
@@ -357,12 +385,68 @@ namespace
             }
         }
 
+        // Update the single InstancedMeshComponent from the canonical transform list (creates the set
+        // entity on first use, destroys it when the list is empty). Called after m_mmTransforms changes.
+        void PushMultiMesh()
+        {
+            auto* imm = m_scene->GetSystem<render::InstancedMeshComponentManager>();
+            if (imm == nullptr) { return; }
+            if (m_mmTransforms.IsEmpty()) {
+                if (m_multiMeshEntity.IsAssigned()) { m_scene->DestroyEntity(m_multiMeshEntity); m_multiMeshEntity = {}; }
+                return;
+            }
+            if (!m_multiMeshEntity.IsAssigned()) { m_multiMeshEntity = m_scene->CreateEntity(u8"multimesh"); }
+            render::InstancedMeshComponent& c = imm->Has(m_multiMeshEntity) ? *imm->Get(m_multiMeshEntity)
+                                                                            : imm->Add(m_multiMeshEntity);
+            c.mesh     = m_sphere;
+            c.material = m_sharedMat;
+            c.SetInstances(core::Span<const core::Matrix4>{ m_mmTransforms.Data(), m_mmTransforms.Size() });
+        }
+
+        // Convert between per-entity spheres and the single MultiMesh set when the mode flips. Entering
+        // MultiMesh: capture the spheres' world transforms, DESTROY the per-entity entities (so extraction
+        // never iterates them - a genuine O(1) extract), build the set. Leaving: destroy the set + respawn
+        // the per-entity spheres from the captured transforms. AddSphereBatch/RemoveLastBatch then operate
+        // on whichever representation is live, so the count always matches what's drawn.
+        void RebuildMultiMesh()
+        {
+            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
+            if (meshes == nullptr) { return; }
+
+            if (m_multiMesh) {
+                m_mmTransforms.Clear();
+                m_mmTransforms.Reserve(static_cast<core::u32>(m_spheres.Size()));
+                for (scene::EntityHandle e : m_spheres) { m_mmTransforms.PushBack(m_scene->GetWorldMatrix(e)); }
+                for (scene::EntityHandle e : m_spheres) { m_scene->DestroyEntity(e); }
+                m_spheres.Clear();
+                m_uniqueMats.Clear();   // per-entity unique materials are gone; the set uses one shared material
+                PushMultiMesh();
+            } else {
+                if (m_multiMeshEntity.IsAssigned()) { m_scene->DestroyEntity(m_multiMeshEntity); m_multiMeshEntity = {}; }
+                m_spheres.Reserve(static_cast<core::u32>(m_mmTransforms.Size()));
+                for (core::usize i = 0; i < m_mmTransforms.Size(); ++i) {
+                    const core::Matrix4& xf = m_mmTransforms[i];   // translation-only spheres: read the position row
+                    scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
+                    m_scene->SetLocalPosition(e, core::Vector3{ xf.m[3][0], xf.m[3][1], xf.m[3][2] });
+                    render::MeshComponent& mc = meshes->Add(e);
+                    mc.mesh = m_sphere;
+                    AssignSphereMaterial(mc, static_cast<core::i32>(i));
+                    m_spheres.PushBack(e);
+                }
+                m_mmTransforms.Clear();
+            }
+            PrintCounts();
+        }
+
         void PrintCounts()
         {
+            const core::i32 count = m_multiMesh ? static_cast<core::i32>(m_mmTransforms.Size())
+                                                : static_cast<core::i32>(m_spheres.Size());
             core::String s;
-            core::AppendFormat(s, u8"  spheres {}  batches {}  grid {}x{}  materials {}\n",
-                             static_cast<core::i32>(m_spheres.Size()), m_batchCount, m_gridSize, m_gridSize,
-                             m_uniqueMaterials ? static_cast<core::i32>(m_uniqueMats.Size()) : 1);
+            core::AppendFormat(s, u8"  spheres {}  batches {}  grid {}x{}  materials {}{}\n",
+                             count, m_batchCount, m_gridSize, m_gridSize,
+                             (m_multiMesh || !m_uniqueMaterials) ? 1 : static_cast<core::i32>(m_uniqueMats.Size()),
+                             m_multiMesh ? u8"  [multimesh]" : u8"");
             core::ConsoleWrite(s.AsView());
         }
 
@@ -373,8 +457,9 @@ namespace
             ImGui::Begin("Render Stress Test");
             const float fps = m_frameMs > 0.001f ? 1000.0f / m_frameMs : 0.0f;
             ImGui::Text("%.0f fps   %.2f ms", static_cast<double>(fps), static_cast<double>(m_frameMs));
-            ImGui::Text("spheres %d   batches %d   grid %dx%d",
-                        static_cast<int>(m_spheres.Size()), m_batchCount, m_gridSize, m_gridSize);
+            ImGui::Text("%s %d   batches %d   grid %dx%d", m_multiMesh ? "instances" : "spheres",
+                        static_cast<int>(m_multiMesh ? m_mmTransforms.Size() : m_spheres.Size()),
+                        m_batchCount, m_gridSize, m_gridSize);
             ImGui::Separator();
             if (ImGui::Button("+ batch (Space)")) { AddSphereBatch(); }
             ImGui::SameLine();
@@ -383,6 +468,9 @@ namespace
             bool uniq = m_uniqueMaterials;
             if (ImGui::Checkbox("Unique materials (U)", &uniq)) { m_uniqueMaterials = uniq; RebuildSphereMaterials(); }
             ImGui::Checkbox("Sin-wave bob (B)", &m_bob);
+            bool mm = m_multiMesh;
+            if (ImGui::Checkbox("MultiMesh: whole grid as one instanced set (M)", &mm)) { m_multiMesh = mm; RebuildMultiMesh(); }
+            if (m_multiMesh) { ImGui::SameLine(); ImGui::TextDisabled("O(1)/frame CPU"); }
             if (render != nullptr) {
                 bool taa = render->TaaEnabled();
                 if (ImGui::Checkbox("TAA (T)", &taa)) { render->SetTaaEnabled(taa); }
@@ -450,6 +538,10 @@ namespace
         core::i32 m_gridSize   = 0;
         bool    m_uniqueMaterials = false;
         bool    m_bob = false;
+        bool    m_multiMesh = false;                    // M: draw the whole grid as ONE InstancedMeshComponent
+        scene::EntityHandle m_multiMeshEntity{};        // the single set entity (when m_multiMesh)
+        core::Array<core::Matrix4> m_mmTransforms;      // canonical instance transforms while in MultiMesh mode
+                                                        // (the per-entity spheres are DESTROYED, not hidden)
         core::f32 m_time = 0.0f;
 
         // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).

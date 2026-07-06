@@ -43,6 +43,44 @@ struct MeshComponent {
     u32                          boneCount    = 0;
 };
 
+// An INSTANCED mesh ("MultiMesh"): ONE shared mesh + material drawn at N per-instance transforms that
+// live (on the GPU) in a persistent buffer owned by the renderer. Its per-frame CPU cost is O(1) in the
+// instance count - the set is extracted as ONE render item, culled as one merged AABB, and drawn once
+// per pass (depth, forward, every shadow cascade all read the same buffer). Use it for static crowds /
+// scatter (foliage, props, debris); the per-entity MeshComponent stays for genuinely dynamic objects.
+// `instances` is the CPU source of truth; every mutator bumps `version`, and the renderer re-uploads the
+// GPU buffer (and extraction recomputes the merged bounds) ONLY when the version changes. See
+// docs/design/instanced-mesh.md.
+struct InstancedMeshComponent {
+    RefPtr<geometry::StaticMesh> mesh;
+    RefPtr<materials::Material>  material;
+    Array<Matrix4>               instances;                                  // per-instance world transforms
+    Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };  // shared tint (per-instance tint: later)
+    bool                         visible = true;
+
+    // Change counter: bumped by every mutator so the renderer knows to re-upload and extraction knows to
+    // recompute the merged bounds. Starts at 1 so the first extract (uploadedVersion 0) always uploads.
+    u32                          version = 1;
+    // Cached merged world-space bounds (center + sphere radius), recomputed at extraction when
+    // `boundsVersion != version`. Lets a static set skip the O(N) bounds pass every frame.
+    Vector3                      cachedCenter  = Vector3{ 0, 0, 0 };
+    f32                          cachedRadius  = 0.0f;
+    u32                          boundsVersion = 0;
+
+    [[nodiscard]] u32 Count() const noexcept { return static_cast<u32>(instances.Size()); }
+
+    // Replace the whole set in one shot (fast path for static content) - a single version bump.
+    void SetInstances(Span<const Matrix4> xf) {
+        instances.Resize(xf.Size());
+        if (!xf.IsEmpty()) { MemCopy(instances.Data(), xf.Data(), xf.Size() * sizeof(Matrix4)); }
+        ++version;
+    }
+    void Add(const Matrix4& m)               { instances.PushBack(m); ++version; }
+    void SetInstance(u32 i, const Matrix4& m){ if (i < instances.Size()) { instances[i] = m; ++version; } }
+    void Reserve(u32 n)                      { instances.Reserve(n); }
+    void Clear()                             { instances.Clear(); ++version; }
+};
+
 // A camera frustum. The view transform is the inverse of the entity's world matrix;
 // these fields define the projection. `primary` marks the camera the renderer uses.
 // `clearColor` is the backdrop the view is cleared to (per-camera, like Unity/Godot);
@@ -120,6 +158,7 @@ struct ReflectionProbeComponent {
 };
 
 class MeshComponentManager   final : public scene::ComponentManager<MeshComponent>   {};
+class InstancedMeshComponentManager final : public scene::ComponentManager<InstancedMeshComponent> {};
 class SpriteComponentManager final : public scene::ComponentManager<SpriteComponent> {};
 class DecalComponentManager  final : public scene::ComponentManager<DecalComponent>  {};
 class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};

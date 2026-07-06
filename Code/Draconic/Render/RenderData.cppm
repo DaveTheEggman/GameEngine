@@ -162,8 +162,27 @@ struct MeshRenderData : RenderData {
     const Matrix4*           boneMatrices = nullptr;
     const Matrix4*           prevBoneMatrices = nullptr;   // previous-frame skinning matrices (motion vectors); null => reuse current
     u32                   boneCount    = 0;
+    // Discriminator: when true this is actually a `MultiMeshRenderData` (an instanced SET drawn as one
+    // item). The Resolve loop only sees `MeshRenderData*`, so it branches on this flag and downcasts.
+    // Regular meshes leave it false and are unaffected.
+    bool                  multiMesh    = false;
 };
 static_assert(std::is_trivially_destructible_v<MeshRenderData>);
+
+// An instanced-mesh SET (a "MultiMesh"): ONE shared mesh+material drawn `instanceCount` times, whose
+// per-instance transforms live in a PERSISTENT GPU buffer owned by the renderer (keyed by `key`),
+// uploaded only when `version` changes. Extraction emits ONE of these per InstancedMeshComponent (not
+// one per instance), so per-frame CPU is O(1) in the instance count. The base `MeshRenderData` carries
+// the shared mesh/material/color and the MERGED bounds (worldCenter/worldRadius) so the set culls as a
+// single AABB; `world` is unused (each instance has its own transform in `transforms`). See
+// docs/design/instanced-mesh.md.
+struct MultiMeshRenderData : MeshRenderData {
+    u64            key           = 0;         // stable per-component id -> the renderer's persistent buffer slot
+    const Matrix4* transforms    = nullptr;   // borrowed per-instance world transforms (instanceCount entries), valid this frame
+    u32            instanceCount = 0;
+    u32            version       = 0;         // bumps when `transforms` change; the renderer re-uploads only on a change
+};
+static_assert(std::is_trivially_destructible_v<MultiMeshRenderData>);
 
 // One textured billboard quad. A camera-facing (or world-aligned) sprite drawn by the SpriteRenderer,
 // which shares the blended forward pass with transparent meshes (interleaved by depth). Its world

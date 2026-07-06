@@ -922,6 +922,7 @@ public:
         m_boneStart.Clear();
         m_skinnedScratch.Clear();
         if (!m_ready) { return; }
+        UploadMultiMeshes(scene);   // ensure/upload the persistent instanced-mesh buffers (once per frame)
         // One-time: bring the out-of-graph dummy depth textures into the layout their descriptors
         // expect, so they're never sampled while UNDEFINED on caster-less frames (VUID-09600).
         if (!m_dummyDepthInit) {
@@ -977,6 +978,92 @@ public:
         encoder.CopyBufferToBuffer(m_boneRing.Buffer(), block.byteOffset, m_boneDevice, block.byteOffset,
                                    static_cast<u64>(total) * sizeof(Matrix4));
         encoder.TransitionBuffer(m_boneDevice, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
+    }
+
+    // Ensure every instanced-mesh SET in the snapshot has an up-to-date persistent GPU buffer, and grow
+    // the shared DataOffsets ramp to the largest set. Called once per frame (from UploadSkinning). Static
+    // sets fall through instantly after their first upload - that O(1)/frame path is the whole point.
+    void UploadMultiMeshes(const ExtractedScene& scene) {
+        ++m_multiMeshFrame;
+        u32 maxCount = 0;
+        for (RenderData* data : scene.Items()) {
+            if (data == nullptr || data->rendererId != RendererId()) { continue; }
+            const auto* md = static_cast<const MeshRenderData*>(data);
+            if (!md->multiMesh) { continue; }
+            const auto* mm = static_cast<const MultiMeshRenderData*>(md);
+            if (mm->instanceCount > maxCount) { maxCount = mm->instanceCount; }
+        }
+        if (maxCount == 0) { return; }
+        if (!EnsureRamp(maxCount)) { return; }
+        for (RenderData* data : scene.Items()) {
+            if (data == nullptr || data->rendererId != RendererId()) { continue; }
+            const auto* md = static_cast<const MeshRenderData*>(data);
+            if (!md->multiMesh) { continue; }
+            EnsureMultiMeshSet(*static_cast<const MultiMeshRenderData*>(md));
+        }
+    }
+
+    // Grow the shared DataOffsets ramp to at least `count` slots: [{0,0,0,0},{1,0,0,0},...]. Filled once
+    // per (re)allocation (values are static per index - never rewritten). .x is each instance's index into
+    // its set's own StructuredBuffer<InstanceData>; .y/.z (bone bases) stay 0 - MultiMesh v1 is non-skinned.
+    bool EnsureRamp(u32 count) {
+        if (m_rampBuffer != nullptr && count <= m_rampCapacity) { return true; }
+        m_device->WaitIdle();   // an in-flight frame may still reference the old ramp
+        if (m_rampBuffer != nullptr) { m_device->DestroyBuffer(m_rampBuffer); m_rampBuffer = nullptr; }
+        rhi::BufferDesc bd{};
+        bd.size   = static_cast<u64>(count) * sizeof(DataOffsets);
+        bd.usage  = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
+        bd.memory = rhi::MemoryLocation::CpuToGpu;
+        bd.label  = u8"mesh.multimesh.ramp";
+        if (!m_device->CreateBuffer(bd, m_rampBuffer).IsOk()) { m_rampBuffer = nullptr; m_rampCapacity = 0; return false; }
+        if (auto* p = static_cast<DataOffsets*>(m_rampBuffer->Map())) {
+            for (u32 i = 0; i < count; ++i) { p[i] = DataOffsets{ i, 0, 0, 0 }; }
+            m_rampBuffer->Unmap();
+        }
+        m_rampCapacity = count;
+        return true;
+    }
+
+    // Ensure this set's persistent InstanceData buffer + set-1 bind group exist and hold the current
+    // instances. (Re)allocates + rebuilds the bind group on first sight or a grow (draining the GPU
+    // first - a resize is rare); re-uploads InstanceData only when the component's version changed
+    // (static sets upload exactly once). InstanceData.prevWorld = world (static content has no motion).
+    void EnsureMultiMeshSet(const MultiMeshRenderData& mm) {
+        MultiMeshSet* set = m_multiMeshSets.Find(mm.key);
+        if (set == nullptr) { set = &m_multiMeshSets.InsertOrAssign(mm.key, MultiMeshSet{}); }
+        set->lastFrame = m_multiMeshFrame;
+
+        if (set->instanceBuf == nullptr || mm.instanceCount > set->capacity) {
+            m_device->WaitIdle();   // an in-flight frame may still reference the old buffer/bind group
+            if (set->instanceBG  != nullptr) { m_device->DestroyBindGroup(set->instanceBG); set->instanceBG = nullptr; }
+            if (set->instanceBuf != nullptr) { m_device->DestroyBuffer(set->instanceBuf); set->instanceBuf = nullptr; }
+            rhi::BufferDesc bd{};
+            bd.size   = static_cast<u64>(mm.instanceCount) * sizeof(InstanceData);
+            bd.usage  = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
+            bd.memory = rhi::MemoryLocation::CpuToGpu;
+            bd.label  = u8"mesh.multimesh.instances";
+            if (!m_device->CreateBuffer(bd, set->instanceBuf).IsOk()) { set->instanceBuf = nullptr; set->capacity = 0; return; }
+            rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(set->instanceBuf, 0, bd.size);
+            rhi::BindGroupDesc bgd{};
+            bgd.layout  = m_instanceLayout;
+            bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
+            if (!m_device->CreateBindGroup(bgd, set->instanceBG).IsOk()) {
+                m_device->DestroyBuffer(set->instanceBuf); set->instanceBuf = nullptr; set->instanceBG = nullptr; set->capacity = 0; return;
+            }
+            set->capacity        = mm.instanceCount;
+            set->uploadedVersion = 0;   // force a re-upload after (re)allocation
+        }
+        set->count = mm.instanceCount;
+
+        if (set->uploadedVersion != mm.version && set->instanceBuf != nullptr && mm.transforms != nullptr) {
+            if (auto* dst = static_cast<InstanceData*>(set->instanceBuf->Map())) {
+                for (u32 i = 0; i < mm.instanceCount; ++i) {
+                    dst[i] = InstanceData{ mm.transforms[i], mm.transforms[i], mm.color };
+                }
+                set->instanceBuf->Unmap();
+            }
+            set->uploadedVersion = mm.version;
+        }
     }
 
     void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) override {
@@ -1056,6 +1143,15 @@ public:
         usize i = 0;
         while (i < items.Size()) {
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
+            // An instanced-mesh SET (MultiMesh): one item drawn N times from its persistent buffer, no
+            // per-frame fill. Handled standalone (never merged into a neighbouring run).
+            if (head->multiMesh) {
+                const GpuMesh* mmMesh = m_meshes.GetOrUpload(head->mesh);
+                if (mmMesh != nullptr) {
+                    ResolveMultiMesh(ctx, viewOffset, clusterBG, *static_cast<const MultiMeshRenderData*>(head), *mmMesh, out);
+                }
+                ++i; continue;
+            }
             // Skinned meshes carry per-instance bones via DataOffsets.y now, so they batch like static
             // meshes - identical (mesh, material) skinned instances collapse into one instanced draw.
             const bool headSkinned = head->mesh != nullptr && head->mesh->IsSkinned() && head->boneMatrices != nullptr;
@@ -1064,7 +1160,7 @@ public:
             if (allowInstancing) {
                 while (j < items.Size()) {
                     const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
-                    if (nd->mesh != head->mesh || nd->material != head->material) { break; }
+                    if (nd->multiMesh || nd->mesh != head->mesh || nd->material != head->material) { break; }
                     ++j;
                 }
             }
@@ -1095,12 +1191,21 @@ public:
         usize i = 0;
         while (i < items.Size()) {
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
+            // MultiMesh caster: one set, drawn N times from its persistent buffer + the shared ramp,
+            // shared across the depth prepass and every shadow cascade (no per-cascade fill).
+            if (head->multiMesh) {
+                const GpuMesh* mmMesh = m_meshes.GetOrUpload(head->mesh);
+                if (mmMesh != nullptr) {
+                    ResolveMultiMeshDepth(ctx, shadowViewOffset, *static_cast<const MultiMeshRenderData*>(head), *mmMesh, out);
+                }
+                ++i; continue;
+            }
             // Skinned casters batch like static ones now (per-instance bone base via DataOffsets.y).
             const bool headSkinned = head->mesh != nullptr && head->mesh->IsSkinned() && head->boneMatrices != nullptr;
             usize j = i + 1;
             while (j < items.Size()) {
                 const auto* nd = static_cast<const MeshRenderData*>(items[j].data);
-                if (nd->mesh != head->mesh || nd->material != head->material) { break; }
+                if (nd->multiMesh || nd->mesh != head->mesh || nd->material != head->material) { break; }
                 ++j;
             }
             const u32 runLen = static_cast<u32>(j - i);
@@ -1419,6 +1524,82 @@ private:
         }
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount; d.instanceCount = count;
+        out.PushBack(d);
+    }
+
+    // Forward draw for a MultiMesh: bind THIS set's persistent InstanceData (set 1) + the shared DataOffsets
+    // ramp, one instanced draw per submesh material. NO fill loop - the buffer already holds the instances
+    // (uploaded once in UploadMultiMeshes). The shader is the identical instanced path (Instances[DataOffsets.x]).
+    void ResolveMultiMesh(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
+                          const MultiMeshRenderData& mm, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
+        const MultiMeshSet* set = m_multiMeshSets.Find(mm.key);
+        if (set == nullptr || set->instanceBG == nullptr || m_rampBuffer == nullptr || set->count == 0) { return; }
+        materials::Material* mat = (mm.material != nullptr) ? mm.material : m_defaultMaterial.Get();
+        materials::PipelineConfig config = ConfigFor(mm, ctx, /*instanced*/ true);
+
+        ResolvedDraw base{};
+        base.viewSet = m_viewBG;        base.viewOffset = viewOffset; base.viewDynamic = true;   // set 0: view
+        base.drawSet = set->instanceBG; base.drawDynamic = false;                                // set 1: this set's persistent instances
+        base.clusterSet = clusterBG;                                                             // set 3: cluster lists
+        base.vertexBuffer0 = mesh.vertexBuffer; base.vertexOffset0 = mesh.vertexOffset;
+        base.vertexBuffer1 = m_rampBuffer;      base.vertexOffset1 = 0;                          // slot 1: shared DataOffsets ramp
+        base.indexBuffer = mesh.indexBuffer; base.indexFormat = mesh.indexFormat; base.instanceCount = set->count;
+
+        const auto emit = [&](materials::Material* m, u64 indexOffset, u32 indexCount) {
+            materials::Material* use = (m != nullptr) ? m : mat;
+            rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*use);
+            rhi::PipelineLayout* plLayout = GetOrCreatePipelineLayout(set2, /*instanced*/ true);
+            if (plLayout == nullptr) { return; }
+            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
+            if (pso == nullptr) { return; }
+            ResolvedDraw d = base;
+            d.pso         = pso;
+            d.materialSet = m_materials->PrepareInstance(*InstanceFor(use), set2);
+            d.indexOffset = indexOffset;
+            d.indexCount  = indexCount;
+            out.PushBack(d);
+        };
+
+        if (mm.submeshMaterialCount > 0 && mm.mesh != nullptr && !mm.mesh->subMeshes.IsEmpty()) {
+            const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
+            for (const geometry::SubMesh& sub : mm.mesh->subMeshes) {
+                materials::Material* m = (sub.materialIndex >= 0 && static_cast<u32>(sub.materialIndex) < mm.submeshMaterialCount)
+                                            ? mm.submeshMaterials[sub.materialIndex].Get() : nullptr;
+                emit(m, mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride, static_cast<u32>(sub.indexCount));
+            }
+        } else {
+            emit(mat, mesh.indexOffset, mesh.indexCount);
+        }
+    }
+
+    // Depth-only draw for a MultiMesh caster (camera prepass + every shadow cascade): the same persistent
+    // buffer + shared ramp, the depth/shadow pipeline layout. Non-masked casters are one draw; masked
+    // casters fold in the material set for the alpha test (like ResolveDepthInstanced).
+    void ResolveMultiMeshDepth(const RenderRecordContext& ctx, u32 shadowViewOffset,
+                               const MultiMeshRenderData& mm, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
+        const MultiMeshSet* set = m_multiMeshSets.Find(mm.key);
+        if (set == nullptr || set->instanceBG == nullptr || m_rampBuffer == nullptr || set->count == 0) { return; }
+        const bool masked = mm.material != nullptr && mm.material->pipeline.blendMode == materials::BlendMode::Masked;
+        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        rhi::BindGroup* matSet = nullptr;
+        rhi::PipelineLayout* layout = m_shadowPipelineLayoutInstanced;
+        if (masked) {
+            rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mm.material);
+            layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ true);
+            matSet = m_materials->PrepareInstance(*InstanceFor(mm.material), set2);
+            if (layout == nullptr) { layout = m_shadowPipelineLayoutInstanced; matSet = nullptr; config = ShadowConfigFor(ctx, true, false); }
+        }
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, layout, rhi::TextureFormat::Undefined);
+        if (pso == nullptr) { return; }
+        ResolvedDraw d{};
+        d.pso = pso;
+        d.viewSet = m_shadowViewBG;  d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
+        d.drawSet = set->instanceBG; d.drawDynamic = false;                                    // set 1: this set's instances
+        d.materialSet = matSet;
+        d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
+        d.vertexBuffer1 = m_rampBuffer;      d.vertexOffset1 = 0;                              // slot 1: shared DataOffsets ramp
+        d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
+        d.indexCount = mesh.indexCount; d.instanceCount = set->count;
         out.PushBack(d);
     }
 
@@ -1843,6 +2024,13 @@ private:
         if (m_envSampler)      { m_device->DestroySampler(m_envSampler); m_envSampler = nullptr; }
         if (m_objectBG)   { m_device->DestroyBindGroup(m_objectBG); m_objectBG = nullptr; }
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
+        // MultiMesh persistent per-set buffers/bind groups + the shared ramp.
+        for (auto& kv : m_multiMeshSets) {
+            if (kv.value.instanceBG  != nullptr) { m_device->DestroyBindGroup(kv.value.instanceBG); }
+            if (kv.value.instanceBuf != nullptr) { m_device->DestroyBuffer(kv.value.instanceBuf); }
+        }
+        m_multiMeshSets.Clear();
+        if (m_rampBuffer) { m_device->DestroyBuffer(m_rampBuffer); m_rampBuffer = nullptr; m_rampCapacity = 0; }
         for (u32 i = 0; i < kMaxClusterSlots; ++i) {
             if (m_clusterBGs[i] != nullptr) { m_device->DestroyBindGroup(m_clusterBGs[i]); m_clusterBGs[i] = nullptr; }
         }
@@ -1986,6 +2174,25 @@ private:
     u32               m_localShadowPassCount = 0;   // # atlas depth passes (caster re-emits) this frame
     u32               m_captureFacePasses    = 0;   // # probe-capture face passes (caster re-emits) this frame
     u32 m_objectBGGen = 0, m_instanceBGGen = 0;
+
+    // --- MultiMesh (instanced-mesh) persistent buffers (docs/design/instanced-mesh.md §5) ---
+    // Each InstancedMeshComponent (a "set") owns a PERSISTENT InstanceData storage buffer + a set-1 bind
+    // group over it, keyed by the component's stable key. Uploaded only when the set's version changes -
+    // a static set uploads once, then costs nothing per frame (the whole point). A single shared
+    // DataOffsets ramp [{0,..},{1,..},...] serves EVERY set (.x indexes each set's own buffer), grown to
+    // the largest set. Bound identically for the depth prepass, forward, and all shadow cascades.
+    struct MultiMeshSet {
+        rhi::Buffer*    instanceBuf     = nullptr;   // Storage, CpuToGpu: capacity x InstanceData
+        rhi::BindGroup* instanceBG      = nullptr;   // set 1 over instanceBuf (m_instanceLayout)
+        u32             capacity        = 0;         // instances the buffer holds
+        u32             count           = 0;         // live instance count this frame
+        u32             uploadedVersion = 0;         // last component version written (0 = never; versions start at 1)
+        u32             lastFrame       = 0;         // last frame this set was extracted (for eviction)
+    };
+    HashMap<u64, MultiMeshSet> m_multiMeshSets;
+    rhi::Buffer*               m_rampBuffer   = nullptr;   // shared DataOffsets ramp (Vertex, CpuToGpu)
+    u32                        m_rampCapacity = 0;
+    u32                        m_multiMeshFrame = 0;        // bumped each UploadMultiMeshes (eviction clock)
 
     // IBL (phase 6): SH9 diffuse buffer (t5) + prefiltered specular cube (t6) + BRDF LUT (t7) + a
     // linear env sampler (s1), all set 0. Neutral 1x1 dummies are bound when no environment is active.
