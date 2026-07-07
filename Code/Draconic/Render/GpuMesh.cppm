@@ -51,7 +51,25 @@ public:
     // Uploads `mesh` on first request (sub-allocating from the pools), returns its cached GPU
     // location (null if empty or allocation failed). The pointer is stable until Clear().
     [[nodiscard]] const GpuMesh* GetOrUpload(geometry::StaticMesh* mesh) {
-        if (mesh == nullptr || mesh->VertexCount() == 0 || mesh->IndexCount() == 0) { return nullptr; }
+        if (mesh == nullptr) { return nullptr; }   // no mesh assigned - a normal state, stay silent
+        // A non-null mesh with an empty vertex OR index stream can't be drawn: the draw path is
+        // indexed-only (DrawIndexed), so 0 indices = nothing rendered. That's almost always a
+        // construction bug in whatever produced the mesh (as a merged-mesh index cursor bug once
+        // was). Don't fail silently - warn, but rate-limit to the first few so a broken mesh
+        // re-submitted every frame can't flood the console; then go quiet.
+        if (mesh->VertexCount() == 0 || mesh->IndexCount() == 0) {
+            static u32 s_warned = 0;
+            constexpr u32 kWarnLimit = 8;
+            if (s_warned < kWarnLimit) {
+                ++s_warned;
+                const char* nm = mesh->name.IsEmpty() ? "<unnamed>" : reinterpret_cast<const char*>(mesh->name.CStr());
+                rhi::LogWarningf("[GpuMeshCache] mesh '%s' not uploadable: %u vertices, %u indices "
+                                 "(indexed draw path needs both non-zero) - skipping.%s",
+                                 nm, mesh->VertexCount(), mesh->IndexCount(),
+                                 s_warned == kWarnLimit ? " Further such warnings suppressed." : "");
+            }
+            return nullptr;
+        }
         if (GpuMesh* cached = m_cache.Find(mesh)) { return cached; }
 
         const GpuBufferPool::Alloc v = m_vertexPool.Allocate(mesh->VertexDataSize(), kVertexAlign);
