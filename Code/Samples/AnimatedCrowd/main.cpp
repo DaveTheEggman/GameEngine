@@ -229,10 +229,63 @@ namespace
                 core::RefPtr<materials::Material> mat = (matIdx >= 0 && static_cast<core::usize>(matIdx) < m_modelMats.Size())
                                                             ? m_modelMats[static_cast<core::usize>(matIdx)]
                                                             : (m_modelMats.IsEmpty() ? core::RefPtr<materials::Material>{} : m_modelMats[0]);
-                m_skinnedParts.PushBack(Part{ core::RefPtr<geometry::StaticMesh>(mesh), mat });
+                m_skinnedParts.PushBack(Part{ core::RefPtr<geometry::StaticMesh>(mesh), mat, matIdx });
             }
             if (m_skinnedParts.IsEmpty()) { core::ConsoleWrite(u8"AnimatedCrowd: no skinned mesh in model\n"); return false; }
             return true;
+        }
+
+        // Merge the character's skinned mesh parts into ONE SkinnedMesh (one submesh per original part, so
+        // materials survive). Skinned parts share the skeleton + render in skeleton-root space, so it's a
+        // straight concat: append vertices + the parallel skinning stream, append indices offset by the
+        // running vertex base. Lets the crowd draw the whole character as one set instead of N.
+        [[nodiscard]] core::RefPtr<geometry::StaticMesh> MergeSkinnedParts()
+        {
+            core::RefPtr<geometry::SkinnedMesh> merged = core::MakeRef<geometry::SkinnedMesh>(core::DefaultAllocator());
+            core::u32 totalV = 0, totalI = 0;
+            for (const Part& p : m_skinnedParts) { totalV += p.mesh->VertexCount(); totalI += p.mesh->IndexCount(); }
+            merged->vertices.Reserve(totalV);
+            merged->skinning.Reserve(totalV);
+            merged->indices.Resize(totalI);   // sets logical count + rewinds cursor: IndexBuffer::Add only fills up to m_count
+
+            // Running write cursor into the merged index buffer. NOT merged->indices.Count() - Resize()
+            // sets the logical count to totalI up front, so Count() reports the full size immediately;
+            // the actual fill position is how many Add()s have happened (Add advances an internal cursor).
+            core::u32 iwrite = 0;
+            for (const Part& p : m_skinnedParts) {
+                geometry::StaticMesh* sm = p.mesh.Get();
+                const core::u32 vbase = merged->VertexCount();
+                for (const geometry::StaticMeshVertex& v : sm->vertices) { merged->vertices.PushBack(v); }
+                const core::Span<const geometry::VertexSkinning> skin = sm->SkinningStream();
+                for (core::usize k = 0; k < skin.Size(); ++k) { merged->skinning.PushBack(skin[k]); }
+                while (merged->skinning.Size() < merged->vertices.Size()) { merged->skinning.PushBack(geometry::VertexSkinning{}); }
+
+                // Emit a submesh per original submesh (preserving its material), offsetting index VALUES by
+                // vbase; a part with no submeshes becomes one submesh with the part's material.
+                if (sm->subMeshes.IsEmpty()) {
+                    geometry::SubMesh s;
+                    s.startIndex    = static_cast<core::i32>(iwrite);
+                    s.indexCount    = static_cast<core::i32>(sm->IndexCount());
+                    s.materialIndex = (p.matIdx >= 0) ? p.matIdx : 0;
+                    for (core::u32 k = 0; k < sm->IndexCount(); ++k) { merged->indices.Add(sm->indices.Get(k) + vbase); ++iwrite; }
+                    merged->subMeshes.PushBack(s);
+                } else {
+                    for (const geometry::SubMesh& os : sm->subMeshes) {
+                        geometry::SubMesh s = os;
+                        s.startIndex = static_cast<core::i32>(iwrite);
+                        for (core::i32 k = 0; k < os.indexCount; ++k) {
+                            merged->indices.Add(sm->indices.Get(static_cast<core::u32>(os.startIndex) + static_cast<core::u32>(k)) + vbase);
+                            ++iwrite;
+                        }
+                        merged->subMeshes.PushBack(s);
+                    }
+                }
+            }
+            if (!m_skinnedParts.IsEmpty()) {
+                merged->skeletonIndex = static_cast<geometry::SkinnedMesh*>(m_skinnedParts[0].mesh.Get())->skeletonIndex;
+            }
+            merged->CalculateBounds();
+            return core::RefPtr<geometry::StaticMesh>(merged.Get());
         }
 
         // Rebuild the crowd to `count` instances: ONE InstancedMeshComponent (the skinned mesh at a grid of
@@ -269,16 +322,27 @@ namespace
                 clipTint[g].PushBack(m_tintEnabled ? ClipTint(g) : core::Color{ 1.0f, 1.0f, 1.0f, 1.0f });  // white == no tint
             }
 
-            // One group per clip: an InstancedMeshComponent per skinned part (its subset of transforms +
+            // The meshes to instance per clip group: the merged single mesh, or the N skinned parts.
+            core::Array<core::RefPtr<geometry::StaticMesh>> drawMeshes;
+            core::Array<core::RefPtr<materials::Material>>  drawMats;
+            if (m_mergeMeshes) {
+                if (!m_mergedMesh) { m_mergedMesh = MergeSkinnedParts(); }
+                drawMeshes.PushBack(m_mergedMesh);
+                drawMats.PushBack(m_skinnedParts.IsEmpty() ? core::RefPtr<materials::Material>{} : m_skinnedParts[0].mat);
+            } else {
+                for (const Part& part : m_skinnedParts) { drawMeshes.PushBack(part.mesh); drawMats.PushBack(part.mat); }
+            }
+
+            // One group per clip: an InstancedMeshComponent per draw-mesh (its subset of transforms +
             // per-instance tints) + one InstancedSkinning driving them all with that clip's shared pose pool.
             for (core::u32 g = 0; g < numClips; ++g) {
                 if (clipXf[g].IsEmpty()) { continue; }
                 core::Array<scene::EntityHandle> targets;
-                for (const Part& part : m_skinnedParts) {
+                for (core::usize p = 0; p < drawMeshes.Size(); ++p) {
                     scene::EntityHandle e = m_scene->CreateEntity(u8"crowd_part");
                     render::InstancedMeshComponent& c = imm->Add(e);
-                    c.mesh             = part.mesh;
-                    c.material         = part.mat;
+                    c.mesh             = drawMeshes[p];
+                    c.material         = drawMats[p];
                     c.submeshMaterials = m_modelMats;
                     c.tints            = clipTint[g];   // set BEFORE SetInstances (the version bump uploads them)
                     c.SetInstances(core::Span<const core::Matrix4>{ clipXf[g].Data(), clipXf[g].Size() });
@@ -298,8 +362,8 @@ namespace
             m_clipGroups = numClips;
             AutoFrame(side);
             m_frameTimeMs = 16.6f;   // reset the smoother so the rebuild hitch doesn't skew the reading
-            core::ConsoleWrite(core::Format(u8"AnimatedCrowd: characters={}  parts={}  clips={}  poses={}\n",
-                                          m_crowdCount, static_cast<core::u32>(m_skinnedParts.Size()), numClips, kPoseCount));
+            core::ConsoleWrite(core::Format(u8"AnimatedCrowd: characters={}  sets/char={}  clips={}  poses={}\n",
+                                          m_crowdCount, m_mergeMeshes ? 1u : static_cast<core::u32>(m_skinnedParts.Size()), numClips, kPoseCount));
         }
 
         // A distinct base colour per clip group (so the mixed-clip crowd is obvious at a glance) plus a
@@ -473,6 +537,9 @@ namespace
                         static_cast<int>(kPoseCount), static_cast<int>(m_clipGroups * kPoseCount));
             bool tint = m_tintEnabled;
             if (ImGui::Checkbox("Per-instance tint (colour-code by clip)", &tint)) { m_tintEnabled = tint; RebuildToCount(m_crowdCount); }
+            bool merge = m_mergeMeshes;
+            if (ImGui::Checkbox("Merge parts into one mesh", &merge)) { m_mergeMeshes = merge; RebuildToCount(m_crowdCount); }
+            ImGui::SameLine(); ImGui::TextDisabled("(%d set%s/char)", m_mergeMeshes ? 1 : static_cast<int>(m_skinnedParts.Size()), m_mergeMeshes ? "" : "s");
             if (render != nullptr) {
                 ImGui::Separator();
                 float exposure = render->Exposure();
@@ -544,14 +611,16 @@ namespace
 
         // The crowd: ONE entity carrying an InstancedMeshComponent (the skinned mesh at N transforms) + an
         // InstancedSkinning companion (M shared pose palettes). m_crowdCount tracks the instance count.
-        // A skinned mesh part of the character + its material (the crowd renders one instanced set per part).
-        struct Part { core::RefPtr<geometry::StaticMesh> mesh; core::RefPtr<materials::Material> mat; };
+        // A skinned mesh part of the character + its material (+ global material index, for merged submeshes).
+        struct Part { core::RefPtr<geometry::StaticMesh> mesh; core::RefPtr<materials::Material> mat; core::i32 matIdx = -1; };
         scene::EntityHandle                m_keyLight{};     // directional CSM light (K toggles its shadows)
         core::Array<Part>                  m_skinnedParts;   // every skinned mesh of the model (shared across the crowd)
         core::Array<scene::EntityHandle>   m_crowdParts;     // all per-clip-group set + anim entities, torn down together
         core::u32                          m_crowdCount = 0;
         core::u32                          m_clipGroups = 1;
         bool                               m_tintEnabled = true;   // per-instance/per-clip tint (HUD toggle)
+        bool                               m_mergeMeshes = false;  // merge the character's skinned parts into one mesh (HUD toggle)
+        core::RefPtr<geometry::StaticMesh> m_mergedMesh;           // cached merged mesh (one submesh per original part)
         core::Random                       m_rng{ 0x9e3779b97f4a7c15ull };
         static constexpr core::u32         kPoseCount     = 32;   // M unique phase buckets per shared pose pool
         static constexpr core::u32         kMaxClipGroups = 6;    // cap on distinct clips the crowd mixes across
