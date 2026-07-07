@@ -86,6 +86,7 @@ add_subdirectory(Code/Draconic/Image)
 add_subdirectory(Code/Draconic/Model)
 add_subdirectory(Code/Draconic/Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
 add_subdirectory(Code/Draconic/Animation) # skeletal-animation foundation (Sedulous.Animation port; Core-only)
+add_subdirectory(Code/Draconic/Particles) # CPU particle runtime (Sedulous.Particles port; Core-only)
 add_subdirectory(Code/Draconic/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Draconic/Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Draconic/Animation/Subsystem) # skeletal-animation scene integration (links RenderSubsystem; after Render)
