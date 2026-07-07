@@ -266,7 +266,7 @@ namespace
                 t.scale    = core::Vector3{ m_fit, m_fit, m_fit };
                 const core::u32 g = i % numClips;   // round-robin -> clips spread evenly across the grid
                 clipXf[g].PushBack(t.ToMatrix());
-                clipTint[g].PushBack(RandomTint());   // subtle per-character colour variety (multiplies the material)
+                clipTint[g].PushBack(m_tintEnabled ? ClipTint(g) : core::Color{ 1.0f, 1.0f, 1.0f, 1.0f });  // white == no tint
             }
 
             // One group per clip: an InstancedMeshComponent per skinned part (its subset of transforms +
@@ -302,13 +302,21 @@ namespace
                                           m_crowdCount, static_cast<core::u32>(m_skinnedParts.Size()), numClips, kPoseCount));
         }
 
-        // A gentle per-character tint (each channel in [0.65,1] -> slightly darker/varied) multiplied into the
-        // material, so a same-mesh crowd doesn't look uniform.
-        [[nodiscard]] core::Color RandomTint()
+        // A distinct base colour per clip group (so the mixed-clip crowd is obvious at a glance) plus a
+        // per-character brightness jitter (so a group isn't flat). Multiplied into the material albedo.
+        [[nodiscard]] core::Color ClipTint(core::u32 group)
         {
-            return core::Color{ 0.65f + m_rng.NextFloat() * 0.35f,
-                                0.65f + m_rng.NextFloat() * 0.35f,
-                                0.65f + m_rng.NextFloat() * 0.35f, 1.0f };
+            static constexpr core::Vector3 kClipColors[kMaxClipGroups] = {
+                { 1.00f, 0.45f, 0.40f },   // red
+                { 0.45f, 0.90f, 0.50f },   // green
+                { 0.45f, 0.65f, 1.00f },   // blue
+                { 1.00f, 0.85f, 0.35f },   // yellow
+                { 0.90f, 0.50f, 1.00f },   // magenta
+                { 0.45f, 0.95f, 0.95f },   // cyan
+            };
+            const core::Vector3 base = kClipColors[group % kMaxClipGroups];
+            const core::f32 v = 0.7f + m_rng.NextFloat() * 0.5f;   // per-character brightness 0.7..1.2
+            return core::Color{ base.x * v, base.y * v, base.z * v, 1.0f };
         }
 
         // Position the fly camera so the whole side×side grid is in frame + grow the floor under it (called
@@ -463,6 +471,8 @@ namespace
             ImGui::Text("characters: %d   clips: %d x %d poses (%d palettes/frame)",
                         static_cast<int>(m_crowdCount), static_cast<int>(m_clipGroups),
                         static_cast<int>(kPoseCount), static_cast<int>(m_clipGroups * kPoseCount));
+            bool tint = m_tintEnabled;
+            if (ImGui::Checkbox("Per-instance tint (colour-code by clip)", &tint)) { m_tintEnabled = tint; RebuildToCount(m_crowdCount); }
             if (render != nullptr) {
                 ImGui::Separator();
                 float exposure = render->Exposure();
@@ -541,6 +551,7 @@ namespace
         core::Array<scene::EntityHandle>   m_crowdParts;     // all per-clip-group set + anim entities, torn down together
         core::u32                          m_crowdCount = 0;
         core::u32                          m_clipGroups = 1;
+        bool                               m_tintEnabled = true;   // per-instance/per-clip tint (HUD toggle)
         core::Random                       m_rng{ 0x9e3779b97f4a7c15ull };
         static constexpr core::u32         kPoseCount     = 32;   // M unique phase buckets per shared pose pool
         static constexpr core::u32         kMaxClipGroups = 6;    // cap on distinct clips the crowd mixes across
