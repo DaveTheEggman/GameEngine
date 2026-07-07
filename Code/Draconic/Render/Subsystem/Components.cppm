@@ -54,9 +54,22 @@ struct MeshComponent {
 struct InstancedMeshComponent {
     RefPtr<geometry::StaticMesh> mesh;
     RefPtr<materials::Material>  material;
+    // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
+    // non-empty each submesh draws with its own material; otherwise `material` covers the whole mesh.
+    Array<RefPtr<materials::Material>> submeshMaterials;
     Array<Matrix4>               instances;                                  // per-instance world transforms
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };  // shared tint (per-instance tint: later)
     bool                         visible = true;
+
+    // GPU-skinned crowds: a shared POSE POOL of `poseCount` skinning palettes (each `boneCount` matrices),
+    // set per frame by the InstancedSkinning companion (draconic.animation.subsystem). When posePool is
+    // non-null the set draws SKINNED, and instance i uses pose (i % poseCount) - so N animated instances
+    // cost only M = poseCount palette computes, not N. Borrowed (valid for the frame it's set); null => the
+    // set draws static. The mesh must be a skinned mesh (has a skin stream). See docs/design/instanced-mesh.md SS7.
+    const Matrix4*               posePool     = nullptr;
+    const Matrix4*               prevPosePool = nullptr;   // last frame's palettes (per-bone motion vectors); null => reuse current
+    u32                          poseCount    = 0;   // M unique phase buckets
+    u32                          boneCount    = 0;   // bones per palette
 
     // Change counter: bumped by every mutator so the renderer knows to re-upload and extraction knows to
     // recompute the merged bounds. Starts at 1 so the first extract (uploadedVersion 0) always uploads.

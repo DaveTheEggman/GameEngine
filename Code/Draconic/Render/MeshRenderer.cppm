@@ -884,6 +884,7 @@ public:
         if (!EnsureViewBindGroup() || !EnsureShadowViewBindGroup() ||
             !EnsureBindGroup(m_objectRing,   m_objectLayout,   sizeof(ObjectData), m_objectBG,   m_objectBGGen,   /*whole*/ false) ||
             !EnsureBindGroup(m_instanceRing, m_instanceLayout, 0,                  m_instanceBG, m_instanceBGGen, /*whole*/ true)) { return; }
+        m_frameIndex = frameIndex;   // frames-in-flight slot for the per-set skinned MultiMesh offsets buffer
         m_viewRing.BeginFrame(frameIndex);
         m_shadowViewRing.BeginFrame(frameIndex);
         m_objectRing.BeginFrame(frameIndex);
@@ -957,6 +958,23 @@ public:
             m_skinnedScratch.PushBack(SkinnedRef{ md->boneMatrices, md->prevBoneMatrices, md->boneCount });
             total += md->boneCount * 2u;
         }
+        // Skinned-MultiMesh POSE POOLS: M palettes (poseCount * boneCount matrices) per crowd, uploaded once
+        // (no prev slab - crowd motion vectors are v1-deferred). Each set's per-instance bone base is filled
+        // into its DataOffsets buffer in FillSkinnedMultiMeshOffsets once the pool base is known.
+        for (RenderData* data : scene.Items()) {
+            if (data == nullptr || data->rendererId != RendererId()) { continue; }
+            const auto* mdb = static_cast<const MeshRenderData*>(data);
+            if (!mdb->multiMesh) { continue; }
+            const auto* mm = static_cast<const MultiMeshRenderData*>(mdb);
+            if (mm->posePool == nullptr || mm->poseCount == 0 || mm->boneCount == 0) { continue; }
+            if (mm->mesh == nullptr || !mm->mesh->IsSkinned()) { continue; }
+            if (m_boneStart.Contains(mm->posePool)) { continue; }
+            m_boneStart.InsertOrAssign(mm->posePool, BoneSlot{});
+            const u32 poolCount = mm->poseCount * mm->boneCount;
+            // cur + prev slab (per-bone motion vectors); prev == null falls back to cur (zero motion).
+            m_skinnedScratch.PushBack(SkinnedRef{ mm->posePool, mm->prevPosePool, poolCount, /*hasPrev*/ true });
+            total += poolCount * 2u;
+        }
         if (total == 0) { m_boneStart.Clear(); return; }
         const DynamicUniformRing::Range block = m_boneRing.AllocateRange(total);
         if (!block.ok) { m_boneStart.Clear(); return; }
@@ -964,20 +982,25 @@ public:
         // Pass 2: write each distinct instance into the block (current then prev) + record its bases.
         u32 cursor = 0;   // matrix-units offset within the block
         for (const SkinnedRef& r : m_skinnedScratch) {
-            const u32 n        = r.count;
-            const u32 base     = block.slotIndex + cursor;
-            const u32 prevBase = base + n;
-            Matrix4* dst = static_cast<Matrix4*>(block.ptr) + cursor;
-            MemCopy(dst,     r.cur,                                    static_cast<usize>(n) * sizeof(Matrix4));
-            MemCopy(dst + n, (r.prev != nullptr) ? r.prev : r.cur,    static_cast<usize>(n) * sizeof(Matrix4));
-            if (BoneSlot* slot = m_boneStart.Find(r.cur)) { *slot = BoneSlot{ base, prevBase }; }
-            cursor += n * 2u;
+            const u32 n    = r.count;
+            const u32 base = block.slotIndex + cursor;
+            Matrix4* dst   = static_cast<Matrix4*>(block.ptr) + cursor;
+            MemCopy(dst, r.cur, static_cast<usize>(n) * sizeof(Matrix4));
+            if (r.hasPrev) {   // per-entity caster: also write the prev slab (motion vectors)
+                MemCopy(dst + n, (r.prev != nullptr) ? r.prev : r.cur, static_cast<usize>(n) * sizeof(Matrix4));
+                if (BoneSlot* slot = m_boneStart.Find(r.cur)) { *slot = BoneSlot{ base, base + n }; }
+                cursor += n * 2u;
+            } else {           // MultiMesh pose pool: just the M palettes, no prev slab
+                if (BoneSlot* slot = m_boneStart.Find(r.cur)) { *slot = BoneSlot{ base, base }; }
+                cursor += n;
+            }
         }
 
         // Mirror the populated range to VRAM, then make it visible to vertex-shader reads.
         encoder.CopyBufferToBuffer(m_boneRing.Buffer(), block.byteOffset, m_boneDevice, block.byteOffset,
                                    static_cast<u64>(total) * sizeof(Matrix4));
         encoder.TransitionBuffer(m_boneDevice, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
+        FillSkinnedMultiMeshOffsets(scene);   // per-instance bone base into each skinned set's DataOffsets
     }
 
     // Ensure every instanced-mesh SET in the snapshot has an up-to-date persistent GPU buffer, and grow
@@ -1033,36 +1056,98 @@ public:
         if (set == nullptr) { set = &m_multiMeshSets.InsertOrAssign(mm.key, MultiMeshSet{}); }
         set->lastFrame = m_multiMeshFrame;
 
+        const u32 fif    = Min(m_framesInFlight, kMultiMeshMaxFiF);
+        const u32 region = m_frameIndex % fif;   // this frame's InstanceData region
+
         if (set->instanceBuf == nullptr || mm.instanceCount > set->capacity) {
-            m_device->WaitIdle();   // an in-flight frame may still reference the old buffer/bind group
-            if (set->instanceBG  != nullptr) { m_device->DestroyBindGroup(set->instanceBG); set->instanceBG = nullptr; }
+            m_device->WaitIdle();   // an in-flight frame may still reference the old buffer/bind groups
+            for (u32 r = 0; r < kMultiMeshMaxFiF; ++r) { if (set->instanceBG[r] != nullptr) { m_device->DestroyBindGroup(set->instanceBG[r]); set->instanceBG[r] = nullptr; } }
             if (set->instanceBuf != nullptr) { m_device->DestroyBuffer(set->instanceBuf); set->instanceBuf = nullptr; }
             rhi::BufferDesc bd{};
-            bd.size   = static_cast<u64>(mm.instanceCount) * sizeof(InstanceData);
+            const u64 regionBytes = static_cast<u64>(mm.instanceCount) * sizeof(InstanceData);
+            bd.size   = static_cast<u64>(fif) * regionBytes;   // one region per frame-in-flight
             bd.usage  = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
             bd.memory = rhi::MemoryLocation::CpuToGpu;
             bd.label  = u8"mesh.multimesh.instances";
             if (!m_device->CreateBuffer(bd, set->instanceBuf).IsOk()) { set->instanceBuf = nullptr; set->capacity = 0; return; }
-            rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(set->instanceBuf, 0, bd.size);
-            rhi::BindGroupDesc bgd{};
-            bgd.layout  = m_instanceLayout;
-            bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
-            if (!m_device->CreateBindGroup(bgd, set->instanceBG).IsOk()) {
-                m_device->DestroyBuffer(set->instanceBuf); set->instanceBuf = nullptr; set->instanceBG = nullptr; set->capacity = 0; return;
+            // A set-1 bind group per region (each over its own slice of the buffer, so the shader's
+            // Instances[i] indexes within the bound region - the shared static ramp / skinned offsets stay 0-based).
+            bool ok = true;
+            for (u32 r = 0; r < fif; ++r) {
+                rhi::BindGroupEntry be = rhi::BindGroupEntry::BufferEntry(set->instanceBuf, static_cast<u64>(r) * regionBytes, regionBytes);
+                rhi::BindGroupDesc bgd{}; bgd.layout = m_instanceLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ &be, 1 };
+                if (!m_device->CreateBindGroup(bgd, set->instanceBG[r]).IsOk()) { set->instanceBG[r] = nullptr; ok = false; break; }
+            }
+            if (!ok) {
+                for (u32 r = 0; r < kMultiMeshMaxFiF; ++r) { if (set->instanceBG[r] != nullptr) { m_device->DestroyBindGroup(set->instanceBG[r]); set->instanceBG[r] = nullptr; } }
+                m_device->DestroyBuffer(set->instanceBuf); set->instanceBuf = nullptr; set->capacity = 0; return;
             }
             set->capacity        = mm.instanceCount;
-            set->uploadedVersion = 0;   // force a re-upload after (re)allocation
+            set->uploadedVersion = 0;         // force a re-upload after (re)allocation
+            set->dirtyFrames     = fif;        // write every region
         }
         set->count = mm.instanceCount;
+        set->activeInstanceBG = set->instanceBG[region];
 
-        if (set->uploadedVersion != mm.version && set->instanceBuf != nullptr && mm.transforms != nullptr) {
+        // A version change re-uploads for `fif` frames so every region ends up current, then stops - static
+        // sets write only once (fif frames), per-frame-dynamic sets write every frame, both hazard-free
+        // (each frame writes ONLY its own region while the GPU reads the previous one).
+        if (set->uploadedVersion != mm.version) { set->uploadedVersion = mm.version; set->dirtyFrames = fif; }
+        if (set->dirtyFrames > 0 && set->instanceBuf != nullptr && mm.transforms != nullptr) {
             if (auto* dst = static_cast<InstanceData*>(set->instanceBuf->Map())) {
+                InstanceData* r = dst + static_cast<usize>(region) * set->capacity;
                 for (u32 i = 0; i < mm.instanceCount; ++i) {
-                    dst[i] = InstanceData{ mm.transforms[i], mm.transforms[i], mm.color };
+                    r[i] = InstanceData{ mm.transforms[i], mm.transforms[i], mm.color };
                 }
                 set->instanceBuf->Unmap();
             }
-            set->uploadedVersion = mm.version;
+            --set->dirtyFrames;
+        }
+
+        // Skinned crowds need a per-set DataOffsets buffer (dynamic per-instance bone bases). Allocate/grow
+        // it here; it's FILLED in FillSkinnedMultiMeshOffsets once the pose pool's bone base is known.
+        set->skinned = (mm.posePool != nullptr && mm.poseCount > 0 && mm.boneCount > 0);
+        if (set->skinned && (set->offsetsBuf == nullptr || mm.instanceCount > set->offsetsCapacity)) {
+            m_device->WaitIdle();
+            if (set->offsetsBuf != nullptr) { m_device->DestroyBuffer(set->offsetsBuf); set->offsetsBuf = nullptr; }
+            rhi::BufferDesc od{};
+            // framesInFlight regions: the offsets are rewritten EVERY frame (dynamic bone bases), so each
+            // frame writes its own region while the GPU reads the previous frame's - never the same bytes.
+            od.size   = static_cast<u64>(m_framesInFlight) * static_cast<u64>(mm.instanceCount) * sizeof(DataOffsets);
+            od.usage  = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
+            od.memory = rhi::MemoryLocation::CpuToGpu;
+            od.label  = u8"mesh.multimesh.offsets";
+            if (!m_device->CreateBuffer(od, set->offsetsBuf).IsOk()) { set->offsetsBuf = nullptr; set->offsetsCapacity = 0; return; }
+            set->offsetsCapacity = mm.instanceCount;
+        }
+    }
+
+    // Fill each skinned MultiMesh set's per-instance DataOffsets: .x = instance index into its InstanceData
+    // buffer, .y/.z = the instance's pose base in the shared bone pool = poolBase + (i % poseCount)*boneCount.
+    // Runs after the bone upload (pool bases known). O(N) 16-byte writes, once per frame, shared across passes.
+    void FillSkinnedMultiMeshOffsets(const ExtractedScene& scene) {
+        const u32 region = m_frameIndex % m_framesInFlight;   // this frame's FiF slot
+        for (RenderData* data : scene.Items()) {
+            if (data == nullptr || data->rendererId != RendererId()) { continue; }
+            const auto* mdb = static_cast<const MeshRenderData*>(data);
+            if (!mdb->multiMesh) { continue; }
+            const auto* mm = static_cast<const MultiMeshRenderData*>(mdb);
+            if (mm->posePool == nullptr || mm->poseCount == 0 || mm->boneCount == 0) { continue; }
+            MultiMeshSet* set = m_multiMeshSets.Find(mm->key);
+            if (set == nullptr || set->offsetsBuf == nullptr || set->offsetsCapacity == 0) { continue; }
+            const BoneSlot* pool = m_boneStart.Find(mm->posePool);
+            if (pool == nullptr) { continue; }
+            const u32 base = region * set->offsetsCapacity;   // write ONLY this frame's region (GPU reads the prev one)
+            auto* od = static_cast<DataOffsets*>(set->offsetsBuf->Map());
+            if (od == nullptr) { continue; }
+            for (u32 i = 0; i < mm->instanceCount; ++i) {
+                const u32 bucket  = (i % mm->poseCount) * mm->boneCount;   // matrix-unit offset within a palette
+                const u32 curBase = pool->base     + bucket;              // current pose
+                const u32 prvBase = pool->prevBase + bucket;              // last frame's pose (motion vectors)
+                od[base + i] = DataOffsets{ i, curBase, prvBase, 0 };     // .x = Instances[] idx, .y = cur bone base, .z = prev
+            }
+            set->offsetsBuf->Unmap();
+            set->offsetsByteOffset = base * static_cast<u32>(sizeof(DataOffsets));
         }
     }
 
@@ -1533,16 +1618,29 @@ private:
     void ResolveMultiMesh(const RenderRecordContext& ctx, u32 viewOffset, rhi::BindGroup* clusterBG,
                           const MultiMeshRenderData& mm, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         const MultiMeshSet* set = m_multiMeshSets.Find(mm.key);
-        if (set == nullptr || set->instanceBG == nullptr || m_rampBuffer == nullptr || set->count == 0) { return; }
+        if (set == nullptr || set->activeInstanceBG == nullptr || set->count == 0) { return; }
+        // Skinned crowd: per-instance bone base in the set's own DataOffsets buffer (+ the skin stream);
+        // static: the shared [i,0,0,0] ramp. A skinned set falls back to static if its skin data is missing.
+        const bool skinned = set->skinned && set->offsetsBuf != nullptr && mesh.skinBuffer != nullptr;
+        if (!skinned && m_rampBuffer == nullptr) { return; }
         materials::Material* mat = (mm.material != nullptr) ? mm.material : m_defaultMaterial.Get();
         materials::PipelineConfig config = ConfigFor(mm, ctx, /*instanced*/ true);
+        if (skinned) {
+            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+        }
 
         ResolvedDraw base{};
         base.viewSet = m_viewBG;        base.viewOffset = viewOffset; base.viewDynamic = true;   // set 0: view
-        base.drawSet = set->instanceBG; base.drawDynamic = false;                                // set 1: this set's persistent instances
+        base.drawSet = set->activeInstanceBG; base.drawDynamic = false;                                // set 1: this set's persistent instances
         base.clusterSet = clusterBG;                                                             // set 3: cluster lists
         base.vertexBuffer0 = mesh.vertexBuffer; base.vertexOffset0 = mesh.vertexOffset;
-        base.vertexBuffer1 = m_rampBuffer;      base.vertexOffset1 = 0;                          // slot 1: shared DataOffsets ramp
+        if (skinned) {
+            base.vertexBuffer1 = mesh.skinBuffer;    base.vertexOffset1 = mesh.skinOffset;               // slot 1: skin stream
+            base.vertexBuffer2 = set->offsetsBuf;    base.vertexOffset2 = set->offsetsByteOffset;        // slot 2: per-set DataOffsets (this frame's region)
+        } else {
+            base.vertexBuffer1 = m_rampBuffer;       base.vertexOffset1 = 0;                     // slot 1: shared DataOffsets ramp
+        }
         base.indexBuffer = mesh.indexBuffer; base.indexFormat = mesh.indexFormat; base.instanceCount = set->count;
 
         const auto emit = [&](materials::Material* m, u64 indexOffset, u32 indexCount) {
@@ -1578,26 +1676,37 @@ private:
     void ResolveMultiMeshDepth(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                const MultiMeshRenderData& mm, const GpuMesh& mesh, Array<ResolvedDraw>& out) {
         const MultiMeshSet* set = m_multiMeshSets.Find(mm.key);
-        if (set == nullptr || set->instanceBG == nullptr || m_rampBuffer == nullptr || set->count == 0) { return; }
+        if (set == nullptr || set->activeInstanceBG == nullptr || set->count == 0) { return; }
+        const bool skinned = set->skinned && set->offsetsBuf != nullptr && mesh.skinBuffer != nullptr;
+        if (!skinned && m_rampBuffer == nullptr) { return; }
         const bool masked = mm.material != nullptr && mm.material->pipeline.blendMode == materials::BlendMode::Masked;
         materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        if (skinned) {
+            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+        }
         rhi::BindGroup* matSet = nullptr;
         rhi::PipelineLayout* layout = m_shadowPipelineLayoutInstanced;
         if (masked) {
             rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mm.material);
             layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ true);
             matSet = m_materials->PrepareInstance(*InstanceFor(mm.material), set2);
-            if (layout == nullptr) { layout = m_shadowPipelineLayoutInstanced; matSet = nullptr; config = ShadowConfigFor(ctx, true, false); }
+            if (layout == nullptr) { layout = m_shadowPipelineLayoutInstanced; matSet = nullptr; config = ShadowConfigFor(ctx, true, false); if (skinned) { config.vertexLayout = materials::VertexLayoutType::SkinnedMesh; config.shaderFlags |= shaders::ShaderFlags::Skinned; } }
         }
         rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, layout, rhi::TextureFormat::Undefined);
         if (pso == nullptr) { return; }
         ResolvedDraw d{};
         d.pso = pso;
         d.viewSet = m_shadowViewBG;  d.viewOffset = shadowViewOffset; d.viewDynamic = true;   // set 0: light view
-        d.drawSet = set->instanceBG; d.drawDynamic = false;                                    // set 1: this set's instances
+        d.drawSet = set->activeInstanceBG; d.drawDynamic = false;                                    // set 1: this set's instances
         d.materialSet = matSet;
         d.vertexBuffer0 = mesh.vertexBuffer; d.vertexOffset0 = mesh.vertexOffset;
-        d.vertexBuffer1 = m_rampBuffer;      d.vertexOffset1 = 0;                              // slot 1: shared DataOffsets ramp
+        if (skinned) {
+            d.vertexBuffer1 = mesh.skinBuffer;    d.vertexOffset1 = mesh.skinOffset;                   // slot 1: skin stream
+            d.vertexBuffer2 = set->offsetsBuf;    d.vertexOffset2 = set->offsetsByteOffset;            // slot 2: per-set DataOffsets (this frame's region)
+        } else {
+            d.vertexBuffer1 = m_rampBuffer;       d.vertexOffset1 = 0;                          // slot 1: shared DataOffsets ramp
+        }
         d.indexBuffer = mesh.indexBuffer; d.indexOffset = mesh.indexOffset; d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount; d.instanceCount = set->count;
         out.PushBack(d);
@@ -2026,8 +2135,9 @@ private:
         if (m_instanceBG) { m_device->DestroyBindGroup(m_instanceBG); m_instanceBG = nullptr; }
         // MultiMesh persistent per-set buffers/bind groups + the shared ramp.
         for (auto& kv : m_multiMeshSets) {
-            if (kv.value.instanceBG  != nullptr) { m_device->DestroyBindGroup(kv.value.instanceBG); }
+            for (u32 r = 0; r < kMultiMeshMaxFiF; ++r) { if (kv.value.instanceBG[r] != nullptr) { m_device->DestroyBindGroup(kv.value.instanceBG[r]); } }
             if (kv.value.instanceBuf != nullptr) { m_device->DestroyBuffer(kv.value.instanceBuf); }
+            if (kv.value.offsetsBuf  != nullptr) { m_device->DestroyBuffer(kv.value.offsetsBuf); }
         }
         m_multiMeshSets.Clear();
         if (m_rampBuffer) { m_device->DestroyBuffer(m_rampBuffer); m_rampBuffer = nullptr; m_rampCapacity = 0; }
@@ -2057,6 +2167,7 @@ private:
     materials::MaterialSystem*     m_materials;
     GpuMeshCache                   m_meshes;
     u32                            m_framesInFlight = 2;
+    u32                            m_frameIndex     = 0;   // this frame's index (for FiF-slotting the offsets buffer)
 
     rhi::BindGroupLayout* m_viewLayout     = nullptr;
     rhi::BindGroupLayout* m_objectLayout   = nullptr;
@@ -2089,7 +2200,9 @@ private:
     u32               m_boneDeviceGen   = 0;     // bumps on (re)create -> invalidates set-0 bind groups
     // Per-frame map: a skinned instance's boneMatrices pointer -> its bases (matrix units) in the pool.
     struct BoneSlot { u32 base = 0; u32 prevBase = 0; };
-    struct SkinnedRef { const Matrix4* cur; const Matrix4* prev; u32 count; };
+    // cur/prev = palette pointers, count = matrices in `cur`. hasPrev: per-entity casters write a cur+prev
+    // slab (motion vectors); a skinned-MultiMesh POSE POOL writes just its M*boneCount palettes (no prev).
+    struct SkinnedRef { const Matrix4* cur; const Matrix4* prev; u32 count; bool hasPrev = true; };
     HashMap<const Matrix4*, BoneSlot> m_boneStart;
     Array<SkinnedRef>              m_skinnedScratch;
 
@@ -2181,13 +2294,25 @@ private:
     // a static set uploads once, then costs nothing per frame (the whole point). A single shared
     // DataOffsets ramp [{0,..},{1,..},...] serves EVERY set (.x indexes each set's own buffer), grown to
     // the largest set. Bound identically for the depth prepass, forward, and all shadow cascades.
+    static constexpr u32 kMultiMeshMaxFiF = 4;   // upper bound on frames-in-flight for the per-region arrays
     struct MultiMeshSet {
-        rhi::Buffer*    instanceBuf     = nullptr;   // Storage, CpuToGpu: capacity x InstanceData
-        rhi::BindGroup* instanceBG      = nullptr;   // set 1 over instanceBuf (m_instanceLayout)
-        u32             capacity        = 0;         // instances the buffer holds
+        // The InstanceData is N-buffered (one region per frame-in-flight) so a runtime position change can
+        // rewrite this frame's region while the GPU reads the previous frame's - hazard-free even for
+        // per-frame-dynamic crowds. Each region has its own set-1 bind group; the draw binds this frame's.
+        rhi::Buffer*    instanceBuf     = nullptr;   // Storage, CpuToGpu: framesInFlight x capacity x InstanceData
+        rhi::BindGroup* instanceBG[kMultiMeshMaxFiF] = {};   // one set-1 bind group per FiF region
+        rhi::BindGroup* activeInstanceBG = nullptr;  // this frame's region bind group (set in EnsureMultiMeshSet)
+        u32             capacity        = 0;         // instances per region
         u32             count           = 0;         // live instance count this frame
-        u32             uploadedVersion = 0;         // last component version written (0 = never; versions start at 1)
+        u32             uploadedVersion = 0;         // last component version being written (0 = never; versions start at 1)
+        u32             dirtyFrames     = 0;         // regions still to write after a version change (FiF countdown)
         u32             lastFrame       = 0;         // last frame this set was extracted (for eviction)
+        // Skinned crowds: a PER-SET DataOffsets buffer (dynamic, refilled each frame with per-instance bone
+        // bases) - replaces the shared static ramp, whose .y is always 0. Only allocated for skinned sets.
+        rhi::Buffer*    offsetsBuf      = nullptr;   // Vertex, CpuToGpu: framesInFlight x capacity x DataOffsets
+        u32             offsetsCapacity = 0;         // instances per frame region
+        u32             offsetsByteOffset = 0;       // this frame's region byte offset (rewritten every frame -> FiF-slotted)
+        bool            skinned         = false;     // drew skinned this frame (posePool present)
     };
     HashMap<u64, MultiMeshSet> m_multiMeshSets;
     rhi::Buffer*               m_rampBuffer   = nullptr;   // shared DataOffsets ramp (Vertex, CpuToGpu)

@@ -144,4 +144,90 @@ private:
     scene::Scene* m_scene = nullptr;
 };
 
+// Instanced skinning for CROWDS: the companion to a render::InstancedMeshComponent (a "MultiMesh") that
+// makes its N instances animate at only M = poseCount unique phases. Each frame the manager samples the
+// clip at M evenly-spaced phases (advancing together on a shared clock) into a shared POSE POOL of M
+// skinning palettes, and feeds the pool to the target InstancedMeshComponent - which draws instance i
+// with pose (i % M). So a 30k crowd costs M palette computes, not 30k. Put it on the same entity as the
+// InstancedMeshComponent (empty target) or point `target` at it. Borrowed skeleton/clip must outlive it.
+// See docs/design/instanced-mesh.md SS7.
+struct InstancedSkinning {
+    animation::Skeleton*      skeleton  = nullptr;   // borrowed; shared across the crowd
+    animation::AnimationClip* clip      = nullptr;   // borrowed; the clip the crowd plays
+    u32                       poseCount = 32;        // M unique phase buckets (more = smoother spread, more compute)
+    f32                       speed     = 1.0f;
+    Array<scene::EntityHandle> targets;              // InstancedMeshComponent entities to feed (a multi-part
+                                                     // character = one set per skinned mesh); empty => own entity
+
+    // Manager-owned per-frame state (not authored).
+    Array<Matrix4>          posePool;              // poseCount * boneCount skinning matrices, recomputed each frame
+    Array<Matrix4>          prevPosePool;          // LAST frame's palettes (per-bone motion vectors); ping-ponged, not recomputed
+    Array<BoneTransform>    scratch;               // boneCount scratch for SampleClip
+    f32                        time      = 0.0f;      // shared clock (wrapped to clip duration)
+    u32                        boneCount = 0;
+};
+
+// Ticks every InstancedSkinning in PostUpdate (before render extraction): advance the shared clock, sample
+// the clip at M phases into the pose pool, and hand the pool to the target InstancedMeshComponent.
+class InstancedSkinningManager final : public scene::ComponentManager<InstancedSkinning> {
+public:
+    void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
+    [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
+
+    void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override {
+        if (phase != scene::ScenePhase::PostUpdate || m_scene == nullptr) { return; }
+        auto* imm = m_scene->GetSystem<render::InstancedMeshComponentManager>();
+        if (imm == nullptr) { return; }
+
+        ForEach([&](InstancedSkinning& s, scene::EntityHandle owner) {
+            if (s.skeleton == nullptr || s.clip == nullptr || s.poseCount == 0) { return; }
+            const u32 boneCount = static_cast<u32>(s.skeleton->BoneCount());
+            if (boneCount == 0) { return; }
+            s.boneCount = boneCount;
+            const usize poolSize = static_cast<usize>(s.poseCount) * boneCount;
+
+            // Ping-pong: last frame's pool becomes this frame's PREV (per-bone motion vectors) - no re-sampling.
+            { Array<Matrix4> tmp = static_cast<Array<Matrix4>&&>(s.posePool);
+              s.posePool = static_cast<Array<Matrix4>&&>(s.prevPosePool);
+              s.prevPosePool = static_cast<Array<Matrix4>&&>(tmp); }
+            s.posePool.Resize(poolSize);
+            s.scratch.Resize(boneCount);
+
+            const f32 duration = (s.clip->duration > 0.0f) ? s.clip->duration : 1.0f;
+            s.time += deltaTime * s.speed;
+            while (s.time >= duration) { s.time -= duration; }
+            while (s.time < 0.0f)      { s.time += duration; }
+
+            // M palettes at M evenly-spaced phases (the whole crowd cycles through the clip together).
+            for (u32 m = 0; m < s.poseCount; ++m) {
+                f32 p = s.time + (static_cast<f32>(m) / static_cast<f32>(s.poseCount)) * duration;
+                while (p >= duration) { p -= duration; }
+                SampleClip(*s.clip, *s.skeleton, p, Span<BoneTransform>{ s.scratch.Data(), s.scratch.Size() });
+                s.skeleton->ComputeSkinningMatrices(
+                    Span<const BoneTransform>{ s.scratch.Data(), s.scratch.Size() },
+                    Span<Matrix4>{ s.posePool.Data() + static_cast<usize>(m) * boneCount, boneCount });
+            }
+            // First frame (or pose-count change): no prev yet -> prev = current (zero motion).
+            if (s.prevPosePool.Size() != poolSize) {
+                s.prevPosePool.Resize(poolSize);
+                if (poolSize > 0) { MemCopy(s.prevPosePool.Data(), s.posePool.Data(), poolSize * sizeof(Matrix4)); }
+            }
+
+            const auto feed = [&](scene::EntityHandle e) {
+                if (render::InstancedMeshComponent* c = imm->Get(e)) {
+                    c->posePool     = s.posePool.Data();       // borrowed for the frame (the component keeps the storage alive)
+                    c->prevPosePool = s.prevPosePool.Data();   // last frame's palettes (per-bone motion vectors)
+                    c->poseCount    = s.poseCount;
+                    c->boneCount    = boneCount;
+                }
+            };
+            if (s.targets.IsEmpty()) { feed(owner); }
+            else { for (scene::EntityHandle e : s.targets) { feed(e); } }
+        });
+    }
+
+private:
+    scene::Scene* m_scene = nullptr;
+};
+
 } // namespace draconic::animation

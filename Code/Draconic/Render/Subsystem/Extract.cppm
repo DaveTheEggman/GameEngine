@@ -167,12 +167,18 @@ inline void ExtractInstancedMeshesInto(scene::Scene& scene, ExtractedScene& out)
         rd->version       = c.version;
         rd->mesh          = c.mesh.Get();
         rd->material      = c.material.Get();
+        rd->submeshMaterials     = c.submeshMaterials.IsEmpty() ? nullptr : c.submeshMaterials.Data();
+        rd->submeshMaterialCount = static_cast<u32>(c.submeshMaterials.Size());
         rd->color         = c.color;
         rd->worldCenter   = c.cachedCenter;        // merged bounds -> single-AABB cull + depth sort
         rd->worldRadius   = c.cachedRadius;
         rd->entityId      = PackEntity(e);
         rd->category      = CategoryForMaterial(c.material.Get());
         rd->sortBatchKey  = BatchKey(c.mesh.Get(), c.material.Get());
+        rd->posePool      = c.posePool;    // skinned crowds: shared pose pool (null => static)
+        rd->prevPosePool  = c.prevPosePool;
+        rd->poseCount     = c.poseCount;
+        rd->boneCount     = c.boneCount;
         // rendererId stays 0 (the MeshRenderer draws it); `world` stays identity (per-instance
         // transforms ride in `transforms`, uploaded to the renderer's persistent buffer).
     });

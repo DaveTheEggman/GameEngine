@@ -28,6 +28,7 @@ public:
     void OnSceneCreated(draconic::scene::Scene& scene) override {
         scene.AddSystem<AnimationGraphComponentManager>();
         scene.AddSystem<SkeletalAnimationComponentManager>();
+        scene.AddSystem<InstancedSkinningManager>();   // crowd skinning (shared pose pool)
     }
 
 protected:

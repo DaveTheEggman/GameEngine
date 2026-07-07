@@ -181,6 +181,12 @@ struct MultiMeshRenderData : MeshRenderData {
     const Matrix4* transforms    = nullptr;   // borrowed per-instance world transforms (instanceCount entries), valid this frame
     u32            instanceCount = 0;
     u32            version       = 0;         // bumps when `transforms` change; the renderer re-uploads only on a change
+    // GPU-skinned crowds (SS7): a shared pose pool of `poseCount` palettes (each `boneCount` matrices),
+    // borrowed for the frame. When non-null the set draws SKINNED with instance i using pose (i % poseCount).
+    const Matrix4* posePool      = nullptr;
+    const Matrix4* prevPosePool  = nullptr;   // last frame's palettes (per-bone motion vectors); null => reuse current
+    u32            poseCount     = 0;         // M unique phase buckets
+    u32            boneCount     = 0;         // bones per palette
 };
 static_assert(std::is_trivially_destructible_v<MultiMeshRenderData>);
 
