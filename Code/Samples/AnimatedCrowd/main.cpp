@@ -80,7 +80,7 @@ namespace
         // How the crowd picks each character's pose out of the M shared palettes (HUD "Pose assignment").
         // Random/Wave map to renderer policies computed from the flat index; Columns/Clusters are layout-
         // aware, so the sample precomputes the pose index per instance and hands it over as Explicit.
-        enum class PosePolicy : int { Random, Wave, Columns, Clusters };
+        enum class PosePolicy : int { Random, Wave, Columns, Clusters, Custom };
 
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU skinning work, not the
         // display refresh - same as RenderStressTest. The image tears; fine for a benchmark.
@@ -334,7 +334,7 @@ namespace
                 clipTint[g].PushBack(m_tintEnabled ? ClipTint(g) : core::Color{ 1.0f, 1.0f, 1.0f, 1.0f });  // white == no tint
                 // For the layout-aware policies the renderer can't compute from the flat index, precompute
                 // this instance's pose index here (we have its grid col/row) and hand it over as Explicit.
-                if (assign == render::PoseAssignment::Explicit) { clipPose[g].PushBack(PoseIndexFor(col, rowi)); }
+                if (assign == render::PoseAssignment::Explicit) { clipPose[g].PushBack(PoseIndexFor(col, rowi, side)); }
             }
 
             // The meshes to instance per clip group: the merged single mesh, or the N skinned parts.
@@ -413,12 +413,22 @@ namespace
         // Pose index for the layout-aware policies, from a character's grid column/row (pure render helpers,
         // unit-tested). Wave = diagonal phase gradient; Columns = whole column shares a phase (formation);
         // Clusters = 4×4-character cells share a phase, hashed so neighbours differ. Only called for Explicit.
-        [[nodiscard]] core::u32 PoseIndexFor(core::u32 col, core::u32 row) const
+        [[nodiscard]] core::u32 PoseIndexFor(core::u32 col, core::u32 row, core::u32 side) const
         {
             switch (m_posePolicy) {
                 case PosePolicy::Wave:     return render::WavePose(col, row, kPoseCount);
                 case PosePolicy::Columns:  return render::ColumnPose(col, kPoseCount);
                 case PosePolicy::Clusters: return render::ClusterPose(col, row, 4, kPoseCount);
+                case PosePolicy::Custom: {
+                    // A bespoke index scheme authored right here in the sample - NO render helper - to show
+                    // the Explicit contract accepts ANY per-instance index the caller computes itself.
+                    // Concentric rings: quantise each character's distance from the grid centre into a pose
+                    // bucket, so the animation phase ripples outward in rings.
+                    const core::f32 c  = static_cast<core::f32>(side) * 0.5f;
+                    const core::f32 dx = static_cast<core::f32>(col) - c;
+                    const core::f32 dz = static_cast<core::f32>(row) - c;
+                    return static_cast<core::u32>(core::Sqrt(dx * dx + dz * dz)) % kPoseCount;
+                }
                 default:                   return 0;
             }
         }
@@ -580,9 +590,9 @@ namespace
             bool merge = m_mergeMeshes;
             if (ImGui::Checkbox("Merge parts into one mesh", &merge)) { m_mergeMeshes = merge; RebuildToCount(m_crowdCount); }
             ImGui::SameLine(); ImGui::TextDisabled("(%d set%s/char)", m_mergeMeshes ? 1 : static_cast<int>(m_skinnedParts.Size()), m_mergeMeshes ? "" : "s");
-            static const char* kPosePolicyNames[] = { "Random (hashed)", "Wave (diagonal)", "Columns", "Clusters" };
+            static const char* kPosePolicyNames[] = { "Random (hashed)", "Wave (diagonal)", "Columns", "Clusters", "Custom (rings)" };
             int policy = static_cast<int>(m_posePolicy);
-            if (ImGui::Combo("Pose assignment", &policy, kPosePolicyNames, 4)) { m_posePolicy = static_cast<PosePolicy>(policy); RebuildToCount(m_crowdCount); }
+            if (ImGui::Combo("Pose assignment", &policy, kPosePolicyNames, 5)) { m_posePolicy = static_cast<PosePolicy>(policy); RebuildToCount(m_crowdCount); }
             bool single = m_singleClip;
             if (ImGui::Checkbox("Single clip (isolate pose modes)", &single)) { m_singleClip = single; RebuildToCount(m_crowdCount); }
             if (render != nullptr) {
