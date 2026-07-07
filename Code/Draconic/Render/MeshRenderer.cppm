@@ -1124,7 +1124,7 @@ public:
     }
 
     // Fill each skinned MultiMesh set's per-instance DataOffsets: .x = instance index into its InstanceData
-    // buffer, .y/.z = the instance's pose base in the shared bone pool = poolBase + (i % poseCount)*boneCount.
+    // buffer, .y/.z = the instance's pose base in the shared bone pool = poolBase + (Hash(i) % poseCount)*boneCount.
     // Runs after the bone upload (pool bases known). O(N) 16-byte writes, once per frame, shared across passes.
     void FillSkinnedMultiMeshOffsets(const ExtractedScene& scene) {
         const u32 region = m_frameIndex % m_framesInFlight;   // this frame's FiF slot
@@ -1141,8 +1141,13 @@ public:
             const u32 base = region * set->offsetsCapacity;   // write ONLY this frame's region (GPU reads the prev one)
             auto* od = static_cast<DataOffsets*>(set->offsetsBuf->Map());
             if (od == nullptr) { continue; }
+            const u32 M = mm->poseCount;
             for (u32 i = 0; i < mm->instanceCount; ++i) {
-                const u32 bucket  = (i % mm->poseCount) * mm->boneCount;   // matrix-unit offset within a palette
+                // Pick this instance's pose out of the M shared palettes per the caller's policy (pure,
+                // unit-tested in SelectPose). Exactly M palette evaluations regardless; the slot is stable
+                // per i across frames, so motion blur (prev pose) is unaffected.
+                const u32 pose    = SelectPose(mm->poseAssignment, i, M, mm->poseIndices);
+                const u32 bucket  = pose * mm->boneCount;                 // matrix-unit offset within a palette
                 const u32 curBase = pool->base     + bucket;              // current pose
                 const u32 prvBase = pool->prevBase + bucket;              // last frame's pose (motion vectors)
                 od[base + i] = DataOffsets{ i, curBase, prvBase, 0 };     // .x = Instances[] idx, .y = cur bone base, .z = prev

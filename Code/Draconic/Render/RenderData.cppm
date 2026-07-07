@@ -176,6 +176,13 @@ static_assert(std::is_trivially_destructible_v<MeshRenderData>);
 // the shared mesh/material/color and the MERGED bounds (worldCenter/worldRadius) so the set culls as a
 // single AABB; `world` is unused (each instance has its own transform in `transforms`). See
 // docs/design/instanced-mesh.md.
+// How a skinned MultiMesh instance picks its pose out of the M shared palettes. Hashed decorrelates
+// from any spatial layout (splitmix-scattered) - the natural default for an independent-agent crowd;
+// Sequential (i % M) makes a phase gradient/wave; Explicit lets the CALLER supply a per-instance pose
+// index (needed for layout-aware looks the renderer can't compute from the flat index i - columns,
+// spatial clusters, gameplay state). Explicit with a null/mismatched index array falls back to Hashed.
+enum class PoseAssignment : u8 { Hashed, Sequential, Explicit };
+
 struct MultiMeshRenderData : MeshRenderData {
     u64            key           = 0;         // stable per-component id -> the renderer's persistent buffer slot
     const Matrix4* transforms    = nullptr;   // borrowed per-instance world transforms (instanceCount entries), valid this frame
@@ -188,8 +195,36 @@ struct MultiMeshRenderData : MeshRenderData {
     const Matrix4* prevPosePool  = nullptr;   // last frame's palettes (per-bone motion vectors); null => reuse current
     u32            poseCount     = 0;         // M unique phase buckets
     u32            boneCount     = 0;         // bones per palette
+    // Pose-selection policy + the optional per-instance index array it consumes when Explicit (borrowed,
+    // instanceCount entries). poseIndices is null unless poseAssignment==Explicit AND the caller's array
+    // was present and correctly sized; the renderer then falls back to Hashed.
+    PoseAssignment poseAssignment = PoseAssignment::Hashed;
+    const u32*     poseIndices    = nullptr;
 };
 static_assert(std::is_trivially_destructible_v<MultiMeshRenderData>);
+
+// The renderer's per-instance pose pick out of the M shared palettes (used in the skinned-MultiMesh
+// offsets fill), factored out pure so it can be unit-tested without a GPU. `i` is the per-SET instance
+// index. Explicit consumes the caller's array (null => the array was absent/mismatched, degrade to
+// Hashed). Sequential = i % M (a phase gradient, but only meaningful when a set's instances ARE laid
+// out in the order you want the gradient). Hashed = splitmix-scattered, decorrelated from any layout.
+// poseCount == 0 returns 0. All branches index within [0, poseCount).
+[[nodiscard]] inline u32 SelectPose(PoseAssignment policy, u32 i, u32 poseCount, const u32* explicitIndices) noexcept {
+    if (poseCount == 0) { return 0; }
+    if (policy == PoseAssignment::Explicit && explicitIndices != nullptr) { return explicitIndices[i] % poseCount; }
+    if (policy == PoseAssignment::Sequential) { return i % poseCount; }
+    return static_cast<u32>(HashInteger(i) % poseCount);
+}
+
+// Crowd-authoring helpers for building an Explicit per-instance pose-index array from a character's GRID
+// position. The renderer sees only the flat index, so layout-aware looks are precomputed with these and
+// handed over as Explicit. All return an index in [0, poseCount); poseCount must be > 0 (cellSize >= 1).
+[[nodiscard]] inline u32 ColumnPose(u32 col, u32 poseCount) noexcept { return col % poseCount; }                // whole column shares a phase (formation)
+[[nodiscard]] inline u32 WavePose(u32 col, u32 row, u32 poseCount) noexcept { return (col + row) % poseCount; } // diagonal phase gradient (a wave)
+[[nodiscard]] inline u32 ClusterPose(u32 col, u32 row, u32 cellSize, u32 poseCount) noexcept {                  // cellSize×cellSize cells share a phase; cells hashed
+    const u32 cx = col / cellSize, cz = row / cellSize;
+    return static_cast<u32>(HashInteger((static_cast<u64>(cx) << 32) ^ static_cast<u64>(cz)) % poseCount);
+}
 
 // One textured billboard quad. A camera-facing (or world-aligned) sprite drawn by the SpriteRenderer,
 // which shares the blended forward pass with transparent meshes (interleaved by depth). Its world

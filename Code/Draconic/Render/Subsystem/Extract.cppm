@@ -180,6 +180,11 @@ inline void ExtractInstancedMeshesInto(scene::Scene& scene, ExtractedScene& out)
         rd->prevPosePool  = c.prevPosePool;
         rd->poseCount     = c.poseCount;
         rd->boneCount     = c.boneCount;
+        rd->poseAssignment = c.poseAssignment;
+        // Only borrow the explicit index array when the policy asks for it AND it's correctly sized;
+        // otherwise leave it null so the renderer falls back to the Hashed default.
+        rd->poseIndices    = (c.poseAssignment == PoseAssignment::Explicit && c.poseIndices.Size() == c.instances.Size())
+                                 ? c.poseIndices.Data() : nullptr;
         // rendererId stays 0 (the MeshRenderer draws it); `world` stays identity (per-instance
         // transforms ride in `transforms`, uploaded to the renderer's persistent buffer).
     });

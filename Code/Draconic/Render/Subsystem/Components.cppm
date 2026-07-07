@@ -74,6 +74,15 @@ struct InstancedMeshComponent {
     u32                          poseCount    = 0;   // M unique phase buckets
     u32                          boneCount    = 0;   // bones per palette
 
+    // Pose-selection policy for the shared pool (see render::PoseAssignment). Default Hashed = each
+    // instance scattered to an unrelated pose (independent-agent crowd). Set to Explicit and fill
+    // `poseIndices` (parallel to `instances`, values in [0,poseCount)) for layout-aware looks the
+    // renderer can't derive from the flat index - columns, spatial clusters, gameplay. Explicit with an
+    // empty/mismatched array falls back to Hashed. Not a mutator (doesn't bump version - it's read each
+    // frame during the offsets fill, not uploaded to the instance buffer).
+    PoseAssignment               poseAssignment = PoseAssignment::Hashed;
+    Array<u32>                   poseIndices;
+
     // Change counter: bumped by every mutator so the renderer knows to re-upload and extraction knows to
     // recompute the merged bounds. Starts at 1 so the first extract (uploadedVersion 0) always uploads.
     u32                          version = 1;
