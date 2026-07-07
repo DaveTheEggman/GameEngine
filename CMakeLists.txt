@@ -90,6 +90,7 @@ add_subdirectory(Code/Draconic/Particles) # CPU particle runtime (Sedulous.Parti
 add_subdirectory(Code/Draconic/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Draconic/Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Draconic/Animation/Subsystem) # skeletal-animation scene integration (links RenderSubsystem; after Render)
+add_subdirectory(Code/Draconic/Particles/Subsystem) # particle scene/render integration (renderer + provider seam; after Render)
 add_subdirectory(Code/Draconic/Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Draconic/Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Draconic/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
