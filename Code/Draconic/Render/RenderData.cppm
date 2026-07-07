@@ -552,6 +552,17 @@ private:
     DirectionalShadow  m_shadow;                                  // active directional shadow caster
 };
 
+// Extension seam (scene-agnostic, à la Sedulous's IRenderDataProvider): a downstream system - e.g.
+// a particle component manager - implements this to contribute render-data into the frame snapshot.
+// It knows nothing about scenes; the implementer already holds its own data (it's typically a scene
+// system that stored its scene). RenderSubsystem registers providers PER SCENE (registration knows
+// the scene; this interface does not) and calls the current scene's providers during extraction.
+class IRenderDataProvider {
+public:
+    virtual ~IRenderDataProvider() = default;
+    virtual void ExtractRenderData(ExtractedScene& snapshot) = 0;
+};
+
 // ---- radix sort ------------------------------------------------------------------------
 //
 // LSD radix sort of DrawItems by their 64-bit key, ascending - O(N), stable, 8 passes of

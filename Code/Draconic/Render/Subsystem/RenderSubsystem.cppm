@@ -44,6 +44,18 @@ public:
     RenderSubsystem(rhi::Device& device, u32 framesInFlight) noexcept
         : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight) {}
 
+    // --- Extension seam for downstream subsystems (particles, world-UI, ...) --------------------
+    // Register an external Renderer (borrowed - caller owns it); returns its dispatch id to stamp on
+    // the subsystem's render-data. The pipeline drives PrepareFrame/Resolve/FinishFrame registry-wide.
+    u16 RegisterRenderer(Renderer& renderer) { m_registry.Register(&renderer); return renderer.RendererId(); }
+    // Register a render-data provider FOR a scene (borrowed). Invoked during that scene's extraction.
+    // The provider interface is scene-free; the scene binding lives here. Auto-cleared on scene destroy.
+    void RegisterProvider(scene::Scene& scene, IRenderDataProvider& provider) { m_providers.PushBack(SceneProvider{ &scene, &provider }); }
+    // GPU handles a subsystem needs to build its renderer's pipeline (valid once RenderSubsystem is ready).
+    [[nodiscard]] rhi::Device*            Device() const noexcept { return m_device; }
+    [[nodiscard]] shaders::ShaderSystem*  Shaders() const noexcept { return m_shaders.Get(); }
+    [[nodiscard]] u32                     FramesInFlight() const noexcept { return m_framesInFlight; }
+
     [[nodiscard]] i32 UpdateOrder() const noexcept override { return 1000; }   // late (renders, doesn't tick)
 
     // Injects the render component managers into each new scene.
@@ -56,6 +68,15 @@ public:
         scene.AddSystem<LightComponentManager>();
         scene.AddSystem<ReflectionProbeComponentManager>();
         scene.AddSystem<EnvironmentSystem>();
+    }
+
+    // Drop any render-data providers registered for a scene that's going away (borrowed pointers).
+    void OnSceneDestroyed(scene::Scene& scene) override {
+        usize w = 0;
+        for (usize r = 0; r < m_providers.Size(); ++r) {
+            if (m_providers[r].scene != &scene) { m_providers[w++] = m_providers[r]; }
+        }
+        m_providers.Resize(w);
     }
 
     [[nodiscard]] bool IsReady() const noexcept { return m_frame.Get() != nullptr; }
@@ -205,6 +226,9 @@ public:
             ExtractLightsInto(scene, *snapshot);               // lights are shading inputs, not draws
             ExtractReflectionProbesInto(scene, *snapshot);     // reflection probes (capture/prefilter inputs)
             ExtractEnvironmentInto(scene, *snapshot);          // per-scene ambient
+            // Downstream systems (particles, world-UI, ...) registered for THIS scene contribute into
+            // the same snapshot - render stays ignorant of their types (scene-free IRenderDataProvider).
+            for (const SceneProvider& sp : m_providers) { if (sp.scene == &scene && sp.provider != nullptr) { sp.provider->ExtractRenderData(*snapshot); } }
             if (m_probeSystem.Get() != nullptr) {              // map probes to persistent array slots (capture in P1b)
                 m_probeSystem->Assign(snapshot->ReflectionProbes());
             }
@@ -422,6 +446,8 @@ private:
     f32                                       m_bloomThreshold = 1.0f;
     f32                                       m_bloomKnee      = 0.6f;
     RendererRegistry                          m_registry;
+    struct SceneProvider { scene::Scene* scene; IRenderDataProvider* provider; };
+    Array<SceneProvider>                      m_providers;    // per-scene render-data contributors (borrowed)
     UniquePtr<RenderFrame>                    m_frame;
 
     Array<UniquePtr<ExtractedScene>>          m_scenes;       // snapshot pool
