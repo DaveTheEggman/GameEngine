@@ -77,6 +77,11 @@ namespace
     class AnimatedCrowdApp final : public runtime::DefaultApplication
     {
     public:
+        // How the crowd picks each character's pose out of the M shared palettes (HUD "Pose assignment").
+        // Random/Wave map to renderer policies computed from the flat index; Columns/Clusters are layout-
+        // aware, so the sample precomputes the pose index per instance and hands it over as Explicit.
+        enum class PosePolicy : int { Random, Wave, Columns, Clusters };
+
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU skinning work, not the
         // display refresh - same as RenderStressTest. The image tears; fine for a benchmark.
         graphics::RenderWindowDesc MainRenderWindow() const override
@@ -306,20 +311,30 @@ namespace
             // Bucket the crowd across the model's clips (round-robin), so it's a MIXED herd (walk/idle/run/...)
             // rather than one clip. Each clip is its own group: its subset of instances + per-instance tints +
             // its own InstancedSkinning pose pool. Cost stays O(clips x M) palettes/frame, independent of count.
-            const core::u32 numClips = core::Min(static_cast<core::u32>(m_clips.Size()), kMaxClipGroups);
+            // Single-clip collapses the herd to ONE clip/pose-pool so the spatial pose policies read cleanly
+            // (with the mixed 6-clip herd, a column/wave spans different animations and looks muddled - the
+            // phase pattern is there, but overlaid on 6 different clips). Off = the mixed-herd benchmark.
+            const core::u32 numClips = m_singleClip ? 1u : core::Min(static_cast<core::u32>(m_clips.Size()), kMaxClipGroups);
             if (numClips == 0 || !m_model->skeleton) { m_crowdCount = count; AutoFrame(side); return; }
 
             core::Array<core::Array<core::Matrix4>> clipXf;   clipXf.Resize(numClips);
             core::Array<core::Array<core::Color>>   clipTint; clipTint.Resize(numClips);
+            core::Array<core::Array<core::u32>>     clipPose; clipPose.Resize(numClips);   // per-instance pose index (Explicit policies)
+            const render::PoseAssignment assign = PoseAssignmentFor(m_posePolicy);
             for (core::u32 i = 0; i < count; ++i) {
-                const core::f32 px = (static_cast<core::f32>(i % side) - half) * kCharacterSpacing;
-                const core::f32 pz = (static_cast<core::f32>(i / side) - half) * kCharacterSpacing;
+                const core::u32 col  = i % side;
+                const core::u32 rowi = i / side;
+                const core::f32 px = (static_cast<core::f32>(col)  - half) * kCharacterSpacing;
+                const core::f32 pz = (static_cast<core::f32>(rowi) - half) * kCharacterSpacing;
                 core::Transform t;
                 t.position = core::Vector3{ px, kFloorY, pz };
                 t.scale    = core::Vector3{ m_fit, m_fit, m_fit };
                 const core::u32 g = i % numClips;   // round-robin -> clips spread evenly across the grid
                 clipXf[g].PushBack(t.ToMatrix());
                 clipTint[g].PushBack(m_tintEnabled ? ClipTint(g) : core::Color{ 1.0f, 1.0f, 1.0f, 1.0f });  // white == no tint
+                // For the layout-aware policies the renderer can't compute from the flat index, precompute
+                // this instance's pose index here (we have its grid col/row) and hand it over as Explicit.
+                if (assign == render::PoseAssignment::Explicit) { clipPose[g].PushBack(PoseIndexFor(col, rowi)); }
             }
 
             // The meshes to instance per clip group: the merged single mesh, or the N skinned parts.
@@ -345,6 +360,8 @@ namespace
                     c.material         = drawMats[p];
                     c.submeshMaterials = m_modelMats;
                     c.tints            = clipTint[g];   // set BEFORE SetInstances (the version bump uploads them)
+                    c.poseAssignment   = assign;        // how each instance picks its pose (read each frame, not uploaded)
+                    if (assign == render::PoseAssignment::Explicit) { c.poseIndices = clipPose[g]; }
                     c.SetInstances(core::Span<const core::Matrix4>{ clipXf[g].Data(), clipXf[g].Size() });
                     m_crowdParts.PushBack(e);
                     targets.PushBack(e);
@@ -381,6 +398,29 @@ namespace
             const core::Vector3 base = kClipColors[group % kMaxClipGroups];
             const core::f32 v = 0.7f + m_rng.NextFloat() * 0.5f;   // per-character brightness 0.7..1.2
             return core::Color{ base.x * v, base.y * v, base.z * v, 1.0f };
+        }
+
+        // Map the HUD pose policy to a renderer PoseAssignment. Random is a function of the flat index the
+        // renderer computes itself (Hashed, no array). Wave/Columns/Clusters are all layout-aware (derived
+        // from the character's grid position, which the renderer can't see) -> Explicit + a per-instance
+        // array. (Wave is Explicit, NOT the renderer's Sequential: Sequential uses the per-set LOCAL index,
+        // and each clip set here holds every-Nth character, so it would be spatially scrambled, not a wave.)
+        [[nodiscard]] static render::PoseAssignment PoseAssignmentFor(PosePolicy p)
+        {
+            return (p == PosePolicy::Random) ? render::PoseAssignment::Hashed : render::PoseAssignment::Explicit;
+        }
+
+        // Pose index for the layout-aware policies, from a character's grid column/row (pure render helpers,
+        // unit-tested). Wave = diagonal phase gradient; Columns = whole column shares a phase (formation);
+        // Clusters = 4×4-character cells share a phase, hashed so neighbours differ. Only called for Explicit.
+        [[nodiscard]] core::u32 PoseIndexFor(core::u32 col, core::u32 row) const
+        {
+            switch (m_posePolicy) {
+                case PosePolicy::Wave:     return render::WavePose(col, row, kPoseCount);
+                case PosePolicy::Columns:  return render::ColumnPose(col, kPoseCount);
+                case PosePolicy::Clusters: return render::ClusterPose(col, row, 4, kPoseCount);
+                default:                   return 0;
+            }
         }
 
         // Position the fly camera so the whole side×side grid is in frame + grow the floor under it (called
@@ -540,6 +580,11 @@ namespace
             bool merge = m_mergeMeshes;
             if (ImGui::Checkbox("Merge parts into one mesh", &merge)) { m_mergeMeshes = merge; RebuildToCount(m_crowdCount); }
             ImGui::SameLine(); ImGui::TextDisabled("(%d set%s/char)", m_mergeMeshes ? 1 : static_cast<int>(m_skinnedParts.Size()), m_mergeMeshes ? "" : "s");
+            static const char* kPosePolicyNames[] = { "Random (hashed)", "Wave (diagonal)", "Columns", "Clusters" };
+            int policy = static_cast<int>(m_posePolicy);
+            if (ImGui::Combo("Pose assignment", &policy, kPosePolicyNames, 4)) { m_posePolicy = static_cast<PosePolicy>(policy); RebuildToCount(m_crowdCount); }
+            bool single = m_singleClip;
+            if (ImGui::Checkbox("Single clip (isolate pose modes)", &single)) { m_singleClip = single; RebuildToCount(m_crowdCount); }
             if (render != nullptr) {
                 ImGui::Separator();
                 float exposure = render->Exposure();
@@ -620,6 +665,8 @@ namespace
         core::u32                          m_clipGroups = 1;
         bool                               m_tintEnabled = true;   // per-instance/per-clip tint (HUD toggle)
         bool                               m_mergeMeshes = false;  // merge the character's skinned parts into one mesh (HUD toggle)
+        PosePolicy                         m_posePolicy  = PosePolicy::Random;  // how each character picks its shared pose (HUD)
+        bool                               m_singleClip  = false;  // collapse to 1 clip/pool so pose modes read cleanly (HUD)
         core::RefPtr<geometry::StaticMesh> m_mergedMesh;           // cached merged mesh (one submesh per original part)
         core::Random                       m_rng{ 0x9e3779b97f4a7c15ull };
         static constexpr core::u32         kPoseCount     = 32;   // M unique phase buckets per shared pose pool
