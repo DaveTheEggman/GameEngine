@@ -246,53 +246,69 @@ namespace
 
             for (scene::EntityHandle e : m_crowdParts) { m_scene->DestroyEntity(e); }   // tear down the old crowd
             m_crowdParts.Clear();
-            m_crowdAnim = {};
 
             const core::u32 side = (count == 0) ? 1u : static_cast<core::u32>(core::Ceil(core::Sqrt(static_cast<core::f32>(count))));
             const core::f32 half = (static_cast<core::f32>(side) - 1.0f) * 0.5f;
 
-            // Per-instance world transforms - shared by EVERY part (a skinned mesh renders in skeleton-root
-            // space, so all parts of instance i sit at the same crowd position + auto-fit scale).
-            core::Array<core::Matrix4> xf;
-            xf.Reserve(count);
+            // Bucket the crowd across the model's clips (round-robin), so it's a MIXED herd (walk/idle/run/...)
+            // rather than one clip. Each clip is its own group: its subset of instances + per-instance tints +
+            // its own InstancedSkinning pose pool. Cost stays O(clips x M) palettes/frame, independent of count.
+            const core::u32 numClips = core::Min(static_cast<core::u32>(m_clips.Size()), kMaxClipGroups);
+            if (numClips == 0 || !m_model->skeleton) { m_crowdCount = count; AutoFrame(side); return; }
+
+            core::Array<core::Array<core::Matrix4>> clipXf;   clipXf.Resize(numClips);
+            core::Array<core::Array<core::Color>>   clipTint; clipTint.Resize(numClips);
             for (core::u32 i = 0; i < count; ++i) {
                 const core::f32 px = (static_cast<core::f32>(i % side) - half) * kCharacterSpacing;
                 const core::f32 pz = (static_cast<core::f32>(i / side) - half) * kCharacterSpacing;
                 core::Transform t;
                 t.position = core::Vector3{ px, kFloorY, pz };
                 t.scale    = core::Vector3{ m_fit, m_fit, m_fit };
-                xf.PushBack(t.ToMatrix());
+                const core::u32 g = i % numClips;   // round-robin -> clips spread evenly across the grid
+                clipXf[g].PushBack(t.ToMatrix());
+                clipTint[g].PushBack(RandomTint());   // subtle per-character colour variety (multiplies the material)
             }
 
-            // One InstancedMeshComponent per skinned part.
-            core::Array<scene::EntityHandle> targets;
-            for (const Part& part : m_skinnedParts) {
-                scene::EntityHandle e = m_scene->CreateEntity(u8"crowd_part");
-                render::InstancedMeshComponent& c = imm->Add(e);
-                c.mesh             = part.mesh;
-                c.material         = part.mat;
-                c.submeshMaterials = m_modelMats;   // multi-material parts draw each submesh with its own material
-                c.SetInstances(core::Span<const core::Matrix4>{ xf.Data(), xf.Size() });
-                m_crowdParts.PushBack(e);
-                targets.PushBack(e);
-            }
-
-            // One InstancedSkinning feeding all part sets from a single shared pose pool.
-            if (m_model->skeleton && !m_clips.IsEmpty()) {
-                m_crowdAnim = m_scene->CreateEntity(u8"crowd_anim");
-                animation::InstancedSkinning& s = anims->Add(m_crowdAnim);
+            // One group per clip: an InstancedMeshComponent per skinned part (its subset of transforms +
+            // per-instance tints) + one InstancedSkinning driving them all with that clip's shared pose pool.
+            for (core::u32 g = 0; g < numClips; ++g) {
+                if (clipXf[g].IsEmpty()) { continue; }
+                core::Array<scene::EntityHandle> targets;
+                for (const Part& part : m_skinnedParts) {
+                    scene::EntityHandle e = m_scene->CreateEntity(u8"crowd_part");
+                    render::InstancedMeshComponent& c = imm->Add(e);
+                    c.mesh             = part.mesh;
+                    c.material         = part.mat;
+                    c.submeshMaterials = m_modelMats;
+                    c.tints            = clipTint[g];   // set BEFORE SetInstances (the version bump uploads them)
+                    c.SetInstances(core::Span<const core::Matrix4>{ clipXf[g].Data(), clipXf[g].Size() });
+                    m_crowdParts.PushBack(e);
+                    targets.PushBack(e);
+                }
+                scene::EntityHandle animE = m_scene->CreateEntity(u8"crowd_anim");
+                animation::InstancedSkinning& s = anims->Add(animE);
                 s.skeleton  = m_model->skeleton.Get();
-                s.clip      = m_clips[0];
+                s.clip      = m_clips[g];
                 s.poseCount = kPoseCount;
                 s.targets   = static_cast<core::Array<scene::EntityHandle>&&>(targets);
-                m_crowdParts.PushBack(m_crowdAnim);   // torn down with the part sets
+                m_crowdParts.PushBack(animE);
             }
 
             m_crowdCount = count;
+            m_clipGroups = numClips;
             AutoFrame(side);
             m_frameTimeMs = 16.6f;   // reset the smoother so the rebuild hitch doesn't skew the reading
-            core::ConsoleWrite(core::Format(u8"AnimatedCrowd: characters={}  parts={}  poses={}\n",
-                                          m_crowdCount, static_cast<core::u32>(m_skinnedParts.Size()), kPoseCount));
+            core::ConsoleWrite(core::Format(u8"AnimatedCrowd: characters={}  parts={}  clips={}  poses={}\n",
+                                          m_crowdCount, static_cast<core::u32>(m_skinnedParts.Size()), numClips, kPoseCount));
+        }
+
+        // A gentle per-character tint (each channel in [0.65,1] -> slightly darker/varied) multiplied into the
+        // material, so a same-mesh crowd doesn't look uniform.
+        [[nodiscard]] core::Color RandomTint()
+        {
+            return core::Color{ 0.65f + m_rng.NextFloat() * 0.35f,
+                                0.65f + m_rng.NextFloat() * 0.35f,
+                                0.65f + m_rng.NextFloat() * 0.35f, 1.0f };
         }
 
         // Position the fly camera so the whole side×side grid is in frame + grow the floor under it (called
@@ -444,7 +460,9 @@ namespace
             ImGui::Begin("Anim Stress Test");
             const float fps = m_frameTimeMs > 0.001f ? 1000.0f / m_frameTimeMs : 0.0f;
             ImGui::Text("%.0f fps   %.2f ms", static_cast<double>(fps), static_cast<double>(m_frameTimeMs));
-            ImGui::Text("characters: %d", static_cast<int>(m_crowdCount));
+            ImGui::Text("characters: %d   clips: %d x %d poses (%d palettes/frame)",
+                        static_cast<int>(m_crowdCount), static_cast<int>(m_clipGroups),
+                        static_cast<int>(kPoseCount), static_cast<int>(m_clipGroups * kPoseCount));
             if (render != nullptr) {
                 ImGui::Separator();
                 float exposure = render->Exposure();
@@ -519,11 +537,13 @@ namespace
         // A skinned mesh part of the character + its material (the crowd renders one instanced set per part).
         struct Part { core::RefPtr<geometry::StaticMesh> mesh; core::RefPtr<materials::Material> mat; };
         scene::EntityHandle                m_keyLight{};     // directional CSM light (K toggles its shadows)
-        scene::EntityHandle                m_crowdAnim{};    // holds the InstancedSkinning (feeds all part sets)
         core::Array<Part>                  m_skinnedParts;   // every skinned mesh of the model (shared across the crowd)
-        core::Array<scene::EntityHandle>   m_crowdParts;     // the per-part set entities (+ the anim entity), torn down together
+        core::Array<scene::EntityHandle>   m_crowdParts;     // all per-clip-group set + anim entities, torn down together
         core::u32                          m_crowdCount = 0;
-        static constexpr core::u32         kPoseCount   = 32;   // M unique phase buckets in the shared pose pool
+        core::u32                          m_clipGroups = 1;
+        core::Random                       m_rng{ 0x9e3779b97f4a7c15ull };
+        static constexpr core::u32         kPoseCount     = 32;   // M unique phase buckets per shared pose pool
+        static constexpr core::u32         kMaxClipGroups = 6;    // cap on distinct clips the crowd mixes across
         core::f32             m_frameTimeMs = 16.6f;
         bool                m_showHud     = true;   // HUD visibility (H)
 

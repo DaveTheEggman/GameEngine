@@ -179,6 +179,7 @@ static_assert(std::is_trivially_destructible_v<MeshRenderData>);
 struct MultiMeshRenderData : MeshRenderData {
     u64            key           = 0;         // stable per-component id -> the renderer's persistent buffer slot
     const Matrix4* transforms    = nullptr;   // borrowed per-instance world transforms (instanceCount entries), valid this frame
+    const Color*   tints         = nullptr;   // optional borrowed per-instance tint (instanceCount entries); null => use `color`
     u32            instanceCount = 0;
     u32            version       = 0;         // bumps when `transforms` change; the renderer re-uploads only on a change
     // GPU-skinned crowds (SS7): a shared pose pool of `poseCount` palettes (each `boneCount` matrices),

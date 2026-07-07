@@ -163,6 +163,7 @@ inline void ExtractInstancedMeshesInto(scene::Scene& scene, ExtractedScene& out)
         rd->multiMesh     = true;
         rd->key           = PackEntity(e);
         rd->transforms    = c.instances.Data();   // borrowed for the frame (immutable snapshot)
+        rd->tints         = (!c.tints.IsEmpty() && c.tints.Size() == c.instances.Size()) ? c.tints.Data() : nullptr;
         rd->instanceCount = c.Count();
         rd->version       = c.version;
         rd->mesh          = c.mesh.Get();

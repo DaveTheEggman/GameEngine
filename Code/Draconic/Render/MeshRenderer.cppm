@@ -1097,7 +1097,8 @@ public:
             if (auto* dst = static_cast<InstanceData*>(set->instanceBuf->Map())) {
                 InstanceData* r = dst + static_cast<usize>(region) * set->capacity;
                 for (u32 i = 0; i < mm.instanceCount; ++i) {
-                    r[i] = InstanceData{ mm.transforms[i], mm.transforms[i], mm.color };
+                    const Color tint = (mm.tints != nullptr) ? mm.tints[i] : mm.color;   // per-instance or shared
+                    r[i] = InstanceData{ mm.transforms[i], mm.transforms[i], tint };
                 }
                 set->instanceBuf->Unmap();
             }

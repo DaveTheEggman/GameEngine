@@ -58,7 +58,10 @@ struct InstancedMeshComponent {
     // non-empty each submesh draws with its own material; otherwise `material` covers the whole mesh.
     Array<RefPtr<materials::Material>> submeshMaterials;
     Array<Matrix4>               instances;                                  // per-instance world transforms
-    Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };  // shared tint (per-instance tint: later)
+    Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };  // shared tint (used when `tints` is empty)
+    // Optional per-instance tint (parallel to `instances`): when its size matches, each instance uses its
+    // own tint; otherwise `color` covers all. Read at upload, so set it BEFORE SetInstances (which bumps version).
+    Array<Color>                 tints;
     bool                         visible = true;
 
     // GPU-skinned crowds: a shared POSE POOL of `poseCount` skinning palettes (each `boneCount` matrices),
