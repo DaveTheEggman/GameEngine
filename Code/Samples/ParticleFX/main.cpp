@@ -100,6 +100,7 @@ namespace
             BuildFountain(m_effect);
             BuildDebris(m_debris);
             BuildEmbers(m_embers);
+            BuildHaze(m_haze);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
                 // Billboard fountain (additive soft dots), left.
@@ -123,6 +124,13 @@ namespace
                 ec.SetEffect(m_embers);
                 ec.lightIntensity = 14.0f;
                 ec.lightRange     = 8.0f;
+
+                // Ground haze straddling the floor - the soft-particle A/B showcase.
+                m_hazeEmitter = m_scene->CreateEntity(u8"haze");
+                m_scene->SetLocalPosition(m_hazeEmitter, core::Vector3{ 0.0f, 0.6f, 4.0f });
+                pmgr->Add(m_hazeEmitter).SetEffect(m_haze);
+
+                ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);   // sync all systems to the slider
             }
         }
 
@@ -231,6 +239,35 @@ namespace
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.55f);  // bright, then fade
         }
 
+        // Ground haze: big, slow, camera-facing billboards centered at floor level so each quad straddles
+        // the ground plane - the clearest soft-particle A/B (hard clip line vs. soft fade at the floor).
+        static void BuildHaze(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(300);
+            sys.name       = core::String{ u8"haze" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.softDistance = 2.0f;   // wide fade band, obvious in the A/B
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 14.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 7.0f, 0.05f, 5.0f });
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(4.0f, 6.0f);
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 0.25f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 3.0f, 3.0f });  // big: straddles the floor
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.35f, 0.28f, 0.45f, 1.0f });
+            sys.AddBehavior<px::DragBehavior>().drag = 0.6f;
+            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.4f);
+        }
+
+        // Push the current soft-particle distance to every system in an effect (0 => disabled).
+        void ApplySoft(px::ParticleEffect& fx)
+        {
+            for (core::i32 i = 0; i < fx.SystemCount(); ++i) {
+                if (px::ParticleSystem* s = fx.GetSystem(i)) { s->softParticles = m_softOn; s->softDistance = m_softDistance; }
+            }
+        }
+
         void BuildHud()
         {
             ImGui::SetNextWindowPos(ImVec2(12, 12), ImGuiCond_FirstUseEver);
@@ -243,7 +280,12 @@ namespace
                     if (ImGui::Checkbox("emit", &emit)) { sys->emitter.isEmitting = emit; }
                     ImGui::SliderFloat("rate", &sys->emitter.spawnRate, 0.0f, 12000.0f, "%.0f/s");
                 }
-                ImGui::TextDisabled("WASD/RMB fly; additive billboards");
+                // Soft-particle A/B (live - read every frame at extract). Checkbox = on/off; slider tunes
+                // the fade band (kept while off, so toggling restores it). Applies to all billboard systems.
+                bool changed = ImGui::Checkbox("soft particles", &m_softOn);
+                changed |= ImGui::SliderFloat("soft dist", &m_softDistance, 0.0f, 4.0f, "%.2f");
+                if (changed) { ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); }
+                ImGui::TextDisabled("WASD/RMB fly; toggle soft + watch the haze meet the floor");
             }
             ImGui::End();
         }
@@ -253,11 +295,15 @@ namespace
         scene::EntityHandle   m_emitter;
         scene::EntityHandle   m_debrisEmitter;
         scene::EntityHandle   m_emberEmitter;
+        scene::EntityHandle   m_hazeEmitter;
         px::ParticleEffect    m_effect;
         px::ParticleEffect    m_debris;
         px::ParticleEffect    m_embers;
+        px::ParticleEffect    m_haze;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
+        bool                  m_softOn = true;         // soft-particle on/off (HUD checkbox)
+        core::f32             m_softDistance = 2.0f;   // soft-particle fade band (HUD slider)
     };
 }
 
