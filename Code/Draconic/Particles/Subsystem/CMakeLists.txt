@@ -7,7 +7,8 @@ add_library(Draconic::ParticlesSubsystem ALIAS DraconicParticlesSubsystem)
 target_link_libraries(DraconicParticlesSubsystem
     PUBLIC Draconic::Core Draconic::RHI Draconic::Shaders Draconic::ShaderSystem
            Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
-           Draconic::Render Draconic::RenderSubsystem Draconic::Particles Draconic::Policy)
+           Draconic::Render Draconic::RenderSubsystem Draconic::Particles
+           Draconic::Geometry Draconic::Materials Draconic::Policy)
 
 target_sources(DraconicParticlesSubsystem
     PUBLIC

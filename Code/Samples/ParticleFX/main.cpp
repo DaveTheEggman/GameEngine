@@ -98,12 +98,22 @@ namespace
             }
 
             BuildFountain(m_effect);
+            BuildDebris(m_debris);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
+                // Billboard fountain (additive soft dots), left.
                 m_emitter = m_scene->CreateEntity(u8"fountain");
-                m_scene->SetLocalPosition(m_emitter, core::Vector3{ 0.0f, 0.2f, 0.0f });
-                px::ParticleEffectComponent& pc = pmgr->Add(m_emitter);
-                pc.SetEffect(m_effect);   // no texture -> the renderer's default white (solid quads)
+                m_scene->SetLocalPosition(m_emitter, core::Vector3{ -6.0f, 0.2f, 0.0f });
+                pmgr->Add(m_emitter).SetEffect(m_effect);   // no texture -> the renderer's soft-dot default
+
+                // Mesh-particle debris (tumbling cubes through the instanced-mesh path), right.
+                m_debrisEmitter = m_scene->CreateEntity(u8"debris");
+                m_scene->SetLocalPosition(m_debrisEmitter, core::Vector3{ 6.0f, 0.2f, 0.0f });
+                px::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
+                dc.SetEffect(m_debris);
+                dc.mesh     = geometry::Primitives::Cube(1.0f);
+                dc.material = materials::CreatePBR(u8"debris", core::Vector4{ 0.75f, 0.5f, 0.28f, 1.0f }, 0.15f, 0.6f);
+                dc.meshScale = 1.0f;
             }
         }
 
@@ -162,6 +172,31 @@ namespace
                 px::ParticleCurveVector2::Linear(core::Vector2{ 0.4f, 0.4f }, core::Vector2{ 0.04f, 0.04f });
         }
 
+        // Mesh-mode particles: tumbling cubes that arc up and fall, drawn through the instanced-mesh path.
+        static void BuildDebris(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(3000);
+            sys.name       = core::String{ u8"debris" };
+            sys.renderMode = px::ParticleRenderMode::Mesh;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 120.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.3f);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.0f, 3.5f);
+            {
+                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 9.0f, 0.0f };
+                v.randomness   = core::Vector3{ 5.0f, 2.0f, 5.0f };
+            }
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.35f, 0.35f });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.85f, 0.85f, 0.9f, 1.0f });
+            sys.AddInitializer<px::RotationInitializer>();         // random start angle + spin speed
+            sys.AddInitializer<px::MeshOrientationInitializer>();  // random tumble axis
+
+            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.6f;
+            sys.AddBehavior<px::RotationOverLifetimeBehavior>();   // inactive curve -> advances angle by spin speed (tumble)
+        }
+
         void BuildHud()
         {
             ImGui::SetNextWindowPos(ImVec2(12, 12), ImGuiCond_FirstUseEver);
@@ -182,7 +217,9 @@ namespace
         scene::Scene*         m_scene = nullptr;
         scene::EntityHandle   m_camera;
         scene::EntityHandle   m_emitter;
+        scene::EntityHandle   m_debrisEmitter;
         px::ParticleEffect    m_effect;
+        px::ParticleEffect    m_debris;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
     };

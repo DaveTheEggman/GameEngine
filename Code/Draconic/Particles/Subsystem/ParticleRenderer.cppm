@@ -149,22 +149,36 @@ export namespace draconic::particles
             if (!m_device->CreateBuffer(ibd, m_indexBuffer).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
             if (void* p = m_indexBuffer->Map()) { MemCopy(p, indices, sizeof(indices)); m_indexBuffer->Unmap(); }
 
-            // 1x1 white default texture: untextured particles (component texture == null) draw as solid
-            // color quads instead of nothing. Uploaded once via a transfer batch.
+            // Default texture: a soft radial dot (white RGB, smooth alpha falloff to the edge) so
+            // untextured particles read as glowing sparks rather than hard squares. Generated on the CPU
+            // and uploaded once. A component can still supply its own atlas to override this.
+            constexpr u32 kDot = 64;
+            u8 dot[kDot * kDot * 4];
+            for (u32 y = 0; y < kDot; ++y)
+            {
+                for (u32 x = 0; x < kDot; ++x)
+                {
+                    const f32 fx = (static_cast<f32>(x) + 0.5f) / kDot * 2.0f - 1.0f;
+                    const f32 fy = (static_cast<f32>(y) + 0.5f) / kDot * 2.0f - 1.0f;
+                    const f32 d = Sqrt(fx * fx + fy * fy);          // 0 centre .. 1 edge
+                    f32 a = 1.0f - d; a = (a < 0.0f) ? 0.0f : a * a; // squared falloff (soft)
+                    const usize i = (static_cast<usize>(y) * kDot + x) * 4;
+                    dot[i + 0] = 255; dot[i + 1] = 255; dot[i + 2] = 255; dot[i + 3] = static_cast<u8>(a * 255.0f);
+                }
+            }
             rhi::TextureDesc wtd{};
-            wtd.format = rhi::TextureFormat::RGBA8Unorm; wtd.width = 1; wtd.height = 1;
-            wtd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; wtd.label = u8"particle.white";
+            wtd.format = rhi::TextureFormat::RGBA8Unorm; wtd.width = kDot; wtd.height = kDot;
+            wtd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; wtd.label = u8"particle.softdot";
             if (!m_device->CreateTexture(wtd, m_whiteTex).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
             rhi::TextureViewDesc wvd{}; wvd.format = rhi::TextureFormat::RGBA8Unorm; wvd.dimension = rhi::TextureViewDimension::Texture2D;
             if (!m_device->CreateTextureView(m_whiteTex, wvd, m_whiteView).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
-            const u8 white[4] = { 255, 255, 255, 255 };
             if (rhi::Queue* q = m_device->GetQueue(rhi::QueueType::Graphics))
             {
                 rhi::TransferBatch* tb = nullptr;
                 if (q->CreateTransferBatch(tb).IsOk() && tb != nullptr)
                 {
-                    rhi::TextureDataLayout layout{}; layout.bytesPerRow = 4; layout.rowsPerImage = 1;
-                    tb->WriteTexture(m_whiteTex, Span<const u8>{ white, 4 }, layout, rhi::Extent3D{ 1, 1, 1 });
+                    rhi::TextureDataLayout layout{}; layout.bytesPerRow = kDot * 4; layout.rowsPerImage = kDot;
+                    tb->WriteTexture(m_whiteTex, Span<const u8>{ dot, sizeof(dot) }, layout, rhi::Extent3D{ kDot, kDot, 1 });
                     (void)tb->Submit();
                     q->DestroyTransferBatch(tb);
                 }

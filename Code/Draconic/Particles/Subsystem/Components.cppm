@@ -15,7 +15,9 @@ export module draconic.particles.subsystem:components;
 import draconic.core;
 import draconic.rhi;                 // TextureView (billboard texture)
 import draconic.scene;              // Scene, ComponentManager, EntityHandle, ScenePhase
-import draconic.render;             // ExtractedScene, RenderCategories
+import draconic.render;             // ExtractedScene, RenderCategories, MultiMeshRenderData
+import draconic.geometry;           // StaticMesh (mesh-mode particles)
+import draconic.materials;          // Material (mesh-mode particles)
 import draconic.particles;          // ParticleEffect / ParticleEffectInstance / ParticleSystem
 import :renderdata;
 
@@ -23,6 +25,8 @@ using namespace draconic::core;
 namespace rhi = draconic::rhi;
 namespace scene = draconic::scene;
 namespace render = draconic::render;
+namespace geometry = draconic::geometry;
+namespace materials = draconic::materials;
 
 export namespace draconic::particles
 {
@@ -32,7 +36,12 @@ export namespace draconic::particles
     {
         ParticleEffect*                      effect = nullptr;   // borrowed
         UniquePtr<ParticleEffectInstance>    instance;
-        rhi::TextureView*                    texture = nullptr;  // billboard atlas (borrowed); null = untextured (white)
+        rhi::TextureView*                    texture = nullptr;  // billboard atlas (borrowed); null = untextured (soft dot)
+        // Mesh-mode systems (ParticleRenderMode::Mesh) draw this mesh per particle through the instanced-
+        // mesh path. Held while attached; per-particle transform = position * axis/rotation * (size*meshScale).
+        RefPtr<geometry::StaticMesh>         mesh;
+        RefPtr<materials::Material>          material;
+        f32                                  meshScale = 1.0f;
         bool                                 visible = true;
 
         void SetEffect(ParticleEffect& fx)
@@ -70,13 +79,16 @@ export namespace draconic::particles
         {
             const u16 billboardRendererId = m_billboardRendererId;
             m_scratchUsed = 0;
-            ForEach([&](ParticleEffectComponent& c, scene::EntityHandle) {
+            m_xformUsed = 0;
+            m_tintUsed = 0;
+            ForEach([&](ParticleEffectComponent& c, scene::EntityHandle owner) {
                 if (!c.visible || !c.instance) { return; }
                 ParticleEffect& fx = c.instance->Effect();
                 for (i32 s = 0; s < fx.SystemCount(); ++s)
                 {
                     ParticleSystem* sys = fx.GetSystem(s);
-                    if (sys == nullptr || sys->renderMode == ParticleRenderMode::Mesh) { continue; }
+                    if (sys == nullptr) { continue; }
+                    if (sys->renderMode == ParticleRenderMode::Mesh) { ExtractMeshSystem(*sys, c, owner, s, snapshot); continue; }
                     const i32 alive = sys->AliveCount();
                     if (alive <= 0) { continue; }
 
@@ -156,10 +168,86 @@ export namespace draconic::particles
             return *m_scratch[m_scratchUsed++];
         }
 
+        // Mesh-mode: emit a MultiMeshRenderData drawn by the shared mesh renderer (the instanced-mesh
+        // path). Per-particle world transform + tint; a bumped version re-uploads the (dynamic) set each
+        // frame. No new renderer needed - particles reuse the InstancedMesh persistent-buffer machinery.
+        void ExtractMeshSystem(ParticleSystem& sys, ParticleEffectComponent& c, scene::EntityHandle owner, i32 sysIndex, render::ExtractedScene& snapshot)
+        {
+            const i32 alive = sys.AliveCount();
+            if (alive <= 0 || c.mesh.Get() == nullptr) { return; }
+
+            Array<Matrix4>& xf   = AcquireXformScratch();
+            Array<Color>&   tint = AcquireTintScratch();
+            xf.Resize(static_cast<usize>(alive));
+            tint.Resize(static_cast<usize>(alive));
+            Vector3 bmin{ 1e30f, 1e30f, 1e30f }, bmax{ -1e30f, -1e30f, -1e30f };
+            PackMeshTransforms(sys, c.meshScale, xf.Data(), tint.Data(), bmin, bmax);
+
+            render::MultiMeshRenderData* rd = snapshot.Add<render::MultiMeshRenderData>();
+            if (rd == nullptr) { return; }
+            rd->multiMesh     = true;
+            rd->key           = (static_cast<u64>(owner.index) << 16) | static_cast<u64>(static_cast<u32>(sysIndex) & 0xFFFFu);
+            rd->transforms    = xf.Data();
+            rd->tints         = tint.Data();
+            rd->instanceCount = static_cast<u32>(alive);
+            rd->version       = ++m_meshVersion;   // dynamic: transforms change every frame -> re-upload
+            rd->mesh          = c.mesh.Get();
+            rd->material      = c.material.Get();
+            rd->rendererId    = 0;   // the mesh renderer (id 0)
+            rd->category      = render::RenderCategories::Opaque;   // solid mesh particles (debris); transparent later
+            const Vector3 center = (bmin + bmax) * 0.5f;
+            rd->worldCenter   = center;
+            rd->worldRadius   = Length(bmax - center) + LargestSize(sys) * c.meshScale;
+        }
+
+        void PackMeshTransforms(ParticleSystem& sys, f32 meshScale, Matrix4* xf, Color* tint, Vector3& bmin, Vector3& bmax)
+        {
+            ParticleStreamContainer& st = sys.Streams();
+            CPUStream<Vector3>* pos = st.Positions();
+            CPUStream<Vector2>* sizes = st.Sizes();
+            CPUStream<Vector4>* cols = st.Colors();
+            CPUStream<Vector3>* axes = st.Axes();
+            CPUStream<f32>*     rots = st.Rotations();
+            const i32 alive = sys.AliveCount();
+            for (i32 i = 0; i < alive; ++i)
+            {
+                const Vector3 p = (pos != nullptr) ? (*pos)[i] : Vector3::Zero;
+                const f32 sz = ((sizes != nullptr) ? (*sizes)[i].x : 0.1f) * meshScale;
+                Transform t;
+                t.position = p;
+                t.scale    = Vector3{ sz, sz, sz };
+                if (rots != nullptr) {
+                    const Vector3 axis = (axes != nullptr) ? (*axes)[i] : Vector3::UnitY;
+                    t.rotation = Quaternion::FromAxisAngle((LengthSquared(axis) > 1e-6f) ? Normalized(axis) : Vector3::UnitY, (*rots)[i]);
+                }
+                xf[i] = t.ToMatrix();
+                const Vector4 cv = (cols != nullptr) ? (*cols)[i] : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+                tint[i] = Color{ cv.x, cv.y, cv.z, cv.w };
+                bmin = Vector3{ Min(bmin.x, p.x), Min(bmin.y, p.y), Min(bmin.z, p.z) };
+                bmax = Vector3{ Max(bmax.x, p.x), Max(bmax.y, p.y), Max(bmax.z, p.z) };
+            }
+        }
+
+        Array<Matrix4>& AcquireXformScratch()
+        {
+            if (m_xformUsed >= m_xformScratch.Size()) { m_xformScratch.PushBack(MakeUnique<Array<Matrix4>>(DefaultAllocator())); }
+            return *m_xformScratch[m_xformUsed++];
+        }
+        Array<Color>& AcquireTintScratch()
+        {
+            if (m_tintUsed >= m_tintScratch.Size()) { m_tintScratch.PushBack(MakeUnique<Array<Color>>(DefaultAllocator())); }
+            return *m_tintScratch[m_tintUsed++];
+        }
+
         scene::Scene* m_scene = nullptr;
         Vector3       m_cameraPos{ 0.0f, 0.0f, 0.0f };
         u16           m_billboardRendererId = 0;
         Array<UniquePtr<Array<ParticleBillboardInstance>>> m_scratch;
         usize         m_scratchUsed = 0;
+        Array<UniquePtr<Array<Matrix4>>> m_xformScratch;   // mesh-particle world transforms
+        Array<UniquePtr<Array<Color>>>   m_tintScratch;    // mesh-particle per-instance tints
+        usize         m_xformUsed = 0;
+        usize         m_tintUsed = 0;
+        u32           m_meshVersion = 0;   // bumped per mesh batch so the instanced-mesh path re-uploads
     };
 }
