@@ -102,6 +102,8 @@ namespace
             BuildEmbers(m_embers);
             BuildHaze(m_haze);
             BuildTrail(m_trail);
+            BuildCollision(m_collide);
+            BuildLocal(m_local);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
                 // One system per cell of a 4x4 showcase grid (11 cells reserved for later samples).
@@ -137,6 +139,16 @@ namespace
                 m_scene->SetLocalPosition(m_trailEmitter, CellPos(4));
                 pmgr->Add(m_trailEmitter).SetEffect(m_trail);
 
+                // Cell 5: collision rain - spawns high, bounces off the world ground plane.
+                m_collideEmitter = m_scene->CreateEntity(u8"rain");
+                m_scene->SetLocalPosition(m_collideEmitter, CellPos(5) + core::Vector3{ 0.0f, 5.0f, 0.0f });
+                pmgr->Add(m_collideEmitter).SetEffect(m_collide);
+
+                // Cell 6: local-space puff - orbits its emitter (animated in OnUpdate); cloud follows rigidly.
+                m_localEmitter = m_scene->CreateEntity(u8"orbit");
+                m_scene->SetLocalPosition(m_localEmitter, CellPos(6));
+                pmgr->Add(m_localEmitter).SetEffect(m_local);
+
                 ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);   // sync all systems to the slider
             }
         }
@@ -162,6 +174,12 @@ namespace
                 camT.position = m_fly.position;
                 camT.rotation = m_fly.Rotation();
                 m_scene->SetLocalTransform(m_camera, camT);
+
+                // Orbit the local-space emitter so its (Local) cloud visibly rides along as a rigid body.
+                m_orbitTime += deltaTime;
+                const core::Vector3 c = CellPos(6);
+                m_scene->SetLocalPosition(m_localEmitter,
+                    c + core::Vector3{ 2.5f * core::Cos(m_orbitTime * 1.5f), 1.5f, 2.5f * core::Sin(m_orbitTime * 1.5f) });
             }
         }
 
@@ -316,6 +334,53 @@ namespace
             sys.trail.useParticleColor = true;
         }
 
+        // Collision showcase: rain that spawns high and bounces off the world ground plane (y=0).
+        static void BuildCollision(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(4000);
+            sys.name       = core::String{ u8"rain" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Alpha;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 300.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 3.0f, 0.1f, 3.0f });
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 4.0f);
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, -1.0f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.12f, 0.12f });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.5f, 0.75f, 1.0f, 0.9f });
+            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;
+            {
+                px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
+                col.planes[0] = px::CollisionPlane{ core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // world ground
+                col.planeCount   = 1;
+                col.bounce       = 0.4f;
+                col.friction     = 0.15f;
+                col.lifetimeLoss = 0.25f;   // lose some life on each hit so splashes settle
+            }
+        }
+
+        // Local-space showcase: a tight puff that rigidly follows its orbiting emitter (see OnUpdate).
+        static void BuildLocal(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(2000);
+            sys.name       = core::String{ u8"orbit" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.simulationSpace = px::ParticleSpace::Local;   // cloud moves as a rigid body with the emitter
+            sys.prewarmTime = 1.5f;                           // start already-populated
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 200.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.3f);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.6f);
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 0.4f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.18f, 0.18f });
+            sys.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 1.0f, 0.8f, 0.3f, 1.0f }, core::Vector4{ 1.0f, 0.4f, 0.1f, 1.0f });
+            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
+        }
+
         // Push the current soft-particle distance to every system in an effect (0 => disabled).
         void ApplySoft(px::ParticleEffect& fx)
         {
@@ -357,13 +422,18 @@ namespace
         scene::EntityHandle   m_emberEmitter;
         scene::EntityHandle   m_hazeEmitter;
         scene::EntityHandle   m_trailEmitter;
+        scene::EntityHandle   m_collideEmitter;
+        scene::EntityHandle   m_localEmitter;
         px::ParticleEffect    m_effect;
         px::ParticleEffect    m_debris;
         px::ParticleEffect    m_embers;
         px::ParticleEffect    m_haze;
         px::ParticleEffect    m_trail;
+        px::ParticleEffect    m_collide;
+        px::ParticleEffect    m_local;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
+        core::f32             m_orbitTime = 0.0f;      // drives the local-space emitter orbit
         bool                  m_softOn = true;         // soft-particle on/off (HUD checkbox)
         core::f32             m_softDistance = 2.0f;   // soft-particle fade band (HUD slider)
     };
