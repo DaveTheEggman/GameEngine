@@ -8,6 +8,8 @@ target_link_libraries(DraconicParticlesSubsystem
     PUBLIC Draconic::Core Draconic::RHI Draconic::Shaders Draconic::ShaderSystem
            Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
            Draconic::Render Draconic::RenderSubsystem Draconic::Particles
+           Draconic::ParticlesResource Draconic::Resource Draconic::Content
+           Draconic::Texture Draconic::TextureResource
            Draconic::Geometry Draconic::Materials Draconic::Policy Draconic::Profiler)
 
 target_sources(DraconicParticlesSubsystem

@@ -22,6 +22,10 @@ import draconic.render;             // ExtractedScene, RenderCategories, MultiMe
 import draconic.geometry;           // StaticMesh (mesh-mode particles)
 import draconic.materials;          // Material (mesh-mode particles)
 import draconic.particles;          // ParticleEffect / ParticleEffectInstance / ParticleSystem
+import draconic.resource;           // Proxy (cooked-resource handle)
+import draconic.particles.resource; // ParticleEffectResource + CloneEffect (cooked-effect path)
+import draconic.texture;            // Texture::View() for resolved per-system textures
+import draconic.texture.resource;
 import :renderdata;
 
 using namespace draconic::core;
@@ -30,6 +34,8 @@ namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
+namespace resource = draconic::resource;
+namespace texture = draconic::texture;
 
 export namespace draconic::particles
 {
@@ -52,10 +58,27 @@ export namespace draconic::particles
         f32                                  lightRange = 4.0f;
         bool                                 visible = true;
 
+        // Cooked-resource path: a hot-reload-following handle to the cooked effect + the component's own
+        // independent clone (stable address across component moves - the instance borrows *ownedEffect).
+        resource::Proxy<ParticleEffectResource> resourceHandle;
+        UniquePtr<ParticleEffect>               ownedEffect;
+
+        // Code path: attach a borrowed, app-owned effect (tests/samples building effects in code).
         void SetEffect(ParticleEffect& fx)
         {
             effect = &fx;
             instance = MakeUnique<ParticleEffectInstance>(DefaultAllocator(), fx);
+        }
+        // Cooked path: attach a bound ParticleEffectResource. The component clones the cooked template
+        // into its own effect (so multiple entities don't share live particle state) and simulates that;
+        // the resolved per-system textures come from the resource (resourceHandle->SystemTexture(i)).
+        void SetEffect(resource::Proxy<ParticleEffectResource> res)
+        {
+            resourceHandle = res;
+            ownedEffect = MakeUnique<ParticleEffect>(DefaultAllocator());
+            if (res) { CloneEffect(res->Effect(), *ownedEffect); }
+            effect = ownedEffect.Get();
+            instance = MakeUnique<ParticleEffectInstance>(DefaultAllocator(), *ownedEffect);
         }
     };
 
@@ -102,7 +125,7 @@ export namespace draconic::particles
                     ParticleSystem* sys = fx.GetSystem(s);
                     if (sys == nullptr) { continue; }
                     if (sys->renderMode == ParticleRenderMode::Mesh) { ExtractMeshSystem(*sys, c, owner, s, snapshot); continue; }
-                    if (sys->renderMode == ParticleRenderMode::Trail) { ExtractTrailSystem(*sys, c, snapshot); continue; }
+                    if (sys->renderMode == ParticleRenderMode::Trail) { ExtractTrailSystem(*sys, c, s, snapshot); continue; }
                     const i32 alive = sys->AliveCount();
                     if (alive <= 0) { continue; }
                     // Light-mode: illuminate the scene with a capped set of point lights (drawn as billboards too).
@@ -121,7 +144,7 @@ export namespace draconic::particles
                     rd->rendererId = billboardRendererId;
                     rd->instances  = scratch.Data();
                     rd->count      = static_cast<u32>(alive);
-                    rd->texture    = c.texture;
+                    rd->texture    = SystemTextureView(c, s);
                     rd->blend      = sys->blendMode;
                     const Vector3 center = (boundsMin + boundsMax) * 0.5f;
                     rd->worldCenter = center;
@@ -301,7 +324,18 @@ export namespace draconic::particles
         // the segment and the view direction, so the ribbon always faces the camera. Width tapers
         // widthStart -> widthEnd along the trail; alpha fades with each point's age. The vertices are
         // packed into a frame-lived scratch buffer and handed off as one ParticleTrailRenderData batch.
-        void ExtractTrailSystem(ParticleSystem& sys, ParticleEffectComponent& c, render::ExtractedScene& snapshot)
+        // Resolve a system's billboard/trail texture: the cooked resource's per-system Proxy<Texture>
+        // (hot-reload-following) when this component is resource-driven, else the code-set c.texture.
+        [[nodiscard]] static rhi::TextureView* SystemTextureView(const ParticleEffectComponent& c, i32 systemIndex)
+        {
+            if (c.resourceHandle)
+            {
+                if (texture::Texture* t = c.resourceHandle->SystemTexture(systemIndex).Get()) { return t->View(); }
+            }
+            return c.texture;
+        }
+
+        void ExtractTrailSystem(ParticleSystem& sys, ParticleEffectComponent& c, i32 systemIndex, render::ExtractedScene& snapshot)
         {
             const i32 mp = sys.TrailMaxPoints();
             const i32 alive = sys.AliveCount();
@@ -369,7 +403,7 @@ export namespace draconic::particles
             rd->rendererId  = m_billboardRendererId;   // trails ride the same particle rendererId (told apart by particleKind)
             rd->vertices    = verts.Data();
             rd->vertexCount = static_cast<u32>(verts.Size());
-            rd->texture     = c.texture;
+            rd->texture     = SystemTextureView(c, systemIndex);
             rd->blend       = sys.blendMode;
             const Vector3 center = (bmin + bmax) * 0.5f;
             rd->worldCenter = center;
