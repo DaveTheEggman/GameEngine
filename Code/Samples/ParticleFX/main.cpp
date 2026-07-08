@@ -149,7 +149,7 @@ namespace
                 px::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
                 ec.SetEffect(m_embers);
                 ec.lightIntensity = 14.0f;
-                ec.lightRange     = 8.0f;
+                ec.lightRange     = 6.0f;   // smaller range -> fewer clusters overlap -> no visible cluster grid
 
                 // Cell 4: ground haze - the soft-particle A/B showcase.
                 m_hazeEmitter = m_scene->CreateEntity(u8"haze");
@@ -195,8 +195,9 @@ namespace
                 m_scene->SetLocalPosition(m_fireworksEmitter, CellPos(11));
                 pmgr->Add(m_fireworksEmitter).SetEffect(m_fireworks);
 
-                ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); ApplySoft(m_smoke);
-                ApplySoft(m_campfire);   // sync soft systems to the slider
+                // Sync only the soft-particle A/B systems to the slider (smoke keeps soft OFF - the fade
+                // against the floor behind a rising column zeroes its alpha).
+                ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);
             }
         }
 
@@ -277,12 +278,12 @@ namespace
         // paint moving pools of light on the floor (plus the additive billboard glow).
         static void BuildEmbers(px::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(400);   // few: capped to the light budget
+            px::ParticleSystem& sys = effect.AddSystem(400);   // few: sparse enough not to saturate clusters
             sys.name       = core::String{ u8"embers" };
             sys.renderMode = px::ParticleRenderMode::Light;
             sys.blendMode  = px::ParticleBlendMode::Additive;
             sys.emitter.mode = px::EmissionMode::Continuous;
-            sys.emitter.spawnRate = 40.0f;
+            sys.emitter.spawnRate = 12.0f;   // ~45 alive: all fit under the cap (stable, no popping) + light cluster load
 
             sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 4.0f, 0.1f, 4.0f });
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.5f, 4.5f);
@@ -417,30 +418,30 @@ namespace
             sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve = ramp;
         }
 
-        // A single smoke system (billboard alpha, soft): slow rise, expanding, drifting, fading.
+        // A single smoke system (billboard alpha): slow rise, expanding, drifting, fading. Soft particles
+        // are OFF - the soft-depth fade against the floor behind it would zero the alpha of a rising column.
         static void ConfigureSmoke(px::ParticleSystem& sys, core::f32 scale, core::f32 rise)
         {
             sys.name       = core::String{ u8"smoke" };
             sys.renderMode = px::ParticleRenderMode::Billboard;
             sys.blendMode  = px::ParticleBlendMode::Alpha;
-            sys.softParticles = true; sys.softDistance = 1.5f;
+            sys.softParticles = false;
             sys.emitter.mode = px::EmissionMode::Continuous;
-            sys.emitter.spawnRate = 24.0f;
+            sys.emitter.spawnRate = 40.0f;
 
             sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.5f * scale);
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 5.0f);
             sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, rise, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.8f * scale, 0.8f * scale });
-            // Light, ambient-lit grey so it reads against the dark scene (dark grey alpha over a dark floor
-            // is nearly invisible); the alpha curve does the fade-in/out.
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.55f, 0.55f, 0.6f, 0.9f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 1.0f * scale, 1.0f * scale });
+            // Light, ambient-lit grey so it reads against the dark scene; the alpha curve does the fades.
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.6f, 0.6f, 0.65f, 1.0f });
             sys.AddBehavior<px::TurbulenceBehavior>().strength = 0.8f;   // lazy drift
             sys.AddBehavior<px::DragBehavior>().drag = 0.4f;
             sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveVector2::Linear(core::Vector2{ 0.8f * scale, 0.8f * scale }, core::Vector2{ 3.0f * scale, 3.0f * scale });
-            // Fade in from nothing, hold, fade out (billows appear then dissipate).
+                px::ParticleCurveVector2::Linear(core::Vector2{ 1.0f * scale, 1.0f * scale }, core::Vector2{ 3.5f * scale, 3.5f * scale });
+            // Fade in from nothing, hold fairly opaque, fade out (billows appear then dissipate).
             px::ParticleCurveFloat a;
-            a.AddKey(0.0f, 0.0f); a.AddKey(0.2f, 0.6f); a.AddKey(0.7f, 0.4f); a.AddKey(1.0f, 0.0f);
+            a.AddKey(0.0f, 0.0f); a.AddKey(0.15f, 0.9f); a.AddKey(0.6f, 0.7f); a.AddKey(1.0f, 0.0f);
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = a;
         }
 
@@ -592,7 +593,7 @@ namespace
                 // the fade band (kept while off, so toggling restores it). Applies to all billboard systems.
                 bool changed = ImGui::Checkbox("soft particles", &m_softOn);
                 changed |= ImGui::SliderFloat("soft dist", &m_softDistance, 0.0f, 4.0f, "%.2f");
-                if (changed) { ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); ApplySoft(m_smoke); ApplySoft(m_campfire); }
+                if (changed) { ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); }
                 ImGui::TextDisabled("WASD/RMB fly. 4x4 grid: fountain/mesh solid/mesh glow/embers");
                 ImGui::TextDisabled("haze/trail/collision/orbit/smoke/fire/campfire/fireworks");
             }
