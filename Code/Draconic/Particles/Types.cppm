@@ -269,19 +269,21 @@ export namespace draconic::particles
     // A tagged spawn volume: Sample() returns a spawn-local position and an outward direction.
     // (Faithful subset; Sedulous's exact per-shape fields to be reconciled as shapes are added.)
 
-    enum class EmissionShapeType : u8 { Point, Sphere, Hemisphere, Box, Cone, Ring };
+    enum class EmissionShapeType : u8 { Point, Sphere, Hemisphere, Box, Cone, Ring, Circle, Edge };
 
     struct EmissionShape
     {
         EmissionShapeType type = EmissionShapeType::Point;
-        f32 radius = 1.0f;               // Sphere/Hemisphere/Cone/Ring
+        f32 radius = 1.0f;               // Sphere/Hemisphere/Cone/Ring/Circle; Edge: half-length along X
         Vector3 extents{ 1.0f, 1.0f, 1.0f };  // Box half-extents
         f32 angle = 0.7853982f;          // Cone half-angle (radians)
-        bool emitFromShell = false;      // Sphere/Ring: surface vs volume
+        f32 arc = 1.0f;                  // fraction [0,1] of the full azimuth (Sphere/Cone/Ring/Circle)
+        bool emitFromShell = false;      // Sphere/Ring/Circle: surface vs volume
 
         // Returns a position (spawn-local, before the emitter offset) and a normalized direction.
         void Sample(Random& rng, Vector3& outPosition, Vector3& outDirection) const noexcept
         {
+            const f32 tau = 6.2831853f * Clamp(arc, 0.0f, 1.0f);
             switch (type)
             {
                 case EmissionShapeType::Sphere:
@@ -289,7 +291,7 @@ export namespace draconic::particles
                 {
                     const f32 cosMin = (type == EmissionShapeType::Hemisphere) ? 0.0f : -1.0f;
                     const f32 z = rng.NextFloat(cosMin, 1.0f);
-                    const f32 phi = rng.NextFloat(0.0f, 6.2831853f);
+                    const f32 phi = rng.NextFloat(0.0f, tau);
                     const f32 r = Sqrt(1.0f - z * z);
                     const Vector3 dir{ r * Cos(phi), r * Sin(phi), z };
                     const f32 dist = emitFromShell ? radius : radius * Pow(rng.NextFloat(), 1.0f / 3.0f);   // volume-uniform
@@ -307,7 +309,7 @@ export namespace draconic::particles
                 }
                 case EmissionShapeType::Cone:
                 {
-                    const f32 phi = rng.NextFloat(0.0f, 6.2831853f);
+                    const f32 phi = rng.NextFloat(0.0f, tau);
                     const f32 rr = radius * Sqrt(rng.NextFloat());
                     outPosition = Vector3{ rr * Cos(phi), 0.0f, rr * Sin(phi) };
                     const f32 spread = Sin(angle);
@@ -316,9 +318,23 @@ export namespace draconic::particles
                 }
                 case EmissionShapeType::Ring:
                 {
-                    const f32 phi = rng.NextFloat(0.0f, 6.2831853f);
+                    const f32 phi = rng.NextFloat(0.0f, tau);
                     outPosition = Vector3{ radius * Cos(phi), 0.0f, radius * Sin(phi) };
                     outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Vector3::UnitY;
+                    break;
+                }
+                case EmissionShapeType::Circle:   // filled flat disc on the XZ plane
+                {
+                    const f32 phi = rng.NextFloat(0.0f, tau);
+                    const f32 rr = emitFromShell ? radius : radius * Sqrt(rng.NextFloat());   // area-uniform
+                    outPosition = Vector3{ rr * Cos(phi), 0.0f, rr * Sin(phi) };
+                    outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Vector3::UnitY;
+                    break;
+                }
+                case EmissionShapeType::Edge:     // line segment along X, spawns fire upward
+                {
+                    outPosition = Vector3{ rng.NextFloat(-radius, radius), 0.0f, 0.0f };
+                    outDirection = Vector3::UnitY;
                     break;
                 }
                 case EmissionShapeType::Point:
@@ -341,6 +357,45 @@ export namespace draconic::particles
         [[nodiscard]] static EmissionShape Cone(f32 radius, f32 angle) noexcept
         {
             EmissionShape s; s.type = EmissionShapeType::Cone; s.radius = radius; s.angle = angle; return s;
+        }
+        [[nodiscard]] static EmissionShape Circle(f32 radius, bool shell = false) noexcept
+        {
+            EmissionShape s; s.type = EmissionShapeType::Circle; s.radius = radius; s.emitFromShell = shell; return s;
+        }
+        [[nodiscard]] static EmissionShape Edge(f32 halfLength) noexcept
+        {
+            EmissionShape s; s.type = EmissionShapeType::Edge; s.radius = halfLength; return s;
+        }
+    };
+
+    // ---- Flipbook / texture-sheet animation --------------------------------------------------
+    // Animates a particle's UV rect across a grid of sub-images in its texture atlas. Beyond Sedulous
+    // (which had the vertex UV fields but never populated them). Per-system.
+    struct FlipbookSettings
+    {
+        bool enabled = false;
+        i32  columns = 1;
+        i32  rows = 1;
+        f32  fps = 0.0f;              // frames/sec when overLifetime is false (time-based looping)
+        bool overLifetime = true;    // true: sweep the whole sheet once across the particle's lifetime
+        i32  startFrame = 0;
+
+        [[nodiscard]] constexpr i32 FrameCount() const noexcept { return columns * rows; }
+        [[nodiscard]] constexpr bool IsActive() const noexcept { return enabled && FrameCount() > 1; }
+
+        // The UV sub-rect (min.xy, size.zw) for a particle at the given life ratio / age.
+        [[nodiscard]] Vector4 FrameUV(f32 lifeRatio, f32 age) const noexcept
+        {
+            const i32 count = FrameCount();
+            i32 frame = overLifetime ? static_cast<i32>(lifeRatio * static_cast<f32>(count))
+                                     : static_cast<i32>(age * fps);
+            frame = startFrame + frame;
+            frame = ((frame % count) + count) % count;   // wrap (safe for negatives)
+            const i32 col = frame % columns;
+            const i32 row = frame / columns;
+            const f32 sx = 1.0f / static_cast<f32>(columns);
+            const f32 sy = 1.0f / static_cast<f32>(rows);
+            return Vector4{ static_cast<f32>(col) * sx, static_cast<f32>(row) * sy, sx, sy };
         }
     };
 

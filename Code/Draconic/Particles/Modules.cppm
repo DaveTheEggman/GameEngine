@@ -327,6 +327,63 @@ export namespace draconic::particles
         }
     };
 
+    // A world-space collision plane: points with Dot(normal, p) - distance < 0 are behind it.
+    struct CollisionPlane
+    {
+        Vector3 normal{ 0.0f, 1.0f, 0.0f };
+        f32     distance = 0.0f;
+    };
+
+    // Bounces particles off a small set of world planes (ground + walls). Beyond Sedulous, which had no
+    // collision at all. On a hit: push to the surface, reflect the normal velocity by `bounce`, damp the
+    // tangential velocity by `friction`, and optionally age the particle by `lifetimeLoss` of its
+    // remaining life. Runs as a behavior (before integrate), so it corrects last frame's penetration.
+    class CollisionBehavior final : public ParticleBehavior
+    {
+    public:
+        static constexpr i32 kMaxPlanes = 4;
+        CollisionPlane planes[kMaxPlanes]{};
+        i32 planeCount = 1;          // default: the ground plane (y = 0)
+        f32 radius = 0.0f;           // particle collision radius (offsets the surface)
+        f32 bounce = 0.5f;           // normal restitution (0 = stick, 1 = perfect bounce)
+        f32 friction = 0.1f;         // tangential velocity damping on contact [0,1]
+        f32 lifetimeLoss = 0.0f;     // fraction of remaining life lost per hit [0,1]
+
+        [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
+        void DeclareStreams(ParticleStreamContainer& streams) override
+        {
+            streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3);
+        }
+        void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
+        {
+            CPUStream<Vector3>* pos = streams.Positions();
+            CPUStream<Vector3>* vel = streams.Velocities();
+            if (pos == nullptr || vel == nullptr) { return; }
+            CPUStream<f32>* ages  = streams.Ages();
+            CPUStream<f32>* lifes = streams.Lifetimes();
+            const i32 n = Min(planeCount, kMaxPlanes);
+            for (i32 i = 0; i < streams.aliveCount; ++i)
+            {
+                for (i32 pl = 0; pl < n; ++pl)
+                {
+                    const CollisionPlane& plane = planes[pl];
+                    const f32 d = Dot(plane.normal, (*pos)[i]) - plane.distance - radius;
+                    if (d >= 0.0f) { continue; }                     // in front of the plane: no contact
+                    (*pos)[i] -= plane.normal * d;                   // push out to the surface
+                    const f32 vn = Dot((*vel)[i], plane.normal);
+                    if (vn >= 0.0f) { continue; }                    // already moving away
+                    const Vector3 vNormal = plane.normal * vn;
+                    const Vector3 vTangent = (*vel)[i] - vNormal;
+                    (*vel)[i] = vTangent * (1.0f - friction) - vNormal * bounce;
+                    if (lifetimeLoss > 0.0f && ages != nullptr && lifes != nullptr)
+                    {
+                        (*ages)[i] += ((*lifes)[i] - (*ages)[i]) * lifetimeLoss;   // age toward death
+                    }
+                }
+            }
+        }
+    };
+
     // ---- Over-lifetime behaviors (sample t = GetLifeRatio) -----------------------------------
 
     class ColorOverLifetimeBehavior final : public ParticleBehavior
@@ -464,6 +521,7 @@ export namespace draconic::particles
         if (id == StringView(u8"Vortex"))              { return MakeUnique<VortexBehavior>(a); }
         if (id == StringView(u8"Attractor"))           { return MakeUnique<AttractorBehavior>(a); }
         if (id == StringView(u8"RadialForce"))         { return MakeUnique<RadialForceBehavior>(a); }
+        if (id == StringView(u8"Collision"))           { return MakeUnique<CollisionBehavior>(a); }
         if (id == StringView(u8"ColorOverLifetime"))   { return MakeUnique<ColorOverLifetimeBehavior>(a); }
         if (id == StringView(u8"AlphaOverLifetime"))   { return MakeUnique<AlphaOverLifetimeBehavior>(a); }
         if (id == StringView(u8"SizeOverLifetime"))    { return MakeUnique<SizeOverLifetimeBehavior>(a); }

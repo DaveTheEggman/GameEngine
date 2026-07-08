@@ -337,3 +337,170 @@ TEST_CASE("Sub-emitter: parent death spawns into the child system")
     CHECK(rockets.AliveCount() == 0);
     CHECK(sparks.AliveCount() == 40);
 }
+
+// ---- new parity+ features ----------------------------------------------------------------------
+
+TEST_CASE("EmissionShape: Circle is a flat XZ disc, Edge is a line on X")
+{
+    Random rng;
+    for (int i = 0; i < 64; ++i)
+    {
+        Vector3 pos, dir;
+        px::EmissionShape::Circle(2.0f).Sample(rng, pos, dir);
+        CHECK(pos.y == doctest::Approx(0.0f));
+        CHECK(Length(Vector3{ pos.x, 0.0f, pos.z }) <= doctest::Approx(2.0f).epsilon(0.01));
+
+        px::EmissionShape::Edge(3.0f).Sample(rng, pos, dir);
+        CHECK(pos.y == doctest::Approx(0.0f));
+        CHECK(pos.z == doctest::Approx(0.0f));
+        CHECK(pos.x >= -3.01f);
+        CHECK(pos.x <= 3.01f);
+    }
+}
+
+TEST_CASE("EmissionShape: Arc restricts the azimuth to the first quadrant")
+{
+    Random rng;
+    px::EmissionShape s = px::EmissionShape::Circle(1.0f, /*shell*/ true);
+    s.arc = 0.25f;   // quarter turn -> phi in [0, pi/2] -> x>=0, z>=0
+    for (int i = 0; i < 64; ++i)
+    {
+        Vector3 pos, dir;
+        s.Sample(rng, pos, dir);
+        CHECK(pos.x >= -0.001f);
+        CHECK(pos.z >= -0.001f);
+    }
+}
+
+TEST_CASE("FlipbookSettings: FrameUV walks a grid over lifetime")
+{
+    px::FlipbookSettings fb;
+    fb.enabled = true; fb.columns = 4; fb.rows = 4; fb.overLifetime = true;
+    CHECK(fb.IsActive());
+    CHECK(fb.FrameCount() == 16);
+
+    const Vector4 f0 = fb.FrameUV(0.0f, 0.0f);     // frame 0 -> col0,row0
+    CHECK(f0.x == doctest::Approx(0.0f));
+    CHECK(f0.y == doctest::Approx(0.0f));
+    CHECK(f0.z == doctest::Approx(0.25f));
+    CHECK(f0.w == doctest::Approx(0.25f));
+
+    const Vector4 f8 = fb.FrameUV(0.5f, 0.0f);     // frame 8 -> col0,row2
+    CHECK(f8.x == doctest::Approx(0.0f));
+    CHECK(f8.y == doctest::Approx(0.5f));
+
+    const Vector4 fL = fb.FrameUV(0.999f, 0.0f);   // frame 15 -> col3,row3
+    CHECK(fL.x == doctest::Approx(0.75f));
+    CHECK(fL.y == doctest::Approx(0.75f));
+}
+
+TEST_CASE("Local space: particles spawn emitter-relative (near origin), not at the world position")
+{
+    px::ParticleEffect fx(u8"local");
+    px::ParticleSystem& sys = fx.AddSystem(100);
+    sys.simulationSpace = px::ParticleSpace::Local;
+    sys.AddInitializer<px::PositionInitializer>();   // Point shape -> local origin
+    sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(5.0f, 5.0f);
+    sys.emitter.mode = px::EmissionMode::Burst;
+    sys.emitter.burstCount = 8;
+
+    px::ParticleEffectInstance inst(fx);
+    inst.position = Vector3{ 100.0f, 0.0f, 0.0f };   // far from origin
+    inst.Update(0.016f);
+    REQUIRE(sys.AliveCount() == 8);
+    // Stored positions are local (~origin); the emitter transform is applied only at extract.
+    CHECK(Length((*sys.Streams().Positions())[0]) < 1.0f);
+}
+
+TEST_CASE("Emitter duration: one-shot stops, looping re-arms")
+{
+    px::ParticleEmitter oneShot;
+    oneShot.mode = px::EmissionMode::Continuous;
+    oneShot.spawnRate = 100.0f;
+    oneShot.duration = 0.1f;
+    oneShot.looping = false;
+    CHECK(oneShot.CalculateSpawnCount(0.05f) == 5);   // inside the window
+    CHECK(oneShot.CalculateSpawnCount(0.10f) == 0);   // past it -> stop
+
+    px::ParticleEmitter loop;
+    loop.mode = px::EmissionMode::Continuous;
+    loop.spawnRate = 100.0f;
+    loop.duration = 0.1f;
+    loop.looping = true;
+    CHECK(loop.CalculateSpawnCount(0.05f) == 5);
+    CHECK(loop.CalculateSpawnCount(0.10f) > 0);       // wraps and keeps emitting
+}
+
+TEST_CASE("Prewarm: the effect is already populated on its first Update")
+{
+    px::ParticleEffect fx(u8"prewarm");
+    px::ParticleSystem& sys = fx.AddSystem(500);
+    sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(10.0f, 10.0f);
+    sys.emitter.spawnRate = 100.0f;
+    sys.prewarmTime = 1.0f;   // ~100 particles simulated before the first visible frame
+
+    px::ParticleEffectInstance inst(fx);
+    inst.Update(0.016f);
+    CHECK(sys.AliveCount() > 50);
+}
+
+TEST_CASE("CollisionBehavior: a particle bounces off the ground plane")
+{
+    px::ParticleEffect fx(u8"collide");
+    px::ParticleSystem& sys = fx.AddSystem(10);
+    sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(10.0f, 10.0f);
+    px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
+    col.planes[0] = px::CollisionPlane{ Vector3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // ground y=0
+    col.bounce = 0.5f; col.friction = 0.0f;
+    sys.emitter.mode = px::EmissionMode::Burst;
+    sys.emitter.burstCount = 1;
+
+    px::ParticleEffectInstance inst(fx);
+    inst.Update(0.016f);
+    REQUIRE(sys.AliveCount() == 1);
+    // Drive it below the plane moving downward, then step: expect a push-out + upward bounce.
+    (*sys.Streams().Positions())[0]  = Vector3{ 0.0f, -1.0f, 0.0f };
+    (*sys.Streams().Velocities())[0] = Vector3{ 0.0f, -2.0f, 0.0f };
+    inst.Update(0.016f);
+    CHECK((*sys.Streams().Velocities())[0].y == doctest::Approx(1.0f));   // -(-2)*0.5
+    CHECK((*sys.Streams().Positions())[0].y >= -0.001f);                  // pushed to/above the surface
+}
+
+TEST_CASE("Seeded RNG: same seed reproduces spawns; Reset replays deterministically")
+{
+    auto build = [](px::ParticleSystem& s) {
+        s.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(3.0f);
+        s.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(5.0f, 5.0f);
+        s.emitter.mode = px::EmissionMode::Burst; s.emitter.burstCount = 16;
+    };
+    px::ParticleEffect a(u8"a"); px::ParticleSystem& sa = a.AddSystem(100, 12345ull); build(sa);
+    px::ParticleEffect b(u8"b"); px::ParticleSystem& sb = b.AddSystem(100, 12345ull); build(sb);
+    px::ParticleEffectInstance ia(a), ib(b);
+    ia.Update(0.016f); ib.Update(0.016f);
+    REQUIRE(sa.AliveCount() == 16);
+    REQUIRE(sb.AliveCount() == 16);
+    CHECK(Length((*sa.Streams().Positions())[7] - (*sb.Streams().Positions())[7]) == doctest::Approx(0.0f));
+
+    const Vector3 first = (*sa.Streams().Positions())[3];
+    sa.Reset(); ia.Update(0.016f);
+    CHECK(Length((*sa.Streams().Positions())[3] - first) == doctest::Approx(0.0f));
+}
+
+TEST_CASE("Sub-emitter SpawnAt: inherits (adds) velocity and modulates color")
+{
+    px::ParticleEffect fx(u8"inherit");
+    px::ParticleSystem& child = fx.AddSystem(100);
+    child.AddInitializer<px::VelocityInitializer>().baseVelocity = Vector3{ 1.0f, 0.0f, 0.0f };
+    child.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(Vector4{ 1, 1, 1, 1 });
+    child.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(5.0f, 5.0f);
+
+    child.SpawnAt(1, Vector3{ 0, 0, 0 }, Vector3{ 0.0f, 5.0f, 0.0f }, Vector4{ 1.0f, 0.0f, 0.0f, 1.0f });
+    REQUIRE(child.AliveCount() == 1);
+    const Vector3 v = (*child.Streams().Velocities())[0];
+    CHECK(v.x == doctest::Approx(1.0f));   // base
+    CHECK(v.y == doctest::Approx(5.0f));   // + inherited
+    const Vector4 c = (*child.Streams().Colors())[0];
+    CHECK(c.x == doctest::Approx(1.0f));
+    CHECK(c.y == doctest::Approx(0.0f));   // white * red
+    CHECK(c.z == doctest::Approx(0.0f));
+}

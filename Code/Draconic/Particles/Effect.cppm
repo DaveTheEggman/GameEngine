@@ -39,12 +39,26 @@ export namespace draconic::particles
         f32 burstInterval = 0.0f;   // seconds between bursts (<=0 = single burst on first frame)
         i32 burstCycles = 0;        // 0 = infinite bursts
         bool isEmitting = true;
+        f32 duration = 0.0f;        // active emission window in seconds (0 = emit forever)
+        bool looping = true;        // when duration>0: restart the window (else emit once then stop)
 
         // Returns how many particles to spawn this frame (does not spawn). Accumulator model for
-        // continuous; timer/cycles for bursts.
+        // continuous; timer/cycles for bursts. Gated by the duration/looping window.
         [[nodiscard]] i32 CalculateSpawnCount(f32 deltaTime) noexcept
         {
             if (!isEmitting) { return 0; }
+            // Duration window: outside it, stop (one-shot) or wrap + re-arm bursts (looping).
+            if (duration > 0.0f)
+            {
+                m_cycleTime += deltaTime;
+                if (m_cycleTime >= duration)
+                {
+                    if (!looping) { return 0; }
+                    while (m_cycleTime >= duration) { m_cycleTime -= duration; }
+                    m_singleBurstDone = false;       // re-arm single/looping bursts for the new cycle
+                    m_burstCyclesCompleted = 0;
+                }
+            }
             i32 count = 0;
             if (mode == EmissionMode::Continuous || mode == EmissionMode::ContinuousAndBurst)
             {
@@ -76,9 +90,11 @@ export namespace draconic::particles
         void Reset() noexcept
         {
             m_spawnAccumulator = 0.0f; m_burstTimer = 0.0f; m_burstCyclesCompleted = 0; m_singleBurstDone = false;
+            m_cycleTime = 0.0f;
         }
 
     private:
+        f32 m_cycleTime = 0.0f;
         f32 m_spawnAccumulator = 0.0f;
         f32 m_burstTimer = 0.0f;
         i32 m_burstCyclesCompleted = 0;
@@ -107,6 +123,10 @@ export namespace draconic::particles
         // Trails: when renderMode==Trail (and trail.IsActive()), each particle records a position ring
         // that the render extractor expands into a camera-facing ribbon.
         TrailSettings trail = TrailSettings::Default();
+        // Flipbook: animate the billboard UV rect across a texture-sheet grid (see FlipbookSettings).
+        FlipbookSettings flipbook{};
+        // Prewarm: on the first Update, simulate this many seconds so the effect starts already-running.
+        f32 prewarmTime = 0.0f;
         // LOD (0 disables)
         f32 lodStartDistance = 0.0f;
         f32 lodCullDistance = 0.0f;
@@ -121,10 +141,16 @@ export namespace draconic::particles
             : m_maxParticles(maxParticles), m_streams(maxParticles),
               m_simulator(MakeUnique<CPUSimulator>(DefaultAllocator())), m_random(seed)
         {
+            m_seed = seed;
         }
 
         ParticleSystem(const ParticleSystem&) = delete;
         ParticleSystem& operator=(const ParticleSystem&) = delete;
+
+        // Reseed the RNG for deterministic playback. Reset() re-applies this seed, so the same seed +
+        // same inputs reproduce an identical particle sequence.
+        void SetSeed(u64 seed) noexcept { m_seed = seed; m_random = Random(seed); }
+        [[nodiscard]] u64 Seed() const noexcept { return m_seed; }
 
         [[nodiscard]] i32 MaxParticles() const noexcept { return m_maxParticles; }
         [[nodiscard]] i32 AliveCount() const noexcept { return m_streams.aliveCount; }
@@ -191,8 +217,29 @@ export namespace draconic::particles
             // Until the GPU simulator exists, everything simulates on CPU.
         }
 
-        // The per-frame step - exact Sedulous order.
+        // Per-frame entry point: runs a one-time prewarm (simulate `prewarmTime` seconds so the effect
+        // appears already-running on its first visible frame), then the normal step.
         void Update(f32 deltaTime, Vector3 cameraPos = Vector3::Zero)
+        {
+            if (!m_prewarmed)
+            {
+                m_prewarmed = true;
+                if (prewarmTime > 0.0f)
+                {
+                    const f32 h = 1.0f / 30.0f;
+                    for (f32 remaining = prewarmTime; remaining > 1e-4f; )
+                    {
+                        const f32 s = Min(h, remaining);
+                        Step(s, cameraPos);
+                        remaining -= s;
+                    }
+                }
+            }
+            Step(deltaTime, cameraPos);
+        }
+
+        // The per-frame step - exact Sedulous order.
+        void Step(f32 deltaTime, Vector3 cameraPos = Vector3::Zero)
         {
             m_totalTime += deltaTime;                                   // 1
             m_deathCount = 0; m_birthCount = 0;                         // 2
@@ -214,12 +261,13 @@ export namespace draconic::particles
         void SpawnParticles(i32 count) { SpawnInternal(count, false, Vector3::Zero); }
         // Spawn immediately, bypassing emitter timing (sub-emitter birth without inheritance).
         void SpawnImmediate(i32 count) { SpawnInternal(count, false, Vector3::Zero); }
-        // Spawn at a specific position (sub-emitter with inherited position). inheritedVelocity/
-        // Color are accepted for parity but not yet written to streams (matches Sedulous).
+        // Spawn at a specific position (sub-emitter). inheritedVelocity is ADDED to each new particle's
+        // initialized velocity; inheritedColor MODULATES its color - both no-ops at their defaults
+        // (zero / white), so callers pass the already-factored parent velocity/color. (Beyond Sedulous,
+        // whose SpawnAt dropped these.)
         void SpawnAt(i32 count, Vector3 spawnPos, Vector3 inheritedVelocity = Vector3::Zero, Vector4 inheritedColor = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f })
         {
-            (void)inheritedVelocity; (void)inheritedColor;
-            SpawnInternal(count, true, spawnPos);
+            SpawnInternal(count, true, spawnPos, true, inheritedVelocity, inheritedColor);
         }
 
         [[nodiscard]] Span<const ParticleEvent> DeathEvents() const noexcept { return Span<const ParticleEvent>{ m_deathEvents, static_cast<usize>(m_deathCount) }; }
@@ -230,20 +278,36 @@ export namespace draconic::particles
             m_streams.aliveCount = 0;
             emitter.Reset();
             m_totalTime = 0.0f;
+            m_prewarmed = false;
+            m_random = Random(m_seed);   // deterministic replay from the configured seed
         }
 
     private:
-        void SpawnInternal(i32 count, bool overridePosition, Vector3 spawnPos)
+        void SpawnInternal(i32 count, bool overridePosition, Vector3 spawnPos,
+                           bool inherit = false, Vector3 inheritedVelocity = Vector3::Zero, Vector4 inheritedColor = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f })
         {
             if (count <= 0) { return; }
-            const Vector3 emitterVel = (position - prevPosition) / Max(m_totalTime, 0.001f);   // Sedulous divides by TotalTime (kept faithful)
-            for (usize k = 0; k < m_initializers.Size(); ++k) { m_initializers[k]->SetEmitterState(position, emitterVel); }
+            // Local space: particles are stored relative to the emitter (origin) and re-based to world at
+            // extract, so spawn positions/velocities are emitter-relative (i.e. zero emitter state).
+            const bool local = (simulationSpace == ParticleSpace::Local);
+            const Vector3 emState = local ? Vector3::Zero : position;
+            const Vector3 emitterVel = local ? Vector3::Zero
+                                             : (position - prevPosition) / Max(m_totalTime, 0.001f);   // Sedulous divides by TotalTime (kept faithful)
+            for (usize k = 0; k < m_initializers.Size(); ++k) { m_initializers[k]->SetEmitterState(emState, emitterVel); }
             for (i32 n = 0; n < count; ++n)
             {
                 if (m_streams.aliveCount >= m_maxParticles) { break; }
                 const i32 index = m_streams.aliveCount++;
                 for (usize k = 0; k < m_initializers.Size(); ++k) { m_initializers[k]->Initialize(m_streams, index, m_random); }
                 if (overridePosition) { (*m_streams.Positions())[index] = spawnPos; }
+                if (inherit)
+                {
+                    if (CPUStream<Vector3>* v = m_streams.Velocities()) { (*v)[index] += inheritedVelocity; }              // add parent velocity
+                    if (CPUStream<Vector4>* c = m_streams.Colors()) {
+                        Vector4& cc = (*c)[index];
+                        cc = Vector4{ cc.x * inheritedColor.x, cc.y * inheritedColor.y, cc.z * inheritedColor.z, cc.w * inheritedColor.w };   // modulate
+                    }
+                }
                 RecordBirthEvent(index);
             }
         }
@@ -381,6 +445,8 @@ export namespace draconic::particles
         Random m_random;
         f32 m_totalTime = 0.0f;
         f32 m_lodRateMultiplier = 1.0f;
+        bool m_prewarmed = false;
+        u64 m_seed = 0x9E3779B97F4A7C15ull;
         SimulationMode m_resolvedMode = SimulationMode::CPU;
         ParticleEvent m_deathEvents[kMaxEventsPerFrame]{};
         ParticleEvent m_birthEvents[kMaxEventsPerFrame]{};
