@@ -18,6 +18,8 @@ target_sources(DraconicParticles
             Effect.cppm
             ParticlesModule.cppm)
 
+add_subdirectory(Resource)   # draconic.particles.resource (cooked ParticleEffectResource + factory)
+
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
