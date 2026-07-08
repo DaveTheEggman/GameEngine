@@ -113,7 +113,7 @@ export namespace draconic::particles
                     rd->instances  = scratch.Data();
                     rd->count      = static_cast<u32>(alive);
                     rd->texture    = c.texture;
-                    rd->blend      = (sys->blendMode == ParticleBlendMode::Additive || sys->blendMode == ParticleBlendMode::Premultiplied) ? 1u : 0u;
+                    rd->blend      = sys->blendMode;
                     const Vector3 center = (boundsMin + boundsMax) * 0.5f;
                     rd->worldCenter = center;
                     rd->worldRadius = Length(boundsMax - center) + LargestSize(*sys);
@@ -306,7 +306,7 @@ export namespace draconic::particles
             rd->vertices    = verts.Data();
             rd->vertexCount = static_cast<u32>(verts.Size());
             rd->texture     = c.texture;
-            rd->blend       = (sys.blendMode == ParticleBlendMode::Additive || sys.blendMode == ParticleBlendMode::Premultiplied) ? 1u : 0u;
+            rd->blend       = sys.blendMode;
             const Vector3 center = (bmin + bmax) * 0.5f;
             rd->worldCenter = center;
             rd->worldRadius = Length(bmax - center) + t.widthStart;

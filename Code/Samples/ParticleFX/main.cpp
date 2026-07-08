@@ -335,6 +335,10 @@ namespace
                     bool emit = sys->emitter.isEmitting;
                     if (ImGui::Checkbox("emit", &emit)) { sys->emitter.isEmitting = emit; }
                     ImGui::SliderFloat("rate", &sys->emitter.spawnRate, 0.0f, 12000.0f, "%.0f/s");
+                    // Fountain blend mode - live (read at extract), so all four PSO variants are eyeballable.
+                    const char* kBlends[] = { "Alpha", "Additive", "Premultiplied", "Multiply" };
+                    int blend = static_cast<int>(sys->blendMode);
+                    if (ImGui::Combo("blend", &blend, kBlends, 4)) { sys->blendMode = static_cast<px::ParticleBlendMode>(blend); }
                 }
                 // Soft-particle A/B (live - read every frame at extract). Checkbox = on/off; slider tunes
                 // the fade band (kept while off, so toggling restores it). Applies to all billboard systems.

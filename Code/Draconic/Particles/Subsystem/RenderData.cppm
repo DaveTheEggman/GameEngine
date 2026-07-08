@@ -13,7 +13,8 @@ export module draconic.particles.subsystem:renderdata;
 
 import draconic.core;
 import draconic.rhi;
-import draconic.render;   // RenderData base + RenderCategories
+import draconic.render;      // RenderData base + RenderCategories
+import draconic.particles;   // ParticleBlendMode
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -44,7 +45,7 @@ export namespace draconic::particles
         const ParticleBillboardInstance* instances = nullptr;
         u32                              count = 0;
         rhi::TextureView*                texture = nullptr;
-        u8                               blend = 0;   // 0 = alpha, 1 = additive (mapped from ParticleBlendMode)
+        ParticleBlendMode                blend = ParticleBlendMode::Alpha;   // selects the renderer's blend PSO
     };
     static_assert(std::is_trivially_destructible_v<ParticleBillboardRenderData>);
 
@@ -65,7 +66,7 @@ export namespace draconic::particles
         const TrailVertex* vertices = nullptr;
         u32                vertexCount = 0;
         rhi::TextureView*  texture = nullptr;
-        u8                 blend = 0;
+        ParticleBlendMode  blend = ParticleBlendMode::Alpha;
     };
     static_assert(std::is_trivially_destructible_v<ParticleTrailRenderData>);
 }

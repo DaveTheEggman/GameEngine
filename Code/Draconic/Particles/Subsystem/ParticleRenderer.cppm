@@ -16,6 +16,7 @@ import draconic.rhi;
 import draconic.shaders;
 import draconic.shaders.system;
 import draconic.render;   // Renderer, RenderRecordContext, ResolvedDraw, DrawItem, DynamicUniformRing, categories
+import draconic.particles;   // ParticleBlendMode
 import :renderdata;
 
 using namespace draconic::core;
@@ -334,7 +335,7 @@ export namespace draconic::particles
                                 off += b->count;
                             }
                         }
-                        rhi::RenderPipeline* pso = EnsurePipeline(ctx.colorFormat, head->blend != 0);
+                        rhi::RenderPipeline* pso = EnsurePipeline(ctx.colorFormat, head->blend);
                         rhi::BindGroup* texBg = EnsureTextureBindGroup(head->texture != nullptr ? head->texture : m_whiteView);
                         if (pso != nullptr && texBg != nullptr && off > 0)
                         {
@@ -399,9 +400,38 @@ export namespace draconic::particles
             return bg;
         }
 
-        rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFormat, bool additive)
+        // The blend state for each particle mode. Additive keeps the particle-appropriate {SrcAlpha, One}
+        // (scales the source by its alpha before accumulating) rather than the RHI's plain {One, One}, so
+        // an un-premultiplied soft dot still reads as a glow instead of blowing out.
+        static rhi::BlendState BlendFor(ParticleBlendMode mode)
         {
-            Pipelines& p = additive ? m_additive : m_alpha;
+            switch (mode)
+            {
+                case ParticleBlendMode::Additive:
+                    return { { rhi::BlendFactor::SrcAlpha, rhi::BlendFactor::One, rhi::BlendOperation::Add },
+                             { rhi::BlendFactor::One,      rhi::BlendFactor::One, rhi::BlendOperation::Add } };
+                case ParticleBlendMode::Premultiplied: return rhi::BlendState::PremultipliedAlpha();
+                case ParticleBlendMode::Multiply:      return rhi::BlendState::Multiply();
+                case ParticleBlendMode::Alpha:
+                default:                               return rhi::BlendState::AlphaBlend();
+            }
+        }
+
+        static const char8_t* BlendLabel(ParticleBlendMode mode)
+        {
+            switch (mode)
+            {
+                case ParticleBlendMode::Additive:      return u8"particle.additive";
+                case ParticleBlendMode::Premultiplied: return u8"particle.premultiplied";
+                case ParticleBlendMode::Multiply:      return u8"particle.multiply";
+                case ParticleBlendMode::Alpha:
+                default:                               return u8"particle.alpha";
+            }
+        }
+
+        rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFormat, ParticleBlendMode mode)
+        {
+            Pipelines& p = m_billboard[static_cast<u32>(mode)];
             if (p.pso != nullptr && p.format == colorFormat) { return p.pso; }
             if (p.pso != nullptr) { m_device->DestroyRenderPipeline(p.pso); p.pso = nullptr; }
 
@@ -422,10 +452,7 @@ export namespace draconic::particles
 
             rhi::ColorTargetState target{};
             target.format = colorFormat;
-            const rhi::BlendState addBlend{
-                { rhi::BlendFactor::SrcAlpha, rhi::BlendFactor::One, rhi::BlendOperation::Add },
-                { rhi::BlendFactor::One,      rhi::BlendFactor::One, rhi::BlendOperation::Add } };
-            target.blend = additive ? addBlend : rhi::BlendState::AlphaBlend();
+            target.blend = BlendFor(mode);
 
             rhi::FragmentState frag{}; frag.shader = rhi::ProgrammableStage{ ps, u8"main", rhi::ShaderStage::Fragment };
             frag.targets = Span<const rhi::ColorTargetState>{ &target, 1 };
@@ -442,7 +469,7 @@ export namespace draconic::particles
             pd.depthStencil = ds;
             pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
             pd.primitive.cullMode = rhi::CullMode::None;
-            pd.label = additive ? u8"particle.additive" : u8"particle.alpha";
+            pd.label = BlendLabel(mode);
             rhi::RenderPipeline* pso = nullptr;
             if (!m_device->CreateRenderPipeline(pd, pso).IsOk()) { return nullptr; }
             p.pso = pso; p.format = colorFormat;
@@ -460,7 +487,7 @@ export namespace draconic::particles
             const render::DynamicUniformRing::Range tr = m_trailRing.AllocateRange(count);
             if (!tr.ok) { return; }
             MemCopy(tr.ptr, b->vertices, static_cast<usize>(count) * sizeof(TrailVertex));
-            rhi::RenderPipeline* pso = EnsureTrailPipeline(ctx.colorFormat, b->blend != 0);
+            rhi::RenderPipeline* pso = EnsureTrailPipeline(ctx.colorFormat, b->blend);
             rhi::BindGroup* texBg = EnsureTextureBindGroup(b->texture != nullptr ? b->texture : m_whiteView);
             if (pso == nullptr || texBg == nullptr) { return; }
             render::ResolvedDraw d{};
@@ -473,9 +500,9 @@ export namespace draconic::particles
             out.PushBack(d);
         }
 
-        rhi::RenderPipeline* EnsureTrailPipeline(rhi::TextureFormat colorFormat, bool additive)
+        rhi::RenderPipeline* EnsureTrailPipeline(rhi::TextureFormat colorFormat, ParticleBlendMode mode)
         {
-            Pipelines& p = additive ? m_trailAdditive : m_trailAlpha;
+            Pipelines& p = m_trail[static_cast<u32>(mode)];
             if (p.pso != nullptr && p.format == colorFormat) { return p.pso; }
             if (p.pso != nullptr) { m_device->DestroyRenderPipeline(p.pso); p.pso = nullptr; }
 
@@ -494,10 +521,7 @@ export namespace draconic::particles
 
             rhi::ColorTargetState target{};
             target.format = colorFormat;
-            const rhi::BlendState addBlend{
-                { rhi::BlendFactor::SrcAlpha, rhi::BlendFactor::One, rhi::BlendOperation::Add },
-                { rhi::BlendFactor::One,      rhi::BlendFactor::One, rhi::BlendOperation::Add } };
-            target.blend = additive ? addBlend : rhi::BlendState::AlphaBlend();
+            target.blend = BlendFor(mode);
 
             rhi::FragmentState frag{}; frag.shader = rhi::ProgrammableStage{ ps, u8"main", rhi::ShaderStage::Fragment };
             frag.targets = Span<const rhi::ColorTargetState>{ &target, 1 };
@@ -510,7 +534,7 @@ export namespace draconic::particles
             pd.fragment = frag; pd.depthStencil = ds;
             pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
             pd.primitive.cullMode = rhi::CullMode::None;
-            pd.label = additive ? u8"particletrail.additive" : u8"particletrail.alpha";
+            pd.label = BlendLabel(mode);   // shared labels (particle.*) - fine for debug naming
             rhi::RenderPipeline* pso = nullptr;
             if (!m_device->CreateRenderPipeline(pd, pso).IsOk()) { return nullptr; }
             p.pso = pso; p.format = colorFormat;
@@ -522,10 +546,8 @@ export namespace draconic::particles
             for (auto& kv : m_texBindGroups) { if (kv.value != nullptr) { m_device->DestroyBindGroup(kv.value); } }
             m_texBindGroups.Clear();
             if (m_viewBg != nullptr) { m_device->DestroyBindGroup(m_viewBg); m_viewBg = nullptr; }
-            if (m_alpha.pso != nullptr) { m_device->DestroyRenderPipeline(m_alpha.pso); m_alpha.pso = nullptr; }
-            if (m_additive.pso != nullptr) { m_device->DestroyRenderPipeline(m_additive.pso); m_additive.pso = nullptr; }
-            if (m_trailAlpha.pso != nullptr) { m_device->DestroyRenderPipeline(m_trailAlpha.pso); m_trailAlpha.pso = nullptr; }
-            if (m_trailAdditive.pso != nullptr) { m_device->DestroyRenderPipeline(m_trailAdditive.pso); m_trailAdditive.pso = nullptr; }
+            for (Pipelines& p : m_billboard) { if (p.pso != nullptr) { m_device->DestroyRenderPipeline(p.pso); p.pso = nullptr; } }
+            for (Pipelines& p : m_trail)     { if (p.pso != nullptr) { m_device->DestroyRenderPipeline(p.pso); p.pso = nullptr; } }
             if (m_trailIndexBuffer != nullptr) { m_device->DestroyBuffer(m_trailIndexBuffer); m_trailIndexBuffer = nullptr; }
             if (m_trailPipelineLayout != nullptr) { m_device->DestroyPipelineLayout(m_trailPipelineLayout); m_trailPipelineLayout = nullptr; }
             if (m_indexBuffer != nullptr) { m_device->DestroyBuffer(m_indexBuffer); m_indexBuffer = nullptr; }
@@ -563,12 +585,10 @@ export namespace draconic::particles
         rhi::BindGroup*             m_viewBg = nullptr;
         u32                         m_viewBgGen = 0;
         HashMap<rhi::TextureView*, rhi::BindGroup*> m_texBindGroups;
-        Pipelines                   m_alpha;
-        Pipelines                   m_additive;
+        Pipelines                   m_billboard[4];   // one per ParticleBlendMode (Alpha/Additive/Premultiplied/Multiply)
         rhi::Buffer*                m_trailIndexBuffer = nullptr;    // identity indices [0,1,2,...] for trail draws
         rhi::PipelineLayout*        m_trailPipelineLayout = nullptr; // view + texture (no depth set)
-        Pipelines                   m_trailAlpha;
-        Pipelines                   m_trailAdditive;
+        Pipelines                   m_trail[4];       // trail ribbon PSOs, one per blend mode
         rhi::TextureFormat          m_depthFormat = rhi::TextureFormat::Undefined;
         u32                         m_maxInstancesSeen = 0;   // sizes the instance ring (see PrepareFrame)
         u32                         m_maxTrailVertsSeen = 0;  // sizes the trail vertex ring
