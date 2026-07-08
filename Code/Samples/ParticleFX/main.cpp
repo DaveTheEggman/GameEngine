@@ -93,12 +93,13 @@ namespace
                 m_scene->SetLocalTransform(key, kt);
                 render::LightComponent& lc = lights->Add(key);
                 lc.type = render::LightType::Directional;
-                lc.color = core::Color{ 1.0f, 0.98f, 0.9f, 1.0f };
-                lc.intensity = 2.5f;
+                lc.color = core::Color{ 0.6f, 0.7f, 0.95f, 1.0f };   // cool + dim so the warm ember point-lights read
+                lc.intensity = 1.0f;
             }
 
             BuildFountain(m_effect);
             BuildDebris(m_debris);
+            BuildEmbers(m_embers);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
                 // Billboard fountain (additive soft dots), left.
@@ -114,6 +115,14 @@ namespace
                 dc.mesh     = geometry::Primitives::Cube(1.0f);
                 dc.material = materials::CreatePBR(u8"debris", core::Vector4{ 0.75f, 0.5f, 0.28f, 1.0f }, 0.15f, 0.6f);
                 dc.meshScale = 1.0f;
+
+                // Light particles (drifting embers): each is a point light on the floor + a billboard glow.
+                m_emberEmitter = m_scene->CreateEntity(u8"embers");
+                m_scene->SetLocalPosition(m_emberEmitter, core::Vector3{ 0.0f, 0.1f, 3.0f });
+                px::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
+                ec.SetEffect(m_embers);
+                ec.lightIntensity = 14.0f;
+                ec.lightRange     = 8.0f;
             }
         }
 
@@ -197,6 +206,31 @@ namespace
             sys.AddBehavior<px::RotationOverLifetimeBehavior>();   // inactive curve -> advances angle by spin speed (tumble)
         }
 
+        // Light-mode particles: slow warm embers drifting up; each contributes a point light so they
+        // paint moving pools of light on the floor (plus the additive billboard glow).
+        static void BuildEmbers(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(400);   // few: capped to the light budget
+            sys.name       = core::String{ u8"embers" };
+            sys.renderMode = px::ParticleRenderMode::Light;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 40.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 4.0f, 0.1f, 4.0f });
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.5f, 4.5f);
+            {
+                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 1.4f, 0.0f };
+                v.randomness   = core::Vector3{ 0.5f, 0.3f, 0.5f };
+            }
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.6f, 0.6f });
+            sys.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 1.0f, 0.5f, 0.15f, 1.0f }, core::Vector4{ 1.0f, 0.75f, 0.3f, 1.0f });
+            sys.AddBehavior<px::DragBehavior>().drag = 0.5f;
+            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.55f);  // bright, then fade
+        }
+
         void BuildHud()
         {
             ImGui::SetNextWindowPos(ImVec2(12, 12), ImGuiCond_FirstUseEver);
@@ -218,8 +252,10 @@ namespace
         scene::EntityHandle   m_camera;
         scene::EntityHandle   m_emitter;
         scene::EntityHandle   m_debrisEmitter;
+        scene::EntityHandle   m_emberEmitter;
         px::ParticleEffect    m_effect;
         px::ParticleEffect    m_debris;
+        px::ParticleEffect    m_embers;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
     };

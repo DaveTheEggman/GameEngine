@@ -42,6 +42,11 @@ export namespace draconic::particles
         RefPtr<geometry::StaticMesh>         mesh;
         RefPtr<materials::Material>          material;
         f32                                  meshScale = 1.0f;
+        // Light-mode systems (ParticleRenderMode::Light) add a point light per particle (capped) to the
+        // scene's clustered-forward light list, so particles illuminate their surroundings; they also draw
+        // the billboard glow. Intensity scales by particle alpha (fades out); range is fixed per emitter.
+        f32                                  lightIntensity = 4.0f;
+        f32                                  lightRange = 4.0f;
         bool                                 visible = true;
 
         void SetEffect(ParticleEffect& fx)
@@ -89,8 +94,11 @@ export namespace draconic::particles
                     ParticleSystem* sys = fx.GetSystem(s);
                     if (sys == nullptr) { continue; }
                     if (sys->renderMode == ParticleRenderMode::Mesh) { ExtractMeshSystem(*sys, c, owner, s, snapshot); continue; }
+                    if (sys->renderMode == ParticleRenderMode::Trail) { continue; }   // ribbons: Phase 5
                     const i32 alive = sys->AliveCount();
                     if (alive <= 0) { continue; }
+                    // Light-mode: illuminate the scene with a capped set of point lights (drawn as billboards too).
+                    if (sys->renderMode == ParticleRenderMode::Light) { ExtractLights(*sys, c, snapshot); }
 
                     Array<ParticleBillboardInstance>& scratch = AcquireScratch();
                     scratch.Resize(static_cast<usize>(alive));
@@ -200,6 +208,32 @@ export namespace draconic::particles
             rd->worldRadius   = Length(bmax - center) + LargestSize(sys) * c.meshScale;
         }
 
+        // Light-mode: add a point light per particle (capped + evenly strided across the set to stay
+        // under the forward light budget), colored by the particle, intensity faded by its alpha.
+        void ExtractLights(ParticleSystem& sys, ParticleEffectComponent& c, render::ExtractedScene& snapshot)
+        {
+            CPUStream<Vector3>* pos = sys.Streams().Positions();
+            if (pos == nullptr) { return; }
+            CPUStream<Vector4>* cols = sys.Streams().Colors();
+            const i32 alive = sys.AliveCount();
+            const i32 cap = Min(alive, kLightParticleCap);
+            const i32 step = Max(1, alive / Max(cap, 1));
+            i32 added = 0;
+            for (i32 i = 0; added < cap && i < alive; i += step, ++added)
+            {
+                render::GpuLight g;
+                g.positionWS  = (*pos)[i];
+                g.range       = c.lightRange;
+                const Vector4 cv = (cols != nullptr) ? (*cols)[i] : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+                g.color       = Vector3{ cv.x, cv.y, cv.z };
+                g.intensity   = c.lightIntensity * cv.w;   // fade with the particle's alpha
+                g.directionWS = Vector3{ 0.0f, -1.0f, 0.0f };
+                g.type        = 1.0f;    // point (LightType::Point)
+                g.shadowIndex = -1.0f;   // particles don't cast shadows
+                snapshot.AddLight(g);
+            }
+        }
+
         void PackMeshTransforms(ParticleSystem& sys, f32 meshScale, Matrix4* xf, Color* tint, Vector3& bmin, Vector3& bmax)
         {
             ParticleStreamContainer& st = sys.Streams();
@@ -238,6 +272,8 @@ export namespace draconic::particles
             if (m_tintUsed >= m_tintScratch.Size()) { m_tintScratch.PushBack(MakeUnique<Array<Color>>(DefaultAllocator())); }
             return *m_tintScratch[m_tintUsed++];
         }
+
+        static constexpr i32 kLightParticleCap = 48;   // max point lights one Light system contributes/frame
 
         scene::Scene* m_scene = nullptr;
         Vector3       m_cameraPos{ 0.0f, 0.0f, 0.0f };

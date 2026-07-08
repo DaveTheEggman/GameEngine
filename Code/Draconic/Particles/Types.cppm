@@ -31,8 +31,9 @@ export namespace draconic::particles
     enum class ParticleBlendMode : u8 { Alpha, Additive, Premultiplied, Multiply };
 
     // How a system's particles are rendered. Not a polymorphic module (à la Sedulous) - a tag
-    // the render extractor branches on.
-    enum class ParticleRenderMode : u8 { Billboard, StretchedBillboard, HorizontalBillboard, VerticalBillboard, Mesh, Trail };
+    // the render extractor branches on. Light (an ez-style extension beyond Sedulous) contributes a
+    // point light per particle to the clustered-forward light list, and also draws the billboard glow.
+    enum class ParticleRenderMode : u8 { Billboard, StretchedBillboard, HorizontalBillboard, VerticalBillboard, Mesh, Trail, Light };
 
     // ---- Range values (RangeValue.bf) --------------------------------------------------------
     // A min/max pair sampled by a single shared t in [0,1) (Min<->Max is a diagonal lerp, NOT
