@@ -10,6 +10,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"   // DRACONIC_OBJECT / DRACONIC_DEFINE_OBJECT
 
 export module draconic.particles:modules;
 
@@ -23,32 +24,37 @@ export namespace draconic::particles
 {
     // ---- Base classes ------------------------------------------------------------------------
 
-    class ParticleInitializer
+    // Modules are reflected ISerializable objects: reflection gives the type-id, polymorphic
+    // reconstruction (Serializables().Create), and the Serialize(ISerializer&) hook - the same
+    // machinery cooked resources use. The cook writes each module's reflected type tag + Serialize.
+    class ParticleInitializer : public ISerializable
     {
+        DRACONIC_OBJECT(ParticleInitializer, ISerializable)
     public:
-        virtual ~ParticleInitializer() = default;
         [[nodiscard]] virtual BehaviorSupport Support() const noexcept = 0;
         virtual void DeclareStreams(ParticleStreamContainer& streams) = 0;
         virtual void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) = 0;
         // Hook: the system pushes its transform state before a spawn burst so emitter-aware
         // initializers (Position/Velocity) can offset/inherit. Default no-op (avoids an RTTI cast).
         virtual void SetEmitterState(Vector3 position, Vector3 velocity) noexcept { (void)position; (void)velocity; }
+        void Serialize(ISerializer& ar) override { (void)ar; }   // paramless default; modules with params override
     };
 
-    class ParticleBehavior
+    class ParticleBehavior : public ISerializable
     {
+        DRACONIC_OBJECT(ParticleBehavior, ISerializable)
     public:
-        virtual ~ParticleBehavior() = default;
         [[nodiscard]] virtual BehaviorSupport Support() const noexcept = 0;
         virtual void DeclareStreams(ParticleStreamContainer& streams) = 0;
         virtual void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) = 0;
+        void Serialize(ISerializer& ar) override { (void)ar; }
     };
 
     class ParticleSimulator
     {
     public:
         virtual ~ParticleSimulator() = default;
-        virtual void Simulate(ParticleStreamContainer& streams, const Array<UniquePtr<ParticleBehavior>>& behaviors, ParticleUpdateContext& ctx) = 0;
+        virtual void Simulate(ParticleStreamContainer& streams, const Array<RefPtr<ParticleBehavior>>& behaviors, ParticleUpdateContext& ctx) = 0;
         virtual i32 CompactDead(ParticleStreamContainer& streams) = 0;
     };
 
@@ -56,11 +62,13 @@ export namespace draconic::particles
 
     class PositionInitializer final : public ParticleInitializer
     {
+        DRACONIC_OBJECT(PositionInitializer, ParticleInitializer)
     public:
         EmissionShape shape = EmissionShape::Point();
         Vector3 emitterPosition{ 0.0f, 0.0f, 0.0f };   // set by the system each spawn (hidden)
         bool localSpace = false;
 
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "shape", shape); core::Serialize(ar, "localSpace", localSpace); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer&) override {}   // Position is a core stream
         void SetEmitterState(Vector3 position, Vector3) noexcept override { emitterPosition = position; }
@@ -74,6 +82,7 @@ export namespace draconic::particles
 
     class VelocityInitializer final : public ParticleInitializer
     {
+        DRACONIC_OBJECT(VelocityInitializer, ParticleInitializer)
     public:
         Vector3 baseVelocity{ 0.0f, 1.0f, 0.0f };
         Vector3 randomness{ 0.0f, 0.0f, 0.0f };
@@ -82,6 +91,11 @@ export namespace draconic::particles
         EmissionShape shape = EmissionShape::Point();
         Vector3 emitterVelocity{ 0.0f, 0.0f, 0.0f };   // set by the system each spawn (hidden)
 
+        void Serialize(ISerializer& ar) override {
+            core::Serialize(ar, "baseVelocity", baseVelocity); core::Serialize(ar, "randomness", randomness);
+            core::Serialize(ar, "shapeDirectionSpeed", shapeDirectionSpeed);
+            core::Serialize(ar, "velocityInheritance", velocityInheritance); core::Serialize(ar, "shape", shape);
+        }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override
         {
@@ -104,8 +118,10 @@ export namespace draconic::particles
 
     class LifetimeInitializer final : public ParticleInitializer
     {
+        DRACONIC_OBJECT(LifetimeInitializer, ParticleInitializer)
     public:
         RangeFloat lifetime{ 1.0f, 1.0f };
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "lifetime", lifetime); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer&) override {}   // Age/Lifetime are core
         void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) override
@@ -117,8 +133,10 @@ export namespace draconic::particles
 
     class ColorInitializer final : public ParticleInitializer
     {
+        DRACONIC_OBJECT(ColorInitializer, ParticleInitializer)
     public:
         RangeColor color = RangeColor::Constant(Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "color", color); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Color, StreamElementType::Float4); }
         void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) override
@@ -129,8 +147,10 @@ export namespace draconic::particles
 
     class SizeInitializer final : public ParticleInitializer
     {
+        DRACONIC_OBJECT(SizeInitializer, ParticleInitializer)
     public:
         RangeVector2 size = RangeVector2::Constant(Vector2{ 0.1f, 0.1f });
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "size", size); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Size, StreamElementType::Float2); }
         void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) override
@@ -141,9 +161,11 @@ export namespace draconic::particles
 
     class RotationInitializer final : public ParticleInitializer
     {
+        DRACONIC_OBJECT(RotationInitializer, ParticleInitializer)
     public:
         RangeFloat rotation{ 0.0f, 6.2831853f };
         RangeFloat rotationSpeed{ -2.0f, 2.0f };
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "rotation", rotation); core::Serialize(ar, "rotationSpeed", rotationSpeed); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override
         {
@@ -159,9 +181,11 @@ export namespace draconic::particles
 
     class MeshOrientationInitializer final : public ParticleInitializer
     {
+        DRACONIC_OBJECT(MeshOrientationInitializer, ParticleInitializer)
     public:
         bool randomAxis = true;
         Vector3 fixedAxis{ 0.0f, 1.0f, 0.0f };
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "randomAxis", randomAxis); core::Serialize(ar, "fixedAxis", fixedAxis); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Axis, StreamElementType::Float3); }
         void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) override
@@ -186,9 +210,11 @@ export namespace draconic::particles
 
     class GravityBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(GravityBehavior, ParticleBehavior)
     public:
         f32 multiplier = 1.0f;
         Vector3 direction{ 0.0f, -1.0f, 0.0f };
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "multiplier", multiplier); core::Serialize(ar, "direction", direction); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
@@ -202,8 +228,10 @@ export namespace draconic::particles
 
     class DragBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(DragBehavior, ParticleBehavior)
     public:
         f32 drag = 1.0f;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "drag", drag); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
@@ -217,9 +245,11 @@ export namespace draconic::particles
 
     class WindBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(WindBehavior, ParticleBehavior)
     public:
         Vector3 force{ 1.0f, 0.0f, 0.0f };
         f32 turbulence = 0.0f;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "force", force); core::Serialize(ar, "turbulence", turbulence); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
@@ -237,10 +267,12 @@ export namespace draconic::particles
 
     class TurbulenceBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(TurbulenceBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
         f32 frequency = 1.0f;
         f32 speed = 1.0f;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "strength", strength); core::Serialize(ar, "frequency", frequency); core::Serialize(ar, "speed", speed); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::CPUOnly; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
@@ -260,10 +292,12 @@ export namespace draconic::particles
 
     class VortexBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(VortexBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
         Vector3 center{ 0.0f, 0.0f, 0.0f };
         Vector3 axis{ 0.0f, 1.0f, 0.0f };
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "strength", strength); core::Serialize(ar, "center", center); core::Serialize(ar, "axis", axis); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
@@ -284,10 +318,12 @@ export namespace draconic::particles
 
     class AttractorBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(AttractorBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
         Vector3 position{ 0.0f, 0.0f, 0.0f };
         f32 radius = 0.0f;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "strength", strength); core::Serialize(ar, "position", position); core::Serialize(ar, "radius", radius); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
@@ -309,8 +345,10 @@ export namespace draconic::particles
 
     class RadialForceBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(RadialForceBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "strength", strength); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
@@ -348,6 +386,10 @@ export namespace draconic::particles
         Vector3 halfExtents{ 0.5f, 0.5f, 0.5f };
     };
 
+    inline void Serialize(ISerializer& ar, CollisionPlane& p)  { core::Serialize(ar, "normal", p.normal); core::Serialize(ar, "distance", p.distance); }
+    inline void Serialize(ISerializer& ar, CollisionSphere& s) { core::Serialize(ar, "center", s.center); core::Serialize(ar, "radius", s.radius); }
+    inline void Serialize(ISerializer& ar, CollisionBox& b)    { core::Serialize(ar, "center", b.center); core::Serialize(ar, "halfExtents", b.halfExtents); }
+
     // Bounces particles off a small set of world planes + spheres (ground, walls, obstacles). Beyond
     // Sedulous, which had no collision at all. On a hit: push to the surface, reflect the normal velocity
     // by `bounce`, damp the tangential velocity by `friction`, and optionally age the particle by
@@ -355,6 +397,7 @@ export namespace draconic::particles
     // frame's penetration.
     class CollisionBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(CollisionBehavior, ParticleBehavior)
     public:
         static constexpr i32 kMaxPlanes = 4;
         static constexpr i32 kMaxSpheres = 4;
@@ -370,6 +413,15 @@ export namespace draconic::particles
         f32 friction = 0.1f;         // tangential velocity damping on contact [0,1]
         f32 lifetimeLoss = 0.0f;     // fraction of remaining life lost per hit [0,1]
 
+        void Serialize(ISerializer& ar) override
+        {
+            core::Serialize(ar, "planeCount", planeCount); core::Serialize(ar, "sphereCount", sphereCount); core::Serialize(ar, "boxCount", boxCount);
+            for (i32 i = 0; i < Clamp(planeCount, 0, kMaxPlanes); ++i)   { ar.Key("plane");  ar.BeginObject(); draconic::particles::Serialize(ar, planes[i]);  ar.EndObject(); }
+            for (i32 i = 0; i < Clamp(sphereCount, 0, kMaxSpheres); ++i) { ar.Key("sphere"); ar.BeginObject(); draconic::particles::Serialize(ar, spheres[i]); ar.EndObject(); }
+            for (i32 i = 0; i < Clamp(boxCount, 0, kMaxBoxes); ++i)      { ar.Key("box");    ar.BeginObject(); draconic::particles::Serialize(ar, boxes[i]);   ar.EndObject(); }
+            core::Serialize(ar, "radius", radius); core::Serialize(ar, "bounce", bounce);
+            core::Serialize(ar, "friction", friction); core::Serialize(ar, "lifetimeLoss", lifetimeLoss);
+        }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override
         {
@@ -441,8 +493,10 @@ export namespace draconic::particles
 
     class ColorOverLifetimeBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(ColorOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveColor curve;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Color, StreamElementType::Float4); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
@@ -456,8 +510,10 @@ export namespace draconic::particles
 
     class AlphaOverLifetimeBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(AlphaOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveFloat curve;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Color, StreamElementType::Float4); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
@@ -475,8 +531,10 @@ export namespace draconic::particles
 
     class SizeOverLifetimeBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(SizeOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveVector2 curve;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Size, StreamElementType::Float2); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
@@ -490,8 +548,10 @@ export namespace draconic::particles
 
     class RotationOverLifetimeBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(RotationOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveFloat curve;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override
         {
@@ -514,8 +574,10 @@ export namespace draconic::particles
 
     class SpeedOverLifetimeBehavior final : public ParticleBehavior
     {
+        DRACONIC_OBJECT(SpeedOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveFloat curve;
+        void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override
         {
@@ -544,46 +606,68 @@ export namespace draconic::particles
     class CPUSimulator final : public ParticleSimulator
     {
     public:
-        void Simulate(ParticleStreamContainer& streams, const Array<UniquePtr<ParticleBehavior>>& behaviors, ParticleUpdateContext& ctx) override
+        void Simulate(ParticleStreamContainer& streams, const Array<RefPtr<ParticleBehavior>>& behaviors, ParticleUpdateContext& ctx) override
         {
             for (usize i = 0; i < behaviors.Size(); ++i) { behaviors[i]->Update(streams, ctx); }
         }
         i32 CompactDead(ParticleStreamContainer& streams) override { return streams.CompactDead(); }
     };
 
-    // ---- Runtime type-id registry ------------------------------------------------------------
-    // Reconstruct a module from its stable string id (used later by the cooked-resource factory).
-    // Unknown ids return null (tolerant - a dropped module type is simply skipped).
+    // ---- Reflection registration -------------------------------------------------------------
+    // Modules are reflected ISerializable types. The cooked resource writes each module's reflected
+    // type tag and reconstructs it via Serializables().Create(typeId) + ISerializable::Serialize -
+    // the same machinery cooked resources (e.g. TextureResource) use; no hand-rolled string registry.
 
-    [[nodiscard]] UniquePtr<ParticleInitializer> CreateInitializer(StringView id)
-    {
-        IAllocator& a = DefaultAllocator();
-        if (id == StringView(u8"Position"))        { return MakeUnique<PositionInitializer>(a); }
-        if (id == StringView(u8"Velocity"))        { return MakeUnique<VelocityInitializer>(a); }
-        if (id == StringView(u8"Lifetime"))        { return MakeUnique<LifetimeInitializer>(a); }
-        if (id == StringView(u8"Color"))           { return MakeUnique<ColorInitializer>(a); }
-        if (id == StringView(u8"Size"))            { return MakeUnique<SizeInitializer>(a); }
-        if (id == StringView(u8"Rotation"))        { return MakeUnique<RotationInitializer>(a); }
-        if (id == StringView(u8"MeshOrientation")) { return MakeUnique<MeshOrientationInitializer>(a); }
-        return {};
-    }
+    DRACONIC_DEFINE_OBJECT(ParticleInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(ParticleBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(PositionInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(VelocityInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(LifetimeInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(ColorInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(SizeInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(RotationInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(MeshOrientationInitializer, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(GravityBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(DragBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(WindBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(TurbulenceBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(VortexBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(AttractorBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(RadialForceBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(CollisionBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(ColorOverLifetimeBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(AlphaOverLifetimeBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(SizeOverLifetimeBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(RotationOverLifetimeBehavior, "draconic::particles")
+    DRACONIC_DEFINE_OBJECT(SpeedOverLifetimeBehavior, "draconic::particles")
 
-    [[nodiscard]] UniquePtr<ParticleBehavior> CreateBehavior(StringView id)
+    // Register every module type (hierarchy) + a construct-by-type-id entry for the concrete ones.
+    // Call once at startup before loading cooked particle resources.
+    void RegisterParticleModules()
     {
-        IAllocator& a = DefaultAllocator();
-        if (id == StringView(u8"Gravity"))             { return MakeUnique<GravityBehavior>(a); }
-        if (id == StringView(u8"Drag"))                { return MakeUnique<DragBehavior>(a); }
-        if (id == StringView(u8"Wind"))                { return MakeUnique<WindBehavior>(a); }
-        if (id == StringView(u8"Turbulence"))          { return MakeUnique<TurbulenceBehavior>(a); }
-        if (id == StringView(u8"Vortex"))              { return MakeUnique<VortexBehavior>(a); }
-        if (id == StringView(u8"Attractor"))           { return MakeUnique<AttractorBehavior>(a); }
-        if (id == StringView(u8"RadialForce"))         { return MakeUnique<RadialForceBehavior>(a); }
-        if (id == StringView(u8"Collision"))           { return MakeUnique<CollisionBehavior>(a); }
-        if (id == StringView(u8"ColorOverLifetime"))   { return MakeUnique<ColorOverLifetimeBehavior>(a); }
-        if (id == StringView(u8"AlphaOverLifetime"))   { return MakeUnique<AlphaOverLifetimeBehavior>(a); }
-        if (id == StringView(u8"SizeOverLifetime"))    { return MakeUnique<SizeOverLifetimeBehavior>(a); }
-        if (id == StringView(u8"RotationOverLifetime")){ return MakeUnique<RotationOverLifetimeBehavior>(a); }
-        if (id == StringView(u8"SpeedOverLifetime"))   { return MakeUnique<SpeedOverLifetimeBehavior>(a); }
-        return {};
+        GlobalTypeRegistry().Register(ParticleInitializer::StaticType());
+        GlobalTypeRegistry().Register(ParticleBehavior::StaticType());
+        #define DRACONIC_PARTICLE_REG(T) do { GlobalTypeRegistry().Register(T::StaticType()); RegisterSerializable<T>(); } while (0)
+        DRACONIC_PARTICLE_REG(PositionInitializer);
+        DRACONIC_PARTICLE_REG(VelocityInitializer);
+        DRACONIC_PARTICLE_REG(LifetimeInitializer);
+        DRACONIC_PARTICLE_REG(ColorInitializer);
+        DRACONIC_PARTICLE_REG(SizeInitializer);
+        DRACONIC_PARTICLE_REG(RotationInitializer);
+        DRACONIC_PARTICLE_REG(MeshOrientationInitializer);
+        DRACONIC_PARTICLE_REG(GravityBehavior);
+        DRACONIC_PARTICLE_REG(DragBehavior);
+        DRACONIC_PARTICLE_REG(WindBehavior);
+        DRACONIC_PARTICLE_REG(TurbulenceBehavior);
+        DRACONIC_PARTICLE_REG(VortexBehavior);
+        DRACONIC_PARTICLE_REG(AttractorBehavior);
+        DRACONIC_PARTICLE_REG(RadialForceBehavior);
+        DRACONIC_PARTICLE_REG(CollisionBehavior);
+        DRACONIC_PARTICLE_REG(ColorOverLifetimeBehavior);
+        DRACONIC_PARTICLE_REG(AlphaOverLifetimeBehavior);
+        DRACONIC_PARTICLE_REG(SizeOverLifetimeBehavior);
+        DRACONIC_PARTICLE_REG(RotationOverLifetimeBehavior);
+        DRACONIC_PARTICLE_REG(SpeedOverLifetimeBehavior);
+        #undef DRACONIC_PARTICLE_REG
     }
 }

@@ -477,4 +477,76 @@ export namespace draconic::particles
         Vector3 emitterPosition{ 0.0f, 0.0f, 0.0f };
         Random* rng = nullptr;
     };
+
+    // ---- Serialization (draconic.core :serialize) --------------------------------------------
+    // Bidirectional Serialize(ISerializer&, T&) overloads for the authoring value types. Found by ADL
+    // from core's Serialize(ar, "key", value). Fields decomposed (not blobbed) - readable in the XML
+    // asset, portable in the binary cook. Curves write keyCount then the active keys only.
+    using draconic::core::ISerializer;
+    inline void Serialize(ISerializer& ar, RangeFloat& v)   { core::Serialize(ar, "min", v.min); core::Serialize(ar, "max", v.max); }
+    inline void Serialize(ISerializer& ar, RangeVector2& v) { core::Serialize(ar, "min", v.min); core::Serialize(ar, "max", v.max); }
+    inline void Serialize(ISerializer& ar, RangeColor& v)   { core::Serialize(ar, "min", v.min); core::Serialize(ar, "max", v.max); }
+
+    inline void Serialize(ISerializer& ar, ParticleCurveFloat& c)
+    {
+        core::Serialize(ar, "keyCount", c.keyCount);
+        const i32 n = Clamp(c.keyCount, 0, kMaxCurveKeys);
+        for (i32 i = 0; i < n; ++i)
+        {
+            ar.Key("key"); ar.BeginObject();
+            core::Serialize(ar, "t", c.keys[i].time); core::Serialize(ar, "v", c.keys[i].value);
+            core::Serialize(ar, "in", c.keys[i].tangentIn); core::Serialize(ar, "out", c.keys[i].tangentOut);
+            ar.EndObject();
+        }
+    }
+    inline void Serialize(ISerializer& ar, ParticleCurveColor& c)
+    {
+        core::Serialize(ar, "keyCount", c.keyCount);
+        const i32 n = Clamp(c.keyCount, 0, kMaxCurveKeys);
+        for (i32 i = 0; i < n; ++i)
+        {
+            ar.Key("key"); ar.BeginObject();
+            core::Serialize(ar, "t", c.keys[i].time); core::Serialize(ar, "c", c.keys[i].color);
+            ar.EndObject();
+        }
+    }
+    inline void Serialize(ISerializer& ar, ParticleCurveVector2& c)
+    {
+        core::Serialize(ar, "keyCount", c.keyCount);
+        const i32 n = Clamp(c.keyCount, 0, kMaxCurveKeys);
+        for (i32 i = 0; i < n; ++i)
+        {
+            ar.Key("key"); ar.BeginObject();
+            core::Serialize(ar, "t", c.times[i]); core::Serialize(ar, "v", c.values[i]);
+            core::Serialize(ar, "in", c.tangentsIn[i]); core::Serialize(ar, "out", c.tangentsOut[i]);
+            ar.EndObject();
+        }
+    }
+    inline void Serialize(ISerializer& ar, EmissionShape& s)
+    {
+        core::Serialize(ar, "type", s.type); core::Serialize(ar, "radius", s.radius);
+        core::Serialize(ar, "extents", s.extents); core::Serialize(ar, "angle", s.angle);
+        core::Serialize(ar, "arc", s.arc); core::Serialize(ar, "shell", s.emitFromShell);
+    }
+    inline void Serialize(ISerializer& ar, TrailSettings& t)
+    {
+        core::Serialize(ar, "enabled", t.enabled); core::Serialize(ar, "maxPoints", t.maxPoints);
+        core::Serialize(ar, "recordInterval", t.recordInterval); core::Serialize(ar, "lifetime", t.lifetime);
+        core::Serialize(ar, "widthStart", t.widthStart); core::Serialize(ar, "widthEnd", t.widthEnd);
+        core::Serialize(ar, "minVertexDistance", t.minVertexDistance);
+        core::Serialize(ar, "useParticleColor", t.useParticleColor); core::Serialize(ar, "trailColor", t.trailColor);
+    }
+    inline void Serialize(ISerializer& ar, FlipbookSettings& f)
+    {
+        core::Serialize(ar, "enabled", f.enabled); core::Serialize(ar, "columns", f.columns);
+        core::Serialize(ar, "rows", f.rows); core::Serialize(ar, "fps", f.fps);
+        core::Serialize(ar, "overLifetime", f.overLifetime); core::Serialize(ar, "startFrame", f.startFrame);
+    }
+    inline void Serialize(ISerializer& ar, SubEmitterLink& l)
+    {
+        core::Serialize(ar, "trigger", l.trigger); core::Serialize(ar, "child", l.childSystemIndex);
+        core::Serialize(ar, "spawnCount", l.spawnCount); core::Serialize(ar, "probability", l.probability);
+        core::Serialize(ar, "inheritPosition", l.inheritPosition); core::Serialize(ar, "inheritVelocity", l.inheritVelocity);
+        core::Serialize(ar, "velInheritFactor", l.velocityInheritFactor); core::Serialize(ar, "inheritColor", l.inheritColor);
+    }
 }

@@ -167,25 +167,35 @@ export namespace draconic::particles
         [[nodiscard]] Span<const TrailPoint> TrailPoints() const noexcept { return Span<const TrailPoint>{ m_trailPoints.Data(), m_trailPoints.Size() }; }
         [[nodiscard]] SimulationMode ResolvedMode() const noexcept { return m_resolvedMode; }
 
-        // Build helpers: construct+configure a module in place, declare its streams, own it.
+        // Build helpers: construct+configure a module in place, declare its streams, own it. Modules are
+        // reflected ISerializable (RefCounted) objects, so storage + reconstruction use RefPtr.
         template <typename T, typename... Args>
         T& AddInitializer(Args&&... args)
         {
-            UniquePtr<T> p = MakeUnique<T>(DefaultAllocator(), std::forward<Args>(args)...);
+            RefPtr<T> p = MakeRef<T>(DefaultAllocator(), std::forward<Args>(args)...);
             T& ref = *p;
             ref.DeclareStreams(m_streams);
-            m_initializers.PushBack(UniquePtr<ParticleInitializer>(std::move(p)));
+            m_initializers.PushBack(RefPtr<ParticleInitializer>(std::move(p)));
             return ref;
         }
         template <typename T, typename... Args>
         T& AddBehavior(Args&&... args)
         {
-            UniquePtr<T> p = MakeUnique<T>(DefaultAllocator(), std::forward<Args>(args)...);
+            RefPtr<T> p = MakeRef<T>(DefaultAllocator(), std::forward<Args>(args)...);
             T& ref = *p;
             ref.DeclareStreams(m_streams);
-            m_behaviors.PushBack(UniquePtr<ParticleBehavior>(std::move(p)));
+            m_behaviors.PushBack(RefPtr<ParticleBehavior>(std::move(p)));
             return ref;
         }
+        // Add a pre-built module (used by the cooked-resource factory after Serializables().Create).
+        void AddInitializer(RefPtr<ParticleInitializer> p) { if (p) { p->DeclareStreams(m_streams); m_initializers.PushBack(std::move(p)); } }
+        void AddBehavior(RefPtr<ParticleBehavior> p)       { if (p) { p->DeclareStreams(m_streams); m_behaviors.PushBack(std::move(p)); } }
+
+        // Module access for the resource serializer (writes each module's reflected tag + Serialize).
+        [[nodiscard]] i32 InitializerCount() const noexcept { return static_cast<i32>(m_initializers.Size()); }
+        [[nodiscard]] i32 BehaviorCount() const noexcept { return static_cast<i32>(m_behaviors.Size()); }
+        [[nodiscard]] ParticleInitializer* GetInitializer(i32 i) noexcept { return (i >= 0 && i < InitializerCount()) ? m_initializers[static_cast<usize>(i)].Get() : nullptr; }
+        [[nodiscard]] ParticleBehavior* GetBehavior(i32 i) noexcept { return (i >= 0 && i < BehaviorCount()) ? m_behaviors[static_cast<usize>(i)].Get() : nullptr; }
 
         // Resolve CPU/GPU/Auto against behavior support. GPU is stubbed (Phase 6) - Auto/GPU still
         // fall back to CPU here, but the decision is recorded for when the GPU simulator lands.
@@ -439,8 +449,8 @@ export namespace draconic::particles
         Array<TrailPoint>         m_trailPoints;    // flat ring buffers: [particleIndex*maxPoints + slot]
         i32                       m_trailCapacityPoints = 0;
         ParticleStreamContainer m_streams;
-        Array<UniquePtr<ParticleInitializer>> m_initializers;
-        Array<UniquePtr<ParticleBehavior>> m_behaviors;
+        Array<RefPtr<ParticleInitializer>> m_initializers;
+        Array<RefPtr<ParticleBehavior>> m_behaviors;
         UniquePtr<ParticleSimulator> m_simulator;
         Random m_random;
         f32 m_totalTime = 0.0f;
