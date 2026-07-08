@@ -54,7 +54,11 @@ struct VertexSkinning {
     // total: 24
 };
 
+// Size + alignment are a hard GPU-layout contract: these use the PACKED Float* math types (tight,
+// 4-byte aligned). A stray SIMD Vector* (16-byte aligned) would change both and trip these.
 static_assert(sizeof(StaticMeshVertex) == 48, "static vertex must stay 48 bytes (VertexLayoutType::Mesh)");
+static_assert(alignof(StaticMeshVertex) == 4, "static vertex must stay 4-byte aligned (packed, not SIMD)");
 static_assert(sizeof(VertexSkinning) == 24, "skinning stream must stay 24 bytes (locations 6/7)");
+static_assert(alignof(VertexSkinning) == 4, "skinning stream must stay 4-byte aligned (packed, not SIMD)");
 
 } // namespace draconic::geometry

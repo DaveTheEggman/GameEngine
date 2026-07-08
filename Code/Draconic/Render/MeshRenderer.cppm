@@ -1350,6 +1350,12 @@ private:
     struct InstanceData { Float4x4 world; Float4x4 prevWorld; Color tint; };     // 144 (StructuredBuffer element)
     struct DataOffsets  { u32 x, y, z, w; };             // 16  (instance-stepped vertex attr)
     struct ShadowViewData { Float4x4 lightViewProj; };       // 64  (cbuffer ShadowView)
+    // GPU-layout contract: these mirror HLSL cbuffer/StructuredBuffer elements and use the PACKED
+    // Float4x4 (64B, tight). A stray SIMD Matrix4 (also 64B but 16-byte aligned) would still trip the
+    // size math via padding shifts - the guards pin the exact byte layout the shaders expect.
+    static_assert(sizeof(ObjectData) == 160, "cbuffer Object layout drift");
+    static_assert(sizeof(InstanceData) == 144, "StructuredBuffer<InstanceData> element layout drift");
+    static_assert(sizeof(ShadowViewData) == 64, "cbuffer ShadowView layout drift");
 
     static constexpr u64 kViewSlot         = 256;        // dynamic UBO offset alignment (object/shadow-view)
     static constexpr u64 kViewDataSlot     = 1024;       // view UBO slot (ViewData is 528B with CSM cascades)
