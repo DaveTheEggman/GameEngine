@@ -68,15 +68,15 @@ namespace
                 env->Environment().ambientIntensity = 0.4f;
             }
 
-            // Camera: pulled back + up, looking at the fountain base.
+            // Camera: high + pulled back to frame the whole 4x4 showcase grid.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, core::Vector3{ 0.0f, 7.0f, 22.0f });
+            m_scene->SetLocalPosition(m_camera, core::Vector3{ 0.0f, 22.0f, 34.0f });
             if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
                 render::CameraComponent& cam = cameras->Add(m_camera);
                 cam.clearColor = core::Color{ 0.02f, 0.02f, 0.04f, 1.0f };
             }
-            m_fly.position = core::Vector3{ 0.0f, 7.0f, 22.0f };
-            m_fly.pitch    = -0.28f;
+            m_fly.position = core::Vector3{ 0.0f, 22.0f, 34.0f };
+            m_fly.pitch    = -0.5f;
 
             // A floor for spatial context.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
@@ -104,36 +104,37 @@ namespace
             BuildTrail(m_trail);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
-                // Billboard fountain (additive soft dots), left.
+                // One system per cell of a 4x4 showcase grid (11 cells reserved for later samples).
+                // Cell 0: billboard fountain (additive soft dots).
                 m_emitter = m_scene->CreateEntity(u8"fountain");
-                m_scene->SetLocalPosition(m_emitter, core::Vector3{ -6.0f, 0.2f, 0.0f });
+                m_scene->SetLocalPosition(m_emitter, CellPos(0));
                 pmgr->Add(m_emitter).SetEffect(m_effect);   // no texture -> the renderer's soft-dot default
 
-                // Mesh-particle debris (tumbling cubes through the instanced-mesh path), right.
+                // Cell 1: mesh-particle debris (tumbling cubes through the instanced-mesh path).
                 m_debrisEmitter = m_scene->CreateEntity(u8"debris");
-                m_scene->SetLocalPosition(m_debrisEmitter, core::Vector3{ 6.0f, 0.2f, 0.0f });
+                m_scene->SetLocalPosition(m_debrisEmitter, CellPos(1));
                 px::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
                 dc.SetEffect(m_debris);
                 dc.mesh     = geometry::Primitives::Cube(1.0f);
                 dc.material = materials::CreatePBR(u8"debris", core::Vector4{ 0.75f, 0.5f, 0.28f, 1.0f }, 0.15f, 0.6f);
                 dc.meshScale = 1.0f;
 
-                // Light particles (drifting embers): each is a point light on the floor + a billboard glow.
+                // Cell 2: light particles (drifting embers) - a point light per particle + a billboard glow.
                 m_emberEmitter = m_scene->CreateEntity(u8"embers");
-                m_scene->SetLocalPosition(m_emberEmitter, core::Vector3{ 0.0f, 0.1f, 3.0f });
+                m_scene->SetLocalPosition(m_emberEmitter, CellPos(2));
                 px::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
                 ec.SetEffect(m_embers);
                 ec.lightIntensity = 14.0f;
                 ec.lightRange     = 8.0f;
 
-                // Ground haze straddling the floor - the soft-particle A/B showcase.
+                // Cell 3: ground haze - the soft-particle A/B showcase.
                 m_hazeEmitter = m_scene->CreateEntity(u8"haze");
-                m_scene->SetLocalPosition(m_hazeEmitter, core::Vector3{ 0.0f, 0.6f, 4.0f });
+                m_scene->SetLocalPosition(m_hazeEmitter, CellPos(3) + core::Vector3{ 0.0f, 0.4f, 0.0f });
                 pmgr->Add(m_hazeEmitter).SetEffect(m_haze);
 
-                // Trail sparks (camera-facing ribbons), behind the fountain.
+                // Cell 4: trail sparks (camera-facing ribbons).
                 m_trailEmitter = m_scene->CreateEntity(u8"sparks");
-                m_scene->SetLocalPosition(m_trailEmitter, core::Vector3{ 0.0f, 0.2f, -4.0f });
+                m_scene->SetLocalPosition(m_trailEmitter, CellPos(4));
                 pmgr->Add(m_trailEmitter).SetEffect(m_trail);
 
                 ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);   // sync all systems to the slider
@@ -165,6 +166,18 @@ namespace
         }
 
     private:
+        // 4x4 showcase grid, centered on the origin. Cells are indexed row-major (0..15); each holds one
+        // particle system. Returns the cell's floor-level center (callers add any per-system y offset).
+        static constexpr core::f32 kCellSpacing = 10.0f;
+        static constexpr core::i32 kGridCols    = 4;
+        static core::Vector3 CellPos(core::i32 index)
+        {
+            const core::f32 half = (kGridCols - 1) * 0.5f;
+            const core::f32 col  = static_cast<core::f32>(index % kGridCols);
+            const core::f32 row  = static_cast<core::f32>(index / kGridCols);
+            return core::Vector3{ (col - half) * kCellSpacing, 0.2f, (row - half) * kCellSpacing };
+        }
+
         static void BuildFountain(px::ParticleEffect& effect)
         {
             px::ParticleSystem& sys = effect.AddSystem(30000);
@@ -257,10 +270,10 @@ namespace
             sys.emitter.mode = px::EmissionMode::Continuous;
             sys.emitter.spawnRate = 14.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 7.0f, 0.05f, 5.0f });
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 3.5f, 0.05f, 3.5f });
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(4.0f, 6.0f);
             sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 0.25f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 3.0f, 3.0f });  // big: straddles the floor
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 2.0f, 2.0f });  // straddles the floor for the A/B
             sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.35f, 0.28f, 0.45f, 1.0f });
             sys.AddBehavior<px::DragBehavior>().drag = 0.6f;
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.4f);
