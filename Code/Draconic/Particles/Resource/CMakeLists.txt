@@ -5,7 +5,8 @@ add_library(DraconicParticlesResource STATIC)
 add_library(Draconic::ParticlesResource ALIAS DraconicParticlesResource)
 
 target_link_libraries(DraconicParticlesResource
-    PUBLIC Draconic::Core Draconic::Particles Draconic::Content Draconic::Resource Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::Particles Draconic::Content Draconic::Resource
+           Draconic::Texture Draconic::TextureResource Draconic::Policy)
 
 target_sources(DraconicParticlesResource
     PUBLIC

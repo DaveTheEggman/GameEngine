@@ -17,10 +17,13 @@ import draconic.core;
 import draconic.particles;
 import draconic.content;
 import draconic.resource;
+import draconic.texture;
+import draconic.texture.resource;
 
 using namespace draconic::core;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
+namespace texture = draconic::texture;
 
 export namespace draconic::particles
 {
@@ -90,6 +93,7 @@ export namespace draconic::particles
         core::Serialize(ar, "simSpace", sys->simulationSpace);
         core::Serialize(ar, "blend", sys->blendMode);
         core::Serialize(ar, "render", sys->renderMode);
+        core::Serialize(ar, "textureRef", sys->textureRef);   // cooked texture GUID (null = untextured)
         core::Serialize(ar, "sort", sys->sortParticles);
         core::Serialize(ar, "soft", sys->softParticles);
         core::Serialize(ar, "softDistance", sys->softDistance);
@@ -167,8 +171,20 @@ export namespace draconic::particles
         [[nodiscard]] ParticleEffect& Effect() noexcept { return m_effect; }
         [[nodiscard]] const ParticleEffect& Effect() const noexcept { return m_effect; }
         void Serialize(ISerializer& ar) override { SerializeEffect(ar, m_effect); }
+
+        // Per-system resolved texture handles (parallel to Effect().GetSystem(i)), bound by the factory
+        // from each system's textureRef GUID. A Proxy follows its resource handle, so a hot-reloaded
+        // texture is picked up without rebinding. Null Proxy = untextured system.
+        [[nodiscard]] resource::Proxy<texture::Texture> SystemTexture(i32 systemIndex) const
+        {
+            return (systemIndex >= 0 && systemIndex < static_cast<i32>(m_systemTextures.Size()))
+                 ? m_systemTextures[static_cast<usize>(systemIndex)] : resource::Proxy<texture::Texture>{};
+        }
+        void SetSystemTextures(Array<resource::Proxy<texture::Texture>> textures) { m_systemTextures = Move(textures); }
+
     private:
         ParticleEffect m_effect;
+        Array<resource::Proxy<texture::Texture>> m_systemTextures;
     };
 
     // ---- Factory -----------------------------------------------------------------------------
@@ -180,8 +196,24 @@ export namespace draconic::particles
         [[nodiscard]] const TypeInfo* ProductType() const override { return &ParticleEffectResource::StaticType(); }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager, content::Instance& instance) override
         {
-            (void)manager;
-            return instance.ReadObject();   // ParticleEffectResource (ISerializable -> Object)
+            RefPtr<ISerializable> obj = instance.ReadObject();
+            ParticleEffectResource* res = Cast<ParticleEffectResource>(obj.Get());
+            if (res != nullptr)
+            {
+                // Resolve each system's texture GUID to a Proxy<Texture>. Bind records a dependency edge,
+                // so re-cooking the texture transitively reloads this effect; the Proxy then follows it.
+                Array<resource::Proxy<texture::Texture>> textures(DefaultAllocator());
+                ParticleEffect& fx = res->Effect();
+                for (i32 s = 0; s < fx.SystemCount(); ++s)
+                {
+                    ParticleSystem* sys = fx.GetSystem(s);
+                    const bool hasTex = (sys != nullptr) && !(sys->textureRef == Guid{});
+                    textures.PushBack(hasTex ? manager.Bind<texture::Texture>(sys->textureRef)
+                                             : resource::Proxy<texture::Texture>{});
+                }
+                res->SetSystemTextures(Move(textures));
+            }
+            return obj;
         }
     };
 

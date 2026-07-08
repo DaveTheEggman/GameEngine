@@ -10,6 +10,10 @@ import draconic.vfs;
 import draconic.content;
 import draconic.resource;
 import draconic.editor;
+import draconic.rhi;
+import draconic.rhi.null;
+import draconic.texture;
+import draconic.texture.resource;
 import draconic.particles;
 import draconic.particles.resource;
 import draconic.particles.editor;
@@ -18,6 +22,7 @@ using namespace draconic::core;
 using namespace draconic::vfs;
 using namespace draconic::resource;
 using namespace draconic::particles;
+namespace rhi = draconic::rhi;
 
 namespace
 {
@@ -54,7 +59,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
             ParticleCurveVector2::Linear(Vector2{ 1, 1 }, Vector2{ 3, 3 });
 
         ParticleEffectAssetBuilder builder;
-        draconic::editor::AssetBuildContext ctx{ StringView{}, inst };
+        draconic::editor::AssetBuildContext ctx{ StringView{}, inst, &db };
         REQUIRE(builder.AssetType() == &ParticleEffectAsset::StaticType());
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -84,4 +89,67 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
     CHECK(sys->AliveCount() > 0);
 
     RemoveTree();
+}
+
+TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID -> bound Proxy")
+{
+    RegisterParticleEffectAsset();
+    draconic::texture::RegisterTextureResource();
+    FileDelete(u8"draconic_pfx_ref_db/smoketex.rasset");
+    FileDelete(u8"draconic_pfx_ref_db/smoketex.data.bin");
+    FileDelete(u8"draconic_pfx_ref_db/effect.rasset");
+    RemoveDirectory(u8"draconic_pfx_ref_db");
+
+    NativeFileSystem mount(u8"draconic_pfx_ref_db");
+    Guid effectId, texId;
+
+    {
+        draconic::content::ContentDatabase db(mount);
+
+        // Cook a texture the effect will reference.
+        auto* texInst = db.RootGroup()->CreateInstance(u8"smoketex", draconic::texture::TextureResource::StaticType());
+        texId = texInst->Id();
+        draconic::texture::TextureResource tr;
+        tr.width = 2; tr.height = 2; tr.format = rhi::TextureFormat::RGBA8Unorm;
+        REQUIRE(texInst->WriteObject(tr).IsOk());
+        u8 px[2 * 2 * 4] = {};
+        REQUIRE(texInst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(px), sizeof(px))).IsOk());
+
+        // Author an effect that references the texture BY PATH, then cook it.
+        auto* fxInst = db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
+        effectId = fxInst->Id();
+        ParticleEffectAsset asset;
+        ParticleSystem& sys = asset.Effect().AddSystem(500);
+        sys.renderMode = ParticleRenderMode::Billboard;
+        sys.AddInitializer<LifetimeInitializer>().lifetime = RangeFloat(1.0f, 1.0f);
+        asset.SetSystemTexturePath(0, u8"smoketex");
+
+        ParticleEffectAssetBuilder builder;
+        draconic::editor::AssetBuildContext ctx{ StringView{}, fxInst, &db };
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+    }
+
+    // Load with both factories so the effect's Create can Bind the referenced texture.
+    rhi::null::NullDevice device;
+    draconic::content::ContentDatabase db(mount);
+    ParticleEffectFactory pfxFactory;
+    draconic::texture::TextureFactory texFactory(device);
+    ResourceManager manager(db);
+    manager.AddFactory(&pfxFactory);
+    manager.AddFactory(&texFactory);
+
+    Proxy<ParticleEffectResource> res = manager.Bind<ParticleEffectResource>(effectId);
+    REQUIRE(res);
+
+    // The path was resolved to the texture's cooked GUID during Build...
+    CHECK(res->Effect().GetSystem(0)->textureRef == texId);
+    // ...and the factory bound it to a live, hot-reload-following Proxy<Texture>.
+    Proxy<draconic::texture::Texture> tex = res->SystemTexture(0);
+    REQUIRE(tex);
+    CHECK(tex->GpuTexture() != nullptr);
+
+    FileDelete(u8"draconic_pfx_ref_db/smoketex.rasset");
+    FileDelete(u8"draconic_pfx_ref_db/smoketex.data.bin");
+    FileDelete(u8"draconic_pfx_ref_db/effect.rasset");
+    RemoveDirectory(u8"draconic_pfx_ref_db");
 }

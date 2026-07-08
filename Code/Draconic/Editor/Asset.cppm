@@ -34,12 +34,14 @@ export namespace draconic::editor
         }
     };
 
-    // Inputs a builder cooks against: where source files live + the output
-    // instance to write the cooked resource (object + data streams) into.
+    // Inputs a builder cooks against: where source files live, the output instance to write the cooked
+    // resource into, and the content DB (so a builder can resolve cross-asset references - an asset
+    // path -> the referenced cooked resource's GUID - during the bake).
     struct AssetBuildContext
     {
-        StringView assetRoot;                  // base dir for resolving Asset::fileName
-        draconic::content::Instance* output;     // cooked resource is written here
+        StringView assetRoot;                        // base dir for resolving Asset::fileName
+        draconic::content::Instance* output;         // cooked resource is written here
+        draconic::content::IContentDatabase* db = nullptr;   // for resolving referenced assets (path -> GUID)
     };
 
     // Cooks one source asset type into a runtime resource (source -> product).

@@ -114,6 +114,10 @@ export namespace draconic::particles
         ParticleSpace simulationSpace = ParticleSpace::World;
         ParticleBlendMode blendMode = ParticleBlendMode::Alpha;
         ParticleRenderMode renderMode = ParticleRenderMode::Billboard;
+        // Billboard atlas / flipbook sheet, as an OPAQUE cooked-resource GUID (the runtime lib doesn't
+        // resolve it - the resource factory binds it to a Proxy<Texture>, the editor cook fills it from an
+        // asset path). Null = untextured (renderer's soft-dot default). Sedulous-style ref-on-the-system.
+        Guid textureRef{};
         bool sortParticles = false;
         // Soft particles: fade billboard alpha where it nears the opaque surface behind it (needs the
         // scene depth; the renderer supplies it). softDistance is the fade band in world units; disable
