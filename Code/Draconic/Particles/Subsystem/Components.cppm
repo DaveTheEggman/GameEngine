@@ -222,6 +222,19 @@ export namespace draconic::particles
             return *m_scratch[m_scratchUsed++];
         }
 
+        // Maps a mesh-particle material's blend preset to a render category (mirrors the render
+        // subsystem's CategoryForMaterial). Opaque/Masked keep their pass; everything else is Transparent.
+        [[nodiscard]] static render::RenderCategory MeshCategoryFor(const materials::Material* m) noexcept
+        {
+            if (m == nullptr) { return render::RenderCategories::Opaque; }
+            switch (m->pipeline.blendMode)
+            {
+                case materials::BlendMode::Opaque: return render::RenderCategories::Opaque;
+                case materials::BlendMode::Masked: return render::RenderCategories::Masked;
+                default:                           return render::RenderCategories::Transparent;
+            }
+        }
+
         // Mesh-mode: emit a MultiMeshRenderData drawn by the shared mesh renderer (the instanced-mesh
         // path). Per-particle world transform + tint; a bumped version re-uploads the (dynamic) set each
         // frame. No new renderer needed - particles reuse the InstancedMesh persistent-buffer machinery.
@@ -248,7 +261,10 @@ export namespace draconic::particles
             rd->mesh          = c.mesh.Get();
             rd->material      = c.material.Get();
             rd->rendererId    = 0;   // the mesh renderer (id 0)
-            rd->category      = render::RenderCategories::Opaque;   // solid mesh particles (debris); transparent later
+            // Category from the material's blend mode (like regular meshes + Sedulous): an opaque material
+            // stays Opaque; a transparent/additive one routes to the Transparent pass (ResolveMultiMesh
+            // still instances it - the set sorts as one item, fine for additive / approximate for alpha).
+            rd->category      = MeshCategoryFor(c.material.Get());
             const Vector3 center = (bmin + bmax) * 0.5f;
             rd->worldCenter   = center;
             rd->worldRadius   = Length(bmax - center) + LargestSize(sys) * c.meshScale;

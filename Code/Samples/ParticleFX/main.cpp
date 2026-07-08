@@ -104,6 +104,7 @@ namespace
             BuildTrail(m_trail);
             BuildCollision(m_collide);
             BuildLocal(m_local);
+            BuildMeshGlow(m_meshGlow);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
                 // One system per cell of a 4x4 showcase grid (11 cells reserved for later samples).
@@ -148,6 +149,21 @@ namespace
                 m_localEmitter = m_scene->CreateEntity(u8"orbit");
                 m_scene->SetLocalPosition(m_localEmitter, CellPos(6));
                 pmgr->Add(m_localEmitter).SetEffect(m_local);
+
+                // Cell 7: transparent mesh particles - additive glowing shards through the mesh path.
+                m_glowEmitter = m_scene->CreateEntity(u8"shards");
+                m_scene->SetLocalPosition(m_glowEmitter, CellPos(7));
+                px::ParticleEffectComponent& gc = pmgr->Add(m_glowEmitter);
+                gc.SetEffect(m_meshGlow);
+                gc.mesh     = geometry::Primitives::Cube(1.0f);
+                gc.meshScale = 0.5f;
+                {
+                    // Additive PBR material -> the extractor routes these to the Transparent pass.
+                    auto glow = materials::CreatePBR(u8"glow", core::Vector4{ 0.4f, 0.8f, 1.0f, 1.0f }, 0.0f, 0.4f);
+                    glow->pipeline.blendMode = materials::BlendMode::Additive;
+                    glow->pipeline.depthMode = materials::DepthMode::ReadOnly;
+                    gc.material = glow;
+                }
 
                 ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);   // sync all systems to the slider
             }
@@ -381,6 +397,34 @@ namespace
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
         }
 
+        // Transparent mesh particles: glowing additive shards that rise and tumble. The mesh path routes
+        // to the Transparent pass because the material's blend mode is Additive (mesh-particle category is
+        // derived from the material - like regular meshes + Sedulous).
+        static void BuildMeshGlow(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(2000);
+            sys.name       = core::String{ u8"shards" };
+            sys.renderMode = px::ParticleRenderMode::Mesh;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 80.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.4f);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.6f);
+            {
+                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 3.5f, 0.0f };
+                v.randomness   = core::Vector3{ 1.5f, 1.0f, 1.5f };
+            }
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.3f, 0.3f });
+            sys.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 0.3f, 0.9f, 1.0f, 1.0f }, core::Vector4{ 0.5f, 0.3f, 1.0f, 1.0f });
+            sys.AddInitializer<px::RotationInitializer>();
+            sys.AddInitializer<px::MeshOrientationInitializer>();
+            sys.AddBehavior<px::RotationOverLifetimeBehavior>();                 // tumble
+            sys.AddBehavior<px::DragBehavior>().drag = 0.5f;
+            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
+        }
+
         // Push the current soft-particle distance to every system in an effect (0 => disabled).
         void ApplySoft(px::ParticleEffect& fx)
         {
@@ -424,6 +468,7 @@ namespace
         scene::EntityHandle   m_trailEmitter;
         scene::EntityHandle   m_collideEmitter;
         scene::EntityHandle   m_localEmitter;
+        scene::EntityHandle   m_glowEmitter;
         px::ParticleEffect    m_effect;
         px::ParticleEffect    m_debris;
         px::ParticleEffect    m_embers;
@@ -431,6 +476,7 @@ namespace
         px::ParticleEffect    m_trail;
         px::ParticleEffect    m_collide;
         px::ParticleEffect    m_local;
+        px::ParticleEffect    m_meshGlow;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
         core::f32             m_orbitTime = 0.0f;      // drives the local-space emitter orbit
