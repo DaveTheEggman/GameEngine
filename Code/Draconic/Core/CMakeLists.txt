@@ -56,6 +56,9 @@ target_sources(DraconicCore
             Guid.cppm
             Math/Float4x4.cppm
             Math/Float3x3.cppm
+            Math/Simd.cppm
+            Math/SimdVector.cppm
+            Math/SimdMatrix.cppm
             Math/Quaternion.cppm
             Math/Transform.cppm
             Math/Easings.cppm
@@ -121,6 +124,7 @@ target_sources(DraconicCore
             FILES
                 Prelude.h
                 Debug/Assert.h
+                Math/SimdConfig.h
                 System/SystemBackend.h
                 Log/Log.h
                 Reflection/Reflect.h
