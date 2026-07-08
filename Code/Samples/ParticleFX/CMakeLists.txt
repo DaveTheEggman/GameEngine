@@ -19,5 +19,13 @@ target_link_libraries(ParticleFX PRIVATE
     Draconic::Materials
     Draconic::Particles
     Draconic::ParticlesSubsystem
+    Draconic::ParticlesResource       # cooked ParticleEffectResource + factory
+    Draconic::ParticlesEditor         # ParticleEffectAsset + bake (sample references editor for the demo)
+    Draconic::Editor Draconic::Content Draconic::Resource Draconic::VFS
     Draconic::Policy)
+
+# Per-sample cooked-output DB (isolated), matching the other samples' pattern.
+target_compile_definitions(ParticleFX PRIVATE
+    DRACONIC_PARTICLEFX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output/ParticleFX")
+
 draconic_copy_sdl3_dll(ParticleFX)

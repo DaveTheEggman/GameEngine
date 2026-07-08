@@ -26,6 +26,12 @@ import draconic.geometry;
 import draconic.materials;
 import draconic.particles;             // the CPU sim (effect/system/modules)
 import draconic.particles.subsystem;   // the ECS component + ParticleSubsystem
+import draconic.particles.resource;    // cooked ParticleEffectResource + factory
+import draconic.particles.editor;      // ParticleEffectAsset + bake (the authoring demo)
+import draconic.editor;                // AssetBuildContext
+import draconic.vfs;                   // NativeFileSystem mount for the content DB
+import draconic.content;               // ContentDatabase (cooked-output DB)
+import draconic.resource;              // ResourceManager + Proxy
 
 #include "../Common/FlyCamera.h"
 
@@ -41,6 +47,10 @@ namespace imgui = draconic::imgui;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
 namespace px = draconic::particles;
+namespace vfs = draconic::vfs;
+namespace content = draconic::content;
+namespace resource = draconic::resource;
+namespace editor = draconic::editor;
 
 namespace
 {
@@ -236,6 +246,9 @@ namespace
                 m_scene->SetLocalPosition(m_firefliesEmitter, CellPos(15));
                 pmgr->Add(m_firefliesEmitter).SetEffect(m_fireflies);
 
+                // Authoring pipeline demo: author -> bake -> load a cooked effect, in front of the grid.
+                SetupCookedDemo(*pmgr);
+
                 // Sync only the soft-particle A/B systems to the slider (smoke keeps soft OFF - the fade
                 // against the floor behind a rising column zeroes its alpha).
                 ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);
@@ -292,6 +305,10 @@ namespace
                     for (core::i32 i = 0; i < 16; ++i) {
                         dd.DrawText3D(CellPos(i) + core::Vector3{ 0.0f, 0.15f, kCellSpacing * 0.42f },
                                       kNames[i], core::Color{ 0.85f, 0.9f, 1.0f, 1.0f });
+                    }
+                    if (m_cookedProxy) {
+                        dd.DrawText3D(core::Vector3{ 0.0f, 0.3f, 37.0f }, u8"COOKED: asset -> bake -> load",
+                                      core::Color{ 0.4f, 1.0f, 0.9f, 1.0f });
                     }
                 }
             }
@@ -849,6 +866,62 @@ namespace
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
         }
 
+        // The effect for the cooked-pipeline demo: a bright cyan additive fountain (distinct from cell 0).
+        static void BuildCookedEffect(px::ParticleEffect& fx)
+        {
+            px::ParticleSystem& sys = fx.AddSystem(4000);
+            sys.name       = core::String{ u8"cooked" };
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 400.0f;
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Cone(0.3f, 0.5f);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.2f, 2.0f);
+            {
+                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 10.0f, 0.0f };
+                v.randomness   = core::Vector3{ 2.5f, 1.0f, 2.5f };
+            }
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.3f, 0.3f });
+            sys.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 0.2f, 1.0f, 0.9f, 1.0f }, core::Vector4{ 0.4f, 0.6f, 1.0f, 1.0f });
+            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.2f;
+            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.3f);
+        }
+
+        // The full authoring pipeline, live: author a ParticleEffectAsset in code -> bake it with the
+        // builder into a cooked ParticleEffectResource in the per-sample content DB -> Bind it through the
+        // ResourceManager -> drive a component with the cooked Proxy. This is exactly the editor->runtime
+        // path (an editor would bake offline; here we bake at startup), proving it end to end in the app.
+        void SetupCookedDemo(px::ParticleEffectComponentManager& pmgr)
+        {
+            const core::StringView outputDir(reinterpret_cast<const core::utf8char*>(DRACONIC_PARTICLEFX_OUTPUT_DIR));
+            if (outputDir.IsEmpty()) { return; }
+            px::RegisterParticleEffectAsset();   // register cooked/asset/module types + serializable factories
+
+            m_contentFs = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), *m_contentFs);
+
+            // AUTHOR -> BAKE: cook the authored asset into a content-DB ParticleEffectResource.
+            content::Instance* inst = m_contentDb->RootGroup()->CreateInstance(u8"cooked_demo", px::ParticleEffectResource::StaticType());
+            px::ParticleEffectAsset asset;
+            BuildCookedEffect(asset.Effect());
+            px::ParticleEffectAssetBuilder builder;
+            editor::AssetBuildContext ctx{ core::StringView{}, inst, m_contentDb.Get() };
+            if (!builder.Build(asset, ctx).IsOk()) { return; }
+
+            // LOAD: bind the cooked resource back through the manager + factory (runtime path).
+            m_resources = core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
+            m_resources->AddFactory(&m_pfxFactory);
+            m_cookedProxy = m_resources->Bind<px::ParticleEffectResource>(inst->Id());
+            if (!m_cookedProxy) { return; }
+
+            // DEMO: a component driven by the cooked resource (in front of the grid).
+            m_cookedEmitter = m_scene->CreateEntity(u8"cooked");
+            m_scene->SetLocalPosition(m_cookedEmitter, core::Vector3{ 0.0f, 0.2f, 34.0f });
+            pmgr.Add(m_cookedEmitter).SetEffect(m_cookedProxy);
+        }
+
         // Push the current soft-particle distance to every system in an effect (0 => disabled).
         void ApplySoft(px::ParticleEffect& fx)
         {
@@ -925,6 +998,13 @@ namespace
         px::ParticleEffect    m_fireflies;
         rhi::Texture*         m_blastTex = nullptr;    // flipbook atlas for the explosion (owned)
         rhi::TextureView*     m_blastView = nullptr;
+        // Cooked-pipeline demo: content DB + manager + factory + the bound cooked effect.
+        core::UniquePtr<vfs::NativeFileSystem>       m_contentFs;
+        core::UniquePtr<content::ContentDatabase>    m_contentDb;
+        core::UniquePtr<resource::ResourceManager>   m_resources;
+        px::ParticleEffectFactory                    m_pfxFactory;
+        resource::Proxy<px::ParticleEffectResource>  m_cookedProxy;
+        scene::EntityHandle                          m_cookedEmitter;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
         core::f32             m_orbitTime = 0.0f;      // drives the local-space emitter orbit
