@@ -1,9 +1,10 @@
 // Draconic Core - :math partition (scalar constants & functions)
 //
 // Scalar math foundation: constants (kPi, kEpsilon, ...) and f32 functions
-// (Abs/Sqrt/Sin/.../Lerp/NearlyEqual). Vector types live in :vector; matrices
-// in :matrix. Conventions (Documentation/Planning/Core.md §7): row-major
-// matrices, row vectors, XNA-style. Scalar path first; SIMD later.
+// (Abs/Sqrt/Sin/.../Lerp/NearlyEqual). Packed vector/matrix types live in
+// :float2/:float3/:float4/:float3x3/:float4x4; SIMD (aligned) types in
+// :simd_vector/:simd_matrix. Conventions (Documentation/Planning/Core.md §7):
+// row-major matrices, row vectors, XNA-style.
 
 module;
 #include "Core/Prelude.h"

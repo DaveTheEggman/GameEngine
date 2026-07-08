@@ -149,7 +149,7 @@ export namespace draconic::particles
     {
         DRACONIC_OBJECT(SizeInitializer, ParticleInitializer)
     public:
-        RangeVector2 size = RangeVector2::Constant(Float2{ 0.1f, 0.1f });
+        RangeFloat2 size = RangeFloat2::Constant(Float2{ 0.1f, 0.1f });
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "size", size); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Size, StreamElementType::Float2); }
@@ -533,7 +533,7 @@ export namespace draconic::particles
     {
         DRACONIC_OBJECT(SizeOverLifetimeBehavior, ParticleBehavior)
     public:
-        ParticleCurveVector2 curve;
+        ParticleCurveFloat2 curve;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Size, StreamElementType::Float2); }

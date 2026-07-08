@@ -52,15 +52,15 @@ export namespace draconic::particles
         [[nodiscard]] static constexpr RangeFloat Range(f32 mn, f32 mx) noexcept { return RangeFloat(mn, mx); }
     };
 
-    struct RangeVector2
+    struct RangeFloat2
     {
         Float2 min{ 0.0f, 0.0f };
         Float2 max{ 0.0f, 0.0f };
-        constexpr RangeVector2() noexcept = default;
-        constexpr explicit RangeVector2(Float2 value) noexcept : min(value), max(value) {}
-        constexpr RangeVector2(Float2 mn, Float2 mx) noexcept : min(mn), max(mx) {}
+        constexpr RangeFloat2() noexcept = default;
+        constexpr explicit RangeFloat2(Float2 value) noexcept : min(value), max(value) {}
+        constexpr RangeFloat2(Float2 mn, Float2 mx) noexcept : min(mn), max(mx) {}
         [[nodiscard]] constexpr Float2 Evaluate(f32 t) const noexcept { return min + (max - min) * t; }
-        [[nodiscard]] static constexpr RangeVector2 Constant(Float2 v) noexcept { return RangeVector2(v); }
+        [[nodiscard]] static constexpr RangeFloat2 Constant(Float2 v) noexcept { return RangeFloat2(v); }
     };
 
     struct RangeColor
@@ -216,7 +216,7 @@ export namespace draconic::particles
         }
     };
 
-    struct ParticleCurveVector2
+    struct ParticleCurveFloat2
     {
         f32 times[kMaxCurveKeys]{};
         Float2 values[kMaxCurveKeys]{};
@@ -255,13 +255,13 @@ export namespace draconic::particles
             return true;
         }
 
-        [[nodiscard]] static ParticleCurveVector2 Constant(Float2 value) noexcept
+        [[nodiscard]] static ParticleCurveFloat2 Constant(Float2 value) noexcept
         {
-            ParticleCurveVector2 c; c.AddKey(0.0f, value); return c;
+            ParticleCurveFloat2 c; c.AddKey(0.0f, value); return c;
         }
-        [[nodiscard]] static ParticleCurveVector2 Linear(Float2 a, Float2 b) noexcept
+        [[nodiscard]] static ParticleCurveFloat2 Linear(Float2 a, Float2 b) noexcept
         {
-            ParticleCurveVector2 c; c.AddKey(0.0f, a); c.AddKey(1.0f, b); return c;
+            ParticleCurveFloat2 c; c.AddKey(0.0f, a); c.AddKey(1.0f, b); return c;
         }
     };
 
@@ -484,7 +484,7 @@ export namespace draconic::particles
     // asset, portable in the binary cook. Curves write keyCount then the active keys only.
     using draconic::core::ISerializer;
     inline void Serialize(ISerializer& ar, RangeFloat& v)   { core::Serialize(ar, "min", v.min); core::Serialize(ar, "max", v.max); }
-    inline void Serialize(ISerializer& ar, RangeVector2& v) { core::Serialize(ar, "min", v.min); core::Serialize(ar, "max", v.max); }
+    inline void Serialize(ISerializer& ar, RangeFloat2& v) { core::Serialize(ar, "min", v.min); core::Serialize(ar, "max", v.max); }
     inline void Serialize(ISerializer& ar, RangeColor& v)   { core::Serialize(ar, "min", v.min); core::Serialize(ar, "max", v.max); }
 
     inline void Serialize(ISerializer& ar, ParticleCurveFloat& c)
@@ -510,7 +510,7 @@ export namespace draconic::particles
             ar.EndObject();
         }
     }
-    inline void Serialize(ISerializer& ar, ParticleCurveVector2& c)
+    inline void Serialize(ISerializer& ar, ParticleCurveFloat2& c)
     {
         core::Serialize(ar, "keyCount", c.keyCount);
         const i32 n = Clamp(c.keyCount, 0, kMaxCurveKeys);

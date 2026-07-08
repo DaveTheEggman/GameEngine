@@ -79,7 +79,7 @@ public:                                                                         
 //   {
 //       builder.Property<&Float3::x>("x").Property<&Float3::y>("y").Property<&Float3::z>("z");
 //   }
-//   // later: DraconicRegisterValue_Vector3();
+//   // later: DraconicRegisterValue_Float3();
 #define DRACONIC_REFLECT_VALUE(Type, Namespace)                                          \
     static void DraconicReflectValue_##Type(::draconic::core::TypeBuilder<Type>& builder);   \
     void DraconicRegisterValue_##Type()                                                    \

@@ -53,10 +53,10 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
         sys.blendMode = ParticleBlendMode::Alpha;
         sys.emitter.spawnRate = 40.0f;
         sys.AddInitializer<LifetimeInitializer>().lifetime = RangeFloat(2.0f, 3.0f);
-        sys.AddInitializer<SizeInitializer>().size = RangeVector2::Constant(Float2{ 1.0f, 1.0f });
+        sys.AddInitializer<SizeInitializer>().size = RangeFloat2::Constant(Float2{ 1.0f, 1.0f });
         sys.AddBehavior<DragBehavior>().drag = 0.3f;
         sys.AddBehavior<SizeOverLifetimeBehavior>().curve =
-            ParticleCurveVector2::Linear(Float2{ 1, 1 }, Float2{ 3, 3 });
+            ParticleCurveFloat2::Linear(Float2{ 1, 1 }, Float2{ 3, 3 });
 
         ParticleEffectAssetBuilder builder;
         draconic::editor::AssetBuildContext ctx{ StringView{}, inst, &db };
