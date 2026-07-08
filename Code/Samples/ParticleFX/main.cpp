@@ -454,7 +454,10 @@ namespace
         static void BuildCampfire(px::ParticleEffect& effect)
         {
             ConfigureFire(effect.AddSystem(2000), 0.7f);
-            ConfigureSmoke(effect.AddSystem(800), 0.7f, 3.5f);
+            // Thin, gentle wisp scaled to the small flame (not a billowing column): smaller, slower, sparser.
+            px::ParticleSystem& smoke = effect.AddSystem(400);
+            ConfigureSmoke(smoke, 0.35f, 2.0f);
+            smoke.emitter.spawnRate = 12.0f;
         }
 
         // Fireworks: rockets shoot up and, on death, burst into a colour-inheriting spark shower via a
