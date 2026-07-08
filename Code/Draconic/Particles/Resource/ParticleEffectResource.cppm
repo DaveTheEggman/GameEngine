@@ -22,7 +22,7 @@ using namespace draconic::core;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
 
-namespace draconic::particles
+export namespace draconic::particles
 {
     // ---- Effect serializer (bidirectional; ported from Sedulous ParticleEffectSerializer) --------
 
@@ -137,6 +137,21 @@ namespace draconic::particles
             if (reading) { fx.AddSubEmitterLink(link); }
         }
         ar.EndArray();
+    }
+
+    // Deep-copy an effect via a serialize round-trip (reuses the one serializer; truly independent -
+    // no shared module RefPtrs). This is the core of the bake: the editor clones the authored asset's
+    // effect into a fresh cooked resource (later: resolving refs / baking LUTs during the copy).
+    inline void CloneEffect(const ParticleEffect& src, ParticleEffect& dst)
+    {
+        MemoryStream buffer(DefaultAllocator());
+        {
+            BinarySerializer writer(buffer, SerializeMode::Write);
+            SerializeEffect(writer, const_cast<ParticleEffect&>(src));   // write pass only reads src (bidirectional API is non-const)
+        }
+        (void)buffer.Seek(0, SeekOrigin::Begin);
+        BinarySerializer reader(buffer, SerializeMode::Read);
+        SerializeEffect(reader, dst);
     }
 }
 
