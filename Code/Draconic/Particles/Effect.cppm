@@ -104,6 +104,9 @@ export namespace draconic::particles
         // per-system by clearing softParticles. Read every frame at extract, so it toggles live.
         bool softParticles = true;
         f32  softDistance = 0.6f;
+        // Trails: when renderMode==Trail (and trail.IsActive()), each particle records a position ring
+        // that the render extractor expands into a camera-facing ribbon.
+        TrailSettings trail = TrailSettings::Default();
         // LOD (0 disables)
         f32 lodStartDistance = 0.0f;
         f32 lodCullDistance = 0.0f;
@@ -130,6 +133,12 @@ export namespace draconic::particles
         [[nodiscard]] bool IsLODCulled() const noexcept { return m_lodRateMultiplier <= 0.0f && m_streams.aliveCount == 0; }
         [[nodiscard]] ParticleStreamContainer& Streams() noexcept { return m_streams; }
         [[nodiscard]] const ParticleStreamContainer& Streams() const noexcept { return m_streams; }
+
+        // Trail ring-buffer access for the render extractor (valid for [0, AliveCount)). TrailMaxPoints
+        // is the ring length the points were allocated for; a point is at [particleIndex*maxPoints + slot].
+        [[nodiscard]] i32 TrailMaxPoints() const noexcept { return m_trailCapacityPoints; }
+        [[nodiscard]] Span<const ParticleTrailState> TrailStates() const noexcept { return Span<const ParticleTrailState>{ m_trailStates.Data(), static_cast<usize>(m_streams.aliveCount) }; }
+        [[nodiscard]] Span<const TrailPoint> TrailPoints() const noexcept { return Span<const TrailPoint>{ m_trailPoints.Data(), m_trailPoints.Size() }; }
         [[nodiscard]] SimulationMode ResolvedMode() const noexcept { return m_resolvedMode; }
 
         // Build helpers: construct+configure a module in place, declare its streams, own it.
@@ -194,8 +203,10 @@ export namespace draconic::particles
             ParticleUpdateContext ctx{ m_totalTime, deltaTime, position, &m_random };   // 5
             m_simulator->Simulate(m_streams, m_behaviors, ctx);         // 6
             IntegrateVelocityAndAge(deltaTime);                        // 7 (hardcoded finalize)
+            if (trail.IsActive()) { RecordTrailPoints(); }             // 8 (after positions integrated)
             CollectDeathEvents();                                      // 9 (before compaction)
-            m_streams.CompactDead();                                   // 10
+            if (trail.IsActive()) { CompactDeadWithTrails(); }         // 10 (swap trail state with the particle)
+            else { m_streams.CompactDead(); }
             prevPosition = position;                                   // 11
         }
 
@@ -250,6 +261,74 @@ export namespace draconic::particles
             }
         }
 
+        // Size the trail ring buffers to the current capacity/maxPoints (clears existing trails on resize).
+        void EnsureTrailStorage()
+        {
+            if (m_trailCapacityPoints == trail.maxPoints && static_cast<i32>(m_trailStates.Size()) == m_maxParticles) { return; }
+            m_trailStates.Resize(static_cast<usize>(m_maxParticles));
+            m_trailPoints.Resize(static_cast<usize>(m_maxParticles) * static_cast<usize>(trail.maxPoints));
+            m_trailCapacityPoints = trail.maxPoints;
+            for (usize i = 0; i < m_trailStates.Size(); ++i) { m_trailStates[i].Clear(); }
+        }
+
+        // Record each live particle's current position into its ring, when enough time has passed OR it
+        // moved far enough (or it's the first point). Newest point is at `head`; iterate backward to tail.
+        void RecordTrailPoints()
+        {
+            EnsureTrailStorage();
+            CPUStream<Vector3>* pos = m_streams.Positions();
+            if (pos == nullptr) { return; }
+            CPUStream<Vector4>* cols = m_streams.Colors();
+            const i32 mp = trail.maxPoints;
+            for (i32 i = 0; i < m_streams.aliveCount; ++i)
+            {
+                ParticleTrailState& st = m_trailStates[i];
+                const Vector3 p = (*pos)[i];
+                const bool first = (st.count == 0);
+                if (!first)
+                {
+                    const bool byTime = (m_totalTime - st.lastRecordTime) >= trail.recordInterval;
+                    const bool byDist = Length(p - st.lastPosition) >= trail.minVertexDistance;
+                    if (!byTime && !byDist) { continue; }
+                    st.head = (st.head + 1) % mp;
+                }
+                TrailPoint& tp = m_trailPoints[static_cast<usize>(i) * static_cast<usize>(mp) + static_cast<usize>(st.head)];
+                tp.position   = p;
+                tp.width      = trail.widthStart;
+                tp.color      = (trail.useParticleColor && cols != nullptr) ? (*cols)[i] : trail.trailColor;
+                tp.recordTime = m_totalTime;
+                if (st.count < mp) { ++st.count; }
+                st.lastRecordTime = m_totalTime;
+                st.lastPosition   = p;
+            }
+        }
+
+        // Compaction that keeps each particle's trail state/points aligned with its (swap-removed) slot.
+        void CompactDeadWithTrails()
+        {
+            CPUStream<f32>* ages = m_streams.Ages();
+            CPUStream<f32>* lifetimes = m_streams.Lifetimes();
+            if (ages == nullptr || lifetimes == nullptr) { return; }
+            EnsureTrailStorage();
+            const i32 mp = trail.maxPoints;
+            for (i32 i = m_streams.aliveCount - 1; i >= 0; --i)
+            {
+                if ((*ages)[i] < (*lifetimes)[i]) { continue; }
+                const i32 last = m_streams.aliveCount - 1;
+                if (i < last)
+                {
+                    m_trailStates[i] = m_trailStates[last];
+                    for (i32 p = 0; p < mp; ++p)
+                    {
+                        m_trailPoints[static_cast<usize>(i) * static_cast<usize>(mp) + static_cast<usize>(p)] =
+                            m_trailPoints[static_cast<usize>(last) * static_cast<usize>(mp) + static_cast<usize>(p)];
+                    }
+                }
+                m_trailStates[last].Clear();
+                m_streams.SwapRemove(i);   // swaps the SoA streams + decrements aliveCount
+            }
+        }
+
         void RecordBirthEvent(i32 index) noexcept
         {
             if (m_birthCount >= kMaxEventsPerFrame) { return; }
@@ -292,6 +371,9 @@ export namespace draconic::particles
         }
 
         i32 m_maxParticles;
+        Array<ParticleTrailState> m_trailStates;   // per-particle (parallel to the streams)
+        Array<TrailPoint>         m_trailPoints;    // flat ring buffers: [particleIndex*maxPoints + slot]
+        i32                       m_trailCapacityPoints = 0;
         ParticleStreamContainer m_streams;
         Array<UniquePtr<ParticleInitializer>> m_initializers;
         Array<UniquePtr<ParticleBehavior>> m_behaviors;

@@ -344,6 +344,45 @@ export namespace draconic::particles
         }
     };
 
+    // ---- Trails / ribbons (TrailTypes.bf) ----------------------------------------------------
+    // A Trail-render-mode system records each particle's position history into a ring buffer; the
+    // render extractor expands those points into a camera-facing ribbon. Settings are per-system.
+
+    struct TrailSettings
+    {
+        bool    enabled = false;
+        i32     maxPoints = 16;              // ring-buffer length per particle
+        f32     recordInterval = 0.033f;     // min seconds between recorded points
+        f32     lifetime = 1.0f;             // a point fades out over this many seconds
+        f32     widthStart = 0.15f;          // ribbon half-width at the head (newest)
+        f32     widthEnd = 0.0f;             // ribbon half-width at the tail (oldest)
+        f32     minVertexDistance = 0.05f;   // also record when the particle moves at least this far
+        bool    useParticleColor = true;     // tint by the particle's color, else trailColor
+        Vector4 trailColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+        [[nodiscard]] constexpr bool IsActive() const noexcept { return enabled && maxPoints >= 2; }
+        [[nodiscard]] static TrailSettings Default() noexcept { return TrailSettings{}; }
+    };
+
+    // One recorded point along a particle's trail (a ring-buffer entry).
+    struct TrailPoint
+    {
+        Vector3 position{ 0.0f, 0.0f, 0.0f };
+        f32     width = 0.0f;
+        Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        f32     recordTime = 0.0f;   // system time when recorded (for age-based fade)
+    };
+
+    // Per-particle trail ring-buffer bookkeeping.
+    struct ParticleTrailState
+    {
+        i32     head = 0;    // index of the newest point (writes advance here)
+        i32     count = 0;   // valid points in the ring
+        f32     lastRecordTime = 0.0f;
+        Vector3 lastPosition{ 0.0f, 0.0f, 0.0f };
+        void Clear() noexcept { head = 0; count = 0; lastRecordTime = 0.0f; lastPosition = Vector3::Zero; }
+    };
+
     // ---- Sub-emitter events (ParticleEvent.bf) -----------------------------------------------
 
     enum class ParticleEventType : u8 { OnBirth, OnDeath };

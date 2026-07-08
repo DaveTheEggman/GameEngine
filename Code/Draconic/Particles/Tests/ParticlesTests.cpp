@@ -228,6 +228,83 @@ TEST_CASE("LOD: beyond cull distance the system stops spawning")
 
 // ---- sub-emitters ------------------------------------------------------------------------------
 
+// ---- trails -----------------------------------------------------------------------------------
+
+namespace
+{
+    // A moving Trail-mode system with N burst particles, recording every frame.
+    void BuildTrailSystem(px::ParticleSystem& sys, i32 burst, i32 maxPoints)
+    {
+        sys.renderMode = px::ParticleRenderMode::Trail;
+        sys.trail.enabled = true;
+        sys.trail.maxPoints = maxPoints;
+        sys.trail.recordInterval = 0.0f;      // record every frame
+        sys.trail.minVertexDistance = 0.0f;
+        sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(100.0f, 100.0f);
+        sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Vector3{ 5.0f, 0.0f, 0.0f };
+        sys.emitter.mode = px::EmissionMode::Burst;
+        sys.emitter.burstCount = burst;
+        sys.emitter.burstInterval = 0.0f;
+    }
+}
+
+TEST_CASE("Trails: ring buffer fills, caps at maxPoints, and records the current position")
+{
+    px::ParticleSystem sys(100);
+    BuildTrailSystem(sys, /*burst*/ 3, /*maxPoints*/ 4);
+    CHECK_FALSE(sys.trail.IsActive() == false);   // enabled + maxPoints>=2
+
+    sys.Update(0.1f);
+    REQUIRE(sys.AliveCount() == 3);
+    CHECK(sys.TrailMaxPoints() == 4);
+    CHECK(sys.TrailStates()[0].count == 1);
+
+    for (int i = 0; i < 10; ++i) { sys.Update(0.1f); }
+    const Span<const px::ParticleTrailState> states = sys.TrailStates();
+    REQUIRE(states.Size() == 3);
+    for (usize i = 0; i < states.Size(); ++i) { CHECK(states[i].count == 4); }   // capped at maxPoints
+
+    // The newest point (at head) is the particle's current position.
+    const Span<const px::TrailPoint> points = sys.TrailPoints();
+    const px::CPUStream<Vector3>* pos = sys.Streams().Positions();
+    const i32 head = states[0].head;
+    CHECK(points[0 * 4 + head].position.x == doctest::Approx((*pos)[0].x));
+}
+
+TEST_CASE("Trails: recordInterval gates how often points are added")
+{
+    px::ParticleSystem slow(100);
+    BuildTrailSystem(slow, 1, 16);
+    slow.trail.recordInterval = 0.5f;   // one point per 0.5s
+    slow.trail.minVertexDistance = 1e9f;
+
+    for (int i = 0; i < 10; ++i) { slow.Update(0.1f); }   // 1.0s total
+    REQUIRE(slow.AliveCount() == 1);
+    // ~1 initial + ~2 interval points (at 0.5s, 1.0s) -> a handful, not 10.
+    CHECK(slow.TrailStates()[0].count <= 4);
+    CHECK(slow.TrailStates()[0].count >= 2);
+}
+
+TEST_CASE("Trails: compaction keeps trail state aligned; dead particles drop cleanly")
+{
+    px::ParticleSystem sys(100);
+    sys.renderMode = px::ParticleRenderMode::Trail;
+    sys.trail.enabled = true; sys.trail.maxPoints = 8; sys.trail.recordInterval = 0.0f; sys.trail.minVertexDistance = 0.0f;
+    sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.25f, 0.25f);   // short
+    sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Vector3{ 2.0f, 0.0f, 0.0f };
+    sys.emitter.mode = px::EmissionMode::Continuous; sys.emitter.spawnRate = 200.0f;
+
+    for (int i = 0; i < 30; ++i) { sys.Update(0.02f); }
+    // Steady state: alive particles all have trail states within [0, count<=maxPoints].
+    const Span<const px::ParticleTrailState> states = sys.TrailStates();
+    CHECK(static_cast<i32>(states.Size()) == sys.AliveCount());
+    for (usize i = 0; i < states.Size(); ++i) { CHECK(states[i].count <= 8); CHECK(states[i].count >= 0); }
+
+    sys.emitter.isEmitting = false;
+    for (int i = 0; i < 30; ++i) { sys.Update(0.02f); }
+    CHECK(sys.AliveCount() == 0);   // everything ages out, no crash
+}
+
 TEST_CASE("Sub-emitter: parent death spawns into the child system")
 {
     px::ParticleEffect fx(u8"fireworks");
