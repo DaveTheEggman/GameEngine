@@ -99,6 +99,11 @@ export namespace draconic::particles
         ParticleBlendMode blendMode = ParticleBlendMode::Alpha;
         ParticleRenderMode renderMode = ParticleRenderMode::Billboard;
         bool sortParticles = false;
+        // Soft particles: fade billboard alpha where it nears the opaque surface behind it (needs the
+        // scene depth; the renderer supplies it). softDistance is the fade band in world units; disable
+        // per-system by clearing softParticles. Read every frame at extract, so it toggles live.
+        bool softParticles = true;
+        f32  softDistance = 0.6f;
         // LOD (0 disables)
         f32 lodStartDistance = 0.0f;
         f32 lodCullDistance = 0.0f;

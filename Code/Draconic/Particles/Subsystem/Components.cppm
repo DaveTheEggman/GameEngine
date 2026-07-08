@@ -142,6 +142,7 @@ export namespace draconic::particles
             CPUStream<Vector3>* vels = st.Velocities();
             const bool stretch = (sys.renderMode == ParticleRenderMode::StretchedBillboard);
             const f32 modeF = OrientationMode(sys.renderMode);
+            const f32 softDist = sys.softParticles ? sys.softDistance : 0.0f;   // 0 => no soft fade
             const i32 alive = sys.AliveCount();
             for (i32 i = 0; i < alive; ++i)
             {
@@ -149,7 +150,7 @@ export namespace draconic::particles
                 const Vector2 sz = (sizes != nullptr) ? (*sizes)[i] : Vector2{ 0.1f, 0.1f };
                 ParticleBillboardInstance& o = out[i];
                 o.positionSize = Vector4{ p.x, p.y, p.z, sz.x };
-                o.sizeRotMode  = Vector4{ sz.y, (rots != nullptr) ? (*rots)[i] : 0.0f, modeF, 0.0f };
+                o.sizeRotMode  = Vector4{ sz.y, (rots != nullptr) ? (*rots)[i] : 0.0f, modeF, softDist };
                 o.color        = (cols != nullptr) ? (*cols)[i] : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
                 o.uvRect       = Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };
                 const Vector3 v = (stretch && vels != nullptr) ? (*vels)[i] : Vector3::Zero;

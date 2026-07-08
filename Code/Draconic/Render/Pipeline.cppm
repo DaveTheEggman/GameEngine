@@ -83,6 +83,9 @@ struct RenderRecordContext {
     u32                        viewIndex   = 0;                  // this view's index in the frame (per-view buffer slots)
     rhi::TextureFormat         colorFormat = rhi::TextureFormat::BGRA8Unorm;
     rhi::TextureFormat         depthFormat = rhi::TextureFormat::Depth32Float;
+    // The opaque scene-depth as a sampleable view (transparent pass only; null otherwise). Already in
+    // DepthStencilRead from the read-only depth target, so renderers can sample it (e.g. soft particles).
+    rhi::TextureView*          sceneDepthView = nullptr;
     bool                       depthPrepass = false;   // camera depth-only prepass: no depth bias (match forward exactly)
     bool                       probesEnabled = true;    // false during probe capture: reflect the sky IBL, not the probe (no feedback/self-black)
     bool                       needsMotion = true;      // false = no temporal effect consumes velocity -> skip the per-instance prev-world lookup
@@ -360,7 +363,7 @@ public:
             if (probeValid) { b.ReadTexture(probeHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, probeValid](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out, /*probesEnabled*/ probeValid);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out, /*sceneDepth*/ nullptr, /*probesEnabled*/ probeValid);
             });
         });
     }
@@ -376,7 +379,7 @@ public:
                             const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                             const IblBinding& ibl = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
-        graph.AddRenderPass(u8"transparent", [this, &view, &registry, depth, colorH, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"transparent", [this, &view, &registry, &graph, depth, colorH, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, rhi::LoadOp::Load, rhi::StoreOp::Store, view.Settings().clear);
             b.SetReadOnlyDepthTarget(depth);   // test against opaque depth, no write
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
@@ -385,8 +388,11 @@ public:
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out);
+            b.SetBundleExecute([this, &view, &registry, &graph, depth, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                // The opaque depth is now DepthStencilRead (read-only depth target) - resolve its sampleable
+                // view and hand it to the renderers for soft particles. No render-graph change; already in state.
+                rhi::TextureView* sceneDepth = graph.GetTextureView(depth);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out, sceneDepth);
             });
         });
     }
@@ -399,7 +405,7 @@ private:
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
                         const Matrix4& drawViewProj, const Matrix4& prevViewProj, Vector2 jitter, Vector2 prevJitter, bool transparentPass,
                         const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out,
-                        bool probesEnabled = true) {
+                        rhi::TextureView* sceneDepthView = nullptr, bool probesEnabled = true) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = drawViewProj;   // opaque = jittered (TAA), transparent = unjittered (drawn post-TAA)
@@ -417,6 +423,7 @@ private:
         ctx.viewIndex   = viewIndex;
         ctx.colorFormat = colorFormat;
         ctx.depthFormat = m_depthFormat;
+        ctx.sceneDepthView = sceneDepthView;   // opaque depth (transparent pass only) for soft particles
         ctx.probesEnabled = probesEnabled;
         ctx.needsMotion = m_motionNeeded;   // skip per-instance prev-world when no temporal effect reads velocity
         ctx.shadowFarFade = m_shadowFarFade;

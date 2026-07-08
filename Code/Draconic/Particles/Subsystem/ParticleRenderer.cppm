@@ -32,6 +32,7 @@ namespace draconic::particles
 cbuffer ParticleView : register(b0, space0) {
     float4x4 ViewProj;
     float4x4 View;
+    float4   DepthParams;   // x=Proj[2][2], y=Proj[3][2], z=Proj[2][3], w=soft-particle fade distance
 };
 struct VSIn {
     float4 PositionSize : TEXCOORD0;   // xyz world center, w width
@@ -41,7 +42,7 @@ struct VSIn {
     float4 Velocity     : TEXCOORD4;   // xyz world velocity, w stretch scale
     uint   VertexID     : SV_VertexID;
 };
-struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; };
+struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; float linZ : TEXCOORD1; float softDist : TEXCOORD2; };
 
 static const float2 CORNERS[6] = {
     float2(-0.5, -0.5), float2(0.5, -0.5), float2(-0.5, 0.5),
@@ -87,15 +88,32 @@ VSOut main(VSIn i) {
     o.pos = mul(float4(cornerWS, 1.0), ViewProj);
     o.uv  = i.UVRect.xy + UVS[i.VertexID] * i.UVRect.zw;
     o.col = i.Color;
+    o.linZ = -mul(float4(cornerWS, 1.0), View).z;   // positive view-space depth (soft particles)
+    o.softDist = i.SizeRotMode.w;                    // per-system soft-particle fade band (0 = off)
     return o;
 }
 )";
 
     inline constexpr const char8_t* kParticlePS = u8R"(
+#pragma pack_matrix(row_major)
+cbuffer ParticleView : register(b0, space0) {
+    float4x4 ViewProj;
+    float4x4 View;
+    float4   DepthParams;   // x=Proj[2][2], y=Proj[3][2], z=Proj[2][3], w=soft fade distance
+};
 Texture2D    ParticleTexture : register(t0, space1);
 SamplerState ParticleSampler : register(s0, space1);
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0) : SV_Target {
-    return ParticleTexture.Sample(ParticleSampler, uv) * col;
+Texture2D    SceneDepth      : register(t0, space2);   // opaque depth (read-only, sampleable)
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0, float linZ : TEXCOORD1, float softDist : TEXCOORD2) : SV_Target {
+    float4 c = ParticleTexture.Sample(ParticleSampler, uv) * col;
+    // Soft particle (per-system, softDist>0): fade where this billboard fragment approaches the opaque
+    // surface behind it. Sample the scene depth, reconstruct its view-space depth, compare to the fragment's.
+    if (softDist > 0.0) {
+        float d = SceneDepth.Load(int3(int2(pos.xy), 0)).r;
+        float sceneLin = -DepthParams.y / (d * DepthParams.z - DepthParams.x);   // positive view-space depth
+        c.a *= saturate((sceneLin - linZ) / max(softDist, 1e-3));
+    }
+    return c;
 }
 )";
 }
@@ -106,7 +124,7 @@ export namespace draconic::particles
     {
     public:
         ParticleRenderer(rhi::Device& device, shaders::ShaderSystem& shaders, u32 framesInFlight) noexcept
-            : m_device(&device), m_shaders(&shaders),
+            : m_device(&device), m_shaders(&shaders), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight),
               m_instanceRing(device, framesInFlight, sizeof(ParticleBillboardInstance),
                              rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"particle.instances"),
               m_viewRing(device, framesInFlight, kViewSlotSize,
@@ -120,7 +138,7 @@ export namespace draconic::particles
             m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Vertex,   kParticleVS);
             m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Fragment, kParticlePS);
 
-            rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
+            rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
             viewEntry.hasDynamicOffset = true;
             rhi::BindGroupLayoutDesc vld{}; vld.entries = Span<const rhi::BindGroupLayoutEntry>{ &viewEntry, 1 };
             if (!m_device->CreateBindGroupLayout(vld, m_viewLayout).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
@@ -132,9 +150,14 @@ export namespace draconic::particles
             rhi::BindGroupLayoutDesc tld{}; tld.entries = Span<const rhi::BindGroupLayoutEntry>{ texEntries, 2 };
             if (!m_device->CreateBindGroupLayout(tld, m_texLayout).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
 
-            rhi::BindGroupLayout* layouts[] = { m_viewLayout, m_texLayout };
+            // set 2: the opaque scene depth (sampled via Load, no sampler) for soft particles.
+            rhi::BindGroupLayoutEntry depthEntry = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
+            rhi::BindGroupLayoutDesc dld{}; dld.entries = Span<const rhi::BindGroupLayoutEntry>{ &depthEntry, 1 };
+            if (!m_device->CreateBindGroupLayout(dld, m_depthLayout).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
+
+            rhi::BindGroupLayout* layouts[] = { m_viewLayout, m_texLayout, m_depthLayout };
             rhi::PipelineLayoutDesc pld{};
-            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 2 };
+            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 3 };
             if (!m_device->CreatePipelineLayout(pld, m_pipelineLayout).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
 
             rhi::SamplerDesc sd{};
@@ -204,6 +227,15 @@ export namespace draconic::particles
             m_viewRing.Reserve(kMaxViews);
             m_instanceRing.BeginFrame(frameIndex);
             m_viewRing.BeginFrame(frameIndex);
+
+            // Retire scene-depth bind groups created framesInFlight+ frames ago (no longer in flight).
+            ++m_frameCounter;
+            usize keep = 0;
+            for (usize i = 0; i < m_depthPending.Size(); ++i) {
+                if (m_frameCounter >= m_depthPending[i].frame + m_framesInFlight) { m_device->DestroyBindGroup(m_depthPending[i].bg); }
+                else { m_depthPending[keep++] = m_depthPending[i]; }
+            }
+            m_depthPending.Resize(keep);
         }
 
         void Resolve(const render::RenderRecordContext& ctx, Span<const render::DrawItem> items, Array<render::ResolvedDraw>& out) override
@@ -215,8 +247,18 @@ export namespace draconic::particles
 
             const render::DynamicUniformRing::Range vr = m_viewRing.Allocate();
             if (!vr.ok) { return; }
-            struct ViewUBO { Matrix4 viewProj; Matrix4 view; } ubo{ ctx.viewProj, ctx.viewMatrix };
+            // DepthParams = the projection coeffs that reconstruct view-space depth from a sampled NDC
+            // depth (Proj[2][2], Proj[3][2], Proj[2][3]) + the soft-particle fade distance.
+            const Matrix4 proj = (ctx.view != nullptr) ? ctx.view->Camera().projection : Matrix4::Identity();
+            struct ViewUBO { Matrix4 viewProj; Matrix4 view; Vector4 depthParams; } ubo{
+                ctx.viewProj, ctx.viewMatrix,
+                Vector4{ proj(2, 2), proj(3, 2), proj(2, 3), 0.0f } };   // .w unused (soft distance is per-instance)
             MemCopy(vr.ptr, &ubo, sizeof(ubo));
+
+            // Scene-depth bind group (set 2) for soft particles. The transparent pass hands us the opaque
+            // depth (already DepthStencilRead). Fresh per Resolve, retired after framesInFlight frames.
+            rhi::BindGroup* depthBg = AcquireDepthBindGroup(ctx.sceneDepthView != nullptr ? ctx.sceneDepthView : m_whiteView);
+            if (depthBg == nullptr) { return; }
 
             // Fuse consecutive batches sharing (texture, blend) into one instanced draw.
             usize i = 0;
@@ -256,6 +298,7 @@ export namespace draconic::particles
                             d.pso           = pso;
                             d.viewSet       = viewBg; d.viewDynamic = true; d.viewOffset = vr.byteOffset;
                             d.drawSet       = texBg;
+                            d.materialSet   = depthBg;   // set 2: scene depth (soft particles)
                             d.vertexBuffer0 = m_instanceRing.Buffer(); d.vertexOffset0 = ir.byteOffset;
                             d.indexBuffer   = m_indexBuffer; d.indexFormat = rhi::IndexFormat::UInt16; d.indexCount = 6;
                             d.instanceCount = off;
@@ -271,7 +314,7 @@ export namespace draconic::particles
 
     private:
         static constexpr u32 kMaxViews     = 8;
-        static constexpr u64 kViewSlotSize = 256;
+        static constexpr u64 kViewSlotSize = 256;   // 2x mat4 + a float4, padded to the dynamic-uniform alignment
 
         rhi::BindGroup* EnsureViewBindGroup()
         {
@@ -284,6 +327,19 @@ export namespace draconic::particles
             if (!m_device->CreateBindGroup(bgd, m_viewBg).IsOk()) { m_viewBg = nullptr; return nullptr; }
             m_viewBgGen = gen;
             return m_viewBg;
+        }
+
+        // A fresh scene-depth bind group over `depth` (set 2). Tracked for deferred destruction so an
+        // in-flight frame never references a freed set. Cheap (one bind group per Resolve).
+        rhi::BindGroup* AcquireDepthBindGroup(rhi::TextureView* depth)
+        {
+            if (depth == nullptr) { return nullptr; }
+            rhi::BindGroupEntry e = rhi::BindGroupEntry::TextureEntry(depth);
+            rhi::BindGroupDesc bgd{}; bgd.layout = m_depthLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ &e, 1 };
+            rhi::BindGroup* bg = nullptr;
+            if (!m_device->CreateBindGroup(bgd, bg).IsOk()) { return nullptr; }
+            m_depthPending.PushBack(PendingBg{ bg, m_frameCounter });
+            return bg;
         }
 
         rhi::BindGroup* EnsureTextureBindGroup(rhi::TextureView* tex)
@@ -359,19 +415,28 @@ export namespace draconic::particles
             if (m_whiteView != nullptr) { m_device->DestroyTextureView(m_whiteView); m_whiteView = nullptr; }
             if (m_whiteTex != nullptr) { m_device->DestroyTexture(m_whiteTex); m_whiteTex = nullptr; }
             if (m_sampler != nullptr) { m_device->DestroySampler(m_sampler); m_sampler = nullptr; }
+            for (PendingBg& p : m_depthPending) { if (p.bg != nullptr) { m_device->DestroyBindGroup(p.bg); } }
+            m_depthPending.Clear();
             if (m_pipelineLayout != nullptr) { m_device->DestroyPipelineLayout(m_pipelineLayout); m_pipelineLayout = nullptr; }
+            if (m_depthLayout != nullptr) { m_device->DestroyBindGroupLayout(m_depthLayout); m_depthLayout = nullptr; }
             if (m_texLayout != nullptr) { m_device->DestroyBindGroupLayout(m_texLayout); m_texLayout = nullptr; }
             if (m_viewLayout != nullptr) { m_device->DestroyBindGroupLayout(m_viewLayout); m_viewLayout = nullptr; }
         }
 
         struct Pipelines { rhi::RenderPipeline* pso = nullptr; rhi::TextureFormat format = rhi::TextureFormat::Undefined; };
 
+        struct PendingBg { rhi::BindGroup* bg; u32 frame; };
+
         rhi::Device*                m_device;
         shaders::ShaderSystem*      m_shaders;
+        u32                         m_framesInFlight = 2;
+        u32                         m_frameCounter = 0;
         render::DynamicUniformRing  m_instanceRing;
         render::DynamicUniformRing  m_viewRing;
         rhi::BindGroupLayout*       m_viewLayout = nullptr;
         rhi::BindGroupLayout*       m_texLayout = nullptr;
+        rhi::BindGroupLayout*       m_depthLayout = nullptr;   // set 2: scene depth (soft particles)
+        Array<PendingBg>            m_depthPending;            // depth bind groups awaiting deferred destroy
         rhi::PipelineLayout*        m_pipelineLayout = nullptr;
         rhi::Sampler*               m_sampler = nullptr;
         rhi::Buffer*                m_indexBuffer = nullptr;
