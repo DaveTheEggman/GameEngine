@@ -9,17 +9,17 @@ using namespace draconic::vg;
 
 TEST_CASE("triangulator: convex polygon -> correct triangle count")
 {
-    Vector2 points[4] = { {0,0}, {10,0}, {10,10}, {0,10} };
+    Float2 points[4] = { {0,0}, {10,0}, {10,10}, {0,10} };
     Array<u32> indices;
-    Triangulator::Triangulate(Span<const Vector2>(points, 4), FillRule::EvenOdd, indices);
+    Triangulator::Triangulate(Span<const Float2>(points, 4), FillRule::EvenOdd, indices);
     CHECK(indices.Size() == 6u);
 }
 
 TEST_CASE("triangulator: concave produces valid mesh")
 {
-    Vector2 points[6] = { {0,0}, {10,0}, {10,5}, {5,5}, {5,10}, {0,10} };
+    Float2 points[6] = { {0,0}, {10,0}, {10,5}, {5,5}, {5,10}, {0,10} };
     Array<u32> indices;
-    Triangulator::Triangulate(Span<const Vector2>(points, 6), FillRule::EvenOdd, indices);
+    Triangulator::Triangulate(Span<const Float2>(points, 6), FillRule::EvenOdd, indices);
     CHECK(indices.Size() == 12u);
     for (usize i = 0; i < indices.Size(); ++i)
         CHECK(indices[i] < 6u);
@@ -27,41 +27,41 @@ TEST_CASE("triangulator: concave produces valid mesh")
 
 TEST_CASE("triangulator: polygon area CCW positive")
 {
-    Vector2 points[4] = { {0,0}, {10,0}, {10,10}, {0,10} };
-    CHECK(Triangulator::PolygonArea(Span<const Vector2>(points, 4)) > 0.0f);
+    Float2 points[4] = { {0,0}, {10,0}, {10,10}, {0,10} };
+    CHECK(Triangulator::PolygonArea(Span<const Float2>(points, 4)) > 0.0f);
 }
 
 TEST_CASE("triangulator: polygon area CW negative")
 {
-    Vector2 points[4] = { {0,0}, {0,10}, {10,10}, {10,0} };
-    CHECK(Triangulator::PolygonArea(Span<const Vector2>(points, 4)) < 0.0f);
+    Float2 points[4] = { {0,0}, {0,10}, {10,10}, {10,0} };
+    CHECK(Triangulator::PolygonArea(Span<const Float2>(points, 4)) < 0.0f);
 }
 
 TEST_CASE("triangulator: polygon area correct value")
 {
-    Vector2 points[4] = { {0,0}, {10,0}, {10,10}, {0,10} };
-    CHECK(Abs(Triangulator::PolygonArea(Span<const Vector2>(points, 4)) - 100.0f) < 0.01f);
+    Float2 points[4] = { {0,0}, {10,0}, {10,10}, {0,10} };
+    CHECK(Abs(Triangulator::PolygonArea(Span<const Float2>(points, 4)) - 100.0f) < 0.01f);
 }
 
 TEST_CASE("triangulator: point in triangle inside")
 {
-    CHECK(Triangulator::PointInTriangle(Vector2{5,5}, Vector2{0,0}, Vector2{10,0}, Vector2{5,10}));
+    CHECK(Triangulator::PointInTriangle(Float2{5,5}, Float2{0,0}, Float2{10,0}, Float2{5,10}));
 }
 
 TEST_CASE("triangulator: point in triangle outside")
 {
-    CHECK_FALSE(Triangulator::PointInTriangle(Vector2{15,5}, Vector2{0,0}, Vector2{10,0}, Vector2{5,10}));
+    CHECK_FALSE(Triangulator::PointInTriangle(Float2{15,5}, Float2{0,0}, Float2{10,0}, Float2{5,10}));
 }
 
 TEST_CASE("triangulator: pentagon -> correct triangles")
 {
-    Vector2 points[5];
+    Float2 points[5];
     for (i32 i = 0; i < 5; ++i)
     {
         const f32 angle = kTwoPi * static_cast<f32>(i) / 5.0f - kHalfPi;
-        points[static_cast<usize>(i)] = Vector2{ Cos(angle) * 10.0f, Sin(angle) * 10.0f };
+        points[static_cast<usize>(i)] = Float2{ Cos(angle) * 10.0f, Sin(angle) * 10.0f };
     }
     Array<u32> indices;
-    Triangulator::Triangulate(Span<const Vector2>(points, 5), FillRule::EvenOdd, indices);
+    Triangulator::Triangulate(Span<const Float2>(points, 5), FillRule::EvenOdd, indices);
     CHECK(indices.Size() == 9u);
 }

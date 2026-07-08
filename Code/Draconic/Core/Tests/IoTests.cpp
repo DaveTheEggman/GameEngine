@@ -120,7 +120,7 @@ namespace
     struct Particle
     {
         i32 id = 0;
-        Vector3 position;
+        Float3 position;
         f32 mass = 0.0f;
     };
 
@@ -141,7 +141,7 @@ TEST_CASE("serialization: primitives and math round-trip")
 
         i32 a = -7;
         f64 b = 1.5;
-        Vector3 v{ 1.0f, 2.0f, 3.0f };
+        Float3 v{ 1.0f, 2.0f, 3.0f };
         Serialize(saver, a);
         Serialize(saver, b);
         Serialize(saver, v);
@@ -155,7 +155,7 @@ TEST_CASE("serialization: primitives and math round-trip")
 
         i32 a = 0;
         f64 b = 0.0;
-        Vector3 v;
+        Float3 v;
         Serialize(loader, a);
         Serialize(loader, b);
         Serialize(loader, v);
@@ -163,7 +163,7 @@ TEST_CASE("serialization: primitives and math round-trip")
 
         CHECK(a == -7);
         CHECK(b == 1.5);
-        CHECK(v == Vector3{ 1.0f, 2.0f, 3.0f });
+        CHECK(v == Float3{ 1.0f, 2.0f, 3.0f });
     }
 }
 
@@ -202,7 +202,7 @@ TEST_CASE("serialization: a user type serialized once for both directions")
 
     Particle original;
     original.id = 99;
-    original.position = Vector3{ 4.0f, 5.0f, 6.0f };
+    original.position = Float3{ 4.0f, 5.0f, 6.0f };
     original.mass = 2.25f;
 
     {
@@ -221,7 +221,7 @@ TEST_CASE("serialization: a user type serialized once for both directions")
     }
 
     CHECK(loaded.id == 99);
-    CHECK(loaded.position == Vector3{ 4.0f, 5.0f, 6.0f });
+    CHECK(loaded.position == Float3{ 4.0f, 5.0f, 6.0f });
     CHECK(loaded.mass == 2.25f);
 }
 
@@ -398,7 +398,7 @@ namespace
     public:
         i32 id = 0;
         String label;
-        Vector3 position;
+        Float3 position;
 
         void Serialize(ISerializer& ar) override
         {
@@ -422,7 +422,7 @@ TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
         Widget w;
         w.id = 42;
         w.label = u8"hello";
-        w.position = Vector3{ 1.0f, 2.0f, 3.0f };
+        w.position = Float3{ 1.0f, 2.0f, 3.0f };
         BinarySerializer saver(stream, SerializeMode::Write);
         Serialize(saver, w);                 // free fn dispatches to w.Serialize(ar)
         CHECK(saver.IsOk());
@@ -438,7 +438,7 @@ TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
 
         CHECK(w.id == 42);
         CHECK(w.label == u8"hello");
-        CHECK(w.position == Vector3{ 1.0f, 2.0f, 3.0f });
+        CHECK(w.position == Float3{ 1.0f, 2.0f, 3.0f });
     }
 }
 
@@ -451,7 +451,7 @@ TEST_CASE("serialization: SerializableRegistry creates by type id, then deserial
 
     MemoryStream stream;
     {
-        Widget w; w.id = 7; w.label = u8"reg"; w.position = Vector3{ 9, 8, 7 };
+        Widget w; w.id = 7; w.label = u8"reg"; w.position = Float3{ 9, 8, 7 };
         BinarySerializer saver(stream, SerializeMode::Write);
         Serialize(saver, w);
     }

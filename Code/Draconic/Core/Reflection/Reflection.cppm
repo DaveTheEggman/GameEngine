@@ -293,7 +293,7 @@ export namespace draconic::core
     }
 
     // =======================================================================
-    // Constants - named static values exposed for scripting (e.g. Vector3::Zero,
+    // Constants - named static values exposed for scripting (e.g. Float3::Zero,
     // Quaternion::Identity, Guid::Nil). Each holds its value as a Variant.
     // =======================================================================
     struct ConstantInfo

@@ -25,7 +25,7 @@ public:
     void setName(StringView n) { m_name = String(n); }
 
     /// Add a joint to the skin.
-    void addJoint(i32 boneIndex, Matrix4 inverseBindMatrix) {
+    void addJoint(i32 boneIndex, Float4x4 inverseBindMatrix) {
         m_joints.PushBack(boneIndex);
         m_inverseBindMatrices.PushBack(inverseBindMatrix);
     }
@@ -37,11 +37,11 @@ public:
         return Span<i32>(m_joints.Data(), m_joints.Size());
     }
 
-    [[nodiscard]] Span<const Matrix4> inverseBindMatrices() const {
-        return Span<const Matrix4>(m_inverseBindMatrices.Data(), m_inverseBindMatrices.Size());
+    [[nodiscard]] Span<const Float4x4> inverseBindMatrices() const {
+        return Span<const Float4x4>(m_inverseBindMatrices.Data(), m_inverseBindMatrices.Size());
     }
-    [[nodiscard]] Span<Matrix4> inverseBindMatrices() {
-        return Span<Matrix4>(m_inverseBindMatrices.Data(), m_inverseBindMatrices.Size());
+    [[nodiscard]] Span<Float4x4> inverseBindMatrices() {
+        return Span<Float4x4>(m_inverseBindMatrices.Data(), m_inverseBindMatrices.Size());
     }
 
     // -- Public fields --
@@ -52,7 +52,7 @@ public:
 private:
     String m_name;
     Array<i32> m_joints;
-    Array<Matrix4> m_inverseBindMatrices;
+    Array<Float4x4> m_inverseBindMatrices;
 };
 
 } // namespace draconic::model

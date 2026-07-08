@@ -184,7 +184,7 @@ public:
             const u32 srcW = (i == 0) ? vpW : lw[i - 1];
             const u32 srcH = (i == 0) ? vpH : lh[i - 1];
             BloomPush push{};
-            push.srcTexel = Vector2{ 1.0f / static_cast<f32>(srcW), 1.0f / static_cast<f32>(srcH) };
+            push.srcTexel = Float2{ 1.0f / static_cast<f32>(srcW), 1.0f / static_cast<f32>(srcH) };
             push.threshold = threshold; push.knee = knee; push.firstPass = (i == 0) ? 1 : 0;
             const rendergraph::RGHandle dst = chain[i];
             const u32 dw = lw[i], dh = lh[i];
@@ -209,7 +209,7 @@ public:
             const rendergraph::RGHandle src = chain[i + 1];
             const rendergraph::RGHandle dst = chain[i];
             BloomPush push{};
-            push.srcTexel = Vector2{ 1.0f / static_cast<f32>(lw[i + 1]), 1.0f / static_cast<f32>(lh[i + 1]) };
+            push.srcTexel = Float2{ 1.0f / static_cast<f32>(lw[i + 1]), 1.0f / static_cast<f32>(lh[i + 1]) };
             const u32 dw = lw[i], dh = lh[i];
             graph.AddRenderPass(u8"bloom.up", [this, &graph, src, dst, dw, dh, push](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, dst, rhi::LoadOp::Load, rhi::StoreOp::Store, rhi::ClearColor::Black());   // additive blend
@@ -230,7 +230,7 @@ public:
     }
 
 private:
-    struct BloomPush { Vector2 srcTexel{}; f32 threshold = 1.0f; f32 knee = 0.5f; i32 firstPass = 0; f32 pad0 = 0, pad1 = 0, pad2 = 0; };
+    struct BloomPush { Float2 srcTexel{}; f32 threshold = 1.0f; f32 knee = 0.5f; i32 firstPass = 0; f32 pad0 = 0, pad1 = 0, pad2 = 0; };
 
     static String Concat(const char8_t* a, const char8_t* b) { String s(StringView{ a }); s.Append(StringView{ b }); return s; }
 

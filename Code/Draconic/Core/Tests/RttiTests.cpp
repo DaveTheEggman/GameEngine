@@ -235,15 +235,15 @@ TEST_CASE("variant: holds small values inline")
     CHECK(v.Type() == &TypeOf<int>());
 }
 
-TEST_CASE("variant: holds a Vector3 and a large (heap) value")
+TEST_CASE("variant: holds a Float3 and a large (heap) value")
 {
-    Variant small = Variant::From(Vector3{ 1.0f, 2.0f, 3.0f });
-    REQUIRE(small.Is<Vector3>());
-    CHECK(*small.TryGet<Vector3>() == Vector3{ 1.0f, 2.0f, 3.0f });
+    Variant small = Variant::From(Float3{ 1.0f, 2.0f, 3.0f });
+    REQUIRE(small.Is<Float3>());
+    CHECK(*small.TryGet<Float3>() == Float3{ 1.0f, 2.0f, 3.0f });
 
-    Variant large = Variant::From(Matrix4::Translation(Vector3{ 5.0f, 0.0f, 0.0f }));
-    REQUIRE(large.Is<Matrix4>());
-    CHECK(large.TryGet<Matrix4>()->m[3][0] == 5.0f);
+    Variant large = Variant::From(Float4x4::Translation(Float3{ 5.0f, 0.0f, 0.0f }));
+    REQUIRE(large.Is<Float4x4>());
+    CHECK(large.TryGet<Float4x4>()->m[3][0] == 5.0f);
 }
 
 TEST_CASE("variant: copy and move are independent")

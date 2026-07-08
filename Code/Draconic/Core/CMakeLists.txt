@@ -48,14 +48,14 @@ target_sources(DraconicCore
             Log/FileSink.cppm
             Log/RingLogSink.cppm
             Math/Math.cppm
-            Math/Vector2.cppm
-            Math/Vector3.cppm
-            Math/Vector4.cppm
+            Math/Float2.cppm
+            Math/Float3.cppm
+            Math/Float4.cppm
             Math/Color.cppm
             Random.cppm
             Guid.cppm
-            Math/Matrix4.cppm
-            Math/Matrix3.cppm
+            Math/Float4x4.cppm
+            Math/Float3x3.cppm
             Math/Quaternion.cppm
             Math/Transform.cppm
             Math/Easings.cppm

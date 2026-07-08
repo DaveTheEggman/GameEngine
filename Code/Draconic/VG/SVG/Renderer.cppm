@@ -47,7 +47,7 @@ export namespace draconic::vg::svg
 
             vg.PushState();
 
-            if (element.transform != Matrix4::Identity())
+            if (element.transform != Float4x4::Identity())
                 vg.SetTransform(element.transform * vg.GetTransform());
 
             if (element.opacity < 1.0f)
@@ -87,7 +87,7 @@ export namespace draconic::vg::svg
             // The current VG transform scales SVG units -> screen pixels. Glyphs are
             // rasterized at a fixed pixel size, so: compute the effective pixel font
             // size, convert position to screen space, and draw without the SVG scale.
-            const Matrix4 transform = vg.GetTransform();
+            const Float4x4 transform = vg.GetTransform();
             const f32 scaleY = Sqrt(transform.m[1][0] * transform.m[1][0] + transform.m[1][1] * transform.m[1][1]);
             const f32 effectiveFontSize = element.fontSize * scaleY;
 
@@ -113,8 +113,8 @@ export namespace draconic::vg::svg
 
             // Draw with identity transform so glyph pixels aren't double-scaled.
             vg.PushState();
-            vg.SetTransform(Matrix4::Identity());
-            vg.DrawText(element.textContent.AsView(), font, Vector2{ x, screenY }, color);
+            vg.SetTransform(Float4x4::Identity());
+            vg.DrawText(element.textContent.AsView(), font, Float2{ x, screenY }, color);
             vg.PopState();
         }
     };

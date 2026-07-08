@@ -54,28 +54,28 @@ export namespace draconic::particles
 
     struct RangeVector2
     {
-        Vector2 min{ 0.0f, 0.0f };
-        Vector2 max{ 0.0f, 0.0f };
+        Float2 min{ 0.0f, 0.0f };
+        Float2 max{ 0.0f, 0.0f };
         constexpr RangeVector2() noexcept = default;
-        constexpr explicit RangeVector2(Vector2 value) noexcept : min(value), max(value) {}
-        constexpr RangeVector2(Vector2 mn, Vector2 mx) noexcept : min(mn), max(mx) {}
-        [[nodiscard]] constexpr Vector2 Evaluate(f32 t) const noexcept { return min + (max - min) * t; }
-        [[nodiscard]] static constexpr RangeVector2 Constant(Vector2 v) noexcept { return RangeVector2(v); }
+        constexpr explicit RangeVector2(Float2 value) noexcept : min(value), max(value) {}
+        constexpr RangeVector2(Float2 mn, Float2 mx) noexcept : min(mn), max(mx) {}
+        [[nodiscard]] constexpr Float2 Evaluate(f32 t) const noexcept { return min + (max - min) * t; }
+        [[nodiscard]] static constexpr RangeVector2 Constant(Float2 v) noexcept { return RangeVector2(v); }
     };
 
     struct RangeColor
     {
-        Vector4 min{ 1.0f, 1.0f, 1.0f, 1.0f };
-        Vector4 max{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float4 min{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float4 max{ 1.0f, 1.0f, 1.0f, 1.0f };
         constexpr RangeColor() noexcept = default;
-        constexpr explicit RangeColor(Vector4 value) noexcept : min(value), max(value) {}
-        constexpr RangeColor(Vector4 mn, Vector4 mx) noexcept : min(mn), max(mx) {}
-        [[nodiscard]] constexpr Vector4 Evaluate(f32 t) const noexcept { return min + (max - min) * t; }
-        [[nodiscard]] static constexpr RangeColor Constant(Vector4 v) noexcept { return RangeColor(v); }
+        constexpr explicit RangeColor(Float4 value) noexcept : min(value), max(value) {}
+        constexpr RangeColor(Float4 mn, Float4 mx) noexcept : min(mn), max(mx) {}
+        [[nodiscard]] constexpr Float4 Evaluate(f32 t) const noexcept { return min + (max - min) * t; }
+        [[nodiscard]] static constexpr RangeColor Constant(Float4 v) noexcept { return RangeColor(v); }
     };
 
     // ---- Curves (ParticleCurve.bf) -----------------------------------------------------------
-    // Fixed 8-key curves sampled by normalized lifetime. Float/Vector2 are cubic Hermite;
+    // Fixed 8-key curves sampled by normalized lifetime. Float/Float2 are cubic Hermite;
     // Color is linear (it doubles as the color gradient). IsActive() gates the *OverLifetime
     // behaviors (an empty curve is a no-op).
 
@@ -162,7 +162,7 @@ export namespace draconic::particles
     struct CurveKeyColor
     {
         f32 time = 0.0f;
-        Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
     };
 
     struct ParticleCurveColor
@@ -172,9 +172,9 @@ export namespace draconic::particles
 
         [[nodiscard]] constexpr bool IsActive() const noexcept { return keyCount > 0; }
 
-        [[nodiscard]] Vector4 Evaluate(f32 t) const noexcept
+        [[nodiscard]] Float4 Evaluate(f32 t) const noexcept
         {
-            if (keyCount <= 0) { return Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }; }
+            if (keyCount <= 0) { return Float4{ 1.0f, 1.0f, 1.0f, 1.0f }; }
             if (keyCount == 1) { return keys[0].color; }
             if (t <= keys[0].time) { return keys[0].color; }
             if (t >= keys[keyCount - 1].time) { return keys[keyCount - 1].color; }
@@ -187,7 +187,7 @@ export namespace draconic::particles
             return k0.color + (k1.color - k0.color) * localT;   // linear
         }
 
-        bool AddKey(f32 time, Vector4 color) noexcept
+        bool AddKey(f32 time, Float4 color) noexcept
         {
             if (keyCount >= kMaxCurveKeys) { return false; }
             i32 idx = keyCount;
@@ -197,21 +197,21 @@ export namespace draconic::particles
             return true;
         }
 
-        [[nodiscard]] static ParticleCurveColor Constant(Vector4 color) noexcept
+        [[nodiscard]] static ParticleCurveColor Constant(Float4 color) noexcept
         {
             ParticleCurveColor c; c.AddKey(0.0f, color); return c;
         }
-        [[nodiscard]] static ParticleCurveColor Linear(Vector4 a, Vector4 b) noexcept
+        [[nodiscard]] static ParticleCurveColor Linear(Float4 a, Float4 b) noexcept
         {
             ParticleCurveColor c; c.AddKey(0.0f, a); c.AddKey(1.0f, b); return c;
         }
         // Constant RGB with alpha faded to 0 over [fadeStart, 1].
-        [[nodiscard]] static ParticleCurveColor FadeAlpha(Vector4 color, f32 fadeStart = 0.75f) noexcept
+        [[nodiscard]] static ParticleCurveColor FadeAlpha(Float4 color, f32 fadeStart = 0.75f) noexcept
         {
             ParticleCurveColor c;
             c.AddKey(0.0f, color);
             c.AddKey(fadeStart, color);
-            c.AddKey(1.0f, Vector4{ color.x, color.y, color.z, 0.0f });
+            c.AddKey(1.0f, Float4{ color.x, color.y, color.z, 0.0f });
             return c;
         }
     };
@@ -219,16 +219,16 @@ export namespace draconic::particles
     struct ParticleCurveVector2
     {
         f32 times[kMaxCurveKeys]{};
-        Vector2 values[kMaxCurveKeys]{};
-        Vector2 tangentsIn[kMaxCurveKeys]{};
-        Vector2 tangentsOut[kMaxCurveKeys]{};
+        Float2 values[kMaxCurveKeys]{};
+        Float2 tangentsIn[kMaxCurveKeys]{};
+        Float2 tangentsOut[kMaxCurveKeys]{};
         i32 keyCount = 0;
 
         [[nodiscard]] constexpr bool IsActive() const noexcept { return keyCount > 0; }
 
-        [[nodiscard]] Vector2 Evaluate(f32 t) const noexcept
+        [[nodiscard]] Float2 Evaluate(f32 t) const noexcept
         {
-            if (keyCount <= 0) { return Vector2{ 0.0f, 0.0f }; }
+            if (keyCount <= 0) { return Float2{ 0.0f, 0.0f }; }
             if (keyCount == 1) { return values[0]; }
             if (t <= times[0]) { return values[0]; }
             if (t >= times[keyCount - 1]) { return values[keyCount - 1]; }
@@ -236,13 +236,13 @@ export namespace draconic::particles
             while (i < keyCount - 1 && t > times[i + 1]) { ++i; }
             const f32 segLen = times[i + 1] - times[i];
             const f32 localT = (segLen > 1e-6f) ? (t - times[i]) / segLen : 0.0f;
-            return Vector2{
+            return Float2{
                 HermiteFloat(values[i].x, tangentsOut[i].x * segLen, values[i + 1].x, tangentsIn[i + 1].x * segLen, localT),
                 HermiteFloat(values[i].y, tangentsOut[i].y * segLen, values[i + 1].y, tangentsIn[i + 1].y * segLen, localT),
             };
         }
 
-        bool AddKey(f32 time, Vector2 value, Vector2 tangentIn = Vector2{ 0.0f, 0.0f }, Vector2 tangentOut = Vector2{ 0.0f, 0.0f }) noexcept
+        bool AddKey(f32 time, Float2 value, Float2 tangentIn = Float2{ 0.0f, 0.0f }, Float2 tangentOut = Float2{ 0.0f, 0.0f }) noexcept
         {
             if (keyCount >= kMaxCurveKeys) { return false; }
             i32 idx = keyCount;
@@ -255,11 +255,11 @@ export namespace draconic::particles
             return true;
         }
 
-        [[nodiscard]] static ParticleCurveVector2 Constant(Vector2 value) noexcept
+        [[nodiscard]] static ParticleCurveVector2 Constant(Float2 value) noexcept
         {
             ParticleCurveVector2 c; c.AddKey(0.0f, value); return c;
         }
-        [[nodiscard]] static ParticleCurveVector2 Linear(Vector2 a, Vector2 b) noexcept
+        [[nodiscard]] static ParticleCurveVector2 Linear(Float2 a, Float2 b) noexcept
         {
             ParticleCurveVector2 c; c.AddKey(0.0f, a); c.AddKey(1.0f, b); return c;
         }
@@ -275,13 +275,13 @@ export namespace draconic::particles
     {
         EmissionShapeType type = EmissionShapeType::Point;
         f32 radius = 1.0f;               // Sphere/Hemisphere/Cone/Ring/Circle; Edge: half-length along X
-        Vector3 extents{ 1.0f, 1.0f, 1.0f };  // Box half-extents
+        Float3 extents{ 1.0f, 1.0f, 1.0f };  // Box half-extents
         f32 angle = 0.7853982f;          // Cone half-angle (radians)
         f32 arc = 1.0f;                  // fraction [0,1] of the full azimuth (Sphere/Cone/Ring/Circle)
         bool emitFromShell = false;      // Sphere/Ring/Circle: surface vs volume
 
         // Returns a position (spawn-local, before the emitter offset) and a normalized direction.
-        void Sample(Random& rng, Vector3& outPosition, Vector3& outDirection) const noexcept
+        void Sample(Random& rng, Float3& outPosition, Float3& outDirection) const noexcept
         {
             const f32 tau = 6.2831853f * Clamp(arc, 0.0f, 1.0f);
             switch (type)
@@ -293,7 +293,7 @@ export namespace draconic::particles
                     const f32 z = rng.NextFloat(cosMin, 1.0f);
                     const f32 phi = rng.NextFloat(0.0f, tau);
                     const f32 r = Sqrt(1.0f - z * z);
-                    const Vector3 dir{ r * Cos(phi), r * Sin(phi), z };
+                    const Float3 dir{ r * Cos(phi), r * Sin(phi), z };
                     const f32 dist = emitFromShell ? radius : radius * Pow(rng.NextFloat(), 1.0f / 3.0f);   // volume-uniform
                     outPosition = dir * dist;
                     outDirection = dir;
@@ -301,46 +301,46 @@ export namespace draconic::particles
                 }
                 case EmissionShapeType::Box:
                 {
-                    outPosition = Vector3{ rng.NextFloat(-extents.x, extents.x),
+                    outPosition = Float3{ rng.NextFloat(-extents.x, extents.x),
                                            rng.NextFloat(-extents.y, extents.y),
                                            rng.NextFloat(-extents.z, extents.z) };
-                    outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Vector3::UnitY;
+                    outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Float3::UnitY;
                     break;
                 }
                 case EmissionShapeType::Cone:
                 {
                     const f32 phi = rng.NextFloat(0.0f, tau);
                     const f32 rr = radius * Sqrt(rng.NextFloat());
-                    outPosition = Vector3{ rr * Cos(phi), 0.0f, rr * Sin(phi) };
+                    outPosition = Float3{ rr * Cos(phi), 0.0f, rr * Sin(phi) };
                     const f32 spread = Sin(angle);
-                    outDirection = Normalized(Vector3{ spread * Cos(phi), Cos(angle), spread * Sin(phi) });
+                    outDirection = Normalized(Float3{ spread * Cos(phi), Cos(angle), spread * Sin(phi) });
                     break;
                 }
                 case EmissionShapeType::Ring:
                 {
                     const f32 phi = rng.NextFloat(0.0f, tau);
-                    outPosition = Vector3{ radius * Cos(phi), 0.0f, radius * Sin(phi) };
-                    outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Vector3::UnitY;
+                    outPosition = Float3{ radius * Cos(phi), 0.0f, radius * Sin(phi) };
+                    outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Float3::UnitY;
                     break;
                 }
                 case EmissionShapeType::Circle:   // filled flat disc on the XZ plane
                 {
                     const f32 phi = rng.NextFloat(0.0f, tau);
                     const f32 rr = emitFromShell ? radius : radius * Sqrt(rng.NextFloat());   // area-uniform
-                    outPosition = Vector3{ rr * Cos(phi), 0.0f, rr * Sin(phi) };
-                    outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Vector3::UnitY;
+                    outPosition = Float3{ rr * Cos(phi), 0.0f, rr * Sin(phi) };
+                    outDirection = (LengthSquared(outPosition) > 1e-6f) ? Normalized(outPosition) : Float3::UnitY;
                     break;
                 }
                 case EmissionShapeType::Edge:     // line segment along X, spawns fire upward
                 {
-                    outPosition = Vector3{ rng.NextFloat(-radius, radius), 0.0f, 0.0f };
-                    outDirection = Vector3::UnitY;
+                    outPosition = Float3{ rng.NextFloat(-radius, radius), 0.0f, 0.0f };
+                    outDirection = Float3::UnitY;
                     break;
                 }
                 case EmissionShapeType::Point:
                 default:
-                    outPosition = Vector3::Zero;
-                    outDirection = Vector3::UnitY;
+                    outPosition = Float3::Zero;
+                    outDirection = Float3::UnitY;
                     break;
             }
         }
@@ -350,7 +350,7 @@ export namespace draconic::particles
         {
             EmissionShape s; s.type = EmissionShapeType::Sphere; s.radius = radius; s.emitFromShell = shell; return s;
         }
-        [[nodiscard]] static EmissionShape Box(Vector3 extents) noexcept
+        [[nodiscard]] static EmissionShape Box(Float3 extents) noexcept
         {
             EmissionShape s; s.type = EmissionShapeType::Box; s.extents = extents; return s;
         }
@@ -388,7 +388,7 @@ export namespace draconic::particles
         [[nodiscard]] constexpr bool IsActive() const noexcept { return enabled && FrameCount() > 1; }
 
         // The UV sub-rect (min.xy, size.zw) for a particle at the given life ratio / age.
-        [[nodiscard]] Vector4 FrameUV(f32 lifeRatio, f32 age) const noexcept
+        [[nodiscard]] Float4 FrameUV(f32 lifeRatio, f32 age) const noexcept
         {
             const i32 count = FrameCount();
             i32 frame = overLifetime ? static_cast<i32>(lifeRatio * static_cast<f32>(count))
@@ -399,7 +399,7 @@ export namespace draconic::particles
             const i32 row = frame / columns;
             const f32 sx = 1.0f / static_cast<f32>(columns);
             const f32 sy = 1.0f / static_cast<f32>(rows);
-            return Vector4{ static_cast<f32>(col) * sx, static_cast<f32>(row) * sy, sx, sy };
+            return Float4{ static_cast<f32>(col) * sx, static_cast<f32>(row) * sy, sx, sy };
         }
     };
 
@@ -417,7 +417,7 @@ export namespace draconic::particles
         f32     widthEnd = 0.0f;             // ribbon half-width at the tail (oldest)
         f32     minVertexDistance = 0.05f;   // also record when the particle moves at least this far
         bool    useParticleColor = true;     // tint by the particle's color, else trailColor
-        Vector4 trailColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float4 trailColor{ 1.0f, 1.0f, 1.0f, 1.0f };
 
         [[nodiscard]] constexpr bool IsActive() const noexcept { return enabled && maxPoints >= 2; }
         [[nodiscard]] static TrailSettings Default() noexcept { return TrailSettings{}; }
@@ -426,9 +426,9 @@ export namespace draconic::particles
     // One recorded point along a particle's trail (a ring-buffer entry).
     struct TrailPoint
     {
-        Vector3 position{ 0.0f, 0.0f, 0.0f };
+        Float3 position{ 0.0f, 0.0f, 0.0f };
         f32     width = 0.0f;
-        Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
         f32     recordTime = 0.0f;   // system time when recorded (for age-based fade)
     };
 
@@ -438,8 +438,8 @@ export namespace draconic::particles
         i32     head = 0;    // index of the newest point (writes advance here)
         i32     count = 0;   // valid points in the ring
         f32     lastRecordTime = 0.0f;
-        Vector3 lastPosition{ 0.0f, 0.0f, 0.0f };
-        void Clear() noexcept { head = 0; count = 0; lastRecordTime = 0.0f; lastPosition = Vector3::Zero; }
+        Float3 lastPosition{ 0.0f, 0.0f, 0.0f };
+        void Clear() noexcept { head = 0; count = 0; lastRecordTime = 0.0f; lastPosition = Float3::Zero; }
     };
 
     // ---- Sub-emitter events (ParticleEvent.bf) -----------------------------------------------
@@ -448,9 +448,9 @@ export namespace draconic::particles
 
     struct ParticleEvent
     {
-        Vector3 position{ 0.0f, 0.0f, 0.0f };
-        Vector3 velocity{ 0.0f, 0.0f, 0.0f };
-        Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float3 position{ 0.0f, 0.0f, 0.0f };
+        Float3 velocity{ 0.0f, 0.0f, 0.0f };
+        Float4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
     };
 
     struct SubEmitterLink
@@ -474,7 +474,7 @@ export namespace draconic::particles
     {
         f32 totalTime = 0.0f;
         f32 deltaTime = 0.0f;
-        Vector3 emitterPosition{ 0.0f, 0.0f, 0.0f };
+        Float3 emitterPosition{ 0.0f, 0.0f, 0.0f };
         Random* rng = nullptr;
     };
 

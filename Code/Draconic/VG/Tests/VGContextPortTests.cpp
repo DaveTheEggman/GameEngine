@@ -1,5 +1,5 @@
 // Ported from Sedulous.VG.Tests/VGContextTests.bf. (Sedulous Color32.Yellow is
-// inlined; Matrix4 != uses the C++20 rewrite of operator==.)
+// inlined; Float4x4 != uses the C++20 rewrite of operator==.)
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -30,15 +30,15 @@ TEST_CASE("vgcontext: StrokeRect produces output")
 TEST_CASE("vgcontext: state stack restores transform")
 {
     VGContext ctx;
-    const Matrix4 identity = ctx.GetTransform();
+    const Float4x4 identity = ctx.GetTransform();
 
     ctx.PushState();
     ctx.Translate(100, 200);
-    const Matrix4 translated = ctx.GetTransform();
+    const Float4x4 translated = ctx.GetTransform();
     CHECK(translated != identity);
 
     ctx.PopState();
-    const Matrix4 restored = ctx.GetTransform();
+    const Float4x4 restored = ctx.GetTransform();
     CHECK(restored == identity);
 }
 
@@ -69,7 +69,7 @@ TEST_CASE("vgcontext: opacity applied to vertex color")
 TEST_CASE("vgcontext: FillCircle produces output")
 {
     VGContext ctx;
-    ctx.FillCircle(Vector2{50, 50}, 25, Color::Green);
+    ctx.FillCircle(Float2{50, 50}, 25, Color::Green);
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 8u);
     CHECK(batch.IndexCount() > 0u);
@@ -97,7 +97,7 @@ TEST_CASE("vgcontext: clear resets everything")
 TEST_CASE("vgcontext: FillStar produces output")
 {
     VGContext ctx;
-    ctx.FillStar(Vector2{50, 50}, 30, 15, 5, ToColor(Color32{255, 255, 0, 255})); // Sedulous Color32.Yellow
+    ctx.FillStar(Float2{50, 50}, 30, 15, 5, ToColor(Color32{255, 255, 0, 255})); // Sedulous Color32.Yellow
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
 }

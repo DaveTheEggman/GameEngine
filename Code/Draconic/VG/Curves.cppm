@@ -20,14 +20,14 @@ export namespace draconic::vg
     {
     public:
         /// Evaluate a point on a quadratic Bezier curve at parameter t.
-        [[nodiscard]] static Vector2 QuadraticPointAt(Vector2 p0, Vector2 p1, Vector2 p2, f32 t)
+        [[nodiscard]] static Float2 QuadraticPointAt(Float2 p0, Float2 p1, Float2 p2, f32 t)
         {
             const f32 mt = 1.0f - t;
             return p0 * (mt * mt) + p1 * (2.0f * mt * t) + p2 * (t * t);
         }
 
         /// Evaluate a point on a cubic Bezier curve at parameter t.
-        [[nodiscard]] static Vector2 CubicPointAt(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, f32 t)
+        [[nodiscard]] static Float2 CubicPointAt(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 t)
         {
             const f32 mt = 1.0f - t;
             const f32 mt2 = mt * mt;
@@ -36,38 +36,38 @@ export namespace draconic::vg
         }
 
         /// Get the tangent (normalized direction) of a quadratic Bezier at parameter t.
-        [[nodiscard]] static Vector2 QuadraticTangentAt(Vector2 p0, Vector2 p1, Vector2 p2, f32 t)
+        [[nodiscard]] static Float2 QuadraticTangentAt(Float2 p0, Float2 p1, Float2 p2, f32 t)
         {
             const f32 mt = 1.0f - t;
-            const Vector2 tangent = (p1 - p0) * (2.0f * mt) + (p2 - p1) * (2.0f * t);
+            const Float2 tangent = (p1 - p0) * (2.0f * mt) + (p2 - p1) * (2.0f * t);
             const f32 len = Length(tangent);
             if (len > 0.0001f)
                 return tangent / len;
-            return Vector2{ 1.0f, 0.0f };
+            return Float2{ 1.0f, 0.0f };
         }
 
         /// Get the tangent (normalized direction) of a cubic Bezier at parameter t.
-        [[nodiscard]] static Vector2 CubicTangentAt(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, f32 t)
+        [[nodiscard]] static Float2 CubicTangentAt(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 t)
         {
             const f32 mt = 1.0f - t;
             const f32 mt2 = mt * mt;
             const f32 t2 = t * t;
-            const Vector2 tangent = (p1 - p0) * (3.0f * mt2) + (p2 - p1) * (6.0f * mt * t) + (p3 - p2) * (3.0f * t2);
+            const Float2 tangent = (p1 - p0) * (3.0f * mt2) + (p2 - p1) * (6.0f * mt * t) + (p3 - p2) * (3.0f * t2);
             const f32 len = Length(tangent);
             if (len > 0.0001f)
                 return tangent / len;
-            return Vector2{ 1.0f, 0.0f };
+            return Float2{ 1.0f, 0.0f };
         }
 
         /// Approximate the arc length of a quadratic Bezier using subdivision.
-        [[nodiscard]] static f32 QuadraticLength(Vector2 p0, Vector2 p1, Vector2 p2, i32 steps = 16)
+        [[nodiscard]] static f32 QuadraticLength(Float2 p0, Float2 p1, Float2 p2, i32 steps = 16)
         {
             f32 length = 0.0f;
-            Vector2 prev = p0;
+            Float2 prev = p0;
             for (i32 i = 1; i <= steps; ++i)
             {
                 const f32 t = static_cast<f32>(i) / static_cast<f32>(steps);
-                const Vector2 next = QuadraticPointAt(p0, p1, p2, t);
+                const Float2 next = QuadraticPointAt(p0, p1, p2, t);
                 length += Distance(prev, next);
                 prev = next;
             }
@@ -75,14 +75,14 @@ export namespace draconic::vg
         }
 
         /// Approximate the arc length of a cubic Bezier using subdivision.
-        [[nodiscard]] static f32 CubicLength(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, i32 steps = 16)
+        [[nodiscard]] static f32 CubicLength(Float2 p0, Float2 p1, Float2 p2, Float2 p3, i32 steps = 16)
         {
             f32 length = 0.0f;
-            Vector2 prev = p0;
+            Float2 prev = p0;
             for (i32 i = 1; i <= steps; ++i)
             {
                 const f32 t = static_cast<f32>(i) / static_cast<f32>(steps);
-                const Vector2 next = CubicPointAt(p0, p1, p2, p3, t);
+                const Float2 next = CubicPointAt(p0, p1, p2, p3, t);
                 length += Distance(prev, next);
                 prev = next;
             }
@@ -90,21 +90,21 @@ export namespace draconic::vg
         }
 
         /// Flatten a quadratic Bezier into line segments using adaptive subdivision.
-        static void FlattenQuadratic(Vector2 p0, Vector2 p1, Vector2 p2, f32 tolerance, Array<Vector2>& output)
+        static void FlattenQuadratic(Float2 p0, Float2 p1, Float2 p2, f32 tolerance, Array<Float2>& output)
         {
             FlattenQuadraticRecursive(p0, p1, p2, tolerance * tolerance, 0, output);
             output.PushBack(p2);
         }
 
         /// Flatten a cubic Bezier into line segments using adaptive subdivision.
-        static void FlattenCubic(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, f32 tolerance, Array<Vector2>& output)
+        static void FlattenCubic(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 tolerance, Array<Float2>& output)
         {
             FlattenCubicRecursive(p0, p1, p2, p3, tolerance * tolerance, 0, output);
             output.PushBack(p3);
         }
 
         /// Convert an SVG endpoint arc to cubic Bezier curves (groups of 3 points: cp1, cp2, end).
-        static void ArcToCubics(Vector2 from, f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Vector2 to, Array<Vector2>& controlPoints)
+        static void ArcToCubics(Float2 from, f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Float2 to, Array<Float2>& controlPoints)
         {
             // Handle degenerate cases.
             if (Distance(from, to) < 0.0001f)
@@ -185,7 +185,7 @@ export namespace draconic::vg
         }
 
     private:
-        static void FlattenQuadraticRecursive(Vector2 p0, Vector2 p1, Vector2 p2, f32 toleranceSq, i32 depth, Array<Vector2>& output)
+        static void FlattenQuadraticRecursive(Float2 p0, Float2 p1, Float2 p2, f32 toleranceSq, i32 depth, Array<Float2>& output)
         {
             if (depth > 16)
             {
@@ -194,8 +194,8 @@ export namespace draconic::vg
             }
 
             // Check flatness: distance from control point to line p0-p2.
-            const Vector2 mid = (p0 + p2) * 0.5f;
-            const Vector2 deviation = p1 - mid;
+            const Float2 mid = (p0 + p2) * 0.5f;
+            const Float2 deviation = p1 - mid;
             if (deviation.x * deviation.x + deviation.y * deviation.y <= toleranceSq)
             {
                 output.PushBack(p0);
@@ -203,15 +203,15 @@ export namespace draconic::vg
             }
 
             // Subdivide.
-            const Vector2 p01 = (p0 + p1) * 0.5f;
-            const Vector2 p12 = (p1 + p2) * 0.5f;
-            const Vector2 p012 = (p01 + p12) * 0.5f;
+            const Float2 p01 = (p0 + p1) * 0.5f;
+            const Float2 p12 = (p1 + p2) * 0.5f;
+            const Float2 p012 = (p01 + p12) * 0.5f;
 
             FlattenQuadraticRecursive(p0, p01, p012, toleranceSq, depth + 1, output);
             FlattenQuadraticRecursive(p012, p12, p2, toleranceSq, depth + 1, output);
         }
 
-        static void FlattenCubicRecursive(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, f32 toleranceSq, i32 depth, Array<Vector2>& output)
+        static void FlattenCubicRecursive(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 toleranceSq, i32 depth, Array<Float2>& output)
         {
             if (depth > 16)
             {
@@ -229,18 +229,18 @@ export namespace draconic::vg
             }
 
             // De Casteljau subdivision at t=0.5.
-            const Vector2 p01 = (p0 + p1) * 0.5f;
-            const Vector2 p12 = (p1 + p2) * 0.5f;
-            const Vector2 p23 = (p2 + p3) * 0.5f;
-            const Vector2 p012 = (p01 + p12) * 0.5f;
-            const Vector2 p123 = (p12 + p23) * 0.5f;
-            const Vector2 p0123 = (p012 + p123) * 0.5f;
+            const Float2 p01 = (p0 + p1) * 0.5f;
+            const Float2 p12 = (p1 + p2) * 0.5f;
+            const Float2 p23 = (p2 + p3) * 0.5f;
+            const Float2 p012 = (p01 + p12) * 0.5f;
+            const Float2 p123 = (p12 + p23) * 0.5f;
+            const Float2 p0123 = (p012 + p123) * 0.5f;
 
             FlattenCubicRecursive(p0, p01, p012, p0123, toleranceSq, depth + 1, output);
             FlattenCubicRecursive(p0123, p123, p23, p3, toleranceSq, depth + 1, output);
         }
 
-        [[nodiscard]] static f32 PointToLineDistanceSq(Vector2 point, Vector2 lineStart, Vector2 lineEnd)
+        [[nodiscard]] static f32 PointToLineDistanceSq(Float2 point, Float2 lineStart, Float2 lineEnd)
         {
             const f32 dx = lineEnd.x - lineStart.x;
             const f32 dy = lineEnd.y - lineStart.y;
@@ -259,7 +259,7 @@ export namespace draconic::vg
             return Atan2(cross, dot);
         }
 
-        static void ArcSegmentToCubic(f32 cx, f32 cy, f32 rx, f32 ry, f32 phi, f32 a1, f32 a2, Array<Vector2>& controlPoints)
+        static void ArcSegmentToCubic(f32 cx, f32 cy, f32 rx, f32 ry, f32 phi, f32 a1, f32 a2, Array<Float2>& controlPoints)
         {
             const f32 alpha = Sin(a2 - a1) * (Sqrt(4.0f + 3.0f * Tan((a2 - a1) * 0.5f) * Tan((a2 - a1) * 0.5f)) - 1.0f) / 3.0f;
 
@@ -287,9 +287,9 @@ export namespace draconic::vg
             const f32 dx2 = -cosPhi * rx * sinA2 - sinPhi * ry * cosA2;
             const f32 dy2 = -sinPhi * rx * sinA2 + cosPhi * ry * cosA2;
 
-            controlPoints.PushBack(Vector2{ x1 + alpha * dx1, y1 + alpha * dy1 }); // CP1
-            controlPoints.PushBack(Vector2{ x4 - alpha * dx2, y4 - alpha * dy2 }); // CP2
-            controlPoints.PushBack(Vector2{ x4, y4 });                            // End point
+            controlPoints.PushBack(Float2{ x1 + alpha * dx1, y1 + alpha * dy1 }); // CP1
+            controlPoints.PushBack(Float2{ x4 - alpha * dx2, y4 - alpha * dy2 }); // CP2
+            controlPoints.PushBack(Float2{ x4, y4 });                            // End point
         }
     };
 }

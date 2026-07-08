@@ -118,7 +118,7 @@ export namespace draconic::particles
             ForEach([&](ParticleEffectComponent& c, scene::EntityHandle owner) {
                 if (!c.visible || !c.instance) { return; }
                 // The emitter's world transform - used to re-base Local-space particles at extract.
-                m_emitterWorld = (m_scene != nullptr) ? m_scene->GetWorldMatrix(owner) : Matrix4::Identity();
+                m_emitterWorld = (m_scene != nullptr) ? m_scene->GetWorldMatrix(owner) : Float4x4::Identity();
                 ParticleEffect& fx = c.instance->Effect();
                 for (i32 s = 0; s < fx.SystemCount(); ++s)
                 {
@@ -133,7 +133,7 @@ export namespace draconic::particles
 
                     Array<ParticleBillboardInstance>& scratch = AcquireScratch();
                     scratch.Resize(static_cast<usize>(alive));
-                    Vector3 boundsMin{ 1e30f, 1e30f, 1e30f }, boundsMax{ -1e30f, -1e30f, -1e30f };
+                    Float3 boundsMin{ 1e30f, 1e30f, 1e30f }, boundsMax{ -1e30f, -1e30f, -1e30f };
                     const i32* order = (sys->sortParticles && sys->blendMode == ParticleBlendMode::Alpha)
                                        ? BuildBackToFrontOrder(*sys) : nullptr;
                     PackBillboards(*sys, scratch.Data(), boundsMin, boundsMax, order);
@@ -146,7 +146,7 @@ export namespace draconic::particles
                     rd->count      = static_cast<u32>(alive);
                     rd->texture    = SystemTextureView(c, s);
                     rd->blend      = sys->blendMode;
-                    const Vector3 center = (boundsMin + boundsMax) * 0.5f;
+                    const Float3 center = (boundsMin + boundsMax) * 0.5f;
                     rd->worldCenter = center;
                     rd->worldRadius = Length(boundsMax - center) + LargestSize(*sys);
                 }
@@ -167,14 +167,14 @@ export namespace draconic::particles
 
         // `order` (nullable) remaps output slot -> source particle index; null = identity. Sorted
         // back-to-front for alpha systems so overlapping transparents composite correctly.
-        void PackBillboards(ParticleSystem& sys, ParticleBillboardInstance* out, Vector3& bmin, Vector3& bmax, const i32* order = nullptr)
+        void PackBillboards(ParticleSystem& sys, ParticleBillboardInstance* out, Float3& bmin, Float3& bmax, const i32* order = nullptr)
         {
             ParticleStreamContainer& st = sys.Streams();
-            CPUStream<Vector3>* pos = st.Positions();
-            CPUStream<Vector2>* sizes = st.Sizes();
-            CPUStream<Vector4>* cols = st.Colors();
+            CPUStream<Float3>* pos = st.Positions();
+            CPUStream<Float2>* sizes = st.Sizes();
+            CPUStream<Float4>* cols = st.Colors();
             CPUStream<f32>*     rots = st.Rotations();
-            CPUStream<Vector3>* vels = st.Velocities();
+            CPUStream<Float3>* vels = st.Velocities();
             CPUStream<f32>*     ages = st.Ages();
             CPUStream<f32>*     lifes = st.Lifetimes();
             const bool stretch = (sys.renderMode == ParticleRenderMode::StretchedBillboard);
@@ -182,25 +182,25 @@ export namespace draconic::particles
             const f32 softDist = sys.softParticles ? sys.softDistance : 0.0f;   // 0 => no soft fade
             const bool flip = sys.flipbook.IsActive();
             const i32 alive = sys.AliveCount();
-            const Matrix4 xform = sys.simulationSpace == ParticleSpace::Local ? m_emitterWorld : Matrix4::Identity();
+            const Float4x4 xform = sys.simulationSpace == ParticleSpace::Local ? m_emitterWorld : Float4x4::Identity();
             const bool localXform = sys.simulationSpace == ParticleSpace::Local;
             for (i32 k = 0; k < alive; ++k)
             {
                 const i32 i = (order != nullptr) ? order[k] : k;
-                Vector3 p = (pos != nullptr) ? (*pos)[i] : Vector3::Zero;
+                Float3 p = (pos != nullptr) ? (*pos)[i] : Float3::Zero;
                 if (localXform) { p = TransformPoint(p, xform); }
-                const Vector2 sz = (sizes != nullptr) ? (*sizes)[i] : Vector2{ 0.1f, 0.1f };
+                const Float2 sz = (sizes != nullptr) ? (*sizes)[i] : Float2{ 0.1f, 0.1f };
                 ParticleBillboardInstance& o = out[k];
-                o.positionSize = Vector4{ p.x, p.y, p.z, sz.x };
-                o.sizeRotMode  = Vector4{ sz.y, (rots != nullptr) ? (*rots)[i] : 0.0f, modeF, softDist };
-                o.color        = (cols != nullptr) ? (*cols)[i] : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+                o.positionSize = Float4{ p.x, p.y, p.z, sz.x };
+                o.sizeRotMode  = Float4{ sz.y, (rots != nullptr) ? (*rots)[i] : 0.0f, modeF, softDist };
+                o.color        = (cols != nullptr) ? (*cols)[i] : Float4{ 1.0f, 1.0f, 1.0f, 1.0f };
                 const f32 lifeRatio = (ages != nullptr && lifes != nullptr && (*lifes)[i] > 0.0f) ? ((*ages)[i] / (*lifes)[i]) : 0.0f;
-                o.uvRect       = flip ? sys.flipbook.FrameUV(lifeRatio, (*ages)[i]) : Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };
-                Vector3 v = (stretch && vels != nullptr) ? (*vels)[i] : Vector3::Zero;
+                o.uvRect       = flip ? sys.flipbook.FrameUV(lifeRatio, (*ages)[i]) : Float4{ 0.0f, 0.0f, 1.0f, 1.0f };
+                Float3 v = (stretch && vels != nullptr) ? (*vels)[i] : Float3::Zero;
                 if (localXform && stretch) { v = TransformDirection(v, xform); }
-                o.velocity     = Vector4{ v.x, v.y, v.z, stretch ? 0.1f : 0.0f };
-                bmin = Vector3{ Min(bmin.x, p.x), Min(bmin.y, p.y), Min(bmin.z, p.z) };
-                bmax = Vector3{ Max(bmax.x, p.x), Max(bmax.y, p.y), Max(bmax.z, p.z) };
+                o.velocity     = Float4{ v.x, v.y, v.z, stretch ? 0.1f : 0.0f };
+                bmin = Float3{ Min(bmin.x, p.x), Min(bmin.y, p.y), Min(bmin.z, p.z) };
+                bmax = Float3{ Max(bmax.x, p.x), Max(bmax.y, p.y), Max(bmax.z, p.z) };
             }
         }
 
@@ -210,14 +210,14 @@ export namespace draconic::particles
         {
             DRACONIC_PROFILE_SCOPE("Particles.Sort");
             const i32 alive = sys.AliveCount();
-            CPUStream<Vector3>* pos = sys.Streams().Positions();
+            CPUStream<Float3>* pos = sys.Streams().Positions();
             if (pos == nullptr) { return nullptr; }
             const bool localXform = sys.simulationSpace == ParticleSpace::Local;
             m_sortOrder.Resize(static_cast<usize>(alive));
             m_sortDist.Resize(static_cast<usize>(alive));
             for (i32 i = 0; i < alive; ++i)
             {
-                Vector3 p = (*pos)[i];
+                Float3 p = (*pos)[i];
                 if (localXform) { p = TransformPoint(p, m_emitterWorld); }
                 m_sortOrder[static_cast<usize>(i)] = i;
                 m_sortDist[static_cast<usize>(i)]   = LengthSquared(p - m_cameraPos);
@@ -230,7 +230,7 @@ export namespace draconic::particles
 
         [[nodiscard]] static f32 LargestSize(ParticleSystem& sys) noexcept
         {
-            CPUStream<Vector2>* sizes = sys.Streams().Sizes();
+            CPUStream<Float2>* sizes = sys.Streams().Sizes();
             if (sizes == nullptr) { return 0.5f; }
             f32 m = 0.0f;
             for (i32 i = 0; i < sys.AliveCount(); ++i) { m = Max(m, Max((*sizes)[i].x, (*sizes)[i].y)); }
@@ -266,11 +266,11 @@ export namespace draconic::particles
             const i32 alive = sys.AliveCount();
             if (alive <= 0 || c.mesh.Get() == nullptr) { return; }
 
-            Array<Matrix4>& xf   = AcquireXformScratch();
+            Array<Float4x4>& xf   = AcquireXformScratch();
             Array<Color>&   tint = AcquireTintScratch();
             xf.Resize(static_cast<usize>(alive));
             tint.Resize(static_cast<usize>(alive));
-            Vector3 bmin{ 1e30f, 1e30f, 1e30f }, bmax{ -1e30f, -1e30f, -1e30f };
+            Float3 bmin{ 1e30f, 1e30f, 1e30f }, bmax{ -1e30f, -1e30f, -1e30f };
             PackMeshTransforms(sys, c.meshScale, xf.Data(), tint.Data(), bmin, bmax);
 
             render::MultiMeshRenderData* rd = snapshot.Add<render::MultiMeshRenderData>();
@@ -288,7 +288,7 @@ export namespace draconic::particles
             // stays Opaque; a transparent/additive one routes to the Transparent pass (ResolveMultiMesh
             // still instances it - the set sorts as one item, fine for additive / approximate for alpha).
             rd->category      = MeshCategoryFor(c.material.Get());
-            const Vector3 center = (bmin + bmax) * 0.5f;
+            const Float3 center = (bmin + bmax) * 0.5f;
             rd->worldCenter   = center;
             rd->worldRadius   = Length(bmax - center) + LargestSize(sys) * c.meshScale;
         }
@@ -297,9 +297,9 @@ export namespace draconic::particles
         // under the forward light budget), colored by the particle, intensity faded by its alpha.
         void ExtractLights(ParticleSystem& sys, ParticleEffectComponent& c, render::ExtractedScene& snapshot)
         {
-            CPUStream<Vector3>* pos = sys.Streams().Positions();
+            CPUStream<Float3>* pos = sys.Streams().Positions();
             if (pos == nullptr) { return; }
-            CPUStream<Vector4>* cols = sys.Streams().Colors();
+            CPUStream<Float4>* cols = sys.Streams().Colors();
             const i32 alive = sys.AliveCount();
             const i32 cap = Min(alive, kLightParticleCap);
             const i32 step = Max(1, alive / Max(cap, 1));
@@ -309,10 +309,10 @@ export namespace draconic::particles
                 render::GpuLight g;
                 g.positionWS  = (sys.simulationSpace == ParticleSpace::Local) ? TransformPoint((*pos)[i], m_emitterWorld) : (*pos)[i];
                 g.range       = c.lightRange;
-                const Vector4 cv = (cols != nullptr) ? (*cols)[i] : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
-                g.color       = Vector3{ cv.x, cv.y, cv.z };
+                const Float4 cv = (cols != nullptr) ? (*cols)[i] : Float4{ 1.0f, 1.0f, 1.0f, 1.0f };
+                g.color       = Float3{ cv.x, cv.y, cv.z };
                 g.intensity   = c.lightIntensity * cv.w;   // fade with the particle's alpha
-                g.directionWS = Vector3{ 0.0f, -1.0f, 0.0f };
+                g.directionWS = Float3{ 0.0f, -1.0f, 0.0f };
                 g.type        = 1.0f;    // point (LightType::Point)
                 g.shadowIndex = -1.0f;   // particles don't cast shadows
                 snapshot.AddLight(g);
@@ -350,13 +350,13 @@ export namespace draconic::particles
 
             Array<TrailVertex>& verts = AcquireTrailScratch();
             verts.Clear();
-            Vector3 bmin{ 1e30f, 1e30f, 1e30f }, bmax{ -1e30f, -1e30f, -1e30f };
+            Float3 bmin{ 1e30f, 1e30f, 1e30f }, bmax{ -1e30f, -1e30f, -1e30f };
 
-            auto push = [&](const Vector3& p, f32 v, const Vector4& col)
+            auto push = [&](const Float3& p, f32 v, const Float4& col)
             {
-                verts.PushBack(TrailVertex{ p, Vector2{ 0.5f, v }, col });   // u=0.5: sample the dot's opaque center column, v across for soft edges
-                bmin = Vector3{ Min(bmin.x, p.x), Min(bmin.y, p.y), Min(bmin.z, p.z) };
-                bmax = Vector3{ Max(bmax.x, p.x), Max(bmax.y, p.y), Max(bmax.z, p.z) };
+                verts.PushBack(TrailVertex{ p, Float2{ 0.5f, v }, col });   // u=0.5: sample the dot's opaque center column, v across for soft edges
+                bmin = Float3{ Min(bmin.x, p.x), Min(bmin.y, p.y), Min(bmin.z, p.z) };
+                bmax = Float3{ Max(bmax.x, p.x), Max(bmax.y, p.y), Max(bmax.z, p.z) };
             };
 
             for (i32 pi = 0; pi < alive; ++pi)
@@ -370,13 +370,13 @@ export namespace draconic::particles
                     // Ring order is newest -> oldest: index 0 sits at head, walking backwards.
                     const TrailPoint& p0 = base[((st.head - k) % mp + mp) % mp];
                     const TrailPoint& p1 = base[((st.head - (k + 1)) % mp + mp) % mp];
-                    const Vector3 pos0 = localXform ? TransformPoint(p0.position, m_emitterWorld) : p0.position;
-                    const Vector3 pos1 = localXform ? TransformPoint(p1.position, m_emitterWorld) : p1.position;
-                    const Vector3 seg = pos0 - pos1;
+                    const Float3 pos0 = localXform ? TransformPoint(p0.position, m_emitterWorld) : p0.position;
+                    const Float3 pos1 = localXform ? TransformPoint(p1.position, m_emitterWorld) : p1.position;
+                    const Float3 seg = pos0 - pos1;
                     if (LengthSquared(seg) < 1e-8f) { continue; }
-                    const Vector3 mid  = (pos0 + pos1) * 0.5f;
-                    const Vector3 view = Normalized(mid - m_cameraPos);
-                    Vector3 side = Cross(Normalized(seg), view);
+                    const Float3 mid  = (pos0 + pos1) * 0.5f;
+                    const Float3 view = Normalized(mid - m_cameraPos);
+                    Float3 side = Cross(Normalized(seg), view);
                     if (LengthSquared(side) < 1e-8f) { continue; }
                     side = Normalized(side);
 
@@ -386,11 +386,11 @@ export namespace draconic::particles
                     const f32 w1 = Lerp(t.widthStart, t.widthEnd, f1) * 0.5f;
                     const f32 a0 = Clamp(1.0f - (now - p0.recordTime) * invLife, 0.0f, 1.0f);
                     const f32 a1 = Clamp(1.0f - (now - p1.recordTime) * invLife, 0.0f, 1.0f);
-                    const Vector4 c0{ p0.color.x, p0.color.y, p0.color.z, p0.color.w * a0 };
-                    const Vector4 c1{ p1.color.x, p1.color.y, p1.color.z, p1.color.w * a1 };
+                    const Float4 c0{ p0.color.x, p0.color.y, p0.color.z, p0.color.w * a0 };
+                    const Float4 c1{ p1.color.x, p1.color.y, p1.color.z, p1.color.w * a1 };
 
-                    const Vector3 l0 = pos0 + side * w0, r0 = pos0 - side * w0;
-                    const Vector3 l1 = pos1 + side * w1, r1 = pos1 - side * w1;
+                    const Float3 l0 = pos0 + side * w0, r0 = pos0 - side * w0;
+                    const Float3 l1 = pos1 + side * w1, r1 = pos1 - side * w1;
                     push(l0, 0.0f, c0); push(r0, 1.0f, c0); push(l1, 0.0f, c1);   // tri 1
                     push(r0, 1.0f, c0); push(r1, 1.0f, c1); push(l1, 0.0f, c1);   // tri 2
                 }
@@ -405,44 +405,44 @@ export namespace draconic::particles
             rd->vertexCount = static_cast<u32>(verts.Size());
             rd->texture     = SystemTextureView(c, systemIndex);
             rd->blend       = sys.blendMode;
-            const Vector3 center = (bmin + bmax) * 0.5f;
+            const Float3 center = (bmin + bmax) * 0.5f;
             rd->worldCenter = center;
             rd->worldRadius = Length(bmax - center) + t.widthStart;
         }
 
-        void PackMeshTransforms(ParticleSystem& sys, f32 meshScale, Matrix4* xf, Color* tint, Vector3& bmin, Vector3& bmax)
+        void PackMeshTransforms(ParticleSystem& sys, f32 meshScale, Float4x4* xf, Color* tint, Float3& bmin, Float3& bmax)
         {
             ParticleStreamContainer& st = sys.Streams();
-            CPUStream<Vector3>* pos = st.Positions();
-            CPUStream<Vector2>* sizes = st.Sizes();
-            CPUStream<Vector4>* cols = st.Colors();
-            CPUStream<Vector3>* axes = st.Axes();
+            CPUStream<Float3>* pos = st.Positions();
+            CPUStream<Float2>* sizes = st.Sizes();
+            CPUStream<Float4>* cols = st.Colors();
+            CPUStream<Float3>* axes = st.Axes();
             CPUStream<f32>*     rots = st.Rotations();
             const bool localXform = sys.simulationSpace == ParticleSpace::Local;
             const i32 alive = sys.AliveCount();
             for (i32 i = 0; i < alive; ++i)
             {
-                const Vector3 p = (pos != nullptr) ? (*pos)[i] : Vector3::Zero;
+                const Float3 p = (pos != nullptr) ? (*pos)[i] : Float3::Zero;
                 const f32 sz = ((sizes != nullptr) ? (*sizes)[i].x : 0.1f) * meshScale;
                 Transform t;
                 t.position = p;
-                t.scale    = Vector3{ sz, sz, sz };
+                t.scale    = Float3{ sz, sz, sz };
                 if (rots != nullptr) {
-                    const Vector3 axis = (axes != nullptr) ? (*axes)[i] : Vector3::UnitY;
-                    t.rotation = Quaternion::FromAxisAngle((LengthSquared(axis) > 1e-6f) ? Normalized(axis) : Vector3::UnitY, (*rots)[i]);
+                    const Float3 axis = (axes != nullptr) ? (*axes)[i] : Float3::UnitY;
+                    t.rotation = Quaternion::FromAxisAngle((LengthSquared(axis) > 1e-6f) ? Normalized(axis) : Float3::UnitY, (*rots)[i]);
                 }
                 xf[i] = localXform ? (t.ToMatrix() * m_emitterWorld) : t.ToMatrix();   // local particle -> world via emitter
-                const Vector3 wp = localXform ? TransformPoint(p, m_emitterWorld) : p;
-                const Vector4 cv = (cols != nullptr) ? (*cols)[i] : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+                const Float3 wp = localXform ? TransformPoint(p, m_emitterWorld) : p;
+                const Float4 cv = (cols != nullptr) ? (*cols)[i] : Float4{ 1.0f, 1.0f, 1.0f, 1.0f };
                 tint[i] = Color{ cv.x, cv.y, cv.z, cv.w };
-                bmin = Vector3{ Min(bmin.x, wp.x), Min(bmin.y, wp.y), Min(bmin.z, wp.z) };
-                bmax = Vector3{ Max(bmax.x, wp.x), Max(bmax.y, wp.y), Max(bmax.z, wp.z) };
+                bmin = Float3{ Min(bmin.x, wp.x), Min(bmin.y, wp.y), Min(bmin.z, wp.z) };
+                bmax = Float3{ Max(bmax.x, wp.x), Max(bmax.y, wp.y), Max(bmax.z, wp.z) };
             }
         }
 
-        Array<Matrix4>& AcquireXformScratch()
+        Array<Float4x4>& AcquireXformScratch()
         {
-            if (m_xformUsed >= m_xformScratch.Size()) { m_xformScratch.PushBack(MakeUnique<Array<Matrix4>>(DefaultAllocator())); }
+            if (m_xformUsed >= m_xformScratch.Size()) { m_xformScratch.PushBack(MakeUnique<Array<Float4x4>>(DefaultAllocator())); }
             return *m_xformScratch[m_xformUsed++];
         }
         Array<Color>& AcquireTintScratch()
@@ -463,14 +463,14 @@ export namespace draconic::particles
         static constexpr i32 kLightParticleCap = 200;
 
         scene::Scene* m_scene = nullptr;
-        Vector3       m_cameraPos{ 0.0f, 0.0f, 0.0f };
-        Matrix4       m_emitterWorld = Matrix4::Identity();   // current component's emitter transform (Local space)
+        Float3       m_cameraPos{ 0.0f, 0.0f, 0.0f };
+        Float4x4       m_emitterWorld = Float4x4::Identity();   // current component's emitter transform (Local space)
         Array<i32>    m_sortOrder;   // back-to-front particle order (alpha systems)
         Array<f32>    m_sortDist;    // squared camera distance per particle (sort key)
         u16           m_billboardRendererId = 0;
         Array<UniquePtr<Array<ParticleBillboardInstance>>> m_scratch;
         usize         m_scratchUsed = 0;
-        Array<UniquePtr<Array<Matrix4>>> m_xformScratch;   // mesh-particle world transforms
+        Array<UniquePtr<Array<Float4x4>>> m_xformScratch;   // mesh-particle world transforms
         Array<UniquePtr<Array<Color>>>   m_tintScratch;    // mesh-particle per-instance tints
         usize         m_xformUsed = 0;
         usize         m_tintUsed = 0;

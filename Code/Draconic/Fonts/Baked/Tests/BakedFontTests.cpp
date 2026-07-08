@@ -139,7 +139,7 @@ TEST_CASE("baked.atlas: region table")
     CHECK(got.height == 14);
     CHECK(got.advanceX == 13.5f);
 
-    const Vector2 white = atlas.WhitePixelUV();
+    const Float2 white = atlas.WhitePixelUV();
     CHECK(white.x == 0.99f);
     CHECK(white.y == 0.99f);
 }

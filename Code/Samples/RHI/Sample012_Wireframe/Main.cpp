@@ -14,7 +14,7 @@ import draconic.rhi.vk;
 namespace sf = draconic::samples::framework;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
-using draconic::core::Matrix4;
+using draconic::core::Float4x4;
 
 class WireframeSample : public sf::SampleApp {
 public:
@@ -119,15 +119,15 @@ void WireframeSample::OnRender() {
     if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
     if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
-    Matrix4 model = Matrix4::RotationY(m_totalTime * 0.8f);
+    Float4x4 model = Float4x4::RotationY(m_totalTime * 0.8f);
     // Row-vector view: identity rotation, camera 3 units along +Z (RH: looking toward -Z).
     // The view is the inverse of the camera transform, so the translation is the NEGATED
     // eye position: m[3][2] = -3 (puts the object at view-space z=-3, in front of the camera).
     // PerspectiveFovRH gives clip.w = -viewZ, so geometry must have negative view z.
     f32 view[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-3,1 };
-    Matrix4 proj = Matrix4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Matrix4 vMat; std::memcpy(vMat.Data(), view, 64);
-    Matrix4 mvp = model * vMat * proj;
+    Float4x4 proj = Float4x4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Float4x4 vMat; std::memcpy(vMat.Data(), view, 64);
+    Float4x4 mvp = model * vMat * proj;
     std::memcpy(m_ubMapped, mvp.Data(), 64);
 
     m_pool->Reset();

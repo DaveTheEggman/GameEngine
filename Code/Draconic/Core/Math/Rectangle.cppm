@@ -8,7 +8,7 @@ module;
 export module draconic.core:rectangle;
 
 import :base;
-import :vector2;
+import :float2;
 
 export namespace draconic::core
 {
@@ -22,11 +22,11 @@ export namespace draconic::core
         f32 width;
         f32 height;
 
-        [[nodiscard]] Vector2 Min() const noexcept { return Vector2{ x, y }; }
-        [[nodiscard]] Vector2 Max() const noexcept { return Vector2{ x + width, y + height }; }
-        [[nodiscard]] Vector2 Center() const noexcept { return Vector2{ x + width * 0.5f, y + height * 0.5f }; }
+        [[nodiscard]] Float2 Min() const noexcept { return Float2{ x, y }; }
+        [[nodiscard]] Float2 Max() const noexcept { return Float2{ x + width, y + height }; }
+        [[nodiscard]] Float2 Center() const noexcept { return Float2{ x + width * 0.5f, y + height * 0.5f }; }
 
-        [[nodiscard]] bool Contains(Vector2 p) const noexcept
+        [[nodiscard]] bool Contains(Float2 p) const noexcept
         {
             return p.x >= x && p.x <= x + width && p.y >= y && p.y <= y + height;
         }

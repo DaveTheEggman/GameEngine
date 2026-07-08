@@ -31,7 +31,7 @@ namespace
 TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
 {
     // White stays white (1,1,1); opaque alpha passes through.
-    const VGRenderVertex v(VGVertex::Solid(Vector2{ 2.0f, 3.0f }, Color::White));
+    const VGRenderVertex v(VGVertex::Solid(Float2{ 2.0f, 3.0f }, Color::White));
     CHECK(v.position[0] == doctest::Approx(2.0f));
     CHECK(v.position[1] == doctest::Approx(3.0f));
     CHECK(v.color[0] == doctest::Approx(1.0f));
@@ -39,7 +39,7 @@ TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
     CHECK(v.coverage == doctest::Approx(1.0f));
 
     // A mid-grey sRGB byte (188) decodes to ~0.5 linear, not 0.737.
-    const VGRenderVertex g(VGVertex::Solid(Vector2{}, ToColor(Color32{ 188, 188, 188, 255 })));
+    const VGRenderVertex g(VGVertex::Solid(Float2{}, ToColor(Color32{ 188, 188, 188, 255 })));
     CHECK(g.color[0] > 0.45f);
     CHECK(g.color[0] < 0.55f);
 }
@@ -59,7 +59,7 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
     // Produce a batch with VGContext.
     VGContext ctx;
     ctx.FillRect(Rectangle{ 10, 10, 100, 50 }, Color::Red);
-    ctx.FillCircle(Vector2{ 50, 50 }, 20, Color::Blue);
+    ctx.FillCircle(Float2{ 50, 50 }, 20, Color::Blue);
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.VertexCount() > 0u);
 

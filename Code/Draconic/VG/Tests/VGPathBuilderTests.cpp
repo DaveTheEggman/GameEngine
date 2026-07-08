@@ -64,7 +64,7 @@ TEST_CASE("pathbuilder: Clear resets")
     builder.MoveTo(0, 0); builder.LineTo(10, 10);
     builder.Clear();
     CHECK(builder.CommandCount() == 0u);
-    CHECK(builder.CurrentPoint() == Vector2::Zero);
+    CHECK(builder.CurrentPoint() == Float2::Zero);
 }
 
 TEST_CASE("pathbuilder: QuadTo adds two points")

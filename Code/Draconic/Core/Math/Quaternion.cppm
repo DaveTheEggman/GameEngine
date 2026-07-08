@@ -1,6 +1,6 @@
 // Draconic Core - :quaternion partition
 // Quaternion: unit quaternion rotation - FromAxisAngle, Hamilton product,
-// Conjugate/Dot/Normalized/Slerp, RotateVector, and RotationMatrix (-> Matrix4).
+// Conjugate/Dot/Normalized/Slerp, RotateVector, and RotationMatrix (-> Float4x4).
 //
 // Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
 // row vectors (v' = v * M); composition left-to-right; XNA-style right-handed
@@ -14,8 +14,8 @@ export module draconic.core:quaternion;
 
 import :base;
 import :math;
-import :vector3;
-import :matrix4;
+import :float3;
+import :float4x4;
 
 export namespace draconic::core
 {
@@ -32,11 +32,11 @@ export namespace draconic::core
         constexpr Quaternion() noexcept = default;
         constexpr Quaternion(f32 inX, f32 inY, f32 inZ, f32 inW) noexcept : x(inX), y(inY), z(inZ), w(inW) {}
 
-        [[nodiscard]] static Quaternion FromAxisAngle(Vector3 axis, f32 radians) noexcept
+        [[nodiscard]] static Quaternion FromAxisAngle(Float3 axis, f32 radians) noexcept
         {
             const f32 half = radians * 0.5f;
             const f32 s = Sin(half);
-            const Vector3 a = Normalized(axis);
+            const Float3 a = Normalized(axis);
             return Quaternion{ a.x * s, a.y * s, a.z * s, Cos(half) };
         }
 
@@ -74,9 +74,9 @@ export namespace draconic::core
         return { q.x * inv, q.y * inv, q.z * inv, q.w * inv };
     }
 
-    [[nodiscard]] constexpr Vector3 RotateVector(Quaternion q, Vector3 v) noexcept
+    [[nodiscard]] constexpr Float3 RotateVector(Quaternion q, Float3 v) noexcept
     {
-        const Vector3 u{ q.x, q.y, q.z };
+        const Float3 u{ q.x, q.y, q.z };
         const f32 s = q.w;
         return u * (2.0f * Dot(u, v)) + v * (s * s - Dot(u, u)) + Cross(u, v) * (2.0f * s);
     }
@@ -118,12 +118,12 @@ export namespace draconic::core
     }
 
     // Rotation matrix for a unit quaternion (row-vector convention, XNA layout).
-    [[nodiscard]] constexpr Matrix4 RotationMatrix(Quaternion q) noexcept
+    [[nodiscard]] constexpr Float4x4 RotationMatrix(Quaternion q) noexcept
     {
         const f32 xx = q.x * q.x, yy = q.y * q.y, zz = q.z * q.z;
         const f32 xy = q.x * q.y, xz = q.x * q.z, yz = q.y * q.z;
         const f32 wx = q.w * q.x, wy = q.w * q.y, wz = q.w * q.z;
-        return Matrix4{ { { 1.0f - 2.0f * (yy + zz), 2.0f * (xy + wz),        2.0f * (xz - wy),        0.0f },
+        return Float4x4{ { { 1.0f - 2.0f * (yy + zz), 2.0f * (xy + wz),        2.0f * (xz - wy),        0.0f },
                        { 2.0f * (xy - wz),        1.0f - 2.0f * (xx + zz), 2.0f * (yz + wx),        0.0f },
                        { 2.0f * (xz + wy),        2.0f * (yz - wx),        1.0f - 2.0f * (xx + yy), 0.0f },
                        { 0.0f,                    0.0f,                    0.0f,                    1.0f } } };

@@ -75,9 +75,9 @@ public:                                                                         
 // place (so it gains a qualified name/id + members without an intrusive
 // StaticType()). Defines DraconicRegisterValue_<Type>() to call once at startup,
 // e.g.:
-//   DRACONIC_REFLECT_VALUE(Vector3, "draconic::core")
+//   DRACONIC_REFLECT_VALUE(Float3, "draconic::core")
 //   {
-//       builder.Property<&Vector3::x>("x").Property<&Vector3::y>("y").Property<&Vector3::z>("z");
+//       builder.Property<&Float3::x>("x").Property<&Float3::y>("y").Property<&Float3::z>("z");
 //   }
 //   // later: DraconicRegisterValue_Vector3();
 #define DRACONIC_REFLECT_VALUE(Type, Namespace)                                          \

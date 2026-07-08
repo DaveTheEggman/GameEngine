@@ -38,8 +38,8 @@ namespace
         fountain.emitter.spawnRate = 250.0f;
         fountain.AddInitializer<PositionInitializer>().shape = EmissionShape::Cone(0.4f, 0.35f);
         fountain.AddInitializer<LifetimeInitializer>().lifetime = RangeFloat(1.5f, 2.5f);
-        fountain.AddInitializer<VelocityInitializer>().baseVelocity = Vector3{ 0.0f, 9.0f, 0.0f };
-        fountain.AddInitializer<ColorInitializer>().color = RangeColor(Vector4{ 1, 0.5f, 0.1f, 1 }, Vector4{ 1, 0.9f, 0.3f, 1 });
+        fountain.AddInitializer<VelocityInitializer>().baseVelocity = Float3{ 0.0f, 9.0f, 0.0f };
+        fountain.AddInitializer<ColorInitializer>().color = RangeColor(Float4{ 1, 0.5f, 0.1f, 1 }, Float4{ 1, 0.9f, 0.3f, 1 });
         fountain.AddBehavior<GravityBehavior>().multiplier = 1.4f;
         fountain.AddBehavior<AlphaOverLifetimeBehavior>().curve = ParticleCurveFloat::FadeOut(1.0f, 0.4f);
 

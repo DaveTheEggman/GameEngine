@@ -48,7 +48,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
         RefPtr<Material> authored = MaterialBuilder(u8"litMat")
             .Shader(u8"lit")
             .Transparent()
-            .Color(u8"tint", Vector4{ 0.1f, 0.2f, 0.3f, 1.0f })
+            .Color(u8"tint", Float4{ 0.1f, 0.2f, 0.3f, 1.0f })
             .Float(u8"metallic", 0.7f)
             .Texture(u8"albedoMap")
             .Build();

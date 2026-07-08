@@ -60,12 +60,12 @@ TEST_CASE("xml.serialize: scalar + string round-trip")
     CHECK(s == StringView(u8"hello world"));
 }
 
-TEST_CASE("xml.serialize: nested object (Vector3) round-trip")
+TEST_CASE("xml.serialize: nested object (Float3) round-trip")
 {
     String out;
     {
         XmlSerializer w;
-        Vector3 v{ 1.0f, 2.5f, -3.0f };
+        Float3 v{ 1.0f, 2.5f, -3.0f };
         Serialize(w, "pos", v);
         w.GetOutput(out);
     }
@@ -74,7 +74,7 @@ TEST_CASE("xml.serialize: nested object (Vector3) round-trip")
     XmlDocument doc;
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
-    Vector3 v{};
+    Float3 v{};
     Serialize(r, "pos", v);
     CHECK(r.IsOk());
     CHECK(v.x == 1.0f);
@@ -111,9 +111,9 @@ TEST_CASE("xml.serialize: array of objects round-trip")
     String out;
     {
         XmlSerializer w;
-        Array<Vector2> pts;
-        pts.PushBack(Vector2{ 1.0f, 2.0f });
-        pts.PushBack(Vector2{ 3.0f, 4.0f });
+        Array<Float2> pts;
+        pts.PushBack(Float2{ 1.0f, 2.0f });
+        pts.PushBack(Float2{ 3.0f, 4.0f });
         Serialize(w, "pts", pts);
         w.GetOutput(out);
     }
@@ -121,7 +121,7 @@ TEST_CASE("xml.serialize: array of objects round-trip")
     XmlDocument doc;
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
-    Array<Vector2> pts;
+    Array<Float2> pts;
     Serialize(r, "pts", pts);
     CHECK(r.IsOk());
     REQUIRE(pts.Size() == 2u);
@@ -129,9 +129,9 @@ TEST_CASE("xml.serialize: array of objects round-trip")
     CHECK(pts[1].x == 3.0f); CHECK(pts[1].y == 4.0f);
 }
 
-TEST_CASE("xml.serialize: Matrix4 (positional float array) round-trip")
+TEST_CASE("xml.serialize: Float4x4 (positional float array) round-trip")
 {
-    Matrix4 m = Matrix4::Identity();
+    Float4x4 m = Float4x4::Identity();
     m.Data()[3] = 9.0f; // tweak one element
     String out;
     {
@@ -143,7 +143,7 @@ TEST_CASE("xml.serialize: Matrix4 (positional float array) round-trip")
     XmlDocument doc;
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
-    Matrix4 m2{};
+    Float4x4 m2{};
     Serialize(r, "xform", m2);
     CHECK(r.IsOk());
     for (int i = 0; i < 16; ++i) { CHECK(m2.Data()[i] == m.Data()[i]); }

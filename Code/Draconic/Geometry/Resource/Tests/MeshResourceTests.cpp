@@ -85,8 +85,8 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
         RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>(DefaultAllocator());
         mesh->skeletonIndex = 7;
         for (u32 i = 0; i < 3; ++i) {
-            mesh->vertices.PushBack(StaticMeshVertex{ Vector3{ static_cast<f32>(i), 0, 0 }, Vector3{ 0, 1, 0 }, Vector2{ 0, 0 }, 0xFFFFFFFFu, Vector3{ 1, 0, 0 } });
-            VertexSkinning s{}; s.joints[0] = static_cast<u16>(i); s.weights = Vector4{ 1, 0, 0, 0 };
+            mesh->vertices.PushBack(StaticMeshVertex{ Float3{ static_cast<f32>(i), 0, 0 }, Float3{ 0, 1, 0 }, Float2{ 0, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+            VertexSkinning s{}; s.joints[0] = static_cast<u16>(i); s.weights = Float4{ 1, 0, 0, 0 };
             mesh->skinning.PushBack(s);
         }
         mesh->indices.Resize(3);

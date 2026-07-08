@@ -288,10 +288,10 @@ export namespace draconic::particles
             if (!vr.ok) { return; }
             // DepthParams = the projection coeffs that reconstruct view-space depth from a sampled NDC
             // depth (Proj[2][2], Proj[3][2], Proj[2][3]) + the soft-particle fade distance.
-            const Matrix4 proj = (ctx.view != nullptr) ? ctx.view->Camera().projection : Matrix4::Identity();
-            struct ViewUBO { Matrix4 viewProj; Matrix4 view; Vector4 depthParams; } ubo{
+            const Float4x4 proj = (ctx.view != nullptr) ? ctx.view->Camera().projection : Float4x4::Identity();
+            struct ViewUBO { Float4x4 viewProj; Float4x4 view; Float4 depthParams; } ubo{
                 ctx.viewProj, ctx.viewMatrix,
-                Vector4{ proj(2, 2), proj(3, 2), proj(2, 3), 0.0f } };   // .w unused (soft distance is per-instance)
+                Float4{ proj(2, 2), proj(3, 2), proj(2, 3), 0.0f } };   // .w unused (soft distance is per-instance)
             MemCopy(vr.ptr, &ubo, sizeof(ubo));
 
             // Scene-depth bind group (set 2) for soft particles. The transparent pass hands us the opaque

@@ -143,14 +143,14 @@ export namespace draconic::vg::svg
             {
                 element.type = SVGElementType::Circle;
                 PathBuilder pb;
-                ShapeBuilder::BuildCircle(Vector2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"r"), pb);
+                ShapeBuilder::BuildCircle(Float2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"r"), pb);
                 element.path = pb.ToPath();
             }
             else if (EqualsIgnoreCase(tag, u8"ellipse"))
             {
                 element.type = SVGElementType::Ellipse;
                 PathBuilder pb;
-                ShapeBuilder::BuildEllipse(Vector2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"rx"), Attr(attrs, u8"ry"), pb);
+                ShapeBuilder::BuildEllipse(Float2{ Attr(attrs, u8"cx"), Attr(attrs, u8"cy") }, Attr(attrs, u8"rx"), Attr(attrs, u8"ry"), pb);
                 element.path = pb.ToPath();
             }
             else if (EqualsIgnoreCase(tag, u8"line"))
@@ -254,7 +254,7 @@ export namespace draconic::vg::svg
                 if (const Optional<f32> v = ParseFloatValue(opStr->AsView())) element.opacity = v.Value();
 
             if (const String* trStr = attrs.Find(String(u8"transform")))
-                if (Result<Matrix4> m = SVGTransformParser::Parse(trStr->AsView()); m.HasValue())
+                if (Result<Float4x4> m = SVGTransformParser::Parse(trStr->AsView()); m.HasValue())
                     element.transform = m.Value();
 
             elements.PushBack(Move(element));

@@ -17,12 +17,12 @@ using namespace draconic::core;
 export namespace draconic::animation {
 
 // --- cubic spline (Hermite) helpers ---
-[[nodiscard]] inline Vector3 CubicSplineVec3(const Keyframe<Vector3>& prev, const Keyframe<Vector3>& next, f32 t, f32 duration) {
+[[nodiscard]] inline Float3 CubicSplineVec3(const Keyframe<Float3>& prev, const Keyframe<Float3>& next, f32 t, f32 duration) {
     const f32 t2 = t * t, t3 = t2 * t;
-    const Vector3 p0 = prev.value;
-    const Vector3 m0 = prev.outTangent * duration;
-    const Vector3 p1 = next.value;
-    const Vector3 m1 = next.inTangent * duration;
+    const Float3 p0 = prev.value;
+    const Float3 m0 = prev.outTangent * duration;
+    const Float3 p1 = next.value;
+    const Float3 m1 = next.inTangent * duration;
     const f32 h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
     const f32 h10 = t3 - 2.0f * t2 + t;
     const f32 h01 = -2.0f * t3 + 3.0f * t2;
@@ -38,13 +38,13 @@ export namespace draconic::animation {
     return Normalized(Slerp(prev.value, next.value, h01 / (h00 + h01)));
 }
 
-// Sample a Vector3 track at `time` (returns `defaultValue` if empty).
-[[nodiscard]] inline Vector3 SampleVec3(const AnimationTrack<Vector3>* track, f32 time, Vector3 defaultValue = Vector3{ 0, 0, 0 }) {
+// Sample a Float3 track at `time` (returns `defaultValue` if empty).
+[[nodiscard]] inline Float3 SampleVec3(const AnimationTrack<Float3>* track, f32 time, Float3 defaultValue = Float3{ 0, 0, 0 }) {
     if (track == nullptr || track->Keyframes().IsEmpty()) { return defaultValue; }
     const KeyframeLookup k = track->FindKeyframes(time);
     if (k.prev < 0) { return defaultValue; }
-    const Keyframe<Vector3>& prev = track->Keyframes()[static_cast<usize>(k.prev)];
-    const Keyframe<Vector3>& next = track->Keyframes()[static_cast<usize>(k.next)];
+    const Keyframe<Float3>& prev = track->Keyframes()[static_cast<usize>(k.prev)];
+    const Keyframe<Float3>& next = track->Keyframes()[static_cast<usize>(k.next)];
     switch (track->interpolation) {
     case InterpolationMode::Step:   return prev.value;
     case InterpolationMode::Linear: return Lerp(prev.value, next.value, k.t);
@@ -116,7 +116,7 @@ inline void AdditivePoses(Span<const BoneTransform> base, Span<const BoneTransfo
     for (usize i = 0; i < count; ++i) {
         out[i].position = base[i].position + additive[i].position * weight;
         out[i].rotation = Slerp(Quaternion::Identity, additive[i].rotation, weight) * base[i].rotation;
-        out[i].scale    = base[i].scale * Lerp(Vector3::One, additive[i].scale, weight);
+        out[i].scale    = base[i].scale * Lerp(Float3::One, additive[i].scale, weight);
     }
 }
 

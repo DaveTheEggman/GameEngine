@@ -94,10 +94,10 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0
 
 // One instance record uploaded to the instance stream (64 bytes = 4x float4, matches the VS inputs).
 struct SpriteInstance {
-    Vector4 positionSize;      // xyz world center, w width
-    Vector4 sizeOrientation;   // x height, y orientation mode
-    Vector4 tint;
-    Vector4 uvRect;            // xy uv min, zw uv size
+    Float4 positionSize;      // xyz world center, w width
+    Float4 sizeOrientation;   // x height, y orientation mode
+    Float4 tint;
+    Float4 uvRect;            // xy uv min, zw uv size
 };
 static_assert(sizeof(SpriteInstance) == 64);
 
@@ -175,7 +175,7 @@ public:
         // This view's ViewProj + View into the view ring (dynamic-offset uniform).
         const DynamicUniformRing::Range vr = m_viewRing.Allocate();
         if (!vr.ok) { return; }
-        struct ViewUBO { Matrix4 viewProj; Matrix4 view; } ubo{ ctx.viewProj, ctx.viewMatrix };
+        struct ViewUBO { Float4x4 viewProj; Float4x4 view; } ubo{ ctx.viewProj, ctx.viewMatrix };
         MemCopy(vr.ptr, &ubo, sizeof(ubo));
 
         // Fuse consecutive sprites sharing (texture, blend) into one instanced draw.
@@ -195,9 +195,9 @@ public:
                 for (usize k = i; k < j; ++k) {
                     const auto* s = static_cast<const SpriteRenderData*>(items[k].data);
                     SpriteInstance& si = inst[k - i];
-                    si.positionSize    = Vector4{ s->worldCenter.x, s->worldCenter.y, s->worldCenter.z, s->size.x };
-                    si.sizeOrientation = Vector4{ s->size.y, static_cast<f32>(s->orientation), 0.0f, 0.0f };
-                    si.tint            = Vector4{ s->tint.r, s->tint.g, s->tint.b, s->tint.a };
+                    si.positionSize    = Float4{ s->worldCenter.x, s->worldCenter.y, s->worldCenter.z, s->size.x };
+                    si.sizeOrientation = Float4{ s->size.y, static_cast<f32>(s->orientation), 0.0f, 0.0f };
+                    si.tint            = Float4{ s->tint.r, s->tint.g, s->tint.b, s->tint.a };
                     si.uvRect          = s->uvRect;
                 }
                 rhi::RenderPipeline* pso = EnsurePipeline(ctx.colorFormat, head->additive);

@@ -16,7 +16,7 @@ import draconic.rhi.vk;
 namespace sf = draconic::samples::framework;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
-using draconic::core::Matrix4;
+using draconic::core::Float4x4;
 
 class BindGroupSample : public sf::SampleApp {
 public:
@@ -151,9 +151,9 @@ void BindGroupSample::OnRender() {
     // Update VP.
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
     f32 camAngle = m_totalTime * 0.3f, camDist = 8.0f;
-    Matrix4 view = Matrix4::LookAtRH(draconic::core::Vector3{std::sin(camAngle)*camDist, 5.0f, -std::cos(camAngle)*camDist}, draconic::core::Vector3{ 0,0,0}, draconic::core::Vector3{0,1,0});
-    Matrix4 proj = Matrix4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Matrix4 vp = view * proj;
+    Float4x4 view = Float4x4::LookAtRH(draconic::core::Float3{std::sin(camAngle)*camDist, 5.0f, -std::cos(camAngle)*camDist}, draconic::core::Float3{ 0,0,0}, draconic::core::Float3{0,1,0});
+    Float4x4 proj = Float4x4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Float4x4 vp = view * proj;
     std::memcpy(m_globalMapped, vp.Data(), 64);
 
     // Update per-object.
@@ -165,7 +165,7 @@ void BindGroupSample::OnRender() {
     for (int r = 0; r < kGrid; ++r) for (int c = 0; c < kGrid; ++c) {
         int idx = r * kGrid + c;
         f32 angle = m_totalTime * (0.5f + idx * 0.1f);
-        Matrix4 model = Matrix4::RotationY(angle);
+        Float4x4 model = Float4x4::RotationY(angle);
         model.m[3][0] = c * spacing - half; model.m[3][1] = 0; model.m[3][2] = r * spacing - half;
         auto* dest = static_cast<draconic::core::u8*>(m_objMapped) + idx * kObjStride;
         std::memcpy(dest, model.Data(), 64);

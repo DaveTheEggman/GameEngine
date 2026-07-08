@@ -28,7 +28,7 @@ TEST_CASE("path: contains inside")
     PathBuilder builder;
     builder.MoveTo(0, 0); builder.LineTo(10, 0); builder.LineTo(10, 10); builder.LineTo(0, 10); builder.Close();
     const Path path = builder.ToPath();
-    CHECK(path.Contains(Vector2{5, 5}, FillRule::EvenOdd));
+    CHECK(path.Contains(Float2{5, 5}, FillRule::EvenOdd));
 }
 
 TEST_CASE("path: contains outside")
@@ -36,9 +36,9 @@ TEST_CASE("path: contains outside")
     PathBuilder builder;
     builder.MoveTo(0, 0); builder.LineTo(10, 0); builder.LineTo(10, 10); builder.LineTo(0, 10); builder.Close();
     const Path path = builder.ToPath();
-    CHECK_FALSE(path.Contains(Vector2{15, 5}, FillRule::EvenOdd));
-    CHECK_FALSE(path.Contains(Vector2{5, 15}, FillRule::EvenOdd));
-    CHECK_FALSE(path.Contains(Vector2{-5, 5}, FillRule::EvenOdd));
+    CHECK_FALSE(path.Contains(Float2{15, 5}, FillRule::EvenOdd));
+    CHECK_FALSE(path.Contains(Float2{5, 15}, FillRule::EvenOdd));
+    CHECK_FALSE(path.Contains(Float2{-5, 5}, FillRule::EvenOdd));
 }
 
 TEST_CASE("path: SubPathCount multiple moves")
@@ -64,7 +64,7 @@ TEST_CASE("path: GetPointAtDistance midpoint")
     PathBuilder builder;
     builder.MoveTo(0, 0); builder.LineTo(10, 0);
     const Path path = builder.ToPath();
-    const Vector2 pt = path.GetPointAtDistance(5.0f);
+    const Float2 pt = path.GetPointAtDistance(5.0f);
     CHECK(Abs(pt.x - 5.0f) < 0.01f);
     CHECK(Abs(pt.y) < 0.01f);
 }

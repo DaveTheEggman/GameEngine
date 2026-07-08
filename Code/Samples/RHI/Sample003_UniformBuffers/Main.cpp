@@ -15,7 +15,7 @@ import draconic.rhi.vk;
 namespace sf = draconic::samples::framework;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
-using draconic::core::Matrix4;
+using draconic::core::Float4x4;
 
 class UniformBufferSample : public sf::SampleApp {
 public:
@@ -133,10 +133,10 @@ void UniformBufferSample::OnRender() {
     // Update MVP.
     draconic::core::f32 aspect = static_cast<draconic::core::f32>(m_width) / static_cast<draconic::core::f32>(m_height);
     draconic::core::f32 angle = m_totalTime * 1.2f;
-    Matrix4 model = (Matrix4::RotationY(angle) * Matrix4::RotationX( angle * 0.7f));
-    Matrix4 view  = Matrix4::LookAtRH(draconic::core::Vector3{0, 1.5f, -3}, draconic::core::Vector3{ 0, 0, 0}, draconic::core::Vector3{ 0, 1, 0});
-    Matrix4 proj  = Matrix4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
-    Matrix4 mvp   = model * view * proj;
+    Float4x4 model = (Float4x4::RotationY(angle) * Float4x4::RotationX( angle * 0.7f));
+    Float4x4 view  = Float4x4::LookAtRH(draconic::core::Float3{0, 1.5f, -3}, draconic::core::Float3{ 0, 0, 0}, draconic::core::Float3{ 0, 1, 0});
+    Float4x4 proj  = Float4x4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+    Float4x4 mvp   = model * view * proj;
     std::memcpy(m_ubMapped, mvp.Data(), 64);
 
     m_pool->Reset();

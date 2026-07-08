@@ -27,12 +27,12 @@ export namespace draconic::render {
 // The camera for a view: world→view and view→clip, plus the world-space eye (for depth
 // sorting / culling). The view matrix is the inverse of the camera entity's world matrix.
 struct ViewCamera {
-    Matrix4 view       = Matrix4::Identity();
-    Matrix4 projection = Matrix4::Identity();
-    Vector3 position   = Vector3{ 0, 0, 0 };
+    Float4x4 view       = Float4x4::Identity();
+    Float4x4 projection = Float4x4::Identity();
+    Float3 position   = Float3{ 0, 0, 0 };
     f32  farZ       = 1000.0f;   // for depth-key normalization
 
-    [[nodiscard]] Matrix4 ViewProjection() const noexcept { return view * projection; }
+    [[nodiscard]] Float4x4 ViewProjection() const noexcept { return view * projection; }
 };
 
 // A viewport sub-rect within a render target, in pixels. Width 0 => the full target.
@@ -88,7 +88,7 @@ public:
         m_culledCount    = 0;
         if (m_scene == nullptr) { return; }
 
-        const Matrix4 viewMat = m_camera.view;
+        const Float4x4 viewMat = m_camera.view;
         const f32  invFar  = (m_camera.farZ > 0.0f) ? (1.0f / m_camera.farZ) : 1.0f;
         // View frustum for culling (6 planes from the camera VP; D3D z in [0,1], same extraction the
         // shadow cull uses). Built once per view; skipped entirely when culling is off.
@@ -108,7 +108,7 @@ public:
             // + the category's sort mode from the dynamic registry - no downcast to a concrete type,
             // so any renderer's data (mesh, sprite, particle) sorts through this one path.
             // view-space depth: forward is -z in RH view space, so distance ~ -z_view.
-            const Vector3 vc      = TransformPoint(data->worldCenter, viewMat);
+            const Float3 vc      = TransformPoint(data->worldCenter, viewMat);
             const f32  depth01 = (-vc.z) * invFar;
 
             const bool backToFront = (Categories().Sort(data->category) == SortMode::BackToFront);

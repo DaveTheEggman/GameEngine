@@ -21,7 +21,7 @@ TEST_CASE("material builder: lays out uniforms + declares properties")
     RefPtr<Material> mat = MaterialBuilder(u8"pbr")
         .Shader(u8"forward")
         .Flags(shaders::ShaderFlags::NormalMap)
-        .Color(u8"baseColor", Vector4{ 1, 0, 0, 1 })   // float4 -> 16 bytes, offset 0
+        .Color(u8"baseColor", Float4{ 1, 0, 0, 1 })   // float4 -> 16 bytes, offset 0
         .Float(u8"roughness", 0.5f)                  // float  ->  4 bytes, offset 16
         .Texture(u8"albedoMap")
         .Texture(u8"normalMap")
@@ -62,7 +62,7 @@ TEST_CASE("material system: infers bind-group layout from properties + builds in
 
     RefPtr<Material> mat = MaterialBuilder(u8"lit")
         .Shader(u8"forward")
-        .Color(u8"tint", Vector4{ 1, 1, 1, 1 })
+        .Color(u8"tint", Float4{ 1, 1, 1, 1 })
         .Texture(u8"albedoMap")
         .Sampler(u8"samp")
         .Build();

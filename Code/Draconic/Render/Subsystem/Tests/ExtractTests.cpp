@@ -27,7 +27,7 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
     auto* cameras = scene.AddSystem<CameraComponentManager>();
 
     scene::EntityHandle camEntity = scene.CreateEntity(u8"camera");
-    scene.SetLocalPosition(camEntity, Vector3{ 0, 0, 5 });
+    scene.SetLocalPosition(camEntity, Float3{ 0, 0, 5 });
     CameraComponent& cam = cameras->Add(camEntity);
     cam.aspect = 1.0f;
 
@@ -35,11 +35,11 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
     RefPtr<materials::Material> material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
     scene::EntityHandle a = scene.CreateEntity(u8"a");
-    scene.SetLocalPosition(a, Vector3{ -2, 0, 0 });
+    scene.SetLocalPosition(a, Float3{ -2, 0, 0 });
     { MeshComponent& m = meshes->Add(a); m.mesh = cube; m.material = material; m.color = Color{ 0.2f, 0.4f, 0.8f, 1.0f }; }
 
     scene::EntityHandle b = scene.CreateEntity(u8"b");
-    scene.SetLocalPosition(b, Vector3{ 3, 0, 0 });
+    scene.SetLocalPosition(b, Float3{ 3, 0, 0 });
     { MeshComponent& m = meshes->Add(b); m.mesh = cube; m.material = material; }
 
     scene.UpdateTransforms();
@@ -119,7 +119,7 @@ void BuildBigScene(scene::Scene& scene, int n, RefPtr<geometry::StaticMesh>& mes
     material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
     for (int i = 0; i < n; ++i) {
         scene::EntityHandle e = scene.CreateEntity();
-        scene.SetLocalPosition(e, Vector3{ static_cast<f32>(i), 0, 0 });
+        scene.SetLocalPosition(e, Float3{ static_cast<f32>(i), 0, 0 });
         MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.material = material;
     }
     scene.UpdateTransforms();

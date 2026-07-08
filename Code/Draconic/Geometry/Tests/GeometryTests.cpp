@@ -64,11 +64,11 @@ TEST_CASE("skinned mesh IS-A static mesh: static stream is substitutable")
     RefPtr<SkinnedMesh> skinned = MakeRef<SkinnedMesh>(DefaultAllocator());
     skinned->skeletonIndex = 3;
     // static stream (inherited)
-    skinned->vertices.PushBack(StaticMeshVertex{ Vector3{ 0, 0, 0 }, Vector3{ 0, 1, 0 }, Vector2{ 0, 0 }, 0xFFFFFFFFu, Vector3{ 1, 0, 0 } });
-    skinned->vertices.PushBack(StaticMeshVertex{ Vector3{ 1, 0, 0 }, Vector3{ 0, 1, 0 }, Vector2{ 1, 0 }, 0xFFFFFFFFu, Vector3{ 1, 0, 0 } });
-    skinned->vertices.PushBack(StaticMeshVertex{ Vector3{ 0, 1, 0 }, Vector3{ 0, 1, 0 }, Vector2{ 0, 1 }, 0xFFFFFFFFu, Vector3{ 1, 0, 0 } });
+    skinned->vertices.PushBack(StaticMeshVertex{ Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 }, Float2{ 0, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+    skinned->vertices.PushBack(StaticMeshVertex{ Float3{ 1, 0, 0 }, Float3{ 0, 1, 0 }, Float2{ 1, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+    skinned->vertices.PushBack(StaticMeshVertex{ Float3{ 0, 1, 0 }, Float3{ 0, 1, 0 }, Float2{ 0, 1 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
     // parallel skinning stream
-    VertexSkinning s{}; s.joints[0] = 2; s.weights = Vector4{ 1, 0, 0, 0 };
+    VertexSkinning s{}; s.joints[0] = 2; s.weights = Float4{ 1, 0, 0, 0 };
     for (u32 i = 0; i < 3; ++i) { skinned->skinning.PushBack(s); }
 
     // pass it where a StaticMesh& is expected -- the static ops just work

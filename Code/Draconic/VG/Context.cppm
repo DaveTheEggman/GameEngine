@@ -3,7 +3,7 @@
 // VGState (the per-state-stack snapshot) and VGContext - the main user-facing
 // vector-graphics API. Immediate-mode drawing of paths, shapes, images, 9-slice,
 // and text; produces a batched VGBatch for an external renderer to consume.
-// Ported from Sedulous.VG (VGState/VGContext). The 2D transform is a Matrix4
+// Ported from Sedulous.VG (VGState/VGContext). The 2D transform is a Float4x4
 // (mirroring Sedulous's 4x4 Matrix); colors are float Color (packed to Color32 only at the vertex).
 
 module;
@@ -33,7 +33,7 @@ export namespace draconic::vg
     /// Internal per-state-stack snapshot for VGContext.
     struct VGState
     {
-        Matrix4 transform = Matrix4::Identity();
+        Float4x4 transform = Float4x4::Identity();
         Rectangle clipRect{};
         VGClipMode clipMode = VGClipMode::None;
         f32 opacity = 1.0f;
@@ -102,13 +102,13 @@ export namespace draconic::vg
 
         // === Transform ===
 
-        void SetTransform(const Matrix4& transform) { m_currentState.transform = transform; }
-        [[nodiscard]] Matrix4 GetTransform() const { return m_currentState.transform; }
+        void SetTransform(const Float4x4& transform) { m_currentState.transform = transform; }
+        [[nodiscard]] Float4x4 GetTransform() const { return m_currentState.transform; }
 
-        void Translate(f32 x, f32 y) { m_currentState.transform = Matrix4::Translation(Vector3{ x, y, 0.0f }) * m_currentState.transform; }
-        void Rotate(f32 radians)     { m_currentState.transform = Matrix4::RotationZ(radians) * m_currentState.transform; }
-        void Scale(f32 sx, f32 sy)   { m_currentState.transform = Matrix4::Scale(Vector3{ sx, sy, 1.0f }) * m_currentState.transform; }
-        void ResetTransform()        { m_currentState.transform = Matrix4::Identity(); }
+        void Translate(f32 x, f32 y) { m_currentState.transform = Float4x4::Translation(Float3{ x, y, 0.0f }) * m_currentState.transform; }
+        void Rotate(f32 radians)     { m_currentState.transform = Float4x4::RotationZ(radians) * m_currentState.transform; }
+        void Scale(f32 sx, f32 sy)   { m_currentState.transform = Float4x4::Scale(Float3{ sx, sy, 1.0f }) * m_currentState.transform; }
+        void ResetTransform()        { m_currentState.transform = Float4x4::Identity(); }
 
         // === Clipping ===
 
@@ -213,7 +213,7 @@ export namespace draconic::vg
                 const FlattenedSubPath& subPath = subPaths[s];
                 if (subPath.points.Size() < 2)
                     continue;
-                StrokeTessellator::Tessellate(Span<const Vector2>(subPath.points.Data(), subPath.points.Size()),
+                StrokeTessellator::Tessellate(Span<const Float2>(subPath.points.Data(), subPath.points.Size()),
                                               subPath.isClosed, style, dashPattern, antiAlias, opColor, m_batch.vertices, m_batch.indices);
             }
 
@@ -247,28 +247,28 @@ export namespace draconic::vg
             FillPath(pb.ToPath(), color);
         }
 
-        void FillCircle(Vector2 center, f32 radius, Color color)
+        void FillCircle(Float2 center, f32 radius, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildCircle(center, radius, pb);
             FillPath(pb.ToPath(), color);
         }
 
-        void FillEllipse(Vector2 center, f32 rx, f32 ry, Color color)
+        void FillEllipse(Float2 center, f32 rx, f32 ry, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildEllipse(center, rx, ry, pb);
             FillPath(pb.ToPath(), color);
         }
 
-        void FillRegularPolygon(Vector2 center, f32 radius, i32 sides, Color color)
+        void FillRegularPolygon(Float2 center, f32 radius, i32 sides, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildRegularPolygon(center, radius, sides, pb);
             FillPath(pb.ToPath(), color);
         }
 
-        void FillStar(Vector2 center, f32 outerRadius, f32 innerRadius, i32 points, Color color)
+        void FillStar(Float2 center, f32 outerRadius, f32 innerRadius, i32 points, Color color)
         {
             PathBuilder pb;
             ShapeBuilder::BuildStar(center, outerRadius, innerRadius, points, pb);
@@ -297,14 +297,14 @@ export namespace draconic::vg
             StrokePath(pb.ToPath(), color, StrokeStyle(width));
         }
 
-        void StrokeCircle(Vector2 center, f32 radius, Color color, f32 width = 1.0f)
+        void StrokeCircle(Float2 center, f32 radius, Color color, f32 width = 1.0f)
         {
             PathBuilder pb;
             ShapeBuilder::BuildCircle(center, radius, pb);
             StrokePath(pb.ToPath(), color, StrokeStyle(width));
         }
 
-        void StrokeEllipse(Vector2 center, f32 rx, f32 ry, Color color, f32 width = 1.0f)
+        void StrokeEllipse(Float2 center, f32 rx, f32 ry, Color color, f32 width = 1.0f)
         {
             PathBuilder pb;
             ShapeBuilder::BuildEllipse(center, rx, ry, pb);
@@ -313,7 +313,7 @@ export namespace draconic::vg
 
         // === UI Convenience ===
 
-        void DrawLine(Vector2 a, Vector2 b, Color color, f32 thickness = 1.0f)
+        void DrawLine(Float2 a, Float2 b, Color color, f32 thickness = 1.0f)
         {
             PathBuilder pb;
             pb.MoveTo(a.x, a.y);
@@ -348,18 +348,18 @@ export namespace draconic::vg
         void BeginPath() { m_currentPath.Clear(); }
 
         void MoveTo(f32 x, f32 y) { m_currentPath.MoveTo(x, y); }
-        void MoveTo(Vector2 point) { m_currentPath.MoveTo(point); }
+        void MoveTo(Float2 point) { m_currentPath.MoveTo(point); }
         void LineTo(f32 x, f32 y) { m_currentPath.LineTo(x, y); }
-        void LineTo(Vector2 point) { m_currentPath.LineTo(point); }
+        void LineTo(Float2 point) { m_currentPath.LineTo(point); }
         void QuadTo(f32 cx, f32 cy, f32 x, f32 y) { m_currentPath.QuadTo(cx, cy, x, y); }
-        void QuadTo(Vector2 control, Vector2 end) { m_currentPath.QuadTo(control, end); }
+        void QuadTo(Float2 control, Float2 end) { m_currentPath.QuadTo(control, end); }
         void CubicTo(f32 c1x, f32 c1y, f32 c2x, f32 c2y, f32 x, f32 y) { m_currentPath.CubicTo(c1x, c1y, c2x, c2y, x, y); }
-        void CubicTo(Vector2 c1, Vector2 c2, Vector2 end) { m_currentPath.CubicTo(c1, c2, end); }
+        void CubicTo(Float2 c1, Float2 c2, Float2 end) { m_currentPath.CubicTo(c1, c2, end); }
         void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, f32 x, f32 y) { m_currentPath.ArcTo(rx, ry, xAxisRotation, largeArc, sweep, x, y); }
-        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Vector2 to) { m_currentPath.ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to); }
+        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Float2 to) { m_currentPath.ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to); }
         void ClosePath() { m_currentPath.Close(); }
 
-        [[nodiscard]] Vector2 CurrentPoint() const { return m_currentPath.CurrentPoint(); }
+        [[nodiscard]] Float2 CurrentPoint() const { return m_currentPath.CurrentPoint(); }
 
         void Fill(Color color, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
         {
@@ -387,7 +387,7 @@ export namespace draconic::vg
 
         // === Images ===
 
-        void DrawImage(const image::ImageData* texture, Vector2 position)
+        void DrawImage(const image::ImageData* texture, Float2 position)
         {
             if (texture == nullptr) return;
             DrawImage(texture,
@@ -396,7 +396,7 @@ export namespace draconic::vg
                 Color::White);
         }
 
-        void DrawImage(const image::ImageData* texture, Vector2 position, Color tint)
+        void DrawImage(const image::ImageData* texture, Float2 position, Color tint)
         {
             if (texture == nullptr) return;
             DrawImage(texture,
@@ -470,7 +470,7 @@ export namespace draconic::vg
         // === Text ===
 
         /// Draw text at a baseline position using a pre-rendered font atlas (low-level).
-        void DrawText(StringView text, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture, Vector2 position, Color color)
+        void DrawText(StringView text, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture, Float2 position, Color color)
         {
             if (text.IsEmpty() || atlas == nullptr || atlasTexture == nullptr) return;
 
@@ -511,7 +511,7 @@ export namespace draconic::vg
 
             const fonts::FontMetrics fm = font->Metrics();
             const f32 offsetY = bounds.y + (bounds.height - fm.lineHeight) * 0.5f + fm.ascent;
-            DrawText(text, atlas, atlasTexture, Vector2{ offsetX, offsetY }, color);
+            DrawText(text, atlas, atlasTexture, Float2{ offsetX, offsetY }, color);
         }
 
         /// Draw text with horizontal and vertical alignment within bounds.
@@ -540,11 +540,11 @@ export namespace draconic::vg
             case fonts::VerticalAlignment::Baseline: offsetY = bounds.y; break;
             }
 
-            DrawText(text, atlas, atlasTexture, Vector2{ offsetX, offsetY }, color);
+            DrawText(text, atlas, atlasTexture, Float2{ offsetX, offsetY }, color);
         }
 
         /// Convenience: draw text using a CachedFont (requires a FontService).
-        void DrawText(StringView text, fonts::CachedFont* font, Vector2 position, Color color)
+        void DrawText(StringView text, fonts::CachedFont* font, Float2 position, Color color)
         {
             if (font == nullptr || m_fontService == nullptr) return;
             image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
@@ -588,7 +588,7 @@ export namespace draconic::vg
         }
 
         /// Draw text with word wrapping. Position is the top-left of the text block.
-        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Vector2 position, f32 maxWidth, Color color,
+        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Float2 position, f32 maxWidth, Color color,
                              fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
         {
             if (text.IsEmpty() || font == nullptr || font->shaper == nullptr || m_fontService == nullptr) return;
@@ -609,7 +609,7 @@ export namespace draconic::vg
         void DrawTextWrapped(StringView text, fonts::CachedFont* font, Rectangle bounds, Color color,
                              fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
         {
-            DrawTextWrapped(text, font, Vector2{ bounds.x, bounds.y }, bounds.width, color, hAlign);
+            DrawTextWrapped(text, font, Float2{ bounds.x, bounds.y }, bounds.width, color, hAlign);
         }
 
         /// Measure wrapped text without drawing. Returns total height (0 if no shaper).
@@ -625,7 +625,7 @@ export namespace draconic::vg
         }
 
         /// Draw text using the default font at the given pixel size (requires a FontService).
-        void DrawText(StringView text, f32 fontSize, Vector2 position, Color color)
+        void DrawText(StringView text, f32 fontSize, Float2 position, Color color)
         {
             if (text.IsEmpty() || m_fontService == nullptr) return;
             fonts::CachedFont* font = m_fontService->GetFont(fontSize);
@@ -634,7 +634,7 @@ export namespace draconic::vg
         }
 
         /// Fill a polygon defined by a span of points.
-        void FillPolygon(Span<const Vector2> points, Color color)
+        void FillPolygon(Span<const Float2> points, Color color)
         {
             if (points.Size() < 3) return;
 
@@ -647,10 +647,10 @@ export namespace draconic::vg
         }
 
         /// Measure the width and line height of a string in pixels.
-        [[nodiscard]] Vector2 MeasureText(StringView text, const fonts::IFont* font)
+        [[nodiscard]] Float2 MeasureText(StringView text, const fonts::IFont* font)
         {
-            if (font == nullptr) return Vector2::Zero;
-            return Vector2{ font->MeasureString(text), font->Metrics().lineHeight };
+            if (font == nullptr) return Float2::Zero;
+            return Float2{ font->MeasureString(text), font->Metrics().lineHeight };
         }
 
         /// Measure just the pixel width of a string.
@@ -705,10 +705,10 @@ export namespace draconic::vg
         {
             const u32 baseIndex = static_cast<u32>(m_batch.vertices.Size());
 
-            m_batch.vertices.PushBack(VGVertex(Vector2{ quad.x0, quad.y0 }, Vector2{ quad.u0, quad.v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Vector2{ quad.x1, quad.y0 }, Vector2{ quad.u1, quad.v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Vector2{ quad.x1, quad.y1 }, Vector2{ quad.u1, quad.v1 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Vector2{ quad.x0, quad.y1 }, Vector2{ quad.u0, quad.v1 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x0, quad.y0 }, Float2{ quad.u0, quad.v0 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x1, quad.y0 }, Float2{ quad.u1, quad.v0 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x1, quad.y1 }, Float2{ quad.u1, quad.v1 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x0, quad.y1 }, Float2{ quad.u0, quad.v1 }, color, 1.0f));
 
             m_batch.indices.PushBack(baseIndex + 0);
             m_batch.indices.PushBack(baseIndex + 1);
@@ -731,10 +731,10 @@ export namespace draconic::vg
             const f32 u1 = (srcRect.x + srcRect.width) / static_cast<f32>(texWidth);
             const f32 v1 = (srcRect.y + srcRect.height) / static_cast<f32>(texHeight);
 
-            m_batch.vertices.PushBack(VGVertex(Vector2{ destRect.x, destRect.y }, Vector2{ u0, v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Vector2{ destRect.x + destRect.width, destRect.y }, Vector2{ u1, v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Vector2{ destRect.x + destRect.width, destRect.y + destRect.height }, Vector2{ u1, v1 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Vector2{ destRect.x, destRect.y + destRect.height }, Vector2{ u0, v1 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x, destRect.y }, Float2{ u0, v0 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x + destRect.width, destRect.y }, Float2{ u1, v0 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x + destRect.width, destRect.y + destRect.height }, Float2{ u1, v1 }, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x, destRect.y + destRect.height }, Float2{ u0, v1 }, color, 1.0f));
 
             m_batch.indices.PushBack(baseIndex + 0);
             m_batch.indices.PushBack(baseIndex + 1);
@@ -795,11 +795,11 @@ export namespace draconic::vg
         /// Tolerance adjusted for current transform scale (tighter when scaled up).
         [[nodiscard]] f32 GetScaledTolerance() const
         {
-            if (m_currentState.transform == Matrix4::Identity())
+            if (m_currentState.transform == Float4x4::Identity())
                 return m_tolerance;
 
-            const f32 sx = Length(Vector2{ m_currentState.transform(0, 0), m_currentState.transform(0, 1) });
-            const f32 sy = Length(Vector2{ m_currentState.transform(1, 0), m_currentState.transform(1, 1) });
+            const f32 sx = Length(Float2{ m_currentState.transform(0, 0), m_currentState.transform(0, 1) });
+            const f32 sy = Length(Float2{ m_currentState.transform(1, 0), m_currentState.transform(1, 1) });
             const f32 scale = Max(sx, sy);
 
             if (scale > 0.0001f)
@@ -807,16 +807,16 @@ export namespace draconic::vg
             return m_tolerance;
         }
 
-        [[nodiscard]] Vector2 TransformPoint(Vector2 point) const
+        [[nodiscard]] Float2 TransformPoint(Float2 point) const
         {
-            if (m_currentState.transform == Matrix4::Identity())
+            if (m_currentState.transform == Float4x4::Identity())
                 return point;
             return TransformPoint2D(point, m_currentState.transform);
         }
 
         void TransformVertices(usize startVertex)
         {
-            if (m_currentState.transform == Matrix4::Identity())
+            if (m_currentState.transform == Float4x4::Identity())
                 return;
 
             for (usize i = startVertex; i < m_batch.vertices.Size(); ++i)
@@ -841,11 +841,11 @@ export namespace draconic::vg
 
         [[nodiscard]] Rectangle TransformRect(Rectangle rect) const
         {
-            if (m_currentState.transform == Matrix4::Identity())
+            if (m_currentState.transform == Float4x4::Identity())
                 return rect;
 
-            const Vector2 topLeft = TransformPoint(Vector2{ rect.x, rect.y });
-            const Vector2 bottomRight = TransformPoint(Vector2{ rect.x + rect.width, rect.y + rect.height });
+            const Float2 topLeft = TransformPoint(Float2{ rect.x, rect.y });
+            const Float2 bottomRight = TransformPoint(Float2{ rect.x + rect.width, rect.y + rect.height });
             return Rectangle{ topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y };
         }
 

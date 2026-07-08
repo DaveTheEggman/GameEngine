@@ -708,7 +708,7 @@ public:
           m_offsetsRing(device, framesInFlight, sizeof(DataOffsets), rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets"),
           m_lightRing(device, framesInFlight, sizeof(GpuLight), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.lights"),
           m_localShadowRing(device, framesInFlight, sizeof(GpuLocalShadow), rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.localShadows"),
-          m_boneRing(device, framesInFlight, sizeof(Matrix4), rhi::BufferUsage::Storage | rhi::BufferUsage::CopySrc, u8"mesh.bones.staging") {}
+          m_boneRing(device, framesInFlight, sizeof(Float4x4), rhi::BufferUsage::Storage | rhi::BufferUsage::CopySrc, u8"mesh.bones.staging") {}
 
     ~MeshRenderer() override { Shutdown(); }
 
@@ -984,10 +984,10 @@ public:
         for (const SkinnedRef& r : m_skinnedScratch) {
             const u32 n    = r.count;
             const u32 base = block.slotIndex + cursor;
-            Matrix4* dst   = static_cast<Matrix4*>(block.ptr) + cursor;
-            MemCopy(dst, r.cur, static_cast<usize>(n) * sizeof(Matrix4));
+            Float4x4* dst   = static_cast<Float4x4*>(block.ptr) + cursor;
+            MemCopy(dst, r.cur, static_cast<usize>(n) * sizeof(Float4x4));
             if (r.hasPrev) {   // per-entity caster: also write the prev slab (motion vectors)
-                MemCopy(dst + n, (r.prev != nullptr) ? r.prev : r.cur, static_cast<usize>(n) * sizeof(Matrix4));
+                MemCopy(dst + n, (r.prev != nullptr) ? r.prev : r.cur, static_cast<usize>(n) * sizeof(Float4x4));
                 if (BoneSlot* slot = m_boneStart.Find(r.cur)) { *slot = BoneSlot{ base, base + n }; }
                 cursor += n * 2u;
             } else {           // MultiMesh pose pool: just the M palettes, no prev slab
@@ -998,7 +998,7 @@ public:
 
         // Mirror the populated range to VRAM, then make it visible to vertex-shader reads.
         encoder.CopyBufferToBuffer(m_boneRing.Buffer(), block.byteOffset, m_boneDevice, block.byteOffset,
-                                   static_cast<u64>(total) * sizeof(Matrix4));
+                                   static_cast<u64>(total) * sizeof(Float4x4));
         encoder.TransitionBuffer(m_boneDevice, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
         FillSkinnedMultiMeshOffsets(scene);   // per-instance bone base into each skinned set's DataOffsets
     }
@@ -1190,7 +1190,7 @@ public:
         ViewData vd{};
         vd.viewProj      = ctx.viewProj;
         vd.prevViewProj  = ctx.prevViewProj;   // motion vectors (camera)
-        vd.jitter        = Vector4{ ctx.jitter.x, ctx.jitter.y, ctx.prevJitter.x, ctx.prevJitter.y };
+        vd.jitter        = Float4{ ctx.jitter.x, ctx.jitter.y, ctx.prevJitter.x, ctx.prevJitter.y };
         vd.view          = ctx.viewMatrix;
         vd.cameraPos     = ctx.cameraPos;
         vd.ambient       = ctx.ambient;
@@ -1199,15 +1199,15 @@ public:
         // sky (global IBL), not the not-yet-built probe (which would bake them black - self-reflection).
         // ProbeCenter.w = the probe count (the forward's loop bound over the Probes SRV); box/slice/etc. per
         // probe live in the Probes buffer now.
-        vd.probeCenter   = Vector4{ 0, 0, 0, ctx.probesEnabled ? static_cast<f32>(m_activeProbeCount) : 0.0f };
+        vd.probeCenter   = Float4{ 0, 0, 0, ctx.probesEnabled ? static_cast<f32>(m_activeProbeCount) : 0.0f };
 
         vd.lightCount    = static_cast<f32>(lightCount);
         vd.lightOffset   = lightOffset;
         // CSM cascade data for THIS view (per-view fit, carried in ctx).
         if (ctx.cascades.valid) {
             for (u32 c = 0; c < ShadowCascades::kCount; ++c) { vd.cascadeViewProj[c] = ctx.cascades.viewProj[c]; }
-            vd.cascadeSplitFar     = Vector4{ ctx.cascades.splitFar[0], ctx.cascades.splitFar[1], ctx.cascades.splitFar[2], ctx.cascades.splitFar[3] };
-            vd.cascadeTexelSize    = Vector4{ ctx.cascades.texelWorldSize[0], ctx.cascades.texelWorldSize[1], ctx.cascades.texelWorldSize[2], ctx.cascades.texelWorldSize[3] };
+            vd.cascadeSplitFar     = Float4{ ctx.cascades.splitFar[0], ctx.cascades.splitFar[1], ctx.cascades.splitFar[2], ctx.cascades.splitFar[3] };
+            vd.cascadeTexelSize    = Float4{ ctx.cascades.texelWorldSize[0], ctx.cascades.texelWorldSize[1], ctx.cascades.texelWorldSize[2], ctx.cascades.texelWorldSize[3] };
             vd.shadowCascadeCount  = static_cast<f32>(ShadowCascades::kCount);
             vd.cascadeLayerBase    = static_cast<f32>(ctx.cascadeLayerBase);   // this view's first array layer
             // Normal-offset is in TEXELS (scaled by the cascade's world texel size in the shader).
@@ -1320,7 +1320,7 @@ public:
         // pointer moves, no clear - each visible entity overwrites its own slot when resolved, and slots
         // for now-invisible entities are never read (their draws don't resolve). Both buffers keep their
         // capacity, so steady state does zero allocation.
-        Array<Matrix4> recycled = Move(m_prevWorld);
+        Array<Float4x4> recycled = Move(m_prevWorld);
         m_prevWorld = Move(m_curWorld);
         m_curWorld  = Move(recycled);
         m_ready = false;
@@ -1328,28 +1328,28 @@ public:
 
 private:
     struct ViewData {                                    // 528 (matches the View cbuffer)
-        Matrix4 viewProj;                                   // 64
-        Matrix4 view;                                       // 64  (view-space depth: cluster + cascade select)
-        Matrix4 cascadeViewProj[4];                         // 256 (CSM: world -> each cascade's light clip)
-        Vector3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
+        Float4x4 viewProj;                                   // 64
+        Float4x4 view;                                       // 64  (view-space depth: cluster + cascade select)
+        Float4x4 cascadeViewProj[4];                         // 256 (CSM: world -> each cascade's light clip)
+        Float3 cameraPos; f32 lightCount;                  // 16  (light count as float, mirrors HLSL)
         u32  lightOffset; i32 clusterViewportX, clusterViewportY; f32 iblMaxLod = -1.0f;   // 16 (iblMaxLod<0 => no IBL)
         u32  clusterGridX = 0, clusterGridY = 0, clusterSliceCount = 0, clusterTileSize = 0;   // 16
         f32  clusterNear = 0, clusterFar = 0, clusterLogScale = 0, clusterLogBias = 0;         // 16
-        Vector3 ambient = Vector3{ 0, 0, 0 }; f32 shadowCascadeCount = 0.0f;                          // 16
-        Vector4 cascadeSplitFar  = Vector4{ 0, 0, 0, 0 };                                             // 16
-        Vector4 cascadeTexelSize = Vector4{ 0, 0, 0, 0 };                                             // 16
+        Float3 ambient = Float3{ 0, 0, 0 }; f32 shadowCascadeCount = 0.0f;                          // 16
+        Float4 cascadeSplitFar  = Float4{ 0, 0, 0, 0 };                                             // 16
+        Float4 cascadeTexelSize = Float4{ 0, 0, 0, 0 };                                             // 16
         f32  shadowNormalBias = 0, shadowDepthBias = 0, cascadeLayerBase = 0; u32 localShadowBase = 0;   // 16
-        Matrix4 prevViewProj = Matrix4::Identity();            // 64  (motion vectors: last frame's world->clip)
-        Vector4 jitter = Vector4{ 0, 0, 0, 0 };                // 16  (xy = this frame's NDC jitter, zw = last frame's)
-        Vector4 probeCenter = Vector4{ 0, 0, 0, 0 };           // 16  (xyz = probe center, w = probe count [0 = none])
-        Vector4 probeBoxMin = Vector4{ 0, 0, 0, 0 };           // 16  (xyz = box min, w = probe cube slice)
-        Vector4 probeBoxMax = Vector4{ 0, 0, 0, 0 };           // 16  (xyz = box max, w = probe intensity)
-        Vector4 shadowParams = Vector4{ 40.0f, 0, 0, 0 };      // 16  (x = CSM far-fade width in world units; yzw spare)
+        Float4x4 prevViewProj = Float4x4::Identity();            // 64  (motion vectors: last frame's world->clip)
+        Float4 jitter = Float4{ 0, 0, 0, 0 };                // 16  (xy = this frame's NDC jitter, zw = last frame's)
+        Float4 probeCenter = Float4{ 0, 0, 0, 0 };           // 16  (xyz = probe center, w = probe count [0 = none])
+        Float4 probeBoxMin = Float4{ 0, 0, 0, 0 };           // 16  (xyz = box min, w = probe cube slice)
+        Float4 probeBoxMax = Float4{ 0, 0, 0, 0 };           // 16  (xyz = box max, w = probe intensity)
+        Float4 shadowParams = Float4{ 40.0f, 0, 0, 0 };      // 16  (x = CSM far-fade width in world units; yzw spare)
     };
-    struct ObjectData   { Matrix4 world; Matrix4 prevWorld; Color tint; u32 boneBase = 0, prevBoneBase = 0, p1 = 0, p2 = 0; };   // 160 (cbuffer Object)
-    struct InstanceData { Matrix4 world; Matrix4 prevWorld; Color tint; };     // 144 (StructuredBuffer element)
+    struct ObjectData   { Float4x4 world; Float4x4 prevWorld; Color tint; u32 boneBase = 0, prevBoneBase = 0, p1 = 0, p2 = 0; };   // 160 (cbuffer Object)
+    struct InstanceData { Float4x4 world; Float4x4 prevWorld; Color tint; };     // 144 (StructuredBuffer element)
     struct DataOffsets  { u32 x, y, z, w; };             // 16  (instance-stepped vertex attr)
-    struct ShadowViewData { Matrix4 lightViewProj; };       // 64  (cbuffer ShadowView)
+    struct ShadowViewData { Float4x4 lightViewProj; };       // 64  (cbuffer ShadowView)
 
     static constexpr u64 kViewSlot         = 256;        // dynamic UBO offset alignment (object/shadow-view)
     static constexpr u64 kViewDataSlot     = 1024;       // view UBO slot (ViewData is 528B with CSM cascades)
@@ -1591,7 +1591,7 @@ private:
         const bool feedsForward = ctx.fillInstanceCache;
         for (u32 k = 0; k < count; ++k) {
             const auto* md = static_cast<const MeshRenderData*>(items[first + k].data);
-            const Matrix4 prev = (feedsForward && ctx.needsMotion) ? PrevWorldFor(md->entityId, md->world) : md->world;
+            const Float4x4 prev = (feedsForward && ctx.needsMotion) ? PrevWorldFor(md->entityId, md->world) : md->world;
             id[k] = InstanceData{ md->world, prev, md->color };
             u32 boneBase = 0, prevBase = 0;
             if (skinned) { if (const BoneSlot* s = m_boneStart.Find(md->boneMatrices)) { boneBase = s->base; prevBase = s->prevBase; } }
@@ -2208,8 +2208,8 @@ private:
     struct BoneSlot { u32 base = 0; u32 prevBase = 0; };
     // cur/prev = palette pointers, count = matrices in `cur`. hasPrev: per-entity casters write a cur+prev
     // slab (motion vectors); a skinned-MultiMesh POSE POOL writes just its M*boneCount palettes (no prev).
-    struct SkinnedRef { const Matrix4* cur; const Matrix4* prev; u32 count; bool hasPrev = true; };
-    HashMap<const Matrix4*, BoneSlot> m_boneStart;
+    struct SkinnedRef { const Float4x4* cur; const Float4x4* prev; u32 count; bool hasPrev = true; };
+    HashMap<const Float4x4*, BoneSlot> m_boneStart;
     Array<SkinnedRef>              m_skinnedScratch;
 
     // Per-entity previous-frame world matrix, for rigid-object motion vectors. FLAT double-buffer indexed
@@ -2218,13 +2218,13 @@ private:
     // (read by every view this frame); resolves write THIS frame's into m_curWorld; the two swap at
     // FinishFrame. Out-of-range / never-written -> prev == cur (no motion), so newly-visible objects don't
     // smear on their first frame.
-    Array<Matrix4> m_prevWorld;
-    Array<Matrix4> m_curWorld;
+    Array<Float4x4> m_prevWorld;
+    Array<Float4x4> m_curWorld;
 
     // Record `cur` as this frame's world (idempotent across a frame's views - same value each time) and
     // return the entity's previous-frame world (or `cur` if unknown). Indexed by entity index so multiple
     // views resolving the same object read a STABLE prev (writing cur never clobbers prev - separate buffers).
-    [[nodiscard]] Matrix4 PrevWorldFor(u64 entityId, const Matrix4& cur) {
+    [[nodiscard]] Float4x4 PrevWorldFor(u64 entityId, const Float4x4& cur) {
         const u32 idx = static_cast<u32>(entityId);   // entityId = (generation << 32) | index
         if (idx >= m_curWorld.Size()) { m_curWorld.Resize(idx + 1u); }   // grows toward the max live index, then stable
         m_curWorld[idx] = cur;

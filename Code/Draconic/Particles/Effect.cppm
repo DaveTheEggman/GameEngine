@@ -136,8 +136,8 @@ export namespace draconic::particles
         f32 lodCullDistance = 0.0f;
         f32 lodMinRate = 0.1f;
         // Runtime transform state
-        Vector3 position{ 0.0f, 0.0f, 0.0f };
-        Vector3 prevPosition{ 0.0f, 0.0f, 0.0f };
+        Float3 position{ 0.0f, 0.0f, 0.0f };
+        Float3 prevPosition{ 0.0f, 0.0f, 0.0f };
 
         ParticleEmitter emitter;
 
@@ -233,7 +233,7 @@ export namespace draconic::particles
 
         // Per-frame entry point: runs a one-time prewarm (simulate `prewarmTime` seconds so the effect
         // appears already-running on its first visible frame), then the normal step.
-        void Update(f32 deltaTime, Vector3 cameraPos = Vector3::Zero)
+        void Update(f32 deltaTime, Float3 cameraPos = Float3::Zero)
         {
             if (!m_prewarmed)
             {
@@ -253,7 +253,7 @@ export namespace draconic::particles
         }
 
         // The per-frame step - exact Sedulous order.
-        void Step(f32 deltaTime, Vector3 cameraPos = Vector3::Zero)
+        void Step(f32 deltaTime, Float3 cameraPos = Float3::Zero)
         {
             m_totalTime += deltaTime;                                   // 1
             m_deathCount = 0; m_birthCount = 0;                         // 2
@@ -272,14 +272,14 @@ export namespace draconic::particles
         }
 
         // Spawn `count` new particles through the emitter timing (used by Update).
-        void SpawnParticles(i32 count) { SpawnInternal(count, false, Vector3::Zero); }
+        void SpawnParticles(i32 count) { SpawnInternal(count, false, Float3::Zero); }
         // Spawn immediately, bypassing emitter timing (sub-emitter birth without inheritance).
-        void SpawnImmediate(i32 count) { SpawnInternal(count, false, Vector3::Zero); }
+        void SpawnImmediate(i32 count) { SpawnInternal(count, false, Float3::Zero); }
         // Spawn at a specific position (sub-emitter). inheritedVelocity is ADDED to each new particle's
         // initialized velocity; inheritedColor MODULATES its color - both no-ops at their defaults
         // (zero / white), so callers pass the already-factored parent velocity/color. (Beyond Sedulous,
         // whose SpawnAt dropped these.)
-        void SpawnAt(i32 count, Vector3 spawnPos, Vector3 inheritedVelocity = Vector3::Zero, Vector4 inheritedColor = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f })
+        void SpawnAt(i32 count, Float3 spawnPos, Float3 inheritedVelocity = Float3::Zero, Float4 inheritedColor = Float4{ 1.0f, 1.0f, 1.0f, 1.0f })
         {
             SpawnInternal(count, true, spawnPos, true, inheritedVelocity, inheritedColor);
         }
@@ -297,15 +297,15 @@ export namespace draconic::particles
         }
 
     private:
-        void SpawnInternal(i32 count, bool overridePosition, Vector3 spawnPos,
-                           bool inherit = false, Vector3 inheritedVelocity = Vector3::Zero, Vector4 inheritedColor = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f })
+        void SpawnInternal(i32 count, bool overridePosition, Float3 spawnPos,
+                           bool inherit = false, Float3 inheritedVelocity = Float3::Zero, Float4 inheritedColor = Float4{ 1.0f, 1.0f, 1.0f, 1.0f })
         {
             if (count <= 0) { return; }
             // Local space: particles are stored relative to the emitter (origin) and re-based to world at
             // extract, so spawn positions/velocities are emitter-relative (i.e. zero emitter state).
             const bool local = (simulationSpace == ParticleSpace::Local);
-            const Vector3 emState = local ? Vector3::Zero : position;
-            const Vector3 emitterVel = local ? Vector3::Zero
+            const Float3 emState = local ? Float3::Zero : position;
+            const Float3 emitterVel = local ? Float3::Zero
                                              : (position - prevPosition) / Max(m_totalTime, 0.001f);   // Sedulous divides by TotalTime (kept faithful)
             for (usize k = 0; k < m_initializers.Size(); ++k) { m_initializers[k]->SetEmitterState(emState, emitterVel); }
             for (i32 n = 0; n < count; ++n)
@@ -316,10 +316,10 @@ export namespace draconic::particles
                 if (overridePosition) { (*m_streams.Positions())[index] = spawnPos; }
                 if (inherit)
                 {
-                    if (CPUStream<Vector3>* v = m_streams.Velocities()) { (*v)[index] += inheritedVelocity; }              // add parent velocity
-                    if (CPUStream<Vector4>* c = m_streams.Colors()) {
-                        Vector4& cc = (*c)[index];
-                        cc = Vector4{ cc.x * inheritedColor.x, cc.y * inheritedColor.y, cc.z * inheritedColor.z, cc.w * inheritedColor.w };   // modulate
+                    if (CPUStream<Float3>* v = m_streams.Velocities()) { (*v)[index] += inheritedVelocity; }              // add parent velocity
+                    if (CPUStream<Float4>* c = m_streams.Colors()) {
+                        Float4& cc = (*c)[index];
+                        cc = Float4{ cc.x * inheritedColor.x, cc.y * inheritedColor.y, cc.z * inheritedColor.z, cc.w * inheritedColor.w };   // modulate
                     }
                 }
                 RecordBirthEvent(index);
@@ -328,8 +328,8 @@ export namespace draconic::particles
 
         void IntegrateVelocityAndAge(f32 deltaTime) noexcept
         {
-            CPUStream<Vector3>* pos = m_streams.Positions();
-            CPUStream<Vector3>* vel = m_streams.Velocities();
+            CPUStream<Float3>* pos = m_streams.Positions();
+            CPUStream<Float3>* vel = m_streams.Velocities();
             CPUStream<f32>* ages = m_streams.Ages();
             const bool applyVel = (pos != nullptr && vel != nullptr);
             for (i32 i = 0; i < m_streams.aliveCount; ++i)
@@ -354,14 +354,14 @@ export namespace draconic::particles
         void RecordTrailPoints()
         {
             EnsureTrailStorage();
-            CPUStream<Vector3>* pos = m_streams.Positions();
+            CPUStream<Float3>* pos = m_streams.Positions();
             if (pos == nullptr) { return; }
-            CPUStream<Vector4>* cols = m_streams.Colors();
+            CPUStream<Float4>* cols = m_streams.Colors();
             const i32 mp = trail.maxPoints;
             for (i32 i = 0; i < m_streams.aliveCount; ++i)
             {
                 ParticleTrailState& st = m_trailStates[i];
-                const Vector3 p = (*pos)[i];
+                const Float3 p = (*pos)[i];
                 const bool first = (st.count == 0);
                 if (!first)
                 {
@@ -412,8 +412,8 @@ export namespace draconic::particles
             if (m_birthCount >= kMaxEventsPerFrame) { return; }
             ParticleEvent e;
             e.position = (*m_streams.Positions())[index];
-            if (CPUStream<Vector3>* vel = m_streams.Velocities()) { e.velocity = (*vel)[index]; }
-            if (CPUStream<Vector4>* col = m_streams.Colors()) { e.color = (*col)[index]; }
+            if (CPUStream<Float3>* vel = m_streams.Velocities()) { e.velocity = (*vel)[index]; }
+            if (CPUStream<Float4>* col = m_streams.Colors()) { e.color = (*col)[index]; }
             m_birthEvents[m_birthCount++] = e;
         }
 
@@ -422,9 +422,9 @@ export namespace draconic::particles
             CPUStream<f32>* ages = m_streams.Ages();
             CPUStream<f32>* lifetimes = m_streams.Lifetimes();
             if (ages == nullptr || lifetimes == nullptr) { return; }
-            CPUStream<Vector3>* pos = m_streams.Positions();
-            CPUStream<Vector3>* vel = m_streams.Velocities();
-            CPUStream<Vector4>* col = m_streams.Colors();
+            CPUStream<Float3>* pos = m_streams.Positions();
+            CPUStream<Float3>* vel = m_streams.Velocities();
+            CPUStream<Float4>* col = m_streams.Colors();
             for (i32 i = 0; i < m_streams.aliveCount; ++i)
             {
                 if ((*ages)[i] < (*lifetimes)[i]) { continue; }
@@ -437,7 +437,7 @@ export namespace draconic::particles
             }
         }
 
-        [[nodiscard]] f32 CalculateLODMultiplier(Vector3 cameraPos) const noexcept
+        [[nodiscard]] f32 CalculateLODMultiplier(Float3 cameraPos) const noexcept
         {
             if (lodStartDistance <= 0.0f && lodCullDistance <= 0.0f) { return 1.0f; }   // disabled
             const f32 dist = Length(position - cameraPos);
@@ -506,14 +506,14 @@ export namespace draconic::particles
     class ParticleEffectInstance
     {
     public:
-        Vector3 position{ 0.0f, 0.0f, 0.0f };
+        Float3 position{ 0.0f, 0.0f, 0.0f };
         bool isActive = true;
 
         explicit ParticleEffectInstance(ParticleEffect& effect) noexcept : m_effect(&effect) {}
 
         [[nodiscard]] ParticleEffect& Effect() const noexcept { return *m_effect; }
 
-        void Update(f32 deltaTime, Vector3 cameraPos = Vector3::Zero)
+        void Update(f32 deltaTime, Float3 cameraPos = Float3::Zero)
         {
             if (!isActive || m_effect == nullptr) { return; }
             const i32 count = m_effect->SystemCount();
@@ -577,8 +577,8 @@ export namespace draconic::particles
                         }
                         if (link.inheritPosition)
                         {
-                            const Vector3 vel = link.inheritVelocity ? evt.velocity * link.velocityInheritFactor : Vector3::Zero;
-                            const Vector4 col = link.inheritColor ? evt.color : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+                            const Float3 vel = link.inheritVelocity ? evt.velocity * link.velocityInheritFactor : Float3::Zero;
+                            const Float4 col = link.inheritColor ? evt.color : Float4{ 1.0f, 1.0f, 1.0f, 1.0f };
                             child->SpawnAt(link.spawnCount, evt.position, vel, col);
                         }
                         else

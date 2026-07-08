@@ -13,7 +13,7 @@ module;
 export module draconic.core:content_fit;
 
 import :base;
-import :vector2;
+import :float2;
 import :rectangle;
 
 export namespace draconic::core
@@ -28,7 +28,7 @@ export namespace draconic::core
     struct ContentFit
     {
         Rectangle    region      = Rectangle{ 0, 0, 0, 0 };   // outer rect, REGION-space
-        Vector2    contentSize = Vector2{ 0, 0 };         // logical content resolution
+        Float2    contentSize = Float2{ 0, 0 };         // logical content resolution
         FitMode mode        = FitMode::Stretch;
 
         // Where the content is drawn within `region` (region-space). For Letterbox/IntegerScale
@@ -42,34 +42,34 @@ export namespace draconic::core
 
         // Region-space point -> content-space. Returns false when the point is outside the drawn
         // content (e.g. a letterbox bar) - the "no hit" contract for input.
-        [[nodiscard]] bool ToContent(Vector2 pt, Vector2& out) const noexcept
+        [[nodiscard]] bool ToContent(Float2 pt, Float2& out) const noexcept
         {
             const Placement p = Compute();
             if (p.dst.width <= 0.0f || p.dst.height <= 0.0f) { return false; }
             if (!p.dst.Contains(pt)) { return false; }
             const f32 rx = (pt.x - p.dst.x) / p.dst.width;
             const f32 ry = (pt.y - p.dst.y) / p.dst.height;
-            out = Vector2{ p.src.x + rx * p.src.width, p.src.y + ry * p.src.height };
+            out = Float2{ p.src.x + rx * p.src.width, p.src.y + ry * p.src.height };
             return true;
         }
 
         // Content-space point -> region-space (inverse of ToContent). Used e.g. to place an IME
         // caret rect in window space for a text field inside a fitted surface.
-        [[nodiscard]] Vector2 FromContent(Vector2 pt) const noexcept
+        [[nodiscard]] Float2 FromContent(Float2 pt) const noexcept
         {
             const Placement p = Compute();
             const f32 rx = (p.src.width  != 0.0f) ? (pt.x - p.src.x) / p.src.width  : 0.0f;
             const f32 ry = (p.src.height != 0.0f) ? (pt.y - p.src.y) / p.src.height : 0.0f;
-            return Vector2{ p.dst.x + rx * p.dst.width, p.dst.y + ry * p.dst.height };
+            return Float2{ p.dst.x + rx * p.dst.width, p.dst.y + ry * p.dst.height };
         }
 
         // Region -> content scale factor (content units per region unit), for scaling relative
         // input (mouse delta) so sensitivity is invariant to region size. Per-axis (equal for the
         // aspect-preserving modes).
-        [[nodiscard]] Vector2 Scale() const noexcept
+        [[nodiscard]] Float2 Scale() const noexcept
         {
             const Placement p = Compute();
-            return Vector2{
+            return Float2{
                 (p.dst.width  != 0.0f) ? p.src.width  / p.dst.width  : 0.0f,
                 (p.dst.height != 0.0f) ? p.src.height / p.dst.height : 0.0f,
             };

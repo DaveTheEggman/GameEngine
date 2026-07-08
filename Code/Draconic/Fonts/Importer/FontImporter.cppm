@@ -99,7 +99,7 @@ export namespace draconic::fonts
                 MemCopy(pixelCopy.Data(), srcPixels.Data(), Min(srcPixels.Size(), pixelCopy.Size()));
             bakedAtlas->SetPixels(atlasW, atlasH, Move(pixelCopy));
 
-            const Vector2 white = ttAtlas->WhitePixelUV();
+            const Float2 white = ttAtlas->WhitePixelUV();
             bakedAtlas->SetWhitePixelUV(white.x, white.y);
 
             // Copy GlyphInfo + AtlasRegion for every codepoint that packed.

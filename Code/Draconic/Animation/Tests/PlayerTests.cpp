@@ -103,13 +103,13 @@ TEST_CASE("player: Evaluate drives skinning matrices from the clip")
 
     AnimationClip clip{ u8"move", 1.0f };
     AnimationClip::Vec3Track* pos = clip.GetOrCreatePositionTrack(0);
-    pos->AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
-    pos->AddKeyframe(1.0f, Vector3{ 0, 10, 0 });
+    pos->AddKeyframe(0.0f, Float3{ 0, 0, 0 });
+    pos->AddKeyframe(1.0f, Float3{ 0, 10, 0 });
 
     AnimationPlayer player{ skel };
     player.Play(&clip);
     player.SetCurrentTime(1.0f);
-    Span<const Matrix4> skin = player.GetSkinningMatrices();
+    Span<const Float4x4> skin = player.GetSkinningMatrices();
     // At t=1 the bone translated +10 in Y from its (identity) bind pose -> skin matrix has Ty=10.
     CHECK(skin.Size() == 1);
     CHECK(NearlyEqual(skin[0].m[3][1], 10.0f));

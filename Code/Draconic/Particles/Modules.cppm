@@ -36,7 +36,7 @@ export namespace draconic::particles
         virtual void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) = 0;
         // Hook: the system pushes its transform state before a spawn burst so emitter-aware
         // initializers (Position/Velocity) can offset/inherit. Default no-op (avoids an RTTI cast).
-        virtual void SetEmitterState(Vector3 position, Vector3 velocity) noexcept { (void)position; (void)velocity; }
+        virtual void SetEmitterState(Float3 position, Float3 velocity) noexcept { (void)position; (void)velocity; }
         void Serialize(ISerializer& ar) override { (void)ar; }   // paramless default; modules with params override
     };
 
@@ -65,16 +65,16 @@ export namespace draconic::particles
         DRACONIC_OBJECT(PositionInitializer, ParticleInitializer)
     public:
         EmissionShape shape = EmissionShape::Point();
-        Vector3 emitterPosition{ 0.0f, 0.0f, 0.0f };   // set by the system each spawn (hidden)
+        Float3 emitterPosition{ 0.0f, 0.0f, 0.0f };   // set by the system each spawn (hidden)
         bool localSpace = false;
 
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "shape", shape); core::Serialize(ar, "localSpace", localSpace); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer&) override {}   // Position is a core stream
-        void SetEmitterState(Vector3 position, Vector3) noexcept override { emitterPosition = position; }
+        void SetEmitterState(Float3 position, Float3) noexcept override { emitterPosition = position; }
         void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) override
         {
-            Vector3 pos, dir;
+            Float3 pos, dir;
             shape.Sample(rng, pos, dir);
             (*streams.Positions())[index] = localSpace ? pos : emitterPosition + pos;
         }
@@ -84,12 +84,12 @@ export namespace draconic::particles
     {
         DRACONIC_OBJECT(VelocityInitializer, ParticleInitializer)
     public:
-        Vector3 baseVelocity{ 0.0f, 1.0f, 0.0f };
-        Vector3 randomness{ 0.0f, 0.0f, 0.0f };
+        Float3 baseVelocity{ 0.0f, 1.0f, 0.0f };
+        Float3 randomness{ 0.0f, 0.0f, 0.0f };
         f32 shapeDirectionSpeed = 0.0f;
         f32 velocityInheritance = 0.0f;
         EmissionShape shape = EmissionShape::Point();
-        Vector3 emitterVelocity{ 0.0f, 0.0f, 0.0f };   // set by the system each spawn (hidden)
+        Float3 emitterVelocity{ 0.0f, 0.0f, 0.0f };   // set by the system each spawn (hidden)
 
         void Serialize(ISerializer& ar) override {
             core::Serialize(ar, "baseVelocity", baseVelocity); core::Serialize(ar, "randomness", randomness);
@@ -102,15 +102,15 @@ export namespace draconic::particles
             streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3);
             streams.EnsureStream(ParticleStreamId::StartVelocity, StreamElementType::Float3);
         }
-        void SetEmitterState(Vector3, Vector3 velocity) noexcept override { emitterVelocity = velocity; }
+        void SetEmitterState(Float3, Float3 velocity) noexcept override { emitterVelocity = velocity; }
         void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) override
         {
-            Vector3 pos, dir;
+            Float3 pos, dir;
             shape.Sample(rng, pos, dir);
-            const Vector3 rnd{ rng.NextFloat(-randomness.x, randomness.x),
+            const Float3 rnd{ rng.NextFloat(-randomness.x, randomness.x),
                                rng.NextFloat(-randomness.y, randomness.y),
                                rng.NextFloat(-randomness.z, randomness.z) };
-            const Vector3 v = baseVelocity + rnd + dir * shapeDirectionSpeed + emitterVelocity * velocityInheritance;
+            const Float3 v = baseVelocity + rnd + dir * shapeDirectionSpeed + emitterVelocity * velocityInheritance;
             (*streams.Velocities())[index] = v;
             (*streams.StartVelocities())[index] = v;
         }
@@ -135,7 +135,7 @@ export namespace draconic::particles
     {
         DRACONIC_OBJECT(ColorInitializer, ParticleInitializer)
     public:
-        RangeColor color = RangeColor::Constant(Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+        RangeColor color = RangeColor::Constant(Float4{ 1.0f, 1.0f, 1.0f, 1.0f });
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "color", color); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Color, StreamElementType::Float4); }
@@ -149,7 +149,7 @@ export namespace draconic::particles
     {
         DRACONIC_OBJECT(SizeInitializer, ParticleInitializer)
     public:
-        RangeVector2 size = RangeVector2::Constant(Vector2{ 0.1f, 0.1f });
+        RangeVector2 size = RangeVector2::Constant(Float2{ 0.1f, 0.1f });
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "size", size); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Size, StreamElementType::Float2); }
@@ -184,23 +184,23 @@ export namespace draconic::particles
         DRACONIC_OBJECT(MeshOrientationInitializer, ParticleInitializer)
     public:
         bool randomAxis = true;
-        Vector3 fixedAxis{ 0.0f, 1.0f, 0.0f };
+        Float3 fixedAxis{ 0.0f, 1.0f, 0.0f };
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "randomAxis", randomAxis); core::Serialize(ar, "fixedAxis", fixedAxis); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Axis, StreamElementType::Float3); }
         void Initialize(ParticleStreamContainer& streams, i32 index, Random& rng) override
         {
-            Vector3 axis;
+            Float3 axis;
             if (randomAxis)
             {
                 const f32 z = rng.NextFloat(-1.0f, 1.0f);
                 const f32 phi = rng.NextFloat(0.0f, 6.2831853f);
                 const f32 r = Sqrt(Max(1.0f - z * z, 0.0f));
-                axis = Vector3{ r * Cos(phi), r * Sin(phi), z };
+                axis = Float3{ r * Cos(phi), r * Sin(phi), z };
             }
             else
             {
-                axis = (LengthSquared(fixedAxis) > 1e-6f) ? Normalized(fixedAxis) : Vector3::UnitY;
+                axis = (LengthSquared(fixedAxis) > 1e-6f) ? Normalized(fixedAxis) : Float3::UnitY;
             }
             (*streams.Axes())[index] = axis;
         }
@@ -213,15 +213,15 @@ export namespace draconic::particles
         DRACONIC_OBJECT(GravityBehavior, ParticleBehavior)
     public:
         f32 multiplier = 1.0f;
-        Vector3 direction{ 0.0f, -1.0f, 0.0f };
+        Float3 direction{ 0.0f, -1.0f, 0.0f };
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "multiplier", multiplier); core::Serialize(ar, "direction", direction); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
         {
-            CPUStream<Vector3>* vel = streams.Velocities();
+            CPUStream<Float3>* vel = streams.Velocities();
             if (vel == nullptr) { return; }
-            const Vector3 dv = direction * (9.81f * multiplier * ctx.deltaTime);
+            const Float3 dv = direction * (9.81f * multiplier * ctx.deltaTime);
             for (i32 i = 0; i < streams.aliveCount; ++i) { (*vel)[i] += dv; }
         }
     };
@@ -236,7 +236,7 @@ export namespace draconic::particles
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
         {
-            CPUStream<Vector3>* vel = streams.Velocities();
+            CPUStream<Float3>* vel = streams.Velocities();
             if (vel == nullptr) { return; }
             const f32 factor = Max(1.0f - drag * ctx.deltaTime, 0.0f);
             for (i32 i = 0; i < streams.aliveCount; ++i) { (*vel)[i] *= factor; }
@@ -247,19 +247,19 @@ export namespace draconic::particles
     {
         DRACONIC_OBJECT(WindBehavior, ParticleBehavior)
     public:
-        Vector3 force{ 1.0f, 0.0f, 0.0f };
+        Float3 force{ 1.0f, 0.0f, 0.0f };
         f32 turbulence = 0.0f;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "force", force); core::Serialize(ar, "turbulence", turbulence); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
         {
-            CPUStream<Vector3>* vel = streams.Velocities();
+            CPUStream<Float3>* vel = streams.Velocities();
             if (vel == nullptr) { return; }
             Random& rng = *ctx.rng;
             for (i32 i = 0; i < streams.aliveCount; ++i)
             {
-                const Vector3 t{ rng.NextFloat(-turbulence, turbulence), rng.NextFloat(-turbulence, turbulence), rng.NextFloat(-turbulence, turbulence) };
+                const Float3 t{ rng.NextFloat(-turbulence, turbulence), rng.NextFloat(-turbulence, turbulence), rng.NextFloat(-turbulence, turbulence) };
                 (*vel)[i] += (force + t) * ctx.deltaTime;
             }
         }
@@ -277,14 +277,14 @@ export namespace draconic::particles
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
         {
-            CPUStream<Vector3>* vel = streams.Velocities();
-            CPUStream<Vector3>* pos = streams.Positions();
+            CPUStream<Float3>* vel = streams.Velocities();
+            CPUStream<Float3>* pos = streams.Positions();
             if (vel == nullptr || pos == nullptr) { return; }
             const f32 scroll = ctx.totalTime * speed;
             for (i32 i = 0; i < streams.aliveCount; ++i)
             {
-                const Vector3 p = (*pos)[i] * frequency + Vector3{ scroll, scroll, scroll };
-                const Vector3 noise{ Sin(p.y * 1.7f + p.z), Sin(p.z * 1.3f + p.x), Sin(p.x * 1.9f + p.y) };   // cheap pseudo-noise
+                const Float3 p = (*pos)[i] * frequency + Float3{ scroll, scroll, scroll };
+                const Float3 noise{ Sin(p.y * 1.7f + p.z), Sin(p.z * 1.3f + p.x), Sin(p.x * 1.9f + p.y) };   // cheap pseudo-noise
                 (*vel)[i] += noise * (strength * ctx.deltaTime);
             }
         }
@@ -295,21 +295,21 @@ export namespace draconic::particles
         DRACONIC_OBJECT(VortexBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
-        Vector3 center{ 0.0f, 0.0f, 0.0f };
-        Vector3 axis{ 0.0f, 1.0f, 0.0f };
+        Float3 center{ 0.0f, 0.0f, 0.0f };
+        Float3 axis{ 0.0f, 1.0f, 0.0f };
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "strength", strength); core::Serialize(ar, "center", center); core::Serialize(ar, "axis", axis); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
         {
-            CPUStream<Vector3>* vel = streams.Velocities();
-            CPUStream<Vector3>* pos = streams.Positions();
+            CPUStream<Float3>* vel = streams.Velocities();
+            CPUStream<Float3>* pos = streams.Positions();
             if (vel == nullptr || pos == nullptr) { return; }
-            const Vector3 a = (LengthSquared(axis) > 1e-6f) ? Normalized(axis) : Vector3::UnitY;
+            const Float3 a = (LengthSquared(axis) > 1e-6f) ? Normalized(axis) : Float3::UnitY;
             for (i32 i = 0; i < streams.aliveCount; ++i)
             {
-                const Vector3 radial = (*pos)[i] - center;
-                const Vector3 tangent = Cross(a, radial);
+                const Float3 radial = (*pos)[i] - center;
+                const Float3 tangent = Cross(a, radial);
                 const f32 dist = Max(Length(radial), 0.1f);
                 (*vel)[i] += tangent * (strength * ctx.deltaTime / dist);
             }
@@ -321,19 +321,19 @@ export namespace draconic::particles
         DRACONIC_OBJECT(AttractorBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
-        Vector3 position{ 0.0f, 0.0f, 0.0f };
+        Float3 position{ 0.0f, 0.0f, 0.0f };
         f32 radius = 0.0f;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "strength", strength); core::Serialize(ar, "position", position); core::Serialize(ar, "radius", radius); }
         [[nodiscard]] BehaviorSupport Support() const noexcept override { return BehaviorSupport::Both; }
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
         {
-            CPUStream<Vector3>* vel = streams.Velocities();
-            CPUStream<Vector3>* pos = streams.Positions();
+            CPUStream<Float3>* vel = streams.Velocities();
+            CPUStream<Float3>* pos = streams.Positions();
             if (vel == nullptr || pos == nullptr) { return; }
             for (i32 i = 0; i < streams.aliveCount; ++i)
             {
-                const Vector3 delta = position - (*pos)[i];
+                const Float3 delta = position - (*pos)[i];
                 const f32 dist = Length(delta);
                 if (dist < 1e-4f) { continue; }
                 f32 s = strength;
@@ -353,12 +353,12 @@ export namespace draconic::particles
         void DeclareStreams(ParticleStreamContainer& streams) override { streams.EnsureStream(ParticleStreamId::Velocity, StreamElementType::Float3); }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext& ctx) override
         {
-            CPUStream<Vector3>* vel = streams.Velocities();
-            CPUStream<Vector3>* pos = streams.Positions();
+            CPUStream<Float3>* vel = streams.Velocities();
+            CPUStream<Float3>* pos = streams.Positions();
             if (vel == nullptr || pos == nullptr) { return; }
             for (i32 i = 0; i < streams.aliveCount; ++i)
             {
-                const Vector3 delta = (*pos)[i] - ctx.emitterPosition;
+                const Float3 delta = (*pos)[i] - ctx.emitterPosition;
                 if (LengthSquared(delta) < 1e-8f) { continue; }
                 (*vel)[i] += Normalized(delta) * (strength * ctx.deltaTime);
             }
@@ -368,22 +368,22 @@ export namespace draconic::particles
     // A world-space collision plane: points with Dot(normal, p) - distance < 0 are behind it.
     struct CollisionPlane
     {
-        Vector3 normal{ 0.0f, 1.0f, 0.0f };
+        Float3 normal{ 0.0f, 1.0f, 0.0f };
         f32     distance = 0.0f;
     };
 
     // A world-space collision sphere (an analytic obstacle particles bounce off).
     struct CollisionSphere
     {
-        Vector3 center{ 0.0f, 0.0f, 0.0f };
+        Float3 center{ 0.0f, 0.0f, 0.0f };
         f32     radius = 1.0f;
     };
 
     // A world-space axis-aligned collision box (center + half-extents).
     struct CollisionBox
     {
-        Vector3 center{ 0.0f, 0.0f, 0.0f };
-        Vector3 halfExtents{ 0.5f, 0.5f, 0.5f };
+        Float3 center{ 0.0f, 0.0f, 0.0f };
+        Float3 halfExtents{ 0.5f, 0.5f, 0.5f };
     };
 
     inline void Serialize(ISerializer& ar, CollisionPlane& p)  { core::Serialize(ar, "normal", p.normal); core::Serialize(ar, "distance", p.distance); }
@@ -429,8 +429,8 @@ export namespace draconic::particles
         }
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
         {
-            CPUStream<Vector3>* pos = streams.Positions();
-            CPUStream<Vector3>* vel = streams.Velocities();
+            CPUStream<Float3>* pos = streams.Positions();
+            CPUStream<Float3>* vel = streams.Velocities();
             if (pos == nullptr || vel == nullptr) { return; }
             CPUStream<f32>* ages  = streams.Ages();
             CPUStream<f32>* lifes = streams.Lifetimes();
@@ -448,7 +448,7 @@ export namespace draconic::particles
                 for (i32 sp = 0; sp < ns; ++sp)
                 {
                     const CollisionSphere& s = spheres[sp];
-                    const Vector3 d = (*pos)[i] - s.center;
+                    const Float3 d = (*pos)[i] - s.center;
                     const f32 dist = Length(d);
                     const f32 pen = dist - s.radius - radius;
                     if (pen < 0.0f && dist > 1e-4f) { Resolve((*pos)[i], (*vel)[i], d / dist, pen, ages, lifes, i); }
@@ -456,16 +456,16 @@ export namespace draconic::particles
                 for (i32 bx = 0; bx < nb; ++bx)
                 {
                     const CollisionBox& b = boxes[bx];
-                    const Vector3 d = (*pos)[i] - b.center;
-                    const Vector3 e{ b.halfExtents.x + radius, b.halfExtents.y + radius, b.halfExtents.z + radius };
-                    const Vector3 ad{ Abs(d.x), Abs(d.y), Abs(d.z) };
+                    const Float3 d = (*pos)[i] - b.center;
+                    const Float3 e{ b.halfExtents.x + radius, b.halfExtents.y + radius, b.halfExtents.z + radius };
+                    const Float3 ad{ Abs(d.x), Abs(d.y), Abs(d.z) };
                     if (ad.x >= e.x || ad.y >= e.y || ad.z >= e.z) { continue; }   // outside the box
                     // Inside: exit along the axis of least penetration.
                     const f32 px = e.x - ad.x, py = e.y - ad.y, pz = e.z - ad.z;
-                    Vector3 normal; f32 depth;
-                    if (px <= py && px <= pz)      { normal = Vector3{ d.x < 0.0f ? -1.0f : 1.0f, 0.0f, 0.0f }; depth = px; }
-                    else if (py <= pz)             { normal = Vector3{ 0.0f, d.y < 0.0f ? -1.0f : 1.0f, 0.0f }; depth = py; }
-                    else                           { normal = Vector3{ 0.0f, 0.0f, d.z < 0.0f ? -1.0f : 1.0f }; depth = pz; }
+                    Float3 normal; f32 depth;
+                    if (px <= py && px <= pz)      { normal = Float3{ d.x < 0.0f ? -1.0f : 1.0f, 0.0f, 0.0f }; depth = px; }
+                    else if (py <= pz)             { normal = Float3{ 0.0f, d.y < 0.0f ? -1.0f : 1.0f, 0.0f }; depth = py; }
+                    else                           { normal = Float3{ 0.0f, 0.0f, d.z < 0.0f ? -1.0f : 1.0f }; depth = pz; }
                     Resolve((*pos)[i], (*vel)[i], normal, -depth, ages, lifes, i);
                 }
             }
@@ -473,14 +473,14 @@ export namespace draconic::particles
 
     private:
         // Push a penetrating particle out along the contact normal and reflect its inbound velocity.
-        void Resolve(Vector3& p, Vector3& v, const Vector3& normal, f32 penetration,
+        void Resolve(Float3& p, Float3& v, const Float3& normal, f32 penetration,
                      CPUStream<f32>* ages, CPUStream<f32>* lifes, i32 i) const noexcept
         {
             p -= normal * penetration;                       // push out to the surface (penetration < 0)
             const f32 vn = Dot(v, normal);
             if (vn >= 0.0f) { return; }                      // already moving away
-            const Vector3 vNormal = normal * vn;
-            const Vector3 vTangent = v - vNormal;
+            const Float3 vNormal = normal * vn;
+            const Float3 vTangent = v - vNormal;
             v = vTangent * (1.0f - friction) - vNormal * bounce;
             if (lifetimeLoss > 0.0f && ages != nullptr && lifes != nullptr)
             {
@@ -502,7 +502,7 @@ export namespace draconic::particles
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
         {
             if (!curve.IsActive()) { return; }
-            CPUStream<Vector4>* col = streams.Colors();
+            CPUStream<Float4>* col = streams.Colors();
             if (col == nullptr) { return; }
             for (i32 i = 0; i < streams.aliveCount; ++i) { (*col)[i] = curve.Evaluate(streams.GetLifeRatio(i)); }
         }
@@ -519,7 +519,7 @@ export namespace draconic::particles
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
         {
             if (!curve.IsActive()) { return; }
-            CPUStream<Vector4>* col = streams.Colors();
+            CPUStream<Float4>* col = streams.Colors();
             if (col == nullptr) { return; }
             // SET the alpha to the curve's opacity envelope (like ColorOverLifetime sets colour). This runs
             // every frame, so it must NOT accumulate: `w *= curve` would multiply w by a sub-1 value each
@@ -540,7 +540,7 @@ export namespace draconic::particles
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
         {
             if (!curve.IsActive()) { return; }
-            CPUStream<Vector2>* size = streams.Sizes();
+            CPUStream<Float2>* size = streams.Sizes();
             if (size == nullptr) { return; }
             for (i32 i = 0; i < streams.aliveCount; ++i) { (*size)[i] = curve.Evaluate(streams.GetLifeRatio(i)); }
         }
@@ -587,12 +587,12 @@ export namespace draconic::particles
         void Update(ParticleStreamContainer& streams, ParticleUpdateContext&) override
         {
             if (!curve.IsActive()) { return; }
-            CPUStream<Vector3>* vel = streams.Velocities();
-            CPUStream<Vector3>* start = streams.StartVelocities();
+            CPUStream<Float3>* vel = streams.Velocities();
+            CPUStream<Float3>* start = streams.StartVelocities();
             if (vel == nullptr || start == nullptr) { return; }
             for (i32 i = 0; i < streams.aliveCount; ++i)
             {
-                const Vector3 v = (*vel)[i];
+                const Float3 v = (*vel)[i];
                 const f32 len = Length(v);
                 if (len < 1e-6f) { continue; }
                 const f32 target = Length((*start)[i]) * curve.Evaluate(streams.GetLifeRatio(i));

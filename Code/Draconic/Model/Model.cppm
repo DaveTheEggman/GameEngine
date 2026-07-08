@@ -240,8 +240,8 @@ public:
             return;
         }
 
-        Vector3 bmin(std::numeric_limits<f32>::max());
-        Vector3 bmax(std::numeric_limits<f32>::lowest());
+        Float3 bmin(std::numeric_limits<f32>::max());
+        Float3 bmax(std::numeric_limits<f32>::lowest());
 
         for (auto* mesh : m_meshes) {
             AABB mb = mesh->bounds();

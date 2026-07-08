@@ -89,26 +89,26 @@ namespace
 
             // Camera: high + pulled back to frame the whole 4x4 showcase grid.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, core::Vector3{ 0.0f, 34.0f, 52.0f });
+            m_scene->SetLocalPosition(m_camera, core::Float3{ 0.0f, 34.0f, 52.0f });
             if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
                 render::CameraComponent& cam = cameras->Add(m_camera);
                 cam.clearColor = core::Color{ 0.02f, 0.02f, 0.04f, 1.0f };
             }
-            m_fly.position = core::Vector3{ 0.0f, 34.0f, 52.0f };
+            m_fly.position = core::Float3{ 0.0f, 34.0f, 52.0f };
             m_fly.pitch    = -0.55f;
 
             // A floor for spatial context.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
                 scene::EntityHandle floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(floor, core::Vector3{ 0.0f, 0.0f, 0.0f });
+                m_scene->SetLocalPosition(floor, core::Float3{ 0.0f, 0.0f, 0.0f });
                 render::MeshComponent& mc = meshes->Add(floor);
                 mc.mesh = geometry::Primitives::Plane(80.0f, 80.0f);
-                mc.material = materials::CreatePBR(u8"floor", core::Vector4{ 0.20f, 0.22f, 0.26f, 1.0f }, 0.0f, 0.8f);
+                mc.material = materials::CreatePBR(u8"floor", core::Float4{ 0.20f, 0.22f, 0.26f, 1.0f }, 0.0f, 0.8f);
             }
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                 scene::EntityHandle key = m_scene->CreateEntity(u8"key");
                 core::Transform kt = m_scene->GetLocalTransform(key);
-                kt.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f);
+                kt.rotation = core::Quaternion::FromAxisAngle(core::Float3{ 1.0f, 0.0f, 0.0f }, -0.9f);
                 m_scene->SetLocalTransform(key, kt);
                 render::LightComponent& lc = lights->Add(key);
                 lc.type = render::LightType::Directional;
@@ -116,7 +116,7 @@ namespace
                 lc.intensity = 1.0f;
             }
 
-            const core::Vector3 obstacle = CellPos(6) + core::Vector3{ 0.0f, 1.4f, 0.0f };
+            const core::Float3 obstacle = CellPos(6) + core::Float3{ 0.0f, 1.4f, 0.0f };
             const core::f32     obRadius = 1.4f;
             BuildFountain(m_effect);
             BuildMeshShards(m_debris);      // cell 1: opaque material (set below)
@@ -150,7 +150,7 @@ namespace
                 px::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
                 dc.SetEffect(m_debris);
                 dc.mesh      = geometry::Primitives::Cube(1.0f);
-                dc.material  = materials::CreatePBR(u8"shards-solid", core::Vector4{ 0.35f, 0.6f, 0.9f, 1.0f }, 0.1f, 0.5f);
+                dc.material  = materials::CreatePBR(u8"shards-solid", core::Float4{ 0.35f, 0.6f, 0.9f, 1.0f }, 0.1f, 0.5f);
                 dc.meshScale = 0.5f;
 
                 m_glowEmitter = m_scene->CreateEntity(u8"shards-glow");
@@ -161,7 +161,7 @@ namespace
                 gc.meshScale = 0.5f;
                 {
                     // Additive PBR material -> the extractor routes these to the Transparent pass.
-                    auto glow = materials::CreatePBR(u8"shards-glow", core::Vector4{ 0.4f, 0.8f, 1.0f, 1.0f }, 0.0f, 0.4f);
+                    auto glow = materials::CreatePBR(u8"shards-glow", core::Float4{ 0.4f, 0.8f, 1.0f, 1.0f }, 0.0f, 0.4f);
                     glow->pipeline.blendMode = materials::BlendMode::Additive;
                     glow->pipeline.depthMode = materials::DepthMode::ReadOnly;
                     gc.material = glow;
@@ -177,7 +177,7 @@ namespace
 
                 // Cell 4: ground haze - the soft-particle A/B showcase.
                 m_hazeEmitter = m_scene->CreateEntity(u8"haze");
-                m_scene->SetLocalPosition(m_hazeEmitter, CellPos(4) + core::Vector3{ 0.0f, 0.4f, 0.0f });
+                m_scene->SetLocalPosition(m_hazeEmitter, CellPos(4) + core::Float3{ 0.0f, 0.4f, 0.0f });
                 pmgr->Add(m_hazeEmitter).SetEffect(m_haze);
 
                 // Cell 5: trail sparks (camera-facing ribbons).
@@ -187,14 +187,14 @@ namespace
 
                 // Cell 6: collision rain bouncing off a rendered sphere obstacle + the world ground.
                 m_collideEmitter = m_scene->CreateEntity(u8"rain");
-                m_scene->SetLocalPosition(m_collideEmitter, CellPos(6) + core::Vector3{ 0.0f, 6.0f, 0.0f });
+                m_scene->SetLocalPosition(m_collideEmitter, CellPos(6) + core::Float3{ 0.0f, 6.0f, 0.0f });
                 pmgr->Add(m_collideEmitter).SetEffect(m_collide);
                 if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
                     scene::EntityHandle ob = m_scene->CreateEntity(u8"obstacle");
                     m_scene->SetLocalPosition(ob, obstacle);
                     render::MeshComponent& omc = meshes->Add(ob);
                     omc.mesh = geometry::Primitives::Sphere(obRadius);
-                    omc.material = materials::CreatePBR(u8"obstacle", core::Vector4{ 0.7f, 0.7f, 0.72f, 1.0f }, 0.1f, 0.4f);
+                    omc.material = materials::CreatePBR(u8"obstacle", core::Float4{ 0.7f, 0.7f, 0.72f, 1.0f }, 0.1f, 0.4f);
                 }
 
                 // Cell 7: local-space puff - orbits its emitter (animated in OnUpdate); cloud follows rigidly.
@@ -290,9 +290,9 @@ namespace
 
                 // Orbit the local-space emitter so its (Local) cloud visibly rides along as a rigid body.
                 m_orbitTime += deltaTime;
-                const core::Vector3 c = CellPos(7);
+                const core::Float3 c = CellPos(7);
                 m_scene->SetLocalPosition(m_localEmitter,
-                    c + core::Vector3{ 2.5f * core::Cos(m_orbitTime * 1.5f), 1.5f, 2.5f * core::Sin(m_orbitTime * 1.5f) });
+                    c + core::Float3{ 2.5f * core::Cos(m_orbitTime * 1.5f), 1.5f, 2.5f * core::Sin(m_orbitTime * 1.5f) });
 
                 // A floor label under each cell (debug-draw 3D text), so every system is identified.
                 if (auto* rs = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
@@ -303,11 +303,11 @@ namespace
                         u8"tornado", u8"explosion", u8"magic circle", u8"fireflies" };
                     auto& dd = rs->DebugScene(*m_scene);
                     for (core::i32 i = 0; i < 16; ++i) {
-                        dd.DrawText3D(CellPos(i) + core::Vector3{ 0.0f, 0.15f, kCellSpacing * 0.42f },
+                        dd.DrawText3D(CellPos(i) + core::Float3{ 0.0f, 0.15f, kCellSpacing * 0.42f },
                                       kNames[i], core::Color{ 0.85f, 0.9f, 1.0f, 1.0f });
                     }
                     if (m_cookedProxy) {
-                        dd.DrawText3D(core::Vector3{ 0.0f, 0.3f, 37.0f }, u8"COOKED: asset -> bake -> load",
+                        dd.DrawText3D(core::Float3{ 0.0f, 0.3f, 37.0f }, u8"COOKED: asset -> bake -> load",
                                       core::Color{ 0.4f, 1.0f, 0.9f, 1.0f });
                     }
                 }
@@ -319,12 +319,12 @@ namespace
         // particle system. Returns the cell's floor-level center (callers add any per-system y offset).
         static constexpr core::f32 kCellSpacing = 15.0f;
         static constexpr core::i32 kGridCols    = 4;
-        static core::Vector3 CellPos(core::i32 index)
+        static core::Float3 CellPos(core::i32 index)
         {
             const core::f32 half = (kGridCols - 1) * 0.5f;
             const core::f32 col  = static_cast<core::f32>(index % kGridCols);
             const core::f32 row  = static_cast<core::f32>(index / kGridCols);
-            return core::Vector3{ (col - half) * kCellSpacing, 0.2f, (row - half) * kCellSpacing };
+            return core::Float3{ (col - half) * kCellSpacing, 0.2f, (row - half) * kCellSpacing };
         }
 
         static void BuildFountain(px::ParticleEffect& effect)
@@ -340,21 +340,21 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.6f);
             {
                 px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 13.0f, 0.0f };
-                v.randomness   = core::Vector3{ 3.0f, 2.0f, 3.0f };
+                v.baseVelocity = core::Float3{ 0.0f, 13.0f, 0.0f };
+                v.randomness   = core::Float3{ 3.0f, 2.0f, 3.0f };
                 v.shape        = px::EmissionShape::Cone(0.4f, 0.35f);
                 v.shapeDirectionSpeed = 4.0f;
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.35f, 0.35f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.35f, 0.35f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 1.0f, 0.55f, 0.15f, 1.0f }, core::Vector4{ 1.0f, 0.85f, 0.4f, 1.0f });
+                px::RangeColor(core::Float4{ 1.0f, 0.55f, 0.15f, 1.0f }, core::Float4{ 1.0f, 0.85f, 0.4f, 1.0f });
 
             sys.AddBehavior<px::GravityBehavior>().multiplier = 1.4f;
             sys.AddBehavior<px::DragBehavior>().drag = 0.25f;
             sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve =
-                px::ParticleCurveColor::FadeAlpha(core::Vector4{ 1.0f, 0.5f, 0.12f, 1.0f }, 0.35f);
+                px::ParticleCurveColor::FadeAlpha(core::Float4{ 1.0f, 0.5f, 0.12f, 1.0f }, 0.35f);
             sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveVector2::Linear(core::Vector2{ 0.4f, 0.4f }, core::Vector2{ 0.04f, 0.04f });
+                px::ParticleCurveVector2::Linear(core::Float2{ 0.4f, 0.4f }, core::Float2{ 0.04f, 0.04f });
         }
 
         // Light-mode particles: slow warm embers drifting up; each contributes a point light so they
@@ -368,16 +368,16 @@ namespace
             sys.emitter.mode = px::EmissionMode::Continuous;
             sys.emitter.spawnRate = 12.0f;   // ~45 alive: all fit under the cap (stable, no popping) + light cluster load
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 4.0f, 0.1f, 4.0f });
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 4.0f, 0.1f, 4.0f });
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.5f, 4.5f);
             {
                 px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 1.4f, 0.0f };
-                v.randomness   = core::Vector3{ 0.5f, 0.3f, 0.5f };
+                v.baseVelocity = core::Float3{ 0.0f, 1.4f, 0.0f };
+                v.randomness   = core::Float3{ 0.5f, 0.3f, 0.5f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.6f, 0.6f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.6f, 0.6f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 1.0f, 0.5f, 0.15f, 1.0f }, core::Vector4{ 1.0f, 0.75f, 0.3f, 1.0f });
+                px::RangeColor(core::Float4{ 1.0f, 0.5f, 0.15f, 1.0f }, core::Float4{ 1.0f, 0.75f, 0.3f, 1.0f });
             sys.AddBehavior<px::DragBehavior>().drag = 0.5f;
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.55f);  // bright, then fade
         }
@@ -394,11 +394,11 @@ namespace
             sys.emitter.mode = px::EmissionMode::Continuous;
             sys.emitter.spawnRate = 14.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 3.5f, 0.05f, 3.5f });
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 3.5f, 0.05f, 3.5f });
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(4.0f, 6.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 0.25f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 2.0f, 2.0f });  // straddles the floor for the A/B
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.35f, 0.28f, 0.45f, 1.0f });
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.25f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 2.0f, 2.0f });  // straddles the floor for the A/B
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.35f, 0.28f, 0.45f, 1.0f });
             sys.AddBehavior<px::DragBehavior>().drag = 0.6f;
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.4f);
         }
@@ -417,18 +417,18 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.4f, 2.4f);
             {
                 px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 8.0f, 0.0f };
-                v.randomness   = core::Vector3{ 6.0f, 3.0f, 6.0f };   // spray sideways so the ribbons curve
+                v.baseVelocity = core::Float3{ 0.0f, 8.0f, 0.0f };
+                v.randomness   = core::Float3{ 6.0f, 3.0f, 6.0f };   // spray sideways so the ribbons curve
                 v.shape        = px::EmissionShape::Cone(0.5f, 0.2f);
                 v.shapeDirectionSpeed = 3.0f;
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.2f, 0.2f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.2f, 0.2f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 0.2f, 0.7f, 1.0f, 1.0f }, core::Vector4{ 0.9f, 0.4f, 1.0f, 1.0f });
+                px::RangeColor(core::Float4{ 0.2f, 0.7f, 1.0f, 1.0f }, core::Float4{ 0.9f, 0.4f, 1.0f, 1.0f });
 
             sys.AddBehavior<px::GravityBehavior>().multiplier = 1.5f;   // arc back down -> curved ribbons
             sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve =
-                px::ParticleCurveColor::FadeAlpha(core::Vector4{ 0.5f, 0.6f, 1.0f, 1.0f }, 0.3f);
+                px::ParticleCurveColor::FadeAlpha(core::Float4{ 0.5f, 0.6f, 1.0f, 1.0f }, 0.3f);
 
             sys.trail.enabled          = true;
             sys.trail.maxPoints        = 32;
@@ -443,7 +443,7 @@ namespace
         // Collision showcase: rain that spawns high and bounces off both the world ground plane (y=0) and a
         // rendered sphere obstacle at `obstacle` (radius `obRadius`). World-space, so the collider centre
         // is a world position matching the drawn sphere.
-        static void BuildCollision(px::ParticleEffect& effect, core::Vector3 obstacle, core::f32 obRadius)
+        static void BuildCollision(px::ParticleEffect& effect, core::Float3 obstacle, core::f32 obRadius)
         {
             px::ParticleSystem& sys = effect.AddSystem(4000);
             sys.name       = core::String{ u8"rain" };
@@ -452,15 +452,15 @@ namespace
             sys.emitter.mode = px::EmissionMode::Continuous;
             sys.emitter.spawnRate = 500.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 3.0f, 0.1f, 3.0f });
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 3.0f, 0.1f, 3.0f });
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 4.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, -1.0f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.12f, 0.12f });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.5f, 0.75f, 1.0f, 0.9f });
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, -1.0f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.12f, 0.12f });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.5f, 0.75f, 1.0f, 0.9f });
             sys.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;
             {
                 px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
-                col.planes[0]  = px::CollisionPlane{ core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // world ground
+                col.planes[0]  = px::CollisionPlane{ core::Float3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // world ground
                 col.planeCount = 1;
                 col.spheres[0]  = px::CollisionSphere{ obstacle, obRadius };                       // the drawn obstacle
                 col.sphereCount = 1;
@@ -484,20 +484,20 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.6f, 1.1f);
             {
                 px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 3.2f * scale, 0.0f };
-                v.randomness   = core::Vector3{ 0.7f, 0.6f, 0.7f };
+                v.baseVelocity = core::Float3{ 0.0f, 3.2f * scale, 0.0f };
+                v.randomness   = core::Float3{ 0.7f, 0.6f, 0.7f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 1.0f * scale, 1.0f * scale });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 0.9f, 0.5f, 1.0f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 1.0f * scale, 1.0f * scale });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 0.9f, 0.5f, 1.0f });
             sys.AddBehavior<px::TurbulenceBehavior>().strength = 1.5f;   // flicker/curl
             sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveVector2::Linear(core::Vector2{ 1.0f * scale, 1.0f * scale }, core::Vector2{ 0.15f * scale, 0.15f * scale });
+                px::ParticleCurveVector2::Linear(core::Float2{ 1.0f * scale, 1.0f * scale }, core::Float2{ 0.15f * scale, 0.15f * scale });
             // Colour ramp: white-hot -> yellow -> orange -> red, fading out at the tip.
             px::ParticleCurveColor ramp;
-            ramp.AddKey(0.0f, core::Vector4{ 1.0f, 0.95f, 0.7f, 1.0f });
-            ramp.AddKey(0.35f, core::Vector4{ 1.0f, 0.6f, 0.2f, 0.9f });
-            ramp.AddKey(0.7f, core::Vector4{ 0.9f, 0.2f, 0.05f, 0.5f });
-            ramp.AddKey(1.0f, core::Vector4{ 0.4f, 0.05f, 0.02f, 0.0f });
+            ramp.AddKey(0.0f, core::Float4{ 1.0f, 0.95f, 0.7f, 1.0f });
+            ramp.AddKey(0.35f, core::Float4{ 1.0f, 0.6f, 0.2f, 0.9f });
+            ramp.AddKey(0.7f, core::Float4{ 0.9f, 0.2f, 0.05f, 0.5f });
+            ramp.AddKey(1.0f, core::Float4{ 0.4f, 0.05f, 0.02f, 0.0f });
             sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve = ramp;
         }
 
@@ -514,15 +514,15 @@ namespace
 
             sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.5f * scale);
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 5.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, rise, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 1.0f * scale, 1.0f * scale });
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, rise, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 1.0f * scale, 1.0f * scale });
             // Near-white ambient-lit grey: light enough to read against the (grey) floor it starts over AND
             // the dark sky it rises into. Grey-on-grey-floor was the reason earlier smoke was invisible.
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.78f, 0.78f, 0.82f, 1.0f });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.78f, 0.78f, 0.82f, 1.0f });
             sys.AddBehavior<px::TurbulenceBehavior>().strength = 0.8f;   // lazy drift
             sys.AddBehavior<px::DragBehavior>().drag = 0.12f;            // light drag -> the column keeps climbing off the floor
             sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveVector2::Linear(core::Vector2{ 1.0f * scale, 1.0f * scale }, core::Vector2{ 3.5f * scale, 3.5f * scale });
+                px::ParticleCurveVector2::Linear(core::Float2{ 1.0f * scale, 1.0f * scale }, core::Float2{ 3.5f * scale, 3.5f * scale });
             // Fade in from nothing, hold fairly opaque, fade out (billows appear then dissipate).
             px::ParticleCurveFloat a;
             a.AddKey(0.0f, 0.0f); a.AddKey(0.15f, 0.9f); a.AddKey(0.6f, 0.7f); a.AddKey(1.0f, 0.0f);
@@ -558,14 +558,14 @@ namespace
             rocket.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.4f);
             {
                 px::VelocityInitializer& v = rocket.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 13.0f, 0.0f };
-                v.randomness   = core::Vector3{ 1.5f, 1.5f, 1.5f };
+                v.baseVelocity = core::Float3{ 0.0f, 13.0f, 0.0f };
+                v.randomness   = core::Float3{ 1.5f, 1.5f, 1.5f };
             }
-            rocket.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.25f, 0.25f });
+            rocket.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.25f, 0.25f });
             // Vivid warm hues (gold -> hot magenta) so the bursts pop against the dark sky - blues would
             // wash out. Sparks inherit this colour via the sub-emitter link.
             rocket.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 1.0f, 0.85f, 0.2f, 1.0f }, core::Vector4{ 1.0f, 0.25f, 0.7f, 1.0f });
+                px::RangeColor(core::Float4{ 1.0f, 0.85f, 0.2f, 1.0f }, core::Float4{ 1.0f, 0.25f, 0.7f, 1.0f });
             rocket.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;   // arc to an apex, then die
             rocket.trail.enabled = true; rocket.trail.maxPoints = 20; rocket.trail.lifetime = 0.4f;
             rocket.trail.widthStart = 0.12f; rocket.trail.widthEnd = 0.0f; rocket.trail.recordInterval = 0.02f;
@@ -585,10 +585,10 @@ namespace
                 px::VelocityInitializer& v = sparks.AddInitializer<px::VelocityInitializer>();
                 v.shape = px::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
                 v.shapeDirectionSpeed = 7.0f;
-                v.randomness = core::Vector3{ 1.0f, 1.0f, 1.0f };
+                v.randomness = core::Float3{ 1.0f, 1.0f, 1.0f };
             }
-            sparks.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.16f, 0.16f });
-            sparks.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+            sparks.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.16f, 0.16f });
+            sparks.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 1.0f, 1.0f, 1.0f });
             sparks.AddBehavior<px::GravityBehavior>().multiplier = 1.3f;
             sparks.AddBehavior<px::DragBehavior>().drag = 0.6f;
             sparks.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.15f);
@@ -618,10 +618,10 @@ namespace
             sys.emitter.spawnRate = 600.0f;
             sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(1.6f);
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.8f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 4.5f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.4f, 0.4f });
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 4.5f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.4f, 0.4f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 0.55f, 0.5f, 0.42f, 1.0f }, core::Vector4{ 0.4f, 0.36f, 0.3f, 1.0f });
+                px::RangeColor(core::Float4{ 0.55f, 0.5f, 0.42f, 1.0f }, core::Float4{ 0.4f, 0.36f, 0.3f, 1.0f });
             sys.AddBehavior<px::VortexBehavior>().strength = 12.0f;      // tangential swirl about local Y
             sys.AddBehavior<px::AttractorBehavior>().strength = 3.5f;    // pull inward toward the axis (tighten the funnel)
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
@@ -645,11 +645,11 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.7f, 0.9f);
             {
                 px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 1.5f, 0.0f };
-                v.randomness   = core::Vector3{ 2.0f, 1.0f, 2.0f };
+                v.baseVelocity = core::Float3{ 0.0f, 1.5f, 0.0f };
+                v.randomness   = core::Float3{ 2.0f, 1.0f, 2.0f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 3.5f, 3.5f });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 3.5f, 3.5f });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 1.0f, 1.0f, 1.0f });
             sys.AddBehavior<px::RadialForceBehavior>().strength = 5.0f;   // spread the cluster outward
             sys.AddBehavior<px::DragBehavior>().drag = 1.5f;
             sys.flipbook.enabled = true;
@@ -676,11 +676,11 @@ namespace
                 px::VelocityInitializer& v = deb.AddInitializer<px::VelocityInitializer>();
                 v.shape = px::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
                 v.shapeDirectionSpeed = 13.0f;
-                v.randomness = core::Vector3{ 2.0f, 2.0f, 2.0f };
+                v.randomness = core::Float3{ 2.0f, 2.0f, 2.0f };
             }
-            deb.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.14f, 0.14f });
+            deb.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.14f, 0.14f });
             deb.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 1.0f, 0.85f, 0.35f, 1.0f }, core::Vector4{ 1.0f, 0.35f, 0.1f, 1.0f });
+                px::RangeColor(core::Float4{ 1.0f, 0.85f, 0.35f, 1.0f }, core::Float4{ 1.0f, 0.35f, 0.1f, 1.0f });
             deb.AddBehavior<px::GravityBehavior>().multiplier = 1.4f;
             deb.AddBehavior<px::DragBehavior>().drag = 1.0f;
             deb.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
@@ -695,10 +695,10 @@ namespace
             ring.emitter.burstCount = 1; ring.emitter.burstInterval = 1.7f; ring.emitter.burstCycles = 0;
             ring.AddInitializer<px::PositionInitializer>();
             ring.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.6f, 0.6f);
-            ring.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 1.0f, 1.0f });
-            ring.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 0.7f, 0.3f, 1.0f });
+            ring.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 1.0f, 1.0f });
+            ring.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 0.7f, 0.3f, 1.0f });
             ring.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveVector2::Linear(core::Vector2{ 1.0f, 1.0f }, core::Vector2{ 9.0f, 9.0f });
+                px::ParticleCurveVector2::Linear(core::Float2{ 1.0f, 1.0f }, core::Float2{ 9.0f, 9.0f });
             ring.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.0f);
         }
 
@@ -717,8 +717,8 @@ namespace
             rune.emitter.spawnRate = 60.0f;
             rune.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Ring(2.6f);
             rune.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.4f, 1.8f);
-            rune.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.5f, 0.5f });
-            rune.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.3f, 0.8f, 1.0f, 1.0f });
+            rune.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.5f, 0.5f });
+            rune.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.3f, 0.8f, 1.0f, 1.0f });
             rune.AddInitializer<px::RotationInitializer>();
             rune.AddBehavior<px::RotationOverLifetimeBehavior>();   // slow spin
             rune.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::PeakAt(0.5f, 1.0f);
@@ -733,9 +733,9 @@ namespace
             spark.emitter.spawnRate = 40.0f;
             spark.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Ring(2.6f);
             spark.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.8f);
-            spark.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 1.6f, 0.0f };
-            spark.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.18f, 0.18f });
-            spark.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.4f, 0.9f, 1.0f, 1.0f });
+            spark.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 1.6f, 0.0f };
+            spark.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.18f, 0.18f });
+            spark.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.4f, 0.9f, 1.0f, 1.0f });
             spark.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
         }
 
@@ -751,13 +751,13 @@ namespace
             sys.prewarmTime = 2.0f;
             sys.emitter.mode = px::EmissionMode::Continuous;
             sys.emitter.spawnRate = 40.0f;
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 3.0f, 2.0f, 3.0f });
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 3.0f, 2.0f, 3.0f });
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.5f, 4.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 0.2f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.16f, 0.16f });
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.2f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.16f, 0.16f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 0.8f, 1.0f, 0.3f, 1.0f }, core::Vector4{ 1.0f, 0.9f, 0.2f, 1.0f });
-            { px::WindBehavior& w = sys.AddBehavior<px::WindBehavior>(); w.force = core::Vector3{ 0.5f, 0.0f, 0.3f }; w.turbulence = 1.5f; }
+                px::RangeColor(core::Float4{ 0.8f, 1.0f, 0.3f, 1.0f }, core::Float4{ 1.0f, 0.9f, 0.2f, 1.0f });
+            { px::WindBehavior& w = sys.AddBehavior<px::WindBehavior>(); w.force = core::Float3{ 0.5f, 0.0f, 0.3f }; w.turbulence = 1.5f; }
             sys.AddBehavior<px::TurbulenceBehavior>().strength = 1.2f;   // wander
             {
                 px::ParticleCurveFloat a;   // twinkle: fade in, flicker, fade out
@@ -831,10 +831,10 @@ namespace
 
             sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.3f);
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.6f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 0.4f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.18f, 0.18f });
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.4f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.18f, 0.18f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 1.0f, 0.8f, 0.3f, 1.0f }, core::Vector4{ 1.0f, 0.4f, 0.1f, 1.0f });
+                px::RangeColor(core::Float4{ 1.0f, 0.8f, 0.3f, 1.0f }, core::Float4{ 1.0f, 0.4f, 0.1f, 1.0f });
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
         }
 
@@ -853,12 +853,12 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.6f);
             {
                 px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 3.5f, 0.0f };
-                v.randomness   = core::Vector3{ 1.5f, 1.0f, 1.5f };
+                v.baseVelocity = core::Float3{ 0.0f, 3.5f, 0.0f };
+                v.randomness   = core::Float3{ 1.5f, 1.0f, 1.5f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.3f, 0.3f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.3f, 0.3f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 0.3f, 0.9f, 1.0f, 1.0f }, core::Vector4{ 0.5f, 0.3f, 1.0f, 1.0f });
+                px::RangeColor(core::Float4{ 0.3f, 0.9f, 1.0f, 1.0f }, core::Float4{ 0.5f, 0.3f, 1.0f, 1.0f });
             sys.AddInitializer<px::RotationInitializer>();
             sys.AddInitializer<px::MeshOrientationInitializer>();
             sys.AddBehavior<px::RotationOverLifetimeBehavior>();                 // tumble
@@ -879,12 +879,12 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.2f, 2.0f);
             {
                 px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 10.0f, 0.0f };
-                v.randomness   = core::Vector3{ 2.5f, 1.0f, 2.5f };
+                v.baseVelocity = core::Float3{ 0.0f, 10.0f, 0.0f };
+                v.randomness   = core::Float3{ 2.5f, 1.0f, 2.5f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.3f, 0.3f });
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Float2{ 0.3f, 0.3f });
             sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 0.2f, 1.0f, 0.9f, 1.0f }, core::Vector4{ 0.4f, 0.6f, 1.0f, 1.0f });
+                px::RangeColor(core::Float4{ 0.2f, 1.0f, 0.9f, 1.0f }, core::Float4{ 0.4f, 0.6f, 1.0f, 1.0f });
             sys.AddBehavior<px::GravityBehavior>().multiplier = 1.2f;
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.3f);
         }
@@ -918,7 +918,7 @@ namespace
 
             // DEMO: a component driven by the cooked resource (in front of the grid).
             m_cookedEmitter = m_scene->CreateEntity(u8"cooked");
-            m_scene->SetLocalPosition(m_cookedEmitter, core::Vector3{ 0.0f, 0.2f, 34.0f });
+            m_scene->SetLocalPosition(m_cookedEmitter, core::Float3{ 0.0f, 0.2f, 34.0f });
             pmgr.Add(m_cookedEmitter).SetEffect(m_cookedProxy);
         }
 

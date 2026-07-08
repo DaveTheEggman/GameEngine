@@ -32,9 +32,9 @@ export namespace draconic::particles
     // Maps a C++ element type to its StreamElementType tag (for checked typed access).
     template <typename T> struct StreamElementOf;
     template <> struct StreamElementOf<f32>     { static constexpr StreamElementType value = StreamElementType::Float; };
-    template <> struct StreamElementOf<Vector2> { static constexpr StreamElementType value = StreamElementType::Float2; };
-    template <> struct StreamElementOf<Vector3> { static constexpr StreamElementType value = StreamElementType::Float3; };
-    template <> struct StreamElementOf<Vector4> { static constexpr StreamElementType value = StreamElementType::Float4; };
+    template <> struct StreamElementOf<Float2> { static constexpr StreamElementType value = StreamElementType::Float2; };
+    template <> struct StreamElementOf<Float3> { static constexpr StreamElementType value = StreamElementType::Float3; };
+    template <> struct StreamElementOf<Float4> { static constexpr StreamElementType value = StreamElementType::Float4; };
     template <> struct StreamElementOf<i32>     { static constexpr StreamElementType value = StreamElementType::Int32; };
 
     // Abstract stream: identity + element type + capacity, plus a type-erased swap-remove so the
@@ -141,24 +141,24 @@ export namespace draconic::particles
             switch (elementType)
             {
                 case StreamElementType::Float:  m_streams[slot] = alloc.New<CPUStream<f32>>(id, elementType, m_capacity); break;
-                case StreamElementType::Float2: m_streams[slot] = alloc.New<CPUStream<Vector2>>(id, elementType, m_capacity); break;
-                case StreamElementType::Float3: m_streams[slot] = alloc.New<CPUStream<Vector3>>(id, elementType, m_capacity); break;
-                case StreamElementType::Float4: m_streams[slot] = alloc.New<CPUStream<Vector4>>(id, elementType, m_capacity); break;
+                case StreamElementType::Float2: m_streams[slot] = alloc.New<CPUStream<Float2>>(id, elementType, m_capacity); break;
+                case StreamElementType::Float3: m_streams[slot] = alloc.New<CPUStream<Float3>>(id, elementType, m_capacity); break;
+                case StreamElementType::Float4: m_streams[slot] = alloc.New<CPUStream<Float4>>(id, elementType, m_capacity); break;
                 case StreamElementType::Int32:  m_streams[slot] = alloc.New<CPUStream<i32>>(id, elementType, m_capacity); break;
             }
         }
 
         // Typed accessors for the standard channels (null when not allocated).
-        [[nodiscard]] CPUStream<Vector3>* Positions()      const noexcept { return GetCPUStream<Vector3>(ParticleStreamId::Position); }
+        [[nodiscard]] CPUStream<Float3>* Positions()      const noexcept { return GetCPUStream<Float3>(ParticleStreamId::Position); }
         [[nodiscard]] CPUStream<f32>*     Ages()           const noexcept { return GetCPUStream<f32>(ParticleStreamId::Age); }
         [[nodiscard]] CPUStream<f32>*     Lifetimes()      const noexcept { return GetCPUStream<f32>(ParticleStreamId::Lifetime); }
-        [[nodiscard]] CPUStream<Vector3>* Velocities()     const noexcept { return GetCPUStream<Vector3>(ParticleStreamId::Velocity); }
-        [[nodiscard]] CPUStream<Vector3>* StartVelocities()const noexcept { return GetCPUStream<Vector3>(ParticleStreamId::StartVelocity); }
-        [[nodiscard]] CPUStream<Vector4>* Colors()         const noexcept { return GetCPUStream<Vector4>(ParticleStreamId::Color); }
-        [[nodiscard]] CPUStream<Vector2>* Sizes()          const noexcept { return GetCPUStream<Vector2>(ParticleStreamId::Size); }
+        [[nodiscard]] CPUStream<Float3>* Velocities()     const noexcept { return GetCPUStream<Float3>(ParticleStreamId::Velocity); }
+        [[nodiscard]] CPUStream<Float3>* StartVelocities()const noexcept { return GetCPUStream<Float3>(ParticleStreamId::StartVelocity); }
+        [[nodiscard]] CPUStream<Float4>* Colors()         const noexcept { return GetCPUStream<Float4>(ParticleStreamId::Color); }
+        [[nodiscard]] CPUStream<Float2>* Sizes()          const noexcept { return GetCPUStream<Float2>(ParticleStreamId::Size); }
         [[nodiscard]] CPUStream<f32>*     Rotations()      const noexcept { return GetCPUStream<f32>(ParticleStreamId::Rotation); }
         [[nodiscard]] CPUStream<f32>*     RotationSpeeds() const noexcept { return GetCPUStream<f32>(ParticleStreamId::RotationSpeed); }
-        [[nodiscard]] CPUStream<Vector3>* Axes()           const noexcept { return GetCPUStream<Vector3>(ParticleStreamId::Axis); }
+        [[nodiscard]] CPUStream<Float3>* Axes()           const noexcept { return GetCPUStream<Float3>(ParticleStreamId::Axis); }
 
         // Normalized life [0,1] of a particle (age/lifetime), 1 when lifetime is non-positive.
         [[nodiscard]] f32 GetLifeRatio(i32 index) const noexcept

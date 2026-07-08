@@ -38,8 +38,8 @@ struct MeshComponent {
     // GPU skinning: per-bone skinning matrices for a skinned mesh, supplied per frame by the owner
     // (e.g. an AnimationPlayer's GetSkinningMatrices()). Borrowed - valid for the frame it's set;
     // null => the mesh draws static (bind pose). Extraction copies the pointer into MeshRenderData.
-    const Matrix4*                  boneMatrices = nullptr;
-    const Matrix4*                  prevBoneMatrices = nullptr;   // previous-frame matrices (motion vectors); null => reuse current
+    const Float4x4*                  boneMatrices = nullptr;
+    const Float4x4*                  prevBoneMatrices = nullptr;   // previous-frame matrices (motion vectors); null => reuse current
     u32                          boneCount    = 0;
 };
 
@@ -57,7 +57,7 @@ struct InstancedMeshComponent {
     // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
     // non-empty each submesh draws with its own material; otherwise `material` covers the whole mesh.
     Array<RefPtr<materials::Material>> submeshMaterials;
-    Array<Matrix4>               instances;                                  // per-instance world transforms
+    Array<Float4x4>               instances;                                  // per-instance world transforms
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };  // shared tint (used when `tints` is empty)
     // Optional per-instance tint (parallel to `instances`): when its size matches, each instance uses its
     // own tint; otherwise `color` covers all. Read at upload, so set it BEFORE SetInstances (which bumps version).
@@ -69,8 +69,8 @@ struct InstancedMeshComponent {
     // non-null the set draws SKINNED, and instance i uses pose (i % poseCount) - so N animated instances
     // cost only M = poseCount palette computes, not N. Borrowed (valid for the frame it's set); null => the
     // set draws static. The mesh must be a skinned mesh (has a skin stream). See docs/design/instanced-mesh.md SS7.
-    const Matrix4*               posePool     = nullptr;
-    const Matrix4*               prevPosePool = nullptr;   // last frame's palettes (per-bone motion vectors); null => reuse current
+    const Float4x4*               posePool     = nullptr;
+    const Float4x4*               prevPosePool = nullptr;   // last frame's palettes (per-bone motion vectors); null => reuse current
     u32                          poseCount    = 0;   // M unique phase buckets
     u32                          boneCount    = 0;   // bones per palette
 
@@ -88,20 +88,20 @@ struct InstancedMeshComponent {
     u32                          version = 1;
     // Cached merged world-space bounds (center + sphere radius), recomputed at extraction when
     // `boundsVersion != version`. Lets a static set skip the O(N) bounds pass every frame.
-    Vector3                      cachedCenter  = Vector3{ 0, 0, 0 };
+    Float3                      cachedCenter  = Float3{ 0, 0, 0 };
     f32                          cachedRadius  = 0.0f;
     u32                          boundsVersion = 0;
 
     [[nodiscard]] u32 Count() const noexcept { return static_cast<u32>(instances.Size()); }
 
     // Replace the whole set in one shot (fast path for static content) - a single version bump.
-    void SetInstances(Span<const Matrix4> xf) {
+    void SetInstances(Span<const Float4x4> xf) {
         instances.Resize(xf.Size());
-        if (!xf.IsEmpty()) { MemCopy(instances.Data(), xf.Data(), xf.Size() * sizeof(Matrix4)); }
+        if (!xf.IsEmpty()) { MemCopy(instances.Data(), xf.Data(), xf.Size() * sizeof(Float4x4)); }
         ++version;
     }
-    void Add(const Matrix4& m)               { instances.PushBack(m); ++version; }
-    void SetInstance(u32 i, const Matrix4& m){ if (i < instances.Size()) { instances[i] = m; ++version; } }
+    void Add(const Float4x4& m)               { instances.PushBack(m); ++version; }
+    void SetInstance(u32 i, const Float4x4& m){ if (i < instances.Size()) { instances[i] = m; ++version; } }
     void Reserve(u32 n)                      { instances.Reserve(n); }
     void Clear()                             { instances.Clear(); ++version; }
 };
@@ -145,8 +145,8 @@ struct LightComponent {
 // it alive while the component is attached. Extraction reads this into a render::SpriteRenderData.
 struct SpriteComponent {
     rhi::TextureView* texture = nullptr;
-    Vector2  size        = Vector2{ 1.0f, 1.0f };                 // world-unit width/height
-    Vector4  uvRect      = Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) - whole texture by default
+    Float2  size        = Float2{ 1.0f, 1.0f };                 // world-unit width/height
+    Float4  uvRect      = Float4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) - whole texture by default
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
     bool  additive    = false;  // false = alpha over, true = additive (glow)
@@ -159,7 +159,7 @@ struct SpriteComponent {
 // into the surface (e.g. rotate so +Z points down to project onto a floor). `texture` is borrowed.
 struct DecalComponent {
     rhi::TextureView* texture = nullptr;
-    Vector3  size      = Vector3{ 1.0f, 1.0f, 1.0f };
+    Float3  size      = Float3{ 1.0f, 1.0f, 1.0f };
     Color color     = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     f32   fadeStart = 0.0f;     // angle-fade start (radians)
     f32   fadeEnd   = 1.30f;    // angle-fade end (radians ~75deg)
@@ -172,7 +172,7 @@ struct DecalComponent {
 // influence toward the box edge so overlapping probes blend without a seam. `update` selects the capture
 // cadence (ProbeUpdateMode, from the snapshot layer). Extraction reads this into a render::ReflectionProbe.
 struct ReflectionProbeComponent {
-    Vector3            halfExtents   = Vector3{ 5.0f, 5.0f, 5.0f };   // box influence/proxy half-extents (world units)
+    Float3            halfExtents   = Float3{ 5.0f, 5.0f, 5.0f };   // box influence/proxy half-extents (world units)
     f32             blendDistance = 1.0f;                       // soft falloff width inward from the box edge
     f32             intensity     = 1.0f;                       // reflection multiplier
     u32             resolution    = 128;                        // captured cube face size (64/128/256)

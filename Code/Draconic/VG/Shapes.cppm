@@ -62,13 +62,13 @@ export namespace draconic::vg
         }
 
         /// Build a circle path using 4 cubic Bezier curves.
-        static void BuildCircle(Vector2 center, f32 radius, PathBuilder& builder)
+        static void BuildCircle(Float2 center, f32 radius, PathBuilder& builder)
         {
             BuildEllipse(center, radius, radius, builder);
         }
 
         /// Build an ellipse path using 4 cubic Bezier curves.
-        static void BuildEllipse(Vector2 center, f32 rx, f32 ry, PathBuilder& builder)
+        static void BuildEllipse(Float2 center, f32 rx, f32 ry, PathBuilder& builder)
         {
             // Cubic Bezier approximation of quarter circle: control offset = radius * 0.5522847498.
             const f32 k = 0.5522847498f;
@@ -87,7 +87,7 @@ export namespace draconic::vg
         }
 
         /// Build a regular polygon (e.g., hexagon with sides=6).
-        static void BuildRegularPolygon(Vector2 center, f32 radius, i32 sides, PathBuilder& builder)
+        static void BuildRegularPolygon(Float2 center, f32 radius, i32 sides, PathBuilder& builder)
         {
             if (sides < 3) return;
 
@@ -111,7 +111,7 @@ export namespace draconic::vg
         }
 
         /// Build a star shape.
-        static void BuildStar(Vector2 center, f32 outerRadius, f32 innerRadius, i32 points, PathBuilder& builder)
+        static void BuildStar(Float2 center, f32 outerRadius, f32 innerRadius, i32 points, PathBuilder& builder)
         {
             if (points < 3) return;
 
@@ -170,7 +170,7 @@ export namespace draconic::vg
     public:
         /// Generate dashed segments from a polyline. Pattern alternates
         /// [dash, gap, dash, gap, ...]. Output is a list of polyline segments.
-        static void GenerateDashes(Span<const Vector2> points, bool closed, Span<const f32> pattern, f32 offset, Array<Array<Vector2>>& output)
+        static void GenerateDashes(Span<const Float2> points, bool closed, Span<const f32> pattern, f32 offset, Array<Array<Float2>>& output)
         {
             if (points.Size() < 2 || pattern.Size() == 0)
                 return;
@@ -211,7 +211,7 @@ export namespace draconic::vg
 
             if (isDash)
             {
-                output.PushBack(Array<Vector2>());
+                output.PushBack(Array<Float2>());
                 currentIdx = static_cast<i64>(output.Size()) - 1;
             }
 
@@ -219,31 +219,31 @@ export namespace draconic::vg
             const usize totalPoints = closed ? points.Size() : points.Size() - 1;
             for (usize i = 0; i < totalPoints; ++i)
             {
-                const Vector2 p0 = points[i];
-                const Vector2 p1 = points[(i + 1) % points.Size()];
+                const Float2 p0 = points[i];
+                const Float2 p1 = points[(i + 1) % points.Size()];
 
-                Vector2 edgeDir = p1 - p0;
+                Float2 edgeDir = p1 - p0;
                 const f32 edgeLen = Length(edgeDir);
                 if (edgeLen < 0.0001f)
                     continue;
                 edgeDir = edgeDir / edgeLen;
 
                 f32 edgeRemaining = edgeLen;
-                Vector2 currentPos = p0;
+                Float2 currentPos = p0;
 
                 while (edgeRemaining > 0.0001f)
                 {
                     const f32 step = Min(edgeRemaining, patternRemaining);
-                    const Vector2 nextPos = currentPos + edgeDir * step;
+                    const Float2 nextPos = currentPos + edgeDir * step;
 
                     if (isDash)
                     {
                         if (currentIdx < 0)
                         {
-                            output.PushBack(Array<Vector2>());
+                            output.PushBack(Array<Float2>());
                             currentIdx = static_cast<i64>(output.Size()) - 1;
                         }
-                        Array<Vector2>& seg = output[static_cast<usize>(currentIdx)];
+                        Array<Float2>& seg = output[static_cast<usize>(currentIdx)];
                         if (seg.IsEmpty())
                             seg.PushBack(currentPos);
                         seg.PushBack(nextPos);

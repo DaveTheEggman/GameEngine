@@ -1,6 +1,6 @@
 // Ported from Sedulous.Images.Tests/NormalMapTests.bf - the Image normal-map
 // generators + CalculateNormalFromHeight. Mirrors the Sedulous assertions
-// (Test.Assert -> CHECK; pixel.R/G/B/A -> .r/.g/.b/.a; Vector3.X/Y/Z -> .x/.y/.z).
+// (Test.Assert -> CHECK; pixel.R/G/B/A -> .r/.g/.b/.a; Float3.X/Y/Z -> .x/.y/.z).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -171,16 +171,16 @@ TEST_CASE("image.normalmap: test pattern varies in X and Y, Z stays up")
 
 TEST_CASE("image.normalmap: CalculateNormalFromHeight")
 {
-    const Vector3 flatNormal = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.5f, 0.5f);
+    const Float3 flatNormal = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.5f, 0.5f);
     CHECK(Abs(flatNormal.x) < 0.01f);
     CHECK(Abs(flatNormal.y) < 0.01f);
     CHECK(flatNormal.z > 0.99f);
 
-    const Vector3 rightSlope = Image::CalculateNormalFromHeight(0.0f, 1.0f, 0.5f, 0.5f);
+    const Float3 rightSlope = Image::CalculateNormalFromHeight(0.0f, 1.0f, 0.5f, 0.5f);
     CHECK(rightSlope.x < 0.0f);  // normal points against the slope
     CHECK(rightSlope.z > 0.0f);
 
-    const Vector3 downSlope = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.0f, 1.0f);
+    const Float3 downSlope = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.0f, 1.0f);
     CHECK(downSlope.y < 0.0f);
     CHECK(downSlope.z > 0.0f);
 }

@@ -3,7 +3,7 @@
 // SVG element/document model: SVGElementType, SVGTextAnchor, SVGElement (a parsed
 // shape/group/text node with a tessellated Path + style), SVGDocument. Ported
 // from Sedulous.VG.SVG (SVGElementType/SVGElement/SVGDocument). Element trees are
-// value types (children owned by value); the transform is a Matrix4 (mirroring
+// value types (children owned by value); the transform is a Float4x4 (mirroring
 // Sedulous's Matrix); colors are float Color.
 
 module;
@@ -33,7 +33,7 @@ export namespace draconic::vg::svg
     public:
         SVGElementType type = SVGElementType::Path;
         Optional<draconic::vg::Path> path;          ///< Tessellatable geometry (shapes/paths).
-        Matrix4 transform = Matrix4::Identity();        ///< Element transform.
+        Float4x4 transform = Float4x4::Identity();        ///< Element transform.
         Optional<Color> fillColor;              ///< Fill color (empty = none/inherit).
         Optional<Color> strokeColor;            ///< Stroke color (empty = none).
         f32 strokeWidth = 1.0f;

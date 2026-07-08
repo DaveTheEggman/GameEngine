@@ -24,11 +24,11 @@ export namespace draconic::particles
     // One packed billboard instance (80 bytes = 5x float4, matches the ParticleRenderer VS inputs).
     struct ParticleBillboardInstance
     {
-        Vector4 positionSize;   // xyz world center, w width
-        Vector4 sizeRotMode;    // x height, y rotation (radians), z orientation mode, w unused
-        Vector4 color;          // rgba (linear, premultiply/scale done in sim)
-        Vector4 uvRect;         // xy uv min, zw uv size (flipbook)
-        Vector4 velocity;       // xyz world velocity, w stretch scale (0 = plain billboard)
+        Float4 positionSize;   // xyz world center, w width
+        Float4 sizeRotMode;    // x height, y rotation (radians), z orientation mode, w unused
+        Float4 color;          // rgba (linear, premultiply/scale done in sim)
+        Float4 uvRect;         // xy uv min, zw uv size (flipbook)
+        Float4 velocity;       // xyz world velocity, w stretch scale (0 = plain billboard)
     };
     static_assert(sizeof(ParticleBillboardInstance) == 80);
 
@@ -53,9 +53,9 @@ export namespace draconic::particles
     // trail path draws these as a plain triangle list (no instancing, geometry already oriented).
     struct TrailVertex
     {
-        Vector3 position{ 0.0f, 0.0f, 0.0f };
-        Vector2 texCoord{ 0.0f, 0.0f };
-        Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float3 position{ 0.0f, 0.0f, 0.0f };
+        Float2 texCoord{ 0.0f, 0.0f };
+        Float4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
     };
 
     // Batched trail ribbon for one system: a borrowed triangle-list vertex span (owned by the manager's

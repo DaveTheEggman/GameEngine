@@ -175,7 +175,7 @@ export namespace draconic::fonts
 
         [[nodiscard]] bool Contains(i32 codepoint) const override { return m_regions.Contains(codepoint); }
 
-        [[nodiscard]] Vector2 WhitePixelUV() const override { return Vector2(m_whitePixelU, m_whitePixelV); }
+        [[nodiscard]] Float2 WhitePixelUV() const override { return Float2(m_whitePixelU, m_whitePixelV); }
 
         [[nodiscard]] bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY, GlyphQuad& quad) const override
         {

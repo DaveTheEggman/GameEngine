@@ -17,7 +17,7 @@ TEST_CASE("core-reflection: value-type properties are reflected")
 {
     EnsureRegistered();
 
-    const TypeInfo& vec3 = TypeOf<Vector3>();
+    const TypeInfo& vec3 = TypeOf<Float3>();
     CHECK(Properties(vec3).Size() == 3u);
 
     const PropertyInfo* x = FindProperty(vec3, "x");
@@ -34,10 +34,10 @@ TEST_CASE("core-reflection: get / set a property through an Instance")
 {
     EnsureRegistered();
 
-    Vector3 v{ 1.0f, 2.0f, 3.0f };
+    Float3 v{ 1.0f, 2.0f, 3.0f };
     Instance inst = Instance::From(&v);
 
-    const PropertyInfo* y = FindProperty(TypeOf<Vector3>(), "y");
+    const PropertyInfo* y = FindProperty(TypeOf<Float3>(), "y");
     REQUIRE(y != nullptr);
     CHECK(GetProperty(*y, inst).Get<f32>() == 2.0f);
 
@@ -60,30 +60,30 @@ TEST_CASE("core-reflection: nested value-type properties (Transform)")
     const PropertyInfo* rotation = FindProperty(transform, "rotation");
     REQUIRE(position != nullptr);
     REQUIRE(rotation != nullptr);
-    CHECK(position->type == &TypeOf<Vector3>());
+    CHECK(position->type == &TypeOf<Float3>());
     CHECK(rotation->type == &TypeOf<Quaternion>());
 
     Transform t;
     Instance inst = Instance::From(&t);
-    CHECK(SetProperty(*position, inst, Variant::From(Vector3{ 4.0f, 5.0f, 6.0f })).IsOk());
-    CHECK(t.position == Vector3{ 4.0f, 5.0f, 6.0f });
-    CHECK(GetProperty(*position, inst).Get<Vector3>() == Vector3{ 4.0f, 5.0f, 6.0f });
+    CHECK(SetProperty(*position, inst, Variant::From(Float3{ 4.0f, 5.0f, 6.0f })).IsOk());
+    CHECK(t.position == Float3{ 4.0f, 5.0f, 6.0f });
+    CHECK(GetProperty(*position, inst).Get<Float3>() == Float3{ 4.0f, 5.0f, 6.0f });
 }
 
 TEST_CASE("core-reflection: named constants are reflected")
 {
     EnsureRegistered();
 
-    const TypeInfo& vec3 = TypeOf<Vector3>();
+    const TypeInfo& vec3 = TypeOf<Float3>();
     CHECK(Constants(vec3).Size() == 5u);
 
     const ConstantInfo* zero = FindConstant(vec3, "Zero");
     const ConstantInfo* unitY = FindConstant(vec3, "UnitY");
     REQUIRE(zero != nullptr);
     REQUIRE(unitY != nullptr);
-    CHECK(zero->type == &TypeOf<Vector3>());
-    CHECK(zero->value.Get<Vector3>() == Vector3::Zero);
-    CHECK(unitY->value.Get<Vector3>() == Vector3::UnitY);
+    CHECK(zero->type == &TypeOf<Float3>());
+    CHECK(zero->value.Get<Float3>() == Float3::Zero);
+    CHECK(unitY->value.Get<Float3>() == Float3::UnitY);
     CHECK(FindConstant(vec3, "Nope") == nullptr);
 
     // Constants on other types.
@@ -97,13 +97,13 @@ TEST_CASE("core-reflection: member, const, and static methods invoke")
     EnsureRegistered();
 
     // const member returning a value type
-    Vector4 v{ 1.0f, 2.0f, 3.0f, 4.0f };
+    Float4 v{ 1.0f, 2.0f, 3.0f, 4.0f };
     Instance vi = Instance::From(&v);
-    const MethodInfo* xyz = FindMethod(TypeOf<Vector4>(), "XYZ");
+    const MethodInfo* xyz = FindMethod(TypeOf<Float4>(), "XYZ");
     REQUIRE(xyz != nullptr);
     CHECK_FALSE(xyz->isStatic);
     CHECK(xyz->isConst);
-    CHECK(InvokeMethod(*xyz, vi, Span<Variant>{}).Value().Get<Vector3>() == Vector3{ 1.0f, 2.0f, 3.0f });
+    CHECK(InvokeMethod(*xyz, vi, Span<Variant>{}).Value().Get<Float3>() == Float3{ 1.0f, 2.0f, 3.0f });
 
     // const member returning a scalar
     Color white = Color::White;
@@ -130,13 +130,13 @@ TEST_CASE("core-reflection: overloaded free functions reflect (disambiguated by 
     EnsureRegistered();
 
     // Dot/Length were overloaded free functions; reflected as static methods.
-    const MethodInfo* dot = FindMethod(TypeOf<Vector3>(), "Dot");
+    const MethodInfo* dot = FindMethod(TypeOf<Float3>(), "Dot");
     REQUIRE(dot != nullptr);
     CHECK(dot->isStatic);
     CHECK(dot->returnType() == &TypeOf<f32>());
     REQUIRE(dot->paramCount == 2u);
-    CHECK(dot->params[0].type() == &TypeOf<Vector3>());
-    Variant dotArgs[] = { Variant::From(Vector3{ 1.0f, 2.0f, 3.0f }), Variant::From(Vector3{ 4.0f, 5.0f, 6.0f }) };
+    CHECK(dot->params[0].type() == &TypeOf<Float3>());
+    Variant dotArgs[] = { Variant::From(Float3{ 1.0f, 2.0f, 3.0f }), Variant::From(Float3{ 4.0f, 5.0f, 6.0f }) };
     CHECK(InvokeStatic(*dot, Span<Variant>{ dotArgs, 2 }).Value().Get<f32>() == 32.0f);
 }
 
@@ -144,38 +144,38 @@ TEST_CASE("core-reflection: same-named overloads resolved by parameter type")
 {
     EnsureRegistered();
 
-    const Vector3 a{ 2.0f, 3.0f, 4.0f };
+    const Float3 a{ 2.0f, 3.0f, 4.0f };
 
-    // Vector3 * f32
-    const TypeInfo* const scalarSig[] = { &TypeOf<Vector3>(), &TypeOf<f32>() };
-    const MethodInfo* mulScalar = FindMethod(TypeOf<Vector3>(), "Mul",
+    // Float3 * f32
+    const TypeInfo* const scalarSig[] = { &TypeOf<Float3>(), &TypeOf<f32>() };
+    const MethodInfo* mulScalar = FindMethod(TypeOf<Float3>(), "Mul",
         Span<const TypeInfo* const>{ scalarSig, 2 });
     REQUIRE(mulScalar != nullptr);
 
-    // Vector3 * Vector3
-    const TypeInfo* const vecSig[] = { &TypeOf<Vector3>(), &TypeOf<Vector3>() };
-    const MethodInfo* mulVec = FindMethod(TypeOf<Vector3>(), "Mul",
+    // Float3 * Float3
+    const TypeInfo* const vecSig[] = { &TypeOf<Float3>(), &TypeOf<Float3>() };
+    const MethodInfo* mulVec = FindMethod(TypeOf<Float3>(), "Mul",
         Span<const TypeInfo* const>{ vecSig, 2 });
     REQUIRE(mulVec != nullptr);
 
     CHECK(mulScalar != mulVec);  // distinct overloads selected by signature
 
     Variant scalarArgs[] = { Variant::From(a), Variant::From(2.0f) };
-    CHECK(InvokeStatic(*mulScalar, Span<Variant>{ scalarArgs, 2 }).Value().Get<Vector3>()
-          == Vector3{ 4.0f, 6.0f, 8.0f });
+    CHECK(InvokeStatic(*mulScalar, Span<Variant>{ scalarArgs, 2 }).Value().Get<Float3>()
+          == Float3{ 4.0f, 6.0f, 8.0f });
 
-    Variant vecArgs[] = { Variant::From(a), Variant::From(Vector3{ 1.0f, 2.0f, 3.0f }) };
-    CHECK(InvokeStatic(*mulVec, Span<Variant>{ vecArgs, 2 }).Value().Get<Vector3>()
-          == Vector3{ 2.0f, 6.0f, 12.0f });
+    Variant vecArgs[] = { Variant::From(a), Variant::From(Float3{ 1.0f, 2.0f, 3.0f }) };
+    CHECK(InvokeStatic(*mulVec, Span<Variant>{ vecArgs, 2 }).Value().Get<Float3>()
+          == Float3{ 2.0f, 6.0f, 12.0f });
 
     // Name-only lookup still returns the first overload.
-    CHECK(FindMethod(TypeOf<Vector3>(), "Mul") != nullptr);
+    CHECK(FindMethod(TypeOf<Float3>(), "Mul") != nullptr);
 }
 
 TEST_CASE("core-reflection: matrix elements via container + ops as methods")
 {
     EnsureRegistered();
-    const TypeInfo& mat4 = TypeOf<Matrix4>();
+    const TypeInfo& mat4 = TypeOf<Float4x4>();
 
     // Element access through the container facility (flat, row-major).
     REQUIRE(IsContainer(mat4));
@@ -183,7 +183,7 @@ TEST_CASE("core-reflection: matrix elements via container + ops as methods")
     REQUIRE(c != nullptr);
     CHECK(c->elementType == &TypeOf<f32>());
 
-    Matrix4 m = Matrix4::Identity();
+    Float4x4 m = Float4x4::Identity();
     Instance inst = Instance::From(&m);
     CHECK(ContainerSize(*c, inst) == 16u);
     CHECK(ContainerGetAt(*c, inst, 0).Get<f32>() == 1.0f);  // m(0,0)
@@ -191,39 +191,39 @@ TEST_CASE("core-reflection: matrix elements via container + ops as methods")
     CHECK(ContainerSetAt(*c, inst, 5, Variant::From(7.0f)).IsOk());  // m(1,1)
     CHECK(m.m[1][1] == 7.0f);
 
-    CHECK(ContainerSize(*TypeOf<Matrix3>().container, Instance::From(&m)) == 9u);
+    CHECK(ContainerSize(*TypeOf<Float3x3>().container, Instance::From(&m)) == 9u);
 
     // Static factory + free ops reflected as methods.
-    Matrix4 id = InvokeStatic(*FindMethod(mat4, "Identity"), Span<Variant>{}).Value().Get<Matrix4>();
-    CHECK(NearlyEqual(id, Matrix4::Identity()));
+    Float4x4 id = InvokeStatic(*FindMethod(mat4, "Identity"), Span<Variant>{}).Value().Get<Float4x4>();
+    CHECK(NearlyEqual(id, Float4x4::Identity()));
 
-    const Matrix4 t = Matrix4::Translation(Vector3{ 1.0f, 2.0f, 3.0f });
-    Variant mulArgs[] = { Variant::From(t), Variant::From(Matrix4::Identity()) };
-    Matrix4 product = InvokeStatic(*FindMethod(mat4, "Mul"), Span<Variant>{ mulArgs, 2 }).Value().Get<Matrix4>();
+    const Float4x4 t = Float4x4::Translation(Float3{ 1.0f, 2.0f, 3.0f });
+    Variant mulArgs[] = { Variant::From(t), Variant::From(Float4x4::Identity()) };
+    Float4x4 product = InvokeStatic(*FindMethod(mat4, "Mul"), Span<Variant>{ mulArgs, 2 }).Value().Get<Float4x4>();
     CHECK(NearlyEqual(product, t));
 
-    Variant detArgs[] = { Variant::From(Matrix4::Identity()) };
+    Variant detArgs[] = { Variant::From(Float4x4::Identity()) };
     CHECK(InvokeStatic(*FindMethod(mat4, "Determinant"), Span<Variant>{ detArgs, 1 }).Value().Get<f32>() == 1.0f);
 }
 
 TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)")
 {
     EnsureRegistered();
-    const TypeInfo& vec3 = TypeOf<Vector3>();
+    const TypeInfo& vec3 = TypeOf<Float3>();
 
     // Count/At agree with the Span views.
     REQUIRE(PropertyCount(vec3) == Properties(vec3).Size());
     CHECK(&PropertyAt(vec3, 2) == &Properties(vec3)[2]);
 
     REQUIRE(ConstantCount(vec3) == Constants(vec3).Size());
-    CHECK(ConstantAt(vec3, 0).value.Get<Vector3>() == Vector3::Zero);
+    CHECK(ConstantAt(vec3, 0).value.Get<Float3>() == Float3::Zero);
 
     REQUIRE(MethodCount(vec3) == Methods(vec3).Size());
     CHECK(MethodCount(vec3) >= 5u);  // Dot, Length, Normalized, Mul x2
 
     // Iterate methods by index and read each signature via ParamCount/ParamAt
     // - exactly how a binding generator would walk the type. Two 2-arg methods
-    // start with (Vector3, f32) / (Vector3, Vector3): the Mul overloads.
+    // start with (Float3, f32) / (Float3, Float3): the Mul overloads.
     usize vec3FirstParam = 0;
     for (usize i = 0; i < MethodCount(vec3); ++i)
     {
@@ -232,7 +232,7 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
         {
             CHECK(ParamAt(m, p).type() != nullptr);  // every param carries type info
         }
-        if (ParamCount(m) >= 1 && ParamAt(m, 0).type() == &TypeOf<Vector3>())
+        if (ParamCount(m) >= 1 && ParamAt(m, 0).type() == &TypeOf<Float3>())
         {
             ++vec3FirstParam;
         }
@@ -243,17 +243,17 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
 TEST_CASE("core-reflection: construct value types via reflection")
 {
     EnsureRegistered();
-    const TypeInfo& vec3 = TypeOf<Vector3>();
+    const TypeInfo& vec3 = TypeOf<Float3>();
     CHECK(ConstructorCount(vec3) == 2u);  // default + (f32,f32,f32)
 
     // Parameterized constructor.
     Variant args[] = { Variant::From(1.0f), Variant::From(2.0f), Variant::From(3.0f) };
     Result<Variant> made = Construct(vec3, Span<Variant>{ args, 3 });
     REQUIRE(made.HasValue());
-    CHECK(made.Value().Get<Vector3>() == Vector3{ 1.0f, 2.0f, 3.0f });
+    CHECK(made.Value().Get<Float3>() == Float3{ 1.0f, 2.0f, 3.0f });
 
     // Default constructor (overload picked by arity).
-    CHECK(Construct(vec3, Span<Variant>{}).Value().Get<Vector3>() == Vector3::Zero);
+    CHECK(Construct(vec3, Span<Variant>{}).Value().Get<Float3>() == Float3::Zero);
 
     // No matching overload -> InvalidArgument.
     Variant bad[] = { Variant::From(1.0f) };
@@ -318,9 +318,9 @@ TEST_CASE("core-reflection: types are in the global registry by qualified name")
 {
     EnsureRegistered();
 
-    const TypeInfo* vec3 = GlobalTypeRegistry().FindByName("draconic::core", "Vector3");
+    const TypeInfo* vec3 = GlobalTypeRegistry().FindByName("draconic::core", "Float3");
     REQUIRE(vec3 != nullptr);
-    CHECK(vec3 == &TypeOf<Vector3>());
+    CHECK(vec3 == &TypeOf<Float3>());
 
     CHECK(GlobalTypeRegistry().FindByName("draconic::core", "Guid") == &TypeOf<Guid>());
     CHECK(GlobalTypeRegistry().FindByName("draconic::core", "Nope") == nullptr);

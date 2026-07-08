@@ -145,9 +145,9 @@ TEST_CASE("wren: reflected value types are usable from script (construct + prope
     RegisterReflectedTypes(*manager);                 // reflection -> manager
     RefPtr<IScriptContext> ctx = manager->CreateContext(); // emits Wren foreign classes
 
-    // Construct a reflected Vector3 from Wren, read and write its properties.
+    // Construct a reflected Float3 from Wren, read and write its properties.
     const Status status = ctx->Load(
-        u8"var v = Vector3.new(1, 2, 3)\n"
+        u8"var v = Float3.new(1, 2, 3)\n"
         u8"var X = v.x\n"
         u8"var Z = v.z\n"
         u8"v.x = 9\n"
@@ -167,17 +167,17 @@ TEST_CASE("wren: call reflected methods (static, instance, struct return, foreig
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    // Static method with foreign args, scalar return: Vector3.Dot(a, b).
+    // Static method with foreign args, scalar return: Float3.Dot(a, b).
     REQUIRE(ctx->Load(
-        u8"var a = Vector3.new(1, 2, 3)\n"
-        u8"var b = Vector3.new(4, 5, 6)\n"
-        u8"var D = Vector3.Dot(a, b)\n",
+        u8"var a = Float3.new(1, 2, 3)\n"
+        u8"var b = Float3.new(4, 5, 6)\n"
+        u8"var D = Float3.Dot(a, b)\n",
         u8"main").IsOk());
     CHECK(ctx->GetGlobal(u8"D").Get<f64>() == 32.0);
 
-    // Instance method returning a struct (Vector4.XYZ() -> Vector3), then read it.
+    // Instance method returning a struct (Float4.XYZ() -> Float3), then read it.
     REQUIRE(ctx->Load(
-        u8"var v4 = Vector4.new(7, 8, 9, 10)\n"
+        u8"var v4 = Float4.new(7, 8, 9, 10)\n"
         u8"var xyz = v4.XYZ()\n"
         u8"var XX = xyz.x\n"
         u8"var ZZ = xyz.z\n",
@@ -186,11 +186,11 @@ TEST_CASE("wren: call reflected methods (static, instance, struct return, foreig
     CHECK(ctx->GetGlobal(u8"ZZ").Get<f64>() == 9.0);
 
     // Instance method taking a foreign arg, returning bool; constructed from
-    // foreign args too (AABB.new(Vector3, Vector3)).
+    // foreign args too (AABB.new(Float3, Float3)).
     REQUIRE(ctx->Load(
-        u8"var box = AABB.new(Vector3.new(0, 0, 0), Vector3.new(10, 10, 10))\n"
-        u8"var inside = box.Contains(Vector3.new(5, 5, 5))\n"
-        u8"var outside = box.Contains(Vector3.new(20, 0, 0))\n",
+        u8"var box = AABB.new(Float3.new(0, 0, 0), Float3.new(10, 10, 10))\n"
+        u8"var inside = box.Contains(Float3.new(5, 5, 5))\n"
+        u8"var outside = box.Contains(Float3.new(20, 0, 0))\n",
         u8"main").IsOk());
     CHECK(ctx->GetGlobal(u8"inside").Get<bool>() == true);
     CHECK(ctx->GetGlobal(u8"outside").Get<bool>() == false);
@@ -203,18 +203,18 @@ TEST_CASE("wren: same-name overloads resolve by argument type")
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    // Vector3.Mul has two overloads: (Vector3, Vector3) componentwise and (Vector3, f32) scale.
+    // Float3.Mul has two overloads: (Float3, Float3) componentwise and (Float3, f32) scale.
     REQUIRE(ctx->Load(
-        u8"var p = Vector3.new(2, 3, 4)\n"
-        u8"var comp = Vector3.Mul(p, Vector3.new(1, 2, 3))\n"  // -> (2, 6, 12)
-        u8"var scaled = Vector3.Mul(p, 2)\n"                // -> (4, 6, 8)
+        u8"var p = Float3.new(2, 3, 4)\n"
+        u8"var comp = Float3.Mul(p, Float3.new(1, 2, 3))\n"  // -> (2, 6, 12)
+        u8"var scaled = Float3.Mul(p, 2)\n"                // -> (4, 6, 8)
         u8"var CX = comp.x\n"
         u8"var CZ = comp.z\n"
         u8"var SX = scaled.x\n",
         u8"main").IsOk());
-    CHECK(ctx->GetGlobal(u8"CX").Get<f64>() == 2.0);    // chose (Vector3, Vector3)
+    CHECK(ctx->GetGlobal(u8"CX").Get<f64>() == 2.0);    // chose (Float3, Float3)
     CHECK(ctx->GetGlobal(u8"CZ").Get<f64>() == 12.0);
-    CHECK(ctx->GetGlobal(u8"SX").Get<f64>() == 4.0);    // chose (Vector3, f32)
+    CHECK(ctx->GetGlobal(u8"SX").Get<f64>() == 4.0);    // chose (Float3, f32)
 }
 
 TEST_CASE("wren: Object-derived type as a foreign class")

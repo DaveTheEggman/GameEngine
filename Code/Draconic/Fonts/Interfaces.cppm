@@ -55,7 +55,7 @@ export namespace draconic::fonts
         [[nodiscard]] virtual bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY, GlyphQuad& quad) const = 0;
         [[nodiscard]] virtual bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y, GlyphQuad& quad) const = 0;
         [[nodiscard]] virtual bool Contains(i32 codepoint) const = 0;
-        [[nodiscard]] virtual Vector2 WhitePixelUV() const = 0;          // UV of a solid white texel
+        [[nodiscard]] virtual Float2 WhitePixelUV() const = 0;          // UV of a solid white texel
     };
 
     // Text shaping/layout + UI helpers.

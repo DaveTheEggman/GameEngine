@@ -416,13 +416,13 @@ public:
     [[nodiscard]] rendergraph::RGHandle DeclareSsr(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr,
                                                    rendergraph::RGHandle depth, rendergraph::RGHandle normal,
                                                    rendergraph::RGHandle material, rendergraph::RGHandle velocity,
-                                                   u32 w, u32 h, i32 vx, i32 vy, u32 vw, u32 vh, const Matrix4& invProj,
-                                                   const Matrix4& proj, const Params& p, u32 viewIndex, u32 frameIndex) {
+                                                   u32 w, u32 h, i32 vx, i32 vy, u32 vw, u32 vh, const Float4x4& invProj,
+                                                   const Float4x4& proj, const Params& p, u32 viewIndex, u32 frameIndex) {
         if (w == 0 || h == 0 || m_pipeline == nullptr || m_resolvePipeline == nullptr || viewIndex >= kMaxViews) { return hdr; }
         Tick(frameIndex);
         const f32 fw = static_cast<f32>(w), fh = static_cast<f32>(h);
-        const Vector2 vpMin{ static_cast<f32>(vx) / fw, static_cast<f32>(vy) / fh };
-        const Vector2 vpSize{ static_cast<f32>(vw) / fw, static_cast<f32>(vh) / fh };
+        const Float2 vpMin{ static_cast<f32>(vx) / fw, static_cast<f32>(vy) / fh };
+        const Float2 vpSize{ static_cast<f32>(vw) / fw, static_cast<f32>(vh) / fh };
         const bool temporalOn = p.temporal;
 
         // --- Trace: reflection buffer (rgb reflected radiance, a = confidence) ---
@@ -430,7 +430,7 @@ public:
         SsrPushC pc{};
         pc.invProj    = invProj;
         pc.vpMin      = vpMin;  pc.vpSize = vpSize;
-        pc.jitter     = Vector2{ proj(2, 0), proj(2, 1) };
+        pc.jitter     = Float2{ proj(2, 0), proj(2, 1) };
         pc.projXX     = proj(0, 0);  pc.projYY = proj(1, 1);
         pc.thickness  = p.thickness;  pc.intensity = p.intensity;
         pc.edgeFade   = (p.edgeFade > 1e-4f) ? p.edgeFade : 1e-4f;
@@ -474,7 +474,7 @@ public:
 
         SsrResolvePushC rpc2{};
         rpc2.vpMin = vpMin;  rpc2.vpSize = vpSize;
-        rpc2.texelSize = Vector2{ 1.0f / fw, 1.0f / fh };
+        rpc2.texelSize = Float2{ 1.0f / fw, 1.0f / fh };
         rpc2.blendFactor = p.historyBlend;
         rpc2.historyValid = hist.valid ? 1.0f : 0.0f;
         rpc2.varianceGamma = p.varianceGamma;
@@ -509,10 +509,10 @@ private:
     static constexpr rhi::TextureFormat kHdrFormat = rhi::TextureFormat::RGBA16Float;   // matches the scene HDR
     // Byte-identical to the HLSL SsrPush (124 bytes, under the portable 128-byte push limit).
     struct SsrPushC {
-        Matrix4 invProj{};
-        Vector2 vpMin{ 0.0f, 0.0f };
-        Vector2 vpSize{ 1.0f, 1.0f };
-        Vector2 jitter{};
+        Float4x4 invProj{};
+        Float2 vpMin{ 0.0f, 0.0f };
+        Float2 vpSize{ 1.0f, 1.0f };
+        Float2 jitter{};
         f32  projXX = 1.0f;
         f32  projYY = 1.0f;
         f32  thickness = 0.5f;
@@ -528,9 +528,9 @@ private:
 
     // Byte-identical to the HLSL SsrResolvePush.
     struct SsrResolvePushC {
-        Vector2 vpMin{ 0.0f, 0.0f };
-        Vector2 vpSize{ 1.0f, 1.0f };
-        Vector2 texelSize{};
+        Float2 vpMin{ 0.0f, 0.0f };
+        Float2 vpSize{ 1.0f, 1.0f };
+        Float2 texelSize{};
         f32  blendFactor = 0.88f;
         f32  historyValid = 0.0f;
         f32  varianceGamma = 1.0f;

@@ -62,7 +62,7 @@ public:
 
     // Recomputes `bounds` from the static stream.
     AABB& CalculateBounds() {
-        if (vertices.IsEmpty()) { bounds = AABB{ Vector3::Zero, Vector3::Zero }; return bounds; }
+        if (vertices.IsEmpty()) { bounds = AABB{ Float3::Zero, Float3::Zero }; return bounds; }
         bounds = AABB::Empty();
         for (const StaticMeshVertex& v : vertices) { bounds.Expand(v.position); }
         return bounds;
@@ -72,18 +72,18 @@ public:
     void GenerateNormals() {
         const u32 triangles = TriangleCount();
         if (triangles == 0) { return; }
-        for (StaticMeshVertex& v : vertices) { v.normal = Vector3::Zero; }
+        for (StaticMeshVertex& v : vertices) { v.normal = Float3::Zero; }
         for (u32 t = 0; t < triangles; ++t) {
             const u32 i0 = Corner(t, 0), i1 = Corner(t, 1), i2 = Corner(t, 2);
-            const Vector3 e1 = vertices[i1].position - vertices[i0].position;
-            const Vector3 e2 = vertices[i2].position - vertices[i0].position;
-            const Vector3 faceNormal = Cross(e1, e2);
+            const Float3 e1 = vertices[i1].position - vertices[i0].position;
+            const Float3 e2 = vertices[i2].position - vertices[i0].position;
+            const Float3 faceNormal = Cross(e1, e2);
             vertices[i0].normal += faceNormal;
             vertices[i1].normal += faceNormal;
             vertices[i2].normal += faceNormal;
         }
         for (StaticMeshVertex& v : vertices) {
-            v.normal = (LengthSquared(v.normal) > 0.0001f) ? Normalized(v.normal) : Vector3::UnitY;
+            v.normal = (LengthSquared(v.normal) > 0.0001f) ? Normalized(v.normal) : Float3::UnitY;
         }
     }
 
@@ -92,15 +92,15 @@ public:
     void GenerateTangents() {
         const u32 triangles = TriangleCount();
         if (triangles == 0) { return; }
-        for (StaticMeshVertex& v : vertices) { v.tangent = Vector3::Zero; }
+        for (StaticMeshVertex& v : vertices) { v.tangent = Float3::Zero; }
         for (u32 t = 0; t < triangles; ++t) {
             const u32 i0 = Corner(t, 0), i1 = Corner(t, 1), i2 = Corner(t, 2);
-            const Vector3 dp1 = vertices[i1].position - vertices[i0].position;
-            const Vector3 dp2 = vertices[i2].position - vertices[i0].position;
-            const Vector2 du1 = vertices[i1].texCoord - vertices[i0].texCoord;
-            const Vector2 du2 = vertices[i2].texCoord - vertices[i0].texCoord;
+            const Float3 dp1 = vertices[i1].position - vertices[i0].position;
+            const Float3 dp2 = vertices[i2].position - vertices[i0].position;
+            const Float2 du1 = vertices[i1].texCoord - vertices[i0].texCoord;
+            const Float2 du2 = vertices[i2].texCoord - vertices[i0].texCoord;
             const f32 denom = du1.x * du2.y - du2.x * du1.y;
-            Vector3 tangent = Vector3::Zero;
+            Float3 tangent = Float3::Zero;
             if (Abs(denom) > 0.0001f) {
                 const f32 r = 1.0f / denom;
                 tangent = (dp1 * du2.y - dp2 * du1.y) * r;
@@ -120,7 +120,7 @@ public:
     }
 
     // Pack a 0..1 float color to RGBA8 with R in the low byte (Unorm8x4 order).
-    [[nodiscard]] static u32 PackColor(Vector4 c) {
+    [[nodiscard]] static u32 PackColor(Float4 c) {
         const u32 r = static_cast<u32>(Clamp(c.x, 0.0f, 1.0f) * 255.0f);
         const u32 g = static_cast<u32>(Clamp(c.y, 0.0f, 1.0f) * 255.0f);
         const u32 b = static_cast<u32>(Clamp(c.z, 0.0f, 1.0f) * 255.0f);
@@ -141,9 +141,9 @@ protected:
     [[nodiscard]] u32 Corner(u32 t, u32 c) const noexcept {
         return (indices.Count() > 0) ? indices.Get(t * 3 + c) : (t * 3 + c);
     }
-    [[nodiscard]] static Vector3 DefaultTangent(Vector3 normal) {
-        const Vector3 t = (Abs(normal.y) < 0.9f) ? Cross(normal, Vector3::UnitY) : Cross(normal, Vector3::UnitX);
-        return (LengthSquared(t) > 0.0001f) ? Normalized(t) : Vector3::UnitX;
+    [[nodiscard]] static Float3 DefaultTangent(Float3 normal) {
+        const Float3 t = (Abs(normal.y) < 0.9f) ? Cross(normal, Float3::UnitY) : Cross(normal, Float3::UnitX);
+        return (LengthSquared(t) > 0.0001f) ? Normalized(t) : Float3::UnitX;
     }
 };
 

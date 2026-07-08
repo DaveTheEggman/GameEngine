@@ -160,7 +160,7 @@ private:
     Array<BlendTree1DEntry> m_entries;
 };
 
-struct BlendTree2DEntry { Vector2 position = Vector2{ 0, 0 }; AnimationClip* clip = nullptr; };
+struct BlendTree2DEntry { Float2 position = Float2{ 0, 0 }; AnimationClip* clip = nullptr; };
 
 // Blends clips in a 2D parameter space via inverse-distance weighting.
 class BlendTree2D final : public IAnimationStateNode {
@@ -170,14 +170,14 @@ public:
 
     [[nodiscard]] NodeType Type() const noexcept override { return NodeType::BlendTree2D; }
     [[nodiscard]] Array<BlendTree2DEntry>& Entries() noexcept { return m_entries; }
-    void AddEntry(Vector2 position, AnimationClip* clip) { m_entries.PushBack(BlendTree2DEntry{ position, clip }); }
-    void AddEntry(f32 x, f32 y, AnimationClip* clip) { m_entries.PushBack(BlendTree2DEntry{ Vector2{ x, y }, clip }); }
+    void AddEntry(Float2 position, AnimationClip* clip) { m_entries.PushBack(BlendTree2DEntry{ position, clip }); }
+    void AddEntry(f32 x, f32 y, AnimationClip* clip) { m_entries.PushBack(BlendTree2DEntry{ Float2{ x, y }, clip }); }
 
     void Evaluate(const Skeleton& skeleton, f32 normalizedTime, Span<BoneTransform> outPoses) const override {
         if (m_entries.IsEmpty()) { return; }
         if (m_entries.Size() == 1) { SampleEntry(0, skeleton, normalizedTime, outPoses); return; }
 
-        const Vector2 paramPos{ parameterX, parameterY };
+        const Float2 paramPos{ parameterX, parameterY };
         Array<f32> weights; weights.Resize(m_entries.Size());
         f32 totalWeight = 0.0f;
         for (usize i = 0; i < m_entries.Size(); ++i) {
@@ -209,7 +209,7 @@ public:
     }
 
     [[nodiscard]] f32 Duration() const noexcept override {
-        const Vector2 paramPos{ parameterX, parameterY };
+        const Float2 paramPos{ parameterX, parameterY };
         f32 totalWeight = 0.0f, totalDuration = 0.0f;
         for (const BlendTree2DEntry& e : m_entries) {
             if (e.clip == nullptr) { continue; }
@@ -434,7 +434,7 @@ public:
         m_finalPoses.Resize(boneCount);
         m_skinningMatrices.Resize(boneCount);
         m_prevSkinningMatrices.Resize(boneCount);
-        for (usize i = 0; i < boneCount; ++i) { m_skinningMatrices[i] = Matrix4::Identity(); m_prevSkinningMatrices[i] = Matrix4::Identity(); }
+        for (usize i = 0; i < boneCount; ++i) { m_skinningMatrices[i] = Float4x4::Identity(); m_prevSkinningMatrices[i] = Float4x4::Identity(); }
 
         // Runtime parameter copy (each player has independent values).
         for (const AnimationGraphParameter& p : graph.Parameters()) { m_parameters.PushBack(p); }
@@ -494,15 +494,15 @@ public:
         m_matricesDirty = true;
     }
 
-    [[nodiscard]] Span<const Matrix4> GetSkinningMatrices() {
+    [[nodiscard]] Span<const Float4x4> GetSkinningMatrices() {
         if (m_matricesDirty) {
             m_skeleton->ComputeSkinningMatrices(Span<const BoneTransform>{ m_finalPoses.Data(), m_finalPoses.Size() },
-                                                Span<Matrix4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() });
+                                                Span<Float4x4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() });
             m_matricesDirty = false;
         }
-        return Span<const Matrix4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() };
+        return Span<const Float4x4>{ m_skinningMatrices.Data(), m_skinningMatrices.Size() };
     }
-    [[nodiscard]] Span<const Matrix4> GetPrevSkinningMatrices() const { return { m_prevSkinningMatrices.Data(), m_prevSkinningMatrices.Size() }; }
+    [[nodiscard]] Span<const Float4x4> GetPrevSkinningMatrices() const { return { m_prevSkinningMatrices.Data(), m_prevSkinningMatrices.Size() }; }
     [[nodiscard]] Span<BoneTransform> GetLocalPoses() noexcept { return { m_finalPoses.Data(), m_finalPoses.Size() }; }
 
     // --- state query ---
@@ -637,12 +637,12 @@ private:
                     if (w <= 0.0f) { continue; }
                     const Bone* bone = m_skeleton->GetBone(static_cast<i32>(b));
                     const BoneTransform bind = (bone != nullptr) ? bone->localBindPose : BoneTransform{};
-                    const Vector3 deltaPos   = rt.poses[b].position - bind.position;
+                    const Float3 deltaPos   = rt.poses[b].position - bind.position;
                     const Quaternion deltaRot   = rt.poses[b].rotation * Inverse(bind.rotation);
-                    const Vector3 deltaScale = rt.poses[b].scale / bind.scale;   // component-wise
+                    const Float3 deltaScale = rt.poses[b].scale / bind.scale;   // component-wise
                     m_finalPoses[b].position = m_finalPoses[b].position + deltaPos * w;
                     m_finalPoses[b].rotation = Slerp(Quaternion::Identity, deltaRot, w) * m_finalPoses[b].rotation;
-                    m_finalPoses[b].scale    = m_finalPoses[b].scale * Lerp(Vector3::One, deltaScale, w);
+                    m_finalPoses[b].scale    = m_finalPoses[b].scale * Lerp(Float3::One, deltaScale, w);
                 }
             }
         }
@@ -656,8 +656,8 @@ private:
     Array<AnimationGraphLayerRuntime> m_layerRuntimes;
     Array<AnimationGraphParameter>    m_parameters;        // runtime copy
     Array<BoneTransform> m_finalPoses;
-    Array<Matrix4>          m_skinningMatrices;
-    Array<Matrix4>          m_prevSkinningMatrices;
+    Array<Float4x4>          m_skinningMatrices;
+    Array<Float4x4>          m_prevSkinningMatrices;
     bool                 m_matricesDirty = true;
     AnimationEventHandler m_eventHandler;
     Array<Link1D> m_links1D;

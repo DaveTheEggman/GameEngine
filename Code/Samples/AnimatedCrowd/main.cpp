@@ -119,9 +119,9 @@ namespace
             // with the cube grids standing on it. Pitch ~28 deg below horizontal (looks toward the
             // scene center). Default camera looks down -Z; rotating about +X by -pitch tilts it down.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, core::Vector3{ 0.0f, 14.0f, 30.0f });
+            m_scene->SetLocalPosition(m_camera, core::Float3{ 0.0f, 14.0f, 30.0f });
             core::Transform camT = m_scene->GetLocalTransform(m_camera);
-            camT.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -0.48f);
+            camT.rotation = core::Quaternion::FromAxisAngle(core::Float3{ 1.0f, 0.0f, 0.0f }, -0.48f);
             m_scene->SetLocalTransform(m_camera, camT);
             if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
                 render::CameraComponent& cam = cameras->Add(m_camera);   // default 60deg perspective
@@ -132,10 +132,10 @@ namespace
             // on it and the lights cast their shadows onto it.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
                 m_floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(m_floor, core::Vector3{ 0.0f, -7.0f, 0.0f });
+                m_scene->SetLocalPosition(m_floor, core::Float3{ 0.0f, -7.0f, 0.0f });
                 render::MeshComponent& fmc = meshes->Add(m_floor);
                 fmc.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                fmc.material = materials::CreatePBR(u8"lit", core::Vector4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
+                fmc.material = materials::CreatePBR(u8"lit", core::Float4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
             }
 
             // One directional shadow-casting key light - the whole scene (skinning benchmark, kept light
@@ -143,8 +143,8 @@ namespace
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                 m_keyLight = m_scene->CreateEntity(u8"keyLight");
                 core::Transform kt = m_scene->GetLocalTransform(m_keyLight);
-                kt.rotation = core::Quaternion::FromAxisAngle(core::Vector3{ 1.0f, 0.0f, 0.0f }, -0.9f)
-                            * core::Quaternion::FromAxisAngle(core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.5f);
+                kt.rotation = core::Quaternion::FromAxisAngle(core::Float3{ 1.0f, 0.0f, 0.0f }, -0.9f)
+                            * core::Quaternion::FromAxisAngle(core::Float3{ 0.0f, 1.0f, 0.0f }, 0.5f);
                 m_scene->SetLocalTransform(m_keyLight, kt);
                 render::LightComponent& kl = lights->Add(m_keyLight);
                 kl.type         = render::LightType::Directional;
@@ -214,7 +214,7 @@ namespace
 
             // Auto-fit: scale the model's largest extent to a target size.
             constexpr core::f32 kTargetSize = 6.0f;
-            const core::Vector3 extent = m_model->boundsMax - m_model->boundsMin;
+            const core::Float3 extent = m_model->boundsMax - m_model->boundsMin;
             const core::f32 maxExtent = core::Max(extent.x, core::Max(extent.y, extent.z));
             m_fit = (maxExtent > 0.0001f) ? (kTargetSize / maxExtent) : 1.0f;
 
@@ -317,7 +317,7 @@ namespace
             const core::u32 numClips = m_singleClip ? 1u : core::Min(static_cast<core::u32>(m_clips.Size()), kMaxClipGroups);
             if (numClips == 0 || !m_model->skeleton) { m_crowdCount = count; AutoFrame(side); return; }
 
-            core::Array<core::Array<core::Matrix4>> clipXf;   clipXf.Resize(numClips);
+            core::Array<core::Array<core::Float4x4>> clipXf;   clipXf.Resize(numClips);
             core::Array<core::Array<core::Color>>   clipTint; clipTint.Resize(numClips);
             core::Array<core::Array<core::u32>>     clipPose; clipPose.Resize(numClips);   // per-instance pose index (Explicit policies)
             const render::PoseAssignment assign = PoseAssignmentFor(m_posePolicy);
@@ -327,8 +327,8 @@ namespace
                 const core::f32 px = (static_cast<core::f32>(col)  - half) * kCharacterSpacing;
                 const core::f32 pz = (static_cast<core::f32>(rowi) - half) * kCharacterSpacing;
                 core::Transform t;
-                t.position = core::Vector3{ px, kFloorY, pz };
-                t.scale    = core::Vector3{ m_fit, m_fit, m_fit };
+                t.position = core::Float3{ px, kFloorY, pz };
+                t.scale    = core::Float3{ m_fit, m_fit, m_fit };
                 const core::u32 g = i % numClips;   // round-robin -> clips spread evenly across the grid
                 clipXf[g].PushBack(t.ToMatrix());
                 clipTint[g].PushBack(m_tintEnabled ? ClipTint(g) : core::Color{ 1.0f, 1.0f, 1.0f, 1.0f });  // white == no tint
@@ -362,7 +362,7 @@ namespace
                     c.tints            = clipTint[g];   // set BEFORE SetInstances (the version bump uploads them)
                     c.poseAssignment   = assign;        // how each instance picks its pose (read each frame, not uploaded)
                     if (assign == render::PoseAssignment::Explicit) { c.poseIndices = clipPose[g]; }
-                    c.SetInstances(core::Span<const core::Matrix4>{ clipXf[g].Data(), clipXf[g].Size() });
+                    c.SetInstances(core::Span<const core::Float4x4>{ clipXf[g].Data(), clipXf[g].Size() });
                     m_crowdParts.PushBack(e);
                     targets.PushBack(e);
                 }
@@ -387,7 +387,7 @@ namespace
         // per-character brightness jitter (so a group isn't flat). Multiplied into the material albedo.
         [[nodiscard]] core::Color ClipTint(core::u32 group)
         {
-            static constexpr core::Vector3 kClipColors[kMaxClipGroups] = {
+            static constexpr core::Float3 kClipColors[kMaxClipGroups] = {
                 { 1.00f, 0.45f, 0.40f },   // red
                 { 0.45f, 0.90f, 0.50f },   // green
                 { 0.45f, 0.65f, 1.00f },   // blue
@@ -395,7 +395,7 @@ namespace
                 { 0.90f, 0.50f, 1.00f },   // magenta
                 { 0.45f, 0.95f, 0.95f },   // cyan
             };
-            const core::Vector3 base = kClipColors[group % kMaxClipGroups];
+            const core::Float3 base = kClipColors[group % kMaxClipGroups];
             const core::f32 v = 0.7f + m_rng.NextFloat() * 0.5f;   // per-character brightness 0.7..1.2
             return core::Color{ base.x * v, base.y * v, base.z * v, 1.0f };
         }
@@ -441,12 +441,12 @@ namespace
             // Floor: scale the base plane so it covers the whole grid + margin (uniform XZ; Y stays flat).
             const core::f32 fscale = core::Max(1.0f, (extent * 2.0f + 40.0f) / kFloorBaseSize);
             core::Transform ft = m_scene->GetLocalTransform(m_floor);
-            ft.scale = core::Vector3{ fscale, 1.0f, fscale };
+            ft.scale = core::Float3{ fscale, 1.0f, fscale };
             m_scene->SetLocalTransform(m_floor, ft);
-            const core::Vector3 target{ 0.0f, kFloorY + kCharacterSize * 0.5f, 0.0f };   // grid center
+            const core::Float3 target{ 0.0f, kFloorY + kCharacterSize * 0.5f, 0.0f };   // grid center
             const core::f32 dist = extent / core::Tan(0.5236f) + kCharacterSize * 2.0f;  // fit 60° FOV horizontally + margin
             const core::f32 camY = extent * 0.55f + kCharacterSize;
-            m_fly.position = core::Vector3{ target.x, target.y + camY, target.z + dist };
+            m_fly.position = core::Float3{ target.x, target.y + camY, target.z + dist };
             m_fly.yaw      = 0.0f;
             m_fly.pitch    = -core::Atan2(camY, dist);   // look down onto the grid center
             // Extend the far plane to cover the whole grid from this distance, so no characters get
@@ -645,7 +645,7 @@ namespace
         scene::Scene*                  m_scene = nullptr;
         scene::EntityHandle            m_camera{};
         scene::EntityHandle            m_floor{};
-        samples::FlyCamera              m_fly{ .position = core::Vector3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
+        samples::FlyCamera              m_fly{ .position = core::Float3{ 0.0f, 10.0f, 26.0f }, .pitch = -0.25f };
 
         // Model-import pipeline state (must outlive the spawned entities - the resource manager owns
         // the cooked products' handles; the content DB + its filesystem mount back the manager).

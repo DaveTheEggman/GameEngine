@@ -90,7 +90,7 @@ public:
         m_shaders->RegisterSource(u8"debug_screen", shaders::ShaderStage::Fragment, kDebugScreenPS);
 
         // Geometry pipeline layout: just the ViewProj push (no bind groups).
-        rhi::PushConstantRange gpc{}; gpc.stages = rhi::ShaderStage::Vertex; gpc.offset = 0; gpc.size = sizeof(Matrix4);
+        rhi::PushConstantRange gpc{}; gpc.stages = rhi::ShaderStage::Vertex; gpc.offset = 0; gpc.size = sizeof(Float4x4);
         rhi::PipelineLayoutDesc gpld{}; gpld.pushConstantRanges = Span<const rhi::PushConstantRange>{ &gpc, 1 };
         if (!m_device->CreatePipelineLayout(gpld, m_geomLayout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
@@ -119,7 +119,7 @@ public:
     // Declare the geometry pass for one view: draw `global`+`scene` world-space lines/triangles (depth
     // + overlay) through `viewProj`, into `color` (Load), read-only against `depth`, in the view sub-rect.
     void DeclareGeometry(rendergraph::RenderGraph& graph, rendergraph::RGHandle color, rendergraph::RGHandle depth,
-                         const Matrix4& viewProj, const debug::DebugDraw* global, const debug::DebugDraw* scene,
+                         const Float4x4& viewProj, const debug::DebugDraw* global, const debug::DebugDraw* scene,
                          rhi::TextureFormat colorFmt, rhi::TextureFormat depthFmt,
                          i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex) {
         // Pack the 4 streams (depth-lines, overlay-lines, depth-tris, overlay-tris) into one buffer.
@@ -142,7 +142,7 @@ public:
         if (p == nullptr) { return; }
 
         const u32 dlN = ol0 - dl0, olN = dt0 - ol0, dtN = ot0 - dt0, otN = total - ot0;
-        const Matrix4 vpMat = viewProj;
+        const Float4x4 vpMat = viewProj;
         graph.AddRenderPass(u8"debug.geom",
             [color, depth, vb, p, vpX, vpY, vpW, vpH, vpMat, dlN, ol0, olN, dt0, dtN, ot0, otN](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, color, rhi::LoadOp::Load, rhi::StoreOp::Store, rhi::ClearColor::Black());
@@ -155,7 +155,7 @@ public:
                     rp.SetVertexBuffer(0, vb, 0);
                     const auto draw = [&](rhi::RenderPipeline* pipe, u32 count, u32 first) {
                         rp.SetPipeline(pipe);
-                        rp.SetPushConstants(rhi::ShaderStage::Vertex, 0, sizeof(Matrix4), &vpMat);
+                        rp.SetPushConstants(rhi::ShaderStage::Vertex, 0, sizeof(Float4x4), &vpMat);
                         rp.Draw(count, 1, first, 0);
                     };
                     if (dlN > 0) { draw(p->lineDepth,   dlN, 0);   }
@@ -168,7 +168,7 @@ public:
 
     // Declare the screen pass for one view: build glyph/rect quads from `global`+`scene` 2D + 3D-text
     // commands (3D projected through `viewProj`), draw always-on-top into `color` in the view sub-rect.
-    void DeclareScreen(rendergraph::RenderGraph& graph, rendergraph::RGHandle color, const Matrix4& viewProj,
+    void DeclareScreen(rendergraph::RenderGraph& graph, rendergraph::RGHandle color, const Float4x4& viewProj,
                        const debug::DebugDraw* global, const debug::DebugDraw* scene, rhi::TextureFormat colorFmt,
                        i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex) {
         Array<debug::DebugTextVertex> verts;
@@ -218,7 +218,7 @@ private:
     }
 
     // Emit pixel-space glyph/rect quads (2 tris each) for a list's 2D commands + projected 3D text.
-    void BuildScreenQuads(Array<debug::DebugTextVertex>& out, const debug::DebugDraw* d, const Matrix4& viewProj, u32 vpW, u32 vpH) {
+    void BuildScreenQuads(Array<debug::DebugTextVertex>& out, const debug::DebugDraw* d, const Float4x4& viewProj, u32 vpW, u32 vpH) {
         if (d == nullptr) { return; }
         const Array<u8>& chars = d->TextChars();
         // 2D commands (pixel space).
@@ -257,10 +257,10 @@ private:
     }
 
     static void EmitQuad(Array<debug::DebugTextVertex>& out, f32 x, f32 y, f32 w, f32 h, f32 u0, f32 v0, f32 u1, f32 v1, u32 col) {
-        const debug::DebugTextVertex tl{ Vector3{ x, y, 0 },         Vector2{ u0, v0 }, col };
-        const debug::DebugTextVertex tr{ Vector3{ x + w, y, 0 },     Vector2{ u1, v0 }, col };
-        const debug::DebugTextVertex br{ Vector3{ x + w, y + h, 0 }, Vector2{ u1, v1 }, col };
-        const debug::DebugTextVertex bl{ Vector3{ x, y + h, 0 },     Vector2{ u0, v1 }, col };
+        const debug::DebugTextVertex tl{ Float3{ x, y, 0 },         Float2{ u0, v0 }, col };
+        const debug::DebugTextVertex tr{ Float3{ x + w, y, 0 },     Float2{ u1, v0 }, col };
+        const debug::DebugTextVertex br{ Float3{ x + w, y + h, 0 }, Float2{ u1, v1 }, col };
+        const debug::DebugTextVertex bl{ Float3{ x, y + h, 0 },     Float2{ u0, v1 }, col };
         out.PushBack(tl); out.PushBack(tr); out.PushBack(br);
         out.PushBack(tl); out.PushBack(br); out.PushBack(bl);
     }

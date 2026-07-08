@@ -134,7 +134,7 @@ struct RenderData {
     // draw-list builder (it no longer downcasts to a concrete type). worldCenter drives the depth sort;
     // sortBatchKey folds (mesh,material)-like identity into the sort so same-state draws stay contiguous
     // (opaque only - blended zeroes it so depth dominates). Producers set both at extraction.
-    Vector3           worldCenter  = Vector3{ 0, 0, 0 };
+    Float3           worldCenter  = Float3{ 0, 0, 0 };
     // World-space bounding-sphere radius about worldCenter. Read generically by the draw-list builder
     // for view-frustum culling (every producer sets it: meshes from local bounds, sprites from size).
     f32            worldRadius  = 0.0f;
@@ -146,7 +146,7 @@ struct RenderData {
 // center, used for view-depth sorting (and, later, culling). `entityId` is an opaque tag
 // the producer may set (e.g. a packed entity handle) for picking - meaningless to the core.
 struct MeshRenderData : RenderData {
-    Matrix4                  world       = Matrix4::Identity();
+    Float4x4                  world       = Float4x4::Identity();
     // worldCenter + worldRadius live on the RenderData base now (generic depth sort + cull); see them there.
     Color                 color       = Color{ 1.0f, 1.0f, 1.0f, 1.0f };   // per-instance tint
     geometry::StaticMesh* mesh        = nullptr;
@@ -159,8 +159,8 @@ struct MeshRenderData : RenderData {
     // GPU skinning: per-bone skinning matrices for a skinned mesh (borrowed for the frame, from an
     // AnimationPlayer). When non-null + the mesh IsSkinned(), the renderer uploads them to its bone
     // pool and draws the SKINNED permutation; otherwise the mesh draws static (bind pose).
-    const Matrix4*           boneMatrices = nullptr;
-    const Matrix4*           prevBoneMatrices = nullptr;   // previous-frame skinning matrices (motion vectors); null => reuse current
+    const Float4x4*           boneMatrices = nullptr;
+    const Float4x4*           prevBoneMatrices = nullptr;   // previous-frame skinning matrices (motion vectors); null => reuse current
     u32                   boneCount    = 0;
     // Discriminator: when true this is actually a `MultiMeshRenderData` (an instanced SET drawn as one
     // item). The Resolve loop only sees `MeshRenderData*`, so it branches on this flag and downcasts.
@@ -185,14 +185,14 @@ enum class PoseAssignment : u8 { Hashed, Sequential, Explicit };
 
 struct MultiMeshRenderData : MeshRenderData {
     u64            key           = 0;         // stable per-component id -> the renderer's persistent buffer slot
-    const Matrix4* transforms    = nullptr;   // borrowed per-instance world transforms (instanceCount entries), valid this frame
+    const Float4x4* transforms    = nullptr;   // borrowed per-instance world transforms (instanceCount entries), valid this frame
     const Color*   tints         = nullptr;   // optional borrowed per-instance tint (instanceCount entries); null => use `color`
     u32            instanceCount = 0;
     u32            version       = 0;         // bumps when `transforms` change; the renderer re-uploads only on a change
     // GPU-skinned crowds (SS7): a shared pose pool of `poseCount` palettes (each `boneCount` matrices),
     // borrowed for the frame. When non-null the set draws SKINNED with instance i using pose (i % poseCount).
-    const Matrix4* posePool      = nullptr;
-    const Matrix4* prevPosePool  = nullptr;   // last frame's palettes (per-bone motion vectors); null => reuse current
+    const Float4x4* posePool      = nullptr;
+    const Float4x4* prevPosePool  = nullptr;   // last frame's palettes (per-bone motion vectors); null => reuse current
     u32            poseCount     = 0;         // M unique phase buckets
     u32            boneCount     = 0;         // bones per palette
     // Pose-selection policy + the optional per-instance index array it consumes when Explicit (borrowed,
@@ -231,8 +231,8 @@ static_assert(std::is_trivially_destructible_v<MultiMeshRenderData>);
 // position is the RenderData base `worldCenter`; extraction sets category = Transparent and stamps
 // rendererId with the sprite renderer's id. `texture` is borrowed (the app/resource keeps it alive).
 struct SpriteRenderData : RenderData {
-    Vector2  size        = Vector2{ 1.0f, 1.0f };                 // world-unit width/height
-    Vector4  uvRect      = Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h)
+    Float2  size        = Float2{ 1.0f, 1.0f };                 // world-unit width/height
+    Float4  uvRect      = Float4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h)
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
     bool  additive    = false;  // blend: false = alpha over, true = additive
@@ -245,7 +245,7 @@ static_assert(std::is_trivially_destructible_v<SpriteRenderData>);
 // `world` is the decal's oriented unit box (scale = box size); it projects along its local +Z axis.
 // `texture` is borrowed (the app/resource keeps it alive).
 struct DecalInstance {
-    Matrix4  world     = Matrix4::Identity();
+    Float4x4  world     = Float4x4::Identity();
     Color color     = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     f32   fadeStart = 0.0f;    // angle-fade start (radians): full opacity until the surface tilts past this
     f32   fadeEnd   = 1.30f;   // angle-fade end (radians ~75deg): fully faded once the surface tilts past this
@@ -257,9 +257,9 @@ struct DecalInstance {
 // and consumed by the forward shading loop. Directional: dir is the light direction; Point/Spot:
 // position + range (+ spot cone cosines). type: 0 = Directional, 1 = Point, 2 = Spot.
 struct GpuLight {
-    Vector3 positionWS = Vector3{ 0, 0, 0 };   f32 range     = 0.0f;   // xyz pos, w range
-    Vector3 color      = Vector3{ 1, 1, 1 };   f32 intensity = 1.0f;   // rgb color, a intensity
-    Vector3 directionWS= Vector3{ 0, -1, 0 };  f32 type      = 0.0f;   // xyz dir, w type
+    Float3 positionWS = Float3{ 0, 0, 0 };   f32 range     = 0.0f;   // xyz pos, w range
+    Float3 color      = Float3{ 1, 1, 1 };   f32 intensity = 1.0f;   // rgb color, a intensity
+    Float3 directionWS= Float3{ 0, -1, 0 };  f32 type      = 0.0f;   // xyz dir, w type
     f32  innerCos = 1.0f; f32 outerCos = 1.0f;                   // spot cone cosines
     // shadowIndex: -1 = this light casts no shadow; else an index into the shadow data (phase 5.1
     // has a single directional shadow map, so any >= 0 selects it). pad1 reserved (cascade count).
@@ -271,7 +271,7 @@ static_assert(sizeof(GpuLight) == 64);
 // + whether one exists. The cascade matrices are derived later (in RenderFrame, where the camera
 // frustum is available) since CSM fitting needs the camera. valid == false => no shadow this frame.
 struct DirectionalShadow {
-    Vector3 direction = Vector3{ 0, -1, 0 };
+    Float3 direction = Float3{ 0, -1, 0 };
     bool valid     = false;
 };
 
@@ -281,7 +281,7 @@ struct DirectionalShadow {
 // normal-offset bias). Shared by all views in 5.2 (fit to the primary camera).
 struct ShadowCascades {
     static constexpr u32 kCount = 4;
-    Matrix4 viewProj[kCount]       = { Matrix4::Identity(), Matrix4::Identity(), Matrix4::Identity(), Matrix4::Identity() };
+    Float4x4 viewProj[kCount]       = { Float4x4::Identity(), Float4x4::Identity(), Float4x4::Identity(), Float4x4::Identity() };
     f32  splitFar[kCount]       = { 0.0f, 0.0f, 0.0f, 0.0f };   // view-space far depth of each cascade
     f32  texelWorldSize[kCount] = { 0.0f, 0.0f, 0.0f, 0.0f };   // world units per texel (normal-offset bias)
     bool valid                  = false;
@@ -293,8 +293,8 @@ struct ShadowCascades {
 // shared shadow atlas: uv_atlas = uv_ndc * scale + offset. Built per-frame by the ShadowSystem once
 // the atlas layout is known (so it carries the assigned tile), unlike the directional cascades.
 struct GpuLocalShadow {
-    Matrix4 viewProj       = Matrix4::Identity();             // world -> light clip (perspective)
-    Vector4 atlasScaleBias = Vector4{ 1, 1, 0, 0 };           // xy = uv scale, zw = uv offset (tile in atlas)
+    Float4x4 viewProj       = Float4x4::Identity();             // world -> light clip (perspective)
+    Float4 atlasScaleBias = Float4{ 1, 1, 0, 0 };           // xy = uv scale, zw = uv offset (tile in atlas)
     f32  depthBias      = 0.0015f;                      // constant depth-compare bias
     f32  atlasSelect    = 0.0f;                         // atlas array layer: 0 = realtime, 1 = static (5.4)
     f32  pad1 = 0.0f, pad2 = 0.0f;
@@ -307,8 +307,8 @@ static_assert(sizeof(GpuLocalShadow) == 96);
 // GpuLight (1 = point, 2 = spot); point lights expand to 6 cube faces in 5.3b.
 struct LocalShadowCaster {
     u32  type        = 2;                  // 1 = point, 2 = spot
-    Vector3 positionWS  = Vector3{ 0, 0, 0 };
-    Vector3 directionWS = Vector3{ 0, -1, 0 };
+    Float3 positionWS  = Float3{ 0, 0, 0 };
+    Float3 directionWS = Float3{ 0, -1, 0 };
     f32  range       = 10.0f;              // perspective far plane
     f32  outerAngle  = 0.6f;              // spot cone half-angle (radians); fov = 2 * outerAngle
     bool isStatic    = false;             // Static update mode -> cached static atlas layer (5.4)
@@ -331,8 +331,8 @@ enum class ProbeUpdateMode : u32 { Static = 0, Realtime = 1, Manual = 2 };
 // stable per-entity tag (PackEntity) so the system maps a probe to a persistent GPU slot across frames.
 struct ReflectionProbe {
     u64             key           = 0;
-    Vector3            center        = Vector3{ 0, 0, 0 };            // capture center (world)
-    Vector3            halfExtents   = Vector3{ 5, 5, 5 };            // box half-extents (world; influence + parallax proxy)
+    Float3            center        = Float3{ 0, 0, 0 };            // capture center (world)
+    Float3            halfExtents   = Float3{ 5, 5, 5 };            // box half-extents (world; influence + parallax proxy)
     f32             blendDistance = 1.0f;                       // soft falloff width inward from the box edge
     f32             intensity     = 1.0f;                       // reflection multiplier
     u32             resolution    = 128;                        // captured cube face size
@@ -436,7 +436,7 @@ public:
 
 private:
     static constexpr usize kDefaultChunkSize = 64 * 1024;
-    static constexpr usize kChunkAlign       = 16;   // >= any RenderData alignment (Matrix4 = 16)
+    static constexpr usize kChunkAlign       = 16;   // >= any RenderData alignment (Float4x4 = 16)
 
     struct Chunk { byte* data = nullptr; usize size = 0; };
 
@@ -457,15 +457,15 @@ private:
 // here in the snapshot layer; the authoring EnvironmentSettings (render.subsystem) references it.
 enum class SkyMode : u32 { Procedural, Analytic, Color, HDREquirect, Cubemap };
 
-// The per-frame environment snapshot driving IBL + sky. Plain types (colors as Vector3) so the
+// The per-frame environment snapshot driving IBL + sky. Plain types (colors as Float3) so the
 // snapshot layer carries no authoring dependency.
 struct SkySnapshot {
     SkyMode mode      = SkyMode::Procedural;
     f32     intensity = 1.0f;
     f32     rotation  = 0.0f;                          // yaw (radians) for HDR/cubemap
-    Vector3    horizon   = Vector3{ 0.60f, 0.70f, 0.85f };
-    Vector3    zenith    = Vector3{ 0.15f, 0.30f, 0.65f };   // also the Color-mode color
-    Vector3    ground    = Vector3{ 0.30f, 0.28f, 0.25f };
+    Float3    horizon   = Float3{ 0.60f, 0.70f, 0.85f };
+    Float3    zenith    = Float3{ 0.15f, 0.30f, 0.65f };   // also the Color-mode color
+    Float3    ground    = Float3{ 0.30f, 0.28f, 0.25f };
     f32     sunIntensity   = 1.0f;
     f32     sunAngularSize = 0.5f;                     // sun disc size (degrees)
     f32     turbidity      = 3.0f;                     // Analytic (Preetham) atmospheric turbidity (~2..10)
@@ -517,8 +517,8 @@ public:
 
     // The scene's environment ambient (a flat indirect term until IBL lands). Premultiplied
     // color × intensity, applied as `albedo * ambient` in the forward shader.
-    void SetAmbient(const Vector3& ambient) noexcept { m_ambient = ambient; }
-    [[nodiscard]] const Vector3& Ambient() const noexcept { return m_ambient; }
+    void SetAmbient(const Float3& ambient) noexcept { m_ambient = ambient; }
+    [[nodiscard]] const Float3& Ambient() const noexcept { return m_ambient; }
 
     // The scene's sky/IBL environment settings for this frame.
     void SetSky(const SkySnapshot& s) noexcept { m_sky = s; }
@@ -529,7 +529,7 @@ public:
     [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept { return m_shadow; }
 
     // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_decals.Clear(); m_probes.Clear(); m_ambient = Vector3{ 0.03f, 0.03f, 0.03f }; m_sky = {}; m_shadow = {}; m_arena.Reset(); }
+    void Reset() noexcept { m_items.Clear(); m_lights.Clear(); m_localCasters.Clear(); m_decals.Clear(); m_probes.Clear(); m_ambient = Float3{ 0.03f, 0.03f, 0.03f }; m_sky = {}; m_shadow = {}; m_arena.Reset(); }
 
     [[nodiscard]] Span<RenderData* const> Items() const noexcept {
         return Span<RenderData* const>{ m_items.Data(), m_items.Size() };
@@ -547,7 +547,7 @@ private:
     Array<LocalShadowCaster> m_localCasters;             // spot/point shadow casters (phase 5.3)
     Array<DecalInstance>    m_decals;                    // screen-space decals (consumed by DecalPass)
     Array<ReflectionProbe>  m_probes;                    // reflection probes (consumed by ReflectionProbeSystem)
-    Vector3               m_ambient = Vector3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
+    Float3               m_ambient = Float3{ 0.03f, 0.03f, 0.03f };   // default dim ambient
     SkySnapshot        m_sky;                                     // sky/IBL environment for this frame
     DirectionalShadow  m_shadow;                                  // active directional shadow caster
 };

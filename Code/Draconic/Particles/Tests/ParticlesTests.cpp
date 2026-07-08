@@ -21,8 +21,8 @@ TEST_CASE("RangeFloat/RangeColor: diagonal lerp between min and max")
     CHECK(r.Evaluate(0.5f) == doctest::Approx(4.0f));
     CHECK(px::RangeFloat::Constant(3.0f).IsConstant());
 
-    const px::RangeColor c{ Vector4{ 0, 0, 0, 0 }, Vector4{ 1, 2, 3, 4 } };
-    const Vector4 mid = c.Evaluate(0.5f);
+    const px::RangeColor c{ Float4{ 0, 0, 0, 0 }, Float4{ 1, 2, 3, 4 } };
+    const Float4 mid = c.Evaluate(0.5f);
     CHECK(mid.x == doctest::Approx(0.5f));
     CHECK(mid.w == doctest::Approx(2.0f));
 }
@@ -49,7 +49,7 @@ TEST_CASE("ParticleCurveFloat: endpoints, Constant, Linear, FadeOut")
 TEST_CASE("EmissionShape: Sphere samples inside radius, Point is origin")
 {
     Random rng(1234);
-    Vector3 pos, dir;
+    Float3 pos, dir;
 
     px::EmissionShape::Point().Sample(rng, pos, dir);
     CHECK(LengthSquared(pos) == doctest::Approx(0.0f));
@@ -88,11 +88,11 @@ TEST_CASE("ParticleStreamContainer: core streams present, others lazy, typed acc
 TEST_CASE("ParticleStreamContainer: swap-remove keeps arrays dense, CompactDead drops aged")
 {
     px::ParticleStreamContainer streams(16);
-    px::CPUStream<Vector3>* pos = streams.Positions();
+    px::CPUStream<Float3>* pos = streams.Positions();
     px::CPUStream<f32>* ages = streams.Ages();
     px::CPUStream<f32>* lifetimes = streams.Lifetimes();
 
-    for (i32 i = 0; i < 5; ++i) { (*pos)[i] = Vector3{ static_cast<f32>(i), 0, 0 }; (*ages)[i] = 0.0f; (*lifetimes)[i] = 1.0f; }
+    for (i32 i = 0; i < 5; ++i) { (*pos)[i] = Float3{ static_cast<f32>(i), 0, 0 }; (*ages)[i] = 0.0f; (*lifetimes)[i] = 1.0f; }
     streams.aliveCount = 5;
 
     // Kill index 1: last (index 4) swaps into slot 1.
@@ -117,13 +117,13 @@ TEST_CASE("GravityBehavior accelerates velocity down; AlphaOverLifetime fades al
     streams.EnsureStream(px::ParticleStreamId::Velocity, px::StreamElementType::Float3);
     streams.EnsureStream(px::ParticleStreamId::Color, px::StreamElementType::Float4);
     streams.aliveCount = 1;
-    (*streams.Velocities())[0] = Vector3{ 0, 0, 0 };
-    (*streams.Colors())[0] = Vector4{ 1, 1, 1, 1 };
+    (*streams.Velocities())[0] = Float3{ 0, 0, 0 };
+    (*streams.Colors())[0] = Float4{ 1, 1, 1, 1 };
     (*streams.Ages())[0] = 0.5f;
     (*streams.Lifetimes())[0] = 1.0f;
 
     Random rng(1);
-    px::ParticleUpdateContext ctx{ 0.0f, 0.5f, Vector3::Zero, &rng };
+    px::ParticleUpdateContext ctx{ 0.0f, 0.5f, Float3::Zero, &rng };
 
     px::GravityBehavior gravity;
     gravity.Update(streams, ctx);
@@ -143,7 +143,7 @@ namespace
     void BuildFountain(px::ParticleSystem& sys, f32 rate = 100.0f)
     {
         sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.0f, 2.0f);
-        sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Vector3{ 0, 5, 0 };
+        sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Float3{ 0, 5, 0 };
         sys.AddInitializer<px::SizeInitializer>();
         sys.AddInitializer<px::ColorInitializer>();
         sys.AddBehavior<px::GravityBehavior>();
@@ -163,7 +163,7 @@ TEST_CASE("ParticleSystem: continuous emission spawns, integrates, and ages out"
     CHECK(sys.AliveCount() <= 11);
 
     // Velocity carried the particles upward (position integrated).
-    const px::CPUStream<Vector3>* pos = sys.Streams().Positions();
+    const px::CPUStream<Float3>* pos = sys.Streams().Positions();
     CHECK((*pos)[0].y > 0.0f);
 
     // Run well past the 2s lifetime with emission off -> everything dies.
@@ -204,8 +204,8 @@ TEST_CASE("ParticleSystem: same seed + same input is deterministic")
 
     REQUIRE(a.AliveCount() == b.AliveCount());
     REQUIRE(a.AliveCount() > 0);
-    const px::CPUStream<Vector3>* pa = a.Streams().Positions();
-    const px::CPUStream<Vector3>* pb = b.Streams().Positions();
+    const px::CPUStream<Float3>* pa = a.Streams().Positions();
+    const px::CPUStream<Float3>* pb = b.Streams().Positions();
     for (i32 i = 0; i < a.AliveCount(); ++i)
     {
         CHECK((*pa)[i].x == doctest::Approx((*pb)[i].x));
@@ -219,9 +219,9 @@ TEST_CASE("LOD: beyond cull distance the system stops spawning")
     BuildFountain(sys, 100.0f);
     sys.lodStartDistance = 10.0f;
     sys.lodCullDistance = 20.0f;
-    sys.position = Vector3{ 0, 0, 0 };
+    sys.position = Float3{ 0, 0, 0 };
 
-    sys.Update(0.1f, /*cameraPos*/ Vector3{ 100, 0, 0 });   // far past cull
+    sys.Update(0.1f, /*cameraPos*/ Float3{ 100, 0, 0 });   // far past cull
     CHECK(sys.LODRateMultiplier() == doctest::Approx(0.0f));
     CHECK(sys.AliveCount() == 0);
 }
@@ -241,7 +241,7 @@ namespace
         sys.trail.recordInterval = 0.0f;      // record every frame
         sys.trail.minVertexDistance = 0.0f;
         sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(100.0f, 100.0f);
-        sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Vector3{ 5.0f, 0.0f, 0.0f };
+        sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Float3{ 5.0f, 0.0f, 0.0f };
         sys.emitter.mode = px::EmissionMode::Burst;
         sys.emitter.burstCount = burst;
         sys.emitter.burstInterval = 0.0f;
@@ -266,7 +266,7 @@ TEST_CASE("Trails: ring buffer fills, caps at maxPoints, and records the current
 
     // The newest point (at head) is the particle's current position.
     const Span<const px::TrailPoint> points = sys.TrailPoints();
-    const px::CPUStream<Vector3>* pos = sys.Streams().Positions();
+    const px::CPUStream<Float3>* pos = sys.Streams().Positions();
     const i32 head = states[0].head;
     CHECK(points[0 * 4 + head].position.x == doctest::Approx((*pos)[0].x));
 }
@@ -291,7 +291,7 @@ TEST_CASE("Trails: compaction keeps trail state aligned; dead particles drop cle
     sys.renderMode = px::ParticleRenderMode::Trail;
     sys.trail.enabled = true; sys.trail.maxPoints = 8; sys.trail.recordInterval = 0.0f; sys.trail.minVertexDistance = 0.0f;
     sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.25f, 0.25f);   // short
-    sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Vector3{ 2.0f, 0.0f, 0.0f };
+    sys.AddInitializer<px::VelocityInitializer>().baseVelocity = Float3{ 2.0f, 0.0f, 0.0f };
     sys.emitter.mode = px::EmissionMode::Continuous; sys.emitter.spawnRate = 200.0f;
 
     for (int i = 0; i < 30; ++i) { sys.Update(0.02f); }
@@ -345,10 +345,10 @@ TEST_CASE("EmissionShape: Circle is a flat XZ disc, Edge is a line on X")
     Random rng;
     for (int i = 0; i < 64; ++i)
     {
-        Vector3 pos, dir;
+        Float3 pos, dir;
         px::EmissionShape::Circle(2.0f).Sample(rng, pos, dir);
         CHECK(pos.y == doctest::Approx(0.0f));
-        CHECK(Length(Vector3{ pos.x, 0.0f, pos.z }) <= doctest::Approx(2.0f).epsilon(0.01));
+        CHECK(Length(Float3{ pos.x, 0.0f, pos.z }) <= doctest::Approx(2.0f).epsilon(0.01));
 
         px::EmissionShape::Edge(3.0f).Sample(rng, pos, dir);
         CHECK(pos.y == doctest::Approx(0.0f));
@@ -365,7 +365,7 @@ TEST_CASE("EmissionShape: Arc restricts the azimuth to the first quadrant")
     s.arc = 0.25f;   // quarter turn -> phi in [0, pi/2] -> x>=0, z>=0
     for (int i = 0; i < 64; ++i)
     {
-        Vector3 pos, dir;
+        Float3 pos, dir;
         s.Sample(rng, pos, dir);
         CHECK(pos.x >= -0.001f);
         CHECK(pos.z >= -0.001f);
@@ -379,17 +379,17 @@ TEST_CASE("FlipbookSettings: FrameUV walks a grid over lifetime")
     CHECK(fb.IsActive());
     CHECK(fb.FrameCount() == 16);
 
-    const Vector4 f0 = fb.FrameUV(0.0f, 0.0f);     // frame 0 -> col0,row0
+    const Float4 f0 = fb.FrameUV(0.0f, 0.0f);     // frame 0 -> col0,row0
     CHECK(f0.x == doctest::Approx(0.0f));
     CHECK(f0.y == doctest::Approx(0.0f));
     CHECK(f0.z == doctest::Approx(0.25f));
     CHECK(f0.w == doctest::Approx(0.25f));
 
-    const Vector4 f8 = fb.FrameUV(0.5f, 0.0f);     // frame 8 -> col0,row2
+    const Float4 f8 = fb.FrameUV(0.5f, 0.0f);     // frame 8 -> col0,row2
     CHECK(f8.x == doctest::Approx(0.0f));
     CHECK(f8.y == doctest::Approx(0.5f));
 
-    const Vector4 fL = fb.FrameUV(0.999f, 0.0f);   // frame 15 -> col3,row3
+    const Float4 fL = fb.FrameUV(0.999f, 0.0f);   // frame 15 -> col3,row3
     CHECK(fL.x == doctest::Approx(0.75f));
     CHECK(fL.y == doctest::Approx(0.75f));
 }
@@ -405,7 +405,7 @@ TEST_CASE("Local space: particles spawn emitter-relative (near origin), not at t
     sys.emitter.burstCount = 8;
 
     px::ParticleEffectInstance inst(fx);
-    inst.position = Vector3{ 100.0f, 0.0f, 0.0f };   // far from origin
+    inst.position = Float3{ 100.0f, 0.0f, 0.0f };   // far from origin
     inst.Update(0.016f);
     REQUIRE(sys.AliveCount() == 8);
     // Stored positions are local (~origin); the emitter transform is applied only at extract.
@@ -450,7 +450,7 @@ TEST_CASE("CollisionBehavior: a particle bounces off the ground plane")
     px::ParticleSystem& sys = fx.AddSystem(10);
     sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(10.0f, 10.0f);
     px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
-    col.planes[0] = px::CollisionPlane{ Vector3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // ground y=0
+    col.planes[0] = px::CollisionPlane{ Float3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // ground y=0
     col.bounce = 0.5f; col.friction = 0.0f;
     sys.emitter.mode = px::EmissionMode::Burst;
     sys.emitter.burstCount = 1;
@@ -459,8 +459,8 @@ TEST_CASE("CollisionBehavior: a particle bounces off the ground plane")
     inst.Update(0.016f);
     REQUIRE(sys.AliveCount() == 1);
     // Drive it below the plane moving downward, then step: expect a push-out + upward bounce.
-    (*sys.Streams().Positions())[0]  = Vector3{ 0.0f, -1.0f, 0.0f };
-    (*sys.Streams().Velocities())[0] = Vector3{ 0.0f, -2.0f, 0.0f };
+    (*sys.Streams().Positions())[0]  = Float3{ 0.0f, -1.0f, 0.0f };
+    (*sys.Streams().Velocities())[0] = Float3{ 0.0f, -2.0f, 0.0f };
     inst.Update(0.016f);
     CHECK((*sys.Streams().Velocities())[0].y == doctest::Approx(1.0f));   // -(-2)*0.5
     CHECK((*sys.Streams().Positions())[0].y >= -0.001f);                  // pushed to/above the surface
@@ -481,7 +481,7 @@ TEST_CASE("Seeded RNG: same seed reproduces spawns; Reset replays deterministica
     REQUIRE(sb.AliveCount() == 16);
     CHECK(Length((*sa.Streams().Positions())[7] - (*sb.Streams().Positions())[7]) == doctest::Approx(0.0f));
 
-    const Vector3 first = (*sa.Streams().Positions())[3];
+    const Float3 first = (*sa.Streams().Positions())[3];
     sa.Reset(); ia.Update(0.016f);
     CHECK(Length((*sa.Streams().Positions())[3] - first) == doctest::Approx(0.0f));
 }
@@ -490,16 +490,16 @@ TEST_CASE("Sub-emitter SpawnAt: inherits (adds) velocity and modulates color")
 {
     px::ParticleEffect fx(u8"inherit");
     px::ParticleSystem& child = fx.AddSystem(100);
-    child.AddInitializer<px::VelocityInitializer>().baseVelocity = Vector3{ 1.0f, 0.0f, 0.0f };
-    child.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(Vector4{ 1, 1, 1, 1 });
+    child.AddInitializer<px::VelocityInitializer>().baseVelocity = Float3{ 1.0f, 0.0f, 0.0f };
+    child.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(Float4{ 1, 1, 1, 1 });
     child.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(5.0f, 5.0f);
 
-    child.SpawnAt(1, Vector3{ 0, 0, 0 }, Vector3{ 0.0f, 5.0f, 0.0f }, Vector4{ 1.0f, 0.0f, 0.0f, 1.0f });
+    child.SpawnAt(1, Float3{ 0, 0, 0 }, Float3{ 0.0f, 5.0f, 0.0f }, Float4{ 1.0f, 0.0f, 0.0f, 1.0f });
     REQUIRE(child.AliveCount() == 1);
-    const Vector3 v = (*child.Streams().Velocities())[0];
+    const Float3 v = (*child.Streams().Velocities())[0];
     CHECK(v.x == doctest::Approx(1.0f));   // base
     CHECK(v.y == doctest::Approx(5.0f));   // + inherited
-    const Vector4 c = (*child.Streams().Colors())[0];
+    const Float4 c = (*child.Streams().Colors())[0];
     CHECK(c.x == doctest::Approx(1.0f));
     CHECK(c.y == doctest::Approx(0.0f));   // white * red
     CHECK(c.z == doctest::Approx(0.0f));
@@ -512,8 +512,8 @@ TEST_CASE("CollisionBehavior: sphere + box obstacles push out and reflect")
     sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(10.0f, 10.0f);
     px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
     col.planeCount = 0;
-    col.spheres[0] = px::CollisionSphere{ Vector3{ 0, 0, 0 }, 1.0f };  col.sphereCount = 1;
-    col.boxes[0]   = px::CollisionBox{ Vector3{ 5, 0, 0 }, Vector3{ 1, 1, 1 } }; col.boxCount = 1;
+    col.spheres[0] = px::CollisionSphere{ Float3{ 0, 0, 0 }, 1.0f };  col.sphereCount = 1;
+    col.boxes[0]   = px::CollisionBox{ Float3{ 5, 0, 0 }, Float3{ 1, 1, 1 } }; col.boxCount = 1;
     col.bounce = 1.0f; col.friction = 0.0f;
     sys.emitter.mode = px::EmissionMode::Burst; sys.emitter.burstCount = 2;
 
@@ -522,11 +522,11 @@ TEST_CASE("CollisionBehavior: sphere + box obstacles push out and reflect")
     REQUIRE(sys.AliveCount() == 2);
 
     // Particle 0: inside the sphere moving toward its centre -> pushed to the surface, velocity reversed.
-    (*sys.Streams().Positions())[0]  = Vector3{ 0.5f, 0.0f, 0.0f };
-    (*sys.Streams().Velocities())[0] = Vector3{ -1.0f, 0.0f, 0.0f };   // heading inward (toward -x)
+    (*sys.Streams().Positions())[0]  = Float3{ 0.5f, 0.0f, 0.0f };
+    (*sys.Streams().Velocities())[0] = Float3{ -1.0f, 0.0f, 0.0f };   // heading inward (toward -x)
     // Particle 1: just inside the box's top face, falling -> popped up to the top, velocity reversed to +y.
-    (*sys.Streams().Positions())[1]  = Vector3{ 5.0f, 0.5f, 0.0f };    // box y-span [-1,1]; 0.5 nearest the +y face
-    (*sys.Streams().Velocities())[1] = Vector3{ 0.0f, -1.0f, 0.0f };
+    (*sys.Streams().Positions())[1]  = Float3{ 5.0f, 0.5f, 0.0f };    // box y-span [-1,1]; 0.5 nearest the +y face
+    (*sys.Streams().Velocities())[1] = Float3{ 0.0f, -1.0f, 0.0f };
     inst.Update(0.016f);
 
     CHECK((*sys.Streams().Positions())[0].x >= 1.0f - 0.01f);          // out to the sphere surface (r=1)
@@ -540,11 +540,11 @@ TEST_CASE("AlphaOverLifetime sets the envelope (no per-frame accumulation)")
     px::ParticleStreamContainer streams(8);
     streams.EnsureStream(px::ParticleStreamId::Color, px::StreamElementType::Float4);
     streams.aliveCount = 1;
-    (*streams.Colors())[0] = Vector4{ 1, 1, 1, 1 };
+    (*streams.Colors())[0] = Float4{ 1, 1, 1, 1 };
     (*streams.Ages())[0] = 0.5f;
     (*streams.Lifetimes())[0] = 1.0f;
     Random rng(1);
-    px::ParticleUpdateContext ctx{ 0.0f, 0.016f, Vector3::Zero, &rng };
+    px::ParticleUpdateContext ctx{ 0.0f, 0.016f, Float3::Zero, &rng };
     px::AlphaOverLifetimeBehavior a;
     a.curve = px::ParticleCurveFloat::Linear(1.0f, 0.0f);   // curve(0.5) = 0.5
 

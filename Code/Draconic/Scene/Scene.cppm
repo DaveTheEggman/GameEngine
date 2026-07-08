@@ -113,23 +113,23 @@ public:
     [[nodiscard]] Transform GetLocalTransform(EntityHandle entity) const {
         return IsValid(entity) ? m_transforms[entity.index].local : Transform{};
     }
-    void SetLocalPosition(EntityHandle entity, Vector3 position) {
+    void SetLocalPosition(EntityHandle entity, Float3 position) {
         if (!IsValid(entity)) { return; }
         m_transforms[entity.index].local.position = position;
         MarkDirty(entity);
     }
 
     // World matrix from the most recent UpdateTransforms (Identity until first update).
-    [[nodiscard]] Matrix4 GetWorldMatrix(EntityHandle entity) const {
-        return IsValid(entity) ? m_transforms[entity.index].worldMatrix : Matrix4::Identity();
+    [[nodiscard]] Float4x4 GetWorldMatrix(EntityHandle entity) const {
+        return IsValid(entity) ? m_transforms[entity.index].worldMatrix : Float4x4::Identity();
     }
-    [[nodiscard]] Matrix4 GetPrevWorldMatrix(EntityHandle entity) const {
-        return IsValid(entity) ? m_transforms[entity.index].prevWorldMatrix : Matrix4::Identity();
+    [[nodiscard]] Float4x4 GetPrevWorldMatrix(EntityHandle entity) const {
+        return IsValid(entity) ? m_transforms[entity.index].prevWorldMatrix : Float4x4::Identity();
     }
     // Translation row of the world matrix (row-vector convention).
-    [[nodiscard]] Vector3 GetWorldPosition(EntityHandle entity) const {
-        const Matrix4 w = GetWorldMatrix(entity);
-        return Vector3{ w.m[3][0], w.m[3][1], w.m[3][2] };
+    [[nodiscard]] Float3 GetWorldPosition(EntityHandle entity) const {
+        const Float4x4 w = GetWorldMatrix(entity);
+        return Float3{ w.m[3][0], w.m[3][1], w.m[3][2] };
     }
     // True iff the world matrix was recomputed in the most recent UpdateTransforms
     // (moved, reparented, or a dirty ancestor cascaded through it). Read in PostTransform.
@@ -192,7 +192,7 @@ public:
 
         for (u32 i = 0; i < count; ++i) {
             if (m_transforms[i].dirty && m_entities[i].alive && !m_transforms[i].parent.IsAssigned()) {
-                UpdateTransformRecursive(i, Matrix4::Identity());
+                UpdateTransformRecursive(i, Float4x4::Identity());
             }
         }
     }
@@ -310,8 +310,8 @@ protected:
     // doubly-linked parent/child/sibling pointers (head+tail+back for O(1) splice).
     struct TransformData {
         Transform    local;
-        Matrix4         worldMatrix     = Matrix4::Identity();
-        Matrix4         prevWorldMatrix = Matrix4::Identity();
+        Float4x4         worldMatrix     = Float4x4::Identity();
+        Float4x4         prevWorldMatrix = Float4x4::Identity();
         EntityHandle parent      = EntityHandle::Invalid();
         EntityHandle firstChild  = EntityHandle::Invalid();
         EntityHandle lastChild   = EntityHandle::Invalid();
@@ -394,7 +394,7 @@ protected:
         if (d.parent.IsAssigned()) { MarkDirty(d.parent); }
     }
 
-    void UpdateTransformRecursive(u32 index, const Matrix4& parentWorld) {
+    void UpdateTransformRecursive(u32 index, const Float4x4& parentWorld) {
         {
             TransformData& d = m_transforms[index];
             d.prevWorldMatrix    = d.worldMatrix;
@@ -404,7 +404,7 @@ protected:
         }
         m_transformsUpdatedThisFrame.PushBack(index);
 
-        const Matrix4 myWorld = m_transforms[index].worldMatrix;
+        const Float4x4 myWorld = m_transforms[index].worldMatrix;
         EntityHandle child = m_transforms[index].firstChild;
         while (child.IsAssigned() && IsValid(child)) {
             const u32 ci = child.index;

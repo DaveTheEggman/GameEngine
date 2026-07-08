@@ -15,8 +15,8 @@ export module draconic.core:bounds;
 
 import :base;
 import :math;
-import :vector3;
-import :matrix4;
+import :float3;
+import :float4x4;
 import :aabb;
 import :plane;
 import :span;
@@ -33,7 +33,7 @@ export namespace draconic::core
         [[nodiscard]] inline bool ApproxNonZero(f32 v) noexcept { return Abs(v) >= kApprox; }
         // Sedulous IsApproximatelyGreaterThan: equal counts as true; else needs a real gap AND >.
         [[nodiscard]] inline bool ApproxGreater(f32 a, f32 b) noexcept { return a == b || (Abs(a - b) >= kApprox && a > b); }
-        [[nodiscard]] inline Vector3 ClampVec(Vector3 v, Vector3 lo, Vector3 hi) noexcept { return Max(Min(v, hi), lo); }
+        [[nodiscard]] inline Float3 ClampVec(Float3 v, Float3 lo, Float3 hi) noexcept { return Max(Min(v, hi), lo); }
     }
 
     // =======================================================================
@@ -41,8 +41,8 @@ export namespace draconic::core
     // =======================================================================
     struct Ray
     {
-        Vector3 position;
-        Vector3 direction;
+        Float3 position;
+        Float3 direction;
 
         [[nodiscard]] Ray Interpolate(const Ray& target, f32 t) const noexcept
         {
@@ -55,22 +55,22 @@ export namespace draconic::core
     // =======================================================================
     struct BoundingSphere
     {
-        Vector3 center;
+        Float3 center;
         f32  radius = 0.0f;
 
-        [[nodiscard]] static BoundingSphere FromCenterRadius(Vector3 c, f32 r) noexcept { return BoundingSphere{ c, r }; }
+        [[nodiscard]] static BoundingSphere FromCenterRadius(Float3 c, f32 r) noexcept { return BoundingSphere{ c, r }; }
 
         // Merge two spheres into the smallest enclosing sphere (Sedulous CreateMerged).
         [[nodiscard]] static BoundingSphere Merge(const BoundingSphere& a, const BoundingSphere& b) noexcept
         {
-            const Vector3 offset = b.center - a.center;
+            const Float3 offset = b.center - a.center;
             const f32  distance = Length(offset);
             if (a.radius + b.radius >= distance)
             {
                 if (distance <= a.radius - b.radius) { return a; }
                 if (distance <= b.radius - a.radius) { return b; }
             }
-            const Vector3 n = offset * (1.0f / distance);
+            const Float3 n = offset * (1.0f / distance);
             const f32  mn = Min(-a.radius, distance - b.radius);
             const f32  mx = (Max(a.radius, distance + b.radius) - mn) * 0.5f;
             return BoundingSphere{ a.center + n * (mx + mn), mx };
@@ -78,25 +78,25 @@ export namespace draconic::core
 
         // Ritter-style enclosing sphere of a point set (Sedulous CreateFromPoints). NOTE: Sedulous's
         // X-axis branch has a copy-paste bug (Lerp(minX,minY)); ported CORRECTLY here (Lerp(minX,maxX)).
-        [[nodiscard]] static BoundingSphere FromPoints(Span<const Vector3> points) noexcept
+        [[nodiscard]] static BoundingSphere FromPoints(Span<const Float3> points) noexcept
         {
-            if (points.IsEmpty()) { return BoundingSphere{ Vector3{ 0, 0, 0 }, 0.0f }; }
-            Vector3 minX = points[0], maxX = points[0], minY = points[0], maxY = points[0], minZ = points[0], maxZ = points[0];
+            if (points.IsEmpty()) { return BoundingSphere{ Float3{ 0, 0, 0 }, 0.0f }; }
+            Float3 minX = points[0], maxX = points[0], minY = points[0], maxY = points[0], minZ = points[0], maxZ = points[0];
             for (usize i = 1; i < points.Size(); ++i)
             {
-                const Vector3 p = points[i];
+                const Float3 p = points[i];
                 if (p.x < minX.x) { minX = p; } if (p.x > maxX.x) { maxX = p; }
                 if (p.y < minY.y) { minY = p; } if (p.y > maxY.y) { maxY = p; }
                 if (p.z < minZ.z) { minZ = p; } if (p.z > maxZ.z) { maxZ = p; }
             }
             const f32 dX = Distance(minX, maxX), dY = Distance(minY, maxY), dZ = Distance(minZ, maxZ);
-            Vector3 center; f32 radius;
+            Float3 center; f32 radius;
             if (dX > dY && dX > dZ)       { center = Lerp(minX, maxX, 0.5f); radius = dX * 0.5f; }
             else if (dY > dZ)             { center = Lerp(minY, maxY, 0.5f); radius = dY * 0.5f; }
             else                          { center = Lerp(minZ, maxZ, 0.5f); radius = dZ * 0.5f; }
             for (usize i = 0; i < points.Size(); ++i)
             {
-                const Vector3 rel = points[i] - center;
+                const Float3 rel = points[i] - center;
                 const f32  dist = Length(rel);
                 if (dist > radius)
                 {
@@ -107,14 +107,14 @@ export namespace draconic::core
             return BoundingSphere{ center, radius };
         }
 
-        void Expand(Vector3 p) noexcept
+        void Expand(Float3 p) noexcept
         {
-            const Vector3 rel = p - center;
+            const Float3 rel = p - center;
             const f32  dist = Length(rel);
             if (dist > radius) { const f32 nr = (radius + dist) * 0.5f; center = center + rel * (1.0f - nr / dist); radius = nr; }
         }
 
-        [[nodiscard]] ContainmentType Contains(Vector3 point) const noexcept
+        [[nodiscard]] ContainmentType Contains(Float3 point) const noexcept
         {
             return LengthSquared(point - center) < radius * radius ? ContainmentType::Contains : ContainmentType::Disjoint;
         }
@@ -137,12 +137,12 @@ export namespace draconic::core
         static constexpr i32 kCornerCount = 8;
         static constexpr i32 kPlaneCount  = 6;
 
-        Matrix4  matrix{};
+        Float4x4  matrix{};
         Plane planes[kPlaneCount]{};
-        Vector3  corners[kCornerCount]{};
+        Float3  corners[kCornerCount]{};
 
         BoundingFrustum() noexcept = default;
-        explicit BoundingFrustum(const Matrix4& m) noexcept { SetMatrix(m); }
+        explicit BoundingFrustum(const Float4x4& m) noexcept { SetMatrix(m); }
 
         [[nodiscard]] const Plane& Near()   const noexcept { return planes[0]; }
         [[nodiscard]] const Plane& Far()    const noexcept { return planes[1]; }
@@ -153,15 +153,15 @@ export namespace draconic::core
 
         // Gribb-Hartmann plane extraction for a row-vector row-major view-proj, NDC z in [0,1] - the exact
         // column combinations Sedulous uses (M{r}{c} 1-indexed -> m(r-1,c-1)); planes point OUTWARD.
-        void SetMatrix(const Matrix4& m) noexcept
+        void SetMatrix(const Float4x4& m) noexcept
         {
             matrix = m;
-            planes[0] = Plane{ Vector3{ -m(0,2), -m(1,2), -m(2,2) }, -m(3,2) };                                   // Near
-            planes[1] = Plane{ Vector3{ m(0,2)-m(0,3), m(1,2)-m(1,3), m(2,2)-m(2,3) }, m(3,2)-m(3,3) };            // Far
-            planes[2] = Plane{ Vector3{ -m(0,3)-m(0,0), -m(1,3)-m(1,0), -m(2,3)-m(2,0) }, -m(3,3)-m(3,0) };        // Left
-            planes[3] = Plane{ Vector3{ m(0,0)-m(0,3), m(1,0)-m(1,3), m(2,0)-m(2,3) }, m(3,0)-m(3,3) };            // Right
-            planes[4] = Plane{ Vector3{ m(0,1)-m(0,3), m(1,1)-m(1,3), m(2,1)-m(2,3) }, m(3,1)-m(3,3) };            // Top
-            planes[5] = Plane{ Vector3{ -m(0,3)-m(0,1), -m(1,3)-m(1,1), -m(2,3)-m(2,1) }, -m(3,3)-m(3,1) };        // Bottom
+            planes[0] = Plane{ Float3{ -m(0,2), -m(1,2), -m(2,2) }, -m(3,2) };                                   // Near
+            planes[1] = Plane{ Float3{ m(0,2)-m(0,3), m(1,2)-m(1,3), m(2,2)-m(2,3) }, m(3,2)-m(3,3) };            // Far
+            planes[2] = Plane{ Float3{ -m(0,3)-m(0,0), -m(1,3)-m(1,0), -m(2,3)-m(2,0) }, -m(3,3)-m(3,0) };        // Left
+            planes[3] = Plane{ Float3{ m(0,0)-m(0,3), m(1,0)-m(1,3), m(2,0)-m(2,3) }, m(3,0)-m(3,3) };            // Right
+            planes[4] = Plane{ Float3{ m(0,1)-m(0,3), m(1,1)-m(1,3), m(2,1)-m(2,3) }, m(3,1)-m(3,3) };            // Top
+            planes[5] = Plane{ Float3{ -m(0,3)-m(0,1), -m(1,3)-m(1,1), -m(2,3)-m(2,1) }, -m(3,3)-m(3,1) };        // Bottom
             for (i32 i = 0; i < kPlaneCount; ++i) { NormalizePlane(planes[i]); }
 
             const Ray nl = PlaneRay(planes[0], planes[2]);   // near ∩ left
@@ -178,7 +178,7 @@ export namespace draconic::core
             corners[7] = PlanePoint(planes[5], lf);
         }
 
-        [[nodiscard]] ContainmentType Contains(Vector3 point) const noexcept
+        [[nodiscard]] ContainmentType Contains(Float3 point) const noexcept
         {
             for (i32 i = 0; i < kPlaneCount; ++i)
             {
@@ -202,12 +202,12 @@ export namespace draconic::core
         static void NormalizePlane(Plane& p) noexcept { const f32 len = Length(p.normal); p.normal /= len; p.d /= len; }
         [[nodiscard]] static Ray PlaneRay(const Plane& p1, const Plane& p2) noexcept
         {
-            const Vector3 dir = Cross(p1.normal, p2.normal);
-            const Vector3 a   = p1.normal * p2.d - p2.normal * p1.d;   // = -p1.d*p2.n + p2.d*p1.n
-            const Vector3 pos = Cross(a, dir) * (1.0f / LengthSquared(dir));
+            const Float3 dir = Cross(p1.normal, p2.normal);
+            const Float3 a   = p1.normal * p2.d - p2.normal * p1.d;   // = -p1.d*p2.n + p2.d*p1.n
+            const Float3 pos = Cross(a, dir) * (1.0f / LengthSquared(dir));
             return Ray{ pos, dir };
         }
-        [[nodiscard]] static Vector3 PlanePoint(const Plane& p, const Ray& r) noexcept
+        [[nodiscard]] static Float3 PlanePoint(const Plane& p, const Ray& r) noexcept
         {
             const f32 dist = (-p.d - Dot(p.normal, r.position)) / Dot(p.normal, r.direction);
             return r.position + r.direction * dist;
@@ -234,39 +234,39 @@ export namespace draconic::core
     // ---- BoundingBox (AABB) helpers matching Sedulous BoundingBox ----
     [[nodiscard]] inline AABB BoundingBoxFromSphere(const BoundingSphere& s) noexcept
     {
-        const Vector3 c{ s.radius, s.radius, s.radius };
+        const Float3 c{ s.radius, s.radius, s.radius };
         return AABB{ s.center - c, s.center + c };
     }
     // Sedulous corner order (index 0 = (Min.x,Max.y,Max.z) ... 7 = (Min.x,Min.y,Min.z)).
-    inline void GetCorners(const AABB& b, Vector3 out[8]) noexcept
+    inline void GetCorners(const AABB& b, Float3 out[8]) noexcept
     {
-        out[0] = Vector3{ b.min.x, b.max.y, b.max.z }; out[1] = Vector3{ b.max.x, b.max.y, b.max.z };
-        out[2] = Vector3{ b.max.x, b.min.y, b.max.z }; out[3] = Vector3{ b.min.x, b.min.y, b.max.z };
-        out[4] = Vector3{ b.min.x, b.max.y, b.min.z }; out[5] = Vector3{ b.max.x, b.max.y, b.min.z };
-        out[6] = Vector3{ b.max.x, b.min.y, b.min.z }; out[7] = Vector3{ b.min.x, b.min.y, b.min.z };
+        out[0] = Float3{ b.min.x, b.max.y, b.max.z }; out[1] = Float3{ b.max.x, b.max.y, b.max.z };
+        out[2] = Float3{ b.max.x, b.min.y, b.max.z }; out[3] = Float3{ b.min.x, b.min.y, b.max.z };
+        out[4] = Float3{ b.min.x, b.max.y, b.min.z }; out[5] = Float3{ b.max.x, b.max.y, b.min.z };
+        out[6] = Float3{ b.max.x, b.min.y, b.min.z }; out[7] = Float3{ b.min.x, b.min.y, b.min.z };
     }
-    [[nodiscard]] inline ContainmentType ContainsCT(const AABB& b, Vector3 p) noexcept
+    [[nodiscard]] inline ContainmentType ContainsCT(const AABB& b, Float3 p) noexcept
     {
         return b.Contains(p) ? ContainmentType::Contains : ContainmentType::Disjoint;
     }
     [[nodiscard]] inline PlaneIntersectionType Intersects(const AABB& b, const Plane& plane) noexcept
     {
-        Vector3 pos{ plane.normal.x >= 0 ? b.min.x : b.max.x, plane.normal.y >= 0 ? b.min.y : b.max.y, plane.normal.z >= 0 ? b.min.z : b.max.z };
-        Vector3 neg{ plane.normal.x >= 0 ? b.max.x : b.min.x, plane.normal.y >= 0 ? b.max.y : b.min.y, plane.normal.z >= 0 ? b.max.z : b.min.z };
+        Float3 pos{ plane.normal.x >= 0 ? b.min.x : b.max.x, plane.normal.y >= 0 ? b.min.y : b.max.y, plane.normal.z >= 0 ? b.min.z : b.max.z };
+        Float3 neg{ plane.normal.x >= 0 ? b.max.x : b.min.x, plane.normal.y >= 0 ? b.max.y : b.min.y, plane.normal.z >= 0 ? b.max.z : b.min.z };
         if (Dot(plane.normal, pos) + plane.d > 0.0f) { return PlaneIntersectionType::Front; }
         if (Dot(plane.normal, neg) + plane.d < 0.0f) { return PlaneIntersectionType::Back; }
         return PlaneIntersectionType::Intersecting;
     }
     [[nodiscard]] inline bool Intersects(const AABB& b, const BoundingSphere& s) noexcept
     {
-        const Vector3 clamped = bounds_detail::ClampVec(s.center, b.min, b.max);
+        const Float3 clamped = bounds_detail::ClampVec(s.center, b.min, b.max);
         return LengthSquared(s.center - clamped) <= s.radius * s.radius;
     }
-    [[nodiscard]] inline AABB TransformAABB(const AABB& b, const Matrix4& m) noexcept
+    [[nodiscard]] inline AABB TransformAABB(const AABB& b, const Float4x4& m) noexcept
     {
-        const Vector3 c = b.Center(), e = b.Extents();
-        const Vector3 nc{ c.x*m(0,0)+c.y*m(1,0)+c.z*m(2,0)+m(3,0), c.x*m(0,1)+c.y*m(1,1)+c.z*m(2,1)+m(3,1), c.x*m(0,2)+c.y*m(1,2)+c.z*m(2,2)+m(3,2) };
-        const Vector3 ne{ Abs(m(0,0))*e.x + Abs(m(1,0))*e.y + Abs(m(2,0))*e.z,
+        const Float3 c = b.Center(), e = b.Extents();
+        const Float3 nc{ c.x*m(0,0)+c.y*m(1,0)+c.z*m(2,0)+m(3,0), c.x*m(0,1)+c.y*m(1,1)+c.z*m(2,1)+m(3,1), c.x*m(0,2)+c.y*m(1,2)+c.z*m(2,2)+m(3,2) };
+        const Float3 ne{ Abs(m(0,0))*e.x + Abs(m(1,0))*e.y + Abs(m(2,0))*e.z,
                        Abs(m(0,1))*e.x + Abs(m(1,1))*e.y + Abs(m(2,1))*e.z,
                        Abs(m(0,2))*e.x + Abs(m(1,2))*e.y + Abs(m(2,2))*e.z };
         return AABB{ nc - ne, nc + ne };
@@ -292,7 +292,7 @@ export namespace draconic::core
     // AABB Contains sphere/frustum (ContainmentType), matching Sedulous BoundingBox.
     [[nodiscard]] inline ContainmentType ContainsCT(const AABB& b, const BoundingSphere& s) noexcept
     {
-        const Vector3 clamped = bounds_detail::ClampVec(s.center, b.min, b.max);
+        const Float3 clamped = bounds_detail::ClampVec(s.center, b.min, b.max);
         if (s.radius * s.radius <= LengthSquared(s.center - clamped)) { return ContainmentType::Disjoint; }
         if (s.center.x > b.max.x - s.radius || s.center.y > b.max.y - s.radius || s.center.z > b.max.z - s.radius ||
             b.min.x + s.radius > s.center.x || b.min.y + s.radius > s.center.y || b.min.z + s.radius > s.center.z ||
@@ -322,7 +322,7 @@ export namespace draconic::core
     }
     [[nodiscard]] inline BoundingSphere BoundingSphereFromFrustum(const BoundingFrustum& f) noexcept
     {
-        return BoundingSphere::FromPoints(Span<const Vector3>{ f.corners, BoundingFrustum::kCornerCount });
+        return BoundingSphere::FromPoints(Span<const Float3>{ f.corners, BoundingFrustum::kCornerCount });
     }
 
     // Ray intersections (bool + out distance; false = no hit). Faithful to Sedulous's float? results.
@@ -338,7 +338,7 @@ export namespace draconic::core
     [[nodiscard]] inline bool Intersects(const Ray& ray, const BoundingSphere& sphere, f32& outT) noexcept
     {
         const f32  r2 = sphere.radius * sphere.radius;
-        const Vector3 offset = sphere.center - ray.position;
+        const Float3 offset = sphere.center - ray.position;
         const f32  offLen2 = LengthSquared(offset);
         if (offLen2 < r2) { outT = 0.0f; return true; }
         const f32 toCenter = Dot(ray.direction, offset);
@@ -369,7 +369,7 @@ export namespace draconic::core
         f32 mx = -kFloatMax, mn = kFloatMax;
         for (i32 i = 0; i < BoundingFrustum::kPlaneCount; ++i)
         {
-            const Vector3 n = f.planes[i].normal;
+            const Float3 n = f.planes[i].normal;
             const f32  dirDotN = Dot(ray.direction, n);
             const f32  posDotN = Dot(ray.position, n) + f.planes[i].d;
             if (bounds_detail::ApproxNonZero(dirDotN))
@@ -399,7 +399,7 @@ export namespace draconic::core
     // sphere contains box (corner test, then closest-point distance)
     [[nodiscard]] inline ContainmentType Contains(const BoundingSphere& s, const AABB& box) noexcept
     {
-        Vector3 c[8]; GetCorners(box, c);
+        Float3 c[8]; GetCorners(box, c);
         bool inside = true;
         for (i32 i = 0; i < 8; ++i) { if (s.Contains(c[i]) == ContainmentType::Disjoint) { inside = false; break; } }
         if (inside) { return ContainmentType::Contains; }

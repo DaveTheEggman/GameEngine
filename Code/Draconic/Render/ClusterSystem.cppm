@@ -270,8 +270,8 @@ private:
         u32 gridX = 0, gridY = 0, sliceCount = 0, tileSize = 0;
         f32 nearZ = 0.0f, farZ = 0.0f, logScale = 0.0f, logBias = 0.0f;
         u32 lightCount = 0, lightOffset = 0; f32 pad0 = 0.0f, pad1 = 0.0f;
-        Matrix4 viewMatrix;
-        Matrix4 invProjection;
+        Float4x4 viewMatrix;
+        Float4x4 invProjection;
     };
 
     static constexpr u32 kTileSize   = 16;

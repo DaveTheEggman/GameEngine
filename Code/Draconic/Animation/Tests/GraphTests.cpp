@@ -185,7 +185,7 @@ TEST_CASE("graph: BlendTree2D entries + positions + duration")
 {
     BlendTree2D tree;
     tree.AddEntry(0.0f, 0.0f, nullptr);
-    tree.AddEntry(Vector2{ 1, 0 }, nullptr);
+    tree.AddEntry(Float2{ 1, 0 }, nullptr);
     tree.AddEntry(-1.0f, 2.5f, nullptr);
     CHECK(tree.Entries().Size() == 3);
     CHECK(tree.Entries()[1].position.x == 1.0f);
@@ -222,11 +222,11 @@ TEST_CASE("graph: player transitions states on a bool parameter")
 
     // Two clips so states have non-zero duration (the player advances normalized time by dt/duration).
     AnimationClip idleClip{ u8"idle", 1.0f, true };
-    idleClip.GetOrCreatePositionTrack(0)->AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
-    idleClip.GetOrCreatePositionTrack(0)->AddKeyframe(1.0f, Vector3{ 0, 0, 0 });
+    idleClip.GetOrCreatePositionTrack(0)->AddKeyframe(0.0f, Float3{ 0, 0, 0 });
+    idleClip.GetOrCreatePositionTrack(0)->AddKeyframe(1.0f, Float3{ 0, 0, 0 });
     AnimationClip walkClip{ u8"walk", 1.0f, true };
-    walkClip.GetOrCreatePositionTrack(0)->AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
-    walkClip.GetOrCreatePositionTrack(0)->AddKeyframe(1.0f, Vector3{ 0, 0, 0 });
+    walkClip.GetOrCreatePositionTrack(0)->AddKeyframe(0.0f, Float3{ 0, 0, 0 });
+    walkClip.GetOrCreatePositionTrack(0)->AddKeyframe(1.0f, Float3{ 0, 0, 0 });
 
     AnimationGraph graph;
     const i32 pMoving = graph.AddParameter(u8"Moving", AnimationParameterType::Bool);
@@ -250,6 +250,6 @@ TEST_CASE("graph: player transitions states on a bool parameter")
     player.SetBool(pMoving, true);
     player.Update(0.016f);
     CHECK(player.GetCurrentStateIndex() == 1);    // transitioned to Walk
-    Span<const Matrix4> skin = player.GetSkinningMatrices();
+    Span<const Float4x4> skin = player.GetSkinningMatrices();
     CHECK(skin.Size() == 1);
 }

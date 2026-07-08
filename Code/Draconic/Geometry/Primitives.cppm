@@ -25,10 +25,10 @@ public:
         RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
         const f32 hw = width * 0.5f, hh = height * 0.5f;
         const u32 white = 0xFFFFFFFFu;
-        mesh->vertices.PushBack(StaticMeshVertex{ Vector3{ -hw, -hh, 0 }, Vector3{ 0, 0, 1 }, Vector2{ 0, 1 }, white, Vector3{ 1, 0, 0 } });
-        mesh->vertices.PushBack(StaticMeshVertex{ Vector3{  hw, -hh, 0 }, Vector3{ 0, 0, 1 }, Vector2{ 1, 1 }, white, Vector3{ 1, 0, 0 } });
-        mesh->vertices.PushBack(StaticMeshVertex{ Vector3{  hw,  hh, 0 }, Vector3{ 0, 0, 1 }, Vector2{ 1, 0 }, white, Vector3{ 1, 0, 0 } });
-        mesh->vertices.PushBack(StaticMeshVertex{ Vector3{ -hw,  hh, 0 }, Vector3{ 0, 0, 1 }, Vector2{ 0, 0 }, white, Vector3{ 1, 0, 0 } });
+        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ -hw, -hh, 0 }, Float3{ 0, 0, 1 }, Float2{ 0, 1 }, white, Float3{ 1, 0, 0 } });
+        mesh->vertices.PushBack(StaticMeshVertex{ Float3{  hw, -hh, 0 }, Float3{ 0, 0, 1 }, Float2{ 1, 1 }, white, Float3{ 1, 0, 0 } });
+        mesh->vertices.PushBack(StaticMeshVertex{ Float3{  hw,  hh, 0 }, Float3{ 0, 0, 1 }, Float2{ 1, 0 }, white, Float3{ 1, 0, 0 } });
+        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ -hw,  hh, 0 }, Float3{ 0, 0, 1 }, Float2{ 0, 0 }, white, Float3{ 1, 0, 0 } });
         const u32 quad[6] = { 0, 1, 2, 0, 2, 3 };
         mesh->indices.Resize(6);
         for (u32 i : quad) { mesh->indices.Add(i); }
@@ -42,12 +42,12 @@ public:
         const f32 h = size * 0.5f;
         mesh->indices.Resize(36);   // 6 faces x 2 triangles x 3 indices
         // 6 faces: (origin corner, edge-u, edge-v, normal)
-        AddFace(*mesh, Vector3{ -h, -h,  h }, Vector3{ 1, 0, 0 }, Vector3{ 0, 1, 0 }, Vector3{ 0, 0, 1 }, size);   // +Z
-        AddFace(*mesh, Vector3{  h, -h, -h }, Vector3{ -1, 0, 0 }, Vector3{ 0, 1, 0 }, Vector3{ 0, 0, -1 }, size);  // -Z
-        AddFace(*mesh, Vector3{  h, -h,  h }, Vector3{ 0, 0, -1 }, Vector3{ 0, 1, 0 }, Vector3{ 1, 0, 0 }, size);   // +X
-        AddFace(*mesh, Vector3{ -h, -h, -h }, Vector3{ 0, 0, 1 }, Vector3{ 0, 1, 0 }, Vector3{ -1, 0, 0 }, size);   // -X
-        AddFace(*mesh, Vector3{ -h,  h,  h }, Vector3{ 1, 0, 0 }, Vector3{ 0, 0, -1 }, Vector3{ 0, 1, 0 }, size);   // +Y
-        AddFace(*mesh, Vector3{ -h, -h, -h }, Vector3{ 1, 0, 0 }, Vector3{ 0, 0, 1 }, Vector3{ 0, -1, 0 }, size);   // -Y
+        AddFace(*mesh, Float3{ -h, -h,  h }, Float3{ 1, 0, 0 }, Float3{ 0, 1, 0 }, Float3{ 0, 0, 1 }, size);   // +Z
+        AddFace(*mesh, Float3{  h, -h, -h }, Float3{ -1, 0, 0 }, Float3{ 0, 1, 0 }, Float3{ 0, 0, -1 }, size);  // -Z
+        AddFace(*mesh, Float3{  h, -h,  h }, Float3{ 0, 0, -1 }, Float3{ 0, 1, 0 }, Float3{ 1, 0, 0 }, size);   // +X
+        AddFace(*mesh, Float3{ -h, -h, -h }, Float3{ 0, 0, 1 }, Float3{ 0, 1, 0 }, Float3{ -1, 0, 0 }, size);   // -X
+        AddFace(*mesh, Float3{ -h,  h,  h }, Float3{ 1, 0, 0 }, Float3{ 0, 0, -1 }, Float3{ 0, 1, 0 }, size);   // +Y
+        AddFace(*mesh, Float3{ -h, -h, -h }, Float3{ 1, 0, 0 }, Float3{ 0, 0, 1 }, Float3{ 0, -1, 0 }, size);   // -Y
         Finish(*mesh);
         return mesh;
     }
@@ -62,7 +62,7 @@ public:
                 const f32 u = static_cast<f32>(x) / static_cast<f32>(xs);
                 const f32 v = static_cast<f32>(z) / static_cast<f32>(zs);
                 mesh->vertices.PushBack(StaticMeshVertex{
-                    Vector3{ (u - 0.5f) * width, 0.0f, (v - 0.5f) * depth }, Vector3{ 0, 1, 0 }, Vector2{ u, v }, white, Vector3{ 1, 0, 0 } });
+                    Float3{ (u - 0.5f) * width, 0.0f, (v - 0.5f) * depth }, Float3{ 0, 1, 0 }, Float2{ u, v }, white, Float3{ 1, 0, 0 } });
             }
         }
         mesh->indices.Resize(xs * zs * 6);
@@ -90,8 +90,8 @@ public:
             for (u32 s = 0; s <= seg; ++s) {
                 const f32 u = static_cast<f32>(s) / static_cast<f32>(seg);
                 const f32 theta = u * 2.0f * kPi;
-                const Vector3 n{ Cos(theta) * sinPhi, cosPhi, Sin(theta) * sinPhi };
-                mesh->vertices.PushBack(StaticMeshVertex{ n * radius, n, Vector2{ u, v }, white, Vector3{ 1, 0, 0 } });
+                const Float3 n{ Cos(theta) * sinPhi, cosPhi, Sin(theta) * sinPhi };
+                mesh->vertices.PushBack(StaticMeshVertex{ n * radius, n, Float2{ u, v }, white, Float3{ 1, 0, 0 } });
             }
         }
         mesh->indices.Resize(seg * rng * 6);
@@ -114,14 +114,14 @@ private:
     // Adds a quad face (4 verts, 2 tris) anchored at `origin`, spanning `size` along
     // unit edges `eu`/`ev`, with face normal `n`. The caller pre-sizes the index
     // buffer; indices append through its cursor.
-    static void AddFace(StaticMesh& mesh, Vector3 origin, Vector3 eu, Vector3 ev, Vector3 n, f32 size) {
+    static void AddFace(StaticMesh& mesh, Float3 origin, Float3 eu, Float3 ev, Float3 n, f32 size) {
         const u32 base = mesh.VertexCount();
         const u32 white = 0xFFFFFFFFu;
-        const Vector3 u = eu * size, v = ev * size;
-        mesh.vertices.PushBack(StaticMeshVertex{ origin,             n, Vector2{ 0, 1 }, white, Vector3{ 1, 0, 0 } });
-        mesh.vertices.PushBack(StaticMeshVertex{ origin + u,         n, Vector2{ 1, 1 }, white, Vector3{ 1, 0, 0 } });
-        mesh.vertices.PushBack(StaticMeshVertex{ origin + u + v,     n, Vector2{ 1, 0 }, white, Vector3{ 1, 0, 0 } });
-        mesh.vertices.PushBack(StaticMeshVertex{ origin + v,         n, Vector2{ 0, 0 }, white, Vector3{ 1, 0, 0 } });
+        const Float3 u = eu * size, v = ev * size;
+        mesh.vertices.PushBack(StaticMeshVertex{ origin,             n, Float2{ 0, 1 }, white, Float3{ 1, 0, 0 } });
+        mesh.vertices.PushBack(StaticMeshVertex{ origin + u,         n, Float2{ 1, 1 }, white, Float3{ 1, 0, 0 } });
+        mesh.vertices.PushBack(StaticMeshVertex{ origin + u + v,     n, Float2{ 1, 0 }, white, Float3{ 1, 0, 0 } });
+        mesh.vertices.PushBack(StaticMeshVertex{ origin + v,         n, Float2{ 0, 0 }, white, Float3{ 1, 0, 0 } });
         mesh.indices.AddTriangle(base, base + 1, base + 2);
         mesh.indices.AddTriangle(base, base + 2, base + 3);
     }

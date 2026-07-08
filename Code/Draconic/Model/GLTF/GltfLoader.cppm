@@ -173,7 +173,7 @@ private:
             if (mat->has_pbr_metallic_roughness) {
                 cgltf_pbr_metallic_roughness* pbr = &mat->pbr_metallic_roughness;
 
-                material->baseColorFactor = Vector4(
+                material->baseColorFactor = Float4(
                     pbr->base_color_factor[0],
                     pbr->base_color_factor[1],
                     pbr->base_color_factor[2],
@@ -207,7 +207,7 @@ private:
             }
 
             // Emissive.
-            material->emissiveFactor = Vector3(
+            material->emissiveFactor = Float3(
                 mat->emissive_factor[0],
                 mat->emissive_factor[1],
                 mat->emissive_factor[2]
@@ -453,15 +453,15 @@ private:
 
         i32 stride = 0;
         i32 positionOffset = stride;
-        stride += static_cast<i32>(sizeof(Vector3));
+        stride += static_cast<i32>(sizeof(Float3));
         mesh->addVertexElement(VertexElement(VertexSemantic::Position, VertexElementFormat::Float3, positionOffset));
 
         i32 normalOffset = stride;
-        stride += static_cast<i32>(sizeof(Vector3));
+        stride += static_cast<i32>(sizeof(Float3));
         mesh->addVertexElement(VertexElement(VertexSemantic::Normal, VertexElementFormat::Float3, normalOffset));
 
         i32 texCoordOffset = stride;
-        stride += static_cast<i32>(sizeof(Vector2));
+        stride += static_cast<i32>(sizeof(Float2));
         mesh->addVertexElement(VertexElement(VertexSemantic::TexCoord, VertexElementFormat::Float2, texCoordOffset));
 
         i32 colorOffset = stride;
@@ -469,7 +469,7 @@ private:
         mesh->addVertexElement(VertexElement(VertexSemantic::Color, VertexElementFormat::Byte4, colorOffset));
 
         i32 tangentOffset = stride;
-        stride += static_cast<i32>(sizeof(Vector3));
+        stride += static_cast<i32>(sizeof(Float3));
         mesh->addVertexElement(VertexElement(VertexSemantic::Tangent, VertexElementFormat::Float3, tangentOffset));
 
         i32 jointsOffset = 0;
@@ -480,7 +480,7 @@ private:
             mesh->addVertexElement(VertexElement(VertexSemantic::Joints, VertexElementFormat::UShort4, jointsOffset));
 
             weightsOffset = stride;
-            stride += static_cast<i32>(sizeof(Vector4));
+            stride += static_cast<i32>(sizeof(Float4));
             mesh->addVertexElement(VertexElement(VertexSemantic::Weights, VertexElementFormat::Float4, weightsOffset));
         }
 
@@ -571,22 +571,22 @@ private:
                 // Position.
                 float pos[3] = {};
                 cgltf_accessor_read_float(positionAccessor, static_cast<cgltf_size>(v), pos, 3);
-                *reinterpret_cast<Vector3*>(vertex + positionOffset) = Vector3(pos[0], pos[1], pos[2]);
+                *reinterpret_cast<Float3*>(vertex + positionOffset) = Float3(pos[0], pos[1], pos[2]);
 
                 // Normal.
                 if (normalAccessor) {
                     float normal[3] = {};
                     cgltf_accessor_read_float(normalAccessor, static_cast<cgltf_size>(v), normal, 3);
-                    *reinterpret_cast<Vector3*>(vertex + normalOffset) = Vector3(normal[0], normal[1], normal[2]);
+                    *reinterpret_cast<Float3*>(vertex + normalOffset) = Float3(normal[0], normal[1], normal[2]);
                 } else {
-                    *reinterpret_cast<Vector3*>(vertex + normalOffset) = Vector3(0, 1, 0);
+                    *reinterpret_cast<Float3*>(vertex + normalOffset) = Float3(0, 1, 0);
                 }
 
                 // TexCoord.
                 if (texCoordAccessor) {
                     float uv[2] = {};
                     cgltf_accessor_read_float(texCoordAccessor, static_cast<cgltf_size>(v), uv, 2);
-                    *reinterpret_cast<Vector2*>(vertex + texCoordOffset) = Vector2(uv[0], uv[1]);
+                    *reinterpret_cast<Float2*>(vertex + texCoordOffset) = Float2(uv[0], uv[1]);
                 }
 
                 // Color.
@@ -610,9 +610,9 @@ private:
                 if (tangentAccessor) {
                     float tangent[4] = {};
                     cgltf_accessor_read_float(tangentAccessor, static_cast<cgltf_size>(v), tangent, 4);
-                    *reinterpret_cast<Vector3*>(vertex + tangentOffset) = Vector3(tangent[0], tangent[1], tangent[2]);
+                    *reinterpret_cast<Float3*>(vertex + tangentOffset) = Float3(tangent[0], tangent[1], tangent[2]);
                 } else {
-                    *reinterpret_cast<Vector3*>(vertex + tangentOffset) = Vector3(1, 0, 0);
+                    *reinterpret_cast<Float3*>(vertex + tangentOffset) = Float3(1, 0, 0);
                 }
 
                 // Skinning data.
@@ -627,7 +627,7 @@ private:
 
                     float weights[4] = {};
                     cgltf_accessor_read_float(weightsAccessor, static_cast<cgltf_size>(v), weights, 4);
-                    *reinterpret_cast<Vector4*>(vertex + weightsOffset) = Vector4(weights[0], weights[1], weights[2], weights[3]);
+                    *reinterpret_cast<Float4*>(vertex + weightsOffset) = Float4(weights[0], weights[1], weights[2], weights[3]);
                 }
             }
 
@@ -697,7 +697,7 @@ private:
 
             // Translation.
             if (node->has_translation)
-                bone->translation = Vector3(node->translation[0], node->translation[1], node->translation[2]);
+                bone->translation = Float3(node->translation[0], node->translation[1], node->translation[2]);
 
             // Rotation.
             if (node->has_rotation)
@@ -705,7 +705,7 @@ private:
 
             // Scale.
             if (node->has_scale)
-                bone->scale = Vector3(node->scale[0], node->scale[1], node->scale[2]);
+                bone->scale = Float3(node->scale[0], node->scale[1], node->scale[2]);
 
             // Matrix.
             if (node->has_matrix) {
@@ -752,7 +752,7 @@ private:
                 cgltf_node* jointNode = skinData->joints[j];
                 i32 jointIndex = static_cast<i32>(cgltf_node_index(m_data, jointNode));
 
-                Matrix4 ibm = Matrix4::Identity();
+                Float4x4 ibm = Float4x4::Identity();
                 if (skinData->inverse_bind_matrices) {
                     float mat[16] = {};
                     cgltf_accessor_read_float(skinData->inverse_bind_matrices, j, mat, 16);
@@ -815,19 +815,19 @@ private:
                             float time = 0;
                             cgltf_accessor_read_float(sampler->input, static_cast<cgltf_size>(k), &time, 1);
 
-                            Vector4 value{};
+                            Float4 value{};
                             switch (channel->path) {
                             case AnimationPath::Translation:
                             case AnimationPath::Scale: {
                                 float v3[3] = {};
                                 cgltf_accessor_read_float(sampler->output, static_cast<cgltf_size>(k), v3, 3);
-                                value = Vector4(v3[0], v3[1], v3[2], 0);
+                                value = Float4(v3[0], v3[1], v3[2], 0);
                                 break;
                             }
                             case AnimationPath::Rotation: {
                                 float v4[4] = {};
                                 cgltf_accessor_read_float(sampler->output, static_cast<cgltf_size>(k), v4, 4);
-                                value = Vector4(v4[0], v4[1], v4[2], v4[3]);
+                                value = Float4(v4[0], v4[1], v4[2], v4[3]);
                                 break;
                             }
                             case AnimationPath::Weights: {

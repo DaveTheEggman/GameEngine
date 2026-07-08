@@ -101,8 +101,8 @@ TEST_CASE("clip: ComputeDuration from latest keyframe")
 {
     AnimationClip clip{ u8"Test" };
     AnimationClip::Vec3Track* pos = clip.GetOrCreatePositionTrack(0);
-    pos->AddKeyframe(0.0f, Vector3{ 0, 0, 0 });
-    pos->AddKeyframe(1.25f, Vector3{ 1, 0, 0 });
+    pos->AddKeyframe(0.0f, Float3{ 0, 0, 0 });
+    pos->AddKeyframe(1.25f, Float3{ 1, 0, 0 });
     clip.ComputeDuration();
     CHECK(NearlyEqual(clip.duration, 1.25f));
     // GetOrCreate returns the SAME track for the same bone.

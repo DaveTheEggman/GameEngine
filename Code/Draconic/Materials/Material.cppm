@@ -83,10 +83,10 @@ public:
     }
 
     void SetDefaultFloat(StringView n, f32 v)        { WriteUniform(n, &v, sizeof(v)); }
-    void SetDefaultFloat2(StringView n, Vector2 v)      { WriteUniform(n, &v, sizeof(v)); }
-    void SetDefaultFloat3(StringView n, Vector3 v)      { WriteUniform(n, &v, sizeof(v)); }
-    void SetDefaultFloat4(StringView n, Vector4 v)      { WriteUniform(n, &v, sizeof(v)); }
-    void SetDefaultColor(StringView n, Vector4 c)       { SetDefaultFloat4(n, c); }
+    void SetDefaultFloat2(StringView n, Float2 v)      { WriteUniform(n, &v, sizeof(v)); }
+    void SetDefaultFloat3(StringView n, Float3 v)      { WriteUniform(n, &v, sizeof(v)); }
+    void SetDefaultFloat4(StringView n, Float4 v)      { WriteUniform(n, &v, sizeof(v)); }
+    void SetDefaultColor(StringView n, Float4 c)       { SetDefaultFloat4(n, c); }
 
     void SetDefaultTexture(StringView n, rhi::TextureView* tex) {
         const isize i = GetPropertyIndex(n);

@@ -69,7 +69,7 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
         // author a material in code, then capture it into a MaterialSource referencing the shader
         RefPtr<Material> authored = MaterialBuilder(u8"litMat")
             .Shader(u8"lit")
-            .Color(u8"tint", Vector4{ 0.25f, 0.5f, 0.75f, 1.0f })
+            .Color(u8"tint", Float4{ 0.25f, 0.5f, 0.75f, 1.0f })
             .Float(u8"roughness", 0.4f)
             .Texture(u8"albedoMap")
             .Build();

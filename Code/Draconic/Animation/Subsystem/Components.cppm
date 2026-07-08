@@ -69,8 +69,8 @@ public:
             }
             a.player->speed = a.speed;
             a.player->Update(deltaTime);
-            const Span<const Matrix4> mats = a.player->GetSkinningMatrices();
-            const Span<const Matrix4> prev = a.player->GetPrevSkinningMatrices();
+            const Span<const Float4x4> mats = a.player->GetSkinningMatrices();
+            const Span<const Float4x4> prev = a.player->GetPrevSkinningMatrices();
             const auto feed = [&](scene::EntityHandle e) {
                 if (render::MeshComponent* mc = meshes->Get(e)) {
                     mc->boneMatrices     = mats.Data();
@@ -126,8 +126,8 @@ public:
             }
             if (!a.active) { return; }
             a.player->Update(deltaTime);
-            const Span<const Matrix4> mats = a.player->GetSkinningMatrices();
-            const Span<const Matrix4> prev = a.player->GetPrevSkinningMatrices();
+            const Span<const Float4x4> mats = a.player->GetSkinningMatrices();
+            const Span<const Float4x4> prev = a.player->GetPrevSkinningMatrices();
             const auto feed = [&](scene::EntityHandle e) {
                 if (render::MeshComponent* mc = meshes->Get(e)) {
                     mc->boneMatrices     = mats.Data();
@@ -160,8 +160,8 @@ struct InstancedSkinning {
                                                      // character = one set per skinned mesh); empty => own entity
 
     // Manager-owned per-frame state (not authored).
-    Array<Matrix4>          posePool;              // poseCount * boneCount skinning matrices, recomputed each frame
-    Array<Matrix4>          prevPosePool;          // LAST frame's palettes (per-bone motion vectors); ping-ponged, not recomputed
+    Array<Float4x4>          posePool;              // poseCount * boneCount skinning matrices, recomputed each frame
+    Array<Float4x4>          prevPosePool;          // LAST frame's palettes (per-bone motion vectors); ping-ponged, not recomputed
     Array<BoneTransform>    scratch;               // boneCount scratch for SampleClip
     f32                        time      = 0.0f;      // shared clock (wrapped to clip duration)
     u32                        boneCount = 0;
@@ -187,9 +187,9 @@ public:
             const usize poolSize = static_cast<usize>(s.poseCount) * boneCount;
 
             // Ping-pong: last frame's pool becomes this frame's PREV (per-bone motion vectors) - no re-sampling.
-            { Array<Matrix4> tmp = static_cast<Array<Matrix4>&&>(s.posePool);
-              s.posePool = static_cast<Array<Matrix4>&&>(s.prevPosePool);
-              s.prevPosePool = static_cast<Array<Matrix4>&&>(tmp); }
+            { Array<Float4x4> tmp = static_cast<Array<Float4x4>&&>(s.posePool);
+              s.posePool = static_cast<Array<Float4x4>&&>(s.prevPosePool);
+              s.prevPosePool = static_cast<Array<Float4x4>&&>(tmp); }
             s.posePool.Resize(poolSize);
             s.scratch.Resize(boneCount);
 
@@ -205,12 +205,12 @@ public:
                 SampleClip(*s.clip, *s.skeleton, p, Span<BoneTransform>{ s.scratch.Data(), s.scratch.Size() });
                 s.skeleton->ComputeSkinningMatrices(
                     Span<const BoneTransform>{ s.scratch.Data(), s.scratch.Size() },
-                    Span<Matrix4>{ s.posePool.Data() + static_cast<usize>(m) * boneCount, boneCount });
+                    Span<Float4x4>{ s.posePool.Data() + static_cast<usize>(m) * boneCount, boneCount });
             }
             // First frame (or pose-count change): no prev yet -> prev = current (zero motion).
             if (s.prevPosePool.Size() != poolSize) {
                 s.prevPosePool.Resize(poolSize);
-                if (poolSize > 0) { MemCopy(s.prevPosePool.Data(), s.posePool.Data(), poolSize * sizeof(Matrix4)); }
+                if (poolSize > 0) { MemCopy(s.prevPosePool.Data(), s.posePool.Data(), poolSize * sizeof(Float4x4)); }
             }
 
             const auto feed = [&](scene::EntityHandle e) {

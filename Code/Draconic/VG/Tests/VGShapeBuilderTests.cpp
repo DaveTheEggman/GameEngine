@@ -36,27 +36,27 @@ TEST_CASE("shapebuilder: rounded rect per-corner radii")
 TEST_CASE("shapebuilder: circle is 4 cubics")
 {
     PathBuilder builder;
-    ShapeBuilder::BuildCircle(Vector2{50, 50}, 25, builder);
+    ShapeBuilder::BuildCircle(Float2{50, 50}, 25, builder);
     CHECK(CountCommand(builder.ToPath(), PathCommand::CubicTo) == 4);
 }
 
 TEST_CASE("shapebuilder: hexagon has 5 LineTo")
 {
     PathBuilder builder;
-    ShapeBuilder::BuildRegularPolygon(Vector2{50, 50}, 25, 6, builder);
+    ShapeBuilder::BuildRegularPolygon(Float2{50, 50}, 25, 6, builder);
     CHECK(CountCommand(builder.ToPath(), PathCommand::LineTo) == 5);
 }
 
 TEST_CASE("shapebuilder: star correct point count")
 {
     PathBuilder builder;
-    ShapeBuilder::BuildStar(Vector2{50, 50}, 30, 15, 5, builder);
+    ShapeBuilder::BuildStar(Float2{50, 50}, 30, 15, 5, builder);
     CHECK(CountCommand(builder.ToPath(), PathCommand::LineTo) == 9);
 }
 
 TEST_CASE("shapebuilder: ellipse is 4 cubics")
 {
     PathBuilder builder;
-    ShapeBuilder::BuildEllipse(Vector2{50, 50}, 30, 20, builder);
+    ShapeBuilder::BuildEllipse(Float2{50, 50}, 30, 20, builder);
     CHECK(CountCommand(builder.ToPath(), PathCommand::CubicTo) == 4);
 }

@@ -30,7 +30,7 @@ export namespace draconic::vg
     {
     public:
         /// Signed area of a polygon. Positive = CCW, negative = CW.
-        [[nodiscard]] static f32 PolygonArea(Span<const Vector2> contour)
+        [[nodiscard]] static f32 PolygonArea(Span<const Float2> contour)
         {
             f32 area = 0.0f;
             const i32 n = static_cast<i32>(contour.Size());
@@ -44,7 +44,7 @@ export namespace draconic::vg
         }
 
         /// Check if a point is inside a triangle using barycentric sign tests.
-        [[nodiscard]] static bool PointInTriangle(Vector2 p, Vector2 a, Vector2 b, Vector2 c)
+        [[nodiscard]] static bool PointInTriangle(Float2 p, Float2 a, Float2 b, Float2 c)
         {
             const f32 d1 = Sign(p, a, b);
             const f32 d2 = Sign(p, b, c);
@@ -56,14 +56,14 @@ export namespace draconic::vg
         }
 
         /// Whether the angle at p1 is convex given CCW winding.
-        [[nodiscard]] static bool IsConvex(Vector2 p0, Vector2 p1, Vector2 p2)
+        [[nodiscard]] static bool IsConvex(Float2 p0, Float2 p1, Float2 p2)
         {
             return Cross(p1 - p0, p2 - p0) > 0.0f;
         }
 
         /// Triangulate a simple polygon using ear-clipping. Indices are appended
         /// using baseIndex as the vertex offset.
-        static void Triangulate(Span<const Vector2> contour, FillRule /*fillRule*/, Array<u32>& indices, u32 baseIndex = 0)
+        static void Triangulate(Span<const Float2> contour, FillRule /*fillRule*/, Array<u32>& indices, u32 baseIndex = 0)
         {
             const i32 n = static_cast<i32>(contour.Size());
             if (n < 3)
@@ -135,9 +135,9 @@ export namespace draconic::vg
                 const i32 vCurr = idxList[static_cast<usize>(iCurr)];
                 const i32 vNext = idxList[static_cast<usize>(iNext)];
 
-                const Vector2 pPrev = contour[static_cast<usize>(vPrev)];
-                const Vector2 pCurr = contour[static_cast<usize>(vCurr)];
-                const Vector2 pNext = contour[static_cast<usize>(vNext)];
+                const Float2 pPrev = contour[static_cast<usize>(vPrev)];
+                const Float2 pCurr = contour[static_cast<usize>(vCurr)];
+                const Float2 pNext = contour[static_cast<usize>(vNext)];
 
                 if (IsEarTip(pPrev, pCurr, pNext, contour, idxList, iCurr))
                 {
@@ -161,8 +161,8 @@ export namespace draconic::vg
         }
 
         /// Triangulate a polygon with holes (bridges each hole into the outer contour).
-        static void TriangulateWithHoles(Span<const Vector2> outer, Span<const Span<const Vector2>> holes, FillRule fillRule,
-                                         Array<u32>& indices, Array<Vector2>& mergedVertices)
+        static void TriangulateWithHoles(Span<const Float2> outer, Span<const Span<const Float2>> holes, FillRule fillRule,
+                                         Array<u32>& indices, Array<Float2>& mergedVertices)
         {
             if (outer.Size() < 3)
                 return;
@@ -172,11 +172,11 @@ export namespace draconic::vg
                 const u32 baseIndex = static_cast<u32>(mergedVertices.Size());
                 for (usize p = 0; p < outer.Size(); ++p)
                     mergedVertices.PushBack(outer[p]);
-                Triangulate(Span<const Vector2>(mergedVertices.Data() + baseIndex, outer.Size()), fillRule, indices, baseIndex);
+                Triangulate(Span<const Float2>(mergedVertices.Data() + baseIndex, outer.Size()), fillRule, indices, baseIndex);
                 return;
             }
 
-            Array<Vector2> merged;
+            Array<Float2> merged;
             for (usize p = 0; p < outer.Size(); ++p)
                 merged.PushBack(outer[p]);
 
@@ -203,18 +203,18 @@ export namespace draconic::vg
             const u32 baseIndex = static_cast<u32>(mergedVertices.Size());
             for (usize p = 0; p < merged.Size(); ++p)
                 mergedVertices.PushBack(merged[p]);
-            Triangulate(Span<const Vector2>(mergedVertices.Data() + baseIndex, merged.Size()), fillRule, indices, baseIndex);
+            Triangulate(Span<const Float2>(mergedVertices.Data() + baseIndex, merged.Size()), fillRule, indices, baseIndex);
         }
 
     private:
-        [[nodiscard]] static f32 Sign(Vector2 p1, Vector2 p2, Vector2 p3)
+        [[nodiscard]] static f32 Sign(Float2 p1, Float2 p2, Float2 p3)
         {
             return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
         }
 
-        [[nodiscard]] static f32 Cross(Vector2 a, Vector2 b) { return a.x * b.y - a.y * b.x; }
+        [[nodiscard]] static f32 Cross(Float2 a, Float2 b) { return a.x * b.y - a.y * b.x; }
 
-        [[nodiscard]] static f32 MaxX(Span<const Vector2> pts)
+        [[nodiscard]] static f32 MaxX(Span<const Float2> pts)
         {
             f32 m = -3.4028235e38f;
             for (usize i = 0; i < pts.Size(); ++i)
@@ -222,7 +222,7 @@ export namespace draconic::vg
             return m;
         }
 
-        [[nodiscard]] static bool IsConvexPolygon(Span<const Vector2> contour)
+        [[nodiscard]] static bool IsConvexPolygon(Span<const Float2> contour)
         {
             const i32 n = static_cast<i32>(contour.Size());
             if (n < 3) return false;
@@ -232,9 +232,9 @@ export namespace draconic::vg
 
             for (i32 i = 0; i < n; ++i)
             {
-                const Vector2 p0 = contour[static_cast<usize>(i)];
-                const Vector2 p1 = contour[static_cast<usize>((i + 1) % n)];
-                const Vector2 p2 = contour[static_cast<usize>((i + 2) % n)];
+                const Float2 p0 = contour[static_cast<usize>(i)];
+                const Float2 p1 = contour[static_cast<usize>((i + 1) % n)];
+                const Float2 p2 = contour[static_cast<usize>((i + 2) % n)];
                 const f32 cross = Cross(p1 - p0, p2 - p1);
 
                 if (cross > 0.0001f) gotPositive = true;
@@ -245,7 +245,7 @@ export namespace draconic::vg
             return true;
         }
 
-        [[nodiscard]] static bool IsEarTip(Vector2 pPrev, Vector2 pCurr, Vector2 pNext, Span<const Vector2> contour,
+        [[nodiscard]] static bool IsEarTip(Float2 pPrev, Float2 pCurr, Float2 pNext, Span<const Float2> contour,
                                            const Array<i32>& idxList, i32 currIdx)
         {
             // Must be convex (CCW winding).
@@ -262,7 +262,7 @@ export namespace draconic::vg
                 if (i == (currIdx + 1) % count)
                     continue;
 
-                const Vector2 p = contour[static_cast<usize>(idxList[static_cast<usize>(i)])];
+                const Float2 p = contour[static_cast<usize>(idxList[static_cast<usize>(i)])];
 
                 // Skip if the point is one of the triangle vertices (duplicate points).
                 if ((p.x == pPrev.x && p.y == pPrev.y) || (p.x == pCurr.x && p.y == pCurr.y) || (p.x == pNext.x && p.y == pNext.y))
@@ -274,7 +274,7 @@ export namespace draconic::vg
             return true;
         }
 
-        static void MergeHole(Array<Vector2>& outer, Span<const Vector2> hole)
+        static void MergeHole(Array<Float2>& outer, Span<const Float2> hole)
         {
             if (hole.Size() == 0)
                 return;
@@ -284,7 +284,7 @@ export namespace draconic::vg
                 if (hole[i].x > hole[rightmostIdx].x)
                     rightmostIdx = i;
 
-            const Vector2 holePoint = hole[rightmostIdx];
+            const Float2 holePoint = hole[rightmostIdx];
 
             usize bestOuterIdx = 0;
             f32 bestDist = 3.4028235e38f;
@@ -299,17 +299,17 @@ export namespace draconic::vg
             }
 
             const usize insertPos = bestOuterIdx + 1;
-            const Vector2 bridgePoint = outer[bestOuterIdx];
+            const Float2 bridgePoint = outer[bestOuterIdx];
 
             // Build the bridged hole vertex run: hole (from rightmost, wrapping) + closing
             // hole point + bridge back to the outer vertex.
-            Array<Vector2> holeVerts;
+            Array<Float2> holeVerts;
             for (usize i = 0; i <= hole.Size(); ++i)
                 holeVerts.PushBack(hole[(rightmostIdx + i) % hole.Size()]);
             holeVerts.PushBack(bridgePoint);
 
             // Insert holeVerts into outer at insertPos (rebuild - Array has no range insert).
-            Array<Vector2> rebuilt;
+            Array<Float2> rebuilt;
             for (usize i = 0; i < insertPos; ++i)
                 rebuilt.PushBack(outer[i]);
             for (usize i = 0; i < holeVerts.Size(); ++i)
@@ -345,7 +345,7 @@ export namespace draconic::vg
                 if (pointCount < 3)
                     continue;
 
-                const Span<const Vector2> points(subPath.points.Data(), pointCount);
+                const Span<const Float2> points(subPath.points.Data(), pointCount);
 
                 if (antiAlias)
                 {
@@ -390,7 +390,7 @@ export namespace draconic::vg
                 if (pointCount < 3)
                     continue;
 
-                const Span<const Vector2> points(subPath.points.Data(), pointCount);
+                const Span<const Float2> points(subPath.points.Data(), pointCount);
 
                 if (antiAlias)
                 {
@@ -410,7 +410,7 @@ export namespace draconic::vg
         static constexpr f32 FringeWidth = 0.75f;
 
         /// Compute per-vertex averaged outward normals (miter-like, clamped).
-        static void ComputeFringeNormals(Span<const Vector2> points, Array<Vector2>& normals)
+        static void ComputeFringeNormals(Span<const Float2> points, Array<Float2>& normals)
         {
             const i32 n = static_cast<i32>(points.Size());
             normals.Resize(static_cast<usize>(n));
@@ -423,18 +423,18 @@ export namespace draconic::vg
                 const i32 prev = (i + n - 1) % n;
                 const i32 next = (i + 1) % n;
 
-                Vector2 e0 = points[static_cast<usize>(i)] - points[static_cast<usize>(prev)];
-                Vector2 e1 = points[static_cast<usize>(next)] - points[static_cast<usize>(i)];
+                Float2 e0 = points[static_cast<usize>(i)] - points[static_cast<usize>(prev)];
+                Float2 e1 = points[static_cast<usize>(next)] - points[static_cast<usize>(i)];
                 const f32 len0 = Length(e0);
                 const f32 len1 = Length(e1);
                 if (len0 > 0.0001f) e0 = e0 / len0;
                 if (len1 > 0.0001f) e1 = e1 / len1;
 
                 // Outward normals (perpendicular to edge, direction based on winding).
-                const Vector2 n0 = Vector2{ e0.y, -e0.x } * sign;
-                const Vector2 n1 = Vector2{ e1.y, -e1.x } * sign;
+                const Float2 n0 = Float2{ e0.y, -e0.x } * sign;
+                const Float2 n1 = Float2{ e1.y, -e1.x } * sign;
 
-                Vector2 avg = (n0 + n1) * 0.5f;
+                Float2 avg = (n0 + n1) * 0.5f;
                 const f32 avgLen = Length(avg);
                 if (avgLen > 0.0001f)
                 {
@@ -454,14 +454,14 @@ export namespace draconic::vg
         }
 
         /// Emit the inner-fill triangulation + the inner/outer fringe quad strip.
-        static void EmitFringeRing(Span<const Vector2> points, FillRule fillRule, const Array<Vector2>& normals,
+        static void EmitFringeRing(Span<const Float2> points, FillRule fillRule, const Array<Float2>& normals,
                                    const Array<Color>& innerColors, const Array<Color>& outerColors,
                                    Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const i32 n = static_cast<i32>(points.Size());
 
             const u32 innerBaseIdx = static_cast<u32>(vertices.Size());
-            Array<Vector2> innerPoints;
+            Array<Float2> innerPoints;
             innerPoints.Resize(static_cast<usize>(n));
             for (i32 i = 0; i < n; ++i)
             {
@@ -469,12 +469,12 @@ export namespace draconic::vg
                 vertices.PushBack(VGVertex::Solid(innerPoints[static_cast<usize>(i)], innerColors[static_cast<usize>(i)], 1.0f));
             }
 
-            Triangulator::Triangulate(Span<const Vector2>(innerPoints.Data(), static_cast<usize>(n)), fillRule, indices, innerBaseIdx);
+            Triangulator::Triangulate(Span<const Float2>(innerPoints.Data(), static_cast<usize>(n)), fillRule, indices, innerBaseIdx);
 
             const u32 outerBaseIdx = static_cast<u32>(vertices.Size());
             for (i32 i = 0; i < n; ++i)
             {
-                const Vector2 outerPt = points[static_cast<usize>(i)] + normals[static_cast<usize>(i)] * (FringeWidth * 0.5f);
+                const Float2 outerPt = points[static_cast<usize>(i)] + normals[static_cast<usize>(i)] * (FringeWidth * 0.5f);
                 vertices.PushBack(VGVertex::Solid(outerPt, outerColors[static_cast<usize>(i)], 0.0f));
             }
 
@@ -492,11 +492,11 @@ export namespace draconic::vg
             }
         }
 
-        static void TessellateWithAA(Span<const Vector2> points, FillRule fillRule, Color color,
+        static void TessellateWithAA(Span<const Float2> points, FillRule fillRule, Color color,
                                      Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const usize n = points.Size();
-            Array<Vector2> normals;
+            Array<Float2> normals;
             ComputeFringeNormals(points, normals);
 
             const Color transColor{ color.r, color.g, color.b, 0.0f };
@@ -509,11 +509,11 @@ export namespace draconic::vg
             EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices, indices);
         }
 
-        static void TessellateWithAAFill(Span<const Vector2> points, FillRule fillRule, const IVGFill& fill, Rectangle bounds,
+        static void TessellateWithAAFill(Span<const Float2> points, FillRule fillRule, const IVGFill& fill, Rectangle bounds,
                                          Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const usize n = points.Size();
-            Array<Vector2> normals;
+            Array<Float2> normals;
             ComputeFringeNormals(points, normals);
 
             Array<Color> innerColors;
@@ -536,7 +536,7 @@ export namespace draconic::vg
     {
     public:
         /// Tessellate a stroked polyline.
-        static void Tessellate(Span<const Vector2> points, bool closed, StrokeStyle style, Span<const f32> dashPattern,
+        static void Tessellate(Span<const Float2> points, bool closed, StrokeStyle style, Span<const f32> dashPattern,
                                bool antiAlias, Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             if (points.Size() < 2)
@@ -545,13 +545,13 @@ export namespace draconic::vg
             // Apply dashing if a pattern is provided.
             if (dashPattern.Size() >= 2)
             {
-                Array<Array<Vector2>> dashSegments;
+                Array<Array<Float2>> dashSegments;
                 DashGenerator::GenerateDashes(points, closed, dashPattern, style.dashOffset, dashSegments);
                 for (usize d = 0; d < dashSegments.Size(); ++d)
                 {
-                    const Array<Vector2>& seg = dashSegments[d];
+                    const Array<Float2>& seg = dashSegments[d];
                     if (seg.Size() >= 2)
-                        TessellateSegment(Span<const Vector2>(seg.Data(), seg.Size()), false, style, antiAlias, color, vertices, indices);
+                        TessellateSegment(Span<const Float2>(seg.Data(), seg.Size()), false, style, antiAlias, color, vertices, indices);
                 }
                 return;
             }
@@ -560,7 +560,7 @@ export namespace draconic::vg
         }
 
     private:
-        static void TessellateSegment(Span<const Vector2> points, bool closed, StrokeStyle style,
+        static void TessellateSegment(Span<const Float2> points, bool closed, StrokeStyle style,
                                       bool antiAlias, Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const i32 n = static_cast<i32>(points.Size());
@@ -572,32 +572,32 @@ export namespace draconic::vg
 
             // Pre-compute edge directions, normals, and lengths.
             const i32 edgeCount = closed ? n : n - 1;
-            Array<Vector2> edgeDirs; edgeDirs.Resize(static_cast<usize>(edgeCount));
-            Array<Vector2> edgeNormals; edgeNormals.Resize(static_cast<usize>(edgeCount));
+            Array<Float2> edgeDirs; edgeDirs.Resize(static_cast<usize>(edgeCount));
+            Array<Float2> edgeNormals; edgeNormals.Resize(static_cast<usize>(edgeCount));
             Array<f32> edgeLens; edgeLens.Resize(static_cast<usize>(edgeCount));
             for (i32 i = 0; i < edgeCount; ++i)
             {
-                const Vector2 p0 = points[static_cast<usize>(i)];
-                const Vector2 p1 = points[static_cast<usize>((i + 1) % n)];
-                Vector2 dir = p1 - p0;
+                const Float2 p0 = points[static_cast<usize>(i)];
+                const Float2 p1 = points[static_cast<usize>((i + 1) % n)];
+                Float2 dir = p1 - p0;
                 const f32 len = Length(dir);
                 edgeLens[static_cast<usize>(i)] = len;
                 if (len > 0.0001f)
                 {
                     dir = dir / len;
                     edgeDirs[static_cast<usize>(i)] = dir;
-                    edgeNormals[static_cast<usize>(i)] = Vector2{ -dir.y, dir.x };
+                    edgeNormals[static_cast<usize>(i)] = Float2{ -dir.y, dir.x };
                 }
                 else
                 {
-                    edgeDirs[static_cast<usize>(i)] = Vector2{ 0.0f, 0.0f };
-                    edgeNormals[static_cast<usize>(i)] = Vector2{ 0.0f, 1.0f };
+                    edgeDirs[static_cast<usize>(i)] = Float2{ 0.0f, 0.0f };
+                    edgeNormals[static_cast<usize>(i)] = Float2{ 0.0f, 1.0f };
                 }
             }
 
             // Per-vertex miter-scaled normals + unit normals (for fringe).
-            Array<Vector2> vertNormals; vertNormals.Resize(static_cast<usize>(n));
-            Array<Vector2> unitNormals; unitNormals.Resize(static_cast<usize>(n));
+            Array<Float2> vertNormals; vertNormals.Resize(static_cast<usize>(n));
+            Array<Float2> unitNormals; unitNormals.Resize(static_cast<usize>(n));
             for (i32 i = 0; i < n; ++i)
             {
                 if (closed)
@@ -654,9 +654,9 @@ export namespace draconic::vg
                 const u32 outerLeftBase = static_cast<u32>(vertices.Size());
                 for (i32 i = 0; i < n; ++i)
                 {
-                    const Vector2 p = points[static_cast<usize>(i)];
-                    const Vector2 bodyOffset = vertNormals[static_cast<usize>(i)] * halfWidth;
-                    const Vector2 fringeOffset = unitNormals[static_cast<usize>(i)] * fringeWidth;
+                    const Float2 p = points[static_cast<usize>(i)];
+                    const Float2 bodyOffset = vertNormals[static_cast<usize>(i)] * halfWidth;
+                    const Float2 fringeOffset = unitNormals[static_cast<usize>(i)] * fringeWidth;
                     vertices.PushBack(VGVertex::Solid(p + bodyOffset + fringeOffset, transColor, 0.0f));
                 }
 
@@ -664,8 +664,8 @@ export namespace draconic::vg
                 const u32 strokeLeftBase = static_cast<u32>(vertices.Size());
                 for (i32 i = 0; i < n; ++i)
                 {
-                    const Vector2 p = points[static_cast<usize>(i)];
-                    const Vector2 offset = vertNormals[static_cast<usize>(i)] * halfWidth;
+                    const Float2 p = points[static_cast<usize>(i)];
+                    const Float2 offset = vertNormals[static_cast<usize>(i)] * halfWidth;
                     vertices.PushBack(VGVertex::Solid(p + offset, color, 1.0f));
                 }
 
@@ -673,8 +673,8 @@ export namespace draconic::vg
                 const u32 strokeRightBase = static_cast<u32>(vertices.Size());
                 for (i32 i = 0; i < n; ++i)
                 {
-                    const Vector2 p = points[static_cast<usize>(i)];
-                    const Vector2 offset = vertNormals[static_cast<usize>(i)] * halfWidth;
+                    const Float2 p = points[static_cast<usize>(i)];
+                    const Float2 offset = vertNormals[static_cast<usize>(i)] * halfWidth;
                     vertices.PushBack(VGVertex::Solid(p - offset, color, 1.0f));
                 }
 
@@ -682,9 +682,9 @@ export namespace draconic::vg
                 const u32 outerRightBase = static_cast<u32>(vertices.Size());
                 for (i32 i = 0; i < n; ++i)
                 {
-                    const Vector2 p = points[static_cast<usize>(i)];
-                    const Vector2 bodyOffset = vertNormals[static_cast<usize>(i)] * halfWidth;
-                    const Vector2 fringeOffset = unitNormals[static_cast<usize>(i)] * fringeWidth;
+                    const Float2 p = points[static_cast<usize>(i)];
+                    const Float2 bodyOffset = vertNormals[static_cast<usize>(i)] * halfWidth;
+                    const Float2 fringeOffset = unitNormals[static_cast<usize>(i)] * fringeWidth;
                     vertices.PushBack(VGVertex::Solid(p - bodyOffset - fringeOffset, transColor, 0.0f));
                 }
 
@@ -710,8 +710,8 @@ export namespace draconic::vg
                 const u32 strokeBase = static_cast<u32>(vertices.Size());
                 for (i32 i = 0; i < n; ++i)
                 {
-                    const Vector2 p = points[static_cast<usize>(i)];
-                    const Vector2 offset = vertNormals[static_cast<usize>(i)] * halfWidth;
+                    const Float2 p = points[static_cast<usize>(i)];
+                    const Float2 offset = vertNormals[static_cast<usize>(i)] * halfWidth;
                     vertices.PushBack(VGVertex::Solid(p + offset, color));
                     vertices.PushBack(VGVertex::Solid(p - offset, color));
                 }
@@ -746,7 +746,7 @@ export namespace draconic::vg
             {
                 // Start cap.
                 {
-                    Vector2 dir = points[1] - points[0];
+                    Float2 dir = points[1] - points[0];
                     const f32 len = Length(dir);
                     if (len > 0.0001f)
                     {
@@ -756,7 +756,7 @@ export namespace draconic::vg
                 }
                 // End cap.
                 {
-                    Vector2 dir = points[static_cast<usize>(n - 1)] - points[static_cast<usize>(n - 2)];
+                    Float2 dir = points[static_cast<usize>(n - 1)] - points[static_cast<usize>(n - 2)];
                     const f32 len = Length(dir);
                     if (len > 0.0001f)
                     {
@@ -768,10 +768,10 @@ export namespace draconic::vg
         }
 
         /// Compute miter-scaled and unit normals for a join vertex.
-        static void ComputeJoinNormal(Vector2 prevNormal, Vector2 nextNormal, StrokeStyle style, f32 halfWidth, f32 minEdgeLen,
-                                      Vector2& miterNormal, Vector2& unitNormal)
+        static void ComputeJoinNormal(Float2 prevNormal, Float2 nextNormal, StrokeStyle style, f32 halfWidth, f32 minEdgeLen,
+                                      Float2& miterNormal, Float2& unitNormal)
         {
-            Vector2 avg = (prevNormal + nextNormal) * 0.5f;
+            Float2 avg = (prevNormal + nextNormal) * 0.5f;
             const f32 len = Length(avg);
             if (len < 0.0001f)
             {
@@ -813,7 +813,7 @@ export namespace draconic::vg
             unitNormal = prevNormal;
         }
 
-        static void AddJoin(Vector2 point, Vector2 prevNormal, Vector2 nextNormal, f32 halfWidth, VGLineJoin joinType,
+        static void AddJoin(Float2 point, Float2 prevNormal, Float2 nextNormal, f32 halfWidth, VGLineJoin joinType,
                             Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             const f32 cross = prevNormal.x * nextNormal.y - prevNormal.y * nextNormal.x;
@@ -877,16 +877,16 @@ export namespace draconic::vg
             }
         }
 
-        static void AddCap(Vector2 point, Vector2 direction, Vector2 normal, f32 halfWidth, VGLineCap capType,
+        static void AddCap(Float2 point, Float2 direction, Float2 normal, f32 halfWidth, VGLineCap capType,
                            Color color, Array<VGVertex>& vertices, Array<u32>& indices)
         {
             if (capType == VGLineCap::Square)
             {
                 const u32 baseIdx = static_cast<u32>(vertices.Size());
-                const Vector2 p0 = point - normal * halfWidth;
-                const Vector2 p1 = point + normal * halfWidth;
-                const Vector2 p2 = point + direction * halfWidth + normal * halfWidth;
-                const Vector2 p3 = point + direction * halfWidth - normal * halfWidth;
+                const Float2 p0 = point - normal * halfWidth;
+                const Float2 p1 = point + normal * halfWidth;
+                const Float2 p2 = point + direction * halfWidth + normal * halfWidth;
+                const Float2 p3 = point + direction * halfWidth - normal * halfWidth;
 
                 vertices.PushBack(VGVertex::Solid(p0, color));
                 vertices.PushBack(VGVertex::Solid(p1, color));

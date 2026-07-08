@@ -95,7 +95,7 @@ TEST_CASE("vg.context: DrawImage registers the texture and switches command")
     image::OwnedImageData tex(1, 1, image::PixelFormat::RGBA8, Span<const u8>(px, 4));
 
     ctx.FillRect(Rectangle{ 0, 0, 5, 5 }, Color::Red); // solid command (tex 0)
-    ctx.DrawImage(&tex, Vector2{ 0, 0 });              // textured command (tex 1)
+    ctx.DrawImage(&tex, Float2{ 0, 0 });              // textured command (tex 1)
 
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.textures.Size() == 2u);

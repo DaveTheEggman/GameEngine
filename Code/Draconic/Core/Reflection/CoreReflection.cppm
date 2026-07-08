@@ -8,7 +8,7 @@
 // GlobalTypeRegistry and namespace-level math constants in the
 // GlobalConstantRegistry.
 //
-// Matrices (Matrix3/Matrix4) expose their f32[N][N] storage through the container
+// Matrices (Float3x3/Float4x4) expose their f32[N][N] storage through the container
 // facility (flat, row-major) since a C array can't be a property; their ops are
 // reflected as methods.
 
@@ -30,14 +30,14 @@ import :variant;
 import :logger;
 import :iserializer;
 import :system;
-import :vector2;
-import :vector3;
-import :vector4;
+import :float2;
+import :float3;
+import :float4;
 import :color;
 import :quaternion;
 import :transform;
-import :matrix3;
-import :matrix4;
+import :float3x3;
+import :float4x4;
 import :aabb;
 import :plane;
 import :rectangle;
@@ -67,36 +67,36 @@ namespace draconic::core
         const_cast<TypeInfo&>(TypeOf<MatT>()).container = &info;
     }
 
-    DRACONIC_REFLECT_VALUE(Vector2, "draconic::core")
+    DRACONIC_REFLECT_VALUE(Float2, "draconic::core")
     {
-        builder.Property<&Vector2::x>("x").Property<&Vector2::y>("y")
-               .Constant("Zero", Vector2::Zero).Constant("One", Vector2::One)
-               .Constant("UnitX", Vector2::UnitX).Constant("UnitY", Vector2::UnitY)
+        builder.Property<&Float2::x>("x").Property<&Float2::y>("y")
+               .Constant("Zero", Float2::Zero).Constant("One", Float2::One)
+               .Constant("UnitX", Float2::UnitX).Constant("UnitY", Float2::UnitY)
                .Constructor().Constructor<f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Vector3, "draconic::core")
+    DRACONIC_REFLECT_VALUE(Float3, "draconic::core")
     {
-        builder.Property<&Vector3::x>("x").Property<&Vector3::y>("y").Property<&Vector3::z>("z")
-               .Constant("Zero", Vector3::Zero).Constant("One", Vector3::One)
-               .Constant("UnitX", Vector3::UnitX).Constant("UnitY", Vector3::UnitY)
-               .Constant("UnitZ", Vector3::UnitZ)
+        builder.Property<&Float3::x>("x").Property<&Float3::y>("y").Property<&Float3::z>("z")
+               .Constant("Zero", Float3::Zero).Constant("One", Float3::One)
+               .Constant("UnitX", Float3::UnitX).Constant("UnitY", Float3::UnitY)
+               .Constant("UnitZ", Float3::UnitZ)
                // Overloaded free functions, disambiguated by an explicit cast.
-               .Method<static_cast<f32 (*)(Vector3, Vector3)>(&Dot)>("Dot")
-               .Method<static_cast<f32 (*)(Vector3)>(&Length)>("Length")
-               .Method<static_cast<Vector3 (*)(Vector3)>(&Normalized)>("Normalized")
+               .Method<static_cast<f32 (*)(Float3, Float3)>(&Dot)>("Dot")
+               .Method<static_cast<f32 (*)(Float3)>(&Length)>("Length")
+               .Method<static_cast<Float3 (*)(Float3)>(&Normalized)>("Normalized")
                // Two same-named overloads, resolved by parameter type at lookup.
-               .Method<static_cast<Vector3 (*)(Vector3, Vector3)>(&operator*)>("Mul")
-               .Method<static_cast<Vector3 (*)(Vector3, f32)>(&operator*)>("Mul")
+               .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator*)>("Mul")
+               .Method<static_cast<Float3 (*)(Float3, f32)>(&operator*)>("Mul")
                .Constructor().Constructor<f32, f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Vector4, "draconic::core")
+    DRACONIC_REFLECT_VALUE(Float4, "draconic::core")
     {
-        builder.Property<&Vector4::x>("x").Property<&Vector4::y>("y")
-               .Property<&Vector4::z>("z").Property<&Vector4::w>("w")
-               .Constant("Zero", Vector4::Zero).Constant("One", Vector4::One)
-               .Method<&Vector4::XYZ>("XYZ")
+        builder.Property<&Float4::x>("x").Property<&Float4::y>("y")
+               .Property<&Float4::z>("z").Property<&Float4::w>("w")
+               .Constant("Zero", Float4::Zero).Constant("One", Float4::One)
+               .Method<&Float4::XYZ>("XYZ")
                .Constructor().Constructor<f32, f32, f32, f32>();
     }
 
@@ -131,36 +131,36 @@ namespace draconic::core
 
     // Matrices: no properties (element access is via the container facility,
     // registered separately); reflect the key static/free operations.
-    DRACONIC_REFLECT_VALUE(Matrix4, "draconic::core")
+    DRACONIC_REFLECT_VALUE(Float4x4, "draconic::core")
     {
-        builder.Method<&Matrix4::Identity>("Identity")
-               .Method<static_cast<Matrix4 (*)(const Matrix4&, const Matrix4&)>(&operator*)>("Mul")
-               .Method<static_cast<f32 (*)(const Matrix4&)>(&Determinant)>("Determinant")
-               .Method<static_cast<Matrix4 (*)(const Matrix4&)>(&Transpose)>("Transpose")
-               .Method<static_cast<Matrix4 (*)(const Matrix4&)>(&Inverse)>("Inverse");
+        builder.Method<&Float4x4::Identity>("Identity")
+               .Method<static_cast<Float4x4 (*)(const Float4x4&, const Float4x4&)>(&operator*)>("Mul")
+               .Method<static_cast<f32 (*)(const Float4x4&)>(&Determinant)>("Determinant")
+               .Method<static_cast<Float4x4 (*)(const Float4x4&)>(&Transpose)>("Transpose")
+               .Method<static_cast<Float4x4 (*)(const Float4x4&)>(&Inverse)>("Inverse");
     }
 
-    DRACONIC_REFLECT_VALUE(Matrix3, "draconic::core")
+    DRACONIC_REFLECT_VALUE(Float3x3, "draconic::core")
     {
-        builder.Method<&Matrix3::Identity>("Identity")
-               .Method<static_cast<Matrix3 (*)(const Matrix3&, const Matrix3&)>(&operator*)>("Mul")
-               .Method<static_cast<f32 (*)(const Matrix3&)>(&Determinant)>("Determinant")
-               .Method<static_cast<Matrix3 (*)(const Matrix3&)>(&Transpose)>("Transpose")
-               .Method<static_cast<Matrix3 (*)(const Matrix3&)>(&Inverse)>("Inverse");
+        builder.Method<&Float3x3::Identity>("Identity")
+               .Method<static_cast<Float3x3 (*)(const Float3x3&, const Float3x3&)>(&operator*)>("Mul")
+               .Method<static_cast<f32 (*)(const Float3x3&)>(&Determinant)>("Determinant")
+               .Method<static_cast<Float3x3 (*)(const Float3x3&)>(&Transpose)>("Transpose")
+               .Method<static_cast<Float3x3 (*)(const Float3x3&)>(&Inverse)>("Inverse");
     }
 
     DRACONIC_REFLECT_VALUE(AABB, "draconic::core")
     {
         builder.Property<&AABB::min>("min").Property<&AABB::max>("max")
                .Method<&AABB::Center>("Center").Method<&AABB::Contains>("Contains")
-               .Constructor().Constructor<Vector3, Vector3>();
+               .Constructor().Constructor<Float3, Float3>();
     }
 
     DRACONIC_REFLECT_VALUE(Plane, "draconic::core")
     {
         builder.Property<&Plane::normal>("normal").Property<&Plane::d>("d")
                .Method<&Plane::SignedDistance>("SignedDistance")
-               .Constructor().Constructor<Vector3, f32>();
+               .Constructor().Constructor<Float3, f32>();
     }
 
     DRACONIC_REFLECT_VALUE(Rectangle, "draconic::core")
@@ -224,16 +224,16 @@ export namespace draconic::core
     // and adds them to the GlobalTypeRegistry. Idempotent; call once at startup.
     void RegisterCoreTypes()
     {
-        DraconicRegisterValue_Vector2();      GlobalTypeRegistry().Register(TypeOf<Vector2>());
-        DraconicRegisterValue_Vector3();      GlobalTypeRegistry().Register(TypeOf<Vector3>());
-        DraconicRegisterValue_Vector4();      GlobalTypeRegistry().Register(TypeOf<Vector4>());
+        DraconicRegisterValue_Float2();      GlobalTypeRegistry().Register(TypeOf<Float2>());
+        DraconicRegisterValue_Float3();      GlobalTypeRegistry().Register(TypeOf<Float3>());
+        DraconicRegisterValue_Float4();      GlobalTypeRegistry().Register(TypeOf<Float4>());
         DraconicRegisterValue_Color();     GlobalTypeRegistry().Register(TypeOf<Color>());
         DraconicRegisterValue_Quaternion();      GlobalTypeRegistry().Register(TypeOf<Quaternion>());
         DraconicRegisterValue_Transform(); GlobalTypeRegistry().Register(TypeOf<Transform>());
-        DraconicRegisterValue_Matrix4();      GlobalTypeRegistry().Register(TypeOf<Matrix4>());
-        DraconicRegisterValue_Matrix3();      GlobalTypeRegistry().Register(TypeOf<Matrix3>());
-        RegisterMatrixElements<Matrix4, 4>();  // flat element access (after the patch above)
-        RegisterMatrixElements<Matrix3, 3>();
+        DraconicRegisterValue_Float4x4();      GlobalTypeRegistry().Register(TypeOf<Float4x4>());
+        DraconicRegisterValue_Float3x3();      GlobalTypeRegistry().Register(TypeOf<Float3x3>());
+        RegisterMatrixElements<Float4x4, 4>();  // flat element access (after the patch above)
+        RegisterMatrixElements<Float3x3, 3>();
         DraconicRegisterValue_AABB();      GlobalTypeRegistry().Register(TypeOf<AABB>());
         DraconicRegisterValue_Plane();     GlobalTypeRegistry().Register(TypeOf<Plane>());
         DraconicRegisterValue_Rectangle();      GlobalTypeRegistry().Register(TypeOf<Rectangle>());

@@ -55,10 +55,10 @@ export namespace draconic::render {
 }
 // TAA sub-pixel jitter for frame `index` (mod the sequence length), in clip space (matches Sedulous):
 // Halton(2,3) centered to [-0.5,0.5], scaled to a 1-texel clip offset. Add to projection (2,0)/(2,1).
-[[nodiscard]] inline Vector2 HaltonJitter(u32 index, u32 width, u32 height) {
+[[nodiscard]] inline Float2 HaltonJitter(u32 index, u32 width, u32 height) {
     const f32 x = HaltonSeq(index, 2u) - 0.5f;
     const f32 y = HaltonSeq(index, 3u) - 0.5f;
-    return Vector2{ x * 2.0f / static_cast<f32>(width  > 0 ? width  : 1u),
+    return Float2{ x * 2.0f / static_cast<f32>(width  > 0 ? width  : 1u),
                  y * 2.0f / static_cast<f32>(height > 0 ? height : 1u) };
 }
 
@@ -68,13 +68,13 @@ export namespace draconic::render {
 struct RenderRecordContext {
     const RenderView*          view        = nullptr;
     rhi::RenderCommandEncoder* pass        = nullptr;
-    Matrix4                       viewProj    = Matrix4::Identity();
-    Matrix4                       prevViewProj = Matrix4::Identity();  // last frame's view-proj (camera motion vectors)
-    Vector2                       jitter      = Vector2{ 0, 0 };       // this frame's NDC sub-pixel TAA jitter
-    Vector2                       prevJitter  = Vector2{ 0, 0 };       // last frame's jitter (unjitter the reprojection)
-    Matrix4                       viewMatrix  = Matrix4::Identity();   // for view-space depth (clustered shading)
-    Vector3                       cameraPos   = Vector3{ 0, 0, 0 };
-    Vector3                       ambient     = Vector3{ 0.03f, 0.03f, 0.03f };   // scene environment ambient
+    Float4x4                       viewProj    = Float4x4::Identity();
+    Float4x4                       prevViewProj = Float4x4::Identity();  // last frame's view-proj (camera motion vectors)
+    Float2                       jitter      = Float2{ 0, 0 };       // this frame's NDC sub-pixel TAA jitter
+    Float2                       prevJitter  = Float2{ 0, 0 };       // last frame's jitter (unjitter the reprojection)
+    Float4x4                       viewMatrix  = Float4x4::Identity();   // for view-space depth (clustered shading)
+    Float3                       cameraPos   = Float3{ 0, 0, 0 };
+    Float3                       ambient     = Float3{ 0.03f, 0.03f, 0.03f };   // scene environment ambient
     ShadowCascades             cascades    = {};                 // this view's CSM cascades (phase 5.2)
     u32                        cascadeLayerBase = 0;             // this view's first shadow-array layer
     Span<const GpuLight>       lights      = {};
@@ -325,7 +325,7 @@ public:
                      rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                      rendergraph::RGHandle colorH, rendergraph::RGHandle depth, bool clearColor, rhi::TextureFormat colorFormat,
                      rendergraph::RGHandle normalH, rendergraph::RGHandle velocityH, rendergraph::RGHandle materialH,
-                     const Matrix4& prevViewProj, Vector2 jitter, Vector2 prevJitter,
+                     const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter,
                      const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                      const IblBinding& ibl = {},
                      rhi::LoadOp depthLoad = rhi::LoadOp::Load,
@@ -375,7 +375,7 @@ public:
     void DeclareTransparent(const RenderView& view, const RendererRegistry& registry,
                             rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
                             rendergraph::RGHandle colorH, rendergraph::RGHandle depth, rhi::TextureFormat colorFormat,
-                            const Matrix4& drawViewProj, const Matrix4& prevViewProj, Vector2 jitter, Vector2 prevJitter,
+                            const Float4x4& drawViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter,
                             const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
                             const IblBinding& ibl = {}) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
@@ -403,7 +403,7 @@ private:
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
-                        const Matrix4& drawViewProj, const Matrix4& prevViewProj, Vector2 jitter, Vector2 prevJitter, bool transparentPass,
+                        const Float4x4& drawViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter, bool transparentPass,
                         const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out,
                         rhi::TextureView* sceneDepthView = nullptr, bool probesEnabled = true) {
         RenderRecordContext ctx{};
@@ -414,7 +414,7 @@ private:
         ctx.prevJitter  = prevJitter;
         ctx.viewMatrix  = view.Camera().view;
         ctx.cameraPos   = view.Camera().position;
-        ctx.ambient     = (view.Scene() != nullptr) ? view.Scene()->Ambient() : Vector3{ 0.03f, 0.03f, 0.03f };
+        ctx.ambient     = (view.Scene() != nullptr) ? view.Scene()->Ambient() : Float3{ 0.03f, 0.03f, 0.03f };
         ctx.cascades    = shadow.cascades;            // this view's CSM cascades
         ctx.cascadeLayerBase = shadow.layerBase;      // this view's first shadow-array layer
         ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
@@ -572,12 +572,12 @@ private:
 // RH LookAt produces HORIZONTALLY-MIRRORED faces vs the cube sampler; that mirror is corrected in image
 // space by a horizontal-flip blit (captured -> prefiltered), NOT in the camera - negating a camera axis
 // would flip winding and break culling. Forwards/ups match Sedulous's probe + point-shadow convention.
-[[nodiscard]] inline ViewCamera ProbeFaceCamera(Vector3 center, u32 face, f32 nearZ, f32 farZ) {
-    static const Vector3 dirs[6] = { {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1} };
-    static const Vector3 ups[6]  = { {0,1,0}, {0,1,0}, {0,0,-1}, {0,0,1}, {0,1,0}, {0,1,0} };
+[[nodiscard]] inline ViewCamera ProbeFaceCamera(Float3 center, u32 face, f32 nearZ, f32 farZ) {
+    static const Float3 dirs[6] = { {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1} };
+    static const Float3 ups[6]  = { {0,1,0}, {0,1,0}, {0,0,-1}, {0,0,1}, {0,1,0}, {0,1,0} };
     ViewCamera vc;
-    vc.view       = Matrix4::LookAtRH(center, center + dirs[face], ups[face]);
-    vc.projection = Matrix4::PerspectiveFovRH(1.57079633f, 1.0f, nearZ, farZ);   // 90° square
+    vc.view       = Float4x4::LookAtRH(center, center + dirs[face], ups[face]);
+    vc.projection = Float4x4::PerspectiveFovRH(1.57079633f, 1.0f, nearZ, farZ);   // 90° square
     vc.position   = center;
     vc.farZ       = farZ;
     return vc;
@@ -728,9 +728,9 @@ public:
     // casters whose world bounding sphere doesn't intersect the light sphere (cullCenter, cullRadius)
     // are skipped - per-light shadow-caster culling (phase 5.4).
     void RecordShadowCasters(rhi::RenderPassEncoder& rp, Span<const DrawItem> casters,
-                             const RendererRegistry& registry, const Matrix4& lightViewProj,
-                             Vector3 cullCenter = {}, f32 cullRadius = 0.0f, bool frustumCull = false,
-                             Span<const Vector4> cullBounds = {}) {
+                             const RendererRegistry& registry, const Float4x4& lightViewProj,
+                             Float3 cullCenter = {}, f32 cullRadius = 0.0f, bool frustumCull = false,
+                             Span<const Float4> cullBounds = {}) {
         RenderRecordContext ctx{};
         ctx.viewProj    = lightViewProj;
         ctx.depthFormat = (m_shadows != nullptr) ? m_shadows->Format() : rhi::TextureFormat::Depth32Float;
@@ -751,8 +751,8 @@ public:
             // Prefer the compact bounds SoA (linear, cache-friendly) over chasing it.data->worldCenter.
             if (cullBounds.Size() == casters.Size()) {
                 for (usize k = 0; k < casters.Size(); ++k) {
-                    const Vector4 b = cullBounds[k];
-                    const Vector3 c{ b.x, b.y, b.z };
+                    const Float4 b = cullBounds[k];
+                    const Float3 c{ b.x, b.y, b.z };
                     // Inline sphere-vs-frustum with early-out: reject if the sphere is fully outside any
                     // plane (outward normals). Avoids BoundingSphere construction + the enum/switch
                     // Intersects() runs per plane - this is the hot path (~448k tests/frame at 112k casters).
@@ -775,7 +775,7 @@ public:
             m_shadowCullScratch.Clear();
             for (const DrawItem& it : casters) {
                 const auto* md = static_cast<const MeshRenderData*>(it.data);
-                const Vector3  d  = md->worldCenter - cullCenter;
+                const Float3  d  = md->worldCenter - cullCenter;
                 const f32   r  = cullRadius + md->worldRadius;
                 if (Dot(d, d) <= r * r) { m_shadowCullScratch.PushBack(it); }
             }
@@ -829,7 +829,7 @@ public:
         m_shadowCasterBounds.Reserve(m_shadowCasters.Size());
         for (const DrawItem& it : m_shadowCasters) {
             const auto* md = static_cast<const MeshRenderData*>(it.data);
-            m_shadowCasterBounds.PushBack(Vector4{ md->worldCenter.x, md->worldCenter.y, md->worldCenter.z, md->worldRadius });
+            m_shadowCasterBounds.PushBack(Float4{ md->worldCenter.x, md->worldCenter.y, md->worldCenter.z, md->worldRadius });
         }
     }
 
@@ -1010,7 +1010,7 @@ public:
         // camera and renders them into its layer range (so split-screen views don't share a fit).
         rendergraph::RGHandle shadowH;
         const bool  shadowActive = hasShadow && shadowMap != nullptr;
-        const Vector3  lightDir      = (hasShadow && primary != nullptr) ? primary->Scene()->DirectionalShadowData().direction : Vector3{ 0, -1, 0 };
+        const Float3  lightDir      = (hasShadow && primary != nullptr) ? primary->Scene()->DirectionalShadowData().direction : Float3{ 0, -1, 0 };
         const u32   cascadeCount  = (m_shadows != nullptr) ? m_shadows->CascadeCount() : 4u;
         const u32   shadowRes     = (m_shadows != nullptr) ? m_shadows->Resolution() : 1024u;
 
@@ -1077,7 +1077,7 @@ public:
                 const u32 layerBase = static_cast<u32>(i) * cascadeCount;
                 RendererRegistry* reg = m_registry;
                 for (u32 c = 0; c < cascadeCount; ++c) {
-                    const Matrix4 cascadeVP = cascades.viewProj[c];
+                    const Float4x4 cascadeVP = cascades.viewProj[c];
                     const u32  layer     = layerBase + c;
                     // Casters come from the camera-INDEPENDENT m_shadowCasters (built above), not this
                     // view's culled draw list - so view-frustum culling can't drop an off-camera caster
@@ -1088,7 +1088,7 @@ public:
                         b.SetViewport(0, 0, shadowRes, shadowRes);
                         b.SetExecute([this, cascadeVP, reg](rhi::RenderPassEncoder& rp) {
                             const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
-                            const Span<const Vector4> bounds{ m_shadowCasterBounds.Data(), m_shadowCasterBounds.Size() };
+                            const Span<const Float4> bounds{ m_shadowCasterBounds.Data(), m_shadowCasterBounds.Size() };
                             RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true, bounds);
                         });
                     });
@@ -1160,12 +1160,12 @@ public:
                 rendergraph::RGSubresourceRange sub{};
                 sub.baseArrayLayer = layerBase + face; sub.arrayLayerCount = 1;
 
-                const Matrix4 faceVP = fc.ViewProjection();
+                const Float4x4 faceVP = fc.ViewProjection();
                 // Lit forward: cluster {} -> dummy cluster -> all-lights fallback (no per-face build);
                 // clear depth (no prepass); write only color slot 0 into this cube face.
                 m_pass.DeclarePass(cv, *m_registry, m_graph, m_frameIndex, /*viewIndex*/ 0u,
                                    capturedH, capDepth, /*clearColor*/ true, ReflectionProbeSystem::kCubeFormat,
-                                   capNormal, capVel, capMaterial, faceVP, Vector2{ 0, 0 }, Vector2{ 0, 0 },
+                                   capNormal, capVel, capMaterial, faceVP, Float2{ 0, 0 }, Float2{ 0, 0 },
                                    ClusterBinding{}, capShadow, capIbl, rhi::LoadOp::Clear, sub);
                 // Sky into the same face, after the forward (loads the captured depth).
                 // Distinct sky uniform slot per capture face (2..7), so the capture never shares SkyPass's
@@ -1173,9 +1173,9 @@ public:
                 // wins the shared slot and the captured sky reads a main view's camera (cross-view leak).
                 m_sky->DeclareSky(m_graph, capturedH, capVel, capDepth, m_ibl->EnvHandle(), m_ibl->EnvView(),
                                   ReflectionProbeSystem::kCubeFormat, m_pass.DepthFormat(),
-                                  Inverse(faceVP), faceVP, Vector2{ 0, 0 }, Vector2{ 0, 0 },
+                                  Inverse(faceVP), faceVP, Float2{ 0, 0 }, Float2{ 0, 0 },
                                   task.center, m_ibl->SkyIntensity(),
-                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Vector3{ 1.0f, 0.98f, 0.92f }, sunInt,
+                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Float3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   0, 0, res, res, m_frameIndex, /*viewIndex*/ 2u + face, sub);
             }
             // Bridge captured -> prefiltered mip 0 (flip blit - corrects the RH-LookAt mirror) so the forward
@@ -1251,19 +1251,19 @@ public:
             // TAA jitter: sub-pixel-offset the projection so the resolve accumulates supersamples. Applied
             // BEFORE reading the view-proj, so the prepass + forward + sky all use the SAME jittered matrix
             // (mismatched depth would break the prepass early-Z). Off when TAA is disabled.
-            const Matrix4 unjitteredVP = v->Camera().ViewProjection();   // captured BEFORE jitter (transparent draws with this, post-TAA)
-            Vector2 jitter{ 0.0f, 0.0f };
+            const Float4x4 unjitteredVP = v->Camera().ViewProjection();   // captured BEFORE jitter (transparent draws with this, post-TAA)
+            Float2 jitter{ 0.0f, 0.0f };
             if (m_taaEnabled && m_taa != nullptr) {
                 jitter = HaltonJitter(m_jitterIndex, v->Width(), v->Height());
                 v->ApplyProjectionJitter(jitter.x, jitter.y);
             }
             // Motion vectors: this view's previous-frame (jittered) view-proj + jitter (no motion on first
             // sight). Record this frame's for next frame.
-            const Matrix4 curViewProj = v->Camera().ViewProjection();   // jittered when TAA on
-            const Matrix4 prevViewProj = (viewIndex < m_prevViewProj.Size()) ? m_prevViewProj[viewIndex] : curViewProj;
+            const Float4x4 curViewProj = v->Camera().ViewProjection();   // jittered when TAA on
+            const Float4x4 prevViewProj = (viewIndex < m_prevViewProj.Size()) ? m_prevViewProj[viewIndex] : curViewProj;
             if (m_curViewProj.Size() <= viewIndex) { m_curViewProj.Resize(viewIndex + 1u, curViewProj); }
             m_curViewProj[viewIndex] = curViewProj;
-            const Vector2 prevJitter = (viewIndex < m_prevJitter.Size()) ? m_prevJitter[viewIndex] : Vector2{ 0.0f, 0.0f };
+            const Float2 prevJitter = (viewIndex < m_prevJitter.Size()) ? m_prevJitter[viewIndex] : Float2{ 0.0f, 0.0f };
             if (m_curJitter.Size() <= viewIndex) { m_curJitter.Resize(viewIndex + 1u, jitter); }
             m_curJitter[viewIndex] = jitter;
 
@@ -1288,13 +1288,13 @@ public:
                 // jittering its sampling buys ~no AA but makes it oscillate sub-pixel each frame - which TAA
                 // can only partly cancel, i.e. the wobble. Unjittered => temporally invariant sky under a
                 // static camera; the sky pass still writes a geometric motion vector so rotation reprojects.
-                const Matrix4 invVP  = Inverse(unjitteredVP);
+                const Float4x4 invVP  = Inverse(unjitteredVP);
                 // The crisp analytic sun disc is for untextured skies; textured envs carry their own sun.
                 const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
                 m_sky->DeclareSky(m_graph, colorTarget, velocityTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),
                                   colorFmt, m_pass.DepthFormat(), invVP, prevViewProj, jitter, prevJitter,
                                   v->Camera().position, m_ibl->SkyIntensity(),
-                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Vector3{ 1.0f, 0.98f, 0.92f }, sunInt,
+                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Float3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                   m_frameIndex, viewIndex);
             };
@@ -1368,8 +1368,8 @@ public:
                 // Map the tonemap's fullscreen uv to this view's sub-rect of the (full-size) HDR/bloom,
                 // so split-screen views resolve their own region (the forward renders into the sub-rect).
                 const f32 fullW = static_cast<f32>(v->Width()), fullH = static_cast<f32>(v->Height());
-                const Vector2 uvScale{ static_cast<f32>(v->ViewportWidth()) / fullW, static_cast<f32>(v->ViewportHeight()) / fullH };
-                const Vector2 uvOffset{ static_cast<f32>(v->ViewportX()) / fullW, static_cast<f32>(v->ViewportY()) / fullH };
+                const Float2 uvScale{ static_cast<f32>(v->ViewportWidth()) / fullW, static_cast<f32>(v->ViewportHeight()) / fullH };
+                const Float2 uvOffset{ static_cast<f32>(v->ViewportX()) / fullW, static_cast<f32>(v->ViewportY()) / fullH };
                 // FXAA (TAA-off fallback) runs AFTER tonemap: tonemap -> LDR intermediate, FXAA -> final.
                 // Never stacked with TAA (TAA already resolves aliasing). Off/TAA-on -> tonemap writes final.
                 const bool fxaa = m_fxaa != nullptr && m_fxaaEnabled && !m_taaEnabled;
@@ -1381,7 +1381,7 @@ public:
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo);
                 if (fxaa) {
-                    const Vector2 texel{ 1.0f / fullW, 1.0f / fullH };
+                    const Float2 texel{ 1.0f / fullW, 1.0f / fullH };
                     m_fxaa->DeclareFxaa(m_graph, tonemapOut, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                         v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                         m_frameIndex, viewIndex, texel, uvScale, uvOffset, m_fxaaSubpixel);
@@ -1418,7 +1418,7 @@ public:
         if (m_debugPass != nullptr && m_debugScreen != nullptr) {
             u32 overlayIndex = static_cast<u32>(m_views.ActiveCount());
             for (const TargetImport& ti : imported) {
-                m_debugPass->DeclareScreen(m_graph, ti.handle, Matrix4::Identity(), m_debugScreen, nullptr,
+                m_debugPass->DeclareScreen(m_graph, ti.handle, Float4x4::Identity(), m_debugScreen, nullptr,
                                            ti.fmt, 0, 0, ti.w, ti.h, m_frameIndex, overlayIndex);
                 ++overlayIndex;
             }
@@ -1484,16 +1484,16 @@ private:
     u32                     m_jitterIndex    = 0;    // Halton phase, advances once per frame (mod 8)
     // Motion vectors + TAA: last frame's view-proj + jitter per view index (this frame's collected into
     // m_curViewProj/m_curJitter, swapped in at End). Camera motion = prev vs current (jittered) view-proj.
-    Array<Matrix4>             m_prevViewProj;
-    Array<Matrix4>             m_curViewProj;
-    Array<Vector2>             m_prevJitter;
-    Array<Vector2>             m_curJitter;
+    Array<Float4x4>             m_prevViewProj;
+    Array<Float4x4>             m_curViewProj;
+    Array<Float2>             m_prevJitter;
+    Array<Float2>             m_curJitter;
     Array<ResolvedDraw>     m_prepassResolved;      // reused depth-draw buffer for the camera depth prepass
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
-    struct LocalShadowTile { Matrix4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; Vector3 cullCenter; f32 cullRadius = 0.0f; };
-    struct Sphere { Vector3 center; f32 radius = 0.0f; };   // a caster's world bounding sphere
+    struct LocalShadowTile { Float4x4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; Float3 cullCenter; f32 cullRadius = 0.0f; };
+    struct Sphere { Float3 center; f32 radius = 0.0f; };   // a caster's world bounding sphere
     Array<GpuLocalShadow>   m_localShadows;        // flat buffer in caster order (shadowIndex indexes it)
     Array<LocalShadowTile>  m_rtTiles;             // realtime atlas layer tiles (re-rendered every frame)
     Array<LocalShadowTile>  m_staticTiles;         // static atlas layer tiles (cached; re-rendered per-tile on change)
@@ -1501,7 +1501,7 @@ private:
     Array<u32>              m_staticTileDirty;     // per-static-tile refresh countdown (index-stable across frames)
     Array<Sphere>           m_animatedSpheres;     // this frame's skinned-caster world spheres (per-tile routing)
     Array<DrawItem>         m_shadowCasters;       // camera-independent scene caster list (local shadows)
-    Array<Vector4>             m_shadowCasterBounds;  // aligned to m_shadowCasters: xyz=worldCenter, w=radius (cache-friendly cascade cull)
+    Array<Float4>             m_shadowCasterBounds;  // aligned to m_shadowCasters: xyz=worldCenter, w=radius (cache-friendly cascade cull)
     Array<DrawItem>         m_shadowCullScratch;   // per-tile sphere-culled subset (reused)
     u64                     m_staticSig   = 0;     // signature of the static caster set (cache-invalidation)
     RenderViewPool          m_views;
