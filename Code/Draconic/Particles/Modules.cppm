@@ -334,16 +334,37 @@ export namespace draconic::particles
         f32     distance = 0.0f;
     };
 
-    // Bounces particles off a small set of world planes (ground + walls). Beyond Sedulous, which had no
-    // collision at all. On a hit: push to the surface, reflect the normal velocity by `bounce`, damp the
-    // tangential velocity by `friction`, and optionally age the particle by `lifetimeLoss` of its
-    // remaining life. Runs as a behavior (before integrate), so it corrects last frame's penetration.
+    // A world-space collision sphere (an analytic obstacle particles bounce off).
+    struct CollisionSphere
+    {
+        Vector3 center{ 0.0f, 0.0f, 0.0f };
+        f32     radius = 1.0f;
+    };
+
+    // A world-space axis-aligned collision box (center + half-extents).
+    struct CollisionBox
+    {
+        Vector3 center{ 0.0f, 0.0f, 0.0f };
+        Vector3 halfExtents{ 0.5f, 0.5f, 0.5f };
+    };
+
+    // Bounces particles off a small set of world planes + spheres (ground, walls, obstacles). Beyond
+    // Sedulous, which had no collision at all. On a hit: push to the surface, reflect the normal velocity
+    // by `bounce`, damp the tangential velocity by `friction`, and optionally age the particle by
+    // `lifetimeLoss` of its remaining life. Runs as a behavior (before integrate), so it corrects last
+    // frame's penetration.
     class CollisionBehavior final : public ParticleBehavior
     {
     public:
         static constexpr i32 kMaxPlanes = 4;
-        CollisionPlane planes[kMaxPlanes]{};
+        static constexpr i32 kMaxSpheres = 4;
+        static constexpr i32 kMaxBoxes = 4;
+        CollisionPlane  planes[kMaxPlanes]{};
+        CollisionSphere spheres[kMaxSpheres]{};
+        CollisionBox    boxes[kMaxBoxes]{};
         i32 planeCount = 1;          // default: the ground plane (y = 0)
+        i32 sphereCount = 0;
+        i32 boxCount = 0;
         f32 radius = 0.0f;           // particle collision radius (offsets the surface)
         f32 bounce = 0.5f;           // normal restitution (0 = stick, 1 = perfect bounce)
         f32 friction = 0.1f;         // tangential velocity damping on contact [0,1]
@@ -361,25 +382,57 @@ export namespace draconic::particles
             if (pos == nullptr || vel == nullptr) { return; }
             CPUStream<f32>* ages  = streams.Ages();
             CPUStream<f32>* lifes = streams.Lifetimes();
-            const i32 n = Min(planeCount, kMaxPlanes);
+            const i32 np = Min(planeCount, kMaxPlanes);
+            const i32 ns = Min(sphereCount, kMaxSpheres);
+            const i32 nb = Min(boxCount, kMaxBoxes);
             for (i32 i = 0; i < streams.aliveCount; ++i)
             {
-                for (i32 pl = 0; pl < n; ++pl)
+                for (i32 pl = 0; pl < np; ++pl)
                 {
                     const CollisionPlane& plane = planes[pl];
-                    const f32 d = Dot(plane.normal, (*pos)[i]) - plane.distance - radius;
-                    if (d >= 0.0f) { continue; }                     // in front of the plane: no contact
-                    (*pos)[i] -= plane.normal * d;                   // push out to the surface
-                    const f32 vn = Dot((*vel)[i], plane.normal);
-                    if (vn >= 0.0f) { continue; }                    // already moving away
-                    const Vector3 vNormal = plane.normal * vn;
-                    const Vector3 vTangent = (*vel)[i] - vNormal;
-                    (*vel)[i] = vTangent * (1.0f - friction) - vNormal * bounce;
-                    if (lifetimeLoss > 0.0f && ages != nullptr && lifes != nullptr)
-                    {
-                        (*ages)[i] += ((*lifes)[i] - (*ages)[i]) * lifetimeLoss;   // age toward death
-                    }
+                    const f32 pen = Dot(plane.normal, (*pos)[i]) - plane.distance - radius;
+                    if (pen < 0.0f) { Resolve((*pos)[i], (*vel)[i], plane.normal, pen, ages, lifes, i); }
                 }
+                for (i32 sp = 0; sp < ns; ++sp)
+                {
+                    const CollisionSphere& s = spheres[sp];
+                    const Vector3 d = (*pos)[i] - s.center;
+                    const f32 dist = Length(d);
+                    const f32 pen = dist - s.radius - radius;
+                    if (pen < 0.0f && dist > 1e-4f) { Resolve((*pos)[i], (*vel)[i], d / dist, pen, ages, lifes, i); }
+                }
+                for (i32 bx = 0; bx < nb; ++bx)
+                {
+                    const CollisionBox& b = boxes[bx];
+                    const Vector3 d = (*pos)[i] - b.center;
+                    const Vector3 e{ b.halfExtents.x + radius, b.halfExtents.y + radius, b.halfExtents.z + radius };
+                    const Vector3 ad{ Abs(d.x), Abs(d.y), Abs(d.z) };
+                    if (ad.x >= e.x || ad.y >= e.y || ad.z >= e.z) { continue; }   // outside the box
+                    // Inside: exit along the axis of least penetration.
+                    const f32 px = e.x - ad.x, py = e.y - ad.y, pz = e.z - ad.z;
+                    Vector3 normal; f32 depth;
+                    if (px <= py && px <= pz)      { normal = Vector3{ d.x < 0.0f ? -1.0f : 1.0f, 0.0f, 0.0f }; depth = px; }
+                    else if (py <= pz)             { normal = Vector3{ 0.0f, d.y < 0.0f ? -1.0f : 1.0f, 0.0f }; depth = py; }
+                    else                           { normal = Vector3{ 0.0f, 0.0f, d.z < 0.0f ? -1.0f : 1.0f }; depth = pz; }
+                    Resolve((*pos)[i], (*vel)[i], normal, -depth, ages, lifes, i);
+                }
+            }
+        }
+
+    private:
+        // Push a penetrating particle out along the contact normal and reflect its inbound velocity.
+        void Resolve(Vector3& p, Vector3& v, const Vector3& normal, f32 penetration,
+                     CPUStream<f32>* ages, CPUStream<f32>* lifes, i32 i) const noexcept
+        {
+            p -= normal * penetration;                       // push out to the surface (penetration < 0)
+            const f32 vn = Dot(v, normal);
+            if (vn >= 0.0f) { return; }                      // already moving away
+            const Vector3 vNormal = normal * vn;
+            const Vector3 vTangent = v - vNormal;
+            v = vTangent * (1.0f - friction) - vNormal * bounce;
+            if (lifetimeLoss > 0.0f && ages != nullptr && lifes != nullptr)
+            {
+                (*ages)[i] += ((*lifes)[i] - (*ages)[i]) * lifetimeLoss;   // age toward death
             }
         }
     };

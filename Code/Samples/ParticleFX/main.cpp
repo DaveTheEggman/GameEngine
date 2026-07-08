@@ -97,75 +97,106 @@ namespace
                 lc.intensity = 1.0f;
             }
 
+            const core::Vector3 obstacle = CellPos(6) + core::Vector3{ 0.0f, 1.4f, 0.0f };
+            const core::f32     obRadius = 1.4f;
             BuildFountain(m_effect);
-            BuildDebris(m_debris);
+            BuildMeshShards(m_debris);      // cell 1: opaque material (set below)
+            BuildMeshShards(m_meshGlow);    // cell 2: additive material (set below) - identical sim
             BuildEmbers(m_embers);
             BuildHaze(m_haze);
             BuildTrail(m_trail);
-            BuildCollision(m_collide);
+            BuildCollision(m_collide, obstacle, obRadius);
             BuildLocal(m_local);
-            BuildMeshGlow(m_meshGlow);
+            BuildSmoke(m_smoke);
+            BuildFire(m_fire);
+            BuildCampfire(m_campfire);
+            BuildFireworks(m_fireworks);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
-                // One system per cell of a 4x4 showcase grid (11 cells reserved for later samples).
+                // One system per cell of a 4x4 showcase grid (cells 12-15 reserved for later samples).
                 // Cell 0: billboard fountain (additive soft dots).
                 m_emitter = m_scene->CreateEntity(u8"fountain");
                 m_scene->SetLocalPosition(m_emitter, CellPos(0));
                 pmgr->Add(m_emitter).SetEffect(m_effect);   // no texture -> the renderer's soft-dot default
 
-                // Cell 1: mesh-particle debris (tumbling cubes through the instanced-mesh path).
-                m_debrisEmitter = m_scene->CreateEntity(u8"debris");
+                // Cells 1 & 2: two mesh systems side by side, IDENTICAL sim - only the material differs.
+                // Cell 1 = opaque solid shards; cell 2 = additive glow (routed to the Transparent pass).
+                m_debrisEmitter = m_scene->CreateEntity(u8"shards-solid");
                 m_scene->SetLocalPosition(m_debrisEmitter, CellPos(1));
                 px::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
                 dc.SetEffect(m_debris);
-                dc.mesh     = geometry::Primitives::Cube(1.0f);
-                dc.material = materials::CreatePBR(u8"debris", core::Vector4{ 0.75f, 0.5f, 0.28f, 1.0f }, 0.15f, 0.6f);
-                dc.meshScale = 1.0f;
+                dc.mesh      = geometry::Primitives::Cube(1.0f);
+                dc.material  = materials::CreatePBR(u8"shards-solid", core::Vector4{ 0.35f, 0.6f, 0.9f, 1.0f }, 0.1f, 0.5f);
+                dc.meshScale = 0.5f;
 
-                // Cell 2: light particles (drifting embers) - a point light per particle + a billboard glow.
-                m_emberEmitter = m_scene->CreateEntity(u8"embers");
-                m_scene->SetLocalPosition(m_emberEmitter, CellPos(2));
-                px::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
-                ec.SetEffect(m_embers);
-                ec.lightIntensity = 14.0f;
-                ec.lightRange     = 8.0f;
-
-                // Cell 3: ground haze - the soft-particle A/B showcase.
-                m_hazeEmitter = m_scene->CreateEntity(u8"haze");
-                m_scene->SetLocalPosition(m_hazeEmitter, CellPos(3) + core::Vector3{ 0.0f, 0.4f, 0.0f });
-                pmgr->Add(m_hazeEmitter).SetEffect(m_haze);
-
-                // Cell 4: trail sparks (camera-facing ribbons).
-                m_trailEmitter = m_scene->CreateEntity(u8"sparks");
-                m_scene->SetLocalPosition(m_trailEmitter, CellPos(4));
-                pmgr->Add(m_trailEmitter).SetEffect(m_trail);
-
-                // Cell 5: collision rain - spawns high, bounces off the world ground plane.
-                m_collideEmitter = m_scene->CreateEntity(u8"rain");
-                m_scene->SetLocalPosition(m_collideEmitter, CellPos(5) + core::Vector3{ 0.0f, 5.0f, 0.0f });
-                pmgr->Add(m_collideEmitter).SetEffect(m_collide);
-
-                // Cell 6: local-space puff - orbits its emitter (animated in OnUpdate); cloud follows rigidly.
-                m_localEmitter = m_scene->CreateEntity(u8"orbit");
-                m_scene->SetLocalPosition(m_localEmitter, CellPos(6));
-                pmgr->Add(m_localEmitter).SetEffect(m_local);
-
-                // Cell 7: transparent mesh particles - additive glowing shards through the mesh path.
-                m_glowEmitter = m_scene->CreateEntity(u8"shards");
-                m_scene->SetLocalPosition(m_glowEmitter, CellPos(7));
+                m_glowEmitter = m_scene->CreateEntity(u8"shards-glow");
+                m_scene->SetLocalPosition(m_glowEmitter, CellPos(2));
                 px::ParticleEffectComponent& gc = pmgr->Add(m_glowEmitter);
                 gc.SetEffect(m_meshGlow);
-                gc.mesh     = geometry::Primitives::Cube(1.0f);
+                gc.mesh      = geometry::Primitives::Cube(1.0f);
                 gc.meshScale = 0.5f;
                 {
                     // Additive PBR material -> the extractor routes these to the Transparent pass.
-                    auto glow = materials::CreatePBR(u8"glow", core::Vector4{ 0.4f, 0.8f, 1.0f, 1.0f }, 0.0f, 0.4f);
+                    auto glow = materials::CreatePBR(u8"shards-glow", core::Vector4{ 0.4f, 0.8f, 1.0f, 1.0f }, 0.0f, 0.4f);
                     glow->pipeline.blendMode = materials::BlendMode::Additive;
                     glow->pipeline.depthMode = materials::DepthMode::ReadOnly;
                     gc.material = glow;
                 }
 
-                ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);   // sync all systems to the slider
+                // Cell 3: light particles (drifting embers) - a point light per particle + a billboard glow.
+                m_emberEmitter = m_scene->CreateEntity(u8"embers");
+                m_scene->SetLocalPosition(m_emberEmitter, CellPos(3));
+                px::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
+                ec.SetEffect(m_embers);
+                ec.lightIntensity = 14.0f;
+                ec.lightRange     = 8.0f;
+
+                // Cell 4: ground haze - the soft-particle A/B showcase.
+                m_hazeEmitter = m_scene->CreateEntity(u8"haze");
+                m_scene->SetLocalPosition(m_hazeEmitter, CellPos(4) + core::Vector3{ 0.0f, 0.4f, 0.0f });
+                pmgr->Add(m_hazeEmitter).SetEffect(m_haze);
+
+                // Cell 5: trail sparks (camera-facing ribbons).
+                m_trailEmitter = m_scene->CreateEntity(u8"trail-sparks");
+                m_scene->SetLocalPosition(m_trailEmitter, CellPos(5));
+                pmgr->Add(m_trailEmitter).SetEffect(m_trail);
+
+                // Cell 6: collision rain bouncing off a rendered sphere obstacle + the world ground.
+                m_collideEmitter = m_scene->CreateEntity(u8"rain");
+                m_scene->SetLocalPosition(m_collideEmitter, CellPos(6) + core::Vector3{ 0.0f, 6.0f, 0.0f });
+                pmgr->Add(m_collideEmitter).SetEffect(m_collide);
+                if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
+                    scene::EntityHandle ob = m_scene->CreateEntity(u8"obstacle");
+                    m_scene->SetLocalPosition(ob, obstacle);
+                    render::MeshComponent& omc = meshes->Add(ob);
+                    omc.mesh = geometry::Primitives::Sphere(obRadius);
+                    omc.material = materials::CreatePBR(u8"obstacle", core::Vector4{ 0.7f, 0.7f, 0.72f, 1.0f }, 0.1f, 0.4f);
+                }
+
+                // Cell 7: local-space puff - orbits its emitter (animated in OnUpdate); cloud follows rigidly.
+                m_localEmitter = m_scene->CreateEntity(u8"orbit");
+                m_scene->SetLocalPosition(m_localEmitter, CellPos(7));
+                pmgr->Add(m_localEmitter).SetEffect(m_local);
+
+                // Cell 8: smoke. Cell 9: fire. Cell 10: campfire (fire + smoke). Cell 11: fireworks.
+                m_smokeEmitter = m_scene->CreateEntity(u8"smoke");
+                m_scene->SetLocalPosition(m_smokeEmitter, CellPos(8));
+                pmgr->Add(m_smokeEmitter).SetEffect(m_smoke);
+
+                m_fireEmitter = m_scene->CreateEntity(u8"fire");
+                m_scene->SetLocalPosition(m_fireEmitter, CellPos(9));
+                pmgr->Add(m_fireEmitter).SetEffect(m_fire);
+
+                m_campfireEmitter = m_scene->CreateEntity(u8"campfire");
+                m_scene->SetLocalPosition(m_campfireEmitter, CellPos(10));
+                pmgr->Add(m_campfireEmitter).SetEffect(m_campfire);
+
+                m_fireworksEmitter = m_scene->CreateEntity(u8"fireworks");
+                m_scene->SetLocalPosition(m_fireworksEmitter, CellPos(11));
+                pmgr->Add(m_fireworksEmitter).SetEffect(m_fireworks);
+
+                ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); ApplySoft(m_smoke);
+                ApplySoft(m_campfire);   // sync soft systems to the slider
             }
         }
 
@@ -193,7 +224,7 @@ namespace
 
                 // Orbit the local-space emitter so its (Local) cloud visibly rides along as a rigid body.
                 m_orbitTime += deltaTime;
-                const core::Vector3 c = CellPos(6);
+                const core::Vector3 c = CellPos(7);
                 m_scene->SetLocalPosition(m_localEmitter,
                     c + core::Vector3{ 2.5f * core::Cos(m_orbitTime * 1.5f), 1.5f, 2.5f * core::Sin(m_orbitTime * 1.5f) });
             }
@@ -240,31 +271,6 @@ namespace
                 px::ParticleCurveColor::FadeAlpha(core::Vector4{ 1.0f, 0.5f, 0.12f, 1.0f }, 0.35f);
             sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
                 px::ParticleCurveVector2::Linear(core::Vector2{ 0.4f, 0.4f }, core::Vector2{ 0.04f, 0.04f });
-        }
-
-        // Mesh-mode particles: tumbling cubes that arc up and fall, drawn through the instanced-mesh path.
-        static void BuildDebris(px::ParticleEffect& effect)
-        {
-            px::ParticleSystem& sys = effect.AddSystem(3000);
-            sys.name       = core::String{ u8"debris" };
-            sys.renderMode = px::ParticleRenderMode::Mesh;
-            sys.emitter.mode = px::EmissionMode::Continuous;
-            sys.emitter.spawnRate = 120.0f;
-
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.3f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.0f, 3.5f);
-            {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
-                v.baseVelocity = core::Vector3{ 0.0f, 9.0f, 0.0f };
-                v.randomness   = core::Vector3{ 5.0f, 2.0f, 5.0f };
-            }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.35f, 0.35f });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.85f, 0.85f, 0.9f, 1.0f });
-            sys.AddInitializer<px::RotationInitializer>();         // random start angle + spin speed
-            sys.AddInitializer<px::MeshOrientationInitializer>();  // random tumble axis
-
-            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.6f;
-            sys.AddBehavior<px::RotationOverLifetimeBehavior>();   // inactive curve -> advances angle by spin speed (tumble)
         }
 
         // Light-mode particles: slow warm embers drifting up; each contributes a point light so they
@@ -350,15 +356,17 @@ namespace
             sys.trail.useParticleColor = true;
         }
 
-        // Collision showcase: rain that spawns high and bounces off the world ground plane (y=0).
-        static void BuildCollision(px::ParticleEffect& effect)
+        // Collision showcase: rain that spawns high and bounces off both the world ground plane (y=0) and a
+        // rendered sphere obstacle at `obstacle` (radius `obRadius`). World-space, so the collider centre
+        // is a world position matching the drawn sphere.
+        static void BuildCollision(px::ParticleEffect& effect, core::Vector3 obstacle, core::f32 obRadius)
         {
             px::ParticleSystem& sys = effect.AddSystem(4000);
             sys.name       = core::String{ u8"rain" };
             sys.renderMode = px::ParticleRenderMode::Billboard;
             sys.blendMode  = px::ParticleBlendMode::Alpha;
             sys.emitter.mode = px::EmissionMode::Continuous;
-            sys.emitter.spawnRate = 300.0f;
+            sys.emitter.spawnRate = 500.0f;
 
             sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 3.0f, 0.1f, 3.0f });
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 4.0f);
@@ -368,12 +376,139 @@ namespace
             sys.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;
             {
                 px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
-                col.planes[0] = px::CollisionPlane{ core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // world ground
-                col.planeCount   = 1;
-                col.bounce       = 0.4f;
+                col.planes[0]  = px::CollisionPlane{ core::Vector3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // world ground
+                col.planeCount = 1;
+                col.spheres[0]  = px::CollisionSphere{ obstacle, obRadius };                       // the drawn obstacle
+                col.sphereCount = 1;
+                col.radius       = 0.06f;   // particle radius so drops sit on the surface, not in it
+                col.bounce       = 0.45f;
                 col.friction     = 0.15f;
-                col.lifetimeLoss = 0.25f;   // lose some life on each hit so splashes settle
+                col.lifetimeLoss = 0.2f;    // lose some life on each hit so splashes settle
             }
+        }
+
+        // A single fire system (billboard additive): fast rising, shrinking, colour-graded white->red.
+        static void ConfigureFire(px::ParticleSystem& sys, core::f32 scale)
+        {
+            sys.name       = core::String{ u8"fire" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 160.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.6f * scale);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.6f, 1.1f);
+            {
+                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 3.2f * scale, 0.0f };
+                v.randomness   = core::Vector3{ 0.7f, 0.6f, 0.7f };
+            }
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 1.0f * scale, 1.0f * scale });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 0.9f, 0.5f, 1.0f });
+            sys.AddBehavior<px::TurbulenceBehavior>().strength = 1.5f;   // flicker/curl
+            sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
+                px::ParticleCurveVector2::Linear(core::Vector2{ 1.0f * scale, 1.0f * scale }, core::Vector2{ 0.15f * scale, 0.15f * scale });
+            // Colour ramp: white-hot -> yellow -> orange -> red, fading out at the tip.
+            px::ParticleCurveColor ramp;
+            ramp.AddKey(0.0f, core::Vector4{ 1.0f, 0.95f, 0.7f, 1.0f });
+            ramp.AddKey(0.35f, core::Vector4{ 1.0f, 0.6f, 0.2f, 0.9f });
+            ramp.AddKey(0.7f, core::Vector4{ 0.9f, 0.2f, 0.05f, 0.5f });
+            ramp.AddKey(1.0f, core::Vector4{ 0.4f, 0.05f, 0.02f, 0.0f });
+            sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve = ramp;
+        }
+
+        // A single smoke system (billboard alpha, soft): slow rise, expanding, drifting, fading.
+        static void ConfigureSmoke(px::ParticleSystem& sys, core::f32 scale, core::f32 rise)
+        {
+            sys.name       = core::String{ u8"smoke" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Alpha;
+            sys.softParticles = true; sys.softDistance = 1.5f;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 24.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.5f * scale);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 5.0f);
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, rise, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.8f * scale, 0.8f * scale });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.16f, 0.16f, 0.18f, 0.5f });
+            sys.AddBehavior<px::TurbulenceBehavior>().strength = 0.8f;   // lazy drift
+            sys.AddBehavior<px::DragBehavior>().drag = 0.4f;
+            sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
+                px::ParticleCurveVector2::Linear(core::Vector2{ 0.8f * scale, 0.8f * scale }, core::Vector2{ 3.0f * scale, 3.0f * scale });
+            // Fade in from nothing, hold, fade out (billows appear then dissipate).
+            px::ParticleCurveFloat a;
+            a.AddKey(0.0f, 0.0f); a.AddKey(0.2f, 0.6f); a.AddKey(0.7f, 0.4f); a.AddKey(1.0f, 0.0f);
+            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = a;
+        }
+
+        static void BuildFire(px::ParticleEffect& effect)  { ConfigureFire(effect.AddSystem(2000), 1.0f); }
+        static void BuildSmoke(px::ParticleEffect& effect) { ConfigureSmoke(effect.AddSystem(1200), 1.0f, 1.6f); }
+
+        // Composite effect: fire at the base + smoke rising above it, in ONE effect (two systems) - the
+        // multi-system authoring case.
+        static void BuildCampfire(px::ParticleEffect& effect)
+        {
+            ConfigureFire(effect.AddSystem(2000), 0.7f);
+            ConfigureSmoke(effect.AddSystem(800), 0.7f, 2.2f);
+        }
+
+        // Fireworks: rockets shoot up and, on death, burst into a colour-inheriting spark shower via a
+        // sub-emitter link (OnDeath -> child system, inherit position + colour).
+        static void BuildFireworks(px::ParticleEffect& effect)
+        {
+            // System 0: rockets - launch up, short life, additive with a trail.
+            px::ParticleSystem& rocket = effect.AddSystem(64);
+            rocket.name       = core::String{ u8"rocket" };
+            rocket.renderMode = px::ParticleRenderMode::Trail;
+            rocket.blendMode  = px::ParticleBlendMode::Additive;
+            rocket.emitter.mode = px::EmissionMode::Continuous;
+            rocket.emitter.spawnRate = 3.0f;   // a few launches per second
+            rocket.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.4f);
+            rocket.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.4f);
+            {
+                px::VelocityInitializer& v = rocket.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 13.0f, 0.0f };
+                v.randomness   = core::Vector3{ 1.5f, 1.5f, 1.5f };
+            }
+            rocket.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.25f, 0.25f });
+            rocket.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 1.0f, 0.5f, 0.2f, 1.0f }, core::Vector4{ 0.4f, 0.7f, 1.0f, 1.0f });
+            rocket.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;   // arc to an apex, then die
+            rocket.trail.enabled = true; rocket.trail.maxPoints = 20; rocket.trail.lifetime = 0.4f;
+            rocket.trail.widthStart = 0.12f; rocket.trail.widthEnd = 0.0f; rocket.trail.recordInterval = 0.02f;
+
+            // System 1: sparks - spawned by rocket deaths (no self-emission); explode outward, gravity, fade.
+            px::ParticleSystem& sparks = effect.AddSystem(6000);
+            sparks.name       = core::String{ u8"sparks" };
+            sparks.renderMode = px::ParticleRenderMode::Billboard;
+            sparks.blendMode  = px::ParticleBlendMode::Additive;
+            sparks.emitter.isEmitting = false;
+            {
+                px::PositionInitializer& p = sparks.AddInitializer<px::PositionInitializer>();
+                p.shape = px::EmissionShape::Point();
+            }
+            sparks.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.9f, 1.7f);
+            {
+                px::VelocityInitializer& v = sparks.AddInitializer<px::VelocityInitializer>();
+                v.shape = px::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
+                v.shapeDirectionSpeed = 7.0f;
+                v.randomness = core::Vector3{ 1.0f, 1.0f, 1.0f };
+            }
+            sparks.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.16f, 0.16f });
+            sparks.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+            sparks.AddBehavior<px::GravityBehavior>().multiplier = 1.3f;
+            sparks.AddBehavior<px::DragBehavior>().drag = 0.6f;
+            sparks.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.15f);
+
+            px::SubEmitterLink link = px::SubEmitterLink::Default();
+            link.trigger          = px::ParticleEventType::OnDeath;
+            link.childSystemIndex = 1;
+            link.spawnCount       = 80;
+            link.probability      = 1.0f;
+            link.inheritPosition  = true;
+            link.inheritColor     = true;   // sparks take the rocket's colour (needs the SpawnAt inherit fix)
+            effect.AddSubEmitterLink(link);
         }
 
         // Local-space showcase: a tight puff that rigidly follows its orbiting emitter (see OnUpdate).
@@ -397,10 +532,10 @@ namespace
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
         }
 
-        // Transparent mesh particles: glowing additive shards that rise and tumble. The mesh path routes
-        // to the Transparent pass because the material's blend mode is Additive (mesh-particle category is
-        // derived from the material - like regular meshes + Sedulous).
-        static void BuildMeshGlow(px::ParticleEffect& effect)
+        // Shared mesh-particle config: tumbling shards that rise and spread. Used for BOTH mesh cells -
+        // identical simulation; the only difference is the component's material (opaque solid vs. additive
+        // glow, which routes to the Transparent pass). Demonstrates the mesh blend->category path.
+        static void BuildMeshShards(px::ParticleEffect& effect)
         {
             px::ParticleSystem& sys = effect.AddSystem(2000);
             sys.name       = core::String{ u8"shards" };
@@ -453,8 +588,9 @@ namespace
                 // the fade band (kept while off, so toggling restores it). Applies to all billboard systems.
                 bool changed = ImGui::Checkbox("soft particles", &m_softOn);
                 changed |= ImGui::SliderFloat("soft dist", &m_softDistance, 0.0f, 4.0f, "%.2f");
-                if (changed) { ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); }
-                ImGui::TextDisabled("WASD/RMB fly; toggle soft + watch the haze meet the floor");
+                if (changed) { ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); ApplySoft(m_smoke); ApplySoft(m_campfire); }
+                ImGui::TextDisabled("WASD/RMB fly. 4x4 grid: fountain/mesh solid/mesh glow/embers");
+                ImGui::TextDisabled("haze/trail/collision/orbit/smoke/fire/campfire/fireworks");
             }
             ImGui::End();
         }
@@ -469,6 +605,10 @@ namespace
         scene::EntityHandle   m_collideEmitter;
         scene::EntityHandle   m_localEmitter;
         scene::EntityHandle   m_glowEmitter;
+        scene::EntityHandle   m_smokeEmitter;
+        scene::EntityHandle   m_fireEmitter;
+        scene::EntityHandle   m_campfireEmitter;
+        scene::EntityHandle   m_fireworksEmitter;
         px::ParticleEffect    m_effect;
         px::ParticleEffect    m_debris;
         px::ParticleEffect    m_embers;
@@ -477,6 +617,10 @@ namespace
         px::ParticleEffect    m_collide;
         px::ParticleEffect    m_local;
         px::ParticleEffect    m_meshGlow;
+        px::ParticleEffect    m_smoke;
+        px::ParticleEffect    m_fire;
+        px::ParticleEffect    m_campfire;
+        px::ParticleEffect    m_fireworks;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
         core::f32             m_orbitTime = 0.0f;      // drives the local-space emitter orbit

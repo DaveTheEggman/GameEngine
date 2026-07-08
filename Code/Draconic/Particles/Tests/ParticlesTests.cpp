@@ -504,3 +504,33 @@ TEST_CASE("Sub-emitter SpawnAt: inherits (adds) velocity and modulates color")
     CHECK(c.y == doctest::Approx(0.0f));   // white * red
     CHECK(c.z == doctest::Approx(0.0f));
 }
+
+TEST_CASE("CollisionBehavior: sphere + box obstacles push out and reflect")
+{
+    px::ParticleEffect fx(u8"obstacles");
+    px::ParticleSystem& sys = fx.AddSystem(10);
+    sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(10.0f, 10.0f);
+    px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
+    col.planeCount = 0;
+    col.spheres[0] = px::CollisionSphere{ Vector3{ 0, 0, 0 }, 1.0f };  col.sphereCount = 1;
+    col.boxes[0]   = px::CollisionBox{ Vector3{ 5, 0, 0 }, Vector3{ 1, 1, 1 } }; col.boxCount = 1;
+    col.bounce = 1.0f; col.friction = 0.0f;
+    sys.emitter.mode = px::EmissionMode::Burst; sys.emitter.burstCount = 2;
+
+    px::ParticleEffectInstance inst(fx);
+    inst.Update(0.016f);
+    REQUIRE(sys.AliveCount() == 2);
+
+    // Particle 0: inside the sphere moving toward its centre -> pushed to the surface, velocity reversed.
+    (*sys.Streams().Positions())[0]  = Vector3{ 0.5f, 0.0f, 0.0f };
+    (*sys.Streams().Velocities())[0] = Vector3{ -1.0f, 0.0f, 0.0f };   // heading inward (toward -x)
+    // Particle 1: just inside the box's top face, falling -> popped up to the top, velocity reversed to +y.
+    (*sys.Streams().Positions())[1]  = Vector3{ 5.0f, 0.5f, 0.0f };    // box y-span [-1,1]; 0.5 nearest the +y face
+    (*sys.Streams().Velocities())[1] = Vector3{ 0.0f, -1.0f, 0.0f };
+    inst.Update(0.016f);
+
+    CHECK((*sys.Streams().Positions())[0].x >= 1.0f - 0.01f);          // out to the sphere surface (r=1)
+    CHECK((*sys.Streams().Velocities())[0].x == doctest::Approx(1.0f)); // reversed (bounce=1)
+    CHECK((*sys.Streams().Positions())[1].y >= 1.0f - 0.01f);          // popped up to the box top (y=1)
+    CHECK((*sys.Streams().Velocities())[1].y == doctest::Approx(1.0f)); // reflected off the top face
+}
