@@ -250,9 +250,11 @@ export namespace draconic::particles
         void PrepareFrame(u32 maxDraws, u32 frameIndex) override
         {
             // maxDraws is the frame's draw-ITEM count, but a particle batch is one item holding many
-            // INSTANCES. Size the instance ring by the largest instance total seen (rounded up in 8k
-            // chunks so we don't reallocate every frame while a system fills). Ramps by one frame during
-            // rapid growth, then holds. The ring never grows mid-frame (AllocateRange would fail).
+            // INSTANCES - and EVERY billboard system allocates from this one ring within a frame (the
+            // cursor only resets at EndFrame). So size by the SUM of instances across all systems in a
+            // frame (m_maxInstancesSeen, accumulated in Resolve, finalized in FinishFrame), not the largest
+            // single system - else later systems in the sorted draw list fail to allocate and vanish.
+            // Rounded up in 8k chunks; ramps one frame during growth, then holds (ring can't grow mid-frame).
             const u32 chunk = 8192u;
             const u32 want = Max(maxDraws, ((m_maxInstancesSeen + chunk - 1u) / chunk) * chunk);
             m_instanceRing.Reserve(want == 0 ? 1u : want);
@@ -262,6 +264,8 @@ export namespace draconic::particles
             m_instanceRing.BeginFrame(frameIndex);
             m_trailRing.BeginFrame(frameIndex);
             m_viewRing.BeginFrame(frameIndex);
+            m_frameInstances = 0;   // sum of instances allocated this frame (all systems/views)
+            m_frameTrailVerts = 0;
 
             // Retire scene-depth bind groups created framesInFlight+ frames ago (no longer in flight).
             ++m_frameCounter;
@@ -320,7 +324,7 @@ export namespace draconic::particles
                 }
                 if (total > 0)
                 {
-                    m_maxInstancesSeen = Max(m_maxInstancesSeen, total);   // track even if this frame's alloc fails (next frame reserves more)
+                    m_frameInstances += total;   // sum across all systems -> sizes the ring next frame
                     const render::DynamicUniformRing::Range ir = m_instanceRing.AllocateRange(total);
                     if (ir.ok)
                     {
@@ -355,7 +359,12 @@ export namespace draconic::particles
             }
         }
 
-        void FinishFrame() override { m_instanceRing.EndFrame(); m_trailRing.EndFrame(); m_viewRing.EndFrame(); }
+        void FinishFrame() override
+        {
+            m_maxInstancesSeen  = Max(m_maxInstancesSeen, m_frameInstances);     // sized to the frame SUM
+            m_maxTrailVertsSeen = Max(m_maxTrailVertsSeen, m_frameTrailVerts);
+            m_instanceRing.EndFrame(); m_trailRing.EndFrame(); m_viewRing.EndFrame();
+        }
 
     private:
         static constexpr u32 kMaxViews       = 8;
@@ -483,7 +492,7 @@ export namespace draconic::particles
         {
             if (b->vertexCount == 0 || b->vertices == nullptr) { return; }
             const u32 count = Min(b->vertexCount, kTrailMaxIndices);
-            m_maxTrailVertsSeen = Max(m_maxTrailVertsSeen, count);
+            m_frameTrailVerts += count;   // sum across all trail systems -> sizes the trail ring next frame
             const render::DynamicUniformRing::Range tr = m_trailRing.AllocateRange(count);
             if (!tr.ok) { return; }
             MemCopy(tr.ptr, b->vertices, static_cast<usize>(count) * sizeof(TrailVertex));
@@ -591,6 +600,8 @@ export namespace draconic::particles
         Pipelines                   m_trail[4];       // trail ribbon PSOs, one per blend mode
         rhi::TextureFormat          m_depthFormat = rhi::TextureFormat::Undefined;
         u32                         m_maxInstancesSeen = 0;   // sizes the instance ring (see PrepareFrame)
+        u32                         m_frameInstances = 0;     // running sum of instances this frame
+        u32                         m_frameTrailVerts = 0;    // running sum of trail verts this frame
         u32                         m_maxTrailVertsSeen = 0;  // sizes the trail vertex ring
     };
 }

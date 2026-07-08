@@ -422,7 +422,11 @@ export namespace draconic::particles
             return *m_trailScratch[m_trailUsed++];
         }
 
-        static constexpr i32 kLightParticleCap = 48;   // max point lights one Light system contributes/frame
+        // Max point lights one Light system contributes/frame. Kept well above a Light system's typical
+        // alive count so the selection stride stays 1 (every particle gets a light) - a smaller cap strides
+        // across the set and, because swap-remove reshuffles indices each frame, makes lights pop in/out.
+        // Still far under the clustered-forward budget (256/view).
+        static constexpr i32 kLightParticleCap = 200;
 
         scene::Scene* m_scene = nullptr;
         Vector3       m_cameraPos{ 0.0f, 0.0f, 0.0f };

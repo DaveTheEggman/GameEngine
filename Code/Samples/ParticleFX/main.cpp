@@ -431,7 +431,9 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 5.0f);
             sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, rise, 0.0f };
             sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.8f * scale, 0.8f * scale });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.16f, 0.16f, 0.18f, 0.5f });
+            // Light, ambient-lit grey so it reads against the dark scene (dark grey alpha over a dark floor
+            // is nearly invisible); the alpha curve does the fade-in/out.
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.55f, 0.55f, 0.6f, 0.9f });
             sys.AddBehavior<px::TurbulenceBehavior>().strength = 0.8f;   // lazy drift
             sys.AddBehavior<px::DragBehavior>().drag = 0.4f;
             sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
@@ -472,8 +474,10 @@ namespace
                 v.randomness   = core::Vector3{ 1.5f, 1.5f, 1.5f };
             }
             rocket.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.25f, 0.25f });
+            // Vivid warm hues (gold -> hot magenta) so the bursts pop against the dark sky - blues would
+            // wash out. Sparks inherit this colour via the sub-emitter link.
             rocket.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Vector4{ 1.0f, 0.5f, 0.2f, 1.0f }, core::Vector4{ 0.4f, 0.7f, 1.0f, 1.0f });
+                px::RangeColor(core::Vector4{ 1.0f, 0.85f, 0.2f, 1.0f }, core::Vector4{ 1.0f, 0.25f, 0.7f, 1.0f });
             rocket.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;   // arc to an apex, then die
             rocket.trail.enabled = true; rocket.trail.maxPoints = 20; rocket.trail.lifetime = 0.4f;
             rocket.trail.widthStart = 0.12f; rocket.trail.widthEnd = 0.0f; rocket.trail.recordInterval = 0.02f;
