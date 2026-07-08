@@ -465,7 +465,11 @@ export namespace draconic::particles
             if (!curve.IsActive()) { return; }
             CPUStream<Vector4>* col = streams.Colors();
             if (col == nullptr) { return; }
-            for (i32 i = 0; i < streams.aliveCount; ++i) { (*col)[i].w *= curve.Evaluate(streams.GetLifeRatio(i)); }
+            // SET the alpha to the curve's opacity envelope (like ColorOverLifetime sets colour). This runs
+            // every frame, so it must NOT accumulate: `w *= curve` would multiply w by a sub-1 value each
+            // frame and collapse alpha to ~0 in a fraction of a second (only masked when the curve holds at
+            // 1.0 early, e.g. FadeOut) - which made fade-IN curves like smoke's render as nothing.
+            for (i32 i = 0; i < streams.aliveCount; ++i) { (*col)[i].w = curve.Evaluate(streams.GetLifeRatio(i)); }
         }
     };
 

@@ -534,3 +534,24 @@ TEST_CASE("CollisionBehavior: sphere + box obstacles push out and reflect")
     CHECK((*sys.Streams().Positions())[1].y >= 1.0f - 0.01f);          // popped up to the box top (y=1)
     CHECK((*sys.Streams().Velocities())[1].y == doctest::Approx(1.0f)); // reflected off the top face
 }
+
+TEST_CASE("AlphaOverLifetime sets the envelope (no per-frame accumulation)")
+{
+    px::ParticleStreamContainer streams(8);
+    streams.EnsureStream(px::ParticleStreamId::Color, px::StreamElementType::Float4);
+    streams.aliveCount = 1;
+    (*streams.Colors())[0] = Vector4{ 1, 1, 1, 1 };
+    (*streams.Ages())[0] = 0.5f;
+    (*streams.Lifetimes())[0] = 1.0f;
+    Random rng(1);
+    px::ParticleUpdateContext ctx{ 0.0f, 0.016f, Vector3::Zero, &rng };
+    px::AlphaOverLifetimeBehavior a;
+    a.curve = px::ParticleCurveFloat::Linear(1.0f, 0.0f);   // curve(0.5) = 0.5
+
+    a.Update(streams, ctx);
+    const f32 first = (*streams.Colors())[0].w;
+    a.Update(streams, ctx);   // same t across frames must NOT keep multiplying (the old *= bug -> 0)
+    a.Update(streams, ctx);
+    CHECK(first == doctest::Approx(0.5f));
+    CHECK((*streams.Colors())[0].w == doctest::Approx(first));   // stable, not 0.5^3
+}

@@ -433,10 +433,11 @@ namespace
             sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 5.0f);
             sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, rise, 0.0f };
             sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 1.0f * scale, 1.0f * scale });
-            // Light, ambient-lit grey so it reads against the dark scene; the alpha curve does the fades.
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.6f, 0.6f, 0.65f, 1.0f });
+            // Near-white ambient-lit grey: light enough to read against the (grey) floor it starts over AND
+            // the dark sky it rises into. Grey-on-grey-floor was the reason earlier smoke was invisible.
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.78f, 0.78f, 0.82f, 1.0f });
             sys.AddBehavior<px::TurbulenceBehavior>().strength = 0.8f;   // lazy drift
-            sys.AddBehavior<px::DragBehavior>().drag = 0.4f;
+            sys.AddBehavior<px::DragBehavior>().drag = 0.12f;            // light drag -> the column keeps climbing off the floor
             sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
                 px::ParticleCurveVector2::Linear(core::Vector2{ 1.0f * scale, 1.0f * scale }, core::Vector2{ 3.5f * scale, 3.5f * scale });
             // Fade in from nothing, hold fairly opaque, fade out (billows appear then dissipate).
@@ -446,14 +447,14 @@ namespace
         }
 
         static void BuildFire(px::ParticleEffect& effect)  { ConfigureFire(effect.AddSystem(2000), 1.0f); }
-        static void BuildSmoke(px::ParticleEffect& effect) { ConfigureSmoke(effect.AddSystem(1200), 1.0f, 1.6f); }
+        static void BuildSmoke(px::ParticleEffect& effect) { ConfigureSmoke(effect.AddSystem(1200), 1.0f, 3.0f); }
 
         // Composite effect: fire at the base + smoke rising above it, in ONE effect (two systems) - the
         // multi-system authoring case.
         static void BuildCampfire(px::ParticleEffect& effect)
         {
             ConfigureFire(effect.AddSystem(2000), 0.7f);
-            ConfigureSmoke(effect.AddSystem(800), 0.7f, 2.2f);
+            ConfigureSmoke(effect.AddSystem(800), 0.7f, 3.5f);
         }
 
         // Fireworks: rockets shoot up and, on death, burst into a colour-inheriting spark shower via a
