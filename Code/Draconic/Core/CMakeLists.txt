@@ -32,6 +32,7 @@ target_sources(DraconicCore
             Memory/TrackingAllocator.cppm
             Memory/MemoryTag.cppm
             System/System.cppm
+            System/Time.cppm
             Containers/Span.cppm
             Containers/Array.cppm
             Containers/FixedArray.cppm

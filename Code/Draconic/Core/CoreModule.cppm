@@ -18,6 +18,7 @@ export import :ref_counted;
 export import :unique_ptr;
 export import :function;
 export import :system;
+export import :time;
 export import :span;
 export import :array;
 export import :fixed_array;

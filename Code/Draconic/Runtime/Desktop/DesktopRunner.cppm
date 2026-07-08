@@ -10,7 +10,6 @@
 // point and passed in.
 module;
 #include "Core/Prelude.h"
-#include <chrono>
 
 export module draconic.runtime.desktop;
 
@@ -30,12 +29,12 @@ export namespace draconic::runtime
     {
         ApplicationHost host;
         host.Start(app, &shell, graphics);
-        auto previous = std::chrono::steady_clock::now();
+        core::TimePoint previous = core::Clock::Now();
         while (shell.IsRunning() && host.IsRunning())
         {
             shell.ProcessEvents();
-            const auto now = std::chrono::steady_clock::now();
-            core::f32 dt = std::chrono::duration<core::f32>(now - previous).count();
+            const core::TimePoint now = core::Clock::Now();
+            core::f32 dt = (now - previous).AsSecondsF();
             previous = now;
             if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
             host.Tick(dt);

@@ -6,7 +6,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include <chrono>
 #include <cstdio>
 #include <cstring>
 
@@ -189,18 +188,15 @@ inline Status SampleApp::CreateSwapChain() {
 }
 
 inline void SampleApp::MainLoop() {
-    using clock = std::chrono::steady_clock;
-    using dur   = std::chrono::duration<f32>;
-
     m_running = true;
-    auto lastTime = clock::now();
+    TimePoint lastTime = Clock::Now();
 
     while (m_running && m_shell->IsRunning()) {
         m_shell->ProcessEvents();
 
-        const auto now = clock::now();
-        m_deltaTime = dur(now - lastTime).count();
-        lastTime   = now;
+        const TimePoint now = Clock::Now();
+        m_deltaTime = (now - lastTime).AsSecondsF();
+        lastTime    = now;
         m_totalTime += m_deltaTime;
 
         if (!m_window->IsMinimized()) {

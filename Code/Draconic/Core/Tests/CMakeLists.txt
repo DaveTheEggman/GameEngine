@@ -12,6 +12,7 @@ add_executable(DraconicCoreTests
     DebugTests.cpp
     MemoryTests.cpp
     SystemTests.cpp
+    TimeTests.cpp
     ContainersTests.cpp
     StringTests.cpp
     FormatLogTests.cpp
