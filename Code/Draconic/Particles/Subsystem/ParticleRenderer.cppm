@@ -116,6 +116,22 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0
     return c;
 }
 )";
+    // Trails: the ribbon geometry is already world-space + camera-facing (built by the extractor), so the
+    // VS just transforms it. Shares the ParticleView cbuffer (set 0) + particle texture (set 1).
+    inline constexpr const char8_t* kTrailVS = u8R"(
+#pragma pack_matrix(row_major)
+cbuffer ParticleView : register(b0, space0) { float4x4 ViewProj; float4x4 View; float4 DepthParams; };
+struct VSIn { float3 Position : POSITION; float2 UV : TEXCOORD0; float4 Color : COLOR0; };
+struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; };
+VSOut main(VSIn i) { VSOut o; o.pos = mul(float4(i.Position, 1.0), ViewProj); o.uv = i.UV; o.col = i.Color; return o; }
+)";
+    inline constexpr const char8_t* kTrailPS = u8R"(
+Texture2D    ParticleTexture : register(t0, space1);
+SamplerState ParticleSampler : register(s0, space1);
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0) : SV_Target {
+    return ParticleTexture.Sample(ParticleSampler, uv) * col;
+}
+)";
 }
 
 export namespace draconic::particles
@@ -127,6 +143,8 @@ export namespace draconic::particles
             : m_device(&device), m_shaders(&shaders), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight),
               m_instanceRing(device, framesInFlight, sizeof(ParticleBillboardInstance),
                              rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"particle.instances"),
+              m_trailRing(device, framesInFlight, sizeof(TrailVertex),
+                          rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"particle.trailverts"),
               m_viewRing(device, framesInFlight, kViewSlotSize,
                          rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"particle.view") {}
         ~ParticleRenderer() override { Shutdown(); }
@@ -206,6 +224,19 @@ export namespace draconic::particles
                     q->DestroyTransferBatch(tb);
                 }
             }
+
+            // Trails: shaders + a 2-set layout (view + texture, no depth) + a big identity index buffer so
+            // the ribbon triangle-list draws through DrawIndexed (ResolvedDraw is always indexed).
+            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Vertex,   kTrailVS);
+            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Fragment, kTrailPS);
+            rhi::BindGroupLayout* trailLayouts[] = { m_viewLayout, m_texLayout };
+            rhi::PipelineLayoutDesc tpld{}; tpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ trailLayouts, 2 };
+            if (!m_device->CreatePipelineLayout(tpld, m_trailPipelineLayout).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
+            rhi::BufferDesc tibd{};
+            tibd.size = static_cast<u64>(kTrailMaxIndices) * sizeof(u32); tibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
+            tibd.memory = rhi::MemoryLocation::CpuToGpu; tibd.label = u8"particle.trailindices";
+            if (!m_device->CreateBuffer(tibd, m_trailIndexBuffer).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
+            if (void* p = m_trailIndexBuffer->Map()) { u32* ix = static_cast<u32*>(p); for (u32 k = 0; k < kTrailMaxIndices; ++k) { ix[k] = k; } m_trailIndexBuffer->Unmap(); }
             return core::Status{};
         }
 
@@ -224,8 +255,11 @@ export namespace draconic::particles
             const u32 chunk = 8192u;
             const u32 want = Max(maxDraws, ((m_maxInstancesSeen + chunk - 1u) / chunk) * chunk);
             m_instanceRing.Reserve(want == 0 ? 1u : want);
+            const u32 twant = ((m_maxTrailVertsSeen + chunk - 1u) / chunk) * chunk;
+            m_trailRing.Reserve(twant == 0 ? 1u : twant);
             m_viewRing.Reserve(kMaxViews);
             m_instanceRing.BeginFrame(frameIndex);
+            m_trailRing.BeginFrame(frameIndex);
             m_viewRing.BeginFrame(frameIndex);
 
             // Retire scene-depth bind groups created framesInFlight+ frames ago (no longer in flight).
@@ -260,16 +294,26 @@ export namespace draconic::particles
             rhi::BindGroup* depthBg = AcquireDepthBindGroup(ctx.sceneDepthView != nullptr ? ctx.sceneDepthView : m_whiteView);
             if (depthBg == nullptr) { return; }
 
-            // Fuse consecutive batches sharing (texture, blend) into one instanced draw.
+            // Walk the items; dispatch each by kind (both ride the particle rendererId). Trails draw one at
+            // a time; consecutive billboards sharing (texture, blend) fuse into one instanced draw.
             usize i = 0;
             while (i < items.Size())
             {
-                const auto* head = static_cast<const ParticleBillboardRenderData*>(items[i].data);
+                const auto* base = static_cast<const ParticleRenderDataBase*>(items[i].data);
+                if (base->particleKind == 1)   // trail ribbon
+                {
+                    EmitTrailDraw(ctx, static_cast<const ParticleTrailRenderData*>(base), viewBg, vr, out);
+                    ++i;
+                    continue;
+                }
+                const auto* head = static_cast<const ParticleBillboardRenderData*>(base);
                 usize j = i + 1;
                 u32 total = head->count;
                 while (j < items.Size())
                 {
-                    const auto* nd = static_cast<const ParticleBillboardRenderData*>(items[j].data);
+                    const auto* nb = static_cast<const ParticleRenderDataBase*>(items[j].data);
+                    if (nb->particleKind != 0) { break; }
+                    const auto* nd = static_cast<const ParticleBillboardRenderData*>(nb);
                     if (nd->texture != head->texture || nd->blend != head->blend) { break; }
                     total += nd->count; ++j;
                 }
@@ -310,11 +354,12 @@ export namespace draconic::particles
             }
         }
 
-        void FinishFrame() override { m_instanceRing.EndFrame(); m_viewRing.EndFrame(); }
+        void FinishFrame() override { m_instanceRing.EndFrame(); m_trailRing.EndFrame(); m_viewRing.EndFrame(); }
 
     private:
-        static constexpr u32 kMaxViews     = 8;
-        static constexpr u64 kViewSlotSize = 256;   // 2x mat4 + a float4, padded to the dynamic-uniform alignment
+        static constexpr u32 kMaxViews       = 8;
+        static constexpr u64 kViewSlotSize   = 256;   // 2x mat4 + a float4, padded to the dynamic-uniform alignment
+        static constexpr u32 kTrailMaxIndices = 262144u;   // identity index buffer cap (largest single trail batch)
 
         rhi::BindGroup* EnsureViewBindGroup()
         {
@@ -404,6 +449,74 @@ export namespace draconic::particles
             return pso;
         }
 
+        // Draw one system's trail ribbon: upload its (already camera-facing) vertices to the trail ring
+        // and emit a triangle-list draw via the identity index buffer. Reuses the view UBO + a texture.
+        void EmitTrailDraw(const render::RenderRecordContext& ctx, const ParticleTrailRenderData* b,
+                           rhi::BindGroup* viewBg, const render::DynamicUniformRing::Range& vr, Array<render::ResolvedDraw>& out)
+        {
+            if (b->vertexCount == 0 || b->vertices == nullptr) { return; }
+            const u32 count = Min(b->vertexCount, kTrailMaxIndices);
+            m_maxTrailVertsSeen = Max(m_maxTrailVertsSeen, count);
+            const render::DynamicUniformRing::Range tr = m_trailRing.AllocateRange(count);
+            if (!tr.ok) { return; }
+            MemCopy(tr.ptr, b->vertices, static_cast<usize>(count) * sizeof(TrailVertex));
+            rhi::RenderPipeline* pso = EnsureTrailPipeline(ctx.colorFormat, b->blend != 0);
+            rhi::BindGroup* texBg = EnsureTextureBindGroup(b->texture != nullptr ? b->texture : m_whiteView);
+            if (pso == nullptr || texBg == nullptr) { return; }
+            render::ResolvedDraw d{};
+            d.pso           = pso;
+            d.viewSet       = viewBg; d.viewDynamic = true; d.viewOffset = vr.byteOffset;
+            d.drawSet       = texBg;
+            d.vertexBuffer0 = m_trailRing.Buffer(); d.vertexOffset0 = tr.byteOffset;
+            d.indexBuffer   = m_trailIndexBuffer; d.indexFormat = rhi::IndexFormat::UInt32; d.indexCount = count;
+            d.instanceCount = 1;
+            out.PushBack(d);
+        }
+
+        rhi::RenderPipeline* EnsureTrailPipeline(rhi::TextureFormat colorFormat, bool additive)
+        {
+            Pipelines& p = additive ? m_trailAdditive : m_trailAlpha;
+            if (p.pso != nullptr && p.format == colorFormat) { return p.pso; }
+            if (p.pso != nullptr) { m_device->DestroyRenderPipeline(p.pso); p.pso = nullptr; }
+
+            rhi::ShaderModule* vs = m_shaders->GetVariant(u8"particletrail", shaders::ShaderStage::Vertex,   shaders::ShaderFlags::None);
+            rhi::ShaderModule* ps = m_shaders->GetVariant(u8"particletrail", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+            if (vs == nullptr || ps == nullptr) { return nullptr; }
+
+            const rhi::VertexAttribute attrs[] = {
+                { rhi::VertexFormat::Float32x3,  0, 0 },   // position
+                { rhi::VertexFormat::Float32x2, 12, 1 },   // texcoord
+                { rhi::VertexFormat::Float32x4, 20, 2 },   // color
+            };
+            rhi::VertexBufferLayout vbl{};
+            vbl.stride = sizeof(TrailVertex); vbl.stepMode = rhi::VertexStepMode::Vertex;
+            vbl.attributes = Span<const rhi::VertexAttribute>{ attrs, 3 };
+
+            rhi::ColorTargetState target{};
+            target.format = colorFormat;
+            const rhi::BlendState addBlend{
+                { rhi::BlendFactor::SrcAlpha, rhi::BlendFactor::One, rhi::BlendOperation::Add },
+                { rhi::BlendFactor::One,      rhi::BlendFactor::One, rhi::BlendOperation::Add } };
+            target.blend = additive ? addBlend : rhi::BlendState::AlphaBlend();
+
+            rhi::FragmentState frag{}; frag.shader = rhi::ProgrammableStage{ ps, u8"main", rhi::ShaderStage::Fragment };
+            frag.targets = Span<const rhi::ColorTargetState>{ &target, 1 };
+            rhi::DepthStencilState ds{}; ds.format = m_depthFormat; ds.depthTestEnabled = true; ds.depthWriteEnabled = false; ds.depthCompare = rhi::CompareFunction::LessEqual;
+
+            rhi::RenderPipelineDesc pd{};
+            pd.layout = m_trailPipelineLayout;
+            pd.vertex.shader  = rhi::ProgrammableStage{ vs, u8"main", rhi::ShaderStage::Vertex };
+            pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{ &vbl, 1 };
+            pd.fragment = frag; pd.depthStencil = ds;
+            pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
+            pd.primitive.cullMode = rhi::CullMode::None;
+            pd.label = additive ? u8"particletrail.additive" : u8"particletrail.alpha";
+            rhi::RenderPipeline* pso = nullptr;
+            if (!m_device->CreateRenderPipeline(pd, pso).IsOk()) { return nullptr; }
+            p.pso = pso; p.format = colorFormat;
+            return pso;
+        }
+
         void Shutdown()
         {
             for (auto& kv : m_texBindGroups) { if (kv.value != nullptr) { m_device->DestroyBindGroup(kv.value); } }
@@ -411,6 +524,10 @@ export namespace draconic::particles
             if (m_viewBg != nullptr) { m_device->DestroyBindGroup(m_viewBg); m_viewBg = nullptr; }
             if (m_alpha.pso != nullptr) { m_device->DestroyRenderPipeline(m_alpha.pso); m_alpha.pso = nullptr; }
             if (m_additive.pso != nullptr) { m_device->DestroyRenderPipeline(m_additive.pso); m_additive.pso = nullptr; }
+            if (m_trailAlpha.pso != nullptr) { m_device->DestroyRenderPipeline(m_trailAlpha.pso); m_trailAlpha.pso = nullptr; }
+            if (m_trailAdditive.pso != nullptr) { m_device->DestroyRenderPipeline(m_trailAdditive.pso); m_trailAdditive.pso = nullptr; }
+            if (m_trailIndexBuffer != nullptr) { m_device->DestroyBuffer(m_trailIndexBuffer); m_trailIndexBuffer = nullptr; }
+            if (m_trailPipelineLayout != nullptr) { m_device->DestroyPipelineLayout(m_trailPipelineLayout); m_trailPipelineLayout = nullptr; }
             if (m_indexBuffer != nullptr) { m_device->DestroyBuffer(m_indexBuffer); m_indexBuffer = nullptr; }
             if (m_whiteView != nullptr) { m_device->DestroyTextureView(m_whiteView); m_whiteView = nullptr; }
             if (m_whiteTex != nullptr) { m_device->DestroyTexture(m_whiteTex); m_whiteTex = nullptr; }
@@ -432,6 +549,7 @@ export namespace draconic::particles
         u32                         m_framesInFlight = 2;
         u32                         m_frameCounter = 0;
         render::DynamicUniformRing  m_instanceRing;
+        render::DynamicUniformRing  m_trailRing;      // trail ribbon vertices (per-frame)
         render::DynamicUniformRing  m_viewRing;
         rhi::BindGroupLayout*       m_viewLayout = nullptr;
         rhi::BindGroupLayout*       m_texLayout = nullptr;
@@ -447,7 +565,12 @@ export namespace draconic::particles
         HashMap<rhi::TextureView*, rhi::BindGroup*> m_texBindGroups;
         Pipelines                   m_alpha;
         Pipelines                   m_additive;
+        rhi::Buffer*                m_trailIndexBuffer = nullptr;    // identity indices [0,1,2,...] for trail draws
+        rhi::PipelineLayout*        m_trailPipelineLayout = nullptr; // view + texture (no depth set)
+        Pipelines                   m_trailAlpha;
+        Pipelines                   m_trailAdditive;
         rhi::TextureFormat          m_depthFormat = rhi::TextureFormat::Undefined;
         u32                         m_maxInstancesSeen = 0;   // sizes the instance ring (see PrepareFrame)
+        u32                         m_maxTrailVertsSeen = 0;  // sizes the trail vertex ring
     };
 }

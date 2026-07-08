@@ -101,6 +101,7 @@ namespace
             BuildDebris(m_debris);
             BuildEmbers(m_embers);
             BuildHaze(m_haze);
+            BuildTrail(m_trail);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
                 // Billboard fountain (additive soft dots), left.
@@ -129,6 +130,11 @@ namespace
                 m_hazeEmitter = m_scene->CreateEntity(u8"haze");
                 m_scene->SetLocalPosition(m_hazeEmitter, core::Vector3{ 0.0f, 0.6f, 4.0f });
                 pmgr->Add(m_hazeEmitter).SetEffect(m_haze);
+
+                // Trail sparks (camera-facing ribbons), behind the fountain.
+                m_trailEmitter = m_scene->CreateEntity(u8"sparks");
+                m_scene->SetLocalPosition(m_trailEmitter, core::Vector3{ 0.0f, 0.2f, -4.0f });
+                pmgr->Add(m_trailEmitter).SetEffect(m_trail);
 
                 ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);   // sync all systems to the slider
             }
@@ -260,6 +266,43 @@ namespace
             sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.4f);
         }
 
+        // Trail-mode: arcing sparks, each leaving a camera-facing ribbon behind it (the Phase-5 showcase).
+        static void BuildTrail(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(2000);
+            sys.name       = core::String{ u8"sparks" };
+            sys.renderMode = px::ParticleRenderMode::Trail;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 40.0f;
+
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.15f);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.4f, 2.4f);
+            {
+                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 8.0f, 0.0f };
+                v.randomness   = core::Vector3{ 6.0f, 3.0f, 6.0f };   // spray sideways so the ribbons curve
+                v.shape        = px::EmissionShape::Cone(0.5f, 0.2f);
+                v.shapeDirectionSpeed = 3.0f;
+            }
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.2f, 0.2f });
+            sys.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 0.2f, 0.7f, 1.0f, 1.0f }, core::Vector4{ 0.9f, 0.4f, 1.0f, 1.0f });
+
+            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.5f;   // arc back down -> curved ribbons
+            sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve =
+                px::ParticleCurveColor::FadeAlpha(core::Vector4{ 0.5f, 0.6f, 1.0f, 1.0f }, 0.3f);
+
+            sys.trail.enabled          = true;
+            sys.trail.maxPoints        = 32;
+            sys.trail.recordInterval   = 0.02f;
+            sys.trail.lifetime         = 0.6f;    // how long each recorded point lingers (ribbon length)
+            sys.trail.widthStart       = 0.22f;
+            sys.trail.widthEnd         = 0.0f;    // taper to a point at the tail
+            sys.trail.minVertexDistance = 0.04f;
+            sys.trail.useParticleColor = true;
+        }
+
         // Push the current soft-particle distance to every system in an effect (0 => disabled).
         void ApplySoft(px::ParticleEffect& fx)
         {
@@ -296,10 +339,12 @@ namespace
         scene::EntityHandle   m_debrisEmitter;
         scene::EntityHandle   m_emberEmitter;
         scene::EntityHandle   m_hazeEmitter;
+        scene::EntityHandle   m_trailEmitter;
         px::ParticleEffect    m_effect;
         px::ParticleEffect    m_debris;
         px::ParticleEffect    m_embers;
         px::ParticleEffect    m_haze;
+        px::ParticleEffect    m_trail;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
         bool                  m_softOn = true;         // soft-particle on/off (HUD checkbox)

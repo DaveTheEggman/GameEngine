@@ -86,6 +86,7 @@ export namespace draconic::particles
             m_scratchUsed = 0;
             m_xformUsed = 0;
             m_tintUsed = 0;
+            m_trailUsed = 0;
             ForEach([&](ParticleEffectComponent& c, scene::EntityHandle owner) {
                 if (!c.visible || !c.instance) { return; }
                 ParticleEffect& fx = c.instance->Effect();
@@ -94,7 +95,7 @@ export namespace draconic::particles
                     ParticleSystem* sys = fx.GetSystem(s);
                     if (sys == nullptr) { continue; }
                     if (sys->renderMode == ParticleRenderMode::Mesh) { ExtractMeshSystem(*sys, c, owner, s, snapshot); continue; }
-                    if (sys->renderMode == ParticleRenderMode::Trail) { continue; }   // ribbons: Phase 5
+                    if (sys->renderMode == ParticleRenderMode::Trail) { ExtractTrailSystem(*sys, c, snapshot); continue; }
                     const i32 alive = sys->AliveCount();
                     if (alive <= 0) { continue; }
                     // Light-mode: illuminate the scene with a capped set of point lights (drawn as billboards too).
@@ -235,6 +236,82 @@ export namespace draconic::particles
             }
         }
 
+        // Trail-mode: build camera-facing ribbon geometry from each live particle's recorded point ring.
+        // Each pair of consecutive points becomes a quad (2 tris) whose "side" is perpendicular to both
+        // the segment and the view direction, so the ribbon always faces the camera. Width tapers
+        // widthStart -> widthEnd along the trail; alpha fades with each point's age. The vertices are
+        // packed into a frame-lived scratch buffer and handed off as one ParticleTrailRenderData batch.
+        void ExtractTrailSystem(ParticleSystem& sys, ParticleEffectComponent& c, render::ExtractedScene& snapshot)
+        {
+            const i32 mp = sys.TrailMaxPoints();
+            const i32 alive = sys.AliveCount();
+            if (mp < 2 || alive <= 0) { return; }
+            const TrailSettings& t = sys.trail;
+            const Span<const ParticleTrailState> states = sys.TrailStates();
+            const Span<const TrailPoint>          points = sys.TrailPoints();
+            const f32 now = sys.TotalTime();
+            const f32 invLife = 1.0f / Max(t.lifetime, 1e-3f);
+
+            Array<TrailVertex>& verts = AcquireTrailScratch();
+            verts.Clear();
+            Vector3 bmin{ 1e30f, 1e30f, 1e30f }, bmax{ -1e30f, -1e30f, -1e30f };
+
+            auto push = [&](const Vector3& p, f32 v, const Vector4& col)
+            {
+                verts.PushBack(TrailVertex{ p, Vector2{ 0.5f, v }, col });   // u=0.5: sample the dot's opaque center column, v across for soft edges
+                bmin = Vector3{ Min(bmin.x, p.x), Min(bmin.y, p.y), Min(bmin.z, p.z) };
+                bmax = Vector3{ Max(bmax.x, p.x), Max(bmax.y, p.y), Max(bmax.z, p.z) };
+            };
+
+            for (i32 pi = 0; pi < alive; ++pi)
+            {
+                const ParticleTrailState& st = states[static_cast<usize>(pi)];
+                const i32 n = Min(st.count, mp);
+                if (n < 2) { continue; }
+                const TrailPoint* base = &points[static_cast<usize>(pi) * static_cast<usize>(mp)];
+                for (i32 k = 0; k + 1 < n; ++k)
+                {
+                    // Ring order is newest -> oldest: index 0 sits at head, walking backwards.
+                    const TrailPoint& p0 = base[((st.head - k) % mp + mp) % mp];
+                    const TrailPoint& p1 = base[((st.head - (k + 1)) % mp + mp) % mp];
+                    const Vector3 seg = p0.position - p1.position;
+                    if (LengthSquared(seg) < 1e-8f) { continue; }
+                    const Vector3 mid  = (p0.position + p1.position) * 0.5f;
+                    const Vector3 view = Normalized(mid - m_cameraPos);
+                    Vector3 side = Cross(Normalized(seg), view);
+                    if (LengthSquared(side) < 1e-8f) { continue; }
+                    side = Normalized(side);
+
+                    const f32 f0 = static_cast<f32>(k)       / static_cast<f32>(n - 1);   // 0 at newest, 1 at oldest
+                    const f32 f1 = static_cast<f32>(k + 1)   / static_cast<f32>(n - 1);
+                    const f32 w0 = Lerp(t.widthStart, t.widthEnd, f0) * 0.5f;
+                    const f32 w1 = Lerp(t.widthStart, t.widthEnd, f1) * 0.5f;
+                    const f32 a0 = Clamp(1.0f - (now - p0.recordTime) * invLife, 0.0f, 1.0f);
+                    const f32 a1 = Clamp(1.0f - (now - p1.recordTime) * invLife, 0.0f, 1.0f);
+                    const Vector4 c0{ p0.color.x, p0.color.y, p0.color.z, p0.color.w * a0 };
+                    const Vector4 c1{ p1.color.x, p1.color.y, p1.color.z, p1.color.w * a1 };
+
+                    const Vector3 l0 = p0.position + side * w0, r0 = p0.position - side * w0;
+                    const Vector3 l1 = p1.position + side * w1, r1 = p1.position - side * w1;
+                    push(l0, 0.0f, c0); push(r0, 1.0f, c0); push(l1, 0.0f, c1);   // tri 1
+                    push(r0, 1.0f, c0); push(r1, 1.0f, c1); push(l1, 0.0f, c1);   // tri 2
+                }
+            }
+
+            if (verts.IsEmpty()) { return; }
+            ParticleTrailRenderData* rd = snapshot.Add<ParticleTrailRenderData>();
+            if (rd == nullptr) { return; }
+            rd->category    = render::RenderCategories::Transparent;
+            rd->rendererId  = m_billboardRendererId;   // trails ride the same particle rendererId (told apart by particleKind)
+            rd->vertices    = verts.Data();
+            rd->vertexCount = static_cast<u32>(verts.Size());
+            rd->texture     = c.texture;
+            rd->blend       = (sys.blendMode == ParticleBlendMode::Additive || sys.blendMode == ParticleBlendMode::Premultiplied) ? 1u : 0u;
+            const Vector3 center = (bmin + bmax) * 0.5f;
+            rd->worldCenter = center;
+            rd->worldRadius = Length(bmax - center) + t.widthStart;
+        }
+
         void PackMeshTransforms(ParticleSystem& sys, f32 meshScale, Matrix4* xf, Color* tint, Vector3& bmin, Vector3& bmax)
         {
             ParticleStreamContainer& st = sys.Streams();
@@ -273,6 +350,11 @@ export namespace draconic::particles
             if (m_tintUsed >= m_tintScratch.Size()) { m_tintScratch.PushBack(MakeUnique<Array<Color>>(DefaultAllocator())); }
             return *m_tintScratch[m_tintUsed++];
         }
+        Array<TrailVertex>& AcquireTrailScratch()
+        {
+            if (m_trailUsed >= m_trailScratch.Size()) { m_trailScratch.PushBack(MakeUnique<Array<TrailVertex>>(DefaultAllocator())); }
+            return *m_trailScratch[m_trailUsed++];
+        }
 
         static constexpr i32 kLightParticleCap = 48;   // max point lights one Light system contributes/frame
 
@@ -285,6 +367,8 @@ export namespace draconic::particles
         Array<UniquePtr<Array<Color>>>   m_tintScratch;    // mesh-particle per-instance tints
         usize         m_xformUsed = 0;
         usize         m_tintUsed = 0;
+        Array<UniquePtr<Array<TrailVertex>>> m_trailScratch;   // trail ribbon vertices (per Trail-mode system)
+        usize         m_trailUsed = 0;
         u32           m_meshVersion = 0;   // bumped per mesh batch so the instanced-mesh path re-uploads
     };
 }
