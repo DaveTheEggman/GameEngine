@@ -73,8 +73,8 @@ VSOut main(VSIn i) {
         up = v / speed;
         right = normalize(cross(up, camFwd));
         size.y *= (1.0 + speed * i.Velocity.w);
-    } else if (mode == 2) {              // world-aligned (XY plane)
-        right = float3(1, 0, 0); up = float3(0, 1, 0);
+    } else if (mode == 2) {              // ground-flat (XZ plane, +Y normal) - horizontal billboard
+        right = float3(1, 0, 0); up = float3(0, 0, 1);
     } else if (mode == 1) {              // camera-facing about world Y
         right = normalize(float3(camRight.x, 0, camRight.z));
         up    = float3(0, 1, 0);

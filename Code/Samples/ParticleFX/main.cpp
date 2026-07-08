@@ -47,6 +47,15 @@ namespace
     class ParticleFXApp final : public runtime::DefaultApplication
     {
     public:
+        // Run uncapped (vsync off) so the frame time reflects real particle sim/render cost, not the
+        // display refresh. The image may tear; fine for a showcase/benchmark.
+        graphics::RenderWindowDesc MainRenderWindow() const override
+        {
+            graphics::RenderWindowDesc d;
+            d.presentMode = rhi::PresentMode::Immediate;
+            return d;
+        }
+
         void Configure(runtime::IApplicationHost& host) override
         {
             runtime::DefaultApplication::Configure(host);
@@ -70,13 +79,13 @@ namespace
 
             // Camera: high + pulled back to frame the whole 4x4 showcase grid.
             m_camera = m_scene->CreateEntity(u8"camera");
-            m_scene->SetLocalPosition(m_camera, core::Vector3{ 0.0f, 22.0f, 34.0f });
+            m_scene->SetLocalPosition(m_camera, core::Vector3{ 0.0f, 34.0f, 52.0f });
             if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
                 render::CameraComponent& cam = cameras->Add(m_camera);
                 cam.clearColor = core::Color{ 0.02f, 0.02f, 0.04f, 1.0f };
             }
-            m_fly.position = core::Vector3{ 0.0f, 22.0f, 34.0f };
-            m_fly.pitch    = -0.5f;
+            m_fly.position = core::Vector3{ 0.0f, 34.0f, 52.0f };
+            m_fly.pitch    = -0.55f;
 
             // A floor for spatial context.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
@@ -111,6 +120,11 @@ namespace
             BuildFire(m_fire);
             BuildCampfire(m_campfire);
             BuildFireworks(m_fireworks);
+            BuildTornado(m_tornado);
+            BuildExplosionBlast(m_explosion);
+            BuildExplosionFx(m_explosionFx);
+            BuildMagicCircle(m_magic);
+            BuildFireflies(m_fireflies);
 
             if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
                 // One system per cell of a 4x4 showcase grid (cells 12-15 reserved for later samples).
@@ -195,6 +209,33 @@ namespace
                 m_scene->SetLocalPosition(m_fireworksEmitter, CellPos(11));
                 pmgr->Add(m_fireworksEmitter).SetEffect(m_fireworks);
 
+                // Cell 12: tornado (vortex/attractor swirl, local space).
+                m_tornadoEmitter = m_scene->CreateEntity(u8"tornado");
+                m_scene->SetLocalPosition(m_tornadoEmitter, CellPos(12));
+                pmgr->Add(m_tornadoEmitter).SetEffect(m_tornado);
+
+                // Cell 13: explosion - flipbook fireball blast (atlas texture) + debris/shockwave (soft dot).
+                m_explosionEmitter = m_scene->CreateEntity(u8"explosion");
+                m_scene->SetLocalPosition(m_explosionEmitter, CellPos(13));
+                px::ParticleEffectComponent& xc = pmgr->Add(m_explosionEmitter);
+                xc.SetEffect(m_explosion);
+                if (rhi::Device* dev = (host.Graphics() != nullptr) ? host.Graphics()->Raw() : nullptr) {
+                    xc.texture = MakeBlastAtlas(*dev);
+                }
+                m_explosionFxEmitter = m_scene->CreateEntity(u8"explosion-fx");
+                m_scene->SetLocalPosition(m_explosionFxEmitter, CellPos(13));
+                pmgr->Add(m_explosionFxEmitter).SetEffect(m_explosionFx);
+
+                // Cell 14: magic circle (ground rune ring + rising glyph sparks).
+                m_magicEmitter = m_scene->CreateEntity(u8"magic");
+                m_scene->SetLocalPosition(m_magicEmitter, CellPos(14));
+                pmgr->Add(m_magicEmitter).SetEffect(m_magic);
+
+                // Cell 15: fireflies (wind + turbulence wander, twinkling).
+                m_firefliesEmitter = m_scene->CreateEntity(u8"fireflies");
+                m_scene->SetLocalPosition(m_firefliesEmitter, CellPos(15));
+                pmgr->Add(m_firefliesEmitter).SetEffect(m_fireflies);
+
                 // Sync only the soft-particle A/B systems to the slider (smoke keeps soft OFF - the fade
                 // against the floor behind a rising column zeroes its alpha).
                 ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze);
@@ -205,6 +246,17 @@ namespace
         {
             runtime::DefaultApplication::OnRenderWindow(host, frame);
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) { g->Render(frame); }
+        }
+
+        // Free the explosion flipbook atlas we created in OnStartup (device still alive here).
+        void OnShutdown(runtime::IApplicationHost& host) override
+        {
+            if (rhi::Device* dev = (host.Graphics() != nullptr) ? host.Graphics()->Raw() : nullptr) {
+                dev->WaitIdle();
+                if (m_blastView != nullptr) { dev->DestroyTextureView(m_blastView); m_blastView = nullptr; }
+                if (m_blastTex != nullptr)  { dev->DestroyTexture(m_blastTex); m_blastTex = nullptr; }
+            }
+            runtime::DefaultApplication::OnShutdown(host);
         }
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
@@ -228,13 +280,27 @@ namespace
                 const core::Vector3 c = CellPos(7);
                 m_scene->SetLocalPosition(m_localEmitter,
                     c + core::Vector3{ 2.5f * core::Cos(m_orbitTime * 1.5f), 1.5f, 2.5f * core::Sin(m_orbitTime * 1.5f) });
+
+                // A floor label under each cell (debug-draw 3D text), so every system is identified.
+                if (auto* rs = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
+                    static const core::StringView kNames[16] = {
+                        u8"fountain", u8"mesh solid", u8"mesh glow", u8"embers",
+                        u8"haze", u8"trail", u8"collision", u8"orbit (local)",
+                        u8"smoke", u8"fire", u8"campfire", u8"fireworks",
+                        u8"tornado", u8"explosion", u8"magic circle", u8"fireflies" };
+                    auto& dd = rs->DebugScene(*m_scene);
+                    for (core::i32 i = 0; i < 16; ++i) {
+                        dd.DrawText3D(CellPos(i) + core::Vector3{ 0.0f, 0.15f, kCellSpacing * 0.42f },
+                                      kNames[i], core::Color{ 0.85f, 0.9f, 1.0f, 1.0f });
+                    }
+                }
             }
         }
 
     private:
         // 4x4 showcase grid, centered on the origin. Cells are indexed row-major (0..15); each holds one
         // particle system. Returns the cell's floor-level center (callers add any per-system y offset).
-        static constexpr core::f32 kCellSpacing = 10.0f;
+        static constexpr core::f32 kCellSpacing = 15.0f;
         static constexpr core::i32 kGridCols    = 4;
         static core::Vector3 CellPos(core::i32 index)
         {
@@ -520,6 +586,220 @@ namespace
             effect.AddSubEmitterLink(link);
         }
 
+        // Tornado: a dust column that swirls up a vertical axis. Local space keeps the vortex + attractor
+        // centres at the origin (re-based to the cell at extract), so the funnel spins around itself.
+        static void BuildTornado(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(4000);
+            sys.name       = core::String{ u8"tornado" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.softParticles = false;
+            sys.simulationSpace = px::ParticleSpace::Local;   // vortex/attractor centres sit at the local origin
+            sys.prewarmTime = 2.0f;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 600.0f;
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(1.6f);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.8f);
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 4.5f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.4f, 0.4f });
+            sys.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 0.55f, 0.5f, 0.42f, 1.0f }, core::Vector4{ 0.4f, 0.36f, 0.3f, 1.0f });
+            sys.AddBehavior<px::VortexBehavior>().strength = 12.0f;      // tangential swirl about local Y
+            sys.AddBehavior<px::AttractorBehavior>().strength = 3.5f;    // pull inward toward the axis (tighten the funnel)
+            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
+        }
+
+        // Explosion blast core: burst-looping fireballs that play a 4x4 flipbook atlas over their short life
+        // (the atlas texture is set on the component). RadialForce spreads the puffs into a cluster.
+        static void BuildExplosionBlast(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(200);
+            sys.name       = core::String{ u8"blast" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.softParticles = true;   // soften where the fireballs meet the ground/obstacles
+            sys.softDistance  = 1.0f;
+            sys.emitter.mode = px::EmissionMode::Burst;
+            sys.emitter.burstCount = 5;
+            sys.emitter.burstInterval = 1.7f;   // repeating boom
+            sys.emitter.burstCycles = 0;        // forever
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.5f);
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.7f, 0.9f);
+            {
+                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                v.baseVelocity = core::Vector3{ 0.0f, 1.5f, 0.0f };
+                v.randomness   = core::Vector3{ 2.0f, 1.0f, 2.0f };
+            }
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 3.5f, 3.5f });
+            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+            sys.AddBehavior<px::RadialForceBehavior>().strength = 5.0f;   // spread the cluster outward
+            sys.AddBehavior<px::DragBehavior>().drag = 1.5f;
+            sys.flipbook.enabled = true;
+            sys.flipbook.columns = 4;
+            sys.flipbook.rows = 4;
+            sys.flipbook.overLifetime = true;   // play all 16 frames across the particle's life
+        }
+
+        // Explosion secondary FX (no texture -> soft dot): velocity-stretched debris streaks + a flat ground
+        // shockwave disc. Burst-synced to the blast.
+        static void BuildExplosionFx(px::ParticleEffect& effect)
+        {
+            // Debris streaks (StretchedBillboard: the quad stretches along the particle velocity).
+            px::ParticleSystem& deb = effect.AddSystem(1200);
+            deb.name       = core::String{ u8"debris" };
+            deb.renderMode = px::ParticleRenderMode::StretchedBillboard;
+            deb.blendMode  = px::ParticleBlendMode::Additive;
+            deb.softParticles = false;
+            deb.emitter.mode = px::EmissionMode::Burst;
+            deb.emitter.burstCount = 140; deb.emitter.burstInterval = 1.7f; deb.emitter.burstCycles = 0;
+            deb.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.3f);
+            deb.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.5f, 1.0f);
+            {
+                px::VelocityInitializer& v = deb.AddInitializer<px::VelocityInitializer>();
+                v.shape = px::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
+                v.shapeDirectionSpeed = 13.0f;
+                v.randomness = core::Vector3{ 2.0f, 2.0f, 2.0f };
+            }
+            deb.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.14f, 0.14f });
+            deb.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 1.0f, 0.85f, 0.35f, 1.0f }, core::Vector4{ 1.0f, 0.35f, 0.1f, 1.0f });
+            deb.AddBehavior<px::GravityBehavior>().multiplier = 1.4f;
+            deb.AddBehavior<px::DragBehavior>().drag = 1.0f;
+            deb.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
+
+            // Shockwave: a single flat disc that expands and fades on the ground each boom.
+            px::ParticleSystem& ring = effect.AddSystem(16);
+            ring.name       = core::String{ u8"shock" };
+            ring.renderMode = px::ParticleRenderMode::HorizontalBillboard;   // ground-flat
+            ring.blendMode  = px::ParticleBlendMode::Additive;
+            ring.softParticles = false;
+            ring.emitter.mode = px::EmissionMode::Burst;
+            ring.emitter.burstCount = 1; ring.emitter.burstInterval = 1.7f; ring.emitter.burstCycles = 0;
+            ring.AddInitializer<px::PositionInitializer>();
+            ring.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.6f, 0.6f);
+            ring.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 1.0f, 1.0f });
+            ring.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 1.0f, 0.7f, 0.3f, 1.0f });
+            ring.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
+                px::ParticleCurveVector2::Linear(core::Vector2{ 1.0f, 1.0f }, core::Vector2{ 9.0f, 9.0f });
+            ring.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.0f);
+        }
+
+        // Magic circle: a slow-rotating ground-flat rune ring (HorizontalBillboard + Ring emission) with
+        // glyph sparks rising off it.
+        static void BuildMagicCircle(px::ParticleEffect& effect)
+        {
+            // Ground rune glyphs on a ring, lying flat, spinning.
+            px::ParticleSystem& rune = effect.AddSystem(400);
+            rune.name       = core::String{ u8"rune" };
+            rune.renderMode = px::ParticleRenderMode::HorizontalBillboard;
+            rune.blendMode  = px::ParticleBlendMode::Additive;
+            rune.softParticles = false;
+            rune.prewarmTime = 1.5f;
+            rune.emitter.mode = px::EmissionMode::Continuous;
+            rune.emitter.spawnRate = 60.0f;
+            rune.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Ring(2.6f);
+            rune.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.4f, 1.8f);
+            rune.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.5f, 0.5f });
+            rune.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.3f, 0.8f, 1.0f, 1.0f });
+            rune.AddInitializer<px::RotationInitializer>();
+            rune.AddBehavior<px::RotationOverLifetimeBehavior>();   // slow spin
+            rune.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::PeakAt(0.5f, 1.0f);
+
+            // Glyph sparks rising off the ring.
+            px::ParticleSystem& spark = effect.AddSystem(600);
+            spark.name       = core::String{ u8"glyph" };
+            spark.renderMode = px::ParticleRenderMode::Billboard;
+            spark.blendMode  = px::ParticleBlendMode::Additive;
+            spark.softParticles = false;
+            spark.emitter.mode = px::EmissionMode::Continuous;
+            spark.emitter.spawnRate = 40.0f;
+            spark.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Ring(2.6f);
+            spark.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.8f);
+            spark.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 1.6f, 0.0f };
+            spark.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.18f, 0.18f });
+            spark.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Vector4{ 0.4f, 0.9f, 1.0f, 1.0f });
+            spark.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
+        }
+
+        // Fireflies: glowing points wandering on a gentle wind + turbulence, twinkling via an oscillating
+        // alpha curve. Showcases WindBehavior.
+        static void BuildFireflies(px::ParticleEffect& effect)
+        {
+            px::ParticleSystem& sys = effect.AddSystem(700);
+            sys.name       = core::String{ u8"fireflies" };
+            sys.renderMode = px::ParticleRenderMode::Billboard;
+            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.softParticles = false;
+            sys.prewarmTime = 2.0f;
+            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.spawnRate = 40.0f;
+            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Vector3{ 3.0f, 2.0f, 3.0f });
+            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.5f, 4.0f);
+            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Vector3{ 0.0f, 0.2f, 0.0f };
+            sys.AddInitializer<px::SizeInitializer>().size = px::RangeVector2::Constant(core::Vector2{ 0.16f, 0.16f });
+            sys.AddInitializer<px::ColorInitializer>().color =
+                px::RangeColor(core::Vector4{ 0.8f, 1.0f, 0.3f, 1.0f }, core::Vector4{ 1.0f, 0.9f, 0.2f, 1.0f });
+            { px::WindBehavior& w = sys.AddBehavior<px::WindBehavior>(); w.force = core::Vector3{ 0.5f, 0.0f, 0.3f }; w.turbulence = 1.5f; }
+            sys.AddBehavior<px::TurbulenceBehavior>().strength = 1.2f;   // wander
+            {
+                px::ParticleCurveFloat a;   // twinkle: fade in, flicker, fade out
+                a.AddKey(0.0f, 0.0f); a.AddKey(0.15f, 1.0f); a.AddKey(0.35f, 0.25f);
+                a.AddKey(0.55f, 1.0f); a.AddKey(0.75f, 0.3f); a.AddKey(0.9f, 0.9f); a.AddKey(1.0f, 0.0f);
+                sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = a;
+            }
+        }
+
+        // Builds the 4x4 flipbook atlas for the explosion blast: 16 frames of an expanding, dissipating
+        // fiery puff, generated on the CPU (like the renderer's soft dot) and uploaded once. Stores the
+        // texture/view on the app and returns the view to bind on the blast component.
+        rhi::TextureView* MakeBlastAtlas(rhi::Device& dev)
+        {
+            constexpr core::u32 kCols = 4, kRows = 4, kF = 64;
+            constexpr core::u32 W = kCols * kF, H = kRows * kF;
+            core::Array<core::u8> px(core::DefaultAllocator());
+            px.Resize(static_cast<core::usize>(W) * H * 4);
+            for (core::u32 f = 0; f < kCols * kRows; ++f) {
+                const core::u32 fc = f % kCols, fr = f / kCols;
+                const core::f32 t = static_cast<core::f32>(f) / static_cast<core::f32>(kCols * kRows - 1);
+                const core::f32 rad = 0.18f + 0.85f * t;
+                const core::f32 fade = core::Pow(1.0f - t, 0.6f);
+                for (core::u32 y = 0; y < kF; ++y) for (core::u32 x = 0; x < kF; ++x) {
+                    const core::f32 nx = (static_cast<core::f32>(x) + 0.5f) / kF * 2.0f - 1.0f;
+                    const core::f32 ny = (static_cast<core::f32>(y) + 0.5f) / kF * 2.0f - 1.0f;
+                    core::f32 d = core::Sqrt(nx * nx + ny * ny);
+                    d += 0.11f * core::Sin(nx * 9.0f + static_cast<core::f32>(f) * 0.8f)
+                       + 0.11f * core::Cos(ny * 9.0f - static_cast<core::f32>(f) * 0.6f);   // break the circle
+                    core::f32 core = core::Clamp(1.0f - d / core::Max(rad, 1e-3f), 0.0f, 1.0f);
+                    core *= core;
+                    const core::f32 a = core * fade;
+                    const core::f32 g = core::Clamp(0.35f + 0.65f * core, 0.0f, 1.0f);   // white-hot core -> orange rim
+                    const core::f32 b = core::Clamp(0.12f * core * core, 0.0f, 1.0f);
+                    const core::usize i = (static_cast<core::usize>(fr * kF + y) * W + (fc * kF + x)) * 4;
+                    px[i + 0] = 255;
+                    px[i + 1] = static_cast<core::u8>(g * 255.0f);
+                    px[i + 2] = static_cast<core::u8>(b * 255.0f);
+                    px[i + 3] = static_cast<core::u8>(a * 255.0f);
+                }
+            }
+            rhi::TextureDesc td{};
+            td.format = rhi::TextureFormat::RGBA8Unorm; td.width = W; td.height = H;
+            td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; td.label = u8"particle.blastatlas";
+            if (!dev.CreateTexture(td, m_blastTex).IsOk()) { return nullptr; }
+            rhi::TextureViewDesc vd{}; vd.format = rhi::TextureFormat::RGBA8Unorm; vd.dimension = rhi::TextureViewDimension::Texture2D;
+            if (!dev.CreateTextureView(m_blastTex, vd, m_blastView).IsOk()) { return nullptr; }
+            if (rhi::Queue* q = dev.GetQueue(rhi::QueueType::Graphics)) {
+                rhi::TransferBatch* tb = nullptr;
+                if (q->CreateTransferBatch(tb).IsOk() && tb != nullptr) {
+                    rhi::TextureDataLayout layout{}; layout.bytesPerRow = W * 4; layout.rowsPerImage = H;
+                    tb->WriteTexture(m_blastTex, core::Span<const core::u8>{ px.Data(), px.Size() }, layout, rhi::Extent3D{ W, H, 1 });
+                    (void)tb->Submit();
+                    q->DestroyTransferBatch(tb);
+                }
+            }
+            return m_blastView;
+        }
+
         // Local-space showcase: a tight puff that rigidly follows its orbiting emitter (see OnUpdate).
         static void BuildLocal(px::ParticleEffect& effect)
         {
@@ -598,8 +878,11 @@ namespace
                 bool changed = ImGui::Checkbox("soft particles", &m_softOn);
                 changed |= ImGui::SliderFloat("soft dist", &m_softDistance, 0.0f, 4.0f, "%.2f");
                 if (changed) { ApplySoft(m_effect); ApplySoft(m_embers); ApplySoft(m_haze); }
-                ImGui::TextDisabled("WASD/RMB fly. 4x4 grid: fountain/mesh solid/mesh glow/embers");
-                ImGui::TextDisabled("haze/trail/collision/orbit/smoke/fire/campfire/fireworks");
+                ImGui::TextDisabled("WASD/RMB fly. 4x4 grid, row by row:");
+                ImGui::TextDisabled("fountain / mesh-solid / mesh-glow / embers");
+                ImGui::TextDisabled("haze / trail / collision / orbit");
+                ImGui::TextDisabled("smoke / fire / campfire / fireworks");
+                ImGui::TextDisabled("tornado / explosion / magic-circle / fireflies");
             }
             ImGui::End();
         }
@@ -618,6 +901,11 @@ namespace
         scene::EntityHandle   m_fireEmitter;
         scene::EntityHandle   m_campfireEmitter;
         scene::EntityHandle   m_fireworksEmitter;
+        scene::EntityHandle   m_tornadoEmitter;
+        scene::EntityHandle   m_explosionEmitter;
+        scene::EntityHandle   m_explosionFxEmitter;
+        scene::EntityHandle   m_magicEmitter;
+        scene::EntityHandle   m_firefliesEmitter;
         px::ParticleEffect    m_effect;
         px::ParticleEffect    m_debris;
         px::ParticleEffect    m_embers;
@@ -630,6 +918,13 @@ namespace
         px::ParticleEffect    m_fire;
         px::ParticleEffect    m_campfire;
         px::ParticleEffect    m_fireworks;
+        px::ParticleEffect    m_tornado;
+        px::ParticleEffect    m_explosion;
+        px::ParticleEffect    m_explosionFx;
+        px::ParticleEffect    m_magic;
+        px::ParticleEffect    m_fireflies;
+        rhi::Texture*         m_blastTex = nullptr;    // flipbook atlas for the explosion (owned)
+        rhi::TextureView*     m_blastView = nullptr;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;
         core::f32             m_orbitTime = 0.0f;      // drives the local-space emitter orbit

@@ -362,6 +362,10 @@ export namespace draconic::particles
         {
             EmissionShape s; s.type = EmissionShapeType::Circle; s.radius = radius; s.emitFromShell = shell; return s;
         }
+        [[nodiscard]] static EmissionShape Ring(f32 radius) noexcept
+        {
+            EmissionShape s; s.type = EmissionShapeType::Ring; s.radius = radius; return s;
+        }
         [[nodiscard]] static EmissionShape Edge(f32 halfLength) noexcept
         {
             EmissionShape s; s.type = EmissionShapeType::Edge; s.radius = halfLength; return s;
