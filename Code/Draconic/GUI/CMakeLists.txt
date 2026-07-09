@@ -35,6 +35,8 @@ target_sources(DraconicGUI
             Drawing/NineSliceDrawable.cppm
             Drawing/LayerDrawable.cppm
             Text/Text.cppm
+            Widgets/UINode.cppm
+            Widgets/UIWidget.cppm
             GUIModule.cppm
     PRIVATE
         # Module implementation unit: Node method bodies that call the EventDispatcher

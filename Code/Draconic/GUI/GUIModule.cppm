@@ -44,3 +44,7 @@ export import :layer_drawable;
 
 // Text (Phase 4)
 export import :text;
+
+// Widget base (Phase 5)
+export import :ui_node;
+export import :ui_widget;
