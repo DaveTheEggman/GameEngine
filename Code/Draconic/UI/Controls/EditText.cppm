@@ -95,6 +95,10 @@ export namespace draconic::ui
 
         // === Behavior passthrough (Beef properties -> methods; [Friend] access -> Behavior()) ===
         [[nodiscard]] TextEditingBehavior& Behavior() noexcept { return m_behavior; }
+
+        /// Wants platform text input (IME) while focused, unless read-only. Covers PasswordBox and
+        /// EditableLabel (which toggles IsReadOnly between label/edit mode).
+        [[nodiscard]] bool WantsTextInput() const override { return IsEffectivelyEnabled() && !IsReadOnly.Value(); }
         [[nodiscard]] InputFilter* Filter() { return m_behavior.Filter(); }
         void SetFilter(InputFilter filter) { m_behavior.SetFilter(Move(filter)); }
 

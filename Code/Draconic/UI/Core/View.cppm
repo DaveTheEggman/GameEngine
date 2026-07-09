@@ -260,6 +260,11 @@ export namespace draconic::ui
         /// IDropTarget this view implements (accepts drops), or null. Override to return `this`.
         [[nodiscard]] virtual IDropTarget* AsDropTarget() { return nullptr; }
 
+        /// Whether this view wants platform text input (IME) while it holds focus. Text-editing controls
+        /// override to return true. The ui.shell bridge reads UIContext::WantsTextInput() (this view, if
+        /// focused) to start/stop the window's text input - the mechanism Sedulous shell never finished.
+        [[nodiscard]] virtual bool WantsTextInput() const { return false; }
+
         // === Effective state ===
         [[nodiscard]] bool IsEffectivelyEnabled() const
         {
@@ -685,6 +690,11 @@ export namespace draconic::ui
         [[nodiscard]] TooltipManager* Tooltips() noexcept { return &m_tooltipManager; }
         [[nodiscard]] DragDropManager* DragDrop() noexcept { return &m_dragDropManager; }
         [[nodiscard]] AnimationManager* Animations() noexcept { return &m_animationManager; }
+
+        /// Whether the currently focused view wants platform text input (IME). The ui.shell bridge uses
+        /// this to enable/disable the window's text input as focus moves. Defined in the impl unit (needs
+        /// FocusManager::FocusedView()).
+        [[nodiscard]] bool WantsTextInput() const;
 
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
         void SetStyleSheet(RefPtr<StyleSheet> sheet) { m_styleSheet = Move(sheet); }

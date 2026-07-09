@@ -40,6 +40,12 @@ namespace draconic::ui
         return false;
     }
 
+    bool UIContext::WantsTextInput() const
+    {
+        const View* focused = m_focusManager.FocusedView();
+        return focused != nullptr && focused->WantsTextInput();
+    }
+
     // ============================ FocusManager ============================
 
     View* FocusManager::FocusedView() const { return m_context->GetViewById(m_focusedId); }

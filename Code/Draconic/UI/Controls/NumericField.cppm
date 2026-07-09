@@ -96,6 +96,9 @@ export namespace draconic::ui
         // Test/host access (Beef [Friend]).
         [[nodiscard]] TextEditingBehavior& Behavior() noexcept { return m_behavior; }
 
+        /// Wants platform text input (IME) while focused - it edits its value as text.
+        [[nodiscard]] bool WantsTextInput() const override { return IsEffectivelyEnabled(); }
+
         // === Prefix / suffix ===
         void SetPrefix(StringView text) { m_prefixView = nullptr; m_prefixText = String(text); m_hasPrefixText = true; Invalidate(); }
         void SetPrefix(View* view) { m_hasPrefixText = false; m_prefixText.Clear(); m_prefixView = RefPtr<View>(view); Invalidate(); }

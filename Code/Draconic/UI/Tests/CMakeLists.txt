@@ -39,6 +39,7 @@ add_executable(DraconicUITests
     DialogTests.cpp
     AnimationTests.cpp
     MarkupLoaderTests.cpp
+    WantsTextInputTests.cpp
     ControlTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
