@@ -396,6 +396,7 @@ private:
     void BuildDataControlsTab(ui::TabView* tabView);
     void BuildOverlaysTab(ui::TabView* tabView);
     void BuildDragDropTab(ui::TabView* tabView);
+    void BuildAnimationsTab(ui::TabView* tabView);
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
     shaders::Compiler* m_compiler = nullptr;
@@ -505,6 +506,71 @@ void UISandbox::BuildUI()
     BuildDataControlsTab(tabView.Get());
     BuildOverlaysTab(tabView.Get());
     BuildDragDropTab(tabView.Get());
+    BuildAnimationsTab(tabView.Get());
+}
+
+// === Tab 9: Animations (ViewAnimator / Storyboard + static-transform hit-testing) ===
+void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
+{
+    using ui::SizeSpec;
+    using ui::Unit;
+
+    auto demo = VFlex(8.0f);
+    demo->Padding = ui::Thickness{ 12, 8 };
+    tabView->AddTab(u8"Animations", demo.Get());
+
+    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Animation Target")).Get());
+    auto target = MakeRef<ui::ColorView>(DefaultAllocator(), Color{ 80.0f / 255.0f, 160.0f / 255.0f, 1.0f, 1.0f }, 0.0f, 30.0f);
+    demo->AddView(target.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(30))));
+
+    ui::View* animTarget = target.Get();
+    ui::UIContext* ctx = &m_ctx;
+    auto row = HFlex(6.0f);
+    auto animBtn = [&](const char8_t* text, ui::Event<void(ui::ButtonBase*)>::Handler h)
+    {
+        auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+        b->OnClick.Add(Move(h));
+        row->AddView(b.Get());
+    };
+    animBtn(u8"Fade Out", ui::Event<void(ui::ButtonBase*)>::Handler{ [ctx, animTarget](ui::ButtonBase*) { ctx->Animations()->Add(ui::ViewAnimator::FadeOut(animTarget, 0.5f, ui::Easing::EaseOutCubic)); } });
+    animBtn(u8"Fade In",  ui::Event<void(ui::ButtonBase*)>::Handler{ [ctx, animTarget](ui::ButtonBase*) { ctx->Animations()->Add(ui::ViewAnimator::FadeIn(animTarget, 0.5f, ui::Easing::EaseOutCubic)); } });
+    animBtn(u8"Bounce",   ui::Event<void(ui::ButtonBase*)>::Handler{ [ctx, animTarget](ui::ButtonBase*)
+    {
+        auto sb = MakeUnique<ui::Storyboard>(DefaultAllocator(), ui::Storyboard::Mode::Sequential);
+        sb->Add(ui::ViewAnimator::ScaleTo(animTarget, 1.0f, 1.3f, 0.15f, ui::Easing::EaseOutCubic));
+        sb->Add(ui::ViewAnimator::ScaleTo(animTarget, 1.3f, 1.0f, 0.3f, ui::Easing::BounceOut));
+        ctx->Animations()->Add(Move(sb));
+    } });
+    animBtn(u8"Slide",    ui::Event<void(ui::ButtonBase*)>::Handler{ [ctx, animTarget](ui::ButtonBase*)
+    {
+        auto sb = MakeUnique<ui::Storyboard>(DefaultAllocator(), ui::Storyboard::Mode::Sequential);
+        sb->Add(ui::ViewAnimator::TranslateX(animTarget, 0, 50, 0.3f, ui::Easing::EaseOutCubic));
+        sb->Add(ui::ViewAnimator::TranslateX(animTarget, 50, 0, 0.3f, ui::Easing::EaseInCubic));
+        ctx->Animations()->Add(Move(sb));
+    } });
+    demo->AddView(row.Get());
+
+    // Static transforms.
+    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 8.0f).Get());
+    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Static Transforms (click to verify hit-testing)")).Get());
+    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+
+    auto clickLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Click a transformed button..."));
+    ui::Label* cl = clickLabel.Get();
+    auto trow = HFlex(16.0f);
+    auto tfBtn = [&](const char8_t* text, ui::ViewTransform t, const char8_t* msg)
+    {
+        auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+        b->Transform = t;
+        const char8_t* m = msg;
+        b->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [cl, m](ui::ButtonBase*) { cl->SetText(StringView(m)); } });
+        trow->AddView(b.Get());
+    };
+    { ui::ViewTransform t; t.Rotation = 0.15f;              tfBtn(u8"Rotated",     t, u8"Rotated button clicked!"); }
+    { ui::ViewTransform t; t.Scale = Float2{ 1.2f, 1.2f };  tfBtn(u8"Scaled 1.2x", t, u8"Scaled button clicked!"); }
+    { ui::ViewTransform t; t.Translation = Float2{ 10, 5 }; tfBtn(u8"Translated",  t, u8"Translated button clicked!"); }
+    demo->AddView(trow.Get());
+    demo->AddView(clickLabel.Get());
 }
 
 // === Tab 8: Drag & Drop (reorderable chips + a colour drop box) ===
