@@ -1,6 +1,6 @@
-// Unit tests for the draconic.ui Drawing foundation: ControlState flags + Drawable/Cast<T>.
-// Rendering itself is exercised by the UI sandbox; here we cover the non-rendering surface
-// (state flags, our-RTTI downcasting, intrinsic size / padding defaults).
+// Ported from Sedulous.UI.Tests/src/DrawableTests.bf (faithful; Beef `new X()/defer ReleaseRef` ->
+// stack values / MakeRef children, `===` reference-equality -> pointer ==).
+// NOTE: the two NineSlice_* tests are deferred until NineSliceDrawable is ported.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -9,44 +9,84 @@ import draconic.ui;
 using namespace draconic::ui;
 namespace core = draconic::core;
 
-TEST_CASE("ui.control-state: bit flags combine + mask")
-{
-    ControlState s = ControlState::Hover | ControlState::Checked;
-    CHECK(HasFlag(s, ControlState::Hover));
-    CHECK(HasFlag(s, ControlState::Checked));
-    CHECK_FALSE(HasFlag(s, ControlState::Pressed));
-    CHECK(Any(s));
-    CHECK_FALSE(Any(ControlState::Normal));
+// === StateListDrawable ===
 
-    s &= ~ControlState::Hover;
-    CHECK_FALSE(HasFlag(s, ControlState::Hover));
-    CHECK(HasFlag(s, ControlState::Checked));
+TEST_CASE("drawable: StateList_GetFallsBackToNormal")
+{
+    StateListDrawable sl;
+    sl.Set(ControlState::Normal, core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
+    Drawable* normal = sl.Get(ControlState::Normal);
+
+    CHECK(sl.Get(ControlState::Normal) == normal);
+    CHECK(sl.Get(ControlState::Hover) == normal);    // fallback
+    CHECK(sl.Get(ControlState::Pressed) == normal);  // fallback
+    CHECK(sl.Get(ControlState::Disabled) == normal); // fallback
 }
 
-TEST_CASE("ui.drawable: ColorDrawable via our RTTI (Cast<T>)")
+TEST_CASE("drawable: StateList_GetReturnsSpecificState")
 {
-    core::RefPtr<Drawable> d = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color{ 1.0f, 0.0f, 0.0f, 1.0f });
-    REQUIRE(d);
+    StateListDrawable sl;
+    sl.Set(ControlState::Normal, core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
+    sl.Set(ControlState::Hover, core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Blue));
+    Drawable* normal = sl.Get(ControlState::Normal);
+    Drawable* hover = sl.Get(ControlState::Hover);
 
-    // Concrete downcast through the base-chain Cast<T> (our -fno-rtti replacement for dynamic_cast).
-    ColorDrawable* cd = core::Cast<ColorDrawable>(d.Get());
-    REQUIRE(cd != nullptr);
-    CHECK(cd->Color.r == 1.0f);
-    CHECK(cd->Color.a == 1.0f);
-
-    // Base defaults.
-    CHECK_FALSE(d->IntrinsicSize().HasValue());
-    CHECK(d->DrawablePadding().IsZero());
-
-    // Type identity.
-    CHECK(d->GetType() == &ColorDrawable::StaticType());
-    CHECK(core::IsA<Drawable>(d.Get()));
+    CHECK(sl.Get(ControlState::Normal) == normal);
+    CHECK(sl.Get(ControlState::Hover) == hover);
+    CHECK(sl.Get(ControlState::Pressed) == normal); // fallback
 }
 
-TEST_CASE("ui.debug-settings: AnyEnabled")
+TEST_CASE("drawable: StateList_GetReturnsNullIfNoNormal")
 {
-    UIDebugDrawSettings s;
-    CHECK_FALSE(s.AnyEnabled());
-    s.ShowBounds = true;
-    CHECK(s.AnyEnabled());
+    StateListDrawable sl;
+    CHECK(sl.Get(ControlState::Normal) == nullptr);
+    CHECK(sl.Get(ControlState::Hover) == nullptr);
+}
+
+// === LayerDrawable ===
+
+TEST_CASE("drawable: Layer_AddLayer_IncreasesCount")
+{
+    // Just verify it doesn't crash - drawing needs a VGContext. AddLayer consumes the ref.
+    LayerDrawable layer;
+    layer.AddLayer(core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
+    layer.AddLayer(core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Blue), Thickness{ 5.0f, 5.0f, 5.0f, 5.0f });
+}
+
+// === InsetDrawable ===
+
+TEST_CASE("drawable: Inset_DrawablePadding_MatchesInset")
+{
+    InsetDrawable inset{ core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red), Thickness{ 10.0f, 5.0f, 10.0f, 5.0f } };
+    Thickness pad = inset.DrawablePadding();
+    CHECK(pad.Left == 10.0f);
+    CHECK(pad.Top == 5.0f);
+    CHECK(pad.Right == 10.0f);
+    CHECK(pad.Bottom == 5.0f);
+}
+
+// === ColorDrawable ===
+
+TEST_CASE("drawable: ColorDrawable_NoIntrinsicSize")
+{
+    ColorDrawable cd{ core::Color::Red };
+    CHECK_FALSE(cd.IntrinsicSize().HasValue());
+}
+
+// === RoundedRectDrawable ===
+
+TEST_CASE("drawable: RoundedRect_NoIntrinsicSize")
+{
+    RoundedRectDrawable rr{ core::Color::Red, 4.0f, core::Color::Blue, 1.0f };
+    CHECK_FALSE(rr.IntrinsicSize().HasValue());
+}
+
+// === Drawable base ===
+
+TEST_CASE("drawable: Drawable_StateAwareDraw_DelegatesToStateless")
+{
+    // ShapeDrawable has no state-aware override - should delegate. Creation must not invoke it.
+    bool called = false;
+    ShapeDrawable sd{ ShapeDrawable::DrawFn{ [&](UIDrawContext&, const core::Rectangle&) { called = true; } } };
+    CHECK_FALSE(called);
 }

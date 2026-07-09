@@ -1,7 +1,9 @@
-# Draconic::UI unit tests (doctest). Ports of Sedulous.UI.Tests land here as the port grows.
+# Draconic::UI unit tests (doctest) - faithful ports of Sedulous.UI.Tests, added as each subsystem lands.
 add_executable(DraconicUITests
     TestsMain.cpp
-    UICoreTests.cpp
+    ThicknessTests.cpp
+    ViewTransformTests.cpp
+    ViewIdTests.cpp
     PropertyTests.cpp
     DrawableTests.cpp)
 

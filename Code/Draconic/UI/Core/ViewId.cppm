@@ -26,6 +26,7 @@ export namespace draconic::ui
         [[nodiscard]] constexpr u32 RawValue() const noexcept { return m_value; }
         [[nodiscard]] constexpr u64 GetHashCode() const noexcept { return static_cast<u64>(m_value); }
 
+        [[nodiscard]] constexpr bool Equals(ViewId other) const noexcept { return m_value == other.m_value; }
         [[nodiscard]] constexpr bool operator==(ViewId other) const noexcept { return m_value == other.m_value; }
 
         static const ViewId Invalid;

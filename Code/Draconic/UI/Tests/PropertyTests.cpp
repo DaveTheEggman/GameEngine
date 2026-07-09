@@ -1,79 +1,108 @@
-// Unit tests for the draconic.ui Core mechanics: Event multicast + Property<T>.
+// Ported from Sedulous.UI.Tests/src/PropertyTests.bf (faithful; Beef `Value` property -> Value()/
+// SetValue(), Beef delegate -> core::Function, scope Property -> stack Property).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 
 using namespace draconic::ui;
-namespace core = draconic::core;
+using namespace draconic::core;
 
-namespace
+TEST_CASE("property: InitialValue")
 {
-    struct MockOwner : IPropertyOwner
-    {
-        int count = 0;
-        InvalidationKind lastKind = InvalidationKind::Visual;
-        void OnPropertyChanged(InvalidationKind kind) override { ++count; lastKind = kind; }
-    };
+    Property<f32> prop{ 42.0f };
+    CHECK(prop.Value() == 42.0f);
 }
 
-TEST_CASE("ui.event: multicast add + invoke in order")
+TEST_CASE("property: DefaultValue")
 {
-    Event<void(int)> e;
-    int sum = 0, calls = 0;
-    e.Add(core::Function<void(int)>{ [&](int v) { sum += v; ++calls; } });
-    e.Add(core::Function<void(int)>{ [&](int v) { sum += v * 10; ++calls; } });
-    CHECK(e.Count() == 2u);
-    e(3);
-    CHECK(calls == 2);
-    CHECK(sum == 33);
-    e.Clear();
-    CHECK(e.Count() == 0u);
+    Property<i32> prop;
+    CHECK(prop.Value() == 0);
 }
 
-TEST_CASE("ui.property: value + Changed fires only on real change")
+TEST_CASE("property: SetValue_FiresChanged")
 {
-    Property<int> p{ 5 };
-    CHECK(p.Value() == 5);
-
-    int fired = 0, last = 0;
-    p.Changed.Add(core::Function<void(int)>{ [&](int v) { ++fired; last = v; } });
-    p.SetValue(5);                 // same value -> no fire
-    CHECK(fired == 0);
-    p.SetValue(9);
-    CHECK(fired == 1);
-    CHECK(last == 9);
-    CHECK(p.Value() == 9);
+    Property<f32> prop{ 0.0f };
+    f32 received = -1.0f;
+    prop.Changed.Add(Function<void(f32)>{ [&](f32 val) { received = val; } });
+    prop.SetValue(100.0f);
+    CHECK(received == 100.0f);
 }
 
-TEST_CASE("ui.property: SetSilent + owner invalidation")
+TEST_CASE("property: SetValue_SameValue_DoesNotFire")
 {
-    MockOwner owner;
-    Property<core::f32> p{ 1.0f };
-    p.SetOwner(&owner, InvalidationKind::Visual);
-
-    p.SetSilent(2.0f);             // no fire, no invalidate
-    CHECK(owner.count == 0);
-    CHECK(p.Value() == 2.0f);
-
-    p.SetValue(3.0f);
-    CHECK(owner.count == 1);
-    CHECK(owner.lastKind == InvalidationKind::Visual);
+    Property<i32> prop{ 42 };
+    i32 fireCount = 0;
+    prop.Changed.Add(Function<void(i32)>{ [&](i32) { ++fireCount; } });
+    prop.SetValue(42); // same value
+    CHECK(fireCount == 0);
 }
 
-TEST_CASE("ui.property: one-way + two-way binding with loop guard")
+TEST_CASE("property: SetValue_DifferentValue_Fires")
 {
-    Property<int> a{ 1 };
-    Property<int> b{ 0 };
-    a.BindTo(b);
-    a.SetValue(7);
-    CHECK(b.Value() == 7);
+    Property<i32> prop{ 0 };
+    i32 fireCount = 0;
+    prop.Changed.Add(Function<void(i32)>{ [&](i32) { ++fireCount; } });
+    prop.SetValue(1);
+    prop.SetValue(2);
+    prop.SetValue(3);
+    CHECK(fireCount == 3);
+}
 
-    Property<int> x{ 0 };
-    Property<int> y{ 0 };
-    x.BindTwoWay(y);
-    x.SetValue(4);
-    CHECK(y.Value() == 4);
-    y.SetValue(9);
-    CHECK(x.Value() == 9);         // loop guard stops infinite recursion
+TEST_CASE("property: SetSilent_DoesNotFire")
+{
+    Property<f32> prop{ 0.0f };
+    i32 fireCount = 0;
+    prop.Changed.Add(Function<void(f32)>{ [&](f32) { ++fireCount; } });
+    prop.SetSilent(100.0f);
+    CHECK(prop.Value() == 100.0f);
+    CHECK(fireCount == 0);
+}
+
+TEST_CASE("property: BindTo_OneWay")
+{
+    Property<f32> source{ 0.0f };
+    Property<f32> target{ 0.0f };
+    source.BindTo(target);
+
+    source.SetValue(50.0f);
+    CHECK(target.Value() == 50.0f);
+
+    // Reverse should not propagate back.
+    target.SetValue(99.0f);
+    CHECK(source.Value() == 50.0f);
+}
+
+TEST_CASE("property: BindTwoWay_BothDirections")
+{
+    Property<i32> a{ 0 };
+    Property<i32> b{ 0 };
+    a.BindTwoWay(b);
+
+    a.SetValue(10);
+    CHECK(b.Value() == 10);
+
+    b.SetValue(20);
+    CHECK(a.Value() == 20);
+}
+
+TEST_CASE("property: BindTwoWay_LoopGuard")
+{
+    Property<i32> a{ 0 };
+    Property<i32> b{ 0 };
+    a.BindTwoWay(b);
+
+    a.SetValue(42); // must not infinite loop
+    CHECK(a.Value() == 42);
+    CHECK(b.Value() == 42);
+}
+
+TEST_CASE("property: Bool_Property")
+{
+    Property<bool> prop{ false };
+    bool received = false;
+    prop.Changed.Add(Function<void(bool)>{ [&](bool val) { received = val; } });
+    prop.SetValue(true);
+    CHECK(received == true);
+    CHECK(prop.Value() == true);
 }

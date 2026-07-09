@@ -24,6 +24,12 @@ target_sources(DraconicUI
             Drawing/UIDrawContext.cppm
             Drawing/Drawable.cppm
             Drawing/ColorDrawable.cppm
+            Drawing/RoundedRectDrawable.cppm
+            Drawing/ShapeDrawable.cppm
+            Drawing/GradientDrawable.cppm
+            Drawing/InsetDrawable.cppm
+            Drawing/LayerDrawable.cppm
+            Drawing/StateListDrawable.cppm
             UIModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
