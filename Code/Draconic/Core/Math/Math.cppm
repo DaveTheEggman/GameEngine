@@ -38,6 +38,7 @@ export namespace draconic::core
     [[nodiscard]] inline f32 Atan2(f32 y, f32 x) noexcept { return std::atan2(y, x); }
     [[nodiscard]] inline f32 Floor(f32 x) noexcept { return std::floor(x); }
     [[nodiscard]] inline f32 Ceil(f32 x) noexcept { return std::ceil(x); }
+    [[nodiscard]] inline f32 Round(f32 x) noexcept { return std::round(x); } // round half away from zero
     [[nodiscard]] inline f32 Pow(f32 base, f32 exp) noexcept { return std::pow(base, exp); }
     [[nodiscard]] inline f32 Log(f32 x) noexcept { return std::log(x); }    // natural log
     [[nodiscard]] inline f32 Exp(f32 x) noexcept { return std::exp(x); }

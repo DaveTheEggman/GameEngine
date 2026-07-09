@@ -71,6 +71,8 @@ export import :toggle_button;
 export import :radio_button;
 export import :radio_group;
 export import :toggle_switch;
+export import :slider;
+export import :expander;
 export import :style_property;
 export import :style_value;
 export import :style_selector;

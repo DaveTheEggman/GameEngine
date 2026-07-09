@@ -20,6 +20,11 @@ TEST_CASE("math: scalar helpers")
     CHECK(NearlyEqual(Lerp(0.0f, 10.0f, 0.25f), 2.5f));
     CHECK(NearlyEqual(Sqrt(16.0f), 4.0f));
     CHECK(NearlyZero(1.0e-8f));
+    CHECK(Floor(3.7f) == 3.0f);
+    CHECK(Ceil(3.2f) == 4.0f);
+    CHECK(Round(3.3f) == 3.0f);
+    CHECK(Round(3.5f) == 4.0f);
+    CHECK(Round(-3.5f) == -4.0f);
 
     static_assert(Abs(-1.0f) == 1.0f);
 }

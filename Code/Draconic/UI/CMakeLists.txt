@@ -85,6 +85,8 @@ target_sources(DraconicUI
             Controls/RadioButton.cppm
             Controls/RadioGroup.cppm
             Controls/ToggleSwitch.cppm
+            Controls/Slider.cppm
+            Controls/Expander.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm

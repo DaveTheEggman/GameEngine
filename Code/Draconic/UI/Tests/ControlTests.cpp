@@ -376,3 +376,90 @@ TEST_CASE("control: RadioButton_OnActivate_Selects")
     rb->OnActivate();
     CHECK(rb->IsChecked.Value());
 }
+
+// === Slider ===
+
+TEST_CASE("control: Slider_ValueClamped")
+{
+    auto slider = core::MakeRef<Slider>(core::DefaultAllocator(), 0.0f, 100.0f, 50.0f);
+    CHECK(slider->Value.Value() == 50);
+    slider->Value.SetValue(-10.0f);
+    CHECK(slider->Value.Value() == 0);
+    slider->Value.SetValue(200.0f);
+    CHECK(slider->Value.Value() == 100);
+}
+
+TEST_CASE("control: Slider_Step")
+{
+    auto slider = core::MakeRef<Slider>(core::DefaultAllocator(), 0.0f, 100.0f);
+    slider->Step.SetValue(10.0f);
+    slider->Value.SetValue(33.0f);
+    CHECK(slider->Value.Value() == doctest::Approx(30));
+}
+
+TEST_CASE("control: Slider_ValueChangedEvent")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto slider = core::MakeRef<Slider>(core::DefaultAllocator(), 0.0f, 100.0f);
+    root->AddView(slider.Get());
+    f32 lastVal = -1;
+    slider->OnValueChanged.Add([&lastVal](Slider*, f32 v) { lastVal = v; });
+    slider->Value.SetValue(42.0f);
+    CHECK(lastVal == 42);
+}
+
+TEST_CASE("control: Slider_KeyboardControl")
+{
+    auto slider = core::MakeRef<Slider>(core::DefaultAllocator(), 0.0f, 100.0f, 50.0f);
+    slider->Step.SetValue(5.0f);
+    KeyEventArgs r; r.Set(KeyCode::Right, KeyModifiers::None, false); slider->OnKeyDown(r);
+    CHECK(slider->Value.Value() == 55);
+    KeyEventArgs l; l.Set(KeyCode::Left, KeyModifiers::None, false); slider->OnKeyDown(l);
+    CHECK(slider->Value.Value() == 50);
+    KeyEventArgs h; h.Set(KeyCode::Home, KeyModifiers::None, false); slider->OnKeyDown(h);
+    CHECK(slider->Value.Value() == 0);
+    KeyEventArgs e; e.Set(KeyCode::End, KeyModifiers::None, false); slider->OnKeyDown(e);
+    CHECK(slider->Value.Value() == 100);
+}
+
+// === Expander ===
+
+TEST_CASE("control: Expander_DefaultExpanded")
+{
+    auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Header"));
+    CHECK(expander->IsExpanded());
+}
+
+TEST_CASE("control: Expander_Toggle")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Settings"));
+    auto content = core::MakeRef<TestView>(core::DefaultAllocator(), 100.0f, 50.0f);
+    expander->SetContent(content.Get());
+    root->AddView(expander.Get());
+
+    bool fired = false;
+    expander->OnExpandedChanged.Add([&fired](Expander*, bool) { fired = true; });
+    expander->SetIsExpanded(false);
+    CHECK(!expander->IsExpanded());
+    CHECK(fired);
+    CHECK(content->Visibility == Visibility::Gone);
+    expander->SetIsExpanded(true);
+    CHECK(content->Visibility == Visibility::Visible);
+}
+
+TEST_CASE("control: Expander_CollapsedMeasure")
+{
+    auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Header"));
+    auto content = core::MakeRef<TestView>(core::DefaultAllocator(), 100.0f, 50.0f);
+    expander->SetContent(content.Get());
+
+    expander->Measure(BoxConstraints::Loose(400, 300));
+    const f32 expandedH = expander->MeasuredSize.y;
+    expander->SetIsExpanded(false);
+    expander->Measure(BoxConstraints::Loose(400, 300));
+    const f32 collapsedH = expander->MeasuredSize.y;
+
+    CHECK(collapsedH < expandedH);
+    CHECK(collapsedH == doctest::Approx(expander->HeaderHeight.Value()).epsilon(0.02));
+}
