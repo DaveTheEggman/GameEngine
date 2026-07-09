@@ -16,7 +16,7 @@ export module draconic.gui.shell;
 
 import draconic.core;    // ContentFit, Float2, StringView, u32
 import draconic.gui;     // EventDispatcher, MouseButton, KeyMod*
-import draconic.shell;   // InputEvent, InputEventKind, MouseButton, KeyModifiers
+import draconic.shell;   // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -35,40 +35,63 @@ export namespace draconic::gui
         void SetContentFit(const core::ContentFit& fit) noexcept { m_fit = fit; m_hasFit = true; }
         void ClearContentFit() noexcept { m_hasFit = false; }
 
+        // The window whose platform text input (IME) follows GUI focus. Once set, the bridge
+        // enables text input while a text-editing widget holds focus and disables it
+        // otherwise - reconciled after each Dispatch()/PumpFromSurface(), so no per-widget or
+        // per-app wiring is needed. Pass nullptr to disable the feature.
+        void SetTextInputTarget(platform::IWindow* window) noexcept { m_textInputTarget = window; }
+
+        // Reconcile the target window's text-input state with the focused node's wish. Called
+        // automatically from Dispatch()/PumpFromSurface(); exposed for apps that drive focus
+        // by other means.
+        void SyncTextInput()
+        {
+            if (m_textInputTarget == nullptr || m_dispatcher == nullptr) return;
+            const bool want = m_dispatcher->WantsTextInput();
+            if (want && !m_textInputTarget->IsTextInputActive())       m_textInputTarget->StartTextInput();
+            else if (!want && m_textInputTarget->IsTextInputActive())  m_textInputTarget->StopTextInput();
+        }
+
         // Translate one platform input event into a dispatcher injection. Returns true if the
         // event was routed to the GUI, false if it was ignored (gamepad/touch/unknown).
+        // Reconciles the text-input target afterwards, since a routed event (a click, a Tab)
+        // can change focus.
         bool Dispatch(const platform::InputEvent& event)
         {
             if (m_dispatcher == nullptr) return false;
+            bool routed = true;
             switch (event.kind)
             {
             case platform::InputEventKind::MouseMove:
                 m_dispatcher->InjectMouseMove(ToContent(core::Float2{ event.x, event.y }));
-                return true;
+                break;
             case platform::InputEventKind::MouseButtonDown:
                 m_dispatcher->InjectMouseDown(ToContent(core::Float2{ event.x, event.y }),
                     MapButton(event.button), MapModifiers(event.modifiers));
-                return true;
+                break;
             case platform::InputEventKind::MouseButtonUp:
                 m_dispatcher->InjectMouseUp(ToContent(core::Float2{ event.x, event.y }),
                     MapButton(event.button), MapModifiers(event.modifiers));
-                return true;
+                break;
             case platform::InputEventKind::MouseWheel:
                 // For wheel, x/y is the scroll delta; position is the last known cursor spot.
                 m_dispatcher->InjectMouseWheel(m_dispatcher->GetMousePosition(), core::Float2{ event.x, event.y });
-                return true;
+                break;
             case platform::InputEventKind::KeyDown:
                 m_dispatcher->InjectKeyDown(MapKey(event.key), MapModifiers(event.modifiers));
-                return true;
+                break;
             case platform::InputEventKind::KeyUp:
                 m_dispatcher->InjectKeyUp(MapKey(event.key), MapModifiers(event.modifiers));
-                return true;
+                break;
             case platform::InputEventKind::TextInput:
                 m_dispatcher->InjectText(core::StringView(event.text));
-                return true;
+                break;
             default:
-                return false; // gamepad / touch not routed to the GUI yet
+                routed = false; // gamepad / touch not routed to the GUI yet
+                break;
             }
+            SyncTextInput();
+            return routed;
         }
 
         // Poll a gated InputSurface (its mouse is already content-space) and drive the
@@ -97,6 +120,8 @@ export namespace draconic::gui
             const f32 scrollY = mouse->ScrollY();
             if (scrollX != 0.0f || scrollY != 0.0f)
                 m_dispatcher->InjectMouseWheel(position, core::Float2{ scrollX, scrollY });
+
+            SyncTextInput(); // a click this frame may have focused (or blurred) an editable widget
         }
 
     private:
@@ -161,6 +186,7 @@ export namespace draconic::gui
         }
 
         EventDispatcher* m_dispatcher;
+        platform::IWindow* m_textInputTarget = nullptr; // window whose IME follows GUI focus (optional)
         core::ContentFit m_fit{};
         bool m_hasFit = false;
     };

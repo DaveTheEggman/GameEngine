@@ -34,6 +34,10 @@ export namespace draconic::shell
         [[nodiscard]] bool IsMinimized() const noexcept override { return m_minimized; }
         void Close() override { m_open = false; }
 
+        void StartTextInput() override { m_textInputActive = true; }
+        void StopTextInput() override { m_textInputActive = false; }
+        [[nodiscard]] bool IsTextInputActive() const noexcept override { return m_textInputActive; }
+
         // --- test/headless controls (no OS to drive these) ---
         void Resize(core::u32 w, core::u32 h) noexcept { m_width = w; m_height = h; }
         void SetMinimized(bool m) noexcept { m_minimized = m; }
@@ -44,6 +48,7 @@ export namespace draconic::shell
         core::u32 m_height;
         bool m_open = true;
         bool m_minimized = false;
+        bool m_textInputActive = false;
     };
 
     class NullWindowManager final : public IWindowManager

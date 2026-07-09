@@ -286,6 +286,11 @@ export namespace draconic::gui
 
         [[nodiscard]] bool IsFocused() const noexcept { return m_focused; }
 
+        // True if this node edits text and wants the platform's text-input (IME) enabled
+        // while it holds focus. The gui.shell bridge reads the focused node's answer and
+        // drives the window's StartTextInput/StopTextInput accordingly. Default: false.
+        [[nodiscard]] virtual bool WantsTextInput() const { return false; }
+
         // === Invalidation === (marks self + ancestors until an already-dirty one)
         void Invalidate()
         {

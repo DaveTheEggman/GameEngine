@@ -4,7 +4,7 @@ add_executable(DraconicGUIShellTests
     BridgeTests.cpp)
 
 target_link_libraries(DraconicGUIShellTests PRIVATE
-    Draconic::GUIShell doctest::doctest)
+    Draconic::GUIShell Draconic::ShellNull doctest::doctest)
 
 target_compile_definitions(DraconicGUIShellTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

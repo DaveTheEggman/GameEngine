@@ -62,6 +62,10 @@ export namespace draconic::gui
 
         void SetOnTextChanged(core::Function<void(core::StringView)> callback) { m_onChanged = core::Move(callback); }
 
+        // An enabled TextField wants platform text input while focused (the bridge enables
+        // the window's IME accordingly).
+        [[nodiscard]] bool WantsTextInput() const override { return IsEnabled(); }
+
         // === Appearance ===
         void SetFont(fonts::CachedFont* font) { m_text.SetFont(font); Invalidate(); }
         [[nodiscard]] fonts::CachedFont* GetFont() const { return m_text.GetFont(); }

@@ -148,6 +148,8 @@ private:
     RefPtr<gui::SceneNode>    m_root;
     RefPtr<gui::LinearLayout> m_panel;
     RefPtr<gui::Label>        m_counter;
+    RefPtr<gui::TextField>    m_textField;
+    RefPtr<gui::Label>        m_echo;
     gui::StyleManager         m_styles;
     UniquePtr<gui::GuiInputBridge>   m_bridge;
     UniquePtr<shell::InputSurface>   m_surface;
@@ -294,6 +296,46 @@ void GUISandbox::BuildUI()
     slider->SetOnValueChanged([pct, barPtr](f32 v) { SetPercentText(pct, v); barPtr->SetProgress(v); });
     slider->SetValue(0.5f); // fires the callback -> label "50%", bar half-filled
 
+    // An editable text field (the keyboard/text path) + a live echo label.
+    auto fieldRow = MakeRef<gui::LinearLayout>(DefaultAllocator());
+    fieldRow->SetOrientation(gui::Orientation::Horizontal);
+    fieldRow->SetSize(Float2{ 560.0f, 40.0f });
+    fieldRow->SetSpacing(12.0f);
+    m_panel->AddChild(fieldRow.Get());
+
+    auto fieldPrompt = MakeRef<gui::Label>(DefaultAllocator());
+    fieldPrompt->SetSize(Float2{ 60.0f, 34.0f });
+    fieldPrompt->SetText(u8"Name:");
+    fieldPrompt->SetFont(m_font);
+    fieldPrompt->SetTextColor(Col(0.8f, 0.85f, 0.9f));
+    fieldRow->AddChild(fieldPrompt.Get());
+
+    m_textField = MakeRef<gui::TextField>(DefaultAllocator());
+    m_textField->SetSize(Float2{ 300.0f, 34.0f });
+    m_textField->SetPadding(gui::Thickness{ 8.0f, 6.0f, 8.0f, 6.0f });
+    m_textField->SetFont(m_font);
+    m_textField->SetTextColor(Col(0.96f, 0.97f, 0.99f));
+    m_textField->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.20f, 0.22f, 0.27f)));
+    m_textField->SetText(u8"click, then type");
+    fieldRow->AddChild(m_textField.Get());
+
+    m_echo = MakeRef<gui::Label>(DefaultAllocator());
+    m_echo->SetSize(Float2{ 500.0f, 26.0f });
+    m_echo->SetFont(m_font);
+    m_echo->SetTextColor(Col(0.62f, 0.72f, 0.82f));
+    m_echo->SetText(u8"echo: click, then type");
+    m_panel->AddChild(m_echo.Get());
+
+    gui::Label* echo = m_echo.Get();
+    m_textField->SetOnTextChanged([echo](StringView v)
+    {
+        char8_t buf[64] = u8"echo: ";
+        usize pos = 6;
+        for (usize i = 0; i < v.Size() && pos < 62; ++i) buf[pos++] = v[i];
+        buf[pos] = 0;
+        echo->SetText(StringView(buf));
+    });
+
     m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());
 }
@@ -311,12 +353,35 @@ void GUISandbox::OnRender()
             m_surface = MakeUnique<shell::InputSurface>(DefaultAllocator(), &input, m_window->Id(), fit);
             m_router = MakeUnique<shell::InputRouter>(DefaultAllocator(), &input);
             m_router->AddSurface(m_surface.Get());
+            m_bridge->SetTextInputTarget(m_window); // the bridge drives IME on/off from focus
         }
         m_surface->SetRegion(region);
         m_surface->SetContentSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
         m_router->Update();
         m_bridge->PumpFromSurface(*m_surface);
+
+        // Keyboard/text is NOT part of the mouse-only surface pump: dispatch the raw event
+        // stream's key/text events through the bridge's event path (mouse events are skipped
+        // here, since PumpFromSurface already handled them). Text-input enable/disable is
+        // handled generically by the bridge (SetTextInputTarget below) from the focused
+        // widget's WantsTextInput() - no per-widget wiring here.
+        for (const shell::InputEvent& ev : input.Events())
+        {
+            switch (ev.kind)
+            {
+            case shell::InputEventKind::KeyDown:
+            case shell::InputEventKind::KeyUp:
+            case shell::InputEventKind::TextInput:
+                m_bridge->Dispatch(ev);
+                break;
+            default:
+                break;
+            }
+        }
     }
+
+    // Blink the text field's caret while it holds focus.
+    if (m_textField) m_textField->Update(static_cast<f64>(m_deltaTime));
 
     // Advance + style the tree.
     m_root->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
@@ -377,6 +442,8 @@ void GUISandbox::OnShutdown()
     m_bridge.Reset();
     m_root.Reset();
     m_counter.Reset();
+    m_textField.Reset();
+    m_echo.Reset();
     m_panel.Reset();
     m_renderer.Dispose();
     m_vg.Reset();

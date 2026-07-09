@@ -4,6 +4,7 @@
 #include "Core/Prelude.h"
 import draconic.core;
 import draconic.shell;
+import draconic.shell.null;
 import draconic.gui;
 import draconic.gui.shell;
 
@@ -137,6 +138,30 @@ TEST_CASE("bridge: navigation keys map platform KeyCode to the GUI KeyCode")
     // A printable key with no navigation meaning maps to Unknown (its glyph arrives as text).
     bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::A));
     CHECK(seenKey == static_cast<core::u32>(KeyCode::Unknown));
+}
+
+TEST_CASE("bridge: text-input target follows focus of an editable widget")
+{
+    auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
+    auto field = core::MakeRef<TextField>(core::DefaultAllocator());
+    field->SetSize(core::Float2{ 100.0f, 24.0f }); // covers (0,0)-(100,24)
+    root->AddChild(field.Get());
+
+    shell::NullWindow window(1u, shell::WindowSettings{});
+    GuiInputBridge bridge{ root->GetEventDispatcher() };
+    bridge.SetTextInputTarget(&window);
+
+    CHECK_FALSE(window.IsTextInputActive());
+
+    // Click the field -> focus -> bridge enables the window's text input.
+    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonDown, 10.0f, 10.0f, shell::MouseButton::Left));
+    CHECK(root->GetEventDispatcher()->GetFocusNode() == field.Get());
+    CHECK(window.IsTextInputActive());
+
+    // Click off the field (onto the non-editable root) -> focus leaves -> text input disabled.
+    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonDown, 150.0f, 150.0f, shell::MouseButton::Left));
+    CHECK(root->GetEventDispatcher()->GetFocusNode() != field.Get());
+    CHECK_FALSE(window.IsTextInputActive());
 }
 
 TEST_CASE("bridge: content fit maps window position into content space")

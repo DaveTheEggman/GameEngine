@@ -218,6 +218,34 @@ TEST_CASE("textfield: caret draws only while focused")
     }
 }
 
+TEST_CASE("textfield: WantsTextInput drives the dispatcher's text-input wish by focus")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 200.0f, 100.0f });
+    auto f = Make<TextField>();
+    f->SetSize(core::Float2{ 100.0f, 24.0f });
+    auto plain = Make<Button>(); // a non-editing widget
+    plain->SetSize(core::Float2{ 100.0f, 24.0f });
+    root->AddChild(f.Get());
+    root->AddChild(plain.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    CHECK(f->WantsTextInput());          // an editable field wants text input
+    CHECK_FALSE(plain->WantsTextInput()); // a button does not
+
+    CHECK_FALSE(d->WantsTextInput());    // nothing focused
+    f->RequestFocus();
+    CHECK(d->WantsTextInput());          // the field is focused
+    plain->RequestFocus();
+    CHECK_FALSE(d->WantsTextInput());    // focus moved to a non-editing widget
+
+    // A disabled field does not want text input.
+    f->RequestFocus();
+    f->SetEnabled(false);
+    CHECK_FALSE(f->WantsTextInput());
+    CHECK_FALSE(d->WantsTextInput());
+}
+
 TEST_CASE("textfield: blink toggles the caret over time while focused")
 {
     auto root = Make<SceneNode>();

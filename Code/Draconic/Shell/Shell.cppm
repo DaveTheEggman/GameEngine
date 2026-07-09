@@ -72,6 +72,13 @@ export namespace draconic::shell
         // detected by polling Width()/Height().
         [[nodiscard]] virtual bool IsMinimized() const noexcept = 0;
         virtual void Close() = 0;
+
+        // Text-input (IME/composition) control. Platforms only emit TextInput events
+        // for a window while text input is active; a GUI enables it when an editable
+        // control is focused and disables it otherwise. Default off.
+        virtual void StartTextInput() = 0;
+        virtual void StopTextInput() = 0;
+        [[nodiscard]] virtual bool IsTextInputActive() const noexcept = 0;
     };
 
     // What happened to a window during the last ProcessEvents() pump. Delivered

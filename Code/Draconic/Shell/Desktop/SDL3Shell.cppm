@@ -93,6 +93,24 @@ export namespace draconic::shell
         }
         void Close() override { m_open = false; }
 
+        void StartTextInput() override
+        {
+            if (m_window != nullptr && !m_textInputActive)
+            {
+                SDL_StartTextInput(m_window);
+                m_textInputActive = true;
+            }
+        }
+        void StopTextInput() override
+        {
+            if (m_window != nullptr && m_textInputActive)
+            {
+                SDL_StopTextInput(m_window);
+                m_textInputActive = false;
+            }
+        }
+        [[nodiscard]] bool IsTextInputActive() const noexcept override { return m_textInputActive; }
+
         [[nodiscard]] SDL_Window* Handle() const noexcept { return m_window; }
         void OnResized(core::u32 w, core::u32 h) noexcept { m_width = w; m_height = h; }
 
@@ -102,6 +120,7 @@ export namespace draconic::shell
         core::u32 m_width = 0;
         core::u32 m_height = 0;
         bool m_open = true;
+        bool m_textInputActive = false;
     };
 
     // Builds SDL window-creation flags. On Wayland a Vulkan-backed window is

@@ -34,6 +34,10 @@ export namespace draconic::gui
         [[nodiscard]] Node* GetFocusNode() const noexcept { return m_focusNode; }
         [[nodiscard]] core::Float2 GetMousePosition() const noexcept { return m_mousePos; }
 
+        // True if the currently focused node wants platform text input (the gui.shell bridge
+        // reconciles the window's IME state against this each frame).
+        [[nodiscard]] bool WantsTextInput() const { return m_focusNode != nullptr && m_focusNode->WantsTextInput(); }
+
         // === Injection API (fed by the shell bridge) ===
         void InjectMouseMove(core::Float2 position)
         {
