@@ -108,12 +108,17 @@ export namespace draconic::gui
             const core::Float2 position{ mouse->X(), mouse->Y() };
             m_dispatcher->InjectMouseMove(position);
 
+            // Current keyboard modifiers, so a modified click (Shift+click to extend a text
+            // selection, Ctrl+click, ...) carries its modifiers even on the poll-based path.
+            platform::IKeyboard* keyboard = surface.Keyboard();
+            const u32 modifiers = keyboard != nullptr ? MapModifiers(keyboard->Modifiers()) : 0u;
+
             const platform::MouseButton buttons[3] = {
                 platform::MouseButton::Left, platform::MouseButton::Middle, platform::MouseButton::Right };
             for (const platform::MouseButton button : buttons)
             {
-                if (mouse->IsButtonPressed(button))  m_dispatcher->InjectMouseDown(position, MapButton(button));
-                if (mouse->IsButtonReleased(button)) m_dispatcher->InjectMouseUp(position, MapButton(button));
+                if (mouse->IsButtonPressed(button))  m_dispatcher->InjectMouseDown(position, MapButton(button), modifiers);
+                if (mouse->IsButtonReleased(button)) m_dispatcher->InjectMouseUp(position, MapButton(button), modifiers);
             }
 
             const f32 scrollX = mouse->ScrollX();

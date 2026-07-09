@@ -223,3 +223,76 @@ TEST_CASE("ShellClipboard: adapts the shell clipboard to gui::IClipboard and rou
     CHECK(none.GetText().Size() == 0);
     none.SetText(core::StringView(u8"ignored"));
 }
+
+// --- Minimal settable input mocks for the poll-based PumpFromSurface path ---
+namespace
+{
+    class MockKeyboard final : public shell::IKeyboard
+    {
+    public:
+        shell::KeyModifiers mods = shell::KeyModifiers::None;
+        bool IsKeyDown(shell::KeyCode) const override { return false; }
+        bool IsKeyPressed(shell::KeyCode) const override { return false; }
+        bool IsKeyReleased(shell::KeyCode) const override { return false; }
+        shell::KeyModifiers Modifiers() const override { return mods; }
+    };
+
+    class MockMouse final : public shell::IMouse
+    {
+    public:
+        bool leftPressed = false;
+        core::f32 X() const override { return 0.0f; }
+        core::f32 Y() const override { return 0.0f; }
+        core::f32 DeltaX() const override { return 0.0f; }
+        core::f32 DeltaY() const override { return 0.0f; }
+        core::f32 ScrollX() const override { return 0.0f; }
+        core::f32 ScrollY() const override { return 0.0f; }
+        bool IsButtonDown(shell::MouseButton) const override { return false; }
+        bool IsButtonPressed(shell::MouseButton b) const override { return b == shell::MouseButton::Left && leftPressed; }
+        bool IsButtonReleased(shell::MouseButton) const override { return false; }
+        bool RelativeMode() const override { return false; }
+        void SetRelativeMode(bool) override {}
+        bool CursorVisible() const override { return true; }
+        void SetCursorVisible(bool) override {}
+        void SetCursor(shell::CursorType) override {}
+    };
+
+    class MockInputManager final : public shell::IInputManager
+    {
+    public:
+        MockKeyboard keyboard;
+        MockMouse mouse;
+        shell::IKeyboard* Keyboard() override { return &keyboard; }
+        shell::IMouse* Mouse() override { return &mouse; }
+        shell::ITouch* Touch() override { return nullptr; }
+        core::i32 GamepadCount() const override { return 0; }
+        shell::IGamepad* GetGamepad(core::i32) override { return nullptr; }
+        core::Span<const shell::InputEvent> Events() const override { return {}; }
+        core::u32 HoverWindow() const override { return 0; }
+        core::u32 FocusedWindow() const override { return 0; }
+        void Update() override {}
+    };
+}
+
+TEST_CASE("bridge: PumpFromSurface carries keyboard modifiers into a click (Shift+click)")
+{
+    auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
+    auto child = MakePanel(core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
+    root->AddChild(child.Get());
+    GuiInputBridge bridge{ root->GetEventDispatcher() };
+
+    unsigned seenMods = 0;
+    child->AddEventListener(EventType::MouseDown,
+        [&](const Event& e) { seenMods = static_cast<const MouseEvent&>(e).Modifiers; });
+
+    MockInputManager manager;
+    manager.keyboard.mods = shell::KeyModifiers::LeftShift;
+    manager.mouse.leftPressed = true;
+
+    shell::InputSurface surface{ &manager, 1u, core::ContentFit{} };
+    // Gate the surface active (hovered + focused) with the content cursor over the child.
+    surface.ApplyGate(true, true, false, core::Float2{ 10.0f, 10.0f }, core::Float2{ 0.0f, 0.0f });
+
+    bridge.PumpFromSurface(surface);
+    CHECK((seenMods & KeyModShift) != 0u); // Shift reached the widget via the poll path
+}
