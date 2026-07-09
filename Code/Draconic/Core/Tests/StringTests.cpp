@@ -225,14 +225,14 @@ TEST_CASE("string: Remove closes the gap and clamps ranges")
 
 // --- UTF-8 codepoint iteration & encoding ----------------------------------
 
-TEST_CASE("string: DecodeCodepoint walks Unicode scalars")
+TEST_CASE("string: DecodeUtf8 walks Unicode scalars")
 {
     StringView v = u8"aé\U0001F600z"; // 'a'(1) 'é'(2) emoji(4) 'z'(1) = 8 bytes, 4 codepoints
     usize i = 0;
-    CHECK(DecodeCodepoint(v, i) == 0x61u); CHECK(i == 1u);
-    CHECK(DecodeCodepoint(v, i) == 0xE9u); CHECK(i == 3u);
-    CHECK(DecodeCodepoint(v, i) == 0x1F600u); CHECK(i == 7u);
-    CHECK(DecodeCodepoint(v, i) == 0x7Au); CHECK(i == 8u);
+    CHECK(DecodeUtf8(v, i) == 0x61u); CHECK(i == 1u);
+    CHECK(DecodeUtf8(v, i) == 0xE9u); CHECK(i == 3u);
+    CHECK(DecodeUtf8(v, i) == 0x1F600u); CHECK(i == 7u);
+    CHECK(DecodeUtf8(v, i) == 0x7Au); CHECK(i == 8u);
     CHECK(i == v.Size());
 }
 

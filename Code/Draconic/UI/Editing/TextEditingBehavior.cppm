@@ -5,7 +5,7 @@
 // purely through ITextEditHost - so this partition is View-independent (no cycle). Ported from
 // Sedulous.UI/src/Editing/TextEditingBehavior.bf.
 //
-// Port taxes: Beef `for (c in host.Text.DecodedChars)` codepoint iteration -> core::DecodeCodepoint
+// Port taxes: Beef `for (c in host.Text.DecodedChars)` codepoint iteration -> core::DecodeUtf8
 // over the host's UTF-8 Text(); `charStr.Append(char32)` -> core::AppendUtf8. The owned heap
 // `InputFilter` becomes an Optional<InputFilter> (value type). char32.IsLetterOrDigit is approximated
 // (ASCII alnum plus any codepoint >= 0x80 treated as a word char); faithful enough for the ported
@@ -17,7 +17,7 @@ module;
 
 export module draconic.ui:text_editing_behavior;
 
-import draconic.core;   // String, StringView, Array, Clamp, Min, Max, DecodeCodepoint, AppendUtf8, Optional
+import draconic.core;   // String, StringView, Array, Clamp, Min, Max, DecodeUtf8, AppendUtf8, Optional
 import :itext_edit_host;
 import :undo_stack;
 import :input_filter;
@@ -205,7 +205,7 @@ export namespace draconic::ui
         {
             const StringView text = m_host->Text();
             usize i = 0;
-            while (i < text.Size()) { out.PushBack(static_cast<char32_t>(DecodeCodepoint(text, i))); }
+            while (i < text.Size()) { out.PushBack(static_cast<char32_t>(DecodeUtf8(text, i))); }
         }
 
         // =================================================================
@@ -300,7 +300,7 @@ export namespace draconic::ui
             {
                 const StringView text = m_host->Text();
                 usize i = 0;
-                while (i < text.Size()) { if (DecodeCodepoint(text, i) == U'\n') { totalLines++; } }
+                while (i < text.Size()) { if (DecodeUtf8(text, i) == U'\n') { totalLines++; } }
             }
             const i32 currentLine = (lineH > 0) ? static_cast<i32>(curY / lineH) : 0;
             if (currentLine >= totalLines - 1) { return; } // already on the last line
@@ -332,7 +332,7 @@ export namespace draconic::ui
             while (i < text.Size())
             {
                 if (idx >= charIndex) { break; }
-                if (DecodeCodepoint(text, i) == U'\n') { lineStart = idx + 1; }
+                if (DecodeUtf8(text, i) == U'\n') { lineStart = idx + 1; }
                 idx++;
             }
             return lineStart;
@@ -346,7 +346,7 @@ export namespace draconic::ui
             usize i = 0;
             while (i < text.Size())
             {
-                const char32_t c = static_cast<char32_t>(DecodeCodepoint(text, i));
+                const char32_t c = static_cast<char32_t>(DecodeUtf8(text, i));
                 if (idx >= charIndex)
                 {
                     if (c == U'\n') { return idx; }
@@ -445,7 +445,7 @@ export namespace draconic::ui
                 usize i = 0;
                 while (i < src.Size())
                 {
-                    const u32 c = DecodeCodepoint(src, i);
+                    const u32 c = DecodeUtf8(src, i);
                     if (m_inputFilter.Value().Accept(static_cast<char32_t>(c))) { AppendUtf8(filtered, c); }
                 }
                 pasteText = Move(filtered);
@@ -467,7 +467,7 @@ export namespace draconic::ui
                     i32 count = 0;
                     while (i < src.Size() && count < available)
                     {
-                        AppendUtf8(truncated, DecodeCodepoint(src, i));
+                        AppendUtf8(truncated, DecodeUtf8(src, i));
                         count++;
                     }
                     pasteText = Move(truncated);
@@ -604,7 +604,7 @@ export namespace draconic::ui
             usize i = 0;
             while (i < text.Size())
             {
-                const u32 c = DecodeCodepoint(text, i);
+                const u32 c = DecodeUtf8(text, i);
                 if (charIdx >= start && charIdx < end) { AppendUtf8(outText, c); }
                 if (charIdx >= end) { break; }
                 charIdx++;

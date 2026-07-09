@@ -2,7 +2,7 @@
 //
 // Collapsible container with a clickable header and expandable body. Ported from
 // Sedulous.UI/src/Controls/Expander.bf. (IsExpanded property -> IsExpanded()/SetIsExpanded(); header
-// text render deferred; chevron/header chrome kept.)
+// text is live now that the Fonts service is wired; chevron/header chrome kept.)
 
 module;
 #include "Core/Prelude.h"
@@ -12,6 +12,7 @@ export module draconic.ui:expander;
 
 import draconic.core;
 import draconic.vg;
+import draconic.fonts;   // CachedFont, TextAlignment, VerticalAlignment
 import :view;
 import :event;
 import :property;
@@ -27,6 +28,7 @@ import :enums;
 
 using namespace draconic::core;
 namespace core = draconic::core;
+namespace fonts = draconic::fonts;
 
 export namespace draconic::ui
 {
@@ -122,7 +124,17 @@ export namespace draconic::ui
                 }
                 ctx.VG().Stroke(arrowColor, 2.0f);
             }
-            // Header text render deferred.
+
+            if (m_headerText.Size() > 0 && ctx.FontService() != nullptr)
+            {
+                const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
+                if (fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize))
+                {
+                    const Color textColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
+                    const f32 textX = arrowX + arrowSize + 8.0f;
+                    ctx.VG().DrawText(m_headerText, font, Rectangle{ textX, 0, Width() - textX - 4.0f, HeaderHeight.Value() }, fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
+                }
+            }
             DrawChildren(ctx);
         }
 

@@ -1,7 +1,8 @@
 // Draconic UI - :toggle_button partition
 //
 // Stateful button that toggles checked/unchecked, with a content view (a Label by default). Ported
-// from Sedulous.UI/src/Controls/ToggleButton.bf. Content is RefPtr-owned; text render stays deferred.
+// from Sedulous.UI/src/Controls/ToggleButton.bf. Content is RefPtr-owned; its text renders through the
+// Label content view (live now that the Fonts service is wired).
 
 module;
 #include "Core/Prelude.h"

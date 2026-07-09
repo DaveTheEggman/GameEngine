@@ -26,6 +26,7 @@ export module draconic.ui:view;
 
 import draconic.core;   // Object, RefPtr, Array, HashMap, String, StringView, Float2, Rectangle, Function, Cast, IsDerivedFrom, TypeInfo, Max, Min, Optional
 import draconic.vg;     // VGContext (child draw transforms)
+import draconic.fonts;  // IFontService (UIContext seam + font-family resolution)
 import :enums;          // Visibility, CursorType, InvalidationKind
 import :control_state;
 import :property_owner; // IPropertyOwner
@@ -51,6 +52,8 @@ import :focus_manager;
 import :shortcut_manager;
 
 using namespace draconic::core;
+namespace fonts = draconic::fonts;
+namespace vg = draconic::vg;
 
 export namespace draconic::ui
 {
@@ -317,6 +320,13 @@ export namespace draconic::ui
         // === Style resolution (orchestrators; defined below - need Context/StyleSheet/inheritance) ===
         [[nodiscard]] StyleValue ResolveStyle(StyleProperty prop);
         [[nodiscard]] StyleValue ResolvePartStyle(StringView part, StyleProperty prop, ControlState partState);
+
+        /// Resolve the effective font family: the .FontFamily style cascade, falling back to the active
+        /// font service's default family. Returns by value (our ResolveStyle returns a StyleValue by value,
+        /// so a borrowed view would dangle). (Defined in the impl unit - needs Context.)
+        [[nodiscard]] String ResolveStyleFontFamily();
+        /// As above, but a non-empty per-instance override wins (controls with a typed FontFamily property).
+        [[nodiscard]] String ResolveStyleFontFamily(StringView instanceOverride);
 
         [[nodiscard]] Color ResolveStyleColor(StyleProperty prop, Color defaultVal = Color::White)
         {
@@ -635,9 +645,29 @@ export namespace draconic::ui
         void SetStyleSheet(RefPtr<StyleSheet> sheet) { m_styleSheet = Move(sheet); }
 
         // Clipboard adapter, set by the application / ui.shell bridge (non-owning, nullable). The core
-        // stays platform-agnostic; EditText reads it through ITextEditHost. (FontService stays deferred.)
+        // stays platform-agnostic; EditText reads it through ITextEditHost.
         [[nodiscard]] IClipboard* Clipboard() const noexcept { return m_clipboard; }
         void SetClipboard(IClipboard* clipboard) noexcept { m_clipboard = clipboard; }
+
+        // Font service, set by the application (non-owning, nullable). Controls resolve fonts through it
+        // for measuring (Context->FontService()) and DrawRootView feeds it into the draw context + VG.
+        [[nodiscard]] fonts::IFontService* FontService() const noexcept { return m_fontService; }
+        void SetFontService(fonts::IFontService* fontService) noexcept { m_fontService = fontService; }
+
+        /// Draw a root view's tree into `vg`. Builds a UIDrawContext over the (caller-supplied) VG and
+        /// the font service, then walks the tree via ViewGroup::OnDraw. The caller constructs the VG with
+        /// the same font service (VGContext takes it at construction; there is no setter). Ported faithfully
+        /// from Sedulous UIContext.DrawRootView.
+        void DrawRootView(RootView* root, vg::VGContext& vg)
+        {
+            if (root == nullptr) { return; }
+            m_phase = Phase::Drawing;
+            UIDrawContext ctx{ vg, root->DpiScale, m_fontService };
+            if (root->DpiScale != 1.0f) { vg.Scale(root->DpiScale, root->DpiScale); }
+            root->OnDraw(ctx);
+            m_phase = Phase::Idle;
+            m_needsRedraw = false;
+        }
 
         // === Root view management ===
         void AddRootView(RootView* root)
@@ -750,6 +780,7 @@ export namespace draconic::ui
         ShortcutManager m_shortcutManager;
         RefPtr<StyleSheet> m_styleSheet;
         IClipboard* m_clipboard = nullptr;
+        fonts::IFontService* m_fontService = nullptr;
         Phase m_phase = Phase::Idle;
         bool m_needsRedraw = true;
         f32 m_deltaTime = 0.0f;

@@ -2,8 +2,8 @@
 //
 // Abstract base for button types: click event, pressed state, ICommand binding, focus/keyboard
 // handling, button-chrome drawing. Ported from Sedulous.UI/src/Controls/ButtonBase.bf.
-// (Text measuring/drawing that needs the Fonts service is deferred in subclasses until IFontService
-// is wired into UIContext; background chrome is fully ported.)
+// (Text measuring/drawing lives in subclasses like Button and is now live - the Fonts service is
+// wired into UIContext; this base provides the button background chrome.)
 
 module;
 #include "Core/Prelude.h"

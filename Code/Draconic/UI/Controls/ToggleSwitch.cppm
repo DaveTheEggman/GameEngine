@@ -1,7 +1,7 @@
 // Draconic UI - :toggle_switch partition
 //
 // iOS-style toggle switch (track + knob). Ported from Sedulous.UI/src/Controls/ToggleSwitch.bf (a View).
-// Text render deferred; toggle/state/event + track/knob layout faithful.
+// Track/knob + the text label are LIVE now that the Fonts service + VG are wired; toggle/state/event faithful.
 
 module;
 #include "Core/Prelude.h"
@@ -11,6 +11,7 @@ export module draconic.ui:toggle_switch;
 
 import draconic.core;
 import draconic.vg;
+import draconic.fonts;   // CachedFont, TextAlignment, VerticalAlignment
 import :view;
 import :event;
 import :property;
@@ -25,6 +26,7 @@ import :enums;
 
 using namespace draconic::core;
 namespace core = draconic::core;
+namespace fonts = draconic::fonts;
 
 export namespace draconic::ui
 {
@@ -57,8 +59,20 @@ export namespace draconic::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            // Text measuring deferred: total collapses to the track size.
-            MeasuredSize = Float2{ constraints.ConstrainWidth(TrackWidth.Value()), constraints.ConstrainHeight(TrackHeight.Value()) };
+            const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
+            f32 textW = 0, textH = 0;
+            const StringView text = Text.Value();
+            if (text.Size() > 0 && Context != nullptr && Context->FontService() != nullptr)
+            {
+                if (fonts::CachedFont* font = Context->FontService()->GetFont(ResolveStyleFontFamily(), fontSize))
+                {
+                    textW = font->font->MeasureString(text);
+                    textH = font->font->Metrics().lineHeight;
+                }
+            }
+            const f32 totalW = TrackWidth.Value() + ((textW > 0) ? kTextSpacing + textW : 0);
+            const f32 totalH = Max(TrackHeight.Value(), textH);
+            MeasuredSize = Float2{ constraints.ConstrainWidth(totalW), constraints.ConstrainHeight(totalH) };
         }
         void OnDraw(UIDrawContext& ctx) override
         {
@@ -79,10 +93,23 @@ export namespace draconic::ui
             const Rectangle knobRect{ knobX, trackY + knobPad, KnobSize.Value(), KnobSize.Value() };
             if (Drawable* knob = ResolvePartDrawable(u8"knob", StyleProperty::Background, trackState)) { knob->Draw(ctx, knobRect); }
             else { ctx.VG().FillRect(knobRect, Color{ 230.0f / 255.0f, 230.0f / 255.0f, 235.0f / 255.0f, 1.0f }); }
-            // Text render deferred.
+
+            const StringView text = Text.Value();
+            if (text.Size() > 0 && ctx.FontService() != nullptr)
+            {
+                const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
+                if (fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize))
+                {
+                    const Color textColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
+                    const f32 textX = TrackWidth.Value() + kTextSpacing;
+                    ctx.VG().DrawText(text, font, Rectangle{ textX, 0, Width() - textX, Height() }, fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
+                }
+            }
         }
 
     private:
+        static constexpr f32 kTextSpacing = 8.0f;
+
         void Init()
         {
             IsChecked.SetOwner(this, InvalidationKind::Visual);

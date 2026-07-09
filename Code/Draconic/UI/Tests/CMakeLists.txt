@@ -23,6 +23,7 @@ add_executable(DraconicUITests
     InputTests.cpp
     EditingTests.cpp
     EditTextTests.cpp
+    FontFamilyTests.cpp
     ControlTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE

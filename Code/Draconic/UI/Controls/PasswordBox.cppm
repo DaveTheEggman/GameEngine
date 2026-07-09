@@ -9,7 +9,7 @@ module;
 
 export module draconic.ui:password_box;
 
-import draconic.core;   // String, StringView, DecodeCodepoint, AppendUtf8
+import draconic.core;   // String, StringView, DecodeUtf8, AppendUtf8
 import :edit_text;
 import :property;
 import :event_args;
@@ -40,7 +40,7 @@ export namespace draconic::ui
             usize i = 0;
             while (i < text.Size())
             {
-                (void)DecodeCodepoint(text, i);
+                (void)DecodeUtf8(text, i);
                 AppendUtf8(outText, mask);
             }
         }

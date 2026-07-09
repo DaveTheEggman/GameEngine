@@ -1,9 +1,8 @@
 // Draconic UI - :button partition
 //
 // Text button (the most common button type). Ported from Sedulous.UI/src/Controls/Button.bf. Text
-// measuring/drawing is deferred (guarded by the null Fonts service): OnMeasure falls back to the font
-// size for height, OnDraw draws the background chrome only. The Text/FontSize/FontFamily properties are
-// kept for API completeness; text rendering wires them when IFontService lands.
+// measuring/drawing is LIVE now that the Fonts service is wired (font-size height fallback for the
+// no-service path); the button label is centered in the padded content rect.
 
 module;
 #include "Core/Prelude.h"
@@ -12,6 +11,7 @@ module;
 export module draconic.ui:button;
 
 import draconic.core;
+import draconic.fonts;   // CachedFont, TextAlignment, VerticalAlignment
 import :button_base;
 import :view;
 import :property;
@@ -20,8 +20,10 @@ import :thickness;
 import :box_constraints;
 import :draw_context;
 import :control_state;
+import :palette;
 
 using namespace draconic::core;
+namespace fonts = draconic::fonts;
 
 export namespace draconic::ui
 {
@@ -51,9 +53,18 @@ export namespace draconic::ui
             const BoxConstraints inner = constraints.Deflate(pad).Loosen();
             const f32 fontSize = FontSize.Value().HasValue() ? FontSize.Value().Value() : ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
 
-            // Text measuring deferred (Fonts service): width 0, height = font size.
-            const f32 textW = 0.0f;
-            const f32 textH = fontSize;
+            f32 textW = 0, textH = 0;
+            const StringView text = Text.Value();
+            if (text.Size() > 0 && Context != nullptr && Context->FontService() != nullptr)
+            {
+                if (fonts::CachedFont* font = Context->FontService()->GetFont(ResolveStyleFontFamily(FontFamily.Value()), fontSize))
+                {
+                    textW = font->font->MeasureString(text);
+                    textH = font->font->Metrics().lineHeight;
+                }
+            }
+            else { textH = fontSize; }
+
             MeasuredSize = Float2{ constraints.ConstrainWidth(Min(textW, inner.MaxWidth) + pad.TotalHorizontal()),
                                    constraints.ConstrainHeight(Min(textH, inner.MaxHeight) + pad.TotalVertical()) };
         }
@@ -61,8 +72,22 @@ export namespace draconic::ui
         void OnDraw(UIDrawContext& ctx) override
         {
             const Rectangle bounds{ 0, 0, Width(), Height() };
-            DrawButtonBackground(ctx, bounds, GetControlState());
-            // Text drawing deferred until the Fonts service is wired.
+            const ControlState state = GetControlState();
+            DrawButtonBackground(ctx, bounds, state);
+
+            const StringView text = Text.Value();
+            if (text.Size() > 0 && ctx.FontService() != nullptr)
+            {
+                const f32 fontSize = FontSize.Value().HasValue() ? FontSize.Value().Value() : ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
+                if (fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(FontFamily.Value()), fontSize))
+                {
+                    const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{ 12.0f, 8.0f });
+                    Color textColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
+                    if (HasFlag(state, ControlState::Disabled)) { textColor = Palette::ComputeDisabled(textColor); }
+                    const Rectangle textRect{ pad.Left, pad.Top, Width() - pad.TotalHorizontal(), Height() - pad.TotalVertical() };
+                    ctx.VG().DrawText(text, font, textRect, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, textColor);
+                }
+            }
         }
     };
 

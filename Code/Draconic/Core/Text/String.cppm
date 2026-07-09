@@ -530,7 +530,7 @@ export namespace draconic::core
     /// Decodes the codepoint starting at `text[index]`, advancing `index` past the
     /// consumed byte(s). After the call `index` is the byte offset of the next
     /// codepoint (Beef's `@c.NextIndex`). Caller guarantees `index < text.Size()`.
-    [[nodiscard]] inline u32 DecodeCodepoint(StringView text, usize& index) noexcept
+    [[nodiscard]] inline u32 DecodeUtf8(StringView text, usize& index) noexcept
     {
         const u8 lead = static_cast<u8>(text[index]);
         ++index;
@@ -586,7 +586,7 @@ export namespace draconic::core
     {
         usize count = 0;
         usize i = 0;
-        while (i < text.Size()) { (void)DecodeCodepoint(text, i); ++count; }
+        while (i < text.Size()) { (void)DecodeUtf8(text, i); ++count; }
         return count;
     }
 

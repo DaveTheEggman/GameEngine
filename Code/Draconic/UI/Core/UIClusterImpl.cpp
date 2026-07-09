@@ -73,6 +73,21 @@ namespace draconic::ui
         return StyleValue::None();
     }
 
+    String View::ResolveStyleFontFamily()
+    {
+        // Hold the StyleValue in a named local: AsString() borrows a view into it (dangles otherwise).
+        StyleValue family = ResolveStyle(StyleProperty::FontFamily);
+        if (Optional<StringView> s = family.AsString(); s.HasValue()) { return String(s.Value()); }
+        if (Context != nullptr && Context->FontService() != nullptr) { return String(Context->FontService()->DefaultFontFamily()); }
+        return String{};
+    }
+
+    String View::ResolveStyleFontFamily(StringView instanceOverride)
+    {
+        if (instanceOverride.Size() > 0) { return String(instanceOverride); }
+        return ResolveStyleFontFamily();
+    }
+
     StyleValue View::ResolvePartStyle(StringView part, StyleProperty prop, ControlState partState)
     {
         if (m_inlineSheet)
