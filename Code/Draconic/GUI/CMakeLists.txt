@@ -49,6 +49,7 @@ target_sources(DraconicGUI
             Widgets/TextField.cppm
             Widgets/ScrollBar.cppm
             Widgets/ScrollView.cppm
+            Widgets/Image.cppm
             Styling/ParseUtil.cppm
             Styling/StyleSelector.cppm
             Styling/MediaQuery.cppm
