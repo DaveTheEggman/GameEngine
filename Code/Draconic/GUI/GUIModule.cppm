@@ -54,6 +54,7 @@ export import :label;
 export import :button;
 export import :check_box;
 export import :slider;
+export import :progress_bar;
 export import :linear_layout;
 
 // CSS styling (Phase 6)
