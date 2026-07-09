@@ -63,6 +63,112 @@ float4 main(PSInput input) : SV_Target {
 #define DRACONIC_UI_FONT_PATH ""
 #endif
 
+    // Appends "<n>" into buf (small values); caller supplies the prefix.
+    inline void AppendNum(char8_t* buf, usize& pos, i32 n)
+    {
+        char8_t d[12]; usize dc = 0; i32 v = n < 0 ? -n : n;
+        if (v == 0) d[dc++] = u8'0';
+        while (v > 0) { d[dc++] = static_cast<char8_t>(u8'0' + v % 10); v /= 10; }
+        if (n < 0) buf[pos++] = u8'-';
+        for (usize k = 0; k < dc; ++k) buf[pos++] = d[dc - 1 - k];
+    }
+
+    // A tree row view: draws depth-indented text (TreeView overlays the expand arrows). No DRACONIC_
+    // OBJECT (this sample TU imports modules only, not the reflection header) - the adapter recovers it
+    // via static_cast since it created the view.
+    class TreeItemView final : public draconic::ui::View
+    {
+    public:
+        void Set(StringView text, i32 depth) { m_text = String(text); m_depth = depth; }
+        void OnDraw(draconic::ui::UIDrawContext& ctx) override
+        {
+            if (m_text.Size() > 0 && ctx.FontService() != nullptr)
+            {
+                const f32 textX = static_cast<f32>(m_depth + 1) * m_indent;
+                const Color color = ResolveStyleColor(draconic::ui::StyleProperty::TextColor, Color{ 220.0f / 255.0f, 220.0f / 255.0f, 230.0f / 255.0f, 1.0f });
+                if (fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), 14.0f))
+                {
+                    ctx.VG().DrawText(m_text, font, Rectangle{ textX, 0, Width() - textX, Height() }, fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, color);
+                }
+            }
+        }
+    private:
+        String m_text;
+        i32 m_depth = 0;
+        f32 m_indent = 20.0f;
+    };
+
+    // Demo list adapter: N "Item k" labels.
+    class DemoListAdapter final : public draconic::ui::ListAdapterBase
+    {
+    public:
+        explicit DemoListAdapter(i32 count) : m_count(count) {}
+        [[nodiscard]] i32 ItemCount() const override { return m_count; }
+        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override { return MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView{}); }
+        void BindView(draconic::ui::View* view, i32 position) override
+        {
+            if (auto* label = draconic::core::Cast<draconic::ui::Label>(view))
+            {
+                char8_t buf[24] = u8"Item "; usize p = 5; AppendNum(buf, p, position + 1); buf[p] = 0;
+                label->SetText(StringView(buf));
+            }
+        }
+    private:
+        i32 m_count;
+    };
+
+    // Demo tree adapter: 5 folders x 3 files; folder 0 has a subfolder with 2 files.
+    class DemoTreeAdapter final : public draconic::ui::ITreeAdapter
+    {
+    public:
+        [[nodiscard]] i32 RootCount() const override { return 5; }
+        [[nodiscard]] i32 GetChildCount(i32 nodeId) const override
+        {
+            if (nodeId == -1) return 5;
+            if (nodeId >= 0 && nodeId < 5) return (nodeId == 0) ? 4 : 3;
+            if (nodeId == 50) return 2;
+            return 0;
+        }
+        [[nodiscard]] i32 GetChildId(i32 parentId, i32 childIndex) const override
+        {
+            if (parentId == -1) return childIndex;
+            if (parentId >= 0 && parentId < 5) { if (parentId == 0 && childIndex == 3) return 50; return 100 + parentId * 10 + childIndex; }
+            if (parentId == 50) return 500 + childIndex;
+            return -1;
+        }
+        [[nodiscard]] i32 GetDepth(i32 nodeId) const override { if (nodeId >= 500) return 2; if (nodeId >= 100 || nodeId == 50) return 1; return 0; }
+        [[nodiscard]] bool HasChildren(i32 nodeId) const override { return (nodeId >= 0 && nodeId < 5) || nodeId == 50; }
+        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override { return MakeRef<TreeItemView>(DefaultAllocator()); }
+        void BindView(draconic::ui::View* view, i32 nodeId, i32 depth, bool) override
+        {
+            auto* item = static_cast<TreeItemView*>(view); // adapter created it, so the type is known
+            char8_t buf[24]; usize p = 0; const char8_t* pre = HasChildren(nodeId) ? u8"Folder " : u8"File ";
+            for (usize k = 0; pre[k] != 0; ++k) buf[p++] = pre[k];
+            AppendNum(buf, p, nodeId); buf[p] = 0;
+            item->Set(StringView(buf), depth);
+        }
+    };
+
+    // Demo grid adapter: N coloured cells.
+    class DemoGridAdapter final : public draconic::ui::ListAdapterBase
+    {
+    public:
+        explicit DemoGridAdapter(i32 count) : m_count(count) {}
+        [[nodiscard]] i32 ItemCount() const override { return m_count; }
+        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override { return MakeRef<draconic::ui::ColorView>(DefaultAllocator(), Color{ 100.0f / 255.0f, 100.0f / 255.0f, 100.0f / 255.0f, 1.0f }, 0.0f, 0.0f); }
+        void BindView(draconic::ui::View* view, i32 position) override
+        {
+            if (auto* cv = draconic::core::Cast<draconic::ui::ColorView>(view))
+            {
+                const f32 r = (60 + (position * 7) % 160) / 255.0f;
+                const f32 g = (80 + (position * 13) % 140) / 255.0f;
+                const f32 b = (100 + (position * 23) % 120) / 255.0f;
+                cv->Color.SetValue(Color{ r, g, b, 1.0f });
+            }
+        }
+    private:
+        i32 m_count;
+    };
 }
 
 class UISandbox : public sf::SampleApp
@@ -116,6 +222,7 @@ private:
     void BuildLayoutsTab(ui::TabView* tabView);
     void BuildTabPlacementTab(ui::TabView* tabView);
     void BuildTextInputTab(ui::TabView* tabView);
+    void BuildDataControlsTab(ui::TabView* tabView);
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
     shaders::Compiler* m_compiler = nullptr;
@@ -138,6 +245,9 @@ private:
     UniquePtr<image::OwnedImageData> m_testImage; // borrowed by the ImageView/DrawableView demos
     RefPtr<ui::RepeatButton> m_repeatBtn;         // ticked each frame (hold-to-repeat)
     i32 m_repeatCount = 0;
+    UniquePtr<DemoListAdapter> m_listAdapter;     // borrowed by the ListView (Data Controls tab)
+    UniquePtr<DemoTreeAdapter> m_treeAdapter;
+    UniquePtr<DemoGridAdapter> m_gridAdapter;
 
     UniquePtr<ui::UiInputBridge>   m_bridge;
     UniquePtr<shell::InputSurface> m_surface;
@@ -219,6 +329,44 @@ void UISandbox::BuildUI()
     BuildLayoutsTab(tabView.Get());
     BuildTabPlacementTab(tabView.Get());
     BuildTextInputTab(tabView.Get());
+    BuildDataControlsTab(tabView.Get());
+}
+
+// === Tab 6: Data Controls (virtualized ListView / TreeView / GridView + adapters) ===
+void UISandbox::BuildDataControlsTab(ui::TabView* tabView)
+{
+    auto dataDemo = HFlex(8.0f);
+    dataDemo->Padding = ui::Thickness{ 8 };
+    tabView->AddTab(u8"Data Controls", dataDemo.Get());
+
+    auto column = [&](const char8_t* title) { auto col = VFlex(4.0f); col->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get()); dataDemo->AddView(col.Get(), Grow(1)); return col; };
+
+    // ListView (1000 items).
+    {
+        auto col = column(u8"ListView (1000 items)");
+        m_listAdapter = MakeUnique<DemoListAdapter>(DefaultAllocator(), 1000);
+        auto listView = MakeRef<ui::ListView>(DefaultAllocator());
+        listView->SetAdapter(m_listAdapter.Get());
+        col->AddView(listView.Get(), Grow(1));
+    }
+
+    // TreeView (hierarchy).
+    {
+        auto col = column(u8"TreeView");
+        m_treeAdapter = MakeUnique<DemoTreeAdapter>(DefaultAllocator());
+        auto treeView = MakeRef<ui::TreeView>(DefaultAllocator());
+        treeView->SetAdapter(m_treeAdapter.Get());
+        col->AddView(treeView.Get(), Grow(1));
+    }
+
+    // GridView (200 coloured cells).
+    {
+        auto col = column(u8"GridView (200 cells)");
+        m_gridAdapter = MakeUnique<DemoGridAdapter>(DefaultAllocator(), 200);
+        auto gridView = MakeRef<ui::GridView>(DefaultAllocator());
+        gridView->SetAdapter(m_gridAdapter.Get());
+        col->AddView(gridView.Get(), Grow(1));
+    }
 }
 
 // A themed labelled colour box (Sedulous UISandbox's MakeBox helper).
@@ -805,6 +953,9 @@ void UISandbox::OnShutdown()
     if (m_root) m_ctx.RemoveRootView(m_root.Get());
     m_repeatBtn.Reset();
     m_main.Reset();
+    m_listAdapter.Reset();
+    m_treeAdapter.Reset();
+    m_gridAdapter.Reset();
     m_root.Reset();
     m_sheet.Reset();
     m_testImage.Reset();

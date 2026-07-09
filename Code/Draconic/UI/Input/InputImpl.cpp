@@ -4,8 +4,9 @@
 // manager-querying methods (IsHovered/IsFocused/IsFocusWithin). These call across the whole View
 // cluster, so - like UIClusterImpl.cpp - they live in an implementation unit (outside the interface
 // partition dependency graph) rather than in the manager partitions (which only forward-declare the
-// view types). Deferred subsystems (DragDrop/Tooltip/PopupLayer/IDragSource) are omitted where Beef
-// guarded them behind a null manager.
+// view types). All subsystem hooks are now wired: DragDrop (UpdateDrag/BeginPotentialDrag/EndDrag/
+// Escape-cancel), Tooltip (OnHoverChanged/OnMouseDown), PopupLayer (HandleClickOutside), Shortcuts,
+// and accelerator search.
 
 module;
 #include "Core/Prelude.h"
@@ -324,7 +325,17 @@ namespace draconic::ui
         UpdateHover(m_mouseX, m_mouseY);
         View* hitView = m_context->GetViewById(m_hoveredId);
 
-        // (Popup click-outside deferred until the Overlay subsystem lands.)
+        // Popup click-outside detection: hand the hit view to the layer so it can close the popups the
+        // click landed outside of (inside the topmost popup = no-op; a lower popup = close those above;
+        // completely outside = close every close-on-click-outside popup). LMB outside consumes the click.
+        if (RootView* root = m_context->ActiveInputRoot())
+        {
+            PopupLayer* popupLayer = root->GetPopupLayer();
+            if (popupLayer != nullptr && popupLayer->PopupCount() > 0)
+            {
+                if (popupLayer->HandleClickOutside(hitView, static_cast<i32>(button))) { return true; } // LMB consumed by popup close
+            }
+        }
 
         if (hitView != nullptr) { FocusNearestFocusable(hitView); }
         else { m_context->GetFocusManager()->ClearFocus(); }
