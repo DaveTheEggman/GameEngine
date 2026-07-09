@@ -357,6 +357,18 @@ void GUISandbox::BuildUI()
         echo->SetText(StringView(buf));
     });
 
+    // A word-wrapped multi-line paragraph (fixed width, SetWordWrap breaks at whitespace).
+    auto wrapLabel = MakeRef<gui::Label>(DefaultAllocator());
+    wrapLabel->SetSize(Float2{ 560.0f, 66.0f });
+    wrapLabel->SetFont(m_font);
+    wrapLabel->SetTextColor(Col(0.78f, 0.82f, 0.88f));
+    wrapLabel->SetTextAlignment(gui::TextHAlign::Left, gui::TextVAlign::Top);
+    wrapLabel->SetWordWrap(true);
+    wrapLabel->SetText(u8"Word wrap: this paragraph is a single Label with SetWordWrap(true), so "
+                       u8"the text greedily breaks at whitespace to fit the label's width and flows "
+                       u8"onto multiple lines - explicit newlines break too.");
+    m_panel->AddChild(wrapLabel.Get());
+
     // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
     // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
     // using the arrow / PageUp-Down / Home-End keys.
