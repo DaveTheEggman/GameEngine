@@ -7,8 +7,8 @@
 // Text rendering / glyph shaping are now LIVE (the Fonts service is wired into UIContext and VG has
 // glyph drawing): a glyph-position cache (m_glyphPositions) is (re)shaped on demand, hit-testing /
 // cursor geometry go through the shaper, and OnDraw paints selection, positioned glyphs, cursor, and
-// placeholder. The no-service / no-shaper paths keep the earlier fallbacks. The right-click ContextMenu
-// stays deferred (that control is not ported yet).
+// placeholder. The no-service / no-shaper paths keep the earlier fallbacks. The right-click Cut/Copy/
+// Paste/Select-All ContextMenu is now wired (ShowContextMenu, via :context_menu).
 //
 // The host accessors GetMaxLength()/GetIsReadOnly() are the `Get`-prefixed ITextEditHost members
 // (EditText's identically-named Property<> fields would otherwise collide - see :itext_edit_host).
@@ -41,6 +41,7 @@ import :itext_edit_host;
 import :text_editing_behavior;
 import :input_filter;
 import :palette;
+import :context_menu;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -191,7 +192,7 @@ export namespace draconic::ui
             if (!IsEffectivelyEnabled()) { return; }
             if (e.Button == MouseButton::Right && ShowContextMenuOnRightClick)
             {
-                // (right-click Cut/Copy/Paste ContextMenu deferred - ContextMenu control not ported)
+                ShowContextMenu(e.X, e.Y);
                 e.Handled = true;
                 return;
             }
@@ -360,6 +361,36 @@ export namespace draconic::ui
         RefPtr<View> m_suffixView;
 
     private:
+        // === Context menu ===
+
+        /// Show right-click context menu with Cut/Copy/Paste/Select All.
+        void ShowContextMenu(f32 localX, f32 localY)
+        {
+            if (Context == nullptr) { return; }
+
+            RefPtr<ContextMenu> menu = MakeRef<ContextMenu>(DefaultAllocator());
+            EditText* self = this;
+
+            if (!IsReadOnly.Value())
+            {
+                menu->AddItem(u8"Cut", [self]() { self->m_behavior.HandleKeyDown(KeyCode::X, KeyModifiers::Ctrl); }, m_behavior.IsSelecting());
+            }
+
+            menu->AddItem(u8"Copy", [self]() { self->m_behavior.HandleKeyDown(KeyCode::C, KeyModifiers::Ctrl); }, m_behavior.IsSelecting());
+
+            if (!IsReadOnly.Value())
+            {
+                const bool hasClipText = Context->Clipboard() != nullptr && Context->Clipboard()->HasText();
+                menu->AddItem(u8"Paste", [self]() { self->m_behavior.HandleKeyDown(KeyCode::V, KeyModifiers::Ctrl); }, hasClipText);
+            }
+
+            menu->AddSeparator();
+            menu->AddItem(u8"Select All", [self]() { self->m_behavior.HandleKeyDown(KeyCode::A, KeyModifiers::Ctrl); });
+
+            const Float2 screenPos = LocalToScreen(Float2{ localX, localY });
+            menu->Show(Context, screenPos.x, screenPos.y);
+        }
+
         [[nodiscard]] fonts::CachedFont* ResolveFont()
         {
             if (Context == nullptr || Context->FontService() == nullptr) { return nullptr; }

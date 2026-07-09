@@ -64,6 +64,7 @@ export import :ipopup_owner;
 export import :popup_entry;
 export import :modal_backdrop;
 export import :popup_layer;
+export import :context_menu;
 export import :frame_layout;
 export import :absolute_layout;
 export import :flow_layout;
