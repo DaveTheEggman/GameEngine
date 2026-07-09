@@ -26,6 +26,7 @@ target_sources(DraconicUI
             Input/ShortcutManager.cppm
             Input/FocusManager.cppm
             Input/InputManager.cppm
+            Overlay/PopupPositioner.cppm
             Editing/InputFilter.cppm
             Controls/MomentumHelper.cppm
             Editing/UndoStack.cppm

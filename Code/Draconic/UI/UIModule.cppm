@@ -48,6 +48,7 @@ export import :shortcut;
 export import :shortcut_manager;
 export import :focus_manager;
 export import :input_manager;
+export import :popup_positioner;
 export import :input_filter;
 export import :momentum_helper;
 export import :undo_stack;
