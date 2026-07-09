@@ -309,6 +309,9 @@ namespace draconic::ui
         m_mouseX = physicalX / dpiScale;
         m_mouseY = physicalY / dpiScale;
 
+        // Hide tooltip on click.
+        m_context->Tooltips()->OnMouseDown();
+
         UpdateHover(m_mouseX, m_mouseY);
         View* hitView = m_context->GetViewById(m_hoveredId);
 
@@ -484,7 +487,8 @@ namespace draconic::ui
             if (View* oldHovered = m_context->GetViewById(m_hoveredId)) { oldHovered->OnMouseLeave(); }
             m_hoveredId = newHoverId;
             if (hitView != nullptr) { hitView->OnMouseEnter(); }
-            // (Tooltip hover-change notification deferred.)
+            // Notify tooltip manager of hover change.
+            m_context->Tooltips()->OnHoverChanged(hitView);
         }
 
         m_currentCursor = (hitView != nullptr) ? hitView->EffectiveCursor() : CursorType::Default;

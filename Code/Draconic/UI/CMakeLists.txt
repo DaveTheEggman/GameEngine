@@ -27,6 +27,9 @@ target_sources(DraconicUI
             Input/FocusManager.cppm
             Input/InputManager.cppm
             Overlay/PopupPositioner.cppm
+            Overlay/TooltipPlacement.cppm
+            Overlay/ITooltipProvider.cppm
+            Overlay/TooltipManager.cppm
             Editing/InputFilter.cppm
             Controls/MomentumHelper.cppm
             Editing/UndoStack.cppm
@@ -44,6 +47,7 @@ target_sources(DraconicUI
             Overlay/PopupLayer.cppm
             Overlay/ContextMenu.cppm
             Overlay/Dialog.cppm
+            Overlay/TooltipView.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
@@ -127,7 +131,8 @@ target_sources(DraconicUI
     PRIVATE
         # Module implementation units (not interface partitions): cross-cluster method bodies.
         Core/UIClusterImpl.cpp
-        Input/InputImpl.cpp)
+        Input/InputImpl.cpp
+        Overlay/TooltipImpl.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

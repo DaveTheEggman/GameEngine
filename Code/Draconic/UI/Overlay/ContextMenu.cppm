@@ -47,7 +47,11 @@ export namespace draconic::ui
         Function<void()> Action;
         bool Enabled = true;
         bool IsSeparator = false;
-        RefPtr<ContextMenu> Submenu;
+        // Submenu is a ContextMenu, but held as RefPtr<View> (its base): a RefPtr specialization of the
+        // still-incomplete ContextMenu here, combined with importing :popup_layer, trips a gcc-15 modules
+        // bug ("failed to load pendings for RefPtr" reading the :popup_layer cluster). RefPtr<View> is an
+        // already-materialized specialization, so it sidesteps the bug; ContextMenu recovers it via Cast.
+        RefPtr<View> Submenu;
 
         MenuItem() = default;
         MenuItem(StringView label, Function<void()> action, bool enabled = true)
@@ -89,8 +93,9 @@ export namespace draconic::ui
         {
             UniquePtr<MenuItem> item = MakeUnique<MenuItem>(DefaultAllocator());
             item->Label = String(label);
-            item->Submenu = MakeRef<ContextMenu>(DefaultAllocator());
-            item->Submenu->m_parentMenu = this;
+            RefPtr<ContextMenu> submenu = MakeRef<ContextMenu>(DefaultAllocator());
+            submenu->m_parentMenu = this;
+            item->Submenu = submenu;
             MenuItem* raw = item.Get();
             m_items.PushBack(Move(item));
             return raw;
@@ -414,6 +419,8 @@ export namespace draconic::ui
         {
             MenuItem* item = m_items[static_cast<usize>(index)].Get();
             if (!item->Submenu || Context == nullptr) { return; }
+            ContextMenu* submenu = Cast<ContextMenu>(item->Submenu.Get());
+            if (submenu == nullptr) { return; }
 
             RootView* root = Context->ActiveInputRoot();
             if (root == nullptr) { return; }
@@ -421,12 +428,12 @@ export namespace draconic::ui
             const Float2 logical = root->LogicalSize();
             const Float2 pos = PopupPositioner::Submenu(
                 Rectangle{ Bounds.x, Bounds.y + GetItemY(index), Width(), m_itemHeight },
-                Float2{ item->Submenu->m_minWidth, 200 },
+                Float2{ submenu->m_minWidth, 200 },
                 Rectangle{ 0, 0, logical.x, logical.y });
 
-            m_openSubmenu = item->Submenu.Get();
+            m_openSubmenu = submenu;
             m_submenuLayer = root->GetPopupLayer();
-            root->GetPopupLayer()->ShowPopup(item->Submenu.Get(), this, pos.x, pos.y, false, false, false);
+            root->GetPopupLayer()->ShowPopup(submenu, this, pos.x, pos.y, false, false, false);
         }
 
         void CloseOpenSubmenu()
