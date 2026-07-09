@@ -5,7 +5,7 @@ add_library(DraconicUI STATIC)
 add_library(Draconic::UI ALIAS DraconicUI)
 
 target_link_libraries(DraconicUI
-    PUBLIC Draconic::Core Draconic::VG Draconic::Fonts Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VG Draconic::VGSVG Draconic::Fonts Draconic::Image Draconic::Policy)
 
 target_sources(DraconicUI
     PUBLIC
@@ -30,6 +30,11 @@ target_sources(DraconicUI
             Drawing/InsetDrawable.cppm
             Drawing/LayerDrawable.cppm
             Drawing/StateListDrawable.cppm
+            Drawing/ImageDrawable.cppm
+            Drawing/NineSliceDrawable.cppm
+            Drawing/AtlasImageDrawable.cppm
+            Drawing/AtlasNineSliceDrawable.cppm
+            Drawing/SVGDrawable.cppm
             UIModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

@@ -4,6 +4,7 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
+import draconic.image;
 import draconic.ui;
 
 using namespace draconic::ui;
@@ -79,6 +80,29 @@ TEST_CASE("drawable: RoundedRect_NoIntrinsicSize")
 {
     RoundedRectDrawable rr{ core::Color::Red, 4.0f, core::Color::Blue, 1.0f };
     CHECK_FALSE(rr.IntrinsicSize().HasValue());
+}
+
+// === NineSliceDrawable ===
+
+TEST_CASE("drawable: NineSlice_DrawablePadding_AccountsForExpand")
+{
+    NineSliceDrawable ns{ nullptr, draconic::image::NineSlice{ 10.0f, 10.0f, 10.0f, 10.0f } };
+    ns.Expand = Thickness{ 5.0f, 5.0f, 5.0f, 5.0f };
+    Thickness pad = ns.DrawablePadding();
+    // Padding = max(0, Slices - Expand) = max(0, 10-5) = 5
+    CHECK(pad.Left == 5.0f);
+    CHECK(pad.Top == 5.0f);
+    CHECK(pad.Right == 5.0f);
+    CHECK(pad.Bottom == 5.0f);
+}
+
+TEST_CASE("drawable: NineSlice_DrawablePadding_ClampsToZero")
+{
+    NineSliceDrawable ns{ nullptr, draconic::image::NineSlice{ 5.0f, 5.0f, 5.0f, 5.0f } };
+    ns.Expand = Thickness{ 10.0f, 10.0f, 10.0f, 10.0f };
+    Thickness pad = ns.DrawablePadding();
+    CHECK(pad.Left == 0.0f);
+    CHECK(pad.Top == 0.0f);
 }
 
 // === Drawable base ===

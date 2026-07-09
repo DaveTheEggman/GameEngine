@@ -30,3 +30,8 @@ export import :gradient_drawable;
 export import :inset_drawable;
 export import :layer_drawable;
 export import :state_list_drawable;
+export import :image_drawable;
+export import :nine_slice_drawable;
+export import :atlas_image_drawable;
+export import :atlas_nine_slice_drawable;
+export import :svg_drawable;
