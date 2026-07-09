@@ -45,6 +45,9 @@ import :style_rule;
 import :style_sheet;
 import :event_args;              // MouseEventArgs/KeyEventArgs/MouseWheelEventArgs/TextInputEventArgs
 import :iaccelerator_handler;
+import :input_manager;
+import :focus_manager;
+import :shortcut_manager;
 
 using namespace draconic::core;
 
@@ -121,6 +124,12 @@ export namespace draconic::ui
         bool ClipsContent = false;
         bool WantsArrowKeys = false;
         bool IsPendingDeletion = false;
+
+        // === Directional focus overrides (empty = use the spatial picker) ===
+        Optional<ViewId> NextFocusUp;
+        Optional<ViewId> NextFocusDown;
+        Optional<ViewId> NextFocusLeft;
+        Optional<ViewId> NextFocusRight;
 
         // === Visual ===
         f32 Opacity = 1.0f;
@@ -236,9 +245,11 @@ export namespace draconic::ui
         }
         [[nodiscard]] bool IsEffectivelyVisible() const; // defined below (checks RootView)
 
-        // Input-manager backed (deferred: no managers yet -> false).
-        [[nodiscard]] bool IsHovered() const noexcept { return false; }
-        [[nodiscard]] bool IsFocused() const noexcept { return false; }
+        // Input-manager backed (defined in the impl unit; query Context's Input/Focus managers).
+        [[nodiscard]] bool IsHovered() const;
+        [[nodiscard]] bool IsFocused() const;
+        /// True if this view or any descendant has keyboard focus.
+        [[nodiscard]] bool IsFocusWithin() const;
 
         // === Style classes ===
         [[nodiscard]] bool HasClass(StringView name) const
@@ -587,12 +598,15 @@ export namespace draconic::ui
     public:
         enum class Phase { Idle, Layout, Drawing };
 
-        UIContext() = default;
+        UIContext() : m_inputManager(this), m_focusManager(this), m_shortcutManager(this) {}
         ~UIContext()
         {
             m_mutationQueue.Drain();
             if (m_styleSheet) { m_styleSheet = nullptr; }
         }
+
+        UIContext(const UIContext&) = delete;
+        UIContext& operator=(const UIContext&) = delete;
 
         [[nodiscard]] Phase CurrentPhase() const noexcept { return m_phase; }
         [[nodiscard]] bool NeedsRedraw() const noexcept { return m_needsRedraw; }
@@ -608,6 +622,13 @@ export namespace draconic::ui
         [[nodiscard]] f32 DpiScale() const noexcept { return m_activeInputRoot ? m_activeInputRoot->DpiScale : 1.0f; }
 
         [[nodiscard]] MutationQueue& MutationQueueRef() noexcept { return m_mutationQueue; }
+
+        // Owned managers (Input/Focus/Shortcut). DragDrop/Animation/Tooltip stay deferred.
+        [[nodiscard]] InputManager* GetInputManager() noexcept { return &m_inputManager; }
+        [[nodiscard]] const InputManager* GetInputManager() const noexcept { return &m_inputManager; }
+        [[nodiscard]] FocusManager* GetFocusManager() noexcept { return &m_focusManager; }
+        [[nodiscard]] const FocusManager* GetFocusManager() const noexcept { return &m_focusManager; }
+        [[nodiscard]] ShortcutManager* GetShortcuts() noexcept { return &m_shortcutManager; }
 
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
         void SetStyleSheet(RefPtr<StyleSheet> sheet) { m_styleSheet = Move(sheet); }
@@ -641,7 +662,10 @@ export namespace draconic::ui
         {
             if (view != nullptr && view->Id.IsValid())
             {
-                // (Manager OnViewDeleted notifications deferred until the managers land.)
+                // Clear manager references (DragDrop/Animation/Tooltip notifications deferred).
+                m_inputManager.OnViewDeleted(view);
+                m_focusManager.OnViewDeleted(view);
+                m_shortcutManager.RemoveScopedTo(view);
                 m_registry.Remove(view->Id.RawValue());
             }
         }
@@ -715,6 +739,9 @@ export namespace draconic::ui
         Array<RootView*> m_rootViews;       // non-owning
         RootView* m_activeInputRoot = nullptr;
         MutationQueue m_mutationQueue;
+        InputManager m_inputManager;
+        FocusManager m_focusManager;
+        ShortcutManager m_shortcutManager;
         RefPtr<StyleSheet> m_styleSheet;
         Phase m_phase = Phase::Idle;
         bool m_needsRedraw = true;

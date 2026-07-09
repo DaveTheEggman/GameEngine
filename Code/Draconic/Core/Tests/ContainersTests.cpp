@@ -100,6 +100,32 @@ TEST_CASE("containers: Array insert")
     CHECK(a[3] == 4);
 }
 
+TEST_CASE("containers: Array sort")
+{
+    Array<int> a;
+    a.PushBack(3); a.PushBack(1); a.PushBack(4); a.PushBack(1); a.PushBack(5); a.PushBack(9); a.PushBack(2);
+    a.Sort([](int x, int y) { return x < y; });         // ascending
+    CHECK(a[0] == 1);
+    CHECK(a[1] == 1);
+    CHECK(a[2] == 2);
+    CHECK(a[3] == 3);
+    CHECK(a[6] == 9);
+
+    a.Sort([](int x, int y) { return x > y; });         // descending
+    CHECK(a[0] == 9);
+    CHECK(a.Back() == 1);
+
+    // Stability: equal keys keep insertion order (pair by first, stable on second).
+    Array<int> pairs; // encode (key*10 + tag)
+    pairs.PushBack(11); pairs.PushBack(12); pairs.PushBack(21); pairs.PushBack(13); pairs.PushBack(22);
+    pairs.Sort([](int x, int y) { return (x / 10) < (y / 10); });
+    CHECK(pairs[0] == 11);
+    CHECK(pairs[1] == 12);
+    CHECK(pairs[2] == 13);
+    CHECK(pairs[3] == 21);
+    CHECK(pairs[4] == 22);
+}
+
 TEST_CASE("containers: Array resize and clear")
 {
     Array<int> a;

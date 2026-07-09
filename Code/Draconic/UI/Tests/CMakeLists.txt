@@ -19,7 +19,8 @@ add_executable(DraconicUITests
     ViewTests.cpp
     ViewGroupTests.cpp
     UIContextTests.cpp
-    LayoutTests.cpp)
+    LayoutTests.cpp
+    InputTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
     Draconic::UI doctest::doctest)

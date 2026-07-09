@@ -250,6 +250,24 @@ export namespace draconic::core
             return m_data[index];
         }
 
+        // Stable in-place sort by `less(a, b)` (returns true if a should come before b). Insertion
+        // sort - fine for the small collections this is used on (focus lists, tracks, ...).
+        template <typename Compare>
+        void Sort(Compare less)
+        {
+            for (usize i = 1; i < m_size; ++i)
+            {
+                T key = Move(m_data[i]);
+                usize j = i;
+                while (j > 0 && less(key, m_data[j - 1]))
+                {
+                    m_data[j] = Move(m_data[j - 1]);
+                    --j;
+                }
+                m_data[j] = Move(key);
+            }
+        }
+
         // --- views / iteration ---------------------------------------------
         [[nodiscard]] Span<T> AsSpan() noexcept { return Span<T>{ m_data, m_size }; }
         [[nodiscard]] Span<const T> AsSpan() const noexcept { return Span<const T>{ m_data, m_size }; }

@@ -22,6 +22,10 @@ target_sources(DraconicUI
             Input/InputEnums.cppm
             Input/EventArgs.cppm
             Input/IAcceleratorHandler.cppm
+            Input/Shortcut.cppm
+            Input/ShortcutManager.cppm
+            Input/FocusManager.cppm
+            Input/InputManager.cppm
             Core/View.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
@@ -73,9 +77,9 @@ target_sources(DraconicUI
             Layout/FlexLayout.cppm
             UIModule.cppm
     PRIVATE
-        # Module implementation unit (not an interface partition): defines the two styling methods
-        # that call into View (StyleSelector::Matches, StyleSheet::Resolve).
-        Core/UIClusterImpl.cpp)
+        # Module implementation units (not interface partitions): cross-cluster method bodies.
+        Core/UIClusterImpl.cpp
+        Input/InputImpl.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
