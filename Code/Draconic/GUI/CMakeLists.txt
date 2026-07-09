@@ -37,6 +37,8 @@ target_sources(DraconicGUI
             Text/Text.cppm
             Widgets/UINode.cppm
             Widgets/UIWidget.cppm
+            Widgets/Label.cppm
+            Widgets/Button.cppm
             Styling/ParseUtil.cppm
             Styling/StyleSelector.cppm
             Styling/MediaQuery.cppm

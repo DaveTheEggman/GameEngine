@@ -21,7 +21,8 @@ add_executable(DraconicGUITests
     CssCascadeTests.cpp
     MediaQueryTests.cpp
     TransitionTests.cpp
-    StyleManagerTests.cpp)
+    StyleManagerTests.cpp
+    LabelButtonTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)

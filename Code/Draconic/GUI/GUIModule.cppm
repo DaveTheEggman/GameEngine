@@ -49,6 +49,10 @@ export import :text;
 export import :ui_node;
 export import :ui_widget;
 
+// Controls (Phase 7)
+export import :label;
+export import :button;
+
 // CSS styling (Phase 6)
 export import :parse_util;
 export import :style_selector;
