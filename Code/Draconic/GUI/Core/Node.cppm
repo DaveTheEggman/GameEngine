@@ -1,10 +1,10 @@
 // Draconic GUI - :node partition
 //
-// Node: the retained-mode scene-graph node - the tree content base (eepp Scene::Node,
-// minus the drawing/matrix/clip, which reattaches when the render seam wires in). Ported
-// from eepp include/eepp/scene/node.hpp, adapted to Draconic: Object + Transformable
-// bases (Cast<T> downcasts); the raw-pointer intrusive sibling list becomes an owning
-// Array<RefPtr<Node>> children with a non-owning parent back-pointer.
+// Node: the retained-mode scene-graph node - the tree content base (eepp Scene::Node).
+// Ported from eepp include/eepp/scene/node.hpp, adapted to Draconic: Object +
+// Transformable bases (Cast<T> downcasts); the raw-pointer intrusive sibling list becomes
+// an owning Array<RefPtr<Node>> children with a non-owning parent back-pointer. Draws its
+// subtree through the DrawContext/VG seam (eepp's nodeDraw + matrix/clip, on VG).
 
 module;
 #include "Core/Prelude.h"
@@ -17,6 +17,9 @@ import :rect;
 import :transform2d;
 import :transformable;
 import :event;
+import :draw_context;
+import :drawable;
+import :control_state;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -168,6 +171,52 @@ export namespace draconic::gui
             return PointInside(worldPoint) ? this : nullptr;
         }
 
+        // === Drawing ===
+        void SetBackground(RefPtr<Drawable> background) { m_background = core::Move(background); Invalidate(); }
+        [[nodiscard]] Drawable* GetBackground() const noexcept { return m_background.Get(); }
+        void SetForeground(RefPtr<Drawable> foreground) { m_foreground = core::Move(foreground); Invalidate(); }
+        [[nodiscard]] Drawable* GetForeground() const noexcept { return m_foreground.Get(); }
+
+        void SetClipChildren(bool clip) noexcept { m_clipChildren = clip; }
+        [[nodiscard]] bool ClipsChildren() const noexcept { return m_clipChildren; }
+
+        // The visual state drawables render in (skins/StateList). Base: enabled-driven.
+        [[nodiscard]] virtual ControlState GetControlState() const
+        {
+            return m_enabled ? ControlState::Normal : ControlState::Disabled;
+        }
+
+        // Draw this node and its subtree through the DrawContext, applying the node's
+        // transform + opacity + optional child clip. Order: background -> OnDraw ->
+        // children (back-to-front) -> foreground.
+        void Draw(DrawContext& ctx)
+        {
+            if (!m_visible || m_alpha <= 0.0f) return;
+
+            ctx.Save();
+            ctx.ConcatTransform(GetTransform());
+            const bool pushedOpacity = m_alpha < 1.0f;
+            if (pushedOpacity) ctx.PushOpacity(m_alpha);
+
+            const Rect local = GetLocalBounds();
+            const ControlState state = GetControlState();
+
+            if (m_background) m_background->Draw(ctx, local, state);
+            OnDraw(ctx, local);
+
+            if (m_clipChildren) ctx.PushClip(local);
+            for (const RefPtr<Node>& child : m_children) child->Draw(ctx);
+            if (m_clipChildren) ctx.PopClip();
+
+            if (m_foreground) m_foreground->Draw(ctx, local, state);
+
+            if (pushedOpacity) ctx.PopOpacity();
+            ctx.Restore();
+        }
+
+        // Subclass-drawn content, between background and children.
+        virtual void OnDraw(DrawContext& ctx, const Rect& localBounds) { (void)ctx; (void)localBounds; }
+
         // === Invalidation === (marks self + ancestors until an already-dirty one)
         void Invalidate()
         {
@@ -225,11 +274,14 @@ export namespace draconic::gui
         Node* m_parent = nullptr;            // non-owning back-pointer
         Array<RefPtr<Node>> m_children;      // owning
         Array<Listener> m_listeners;
+        RefPtr<Drawable> m_background;
+        RefPtr<Drawable> m_foreground;
         core::Float2 m_size{ 0.0f, 0.0f };
         f32 m_alpha = 1.0f;
         bool m_visible = true;
         bool m_enabled = true;
         bool m_needsRedraw = true;
+        bool m_clipChildren = false;
         u32 m_nextListenerId = 0;
     };
 

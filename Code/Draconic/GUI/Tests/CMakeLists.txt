@@ -7,7 +7,8 @@ add_executable(DraconicGUITests
     GradientImageTests.cpp
     CompositorTests.cpp
     TransformableTests.cpp
-    NodeTests.cpp)
+    NodeTests.cpp
+    NodeDrawTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)
