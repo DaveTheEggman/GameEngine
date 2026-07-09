@@ -88,6 +88,7 @@ export import :scroll_bar;
 export import :scroll_view;
 export import :list_view;
 export import :grid_view;
+export import :tab_view;
 export import :content_button;
 export import :drawable_view;
 export import :style_property;

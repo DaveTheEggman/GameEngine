@@ -30,6 +30,7 @@ add_executable(DraconicUITests
     DataTests.cpp
     ListViewTests.cpp
     GridViewTests.cpp
+    TabViewTests.cpp
     ControlTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE

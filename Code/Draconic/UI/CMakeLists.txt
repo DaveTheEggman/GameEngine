@@ -102,6 +102,7 @@ target_sources(DraconicUI
             Controls/ScrollView.cppm
             Controls/ListView.cppm
             Controls/GridView.cppm
+            Controls/TabView.cppm
             Controls/ContentButton.cppm
             Controls/DrawableView.cppm
             Layout/FrameLayout.cppm
