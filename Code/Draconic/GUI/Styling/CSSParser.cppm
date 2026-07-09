@@ -112,8 +112,19 @@ export namespace draconic::gui
                     if (colon != kNotFound)
                     {
                         const core::StringView name = Trim(decl.SubStr(0, colon));
-                        const core::StringView value = Trim(decl.SubStr(colon + 1, decl.Size() - colon - 1));
-                        if (name.Size() != 0) rule.SetProperty(name, value);
+                        core::StringView value = Trim(decl.SubStr(colon + 1, decl.Size() - colon - 1));
+
+                        // Trailing !important.
+                        bool important = false;
+                        const core::StringView flag(u8"!important");
+                        if (value.Size() >= flag.Size()
+                            && value.SubStr(value.Size() - flag.Size(), flag.Size()) == flag)
+                        {
+                            important = true;
+                            value = Trim(value.SubStr(0, value.Size() - flag.Size()));
+                        }
+
+                        if (name.Size() != 0) rule.SetProperty(name, value, important);
                     }
                     start = i + 1;
                 }

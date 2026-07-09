@@ -22,9 +22,11 @@ export namespace draconic::gui
     {
         core::String Name;
         core::String Value;
+        bool Important = false;
 
         StyleProperty() = default;
-        StyleProperty(core::StringView name, core::StringView value) : Name(name), Value(value) {}
+        StyleProperty(core::StringView name, core::StringView value, bool important = false)
+            : Name(name), Value(value), Important(important) {}
     };
 
     class StyleRule
@@ -38,11 +40,11 @@ export namespace draconic::gui
         [[nodiscard]] i64 Specificity() const noexcept { return m_selector.Specificity(); }
 
         // Set (or override) a declaration.
-        void SetProperty(core::StringView name, core::StringView value)
+        void SetProperty(core::StringView name, core::StringView value, bool important = false)
         {
             for (StyleProperty& p : m_properties)
-                if (p.Name == name) { p.Value = value; return; }
-            m_properties.PushBack(StyleProperty(name, value));
+                if (p.Name == name) { p.Value = value; p.Important = important; return; }
+            m_properties.PushBack(StyleProperty(name, value, important));
         }
 
         [[nodiscard]] const Array<StyleProperty>& Properties() const noexcept { return m_properties; }

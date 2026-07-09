@@ -24,11 +24,17 @@ export namespace draconic::gui
     class ResolvedStyle
     {
     public:
-        void Set(core::StringView name, core::StringView value)
+        // Set/override a property. An !important value resists later non-important overrides.
+        void Set(core::StringView name, core::StringView value, bool important = false)
         {
             for (StyleProperty& p : m_props)
-                if (p.Name == name) { p.Value = value; return; }
-            m_props.PushBack(StyleProperty(name, value));
+                if (p.Name == name)
+                {
+                    if (p.Important && !important) return; // important wins over normal
+                    p.Value = value; p.Important = important;
+                    return;
+                }
+            m_props.PushBack(StyleProperty(name, value, important));
         }
 
         [[nodiscard]] bool Has(core::StringView name) const
@@ -48,7 +54,33 @@ export namespace draconic::gui
         [[nodiscard]] usize Count() const noexcept { return m_props.Size(); }
         [[nodiscard]] const Array<StyleProperty>& Properties() const noexcept { return m_props; }
 
+        // Substitute whole-value var(--name[, fallback]) references against the resolved
+        // custom properties (one level; nested/partial var() deferred).
+        void ResolveVariables()
+        {
+            for (StyleProperty& p : m_props)
+            {
+                if (IsCustomProperty(p.Name.AsView())) continue;
+                const core::StringView v = core::Trim(p.Value.AsView());
+                if (v.Size() < 5 || v.SubStr(0, 4) != core::StringView(u8"var(") || v[v.Size() - 1] != u8')') continue;
+
+                const core::StringView inside = v.SubStr(4, v.Size() - 5);
+                usize comma = inside.Size();
+                for (usize i = 0; i < inside.Size(); ++i) if (inside[i] == u8',') { comma = i; break; }
+
+                const core::StringView varName = core::Trim(inside.SubStr(0, comma));
+                const core::StringView fallback = (comma < inside.Size())
+                    ? core::Trim(inside.SubStr(comma + 1, inside.Size() - comma - 1)) : core::StringView{};
+                p.Value = Get(varName, fallback); // Get scans a different element; safe to assign here
+            }
+        }
+
     private:
+        [[nodiscard]] static bool IsCustomProperty(core::StringView name) noexcept
+        {
+            return name.Size() >= 2 && name[0] == u8'-' && name[1] == u8'-';
+        }
+
         Array<StyleProperty> m_props;
     };
 
@@ -76,11 +108,12 @@ export namespace draconic::gui
                 matches[b] = key;
             }
 
-            // Apply low-to-high; later Set() overrides earlier.
+            // Apply low-to-high; later Set() overrides earlier (!important resists).
             ResolvedStyle out;
             for (const usize idx : matches)
                 for (const StyleProperty& p : m_rules[idx].Properties())
-                    out.Set(p.Name.AsView(), p.Value.AsView());
+                    out.Set(p.Name.AsView(), p.Value.AsView(), p.Important);
+            out.ResolveVariables();
             return out;
         }
 
