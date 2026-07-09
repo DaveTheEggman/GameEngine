@@ -503,6 +503,7 @@ export namespace draconic::ui
             }
             else if (decoView != nullptr)
             {
+                SyncDecoContext(decoView);
                 const f32 pw = decoView->MeasuredSize.x, ph = decoView->MeasuredSize.y;
                 const f32 py = y + (height - ph) * 0.5f;
                 decoView->Layout(x, py, pw, ph);
@@ -510,16 +511,20 @@ export namespace draconic::ui
             }
         }
 
+        // A prefix/suffix View is not in the child tree, so it has no Context - give it the field's so
+        // it can resolve fonts (else it measures to 0 and the value text overlaps it).
+        void SyncDecoContext(View* v) { if (v != nullptr && v->Context != Context) { v->Context = Context; } }
+
         [[nodiscard]] f32 GetPrefixWidth()
         {
             if (m_hasPrefixText && !m_prefixText.IsEmpty()) { if (fonts::CachedFont* font = ResolveFont()) { return font->font->MeasureString(m_prefixText) + 4.0f; } }
-            else if (m_prefixView) { m_prefixView->Measure(BoxConstraints::Loose(200, 200)); return m_prefixView->MeasuredSize.x + 4.0f; }
+            else if (m_prefixView) { SyncDecoContext(m_prefixView.Get()); m_prefixView->Measure(BoxConstraints::Loose(200, 200)); return m_prefixView->MeasuredSize.x + 4.0f; }
             return 0.0f;
         }
         [[nodiscard]] f32 GetSuffixWidth()
         {
             if (m_hasSuffixText && !m_suffixText.IsEmpty()) { if (fonts::CachedFont* font = ResolveFont()) { return font->font->MeasureString(m_suffixText) + 4.0f; } }
-            else if (m_suffixView) { m_suffixView->Measure(BoxConstraints::Loose(200, 200)); return m_suffixView->MeasuredSize.x + 4.0f; }
+            else if (m_suffixView) { SyncDecoContext(m_suffixView.Get()); m_suffixView->Measure(BoxConstraints::Loose(200, 200)); return m_suffixView->MeasuredSize.x + 4.0f; }
             return 0.0f;
         }
 

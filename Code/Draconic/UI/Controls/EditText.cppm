@@ -673,6 +673,10 @@ export namespace draconic::ui
         }
 
         // === Prefix / suffix ===
+        // A prefix/suffix View is not in the child tree, so it has no Context - give it the field's so
+        // it can resolve fonts (else it measures to 0 and the value text overlaps it).
+        void SyncDecoContext(View* v) { if (v != nullptr && v->Context != Context) { v->Context = Context; } }
+
         [[nodiscard]] f32 GetPrefixWidth()
         {
             if (m_hasPrefixText && !m_prefixText.IsEmpty())
@@ -681,6 +685,7 @@ export namespace draconic::ui
             }
             else if (m_prefixView)
             {
+                SyncDecoContext(m_prefixView.Get());
                 m_prefixView->Measure(BoxConstraints::Loose(200, 200));
                 return m_prefixView->MeasuredSize.x + 4.0f;
             }
@@ -694,6 +699,7 @@ export namespace draconic::ui
             }
             else if (m_suffixView)
             {
+                SyncDecoContext(m_suffixView.Get());
                 m_suffixView->Measure(BoxConstraints::Loose(200, 200));
                 return m_suffixView->MeasuredSize.x + 4.0f;
             }
@@ -712,6 +718,7 @@ export namespace draconic::ui
             }
             else if (m_prefixView)
             {
+                SyncDecoContext(m_prefixView.Get());
                 const f32 pw = m_prefixView->MeasuredSize.x, ph = m_prefixView->MeasuredSize.y;
                 const f32 py = y + (height - ph) * 0.5f;
                 m_prefixView->Layout(x, py, pw, ph);
@@ -731,6 +738,7 @@ export namespace draconic::ui
             }
             else if (m_suffixView)
             {
+                SyncDecoContext(m_suffixView.Get());
                 const f32 pw = m_suffixView->MeasuredSize.x, ph = m_suffixView->MeasuredSize.y;
                 const f32 py = y + (height - ph) * 0.5f;
                 m_suffixView->Layout(x + 4.0f, py, pw, ph);
