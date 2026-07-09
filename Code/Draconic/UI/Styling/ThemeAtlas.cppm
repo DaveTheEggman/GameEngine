@@ -11,6 +11,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module draconic.ui:theme_atlas;
 
@@ -36,8 +37,11 @@ export namespace draconic::ui
     };
 
     /// Builds a packed image atlas for theme drawables and creates atlas-backed drawables from it.
-    class ThemeAtlas
+    /// Derives Object so a StyleSheet can hold it via OwnResource (RefPtr<Object>) - the textured theme
+    /// keeps the atlas alive as long as the atlas-backed drawables that reference it. Not scripted.
+    class ThemeAtlas : public Object
     {
+        DRACONIC_OBJECT(ThemeAtlas, Object)
     public:
         explicit ThemeAtlas(u32 minSize = 256, u32 maxSize = 4096, u32 padding = 1)
             : m_builder(minSize, maxSize, padding) {}
@@ -106,4 +110,6 @@ export namespace draconic::ui
         image::ImageAtlasBuilder m_builder;
         bool m_built = false;
     };
+
+    DRACONIC_DEFINE_OBJECT(ThemeAtlas, "draconic::ui")
 }
