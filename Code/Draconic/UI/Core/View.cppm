@@ -52,6 +52,7 @@ import :tooltip_manager;         // by-value member of UIContext
 import :idrag_source;            // pattern-A drag source (View::AsDragSource())
 import :idrop_target;            // pattern-A drop target (View::AsDropTarget())
 import :drag_drop_manager;       // by-value member of UIContext
+import :animation_manager;       // by-value member of UIContext
 import :iclipboard;              // clipboard seam (injected by the app; nullable)
 import :input_manager;
 import :focus_manager;
@@ -650,6 +651,7 @@ export namespace draconic::ui
         enum class Phase { Idle, Layout, Drawing };
 
         UIContext() : m_inputManager(this), m_focusManager(this), m_shortcutManager(this), m_tooltipManager(this), m_dragDropManager(this) {}
+        // (m_animationManager is default-constructed - it holds no back-pointer to the context.)
         ~UIContext()
         {
             m_mutationQueue.Drain();
@@ -682,6 +684,7 @@ export namespace draconic::ui
         [[nodiscard]] ShortcutManager* GetShortcuts() noexcept { return &m_shortcutManager; }
         [[nodiscard]] TooltipManager* Tooltips() noexcept { return &m_tooltipManager; }
         [[nodiscard]] DragDropManager* DragDrop() noexcept { return &m_dragDropManager; }
+        [[nodiscard]] AnimationManager* Animations() noexcept { return &m_animationManager; }
 
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
         void SetStyleSheet(RefPtr<StyleSheet> sheet) { m_styleSheet = Move(sheet); }
@@ -740,11 +743,11 @@ export namespace draconic::ui
         {
             if (view != nullptr && view->Id.IsValid())
             {
-                // Clear manager references (Animation notifications deferred).
                 m_inputManager.OnViewDeleted(view);
                 m_focusManager.OnViewDeleted(view);
                 m_tooltipManager.OnViewDeleted(view);
                 m_dragDropManager.OnViewDeleted(view);
+                m_animationManager.CancelForView(view);
                 m_shortcutManager.RemoveScopedTo(view);
                 m_registry.Remove(view->Id.RawValue());
             }
@@ -764,7 +767,7 @@ export namespace draconic::ui
             m_totalTime += deltaTime;
             m_mutationQueue.Drain();
             m_tooltipManager.Update(deltaTime);
-            // (Animation tick deferred until that manager lands.)
+            m_animationManager.Update(deltaTime);
         }
         void UpdateRootView(RootView* root)
         {
@@ -825,6 +828,7 @@ export namespace draconic::ui
         ShortcutManager m_shortcutManager;
         TooltipManager m_tooltipManager;
         DragDropManager m_dragDropManager;
+        AnimationManager m_animationManager;
         RefPtr<StyleSheet> m_styleSheet;
         IClipboard* m_clipboard = nullptr;
         fonts::IFontService* m_fontService = nullptr;

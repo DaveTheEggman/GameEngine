@@ -35,6 +35,13 @@ target_sources(DraconicUI
             DragDrop/IDragSource.cppm
             DragDrop/IDropTarget.cppm
             DragDrop/DragDropManager.cppm
+            Animation/Easing.cppm
+            Animation/Animation.cppm
+            Animation/FloatAnimation.cppm
+            Animation/ColorAnimation.cppm
+            Animation/Float2Animation.cppm
+            Animation/Storyboard.cppm
+            Animation/AnimationManager.cppm
             Editing/InputFilter.cppm
             Controls/MomentumHelper.cppm
             Editing/UndoStack.cppm
@@ -54,6 +61,7 @@ target_sources(DraconicUI
             Overlay/Dialog.cppm
             Overlay/TooltipView.cppm
             DragDrop/DragAdorner.cppm
+            Animation/ViewAnimator.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
