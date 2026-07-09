@@ -19,7 +19,14 @@ export import :thickness;
 // Scene-graph core (Phase 1: tree)
 export import :transformable;
 export import :event;
+export import :mutation_queue;
 export import :node;
+
+// Scene coordinator + actions (Phase 3)
+export import :action;
+export import :action_manager;
+export import :actions;
+export import :scene_node;
 
 // Drawing / render seam (Phase 2)
 export import :control_state;

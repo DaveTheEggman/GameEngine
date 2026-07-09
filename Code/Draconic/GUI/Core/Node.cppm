@@ -20,6 +20,9 @@ import :event;
 import :draw_context;
 import :drawable;
 import :control_state;
+import :action;
+import :action_manager;
+import :mutation_queue;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -105,6 +108,14 @@ export namespace draconic::gui
         }
 
         void RemoveFromParent() { if (m_parent != nullptr) m_parent->RemoveChild(this); }
+
+        // The topmost ancestor (the SceneNode root, once one is installed).
+        [[nodiscard]] Node* GetRootNode()
+        {
+            Node* n = this;
+            while (n->m_parent != nullptr) n = n->m_parent;
+            return n;
+        }
 
         // === Z-order (draw/hit order = child index; last = topmost) ===
         void SetChildIndex(Node* child, usize newIndex)
@@ -216,6 +227,37 @@ export namespace draconic::gui
 
         // Subclass-drawn content, between background and children.
         virtual void OnDraw(DrawContext& ctx, const Rect& localBounds) { (void)ctx; (void)localBounds; }
+
+        // === Coordinator lookup + lifecycle ===
+        // The SceneNode's ActionManager / MutationQueue, found by walking to the root.
+        // Base returns the parent's; SceneNode overrides to return its own. Null if the
+        // node is not yet attached under a SceneNode.
+        [[nodiscard]] virtual ActionManager* GetActionManager() { return m_parent ? m_parent->GetActionManager() : nullptr; }
+        [[nodiscard]] virtual MutationQueue* GetMutationQueue() { return m_parent ? m_parent->GetMutationQueue() : nullptr; }
+
+        // Run an action on this node (targets it, hands it to the SceneNode's manager).
+        // No-op (the action is dropped) if the node is not attached under a SceneNode.
+        void RunAction(RefPtr<Action> action)
+        {
+            if (!action) return;
+            action->SetTarget(this);
+            if (ActionManager* manager = GetActionManager()) manager->AddAction(core::Move(action));
+        }
+
+        // Detach this node from its tree at the next safe sync point (SceneNode drain).
+        // Falls back to immediate removal if there is no coordinator.
+        void Close()
+        {
+            if (MutationQueue* queue = GetMutationQueue())
+            {
+                RefPtr<Node> self(this); // keep alive until the deferred op runs
+                queue->Enqueue([self]() { self.Get()->RemoveFromParent(); });
+            }
+            else
+            {
+                RemoveFromParent();
+            }
+        }
 
         // === Invalidation === (marks self + ancestors until an already-dirty one)
         void Invalidate()

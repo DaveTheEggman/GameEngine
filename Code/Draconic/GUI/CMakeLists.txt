@@ -16,7 +16,12 @@ target_sources(DraconicGUI
             Core/Thickness.cppm
             Core/Transformable.cppm
             Core/Event.cppm
+            Core/MutationQueue.cppm
             Core/Node.cppm
+            Scene/Action.cppm
+            Scene/ActionManager.cppm
+            Scene/Actions.cppm
+            Scene/SceneNode.cppm
             Drawing/ControlState.cppm
             Drawing/DrawContext.cppm
             Drawing/Drawable.cppm
