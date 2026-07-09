@@ -49,6 +49,9 @@ import :iaccelerator_handler;
 import :itooltip_provider;       // pattern-A tooltip content provider (View::AsTooltipProvider())
 import :tooltip_placement;       // TooltipPlacement enum (View.TooltipPlacement field)
 import :tooltip_manager;         // by-value member of UIContext
+import :idrag_source;            // pattern-A drag source (View::AsDragSource())
+import :idrop_target;            // pattern-A drop target (View::AsDropTarget())
+import :drag_drop_manager;       // by-value member of UIContext
 import :iclipboard;              // clipboard seam (injected by the app; nullable)
 import :input_manager;
 import :focus_manager;
@@ -251,6 +254,10 @@ export namespace draconic::ui
         [[nodiscard]] virtual IAcceleratorHandler* AsAcceleratorHandler() { return nullptr; }
         /// ITooltipProvider this view implements (custom tooltip content), or null. Override to return `this`.
         [[nodiscard]] virtual ITooltipProvider* AsTooltipProvider() { return nullptr; }
+        /// IDragSource this view implements (draggable), or null. Override to return `this`.
+        [[nodiscard]] virtual IDragSource* AsDragSource() { return nullptr; }
+        /// IDropTarget this view implements (accepts drops), or null. Override to return `this`.
+        [[nodiscard]] virtual IDropTarget* AsDropTarget() { return nullptr; }
 
         // === Effective state ===
         [[nodiscard]] bool IsEffectivelyEnabled() const
@@ -642,7 +649,7 @@ export namespace draconic::ui
     public:
         enum class Phase { Idle, Layout, Drawing };
 
-        UIContext() : m_inputManager(this), m_focusManager(this), m_shortcutManager(this), m_tooltipManager(this) {}
+        UIContext() : m_inputManager(this), m_focusManager(this), m_shortcutManager(this), m_tooltipManager(this), m_dragDropManager(this) {}
         ~UIContext()
         {
             m_mutationQueue.Drain();
@@ -674,6 +681,7 @@ export namespace draconic::ui
         [[nodiscard]] const FocusManager* GetFocusManager() const noexcept { return &m_focusManager; }
         [[nodiscard]] ShortcutManager* GetShortcuts() noexcept { return &m_shortcutManager; }
         [[nodiscard]] TooltipManager* Tooltips() noexcept { return &m_tooltipManager; }
+        [[nodiscard]] DragDropManager* DragDrop() noexcept { return &m_dragDropManager; }
 
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
         void SetStyleSheet(RefPtr<StyleSheet> sheet) { m_styleSheet = Move(sheet); }
@@ -732,10 +740,11 @@ export namespace draconic::ui
         {
             if (view != nullptr && view->Id.IsValid())
             {
-                // Clear manager references (DragDrop/Animation notifications deferred).
+                // Clear manager references (Animation notifications deferred).
                 m_inputManager.OnViewDeleted(view);
                 m_focusManager.OnViewDeleted(view);
                 m_tooltipManager.OnViewDeleted(view);
+                m_dragDropManager.OnViewDeleted(view);
                 m_shortcutManager.RemoveScopedTo(view);
                 m_registry.Remove(view->Id.RawValue());
             }
@@ -815,6 +824,7 @@ export namespace draconic::ui
         FocusManager m_focusManager;
         ShortcutManager m_shortcutManager;
         TooltipManager m_tooltipManager;
+        DragDropManager m_dragDropManager;
         RefPtr<StyleSheet> m_styleSheet;
         IClipboard* m_clipboard = nullptr;
         fonts::IFontService* m_fontService = nullptr;

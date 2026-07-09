@@ -280,6 +280,9 @@ namespace draconic::ui
         m_mouseX = physicalX / dpiScale;
         m_mouseY = physicalY / dpiScale;
 
+        // Drag-drop takes priority over normal mouse processing.
+        if (m_context->DragDrop()->UpdateDrag(m_mouseX, m_mouseY)) { return true; }
+
         FocusManager* focus = m_context->GetFocusManager();
         if (focus->HasCapture())
         {
@@ -334,7 +337,18 @@ namespace draconic::ui
         m_pressedId = hitView != nullptr ? hitView->Id : ViewId::Invalid;
         m_pressedButton = button;
 
-        // (IDragSource drag initiation deferred until the DragDrop subsystem lands.)
+        // Initiate a potential drag on single left-click if the view or an ancestor is an IDragSource.
+        if (hitView != nullptr && button == MouseButton::Left && m_clickCount == 1)
+        {
+            for (View* dragView = hitView; dragView != nullptr; dragView = dragView->Parent)
+            {
+                if (IDragSource* source = dragView->AsDragSource())
+                {
+                    m_context->DragDrop()->BeginPotentialDrag(dragView, source, m_mouseX, m_mouseY, button);
+                    break;
+                }
+            }
+        }
 
         if (hitView != nullptr)
         {
@@ -351,6 +365,9 @@ namespace draconic::ui
         const f32 dpiScale = m_context->DpiScale();
         m_mouseX = physicalX / dpiScale;
         m_mouseY = physicalY / dpiScale;
+
+        // Drag-drop end takes priority.
+        if (m_context->DragDrop()->EndDrag(m_mouseX, m_mouseY)) { return true; }
 
         FocusManager* focus = m_context->GetFocusManager();
         if (focus->HasCapture()) { focus->ReleaseCapture(); }
@@ -396,6 +413,9 @@ namespace draconic::ui
 
     bool InputManager::ProcessKeyDown(KeyCode key, KeyModifiers modifiers, bool isRepeat, f32 timestamp)
     {
+        // Escape cancels an active drag.
+        if (key == KeyCode::Escape && m_context->DragDrop()->IsDragging()) { m_context->DragDrop()->CancelDrag(); return true; }
+
         FocusManager* focus = m_context->GetFocusManager();
 
         if (key == KeyCode::Tab && !isRepeat)

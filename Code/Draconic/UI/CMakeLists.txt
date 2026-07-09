@@ -30,6 +30,11 @@ target_sources(DraconicUI
             Overlay/TooltipPlacement.cppm
             Overlay/ITooltipProvider.cppm
             Overlay/TooltipManager.cppm
+            DragDrop/DragDropEffects.cppm
+            DragDrop/DragData.cppm
+            DragDrop/IDragSource.cppm
+            DragDrop/IDropTarget.cppm
+            DragDrop/DragDropManager.cppm
             Editing/InputFilter.cppm
             Controls/MomentumHelper.cppm
             Editing/UndoStack.cppm
@@ -48,6 +53,7 @@ target_sources(DraconicUI
             Overlay/ContextMenu.cppm
             Overlay/Dialog.cppm
             Overlay/TooltipView.cppm
+            DragDrop/DragAdorner.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
@@ -132,7 +138,8 @@ target_sources(DraconicUI
         # Module implementation units (not interface partitions): cross-cluster method bodies.
         Core/UIClusterImpl.cpp
         Input/InputImpl.cpp
-        Overlay/TooltipImpl.cpp)
+        Overlay/TooltipImpl.cpp
+        DragDrop/DragImpl.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
