@@ -14,9 +14,9 @@ module;
 
 export module draconic.gui.shell;
 
-import draconic.core;    // ContentFit, Float2, StringView, u32
-import draconic.gui;     // EventDispatcher, MouseButton, KeyMod*
-import draconic.shell;   // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow
+import draconic.core;    // ContentFit, Float2, String, StringView, u32
+import draconic.gui;     // EventDispatcher, MouseButton, KeyMod*, IClipboard
+import draconic.shell;   // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow, IShell
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -170,6 +170,11 @@ export namespace draconic::gui
             case platform::KeyCode::Right:     mapped = KeyCode::Right;     break;
             case platform::KeyCode::Up:        mapped = KeyCode::Up;        break;
             case platform::KeyCode::Down:      mapped = KeyCode::Down;      break;
+            // Letter keys that back editing shortcuts (Ctrl+A/C/V/X).
+            case platform::KeyCode::A:         mapped = KeyCode::A;         break;
+            case platform::KeyCode::C:         mapped = KeyCode::C;         break;
+            case platform::KeyCode::V:         mapped = KeyCode::V;         break;
+            case platform::KeyCode::X:         mapped = KeyCode::X;         break;
             default:                           mapped = KeyCode::Unknown;   break;
             }
             return static_cast<u32>(mapped);
@@ -189,5 +194,23 @@ export namespace draconic::gui
         platform::IWindow* m_textInputTarget = nullptr; // window whose IME follows GUI focus (optional)
         core::ContentFit m_fit{};
         bool m_hasFit = false;
+    };
+
+    // Adapts the platform shell's process-global text clipboard to the GUI core's abstract
+    // IClipboard seam. The app constructs one over its shell::IShell and hands it to the
+    // dispatcher once (dispatcher.SetClipboard(&clipboard)); TextField cut/copy/paste then
+    // reach the OS clipboard with no further wiring. Mirrors how ShellNull's in-memory
+    // clipboard backs headless tests.
+    class ShellClipboard : public IClipboard
+    {
+    public:
+        explicit ShellClipboard(platform::IShell* shell) noexcept : m_shell(shell) {}
+
+        [[nodiscard]] bool HasText() const override { return m_shell != nullptr && m_shell->HasClipboardText(); }
+        [[nodiscard]] core::String GetText() const override { return m_shell != nullptr ? m_shell->GetClipboardText() : core::String{}; }
+        void SetText(core::StringView text) override { if (m_shell != nullptr) m_shell->SetClipboardText(text); }
+
+    private:
+        platform::IShell* m_shell; // non-owning
     };
 }

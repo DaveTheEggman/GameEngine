@@ -47,6 +47,17 @@ namespace
 
     // u32 view of a gui::KeyCode, since InjectKeyDown takes a raw code.
     core::u32 Key(KeyCode k) { return static_cast<core::u32>(k); }
+
+    // In-memory clipboard so the cut/copy/paste path is testable without a shell.
+    class MemClipboard : public IClipboard
+    {
+    public:
+        bool HasText() const override { return m_text.Size() > 0; }
+        core::String GetText() const override { return m_text; }
+        void SetText(core::StringView text) override { m_text = core::String(text); }
+    private:
+        core::String m_text;
+    };
 }
 
 TEST_CASE("textfield: typed text is inserted at the caret and the caret advances")
@@ -261,4 +272,217 @@ TEST_CASE("textfield: blink toggles the caret over time while focused")
     f->ReleaseFocus();
     f->Update(1.0); // ignored while unfocused (no crash, no toggle)
     CHECK_FALSE(f->IsFocused());
+}
+
+// ===================== Selection =====================
+
+namespace
+{
+    // A focused field holding `value`, wired under a scene so it has a dispatcher.
+    struct Fixture
+    {
+        core::RefPtr<SceneNode> root = Make<SceneNode>();
+        core::RefPtr<TextField> field = Make<TextField>();
+        fonts::CachedFont font{ NewMock(), nullptr, nullptr };
+
+        explicit Fixture(core::StringView value = {})
+        {
+            root->SetSize(core::Float2{ 400.0f, 100.0f });
+            field->SetSize(core::Float2{ 200.0f, 24.0f });
+            field->SetFont(&font);
+            root->AddChild(field.Get());
+            if (value.Size() > 0) field->SetText(value);
+            field->RequestFocus();
+        }
+        EventDispatcher* d() { return root->GetEventDispatcher(); }
+    };
+}
+
+TEST_CASE("textfield: shift+arrows extend a selection; the selection reports its text")
+{
+    Fixture fx(u8"hello");
+    fx.field->SetCaret(0);
+    CHECK_FALSE(fx.field->HasSelection());
+
+    const core::u32 shift = static_cast<core::u32>(KeyModShift);
+    fx.d()->InjectKeyDown(Key(KeyCode::Right), shift);
+    fx.d()->InjectKeyDown(Key(KeyCode::Right), shift);
+    CHECK(fx.field->HasSelection());
+    CHECK(fx.field->SelectedText() == core::StringView(u8"he"));
+    CHECK(fx.field->GetCaret() == 2);
+
+    // A plain (no-shift) Right collapses the selection to its right edge.
+    fx.d()->InjectKeyDown(Key(KeyCode::Right));
+    CHECK_FALSE(fx.field->HasSelection());
+    CHECK(fx.field->GetCaret() == 2);
+}
+
+TEST_CASE("textfield: shift+Home selects to the start; plain Left collapses to selection start")
+{
+    Fixture fx(u8"hello");
+    fx.field->SetCaret(5);
+    const core::u32 shift = static_cast<core::u32>(KeyModShift);
+    fx.d()->InjectKeyDown(Key(KeyCode::Home), shift);
+    CHECK(fx.field->SelectedText() == core::StringView(u8"hello"));
+
+    // Plain Left with a selection jumps the caret to the selection start (offset 0).
+    fx.d()->InjectKeyDown(Key(KeyCode::Left));
+    CHECK_FALSE(fx.field->HasSelection());
+    CHECK(fx.field->GetCaret() == 0);
+}
+
+TEST_CASE("textfield: typing over a selection replaces it")
+{
+    Fixture fx(u8"hello");
+    fx.field->SelectAll();
+    CHECK(fx.field->SelectedText() == core::StringView(u8"hello"));
+    fx.d()->InjectText(core::StringView(u8"X"));
+    CHECK(fx.field->GetText() == core::StringView(u8"X"));
+    CHECK(fx.field->GetCaret() == 1);
+    CHECK_FALSE(fx.field->HasSelection());
+}
+
+TEST_CASE("textfield: backspace and delete remove the whole selection")
+{
+    Fixture fx(u8"hello");
+    fx.field->SetCaret(1);
+    const core::u32 shift = static_cast<core::u32>(KeyModShift);
+    fx.d()->InjectKeyDown(Key(KeyCode::Right), shift);
+    fx.d()->InjectKeyDown(Key(KeyCode::Right), shift);
+    fx.d()->InjectKeyDown(Key(KeyCode::Right), shift); // "ell" selected
+    CHECK(fx.field->SelectedText() == core::StringView(u8"ell"));
+    fx.d()->InjectKeyDown(Key(KeyCode::Backspace));
+    CHECK(fx.field->GetText() == core::StringView(u8"ho"));
+    CHECK(fx.field->GetCaret() == 1);
+}
+
+// ===================== Clipboard =====================
+
+TEST_CASE("textfield: Ctrl+C / Ctrl+V copy and paste a selection through the clipboard")
+{
+    MemClipboard clip;
+    Fixture fx(u8"hello");
+    fx.d()->SetClipboard(&clip);
+
+    const core::u32 ctrl = static_cast<core::u32>(KeyModCtrl);
+    const core::u32 shift = static_cast<core::u32>(KeyModShift);
+
+    fx.field->SetCaret(0);
+    fx.d()->InjectKeyDown(Key(KeyCode::Right), shift);
+    fx.d()->InjectKeyDown(Key(KeyCode::Right), shift); // select "he"
+    fx.d()->InjectKeyDown(Key(KeyCode::C), ctrl);
+    CHECK(clip.GetText() == core::StringView(u8"he"));
+
+    // Paste at the end.
+    fx.d()->InjectKeyDown(Key(KeyCode::End));
+    fx.d()->InjectKeyDown(Key(KeyCode::V), ctrl);
+    CHECK(fx.field->GetText() == core::StringView(u8"hellohe"));
+}
+
+TEST_CASE("textfield: Ctrl+X cuts the selection to the clipboard")
+{
+    MemClipboard clip;
+    Fixture fx(u8"hello");
+    fx.d()->SetClipboard(&clip);
+
+    fx.field->SelectAll();
+    const core::u32 ctrl = static_cast<core::u32>(KeyModCtrl);
+    fx.d()->InjectKeyDown(Key(KeyCode::X), ctrl);
+    CHECK(clip.GetText() == core::StringView(u8"hello"));
+    CHECK(fx.field->GetText().Size() == 0);
+}
+
+TEST_CASE("textfield: paste with no clipboard configured is a safe no-op")
+{
+    Fixture fx(u8"hi");
+    const core::u32 ctrl = static_cast<core::u32>(KeyModCtrl);
+    fx.d()->InjectKeyDown(Key(KeyCode::V), ctrl); // no clipboard set -> nothing happens
+    CHECK(fx.field->GetText() == core::StringView(u8"hi"));
+}
+
+TEST_CASE("textfield: pasted newlines are stripped to keep the value single-line")
+{
+    MemClipboard clip;
+    clip.SetText(core::StringView(u8"a\nb\r\nc"));
+    Fixture fx;
+    fx.d()->SetClipboard(&clip);
+    const core::u32 ctrl = static_cast<core::u32>(KeyModCtrl);
+    fx.d()->InjectKeyDown(Key(KeyCode::V), ctrl);
+    CHECK(fx.field->GetText() == core::StringView(u8"abc"));
+}
+
+// ===================== Placeholder / max-length =====================
+
+TEST_CASE("textfield: placeholder is stored and reported")
+{
+    auto f = Make<TextField>();
+    f->SetPlaceholder(core::StringView(u8"Search..."));
+    CHECK(f->GetPlaceholder() == core::StringView(u8"Search..."));
+}
+
+TEST_CASE("textfield: max-length caps typed input and truncates a paste")
+{
+    Fixture fx;
+    fx.field->SetMaxLength(3);
+    fx.d()->InjectText(core::StringView(u8"ab"));
+    fx.d()->InjectText(core::StringView(u8"cd")); // only 'c' fits (cap of 3)
+    CHECK(fx.field->GetText() == core::StringView(u8"abc"));
+
+    // Further input past the cap is dropped.
+    fx.d()->InjectText(core::StringView(u8"z"));
+    CHECK(fx.field->GetText() == core::StringView(u8"abc"));
+
+    // A paste is likewise truncated to the remaining room (here: none).
+    MemClipboard clip;
+    clip.SetText(core::StringView(u8"XYZ"));
+    fx.d()->SetClipboard(&clip);
+    const core::u32 ctrl = static_cast<core::u32>(KeyModCtrl);
+    fx.d()->InjectKeyDown(Key(KeyCode::V), ctrl);
+    CHECK(fx.field->GetText() == core::StringView(u8"abc"));
+}
+
+TEST_CASE("textfield: max-length counts codepoints, not bytes (UTF-8)")
+{
+    Fixture fx;
+    fx.field->SetMaxLength(2);
+    fx.d()->InjectText(core::StringView(u8"ééé")); // three 2-byte 'é'
+    CHECK(fx.field->GetText() == core::StringView(u8"éé"));
+}
+
+// ===================== Mouse selection =====================
+
+TEST_CASE("textfield: a double-click selects the word under the cursor")
+{
+    Fixture fx(u8"foo bar baz"); // words at 0-3, 4-7, 8-11 (6px/byte)
+    // Two presses at the same spot with no time advance = a double-click. x within "bar".
+    const core::Float2 pos{ 5.0f * 6.0f + 3.0f, 12.0f }; // ~ byte 5, inside "bar"
+    fx.d()->InjectMouseDown(pos, MouseButton::Left);
+    fx.d()->InjectMouseUp(pos, MouseButton::Left);
+    fx.d()->InjectMouseDown(pos, MouseButton::Left);
+    CHECK(fx.field->SelectedText() == core::StringView(u8"bar"));
+}
+
+TEST_CASE("textfield: dragging the mouse extends the selection")
+{
+    Fixture fx(u8"hello");
+    // Press at the start, move right to ~offset 3, release.
+    fx.d()->InjectMouseDown(core::Float2{ 0.0f, 12.0f }, MouseButton::Left);
+    CHECK_FALSE(fx.field->HasSelection());
+    fx.d()->InjectMouseMove(core::Float2{ 3.0f * 6.0f, 12.0f }); // captured by the pressed field
+    CHECK(fx.field->HasSelection());
+    CHECK(fx.field->SelectedText() == core::StringView(u8"hel"));
+    fx.d()->InjectMouseUp(core::Float2{ 3.0f * 6.0f, 12.0f }, MouseButton::Left);
+    // A move after release no longer extends.
+    fx.d()->InjectMouseMove(core::Float2{ 5.0f * 6.0f, 12.0f });
+    CHECK(fx.field->SelectedText() == core::StringView(u8"hel"));
+}
+
+TEST_CASE("textfield: shift+click extends the selection from the caret")
+{
+    Fixture fx(u8"hello");
+    fx.field->SetCaret(1); // after 'h'
+    const core::u32 shift = static_cast<core::u32>(KeyModShift);
+    fx.d()->InjectMouseDown(core::Float2{ 4.0f * 6.0f, 12.0f }, MouseButton::Left, shift);
+    CHECK(fx.field->HasSelection());
+    CHECK(fx.field->SelectedText() == core::StringView(u8"ell"));
 }

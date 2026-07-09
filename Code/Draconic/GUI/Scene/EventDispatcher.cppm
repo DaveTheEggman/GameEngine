@@ -18,6 +18,7 @@ export module draconic.gui:event_dispatcher;
 import draconic.core;   // Float2, StringView
 import :node;
 import :event;
+import :clipboard;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -30,6 +31,13 @@ export namespace draconic::gui
         explicit EventDispatcher(Node* root) noexcept : m_root(root) {}
 
         [[nodiscard]] Node* GetRoot() const noexcept { return m_root; }
+
+        // The system-clipboard adapter (non-owning; supplied by the gui.shell bridge / app).
+        // Widgets reach it via GetEventDispatcher()->GetClipboard(); null = no clipboard, so
+        // cut/copy/paste become no-ops.
+        void SetClipboard(IClipboard* clipboard) noexcept { m_clipboard = clipboard; }
+        [[nodiscard]] IClipboard* GetClipboard() const noexcept { return m_clipboard; }
+
         [[nodiscard]] Node* GetOverNode() const noexcept { return m_overNode; }
         [[nodiscard]] Node* GetFocusNode() const noexcept { return m_focusNode; }
         [[nodiscard]] core::Float2 GetMousePosition() const noexcept { return m_mousePos; }
@@ -282,6 +290,7 @@ export namespace draconic::gui
         }
 
         Node* m_root;                  // non-owning (the SceneNode owns this dispatcher)
+        IClipboard* m_clipboard = nullptr; // non-owning system-clipboard adapter (optional)
         Node* m_overNode = nullptr;    // non-owning
         Node* m_downNode = nullptr;    // non-owning
         Node* m_focusNode = nullptr;   // non-owning

@@ -29,6 +29,11 @@ namespace
         void ProcessEvents() override { ++processed; }
         bool IsRunning() const noexcept override { return running; }
         void RequestExit() override { running = false; }
+        void SetClipboardText(StringView text) override { clipboard = String(text); }
+        String GetClipboardText() const override { return clipboard; }
+        bool HasClipboardText() const noexcept override { return clipboard.Size() > 0; }
+    private:
+        String clipboard;
     };
 
     // Counts the frame phases the host drives into the Context.

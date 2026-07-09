@@ -16,6 +16,7 @@ target_sources(DraconicGUI
             Core/Thickness.cppm
             Core/Transformable.cppm
             Core/Event.cppm
+            Core/Clipboard.cppm
             Core/MutationQueue.cppm
             Core/Node.cppm
             Scene/Action.cppm

@@ -202,9 +202,16 @@ export namespace draconic::shell
         }
         void RequestExit() override { m_running = false; }
 
+        // In-memory clipboard: no OS backing, but round-trips text so headless tests of the
+        // GUI clipboard path (cut/copy/paste) work without a windowing system.
+        void SetClipboardText(core::StringView text) override { m_clipboard = core::String(text); }
+        [[nodiscard]] core::String GetClipboardText() const override { return m_clipboard; }
+        [[nodiscard]] bool HasClipboardText() const noexcept override { return m_clipboard.Size() > 0; }
+
     private:
         NullWindowManager m_windows;
         NullInputManager m_input;
         bool m_running = true;
+        core::String m_clipboard;
     };
 }

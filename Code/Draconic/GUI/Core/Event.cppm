@@ -61,14 +61,16 @@ export namespace draconic::gui
     // Platform-agnostic key identity for the navigation/editing keys the GUI interprets
     // (printable characters arrive as TextInput, not here). The gui.shell bridge maps
     // platform key codes to these explicitly; a KeyEvent carries the value as a u32, so
-    // handlers compare against static_cast<u32>(KeyCode::X). Letters/shortcut keys are
-    // deferred until selection/clipboard need them.
+    // handlers compare against static_cast<u32>(KeyCode::X). Only the letter keys that back
+    // editing shortcuts (Ctrl+A/C/V/X for select-all/copy/paste/cut) are mapped; other
+    // printable characters still arrive as TextInput, not here.
     enum class KeyCode : u32
     {
         Unknown = 0,
         Return, Escape, Backspace, Tab, Space,
         Delete, Insert, Home, End, PageUp, PageDown,
         Left, Right, Up, Down,
+        A, C, V, X,
     };
 
     // Key modifier bitmask (unscoped for easy OR-ing).

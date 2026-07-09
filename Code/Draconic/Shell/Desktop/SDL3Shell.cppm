@@ -821,6 +821,22 @@ export namespace draconic::shell
 
         void RequestExit() override { m_running = false; }
 
+        void SetClipboardText(core::StringView text) override
+        {
+            const core::String owned(text);   // guarantee null-termination for the C API
+            SDL_SetClipboardText(reinterpret_cast<const char*>(owned.Data()));
+        }
+
+        [[nodiscard]] core::String GetClipboardText() const override
+        {
+            char* text = SDL_GetClipboardText();   // never null (empty string on none); caller frees
+            core::String result(reinterpret_cast<const core::utf8char*>(text));
+            SDL_free(text);
+            return result;
+        }
+
+        [[nodiscard]] bool HasClipboardText() const noexcept override { return SDL_HasClipboardText(); }
+
     private:
         static KeyCode MapKeyCode(SDL_Scancode sc) noexcept
         {

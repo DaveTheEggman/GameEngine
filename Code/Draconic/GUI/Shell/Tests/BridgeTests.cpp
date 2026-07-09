@@ -76,7 +76,7 @@ TEST_CASE("bridge: mouse move drives hover")
     CHECK(enter == 1);
 }
 
-TEST_CASE("bridge: press+release becomes a click and maps the button")
+TEST_CASE("bridge: left press+release becomes a click; button mapping is explicit")
 {
     auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
     auto child = MakePanel(core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
@@ -84,15 +84,23 @@ TEST_CASE("bridge: press+release becomes a click and maps the button")
     GuiInputBridge bridge{ root->GetEventDispatcher() };
 
     int clicks = 0;
-    draconic::gui::MouseButton seen = draconic::gui::MouseButton::Left;
-    child->AddEventListener(EventType::MouseClick,
-        [&](const Event& e) { ++clicks; seen = static_cast<const MouseEvent&>(e).Button; });
+    draconic::gui::MouseButton downButton = draconic::gui::MouseButton::Left;
+    child->AddEventListener(EventType::MouseClick, [&](const Event&) { ++clicks; });
+    child->AddEventListener(EventType::MouseDown,
+        [&](const Event& e) { downButton = static_cast<const MouseEvent&>(e).Button; });
 
-    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonDown, 20.0f, 20.0f, shell::MouseButton::Right));
-    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonUp, 20.0f, 20.0f, shell::MouseButton::Right));
+    // Only the left button activates (right/middle deliver Down/Up for context menus but
+    // never click - see the EventDispatcher interaction rules).
+    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonDown, 20.0f, 20.0f, shell::MouseButton::Left));
+    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonUp, 20.0f, 20.0f, shell::MouseButton::Left));
     CHECK(clicks == 1);
-    CHECK(seen == draconic::gui::MouseButton::Right); // shell Right -> gui Right (not by value)
     CHECK(root->GetEventDispatcher()->GetFocusNode() == child.Get());
+
+    // shell Middle (index 1) maps to gui Middle (index 2) - explicitly, not by value.
+    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonDown, 20.0f, 20.0f, shell::MouseButton::Middle));
+    CHECK(downButton == draconic::gui::MouseButton::Middle);
+    bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonUp, 20.0f, 20.0f, shell::MouseButton::Middle));
+    CHECK(clicks == 1); // still 1: the middle press did not add a click
 }
 
 TEST_CASE("bridge: key and text route to the focus node with mapped modifiers")
@@ -135,8 +143,14 @@ TEST_CASE("bridge: navigation keys map platform KeyCode to the GUI KeyCode")
     bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::Home));
     CHECK(seenKey == static_cast<core::u32>(KeyCode::Home));
 
-    // A printable key with no navigation meaning maps to Unknown (its glyph arrives as text).
+    // The editing-shortcut letters (A/C/V/X) map through so Ctrl+A/C/V/X reach widgets.
     bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::A));
+    CHECK(seenKey == static_cast<core::u32>(KeyCode::A));
+    bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::V));
+    CHECK(seenKey == static_cast<core::u32>(KeyCode::V));
+
+    // A printable key with no shortcut meaning maps to Unknown (its glyph arrives as text).
+    bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::B));
     CHECK(seenKey == static_cast<core::u32>(KeyCode::Unknown));
 }
 
@@ -190,4 +204,22 @@ TEST_CASE("bridge: unroutable events return false")
     shell::InputEvent gamepad;
     gamepad.kind = shell::InputEventKind::GamepadButtonDown;
     CHECK_FALSE(bridge.Dispatch(gamepad));
+}
+
+TEST_CASE("ShellClipboard: adapts the shell clipboard to gui::IClipboard and round-trips text")
+{
+    shell::NullShell shell; // in-memory clipboard backing
+    ShellClipboard clipboard{ &shell };
+
+    CHECK_FALSE(clipboard.HasText());
+    clipboard.SetText(core::StringView(u8"copied"));
+    CHECK(clipboard.HasText());
+    CHECK(clipboard.GetText() == core::StringView(u8"copied"));
+    CHECK(shell.GetClipboardText() == core::StringView(u8"copied")); // reached the shell
+
+    // A null shell degrades safely (no crash, empty text).
+    ShellClipboard none{ nullptr };
+    CHECK_FALSE(none.HasText());
+    CHECK(none.GetText().Size() == 0);
+    none.SetText(core::StringView(u8"ignored"));
 }

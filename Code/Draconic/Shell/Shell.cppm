@@ -166,5 +166,13 @@ export namespace draconic::shell
 
         // Ask the shell to quit (flips IsRunning()).
         virtual void RequestExit() = 0;
+
+        // System clipboard (text). Process-global on every desktop backend (SDL's clipboard
+        // is not tied to a window), so it lives on the shell rather than a window - the
+        // counterpart to the per-window IME control above. The GUI reaches it through an
+        // abstract gui::IClipboard adapter so the core stays platform-agnostic.
+        virtual void SetClipboardText(core::StringView text) = 0;
+        [[nodiscard]] virtual core::String GetClipboardText() const = 0;
+        [[nodiscard]] virtual bool HasClipboardText() const noexcept = 0;
     };
 }

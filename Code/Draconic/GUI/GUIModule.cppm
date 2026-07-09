@@ -19,6 +19,7 @@ export import :thickness;
 // Scene-graph core (Phase 1: tree)
 export import :transformable;
 export import :event;
+export import :clipboard;
 export import :mutation_queue;
 export import :node;
 

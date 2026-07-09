@@ -163,6 +163,7 @@ private:
     RefPtr<gui::RelativeLayout> m_relative;
     gui::StyleManager         m_styles;
     UniquePtr<gui::GuiInputBridge>   m_bridge;
+    UniquePtr<gui::ShellClipboard>   m_clipboard;   // adapts the shell clipboard to gui::IClipboard
     UniquePtr<shell::InputSurface>   m_surface;
     UniquePtr<shell::InputRouter>    m_router;
     i32 m_clicks = 0;
@@ -387,14 +388,17 @@ void GUISandbox::BuildUI()
     m_textField->SetFont(m_font);
     m_textField->SetTextColor(Col(0.96f, 0.97f, 0.99f));
     m_textField->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.20f, 0.22f, 0.27f)));
-    m_textField->SetText(u8"click, then type");
+    // Placeholder shows while empty; select (shift+arrows / drag / double-click word),
+    // Ctrl+A/C/X/V for select-all/copy/cut/paste; capped at 24 codepoints.
+    m_textField->SetPlaceholder(u8"type here - select, Ctrl+C/V...");
+    m_textField->SetMaxLength(24);
     fieldRow->AddChild(m_textField.Get());
 
     m_echo = MakeRef<gui::Label>(DefaultAllocator());
     m_echo->SetSize(Float2{ 500.0f, 26.0f });
     m_echo->SetFont(m_font);
     m_echo->SetTextColor(Col(0.62f, 0.72f, 0.82f));
-    m_echo->SetText(u8"echo: click, then type");
+    m_echo->SetText(u8"echo: (empty)");
     m_panel->AddChild(m_echo.Get());
 
     gui::Label* echo = m_echo.Get();
@@ -503,6 +507,14 @@ void GUISandbox::BuildUI()
     ApplyTheme();
 
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());
+
+    // Give the dispatcher a clipboard so TextField cut/copy/paste (Ctrl+X/C/V) reach the OS
+    // clipboard - the same seam headless tests exercise with an in-memory one.
+    if (m_shell != nullptr)
+    {
+        m_clipboard = MakeUnique<gui::ShellClipboard>(DefaultAllocator(), m_shell);
+        m_root->GetEventDispatcher()->SetClipboard(m_clipboard.Get());
+    }
 }
 
 void GUISandbox::ApplyTheme()
