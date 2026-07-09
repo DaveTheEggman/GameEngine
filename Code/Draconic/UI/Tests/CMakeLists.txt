@@ -13,6 +13,7 @@ add_executable(DraconicUITests
     GravityHelperTests.cpp
     StyleSheetTests.cpp
     ThemeAtlasTests.cpp
+    ThemeTests.cpp
     TokenizerTests.cpp
     SSSParserTests.cpp
     TestHelpers.cpp
