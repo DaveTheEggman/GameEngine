@@ -61,6 +61,7 @@ export namespace draconic::ui
     class ViewGroup;
     class RootView;
     class UIContext;
+    class PopupLayer; // defined in :popup_layer; RootView holds one (created lazily in the impl unit).
 
     using LayoutParamsPtr = RefPtr<LayoutParams>;
     // Aliases so the faithful field names `LayoutParams`/`Visibility` (which shadow their own types
@@ -557,7 +558,9 @@ export namespace draconic::ui
     };
 
     // ===================================================================================
-    // RootView - top-level viewport view. (PopupLayer deferred: plain viewport ViewGroup.)
+    // RootView - top-level viewport view. Owns a PopupLayer kept as the last child (topmost for draw +
+    // hit-test). The PopupLayer is created lazily in GetPopupLayer() (impl unit) - RootView lives in the
+    // :view partition and cannot name the :popup_layer type at construction (module cycle).
     // ===================================================================================
     class RootView : public ViewGroup
     {
@@ -572,6 +575,20 @@ export namespace draconic::ui
         {
             const f32 dpi = Max(DpiScale, 0.01f);
             return Float2{ ViewportSize.x / dpi, ViewportSize.y / dpi };
+        }
+
+        /// The per-window popup/overlay layer (created on first access).
+        [[nodiscard]] PopupLayer* GetPopupLayer(); // defined in the impl unit (needs the complete type)
+
+        /// Adds a child, keeping the PopupLayer as the last child for z-order.
+        ViewGroup* AddView(View* child, LayoutParamsPtr lp = {}) override
+        {
+            if (child == nullptr) { return this; }
+            if (child == m_popupLayer.Get()) { return ViewGroup::AddView(child, Move(lp)); } // the popup layer itself
+            usize insertIndex = ChildCount();
+            if (ChildCount() > 0 && GetChildAt(ChildCount() - 1) == m_popupLayer.Get()) { insertIndex = ChildCount() - 1; }
+            InsertView(child, insertIndex, Move(lp));
+            return this;
         }
 
     protected:
@@ -599,6 +616,11 @@ export namespace draconic::ui
                 if (child->Visibility != VisibilityValue::Gone) { child->Layout(0, 0, width, height); }
             }
         }
+
+    private:
+        // Held as the base ViewGroup type (the :popup_layer type is incomplete in this partition); the
+        // concrete PopupLayer is created and returned by GetPopupLayer() in the impl unit.
+        RefPtr<ViewGroup> m_popupLayer;
     };
 
     // ===================================================================================

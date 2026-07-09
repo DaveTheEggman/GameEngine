@@ -139,6 +139,19 @@ namespace draconic::ui
 
     f32 ViewGroup::RootDpiScale(RootView* root) { return root != nullptr ? root->DpiScale : 1.0f; }
 
+    // Lazily create the RootView's PopupLayer (kept as the last child). Defined here because the
+    // :popup_layer type is incomplete in the :view partition (module cycle) but complete in this impl unit.
+    PopupLayer* RootView::GetPopupLayer()
+    {
+        if (!m_popupLayer)
+        {
+            RefPtr<PopupLayer> pl = MakeRef<PopupLayer>(DefaultAllocator());
+            m_popupLayer = RefPtr<ViewGroup>(pl.Get()); // upcast + ref
+            ViewGroup::AddView(pl.Get());               // base add (bypasses RootView's keep-last override)
+        }
+        return Cast<PopupLayer>(m_popupLayer.Get());
+    }
+
     ViewGroup* ViewGroup::AddView(View* child, LayoutParamsPtr lp)
     {
         if (child == nullptr || child == this) { return this; }

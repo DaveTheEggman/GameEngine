@@ -38,6 +38,10 @@ target_sources(DraconicUI
             Data/ViewRecycler.cppm
             Data/ITreeAdapter.cppm
             Data/FlattenedTreeAdapter.cppm
+            Overlay/IPopupOwner.cppm
+            Overlay/PopupEntry.cppm
+            Overlay/ModalBackdrop.cppm
+            Overlay/PopupLayer.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
