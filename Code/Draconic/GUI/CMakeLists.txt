@@ -43,6 +43,8 @@ target_sources(DraconicGUI
             Widgets/Slider.cppm
             Widgets/ProgressBar.cppm
             Widgets/LinearLayout.cppm
+            Widgets/GridLayout.cppm
+            Widgets/RelativeLayout.cppm
             Widgets/TextField.cppm
             Styling/ParseUtil.cppm
             Styling/StyleSelector.cppm
