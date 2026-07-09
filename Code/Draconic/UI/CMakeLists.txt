@@ -72,6 +72,7 @@ target_sources(DraconicUI
             Styling/IThemeExtension.cppm
             Styling/ThemeRegistry.cppm
             Styling/ThemeIcons.cppm
+            Styling/DarkTheme.cppm
             Styling/ThemeImageSet.cppm
             Styling/ThemeAtlas.cppm
             Styling/Parser/Token.cppm

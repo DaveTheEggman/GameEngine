@@ -1,7 +1,7 @@
 // Ported from Sedulous.UI.Tests/src/MarkupLoaderTests.bf (faithful). Beef `as X` -> Cast<X>; `scope`/
 // `new`+delete -> RefPtr (RAII); property .Value -> .Value(); Color byte-literal -> float(/255). The
 // static ctor (MarkupLoader.Initialize + StyleSheetLoader.InitializeGlobals) -> an idempotent EnsureInit()
-// called per test. StyleClass_ResolvesTheme is NOT ported (needs DarkTheme::Create, not yet ported).
+// called per test.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -446,4 +446,28 @@ TEST_CASE("markup: Margin_LayoutParam")
     View* child = flex->GetChildAt(0);
     CHECK(child->LayoutParams->Margin.Top == 4);
     CHECK(child->LayoutParams->Margin.Left == 8);
+}
+
+// === Style resolution with markup (theme) ===
+
+TEST_CASE("markup: StyleClass_ResolvesTheme")
+{
+    EnsureInit();
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
+
+    auto sheet = DarkTheme::Create();
+    ctx.SetStyleSheet(sheet);
+
+    auto view = MarkupLoader::LoadFromString(
+        u8"<Flex direction=\"vertical\">\n"
+        u8"  <Button id=\"btn\" text=\"Themed\"/>\n"
+        u8"</Flex>", &ctx);
+    root->AddView(view.Get());
+
+    Button* btn = root->FindByName<Button>(u8"btn");
+    REQUIRE(btn != nullptr);
+    // Button resolves its background from the theme (ButtonBase type selector).
+    Drawable* bg = btn->ResolveStyleDrawable(StyleProperty::Background);
+    CHECK(bg != nullptr);
 }
