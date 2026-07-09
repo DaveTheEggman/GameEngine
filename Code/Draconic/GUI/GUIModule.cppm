@@ -14,6 +14,7 @@ export module draconic.gui;
 
 export import :rect;
 export import :transform2d;
+export import :thickness;
 
 // Drawing / render seam (Phase 2)
 export import :control_state;
@@ -22,3 +23,8 @@ export import :drawable;
 export import :rectangle_drawable;
 export import :border_drawable;
 export import :state_list_drawable;
+export import :linear_gradient_drawable;
+export import :radial_gradient_drawable;
+export import :image_drawable;
+export import :nine_slice_drawable;
+export import :layer_drawable;

@@ -6,19 +6,25 @@ add_library(DraconicGUI STATIC)
 add_library(Draconic::GUI ALIAS DraconicGUI)
 
 target_link_libraries(DraconicGUI
-    PUBLIC Draconic::Core Draconic::VG Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VG Draconic::Image Draconic::Policy)
 
 target_sources(DraconicGUI
     PUBLIC
         FILE_SET gui_modules TYPE CXX_MODULES FILES
             Core/Rect.cppm
             Core/Transform2D.cppm
+            Core/Thickness.cppm
             Drawing/ControlState.cppm
             Drawing/DrawContext.cppm
             Drawing/Drawable.cppm
             Drawing/RectangleDrawable.cppm
             Drawing/BorderDrawable.cppm
             Drawing/StateListDrawable.cppm
+            Drawing/LinearGradientDrawable.cppm
+            Drawing/RadialGradientDrawable.cppm
+            Drawing/ImageDrawable.cppm
+            Drawing/NineSliceDrawable.cppm
+            Drawing/LayerDrawable.cppm
             GUIModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
