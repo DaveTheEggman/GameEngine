@@ -32,7 +32,8 @@ add_executable(DraconicGUITests
     ScrollTests.cpp
     RadioTests.cpp
     ImageWidgetTests.cpp
-    ListBoxTests.cpp)
+    ListBoxTests.cpp
+    TabWidgetTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)
