@@ -58,3 +58,4 @@ export import :style_sheet;
 export import :css_parser;
 export import :css_values;
 export import :style_applier;
+export import :transition;
