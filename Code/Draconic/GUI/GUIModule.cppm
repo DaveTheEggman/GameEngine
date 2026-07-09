@@ -48,3 +48,6 @@ export import :text;
 // Widget base (Phase 5)
 export import :ui_node;
 export import :ui_widget;
+
+// CSS styling (Phase 6)
+export import :style_selector;
