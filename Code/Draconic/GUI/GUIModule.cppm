@@ -16,6 +16,11 @@ export import :rect;
 export import :transform2d;
 export import :thickness;
 
+// Scene-graph core (Phase 1: tree)
+export import :transformable;
+export import :event;
+export import :node;
+
 // Drawing / render seam (Phase 2)
 export import :control_state;
 export import :draw_context;
