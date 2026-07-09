@@ -416,6 +416,8 @@ export namespace draconic::ui
         }
 
         // === Draw ===
+    protected:
+        // Draw text/selection/cursor into a content rect. Protected so EditableLabel can reuse it.
         void DrawTextContent(UIDrawContext& ctx, f32 areaX, f32 areaY, f32 areaW, f32 areaH, f32 fontSize)
         {
             (void)fontSize;
@@ -486,6 +488,7 @@ export namespace draconic::ui
             }
         }
 
+    private:
         void EnsureCursorVisible(fonts::CachedFont* font)
         {
             if (font == nullptr || font->shaper == nullptr) { return; }
