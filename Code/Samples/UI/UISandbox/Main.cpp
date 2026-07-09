@@ -418,6 +418,8 @@ private:
     RefPtr<ui::FlexLayout>    m_main;
     UniquePtr<image::OwnedImageData> m_testImage; // borrowed by the ImageView/DrawableView demos
     RefPtr<ui::RepeatButton> m_repeatBtn;         // ticked each frame (hold-to-repeat)
+    bool m_darkTheme = true;
+    void ApplyTheme() { m_sheet = m_darkTheme ? ui::DarkTheme::Create() : ui::LightTheme::Create(); m_ctx.SetStyleSheet(m_sheet); }
     i32 m_repeatCount = 0;
     UniquePtr<DemoListAdapter> m_listAdapter;     // borrowed by the ListView (Data Controls tab)
     UniquePtr<DemoTreeAdapter> m_treeAdapter;
@@ -466,8 +468,7 @@ void UISandbox::LoadFontSize(StringView path, f32 pixelHeight)
 void UISandbox::BuildUI()
 {
     m_ctx.SetFontService(m_fontService.Get());
-    m_sheet = ui::DarkTheme::Create();
-    m_ctx.SetStyleSheet(m_sheet);
+    ApplyTheme(); // Dark by default; the Theme button toggles Dark <-> Light
 
     m_root = MakeRef<ui::RootView>(DefaultAllocator());
     m_root->ViewportSize = Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) };
@@ -496,6 +497,14 @@ void UISandbox::BuildUI()
     // Main vertical layout filling the window, with a TabView (mirrors Sedulous UISandbox).
     m_main = VFlex();
     m_root->AddView(m_main.Get());
+
+    // Theme toggle above the tabs.
+    {
+        auto themeBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Toggle Dark / Light Theme"));
+        UISandbox* self = this;
+        themeBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [self](ui::ButtonBase*) { self->m_darkTheme = !self->m_darkTheme; self->ApplyTheme(); } });
+        m_main->AddView(themeBtn.Get(), LP(ui::SizeSpec::Wrap(), ui::SizeSpec::Fixed(ui::Unit::Px(34))));
+    }
 
     auto tabView = MakeRef<ui::TabView>(DefaultAllocator());
     tabView->TabsClosable.SetValue(false);
