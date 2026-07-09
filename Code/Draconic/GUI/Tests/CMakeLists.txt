@@ -14,7 +14,8 @@ add_executable(DraconicGUITests
     EventDispatcherTests.cpp
     TextTests.cpp
     WidgetTests.cpp
-    StyleSelectorTests.cpp)
+    StyleSelectorTests.cpp
+    StyleSheetTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)

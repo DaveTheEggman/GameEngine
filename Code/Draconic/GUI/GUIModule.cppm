@@ -51,3 +51,5 @@ export import :ui_widget;
 
 // CSS styling (Phase 6)
 export import :style_selector;
+export import :style_rule;
+export import :style_sheet;
