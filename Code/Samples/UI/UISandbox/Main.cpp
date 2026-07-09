@@ -474,20 +474,22 @@ void UISandbox::BuildUI()
     m_root->DpiScale = 1.0f;
     m_ctx.AddRootView(m_root.Get());
 
-    // A 32x32 RGBA checker/gradient test image for the ImageView/DrawableView demos.
+    // A 64x64 RGBA checkerboard (8px cells) for the ImageView/DrawableView demos - two blues, matching
+    // Sedulous UISandbox's GenerateCheckerboard(64, 64, 8, (100,140,200), (40,50,70)).
     {
-        static u8 pixels[32 * 32 * 4];
-        for (i32 y = 0; y < 32; ++y)
-            for (i32 x = 0; x < 32; ++x)
+        constexpr i32 kSize = 64, kCell = 8;
+        static u8 pixels[kSize * kSize * 4];
+        const u8 lightC[4] = { 100, 140, 200, 255 };
+        const u8 darkC[4]  = { 40,  50,  70,  255 };
+        for (i32 y = 0; y < kSize; ++y)
+            for (i32 x = 0; x < kSize; ++x)
             {
-                const usize o = static_cast<usize>((y * 32 + x) * 4);
-                const bool checker = ((x / 8) + (y / 8)) % 2 == 0;
-                pixels[o + 0] = static_cast<u8>(checker ? 60 + x * 5 : 30);
-                pixels[o + 1] = static_cast<u8>(checker ? 120 : 40 + y * 5);
-                pixels[o + 2] = static_cast<u8>(checker ? 190 : 90);
-                pixels[o + 3] = 255;
+                const usize o = static_cast<usize>((y * kSize + x) * 4);
+                const bool light = ((x / kCell) + (y / kCell)) % 2 == 0;
+                const u8* c = light ? lightC : darkC;
+                pixels[o + 0] = c[0]; pixels[o + 1] = c[1]; pixels[o + 2] = c[2]; pixels[o + 3] = c[3];
             }
-        m_testImage = MakeUnique<image::OwnedImageData>(DefaultAllocator(), 32, 32,
+        m_testImage = MakeUnique<image::OwnedImageData>(DefaultAllocator(), kSize, kSize,
             image::PixelFormat::RGBA8, Span<const u8>(pixels, sizeof(pixels)));
     }
 
