@@ -63,6 +63,7 @@ export import :text_field;
 export import :scroll_bar;
 export import :scroll_view;
 export import :image;
+export import :list_box;
 
 // CSS styling (Phase 6)
 export import :parse_util;
