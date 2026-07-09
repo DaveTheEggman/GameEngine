@@ -27,6 +27,7 @@ target_sources(DraconicUI
             Input/FocusManager.cppm
             Input/InputManager.cppm
             Editing/InputFilter.cppm
+            Controls/MomentumHelper.cppm
             Editing/UndoStack.cppm
             Editing/ITextEditHost.cppm
             Editing/TextEditingBehavior.cppm
@@ -94,6 +95,7 @@ target_sources(DraconicUI
             Controls/PasswordBox.cppm
             Controls/NumericField.cppm
             Controls/EditableLabel.cppm
+            Controls/ScrollBar.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm
