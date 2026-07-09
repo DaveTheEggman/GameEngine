@@ -74,6 +74,13 @@ target_sources(DraconicUI
             Controls/Button.cppm
             Controls/RepeatButton.cppm
             Controls/CheckBox.cppm
+            Controls/Label.cppm
+            Controls/Panel.cppm
+            Controls/Spacer.cppm
+            Controls/Separator.cppm
+            Controls/ColorView.cppm
+            Controls/ProgressBar.cppm
+            Controls/ImageView.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm

@@ -178,3 +178,102 @@ TEST_CASE("control: CheckBox_OnActivate_Toggles")
     cb->OnActivate();
     CHECK(!cb->IsChecked.Value());
 }
+
+// === Label ===
+
+TEST_CASE("control: Label_SetText")
+{
+    auto label = core::MakeRef<Label>(core::DefaultAllocator(), StringView(u8"Hello"));
+    CHECK(label->Text.Value() == StringView(u8"Hello"));
+}
+
+TEST_CASE("control: Label_SetTextChaining")
+{
+    auto label = core::MakeRef<Label>(core::DefaultAllocator());
+    label->SetText(u8"World");
+    CHECK(label->Text.Value() == StringView(u8"World"));
+}
+
+TEST_CASE("control: Label_MeasuresNonZero")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto label = core::MakeRef<Label>(core::DefaultAllocator(), StringView(u8"Hello"));
+    root->AddView(label.Get());
+    LayoutPass(ctx, root.Get());
+    CHECK(label->MeasuredSize.y > 0);
+}
+
+// === Spacer ===
+
+TEST_CASE("control: Spacer_MeasuresToDesiredSize")
+{
+    auto spacer = core::MakeRef<Spacer>(core::DefaultAllocator(), 20.0f, 10.0f);
+    spacer->Measure(BoxConstraints::Expand());
+    CHECK(spacer->MeasuredSize.x == 20);
+    CHECK(spacer->MeasuredSize.y == 10);
+}
+
+// === ColorView ===
+
+TEST_CASE("control: ColorView_StoresColor")
+{
+    auto cv = core::MakeRef<ColorView>(core::DefaultAllocator(), core::Color{ 1.0f, 0.0f, 0.0f, 1.0f });
+    CHECK(cv->Color.Value().r == 1.0f);
+    CHECK(cv->Color.Value().g == 0.0f);
+}
+
+// === Separator ===
+
+TEST_CASE("control: Separator_HorizontalMeasure")
+{
+    auto sep = core::MakeRef<Separator>(core::DefaultAllocator(), Orientation::Horizontal);
+    sep->Measure(BoxConstraints::Loose(400, 300));
+    CHECK(sep->MeasuredSize.y == 1);
+    CHECK(sep->MeasuredSize.x == 400);
+}
+
+TEST_CASE("control: Separator_VerticalMeasure")
+{
+    auto sep = core::MakeRef<Separator>(core::DefaultAllocator(), Orientation::Vertical);
+    sep->Measure(BoxConstraints::Loose(400, 300));
+    CHECK(sep->MeasuredSize.x == 1);
+    CHECK(sep->MeasuredSize.y == 300);
+}
+
+// === ProgressBar ===
+
+TEST_CASE("control: ProgressBar_ValueClamped")
+{
+    auto bar = core::MakeRef<ProgressBar>(core::DefaultAllocator());
+    bar->Value.SetValue(0.5f);
+    CHECK(bar->Value.Value() == 0.5f);
+    bar->Value.SetValue(-1.0f);
+    CHECK(bar->Value.Value() == 0.0f);
+    bar->Value.SetValue(2.0f);
+    CHECK(bar->Value.Value() == 1.0f);
+}
+
+// === Panel ===
+
+TEST_CASE("control: Panel_ChildFillsContent")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto panel = core::MakeRef<Panel>(core::DefaultAllocator());
+    panel->Padding = Thickness{ 10.0f };
+    auto child = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f);
+    panel->AddView(child.Get());
+    root->AddView(panel.Get());
+    LayoutPass(ctx, root.Get());
+    CHECK(child->Bounds.x == doctest::Approx(10));
+    CHECK(child->Bounds.y == doctest::Approx(10));
+}
+
+// === ImageView ===
+
+TEST_CASE("control: ImageView_NullImage_ZeroSize")
+{
+    auto iv = core::MakeRef<ImageView>(core::DefaultAllocator());
+    iv->Measure(BoxConstraints::Expand());
+    CHECK(iv->MeasuredSize.x == 0);
+    CHECK(iv->MeasuredSize.y == 0);
+}
