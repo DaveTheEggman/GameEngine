@@ -153,6 +153,9 @@ target_sources(DraconicUI
         DragDrop/DragImpl.cpp
         Styling/Parser/SSSParserImpl.cpp)
 
+# VFS-backed resource provider (separate lib so the core UI stays VFS-free).
+add_subdirectory(VFS)
+
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
