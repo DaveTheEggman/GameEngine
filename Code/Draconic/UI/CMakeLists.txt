@@ -5,7 +5,7 @@ add_library(DraconicUI STATIC)
 add_library(Draconic::UI ALIAS DraconicUI)
 
 target_link_libraries(DraconicUI
-    PUBLIC Draconic::Core Draconic::VG Draconic::VGSVG Draconic::Fonts Draconic::Image Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VG Draconic::VGSVG Draconic::Fonts Draconic::Image Draconic::Policy Draconic::Xml)
 
 target_sources(DraconicUI
     PUBLIC
@@ -141,13 +141,16 @@ target_sources(DraconicUI
             Layout/DockLayout.cppm
             Layout/GridLayout.cppm
             Layout/FlexLayout.cppm
+            Markup/MarkupRegistry.cppm
+            Markup/MarkupLoader.cppm
             UIModule.cppm
     PRIVATE
         # Module implementation units (not interface partitions): cross-cluster method bodies.
         Core/UIClusterImpl.cpp
         Input/InputImpl.cpp
         Overlay/TooltipImpl.cpp
-        DragDrop/DragImpl.cpp)
+        DragDrop/DragImpl.cpp
+        Styling/Parser/SSSParserImpl.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

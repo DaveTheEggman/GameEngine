@@ -14,8 +14,9 @@
 //  - The @import merge (Beef [Friend] mRules/mOwnedDrawables move) -> StyleSheet::MergeFrom.
 //  - ParseProperty hoists the drawable/string cases out of ParseStyleValue (our StyleValue cannot
 //    hand back an owning RefPtr<Drawable>); behavior is identical to Sedulous.
-//  - ApplyInlineStyle is DEFERRED: it needs View::GetOrCreateInlineSheet/Invalidate from the not-yet
-//    -ported View cluster.
+//  - ApplyInlineStyle (for `style="..."` markup attributes) is declared here and defined in the impl
+//    unit Styling/Parser/SSSParserImpl.cpp (its body touches the View cluster). ParseDeclarations parses
+//    a bare declaration body into an existing rule.
 
 module;
 #include "Core/Prelude.h"
@@ -57,6 +58,7 @@ namespace vg = draconic::vg;
 export namespace draconic::ui
 {
     class SSSParser;
+    class View; // for SSSParser::ApplyInlineStyle (body in Styling/Parser/SSSParserImpl.cpp)
 
     /// Registry of drawable factory functions invocable from .sss stylesheets. User-extensible via
     /// Register(). Factories are non-capturing, so a plain function pointer replaces Beef's delegate.
@@ -93,6 +95,21 @@ export namespace draconic::ui
 
             return m_sheetOwner;
         }
+
+        /// Parse a bare declaration body (no selectors/braces) into an existing rule on `ownerSheet`.
+        /// Used by ApplyInlineStyle for `style="..."` markup attributes.
+        void ParseDeclarations(StyleSheet* ownerSheet, StyleRule& targetRule)
+        {
+            m_sheet = ownerSheet;
+            m_pos = 0;
+            while (!IsAtEnd()) { ParseProperty(targetRule); }
+        }
+
+        /// Parse a `style="..."` markup attribute and apply its declared properties to `view`'s inline
+        /// StyleSheet. Drawable values are owned by the inline sheet (released when the view dies). Theme
+        /// variables ($name) and @-rules are not supported - inline-style values must be literal. Body in
+        /// the impl unit (touches the View cluster).
+        static void ApplyInlineStyle(View* view, StringView body);
 
         // === Value parsing (public for DrawableFactoryRegistry) ===
 
