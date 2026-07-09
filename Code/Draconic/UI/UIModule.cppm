@@ -97,6 +97,7 @@ export import :list_view;
 export import :grid_view;
 export import :tab_view;
 export import :tree_view;
+export import :combo_box;
 export import :hierarchical_state;
 export import :content_button;
 export import :drawable_view;

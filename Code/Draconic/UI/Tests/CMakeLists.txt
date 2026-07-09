@@ -32,6 +32,7 @@ add_executable(DraconicUITests
     GridViewTests.cpp
     TabViewTests.cpp
     TreeViewTests.cpp
+    ComboBoxTests.cpp
     PopupPositionerTests.cpp
     PopupLayerTests.cpp
     ControlTests.cpp)
