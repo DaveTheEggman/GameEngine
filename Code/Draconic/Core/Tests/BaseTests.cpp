@@ -134,6 +134,20 @@ TEST_CASE("base: Optional")
     CHECK_FALSE(some.HasValue());
 }
 
+TEST_CASE("base: Optional equality")
+{
+    Optional<int> a, b;
+    CHECK(a == b);                 // both empty
+    a = 5;
+    CHECK(a != b);                 // engaged vs empty
+    b = 5;
+    CHECK(a == b);                 // equal values
+    b = 6;
+    CHECK(a != b);                 // differing values
+    b.Reset();
+    CHECK(a != b);
+}
+
 TEST_CASE("base: Optional manages non-trivial payload lifetimes")
 {
     struct Tracked

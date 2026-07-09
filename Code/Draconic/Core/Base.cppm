@@ -413,4 +413,15 @@ export namespace draconic::core
             T m_value;
         };
     };
+
+    /// Two Optionals are equal iff both empty, or both engaged with equal values (requires T to be
+    /// equality-comparable; instantiated only where used).
+    template <typename T>
+    [[nodiscard]] inline bool operator==(const Optional<T>& a, const Optional<T>& b)
+    {
+        if (a.HasValue() != b.HasValue()) { return false; }
+        return !a.HasValue() || a.Value() == b.Value();
+    }
+    template <typename T>
+    [[nodiscard]] inline bool operator!=(const Optional<T>& a, const Optional<T>& b) { return !(a == b); }
 }
