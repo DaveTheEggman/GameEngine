@@ -228,7 +228,29 @@ void GUISandbox::BuildUI()
 
     makeButton(u8"Add +1", u8"",       [counter, clicks]() { ++(*clicks); SetCounterText(counter, *clicks); });
     makeButton(u8"Reset",  u8"danger", [counter, clicks]() { *clicks = 0; SetCounterText(counter, 0); });
-    makeButton(u8"Toggle", u8"accent", [counter]()         { counter->SetVisible(!counter->IsVisible()); });
+    makeButton(u8"Add +5", u8"accent", [counter, clicks]() { *clicks += 5; SetCounterText(counter, *clicks); });
+
+    // A checkbox + label row: toggling it highlights the counter.
+    auto checkRow = MakeRef<gui::LinearLayout>(DefaultAllocator());
+    checkRow->SetOrientation(gui::Orientation::Horizontal);
+    checkRow->SetSize(Float2{ 360.0f, 30.0f });
+    checkRow->SetSpacing(10.0f);
+    m_panel->AddChild(checkRow.Get());
+
+    auto check = MakeRef<gui::CheckBox>(DefaultAllocator());
+    check->SetSize(Float2{ 22.0f, 22.0f });
+    check->SetOnCheckedChanged([counter](bool on)
+    {
+        counter->SetTextColor(on ? Color{ 0.42f, 0.85f, 0.52f, 1.0f } : Color{ 0.75f, 0.82f, 0.9f, 1.0f });
+    });
+    checkRow->AddChild(check.Get());
+
+    auto checkLabel = MakeRef<gui::Label>(DefaultAllocator());
+    checkLabel->SetSize(Float2{ 220.0f, 26.0f });
+    checkLabel->SetText(u8"Highlight counter");
+    checkLabel->SetFont(m_font);
+    checkLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
+    checkRow->AddChild(checkLabel.Get());
 
     m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());

@@ -39,6 +39,7 @@ target_sources(DraconicGUI
             Widgets/UIWidget.cppm
             Widgets/Label.cppm
             Widgets/Button.cppm
+            Widgets/CheckBox.cppm
             Widgets/LinearLayout.cppm
             Styling/ParseUtil.cppm
             Styling/StyleSelector.cppm
