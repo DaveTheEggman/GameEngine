@@ -77,6 +77,9 @@ export namespace draconic::ui
 
         [[nodiscard]] usize TabCount() const noexcept { return m_tabs.Size(); }
 
+        /// Index of the tab currently under the cursor, or -1 if none (drives the Hover visual state).
+        [[nodiscard]] i32 HoveredTabIndex() const noexcept { return m_hoveredTabIndex; }
+
         /// Add a tab (content becomes a logical child). Returns the new tab index.
         i32 AddTab(StringView title, View* content, bool closable = false)
         {
@@ -252,6 +255,14 @@ export namespace draconic::ui
             if (newHovered != m_hoveredTabIndex) { m_hoveredTabIndex = newHovered; Invalidate(); }
         }
 
+        // Tab hover is tracked in OnMouseMove, which stops firing once the cursor leaves the TabView - so
+        // clear the hovered tab here or it stays visually stuck in the Hover state. (Divergence from
+        // Sedulous, whose TabView has no OnMouseLeave and leaves the last tab highlighted.)
+        void OnMouseLeave() override
+        {
+            if (m_hoveredTabIndex != -1) { m_hoveredTabIndex = -1; Invalidate(); }
+        }
+
         void OnKeyDown(KeyEventArgs& e) override
         {
             if (m_tabs.Size() == 0) { return; }
@@ -292,6 +303,9 @@ export namespace draconic::ui
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
             (void)left; (void)top;
+            // Rebuild the tab hit-rects at layout time too (not just in OnDraw), so mouse hit-testing is
+            // valid immediately after layout - e.g. the first mouse-move before the first draw.
+            RebuildTabRects();
             if (m_selectedIndex < 0 || m_selectedIndex >= static_cast<i32>(m_tabs.Size())) { return; }
             View* content = m_tabs[static_cast<usize>(m_selectedIndex)].Content;
             if (content->Visibility == VisibilityValue::Gone) { return; }

@@ -113,3 +113,24 @@ TEST_CASE("tab-view: KeyboardNavigation")
     tabs->OnKeyDown(left); // can't go below 0
     CHECK(tabs->SelectedIndex() == 0);
 }
+
+// Draconic addition (not in Sedulous.UI.Tests): the TabView clears its hovered-tab highlight when the
+// cursor leaves the view. Sedulous' TabView has no OnMouseLeave, so a hovered tab stays stuck in the
+// Hover state after the mouse moves away; this verifies our OnMouseLeave fix.
+TEST_CASE("tab-view: HoverClearsOnMouseLeave")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto tabs = MakeTabs();
+    tabs->AddTab(u8"Tab 1", MakeView(100, 100).Get());
+    tabs->AddTab(u8"Tab 2", MakeView(100, 100).Get());
+    root->AddView(tabs.Get());
+    LayoutPass(ctx, root.Get());
+
+    // Hover the first tab in the top strip.
+    ctx.GetInputManager()->ProcessMouseMove(10, 10);
+    CHECK(tabs->HoveredTabIndex() == 0);
+
+    // Move into the content area (a child view) so the TabView is no longer the hovered view.
+    ctx.GetInputManager()->ProcessMouseMove(200, 200);
+    CHECK(tabs->HoveredTabIndex() == -1);
+}
