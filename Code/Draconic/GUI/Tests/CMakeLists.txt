@@ -2,7 +2,8 @@
 add_executable(DraconicGUITests
     TestsMain.cpp
     RectTests.cpp
-    Transform2DTests.cpp)
+    Transform2DTests.cpp
+    DrawingTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)

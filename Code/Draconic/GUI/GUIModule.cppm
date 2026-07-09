@@ -14,3 +14,11 @@ export module draconic.gui;
 
 export import :rect;
 export import :transform2d;
+
+// Drawing / render seam (Phase 2)
+export import :control_state;
+export import :draw_context;
+export import :drawable;
+export import :rectangle_drawable;
+export import :border_drawable;
+export import :state_list_drawable;
