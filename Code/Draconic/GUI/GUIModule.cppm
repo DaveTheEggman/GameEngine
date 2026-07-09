@@ -41,3 +41,6 @@ export import :radial_gradient_drawable;
 export import :image_drawable;
 export import :nine_slice_drawable;
 export import :layer_drawable;
+
+// Text (Phase 4)
+export import :text;
