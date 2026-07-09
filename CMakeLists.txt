@@ -97,6 +97,7 @@ add_subdirectory(Code/Draconic/Materials) # data-driven material model (Pipeline
 add_subdirectory(Code/Draconic/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
 add_subdirectory(Code/Draconic/VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/UI)        # retained-mode UI framework (faithful Sedulous.UI port) over Core (+ VG/Fonts as phases land)
+add_subdirectory(Code/Draconic/GUI)       # fresh eepp-derived UI framework, progressively sliced onto VG/Fonts (docs/design/gui-port.md)
 add_subdirectory(Code/Draconic/Script)
 add_subdirectory(Code/Draconic/Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
 add_subdirectory(Code/Draconic/Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
