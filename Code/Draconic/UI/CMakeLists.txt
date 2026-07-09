@@ -70,6 +70,10 @@ target_sources(DraconicUI
             Layout/Gravity.cppm
             Layout/GravityHelper.cppm
             Layout/LayoutParams.cppm
+            Controls/ButtonBase.cppm
+            Controls/Button.cppm
+            Controls/RepeatButton.cppm
+            Controls/CheckBox.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm

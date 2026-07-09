@@ -23,6 +23,9 @@ static void EnsureGlobals()
     UITypeRegistry::Register(u8"View", &View::StaticType());
     UITypeRegistry::Register(u8"TestView", &TestView::StaticType());
     UITypeRegistry::Register(u8"TestGroup", &TestGroup::StaticType());
+    UITypeRegistry::Register(u8"ButtonBase", &ButtonBase::StaticType());
+    UITypeRegistry::Register(u8"Button", &Button::StaticType());
+    UITypeRegistry::Register(u8"CheckBox", &CheckBox::StaticType());
 }
 
 // A UIContext + RootView with a stylesheet applied; the test adds views under `root`.
@@ -410,4 +413,47 @@ TEST_CASE("sss: MultipleRules_SameType")
     core::RefPtr<TestView> view = f.AddView();
     CHECK(view->ResolveStyleFloat(StyleProperty::FontSize) == 12.0f);
     CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == 1.0f);
+}
+
+// === Subtype matching + control-typed drawable factories (un-deferred: controls now exist) ===
+
+TEST_CASE("sss: SubtypeMatching_ButtonMatchesButtonBase")
+{
+    Fixture f(LoadSSS(u8"ButtonBase { padding: 10 20; }"));
+    auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(btn.Get());
+    const Thickness pad = btn->ResolveStyleThickness(StyleProperty::Padding);
+    CHECK(pad.Top == 10);
+    CHECK(pad.Left == 20);
+}
+
+TEST_CASE("sss: SubtypeMatching_ViewMatchesAll")
+{
+    Fixture f(LoadSSS(u8"View { font-size: 13; }"));
+    auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"B"));
+    auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"C"));
+    f.root->AddView(btn.Get());
+    f.root->AddView(cb.Get());
+    CHECK(btn->ResolveStyleFloat(StyleProperty::FontSize) == 13.0f);
+    CHECK(cb->ResolveStyleFloat(StyleProperty::FontSize) == 13.0f);
+}
+
+TEST_CASE("sss: DrawableFactory_StateColors")
+{
+    Fixture f(LoadSSS(u8"ButtonBase { background: state-colors(#334455); }"));
+    auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(btn.Get());
+    Drawable* bg = btn->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    CHECK(core::Cast<StateListDrawable>(bg) != nullptr);
+}
+
+TEST_CASE("sss: DrawableFactory_StateRounded")
+{
+    Fixture f(LoadSSS(u8"ButtonBase { background: state-rounded(#334455, radius=4); }"));
+    auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(btn.Get());
+    Drawable* bg = btn->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    CHECK(core::Cast<StateListDrawable>(bg) != nullptr);
 }
