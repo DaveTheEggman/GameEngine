@@ -62,7 +62,11 @@ target_sources(DraconicUI
             Layout/Gravity.cppm
             Layout/GravityHelper.cppm
             Layout/LayoutParams.cppm
-            UIModule.cppm)
+            UIModule.cppm
+    PRIVATE
+        # Module implementation unit (not an interface partition): defines the two styling methods
+        # that call into View (StyleSelector::Matches, StyleSheet::Resolve).
+        Core/UIClusterImpl.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

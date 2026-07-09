@@ -14,7 +14,11 @@ add_executable(DraconicUITests
     StyleSheetTests.cpp
     ThemeAtlasTests.cpp
     TokenizerTests.cpp
-    SSSParserTests.cpp)
+    SSSParserTests.cpp
+    TestHelpers.cpp
+    ViewTests.cpp
+    ViewGroupTests.cpp
+    UIContextTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
     Draconic::UI doctest::doctest)

@@ -225,6 +225,31 @@ export namespace draconic::core
             Destruct(&m_data[--m_size]);
         }
 
+        // Inserts `value` before `index` (index == Size appends), shifting the tail up. Order preserved.
+        T& Insert(usize index, const T& value)
+        {
+            DRACONIC_ASSERT(index <= m_size);
+            EnsureCapacityForOne();
+            if (index == m_size) { Construct<T>(&m_data[m_size], value); return m_data[m_size++]; }
+            Construct<T>(&m_data[m_size], Move(m_data[m_size - 1]));
+            for (usize i = m_size - 1; i > index; --i) { m_data[i] = Move(m_data[i - 1]); }
+            m_data[index] = value;
+            ++m_size;
+            return m_data[index];
+        }
+
+        T& Insert(usize index, T&& value)
+        {
+            DRACONIC_ASSERT(index <= m_size);
+            EnsureCapacityForOne();
+            if (index == m_size) { Construct<T>(&m_data[m_size], Move(value)); return m_data[m_size++]; }
+            Construct<T>(&m_data[m_size], Move(m_data[m_size - 1]));
+            for (usize i = m_size - 1; i > index; --i) { m_data[i] = Move(m_data[i - 1]); }
+            m_data[index] = Move(value);
+            ++m_size;
+            return m_data[index];
+        }
+
         // --- views / iteration ---------------------------------------------
         [[nodiscard]] Span<T> AsSpan() noexcept { return Span<T>{ m_data, m_size }; }
         [[nodiscard]] Span<const T> AsSpan() const noexcept { return Span<const T>{ m_data, m_size }; }

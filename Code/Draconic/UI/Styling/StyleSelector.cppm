@@ -11,12 +11,13 @@ export module draconic.ui:style_selector;
 
 import draconic.core;   // TypeInfo, IsDerivedFrom, Array, String, StringView, Optional, i32
 import :control_state;
-import :view;
 
 using namespace draconic::core;
 
 export namespace draconic::ui
 {
+    class View; // defined in :view; Matches() body lives there (breaks the View<->styling module cycle)
+
     class StyleSelector
     {
     public:
@@ -42,32 +43,8 @@ export namespace draconic::ui
         }
 
         /// Whether this selector matches the given view, state, and optional pseudo-element name.
-        [[nodiscard]] bool Matches(const View& view, ControlState state, StringView pseudoElement = {}) const
-        {
-            if (ViewType != nullptr && !IsDerivedFrom(view.GetType(), ViewType)) { return false; }
-
-            for (const String& cls : StyleClasses)
-            {
-                if (!view.HasClass(cls.AsView())) { return false; }
-            }
-
-            if (State.HasValue())
-            {
-                const ControlState required = State.Value();
-                if (required != ControlState::Normal && !HasFlag(state, required)) { return false; }
-            }
-
-            if (PseudoElement.HasValue())
-            {
-                if (pseudoElement.Size() == 0u || PseudoElement.Value().AsView() != pseudoElement) { return false; }
-            }
-            else if (pseudoElement.Size() != 0u)
-            {
-                return false; // selector has no pseudo but the query is for one
-            }
-
-            return true;
-        }
+        /// Body defined in the :view partition (needs View complete).
+        [[nodiscard]] bool Matches(const View& view, ControlState state, StringView pseudoElement = {}) const;
 
         void AddClass(StringView name) { StyleClasses.PushBack(String(name)); }
         void SetPseudoElement(StringView name) { PseudoElement = String(name); }

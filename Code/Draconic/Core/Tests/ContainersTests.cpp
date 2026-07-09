@@ -78,6 +78,28 @@ TEST_CASE("containers: Array emplace, pop, remove")
     CHECK(a.Back() == 4);
 }
 
+TEST_CASE("containers: Array insert")
+{
+    Array<int> a;
+    a.PushBack(1);
+    a.PushBack(4);
+
+    a.Insert(1, 2);            // middle -> {1, 2, 4}
+    CHECK(a.Size() == 3u);
+    CHECK(a[0] == 1);
+    CHECK(a[1] == 2);
+    CHECK(a[2] == 4);
+
+    a.Insert(0, 0);            // front  -> {0, 1, 2, 4}
+    CHECK(a[0] == 0);
+    CHECK(a[1] == 1);
+
+    a.Insert(a.Size(), 5);     // end (append) -> {0, 1, 2, 4, 5}
+    CHECK(a.Size() == 5u);
+    CHECK(a.Back() == 5);
+    CHECK(a[3] == 4);
+}
+
 TEST_CASE("containers: Array resize and clear")
 {
     Array<int> a;

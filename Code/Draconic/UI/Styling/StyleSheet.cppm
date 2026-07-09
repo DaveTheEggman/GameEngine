@@ -16,7 +16,6 @@ export module draconic.ui:style_sheet;
 
 import draconic.core;   // Object, Array, RefPtr, TypeInfo, Color, StringView, Optional
 import :control_state;
-import :view;
 import :thickness;
 import :drawable;
 import :color_drawable;
@@ -29,6 +28,8 @@ using namespace draconic::core;
 
 export namespace draconic::ui
 {
+    class View; // defined in :view; Resolve(view,prop) body lives there (breaks the View<->styling cycle)
+
     /// Inheritable style properties - these walk the parent chain (in View.ResolveStyle) if not
     /// found on the view itself.
     [[nodiscard]] constexpr bool IsInheritableStyle(StyleProperty prop) noexcept
@@ -113,10 +114,8 @@ export namespace draconic::ui
         }
 
         // === Resolution (per-sheet primitive; inline + inheritance live on View.ResolveStyle) ===
-        [[nodiscard]] StyleValue Resolve(const View& view, StyleProperty prop) const
-        {
-            return ResolveMatching(view, view.GetControlState(), StringView{}, prop);
-        }
+        // Body in :view (calls view.GetControlState(), needs View complete).
+        [[nodiscard]] StyleValue Resolve(const View& view, StyleProperty prop) const;
         [[nodiscard]] StyleValue ResolvePart(const View& view, StringView pseudoElement, StyleProperty prop, ControlState partState) const
         {
             return ResolveMatching(view, partState, pseudoElement, prop);
