@@ -172,8 +172,15 @@ export namespace draconic::gui
         [[nodiscard]] f32 GetAlpha() const noexcept { return m_alpha; }
 
         // === Hit testing ===
+        // When false, this node is transparent to the pointer: OverFind skips it (clicks fall
+        // through to whatever is behind), though it still draws. Useful for decorative overlays
+        // (a title-bar caption, an image over a draggable area). Children are still hit-tested.
+        void SetHitTestVisible(bool visible) noexcept { m_hitTestVisible = visible; }
+        [[nodiscard]] bool IsHitTestVisible() const noexcept { return m_hitTestVisible; }
+
         [[nodiscard]] virtual bool PointInside(core::Float2 worldPoint) const
         {
+            if (!m_hitTestVisible) return false;
             const core::Float2 p = ConvertToNodeSpace(worldPoint);
             return p.x >= 0.0f && p.x <= m_size.x && p.y >= 0.0f && p.y <= m_size.y;
         }
@@ -387,6 +394,7 @@ export namespace draconic::gui
         bool m_clipChildren = false;
         bool m_focused = false;
         bool m_tabFocusable = false;
+        bool m_hitTestVisible = true;
         u32 m_nextListenerId = 0;
     };
 
