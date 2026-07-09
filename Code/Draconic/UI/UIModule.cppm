@@ -82,6 +82,7 @@ export import :password_box;
 export import :numeric_field;
 export import :editable_label;
 export import :scroll_bar;
+export import :scroll_view;
 export import :style_property;
 export import :style_value;
 export import :style_selector;

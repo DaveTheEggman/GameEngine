@@ -96,6 +96,7 @@ target_sources(DraconicUI
             Controls/NumericField.cppm
             Controls/EditableLabel.cppm
             Controls/ScrollBar.cppm
+            Controls/ScrollView.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm
