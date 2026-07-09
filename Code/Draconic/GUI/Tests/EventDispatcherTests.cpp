@@ -141,3 +141,76 @@ TEST_CASE("dispatch: NotifyNodeRemoved clears interaction refs")
     CHECK(d->GetOverNode() == nullptr);
     CHECK(d->GetFocusNode() == nullptr);
 }
+
+TEST_CASE("dispatch: Tab navigation cycles through tab-focusable nodes in order")
+{
+    auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
+    auto a = MakePanel(core::Float2{ 0.0f, 0.0f }, core::Float2{ 50.0f, 20.0f });
+    auto skip = MakePanel(core::Float2{ 0.0f, 20.0f }, core::Float2{ 50.0f, 20.0f }); // NOT focusable
+    auto b = MakePanel(core::Float2{ 0.0f, 40.0f }, core::Float2{ 50.0f, 20.0f });
+    auto c = MakePanel(core::Float2{ 0.0f, 60.0f }, core::Float2{ 50.0f, 20.0f });
+    a->SetTabFocusable(true);
+    b->SetTabFocusable(true);
+    c->SetTabFocusable(true);
+    root->AddChild(a.Get());
+    root->AddChild(skip.Get());
+    root->AddChild(b.Get());
+    root->AddChild(c.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    // Nothing focused -> Tab lands on the first stop.
+    CHECK(d->FocusNext());
+    CHECK(d->GetFocusNode() == a.Get());
+    // Tab skips the non-focusable node.
+    CHECK(d->FocusNext());
+    CHECK(d->GetFocusNode() == b.Get());
+    CHECK(d->FocusNext());
+    CHECK(d->GetFocusNode() == c.Get());
+    // Wraps back to the first.
+    CHECK(d->FocusNext());
+    CHECK(d->GetFocusNode() == a.Get());
+    // Shift+Tab goes backwards (wraps to the last).
+    CHECK(d->FocusPrevious());
+    CHECK(d->GetFocusNode() == c.Get());
+}
+
+TEST_CASE("dispatch: the Tab key drives focus traversal (Shift+Tab reverses)")
+{
+    auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
+    auto a = MakePanel(core::Float2{ 0.0f, 0.0f }, core::Float2{ 50.0f, 20.0f });
+    auto b = MakePanel(core::Float2{ 0.0f, 40.0f }, core::Float2{ 50.0f, 20.0f });
+    a->SetTabFocusable(true);
+    b->SetTabFocusable(true);
+    root->AddChild(a.Get());
+    root->AddChild(b.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::Tab));
+    CHECK(d->GetFocusNode() == a.Get());
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::Tab));
+    CHECK(d->GetFocusNode() == b.Get());
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::Tab), KeyModShift);
+    CHECK(d->GetFocusNode() == a.Get());
+}
+
+TEST_CASE("dispatch: Tab is consumed (not routed) but other keys still reach the focus node")
+{
+    auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
+    auto a = MakePanel(core::Float2{ 0.0f, 0.0f }, core::Float2{ 50.0f, 20.0f });
+    a->SetTabFocusable(true);
+    root->AddChild(a.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    int tabKeys = 0, otherKeys = 0;
+    a->AddEventListener(EventType::KeyDown, [&](const Event& e)
+    {
+        if (static_cast<const KeyEvent&>(e).KeyCode == static_cast<core::u32>(KeyCode::Tab)) ++tabKeys;
+        else ++otherKeys;
+    });
+
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::Tab)); // focuses a, consumed
+    CHECK(d->GetFocusNode() == a.Get());
+    CHECK(tabKeys == 0); // the widget never saw the Tab
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::Home)); // a real key routes through
+    CHECK(otherKeys == 1);
+}

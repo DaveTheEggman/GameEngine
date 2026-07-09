@@ -32,6 +32,7 @@ export namespace draconic::gui
         {
             SetTag(core::StringView(u8"button")); // CSS `button { ... }` targets it by default
             SetTextAlignment(TextHAlign::Center, TextVAlign::Middle);
+            SetTabFocusable(true);
         }
 
         // Invoked on a click (press + release on the button).

@@ -291,6 +291,13 @@ export namespace draconic::gui
         // drives the window's StartTextInput/StopTextInput accordingly. Default: false.
         [[nodiscard]] virtual bool WantsTextInput() const { return false; }
 
+        // Tab-navigation: whether Tab / Shift+Tab focus traversal can land on this node
+        // (distinct from click focus, which targets whatever is hit). Interactive widgets
+        // opt in; static nodes (labels, layouts) stay false. Modeled on eepp's
+        // UI_TAB_FOCUSABLE flag.
+        void SetTabFocusable(bool focusable) noexcept { m_tabFocusable = focusable; }
+        [[nodiscard]] bool IsTabFocusable() const noexcept { return m_tabFocusable; }
+
         // === Invalidation === (marks self + ancestors until an already-dirty one)
         void Invalidate()
         {
@@ -373,6 +380,7 @@ export namespace draconic::gui
         bool m_needsRedraw = true;
         bool m_clipChildren = false;
         bool m_focused = false;
+        bool m_tabFocusable = false;
         u32 m_nextListenerId = 0;
     };
 

@@ -29,7 +29,7 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(Slider, UIWidget)
     public:
-        Slider() { SetTag(core::StringView(u8"slider")); }
+        Slider() { SetTag(core::StringView(u8"slider")); SetTabFocusable(true); }
 
         [[nodiscard]] f32 GetValue() const noexcept { return m_value; }
         void SetValue(f32 value)

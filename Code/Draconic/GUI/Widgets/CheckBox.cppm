@@ -29,7 +29,7 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(CheckBox, UIWidget)
     public:
-        CheckBox() { SetTag(core::StringView(u8"checkbox")); }
+        CheckBox() { SetTag(core::StringView(u8"checkbox")); SetTabFocusable(true); }
 
         [[nodiscard]] bool IsChecked() const noexcept { return m_checked; }
         void SetChecked(bool checked)

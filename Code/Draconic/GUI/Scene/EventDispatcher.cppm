@@ -85,6 +85,14 @@ export namespace draconic::gui
 
         void InjectKeyDown(u32 keyCode, u32 modifiers = 0)
         {
+            // Tab / Shift+Tab drive focus traversal at the dispatcher level (a widget never
+            // sees a bare Tab), matching the common GUI convention.
+            if (keyCode == static_cast<u32>(KeyCode::Tab) && (modifiers & (~static_cast<u32>(KeyModShift))) == 0)
+            {
+                if (modifiers & KeyModShift) FocusPrevious();
+                else                         FocusNext();
+                return;
+            }
             if (m_focusNode) m_focusNode->HandleKeyDown(KeyEvent(EventType::KeyDown, m_focusNode, keyCode, modifiers));
         }
         void InjectKeyUp(u32 keyCode, u32 modifiers = 0)
@@ -106,6 +114,13 @@ export namespace draconic::gui
             if (m_focusNode) m_focusNode->HandleFocusGained();
         }
 
+        // === Tab navigation ===
+        // Move focus to the next / previous tab-focusable node in tree pre-order (visible +
+        // enabled), wrapping around. Returns true if focus moved. With nothing focused, Next
+        // targets the first stop and Previous the last.
+        bool FocusNext() { return MoveTabFocus(+1); }
+        bool FocusPrevious() { return MoveTabFocus(-1); }
+
         // Clear any interaction refs pointing at `node` (call before removing/destroying it).
         void NotifyNodeRemoved(Node* node)
         {
@@ -118,6 +133,38 @@ export namespace draconic::gui
         [[nodiscard]] Node* HitTest(core::Float2 position) const
         {
             return m_root ? m_root->OverFind(position) : nullptr;
+        }
+
+        // Gather tab-focusable nodes under `node` in pre-order (skipping invisible subtrees
+        // and disabled nodes).
+        static void CollectTabStops(Node* node, core::Array<Node*>& out)
+        {
+            if (node == nullptr || !node->IsVisible()) return;
+            if (node->IsTabFocusable() && node->IsEnabled()) out.PushBack(node);
+            for (usize i = 0; i < node->ChildCount(); ++i) CollectTabStops(node->GetChildAt(i), out);
+        }
+
+        bool MoveTabFocus(i32 direction)
+        {
+            core::Array<Node*> stops;
+            CollectTabStops(m_root, stops);
+            const usize count = stops.Size();
+            if (count == 0) return false;
+
+            // Find the current focus among the stops.
+            usize current = count; // sentinel: "not in the list"
+            for (usize i = 0; i < count; ++i)
+                if (stops[i] == m_focusNode) { current = i; break; }
+
+            usize next;
+            if (current == count)
+                next = (direction > 0) ? 0 : count - 1; // nothing focused -> first / last
+            else
+                next = (direction > 0) ? ((current + 1) % count)
+                                       : ((current + count - 1) % count);
+
+            SetFocusNode(stops[next]);
+            return true;
         }
 
         Node* m_root;                  // non-owning (the SceneNode owns this dispatcher)

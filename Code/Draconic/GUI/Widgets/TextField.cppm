@@ -40,6 +40,7 @@ export namespace draconic::gui
         {
             SetTag(core::StringView(u8"textfield"));
             m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle);
+            SetTabFocusable(true);
         }
 
         // === Value ===
