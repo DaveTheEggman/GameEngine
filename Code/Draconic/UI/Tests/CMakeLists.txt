@@ -36,6 +36,7 @@ add_executable(DraconicUITests
     PopupPositionerTests.cpp
     PopupLayerTests.cpp
     ContextMenuTests.cpp
+    DialogTests.cpp
     ControlTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE

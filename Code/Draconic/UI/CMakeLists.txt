@@ -43,6 +43,7 @@ target_sources(DraconicUI
             Overlay/ModalBackdrop.cppm
             Overlay/PopupLayer.cppm
             Overlay/ContextMenu.cppm
+            Overlay/Dialog.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
