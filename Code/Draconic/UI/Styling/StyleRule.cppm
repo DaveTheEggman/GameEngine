@@ -10,10 +10,11 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module draconic.ui:style_rule;
 
-import draconic.core;   // Array, Optional, RefPtr, Color, StringView
+import draconic.core;   // Object, Array, Optional, RefPtr, Color, StringView
 import :thickness;
 import :drawable;
 import :style_property;
@@ -24,8 +25,11 @@ using namespace draconic::core;
 
 export namespace draconic::ui
 {
-    class StyleRule
+    // Object (RefCounted) so a StyleSheet can own rules via RefPtr and return stable references
+    // from its fluent builders.
+    class StyleRule : public Object
     {
+        DRACONIC_OBJECT(StyleRule, Object)
     public:
         struct Entry { StyleProperty Prop; StyleValue Value; };
 
@@ -72,4 +76,6 @@ export namespace draconic::ui
 
         Array<Entry> m_properties;
     };
+
+    DRACONIC_DEFINE_OBJECT(StyleRule, "draconic::ui")
 }

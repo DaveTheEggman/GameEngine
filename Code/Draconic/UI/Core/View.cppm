@@ -15,6 +15,7 @@ export module draconic.ui:view;
 
 import draconic.core;   // Object, Array, String, StringView
 import :enums;          // InvalidationKind
+import :control_state;  // ControlState
 import :property_owner;
 
 using namespace draconic::core;
@@ -48,6 +49,10 @@ export namespace draconic::ui
                 if (StyleClasses[i] == name) { StyleClasses.RemoveAt(i); Invalidate(); return; }
             }
         }
+
+        /// The view's current control state (hover/pressed/focused/disabled) for style matching.
+        /// (Seed: Normal; grows to compute from interaction flags when input lands.)
+        [[nodiscard]] ControlState GetControlState() const noexcept { return ControlState::Normal; }
 
         /// Marks the view as needing a redraw. (Seed: sets a flag; full invalidation lands later.)
         void Invalidate() noexcept { m_needsRedraw = true; }

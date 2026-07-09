@@ -24,6 +24,7 @@ target_sources(DraconicUI
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
             Styling/StyleRule.cppm
+            Styling/StyleSheet.cppm
             Debug/UIDebugDrawSettings.cppm
             Drawing/ControlState.cppm
             Drawing/UIDrawContext.cppm
