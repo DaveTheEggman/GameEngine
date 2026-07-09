@@ -426,6 +426,7 @@ private:
     UniquePtr<ui::UiInputBridge>   m_bridge;
     UniquePtr<shell::InputSurface> m_surface;
     UniquePtr<shell::InputRouter>  m_router;
+    UniquePtr<ui::ShellClipboard>  m_clipboard; // bridges the shell clipboard into the UI (Cut/Copy/Paste)
 };
 
 Status UISandbox::OnInit()
@@ -1204,6 +1205,8 @@ void UISandbox::OnRender()
             m_router->AddSurface(m_surface.Get());
             m_bridge = MakeUnique<ui::UiInputBridge>(DefaultAllocator(), &m_ctx);
             m_bridge->SetTextInputTarget(m_window); // IME follows UI focus
+            m_clipboard = MakeUnique<ui::ShellClipboard>(DefaultAllocator(), m_shell);
+            m_ctx.SetClipboard(m_clipboard.Get()); // Cut/Copy/Paste in text controls
         }
         m_surface->SetRegion(region);
         m_surface->SetContentSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
@@ -1278,9 +1281,11 @@ void UISandbox::OnRender()
 void UISandbox::OnShutdown()
 {
     if (m_device) m_device->WaitIdle();
+    m_ctx.SetClipboard(nullptr);
     m_router.Reset();
     m_surface.Reset();
     m_bridge.Reset();
+    m_clipboard.Reset();
     if (m_root) m_ctx.RemoveRootView(m_root.Get());
     m_repeatBtn.Reset();
     m_main.Reset();

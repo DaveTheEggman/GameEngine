@@ -22,6 +22,31 @@ namespace platform = draconic::shell;
 
 export namespace draconic::ui
 {
+    /// Bridges the platform (shell) clipboard into the UI's abstract IClipboard seam, so text controls'
+    /// Cut/Copy/Paste work. The app sets it via UIContext::SetClipboard. Borrows the shell (non-owning).
+    class ShellClipboard final : public IClipboard
+    {
+    public:
+        explicit ShellClipboard(platform::IShell* shell) noexcept : m_shell(shell) {}
+
+        [[nodiscard]] Status GetText(String& outText) override
+        {
+            if (m_shell == nullptr) { return ErrorCode::Unknown; }
+            outText = m_shell->GetClipboardText();
+            return {};
+        }
+        [[nodiscard]] Status SetText(StringView text) override
+        {
+            if (m_shell == nullptr) { return ErrorCode::Unknown; }
+            m_shell->SetClipboardText(text);
+            return {};
+        }
+        [[nodiscard]] bool HasText() override { return m_shell != nullptr && m_shell->HasClipboardText(); }
+
+    private:
+        platform::IShell* m_shell;
+    };
+
     /// Translates platform input events into UIContext::InputManager calls.
     class UiInputBridge
     {

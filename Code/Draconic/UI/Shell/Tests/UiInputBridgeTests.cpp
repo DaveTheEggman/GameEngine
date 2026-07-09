@@ -7,6 +7,7 @@ import draconic.core;
 import draconic.ui;
 import draconic.ui.shell;
 import draconic.shell;
+import draconic.shell.null;
 
 using namespace draconic::core;
 using namespace draconic::ui;
@@ -111,4 +112,27 @@ TEST_CASE("ui-shell: text input target follows focus (IME sync)")
     ctx.GetFocusManager()->ClearFocus();
     bridge.SyncTextInput();
     CHECK(!window.active); // nothing focused -> IME off
+}
+
+TEST_CASE("ui-shell: ShellClipboard bridges the platform clipboard")
+{
+    shell::NullShell nullShell; // implements IShell incl. clipboard
+    ShellClipboard clip(&nullShell);
+
+    CHECK(!clip.HasText());
+    CHECK(clip.SetText(u8"hello").IsOk());
+    CHECK(clip.HasText());
+
+    String out;
+    CHECK(clip.GetText(out).IsOk());
+    CHECK(out == u8"hello");
+}
+
+TEST_CASE("ui-shell: ShellClipboard with null shell is graceful")
+{
+    ShellClipboard clip(nullptr);
+    CHECK(!clip.HasText());
+    CHECK(!clip.SetText(u8"x").IsOk());
+    String out;
+    CHECK(!clip.GetText(out).IsOk());
 }

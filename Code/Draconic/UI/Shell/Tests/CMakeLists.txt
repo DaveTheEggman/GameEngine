@@ -3,7 +3,7 @@ add_executable(DraconicUIShellTests
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIShellTests PRIVATE
-    Draconic::UIShell Draconic::UI Draconic::Shell doctest::doctest)
+    Draconic::UIShell Draconic::UI Draconic::Shell Draconic::ShellNull doctest::doctest)
 
 target_compile_definitions(DraconicUIShellTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
