@@ -48,3 +48,6 @@ export import :style_selector;
 export import :style_rule;
 export import :style_sheet;
 export import :palette;
+export import :theme_palette;
+export import :theme_extension;
+export import :theme_registry;
