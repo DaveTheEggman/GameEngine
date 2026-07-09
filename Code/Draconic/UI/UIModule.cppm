@@ -41,3 +41,8 @@ export import :box_constraints;
 export import :gravity;
 export import :gravity_helper;
 export import :layout_params;
+export import :view;
+export import :style_property;
+export import :style_value;
+export import :style_selector;
+export import :style_rule;

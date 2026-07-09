@@ -19,6 +19,11 @@ target_sources(DraconicUI
             Core/Property.cppm
             Core/ICommand.cppm
             Core/IClipboard.cppm
+            Core/View.cppm
+            Styling/StyleProperty.cppm
+            Styling/StyleValue.cppm
+            Styling/StyleSelector.cppm
+            Styling/StyleRule.cppm
             Debug/UIDebugDrawSettings.cppm
             Drawing/ControlState.cppm
             Drawing/UIDrawContext.cppm
