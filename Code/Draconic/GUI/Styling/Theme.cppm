@@ -23,7 +23,7 @@ export namespace draconic::gui
     {
         return core::StringView(u8R"(
             .panel    { background-color: #14161c; }
-            label, menuitem { color: #d2d8e0; }
+            label, menuitem, menusubmenu { color: #d2d8e0; }
             button    { background-color: #33507a; color: #f4f7fb; padding: 9; transition: opacity 0.15s; }
             button:hover  { opacity: 0.9; }
             button:active { opacity: 0.78; }
@@ -40,7 +40,8 @@ export namespace draconic::gui
             window::title { background-color: #2b3444; }
             window::grip  { background-color: #3a4353; }
             menu       { background-color: #1a1d24; }
-            menuitem::highlight { background-color: #2f5f9e; }
+            menuitem::highlight, menusubmenu::highlight { background-color: #2f5f9e; }
+            menuseparator::line { background-color: #3a3f4b; }
             tabwidget  { background-color: #1a1d24; }
             slider::track { background-color: #2b2f37; }
             slider::fill  { background-color: #4a90d9; }
@@ -59,7 +60,7 @@ export namespace draconic::gui
     {
         return core::StringView(u8R"(
             .panel    { background-color: #dde3ec; }
-            label, menuitem { color: #1c2530; }
+            label, menuitem, menusubmenu { color: #1c2530; }
             button    { background-color: #cdd8ea; color: #17202b; padding: 9; transition: opacity 0.15s; }
             button:hover  { opacity: 0.9; }
             button:active { opacity: 0.78; }
@@ -76,7 +77,8 @@ export namespace draconic::gui
             window::title { background-color: #c4cdda; }
             window::grip  { background-color: #b0b9c8; }
             menu       { background-color: #f2f4f8; }
-            menuitem::highlight { background-color: #9cc0ef; }
+            menuitem::highlight, menusubmenu::highlight { background-color: #9cc0ef; }
+            menuseparator::line { background-color: #c2c8d2; }
             tabwidget  { background-color: #e6eaf1; }
             slider::track { background-color: #c2cad6; }
             slider::fill  { background-color: #2f6fb0; }

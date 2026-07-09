@@ -145,3 +145,151 @@ TEST_CASE("menu: can be reopened after being dismissed")
     CHECK(menu->GetParent() == root.Get());
     CHECK(menu->GetPosition().x == doctest::Approx(120.0f));
 }
+
+// ===================== Depth: separators / checkable / submenus =====================
+
+TEST_CASE("menu: separators are non-selectable rows that add height")
+{
+    auto menu = Make<Menu>();
+    menu->SetWidth(140.0f);
+    menu->SetItemHeight(26.0f);
+    menu->AddItem(core::StringView(u8"Open"), [] {});
+    menu->AddSeparator();
+    menu->AddItem(core::StringView(u8"Quit"), [] {});
+
+    CHECK(menu->RowCount() == 3);
+    CHECK(menu->ItemCount() == 2);            // the separator is not counted as an item
+    CHECK(menu->GetSize().y == doctest::Approx(26.0f + 9.0f + 26.0f)); // item + separator + item
+}
+
+TEST_CASE("menu: a checkable item toggles, fires its callback, and closes the menu")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 400.0f, 400.0f });
+    auto anchor = Make<UIWidget>();
+    root->AddChild(anchor.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    bool state = false;
+    int toggles = 0;
+    auto menu = Make<Menu>();
+    menu->SetItemHeight(26.0f);
+    MenuItem* check = menu->AddCheckItem(core::StringView(u8"Bold"), false,
+                                         [&](bool on) { state = on; ++toggles; });
+    menu->Open(*anchor, core::Float2{ 50.0f, 50.0f });
+
+    CHECK_FALSE(check->IsChecked());
+    // Row 0 spans y in [50, 76); click it.
+    d->InjectMouseDown(core::Float2{ 60.0f, 60.0f }, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{ 60.0f, 60.0f }, MouseButton::Left);
+    CHECK(check->IsChecked());
+    CHECK(state == true);
+    CHECK(toggles == 1);
+    CHECK_FALSE(menu->IsOpen()); // menus close on activation
+}
+
+TEST_CASE("menu: a submenu opens to the right as a sibling on hover")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 600.0f, 600.0f });
+    auto anchor = Make<UIWidget>();
+    root->AddChild(anchor.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    auto menu = Make<Menu>();
+    menu->SetWidth(160.0f);
+    menu->SetItemHeight(26.0f);
+    menu->AddItem(core::StringView(u8"Top"), [] {});
+    Menu* sub = menu->AddSubMenu(core::StringView(u8"More"));
+    sub->AddItem(core::StringView(u8"Deep"), [] {});
+    menu->Open(*anchor, core::Float2{ 50.0f, 50.0f });
+
+    CHECK(menu->CurrentSubMenu() == nullptr);
+    // Hover the "More" row (row 1: y in [76, 102)).
+    d->InjectMouseMove(core::Float2{ 60.0f, 88.0f });
+    CHECK(menu->CurrentSubMenu() == sub);
+    CHECK(sub->IsOpen());
+    CHECK(sub->GetParent() == root.Get());                       // attached as a sibling of the menu
+    CHECK(sub->GetPosition().x == doctest::Approx(210.0f));      // menu.x(50) + menu.width(160)
+    CHECK(sub->GetPosition().y == doctest::Approx(76.0f));       // menu.y(50) + item.y(26)
+}
+
+TEST_CASE("menu: hovering a different row closes the open submenu")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 600.0f, 600.0f });
+    auto anchor = Make<UIWidget>();
+    root->AddChild(anchor.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    auto menu = Make<Menu>();
+    menu->SetWidth(160.0f);
+    menu->SetItemHeight(26.0f);
+    menu->AddItem(core::StringView(u8"Top"), [] {});     // row 0
+    Menu* sub = menu->AddSubMenu(core::StringView(u8"More")); // row 1
+    sub->AddItem(core::StringView(u8"Deep"), [] {});
+    menu->Open(*anchor, core::Float2{ 50.0f, 50.0f });
+
+    d->InjectMouseMove(core::Float2{ 60.0f, 88.0f }); // open submenu (hover "More")
+    REQUIRE(menu->CurrentSubMenu() == sub);
+    d->InjectMouseMove(core::Float2{ 60.0f, 60.0f }); // hover "Top" (row 0)
+    CHECK(menu->CurrentSubMenu() == nullptr);
+    CHECK(sub->GetParent() == nullptr);               // submenu removed from the tree
+}
+
+TEST_CASE("menu: clicking inside an open submenu does not dismiss; activating closes the whole chain")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 600.0f, 600.0f });
+    auto anchor = Make<UIWidget>();
+    root->AddChild(anchor.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    int deep = 0;
+    auto menu = Make<Menu>();
+    menu->SetWidth(160.0f);
+    menu->SetItemHeight(26.0f);
+    menu->AddItem(core::StringView(u8"Top"), [] {});
+    Menu* sub = menu->AddSubMenu(core::StringView(u8"More"));
+    sub->AddItem(core::StringView(u8"Deep"), [&] { ++deep; });
+    menu->Open(*anchor, core::Float2{ 50.0f, 50.0f });
+
+    d->InjectMouseMove(core::Float2{ 60.0f, 88.0f }); // open submenu
+    REQUIRE(sub->IsOpen());
+
+    // The submenu sits at x in [210, 370], its "Deep" row at y in [76, 102). A press there is
+    // inside the chain -> the root menu must stay open (the popup 'contains' predicate).
+    d->InjectMouseDown(core::Float2{ 260.0f, 88.0f }, MouseButton::Left);
+    CHECK(menu->IsOpen());
+    d->InjectMouseUp(core::Float2{ 260.0f, 88.0f }, MouseButton::Left);
+    CHECK(deep == 1);
+    CHECK_FALSE(menu->IsOpen());          // the whole chain closed
+    CHECK(menu->GetParent() == nullptr);
+    CHECK(sub->GetParent() == nullptr);
+    CHECK(d->GetPopup() == nullptr);
+}
+
+TEST_CASE("menu: an outside click dismisses the whole open submenu chain")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 600.0f, 600.0f });
+    auto anchor = Make<UIWidget>();
+    root->AddChild(anchor.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    auto menu = Make<Menu>();
+    menu->SetWidth(160.0f);
+    menu->SetItemHeight(26.0f);
+    Menu* sub = menu->AddSubMenu(core::StringView(u8"More"));
+    sub->AddItem(core::StringView(u8"Deep"), [] {});
+    menu->Open(*anchor, core::Float2{ 50.0f, 50.0f });
+
+    d->InjectMouseMove(core::Float2{ 60.0f, 60.0f }); // "More" is row 0 (y in [50,76)) -> open sub
+    REQUIRE(sub->IsOpen());
+
+    d->InjectMouseDown(core::Float2{ 500.0f, 500.0f }, MouseButton::Left); // outside everything
+    CHECK_FALSE(menu->IsOpen());
+    CHECK(menu->GetParent() == nullptr);
+    CHECK(sub->GetParent() == nullptr);
+    CHECK(d->GetPopup() == nullptr);
+}

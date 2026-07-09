@@ -677,11 +677,28 @@ void GUISandbox::BuildShowcaseWindow()
     // A right-click context menu on the main panel.
     m_contextMenu = MakeRef<gui::Menu>(DefaultAllocator());
     m_contextMenu->SetFont(m_font);
-    m_contextMenu->SetWidth(180.0f);
+    m_contextMenu->SetWidth(220.0f);
     GUISandbox* self = this;
-    m_contextMenu->AddItem(u8"Add +1 to counter", [self]() { ++self->m_clicks; SetCounterText(self->m_counter.Get(), self->m_clicks); });
+    gui::MenuItem* addItem = m_contextMenu->AddItem(u8"Add +1 to counter",
+        [self]() { ++self->m_clicks; SetCounterText(self->m_counter.Get(), self->m_clicks); });
+    addItem->SetShortcut(u8"Ctrl+A");
     m_contextMenu->AddItem(u8"Reset counter", [self]() { self->m_clicks = 0; SetCounterText(self->m_counter.Get(), 0); });
-    m_contextMenu->AddItem(u8"Toggle widgets window", [self]() { self->m_widgetWindow->SetVisible(!self->m_widgetWindow->IsVisible()); });
+    m_contextMenu->AddSeparator();
+    // A checkable item: toggle the widgets window's visibility, reflecting its state.
+    m_contextMenu->AddCheckItem(u8"Show widgets window", true,
+        [self](bool on) { self->m_widgetWindow->SetVisible(on); });
+    // A submenu of counter presets.
+    gui::Menu* presets = m_contextMenu->AddSubMenu(u8"Set counter to");
+    presets->SetFont(m_font);
+    presets->SetWidth(120.0f);
+    const i32 presetValues[3] = { 0, 10, 100 };
+    const StringView presetLabels[3] = { StringView(u8"0"), StringView(u8"10"), StringView(u8"100") };
+    for (usize i = 0; i < 3; ++i)
+    {
+        const i32 value = presetValues[i];
+        presets->AddItem(presetLabels[i],
+                         [self, value]() { self->m_clicks = value; SetCounterText(self->m_counter.Get(), value); });
+    }
 
     // Open the context menu on a right-click of the empty panel background (a node listener on
     // the panel, so right-clicking a widget or the floating window does NOT open it). The menu

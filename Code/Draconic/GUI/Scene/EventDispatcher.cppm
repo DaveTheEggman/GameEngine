@@ -82,8 +82,11 @@ export namespace draconic::gui
             m_mousePos = position;
             Node* hit = HitTest(position);
             // A press outside the active popup (and its owner) dismisses it - the click still
-            // proceeds normally afterwards.
-            if (m_popup != nullptr && !IsInSubtree(hit, m_popup) && !IsInSubtree(hit, m_popupOwner))
+            // proceeds normally afterwards. The optional `contains` predicate lets a popup claim
+            // nodes outside its own subtree as still "inside" it (e.g. a menu's open submenus,
+            // which are siblings in the tree, not descendants - eepp's isChildOrSubMenu).
+            if (m_popup != nullptr && !IsInSubtree(hit, m_popup) && !IsInSubtree(hit, m_popupOwner)
+                && !(m_popupContains && m_popupContains(hit)))
                 ClosePopup();
             m_downNode = hit;
             SetFocusNode(hit); // click-to-focus
@@ -191,12 +194,14 @@ export namespace draconic::gui
         // the tree, typically as a top-level child of the root so it draws over everything).
         // A press outside it and its owner, or Escape, dismisses it via the onClose callback.
         // `owner` is the widget that opened it (e.g. the ComboBox) - clicks on it don't dismiss.
-        void OpenPopup(Node* popup, Node* owner, core::Function<void()> onClose)
+        void OpenPopup(Node* popup, Node* owner, core::Function<void()> onClose,
+                       core::Function<bool(Node*)> contains = {})
         {
             if (m_popup != nullptr) ClosePopup();
             m_popup = popup;
             m_popupOwner = owner;
             m_onPopupClose = core::Move(onClose);
+            m_popupContains = core::Move(contains);
         }
         void ClosePopup()
         {
@@ -205,6 +210,7 @@ export namespace draconic::gui
             m_popup = nullptr;
             m_popupOwner = nullptr;
             m_onPopupClose = {};
+            m_popupContains = {};
             if (cb) cb(); // the owner hides/removes the popup here
         }
         [[nodiscard]] Node* GetPopup() const noexcept { return m_popup; }
@@ -297,6 +303,7 @@ export namespace draconic::gui
         Node* m_popup = nullptr;       // non-owning active popup
         Node* m_popupOwner = nullptr;  // non-owning opener (clicks on it don't dismiss)
         core::Function<void()> m_onPopupClose;
+        core::Function<bool(Node*)> m_popupContains; // optional: extends the popup's "inside" set
         bool m_dragActive = false;     // drag-and-drop in progress
         Node* m_dragSource = nullptr;  // non-owning
         Node* m_dropTarget = nullptr;  // non-owning current target
