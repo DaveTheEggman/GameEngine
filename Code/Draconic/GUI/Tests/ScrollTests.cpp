@@ -167,3 +167,115 @@ TEST_CASE("scrollbar: draws track + thumb")
     sb->Draw(dc);
     CHECK(ctx.GetBatch().vertices.Size() > 0);
 }
+
+TEST_CASE("scrollview: internal scrollbar shows/hides by policy")
+{
+    auto sv = Make<ScrollView>();
+    sv->SetSize(core::Float2{ 100.0f, 100.0f });
+
+    // Auto: hidden when content fits, shown when it overflows.
+    sv->SetContentSize(core::Float2{ 100.0f, 50.0f });
+    CHECK_FALSE(sv->GetVerticalScrollBar()->IsVisible());
+    sv->SetContentSize(core::Float2{ 100.0f, 300.0f });
+    CHECK(sv->GetVerticalScrollBar()->IsVisible());
+
+    // AlwaysOff hides even when overflowing; AlwaysOn shows even when it fits.
+    sv->SetVerticalScrollBarPolicy(ScrollBarPolicy::AlwaysOff);
+    CHECK_FALSE(sv->GetVerticalScrollBar()->IsVisible());
+    sv->SetVerticalScrollBarPolicy(ScrollBarPolicy::AlwaysOn);
+    sv->SetContentSize(core::Float2{ 100.0f, 50.0f });
+    CHECK(sv->GetVerticalScrollBar()->IsVisible());
+}
+
+TEST_CASE("scrollview: internal bar and offset stay in two-way sync")
+{
+    auto sv = Make<ScrollView>();
+    sv->SetSize(core::Float2{ 100.0f, 100.0f });
+    sv->SetContentSize(core::Float2{ 100.0f, 300.0f }); // range 200
+
+    // Scrolling the view updates the bar's value.
+    sv->SetScrollOffset(core::Float2{ 0.0f, 50.0f });
+    CHECK(sv->GetVerticalScrollBar()->GetValue() == doctest::Approx(0.25f)); // 50/200
+
+    // Setting the bar's value scrolls the view (the wired OnValueChanged callback).
+    sv->GetVerticalScrollBar()->SetValue(0.5f);
+    CHECK(sv->GetScrollOffset().y == doctest::Approx(100.0f)); // 0.5 * 200
+}
+
+TEST_CASE("scrollview: thumb proportion reflects the visible fraction")
+{
+    auto sv = Make<ScrollView>();
+    sv->SetSize(core::Float2{ 100.0f, 100.0f });
+    sv->SetContentSize(core::Float2{ 100.0f, 400.0f }); // viewport/content = 100/400 = 0.25
+    CHECK(sv->GetVerticalScrollBar()->GetThumbProportion() == doctest::Approx(0.25f));
+}
+
+TEST_CASE("scrollview: auto-measures content from its children")
+{
+    auto sv = Make<ScrollView>();
+    sv->SetSize(core::Float2{ 100.0f, 100.0f });
+    sv->SetAutoMeasureContent(true);
+
+    auto item = Cell(80.0f, 250.0f);
+    sv->GetContent()->AddChild(item.Get()); // OnChildrenChanged -> MeasureContent
+    CHECK(sv->GetContentSize().y == doctest::Approx(250.0f));
+    CHECK(sv->ScrollRange().y == doctest::Approx(150.0f)); // 250 - 100
+}
+
+TEST_CASE("scrollview: keyboard scrolls when focused")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 200.0f, 200.0f });
+    auto sv = Make<ScrollView>();
+    sv->SetSize(core::Float2{ 100.0f, 100.0f });
+    sv->SetContentSize(core::Float2{ 100.0f, 300.0f }); // range 200, viewport 100
+    sv->SetLineStep(20.0f);
+    root->AddChild(sv.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+    sv->RequestFocus();
+
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::Down));
+    CHECK(sv->GetScrollOffset().y == doctest::Approx(20.0f));
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::PageDown));
+    CHECK(sv->GetScrollOffset().y == doctest::Approx(120.0f)); // +viewport(100)
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::End));
+    CHECK(sv->GetScrollOffset().y == doctest::Approx(200.0f)); // clamped to range
+    d->InjectKeyDown(static_cast<core::u32>(KeyCode::Home));
+    CHECK(sv->GetScrollOffset().y == doctest::Approx(0.0f));
+}
+
+TEST_CASE("scrollbar: clicking the track pages toward the click")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 200.0f, 400.0f });
+    auto sb = Make<ScrollBar>();
+    sb->SetOrientation(Orientation::Vertical);
+    sb->SetSize(core::Float2{ 16.0f, 200.0f });
+    sb->SetThumbProportion(0.25f); // thumb 50 -> at value 0 occupies [0,50]
+    root->AddChild(sb.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    // Click below the thumb (y=150) -> page down by one proportion (0.25).
+    d->InjectMouseDown(core::Float2{ 8.0f, 150.0f }, MouseButton::Left);
+    CHECK(sb->GetValue() == doctest::Approx(0.25f));
+    d->InjectMouseUp(core::Float2{ 8.0f, 150.0f }, MouseButton::Left);
+}
+
+TEST_CASE("scrollbar: grabbing the thumb drags by cursor delta (no jump-to-center)")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 200.0f, 400.0f });
+    auto sb = Make<ScrollBar>();
+    sb->SetOrientation(Orientation::Vertical);
+    sb->SetSize(core::Float2{ 16.0f, 200.0f });
+    sb->SetThumbProportion(0.5f); // thumb 100 -> travel 100, at value 0 occupies [0,100]
+    root->AddChild(sb.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    // Grab the thumb at y=40 (inside [0,100]); pressing there must NOT move the value.
+    d->InjectMouseDown(core::Float2{ 8.0f, 40.0f }, MouseButton::Left);
+    CHECK(sb->GetValue() == doctest::Approx(0.0f));
+    // Move the cursor down 20px -> thumb moves 20px -> value 20/100 = 0.2.
+    d->InjectMouseMove(core::Float2{ 8.0f, 60.0f });
+    CHECK(sb->GetValue() == doctest::Approx(0.2f));
+}

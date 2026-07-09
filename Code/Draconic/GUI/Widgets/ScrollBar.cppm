@@ -59,8 +59,40 @@ export namespace draconic::gui
         void SetThumbColor(Color color) { m_thumbColor = color; Invalidate(); }
 
     protected:
-        void OnMouseDown(const MouseEvent& event) override { UINode::OnMouseDown(event); m_dragging = true; UpdateFromEvent(event); }
-        void OnMouseMove(const MouseEvent& event) override { if (m_dragging) UpdateFromEvent(event); }
+        // Press on the thumb starts a grab-drag (the thumb keeps its offset under the cursor,
+        // so it doesn't jump); press on the track above/below the thumb pages toward the click
+        // by one visible proportion (eepp-style), no drag.
+        void OnMouseDown(const MouseEvent& event) override
+        {
+            UINode::OnMouseDown(event);
+            const Rect b = GetContentBounds();
+            const f32 track = TrackLength(b);
+            const f32 thumbLen = ThumbLength(track);
+            const f32 travel = core::Max(0.0f, track - thumbLen);
+            const f32 thumbStart = travel * m_value;
+            const f32 along = AlongAxis(event, b);
+
+            if (along >= thumbStart && along <= thumbStart + thumbLen)
+            {
+                m_dragging = true;
+                m_grabOffset = along - thumbStart; // keep the grab point fixed under the cursor
+            }
+            else
+            {
+                const f32 page = (m_proportion > 0.0f) ? m_proportion : 0.1f;
+                SetValue((along < thumbStart) ? (m_value - page) : (m_value + page));
+            }
+        }
+        void OnMouseMove(const MouseEvent& event) override
+        {
+            if (!m_dragging) return;
+            const Rect b = GetContentBounds();
+            const f32 track = TrackLength(b);
+            const f32 thumbLen = ThumbLength(track);
+            const f32 travel = core::Max(0.0f, track - thumbLen);
+            if (travel <= 0.0f) { SetValue(0.0f); return; }
+            SetValue((AlongAxis(event, b) - m_grabOffset) / travel);
+        }
         void OnMouseUp(const MouseEvent& event) override { m_dragging = false; UINode::OnMouseUp(event); }
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
@@ -93,24 +125,18 @@ export namespace draconic::gui
             return vg::CornerRadii(core::Min(r.width, r.height) * 0.5f);
         }
 
-        void UpdateFromEvent(const MouseEvent& event)
+        // Cursor position along the bar's axis, relative to the track start.
+        [[nodiscard]] f32 AlongAxis(const MouseEvent& event, const Rect& b) const
         {
-            const Rect b = GetContentBounds();
-            const f32 track = TrackLength(b);
-            const f32 thumbLen = ThumbLength(track);
-            const f32 travel = core::Max(0.0f, track - thumbLen);
-            if (travel <= 0.0f) { SetValue(0.0f); return; }
-
             const core::Float2 local = ConvertToNodeSpace(event.Position);
-            const f32 along = (m_orientation == Orientation::Vertical) ? (local.y - b.y) : (local.x - b.x);
-            // Center the thumb on the cursor: subtract half the thumb, then normalize by travel.
-            SetValue((along - thumbLen * 0.5f) / travel);
+            return (m_orientation == Orientation::Vertical) ? (local.y - b.y) : (local.x - b.x);
         }
 
         Orientation m_orientation = Orientation::Vertical;
         f32 m_value = 0.0f;
         f32 m_proportion = 0.3f;
         bool m_dragging = false;
+        f32 m_grabOffset = 0.0f;
         Color m_trackColor{ 0.18f, 0.19f, 0.23f, 1.0f };
         Color m_thumbColor{ 0.42f, 0.45f, 0.52f, 1.0f };
         core::Function<void(f32)> m_onChanged;

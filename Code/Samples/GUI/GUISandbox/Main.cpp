@@ -110,7 +110,7 @@ float4 main(PSInput input) : SV_Target {
 class GUISandbox : public sf::SampleApp
 {
 public:
-    GUISandbox() { m_width = 900; m_height = 620; }
+    GUISandbox() { m_width = 900; m_height = 860; }
     StringView Title() const override { return u8"GUI Sandbox"; }
     u32 BufferCount() const override { return kFrames; }
 
@@ -150,6 +150,8 @@ private:
     RefPtr<gui::Label>        m_counter;
     RefPtr<gui::TextField>    m_textField;
     RefPtr<gui::Label>        m_echo;
+    RefPtr<gui::ScrollView>   m_scroll;
+    RefPtr<gui::RelativeLayout> m_relative;
     gui::StyleManager         m_styles;
     UniquePtr<gui::GuiInputBridge>   m_bridge;
     UniquePtr<shell::InputSurface>   m_surface;
@@ -336,6 +338,81 @@ void GUISandbox::BuildUI()
         echo->SetText(StringView(buf));
     });
 
+    // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
+    // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
+    // using the arrow / PageUp-Down / Home-End keys.
+    auto scrollLabel = MakeRef<gui::Label>(DefaultAllocator());
+    scrollLabel->SetSize(Float2{ 600.0f, 24.0f });
+    scrollLabel->SetText(u8"Scrollable grid - wheel, drag the bar, or focus + arrow keys:");
+    scrollLabel->SetFont(m_font);
+    scrollLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
+    m_panel->AddChild(scrollLabel.Get());
+
+    m_scroll = MakeRef<gui::ScrollView>(DefaultAllocator());
+    m_scroll->SetSize(Float2{ 360.0f, 150.0f });
+    m_scroll->SetPadding(gui::Thickness{ 6.0f });
+    m_scroll->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.08f, 0.09f, 0.11f)));
+    m_panel->AddChild(m_scroll.Get());
+
+    auto grid = MakeRef<gui::GridLayout>(DefaultAllocator());
+    grid->SetColumns(3);
+    grid->SetSpacing(8.0f, 8.0f);
+    grid->SetSize(Float2{ 336.0f, 7.0f * 48.0f - 8.0f }); // 7 rows of 40px cells + 8px gaps
+    m_scroll->GetContent()->AddChild(grid.Get());
+
+    for (i32 i = 0; i < 21; ++i)
+    {
+        auto cell = MakeRef<gui::Label>(DefaultAllocator());
+        cell->SetSize(Float2{ 100.0f, 40.0f });
+        const f32 t = static_cast<f32>(i) / 20.0f;
+        cell->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.20f + 0.30f * t, 0.35f, 0.55f - 0.25f * t)));
+        cell->SetFont(m_font);
+        cell->SetTextColor(Col(0.96f, 0.97f, 0.99f));
+        cell->SetTextAlignment(gui::TextHAlign::Center, gui::TextVAlign::Middle);
+        char8_t buf[8] = u8"#"; usize p = 1;
+        const i32 n = i + 1;
+        if (n >= 10) buf[p++] = static_cast<char8_t>(u8'0' + (n / 10));
+        buf[p++] = static_cast<char8_t>(u8'0' + (n % 10));
+        buf[p] = 0;
+        cell->SetText(StringView(buf));
+        grid->AddChild(cell.Get());
+    }
+    m_scroll->SetAutoMeasureContent(true); // content sizes to the grid -> vertical bar appears
+
+    // A RelativeLayout: five labels pinned to the corners and centre of a box.
+    auto relLabel = MakeRef<gui::Label>(DefaultAllocator());
+    relLabel->SetSize(Float2{ 600.0f, 24.0f });
+    relLabel->SetText(u8"RelativeLayout - anchored to corners + centre:");
+    relLabel->SetFont(m_font);
+    relLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
+    m_panel->AddChild(relLabel.Get());
+
+    m_relative = MakeRef<gui::RelativeLayout>(DefaultAllocator());
+    m_relative->SetSize(Float2{ 360.0f, 90.0f });
+    m_relative->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.13f, 0.15f, 0.19f)));
+    m_panel->AddChild(m_relative.Get());
+
+    struct Pin { const char8_t* text; u32 anchor; };
+    const Pin pins[5] = {
+        { u8"TL", gui::AnchorLeft | gui::AnchorTop },
+        { u8"TR", gui::AnchorRight | gui::AnchorTop },
+        { u8"BL", gui::AnchorLeft | gui::AnchorBottom },
+        { u8"BR", gui::AnchorRight | gui::AnchorBottom },
+        { u8"middle", gui::AnchorCenter },
+    };
+    for (const Pin& pin : pins)
+    {
+        auto tag = MakeRef<gui::Label>(DefaultAllocator());
+        tag->SetSize(Float2{ 70.0f, 26.0f });
+        tag->SetText(StringView(pin.text));
+        tag->SetFont(m_font);
+        tag->SetTextColor(Col(0.85f, 0.9f, 0.95f));
+        tag->SetTextAlignment(gui::TextHAlign::Center, gui::TextVAlign::Middle);
+        tag->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.25f, 0.40f, 0.30f)));
+        m_relative->AddChild(tag.Get());
+        m_relative->SetAnchor(tag.Get(), pin.anchor);
+    }
+
     m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());
 }
@@ -444,6 +521,8 @@ void GUISandbox::OnShutdown()
     m_counter.Reset();
     m_textField.Reset();
     m_echo.Reset();
+    m_scroll.Reset();
+    m_relative.Reset();
     m_panel.Reset();
     m_renderer.Dispose();
     m_vg.Reset();
