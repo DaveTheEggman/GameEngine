@@ -110,7 +110,11 @@ private:
         f->Direction = ui::Orientation::Horizontal; f->Spacing = spacing;
         return f;
     }
+    [[nodiscard]] RefPtr<ui::Panel> MakeBox(Color color, StringView text);
     void BuildControlsTab(ui::TabView* tabView);
+    void BuildScrollViewTab(ui::TabView* tabView);
+    void BuildLayoutsTab(ui::TabView* tabView);
+    void BuildTabPlacementTab(ui::TabView* tabView);
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
     shaders::Compiler* m_compiler = nullptr;
@@ -210,6 +214,227 @@ void UISandbox::BuildUI()
     m_main->AddView(tabView.Get(), Grow(1));
 
     BuildControlsTab(tabView.Get());
+    BuildScrollViewTab(tabView.Get());
+    BuildLayoutsTab(tabView.Get());
+    BuildTabPlacementTab(tabView.Get());
+}
+
+// A themed labelled colour box (Sedulous UISandbox's MakeBox helper).
+RefPtr<ui::Panel> UISandbox::MakeBox(Color color, StringView text)
+{
+    auto panel = MakeRef<ui::Panel>(DefaultAllocator());
+    panel->SetStyle(ui::StyleProperty::Background, RefPtr<ui::Drawable>(MakeRef<ui::ColorDrawable>(DefaultAllocator(), color)));
+    panel->Padding = ui::Thickness{ 8, 4, 8, 4 };
+    auto label = MakeRef<ui::Label>(DefaultAllocator(), text);
+    label->FontSize.SetValue(Optional<f32>{ 11.0f });
+    label->HAlign.SetValue(fonts::TextAlignment::Center);
+    label->VAlign.SetValue(fonts::VerticalAlignment::Middle);
+    panel->AddView(label.Get());
+    return panel;
+}
+
+// === Tab 2: ScrollView (overlay / reserved / horizontal) ===
+void UISandbox::BuildScrollViewTab(ui::TabView* tabView)
+{
+    auto scrollDemo = HFlex(8.0f);
+    scrollDemo->Padding = ui::Thickness{ 12, 8 };
+    tabView->AddTab(u8"ScrollView", scrollDemo.Get());
+
+    auto column = [&](const char8_t* title, ui::ScrollBarModeValue mode, ui::ScrollBarPolicy vPol, ui::ScrollBarPolicy hPol, bool horizontal, i32 count)
+    {
+        auto col = VFlex(4.0f);
+        col->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get());
+        auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+        scroll->ScrollBarMode.SetValue(mode);
+        scroll->VScrollBarPolicy.SetValue(vPol);
+        scroll->HScrollBarPolicy.SetValue(hPol);
+        auto content = horizontal ? HFlex(4.0f) : VFlex(4.0f);
+        for (i32 i = 0; i < count; ++i)
+        {
+            if (horizontal)
+            {
+                content->AddView(MakeRef<ui::ColorView>(DefaultAllocator(),
+                    Color{ (60 + i * 9) / 255.0f, (100 + i * 5) / 255.0f, (180 - i * 6) / 255.0f, 1.0f }, 60.0f, 60.0f).Get());
+            }
+            else
+            {
+                char8_t buf[24]; usize p = 0;
+                const char8_t* pre = title;
+                for (usize k = 0; pre[k] != 0 && k < 8; ++k) buf[p++] = pre[k];
+                buf[p++] = u8' '; i32 v = i + 1; char8_t d[4]; usize dc = 0;
+                if (v == 0) d[dc++] = u8'0'; while (v > 0) { d[dc++] = static_cast<char8_t>(u8'0' + v % 10); v /= 10; }
+                for (usize k = 0; k < dc; ++k) buf[p++] = d[dc - 1 - k]; buf[p] = 0;
+                content->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(buf)).Get());
+            }
+        }
+        scroll->AddView(content.Get());
+        col->AddView(scroll.Get(), Grow(1));
+        scrollDemo->AddView(col.Get(), Grow(1));
+    };
+
+    column(u8"Overlay Mode",  ui::ScrollBarModeValue::Overlay,  ui::ScrollBarPolicy::Auto,   ui::ScrollBarPolicy::Auto,   false, 30);
+    column(u8"Reserved Mode", ui::ScrollBarModeValue::Reserved, ui::ScrollBarPolicy::Auto,   ui::ScrollBarPolicy::Auto,   false, 30);
+    column(u8"Horizontal",    ui::ScrollBarModeValue::Reserved, ui::ScrollBarPolicy::Always, ui::ScrollBarPolicy::Always, true,  20);
+}
+
+// === Tab 3: Layouts (Flex / Dock / Grid / Frame / Flow / Absolute) ===
+void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
+{
+    using ui::SizeSpec;
+    using ui::Unit;
+
+    auto layoutScroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+    layoutScroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
+    tabView->AddTab(u8"Layouts", layoutScroll.Get());
+
+    auto demo = VFlex(16.0f);
+    demo->Padding = ui::Thickness{ 12 };
+    {
+        auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+        lp->Width = SizeSpec::Match();
+        layoutScroll->AddView(demo.Get(), lp);
+    }
+
+    auto dimLabel = [&](const char8_t* text)
+    {
+        auto l = MakeRef<ui::Label>(DefaultAllocator(), StringView(text));
+        l->AddClass(u8"label-dim");
+        l->FontSize.SetValue(Optional<f32>{ 12.0f });
+        demo->AddView(l.Get());
+    };
+
+    // FlexLayout.
+    dimLabel(u8"FlexLayout - rows and columns with grow/shrink");
+    {
+        auto flexH = HFlex(4.0f);
+        flexH->AddView(MakeBox(Color{ 100.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f }, u8"Fixed 80px").Get(), LP(SizeSpec::Fixed(Unit::Px(80)), SizeSpec::Fixed(Unit::Px(50))));
+        flexH->AddView(MakeBox(Color{ 60.0f / 255.0f, 100.0f / 255.0f, 60.0f / 255.0f, 1.0f }, u8"Grow 1").Get(), [&]{ auto p = Grow(1); p->Height = SizeSpec::Fixed(Unit::Px(50)); return p; }());
+        flexH->AddView(MakeBox(Color{ 60.0f / 255.0f, 60.0f / 255.0f, 100.0f / 255.0f, 1.0f }, u8"Grow 2").Get(), [&]{ auto p = Grow(2); p->Height = SizeSpec::Fixed(Unit::Px(50)); return p; }());
+        demo->AddView(flexH.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+
+        auto flexV = VFlex(4.0f);
+        flexV->AddView(MakeBox(Color{ 90.0f / 255.0f, 50.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"Top").Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(30))));
+        flexV->AddView(MakeBox(Color{ 50.0f / 255.0f, 90.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"Middle (grow)").Get(), [&]{ auto p = Grow(1); p->Width = SizeSpec::Match(); return p; }());
+        flexV->AddView(MakeBox(Color{ 50.0f / 255.0f, 50.0f / 255.0f, 90.0f / 255.0f, 1.0f }, u8"Bottom").Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(30))));
+        demo->AddView(flexV.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(120))));
+    }
+
+    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+
+    // DockLayout.
+    dimLabel(u8"DockLayout - dock children to edges, last fills remaining");
+    {
+        auto dock = MakeRef<ui::DockLayout>(DefaultAllocator());
+        dock->LastChildFill = true;
+        auto dockLp = [](ui::Dock d, SizeSpec w, SizeSpec h) { auto p = MakeRef<ui::DockLayoutParams>(DefaultAllocator(), d); p->Width = w; p->Height = h; return p; };
+        dock->AddView(MakeBox(Color{ 100.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f }, u8"Top").Get(),    dockLp(ui::Dock::Top,    SizeSpec::Wrap(), SizeSpec::Fixed(Unit::Px(30))));
+        dock->AddView(MakeBox(Color{ 60.0f / 255.0f, 60.0f / 255.0f, 100.0f / 255.0f, 1.0f }, u8"Bottom").Get(), dockLp(ui::Dock::Bottom, SizeSpec::Wrap(), SizeSpec::Fixed(Unit::Px(30))));
+        dock->AddView(MakeBox(Color{ 60.0f / 255.0f, 100.0f / 255.0f, 60.0f / 255.0f, 1.0f }, u8"Left").Get(),   dockLp(ui::Dock::Left,   SizeSpec::Fixed(Unit::Px(60)), SizeSpec::Wrap()));
+        dock->AddView(MakeBox(Color{ 100.0f / 255.0f, 100.0f / 255.0f, 60.0f / 255.0f, 1.0f }, u8"Right").Get(), dockLp(ui::Dock::Right,  SizeSpec::Fixed(Unit::Px(60)), SizeSpec::Wrap()));
+        dock->AddView(MakeBox(Color{ 70.0f / 255.0f, 70.0f / 255.0f, 70.0f / 255.0f, 1.0f }, u8"Fill").Get());
+        demo->AddView(dock.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(150))));
+    }
+
+    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+
+    // GridLayout.
+    dimLabel(u8"GridLayout - rows and columns with flex/fixed sizing");
+    {
+        auto grid = MakeRef<ui::GridLayout>(DefaultAllocator());
+        grid->Columns.PushBack(ui::TrackSize::Fixed(80));
+        grid->Columns.PushBack(ui::TrackSize::Flex(1));
+        grid->Columns.PushBack(ui::TrackSize::Flex(2));
+        grid->Rows.PushBack(ui::TrackSize::Fixed(35));
+        grid->Rows.PushBack(ui::TrackSize::Fixed(35));
+        grid->Rows.PushBack(ui::TrackSize::Fixed(35));
+        grid->ColumnSpacing = 4; grid->RowSpacing = 4;
+        auto cell = [](i32 row, i32 col, i32 span) { auto p = MakeRef<ui::GridLayoutParams>(DefaultAllocator()); p->Row = row; p->Column = col; p->ColumnSpan = span; return p; };
+        grid->AddView(MakeBox(Color{ 80.0f / 255.0f, 50.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"0,0").Get(), cell(0, 0, 1));
+        grid->AddView(MakeBox(Color{ 50.0f / 255.0f, 80.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"0,1").Get(), cell(0, 1, 1));
+        grid->AddView(MakeBox(Color{ 50.0f / 255.0f, 50.0f / 255.0f, 80.0f / 255.0f, 1.0f }, u8"0,2").Get(), cell(0, 2, 1));
+        grid->AddView(MakeBox(Color{ 70.0f / 255.0f, 40.0f / 255.0f, 40.0f / 255.0f, 1.0f }, u8"1,0").Get(), cell(1, 0, 1));
+        grid->AddView(MakeBox(Color{ 40.0f / 255.0f, 70.0f / 255.0f, 40.0f / 255.0f, 1.0f }, u8"Span 2 cols").Get(), cell(1, 1, 2));
+        grid->AddView(MakeBox(Color{ 60.0f / 255.0f, 30.0f / 255.0f, 30.0f / 255.0f, 1.0f }, u8"Span 3 cols").Get(), cell(2, 0, 3));
+        demo->AddView(grid.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+    }
+
+    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+
+    // FrameLayout.
+    dimLabel(u8"FrameLayout - overlapping children with gravity positioning");
+    {
+        auto frame = MakeRef<ui::FrameLayout>(DefaultAllocator());
+        auto grav = [](ui::Gravity g) { auto p = MakeRef<ui::FrameLayoutParams>(DefaultAllocator()); p->Gravity = g; return p; };
+        frame->AddView(MakeBox(Color{ 40.0f / 255.0f, 40.0f / 255.0f, 40.0f / 255.0f, 1.0f }, u8"Background (Fill)").Get(), grav(ui::Gravity::Fill));
+        frame->AddView(MakeBox(Color{ 100.0f / 255.0f, 50.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"TopLeft").Get(), grav(ui::Gravity::TopLeft));
+        frame->AddView(MakeBox(Color{ 50.0f / 255.0f, 100.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"TopRight").Get(), grav(ui::Gravity::TopRight));
+        frame->AddView(MakeBox(Color{ 50.0f / 255.0f, 50.0f / 255.0f, 100.0f / 255.0f, 1.0f }, u8"Center").Get(), grav(ui::Gravity::Center));
+        frame->AddView(MakeBox(Color{ 100.0f / 255.0f, 100.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"BottomLeft").Get(), grav(ui::Gravity::BottomLeft));
+        frame->AddView(MakeBox(Color{ 100.0f / 255.0f, 50.0f / 255.0f, 100.0f / 255.0f, 1.0f }, u8"BottomRight").Get(), grav(ui::Gravity::BottomRight));
+        demo->AddView(frame.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(140))));
+    }
+
+    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+
+    // FlowLayout.
+    dimLabel(u8"FlowLayout - wraps children to next line when space runs out");
+    {
+        auto flow = MakeRef<ui::FlowLayout>(DefaultAllocator());
+        flow->HSpacing = 4.0f; flow->VSpacing = 4.0f;
+        const char8_t* tags[15] = { u8"Fire", u8"Water", u8"Earth", u8"Wind", u8"Electric", u8"Dark", u8"Light", u8"Neutral",
+            u8"Poison", u8"Burn", u8"Stun", u8"Freeze", u8"Shield", u8"Heal", u8"Speed Up" };
+        const Color tagColors[15] = {
+            Color{ 140.0f / 255.0f, 50.0f / 255.0f, 50.0f / 255.0f, 1.0f }, Color{ 50.0f / 255.0f, 80.0f / 255.0f, 140.0f / 255.0f, 1.0f },
+            Color{ 60.0f / 255.0f, 100.0f / 255.0f, 40.0f / 255.0f, 1.0f }, Color{ 70.0f / 255.0f, 130.0f / 255.0f, 130.0f / 255.0f, 1.0f },
+            Color{ 130.0f / 255.0f, 120.0f / 255.0f, 40.0f / 255.0f, 1.0f }, Color{ 80.0f / 255.0f, 50.0f / 255.0f, 100.0f / 255.0f, 1.0f },
+            Color{ 130.0f / 255.0f, 120.0f / 255.0f, 80.0f / 255.0f, 1.0f }, Color{ 80.0f / 255.0f, 80.0f / 255.0f, 80.0f / 255.0f, 1.0f },
+            Color{ 100.0f / 255.0f, 60.0f / 255.0f, 120.0f / 255.0f, 1.0f }, Color{ 140.0f / 255.0f, 70.0f / 255.0f, 30.0f / 255.0f, 1.0f },
+            Color{ 120.0f / 255.0f, 100.0f / 255.0f, 30.0f / 255.0f, 1.0f }, Color{ 40.0f / 255.0f, 100.0f / 255.0f, 130.0f / 255.0f, 1.0f },
+            Color{ 50.0f / 255.0f, 100.0f / 255.0f, 100.0f / 255.0f, 1.0f }, Color{ 50.0f / 255.0f, 120.0f / 255.0f, 50.0f / 255.0f, 1.0f },
+            Color{ 30.0f / 255.0f, 100.0f / 255.0f, 130.0f / 255.0f, 1.0f } };
+        for (i32 i = 0; i < 15; ++i) { flow->AddView(MakeBox(tagColors[i], StringView(tags[i])).Get()); }
+        demo->AddView(flow.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+    }
+
+    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+
+    // AbsoluteLayout.
+    dimLabel(u8"AbsoluteLayout - explicit pixel positioning");
+    {
+        auto abs = MakeRef<ui::AbsoluteLayout>(DefaultAllocator());
+        auto at = [](f32 x, f32 y) { auto p = MakeRef<ui::AbsoluteLayoutParams>(DefaultAllocator()); p->X = x; p->Y = y; return p; };
+        abs->AddView(MakeBox(Color{ 60.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f }, u8"x:0 y:0").Get(), at(0, 0));
+        abs->AddView(MakeBox(Color{ 100.0f / 255.0f, 50.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"x:100 y:10").Get(), at(100, 10));
+        abs->AddView(MakeBox(Color{ 50.0f / 255.0f, 100.0f / 255.0f, 50.0f / 255.0f, 1.0f }, u8"x:50 y:60").Get(), at(50, 60));
+        abs->AddView(MakeBox(Color{ 50.0f / 255.0f, 50.0f / 255.0f, 100.0f / 255.0f, 1.0f }, u8"x:200 y:40").Get(), at(200, 40));
+        demo->AddView(abs.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(110))));
+    }
+}
+
+// === Tab 4: Tab Placement (nested TabViews in a 2x2 grid, closable) ===
+void UISandbox::BuildTabPlacementTab(ui::TabView* tabView)
+{
+    auto demo = MakeRef<ui::GridLayout>(DefaultAllocator());
+    demo->Columns.PushBack(ui::TrackSize::Flex(1));
+    demo->Columns.PushBack(ui::TrackSize::Flex(1));
+    demo->Rows.PushBack(ui::TrackSize::Flex(1));
+    demo->Rows.PushBack(ui::TrackSize::Flex(1));
+    demo->ColumnSpacing = 4; demo->RowSpacing = 4;
+    tabView->AddTab(u8"Tab Placement", demo.Get(), true);
+
+    auto cell = [](i32 row, i32 col) { auto p = MakeRef<ui::GridLayoutParams>(DefaultAllocator()); p->Row = row; p->Column = col; return p; };
+    auto placed = [&](ui::TabPlacement placement, const char8_t* a, const char8_t* b, i32 row, i32 col)
+    {
+        auto tabs = MakeRef<ui::TabView>(DefaultAllocator());
+        tabs->Placement.SetValue(placement);
+        tabs->AddTab(StringView(a), MakeRef<ui::Label>(DefaultAllocator(), StringView(a)).Get());
+        tabs->AddTab(StringView(b), MakeRef<ui::Label>(DefaultAllocator(), StringView(b)).Get());
+        demo->AddView(tabs.Get(), cell(row, col));
+    };
+    placed(ui::TabPlacement::Top,    u8"Top A",    u8"Top B",    0, 0);
+    placed(ui::TabPlacement::Bottom, u8"Bot A",    u8"Bot B",    0, 1);
+    placed(ui::TabPlacement::Left,   u8"Left A",   u8"Left B",   1, 0);
+    placed(ui::TabPlacement::Right,  u8"Right A",  u8"Right B",  1, 1);
 }
 
 // === Tab 1: Controls === (faithful port of Sedulous UISandbox's Controls tab)

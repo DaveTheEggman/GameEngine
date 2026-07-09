@@ -113,7 +113,13 @@ export namespace draconic::ui
 
             const f32 scrollX = mouse->ScrollX();
             const f32 scrollY = mouse->ScrollY();
-            if (scrollX != 0.0f || scrollY != 0.0f) { (void)im->ProcessMouseWheel(x, y, scrollX, scrollY); }
+            if (scrollX != 0.0f || scrollY != 0.0f)
+            {
+                // Carry the live keyboard modifiers so Shift+wheel scrolls horizontally, etc.
+                platform::IKeyboard* keyboard = surface.Keyboard();
+                const KeyModifiers mods = (keyboard != nullptr) ? MapModifiers(keyboard->Modifiers()) : KeyModifiers::None;
+                (void)im->ProcessMouseWheel(x, y, scrollX, scrollY, mods);
+            }
 
             SyncTextInput();
         }
