@@ -210,6 +210,32 @@ export namespace draconic::core
         BasicString& operator+=(const CharT* str) { Append(str, CStringLength(str)); return *this; }
         BasicString& operator+=(CharT ch) { PushBack(ch); return *this; }
 
+        // --- insert / remove ----------------------------------------------
+        // Inserts `view`'s code units at code-unit position `index` (clamped to [0, Size()]).
+        void Insert(usize index, View view)
+        {
+            const usize count = view.Size();
+            if (count == 0) { return; }
+            if (index > m_size) { index = m_size; }
+            EnsureCapacity(m_size + count);
+            CharT* data = Data();
+            // Shift the tail (incl. terminator) right to open a gap.
+            MemMove(data + index + count, data + index, (m_size - index + 1) * sizeof(CharT));
+            MemCopy(data + index, view.Data(), count * sizeof(CharT));
+            m_size += count;
+        }
+
+        // Removes `count` code units starting at `index`. Out-of-range portions are clamped.
+        void Remove(usize index, usize count)
+        {
+            if (index >= m_size || count == 0) { return; }
+            if (count > m_size - index) { count = m_size - index; }
+            CharT* data = Data();
+            // Shift the tail (incl. terminator) left to close the gap.
+            MemMove(data + index, data + index + count, (m_size - index - count + 1) * sizeof(CharT));
+            m_size -= count;
+        }
+
         // --- access --------------------------------------------------------
         [[nodiscard]] CharT& operator[](usize index) noexcept
         {
@@ -494,6 +520,76 @@ export namespace draconic::core
         }
         return result;
     }
+    // =======================================================================
+    // UTF-8 codepoint iteration & encoding. Draconic String is UTF-8, and text
+    // editing / shaping walks Unicode codepoints (char32_t). Mirrors Beef's
+    // `StringView.DecodedChars` iteration. Invalid/truncated sequences decode to
+    // U+FFFD (consuming one byte).
+    // =======================================================================
+
+    /// Decodes the codepoint starting at `text[index]`, advancing `index` past the
+    /// consumed byte(s). After the call `index` is the byte offset of the next
+    /// codepoint (Beef's `@c.NextIndex`). Caller guarantees `index < text.Size()`.
+    [[nodiscard]] inline u32 DecodeCodepoint(StringView text, usize& index) noexcept
+    {
+        const u8 lead = static_cast<u8>(text[index]);
+        ++index;
+
+        u32 codepoint;
+        int extra;
+        if (lead < 0x80u) { return lead; }
+        else if ((lead & 0xE0u) == 0xC0u) { codepoint = lead & 0x1Fu; extra = 1; }
+        else if ((lead & 0xF0u) == 0xE0u) { codepoint = lead & 0x0Fu; extra = 2; }
+        else if ((lead & 0xF8u) == 0xF0u) { codepoint = lead & 0x07u; extra = 3; }
+        else { return 0xFFFDu; } // invalid lead byte
+
+        for (int k = 0; k < extra; ++k)
+        {
+            if (index >= text.Size()) { return 0xFFFDu; }
+            const u8 cont = static_cast<u8>(text[index]);
+            if ((cont & 0xC0u) != 0x80u) { return 0xFFFDu; } // not a continuation byte
+            codepoint = (codepoint << 6) | (cont & 0x3Fu);
+            ++index;
+        }
+        return codepoint;
+    }
+
+    /// Appends the UTF-8 encoding of `codepoint` to `out`.
+    inline void AppendUtf8(String& out, u32 codepoint)
+    {
+        if (codepoint < 0x80u)
+        {
+            out.PushBack(static_cast<utf8char>(codepoint));
+        }
+        else if (codepoint < 0x800u)
+        {
+            out.PushBack(static_cast<utf8char>(0xC0u | (codepoint >> 6)));
+            out.PushBack(static_cast<utf8char>(0x80u | (codepoint & 0x3Fu)));
+        }
+        else if (codepoint < 0x10000u)
+        {
+            out.PushBack(static_cast<utf8char>(0xE0u | (codepoint >> 12)));
+            out.PushBack(static_cast<utf8char>(0x80u | ((codepoint >> 6) & 0x3Fu)));
+            out.PushBack(static_cast<utf8char>(0x80u | (codepoint & 0x3Fu)));
+        }
+        else
+        {
+            out.PushBack(static_cast<utf8char>(0xF0u | (codepoint >> 18)));
+            out.PushBack(static_cast<utf8char>(0x80u | ((codepoint >> 12) & 0x3Fu)));
+            out.PushBack(static_cast<utf8char>(0x80u | ((codepoint >> 6) & 0x3Fu)));
+            out.PushBack(static_cast<utf8char>(0x80u | (codepoint & 0x3Fu)));
+        }
+    }
+
+    /// Number of Unicode codepoints in a UTF-8 view (not bytes).
+    [[nodiscard]] inline usize Utf8Length(StringView text) noexcept
+    {
+        usize count = 0;
+        usize i = 0;
+        while (i < text.Size()) { (void)DecodeCodepoint(text, i); ++count; }
+        return count;
+    }
+
     // Hash specializations so the string types work as hashed-container keys.
     // (The Hash<T> primary template + HashBytes live in :hash.)
     template <typename CharT>

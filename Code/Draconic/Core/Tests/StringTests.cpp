@@ -169,3 +169,87 @@ TEST_CASE("string: small-string optimization avoids heap until it grows")
     copy.PushBack(u'!');
     CHECK_FALSE(copy == movedBig);
 }
+
+// --- Insert / Remove (byte/code-unit level) --------------------------------
+
+TEST_CASE("string: Insert opens a gap at the given index")
+{
+    String s = u8"Helo";
+    s.Insert(2, u8"l");          // -> "Hello"
+    CHECK(s == u8"Hello");
+
+    s.Insert(0, u8">> ");        // prepend
+    CHECK(s == u8">> Hello");
+
+    s.Insert(s.Size(), u8"!");   // append at end
+    CHECK(s == u8">> Hello!");
+
+    // Index past the end clamps to the end; empty insert is a no-op.
+    String t = u8"ab";
+    t.Insert(100, u8"c");
+    CHECK(t == u8"abc");
+    t.Insert(1, u8"");
+    CHECK(t == u8"abc");
+
+    // Terminator stays intact after inserts that spill to the heap.
+    String big;
+    for (int i = 0; i < 40; ++i) { big.PushBack(u'x'); }
+    big.Insert(20, u8"MID");
+    CHECK(big.Size() == 43u);
+    CHECK(big.CStr()[big.Size()] == u'\0');
+    CHECK(big[20] == u'M');
+}
+
+TEST_CASE("string: Remove closes the gap and clamps ranges")
+{
+    String s = u8"Hello";
+    s.Remove(4, 1);              // drop trailing 'o' -> "Hell"
+    CHECK(s == u8"Hell");
+
+    s.Remove(0, 1);              // drop leading 'H' -> "ell"
+    CHECK(s == u8"ell");
+
+    // count past the end is clamped.
+    String t = u8"abcdef";
+    t.Remove(3, 100);
+    CHECK(t == u8"abc");
+
+    // index >= size or count 0 is a no-op.
+    String u = u8"abc";
+    u.Remove(3, 1);
+    CHECK(u == u8"abc");
+    u.Remove(0, 0);
+    CHECK(u == u8"abc");
+    CHECK(u.CStr()[u.Size()] == u'\0');
+}
+
+// --- UTF-8 codepoint iteration & encoding ----------------------------------
+
+TEST_CASE("string: DecodeCodepoint walks Unicode scalars")
+{
+    StringView v = u8"aé\U0001F600z"; // 'a'(1) 'é'(2) emoji(4) 'z'(1) = 8 bytes, 4 codepoints
+    usize i = 0;
+    CHECK(DecodeCodepoint(v, i) == 0x61u); CHECK(i == 1u);
+    CHECK(DecodeCodepoint(v, i) == 0xE9u); CHECK(i == 3u);
+    CHECK(DecodeCodepoint(v, i) == 0x1F600u); CHECK(i == 7u);
+    CHECK(DecodeCodepoint(v, i) == 0x7Au); CHECK(i == 8u);
+    CHECK(i == v.Size());
+}
+
+TEST_CASE("string: AppendUtf8 encodes each scalar range")
+{
+    String s;
+    AppendUtf8(s, 0x61u);     // 'a' 1 byte
+    AppendUtf8(s, 0xE9u);     // 'é' 2 bytes
+    AppendUtf8(s, 0x1F600u);  // emoji 4 bytes
+    AppendUtf8(s, 0x7Au);     // 'z' 1 byte
+    CHECK(s == u8"aé\U0001F600z");
+    CHECK(s.Size() == 8u);
+}
+
+TEST_CASE("string: Utf8Length counts codepoints not bytes")
+{
+    CHECK(Utf8Length(u8"") == 0u);
+    CHECK(Utf8Length(u8"hello") == 5u);
+    CHECK(Utf8Length(u8"aé\U0001F600z") == 4u);
+}
