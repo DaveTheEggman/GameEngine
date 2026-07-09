@@ -29,6 +29,9 @@ target_sources(DraconicUI
             Styling/ThemePalette.cppm
             Styling/IThemeExtension.cppm
             Styling/ThemeRegistry.cppm
+            Styling/ThemeIcons.cppm
+            Styling/ThemeImageSet.cppm
+            Styling/ThemeAtlas.cppm
             Debug/UIDebugDrawSettings.cppm
             Drawing/ControlState.cppm
             Drawing/UIDrawContext.cppm

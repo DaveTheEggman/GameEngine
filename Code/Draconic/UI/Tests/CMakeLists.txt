@@ -11,7 +11,8 @@ add_executable(DraconicUITests
     BoxConstraintsTests.cpp
     GravityTests.cpp
     GravityHelperTests.cpp
-    StyleSheetTests.cpp)
+    StyleSheetTests.cpp
+    ThemeAtlasTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
     Draconic::UI doctest::doctest)
