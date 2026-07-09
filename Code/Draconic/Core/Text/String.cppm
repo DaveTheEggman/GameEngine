@@ -11,6 +11,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 #include <charconv>
+#include <system_error>
 
 export module draconic.core:string;
 
@@ -588,6 +589,59 @@ export namespace draconic::core
         usize i = 0;
         while (i < text.Size()) { (void)DecodeUtf8(text, i); ++count; }
         return count;
+    }
+
+    // =======================================================================
+    // Number parse/format + trim (over <charconv>). ASCII whitespace only.
+    // =======================================================================
+
+    /// Trim leading/trailing ASCII whitespace, returning a sub-view (non-owning).
+    [[nodiscard]] inline StringView Trimmed(StringView s) noexcept
+    {
+        const auto isWs = [](utf8char c) noexcept
+        { return c == utf8char(' ') || c == utf8char('\t') || c == utf8char('\n') || c == utf8char('\r'); };
+        usize start = 0, end = s.Size();
+        while (start < end && isWs(s[start])) { ++start; }
+        while (end > start && isWs(s[end - 1])) { --end; }
+        return s.SubStr(start, end - start);
+    }
+
+    /// Parse a base-10 floating value from a UTF-8 view. None unless the whole
+    /// trimmed view is a valid number (Beef `double.Parse` semantics).
+    [[nodiscard]] inline Optional<f64> ParseFloat(StringView s) noexcept
+    {
+        const StringView t = Trimmed(s);
+        if (t.IsEmpty()) { return {}; }
+        const char* begin = reinterpret_cast<const char*>(t.Data());
+        const char* end = begin + t.Size();
+        f64 value = 0.0;
+        const std::from_chars_result r = std::from_chars(begin, end, value);
+        if (r.ec != std::errc{} || r.ptr != end) { return {}; }
+        return value;
+    }
+
+    /// Parse a base-10 integer from a UTF-8 view. None unless the whole trimmed view is valid.
+    [[nodiscard]] inline Optional<i64> ParseInt(StringView s) noexcept
+    {
+        const StringView t = Trimmed(s);
+        if (t.IsEmpty()) { return {}; }
+        const char* begin = reinterpret_cast<const char*>(t.Data());
+        const char* end = begin + t.Size();
+        i64 value = 0;
+        const std::from_chars_result r = std::from_chars(begin, end, value);
+        if (r.ec != std::errc{} || r.ptr != end) { return {}; }
+        return value;
+    }
+
+    /// Format `value` with a fixed number of decimal places (like printf %.*f; `decimals` 0 = integer).
+    [[nodiscard]] inline String FormatFixed(f64 value, i32 decimals, IAllocator& allocator = DefaultAllocator())
+    {
+        char temp[64];
+        const std::to_chars_result r = std::to_chars(temp, temp + sizeof(temp), value,
+                                                     std::chars_format::fixed, decimals < 0 ? 0 : decimals);
+        String out(allocator);
+        out.Append(reinterpret_cast<const utf8char*>(temp), static_cast<usize>(r.ptr - temp));
+        return out;
     }
 
     // Hash specializations so the string types work as hashed-container keys.

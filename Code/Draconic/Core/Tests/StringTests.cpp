@@ -253,3 +253,43 @@ TEST_CASE("string: Utf8Length counts codepoints not bytes")
     CHECK(Utf8Length(u8"hello") == 5u);
     CHECK(Utf8Length(u8"aé\U0001F600z") == 4u);
 }
+
+// --- Trimmed / ParseFloat / ParseInt / FormatFixed -------------------------
+
+TEST_CASE("string: Trimmed strips ASCII whitespace both ends")
+{
+    CHECK(Trimmed(u8"  hi  ") == u8"hi");
+    CHECK(Trimmed(u8"\t\n x \r\n") == u8"x");
+    CHECK(Trimmed(u8"none") == u8"none");
+    CHECK(Trimmed(u8"   ").IsEmpty());
+    CHECK(Trimmed(u8"").IsEmpty());
+}
+
+TEST_CASE("string: ParseFloat parses full numbers, rejects junk")
+{
+    CHECK(ParseFloat(u8"3.14").HasValue());
+    CHECK(ParseFloat(u8"3.14").Value() == doctest::Approx(3.14));
+    CHECK(ParseFloat(u8"  -2.5 ").Value() == doctest::Approx(-2.5)); // trims first
+    CHECK(ParseFloat(u8"42").Value() == doctest::Approx(42.0));
+    CHECK(!ParseFloat(u8"3.14x").HasValue());   // trailing junk
+    CHECK(!ParseFloat(u8"abc").HasValue());
+    CHECK(!ParseFloat(u8"").HasValue());
+    CHECK(!ParseFloat(u8"   ").HasValue());
+}
+
+TEST_CASE("string: ParseInt parses full integers")
+{
+    CHECK(ParseInt(u8"123").Value() == 123);
+    CHECK(ParseInt(u8" -7 ").Value() == -7);
+    CHECK(!ParseInt(u8"1.5").HasValue());  // not an integer
+    CHECK(!ParseInt(u8"x").HasValue());
+}
+
+TEST_CASE("string: FormatFixed formats with N decimals")
+{
+    CHECK(FormatFixed(3.14159, 2) == u8"3.14");
+    CHECK(FormatFixed(3.14159, 4) == u8"3.1416");
+    CHECK(FormatFixed(3.7, 0) == u8"4");       // rounds, no decimal point
+    CHECK(FormatFixed(-2.5, 1) == u8"-2.5");
+    CHECK(FormatFixed(0.0, 2) == u8"0.00");
+}
