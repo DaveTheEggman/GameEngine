@@ -82,6 +82,7 @@ export namespace draconic::gui
             child->m_parent = this;
             m_children.PushBack(core::Move(keepAlive));
             child->HandleParentChange();
+            OnChildrenChanged();
             Invalidate();
             return this;
         }
@@ -101,6 +102,7 @@ export namespace draconic::gui
             child->m_parent = nullptr;
             m_children.RemoveAt(index);
             child->HandleParentChange();
+            OnChildrenChanged();
             Invalidate();
         }
 
@@ -323,6 +325,8 @@ export namespace draconic::gui
         virtual void OnVisibilityChange() {}
         virtual void OnEnabledChange() {}
         virtual void OnParentChange() {}
+        // Called on this node after a child is added or removed (containers re-layout here).
+        virtual void OnChildrenChanged() {}
 
     protected:
         // Input handler hooks (override in subclasses; the Handle* wrappers call these).

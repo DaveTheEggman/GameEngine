@@ -52,6 +52,7 @@ export import :ui_widget;
 // Controls (Phase 7)
 export import :label;
 export import :button;
+export import :linear_layout;
 
 // CSS styling (Phase 6)
 export import :parse_util;

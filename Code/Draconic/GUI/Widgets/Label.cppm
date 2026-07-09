@@ -2,8 +2,8 @@
 //
 // Label: a UIWidget that displays a line of text. The thinnest real control - it composes
 // the Phase-4 Text primitive (drawn in the padding-inset content bounds) onto the widget
-// base. Ported from eepp's UITextView. Wrapping / rich text follow the Text primitive's
-// own growth.
+// base. Modeled on eepp's UITextView (role, not a line-for-line port). Wrapping / rich text
+// follow the Text primitive's own growth.
 
 module;
 #include "Core/Prelude.h"

@@ -1,9 +1,12 @@
 // Draconic GUI - :button partition
 //
-// Button: a clickable Label. Ported from eepp's UIPushButton. Everything visual is already
-// in place from the base layers - the background/skin reacts to the input-driven control
-// state (UINode) and CSS can target the default `button` tag - so Button just centers its
-// text and fires a click callback (and MouseClick event) when pressed and released on it.
+// Button: a clickable Label. A lean Draconic-native control modeled on eepp's UIPushButton
+// (role only, NOT a line-for-line port: eepp's is ~900 LOC composing a child UIImage icon +
+// UITextView with an internal layout). Everything visual is already in place from the base
+// layers - the background/skin reacts to the input-driven control state (UINode) and CSS can
+// target the default `button` tag - so Button just centers its text and fires a click
+// callback (and MouseClick event) when pressed and released on it. Icon + icon/text layout
+// are deferred (add via composition when needed).
 
 module;
 #include "Core/Prelude.h"
