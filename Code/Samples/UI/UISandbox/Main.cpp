@@ -131,6 +131,7 @@ private:
     RefPtr<ui::StyleSheet>    m_sheet;
     RefPtr<ui::FlexLayout>    m_main;
     UniquePtr<image::OwnedImageData> m_testImage; // borrowed by the ImageView/DrawableView demos
+    RefPtr<ui::RepeatButton> m_repeatBtn;         // ticked each frame (hold-to-repeat)
     i32 m_repeatCount = 0;
 
     UniquePtr<ui::UiInputBridge>   m_bridge;
@@ -270,6 +271,7 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
         repeatRow->AddView(repeatBtn.Get());
         repeatRow->AddView(repeatLabel.Get());
         leftPanel->AddView(repeatRow.Get());
+        m_repeatBtn = repeatBtn; // ticked each frame in OnRender (hold-to-repeat)
     }
 
     leftPanel->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
@@ -428,6 +430,9 @@ void UISandbox::OnRender()
         }
     }
 
+    // Hold-to-repeat: tick the RepeatButton each frame (mirrors Sedulous UISandbox).
+    if (m_repeatBtn) { m_repeatBtn->UpdateRepeat(m_deltaTime); }
+
     // Advance, lay out, and draw the UI tree.
     m_root->ViewportSize = Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) };
     m_ctx.BeginFrame(m_deltaTime);
@@ -481,6 +486,7 @@ void UISandbox::OnShutdown()
     m_surface.Reset();
     m_bridge.Reset();
     if (m_root) m_ctx.RemoveRootView(m_root.Get());
+    m_repeatBtn.Reset();
     m_main.Reset();
     m_root.Reset();
     m_sheet.Reset();
