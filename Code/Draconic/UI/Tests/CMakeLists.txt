@@ -29,6 +29,7 @@ add_executable(DraconicUITests
     ScrollViewTests.cpp
     DataTests.cpp
     ListViewTests.cpp
+    GridViewTests.cpp
     ControlTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
