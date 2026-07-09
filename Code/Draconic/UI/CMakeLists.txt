@@ -81,6 +81,10 @@ target_sources(DraconicUI
             Controls/ColorView.cppm
             Controls/ProgressBar.cppm
             Controls/ImageView.cppm
+            Controls/ToggleButton.cppm
+            Controls/RadioButton.cppm
+            Controls/RadioGroup.cppm
+            Controls/ToggleSwitch.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm

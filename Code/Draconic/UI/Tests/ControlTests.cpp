@@ -277,3 +277,102 @@ TEST_CASE("control: ImageView_NullImage_ZeroSize")
     CHECK(iv->MeasuredSize.x == 0);
     CHECK(iv->MeasuredSize.y == 0);
 }
+
+// === ToggleButton ===
+
+TEST_CASE("control: ToggleButton_Toggle")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto toggle = core::MakeRef<ToggleButton>(core::DefaultAllocator(), StringView(u8"Toggle"));
+    root->AddView(toggle.Get());
+    CHECK(!toggle->IsChecked.Value());
+    bool fired = false;
+    toggle->OnCheckedChanged.Add([&fired](ToggleButton*, bool) { fired = true; });
+    KeyEventArgs args; args.Set(KeyCode::Space, KeyModifiers::None, false);
+    toggle->OnKeyDown(args);
+    CHECK(toggle->IsChecked.Value());
+    CHECK(fired);
+}
+
+// === RadioButton + RadioGroup ===
+
+TEST_CASE("control: RadioButton_CannotUncheckByClick")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto radio = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"Option"));
+    radio->IsChecked.SetValue(true);
+    root->AddView(radio.Get());
+    MouseEventArgs args; args.Set(5, 5, MouseButton::Left);
+    radio->OnMouseDown(args);
+    CHECK(radio->IsChecked.Value()); // still checked
+}
+
+TEST_CASE("control: RadioGroup_MutualExclusion")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto group = core::MakeRef<RadioGroup>(core::DefaultAllocator());
+    auto a = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"A"));
+    auto b = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"B"));
+    auto c = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"C"));
+    group->AddRadioButton(a.Get()); group->AddRadioButton(b.Get()); group->AddRadioButton(c.Get());
+    root->AddView(group.Get());
+
+    group->CheckAt(0);
+    CHECK(a->IsChecked.Value());
+    CHECK(!b->IsChecked.Value());
+
+    b->IsChecked.SetValue(true);
+    CHECK(!a->IsChecked.Value());
+    CHECK(b->IsChecked.Value());
+    CHECK(!c->IsChecked.Value());
+}
+
+TEST_CASE("control: RadioGroup_SelectionChangedEvent")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto group = core::MakeRef<RadioGroup>(core::DefaultAllocator());
+    auto a = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"A"));
+    auto b = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"B"));
+    group->AddRadioButton(a.Get()); group->AddRadioButton(b.Get());
+    root->AddView(group.Get());
+
+    RadioButton* selected = nullptr;
+    group->OnSelectionChanged.Add([&selected](RadioGroup*, RadioButton* r) { selected = r; });
+
+    a->IsChecked.SetValue(true);
+    CHECK(selected == a.Get());
+    b->IsChecked.SetValue(true);
+    CHECK(selected == b.Get());
+}
+
+// === ToggleSwitch ===
+
+TEST_CASE("control: ToggleSwitch_Toggle")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto sw = core::MakeRef<ToggleSwitch>(core::DefaultAllocator(), StringView(u8"VSync"));
+    root->AddView(sw.Get());
+    CHECK(!sw->IsChecked.Value());
+    bool toggled = false;
+    sw->OnCheckedChanged.Add([&toggled](ToggleSwitch*, bool) { toggled = true; });
+    MouseEventArgs args; args.Set(10, 10, MouseButton::Left);
+    sw->OnMouseDown(args);
+    CHECK(sw->IsChecked.Value());
+    CHECK(toggled);
+}
+
+TEST_CASE("control: ToggleSwitch_OnActivate_Toggles")
+{
+    auto sw = core::MakeRef<ToggleSwitch>(core::DefaultAllocator(), StringView(u8"Test"));
+    CHECK(!sw->IsChecked.Value());
+    sw->OnActivate();
+    CHECK(sw->IsChecked.Value());
+}
+
+TEST_CASE("control: RadioButton_OnActivate_Selects")
+{
+    auto rb = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"Test"));
+    CHECK(!rb->IsChecked.Value());
+    rb->OnActivate();
+    CHECK(rb->IsChecked.Value());
+}
