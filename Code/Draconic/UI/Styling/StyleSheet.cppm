@@ -54,6 +54,18 @@ export namespace draconic::ui
         void AddRule(RefPtr<StyleRule> rule) { m_rules.PushBack(Move(rule)); }
         [[nodiscard]] usize RuleCount() const noexcept { return m_rules.Size(); }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_rules.Size() == 0; }
+        /// Access a rule by index (surfaced for tests; Beef reached mRules via [Friend]).
+        [[nodiscard]] const StyleRule& GetRule(usize index) const { return *m_rules[index]; }
+
+        /// Merge another sheet's rules and owned resources into this one (used by @import). Rules and
+        /// owned drawables/resources are RefPtr (shared), so this copies the refs; `other` may be
+        /// released afterwards without invalidating them.
+        void MergeFrom(StyleSheet& other)
+        {
+            for (const RefPtr<StyleRule>& r : other.m_rules) { m_rules.PushBack(r); }
+            for (const RefPtr<Drawable>& d : other.m_ownedDrawables) { m_ownedDrawables.PushBack(d); }
+            for (const RefPtr<Object>& res : other.m_ownedResources) { m_ownedResources.PushBack(res); }
+        }
 
         // === Inline-sheet rule helpers ===
         [[nodiscard]] StyleRule& GetOrCreateInlineElementRule()

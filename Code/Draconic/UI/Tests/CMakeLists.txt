@@ -12,7 +12,9 @@ add_executable(DraconicUITests
     GravityTests.cpp
     GravityHelperTests.cpp
     StyleSheetTests.cpp
-    ThemeAtlasTests.cpp)
+    ThemeAtlasTests.cpp
+    TokenizerTests.cpp
+    SSSParserTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
     Draconic::UI doctest::doctest)

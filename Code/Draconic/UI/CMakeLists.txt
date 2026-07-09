@@ -32,6 +32,14 @@ target_sources(DraconicUI
             Styling/ThemeIcons.cppm
             Styling/ThemeImageSet.cppm
             Styling/ThemeAtlas.cppm
+            Styling/Parser/Token.cppm
+            Styling/Parser/Tokenizer.cppm
+            Styling/Parser/IResourceProvider.cppm
+            Styling/Parser/Values.cppm
+            Styling/Parser/ColorFunctions.cppm
+            Styling/Parser/UITypeRegistry.cppm
+            Styling/Parser/SSSParser.cppm
+            Styling/Parser/StyleSheetLoader.cppm
             Debug/UIDebugDrawSettings.cppm
             Drawing/ControlState.cppm
             Drawing/UIDrawContext.cppm
