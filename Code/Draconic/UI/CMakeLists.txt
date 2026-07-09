@@ -92,6 +92,7 @@ target_sources(DraconicUI
             Controls/Expander.cppm
             Controls/EditText.cppm
             Controls/PasswordBox.cppm
+            Controls/NumericField.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm

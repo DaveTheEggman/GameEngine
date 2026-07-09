@@ -78,6 +78,7 @@ export import :slider;
 export import :expander;
 export import :edit_text;
 export import :password_box;
+export import :numeric_field;
 export import :style_property;
 export import :style_value;
 export import :style_selector;
