@@ -72,19 +72,44 @@ export namespace draconic::gui
         }
 
         // === Drawing ===
+        // VG's point DrawText anchors at the text baseline; `position` here is the top-left,
+        // so we offset down by the font ascent.
         void Draw(DrawContext& ctx, core::Float2 position) const
         {
             if (m_font == nullptr || IsEmpty()) return;
-            ctx.VG().DrawText(m_string.AsView(), m_font, position, m_color);
+            const f32 ascent = HasFont() ? m_font->font->Metrics().ascent : 0.0f;
+            ctx.VG().DrawText(m_string.AsView(), m_font, core::Float2{ position.x, position.y + ascent }, m_color);
         }
+        // Draw aligned within bounds. Delegates to VG's alignment-aware overload, which
+        // applies the correct baseline offset for each vertical alignment.
         void Draw(DrawContext& ctx, const Rect& bounds) const
         {
             if (m_font == nullptr || IsEmpty()) return;
-            ctx.VG().DrawText(m_string.AsView(), m_font, AlignedPosition(bounds), m_color);
+            ctx.VG().DrawText(m_string.AsView(), m_font, bounds.ToRectangle(),
+                              ToFontsHAlign(m_hAlign), ToFontsVAlign(m_vAlign), m_color);
         }
 
     private:
         [[nodiscard]] bool HasFont() const noexcept { return m_font != nullptr && m_font->font != nullptr; }
+
+        [[nodiscard]] static fonts::TextAlignment ToFontsHAlign(TextHAlign h) noexcept
+        {
+            switch (h)
+            {
+            case TextHAlign::Center: return fonts::TextAlignment::Center;
+            case TextHAlign::Right:  return fonts::TextAlignment::Right;
+            default:                 return fonts::TextAlignment::Left;
+            }
+        }
+        [[nodiscard]] static fonts::VerticalAlignment ToFontsVAlign(TextVAlign v) noexcept
+        {
+            switch (v)
+            {
+            case TextVAlign::Middle: return fonts::VerticalAlignment::Middle;
+            case TextVAlign::Bottom: return fonts::VerticalAlignment::Bottom;
+            default:                 return fonts::VerticalAlignment::Top;
+            }
+        }
 
         core::String m_string;
         fonts::CachedFont* m_font = nullptr; // non-owning (owned by the font service)

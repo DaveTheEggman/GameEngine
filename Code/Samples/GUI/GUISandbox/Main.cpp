@@ -63,16 +63,33 @@ float4 main(PSInput input) : SV_Target {
 
     const char8_t* kStyleSheet = u8R"(
         button {
-            background-color: #3a6ea5;
+            background-color: #3a6ea5;    /* base: blue */
             padding: 10;
             opacity: 1;
             transition: opacity 0.18s;
         }
-        button:hover  { background-color: #4f8fd0; opacity: 0.92; }
-        button:active { background-color: #274d78; }
+        button:hover  { opacity: 0.9; }
+        button:active { opacity: 0.78; }
+        .danger { background-color: #b5453f; } /* class beats tag -> red */
+        .accent { background-color: #3fa06a; } /*                  -> green */
     )";
 
     inline Color Col(f32 r, f32 g, f32 b, f32 a = 1.0f) { return Color{ r, g, b, a }; }
+
+    // "Clicks: N" -> label (small non-negative values).
+    void SetCounterText(gui::Label* label, i32 n)
+    {
+        char8_t buf[32] = u8"Clicks: ";
+        usize pos = 8;
+        char8_t digits[12]; usize dc = 0;
+        i32 v = n < 0 ? -n : n;
+        if (v == 0) digits[dc++] = u8'0';
+        while (v > 0) { digits[dc++] = static_cast<char8_t>(u8'0' + (v % 10)); v /= 10; }
+        if (n < 0) buf[pos++] = u8'-';
+        for (usize k = 0; k < dc; ++k) buf[pos++] = digits[dc - 1 - k];
+        buf[pos] = 0;
+        label->SetText(StringView(buf));
+    }
 }
 
 class GUISandbox : public sf::SampleApp
@@ -192,34 +209,26 @@ void GUISandbox::BuildUI()
     row->SetSpacing(14.0f);
     m_panel->AddChild(row.Get());
 
-    const char8_t* labels[3] = { u8"Click me", u8"Hover me", u8"Styled" };
-    for (i32 i = 0; i < 3; ++i)
+    // Three buttons that are genuinely different: distinct style classes (so CSS gives them
+    // distinct colors - class beats tag) and distinct behaviors.
+    gui::Label* counter = m_counter.Get();
+    i32* clicks = &m_clicks;
+
+    auto makeButton = [&](const char8_t* label, const char8_t* cssClass, Function<void()> onClick)
     {
         auto btn = MakeRef<gui::Button>(DefaultAllocator());
         btn->SetSize(Float2{ 170.0f, 46.0f });
-        btn->SetText(labels[i]);
+        btn->SetText(StringView(label));
         btn->SetFont(m_font);
         btn->SetTextColor(Col(1.0f, 1.0f, 1.0f));
+        if (cssClass[0] != 0) btn->AddClass(StringView(cssClass));
+        btn->SetOnClick(Move(onClick));
         row->AddChild(btn.Get());
-        if (i == 0)
-        {
-            gui::Label* counter = m_counter.Get();
-            i32* clicks = &m_clicks;
-            btn->SetOnClick([counter, clicks]()
-            {
-                ++(*clicks);
-                char8_t buf[32] = u8"Clicks: ";
-                // tiny int -> ascii (values are small)
-                i32 n = *clicks; usize pos = 8;
-                char8_t digits[12]; usize dc = 0;
-                if (n == 0) digits[dc++] = u8'0';
-                while (n > 0) { digits[dc++] = static_cast<char8_t>(u8'0' + (n % 10)); n /= 10; }
-                for (usize k = 0; k < dc; ++k) buf[pos++] = digits[dc - 1 - k];
-                buf[pos] = 0;
-                counter->SetText(StringView(buf));
-            });
-        }
-    }
+    };
+
+    makeButton(u8"Add +1", u8"",       [counter, clicks]() { ++(*clicks); SetCounterText(counter, *clicks); });
+    makeButton(u8"Reset",  u8"danger", [counter, clicks]() { *clicks = 0; SetCounterText(counter, 0); });
+    makeButton(u8"Toggle", u8"accent", [counter]()         { counter->SetVisible(!counter->IsVisible()); });
 
     m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());
