@@ -109,3 +109,60 @@ TEST_CASE("text: draw guards - no font or empty produces no geometry")
     empty.Draw(dc, core::Float2{ 0.0f, 0.0f });
     CHECK(ctx.GetBatch().vertices.Size() == 0);
 }
+
+TEST_CASE("text: word wrap breaks at whitespace to fit the width")
+{
+    fonts::CachedFont cf(NewMock(), nullptr, nullptr); // 6px/byte, 12px line height
+    Text t{ core::StringView(u8"hello world foo"), &cf };
+    t.SetWordWrap(true);
+
+    core::Array<core::StringView> lines;
+    t.ComputeLines(60.0f, lines); // 60px = 10 bytes
+    REQUIRE(lines.Size() == 2);
+    CHECK(lines[0] == core::StringView(u8"hello"));
+    CHECK(lines[1] == core::StringView(u8"world foo"));
+
+    const core::Float2 wrapped = t.MeasureWrapped(60.0f);
+    CHECK(wrapped.x == doctest::Approx(54.0f)); // widest line "world foo" = 9 * 6
+    CHECK(wrapped.y == doctest::Approx(24.0f)); // 2 lines * 12
+}
+
+TEST_CASE("text: explicit newlines always break")
+{
+    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    Text t{ core::StringView(u8"a\nbc\nd"), &cf };
+    t.SetWordWrap(true);
+
+    core::Array<core::StringView> lines;
+    t.ComputeLines(1000.0f, lines); // huge width -> only the newlines break
+    REQUIRE(lines.Size() == 3);
+    CHECK(lines[0] == core::StringView(u8"a"));
+    CHECK(lines[1] == core::StringView(u8"bc"));
+    CHECK(lines[2] == core::StringView(u8"d"));
+}
+
+TEST_CASE("text: a word longer than the width takes its own line (overflows)")
+{
+    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    Text t{ core::StringView(u8"abcdefghij k"), &cf }; // first word 10 bytes = 60px
+    t.SetWordWrap(true);
+
+    core::Array<core::StringView> lines;
+    t.ComputeLines(30.0f, lines); // 30px = 5 bytes; the long word can't fit but is forced
+    REQUIRE(lines.Size() == 2);
+    CHECK(lines[0] == core::StringView(u8"abcdefghij")); // overflows its line
+    CHECK(lines[1] == core::StringView(u8"k"));
+}
+
+TEST_CASE("text: word wrap draws one DrawText per non-empty line")
+{
+    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    Text t{ core::StringView(u8"hello world foo"), &cf };
+    t.SetWordWrap(true);
+
+    vg::VGContext ctx; // no font service -> DrawText early-returns, but exercises the layout path
+    DrawContext dc{ ctx };
+    t.Draw(dc, Rect{ 0.0f, 0.0f, 60.0f, 100.0f });
+    // No atlas -> no geometry, but the multi-line path must not crash and must produce no verts.
+    CHECK(ctx.GetBatch().vertices.Size() == 0);
+}

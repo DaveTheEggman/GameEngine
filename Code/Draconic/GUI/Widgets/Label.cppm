@@ -45,8 +45,14 @@ export namespace draconic::gui
             Invalidate();
         }
 
+        // Word wrap: when on, the label draws multiple lines within its content width.
+        void SetWordWrap(bool enabled) { m_text.SetWordWrap(enabled); Invalidate(); }
+        [[nodiscard]] bool IsWordWrap() const { return m_text.IsWordWrap(); }
+
         // The natural size of the text (for layout).
         [[nodiscard]] core::Float2 MeasureText() const { return m_text.Measure(); }
+        // The size wrapped text occupies at `maxWidth` (widest line x total height).
+        [[nodiscard]] core::Float2 MeasureWrapped(f32 maxWidth) const { return m_text.MeasureWrapped(maxWidth); }
 
     protected:
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override

@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:text;
 
-import draconic.core;    // String, StringView, Float2, Color
+import draconic.core;    // String, StringView, Float2, Color, Array, IsWhiteSpace
 import draconic.fonts;   // CachedFont, IFont, FontMetrics
 import :rect;
 import :draw_context;
@@ -46,6 +46,11 @@ export namespace draconic::gui
         [[nodiscard]] TextHAlign GetHAlign() const noexcept { return m_hAlign; }
         [[nodiscard]] TextVAlign GetVAlign() const noexcept { return m_vAlign; }
 
+        // Word wrap: when on, Draw(bounds) breaks the text into lines that fit the bounds
+        // width (greedy at whitespace; explicit '\n' always breaks). Off = single line.
+        void SetWordWrap(bool enabled) noexcept { m_wordWrap = enabled; }
+        [[nodiscard]] bool IsWordWrap() const noexcept { return m_wordWrap; }
+
         // === Measurement (0 if no font) ===
         [[nodiscard]] f32 GetWidth() const
         {
@@ -56,6 +61,66 @@ export namespace draconic::gui
             return HasFont() ? m_font->font->Metrics().lineHeight : 0.0f;
         }
         [[nodiscard]] core::Float2 Measure() const { return core::Float2{ GetWidth(), GetLineHeight() }; }
+
+        // Break the string into lines that fit `maxWidth` (greedy at whitespace; '\n' always
+        // breaks). A word longer than maxWidth takes its own line and overflows (no in-word
+        // breaking yet). Returned views point into the current string - valid until it changes.
+        void ComputeLines(f32 maxWidth, core::Array<core::StringView>& out) const
+        {
+            out.Clear();
+            const core::StringView v = m_string.AsView();
+            const usize n = v.Size();
+            if (!HasFont() || n == 0) { if (n != 0) out.PushBack(v); return; }
+
+            usize lineStart = 0;
+            usize lastFitEnd = 0; // end of content that fits on the current line
+            usize i = 0;
+            while (i < n)
+            {
+                if (v[i] == u8'\n')
+                {
+                    out.PushBack(v.SubStr(lineStart, i - lineStart));
+                    lineStart = i + 1; lastFitEnd = lineStart; i = lineStart;
+                    continue;
+                }
+                usize j = i;
+                while (j < n && core::IsWhiteSpace(v[j]) && v[j] != u8'\n') ++j; // leading spaces
+                while (j < n && !core::IsWhiteSpace(v[j])) ++j;                   // the word
+                const f32 w = m_font->font->MeasureString(v.SubStr(lineStart, j - lineStart));
+                if (w <= maxWidth || lastFitEnd == lineStart)
+                {
+                    lastFitEnd = j; // fits (or the line is empty -> force one word)
+                    i = j;
+                }
+                else
+                {
+                    usize end = lastFitEnd; // break before this word; trim trailing spaces
+                    while (end > lineStart && core::IsWhiteSpace(v[end - 1])) --end;
+                    out.PushBack(v.SubStr(lineStart, end - lineStart));
+                    usize ns = lastFitEnd; // skip leading spaces on the next line
+                    while (ns < n && core::IsWhiteSpace(v[ns]) && v[ns] != u8'\n') ++ns;
+                    lineStart = ns; lastFitEnd = ns; i = ns;
+                }
+            }
+            usize end = n; // flush the remainder
+            while (end > lineStart && core::IsWhiteSpace(v[end - 1])) --end;
+            out.PushBack(v.SubStr(lineStart, end - lineStart));
+        }
+
+        // Size the wrapped text occupies at `maxWidth`: widest line x (line count * lineHeight).
+        [[nodiscard]] core::Float2 MeasureWrapped(f32 maxWidth) const
+        {
+            if (!HasFont() || IsEmpty()) return core::Float2{ 0.0f, 0.0f };
+            core::Array<core::StringView> lines;
+            ComputeLines(maxWidth, lines);
+            f32 widest = 0.0f;
+            for (const core::StringView& line : lines)
+            {
+                const f32 w = m_font->font->MeasureString(line);
+                if (w > widest) widest = w;
+            }
+            return core::Float2{ widest, static_cast<f32>(lines.Size()) * GetLineHeight() };
+        }
 
         // The top-left draw position for the current alignment within `bounds`.
         [[nodiscard]] core::Float2 AlignedPosition(const Rect& bounds) const
@@ -80,13 +145,39 @@ export namespace draconic::gui
             const f32 ascent = HasFont() ? m_font->font->Metrics().ascent : 0.0f;
             ctx.VG().DrawText(m_string.AsView(), m_font, core::Float2{ position.x, position.y + ascent }, m_color);
         }
-        // Draw aligned within bounds. Delegates to VG's alignment-aware overload, which
-        // applies the correct baseline offset for each vertical alignment.
+        // Draw aligned within bounds. Single line delegates to VG's alignment-aware overload;
+        // word-wrap lays out multiple lines (each H-aligned, the block V-aligned).
         void Draw(DrawContext& ctx, const Rect& bounds) const
         {
             if (m_font == nullptr || IsEmpty()) return;
-            ctx.VG().DrawText(m_string.AsView(), m_font, bounds.ToRectangle(),
-                              ToFontsHAlign(m_hAlign), ToFontsVAlign(m_vAlign), m_color);
+            if (!m_wordWrap)
+            {
+                ctx.VG().DrawText(m_string.AsView(), m_font, bounds.ToRectangle(),
+                                  ToFontsHAlign(m_hAlign), ToFontsVAlign(m_vAlign), m_color);
+                return;
+            }
+
+            core::Array<core::StringView> lines;
+            ComputeLines(bounds.width, lines);
+            const f32 lineHeight = GetLineHeight();
+            const f32 ascent = m_font->font->Metrics().ascent;
+            const f32 blockH = static_cast<f32>(lines.Size()) * lineHeight;
+
+            f32 top = bounds.Top();
+            if (m_vAlign == TextVAlign::Middle)      top += (bounds.height - blockH) * 0.5f;
+            else if (m_vAlign == TextVAlign::Bottom) top += (bounds.height - blockH);
+
+            for (usize k = 0; k < lines.Size(); ++k)
+            {
+                const core::StringView line = lines[k];
+                if (line.Size() == 0) continue;
+                const f32 lineW = m_font->font->MeasureString(line);
+                f32 x = bounds.Left();
+                if (m_hAlign == TextHAlign::Center)     x += (bounds.width - lineW) * 0.5f;
+                else if (m_hAlign == TextHAlign::Right) x += (bounds.width - lineW);
+                const f32 y = top + static_cast<f32>(k) * lineHeight + ascent;
+                ctx.VG().DrawText(line, m_font, core::Float2{ x, y }, m_color);
+            }
         }
 
     private:
@@ -116,5 +207,6 @@ export namespace draconic::gui
         Color m_color = Color::White;
         TextHAlign m_hAlign = TextHAlign::Left;
         TextVAlign m_vAlign = TextVAlign::Top;
+        bool m_wordWrap = false;
     };
 }
