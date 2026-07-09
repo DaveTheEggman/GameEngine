@@ -76,6 +76,8 @@ export import :radio_group;
 export import :toggle_switch;
 export import :slider;
 export import :expander;
+export import :edit_text;
+export import :password_box;
 export import :style_property;
 export import :style_value;
 export import :style_selector;

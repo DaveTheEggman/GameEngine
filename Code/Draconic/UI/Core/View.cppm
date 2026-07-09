@@ -45,6 +45,7 @@ import :style_rule;
 import :style_sheet;
 import :event_args;              // MouseEventArgs/KeyEventArgs/MouseWheelEventArgs/TextInputEventArgs
 import :iaccelerator_handler;
+import :iclipboard;              // clipboard seam (injected by the app; nullable)
 import :input_manager;
 import :focus_manager;
 import :shortcut_manager;
@@ -633,6 +634,11 @@ export namespace draconic::ui
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
         void SetStyleSheet(RefPtr<StyleSheet> sheet) { m_styleSheet = Move(sheet); }
 
+        // Clipboard adapter, set by the application / ui.shell bridge (non-owning, nullable). The core
+        // stays platform-agnostic; EditText reads it through ITextEditHost. (FontService stays deferred.)
+        [[nodiscard]] IClipboard* Clipboard() const noexcept { return m_clipboard; }
+        void SetClipboard(IClipboard* clipboard) noexcept { m_clipboard = clipboard; }
+
         // === Root view management ===
         void AddRootView(RootView* root)
         {
@@ -743,6 +749,7 @@ export namespace draconic::ui
         FocusManager m_focusManager;
         ShortcutManager m_shortcutManager;
         RefPtr<StyleSheet> m_styleSheet;
+        IClipboard* m_clipboard = nullptr;
         Phase m_phase = Phase::Idle;
         bool m_needsRedraw = true;
         f32 m_deltaTime = 0.0f;

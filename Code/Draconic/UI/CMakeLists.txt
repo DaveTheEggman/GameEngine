@@ -90,6 +90,8 @@ target_sources(DraconicUI
             Controls/ToggleSwitch.cppm
             Controls/Slider.cppm
             Controls/Expander.cppm
+            Controls/EditText.cppm
+            Controls/PasswordBox.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm
