@@ -149,6 +149,81 @@ float4 main(PSInput input) : SV_Target {
         }
     };
 
+    // A bordered area that opens a nested ContextMenu on right-click.
+    class ContextMenuDemoArea final : public draconic::ui::View
+    {
+    public:
+        void OnDraw(draconic::ui::UIDrawContext& ctx) override
+        {
+            const Rectangle bounds{ 0, 0, Width(), Height() };
+            const Color bg = ResolveStyleColor(draconic::ui::StyleProperty::BorderColor, Color{ 50.0f / 255.0f, 55.0f / 255.0f, 65.0f / 255.0f, 1.0f });
+            ctx.VG().FillRoundedRect(bounds, 4.0f, draconic::ui::Palette::Darken(bg, 0.3f));
+            ctx.VG().StrokeRoundedRect(bounds, 4.0f, bg, 1.0f);
+            if (ctx.FontService() != nullptr)
+            {
+                if (fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), 14.0f))
+                {
+                    ctx.VG().DrawText(u8"Right-click for context menu", font, bounds, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, Color{ 180.0f / 255.0f, 185.0f / 255.0f, 200.0f / 255.0f, 1.0f });
+                }
+            }
+        }
+        void OnMouseDown(draconic::ui::MouseEventArgs& e) override
+        {
+            if (e.Button != draconic::ui::MouseButton::Right || Context == nullptr) { return; }
+            auto menu = MakeRef<draconic::ui::ContextMenu>(DefaultAllocator());
+            menu->AddItem(u8"Cut", []() {});
+            menu->AddItem(u8"Copy", []() {});
+            menu->AddItem(u8"Paste", []() {});
+            menu->AddSeparator();
+            draconic::ui::MenuItem* sub = menu->AddSubmenu(u8"More");
+            auto* subMenu = draconic::core::Cast<draconic::ui::ContextMenu>(sub->Submenu.Get());
+            subMenu->AddItem(u8"Select All", []() {});
+            subMenu->AddItem(u8"Find", []() {});
+            subMenu->AddSeparator();
+            draconic::ui::MenuItem* nested = subMenu->AddSubmenu(u8"Even More");
+            auto* nestedMenu = draconic::core::Cast<draconic::ui::ContextMenu>(nested->Submenu.Get());
+            nestedMenu->AddItem(u8"Nested Item 1", []() {});
+            nestedMenu->AddItem(u8"Nested Item 2", []() {});
+            menu->AddSeparator();
+            menu->AddItem(u8"Disabled Item", []() {}, false);
+
+            const Float2 screenPos = LocalToScreen(Float2{ e.X, e.Y });
+            menu->Show(Context, screenPos.x, screenPos.y);
+            e.Handled = true;
+        }
+    protected:
+        void OnMeasure(draconic::ui::BoxConstraints constraints) override
+        {
+            MeasuredSize = Float2{ constraints.ConstrainWidth(constraints.MaxWidth), constraints.ConstrainHeight(80) };
+        }
+    };
+
+    // A Button whose tooltip is custom (multi-line) content, via ITooltipProvider.
+    class RichTooltipButton final : public draconic::ui::Button, public draconic::ui::ITooltipProvider
+    {
+    public:
+        explicit RichTooltipButton(StringView text) : draconic::ui::Button(text) { IsTooltipInteractive = true; }
+        [[nodiscard]] draconic::ui::ITooltipProvider* AsTooltipProvider() override { return this; }
+        [[nodiscard]] RefPtr<draconic::ui::View> CreateTooltipContent() override
+        {
+            auto layout = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
+            layout->Direction = draconic::ui::Orientation::Vertical; layout->Spacing = 4.0f;
+            layout->AddView(MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"Rich Tooltip")).Get());
+            layout->AddView(MakeRef<draconic::ui::Separator>(DefaultAllocator()).Get());
+            auto l1 = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"This tooltip has multiple lines,")); l1->AddClass(u8"label-dim");
+            layout->AddView(l1.Get());
+            auto l2 = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"a separator, and custom content.")); l2->AddClass(u8"label-dim");
+            layout->AddView(l2.Get());
+            auto colorRow = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
+            colorRow->Direction = draconic::ui::Orientation::Horizontal; colorRow->Spacing = 4.0f;
+            colorRow->AddView(MakeRef<draconic::ui::ColorView>(DefaultAllocator(), Color{ 220.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f }, 16.0f, 16.0f).Get());
+            colorRow->AddView(MakeRef<draconic::ui::ColorView>(DefaultAllocator(), Color{ 60.0f / 255.0f, 180.0f / 255.0f, 60.0f / 255.0f, 1.0f }, 16.0f, 16.0f).Get());
+            colorRow->AddView(MakeRef<draconic::ui::ColorView>(DefaultAllocator(), Color{ 60.0f / 255.0f, 60.0f / 255.0f, 220.0f / 255.0f, 1.0f }, 16.0f, 16.0f).Get());
+            layout->AddView(colorRow.Get());
+            return layout;
+        }
+    };
+
     // Demo grid adapter: N coloured cells.
     class DemoGridAdapter final : public draconic::ui::ListAdapterBase
     {
@@ -223,6 +298,7 @@ private:
     void BuildTabPlacementTab(ui::TabView* tabView);
     void BuildTextInputTab(ui::TabView* tabView);
     void BuildDataControlsTab(ui::TabView* tabView);
+    void BuildOverlaysTab(ui::TabView* tabView);
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
     shaders::Compiler* m_compiler = nullptr;
@@ -330,6 +406,68 @@ void UISandbox::BuildUI()
     BuildTabPlacementTab(tabView.Get());
     BuildTextInputTab(tabView.Get());
     BuildDataControlsTab(tabView.Get());
+    BuildOverlaysTab(tabView.Get());
+}
+
+// === Tab 7: Overlays (ComboBox / Dialog / ContextMenu / Tooltips) ===
+void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
+{
+    using ui::SizeSpec;
+    using ui::Unit;
+
+    auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+    scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
+    tabView->AddTab(u8"Overlays", scroll.Get());
+
+    auto demo = VFlex(8.0f);
+    demo->Padding = ui::Thickness{ 12, 8 };
+    scroll->AddView(demo.Get());
+    auto section = [&](const char8_t* title) { demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get()); demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get()); };
+    auto spacer = [&] { demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get()); };
+    const auto w200 = [&] { return LP(SizeSpec::Fixed(Unit::Px(200)), SizeSpec::Wrap()); };
+
+    // ComboBox.
+    section(u8"ComboBox");
+    { auto c = MakeRef<ui::ComboBox>(DefaultAllocator()); c->AddItem(u8"Option 1"); c->AddItem(u8"Option 2"); c->AddItem(u8"Option 3"); demo->AddView(c.Get(), w200()); }
+    { auto c = MakeRef<ui::ComboBox>(DefaultAllocator()); c->AddItem(u8"Red"); c->AddItem(u8"Green"); c->AddItem(u8"Blue"); c->SetSelectedIndex(1); demo->AddView(c.Get(), w200()); }
+
+    // Dialog.
+    spacer(); section(u8"Dialog");
+    {
+        auto row = HFlex(8.0f);
+        ui::UIContext* ctx = &m_ctx;
+        auto alertBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Alert"));
+        alertBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [ctx](ui::ButtonBase*) { ui::Dialog::Alert(u8"Information", u8"This is an alert dialog.")->Show(ctx); } });
+        row->AddView(alertBtn.Get());
+        auto confirmBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Confirm"));
+        confirmBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [ctx](ui::ButtonBase*) { ui::Dialog::Confirm(u8"Confirm", u8"Are you sure you want to proceed?")->Show(ctx); } });
+        row->AddView(confirmBtn.Get());
+        demo->AddView(row.Get());
+    }
+
+    // ContextMenu.
+    spacer(); section(u8"ContextMenu (right-click below)");
+    demo->AddView(MakeRef<ContextMenuDemoArea>(DefaultAllocator()).Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(80))));
+
+    // Tooltips.
+    spacer(); section(u8"Tooltips (hover below)");
+    {
+        auto row = HFlex(8.0f);
+        auto tt = [&](const char8_t* text, const char8_t* tip, ui::TooltipPlacement placement, bool interactive)
+        {
+            auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+            b->TooltipText = String(tip);
+            b->TooltipPlacement = placement;
+            b->IsTooltipInteractive = interactive;
+            row->AddView(b.Get());
+        };
+        tt(u8"Bottom tooltip", u8"This appears below",           ui::TooltipPlacement::Bottom, false);
+        tt(u8"Top tooltip",    u8"This appears above",           ui::TooltipPlacement::Top,    false);
+        tt(u8"Right tooltip",  u8"This appears on the right",    ui::TooltipPlacement::Right,  false);
+        tt(u8"Interactive",    u8"This tooltip stays while you hover it", ui::TooltipPlacement::Bottom, true);
+        row->AddView(MakeRef<RichTooltipButton>(DefaultAllocator(), StringView(u8"Rich content")).Get());
+        demo->AddView(row.Get());
+    }
 }
 
 // === Tab 6: Data Controls (virtualized ListView / TreeView / GridView + adapters) ===
