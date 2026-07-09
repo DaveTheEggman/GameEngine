@@ -115,6 +115,30 @@ TEST_CASE("bridge: key and text route to the focus node with mapped modifiers")
     CHECK(seenText == core::StringView(u8"hi"));
 }
 
+TEST_CASE("bridge: navigation keys map platform KeyCode to the GUI KeyCode")
+{
+    auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
+    auto child = MakePanel(core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
+    root->AddChild(child.Get());
+    GuiInputBridge bridge{ root->GetEventDispatcher() };
+    root->GetEventDispatcher()->SetFocusNode(child.Get());
+
+    core::u32 seenKey = 0xFFFFFFFFu;
+    child->AddEventListener(EventType::KeyDown,
+        [&](const Event& e) { seenKey = static_cast<const KeyEvent&>(e).KeyCode; });
+
+    bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::Backspace));
+    CHECK(seenKey == static_cast<core::u32>(KeyCode::Backspace));
+    bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::Left));
+    CHECK(seenKey == static_cast<core::u32>(KeyCode::Left));
+    bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::Home));
+    CHECK(seenKey == static_cast<core::u32>(KeyCode::Home));
+
+    // A printable key with no navigation meaning maps to Unknown (its glyph arrives as text).
+    bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::A));
+    CHECK(seenKey == static_cast<core::u32>(KeyCode::Unknown));
+}
+
 TEST_CASE("bridge: content fit maps window position into content space")
 {
     auto root = MakeScene(core::Float2{ 200.0f, 200.0f });

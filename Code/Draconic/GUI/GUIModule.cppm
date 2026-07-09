@@ -56,6 +56,7 @@ export import :check_box;
 export import :slider;
 export import :progress_bar;
 export import :linear_layout;
+export import :text_field;
 
 // CSS styling (Phase 6)
 export import :parse_util;

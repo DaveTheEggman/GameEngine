@@ -45,3 +45,36 @@ TEST_CASE("string-util: Trim / TrimStart / TrimEnd")
     // Internal whitespace is preserved.
     CHECK(core::Trim(core::StringView(u8"  a b c  ")) == core::StringView(u8"a b c"));
 }
+
+TEST_CASE("string-util: UTF-8 codepoint boundaries")
+{
+    // "aé€b": a=1 byte, é=2 bytes (0xC3 0xA9), €=3 bytes (0xE2 0x82 0xAC), b=1 byte. 7 bytes.
+    const core::StringView s(u8"aé€b");
+    CHECK(s.Size() == 7);
+
+    // Continuation-byte classification.
+    CHECK_FALSE(core::IsUtf8Continuation(s[0])); // 'a'
+    CHECK_FALSE(core::IsUtf8Continuation(s[1])); // é lead
+    CHECK(core::IsUtf8Continuation(s[2]));       // é trail
+    CHECK_FALSE(core::IsUtf8Continuation(s[3])); // € lead
+    CHECK(core::IsUtf8Continuation(s[4]));       // € trail 1
+    CHECK(core::IsUtf8Continuation(s[5]));       // € trail 2
+    CHECK_FALSE(core::IsUtf8Continuation(s[6])); // 'b'
+
+    // Forward: 0 -> 1 (a) -> 3 (é) -> 6 (€) -> 7 (b) -> 7 (clamped).
+    CHECK(core::Utf8NextBoundary(s, 0) == 1);
+    CHECK(core::Utf8NextBoundary(s, 1) == 3);
+    CHECK(core::Utf8NextBoundary(s, 3) == 6);
+    CHECK(core::Utf8NextBoundary(s, 6) == 7);
+    CHECK(core::Utf8NextBoundary(s, 7) == 7);
+
+    // Backward: 7 -> 6 -> 3 -> 1 -> 0 -> 0 (clamped).
+    CHECK(core::Utf8PrevBoundary(s, 7) == 6);
+    CHECK(core::Utf8PrevBoundary(s, 6) == 3);
+    CHECK(core::Utf8PrevBoundary(s, 3) == 1);
+    CHECK(core::Utf8PrevBoundary(s, 1) == 0);
+    CHECK(core::Utf8PrevBoundary(s, 0) == 0);
+
+    // Prev from an interior byte snaps to the codepoint start it is inside/after.
+    CHECK(core::Utf8PrevBoundary(s, 5) == 3); // inside €
+}

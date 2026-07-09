@@ -58,10 +58,10 @@ export namespace draconic::gui
                 m_dispatcher->InjectMouseWheel(m_dispatcher->GetMousePosition(), core::Float2{ event.x, event.y });
                 return true;
             case platform::InputEventKind::KeyDown:
-                m_dispatcher->InjectKeyDown(static_cast<u32>(event.key), MapModifiers(event.modifiers));
+                m_dispatcher->InjectKeyDown(MapKey(event.key), MapModifiers(event.modifiers));
                 return true;
             case platform::InputEventKind::KeyUp:
-                m_dispatcher->InjectKeyUp(static_cast<u32>(event.key), MapModifiers(event.modifiers));
+                m_dispatcher->InjectKeyUp(MapKey(event.key), MapModifiers(event.modifiers));
                 return true;
             case platform::InputEventKind::TextInput:
                 m_dispatcher->InjectText(core::StringView(event.text));
@@ -120,6 +120,34 @@ export namespace draconic::gui
             case platform::MouseButton::X2:     return MouseButton::X2;
             default:                            return MouseButton::Left;
             }
+        }
+
+        // Map the platform key code to the GUI's platform-agnostic KeyCode (as a u32).
+        // Only the navigation/editing keys the GUI interprets are mapped; everything else
+        // (printable characters) arrives via TextInput, so it maps to Unknown here.
+        [[nodiscard]] static u32 MapKey(platform::KeyCode key) noexcept
+        {
+            KeyCode mapped = KeyCode::Unknown;
+            switch (key)
+            {
+            case platform::KeyCode::Return:    mapped = KeyCode::Return;    break;
+            case platform::KeyCode::Escape:    mapped = KeyCode::Escape;    break;
+            case platform::KeyCode::Backspace: mapped = KeyCode::Backspace; break;
+            case platform::KeyCode::Tab:       mapped = KeyCode::Tab;       break;
+            case platform::KeyCode::Space:     mapped = KeyCode::Space;     break;
+            case platform::KeyCode::Delete:    mapped = KeyCode::Delete;    break;
+            case platform::KeyCode::Insert:    mapped = KeyCode::Insert;    break;
+            case platform::KeyCode::Home:      mapped = KeyCode::Home;      break;
+            case platform::KeyCode::End:       mapped = KeyCode::End;       break;
+            case platform::KeyCode::PageUp:    mapped = KeyCode::PageUp;    break;
+            case platform::KeyCode::PageDown:  mapped = KeyCode::PageDown;  break;
+            case platform::KeyCode::Left:      mapped = KeyCode::Left;      break;
+            case platform::KeyCode::Right:     mapped = KeyCode::Right;     break;
+            case platform::KeyCode::Up:        mapped = KeyCode::Up;        break;
+            case platform::KeyCode::Down:      mapped = KeyCode::Down;      break;
+            default:                           mapped = KeyCode::Unknown;   break;
+            }
+            return static_cast<u32>(mapped);
         }
 
         [[nodiscard]] static u32 MapModifiers(platform::KeyModifiers mods) noexcept

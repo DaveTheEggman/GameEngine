@@ -45,6 +45,19 @@ export namespace draconic::gui
 
     enum class MouseButton : u32 { Left, Right, Middle, X1, X2 };
 
+    // Platform-agnostic key identity for the navigation/editing keys the GUI interprets
+    // (printable characters arrive as TextInput, not here). The gui.shell bridge maps
+    // platform key codes to these explicitly; a KeyEvent carries the value as a u32, so
+    // handlers compare against static_cast<u32>(KeyCode::X). Letters/shortcut keys are
+    // deferred until selection/clipboard need them.
+    enum class KeyCode : u32
+    {
+        Unknown = 0,
+        Return, Escape, Backspace, Tab, Space,
+        Delete, Insert, Home, End, PageUp, PageDown,
+        Left, Right, Up, Down,
+    };
+
     // Key modifier bitmask (unscoped for easy OR-ing).
     enum KeyModifier : u32
     {

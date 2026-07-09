@@ -58,4 +58,33 @@ export namespace draconic::core
         while (end > begin && IsWhiteSpace(s[end - 1])) --end;
         return s.SubStr(begin, end - begin);
     }
+
+    // True for a UTF-8 continuation byte (0b10xxxxxx) - the trailing bytes of a multi-byte
+    // codepoint. A codepoint boundary is any byte that is NOT a continuation byte.
+    [[nodiscard]] constexpr bool IsUtf8Continuation(char8_t c) noexcept
+    {
+        return (static_cast<unsigned>(c) & 0xC0u) == 0x80u;
+    }
+
+    // Byte index of the start of the codepoint immediately before `index` (i.e. one codepoint
+    // to the left). Steps back over continuation bytes. Returns 0 at or before the start.
+    [[nodiscard]] constexpr usize Utf8PrevBoundary(StringView s, usize index) noexcept
+    {
+        if (index == 0) return 0;
+        if (index > s.Size()) index = s.Size();
+        --index;
+        while (index > 0 && IsUtf8Continuation(s[index])) --index;
+        return index;
+    }
+
+    // Byte index just past the codepoint starting at `index` (i.e. one codepoint to the
+    // right). Steps forward over continuation bytes. Returns Size() at or past the end.
+    [[nodiscard]] constexpr usize Utf8NextBoundary(StringView s, usize index) noexcept
+    {
+        const usize size = s.Size();
+        if (index >= size) return size;
+        ++index;
+        while (index < size && IsUtf8Continuation(s[index])) ++index;
+        return index;
+    }
 }
