@@ -52,10 +52,16 @@ export namespace draconic::core
             MapIterator m_it;
         };
 
-        [[nodiscard]] auto begin() noexcept { return BasicIterator{ m_map.begin() }; }
-        [[nodiscard]] auto end() noexcept { return BasicIterator{ m_map.end() }; }
-        [[nodiscard]] auto begin() const noexcept { return BasicIterator{ m_map.begin() }; }
-        [[nodiscard]] auto end() const noexcept { return BasicIterator{ m_map.end() }; }
+        // Explicit iterator return types (NOT `auto`): GCC's C++ modules mis-merge `auto`-deduced return
+        // types for a class-template member when the same instantiation crosses several imported modules
+        // ("conflicting deduced return type for imported declaration"). Naming the types avoids that.
+        using Iterator = BasicIterator<typename MapType::Iterator>;
+        using ConstIterator = BasicIterator<typename MapType::ConstIterator>;
+
+        [[nodiscard]] Iterator begin() noexcept { return Iterator{ m_map.begin() }; }
+        [[nodiscard]] Iterator end() noexcept { return Iterator{ m_map.end() }; }
+        [[nodiscard]] ConstIterator begin() const noexcept { return ConstIterator{ m_map.begin() }; }
+        [[nodiscard]] ConstIterator end() const noexcept { return ConstIterator{ m_map.end() }; }
 
     private:
         MapType m_map;
