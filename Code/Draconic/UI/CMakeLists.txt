@@ -19,6 +19,9 @@ target_sources(DraconicUI
             Core/Property.cppm
             Core/ICommand.cppm
             Core/IClipboard.cppm
+            Input/InputEnums.cppm
+            Input/EventArgs.cppm
+            Input/IAcceleratorHandler.cppm
             Core/View.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm

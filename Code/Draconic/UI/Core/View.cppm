@@ -43,6 +43,8 @@ import :style_value;
 import :style_selector;
 import :style_rule;
 import :style_sheet;
+import :event_args;              // MouseEventArgs/KeyEventArgs/MouseWheelEventArgs/TextInputEventArgs
+import :iaccelerator_handler;
 
 using namespace draconic::core;
 
@@ -192,6 +194,38 @@ export namespace draconic::ui
             if (IsHovered()) { state |= ControlState::Hover; }
             return state;
         }
+
+        // === Input events (bubble phase - default) ===
+        virtual void OnMouseDown(MouseEventArgs& e) { (void)e; }
+        virtual void OnMouseUp(MouseEventArgs& e) { (void)e; }
+        virtual void OnMouseMove(MouseEventArgs& e) { (void)e; }
+        virtual void OnMouseWheel(MouseWheelEventArgs& e) { (void)e; }
+        virtual void OnMouseEnter() {}
+        virtual void OnMouseLeave() {}
+        virtual void OnKeyDown(KeyEventArgs& e) { (void)e; }
+        virtual void OnKeyUp(KeyEventArgs& e) { (void)e; }
+        virtual void OnTextInput(TextInputEventArgs& e) { (void)e; }
+        virtual void OnFocusGained() {}
+        virtual void OnFocusLost() {}
+
+        // === Input events (capture phase; root->target before the target sees it) ===
+        virtual void OnMouseDownCapture(MouseEventArgs& e) { (void)e; }
+        virtual void OnMouseUpCapture(MouseEventArgs& e) { (void)e; }
+        virtual void OnMouseMoveCapture(MouseEventArgs& e) { (void)e; }
+        virtual void OnMouseWheelCapture(MouseWheelEventArgs& e) { (void)e; }
+        virtual void OnKeyDownCapture(KeyEventArgs& e) { (void)e; }
+        virtual void OnKeyUpCapture(KeyEventArgs& e) { (void)e; }
+        virtual void OnTextInputCapture(TextInputEventArgs& e) { (void)e; }
+
+        // === Gamepad / directional activation ===
+        /// Activated (Gamepad A / Enter on the focused view). ButtonBase overrides to fire OnClick.
+        virtual void OnActivate() {}
+        /// Cancel (Gamepad B / Escape). Default: bubbles to parent.
+        virtual void OnCancel() { if (Parent != nullptr) { Parent->OnCancel(); } }
+
+        // === Capability query (tree-searched, As*() idiom; -fno-rtti-safe) ===
+        /// IAcceleratorHandler this view implements, or null. Override to return `this`.
+        [[nodiscard]] virtual IAcceleratorHandler* AsAcceleratorHandler() { return nullptr; }
 
         // === Effective state ===
         [[nodiscard]] bool IsEffectivelyEnabled() const
