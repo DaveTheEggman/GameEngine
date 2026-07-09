@@ -48,6 +48,7 @@ export import :shortcut;
 export import :shortcut_manager;
 export import :focus_manager;
 export import :input_manager;
+export import :input_filter;
 export import :view;
 export import :frame_layout;
 export import :absolute_layout;

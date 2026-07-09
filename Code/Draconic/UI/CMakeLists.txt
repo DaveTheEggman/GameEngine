@@ -26,6 +26,7 @@ target_sources(DraconicUI
             Input/ShortcutManager.cppm
             Input/FocusManager.cppm
             Input/InputManager.cppm
+            Editing/InputFilter.cppm
             Core/View.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
