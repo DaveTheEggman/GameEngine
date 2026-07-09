@@ -43,9 +43,10 @@ export namespace draconic::gui
         void OnMouseDown(const MouseEvent& event) override
         {
             UINode::OnMouseDown(event);
+            if (OnPressed) OnPressed();               // raise on any button
+            if (event.Button != MouseButton::Left) return; // but only the left button drags
             m_dragging = true;
             m_last = event.Position;
-            if (OnPressed) OnPressed();
         }
         void OnMouseMove(const MouseEvent& event) override
         {

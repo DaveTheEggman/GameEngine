@@ -65,6 +65,7 @@ export namespace draconic::gui
         void OnMouseDown(const MouseEvent& event) override
         {
             UINode::OnMouseDown(event);
+            if (event.Button != MouseButton::Left) return; // only the left button drags/pages
             const Rect b = GetContentBounds();
             const f32 track = TrackLength(b);
             const f32 thumbLen = ThumbLength(track);

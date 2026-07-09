@@ -68,6 +68,9 @@ export namespace draconic::gui
         {
             SetTag(core::StringView(u8"listbox"));
             SetTabFocusable(true);
+            // Opaque panel background so the list (and any dropdown built on it) paints over
+            // whatever is behind it. Override with SetBackground for a themed look.
+            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_panelColor));
             m_scroll = core::MakeRef<ScrollView>(core::DefaultAllocator());
             AddChild(m_scroll.Get());
         }
@@ -171,6 +174,7 @@ export namespace draconic::gui
         fonts::CachedFont* m_font = nullptr;
         f32 m_itemHeight = 24.0f;
         i32 m_selected = -1;
+        Color m_panelColor{ 0.13f, 0.14f, 0.17f, 1.0f };
         Color m_textColor{ 0.88f, 0.90f, 0.94f, 1.0f };
         core::Function<void(i32)> m_onChanged;
     };

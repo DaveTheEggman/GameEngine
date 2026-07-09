@@ -22,9 +22,9 @@ TEST_CASE("tabwidget: first tab is auto-selected; panels switch visibility")
     auto p0 = Panel();
     auto p1 = Panel();
     auto p2 = Panel();
-    tw->AddTab(core::StringView(u8"One"), p0);
-    tw->AddTab(core::StringView(u8"Two"), p1);
-    tw->AddTab(core::StringView(u8"Three"), p2);
+    tw->AddTab(core::StringView(u8"One"), p0.Get());
+    tw->AddTab(core::StringView(u8"Two"), p1.Get());
+    tw->AddTab(core::StringView(u8"Three"), p2.Get());
 
     CHECK(tw->TabCount() == 3);
     CHECK(tw->GetSelectedIndex() == 0);
@@ -46,10 +46,10 @@ TEST_CASE("tabwidget: tab-changed callback fires with the index")
     int changes = 0, last = -1;
     tw->SetOnTabChanged([&](int i) { ++changes; last = i; });
 
-    tw->AddTab(core::StringView(u8"A"), Panel()); // auto-select 0 -> callback
+    tw->AddTab(core::StringView(u8"A"), Panel().Get()); // auto-select 0 -> callback
     CHECK(changes == 1);
     CHECK(last == 0);
-    tw->AddTab(core::StringView(u8"B"), Panel()); // not auto-selected (not first)
+    tw->AddTab(core::StringView(u8"B"), Panel().Get()); // not auto-selected (not first)
     CHECK(changes == 1);
     tw->SelectTab(1);
     CHECK(changes == 2);
@@ -66,7 +66,7 @@ TEST_CASE("tabwidget: content panels are sized to the content host")
     tw->SetTabBarHeight(30.0f);
 
     auto p0 = Panel();
-    tw->AddTab(core::StringView(u8"One"), p0);
+    tw->AddTab(core::StringView(u8"One"), p0.Get());
     // Host = full width, height minus the tab bar.
     CHECK(p0->GetSize().x == doctest::Approx(300.0f));
     CHECK(p0->GetSize().y == doctest::Approx(170.0f));
@@ -84,8 +84,8 @@ TEST_CASE("tabwidget: clicking a tab button switches the panel")
 
     auto p0 = Panel();
     auto p1 = Panel();
-    tw->AddTab(core::StringView(u8"One"), p0);
-    tw->AddTab(core::StringView(u8"Two"), p1);
+    tw->AddTab(core::StringView(u8"One"), p0.Get());
+    tw->AddTab(core::StringView(u8"Two"), p1.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
     // Tab bar spans y in [0,30); the second tab button is at x in [102, 202) (100 wide + 2 gap).

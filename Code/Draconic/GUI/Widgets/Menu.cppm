@@ -91,16 +91,20 @@ export namespace draconic::gui
         [[nodiscard]] bool IsOpen() const noexcept { return m_open; }
 
         // Show the menu at `position` (root-local) as a popup, attached under `owner`'s root.
+        // `owner` is only used to reach the tree root + dispatcher; a context menu has no
+        // persistent owner, so ANY press outside the menu itself dismisses it (that is why the
+        // popup owner is null here, not `owner`).
         void Open(Node& owner, core::Float2 position)
         {
             Node* root = owner.GetRootNode();
             EventDispatcher* dispatcher = owner.GetEventDispatcher();
             if (root == nullptr || dispatcher == nullptr) return;
+            if (m_open) { SetPosition(position); return; } // already open: just move it
             SetPosition(position);
             root->AddChild(this);
             m_open = true;
             Menu* self = this;
-            dispatcher->OpenPopup(this, &owner, [self]() { self->OnClosed(); });
+            dispatcher->OpenPopup(this, nullptr, [self]() { self->OnClosed(); });
         }
 
     protected:

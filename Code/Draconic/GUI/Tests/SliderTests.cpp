@@ -115,3 +115,17 @@ TEST_CASE("slider: draws track + fill + handle")
     s->Draw(dc);
     CHECK(ctx.GetBatch().vertices.Size() > 0);
 }
+
+TEST_CASE("slider: right button does not drag the value")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 200.0f, 200.0f });
+    auto s = Make<Slider>();
+    s->SetSize(core::Float2{ 100.0f, 20.0f });
+    root->AddChild(s.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    d->InjectMouseDown(core::Float2{ 50.0f, 10.0f }, MouseButton::Right); // right press
+    d->InjectMouseMove(core::Float2{ 90.0f, 10.0f });
+    CHECK(s->GetValue() == doctest::Approx(0.0f)); // unchanged - only the left button drags
+}

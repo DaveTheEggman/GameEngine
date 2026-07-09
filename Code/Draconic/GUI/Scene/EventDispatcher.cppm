@@ -75,8 +75,10 @@ export namespace draconic::gui
             // The captured (pressed) node gets the release, even if the cursor moved off it.
             Node* target = (m_downNode != nullptr) ? m_downNode : hit;
             if (target) target->HandleMouseUp(MouseEvent(EventType::MouseUp, target, position, button, modifiers));
-            // A click only when the release lands on the node that was pressed.
-            if (hit != nullptr && hit == m_downNode)
+            // A click (widget activation) only for the primary/left button, and only when the
+            // release lands on the node that was pressed. Right/middle presses still deliver
+            // Down/Up (e.g. for context menus) but never activate a control.
+            if (hit != nullptr && hit == m_downNode && button == MouseButton::Left)
                 hit->HandleMouseClick(MouseEvent(EventType::MouseClick, hit, position, button, modifiers));
             m_downNode = nullptr;
         }

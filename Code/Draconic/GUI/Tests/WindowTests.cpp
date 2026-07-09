@@ -116,3 +116,19 @@ TEST_CASE("window: pressing the title raises the window to the front")
     CHECK(root->GetChildAt(1) == a.Get()); // a raised to front
     d->InjectMouseUp(core::Float2{ 20.0f, 12.0f }, MouseButton::Left);
 }
+
+TEST_CASE("window: the right button does not drag the window")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 600.0f, 400.0f });
+    auto win = Make<Window>();
+    win->SetSize(core::Float2{ 200.0f, 150.0f });
+    win->SetPosition(core::Float2{ 50.0f, 50.0f });
+    root->AddChild(win.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    d->InjectMouseDown(core::Float2{ 120.0f, 60.0f }, MouseButton::Right); // right press on title
+    d->InjectMouseMove(core::Float2{ 200.0f, 120.0f });
+    CHECK(win->GetPosition().x == doctest::Approx(50.0f)); // did not move
+    CHECK(win->GetPosition().y == doctest::Approx(50.0f));
+}

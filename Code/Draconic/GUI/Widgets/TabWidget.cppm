@@ -44,9 +44,9 @@ export namespace draconic::gui
             AddChild(m_contentHost.Get());
         }
 
-        // Add a tab with a title and its content panel (added to the content host). The first
-        // tab added becomes selected.
-        void AddTab(core::StringView title, RefPtr<Node> content)
+        // Add a tab with a title and its content panel (added to the content host, which takes
+        // ownership). The first tab added becomes selected.
+        void AddTab(core::StringView title, Node* content)
         {
             const i32 index = static_cast<i32>(m_tabs.Size());
 
@@ -58,14 +58,13 @@ export namespace draconic::gui
             button->SetOnClick([self, index]() { self->SelectTab(index); });
             m_tabBar->AddChild(button.Get());
 
-            Node* panel = content.Get();
-            if (panel != nullptr)
+            if (content != nullptr)
             {
-                panel->SetVisible(false);
-                m_contentHost->AddChild(panel);
+                content->SetVisible(false);
+                m_contentHost->AddChild(content);
             }
 
-            m_tabs.PushBack(Tab{ button.Get(), panel });
+            m_tabs.PushBack(Tab{ button.Get(), content });
             Relayout();
             if (m_tabs.Size() == 1) SelectTab(0);
         }

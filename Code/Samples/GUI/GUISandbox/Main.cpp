@@ -157,6 +157,16 @@ private:
     UniquePtr<shell::InputSurface>   m_surface;
     UniquePtr<shell::InputRouter>    m_router;
     i32 m_clicks = 0;
+
+    // Priority-2 widget showcase (a floating Window with tabs + a right-click menu + tooltips).
+    void BuildShowcaseWindow();
+    RefPtr<gui::Window>       m_widgetWindow;
+    RefPtr<gui::Menu>         m_contextMenu;
+    RefPtr<gui::Label>        m_pickEcho;
+    gui::RadioGroup           m_radioGroup;
+    UniquePtr<gui::TooltipManager>   m_tooltips;
+    UniquePtr<image::OwnedImageData> m_showcaseImage;
+    RefPtr<gui::ImageDrawable>        m_showcaseDrawable;
 };
 
 Status GUISandbox::OnInit()
@@ -220,6 +230,14 @@ void GUISandbox::BuildUI()
     m_counter->SetFont(m_font);
     m_counter->SetTextColor(Col(0.75f, 0.82f, 0.9f));
     m_panel->AddChild(m_counter.Get());
+
+    auto hint = MakeRef<gui::Label>(DefaultAllocator());
+    hint->SetSize(Float2{ 600.0f, 22.0f });
+    hint->SetText(u8"Tip: right-click the empty background for a context menu.");
+    hint->SetFont(m_font);
+    hint->SetTextColor(Col(0.55f, 0.60f, 0.68f));
+    hint->SetHitTestVisible(false); // don't let it swallow right-clicks meant for the panel
+    m_panel->AddChild(hint.Get());
 
     // A row of buttons.
     auto row = MakeRef<gui::LinearLayout>(DefaultAllocator());
@@ -413,8 +431,185 @@ void GUISandbox::BuildUI()
         m_relative->SetAnchor(tag.Get(), pin.anchor);
     }
 
+    BuildShowcaseWindow();
+
     m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());
+}
+
+void GUISandbox::BuildShowcaseWindow()
+{
+    // A floating Window (drag its title bar, resize from the bottom-right grip) hosting a
+    // TabWidget that surfaces the Priority-2 controls: ComboBox, ListBox, Radios, Image.
+    m_widgetWindow = MakeRef<gui::Window>(DefaultAllocator());
+    m_widgetWindow->SetSize(Float2{ 340.0f, 320.0f });
+    m_widgetWindow->SetPosition(Float2{ 470.0f, 150.0f });
+    m_widgetWindow->SetTitle(u8"Widgets  (drag / resize me)");
+    m_widgetWindow->SetFont(m_font);
+    m_root->AddChild(m_widgetWindow.Get());
+
+    auto tabs = MakeRef<gui::TabWidget>(DefaultAllocator());
+    tabs->SetFont(m_font);
+    tabs->SetTabWidth(80.0f);
+    tabs->SetTabBarHeight(28.0f);
+    m_widgetWindow->GetContent()->AddChild(tabs.Get());
+    // The content host sizes tabs to fill it; make it fill the window body.
+    tabs->SetSize(m_widgetWindow->GetContent()->GetSize());
+
+    // --- Tab 1: a ComboBox + a ListBox + an echo label ---
+    auto pick = MakeRef<gui::LinearLayout>(DefaultAllocator());
+    pick->SetPadding(gui::Thickness{ 10.0f });
+    pick->SetSpacing(8.0f);
+
+    auto combo = MakeRef<gui::ComboBox>(DefaultAllocator());
+    combo->SetSize(Float2{ 200.0f, 26.0f });
+    combo->SetFont(m_font);
+    combo->SetTextColor(Col(0.92f, 0.94f, 0.98f));
+    combo->SetTooltip(u8"Pick a fruit");
+    const char8_t* fruits[5] = { u8"Apple", u8"Banana", u8"Cherry", u8"Date", u8"Elderberry" };
+    for (const char8_t* f : fruits) combo->AddItem(StringView(f));
+    pick->AddChild(combo.Get());
+
+    auto list = MakeRef<gui::ListBox>(DefaultAllocator());
+    list->SetSize(Float2{ 260.0f, 140.0f });
+    list->SetFont(m_font);
+    for (i32 i = 1; i <= 14; ++i)
+    {
+        char8_t buf[16] = u8"Item ";
+        usize p = 5; const i32 n = i;
+        if (n >= 10) buf[p++] = static_cast<char8_t>(u8'0' + n / 10);
+        buf[p++] = static_cast<char8_t>(u8'0' + n % 10);
+        buf[p] = 0;
+        list->AddItem(StringView(buf));
+    }
+    pick->AddChild(list.Get());
+
+    m_pickEcho = MakeRef<gui::Label>(DefaultAllocator());
+    m_pickEcho->SetSize(Float2{ 260.0f, 24.0f });
+    m_pickEcho->SetFont(m_font);
+    m_pickEcho->SetTextColor(Col(0.62f, 0.82f, 0.68f));
+    m_pickEcho->SetText(u8"selection -");
+    pick->AddChild(m_pickEcho.Get());
+
+    gui::Label* pickEcho = m_pickEcho.Get();
+    gui::ComboBox* comboPtr = combo.Get();
+    combo->SetOnSelectionChanged([pickEcho, comboPtr](i32)
+    {
+        char8_t buf[48] = u8"fruit: ";
+        usize pos = 7; const StringView t = comboPtr->GetSelectedText();
+        for (usize i = 0; i < t.Size() && pos < 46; ++i) buf[pos++] = t[i];
+        buf[pos] = 0;
+        pickEcho->SetText(StringView(buf));
+    });
+    gui::ListBox* listPtr = list.Get();
+    list->SetOnSelectionChanged([pickEcho, listPtr](i32 idx)
+    {
+        char8_t buf[48] = u8"row: ";
+        usize pos = 5; const StringView t = listPtr->GetItem(static_cast<usize>(idx));
+        for (usize i = 0; i < t.Size() && pos < 46; ++i) buf[pos++] = t[i];
+        buf[pos] = 0;
+        pickEcho->SetText(StringView(buf));
+    });
+
+    // --- Tab 2: a radio group + a checkbox ---
+    auto opts = MakeRef<gui::LinearLayout>(DefaultAllocator());
+    opts->SetPadding(gui::Thickness{ 10.0f });
+    opts->SetSpacing(8.0f);
+
+    const char8_t* choices[3] = { u8"Low", u8"Medium", u8"High" };
+    for (const char8_t* c : choices)
+    {
+        auto row = MakeRef<gui::LinearLayout>(DefaultAllocator());
+        row->SetOrientation(gui::Orientation::Horizontal);
+        row->SetSize(Float2{ 260.0f, 24.0f });
+        row->SetSpacing(8.0f);
+
+        auto radio = MakeRef<gui::RadioButton>(DefaultAllocator());
+        radio->SetSize(Float2{ 20.0f, 20.0f });
+        m_radioGroup.Add(radio.Get());
+        row->AddChild(radio.Get());
+
+        auto lbl = MakeRef<gui::Label>(DefaultAllocator());
+        lbl->SetSize(Float2{ 200.0f, 22.0f });
+        lbl->SetFont(m_font);
+        lbl->SetTextColor(Col(0.85f, 0.88f, 0.92f));
+        lbl->SetText(StringView(c));
+        row->AddChild(lbl.Get());
+        opts->AddChild(row.Get());
+    }
+
+    auto checkRow2 = MakeRef<gui::LinearLayout>(DefaultAllocator());
+    checkRow2->SetOrientation(gui::Orientation::Horizontal);
+    checkRow2->SetSize(Float2{ 260.0f, 24.0f });
+    checkRow2->SetSpacing(8.0f);
+    auto check2 = MakeRef<gui::CheckBox>(DefaultAllocator());
+    check2->SetSize(Float2{ 20.0f, 20.0f });
+    check2->SetTooltip(u8"A checkbox with a tooltip");
+    checkRow2->AddChild(check2.Get());
+    auto check2Label = MakeRef<gui::Label>(DefaultAllocator());
+    check2Label->SetSize(Float2{ 200.0f, 22.0f });
+    check2Label->SetFont(m_font);
+    check2Label->SetTextColor(Col(0.85f, 0.88f, 0.92f));
+    check2Label->SetText(u8"Enable feature");
+    checkRow2->AddChild(check2Label.Get());
+    opts->AddChild(checkRow2.Get());
+
+    // --- Tab 3: an Image (a generated checker) in Fit mode ---
+    auto picTab = MakeRef<gui::UIWidget>(DefaultAllocator());
+    {
+        // Build a 16x16 RGBA checker/gradient image the Image widget can display.
+        static u8 pixels[16 * 16 * 4];
+        for (i32 y = 0; y < 16; ++y)
+            for (i32 x = 0; x < 16; ++x)
+            {
+                const usize o = static_cast<usize>((y * 16 + x) * 4);
+                const bool checker = ((x / 4) + (y / 4)) % 2 == 0;
+                pixels[o + 0] = static_cast<u8>(checker ? 40 + x * 12 : 20);
+                pixels[o + 1] = static_cast<u8>(checker ? 90 : 40 + y * 12);
+                pixels[o + 2] = static_cast<u8>(checker ? 160 : 80);
+                pixels[o + 3] = 255;
+            }
+        m_showcaseImage = MakeUnique<image::OwnedImageData>(DefaultAllocator(), 16, 16,
+            image::PixelFormat::RGBA8, Span<const u8>(pixels, sizeof(pixels)));
+        m_showcaseDrawable = MakeRef<gui::ImageDrawable>(DefaultAllocator(), m_showcaseImage.Get());
+    }
+    auto imageView = MakeRef<gui::Image>(DefaultAllocator());
+    imageView->SetSize(Float2{ 260.0f, 200.0f });
+    imageView->SetPadding(gui::Thickness{ 12.0f });
+    imageView->SetDrawable(m_showcaseDrawable);
+    imageView->SetScaleMode(gui::ImageScaleMode::Fit);
+    imageView->SetTooltip(u8"An Image widget (Fit mode)");
+    picTab->AddChild(imageView.Get());
+
+    tabs->AddTab(u8"Pick", pick.Get());
+    tabs->AddTab(u8"Opts", opts.Get());
+    tabs->AddTab(u8"Pic", picTab.Get());
+
+    // A right-click context menu on the main panel.
+    m_contextMenu = MakeRef<gui::Menu>(DefaultAllocator());
+    m_contextMenu->SetFont(m_font);
+    m_contextMenu->SetWidth(180.0f);
+    GUISandbox* self = this;
+    m_contextMenu->AddItem(u8"Add +1 to counter", [self]() { ++self->m_clicks; SetCounterText(self->m_counter.Get(), self->m_clicks); });
+    m_contextMenu->AddItem(u8"Reset counter", [self]() { self->m_clicks = 0; SetCounterText(self->m_counter.Get(), 0); });
+    m_contextMenu->AddItem(u8"Toggle widgets window", [self]() { self->m_widgetWindow->SetVisible(!self->m_widgetWindow->IsVisible()); });
+
+    // Open the context menu on a right-click of the empty panel background (a node listener on
+    // the panel, so right-clicking a widget or the floating window does NOT open it). The menu
+    // has no persistent owner, so any click outside it dismisses; right-clicking another empty
+    // spot dismisses the old one and the listener reopens it there.
+    gui::Menu* menuPtr = m_contextMenu.Get();
+    gui::LinearLayout* panelPtr = m_panel.Get();
+    m_panel->AddEventListener(gui::EventType::MouseDown, [menuPtr, panelPtr](const gui::Event& e)
+    {
+        const gui::MouseEvent& me = static_cast<const gui::MouseEvent&>(e);
+        if (me.Button == gui::MouseButton::Right) menuPtr->Open(*panelPtr, me.Position);
+    });
+
+    // Tooltips: ticked each frame in OnRender.
+    m_tooltips = MakeUnique<gui::TooltipManager>(DefaultAllocator());
+    m_tooltips->SetFont(m_font);
+    m_tooltips->SetDelay(0.4);
 }
 
 void GUISandbox::OnRender()
@@ -464,6 +659,7 @@ void GUISandbox::OnRender()
     m_root->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
     m_panel->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
     m_root->Update(Duration::FromSeconds(static_cast<f64>(m_deltaTime)));
+    if (m_tooltips) m_tooltips->Update(*m_root->GetEventDispatcher(), *m_root.Get(), static_cast<f64>(m_deltaTime));
     m_styles.ApplyTree(*m_root.Get());
 
     // Draw the tree into the VG batch.
@@ -523,6 +719,12 @@ void GUISandbox::OnShutdown()
     m_echo.Reset();
     m_scroll.Reset();
     m_relative.Reset();
+    m_tooltips.Reset();
+    m_contextMenu.Reset();
+    m_widgetWindow.Reset();
+    m_pickEcho.Reset();
+    m_showcaseDrawable.Reset();
+    m_showcaseImage.Reset();
     m_panel.Reset();
     m_renderer.Dispose();
     m_vg.Reset();

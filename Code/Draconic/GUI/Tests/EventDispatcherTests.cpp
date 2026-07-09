@@ -214,3 +214,26 @@ TEST_CASE("dispatch: Tab is consumed (not routed) but other keys still reach the
     d->InjectKeyDown(static_cast<core::u32>(KeyCode::Home)); // a real key routes through
     CHECK(otherKeys == 1);
 }
+
+TEST_CASE("dispatch: only the left button synthesizes a click (right/middle do not activate)")
+{
+    auto root = MakeScene(core::Float2{ 200.0f, 200.0f });
+    auto child = MakePanel(core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
+    root->AddChild(child.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    int clicks = 0, downs = 0;
+    child->AddEventListener(EventType::MouseClick, [&](const Event&) { ++clicks; });
+    child->AddEventListener(EventType::MouseDown, [&](const Event&) { ++downs; });
+
+    // Right-click: down+up are delivered, but no click (no activation).
+    d->InjectMouseDown(core::Float2{ 10.0f, 10.0f }, MouseButton::Right);
+    d->InjectMouseUp(core::Float2{ 10.0f, 10.0f }, MouseButton::Right);
+    CHECK(downs == 1);
+    CHECK(clicks == 0);
+
+    // Left-click activates.
+    d->InjectMouseDown(core::Float2{ 10.0f, 10.0f }, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{ 10.0f, 10.0f }, MouseButton::Left);
+    CHECK(clicks == 1);
+}

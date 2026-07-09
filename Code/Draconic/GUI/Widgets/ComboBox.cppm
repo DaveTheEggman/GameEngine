@@ -20,6 +20,7 @@ import :event;
 import :draw_context;
 import :text;
 import :node;
+import :rectangle_drawable;
 import :ui_widget;
 import :list_box;
 import :event_dispatcher;
@@ -39,6 +40,8 @@ export namespace draconic::gui
         {
             SetTag(core::StringView(u8"combobox"));
             SetTabFocusable(true);
+            // A visible box so it reads as a control even before it is opened.
+            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_boxColor));
             m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle);
         }
 
@@ -150,6 +153,7 @@ export namespace draconic::gui
         bool m_open = false;
         f32 m_itemHeight = 24.0f;
         f32 m_dropdownMaxHeight = 160.0f;
+        Color m_boxColor{ 0.18f, 0.20f, 0.25f, 1.0f };
         Color m_arrowColor{ 0.75f, 0.80f, 0.86f, 1.0f };
         core::Function<void(i32)> m_onChanged;
     };

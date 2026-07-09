@@ -53,7 +53,7 @@ export namespace draconic::gui
         // BEFORE the routed OnMouseMove, so gating the move on IsPressed() would stop the
         // drag the instant the cursor left. Pointer capture guarantees the release reaches
         // us, so OnMouseUp reliably clears m_dragging.
-        void OnMouseDown(const MouseEvent& event) override { UINode::OnMouseDown(event); m_dragging = true; UpdateFromEvent(event); }
+        void OnMouseDown(const MouseEvent& event) override { UINode::OnMouseDown(event); if (event.Button != MouseButton::Left) return; m_dragging = true; UpdateFromEvent(event); }
         void OnMouseMove(const MouseEvent& event) override { if (m_dragging) UpdateFromEvent(event); }
         void OnMouseUp(const MouseEvent& event) override { m_dragging = false; UINode::OnMouseUp(event); }
 

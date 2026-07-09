@@ -96,3 +96,52 @@ TEST_CASE("menu: outside click and Escape dismiss it")
     d->InjectKeyDown(static_cast<core::u32>(KeyCode::Escape));
     CHECK_FALSE(menu->IsOpen());
 }
+
+TEST_CASE("menu: an outside click dismisses even when the opener covers the click point")
+{
+    // Regression: the context menu was opened with the full-window panel as its popup owner,
+    // so clicks anywhere on the panel counted as "on the owner" and never dismissed. A menu
+    // has no persistent owner - any press outside the menu itself must close it.
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 400.0f, 400.0f });
+    auto panel = Make<UIWidget>();
+    panel->SetSize(core::Float2{ 400.0f, 400.0f }); // covers the whole area (like the sandbox panel)
+    root->AddChild(panel.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    auto menu = Make<Menu>();
+    menu->SetItemHeight(26.0f);
+    menu->AddItem(core::StringView(u8"One"), [] {});
+    menu->Open(*panel, core::Float2{ 50.0f, 50.0f });
+    REQUIRE(menu->IsOpen());
+
+    // Left-click on the panel, well away from the menu -> dismissed.
+    d->InjectMouseDown(core::Float2{ 300.0f, 300.0f }, MouseButton::Left);
+    CHECK_FALSE(menu->IsOpen());
+    CHECK(d->GetPopup() == nullptr);
+}
+
+TEST_CASE("menu: can be reopened after being dismissed")
+{
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 400.0f, 400.0f });
+    auto panel = Make<UIWidget>();
+    panel->SetSize(core::Float2{ 400.0f, 400.0f });
+    root->AddChild(panel.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    auto menu = Make<Menu>();
+    menu->AddItem(core::StringView(u8"One"), [] {});
+
+    menu->Open(*panel, core::Float2{ 40.0f, 40.0f });
+    REQUIRE(menu->IsOpen());
+    d->InjectMouseDown(core::Float2{ 300.0f, 300.0f }, MouseButton::Left); // dismiss
+    REQUIRE_FALSE(menu->IsOpen());
+
+    // Reopen at a new position - must work and re-register as the popup.
+    menu->Open(*panel, core::Float2{ 120.0f, 90.0f });
+    CHECK(menu->IsOpen());
+    CHECK(d->GetPopup() == menu.Get());
+    CHECK(menu->GetParent() == root.Get());
+    CHECK(menu->GetPosition().x == doctest::Approx(120.0f));
+}
