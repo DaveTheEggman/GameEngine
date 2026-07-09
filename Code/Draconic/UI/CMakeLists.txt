@@ -35,6 +35,12 @@ target_sources(DraconicUI
             Drawing/AtlasImageDrawable.cppm
             Drawing/AtlasNineSliceDrawable.cppm
             Drawing/SVGDrawable.cppm
+            Layout/Unit.cppm
+            Layout/SizeSpec.cppm
+            Layout/BoxConstraints.cppm
+            Layout/Gravity.cppm
+            Layout/GravityHelper.cppm
+            Layout/LayoutParams.cppm
             UIModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

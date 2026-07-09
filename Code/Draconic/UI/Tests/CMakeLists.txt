@@ -5,7 +5,12 @@ add_executable(DraconicUITests
     ViewTransformTests.cpp
     ViewIdTests.cpp
     PropertyTests.cpp
-    DrawableTests.cpp)
+    DrawableTests.cpp
+    UnitTests.cpp
+    SizeSpecTests.cpp
+    BoxConstraintsTests.cpp
+    GravityTests.cpp
+    GravityHelperTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
     Draconic::UI doctest::doctest)
