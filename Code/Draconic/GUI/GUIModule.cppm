@@ -53,3 +53,4 @@ export import :ui_widget;
 export import :style_selector;
 export import :style_rule;
 export import :style_sheet;
+export import :css_parser;
