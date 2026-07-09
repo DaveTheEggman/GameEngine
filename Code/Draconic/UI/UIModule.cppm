@@ -14,3 +14,8 @@ export import :enums;
 export import :thickness;
 export import :view_transform;
 export import :view_id;
+export import :event;
+export import :property_owner;
+export import :property;
+export import :icommand;
+export import :iclipboard;

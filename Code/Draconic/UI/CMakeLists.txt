@@ -14,6 +14,11 @@ target_sources(DraconicUI
             Core/Thickness.cppm
             Core/ViewTransform.cppm
             Core/ViewId.cppm
+            Core/Event.cppm
+            Core/IPropertyOwner.cppm
+            Core/Property.cppm
+            Core/ICommand.cppm
+            Core/IClipboard.cppm
             UIModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
