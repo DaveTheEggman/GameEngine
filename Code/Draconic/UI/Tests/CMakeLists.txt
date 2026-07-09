@@ -2,7 +2,8 @@
 add_executable(DraconicUITests
     TestsMain.cpp
     UICoreTests.cpp
-    PropertyTests.cpp)
+    PropertyTests.cpp
+    DrawableTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
     Draconic::UI doctest::doctest)

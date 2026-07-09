@@ -5,7 +5,7 @@ add_library(DraconicUI STATIC)
 add_library(Draconic::UI ALIAS DraconicUI)
 
 target_link_libraries(DraconicUI
-    PUBLIC Draconic::Core Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VG Draconic::Fonts Draconic::Policy)
 
 target_sources(DraconicUI
     PUBLIC
@@ -19,6 +19,11 @@ target_sources(DraconicUI
             Core/Property.cppm
             Core/ICommand.cppm
             Core/IClipboard.cppm
+            Debug/UIDebugDrawSettings.cppm
+            Drawing/ControlState.cppm
+            Drawing/UIDrawContext.cppm
+            Drawing/Drawable.cppm
+            Drawing/ColorDrawable.cppm
             UIModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

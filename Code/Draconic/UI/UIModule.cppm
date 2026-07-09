@@ -19,3 +19,8 @@ export import :property_owner;
 export import :property;
 export import :icommand;
 export import :iclipboard;
+export import :debug_settings;
+export import :control_state;
+export import :draw_context;
+export import :drawable;
+export import :color_drawable;
