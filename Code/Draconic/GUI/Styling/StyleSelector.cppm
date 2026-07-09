@@ -18,6 +18,7 @@ export module draconic.gui:style_selector;
 import draconic.core;   // String, StringView, Array, i64, Cast
 import :node;
 import :ui_widget;
+import :parse_util;   // IsIdentChar, ReadIdent
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -28,22 +29,6 @@ namespace draconic::gui
     inline constexpr i64 kSpecificityId = 1048576;
     inline constexpr i64 kSpecificityClass = 1024;
     inline constexpr i64 kSpecificityTag = 1;
-
-    [[nodiscard]] constexpr bool IsSpace(char8_t c) noexcept
-    {
-        return c == u8' ' || c == u8'\t' || c == u8'\n' || c == u8'\r';
-    }
-    [[nodiscard]] constexpr bool IsIdentChar(char8_t c) noexcept
-    {
-        return (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z')
-            || (c >= u8'0' && c <= u8'9') || c == u8'-' || c == u8'_';
-    }
-    [[nodiscard]] inline core::StringView ReadIdent(core::StringView s, usize& i) noexcept
-    {
-        const usize start = i;
-        while (i < s.Size() && IsIdentChar(s[i])) ++i;
-        return s.SubStr(start, i - start);
-    }
 }
 
 export namespace draconic::gui
@@ -200,12 +185,12 @@ export namespace draconic::gui
             Combinator combinator = Combinator::Descendant; // relates the next fragment to the previous
             while (i < n)
             {
-                while (i < n && IsSpace(selector[i])) ++i;
+                while (i < n && IsWhiteSpace(selector[i])) ++i;
                 if (i >= n) break;
                 if (selector[i] == u8'>') { combinator = Combinator::Child; ++i; continue; }
 
                 const usize start = i;
-                while (i < n && !IsSpace(selector[i]) && selector[i] != u8'>') ++i;
+                while (i < n && !IsWhiteSpace(selector[i]) && selector[i] != u8'>') ++i;
                 m_rules.PushBack(StyleSelectorRule(selector.SubStr(start, i - start), combinator));
                 combinator = Combinator::Descendant;
             }

@@ -19,20 +19,6 @@ namespace core = draconic::core;
 
 namespace draconic::gui
 {
-    [[nodiscard]] constexpr bool IsWs(char8_t c) noexcept
-    {
-        return c == u8' ' || c == u8'\t' || c == u8'\n' || c == u8'\r' || c == u8'\f';
-    }
-
-    // Trim leading/trailing whitespace.
-    [[nodiscard]] inline core::StringView Trim(core::StringView s) noexcept
-    {
-        usize begin = 0, end = s.Size();
-        while (begin < end && IsWs(s[begin])) ++begin;
-        while (end > begin && IsWs(s[end - 1])) --end;
-        return s.SubStr(begin, end - begin);
-    }
-
     // Remove /* ... */ comments (run-copied so indices in the result are contiguous).
     [[nodiscard]] inline core::String StripComments(core::StringView s)
     {

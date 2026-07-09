@@ -37,10 +37,13 @@ target_sources(DraconicGUI
             Text/Text.cppm
             Widgets/UINode.cppm
             Widgets/UIWidget.cppm
+            Styling/ParseUtil.cppm
             Styling/StyleSelector.cppm
             Styling/StyleRule.cppm
             Styling/StyleSheet.cppm
             Styling/CSSParser.cppm
+            Styling/CSSValues.cppm
+            Styling/StyleApplier.cppm
             GUIModule.cppm
     PRIVATE
         # Module implementation unit: Node method bodies that call the EventDispatcher

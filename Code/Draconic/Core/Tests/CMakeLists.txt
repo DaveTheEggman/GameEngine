@@ -16,6 +16,7 @@ add_executable(DraconicCoreTests
     ContainersTests.cpp
     SimdMathTests.cpp
     StringTests.cpp
+    StringUtilTests.cpp
     FormatLogTests.cpp
     MathTests.cpp
     RandomTests.cpp

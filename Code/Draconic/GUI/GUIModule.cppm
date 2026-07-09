@@ -50,7 +50,10 @@ export import :ui_node;
 export import :ui_widget;
 
 // CSS styling (Phase 6)
+export import :parse_util;
 export import :style_selector;
 export import :style_rule;
 export import :style_sheet;
 export import :css_parser;
+export import :css_values;
+export import :style_applier;
