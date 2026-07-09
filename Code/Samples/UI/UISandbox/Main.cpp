@@ -149,6 +149,102 @@ float4 main(PSInput input) : SV_Target {
         }
     };
 
+    class DragChip; // fwd
+
+    // Custom drag payload carrying the source chip. No DRACONIC_OBJECT (sample TU) - the drop targets
+    // guard on Format() == "demo/chip" and static_cast, since only chips produce that format.
+    class ChipDragData final : public draconic::ui::DragData
+    {
+    public:
+        DragChip* SourceChip;
+        explicit ChipDragData(DragChip* source) : draconic::ui::DragData(u8"demo/chip"), SourceChip(source) {}
+    };
+
+    // A draggable coloured chip (ColorView + IDragSource).
+    class DragChip final : public draconic::ui::ColorView, public draconic::ui::IDragSource
+    {
+    public:
+        explicit DragChip(draconic::core::Color color) : draconic::ui::ColorView(color, 30.0f, 30.0f) {}
+        [[nodiscard]] draconic::ui::IDragSource* AsDragSource() override { return this; }
+        [[nodiscard]] RefPtr<draconic::ui::DragData> CreateDragData() override { return MakeRef<ChipDragData>(DefaultAllocator(), this); }
+        [[nodiscard]] RefPtr<draconic::ui::View> CreateDragVisual(draconic::ui::DragData*) override
+        {
+            auto panel = MakeRef<draconic::ui::Panel>(DefaultAllocator());
+            panel->Padding = draconic::ui::Thickness{ 6, 2 };
+            panel->SetStyle(draconic::ui::StyleProperty::Background, RefPtr<draconic::ui::Drawable>(MakeRef<draconic::ui::ColorDrawable>(DefaultAllocator(), Color.Value())));
+            panel->AddView(MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"chip")).Get());
+            return panel;
+        }
+        void OnDragStarted(draconic::ui::DragData*) override { Opacity = 0.4f; }
+        void OnDragCompleted(draconic::ui::DragData*, draconic::ui::DragDropEffects, bool) override { Opacity = 1.0f; }
+    };
+
+    // A container that accepts chip drops and reorders by swapping colours (FlexLayout + IDropTarget).
+    class ChipReorderContainer final : public draconic::ui::FlexLayout, public draconic::ui::IDropTarget
+    {
+    public:
+        [[nodiscard]] draconic::ui::IDropTarget* AsDropTarget() override { return this; }
+        [[nodiscard]] draconic::ui::DragDropEffects CanAcceptDrop(draconic::ui::DragData* data, f32, f32) override { return data->Format() == StringView(u8"demo/chip") ? draconic::ui::DragDropEffects::Move : draconic::ui::DragDropEffects::None; }
+        void OnDragEnter(draconic::ui::DragData*, f32, f32) override {}
+        void OnDragOver(draconic::ui::DragData*, f32, f32) override {}
+        void OnDragLeave(draconic::ui::DragData*) override {}
+        [[nodiscard]] draconic::ui::DragDropEffects OnDrop(draconic::ui::DragData* data, f32 localX, f32) override
+        {
+            if (data->Format() != StringView(u8"demo/chip")) { return draconic::ui::DragDropEffects::None; }
+            DragChip* source = static_cast<ChipDragData*>(data)->SourceChip;
+            for (usize i = 0; i < ChildCount(); ++i)
+            {
+                draconic::ui::View* child = GetChildAt(i);
+                if (localX >= child->Bounds.x && localX < child->Bounds.x + child->Width())
+                {
+                    DragChip* target = static_cast<DragChip*>(child);
+                    if (target != source)
+                    {
+                        const draconic::core::Color tmp = source->Color.Value();
+                        source->Color.SetValue(target->Color.Value());
+                        target->Color.SetValue(tmp);
+                    }
+                    return draconic::ui::DragDropEffects::Move;
+                }
+            }
+            return draconic::ui::DragDropEffects::None;
+        }
+    };
+
+    // A drop box that recolours to the dropped chip's colour (View + IDropTarget).
+    class ColorDropBox final : public draconic::ui::View, public draconic::ui::IDropTarget
+    {
+    public:
+        [[nodiscard]] draconic::ui::IDropTarget* AsDropTarget() override { return this; }
+        void OnDraw(draconic::ui::UIDrawContext& ctx) override
+        {
+            const Rectangle bounds{ 0, 0, Width(), Height() };
+            ctx.VG().FillRoundedRect(bounds, 4.0f, m_bg);
+            ctx.VG().StrokeRoundedRect(bounds, 4.0f, Color{ 70.0f / 255.0f, 75.0f / 255.0f, 85.0f / 255.0f, 1.0f }, 1.0f);
+            if (ctx.FontService() != nullptr)
+            {
+                if (fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), 12.0f))
+                {
+                    ctx.VG().DrawText(m_text.AsView(), font, bounds, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
+                }
+            }
+        }
+        [[nodiscard]] draconic::ui::DragDropEffects CanAcceptDrop(draconic::ui::DragData* data, f32, f32) override { return data->Format() == StringView(u8"demo/chip") ? draconic::ui::DragDropEffects::Copy : draconic::ui::DragDropEffects::None; }
+        void OnDragEnter(draconic::ui::DragData*, f32, f32) override { m_text = String(u8"Release!"); Invalidate(); }
+        void OnDragOver(draconic::ui::DragData*, f32, f32) override {}
+        void OnDragLeave(draconic::ui::DragData*) override { m_text = String(u8"Drop here"); Invalidate(); }
+        [[nodiscard]] draconic::ui::DragDropEffects OnDrop(draconic::ui::DragData* data, f32, f32) override
+        {
+            if (data->Format() == StringView(u8"demo/chip")) { m_bg = static_cast<ChipDragData*>(data)->SourceChip->Color.Value(); m_text = String(u8"Dropped!"); Invalidate(); }
+            return draconic::ui::DragDropEffects::Copy;
+        }
+    protected:
+        void OnMeasure(draconic::ui::BoxConstraints constraints) override { MeasuredSize = Float2{ constraints.ConstrainWidth(constraints.MaxWidth), constraints.ConstrainHeight(30) }; }
+    private:
+        String m_text = String(u8"Drop here");
+        Color m_bg{ 50.0f / 255.0f, 55.0f / 255.0f, 65.0f / 255.0f, 1.0f };
+    };
+
     // A bordered area that opens a nested ContextMenu on right-click.
     class ContextMenuDemoArea final : public draconic::ui::View
     {
@@ -299,6 +395,7 @@ private:
     void BuildTextInputTab(ui::TabView* tabView);
     void BuildDataControlsTab(ui::TabView* tabView);
     void BuildOverlaysTab(ui::TabView* tabView);
+    void BuildDragDropTab(ui::TabView* tabView);
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
     shaders::Compiler* m_compiler = nullptr;
@@ -407,6 +504,36 @@ void UISandbox::BuildUI()
     BuildTextInputTab(tabView.Get());
     BuildDataControlsTab(tabView.Get());
     BuildOverlaysTab(tabView.Get());
+    BuildDragDropTab(tabView.Get());
+}
+
+// === Tab 8: Drag & Drop (reorderable chips + a colour drop box) ===
+void UISandbox::BuildDragDropTab(ui::TabView* tabView)
+{
+    using ui::SizeSpec;
+    using ui::Unit;
+
+    auto demo = VFlex(8.0f);
+    demo->Padding = ui::Thickness{ 12, 8 };
+    tabView->AddTab(u8"Drag & Drop", demo.Get());
+
+    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Drag chips to reorder, or drop onto the box")).Get());
+    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+
+    auto row = HFlex(8.0f);
+
+    auto chips = MakeRef<ChipReorderContainer>(DefaultAllocator());
+    chips->Direction = ui::Orientation::Horizontal;
+    chips->Spacing = 4.0f;
+    const Color chipColors[5] = {
+        Color{ 220.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f }, Color{ 60.0f / 255.0f, 180.0f / 255.0f, 60.0f / 255.0f, 1.0f },
+        Color{ 60.0f / 255.0f, 100.0f / 255.0f, 220.0f / 255.0f, 1.0f }, Color{ 220.0f / 255.0f, 180.0f / 255.0f, 40.0f / 255.0f, 1.0f },
+        Color{ 180.0f / 255.0f, 60.0f / 255.0f, 220.0f / 255.0f, 1.0f } };
+    for (const Color& c : chipColors) { chips->AddView(MakeRef<DragChip>(DefaultAllocator(), c).Get(), LP(SizeSpec::Fixed(Unit::Px(30)), SizeSpec::Fixed(Unit::Px(30)))); }
+    row->AddView(chips.Get());
+
+    { auto p = Grow(1); p->Height = SizeSpec::Fixed(Unit::Px(30)); row->AddView(MakeRef<ColorDropBox>(DefaultAllocator()).Get(), p); }
+    demo->AddView(row.Get());
 }
 
 // === Tab 7: Overlays (ComboBox / Dialog / ContextMenu / Tooltips) ===
