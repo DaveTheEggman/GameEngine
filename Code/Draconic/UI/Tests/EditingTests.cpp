@@ -1,5 +1,7 @@
-// Ported from Sedulous.UI.Tests/src/InputFilterTests.bf (faithful; Beef `scope`/`new` -> value,
-// delegate -> lambda). char literals are char32_t (U'...').
+// Editing subsystem tests. InputFilter cases are a faithful port of Sedulous.UI.Tests/src/
+// InputFilterTests.bf (Beef `scope`/`new` -> value, delegate -> lambda; char literals are char32_t
+// U'...'). UndoStack has no upstream test file (Sedulous exercises it only through EditText), so its
+// cases below are direct unit coverage for the ported primitive.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -51,4 +53,96 @@ TEST_CASE("input-filter: Custom_UsesDelegate")
     CHECK(filter.Accept(U'y'));
     CHECK(!filter.Accept(U'z'));
     CHECK(!filter.Accept(U'a'));
+}
+
+// === UndoStack (no upstream test file; exercised by EditText - direct coverage for the primitive) ===
+
+TEST_CASE("undo-stack: PushState then Undo restores the pushed snapshot")
+{
+    UndoStack stack;
+    CHECK(!stack.CanUndo());
+    CHECK(!stack.CanRedo());
+
+    stack.PushState(u8"a", 1, 1);
+    CHECK(stack.CanUndo());
+    CHECK(stack.UndoCount() == 1);
+
+    core::String out;
+    core::i32 cursor = 0, anchor = 0;
+    const bool ok = stack.Undo(u8"ab", 2, 2, out, cursor, anchor);
+    CHECK(ok);
+    CHECK(out == u8"a");
+    CHECK(cursor == 1);
+    CHECK(anchor == 1);
+    CHECK(!stack.CanUndo());
+    CHECK(stack.CanRedo()); // the "ab" state went onto redo
+}
+
+TEST_CASE("undo-stack: Redo restores the state undone away")
+{
+    UndoStack stack;
+    stack.PushState(u8"a", 1, 1);
+
+    core::String out;
+    core::i32 cursor = 0, anchor = 0;
+    stack.Undo(u8"ab", 2, 2, out, cursor, anchor);
+
+    // Redo should give back "ab" (the state that was current at Undo time).
+    core::String redoOut;
+    core::i32 rc = 0, ra = 0;
+    const bool ok = stack.Redo(out.AsView(), cursor, anchor, redoOut, rc, ra);
+    CHECK(ok);
+    CHECK(redoOut == u8"ab");
+    CHECK(rc == 2);
+    CHECK(ra == 2);
+    CHECK(stack.CanUndo());
+    CHECK(!stack.CanRedo());
+}
+
+TEST_CASE("undo-stack: PushState clears the redo stack")
+{
+    UndoStack stack;
+    stack.PushState(u8"a", 1, 1);
+
+    core::String out;
+    core::i32 cursor = 0, anchor = 0;
+    stack.Undo(u8"ab", 2, 2, out, cursor, anchor);
+    CHECK(stack.CanRedo());
+
+    stack.PushState(u8"new", 3, 3);
+    CHECK(!stack.CanRedo()); // redo cleared by the new push
+}
+
+TEST_CASE("undo-stack: capacity drops the oldest entry")
+{
+    UndoStack stack;
+    stack.SetMaxEntries(2);
+    CHECK(stack.MaxEntries() == 2);
+
+    stack.PushState(u8"one", 0, 0);
+    stack.PushState(u8"two", 0, 0);
+    stack.PushState(u8"three", 0, 0); // drops "one"
+    CHECK(stack.UndoCount() == 2);
+
+    core::String out;
+    core::i32 c = 0, a = 0;
+    stack.Undo(u8"cur", 0, 0, out, c, a);
+    CHECK(out == u8"three");
+    stack.Undo(out.AsView(), c, a, out, c, a);
+    CHECK(out == u8"two"); // "one" is gone
+    CHECK(!stack.CanUndo());
+}
+
+TEST_CASE("undo-stack: Undo/Redo on empty stacks return false")
+{
+    UndoStack stack;
+    core::String out;
+    core::i32 c = 0, a = 0;
+    CHECK(!stack.Undo(u8"x", 0, 0, out, c, a));
+    CHECK(!stack.Redo(u8"x", 0, 0, out, c, a));
+
+    stack.PushState(u8"a", 0, 0);
+    stack.Clear();
+    CHECK(!stack.CanUndo());
+    CHECK(!stack.CanRedo());
 }
