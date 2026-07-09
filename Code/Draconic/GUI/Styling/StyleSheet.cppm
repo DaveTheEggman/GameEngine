@@ -85,12 +85,35 @@ export namespace draconic::gui
         Array<StyleProperty> m_props;
     };
 
+    // One @keyframes stop: an offset in [0,1] (0% .. 100%, from/to) + its declarations.
+    struct KeyframeStop
+    {
+        f32 Offset = 0.0f;
+        Array<StyleProperty> Properties;
+    };
+
+    // A named @keyframes animation: an ordered list of stops.
+    struct Keyframes
+    {
+        core::String Name;
+        Array<KeyframeStop> Stops;
+    };
+
     class StyleSheet
     {
     public:
         void AddRule(StyleRule rule) { m_rules.PushBack(core::Move(rule)); }
         [[nodiscard]] usize RuleCount() const noexcept { return m_rules.Size(); }
         [[nodiscard]] const Array<StyleRule>& Rules() const noexcept { return m_rules; }
+
+        void AddKeyframes(Keyframes keyframes) { m_keyframes.PushBack(core::Move(keyframes)); }
+        [[nodiscard]] usize KeyframesCount() const noexcept { return m_keyframes.Size(); }
+        [[nodiscard]] const Keyframes* FindKeyframes(core::StringView name) const
+        {
+            for (const Keyframes& k : m_keyframes)
+                if (k.Name.AsView() == name) return &k;
+            return nullptr;
+        }
 
         // Resolve the cascade for `element`. With `pseudoElement` empty this is the element's
         // own style (rules with no ::part); pass a part name (e.g. "thumb") to resolve the
@@ -129,5 +152,6 @@ export namespace draconic::gui
 
     private:
         Array<StyleRule> m_rules;
+        Array<Keyframes> m_keyframes;
     };
 }

@@ -15,16 +15,19 @@ module;
 
 export module draconic.gui:style_manager;
 
-import draconic.core;    // HashMap, Cast, Move, Array, StringView
+import draconic.core;    // HashMap, Cast, Move, Array, StringView, Float2, Duration, MakeRef
 import draconic.fonts;   // IFontService
 import :node;
 import :ui_node;
 import :ui_widget;
+import :style_rule;      // StyleProperty
 import :style_sheet;
 import :media_query;
 import :style_applier;
 import :transition;
 import :resource_provider;
+import :css_values;      // ParseLength
+import :actions;         // KeyframeAction
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -71,6 +74,10 @@ export namespace draconic::gui
                 const ResolvedStyle partStyle = m_sheet.Resolve(widget, m_context, true, part);
                 ApplyPartStyle(widget, part, partStyle);
             }
+
+            // @keyframes animation: spawn a KeyframeAction when the `animation` property names
+            // one, and only once per (widget, animation-name) so ApplyTree doesn't re-spawn it.
+            ApplyAnimation(widget, resolved);
         }
 
         // Apply to every UIWidget in the subtree.
@@ -84,14 +91,79 @@ export namespace draconic::gui
         }
 
         // Drop a widget's cached style (call before it is destroyed).
-        void Forget(Node* widget) { m_cache.Remove(widget); }
-        void Clear() { m_cache = {}; }
+        void Forget(Node* widget) { m_cache.Remove(widget); m_animations.Remove(widget); }
+        void Clear() { m_cache = {}; m_animations = {}; }
 
     private:
+        // Spawn the @keyframes animation named by the `animation` property (if any), once.
+        void ApplyAnimation(UIWidget& widget, const ResolvedStyle& style)
+        {
+            if (!style.Has(core::StringView(u8"animation")))
+            {
+                m_animations.Remove(&widget); // (a running loop keeps going; re-appearance re-spawns)
+                return;
+            }
+            core::String name; f32 durationSecs = 0.0f; bool loop = false;
+            if (!ParseAnimation(style.Get(core::StringView(u8"animation")), name, durationSecs, loop)) return;
+
+            const core::String* running = m_animations.Find(&widget);
+            if (running != nullptr && running->AsView() == name.AsView()) return; // already running this one
+
+            const Keyframes* kf = m_sheet.FindKeyframes(name.AsView());
+            if (kf == nullptr) return;
+            widget.RunAction(core::MakeRef<KeyframeAction>(core::DefaultAllocator(),
+                ExtractOpacityTrack(*kf), core::Duration::FromSeconds(static_cast<f64>(durationSecs)), loop));
+            m_animations.InsertOrAssign(&widget, core::Move(name));
+        }
+
+        // Parse `animation: name duration [infinite]` (timing/direction/etc. ignored for v1).
+        [[nodiscard]] static bool ParseAnimation(core::StringView value, core::String& name, f32& durationSecs, bool& loop)
+        {
+            bool haveName = false;
+            usize start = 0;
+            const usize n = value.Size();
+            for (usize i = 0; i <= n; ++i)
+            {
+                if (i == n || IsWhiteSpace(value[i]))
+                {
+                    if (i > start)
+                    {
+                        const core::StringView tok = value.SubStr(start, i - start);
+                        if (!haveName) { name = core::String(tok); haveName = true; }
+                        else if (tok == core::StringView(u8"infinite")) loop = true;
+                        else if (Optional<f32> d = ParseLength(tok); d.HasValue()) durationSecs = d.Value();
+                    }
+                    start = i + 1;
+                }
+            }
+            return haveName;
+        }
+
+        // Pull the opacity track {offset, opacity} from a keyframes definition, sorted by offset.
+        [[nodiscard]] static Array<core::Float2> ExtractOpacityTrack(const Keyframes& kf)
+        {
+            Array<core::Float2> track;
+            for (const KeyframeStop& stop : kf.Stops)
+                for (const StyleProperty& p : stop.Properties)
+                    if (p.Name.AsView() == core::StringView(u8"opacity"))
+                        if (Optional<f32> o = ParseLength(p.Value.AsView()); o.HasValue())
+                            track.PushBack(core::Float2{ stop.Offset, o.Value() });
+
+            for (usize a = 1; a < track.Size(); ++a) // insertion sort by offset
+            {
+                const core::Float2 key = track[a];
+                usize b = a;
+                while (b > 0 && track[b - 1].x > key.x) { track[b] = track[b - 1]; --b; }
+                track[b] = key;
+            }
+            return track;
+        }
+
         StyleSheet m_sheet;
         MediaContext m_context;
         IResourceProvider* m_resources = nullptr;    // non-owning; loads background-image assets
         fonts::IFontService* m_fontService = nullptr; // non-owning; resolves font-family
         HashMap<Node*, ResolvedStyle> m_cache; // last-applied style per widget (non-owning keys)
+        HashMap<Node*, core::String> m_animations; // widget -> running @keyframes animation name
     };
 }

@@ -88,6 +88,64 @@ export namespace draconic::gui
     };
     DRACONIC_DEFINE_OBJECT(RunnableAction, "draconic::gui")
 
+    // Drives a CSS @keyframes animation: interpolates the target's opacity across a track of
+    // (offset, opacity) stops over `duration`, optionally looping forever. v1 animates opacity
+    // (the common case); other animatable tracks follow the same shape.
+    class KeyframeAction : public Action
+    {
+        DRACONIC_OBJECT(KeyframeAction, Action)
+    public:
+        // `track` holds {x = offset in [0,1], y = opacity}, in ascending offset order.
+        KeyframeAction(Array<core::Float2> track, core::Duration duration, bool loop) noexcept
+            : m_track(core::Move(track)), m_duration(duration), m_loop(loop) {}
+
+        void Start() override { m_elapsed = core::Duration{}; m_done = false; Apply(0.0f); }
+        void Stop() override { m_done = true; }
+
+        void Update(core::Duration elapsed) override
+        {
+            if (m_done) return;
+            m_elapsed += elapsed;
+            const f32 total = m_duration.AsSecondsF();
+            if (total <= 0.0f) { Apply(1.0f); m_done = true; FireDone(); return; }
+
+            const f32 cycles = m_elapsed.AsSecondsF() / total;
+            if (!m_loop && cycles >= 1.0f) { Apply(1.0f); m_done = true; FireDone(); return; }
+            const f32 t = m_loop ? (cycles - static_cast<f32>(static_cast<i64>(cycles))) : core::Min(cycles, 1.0f);
+            Apply(t);
+        }
+
+        [[nodiscard]] bool IsDone() override { return m_done; }
+        [[nodiscard]] f32 GetCurrentProgress() override { return m_duration.AsSecondsF() > 0.0f ? core::Min(m_elapsed.AsSecondsF() / m_duration.AsSecondsF(), 1.0f) : 1.0f; }
+        [[nodiscard]] core::Duration GetTotalTime() override { return m_duration; }
+
+    private:
+        void Apply(f32 t) { if (m_target) m_target->SetAlpha(OpacityAt(t)); }
+
+        [[nodiscard]] f32 OpacityAt(f32 t) const
+        {
+            if (m_track.Size() == 0) return 1.0f;
+            if (t <= m_track[0].x) return m_track[0].y;
+            for (usize i = 1; i < m_track.Size(); ++i)
+            {
+                if (t <= m_track[i].x)
+                {
+                    const f32 span = m_track[i].x - m_track[i - 1].x;
+                    const f32 lt = span > 0.0f ? (t - m_track[i - 1].x) / span : 0.0f;
+                    return m_track[i - 1].y + (m_track[i].y - m_track[i - 1].y) * lt;
+                }
+            }
+            return m_track[m_track.Size() - 1].y;
+        }
+
+        Array<core::Float2> m_track;
+        core::Duration m_duration;
+        core::Duration m_elapsed;
+        bool m_loop = false;
+        bool m_done = false;
+    };
+    DRACONIC_DEFINE_OBJECT(KeyframeAction, "draconic::gui")
+
     // Runs child actions one after another; done when the last finishes.
     class SequenceAction : public Action
     {
