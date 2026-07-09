@@ -59,6 +59,8 @@ export import :linear_layout;
 export import :grid_layout;
 export import :relative_layout;
 export import :text_field;
+export import :scroll_bar;
+export import :scroll_view;
 
 // CSS styling (Phase 6)
 export import :parse_util;

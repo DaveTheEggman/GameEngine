@@ -291,6 +291,12 @@ export namespace draconic::gui
         // drives the window's StartTextInput/StopTextInput accordingly. Default: false.
         [[nodiscard]] virtual bool WantsTextInput() const { return false; }
 
+        // True if this node consumes the mouse wheel (e.g. a ScrollView). The dispatcher
+        // bubbles a wheel event from the hit node up the ancestor chain to the nearest node
+        // that answers true, so scrolling works while hovering the scrolled content. Default:
+        // false.
+        [[nodiscard]] virtual bool WantsWheel() const { return false; }
+
         // Tab-navigation: whether Tab / Shift+Tab focus traversal can land on this node
         // (distinct from click focus, which targets whatever is hit). Interactive widgets
         // opt in; static nodes (labels, layouts) stay false. Modeled on eepp's

@@ -1,0 +1,122 @@
+// Draconic GUI - :scroll_bar partition
+//
+// ScrollBar: a draggable indicator of a scroll position in [0,1], with a thumb whose length
+// reflects the visible proportion (viewport / content). Modeled on eepp's UIScrollBar (role,
+// not a line-for-line port). Horizontal or vertical. Reuses the Slider's drag discipline: an
+// own m_dragging flag (set in OnMouseDown, cleared in an OnMouseUp override, gated in
+// OnMouseMove) so a captured drag that leaves the widget - firing OnMouseLeave, which clears
+// m_pressed - keeps tracking. Clicking the track jumps the thumb to the cursor.
+
+module;
+#include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
+
+export module draconic.gui:scroll_bar;
+
+import draconic.core;   // Color, Function, Move, Max, Min, Float2, Rectangle
+import draconic.vg;     // CornerRadii
+import :rect;
+import :event;
+import :draw_context;
+import :ui_widget;
+import :linear_layout; // Orientation
+
+using namespace draconic::core;
+namespace core = draconic::core;
+namespace vg = draconic::vg;
+
+export namespace draconic::gui
+{
+    class ScrollBar : public UIWidget
+    {
+        DRACONIC_OBJECT(ScrollBar, UIWidget)
+    public:
+        ScrollBar() { SetTag(core::StringView(u8"scrollbar")); }
+
+        void SetOrientation(Orientation orientation) { m_orientation = orientation; Invalidate(); }
+        [[nodiscard]] Orientation GetOrientation() const noexcept { return m_orientation; }
+
+        [[nodiscard]] f32 GetValue() const noexcept { return m_value; }
+        void SetValue(f32 value)
+        {
+            value = core::Max(0.0f, core::Min(1.0f, value));
+            if (value == m_value) return;
+            m_value = value;
+            Invalidate();
+            if (m_onChanged) m_onChanged(m_value);
+        }
+        void SetOnValueChanged(core::Function<void(f32)> callback) { m_onChanged = core::Move(callback); }
+
+        // Fraction of the track the thumb fills = viewport / content (clamped to [0,1]).
+        void SetThumbProportion(f32 proportion)
+        {
+            m_proportion = core::Max(0.0f, core::Min(1.0f, proportion));
+            Invalidate();
+        }
+        [[nodiscard]] f32 GetThumbProportion() const noexcept { return m_proportion; }
+
+        void SetTrackColor(Color color) { m_trackColor = color; Invalidate(); }
+        void SetThumbColor(Color color) { m_thumbColor = color; Invalidate(); }
+
+    protected:
+        void OnMouseDown(const MouseEvent& event) override { UINode::OnMouseDown(event); m_dragging = true; UpdateFromEvent(event); }
+        void OnMouseMove(const MouseEvent& event) override { if (m_dragging) UpdateFromEvent(event); }
+        void OnMouseUp(const MouseEvent& event) override { m_dragging = false; UINode::OnMouseUp(event); }
+
+        void OnDraw(DrawContext& ctx, const Rect& localBounds) override
+        {
+            (void)localBounds;
+            const Rect b = GetContentBounds();
+            const f32 track = TrackLength(b);
+            const f32 thumbLen = ThumbLength(track);
+            const f32 travel = core::Max(0.0f, track - thumbLen);
+            const f32 pos = travel * m_value;
+
+            ctx.VG().FillRoundedRect(b.ToRectangle(), Radii(b), m_trackColor);
+            const Rect thumb = (m_orientation == Orientation::Vertical)
+                ? Rect{ b.x, b.y + pos, b.width, thumbLen }
+                : Rect{ b.x + pos, b.y, thumbLen, b.height };
+            ctx.VG().FillRoundedRect(thumb.ToRectangle(), Radii(thumb), m_thumbColor);
+        }
+
+    private:
+        [[nodiscard]] f32 TrackLength(const Rect& b) const
+        {
+            return (m_orientation == Orientation::Vertical) ? b.height : b.width;
+        }
+        [[nodiscard]] f32 ThumbLength(f32 track) const
+        {
+            return core::Max(kMinThumb, track * m_proportion);
+        }
+        [[nodiscard]] static vg::CornerRadii Radii(const Rect& r)
+        {
+            return vg::CornerRadii(core::Min(r.width, r.height) * 0.5f);
+        }
+
+        void UpdateFromEvent(const MouseEvent& event)
+        {
+            const Rect b = GetContentBounds();
+            const f32 track = TrackLength(b);
+            const f32 thumbLen = ThumbLength(track);
+            const f32 travel = core::Max(0.0f, track - thumbLen);
+            if (travel <= 0.0f) { SetValue(0.0f); return; }
+
+            const core::Float2 local = ConvertToNodeSpace(event.Position);
+            const f32 along = (m_orientation == Orientation::Vertical) ? (local.y - b.y) : (local.x - b.x);
+            // Center the thumb on the cursor: subtract half the thumb, then normalize by travel.
+            SetValue((along - thumbLen * 0.5f) / travel);
+        }
+
+        Orientation m_orientation = Orientation::Vertical;
+        f32 m_value = 0.0f;
+        f32 m_proportion = 0.3f;
+        bool m_dragging = false;
+        Color m_trackColor{ 0.18f, 0.19f, 0.23f, 1.0f };
+        Color m_thumbColor{ 0.42f, 0.45f, 0.52f, 1.0f };
+        core::Function<void(f32)> m_onChanged;
+
+        static constexpr f32 kMinThumb = 16.0f;
+    };
+
+    DRACONIC_DEFINE_OBJECT(ScrollBar, "draconic::gui")
+}

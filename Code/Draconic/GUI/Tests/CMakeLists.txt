@@ -28,7 +28,8 @@ add_executable(DraconicGUITests
     SliderTests.cpp
     ProgressBarTests.cpp
     TextFieldTests.cpp
-    LayoutTests.cpp)
+    LayoutTests.cpp
+    ScrollTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)

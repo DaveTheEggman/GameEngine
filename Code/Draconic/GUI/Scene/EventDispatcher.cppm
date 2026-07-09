@@ -80,7 +80,13 @@ export namespace draconic::gui
         void InjectMouseWheel(core::Float2 position, core::Float2 delta)
         {
             Node* hit = HitTest(position);
-            if (hit) hit->HandleMouseWheel(WheelEvent(hit, position, delta));
+            // Bubble to the nearest ancestor that consumes the wheel (a ScrollView), so
+            // scrolling works while hovering the scrolled content.
+            for (Node* n = hit; n != nullptr; n = n->GetParent())
+            {
+                if (n->WantsWheel()) { n->HandleMouseWheel(WheelEvent(n, position, delta)); return; }
+            }
+            if (hit) hit->HandleMouseWheel(WheelEvent(hit, position, delta)); // fallback: listeners on the hit node
         }
 
         void InjectKeyDown(u32 keyCode, u32 modifiers = 0)
