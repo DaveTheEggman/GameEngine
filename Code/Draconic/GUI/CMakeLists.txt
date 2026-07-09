@@ -40,6 +40,7 @@ target_sources(DraconicGUI
             Widgets/Label.cppm
             Widgets/Button.cppm
             Widgets/CheckBox.cppm
+            Widgets/Radio.cppm
             Widgets/Slider.cppm
             Widgets/ProgressBar.cppm
             Widgets/LinearLayout.cppm
