@@ -32,6 +32,9 @@ target_sources(DraconicUI
             Editing/ITextEditHost.cppm
             Editing/TextEditingBehavior.cppm
             Core/View.cppm
+            Data/IListAdapter.cppm
+            Data/SelectionModel.cppm
+            Data/ViewRecycler.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
