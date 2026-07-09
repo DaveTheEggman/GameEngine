@@ -13,19 +13,7 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-namespace
-{
-    class SimpleListAdapter : public ListAdapterBase
-    {
-    public:
-        explicit SimpleListAdapter(i32 count) : m_count(count) {}
-        [[nodiscard]] i32 ItemCount() const override { return m_count; }
-        [[nodiscard]] core::RefPtr<View> CreateView(i32) override { return core::MakeRef<TestView>(core::DefaultAllocator(), 100.0f, 30.0f); }
-        void BindView(View*, i32) override {}
-    private:
-        i32 m_count;
-    };
-}
+// SimpleListAdapter test double lives in TestHelpers.h (shared with ListViewTests).
 
 // === ViewRecycler ===
 

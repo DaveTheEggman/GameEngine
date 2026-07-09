@@ -100,6 +100,7 @@ target_sources(DraconicUI
             Controls/EditableLabel.cppm
             Controls/ScrollBar.cppm
             Controls/ScrollView.cppm
+            Controls/ListView.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm
             Layout/FlowLayout.cppm

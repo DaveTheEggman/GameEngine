@@ -30,6 +30,21 @@ namespace draconic::ui::tests
                       draconic::core::f32 width, draconic::core::f32 height) override;
     };
 
+    /// Simple IListAdapter test double (Sedulous.UI.Tests SimpleListAdapter): a mutable Count and
+    /// 100x30 TestView items. Not an Object, so it's header-inline (no DRACONIC_OBJECT needed).
+    class SimpleListAdapter : public draconic::ui::ListAdapterBase
+    {
+    public:
+        draconic::core::i32 Count = 0;
+        explicit SimpleListAdapter(draconic::core::i32 count) : Count(count) {}
+        [[nodiscard]] draconic::core::i32 ItemCount() const override { return Count; }
+        [[nodiscard]] draconic::core::RefPtr<draconic::ui::View> CreateView(draconic::core::i32) override
+        {
+            return draconic::core::MakeRef<TestView>(draconic::core::DefaultAllocator(), 100.0f, 30.0f);
+        }
+        void BindView(draconic::ui::View*, draconic::core::i32) override {}
+    };
+
     /// Sets up a UIContext + RootView (both owned by the caller).
     inline void Init(draconic::ui::UIContext& ctx, draconic::ui::RootView* root,
                      draconic::core::f32 width = 800.0f, draconic::core::f32 height = 600.0f)

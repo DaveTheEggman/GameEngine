@@ -28,6 +28,7 @@ add_executable(DraconicUITests
     EditableLabelTests.cpp
     ScrollViewTests.cpp
     DataTests.cpp
+    ListViewTests.cpp
     ControlTests.cpp)
 
 target_link_libraries(DraconicUITests PRIVATE
