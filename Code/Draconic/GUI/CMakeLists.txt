@@ -39,6 +39,7 @@ target_sources(DraconicGUI
             Widgets/UIWidget.cppm
             Styling/ParseUtil.cppm
             Styling/StyleSelector.cppm
+            Styling/MediaQuery.cppm
             Styling/StyleRule.cppm
             Styling/StyleSheet.cppm
             Styling/CSSParser.cppm

@@ -13,6 +13,7 @@ export module draconic.gui:style_sheet;
 import draconic.core;   // String, StringView, Array, i64, Move
 import :style_selector;
 import :style_rule;
+import :media_query;
 import :ui_widget;
 
 using namespace draconic::core;
@@ -91,12 +92,17 @@ export namespace draconic::gui
         [[nodiscard]] usize RuleCount() const noexcept { return m_rules.Size(); }
         [[nodiscard]] const Array<StyleRule>& Rules() const noexcept { return m_rules; }
 
-        [[nodiscard]] ResolvedStyle Resolve(const UIWidget& element, bool applyPseudo = true) const
+        [[nodiscard]] ResolvedStyle Resolve(const UIWidget& element, const MediaContext& context = {},
+                                            bool applyPseudo = true) const
         {
-            // Collect indices of matching rules (in source order).
+            // Collect indices of matching rules (selector matches + media active), in source order.
             Array<usize> matches;
             for (usize i = 0; i < m_rules.Size(); ++i)
-                if (m_rules[i].Selector().Select(element, applyPseudo)) matches.PushBack(i);
+            {
+                const StyleRule& rule = m_rules[i];
+                const bool mediaActive = rule.Media().IsEmpty() || rule.Media().Evaluate(context);
+                if (mediaActive && rule.Selector().Select(element, applyPseudo)) matches.PushBack(i);
+            }
 
             // Stable insertion sort by specificity (ties keep source order -> later wins on apply).
             for (usize a = 1; a < matches.Size(); ++a)

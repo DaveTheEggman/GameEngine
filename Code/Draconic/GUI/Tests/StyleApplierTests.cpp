@@ -90,7 +90,7 @@ TEST_CASE("style-applier: width/height, enabled, visibility, margin")
     StyleSheet sheet = CSSParser::Parse(
         SV(u8"button { width: 120; height: 40; enabled: false; visibility: hidden; margin: 1 2 3 4; }"));
     auto w = Widget(u8"button");
-    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), /*applyPseudo*/ false));
+    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false));
 
     CHECK(w->GetSize().x == doctest::Approx(120.0f));
     CHECK(w->GetSize().y == doctest::Approx(40.0f));

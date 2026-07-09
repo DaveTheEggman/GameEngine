@@ -12,6 +12,7 @@ export module draconic.gui:style_rule;
 
 import draconic.core;   // String, StringView, Array, i64, Move
 import :style_selector;
+import :media_query;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -50,8 +51,13 @@ export namespace draconic::gui
         [[nodiscard]] const Array<StyleProperty>& Properties() const noexcept { return m_properties; }
         [[nodiscard]] usize PropertyCount() const noexcept { return m_properties.Size(); }
 
+        // The @media condition this rule is nested in (empty = always active).
+        void SetMedia(MediaQuery media) { m_media = core::Move(media); }
+        [[nodiscard]] const MediaQuery& Media() const noexcept { return m_media; }
+
     private:
         StyleSelector m_selector;
         Array<StyleProperty> m_properties;
+        MediaQuery m_media;
     };
 }

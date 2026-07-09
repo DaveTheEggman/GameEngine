@@ -13,6 +13,7 @@ export module draconic.gui:css_parser;
 import draconic.core;   // String, StringView, Move
 import :style_rule;
 import :style_sheet;
+import :media_query;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -51,34 +52,77 @@ export namespace draconic::gui
         [[nodiscard]] static StyleSheet Parse(core::StringView css)
         {
             const core::String cleaned = StripComments(css);
-            const core::StringView src = cleaned.AsView();
-
             StyleSheet sheet;
+            ParseBlock(sheet, cleaned.AsView(), MediaQuery{});
+            return sheet;
+        }
+
+    private:
+        // Parse a run of rules (and nested @media blocks), attaching `media` to each rule.
+        static void ParseBlock(StyleSheet& sheet, core::StringView src, const MediaQuery& media)
+        {
             const usize n = src.Size();
             usize i = 0;
             while (i < n)
             {
-                // Selector list: up to '{'.
+                while (i < n && IsWhiteSpace(src[i])) ++i;
+                if (i >= n) break;
+
+                if (src[i] == u8'@')
+                {
+                    // At-rule: read the prelude up to '{' (block) or ';' (statement).
+                    const usize atStart = i;
+                    while (i < n && src[i] != u8'{' && src[i] != u8';') ++i;
+                    const core::StringView prelude = Trim(src.SubStr(atStart, i - atStart));
+                    if (i < n && src[i] == u8';') { ++i; continue; } // at-statement (e.g. @import) - skipped
+                    if (i >= n) break;
+
+                    // Brace-matched block for this at-rule.
+                    ++i; // consume '{'
+                    const usize blockStart = i;
+                    i32 depth = 1;
+                    while (i < n && depth > 0)
+                    {
+                        if (src[i] == u8'{') ++depth;
+                        else if (src[i] == u8'}') { --depth; if (depth == 0) break; }
+                        ++i;
+                    }
+                    const core::StringView inner = src.SubStr(blockStart, i - blockStart);
+                    if (i < n) ++i; // consume '}'
+
+                    if (IsMedia(prelude))
+                    {
+                        const core::StringView condition = Trim(prelude.SubStr(6, prelude.Size() - 6));
+                        ParseBlock(sheet, inner, MediaQuery{ condition }); // v1: inner media replaces outer
+                    }
+                    // unknown at-rule blocks are consumed and skipped
+                    continue;
+                }
+
+                // Normal rule: selector list up to '{'.
                 const usize selStart = i;
-                while (i < n && src[i] != u8'{') ++i;
-                if (i >= n) break; // no block -> stop
+                while (i < n && src[i] != u8'{' && src[i] != u8'}') ++i;
+                if (i >= n || src[i] != u8'{') break;
                 const core::StringView selectorList = src.SubStr(selStart, i - selStart);
                 ++i; // consume '{'
 
-                // Declaration block: up to '}'.
                 const usize blockStart = i;
                 while (i < n && src[i] != u8'}') ++i;
                 const core::StringView block = src.SubStr(blockStart, i - blockStart);
                 if (i < n) ++i; // consume '}'
 
-                EmitRules(sheet, selectorList, block);
+                EmitRules(sheet, selectorList, block, media);
             }
-            return sheet;
         }
 
-    private:
-        // One rule per comma-separated selector, each carrying the block's declarations.
-        static void EmitRules(StyleSheet& sheet, core::StringView selectorList, core::StringView block)
+        [[nodiscard]] static bool IsMedia(core::StringView prelude) noexcept
+        {
+            return prelude.Size() >= 6 && prelude.SubStr(0, 6) == core::StringView(u8"@media");
+        }
+
+        // One rule per comma-separated selector, each carrying the block's declarations + media.
+        static void EmitRules(StyleSheet& sheet, core::StringView selectorList, core::StringView block,
+                              const MediaQuery& media)
         {
             usize start = 0;
             const usize n = selectorList.Size();
@@ -91,6 +135,7 @@ export namespace draconic::gui
                     {
                         StyleRule rule{ selector };
                         ApplyDeclarations(rule, block);
+                        if (!media.IsEmpty()) rule.SetMedia(media);
                         sheet.AddRule(core::Move(rule));
                     }
                     start = i + 1;
