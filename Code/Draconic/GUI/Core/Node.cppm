@@ -298,6 +298,10 @@ export namespace draconic::gui
         // drives the window's StartTextInput/StopTextInput accordingly. Default: false.
         [[nodiscard]] virtual bool WantsTextInput() const { return false; }
 
+        // Optional hover-tooltip text. A TooltipManager reads the hovered node's answer and
+        // shows a tooltip after a delay. Empty (the default) means no tooltip.
+        [[nodiscard]] virtual core::StringView GetTooltipText() const { return {}; }
+
         // True if this node consumes the mouse wheel (e.g. a ScrollView). The dispatcher
         // bubbles a wheel event from the hit node up the ancestor chain to the nearest node
         // that answers true, so scrolling works while hovering the scrolled content. Default:

@@ -56,11 +56,16 @@ export namespace draconic::gui
         void SetMargin(Thickness margin) { m_margin = margin; Invalidate(); }
         [[nodiscard]] Thickness GetMargin() const noexcept { return m_margin; }
 
+        // === Hover tooltip ===
+        void SetTooltip(core::StringView text) { m_tooltip = text; }
+        [[nodiscard]] core::StringView GetTooltipText() const override { return m_tooltip.AsView(); }
+
     private:
         core::String m_tag;
         core::String m_id;
         Array<core::String> m_classes;
         Thickness m_margin{};
+        core::String m_tooltip;
     };
 
     DRACONIC_DEFINE_OBJECT(UIWidget, "draconic::gui")
