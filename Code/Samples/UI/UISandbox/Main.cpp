@@ -73,6 +73,62 @@ float4 main(PSInput input) : SV_Target {
         for (usize k = 0; k < dc; ++k) buf[pos++] = d[dc - 1 - k];
     }
 
+    // A byte RGBA color for procedural theme images (mirrors Sedulous Color32).
+    struct Px { u8 r, g, b, a; };
+
+    // Generate a rounded-rectangle RGBA image with per-corner radii (faithful port of the Sedulous
+    // UISandbox MakeRoundedRectImage; the uniform-radius overload there is exactly this with all four
+    // radii equal, so it delegates). Corner pixels outside the arc are transparent; the 1px ring just
+    // inside the arc (and, for square corners, the outer edge) is drawn in the border color.
+    inline UniquePtr<image::OwnedImageData> MakeRoundedRectImage(u32 w, u32 h, Px fill, Px border,
+                                                                 i32 rTL, i32 rTR, i32 rBR, i32 rBL)
+    {
+        Array<u8> data;
+        data.Resize(static_cast<usize>(w) * h * 4);
+
+        for (u32 y = 0; y < h; ++y)
+        {
+            for (u32 x = 0; x < w; ++x)
+            {
+                bool inside = true;
+                bool isBorder = false;
+
+                i32 cx = -1, cy = -1;
+                i32 r = 0;
+                if (x < static_cast<u32>(rTL) && y < static_cast<u32>(rTL)) { cx = rTL; cy = rTL; r = rTL; }
+                else if (x >= w - static_cast<u32>(rTR) && y < static_cast<u32>(rTR)) { cx = static_cast<i32>(w) - rTR - 1; cy = rTR; r = rTR; }
+                else if (x < static_cast<u32>(rBL) && y >= h - static_cast<u32>(rBL)) { cx = rBL; cy = static_cast<i32>(h) - rBL - 1; r = rBL; }
+                else if (x >= w - static_cast<u32>(rBR) && y >= h - static_cast<u32>(rBR)) { cx = static_cast<i32>(w) - rBR - 1; cy = static_cast<i32>(h) - rBR - 1; r = rBR; }
+
+                if (cx >= 0)
+                {
+                    const i32 dx = static_cast<i32>(x) - cx;
+                    const i32 dy = static_cast<i32>(y) - cy;
+                    const f32 dist = Sqrt(static_cast<f32>(dx * dx + dy * dy));
+                    if (dist > static_cast<f32>(r)) { inside = false; }
+                    else if (dist > static_cast<f32>(r - 1)) { isBorder = true; }
+                }
+
+                if (inside && cx < 0)
+                {
+                    if (x == 0 || x == w - 1 || y == 0 || y == h - 1) { isBorder = true; }
+                }
+
+                const Px c = inside ? (isBorder ? border : fill) : Px{ 0, 0, 0, 0 };
+                const usize offset = static_cast<usize>(y * w + x) * 4;
+                data[offset] = c.r; data[offset + 1] = c.g; data[offset + 2] = c.b; data[offset + 3] = c.a;
+            }
+        }
+
+        return MakeUnique<image::OwnedImageData>(DefaultAllocator(), w, h, image::PixelFormat::RGBA8, Move(data));
+    }
+
+    // Uniform-radius overload (all four corners the same).
+    inline UniquePtr<image::OwnedImageData> MakeRoundedRectImage(u32 w, u32 h, Px fill, Px border, i32 radius)
+    {
+        return MakeRoundedRectImage(w, h, fill, border, radius, radius, radius, radius);
+    }
+
     // A tree row view: draws depth-indented text (TreeView overlays the expand arrows). No DRACONIC_
     // OBJECT (this sample TU imports modules only, not the reflection header) - the adapter recovers it
     // via static_cast since it created the view.
@@ -418,8 +474,10 @@ private:
     RefPtr<ui::FlexLayout>    m_main;
     UniquePtr<image::OwnedImageData> m_testImage; // borrowed by the ImageView/DrawableView demos
     RefPtr<ui::RepeatButton> m_repeatBtn;         // ticked each frame (hold-to-repeat)
-    bool m_darkTheme = true;
-    void ApplyTheme() { m_sheet = m_darkTheme ? ui::DarkTheme::Create() : ui::LightTheme::Create(); m_ctx.SetStyleSheet(m_sheet); }
+    i32 m_themeIndex = 0;          // 0=Dark, 1=Light, 2=RoundedDark, 3=Textured (mirrors Sedulous ApplyTheme)
+    RefPtr<ui::Button> m_themeBtn; // shows the current theme name; cycles on click
+    void ApplyTheme();
+    [[nodiscard]] RefPtr<ui::StyleSheet> CreateTexturedTheme(); // procedurally-skinned image theme
     i32 m_repeatCount = 0;
     UniquePtr<DemoListAdapter> m_listAdapter;     // borrowed by the ListView (Data Controls tab)
     UniquePtr<DemoTreeAdapter> m_treeAdapter;
@@ -498,12 +556,12 @@ void UISandbox::BuildUI()
     m_main = VFlex();
     m_root->AddView(m_main.Get());
 
-    // Theme toggle above the tabs.
+    // Theme button above the tabs - cycles Dark / Light / Rounded Dark / Textured (Sedulous ApplyTheme).
     {
-        auto themeBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Toggle Dark / Light Theme"));
+        m_themeBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Theme: Dark"));
         UISandbox* self = this;
-        themeBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [self](ui::ButtonBase*) { self->m_darkTheme = !self->m_darkTheme; self->ApplyTheme(); } });
-        m_main->AddView(themeBtn.Get(), LP(ui::SizeSpec::Wrap(), ui::SizeSpec::Fixed(ui::Unit::Px(34))));
+        m_themeBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [self](ui::ButtonBase*) { self->m_themeIndex = (self->m_themeIndex + 1) % 4; self->ApplyTheme(); } });
+        m_main->AddView(m_themeBtn.Get(), LP(ui::SizeSpec::Wrap(), ui::SizeSpec::Fixed(ui::Unit::Px(34))));
     }
 
     auto tabView = MakeRef<ui::TabView>(DefaultAllocator());
@@ -519,6 +577,148 @@ void UISandbox::BuildUI()
     BuildOverlaysTab(tabView.Get());
     BuildDragDropTab(tabView.Get());
     BuildAnimationsTab(tabView.Get());
+}
+
+// Apply the current theme by index and refresh the Theme button label (Sedulous ApplyTheme).
+void UISandbox::ApplyTheme()
+{
+    switch (m_themeIndex)
+    {
+    case 0:  m_sheet = ui::DarkTheme::Create(); break;
+    case 1:  m_sheet = ui::LightTheme::Create(); break;
+    case 2:  m_sheet = ui::RoundedDarkTheme::Create(); break;
+    default: m_sheet = CreateTexturedTheme(); break;
+    }
+    m_ctx.SetStyleSheet(m_sheet);
+
+    if (m_themeBtn)
+    {
+        static const char8_t* const kNames[4] = { u8"Dark", u8"Light", u8"Rounded Dark", u8"Textured" };
+        String label(u8"Theme: ");
+        label += kNames[m_themeIndex];
+        m_themeBtn->SetText(label.AsView());
+    }
+}
+
+// Build a fully image-skinned StyleSheet from procedurally generated rounded-rect images (faithful port
+// of the Sedulous UISandbox CreateTexturedTheme). The source images only need to live through Create -
+// TexturedTheme::Create packs their pixels into its own atlas - so the keep-alive array drops afterward.
+RefPtr<ui::StyleSheet> UISandbox::CreateTexturedTheme()
+{
+    ui::ThemeImageSet images;
+    Array<UniquePtr<image::OwnedImageData>> keep; // hold the images alive across the Create/atlas-build call
+    auto hold = [&](UniquePtr<image::OwnedImageData> img) -> const image::ImageData*
+    {
+        const image::ImageData* p = img.Get();
+        keep.PushBack(Move(img));
+        return p;
+    };
+
+    // --- Button: soft blue ---
+    const image::ImageData* btnN = hold(MakeRoundedRectImage(48, 32, Px{ 180, 200, 225, 255 }, Px{ 140, 165, 195, 255 }, 6));
+    const image::ImageData* btnH = hold(MakeRoundedRectImage(48, 32, Px{ 190, 210, 235, 255 }, Px{ 150, 175, 205, 255 }, 6));
+    const image::ImageData* btnP = hold(MakeRoundedRectImage(48, 32, Px{ 150, 175, 205, 255 }, Px{ 120, 145, 175, 255 }, 6));
+    const image::ImageData* btnD = hold(MakeRoundedRectImage(48, 32, Px{ 195, 205, 215, 128 }, Px{ 175, 185, 195, 128 }, 6));
+    images.AddStateImages(u8"button:Background", btnN, btnH, btnP, btnD, nullptr, image::NineSlice(8, 8, 8, 8));
+
+    // --- Panel: light blue-gray ---
+    const image::ImageData* panelImg = hold(MakeRoundedRectImage(48, 48, Px{ 220, 230, 240, 255 }, Px{ 185, 200, 220, 255 }, 4));
+    images.AddImage(u8"panel:Background", panelImg, image::NineSlice(8, 8, 8, 8));
+
+    // --- EditText / NumericField: white with blue border ---
+    const image::ImageData* etNorm = hold(MakeRoundedRectImage(48, 28, Px{ 245, 248, 252, 255 }, Px{ 170, 185, 210, 255 }, 4));
+    const image::ImageData* etFocus = hold(MakeRoundedRectImage(48, 28, Px{ 245, 248, 252, 255 }, Px{ 80, 130, 200, 255 }, 4));
+    images.AddStateImages(u8"edittext:Background", etNorm, nullptr, nullptr, nullptr, etFocus, image::NineSlice(6, 6, 6, 6));
+    images.AddStateImages(u8"numericfield:Background", etNorm, nullptr, nullptr, nullptr, etFocus, image::NineSlice(6, 6, 6, 6));
+
+    // --- NumericField spin buttons: light gray, rounded on one side only ---
+    const image::ImageData* spinUpN = hold(MakeRoundedRectImage(20, 16, Px{ 225, 230, 240, 255 }, Px{ 170, 185, 210, 255 }, 0, 3, 0, 0));
+    const image::ImageData* spinUpH = hold(MakeRoundedRectImage(20, 16, Px{ 210, 218, 230, 255 }, Px{ 150, 170, 200, 255 }, 0, 3, 0, 0));
+    const image::ImageData* spinUpP = hold(MakeRoundedRectImage(20, 16, Px{ 195, 205, 220, 255 }, Px{ 140, 160, 190, 255 }, 0, 3, 0, 0));
+    images.AddStateImages(u8"numericfield::spin-up", spinUpN, spinUpH, spinUpP, nullptr, nullptr, image::NineSlice(4, 4, 4, 4));
+
+    const image::ImageData* spinDnN = hold(MakeRoundedRectImage(20, 16, Px{ 225, 230, 240, 255 }, Px{ 170, 185, 210, 255 }, 0, 0, 3, 0));
+    const image::ImageData* spinDnH = hold(MakeRoundedRectImage(20, 16, Px{ 210, 218, 230, 255 }, Px{ 150, 170, 200, 255 }, 0, 0, 3, 0));
+    const image::ImageData* spinDnP = hold(MakeRoundedRectImage(20, 16, Px{ 195, 205, 220, 255 }, Px{ 140, 160, 190, 255 }, 0, 0, 3, 0));
+    images.AddStateImages(u8"numericfield::spin-down", spinDnN, spinDnH, spinDnP, nullptr, nullptr, image::NineSlice(4, 4, 4, 4));
+
+    // --- CheckBox ---
+    const image::ImageData* cbUnchecked = hold(MakeRoundedRectImage(16, 16, Px{ 240, 244, 250, 255 }, Px{ 160, 175, 200, 255 }, 3));
+    const image::ImageData* cbChecked = hold(MakeRoundedRectImage(16, 16, Px{ 80, 140, 220, 255 }, Px{ 60, 120, 200, 255 }, 3));
+    images.AddImage(u8"checkbox::box", cbUnchecked);
+    images.AddImage(u8"checkbox::box:checked", cbChecked);
+
+    // --- RadioButton ---
+    const image::ImageData* rbCircle = hold(MakeRoundedRectImage(16, 16, Px{ 240, 244, 250, 255 }, Px{ 160, 175, 200, 255 }, 8));
+    const image::ImageData* rbDot = hold(MakeRoundedRectImage(16, 16, Px{ 80, 140, 220, 255 }, Px{ 60, 120, 200, 255 }, 8));
+    images.AddImage(u8"radiobutton::box", rbCircle);
+    images.AddImage(u8"radiobutton::box:checked", rbDot);
+
+    // --- Slider ---
+    const image::ImageData* slTrack = hold(MakeRoundedRectImage(32, 6, Px{ 195, 205, 220, 255 }, Px{ 195, 205, 220, 0 }, 3));
+    const image::ImageData* slFill = hold(MakeRoundedRectImage(32, 6, Px{ 80, 140, 220, 255 }, Px{ 80, 140, 220, 0 }, 3));
+    const image::ImageData* slThumb = hold(MakeRoundedRectImage(14, 14, Px{ 255, 255, 255, 255 }, Px{ 140, 165, 200, 255 }, 7));
+    images.AddImage(u8"slider::track", slTrack, image::NineSlice(3, 2, 3, 2));
+    images.AddImage(u8"slider::fill", slFill, image::NineSlice(3, 2, 3, 2));
+    images.AddImage(u8"slider::thumb", slThumb);
+
+    // --- ProgressBar ---
+    const image::ImageData* progTrack = hold(MakeRoundedRectImage(32, 12, Px{ 195, 205, 220, 255 }, Px{ 195, 205, 220, 0 }, 4));
+    const image::ImageData* progFill = hold(MakeRoundedRectImage(32, 12, Px{ 80, 140, 220, 255 }, Px{ 80, 140, 220, 0 }, 4));
+    images.AddImage(u8"progressbar::track", progTrack, image::NineSlice(4, 4, 4, 4));
+    images.AddImage(u8"progressbar::fill", progFill, image::NineSlice(4, 4, 4, 4));
+
+    // --- ToggleSwitch ---
+    const image::ImageData* tsOff = hold(MakeRoundedRectImage(44, 24, Px{ 190, 200, 215, 255 }, Px{ 170, 185, 205, 255 }, 12));
+    const image::ImageData* tsOn = hold(MakeRoundedRectImage(44, 24, Px{ 80, 140, 220, 255 }, Px{ 60, 120, 200, 255 }, 12));
+    const image::ImageData* tsKnob = hold(MakeRoundedRectImage(20, 20, Px{ 255, 255, 255, 255 }, Px{ 210, 215, 225, 255 }, 10));
+    images.AddImage(u8"toggleswitch::track", tsOff, image::NineSlice(12, 12, 12, 12));
+    images.AddImage(u8"toggleswitch::track:checked", tsOn, image::NineSlice(12, 12, 12, 12));
+    images.AddImage(u8"toggleswitch::knob", tsKnob);
+
+    // --- ComboBox ---
+    const image::ImageData* cbxN = hold(MakeRoundedRectImage(48, 28, Px{ 240, 244, 250, 255 }, Px{ 170, 185, 210, 255 }, 4));
+    const image::ImageData* cbxH = hold(MakeRoundedRectImage(48, 28, Px{ 230, 238, 248, 255 }, Px{ 150, 170, 200, 255 }, 4));
+    images.AddStateImages(u8"combobox:Background", cbxN, cbxH, nullptr, nullptr, nullptr, image::NineSlice(6, 6, 6, 6));
+
+    // --- ScrollBar ---
+    const image::ImageData* scrollTrack = hold(MakeRoundedRectImage(12, 32, Px{ 210, 218, 230, 150 }, Px{ 210, 218, 230, 0 }, 3));
+    const image::ImageData* scrollThumb = hold(MakeRoundedRectImage(12, 24, Px{ 150, 170, 200, 200 }, Px{ 150, 170, 200, 0 }, 3));
+    images.AddImage(u8"scrollbar::track", scrollTrack, image::NineSlice(4, 6, 4, 6));
+    images.AddImage(u8"scrollbar::thumb", scrollThumb, image::NineSlice(4, 6, 4, 6));
+
+    // --- Dialog ---
+    const image::ImageData* dialogImg = hold(MakeRoundedRectImage(64, 64, Px{ 235, 240, 248, 255 }, Px{ 170, 185, 210, 255 }, 8));
+    images.AddImage(u8"dialog:Background", dialogImg, image::NineSlice(10, 10, 10, 10));
+
+    // --- Tooltip ---
+    const image::ImageData* tooltipImg = hold(MakeRoundedRectImage(32, 24, Px{ 255, 255, 225, 245 }, Px{ 180, 175, 140, 255 }, 4));
+    images.AddImage(u8"tooltip:Background", tooltipImg, image::NineSlice(6, 6, 6, 6));
+
+    // --- ContextMenu ---
+    const image::ImageData* ctxMenuImg = hold(MakeRoundedRectImage(48, 48, Px{ 240, 244, 250, 255 }, Px{ 175, 190, 215, 255 }, 6));
+    images.AddImage(u8"contextmenu:Background", ctxMenuImg, image::NineSlice(8, 8, 8, 8));
+
+    const image::ImageData* ctxHover = hold(MakeRoundedRectImage(32, 24, Px{ 80, 140, 220, 60 }, Px{ 80, 140, 220, 0 }, 3));
+    images.AddImage(u8"contextmenu:MenuItemHoverDrawable", ctxHover, image::NineSlice(4, 4, 4, 4));
+
+    // --- TabView ---
+    const image::ImageData* tabStrip = hold(MakeRoundedRectImage(48, 32, Px{ 210, 218, 230, 255 }, Px{ 210, 218, 230, 0 }, 0));
+    const image::ImageData* tabContent = hold(MakeRoundedRectImage(48, 48, Px{ 228, 234, 244, 255 }, Px{ 228, 234, 244, 0 }, 0));
+    const image::ImageData* tabActive = hold(MakeRoundedRectImage(64, 28, Px{ 240, 244, 250, 255 }, Px{ 240, 244, 250, 0 }, 4));
+    const image::ImageData* tabHover = hold(MakeRoundedRectImage(64, 28, Px{ 220, 228, 240, 255 }, Px{ 220, 228, 240, 0 }, 4));
+    images.AddImage(u8"tabview::strip", tabStrip, image::NineSlice(4, 4, 4, 4));
+    images.AddImage(u8"tabview::content", tabContent, image::NineSlice(4, 4, 4, 4));
+    images.AddImage(u8"tabview::tab:checked", tabActive, image::NineSlice(6, 6, 6, 4));
+    images.AddImage(u8"tabview::tab:hover", tabHover, image::NineSlice(6, 6, 6, 4));
+
+    // --- Expander header ---
+    const image::ImageData* expN = hold(MakeRoundedRectImage(48, 24, Px{ 215, 222, 235, 255 }, Px{ 215, 222, 235, 0 }, 0));
+    const image::ImageData* expH = hold(MakeRoundedRectImage(48, 24, Px{ 205, 215, 230, 255 }, Px{ 205, 215, 230, 0 }, 0));
+    images.AddImage(u8"expander::header", expN, image::NineSlice(4, 4, 4, 4));
+    images.AddImage(u8"expander::header:hover", expH, image::NineSlice(4, 4, 4, 4));
+
+    return ui::TexturedTheme::Create(images, ui::ThemePalette::Light());
 }
 
 // === Tab 9: Animations (ViewAnimator / Storyboard + static-transform hit-testing) ===
@@ -755,8 +955,10 @@ void UISandbox::BuildScrollViewTab(ui::TabView* tabView)
                 const char8_t* pre = title;
                 for (usize k = 0; pre[k] != 0 && k < 8; ++k) buf[p++] = pre[k];
                 buf[p++] = u8' '; i32 v = i + 1; char8_t d[4]; usize dc = 0;
-                if (v == 0) d[dc++] = u8'0'; while (v > 0) { d[dc++] = static_cast<char8_t>(u8'0' + v % 10); v /= 10; }
-                for (usize k = 0; k < dc; ++k) buf[p++] = d[dc - 1 - k]; buf[p] = 0;
+                if (v == 0) { d[dc++] = u8'0'; }
+                while (v > 0) { d[dc++] = static_cast<char8_t>(u8'0' + v % 10); v /= 10; }
+                for (usize k = 0; k < dc; ++k) { buf[p++] = d[dc - 1 - k]; }
+                buf[p] = 0;
                 content->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(buf)).Get());
             }
         }
@@ -1072,8 +1274,10 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
         {
             ++(*count);
             char8_t buf[24] = u8"Count: "; usize p = 7; i32 v = *count; char8_t d[8]; usize dc = 0;
-            if (v == 0) d[dc++] = u8'0'; while (v > 0) { d[dc++] = static_cast<char8_t>(u8'0' + v % 10); v /= 10; }
-            for (usize k = 0; k < dc; ++k) buf[p++] = d[dc - 1 - k]; buf[p] = 0;
+            if (v == 0) { d[dc++] = u8'0'; }
+            while (v > 0) { d[dc++] = static_cast<char8_t>(u8'0' + v % 10); v /= 10; }
+            for (usize k = 0; k < dc; ++k) { buf[p++] = d[dc - 1 - k]; }
+            buf[p] = 0;
             lbl->SetText(StringView(buf));
         } });
         repeatRow->AddView(repeatBtn.Get());
