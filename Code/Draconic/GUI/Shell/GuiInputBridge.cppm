@@ -71,6 +71,34 @@ export namespace draconic::gui
             }
         }
 
+        // Poll a gated InputSurface (its mouse is already content-space) and drive the
+        // dispatcher: hover from the cursor, click from press/release edges, plus wheel. The
+        // recommended path for a viewport-hosted GUI - the surface handles transform + gating,
+        // and a fresh InjectMouseMove each frame keeps hover current. (Keyboard/text still come
+        // through the event-based Dispatch() path.)
+        void PumpFromSurface(platform::InputSurface& surface)
+        {
+            if (m_dispatcher == nullptr) return;
+            platform::IMouse* mouse = surface.Mouse();
+            if (mouse == nullptr) return;
+
+            const core::Float2 position{ mouse->X(), mouse->Y() };
+            m_dispatcher->InjectMouseMove(position);
+
+            const platform::MouseButton buttons[3] = {
+                platform::MouseButton::Left, platform::MouseButton::Middle, platform::MouseButton::Right };
+            for (const platform::MouseButton button : buttons)
+            {
+                if (mouse->IsButtonPressed(button))  m_dispatcher->InjectMouseDown(position, MapButton(button));
+                if (mouse->IsButtonReleased(button)) m_dispatcher->InjectMouseUp(position, MapButton(button));
+            }
+
+            const f32 scrollX = mouse->ScrollX();
+            const f32 scrollY = mouse->ScrollY();
+            if (scrollX != 0.0f || scrollY != 0.0f)
+                m_dispatcher->InjectMouseWheel(position, core::Float2{ scrollX, scrollY });
+        }
+
     private:
         [[nodiscard]] core::Float2 ToContent(core::Float2 windowPos) const
         {

@@ -28,4 +28,5 @@ add_subdirectory(Framework)
 if(TARGET Draconic::SamplesFramework)
     add_subdirectory(RHI)
     add_subdirectory(VG)  # VG sandbox - end-to-end VG stack demo
+    add_subdirectory(GUI) # GUI sandbox - draconic.gui widgets + CSS on the VG renderer
 endif()

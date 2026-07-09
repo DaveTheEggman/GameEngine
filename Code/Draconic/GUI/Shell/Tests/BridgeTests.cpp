@@ -49,7 +49,7 @@ namespace
         e.key = key; e.modifiers = mods;
         return e;
     }
-    shell::InputEvent Text(const char8_t* s)
+    shell::InputEvent MakeTextEvent(const char8_t* s)
     {
         shell::InputEvent e;
         e.kind = shell::InputEventKind::TextInput;
@@ -110,7 +110,7 @@ TEST_CASE("bridge: key and text route to the focus node with mapped modifiers")
         [&](const Event& e) { seenText = static_cast<const TextInputEvent&>(e).Text; });
 
     bridge.Dispatch(Key(shell::InputEventKind::KeyDown, shell::KeyCode::A, shell::KeyModifiers::LeftCtrl));
-    bridge.Dispatch(Text(u8"hi"));
+    bridge.Dispatch(MakeTextEvent(u8"hi"));
     CHECK((seenMods & KeyModCtrl) != 0u);
     CHECK(seenText == core::StringView(u8"hi"));
 }
