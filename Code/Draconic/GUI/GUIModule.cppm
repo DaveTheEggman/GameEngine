@@ -71,6 +71,7 @@ export import :menu;
 export import :tooltip;
 
 // CSS styling (Phase 6)
+export import :resource_provider;
 export import :parse_util;
 export import :style_selector;
 export import :media_query;
@@ -81,3 +82,4 @@ export import :css_values;
 export import :style_applier;
 export import :transition;
 export import :style_manager;
+export import :theme;

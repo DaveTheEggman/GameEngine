@@ -22,6 +22,7 @@ import :style_sheet;
 import :media_query;
 import :style_applier;
 import :transition;
+import :resource_provider;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -40,14 +41,19 @@ export namespace draconic::gui
         void SetMediaContext(const MediaContext& context) { m_context = context; }
         [[nodiscard]] const MediaContext& GetMediaContext() const noexcept { return m_context; }
 
+        // The resource provider that resolves background-image/font-family in the sheet
+        // (typically supplied by the theme). Null = those properties are skipped.
+        void SetResourceProvider(IResourceProvider* resources) noexcept { m_resources = resources; }
+        [[nodiscard]] IResourceProvider* GetResourceProvider() const noexcept { return m_resources; }
+
         // Resolve + apply one widget; animate any transitioned change versus its last apply.
         void ApplyTo(UIWidget& widget)
         {
             ResolvedStyle resolved = m_sheet.Resolve(widget, m_context);
             if (const ResolvedStyle* previous = m_cache.Find(&widget))
-                ApplyStyleAnimated(widget, *previous, resolved);
+                ApplyStyleAnimated(widget, *previous, resolved, m_resources);
             else
-                ApplyStyle(widget, resolved);
+                ApplyStyle(widget, resolved, m_resources);
             m_cache.InsertOrAssign(&widget, core::Move(resolved));
         }
 
@@ -68,6 +74,7 @@ export namespace draconic::gui
     private:
         StyleSheet m_sheet;
         MediaContext m_context;
+        IResourceProvider* m_resources = nullptr; // non-owning; resolves url()/font-family
         HashMap<Node*, ResolvedStyle> m_cache; // last-applied style per widget (non-owning keys)
     };
 }

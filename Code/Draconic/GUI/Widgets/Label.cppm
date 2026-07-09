@@ -28,7 +28,7 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(Label, UIWidget)
     public:
-        Label() { m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle); }
+        Label() { SetTag(core::StringView(u8"label")); m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle); }
 
         void SetText(core::StringView text) { m_text.SetString(text); Invalidate(); }
         [[nodiscard]] core::StringView GetText() const { return m_text.GetString(); }

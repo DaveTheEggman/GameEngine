@@ -12,22 +12,39 @@ module;
 export module draconic.gui:style_applier;
 
 import draconic.core;   // Cast, Optional, Color, Float2, MakeRef, DefaultAllocator
+import draconic.fonts;  // CachedFont
 import :thickness;
 import :node;
 import :ui_node;
 import :ui_widget;
+import :label;
 import :drawable;
 import :rectangle_drawable;
 import :style_sheet;    // ResolvedStyle
 import :css_values;
+import :resource_provider;
 
 using namespace draconic::core;
 namespace core = draconic::core;
+namespace fonts = draconic::fonts;
 
 export namespace draconic::gui
 {
-    // Apply the supported declarations of `style` to `node` (and, for margin, if it is a UIWidget).
-    inline void ApplyStyle(UINode& node, const ResolvedStyle& style)
+    // Strip a CSS url(...) wrapper (and any quotes) to the inner resource name; returns the
+    // value unchanged if it is not a url() form.
+    [[nodiscard]] inline core::StringView ParseUrl(core::StringView value)
+    {
+        core::StringView v = core::Trim(value);
+        if (v.Size() >= 5 && v.SubStr(0, 4) == core::StringView(u8"url(") && v[v.Size() - 1] == u8')')
+            v = core::Trim(v.SubStr(4, v.Size() - 5));
+        if (v.Size() >= 2 && (v[0] == u8'"' || v[0] == u8'\'') && v[v.Size() - 1] == v[0])
+            v = v.SubStr(1, v.Size() - 2);
+        return v;
+    }
+
+    // Apply the supported declarations of `style` to `node`. `resources` (optional) resolves
+    // background-image/font-family; without it those properties are skipped.
+    inline void ApplyStyle(UINode& node, const ResolvedStyle& style, IResourceProvider* resources = nullptr)
     {
         using core::StringView;
 
@@ -69,5 +86,33 @@ export namespace draconic::gui
             if (UIWidget* widget = core::Cast<UIWidget>(&node))
                 if (Optional<Thickness> t = ParseThickness(style.Get(StringView(u8"margin"))); t.HasValue())
                     widget->SetMargin(t.Value());
+
+        // Text color for text-bearing widgets (Label and its descendants: Button, MenuItem, ...).
+        if (style.Has(StringView(u8"color")))
+            if (Label* label = core::Cast<Label>(&node))
+                if (Optional<Color> c = ParseColor(style.Get(StringView(u8"color"))); c.HasValue())
+                    label->SetTextColor(c.Value());
+
+        // Resource-backed props (need a provider).
+        if (resources != nullptr)
+        {
+            if (style.Has(StringView(u8"background-image")))
+            {
+                const StringView name = ParseUrl(style.Get(StringView(u8"background-image")));
+                if (name.Size() != 0)
+                    if (Drawable* d = resources->GetDrawable(name))
+                        node.SetBackground(RefPtr<Drawable>(d));
+            }
+
+            if (style.Has(StringView(u8"font-family")))
+                if (Label* label = core::Cast<Label>(&node))
+                {
+                    const StringView family = ParseUrl(style.Get(StringView(u8"font-family"))); // strips quotes
+                    const f32 size = ParseLength(style.Get(StringView(u8"font-size"), StringView(u8"16"))).ValueOr(16.0f);
+                    if (family.Size() != 0 && size > 0.0f)
+                        if (fonts::CachedFont* font = resources->GetFont(family, size))
+                            label->SetFont(font);
+                }
+        }
     }
 }

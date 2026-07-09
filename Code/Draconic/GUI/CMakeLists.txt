@@ -56,6 +56,7 @@ target_sources(DraconicGUI
             Widgets/ComboBox.cppm
             Widgets/Menu.cppm
             Widgets/Tooltip.cppm
+            Styling/ResourceProvider.cppm
             Styling/ParseUtil.cppm
             Styling/StyleSelector.cppm
             Styling/MediaQuery.cppm
@@ -66,6 +67,7 @@ target_sources(DraconicGUI
             Styling/StyleApplier.cppm
             Styling/Transition.cppm
             Styling/StyleManager.cppm
+            Styling/Theme.cppm
             GUIModule.cppm
     PRIVATE
         # Module implementation unit: Node method bodies that call the EventDispatcher
