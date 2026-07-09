@@ -87,6 +87,8 @@ export import :editable_label;
 export import :scroll_bar;
 export import :scroll_view;
 export import :list_view;
+export import :content_button;
+export import :drawable_view;
 export import :style_property;
 export import :style_value;
 export import :style_selector;
