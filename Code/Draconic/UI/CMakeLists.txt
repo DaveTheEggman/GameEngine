@@ -35,6 +35,8 @@ target_sources(DraconicUI
             Data/IListAdapter.cppm
             Data/SelectionModel.cppm
             Data/ViewRecycler.cppm
+            Data/ITreeAdapter.cppm
+            Data/FlattenedTreeAdapter.cppm
             Styling/StyleProperty.cppm
             Styling/StyleValue.cppm
             Styling/StyleSelector.cppm
@@ -103,6 +105,8 @@ target_sources(DraconicUI
             Controls/ListView.cppm
             Controls/GridView.cppm
             Controls/TabView.cppm
+            Controls/TreeView.cppm
+            Data/HierarchicalState.cppm
             Controls/ContentButton.cppm
             Controls/DrawableView.cppm
             Layout/FrameLayout.cppm

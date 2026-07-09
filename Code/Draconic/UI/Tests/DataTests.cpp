@@ -1,7 +1,7 @@
-// Ported from Sedulous.UI.Tests/src/DataTests.bf - the ViewRecycler + SelectionModel subset (the tree
-// adapter cases land with TreeView). Beef `SimpleListAdapter : ListAdapterBase` with CreateView returning
-// a raw owned View -> CreateView returns RefPtr<View>; recycle/acquire move refs (RAII, no `delete`);
-// `===` ref-equality -> pointer ==.
+// Ported from Sedulous.UI.Tests/src/DataTests.bf - ViewRecycler + SelectionModel + FlattenedTreeAdapter.
+// Beef `SimpleListAdapter : ListAdapterBase` with CreateView returning a raw owned View -> CreateView
+// returns RefPtr<View>; recycle/acquire move refs (RAII, no `delete`); `===` ref-equality -> pointer ==.
+// SimpleListAdapter / SimpleTreeAdapter test doubles live in TestHelpers.h.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -121,4 +121,81 @@ TEST_CASE("data: SelectionModel_NoneMode_Ignores")
     SelectionModel sel; sel.Mode = SelectionMode::None;
     sel.Select(0);
     CHECK(sel.SelectedCount() == 0u);
+}
+
+// === FlattenedTreeAdapter ===
+
+TEST_CASE("data: FlattenedTreeAdapter_InitialCount_IsRootCount")
+{
+    SimpleTreeAdapter tree;
+    FlattenedTreeAdapter flat(&tree);
+    CHECK(flat.ItemCount() == 3); // 3 roots, none expanded
+}
+
+TEST_CASE("data: FlattenedTreeAdapter_ExpandRoot_IncludesChildren")
+{
+    SimpleTreeAdapter tree;
+    FlattenedTreeAdapter flat(&tree);
+    flat.Expand(0); // root 0 has 2 children
+    CHECK(flat.ItemCount() == 5); // 3 roots + 2 children
+}
+
+TEST_CASE("data: FlattenedTreeAdapter_CollapseRoot_RemovesChildren")
+{
+    SimpleTreeAdapter tree;
+    FlattenedTreeAdapter flat(&tree);
+    flat.Expand(0);
+    CHECK(flat.ItemCount() == 5);
+    flat.Collapse(0);
+    CHECK(flat.ItemCount() == 3);
+}
+
+TEST_CASE("data: FlattenedTreeAdapter_ToggleExpand")
+{
+    SimpleTreeAdapter tree;
+    FlattenedTreeAdapter flat(&tree);
+    flat.ToggleExpand(0);
+    CHECK(flat.IsExpanded(0));
+    CHECK(flat.ItemCount() == 5);
+    flat.ToggleExpand(0);
+    CHECK(!flat.IsExpanded(0));
+    CHECK(flat.ItemCount() == 3);
+}
+
+TEST_CASE("data: FlattenedTreeAdapter_GetNodeId_GetDepth")
+{
+    SimpleTreeAdapter tree;
+    FlattenedTreeAdapter flat(&tree);
+    flat.Expand(0);
+    // Visible: 0, 10, 11, 1, 2
+    CHECK(flat.GetNodeId(0) == 0);
+    CHECK(flat.GetNodeId(1) == 10);
+    CHECK(flat.GetNodeId(2) == 11);
+    CHECK(flat.GetNodeId(3) == 1);
+    CHECK(flat.GetDepth(0) == 0);
+    CHECK(flat.GetDepth(1) == 1);
+    CHECK(flat.GetDepth(2) == 1);
+    CHECK(flat.GetDepth(3) == 0);
+}
+
+TEST_CASE("data: FlattenedTreeAdapter_GetSetExpandedNodes")
+{
+    SimpleTreeAdapter tree;
+    FlattenedTreeAdapter flat(&tree);
+    flat.Expand(0);
+    flat.Expand(1);
+
+    HashSet<i32> saved;
+    flat.GetExpandedNodes(saved);
+    CHECK(saved.Contains(0));
+    CHECK(saved.Contains(1));
+
+    flat.Collapse(0);
+    flat.Collapse(1);
+    CHECK(flat.ItemCount() == 3);
+
+    flat.SetExpandedNodes(saved);
+    CHECK(flat.IsExpanded(0));
+    CHECK(flat.IsExpanded(1));
+    CHECK(flat.ItemCount() == 6); // 3 roots + 2 children of 0 + 1 child of 1
 }
