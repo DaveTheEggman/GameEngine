@@ -62,6 +62,12 @@ target_sources(DraconicUI
             Layout/Gravity.cppm
             Layout/GravityHelper.cppm
             Layout/LayoutParams.cppm
+            Layout/FrameLayout.cppm
+            Layout/AbsoluteLayout.cppm
+            Layout/FlowLayout.cppm
+            Layout/DockLayout.cppm
+            Layout/GridLayout.cppm
+            Layout/FlexLayout.cppm
             UIModule.cppm
     PRIVATE
         # Module implementation unit (not an interface partition): defines the two styling methods
