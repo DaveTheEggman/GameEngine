@@ -115,6 +115,7 @@ private:
     void BuildScrollViewTab(ui::TabView* tabView);
     void BuildLayoutsTab(ui::TabView* tabView);
     void BuildTabPlacementTab(ui::TabView* tabView);
+    void BuildTextInputTab(ui::TabView* tabView);
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
     shaders::Compiler* m_compiler = nullptr;
@@ -217,6 +218,7 @@ void UISandbox::BuildUI()
     BuildScrollViewTab(tabView.Get());
     BuildLayoutsTab(tabView.Get());
     BuildTabPlacementTab(tabView.Get());
+    BuildTextInputTab(tabView.Get());
 }
 
 // A themed labelled colour box (Sedulous UISandbox's MakeBox helper).
@@ -435,6 +437,96 @@ void UISandbox::BuildTabPlacementTab(ui::TabView* tabView)
     placed(ui::TabPlacement::Bottom, u8"Bot A",    u8"Bot B",    0, 1);
     placed(ui::TabPlacement::Left,   u8"Left A",   u8"Left B",   1, 0);
     placed(ui::TabPlacement::Right,  u8"Right A",  u8"Right B",  1, 1);
+}
+
+// === Tab 5: Text Input (EditText / PasswordBox / NumericField / EditableLabel) ===
+void UISandbox::BuildTextInputTab(ui::TabView* tabView)
+{
+    using ui::SizeSpec;
+    using ui::Unit;
+
+    auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+    scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
+    tabView->AddTab(u8"Text Input", scroll.Get());
+
+    auto demo = VFlex(8.0f);
+    demo->Padding = ui::Thickness{ 12, 8 };
+    scroll->AddView(demo.Get());
+
+    const auto w300 = [&] { return LP(SizeSpec::Fixed(Unit::Px(300)), SizeSpec::Wrap()); };
+    const auto w200 = [&] { return LP(SizeSpec::Fixed(Unit::Px(200)), SizeSpec::Wrap()); };
+    auto section = [&](const char8_t* title)
+    {
+        demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get());
+        demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    };
+
+    // --- EditText ---
+    section(u8"EditText");
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->SetText(u8"Editable text"); demo->AddView(e.Get(), w300()); }
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->SetPlaceholder(u8"Enter name..."); demo->AddView(e.Get(), w300()); }
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->SetText(u8"Read-only text"); e->IsReadOnly.SetValue(true); demo->AddView(e.Get(), w300()); }
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->Multiline.SetValue(true); e->SetText(u8"Line 1\nLine 2\nLine 3"); demo->AddView(e.Get(), LP(SizeSpec::Fixed(Unit::Px(300)), SizeSpec::Fixed(Unit::Px(80)))); }
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->MaxLength.SetValue(10); e->SetPlaceholder(u8"Max 10 chars"); demo->AddView(e.Get(), w300()); }
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->SetFilter(ui::InputFilter::Digits()); e->SetPlaceholder(u8"Digits only"); demo->AddView(e.Get(), w300()); }
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->SetPrefix(StringView(u8"$")); e->SetText(u8"100"); demo->AddView(e.Get(), w300()); }
+    { auto e = MakeRef<ui::EditText>(DefaultAllocator()); e->SetSuffix(StringView(u8"px")); e->SetText(u8"16"); demo->AddView(e.Get(), w300()); }
+
+    // --- PasswordBox ---
+    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
+    section(u8"PasswordBox");
+    { auto p = MakeRef<ui::PasswordBox>(DefaultAllocator()); p->SetPlaceholder(u8"Password"); demo->AddView(p.Get(), w300()); }
+    { auto p = MakeRef<ui::PasswordBox>(DefaultAllocator()); p->PasswordChar.SetValue(U'●'); p->SetPlaceholder(u8"Custom mask"); demo->AddView(p.Get(), w300()); }
+
+    // --- NumericField ---
+    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
+    section(u8"NumericField");
+    { auto n = MakeRef<ui::NumericField>(DefaultAllocator()); n->SetMin(0); n->SetMax(100); n->SetValue(42); demo->AddView(n.Get(), w200()); }
+    { auto n = MakeRef<ui::NumericField>(DefaultAllocator()); n->SetMin(0); n->SetMax(100); n->ShowSpinButtons.SetValue(false); n->SetValue(25); demo->AddView(n.Get(), w200()); }
+    { auto n = MakeRef<ui::NumericField>(DefaultAllocator()); n->SetMin(-10); n->SetMax(10); n->SetStep(0.5); n->SetDecimalPlaces(1); n->SetValue(0); demo->AddView(n.Get(), w200()); }
+    { auto n = MakeRef<ui::NumericField>(DefaultAllocator()); n->SetMin(0); n->SetMax(999); n->SetDecimalPlaces(0); n->SetValue(100); demo->AddView(n.Get(), w200()); }
+    { auto n = MakeRef<ui::NumericField>(DefaultAllocator()); n->SetMin(0); n->SetMax(360); n->SetDecimalPlaces(1); n->SetSuffix(StringView(u8"°")); n->SetValue(90); demo->AddView(n.Get(), w200()); }
+
+    // Vector3-style editor: 3 numeric fields with coloured axis prefix labels.
+    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Vector3 Editor")).Get());
+    {
+        auto vecRow = HFlex(4.0f);
+        auto axisField = [&](const char8_t* axis, Color color, f64 val)
+        {
+            auto n = MakeRef<ui::NumericField>(DefaultAllocator());
+            n->SetMin(-999); n->SetMax(999); n->SetStep(0.1); n->SetDecimalPlaces(2);
+            n->ShowSpinButtons.SetValue(false); n->SetValue(val);
+            auto prefix = MakeRef<ui::Label>(DefaultAllocator(), StringView(axis));
+            prefix->TextColor.SetValue(Optional<Color>{ color });
+            n->SetPrefix(prefix.Get());
+            vecRow->AddView(n.Get(), Grow(1));
+        };
+        axisField(u8"X", Color{ 220.0f / 255.0f, 80.0f / 255.0f, 80.0f / 255.0f, 1.0f }, 1.06);
+        axisField(u8"Y", Color{ 80.0f / 255.0f, 200.0f / 255.0f, 80.0f / 255.0f, 1.0f }, 0.0);
+        axisField(u8"Z", Color{ 80.0f / 255.0f, 120.0f / 255.0f, 220.0f / 255.0f, 1.0f }, 2.17);
+        demo->AddView(vecRow.Get(), LP(SizeSpec::Fixed(Unit::Px(400)), SizeSpec::Wrap()));
+    }
+
+    // --- EditableLabel ---
+    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
+    section(u8"EditableLabel (double-click to edit)");
+    { auto el = MakeRef<ui::EditableLabel>(DefaultAllocator()); el->SetText(u8"Double-click me"); el->SlowClickToEdit.SetValue(false); demo->AddView(el.Get(), w300()); }
+    { auto el = MakeRef<ui::EditableLabel>(DefaultAllocator()); el->SetText(u8"Slow-click me"); el->DoubleClickToEdit.SetValue(false); demo->AddView(el.Get(), w300()); }
+    {
+        auto el = MakeRef<ui::EditableLabel>(DefaultAllocator());
+        el->SetText(u8"With validation");
+        el->ValidateRename = Function<bool(StringView)>{ [](StringView text)
+        {
+            const StringView bad = u8"bad";
+            if (text.Size() < bad.Size()) { return true; }
+            for (usize i = 0; i + bad.Size() <= text.Size(); ++i)
+            {
+                if (StringView{ text.Data() + i, bad.Size() } == bad) { return false; }
+            }
+            return true;
+        } };
+        demo->AddView(el.Get(), w300());
+    }
 }
 
 // === Tab 1: Controls === (faithful port of Sedulous UISandbox's Controls tab)
