@@ -61,13 +61,26 @@ float4 main(PSInput input) : SV_Target {
 #define DRACONIC_GUI_FONT_PATH ""
 #endif
 
-    // App-specific rules layered on top of the built-in theme: two button accent classes and a
-    // font-family rule that resolves through the resource provider (see SandboxResources).
+    // App-specific rules layered on top of the built-in theme: two button accent classes, a
+    // font-family rule resolved through the font service, and a @keyframes pulse animation.
     const char8_t* kThemeExtras = u8R"(
         .danger { background-color: #b5453f; } /* class beats tag -> red */
         .accent { background-color: #3fa06a; } /*                  -> green */
         .highlight { color: #55d67f; }          /* survives per-frame theme re-apply */
-        button  { font-family: Roboto; font-size: 18; } /* resolved via IResourceProvider */
+        button  { font-family: Roboto; font-size: 18; } /* resolved via the font service */
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.25; } 100% { opacity: 1; } }
+        @keyframes blink { 0% { opacity: 1; } 40% { opacity: 0.08; } 60% { opacity: 0.08; } 100% { opacity: 1; } }
+        @keyframes colorcycle {
+            0%   { background-color: #e05555; }
+            33%  { background-color: #55c07a; }
+            66%  { background-color: #5580e0; }
+            100% { background-color: #e05555; }
+        }
+        .pulse       { animation: pulse 1.4s infinite; }   /* opacity keyframes */
+        .pulse-fast  { animation: pulse 0.7s infinite; }
+        .pulse-slow  { animation: pulse 2.3s infinite; }
+        .blink       { animation: blink 1.1s infinite; }
+        .colorcycle  { animation: colorcycle 3s infinite; } /* background-color keyframes */
     )";
 
     inline Color Col(f32 r, f32 g, f32 b, f32 a = 1.0f) { return Color{ r, g, b, a }; }
@@ -236,6 +249,43 @@ void GUISandbox::BuildUI()
     hint->SetTextColor(Col(0.55f, 0.60f, 0.68f));
     hint->SetHitTestVisible(false); // don't let it swallow right-clicks meant for the panel
     m_panel->AddChild(hint.Get());
+
+    // CSS @keyframes animation: a row of "activity light" dots pulsing/blinking at different
+    // rates (all opacity-driven), plus a pulsing caption. Each animation is a CSS class.
+    auto animRow = MakeRef<gui::LinearLayout>(DefaultAllocator());
+    animRow->SetOrientation(gui::Orientation::Horizontal);
+    animRow->SetSize(Float2{ 600.0f, 24.0f });
+    animRow->SetSpacing(10.0f);
+    m_panel->AddChild(animRow.Get());
+
+    struct Dot { const char8_t* cssClass; Color color; };
+    const Dot dots[4] = {
+        { u8"pulse-fast", Col(0.42f, 0.85f, 0.52f) }, // green, fast
+        { u8"pulse",      Col(0.36f, 0.66f, 0.95f) }, // blue, medium
+        { u8"pulse-slow", Col(0.95f, 0.78f, 0.35f) }, // amber, slow
+        { u8"blink",      Col(0.90f, 0.42f, 0.42f) }, // red, blink
+    };
+    for (const Dot& d : dots)
+    {
+        auto dot = MakeRef<gui::Label>(DefaultAllocator());
+        dot->SetSize(Float2{ 18.0f, 18.0f });
+        dot->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), d.color));
+        dot->AddClass(StringView(d.cssClass));
+        animRow->AddChild(dot.Get());
+    }
+
+    // A color-cycling box (background-color keyframes, not opacity).
+    auto colorBox = MakeRef<gui::Label>(DefaultAllocator());
+    colorBox->SetSize(Float2{ 34.0f, 18.0f });
+    colorBox->AddClass(StringView(u8"colorcycle"));
+    animRow->AddChild(colorBox.Get());
+
+    auto pulseCaption = MakeRef<gui::Label>(DefaultAllocator());
+    pulseCaption->SetSize(Float2{ 430.0f, 22.0f });
+    pulseCaption->SetText(u8"@keyframes: opacity (dots) + background-color (box), varied rates");
+    pulseCaption->SetFont(m_font);
+    pulseCaption->AddClass(StringView(u8"pulse-slow"));
+    animRow->AddChild(pulseCaption.Get());
 
     // A row of buttons.
     auto row = MakeRef<gui::LinearLayout>(DefaultAllocator());

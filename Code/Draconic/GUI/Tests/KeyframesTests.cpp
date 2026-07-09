@@ -113,3 +113,30 @@ TEST_CASE("keyframes: the animation is spawned once, not re-spawned each ApplyTr
     mgr.ApplyTree(*root.Get()); // re-apply must NOT restart the animation
     CHECK(w->GetAlpha() == doctest::Approx(0.0f)); // still mid-animation, not reset to t=0
 }
+
+TEST_CASE("keyframes: animates background-color across the stops")
+{
+    auto root = Make<SceneNode>();
+    auto w = Make<UIWidget>();
+    w->AddClass(core::StringView(u8"cycle"));
+    root->AddChild(w.Get());
+
+    StyleManager mgr;
+    mgr.SetStyleSheet(CSSParser::Parse(core::StringView(
+        u8"@keyframes cyc { 0% { background-color: #000000; } 100% { background-color: #ffffff; } }"
+        u8".cycle { animation: cyc 2s; }")));
+    mgr.ApplyTree(*root.Get());
+
+    // At t=0 the background is black; halfway it's mid-grey; at the end white.
+    auto grey = [&](float expect) {
+        Drawable* bg = w->GetBackground();
+        RectangleDrawable* r = core::Cast<RectangleDrawable>(bg);
+        REQUIRE(r != nullptr);
+        CHECK(r->GetColor().r == doctest::Approx(expect));
+    };
+    grey(0.0f);
+    root->Update(Secs(1.0)); // t=0.5 -> mid grey
+    grey(0.5f);
+    root->Update(Secs(1.0)); // t=1.0 -> white
+    grey(1.0f);
+}

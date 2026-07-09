@@ -112,7 +112,8 @@ export namespace draconic::gui
             const Keyframes* kf = m_sheet.FindKeyframes(name.AsView());
             if (kf == nullptr) return;
             widget.RunAction(core::MakeRef<KeyframeAction>(core::DefaultAllocator(),
-                ExtractOpacityTrack(*kf), core::Duration::FromSeconds(static_cast<f64>(durationSecs)), loop));
+                ExtractOpacityTrack(*kf), ExtractColorTrack(*kf),
+                core::Duration::FromSeconds(static_cast<f64>(durationSecs)), loop));
             m_animations.InsertOrAssign(&widget, core::Move(name));
         }
 
@@ -154,6 +155,26 @@ export namespace draconic::gui
                 const core::Float2 key = track[a];
                 usize b = a;
                 while (b > 0 && track[b - 1].x > key.x) { track[b] = track[b - 1]; --b; }
+                track[b] = key;
+            }
+            return track;
+        }
+
+        // Pull the background-color track from a keyframes definition, sorted by offset.
+        [[nodiscard]] static Array<ColorKey> ExtractColorTrack(const Keyframes& kf)
+        {
+            Array<ColorKey> track;
+            for (const KeyframeStop& stop : kf.Stops)
+                for (const StyleProperty& p : stop.Properties)
+                    if (p.Name.AsView() == core::StringView(u8"background-color"))
+                        if (Optional<Color> c = ParseColor(p.Value.AsView()); c.HasValue())
+                            track.PushBack(ColorKey{ stop.Offset, c.Value() });
+
+            for (usize a = 1; a < track.Size(); ++a) // insertion sort by offset
+            {
+                const ColorKey key = track[a];
+                usize b = a;
+                while (b > 0 && track[b - 1].Offset > key.Offset) { track[b] = track[b - 1]; --b; }
                 track[b] = key;
             }
             return track;

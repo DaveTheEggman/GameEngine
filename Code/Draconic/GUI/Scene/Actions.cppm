@@ -11,9 +11,10 @@ module;
 
 export module draconic.gui:actions;
 
-import draconic.core;   // Float2, Duration, Lerp, Function, RefPtr, Array, Move
+import draconic.core;   // Float2, Duration, Lerp, Function, RefPtr, Array, Move, Color, MakeRef
 import :action;
 import :node;
+import :rectangle_drawable;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -88,16 +89,20 @@ export namespace draconic::gui
     };
     DRACONIC_DEFINE_OBJECT(RunnableAction, "draconic::gui")
 
-    // Drives a CSS @keyframes animation: interpolates the target's opacity across a track of
-    // (offset, opacity) stops over `duration`, optionally looping forever. v1 animates opacity
-    // (the common case); other animatable tracks follow the same shape.
+    // One color keyframe stop (offset in [0,1] + a color), for animating background-color.
+    struct ColorKey { f32 Offset = 0.0f; Color Value; };
+
+    // Drives a CSS @keyframes animation: interpolates the target's animatable properties across
+    // the keyframe stops over `duration`, optionally looping forever. Supported tracks: opacity
+    // ({offset, opacity} pairs -> SetAlpha) and background-color (ColorKeys -> SetBackground).
+    // Empty tracks are skipped. Transform/size follow the same shape once they are wired.
     class KeyframeAction : public Action
     {
         DRACONIC_OBJECT(KeyframeAction, Action)
     public:
-        // `track` holds {x = offset in [0,1], y = opacity}, in ascending offset order.
-        KeyframeAction(Array<core::Float2> track, core::Duration duration, bool loop) noexcept
-            : m_track(core::Move(track)), m_duration(duration), m_loop(loop) {}
+        KeyframeAction(Array<core::Float2> opacityTrack, Array<ColorKey> colorTrack,
+                       core::Duration duration, bool loop) noexcept
+            : m_opacity(core::Move(opacityTrack)), m_color(core::Move(colorTrack)), m_duration(duration), m_loop(loop) {}
 
         void Start() override { m_elapsed = core::Duration{}; m_done = false; Apply(0.0f); }
         void Stop() override { m_done = true; }
@@ -120,25 +125,45 @@ export namespace draconic::gui
         [[nodiscard]] core::Duration GetTotalTime() override { return m_duration; }
 
     private:
-        void Apply(f32 t) { if (m_target) m_target->SetAlpha(OpacityAt(t)); }
+        void Apply(f32 t)
+        {
+            if (m_target == nullptr) return;
+            if (m_opacity.Size() != 0) m_target->SetAlpha(OpacityAt(t));
+            if (m_color.Size() != 0) m_target->SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), ColorAt(t)));
+        }
 
         [[nodiscard]] f32 OpacityAt(f32 t) const
         {
-            if (m_track.Size() == 0) return 1.0f;
-            if (t <= m_track[0].x) return m_track[0].y;
-            for (usize i = 1; i < m_track.Size(); ++i)
-            {
-                if (t <= m_track[i].x)
+            if (t <= m_opacity[0].x) return m_opacity[0].y;
+            for (usize i = 1; i < m_opacity.Size(); ++i)
+                if (t <= m_opacity[i].x)
                 {
-                    const f32 span = m_track[i].x - m_track[i - 1].x;
-                    const f32 lt = span > 0.0f ? (t - m_track[i - 1].x) / span : 0.0f;
-                    return m_track[i - 1].y + (m_track[i].y - m_track[i - 1].y) * lt;
+                    const f32 span = m_opacity[i].x - m_opacity[i - 1].x;
+                    const f32 lt = span > 0.0f ? (t - m_opacity[i - 1].x) / span : 0.0f;
+                    return m_opacity[i - 1].y + (m_opacity[i].y - m_opacity[i - 1].y) * lt;
                 }
-            }
-            return m_track[m_track.Size() - 1].y;
+            return m_opacity[m_opacity.Size() - 1].y;
         }
 
-        Array<core::Float2> m_track;
+        [[nodiscard]] Color ColorAt(f32 t) const
+        {
+            if (t <= m_color[0].Offset) return m_color[0].Value;
+            for (usize i = 1; i < m_color.Size(); ++i)
+                if (t <= m_color[i].Offset)
+                {
+                    const f32 span = m_color[i].Offset - m_color[i - 1].Offset;
+                    const f32 lt = span > 0.0f ? (t - m_color[i - 1].Offset) / span : 0.0f;
+                    return LerpColor(m_color[i - 1].Value, m_color[i].Value, lt);
+                }
+            return m_color[m_color.Size() - 1].Value;
+        }
+        [[nodiscard]] static Color LerpColor(Color a, Color b, f32 t)
+        {
+            return Color{ a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t };
+        }
+
+        Array<core::Float2> m_opacity; // {offset, opacity}
+        Array<ColorKey> m_color;       // background-color stops
         core::Duration m_duration;
         core::Duration m_elapsed;
         bool m_loop = false;
