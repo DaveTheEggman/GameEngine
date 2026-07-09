@@ -140,6 +140,52 @@ TEST_CASE("stylesheet: Selector_Specificity_Computed")
     CHECK(selAll.Specificity() == 12);
 }
 
+// === Palette ===
+
+TEST_CASE("stylesheet: Palette_Lighten")
+{
+    Color c = Palette::Lighten(Color{ 100.0f / 255.0f, 100.0f / 255.0f, 100.0f / 255.0f, 1.0f }, 0.5f);
+    CHECK(c.r > 100.0f / 255.0f);
+    CHECK(c.r < 1.0f);
+    CHECK(c.a == 1.0f);
+}
+
+TEST_CASE("stylesheet: Palette_Darken")
+{
+    Color c = Palette::Darken(Color{ 200.0f / 255.0f, 200.0f / 255.0f, 200.0f / 255.0f, 1.0f }, 0.5f);
+    CHECK(c.r < 200.0f / 255.0f);
+    CHECK(c.r > 0.0f);
+    CHECK(c.a == 1.0f);
+}
+
+TEST_CASE("stylesheet: Palette_ComputeHover_Lighter")
+{
+    Color baseColor{ 60.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f };
+    CHECK(Palette::ComputeHover(baseColor).r > baseColor.r);
+}
+
+TEST_CASE("stylesheet: Palette_ComputePressed_Darker")
+{
+    Color baseColor{ 60.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f };
+    CHECK(Palette::ComputePressed(baseColor).r < baseColor.r);
+}
+
+TEST_CASE("stylesheet: Palette_ComputeDisabled_Faded")
+{
+    Color baseColor{ 60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 1.0f };
+    CHECK(Palette::ComputeDisabled(baseColor).a < 1.0f);
+}
+
+TEST_CASE("stylesheet: Palette_CreateStateColors_AllStatesSet")
+{
+    core::RefPtr<StateListDrawable> sl = Palette::CreateStateColors(Color{ 80.0f / 255.0f, 80.0f / 255.0f, 80.0f / 255.0f, 1.0f });
+    CHECK(sl->Get(ControlState::Normal) != nullptr);
+    CHECK(sl->Get(ControlState::Hover) != nullptr);
+    CHECK(sl->Get(ControlState::Pressed) != nullptr);
+    CHECK(sl->Get(ControlState::Disabled) != nullptr);
+    CHECK(sl->Get(ControlState::Focused) != nullptr);
+}
+
 // === ForAll rule (empty selector) ===
 
 TEST_CASE("stylesheet: ForAll_HasEmptySelector_SpecificityZero")
