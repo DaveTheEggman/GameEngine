@@ -48,7 +48,11 @@ export namespace draconic::gui
                                    : core::RefPtr<Drawable>());
             Invalidate();
         }
-        void SetHighlightColor(Color color) { m_highlight = color; }
+        void SetHighlightColor(Color color)
+        {
+            m_highlight = color;
+            if (m_selected) SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color)); // refresh live
+        }
 
     protected:
         void OnMouseClick(const MouseEvent&) override { if (m_onPicked) m_onPicked(m_index); }
@@ -85,6 +89,7 @@ export namespace draconic::gui
             item->SetText(text);
             item->SetFont(m_font);
             item->SetTextColor(m_textColor);
+            item->SetHighlightColor(m_highlightColor);
             item->SetPadding(Thickness{ 8.0f, 0.0f, 8.0f, 0.0f });
             item->SetIndex(static_cast<i32>(m_items.Size()));
             ListBox* self = this;
@@ -125,6 +130,16 @@ export namespace draconic::gui
         void SetOnSelectionChanged(core::Function<void(i32)> callback) { m_onChanged = core::Move(callback); }
 
         void SetTextColor(Color color) { m_textColor = color; for (ListBoxItem* it : m_items) it->SetTextColor(color); }
+
+        // Theming: text color for all rows; listbox::selection = the row-selection highlight.
+        void SetThemeTextColor(Color color) override { SetTextColor(color); }
+        void CollectStyleParts(core::Array<core::StringView>& out) const override { out.PushBack(core::StringView(u8"selection")); }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part != core::StringView(u8"selection")) return;
+            m_highlightColor = color;
+            for (ListBoxItem* it : m_items) it->SetHighlightColor(color);
+        }
 
         [[nodiscard]] ScrollView* GetScrollView() const noexcept { return m_scroll.Get(); }
 
@@ -176,6 +191,7 @@ export namespace draconic::gui
         i32 m_selected = -1;
         Color m_panelColor{ 0.13f, 0.14f, 0.17f, 1.0f };
         Color m_textColor{ 0.88f, 0.90f, 0.94f, 1.0f };
+        Color m_highlightColor{ 0.24f, 0.40f, 0.62f, 1.0f };
         core::Function<void(i32)> m_onChanged;
     };
 

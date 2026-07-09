@@ -47,6 +47,20 @@ export namespace draconic::gui
         void SetFillColor(Color color)   { m_fillColor = color; Invalidate(); }
         void SetHandleColor(Color color) { m_handleColor = color; Invalidate(); }
 
+        // Theming parts: slider::track / ::fill / ::thumb.
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"track"));
+            out.PushBack(core::StringView(u8"fill"));
+            out.PushBack(core::StringView(u8"thumb"));
+        }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"track")) SetTrackColor(color);
+            else if (part == core::StringView(u8"fill")) SetFillColor(color);
+            else if (part == core::StringView(u8"thumb")) SetHandleColor(color);
+        }
+
     protected:
         // Drag state is tracked with our own m_dragging flag rather than IsPressed(): a
         // captured drag that leaves the slider fires OnMouseLeave (which clears m_pressed)

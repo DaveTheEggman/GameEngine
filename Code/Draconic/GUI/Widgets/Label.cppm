@@ -39,6 +39,10 @@ export namespace draconic::gui
         void SetTextColor(Color color) { m_text.SetColor(color); Invalidate(); }
         [[nodiscard]] Color GetTextColor() const { return m_text.GetColor(); }
 
+        // Theming hooks (CSS color / font-family reach the text).
+        void SetThemeTextColor(Color color) override { SetTextColor(color); }
+        void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
+
         void SetTextAlignment(TextHAlign horizontal, TextVAlign vertical)
         {
             m_text.SetAlignment(horizontal, vertical);

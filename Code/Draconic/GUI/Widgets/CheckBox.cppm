@@ -46,6 +46,18 @@ export namespace draconic::gui
         void SetBoxColor(Color color) { m_boxColor = color; Invalidate(); }
         void SetCheckColor(Color color) { m_checkColor = color; Invalidate(); }
 
+        // Theming parts: checkbox::box (outline) / ::mark (inner fill).
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"box"));
+            out.PushBack(core::StringView(u8"mark"));
+        }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"box")) SetBoxColor(color);
+            else if (part == core::StringView(u8"mark")) SetCheckColor(color);
+        }
+
     protected:
         void OnMouseClick(const MouseEvent& event) override { (void)event; Toggle(); }
 

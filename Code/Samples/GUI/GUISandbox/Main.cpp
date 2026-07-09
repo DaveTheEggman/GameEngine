@@ -61,17 +61,13 @@ float4 main(PSInput input) : SV_Target {
 #define DRACONIC_GUI_FONT_PATH ""
 #endif
 
-    const char8_t* kStyleSheet = u8R"(
-        button {
-            background-color: #3a6ea5;    /* base: blue */
-            padding: 10;
-            opacity: 1;
-            transition: opacity 0.18s;
-        }
-        button:hover  { opacity: 0.9; }
-        button:active { opacity: 0.78; }
+    // App-specific rules layered on top of the built-in theme: two button accent classes and a
+    // font-family rule that resolves through the resource provider (see SandboxResources).
+    const char8_t* kThemeExtras = u8R"(
         .danger { background-color: #b5453f; } /* class beats tag -> red */
         .accent { background-color: #3fa06a; } /*                  -> green */
+        .highlight { color: #55d67f; }          /* survives per-frame theme re-apply */
+        button  { font-family: Roboto; font-size: 18; } /* resolved via IResourceProvider */
     )";
 
     inline Color Col(f32 r, f32 g, f32 b, f32 a = 1.0f) { return Color{ r, g, b, a }; }
@@ -160,6 +156,8 @@ private:
 
     // Priority-2 widget showcase (a floating Window with tabs + a right-click menu + tooltips).
     void BuildShowcaseWindow();
+    void ApplyTheme(); // (re)build the stylesheet from the current theme + extras
+    bool m_darkTheme = true;
     RefPtr<gui::Window>       m_widgetWindow;
     RefPtr<gui::Menu>         m_contextMenu;
     RefPtr<gui::Label>        m_pickEcho;
@@ -214,7 +212,7 @@ void GUISandbox::BuildUI()
     m_panel->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
     m_panel->SetPadding(gui::Thickness{ 28.0f });
     m_panel->SetSpacing(16.0f);
-    m_panel->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.11f, 0.12f, 0.15f)));
+    m_panel->AddClass(StringView(u8"panel")); // themed surface (dark/light) instead of a hardcoded bg
     m_root->AddChild(m_panel.Get());
 
     auto title = MakeRef<gui::Label>(DefaultAllocator());
@@ -266,6 +264,7 @@ void GUISandbox::BuildUI()
     makeButton(u8"Add +1", u8"",       [counter, clicks]() { ++(*clicks); SetCounterText(counter, *clicks); });
     makeButton(u8"Reset",  u8"danger", [counter, clicks]() { *clicks = 0; SetCounterText(counter, 0); });
     makeButton(u8"Add +5", u8"accent", [counter, clicks]() { *clicks += 5; SetCounterText(counter, *clicks); });
+    makeButton(u8"Theme",  u8"",       [this]() { m_darkTheme = !m_darkTheme; ApplyTheme(); }); // dark <-> light
 
     // A checkbox + label row: toggling it highlights the counter.
     auto checkRow = MakeRef<gui::LinearLayout>(DefaultAllocator());
@@ -278,7 +277,9 @@ void GUISandbox::BuildUI()
     check->SetSize(Float2{ 22.0f, 22.0f });
     check->SetOnCheckedChanged([counter](bool on)
     {
-        counter->SetTextColor(on ? Color{ 0.42f, 0.85f, 0.52f, 1.0f } : Color{ 0.75f, 0.82f, 0.9f, 1.0f });
+        // Drive the highlight via a CSS class so it survives the per-frame theme re-apply.
+        if (on) counter->AddClass(StringView(u8"highlight"));
+        else    counter->RemoveClass(StringView(u8"highlight"));
     });
     checkRow->AddChild(check.Get());
 
@@ -407,7 +408,7 @@ void GUISandbox::BuildUI()
 
     m_relative = MakeRef<gui::RelativeLayout>(DefaultAllocator());
     m_relative->SetSize(Float2{ 360.0f, 90.0f });
-    m_relative->SetBackground(MakeRef<gui::RectangleDrawable>(DefaultAllocator(), Col(0.13f, 0.15f, 0.19f)));
+    m_relative->AddClass(StringView(u8"panel")); // themed surface
     m_panel->AddChild(m_relative.Get());
 
     struct Pin { const char8_t* text; u32 anchor; };
@@ -433,8 +434,22 @@ void GUISandbox::BuildUI()
 
     BuildShowcaseWindow();
 
-    m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
+    // Theme: the built-in default theme drives the widget look; the font service resolves the
+    // font-family rule (the GUI is agnostic to how it loads fonts). A toggle button (added in
+    // BuildShowcaseWindow) flips dark/light. No image resource provider (no url() in the theme).
+    m_styles.SetFontService(m_fontService.Get());
+    ApplyTheme();
+
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());
+}
+
+void GUISandbox::ApplyTheme()
+{
+    // Combine the built-in theme with the app extras and hot-reload the manager's sheet.
+    const StringView theme = m_darkTheme ? gui::DefaultDarkThemeCSS() : gui::DefaultLightThemeCSS();
+    String combined(theme);
+    combined += StringView(kThemeExtras);
+    m_styles.SetStyleSheet(gui::CSSParser::Parse(combined.AsView()));
 }
 
 void GUISandbox::BuildShowcaseWindow()

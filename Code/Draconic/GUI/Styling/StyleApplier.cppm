@@ -12,14 +12,15 @@ module;
 export module draconic.gui:style_applier;
 
 import draconic.core;   // Cast, Optional, Color, Float2, MakeRef, DefaultAllocator
-import draconic.fonts;  // CachedFont
+import draconic.fonts;  // CachedFont, IFontService
+import draconic.image;  // ImageData
 import :thickness;
 import :node;
 import :ui_node;
 import :ui_widget;
-import :label;
 import :drawable;
 import :rectangle_drawable;
+import :image_drawable;
 import :style_sheet;    // ResolvedStyle
 import :css_values;
 import :resource_provider;
@@ -27,6 +28,7 @@ import :resource_provider;
 using namespace draconic::core;
 namespace core = draconic::core;
 namespace fonts = draconic::fonts;
+namespace image = draconic::image;
 
 export namespace draconic::gui
 {
@@ -42,9 +44,11 @@ export namespace draconic::gui
         return v;
     }
 
-    // Apply the supported declarations of `style` to `node`. `resources` (optional) resolves
-    // background-image/font-family; without it those properties are skipped.
-    inline void ApplyStyle(UINode& node, const ResolvedStyle& style, IResourceProvider* resources = nullptr)
+    // Apply the supported declarations of `style` to `node`. `resources` (optional) loads
+    // background-image; `fontService` (optional) resolves font-family/size. Missing either
+    // just skips that property.
+    inline void ApplyStyle(UINode& node, const ResolvedStyle& style,
+                           IResourceProvider* resources = nullptr, fonts::IFontService* fontService = nullptr)
     {
         using core::StringView;
 
@@ -87,32 +91,39 @@ export namespace draconic::gui
                 if (Optional<Thickness> t = ParseThickness(style.Get(StringView(u8"margin"))); t.HasValue())
                     widget->SetMargin(t.Value());
 
-        // Text color for text-bearing widgets (Label and its descendants: Button, MenuItem, ...).
+        // Text color for text-bearing widgets (Label/TextField/ComboBox/... via the virtual).
         if (style.Has(StringView(u8"color")))
-            if (Label* label = core::Cast<Label>(&node))
-                if (Optional<Color> c = ParseColor(style.Get(StringView(u8"color"))); c.HasValue())
-                    label->SetTextColor(c.Value());
+            if (Optional<Color> c = ParseColor(style.Get(StringView(u8"color"))); c.HasValue())
+                node.SetThemeTextColor(c.Value());
 
-        // Resource-backed props (need a provider).
-        if (resources != nullptr)
+        // background-image: url(path) -> load the image via the resource provider and wrap it
+        // in an ImageDrawable (the provider returns the raw asset, the GUI wraps it).
+        if (resources != nullptr && style.Has(StringView(u8"background-image")))
         {
-            if (style.Has(StringView(u8"background-image")))
-            {
-                const StringView name = ParseUrl(style.Get(StringView(u8"background-image")));
-                if (name.Size() != 0)
-                    if (Drawable* d = resources->GetDrawable(name))
-                        node.SetBackground(RefPtr<Drawable>(d));
-            }
-
-            if (style.Has(StringView(u8"font-family")))
-                if (Label* label = core::Cast<Label>(&node))
-                {
-                    const StringView family = ParseUrl(style.Get(StringView(u8"font-family"))); // strips quotes
-                    const f32 size = ParseLength(style.Get(StringView(u8"font-size"), StringView(u8"16"))).ValueOr(16.0f);
-                    if (family.Size() != 0 && size > 0.0f)
-                        if (fonts::CachedFont* font = resources->GetFont(family, size))
-                            label->SetFont(font);
-                }
+            const StringView path = ParseUrl(style.Get(StringView(u8"background-image")));
+            if (path.Size() != 0)
+                if (const image::ImageData* img = resources->LoadImage(path))
+                    node.SetBackground(core::MakeRef<ImageDrawable>(core::DefaultAllocator(), img));
         }
+
+        // font-family/-size -> resolve through the font service (whatever backs it - VFS, the
+        // TrueType service, ...; the GUI stays agnostic).
+        if (fontService != nullptr && style.Has(StringView(u8"font-family")))
+        {
+            const StringView family = ParseUrl(style.Get(StringView(u8"font-family"))); // strips quotes
+            const f32 size = ParseLength(style.Get(StringView(u8"font-size"), StringView(u8"16"))).ValueOr(16.0f);
+            if (family.Size() != 0 && size > 0.0f)
+                if (fonts::CachedFont* font = fontService->GetFont(family, size))
+                    node.SetThemeFont(font);
+        }
+    }
+
+    // Apply a resolved pseudo-element style to a widget part: its background-color becomes the
+    // part's color (slider::fill, window::title, scrollbar::thumb, ...).
+    inline void ApplyPartStyle(UINode& node, core::StringView part, const ResolvedStyle& style)
+    {
+        if (style.Has(core::StringView(u8"background-color")))
+            if (Optional<Color> c = ParseColor(style.Get(core::StringView(u8"background-color"))); c.HasValue())
+                node.SetThemePartColor(part, c.Value());
     }
 }

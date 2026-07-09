@@ -13,11 +13,12 @@ module;
 
 export module draconic.gui:scroll_bar;
 
-import draconic.core;   // Color, Function, Move, Max, Min, Float2, Rectangle
+import draconic.core;   // Color, Function, Move, Max, Min, Float2, Rectangle, RefPtr, MakeRef
 import draconic.vg;     // CornerRadii
 import :rect;
 import :event;
 import :draw_context;
+import :rectangle_drawable;
 import :ui_widget;
 import :linear_layout; // Orientation
 
@@ -31,7 +32,12 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(ScrollBar, UIWidget)
     public:
-        ScrollBar() { SetTag(core::StringView(u8"scrollbar")); }
+        ScrollBar()
+        {
+            SetTag(core::StringView(u8"scrollbar"));
+            // The track is the node background so the theme's background-color styles it.
+            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_trackColor));
+        }
 
         void SetOrientation(Orientation orientation) { m_orientation = orientation; Invalidate(); }
         [[nodiscard]] Orientation GetOrientation() const noexcept { return m_orientation; }
@@ -55,8 +61,15 @@ export namespace draconic::gui
         }
         [[nodiscard]] f32 GetThumbProportion() const noexcept { return m_proportion; }
 
-        void SetTrackColor(Color color) { m_trackColor = color; Invalidate(); }
+        void SetTrackColor(Color color) { m_trackColor = color; SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color)); }
         void SetThumbColor(Color color) { m_thumbColor = color; Invalidate(); }
+
+        // Theming: track = background-color (node background); thumb = scrollbar::thumb part.
+        void CollectStyleParts(core::Array<core::StringView>& out) const override { out.PushBack(core::StringView(u8"thumb")); }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"thumb")) SetThumbColor(color);
+        }
 
     protected:
         // Press on the thumb starts a grab-drag (the thumb keeps its offset under the cursor,
@@ -105,7 +118,8 @@ export namespace draconic::gui
             const f32 travel = core::Max(0.0f, track - thumbLen);
             const f32 pos = travel * m_value;
 
-            ctx.VG().FillRoundedRect(b.ToRectangle(), Radii(b), m_trackColor);
+            // The track is painted by the node background (themable via background-color); we
+            // draw only the thumb here.
             const Rect thumb = (m_orientation == Orientation::Vertical)
                 ? Rect{ b.x, b.y + pos, b.width, thumbLen }
                 : Rect{ b.x + pos, b.y, thumbLen, b.height };

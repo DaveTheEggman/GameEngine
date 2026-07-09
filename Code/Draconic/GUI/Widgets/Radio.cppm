@@ -45,6 +45,18 @@ export namespace draconic::gui
         void SetRingColor(Color color) { m_ringColor = color; Invalidate(); }
         void SetDotColor(Color color) { m_dotColor = color; Invalidate(); }
 
+        // Theming parts: radio::ring (outline) / ::dot (inner fill).
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"ring"));
+            out.PushBack(core::StringView(u8"dot"));
+        }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"ring")) SetRingColor(color);
+            else if (part == core::StringView(u8"dot")) SetDotColor(color);
+        }
+
     protected:
         void OnMouseClick(const MouseEvent& event) override { (void)event; Select(); }
 

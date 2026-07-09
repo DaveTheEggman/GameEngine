@@ -92,14 +92,18 @@ export namespace draconic::gui
         [[nodiscard]] usize RuleCount() const noexcept { return m_rules.Size(); }
         [[nodiscard]] const Array<StyleRule>& Rules() const noexcept { return m_rules; }
 
+        // Resolve the cascade for `element`. With `pseudoElement` empty this is the element's
+        // own style (rules with no ::part); pass a part name (e.g. "thumb") to resolve the
+        // cascade for that widget part (rules written as `tag::part { ... }`).
         [[nodiscard]] ResolvedStyle Resolve(const UIWidget& element, const MediaContext& context = {},
-                                            bool applyPseudo = true) const
+                                            bool applyPseudo = true, core::StringView pseudoElement = {}) const
         {
-            // Collect indices of matching rules (selector matches + media active), in source order.
+            // Collect indices of matching rules (selector + pseudo-element + media), in source order.
             Array<usize> matches;
             for (usize i = 0; i < m_rules.Size(); ++i)
             {
                 const StyleRule& rule = m_rules[i];
+                if (rule.Selector().PseudoElement() != pseudoElement) continue;
                 const bool mediaActive = rule.Media().IsEmpty() || rule.Media().Evaluate(context);
                 if (mediaActive && rule.Selector().Select(element, applyPseudo)) matches.PushBack(i);
             }

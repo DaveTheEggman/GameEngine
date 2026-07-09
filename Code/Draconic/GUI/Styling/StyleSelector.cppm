@@ -58,6 +58,8 @@ export namespace draconic::gui
         [[nodiscard]] core::StringView GetTag() const { return m_tag.AsView(); }
         [[nodiscard]] core::StringView GetId() const { return m_id.AsView(); }
         [[nodiscard]] u32 GetPseudoClasses() const noexcept { return m_pseudo; }
+        // The `::part` pseudo-element (empty = none) - its declarations style a widget part.
+        [[nodiscard]] core::StringView GetPseudoElement() const { return m_pseudoElement.AsView(); }
 
         [[nodiscard]] bool Matches(const UIWidget& element, bool applyPseudo = true) const
         {
@@ -86,7 +88,11 @@ export namespace draconic::gui
                 const char8_t c = fragment[i];
                 if (c == u8'#') { ++i; m_id = ReadIdent(fragment, i); }
                 else if (c == u8'.') { ++i; m_classes.PushBack(core::String(ReadIdent(fragment, i))); }
-                else if (c == u8':') { ++i; ApplyPseudo(ReadIdent(fragment, i)); }
+                else if (c == u8':')
+                {
+                    if (i + 1 < n && fragment[i + 1] == u8':') { i += 2; m_pseudoElement = core::String(ReadIdent(fragment, i)); } // ::part
+                    else { ++i; ApplyPseudo(ReadIdent(fragment, i)); }                                                             // :pseudo-class
+                }
                 else if (c == u8'*') { ++i; } // universal: no tag constraint
                 else if (IsIdentChar(c)) { m_tag = ReadIdent(fragment, i); }
                 else { ++i; } // skip anything unsupported
@@ -110,6 +116,7 @@ export namespace draconic::gui
             s += static_cast<i64>(m_classes.Size()) * kSpecificityClass;
             s += static_cast<i64>(PopCount(m_pseudo)) * kSpecificityClass;
             if (m_tag.AsView().Size() != 0) s += kSpecificityTag;
+            if (m_pseudoElement.AsView().Size() != 0) s += kSpecificityTag; // pseudo-elements count as a type
             m_specificity = s;
         }
 
@@ -122,6 +129,7 @@ export namespace draconic::gui
 
         core::String m_tag;
         core::String m_id;
+        core::String m_pseudoElement;
         Array<core::String> m_classes;
         u32 m_pseudo = PseudoNone;
         Combinator m_combinator = Combinator::Descendant;
@@ -137,6 +145,11 @@ export namespace draconic::gui
         [[nodiscard]] i64 Specificity() const noexcept { return m_specificity; }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_rules.Size() == 0; }
         [[nodiscard]] usize RuleCount() const noexcept { return m_rules.Size(); }
+        // The pseudo-element of the subject (rightmost) rule; empty for a normal selector.
+        [[nodiscard]] core::StringView PseudoElement() const
+        {
+            return m_rules.Size() != 0 ? m_rules[m_rules.Size() - 1].GetPseudoElement() : core::StringView{};
+        }
 
         // True if `element` matches this selector (the rightmost rule matches the element,
         // and each preceding rule matches an ancestor per its combinator).

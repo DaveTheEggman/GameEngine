@@ -39,6 +39,18 @@ export namespace draconic::gui
         void SetTrackColor(Color color) { m_trackColor = color; Invalidate(); }
         void SetFillColor(Color color)  { m_fillColor = color; Invalidate(); }
 
+        // Theming parts: progressbar::track / ::fill.
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"track"));
+            out.PushBack(core::StringView(u8"fill"));
+        }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"track")) SetTrackColor(color);
+            else if (part == core::StringView(u8"fill")) SetFillColor(color);
+        }
+
     protected:
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {

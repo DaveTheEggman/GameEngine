@@ -11,7 +11,8 @@ module;
 
 export module draconic.gui:ui_node;
 
-import draconic.core;   // RefPtr, Max, Move
+import draconic.core;   // RefPtr, Max, Move, Color
+import draconic.fonts;  // CachedFont
 import :rect;
 import :thickness;
 import :control_state;
@@ -21,6 +22,7 @@ import :node;
 
 using namespace draconic::core;
 namespace core = draconic::core;
+namespace fonts = draconic::fonts;
 
 export namespace draconic::gui
 {
@@ -49,6 +51,19 @@ export namespace draconic::gui
 
         [[nodiscard]] bool IsHovered() const noexcept { return m_hovered; }
         [[nodiscard]] bool IsPressed() const noexcept { return m_pressed; }
+
+        // Theming hooks: text-bearing widgets override these so the CSS `color` and
+        // `font-family` properties reach their text (Label/TextField/ComboBox/...). Default
+        // no-ops, so a plain node ignores them.
+        virtual void SetThemeTextColor(Color) {}
+        virtual void SetThemeFont(fonts::CachedFont*) {}
+
+        // Pseudo-element parts: a widget names the parts it paints (slider "track"/"fill"/
+        // "thumb", checkbox "box"/"mark", window "title"/"grip", ...) so CSS `tag::part` can
+        // style them. CollectStyleParts lists them; SetThemePartColor receives a part's
+        // background-color. Defaults: no parts / no-op.
+        virtual void CollectStyleParts(core::Array<core::StringView>&) const {}
+        virtual void SetThemePartColor(core::StringView, Color) {}
 
         // Visual state, driven by pointer/focus/enabled (priority: disabled > pressed >
         // hover > focused > normal).

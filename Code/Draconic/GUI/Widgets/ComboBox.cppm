@@ -53,6 +53,10 @@ export namespace draconic::gui
         }
         void SetTextColor(Color color) { m_text.SetColor(color); Invalidate(); }
 
+        // Theming hooks (CSS color / font-family reach the text + the dropdown arrow).
+        void SetThemeTextColor(Color color) override { SetTextColor(color); m_arrowColor = color; }
+        void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
+
         void AddItem(core::StringView text)
         {
             m_items.PushBack(core::String(text));

@@ -36,12 +36,20 @@ export namespace draconic::gui
     public:
         MenuItem()
         {
+            SetTag(core::StringView(u8"menuitem")); // themable distinctly from a plain label
             SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
             SetPadding(Thickness{ 12.0f, 0.0f, 12.0f, 0.0f });
         }
 
         void SetOnPicked(core::Function<void()> callback) { m_onPicked = core::Move(callback); }
         void SetHighlightColor(Color color) { m_highlight = color; }
+
+        // Theming part: menuitem::highlight (the hover row background); text via Label's hook.
+        void CollectStyleParts(core::Array<core::StringView>& out) const override { out.PushBack(core::StringView(u8"highlight")); }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"highlight")) m_highlight = color;
+        }
 
     protected:
         void OnMouseClick(const MouseEvent&) override { if (m_onPicked) m_onPicked(); }

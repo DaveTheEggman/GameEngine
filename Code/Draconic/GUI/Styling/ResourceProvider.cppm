@@ -1,22 +1,24 @@
 // Draconic GUI - :resource_provider partition
 //
-// IResourceProvider: the seam the CSS engine uses to turn resource-named properties into real
-// objects - background-image: url(name) into a Drawable, font-family + font-size into a font.
-// The GUI core stays platform/asset-agnostic: an app (or a theme) supplies a concrete provider
-// backed by whatever loads its skins and fonts. Names are opaque keys the provider understands.
+// IResourceProvider: the seam the CSS engine uses to load image assets referenced by
+// background-image: url(path). Aligned with Sedulous.UI / draconic.ui's IResourceProvider - it
+// returns a raw, provider-owned image (not a framework Drawable), so the provider stays a pure
+// asset loader (VFS + draconic.image) with no dependency on the GUI's drawable types; the
+// StyleApplier wraps the image into an ImageDrawable. Font resolution is a separate seam
+// (IFontProvider). @import / SVG text loading (Sedulous's LoadText) is deferred until we load
+// stylesheets from files.
 
 module;
 #include "Core/Prelude.h"
 
 export module draconic.gui:resource_provider;
 
-import draconic.core;    // StringView, f32
-import draconic.fonts;   // CachedFont
-import :drawable;
+import draconic.core;    // StringView
+import draconic.image;   // ImageData
 
 using namespace draconic::core;
 namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+namespace image = draconic::image;
 
 export namespace draconic::gui
 {
@@ -25,10 +27,8 @@ export namespace draconic::gui
     public:
         virtual ~IResourceProvider() = default;
 
-        // Resolve a named drawable (a skin / background-image). Null if unknown.
-        [[nodiscard]] virtual Drawable* GetDrawable(core::StringView name) = 0;
-
-        // Resolve a font by family name + pixel size. Null if unavailable.
-        [[nodiscard]] virtual fonts::CachedFont* GetFont(core::StringView family, f32 size) = 0;
+        // Load image data for a path (background-image: url(path)). Returns a borrowed pointer
+        // owned by the provider (valid until the provider releases it), or null if not found.
+        [[nodiscard]] virtual const image::ImageData* LoadImage(core::StringView path) = 0;
     };
 }

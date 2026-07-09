@@ -15,8 +15,10 @@ module;
 
 export module draconic.gui:style_manager;
 
-import draconic.core;    // HashMap, Cast, Move
+import draconic.core;    // HashMap, Cast, Move, Array, StringView
+import draconic.fonts;   // IFontService
 import :node;
+import :ui_node;
 import :ui_widget;
 import :style_sheet;
 import :media_query;
@@ -26,6 +28,7 @@ import :resource_provider;
 
 using namespace draconic::core;
 namespace core = draconic::core;
+namespace fonts = draconic::fonts;
 
 export namespace draconic::gui
 {
@@ -41,20 +44,33 @@ export namespace draconic::gui
         void SetMediaContext(const MediaContext& context) { m_context = context; }
         [[nodiscard]] const MediaContext& GetMediaContext() const noexcept { return m_context; }
 
-        // The resource provider that resolves background-image/font-family in the sheet
-        // (typically supplied by the theme). Null = those properties are skipped.
+        // Loads background-image assets referenced by the sheet. Null = background-image skipped.
         void SetResourceProvider(IResourceProvider* resources) noexcept { m_resources = resources; }
         [[nodiscard]] IResourceProvider* GetResourceProvider() const noexcept { return m_resources; }
+
+        // Resolves font-family/-size in the sheet (the app's font service - VFS-backed or not;
+        // the GUI is agnostic). Null = font-family skipped.
+        void SetFontService(fonts::IFontService* fontService) noexcept { m_fontService = fontService; }
+        [[nodiscard]] fonts::IFontService* GetFontService() const noexcept { return m_fontService; }
 
         // Resolve + apply one widget; animate any transitioned change versus its last apply.
         void ApplyTo(UIWidget& widget)
         {
             ResolvedStyle resolved = m_sheet.Resolve(widget, m_context);
             if (const ResolvedStyle* previous = m_cache.Find(&widget))
-                ApplyStyleAnimated(widget, *previous, resolved, m_resources);
+                ApplyStyleAnimated(widget, *previous, resolved, m_resources, m_fontService);
             else
-                ApplyStyle(widget, resolved, m_resources);
+                ApplyStyle(widget, resolved, m_resources, m_fontService);
             m_cache.InsertOrAssign(&widget, core::Move(resolved));
+
+            // Pseudo-element parts (tag::part): resolve + apply each part the widget declares.
+            Array<core::StringView> parts;
+            widget.CollectStyleParts(parts);
+            for (const core::StringView part : parts)
+            {
+                const ResolvedStyle partStyle = m_sheet.Resolve(widget, m_context, true, part);
+                ApplyPartStyle(widget, part, partStyle);
+            }
         }
 
         // Apply to every UIWidget in the subtree.
@@ -74,7 +90,8 @@ export namespace draconic::gui
     private:
         StyleSheet m_sheet;
         MediaContext m_context;
-        IResourceProvider* m_resources = nullptr; // non-owning; resolves url()/font-family
+        IResourceProvider* m_resources = nullptr;    // non-owning; loads background-image assets
+        fonts::IFontService* m_fontService = nullptr; // non-owning; resolves font-family
         HashMap<Node*, ResolvedStyle> m_cache; // last-applied style per widget (non-owning keys)
     };
 }

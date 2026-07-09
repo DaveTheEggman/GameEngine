@@ -107,6 +107,18 @@ export namespace draconic::gui
         void SetBodyColor(Color color) { m_bodyColor = color; SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color)); }
         void SetTitleColor(Color color) { m_titleColor = color; m_titleBar->SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color)); }
 
+        // Theming parts: window::title (header bar) / ::grip (resize handle).
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"title"));
+            out.PushBack(core::StringView(u8"grip"));
+        }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"title")) m_titleBar->SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+            else if (part == core::StringView(u8"grip")) m_resizeGrip->SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+        }
+
     protected:
         void OnSizeChange() override { Relayout(); }
 

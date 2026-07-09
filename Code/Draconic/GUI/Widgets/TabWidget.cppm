@@ -14,8 +14,6 @@ export module draconic.gui:tab_widget;
 import draconic.core;   // RefPtr, MakeRef, Array, Function, Move, Max
 import draconic.fonts;  // CachedFont
 import :rect;
-import :drawable;
-import :rectangle_drawable;
 import :node;
 import :button;
 import :linear_layout;
@@ -53,6 +51,7 @@ export namespace draconic::gui
             auto button = core::MakeRef<Button>(core::DefaultAllocator());
             button->SetText(title);
             button->SetFont(m_font);
+            button->AddClass(core::StringView(u8"tab")); // styled as a tab; `.tab.selected` = active
             button->SetSize(core::Float2{ m_tabWidth, m_tabBarHeight });
             TabWidget* self = this;
             button->SetOnClick([self, index]() { self->SelectTab(index); });
@@ -80,8 +79,10 @@ export namespace draconic::gui
             {
                 const bool active = (static_cast<i32>(i) == index);
                 if (m_tabs[i].Content != nullptr) m_tabs[i].Content->SetVisible(active);
-                m_tabs[i].TabButton->SetBackground(core::MakeRef<RectangleDrawable>(
-                    core::DefaultAllocator(), active ? m_activeColor : m_inactiveColor));
+                // The active tab carries a `selected` class so the theme distinguishes it
+                // (`.tab.selected`), surviving the per-frame style re-apply.
+                if (active) m_tabs[i].TabButton->AddClass(core::StringView(u8"selected"));
+                else        m_tabs[i].TabButton->RemoveClass(core::StringView(u8"selected"));
             }
             if (m_onChanged) m_onChanged(index);
         }
@@ -96,9 +97,6 @@ export namespace draconic::gui
         void SetFont(fonts::CachedFont* font) { m_font = font; for (const Tab& t : m_tabs) t.TabButton->SetFont(font); }
         void SetTabBarHeight(f32 height) { m_tabBarHeight = core::Max(1.0f, height); Relayout(); }
         void SetTabWidth(f32 width) { m_tabWidth = core::Max(1.0f, width); for (const Tab& t : m_tabs) t.TabButton->SetSize(core::Float2{ width, m_tabBarHeight }); Relayout(); }
-        void SetActiveColor(Color color) { m_activeColor = color; if (m_selected >= 0) SelectTab(m_selected); }
-        void SetInactiveColor(Color color) { m_inactiveColor = color; if (m_selected >= 0) SelectTab(m_selected); }
-
     protected:
         void OnSizeChange() override { Relayout(); }
 
@@ -129,8 +127,6 @@ export namespace draconic::gui
         i32 m_selected = -1;
         f32 m_tabBarHeight = 32.0f;
         f32 m_tabWidth = 100.0f;
-        Color m_activeColor{ 0.24f, 0.28f, 0.36f, 1.0f };
-        Color m_inactiveColor{ 0.15f, 0.16f, 0.20f, 1.0f };
         core::Function<void(i32)> m_onChanged;
     };
 

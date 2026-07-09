@@ -71,6 +71,10 @@ export namespace draconic::gui
         void SetFont(fonts::CachedFont* font) { m_text.SetFont(font); Invalidate(); }
         [[nodiscard]] fonts::CachedFont* GetFont() const { return m_text.GetFont(); }
         void SetTextColor(Color color) { m_text.SetColor(color); Invalidate(); }
+
+        // Theming hooks (CSS color / font-family reach the text).
+        void SetThemeTextColor(Color color) override { SetTextColor(color); }
+        void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
         void SetCaretColor(Color color) { m_caretColor = color; Invalidate(); }
 
         // The caret blink is advanced by the owner (SceneNode::Update path) if wired; a static
