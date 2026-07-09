@@ -66,6 +66,7 @@ export import :image;
 export import :list_box;
 export import :tab_widget;
 export import :window;
+export import :combo_box;
 
 // CSS styling (Phase 6)
 export import :parse_util;

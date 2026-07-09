@@ -59,6 +59,10 @@ export namespace draconic::gui
         {
             m_mousePos = position;
             Node* hit = HitTest(position);
+            // A press outside the active popup (and its owner) dismisses it - the click still
+            // proceeds normally afterwards.
+            if (m_popup != nullptr && !IsInSubtree(hit, m_popup) && !IsInSubtree(hit, m_popupOwner))
+                ClosePopup();
             m_downNode = hit;
             SetFocusNode(hit); // click-to-focus
             if (hit) hit->HandleMouseDown(MouseEvent(EventType::MouseDown, hit, position, button, modifiers));
@@ -91,6 +95,12 @@ export namespace draconic::gui
 
         void InjectKeyDown(u32 keyCode, u32 modifiers = 0)
         {
+            // Escape dismisses an open popup (menu / dropdown / tooltip) and is consumed.
+            if (m_popup != nullptr && keyCode == static_cast<u32>(KeyCode::Escape))
+            {
+                ClosePopup();
+                return;
+            }
             // Tab / Shift+Tab drive focus traversal at the dispatcher level (a widget never
             // sees a bare Tab), matching the common GUI convention.
             if (keyCode == static_cast<u32>(KeyCode::Tab) && (modifiers & (~static_cast<u32>(KeyModShift))) == 0)
@@ -120,6 +130,29 @@ export namespace draconic::gui
             if (m_focusNode) m_focusNode->HandleFocusGained();
         }
 
+        // === Popups / overlays ===
+        // Track an active popup (a dropdown / menu / tooltip the caller has already added to
+        // the tree, typically as a top-level child of the root so it draws over everything).
+        // A press outside it and its owner, or Escape, dismisses it via the onClose callback.
+        // `owner` is the widget that opened it (e.g. the ComboBox) - clicks on it don't dismiss.
+        void OpenPopup(Node* popup, Node* owner, core::Function<void()> onClose)
+        {
+            if (m_popup != nullptr) ClosePopup();
+            m_popup = popup;
+            m_popupOwner = owner;
+            m_onPopupClose = core::Move(onClose);
+        }
+        void ClosePopup()
+        {
+            if (m_popup == nullptr) return;
+            core::Function<void()> cb = core::Move(m_onPopupClose);
+            m_popup = nullptr;
+            m_popupOwner = nullptr;
+            m_onPopupClose = {};
+            if (cb) cb(); // the owner hides/removes the popup here
+        }
+        [[nodiscard]] Node* GetPopup() const noexcept { return m_popup; }
+
         // === Tab navigation ===
         // Move focus to the next / previous tab-focusable node in tree pre-order (visible +
         // enabled), wrapping around. Returns true if focus moved. With nothing focused, Next
@@ -139,6 +172,15 @@ export namespace draconic::gui
         [[nodiscard]] Node* HitTest(core::Float2 position) const
         {
             return m_root ? m_root->OverFind(position) : nullptr;
+        }
+
+        // True if `node` is `ancestor` or a descendant of it.
+        [[nodiscard]] static bool IsInSubtree(Node* node, Node* ancestor)
+        {
+            if (ancestor == nullptr) return false;
+            for (Node* n = node; n != nullptr; n = n->GetParent())
+                if (n == ancestor) return true;
+            return false;
         }
 
         // Gather tab-focusable nodes under `node` in pre-order (skipping invisible subtrees
@@ -177,6 +219,9 @@ export namespace draconic::gui
         Node* m_overNode = nullptr;    // non-owning
         Node* m_downNode = nullptr;    // non-owning
         Node* m_focusNode = nullptr;   // non-owning
+        Node* m_popup = nullptr;       // non-owning active popup
+        Node* m_popupOwner = nullptr;  // non-owning opener (clicks on it don't dismiss)
+        core::Function<void()> m_onPopupClose;
         core::Float2 m_mousePos{ 0.0f, 0.0f };
     };
 }
