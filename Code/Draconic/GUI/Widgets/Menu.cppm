@@ -359,11 +359,19 @@ export namespace draconic::gui
         [[nodiscard]] bool IsOpen() const noexcept { return m_open; }
         [[nodiscard]] Menu* CurrentSubMenu() const noexcept { return m_currentSubMenu; }
 
+        // Notified when this menu closes as a top-level popup (outside click / Escape /
+        // activation). A MenuBar uses it to clear its "open menu" state.
+        void SetOnClosed(core::Function<void()> callback) { m_onClosed = core::Move(callback); }
+
+        // Close this menu if it is open as a popup (used by a MenuBar toggle).
+        void Close() { if (m_open) CloseSelf(); }
+
         // Show the menu at `position` (root-local) as a popup, attached under `owner`'s root.
-        // A context menu has no persistent owner, so ANY press outside the menu's whole open
-        // chain dismisses it (that is why the popup owner is null here). The chain-aware
-        // `contains` predicate keeps clicks inside open submenus from dismissing.
-        void Open(Node& owner, core::Float2 position)
+        // `popupOwner` (optional) is a node whose clicks do NOT dismiss the menu - a MenuBar
+        // passes its button so clicking it again can toggle the menu closed. A context menu
+        // passes none, so ANY press outside the menu's whole open chain dismisses it. The
+        // chain-aware `contains` predicate keeps clicks inside open submenus from dismissing.
+        void Open(Node& owner, core::Float2 position, Node* popupOwner = nullptr)
         {
             Node* root = owner.GetRootNode();
             EventDispatcher* dispatcher = owner.GetEventDispatcher();
@@ -373,7 +381,7 @@ export namespace draconic::gui
             root->AddChild(this);
             m_open = true;
             Menu* self = this;
-            dispatcher->OpenPopup(this, nullptr,
+            dispatcher->OpenPopup(this, popupOwner,
                 [self]() { self->OnClosed(); },
                 [self](Node* n) { return self->ChainContains(n); });
         }
@@ -492,6 +500,7 @@ export namespace draconic::gui
             m_open = false;
             if (m_currentSubMenu != nullptr) { m_currentSubMenu->HideAsSubMenu(); m_currentSubMenu = nullptr; }
             RemoveFromParent();
+            if (m_onClosed) m_onClosed();
         }
 
         [[nodiscard]] static bool IsInSubtree(Node* node, const Node* ancestor)
@@ -512,6 +521,7 @@ export namespace draconic::gui
         f32 m_itemHeight = 26.0f;
         Color m_panelColor{ 0.16f, 0.17f, 0.21f, 1.0f };
         Color m_textColor{ 0.88f, 0.90f, 0.94f, 1.0f };
+        core::Function<void()> m_onClosed;
     };
 
     DRACONIC_DEFINE_OBJECT(MenuRow, "draconic::gui")

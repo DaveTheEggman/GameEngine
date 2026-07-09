@@ -42,6 +42,10 @@ export namespace draconic::gui
             menu       { background-color: #1a1d24; }
             menuitem::highlight, menusubmenu::highlight { background-color: #2f5f9e; }
             menuseparator::line { background-color: #3a3f4b; }
+            menubar    { background-color: #22262f; }
+            .menubutton          { background-color: #22262f; color: #d2d8e0; padding: 6; }
+            .menubutton:hover    { background-color: #2f3644; }
+            .menubutton.selected { background-color: #33507a; color: #f4f7fb; }
             tabwidget  { background-color: #1a1d24; }
             slider::track { background-color: #2b2f37; }
             slider::fill  { background-color: #4a90d9; }
@@ -79,6 +83,10 @@ export namespace draconic::gui
             menu       { background-color: #f2f4f8; }
             menuitem::highlight, menusubmenu::highlight { background-color: #9cc0ef; }
             menuseparator::line { background-color: #c2c8d2; }
+            menubar    { background-color: #d0d6e0; }
+            .menubutton          { background-color: #d0d6e0; color: #1c2530; padding: 6; }
+            .menubutton:hover    { background-color: #bcc4d2; }
+            .menubutton.selected { background-color: #9cc0ef; color: #17202b; }
             tabwidget  { background-color: #e6eaf1; }
             slider::track { background-color: #c2cad6; }
             slider::fill  { background-color: #2f6fb0; }

@@ -37,6 +37,7 @@ add_executable(DraconicGUITests
     WindowTests.cpp
     ComboBoxTests.cpp
     MenuTests.cpp
+    MenuBarTests.cpp
     TooltipTests.cpp
     DragDropTests.cpp
     ThemeTests.cpp

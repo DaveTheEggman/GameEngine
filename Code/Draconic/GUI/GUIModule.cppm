@@ -69,6 +69,7 @@ export import :tab_widget;
 export import :window;
 export import :combo_box;
 export import :menu;
+export import :menu_bar;
 export import :tooltip;
 
 // CSS styling (Phase 6)

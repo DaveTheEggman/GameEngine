@@ -56,6 +56,7 @@ target_sources(DraconicGUI
             Widgets/Window.cppm
             Widgets/ComboBox.cppm
             Widgets/Menu.cppm
+            Widgets/MenuBar.cppm
             Widgets/Tooltip.cppm
             Styling/ResourceProvider.cppm
             Styling/ParseUtil.cppm

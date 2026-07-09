@@ -174,6 +174,7 @@ private:
     bool m_darkTheme = true;
     RefPtr<gui::Window>       m_widgetWindow;
     RefPtr<gui::Menu>         m_contextMenu;
+    RefPtr<gui::MenuBar>      m_menuBar;
     RefPtr<gui::Label>        m_pickEcho;
     gui::RadioGroup           m_radioGroup;
     UniquePtr<gui::TooltipManager>   m_tooltips;
@@ -228,6 +229,30 @@ void GUISandbox::BuildUI()
     m_panel->SetSpacing(16.0f);
     m_panel->AddClass(StringView(u8"panel")); // themed surface (dark/light) instead of a hardcoded bg
     m_root->AddChild(m_panel.Get());
+
+    // A menu bar across the top: File/Edit/View, each dropping a menu (with a submenu, a
+    // separator, and a checkable item) below its button; hovering another button while one is
+    // open switches to it.
+    m_menuBar = MakeRef<gui::MenuBar>(DefaultAllocator());
+    m_menuBar->SetSize(Float2{ 600.0f, 28.0f });
+    m_menuBar->SetFont(m_font);
+    GUISandbox* menuSelf = this;
+    {
+        gui::Menu* file = m_menuBar->AddMenu(u8"File");
+        file->AddItem(u8"Reset counter", [menuSelf]() { menuSelf->m_clicks = 0; SetCounterText(menuSelf->m_counter.Get(), 0); });
+        file->AddSeparator();
+        file->AddItem(u8"Quit", [menuSelf]() { menuSelf->m_shell->RequestExit(); });
+
+        gui::Menu* edit = m_menuBar->AddMenu(u8"Edit");
+        edit->AddItem(u8"Add +1", [menuSelf]() { ++menuSelf->m_clicks; SetCounterText(menuSelf->m_counter.Get(), menuSelf->m_clicks); });
+        gui::Menu* by = edit->AddSubMenu(u8"Add by");
+        by->AddItem(u8"+5", [menuSelf]() { menuSelf->m_clicks += 5; SetCounterText(menuSelf->m_counter.Get(), menuSelf->m_clicks); });
+        by->AddItem(u8"+10", [menuSelf]() { menuSelf->m_clicks += 10; SetCounterText(menuSelf->m_counter.Get(), menuSelf->m_clicks); });
+
+        gui::Menu* view = m_menuBar->AddMenu(u8"View");
+        view->AddCheckItem(u8"Widgets window", true, [menuSelf](bool on) { menuSelf->m_widgetWindow->SetVisible(on); });
+    }
+    m_panel->AddChild(m_menuBar.Get());
 
     auto title = MakeRef<gui::Label>(DefaultAllocator());
     title->SetSize(Float2{ 600.0f, 46.0f });
@@ -827,6 +852,7 @@ void GUISandbox::OnShutdown()
     m_relative.Reset();
     m_tooltips.Reset();
     m_contextMenu.Reset();
+    m_menuBar.Reset();
     m_widgetWindow.Reset();
     m_pickEcho.Reset();
     m_showcaseDrawable.Reset();
