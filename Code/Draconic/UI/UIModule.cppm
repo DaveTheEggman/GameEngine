@@ -85,6 +85,7 @@ export import :storyboard;
 export import :animation_manager;
 export import :view_animator;
 export import :dark_theme;
+export import :light_theme;
 export import :markup_registry;
 export import :markup_loader;
 export import :frame_layout;
