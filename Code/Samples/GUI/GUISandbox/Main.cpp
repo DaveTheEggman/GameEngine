@@ -90,6 +90,21 @@ float4 main(PSInput input) : SV_Target {
         buf[pos] = 0;
         label->SetText(StringView(buf));
     }
+
+    // "N%" (0..1 -> 0..100) -> label.
+    void SetPercentText(gui::Label* label, f32 value01)
+    {
+        const i32 pct = static_cast<i32>(value01 * 100.0f + 0.5f);
+        char8_t buf[8]; usize pos = 0;
+        char8_t digits[4]; usize dc = 0;
+        i32 v = pct;
+        if (v == 0) digits[dc++] = u8'0';
+        while (v > 0) { digits[dc++] = static_cast<char8_t>(u8'0' + (v % 10)); v /= 10; }
+        for (usize k = 0; k < dc; ++k) buf[pos++] = digits[dc - 1 - k];
+        buf[pos++] = u8'%';
+        buf[pos] = 0;
+        label->SetText(StringView(buf));
+    }
 }
 
 class GUISandbox : public sf::SampleApp
@@ -251,6 +266,27 @@ void GUISandbox::BuildUI()
     checkLabel->SetFont(m_font);
     checkLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
     checkRow->AddChild(checkLabel.Get());
+
+    // A slider + live percent label.
+    auto sliderRow = MakeRef<gui::LinearLayout>(DefaultAllocator());
+    sliderRow->SetOrientation(gui::Orientation::Horizontal);
+    sliderRow->SetSize(Float2{ 380.0f, 30.0f });
+    sliderRow->SetSpacing(12.0f);
+    m_panel->AddChild(sliderRow.Get());
+
+    auto slider = MakeRef<gui::Slider>(DefaultAllocator());
+    slider->SetSize(Float2{ 220.0f, 24.0f });
+    sliderRow->AddChild(slider.Get());
+
+    auto sliderLabel = MakeRef<gui::Label>(DefaultAllocator());
+    sliderLabel->SetSize(Float2{ 80.0f, 26.0f });
+    sliderLabel->SetFont(m_font);
+    sliderLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
+    sliderRow->AddChild(sliderLabel.Get());
+
+    gui::Label* pct = sliderLabel.Get();
+    slider->SetOnValueChanged([pct](f32 v) { SetPercentText(pct, v); });
+    slider->SetValue(0.5f); // fires the callback -> label shows "50%"
 
     m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());

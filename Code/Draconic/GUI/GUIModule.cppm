@@ -53,6 +53,7 @@ export import :ui_widget;
 export import :label;
 export import :button;
 export import :check_box;
+export import :slider;
 export import :linear_layout;
 
 // CSS styling (Phase 6)

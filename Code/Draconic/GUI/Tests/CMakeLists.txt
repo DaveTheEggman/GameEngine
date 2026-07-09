@@ -24,7 +24,8 @@ add_executable(DraconicGUITests
     StyleManagerTests.cpp
     LabelButtonTests.cpp
     LinearLayoutTests.cpp
-    CheckBoxTests.cpp)
+    CheckBoxTests.cpp
+    SliderTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)

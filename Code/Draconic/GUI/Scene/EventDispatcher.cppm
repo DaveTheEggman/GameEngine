@@ -45,7 +45,10 @@ export namespace draconic::gui
                 m_overNode = hit;
                 if (m_overNode) m_overNode->HandleMouseEnter(MouseEvent(EventType::MouseEnter, m_overNode, position));
             }
-            if (hit) hit->HandleMouseMove(MouseEvent(EventType::MouseMove, hit, position));
+            // Pointer capture: while a button is held, the pressed node keeps receiving moves
+            // (so a drag continues even when the cursor leaves it). Otherwise the hovered node.
+            Node* target = (m_downNode != nullptr) ? m_downNode : hit;
+            if (target) target->HandleMouseMove(MouseEvent(EventType::MouseMove, target, position));
         }
 
         void InjectMouseDown(core::Float2 position, MouseButton button, u32 modifiers = 0)
@@ -61,7 +64,10 @@ export namespace draconic::gui
         {
             m_mousePos = position;
             Node* hit = HitTest(position);
-            if (hit) hit->HandleMouseUp(MouseEvent(EventType::MouseUp, hit, position, button, modifiers));
+            // The captured (pressed) node gets the release, even if the cursor moved off it.
+            Node* target = (m_downNode != nullptr) ? m_downNode : hit;
+            if (target) target->HandleMouseUp(MouseEvent(EventType::MouseUp, target, position, button, modifiers));
+            // A click only when the release lands on the node that was pressed.
             if (hit != nullptr && hit == m_downNode)
                 hit->HandleMouseClick(MouseEvent(EventType::MouseClick, hit, position, button, modifiers));
             m_downNode = nullptr;
