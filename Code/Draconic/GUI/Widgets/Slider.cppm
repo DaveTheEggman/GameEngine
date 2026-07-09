@@ -48,8 +48,14 @@ export namespace draconic::gui
         void SetHandleColor(Color color) { m_handleColor = color; Invalidate(); }
 
     protected:
-        void OnMouseDown(const MouseEvent& event) override { UINode::OnMouseDown(event); UpdateFromEvent(event); }
-        void OnMouseMove(const MouseEvent& event) override { if (IsPressed()) UpdateFromEvent(event); }
+        // Drag state is tracked with our own m_dragging flag rather than IsPressed(): a
+        // captured drag that leaves the slider fires OnMouseLeave (which clears m_pressed)
+        // BEFORE the routed OnMouseMove, so gating the move on IsPressed() would stop the
+        // drag the instant the cursor left. Pointer capture guarantees the release reaches
+        // us, so OnMouseUp reliably clears m_dragging.
+        void OnMouseDown(const MouseEvent& event) override { UINode::OnMouseDown(event); m_dragging = true; UpdateFromEvent(event); }
+        void OnMouseMove(const MouseEvent& event) override { if (m_dragging) UpdateFromEvent(event); }
+        void OnMouseUp(const MouseEvent& event) override { m_dragging = false; UINode::OnMouseUp(event); }
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
@@ -80,6 +86,7 @@ export namespace draconic::gui
         }
 
         f32 m_value = 0.0f;
+        bool m_dragging = false;
         Color m_trackColor{ 0.28f, 0.30f, 0.35f, 1.0f };
         Color m_fillColor{ 0.31f, 0.63f, 0.85f, 1.0f };
         Color m_handleColor{ 0.86f, 0.89f, 0.93f, 1.0f };

@@ -75,6 +75,35 @@ TEST_CASE("slider: drag keeps tracking after the cursor leaves it (pointer captu
     CHECK(s->GetValue() == doctest::Approx(0.5f));
 }
 
+TEST_CASE("slider: hover then press then drag off still tracks (leave clears m_pressed)")
+{
+    // Regression: hovering the slider first (so a MouseLeave fires when the cursor drags off)
+    // used to cancel the drag - UINode::OnMouseLeave clears m_pressed and OnMouseMove gated on
+    // IsPressed(). The slider's own m_dragging flag survives the leave.
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 300.0f, 200.0f });
+    auto s = Make<Slider>();
+    s->SetSize(core::Float2{ 100.0f, 20.0f }); // usable x in [10, 90]
+    root->AddChild(s.Get());
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    // Hover the slider first (this is what the capture-only test skipped).
+    d->InjectMouseMove(core::Float2{ 50.0f, 10.0f });
+    CHECK(s->IsHovered());
+
+    // Press, then drag off the right edge - the MouseLeave must not cancel the drag.
+    d->InjectMouseDown(core::Float2{ 50.0f, 10.0f }, MouseButton::Left);
+    CHECK(s->GetValue() == doctest::Approx(0.5f));
+    d->InjectMouseMove(core::Float2{ 250.0f, 10.0f }); // off to the right -> leave fires, then move
+    CHECK_FALSE(s->IsHovered());                        // the leave did happen
+    CHECK(s->GetValue() == doctest::Approx(1.0f));      // ...but the drag kept tracking
+
+    // Release ends the drag.
+    d->InjectMouseUp(core::Float2{ 250.0f, 10.0f }, MouseButton::Left);
+    d->InjectMouseMove(core::Float2{ 30.0f, 10.0f });
+    CHECK(s->GetValue() == doctest::Approx(1.0f));      // no longer dragging
+}
+
 TEST_CASE("slider: draws track + fill + handle")
 {
     auto s = Make<Slider>();
