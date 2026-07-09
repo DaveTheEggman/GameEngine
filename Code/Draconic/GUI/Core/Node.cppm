@@ -29,6 +29,8 @@ namespace core = draconic::core;
 
 export namespace draconic::gui
 {
+    class EventDispatcher; // owned by the SceneNode; reached via GetEventDispatcher()
+
     class Node : public Object, public Transformable
     {
         DRACONIC_OBJECT(Node, Object)
@@ -234,6 +236,12 @@ export namespace draconic::gui
         // node is not yet attached under a SceneNode.
         [[nodiscard]] virtual ActionManager* GetActionManager() { return m_parent ? m_parent->GetActionManager() : nullptr; }
         [[nodiscard]] virtual MutationQueue* GetMutationQueue() { return m_parent ? m_parent->GetMutationQueue() : nullptr; }
+        // The SceneNode's EventDispatcher (pointer walk to the root; SceneNode returns its own).
+        [[nodiscard]] virtual EventDispatcher* GetEventDispatcher() { return m_parent ? m_parent->GetEventDispatcher() : nullptr; }
+
+        // Programmatic focus (routes through the dispatcher; defined in the impl unit).
+        void RequestFocus();
+        void ReleaseFocus();
 
         // Run an action on this node (targets it, hands it to the SceneNode's manager).
         // No-op (the action is dropped) if the node is not attached under a SceneNode.
@@ -258,6 +266,23 @@ export namespace draconic::gui
                 RemoveFromParent();
             }
         }
+
+        // === Input dispatch === (called by the EventDispatcher; each runs the virtual
+        // On* hook then fires the typed event to listeners)
+        void HandleMouseEnter(const MouseEvent& e) { OnMouseEnter(e); SendEvent(e); }
+        void HandleMouseLeave(const MouseEvent& e) { OnMouseLeave(e); SendEvent(e); }
+        void HandleMouseMove(const MouseEvent& e) { OnMouseMove(e); SendEvent(e); }
+        void HandleMouseDown(const MouseEvent& e) { OnMouseDown(e); SendEvent(e); }
+        void HandleMouseUp(const MouseEvent& e) { OnMouseUp(e); SendEvent(e); }
+        void HandleMouseClick(const MouseEvent& e) { OnMouseClick(e); SendEvent(e); }
+        void HandleMouseWheel(const WheelEvent& e) { OnMouseWheel(e); SendEvent(e); }
+        void HandleKeyDown(const KeyEvent& e) { OnKeyDown(e); SendEvent(e); }
+        void HandleKeyUp(const KeyEvent& e) { OnKeyUp(e); SendEvent(e); }
+        void HandleTextInput(const TextInputEvent& e) { OnTextInput(e); SendEvent(e); }
+        void HandleFocusGained() { m_focused = true; OnFocusGained(); SendEvent(Event(EventType::FocusGained, this)); }
+        void HandleFocusLost() { m_focused = false; OnFocusLost(); SendEvent(Event(EventType::FocusLost, this)); }
+
+        [[nodiscard]] bool IsFocused() const noexcept { return m_focused; }
 
         // === Invalidation === (marks self + ancestors until an already-dirty one)
         void Invalidate()
@@ -300,6 +325,20 @@ export namespace draconic::gui
         virtual void OnParentChange() {}
 
     protected:
+        // Input handler hooks (override in subclasses; the Handle* wrappers call these).
+        virtual void OnMouseEnter(const MouseEvent&) {}
+        virtual void OnMouseLeave(const MouseEvent&) {}
+        virtual void OnMouseMove(const MouseEvent&) {}
+        virtual void OnMouseDown(const MouseEvent&) {}
+        virtual void OnMouseUp(const MouseEvent&) {}
+        virtual void OnMouseClick(const MouseEvent&) {}
+        virtual void OnMouseWheel(const WheelEvent&) {}
+        virtual void OnKeyDown(const KeyEvent&) {}
+        virtual void OnKeyUp(const KeyEvent&) {}
+        virtual void OnTextInput(const TextInputEvent&) {}
+        virtual void OnFocusGained() {}
+        virtual void OnFocusLost() {}
+
         void HandlePositionChange() { OnPositionChange(); Invalidate(); SendEvent(Event(EventType::PositionChanged, this)); }
         void HandleSizeChange() { OnSizeChange(); Invalidate(); SendEvent(Event(EventType::SizeChanged, this)); }
         void HandleVisibilityChange() { OnVisibilityChange(); Invalidate(); SendEvent(Event(EventType::VisibilityChanged, this)); }
@@ -324,6 +363,7 @@ export namespace draconic::gui
         bool m_enabled = true;
         bool m_needsRedraw = true;
         bool m_clipChildren = false;
+        bool m_focused = false;
         u32 m_nextListenerId = 0;
     };
 

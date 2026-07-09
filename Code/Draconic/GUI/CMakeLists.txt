@@ -21,6 +21,7 @@ target_sources(DraconicGUI
             Scene/Action.cppm
             Scene/ActionManager.cppm
             Scene/Actions.cppm
+            Scene/EventDispatcher.cppm
             Scene/SceneNode.cppm
             Drawing/ControlState.cppm
             Drawing/DrawContext.cppm
@@ -33,7 +34,11 @@ target_sources(DraconicGUI
             Drawing/ImageDrawable.cppm
             Drawing/NineSliceDrawable.cppm
             Drawing/LayerDrawable.cppm
-            GUIModule.cppm)
+            GUIModule.cppm
+    PRIVATE
+        # Module implementation unit: Node method bodies that call the EventDispatcher
+        # (kept out of :node to avoid a :node <-> :event_dispatcher partition cycle).
+        Scene/GUIClusterImpl.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

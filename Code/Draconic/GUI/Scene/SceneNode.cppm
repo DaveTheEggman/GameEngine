@@ -18,6 +18,7 @@ import draconic.core;   // Duration
 import :node;
 import :action_manager;
 import :mutation_queue;
+import :event_dispatcher;
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -41,6 +42,7 @@ export namespace draconic::gui
 
         [[nodiscard]] ActionManager* GetActionManager() override { return &m_actionManager; }
         [[nodiscard]] MutationQueue* GetMutationQueue() override { return &m_mutationQueue; }
+        [[nodiscard]] EventDispatcher* GetEventDispatcher() override { return &m_eventDispatcher; }
 
         // Per-frame hook for subclasses (layout, timers, ...).
         virtual void OnUpdate(core::Duration elapsed) { (void)elapsed; }
@@ -48,6 +50,7 @@ export namespace draconic::gui
     private:
         ActionManager m_actionManager;
         MutationQueue m_mutationQueue;
+        EventDispatcher m_eventDispatcher{ this }; // root = this SceneNode
     };
 
     DRACONIC_DEFINE_OBJECT(SceneNode, "draconic::gui")

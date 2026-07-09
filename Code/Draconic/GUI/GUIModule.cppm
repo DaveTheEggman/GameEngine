@@ -26,6 +26,7 @@ export import :node;
 export import :action;
 export import :action_manager;
 export import :actions;
+export import :event_dispatcher;
 export import :scene_node;
 
 // Drawing / render seam (Phase 2)
