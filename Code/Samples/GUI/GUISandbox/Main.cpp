@@ -284,9 +284,15 @@ void GUISandbox::BuildUI()
     sliderLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
     sliderRow->AddChild(sliderLabel.Get());
 
+    // A progress bar driven by the slider (so they move together).
+    auto bar = MakeRef<gui::ProgressBar>(DefaultAllocator());
+    bar->SetSize(Float2{ 340.0f, 14.0f });
+    m_panel->AddChild(bar.Get());
+
     gui::Label* pct = sliderLabel.Get();
-    slider->SetOnValueChanged([pct](f32 v) { SetPercentText(pct, v); });
-    slider->SetValue(0.5f); // fires the callback -> label shows "50%"
+    gui::ProgressBar* barPtr = bar.Get();
+    slider->SetOnValueChanged([pct, barPtr](f32 v) { SetPercentText(pct, v); barPtr->SetProgress(v); });
+    slider->SetValue(0.5f); // fires the callback -> label "50%", bar half-filled
 
     m_styles.SetStyleSheet(gui::CSSParser::Parse(StringView(kStyleSheet)));
     m_bridge = MakeUnique<gui::GuiInputBridge>(DefaultAllocator(), m_root->GetEventDispatcher());
