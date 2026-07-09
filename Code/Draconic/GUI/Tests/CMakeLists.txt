@@ -37,7 +37,8 @@ add_executable(DraconicGUITests
     WindowTests.cpp
     ComboBoxTests.cpp
     MenuTests.cpp
-    TooltipTests.cpp)
+    TooltipTests.cpp
+    DragDropTests.cpp)
 
 target_link_libraries(DraconicGUITests PRIVATE
     Draconic::GUI doctest::doctest)

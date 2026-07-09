@@ -42,6 +42,20 @@ export namespace draconic::gui
         void InjectMouseMove(core::Float2 position)
         {
             m_mousePos = position;
+            // While a drag-and-drop is in progress, route to the drop target (enter/leave/over)
+            // instead of the normal hover/capture path.
+            if (m_dragActive)
+            {
+                Node* target = FindDropTarget(HitTest(position));
+                if (target != m_dropTarget)
+                {
+                    if (m_dropTarget) m_dropTarget->HandleDragLeave(m_dragPayload);
+                    m_dropTarget = target;
+                    if (m_dropTarget) m_dropTarget->HandleDragEnter(m_dragPayload);
+                }
+                if (m_dropTarget) m_dropTarget->HandleDragOver(m_dragPayload);
+                return;
+            }
             Node* hit = HitTest(position);
             if (hit != m_overNode)
             {
@@ -71,6 +85,15 @@ export namespace draconic::gui
         void InjectMouseUp(core::Float2 position, MouseButton button, u32 modifiers = 0)
         {
             m_mousePos = position;
+            // A release while dragging completes the drop on the target under the cursor, then
+            // ends the drag. The normal up (below) still fires so the source resets its state.
+            if (m_dragActive)
+            {
+                Node* target = FindDropTarget(HitTest(position));
+                if (target != nullptr) target->HandleDrop(m_dragPayload);
+                else if (m_dropTarget) m_dropTarget->HandleDragLeave(m_dragPayload);
+                EndDrag();
+            }
             Node* hit = HitTest(position);
             // The captured (pressed) node gets the release, even if the cursor moved off it.
             Node* target = (m_downNode != nullptr) ? m_downNode : hit;
@@ -132,6 +155,29 @@ export namespace draconic::gui
             if (m_focusNode) m_focusNode->HandleFocusGained();
         }
 
+        // === Drag-and-drop ===
+        // A source widget starts a drag (typically from its OnMouseMove once a press has moved
+        // past a threshold). The dispatcher then delivers drag-enter/over/leave to the nearest
+        // accepting target under the cursor, and Drop on release.
+        void BeginDrag(Node* source, DragPayload payload)
+        {
+            m_dragActive = true;
+            m_dragSource = source;
+            m_dragPayload = core::Move(payload);
+            m_dropTarget = FindDropTarget(HitTest(m_mousePos));
+            if (m_dropTarget) m_dropTarget->HandleDragEnter(m_dragPayload);
+        }
+        [[nodiscard]] bool IsDragging() const noexcept { return m_dragActive; }
+        [[nodiscard]] const DragPayload& GetDragPayload() const noexcept { return m_dragPayload; }
+        [[nodiscard]] Node* GetDragSource() const noexcept { return m_dragSource; }
+        [[nodiscard]] Node* GetDropTarget() const noexcept { return m_dropTarget; }
+        void CancelDrag()
+        {
+            if (!m_dragActive) return;
+            if (m_dropTarget) m_dropTarget->HandleDragLeave(m_dragPayload);
+            EndDrag();
+        }
+
         // === Popups / overlays ===
         // Track an active popup (a dropdown / menu / tooltip the caller has already added to
         // the tree, typically as a top-level child of the root so it draws over everything).
@@ -168,6 +214,8 @@ export namespace draconic::gui
             if (m_overNode == node) m_overNode = nullptr;
             if (m_downNode == node) m_downNode = nullptr;
             if (m_focusNode == node) m_focusNode = nullptr;
+            if (m_dropTarget == node) m_dropTarget = nullptr;
+            if (m_dragSource == node) { m_dragSource = nullptr; if (m_dragActive) EndDrag(); }
         }
 
     private:
@@ -183,6 +231,22 @@ export namespace draconic::gui
             for (Node* n = node; n != nullptr; n = n->GetParent())
                 if (n == ancestor) return true;
             return false;
+        }
+
+        // Nearest node (self or ancestor) that accepts the current drag payload; null if none.
+        [[nodiscard]] Node* FindDropTarget(Node* hit) const
+        {
+            for (Node* n = hit; n != nullptr; n = n->GetParent())
+                if (n->AcceptsDrop(m_dragPayload)) return n;
+            return nullptr;
+        }
+
+        void EndDrag()
+        {
+            m_dragActive = false;
+            m_dragSource = nullptr;
+            m_dropTarget = nullptr;
+            m_dragPayload = {};
         }
 
         // Gather tab-focusable nodes under `node` in pre-order (skipping invisible subtrees
@@ -224,6 +288,10 @@ export namespace draconic::gui
         Node* m_popup = nullptr;       // non-owning active popup
         Node* m_popupOwner = nullptr;  // non-owning opener (clicks on it don't dismiss)
         core::Function<void()> m_onPopupClose;
+        bool m_dragActive = false;     // drag-and-drop in progress
+        Node* m_dragSource = nullptr;  // non-owning
+        Node* m_dropTarget = nullptr;  // non-owning current target
+        DragPayload m_dragPayload;
         core::Float2 m_mousePos{ 0.0f, 0.0f };
     };
 }

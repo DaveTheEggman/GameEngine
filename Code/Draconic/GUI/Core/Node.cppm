@@ -293,6 +293,20 @@ export namespace draconic::gui
 
         [[nodiscard]] bool IsFocused() const noexcept { return m_focused; }
 
+        // === Drag-and-drop target ===
+        // Set a predicate deciding which payloads this node accepts; when it returns true the
+        // dispatcher delivers the drag-enter/over/leave and drop here (nearest accepting
+        // ancestor of the cursor wins). Each also fires the matching DragEvent to listeners.
+        void SetDropAcceptor(core::Function<bool(const DragPayload&)> predicate) { m_dropAcceptor = core::Move(predicate); }
+        [[nodiscard]] bool AcceptsDrop(const DragPayload& payload) const
+        {
+            return m_dropAcceptor ? m_dropAcceptor(payload) : false;
+        }
+        void HandleDragEnter(const DragPayload& p) { OnDragEnter(p); SendEvent(DragEvent(EventType::DragEnter, this, p)); }
+        void HandleDragOver(const DragPayload& p)  { OnDragOver(p);  SendEvent(DragEvent(EventType::DragOver, this, p)); }
+        void HandleDragLeave(const DragPayload& p) { OnDragLeave(p); SendEvent(DragEvent(EventType::DragLeave, this, p)); }
+        void HandleDrop(const DragPayload& p)      { OnDrop(p);      SendEvent(DragEvent(EventType::Drop, this, p)); }
+
         // True if this node edits text and wants the platform's text-input (IME) enabled
         // while it holds focus. The gui.shell bridge reads the focused node's answer and
         // drives the window's StartTextInput/StopTextInput accordingly. Default: false.
@@ -371,6 +385,10 @@ export namespace draconic::gui
         virtual void OnTextInput(const TextInputEvent&) {}
         virtual void OnFocusGained() {}
         virtual void OnFocusLost() {}
+        virtual void OnDragEnter(const DragPayload&) {}
+        virtual void OnDragOver(const DragPayload&) {}
+        virtual void OnDragLeave(const DragPayload&) {}
+        virtual void OnDrop(const DragPayload&) {}
 
         void HandlePositionChange() { OnPositionChange(); Invalidate(); SendEvent(Event(EventType::PositionChanged, this)); }
         void HandleSizeChange() { OnSizeChange(); Invalidate(); SendEvent(Event(EventType::SizeChanged, this)); }
@@ -388,6 +406,7 @@ export namespace draconic::gui
         Node* m_parent = nullptr;            // non-owning back-pointer
         Array<RefPtr<Node>> m_children;      // owning
         Array<Listener> m_listeners;
+        Function<bool(const DragPayload&)> m_dropAcceptor; // drop-target predicate (empty = rejects)
         RefPtr<Drawable> m_background;
         RefPtr<Drawable> m_foreground;
         core::Float2 m_size{ 0.0f, 0.0f };

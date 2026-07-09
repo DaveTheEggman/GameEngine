@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:event;
 
-import draconic.core;   // Function
+import draconic.core;   // Function, String
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -18,6 +18,15 @@ namespace core = draconic::core;
 export namespace draconic::gui
 {
     class Node;
+
+    // Payload carried by a drag-and-drop operation: a type tag (what kind of thing is being
+    // dragged, so targets can decide whether to accept) plus a string value (the data - an id,
+    // a path, text). Richer payloads (a RefPtr<Object>) can be layered on later.
+    struct DragPayload
+    {
+        core::String Type;
+        core::String Value;
+    };
 
     enum class EventType : u32
     {
@@ -41,6 +50,10 @@ export namespace draconic::gui
         TextInput,
         FocusGained,
         FocusLost,
+        DragEnter,
+        DragOver,
+        DragLeave,
+        Drop,
     };
 
     enum class MouseButton : u32 { Left, Right, Middle, X1, X2 };
@@ -115,6 +128,14 @@ export namespace draconic::gui
 
         TextInputEvent(Node* target, core::StringView text) noexcept
             : Event(EventType::TextInput, target), Text(text) {}
+    };
+
+    struct DragEvent : Event
+    {
+        const DragPayload& Payload;
+
+        DragEvent(EventType type, Node* target, const DragPayload& payload) noexcept
+            : Event(type, target), Payload(payload) {}
     };
 
     using EventCallback = core::Function<void(const Event&)>;
