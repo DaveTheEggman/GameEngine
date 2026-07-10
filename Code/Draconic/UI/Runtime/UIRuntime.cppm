@@ -156,33 +156,35 @@ export namespace draconic::ui::runtime
             const bool crossWindowDrag = (dd != nullptr && dd->IsDragging() && mainW != nullptr
                                           && focusedId != 0 && focusedId != mainW->window->Window().Id());
 
+            // Route mouse to a SINGLE window per frame (Sedulous processes one active root, not all N):
+            // pumping non-hovered windows re-asserts their frozen last mouse position, spuriously
+            // re-hovering them and clobbering the shared hover/cursor state. Priority:
+            //   1. cross-window drag  -> the MAIN window (float sits under the cursor; see above);
+            //   2. a captured view    -> its window (a dock-window edge-resize, a slider drag, ...), fed
+            //                            LIVE global-relative coords so it keeps working off-window;
+            //   3. otherwise          -> the window under the pointer (normal surface pump, keeps scroll).
+            Attached* captured = CapturedWindow();
             if (crossWindowDrag)
             {
-                const f32 mw = static_cast<f32>(mainW->window->Window().Width());
-                const f32 mh = static_cast<f32>(mainW->window->Window().Height());
-                mainW->data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, mw, mh });
-                mainW->data->surface->SetContentSize(core::Float2{ mw, mh });
-                m_ctx.SetActiveInputRoot(mainW->data->root.Get());
-
-                f32 gx = 0.0f, gy = 0.0f;
-                if (shell::IMouse* mouse = m_shell->Input()->Mouse()) { gx = mouse->GlobalX(); gy = mouse->GlobalY(); }
-                const f32 mx = gx - static_cast<f32>(mainW->window->Window().X());
-                const f32 my = gy - static_cast<f32>(mainW->window->Window().Y());
-                m_bridge->PumpMouseAt(mx, my, m_shell->Input()->Mouse());
+                PumpWindowAtGlobal(*mainW);
+            }
+            else if (captured != nullptr)
+            {
+                PumpWindowAtGlobal(*captured);
             }
             else
             {
-                // Normal per-window mouse: make each window's RootView the active input root before pumping
-                // that window's surface, so the InputManager (which dispatches against ActiveInputRoot)
-                // hit-tests the right window. Each surface only yields its own window's events.
-                for (Attached& a : m_attached)
+                const u32 hoverId = (m_shell->Input() != nullptr) ? m_shell->Input()->HoverWindow() : 0;
+                Attached* hoverW = FindByWindowId(hoverId);
+                if (hoverW == nullptr) { hoverW = mainW; }
+                if (hoverW != nullptr)
                 {
-                    const f32 w = static_cast<f32>(a.window->Window().Width());
-                    const f32 h = static_cast<f32>(a.window->Window().Height());
-                    a.data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, w, h });
-                    a.data->surface->SetContentSize(core::Float2{ w, h });
-                    m_ctx.SetActiveInputRoot(a.data->root.Get());
-                    m_bridge->PumpFromSurface(*a.data->surface);
+                    const f32 w = static_cast<f32>(hoverW->window->Window().Width());
+                    const f32 h = static_cast<f32>(hoverW->window->Window().Height());
+                    hoverW->data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, w, h });
+                    hoverW->data->surface->SetContentSize(core::Float2{ w, h });
+                    m_ctx.SetActiveInputRoot(hoverW->data->root.Get());
+                    m_bridge->PumpFromSurface(*hoverW->data->surface);
                 }
             }
 
@@ -223,6 +225,11 @@ export namespace draconic::ui::runtime
                     const bool capturing = (dd != nullptr && dd->IsDragging())
                                         || (m_ctx.GetFocusManager()->CapturedView() != nullptr);
                     mouse->SetGlobalCapture(capturing);
+
+                    // Push the hovered view's cursor to the OS (borderless floats have no WM to show resize
+                    // grips). The UI<->shell cursor mapping lives in the bridge, with the rest of the enum
+                    // translation.
+                    m_bridge->SyncCursor(*mouse);
                 }
             }
 
@@ -277,6 +284,35 @@ export namespace draconic::ui::runtime
             if (windowId == 0) { return nullptr; }
             for (Attached& a : m_attached) { if (a.window->Window().Id() == windowId) { return &a; } }
             return nullptr;
+        }
+
+        // The attached window that owns the currently mouse-captured view (a dock-window edge-resize, a
+        // slider drag, ...), or null. Input must keep flowing to it even as the cursor leaves the window.
+        [[nodiscard]] Attached* CapturedWindow()
+        {
+            View* captured = m_ctx.GetFocusManager()->CapturedView();
+            if (captured == nullptr) { return nullptr; }
+            RootView* capRoot = captured->Root();
+            for (Attached& a : m_attached) { if (a.data->root.Get() == capRoot) { return &a; } }
+            return nullptr;
+        }
+
+        // Pump one window's mouse using LIVE desktop-global coords mapped to that window's local space, so a
+        // captured resize/drag keeps updating even when the cursor leaves the window (the surface freezes
+        // its position when not hovered). Button state comes from the raw mouse, so the release ends it.
+        void PumpWindowAtGlobal(Attached& a)
+        {
+            const f32 w = static_cast<f32>(a.window->Window().Width());
+            const f32 h = static_cast<f32>(a.window->Window().Height());
+            a.data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, w, h });
+            a.data->surface->SetContentSize(core::Float2{ w, h });
+            m_ctx.SetActiveInputRoot(a.data->root.Get());
+
+            shell::IMouse* mouse = (m_shell->Input() != nullptr) ? m_shell->Input()->Mouse() : nullptr;
+            if (mouse == nullptr) { return; }
+            const f32 mx = mouse->GlobalX() - static_cast<f32>(a.window->Window().X());
+            const f32 my = mouse->GlobalY() - static_cast<f32>(a.window->Window().Y());
+            m_bridge->PumpMouseAt(mx, my, mouse);
         }
 
         void CompileShaders()

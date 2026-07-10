@@ -171,7 +171,35 @@ export namespace draconic::ui
             SyncTextInput();
         }
 
+        /// Push the hovered view's cursor (InputManager::CurrentCursor, the EffectiveCursor of the view
+        /// under the pointer) to the OS mouse, mapping the UI CursorType to the shell's. Borderless windows
+        /// (e.g. floating dock panels) have no WM to draw resize grips, so the app drives the OS cursor.
+        void SyncCursor(platform::IMouse& mouse)
+        {
+            if (m_context == nullptr) { return; }
+            mouse.SetCursor(MapCursor(m_context->GetInputManager()->CurrentCursor()));
+        }
+
     private:
+        // UI CursorType -> shell CursorType (the two enums differ in values and names).
+        [[nodiscard]] static platform::CursorType MapCursor(CursorType c) noexcept
+        {
+            switch (c)
+            {
+                case CursorType::Hand:       return platform::CursorType::Pointer;
+                case CursorType::IBeam:      return platform::CursorType::Text;
+                case CursorType::Crosshair:  return platform::CursorType::Crosshair;
+                case CursorType::SizeNS:     return platform::CursorType::ResizeNS;
+                case CursorType::SizeWE:     return platform::CursorType::ResizeEW;
+                case CursorType::SizeNWSE:   return platform::CursorType::ResizeNWSE;
+                case CursorType::SizeNESW:   return platform::CursorType::ResizeNESW;
+                case CursorType::Move:       return platform::CursorType::Move;
+                case CursorType::NotAllowed: return platform::CursorType::NotAllowed;
+                case CursorType::Wait:       return platform::CursorType::Wait;
+                default:                     return platform::CursorType::Default;   // Default / Arrow
+            }
+        }
+
         [[nodiscard]] static MouseButton MapButton(platform::MouseButton button) noexcept
         {
             switch (button)
