@@ -67,7 +67,9 @@ float4 main(PSInput input) : SV_Target {
         .danger { background-color: #b5453f; } /* class beats tag -> red */
         .accent { background-color: #3fa06a; } /*                  -> green */
         .highlight { color: #55d67f; }          /* survives per-frame theme re-apply */
-        button  { font-family: Roboto; font-size: 18; } /* resolved via the font service */
+        button  { font-family: Roboto; font-size: 18; border-radius: 6; } /* rounded + font via service */
+        textfield { border-radius: 4; border: 1 solid #5a6474; } /* rounded + 1px border */
+        .accent { border: 2 solid #7fe0a8; }    /* border shorthand demo (green button gets an outline) */
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.25; } 100% { opacity: 1; } }
         @keyframes blink { 0% { opacity: 1; } 40% { opacity: 0.08; } 60% { opacity: 0.08; } 100% { opacity: 1; } }
         @keyframes colorcycle {
