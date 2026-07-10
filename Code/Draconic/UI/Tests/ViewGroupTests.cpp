@@ -382,3 +382,25 @@ TEST_CASE("viewgroup: FindByName_DeeplyNested")
 
     CHECK(root->FindByName(u8"deep-target") == target.Get());
 }
+
+// A transformed child hit-tests at its DRAWN position, not its layout bounds (ViewTransform inverse in
+// HitTest). The child fills the group; a +50px x-translation shifts its drawn position right by 50.
+TEST_CASE("viewgroup: HitTest_AppliesInverseTransform")
+{
+    UIContext ctx;
+    core::RefPtr<RootView> root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+
+    core::RefPtr<TestGroup> group = MakeTestGroup();
+    root->AddView(group.Get());
+    core::RefPtr<TestView> child = MakeTestView(400, 300);
+    group->AddView(child.Get());
+    LayoutPass(ctx, root.Get());
+
+    child->Transform.Translation = Float2{ 50, 0 }; // drawn 50px to the right (transform doesn't relayout)
+
+    // At the drawn position the child is hit...
+    CHECK(root->HitTest(Float2{ 60, 10 }) == child.Get());
+    // ...but at its old layout position (now empty because the child drew away) it is not.
+    CHECK(root->HitTest(Float2{ 10, 10 }) != child.Get());
+}

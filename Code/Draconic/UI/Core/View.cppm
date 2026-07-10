@@ -477,7 +477,33 @@ export namespace draconic::ui
                 if (child == nullptr || child->Visibility != VisibilityValue::Visible || !child->IsInteractionEnabled) { continue; }
 
                 Float2 childLocal{ localPoint.x - child->Bounds.x, localPoint.y - child->Bounds.y };
-                // (ViewTransform inverse omitted here until transforms are exercised; identity is the common path.)
+                // Apply the inverse ViewTransform so a transformed child hit-tests at its drawn position
+                // (the draw path applies translate -> origin -> scale -> rotate -> -origin; undo in reverse).
+                if (!child->Transform.IsIdentity())
+                {
+                    const f32 ox = child->Width() * child->Transform.Origin.x;
+                    const f32 oy = child->Height() * child->Transform.Origin.y;
+                    childLocal.x -= child->Transform.Translation.x;
+                    childLocal.y -= child->Transform.Translation.y;
+                    childLocal.x -= ox;
+                    childLocal.y -= oy;
+                    if (child->Transform.Rotation != 0.0f)
+                    {
+                        const f32 c = Cos(-child->Transform.Rotation);
+                        const f32 s = Sin(-child->Transform.Rotation);
+                        const f32 rx = childLocal.x * c - childLocal.y * s;
+                        const f32 ry = childLocal.x * s + childLocal.y * c;
+                        childLocal.x = rx;
+                        childLocal.y = ry;
+                    }
+                    if (child->Transform.Scale.x != 0.0f && child->Transform.Scale.y != 0.0f)
+                    {
+                        childLocal.x /= child->Transform.Scale.x;
+                        childLocal.y /= child->Transform.Scale.y;
+                    }
+                    childLocal.x += ox;
+                    childLocal.y += oy;
+                }
                 if (View* hit = child->HitTest(childLocal)) { return hit; }
             }
 
