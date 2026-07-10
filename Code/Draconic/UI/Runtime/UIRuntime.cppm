@@ -266,6 +266,25 @@ export namespace draconic::ui::runtime
             frame.EndBackbufferPass();
         }
 
+        /// The per-window VGRenderer for an attached window, or null if not attached. Exposed so an app
+        /// can register an external texture (e.g. a ui::viewport ViewportView's offscreen render target)
+        /// into the same renderer that draws that window's UI, so the UI can sample it via DrawImage.
+        [[nodiscard]] vg::renderer::VGRenderer* RendererFor(graphics::RenderWindow* window)
+        {
+            UIWindowData* data = Find(window);
+            return data != nullptr ? &data->renderer : nullptr;
+        }
+
+        /// The attached window whose RootView is `root`, or null. Lets an app discover which window
+        /// currently hosts a given view tree - e.g. a ViewportView whose dockable panel was floated into
+        /// a new OS window, so the app can re-bind it (View::Root() -> WindowForRoot -> RendererFor).
+        [[nodiscard]] graphics::RenderWindow* WindowForRoot(RootView* root)
+        {
+            if (root == nullptr) { return nullptr; }
+            for (Attached& a : m_attached) { if (a.data->root.Get() == root) { return a.window; } }
+            return nullptr;
+        }
+
     private:
         struct Attached
         {

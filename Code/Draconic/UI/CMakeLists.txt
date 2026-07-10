@@ -164,6 +164,8 @@ target_sources(DraconicUI
 add_subdirectory(VFS)
 add_subdirectory(Shell)
 add_subdirectory(Toolkit)
+# ViewportView: a ui::View hosting 3D content (offscreen RT + OnRender callback + gated InputSurface).
+add_subdirectory(Viewport)
 # UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
 add_subdirectory(Runtime)
 # Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UIToolkit).

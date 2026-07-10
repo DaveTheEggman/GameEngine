@@ -1,0 +1,302 @@
+// Draconic UI Viewport - `draconic.ui.viewport`
+//
+// ViewportView: a retained-mode ui::View that hosts 3D-rendered content. It owns an offscreen
+// color + depth render target, fires a render callback (OnRender) so the app draws 3D into those
+// targets through the frame's command encoder, then displays the color target as an image via the
+// UI's VGContext (registered into the per-window VGRenderer as an external texture).
+//
+// Adapted (NOT a faithful port) from Sedulous.UI.Viewport/ViewportView.bf on two axes, per design
+// sign-off:
+//   * Fit math is core::ContentFit (Stretch/Letterbox/Crop/IntegerScale) - the same value type used
+//     for input hit-testing - instead of a bespoke ComputeContentRect/ScreenToTexture. Draw (DstRect/
+//     SrcRect) and input (ToContent) share one computation so they can never drift.
+//   * Input is a shell::InputSurface (gated, content-space IMouse/IKeyboard), NOT Sedulous's
+//     IViewportInputHandler event list. The app runs an InputRouter, registers Surface(), and drives a
+//     controller (e.g. FlyCamera) from the gated devices - occlusion-gated by IsHovered()/IsFocused().
+//
+// Barriers: draconic's RHI is explicit, so RenderContent brackets the app's OnRender with the color/
+// depth state transitions (Sedulous's RHI tracked these implicitly) - the one necessary deviation.
+//
+// A single offscreen RT (not a per-frame ring) is correct: the RT is only GPU-touched (3D pass writes,
+// UI pass samples) on one queue, so submission order serializes frame N+1's write after frame N's read.
+
+module;
+#include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
+
+export module draconic.ui.viewport;
+
+import draconic.core;
+import draconic.rhi;
+import draconic.image;
+import draconic.vg;
+import draconic.vg.renderer;
+import draconic.ui;
+import draconic.shell;
+
+using namespace draconic::core;
+
+export namespace draconic::ui::viewport
+{
+    namespace rhi = draconic::rhi;
+    namespace image = draconic::image;
+    namespace vgr = draconic::vg::renderer;
+
+    class ViewportView;
+
+    /// Invoked to render 3D content into the viewport's offscreen targets. The handler records into
+    /// `encoder` - typically BeginRenderPass on view.ColorTargetView() + DepthTargetView(), clearing
+    /// with view.ClearColor, drawing, then End(). The surrounding resource barriers are handled by
+    /// RenderContent, so the handler only owns the pass(es) and draws.
+    using ViewportRenderDelegate = Function<void(ViewportView& view, rhi::CommandEncoder& encoder, i32 frameIndex)>;
+
+    class ViewportView : public View
+    {
+        DRACONIC_OBJECT(ViewportView, View)
+    public:
+        /// Render callback (set by the app). Fired by RenderContent while the color/depth targets are
+        /// in their render states.
+        ViewportRenderDelegate OnRender;
+
+        /// Fired after the render target is (re)created, with the new pixel size. Lets a system mirror
+        /// the viewport resolution (e.g. a runtime UI that must lay out at the same canvas).
+        Function<void(u32 width, u32 height)> OnRenderTargetResized;
+
+        /// Clear color for the 3D pass background (read by the render callback).
+        rhi::ClearColor ClearColor{ 0.098f, 0.098f, 0.118f, 1.0f };
+
+        ViewportView() { IsFocusable = true; }
+        ~ViewportView() override { ReleaseResources(); }
+
+        /// Release the GPU targets + external-texture registration eagerly, while the device and the
+        /// per-window VGRenderer are still alive. Call from the app's shutdown BEFORE the window (and its
+        /// VGRenderer) is torn down - the view may outlive the window inside a retained view tree, so the
+        /// destructor must not be the thing that unregisters. Idempotent; the destructor then no-ops.
+        void Shutdown()
+        {
+            ReleaseResources();
+            m_renderer = nullptr;
+            m_device = nullptr;
+        }
+
+        ViewportView(const ViewportView&) = delete;
+        ViewportView& operator=(const ViewportView&) = delete;
+
+        /// Wire the GPU device (graphics::GraphicsDevice::Raw()), the per-window VGRenderer that draws
+        /// this view's window (UIHost::RendererFor(window)), and the shell input manager + window id used
+        /// to build the gated input surface. Call once before the first layout.
+        void Initialize(rhi::Device* device, vgr::VGRenderer* renderer, shell::IInputManager* input, u32 windowId)
+        {
+            m_device = device;
+            m_renderer = renderer;
+            if (input != nullptr && !m_surface)
+            {
+                const ContentFit fit{ Rectangle{ 0, 0, 1, 1 }, Float2{ 1, 1 }, m_fitMode };
+                m_surface = MakeUnique<shell::InputSurface>(DefaultAllocator(), input, windowId, fit);
+            }
+        }
+
+        /// Re-bind the view to a different window's VGRenderer + window id. Call when a dockable panel
+        /// hosting this viewport moves windows (undock into a float, redock into the main window): the
+        /// color target is re-registered into the new window's renderer (so its UI can sample it) and the
+        /// input surface is re-targeted so the router routes to the new window. The offscreen GPU targets
+        /// themselves are unchanged. (This is the per-renderer undock path - it moves the RT between one
+        /// renderer at a time; sampling ONE RT in TWO windows at once would need the shared external-
+        /// texture cache, still deferred.)
+        void AttachToWindow(vgr::VGRenderer* renderer, u32 windowId)
+        {
+            if (renderer != m_renderer)
+            {
+                if (m_registered && m_renderer != nullptr)
+                {
+                    if (m_device != nullptr) { m_device->WaitIdle(); }
+                    m_renderer->UnregisterExternalTexture(m_imageRef.Get());
+                    m_registered = false;
+                }
+                m_renderer = renderer;
+                if (m_renderer != nullptr && m_colorView != nullptr)
+                {
+                    m_renderer->RegisterExternalTexture(m_imageRef.Get(), m_colorView);
+                    m_registered = true;
+                }
+            }
+            if (m_surface) { m_surface->SetWindow(windowId); }
+        }
+
+        // === Fit mode ===
+        [[nodiscard]] FitMode GetFitMode() const noexcept { return m_fitMode; }
+        void SetFitMode(FitMode mode) noexcept { m_fitMode = mode; if (m_surface) { m_surface->SetFitMode(mode); } }
+
+        // === Render-target queries ===
+        [[nodiscard]] bool IsReady() const noexcept { return m_colorView != nullptr && m_depthView != nullptr; }
+        [[nodiscard]] rhi::TextureView* ColorTargetView() const noexcept { return m_colorView; }
+        [[nodiscard]] rhi::TextureView* DepthTargetView() const noexcept { return m_depthView; }
+        [[nodiscard]] rhi::Texture* ColorTexture() const noexcept { return m_colorTexture; }
+        [[nodiscard]] u32 RenderWidth() const noexcept { return m_textureWidth; }
+        [[nodiscard]] u32 RenderHeight() const noexcept { return m_textureHeight; }
+
+        // === Input ===
+        [[nodiscard]] shell::InputSurface* Surface() const noexcept { return m_surface.Get(); }
+        [[nodiscard]] shell::IMouse* Mouse() const noexcept { return m_surface ? m_surface->Mouse() : nullptr; }
+        [[nodiscard]] shell::IKeyboard* Keyboard() const noexcept { return m_surface ? m_surface->Keyboard() : nullptr; }
+
+        /// Sync the input surface's region to this view's laid-out window-space rect (+ content size /
+        /// fit). Call each frame after the UI has laid out and before the router's Update(). The region
+        /// is always the real rect so coordinate transforms stay correct; gating (whether the camera
+        /// actually reads the devices) is the app's IsHovered()/IsFocused() check.
+        void SyncInputRegion()
+        {
+            if (!m_surface) { return; }
+            const Float2 tl = LocalToScreen(Float2{ 0.0f, 0.0f });
+            m_surface->SetRegion(Rectangle{ tl.x, tl.y, Width(), Height() });
+            m_surface->SetContentSize(Float2{ static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight) });
+            m_surface->SetFitMode(m_fitMode);
+        }
+
+        // === 3D render ===
+
+        /// Render the 3D content into the offscreen targets. Call from OnRenderWindow BEFORE the UIHost
+        /// draws the window's UI (which samples this view's color target). Brackets the app's OnRender
+        /// callback with the required color/depth state transitions.
+        void RenderContent(rhi::CommandEncoder& encoder, i32 frameIndex)
+        {
+            if (!IsReady() || !OnRender) { return; }
+
+            encoder.TransitionTexture(m_colorTexture, m_colorState, rhi::ResourceState::RenderTarget);
+            if (m_depthState != rhi::ResourceState::DepthStencilWrite)
+            {
+                encoder.TransitionTexture(m_depthTexture, m_depthState, rhi::ResourceState::DepthStencilWrite);
+                m_depthState = rhi::ResourceState::DepthStencilWrite;
+            }
+
+            OnRender(*this, encoder, frameIndex);
+
+            encoder.TransitionTexture(m_colorTexture, rhi::ResourceState::RenderTarget, rhi::ResourceState::ShaderRead);
+            m_colorState = rhi::ResourceState::ShaderRead;
+        }
+
+        // === Layout ===
+    protected:
+        void OnMeasure(BoxConstraints constraints) override
+        {
+            MeasuredSize = Float2{ constraints.ConstrainWidth(256.0f), constraints.ConstrainHeight(256.0f) };
+        }
+
+        void OnLayout(f32 /*left*/, f32 /*top*/, f32 width, f32 height) override
+        {
+            const u32 w = static_cast<u32>(Max(1.0f, width));
+            const u32 h = static_cast<u32>(Max(1.0f, height));
+            if (w != m_textureWidth || h != m_textureHeight) { ResizeRenderTarget(w, h); }
+        }
+
+        // === Draw ===
+    public:
+        void OnDraw(UIDrawContext& ctx) override
+        {
+            if (m_registered && m_textureWidth > 0 && m_textureHeight > 0)
+            {
+                const ContentFit fit{ Rectangle{ 0.0f, 0.0f, Width(), Height() },
+                                      Float2{ static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight) },
+                                      m_fitMode };
+                const Rectangle dst = fit.DstRect();
+                // Letterbox/IntegerScale leave bars on one axis - paint them black so they don't show
+                // stale framebuffer content.
+                if (dst.width < Width() || dst.height < Height())
+                {
+                    ctx.VG().FillRect(Rectangle{ 0.0f, 0.0f, Width(), Height() }, Color{ 0.0f, 0.0f, 0.0f, 1.0f });
+                }
+                ctx.VG().DrawImage(m_imageRef.Get(), dst, fit.SrcRect(), Color::White);
+            }
+            else
+            {
+                ctx.VG().FillRect(Rectangle{ 0.0f, 0.0f, Width(), Height() }, Color{ 0.098f, 0.098f, 0.118f, 1.0f });
+            }
+        }
+
+    private:
+        void ResizeRenderTarget(u32 width, u32 height)
+        {
+            if (m_device == nullptr) { return; }
+
+            // The GPU must be idle before we free targets it may still be sampling (Sedulous does the
+            // same on resize). Also the invalidation point for the external-texture registration.
+            if (m_colorTexture != nullptr || m_depthTexture != nullptr) { m_device->WaitIdle(); }
+
+            if (m_registered && m_renderer != nullptr)
+            {
+                m_renderer->UnregisterExternalTexture(m_imageRef.Get());
+                m_registered = false;
+            }
+
+            DestroyTargets();
+
+            m_textureWidth = width;
+            m_textureHeight = height;
+            m_colorState = rhi::ResourceState::Undefined;
+            m_depthState = rhi::ResourceState::Undefined;
+
+            // The identity key the VGRenderer maps to the external color view (dimensions only, no pixels).
+            m_imageRef = MakeUnique<image::ImageDataRef>(DefaultAllocator(), width, height);
+
+            rhi::TextureDesc colorDesc = rhi::TextureDesc::RenderTarget(rhi::TextureFormat::RGBA16Float, width, height, 1, u8"ViewportColor");
+            if (!m_device->CreateTexture(colorDesc, m_colorTexture).IsOk()) { m_colorTexture = nullptr; return; }
+            rhi::TextureViewDesc colorViewDesc{};
+            colorViewDesc.format = rhi::TextureFormat::RGBA16Float;
+            if (!m_device->CreateTextureView(m_colorTexture, colorViewDesc, m_colorView).IsOk()) { m_colorView = nullptr; return; }
+
+            rhi::TextureDesc depthDesc = rhi::TextureDesc::DepthBuffer(rhi::TextureFormat::Depth32Float, width, height, 1, u8"ViewportDepth");
+            if (!m_device->CreateTexture(depthDesc, m_depthTexture).IsOk()) { m_depthTexture = nullptr; return; }
+            rhi::TextureViewDesc depthViewDesc{};
+            depthViewDesc.format = rhi::TextureFormat::Depth32Float;
+            if (!m_device->CreateTextureView(m_depthTexture, depthViewDesc, m_depthView).IsOk()) { m_depthView = nullptr; return; }
+
+            if (m_renderer != nullptr)
+            {
+                m_renderer->RegisterExternalTexture(m_imageRef.Get(), m_colorView);
+                m_registered = true;
+            }
+
+            if (OnRenderTargetResized) { OnRenderTargetResized(width, height); }
+        }
+
+        void DestroyTargets()
+        {
+            if (m_device == nullptr) { return; }
+            if (m_depthView != nullptr) { m_device->DestroyTextureView(m_depthView); m_depthView = nullptr; }
+            if (m_depthTexture != nullptr) { m_device->DestroyTexture(m_depthTexture); m_depthTexture = nullptr; }
+            if (m_colorView != nullptr) { m_device->DestroyTextureView(m_colorView); m_colorView = nullptr; }
+            if (m_colorTexture != nullptr) { m_device->DestroyTexture(m_colorTexture); m_colorTexture = nullptr; }
+        }
+
+        void ReleaseResources()
+        {
+            if (m_device != nullptr && (m_colorTexture != nullptr || m_depthTexture != nullptr)) { m_device->WaitIdle(); }
+            if (m_registered && m_renderer != nullptr)
+            {
+                m_renderer->UnregisterExternalTexture(m_imageRef.Get());
+                m_registered = false;
+            }
+            DestroyTargets();
+        }
+
+        rhi::Device* m_device = nullptr;
+        vgr::VGRenderer* m_renderer = nullptr;
+
+        UniquePtr<image::ImageDataRef> m_imageRef;
+        rhi::Texture* m_colorTexture = nullptr;
+        rhi::TextureView* m_colorView = nullptr;
+        rhi::Texture* m_depthTexture = nullptr;
+        rhi::TextureView* m_depthView = nullptr;
+        rhi::ResourceState m_colorState = rhi::ResourceState::Undefined;
+        rhi::ResourceState m_depthState = rhi::ResourceState::Undefined;
+
+        u32 m_textureWidth = 0;
+        u32 m_textureHeight = 0;
+        bool m_registered = false;
+        FitMode m_fitMode = FitMode::Stretch;
+
+        UniquePtr<shell::InputSurface> m_surface;
+    };
+
+    DRACONIC_DEFINE_OBJECT(ViewportView, "draconic::ui::viewport")
+}

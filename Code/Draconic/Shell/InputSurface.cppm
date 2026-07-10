@@ -144,6 +144,9 @@ export namespace draconic::shell
         void SetRegion(core::Rectangle region) noexcept        { m_fit.region = region; }
         void SetContentSize(core::Float2 size) noexcept     { m_fit.contentSize = size; }
         void SetFitMode(core::FitMode mode) noexcept      { m_fit.mode = mode; }
+        // Re-target the surface to a different window (e.g. a dockable panel hosting the surface is
+        // undocked into a floating OS window - the router hover-tests by window id).
+        void SetWindow(core::u32 window) noexcept         { m_window = window; }
         [[nodiscard]] const core::ContentFit& Fit() const noexcept { return m_fit; }
         [[nodiscard]] core::u32 Window() const noexcept   { return m_window; }
 
