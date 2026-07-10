@@ -30,11 +30,13 @@ import draconic.shell.desktop;
 import draconic.graphics;
 import draconic.graphics.gpu;
 import draconic.ui.runtime;
+import draconic.ui.application;
 
 using namespace draconic::core;
 namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
 namespace uirt = draconic::ui::runtime;
+namespace uiapp = draconic::ui::application;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 namespace shell = draconic::shell;
@@ -496,6 +498,7 @@ private:
     void BuildPropertyGridTab(ui::TabView* tabView);  // draconic.ui.toolkit: PropertyGrid + all editors
     void BuildCurveEditorTab(ui::TabView* tabView);   // draconic.ui.toolkit: CurveCanvas tangent editor
     void BuildNodeGraphTab(ui::TabView* tabView);     // draconic.ui.toolkit: NodeGraphCanvas state machine
+    void BuildDockingTab(ui::TabView* tabView);       // draconic.ui.application: DockManager + OS floating windows
     void BuildPauseMenuTab(ui::TabView* tabView); // loads a .sml screen via a VFS-backed resource provider
 
     // Window size (was provided by SampleApp; re-captured from the main window in OnStartup).
@@ -531,6 +534,11 @@ private:
     tk::ToolkitThemeExtension           m_toolkitThemeExt;
     UniquePtr<ReorderableListAdapter>   m_reorderAdapter;
 
+    // Docking: the runtime docking host (floats panels into real OS windows) + a handle to the DockManager
+    // (the tab tree owns it via AddView; we keep a ref for lifetime clarity). Constructed in OnStartup.
+    UniquePtr<uiapp::RuntimeDockableWindowHost> m_dockHost;
+    RefPtr<tk::DockManager>                     m_dockManager;
+
     // The reusable UI-on-runtime bridge (owns the UIContext, per-window VG + input). Declared LAST so it
     // tears down first.
     UniquePtr<uirt::UIHost> m_uiHost;
@@ -565,6 +573,8 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
     }
 
     m_uiHost = MakeUnique<uirt::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
+    // Docking host needs the runtime host + UIHost; construct before BuildUI (the Docking tab uses it).
+    m_dockHost = MakeUnique<uiapp::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
 
     BuildUI();                                  // builds m_root, sets theme on m_uiHost->Context(), registers m_toolkitThemeExt
     m_uiHost->AttachWindow(mainRw, m_root);     // adds the root to the context + wires per-window VG + input
@@ -636,6 +646,7 @@ void UISandbox::BuildUI()
     BuildPropertyGridTab(tabView.Get());
     BuildCurveEditorTab(tabView.Get());
     BuildNodeGraphTab(tabView.Get());
+    BuildDockingTab(tabView.Get());        // draconic.ui.application: DockManager -> real OS floating windows (last)
     BuildPauseMenuTab(tabView.Get());
 }
 
@@ -826,6 +837,36 @@ RefPtr<ui::StyleSheet> UISandbox::CreateTexturedTheme()
 // === Tab 10: Pause Menu (.sml) - loads a screen from disk through a VFS-backed resource provider ===
 // Faithful port of Sedulous UISandboxApp's pause-menu demo: a NativeFileSystem rooted at Data/Assets/ui is
 // wrapped in a VfsResourceProvider (draconic.ui.vfs); we read the .sml text through it and hand it to
+// === Docking demo (draconic.ui.application) ===
+// A DockManager wired to the RuntimeDockableWindowHost: 5 panels laid out IDE-style (Scene center,
+// Hierarchy left, Inspector right, Console+Assets bottom-tabbed). Docking/splitting/tabbing happen inside
+// this tab; dragging a panel OUT floats it into a real borderless OS window (host.OpenWindow), redockable
+// by double-clicking its title bar. Mirrors Sedulous UISandbox tab 9.
+void UISandbox::BuildDockingTab(ui::TabView* tabView)
+{
+    auto demo = VFlex(8.0f);
+    demo->Padding = ui::Thickness{ 8, 8 };
+    tabView->AddTab(u8"Docking", demo.Get());
+
+    auto dm = MakeRef<tk::DockManager>(DefaultAllocator());
+    m_dockManager = dm;
+    dm->DockableWindowHost = m_dockHost.Get();
+    demo->AddView(dm.Get(), Grow(1.0f));
+
+    tk::DockablePanel* p1 = dm->AddPanel(u8"Scene",     MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene viewport")).Get());
+    tk::DockablePanel* p2 = dm->AddPanel(u8"Inspector", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Inspector properties")).Get());
+    tk::DockablePanel* p3 = dm->AddPanel(u8"Hierarchy", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene hierarchy")).Get());
+    tk::DockablePanel* p4 = dm->AddPanel(u8"Console",   MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Console output")).Get());
+    tk::DockablePanel* p5 = dm->AddPanel(u8"Assets",    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Asset browser")).Get());
+
+    // IDE layout: Scene center, Hierarchy left, Inspector right, Console bottom, Assets tabbed with Console.
+    dm->DockPanel(p1, tk::DockPosition::Center);
+    dm->DockPanel(p3, tk::DockPosition::Left);
+    dm->DockPanel(p2, tk::DockPosition::Right);
+    dm->DockPanel(p4, tk::DockPosition::Bottom);
+    dm->DockPanelRelativeTo(p5, tk::DockPosition::Center, p4->Parent);
+}
+
 // MarkupLoader::LoadFromString. Then we wire button clicks + inline style overrides + a scoped
 // LocalStyleSheet (inline beats local beats theme). The two decorative FontFamilies were copied from
 // Sedulous; if they fail to load, GetFont falls back to Roboto and the screen still renders.

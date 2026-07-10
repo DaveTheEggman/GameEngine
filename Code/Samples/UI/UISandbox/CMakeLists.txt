@@ -4,7 +4,7 @@ add_executable(UISandbox Main.cpp)
 target_link_libraries(UISandbox PRIVATE
     Draconic::Core Draconic::RHI Draconic::Shaders
     Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDesktop Draconic::ShellDesktop
-    Draconic::Graphics Draconic::GraphicsGpu Draconic::UIRuntime
+    Draconic::Graphics Draconic::GraphicsGpu Draconic::UIRuntime Draconic::UIApplication
     Draconic::Shell Draconic::Image Draconic::Fonts Draconic::FontsTTF
     Draconic::VG Draconic::VGRenderer Draconic::UI Draconic::UIToolkit Draconic::UIShell Draconic::UIVFS Draconic::VFS)
 target_compile_definitions(UISandbox PRIVATE
