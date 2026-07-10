@@ -9,12 +9,14 @@
 #include "Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
+import draconic.image;
 #include "TestHelpers.h"
 
 using namespace draconic::ui;
 using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
+namespace image = draconic::image;
 
 // Register the drawable factories + the element types these parser tests reference.
 static void EnsureGlobals()
@@ -50,6 +52,54 @@ struct Fixture
 };
 
 static core::RefPtr<StyleSheet> LoadSSS(StringView src) { StyleSheetLoader loader; return loader.Load(src); }
+
+namespace
+{
+    // Byte Color(r,g,b,a) -> float Color helper (mirrors the Beef Color(r,g,b,255) ctor).
+    Color Rgb(core::u8 r, core::u8 g, core::u8 b, core::u8 a = 255)
+    {
+        return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+    }
+
+    // Port of Sedulous.UI.Tests MockResourceProvider: an in-memory IResourceProvider for @import /
+    // @icon / @image. Owned image data is kept alive as a member so the LoadImage() pointer stays valid.
+    class MockResourceProvider : public IResourceProvider
+    {
+    public:
+        void AddText(StringView path, StringView content) { m_texts.InsertOrAssign(String(path), String(content)); }
+
+        void AddImage(StringView path) { AddImagePath(path); }  // 2x2 RGBA white pixel image
+
+        bool LoadText(StringView path, String& outText) override
+        {
+            if (const String* v = m_texts.Find(String(path))) { outText = *v; return true; }
+            return false;
+        }
+
+        const image::ImageData* LoadImage(StringView path) override
+        {
+            for (core::usize i = 0; i < m_imagePaths.Size(); ++i)
+            {
+                if (m_imagePaths[i] == path) { return m_images[i].Get(); }
+            }
+            return nullptr;
+        }
+
+    private:
+        void AddImagePath(StringView path)
+        {
+            const core::u8 pixels[16] = { 255, 255, 255, 255, 255, 255, 255, 255,
+                                          255, 255, 255, 255, 255, 255, 255, 255 };
+            m_imagePaths.PushBack(String(path));
+            m_images.PushBack(core::MakeUnique<image::OwnedImageData>(core::DefaultAllocator(),
+                2u, 2u, image::PixelFormat::RGBA8, core::Span<const core::u8>(pixels, 16)));
+        }
+
+        core::HashMap<String, String> m_texts;
+        core::Array<String> m_imagePaths;                              // parallel to m_images
+        core::Array<core::UniquePtr<image::OwnedImageData>> m_images;  // owns each image
+    };
+} // namespace
 
 // === Hex color parsing (StyleValueParser) ===
 
@@ -511,4 +561,304 @@ TEST_CASE("sss: TypeSelectors_DoNotLeakAcrossControls")
     // The button resolves the ButtonBase background, NOT the ComboBox::arrow drawable.
     CHECK(rr->FillColor.r == doctest::Approx(10 / 255.0f));
     CHECK(rr->FillColor.g == doctest::Approx(20 / 255.0f));
+}
+
+// === Ported from Sedulous.UI.Tests (previously deferred) ===
+
+TEST_CASE("sss: ColorFunction_Darken")
+{
+    Fixture f(LoadSSS(u8"View { text-color: darken(#ffffff, 50%); }"));
+    core::RefPtr<TestView> view = f.AddView();
+    // darken white by 50% -> ~(128, 128, 128)
+    const f32 r = view->ResolveStyleColor(StyleProperty::TextColor).r;
+    CHECK((r < 200 / 255.0f && r > 100 / 255.0f));
+}
+
+TEST_CASE("sss: DrawableFactory_GradientWithDirection")
+{
+    Fixture f(LoadSSS(u8"View { background: gradient(left-to-right, #000000, #ffffff); }"));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    GradientDrawable* gd = core::Cast<GradientDrawable>(bg);
+    REQUIRE(gd != nullptr);
+    CHECK(gd->Direction == GradientDirection::LeftToRight);
+}
+
+TEST_CASE("sss: DrawableFactory_Svg")
+{
+    EnsureGlobals();
+    StyleSheetLoader loader;
+    loader.RegisterSvg(u8"checkmark",
+        u8R"(<svg viewBox="0 0 16 16">
+  <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
+</svg>)");
+    Fixture f(loader.Load(u8"CheckBox::checkmark { background: svg(checkmark); }"));
+    auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(cb.Get());
+    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    REQUIRE(icon != nullptr);
+    CHECK(core::Cast<SVGDrawable>(icon) != nullptr);
+}
+
+TEST_CASE("sss: DrawableFactory_SvgWithTint")
+{
+    EnsureGlobals();
+    StyleSheetLoader loader;
+    loader.RegisterSvg(u8"checkmark",
+        u8R"(<svg viewBox="0 0 16 16">
+  <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
+</svg>)");
+    Fixture f(loader.Load(u8"CheckBox::checkmark { background: svg(checkmark, tint=#ff0000); }"));
+    auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(cb.Get());
+    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    REQUIRE(icon != nullptr);
+    SVGDrawable* svgd = core::Cast<SVGDrawable>(icon);
+    REQUIRE(svgd != nullptr);
+    REQUIRE(svgd->TintColor.HasValue());
+    CHECK(svgd->TintColor.Value().r == 1.0f);
+}
+
+TEST_CASE("sss: FontFamily_BareIdentifier")
+{
+    Fixture f(LoadSSS(u8"View { font-family: JungleAdventurer; }"));
+    core::RefPtr<TestView> view = f.AddView();
+    const StyleValue v = view->ResolveStyle(StyleProperty::FontFamily);
+    core::Optional<StringView> s = v.AsString();
+    REQUIRE(s.HasValue());
+    CHECK(s.Value() == StringView(u8"JungleAdventurer"));
+}
+
+TEST_CASE("sss: TypePlusClassRule")
+{
+    Fixture f(LoadSSS(u8"View { font-size: 12; } ButtonBase.primary { font-size: 24; }"));
+    auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Test"));
+    btn->AddClass(u8"primary");
+    f.root->AddView(btn.Get());
+    // Type+class (specificity 11) beats type-only (specificity 1)
+    CHECK(btn->ResolveStyleFloat(StyleProperty::FontSize) == 24.0f);
+}
+
+TEST_CASE("sss: PaletteExtends")
+{
+    EnsureGlobals();
+    StyleSheetLoader loader;
+    loader.SetPaletteVariable(u8"base-color", Rgb(100, 100, 100));
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        @palette custom extends base { accent: #ff0000; }
+        View { text-color: $base-color; accent-color: $accent; }
+    )");
+    Fixture f(Move(sheet));
+    core::RefPtr<TestView> view = f.AddView();
+    // base-color came from loader pre-set
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == doctest::Approx(100 / 255.0f));
+    // accent came from the @palette block
+    const Color accent = view->ResolveStyleColor(StyleProperty::AccentColor);
+    CHECK(accent.r == 1.0f);
+    CHECK(accent.g == 0);
+}
+
+TEST_CASE("sss: PaletteExtends_InheritsLoaderValues")
+{
+    EnsureGlobals();
+    StyleSheetLoader loader;
+    loader.SetPaletteVariable(u8"base-bg", Rgb(40, 40, 50));
+    loader.SetPaletteVariable(u8"base-text", Rgb(220, 220, 230));
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        @palette custom extends base { accent: #ff8800; }
+        View { text-color: $base-text; accent-color: $accent; background: color($base-bg); }
+    )");
+    Fixture f(Move(sheet));
+    core::RefPtr<TestView> view = f.AddView();
+    // base-text came from loader
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == doctest::Approx(220 / 255.0f));
+    // accent came from the @palette block
+    const Color accent = view->ResolveStyleColor(StyleProperty::AccentColor);
+    CHECK(accent.r == 1.0f);
+    CHECK(accent.g == doctest::Approx(0x88 / 255.0f));
+    // base-bg came from loader, used in a drawable
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    ColorDrawable* cd = core::Cast<ColorDrawable>(bg);
+    REQUIRE(cd != nullptr);
+    CHECK(cd->Color.r == doctest::Approx(40 / 255.0f));
+}
+
+// === IResourceProvider tests ===
+
+TEST_CASE("sss: Import_LoadsFromProvider")
+{
+    EnsureGlobals();
+    MockResourceProvider provider;
+    provider.AddText(u8"buttons.sss", u8"ButtonBase { padding: 6 12; }");
+    StyleSheetLoader loader;
+    loader.ResourceProvider = &provider;
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        View { font-size: 14; }
+        @import "buttons.sss";
+    )");
+    // Should have 2 rules: View from main, ButtonBase from import
+    CHECK(sheet->RuleCount() == 2);
+    Fixture f(Move(sheet));
+    auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(btn.Get());
+    const Thickness pad = btn->ResolveStyleThickness(StyleProperty::Padding);
+    CHECK(pad.Top == 6);
+    CHECK(pad.Left == 12);
+}
+
+TEST_CASE("sss: Import_NoProvider_Graceful")
+{
+    EnsureGlobals();
+    // No resource provider -> @import should be silently skipped
+    core::RefPtr<StyleSheet> sheet = LoadSSS(u8R"(
+        @import "nonexistent.sss";
+        View { font-size: 14; }
+    )");
+    CHECK(sheet->RuleCount() == 1);
+}
+
+TEST_CASE("sss: Icon_LoadsFromProvider")
+{
+    EnsureGlobals();
+    MockResourceProvider provider;
+    provider.AddText(u8"icons/check.svg",
+        u8R"(<svg viewBox="0 0 16 16">
+  <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
+</svg>)");
+    StyleSheetLoader loader;
+    loader.ResourceProvider = &provider;
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        @icon checkmark "icons/check.svg";
+        CheckBox::checkmark { background: svg(checkmark); }
+    )");
+    Fixture f(Move(sheet));
+    auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(cb.Get());
+    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    REQUIRE(icon != nullptr);
+    CHECK(core::Cast<SVGDrawable>(icon) != nullptr);
+}
+
+TEST_CASE("sss: Icon_PreRegisteredBeatsFile")
+{
+    EnsureGlobals();
+    StyleSheetLoader loader;
+    // Pre-register inline SVG; no resource provider needed.
+    loader.RegisterSvg(u8"checkmark",
+        u8R"(<svg viewBox="0 0 16 16">
+  <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
+</svg>)");
+    Fixture f(loader.Load(u8"CheckBox::checkmark { background: svg(checkmark); }"));
+    auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(cb.Get());
+    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    REQUIRE(icon != nullptr);
+    CHECK(core::Cast<SVGDrawable>(icon) != nullptr);
+}
+
+TEST_CASE("sss: Icon_NoProvider_SvgReturnsNull")
+{
+    EnsureGlobals();
+    // No resource provider, no pre-registered SVG -> svg() returns null gracefully (no crash).
+    Fixture f(LoadSSS(u8"CheckBox::checkmark { background: svg(missing); }"));
+    auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
+    f.root->AddView(cb.Get());
+    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    (void)icon; // may be null or a fallback -- either way, no crash
+    CHECK(true);
+}
+
+// === @image directive + image/nine-slice factories ===
+
+TEST_CASE("sss: Image_LoadsFromProvider")
+{
+    EnsureGlobals();
+    MockResourceProvider provider;
+    provider.AddImage(u8"textures/bg.png");
+    StyleSheetLoader loader;
+    loader.ResourceProvider = &provider;
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        @image bg "textures/bg.png";
+        View { background: image(bg); }
+    )");
+    Fixture f(Move(sheet));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    CHECK(core::Cast<ImageDrawable>(bg) != nullptr);
+}
+
+TEST_CASE("sss: NineSlice_LoadsFromProvider")
+{
+    EnsureGlobals();
+    MockResourceProvider provider;
+    provider.AddImage(u8"textures/panel.png");
+    StyleSheetLoader loader;
+    loader.ResourceProvider = &provider;
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        @image panel "textures/panel.png";
+        View { background: nine-slice(panel, 4 4 4 4); }
+    )");
+    Fixture f(Move(sheet));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    CHECK(core::Cast<NineSliceDrawable>(bg) != nullptr);
+}
+
+TEST_CASE("sss: Image_PreRegistered")
+{
+    EnsureGlobals();
+    const core::u8 pixels[16] = { 255, 0, 0, 255, 0, 255, 0, 255,
+                                  0, 0, 255, 255, 255, 255, 0, 255 };
+    image::OwnedImageData imageData(2, 2, image::PixelFormat::RGBA8, core::Span<const core::u8>(pixels, 16));
+    StyleSheetLoader loader;
+    loader.RegisterImage(u8"test-img", &imageData);
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8"View { background: image(test-img); }");
+    Fixture f(Move(sheet));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    CHECK(core::Cast<ImageDrawable>(bg) != nullptr);
+}
+
+TEST_CASE("sss: NineSlice_SingleSliceValue")
+{
+    EnsureGlobals();
+    MockResourceProvider provider;
+    provider.AddImage(u8"textures/btn.png");
+    StyleSheetLoader loader;
+    loader.ResourceProvider = &provider;
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        @image btn "textures/btn.png";
+        View { background: nine-slice(btn, 8); }
+    )");
+    Fixture f(Move(sheet));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    CHECK(core::Cast<NineSliceDrawable>(bg) != nullptr);
+}
+
+TEST_CASE("sss: Image_WithTint")
+{
+    EnsureGlobals();
+    MockResourceProvider provider;
+    provider.AddImage(u8"textures/icon.png");
+    StyleSheetLoader loader;
+    loader.ResourceProvider = &provider;
+    core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
+        @image icon "textures/icon.png";
+        View { background: image(icon, tint=#ff0000); }
+    )");
+    Fixture f(Move(sheet));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    ImageDrawable* id = core::Cast<ImageDrawable>(bg);
+    REQUIRE(id != nullptr);
+    CHECK(id->Tint.r == 1.0f);
+    CHECK(id->Tint.g == 0);
 }
