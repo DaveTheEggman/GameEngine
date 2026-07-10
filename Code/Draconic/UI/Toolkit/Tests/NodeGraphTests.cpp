@@ -1,6 +1,8 @@
-// Smoke test for the toolkit NodeGraphCanvas: add nodes / ports, read them back, add & validate
-// connections, remove-and-remap, selection toggles, and coordinate round-trips. No font/VG rendering,
-// no input simulation (events fire only from mouse/key handlers).
+// Verbatim port of Sedulous.UI.Tests/src/NodeGraphTests.bf (SedulousEngine).
+// Data-model + add/remove/connection/selection/transform/auto-size/custom-validator coverage for the
+// toolkit NodeGraphCanvas. Beef `scope NodeGraphNode()` (heap, owned) -> the canvas stores nodes as
+// UniquePtr<NodeGraphNode>, so tests build a node via MakeUnique, keep the raw pointer for later
+// assertions (the canvas keeps a stable address), and Move the owner into AddNode.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -14,176 +16,409 @@ namespace core = draconic::core;
 
 namespace
 {
-    // Builds a node with a single output port and a single input port (both untyped) plus a title.
-    core::UniquePtr<NodeGraphNode> MakeNode(const char8_t* title)
+    // Beef byte `Color(r,g,b,a)` literal -> float core::Color.
+    [[nodiscard]] core::Color Rgb(u8 r, u8 g, u8 b, u8 a = 255)
     {
-        auto node = core::MakeUnique<NodeGraphNode>(core::DefaultAllocator());
-        node->Title = String(title);
+        return core::Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+    }
 
-        NodeGraphPort outPort;
-        outPort.Direction = PortDirection::Output;
-        outPort.Label = String(u8"Out");
-        node->OutputPorts.PushBack(outPort);
-
-        NodeGraphPort inPort;
-        inPort.Direction = PortDirection::Input;
-        inPort.Label = String(u8"In");
-        node->InputPorts.PushBack(inPort);
-
+    // Build an owned node with an optional title.
+    [[nodiscard]] UniquePtr<NodeGraphNode> MakeNode(StringView title = StringView{})
+    {
+        auto node = MakeUnique<NodeGraphNode>(DefaultAllocator());
+        if (title.Size() > 0) { node->Title = String(title); }
         return node;
+    }
+
+    [[nodiscard]] NodeGraphPort MakePort(PortDirection dir)
+    {
+        NodeGraphPort p;
+        p.Direction = dir;
+        return p;
+    }
+
+    [[nodiscard]] NodeGraphConnection Conn(i32 sn, i32 sp, i32 dn, i32 dp)
+    {
+        NodeGraphConnection c;
+        c.SourceNodeIndex = sn; c.SourcePortIndex = sp; c.DestNodeIndex = dn; c.DestPortIndex = dp;
+        return c;
     }
 }
 
-TEST_CASE("toolkit-nodegraph: AddAndReadNodes")
+// === Data Model ===
+
+TEST_CASE("nodegraph: NodeGraphNode_Defaults")
 {
-    auto cv = core::MakeRef<NodeGraphCanvas>(core::DefaultAllocator());
-
-    CHECK(cv->NodeCount() == 0);
-    CHECK(cv->ConnectionCount() == 0);
-    CHECK(cv->Zoom() == doctest::Approx(1.0f));
-
-    const i32 a = cv->AddNode(MakeNode(u8"Node A"));
-    const i32 b = cv->AddNode(MakeNode(u8"Node B"));
-    const i32 c = cv->AddNode(MakeNode(u8"Node C"));
-    CHECK(a == 0);
-    CHECK(b == 1);
-    CHECK(c == 2);
-    CHECK(cv->NodeCount() == 3);
-
-    CHECK(cv->GetNode(0)->Title == u8"Node A");
-    CHECK(cv->GetNode(2)->Title == u8"Node C");
-    // Out-of-range returns null.
-    CHECK(cv->GetNode(5) == nullptr);
-    CHECK(cv->GetNode(-1) == nullptr);
+    NodeGraphNode node;
+    CHECK(node.UserHandle == 0);
+    CHECK(node.IsMovable == true);
+    CHECK(node.IsDeletable == true);
+    CHECK(node.IsSelected == false);
+    CHECK(node.InputPorts.Size() == 0);
+    CHECK(node.OutputPorts.Size() == 0);
+    CHECK(node.Size.x >= 120); // NodeMinWidth default.
 }
 
-TEST_CASE("toolkit-nodegraph: ConnectionsValidateAndCount")
+TEST_CASE("nodegraph: NodeGraphPortType_Untyped")
 {
-    auto cv = core::MakeRef<NodeGraphCanvas>(core::DefaultAllocator());
-    cv->AddNode(MakeNode(u8"A"));
-    cv->AddNode(MakeNode(u8"B"));
+    const NodeGraphPortType untyped = NodeGraphPortType::Untyped();
+    CHECK(untyped.TypeId == 0);
+}
 
-    // Valid: A.out(0) -> B.in(0). Untyped ports connect.
-    NodeGraphConnection conn{};
-    conn.SourceNodeIndex = 0;
-    conn.SourcePortIndex = 0;
-    conn.DestNodeIndex = 1;
-    conn.DestPortIndex = 0;
-    const i32 idx = cv->AddConnection(conn);
+// === Add / Remove Nodes ===
+
+TEST_CASE("nodegraph: AddNode_ReturnsIndex")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    const i32 idx = canvas->AddNode(MakeNode(u8"Test"));
     CHECK(idx == 0);
-    CHECK(cv->ConnectionCount() == 1);
-
-    // Self-connection is rejected.
-    NodeGraphConnection self{};
-    self.SourceNodeIndex = 0;
-    self.SourcePortIndex = 0;
-    self.DestNodeIndex = 0;
-    self.DestPortIndex = 0;
-    CHECK(cv->AddConnection(self) == -1);
-
-    // Out-of-range node index is rejected.
-    NodeGraphConnection oob{};
-    oob.SourceNodeIndex = 0;
-    oob.SourcePortIndex = 0;
-    oob.DestNodeIndex = 9;
-    oob.DestPortIndex = 0;
-    CHECK(cv->AddConnection(oob) == -1);
-
-    // Duplicate connection is rejected.
-    CHECK(cv->AddConnection(conn) == -1);
-    CHECK(cv->ConnectionCount() == 1);
-
-    // Round-trip the stored connection.
-    const NodeGraphConnection got = cv->GetConnection(0);
-    CHECK(got.SourceNodeIndex == 0);
-    CHECK(got.DestNodeIndex == 1);
+    CHECK(canvas->NodeCount() == 1);
 }
 
-TEST_CASE("toolkit-nodegraph: RemoveNodeRemapsConnections")
+TEST_CASE("nodegraph: AddMultipleNodes")
 {
-    auto cv = core::MakeRef<NodeGraphCanvas>(core::DefaultAllocator());
-    cv->AddNode(MakeNode(u8"A")); // 0
-    cv->AddNode(MakeNode(u8"B")); // 1
-    cv->AddNode(MakeNode(u8"C")); // 2
-
-    // Connect B.out -> C.in.
-    NodeGraphConnection conn{};
-    conn.SourceNodeIndex = 1;
-    conn.SourcePortIndex = 0;
-    conn.DestNodeIndex = 2;
-    conn.DestPortIndex = 0;
-    CHECK(cv->AddConnection(conn) == 0);
-
-    // Remove node 0: B and C shift down to 0 and 1; the connection remaps to 0 -> 1.
-    cv->RemoveNode(0);
-    CHECK(cv->NodeCount() == 2);
-    CHECK(cv->GetNode(0)->Title == u8"B");
-    CHECK(cv->GetNode(1)->Title == u8"C");
-    CHECK(cv->ConnectionCount() == 1);
-    const NodeGraphConnection got = cv->GetConnection(0);
-    CHECK(got.SourceNodeIndex == 0);
-    CHECK(got.DestNodeIndex == 1);
-
-    // Removing an endpoint drops the connection.
-    cv->RemoveNode(1);
-    CHECK(cv->NodeCount() == 1);
-    CHECK(cv->ConnectionCount() == 0);
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    CHECK(canvas->AddNode(MakeNode(u8"A")) == 0);
+    CHECK(canvas->AddNode(MakeNode(u8"B")) == 1);
+    CHECK(canvas->AddNode(MakeNode(u8"C")) == 2);
+    CHECK(canvas->NodeCount() == 3);
 }
 
-TEST_CASE("toolkit-nodegraph: SelectionToggles")
+TEST_CASE("nodegraph: RemoveNode_DecreasesCount")
 {
-    auto cv = core::MakeRef<NodeGraphCanvas>(core::DefaultAllocator());
-    cv->AddNode(MakeNode(u8"A"));
-    cv->AddNode(MakeNode(u8"B"));
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    canvas->AddNode(MakeNode(u8"A"));
+    canvas->AddNode(MakeNode(u8"B"));
 
-    CHECK(cv->GetNode(0)->IsSelected == false);
-    cv->SelectNode(1);
-    CHECK(cv->GetNode(1)->IsSelected == true);
-    CHECK(cv->GetNode(0)->IsSelected == false);
+    canvas->RemoveNode(0);
+    CHECK(canvas->NodeCount() == 1);
+    CHECK(canvas->GetNode(0)->Title == StringView(u8"B"));
+}
 
-    // Non-additive select replaces the selection.
-    cv->SelectNode(0);
-    CHECK(cv->GetNode(0)->IsSelected == true);
-    CHECK(cv->GetNode(1)->IsSelected == false);
+TEST_CASE("nodegraph: RemoveNode_RemovesConnections")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0 = MakeNode(u8"A");
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    canvas->AddNode(Move(n0));
 
-    // Additive select keeps both.
-    cv->SelectNode(1, true);
-    CHECK(cv->GetNode(0)->IsSelected == true);
-    CHECK(cv->GetNode(1)->IsSelected == true);
+    auto n1 = MakeNode(u8"B");
+    n1->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n1));
+
+    canvas->AddConnection(Conn(0, 0, 1, 0));
+    CHECK(canvas->ConnectionCount() == 1);
+
+    canvas->RemoveNode(0);
+    CHECK(canvas->ConnectionCount() == 0);
+}
+
+TEST_CASE("nodegraph: RemoveNode_RemapsConnectionIndices")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+
+    auto n0 = MakeNode(u8"A");
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode(u8"B");
+    n1->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    n1->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n1));
+
+    auto n2 = MakeNode(u8"C");
+    n2->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n2));
+
+    // Connection: B(1) -> C(2).
+    canvas->AddConnection(Conn(1, 0, 2, 0));
+
+    // Remove A(0) - B becomes 0, C becomes 1.
+    canvas->RemoveNode(0);
+    CHECK(canvas->ConnectionCount() == 1);
+    const NodeGraphConnection conn = canvas->GetConnection(0);
+    CHECK(conn.SourceNodeIndex == 0); // was 1, now 0
+    CHECK(conn.DestNodeIndex == 1);   // was 2, now 1
+}
+
+// === Connections ===
+
+TEST_CASE("nodegraph: AddConnection_Valid")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0 = MakeNode();
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode();
+    n1->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n1));
+
+    const i32 idx = canvas->AddConnection(Conn(0, 0, 1, 0));
+    CHECK(idx == 0);
+    CHECK(canvas->ConnectionCount() == 1);
+}
+
+TEST_CASE("nodegraph: AddConnection_RejectsSelfConnection")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0 = MakeNode();
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    n0->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n0));
+
+    const i32 idx = canvas->AddConnection(Conn(0, 0, 0, 0));
+    CHECK(idx == -1);
+    CHECK(canvas->ConnectionCount() == 0);
+}
+
+TEST_CASE("nodegraph: AddConnection_RejectsDuplicate")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0 = MakeNode();
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode();
+    n1->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n1));
+
+    canvas->AddConnection(Conn(0, 0, 1, 0));
+    const i32 dup = canvas->AddConnection(Conn(0, 0, 1, 0));
+    CHECK(dup == -1);
+    CHECK(canvas->ConnectionCount() == 1);
+}
+
+TEST_CASE("nodegraph: AddConnection_RejectsInvalidIndices")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0 = MakeNode();
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    canvas->AddNode(Move(n0));
+
+    // Dest node doesn't exist.
+    const i32 idx = canvas->AddConnection(Conn(0, 0, 5, 0));
+    CHECK(idx == -1);
+}
+
+TEST_CASE("nodegraph: AddConnection_TypeValidation_SameType")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+
+    const NodeGraphPortType audioType(1, Rgb(100, 200, 255, 255));
+    const NodeGraphPortType floatType(2, Rgb(100, 255, 100, 255));
+
+    auto n0 = MakeNode();
+    NodeGraphPort out0 = MakePort(PortDirection::Output);
+    out0.PortType = audioType;
+    n0->OutputPorts.PushBack(out0);
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode();
+    NodeGraphPort in1 = MakePort(PortDirection::Input);
+    in1.PortType = floatType; // Different type.
+    n1->InputPorts.PushBack(in1);
+    canvas->AddNode(Move(n1));
+
+    // Mismatched types should be rejected.
+    const i32 idx = canvas->AddConnection(Conn(0, 0, 1, 0));
+    CHECK(idx == -1);
+}
+
+TEST_CASE("nodegraph: AddConnection_TypeValidation_UntypedConnectsToAnything")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+
+    const NodeGraphPortType audioType(1, Rgb(100, 200, 255, 255));
+
+    auto n0 = MakeNode();
+    NodeGraphPort out0 = MakePort(PortDirection::Output);
+    out0.PortType = NodeGraphPortType::Untyped();
+    n0->OutputPorts.PushBack(out0);
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode();
+    NodeGraphPort in1 = MakePort(PortDirection::Input);
+    in1.PortType = audioType;
+    n1->InputPorts.PushBack(in1);
+    canvas->AddNode(Move(n1));
+
+    const i32 idx = canvas->AddConnection(Conn(0, 0, 1, 0));
+    CHECK(idx >= 0);
+}
+
+TEST_CASE("nodegraph: RemoveConnection")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0 = MakeNode();
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode();
+    n1->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n1));
+
+    canvas->AddConnection(Conn(0, 0, 1, 0));
+    canvas->RemoveConnection(0);
+    CHECK(canvas->ConnectionCount() == 0);
+}
+
+// === Selection ===
+
+TEST_CASE("nodegraph: SelectNode")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0u = MakeNode(u8"A"); NodeGraphNode* n0 = n0u.Get(); canvas->AddNode(Move(n0u));
+    auto n1u = MakeNode(u8"B"); NodeGraphNode* n1 = n1u.Get(); canvas->AddNode(Move(n1u));
+
+    canvas->SelectNode(0);
+    CHECK(n0->IsSelected);
+    CHECK(!n1->IsSelected);
+
+    // Selecting another clears previous.
+    canvas->SelectNode(1);
+    CHECK(!n0->IsSelected);
+    CHECK(n1->IsSelected);
+}
+
+TEST_CASE("nodegraph: SelectNode_AddToSelection")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0u = MakeNode(u8"A"); NodeGraphNode* n0 = n0u.Get(); canvas->AddNode(Move(n0u));
+    auto n1u = MakeNode(u8"B"); NodeGraphNode* n1 = n1u.Get(); canvas->AddNode(Move(n1u));
+
+    canvas->SelectNode(0);
+    canvas->SelectNode(1, /*addToSelection*/ true);
+    CHECK(n0->IsSelected);
+    CHECK(n1->IsSelected);
+}
+
+TEST_CASE("nodegraph: ClearSelection")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0u = MakeNode(u8"A"); NodeGraphNode* n0 = n0u.Get(); canvas->AddNode(Move(n0u));
+
+    canvas->SelectNode(0);
+    CHECK(n0->IsSelected);
+
+    canvas->ClearSelection();
+    CHECK(!n0->IsSelected);
+}
+
+TEST_CASE("nodegraph: GetSelectedNodes")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    canvas->AddNode(MakeNode(u8"A"));
+    canvas->AddNode(MakeNode(u8"B"));
+    canvas->AddNode(MakeNode(u8"C"));
+
+    canvas->SelectNode(0);
+    canvas->SelectNode(2, /*addToSelection*/ true);
 
     Array<i32> selected;
-    cv->GetSelectedNodes(selected);
+    canvas->GetSelectedNodes(selected);
     CHECK(selected.Size() == 2);
-
-    cv->ClearSelection();
-    CHECK(cv->GetNode(0)->IsSelected == false);
-    CHECK(cv->GetNode(1)->IsSelected == false);
+    bool has0 = false, has2 = false;
+    for (usize i = 0; i < selected.Size(); ++i)
+    {
+        if (selected[i] == 0) { has0 = true; }
+        if (selected[i] == 2) { has2 = true; }
+    }
+    CHECK(has0);
+    CHECK(has2);
 }
 
-TEST_CASE("toolkit-nodegraph: CoordinateRoundTrip")
-{
-    auto cv = core::MakeRef<NodeGraphCanvas>(core::DefaultAllocator());
-    CHECK(cv->Zoom() == doctest::Approx(1.0f));
+// === Clear ===
 
-    const Float2 pt{ 123.0f, -45.0f };
-    const Float2 back = cv->ScreenToCanvas(cv->CanvasToScreen(pt));
-    CHECK(back.x == doctest::Approx(pt.x));
-    CHECK(back.y == doctest::Approx(pt.y));
+TEST_CASE("nodegraph: Clear_RemovesEverything")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto n0 = MakeNode();
+    n0->OutputPorts.PushBack(MakePort(PortDirection::Output));
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode();
+    n1->InputPorts.PushBack(MakePort(PortDirection::Input));
+    canvas->AddNode(Move(n1));
+
+    canvas->AddConnection(Conn(0, 0, 1, 0));
+
+    canvas->Clear();
+    CHECK(canvas->NodeCount() == 0);
+    CHECK(canvas->ConnectionCount() == 0);
 }
 
-TEST_CASE("toolkit-nodegraph: ClearEmptiesEverything")
-{
-    auto cv = core::MakeRef<NodeGraphCanvas>(core::DefaultAllocator());
-    cv->AddNode(MakeNode(u8"A"));
-    cv->AddNode(MakeNode(u8"B"));
-    NodeGraphConnection conn{};
-    conn.SourceNodeIndex = 0;
-    conn.SourcePortIndex = 0;
-    conn.DestNodeIndex = 1;
-    conn.DestPortIndex = 0;
-    cv->AddConnection(conn);
+// === Coordinate Transforms ===
 
-    cv->Clear();
-    CHECK(cv->NodeCount() == 0);
-    CHECK(cv->ConnectionCount() == 0);
+TEST_CASE("nodegraph: ScreenToCanvas_Identity")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    const Float2 result = canvas->ScreenToCanvas(Float2{ 100, 200 });
+    CHECK(Abs(result.x - 100) < 0.01f);
+    CHECK(Abs(result.y - 200) < 0.01f);
+}
+
+TEST_CASE("nodegraph: CanvasToScreen_Identity")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    const Float2 result = canvas->CanvasToScreen(Float2{ 100, 200 });
+    CHECK(Abs(result.x - 100) < 0.01f);
+    CHECK(Abs(result.y - 200) < 0.01f);
+}
+
+TEST_CASE("nodegraph: ScreenToCanvas_Roundtrip")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    const Float2 original{ 150, 250 };
+    const Float2 screen = canvas->CanvasToScreen(original);
+    const Float2 back = canvas->ScreenToCanvas(screen);
+    CHECK(Abs(back.x - original.x) < 0.01f);
+    CHECK(Abs(back.y - original.y) < 0.01f);
+}
+
+// === Auto-sizing ===
+
+TEST_CASE("nodegraph: AutoSize_ExpandsForPorts")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    auto node = MakeNode(u8"Multi-port");
+    node->Size = Float2{ 160, 40 }; // Intentionally small.
+
+    for (i32 i = 0; i < 5; i++)
+    {
+        NodeGraphPort port = MakePort(PortDirection::Input);
+        port.Label = String(u8"In");
+        node->InputPorts.PushBack(port);
+    }
+
+    NodeGraphNode* raw = node.Get();
+    canvas->AddNode(Move(node)); // AddNode calls AutoSizeNode.
+    CHECK(raw->Size.y > 40); // Should have expanded for 5 ports.
+}
+
+// === Custom Connection Validator ===
+
+TEST_CASE("nodegraph: CustomValidator_AllowsAll")
+{
+    auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
+    canvas->ConnectionValidator = [](NodeGraphPortType, NodeGraphPortType) { return true; }; // Allow everything.
+
+    const NodeGraphPortType typeA(1, Rgb(255, 0, 0, 255));
+    const NodeGraphPortType typeB(2, Rgb(0, 255, 0, 255));
+
+    auto n0 = MakeNode();
+    NodeGraphPort out0 = MakePort(PortDirection::Output);
+    out0.PortType = typeA;
+    n0->OutputPorts.PushBack(out0);
+    canvas->AddNode(Move(n0));
+
+    auto n1 = MakeNode();
+    NodeGraphPort in1 = MakePort(PortDirection::Input);
+    in1.PortType = typeB;
+    n1->InputPorts.PushBack(in1);
+    canvas->AddNode(Move(n1));
+
+    // Different types but custom validator allows it.
+    const i32 idx = canvas->AddConnection(Conn(0, 0, 1, 0));
+    CHECK(idx >= 0);
 }
