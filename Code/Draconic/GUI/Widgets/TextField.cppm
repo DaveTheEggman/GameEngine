@@ -113,8 +113,20 @@ export namespace draconic::gui
         void SetTextColor(Color color) { m_text.SetColor(color); Invalidate(); }
 
         // Theming hooks (CSS color / font-family reach the text).
-        void SetThemeTextColor(Color color) override { SetTextColor(color); }
+        // Theming: text color drives the caret too by default (so it stays visible on any
+        // background); a `textfield::caret` / `::selection` part can override either explicitly.
+        void SetThemeTextColor(Color color) override { SetTextColor(color); m_caretColor = color; Invalidate(); }
         void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"caret"));
+            out.PushBack(core::StringView(u8"selection"));
+        }
+        void SetThemePartColor(core::StringView part, Color color) override
+        {
+            if (part == core::StringView(u8"caret")) SetCaretColor(color);
+            else if (part == core::StringView(u8"selection")) SetSelectionColor(color);
+        }
         void SetCaretColor(Color color) { m_caretColor = color; Invalidate(); }
         void SetSelectionColor(Color color) { m_selectionColor = color; Invalidate(); }
 
