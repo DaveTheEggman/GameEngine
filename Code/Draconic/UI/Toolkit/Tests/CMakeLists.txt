@@ -19,6 +19,7 @@ add_executable(DraconicUIToolkitTests
     ColorEditorTests.cpp
     PropertyGridTests.cpp
     CurveCanvasTests.cpp
+    DockingTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIToolkitTests PRIVATE

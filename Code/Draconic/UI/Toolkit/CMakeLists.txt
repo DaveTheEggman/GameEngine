@@ -32,6 +32,13 @@ target_sources(DraconicUIToolkit
             ColorEditor.cppm
             PropertyGrid.cppm
             CurveCanvas.cppm
+            DockPosition.cppm
+            DockLayoutNode.cppm
+            IDockHost.cppm
+            IDockableWindowHost.cppm
+            DockZoneIndicator.cppm
+            DockSplit.cppm
+            Docking.cppm
             ToolkitModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
