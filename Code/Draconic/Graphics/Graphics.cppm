@@ -228,8 +228,19 @@ export namespace draconic::graphics
         core::Result<core::UniquePtr<RenderWindow>> CreateRenderWindow(IWindow& window, const RenderWindowDesc& desc)
         {
             const NativeWindow nw = window.Native();
+            // Tell the RHI which WSI the shell used so it creates the matching surface (no guessing -
+            // feeding X11 handles to the Wayland WSI segfaults). The shell's WindowSystem maps 1:1.
+            rhi::SurfacePlatform plat = rhi::SurfacePlatform::Unknown;
+            switch (nw.system)
+            {
+                case WindowSystem::Win32:   plat = rhi::SurfacePlatform::Win32;   break;
+                case WindowSystem::X11:     plat = rhi::SurfacePlatform::X11;     break;
+                case WindowSystem::Wayland: plat = rhi::SurfacePlatform::Wayland; break;
+                case WindowSystem::Cocoa:   plat = rhi::SurfacePlatform::Cocoa;   break;
+                default:                    break;
+            }
             rhi::Surface* surface = nullptr;
-            if (!m_backend->CreateSurface(nw.window, nw.display, surface).IsOk()) { return core::Err(core::ErrorCode::Unknown); }
+            if (!m_backend->CreateSurface(nw.window, nw.display, surface, plat).IsOk()) { return core::Err(core::ErrorCode::Unknown); }
 
             rhi::SwapChainDesc sd{};
             sd.width       = window.Width();

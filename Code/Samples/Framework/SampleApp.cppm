@@ -114,7 +114,16 @@ inline Status SampleApp::Init() {
     if (!CreateBackend().IsOk()) return ErrorCode::Unknown;
 
     const shell::NativeWindow nw = m_window->Native();
-    if (!m_backend->CreateSurface(nw.window, nw.display, m_surface).IsOk()) {
+    // Pass the shell's WSI so the RHI builds the matching surface (avoids the X11-handles-to-Wayland-WSI crash).
+    rhi::SurfacePlatform plat = rhi::SurfacePlatform::Unknown;
+    switch (nw.system) {
+        case shell::WindowSystem::Win32:   plat = rhi::SurfacePlatform::Win32;   break;
+        case shell::WindowSystem::X11:     plat = rhi::SurfacePlatform::X11;     break;
+        case shell::WindowSystem::Wayland: plat = rhi::SurfacePlatform::Wayland; break;
+        case shell::WindowSystem::Cocoa:   plat = rhi::SurfacePlatform::Cocoa;   break;
+        default: break;
+    }
+    if (!m_backend->CreateSurface(nw.window, nw.display, m_surface, plat).IsOk()) {
         rhi::LogError("SampleApp: createSurface failed"); return ErrorCode::Unknown;
     }
 

@@ -30,6 +30,12 @@ export namespace draconic::rhi {
 
 // ---- Backend ----
 
+/// The windowing system that produced a native window's handles. Passed to CreateSurface so the backend
+/// creates exactly the matching platform surface (feeding an X11 Display* to the Wayland WSI segfaults).
+/// The neutral RHI counterpart of shell::WindowSystem (the RHI must not depend on the shell); the graphics
+/// / sample layer maps one to the other. Unknown = the backend falls back to its best guess.
+enum class SurfacePlatform { Unknown, Win32, X11, Wayland, Cocoa };
+
 /// RHI backend entry point (Vulkan, DX12, etc.).
 class Backend {
 public:
@@ -43,14 +49,16 @@ public:
     /// that just want "the best available GPU" can take element [0].
     [[nodiscard]] virtual Span<Adapter* const> EnumerateAdapters() = 0;
 
-    /// Creates a presentation surface from a native window handle.
+    /// Creates a presentation surface from a native window handle. `platform` tells the backend which WSI
+    /// produced the handles so it selects the matching surface type instead of guessing (Unknown = guess).
     /// On Win32: windowHandle = HWND, displayHandle = nullptr.
     /// On X11: windowHandle = XID (as void*), displayHandle = Display*.
     /// On Wayland: windowHandle = wl_surface*, displayHandle = wl_display*.
-    virtual Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out) = 0;
+    virtual Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out,
+                                 SurfacePlatform platform = SurfacePlatform::Unknown) = 0;
 
     Status CreateSurface(void* windowHandle, Surface*& out) {
-        return CreateSurface(windowHandle, nullptr, out);
+        return CreateSurface(windowHandle, nullptr, out, SurfacePlatform::Unknown);
     }
 
     /// Destroy the backend and all objects it owns.

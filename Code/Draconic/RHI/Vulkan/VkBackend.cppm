@@ -78,7 +78,7 @@ public:
 #else
                          /*displayHandle*/
 #endif
-                         , Surface*& out) override {
+                         , Surface*& out, SurfacePlatform platform = SurfacePlatform::Unknown) override {
         out = nullptr;
         if (!windowHandle) {
             LogError("VkBackend: window handle is null");
@@ -99,20 +99,21 @@ public:
             return ErrorCode::Unknown;
         }
 #elif defined(__linux__)
-        // Detect surface type from the window handles SDL3 actually provides.
-        // SDL3 may choose Wayland even when DISPLAY is set (e.g. on Arch).
-        // displayHandle == X11 Display* for X11, or wl_display* for Wayland.
-        // We try Wayland first (if displayHandle looks like wl_display and we have the ext),
-        // then fall back to X11.
+        // Create EXACTLY the surface type the shell used. `platform` is authoritative (it comes from the
+        // SDL video driver that actually created the window); feeding handles to the wrong WSI - e.g. an
+        // X11 Display* to vkCreateWaylandSurfaceKHR - dereferences a non-Wayland pointer and segfaults deep
+        // in the driver (the classic "force X11 under a Wayland session" crash). Only when the caller did
+        // not specify a platform (Unknown) do we fall back to the old WAYLAND_DISPLAY heuristic.
         VkResult vr = VK_ERROR_INITIALIZATION_FAILED;
         bool triedWayland = false, triedX11 = false;
 
-        // If we have Wayland ext and the display handle could be wl_display,
-        // try Wayland. The SDL3 window's displayHandle returns wl_display*
-        // when SDL chose Wayland, or X11 Display* when SDL chose X11.
-        // We can't easily distinguish the pointer types, so we try Wayland first
-        // if the extension is available and WAYLAND_DISPLAY is set, then X11.
-        if (m_hasWayland && std::getenv("WAYLAND_DISPLAY")) {
+        SurfacePlatform effective = platform;
+        if (effective == SurfacePlatform::Unknown) {
+            effective = (m_hasWayland && std::getenv("WAYLAND_DISPLAY")) ? SurfacePlatform::Wayland
+                                                                        : SurfacePlatform::X11;
+        }
+
+        if (effective == SurfacePlatform::Wayland && m_hasWayland) {
             auto fn = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(
                 vkGetInstanceProcAddr(m_instance, "vkCreateWaylandSurfaceKHR"));
             if (fn) {
@@ -124,9 +125,7 @@ public:
                 triedWayland = true;
             }
         }
-
-        // Fall back to X11 if Wayland failed or wasn't tried.
-        if (vr != VK_SUCCESS && m_hasXlib) {
+        else if (effective == SurfacePlatform::X11 && m_hasXlib) {
             auto fn = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(
                 vkGetInstanceProcAddr(m_instance, "vkCreateXlibSurfaceKHR"));
             if (fn) {
@@ -140,7 +139,8 @@ public:
         }
 
         if (vr != VK_SUCCESS) {
-            LogErrorf("VkBackend: surface creation failed (tried wayland=%d, x11=%d)", triedWayland, triedX11);
+            LogErrorf("VkBackend: surface creation failed (platform=%d, tried wayland=%d, x11=%d)",
+                      static_cast<int>(effective), triedWayland, triedX11);
             return ErrorCode::Unknown;
         }
         if (vr != VK_SUCCESS) {

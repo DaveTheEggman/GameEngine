@@ -36,7 +36,8 @@ public:
         return Span<Adapter* const>(m_adapterPtrs.Data(), m_adapterPtrs.Size());
     }
 
-    Status CreateSurface(void* windowHandle, void* /*displayHandle*/, Surface*& out) override {
+    Status CreateSurface(void* windowHandle, void* /*displayHandle*/, Surface*& out,
+                         SurfacePlatform /*platform*/ = SurfacePlatform::Unknown) override {
         out = nullptr;
         if (!windowHandle) {
             LogError("DxBackend: window handle is null");

@@ -40,13 +40,14 @@ public:
         return Span<Adapter* const>(m_adapterPtrs.Data(), m_adapterPtrs.Size());
     }
 
-    Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out) override {
+    Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out,
+                         SurfacePlatform platform = SurfacePlatform::Unknown) override {
         if (!windowHandle) {
             LogError("[Validation] createSurface: windowHandle is null");
             out = nullptr;
             return ErrorCode::InvalidArgument;
         }
-        return m_inner->CreateSurface(windowHandle, displayHandle, out);
+        return m_inner->CreateSurface(windowHandle, displayHandle, out, platform);
     }
 
     void Destroy() override {

@@ -311,7 +311,7 @@ public:
         return Span<Adapter* const>(&adapterPtr, 1);
     }
 
-    Status CreateSurface(void*, void*, Surface*& out) override {
+    Status CreateSurface(void*, void*, Surface*& out, SurfacePlatform = SurfacePlatform::Unknown) override {
         out = new NullSurface();
         return ErrorCode::Ok;
     }
