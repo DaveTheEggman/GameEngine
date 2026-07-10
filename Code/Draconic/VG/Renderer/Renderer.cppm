@@ -9,8 +9,12 @@
 //   * Initialize takes the two pre-compiled rhi::ShaderModule* (vert, frag)
 //     rather than a ShaderSystem - shader compilation (DXC) is the caller's job
 //     via draconic.shaders, keeping this lib's dependency to pure RHI.
-//   * The shared cross-renderer external texture cache (VGExternalTextureCache)
-//     is omitted (a multi-renderer sharing optimisation); add later if needed.
+//   * Per-renderer external textures ARE supported (RegisterExternalTexture /
+//     UnregisterExternalTexture) so a caller-owned rhi::TextureView - e.g. a
+//     ui::viewport offscreen render target - can be sampled via DrawImage. The
+//     SHARED cross-renderer external texture cache (VGExternalTextureCache) is
+//     still omitted (a multi-renderer/multi-window sharing optimisation); add
+//     later if a single RT must be sampled by more than one window's renderer.
 
 module;
 #include "Core/Prelude.h"
@@ -220,6 +224,65 @@ export namespace draconic::vg::renderer
             m_textureCache.Clear();
         }
 
+        /// Register a caller-owned rhi::TextureView (e.g. a viewport's offscreen
+        /// render target) under an ImageData identity key, so DrawImage(key, ...)
+        /// samples that GPU texture directly instead of uploading CPU pixels.
+        /// The view is NOT owned - the caller must UnregisterExternalTexture before
+        /// destroying it (that Unregister is the cache-invalidation signal; the
+        /// texture cache is otherwise raw-pointer-keyed with no version guard).
+        /// Re-registering an existing key rebinds it to the new view (bind groups
+        /// are torn down and rebuilt lazily).
+        void RegisterExternalTexture(const image::ImageData* key, rhi::TextureView* view)
+        {
+            if (key == nullptr || view == nullptr || m_device == nullptr) return;
+
+            for (usize i = 0; i < m_textureCache.Size(); ++i)
+            {
+                if (m_textureCache[i]->source != key) continue;
+                CachedTexture& c = *m_textureCache[i];
+                for (usize f = 0; f < c.bindGroups.Size(); ++f)
+                {
+                    if (c.bindGroups[f] != nullptr) m_device->DestroyBindGroup(c.bindGroups[f]);
+                    c.bindGroups[f] = nullptr;
+                }
+                c.view = view;
+                c.external = true;
+                c.gpuTexture = nullptr;
+                return;
+            }
+
+            UniquePtr<CachedTexture> cached = MakeUnique<CachedTexture>(DefaultAllocator());
+            cached->source = key;
+            cached->view = view;
+            cached->external = true;
+            cached->bindGroups.Resize(static_cast<usize>(m_frameCount)); // nullptr-filled, built lazily
+            m_textureCache.PushBack(Move(cached));
+        }
+
+        /// Drop a previously-registered external texture. Tears down its per-frame
+        /// bind groups (but never the caller-owned view/texture). Safe to call for
+        /// an unknown key. Call before the underlying view is destroyed.
+        void UnregisterExternalTexture(const image::ImageData* key)
+        {
+            if (key == nullptr) return;
+            for (usize i = 0; i < m_textureCache.Size(); ++i)
+            {
+                if (m_textureCache[i]->source != key) continue;
+                DisposeCachedTexture(*m_textureCache[i]);
+                m_textureCache.RemoveAt(i);
+                return;
+            }
+        }
+
+        /// Whether an external (caller-owned) view is currently registered for key.
+        [[nodiscard]] bool IsExternalTextureRegistered(const image::ImageData* key) const
+        {
+            if (key == nullptr) return false;
+            for (usize i = 0; i < m_textureCache.Size(); ++i)
+                if (m_textureCache[i]->source == key) return m_textureCache[i]->external;
+            return false;
+        }
+
         void Dispose()
         {
             if (m_device == nullptr) return;
@@ -247,6 +310,7 @@ export namespace draconic::vg::renderer
             rhi::Texture* gpuTexture = nullptr;
             rhi::TextureView* view = nullptr;
             Array<rhi::BindGroup*> bindGroups; // per frame
+            bool external = false; // view is caller-owned (e.g. a viewport RT) - never destroyed here
         };
 
         static constexpr i32 MaxVertices = 131072;
@@ -467,6 +531,7 @@ export namespace draconic::vg::renderer
         {
             for (usize i = 0; i < cached.bindGroups.Size(); ++i)
                 if (cached.bindGroups[i] != nullptr) m_device->DestroyBindGroup(cached.bindGroups[i]);
+            if (cached.external) return; // view/texture are caller-owned
             if (cached.view) m_device->DestroyTextureView(cached.view);
             if (cached.gpuTexture) m_device->DestroyTexture(cached.gpuTexture);
         }

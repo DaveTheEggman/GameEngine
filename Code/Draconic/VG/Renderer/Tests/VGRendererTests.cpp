@@ -7,6 +7,7 @@
 import draconic.core;
 import draconic.rhi;
 import draconic.rhi.null;
+import draconic.image;
 import draconic.vg;
 import draconic.vg.renderer;
 
@@ -14,6 +15,7 @@ using namespace draconic::core;
 using namespace draconic::vg;
 using namespace draconic::vg::renderer;
 namespace rhi = draconic::rhi;
+namespace image = draconic::image;
 
 namespace
 {
@@ -78,6 +80,88 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
 
     renderer.Dispose();
     CHECK_FALSE(renderer.IsInitialized());
+
+    device.DestroyShaderModule(vs);
+    device.DestroyShaderModule(fs);
+}
+
+TEST_CASE("vg.renderer: external texture register / rebind / unregister")
+{
+    rhi::null::NullDevice device;
+    rhi::ShaderModule* vs = MakeModule(device);
+    rhi::ShaderModule* fs = MakeModule(device);
+    REQUIRE(vs != nullptr);
+    REQUIRE(fs != nullptr);
+
+    VGRenderer renderer;
+    REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA16Float, /*frameCount*/ 2).IsOk());
+
+    // A caller-owned view standing in for a viewport's offscreen color target.
+    rhi::TextureDesc td = rhi::TextureDesc::RenderTarget(rhi::TextureFormat::RGBA16Float, 64, 48);
+    rhi::Texture* tex = nullptr;
+    REQUIRE(device.CreateTexture(td, tex).IsOk());
+    rhi::TextureView* view = nullptr;
+    REQUIRE(device.CreateTextureView(tex, rhi::TextureViewDesc{}, view).IsOk());
+
+    // The identity key: a pixel-less ImageDataRef (dimensions only).
+    image::ImageDataRef key(64, 48);
+    CHECK_FALSE(renderer.IsExternalTextureRegistered(&key));
+
+    renderer.RegisterExternalTexture(&key, view);
+    CHECK(renderer.IsExternalTextureRegistered(&key));
+
+    // DrawImage(key) now Prepares without trying to upload CPU pixels (the ref
+    // has none) - the pre-registered external view is used instead.
+    VGContext ctx;
+    ctx.DrawImage(&key, Rectangle{ 0, 0, 64, 48 });
+    renderer.BeginFrame(0);
+    const VGRenderSlice slice = renderer.Prepare(ctx.GetBatch(), 0, 800, 600);
+    CHECK(slice.isValid);
+
+    // Rebinding the same key to a new view keeps a single entry (still external).
+    rhi::TextureView* view2 = nullptr;
+    REQUIRE(device.CreateTextureView(tex, rhi::TextureViewDesc{}, view2).IsOk());
+    renderer.RegisterExternalTexture(&key, view2);
+    CHECK(renderer.IsExternalTextureRegistered(&key));
+
+    // Unregister drops it (without destroying the caller-owned view/texture).
+    renderer.UnregisterExternalTexture(&key);
+    CHECK_FALSE(renderer.IsExternalTextureRegistered(&key));
+    renderer.UnregisterExternalTexture(&key); // unknown key -> no-op, no crash
+
+    // The views/texture are still ours to destroy.
+    device.DestroyTextureView(view);
+    device.DestroyTextureView(view2);
+    device.DestroyTexture(tex);
+
+    renderer.Dispose();
+    device.DestroyShaderModule(vs);
+    device.DestroyShaderModule(fs);
+}
+
+TEST_CASE("vg.renderer: Dispose leaves a still-registered external view intact")
+{
+    rhi::null::NullDevice device;
+    rhi::ShaderModule* vs = MakeModule(device);
+    rhi::ShaderModule* fs = MakeModule(device);
+
+    rhi::TextureDesc td = rhi::TextureDesc::RenderTarget(rhi::TextureFormat::RGBA16Float, 32, 32);
+    rhi::Texture* tex = nullptr;
+    REQUIRE(device.CreateTexture(td, tex).IsOk());
+    rhi::TextureView* view = nullptr;
+    REQUIRE(device.CreateTextureView(tex, rhi::TextureViewDesc{}, view).IsOk());
+
+    {
+        VGRenderer renderer;
+        REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA16Float, 1).IsOk());
+        image::ImageDataRef key(32, 32);
+        renderer.RegisterExternalTexture(&key, view);
+        // Dispose() -> ClearTextureCache() must NOT destroy the external view.
+    }
+
+    // Still valid: we can destroy it ourselves (a double-free would trip ASAN).
+    device.DestroyTextureView(view);
+    device.DestroyTexture(tex);
 
     device.DestroyShaderModule(vs);
     device.DestroyShaderModule(fs);
