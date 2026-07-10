@@ -36,6 +36,7 @@ add_executable(DraconicGUITests
     ListBoxTests.cpp
     ListViewTests.cpp
     TableViewTests.cpp
+    SortingProxyModelTests.cpp
     TabWidgetTests.cpp
     WindowTests.cpp
     MessageBoxTests.cpp

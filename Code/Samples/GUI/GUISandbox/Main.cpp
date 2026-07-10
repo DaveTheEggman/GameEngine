@@ -182,6 +182,9 @@ private:
     RefPtr<gui::MessageBox>   m_dialog;
     RefPtr<gui::ListView>     m_listView;
     UniquePtr<gui::StringListModel> m_listModel;
+    RefPtr<gui::TableView>    m_tableView;
+    UniquePtr<gui::TableModel>       m_tableModel;
+    UniquePtr<gui::SortingProxyModel> m_tableProxy;
     RefPtr<gui::Label>        m_pickEcho;
     gui::RadioGroup           m_radioGroup;
     UniquePtr<gui::TooltipManager>   m_tooltips;
@@ -505,6 +508,43 @@ void GUISandbox::BuildUI()
         echoRef->SetText(StringView(buf));
     });
     m_panel->AddChild(m_listView.Get());
+
+    // A sortable TableView: a TableModel behind a SortingProxyModel; clicking a column header
+    // sorts by that column (numeric columns sort by value). No view changes needed - the header
+    // click just calls the proxy, and the table (a client of the proxy) refreshes.
+    auto tableCaption = MakeRef<gui::Label>(DefaultAllocator());
+    tableCaption->SetSize(Float2{ 560.0f, 22.0f });
+    tableCaption->SetFont(m_font);
+    tableCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
+    tableCaption->SetText(u8"TableView (MVC) - click a column header to sort:");
+    m_panel->AddChild(tableCaption.Get());
+
+    m_tableModel = MakeUnique<gui::TableModel>(DefaultAllocator());
+    {
+        Array<String> cols;
+        cols.PushBack(String(u8"Name"));
+        cols.PushBack(String(u8"Score"));
+        m_tableModel->SetColumns(Move(cols));
+        const char8_t* names[6] = { u8"Ivy", u8"Cara", u8"Bo", u8"Ada", u8"Eve", u8"Dan" };
+        const i32 scores[6] = { 42, 7, 91, 15, 68, 30 };
+        for (usize i = 0; i < 6; ++i)
+        {
+            Array<gui::Variant> row;
+            row.PushBack(gui::Variant(StringView(names[i])));
+            row.PushBack(gui::Variant(static_cast<i64>(scores[i])));
+            m_tableModel->AddRow(Move(row));
+        }
+    }
+    m_tableProxy = MakeUnique<gui::SortingProxyModel>(DefaultAllocator(), m_tableModel.Get());
+
+    m_tableView = MakeRef<gui::TableView>(DefaultAllocator());
+    m_tableView->SetSize(Float2{ 300.0f, 180.0f });
+    m_tableView->SetFont(m_font);
+    m_tableView->SetRowHeight(24.0f);
+    m_tableView->SetModel(m_tableProxy.Get());
+    gui::SortingProxyModel* proxyRef = m_tableProxy.Get();
+    m_tableView->SetOnColumnHeaderClicked([proxyRef](usize col) { proxyRef->ToggleSort(col); });
+    m_panel->AddChild(m_tableView.Get());
 
     // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
     // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
@@ -938,6 +978,9 @@ void GUISandbox::OnShutdown()
     m_dialog.Reset();
     m_listView.Reset();   // release before the model it references
     m_listModel.Reset();
+    m_tableView.Reset();  // release before the proxy/model it references
+    m_tableProxy.Reset();
+    m_tableModel.Reset();
     m_widgetWindow.Reset();
     m_pickEcho.Reset();
     m_showcaseDrawable.Reset();

@@ -81,6 +81,7 @@ export import :model_index;
 export import :model;
 export import :string_list_model;
 export import :table_model;
+export import :sorting_proxy_model;
 
 // CSS styling (Phase 6)
 export import :resource_provider;

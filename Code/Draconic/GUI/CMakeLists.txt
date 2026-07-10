@@ -41,6 +41,7 @@ target_sources(DraconicGUI
             Model/Model.cppm
             Model/StringListModel.cppm
             Model/TableModel.cppm
+            Model/SortingProxyModel.cppm
             Widgets/UINode.cppm
             Widgets/UIWidget.cppm
             Widgets/Label.cppm
