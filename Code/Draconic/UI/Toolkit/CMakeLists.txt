@@ -16,6 +16,10 @@ target_sources(DraconicUIToolkit
             MenuBar.cppm
             SplitView.cppm
             BreadcrumbBar.cppm
+            ColorPicker.cppm
+            HDRColorPicker.cppm
+            GradientEditor.cppm
+            VectorFields.cppm
             ToolkitModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

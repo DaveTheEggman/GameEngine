@@ -13,3 +13,7 @@ export import :toolbar;
 export import :menu_bar;
 export import :split_view;
 export import :breadcrumb_bar;
+export import :color_picker;
+export import :hdr_color_picker;
+export import :gradient_editor;
+export import :vector_fields;

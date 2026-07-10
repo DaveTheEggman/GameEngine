@@ -4,6 +4,10 @@ add_executable(DraconicUIToolkitTests
     MenuBarTests.cpp
     SplitViewTests.cpp
     BreadcrumbBarTests.cpp
+    ColorPickerTests.cpp
+    HDRColorPickerTests.cpp
+    GradientEditorTests.cpp
+    VectorFieldsTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIToolkitTests PRIVATE
