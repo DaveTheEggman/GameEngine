@@ -20,6 +20,7 @@ add_executable(DraconicUIToolkitTests
     PropertyGridTests.cpp
     CurveCanvasTests.cpp
     DockingTests.cpp
+    DockPersistenceTests.cpp
     NodeGraphTests.cpp
     DraggableTreeViewTests.cpp
     ToolkitThemeExtensionTests.cpp
