@@ -166,6 +166,8 @@ add_subdirectory(Shell)
 add_subdirectory(Toolkit)
 # UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
 add_subdirectory(Runtime)
+# Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UIToolkit).
+add_subdirectory(Application)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
