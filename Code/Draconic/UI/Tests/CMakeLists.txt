@@ -21,6 +21,7 @@ add_executable(DraconicUITests
     ViewGroupTests.cpp
     UIContextTests.cpp
     LayoutTests.cpp
+    LocalStyleSheetTests.cpp
     InputTests.cpp
     EditingTests.cpp
     EditTextTests.cpp
