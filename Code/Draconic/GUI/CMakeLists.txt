@@ -40,6 +40,7 @@ target_sources(DraconicGUI
             Model/ModelIndex.cppm
             Model/Model.cppm
             Model/StringListModel.cppm
+            Model/TableModel.cppm
             Widgets/UINode.cppm
             Widgets/UIWidget.cppm
             Widgets/Label.cppm
@@ -57,6 +58,7 @@ target_sources(DraconicGUI
             Widgets/Image.cppm
             Widgets/ListBox.cppm
             Widgets/ListView.cppm
+            Widgets/TableView.cppm
             Widgets/TabWidget.cppm
             Widgets/Window.cppm
             Widgets/MessageBox.cppm

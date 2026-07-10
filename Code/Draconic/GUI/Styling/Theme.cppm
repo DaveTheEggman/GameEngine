@@ -34,6 +34,10 @@ export namespace draconic::gui
             listbox::selection { background-color: #2f5f9e; }
             listview  { background-color: #14161a; color: #d2d8e0; } /* color propagates to rows */
             listview::selection { background-color: #2f5f9e; }
+            tableview { background-color: #14161a; color: #d2d8e0; } /* color -> body cells */
+            tableview::selection { background-color: #2f5f9e; }
+            tableheader { background-color: #23262e; }
+            tableheadercell { color: #c2c9d4; }
             combobox  { background-color: #20242b; color: #eef2f7; padding: 4; }
             scrollview { background-color: #14161a; }
             scrollbar  { background-color: #1e2128; }
@@ -81,6 +85,10 @@ export namespace draconic::gui
             listbox::selection { background-color: #bcd6f4; }
             listview  { background-color: #f2f4f8; color: #1c2530; } /* color propagates to rows */
             listview::selection { background-color: #bcd6f4; }
+            tableview { background-color: #f2f4f8; color: #1c2530; } /* color -> body cells */
+            tableview::selection { background-color: #bcd6f4; }
+            tableheader { background-color: #cfd6e2; }
+            tableheadercell { color: #3a4453; }
             combobox  { background-color: #ffffff; color: #10161d; padding: 4; }
             scrollview { background-color: #f2f4f8; }
             scrollbar  { background-color: #d5dbe4; }

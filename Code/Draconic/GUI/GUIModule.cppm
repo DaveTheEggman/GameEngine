@@ -66,6 +66,7 @@ export import :scroll_view;
 export import :image;
 export import :list_box;
 export import :list_view;
+export import :table_view;
 export import :tab_widget;
 export import :window;
 export import :message_box;
@@ -79,6 +80,7 @@ export import :variant;
 export import :model_index;
 export import :model;
 export import :string_list_model;
+export import :table_model;
 
 // CSS styling (Phase 6)
 export import :resource_provider;
