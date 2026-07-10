@@ -82,7 +82,8 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         };
         struct Uniforms { Float4x4 mvp; };
 
-        void Init(rhi::Device* device, shaders::Compiler* compiler, i32 frameCount)
+        void Init(rhi::Device* device, shaders::Compiler* compiler, i32 frameCount,
+                  rhi::TextureFormat colorFmt, rhi::TextureFormat depthFmt)
         {
             m_device = device;
             rhi::Queue* queue = device->GetQueue(rhi::QueueType::Graphics, 0);
@@ -120,13 +121,13 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
 
             rhi::VertexAttribute attrs[2] = { { rhi::VertexFormat::Float32x3, 0, 0 }, { rhi::VertexFormat::Float32x3, 12, 1 } };
             rhi::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
-            rhi::ColorTargetState ct{}; ct.format = rhi::TextureFormat::RGBA16Float;
+            rhi::ColorTargetState ct{}; ct.format = colorFmt;   // matches the viewport's owned color format
             rhi::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
             rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
             rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
             rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
             rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
-            rpd.depthStencil = rhi::DepthStencilState{}; rpd.depthStencil->format = rhi::TextureFormat::Depth32Float;
+            rpd.depthStencil = rhi::DepthStencilState{}; rpd.depthStencil->format = depthFmt;
             rpd.depthStencil->depthWriteEnabled = true; rpd.depthStencil->depthCompare = rhi::CompareFunction::Less;
             rpd.primitive.cullMode = rhi::CullMode::None;
             device->CreateRenderPipeline(rpd, m_pipeline);
@@ -759,7 +760,9 @@ void UISandbox::WireViewport(runtime::IApplicationHost& host)
     (void)shaders::createCompiler(shaders::CompilerDesc{}, m_cubeCompiler);
     if (m_cubeCompiler != nullptr)
     {
-        m_cube.Init(device, m_cubeCompiler, static_cast<i32>(host.Graphics()->FramesInFlight()));
+        // The cube's pipeline reads the viewport's owned formats - single source of truth, no mismatch.
+        m_cube.Init(device, m_cubeCompiler, static_cast<i32>(host.Graphics()->FramesInFlight()),
+                    m_viewport->ColorFormat(), m_viewport->DepthFormat());
     }
 
     // Camera framing the cube; slower move so it stays usable in a small panel.

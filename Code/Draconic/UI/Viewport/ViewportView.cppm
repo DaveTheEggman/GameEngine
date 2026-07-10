@@ -127,6 +127,21 @@ export namespace draconic::ui::viewport
         [[nodiscard]] FitMode GetFitMode() const noexcept { return m_fitMode; }
         void SetFitMode(FitMode mode) noexcept { m_fitMode = mode; if (m_surface) { m_surface->SetFitMode(mode); } }
 
+        // === Render-target formats ===
+        // The view owns the offscreen formats (single source of truth): the OnRender delegate builds its
+        // pipeline from ColorFormat()/DepthFormat() so it always agrees with the actual attachments. HDR
+        // defaults (RGBA16Float + Depth32Float); an LDR game-in-a-panel or a depth+stencil viewport can
+        // override via SetFormats before first layout (or after - it recreates the targets).
+        [[nodiscard]] rhi::TextureFormat ColorFormat() const noexcept { return m_colorFormat; }
+        [[nodiscard]] rhi::TextureFormat DepthFormat() const noexcept { return m_depthFormat; }
+        void SetFormats(rhi::TextureFormat color, rhi::TextureFormat depth)
+        {
+            if (color == m_colorFormat && depth == m_depthFormat) { return; }
+            m_colorFormat = color;
+            m_depthFormat = depth;
+            if (m_textureWidth > 0 && m_textureHeight > 0) { ResizeRenderTarget(m_textureWidth, m_textureHeight); }
+        }
+
         // === Render-target queries ===
         [[nodiscard]] bool IsReady() const noexcept { return m_colorView != nullptr && m_depthView != nullptr; }
         [[nodiscard]] rhi::TextureView* ColorTargetView() const noexcept { return m_colorView; }
@@ -238,16 +253,16 @@ export namespace draconic::ui::viewport
             // The identity key the VGRenderer maps to the external color view (dimensions only, no pixels).
             m_imageRef = MakeUnique<image::ImageDataRef>(DefaultAllocator(), width, height);
 
-            rhi::TextureDesc colorDesc = rhi::TextureDesc::RenderTarget(rhi::TextureFormat::RGBA16Float, width, height, 1, u8"ViewportColor");
+            rhi::TextureDesc colorDesc = rhi::TextureDesc::RenderTarget(m_colorFormat, width, height, 1, u8"ViewportColor");
             if (!m_device->CreateTexture(colorDesc, m_colorTexture).IsOk()) { m_colorTexture = nullptr; return; }
             rhi::TextureViewDesc colorViewDesc{};
-            colorViewDesc.format = rhi::TextureFormat::RGBA16Float;
+            colorViewDesc.format = m_colorFormat;
             if (!m_device->CreateTextureView(m_colorTexture, colorViewDesc, m_colorView).IsOk()) { m_colorView = nullptr; return; }
 
-            rhi::TextureDesc depthDesc = rhi::TextureDesc::DepthBuffer(rhi::TextureFormat::Depth32Float, width, height, 1, u8"ViewportDepth");
+            rhi::TextureDesc depthDesc = rhi::TextureDesc::DepthBuffer(m_depthFormat, width, height, 1, u8"ViewportDepth");
             if (!m_device->CreateTexture(depthDesc, m_depthTexture).IsOk()) { m_depthTexture = nullptr; return; }
             rhi::TextureViewDesc depthViewDesc{};
-            depthViewDesc.format = rhi::TextureFormat::Depth32Float;
+            depthViewDesc.format = m_depthFormat;
             if (!m_device->CreateTextureView(m_depthTexture, depthViewDesc, m_depthView).IsOk()) { m_depthView = nullptr; return; }
 
             if (m_renderer != nullptr)
@@ -294,6 +309,8 @@ export namespace draconic::ui::viewport
         u32 m_textureHeight = 0;
         bool m_registered = false;
         FitMode m_fitMode = FitMode::Stretch;
+        rhi::TextureFormat m_colorFormat = rhi::TextureFormat::RGBA16Float;
+        rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;
 
         UniquePtr<shell::InputSurface> m_surface;
     };

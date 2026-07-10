@@ -185,3 +185,23 @@ TEST_CASE("ui.viewport: default fit mode is Stretch; SetFitMode updates it")
     view.SetFitMode(FitMode::Letterbox);
     CHECK(view.GetFitMode() == FitMode::Letterbox);
 }
+
+TEST_CASE("ui.viewport: owns the RT formats (HDR default) + SetFormats recreates targets")
+{
+    rhi::null::NullDevice device;
+
+    ViewportView view;
+    CHECK(view.ColorFormat() == rhi::TextureFormat::RGBA16Float);
+    CHECK(view.DepthFormat() == rhi::TextureFormat::Depth32Float);
+
+    view.Initialize(&device, nullptr, nullptr, 0);
+    view.Layout(0.0f, 0.0f, 80.0f, 60.0f);
+    REQUIRE(view.IsReady());
+
+    // Reconfigure to an LDR color + depth+stencil format: targets recreate, formats reported.
+    view.SetFormats(rhi::TextureFormat::RGBA8Unorm, rhi::TextureFormat::Depth32FloatStencil8);
+    CHECK(view.ColorFormat() == rhi::TextureFormat::RGBA8Unorm);
+    CHECK(view.DepthFormat() == rhi::TextureFormat::Depth32FloatStencil8);
+    CHECK(view.IsReady());
+    CHECK(view.RenderWidth() == 80u);
+}
