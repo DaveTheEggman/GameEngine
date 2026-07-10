@@ -25,6 +25,7 @@ add_executable(DraconicGUITests
     StyleManagerTests.cpp
     LabelButtonTests.cpp
     LinearLayoutTests.cpp
+    FlexLayoutTests.cpp
     CheckBoxTests.cpp
     SliderTests.cpp
     ProgressBarTests.cpp

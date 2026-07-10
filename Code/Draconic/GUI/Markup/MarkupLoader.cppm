@@ -42,6 +42,7 @@ import :text_field;
 import :linear_layout;
 import :grid_layout;
 import :relative_layout;
+import :flex_layout;
 import :scroll_view;
 import :image;
 import :list_box;
@@ -92,6 +93,7 @@ export namespace draconic::gui
         reg(core::StringView(u8"LinearLayout"),   [] { return core::MakeRef<LinearLayout>(core::DefaultAllocator()); });
         reg(core::StringView(u8"GridLayout"),     [] { return core::MakeRef<GridLayout>(core::DefaultAllocator()); });
         reg(core::StringView(u8"RelativeLayout"), [] { return core::MakeRef<RelativeLayout>(core::DefaultAllocator()); });
+        reg(core::StringView(u8"FlexLayout"),     [] { return core::MakeRef<FlexLayout>(core::DefaultAllocator()); });
         reg(core::StringView(u8"ScrollView"),     [] { return core::MakeRef<ScrollView>(core::DefaultAllocator()); });
         reg(core::StringView(u8"Image"),          [] { return core::MakeRef<Image>(core::DefaultAllocator()); });
         reg(core::StringView(u8"ListBox"),        [] { return core::MakeRef<ListBox>(core::DefaultAllocator()); });

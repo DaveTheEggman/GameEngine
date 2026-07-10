@@ -595,6 +595,28 @@ void GUISandbox::BuildUI()
             m_panel->AddChild(markupRoot.Get());
     }
 
+    // A FlexLayout (markup) spreading three buttons across the row via justify-content.
+    {
+        auto flexCaption = MakeRef<gui::Label>(DefaultAllocator());
+        flexCaption->SetSize(Float2{ 560.0f, 22.0f });
+        flexCaption->SetFont(m_font);
+        flexCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
+        flexCaption->SetText(u8"FlexLayout (justify-content: space-between):");
+        m_panel->AddChild(flexCaption.Get());
+
+        static const char8_t* kFlex = u8R"(
+            <FlexLayout direction="row" justify-content="space-between" align-items="center" width="420" height="34">
+                <Button text="One"   font-family="Roboto" font-size="16" width="90" height="28"/>
+                <Button text="Two"   font-family="Roboto" font-size="16" width="90" height="28"/>
+                <Button text="Three" font-family="Roboto" font-size="16" width="90" height="28"/>
+            </FlexLayout>
+        )";
+        gui::WidgetFactory factory = gui::DefaultWidgetFactory();
+        gui::MarkupLoader loader(factory, nullptr, m_fontService.Get());
+        if (RefPtr<gui::Node> flexRoot = loader.LoadFromString(StringView(kFlex)))
+            m_panel->AddChild(flexRoot.Get());
+    }
+
     // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
     // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
     // using the arrow / PageUp-Down / Home-End keys.
