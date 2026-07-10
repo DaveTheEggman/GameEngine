@@ -139,12 +139,20 @@ export namespace draconic::gui
         // === Size / bounds ===
         void SetSize(core::Float2 size)
         {
-            if (size == m_size) return;
-            m_size = size;
+            const core::Float2 clamped = ClampToSizeConstraints(size);
+            if (clamped == m_size) return;
+            m_size = clamped;
             HandleSizeChange();
         }
         [[nodiscard]] core::Float2 GetSize() const noexcept { return m_size; }
         [[nodiscard]] Rect GetLocalBounds() const noexcept { return Rect{ 0.0f, 0.0f, m_size.x, m_size.y }; }
+
+        // Min/max size constraints (CSS min/max-width/height). A negative max component means
+        // "unbounded" on that axis. SetSize clamps to [min, max]; changing a bound re-clamps.
+        void SetMinSize(core::Float2 minSize) { m_minSize = minSize; SetSize(m_size); }
+        void SetMaxSize(core::Float2 maxSize) { m_maxSize = maxSize; SetSize(m_size); }
+        [[nodiscard]] core::Float2 GetMinSize() const noexcept { return m_minSize; }
+        [[nodiscard]] core::Float2 GetMaxSize() const noexcept { return m_maxSize; }
 
         // World transform accumulates the parent chain (parentWorld * local).
         [[nodiscard]] Transform2D GetWorldTransform() const
@@ -392,6 +400,17 @@ export namespace draconic::gui
 
         void HandlePositionChange() { OnPositionChange(); Invalidate(); SendEvent(Event(EventType::PositionChanged, this)); }
         void HandleSizeChange() { OnSizeChange(); Invalidate(); SendEvent(Event(EventType::SizeChanged, this)); }
+
+        // Clamp a size to [m_minSize, m_maxSize] per axis (a negative max = unbounded).
+        [[nodiscard]] core::Float2 ClampToSizeConstraints(core::Float2 size) const noexcept
+        {
+            core::Float2 out = size;
+            if (out.x < m_minSize.x) out.x = m_minSize.x;
+            if (out.y < m_minSize.y) out.y = m_minSize.y;
+            if (m_maxSize.x >= 0.0f && out.x > m_maxSize.x) out.x = m_maxSize.x;
+            if (m_maxSize.y >= 0.0f && out.y > m_maxSize.y) out.y = m_maxSize.y;
+            return out;
+        }
         void HandleVisibilityChange() { OnVisibilityChange(); Invalidate(); SendEvent(Event(EventType::VisibilityChanged, this)); }
         void HandleEnabledChange() { OnEnabledChange(); Invalidate(); SendEvent(Event(EventType::EnabledChanged, this)); }
         void HandleParentChange() { OnParentChange(); Invalidate(); SendEvent(Event(EventType::ParentChanged, this)); }
@@ -410,6 +429,8 @@ export namespace draconic::gui
         RefPtr<Drawable> m_background;
         RefPtr<Drawable> m_foreground;
         core::Float2 m_size{ 0.0f, 0.0f };
+        core::Float2 m_minSize{ 0.0f, 0.0f };     // CSS min-width/height
+        core::Float2 m_maxSize{ -1.0f, -1.0f };   // CSS max-width/height (<0 = unbounded)
         f32 m_alpha = 1.0f;
         bool m_visible = true;
         bool m_enabled = true;

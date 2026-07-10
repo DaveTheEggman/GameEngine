@@ -15,6 +15,7 @@ import draconic.core;   // Cast, Optional, Color, Float2, MakeRef, DefaultAlloca
 import draconic.fonts;  // CachedFont, IFontService
 import draconic.image;  // ImageData
 import :thickness;
+import :text;    // TextHAlign / TextVAlign
 import :node;
 import :ui_node;
 import :ui_widget;
@@ -64,7 +65,27 @@ export namespace draconic::gui
             if (Optional<f32> o = ParseLength(style.Get(StringView(u8"opacity"))); o.HasValue())
                 node.SetAlpha(o.Value());
 
-        // width / height (combined into one SetSize).
+        // min/max-width/height: set the size constraints before width/height so the applied
+        // size is clamped to them.
+        {
+            core::Float2 mn = node.GetMinSize();
+            bool changedMin = false;
+            if (style.Has(StringView(u8"min-width")))
+                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"min-width"))); v.HasValue()) { mn.x = v.Value(); changedMin = true; }
+            if (style.Has(StringView(u8"min-height")))
+                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"min-height"))); v.HasValue()) { mn.y = v.Value(); changedMin = true; }
+            if (changedMin) node.SetMinSize(mn);
+
+            core::Float2 mx = node.GetMaxSize();
+            bool changedMax = false;
+            if (style.Has(StringView(u8"max-width")))
+                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"max-width"))); v.HasValue()) { mx.x = v.Value(); changedMax = true; }
+            if (style.Has(StringView(u8"max-height")))
+                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"max-height"))); v.HasValue()) { mx.y = v.Value(); changedMax = true; }
+            if (changedMax) node.SetMaxSize(mx);
+        }
+
+        // width / height (combined into one SetSize; clamped by any min/max above).
         {
             core::Float2 size = node.GetSize();
             bool changed = false;
@@ -95,6 +116,24 @@ export namespace draconic::gui
         if (style.Has(StringView(u8"color")))
             if (Optional<Color> c = ParseColor(style.Get(StringView(u8"color"))); c.HasValue())
                 node.SetThemeTextColor(c.Value());
+
+        // text-align (horizontal). justify falls back to left.
+        if (style.Has(StringView(u8"text-align")))
+        {
+            const StringView v = style.Get(StringView(u8"text-align"));
+            if (v == StringView(u8"left") || v == StringView(u8"justify")) node.SetThemeTextAlign(TextHAlign::Left);
+            else if (v == StringView(u8"center") || v == StringView(u8"centre")) node.SetThemeTextAlign(TextHAlign::Center);
+            else if (v == StringView(u8"right")) node.SetThemeTextAlign(TextHAlign::Right);
+        }
+
+        // vertical-align (top / middle / bottom).
+        if (style.Has(StringView(u8"vertical-align")))
+        {
+            const StringView v = style.Get(StringView(u8"vertical-align"));
+            if (v == StringView(u8"top")) node.SetThemeTextAlignV(TextVAlign::Top);
+            else if (v == StringView(u8"middle") || v == StringView(u8"center")) node.SetThemeTextAlignV(TextVAlign::Middle);
+            else if (v == StringView(u8"bottom")) node.SetThemeTextAlignV(TextVAlign::Bottom);
+        }
 
         // background-image: url(path) -> load the image via the resource provider and wrap it
         // in an ImageDrawable (the provider returns the raw asset, the GUI wraps it).

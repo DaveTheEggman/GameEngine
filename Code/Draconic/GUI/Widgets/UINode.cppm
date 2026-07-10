@@ -18,6 +18,7 @@ import :thickness;
 import :control_state;
 import :event;
 import :drawable;
+import :text;    // TextHAlign / TextVAlign (theme text-align hooks)
 import :node;
 
 using namespace draconic::core;
@@ -57,6 +58,10 @@ export namespace draconic::gui
         // no-ops, so a plain node ignores them.
         virtual void SetThemeTextColor(Color) {}
         virtual void SetThemeFont(fonts::CachedFont*) {}
+
+        // CSS text-align / vertical-align reach a text widget's alignment (default no-ops).
+        virtual void SetThemeTextAlign(TextHAlign) {}
+        virtual void SetThemeTextAlignV(TextVAlign) {}
 
         // Pseudo-element parts: a widget names the parts it paints (slider "track"/"fill"/
         // "thumb", checkbox "box"/"mark", window "title"/"grip", ...) so CSS `tag::part` can

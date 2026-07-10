@@ -113,3 +113,41 @@ TEST_CASE("style-applier: cascade drives the applied value")
     CHECK(bg->GetColor().r == doctest::Approx(1.0f)); // .primary (red) beats button (black)
     CHECK(bg->GetColor().g == doctest::Approx(0.0f));
 }
+
+TEST_CASE("style-applier: text-align / vertical-align reach a label")
+{
+    StyleSheet sheet = CSSParser::Parse(SV(u8"label { text-align: center; vertical-align: bottom; }"));
+    auto l = Make<Label>(); // Label's ctor tags it "label"
+    ApplyStyle(*l.Get(), sheet.Resolve(*l.Get(), MediaContext{}, /*applyPseudo*/ false));
+    CHECK(l->GetTextAlignH() == TextHAlign::Center);
+    CHECK(l->GetTextAlignV() == TextVAlign::Bottom);
+
+    StyleSheet right = CSSParser::Parse(SV(u8"label { text-align: right; }"));
+    ApplyStyle(*l.Get(), right.Resolve(*l.Get(), MediaContext{}, false));
+    CHECK(l->GetTextAlignH() == TextHAlign::Right);
+    CHECK(l->GetTextAlignV() == TextVAlign::Bottom); // unchanged (only H specified)
+}
+
+TEST_CASE("style-applier: min/max-width/height clamp the applied size")
+{
+    StyleSheet sheet = CSSParser::Parse(
+        SV(u8"box { min-width: 50; max-width: 100; min-height: 20; max-height: 80; width: 200; height: 5; }"));
+    auto w = Widget(u8"box");
+    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false));
+    CHECK(w->GetSize().x == doctest::Approx(100.0f)); // 200 clamped down to max 100
+    CHECK(w->GetSize().y == doctest::Approx(20.0f));  // 5 clamped up to min 20
+    CHECK(w->GetMinSize().x == doctest::Approx(50.0f));
+    CHECK(w->GetMaxSize().y == doctest::Approx(80.0f));
+}
+
+TEST_CASE("node: SetSize clamps to min/max size constraints")
+{
+    auto w = Make<UIWidget>();
+    w->SetMaxSize(core::Float2{ 100.0f, 100.0f });
+    w->SetSize(core::Float2{ 200.0f, 50.0f });
+    CHECK(w->GetSize().x == doctest::Approx(100.0f)); // clamped to max
+    CHECK(w->GetSize().y == doctest::Approx(50.0f));  // within bounds
+
+    w->SetMinSize(core::Float2{ 60.0f, 60.0f });
+    CHECK(w->GetSize().y == doctest::Approx(60.0f)); // re-clamped up when the min grows
+}

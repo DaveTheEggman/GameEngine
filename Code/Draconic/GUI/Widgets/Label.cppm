@@ -39,15 +39,19 @@ export namespace draconic::gui
         void SetTextColor(Color color) { m_text.SetColor(color); Invalidate(); }
         [[nodiscard]] Color GetTextColor() const { return m_text.GetColor(); }
 
-        // Theming hooks (CSS color / font-family reach the text).
+        // Theming hooks (CSS color / font-family / text-align reach the text).
         void SetThemeTextColor(Color color) override { SetTextColor(color); }
         void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
+        void SetThemeTextAlign(TextHAlign horizontal) override { SetTextAlignment(horizontal, m_text.GetVAlign()); }
+        void SetThemeTextAlignV(TextVAlign vertical) override { SetTextAlignment(m_text.GetHAlign(), vertical); }
 
         void SetTextAlignment(TextHAlign horizontal, TextVAlign vertical)
         {
             m_text.SetAlignment(horizontal, vertical);
             Invalidate();
         }
+        [[nodiscard]] TextHAlign GetTextAlignH() const noexcept { return m_text.GetHAlign(); }
+        [[nodiscard]] TextVAlign GetTextAlignV() const noexcept { return m_text.GetVAlign(); }
 
         // Word wrap: when on, the label draws multiple lines within its content width.
         void SetWordWrap(bool enabled) { m_text.SetWordWrap(enabled); Invalidate(); }
