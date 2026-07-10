@@ -4,7 +4,7 @@ add_executable(UISandbox Main.cpp)
 target_link_libraries(UISandbox PRIVATE
     Draconic::Core Draconic::RHI Draconic::RHIVulkan Draconic::Shaders Draconic::SamplesFramework
     Draconic::Shell Draconic::Image Draconic::Fonts Draconic::FontsTTF
-    Draconic::VG Draconic::VGRenderer Draconic::UI Draconic::UIShell Draconic::UIVFS Draconic::VFS)
+    Draconic::VG Draconic::VGRenderer Draconic::UI Draconic::UIToolkit Draconic::UIShell Draconic::UIVFS Draconic::VFS)
 target_compile_definitions(UISandbox PRIVATE
     DRACONIC_UI_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
     DRACONIC_UI_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets")

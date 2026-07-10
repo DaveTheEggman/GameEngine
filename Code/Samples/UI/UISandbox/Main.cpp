@@ -21,6 +21,7 @@ import draconic.fonts.ttf;
 import draconic.vg;
 import draconic.vg.renderer;
 import draconic.ui;
+import draconic.ui.toolkit;
 import draconic.ui.shell;
 import draconic.ui.vfs;
 import draconic.vfs;
@@ -34,6 +35,7 @@ namespace image = draconic::image;
 namespace fonts = draconic::fonts;
 namespace vg = draconic::vg;
 namespace ui = draconic::ui;
+namespace tk = draconic::ui::toolkit;
 namespace vfs = draconic::vfs;
 namespace uivfs = draconic::ui::vfs;
 
@@ -408,6 +410,52 @@ float4 main(PSInput input) : SV_Target {
     private:
         i32 m_count;
     };
+
+    // A flat drag-to-reorder list source for the Toolkit tab's DraggableTreeView (port of the Sedulous
+    // UISandbox ReorderableListAdapter). Implements the toolkit IReorderableTreeAdapter (ITreeAdapter +
+    // CanMove/MoveItem); the DraggableTreeView borrows it, so the app keeps it alive as a member.
+    class ReorderableListAdapter final : public tk::IReorderableTreeAdapter
+    {
+    public:
+        explicit ReorderableListAdapter(Span<const StringView> items)
+        {
+            for (usize i = 0; i < items.Size(); ++i) { m_items.PushBack(String(items[i])); }
+        }
+
+        [[nodiscard]] i32 RootCount() const override { return static_cast<i32>(m_items.Size()); }
+        [[nodiscard]] i32 GetChildCount(i32 nodeId) const override { return (nodeId == -1) ? static_cast<i32>(m_items.Size()) : 0; }
+        [[nodiscard]] i32 GetChildId(i32, i32 childIndex) const override { return childIndex; }
+        [[nodiscard]] i32 GetDepth(i32) const override { return 0; }
+        [[nodiscard]] bool HasChildren(i32) const override { return false; }
+
+        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override { return MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView{}); }
+
+        void BindView(draconic::ui::View* view, i32 nodeId, i32, bool) override
+        {
+            if (auto* label = draconic::core::Cast<draconic::ui::Label>(view))
+            {
+                if (nodeId >= 0 && nodeId < static_cast<i32>(m_items.Size())) { label->SetText(m_items[static_cast<usize>(nodeId)].AsView()); }
+            }
+        }
+
+        [[nodiscard]] bool CanMove(i32 fromPosition, i32 toPosition) override
+        {
+            const i32 n = static_cast<i32>(m_items.Size());
+            return fromPosition >= 0 && fromPosition < n && toPosition >= 0 && toPosition <= n && fromPosition != toPosition;
+        }
+
+        void MoveItem(i32 fromPosition, i32 toPosition) override
+        {
+            if (!CanMove(fromPosition, toPosition)) { return; }
+            String item = m_items[static_cast<usize>(fromPosition)];
+            m_items.RemoveAt(static_cast<usize>(fromPosition));
+            const i32 insertAt = (toPosition > fromPosition) ? toPosition - 1 : toPosition;
+            m_items.Insert(static_cast<usize>(Min(insertAt, static_cast<i32>(m_items.Size()))), Move(item));
+        }
+
+    private:
+        Array<String> m_items;
+    };
 }
 
 class UISandbox : public sf::SampleApp
@@ -465,6 +513,10 @@ private:
     void BuildOverlaysTab(ui::TabView* tabView);
     void BuildDragDropTab(ui::TabView* tabView);
     void BuildAnimationsTab(ui::TabView* tabView);
+    void BuildToolkitTab(ui::TabView* tabView);       // draconic.ui.toolkit: bars + split + tree + color picker
+    void BuildPropertyGridTab(ui::TabView* tabView);  // draconic.ui.toolkit: PropertyGrid + all editors
+    void BuildCurveEditorTab(ui::TabView* tabView);   // draconic.ui.toolkit: CurveCanvas tangent editor
+    void BuildNodeGraphTab(ui::TabView* tabView);     // draconic.ui.toolkit: NodeGraphCanvas state machine
     void BuildPauseMenuTab(ui::TabView* tabView); // loads a .sml screen via a VFS-backed resource provider
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
@@ -502,6 +554,11 @@ private:
     UniquePtr<DemoListAdapter> m_listAdapter;     // borrowed by the ListView (Data Controls tab)
     UniquePtr<DemoTreeAdapter> m_treeAdapter;
     UniquePtr<DemoGridAdapter> m_gridAdapter;
+
+    // draconic.ui.toolkit: the theme extension must outlive every theme build (ThemeRegistry stores it by
+    // pointer), and the DraggableTreeView borrows its reorder adapter, so both live on the app.
+    tk::ToolkitThemeExtension           m_toolkitThemeExt;
+    UniquePtr<ReorderableListAdapter>   m_reorderAdapter;
 
     UniquePtr<ui::UiInputBridge>   m_bridge;
     UniquePtr<shell::InputSurface> m_surface;
@@ -557,6 +614,9 @@ void UISandbox::LoadFontSize(StringView family, StringView path, f32 pixelHeight
 void UISandbox::BuildUI()
 {
     m_ctx.SetFontService(m_fontService.Get());
+    // Register the toolkit theme extension so draconic.ui.toolkit controls get styled. Must happen before
+    // the first theme is built (extensions only apply to themes created afterward).
+    ui::ThemeRegistry::RegisterExtension(&m_toolkitThemeExt);
     ApplyTheme(); // Dark by default; the Theme button toggles Dark <-> Light
 
     m_root = MakeRef<ui::RootView>(DefaultAllocator());
@@ -608,6 +668,10 @@ void UISandbox::BuildUI()
     BuildOverlaysTab(tabView.Get());
     BuildDragDropTab(tabView.Get());
     BuildAnimationsTab(tabView.Get());
+    BuildToolkitTab(tabView.Get());
+    BuildPropertyGridTab(tabView.Get());
+    BuildCurveEditorTab(tabView.Get());
+    BuildNodeGraphTab(tabView.Get());
     BuildPauseMenuTab(tabView.Get());
 }
 
@@ -928,6 +992,246 @@ void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
     { ui::ViewTransform t; t.Translation = Float2{ 10, 5 }; tfBtn(u8"Translated",  t, u8"Translated button clicked!"); }
     demo->AddView(trow.Get());
     demo->AddView(clickLabel.Get());
+}
+
+// === Tab 10: Toolkit (MenuBar / Toolbar / BreadcrumbBar / SplitView / DraggableTreeView / ColorPicker / StatusBar) ===
+void UISandbox::BuildToolkitTab(ui::TabView* tabView)
+{
+    using ui::SizeSpec;
+    using ui::Unit;
+
+    auto demo = VFlex(0.0f);
+    tabView->AddTab(u8"Toolkit", demo.Get());
+
+    // MenuBar at top.
+    auto menuBar = MakeRef<tk::MenuBar>(DefaultAllocator());
+    ui::ContextMenu* fileMenu = menuBar->AddMenu(u8"File");
+    fileMenu->AddItem(u8"New", Function<void()>{ [] {} });
+    fileMenu->AddItem(u8"Open", Function<void()>{ [] {} });
+    fileMenu->AddSeparator();
+    fileMenu->AddItem(u8"Exit", Function<void()>{ [] {} });
+    ui::ContextMenu* editMenu = menuBar->AddMenu(u8"Edit");
+    editMenu->AddItem(u8"Undo", Function<void()>{ [] {} });
+    editMenu->AddItem(u8"Redo", Function<void()>{ [] {} });
+    editMenu->AddSeparator();
+    editMenu->AddItem(u8"Cut", Function<void()>{ [] {} });
+    editMenu->AddItem(u8"Copy", Function<void()>{ [] {} });
+    editMenu->AddItem(u8"Paste", Function<void()>{ [] {} });
+    ui::ContextMenu* viewMenu = menuBar->AddMenu(u8"View");
+    viewMenu->AddItem(u8"Zoom In", Function<void()>{ [] {} });
+    viewMenu->AddItem(u8"Zoom Out", Function<void()>{ [] {} });
+    demo->AddView(menuBar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+
+    // Toolbar below the menu.
+    auto toolbar = MakeRef<tk::Toolbar>(DefaultAllocator());
+    toolbar->AddButton(u8"New");
+    toolbar->AddButton(u8"Open");
+    toolbar->AddButton(u8"Save");
+    toolbar->AddSeparator();
+    toolbar->AddToggle(u8"Bold");
+    toolbar->AddToggle(u8"Italic");
+    demo->AddView(toolbar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+
+    // BreadcrumbBar.
+    auto breadcrumb = MakeRef<tk::BreadcrumbBar>(DefaultAllocator());
+    breadcrumb->SetPath(u8"Project/Assets/Textures/Environment");
+    demo->AddView(breadcrumb.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+
+    // Center row: SplitView | DraggableTreeView | ColorPicker.
+    auto centerRow = HFlex(4.0f);
+    {
+        auto p = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        p->Width = SizeSpec::Match(); p->Grow = 1.0f;
+        demo->AddView(centerRow.Get(), Move(p));
+    }
+
+    // SplitView with two labeled panes.
+    auto splitView = MakeRef<tk::SplitView>(DefaultAllocator(), ui::Orientation::Horizontal);
+    splitView->SetPanes(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Left Pane")).Get(),
+                        MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Right Pane")).Get());
+    splitView->SetSplitRatio(0.4f);
+    centerRow->AddView(splitView.Get(), Grow(1));
+
+    // DraggableTreeView column (drag to reorder).
+    auto dragCol = VFlex(4.0f);
+    dragCol->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Drag to reorder:")).Get());
+    const StringView reorderItems[] = { u8"Alpha", u8"Bravo", u8"Charlie", u8"Delta", u8"Echo", u8"Foxtrot" };
+    m_reorderAdapter = MakeUnique<ReorderableListAdapter>(DefaultAllocator(), Span<const StringView>(reorderItems, 6));
+    auto dragTree = MakeRef<tk::DraggableTreeView>(DefaultAllocator());
+    dragTree->SetAdapter(m_reorderAdapter.Get());
+    dragTree->SetItemHeight(22.0f);
+    dragCol->AddView(dragTree.Get(), Grow(1));
+    centerRow->AddView(dragCol.Get(), LP(SizeSpec::Fixed(Unit::Px(200)), SizeSpec::Wrap()));
+
+    // ColorPicker.
+    auto colorPicker = MakeRef<tk::ColorPicker>(DefaultAllocator());
+    colorPicker->SetColor(Rgb(80, 160, 240, 255));
+    colorPicker->SetOriginalColor(Rgb(80, 160, 240, 255));
+    centerRow->AddView(colorPicker.Get());
+
+    // StatusBar at the bottom.
+    auto statusBar = MakeRef<tk::StatusBar>(DefaultAllocator());
+    statusBar->SetText(u8"Ready");
+    statusBar->AddSection(u8"Ln 42, Col 8");
+    statusBar->AddSection(u8"UTF-8");
+    demo->AddView(statusBar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+}
+
+// === Tab 11: PropertyGrid (all editor kinds + a categorized Vector3 group) ===
+void UISandbox::BuildPropertyGridTab(ui::TabView* tabView)
+{
+    auto demo = VFlex(8.0f);
+    demo->Padding = ui::Thickness{ 8, 8 };
+    tabView->AddTab(u8"PropertyGrid", demo.Get());
+
+    auto propGrid = MakeRef<tk::PropertyGrid>(DefaultAllocator());
+    propGrid->AddProperty(MakeRef<tk::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"), true));
+    propGrid->AddProperty(MakeRef<tk::BoolEditor>(DefaultAllocator(), StringView(u8"Visible"), true));
+    propGrid->AddProperty(MakeRef<tk::StringEditor>(DefaultAllocator(), StringView(u8"Name"), StringView(u8"Player")));
+    propGrid->AddProperty(MakeRef<tk::FloatEditor>(DefaultAllocator(), StringView(u8"Speed"), 5.0, 0.0, 100.0, 0.5, 1));
+    propGrid->AddProperty(MakeRef<tk::IntEditor>(DefaultAllocator(), StringView(u8"Health"), static_cast<i64>(100), static_cast<i64>(0), static_cast<i64>(999)));
+    propGrid->AddProperty(MakeRef<tk::RangeEditor>(DefaultAllocator(), StringView(u8"Volume"), 0.75f, 0.0f, 1.0f, 0.01f));
+    const StringView modeItems[] = { u8"Easy", u8"Normal", u8"Hard" };
+    propGrid->AddProperty(MakeRef<tk::EnumEditor>(DefaultAllocator(), StringView(u8"Mode"), 0, Span<const StringView>(modeItems, 3)));
+    propGrid->AddProperty(MakeRef<tk::ColorEditor>(DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 200, 100, 255)));
+    propGrid->AddProperty(MakeRef<tk::Vector3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1.0f, 2.5f, -3.0f }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<tk::Vector3Editor>(DefaultAllocator(), StringView(u8"Rotation"), Float3{ 0, 45, 0 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<tk::Vector3Editor>(DefaultAllocator(), StringView(u8"Scale"), Float3{ 1, 1, 1 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    demo->AddView(propGrid.Get(), Grow(1));
+}
+
+// === Tab 12: Curve Editor (CurveCanvas tangent editor, one channel seeded with an ease-in/out shape) ===
+void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
+{
+    using ui::SizeSpec;
+
+    auto demo = VFlex(8.0f);
+    demo->Padding = ui::Thickness{ 12, 8 };
+    tabView->AddTab(u8"Curve Editor", demo.Get());
+
+    auto help = MakeRef<ui::Label>(DefaultAllocator(), StringView(
+        u8"Left-click empty space: add key.  Left-click + drag key: move.  Right-click key: delete.\n"
+        u8"Left-click + drag the colored handles on the selected key: edit tangent.  Right-click handle: cycle TangentMode (Mirrored / Free / Flat)."));
+    demo->AddView(help.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+
+    auto curve = MakeRef<tk::CurveCanvas>(DefaultAllocator());
+    curve->MaxKeys = 12;
+
+    tk::ChannelDescriptor ch;
+    ch.Name = String(u8"easeOut");
+    ch.StrokeColor = Rgb(120, 220, 160, 255);
+    ch.DefaultValue = 0.0f;
+    ch.DisplayMin = 0.0f; ch.DisplayMax = 1.0f;
+    ch.Interpolation = tk::CurveInterpolation::Hermite;
+    tk::ChannelDescriptor chans[1] = { ch };
+    curve->SetChannels(Span<const tk::ChannelDescriptor>(chans, 1));
+
+    // Seed a default ease-in / ease-out shape so the curving tangents are visible immediately.
+    tk::CurveCanvas::Key seedKeys[3] = {
+        { 0.0f, 0.0f, 0.0f, 1.5f, tk::TangentMode::Mirrored },
+        { 0.5f, 0.5f, 1.5f, 1.5f, tk::TangentMode::Mirrored },
+        { 1.0f, 1.0f, 1.5f, 0.0f, tk::TangentMode::Mirrored },
+    };
+    curve->SetKeys(0, Span<const tk::CurveCanvas::Key>(seedKeys, 3));
+    {
+        auto p = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        p->Width = SizeSpec::Match(); p->Grow = 1.0f;
+        demo->AddView(curve.Get(), Move(p));
+    }
+
+    auto status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Selected key: (none)"));
+    demo->AddView(status.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
+
+    // Refresh the status line on any key edit (position drags and tangent drags both hit OnKeyChanged).
+    tk::CurveCanvas* curveRaw = curve.Get();
+    ui::Label* statusRaw = status.Get();
+    auto doRefresh = [curveRaw, statusRaw]()
+    {
+        const i32 selCh = curveRaw->SelectedChannel();
+        const i32 selKey = curveRaw->SelectedKeyIndex();
+        if (selCh < 0 || selKey < 0 || selKey >= curveRaw->GetKeyCount(selCh))
+        {
+            statusRaw->SetText(StringView(u8"Selected key: (none)"));
+            return;
+        }
+        const tk::CurveCanvas::Key key = curveRaw->GetKey(selCh, selKey);
+        const char* modeName = "Mirrored";
+        switch (key.Mode)
+        {
+        case tk::TangentMode::Mirrored: modeName = "Mirrored"; break;
+        case tk::TangentMode::Free:     modeName = "Free"; break;
+        case tk::TangentMode::Flat:     modeName = "Flat"; break;
+        }
+        char buf[192];
+        std::snprintf(buf, sizeof(buf), "Key #%d  t=%.2f  v=%.2f  tIn=%.2f  tOut=%.2f  mode=%s",
+            selKey, static_cast<double>(key.Time), static_cast<double>(key.Value),
+            static_cast<double>(key.TangentIn), static_cast<double>(key.TangentOut), modeName);
+        statusRaw->SetText(StringView(reinterpret_cast<const char8_t*>(buf)));
+    };
+    curve->OnKeyChanged.Add(ui::Event<void(i32, i32)>::Handler{ [doRefresh](i32, i32) { doRefresh(); } });
+    curve->OnKeyAdded.Add(ui::Event<void(i32, i32)>::Handler{ [doRefresh](i32, i32) { doRefresh(); } });
+    curve->OnKeyRemoved.Add(ui::Event<void(i32, i32)>::Handler{ [doRefresh](i32, i32) { doRefresh(); } });
+}
+
+// === Tab 13: Node Graph (4 nodes + 3 connections, console-logged interaction events) ===
+void UISandbox::BuildNodeGraphTab(ui::TabView* tabView)
+{
+    auto graph = MakeRef<tk::NodeGraphCanvas>(DefaultAllocator());
+    graph->ShowGrid = true;
+
+    // Idle (node 0).
+    auto nodeA = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    nodeA->Title = String(u8"Idle");
+    nodeA->Position = Float2{ 50, 50 };
+    nodeA->HeaderColor = Rgb(70, 130, 80, 255);
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(u8"Out"); nodeA->OutputPorts.PushBack(p); }
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"In");  nodeA->InputPorts.PushBack(p); }
+    graph->AddNode(Move(nodeA));
+
+    // Walk (node 1).
+    auto nodeB = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    nodeB->Title = String(u8"Walk");
+    nodeB->Position = Float2{ 300, 50 };
+    nodeB->HeaderColor = Rgb(70, 100, 180, 255);
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(u8"Out"); nodeB->OutputPorts.PushBack(p); }
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"In");  nodeB->InputPorts.PushBack(p); }
+    graph->AddNode(Move(nodeB));
+
+    // Run (node 2) - has a typed "Speed" input port.
+    auto nodeC = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    nodeC->Title = String(u8"Run");
+    nodeC->Subtitle = String(u8"BlendTree1D");
+    nodeC->Position = Float2{ 300, 200 };
+    nodeC->HeaderColor = Rgb(180, 100, 70, 255);
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(u8"Out"); nodeC->OutputPorts.PushBack(p); }
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"In");  nodeC->InputPorts.PushBack(p); }
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"Speed"); p.PortType = tk::NodeGraphPortType(1, Rgb(100, 200, 100, 255)); nodeC->InputPorts.PushBack(p); }
+    graph->AddNode(Move(nodeC));
+
+    // Any State (node 3) - not deletable.
+    auto nodeD = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    nodeD->Title = String(u8"Any State");
+    nodeD->Position = Float2{ 50, 200 };
+    nodeD->HeaderColor = Rgb(100, 100, 110, 255);
+    nodeD->IsDeletable = false;
+    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(); nodeD->OutputPorts.PushBack(p); }
+    graph->AddNode(Move(nodeD));
+
+    // Connections: Idle -> Walk, Idle -> Run, Any State -> Walk.
+    { tk::NodeGraphConnection c; c.SourceNodeIndex = 0; c.SourcePortIndex = 0; c.DestNodeIndex = 1; c.DestPortIndex = 0; graph->AddConnection(c); }
+    { tk::NodeGraphConnection c; c.SourceNodeIndex = 0; c.SourcePortIndex = 0; c.DestNodeIndex = 2; c.DestPortIndex = 0; graph->AddConnection(c); }
+    { tk::NodeGraphConnection c; c.SourceNodeIndex = 3; c.SourcePortIndex = 0; c.DestNodeIndex = 1; c.DestPortIndex = 0; graph->AddConnection(c); }
+
+    // Wire interaction events to stdout (Sedulous logs to Console).
+    graph->OnNodeMoved.Add(ui::Event<void(i32)>::Handler{ [](i32 idx) { std::printf("Node moved: %d\n", idx); } });
+    graph->OnConnectionCreated.Add(ui::Event<void(i32)>::Handler{ [](i32 idx) { std::printf("Connection created: %d\n", idx); } });
+    graph->OnNodeDeleted.Add(ui::Event<void(i32)>::Handler{ [](i32 idx) { std::printf("Node deleted: %d\n", idx); } });
+    graph->OnSelectionChanged.Add(ui::Event<void()>::Handler{ []() { std::printf("Selection changed\n"); } });
+    graph->OnCanvasContextMenu.Add(ui::Event<void(f32, f32)>::Handler{ [](f32 x, f32 y) { std::printf("Canvas context menu at (%.1f, %.1f)\n", static_cast<double>(x), static_cast<double>(y)); } });
+    graph->OnNodeContextMenu.Add(ui::Event<void(i32)>::Handler{ [](i32 idx) { std::printf("Node context menu: %d\n", idx); } });
+    graph->OnNodeDoubleClicked.Add(ui::Event<void(i32)>::Handler{ [](i32 idx) { std::printf("Node double-clicked: %d\n", idx); } });
+
+    tabView->AddTab(u8"Node Graph", graph.Get());
 }
 
 // === Tab 8: Drag & Drop (reorderable chips + a colour drop box) ===
