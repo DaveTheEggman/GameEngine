@@ -9,3 +9,7 @@
 export module draconic.ui.toolkit;
 
 export import :status_bar;
+export import :toolbar;
+export import :menu_bar;
+export import :split_view;
+export import :breadcrumb_bar;

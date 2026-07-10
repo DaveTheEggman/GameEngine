@@ -1,5 +1,9 @@
 add_executable(DraconicUIToolkitTests
     StatusBarTests.cpp
+    ToolbarTests.cpp
+    MenuBarTests.cpp
+    SplitViewTests.cpp
+    BreadcrumbBarTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIToolkitTests PRIVATE

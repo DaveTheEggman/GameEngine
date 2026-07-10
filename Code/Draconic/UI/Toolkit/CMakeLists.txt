@@ -12,6 +12,10 @@ target_sources(DraconicUIToolkit
     PUBLIC
         FILE_SET uitoolkit_modules TYPE CXX_MODULES FILES
             StatusBar.cppm
+            Toolbar.cppm
+            MenuBar.cppm
+            SplitView.cppm
+            BreadcrumbBar.cppm
             ToolkitModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
