@@ -39,6 +39,10 @@ export namespace draconic::gui
             window     { background-color: #1a1d24; }
             window::title { background-color: #2b3444; }
             window::grip  { background-color: #3a4353; }
+            messagebox { background-color: #1a1d24; }
+            messagebox::title { background-color: #2b3444; }
+            .dialogbutton { background-color: #33507a; color: #f4f7fb; border-radius: 4; transition: opacity 0.15s; }
+            .dialogbutton:hover { opacity: 0.9; }
             menu       { background-color: #1a1d24; }
             menuitem::highlight, menusubmenu::highlight { background-color: #2f5f9e; }
             menuseparator::line { background-color: #3a3f4b; }
@@ -80,6 +84,10 @@ export namespace draconic::gui
             window     { background-color: #e6eaf1; }
             window::title { background-color: #c4cdda; }
             window::grip  { background-color: #b0b9c8; }
+            messagebox { background-color: #e6eaf1; }
+            messagebox::title { background-color: #c4cdda; }
+            .dialogbutton { background-color: #cdd8ea; color: #17202b; border-radius: 4; transition: opacity 0.15s; }
+            .dialogbutton:hover { opacity: 0.9; }
             menu       { background-color: #f2f4f8; }
             menuitem::highlight, menusubmenu::highlight { background-color: #9cc0ef; }
             menuseparator::line { background-color: #c2c8d2; }

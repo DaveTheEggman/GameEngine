@@ -172,11 +172,13 @@ private:
 
     // Priority-2 widget showcase (a floating Window with tabs + a right-click menu + tooltips).
     void BuildShowcaseWindow();
+    void ConfirmQuit();  // modal MessageBox: confirm before exiting
     void ApplyTheme(); // (re)build the stylesheet from the current theme + extras
     bool m_darkTheme = true;
     RefPtr<gui::Window>       m_widgetWindow;
     RefPtr<gui::Menu>         m_contextMenu;
     RefPtr<gui::MenuBar>      m_menuBar;
+    RefPtr<gui::MessageBox>   m_dialog;
     RefPtr<gui::Label>        m_pickEcho;
     gui::RadioGroup           m_radioGroup;
     UniquePtr<gui::TooltipManager>   m_tooltips;
@@ -243,7 +245,7 @@ void GUISandbox::BuildUI()
         gui::Menu* file = m_menuBar->AddMenu(u8"File");
         file->AddItem(u8"Reset counter", [menuSelf]() { menuSelf->m_clicks = 0; SetCounterText(menuSelf->m_counter.Get(), 0); });
         file->AddSeparator();
-        file->AddItem(u8"Quit", [menuSelf]() { menuSelf->m_shell->RequestExit(); });
+        file->AddItem(u8"Quit", [menuSelf]() { menuSelf->ConfirmQuit(); });
 
         gui::Menu* edit = m_menuBar->AddMenu(u8"Edit");
         edit->AddItem(u8"Add +1", [menuSelf]() { ++menuSelf->m_clicks; SetCounterText(menuSelf->m_counter.Get(), menuSelf->m_clicks); });
@@ -542,6 +544,23 @@ void GUISandbox::BuildUI()
         m_clipboard = MakeUnique<gui::ShellClipboard>(DefaultAllocator(), m_shell);
         m_root->GetEventDispatcher()->SetClipboard(m_clipboard.Get());
     }
+}
+
+void GUISandbox::ConfirmQuit()
+{
+    if (!m_dialog)
+    {
+        m_dialog = MakeRef<gui::MessageBox>(DefaultAllocator());
+        m_dialog->SetFont(m_font);
+    }
+    m_dialog->Configure(u8"Quit?", u8"Close the GUI sandbox? Any unsaved changes will be lost.",
+                        gui::MessageBox::Buttons::YesNo);
+    GUISandbox* self = this;
+    m_dialog->SetOnResult([self](gui::MessageBox::Result r)
+    {
+        if (r == gui::MessageBox::Result::Yes) self->m_shell->RequestExit();
+    });
+    m_dialog->OpenModal(*m_root.Get());
 }
 
 void GUISandbox::ApplyTheme()
@@ -855,6 +874,7 @@ void GUISandbox::OnShutdown()
     m_tooltips.Reset();
     m_contextMenu.Reset();
     m_menuBar.Reset();
+    m_dialog.Reset();
     m_widgetWindow.Reset();
     m_pickEcho.Reset();
     m_showcaseDrawable.Reset();

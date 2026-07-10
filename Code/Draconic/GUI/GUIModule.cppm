@@ -67,6 +67,7 @@ export import :image;
 export import :list_box;
 export import :tab_widget;
 export import :window;
+export import :message_box;
 export import :combo_box;
 export import :menu;
 export import :menu_bar;

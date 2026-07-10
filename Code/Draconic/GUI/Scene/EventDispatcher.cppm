@@ -38,6 +38,12 @@ export namespace draconic::gui
         void SetClipboard(IClipboard* clipboard) noexcept { m_clipboard = clipboard; }
         [[nodiscard]] IClipboard* GetClipboard() const noexcept { return m_clipboard; }
 
+        // Modal root: while set, pointer hit-testing and Tab traversal are confined to this
+        // subtree, so a modal Window blocks interaction with everything behind it (clicks
+        // outside it are ignored). Null = no modal. (A visual dim is the Window's concern.)
+        void SetModalRoot(Node* modal) noexcept { m_modalRoot = modal; }
+        [[nodiscard]] Node* GetModalRoot() const noexcept { return m_modalRoot; }
+
         [[nodiscard]] Node* GetOverNode() const noexcept { return m_overNode; }
         [[nodiscard]] Node* GetFocusNode() const noexcept { return m_focusNode; }
         [[nodiscard]] core::Float2 GetMousePosition() const noexcept { return m_mousePos; }
@@ -230,12 +236,16 @@ export namespace draconic::gui
             if (m_focusNode == node) m_focusNode = nullptr;
             if (m_dropTarget == node) m_dropTarget = nullptr;
             if (m_dragSource == node) { m_dragSource = nullptr; if (m_dragActive) EndDrag(); }
+            if (m_modalRoot == node) m_modalRoot = nullptr;
         }
 
     private:
         [[nodiscard]] Node* HitTest(core::Float2 position) const
         {
-            return m_root ? m_root->OverFind(position) : nullptr;
+            Node* hit = m_root ? m_root->OverFind(position) : nullptr;
+            // A modal confines the pointer: hits outside the modal subtree are swallowed.
+            if (m_modalRoot != nullptr && !IsInSubtree(hit, m_modalRoot)) return nullptr;
+            return hit;
         }
 
         // True if `node` is `ancestor` or a descendant of it.
@@ -275,7 +285,7 @@ export namespace draconic::gui
         bool MoveTabFocus(i32 direction)
         {
             core::Array<Node*> stops;
-            CollectTabStops(m_root, stops);
+            CollectTabStops(m_modalRoot != nullptr ? m_modalRoot : m_root, stops); // confine to a modal
             const usize count = stops.Size();
             if (count == 0) return false;
 
@@ -296,6 +306,7 @@ export namespace draconic::gui
         }
 
         Node* m_root;                  // non-owning (the SceneNode owns this dispatcher)
+        Node* m_modalRoot = nullptr;   // non-owning; confines input while a modal is open
         IClipboard* m_clipboard = nullptr; // non-owning system-clipboard adapter (optional)
         Node* m_overNode = nullptr;    // non-owning
         Node* m_downNode = nullptr;    // non-owning

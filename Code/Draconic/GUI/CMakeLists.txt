@@ -54,6 +54,7 @@ target_sources(DraconicGUI
             Widgets/ListBox.cppm
             Widgets/TabWidget.cppm
             Widgets/Window.cppm
+            Widgets/MessageBox.cppm
             Widgets/ComboBox.cppm
             Widgets/Menu.cppm
             Widgets/MenuBar.cppm
