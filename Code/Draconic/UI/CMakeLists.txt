@@ -163,6 +163,7 @@ target_sources(DraconicUI
 # stays VFS-/platform-free).
 add_subdirectory(VFS)
 add_subdirectory(Shell)
+add_subdirectory(Toolkit)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
