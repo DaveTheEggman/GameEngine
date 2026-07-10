@@ -36,6 +36,10 @@ target_sources(DraconicGUI
             Drawing/NineSliceDrawable.cppm
             Drawing/LayerDrawable.cppm
             Text/Text.cppm
+            Model/Variant.cppm
+            Model/ModelIndex.cppm
+            Model/Model.cppm
+            Model/StringListModel.cppm
             Widgets/UINode.cppm
             Widgets/UIWidget.cppm
             Widgets/Label.cppm

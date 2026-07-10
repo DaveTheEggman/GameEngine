@@ -73,6 +73,12 @@ export import :menu;
 export import :menu_bar;
 export import :tooltip;
 
+// MVC data layer (Phase 8: models + model-backed views)
+export import :variant;
+export import :model_index;
+export import :model;
+export import :string_list_model;
+
 // CSS styling (Phase 6)
 export import :resource_provider;
 export import :parse_util;

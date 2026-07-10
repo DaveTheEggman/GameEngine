@@ -13,6 +13,7 @@ add_executable(DraconicGUITests
     SceneNodeTests.cpp
     EventDispatcherTests.cpp
     TextTests.cpp
+    ModelTests.cpp
     WidgetTests.cpp
     StyleSelectorTests.cpp
     StyleSheetTests.cpp
