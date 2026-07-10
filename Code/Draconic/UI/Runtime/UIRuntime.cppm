@@ -120,9 +120,11 @@ export namespace draconic::ui::runtime
             m_attached.PushBack(Attached{ window, raw });
         }
 
-        /// Undo AttachWindow: stop routing to the window and free its payload. Removes the surface from
-        /// the router BEFORE the payload (which owns it) is freed. Caller must ensure GPU idle if the
-        /// window's frames may still be in flight.
+        /// Logical detach: stop routing input to the window and remove its root from the context, so
+        /// nothing draws or hit-tests it anymore. The GPU payload (VGRenderer etc.) is deliberately LEFT
+        /// on the RenderWindow - it is freed when the host destroys the RenderWindow (CloseWindow), which
+        /// WaitIdles first. Freeing it here would race the GPU (no idle). So the docking-destroy path is
+        /// DetachWindow(rw) followed by IApplicationHost::CloseWindow(rw).
         void DetachWindow(graphics::RenderWindow* window)
         {
             for (usize i = 0; i < m_attached.Size(); ++i)
@@ -133,7 +135,6 @@ export namespace draconic::ui::runtime
                     m_router->RemoveSurface(data->surface.Get());
                     m_ctx.RemoveRootView(data->root.Get());
                     m_attached.RemoveAt(i);
-                    window->SetData(core::UniquePtr<UIWindowData>{});   // frees the payload
                     return;
                 }
             }
