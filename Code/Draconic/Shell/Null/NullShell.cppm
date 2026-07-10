@@ -24,11 +24,17 @@ export namespace draconic::shell
     {
     public:
         NullWindow(core::u32 id, const WindowSettings& settings) noexcept
-            : m_id(id), m_width(settings.width), m_height(settings.height) {}
+            : m_id(id), m_width(settings.width), m_height(settings.height),
+              m_x(settings.positioned ? settings.x : 0), m_y(settings.positioned ? settings.y : 0) {}
 
         [[nodiscard]] core::u32 Id() const noexcept override { return m_id; }
         [[nodiscard]] core::u32 Width() const noexcept override { return m_width; }
         [[nodiscard]] core::u32 Height() const noexcept override { return m_height; }
+        [[nodiscard]] core::i32 X() const noexcept override { return m_x; }
+        [[nodiscard]] core::i32 Y() const noexcept override { return m_y; }
+        void SetPosition(core::i32 x, core::i32 y) override { m_x = x; m_y = y; }  // headless: just record
+        void SetSize(core::u32 width, core::u32 height) override { m_width = width; m_height = height; }
+        [[nodiscard]] core::f32 ContentScale() const noexcept override { return 1.0f; }
         [[nodiscard]] NativeWindow Native() const noexcept override { return {}; }  // headless: no handles
         [[nodiscard]] bool IsOpen() const noexcept override { return m_open; }
         [[nodiscard]] bool IsMinimized() const noexcept override { return m_minimized; }
@@ -46,6 +52,8 @@ export namespace draconic::shell
         core::u32 m_id;
         core::u32 m_width;
         core::u32 m_height;
+        core::i32 m_x = 0;
+        core::i32 m_y = 0;
         bool m_open = true;
         bool m_minimized = false;
         bool m_textInputActive = false;
@@ -144,6 +152,8 @@ export namespace draconic::shell
     public:
         [[nodiscard]] core::f32 X() const override { return 0.0f; }
         [[nodiscard]] core::f32 Y() const override { return 0.0f; }
+        [[nodiscard]] core::f32 GlobalX() const override { return 0.0f; }
+        [[nodiscard]] core::f32 GlobalY() const override { return 0.0f; }
         [[nodiscard]] core::f32 DeltaX() const override { return 0.0f; }
         [[nodiscard]] core::f32 DeltaY() const override { return 0.0f; }
         [[nodiscard]] core::f32 ScrollX() const override { return 0.0f; }

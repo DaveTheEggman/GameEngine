@@ -36,6 +36,11 @@ export namespace draconic::shell
 
         [[nodiscard]] virtual core::f32 X()       const = 0;  // window-space position
         [[nodiscard]] virtual core::f32 Y()       const = 0;
+        // Desktop-global cursor position in logical screen coordinates (surface/window-independent).
+        // Multi-window drag math uses this because per-window-local coords are unreliable while a
+        // window follows the cursor or resizes mid-event; global deltas stay valid regardless.
+        [[nodiscard]] virtual core::f32 GlobalX() const = 0;
+        [[nodiscard]] virtual core::f32 GlobalY() const = 0;
         [[nodiscard]] virtual core::f32 DeltaX()  const = 0;  // movement this frame
         [[nodiscard]] virtual core::f32 DeltaY()  const = 0;
         [[nodiscard]] virtual core::f32 ScrollX() const = 0;  // wheel this frame

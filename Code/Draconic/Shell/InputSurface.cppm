@@ -47,6 +47,8 @@ export namespace draconic::shell
 
         [[nodiscard]] core::f32 X()       const override;  // content-space
         [[nodiscard]] core::f32 Y()       const override;
+        [[nodiscard]] core::f32 GlobalX() const override;  // desktop-global, untransformed pass-through
+        [[nodiscard]] core::f32 GlobalY() const override;
         [[nodiscard]] core::f32 DeltaX()  const override;  // content-space, gated
         [[nodiscard]] core::f32 DeltaY()  const override;
         [[nodiscard]] core::f32 ScrollX() const override;
@@ -194,6 +196,10 @@ export namespace draconic::shell
 
     inline core::f32 SurfaceMouse::X() const { return m_s->ContentMouse().x; }
     inline core::f32 SurfaceMouse::Y() const { return m_s->ContentMouse().y; }
+    // Global position is desktop-space and surface-independent, so it passes through the raw device
+    // untransformed (no ContentFit applied).
+    inline core::f32 SurfaceMouse::GlobalX() const { return m_s->Raw()->Mouse()->GlobalX(); }
+    inline core::f32 SurfaceMouse::GlobalY() const { return m_s->Raw()->Mouse()->GlobalY(); }
     inline core::f32 SurfaceMouse::DeltaX() const { return m_s->ContentDelta().x; }
     inline core::f32 SurfaceMouse::DeltaY() const { return m_s->ContentDelta().y; }
     inline core::f32 SurfaceMouse::ScrollX() const

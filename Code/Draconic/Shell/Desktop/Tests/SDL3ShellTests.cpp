@@ -229,3 +229,38 @@ TEST_CASE("shell.desktop: RunApplication drives the app until it exits")
     CHECK(code == 3);
     CHECK(app.frames == 5);            // RequestExit(3) ended the loop
 }
+
+TEST_CASE("shell.desktop: window geometry accessors + global mouse are callable")
+{
+    WindowSettings settings;
+    settings.width = 500; settings.height = 400;
+    settings.positioned = true; settings.x = 64; settings.y = 48;
+    settings.borderless = true;   // exercise the borderless-flag creation path
+
+    SDL3Shell shell(settings);
+    if (shell.MainWindow() == nullptr)
+    {
+        MESSAGE("SDL video init/window creation unavailable; skipping");
+        return;
+    }
+    IWindow* w = shell.MainWindow();
+
+    // Under the dummy driver the manager may not honor an exact OS position, so we don't assert
+    // coordinates - only that the accessors are safe and content scale is positive (our impl floors
+    // SDL's pre-show 0 to 1.0).
+    (void)w->X();
+    (void)w->Y();
+    CHECK(w->ContentScale() > 0.0f);
+
+    // Atomic move / resize must not crash; SetSize updates the locally-cached reported size.
+    w->SetPosition(100, 120);
+    w->SetSize(320u, 240u);
+    CHECK(w->Width() == 320u);
+    CHECK(w->Height() == 240u);
+
+    // Global cursor position query is callable (value is device/driver-dependent).
+    IMouse* mouse = shell.Input()->Mouse();
+    REQUIRE(mouse != nullptr);
+    (void)mouse->GlobalX();
+    (void)mouse->GlobalY();
+}

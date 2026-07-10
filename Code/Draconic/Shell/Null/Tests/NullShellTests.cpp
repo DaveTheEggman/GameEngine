@@ -183,3 +183,45 @@ TEST_CASE("shell.null: DestroyWindow ignores windows it does not own")
     CHECK(a.IsRunning());
     CHECK(b.IsRunning());
 }
+
+TEST_CASE("shell.null: window geometry + content scale round-trip")
+{
+    WindowSettings settings;
+    settings.width = 400; settings.height = 300;
+    settings.positioned = true; settings.x = 120; settings.y = 80;
+
+    NullShell shell(settings);
+    IWindow* w = shell.MainWindow();
+    REQUIRE(w != nullptr);
+
+    // Initial position comes from the settings (headless records it verbatim).
+    CHECK(w->X() == 120);
+    CHECK(w->Y() == 80);
+    CHECK(w->ContentScale() == doctest::Approx(1.0f));  // headless default
+
+    // Atomic move / resize round-trip (per-axis setters intentionally do not exist).
+    w->SetPosition(-5, 42);
+    CHECK(w->X() == -5);
+    CHECK(w->Y() == 42);
+    w->SetSize(1024u, 768u);
+    CHECK(w->Width() == 1024u);
+    CHECK(w->Height() == 768u);
+}
+
+TEST_CASE("shell.null: an unpositioned window defaults to the origin")
+{
+    NullShell shell(WindowSettings{});  // positioned = false
+    IWindow* w = shell.MainWindow();
+    REQUIRE(w != nullptr);
+    CHECK(w->X() == 0);
+    CHECK(w->Y() == 0);
+}
+
+TEST_CASE("shell.null: global mouse position is zero (no OS device)")
+{
+    NullShell shell(WindowSettings{});
+    IMouse* mouse = shell.Input()->Mouse();
+    REQUIRE(mouse != nullptr);
+    CHECK(mouse->GlobalX() == 0.0f);
+    CHECK(mouse->GlobalY() == 0.0f);
+}

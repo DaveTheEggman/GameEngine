@@ -53,6 +53,37 @@ export namespace draconic::shell
         [[nodiscard]] core::u32 Width() const noexcept override { return m_width; }
         [[nodiscard]] core::u32 Height() const noexcept override { return m_height; }
 
+        [[nodiscard]] core::i32 X() const noexcept override
+        {
+            int x = 0, y = 0;
+            if (m_window != nullptr) { SDL_GetWindowPosition(m_window, &x, &y); }
+            return static_cast<core::i32>(x);
+        }
+        [[nodiscard]] core::i32 Y() const noexcept override
+        {
+            int x = 0, y = 0;
+            if (m_window != nullptr) { SDL_GetWindowPosition(m_window, &x, &y); }
+            return static_cast<core::i32>(y);
+        }
+        void SetPosition(core::i32 x, core::i32 y) override
+        {
+            if (m_window != nullptr) { SDL_SetWindowPosition(m_window, static_cast<int>(x), static_cast<int>(y)); }
+        }
+        void SetSize(core::u32 width, core::u32 height) override
+        {
+            if (m_window != nullptr)
+            {
+                SDL_SetWindowSize(m_window, static_cast<int>(width), static_cast<int>(height));
+                m_width = width;
+                m_height = height;
+            }
+        }
+        [[nodiscard]] core::f32 ContentScale() const noexcept override
+        {
+            const float s = (m_window != nullptr) ? SDL_GetWindowDisplayScale(m_window) : 1.0f;
+            return s > 0.0f ? static_cast<core::f32>(s) : 1.0f;   // SDL returns 0 before the window is shown
+        }
+
         // Extract the real native handles from SDL's window properties so RHI can
         // create its own surface (it does not use SDL's Vulkan helpers).
         [[nodiscard]] NativeWindow Native() const noexcept override
@@ -126,9 +157,11 @@ export namespace draconic::shell
     // Builds SDL window-creation flags. On Wayland a Vulkan-backed window is
     // needed for client-side decorations (see SDL3Shell ctor note); skipped
     // under the headless "dummy" driver so tests still get a window.
-    [[nodiscard]] inline SDL_WindowFlags Sdl3WindowFlags() noexcept
+    [[nodiscard]] inline SDL_WindowFlags Sdl3WindowFlags(const WindowSettings& settings) noexcept
     {
-        SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+        SDL_WindowFlags flags = 0;
+        if (settings.resizable) { flags |= SDL_WINDOW_RESIZABLE; }
+        if (settings.borderless) { flags |= SDL_WINDOW_BORDERLESS; }
 #if defined(__linux__)
         const char* driver = SDL_GetCurrentVideoDriver();
         if (driver != nullptr && SDL_strcmp(driver, "dummy") != 0) { flags |= SDL_WINDOW_VULKAN; }
@@ -148,8 +181,12 @@ export namespace draconic::shell
             SDL_Window* window = SDL_CreateWindow(
                 reinterpret_cast<const char*>(title.CStr()),
                 static_cast<int>(settings.width), static_cast<int>(settings.height),
-                Sdl3WindowFlags());
+                Sdl3WindowFlags(settings));
             if (window == nullptr) { return core::Err(core::ErrorCode::Unknown); }
+
+            // Place the window if an explicit position was requested (dockable/floating windows do;
+            // the main window leaves it to the OS/centered default).
+            if (settings.positioned) { SDL_SetWindowPosition(window, static_cast<int>(settings.x), static_cast<int>(settings.y)); }
 
             auto wrapped = core::MakeUnique<SDL3Window>(core::DefaultAllocator(), window);
             IWindow* borrowed = wrapped.Get();
@@ -281,6 +318,18 @@ export namespace draconic::shell
     public:
         [[nodiscard]] core::f32 X() const override { return m_x; }
         [[nodiscard]] core::f32 Y() const override { return m_y; }
+        [[nodiscard]] core::f32 GlobalX() const override
+        {
+            float gx = 0.0f, gy = 0.0f;
+            SDL_GetGlobalMouseState(&gx, &gy);
+            return static_cast<core::f32>(gx);
+        }
+        [[nodiscard]] core::f32 GlobalY() const override
+        {
+            float gx = 0.0f, gy = 0.0f;
+            SDL_GetGlobalMouseState(&gx, &gy);
+            return static_cast<core::f32>(gy);
+        }
         [[nodiscard]] core::f32 DeltaX() const override { return m_dx; }
         [[nodiscard]] core::f32 DeltaY() const override { return m_dy; }
         [[nodiscard]] core::f32 ScrollX() const override { return m_sx; }

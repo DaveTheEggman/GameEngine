@@ -57,6 +57,11 @@ namespace
         [[nodiscard]] core::u32 Id() const noexcept override { return 1; }
         [[nodiscard]] core::u32 Width() const noexcept override { return 800; }
         [[nodiscard]] core::u32 Height() const noexcept override { return 600; }
+        [[nodiscard]] core::i32 X() const noexcept override { return 0; }
+        [[nodiscard]] core::i32 Y() const noexcept override { return 0; }
+        void SetPosition(core::i32, core::i32) override {}
+        void SetSize(core::u32, core::u32) override {}
+        [[nodiscard]] core::f32 ContentScale() const noexcept override { return 1.0f; }
         [[nodiscard]] shell::NativeWindow Native() const noexcept override { return {}; }
         [[nodiscard]] bool IsOpen() const noexcept override { return true; }
         [[nodiscard]] bool IsMinimized() const noexcept override { return false; }

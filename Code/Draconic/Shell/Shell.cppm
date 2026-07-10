@@ -52,6 +52,18 @@ export namespace draconic::shell
         core::StringView title = u8"Draconic";
         core::u32 width = 1280;
         core::u32 height = 720;
+
+        // Initial top-left position in screen coordinates. When `positioned` is false the backend
+        // places the window (centered) - the default, matching single-window callers. Dockable /
+        // floating windows set an explicit position.
+        bool positioned = false;
+        core::i32 x = 0;
+        core::i32 y = 0;
+
+        // Window chrome. Defaults match prior behavior (resizable, bordered). Floating dockable
+        // overlays are typically created borderless.
+        bool resizable = true;
+        bool borderless = false;
     };
 
     class IWindow
@@ -65,6 +77,20 @@ export namespace draconic::shell
 
         [[nodiscard]] virtual core::u32 Width() const noexcept = 0;
         [[nodiscard]] virtual core::u32 Height() const noexcept = 0;
+
+        // Top-left position in screen coordinates (the same global frame the OS uses). For a
+        // single-window app this is just where the window landed; multi-window / dockable code
+        // reads it and writes it via SetPosition to place floating windows relative to the main one.
+        [[nodiscard]] virtual core::i32 X() const noexcept = 0;
+        [[nodiscard]] virtual core::i32 Y() const noexcept = 0;
+        // Move / resize the window. Position is screen-space top-left; size is in the same units as
+        // Width()/Height(). No-ops on headless backends (they just record the values).
+        virtual void SetPosition(core::i32 x, core::i32 y) = 0;
+        virtual void SetSize(core::u32 width, core::u32 height) = 0;
+        // DPI / content scale (logical-to-physical factor; 1.0 at 100%). A per-window RootView's
+        // DpiScale is seeded from this so UI lays out at the right size on HiDPI displays.
+        [[nodiscard]] virtual core::f32 ContentScale() const noexcept = 0;
+
         // Native handles for RHI surface creation (see NativeWindow).
         [[nodiscard]] virtual NativeWindow Native() const noexcept = 0;
         [[nodiscard]] virtual bool IsOpen() const noexcept = 0;

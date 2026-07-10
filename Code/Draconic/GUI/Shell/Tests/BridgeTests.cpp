@@ -243,6 +243,8 @@ namespace
         bool leftPressed = false;
         core::f32 X() const override { return 0.0f; }
         core::f32 Y() const override { return 0.0f; }
+        core::f32 GlobalX() const override { return 0.0f; }
+        core::f32 GlobalY() const override { return 0.0f; }
         core::f32 DeltaX() const override { return 0.0f; }
         core::f32 DeltaY() const override { return 0.0f; }
         core::f32 ScrollX() const override { return 0.0f; }
