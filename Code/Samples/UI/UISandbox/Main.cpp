@@ -41,30 +41,8 @@ namespace uivfs = draconic::ui::vfs;
 
 namespace
 {
-    constexpr const char8_t kVertSrc[] = u8R"(
-#pragma pack_matrix(row_major)
-cbuffer VGUniforms : register(b0) { float4x4 Projection; };
-struct VSInput { float2 Position:TEXCOORD0; float2 TexCoord:TEXCOORD1; float4 Color:TEXCOORD2; float Coverage:TEXCOORD3; };
-struct VSOutput { float4 Position:SV_Position; float2 TexCoord:TEXCOORD0; float4 Color:COLOR0; float Coverage:COVERAGE; };
-VSOutput main(VSInput input) {
-    VSOutput o;
-    o.Position = mul(float4(input.Position, 0.0, 1.0), Projection);
-    o.TexCoord = input.TexCoord; o.Color = input.Color; o.Coverage = input.Coverage;
-    return o;
-}
-)";
-
-    constexpr const char8_t kFragSrc[] = u8R"(
-struct PSInput { float4 Position:SV_Position; float2 TexCoord:TEXCOORD0; float4 Color:COLOR0; float Coverage:COVERAGE; };
-Texture2D VGTexture : register(t0);
-SamplerState VGSampler : register(s0);
-float4 main(PSInput input) : SV_Target {
-    float4 texColor = VGTexture.Sample(VGSampler, input.TexCoord);
-    float4 result = texColor * input.Color;
-    result.a *= input.Coverage;
-    return result;
-}
-)";
+    // VG shader source now lives in draconic.vg.renderer (VertexShaderSource/FragmentShaderSource),
+    // shared by every VG consumer instead of being copied into each sample.
 
 #ifndef DRACONIC_UI_FONT_PATH
 #define DRACONIC_UI_FONT_PATH ""
@@ -569,8 +547,8 @@ private:
 Status UISandbox::OnInit()
 {
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kVertSrc, shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kFragSrc, shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::VertexShaderSource(),   shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::FragmentShaderSource(), shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
 
     if (!m_renderer.Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames)).IsOk())
         return ErrorCode::Unknown;
