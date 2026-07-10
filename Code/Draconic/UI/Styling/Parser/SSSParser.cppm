@@ -699,6 +699,12 @@ export namespace draconic::ui
 
     inline void DrawableFactoryRegistry::RegisterBuiltins()
     {
+        // Idempotent: the factory map is a global static, so register once even if called from several
+        // entry points (StyleSheetLoader::Load and SSSParser::ApplyInlineStyle both ensure this).
+        static bool registered = false;
+        if (registered) { return; }
+        registered = true;
+
         // color($color) -> ColorDrawable
         Register(u8"color", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
         {

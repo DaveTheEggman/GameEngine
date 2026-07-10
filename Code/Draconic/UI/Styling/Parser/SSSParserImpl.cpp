@@ -18,6 +18,11 @@ namespace draconic::ui
 {
     void SSSParser::ApplyInlineStyle(View* view, StringView body)
     {
+        // Ensure the drawable factory functions (rounded-rect/gradient/state-*/svg/...) are registered;
+        // otherwise an inline value like `background: rounded-rect(...)` isn't recognized and falls back
+        // to a plain (white) color. StyleSheetLoader does this for .sss files; the inline path must too.
+        DrawableFactoryRegistry::RegisterBuiltins();
+
         Array<Token> tokens;
         Tokenizer tokenizer(body);
         tokenizer.TokenizeAll(tokens);

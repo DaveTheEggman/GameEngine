@@ -457,3 +457,25 @@ TEST_CASE("sss: DrawableFactory_StateRounded")
     REQUIRE(bg != nullptr);
     CHECK(core::Cast<StateListDrawable>(bg) != nullptr);
 }
+
+// Inline style="..." with a drawable function (regression: ApplyInlineStyle must register the drawable
+// factory builtins - rounded-rect/gradient/state-* - itself, or the value falls back to a plain white
+// color; StyleSheetLoader did this for .sss files but the inline path did not).
+TEST_CASE("sss: InlineStyle_RoundedRectFunction")
+{
+    EnsureGlobals();
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator());
+    SSSParser::ApplyInlineStyle(view.Get(),
+        StringView(u8"background: rounded-rect(rgb(35, 38, 48), radius=12, border-width=2, border=rgb(80, 90, 110));"));
+
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    auto* rr = core::Cast<RoundedRectDrawable>(bg);
+    REQUIRE(rr != nullptr); // not a fallback ColorDrawable
+    CHECK(rr->FillColor.r == doctest::Approx(35 / 255.0f));
+    CHECK(rr->FillColor.g == doctest::Approx(38 / 255.0f));
+    CHECK(rr->FillColor.b == doctest::Approx(48 / 255.0f));
+    CHECK(rr->Radii.topLeft == 12.0f);
+    CHECK(rr->BorderWidth == 2.0f);
+    CHECK(rr->BorderColor.r == doctest::Approx(80 / 255.0f));
+}
