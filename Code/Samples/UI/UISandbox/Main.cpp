@@ -11,9 +11,7 @@
 
 import draconic.core;
 import draconic.rhi;
-import draconic.rhi.vk;
 import draconic.shaders;
-import draconic.samples.framework;
 import draconic.shell;
 import draconic.image;
 import draconic.fonts;
@@ -25,9 +23,18 @@ import draconic.ui.toolkit;
 import draconic.ui.shell;
 import draconic.ui.vfs;
 import draconic.vfs;
+import draconic.runtime;
+import draconic.runtime.client;
+import draconic.runtime.desktop;
+import draconic.shell.desktop;
+import draconic.graphics;
+import draconic.graphics.gpu;
+import draconic.ui.runtime;
 
 using namespace draconic::core;
-namespace sf = draconic::samples::framework;
+namespace runtime = draconic::runtime;
+namespace graphics = draconic::graphics;
+namespace uirt = draconic::ui::runtime;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 namespace shell = draconic::shell;
@@ -436,21 +443,15 @@ namespace
     };
 }
 
-class UISandbox : public sf::SampleApp
+class UISandbox : public runtime::IApplication
 {
 public:
-    UISandbox() { m_width = 820; m_height = 720; }
-    StringView Title() const override { return u8"UI Sandbox (draconic.ui)"; }
-    u32 BufferCount() const override { return kFrames; }
-
-protected:
-    Status OnInit() override;
-    void   OnRender() override;
-    void   OnShutdown() override;
+    void OnStartup(runtime::IApplicationHost& host) override;
+    void OnUpdate(runtime::IApplicationHost& host, f32 dt) override;
+    void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override;
+    void OnShutdown(runtime::IApplicationHost& host) override;
 
 private:
-    static constexpr u32 kFrames = 2;
-
     void BuildUI();
     void LoadFontSize(StringView family, StringView path, f32 pixelHeight);
     [[nodiscard]] bool HasFonts() const
@@ -497,18 +498,11 @@ private:
     void BuildNodeGraphTab(ui::TabView* tabView);     // draconic.ui.toolkit: NodeGraphCanvas state machine
     void BuildPauseMenuTab(ui::TabView* tabView); // loads a .sml screen via a VFS-backed resource provider
 
-    // Render plumbing (mirrors VGSandbox/GUISandbox).
-    shaders::Compiler* m_compiler = nullptr;
-    rhi::ShaderModule* m_vs = nullptr;
-    rhi::ShaderModule* m_fs = nullptr;
-    rhi::CommandPool*  m_pool = nullptr;
-    rhi::Fence*        m_fence = nullptr;
-    u64                m_fenceVal = 0;
-    u32                m_frameIndex = 0;
+    // Window size (was provided by SampleApp; re-captured from the main window in OnStartup).
+    u32 m_width = 820;
+    u32 m_height = 720;
 
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
-    UniquePtr<vg::VGContext>              m_vg;
-    vg::renderer::VGRenderer              m_renderer;
 
     // VFS-backed resource provider for loading the pause-menu .sml (draconic.ui.vfs over a NativeFileSystem
     // rooted at Data/Assets/ui). Kept alive for the app's lifetime (Sedulous keeps mGuiResourceProvider).
@@ -516,7 +510,6 @@ private:
     UniquePtr<uivfs::VfsResourceProvider>  m_resProvider;
 
     // UI.
-    ui::UIContext             m_ctx;
     RefPtr<ui::RootView>      m_root;
     RefPtr<ui::StyleSheet>    m_sheet;
     RefPtr<ui::FlexLayout>    m_main;
@@ -538,24 +531,19 @@ private:
     tk::ToolkitThemeExtension           m_toolkitThemeExt;
     UniquePtr<ReorderableListAdapter>   m_reorderAdapter;
 
-    UniquePtr<ui::UiInputBridge>   m_bridge;
-    UniquePtr<shell::InputSurface> m_surface;
-    UniquePtr<shell::InputRouter>  m_router;
-    UniquePtr<ui::ShellClipboard>  m_clipboard; // bridges the shell clipboard into the UI (Cut/Copy/Paste)
+    // The reusable UI-on-runtime bridge (owns the UIContext, per-window VG + input). Declared LAST so it
+    // tears down first.
+    UniquePtr<uirt::UIHost> m_uiHost;
 };
 
-Status UISandbox::OnInit()
+void UISandbox::OnStartup(runtime::IApplicationHost& host)
 {
-    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::VertexShaderSource(),   shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::FragmentShaderSource(), shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    graphics::RenderWindow* mainRw = host.MainRenderWindow();
+    if (mainRw == nullptr) { return; }
+    m_width  = mainRw->Window().Width();
+    m_height = mainRw->Window().Height();
 
-    if (!m_renderer.Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames)).IsOk())
-        return ErrorCode::Unknown;
-
-    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != ErrorCode::Ok) return ErrorCode::Unknown;
-
+    // Fonts (CPU rasterization; no device needed).
     m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
     if (HasFonts())
     {
@@ -576,10 +564,10 @@ Status UISandbox::OnInit()
         }
     }
 
-    m_vg = MakeUnique<vg::VGContext>(DefaultAllocator(), m_fontService.Get());
+    m_uiHost = MakeUnique<uirt::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
 
-    BuildUI();
-    return ErrorCode::Ok;
+    BuildUI();                                  // builds m_root, sets theme on m_uiHost->Context(), registers m_toolkitThemeExt
+    m_uiHost->AttachWindow(mainRw, m_root);     // adds the root to the context + wires per-window VG + input
 }
 
 void UISandbox::LoadFontSize(StringView family, StringView path, f32 pixelHeight)
@@ -591,7 +579,6 @@ void UISandbox::LoadFontSize(StringView family, StringView path, f32 pixelHeight
 
 void UISandbox::BuildUI()
 {
-    m_ctx.SetFontService(m_fontService.Get());
     // Register the toolkit theme extension so draconic.ui.toolkit controls get styled. Must happen before
     // the first theme is built (extensions only apply to themes created afterward).
     ui::ThemeRegistry::RegisterExtension(&m_toolkitThemeExt);
@@ -600,7 +587,6 @@ void UISandbox::BuildUI()
     m_root = MakeRef<ui::RootView>(DefaultAllocator());
     m_root->ViewportSize = Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) };
     m_root->DpiScale = 1.0f;
-    m_ctx.AddRootView(m_root.Get());
 
     // A 64x64 RGBA checkerboard (8px cells) for the ImageView/DrawableView demos - two blues, matching
     // Sedulous UISandbox's GenerateCheckerboard(64, 64, 8, (100,140,200), (40,50,70)).
@@ -664,7 +650,7 @@ void UISandbox::ApplyTheme()
     case 3:  m_sheet = CreateTexturedTheme(); break;
     default: m_sheet = LoadSSSTheme(u8"themes/breeze.sss", ui::ThemePalette::Dark()); break;
     }
-    m_ctx.SetStyleSheet(m_sheet);
+    m_uiHost->Context().SetStyleSheet(m_sheet);
 
     if (m_themeBtn)
     {
@@ -856,7 +842,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     String sml;
     if (!m_resProvider->LoadText(u8"screens/pause-menu.sml", sml) || sml.IsEmpty()) { return; }
 
-    RefPtr<ui::View> pauseView = ui::MarkupLoader::LoadFromString(sml.AsView(), &m_ctx);
+    RefPtr<ui::View> pauseView = ui::MarkupLoader::LoadFromString(sml.AsView(), &m_uiHost->Context());
     if (!pauseView) { return; }
 
     tabView->AddTab(u8"Pause (.sml)", pauseView.Get(), true);
@@ -923,7 +909,7 @@ void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
     demo->AddView(target.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(30))));
 
     ui::View* animTarget = target.Get();
-    ui::UIContext* ctx = &m_ctx;
+    ui::UIContext* ctx = &m_uiHost->Context();
     auto row = HFlex(6.0f);
     auto animBtn = [&](const char8_t* text, ui::Event<void(ui::ButtonBase*)>::Handler h)
     {
@@ -1267,7 +1253,7 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
     spacer(); section(u8"Dialog");
     {
         auto row = HFlex(8.0f);
-        ui::UIContext* ctx = &m_ctx;
+        ui::UIContext* ctx = &m_uiHost->Context();
         auto alertBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Alert"));
         alertBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [ctx](ui::ButtonBase*) { ui::Dialog::Alert(u8"Information", u8"This is an alert dialog.")->Show(ctx); } });
         row->AddView(alertBtn.Get());
@@ -1710,7 +1696,7 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
         repeatRow->AddView(repeatBtn.Get());
         repeatRow->AddView(repeatLabel.Get());
         leftPanel->AddView(repeatRow.Get());
-        m_repeatBtn = repeatBtn; // ticked each frame in OnRender (hold-to-repeat)
+        m_repeatBtn = repeatBtn; // ticked each frame in OnUpdate (hold-to-repeat)
     }
 
     leftPanel->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
@@ -1832,119 +1818,36 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
     }
 }
 
-void UISandbox::OnRender()
+void UISandbox::OnUpdate(runtime::IApplicationHost&, f32 dt)
 {
-    // Input: a fullscreen InputSurface, gated by a router, pumped into the InputManager.
-    if (m_shell != nullptr && m_shell->Input() != nullptr && m_window != nullptr)
-    {
-        shell::IInputManager& input = *m_shell->Input();
-        const Rectangle region{ 0.0f, 0.0f, static_cast<f32>(m_width), static_cast<f32>(m_height) };
-        if (!m_surface)
-        {
-            const ContentFit fit{ region, Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) }, FitMode::Stretch };
-            m_surface = MakeUnique<shell::InputSurface>(DefaultAllocator(), &input, m_window->Id(), fit);
-            m_router = MakeUnique<shell::InputRouter>(DefaultAllocator(), &input);
-            m_router->AddSurface(m_surface.Get());
-            m_bridge = MakeUnique<ui::UiInputBridge>(DefaultAllocator(), &m_ctx);
-            m_bridge->SetTextInputTarget(m_window); // IME follows UI focus
-            m_clipboard = MakeUnique<ui::ShellClipboard>(DefaultAllocator(), m_shell);
-            m_ctx.SetClipboard(m_clipboard.Get()); // Cut/Copy/Paste in text controls
-        }
-        m_surface->SetRegion(region);
-        m_surface->SetContentSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
-        m_router->Update();
-        m_bridge->PumpFromSurface(*m_surface);
-
-        // Keyboard/text: dispatch the raw key/text events (mouse already handled by the pump).
-        for (const shell::InputEvent& ev : input.Events())
-        {
-            switch (ev.kind)
-            {
-            case shell::InputEventKind::KeyDown:
-            case shell::InputEventKind::KeyUp:
-            case shell::InputEventKind::TextInput:
-                m_bridge->Dispatch(ev);
-                break;
-            default:
-                break;
-            }
-        }
-    }
-
     // Hold-to-repeat: tick the RepeatButton each frame (mirrors Sedulous UISandbox).
-    if (m_repeatBtn) { m_repeatBtn->UpdateRepeat(m_deltaTime); }
-
-    // Advance, lay out, and draw the UI tree.
-    m_root->ViewportSize = Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) };
-    m_ctx.BeginFrame(m_deltaTime);
-    m_ctx.UpdateRootView(m_root.Get());
-
-    m_vg->Clear();
-    m_ctx.DrawRootView(m_root.Get(), *m_vg);
-    vg::VGBatch& batch = m_vg->GetBatch();
-
-    // Present (same path as VGSandbox/GUISandbox).
-    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != ErrorCode::Ok) return;
-
-    m_renderer.BeginFrame(static_cast<i32>(m_frameIndex));
-    const vg::renderer::VGRenderSlice slice = m_renderer.Prepare(batch, static_cast<i32>(m_frameIndex), m_width, m_height);
-
-    m_pool->Reset();
-    rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != ErrorCode::Ok || enc == nullptr) return;
-
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
-
-    rhi::ColorAttachment ca{};
-    ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
-    ca.clearValue = rhi::ClearColor(0.07f, 0.07f, 0.09f, 1.0f);
-    rhi::RenderPassDesc rpd{};
-    rpd.colorAttachments.Add(ca);
-
-    rhi::RenderPassEncoder* rp = enc->BeginRenderPass(rpd);
-    m_renderer.Render(*rp, m_width, m_height, static_cast<i32>(m_frameIndex), slice);
-    rp->End();
-
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
-
-    rhi::CommandBuffer* cb = enc->Finish();
-    ++m_fenceVal;
-    rhi::CommandBuffer* cbs[1] = { cb };
-    m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
-
-    m_swapChain->Present(m_graphicsQueue);
-    m_pool->DestroyEncoder(enc);
-
-    m_frameIndex = (m_frameIndex + 1) % kFrames;
+    if (m_repeatBtn) { m_repeatBtn->UpdateRepeat(dt); }
+    if (m_uiHost) { m_uiHost->Update(dt); }
 }
 
-void UISandbox::OnShutdown()
+void UISandbox::OnRenderWindow(runtime::IApplicationHost&, graphics::FrameContext& frame)
 {
-    if (m_device) m_device->WaitIdle();
-    m_ctx.SetClipboard(nullptr);
-    m_router.Reset();
-    m_surface.Reset();
-    m_bridge.Reset();
-    m_clipboard.Reset();
-    if (m_root) m_ctx.RemoveRootView(m_root.Get());
-    m_repeatBtn.Reset();
-    m_main.Reset();
-    m_listAdapter.Reset();
-    m_treeAdapter.Reset();
-    m_gridAdapter.Reset();
-    m_root.Reset();
-    m_sheet.Reset();
-    m_testImage.Reset();
-    m_renderer.Dispose();
-    m_vg.Reset();
-    m_fontService.Reset();
-    if (m_fence) m_device->DestroyFence(m_fence);
-    if (m_pool)  m_device->DestroyCommandPool(m_pool);
-    if (m_fs)    m_device->DestroyShaderModule(m_fs);
-    if (m_vs)    m_device->DestroyShaderModule(m_vs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_uiHost) { m_uiHost->RenderWindow(frame); }
 }
 
-int main(int argc, char** argv) { UISandbox app; return app.Run(argc, argv); }
+void UISandbox::OnShutdown(runtime::IApplicationHost&) {}
+
+int main(int /*argc*/, char** /*argv*/)
+{
+    shell::WindowSettings ws;
+    ws.title  = u8"UI Sandbox (draconic.ui)";
+    ws.width  = 820;
+    ws.height = 720;
+
+    auto shellPtr = shell::CreateShell(ws);
+    if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr) { return 1; }
+
+    graphics::GraphicsDeviceDesc gdd;
+    gdd.backend          = graphics::BackendType::Vulkan;
+    gdd.enableValidation = true;
+    auto gpu = graphics::CreateGraphicsDevice(gdd);
+    if (!gpu.HasValue()) { return 1; }
+
+    UISandbox app;
+    return runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
+}

@@ -2,7 +2,9 @@
 # Ports Sedulous's UISandbox demo (sans the Toolkit tabs) to prove the port end-to-end.
 add_executable(UISandbox Main.cpp)
 target_link_libraries(UISandbox PRIVATE
-    Draconic::Core Draconic::RHI Draconic::RHIVulkan Draconic::Shaders Draconic::SamplesFramework
+    Draconic::Core Draconic::RHI Draconic::Shaders
+    Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDesktop Draconic::ShellDesktop
+    Draconic::Graphics Draconic::GraphicsGpu Draconic::UIRuntime
     Draconic::Shell Draconic::Image Draconic::Fonts Draconic::FontsTTF
     Draconic::VG Draconic::VGRenderer Draconic::UI Draconic::UIToolkit Draconic::UIShell Draconic::UIVFS Draconic::VFS)
 target_compile_definitions(UISandbox PRIVATE
