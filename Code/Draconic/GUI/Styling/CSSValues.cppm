@@ -11,10 +11,12 @@ module;
 export module draconic.gui:css_values;
 
 import draconic.core;   // Color, Optional, StringView, f32
+import draconic.vg;     // CornerRadii
 import :thickness;
 
 using namespace draconic::core;
 namespace core = draconic::core;
+namespace vg = draconic::vg;
 
 export namespace draconic::gui
 {
@@ -139,6 +141,67 @@ export namespace draconic::gui
         else if (count == 3) { top = parts[0]; right = left = parts[1]; bottom = parts[2]; }
         else { top = parts[0]; right = parts[1]; bottom = parts[2]; left = parts[3]; }
         return Thickness{ left, top, right, bottom };
+    }
+
+    // border-radius: 1-4 lengths in CSS corner order (top-left, top-right, bottom-right,
+    // bottom-left; 1 = all, 2 = TL/BR + TR/BL, 3 = TL, TR/BL, BR).
+    [[nodiscard]] inline Optional<vg::CornerRadii> ParseCornerRadii(core::StringView value)
+    {
+        f32 parts[4];
+        usize count = 0, start = 0;
+        const core::StringView s = Trim(value);
+        for (usize i = 0; i <= s.Size(); ++i)
+        {
+            const bool boundary = (i == s.Size()) || IsWhiteSpace(s[i]);
+            if (boundary)
+            {
+                if (i > start)
+                {
+                    if (count == 4) return {};
+                    const Optional<f32> v = ParseLength(s.SubStr(start, i - start));
+                    if (!v.HasValue()) return {};
+                    parts[count++] = v.Value();
+                }
+                start = i + 1;
+            }
+        }
+        if (count == 0) return {};
+
+        f32 tl, tr, br, bl;
+        if (count == 1) { tl = tr = br = bl = parts[0]; }
+        else if (count == 2) { tl = br = parts[0]; tr = bl = parts[1]; }
+        else if (count == 3) { tl = parts[0]; tr = bl = parts[1]; br = parts[2]; }
+        else { tl = parts[0]; tr = parts[1]; br = parts[2]; bl = parts[3]; }
+        return vg::CornerRadii{ tl, tr, br, bl };
+    }
+
+    // The `border` shorthand: any order of a width (a length), a style keyword (ignored - only
+    // solid is drawn), and a color. Missing width defaults to 1; missing color to black. A
+    // leading "none"/"0" yields width 0. Returns width + color.
+    struct BorderShorthand { f32 Width = 1.0f; Color LineColor{ 0.0f, 0.0f, 0.0f, 1.0f }; };
+    [[nodiscard]] inline Optional<BorderShorthand> ParseBorder(core::StringView value)
+    {
+        BorderShorthand out;
+        bool any = false;
+        const core::StringView s = Trim(value);
+        usize start = 0;
+        for (usize i = 0; i <= s.Size(); ++i)
+        {
+            const bool boundary = (i == s.Size()) || IsWhiteSpace(s[i]);
+            if (!boundary) continue;
+            if (i > start)
+            {
+                const core::StringView tok = s.SubStr(start, i - start);
+                if (tok == core::StringView(u8"none")) { out.Width = 0.0f; any = true; }
+                else if (tok == core::StringView(u8"solid") || tok == core::StringView(u8"dashed")
+                      || tok == core::StringView(u8"dotted") || tok == core::StringView(u8"hidden")) { any = true; }
+                else if (Optional<Color> c = ParseColor(tok); c.HasValue()) { out.LineColor = c.Value(); any = true; }
+                else if (Optional<f32> w = ParseLength(tok); w.HasValue()) { out.Width = w.Value(); any = true; }
+            }
+            start = i + 1;
+        }
+        if (!any) return {};
+        return out;
     }
 
     // A small named-color set (core has only White/Black/Red/Green/Blue/Transparent).

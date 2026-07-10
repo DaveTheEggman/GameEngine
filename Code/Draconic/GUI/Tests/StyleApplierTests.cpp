@@ -151,3 +151,66 @@ TEST_CASE("node: SetSize clamps to min/max size constraints")
     w->SetMinSize(core::Float2{ 60.0f, 60.0f });
     CHECK(w->GetSize().y == doctest::Approx(60.0f)); // re-clamped up when the min grows
 }
+
+TEST_CASE("css-values: ParseCornerRadii (1 and 4 values)")
+{
+    auto one = ParseCornerRadii(SV(u8"6"));
+    REQUIRE(one.HasValue());
+    CHECK(one.Value().topLeft == doctest::Approx(6.0f));
+    CHECK(one.Value().bottomRight == doctest::Approx(6.0f));
+
+    auto four = ParseCornerRadii(SV(u8"1 2 3 4"));
+    REQUIRE(four.HasValue());
+    CHECK(four.Value().topLeft == doctest::Approx(1.0f));
+    CHECK(four.Value().topRight == doctest::Approx(2.0f));
+    CHECK(four.Value().bottomRight == doctest::Approx(3.0f));
+    CHECK(four.Value().bottomLeft == doctest::Approx(4.0f));
+}
+
+TEST_CASE("css-values: ParseBorder (width + style + color, any order)")
+{
+    auto b = ParseBorder(SV(u8"2 solid #ff0000"));
+    REQUIRE(b.HasValue());
+    CHECK(b.Value().Width == doctest::Approx(2.0f));
+    CHECK(b.Value().LineColor.r == doctest::Approx(1.0f));
+
+    auto reordered = ParseBorder(SV(u8"red 3"));
+    REQUIRE(reordered.HasValue());
+    CHECK(reordered.Value().Width == doctest::Approx(3.0f));
+    CHECK(reordered.Value().LineColor.r == doctest::Approx(1.0f));
+
+    auto none = ParseBorder(SV(u8"none"));
+    REQUIRE(none.HasValue());
+    CHECK(none.Value().Width == doctest::Approx(0.0f));
+}
+
+TEST_CASE("style-applier: border + border-radius round the background and set a border foreground")
+{
+    StyleSheet sheet = CSSParser::Parse(
+        SV(u8"box { background-color: #ffffff; border-radius: 6; border: 2 solid #ff0000; }"));
+    auto w = Widget(u8"box");
+    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false));
+
+    // Background rounded.
+    auto* bg = core::Cast<RectangleDrawable>(w->GetBackground());
+    REQUIRE(bg != nullptr);
+    CHECK(bg->GetCornerRadii().topLeft == doctest::Approx(6.0f));
+
+    // Border foreground: width + color + radii.
+    auto* border = core::Cast<BorderDrawable>(w->GetForeground());
+    REQUIRE(border != nullptr);
+    CHECK(border->GetWidth() == doctest::Approx(2.0f));
+    CHECK(border->GetColor().r == doctest::Approx(1.0f));
+    CHECK(border->GetCornerRadii().topLeft == doctest::Approx(6.0f));
+}
+
+TEST_CASE("style-applier: border-color / border-width overrides without the shorthand")
+{
+    StyleSheet sheet = CSSParser::Parse(SV(u8"box { border-width: 4; border-color: blue; }"));
+    auto w = Widget(u8"box");
+    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false));
+    auto* border = core::Cast<BorderDrawable>(w->GetForeground());
+    REQUIRE(border != nullptr);
+    CHECK(border->GetWidth() == doctest::Approx(4.0f));
+    CHECK(border->GetColor().b == doctest::Approx(1.0f));
+}

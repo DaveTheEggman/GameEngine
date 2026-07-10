@@ -14,6 +14,7 @@ export module draconic.gui:style_applier;
 import draconic.core;   // Cast, Optional, Color, Float2, MakeRef, DefaultAllocator
 import draconic.fonts;  // CachedFont, IFontService
 import draconic.image;  // ImageData
+import draconic.vg;     // CornerRadii
 import :thickness;
 import :text;    // TextHAlign / TextVAlign
 import :node;
@@ -21,6 +22,7 @@ import :ui_node;
 import :ui_widget;
 import :drawable;
 import :rectangle_drawable;
+import :border_drawable;
 import :image_drawable;
 import :style_sheet;    // ResolvedStyle
 import :css_values;
@@ -143,6 +145,39 @@ export namespace draconic::gui
             if (path.Size() != 0)
                 if (const image::ImageData* img = resources->LoadImage(path))
                     node.SetBackground(core::MakeRef<ImageDrawable>(core::DefaultAllocator(), img));
+        }
+
+        // border-radius: round the background rectangle; the border (below) reuses the radii.
+        vg::CornerRadii radii{};
+        const bool hasRadius = style.Has(StringView(u8"border-radius"));
+        if (hasRadius)
+            if (Optional<vg::CornerRadii> r = ParseCornerRadii(style.Get(StringView(u8"border-radius"))); r.HasValue())
+            {
+                radii = r.Value();
+                if (RectangleDrawable* bg = core::Cast<RectangleDrawable>(node.GetBackground()))
+                    bg->SetCornerRadii(radii);
+            }
+
+        // border: shorthand plus border-width / border-color overrides -> a BorderDrawable set
+        // as the node's foreground (drawn over the content, rounded to match border-radius).
+        {
+            Optional<f32> borderWidth;
+            Optional<Color> borderColor;
+            if (style.Has(StringView(u8"border")))
+                if (Optional<BorderShorthand> b = ParseBorder(style.Get(StringView(u8"border"))); b.HasValue())
+                { borderWidth = b.Value().Width; borderColor = b.Value().LineColor; }
+            if (style.Has(StringView(u8"border-width")))
+                if (Optional<f32> w = ParseLength(style.Get(StringView(u8"border-width"))); w.HasValue()) borderWidth = w.Value();
+            if (style.Has(StringView(u8"border-color")))
+                if (Optional<Color> c = ParseColor(style.Get(StringView(u8"border-color"))); c.HasValue()) borderColor = c.Value();
+
+            if (borderWidth.HasValue() || borderColor.HasValue())
+            {
+                auto border = core::MakeRef<BorderDrawable>(core::DefaultAllocator(),
+                    borderColor.ValueOr(Color{ 0.0f, 0.0f, 0.0f, 1.0f }), borderWidth.ValueOr(1.0f));
+                if (hasRadius) border->SetCornerRadii(radii);
+                node.SetForeground(core::Move(border));
+            }
         }
 
         // font-family/-size -> resolve through the font service (whatever backs it - VFS, the
