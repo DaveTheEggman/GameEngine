@@ -55,7 +55,9 @@ TEST_CASE("input-filter: Custom_UsesDelegate")
     CHECK(!filter.Accept(U'a'));
 }
 
-// === UndoStack (no upstream test file; exercised by EditText - direct coverage for the primitive) ===
+// === UndoStack (consolidated coverage of upstream UndoStackTests.bf's 8 cases; each case here bundles
+//     several upstream assertions - e.g. the first covers Empty_CannotUndo + PushState_CanUndo +
+//     Undo_RestoresState + Undo_PushesToRedo) ===
 
 TEST_CASE("undo-stack: PushState then Undo restores the pushed snapshot")
 {
