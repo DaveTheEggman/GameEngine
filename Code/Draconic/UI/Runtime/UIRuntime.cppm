@@ -145,17 +145,45 @@ export namespace draconic::ui::runtime
         {
             m_router->Update();
 
-            // Mouse: for each window make its RootView the active input root before pumping that window's
-            // surface, so the InputManager hit-tests against the right window (it dispatches against
-            // UIContext::ActiveInputRoot). Each surface only yields its own window's events.
-            for (Attached& a : m_attached)
+            // Cross-window drag: while a drag is in flight and the cursor is over/from a SECONDARY window
+            // (a floating dock window follows the cursor, so it sits under the pointer), route the drag to
+            // the MAIN window using global-mouse -> main-relative coords so the main window's drop targets
+            // (e.g. a DockManager) see the drag-over and accept the drop. Mirrors Sedulous's editor: the OS
+            // window being under the cursor is bypassed; we feed the main window explicitly.
+            DragDropManager* dd = m_ctx.DragDrop();
+            Attached* mainW = m_attached.IsEmpty() ? nullptr : &m_attached[0];
+            const u32 focusedId = (m_shell->Input() != nullptr) ? m_shell->Input()->FocusedWindow() : 0;
+            const bool crossWindowDrag = (dd != nullptr && dd->IsDragging() && mainW != nullptr
+                                          && focusedId != 0 && focusedId != mainW->window->Window().Id());
+
+            if (crossWindowDrag)
             {
-                const f32 w = static_cast<f32>(a.window->Window().Width());
-                const f32 h = static_cast<f32>(a.window->Window().Height());
-                a.data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, w, h });
-                a.data->surface->SetContentSize(core::Float2{ w, h });
-                m_ctx.SetActiveInputRoot(a.data->root.Get());
-                m_bridge->PumpFromSurface(*a.data->surface);
+                const f32 mw = static_cast<f32>(mainW->window->Window().Width());
+                const f32 mh = static_cast<f32>(mainW->window->Window().Height());
+                mainW->data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, mw, mh });
+                mainW->data->surface->SetContentSize(core::Float2{ mw, mh });
+                m_ctx.SetActiveInputRoot(mainW->data->root.Get());
+
+                f32 gx = 0.0f, gy = 0.0f;
+                if (shell::IMouse* mouse = m_shell->Input()->Mouse()) { gx = mouse->GlobalX(); gy = mouse->GlobalY(); }
+                const f32 mx = gx - static_cast<f32>(mainW->window->Window().X());
+                const f32 my = gy - static_cast<f32>(mainW->window->Window().Y());
+                m_bridge->PumpMouseAt(mx, my, m_shell->Input()->Mouse());
+            }
+            else
+            {
+                // Normal per-window mouse: make each window's RootView the active input root before pumping
+                // that window's surface, so the InputManager (which dispatches against ActiveInputRoot)
+                // hit-tests the right window. Each surface only yields its own window's events.
+                for (Attached& a : m_attached)
+                {
+                    const f32 w = static_cast<f32>(a.window->Window().Width());
+                    const f32 h = static_cast<f32>(a.window->Window().Height());
+                    a.data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, w, h });
+                    a.data->surface->SetContentSize(core::Float2{ w, h });
+                    m_ctx.SetActiveInputRoot(a.data->root.Get());
+                    m_bridge->PumpFromSurface(*a.data->surface);
+                }
             }
 
             // Keyboard / text + IME follow the FOCUSED OS window: point the active input root and the

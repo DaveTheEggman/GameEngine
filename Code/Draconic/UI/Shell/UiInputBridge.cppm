@@ -149,6 +149,28 @@ export namespace draconic::ui
             SyncTextInput();
         }
 
+        /// Feed the InputManager a mouse update at EXPLICIT content coords (not the surface's own cursor
+        /// position). Used for cross-window drag routing: while a floating window is dragged, the desktop
+        /// cursor sits over THAT window, but the drag must be delivered to ANOTHER window (the main one) at
+        /// global-mouse-relative coords so its drop targets see it. Button state still comes from the raw
+        /// mouse, so the held drag and its release (the drop) register. (No wheel during a drag.)
+        void PumpMouseAt(f32 x, f32 y, platform::IMouse* mouse)
+        {
+            if (m_context == nullptr || mouse == nullptr) { return; }
+            InputManager* im = m_context->GetInputManager();
+            m_lastX = x; m_lastY = y;
+            (void)im->ProcessMouseMove(x, y);
+
+            const platform::MouseButton buttons[3] = {
+                platform::MouseButton::Left, platform::MouseButton::Middle, platform::MouseButton::Right };
+            for (const platform::MouseButton button : buttons)
+            {
+                if (mouse->IsButtonPressed(button))  { (void)im->ProcessMouseDown(MapButton(button), x, y, m_context->TotalTime()); }
+                if (mouse->IsButtonReleased(button)) { (void)im->ProcessMouseUp(MapButton(button), x, y); }
+            }
+            SyncTextInput();
+        }
+
     private:
         [[nodiscard]] static MouseButton MapButton(platform::MouseButton button) noexcept
         {
