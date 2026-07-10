@@ -45,4 +45,13 @@ export namespace draconic::rhi
         va_end(ap);
         LogWrite(false, buf);
     }
+
+    inline void LogInfof(const char* fmt, ...)
+    {
+        char buf[1024];
+        va_list ap; va_start(ap, fmt);
+        std::vsnprintf(buf, sizeof(buf), fmt, ap);
+        va_end(ap);
+        LogWrite(false, buf);
+    }
 }

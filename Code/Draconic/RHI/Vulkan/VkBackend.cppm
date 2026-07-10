@@ -113,6 +113,16 @@ public:
                                                                         : SurfacePlatform::X11;
         }
 
+        // Independent record of what the RHI is about to create (compare against the shell's log line).
+        {
+            const char* name = (effective == SurfacePlatform::Wayland) ? "Wayland"
+                             : (effective == SurfacePlatform::X11)     ? "X11"
+                             : (effective == SurfacePlatform::Win32)   ? "Win32"
+                             : (effective == SurfacePlatform::Cocoa)   ? "Cocoa" : "Unknown";
+            LogInfof("[RHI] Vulkan surface WSI: %s (%s)", name,
+                     platform == SurfacePlatform::Unknown ? "guessed" : "from shell");
+        }
+
         if (effective == SurfacePlatform::Wayland && m_hasWayland) {
             auto fn = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(
                 vkGetInstanceProcAddr(m_instance, "vkCreateWaylandSurfaceKHR"));

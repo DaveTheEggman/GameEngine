@@ -32,6 +32,19 @@ namespace core = draconic::core;
 
 export namespace draconic::shell
 {
+    // Human-readable WSI name for the diagnostic log line (compared against the RHI's surface-WSI log).
+    [[nodiscard]] inline core::StringView WindowSystemName(WindowSystem s) noexcept
+    {
+        switch (s)
+        {
+            case WindowSystem::Win32:   return u8"Win32";
+            case WindowSystem::X11:     return u8"X11";
+            case WindowSystem::Wayland: return u8"Wayland";
+            case WindowSystem::Cocoa:   return u8"Cocoa";
+            default:                    return u8"Unknown";
+        }
+    }
+
     class SDL3Window final : public IWindow
     {
     public:
@@ -636,6 +649,14 @@ export namespace draconic::shell
             core::Result<IWindow*> main = m_windows.CreateWindow(settings);
             if (!main.HasValue()) { m_running = false; return; }
             if (SDL3Window* w = m_windows.Find(main.Value()->Id())) { m_input.SetWindow(w->Handle()); }
+
+            // Independent record of the shell's chosen WSI (compare against the RHI's surface-WSI line).
+            const char* drv = SDL_GetCurrentVideoDriver();
+            core::ConsoleWrite(u8"[Shell] SDL video driver: ");
+            core::ConsoleWrite(core::StringView(reinterpret_cast<const core::utf8char*>(drv != nullptr ? drv : "unknown")));
+            core::ConsoleWrite(u8" | main window WSI: ");
+            core::ConsoleWrite(WindowSystemName(main.Value()->Native().system));
+            core::ConsoleWrite(u8"\n");
         }
 
         ~SDL3Shell() override
