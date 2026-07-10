@@ -42,6 +42,8 @@ add_executable(DraconicUITests
     DialogTests.cpp
     AnimationTests.cpp
     MarkupLoaderTests.cpp
+    MutationQueueTests.cpp
+    PseudoElementTests.cpp
     WantsTextInputTests.cpp
     ControlTests.cpp)
 
