@@ -45,6 +45,14 @@ export namespace draconic::gui
         void SetThemeTextAlign(TextHAlign horizontal) override { SetTextAlignment(horizontal, m_text.GetVAlign()); }
         void SetThemeTextAlignV(TextVAlign vertical) override { SetTextAlignment(m_text.GetHAlign(), vertical); }
 
+        // Markup: <Label text="Hello" wrap="true">.
+        bool SetMarkupAttribute(core::StringView name, core::StringView value) override
+        {
+            if (name == core::StringView(u8"text")) { SetText(value); return true; }
+            if (name == core::StringView(u8"wrap")) { SetWordWrap(value == core::StringView(u8"true")); return true; }
+            return UIWidget::SetMarkupAttribute(name, value);
+        }
+
         void SetTextAlignment(TextHAlign horizontal, TextVAlign vertical)
         {
             m_text.SetAlignment(horizontal, vertical);

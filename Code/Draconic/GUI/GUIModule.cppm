@@ -86,6 +86,9 @@ export import :table_model;
 export import :tree_model;
 export import :sorting_proxy_model;
 
+// Markup (Phase 8: declarative XML widget-tree loading)
+export import :markup;
+
 // CSS styling (Phase 6)
 export import :resource_provider;
 export import :parse_util;

@@ -63,6 +63,11 @@ export namespace draconic::gui
         virtual void SetThemeTextAlign(TextHAlign) {}
         virtual void SetThemeTextAlignV(TextVAlign) {}
 
+        // Markup hook: a widget consumes its own structural XML attributes (e.g. Label "text",
+        // LinearLayout "orientation"/"spacing"), returning true if it handled `name`. Attributes
+        // it doesn't claim are applied as CSS properties by the markup loader. Default: none.
+        virtual bool SetMarkupAttribute(core::StringView /*name*/, core::StringView /*value*/) { return false; }
+
         // Pseudo-element parts: a widget names the parts it paints (slider "track"/"fill"/
         // "thumb", checkbox "box"/"mark", window "title"/"grip", ...) so CSS `tag::part` can
         // style them. CollectStyleParts lists them; SetThemePartColor receives a part's

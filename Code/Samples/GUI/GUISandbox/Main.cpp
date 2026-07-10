@@ -578,6 +578,23 @@ void GUISandbox::BuildUI()
     m_treeView->ExpandItem(0); // expand "src" so there's something to see
     m_panel->AddChild(m_treeView.Get());
 
+    // A row built declaratively from XML markup (element -> widget, attributes -> text /
+    // structural props / inline CSS through the same StyleApplier the stylesheet uses).
+    {
+        static const char8_t* kMarkup = u8R"(
+            <LinearLayout orientation="horizontal" spacing="10" width="420" height="34">
+                <Label text="Loaded from XML markup:" font-family="Roboto" font-size="16"
+                       color="#cfd6e0" width="180" height="30" vertical-align="middle"/>
+                <Button text="Alpha" class="accent" font-family="Roboto" font-size="16" width="90" height="30"/>
+                <Button text="Beta"  class="danger" font-family="Roboto" font-size="16" width="90" height="30"/>
+            </LinearLayout>
+        )";
+        gui::WidgetFactory factory = gui::DefaultWidgetFactory();
+        gui::MarkupLoader loader(factory, nullptr, m_fontService.Get());
+        if (RefPtr<gui::Node> markupRoot = loader.LoadFromString(StringView(kMarkup)))
+            m_panel->AddChild(markupRoot.Get());
+    }
+
     // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
     // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
     // using the arrow / PageUp-Down / Home-End keys.

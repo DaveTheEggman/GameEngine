@@ -6,7 +6,7 @@ add_library(DraconicGUI STATIC)
 add_library(Draconic::GUI ALIAS DraconicGUI)
 
 target_link_libraries(DraconicGUI
-    PUBLIC Draconic::Core Draconic::VG Draconic::Image Draconic::Fonts Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VG Draconic::Image Draconic::Fonts Draconic::Xml Draconic::Policy)
 
 target_sources(DraconicGUI
     PUBLIC
@@ -82,6 +82,7 @@ target_sources(DraconicGUI
             Styling/Transition.cppm
             Styling/StyleManager.cppm
             Styling/Theme.cppm
+            Markup/MarkupLoader.cppm
             GUIModule.cppm
     PRIVATE
         # Module implementation unit: Node method bodies that call the EventDispatcher

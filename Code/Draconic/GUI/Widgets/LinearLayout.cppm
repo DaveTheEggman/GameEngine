@@ -17,6 +17,7 @@ import :rect;
 import :thickness;
 import :node;
 import :ui_widget;
+import :css_values;     // ParseLength (markup spacing)
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -42,6 +43,23 @@ export namespace draconic::gui
         // ScrollView with SetAutoMeasureContent so a tall stack scrolls. Off by default.
         void SetWrapContent(bool wrap) { m_wrapContent = wrap; PerformLayout(); }
         [[nodiscard]] bool IsWrapContent() const noexcept { return m_wrapContent; }
+
+        // Markup: <LinearLayout orientation="horizontal" spacing="8" wrap-content="true">.
+        bool SetMarkupAttribute(core::StringView name, core::StringView value) override
+        {
+            if (name == core::StringView(u8"orientation"))
+            {
+                SetOrientation(value == core::StringView(u8"horizontal") ? Orientation::Horizontal : Orientation::Vertical);
+                return true;
+            }
+            if (name == core::StringView(u8"spacing"))
+            {
+                if (Optional<f32> s = ParseLength(value); s.HasValue()) SetSpacing(s.Value());
+                return true;
+            }
+            if (name == core::StringView(u8"wrap-content")) { SetWrapContent(value == core::StringView(u8"true")); return true; }
+            return UIWidget::SetMarkupAttribute(name, value);
+        }
 
         // Position children in sequence along the orientation, skipping hidden ones.
         void PerformLayout()
