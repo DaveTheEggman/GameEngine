@@ -492,10 +492,12 @@ private:
     RefPtr<ui::FlexLayout>    m_main;
     UniquePtr<image::OwnedImageData> m_testImage; // borrowed by the ImageView/DrawableView demos
     RefPtr<ui::RepeatButton> m_repeatBtn;         // ticked each frame (hold-to-repeat)
-    i32 m_themeIndex = 0;          // 0=Dark, 1=Light, 2=RoundedDark, 3=Textured (mirrors Sedulous ApplyTheme)
+    i32 m_themeIndex = 0;          // 0=Dark 1=Light 2=RoundedDark 3=Textured 4=Breeze(.sss) (Sedulous ApplyTheme)
     RefPtr<ui::Button> m_themeBtn; // shows the current theme name; cycles on click
     void ApplyTheme();
     [[nodiscard]] RefPtr<ui::StyleSheet> CreateTexturedTheme(); // procedurally-skinned image theme
+    [[nodiscard]] RefPtr<ui::StyleSheet> LoadSSSTheme(StringView path, ui::ThemePalette palette); // .sss via provider
+    void EnsureResourceProvider(); // creates m_uiFs + m_resProvider once (rooted at <assets>/ui)
     i32 m_repeatCount = 0;
     UniquePtr<DemoListAdapter> m_listAdapter;     // borrowed by the ListView (Data Controls tab)
     UniquePtr<DemoTreeAdapter> m_treeAdapter;
@@ -585,11 +587,11 @@ void UISandbox::BuildUI()
     m_main = VFlex();
     m_root->AddView(m_main.Get());
 
-    // Theme button above the tabs - cycles Dark / Light / Rounded Dark / Textured (Sedulous ApplyTheme).
+    // Theme button above the tabs - cycles Dark / Light / Rounded Dark / Textured / Breeze (Sedulous ApplyTheme).
     {
         m_themeBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Theme: Dark"));
         UISandbox* self = this;
-        m_themeBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [self](ui::ButtonBase*) { self->m_themeIndex = (self->m_themeIndex + 1) % 4; self->ApplyTheme(); } });
+        m_themeBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [self](ui::ButtonBase*) { self->m_themeIndex = (self->m_themeIndex + 1) % 5; self->ApplyTheme(); } });
         m_main->AddView(m_themeBtn.Get(), LP(ui::SizeSpec::Wrap(), ui::SizeSpec::Fixed(ui::Unit::Px(34))));
     }
 
@@ -617,17 +619,56 @@ void UISandbox::ApplyTheme()
     case 0:  m_sheet = ui::DarkTheme::Create(); break;
     case 1:  m_sheet = ui::LightTheme::Create(); break;
     case 2:  m_sheet = ui::RoundedDarkTheme::Create(); break;
-    default: m_sheet = CreateTexturedTheme(); break;
+    case 3:  m_sheet = CreateTexturedTheme(); break;
+    default: m_sheet = LoadSSSTheme(u8"themes/breeze.sss", ui::ThemePalette::Dark()); break;
     }
     m_ctx.SetStyleSheet(m_sheet);
 
     if (m_themeBtn)
     {
-        static const char8_t* const kNames[4] = { u8"Dark", u8"Light", u8"Rounded Dark", u8"Textured" };
+        static const char8_t* const kNames[5] = { u8"Dark", u8"Light", u8"Rounded Dark", u8"Textured", u8"Breeze (.sss)" };
         String label(u8"Theme: ");
         label += kNames[m_themeIndex];
         m_themeBtn->SetText(label.AsView());
     }
+}
+
+// Load a .sss theme file through the VFS-backed resource provider (mirrors Sedulous LoadSSSTheme): a
+// StyleSheetLoader with the provider + palette + the built-in SVG icons registered, fed the .sss text.
+// Falls back to DarkTheme if the file can't be read.
+// Create the VFS-backed resource provider once, rooted at <assets>/ui (shared by the .sss theme loader
+// and the pause-menu .sml tab). No-op if already created or if no asset dir was compiled in.
+void UISandbox::EnsureResourceProvider()
+{
+    if (m_resProvider) { return; }
+    const StringView assetDir(reinterpret_cast<const utf8char*>(DRACONIC_UI_ASSET_DIR));
+    if (assetDir.IsEmpty()) { return; }
+    String uiRoot(assetDir);
+    uiRoot += u8"/ui";
+    m_uiFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), uiRoot.AsView());
+    m_resProvider = MakeUnique<uivfs::VfsResourceProvider>(DefaultAllocator(), m_uiFs.Get());
+}
+
+RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette palette)
+{
+    EnsureResourceProvider();
+    if (!m_resProvider) { return ui::DarkTheme::Create(); }
+
+    ui::StyleSheetLoader loader;
+    loader.ResourceProvider = m_resProvider.Get();
+    loader.SetPalette(palette);
+    loader.RegisterSvg(u8"checkmark", ui::ThemeIcons::Checkmark());
+    loader.RegisterSvg(u8"radio-mark-square", ui::ThemeIcons::RadioMarkSquare());
+    loader.RegisterSvg(u8"radio-mark-round", ui::ThemeIcons::RadioMarkRound());
+    loader.RegisterSvg(u8"close", ui::ThemeIcons::Close());
+    loader.RegisterSvg(u8"chevron-down", ui::ThemeIcons::ChevronDown());
+    loader.RegisterSvg(u8"chevron-right", ui::ThemeIcons::ChevronRight());
+    loader.RegisterSvg(u8"arrow-down", ui::ThemeIcons::ArrowDown());
+    loader.RegisterSvg(u8"arrow-up", ui::ThemeIcons::ArrowUp());
+
+    String sss;
+    if (!m_resProvider->LoadText(path, sss) || sss.IsEmpty()) { return ui::DarkTheme::Create(); }
+    return loader.Load(sss.AsView());
 }
 
 // Build a fully image-skinned StyleSheet from procedurally generated rounded-rect images (faithful port
@@ -764,11 +805,8 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
 
     // Populate the markup element/property registry (idempotent) so the loader can build the .sml tree.
     ui::MarkupLoader::Initialize();
-
-    String uiRoot(assetDir);
-    uiRoot += u8"/ui";
-    m_uiFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), uiRoot.AsView());
-    m_resProvider = MakeUnique<uivfs::VfsResourceProvider>(DefaultAllocator(), m_uiFs.Get());
+    EnsureResourceProvider();
+    if (!m_resProvider) { return; }
 
     String sml;
     if (!m_resProvider->LoadText(u8"screens/pause-menu.sml", sml) || sml.IsEmpty()) { return; }
