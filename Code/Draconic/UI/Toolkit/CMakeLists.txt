@@ -39,6 +39,8 @@ target_sources(DraconicUIToolkit
             DockZoneIndicator.cppm
             DockSplit.cppm
             Docking.cppm
+            NodeGraphTypes.cppm
+            NodeGraphCanvas.cppm
             ToolkitModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

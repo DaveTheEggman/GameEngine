@@ -20,6 +20,7 @@ add_executable(DraconicUIToolkitTests
     PropertyGridTests.cpp
     CurveCanvasTests.cpp
     DockingTests.cpp
+    NodeGraphTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIToolkitTests PRIVATE

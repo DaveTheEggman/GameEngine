@@ -36,3 +36,5 @@ export import :idockable_window_host;
 export import :dock_zone_indicator;
 export import :dock_split;
 export import :docking;
+export import :node_graph_types;
+export import :node_graph_canvas;
