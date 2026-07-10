@@ -327,6 +327,14 @@ export namespace draconic::ui
             if (!m_inlineSheet) { return; }
             if (StyleRule* rule = m_inlineSheet->FindInlineElementRule()) { if (rule->Remove(prop)) { Invalidate(); } }
         }
+        /// Remove ALL inline overrides (element + part). Drops the whole inline sheet, releasing every rule
+        /// and every drawable those rules held; a fresh sheet is reallocated on the next SetStyle.
+        void ClearInlineStyles()
+        {
+            if (!m_inlineSheet || m_inlineSheet->IsEmpty()) { return; }
+            m_inlineSheet.Reset();
+            Invalidate();
+        }
         /// Inline override for `prop`, or None.
         [[nodiscard]] StyleValue GetInlineStyle(StyleProperty prop) const
         {

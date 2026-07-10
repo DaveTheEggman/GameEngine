@@ -26,6 +26,7 @@ add_executable(DraconicUITests
     EditingTests.cpp
     EditTextTests.cpp
     FontFamilyTests.cpp
+    InlineStyleTests.cpp
     NumericFieldTests.cpp
     EditableLabelTests.cpp
     ScrollViewTests.cpp
