@@ -51,16 +51,21 @@ export namespace draconic::gui
     // background-image; `fontService` (optional) resolves font-family/size. Missing either
     // just skips that property.
     inline void ApplyStyle(UINode& node, const ResolvedStyle& style,
-                           IResourceProvider* resources = nullptr, fonts::IFontService* fontService = nullptr)
+                           IResourceProvider* resources = nullptr, fonts::IFontService* fontService = nullptr,
+                           const LengthContext& lengths = {})
     {
         using core::StringView;
+
+        // The containing dimensions percentages resolve against (the parent's size).
+        core::Float2 percentBase{ 0.0f, 0.0f };
+        if (Node* parent = node.GetParent()) percentBase = parent->GetSize();
 
         if (style.Has(StringView(u8"background-color")))
             if (Optional<Color> c = ParseColor(style.Get(StringView(u8"background-color"))); c.HasValue())
                 node.SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), c.Value()));
 
         if (style.Has(StringView(u8"padding")))
-            if (Optional<Thickness> t = ParseThickness(style.Get(StringView(u8"padding"))); t.HasValue())
+            if (Optional<Thickness> t = ResolveThickness(style.Get(StringView(u8"padding")), lengths); t.HasValue())
                 node.SetPadding(t.Value());
 
         if (style.Has(StringView(u8"opacity")))
@@ -73,17 +78,17 @@ export namespace draconic::gui
             core::Float2 mn = node.GetMinSize();
             bool changedMin = false;
             if (style.Has(StringView(u8"min-width")))
-                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"min-width"))); v.HasValue()) { mn.x = v.Value(); changedMin = true; }
+                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"min-width")), lengths, percentBase.x); v.HasValue()) { mn.x = v.Value(); changedMin = true; }
             if (style.Has(StringView(u8"min-height")))
-                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"min-height"))); v.HasValue()) { mn.y = v.Value(); changedMin = true; }
+                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"min-height")), lengths, percentBase.y); v.HasValue()) { mn.y = v.Value(); changedMin = true; }
             if (changedMin) node.SetMinSize(mn);
 
             core::Float2 mx = node.GetMaxSize();
             bool changedMax = false;
             if (style.Has(StringView(u8"max-width")))
-                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"max-width"))); v.HasValue()) { mx.x = v.Value(); changedMax = true; }
+                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"max-width")), lengths, percentBase.x); v.HasValue()) { mx.x = v.Value(); changedMax = true; }
             if (style.Has(StringView(u8"max-height")))
-                if (Optional<f32> v = ParseLength(style.Get(StringView(u8"max-height"))); v.HasValue()) { mx.y = v.Value(); changedMax = true; }
+                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"max-height")), lengths, percentBase.y); v.HasValue()) { mx.y = v.Value(); changedMax = true; }
             if (changedMax) node.SetMaxSize(mx);
         }
 
@@ -92,9 +97,9 @@ export namespace draconic::gui
             core::Float2 size = node.GetSize();
             bool changed = false;
             if (style.Has(StringView(u8"width")))
-                if (Optional<f32> w = ParseLength(style.Get(StringView(u8"width"))); w.HasValue()) { size.x = w.Value(); changed = true; }
+                if (Optional<f32> w = ResolveLength(style.Get(StringView(u8"width")), lengths, percentBase.x); w.HasValue()) { size.x = w.Value(); changed = true; }
             if (style.Has(StringView(u8"height")))
-                if (Optional<f32> h = ParseLength(style.Get(StringView(u8"height"))); h.HasValue()) { size.y = h.Value(); changed = true; }
+                if (Optional<f32> h = ResolveLength(style.Get(StringView(u8"height")), lengths, percentBase.y); h.HasValue()) { size.y = h.Value(); changed = true; }
             if (changed) node.SetSize(size);
         }
 
@@ -111,7 +116,7 @@ export namespace draconic::gui
 
         if (style.Has(StringView(u8"margin")))
             if (UIWidget* widget = core::Cast<UIWidget>(&node))
-                if (Optional<Thickness> t = ParseThickness(style.Get(StringView(u8"margin"))); t.HasValue())
+                if (Optional<Thickness> t = ResolveThickness(style.Get(StringView(u8"margin")), lengths); t.HasValue())
                     widget->SetMargin(t.Value());
 
         // Text color for text-bearing widgets (Label/TextField/ComboBox/... via the virtual).
@@ -167,7 +172,7 @@ export namespace draconic::gui
                 if (Optional<BorderShorthand> b = ParseBorder(style.Get(StringView(u8"border"))); b.HasValue())
                 { borderWidth = b.Value().Width; borderColor = b.Value().LineColor; }
             if (style.Has(StringView(u8"border-width")))
-                if (Optional<f32> w = ParseLength(style.Get(StringView(u8"border-width"))); w.HasValue()) borderWidth = w.Value();
+                if (Optional<f32> w = ResolveLength(style.Get(StringView(u8"border-width")), lengths); w.HasValue()) borderWidth = w.Value();
             if (style.Has(StringView(u8"border-color")))
                 if (Optional<Color> c = ParseColor(style.Get(StringView(u8"border-color"))); c.HasValue()) borderColor = c.Value();
 
@@ -185,7 +190,7 @@ export namespace draconic::gui
         if (fontService != nullptr && style.Has(StringView(u8"font-family")))
         {
             const StringView family = ParseUrl(style.Get(StringView(u8"font-family"))); // strips quotes
-            const f32 size = ParseLength(style.Get(StringView(u8"font-size"), StringView(u8"16"))).ValueOr(16.0f);
+            const f32 size = ResolveLength(style.Get(StringView(u8"font-size"), StringView(u8"16")), lengths).ValueOr(16.0f);
             if (family.Size() != 0 && size > 0.0f)
                 if (fonts::CachedFont* font = fontService->GetFont(family, size))
                     node.SetThemeFont(font);

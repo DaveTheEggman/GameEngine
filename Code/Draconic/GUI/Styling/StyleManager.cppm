@@ -47,6 +47,10 @@ export namespace draconic::gui
         void SetMediaContext(const MediaContext& context) { m_context = context; }
         [[nodiscard]] const MediaContext& GetMediaContext() const noexcept { return m_context; }
 
+        // Root font size for CSS `rem` units (default 16px).
+        void SetRootFontSize(f32 pixels) noexcept { m_rootFontSize = pixels; }
+        [[nodiscard]] f32 GetRootFontSize() const noexcept { return m_rootFontSize; }
+
         // Loads background-image assets referenced by the sheet. Null = background-image skipped.
         void SetResourceProvider(IResourceProvider* resources) noexcept { m_resources = resources; }
         [[nodiscard]] IResourceProvider* GetResourceProvider() const noexcept { return m_resources; }
@@ -60,10 +64,20 @@ export namespace draconic::gui
         void ApplyTo(UIWidget& widget)
         {
             ResolvedStyle resolved = m_sheet.Resolve(widget, m_context);
+
+            // Build the length-resolution context: viewport from the media context, root font
+            // size configurable, element font size from this widget's resolved font-size (for em).
+            LengthContext lengths;
+            lengths.RootFontSize = m_rootFontSize;
+            lengths.ViewportWidth = m_context.Width;
+            lengths.ViewportHeight = m_context.Height;
+            lengths.ElementFontSize = ParseLength(resolved.Get(core::StringView(u8"font-size"),
+                core::StringView(u8""))).ValueOr(m_rootFontSize);
+
             if (const ResolvedStyle* previous = m_cache.Find(&widget))
-                ApplyStyleAnimated(widget, *previous, resolved, m_resources, m_fontService);
+                ApplyStyleAnimated(widget, *previous, resolved, m_resources, m_fontService, lengths);
             else
-                ApplyStyle(widget, resolved, m_resources, m_fontService);
+                ApplyStyle(widget, resolved, m_resources, m_fontService, lengths);
             m_cache.InsertOrAssign(&widget, core::Move(resolved));
 
             // Pseudo-element parts (tag::part): resolve + apply each part the widget declares.
@@ -184,6 +198,7 @@ export namespace draconic::gui
         MediaContext m_context;
         IResourceProvider* m_resources = nullptr;    // non-owning; loads background-image assets
         fonts::IFontService* m_fontService = nullptr; // non-owning; resolves font-family
+        f32 m_rootFontSize = 16.0f;            // CSS `rem` base
         HashMap<Node*, ResolvedStyle> m_cache; // last-applied style per widget (non-owning keys)
         HashMap<Node*, core::String> m_animations; // widget -> running @keyframes animation name
     };

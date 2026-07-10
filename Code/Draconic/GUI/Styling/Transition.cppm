@@ -83,11 +83,12 @@ export namespace draconic::gui
     // Apply `newStyle` to the node, animating any transitioned property from its `oldStyle`
     // value. Non-transitioned properties (and any property with no running coordinator) snap.
     inline void ApplyStyleAnimated(UINode& node, const ResolvedStyle& oldStyle, const ResolvedStyle& newStyle,
-                                   IResourceProvider* resources = nullptr, fonts::IFontService* fontService = nullptr)
+                                   IResourceProvider* resources = nullptr, fonts::IFontService* fontService = nullptr,
+                                   const LengthContext& lengths = {})
     {
         // Apply everything first (this also sets the final opacity); a spawned FadeAction then
         // rewinds opacity to its old value on Start() and animates back to the applied value.
-        ApplyStyle(node, newStyle, resources, fontService);
+        ApplyStyle(node, newStyle, resources, fontService, lengths);
 
         const Array<TransitionDefinition> transitions = ParseTransitions(newStyle.Get(core::StringView(u8"transition")));
         if (const TransitionDefinition* opacity = FindTransition(transitions, core::StringView(u8"opacity")))

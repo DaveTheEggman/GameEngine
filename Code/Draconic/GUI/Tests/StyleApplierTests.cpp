@@ -214,3 +214,44 @@ TEST_CASE("style-applier: border-color / border-width overrides without the shor
     CHECK(border->GetWidth() == doctest::Approx(4.0f));
     CHECK(border->GetColor().b == doctest::Approx(1.0f));
 }
+
+TEST_CASE("css-values: ParseLengthValue recognizes units")
+{
+    CHECK(ParseLengthValue(SV(u8"12")).Value().Unit == LengthUnit::Px);
+    CHECK(ParseLengthValue(SV(u8"12px")).Value().Value == doctest::Approx(12.0f));
+    CHECK(ParseLengthValue(SV(u8"1.5rem")).Value().Unit == LengthUnit::Rem);
+    CHECK(ParseLengthValue(SV(u8"2em")).Value().Unit == LengthUnit::Em);
+    CHECK(ParseLengthValue(SV(u8"50vw")).Value().Unit == LengthUnit::Vw);
+    CHECK(ParseLengthValue(SV(u8"80vh")).Value().Unit == LengthUnit::Vh);
+    CHECK(ParseLengthValue(SV(u8"25%")).Value().Unit == LengthUnit::Percent);
+    CHECK_FALSE(ParseLengthValue(SV(u8"10pt")).HasValue()); // unknown unit
+}
+
+TEST_CASE("css-values: ResolveLength resolves units against a context")
+{
+    LengthContext ctx;
+    ctx.RootFontSize = 10.0f;
+    ctx.ElementFontSize = 20.0f;
+    ctx.ViewportWidth = 1000.0f;
+    ctx.ViewportHeight = 400.0f;
+
+    CHECK(ResolveLength(SV(u8"3rem"), ctx).Value() == doctest::Approx(30.0f));  // 3 * root(10)
+    CHECK(ResolveLength(SV(u8"2em"), ctx).Value() == doctest::Approx(40.0f));   // 2 * elem(20)
+    CHECK(ResolveLength(SV(u8"50vw"), ctx).Value() == doctest::Approx(500.0f)); // 50% of 1000
+    CHECK(ResolveLength(SV(u8"25vh"), ctx).Value() == doctest::Approx(100.0f)); // 25% of 400
+    CHECK(ResolveLength(SV(u8"50%"), ctx, /*percentBase*/ 200.0f).Value() == doctest::Approx(100.0f));
+    CHECK(ResolveLength(SV(u8"12"), ctx).Value() == doctest::Approx(12.0f));    // px passthrough
+}
+
+TEST_CASE("style-applier: width/height resolve rem and vh via the length context")
+{
+    StyleSheet sheet = CSSParser::Parse(SV(u8"box { width: 2rem; height: 50vh; }"));
+    auto w = Widget(u8"box");
+    LengthContext ctx;
+    ctx.RootFontSize = 10.0f;   // 2rem -> 20
+    ctx.ViewportHeight = 200.0f; // 50vh -> 100
+    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false),
+               nullptr, nullptr, ctx);
+    CHECK(w->GetSize().x == doctest::Approx(20.0f));
+    CHECK(w->GetSize().y == doctest::Approx(100.0f));
+}

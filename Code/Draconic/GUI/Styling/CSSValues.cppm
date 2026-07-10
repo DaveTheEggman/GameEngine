@@ -45,6 +45,70 @@ export namespace draconic::gui
         return static_cast<f32>(sign * (whole + frac / scale));
     }
 
+    // === Length units (px / em / rem / vw / vh / %) ===
+    enum class LengthUnit { Px, Em, Rem, Vw, Vh, Percent };
+
+    struct LengthValue { f32 Value = 0.0f; LengthUnit Unit = LengthUnit::Px; };
+
+    // Resolution context: root/element font sizes (for rem/em) and the viewport (for vw/vh).
+    struct LengthContext
+    {
+        f32 RootFontSize = 16.0f;
+        f32 ElementFontSize = 16.0f;
+        f32 ViewportWidth = 0.0f;
+        f32 ViewportHeight = 0.0f;
+    };
+
+    // Parse a number with an optional unit suffix: "12", "12px", "1.5rem", "2em", "50vw",
+    // "80vh", "50%". Unitless is treated as px. An unrecognized unit yields nothing.
+    [[nodiscard]] inline Optional<LengthValue> ParseLengthValue(core::StringView value)
+    {
+        const core::StringView s = Trim(value);
+        if (s.Size() == 0) return {};
+        usize i = 0;
+        if (s[i] == u8'+' || s[i] == u8'-') ++i;
+        while (i < s.Size() && IsDigit(s[i])) ++i;
+        if (i < s.Size() && s[i] == u8'.') { ++i; while (i < s.Size() && IsDigit(s[i])) ++i; }
+
+        const Optional<f32> num = ParseLength(s.SubStr(0, i));
+        if (!num.HasValue()) return {};
+
+        const core::StringView suffix = Trim(s.SubStr(i, s.Size() - i));
+        LengthUnit unit = LengthUnit::Px;
+        if (suffix.Size() == 0 || suffix == core::StringView(u8"px")) unit = LengthUnit::Px;
+        else if (suffix == core::StringView(u8"rem")) unit = LengthUnit::Rem;
+        else if (suffix == core::StringView(u8"em"))  unit = LengthUnit::Em;
+        else if (suffix == core::StringView(u8"vw"))  unit = LengthUnit::Vw;
+        else if (suffix == core::StringView(u8"vh"))  unit = LengthUnit::Vh;
+        else if (suffix == core::StringView(u8"%"))   unit = LengthUnit::Percent;
+        else return {};
+        return LengthValue{ num.Value(), unit };
+    }
+
+    // Resolve a length to pixels. `percentBase` is the value 100% maps to (the caller supplies
+    // the relevant containing dimension); 0 if unknown.
+    [[nodiscard]] inline f32 ResolveLengthValue(LengthValue lv, const LengthContext& ctx, f32 percentBase = 0.0f)
+    {
+        switch (lv.Unit)
+        {
+        case LengthUnit::Px:      return lv.Value;
+        case LengthUnit::Em:      return lv.Value * ctx.ElementFontSize;
+        case LengthUnit::Rem:     return lv.Value * ctx.RootFontSize;
+        case LengthUnit::Vw:      return lv.Value * ctx.ViewportWidth / 100.0f;
+        case LengthUnit::Vh:      return lv.Value * ctx.ViewportHeight / 100.0f;
+        case LengthUnit::Percent: return lv.Value * percentBase / 100.0f;
+        }
+        return lv.Value;
+    }
+
+    // Parse + resolve a length string to pixels.
+    [[nodiscard]] inline Optional<f32> ResolveLength(core::StringView value, const LengthContext& ctx, f32 percentBase = 0.0f)
+    {
+        const Optional<LengthValue> lv = ParseLengthValue(value);
+        if (!lv.HasValue()) return {};
+        return ResolveLengthValue(lv.Value(), ctx, percentBase);
+    }
+
     [[nodiscard]] inline Optional<bool> ParseBool(core::StringView value)
     {
         const core::StringView s = Trim(value);
@@ -202,6 +266,38 @@ export namespace draconic::gui
         }
         if (!any) return {};
         return out;
+    }
+
+    // Like ParseThickness, but each component is unit-resolved against `ctx` (no % support -
+    // padding/margin percentages are a follow-up needing the containing block).
+    [[nodiscard]] inline Optional<Thickness> ResolveThickness(core::StringView value, const LengthContext& ctx)
+    {
+        f32 parts[4];
+        usize count = 0, start = 0;
+        const core::StringView s = Trim(value);
+        for (usize i = 0; i <= s.Size(); ++i)
+        {
+            const bool boundary = (i == s.Size()) || IsWhiteSpace(s[i]);
+            if (boundary)
+            {
+                if (i > start)
+                {
+                    if (count == 4) return {};
+                    const Optional<f32> v = ResolveLength(s.SubStr(start, i - start), ctx);
+                    if (!v.HasValue()) return {};
+                    parts[count++] = v.Value();
+                }
+                start = i + 1;
+            }
+        }
+        if (count == 0) return {};
+
+        f32 top, right, bottom, left;
+        if (count == 1) { top = right = bottom = left = parts[0]; }
+        else if (count == 2) { top = bottom = parts[0]; right = left = parts[1]; }
+        else if (count == 3) { top = parts[0]; right = left = parts[1]; bottom = parts[2]; }
+        else { top = parts[0]; right = parts[1]; bottom = parts[2]; left = parts[3]; }
+        return Thickness{ left, top, right, bottom };
     }
 
     // A small named-color set (core has only White/Black/Red/Green/Blue/Transparent).
