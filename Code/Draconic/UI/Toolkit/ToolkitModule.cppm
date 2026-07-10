@@ -38,3 +38,4 @@ export import :dock_split;
 export import :docking;
 export import :node_graph_types;
 export import :node_graph_canvas;
+export import :draggable_tree_view;

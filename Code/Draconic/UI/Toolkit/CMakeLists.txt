@@ -41,6 +41,7 @@ target_sources(DraconicUIToolkit
             Docking.cppm
             NodeGraphTypes.cppm
             NodeGraphCanvas.cppm
+            DraggableTreeView.cppm
             ToolkitModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
