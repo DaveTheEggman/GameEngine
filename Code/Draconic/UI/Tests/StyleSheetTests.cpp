@@ -1,25 +1,32 @@
-// Ported from Sedulous.UI.Tests/src/StyleSheetTests.bf - the PURE-DATA subset (StyleValue accessors,
-// StyleRule fluent + string lifecycle, StyleSelector specificity, ForAll empty-selector). The
-// integration cases (Resolve_*/Specificity_* cascade/Inheritance_*/RefCounted_*/Palette_*) drive
-// View.ResolveStyle + the ViewGroup/RootView/UIContext tree and are DEFERRED until that cluster lands.
+// Ported from Sedulous.UI.Tests/src/StyleSheetTests.bf (faithful, full file). Pure-data cases (StyleValue
+// accessors, StyleRule fluent + string lifecycle, StyleSelector specificity, ForAll empty-selector) plus
+// the integration cases (Resolve_*/Specificity cascade/Inheritance_*/RefCounted_*/TypeMatch/ForAll rules)
+// that drive View.ResolveStyle over the UIContext/RootView/TestGroup tree - now that that cluster + the
+// TestHelpers doubles exist. Beef `SetupSheet(ctx)` (`ctx.StyleSheet = new; ReleaseRef`) -> a RefPtr held
+// by ctx via SetStyleSheet (helper returns a borrowed ptr for adding rules); `view.IsEnabled = false`
+// sets the field; `=== drawable` -> pointer ==.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
+#include "TestHelpers.h"
 
 using namespace draconic::ui;
+using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
 namespace
 {
-    // Minimal concrete View for type/selector tests (grows into the ported TestHelpers later).
-    class TestView : public View
+    // Create a StyleSheet owned by ctx; returns a borrowed pointer for the test to add rules to.
+    StyleSheet* SetupSheet(UIContext& ctx)
     {
-        DRACONIC_OBJECT(TestView, View)
-    };
-    DRACONIC_DEFINE_OBJECT(TestView, "draconic::ui::tests")
+        auto sheet = core::MakeRef<StyleSheet>(core::DefaultAllocator());
+        StyleSheet* raw = sheet.Get();
+        ctx.SetStyleSheet(Move(sheet));
+        return raw;
+    }
 }
 
 // === StyleValue accessors ===
@@ -195,4 +202,294 @@ TEST_CASE("stylesheet: ForAll_HasEmptySelector_SpecificityZero")
     CHECK(rule.Selector.IsEmpty());
     CHECK(rule.Selector.Specificity() == 0);
     CHECK(sheet->RuleCount() == 1u);
+}
+
+// ===========================================================================================
+// Integration cases (View.ResolveStyle over the UIContext/RootView/TestGroup tree). Ported from
+// Sedulous.UI.Tests/src/StyleSheetTests.bf now that the View cluster + TestHelpers doubles exist.
+// ===========================================================================================
+
+namespace
+{
+    [[nodiscard]] Color Rgb(f32 r, f32 g, f32 b, f32 a = 255.0f) { return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f }; }
+}
+
+TEST_CASE("stylesheet: Resolve_NoSheet_ReturnsNone")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK_FALSE(view->ResolveStyle(StyleProperty::Background).AsDrawable() != nullptr);
+    CHECK(view->ResolveStyleDrawable(StyleProperty::Background) == nullptr);
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor, Color::White) == Color::White);
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize, 14.0f) == 14.0f);
+}
+
+TEST_CASE("stylesheet: Resolve_TypeMatch")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(255, 0, 0));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    const Color color = view->ResolveStyleColor(StyleProperty::TextColor, Color::White);
+    CHECK((color.r == 1.0f && color.g == 0.0f && color.b == 0.0f));
+}
+
+TEST_CASE("stylesheet: Resolve_TypeMismatch_ReturnsDefault")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestGroup::StaticType()).Set(StyleProperty::TextColor, Rgb(255, 0, 0));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor, Color::White) == Color::White);
+}
+
+TEST_CASE("stylesheet: Resolve_ClassMatch")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForClass(u8"primary").Set(StyleProperty::FontSize, 24.0f);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); view->AddClass(u8"primary"); root->AddView(view.Get());
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize, 14.0f) == 24.0f);
+}
+
+TEST_CASE("stylesheet: Resolve_ClassMismatch_ReturnsDefault")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForClass(u8"primary").Set(StyleProperty::FontSize, 24.0f);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); view->AddClass(u8"secondary"); root->AddView(view.Get());
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize, 14.0f) == 14.0f);
+}
+
+TEST_CASE("stylesheet: Resolve_ClassIsCaseSensitive")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForClass(u8"Primary").Set(StyleProperty::FontSize, 24.0f);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); view->AddClass(u8"primary"); root->AddView(view.Get());
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize, 14.0f) == 14.0f);
+}
+
+TEST_CASE("stylesheet: Specificity_ClassBeatsType")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontSize, 10.0f);
+    sheet->ForClass(u8"big").Set(StyleProperty::FontSize, 30.0f);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); view->AddClass(u8"big"); root->AddView(view.Get());
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize) == 30.0f);
+}
+
+TEST_CASE("stylesheet: Specificity_TypePlusStateBeatsType")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(100, 100, 100));
+    sheet->ForTypeState(&TestView::StaticType(), ControlState::Disabled).Set(StyleProperty::TextColor, Rgb(50, 50, 50));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); view->IsEnabled = false; root->AddView(view.Get());
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == doctest::Approx(50 / 255.0f));
+}
+
+TEST_CASE("stylesheet: Specificity_ClassPlusStateBeatsClass")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForClass(u8"btn").Set(StyleProperty::FontSize, 14.0f);
+    sheet->ForTypeClassState(&TestView::StaticType(), u8"btn", ControlState::Disabled).Set(StyleProperty::FontSize, 12.0f);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); view->AddClass(u8"btn"); view->IsEnabled = false; root->AddView(view.Get());
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize) == 12.0f);
+}
+
+TEST_CASE("stylesheet: Specificity_StateOnlyMatchesCurrentState")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForTypeState(&TestView::StaticType(), ControlState::Hover).Set(StyleProperty::TextColor, Rgb(0, 255, 0));
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(200, 200, 200));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == doctest::Approx(200 / 255.0f));
+}
+
+TEST_CASE("stylesheet: Resolve_Drawable")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    RefPtr<Drawable> drawable = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), Rgb(60, 60, 60));
+    sheet->OwnDrawable(drawable);
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::Background, drawable);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyleDrawable(StyleProperty::Background) == drawable.Get());
+}
+
+TEST_CASE("stylesheet: Resolve_StateListDrawable")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    RefPtr<Drawable> sl = Palette::CreateStateColors(Rgb(60, 60, 60));
+    sheet->OwnDrawable(sl);
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::Background, sl);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyleDrawable(StyleProperty::Background) == sl.Get());
+}
+
+TEST_CASE("stylesheet: Resolve_Thickness")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::Padding, Thickness(8, 4));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    const Thickness pad = view->ResolveStyleThickness(StyleProperty::Padding);
+    CHECK((pad.Left == 8 && pad.Top == 4 && pad.Right == 8 && pad.Bottom == 4));
+}
+
+TEST_CASE("stylesheet: Resolve_Bool")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::WordWrap, true);
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    Optional<bool> b = view->ResolveStyle(StyleProperty::WordWrap).AsBool();
+    REQUIRE(b.HasValue());
+    CHECK(b.Value() == true);
+}
+
+TEST_CASE("stylesheet: Inheritance_TextColorInheritsFromParent")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestGroup::StaticType()).Set(StyleProperty::TextColor, Rgb(255, 100, 0));
+    auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
+    auto child = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(group.Get()); group->AddView(child.Get());
+    const Color color = child->ResolveStyleColor(StyleProperty::TextColor, Color::White);
+    CHECK(color.r == 1.0f);
+    CHECK(color.g == doctest::Approx(100 / 255.0f));
+    CHECK(color.b == 0.0f);
+}
+
+TEST_CASE("stylesheet: Inheritance_FontSizeInheritsFromParent")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestGroup::StaticType()).Set(StyleProperty::FontSize, 20.0f);
+    auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
+    auto child = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(group.Get()); group->AddView(child.Get());
+    CHECK(child->ResolveStyleFloat(StyleProperty::FontSize) == 20.0f);
+}
+
+TEST_CASE("stylesheet: Inheritance_ChildOverridesParent")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestGroup::StaticType()).Set(StyleProperty::TextColor, Rgb(255, 0, 0));
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(0, 0, 255));
+    auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
+    auto child = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(group.Get()); group->AddView(child.Get());
+    const Color color = child->ResolveStyleColor(StyleProperty::TextColor);
+    CHECK((color.b == 1.0f && color.r == 0.0f));
+}
+
+TEST_CASE("stylesheet: Inheritance_BackgroundDoesNotInherit")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    RefPtr<Drawable> drawable = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), Color::Red);
+    sheet->OwnDrawable(drawable);
+    sheet->ForType(&TestGroup::StaticType()).Set(StyleProperty::Background, drawable);
+    auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
+    auto child = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(group.Get()); group->AddView(child.Get());
+    CHECK(child->ResolveStyleDrawable(StyleProperty::Background) == nullptr);
+}
+
+TEST_CASE("stylesheet: Inheritance_PaddingDoesNotInherit")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestGroup::StaticType()).Set(StyleProperty::Padding, Thickness(20));
+    auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
+    auto child = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(group.Get()); group->AddView(child.Get());
+    CHECK(child->ResolveStyleThickness(StyleProperty::Padding).IsZero());
+}
+
+TEST_CASE("stylesheet: TypeMatch_IncludesSubtypes")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&View::StaticType()).Set(StyleProperty::TextColor, Rgb(128, 128, 128));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == doctest::Approx(128 / 255.0f));
+}
+
+TEST_CASE("stylesheet: Rule_MultipleProperties")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForType(&TestView::StaticType())
+        .Set(StyleProperty::TextColor, Rgb(200, 200, 200))
+        .Set(StyleProperty::FontSize, 16.0f)
+        .Set(StyleProperty::Padding, Thickness(8));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == doctest::Approx(200 / 255.0f));
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize) == 16.0f);
+    CHECK(view->ResolveStyleThickness(StyleProperty::Padding).Left == 8);
+}
+
+TEST_CASE("stylesheet: RefCounted_SharedBetweenContexts")
+{
+    RefPtr<StyleSheet> sheet = core::MakeRef<StyleSheet>(core::DefaultAllocator());
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontSize, 18.0f);
+
+    UIContext ctx1; auto root1 = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx1, root1.Get());
+    ctx1.SetStyleSheet(sheet);
+    UIContext ctx2; auto root2 = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx2, root2.Get());
+    ctx2.SetStyleSheet(sheet);
+
+    auto view1 = core::MakeRef<TestView>(core::DefaultAllocator()); root1->AddView(view1.Get());
+    auto view2 = core::MakeRef<TestView>(core::DefaultAllocator()); root2->AddView(view2.Get());
+    CHECK(view1->ResolveStyleFloat(StyleProperty::FontSize) == 18.0f);
+    CHECK(view2->ResolveStyleFloat(StyleProperty::FontSize) == 18.0f);
+
+    sheet.Reset(); // drop the creation ref; both contexts still hold their own
+    CHECK(view1->ResolveStyleFloat(StyleProperty::FontSize) == 18.0f);
+}
+
+TEST_CASE("stylesheet: RefCounted_ReplacingSheetReleasesOld")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    RefPtr<StyleSheet> sheet1 = core::MakeRef<StyleSheet>(core::DefaultAllocator());
+    sheet1->ForType(&TestView::StaticType()).Set(StyleProperty::FontSize, 10.0f);
+    RefPtr<StyleSheet> sheet2 = core::MakeRef<StyleSheet>(core::DefaultAllocator());
+    sheet2->ForType(&TestView::StaticType()).Set(StyleProperty::FontSize, 20.0f);
+
+    ctx.SetStyleSheet(sheet1);
+    ctx.SetStyleSheet(sheet2); // replaces sheet1 (its ctx ref released)
+
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyleFloat(StyleProperty::FontSize) == 20.0f);
+}
+
+TEST_CASE("stylesheet: ForAll_RuleMatchesEveryView")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForAll().Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+    auto testView = core::MakeRef<TestView>(core::DefaultAllocator());
+    auto testGroup = core::MakeRef<TestGroup>(core::DefaultAllocator());
+    root->AddView(testGroup.Get()); testGroup->AddView(testView.Get());
+    CHECK(testView->ResolveStyle(StyleProperty::FontFamily).AsString().Value() == StringView(u8"JungleAdventurer"));
+    CHECK(testGroup->ResolveStyle(StyleProperty::FontFamily).AsString().Value() == StringView(u8"JungleAdventurer"));
+}
+
+TEST_CASE("stylesheet: ForAll_LosesSpecificityToTypedRule")
+{
+    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    StyleSheet* sheet = SetupSheet(ctx);
+    sheet->ForAll().Set(StyleProperty::FontFamily, StringView(u8"ForAllFamily"));
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView(u8"TestViewFamily"));
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    CHECK(view->ResolveStyle(StyleProperty::FontFamily).AsString().Value() == StringView(u8"TestViewFamily"));
 }
