@@ -1864,6 +1864,8 @@ void UISandbox::OnUpdate(runtime::IApplicationHost&, f32 dt)
     // Hold-to-repeat: tick the RepeatButton each frame (mirrors Sedulous UISandbox).
     if (m_repeatBtn) { m_repeatBtn->UpdateRepeat(dt); }
     if (m_uiHost) { m_uiHost->Update(dt); }
+    // Drag-follow: move a dragged floating dock window to track the desktop cursor.
+    if (m_dockHost) { m_dockHost->Tick(); }
 }
 
 void UISandbox::OnRenderWindow(runtime::IApplicationHost&, graphics::FrameContext& frame)

@@ -14,6 +14,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"   // Cast<DockPanelDragData> for the drag-follow
 
 export module draconic.ui.application;
 
@@ -157,6 +158,52 @@ export namespace draconic::ui::application
             globalY = 0.0f;
         }
 
+        /// Per-frame drag-follow for floating OS windows: while a dock-panel drag from one of our OS
+        /// windows is active, move that window so the grab point stays under the desktop-global cursor.
+        /// Borderless floats have no WM title bar to drag, and the DockManager delegates OS-window movement
+        /// to the app (its OnDragOver is a no-op for IsOSWindow), so - like Sedulous's editor - we move it
+        /// here. Call once per frame from the app's OnUpdate.
+        void Tick()
+        {
+            DragDropManager* dd = m_uiHost->Context().DragDrop();
+            if (dd == nullptr) { return; }
+
+            if (!dd->IsDragging())
+            {
+                m_dragWindow = nullptr;   // drag ended (or none active)
+                return;
+            }
+
+            // Latch the dragged OS window + grab offset once, when the drag begins. Offset = how far the
+            // cursor sits from the window's top-left at grab (in global coords); keeping it fixed pins the
+            // grab point to the window as it follows.
+            if (m_dragWindow == nullptr)
+            {
+                if (auto* pd = Cast<toolkit::DockPanelDragData>(dd->CurrentDragData()))
+                {
+                    if (pd->SourceWindow != nullptr)
+                    {
+                        if (Entry* e = Find(pd->SourceWindow))
+                        {
+                            f32 gx = 0.0f, gy = 0.0f;
+                            GetGlobalMousePosition(gx, gy);
+                            m_dragWindow = e->rw;
+                            m_dragOffX = gx - static_cast<f32>(e->rw->Window().X());
+                            m_dragOffY = gy - static_cast<f32>(e->rw->Window().Y());
+                        }
+                    }
+                }
+            }
+
+            if (m_dragWindow != nullptr)
+            {
+                f32 gx = 0.0f, gy = 0.0f;
+                GetGlobalMousePosition(gx, gy);
+                m_dragWindow->Window().SetPosition(static_cast<i32>(gx - m_dragOffX),
+                                                   static_cast<i32>(gy - m_dragOffY));   // atomic, global coords
+            }
+        }
+
     private:
         struct Entry
         {
@@ -188,5 +235,10 @@ export namespace draconic::ui::application
         rtc::IApplicationHost* m_host;    // borrowed
         uirt::UIHost*              m_uiHost;  // borrowed (the app owns it)
         core::Array<Entry>         m_entries;
+
+        // Drag-follow state (Tick): the OS window currently being dragged + the grab offset.
+        graphics::RenderWindow* m_dragWindow = nullptr;
+        f32 m_dragOffX = 0.0f;
+        f32 m_dragOffY = 0.0f;
     };
 }
