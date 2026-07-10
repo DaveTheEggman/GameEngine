@@ -36,7 +36,7 @@ export namespace draconic::gui
             return m_rows[row][column];
         }
 
-        [[nodiscard]] usize RowCount() const override { return m_rows.Size(); }
+        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override { return parent.IsValid() ? 0 : m_rows.Size(); }
         [[nodiscard]] usize ColumnCount() const override { return m_columns.Size(); }
         [[nodiscard]] core::String ColumnName(usize column) const override
         {

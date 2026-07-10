@@ -75,7 +75,7 @@ export namespace draconic::gui
         // The source changed: re-sort and notify our own views.
         void OnModelUpdated() override { Rebuild(); DidUpdate(); }
 
-        [[nodiscard]] usize RowCount() const override { return m_rowMap.Size(); }
+        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override { return parent.IsValid() ? 0 : m_rowMap.Size(); }
         [[nodiscard]] usize ColumnCount() const override { return m_source != nullptr ? m_source->ColumnCount() : 0; }
         [[nodiscard]] core::String ColumnName(usize column) const override { return m_source != nullptr ? m_source->ColumnName(column) : core::String{}; }
         [[nodiscard]] Variant Data(const ModelIndex& index, ModelRole role = ModelRole::Display) const override

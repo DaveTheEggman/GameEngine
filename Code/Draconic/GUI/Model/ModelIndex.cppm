@@ -21,15 +21,19 @@ export namespace draconic::gui
 
     struct ModelIndex
     {
-        i32 Row = -1;      // -1 = invalid
+        i32 Row = -1;          // -1 = invalid
         i32 Column = 0;
+        i64 InternalId = -1;   // opaque node identity a tree model uses to locate the node
 
         [[nodiscard]] bool IsValid() const noexcept { return Row >= 0 && Column >= 0; }
         [[nodiscard]] bool operator==(const ModelIndex& other) const noexcept
         {
-            return Row == other.Row && Column == other.Column;
+            return Row == other.Row && Column == other.Column && InternalId == other.InternalId;
         }
     };
 
-    [[nodiscard]] inline ModelIndex MakeModelIndex(i32 row, i32 column = 0) noexcept { return ModelIndex{ row, column }; }
+    [[nodiscard]] inline ModelIndex MakeModelIndex(i32 row, i32 column = 0, i64 internalId = -1) noexcept
+    {
+        return ModelIndex{ row, column, internalId };
+    }
 }

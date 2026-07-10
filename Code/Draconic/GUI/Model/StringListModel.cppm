@@ -34,7 +34,7 @@ export namespace draconic::gui
             return row < m_items.Size() ? m_items[row].AsView() : core::StringView{};
         }
 
-        [[nodiscard]] usize RowCount() const override { return m_items.Size(); }
+        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override { return parent.IsValid() ? 0 : m_items.Size(); }
         [[nodiscard]] usize ColumnCount() const override { return 1; }
         [[nodiscard]] Variant Data(const ModelIndex& index, ModelRole role = ModelRole::Display) const override
         {

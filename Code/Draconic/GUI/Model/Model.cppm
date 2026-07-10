@@ -33,13 +33,23 @@ export namespace draconic::gui
     public:
         virtual ~IModel() = default;
 
-        [[nodiscard]] virtual usize RowCount() const = 0;
+        // Number of rows under `parent` (an invalid parent = the top level). Flat models
+        // ignore the parent (they only have a top level).
+        [[nodiscard]] virtual usize RowCount(const ModelIndex& parent = {}) const = 0;
         [[nodiscard]] virtual usize ColumnCount() const = 0;
         [[nodiscard]] virtual core::String ColumnName(usize /*column*/) const { return core::String{}; }
         [[nodiscard]] virtual Variant Data(const ModelIndex& index, ModelRole role = ModelRole::Display) const = 0;
 
         [[nodiscard]] virtual bool IsEditable(const ModelIndex&) const { return false; }
         virtual void SetData(const ModelIndex&, const Variant&) {}
+
+        // === Tree structure (flat defaults; a tree model overrides these) ===
+        // The index of the cell at (row, column) under `parent`.
+        [[nodiscard]] virtual ModelIndex Index(i32 row, i32 column = 0, const ModelIndex& /*parent*/ = {}) const { return MakeModelIndex(row, column); }
+        // The parent of `child` (invalid = a top-level node; flat models have no parents).
+        [[nodiscard]] virtual ModelIndex ParentIndex(const ModelIndex& /*child*/) const { return ModelIndex{}; }
+        // Whether `parent` has any child rows.
+        [[nodiscard]] virtual bool HasChildren(const ModelIndex& parent = {}) const { return RowCount(parent) > 0; }
 
         [[nodiscard]] bool IsValidIndex(const ModelIndex& index) const
         {

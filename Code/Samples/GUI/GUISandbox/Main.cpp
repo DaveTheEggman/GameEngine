@@ -185,6 +185,8 @@ private:
     RefPtr<gui::TableView>    m_tableView;
     UniquePtr<gui::TableModel>       m_tableModel;
     UniquePtr<gui::SortingProxyModel> m_tableProxy;
+    RefPtr<gui::TreeView>     m_treeView;
+    UniquePtr<gui::TreeModel>        m_treeModel;
     RefPtr<gui::Label>        m_pickEcho;
     gui::RadioGroup           m_radioGroup;
     UniquePtr<gui::TooltipManager>   m_tooltips;
@@ -545,6 +547,36 @@ void GUISandbox::BuildUI()
     gui::SortingProxyModel* proxyRef = m_tableProxy.Get();
     m_tableView->SetOnColumnHeaderClicked([proxyRef](usize col) { proxyRef->ToggleSort(col); });
     m_panel->AddChild(m_tableView.Get());
+
+    // A TreeView over a small hierarchical TreeModel - click the arrows (or use arrow keys) to
+    // expand/collapse; only the visible nodes are realized.
+    auto treeCaption = MakeRef<gui::Label>(DefaultAllocator());
+    treeCaption->SetSize(Float2{ 560.0f, 22.0f });
+    treeCaption->SetFont(m_font);
+    treeCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
+    treeCaption->SetText(u8"TreeView (MVC) - click arrows / arrow keys to expand:");
+    m_panel->AddChild(treeCaption.Get());
+
+    m_treeModel = MakeUnique<gui::TreeModel>(DefaultAllocator());
+    {
+        const i32 src = m_treeModel->AddNode(gui::TreeModel::kRoot, u8"src");
+        const i32 draconic = m_treeModel->AddNode(src, u8"Draconic");
+        m_treeModel->AddNode(draconic, u8"GUI");
+        m_treeModel->AddNode(draconic, u8"Core");
+        m_treeModel->AddNode(draconic, u8"Shell");
+        const i32 samples = m_treeModel->AddNode(src, u8"Samples");
+        m_treeModel->AddNode(samples, u8"GUISandbox");
+        const i32 docs = m_treeModel->AddNode(gui::TreeModel::kRoot, u8"docs");
+        m_treeModel->AddNode(docs, u8"design");
+    }
+
+    m_treeView = MakeRef<gui::TreeView>(DefaultAllocator());
+    m_treeView->SetSize(Float2{ 300.0f, 180.0f });
+    m_treeView->SetFont(m_font);
+    m_treeView->SetRowHeight(24.0f);
+    m_treeView->SetModel(m_treeModel.Get());
+    m_treeView->ExpandItem(0); // expand "src" so there's something to see
+    m_panel->AddChild(m_treeView.Get());
 
     // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
     // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
@@ -981,6 +1013,8 @@ void GUISandbox::OnShutdown()
     m_tableView.Reset();  // release before the proxy/model it references
     m_tableProxy.Reset();
     m_tableModel.Reset();
+    m_treeView.Reset();   // release before its model
+    m_treeModel.Reset();
     m_widgetWindow.Reset();
     m_pickEcho.Reset();
     m_showcaseDrawable.Reset();

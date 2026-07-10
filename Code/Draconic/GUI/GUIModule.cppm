@@ -68,6 +68,7 @@ export import :list_box;
 export import :abstract_item_view;
 export import :list_view;
 export import :table_view;
+export import :tree_view;
 export import :tab_widget;
 export import :window;
 export import :message_box;
@@ -82,6 +83,7 @@ export import :model_index;
 export import :model;
 export import :string_list_model;
 export import :table_model;
+export import :tree_model;
 export import :sorting_proxy_model;
 
 // CSS styling (Phase 6)

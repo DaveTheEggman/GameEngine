@@ -159,6 +159,10 @@ export namespace draconic::gui
         void RequestRelayout() { Relayout(); }
         void NotifySelectionChanged() { if (m_onSelection) m_onSelection(GetSelectedIndex()); }
 
+        // Select a single item without notifying or scrolling (a tree uses this to remap the
+        // selection after the visible flattened list changes).
+        void SelectItemSilent(i32 item) { SelectSingle(item, /*notify*/ false, /*scroll*/ false); }
+
         void OnMouseWheel(const WheelEvent& event) override { ScrollBy(-event.Delta.y * m_rowHeight); }
 
         void OnKeyDown(const KeyEvent& event) override
