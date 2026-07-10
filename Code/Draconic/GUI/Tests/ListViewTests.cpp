@@ -144,3 +144,80 @@ TEST_CASE("listview: reacts to model updates and clamps a stale selection")
     model.AddItem(SV(u8"more"));
     CHECK(list->GetModel()->RowCount() == 3);
 }
+
+// ===================== Multi-selection (AbstractItemView) =====================
+
+TEST_CASE("itemview: Ctrl-click toggles items in multi-selection mode")
+{
+    StringListModel model(MakeItems(10));
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 300.0f, 300.0f });
+    auto list = Make<ListView>();
+    list->SetSize(core::Float2{ 200.0f, 120.0f });
+    list->SetRowHeight(20.0f);
+    list->SetSelectionMode(SelectionMode::Multi);
+    root->AddChild(list.Get());
+    list->SetModel(&model);
+    EventDispatcher* d = root->GetEventDispatcher();
+    const core::u32 ctrl = static_cast<core::u32>(KeyModCtrl);
+
+    d->InjectMouseDown(core::Float2{ 10.0f, 10.0f }, MouseButton::Left); // row 0 (plain)
+    d->InjectMouseUp(core::Float2{ 10.0f, 10.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{ 10.0f, 50.0f }, MouseButton::Left, ctrl); // row 2 (ctrl)
+    d->InjectMouseUp(core::Float2{ 10.0f, 50.0f }, MouseButton::Left, ctrl);
+
+    CHECK(list->SelectedItems().Size() == 2);
+    CHECK(list->IsItemSelected(0));
+    CHECK(list->IsItemSelected(2));
+
+    // Ctrl-click an already-selected item removes it.
+    d->InjectMouseDown(core::Float2{ 10.0f, 10.0f }, MouseButton::Left, ctrl);
+    d->InjectMouseUp(core::Float2{ 10.0f, 10.0f }, MouseButton::Left, ctrl);
+    CHECK_FALSE(list->IsItemSelected(0));
+    CHECK(list->SelectedItems().Size() == 1);
+}
+
+TEST_CASE("itemview: Shift-click selects a range from the anchor")
+{
+    StringListModel model(MakeItems(10));
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 300.0f, 300.0f });
+    auto list = Make<ListView>();
+    list->SetSize(core::Float2{ 200.0f, 120.0f });
+    list->SetRowHeight(20.0f);
+    list->SetSelectionMode(SelectionMode::Multi);
+    root->AddChild(list.Get());
+    list->SetModel(&model);
+    EventDispatcher* d = root->GetEventDispatcher();
+
+    d->InjectMouseDown(core::Float2{ 10.0f, 10.0f }, MouseButton::Left); // row 0 anchors
+    d->InjectMouseUp(core::Float2{ 10.0f, 10.0f }, MouseButton::Left);
+    const core::u32 shift = static_cast<core::u32>(KeyModShift);
+    d->InjectMouseDown(core::Float2{ 10.0f, 70.0f }, MouseButton::Left, shift); // row 3
+    d->InjectMouseUp(core::Float2{ 10.0f, 70.0f }, MouseButton::Left, shift);
+
+    CHECK(list->SelectedItems().Size() == 4); // rows 0,1,2,3
+    CHECK(list->IsItemSelected(1));
+    CHECK(list->IsItemSelected(3));
+}
+
+TEST_CASE("itemview: single-selection mode ignores Ctrl (stays single)")
+{
+    StringListModel model(MakeItems(10));
+    auto root = Make<SceneNode>();
+    root->SetSize(core::Float2{ 300.0f, 300.0f });
+    auto list = Make<ListView>();
+    list->SetSize(core::Float2{ 200.0f, 120.0f });
+    list->SetRowHeight(20.0f);
+    root->AddChild(list.Get()); // default SelectionMode::Single
+    list->SetModel(&model);
+    EventDispatcher* d = root->GetEventDispatcher();
+    const core::u32 ctrl = static_cast<core::u32>(KeyModCtrl);
+
+    d->InjectMouseDown(core::Float2{ 10.0f, 10.0f }, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{ 10.0f, 10.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{ 10.0f, 50.0f }, MouseButton::Left, ctrl); // ctrl ignored
+    d->InjectMouseUp(core::Float2{ 10.0f, 50.0f }, MouseButton::Left, ctrl);
+    CHECK(list->SelectedItems().Size() == 1);
+    CHECK(list->GetSelectedRow() == 2);
+}
