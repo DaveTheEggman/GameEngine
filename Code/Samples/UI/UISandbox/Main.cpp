@@ -7,6 +7,7 @@
 // (sans the Toolkit), to prove the port end-to-end.
 
 #include <new>
+#include <cstdio>
 
 import draconic.core;
 import draconic.rhi;
@@ -21,6 +22,8 @@ import draconic.vg;
 import draconic.vg.renderer;
 import draconic.ui;
 import draconic.ui.shell;
+import draconic.ui.vfs;
+import draconic.vfs;
 
 using namespace draconic::core;
 namespace sf = draconic::samples::framework;
@@ -31,6 +34,8 @@ namespace image = draconic::image;
 namespace fonts = draconic::fonts;
 namespace vg = draconic::vg;
 namespace ui = draconic::ui;
+namespace vfs = draconic::vfs;
+namespace uivfs = draconic::ui::vfs;
 
 namespace
 {
@@ -63,6 +68,10 @@ float4 main(PSInput input) : SV_Target {
 #define DRACONIC_UI_FONT_PATH ""
 #endif
 
+#ifndef DRACONIC_UI_ASSET_DIR
+#define DRACONIC_UI_ASSET_DIR ""
+#endif
+
     // Appends "<n>" into buf (small values); caller supplies the prefix.
     inline void AppendNum(char8_t* buf, usize& pos, i32 n)
     {
@@ -75,6 +84,9 @@ float4 main(PSInput input) : SV_Target {
 
     // A byte RGBA color for procedural theme images (mirrors Sedulous Color32).
     struct Px { u8 r, g, b, a; };
+
+    // Byte -> float Color helper (Sedulous Color(r,g,b,a) literals).
+    inline Color Rgb(f32 r, f32 g, f32 b, f32 a = 255.0f) { return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f }; }
 
     // Generate a rounded-rectangle RGBA image with per-corner radii (faithful port of the Sedulous
     // UISandbox MakeRoundedRectImage; the uniform-radius overload there is exactly this with all four
@@ -414,7 +426,7 @@ private:
     static constexpr u32 kFrames = 2;
 
     void BuildUI();
-    void LoadFontSize(StringView path, f32 pixelHeight);
+    void LoadFontSize(StringView family, StringView path, f32 pixelHeight);
     [[nodiscard]] bool HasFonts() const
     {
         return !StringView(reinterpret_cast<const utf8char*>(DRACONIC_UI_FONT_PATH)).IsEmpty();
@@ -453,6 +465,7 @@ private:
     void BuildOverlaysTab(ui::TabView* tabView);
     void BuildDragDropTab(ui::TabView* tabView);
     void BuildAnimationsTab(ui::TabView* tabView);
+    void BuildPauseMenuTab(ui::TabView* tabView); // loads a .sml screen via a VFS-backed resource provider
 
     // Render plumbing (mirrors VGSandbox/GUISandbox).
     shaders::Compiler* m_compiler = nullptr;
@@ -466,6 +479,11 @@ private:
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
     UniquePtr<vg::VGContext>              m_vg;
     vg::renderer::VGRenderer              m_renderer;
+
+    // VFS-backed resource provider for loading the pause-menu .sml (draconic.ui.vfs over a NativeFileSystem
+    // rooted at Data/Assets/ui). Kept alive for the app's lifetime (Sedulous keeps mGuiResourceProvider).
+    UniquePtr<vfs::NativeFileSystem>       m_uiFs;
+    UniquePtr<uivfs::VfsResourceProvider>  m_resProvider;
 
     // UI.
     ui::UIContext             m_ctx;
@@ -505,9 +523,20 @@ Status UISandbox::OnInit()
     if (HasFonts())
     {
         const StringView fontPath(reinterpret_cast<const utf8char*>(DRACONIC_UI_FONT_PATH));
-        LoadFontSize(fontPath, 14.0f);
-        LoadFontSize(fontPath, 16.0f);
-        LoadFontSize(fontPath, 24.0f);
+        LoadFontSize(u8"Roboto", fontPath, 14.0f);
+        LoadFontSize(u8"Roboto", fontPath, 16.0f);
+        LoadFontSize(u8"Roboto", fontPath, 24.0f);
+
+        // Decorative families for the pause-menu FontFamily demo (copied from Sedulous assets). GetFont
+        // falls back to Roboto if a family is missing, so the demo still renders if these fail to load.
+        const StringView monsterPath(reinterpret_cast<const utf8char*>(DRACONIC_UI_ASSET_DIR "/fonts/attack-of-monster/Attack Of Monster.ttf"));
+        const StringView junglePath(reinterpret_cast<const utf8char*>(DRACONIC_UI_ASSET_DIR "/fonts/jungle-adventurer/JungleAdventurer.ttf"));
+        const f32 decorativeSizes[] = { 14.0f, 18.0f, 24.0f, 32.0f };
+        for (f32 s : decorativeSizes)
+        {
+            LoadFontSize(u8"AttackOfMonster", monsterPath, s);
+            LoadFontSize(u8"JungleAdventurer", junglePath, s);
+        }
     }
 
     m_vg = MakeUnique<vg::VGContext>(DefaultAllocator(), m_fontService.Get());
@@ -516,11 +545,11 @@ Status UISandbox::OnInit()
     return ErrorCode::Ok;
 }
 
-void UISandbox::LoadFontSize(StringView path, f32 pixelHeight)
+void UISandbox::LoadFontSize(StringView family, StringView path, f32 pixelHeight)
 {
     fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
     options.pixelHeight = pixelHeight;
-    (void)m_fontService->LoadFont(u8"Roboto", path, options);
+    (void)m_fontService->LoadFont(family, path, options);
 }
 
 void UISandbox::BuildUI()
@@ -577,6 +606,7 @@ void UISandbox::BuildUI()
     BuildOverlaysTab(tabView.Get());
     BuildDragDropTab(tabView.Get());
     BuildAnimationsTab(tabView.Get());
+    BuildPauseMenuTab(tabView.Get());
 }
 
 // Apply the current theme by index and refresh the Theme button label (Sedulous ApplyTheme).
@@ -719,6 +749,80 @@ RefPtr<ui::StyleSheet> UISandbox::CreateTexturedTheme()
     images.AddImage(u8"expander::header:hover", expH, image::NineSlice(4, 4, 4, 4));
 
     return ui::TexturedTheme::Create(images, ui::ThemePalette::Light());
+}
+
+// === Tab 10: Pause Menu (.sml) - loads a screen from disk through a VFS-backed resource provider ===
+// Faithful port of Sedulous UISandboxApp's pause-menu demo: a NativeFileSystem rooted at Data/Assets/ui is
+// wrapped in a VfsResourceProvider (draconic.ui.vfs); we read the .sml text through it and hand it to
+// MarkupLoader::LoadFromString. Then we wire button clicks + inline style overrides + a scoped
+// LocalStyleSheet (inline beats local beats theme). The two decorative FontFamilies were copied from
+// Sedulous; if they fail to load, GetFont falls back to Roboto and the screen still renders.
+void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
+{
+    const StringView assetDir(reinterpret_cast<const utf8char*>(DRACONIC_UI_ASSET_DIR));
+    if (assetDir.IsEmpty()) { return; }
+
+    // Populate the markup element/property registry (idempotent) so the loader can build the .sml tree.
+    ui::MarkupLoader::Initialize();
+
+    String uiRoot(assetDir);
+    uiRoot += u8"/ui";
+    m_uiFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), uiRoot.AsView());
+    m_resProvider = MakeUnique<uivfs::VfsResourceProvider>(DefaultAllocator(), m_uiFs.Get());
+
+    String sml;
+    if (!m_resProvider->LoadText(u8"screens/pause-menu.sml", sml) || sml.IsEmpty()) { return; }
+
+    RefPtr<ui::View> pauseView = ui::MarkupLoader::LoadFromString(sml.AsView(), &m_ctx);
+    if (!pauseView) { return; }
+
+    tabView->AddTab(u8"Pause (.sml)", pauseView.Get(), true);
+
+    // The root Flex is a ViewGroup - FindByName walks its subtree.
+    ui::ViewGroup* pauseRoot = draconic::core::Cast<ui::ViewGroup>(pauseView.Get());
+    if (pauseRoot == nullptr) { return; }
+
+    // Wire button clicks by name (Sedulous logs to Console; we print to stdout).
+    if (ui::Button* resumeBtn = pauseRoot->FindByName<ui::Button>(u8"resume-btn"))
+    {
+        resumeBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [](ui::ButtonBase*) { std::printf("Resume clicked!\n"); } });
+        // Inline state-list override: green base with Palette-derived hover/pressed/disabled variants;
+        // reactive because ButtonBase passes its ControlState into the drawable's state-aware Draw.
+        resumeBtn->SetStyle(ui::StyleProperty::Background, ui::Palette::CreateStateRounded(Rgb(45, 130, 70), vg::CornerRadii(6.0f)));
+    }
+    if (ui::Button* settingsBtn = pauseRoot->FindByName<ui::Button>(u8"settings-btn"))
+        settingsBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [](ui::ButtonBase*) { std::printf("Settings clicked!\n"); } });
+    if (ui::Button* saveBtn = pauseRoot->FindByName<ui::Button>(u8"save-btn"))
+        saveBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [](ui::ButtonBase*) { std::printf("Save clicked!\n"); } });
+    if (ui::Button* loadBtn = pauseRoot->FindByName<ui::Button>(u8"load-btn"))
+        loadBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [](ui::ButtonBase*) { std::printf("Load clicked!\n"); } });
+    if (ui::Button* quitBtn = pauseRoot->FindByName<ui::Button>(u8"quit-btn"))
+    {
+        quitBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [](ui::ButtonBase*) { std::printf("Quit clicked!\n"); } });
+        quitBtn->SetStyle(ui::StyleProperty::Background, ui::Palette::CreateStateRounded(Rgb(150, 60, 60), vg::CornerRadii(6.0f)));
+    }
+
+    // Inline style demo on the title: override TextColor + FontSize + FontFamily without touching the
+    // theme. The inline FontFamily "AttackOfMonster" wins over the local sheet's "JungleAdventurer".
+    if (ui::Label* title = pauseRoot->FindByName<ui::Label>(u8"title"))
+    {
+        title->SetStyle(ui::StyleProperty::TextColor, Rgb(255, 220, 100));
+        title->SetStyle(ui::StyleProperty::FontSize, 32.0f);
+        title->SetStyle(ui::StyleProperty::FontFamily, StringView(u8"AttackOfMonster"));
+    }
+
+    // LocalStyleSheet demo: scope a theming change to the pause subtree. Every Label gets a size + soft
+    // text color; every Button gets padding + a rounded gray-blue state-list. Inline overrides above still
+    // win (title FontSize 32 beats 14; resume/quit inline state-lists beat the gray-blue default).
+    RefPtr<ui::StyleSheet> pauseLocal = MakeRef<ui::StyleSheet>(DefaultAllocator());
+    pauseLocal->ForAll().Set(ui::StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+    pauseLocal->ForType(&ui::Label::StaticType())
+        .Set(ui::StyleProperty::FontSize, 14.0f)
+        .Set(ui::StyleProperty::TextColor, Rgb(210, 215, 225));
+    pauseLocal->ForType(&ui::Button::StaticType())
+        .Set(ui::StyleProperty::Padding, ui::Thickness{ 14, 8 })
+        .Set(ui::StyleProperty::Background, ui::Palette::CreateStateRounded(Rgb(60, 65, 80), vg::CornerRadii(6.0f)));
+    pauseView->SetLocalStyleSheet(Move(pauseLocal));
 }
 
 // === Tab 9: Animations (ViewAnimator / Storyboard + static-transform hit-testing) ===
