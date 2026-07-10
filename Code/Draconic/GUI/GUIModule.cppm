@@ -65,6 +65,7 @@ export import :scroll_bar;
 export import :scroll_view;
 export import :image;
 export import :list_box;
+export import :list_view;
 export import :tab_widget;
 export import :window;
 export import :message_box;

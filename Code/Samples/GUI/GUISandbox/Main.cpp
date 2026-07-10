@@ -179,6 +179,8 @@ private:
     RefPtr<gui::Menu>         m_contextMenu;
     RefPtr<gui::MenuBar>      m_menuBar;
     RefPtr<gui::MessageBox>   m_dialog;
+    RefPtr<gui::ListView>     m_listView;
+    UniquePtr<gui::StringListModel> m_listModel;
     RefPtr<gui::Label>        m_pickEcho;
     gui::RadioGroup           m_radioGroup;
     UniquePtr<gui::TooltipManager>   m_tooltips;
@@ -451,6 +453,50 @@ void GUISandbox::BuildUI()
                        u8"the text greedily breaks at whitespace to fit the label's width and flows "
                        u8"onto multiple lines - explicit newlines break too.");
     m_panel->AddChild(wrapLabel.Get());
+
+    // A virtualized, model-backed ListView: 500 rows but only the visible handful are realized.
+    auto listCaption = MakeRef<gui::Label>(DefaultAllocator());
+    listCaption->SetSize(Float2{ 560.0f, 22.0f });
+    listCaption->SetFont(m_font);
+    listCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
+    listCaption->SetText(u8"ListView (MVC, virtualized 500 rows) - click / arrow keys:");
+    m_panel->AddChild(listCaption.Get());
+
+    m_listModel = MakeUnique<gui::StringListModel>(DefaultAllocator());
+    {
+        Array<String> rows;
+        for (i32 i = 0; i < 500; ++i)
+        {
+            char8_t buf[24] = u8"Row ";
+            usize pos = 4;
+            char8_t digits[12]; usize dc = 0; i32 v = i;
+            if (v == 0) digits[dc++] = u8'0';
+            while (v > 0) { digits[dc++] = static_cast<char8_t>(u8'0' + (v % 10)); v /= 10; }
+            while (dc > 0) buf[pos++] = digits[--dc];
+            buf[pos] = 0;
+            rows.PushBack(String(StringView(buf)));
+        }
+        m_listModel->SetItems(Move(rows));
+    }
+
+    m_listView = MakeRef<gui::ListView>(DefaultAllocator());
+    m_listView->SetSize(Float2{ 260.0f, 160.0f });
+    m_listView->SetFont(m_font);
+    m_listView->SetRowHeight(24.0f);
+    m_listView->SetModel(m_listModel.Get());
+    gui::Label* echoRef = m_echo.Get();
+    gui::StringListModel* modelRef = m_listModel.Get();
+    m_listView->SetOnSelectionChanged([echoRef, modelRef](gui::ModelIndex idx)
+    {
+        if (!idx.IsValid()) return;
+        char8_t buf[64] = u8"picked: ";
+        usize pos = 8;
+        const StringView row = modelRef->ItemAt(static_cast<usize>(idx.Row));
+        for (usize i = 0; i < row.Size() && pos < 62; ++i) buf[pos++] = row[i];
+        buf[pos] = 0;
+        echoRef->SetText(StringView(buf));
+    });
+    m_panel->AddChild(m_listView.Get());
 
     // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
     // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
@@ -875,6 +921,8 @@ void GUISandbox::OnShutdown()
     m_contextMenu.Reset();
     m_menuBar.Reset();
     m_dialog.Reset();
+    m_listView.Reset();   // release before the model it references
+    m_listModel.Reset();
     m_widgetWindow.Reset();
     m_pickEcho.Reset();
     m_showcaseDrawable.Reset();
