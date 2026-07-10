@@ -31,6 +31,9 @@ import draconic.graphics;
 import draconic.graphics.gpu;
 import draconic.ui.runtime;
 import draconic.ui.application;
+import draconic.ui.viewport;
+
+#include "../../Common/FlyCamera.h"   // shared free-fly camera, driven from the viewport's gated devices
 
 using namespace draconic::core;
 namespace runtime = draconic::runtime;
@@ -47,11 +50,152 @@ namespace ui = draconic::ui;
 namespace tk = draconic::ui::toolkit;
 namespace vfs = draconic::vfs;
 namespace uivfs = draconic::ui::vfs;
+namespace viewport = draconic::ui::viewport;
+namespace samples = draconic::samples;
 
 namespace
 {
     // VG shader source now lives in draconic.vg.renderer (VertexShaderSource/FragmentShaderSource),
     // shared by every VG consumer instead of being copied into each sample.
+
+    // A minimal, self-contained spinning cube rendered via raw RHI into a ViewportView's offscreen
+    // RGBA16Float color + Depth32Float depth targets - the payload for the Viewport tab. It only
+    // exercises the OnRender(encoder) contract; the real renderer would slot in here instead.
+    struct SpinningCube
+    {
+        static constexpr const char8_t kShader[] = u8R"(
+#pragma pack_matrix(row_major)
+cbuffer Uniforms : register(b0) { float4x4 MVP; };
+struct VSIn { float3 Position : TEXCOORD0; float3 Color : TEXCOORD1; };
+struct PSIn { float4 Position : SV_POSITION; float3 Color : COLOR0; };
+PSIn VSMain(VSIn i) { PSIn o; o.Position = mul(float4(i.Position, 1.0), MVP); o.Color = i.Color; return o; }
+float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
+)";
+        // 8 corners, each a distinct color; stride = 6 floats (pos3 + color3).
+        static constexpr float kVerts[] = {
+            -1,-1,-1,  0,0,0,   1,-1,-1,  1,0,0,   1, 1,-1,  1,1,0,  -1, 1,-1,  0,1,0,
+            -1,-1, 1,  0,0,1,   1,-1, 1,  1,0,1,   1, 1, 1,  1,1,1,  -1, 1, 1,  0,1,1,
+        };
+        static constexpr u16 kIdx[] = {
+            0,1,2, 0,2,3,   4,6,5, 4,7,6,   0,4,5, 0,5,1,
+            3,2,6, 3,6,7,   0,3,7, 0,7,4,   1,5,6, 1,6,2,
+        };
+        struct Uniforms { Float4x4 mvp; };
+
+        void Init(rhi::Device* device, shaders::Compiler* compiler, i32 frameCount)
+        {
+            m_device = device;
+            rhi::Queue* queue = device->GetQueue(rhi::QueueType::Graphics, 0);
+
+            CompileOne(compiler, shaders::ShaderStage::Vertex,   u8"VSMain", m_vs);
+            CompileOne(compiler, shaders::ShaderStage::Fragment, u8"PSMain", m_ps);
+
+            rhi::BufferDesc vbd{}; vbd.size = sizeof(kVerts); vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly;
+            device->CreateBuffer(vbd, m_vb);
+            rhi::BufferDesc ibd{}; ibd.size = sizeof(kIdx); ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst; ibd.memory = rhi::MemoryLocation::GpuOnly;
+            device->CreateBuffer(ibd, m_ib);
+            rhi::TransferBatch* tb = nullptr; queue->CreateTransferBatch(tb);
+            tb->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(kVerts), sizeof(kVerts)));
+            tb->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(kIdx), sizeof(kIdx)));
+            tb->Submit(); queue->DestroyTransferBatch(tb);
+
+            rhi::BindGroupLayoutEntry e = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
+            rhi::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const rhi::BindGroupLayoutEntry>(&e, 1);
+            device->CreateBindGroupLayout(bgld, m_bgl);
+            rhi::BindGroupLayout* layouts[1] = { m_bgl };
+            rhi::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(layouts, 1);
+            device->CreatePipelineLayout(pld, m_pl);
+
+            // Per-frame uniform ring (frame N+1's CPU write mustn't clobber frame N's in-flight read).
+            m_uniforms.Resize(static_cast<usize>(frameCount));
+            m_bindGroups.Resize(static_cast<usize>(frameCount));
+            for (i32 i = 0; i < frameCount; ++i)
+            {
+                rhi::BufferDesc ud{}; ud.size = sizeof(Uniforms); ud.usage = rhi::BufferUsage::Uniform; ud.memory = rhi::MemoryLocation::CpuToGpu;
+                device->CreateBuffer(ud, m_uniforms[static_cast<usize>(i)]);
+                rhi::BindGroupEntry bge = rhi::BindGroupEntry::BufferEntry(m_uniforms[static_cast<usize>(i)], 0, sizeof(Uniforms));
+                rhi::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const rhi::BindGroupEntry>(&bge, 1);
+                device->CreateBindGroup(bgd, m_bindGroups[static_cast<usize>(i)]);
+            }
+
+            rhi::VertexAttribute attrs[2] = { { rhi::VertexFormat::Float32x3, 0, 0 }, { rhi::VertexFormat::Float32x3, 12, 1 } };
+            rhi::VertexBufferLayout vbl{}; vbl.stride = 24; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
+            rhi::ColorTargetState ct{}; ct.format = rhi::TextureFormat::RGBA16Float;
+            rhi::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
+            rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+            rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
+            rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+            rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
+            rpd.depthStencil = rhi::DepthStencilState{}; rpd.depthStencil->format = rhi::TextureFormat::Depth32Float;
+            rpd.depthStencil->depthWriteEnabled = true; rpd.depthStencil->depthCompare = rhi::CompareFunction::Less;
+            rpd.primitive.cullMode = rhi::CullMode::None;
+            device->CreateRenderPipeline(rpd, m_pipeline);
+        }
+
+        void Render(rhi::CommandEncoder& enc, rhi::TextureView* colorView, rhi::TextureView* depthView,
+                    u32 w, u32 h, rhi::ClearColor clear, const Float4x4& mvp, i32 frameIndex)
+        {
+            if (m_pipeline == nullptr) { return; }
+            const usize fi = static_cast<usize>(frameIndex);
+            Uniforms u{ mvp };
+            if (u8* p = static_cast<u8*>(m_uniforms[fi]->Map())) { MemCopy(p, &u, sizeof(u)); m_uniforms[fi]->Unmap(); }
+
+            rhi::ColorAttachment ca{}; ca.view = colorView; ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store; ca.clearValue = clear;
+            rhi::DepthStencilAttachment dsa{}; dsa.view = depthView; dsa.depthLoadOp = rhi::LoadOp::Clear; dsa.depthStoreOp = rhi::StoreOp::Store; dsa.depthClearValue = 1.0f;
+            rhi::RenderPassDesc rp{}; rp.colorAttachments.Add(ca); rp.depthStencilAttachment = dsa;
+            rhi::RenderPassEncoder* pass = enc.BeginRenderPass(rp);
+            if (pass == nullptr) { return; }
+            pass->SetViewport(0.0f, 0.0f, static_cast<f32>(w), static_cast<f32>(h), 0.0f, 1.0f);
+            pass->SetScissor(0, 0, w, h);
+            pass->SetPipeline(m_pipeline);
+            pass->SetBindGroup(0, m_bindGroups[fi]);
+            pass->SetVertexBuffer(0, m_vb, 0);
+            pass->SetIndexBuffer(m_ib, rhi::IndexFormat::UInt16, 0);
+            pass->DrawIndexed(36);
+            pass->End();
+        }
+
+        void Shutdown()
+        {
+            if (m_device == nullptr) { return; }
+            if (m_pipeline) { m_device->DestroyRenderPipeline(m_pipeline); }
+            for (usize i = 0; i < m_bindGroups.Size(); ++i) { if (m_bindGroups[i]) { m_device->DestroyBindGroup(m_bindGroups[i]); } }
+            for (usize i = 0; i < m_uniforms.Size(); ++i) { if (m_uniforms[i]) { m_device->DestroyBuffer(m_uniforms[i]); } }
+            if (m_pl) { m_device->DestroyPipelineLayout(m_pl); }
+            if (m_bgl) { m_device->DestroyBindGroupLayout(m_bgl); }
+            if (m_ib) { m_device->DestroyBuffer(m_ib); }
+            if (m_vb) { m_device->DestroyBuffer(m_vb); }
+            if (m_ps) { m_device->DestroyShaderModule(m_ps); }
+            if (m_vs) { m_device->DestroyShaderModule(m_vs); }
+            m_device = nullptr;
+        }
+
+        void CompileOne(shaders::Compiler* compiler, shaders::ShaderStage stage, StringView entry, rhi::ShaderModule*& out)
+        {
+            const bool isDX12 = (m_device->type == rhi::DeviceType::DX12);
+            const shaders::ShaderTarget target = isDX12 ? shaders::ShaderTarget::DXIL : shaders::ShaderTarget::SPIRV;
+            shaders::CompileOptions opts{}; opts.shaderModel = u8"6_0"; opts.optimizationLevel = 3;
+            if (!isDX12)
+            {
+                opts.bindingShifts.constantBufferShift = 0; opts.bindingShifts.textureShift = 1000;
+                opts.bindingShifts.uavShift = 2000; opts.bindingShifts.samplerShift = 3000; opts.bindingShiftSets = 4;
+            }
+            const StringView src(kShader);
+            shaders::CompileResult cr{};
+            if (compiler->compile(reinterpret_cast<const u8*>(src.Data()), src.Size(), stage, entry, target, opts, cr) == ErrorCode::Ok)
+            {
+                rhi::ShaderModuleDesc d{}; d.code = Span<const u8>(cr.bytecode, cr.bytecodeSize);
+                m_device->CreateShaderModule(d, out);
+            }
+            compiler->freeResult(cr);
+        }
+
+        rhi::Device* m_device = nullptr;
+        rhi::ShaderModule* m_vs = nullptr; rhi::ShaderModule* m_ps = nullptr;
+        rhi::Buffer* m_vb = nullptr; rhi::Buffer* m_ib = nullptr;
+        rhi::BindGroupLayout* m_bgl = nullptr; rhi::PipelineLayout* m_pl = nullptr; rhi::RenderPipeline* m_pipeline = nullptr;
+        Array<rhi::Buffer*> m_uniforms; Array<rhi::BindGroup*> m_bindGroups;
+    };
 
 #ifndef DRACONIC_UI_FONT_PATH
 #define DRACONIC_UI_FONT_PATH ""
@@ -499,6 +643,7 @@ private:
     void BuildCurveEditorTab(ui::TabView* tabView);   // draconic.ui.toolkit: CurveCanvas tangent editor
     void BuildNodeGraphTab(ui::TabView* tabView);     // draconic.ui.toolkit: NodeGraphCanvas state machine
     void BuildDockingTab(ui::TabView* tabView);       // draconic.ui.application: DockManager + OS floating windows
+    void BuildViewportTab(ui::TabView* tabView);      // draconic.ui.viewport: ViewportView hosting a spinning cube
     void BuildPauseMenuTab(ui::TabView* tabView); // loads a .sml screen via a VFS-backed resource provider
 
     // Window size (was provided by SampleApp; re-captured from the main window in OnStartup).
@@ -539,6 +684,21 @@ private:
     UniquePtr<uiapp::RuntimeDockableWindowHost> m_dockHost;
     RefPtr<tk::DockManager>                     m_dockManager;
 
+    // draconic.ui.viewport: a ViewportView hosting a raw-RHI spinning cube. The view owns the offscreen
+    // RT + gated InputSurface; the app owns an InputRouter and a FlyCamera driven by that surface's gated
+    // devices (occlusion-gated by IsHovered()/IsFocused()). Wired in OnStartup after AttachWindow.
+    graphics::RenderWindow*        m_mainRw = nullptr;
+    RefPtr<viewport::ViewportView> m_viewport;
+    RefPtr<tk::DockManager>        m_viewportDock;   // separate DockManager (the existing Docking tab is untouched)
+    graphics::RenderWindow*        m_viewportWindow = nullptr;  // window currently hosting the viewport (tracks undock)
+    UniquePtr<shell::InputRouter>  m_vpRouter;
+    samples::FlyCamera             m_cam;
+    SpinningCube                   m_cube;
+    shaders::Compiler*             m_cubeCompiler = nullptr;
+    f32                            m_time = 0.0f;
+    void WireViewport(runtime::IApplicationHost& host);
+    void UpdateViewportHostWindow();   // re-bind the viewport when its dockable panel moves windows
+
     // The reusable UI-on-runtime bridge (owns the UIContext, per-window VG + input). Declared LAST so it
     // tears down first.
     UniquePtr<uirt::UIHost> m_uiHost;
@@ -578,6 +738,73 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
 
     BuildUI();                                  // builds m_root, sets theme on m_uiHost->Context(), registers m_toolkitThemeExt
     m_uiHost->AttachWindow(mainRw, m_root);     // adds the root to the context + wires per-window VG + input
+
+    m_mainRw = mainRw;
+    WireViewport(host);                         // now that the window is attached, RendererFor(mainRw) is valid
+}
+
+// Wire the Viewport tab's 3D content after the main window is attached: register the ViewportView's
+// color target into the main window's VGRenderer, build the spinning-cube renderer, and set up the gated
+// input (own InputRouter + the view's InputSurface). Must run AFTER AttachWindow (RendererFor needs it).
+void UISandbox::WireViewport(runtime::IApplicationHost& host)
+{
+    if (!m_viewport || m_mainRw == nullptr) { return; }
+
+    rhi::Device* device = host.Graphics()->Raw();
+    vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(m_mainRw);
+    m_viewport->Initialize(device, renderer, host.Shell()->Input(), m_mainRw->Window().Id());
+    m_viewportWindow = m_mainRw;   // starts docked in the main window; UpdateViewportHostWindow tracks undock
+
+    // The spinning-cube renderer (its own shader compiler, kept for the app lifetime).
+    (void)shaders::createCompiler(shaders::CompilerDesc{}, m_cubeCompiler);
+    if (m_cubeCompiler != nullptr)
+    {
+        m_cube.Init(device, m_cubeCompiler, static_cast<i32>(host.Graphics()->FramesInFlight()));
+    }
+
+    // Camera framing the cube; slower move so it stays usable in a small panel.
+    m_cam.position = Float3{ 0.0f, 0.0f, 4.5f };
+    m_cam.yaw = 0.0f; m_cam.pitch = 0.0f; m_cam.moveSpeed = 4.0f; m_cam.fastSpeed = 12.0f;
+
+    // Render callback: build the MVP from the camera + spin time and draw the cube into the viewport's
+    // offscreen targets (already transitioned to their render states by RenderContent).
+    SpinningCube* cube = &m_cube;
+    samples::FlyCamera* cam = &m_cam;
+    f32* time = &m_time;
+    m_viewport->OnRender = [cube, cam, time](viewport::ViewportView& v, rhi::CommandEncoder& enc, i32 frameIndex)
+    {
+        const u32 w = v.RenderWidth(), h = v.RenderHeight();
+        if (w == 0 || h == 0) { return; }
+        const f32 aspect = static_cast<f32>(w) / static_cast<f32>(h);
+        const Float4x4 proj  = Float4x4::PerspectiveFovRH(1.0f, aspect, 0.1f, 100.0f);
+        const Float4x4 view  = Float4x4::LookAtRH(cam->position, cam->position + cam->Forward(), cam->Up());
+        const Float4x4 model = Float4x4::RotationY(*time) * Float4x4::RotationX(*time * 0.5f);
+        const Float4x4 mvp   = model * view * proj;   // row-vector order (v * M * V * P)
+        cube->Render(enc, v.ColorTargetView(), v.DepthTargetView(), w, h, v.ClearColor, mvp, frameIndex);
+    };
+
+    // Gated input: the app owns an InputRouter (UIHost's is private); register the view's surface.
+    m_vpRouter = MakeUnique<shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+    if (m_viewport->Surface() != nullptr) { m_vpRouter->AddSurface(m_viewport->Surface()); }
+}
+
+// Detect when the viewport's dockable panel has moved to a different window (undocked into an OS float, or
+// re-docked into the main window) and re-bind the viewport to that window's VGRenderer + window id, so its
+// UI can sample the 3D target and input routes correctly. Called each frame after the UI has updated.
+void UISandbox::UpdateViewportHostWindow()
+{
+    if (!m_viewport || !m_uiHost) { return; }
+    ui::RootView* root = m_viewport->Root();
+    if (root == nullptr) { return; }
+    graphics::RenderWindow* host = m_uiHost->WindowForRoot(root);
+    if (host == nullptr || host == m_viewportWindow) { return; }   // unchanged (or not yet attached)
+
+    // Only switch once the new window's renderer exists (the float's UIHost::AttachWindow ran).
+    if (vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(host))
+    {
+        m_viewport->AttachToWindow(renderer, host->Window().Id());
+        m_viewportWindow = host;
+    }
 }
 
 void UISandbox::LoadFontSize(StringView family, StringView path, f32 pixelHeight)
@@ -646,6 +873,7 @@ void UISandbox::BuildUI()
     BuildPropertyGridTab(tabView.Get());
     BuildCurveEditorTab(tabView.Get());
     BuildNodeGraphTab(tabView.Get());
+    BuildViewportTab(tabView.Get());       // draconic.ui.viewport: a 3D spinning cube in a UI panel
     BuildDockingTab(tabView.Get());        // draconic.ui.application: DockManager -> real OS floating windows (last)
     BuildPauseMenuTab(tabView.Get());
 }
@@ -1859,6 +2087,37 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
     }
 }
 
+void UISandbox::BuildViewportTab(ui::TabView* tabView)
+{
+    auto body = VFlex(6.0f);
+    body->Padding = ui::Thickness{ 8, 8 };
+    body->AddView(MakeRef<ui::Label>(DefaultAllocator(),
+        StringView(u8"draconic.ui.viewport - a 3D spinning cube hosted in a dockable UI panel. Hover + hold RMB to "
+                   u8"look, WASD/QE to move, wheel to zoom; input is gated to the viewport (move off and the camera "
+                   u8"stops, the cube keeps spinning). Drag the Viewport panel's tab OUT to float it into its own OS "
+                   u8"window - the cube keeps rendering and stays input-gated there (undock re-binds it to that "
+                   u8"window's renderer).")).Get(),
+        LP(ui::SizeSpec::Match(), ui::SizeSpec::Wrap()));
+
+    // A SEPARATE DockManager (shares the app's RuntimeDockableWindowHost with the existing Docking tab,
+    // which is left untouched). The viewport lives in a dockable panel, so it can be floated into an OS window.
+    auto dm = MakeRef<tk::DockManager>(DefaultAllocator());
+    m_viewportDock = dm;
+    dm->DockableWindowHost = m_dockHost.Get();
+    body->AddView(dm.Get(), Grow(1.0f));
+
+    m_viewport = MakeRef<viewport::ViewportView>(DefaultAllocator());
+    m_viewport->SetFitMode(FitMode::Letterbox); // preserve the cube's aspect; bars visualize the fit region
+    tk::DockablePanel* vpPanel   = dm->AddPanel(u8"Viewport", m_viewport.Get());
+    tk::DockablePanel* infoPanel = dm->AddPanel(u8"Inspector",
+        MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Drag the Viewport tab out to float it into an OS window.")).Get());
+    dm->DockPanel(vpPanel, tk::DockPosition::Center);
+    dm->DockPanel(infoPanel, tk::DockPosition::Right);
+
+    const i32 idx = tabView->AddTab(u8"Viewport (3D)", body.Get());
+    tabView->SetSelectedIndex(idx); // open on the viewport so the 3D cube + gating are the first thing shown
+}
+
 void UISandbox::OnUpdate(runtime::IApplicationHost&, f32 dt)
 {
     // Hold-to-repeat: tick the RepeatButton each frame (mirrors Sedulous UISandbox).
@@ -1866,14 +2125,43 @@ void UISandbox::OnUpdate(runtime::IApplicationHost&, f32 dt)
     if (m_uiHost) { m_uiHost->Update(dt); }
     // Drag-follow: move a dragged floating dock window to track the desktop cursor.
     if (m_dockHost) { m_dockHost->Tick(); }
+
+    // Viewport: spin the cube + drive its camera from the gated surface. SyncInputRegion runs AFTER the
+    // UI laid out this frame (uiHost->Update) so the surface tracks the view's current on-screen rect; the
+    // camera reads the gated devices only when the UI says the viewport is genuinely hovered/focused (so
+    // occluded/inactive-tab input can't leak, and a look-drag off the view keeps going while focused).
+    m_time += dt;
+    if (m_viewport && m_vpRouter)
+    {
+        UpdateViewportHostWindow();   // re-bind if the dockable panel was floated into / out of an OS window
+        m_viewport->SyncInputRegion();
+        m_vpRouter->Update();
+        if (m_viewport->IsHovered() || m_viewport->IsFocused())
+        {
+            m_cam.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
+        }
+    }
 }
 
 void UISandbox::OnRenderWindow(runtime::IApplicationHost&, graphics::FrameContext& frame)
 {
+    // Render the 3D viewport content into its offscreen target BEFORE the UI draws (the UI samples that
+    // target as an image). On whichever window currently hosts the viewport (main, or a floated OS window).
+    if (m_viewport && m_viewport->IsReady() && frame.valid && frame.window == m_viewportWindow)
+    {
+        m_viewport->RenderContent(*frame.encoder, static_cast<i32>(frame.frameIndex));
+    }
     if (m_uiHost) { m_uiHost->RenderWindow(frame); }
 }
 
-void UISandbox::OnShutdown(runtime::IApplicationHost&) {}
+void UISandbox::OnShutdown(runtime::IApplicationHost&)
+{
+    // Release the viewport's GPU targets + external-texture registration while the device and the
+    // per-window VGRenderer are still alive (the ViewportView outlives the window inside the view tree).
+    if (m_viewport) { m_viewport->Shutdown(); }
+    m_cube.Shutdown();
+    if (m_cubeCompiler != nullptr) { m_cubeCompiler->Destroy(); DefaultAllocator().Delete(m_cubeCompiler); m_cubeCompiler = nullptr; }
+}
 
 int main(int /*argc*/, char** /*argv*/)
 {
