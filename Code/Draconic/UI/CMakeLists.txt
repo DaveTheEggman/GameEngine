@@ -164,6 +164,8 @@ target_sources(DraconicUI
 add_subdirectory(VFS)
 add_subdirectory(Shell)
 add_subdirectory(Toolkit)
+# UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
+add_subdirectory(Runtime)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
