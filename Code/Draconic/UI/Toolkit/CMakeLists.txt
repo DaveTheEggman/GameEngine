@@ -31,6 +31,7 @@ target_sources(DraconicUIToolkit
             Vector3Editor.cppm
             ColorEditor.cppm
             PropertyGrid.cppm
+            CurveCanvas.cppm
             ToolkitModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

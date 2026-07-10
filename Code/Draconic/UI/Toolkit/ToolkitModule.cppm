@@ -28,3 +28,4 @@ export import :enum_editor;
 export import :vector3_editor;
 export import :color_editor;
 export import :property_grid;
+export import :curve_canvas;

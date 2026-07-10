@@ -18,6 +18,7 @@ add_executable(DraconicUIToolkitTests
     Vector3EditorTests.cpp
     ColorEditorTests.cpp
     PropertyGridTests.cpp
+    CurveCanvasTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIToolkitTests PRIVATE
