@@ -1,13 +1,12 @@
 // Ported from Sedulous.UI.Tests/src/ViewIdTests.bf (faithful).
-// NOTE: ToString_ContainsValue is NOT ported - Beef's ToString(String buffer) debug convention is not
-// a Draconic idiom (formatting is via core::Format, and String has no Contains). Flagged divergence;
-// the other 6 ViewId tests port 1:1.
+// ViewId.ToString appends a debug string via core::AppendFormat (Sedulous ViewId.ToString).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 
 using namespace draconic::ui;
+using namespace draconic::core;
 
 TEST_CASE("view-id: Create_ReturnsValidId")
 {
@@ -51,4 +50,24 @@ TEST_CASE("view-id: GetHashCode_SameForEqual")
     ViewId a = ViewId::Create();
     ViewId b = a;
     CHECK(a.GetHashCode() == b.GetHashCode());
+}
+
+
+TEST_CASE("view-id: ToString_ContainsValue")
+{
+    ViewId id = ViewId::Create();
+    String str;
+    id.ToString(str);
+    // Local substring check for "ViewId(" (StringView has no Contains).
+    const StringView s = str.AsView();
+    const StringView needle(u8"ViewId(");
+    bool found = false;
+    if (needle.Size() <= s.Size())
+        for (usize i = 0; i + needle.Size() <= s.Size(); ++i)
+        {
+            bool m = true;
+            for (usize j = 0; j < needle.Size(); ++j) if (s[i + j] != needle[j]) { m = false; break; }
+            if (m) { found = true; break; }
+        }
+    CHECK(found);
 }

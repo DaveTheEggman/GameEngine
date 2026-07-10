@@ -1,6 +1,6 @@
 // Ported from Sedulous.UI.Tests/src/UIContextTests.bf (faithful; RefPtr views, `===` -> pointer ==).
-// Managers_CreatedByDefault is DEFERRED: the Input/Focus/DragDrop/Animation/Shortcut/Tooltip managers
-// are not ported yet (UIContext keeps them as nullable seams), so that test lands with those subsystems.
+// All managers (Input/Focus/DragDrop/Animation/Shortcut/Tooltip) are owned by-value on UIContext, so
+// Managers_CreatedByDefault just checks the accessors return non-null (they point at the value members).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -163,4 +163,15 @@ TEST_CASE("uicontext: DpiScale_FromActiveRoot")
     ctx.AddRootView(root.Get());
 
     CHECK(ctx.DpiScale() == 2.0f);
+}
+
+TEST_CASE("uicontext: Managers_CreatedByDefault")
+{
+    UIContext ctx;
+    CHECK(ctx.GetInputManager() != nullptr);
+    CHECK(ctx.GetFocusManager() != nullptr);
+    CHECK(ctx.DragDrop() != nullptr);
+    CHECK(ctx.Animations() != nullptr);
+    CHECK(ctx.GetShortcuts() != nullptr);
+    CHECK(ctx.Tooltips() != nullptr);
 }
