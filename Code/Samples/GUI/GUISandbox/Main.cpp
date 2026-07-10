@@ -162,6 +162,7 @@ private:
     RefPtr<gui::TextField>    m_textField;
     RefPtr<gui::Label>        m_echo;
     RefPtr<gui::ScrollView>   m_scroll;
+    RefPtr<gui::ScrollView>   m_pageScroll; // full-window scroller for the whole panel
     RefPtr<gui::RelativeLayout> m_relative;
     gui::StyleManager         m_styles;
     UniquePtr<gui::GuiInputBridge>   m_bridge;
@@ -228,13 +229,20 @@ void GUISandbox::BuildUI()
     m_root = MakeRef<gui::SceneNode>(DefaultAllocator());
     m_root->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
 
-    // Full-window panel with a dark background, stacking its children vertically.
+    // Full-window scroller so the (now tall) page can scroll when content runs off-screen.
+    m_pageScroll = MakeRef<gui::ScrollView>(DefaultAllocator());
+    m_pageScroll->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
+    m_root->AddChild(m_pageScroll.Get());
+
+    // The panel stacks its children vertically and wraps its height to fit them (so the
+    // scroller knows how tall the page is). Width stays the window width.
     m_panel = MakeRef<gui::LinearLayout>(DefaultAllocator());
     m_panel->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
+    m_panel->SetWrapContent(true);
     m_panel->SetPadding(gui::Thickness{ 28.0f });
     m_panel->SetSpacing(16.0f);
     m_panel->AddClass(StringView(u8"panel")); // themed surface (dark/light) instead of a hardcoded bg
-    m_root->AddChild(m_panel.Get());
+    m_pageScroll->GetContent()->AddChild(m_panel.Get());
 
     // A menu bar across the top: File/Edit/View, each dropping a menu (with a submenu, a
     // separator, and a checkable item) below its button; hovering another button while one is
@@ -853,12 +861,18 @@ void GUISandbox::OnRender()
     // Blink the text field's caret while it holds focus.
     if (m_textField) m_textField->Update(static_cast<f64>(m_deltaTime));
 
-    // Advance + style the tree.
+    // Advance + style the tree. The panel keeps the window width but wrap-content owns its
+    // height; the page scroller fills the window.
     m_root->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
-    m_panel->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
+    m_pageScroll->SetSize(Float2{ static_cast<f32>(m_width), static_cast<f32>(m_height) });
+    m_panel->SetSize(Float2{ static_cast<f32>(m_width), m_panel->GetSize().y });
     m_root->Update(Duration::FromSeconds(static_cast<f64>(m_deltaTime)));
     if (m_tooltips) m_tooltips->Update(*m_root->GetEventDispatcher(), *m_root.Get(), static_cast<f64>(m_deltaTime));
     m_styles.ApplyTree(*m_root.Get());
+
+    // Keep the scroller's content size in sync with the wrapped panel height (a hidden widget
+    // or a size change makes the page taller/shorter).
+    m_pageScroll->SetContentSize(m_panel->GetSize());
 
     // Draw the tree into the VG batch.
     m_vg->Clear();
@@ -916,6 +930,7 @@ void GUISandbox::OnShutdown()
     m_textField.Reset();
     m_echo.Reset();
     m_scroll.Reset();
+    m_pageScroll.Reset();
     m_relative.Reset();
     m_tooltips.Reset();
     m_contextMenu.Reset();
