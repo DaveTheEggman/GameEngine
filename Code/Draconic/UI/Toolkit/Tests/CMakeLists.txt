@@ -8,6 +8,16 @@ add_executable(DraconicUIToolkitTests
     HDRColorPickerTests.cpp
     GradientEditorTests.cpp
     VectorFieldsTests.cpp
+    BoolEditorTests.cpp
+    ButtonEditorTests.cpp
+    StringEditorTests.cpp
+    IntEditorTests.cpp
+    FloatEditorTests.cpp
+    RangeEditorTests.cpp
+    EnumEditorTests.cpp
+    Vector3EditorTests.cpp
+    ColorEditorTests.cpp
+    PropertyGridTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIToolkitTests PRIVATE

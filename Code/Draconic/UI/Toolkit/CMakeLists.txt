@@ -20,6 +20,17 @@ target_sources(DraconicUIToolkit
             HDRColorPicker.cppm
             GradientEditor.cppm
             VectorFields.cppm
+            PropertyEditor.cppm
+            BoolEditor.cppm
+            ButtonEditor.cppm
+            StringEditor.cppm
+            IntEditor.cppm
+            FloatEditor.cppm
+            RangeEditor.cppm
+            EnumEditor.cppm
+            Vector3Editor.cppm
+            ColorEditor.cppm
+            PropertyGrid.cppm
             ToolkitModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
