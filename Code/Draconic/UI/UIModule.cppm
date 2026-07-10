@@ -20,6 +20,7 @@ export import :property;
 export import :icommand;
 export import :iclipboard;
 export import :debug_settings;
+export import :ui_debug_overlay;
 export import :control_state;
 export import :draw_context;
 export import :drawable;

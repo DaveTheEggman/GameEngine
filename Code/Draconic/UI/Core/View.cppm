@@ -38,6 +38,7 @@ import :size_spec;
 import :unit;
 import :layout_params;
 import :draw_context;   // UIDrawContext
+import :ui_debug_overlay; // UIDebugOverlay::DrawOverlays (debug draw after each child)
 import :drawable;
 import :style_property;
 import :style_value;
@@ -593,7 +594,8 @@ export namespace draconic::ui
                 if (child->ClipsContent) { ctx.PushClip(Rectangle{ 0, 0, child->Width(), child->Height() }); }
 
                 child->OnDraw(ctx);
-                // (UIDebugOverlay draw deferred until the debug-overlay helper is ported.)
+
+                if (ctx.DebugSettings().AnyEnabled()) { UIDebugOverlay::DrawOverlays(ctx, *child); }
 
                 if (child->ClipsContent) { ctx.PopClip(); }
                 if (child->Opacity < 1.0f) { ctx.VG().PopOpacity(); }

@@ -87,6 +87,7 @@ target_sources(DraconicUI
             Styling/Parser/SSSParser.cppm
             Styling/Parser/StyleSheetLoader.cppm
             Debug/UIDebugDrawSettings.cppm
+            Debug/UIDebugOverlay.cppm
             Drawing/ControlState.cppm
             Drawing/UIDrawContext.cppm
             Drawing/Drawable.cppm
@@ -154,6 +155,7 @@ target_sources(DraconicUI
         Input/InputImpl.cpp
         Overlay/TooltipImpl.cpp
         DragDrop/DragImpl.cpp
+        Debug/UIDebugOverlayImpl.cpp
         Styling/Parser/SSSParserImpl.cpp)
 
 # VFS-backed resource provider + shell input bridge (separate libs so the core UI
