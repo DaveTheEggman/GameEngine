@@ -47,5 +47,10 @@ export namespace draconic::ui
 
         /// Number of registered types.
         [[nodiscard]] static usize Count() { return detail::UITypeMap().Size(); }
+
+        /// Register all built-in View/layout/control type names (idempotent). Body in an impl unit
+        /// (UITypeRegistryImpl.cpp) that reaches every control via the module - so element selectors like
+        /// `ComboBox::arrow` in a .sss resolve to a concrete type instead of matching everything.
+        static void RegisterBuiltins();
     };
 }

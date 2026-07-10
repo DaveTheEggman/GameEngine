@@ -20,6 +20,7 @@ import :theme_palette;
 import :sss_token;
 import :sss_tokenizer;
 import :sss_parser;
+import :ui_type_registry;
 import :iresource_provider;
 
 using namespace draconic::core;
@@ -74,11 +75,11 @@ export namespace draconic::ui
             return parser.Parse();
         }
 
-        /// Convenience: initialize registries. Call once at startup.
+        /// Convenience: initialize registries (idempotent). Call once at startup.
         static void InitializeGlobals()
         {
-            // UITypeRegistry::RegisterBuiltins() is deferred until the control classes exist.
             DrawableFactoryRegistry::RegisterBuiltins();
+            UITypeRegistry::RegisterBuiltins();
         }
 
     private:

@@ -156,7 +156,8 @@ target_sources(DraconicUI
         Overlay/TooltipImpl.cpp
         DragDrop/DragImpl.cpp
         Debug/UIDebugOverlayImpl.cpp
-        Styling/Parser/SSSParserImpl.cpp)
+        Styling/Parser/SSSParserImpl.cpp
+        Styling/Parser/UITypeRegistryImpl.cpp)
 
 # VFS-backed resource provider + shell input bridge (separate libs so the core UI
 # stays VFS-/platform-free).

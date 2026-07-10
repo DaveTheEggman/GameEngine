@@ -654,6 +654,9 @@ RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette
     EnsureResourceProvider();
     if (!m_resProvider) { return ui::DarkTheme::Create(); }
 
+    // Register the drawable factories + built-in type names so .sss element selectors resolve.
+    ui::StyleSheetLoader::InitializeGlobals();
+
     ui::StyleSheetLoader loader;
     loader.ResourceProvider = m_resProvider.Get();
     loader.SetPalette(palette);

@@ -479,3 +479,36 @@ TEST_CASE("sss: InlineStyle_RoundedRectFunction")
     CHECK(rr->BorderWidth == 2.0f);
     CHECK(rr->BorderColor.r == doctest::Approx(80 / 255.0f));
 }
+
+
+// UITypeRegistry::RegisterBuiltins registers the built-in control type names, so .sss element selectors
+// resolve to a concrete type. Regression: without it, unresolved type names (e.g. ComboBox) matched
+// nothing correctly and a pseudo-element rule like `ComboBox::arrow` leaked its drawable onto other
+// controls' backgrounds (dropdown arrows appeared on buttons + text fields in the Breeze theme).
+TEST_CASE("sss: RegisterBuiltins_ResolvesTypes")
+{
+    UITypeRegistry::RegisterBuiltins();
+    CHECK(UITypeRegistry::Resolve(u8"ComboBox") != nullptr);
+    CHECK(UITypeRegistry::Resolve(u8"EditText") != nullptr);
+    CHECK(UITypeRegistry::Resolve(u8"NumericField") != nullptr);
+    CHECK(UITypeRegistry::Resolve(u8"Flex") == &FlexLayout::StaticType()); // alias
+}
+
+TEST_CASE("sss: TypeSelectors_DoNotLeakAcrossControls")
+{
+    EnsureGlobals();
+    UITypeRegistry::RegisterBuiltins();
+    // A ButtonBase background + a ComboBox arrow pseudo-element (the shape breeze.sss uses).
+    Fixture f(LoadSSS(u8"ButtonBase { background: rounded-rect(rgb(10,20,30), radius=2); }"
+                      u8" ComboBox::arrow { background: rounded-rect(rgb(200,100,50), radius=2); }"));
+    auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"x"));
+    f.root->AddView(btn.Get());
+
+    Drawable* bg = btn->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    auto* rr = core::Cast<RoundedRectDrawable>(bg);
+    REQUIRE(rr != nullptr);
+    // The button resolves the ButtonBase background, NOT the ComboBox::arrow drawable.
+    CHECK(rr->FillColor.r == doctest::Approx(10 / 255.0f));
+    CHECK(rr->FillColor.g == doctest::Approx(20 / 255.0f));
+}
