@@ -143,18 +143,31 @@ export namespace draconic::ui::runtime
         void Update(f32 deltaTime)
         {
             m_router->Update();
+
+            // Mouse: for each window make its RootView the active input root before pumping that window's
+            // surface, so the InputManager hit-tests against the right window (it dispatches against
+            // UIContext::ActiveInputRoot). Each surface only yields its own window's events.
             for (Attached& a : m_attached)
             {
                 const f32 w = static_cast<f32>(a.window->Window().Width());
                 const f32 h = static_cast<f32>(a.window->Window().Height());
                 a.data->surface->SetRegion(core::Rectangle{ 0.0f, 0.0f, w, h });
                 a.data->surface->SetContentSize(core::Float2{ w, h });
+                m_ctx.SetActiveInputRoot(a.data->root.Get());
                 m_bridge->PumpFromSurface(*a.data->surface);
             }
 
-            // Keyboard / text events carry a window id and route to the focused window's view.
+            // Keyboard / text + IME follow the FOCUSED OS window: point the active input root and the
+            // text-input target at the focused window's root, then dispatch its key/text events.
             if (shell::IInputManager* input = m_shell->Input())
             {
+                Attached* focused = FindByWindowId(input->FocusedWindow());
+                if (focused == nullptr && !m_attached.IsEmpty()) { focused = &m_attached[0]; }   // fallback: main
+                if (focused != nullptr)
+                {
+                    m_ctx.SetActiveInputRoot(focused->data->root.Get());
+                    m_bridge->SetTextInputTarget(&focused->window->Window());
+                }
                 for (const shell::InputEvent& ev : input->Events())
                 {
                     switch (ev.kind)
@@ -213,6 +226,13 @@ export namespace draconic::ui::runtime
         [[nodiscard]] UIWindowData* Find(graphics::RenderWindow* window)
         {
             for (Attached& a : m_attached) { if (a.window == window) { return a.data; } }
+            return nullptr;
+        }
+
+        [[nodiscard]] Attached* FindByWindowId(u32 windowId)
+        {
+            if (windowId == 0) { return nullptr; }
+            for (Attached& a : m_attached) { if (a.window->Window().Id() == windowId) { return &a; } }
             return nullptr;
         }
 
