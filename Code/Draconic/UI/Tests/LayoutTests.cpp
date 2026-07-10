@@ -577,3 +577,26 @@ TEST_CASE("flex: Padding_OffsetsChildren")
     CHECK(a->Bounds.x == doctest::Approx(10));
     CHECK(a->Bounds.y >= 20);
 }
+
+TEST_CASE("absolute: MultipleChildren_IndependentPositions")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto abs = New<AbsoluteLayout>();
+    auto a = TV(50, 30); auto b = TV(60, 40);
+    auto lpa = New<AbsoluteLayoutParams>(); lpa->X = 10; lpa->Y = 10;
+    auto lpb = New<AbsoluteLayoutParams>(); lpb->X = 200; lpb->Y = 150;
+    abs->AddView(a.Get(), lpa); abs->AddView(b.Get(), lpb);
+    root->AddView(abs.Get()); LayoutPass(ctx, root.Get());
+    CHECK(a->Bounds.x == doctest::Approx(10));
+    CHECK(b->Bounds.x == doctest::Approx(200));
+    CHECK(b->Bounds.y == doctest::Approx(150));
+}
+
+TEST_CASE("flow: Horizontal_Spacing")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto flow = New<FlowLayout>(); flow->Orientation = Orientation::Horizontal; flow->HSpacing = 10; flow->VSpacing = 5;
+    auto a = TV(50, 30); auto b = TV(60, 30);
+    flow->AddView(a.Get()); flow->AddView(b.Get()); root->AddView(flow.Get()); LayoutPass(ctx, root.Get());
+    CHECK(b->Bounds.x == doctest::Approx(60)); // a width 50 + HSpacing 10
+}

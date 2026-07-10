@@ -463,3 +463,25 @@ TEST_CASE("control: Expander_CollapsedMeasure")
     CHECK(collapsedH < expandedH);
     CHECK(collapsedH == doctest::Approx(expander->HeaderHeight.Value()).epsilon(0.02));
 }
+
+// === WantsArrowKeys (from DirectionalFocusTests: arrow keys go to the focused control, not focus-nav) ===
+
+TEST_CASE("control: WantsArrowKeys_ButtonFalse")
+{
+    auto btn = MakeButton(u8"Test");
+    CHECK_FALSE(btn->WantsArrowKeys);
+}
+
+TEST_CASE("control: WantsArrowKeys_EditTextTrue")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto edit = core::MakeRef<EditText>(core::DefaultAllocator()); root->AddView(edit.Get());
+    CHECK(edit->WantsArrowKeys);
+}
+
+TEST_CASE("control: WantsArrowKeys_NumericFieldTrue")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto nf = core::MakeRef<NumericField>(core::DefaultAllocator()); root->AddView(nf.Get());
+    CHECK(nf->WantsArrowKeys);
+}
