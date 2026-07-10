@@ -54,6 +54,11 @@ export namespace draconic::runtime
         [[nodiscard]] virtual IShell* Shell() noexcept = 0;
         [[nodiscard]] virtual GraphicsDevice* Graphics() noexcept = 0;
 
+        // The main window's RenderWindow (windows[0]), created by the host before OnStartup. Null when
+        // running headless (no shell/graphics). Apps attach their root UI / main viewport to it - the
+        // counterpart to the RenderWindow* returned by OpenWindow for secondary windows.
+        [[nodiscard]] virtual RenderWindow* MainRenderWindow() noexcept = 0;
+
         // Open/close OS windows at runtime (each backed by a RenderWindow). The
         // basis for detachable UI windows. Close is deferred to frame end. Both
         // return null / no-op when running headless (no shell/graphics).

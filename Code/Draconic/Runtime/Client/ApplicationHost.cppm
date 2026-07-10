@@ -165,6 +165,11 @@ export namespace draconic::runtime
         [[nodiscard]] IShell* Shell() noexcept override { return m_shell; }
         [[nodiscard]] GraphicsDevice* Graphics() noexcept override { return m_graphics; }
 
+        [[nodiscard]] RenderWindow* MainRenderWindow() noexcept override
+        {
+            return m_windows.IsEmpty() ? nullptr : m_windows[0].Get();
+        }
+
         RenderWindow* OpenWindow(const WindowSettings& windowSettings, const RenderWindowDesc& renderDesc) override
         {
             if (m_shell == nullptr || m_graphics == nullptr) { return nullptr; }
