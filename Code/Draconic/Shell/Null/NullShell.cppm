@@ -166,6 +166,7 @@ export namespace draconic::shell
         [[nodiscard]] bool CursorVisible() const override { return true; }
         void SetCursorVisible(bool) override {}
         void SetCursor(CursorType) override {}
+        void SetGlobalCapture(bool) override {}
     };
 
     class NullTouch final : public ITouch

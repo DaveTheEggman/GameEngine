@@ -212,6 +212,20 @@ export namespace draconic::ui::runtime
                 }
             }
 
+            // Keep OS mouse events flowing across window edges while a drag or a captured interaction
+            // (dock-window resize, slider, ...) is in progress - without an app-global capture the OS stops
+            // delivering events once the cursor leaves the window, stalling multi-window drag/resize at the
+            // edge and losing a release that happens outside the window.
+            if (m_shell->Input() != nullptr)
+            {
+                if (shell::IMouse* mouse = m_shell->Input()->Mouse())
+                {
+                    const bool capturing = (dd != nullptr && dd->IsDragging())
+                                        || (m_ctx.GetFocusManager()->CapturedView() != nullptr);
+                    mouse->SetGlobalCapture(capturing);
+                }
+            }
+
             m_ctx.BeginFrame(deltaTime);
             for (Attached& a : m_attached)
             {

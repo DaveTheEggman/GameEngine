@@ -257,6 +257,7 @@ namespace
         bool CursorVisible() const override { return true; }
         void SetCursorVisible(bool) override {}
         void SetCursor(shell::CursorType) override {}
+        void SetGlobalCapture(bool) override {}
     };
 
     class MockInputManager final : public shell::IInputManager

@@ -377,6 +377,12 @@ export namespace draconic::shell
             if (m_cursors[i] == nullptr) { m_cursors[i] = SDL_CreateSystemCursor(MapSystemCursor(cursor)); }
             if (m_cursors[i] != nullptr) { SDL_SetCursor(m_cursors[i]); m_cursor = cursor; }
         }
+        void SetGlobalCapture(bool enabled) override
+        {
+            if (enabled == m_globalCapture) { return; }   // SDL_CaptureMouse is refcounted-ish; avoid churn
+            SDL_CaptureMouse(enabled);
+            m_globalCapture = enabled;
+        }
 
         void SetWindow(SDL_Window* window) { m_window = window; }
         // Frees the lazily-created system cursors. Called before SDL_Quit so no
@@ -441,6 +447,7 @@ export namespace draconic::shell
         bool m_previous[kMouseButtonCount] = {};
         bool m_relative = false;
         bool m_cursorVisible = true;
+        bool m_globalCapture = false;
         CursorType m_cursor = CursorType::Default;
         SDL_Cursor* m_cursors[kCursorCount] = {};  // lazily created, cached
     };

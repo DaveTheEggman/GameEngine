@@ -55,6 +55,12 @@ export namespace draconic::shell
         [[nodiscard]] virtual bool CursorVisible() const = 0;
         virtual void SetCursorVisible(bool visible) = 0;
         virtual void SetCursor(CursorType cursor) = 0;
+
+        // Capture the mouse app-globally so events (move + buttons) keep flowing even when the cursor
+        // leaves a window. Required for multi-window drag / resize: without it the OS stops delivering
+        // events once the pointer exits the window, so the operation stalls at the window edge and a
+        // release outside the window is never seen. Enable at the start of a drag/resize, disable at end.
+        virtual void SetGlobalCapture(bool enabled) = 0;
     };
 
     class IGamepad

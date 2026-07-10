@@ -65,6 +65,7 @@ export namespace draconic::shell
         [[nodiscard]] bool CursorVisible() const override;
         void SetCursorVisible(bool visible) override;
         void SetCursor(CursorType cursor) override;
+        void SetGlobalCapture(bool enabled) override;
 
     private:
         InputSurface* m_s;
@@ -227,6 +228,7 @@ export namespace draconic::shell
     inline bool SurfaceMouse::CursorVisible() const { return m_s->Raw()->Mouse()->CursorVisible(); }
     inline void SurfaceMouse::SetCursorVisible(bool v) { m_s->Raw()->Mouse()->SetCursorVisible(v); }
     inline void SurfaceMouse::SetCursor(CursorType c) { m_s->Raw()->Mouse()->SetCursor(c); }
+    inline void SurfaceMouse::SetGlobalCapture(bool e) { m_s->Raw()->Mouse()->SetGlobalCapture(e); }
 
     inline bool SurfaceKeyboard::IsKeyDown(KeyCode k) const
     {
