@@ -22,6 +22,7 @@ add_executable(DraconicUIToolkitTests
     DockingTests.cpp
     NodeGraphTests.cpp
     DraggableTreeViewTests.cpp
+    ToolkitThemeExtensionTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(DraconicUIToolkitTests PRIVATE
