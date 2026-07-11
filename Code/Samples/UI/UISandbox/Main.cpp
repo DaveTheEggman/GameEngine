@@ -2163,7 +2163,7 @@ void UISandbox::OnShutdown(runtime::IApplicationHost&)
     // per-window VGRenderer are still alive (the ViewportView outlives the window inside the view tree).
     if (m_viewport) { m_viewport->Shutdown(); }
     m_cube.Shutdown();
-    if (m_cubeCompiler != nullptr) { m_cubeCompiler->Destroy(); DefaultAllocator().Delete(m_cubeCompiler); m_cubeCompiler = nullptr; }
+    if (m_cubeCompiler != nullptr) { m_cubeCompiler->Destroy(); delete m_cubeCompiler; m_cubeCompiler = nullptr; }
 }
 
 int main(int /*argc*/, char** /*argv*/)

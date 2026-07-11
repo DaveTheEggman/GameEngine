@@ -79,7 +79,7 @@ export namespace draconic::ui::runtime
             // after a GPU idle), not here. We only own the shared shaders + compiler.
             if (m_vs != nullptr) { m_device->Raw()->DestroyShaderModule(m_vs); }
             if (m_fs != nullptr) { m_device->Raw()->DestroyShaderModule(m_fs); }
-            if (m_compiler != nullptr) { m_compiler->Destroy(); core::DefaultAllocator().Delete(m_compiler); }
+            if (m_compiler != nullptr) { m_compiler->Destroy(); delete m_compiler; }
         }
 
         UIHost(const UIHost&) = delete;
