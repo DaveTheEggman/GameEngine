@@ -18,6 +18,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include <cstdint>
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
@@ -758,6 +759,13 @@ export namespace draconic::shell
                         e.window = static_cast<core::u32>(event.key.windowID);
                         e.key = MapKeyCode(event.key.scancode);
                         e.modifiers = MapModifiers(event.key.mod);
+                        if (e.key == KeyCode::Unknown && event.key.down)
+                        {
+                            const core::String scName(reinterpret_cast<const core::utf8char*>(
+                                SDL_GetScancodeName(event.key.scancode)));
+                            DRACONIC_LOG_DEBUG(u8"Shell", u8"unmapped key scancode {} ('{}')",
+                                static_cast<core::u32>(event.key.scancode), scName);
+                        }
                         m_input.EmitEvent(e);
                         m_input.KeyboardDevice().SetKey(e.key, event.key.down);
                         m_input.KeyboardDevice().SetModifiers(e.modifiers);
@@ -924,6 +932,10 @@ export namespace draconic::shell
             if (sc == SDL_SCANCODE_0) return KeyCode::Num0;
             if (sc >= SDL_SCANCODE_F1 && sc <= SDL_SCANCODE_F12)
                 return static_cast<KeyCode>(static_cast<core::u32>(KeyCode::F1) + (sc - SDL_SCANCODE_F1));
+            if (sc >= SDL_SCANCODE_F13 && sc <= SDL_SCANCODE_F24)
+                return static_cast<KeyCode>(static_cast<core::u32>(KeyCode::F13) + (sc - SDL_SCANCODE_F13));
+            if (sc >= SDL_SCANCODE_KP_1 && sc <= SDL_SCANCODE_KP_9)   // SDL keypad digits: 1..9 then 0
+                return static_cast<KeyCode>(static_cast<core::u32>(KeyCode::Keypad1) + (sc - SDL_SCANCODE_KP_1));
             switch (sc)
             {
                 case SDL_SCANCODE_RETURN:    return KeyCode::Return;
@@ -949,6 +961,30 @@ export namespace draconic::shell
                 case SDL_SCANCODE_END:       return KeyCode::End;
                 case SDL_SCANCODE_PAGEUP:    return KeyCode::PageUp;
                 case SDL_SCANCODE_PAGEDOWN:  return KeyCode::PageDown;
+                case SDL_SCANCODE_KP_ENTER:    return KeyCode::KeypadEnter;
+                case SDL_SCANCODE_KP_0:        return KeyCode::Keypad0;
+                case SDL_SCANCODE_KP_DIVIDE:   return KeyCode::KeypadDivide;
+                case SDL_SCANCODE_KP_MULTIPLY: return KeyCode::KeypadMultiply;
+                case SDL_SCANCODE_KP_MINUS:    return KeyCode::KeypadMinus;
+                case SDL_SCANCODE_KP_PLUS:     return KeyCode::KeypadPlus;
+                case SDL_SCANCODE_KP_PERIOD:   return KeyCode::KeypadDecimal;
+                case SDL_SCANCODE_MINUS:        return KeyCode::Minus;
+                case SDL_SCANCODE_EQUALS:       return KeyCode::Equals;
+                case SDL_SCANCODE_LEFTBRACKET:  return KeyCode::LeftBracket;
+                case SDL_SCANCODE_RIGHTBRACKET: return KeyCode::RightBracket;
+                case SDL_SCANCODE_BACKSLASH:    return KeyCode::Backslash;
+                case SDL_SCANCODE_SEMICOLON:    return KeyCode::Semicolon;
+                case SDL_SCANCODE_APOSTROPHE:   return KeyCode::Apostrophe;
+                case SDL_SCANCODE_GRAVE:        return KeyCode::Grave;
+                case SDL_SCANCODE_COMMA:        return KeyCode::Comma;
+                case SDL_SCANCODE_PERIOD:       return KeyCode::Period;
+                case SDL_SCANCODE_SLASH:        return KeyCode::Slash;
+                case SDL_SCANCODE_CAPSLOCK:     return KeyCode::CapsLock;
+                case SDL_SCANCODE_SCROLLLOCK:   return KeyCode::ScrollLock;
+                case SDL_SCANCODE_NUMLOCKCLEAR: return KeyCode::NumLock;
+                case SDL_SCANCODE_PRINTSCREEN:  return KeyCode::PrintScreen;
+                case SDL_SCANCODE_PAUSE:        return KeyCode::Pause;
+                case SDL_SCANCODE_APPLICATION:  return KeyCode::Menu;
                 default:                     return KeyCode::Unknown;
             }
         }

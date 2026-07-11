@@ -264,3 +264,40 @@ TEST_CASE("shell.desktop: window geometry accessors + global mouse are callable"
     (void)mouse->GlobalX();
     (void)mouse->GlobalY();
 }
+
+TEST_CASE("shell.desktop: keypad and function scancodes map (KP_ENTER was silently Unknown)")
+{
+    SDL3Shell shell;
+    if (shell.MainWindow() == nullptr) { return; }
+    IKeyboard* kb = shell.Input()->Keyboard();
+    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
+
+    auto push = [winId](SDL_Scancode sc, bool down) {
+        SDL_Event e{};
+        e.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+        e.key.windowID = winId;
+        e.key.scancode = sc;
+        e.key.down = down;
+        SDL_PushEvent(&e);
+    };
+
+    struct Expect { SDL_Scancode sc; KeyCode key; };
+    const Expect cases[] = {
+        { SDL_SCANCODE_KP_ENTER,    KeyCode::KeypadEnter },
+        { SDL_SCANCODE_KP_0,        KeyCode::Keypad0 },
+        { SDL_SCANCODE_KP_5,        KeyCode::Keypad5 },
+        { SDL_SCANCODE_KP_PLUS,     KeyCode::KeypadPlus },
+        { SDL_SCANCODE_F13,         KeyCode::F13 },
+        { SDL_SCANCODE_GRAVE,       KeyCode::Grave },
+        { SDL_SCANCODE_PRINTSCREEN, KeyCode::PrintScreen },
+    };
+    for (const Expect& c : cases)
+    {
+        push(c.sc, true);
+        shell.ProcessEvents();
+        CHECK(kb->IsKeyDown(c.key));
+        push(c.sc, false);
+        shell.ProcessEvents();
+        CHECK_FALSE(kb->IsKeyDown(c.key));
+    }
+}
