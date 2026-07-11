@@ -35,3 +35,20 @@ export import :decal_pass;
 export import :debug_font;
 export import :debug_draw;
 export import :debug_pass;
+
+// Per-pass HLSL source partitions (split out of the pass files so shaders are easy to lift to .hlsl
+// later; pass-internal, but GCC requires every interface partition be exported by the primary interface).
+export import :mesh_shaders;
+export import :sprite_shaders;
+export import :cluster_shaders;
+export import :tonemap_shaders;
+export import :ibl_shaders;
+export import :probe_shaders;
+export import :sky_shaders;
+export import :bloom_shaders;
+export import :taa_shaders;
+export import :ao_shaders;
+export import :ssr_shaders;
+export import :fxaa_shaders;
+export import :decal_shaders;
+export import :debug_pass_shaders;

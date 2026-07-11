@@ -23,6 +23,7 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data;   // ReflectionProbe / kMaxReflectionProbes / ProbeUpdateMode
+import :probe_shaders;   // ProbeBlitVS() / ProbeBlitPS() / ProbePrefilterPS() - HLSL source split into ProbeShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -38,92 +39,6 @@ struct GpuProbe {
     Float4 params;   // x = mipCount, y = priority,            zw = pad
 };
 static_assert(sizeof(GpuProbe) == 64);
-
-// Fullscreen-triangle VS (uv from SV_VertexID) for the captured->prefiltered blit.
-inline constexpr const char8_t* kProbeBlitVS = u8R"(
-struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
-VSOut main(uint vid : SV_VertexID) {
-    float2 uv = float2((vid << 1) & 2, vid & 2);
-    VSOut o; o.uv = uv; o.pos = float4(uv * 2.0 - 1.0, 0.0, 1.0); return o;
-}
-)";
-
-// Blit PS: copy one captured face into the prefiltered face, correcting the RH-LookAt horizontal mirror
-// by flipping u. Samples the captured face as a plain Texture2D (NOT the cube sampler) so filtering never
-// crosses a face boundary - the cube-sampler path shows the face seams in smooth gradients (sky). This is
-// Sedulous's probe_blit. Image-space flip => winding stays correct (a camera-axis flip breaks culling).
-inline constexpr const char8_t* kProbeBlitPS = u8R"(
-Texture2D<float4> SrcFace : register(t0, space0);
-SamplerState      Samp    : register(s0, space0);
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
-    // flip-u corrects the RH-LookAt mirror; flip-v corrects the vertical inversion from the capture +
-    // blit both passing through the negative viewport. (Retested after fixing the sky-slot collision that
-    // had scrambled the earlier read.)
-    return SrcFace.SampleLevel(Samp, float2(1.0 - uv.x, 1.0 - uv.y), 0.0);
-}
-)";
-
-// GGX prefilter PS: convolve the CORRECTED probe cube (prefiltered mip 0) into a rougher mip. Karis
-// split-sum importance sampling (same math as IBLSystem). Reads mip 0, writes mip M (roughness=M/(mips-1));
-// the forward samples roughness*maxLod so rough surfaces get progressively blurrier reflections.
-inline constexpr const char8_t* kProbePrefilterPS = u8R"(
-struct Push { int FaceIndex; float Roughness; float2 Pad; };
-[[vk::push_constant]] Push pc;
-TextureCube<float4> Src  : register(t0, space0);
-SamplerState        Samp : register(s0, space0);
-static const float PI = 3.14159265359;
-float3 DirForFace(int face, float2 uv) {
-    float2 t = uv * 2.0 - 1.0;
-    float3 d;
-    if      (face == 0) d = float3( 1.0,  t.y, -t.x);
-    else if (face == 1) d = float3(-1.0,  t.y,  t.x);
-    else if (face == 2) d = float3( t.x,  1.0, -t.y);
-    else if (face == 3) d = float3( t.x, -1.0,  t.y);
-    else if (face == 4) d = float3( t.x,  t.y,  1.0);
-    else                d = float3(-t.x,  t.y, -1.0);
-    return normalize(d);
-}
-float RadicalInverse_VdC(uint bits) {
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10;
-}
-float2 Hammersley(uint i, uint n) { return float2(float(i) / float(n), RadicalInverse_VdC(i)); }
-float3 ImportanceSampleGGX(float2 xi, float3 n, float roughness) {
-    float a = roughness * roughness;
-    float phi = 2.0 * PI * xi.x;
-    float cosT = sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
-    float sinT = sqrt(1.0 - cosT * cosT);
-    float3 h = float3(cos(phi) * sinT, sin(phi) * sinT, cosT);
-    float3 up = abs(n.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
-    float3 tx = normalize(cross(up, n));
-    float3 ty = cross(n, tx);
-    return normalize(tx * h.x + ty * h.y + n * h.z);
-}
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
-    float3 N = DirForFace(pc.FaceIndex, uv);
-    float3 V = N;
-    const uint SAMPLES = 128u;   // per-probe, may run every frame (Realtime) -> fewer than IBL's 1024
-    float3 color = 0.0; float weight = 0.0;
-    for (uint i = 0u; i < SAMPLES; ++i) {
-        float2 xi = Hammersley(i, SAMPLES);
-        float3 H  = ImportanceSampleGGX(xi, N, pc.Roughness);
-        float3 L  = normalize(2.0 * dot(V, H) * H - V);
-        float  ndl = dot(N, L);
-        if (ndl > 0.0) {
-            float3 s = Src.SampleLevel(Samp, L, 0.0).rgb;
-            // Karis firefly reduction: down-weight bright samples (tone weight) so sparse importance-sample
-            // hits on tiny bright sources (moving point lights in the low-res capture) don't alias/flicker.
-            float fw = ndl / (1.0 + dot(s, float3(0.2126, 0.7152, 0.0722)));
-            color += s * fw; weight += fw;
-        }
-    }
-    return float4(color / max(weight, 1e-4), 1.0);
-}
-)";
 
 struct PrefilterPush { i32 faceIndex = 0; f32 roughness = 0.0f; f32 pad0 = 0.0f, pad1 = 0.0f; };
 static_assert(sizeof(PrefilterPush) == 16);
@@ -145,9 +60,9 @@ public:
 
     Status Initialize() {
         if (!CreateResources()) { return Status{ ErrorCode::Unknown }; }
-        m_shaders->RegisterSource(u8"probe_blit_vs", shaders::ShaderStage::Vertex,   kProbeBlitVS);
-        m_shaders->RegisterSource(u8"probe_blit_ps", shaders::ShaderStage::Fragment, kProbeBlitPS);
-        m_shaders->RegisterSource(u8"probe_prefilter_ps", shaders::ShaderStage::Fragment, kProbePrefilterPS);
+        m_shaders->RegisterSource(u8"probe_blit_vs", shaders::ShaderStage::Vertex,   ProbeBlitVS());
+        m_shaders->RegisterSource(u8"probe_blit_ps", shaders::ShaderStage::Fragment, ProbeBlitPS());
+        m_shaders->RegisterSource(u8"probe_prefilter_ps", shaders::ShaderStage::Fragment, ProbePrefilterPS());
         if (!CreateBlitPipeline() || !CreatePrefilterPipeline()) { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }

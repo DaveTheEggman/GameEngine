@@ -17,71 +17,12 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data;   // kGVelocityFormat (sky writes camera-motion velocity for TAA)
+import :sky_shaders;   // SkyCommon()/SkyVS()/SkyPS() - HLSL source in SkyShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
 
 export namespace draconic::render {
-
-// Fullscreen-triangle VS: emit far-plane NDC (z=1) + reconstruct the world-space ray via inverse
-// view-proj (row-vector mul). PS samples the env cube along that ray.
-// Sky uniform, shared by VS+PS. PrevViewProj (last frame, unjittered-equivalent via the Jitter unjitter)
-// + Jitter let the sky write a camera-motion velocity so TAA reprojects the background under rotation.
-inline constexpr const char8_t* kSkyCommon = u8R"(
-cbuffer Sky : register(b0, space0) {
-    row_major float4x4 InvViewProj;    // inverse of this frame's UNJITTERED view-proj (stable sky ray under TAA)
-    row_major float4x4 PrevViewProj;   // last frame's view-proj (motion vectors)
-    float4 CamPosIntensity;   // xyz = camera world pos, w = sky intensity
-    float4 SunDir;            // xyz = light direction, w = sun angular size (deg)
-    float4 SunColor;          // rgb = sun color, w = sun intensity
-    float4 Jitter;            // xy = this frame's NDC jitter, zw = last frame's
-};
-)";
-
-inline constexpr const char8_t* kSkyVS = u8R"(
-struct VSOut { float4 pos : SV_Position; float3 dir : TEXCOORD0; float2 ndc : TEXCOORD1; };
-VSOut main(uint vid : SV_VertexID) {
-    float2 uv  = float2((vid << 1) & 2, vid & 2);
-    float2 ndc = uv * 2.0 - 1.0;
-    VSOut o;
-    o.pos = float4(ndc, 1.0, 1.0);                        // far plane (depth = 1)
-    o.ndc = ndc;
-    // Reconstruct the world ray: at a given screen pixel the interpolated NDC matches what the scene's
-    // geometry uses there (both go through the same viewport), so unproject the emitted NDC directly.
-    float4 world = mul(float4(ndc, 1.0, 1.0), InvViewProj);  // clip -> world
-    o.dir = world.xyz / world.w - CamPosIntensity.xyz;
-    return o;
-}
-)";
-
-inline constexpr const char8_t* kSkyPS = u8R"(
-TextureCube  EnvMap  : register(t0, space0);
-SamplerState EnvSamp : register(s0, space0);
-struct PSIn { float4 pos : SV_Position; float3 dir : TEXCOORD0; float2 ndc : TEXCOORD1; };
-struct PSOut { float4 color : SV_Target0; float2 velocity : SV_Target1; };
-PSOut main(PSIn i) {
-    float3 dir = normalize(i.dir);
-    float3 c = EnvMap.SampleLevel(EnvSamp, dir, 0.0).rgb * CamPosIntensity.w;
-    // Crisp analytic sun disc (screen resolution, round) toward the light, with a soft ~1.5deg edge.
-    float3 L     = normalize(-SunDir.xyz);
-    float  cd    = dot(dir, L);
-    float  inner = cos(radians(max(SunDir.w, 0.1)));
-    float  outer = cos(radians(max(SunDir.w, 0.1) + 1.5));
-    c += smoothstep(outer, inner, cd) * SunColor.rgb * SunColor.w;
-
-    // Camera-motion velocity: reproject the (infinite) view ray through last frame's view-proj (w=0, a
-    // direction) and take the UV delta, in UNJITTERED NDC. The ray is reconstructed through the UNJITTERED
-    // InvViewProj (so the background is temporally invariant under a static camera - no per-pixel jitter
-    // oscillation for TAA to chase), which makes i.ndc the geometric current NDC directly. The previous
-    // term still unjitters (PrevViewProj carries last frame's jitter; +Jitter.zw removes it).
-    float4 prevClip = mul(float4(dir, 0.0), PrevViewProj);
-    float2 curNDC   = i.ndc;
-    float2 prevNDC  = prevClip.xy / prevClip.w + Jitter.zw;
-    float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
-
-    PSOut o; o.color = float4(c, 1.0); o.velocity = velocity; return o;
-}
-)";
 
 class SkyPass {
 public:
@@ -92,8 +33,8 @@ public:
     SkyPass& operator=(const SkyPass&) = delete;
 
     Status Initialize() {
-        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Vertex,   Concat(kSkyCommon, kSkyVS));
-        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Fragment, Concat(kSkyCommon, kSkyPS));
+        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Vertex,   Concat(SkyCommon(), SkyVS()));
+        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Fragment, Concat(SkyCommon(), SkyPS()));
         rhi::BindGroupLayoutEntry uboE  = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry texE  = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
         rhi::BindGroupLayoutEntry sampE = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
@@ -158,7 +99,7 @@ private:
     static constexpr u32 kMaxSlots = kMaxViews * kMaxFIF;
     struct SkyUniform { Float4x4 invViewProj; Float4x4 prevViewProj; Float4 camPosIntensity; Float4 sunDir; Float4 sunColor; Float4 jitter; };
 
-    static String Concat(const char8_t* a, const char8_t* b) { String s(StringView{ a }); s.Append(StringView{ b }); return s; }
+    static String Concat(StringView a, StringView b) { String s(a); s.Append(b); return s; }
 
     rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFmt, rhi::TextureFormat depthFmt) {
         if (m_pipeline != nullptr && m_colorFormat == colorFmt && m_depthFormat == depthFmt) { return m_pipeline; }

@@ -19,61 +19,12 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :debug_font;
 import :debug_draw;
+import :debug_pass_shaders;   // DebugGeomVS()/DebugGeomPS()/DebugScreenVS()/DebugScreenPS() - HLSL split into DebugDrawShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
 
 export namespace draconic::render {
-
-// World-space geometry: position (world) transformed by the view's ViewProj (push), unlit vertex color.
-// A tiny clip-space depth nudge toward the camera (constant NDC-z bias = kDepthBias, applied as
-// z -= bias*w so it survives the perspective divide) keeps coplanar gizmos (grid/axes on a surface)
-// from shimmering: the debug geometry is projected UNJITTERED but depth-tests against the scene depth,
-// which is rendered with the TAA sub-pixel jitter - so without a bias the depth-test margin oscillates
-// as the jitter walks its sequence each frame. A rasterizer depth bias won't help (it doesn't apply to
-// line primitives on D3D12/Vulkan), so we bias in clip space where it covers both lines and triangles.
-// Harmless for the overlay pipelines (Always depth-compare ignores it).
-inline constexpr const char8_t* kDebugGeomVS = u8R"(
-struct VSIn  { float3 pos : TEXCOORD0; float4 col : TEXCOORD1; };
-struct VSOut { float4 pos : SV_Position; float4 col : TEXCOORD0; };
-struct GeomPush { row_major float4x4 ViewProj; };
-[[vk::push_constant]] GeomPush pc;
-static const float kDepthBias = 0.0005;
-VSOut main(VSIn i) {
-    VSOut o;
-    o.pos = mul(float4(i.pos, 1.0), pc.ViewProj);
-    o.pos.z -= kDepthBias * o.pos.w;   // pull toward camera (NDC 0=near) to beat TAA-jitter depth noise
-    o.col = i.col;
-    return o;
-}
-)";
-inline constexpr const char8_t* kDebugGeomPS = u8R"(
-float4 main(float4 pos : SV_Position, float4 col : TEXCOORD0) : SV_Target { return col; }
-)";
-
-// Screen-space text/rects: pixel coords (top-left origin) -> NDC (top-origin, correct under the RHI's
-// negative viewport), sampled against the R8 font atlas (or its solid block for rects).
-inline constexpr const char8_t* kDebugScreenVS = u8R"(
-struct VSIn  { float3 pos : TEXCOORD0; float2 uv : TEXCOORD1; float4 col : TEXCOORD2; };
-struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : TEXCOORD1; };
-struct ScreenPush { float2 InvSize; float2 _pad; };
-[[vk::push_constant]] ScreenPush pc;
-VSOut main(VSIn i) {
-    VSOut o;
-    float2 ndc = float2(i.pos.x * pc.InvSize.x * 2.0 - 1.0, 1.0 - i.pos.y * pc.InvSize.y * 2.0);
-    o.pos = float4(ndc, 0.0, 1.0);
-    o.uv = i.uv; o.col = i.col;
-    return o;
-}
-)";
-inline constexpr const char8_t* kDebugScreenPS = u8R"(
-Texture2D    FontAtlas : register(t0, space0);
-SamplerState FontSamp  : register(s0, space0);
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : TEXCOORD1) : SV_Target {
-    float a = FontAtlas.SampleLevel(FontSamp, uv, 0).r;
-    return float4(col.rgb, col.a * a);
-}
-)";
 
 class DebugDrawPass {
 public:
@@ -84,10 +35,10 @@ public:
     DebugDrawPass& operator=(const DebugDrawPass&) = delete;
 
     Status Initialize() {
-        m_shaders->RegisterSource(u8"debug_geom",   shaders::ShaderStage::Vertex,   kDebugGeomVS);
-        m_shaders->RegisterSource(u8"debug_geom",   shaders::ShaderStage::Fragment, kDebugGeomPS);
-        m_shaders->RegisterSource(u8"debug_screen", shaders::ShaderStage::Vertex,   kDebugScreenVS);
-        m_shaders->RegisterSource(u8"debug_screen", shaders::ShaderStage::Fragment, kDebugScreenPS);
+        m_shaders->RegisterSource(u8"debug_geom",   shaders::ShaderStage::Vertex,   DebugGeomVS());
+        m_shaders->RegisterSource(u8"debug_geom",   shaders::ShaderStage::Fragment, DebugGeomPS());
+        m_shaders->RegisterSource(u8"debug_screen", shaders::ShaderStage::Vertex,   DebugScreenVS());
+        m_shaders->RegisterSource(u8"debug_screen", shaders::ShaderStage::Fragment, DebugScreenPS());
 
         // Geometry pipeline layout: just the ViewProj push (no bind groups).
         rhi::PushConstantRange gpc{}; gpc.stages = rhi::ShaderStage::Vertex; gpc.offset = 0; gpc.size = sizeof(Float4x4);
