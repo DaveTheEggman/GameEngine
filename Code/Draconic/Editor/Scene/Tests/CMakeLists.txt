@@ -1,4 +1,4 @@
-add_executable(DraconicEditorSceneTests TestsMain.cpp SceneEditorTests.cpp)
+add_executable(DraconicEditorSceneTests TestsMain.cpp SceneEditorTests.cpp EditContextTests.cpp)
 target_link_libraries(DraconicEditorSceneTests PRIVATE Draconic::EditorScene Draconic::EditorCore Draconic::Content doctest::doctest)
 target_compile_definitions(DraconicEditorSceneTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicEditorSceneTests PRIVATE

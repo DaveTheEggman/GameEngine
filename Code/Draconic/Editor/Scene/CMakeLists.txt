@@ -17,6 +17,8 @@ target_sources(DraconicEditorScene
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             EditorCamera.cppm
+            EditContext.cppm
+            HierarchyView.cppm
             ScenePage.cppm
             EditorSceneModule.cppm)
 

@@ -32,12 +32,15 @@ import draconic.scene.editor;
 import draconic.render;
 import draconic.render.subsystem;
 import draconic.ui;
+import draconic.ui.toolkit;
 import draconic.ui.runtime;
 import draconic.ui.viewport;
 import draconic.vg.renderer;
 import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
+import :edit;
+import :hierarchy;
 
 using namespace draconic::core;
 
@@ -81,9 +84,22 @@ export namespace draconic::editor
 
             // No OnRender/RenderContent: the frame graph renders the scene into the color target
             // and manages its transitions via TargetState (ColorState()/SetColorState tracking),
-            // inside the coordinator's single per-frame bracket.
+            // inside the app's single per-frame bracket.
             m_viewport = MakeRef<uivp::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.10f, 0.11f, 0.13f, 1.0f };
+
+            // Everything scene-scoped is PER PAGE (multi-scene): mutation mediator (all edits
+            // are commands on THIS page's stack), selection, hierarchy view.
+            if (m_scene != nullptr)
+            {
+                m_editContext = MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
+                m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
+            }
+
+            // Page layout: hierarchy | viewport.
+            m_content = MakeRef<draconic::ui::toolkit::SplitView>(DefaultAllocator());
+            m_content->SetSplitRatio(0.22f);
+            m_content->SetPanes(m_hierarchy.Get(), m_viewport.Get());
 
             m_router = MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
 
@@ -93,7 +109,7 @@ export namespace draconic::editor
 
         // === UIEditorPage ===
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_viewport.Get(); }
+        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
 
         void OnUpdate(rt::IApplicationHost&, f32 dt) override
@@ -101,15 +117,20 @@ export namespace draconic::editor
             EnsureViewportBound();
             if (m_hostWindow == nullptr) { return; }
 
+            if (m_hierarchy) { m_hierarchy->Refresh(); }   // scene revision -> tree rebuild
+
             m_viewport->SyncInputRegion();
             m_router->Update();
-            if (m_viewport->IsHovered() || m_viewport->IsFocused())
+            const bool viewportActive = m_viewport->IsHovered() || m_viewport->IsFocused();
+            if (viewportActive)
             {
                 m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
             }
+            if (m_viewport->IsHovered()) { PickOnClick(); }
 
-            // Ground grid + origin axes (per-scene debug draw: shows only where THIS scene
-            // renders). Lists clear in EndRendering, so re-accumulate every frame.
+            // Per-scene debug draw (shows only where THIS scene renders; lists clear in
+            // EndRendering, so re-accumulate every frame): ground grid + origin axes + entity
+            // markers (selected = boxed and brighter).
             if (m_render != nullptr && m_scene != nullptr)
             {
                 drender::debug::DebugDraw& dd = m_render->DebugScene(*m_scene);
@@ -117,6 +138,7 @@ export namespace draconic::editor
                 dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 1, 0, 0 }, Color{ 0.9f, 0.2f, 0.2f, 1.0f });
                 dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 }, Color{ 0.2f, 0.9f, 0.2f, 1.0f });
                 dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 0, 1 }, Color{ 0.2f, 0.4f, 0.95f, 1.0f });
+                DrawEntityMarkers(dd);
             }
         }
 
@@ -195,8 +217,94 @@ export namespace draconic::editor
 
         [[nodiscard]] dscene::Scene* ScenePtr() const noexcept { return m_scene; }
         [[nodiscard]] EditorCamera& Camera() noexcept { return m_camera; }
+        [[nodiscard]] SceneEditContext* EditContext() const noexcept { return m_editContext.Get(); }
 
     private:
+        // Position markers for every entity (small cross; selected = brighter + boxed) - empty
+        // entities have no renderable, so the editor gives them a visual anchor.
+        void DrawEntityMarkers(drender::debug::DebugDraw& dd)
+        {
+            if (!m_editContext) { return; }
+            Selection<Guid>& selection = m_editContext->EntitySelection();
+            dscene::Scene& scene = *m_scene;
+            scene.ForEachEntity([&](dscene::EntityHandle e) {
+                const Float4x4 world = scene.GetWorldMatrix(e);
+                const Float3 p{ world.m[3][0], world.m[3][1], world.m[3][2] };
+                const bool selected = selection.Contains(scene.GetEntityId(e));
+                const f32 s = 0.25f;
+                const Color color = selected ? Color{ 1.0f, 0.85f, 0.25f, 1.0f }
+                                             : Color{ 0.75f, 0.75f, 0.80f, 1.0f };
+                dd.DrawLine(p - Float3{ s, 0, 0 }, p + Float3{ s, 0, 0 }, color);
+                dd.DrawLine(p - Float3{ 0, s, 0 }, p + Float3{ 0, s, 0 }, color);
+                dd.DrawLine(p - Float3{ 0, 0, s }, p + Float3{ 0, 0, s }, color);
+                if (selected)
+                {
+                    dd.DrawWireBoxCenter(p, Float3{ 0.35f, 0.35f, 0.35f }, color);
+                }
+            });
+        }
+
+        // Click-to-select in the viewport: a camera ray through the clicked pixel against small
+        // pick spheres at entity positions (CPU picking v1; component bounds and marquee later).
+        // Left click only, and not while Alt-orbiting; Ctrl toggles; empty space clears.
+        void PickOnClick()
+        {
+            if (!m_editContext) { return; }
+            draconic::shell::IMouse* mouse = m_viewport->Mouse();
+            draconic::shell::IKeyboard* kb = m_viewport->Keyboard();
+            if (mouse == nullptr || !mouse->IsButtonPressed(draconic::shell::MouseButton::Left)) { return; }
+            const bool alt = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt)
+                                            || kb->IsKeyDown(draconic::shell::KeyCode::RightAlt));
+            if (alt) { return; }   // Alt+LMB = camera orbit
+
+            const u32 w = m_viewport->RenderWidth();
+            const u32 h = m_viewport->RenderHeight();
+            if (w == 0 || h == 0) { return; }
+
+            // Camera ray through the pixel, built from the camera basis (no matrix inverse).
+            const f32 ndcX = 2.0f * (mouse->X() / static_cast<f32>(w)) - 1.0f;
+            const f32 ndcY = 1.0f - 2.0f * (mouse->Y() / static_cast<f32>(h));
+            const f32 tanY = Tan(1.0472f * 0.5f);
+            const f32 tanX = tanY * (static_cast<f32>(w) / static_cast<f32>(h));
+            const Float3 origin = m_camera.position;
+            const Float3 dir = Normalized(m_camera.Forward()
+                                        + m_camera.Right() * (ndcX * tanX)
+                                        + m_camera.Up() * (ndcY * tanY));
+
+            dscene::Scene& scene = *m_scene;
+            Guid best;
+            f32 bestT = kFloatMax;
+            scene.ForEachEntity([&](dscene::EntityHandle e) {
+                const Float4x4 world = scene.GetWorldMatrix(e);
+                const Float3 p{ world.m[3][0], world.m[3][1], world.m[3][2] };
+                const Float3 toCenter = p - origin;
+                const f32 t = Dot(toCenter, dir);
+                if (t <= 0.0f || t >= bestT) { return; }
+                const Float3 closest = origin + dir * t;
+                const Float3 d = p - closest;
+                // Screen-constant-ish pick radius: grows with distance, floors for close-ups.
+                const f32 radius = Max(0.15f, t * 0.02f);
+                if (Dot(d, d) <= radius * radius)
+                {
+                    bestT = t;
+                    best = scene.GetEntityId(e);
+                }
+            });
+
+            Selection<Guid>& selection = m_editContext->EntitySelection();
+            const bool ctrl = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl)
+                                             || kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl));
+            if (best != Guid{})
+            {
+                if (ctrl) { selection.Toggle(best); }
+                else { selection.Set(best); }
+            }
+            else if (!ctrl)
+            {
+                selection.Clear();
+            }
+        }
+
         // Bind (and re-bind after dock/float moves) the viewport to the window that hosts it -
         // the UISandbox UpdateViewportHostWindow dance: RendererFor is only valid once the
         // window is attached, and a floated panel lives in a different OS window.
@@ -231,6 +339,9 @@ export namespace draconic::editor
 
         String m_title;
         dscene::Scene* m_scene = nullptr;            // owned by the SceneSubsystem
+        UniquePtr<SceneEditContext> m_editContext;   // per-page mutation mediator + selection
+        RefPtr<draconic::ui::toolkit::SplitView> m_content;   // hierarchy | viewport
+        RefPtr<SceneHierarchyView> m_hierarchy;
         RefPtr<uivp::ViewportView> m_viewport;
         UniquePtr<draconic::shell::InputRouter> m_router;
         EditorCamera m_camera;
