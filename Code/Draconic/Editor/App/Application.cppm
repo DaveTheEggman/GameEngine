@@ -1,0 +1,209 @@
+// Draconic::EditorApp - :application partition.
+//
+// EditorApplication: the editor as a runtime IApplication (docs/design/editor.md §3.2) - the
+// UISandbox wiring, assembled for real: TrueType font service + UIHost + RuntimeDockableWindowHost
+// (floating panels = borderless OS windows, drag-follow Tick) + the EditorShell chrome on the main
+// window, with the EditorContext + EditorProject from draconic.editor.core underneath. Opens (or
+// scaffolds) the project directory on startup, restores the per-user dock layout, saves it on
+// shutdown. Phase 1: chrome + project only; pages/panels grow in later phases.
+
+module;
+#include "Core/Prelude.h"
+
+export module draconic.editor.app:application;
+
+import draconic.core;
+import draconic.shell;
+import draconic.graphics;
+import draconic.fonts;
+import draconic.fonts.ttf;
+import draconic.runtime;
+import draconic.runtime.client;
+import draconic.ui;
+import draconic.ui.toolkit;
+import draconic.ui.runtime;
+import draconic.ui.application;
+import draconic.editor.core;
+import :shell;
+
+using namespace draconic::core;
+
+export namespace draconic::editor::app
+{
+    namespace rt = draconic::runtime;
+    namespace graphics = draconic::graphics;
+    namespace fonts = draconic::fonts;
+    namespace uirt = draconic::ui::runtime;
+    namespace uiapp = draconic::ui::application;
+
+    struct EditorAppConfig
+    {
+        String projectDirectory;               // opened on startup; scaffolded if no manifest yet
+        String projectName = String(u8"Untitled");   // name used when scaffolding
+        String fontPath;                       // UI font (.ttf); empty = no text (debug only)
+    };
+
+    class EditorApplication : public rt::IApplication
+    {
+    public:
+        explicit EditorApplication(EditorAppConfig config) : m_config(Move(config)) {}
+
+        [[nodiscard]] draconic::editor::EditorContext& Context() noexcept { return m_context; }
+        [[nodiscard]] draconic::editor::EditorProject* Project() const noexcept { return m_project.Get(); }
+        [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
+
+        void OnStartup(rt::IApplicationHost& host) override
+        {
+            m_host = &host;
+            graphics::RenderWindow* mainRw = host.MainRenderWindow();
+            if (mainRw == nullptr) { return; }
+
+            // Fonts (CPU rasterization; no device needed).
+            m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
+            if (!m_config.fontPath.IsEmpty())
+            {
+                fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
+                const f32 sizes[] = { 14.0f, 16.0f, 24.0f };
+                for (f32 size : sizes)
+                {
+                    options.pixelHeight = size;
+                    (void)m_fontService->LoadFont(u8"Roboto", m_config.fontPath.AsView(), options);
+                }
+            }
+
+            m_uiHost = MakeUnique<uirt::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
+            m_dockHost = MakeUnique<uiapp::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
+
+            // Theme: register the toolkit extension BEFORE creating the stylesheet (extensions
+            // only apply to themes built afterward), then the editor defaults to dark.
+            draconic::ui::ThemeRegistry::RegisterExtension(&m_toolkitTheme);
+            m_styleSheet = draconic::ui::DarkTheme::Create();
+            m_uiHost->Context().SetStyleSheet(m_styleSheet);
+
+            m_shell.Build(m_context, m_dockHost.Get(), mainRw->Window().Width(), mainRw->Window().Height());
+            BuildMenus();
+            m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
+
+            OpenProject();
+        }
+
+        void OnUpdate(rt::IApplicationHost&, f32 dt) override
+        {
+            if (m_uiHost) { m_uiHost->Update(dt); }
+            if (m_dockHost) { m_dockHost->Tick(); }   // drag-follow for floating OS windows
+        }
+
+        void OnRenderWindow(rt::IApplicationHost&, graphics::FrameContext& frame) override
+        {
+            if (m_uiHost) { m_uiHost->RenderWindow(frame); }
+        }
+
+        void OnShutdown(rt::IApplicationHost&) override
+        {
+            SaveLayout();
+        }
+
+    private:
+        void OpenProject()
+        {
+            if (m_config.projectDirectory.IsEmpty())
+            {
+                m_context.SetStatus(u8"No project directory - pass one on the command line.");
+                return;
+            }
+
+            m_project = draconic::editor::EditorProject::Open(m_config.projectDirectory.AsView());
+            if (!m_project)
+            {
+                // No manifest yet: scaffold a fresh project, then open it.
+                const Status created = draconic::editor::EditorProject::Create(
+                    m_config.projectDirectory.AsView(), m_config.projectName.AsView());
+                if (created.IsOk())
+                {
+                    m_project = draconic::editor::EditorProject::Open(m_config.projectDirectory.AsView());
+                }
+            }
+
+            if (!m_project)
+            {
+                String message(u8"Failed to open project: ");
+                message += m_config.projectDirectory;
+                m_context.SetStatus(message.AsView());
+                return;
+            }
+
+            m_context.SetProject(m_project.Get());
+
+            // Per-user layout (falls back to the built default on NotFound).
+            (void)m_shell.RestoreLayout(m_project->EditorStateRoot().AsView());
+
+            String message(u8"Project: ");
+            message += m_project->Name();
+            message += u8"  (";
+            message += m_project->Directory();
+            message += u8")";
+            m_context.SetStatus(message.AsView());
+        }
+
+        void SaveLayout()
+        {
+            if (m_project && m_shell.Docks() != nullptr)
+            {
+                (void)m_shell.SaveLayout(m_project->EditorStateRoot().AsView());
+            }
+        }
+
+        void BuildMenus()
+        {
+            tk::MenuBar* bar = m_shell.Menus();
+
+            if (draconic::ui::ContextMenu* file = bar->AddMenu(u8"File"))
+            {
+                rt::IApplicationHost* host = m_host;
+                file->AddItem(u8"Save Layout", [this]() {
+                    SaveLayout();
+                    m_context.SetStatus(u8"Layout saved.");
+                });
+                file->AddSeparator();
+                file->AddItem(u8"Exit", [host]() { if (host != nullptr) { host->RequestExit(); } });
+            }
+
+            if (draconic::ui::ContextMenu* edit = bar->AddMenu(u8"Edit"))
+            {
+                edit->AddItem(u8"Undo", [this]() { m_context.Undo(); });
+                edit->AddItem(u8"Redo", [this]() { m_context.Redo(); });
+            }
+
+            if (draconic::ui::ContextMenu* view = bar->AddMenu(u8"View"))
+            {
+                view->AddItem(u8"Reset Layout", [this]() {
+                    m_shell.ResetLayout();
+                    m_context.SetStatus(u8"Layout reset to default.");
+                });
+            }
+
+            if (draconic::ui::ContextMenu* help = bar->AddMenu(u8"Help"))
+            {
+                help->AddItem(u8"About", [this]() {
+                    m_context.SetStatus(u8"Draconic Editor - phase 1 shell (docs/design/editor.md)");
+                });
+            }
+        }
+
+        EditorAppConfig m_config;
+        rt::IApplicationHost* m_host = nullptr;   // borrowed
+
+        draconic::editor::EditorContext m_context;
+        UniquePtr<draconic::editor::EditorProject> m_project;
+
+        UniquePtr<fonts::TrueTypeFontService> m_fontService;
+        tk::ToolkitThemeExtension m_toolkitTheme;
+        RefPtr<draconic::ui::StyleSheet> m_styleSheet;
+        EditorShell m_shell;
+        UniquePtr<uiapp::RuntimeDockableWindowHost> m_dockHost;
+
+        // The UI-on-runtime bridge (owns the UIContext, per-window VG + input). Declared LAST so
+        // it tears down first (the shell's views outlive their windows inside the view tree).
+        UniquePtr<uirt::UIHost> m_uiHost;
+    };
+}

@@ -1,0 +1,96 @@
+// Draconic::EditorApp - :layout partition.
+//
+// Per-user dock-layout persistence (docs/design/editor.md §3.2): serialize the toolkit's
+// DockLayoutNode snapshot (DockManager::ExportLayout/ApplyLayout) to an XML file in the
+// project's Editor/ directory. Panels are matched back by their PersistenceId; unknown ids are
+// skipped by ApplyLayout, so a layout file survives panels being added/removed across versions.
+
+module;
+#include "Core/Prelude.h"
+
+export module draconic.editor.app:layout;
+
+import draconic.core;
+import draconic.vfs;
+import draconic.xml.serialization;
+import draconic.ui.toolkit;
+
+using namespace draconic::core;
+
+export namespace draconic::editor::app
+{
+    namespace tk = draconic::ui::toolkit;
+
+    inline constexpr StringView kDockLayoutFile = u8"layout.xml";
+
+    // Bidirectional field walk of one node (children recurse via presence flags).
+    inline void SerializeLayoutNode(ISerializer& ar, tk::DockLayoutNode& node)
+    {
+        ar.BeginObject();
+        draconic::core::Serialize(ar, "type", node.Type);
+        draconic::core::Serialize(ar, "direction", node.Direction);
+        draconic::core::Serialize(ar, "ratio", node.SplitRatio);
+        draconic::core::Serialize(ar, "activeTab", node.ActiveTabIndex);
+        draconic::core::Serialize(ar, "panels", node.PanelIds);
+
+        bool hasFirst = static_cast<bool>(node.First);
+        bool hasSecond = static_cast<bool>(node.Second);
+        draconic::core::Serialize(ar, "hasFirst", hasFirst);
+        draconic::core::Serialize(ar, "hasSecond", hasSecond);
+        if (hasFirst)
+        {
+            if (ar.Mode() == SerializeMode::Read) { node.First = MakeUnique<tk::DockLayoutNode>(DefaultAllocator()); }
+            ar.Key("first");
+            SerializeLayoutNode(ar, *node.First);
+        }
+        if (hasSecond)
+        {
+            if (ar.Mode() == SerializeMode::Read) { node.Second = MakeUnique<tk::DockLayoutNode>(DefaultAllocator()); }
+            ar.Key("second");
+            SerializeLayoutNode(ar, *node.Second);
+        }
+        ar.EndObject();
+    }
+
+    // Export `dock`'s current layout to <directory>/<fileName>.
+    [[nodiscard]] inline Status SaveDockLayout(tk::DockManager& dock, StringView directory,
+                                               StringView fileName = kDockLayoutFile)
+    {
+        UniquePtr<tk::DockLayoutNode> layout = dock.ExportLayout();
+        if (!layout) { return Status{ ErrorCode::NotFound } ; }   // empty dock tree - nothing to save
+
+        MemoryStream buffer;
+        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
+        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        SerializeLayoutNode(*ctx->serializer, *layout);
+        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+        ctx->Flush(buffer);
+
+        vfs::NativeFileSystem root(directory);
+        vfs::IWritableFileSystem* writable = root.AsWritable();
+        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+        return writable->Save(fileName, buffer.Bytes());
+    }
+
+    // Rebuild `dock`'s layout from <directory>/<fileName> (panels matched by PersistenceId).
+    // NotFound if the file doesn't exist (caller keeps its default layout).
+    [[nodiscard]] inline Status LoadDockLayout(tk::DockManager& dock, StringView directory,
+                                               StringView fileName = kDockLayoutFile)
+    {
+        vfs::NativeFileSystem root(directory);
+        UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
+        if (!stream) { return Status{ ErrorCode::NotFound }; }
+
+        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
+        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+
+        tk::DockLayoutNode layout;
+        SerializeLayoutNode(*ctx->serializer, layout);
+        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+
+        dock.ApplyLayout(&layout);
+        return Status{};
+    }
+}
