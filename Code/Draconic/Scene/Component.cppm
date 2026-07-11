@@ -22,6 +22,7 @@ module;
 export module draconic.scene:component;
 
 import draconic.core;
+import draconic.resource;
 import :entity;
 import :system;
 
@@ -57,6 +58,10 @@ public:
     // Writes / reads one component's data for `entity` (read adds the component first).
     virtual void WriteComponent(ISerializer& /*ar*/, EntityHandle /*entity*/) {}
     virtual void ReadComponent(ISerializer& /*ar*/, EntityHandle /*entity*/) {}
+
+    // Bind every component's resource::Ref fields through the manager (the post-load
+    // resolve pass; asset-pipeline design §8). Default: nothing to resolve.
+    virtual void ResolveResources(draconic::resource::ResourceManager& /*manager*/) {}
 
     // Destroying an entity destroys its component in this manager.
     void OnEntityDestroyed(EntityHandle entity) override { RemoveComponent(entity); }
@@ -176,11 +181,18 @@ private:
     Array<EntityHandle> m_pendingInit; // entities awaiting OnComponentInitialized
 };
 
+namespace detail {
+    // Fallback for components without resource::Ref fields (see ResolveOne).
+    template <typename T>
+    void ResolveResources(draconic::resource::ResourceManager&, T&) {}
+}
+
 // A ComponentManager<T> whose components persist. The component type T must have a
 // `Serialize(ISerializer&, T&)` overload (found by ADL); the manager drives it per
 // component. Construct with a stable on-disk type id (used to route records to this
 // manager on load). Subclass this (instead of ComponentManager<T>) for serializable
-// components - keeping serialization opt-in.
+// components - keeping serialization opt-in. Components with resource::Ref fields
+// additionally define `ResolveResources(ResourceManager&, T&)` (ADL, like Serialize).
 template <typename T>
 class SerializableComponentManager : public ComponentManager<T> {
 public:
@@ -197,12 +209,23 @@ public:
         SerializeOne(ar, c);
     }
 
+    // ADL hook like Serialize: components with resource::Ref fields define
+    // `ResolveResources(ResourceManager&, T&)` in their namespace; others resolve to
+    // the no-op fallback below.
+    void ResolveResources(draconic::resource::ResourceManager& manager) override {
+        this->ForEach([&](T& c, EntityHandle) { ResolveOne(manager, c); });
+    }
+
 private:
     // Unqualified call so ADL finds the user's Serialize(ar, T&); the using-declaration
     // brings the core overloads into scope for the component's own field serialization.
     static void SerializeOne(ISerializer& ar, T& value) {
         using draconic::core::Serialize;
         Serialize(ar, value);
+    }
+    static void ResolveOne(draconic::resource::ResourceManager& manager, T& value) {
+        using draconic::scene::detail::ResolveResources;   // no-op fallback
+        ResolveResources(manager, value);
     }
     String m_typeId;
 };

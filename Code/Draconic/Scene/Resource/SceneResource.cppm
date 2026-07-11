@@ -21,6 +21,7 @@ module;
 export module draconic.scene.resource;
 
 import draconic.core;
+import draconic.resource;
 import draconic.content;
 import draconic.scene;
 
@@ -169,6 +170,15 @@ inline void SerializeScene(ISerializer& ar, Scene& scene) {
 
 // Loads a cooked scene's "scene" data stream into `scene` (which must already have its
 // component managers). Returns NotFound if the stream is missing.
+// Post-load resolve pass (asset-pipeline design §8): bind every component's resource::Ref
+// through the manager. Run after LoadScene once a ResourceManager over the cooked DB exists;
+// idempotent (re-binding an already-bound ref is a cache hit).
+inline void ResolveSceneResources(Scene& scene, draconic::resource::ResourceManager& resources) {
+    scene.ForEachManager([&](ComponentManagerBase& manager) {
+        manager.ResolveResources(resources);
+    });
+}
+
 inline Status LoadScene(draconic::content::Instance& instance, Scene& scene) {
     UniquePtr<IStream> stream = instance.ReadData(u8"scene");
     if (stream.Get() == nullptr) { return Status{ ErrorCode::NotFound }; }
