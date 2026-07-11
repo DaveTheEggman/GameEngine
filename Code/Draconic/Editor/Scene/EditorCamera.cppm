@@ -99,6 +99,12 @@ export namespace draconic::editor
                 }
             }
 
+            // WASD/QE fly ONLY while the camera owns the input - RMB held or Tab-captured
+            // (the editor convention: with RMB up, W/E/R/X belong to the gizmo shortcuts).
+            const bool flying = mouseCaptured
+                || (mouse != nullptr && mouse->IsButtonDown(shell::MouseButton::Right));
+            if (!flying) { return; }
+
             const Float3 fwd = Forward();
             const Float3 right = Right();
             const f32 speed = (kb->IsKeyDown(shell::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
