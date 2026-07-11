@@ -83,6 +83,7 @@ public:
     void SetEntityName(EntityHandle entity, StringView name) {
         if (!IsValid(entity)) { return; }
         m_entities[entity.index].name = String(name);
+        ++m_revision;
     }
 
     [[nodiscard]] bool IsActive(EntityHandle entity) const noexcept {
@@ -90,7 +91,9 @@ public:
     }
     void SetActive(EntityHandle entity, bool active) {
         if (!IsValid(entity)) { return; }
+        if (m_entities[entity.index].active == active) { return; }
         m_entities[entity.index].active = active;
+        ++m_revision;
         for (SceneSystem* s : m_sortedSystems) { s->OnEntityActiveChanged(entity, active); }
     }
 
@@ -140,6 +143,9 @@ public:
     [[nodiscard]] EntityHandle GetParent(EntityHandle entity) const {
         return IsValid(entity) ? m_transforms[entity.index].parent : EntityHandle::Invalid();
     }
+    /// First entity in the ROOT sibling list (walk with GetNextSibling for list order - the
+    /// order the hierarchy displays and serialization preserves).
+    [[nodiscard]] EntityHandle GetFirstRoot() const noexcept { return m_firstRoot; }
     [[nodiscard]] EntityHandle GetFirstChild(EntityHandle entity) const {
         return IsValid(entity) ? m_transforms[entity.index].firstChild : EntityHandle::Invalid();
     }
@@ -173,6 +179,37 @@ public:
             AppendToList(child, m_firstRoot, m_lastRoot);
         }
         MarkDirty(child);
+        ++m_revision;
+    }
+
+    // Sibling ORDERING: moves `child` under `sibling`'s parent, immediately BEFORE `sibling`
+    // (into the root list when `sibling` is a root). Same guards as SetParent: both must be
+    // valid, and moving an entity below its own subtree (cycle) is refused. O(1).
+    // (SetParent(child, parent) is the companion "append at END of parent" operation - it
+    // re-appends even when the parent is unchanged, i.e. it doubles as move-to-end.)
+    void MoveBefore(EntityHandle child, EntityHandle sibling) {
+        if (!IsValid(child) || !IsValid(sibling)) { return; }
+        if (child == sibling) { return; }
+        if (m_transforms[sibling.index].prevSibling == child) { return; }   // already there
+        const EntityHandle parent = m_transforms[sibling.index].parent;
+        if (parent.IsAssigned() && IsDescendantOf(parent, child)) { return; }   // cycle guard
+
+        RemoveFromParent(child);
+        TransformData& c = m_transforms[child.index];
+        TransformData& s = m_transforms[sibling.index];
+        c.parent = parent;
+        c.nextSibling = sibling;
+        c.prevSibling = s.prevSibling;
+        if (s.prevSibling.IsAssigned()) {
+            m_transforms[s.prevSibling.index].nextSibling = child;
+        } else if (parent.IsAssigned()) {
+            m_transforms[parent.index].firstChild = child;
+        } else {
+            m_firstRoot = child;
+        }
+        s.prevSibling = child;
+        MarkDirty(child);
+        ++m_revision;
     }
 
     // Two-pass world-matrix update: clear last frame's "updated" flags + snapshot the

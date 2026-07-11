@@ -65,7 +65,24 @@ inline void SerializeScene(ISerializer& ar, Scene& scene) {
     u32 entityCount = 0;
     Array<EntityHandle> handles;
     if (writing) {
-        scene.ForEachEntity([&](EntityHandle e) { handles.PushBack(e); });
+        // TREE order (roots in list order, depth-first children): load recreates entities and
+        // relinks parents in FILE order, so sibling ORDER round-trips (the editor hierarchy is
+        // reorderable; pool order would shuffle siblings back to creation order).
+        Array<EntityHandle> stack;
+        for (EntityHandle r = scene.GetFirstRoot(); r.IsAssigned(); r = scene.GetNextSibling(r)) {
+            stack.PushBack(r);
+            while (!stack.IsEmpty()) {
+                EntityHandle e = stack.Back();
+                stack.PopBack();
+                handles.PushBack(e);
+                // Push children reversed so they POP in list order.
+                Array<EntityHandle> kids;
+                for (EntityHandle c = scene.GetFirstChild(e); c.IsAssigned(); c = scene.GetNextSibling(c)) {
+                    kids.PushBack(c);
+                }
+                for (usize i = kids.Size(); i-- > 0;) { stack.PushBack(kids[i]); }
+            }
+        }
         entityCount = static_cast<u32>(handles.Size());
     }
     ar.Key("entities");

@@ -99,3 +99,49 @@ TEST_CASE("empty scene round-trips")
     CHECK(b.Name() == u8"empty");
     CHECK(b.EntityCount() == 0);
 }
+
+// Sibling ORDER round-trips: entities are written in TREE order (roots in list order,
+// depth-first children), so load's create+relink sequence reproduces the reordered lists -
+// the editor hierarchy is reorderable and saves must preserve it.
+TEST_CASE("scene-serialize: sibling order round-trips after reorders")
+{
+    Scene scene(u8"ordered");
+    EntityHandle a = scene.CreateEntity(u8"a");
+    EntityHandle b = scene.CreateEntity(u8"b");
+    EntityHandle c = scene.CreateEntity(u8"c");
+    EntityHandle p = scene.CreateEntity(u8"p");
+    scene.SetParent(a, p);
+    scene.SetParent(b, p);
+    scene.SetParent(c, p);
+    scene.MoveBefore(c, a);          // children: c, a, b
+    scene.MoveBefore(p, scene.GetFirstRoot());   // p to the front of the roots
+
+    MemoryStream buffer;
+    {
+        BinarySerializer ar(buffer, SerializeMode::Write);
+        SerializeScene(ar, scene);
+    }
+
+    Scene loaded;
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer ar(buffer, SerializeMode::Read);
+        SerializeScene(ar, loaded);
+    }
+
+    // Roots: p first.
+    EntityHandle lp = loaded.FindEntity(scene.GetEntityId(p));
+    REQUIRE(lp.IsAssigned());
+    CHECK(loaded.GetFirstRoot() == lp);
+
+    // Children of p in reordered order: c, a, b.
+    EntityHandle k0 = loaded.GetFirstChild(lp);
+    REQUIRE(k0.IsAssigned());
+    CHECK(loaded.GetEntityName(k0) == u8"c");
+    EntityHandle k1 = loaded.GetNextSibling(k0);
+    REQUIRE(k1.IsAssigned());
+    CHECK(loaded.GetEntityName(k1) == u8"a");
+    EntityHandle k2 = loaded.GetNextSibling(k1);
+    REQUIRE(k2.IsAssigned());
+    CHECK(loaded.GetEntityName(k2) == u8"b");
+}

@@ -124,3 +124,87 @@ TEST_CASE("revision advances on structural change")
     scene.DestroyEntity(e);
     CHECK(scene.Revision() > r1);
 }
+
+TEST_CASE("revision advances on rename, reparent, and active toggle")
+{
+    // Observers (e.g. an editor hierarchy) rebuild off Revision(); every mutation that changes
+    // what they display must advance it. Local transforms deliberately do NOT (they'd churn a
+    // rebuild every frame of a gizmo drag).
+    Scene scene;
+    EntityHandle a = scene.CreateEntity(u8"a");
+    EntityHandle b = scene.CreateEntity(u8"b");
+
+    u64 r = scene.Revision();
+    scene.SetEntityName(a, u8"renamed");
+    CHECK(scene.Revision() > r);
+
+    r = scene.Revision();
+    scene.SetParent(b, a);
+    CHECK(scene.Revision() > r);
+
+    r = scene.Revision();
+    scene.SetActive(a, false);
+    CHECK(scene.Revision() > r);
+
+    r = scene.Revision();
+    scene.SetActive(a, false);   // no-op: unchanged active state doesn't advance
+    CHECK(scene.Revision() == r);
+
+    r = scene.Revision();
+    Transform t;
+    t.position = Float3{ 1, 2, 3 };
+    scene.SetLocalTransform(a, t);
+    CHECK(scene.Revision() == r);
+}
+
+TEST_CASE("MoveBefore reorders siblings and roots")
+{
+    Scene scene;
+    EntityHandle a = scene.CreateEntity(u8"a");
+    EntityHandle b = scene.CreateEntity(u8"b");
+    EntityHandle c = scene.CreateEntity(u8"c");
+
+    // Root list starts in creation order: a, b, c.
+    CHECK(scene.GetFirstRoot() == a);
+    CHECK(scene.GetNextSibling(a) == b);
+    CHECK(scene.GetNextSibling(b) == c);
+
+    // Move c before a: c, a, b (head update path).
+    u64 r = scene.Revision();
+    scene.MoveBefore(c, a);
+    CHECK(scene.Revision() > r);
+    CHECK(scene.GetFirstRoot() == c);
+    CHECK(scene.GetNextSibling(c) == a);
+    CHECK(scene.GetNextSibling(a) == b);
+
+    // Move c before b (middle): a, c, b.
+    scene.MoveBefore(c, b);
+    CHECK(scene.GetFirstRoot() == a);
+    CHECK(scene.GetNextSibling(a) == c);
+    CHECK(scene.GetNextSibling(c) == b);
+
+    // Already in place: no revision churn.
+    r = scene.Revision();
+    scene.MoveBefore(c, b);
+    CHECK(scene.Revision() == r);
+
+    // SetParent to invalid = move to END of the root list: c, b, ... a.
+    scene.SetParent(a, EntityHandle::Invalid());
+    CHECK(scene.GetFirstRoot() == c);
+    CHECK(scene.GetNextSibling(b) == a);
+
+    // Reorder INTO a child list: parent p with child b -> move a before b under p.
+    EntityHandle p = scene.CreateEntity(u8"p");
+    scene.SetParent(b, p);
+    scene.MoveBefore(a, b);
+    CHECK(scene.GetParent(a) == p);
+    CHECK(scene.GetFirstChild(p) == a);
+    CHECK(scene.GetNextSibling(a) == b);
+
+    // Cycle guard: moving p before its own grandchild's sibling slot is refused.
+    scene.SetParent(c, b);   // p / [a, b / [c]]
+    r = scene.Revision();
+    scene.MoveBefore(p, c);
+    CHECK(scene.Revision() == r);
+    CHECK(scene.GetParent(p) == EntityHandle::Invalid());
+}
