@@ -80,6 +80,53 @@ export namespace draconic::resource
     };
 
     // =======================================================================
+    // Ref<T> - the SERIALIZABLE resource reference components hold (the asset
+    // pipeline's §8 layer). Identity is a Guid (written by Serialize); at runtime
+    // Bind() attaches a Proxy so hot reload's handle Replace() is visible to every
+    // holder. Code-created resources (samples, procedural) assign a RefPtr<T>
+    // directly - the direct object wins over the proxy and is never serialized.
+    // =======================================================================
+    class ResourceManager;   // forward - Ref::Bind resolves through it
+
+    template <typename T>
+    class Ref
+    {
+    public:
+        Guid id;   // serialized identity (nil = unset / procedural-only)
+
+        Ref() = default;
+        Ref(const RefPtr<T>& object) : m_direct(object) {}                     // implicit: `c.mesh = meshPtr`
+        Ref& operator=(const RefPtr<T>& object) { m_direct = object; return *this; }
+
+        [[nodiscard]] T* Get() const noexcept
+        {
+            return (m_direct.Get() != nullptr) ? m_direct.Get() : m_proxy.Get();
+        }
+        [[nodiscard]] T* operator->() const noexcept { return Get(); }
+        [[nodiscard]] explicit operator bool() const noexcept { return Get() != nullptr; }
+
+        void SetDirect(RefPtr<T> object) noexcept { m_direct = Move(object); }
+        void SetId(const Guid& guid) noexcept { id = guid; }
+        [[nodiscard]] bool IsBound() const noexcept { return m_proxy.Handle() != nullptr; }
+
+        // Attach the runtime proxy for `id` (defined after ResourceManager below).
+        void Bind(ResourceManager& manager);
+
+        [[nodiscard]] const Proxy<T>& GetProxy() const noexcept { return m_proxy; }
+
+    private:
+        Proxy<T> m_proxy;      // guid-backed binding (runtime only)
+        RefPtr<T> m_direct;    // procedural override (runtime only)
+    };
+
+    // Serialization: identity only (found by ADL from component Serialize bodies).
+    template <typename T>
+    void Serialize(ISerializer& ar, Ref<T>& ref)
+    {
+        draconic::core::Serialize(ar, ref.id);
+    }
+
+    // =======================================================================
     // IResourceFactory - builds a runtime product from a content instance (its
     // source object + data streams). One factory per product type.
     // =======================================================================
@@ -257,4 +304,10 @@ export namespace draconic::resource
         HashMap<Guid, Array<Guid>> m_dependents;    // id -> resources that depend on it
         Array<Guid> m_buildStack;                   // ids currently building (auto-edge source)
     };
+
+    template <typename T>
+    void Ref<T>::Bind(ResourceManager& manager)
+    {
+        if (!id.IsNil()) { m_proxy = manager.Bind<T>(id); }
+    }
 }
