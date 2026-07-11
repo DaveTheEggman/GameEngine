@@ -11,6 +11,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Math/SimdConfig.h"
 
+// SSE intrinsics are TU-local (header-provided) but safe in exported inline functions.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-WTU-local-entity-exposure"
+#endif
+
 export module draconic.core:simd;
 
 import :base;
