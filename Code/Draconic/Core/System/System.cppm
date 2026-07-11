@@ -110,6 +110,17 @@ export namespace draconic::core
 
     inline bool FileDelete(StringView path) noexcept { return sys::FileDelete(detail::NullTerminated(path).CStr()); }
 
+    /// File size + last-write time (seconds since epoch). False when `path` is not a regular file.
+    [[nodiscard]] inline bool FileStat(StringView path, u64& outSize, i64& outModifiedTime) noexcept
+    {
+        unsigned long long size = 0;
+        long long mtime = 0;
+        if (!sys::FileStat(detail::NullTerminated(path).CStr(), size, mtime)) { return false; }
+        outSize = static_cast<u64>(size);
+        outModifiedTime = static_cast<i64>(mtime);
+        return true;
+    }
+
     [[nodiscard]] inline bool DirectoryExists(StringView path) noexcept { return sys::DirectoryExists(detail::NullTerminated(path).CStr()); }
     inline bool CreateDirectory(StringView path) noexcept { return sys::CreateDirectory(detail::NullTerminated(path).CStr()); }
     inline bool RemoveDirectory(StringView path) noexcept { return sys::RemoveDirectory(detail::NullTerminated(path).CStr()); }

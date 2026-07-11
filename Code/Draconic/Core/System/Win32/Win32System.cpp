@@ -135,6 +135,22 @@ namespace draconic::core::sys
 
     bool FileDelete(const char* path) noexcept { return DeleteFileA(path) != 0; }
 
+    bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept
+    {
+        WIN32_FILE_ATTRIBUTE_DATA data{};
+        if (GetFileAttributesExA(path, GetFileExInfoStandard, &data) == 0
+            || (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        {
+            return false;
+        }
+        outSize = (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+        // FILETIME (100ns since 1601) -> seconds since the unix epoch.
+        const unsigned long long ft = (static_cast<unsigned long long>(data.ftLastWriteTime.dwHighDateTime) << 32)
+                                    | data.ftLastWriteTime.dwLowDateTime;
+        outModifiedTime = static_cast<long long>(ft / 10000000ull) - 11644473600ll;
+        return true;
+    }
+
     bool DirectoryExists(const char* path) noexcept
     {
         const DWORD attributes = GetFileAttributesA(path);

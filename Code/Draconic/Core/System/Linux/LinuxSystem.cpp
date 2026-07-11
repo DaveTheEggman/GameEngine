@@ -135,6 +135,15 @@ namespace draconic::core::sys
         return access(path, F_OK) == 0;
     }
 
+    bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept
+    {
+        struct stat st{};
+        if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) { return false; }
+        outSize = static_cast<unsigned long long>(st.st_size);
+        outModifiedTime = static_cast<long long>(st.st_mtime);
+        return true;
+    }
+
     bool FileDelete(const char* path) noexcept
     {
         return unlink(path) == 0;
