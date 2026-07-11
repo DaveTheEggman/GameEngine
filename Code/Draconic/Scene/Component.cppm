@@ -43,6 +43,12 @@ public:
     // Owning entity of each stored component (parallel to the pool).
     [[nodiscard]] virtual Span<const EntityHandle> OwnerHandles() const noexcept = 0;
 
+    // --- reflection access (tools: the editor inspector edits components generically) ---
+    // The entity's component as a typed reflection Instance (empty when absent).
+    [[nodiscard]] virtual Instance GetComponentInstance(EntityHandle /*entity*/) { return {}; }
+    // Adds a default-constructed component (false if the entity already has one).
+    virtual bool AddDefaultComponent(EntityHandle /*entity*/) { return false; }
+
     // --- serialization (a manager opts in via SerializableComponentManager) ---
     // Whether this manager's components persist, and a stable on-disk type id for
     // routing on load (TypeOf<T>() is not disk-stable, so the id is explicit).
@@ -81,6 +87,16 @@ public:
     [[nodiscard]] bool Has(EntityHandle entity) const { return HasComponent(entity); }
 
     // Effective component for `entity`, or null if absent / the handle is stale.
+    [[nodiscard]] Instance GetComponentInstance(EntityHandle entity) override {
+        T* c = Get(entity);
+        return (c != nullptr) ? Instance::From(c) : Instance{};
+    }
+    bool AddDefaultComponent(EntityHandle entity) override {
+        if (HasComponent(entity)) { return false; }
+        (void)Add(entity);
+        return true;
+    }
+
     [[nodiscard]] T* Get(EntityHandle entity) {
         const u32 i = DenseIndex(entity);
         return (i != kInvalid) ? &m_dense[i] : nullptr;
