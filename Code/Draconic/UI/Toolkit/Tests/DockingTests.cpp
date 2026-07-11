@@ -206,3 +206,37 @@ TEST_CASE("docking: DockManager_DockPanel_Split")
 
     CHECK(Cast<DockSplit>(dm->RootNode()) != nullptr);
 }
+
+// DELIBERATE DEVIATION from the Sedulous port (user-approved 2026-07-11): docking a panel into a
+// tab group makes it the ACTIVE tab (mainstream-IDE behavior). Upstream keeps the existing
+// selection and its editor calls ActivatePanel by hand.
+TEST_CASE("docking: DockPanel_Center_ActivatesDockedTab")
+{
+    UIContext ctx;
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{ 800, 600 };
+    ctx.AddRootView(root.Get());
+
+    auto dm = MakeRef<DockManager>(DefaultAllocator());
+    root->AddView(dm.Get());
+
+    DockablePanel* p1 = dm->AddPanel(StringView(u8"P1"), MakeLabel(u8"Content 1").Get());
+    DockablePanel* p2 = dm->AddPanel(StringView(u8"P2"), MakeLabel(u8"Content 2").Get());
+    DockablePanel* p3 = dm->AddPanel(StringView(u8"P3"), MakeLabel(u8"Content 3").Get());
+
+    dm->DockPanel(p1, DockPosition::Center);
+    dm->DockPanel(p2, DockPosition::Center);   // tabs with p1 - and becomes the active tab
+
+    auto* group = Cast<DockTabGroup>(p2->Parent);
+    REQUIRE(group != nullptr);
+    CHECK(group->PanelCount() == 2);
+    CHECK(group->SelectedPanel() == p2);
+
+    // Same through the relative-to path.
+    dm->DockPanelRelativeTo(p3, DockPosition::Center, p1->Parent);
+    CHECK(group->SelectedPanel() == p3);
+
+    // Explicit activation still works on a background tab.
+    dm->ActivatePanel(p1);
+    CHECK(group->SelectedPanel() == p1);
+}

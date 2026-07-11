@@ -143,9 +143,7 @@ export namespace draconic::editor::app
             }
 
             tk::DockablePanel* panel = m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
-            // Docking into a populated tab group does NOT select the new tab (toolkit keeps the
-            // existing selection) - bring the fresh page to the front explicitly.
-            m_shell.Docks()->ActivatePanel(panel);
+            // (Docking activates the new tab - toolkit behavior since the dock-activates change.)
             // The DockManager's own close handling (wired in AddPanel) destroys the panel through
             // its deferred-delete queue; we additionally tear down the PAGE - deferred through the
             // UI mutation queue, since destroying views mid-event-dispatch is unsafe.

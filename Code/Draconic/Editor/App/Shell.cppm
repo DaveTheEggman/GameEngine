@@ -143,6 +143,9 @@ export namespace draconic::editor::app
             m_dock->DockPanel(m_welcome, tk::DockPosition::Center);
             m_dock->DockPanel(m_console, tk::DockPosition::Bottom);
             m_dock->DockPanelRelativeTo(m_assets, tk::DockPosition::Center, m_console->Parent);
+            // Docking activates the docked tab, so Assets ended up in front - the default
+            // layout leads with the Console (logs visible immediately).
+            m_dock->ActivatePanel(m_console);
         }
 
         RefPtr<ui::RootView> m_root;

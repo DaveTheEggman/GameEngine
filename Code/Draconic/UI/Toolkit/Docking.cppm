@@ -1276,6 +1276,13 @@ export namespace draconic::ui::toolkit
                         AddView(group.Get());
                     }
                 }
+                // A freshly docked tab becomes the ACTIVE tab (deliberate deviation from the
+                // Sedulous port, user-approved 2026-07-11: upstream keeps the existing selection
+                // and its editor activates by hand; mainstream-IDE behavior activates on dock).
+                // Covers programmatic docking, interactive drag-drop, and window redock - all
+                // funnel through here. Layout restore is unaffected (ApplyLayout rebuilds tab
+                // groups directly and sets ActiveTabIndex itself).
+                ActivatePanel(panel);
                 Invalidate();
                 return;
             }
