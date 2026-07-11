@@ -14,6 +14,7 @@ module;
 export module draconic.render.subsystem:components;
 
 import draconic.core;
+import draconic.resource;
 import draconic.scene;
 import draconic.geometry;
 import draconic.materials;
@@ -24,15 +25,19 @@ using namespace draconic::core;
 
 export namespace draconic::render {
 
-// What to draw at an entity: a mesh + the material to draw it with. Borrowed-strong
-// (RefPtr) so the component keeps its resources alive while attached. `color` is a
+// What to draw at an entity: a mesh + the material to draw it with. Resource refs
+// (resource::Ref): a serialized Guid resolved through the ResourceManager's proxy handles
+// (hot reload swaps the product behind every holder), or a direct RefPtr for code-created
+// meshes (samples/procedural - the direct object wins and is never serialized). `color` is a
 // per-instance tint (multiplied into the shaded color) - distinct per entity even when
 // many share one mesh + material, so it rides the per-instance data path.
 struct MeshComponent {
-    RefPtr<geometry::StaticMesh> mesh;
-    RefPtr<materials::Material>  material;
+    draconic::resource::Ref<geometry::StaticMesh> mesh;
+    draconic::resource::Ref<materials::Material>  material;
     // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
     // non-empty the renderer draws each submesh with its own material; otherwise `material` covers all.
+    // Runtime-only for now (RefPtr, not serialized): the model-spawn path fills it; per-submesh
+    // material REFS land with prefabs (phase 7), which owns the model->entity workflow.
     Array<RefPtr<materials::Material>> submeshMaterials;
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     bool                         visible = true;
@@ -183,7 +188,24 @@ struct ReflectionProbeComponent {
     bool            enabled       = true;
 };
 
-class MeshComponentManager   final : public scene::ComponentManager<MeshComponent>   {};
+// MeshComponent persists (scene round-trip): refs serialize their Guids; the direct
+// pointers and per-frame skinning state never touch disk.
+inline void Serialize(ISerializer& ar, MeshComponent& c) {
+    draconic::core::Serialize(ar, "mesh", c.mesh);
+    draconic::core::Serialize(ar, "material", c.material);
+    draconic::core::Serialize(ar, "color", c.color);
+    draconic::core::Serialize(ar, "visible", c.visible);
+}
+
+inline void ResolveResources(draconic::resource::ResourceManager& manager, MeshComponent& c) {
+    c.mesh.Bind(manager);
+    c.material.Bind(manager);
+}
+
+class MeshComponentManager final : public scene::SerializableComponentManager<MeshComponent> {
+public:
+    MeshComponentManager() : scene::SerializableComponentManager<MeshComponent>(u8"mesh") {}
+};
 class InstancedMeshComponentManager final : public scene::ComponentManager<InstancedMeshComponent> {};
 class SpriteComponentManager final : public scene::ComponentManager<SpriteComponent> {};
 class DecalComponentManager  final : public scene::ComponentManager<DecalComponent>  {};

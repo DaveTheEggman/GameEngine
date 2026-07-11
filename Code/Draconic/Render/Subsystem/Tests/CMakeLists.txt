@@ -1,11 +1,13 @@
 # Draconic::RenderSubsystem unit tests (doctest; extraction is pure data, no GPU).
 
 add_executable(DraconicRenderSubsystemTests
+    ResourceRefTests.cpp
     TestsMain.cpp
     ExtractTests.cpp)
 
 target_link_libraries(DraconicRenderSubsystemTests PRIVATE
-    Draconic::RenderSubsystem doctest::doctest)
+    Draconic::RenderSubsystem Draconic::MeshResource Draconic::SceneResource
+    Draconic::Resource Draconic::VFS Draconic::Content doctest::doctest)
 
 target_compile_definitions(DraconicRenderSubsystemTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
