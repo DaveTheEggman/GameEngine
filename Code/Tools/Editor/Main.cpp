@@ -49,25 +49,22 @@ int main(int argc, char** argv)
     config.fontPath = String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
     config.logBuffer = &logBuffer;
 
-    // Assembly (design doc §3.1): THIS is where engine subsystems and per-subsystem editor
-    // plugins are chosen - the editor core/app libraries never link engine modules.
+    // Assembly (design doc §3.1): THIS is where the engine subsystems and per-subsystem editor
+    // plugins are chosen - the editor core/app libraries never link engine modules; the app
+    // drives scene rendering only through the ISceneRenderer interface injected below.
     config.configureEngine = [](draconic::runtime::IApplicationHost& host) {
+        // Order matters: scene first, render registers as ISceneAware in OnReady, animation
+        // needs the render managers.
         host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
         host.Ctx().AddSubsystem<draconic::render::RenderSubsystem>(
             *host.Graphics()->Raw(), host.Graphics()->FramesInFlight());
         host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
     };
-    // One scene-renderer frame bracket shared by ALL scene pages (multi-view contract); pages
-    // open it lazily, the app's end hook closes it before the UI samples the viewport targets.
-    draconic::editor::SceneRenderCoordinator sceneRender;
-    config.registerEditors = [&sceneRender](draconic::editor::EditorContext& ctx,
-                                            draconic::runtime::IApplicationHost& host,
-                                            draconic::ui::runtime::UIHost& uiHost) {
-        draconic::editor::RegisterSceneEditor(ctx, host, uiHost, sceneRender);
-    };
-    config.endSceneRendering = [&sceneRender](draconic::runtime::IApplicationHost&,
-                                              draconic::graphics::FrameContext& frame) {
-        sceneRender.EndWindow(frame);
+    config.registerEditors = [](edapp::EditorApplication& app,
+                                draconic::runtime::IApplicationHost& host,
+                                draconic::ui::runtime::UIHost& uiHost) {
+        app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>());
+        draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost);
     };
 
     DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);

@@ -8,6 +8,7 @@ target_link_libraries(DraconicEditorApp
     PUBLIC
         Draconic::Core Draconic::VFS Draconic::XmlSerialization
         Draconic::Shell Draconic::Graphics Draconic::Runtime Draconic::RuntimeClient
+        Draconic::RenderApi
         Draconic::Fonts Draconic::FontsTTF
         Draconic::UI Draconic::UIToolkit Draconic::UIRuntime Draconic::UIApplication
         Draconic::EditorCore Draconic::Policy)

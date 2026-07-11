@@ -19,6 +19,7 @@ import draconic.fonts;
 import draconic.fonts.ttf;
 import draconic.runtime;
 import draconic.runtime.client;
+import draconic.render.api;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
@@ -38,6 +39,8 @@ export namespace draconic::editor::app
     namespace uirt = draconic::ui::runtime;
     namespace uiapp = draconic::ui::application;
 
+    class EditorApplication;
+
     struct EditorAppConfig
     {
         String projectDirectory;               // opened on startup; scaffolded if no manifest yet
@@ -48,17 +51,13 @@ export namespace draconic::editor::app
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
         draconic::editor::EditorLogBuffer* logBuffer = nullptr;
 
-        // Assembly hooks (design doc §3.1): the EXECUTABLE decides which engine subsystems and
-        // per-subsystem editor plugins exist - editor.app never links engine modules itself.
+        // The assembly seams (design doc §3.1) - editor.app never links engine modules or the
+        // draconic.<sys>.editor plugin modules; the EXECUTABLE composes them here:
         /// Called from IApplication::Configure - register engine subsystems (scene/render/...).
         Function<void(rt::IApplicationHost&)> configureEngine;
-        /// Called at the end of OnStartup - per-subsystem RegisterEditor entry points go here.
-        Function<void(draconic::editor::EditorContext&, rt::IApplicationHost&, uirt::UIHost&)> registerEditors;
-
-        /// Called once per window-frame AFTER the page render hooks, before the UI draws: close
-        /// the scene renderer's frame bracket (ALL pages render inside ONE Begin/End per frame -
-        /// pages open it lazily; this closes it so the UI can sample the viewport targets).
-        Function<void(rt::IApplicationHost&, graphics::FrameContext&)> endSceneRendering;
+        /// Called at the end of OnStartup - per-subsystem RegisterEditor entry points, plus
+        /// wiring the app to engine INTERFACES it drives (app.SetSceneRenderer(...)).
+        Function<void(EditorApplication&, rt::IApplicationHost&, uirt::UIHost&)> registerEditors;
     };
 
     class EditorApplication : public rt::IApplication
@@ -73,6 +72,13 @@ export namespace draconic::editor::app
         void Configure(rt::IApplicationHost& host) override
         {
             if (m_config.configureEngine) { m_config.configureEngine(host); }
+        }
+
+        /// The renderer interface the app drives its per-frame scene bracket through (injected
+        /// by the exe from registerEditors; null = no scene rendering). Borrowed.
+        void SetSceneRenderer(draconic::render::ISceneRenderer* renderer) noexcept
+        {
+            m_sceneRenderer = renderer;
         }
 
         void OnStartup(rt::IApplicationHost& host) override
@@ -108,8 +114,9 @@ export namespace draconic::editor::app
 
             OpenProject();
 
-            // Per-subsystem editor plugins register here (page factories, creators, ...).
-            if (m_config.registerEditors) { m_config.registerEditors(m_context, host, *m_uiHost); }
+            // Per-subsystem editor plugins register here (page factories, creators, ...), and
+            // the exe injects the engine interfaces the app drives (SetSceneRenderer).
+            if (m_config.registerEditors) { m_config.registerEditors(*this, host, *m_uiHost); }
 
             // Menus AFTER registration - File > New builds from the creator registry.
             BuildMenus();
@@ -192,10 +199,18 @@ export namespace draconic::editor::app
 
         void OnRenderWindow(rt::IApplicationHost& host, graphics::FrameContext& frame) override
         {
-            // Pages render offscreen content BEFORE the UI draws (the UI samples it as an image);
-            // they share ONE scene-renderer bracket, closed here before the UI samples.
-            for (const PagePanel& entry : m_pagePanels) { entry.page->OnRenderWindow(host, frame); }
-            if (m_config.endSceneRendering) { m_config.endSceneRendering(host, frame); }
+            // ALL pages' viewport content renders during the MAIN window's frame, inside ONE
+            // scene-renderer bracket, BEFORE any UI draws (the Sedulous editor structure:
+            // offscreen targets are window-agnostic, so floated panels' windows simply sample
+            // the textures this pass produced). Secondary-window frames are UI-only.
+            if (frame.valid && frame.window == host.MainRenderWindow())
+            {
+                // Through the ISceneRenderer INTERFACE (render.api) - editor.app never links the
+                // renderer. Begin/EndRendering self-guard while the renderer isn't ready.
+                if (m_sceneRenderer != nullptr) { m_sceneRenderer->BeginRendering(*frame.encoder, frame.frameIndex); }
+                for (const PagePanel& entry : m_pagePanels) { entry.page->OnRenderWindow(host, frame); }
+                if (m_sceneRenderer != nullptr) { m_sceneRenderer->EndRendering(); }
+            }
             if (m_uiHost) { m_uiHost->RenderWindow(frame); }
         }
 
@@ -343,6 +358,7 @@ export namespace draconic::editor::app
 
         EditorAppConfig m_config;
         rt::IApplicationHost* m_host = nullptr;   // borrowed
+        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;   // borrowed (exe injects)
 
         // Log drain state (see DrainLog).
         Array<draconic::editor::EditorLogEntry> m_pendingLog;

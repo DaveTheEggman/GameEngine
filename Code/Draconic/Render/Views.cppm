@@ -15,6 +15,10 @@ module;
 
 export module draconic.render:views;
 
+// ViewCamera + ViewportRect moved to the light `draconic.render.api` module (with
+// ISceneRenderer); re-exported here so draconic.render importers see them unchanged.
+export import draconic.render.api;
+
 import draconic.core;
 import draconic.rhi;
 import :data;
@@ -23,23 +27,6 @@ using namespace draconic::core;
 namespace rhi = draconic::rhi;
 
 export namespace draconic::render {
-
-// The camera for a view: world→view and view→clip, plus the world-space eye (for depth
-// sorting / culling). The view matrix is the inverse of the camera entity's world matrix.
-struct ViewCamera {
-    Float4x4 view       = Float4x4::Identity();
-    Float4x4 projection = Float4x4::Identity();
-    Float3 position   = Float3{ 0, 0, 0 };
-    f32  farZ       = 1000.0f;   // for depth-key normalization
-
-    [[nodiscard]] Float4x4 ViewProjection() const noexcept { return view * projection; }
-};
-
-// A viewport sub-rect within a render target, in pixels. Width 0 => the full target.
-struct ViewportRect {
-    i32 x = 0, y = 0;
-    u32 width = 0, height = 0;
-};
 
 // Per-view settings (grows with post config, layer mask, etc. in later phases).
 struct ViewSettings {

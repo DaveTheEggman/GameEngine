@@ -50,87 +50,12 @@ export namespace draconic::editor
     namespace dscene = draconic::scene;
     namespace drender = draconic::render;
 
-    /// ONE scene-renderer frame bracket for the whole editor: all scene pages' views render
-    /// between a single BeginRendering/EndRendering per frame (the renderer's multi-view
-    /// contract - a second bracket in the same frame resets per-frame transient pools and graph
-    /// resources that the first bracket's still-unsubmitted commands reference, corrupting
-    /// descriptor sets; and EndRendering clears EVERY scene's debug list, so later brackets lose
-    /// their grids). Pages lazily open the bracket for their window on first render
-    /// (EnsureOpen); EditorApplication's endSceneRendering hook closes it before the UI draws.
-    ///
-    /// LIMITATION: one bracket per frame means one WINDOW's scene pages render per frame. When
-    /// pages live in a second OS window (floated page), those pages skip rendering (frozen
-    /// image) until the renderer supports multi-encoder frames.
-    class SceneRenderCoordinator
-    {
-    public:
-        SceneRenderCoordinator() = default;
-        SceneRenderCoordinator(const SceneRenderCoordinator&) = delete;
-        SceneRenderCoordinator& operator=(const SceneRenderCoordinator&) = delete;
-
-        /// Open the frame bracket for `frame`'s window (no-op if already open for it). False if
-        /// rendering must be skipped: renderer not ready, or another window already holds this
-        /// frame's bracket (the single-bracket limitation above).
-        [[nodiscard]] bool EnsureOpen(rt::IApplicationHost& host, draconic::graphics::FrameContext& frame)
-        {
-            if (!frame.valid) { return false; }
-            if (m_open) { return frame.window == m_window; }
-
-            if (m_render == nullptr) { m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>(); }
-            if (m_render == nullptr || !m_render->IsReady()) { return false; }
-
-            // One bracket per host tick: windows rendered in the same tick share a frameIndex
-            // (the device ring advances once per tick), so a same-index open attempt is a second
-            // window this frame.
-            if (m_hasLastFrame && frame.frameIndex == m_lastFrameIndex)
-            {
-                if (!m_warnedMultiWindow)
-                {
-                    m_warnedMultiWindow = true;
-                    DRACONIC_LOG_WARNING(u8"Editor",
-                        u8"scene viewports in a second window don't render yet (one render bracket per frame)");
-                }
-                return false;
-            }
-
-            m_render->BeginRendering(*frame.encoder, frame.frameIndex);
-            m_open = true;
-            m_window = frame.window;
-            m_lastFrameIndex = frame.frameIndex;
-            m_hasLastFrame = true;
-            return true;
-        }
-
-        /// Close the bracket if it is open for `frame`'s window. Call after all pages rendered,
-        /// before the UI draws (it samples the viewport targets the graph just wrote).
-        void EndWindow(draconic::graphics::FrameContext& frame)
-        {
-            if (m_open && frame.window == m_window)
-            {
-                m_render->EndRendering();
-                m_open = false;
-                m_window = nullptr;
-            }
-        }
-
-        [[nodiscard]] bool IsOpen() const noexcept { return m_open; }
-
-    private:
-        drender::RenderSubsystem* m_render = nullptr;   // borrowed (context subsystem)
-        draconic::graphics::RenderWindow* m_window = nullptr;
-        u32 m_lastFrameIndex = 0;
-        bool m_hasLastFrame = false;
-        bool m_open = false;
-        bool m_warnedMultiWindow = false;
-    };
-
     class SceneEditorPage final : public app::UIEditorPage
     {
     public:
         SceneEditorPage(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost,
-                        SceneRenderCoordinator& coordinator, draconic::content::Instance& instance)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_coordinator(&coordinator)
-            , m_title(instance.Name())
+                        draconic::content::Instance& instance)
+            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
             m_scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>();
@@ -195,17 +120,20 @@ export namespace draconic::editor
             }
         }
 
-        void OnRenderWindow(rt::IApplicationHost& host, draconic::graphics::FrameContext& frame) override
+        // Called only for the MAIN window's frame, inside the app-level scene-renderer bracket
+        // (Sedulous structure): the offscreen target is window-agnostic, so this renders no
+        // matter which OS window hosts the panel; that window's UI samples the result.
+        void OnRenderWindow(rt::IApplicationHost&, draconic::graphics::FrameContext& frame) override
         {
-            if (!m_viewport->IsReady() || !frame.valid || frame.window != m_hostWindow) { return; }
+            if (!m_viewport->IsReady() || !frame.valid) { return; }
             if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr) { return; }
             const u32 w = m_viewport->RenderWidth();
             const u32 h = m_viewport->RenderHeight();
             if (w == 0 || h == 0) { return; }
 
-            // All pages render inside the coordinator's ONE frame bracket (false = second-window
-            // limitation or renderer not ready; skip, the UI shows the last rendered image).
-            if (!m_coordinator->EnsureOpen(host, frame)) { return; }
+            // Skip hidden viewports (inactive dock tabs set Visibility=Gone up the ancestor
+            // chain) - no GPU work for content nobody can see (Sedulous does the same).
+            if (!m_viewport->IsEffectivelyVisible()) { return; }
 
             if (!m_renderedOnce)
             {
@@ -298,7 +226,6 @@ export namespace draconic::editor
         EditorContext* m_context;                    // borrowed
         rt::IApplicationHost* m_host;                // borrowed
         uirt::UIHost* m_uiHost;                      // borrowed
-        SceneRenderCoordinator* m_coordinator;       // borrowed (exe owns it)
         dscene::SceneSubsystem* m_scenes = nullptr;  // borrowed (context subsystem)
         drender::RenderSubsystem* m_render = nullptr;
 
@@ -316,9 +243,8 @@ export namespace draconic::editor
     class SceneEditorPageFactory final : public IEditorPageFactory
     {
     public:
-        SceneEditorPageFactory(rt::IApplicationHost& host, uirt::UIHost& uiHost,
-                               SceneRenderCoordinator& coordinator)
-            : m_host(&host), m_uiHost(&uiHost), m_coordinator(&coordinator) {}
+        SceneEditorPageFactory(rt::IApplicationHost& host, uirt::UIHost& uiHost)
+            : m_host(&host), m_uiHost(&uiHost) {}
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
@@ -329,14 +255,13 @@ export namespace draconic::editor
                                                        draconic::content::Instance& instance) override
         {
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, *m_coordinator, instance),
+                DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
                 DefaultAllocator());
         }
 
     private:
         rt::IApplicationHost* m_host;
         uirt::UIHost* m_uiHost;
-        SceneRenderCoordinator* m_coordinator;
     };
 
     // Create a fresh scene instance in the project's source DB under "Scenes/", named uniquely
@@ -370,14 +295,13 @@ export namespace draconic::editor
         return instance;
     }
 
-    inline void RegisterSceneEditor(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost,
-                                    SceneRenderCoordinator& coordinator)
+    inline void RegisterSceneEditor(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost)
     {
         GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
         RegisterSerializable<dscene::SceneDocument>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<SceneEditorPageFactory>(host, uiHost, coordinator), DefaultAllocator()));
+            DefaultAllocator().New<SceneEditorPageFactory>(host, uiHost), DefaultAllocator()));
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Scene");

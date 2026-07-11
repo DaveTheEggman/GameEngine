@@ -6,7 +6,7 @@ add_library(DraconicRender STATIC)
 add_library(Draconic::Render ALIAS DraconicRender)
 
 target_link_libraries(DraconicRender
-    PUBLIC Draconic::Core Draconic::RHI Draconic::RenderGraph Draconic::Geometry Draconic::Materials
+    PUBLIC Draconic::Core Draconic::RHI Draconic::RenderApi Draconic::RenderGraph Draconic::Geometry Draconic::Materials
            Draconic::Shaders Draconic::ShaderSystem Draconic::PipelineCache Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRender
