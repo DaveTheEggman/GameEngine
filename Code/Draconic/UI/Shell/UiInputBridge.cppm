@@ -223,9 +223,25 @@ export namespace draconic::ui
             {
                 return static_cast<KeyCode>(static_cast<u32>(KeyCode::A) + (kv - static_cast<u32>(SK::A)));
             }
+            // Function keys (both sides contiguous per dozen) - editors use F2 (rename) etc.
+            if (kv >= static_cast<u32>(SK::F1) && kv <= static_cast<u32>(SK::F12))
+            {
+                return static_cast<KeyCode>(static_cast<u32>(KeyCode::F1) + (kv - static_cast<u32>(SK::F1)));
+            }
+            if (kv >= static_cast<u32>(SK::F13) && kv <= static_cast<u32>(SK::F24))
+            {
+                return static_cast<KeyCode>(static_cast<u32>(KeyCode::F13) + (kv - static_cast<u32>(SK::F13)));
+            }
+            // Digit row (shell counts 0..9, ui counts 1..9 then 0 - SDL layout).
+            if (kv >= static_cast<u32>(SK::Num1) && kv <= static_cast<u32>(SK::Num9))
+            {
+                return static_cast<KeyCode>(static_cast<u32>(KeyCode::Num1) + (kv - static_cast<u32>(SK::Num1)));
+            }
+            if (key == SK::Num0) { return KeyCode::Num0; }
             switch (key)
             {
-            case SK::Return:    return KeyCode::Return;
+            case SK::Return:      return KeyCode::Return;
+            case SK::KeypadEnter: return KeyCode::Return;   // both mean "confirm" to the UI
             case SK::Escape:    return KeyCode::Escape;
             case SK::Backspace: return KeyCode::Backspace;
             case SK::Tab:       return KeyCode::Tab;

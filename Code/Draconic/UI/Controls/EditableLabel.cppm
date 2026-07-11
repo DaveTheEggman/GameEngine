@@ -12,6 +12,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
 export module draconic.ui:editable_label;
@@ -104,9 +105,14 @@ export namespace draconic::ui
             if (!m_isEditing) { return; }
             const StringView newText = Text();
 
-            if (Trimmed(newText).IsEmpty()) { CancelEdit(); return; }              // reject empty/whitespace
-            if (newText == m_preEditText.AsView()) { CancelEdit(); return; }        // reject unchanged
-            if (ValidateRename && !ValidateRename(newText)) { CancelEdit(); return; } // custom validator
+            // Debug-log the rejection paths - a silently-cancelled commit looks like "nothing
+            // happened" from the outside.
+            if (Trimmed(newText).IsEmpty())
+            { DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: empty"); CancelEdit(); return; }
+            if (newText == m_preEditText.AsView())
+            { DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: unchanged"); CancelEdit(); return; }
+            if (ValidateRename && !ValidateRename(newText))
+            { DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: validator"); CancelEdit(); return; }
 
             m_isEditing = false;
             IsReadOnly.SetValue(true);
@@ -132,15 +138,38 @@ export namespace draconic::ui
         void OnFocusLost() override
         {
             // Don't commit if focus was pushed to the stack for a popup.
-            if (m_isEditing && Context != nullptr && Context->GetFocusManager()->FocusStackDepth() == 0) { CommitEdit(); }
+            if (m_isEditing && Context != nullptr && Context->GetFocusManager()->FocusStackDepth() == 0)
+            {
+                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit via focus-lost");
+                CommitEdit();
+            }
             EditText::OnFocusLost();
+        }
+
+        // Keyboard Return commits via OnKeyDown (dispatch-first); this covers the OTHER
+        // activation sources (gamepad A, programmatic activate) with the same commit semantics.
+        void OnActivate() override
+        {
+            if (m_isEditing)
+            {
+                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit via OnActivate");
+                CommitEdit();
+                return;
+            }
+            EditText::OnActivate();
         }
 
         void OnKeyDown(KeyEventArgs& e) override
         {
             if (m_isEditing)
             {
-                if (e.Key == KeyCode::Return) { CommitEdit(); e.Handled = true; return; }
+                if (e.Key == KeyCode::Return)
+                {
+                    DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit via Return key");
+                    CommitEdit();
+                    e.Handled = true;
+                    return;
+                }
                 if (e.Key == KeyCode::Escape) { CancelEdit(); e.Handled = true; return; }
                 EditText::OnKeyDown(e);
                 return;

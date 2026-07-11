@@ -121,3 +121,30 @@ TEST_CASE("tree-view: SetAdapter_Twice_RebuildsSafely")
     tv->SetAdapter(&other);     // and with a different one
     REQUIRE(tv->FlatAdapter() != nullptr);
 }
+
+// The editor F2/Delete path end-to-end: click focuses the INTERNAL ListView (click-to-focus),
+// an unhandled key bubbles ListView -> TreeView, whose OnKeyDown maps the flat selection to a
+// nodeId and fires OnItemKeyDown.
+TEST_CASE("tree-view: FocusedInternalList_KeyBubbles_To_OnItemKeyDown")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    ctx.AddRootView(root.Get());
+
+    SimpleTreeAdapter adapter;
+    auto tv = MakeTree();
+    root->AddView(tv.Get());
+    tv->SetAdapter(&adapter);
+    tv->Selection().Select(0);
+
+    ctx.GetFocusManager()->SetFocus(tv->InternalListView());
+
+    i32 firedNode = -1;
+    tv->OnItemKeyDown.Add([&firedNode](i32 nodeId, KeyEventArgs& e) {
+        firedNode = nodeId;
+        e.Handled = true;
+    });
+
+    CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::F2, KeyModifiers::None, false));
+    CHECK(firedNode == 0);
+}

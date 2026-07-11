@@ -513,3 +513,41 @@ TEST_CASE("directional: OnCancel_BubblesToParent")
     child->OnCancel();
     CHECK(parentCancelCalled);
 }
+
+// Return dispatch order (deliberate deviation from Sedulous): the focused view gets Return in
+// OnKeyDown FIRST; only an UNHANDLED Return activates (OnActivate). Text controls can consume
+// Enter (commit-on-Enter, multiline newlines) while buttons keep Enter-to-activate.
+TEST_CASE("keys: Return_DispatchesBeforeActivation")
+{
+    class ReturnProbe final : public View
+    {
+    public:
+        bool consumeReturn = false;
+        i32 keyDowns = 0;
+        i32 activations = 0;
+        ReturnProbe() { IsFocusable = true; }
+        void OnKeyDown(KeyEventArgs& e) override
+        {
+            if (e.Key == KeyCode::Return) { ++keyDowns; e.Handled = consumeReturn; }
+        }
+        void OnActivate() override { ++activations; }
+    };
+
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    ctx.AddRootView(root.Get());
+    auto probe = core::MakeRef<ReturnProbe>(core::DefaultAllocator());
+    root->AddView(probe.Get());
+    ctx.GetFocusManager()->SetFocus(probe.Get());
+
+    // Unhandled Return: view saw the key, then activation fired (button behavior preserved).
+    CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::Return, KeyModifiers::None, false));
+    CHECK(probe->keyDowns == 1);
+    CHECK(probe->activations == 1);
+
+    // Handled Return: NO activation (text-control behavior - commit consumed the key).
+    probe->consumeReturn = true;
+    CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::Return, KeyModifiers::None, false));
+    CHECK(probe->keyDowns == 2);
+    CHECK(probe->activations == 1);
+}

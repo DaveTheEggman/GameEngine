@@ -282,10 +282,18 @@ TEST_CASE("docking: DraggableTreeView_DropIntoZones")
     CHECK(adapter.intoTo == 2);
     CHECK(adapter.movedFrom == -1);   // reorder path untouched
 
-    // Top edge of row 2 (y = 41) = between-rows reorder.
+    // Top edge of row 2 (y = 41) = reorder boundary BEFORE row 2.
     CHECK(tree->OnDrop(drag.Get(), 0, 41.0f) == DragDropEffects::Move);
     CHECK(adapter.movedFrom == 0);
     CHECK(adapter.movedTo == 2);
+
+    // Bottom edge of row 1 (y = 38, frac 0.9) = boundary AFTER row 1 (= before row 2).
+    CHECK(tree->OnDrop(drag.Get(), 0, 38.0f) == DragDropEffects::Move);
+    CHECK(adapter.movedTo == 2);
+
+    // Below the last row (y = 100, 3 rows x 20px) = end-of-list boundary (count).
+    CHECK(tree->OnDrop(drag.Get(), 0, 100.0f) == DragDropEffects::Move);
+    CHECK(adapter.movedTo == 3);
 
     // Reorder unsupported: the edge band falls back to drop-into.
     adapter.allowMove = false;

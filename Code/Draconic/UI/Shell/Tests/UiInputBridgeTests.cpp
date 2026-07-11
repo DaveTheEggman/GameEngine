@@ -141,3 +141,73 @@ TEST_CASE("ui-shell: ShellClipboard with null shell is graceful")
     String out;
     CHECK(!clip.GetText(out).IsOk());
 }
+
+// Regression: function keys were unmapped (KeyCode::Unknown), so F2-rename etc. never reached
+// the UI. The bridge now maps F1-F24 and the digit row.
+TEST_CASE("ui-shell: function and digit keys map through the bridge")
+{
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = core::Float2{ 800, 600 };
+    ctx.AddRootView(root.Get());
+
+    // A focusable probe recording the keys it receives.
+    class KeyProbe final : public View
+    {
+    public:
+        KeyProbe() { IsFocusable = true; }
+        KeyCode last = KeyCode::Unknown;
+        void OnKeyDown(KeyEventArgs& e) override { last = e.Key; e.Handled = true; }
+    };
+    auto probe = core::MakeRef<KeyProbe>(core::DefaultAllocator());
+    root->AddView(probe.Get());
+    ctx.GetFocusManager()->SetFocus(probe.Get());
+
+    UiInputBridge bridge(&ctx);
+    auto key = [](shell::KeyCode k) {
+        shell::InputEvent e{};
+        e.kind = shell::InputEventKind::KeyDown;
+        e.key = k;
+        return e;
+    };
+
+    (void)bridge.Dispatch(key(shell::KeyCode::F2));
+    CHECK(probe->last == KeyCode::F2);
+    (void)bridge.Dispatch(key(shell::KeyCode::F12));
+    CHECK(probe->last == KeyCode::F12);
+    (void)bridge.Dispatch(key(shell::KeyCode::F24));
+    CHECK(probe->last == KeyCode::F24);
+    (void)bridge.Dispatch(key(shell::KeyCode::Num0));
+    CHECK(probe->last == KeyCode::Num0);
+    (void)bridge.Dispatch(key(shell::KeyCode::Num5));
+    CHECK(probe->last == KeyCode::Num5);
+    (void)bridge.Dispatch(key(shell::KeyCode::Delete));   // pre-existing mapping still intact
+    CHECK(probe->last == KeyCode::Delete);
+}
+
+// Numpad Enter maps to Return: both mean "confirm" to the UI (commit-on-Enter etc.).
+TEST_CASE("ui-shell: keypad enter maps to Return")
+{
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = core::Float2{ 800, 600 };
+    ctx.AddRootView(root.Get());
+
+    class KeyProbe final : public View
+    {
+    public:
+        KeyProbe() { IsFocusable = true; }
+        KeyCode last = KeyCode::Unknown;
+        void OnKeyDown(KeyEventArgs& e) override { last = e.Key; e.Handled = true; }
+    };
+    auto probe = core::MakeRef<KeyProbe>(core::DefaultAllocator());
+    root->AddView(probe.Get());
+    ctx.GetFocusManager()->SetFocus(probe.Get());
+
+    UiInputBridge bridge(&ctx);
+    shell::InputEvent e{};
+    e.kind = shell::InputEventKind::KeyDown;
+    e.key = shell::KeyCode::KeypadEnter;
+    (void)bridge.Dispatch(e);
+    CHECK(probe->last == KeyCode::Return);
+}

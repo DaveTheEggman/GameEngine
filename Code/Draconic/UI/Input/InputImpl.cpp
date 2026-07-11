@@ -443,7 +443,6 @@ namespace draconic::ui
         }
 
         View* focused = focus->FocusedView();
-        if (focused != nullptr && !isRepeat && key == KeyCode::Return) { focused->OnActivate(); return true; }
 
         if (focused != nullptr)
         {
@@ -451,6 +450,13 @@ namespace draconic::ui
             DispatchKeyDown(focused, m_keyArgs);
             if (m_keyArgs.Handled) { return true; }
         }
+
+        // Return ACTIVATES the focused view - but only as a fallback AFTER normal dispatch
+        // (deliberate deviation from Sedulous, which converted Return pre-dispatch: that locked
+        // text controls out of ever seeing Return in OnKeyDown - commit-on-Enter, multiline
+        // newlines - and swallowed it even when OnActivate was a no-op). Buttons and other
+        // activatables don't handle Return in OnKeyDown, so they activate exactly as before.
+        if (focused != nullptr && !isRepeat && key == KeyCode::Return) { focused->OnActivate(); return true; }
 
         if (focused != nullptr && !isRepeat)
         {

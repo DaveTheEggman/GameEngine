@@ -141,6 +141,11 @@ export namespace draconic::ui
         {
             const Float2 local = ScreenToLocal(MouseScreenPos());
 
+            // Click-to-focus: keyboard interaction (arrows, item keys like F2/Delete) follows a
+            // click into the list. Interactive rows that keep focus themselves (e.g. an editing
+            // EditableLabel) mark their clicks handled, so this never runs for them.
+            if (Context != nullptr) { Context->GetFocusManager()->SetFocus(this); }
+
             if (e.Button == MouseButton::Left && MaxScrollY() > 0)
             {
                 m_dragging = true;
@@ -183,6 +188,15 @@ export namespace draconic::ui
             (void)e;
             if (m_dragging)
             {
+                // A drag-and-drop taking over the same gesture wins: stop scroll-dragging, or
+                // the list scrolls under the drag and the drop lands on the wrong row.
+                if (Context != nullptr && Context->DragDrop()->IsDragging())
+                {
+                    m_dragging = false;
+                    m_momentum.VelocityY = 0;
+                    Context->GetFocusManager()->ReleaseCapture();
+                    return;
+                }
                 const Float2 local = ScreenToLocal(MouseScreenPos());
                 const f32 dy = m_dragLastY - local.y;
                 if (Abs(dy) > 1) { ScrollBy(dy); m_momentum.VelocityY = dy * 60; m_dragLastY = local.y; }

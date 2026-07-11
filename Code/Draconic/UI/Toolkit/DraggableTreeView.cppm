@@ -102,17 +102,19 @@ export namespace draconic::ui::toolkit
         {
             DrawChildren(ctx);
 
-            // Drop indicator: a line between rows (reorder), or a row highlight (drop-into).
+            // Drop indicator (scroll-corrected, matching ResolveDrop): a line at the insert
+            // boundary (reorder), or a row highlight (drop-into).
+            const f32 scrollY = m_treeView->InternalListView()->ScrollY();
             if (m_dropIndicatorPos >= 0)
             {
                 const Color indicatorColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 160, 255, 255));
-                const f32 y = m_dropIndicatorPos * m_treeView->ItemHeight();
+                const f32 y = m_dropIndicatorPos * m_treeView->ItemHeight() - scrollY;
                 ctx.VG().FillRect(Rectangle{ 0, y, Width(), 2 }, indicatorColor);
             }
             if (m_dropIntoPos >= 0)
             {
                 const Color intoColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 160, 255, 255));
-                const f32 y = m_dropIntoPos * m_treeView->ItemHeight();
+                const f32 y = m_dropIntoPos * m_treeView->ItemHeight() - scrollY;
                 const Rectangle row{ 0, y, Width(), m_treeView->ItemHeight() };
                 ctx.VG().FillRect(row, Color{ intoColor.r, intoColor.g, intoColor.b, 0.25f });
                 ctx.VG().StrokeRect(row, intoColor, 1.0f);
@@ -229,13 +231,15 @@ export namespace draconic::ui::toolkit
             return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
         }
 
-        // Drop-zone resolution: the middle band of a row (25%..75%) is a drop-INTO zone (when the
-        // adapter supports it - e.g. reparenting), the edge bands are the between-rows reorder
-        // zones. Each falls back to the other's semantics when its own is unsupported, so
-        // pure-reorder and pure-reparent adapters both work anywhere over a row.
+        // Drop-zone resolution (scroll-corrected). Over a row, the middle band (25%..75%) is a
+        // drop-INTO zone (when the adapter supports it - e.g. reparenting); the edge bands are
+        // between-rows REORDER boundaries: top edge = insert before this row, bottom edge =
+        // before the next (so position ranges 0..count - count = end of list, also the result
+        // anywhere below the last row). Each zone falls back to the other's semantics when its
+        // own is unsupported, so pure-reorder and pure-reparent adapters work anywhere.
         struct DropResolution
         {
-            i32 position = -1;
+            i32 position = -1;   // into: the target row; reorder: the insert-before boundary (0..count)
             bool into = false;
             bool valid = false;
         };
@@ -243,15 +247,27 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] DropResolution ResolveDrop(i32 fromPosition, f32 localY)
         {
             if (m_adapter == nullptr) { return {}; }
-            const f32 rows = localY / m_treeView->ItemHeight();
-            const i32 position = static_cast<i32>(rows);
-            const f32 frac = rows - static_cast<f32>(position);
-            const bool wantInto = frac >= 0.25f && frac <= 0.75f;
+            ListView* list = m_treeView->InternalListView();
+            const i32 count = (m_treeView->FlatAdapter() != nullptr)
+                ? m_treeView->FlatAdapter()->ItemCount() : 0;
 
-            if (wantInto && m_adapter->CanDropInto(fromPosition, position)) { return { position, true, true }; }
-            if (m_adapter->CanMove(fromPosition, position)) { return { position, false, true }; }
-            if (!wantInto && m_adapter->CanDropInto(fromPosition, position)) { return { position, true, true }; }
-            return { position, false, false };
+            const f32 rows = (localY + list->ScrollY()) / m_treeView->ItemHeight();
+            const i32 row = static_cast<i32>(rows);
+            const f32 frac = rows - static_cast<f32>(row);
+
+            if (row >= count)   // below the last row: end-of-list boundary only
+            {
+                if (m_adapter->CanMove(fromPosition, count)) { return { count, false, true }; }
+                return { count, false, false };
+            }
+
+            const bool wantInto = frac >= 0.25f && frac <= 0.75f;
+            const i32 boundary = (frac < 0.5f) ? row : row + 1;
+
+            if (wantInto && m_adapter->CanDropInto(fromPosition, row)) { return { row, true, true }; }
+            if (m_adapter->CanMove(fromPosition, boundary)) { return { boundary, false, true }; }
+            if (!wantInto && m_adapter->CanDropInto(fromPosition, row)) { return { row, true, true }; }
+            return { boundary, false, false };
         }
 
         void UpdateDropIndicator(DragData* data, f32 localY)
