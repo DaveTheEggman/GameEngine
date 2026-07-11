@@ -49,6 +49,26 @@ TEST_CASE("core-reflection: get / set a property through an Instance")
     CHECK_FALSE(SetProperty(*y, inst, Variant::From(7)).IsOk());
 }
 
+TEST_CASE("core-reflection: PropertyInfo::address exposes the raw field")
+{
+    EnsureRegistered();
+
+    Float3 v{ 1.0f, 2.0f, 3.0f };
+    Instance inst = Instance::From(&v);
+
+    const PropertyInfo* y = FindProperty(TypeOf<Float3>(), "y");
+    REQUIRE(y != nullptr);
+    REQUIRE(y->address != nullptr);
+
+    // The address path points at the live field: reads see the current value,
+    // writes through it are visible to the normal getter.
+    void* addr = y->address(inst);
+    REQUIRE(addr == &v.y);
+    CHECK(*static_cast<f32*>(addr) == 2.0f);
+    *static_cast<f32*>(addr) = 8.0f;
+    CHECK(GetProperty(*y, inst).Get<f32>() == 8.0f);
+}
+
 TEST_CASE("core-reflection: nested value-type properties (Transform)")
 {
     EnsureRegistered();

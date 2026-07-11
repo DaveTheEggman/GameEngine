@@ -55,6 +55,13 @@ namespace draconic::core::detail
         return Status{};
     }
 
+    template <typename T, typename M, auto Member>
+    void* PropertyAddress(const Instance& instance)
+    {
+        T* object = static_cast<T*>(instance.Pointer());
+        return &(object->*Member);
+    }
+
     [[nodiscard]] inline bool CStringEquals(const char* a, const char* b) noexcept
     {
         usize i = 0;
@@ -78,6 +85,11 @@ export namespace draconic::core
         PropertyFlags flags;
         Variant (*get)(const Instance&);
         Status (*set)(const Instance&, const Variant&);
+        // Raw address of the underlying field (null for computed properties). The type-erased
+        // escape hatch for generic tooling: a Variant of an arbitrary reflected type (e.g. an
+        // enum known only by TypeInfo) cannot be CONSTRUCTED at runtime, so editors/binding
+        // generators read and write such fields in place through this instead.
+        void* (*address)(const Instance&) = nullptr;
     };
 
     [[nodiscard]] inline Variant GetProperty(const PropertyInfo& property, const Instance& instance)
@@ -669,7 +681,8 @@ export namespace draconic::core
             m_data.properties.PushBack(PropertyInfo{
                 name, &TypeOf<M>(), flags,
                 &detail::PropertyGet<T, M, Member>,
-                &detail::PropertySet<T, M, Member> });
+                &detail::PropertySet<T, M, Member>,
+                &detail::PropertyAddress<T, M, Member> });
             return *this;
         }
 
