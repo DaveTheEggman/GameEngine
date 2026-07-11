@@ -32,6 +32,10 @@ public:
     }
 
 protected:
+    void OnInit() override {
+        RegisterAnimationComponentReflection();   // tooling: reflected components (idempotent)
+    }
+
     void OnReady() override {
         if (draconic::runtime::Context* ctx = GetContext()) {
             if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>()) { scenes->RegisterSceneAware(this); }

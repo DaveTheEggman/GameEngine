@@ -9,6 +9,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module draconic.render.subsystem:components;
 
@@ -220,4 +221,130 @@ private:
     EnvironmentSettings m_env;
 };
 
+} // namespace draconic::render (exported)
+
+// ============================================================================================
+// Reflection (tooling: the editor inspector auto-generates property grids from these).
+// Pointer/RefPtr/array fields (mesh, material, textures, bone matrices) are deliberately not
+// reflected yet - they need resource-picker editors (editor phase 6). NON-export namespace:
+// the macros expand static helpers (internal linkage), per the CoreReflection.cppm pattern.
+// ============================================================================================
+namespace draconic::render
+{
+
+DRACONIC_REFLECT_ENUM(LightType, "draconic::render")
+{
+    builder.Value("Directional", LightType::Directional);
+    builder.Value("Point", LightType::Point);
+    builder.Value("Spot", LightType::Spot);
+}
+
+DRACONIC_REFLECT_ENUM(ShadowUpdateMode, "draconic::render")
+{
+    builder.Value("Realtime", ShadowUpdateMode::Realtime);
+    builder.Value("Static", ShadowUpdateMode::Static);
+}
+
+DRACONIC_REFLECT_ENUM(ProbeUpdateMode, "draconic::render")
+{
+    builder.Value("Static", ProbeUpdateMode::Static);
+    builder.Value("Realtime", ProbeUpdateMode::Realtime);
+    builder.Value("Manual", ProbeUpdateMode::Manual);
+}
+
+DRACONIC_REFLECT_VALUE(MeshComponent, "draconic::render")
+{
+    builder.Property<&MeshComponent::color>("color")
+           .Property<&MeshComponent::visible>("visible");
+}
+
+DRACONIC_REFLECT_VALUE(InstancedMeshComponent, "draconic::render")
+{
+    builder.Property<&InstancedMeshComponent::color>("color")
+           .Property<&InstancedMeshComponent::visible>("visible");
+}
+
+DRACONIC_REFLECT_VALUE(CameraComponent, "draconic::render")
+{
+    builder.Property<&CameraComponent::fovYRadians>("fovYRadians")
+           .Property<&CameraComponent::aspect>("aspect")
+           .Property<&CameraComponent::nearZ>("nearZ")
+           .Property<&CameraComponent::farZ>("farZ")
+           .Property<&CameraComponent::clearColor>("clearColor")
+           .Property<&CameraComponent::primary>("primary");
+}
+
+DRACONIC_REFLECT_VALUE(LightComponent, "draconic::render")
+{
+    builder.Property<&LightComponent::type>("type")
+           .Property<&LightComponent::color>("color")
+           .Property<&LightComponent::intensity>("intensity")
+           .Property<&LightComponent::range>("range")
+           .Property<&LightComponent::innerAngle>("innerAngle")
+           .Property<&LightComponent::outerAngle>("outerAngle")
+           .Property<&LightComponent::shadowUpdate>("shadowUpdate")
+           .Property<&LightComponent::enabled>("enabled")
+           .Property<&LightComponent::castsShadows>("castsShadows");
+}
+
+DRACONIC_REFLECT_VALUE(SpriteComponent, "draconic::render")
+{
+    builder.Property<&SpriteComponent::size>("size")
+           .Property<&SpriteComponent::uvRect>("uvRect")
+           .Property<&SpriteComponent::tint>("tint")
+           .Property<&SpriteComponent::orientation>("orientation")
+           .Property<&SpriteComponent::additive>("additive")
+           .Property<&SpriteComponent::visible>("visible");
+}
+
+DRACONIC_REFLECT_VALUE(DecalComponent, "draconic::render")
+{
+    builder.Property<&DecalComponent::size>("size")
+           .Property<&DecalComponent::color>("color")
+           .Property<&DecalComponent::fadeStart>("fadeStart")
+           .Property<&DecalComponent::fadeEnd>("fadeEnd")
+           .Property<&DecalComponent::visible>("visible");
+}
+
+DRACONIC_REFLECT_VALUE(ReflectionProbeComponent, "draconic::render")
+{
+    builder.Property<&ReflectionProbeComponent::halfExtents>("halfExtents")
+           .Property<&ReflectionProbeComponent::blendDistance>("blendDistance")
+           .Property<&ReflectionProbeComponent::intensity>("intensity")
+           .Property<&ReflectionProbeComponent::resolution>("resolution")
+           .Property<&ReflectionProbeComponent::priority>("priority")
+           .Property<&ReflectionProbeComponent::update>("update")
+           .Property<&ReflectionProbeComponent::parallax>("parallax")
+           .Property<&ReflectionProbeComponent::enabled>("enabled");
+}
+
+} // namespace draconic::render (reflection bodies)
+
+// Registers all render component/enum reflection (idempotent). Called by RenderSubsystem::OnInit
+// so every app with a renderer gets reflected components for free. Non-inline: the body touches
+// module-linkage registration functions, which an exported inline definition may not.
+export namespace draconic::render
+{
+    void RegisterRenderComponentReflection();
+}
+
+namespace draconic::render
+{
+    void RegisterRenderComponentReflection()
+    {
+        static const bool once = []() {
+            DraconicRegisterEnum_LightType();
+            DraconicRegisterEnum_ShadowUpdateMode();
+            DraconicRegisterEnum_ProbeUpdateMode();
+            DraconicRegisterValue_MeshComponent();
+        DraconicRegisterValue_InstancedMeshComponent();
+            DraconicRegisterValue_CameraComponent();
+            DraconicRegisterValue_LightComponent();
+            DraconicRegisterValue_SpriteComponent();
+            DraconicRegisterValue_DecalComponent();
+            DraconicRegisterValue_ReflectionProbeComponent();
+            return true;
+        }();
+        (void)once;
+    }
 } // namespace draconic::render

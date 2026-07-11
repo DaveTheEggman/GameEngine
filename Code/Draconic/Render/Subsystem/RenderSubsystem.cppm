@@ -265,6 +265,7 @@ public:
 
 protected:
     void OnInit() override {
+        RegisterRenderComponentReflection();   // tooling: reflected components (idempotent)
         if (!shaders::createCompiler(shaders::CompilerDesc{}, m_compiler).IsOk() || m_compiler == nullptr) {
             return;   // no shader compiler - renderer stays inert
         }

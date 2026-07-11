@@ -9,6 +9,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 #include "Profiler/Profiler.h"   // DRACONIC_PROFILE_SCOPE (compiles to nothing when disabled)
 #include <algorithm>   // std::sort (per-particle back-to-front ordering)
 
@@ -478,4 +479,36 @@ export namespace draconic::particles
         usize         m_trailUsed = 0;
         u32           m_meshVersion = 0;   // bumped per mesh batch so the instanced-mesh path re-uploads
     };
+
+} // exported namespace
+
+// Reflection (tooling; effect/texture/mesh references need resource pickers - not reflected).
+namespace draconic::particles
+{
+
+DRACONIC_REFLECT_VALUE(ParticleEffectComponent, "draconic::particles")
+{
+    builder.Property<&ParticleEffectComponent::meshScale>("meshScale")
+           .Property<&ParticleEffectComponent::lightIntensity>("lightIntensity")
+           .Property<&ParticleEffectComponent::lightRange>("lightRange")
+           .Property<&ParticleEffectComponent::visible>("visible");
+}
+
+} // namespace draconic::particles (reflection bodies)
+
+export namespace draconic::particles
+{
+    void RegisterParticleComponentReflection();
+}
+
+namespace draconic::particles
+{
+    void RegisterParticleComponentReflection()
+    {
+        static const bool once = []() {
+            DraconicRegisterValue_ParticleEffectComponent();
+            return true;
+        }();
+        (void)once;
+    }
 }

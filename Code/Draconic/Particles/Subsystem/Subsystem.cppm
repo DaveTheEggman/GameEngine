@@ -46,6 +46,11 @@ export namespace draconic::particles
         }
 
     protected:
+        void OnInit() override
+        {
+            RegisterParticleComponentReflection();   // tooling: reflected components (idempotent)
+        }
+
         void OnReady() override
         {
             draconic::runtime::Context* ctx = GetContext();
