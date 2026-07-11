@@ -3,13 +3,15 @@
 // A content database: a hierarchical store of serializable objects, addressed by
 // Guid (stable) or by path. A Group is a folder; an Instance is one stored unit
 // (a Guid + a primary ISerializable object + named data streams for heavy
-// blobs). Backed by a VFS mount (Group = directory, Instance = a ".rasset"
-// envelope file, data streams = sidecar files). Identity is decoupled from byte
-// access: the database owns the Guid<->location structure; the VFS owns the
-// bytes.
+// blobs). Backed by a VFS mount (Group = directory, Instance = a file with a
+// configurable extension, data streams = sidecar files). Identity is decoupled
+// from byte access: the database owns the Guid<->location structure; the VFS
+// owns the bytes.
 //
-// Sits between Core/VFS and the resource layer; consumes ISerializable +
-// SerializableRegistry (polymorphic construct-by-type) + the type registry.
+// The serialization format is pluggable: the database receives a
+// SerializerFactory that creates a Serializer for a given stream + mode. The
+// factory hides format-specific construction (binary vs XML vs anything else).
+// The database never imports a concrete serializer module.
 
 module;
 #include "Core/Prelude.h"
@@ -24,19 +26,12 @@ using namespace draconic::vfs;
 
 export namespace draconic::content
 {
-    inline constexpr u32 kEnvelopeMagic   = 0x54534152u; // 'RAST'
-    inline constexpr u32 kEnvelopeVersion = 1u;
-    inline constexpr StringView kInstanceExt = u8".rasset";
-
     class ContentDatabase;
     class Group;
 
-    // Path + envelope helpers (defined below; declared here for in-class use).
+    // Path helpers (defined below; declared here for in-class use).
     [[nodiscard]] inline String JoinPath(StringView a, StringView b);
     [[nodiscard]] inline bool EndsWith(StringView str, StringView suffix);
-    inline void WriteEnvelope(IStream& out, const Guid& id, StringView typeNs, StringView typeName,
-                              ISerializable& object);
-    inline bool ReadEnvelopeHeader(IStream& in, Guid& outId, String& outNs, String& outName);
 
     // =======================================================================
     // Instance - one stored unit: identity + a primary object + data streams.
@@ -70,7 +65,7 @@ export namespace draconic::content
         [[nodiscard]] Status WriteData(StringView streamName, Span<const byte> data);
 
     private:
-        [[nodiscard]] String EnvelopePath() const;     // "<path>.rasset"
+        [[nodiscard]] String EnvelopePath() const;     // "<path>.<ext>"
         [[nodiscard]] String DataPath(StringView streamName) const; // "<path>.<stream>.bin"
 
         ContentDatabase* m_db;
@@ -138,16 +133,22 @@ export namespace draconic::content
 
     // =======================================================================
     // ContentDatabase - VFS-backed. Scans the mount on construction; reads and
-    // writes through the mount's enumerable/writable capabilities.
+    // writes through the mount's enumerable/writable capabilities. The
+    // serialization format is determined by the SerializerFactory provided by
+    // the caller.
     // =======================================================================
     class ContentDatabase final : public IContentDatabase
     {
     public:
         // `mount` must outlive the database and support enumerate + write.
         explicit ContentDatabase(IFileSystem& mount,
+                                 SerializerFactory factory,
+                                 StringView fileExtension,
                                  SerializableRegistry& serializables = GlobalSerializableRegistry(),
                                  TypeRegistry& types = GlobalTypeRegistry())
-            : m_mount(&mount), m_serializables(&serializables), m_types(&types)
+            : m_mount(&mount), m_factory(static_cast<SerializerFactory&&>(factory))
+            , m_extension(fileExtension)
+            , m_serializables(&serializables), m_types(&types)
         {
             m_root = NewGroup(nullptr, u8"");
             Scan(*m_root, u8"");
@@ -201,6 +202,12 @@ export namespace draconic::content
         [[nodiscard]] SerializableRegistry& Serializables() const noexcept { return *m_serializables; }
         [[nodiscard]] TypeRegistry& Types() const noexcept { return *m_types; }
         [[nodiscard]] Random& Rng() noexcept { return m_rng; }
+        [[nodiscard]] StringView Extension() const noexcept { return m_extension.AsView(); }
+
+        [[nodiscard]] UniquePtr<SerializerContext> CreateSerializer(IStream& stream, SerializeMode mode) const
+        {
+            return m_factory(stream, mode);
+        }
 
         Group* NewGroup(Group* parent, StringView name)
         {
@@ -235,7 +242,7 @@ export namespace draconic::content
                     Group* child = group.AddChildGroup(entry.name.AsView());
                     Scan(*child, JoinPath(folder, entry.name.AsView()));
                 }
-                else if (EndsWith(entry.name.AsView(), kInstanceExt))
+                else if (EndsWith(entry.name.AsView(), m_extension.AsView()))
                 {
                     ScanInstance(group, folder, entry.name.AsView());
                 }
@@ -244,18 +251,28 @@ export namespace draconic::content
 
         void ScanInstance(Group& group, StringView folder, StringView fileName)
         {
-            const StringView instanceName = fileName.SubStr(0, fileName.Size() - kInstanceExt.Size());
+            const StringView instanceName = fileName.SubStr(0, fileName.Size() - m_extension.Size());
             UniquePtr<IStream> stream = m_mount->Open(JoinPath(folder, fileName), FileMode::Read);
             if (!stream) { return; }
+
+            UniquePtr<SerializerContext> ctx = m_factory(*stream, SerializeMode::Read);
+            if (!ctx || ctx->serializer == nullptr) { return; }
+            Serializer& ar = *ctx->serializer;
 
             Guid id;
             String typeNs;
             String typeName;
-            if (!ReadEnvelopeHeader(*stream, id, typeNs, typeName)) { return; }
+            ar.Key("guid");     ar.GuidValue(id);
+            ar.Key("typeNamespace");   ar.Text(typeNs);
+            ar.Key("typeName"); ar.Text(typeName);
+            if (!ar.IsOk()) { return; }
+
             (void)group.AddInstance(id, instanceName, typeNs.AsView(), typeName.AsView());
         }
 
         IFileSystem* m_mount;
+        SerializerFactory m_factory;
+        String m_extension;
         SerializableRegistry* m_serializables;
         TypeRegistry* m_types;
         Random m_rng;
@@ -282,48 +299,6 @@ export namespace draconic::content
     {
         return str.Size() >= suffix.Size()
             && str.SubStr(str.Size() - suffix.Size(), suffix.Size()) == suffix;
-    }
-
-    // -----------------------------------------------------------------------
-    // Envelope I/O: [magic][version][guid.high][guid.low][typeNs][typeName][payload]
-    // -----------------------------------------------------------------------
-    inline void WriteEnvelope(IStream& out, const Guid& id, StringView typeNs, StringView typeName,
-                              ISerializable& object)
-    {
-        BinarySerializer ar(out, SerializeMode::Write);
-        u32 magic = kEnvelopeMagic;
-        u32 version = kEnvelopeVersion;
-        u64 high = id.high;
-        u64 low = id.low;
-        String ns(typeNs);
-        String nm(typeName);
-        Serialize(ar, magic);
-        Serialize(ar, version);
-        Serialize(ar, high);
-        Serialize(ar, low);
-        Serialize(ar, ns);
-        Serialize(ar, nm);
-        object.Serialize(ar);
-    }
-
-    // Reads just the header fields (for scanning). Leaves the stream positioned
-    // at the payload. Returns false on bad magic / short read.
-    inline bool ReadEnvelopeHeader(IStream& in, Guid& outId, String& outNs, String& outName)
-    {
-        BinarySerializer ar(in, SerializeMode::Read);
-        u32 magic = 0;
-        u32 version = 0;
-        u64 high = 0;
-        u64 low = 0;
-        Serialize(ar, magic);
-        Serialize(ar, version);
-        Serialize(ar, high);
-        Serialize(ar, low);
-        Serialize(ar, outNs);
-        Serialize(ar, outName);
-        if (!ar.IsOk() || magic != kEnvelopeMagic) { return false; }
-        outId = Guid{ high, low };
-        return true;
     }
 
     // -----------------------------------------------------------------------
@@ -399,7 +374,7 @@ export namespace draconic::content
     inline String Instance::EnvelopePath() const
     {
         String path = Path();
-        path.Append(kInstanceExt);
+        path.Append(m_db->Extension());
         return path;
     }
 
@@ -417,22 +392,20 @@ export namespace draconic::content
         UniquePtr<IStream> stream = m_db->Mount().Open(EnvelopePath().AsView(), FileMode::Read);
         if (!stream) { return RefPtr<ISerializable>{}; }
 
+        UniquePtr<SerializerContext> ctx = m_db->CreateSerializer(*stream, SerializeMode::Read);
+        if (!ctx || ctx->serializer == nullptr) { return RefPtr<ISerializable>{}; }
+        Serializer& ar = *ctx->serializer;
+
+        // Read header.
+        Guid id;
         String ns;
         String name;
-        // Read the header off this serializer, then continue into the payload.
-        BinarySerializer ar(*stream, SerializeMode::Read);
-        u32 magic = 0;
-        u32 version = 0;
-        u64 high = 0;
-        u64 low = 0;
-        Serialize(ar, magic);
-        Serialize(ar, version);
-        Serialize(ar, high);
-        Serialize(ar, low);
-        Serialize(ar, ns);
-        Serialize(ar, name);
-        if (!ar.IsOk() || magic != kEnvelopeMagic) { return RefPtr<ISerializable>{}; }
+        ar.Key("guid");     ar.GuidValue(id);
+        ar.Key("typeNamespace");   ar.Text(ns);
+        ar.Key("typeName"); ar.Text(name);
+        if (!ar.IsOk()) { return RefPtr<ISerializable>{}; }
 
+        // Resolve the type and construct the object.
         const TypeInfo* type = m_db->Types().FindByName(
             reinterpret_cast<const char*>(ns.CStr()),
             reinterpret_cast<const char*>(name.CStr()));
@@ -441,7 +414,10 @@ export namespace draconic::content
         RefPtr<ISerializable> object = m_db->Serializables().Create(type->id);
         if (object.Get() == nullptr) { return RefPtr<ISerializable>{}; }
 
+        // Deserialize the payload.
+        ar.Key("payload");  ar.BeginObject();
         object->Serialize(ar);
+        ar.EndObject();
         return ar.IsOk() ? object : RefPtr<ISerializable>{};
     }
 
@@ -456,7 +432,23 @@ export namespace draconic::content
         if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
 
         MemoryStream buffer;
-        WriteEnvelope(buffer, m_id, m_typeNamespace.AsView(), m_typeName.AsView(), object);
+        UniquePtr<SerializerContext> ctx = m_db->CreateSerializer(buffer, SerializeMode::Write);
+        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        Serializer& ar = *ctx->serializer;
+
+        // Write header + payload.
+        String ns(m_typeNamespace);
+        String nm(m_typeName);
+        ar.Key("guid");     ar.GuidValue(const_cast<Guid&>(m_id));
+        ar.Key("typeNamespace");   ar.Text(ns);
+        ar.Key("typeName"); ar.Text(nm);
+        ar.Key("payload");  ar.BeginObject();
+        object.Serialize(ar);
+        ar.EndObject();
+
+        // Let the context flush (e.g., XML writes its text output here).
+        ctx->Flush(buffer);
+
         return writable->Save(EnvelopePath().AsView(), buffer.Bytes());
     }
 
