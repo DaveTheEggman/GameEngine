@@ -16,6 +16,7 @@ import :base;
 import :serializer;
 import :iserializable;
 import :math;
+import :color;
 import :float2;
 import :float3;
 import :float4;
@@ -98,6 +99,15 @@ export namespace draconic::core
         ar.Key("y"); Serialize(ar, v.y);
         ar.Key("z"); Serialize(ar, v.z);
         ar.Key("w"); Serialize(ar, v.w);
+        ar.EndObject();
+    }
+    inline void Serialize(ISerializer& ar, Color& c)
+    {
+        ar.BeginObject();
+        ar.Key("r"); Serialize(ar, c.r);
+        ar.Key("g"); Serialize(ar, c.g);
+        ar.Key("b"); Serialize(ar, c.b);
+        ar.Key("a"); Serialize(ar, c.a);
         ar.EndObject();
     }
     inline void Serialize(ISerializer& ar, Quaternion& q)
