@@ -17,6 +17,7 @@ target_sources(DraconicEditorApp
         FILE_SET editorapp_modules TYPE CXX_MODULES FILES
             Layout.cppm
             LogView.cppm
+            UIPage.cppm
             Shell.cppm
             Application.cppm
             EditorAppModule.cppm)

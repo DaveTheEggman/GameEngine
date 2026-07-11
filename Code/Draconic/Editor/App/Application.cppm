@@ -23,8 +23,10 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
 import draconic.ui.application;
+import draconic.content;
 import draconic.editor.core;
 import :shell;
+import :ui_page;
 
 using namespace draconic::core;
 
@@ -45,6 +47,13 @@ export namespace draconic::editor::app
         // Log capture registered on GlobalLogger by main() BEFORE anything else runs, so early
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
         draconic::editor::EditorLogBuffer* logBuffer = nullptr;
+
+        // Assembly hooks (design doc §3.1): the EXECUTABLE decides which engine subsystems and
+        // per-subsystem editor plugins exist - editor.app never links engine modules itself.
+        /// Called from IApplication::Configure - register engine subsystems (scene/render/...).
+        Function<void(rt::IApplicationHost&)> configureEngine;
+        /// Called at the end of OnStartup - per-subsystem RegisterEditor entry points go here.
+        Function<void(draconic::editor::EditorContext&, rt::IApplicationHost&, uirt::UIHost&)> registerEditors;
     };
 
     class EditorApplication : public rt::IApplication
@@ -55,6 +64,11 @@ export namespace draconic::editor::app
         [[nodiscard]] draconic::editor::EditorContext& Context() noexcept { return m_context; }
         [[nodiscard]] draconic::editor::EditorProject* Project() const noexcept { return m_project.Get(); }
         [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
+
+        void Configure(rt::IApplicationHost& host) override
+        {
+            if (m_config.configureEngine) { m_config.configureEngine(host); }
+        }
 
         void OnStartup(rt::IApplicationHost& host) override
         {
@@ -85,30 +99,127 @@ export namespace draconic::editor::app
             m_uiHost->Context().SetStyleSheet(m_styleSheet);
 
             m_shell.Build(m_context, m_dockHost.Get(), mainRw->Window().Width(), mainRw->Window().Height());
-            BuildMenus();
             m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
 
             OpenProject();
+
+            // Per-subsystem editor plugins register here (page factories, creators, ...).
+            if (m_config.registerEditors) { m_config.registerEditors(m_context, host, *m_uiHost); }
+
+            // Menus AFTER registration - File > New builds from the creator registry.
+            BuildMenus();
+
+            // Reopen the project's default document (a full New Scene -> Save -> restart loop).
+            if (m_project && !m_project->Settings().defaultScene.IsEmpty())
+            {
+                if (draconic::content::Instance* instance =
+                        m_project->SourceDb().GetInstance(m_project->Settings().defaultScene.AsView()))
+                {
+                    (void)OpenInstancePage(*instance);
+                }
+            }
         }
 
-        void OnUpdate(rt::IApplicationHost&, f32 dt) override
+        /// Open (or focus) a page for `instance` and dock its content as a center tab.
+        UIEditorPage* OpenInstancePage(draconic::content::Instance& instance)
+        {
+            const usize before = m_context.OpenPages().Size();
+            draconic::editor::EditorPage* page = m_context.OpenPage(instance);
+            if (page == nullptr)
+            {
+                m_context.SetStatus(u8"No editor registered for this asset type.");
+                return nullptr;
+            }
+            // All factories in this app produce UIEditorPages (:ui_page contract).
+            UIEditorPage* uiPage = static_cast<UIEditorPage*>(page);
+            if (m_context.OpenPages().Size() == before)
+            {
+                // Focused an existing page - select its tab.
+                for (const PagePanel& entry : m_pagePanels)
+                {
+                    if (entry.page == uiPage) { m_shell.Docks()->ActivatePanel(entry.panel); break; }
+                }
+                return uiPage;
+            }
+
+            tk::DockablePanel* panel = m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
+            // Docking into a populated tab group does NOT select the new tab (toolkit keeps the
+            // existing selection) - bring the fresh page to the front explicitly.
+            m_shell.Docks()->ActivatePanel(panel);
+            // The DockManager's own close handling (wired in AddPanel) destroys the panel through
+            // its deferred-delete queue; we additionally tear down the PAGE - deferred through the
+            // UI mutation queue, since destroying views mid-event-dispatch is unsafe.
+            panel->OnCloseRequested.Add([this, uiPage](tk::DockablePanel*) {
+                m_uiHost->Context().MutationQueueRef().QueueAction(
+                    Function<void()>{ [this, uiPage]() { ClosePage(uiPage); } });
+            });
+            m_pagePanels.PushBack(PagePanel{ uiPage, panel });
+            return uiPage;
+        }
+
+        // Tear down a page whose panel is closing/closed (the DockManager owns panel
+        // destruction; this handles only the page side).
+        void ClosePage(UIEditorPage* page)
+        {
+            for (usize i = 0; i < m_pagePanels.Size(); ++i)
+            {
+                if (m_pagePanels[i].page == page)
+                {
+                    if (page->IsDirty())
+                    {
+                        m_context.SetStatus(u8"Closed page had unsaved changes.");   // save-prompt = later phase
+                    }
+                    page->OnClose();   // release GPU/scene resources while device + window live
+                    m_pagePanels.RemoveAt(i);
+                    m_context.ClosePage(page);   // destroys the page
+                    return;
+                }
+            }
+        }
+
+        void OnUpdate(rt::IApplicationHost& host, f32 dt) override
         {
             DrainLog();
             if (m_uiHost) { m_uiHost->Update(dt); }
             if (m_dockHost) { m_dockHost->Tick(); }   // drag-follow for floating OS windows
+
+            // Page hooks AFTER the UI laid out (viewport rects are current for input gating).
+            for (const PagePanel& entry : m_pagePanels) { entry.page->OnUpdate(host, dt); }
         }
 
-        void OnRenderWindow(rt::IApplicationHost&, graphics::FrameContext& frame) override
+        void OnRenderWindow(rt::IApplicationHost& host, graphics::FrameContext& frame) override
         {
+            // Pages render offscreen content BEFORE the UI draws (the UI samples it as an image).
+            for (const PagePanel& entry : m_pagePanels) { entry.page->OnRenderWindow(host, frame); }
             if (m_uiHost) { m_uiHost->RenderWindow(frame); }
         }
 
         void OnShutdown(rt::IApplicationHost&) override
         {
+            // Release page resources while the device and windows are still alive.
+            for (const PagePanel& entry : m_pagePanels) { entry.page->OnClose(); }
             SaveLayout();
         }
 
     private:
+        // File > New <creator>: create the source instance, remember it as the project's default
+        // document if none is set yet (so a fresh project reopens where you left off), open it.
+        void CreateAndOpen(const draconic::editor::EditorContext::AssetCreator& creator)
+        {
+            draconic::content::Instance* instance = creator.create(m_context);
+            if (instance == nullptr)
+            {
+                m_context.SetStatus(u8"Create failed (no project open?).");
+                return;
+            }
+            if (m_project && m_project->Settings().defaultScene.IsEmpty())
+            {
+                m_project->Settings().defaultScene = instance->Path();
+                (void)m_project->SaveSettings();
+            }
+            (void)OpenInstancePage(*instance);
+        }
+
         // Buffered engine logs -> the Console panel, once per frame on the main thread.
         void DrainLog()
         {
@@ -177,11 +288,29 @@ export namespace draconic::editor::app
             if (draconic::ui::ContextMenu* file = bar->AddMenu(u8"File"))
             {
                 rt::IApplicationHost* host = m_host;
+
+                // File > New <creator> from the registry (per-subsystem editor modules).
+                for (const draconic::editor::EditorContext::AssetCreator& creator : m_context.Creators())
+                {
+                    String label(u8"New ");
+                    label += creator.label;
+                    const auto* entry = &creator;
+                    file->AddItem(label.AsView(), [this, entry]() { CreateAndOpen(*entry); });
+                }
+                if (!m_context.Creators().IsEmpty()) { file->AddSeparator(); }
+
+                file->AddItem(u8"Save", [this]() {
+                    if (auto* page = m_context.ActivePage())
+                    {
+                        m_context.SetStatus(page->Save().IsOk() ? StringView(u8"Saved.")
+                                                                : StringView(u8"Save FAILED (see console)."));
+                    }
+                });
+                file->AddSeparator();
                 file->AddItem(u8"Save Layout", [this]() {
                     SaveLayout();
                     m_context.SetStatus(u8"Layout saved.");
                 });
-                file->AddSeparator();
                 file->AddItem(u8"Exit", [host]() { if (host != nullptr) { host->RequestExit(); } });
             }
 
@@ -213,6 +342,14 @@ export namespace draconic::editor::app
         // Log drain state (see DrainLog).
         Array<draconic::editor::EditorLogEntry> m_pendingLog;
         u64 m_logSequence = 0;
+
+        // Open pages and their center-tab panels (panels owned by the DockManager).
+        struct PagePanel
+        {
+            UIEditorPage* page = nullptr;         // borrowed (context owns the page)
+            tk::DockablePanel* panel = nullptr;   // borrowed (dock manager owns the panel)
+        };
+        Array<PagePanel> m_pagePanels;
 
         draconic::editor::EditorContext m_context;
         UniquePtr<draconic::editor::EditorProject> m_project;

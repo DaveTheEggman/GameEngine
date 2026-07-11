@@ -18,8 +18,13 @@ import draconic.graphics.gpu;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.desktop;
+import draconic.scene.subsystem;
+import draconic.render.subsystem;
+import draconic.animation.subsystem;
+import draconic.ui.runtime;
 import draconic.editor.core;
 import draconic.editor.app;
+import draconic.editor.scene;
 
 using namespace draconic::core;
 namespace shell = draconic::shell;
@@ -35,6 +40,7 @@ int main(int argc, char** argv)
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
+    GlobalLogger().SetMinLevel(LogLevel::Debug);   // the Console panel has a Debug filter toggle
 
     edapp::EditorAppConfig config;
     config.projectDirectory = String(argc > 1
@@ -42,6 +48,20 @@ int main(int argc, char** argv)
         : StringView(u8"EditorProject"));
     config.fontPath = String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
     config.logBuffer = &logBuffer;
+
+    // Assembly (design doc §3.1): THIS is where engine subsystems and per-subsystem editor
+    // plugins are chosen - the editor core/app libraries never link engine modules.
+    config.configureEngine = [](draconic::runtime::IApplicationHost& host) {
+        host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
+        host.Ctx().AddSubsystem<draconic::render::RenderSubsystem>(
+            *host.Graphics()->Raw(), host.Graphics()->FramesInFlight());
+        host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
+    };
+    config.registerEditors = [](draconic::editor::EditorContext& ctx,
+                                draconic::runtime::IApplicationHost& host,
+                                draconic::ui::runtime::UIHost& uiHost) {
+        draconic::editor::RegisterSceneEditor(ctx, host, uiHost);
+    };
 
     DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
 

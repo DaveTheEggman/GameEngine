@@ -50,6 +50,24 @@ export namespace draconic::editor
 
         [[nodiscard]] EditorPageRegistry& Pages() noexcept { return m_pageRegistry; }
 
+        /// Asset creators (File > New <label>): create a fresh source instance in the project DB.
+        /// Registered by per-subsystem editor modules; the shell builds menu items from them.
+        struct AssetCreator
+        {
+            String label;
+            Function<draconic::content::Instance*(EditorContext&)> create;
+        };
+
+        void RegisterCreator(AssetCreator creator)
+        {
+            if (creator.create) { m_creators.PushBack(Move(creator)); }
+        }
+
+        [[nodiscard]] Span<const AssetCreator> Creators() const noexcept
+        {
+            return Span<const AssetCreator>{ m_creators.Data(), m_creators.Size() };
+        }
+
         // === Open pages ===
 
         /// Open (or focus) a page editing `instance`: an existing page for the same instance is
@@ -149,6 +167,7 @@ export namespace draconic::editor
 
         EditorProject* m_project = nullptr;   // borrowed
         EditorPageRegistry m_pageRegistry;
+        Array<AssetCreator> m_creators;
         Array<UniquePtr<EditorPage>> m_pages;
         EditorPage* m_activePage = nullptr;
         Selection<const draconic::content::Instance*> m_assetSelection;
