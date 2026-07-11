@@ -12,6 +12,10 @@ export import :iserializer;
 import :base;
 import :string;
 import :guid;
+import :unique_ptr;
+import :allocator;
+import :function;
+import :io;
 
 export namespace draconic::core
 {
@@ -68,4 +72,26 @@ export namespace draconic::core
         u32 m_version = 0;
         Status m_status{};
     };
+
+    // =======================================================================
+    // SerializerContext — owns a Serializer and any intermediate state
+    // (e.g., an XmlDocument) that must outlive it. The factory returns one
+    // of these; the caller uses `serializer` and then destroys the context.
+    // =======================================================================
+    struct SerializerContext
+    {
+        virtual ~SerializerContext() = default;
+
+        // The serializer to use. Owned by this context (destroyed when the
+        // context is destroyed).
+        Serializer* serializer = nullptr;
+
+        // Called after write-mode serialization is complete. Implementations
+        // flush the serialized data to the stream (e.g., XML text output).
+        // Binary writes directly to the stream, so the default is a no-op.
+        virtual void Flush(IStream& /*out*/) {}
+    };
+
+    // Creates a SerializerContext for a given stream and mode.
+    using SerializerFactory = Function<UniquePtr<SerializerContext>(IStream&, SerializeMode)>;
 }

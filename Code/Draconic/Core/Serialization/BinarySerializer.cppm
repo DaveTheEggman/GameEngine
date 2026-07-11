@@ -16,6 +16,9 @@ import :string;
 import :guid;
 import :io;
 import :binary_io;
+import :unique_ptr;
+import :allocator;
+import :function;
 
 export namespace draconic::core
 {
@@ -86,4 +89,21 @@ export namespace draconic::core
         BinaryReader m_reader;
         BinaryWriter m_writer;
     };
+
+    // Built-in SerializerFactory for binary serialization.
+    namespace detail
+    {
+        struct BinarySerializerContext final : SerializerContext
+        {
+            BinarySerializer impl;
+            BinarySerializerContext(IStream& stream, SerializeMode mode) : impl(stream, mode) { serializer = &impl; }
+        };
+    }
+
+    [[nodiscard]] inline SerializerFactory BinarySerializerFactory()
+    {
+        return SerializerFactory{ [](IStream& stream, SerializeMode mode) -> UniquePtr<SerializerContext> {
+            return MakeUnique<detail::BinarySerializerContext>(DefaultAllocator(), stream, mode);
+        }};
+    }
 }
