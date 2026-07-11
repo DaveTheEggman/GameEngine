@@ -63,7 +63,7 @@ export namespace draconic::ui::toolkit
         Color m_color;
     };
 
-    /// Standard axis colors used by all VectorN fields (match the property-grid scheme).
+    /// Standard axis colors used by all FloatN editor fields (match the property-grid scheme).
     struct AxisColors
     {
         static constexpr Color X{ 220 / 255.0f, 80 / 255.0f, 80 / 255.0f, 1.0f };

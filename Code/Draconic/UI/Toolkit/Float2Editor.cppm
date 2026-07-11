@@ -1,18 +1,18 @@
-// Draconic UI Toolkit - :float3_editor partition
+// Draconic UI Toolkit - :float2_editor partition
 //
-// Property editor for Float3 values - three NumericFields (X, Y, Z) side by side with colored axis labels.
-// Ported from Sedulous.UI.Toolkit/src/PropertyGrid/Vector3Editor.bf. Beef `Vector3` -> core Float3
-// (.x/.y/.z); `delegate void(Vector3) Setter` -> Function<void(Float3)>. The Beef private inner `AxisLabel`
+// Property editor for Float2 values - two NumericFields (X, Y) side by side with colored axis labels.
+// Ported from Sedulous.UI.Toolkit/src/PropertyGrid/Vector2Editor.bf. Beef `Vector2` -> core Float2
+// (.x/.y); `delegate void(Vector2) Setter` -> Function<void(Float2)>. The Beef private inner `AxisLabel`
 // is identical to the already-ported toolkit::AxisLabel (and its axis colors to AxisColors), so this
 // partition reuses those from :vector_fields instead of duplicating them. The private inner
 // `VectorNumericField : NumericField` becomes a PUBLIC nested class (own DRACONIC_OBJECT identity) whose
-// focus overrides are defined out-of-line after Float3Editor is complete.
+// focus overrides are defined out-of-line after Float2Editor is complete.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:float3_editor;
+export module draconic.ui.toolkit:float2_editor;
 
 import draconic.core;
 import draconic.vg;
@@ -24,21 +24,21 @@ using namespace draconic::core;
 
 export namespace draconic::ui::toolkit
 {
-    /// Property editor for Float3 values. Three NumericFields (X, Y, Z) side by side with axis labels.
-    class Float3Editor : public PropertyEditor
+    /// Property editor for Float2 values. Two NumericFields (X, Y) side by side with axis labels.
+    class Float2Editor : public PropertyEditor
     {
-        DRACONIC_OBJECT(Float3Editor, PropertyEditor)
+        DRACONIC_OBJECT(Float2Editor, PropertyEditor)
     public:
-        Function<void(Float3)> Setter;
+        Function<void(Float2)> Setter;
 
-        Float3Editor(StringView name, Float3 value, f32 min = -100000, f32 max = 100000,
-            f32 step = 0.1f, Function<void(Float3)> setter = {}, StringView category = {})
+        Float2Editor(StringView name, Float2 value, f32 min = -100000, f32 max = 100000,
+            f32 step = 0.1f, Function<void(Float2)> setter = {}, StringView category = {})
             : PropertyEditor(name, category), Setter(Move(setter)), m_value(value), m_min(min), m_max(max), m_step(step)
         {
         }
 
-        [[nodiscard]] Float3 Value() const noexcept { return m_value; }
-        void SetValue(Float3 value) { m_value = value; if (!m_syncing) { RefreshView(); } }
+        [[nodiscard]] Float2 Value() const noexcept { return m_value; }
+        void SetValue(Float2 value) { m_value = value; if (!m_syncing) { RefreshView(); } }
 
         void RefreshView() override
         {
@@ -47,7 +47,6 @@ export namespace draconic::ui::toolkit
                 m_syncing = true;
                 m_xField->SetValue(m_value.x);
                 m_yField->SetValue(m_value.y);
-                m_zField->SetValue(m_value.z);
                 m_syncing = false;
             }
         }
@@ -57,13 +56,13 @@ export namespace draconic::ui::toolkit
         {
             DRACONIC_OBJECT(VectorNumericField, NumericField)
         public:
-            VectorNumericField(Float3Editor* editor, i32 axis) : m_editor(editor), m_axis(axis) {}
+            VectorNumericField(Float2Editor* editor, i32 axis) : m_editor(editor), m_axis(axis) {}
 
             void OnFocusGained() override;
             void OnFocusLost() override;
 
         private:
-            Float3Editor* m_editor;
+            Float2Editor* m_editor;
             [[maybe_unused]] i32 m_axis; // axis index (kept for parity with the Beef inner field)
         };
 
@@ -74,7 +73,7 @@ export namespace draconic::ui::toolkit
             row->Direction = Orientation::Horizontal;
             row->Spacing = 4.0f;
 
-            Float3Editor* self = this;
+            Float2Editor* self = this;
 
             RefPtr<VectorNumericField> x = MakeField(0, StringView(u8"X"), AxisColors::X, m_value.x);
             m_xField = x.Get();
@@ -91,14 +90,6 @@ export namespace draconic::ui::toolkit
                 if (!self->m_syncing) { self->m_syncing = true; self->m_value.y = static_cast<f32>(val); if (self->Setter) { self->Setter(self->m_value); } self->NotifyValueChanged(); self->m_syncing = false; }
             });
             row->AddView(y.Get(), GrowParams());
-
-            RefPtr<VectorNumericField> z = MakeField(2, StringView(u8"Z"), AxisColors::Z, m_value.z);
-            m_zField = z.Get();
-            m_zField->OnValueChanged.Add([self](NumericField*, f64 val)
-            {
-                if (!self->m_syncing) { self->m_syncing = true; self->m_value.z = static_cast<f32>(val); if (self->Setter) { self->Setter(self->m_value); } self->NotifyValueChanged(); self->m_syncing = false; }
-            });
-            row->AddView(z.Get(), GrowParams());
 
             return row;
         }
@@ -123,30 +114,29 @@ export namespace draconic::ui::toolkit
             return lp;
         }
 
-        Float3 m_value;
+        Float2 m_value;
         f32 m_min;
         f32 m_max;
         f32 m_step;
         NumericField* m_xField = nullptr; // borrowed; the row tree owns them
         NumericField* m_yField = nullptr;
-        NumericField* m_zField = nullptr;
         bool m_syncing = false;
     };
 
-    // === Inner-view out-of-line bodies (need the complete Float3Editor type) ===
+    // === Inner-view out-of-line bodies (need the complete Float2Editor type) ===
 
-    inline void Float3Editor::VectorNumericField::OnFocusGained()
+    inline void Float2Editor::VectorNumericField::OnFocusGained()
     {
         NumericField::OnFocusGained();
         if (!m_editor->IsEditing()) { m_editor->BeginEdit(); }
     }
 
-    inline void Float3Editor::VectorNumericField::OnFocusLost()
+    inline void Float2Editor::VectorNumericField::OnFocusLost()
     {
         NumericField::OnFocusLost();
         if (m_editor->IsEditing()) { m_editor->EndEdit(); }
     }
 
-    DRACONIC_DEFINE_OBJECT(Float3Editor, "draconic::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(Float3Editor::VectorNumericField, "draconic::ui::toolkit")
+    DRACONIC_DEFINE_OBJECT(Float2Editor, "draconic::ui::toolkit")
+    DRACONIC_DEFINE_OBJECT(Float2Editor::VectorNumericField, "draconic::ui::toolkit")
 }

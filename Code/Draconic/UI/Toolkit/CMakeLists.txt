@@ -20,6 +20,8 @@ target_sources(DraconicUIToolkit
             HDRColorPicker.cppm
             GradientEditor.cppm
             VectorFields.cppm
+            Float2Editor.cppm
+            Float4Editor.cppm
             PropertyEditor.cppm
             BoolEditor.cppm
             ButtonEditor.cppm
@@ -28,7 +30,7 @@ target_sources(DraconicUIToolkit
             FloatEditor.cppm
             RangeEditor.cppm
             EnumEditor.cppm
-            Vector3Editor.cppm
+            Float3Editor.cppm
             ColorEditor.cppm
             PropertyGrid.cppm
             CurveCanvas.cppm

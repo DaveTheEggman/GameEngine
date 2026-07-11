@@ -357,9 +357,9 @@ TEST_CASE("toolkit: ColorEditor_Value")
     CHECK(editor->Value().g == 1.0f);
 }
 
-TEST_CASE("toolkit: Vector3Editor_Value")
+TEST_CASE("toolkit: Float3Editor_Value")
 {
-    auto editor = MakeRef<Vector3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1, 2, 3 });
+    auto editor = MakeRef<Float3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1, 2, 3 });
     CHECK(editor->Value().x == 1);
     CHECK(editor->Value().y == 2);
     CHECK(editor->Value().z == 3);

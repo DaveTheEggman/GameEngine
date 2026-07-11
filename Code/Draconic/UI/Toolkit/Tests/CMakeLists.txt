@@ -15,7 +15,7 @@ add_executable(DraconicUIToolkitTests
     FloatEditorTests.cpp
     RangeEditorTests.cpp
     EnumEditorTests.cpp
-    Vector3EditorTests.cpp
+    Float2EditorTests.cpp Float3EditorTests.cpp Float4EditorTests.cpp
     ColorEditorTests.cpp
     PropertyGridTests.cpp
     CurveCanvasTests.cpp

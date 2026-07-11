@@ -1313,7 +1313,7 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     demo->AddView(statusBar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 }
 
-// === Tab 11: PropertyGrid (all editor kinds + a categorized Vector3 group) ===
+// === Tab 11: PropertyGrid (all editor kinds + a categorized Float3 group) ===
 void UISandbox::BuildPropertyGridTab(ui::TabView* tabView)
 {
     auto demo = VFlex(8.0f);
@@ -1330,9 +1330,9 @@ void UISandbox::BuildPropertyGridTab(ui::TabView* tabView)
     const StringView modeItems[] = { u8"Easy", u8"Normal", u8"Hard" };
     propGrid->AddProperty(MakeRef<tk::EnumEditor>(DefaultAllocator(), StringView(u8"Mode"), 0, Span<const StringView>(modeItems, 3)));
     propGrid->AddProperty(MakeRef<tk::ColorEditor>(DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 200, 100, 255)));
-    propGrid->AddProperty(MakeRef<tk::Vector3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1.0f, 2.5f, -3.0f }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
-    propGrid->AddProperty(MakeRef<tk::Vector3Editor>(DefaultAllocator(), StringView(u8"Rotation"), Float3{ 0, 45, 0 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
-    propGrid->AddProperty(MakeRef<tk::Vector3Editor>(DefaultAllocator(), StringView(u8"Scale"), Float3{ 1, 1, 1 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<tk::Float3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1.0f, 2.5f, -3.0f }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<tk::Float3Editor>(DefaultAllocator(), StringView(u8"Rotation"), Float3{ 0, 45, 0 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<tk::Float3Editor>(DefaultAllocator(), StringView(u8"Scale"), Float3{ 1, 1, 1 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
     demo->AddView(propGrid.Get(), Grow(1));
 }
 
@@ -1865,8 +1865,8 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
     { auto n = MakeRef<ui::NumericField>(DefaultAllocator()); n->SetMin(0); n->SetMax(999); n->SetDecimalPlaces(0); n->SetValue(100); demo->AddView(n.Get(), w200()); }
     { auto n = MakeRef<ui::NumericField>(DefaultAllocator()); n->SetMin(0); n->SetMax(360); n->SetDecimalPlaces(1); n->SetSuffix(StringView(u8"°")); n->SetValue(90); demo->AddView(n.Get(), w200()); }
 
-    // Vector3-style editor: 3 numeric fields with coloured axis prefix labels.
-    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Vector3 Editor")).Get());
+    // Float3 editor: 3 numeric fields with coloured axis prefix labels.
+    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Float3 Editor")).Get());
     {
         auto vecRow = HFlex(4.0f);
         auto axisField = [&](const char8_t* axis, Color color, f64 val)
