@@ -50,12 +50,87 @@ export namespace draconic::editor
     namespace dscene = draconic::scene;
     namespace drender = draconic::render;
 
+    /// ONE scene-renderer frame bracket for the whole editor: all scene pages' views render
+    /// between a single BeginRendering/EndRendering per frame (the renderer's multi-view
+    /// contract - a second bracket in the same frame resets per-frame transient pools and graph
+    /// resources that the first bracket's still-unsubmitted commands reference, corrupting
+    /// descriptor sets; and EndRendering clears EVERY scene's debug list, so later brackets lose
+    /// their grids). Pages lazily open the bracket for their window on first render
+    /// (EnsureOpen); EditorApplication's endSceneRendering hook closes it before the UI draws.
+    ///
+    /// LIMITATION: one bracket per frame means one WINDOW's scene pages render per frame. When
+    /// pages live in a second OS window (floated page), those pages skip rendering (frozen
+    /// image) until the renderer supports multi-encoder frames.
+    class SceneRenderCoordinator
+    {
+    public:
+        SceneRenderCoordinator() = default;
+        SceneRenderCoordinator(const SceneRenderCoordinator&) = delete;
+        SceneRenderCoordinator& operator=(const SceneRenderCoordinator&) = delete;
+
+        /// Open the frame bracket for `frame`'s window (no-op if already open for it). False if
+        /// rendering must be skipped: renderer not ready, or another window already holds this
+        /// frame's bracket (the single-bracket limitation above).
+        [[nodiscard]] bool EnsureOpen(rt::IApplicationHost& host, draconic::graphics::FrameContext& frame)
+        {
+            if (!frame.valid) { return false; }
+            if (m_open) { return frame.window == m_window; }
+
+            if (m_render == nullptr) { m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>(); }
+            if (m_render == nullptr || !m_render->IsReady()) { return false; }
+
+            // One bracket per host tick: windows rendered in the same tick share a frameIndex
+            // (the device ring advances once per tick), so a same-index open attempt is a second
+            // window this frame.
+            if (m_hasLastFrame && frame.frameIndex == m_lastFrameIndex)
+            {
+                if (!m_warnedMultiWindow)
+                {
+                    m_warnedMultiWindow = true;
+                    DRACONIC_LOG_WARNING(u8"Editor",
+                        u8"scene viewports in a second window don't render yet (one render bracket per frame)");
+                }
+                return false;
+            }
+
+            m_render->BeginRendering(*frame.encoder, frame.frameIndex);
+            m_open = true;
+            m_window = frame.window;
+            m_lastFrameIndex = frame.frameIndex;
+            m_hasLastFrame = true;
+            return true;
+        }
+
+        /// Close the bracket if it is open for `frame`'s window. Call after all pages rendered,
+        /// before the UI draws (it samples the viewport targets the graph just wrote).
+        void EndWindow(draconic::graphics::FrameContext& frame)
+        {
+            if (m_open && frame.window == m_window)
+            {
+                m_render->EndRendering();
+                m_open = false;
+                m_window = nullptr;
+            }
+        }
+
+        [[nodiscard]] bool IsOpen() const noexcept { return m_open; }
+
+    private:
+        drender::RenderSubsystem* m_render = nullptr;   // borrowed (context subsystem)
+        draconic::graphics::RenderWindow* m_window = nullptr;
+        u32 m_lastFrameIndex = 0;
+        bool m_hasLastFrame = false;
+        bool m_open = false;
+        bool m_warnedMultiWindow = false;
+    };
+
     class SceneEditorPage final : public app::UIEditorPage
     {
     public:
         SceneEditorPage(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost,
-                        draconic::content::Instance& instance)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+                        SceneRenderCoordinator& coordinator, draconic::content::Instance& instance)
+            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_coordinator(&coordinator)
+            , m_title(instance.Name())
         {
             m_scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>();
@@ -79,11 +154,11 @@ export namespace draconic::editor
                 }
             }
 
+            // No OnRender/RenderContent: the frame graph renders the scene into the color target
+            // and manages its transitions via TargetState (ColorState()/SetColorState tracking),
+            // inside the coordinator's single per-frame bracket.
             m_viewport = MakeRef<uivp::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.10f, 0.11f, 0.13f, 1.0f };
-            m_viewport->OnRender = [this](uivp::ViewportView& v, rhi::CommandEncoder& enc, i32 frameIndex) {
-                RenderScene(v, enc, frameIndex);
-            };
 
             m_router = MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
 
@@ -120,12 +195,48 @@ export namespace draconic::editor
             }
         }
 
-        void OnRenderWindow(rt::IApplicationHost&, draconic::graphics::FrameContext& frame) override
+        void OnRenderWindow(rt::IApplicationHost& host, draconic::graphics::FrameContext& frame) override
         {
-            if (m_viewport->IsReady() && frame.valid && frame.window == m_hostWindow)
+            if (!m_viewport->IsReady() || !frame.valid || frame.window != m_hostWindow) { return; }
+            if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr) { return; }
+            const u32 w = m_viewport->RenderWidth();
+            const u32 h = m_viewport->RenderHeight();
+            if (w == 0 || h == 0) { return; }
+
+            // All pages render inside the coordinator's ONE frame bracket (false = second-window
+            // limitation or renderer not ready; skip, the UI shows the last rendered image).
+            if (!m_coordinator->EnsureOpen(host, frame)) { return; }
+
+            if (!m_renderedOnce)
             {
-                m_viewport->RenderContent(*frame.encoder, static_cast<i32>(frame.frameIndex));
+                m_renderedOnce = true;
+                DRACONIC_LOG_DEBUG(u8"Editor", u8"scene page '{}' first frame ({}x{})", m_title, w, h);
             }
+
+            drender::ViewCamera camera;
+            camera.view = Float4x4::LookAtRH(m_camera.position,
+                                             m_camera.position + m_camera.Forward(), m_camera.Up());
+            camera.projection = Float4x4::PerspectiveFovRH(
+                1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.1f, 1000.0f);
+            camera.position = m_camera.position;
+            camera.farZ = 1000.0f;
+
+            drender::CameraOverride cameraOverride;
+            cameraOverride.camera = camera;
+            cameraOverride.clearColor = Color{ m_viewport->ClearColor.r, m_viewport->ClearColor.g,
+                                               m_viewport->ClearColor.b, m_viewport->ClearColor.a };
+
+            // The graph imports the color target and owns its transitions: from the viewport's
+            // tracked state (Undefined right after create/resize) to ShaderRead for the UI's
+            // sampling - the Sandbox offscreen pattern.
+            drender::TargetState targetState;
+            targetState.texture = m_viewport->ColorTexture();
+            targetState.currentState = m_viewport->ColorState();
+            targetState.finalState = rhi::ResourceState::ShaderRead;
+
+            m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w, h,
+                                  drender::ViewportRect{ 0, 0, w, h }, &cameraOverride, targetState);
+            m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         }
 
         [[nodiscard]] Status Save() override
@@ -184,47 +295,10 @@ export namespace draconic::editor
             m_hostWindow = window;
         }
 
-        void RenderScene(uivp::ViewportView& v, rhi::CommandEncoder& encoder, i32 frameIndex)
-        {
-            const u32 w = v.RenderWidth();
-            const u32 h = v.RenderHeight();
-            if (w == 0 || h == 0 || m_render == nullptr || !m_render->IsReady() || m_scene == nullptr) { return; }
-
-            drender::ViewCamera camera;
-            camera.view = Float4x4::LookAtRH(m_camera.position,
-                                             m_camera.position + m_camera.Forward(), m_camera.Up());
-            camera.projection = Float4x4::PerspectiveFovRH(
-                1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.1f, 1000.0f);
-            camera.position = m_camera.position;
-            camera.farZ = 1000.0f;
-
-            drender::CameraOverride cameraOverride;
-            cameraOverride.camera = camera;
-            cameraOverride.clearColor = Color{ m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                                               m_viewport->ClearColor.b, m_viewport->ClearColor.a };
-
-            // RenderContent already put the color texture in RenderTarget and transitions it to
-            // ShaderRead afterward - tell the frame graph to leave it where it found it.
-            drender::TargetState targetState;
-            targetState.texture = v.ColorTexture();
-            targetState.currentState = rhi::ResourceState::RenderTarget;
-            targetState.finalState = rhi::ResourceState::RenderTarget;
-
-            if (!m_renderedOnce)
-            {
-                m_renderedOnce = true;
-                DRACONIC_LOG_DEBUG(u8"Editor", u8"scene page '{}' first frame ({}x{})", m_title, w, h);
-            }
-
-            m_render->BeginRendering(encoder, static_cast<u32>(frameIndex));
-            m_render->RenderScene(*m_scene, v.ColorTargetView(), v.ColorFormat(), w, h,
-                                  drender::ViewportRect{ 0, 0, w, h }, &cameraOverride, targetState);
-            m_render->EndRendering();
-        }
-
         EditorContext* m_context;                    // borrowed
         rt::IApplicationHost* m_host;                // borrowed
         uirt::UIHost* m_uiHost;                      // borrowed
+        SceneRenderCoordinator* m_coordinator;       // borrowed (exe owns it)
         dscene::SceneSubsystem* m_scenes = nullptr;  // borrowed (context subsystem)
         drender::RenderSubsystem* m_render = nullptr;
 
@@ -242,8 +316,9 @@ export namespace draconic::editor
     class SceneEditorPageFactory final : public IEditorPageFactory
     {
     public:
-        SceneEditorPageFactory(rt::IApplicationHost& host, uirt::UIHost& uiHost)
-            : m_host(&host), m_uiHost(&uiHost) {}
+        SceneEditorPageFactory(rt::IApplicationHost& host, uirt::UIHost& uiHost,
+                               SceneRenderCoordinator& coordinator)
+            : m_host(&host), m_uiHost(&uiHost), m_coordinator(&coordinator) {}
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
@@ -254,13 +329,14 @@ export namespace draconic::editor
                                                        draconic::content::Instance& instance) override
         {
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
+                DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, *m_coordinator, instance),
                 DefaultAllocator());
         }
 
     private:
         rt::IApplicationHost* m_host;
         uirt::UIHost* m_uiHost;
+        SceneRenderCoordinator* m_coordinator;
     };
 
     // Create a fresh scene instance in the project's source DB under "Scenes/", named uniquely
@@ -294,13 +370,14 @@ export namespace draconic::editor
         return instance;
     }
 
-    inline void RegisterSceneEditor(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost)
+    inline void RegisterSceneEditor(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost,
+                                    SceneRenderCoordinator& coordinator)
     {
         GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
         RegisterSerializable<dscene::SceneDocument>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<SceneEditorPageFactory>(host, uiHost), DefaultAllocator()));
+            DefaultAllocator().New<SceneEditorPageFactory>(host, uiHost, coordinator), DefaultAllocator()));
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Scene");

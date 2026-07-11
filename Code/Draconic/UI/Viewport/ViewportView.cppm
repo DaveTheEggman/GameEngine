@@ -150,6 +150,14 @@ export namespace draconic::ui::viewport
         [[nodiscard]] u32 RenderWidth() const noexcept { return m_textureWidth; }
         [[nodiscard]] u32 RenderHeight() const noexcept { return m_textureHeight; }
 
+        /// For content renderers that manage target transitions THEMSELVES (e.g. a frame graph
+        /// importing the color target via current/final states, like render::TargetState): read
+        /// the tracked color state to feed the import, then record what the graph left behind.
+        /// Resize resets the tracked state to Undefined. RenderContent-based content (which
+        /// brackets its own barriers) never touches these.
+        [[nodiscard]] rhi::ResourceState ColorState() const noexcept { return m_colorState; }
+        void SetColorState(rhi::ResourceState state) noexcept { m_colorState = state; }
+
         // === Input ===
         [[nodiscard]] shell::InputSurface* Surface() const noexcept { return m_surface.Get(); }
         [[nodiscard]] shell::IMouse* Mouse() const noexcept { return m_surface ? m_surface->Mouse() : nullptr; }

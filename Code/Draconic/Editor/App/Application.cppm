@@ -54,6 +54,11 @@ export namespace draconic::editor::app
         Function<void(rt::IApplicationHost&)> configureEngine;
         /// Called at the end of OnStartup - per-subsystem RegisterEditor entry points go here.
         Function<void(draconic::editor::EditorContext&, rt::IApplicationHost&, uirt::UIHost&)> registerEditors;
+
+        /// Called once per window-frame AFTER the page render hooks, before the UI draws: close
+        /// the scene renderer's frame bracket (ALL pages render inside ONE Begin/End per frame -
+        /// pages open it lazily; this closes it so the UI can sample the viewport targets).
+        Function<void(rt::IApplicationHost&, graphics::FrameContext&)> endSceneRendering;
     };
 
     class EditorApplication : public rt::IApplication
@@ -187,8 +192,10 @@ export namespace draconic::editor::app
 
         void OnRenderWindow(rt::IApplicationHost& host, graphics::FrameContext& frame) override
         {
-            // Pages render offscreen content BEFORE the UI draws (the UI samples it as an image).
+            // Pages render offscreen content BEFORE the UI draws (the UI samples it as an image);
+            // they share ONE scene-renderer bracket, closed here before the UI samples.
             for (const PagePanel& entry : m_pagePanels) { entry.page->OnRenderWindow(host, frame); }
+            if (m_config.endSceneRendering) { m_config.endSceneRendering(host, frame); }
             if (m_uiHost) { m_uiHost->RenderWindow(frame); }
         }
 

@@ -57,10 +57,17 @@ int main(int argc, char** argv)
             *host.Graphics()->Raw(), host.Graphics()->FramesInFlight());
         host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
     };
-    config.registerEditors = [](draconic::editor::EditorContext& ctx,
-                                draconic::runtime::IApplicationHost& host,
-                                draconic::ui::runtime::UIHost& uiHost) {
-        draconic::editor::RegisterSceneEditor(ctx, host, uiHost);
+    // One scene-renderer frame bracket shared by ALL scene pages (multi-view contract); pages
+    // open it lazily, the app's end hook closes it before the UI samples the viewport targets.
+    draconic::editor::SceneRenderCoordinator sceneRender;
+    config.registerEditors = [&sceneRender](draconic::editor::EditorContext& ctx,
+                                            draconic::runtime::IApplicationHost& host,
+                                            draconic::ui::runtime::UIHost& uiHost) {
+        draconic::editor::RegisterSceneEditor(ctx, host, uiHost, sceneRender);
+    };
+    config.endSceneRendering = [&sceneRender](draconic::runtime::IApplicationHost&,
+                                              draconic::graphics::FrameContext& frame) {
+        sceneRender.EndWindow(frame);
     };
 
     DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
