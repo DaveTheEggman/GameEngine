@@ -39,7 +39,7 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
     modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
 
     vfs::NativeFileSystem mount(u8"draconic_modelimporter_test_db");
-    content::ContentDatabase db(mount);
+    content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
 
     // Cook the model file into the DB; get back the manifest (ModelResource) Guid.
     Guid modelGuid;
@@ -81,7 +81,7 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
     modelimporter::RegisterModelImporterTypes();
 
     vfs::NativeFileSystem mount(u8"draconic_modelimporter_fox_db");
-    content::ContentDatabase db(mount);
+    content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
 
     Guid modelGuid;
     REQUIRE(modelimporter::LoadAndCook(fox, db, u8"Fox", modelGuid) == model::ModelLoadResult::Ok);

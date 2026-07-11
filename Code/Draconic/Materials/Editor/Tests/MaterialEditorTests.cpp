@@ -41,7 +41,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
     // --- cook: author a material, import into an asset, build into the output DB ---
     {
-        draconic::content::ContentDatabase outDb(outMount);
+        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"lit", MaterialSource::StaticType());
         id = inst->Id();
 
@@ -64,7 +64,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
     // --- verify: read back the cooked MaterialSource ---
     {
-        draconic::content::ContentDatabase outDb(outMount);
+        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         MaterialSource* cooked = Cast<MaterialSource>(object.Get());
         REQUIRE(cooked != nullptr);

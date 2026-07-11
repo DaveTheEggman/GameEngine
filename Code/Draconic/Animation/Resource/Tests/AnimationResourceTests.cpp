@@ -47,7 +47,7 @@ TEST_CASE("skeleton resource: round-trips through the resource manager")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skel", SkeletonSource::StaticType());
         id = inst->Id();
 
@@ -58,7 +58,7 @@ TEST_CASE("skeleton resource: round-trips through the resource manager")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     SkeletonFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -89,7 +89,7 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"clip", AnimationClipSource::StaticType());
         id = inst->Id();
 
@@ -105,7 +105,7 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     AnimationClipFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -147,7 +147,7 @@ TEST_CASE("animation graph resource: composite - resolves clip refs through the 
 
     Guid graphId;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
 
         // A clip resource the graph will reference by id.
         auto* clipInst = db.RootGroup()->CreateInstance(u8"walk", AnimationClipSource::StaticType());
@@ -179,7 +179,7 @@ TEST_CASE("animation graph resource: composite - resolves clip refs through the 
         REQUIRE(graphInst->WriteObject(gsrc).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     AnimationClipFactory  clipFactory;
     AnimationGraphFactory graphFactory;
     ResourceManager manager(db);

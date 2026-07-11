@@ -49,7 +49,7 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
     // --- cook (tooling): ImageAsset -> ImageResource in the output DB ---
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(outMount);
+        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
         id = inst->Id();
 
@@ -63,7 +63,7 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
     }
 
     // --- runtime load (device-free): cooked ImageResource via the manager ---
-    draconic::content::ContentDatabase outDb(outMount);
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
     ImageFactory factory;
     ResourceManager manager(outDb);
     manager.AddFactory(&factory);
@@ -94,7 +94,7 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     RegisterImageAsset();
     RemoveTree();
     NativeFileSystem outMount(u8"draconic_imgpipe_out_db");
-    draconic::content::ContentDatabase outDb(outMount);
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
 
     ImageAsset asset;

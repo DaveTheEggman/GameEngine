@@ -55,7 +55,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // --- cook (tooling): TextureAsset -> TextureResource in the output DB ---
     {
-        draconic::content::ContentDatabase outDb(outMount);
+        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
         id = inst->Id();
 
@@ -72,7 +72,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // --- runtime load: cooked TextureResource -> live GPU Texture (model A) ---
     rhi::null::NullDevice device;
-    draconic::content::ContentDatabase outDb(outMount);
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(outDb);
     manager.AddFactory(&factory);
@@ -110,7 +110,7 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     RegisterTextureAsset();
     RemoveTree();
     NativeFileSystem outMount(u8"draconic_texpipe_out_db");
-    draconic::content::ContentDatabase outDb(outMount);
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
 
     TextureAsset asset;

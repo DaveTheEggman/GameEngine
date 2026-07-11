@@ -39,7 +39,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
 
     // Author a cooked record + raw 2x2 RGBA pixels (the "data" stream).
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"tex", TextureResource::StaticType());
         id = inst->Id();
 
@@ -61,7 +61,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
 
     // Load through the manager with a device-backed factory (Null backend).
     rhi::null::NullDevice device;
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(db);
     manager.AddFactory(&factory);

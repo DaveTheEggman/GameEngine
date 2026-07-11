@@ -56,7 +56,7 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
 
     Guid shaderId, matId;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
 
         auto* shaderInst = db.RootGroup()->CreateInstance(u8"lit_shader", shaders::ShaderSource::StaticType());
         shaderId = shaderInst->Id();
@@ -82,7 +82,7 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
         REQUIRE(matInst->WriteObject(ms).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     rhi::null::NullDevice device;
     shaders::ShaderSystem system(*compiler, device);
     shaders::ShaderFactory shaderFactory(system);

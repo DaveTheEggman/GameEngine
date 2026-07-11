@@ -98,13 +98,13 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -145,13 +145,13 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -204,12 +204,12 @@ TEST_CASE("resource: a factory-resolved child is an auto-recorded dependency")
 
     Guid parentId, childId;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         childId  = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(parentId, childId);   // building parent Binds child
     ResourceManager manager(db);
@@ -241,13 +241,13 @@ TEST_CASE("resource: reload propagates transitively, each resource once")
 
     Guid a, b, c;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         a = MakeInstance(db, u8"a", 16);
         b = MakeInstance(db, u8"b", 32);
         c = MakeInstance(db, u8"c", 64);
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(a, b);   // a -> b
     factory.bindMap.InsertOrAssign(b, c);   // b -> c
@@ -275,12 +275,12 @@ TEST_CASE("resource: a rebuild drops stale dependency edges")
 
     Guid parentId, childId;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         childId  = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(parentId, childId);
     ResourceManager manager(db);

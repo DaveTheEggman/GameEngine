@@ -38,7 +38,7 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
 
@@ -48,7 +48,7 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     StaticMeshFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -78,7 +78,7 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
         id = inst->Id();
 
@@ -97,7 +97,7 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     SkinnedMeshFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);

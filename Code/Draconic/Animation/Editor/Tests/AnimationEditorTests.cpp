@@ -31,7 +31,7 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skel", SkeletonSource::StaticType());
         id = inst->Id();
 
@@ -52,7 +52,7 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     SkeletonFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);

@@ -43,7 +43,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
 
     // Author the effect in an asset, then cook it via the builder into the DB instance.
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"smoke", ParticleEffectResource::StaticType());
         id = inst->Id();
 
@@ -65,7 +65,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
     }
 
     // Load the cooked resource back.
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     ParticleEffectFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -104,7 +104,7 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     Guid effectId, texId;
 
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
 
         // Cook a texture the effect will reference.
         auto* texInst = db.RootGroup()->CreateInstance(u8"smoketex", draconic::texture::TextureResource::StaticType());
@@ -131,7 +131,7 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
 
     // Load with both factories so the effect's Create can Bind the referenced texture.
     rhi::null::NullDevice device;
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     ParticleEffectFactory pfxFactory;
     draconic::texture::TextureFactory texFactory(device);
     ResourceManager manager(db);

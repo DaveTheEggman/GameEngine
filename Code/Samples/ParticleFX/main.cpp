@@ -900,7 +900,7 @@ namespace
             px::RegisterParticleEffectAsset();   // register cooked/asset/module types + serializable factories
 
             m_contentFs = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), *m_contentFs);
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(), u8".rasset");
 
             // AUTHOR -> BAKE: cook the authored asset into a content-DB ParticleEffectResource.
             content::Instance* inst = m_contentDb->RootGroup()->CreateInstance(u8"cooked_demo", px::ParticleEffectResource::StaticType());

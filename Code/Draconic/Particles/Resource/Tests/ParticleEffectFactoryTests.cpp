@@ -67,7 +67,7 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
 
     // Cook: author the effect into a ParticleEffectResource record and write it to the DB.
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
         id = inst->Id();
 
@@ -77,7 +77,7 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
     }
 
     // Load: bind the cooked resource back through the manager + factory.
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     ParticleEffectFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);

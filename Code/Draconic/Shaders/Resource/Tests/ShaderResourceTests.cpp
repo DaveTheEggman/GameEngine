@@ -49,7 +49,7 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"lit", ShaderSource::StaticType());
         id = inst->Id();
         ShaderSource s;
@@ -59,7 +59,7 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
         REQUIRE(inst->WriteObject(s).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount);
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     rhi::null::NullDevice device;
     ShaderSystem system(*compiler, device);
     ShaderFactory factory(system);
