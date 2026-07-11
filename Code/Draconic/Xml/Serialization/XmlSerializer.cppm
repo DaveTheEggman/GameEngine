@@ -338,4 +338,68 @@ export namespace draconic::xml
         Array<ReadScope> m_readStack;      // read mode
         const char* m_pendingKey = nullptr;
     };
+
+    // =======================================================================
+    // Built-in SerializerFactory for XML serialization.
+    // =======================================================================
+    namespace detail
+    {
+        struct XmlReadSerializerContext final : SerializerContext
+        {
+            XmlDocument doc;
+            XmlSerializer* xmlSer = nullptr;
+
+            explicit XmlReadSerializerContext(IStream& stream)
+            {
+                const u64 sz = stream.Size();
+                Array<utf8char> buf(static_cast<usize>(sz));
+                u64 n = stream.Read(buf.Data(), buf.Size()); (void)n;
+                auto pr = doc.Parse(StringView(buf.Data(), buf.Size())); (void)pr;
+                xmlSer = DefaultAllocator().New<XmlSerializer>(doc);
+                serializer = xmlSer;
+            }
+
+            ~XmlReadSerializerContext() override
+            {
+                if (xmlSer) { DefaultAllocator().Delete(xmlSer); }
+            }
+        };
+
+        struct XmlWriteSerializerContext final : SerializerContext
+        {
+            XmlSerializer* xmlSer = nullptr;
+
+            explicit XmlWriteSerializerContext()
+            {
+                xmlSer = DefaultAllocator().New<XmlSerializer>();
+                serializer = xmlSer;
+            }
+
+            ~XmlWriteSerializerContext() override
+            {
+                if (xmlSer) { DefaultAllocator().Delete(xmlSer); }
+            }
+
+            void Flush(IStream& out) override
+            {
+                if (!xmlSer) return;
+                String output;
+                xmlSer->GetOutput(output);
+                u64 n = out.Write(output.Data(), output.Size()); (void)n;
+            }
+        };
+    }
+
+    [[nodiscard]] inline SerializerFactory XmlSerializerFactory()
+    {
+        return SerializerFactory{ [](IStream& stream, SerializeMode mode) -> UniquePtr<SerializerContext> {
+            SerializerContext* ctx = nullptr;
+            if (mode == SerializeMode::Read) {
+                ctx = DefaultAllocator().New<detail::XmlReadSerializerContext>(stream);
+            } else {
+                ctx = DefaultAllocator().New<detail::XmlWriteSerializerContext>();
+            }
+            return UniquePtr<SerializerContext>(ctx, DefaultAllocator());
+        }};
+    }
 }
