@@ -128,6 +128,42 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     RemoveProjectTree(dir);
 }
 
+TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
+{
+    dscene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    SceneHierarchyView hierarchy(edit);
+
+    const Guid parent = edit.CreateEntity(u8"Parent");
+    (void)edit.CreateEntity(u8"Child", parent);
+    (void)edit.CreateEntity(u8"Sibling");
+    hierarchy.Refresh();
+
+    auto* flat = hierarchy.Tree()->InternalTreeView()->FlatAdapter();
+    REQUIRE(flat != nullptr);
+    CHECK(flat->ItemCount() == 3);   // Parent (expanded) + Child + Sibling
+
+    // Collapse Parent (pre-order nodeId 0), then force a rebuild by editing the scene.
+    flat->Collapse(0);
+    CHECK(flat->ItemCount() == 2);
+    (void)edit.CreateEntity(u8"Another");
+    hierarchy.Refresh();
+
+    // SetAdapter recreated the flat view; Parent must STAY collapsed, new root visible.
+    flat = hierarchy.Tree()->InternalTreeView()->FlatAdapter();
+    CHECK(flat->ItemCount() == 3);   // Parent (collapsed) + Sibling + Another
+    CHECK_FALSE(flat->IsExpanded(0));
+
+    // Re-expanding sticks across the next rebuild too.
+    flat->Expand(0);
+    (void)edit.CreateEntity(u8"YetAnother");
+    hierarchy.Refresh();
+    flat = hierarchy.Tree()->InternalTreeView()->FlatAdapter();
+    CHECK(flat->ItemCount() == 5);
+    CHECK(flat->IsExpanded(0));
+}
+
 // Repro: switching the selected entity must rebuild the inspector for the NEW entity.
 TEST_CASE("inspector: rebuilds when the selection switches entities")
 {

@@ -357,8 +357,24 @@ export namespace draconic::editor
             return false;
         }
 
+        // Collapse state is keyed by entity Guid so it survives rebuilds: before the snapshot
+        // is thrown away, fold the current expand state into m_collapsed (entities absent from
+        // the snapshot - e.g. filtered out - keep their remembered state).
+        void CaptureCollapseState()
+        {
+            ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
+            if (flat == nullptr) { return; }
+            for (usize i = 0; i < m_nodes.Size(); ++i)
+            {
+                if (m_nodes[i].children.IsEmpty()) { continue; }
+                if (flat->IsExpanded(static_cast<i32>(i))) { m_collapsed.Remove(m_nodes[i].id); }
+                else { m_collapsed.Insert(m_nodes[i].id); }
+            }
+        }
+
         void RebuildSnapshot()
         {
+            CaptureCollapseState();
             m_nodes.Clear();
             m_roots.Clear();
             dscene::Scene& scene = m_edit->Scene();
@@ -372,13 +388,15 @@ export namespace draconic::editor
                 if (SubtreeMatches(scene, r)) { m_roots.PushBack(AddNode(scene, r, 0)); }
             }
 
-            // Rebuild the flat view (SetAdapter recreates the flattened tree), expanded by
-            // default so structural edits stay visible (per-rebuild collapse is v1-lossy).
+            // Rebuild the flat view (SetAdapter recreates the flattened tree). New entities
+            // default to expanded so structural edits stay visible; entities the user collapsed
+            // stay collapsed (state captured above, keyed by Guid).
             m_tree->SetAdapter(m_adapter.Get());
             ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
             for (usize i = 0; i < m_nodes.Size(); ++i)
             {
-                if (!m_nodes[i].children.IsEmpty()) { flat->Expand(static_cast<i32>(i)); }
+                if (m_nodes[i].children.IsEmpty()) { continue; }
+                if (!m_collapsed.Contains(m_nodes[i].id)) { flat->Expand(static_cast<i32>(i)); }
             }
             m_tree->InternalTreeView()->InternalListView()->NotifyDataChanged();
             SyncSelectionToTree();
@@ -451,6 +469,7 @@ export namespace draconic::editor
         UniquePtr<Adapter> m_adapter;
         Array<Node> m_nodes;    // pre-order snapshot of the scene (nodeId = index)
         Array<i32> m_roots;
+        HashSet<Guid> m_collapsed;   // entities the user collapsed (survives rebuilds)
         u64 m_revision = ~0ull;
         String m_filter;
         bool m_syncing = false;
