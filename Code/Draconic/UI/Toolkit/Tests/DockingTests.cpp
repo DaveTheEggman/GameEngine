@@ -240,3 +240,61 @@ TEST_CASE("docking: DockPanel_Center_ActivatesDockedTab")
     dm->ActivatePanel(p1);
     CHECK(group->SelectedPanel() == p1);
 }
+
+// DraggableTreeView drop-zones: the middle band of a row is a drop-INTO target (CanDropInto/
+// DropInto, added for the editor hierarchy's reparenting), the edge bands keep the original
+// between-rows reorder semantics; each falls back to the other when unsupported.
+TEST_CASE("docking: DraggableTreeView_DropIntoZones")
+{
+    // A 3-root flat tree adapter recording what happened.
+    class RecordingAdapter final : public IReorderableTreeAdapter
+    {
+    public:
+        i32 movedFrom = -1, movedTo = -1, intoFrom = -1, intoTo = -1;
+        bool allowMove = true, allowInto = true;
+
+        [[nodiscard]] i32 RootCount() const override { return 3; }
+        [[nodiscard]] i32 GetChildCount(i32 nodeId) const override { return nodeId == -1 ? 3 : 0; }
+        [[nodiscard]] i32 GetChildId(i32 parentId, i32 childIndex) const override
+        {
+            return parentId == -1 ? childIndex : -1;
+        }
+        [[nodiscard]] i32 GetDepth(i32) const override { return 0; }
+        [[nodiscard]] bool HasChildren(i32) const override { return false; }
+        [[nodiscard]] RefPtr<View> CreateView(i32) override { return MakeRef<Label>(DefaultAllocator(), StringView{}); }
+        void BindView(View*, i32, i32, bool) override {}
+        [[nodiscard]] bool CanMove(i32, i32) override { return allowMove; }
+        void MoveItem(i32 from, i32 to) override { movedFrom = from; movedTo = to; }
+        [[nodiscard]] bool CanDropInto(i32, i32) override { return allowInto; }
+        void DropInto(i32 from, i32 to) override { intoFrom = from; intoTo = to; }
+    };
+
+    RecordingAdapter adapter;
+    auto tree = MakeRef<DraggableTreeView>(DefaultAllocator());
+    tree->SetItemHeight(20.0f);
+    tree->SetAdapter(&adapter);
+    auto drag = MakeRef<TreeDragData>(DefaultAllocator(), 0);
+
+    // Middle of row 2 (y = 50) = drop-INTO zone.
+    CHECK(tree->CanAcceptDrop(drag.Get(), 0, 50.0f) == DragDropEffects::Move);
+    CHECK(tree->OnDrop(drag.Get(), 0, 50.0f) == DragDropEffects::Move);
+    CHECK(adapter.intoFrom == 0);
+    CHECK(adapter.intoTo == 2);
+    CHECK(adapter.movedFrom == -1);   // reorder path untouched
+
+    // Top edge of row 2 (y = 41) = between-rows reorder.
+    CHECK(tree->OnDrop(drag.Get(), 0, 41.0f) == DragDropEffects::Move);
+    CHECK(adapter.movedFrom == 0);
+    CHECK(adapter.movedTo == 2);
+
+    // Reorder unsupported: the edge band falls back to drop-into.
+    adapter.allowMove = false;
+    adapter.intoTo = -1;
+    CHECK(tree->OnDrop(drag.Get(), 0, 41.0f) == DragDropEffects::Move);
+    CHECK(adapter.intoTo == 2);
+
+    // Neither supported: refused.
+    adapter.allowInto = false;
+    CHECK(tree->CanAcceptDrop(drag.Get(), 0, 50.0f) == DragDropEffects::None);
+    CHECK(tree->OnDrop(drag.Get(), 0, 50.0f) == DragDropEffects::None);
+}

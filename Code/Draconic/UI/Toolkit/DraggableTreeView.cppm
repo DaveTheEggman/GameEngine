@@ -36,6 +36,14 @@ export namespace draconic::ui::toolkit
 
         /// Move an item from one flat position to another.
         virtual void MoveItem(i32 fromPosition, i32 toPosition) = 0;
+
+        /// Whether the item at fromPosition may be dropped INTO the item at toPosition (the
+        /// middle drop-zone of a row - e.g. reparenting in a hierarchy). Default: unsupported,
+        /// preserving pure-reorder adapters unchanged.
+        [[nodiscard]] virtual bool CanDropInto(i32 /*fromPosition*/, i32 /*toPosition*/) { return false; }
+
+        /// Drop the item at fromPosition INTO the item at toPosition.
+        virtual void DropInto(i32 /*fromPosition*/, i32 /*toPosition*/) {}
     };
 
     // ============================================================================================
@@ -59,6 +67,8 @@ export namespace draconic::ui::toolkit
         DRACONIC_OBJECT(DraggableTreeView, ViewGroup)
     public:
         Event<void(DraggableTreeView*, i32, i32)> OnItemReordered;
+        /// Fired when an item is dropped INTO another (the adapter's DropInto ran).
+        Event<void(DraggableTreeView*, i32, i32)> OnItemDroppedInto;
 
         DraggableTreeView()
         {
@@ -92,12 +102,20 @@ export namespace draconic::ui::toolkit
         {
             DrawChildren(ctx);
 
-            // Drop indicator line.
+            // Drop indicator: a line between rows (reorder), or a row highlight (drop-into).
             if (m_dropIndicatorPos >= 0)
             {
                 const Color indicatorColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 160, 255, 255));
                 const f32 y = m_dropIndicatorPos * m_treeView->ItemHeight();
                 ctx.VG().FillRect(Rectangle{ 0, y, Width(), 2 }, indicatorColor);
+            }
+            if (m_dropIntoPos >= 0)
+            {
+                const Color intoColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 160, 255, 255));
+                const f32 y = m_dropIntoPos * m_treeView->ItemHeight();
+                const Rectangle row{ 0, y, Width(), m_treeView->ItemHeight() };
+                ctx.VG().FillRect(row, Color{ intoColor.r, intoColor.g, intoColor.b, 0.25f });
+                ctx.VG().StrokeRect(row, intoColor, 1.0f);
             }
         }
 
@@ -139,50 +157,52 @@ export namespace draconic::ui::toolkit
         {
             (void)localX;
             if (data->Format() != u8"tree/reorder") { return DragDropEffects::None; }
-
             if (auto* treeDrag = Cast<TreeDragData>(data))
             {
-                const i32 targetPos = static_cast<i32>(localY / m_treeView->ItemHeight());
-                if (m_adapter != nullptr && m_adapter->CanMove(treeDrag->SourcePosition, targetPos))
-                {
-                    return DragDropEffects::Move;
-                }
+                return ResolveDrop(treeDrag->SourcePosition, localY).valid ? DragDropEffects::Move
+                                                                           : DragDropEffects::None;
             }
             return DragDropEffects::None;
         }
 
         void OnDragEnter(DragData* data, f32 localX, f32 localY) override
         {
-            (void)data;
             (void)localX;
-            UpdateDropIndicator(localY);
+            UpdateDropIndicator(data, localY);
         }
 
         void OnDragOver(DragData* data, f32 localX, f32 localY) override
         {
-            (void)data;
             (void)localX;
-            UpdateDropIndicator(localY);
+            UpdateDropIndicator(data, localY);
         }
 
         void OnDragLeave(DragData* data) override
         {
             (void)data;
             m_dropIndicatorPos = -1;
+            m_dropIntoPos = -1;
         }
 
         [[nodiscard]] DragDropEffects OnDrop(DragData* data, f32 localX, f32 localY) override
         {
             (void)localX;
             m_dropIndicatorPos = -1;
+            m_dropIntoPos = -1;
 
             if (auto* treeDrag = Cast<TreeDragData>(data))
             {
-                const i32 targetPos = static_cast<i32>(localY / m_treeView->ItemHeight());
-                if (m_adapter != nullptr && m_adapter->CanMove(treeDrag->SourcePosition, targetPos))
+                const DropResolution drop = ResolveDrop(treeDrag->SourcePosition, localY);
+                if (drop.valid && drop.into)
                 {
-                    m_adapter->MoveItem(treeDrag->SourcePosition, targetPos);
-                    OnItemReordered.Invoke(this, treeDrag->SourcePosition, targetPos);
+                    m_adapter->DropInto(treeDrag->SourcePosition, drop.position);
+                    OnItemDroppedInto.Invoke(this, treeDrag->SourcePosition, drop.position);
+                    return DragDropEffects::Move;
+                }
+                if (drop.valid)
+                {
+                    m_adapter->MoveItem(treeDrag->SourcePosition, drop.position);
+                    OnItemReordered.Invoke(this, treeDrag->SourcePosition, drop.position);
                     return DragDropEffects::Move;
                 }
             }
@@ -209,15 +229,49 @@ export namespace draconic::ui::toolkit
             return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
         }
 
-        void UpdateDropIndicator(f32 localY)
+        // Drop-zone resolution: the middle band of a row (25%..75%) is a drop-INTO zone (when the
+        // adapter supports it - e.g. reparenting), the edge bands are the between-rows reorder
+        // zones. Each falls back to the other's semantics when its own is unsupported, so
+        // pure-reorder and pure-reparent adapters both work anywhere over a row.
+        struct DropResolution
         {
-            m_dropIndicatorPos = static_cast<i32>(localY / m_treeView->ItemHeight());
+            i32 position = -1;
+            bool into = false;
+            bool valid = false;
+        };
+
+        [[nodiscard]] DropResolution ResolveDrop(i32 fromPosition, f32 localY)
+        {
+            if (m_adapter == nullptr) { return {}; }
+            const f32 rows = localY / m_treeView->ItemHeight();
+            const i32 position = static_cast<i32>(rows);
+            const f32 frac = rows - static_cast<f32>(position);
+            const bool wantInto = frac >= 0.25f && frac <= 0.75f;
+
+            if (wantInto && m_adapter->CanDropInto(fromPosition, position)) { return { position, true, true }; }
+            if (m_adapter->CanMove(fromPosition, position)) { return { position, false, true }; }
+            if (!wantInto && m_adapter->CanDropInto(fromPosition, position)) { return { position, true, true }; }
+            return { position, false, false };
+        }
+
+        void UpdateDropIndicator(DragData* data, f32 localY)
+        {
+            m_dropIndicatorPos = -1;
+            m_dropIntoPos = -1;
+            if (auto* treeDrag = Cast<TreeDragData>(data))
+            {
+                const DropResolution drop = ResolveDrop(treeDrag->SourcePosition, localY);
+                if (!drop.valid) { return; }
+                if (drop.into) { m_dropIntoPos = drop.position; }
+                else { m_dropIndicatorPos = drop.position; }
+            }
         }
 
         RefPtr<TreeView> m_treeView;              // owned; visual child (not in the logical child list)
         IReorderableTreeAdapter* m_adapter = nullptr; // borrowed (consumer owns)
         bool m_dragEnabled = true;
         i32 m_dropIndicatorPos = -1;
+        i32 m_dropIntoPos = -1;   // row highlighted as a drop-INTO target
     };
 
     DRACONIC_DEFINE_OBJECT(TreeDragData, "draconic::ui::toolkit")

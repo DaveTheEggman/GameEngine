@@ -102,3 +102,22 @@ TEST_CASE("tree-view: HierarchicalState_CaptureRestore")
     CHECK(tv->FlatAdapter()->ItemCount() == 6);
     CHECK(tv->Selection().IsSelected(2));
 }
+
+// Regression: calling SetAdapter again (rebuild - e.g. an editor hierarchy refreshing over a
+// changed scene) must not UAF the previous FlattenedTreeAdapter: the internal list detaches
+// from the old flat adapter before the reassignment destroys it.
+TEST_CASE("tree-view: SetAdapter_Twice_RebuildsSafely")
+{
+    SimpleTreeAdapter adapter;
+    auto tv = MakeRef<TreeView>(DefaultAllocator());
+    tv->SetAdapter(&adapter);
+    const i32 before = tv->FlatAdapter()->ItemCount();
+
+    tv->SetAdapter(&adapter);   // rebuild with the same source adapter
+    REQUIRE(tv->FlatAdapter() != nullptr);
+    CHECK(tv->FlatAdapter()->ItemCount() == before);
+
+    SimpleTreeAdapter other;
+    tv->SetAdapter(&other);     // and with a different one
+    REQUIRE(tv->FlatAdapter() != nullptr);
+}
