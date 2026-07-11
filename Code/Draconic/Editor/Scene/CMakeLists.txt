@@ -18,6 +18,8 @@ target_sources(DraconicEditorScene
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             EditorCamera.cppm
             EditContext.cppm
+            Gizmo.cppm
+            ComponentGizmos.cppm
             HierarchyView.cppm
             InspectorView.cppm
             ScenePage.cppm

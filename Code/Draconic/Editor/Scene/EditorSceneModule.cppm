@@ -9,6 +9,8 @@ export module draconic.editor.scene;
 
 export import :camera;
 export import :edit;
+export import :gizmo;
+export import :component_gizmos;
 export import :hierarchy;
 export import :inspector;
 export import :page;

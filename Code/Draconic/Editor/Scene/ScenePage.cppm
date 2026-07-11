@@ -40,6 +40,8 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 import :edit;
+import :gizmo;
+import :component_gizmos;
 import :hierarchy;
 import :inspector;
 
@@ -96,6 +98,8 @@ export namespace draconic::editor
                 m_editContext = MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
                 m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
                 m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), *m_editContext);
+                m_gizmos = MakeUnique<GizmoController>(DefaultAllocator(), *m_editContext);
+                RegisterBuiltinGizmoRenderers(m_componentGizmos);
             }
 
             // Page layout: hierarchy | (viewport | inspector).
@@ -132,11 +136,12 @@ export namespace draconic::editor
             {
                 m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
             }
-            if (m_viewport->IsHovered()) { PickOnClick(); }
+            const bool gizmoConsumedMouse = UpdateGizmos(viewportActive);
+            if (m_viewport->IsHovered() && !gizmoConsumedMouse) { PickOnClick(); }
 
             // Per-scene debug draw (shows only where THIS scene renders; lists clear in
             // EndRendering, so re-accumulate every frame): ground grid + origin axes + entity
-            // markers (selected = boxed and brighter).
+            // markers (selected = boxed and brighter) + gizmos.
             if (m_render != nullptr && m_scene != nullptr)
             {
                 drender::debug::DebugDraw& dd = m_render->DebugScene(*m_scene);
@@ -145,6 +150,7 @@ export namespace draconic::editor
                 dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 }, Color{ 0.2f, 0.9f, 0.2f, 1.0f });
                 dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 0, 1 }, Color{ 0.2f, 0.4f, 0.95f, 1.0f });
                 DrawEntityMarkers(dd);
+                DrawGizmos(dd);
             }
         }
 
@@ -226,6 +232,98 @@ export namespace draconic::editor
         [[nodiscard]] SceneEditContext* EditContext() const noexcept { return m_editContext.Get(); }
 
     private:
+        static constexpr f32 kFovY = 1.0472f;   // must match OnRenderWindow's projection
+
+        // Camera ray through the mouse position, built from the camera basis (no matrix inverse).
+        [[nodiscard]] bool MakeMouseRay(GizmoRay& out) const
+        {
+            draconic::shell::IMouse* mouse = m_viewport->Mouse();
+            const u32 w = m_viewport->RenderWidth();
+            const u32 h = m_viewport->RenderHeight();
+            if (mouse == nullptr || w == 0 || h == 0) { return false; }
+            const f32 ndcX = 2.0f * (mouse->X() / static_cast<f32>(w)) - 1.0f;
+            const f32 ndcY = 1.0f - 2.0f * (mouse->Y() / static_cast<f32>(h));
+            const f32 tanY = Tan(kFovY * 0.5f);
+            const f32 tanX = tanY * (static_cast<f32>(w) / static_cast<f32>(h));
+            out.origin = m_camera.position;
+            out.direction = Normalized(m_camera.Forward()
+                                     + m_camera.Right() * (ndcX * tanX)
+                                     + m_camera.Up() * (ndcY * tanY));
+            return true;
+        }
+
+        // Feed the gizmo controller a frame of viewport input. Runs EVERY frame so the gizmo
+        // pose tracks tree selections and undo/redo even while the mouse is elsewhere; when the
+        // viewport isn't hovered/focused the pointer is flagged invalid (pose-sync only). The
+        // camera owns the mouse while Alt (orbit) or RMB (fly) is down, so gizmo buttons are
+        // masked then. Returns true when the gizmo consumed the mouse (hot handle or active
+        // drag) - click-picking must skip.
+        [[nodiscard]] bool UpdateGizmos(bool viewportActive)
+        {
+            if (!m_gizmos) { return false; }
+            GizmoFrameInput in;
+            in.cameraPosition = m_camera.position;
+            in.cameraForward = m_camera.Forward();
+            in.fovY = kFovY;
+            in.pointerValid = viewportActive && MakeMouseRay(in.ray);
+            if (!in.pointerValid) { return m_gizmos->Update(in); }
+
+            draconic::shell::IMouse* mouse = m_viewport->Mouse();
+            draconic::shell::IKeyboard* kb = m_viewport->Keyboard();
+
+            const bool cameraOwnsMouse =
+                (kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt)
+                                || kb->IsKeyDown(draconic::shell::KeyCode::RightAlt)))
+                || mouse->IsButtonDown(draconic::shell::MouseButton::Right)
+                || m_camera.mouseCaptured;   // Tab-captured fly mode owns WASD too
+            if (!cameraOwnsMouse)
+            {
+                in.leftPressed = mouse->IsButtonPressed(draconic::shell::MouseButton::Left);
+                in.leftDown = mouse->IsButtonDown(draconic::shell::MouseButton::Left);
+            }
+            // Release always reaches the controller so an in-flight drag can finish even if a
+            // modifier goes down mid-drag.
+            in.leftReleased = mouse->IsButtonReleased(draconic::shell::MouseButton::Left)
+                           || !mouse->IsButtonDown(draconic::shell::MouseButton::Left);
+            if (kb != nullptr)
+            {
+                in.snap = kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl)
+                       || kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl);
+                if (!cameraOwnsMouse)   // W/E/R fly keys belong to the camera while flying
+                {
+                    in.keyTranslate = kb->IsKeyPressed(draconic::shell::KeyCode::W);
+                    in.keyRotate = kb->IsKeyPressed(draconic::shell::KeyCode::E);
+                    in.keyScale = kb->IsKeyPressed(draconic::shell::KeyCode::R);
+                    in.keyToggleSpace = kb->IsKeyPressed(draconic::shell::KeyCode::X);
+                }
+            }
+            return m_gizmos->Update(in);
+        }
+
+        void DrawGizmos(drender::debug::DebugDraw& dd)
+        {
+            if (m_gizmos)
+            {
+                m_gizmos->Draw(dd);
+                if (m_gizmos->IsActive())
+                {
+                    dd.DrawScreenText(12.0f, 12.0f, m_gizmos->StatusText(),
+                                      Color{ 0.85f, 0.85f, 0.85f, 1.0f });
+                }
+            }
+
+            // Component gizmos: full set for the selected entity; opted-in renderers for the rest.
+            if (!m_editContext) { return; }
+            GizmoContext ctx;
+            ctx.debug = &dd;
+            ctx.scene = m_scene;
+            ctx.cameraPosition = m_camera.position;
+            Selection<Guid>& selection = m_editContext->EntitySelection();
+            m_scene->ForEachEntity([&](dscene::EntityHandle e) {
+                m_componentGizmos.DrawEntity(e, selection.Contains(m_scene->GetEntityId(e)), ctx);
+            });
+        }
+
         // Position markers for every entity (small cross; selected = brighter + boxed) - empty
         // entities have no renderable, so the editor gives them a visual anchor.
         void DrawEntityMarkers(drender::debug::DebugDraw& dd)
@@ -263,19 +361,10 @@ export namespace draconic::editor
                                             || kb->IsKeyDown(draconic::shell::KeyCode::RightAlt));
             if (alt) { return; }   // Alt+LMB = camera orbit
 
-            const u32 w = m_viewport->RenderWidth();
-            const u32 h = m_viewport->RenderHeight();
-            if (w == 0 || h == 0) { return; }
-
-            // Camera ray through the pixel, built from the camera basis (no matrix inverse).
-            const f32 ndcX = 2.0f * (mouse->X() / static_cast<f32>(w)) - 1.0f;
-            const f32 ndcY = 1.0f - 2.0f * (mouse->Y() / static_cast<f32>(h));
-            const f32 tanY = Tan(1.0472f * 0.5f);
-            const f32 tanX = tanY * (static_cast<f32>(w) / static_cast<f32>(h));
-            const Float3 origin = m_camera.position;
-            const Float3 dir = Normalized(m_camera.Forward()
-                                        + m_camera.Right() * (ndcX * tanX)
-                                        + m_camera.Up() * (ndcY * tanY));
+            GizmoRay pickRay;
+            if (!MakeMouseRay(pickRay)) { return; }
+            const Float3 origin = pickRay.origin;
+            const Float3 dir = pickRay.direction;
 
             dscene::Scene& scene = *m_scene;
             Guid best;
@@ -349,6 +438,8 @@ export namespace draconic::editor
         RefPtr<draconic::ui::toolkit::SplitView> m_content;   // hierarchy | viewport
         RefPtr<SceneHierarchyView> m_hierarchy;
         RefPtr<SceneInspectorView> m_inspector;
+        UniquePtr<GizmoController> m_gizmos;
+        GizmoRendererRegistry m_componentGizmos;
         RefPtr<uivp::ViewportView> m_viewport;
         UniquePtr<draconic::shell::InputRouter> m_router;
         EditorCamera m_camera;
