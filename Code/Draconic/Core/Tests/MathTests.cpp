@@ -490,3 +490,19 @@ TEST_CASE("math: TRS decompose round-trips compose")
     CHECK(scale.x == 1.0f);
     CHECK(rot.w == doctest::Approx(1.0f));
 }
+
+TEST_CASE("math: yaw/pitch/roll round-trips through quaternion")
+{
+    const f32 yaw = 0.8f, pitch = 0.4f, roll = -0.3f;   // pitch within (-pi/2, pi/2)
+    const Quaternion q = FromYawPitchRoll(yaw, pitch, roll);
+    f32 y = 0, p = 0, r = 0;
+    ToYawPitchRoll(q, y, p, r);
+    CHECK(y == doctest::Approx(yaw).epsilon(0.001f));
+    CHECK(p == doctest::Approx(pitch).epsilon(0.001f));
+    CHECK(r == doctest::Approx(roll).epsilon(0.001f));
+
+    // Axis sanity: pure yaw about Y matches FromAxisAngle.
+    const Quaternion qy = FromYawPitchRoll(0.6f, 0.0f, 0.0f);
+    const Quaternion qa = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.6f);
+    CHECK(Abs(qy.x * qa.x + qy.y * qa.y + qy.z * qa.z + qy.w * qa.w) == doctest::Approx(1.0f).epsilon(0.001f));
+}

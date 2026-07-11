@@ -129,6 +129,28 @@ export namespace draconic::core
                        { 0.0f,                    0.0f,                    0.0f,                    1.0f } } };
     }
 
+    // Yaw (Y), pitch (X), roll (Z) in radians -> quaternion (XNA convention: q = qY * qX * qZ).
+    // Ported from Sedulous Quaternion.CreateFromYawPitchRoll.
+    [[nodiscard]] inline Quaternion FromYawPitchRoll(f32 yaw, f32 pitch, f32 roll) noexcept
+    {
+        const f32 sr = Sin(roll * 0.5f), cr = Cos(roll * 0.5f);
+        const f32 sp = Sin(pitch * 0.5f), cp = Cos(pitch * 0.5f);
+        const f32 sy = Sin(yaw * 0.5f), cy = Cos(yaw * 0.5f);
+        return Quaternion{ cy * sp * cr + sy * cp * sr,
+                           sy * cp * cr - cy * sp * sr,
+                           cy * cp * sr - sy * sp * cr,
+                           cy * cp * cr + sy * sp * sr };
+    }
+
+    // FromYawPitchRoll's inverse (pitch clamped to +-90deg; at the gimbal poles yaw/roll are not
+    // unique). The editor's rotation-as-euler display seam.
+    inline void ToYawPitchRoll(Quaternion q, f32& yaw, f32& pitch, f32& roll) noexcept
+    {
+        pitch = Asin(Clamp(2.0f * (q.w * q.x - q.y * q.z), -1.0f, 1.0f));
+        yaw   = Atan2(2.0f * (q.w * q.y + q.x * q.z), 1.0f - 2.0f * (q.x * q.x + q.y * q.y));
+        roll  = Atan2(2.0f * (q.w * q.z + q.x * q.y), 1.0f - 2.0f * (q.x * q.x + q.z * q.z));
+    }
+
     // RotationMatrix's inverse: the unit quaternion of a pure rotation matrix (row-vector, XNA
     // layout). Shepperd's method over the trace / dominant diagonal. Ported from Sedulous
     // Quaternion.CreateFromRotationMatrix (Mrc -> m[r-1][c-1]).
