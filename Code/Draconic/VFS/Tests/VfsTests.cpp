@@ -54,7 +54,8 @@ TEST_CASE("vfs: capability queries via As*()")
 
     REQUIRE(fs.AsEnumerable() != nullptr);
     REQUIRE(fs.AsWritable() != nullptr);
-    CHECK(fs.AsWatchable() == nullptr);   // not implemented yet
+    REQUIRE(fs.AsStat() != nullptr);
+    CHECK(fs.AsWatchable() == nullptr);   // lands with the 6d watcher pass
 
     // A router advertises no capabilities of its own.
     VirtualFileSystem vfs;
@@ -103,4 +104,34 @@ TEST_CASE("vfs: writable + enumerable round-trip")
     CHECK(w->Delete(u8"draconic_vfs_dir/sub/blob.bin").IsOk());
     CHECK(RemoveDirectory(u8"draconic_vfs_dir/sub"));
     CHECK(RemoveDirectory(u8"draconic_vfs_dir"));
+}
+
+TEST_CASE("vfs: NativeFileSystem stat reports size + modified time")
+{
+    NativeFileSystem native(u8".");
+    IWritableFileSystem* w = native.AsWritable();
+    IStatFileSystem* st = native.AsStat();
+    REQUIRE(w != nullptr);
+    REQUIRE(st != nullptr);
+
+    const byte payload[5] = { byte{1}, byte{2}, byte{3}, byte{4}, byte{5} };
+    REQUIRE(w->Save(u8"vfs_stat_test.bin", Span<const byte>(payload, 5)).IsOk());
+
+    FileStatInfo info;
+    REQUIRE(st->Stat(u8"vfs_stat_test.bin", info));
+    CHECK(info.size == 5u);
+    CHECK(info.modifiedTime > 0);   // a plausible wall-clock epoch time
+
+    // Rewriting changes the size; mtime moves monotonically (>=, same-second writes allowed).
+    const i64 firstTime = info.modifiedTime;
+    REQUIRE(w->Save(u8"vfs_stat_test.bin", Span<const byte>(payload, 3)).IsOk());
+    REQUIRE(st->Stat(u8"vfs_stat_test.bin", info));
+    CHECK(info.size == 3u);
+    CHECK(info.modifiedTime >= firstTime);
+
+    // Missing files and directories are not regular files.
+    CHECK_FALSE(st->Stat(u8"vfs_stat_missing.bin", info));
+    CHECK_FALSE(st->Stat(u8"", info));
+
+    REQUIRE(w->Delete(u8"vfs_stat_test.bin").IsOk());
 }

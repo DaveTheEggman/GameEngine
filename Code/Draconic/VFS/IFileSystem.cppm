@@ -23,6 +23,7 @@ export namespace draconic::vfs
     class IEnumerableFileSystem;
     class IWritableFileSystem;
     class IWatchableFileSystem;
+    class IStatFileSystem;
 
     // One entry returned by enumeration. `name` is mount-relative (a single path
     // component), not a full path.
@@ -47,6 +48,7 @@ export namespace draconic::vfs
         [[nodiscard]] virtual IEnumerableFileSystem* AsEnumerable() noexcept { return nullptr; }
         [[nodiscard]] virtual IWritableFileSystem*   AsWritable()   noexcept { return nullptr; }
         [[nodiscard]] virtual IWatchableFileSystem*  AsWatchable()  noexcept { return nullptr; }
+        [[nodiscard]] virtual IStatFileSystem*       AsStat()       noexcept { return nullptr; }
     };
 
     // Capability: list directory contents.
@@ -68,6 +70,24 @@ export namespace draconic::vfs
 
         [[nodiscard]] virtual Status Save(StringView path, Span<const byte> data) = 0;
         [[nodiscard]] virtual Status Delete(StringView path) = 0;
+    };
+
+    // Size + last-write time of one entry.
+    struct FileStatInfo
+    {
+        u64 size = 0;
+        i64 modifiedTime = 0;   // seconds since the unix epoch
+    };
+
+    // Capability: cheap file metadata (the cook pipeline's file-hash memo key). Backends whose
+    // content is immutable (pak) simply don't implement it - consumers fall back to hashing.
+    class IStatFileSystem
+    {
+    public:
+        virtual ~IStatFileSystem() = default;
+
+        // False when `path` is not a regular file on this mount.
+        [[nodiscard]] virtual bool Stat(StringView path, FileStatInfo& out) = 0;
     };
 
     // Per-mount notifier for content changes (hot reload). Polled by consumers.

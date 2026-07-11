@@ -1,7 +1,7 @@
 // Draconic::VFS - :native_filesystem partition
 //
 // NativeFileSystem: backs logical paths with a real directory prefix. Supports
-// read, enumerate, and write (the watch capability is not implemented yet).
+// read, enumerate, write, and stat (the watch capability lands with the 6d pass).
 
 module;
 #include "Core/Prelude.h"
@@ -22,6 +22,7 @@ export namespace draconic::vfs
         : public IFileSystem
         , public IEnumerableFileSystem
         , public IWritableFileSystem
+        , public IStatFileSystem
     {
     public:
         explicit NativeFileSystem(StringView root, IAllocator& allocator = DefaultAllocator())
@@ -52,6 +53,14 @@ export namespace draconic::vfs
 
         [[nodiscard]] IEnumerableFileSystem* AsEnumerable() noexcept override { return this; }
         [[nodiscard]] IWritableFileSystem*   AsWritable()   noexcept override { return this; }
+        [[nodiscard]] IStatFileSystem*       AsStat()       noexcept override { return this; }
+
+        // --- IStatFileSystem ---
+        [[nodiscard]] bool Stat(StringView path, FileStatInfo& out) override
+        {
+            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            return FileStat(full.AsView(), out.size, out.modifiedTime);
+        }
 
         // --- IEnumerableFileSystem ---
         [[nodiscard]] Status Enumerate(StringView folder, Array<DirEntry>& out) override
