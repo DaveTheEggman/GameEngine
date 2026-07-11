@@ -41,6 +41,7 @@ import draconic.editor.app;
 import :camera;
 import :edit;
 import :hierarchy;
+import :inspector;
 
 using namespace draconic::core;
 
@@ -89,17 +90,21 @@ export namespace draconic::editor
             m_viewport->ClearColor = rhi::ClearColor{ 0.10f, 0.11f, 0.13f, 1.0f };
 
             // Everything scene-scoped is PER PAGE (multi-scene): mutation mediator (all edits
-            // are commands on THIS page's stack), selection, hierarchy view.
+            // are commands on THIS page's stack), selection, hierarchy + inspector views.
             if (m_scene != nullptr)
             {
                 m_editContext = MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
                 m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
+                m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), *m_editContext);
             }
 
-            // Page layout: hierarchy | viewport.
+            // Page layout: hierarchy | (viewport | inspector).
+            auto inner = MakeRef<draconic::ui::toolkit::SplitView>(DefaultAllocator());
+            inner->SetSplitRatio(0.72f);
+            inner->SetPanes(m_viewport.Get(), m_inspector.Get());
             m_content = MakeRef<draconic::ui::toolkit::SplitView>(DefaultAllocator());
-            m_content->SetSplitRatio(0.22f);
-            m_content->SetPanes(m_hierarchy.Get(), m_viewport.Get());
+            m_content->SetSplitRatio(0.2f);
+            m_content->SetPanes(m_hierarchy.Get(), inner.Get());
 
             m_router = MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
 
@@ -118,6 +123,7 @@ export namespace draconic::editor
             if (m_hostWindow == nullptr) { return; }
 
             if (m_hierarchy) { m_hierarchy->Refresh(); }   // scene revision -> tree rebuild
+            if (m_inspector) { m_inspector->Refresh(); }   // selection/structure -> grid rebuild
 
             m_viewport->SyncInputRegion();
             m_router->Update();
@@ -342,6 +348,7 @@ export namespace draconic::editor
         UniquePtr<SceneEditContext> m_editContext;   // per-page mutation mediator + selection
         RefPtr<draconic::ui::toolkit::SplitView> m_content;   // hierarchy | viewport
         RefPtr<SceneHierarchyView> m_hierarchy;
+        RefPtr<SceneInspectorView> m_inspector;
         RefPtr<uivp::ViewportView> m_viewport;
         UniquePtr<draconic::shell::InputRouter> m_router;
         EditorCamera m_camera;

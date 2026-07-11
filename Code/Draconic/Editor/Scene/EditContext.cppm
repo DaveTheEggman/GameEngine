@@ -101,6 +101,67 @@ export namespace draconic::editor
                 DefaultAllocator().New<MoveEntityCommand>(*this, entity, sibling), DefaultAllocator()));
         }
 
+        /// Set an entity's active flag (undoable).
+        void SetEntityActive(const Guid& entity, bool active)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetActiveCommand>(*this, entity, active), DefaultAllocator()));
+        }
+
+        /// Set an entity's local transform. Consecutive edits of the same entity MERGE into one
+        /// undo entry (inspector field scrubs, gizmo drags).
+        void SetLocalTransform(const Guid& entity, const Transform& transform)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetTransformCommand>(*this, entity, transform), DefaultAllocator()));
+        }
+
+        /// Set a reflected component property by Variant. Consecutive edits of the same
+        /// entity+component+property MERGE.
+        void SetComponentProperty(const Guid& entity, const TypeInfo* componentType,
+                                  const char* property, const Variant& value)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetComponentPropertyCommand>(*this, entity, componentType, property, value),
+                DefaultAllocator()));
+        }
+
+        /// Set a reflected component property whose type a Variant cannot construct at runtime
+        /// (enums known only by TypeInfo): writes the underlying integer through
+        /// PropertyInfo::address. Merges like SetComponentProperty.
+        void SetComponentPropertyRaw(const Guid& entity, const TypeInfo* componentType,
+                                     const char* property, i64 value)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetComponentPropertyCommand>(*this, entity, componentType, property, value),
+                DefaultAllocator()));
+        }
+
+        /// Add a default-constructed component (undoable; fails if already present).
+        void AddComponent(const Guid& entity, const TypeInfo* componentType)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<AddComponentCommand>(*this, entity, componentType), DefaultAllocator()));
+        }
+
+        /// Remove a component (undo restores it - full fidelity via the manager's serialization
+        /// when available, else the reflected properties).
+        void RemoveComponent(const Guid& entity, const TypeInfo* componentType)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<RemoveComponentCommand>(*this, entity, componentType), DefaultAllocator()));
+        }
+
+        /// The scene manager whose component type is `type` (null if none).
+        [[nodiscard]] dscene::ComponentManagerBase* FindManager(const TypeInfo* type)
+        {
+            dscene::ComponentManagerBase* found = nullptr;
+            m_scene->ForEachManager([&](dscene::ComponentManagerBase& mgr) {
+                if (mgr.ComponentType() == type) { found = &mgr; }
+            });
+            return found;
+        }
+
         /// True if `possibleAncestor` is `entity` itself or one of its ancestors.
         [[nodiscard]] bool IsSelfOrAncestor(const Guid& entity, const Guid& possibleAncestor)
         {
@@ -416,6 +477,301 @@ export namespace draconic::editor
             Guid m_oldNext;
             Transform m_oldLocal;
             bool m_hasOld = false;
+        };
+
+        class SetActiveCommand final : public IEditorCommand
+        {
+        public:
+            SetActiveCommand(SceneEditContext& ctx, const Guid& entity, bool active)
+                : m_ctx(&ctx), m_entity(entity), m_active(active) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                if (!e.IsAssigned()) { return false; }
+                m_old = m_ctx->Scene().IsActive(e);
+                if (m_old == m_active) { return false; }   // no-op
+                m_ctx->Scene().SetActive(e, m_active);
+                return true;
+            }
+            void Undo() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                if (e.IsAssigned()) { m_ctx->Scene().SetActive(e, m_old); }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_active"; }
+
+        private:
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            bool m_active;
+            bool m_old = false;
+        };
+
+        class SetTransformCommand final : public IEditorCommand
+        {
+        public:
+            SetTransformCommand(SceneEditContext& ctx, const Guid& entity, const Transform& transform)
+                : m_ctx(&ctx), m_entity(entity), m_new(transform) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                if (!e.IsAssigned()) { return false; }
+                if (!m_hasOld)
+                {
+                    m_old = m_ctx->Scene().GetLocalTransform(e);
+                    m_hasOld = true;
+                }
+                m_ctx->Scene().SetLocalTransform(e, m_new);
+                return true;
+            }
+            void Undo() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                if (e.IsAssigned()) { m_ctx->Scene().SetLocalTransform(e, m_old); }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_transform"; }
+            [[nodiscard]] bool MergeInto(IEditorCommand& previous) override
+            {
+                auto& prev = static_cast<SetTransformCommand&>(previous);
+                if (prev.m_entity != m_entity) { return false; }
+                prev.m_new = m_new;   // previous keeps its ORIGINAL old transform
+                return true;
+            }
+
+        private:
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            Transform m_new;
+            Transform m_old;
+            bool m_hasOld = false;
+        };
+
+        // One command for both property paths: Variant (typed get/set) and raw integer (enums -
+        // a Variant of a type known only by TypeInfo cannot be constructed, so those fields are
+        // written in place through PropertyInfo::address).
+        class SetComponentPropertyCommand final : public IEditorCommand
+        {
+        public:
+            SetComponentPropertyCommand(SceneEditContext& ctx, const Guid& entity,
+                                        const TypeInfo* componentType, const char* property,
+                                        const Variant& value)
+                : m_ctx(&ctx), m_entity(entity), m_componentType(componentType)
+                , m_property(property), m_new(value) {}
+
+            SetComponentPropertyCommand(SceneEditContext& ctx, const Guid& entity,
+                                        const TypeInfo* componentType, const char* property,
+                                        i64 rawValue)
+                : m_ctx(&ctx), m_entity(entity), m_componentType(componentType)
+                , m_property(property), m_newRaw(rawValue), m_raw(true) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                const PropertyInfo* prop = nullptr;
+                const Instance component = ResolveComponent(&prop);
+                if (component.IsEmpty() || prop == nullptr) { return false; }
+
+                if (m_raw)
+                {
+                    void* address = (prop->address != nullptr) ? prop->address(component) : nullptr;
+                    if (address == nullptr) { return false; }
+                    if (!m_hasOld) { m_oldRaw = ReadRaw(address, prop->type->size); m_hasOld = true; }
+                    WriteRaw(address, prop->type->size, m_newRaw);
+                    return true;
+                }
+
+                if (!m_hasOld) { m_old = GetProperty(*prop, component); m_hasOld = true; }
+                return SetProperty(*prop, component, m_new).IsOk();
+            }
+
+            void Undo() override
+            {
+                const PropertyInfo* prop = nullptr;
+                const Instance component = ResolveComponent(&prop);
+                if (component.IsEmpty() || prop == nullptr) { return; }
+                if (m_raw)
+                {
+                    if (void* address = (prop->address != nullptr) ? prop->address(component) : nullptr)
+                    {
+                        WriteRaw(address, prop->type->size, m_oldRaw);
+                    }
+                }
+                else
+                {
+                    (void)SetProperty(*prop, component, m_old);
+                }
+            }
+
+            [[nodiscard]] StringView TypeId() const override { return u8"set_component_property"; }
+            [[nodiscard]] bool MergeInto(IEditorCommand& previous) override
+            {
+                auto& prev = static_cast<SetComponentPropertyCommand&>(previous);
+                if (prev.m_entity != m_entity || prev.m_componentType != m_componentType
+                    || prev.m_raw != m_raw || !detail_CStrEq(prev.m_property, m_property))
+                {
+                    return false;
+                }
+                prev.m_new = m_new;         // previous keeps its ORIGINAL old value
+                prev.m_newRaw = m_newRaw;
+                return true;
+            }
+
+        private:
+            [[nodiscard]] static bool detail_CStrEq(const char* a, const char* b) noexcept
+            {
+                usize i = 0;
+                while (a[i] != 0 && a[i] == b[i]) { ++i; }
+                return a[i] == b[i];
+            }
+            [[nodiscard]] static i64 ReadRaw(const void* address, u32 size) noexcept
+            {
+                switch (size)
+                {
+                    case 1: return *static_cast<const i8*>(address);
+                    case 2: return *static_cast<const i16*>(address);
+                    case 8: return *static_cast<const i64*>(address);
+                    default: return *static_cast<const i32*>(address);
+                }
+            }
+            static void WriteRaw(void* address, u32 size, i64 value) noexcept
+            {
+                switch (size)
+                {
+                    case 1: *static_cast<i8*>(address) = static_cast<i8>(value); break;
+                    case 2: *static_cast<i16*>(address) = static_cast<i16>(value); break;
+                    case 8: *static_cast<i64*>(address) = value; break;
+                    default: *static_cast<i32*>(address) = static_cast<i32>(value); break;
+                }
+            }
+
+            [[nodiscard]] Instance ResolveComponent(const PropertyInfo** outProperty)
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                if (!e.IsAssigned()) { return {}; }
+                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_componentType);
+                if (mgr == nullptr) { return {}; }
+                const Instance component = mgr->GetComponentInstance(e);
+                if (component.IsEmpty()) { return {}; }
+                *outProperty = FindProperty(*m_componentType, m_property);
+                return component;
+            }
+
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            const TypeInfo* m_componentType;
+            const char* m_property;   // static string from PropertyInfo::name
+            Variant m_new;
+            Variant m_old;
+            i64 m_newRaw = 0;
+            i64 m_oldRaw = 0;
+            bool m_raw = false;
+            bool m_hasOld = false;
+        };
+
+        class AddComponentCommand final : public IEditorCommand
+        {
+        public:
+            AddComponentCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type)
+                : m_ctx(&ctx), m_entity(entity), m_type(type) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                if (!e.IsAssigned() || mgr == nullptr) { return false; }
+                return mgr->AddDefaultComponent(e);
+            }
+            void Undo() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                if (e.IsAssigned() && mgr != nullptr) { mgr->RemoveComponent(e); }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"add_component"; }
+
+        private:
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            const TypeInfo* m_type;
+        };
+
+        class RemoveComponentCommand final : public IEditorCommand
+        {
+        public:
+            RemoveComponentCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type)
+                : m_ctx(&ctx), m_entity(entity), m_type(type) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                if (!e.IsAssigned() || mgr == nullptr || !mgr->HasComponent(e)) { return false; }
+
+                // Snapshot for undo: the serialization blob when the manager persists (full
+                // fidelity), else every reflected property (covers tool-only components).
+                m_blob.Clear();
+                m_properties.Clear();
+                if (mgr->IsSerializable())
+                {
+                    MemoryStream buffer;
+                    BinarySerializer ar(buffer, SerializeMode::Write);
+                    mgr->WriteComponent(ar, e);
+                    const Span<const byte> bytes = buffer.Bytes();
+                    m_blob.Reserve(bytes.Size());
+                    for (byte b : bytes) { m_blob.PushBack(b); }
+                }
+                else
+                {
+                    const Instance component = mgr->GetComponentInstance(e);
+                    for (const PropertyInfo& prop : Properties(*m_type))
+                    {
+                        m_properties.PushBack(PropertySnapshot{ prop.name, GetProperty(prop, component) });
+                    }
+                }
+
+                mgr->RemoveComponent(e);
+                return true;
+            }
+
+            void Undo() override
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                if (!e.IsAssigned() || mgr == nullptr) { return; }
+                if (mgr->IsSerializable() && !m_blob.IsEmpty())
+                {
+                    MemoryStream buffer;
+                    (void)buffer.Write(m_blob.Data(), m_blob.Size());
+                    (void)buffer.Seek(0, SeekOrigin::Begin);
+                    BinarySerializer ar(buffer, SerializeMode::Read);
+                    mgr->ReadComponent(ar, e);   // adds + fills
+                    return;
+                }
+                if (!mgr->AddDefaultComponent(e)) { return; }
+                const Instance component = mgr->GetComponentInstance(e);
+                for (const PropertySnapshot& snap : m_properties)
+                {
+                    if (const PropertyInfo* prop = FindProperty(*m_type, snap.name))
+                    {
+                        (void)SetProperty(*prop, component, snap.value);
+                    }
+                }
+            }
+
+            [[nodiscard]] StringView TypeId() const override { return u8"remove_component"; }
+
+        private:
+            struct PropertySnapshot
+            {
+                const char* name;
+                Variant value;
+            };
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            const TypeInfo* m_type;
+            Array<byte> m_blob;
+            Array<PropertySnapshot> m_properties;
         };
 
         dscene::Scene* m_scene;              // borrowed (SceneSubsystem owns it via the page)

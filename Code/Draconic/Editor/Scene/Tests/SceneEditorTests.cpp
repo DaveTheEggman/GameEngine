@@ -10,6 +10,8 @@ import draconic.core;
 import draconic.content;
 import draconic.scene;
 import draconic.scene.resource;
+import draconic.ui;
+import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.scene;
 
@@ -124,4 +126,35 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     CHECK(second->Id() != first->Id());
 
     RemoveProjectTree(dir);
+}
+
+// Repro: switching the selected entity must rebuild the inspector for the NEW entity.
+TEST_CASE("inspector: rebuilds when the selection switches entities")
+{
+    dscene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    SceneInspectorView inspector(edit);
+
+    const Guid a = edit.CreateEntity(u8"Alpha");
+    const Guid b = edit.CreateEntity(u8"Beta");
+
+    edit.EntitySelection().Set(a);
+    inspector.Refresh();
+    auto* nameEditor = draconic::core::Cast<draconic::ui::toolkit::StringEditor>(
+        inspector.Grid()->GetProperty(u8"Name"));
+    REQUIRE(nameEditor != nullptr);
+    CHECK(nameEditor->Value() == u8"Alpha");
+
+    edit.EntitySelection().Set(b);
+    inspector.Refresh();
+    nameEditor = draconic::core::Cast<draconic::ui::toolkit::StringEditor>(
+        inspector.Grid()->GetProperty(u8"Name"));
+    REQUIRE(nameEditor != nullptr);
+    CHECK(nameEditor->Value() == u8"Beta");
+
+    // Clearing the selection empties the grid.
+    edit.EntitySelection().Clear();
+    inspector.Refresh();
+    CHECK(inspector.Grid()->PropertyCount() == 0);
 }

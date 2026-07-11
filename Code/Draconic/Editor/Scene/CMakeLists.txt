@@ -19,6 +19,7 @@ target_sources(DraconicEditorScene
             EditorCamera.cppm
             EditContext.cppm
             HierarchyView.cppm
+            InspectorView.cppm
             ScenePage.cppm
             EditorSceneModule.cppm)
 

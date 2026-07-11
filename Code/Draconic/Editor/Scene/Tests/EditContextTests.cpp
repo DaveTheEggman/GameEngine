@@ -6,6 +6,7 @@
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.scene;
@@ -266,4 +267,135 @@ TEST_CASE("scene-edit: reparent preserves the world transform; undo restores the
     edit.MoveEntityBefore(s1, child);   // reorder within `parent`
     CHECK(scene.GetLocalTransform(edit.Resolve(s1)).position.x == 0.25f);
     CHECK(scene.GetLocalTransform(edit.Resolve(s1)).position.z == 0.75f);
+}
+
+namespace
+{
+    // A reflected (but NOT serializable) component - exercises the property paths and the
+    // reflected-snapshot remove-undo.
+    enum class TestMode : u32 { Off = 0, Slow = 1, Fast = 2 };
+
+    struct WidgetComponent
+    {
+        f32 speed = 1.0f;
+        bool spin = false;
+        Float3 offset{ 0, 0, 0 };
+        TestMode mode = TestMode::Off;
+    };
+
+    class WidgetManager final : public dscene::ComponentManager<WidgetComponent>
+    {
+    };
+}
+
+DRACONIC_REFLECT_ENUM(TestMode, "draconic::editor::test")
+{
+    builder.Value("Off", TestMode::Off);
+    builder.Value("Slow", TestMode::Slow);
+    builder.Value("Fast", TestMode::Fast);
+}
+
+DRACONIC_REFLECT_VALUE(WidgetComponent, "draconic::editor::test")
+{
+    builder.Property<&WidgetComponent::speed>("speed")
+           .Property<&WidgetComponent::spin>("spin")
+           .Property<&WidgetComponent::offset>("offset")
+           .Property<&WidgetComponent::mode>("mode");
+}
+
+TEST_CASE("scene-edit: transform + active commands (merge, undo)")
+{
+    dscene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    const Guid id = edit.CreateEntity(u8"E");
+    const usize baseline = commands.Size();
+
+    // A "drag": many transform sets merge into ONE undo entry.
+    Transform t;
+    for (i32 i = 1; i <= 5; ++i)
+    {
+        t.position = Float3{ static_cast<f32>(i), 0, 0 };
+        edit.SetLocalTransform(id, t);
+    }
+    CHECK(commands.Size() == baseline + 1);
+    CHECK(scene.GetLocalTransform(edit.Resolve(id)).position.x == doctest::Approx(5.0f));
+    commands.Undo();
+    CHECK(scene.GetLocalTransform(edit.Resolve(id)).position.x == doctest::Approx(0.0f));
+
+    edit.SetEntityActive(id, false);
+    CHECK(!scene.IsActive(edit.Resolve(id)));
+    commands.Undo();
+    CHECK(scene.IsActive(edit.Resolve(id)));
+    edit.SetEntityActive(id, true);   // no-op - dropped
+    CHECK(commands.Size() == baseline + 1);
+}
+
+TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, undo)")
+{
+    DraconicRegisterEnum_TestMode();
+    DraconicRegisterValue_WidgetComponent();
+
+    dscene::Scene scene;
+    auto* widgets = scene.AddSystem<WidgetManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    const Guid id = edit.CreateEntity(u8"E");
+    const TypeInfo* type = widgets->ComponentType();
+
+    // Add via command; undo removes; redo re-adds.
+    edit.AddComponent(id, type);
+    CHECK(widgets->HasComponent(edit.Resolve(id)));
+    commands.Undo();
+    CHECK(!widgets->HasComponent(edit.Resolve(id)));
+    commands.Redo();
+    REQUIRE(widgets->HasComponent(edit.Resolve(id)));
+    edit.AddComponent(id, type);   // already present - dropped
+    const usize afterAdd = commands.Size();
+
+    // Variant path with merge: a scrub of `speed` is one undo entry.
+    edit.SetComponentProperty(id, type, "speed", Variant::From<f32>(2.0f));
+    edit.SetComponentProperty(id, type, "speed", Variant::From<f32>(3.5f));
+    CHECK(commands.Size() == afterAdd + 1);
+    CHECK(widgets->Get(edit.Resolve(id))->speed == doctest::Approx(3.5f));
+    commands.Undo();
+    CHECK(widgets->Get(edit.Resolve(id))->speed == doctest::Approx(1.0f));
+    commands.Redo();
+
+    // Different property does NOT merge.
+    edit.SetComponentProperty(id, type, "offset", Variant::From<Float3>(Float3{ 1, 2, 3 }));
+    CHECK(commands.Size() == afterAdd + 2);
+    CHECK(widgets->Get(edit.Resolve(id))->offset.y == doctest::Approx(2.0f));
+
+    // Raw (enum) path through PropertyInfo::address.
+    edit.SetComponentPropertyRaw(id, type, "mode", static_cast<i64>(TestMode::Fast));
+    CHECK(widgets->Get(edit.Resolve(id))->mode == TestMode::Fast);
+    commands.Undo();
+    CHECK(widgets->Get(edit.Resolve(id))->mode == TestMode::Off);
+
+    // Remove undo restores the reflected state (non-serializable manager).
+    widgets->Get(edit.Resolve(id))->spin = true;
+    edit.RemoveComponent(id, type);
+    CHECK(!widgets->HasComponent(edit.Resolve(id)));
+    commands.Undo();
+    REQUIRE(widgets->HasComponent(edit.Resolve(id)));
+    CHECK(widgets->Get(edit.Resolve(id))->speed == doctest::Approx(3.5f));
+    CHECK(widgets->Get(edit.Resolve(id))->spin);
+    CHECK(widgets->Get(edit.Resolve(id))->offset.z == doctest::Approx(3.0f));
+}
+
+TEST_CASE("scene-edit: remove-component undo via serialization blob (serializable manager)")
+{
+    dscene::Scene scene;
+    auto* health = scene.AddSystem<HealthManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    const Guid id = edit.CreateEntity(u8"E");
+
+    health->Add(edit.Resolve(id)).amount = 42;
+    edit.RemoveComponent(id, health->ComponentType());
+    CHECK(!health->HasComponent(edit.Resolve(id)));
+    commands.Undo();
+    REQUIRE(health->HasComponent(edit.Resolve(id)));
+    CHECK(health->Get(edit.Resolve(id))->amount == 42);   // full fidelity via the blob
 }

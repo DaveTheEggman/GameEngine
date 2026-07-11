@@ -5,7 +5,7 @@ target_link_libraries(RaptorEditor PRIVATE
     Draconic::Core
     Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDesktop Draconic::ShellDesktop
     Draconic::Shell Draconic::Graphics Draconic::GraphicsGpu
-    Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
+    Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem Draconic::ParticlesSubsystem
     Draconic::EditorCore Draconic::EditorApp Draconic::EditorScene)
 target_compile_definitions(RaptorEditor PRIVATE
     DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")

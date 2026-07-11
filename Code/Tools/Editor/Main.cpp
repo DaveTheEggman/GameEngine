@@ -21,6 +21,7 @@ import draconic.runtime.desktop;
 import draconic.scene.subsystem;
 import draconic.render.subsystem;
 import draconic.animation.subsystem;
+import draconic.particles.subsystem;
 import draconic.ui.runtime;
 import draconic.editor.core;
 import draconic.editor.app;
@@ -59,6 +60,7 @@ int main(int argc, char** argv)
         host.Ctx().AddSubsystem<draconic::render::RenderSubsystem>(
             *host.Graphics()->Raw(), host.Graphics()->FramesInFlight());
         host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
+        host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
     };
     config.registerEditors = [](edapp::EditorApplication& app,
                                 draconic::runtime::IApplicationHost& host,

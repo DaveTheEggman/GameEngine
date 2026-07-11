@@ -10,4 +10,5 @@ export module draconic.editor.scene;
 export import :camera;
 export import :edit;
 export import :hierarchy;
+export import :inspector;
 export import :page;
