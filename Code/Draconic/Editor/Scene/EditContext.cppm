@@ -11,9 +11,9 @@
 // the same per-entity routing SerializeScene uses). This is the fix for Sedulous's lossy
 // "TODO: Restore components and children".
 //
-// Known v1 gaps (documented, deliberate): sibling ORDER is not preserved on reparent/undo
-// (Scene::SetParent appends; ordering needs a Scene API), and reparent keeps the LOCAL
-// transform (world position may jump; world-preserving reparent needs matrix decompose).
+// Reparents preserve the WORLD transform (Scene keep-world overloads + TRS decompose); undo
+// restores the captured local exactly (no decompose round-trip drift). Same-parent reorders
+// keep the local untouched.
 
 module;
 #include "Core/Prelude.h"
@@ -318,17 +318,22 @@ export namespace draconic::editor
                 if (!m_hasOld)
                 {
                     m_oldParent = scene.GetEntityId(scene.GetParent(e));
+                    m_oldLocal = scene.GetLocalTransform(e);
                     m_hasOld = true;
                 }
                 if (m_oldParent == m_newParent) { return false; }   // no-op - don't pollute undo
-                scene.SetParent(e, parent);
+                // Editor semantics: the entity STAYS PUT in the world across a reparent (its
+                // local transform is recomputed via TRS decompose).
+                scene.SetParent(e, parent, /*keepWorldTransform*/ true);
                 return true;
             }
 
             void Undo() override
             {
                 const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
-                if (e.IsAssigned()) { m_ctx->Scene().SetParent(e, m_ctx->Resolve(m_oldParent)); }
+                if (!e.IsAssigned()) { return; }
+                m_ctx->Scene().SetParent(e, m_ctx->Resolve(m_oldParent));
+                m_ctx->Scene().SetLocalTransform(e, m_oldLocal);   // exact, no decompose drift
             }
 
             [[nodiscard]] StringView TypeId() const override { return u8"reparent_entity"; }
@@ -338,6 +343,7 @@ export namespace draconic::editor
             Guid m_entity;
             Guid m_newParent;
             Guid m_oldParent;
+            Transform m_oldLocal;
             bool m_hasOld = false;
         };
 
@@ -373,12 +379,19 @@ export namespace draconic::editor
                 {
                     m_oldParent = scene.GetEntityId(scene.GetParent(e));
                     m_oldNext = scene.GetEntityId(scene.GetNextSibling(e));
+                    m_oldLocal = scene.GetLocalTransform(e);
                     m_hasOld = true;
                 }
 
+                // Keep the world transform only when the PARENT changes; a same-parent reorder
+                // keeps the exact local (no decompose round-trip noise).
+                const dscene::EntityHandle newParent = sibling.IsAssigned()
+                    ? scene.GetParent(sibling) : dscene::EntityHandle::Invalid();
+                const bool parentChanges = scene.GetEntityId(newParent) != m_oldParent;
+
                 const u64 before = scene.Revision();
-                if (sibling.IsAssigned()) { scene.MoveBefore(e, sibling); }
-                else { scene.SetParent(e, dscene::EntityHandle::Invalid()); }   // end of root list
+                if (sibling.IsAssigned()) { scene.MoveBefore(e, sibling, parentChanges); }
+                else { scene.SetParent(e, dscene::EntityHandle::Invalid(), parentChanges); }
                 return scene.Revision() != before;   // unchanged position = no-op, drop
             }
 
@@ -390,6 +403,7 @@ export namespace draconic::editor
                 const dscene::EntityHandle oldNext = m_ctx->Resolve(m_oldNext);
                 if (oldNext.IsAssigned()) { scene.MoveBefore(e, oldNext); }
                 else { scene.SetParent(e, m_ctx->Resolve(m_oldParent)); }   // was last: append
+                scene.SetLocalTransform(e, m_oldLocal);   // exact, no decompose drift
             }
 
             [[nodiscard]] StringView TypeId() const override { return u8"move_entity"; }
@@ -400,6 +414,7 @@ export namespace draconic::editor
             Guid m_sibling;
             Guid m_oldParent;
             Guid m_oldNext;
+            Transform m_oldLocal;
             bool m_hasOld = false;
         };
 

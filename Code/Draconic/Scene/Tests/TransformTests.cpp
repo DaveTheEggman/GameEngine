@@ -152,3 +152,48 @@ TEST_CASE("destroying a child unlinks it from the parent's sibling list")
     CHECK(scene.GetFirstChild(parent) == a);
     CHECK(scene.GetNextSibling(a) == c);    // list spliced: a -> c
 }
+
+TEST_CASE("keep-world reparent: the entity stays put in the world")
+{
+    Scene scene;
+    EntityHandle parentA = scene.CreateEntity(u8"A");
+    EntityHandle parentB = scene.CreateEntity(u8"B");
+    EntityHandle child = scene.CreateEntity(u8"child");
+
+    Transform ta;
+    ta.position = Float3{ 10.0f, 0.0f, 0.0f };
+    ta.rotation = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.7f);
+    scene.SetLocalTransform(parentA, ta);
+    Transform tb;
+    tb.position = Float3{ -5.0f, 2.0f, 1.0f };
+    tb.scale = Float3{ 2.0f, 2.0f, 2.0f };
+    scene.SetLocalTransform(parentB, tb);
+    Transform tc;
+    tc.position = Float3{ 1.0f, 2.0f, 3.0f };
+    scene.SetLocalTransform(child, tc);
+    scene.SetParent(child, parentA);
+
+    const Float4x4 before = scene.ComposeWorldMatrix(child);
+
+    // keep-world reparent A -> B: world matrix unchanged (local recomputed).
+    scene.SetParent(child, parentB, /*keepWorldTransform*/ true);
+    CHECK(scene.GetParent(child) == parentB);
+    const Float4x4 after = scene.ComposeWorldMatrix(child);
+    for (i32 r = 0; r < 4; ++r)
+        for (i32 c = 0; c < 4; ++c)
+            CHECK(after.m[r][c] == doctest::Approx(before.m[r][c]).epsilon(0.001f));
+
+    // ...and the LOCAL transform did change (relative to a different parent now).
+    CHECK(scene.GetLocalTransform(child).position.x != doctest::Approx(1.0f).epsilon(0.0001f));
+
+    // keep-world to root: world unchanged, local == world.
+    scene.SetParent(child, EntityHandle::Invalid(), true);
+    const Float4x4 asRoot = scene.ComposeWorldMatrix(child);
+    for (i32 r = 0; r < 4; ++r)
+        for (i32 c = 0; c < 4; ++c)
+            CHECK(asRoot.m[r][c] == doctest::Approx(before.m[r][c]).epsilon(0.001f));
+
+    // Refused move (cycle) leaves the local untouched.
+    scene.SetParent(parentB, parentB, true);
+    CHECK(scene.GetParent(parentB) == EntityHandle::Invalid());
+}

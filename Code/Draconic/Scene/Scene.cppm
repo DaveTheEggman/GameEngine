@@ -182,6 +182,38 @@ public:
         ++m_revision;
     }
 
+    // World-preserving reparent (editor semantics: the entity stays put in the world; its LOCAL
+    // transform is recomputed relative to the new parent via TRS decompose). World matrices are
+    // composed fresh from the local chain, so this is correct even with dirty cached transforms.
+    // No-op when the underlying move is refused (cycle etc.).
+    void SetParent(EntityHandle child, EntityHandle parent, bool keepWorldTransform) {
+        if (!keepWorldTransform) { SetParent(child, parent); return; }
+        if (!IsValid(child)) { return; }
+        const Float4x4 childWorld = ComposeWorldMatrix(child);
+        const u64 before = m_revision;
+        SetParent(child, parent);
+        if (m_revision != before) { ApplyWorldAsLocal(child, childWorld); }
+    }
+
+    void MoveBefore(EntityHandle child, EntityHandle sibling, bool keepWorldTransform) {
+        if (!keepWorldTransform) { MoveBefore(child, sibling); return; }
+        if (!IsValid(child)) { return; }
+        const Float4x4 childWorld = ComposeWorldMatrix(child);
+        const u64 before = m_revision;
+        MoveBefore(child, sibling);
+        if (m_revision != before) { ApplyWorldAsLocal(child, childWorld); }
+    }
+
+    // Fresh world matrix composed up the parent chain (independent of the cached worldMatrix,
+    // which is only current after UpdateTransforms).
+    [[nodiscard]] Float4x4 ComposeWorldMatrix(EntityHandle entity) const {
+        Float4x4 world = Float4x4::Identity();
+        for (EntityHandle e = entity; IsValid(e); e = m_transforms[e.index].parent) {
+            world = world * m_transforms[e.index].local.ToMatrix();
+        }
+        return world;
+    }
+
     // Sibling ORDERING: moves `child` under `sibling`'s parent, immediately BEFORE `sibling`
     // (into the root list when `sibling` is a root). Same guards as SetParent: both must be
     // valid, and moving an entity below its own subtree (cycle) is refused. O(1).
@@ -429,6 +461,16 @@ protected:
             child = next;
         }
         if (d.parent.IsAssigned()) { MarkDirty(d.parent); }
+    }
+
+    // Rewrite `child`'s LOCAL transform so its world matrix equals `childWorld` under its
+    // CURRENT parent (the keep-world half of a reparent). Row-vector: local = world * parent⁻¹.
+    void ApplyWorldAsLocal(EntityHandle child, const Float4x4& childWorld) {
+        const EntityHandle parent = m_transforms[child.index].parent;
+        const Float4x4 localMat = parent.IsAssigned()
+            ? childWorld * Inverse(ComposeWorldMatrix(parent))
+            : childWorld;
+        SetLocalTransform(child, Transform::FromMatrix(localMat));
     }
 
     void UpdateTransformRecursive(u32 index, const Float4x4& parentWorld) {

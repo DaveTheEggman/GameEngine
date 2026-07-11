@@ -219,3 +219,51 @@ TEST_CASE("scene-edit: sibling reorder command with undo/redo")
     edit.MoveEntityBefore(a, d);   // slot parent = b, inside a's subtree
     CHECK(commands.Size() == size2);
 }
+
+TEST_CASE("scene-edit: reparent preserves the world transform; undo restores the exact local")
+{
+    dscene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+
+    const Guid parent = edit.CreateEntity(u8"Parent");
+    const Guid child = edit.CreateEntity(u8"Child");
+
+    Transform tp;
+    tp.position = Float3{ 5.0f, 0.0f, 0.0f };
+    tp.rotation = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.5f);
+    scene.SetLocalTransform(edit.Resolve(parent), tp);
+    Transform tc;
+    tc.position = Float3{ 1.0f, 2.0f, 3.0f };
+    scene.SetLocalTransform(edit.Resolve(child), tc);
+
+    const Float4x4 worldBefore = scene.ComposeWorldMatrix(edit.Resolve(child));
+
+    edit.ReparentEntity(child, parent);
+    const Float4x4 worldAfter = scene.ComposeWorldMatrix(edit.Resolve(child));
+    for (i32 r = 0; r < 4; ++r)
+        for (i32 c = 0; c < 4; ++c)
+            CHECK(worldAfter.m[r][c] == doctest::Approx(worldBefore.m[r][c]).epsilon(0.001f));
+
+    // Undo: exact original local (bit-identical restore, not a decompose round-trip).
+    commands.Undo();
+    CHECK(scene.GetLocalTransform(edit.Resolve(child)).position.x == 1.0f);
+    CHECK(scene.GetLocalTransform(edit.Resolve(child)).position.y == 2.0f);
+    CHECK(scene.GetParent(edit.Resolve(child)) == dscene::EntityHandle::Invalid());
+
+    // Redo reproduces the preserved world again.
+    commands.Redo();
+    const Float4x4 worldRedo = scene.ComposeWorldMatrix(edit.Resolve(child));
+    for (i32 r = 0; r < 4; ++r)
+        for (i32 c = 0; c < 4; ++c)
+            CHECK(worldRedo.m[r][c] == doctest::Approx(worldBefore.m[r][c]).epsilon(0.001f));
+
+    // Same-parent reorder keeps the local EXACT (no decompose noise).
+    const Guid s1 = edit.CreateEntity(u8"S1", parent);
+    Transform ts;
+    ts.position = Float3{ 0.25f, 0.5f, 0.75f };
+    scene.SetLocalTransform(edit.Resolve(s1), ts);
+    edit.MoveEntityBefore(s1, child);   // reorder within `parent`
+    CHECK(scene.GetLocalTransform(edit.Resolve(s1)).position.x == 0.25f);
+    CHECK(scene.GetLocalTransform(edit.Resolve(s1)).position.z == 0.75f);
+}

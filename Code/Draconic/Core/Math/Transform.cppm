@@ -32,6 +32,15 @@ export namespace draconic::core
             return result;
         }
 
+        // ToMatrix's inverse: decompose a TRS matrix into a Transform (identity components on a
+        // degenerate matrix). The editor's world-preserving reparent seam.
+        [[nodiscard]] static Transform FromMatrix(const Float4x4& m) noexcept
+        {
+            Transform t;
+            (void)Decompose(m, t.position, t.rotation, t.scale);
+            return t;
+        }
+
         // Component-wise interpolation: position/scale lerp, rotation slerp. (Sedulous BoneTransform.Lerp.)
         [[nodiscard]] static Transform Lerp(const Transform& a, const Transform& b, f32 t) noexcept
         {

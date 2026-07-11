@@ -445,3 +445,48 @@ TEST_CASE("math: Transform Lerp + identity")
     CHECK(NearlyEqual(at0.position, a.position));
     CHECK(NearlyEqual(at1.position, b.position));
 }
+
+// Ported from Sedulous per-need (Matrix.Decompose + Quaternion.CreateFromRotationMatrix): TRS
+// compose -> decompose round-trip, the world-preserving-reparent substrate.
+TEST_CASE("math: TRS decompose round-trips compose")
+{
+    Transform t;
+    t.position = Float3{ 3.0f, -2.0f, 7.5f };
+    t.rotation = Quaternion::FromAxisAngle(Normalized(Float3{ 0.3f, 1.0f, -0.2f }), 1.1f);
+    t.scale = Float3{ 2.0f, 0.5f, 3.0f };   // non-uniform
+
+    Float3 pos, scale;
+    Quaternion rot;
+    REQUIRE(Decompose(t.ToMatrix(), pos, rot, scale));
+
+    CHECK(pos.x == doctest::Approx(t.position.x));
+    CHECK(pos.y == doctest::Approx(t.position.y));
+    CHECK(pos.z == doctest::Approx(t.position.z));
+    CHECK(scale.x == doctest::Approx(t.scale.x).epsilon(0.001f));
+    CHECK(scale.y == doctest::Approx(t.scale.y).epsilon(0.001f));
+    CHECK(scale.z == doctest::Approx(t.scale.z).epsilon(0.001f));
+    // Quaternions are sign-ambiguous: compare |dot| ~ 1.
+    const f32 dot = t.rotation.x * rot.x + t.rotation.y * rot.y
+                  + t.rotation.z * rot.z + t.rotation.w * rot.w;
+    CHECK(Abs(dot) == doctest::Approx(1.0f).epsilon(0.001f));
+
+    // Transform::FromMatrix reproduces the same matrix.
+    const Transform back = Transform::FromMatrix(t.ToMatrix());
+    const Float4x4 m0 = t.ToMatrix();
+    const Float4x4 m1 = back.ToMatrix();
+    for (i32 r = 0; r < 4; ++r)
+        for (i32 c = 0; c < 4; ++c)
+            CHECK(m1.m[r][c] == doctest::Approx(m0.m[r][c]).epsilon(0.001f));
+
+    // Degenerate (zero scale) fails with identity outputs.
+    Transform flat = t;
+    flat.scale.y = 0.0f;
+    CHECK_FALSE(Decompose(flat.ToMatrix(), pos, rot, scale));
+    CHECK(scale.y == 1.0f);
+
+    // Identity decomposes to identity.
+    REQUIRE(Decompose(Float4x4::Identity(), pos, rot, scale));
+    CHECK(pos.x == 0.0f);
+    CHECK(scale.x == 1.0f);
+    CHECK(rot.w == doctest::Approx(1.0f));
+}

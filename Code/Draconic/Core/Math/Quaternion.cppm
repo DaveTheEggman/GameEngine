@@ -128,4 +128,86 @@ export namespace draconic::core
                        { 2.0f * (xz + wy),        2.0f * (yz - wx),        1.0f - 2.0f * (xx + yy), 0.0f },
                        { 0.0f,                    0.0f,                    0.0f,                    1.0f } } };
     }
+
+    // RotationMatrix's inverse: the unit quaternion of a pure rotation matrix (row-vector, XNA
+    // layout). Shepperd's method over the trace / dominant diagonal. Ported from Sedulous
+    // Quaternion.CreateFromRotationMatrix (Mrc -> m[r-1][c-1]).
+    [[nodiscard]] inline Quaternion QuaternionFromRotationMatrix(const Float4x4& m) noexcept
+    {
+        const f32 trace = m.m[0][0] + m.m[1][1] + m.m[2][2];
+        Quaternion result;
+        if (trace > 0.0f)
+        {
+            f32 s = Sqrt(trace + 1.0f);
+            result.w = s * 0.5f;
+            s = 0.5f / s;
+            result.x = (m.m[1][2] - m.m[2][1]) * s;
+            result.y = (m.m[2][0] - m.m[0][2]) * s;
+            result.z = (m.m[0][1] - m.m[1][0]) * s;
+        }
+        else if (m.m[0][0] >= m.m[1][1] && m.m[0][0] >= m.m[2][2])
+        {
+            const f32 s = Sqrt(1.0f + m.m[0][0] - m.m[1][1] - m.m[2][2]);
+            const f32 invS = 0.5f / s;
+            result.x = 0.5f * s;
+            result.y = (m.m[0][1] + m.m[1][0]) * invS;
+            result.z = (m.m[0][2] + m.m[2][0]) * invS;
+            result.w = (m.m[1][2] - m.m[2][1]) * invS;
+        }
+        else if (m.m[1][1] > m.m[2][2])
+        {
+            const f32 s = Sqrt(1.0f + m.m[1][1] - m.m[0][0] - m.m[2][2]);
+            const f32 invS = 0.5f / s;
+            result.x = (m.m[1][0] + m.m[0][1]) * invS;
+            result.y = 0.5f * s;
+            result.z = (m.m[2][1] + m.m[1][2]) * invS;
+            result.w = (m.m[2][0] - m.m[0][2]) * invS;
+        }
+        else
+        {
+            const f32 s = Sqrt(1.0f + m.m[2][2] - m.m[0][0] - m.m[1][1]);
+            const f32 invS = 0.5f / s;
+            result.x = (m.m[2][0] + m.m[0][2]) * invS;
+            result.y = (m.m[2][1] + m.m[1][2]) * invS;
+            result.z = 0.5f * s;
+            result.w = (m.m[0][1] - m.m[1][0]) * invS;
+        }
+        return result;
+    }
+
+    // TRS decompose of a row-vector S*R*T matrix: translation (row 3), per-axis scale (basis row
+    // lengths), rotation (normalized basis). False (identity outputs) when a scale axis is zero
+    // (degenerate - rotation is unrecoverable). Ported from Sedulous Matrix.Decompose; like the
+    // original, mirrored (negative-determinant) matrices land the sign on an arbitrary axis.
+    [[nodiscard]] inline bool Decompose(const Float4x4& m, Float3& translation,
+                                        Quaternion& rotation, Float3& scale) noexcept
+    {
+        translation = Float3{ m.m[3][0], m.m[3][1], m.m[3][2] };
+
+        scale.x = Sqrt(m.m[0][0] * m.m[0][0] + m.m[0][1] * m.m[0][1] + m.m[0][2] * m.m[0][2]);
+        scale.y = Sqrt(m.m[1][0] * m.m[1][0] + m.m[1][1] * m.m[1][1] + m.m[1][2] * m.m[1][2]);
+        scale.z = Sqrt(m.m[2][0] * m.m[2][0] + m.m[2][1] * m.m[2][1] + m.m[2][2] * m.m[2][2]);
+        if (scale.x == 0.0f || scale.y == 0.0f || scale.z == 0.0f)
+        {
+            scale = Float3::One;
+            rotation = Quaternion::Identity;
+            return false;
+        }
+        // A mirrored basis (negative determinant) can't be a pure rotation: flip one axis.
+        const f32 det =
+            m.m[0][0] * (m.m[1][1] * m.m[2][2] - m.m[1][2] * m.m[2][1]) -
+            m.m[0][1] * (m.m[1][0] * m.m[2][2] - m.m[1][2] * m.m[2][0]) +
+            m.m[0][2] * (m.m[1][0] * m.m[2][1] - m.m[1][1] * m.m[2][0]);
+        if (det < 0.0f) { scale.z = -scale.z; }
+
+        Float4x4 r = Float4x4::Identity();
+        for (i32 c = 0; c < 3; ++c)
+        {
+            r.m[0][c] = m.m[0][c] / scale.x;
+            r.m[1][c] = m.m[1][c] / scale.y;
+            r.m[2][c] = m.m[2][c] / scale.z;
+        }
+        rotation = QuaternionFromRotationMatrix(r);
+        return true;
+    }
 }
