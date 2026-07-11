@@ -18,122 +18,13 @@ import draconic.shaders.system;
 import draconic.render;   // Renderer, RenderRecordContext, ResolvedDraw, DrawItem, DynamicUniformRing, categories
 import draconic.particles;   // ParticleBlendMode
 import :renderdata;
+import :particle_shaders;   // ParticleVS()/ParticlePS()/TrailVS()/TrailPS() - HLSL source in ParticleShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 namespace render = draconic::render;
 
-namespace draconic::particles
-{
-    // Quad from SV_VertexID + per-instance billboard. Rotation (mode 0) and velocity stretch are the
-    // additions over the sprite VS. Camera basis from the View matrix (row-major, row-vector).
-    inline constexpr const char8_t* kParticleVS = u8R"(
-#pragma pack_matrix(row_major)
-cbuffer ParticleView : register(b0, space0) {
-    float4x4 ViewProj;
-    float4x4 View;
-    float4   DepthParams;   // x=Proj[2][2], y=Proj[3][2], z=Proj[2][3], w=soft-particle fade distance
-};
-struct VSIn {
-    float4 PositionSize : TEXCOORD0;   // xyz world center, w width
-    float4 SizeRotMode  : TEXCOORD1;   // x height, y rotation(rad), z orientation mode
-    float4 Color        : TEXCOORD2;
-    float4 UVRect       : TEXCOORD3;   // xy uv min, zw uv size
-    float4 Velocity     : TEXCOORD4;   // xyz world velocity, w stretch scale
-    uint   VertexID     : SV_VertexID;
-};
-struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; float linZ : TEXCOORD1; float softDist : TEXCOORD2; };
-
-static const float2 CORNERS[6] = {
-    float2(-0.5, -0.5), float2(0.5, -0.5), float2(-0.5, 0.5),
-    float2(-0.5,  0.5), float2(0.5, -0.5), float2( 0.5, 0.5)
-};
-static const float2 UVS[6] = {
-    float2(0, 1), float2(1, 1), float2(0, 0),
-    float2(0, 0), float2(1, 1), float2(1, 0)
-};
-
-VSOut main(VSIn i) {
-    VSOut o;
-    float3 worldPos = i.PositionSize.xyz;
-    float2 size     = float2(i.PositionSize.w, i.SizeRotMode.x);
-    int    mode     = (int)(i.SizeRotMode.z + 0.5);
-    float  rot      = i.SizeRotMode.y;
-
-    float3 camRight = float3(View._m00, View._m10, View._m20);
-    float3 camUp    = float3(View._m01, View._m11, View._m21);
-    float3 camFwd   = float3(View._m02, View._m12, View._m22);
-
-    float3 right, up;
-    if (i.Velocity.w > 0.0 && dot(i.Velocity.xyz, i.Velocity.xyz) > 1e-8) {
-        // Stretched billboard: length axis follows velocity, width axis perpendicular in view.
-        float3 v = i.Velocity.xyz;
-        float speed = length(v);
-        up = v / speed;
-        right = normalize(cross(up, camFwd));
-        size.y *= (1.0 + speed * i.Velocity.w);
-    } else if (mode == 2) {              // ground-flat (XZ plane, +Y normal) - horizontal billboard
-        right = float3(1, 0, 0); up = float3(0, 0, 1);
-    } else if (mode == 1) {              // camera-facing about world Y
-        right = normalize(float3(camRight.x, 0, camRight.z));
-        up    = float3(0, 1, 0);
-    } else {                             // full camera-facing, with per-particle roll
-        float s = sin(rot), c = cos(rot);
-        right = camRight * c + camUp * s;
-        up    = camUp * c - camRight * s;
-    }
-
-    float2 local = CORNERS[i.VertexID];
-    float3 cornerWS = worldPos + right * (local.x * size.x) + up * (local.y * size.y);
-    o.pos = mul(float4(cornerWS, 1.0), ViewProj);
-    o.uv  = i.UVRect.xy + UVS[i.VertexID] * i.UVRect.zw;
-    o.col = i.Color;
-    o.linZ = -mul(float4(cornerWS, 1.0), View).z;   // positive view-space depth (soft particles)
-    o.softDist = i.SizeRotMode.w;                    // per-system soft-particle fade band (0 = off)
-    return o;
-}
-)";
-
-    inline constexpr const char8_t* kParticlePS = u8R"(
-#pragma pack_matrix(row_major)
-cbuffer ParticleView : register(b0, space0) {
-    float4x4 ViewProj;
-    float4x4 View;
-    float4   DepthParams;   // x=Proj[2][2], y=Proj[3][2], z=Proj[2][3], w=soft fade distance
-};
-Texture2D    ParticleTexture : register(t0, space1);
-SamplerState ParticleSampler : register(s0, space1);
-Texture2D    SceneDepth      : register(t0, space2);   // opaque depth (read-only, sampleable)
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0, float linZ : TEXCOORD1, float softDist : TEXCOORD2) : SV_Target {
-    float4 c = ParticleTexture.Sample(ParticleSampler, uv) * col;
-    // Soft particle (per-system, softDist>0): fade where this billboard fragment approaches the opaque
-    // surface behind it. Sample the scene depth, reconstruct its view-space depth, compare to the fragment's.
-    if (softDist > 0.0) {
-        float d = SceneDepth.Load(int3(int2(pos.xy), 0)).r;
-        float sceneLin = -DepthParams.y / (d * DepthParams.z - DepthParams.x);   // positive view-space depth
-        c.a *= saturate((sceneLin - linZ) / max(softDist, 1e-3));
-    }
-    return c;
-}
-)";
-    // Trails: the ribbon geometry is already world-space + camera-facing (built by the extractor), so the
-    // VS just transforms it. Shares the ParticleView cbuffer (set 0) + particle texture (set 1).
-    inline constexpr const char8_t* kTrailVS = u8R"(
-#pragma pack_matrix(row_major)
-cbuffer ParticleView : register(b0, space0) { float4x4 ViewProj; float4x4 View; float4 DepthParams; };
-struct VSIn { float3 Position : POSITION; float2 UV : TEXCOORD0; float4 Color : COLOR0; };
-struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; };
-VSOut main(VSIn i) { VSOut o; o.pos = mul(float4(i.Position, 1.0), ViewProj); o.uv = i.UV; o.col = i.Color; return o; }
-)";
-    inline constexpr const char8_t* kTrailPS = u8R"(
-Texture2D    ParticleTexture : register(t0, space1);
-SamplerState ParticleSampler : register(s0, space1);
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0) : SV_Target {
-    return ParticleTexture.Sample(ParticleSampler, uv) * col;
-}
-)";
-}
 
 export namespace draconic::particles
 {
@@ -154,8 +45,8 @@ export namespace draconic::particles
 
         core::Status Initialize()
         {
-            m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Vertex,   kParticleVS);
-            m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Fragment, kParticlePS);
+            m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Vertex,   ParticleVS());
+            m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Fragment, ParticlePS());
 
             rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
             viewEntry.hasDynamicOffset = true;
@@ -228,8 +119,8 @@ export namespace draconic::particles
 
             // Trails: shaders + a 2-set layout (view + texture, no depth) + a big identity index buffer so
             // the ribbon triangle-list draws through DrawIndexed (ResolvedDraw is always indexed).
-            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Vertex,   kTrailVS);
-            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Fragment, kTrailPS);
+            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Vertex,   TrailVS());
+            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Fragment, TrailPS());
             rhi::BindGroupLayout* trailLayouts[] = { m_viewLayout, m_texLayout };
             rhi::PipelineLayoutDesc tpld{}; tpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ trailLayouts, 2 };
             if (!m_device->CreatePipelineLayout(tpld, m_trailPipelineLayout).IsOk()) { return core::Status{ core::ErrorCode::Unknown }; }
