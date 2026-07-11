@@ -14,6 +14,7 @@ module;
 // SSE intrinsics are TU-local (header-provided) but safe in exported inline functions.
 #if defined(__clang__)
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"   // group below exists only in Clang 22+
 #pragma clang diagnostic ignored "-WTU-local-entity-exposure"
 #endif
 

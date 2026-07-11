@@ -78,7 +78,7 @@ public:
 #else
                          /*displayHandle*/
 #endif
-                         , Surface*& out, SurfacePlatform /*platform*/ = SurfacePlatform::Unknown) override {
+                         , Surface*& out, [[maybe_unused]] SurfacePlatform platform = SurfacePlatform::Unknown) override {
         out = nullptr;
         if (!windowHandle) {
             LogError("VkBackend: window handle is null");
