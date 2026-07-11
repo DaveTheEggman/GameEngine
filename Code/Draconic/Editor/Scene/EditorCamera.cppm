@@ -21,8 +21,8 @@ export namespace draconic::editor
     struct EditorCamera
     {
         Float3 position{ 6.0f, 5.0f, 10.0f };
-        f32 yaw   = -0.5f;    // 0 => looking down -Z
-        f32 pitch = -0.35f;   // tilt down toward the origin
+        f32 yaw   = 0.54f;    // 0 => looking down -Z; defaults aim at the origin (see LookAt)
+        f32 pitch = -0.41f;
         bool mouseCaptured = false;
         f32 moveSpeed = 8.0f, fastSpeed = 30.0f, lookSensitivity = 0.003f;
         f32 zoomSpeed = 1.5f;        // world units per wheel notch (dolly along forward)
@@ -37,6 +37,21 @@ export namespace draconic::editor
         [[nodiscard]] Float3 Forward() const { return RotateVector(Rotation(), Float3{ 0.0f, 0.0f, -1.0f }); }
         [[nodiscard]] Float3 Right() const { return RotateVector(Rotation(), Float3{ 1.0f, 0.0f, 0.0f }); }
         [[nodiscard]] Float3 Up() const { return RotateVector(Rotation(), Float3{ 0.0f, 1.0f, 0.0f }); }
+
+        /// Aim at `target` from the current position: solves yaw/pitch (no roll, so the horizon
+        /// stays level) and moves the orbit pivot there (focusDistance). Also the future
+        /// frame-selection seam.
+        void LookAt(Float3 target)
+        {
+            const Float3 delta = target - position;
+            const f32 length = Sqrt(Dot(delta, delta));
+            if (length < 0.0001f) { return; }
+            const Float3 dir = delta * (1.0f / length);
+            // forward = (-cos(pitch)*sin(yaw), sin(pitch), -cos(pitch)*cos(yaw))
+            pitch = Asin(Clamp(dir.y, -1.0f, 1.0f));
+            yaw = Atan2(-dir.x, -dir.z);
+            focusDistance = length;
+        }
 
         // Apply this frame's input from explicit (gated) devices.
         void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, f32 dt)

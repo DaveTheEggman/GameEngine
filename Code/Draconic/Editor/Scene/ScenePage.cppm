@@ -86,6 +86,9 @@ export namespace draconic::editor
             };
 
             m_router = MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+
+            // Start framed on the origin (grid center), orbit pivot there, horizon level.
+            m_camera.LookAt(Float3{ 0.0f, 0.0f, 0.0f });
         }
 
         // === UIEditorPage ===

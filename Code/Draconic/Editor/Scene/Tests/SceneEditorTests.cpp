@@ -54,6 +54,38 @@ TEST_CASE("editor-camera: orientation basis stays orthonormal under yaw/pitch")
     CHECK(def.Forward().y < 0.0f);
 }
 
+TEST_CASE("editor-camera: LookAt aims forward at the target with a level horizon")
+{
+    EditorCamera cam;
+    cam.position = Float3{ 6.0f, 5.0f, 10.0f };
+    cam.LookAt(Float3{ 0.0f, 0.0f, 0.0f });
+
+    // Forward matches the normalized direction to the target.
+    const Float3 toTarget = Normalized(Float3{ -6.0f, -5.0f, -10.0f });
+    const Float3 f = cam.Forward();
+    CHECK(f.x == doctest::Approx(toTarget.x).epsilon(0.001f));
+    CHECK(f.y == doctest::Approx(toTarget.y).epsilon(0.001f));
+    CHECK(f.z == doctest::Approx(toTarget.z).epsilon(0.001f));
+
+    // No roll: the right vector stays in the ground plane (level horizon).
+    CHECK(cam.Right().y == doctest::Approx(0.0f).epsilon(0.001f));
+
+    // Orbit pivot moved to the target.
+    CHECK(cam.focusDistance == doctest::Approx(12.688f).epsilon(0.001f));
+
+    // The struct defaults agree with LookAt(origin) from the default position.
+    EditorCamera def;
+    CHECK(def.yaw == doctest::Approx(cam.yaw).epsilon(0.02f));
+    CHECK(def.pitch == doctest::Approx(cam.pitch).epsilon(0.02f));
+
+    // Degenerate target (== position) is a safe no-op.
+    EditorCamera still;
+    still.position = Float3{ 1.0f, 2.0f, 3.0f };
+    const f32 yawBefore = still.yaw;
+    still.LookAt(Float3{ 1.0f, 2.0f, 3.0f });
+    CHECK(still.yaw == yawBefore);
+}
+
 TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument instances")
 {
     GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
