@@ -119,3 +119,44 @@ TEST_CASE("content: XML round-trip")
 {
     RunRoundTripTest(u8"draconic_content_test_db_xml", u8".xasset", MakeXmlFactory);
 }
+
+TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registrations")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"draconic_content_delete_db";
+    RemoveTree(dir);
+    NativeFileSystem mount(dir);
+    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+
+    Group* materials = db.RootGroup()->CreateGroup(u8"materials");
+    draconic::content::Instance* steel = materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+    REQUIRE(steel != nullptr);
+    const Guid id = steel->Id();
+
+    MaterialResource res;
+    res.shininess = 3;
+    REQUIRE(steel->WriteObject(res).IsOk());
+    const byte extra[] = { byte{ 1 }, byte{ 2 } };
+    REQUIRE(steel->WriteData(u8"extra", Span<const byte>(extra, 2)).IsOk());
+    REQUIRE(mount.Exists(u8"materials/steel.xasset"));
+    REQUIRE(mount.Exists(u8"materials/steel.extra.bin"));
+
+    // Explicit-guid creation (the cook driver's product path): same id in another DB works.
+    REQUIRE(db.DeleteInstance(id).IsOk());
+    CHECK(db.GetInstance(id) == nullptr);
+    CHECK(materials->GetInstance(u8"steel") == nullptr);
+    CHECK_FALSE(mount.Exists(u8"materials/steel.xasset"));
+    CHECK_FALSE(mount.Exists(u8"materials/steel.extra.bin"));
+
+    // Unknown ids are a clean NotFound; a fresh explicit-id instance is registered.
+    CHECK(db.DeleteInstance(id).Code() == ErrorCode::NotFound);
+    draconic::content::Instance* again =
+        materials->CreateInstanceWithId(id, u8"steel", MaterialResource::StaticType());
+    REQUIRE(again != nullptr);
+    CHECK(again->Id() == id);
+    CHECK(db.GetInstance(id) == again);
+
+    RemoveTree(dir);
+}

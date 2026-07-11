@@ -59,12 +59,16 @@ export namespace draconic::content
 
         // Opens a named data stream for reading, or null if absent.
         [[nodiscard]] UniquePtr<IStream> ReadData(StringView streamName) const;
+        // The raw on-disk envelope (identity header + primary object + stream directory) -
+        // the cook driver hashes it as the asset's settings/content fingerprint.
+        [[nodiscard]] UniquePtr<IStream> OpenEnvelope() const;
 
         // --- tooling / write ---
         [[nodiscard]] Status WriteObject(ISerializable& object);
         [[nodiscard]] Status WriteData(StringView streamName, Span<const byte> data);
 
     private:
+        friend class ContentDatabase;   // storage layout (envelope/sidecar paths) for delete
         [[nodiscard]] String EnvelopePath() const;     // "<path>.<ext>"
         [[nodiscard]] String DataPath(StringView streamName) const; // "<path>.<stream>.bin"
 
@@ -104,10 +108,14 @@ export namespace draconic::content
         // Creates a new instance of `primaryType` with a fresh Guid. The on-disk
         // file appears once WriteObject() is called.
         Instance* CreateInstance(StringView name, const TypeInfo& primaryType);
+        // Same, but with a caller-chosen Guid (the cook driver: product guid = source guid).
+        // Returns the existing instance when the name is already taken.
+        Instance* CreateInstanceWithId(const Guid& id, StringView name, const TypeInfo& primaryType);
 
         // --- internal (used by the database scanner) ---
         Group* AddChildGroup(StringView name);
         Instance* AddInstance(const Guid& id, StringView name, StringView typeNs, StringView typeName);
+        void RemoveInstance(Instance* instance);   // unlinks from this group (DB owns destruction)
 
     private:
         ContentDatabase* m_db;
@@ -164,6 +172,11 @@ export namespace draconic::content
         ContentDatabase& operator=(const ContentDatabase&) = delete;
 
         [[nodiscard]] Group* RootGroup() override { return m_root; }
+
+        // Delete an instance: its envelope + every data-stream sidecar are removed from the
+        // mount, and it is unregistered from the group tree and the GUID index. (Cook orphan
+        // sweep + browser Delete.) NotFound when the id is unknown.
+        Status DeleteInstance(const Guid& id);
 
         [[nodiscard]] Instance* GetInstance(const Guid& id) override
         {
@@ -342,6 +355,18 @@ export namespace draconic::content
         return instance;
     }
 
+    inline void Group::RemoveInstance(Instance* instance)
+    {
+        for (usize i = 0; i < m_instances.Size(); ++i)
+        {
+            if (m_instances[i] == instance)
+            {
+                m_instances.RemoveAt(i);
+                return;
+            }
+        }
+    }
+
     inline Group* Group::CreateGroup(StringView name)
     {
         Group* existing = GetGroup(name);
@@ -358,6 +383,14 @@ export namespace draconic::content
         Guid id = Guid::Generate(m_db->Rng());
         while (m_db->GetInstance(id) != nullptr) { id = Guid::Generate(m_db->Rng()); }
         // TypeInfo names are narrow ASCII; wrap in StringView.
+        const StringView ns(reinterpret_cast<const utf8char*>(primaryType.namespaceName));
+        const StringView nm(reinterpret_cast<const utf8char*>(primaryType.name));
+        return AddInstance(id, name, ns, nm);
+    }
+
+    inline Instance* Group::CreateInstanceWithId(const Guid& id, StringView name, const TypeInfo& primaryType)
+    {
+        if (Instance* existing = GetInstance(name)) { return existing; }
         const StringView ns(reinterpret_cast<const utf8char*>(primaryType.namespaceName));
         const StringView nm(reinterpret_cast<const utf8char*>(primaryType.name));
         return AddInstance(id, name, ns, nm);
@@ -457,5 +490,52 @@ export namespace draconic::content
         IWritableFileSystem* writable = m_db->Mount().AsWritable();
         if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
         return writable->Save(DataPath(streamName).AsView(), data);
+    }
+
+    inline UniquePtr<IStream> Instance::OpenEnvelope() const
+    {
+        return m_db->Mount().Open(EnvelopePath().AsView(), FileMode::Read);
+    }
+
+    inline Status ContentDatabase::DeleteInstance(const Guid& id)
+    {
+        Instance* instance = GetInstance(id);
+        if (instance == nullptr) { return Status{ ErrorCode::NotFound }; }
+        IWritableFileSystem* writable = m_mount->AsWritable();
+        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+
+        // Envelope + every "<name>.<stream>.bin" sidecar (streams keep no directory, so the
+        // group folder is enumerated for siblings with the instance's file prefix).
+        (void)writable->Delete(instance->EnvelopePath().AsView());
+        if (IEnumerableFileSystem* enumerable = m_mount->AsEnumerable())
+        {
+            const String folder = instance->OwningGroup().Path();
+            String prefix(instance->Name());
+            prefix.PushBack(utf8char('.'));
+            Array<DirEntry> entries;
+            if (enumerable->Enumerate(folder.AsView(), entries).IsOk())
+            {
+                for (const DirEntry& entry : entries)
+                {
+                    if (entry.isDirectory || entry.name.Size() <= prefix.Size()) { continue; }
+                    if (entry.name.AsView().SubStr(0, prefix.Size()) != prefix.AsView()) { continue; }
+                    if (!EndsWith(entry.name.AsView(), u8".bin")) { continue; }
+                    (void)writable->Delete(JoinPath(folder.AsView(), entry.name.AsView()).AsView());
+                }
+            }
+        }
+
+        m_byGuid.Remove(id);
+        instance->OwningGroup().RemoveInstance(instance);
+        for (usize i = 0; i < m_allInstances.Size(); ++i)
+        {
+            if (m_allInstances[i] == instance)
+            {
+                m_allInstances.RemoveAtSwap(i);
+                break;
+            }
+        }
+        DefaultAllocator().Delete(instance);
+        return Status{};
     }
 }
