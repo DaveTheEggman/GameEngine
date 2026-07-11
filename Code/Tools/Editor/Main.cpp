@@ -8,6 +8,7 @@
 //   run). Defaults to ./EditorProject.
 
 #include <cstdio>
+#include "Core/Log/Log.h"
 
 import draconic.core;
 import draconic.shell;
@@ -28,11 +29,21 @@ namespace edapp = draconic::editor::app;
 
 int main(int argc, char** argv)
 {
+    // Log capture FIRST (design doc §3.10): the editor buffer + console output go on the global
+    // logger before shell/device creation, so early startup logs reach the Console panel.
+    draconic::editor::EditorLogBuffer logBuffer;
+    ConsoleSink consoleSink;
+    GlobalLogger().AddSink(&logBuffer);
+    GlobalLogger().AddSink(&consoleSink);
+
     edapp::EditorAppConfig config;
     config.projectDirectory = String(argc > 1
         ? StringView(reinterpret_cast<const utf8char*>(argv[1]))
         : StringView(u8"EditorProject"));
     config.fontPath = String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
+    config.logBuffer = &logBuffer;
+
+    DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
 
     shell::WindowSettings ws;
     ws.title  = u8"Draconic Editor";
@@ -57,5 +68,10 @@ int main(int argc, char** argv)
     }
 
     edapp::EditorApplication app(static_cast<edapp::EditorAppConfig&&>(config));
-    return runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
+    const int code = runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
+
+    // The sinks are stack-owned and about to die; detach before returning.
+    GlobalLogger().RemoveSink(&logBuffer);
+    GlobalLogger().RemoveSink(&consoleSink);
+    return code;
 }

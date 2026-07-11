@@ -13,3 +13,4 @@ export import :selection;
 export import :project;
 export import :page;
 export import :context;
+export import :log_buffer;

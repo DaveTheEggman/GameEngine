@@ -15,6 +15,7 @@ target_sources(DraconicEditorCore
             Project.cppm
             Page.cppm
             Context.cppm
+            LogBuffer.cppm
             EditorCoreModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

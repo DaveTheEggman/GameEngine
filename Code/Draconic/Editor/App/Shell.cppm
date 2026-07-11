@@ -19,6 +19,7 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
 import :layout;
+import :log_view;
 
 using namespace draconic::core;
 
@@ -82,6 +83,9 @@ export namespace draconic::editor::app
         [[nodiscard]] tk::DockablePanel* ConsolePanel() const noexcept { return m_console; }
         [[nodiscard]] tk::DockablePanel* AssetsPanel() const noexcept { return m_assets; }
 
+        /// The Console panel's log view (fed by the app's EditorLogBuffer drain).
+        [[nodiscard]] LogView* Console() const noexcept { return m_logView.Get(); }
+
         // === Document area ===
 
         /// Dock a page's content view as a closable tab in the center document area (tabbed
@@ -121,8 +125,8 @@ export namespace draconic::editor::app
             m_welcome->SetPersistenceId(kPanelWelcome);
             m_welcome->SetClosable(false);
 
-            m_console = m_dock->AddPanel(u8"Console",
-                MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Console output")).Get());
+            m_logView = MakeRef<LogView>(DefaultAllocator());
+            m_console = m_dock->AddPanel(u8"Console", m_logView.Get());
             m_console->SetPersistenceId(kPanelConsole);
 
             m_assets = m_dock->AddPanel(u8"Assets",
@@ -145,6 +149,7 @@ export namespace draconic::editor::app
         RefPtr<tk::MenuBar> m_menuBar;
         RefPtr<tk::StatusBar> m_statusBar;
         RefPtr<tk::DockManager> m_dock;
+        RefPtr<LogView> m_logView;
 
         // Borrowed - the DockManager owns registered panels.
         tk::DockablePanel* m_welcome = nullptr;

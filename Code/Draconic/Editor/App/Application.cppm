@@ -41,6 +41,10 @@ export namespace draconic::editor::app
         String projectDirectory;               // opened on startup; scaffolded if no manifest yet
         String projectName = String(u8"Untitled");   // name used when scaffolding
         String fontPath;                       // UI font (.ttf); empty = no text (debug only)
+
+        // Log capture registered on GlobalLogger by main() BEFORE anything else runs, so early
+        // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
+        draconic::editor::EditorLogBuffer* logBuffer = nullptr;
     };
 
     class EditorApplication : public rt::IApplication
@@ -89,6 +93,7 @@ export namespace draconic::editor::app
 
         void OnUpdate(rt::IApplicationHost&, f32 dt) override
         {
+            DrainLog();
             if (m_uiHost) { m_uiHost->Update(dt); }
             if (m_dockHost) { m_dockHost->Tick(); }   // drag-follow for floating OS windows
         }
@@ -104,6 +109,18 @@ export namespace draconic::editor::app
         }
 
     private:
+        // Buffered engine logs -> the Console panel, once per frame on the main thread.
+        void DrainLog()
+        {
+            if (m_config.logBuffer == nullptr || m_shell.Console() == nullptr) { return; }
+            m_pendingLog.Clear();
+            m_logSequence = m_config.logBuffer->CollectSince(m_logSequence, m_pendingLog);
+            for (const draconic::editor::EditorLogEntry& entry : m_pendingLog)
+            {
+                m_shell.Console()->AddEntry(entry.level, entry.category.AsView(), entry.message.AsView());
+            }
+        }
+
         void OpenProject()
         {
             if (m_config.projectDirectory.IsEmpty())
@@ -192,6 +209,10 @@ export namespace draconic::editor::app
 
         EditorAppConfig m_config;
         rt::IApplicationHost* m_host = nullptr;   // borrowed
+
+        // Log drain state (see DrainLog).
+        Array<draconic::editor::EditorLogEntry> m_pendingLog;
+        u64 m_logSequence = 0;
 
         draconic::editor::EditorContext m_context;
         UniquePtr<draconic::editor::EditorProject> m_project;
