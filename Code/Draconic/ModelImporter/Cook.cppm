@@ -107,7 +107,8 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
         const String name = Format(u8"{}.mat.{}", namePrefix, i);
         content::Instance* inst = root->CreateInstance(name.AsView(), materials::MaterialSource::StaticType());
         if (inst == nullptr) { outMatGuids.PushBack(Guid{}); outAlbedo.PushBack(Guid{}); continue; }
-        editor::AssetBuildContext ctx{ StringView{}, inst };
+        editor::AssetBuildContext ctx;
+        ctx.output = inst;
         if (builder.Build(asset, ctx).IsOk()) { outMatGuids.PushBack(inst->Id()); }
         else                                  { outMatGuids.PushBack(Guid{}); }
 
@@ -148,7 +149,8 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
         animation::SkeletonAssetBuilder skelBuilder;
         content::Instance* skelInst = root->CreateInstance(Format(u8"{}.skeleton", namePrefix).AsView(), animation::SkeletonSource::StaticType());
         if (skelInst != nullptr) {
-            editor::AssetBuildContext ctx{ StringView{}, skelInst };
+            editor::AssetBuildContext ctx;
+            ctx.output = skelInst;
             if (skelBuilder.Build(skelAsset, ctx).IsOk()) { manifest.skeletonGuid = skelInst->Id(); }
         }
 
@@ -159,7 +161,8 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
             AnimationClipSourceFromModel(*animations[a], boneToJoint, Format(u8"{}.anim.{}", namePrefix, a).AsView(), clipAsset.source);
             content::Instance* clipInst = root->CreateInstance(Format(u8"{}.anim.{}", namePrefix, a).AsView(), animation::AnimationClipSource::StaticType());
             if (clipInst == nullptr) { continue; }
-            editor::AssetBuildContext ctx{ StringView{}, clipInst };
+            editor::AssetBuildContext ctx;
+            ctx.output = clipInst;
             if (clipBuilder.Build(clipAsset, ctx).IsOk()) { manifest.animationGuids.PushBack(clipInst->Id()); }
         }
     }
@@ -175,7 +178,8 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
         content::Instance* inst = root->CreateInstance(name.AsView(),
             skinned ? geometry::SkinnedMeshSource::StaticType() : geometry::StaticMeshSource::StaticType());
         if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
-        editor::AssetBuildContext ctx{ StringView{}, inst };
+        editor::AssetBuildContext ctx;
+        ctx.output = inst;
 
         Status s;
         if (skinned) {

@@ -65,6 +65,7 @@ export namespace draconic::particles
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override { return &ParticleEffectAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &ParticleEffectResource::StaticType(); }
         [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
         {
             if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }

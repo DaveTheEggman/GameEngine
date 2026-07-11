@@ -8,8 +8,8 @@
 //     runtime ShaderSource (name + inline per-stage HLSL) into the output DB.
 //   * ShaderImporter: an authoring helper that fills a ShaderAsset from file paths.
 //
-// Reads the .hlsl text through a NativeFileSystem rooted at the build context's
-// asset root (the same path ResolveSource joins). Never linked by the runtime.
+// Reads the .hlsl text through the build context's sources mount (all file access
+// via the VFS). Never linked by the runtime.
 
 module;
 #include "Core/Prelude.h"
@@ -27,32 +27,12 @@ using namespace draconic::core;
 
 namespace draconic::shaders
 {
-    // Read a whole text file (relative to `root`) into `out`. Returns NotFound if
-    // the file cannot be opened, Unknown on a short/failed read.
-    Status ReadTextFile(StringView root, StringView file, String& out)
-    {
-        draconic::vfs::NativeFileSystem fs(root);
-        UniquePtr<IStream> stream = fs.Open(file, FileMode::Read);
-        if (stream.Get() == nullptr) { return Status{ ErrorCode::NotFound }; }
-
-        const i64 size = stream->Size();
-        if (size < 0) { return Status{ ErrorCode::Unknown }; }
-        if (size == 0) { out = String{}; return Status{}; }
-
-        Array<byte> buf;
-        buf.Resize(static_cast<usize>(size));
-        const u64 read = stream->Read(buf.Data(), static_cast<u64>(size));
-        if (read != static_cast<u64>(size)) { return Status{ ErrorCode::Unknown }; }
-
-        out = String(StringView(reinterpret_cast<const utf8char*>(buf.Data()), static_cast<usize>(size)));
-        return Status{};
-    }
 }
 
 export namespace draconic::shaders
 {
     // Source asset: a shader name + the two HLSL files (vertex = inherited fileName,
-    // fragment alongside). Paths are relative to the asset root at cook time.
+    // fragment alongside). Paths are relative to the sources mount at cook time.
     class ShaderAsset final : public draconic::editor::Asset
     {
         DRACONIC_OBJECT(ShaderAsset, draconic::editor::Asset)
@@ -73,6 +53,16 @@ export namespace draconic::shaders
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override { return &ShaderAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &ShaderSource::StaticType(); }
+
+        // The fragment file is a second source input (vertex = the implicit fileName): editing
+        // it must dirty this shader's recipe hash.
+        void ScanDependencies(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext&,
+                              draconic::editor::AssetDependencies& out) override
+        {
+            const ShaderAsset& sa = static_cast<const ShaderAsset&>(asset);
+            if (!sa.fragmentFile.IsEmpty()) { out.files.PushBack(String(sa.fragmentFile.AsView())); }
+        }
 
         [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
         {
@@ -82,9 +72,9 @@ export namespace draconic::shaders
             ShaderSource source;
             source.name = sa.name;
 
-            Status read = ReadTextFile(ctx.assetRoot, sa.fileName.AsView(), source.vertexSource);
+            Status read = ReadSourceText(ctx, sa.fileName.AsView(), source.vertexSource);
             if (!read.IsOk()) { return read; }
-            read = ReadTextFile(ctx.assetRoot, sa.fragmentFile.AsView(), source.fragmentSource);
+            read = ReadSourceText(ctx, sa.fragmentFile.AsView(), source.fragmentSource);
             if (!read.IsOk()) { return read; }
 
             return ctx.output->WriteObject(source);

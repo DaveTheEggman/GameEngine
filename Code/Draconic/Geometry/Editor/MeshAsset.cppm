@@ -54,6 +54,7 @@ public:
 class StaticMeshAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
 public:
     [[nodiscard]] const TypeInfo* AssetType() const override { return &StaticMeshAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &StaticMeshSource::StaticType(); }
     [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
         const StaticMeshAsset& ma = static_cast<const StaticMeshAsset&>(asset);
         if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
@@ -65,6 +66,7 @@ public:
 class SkinnedMeshAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
 public:
     [[nodiscard]] const TypeInfo* AssetType() const override { return &SkinnedMeshAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &SkinnedMeshSource::StaticType(); }
     [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
         const SkinnedMeshAsset& ma = static_cast<const SkinnedMeshAsset&>(asset);
         if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }

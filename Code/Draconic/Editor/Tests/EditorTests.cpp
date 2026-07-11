@@ -5,6 +5,7 @@
 import draconic.core;
 import draconic.content;
 import draconic.editor;
+import draconic.vfs;
 using namespace draconic::core;
 using namespace draconic::editor;
 
@@ -41,10 +42,68 @@ TEST_CASE("editor: Asset carries a source file path + settings (round-trips)")
     CHECK(b.quality == 7);
 }
 
-TEST_CASE("editor: DefaultAssetBuilder resolves source paths against the asset root")
+namespace
 {
-    AssetBuildContext ctx{ u8"assets", nullptr };
-    CHECK(DefaultAssetBuilder::ResolveSource(ctx, u8"tex/a.png") == StringView(u8"assets/tex/a.png"));
-    AssetBuildContext rootless{ u8"", nullptr };
-    CHECK(DefaultAssetBuilder::ResolveSource(rootless, u8"tex/a.png") == StringView(u8"tex/a.png"));
+    class WidgetBuilder final : public DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override { return &WidgetAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &WidgetAsset::StaticType(); }
+        [[nodiscard]] u32 Version() const override { return 3; }
+        void ScanDependencies(const Asset&, AssetBuildContext&, AssetDependencies& out) override
+        {
+            out.files.PushBack(String(u8"extra.bin"));
+        }
+        [[nodiscard]] Status Build(const Asset&, AssetBuildContext&) override { return Status{}; }
+    };
+}
+
+TEST_CASE("editor: source files read through the VFS mount")
+{
+    draconic::vfs::NativeFileSystem mount(u8".");
+    const byte payload[3] = { byte{'a'}, byte{'b'}, byte{'c'} };
+    REQUIRE(mount.AsWritable()->Save(u8"editor_vfs_src.txt", Span<const byte>(payload, 3)).IsOk());
+
+    AssetBuildContext ctx;
+    ctx.sources = &mount;
+
+    Result<Array<byte>> bytes = DefaultAssetBuilder::ReadSourceBytes(ctx, u8"editor_vfs_src.txt");
+    REQUIRE(bytes.HasValue());
+    CHECK(bytes.Value().Size() == 3u);
+
+    String text;
+    REQUIRE(DefaultAssetBuilder::ReadSourceText(ctx, u8"editor_vfs_src.txt", text).IsOk());
+    CHECK(text == StringView(u8"abc"));
+
+    // Missing file / missing mount are clean failures.
+    CHECK_FALSE(DefaultAssetBuilder::ReadSourceBytes(ctx, u8"editor_vfs_missing.txt").HasValue());
+    AssetBuildContext empty;
+    CHECK_FALSE(DefaultAssetBuilder::ReadSourceBytes(empty, u8"editor_vfs_src.txt").HasValue());
+
+    REQUIRE(mount.AsWritable()->Delete(u8"editor_vfs_src.txt").IsOk());
+}
+
+TEST_CASE("editor: builder registry routes by asset type; v2 hooks surface")
+{
+    BuilderRegistry registry;
+    CHECK(registry.Find(&WidgetAsset::StaticType()) == nullptr);
+
+    registry.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<WidgetBuilder>(), DefaultAllocator()));
+    CHECK(registry.Count() == 1u);
+
+    IAssetBuilder* builder = registry.Find(&WidgetAsset::StaticType());
+    REQUIRE(builder != nullptr);
+    CHECK(builder->Version() == 3u);
+    CHECK(registry.FindByTypeName(u8"WidgetAsset") == builder);
+    CHECK(registry.Find(&TypeOf<f32>()) == nullptr);
+
+    // ScanDependencies collects declared extras; the default declares nothing.
+    WidgetAsset asset;
+    AssetBuildContext ctx;
+    AssetDependencies deps;
+    builder->ScanDependencies(asset, ctx, deps);
+    REQUIRE(deps.files.Size() == 1u);
+    CHECK(deps.files[0] == StringView(u8"extra.bin"));
+    CHECK(deps.reads.IsEmpty());
+    CHECK(deps.references.IsEmpty());
 }

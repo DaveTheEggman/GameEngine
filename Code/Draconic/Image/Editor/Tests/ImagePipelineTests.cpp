@@ -58,7 +58,10 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
         asset.colorSpace = ImageColorSpace::Srgb;
 
         ImageAssetBuilder builder;
-        draconic::editor::AssetBuildContext ctx{ u8"", inst };
+        NativeFileSystem srcMount(u8".");
+        draconic::editor::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
@@ -100,7 +103,10 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     ImageAsset asset;
     asset.fileName = u8"does_not_exist_xyz.png";
     ImageAssetBuilder builder;
-    draconic::editor::AssetBuildContext ctx{ u8"", inst };
+    NativeFileSystem srcMount2(u8".");
+        draconic::editor::AssetBuildContext ctx;
+        ctx.sources = &srcMount2;
+        ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
 
     RemoveTree();

@@ -64,7 +64,10 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
 
         ShaderAssetBuilder builder;
         REQUIRE(builder.AssetType() == &ShaderAsset::StaticType());
-        draconic::editor::AssetBuildContext ctx{ u8"draconic_shader_edit", inst };
+        NativeFileSystem srcMount(u8"draconic_shader_edit");
+        draconic::editor::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
@@ -95,7 +98,10 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
     ShaderImporter::Import(u8"missing", u8"does_not_exist.vs.hlsl", u8"does_not_exist.fs.hlsl", asset);
 
     ShaderAssetBuilder builder;
-    draconic::editor::AssetBuildContext ctx{ u8"draconic_shader_edit", inst };
+    NativeFileSystem srcMount2(u8"draconic_shader_edit");
+        draconic::editor::AssetBuildContext ctx;
+        ctx.sources = &srcMount2;
+        ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
 
     RemoveTree();

@@ -102,15 +102,18 @@ export namespace draconic::texture
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override { return &TextureAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &TextureResource::StaticType(); }
 
         [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
         {
             const TextureAsset& ta = static_cast<const TextureAsset&>(asset); // guarded by AssetType()
             if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
 
-            const String path = ResolveSource(ctx, ta.fileName);
+            Result<Array<byte>> bytes = ReadSourceBytes(ctx, ta.fileName.AsView());
+            if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
             image::Image image;
-            const Status loaded = image::io::LoadImage(path, image);
+            const Status loaded = image::io::LoadImageFromMemory(
+                Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()), bytes.Value().Size()), image);
             if (!loaded.IsOk()) { return loaded; }
 
             TextureResource resource;

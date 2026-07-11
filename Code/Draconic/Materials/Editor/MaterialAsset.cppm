@@ -45,6 +45,7 @@ public:
 class MaterialAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
 public:
     [[nodiscard]] const TypeInfo* AssetType() const override { return &MaterialAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &MaterialSource::StaticType(); }
 
     [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
         const MaterialAsset& ma = static_cast<const MaterialAsset&>(asset);   // guarded by AssetType()

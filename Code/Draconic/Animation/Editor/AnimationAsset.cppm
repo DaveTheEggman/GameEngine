@@ -55,6 +55,7 @@ public:
 class SkeletonAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
 public:
     [[nodiscard]] const TypeInfo* AssetType() const override { return &SkeletonAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &SkeletonSource::StaticType(); }
     [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
         const SkeletonAsset& a = static_cast<const SkeletonAsset&>(asset);
         return ctx.output->WriteObject(const_cast<SkeletonSource&>(a.source));
@@ -64,15 +65,27 @@ public:
 class AnimationClipAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
 public:
     [[nodiscard]] const TypeInfo* AssetType() const override { return &AnimationClipAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &AnimationClipSource::StaticType(); }
     [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
         const AnimationClipAsset& a = static_cast<const AnimationClipAsset&>(asset);
         return ctx.output->WriteObject(const_cast<AnimationClipSource&>(a.source));
     }
 };
 
+// Registers the animation asset types for content-DB construction + deserialization.
+inline void RegisterAnimationAssets() {
+    GlobalTypeRegistry().Register(SkeletonAsset::StaticType());
+    GlobalTypeRegistry().Register(AnimationClipAsset::StaticType());
+    GlobalTypeRegistry().Register(AnimationGraphAsset::StaticType());
+    RegisterSerializable<SkeletonAsset>();
+    RegisterSerializable<AnimationClipAsset>();
+    RegisterSerializable<AnimationGraphAsset>();
+}
+
 class AnimationGraphAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
 public:
     [[nodiscard]] const TypeInfo* AssetType() const override { return &AnimationGraphAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &AnimationGraphSource::StaticType(); }
     [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
         const AnimationGraphAsset& a = static_cast<const AnimationGraphAsset&>(asset);
         return ctx.output->WriteObject(const_cast<AnimationGraphSource&>(a.source));

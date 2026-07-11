@@ -59,7 +59,9 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
             ParticleCurveFloat2::Linear(Float2{ 1, 1 }, Float2{ 3, 3 });
 
         ParticleEffectAssetBuilder builder;
-        draconic::editor::AssetBuildContext ctx{ StringView{}, inst, &db };
+        draconic::editor::AssetBuildContext ctx;
+        ctx.output = inst;
+        ctx.db = &db;
         REQUIRE(builder.AssetType() == &ParticleEffectAsset::StaticType());
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -125,7 +127,9 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
         asset.SetSystemTexturePath(0, u8"smoketex");
 
         ParticleEffectAssetBuilder builder;
-        draconic::editor::AssetBuildContext ctx{ StringView{}, fxInst, &db };
+        draconic::editor::AssetBuildContext ctx;
+        ctx.output = fxInst;
+        ctx.db = &db;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 

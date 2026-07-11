@@ -907,7 +907,9 @@ namespace
             px::ParticleEffectAsset asset;
             BuildCookedEffect(asset.Effect());
             px::ParticleEffectAssetBuilder builder;
-            editor::AssetBuildContext ctx{ core::StringView{}, inst, m_contentDb.Get() };
+            editor::AssetBuildContext ctx;
+            ctx.output = inst;
+            ctx.db = m_contentDb.Get();
             if (!builder.Build(asset, ctx).IsOk()) { return; }
 
             // LOAD: bind the cooked resource back through the manager + factory (runtime path).

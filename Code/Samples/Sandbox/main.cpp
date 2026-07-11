@@ -402,7 +402,10 @@ namespace
             content::Instance* inst = root->CreateInstance(u8"logo.tex", texture::TextureResource::StaticType());
             if (inst == nullptr) { return nullptr; }
             texture::TextureAssetBuilder builder;
-            draconic::editor::AssetBuildContext ctx{ imageDir, inst };   // assetRoot resolves the PNG
+            draconic::vfs::NativeFileSystem imageMount(imageDir);
+            draconic::editor::AssetBuildContext ctx;
+            ctx.sources = &imageMount;   // the mount resolves the PNG
+            ctx.output = inst;
             if (!builder.Build(asset, ctx).IsOk()) { return nullptr; }
 
             // The runtime factory product is a texture::Texture (not the cooked record); it owns the GPU view.

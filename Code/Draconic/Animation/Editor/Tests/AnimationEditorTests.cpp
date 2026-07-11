@@ -47,7 +47,6 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
 
         SkeletonAssetBuilder builder;
         draconic::editor::AssetBuildContext ctx;
-        ctx.assetRoot = StringView{};
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }

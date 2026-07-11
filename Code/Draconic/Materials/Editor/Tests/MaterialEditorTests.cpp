@@ -58,7 +58,8 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
         MaterialAssetBuilder builder;
         REQUIRE(builder.AssetType() == &MaterialAsset::StaticType());
-        draconic::editor::AssetBuildContext ctx{ u8"", inst };
+        draconic::editor::AssetBuildContext ctx;
+        ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 

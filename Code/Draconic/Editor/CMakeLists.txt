@@ -4,7 +4,7 @@
 add_library(DraconicEditor STATIC)
 add_library(Draconic::Editor ALIAS DraconicEditor)
 
-target_link_libraries(DraconicEditor PUBLIC Draconic::Core Draconic::Content Draconic::Policy)
+target_link_libraries(DraconicEditor PUBLIC Draconic::Core Draconic::Content Draconic::VFS Draconic::Policy)
 
 target_sources(DraconicEditor
     PUBLIC

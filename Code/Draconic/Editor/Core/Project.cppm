@@ -6,7 +6,7 @@
 //   <root>/Project.xml   shared manifest (committed) - ProjectSettings via the XML serializer
 //   <root>/Content/      SOURCE content DB (XML factory, .xasset) - authored, committed
 //   <root>/Sources/      raw import sources (.fbx/.png/...) referenced by Asset::fileName
-//                        (this dir == AssetBuildContext.assetRoot) - committed
+//                        (mounted as AssetBuildContext.sources at cook time) - committed
 //   <root>/Cooked/       cooked content DB (binary factory, .rasset) - generated, gitignored
 //   <root>/Editor/       per-user editor state (dock layout, open pages) - gitignored
 //   <root>/.cache/       thumbnails + incremental-cook hash db - gitignored
@@ -125,7 +125,7 @@ export namespace draconic::editor
         /// The cooked output database (binary envelopes) - what the runtime loads.
         [[nodiscard]] draconic::content::ContentDatabase& CookedDb() noexcept { return *m_cookedDb; }
 
-        /// Root for raw import sources (== AssetBuildContext.assetRoot).
+        /// Root for raw import sources (mounted as AssetBuildContext.sources at cook time).
         [[nodiscard]] String SourcesRoot() const { return PathJoin(m_directory.AsView(), kProjectSourcesDir); }
         /// Per-user editor state directory (dock layout, open pages).
         [[nodiscard]] String EditorStateRoot() const { return PathJoin(m_directory.AsView(), kProjectEditorDir); }

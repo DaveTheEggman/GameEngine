@@ -66,7 +66,10 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
         TextureAssetBuilder builder;
         REQUIRE(builder.AssetType() == &TextureAsset::StaticType());
-        draconic::editor::AssetBuildContext ctx{ u8"", inst };
+        draconic::vfs::NativeFileSystem srcMount(u8".");
+        draconic::editor::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
@@ -116,7 +119,10 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     TextureAsset asset;
     asset.fileName = u8"does_not_exist_xyz.png";
     TextureAssetBuilder builder;
-    draconic::editor::AssetBuildContext ctx{ u8"", inst };
+    draconic::vfs::NativeFileSystem srcMount(u8".");
+        draconic::editor::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
 
     RemoveTree();

@@ -48,7 +48,8 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
 
         StaticMeshAssetBuilder builder;
         REQUIRE(builder.AssetType() == &StaticMeshAsset::StaticType());
-        draconic::editor::AssetBuildContext ctx{ u8"", inst };
+        draconic::editor::AssetBuildContext ctx;
+        ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
@@ -92,7 +93,8 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
         MeshImporter::Import(*mesh, asset);
 
         SkinnedMeshAssetBuilder builder;
-        draconic::editor::AssetBuildContext ctx{ u8"", inst };
+        draconic::editor::AssetBuildContext ctx;
+        ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
