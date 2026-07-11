@@ -9,8 +9,10 @@
 //   - rows are EditableLabels: double-click / slow-click renames in place (single clicks pass
 //     through to selection by design), F2 / context-menu Rename triggers the same edit,
 //     Delete deletes;
-//   - drag a row INTO another = reparent (the toolkit's drop-into zones; between-rows reorder
-//     is refused until the Scene grows sibling-order APIs).
+//   - drag a row INTO another = reparent; drag to a row EDGE = sibling reorder (insert-before
+//     boundary, incl. top of the list and end-of-root-list below the last row);
+//   - a header row holds [+] (create root entity - always reachable even when rows fill the
+//     pane and swallow every right-click) and a filter box (matches keep their ancestors).
 
 module;
 #include "Core/Prelude.h"
@@ -42,6 +44,26 @@ export namespace draconic::editor
         {
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
+
+            // Header: [+] create root entity | filter box.
+            auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            header->Direction = ui::Orientation::Horizontal;
+            header->Spacing = 4.0f;
+            header->Padding = ui::Thickness{ 4, 3 };
+            auto addButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+"));
+            {
+                SceneEditContext* editPtr = m_edit;
+                addButton->OnClick.Add([editPtr](ui::ButtonBase*) { (void)editPtr->CreateEntity(u8"Entity"); });
+                header->AddView(addButton.Get());
+            }
+            m_filterEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            m_filterEdit->SetPlaceholder(u8"Filter...");
+            {
+                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                grow->Grow = 1.0f;
+                header->AddView(m_filterEdit.Get(), grow);
+            }
+            column->AddView(header.Get());
 
             m_adapter = MakeUnique<Adapter>(DefaultAllocator(), *this);
             m_tree = MakeRef<tk::DraggableTreeView>(DefaultAllocator());
@@ -188,12 +210,36 @@ export namespace draconic::editor
                 static_cast<Row*>(view)->Bind(node.id, node.name.AsView(), depth);
             }
 
-            // Between-rows reorder is unsupported (Scene has no sibling-order API yet)...
-            [[nodiscard]] bool CanMove(i32, i32) override { return false; }
-            void MoveItem(i32, i32) override {}
+            // Between-rows reorder: `toPosition` is the insert-before BOUNDARY (0..count;
+            // count = end of the root list). Maps to a MoveEntityBefore command.
+            [[nodiscard]] bool CanMove(i32 fromPosition, i32 toPosition) override
+            {
+                const Guid from = m_owner->GuidAtFlat(fromPosition);
+                if (from == Guid{}) { return false; }
+                if (toPosition >= m_owner->FlatCount()) { return true; }   // end of root list
+                const Guid before = m_owner->GuidAtFlat(toPosition);
+                if (before == Guid{} || before == from) { return false; }
+                // Cycle: the slot's parent lies inside the moved entity's subtree.
+                const dscene::EntityHandle parent =
+                    m_owner->m_edit->Scene().GetParent(m_owner->m_edit->Resolve(before));
+                if (parent.IsAssigned()
+                    && m_owner->m_edit->IsSelfOrAncestor(m_owner->m_edit->Scene().GetEntityId(parent), from))
+                {
+                    return false;
+                }
+                return true;
+            }
+            void MoveItem(i32 fromPosition, i32 toPosition) override
+            {
+                const Guid from = m_owner->GuidAtFlat(fromPosition);
+                if (from == Guid{}) { return; }
+                const Guid before = (toPosition < m_owner->FlatCount())
+                    ? m_owner->GuidAtFlat(toPosition) : Guid{};
+                m_owner->m_edit->MoveEntityBefore(from, before);
+            }
 
-            // ...but drop-INTO reparents (cycle-guarded here for the hover feedback; the
-            // command re-checks on execute).
+            // Drop-INTO reparents (cycle-guarded here for the hover feedback; the command
+            // re-checks on execute).
             [[nodiscard]] bool CanDropInto(i32 fromPosition, i32 toPosition) override
             {
                 const Guid from = m_owner->GuidAtFlat(fromPosition);
@@ -247,11 +293,29 @@ export namespace draconic::editor
                 menu->Show(self->Context, screenPos.x, screenPos.y);
             });
 
+            // Right-click on empty space below the rows: the ListView consumes ALL right-clicks
+            // (its contract) and routes background ones here - the OnMouseDown fallback on this
+            // view never fires while the tree fills the pane.
+            tree->InternalListView()->OnBackgroundRightClicked.Add([self](f32 x, f32 y) {
+                if (self->Context == nullptr) { return; }
+                SceneEditContext* edit = self->m_edit;
+                auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+                menu->AddItem(u8"Create Entity", [edit]() { (void)edit->CreateEntity(u8"Entity"); });
+                const Float2 screenPos =
+                    self->m_tree->InternalTreeView()->InternalListView()->LocalToScreen(Float2{ x, y });
+                menu->Show(self->Context, screenPos.x, screenPos.y);
+            });
+
             tree->OnItemKeyDown.Add([self](i32 nodeId, ui::KeyEventArgs& e) {
                 const Guid id = self->GuidOfNode(nodeId);
                 if (id == Guid{}) { return; }
                 if (e.Key == ui::KeyCode::F2) { self->BeginRename(id); e.Handled = true; }
                 else if (e.Key == ui::KeyCode::Delete) { self->m_edit->DestroyEntity(id); e.Handled = true; }
+            });
+
+            m_filterEdit->OnTextChanged.Add([self](ui::EditText* edit) {
+                self->m_filter = String(edit->Text());
+                self->RebuildSnapshot();   // filter changes rebuild regardless of revision
             });
 
             // Tree selection -> context selection is on click above; context -> tree here.
@@ -261,19 +325,52 @@ export namespace draconic::editor
             };
         }
 
+        // ASCII-case-insensitive substring match (v1 filter; UTF-8 folding later if needed).
+        [[nodiscard]] static bool MatchesFilter(StringView name, StringView filter)
+        {
+            if (filter.IsEmpty()) { return true; }
+            if (name.Size() < filter.Size()) { return false; }
+            auto lower = [](utf8char c) {
+                return (c >= utf8char('A') && c <= utf8char('Z')) ? static_cast<utf8char>(c + 32) : c;
+            };
+            for (usize i = 0; i + filter.Size() <= name.Size(); ++i)
+            {
+                bool match = true;
+                for (usize j = 0; j < filter.Size(); ++j)
+                {
+                    if (lower(name[i + j]) != lower(filter[j])) { match = false; break; }
+                }
+                if (match) { return true; }
+            }
+            return false;
+        }
+
+        // True if the entity or ANY descendant matches (so ancestors of matches stay visible).
+        [[nodiscard]] bool SubtreeMatches(dscene::Scene& scene, dscene::EntityHandle e) const
+        {
+            if (MatchesFilter(scene.GetEntityName(e), m_filter.AsView())) { return true; }
+            for (dscene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
+                 c = scene.GetNextSibling(c))
+            {
+                if (SubtreeMatches(scene, c)) { return true; }
+            }
+            return false;
+        }
+
         void RebuildSnapshot()
         {
             m_nodes.Clear();
             m_roots.Clear();
             dscene::Scene& scene = m_edit->Scene();
 
-            // Roots first (scene iteration order), then depth-first children.
-            scene.ForEachEntity([this, &scene](dscene::EntityHandle e) {
-                if (!scene.GetParent(e).IsAssigned())
-                {
-                    m_roots.PushBack(AddNode(scene, e, 0));
-                }
-            });
+            // Roots in LIST order (the order reorder edits maintain and serialization
+            // preserves), then depth-first children. With a filter, keep nodes whose subtree
+            // contains a match.
+            for (dscene::EntityHandle r = scene.GetFirstRoot(); r.IsAssigned();
+                 r = scene.GetNextSibling(r))
+            {
+                if (SubtreeMatches(scene, r)) { m_roots.PushBack(AddNode(scene, r, 0)); }
+            }
 
             // Rebuild the flat view (SetAdapter recreates the flattened tree), expanded by
             // default so structural edits stay visible (per-rebuild collapse is v1-lossy).
@@ -300,6 +397,7 @@ export namespace draconic::editor
             for (dscene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
                  c = scene.GetNextSibling(c))
             {
+                if (!SubtreeMatches(scene, c)) { continue; }
                 const i32 child = AddNode(scene, c, depth + 1);
                 m_nodes[static_cast<usize>(nodeId)].children.PushBack(child);
             }
@@ -316,6 +414,12 @@ export namespace draconic::editor
         {
             ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
             return (flat != nullptr) ? GuidOfNode(flat->GetNodeId(flatPosition)) : Guid{};
+        }
+
+        [[nodiscard]] i32 FlatCount() const
+        {
+            ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
+            return (flat != nullptr) ? flat->ItemCount() : 0;
         }
 
         void SyncSelectionToTree()
@@ -343,10 +447,12 @@ export namespace draconic::editor
 
         SceneEditContext* m_edit;   // borrowed (the page owns it)
         RefPtr<tk::DraggableTreeView> m_tree;
+        RefPtr<ui::EditText> m_filterEdit;
         UniquePtr<Adapter> m_adapter;
         Array<Node> m_nodes;    // pre-order snapshot of the scene (nodeId = index)
         Array<i32> m_roots;
         u64 m_revision = ~0ull;
+        String m_filter;
         bool m_syncing = false;
     };
 

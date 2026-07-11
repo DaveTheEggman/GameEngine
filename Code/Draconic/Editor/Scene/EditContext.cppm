@@ -84,12 +84,21 @@ export namespace draconic::editor
                 DefaultAllocator().New<RenameEntityCommand>(*this, entity, newName), DefaultAllocator()));
         }
 
-        /// Reparent an entity (`newParent` empty = make root). Cycles are refused (the command's
-        /// Execute fails and the stack drops it).
+        /// Reparent an entity (`newParent` empty = make root; appended at the END of the new
+        /// parent's children). Cycles are refused (the command's Execute fails and drops).
         void ReparentEntity(const Guid& entity, const Guid& newParent)
         {
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
                 DefaultAllocator().New<ReparentEntityCommand>(*this, entity, newParent), DefaultAllocator()));
+        }
+
+        /// Sibling reorder: move an entity immediately BEFORE `sibling` (under sibling's
+        /// parent), or - when `sibling` is empty - to the END of the root list. Undo restores
+        /// the previous parent AND position. Cycles/no-ops are refused.
+        void MoveEntityBefore(const Guid& entity, const Guid& sibling)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<MoveEntityCommand>(*this, entity, sibling), DefaultAllocator()));
         }
 
         /// True if `possibleAncestor` is `entity` itself or one of its ancestors.
@@ -329,6 +338,68 @@ export namespace draconic::editor
             Guid m_entity;
             Guid m_newParent;
             Guid m_oldParent;
+            bool m_hasOld = false;
+        };
+
+        // Sibling reorder: place `entity` before `sibling` (empty sibling = end of the ROOT
+        // list). Undo restores the exact previous position via the captured old next-sibling
+        // (empty = was last under its old parent).
+        class MoveEntityCommand final : public IEditorCommand
+        {
+        public:
+            MoveEntityCommand(SceneEditContext& ctx, const Guid& entity, const Guid& sibling)
+                : m_ctx(&ctx), m_entity(entity), m_sibling(sibling) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                dscene::Scene& scene = m_ctx->Scene();
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                if (!e.IsAssigned()) { return false; }
+                const dscene::EntityHandle sibling = m_ctx->Resolve(m_sibling);
+                if (m_sibling != Guid{} && !sibling.IsAssigned()) { return false; }
+                if (m_sibling == m_entity) { return false; }
+                // Cycle: the target slot's PARENT lies inside the moved entity's own subtree.
+                if (sibling.IsAssigned())
+                {
+                    const dscene::EntityHandle parent = scene.GetParent(sibling);
+                    if (parent.IsAssigned()
+                        && m_ctx->IsSelfOrAncestor(scene.GetEntityId(parent), m_entity))
+                    {
+                        return false;
+                    }
+                }
+
+                if (!m_hasOld)
+                {
+                    m_oldParent = scene.GetEntityId(scene.GetParent(e));
+                    m_oldNext = scene.GetEntityId(scene.GetNextSibling(e));
+                    m_hasOld = true;
+                }
+
+                const u64 before = scene.Revision();
+                if (sibling.IsAssigned()) { scene.MoveBefore(e, sibling); }
+                else { scene.SetParent(e, dscene::EntityHandle::Invalid()); }   // end of root list
+                return scene.Revision() != before;   // unchanged position = no-op, drop
+            }
+
+            void Undo() override
+            {
+                dscene::Scene& scene = m_ctx->Scene();
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                if (!e.IsAssigned()) { return; }
+                const dscene::EntityHandle oldNext = m_ctx->Resolve(m_oldNext);
+                if (oldNext.IsAssigned()) { scene.MoveBefore(e, oldNext); }
+                else { scene.SetParent(e, m_ctx->Resolve(m_oldParent)); }   // was last: append
+            }
+
+            [[nodiscard]] StringView TypeId() const override { return u8"move_entity"; }
+
+        private:
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            Guid m_sibling;
+            Guid m_oldParent;
+            Guid m_oldNext;
             bool m_hasOld = false;
         };
 

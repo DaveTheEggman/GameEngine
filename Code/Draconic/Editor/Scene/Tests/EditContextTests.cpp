@@ -178,3 +178,44 @@ TEST_CASE("scene-edit: destroying a missing entity is a safe no-op")
     edit.RenameEntity(Guid{ 1, 2 }, u8"nope");   // failed execute -> dropped
     CHECK(commands.Size() == 0);
 }
+
+TEST_CASE("scene-edit: sibling reorder command with undo/redo")
+{
+    dscene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+
+    const Guid a = edit.CreateEntity(u8"A");
+    const Guid b = edit.CreateEntity(u8"B");
+    const Guid c = edit.CreateEntity(u8"C");
+
+    // Move C before A: order c, a, b.
+    edit.MoveEntityBefore(c, a);
+    CHECK(scene.GetFirstRoot() == edit.Resolve(c));
+
+    // Undo restores the exact old position (C was last).
+    commands.Undo();
+    CHECK(scene.GetFirstRoot() == edit.Resolve(a));
+    CHECK(scene.GetNextSibling(edit.Resolve(b)) == edit.Resolve(c));
+    commands.Redo();
+    CHECK(scene.GetFirstRoot() == edit.Resolve(c));
+
+    // Move A to the END of the root list (empty sibling): c, b, a.
+    edit.MoveEntityBefore(a, Guid{});
+    CHECK(scene.GetNextSibling(edit.Resolve(b)) == edit.Resolve(a));
+    commands.Undo();   // back to c, a, b (A was before B)
+    CHECK(scene.GetNextSibling(edit.Resolve(c)) == edit.Resolve(a));
+    CHECK(scene.GetNextSibling(edit.Resolve(a)) == edit.Resolve(b));
+
+    // No-op move (already before B) is dropped, not pushed.
+    const usize size = commands.Size();
+    edit.MoveEntityBefore(a, b);
+    CHECK(commands.Size() == size);
+
+    // Cycle refused: moving A before a slot under its own subtree.
+    edit.ReparentEntity(b, a);   // b under a
+    const Guid d = edit.CreateEntity(u8"D", b);
+    const usize size2 = commands.Size();
+    edit.MoveEntityBefore(a, d);   // slot parent = b, inside a's subtree
+    CHECK(commands.Size() == size2);
+}
