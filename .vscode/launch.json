@@ -281,6 +281,14 @@
             "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample030_RenderBundles/DraconicSample030_RenderBundles.exe" }
         },
         {
+            "name": "UISandbox",
+            "type": "lldb",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/build/clang/Code/Samples/UI/UISandbox",
+            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/UI/UISandbox/UISandbox" },
+            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/UI/UISandbox/UISandbox.exe" }
+        },
+        {
             "name": "Smoketest",
             "type": "lldb",
             "request": "launch",
