@@ -79,6 +79,7 @@ add_subdirectory(Code/Draconic/VFS)       # byte access over Core stream primiti
 add_subdirectory(Code/Draconic/Content)   # content database over Core + VFS
 add_subdirectory(Code/Draconic/Resource)  # resource manager over content
 add_subdirectory(Code/Draconic/Editor)     # asset-pipeline authoring base (tooling)
+add_subdirectory(Code/Draconic/Editor/Cook) # incremental cook driver + pipeline DB (tooling, headless)
 add_subdirectory(Code/Draconic/Editor/Core) # headless editor domain: context/registries/commands/pages/project (tooling)
 add_subdirectory(Code/Draconic/RHI)   # depends only on Core (foundational sibling of Runtime)
 add_subdirectory(Code/Draconic/RenderGraph)  # render graph over RHI
@@ -110,6 +111,7 @@ add_subdirectory(Code/Draconic/Imgui)     # Dear ImGui debug UI (RHI renderer + 
 add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout persistence + EditorApplication)
 add_subdirectory(Code/Draconic/Editor/Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
 add_subdirectory(Code/Tools/Editor)        # RaptorEditor executable (editor assembly)
+add_subdirectory(Code/Tools/Cook)          # RaptorCook CLI cooker (headless)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Code/Draconic/Core/Tests)
