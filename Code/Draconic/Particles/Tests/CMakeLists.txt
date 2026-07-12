@@ -2,10 +2,12 @@
 
 add_executable(DraconicParticlesTests
     TestsMain.cpp
-    ParticlesTests.cpp)
+    ParticlesTests.cpp
+    ResourceRefTests.cpp)
 
 target_link_libraries(DraconicParticlesTests PRIVATE
-    Draconic::Particles doctest::doctest)
+    Draconic::Particles Draconic::ParticlesSubsystem Draconic::ParticlesResource
+    Draconic::SceneResource Draconic::Resource Draconic::VFS Draconic::Content doctest::doctest)
 
 target_compile_definitions(DraconicParticlesTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

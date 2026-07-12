@@ -49,8 +49,8 @@ export namespace draconic::particles
         rhi::TextureView*                    texture = nullptr;  // billboard atlas (borrowed); null = untextured (soft dot)
         // Mesh-mode systems (ParticleRenderMode::Mesh) draw this mesh per particle through the instanced-
         // mesh path. Held while attached; per-particle transform = position * axis/rotation * (size*meshScale).
-        RefPtr<geometry::StaticMesh>         mesh;
-        RefPtr<materials::Material>          material;
+        draconic::resource::Ref<geometry::StaticMesh>  mesh;
+        draconic::resource::Ref<materials::Material>   material;
         f32                                  meshScale = 1.0f;
         // Light-mode systems (ParticleRenderMode::Light) add a point light per particle (capped) to the
         // scene's clustered-forward light list, so particles illuminate their surroundings; they also draw
@@ -59,10 +59,13 @@ export namespace draconic::particles
         f32                                  lightRange = 4.0f;
         bool                                 visible = true;
 
-        // Cooked-resource path: a hot-reload-following handle to the cooked effect + the component's own
-        // independent clone (stable address across component moves - the instance borrows *ownedEffect).
-        resource::Proxy<ParticleEffectResource> resourceHandle;
+        // Cooked-resource path: a guid-serialized, hot-reload-following ref to the cooked effect +
+        // the component's own independent clone (stable address across component moves - the
+        // instance borrows *ownedEffect). The manager attaches/re-attaches when the resolved
+        // product changes (a pick, a load, or a hot reload).
+        draconic::resource::Ref<ParticleEffectResource> effectAsset;
         UniquePtr<ParticleEffect>               ownedEffect;
+        ParticleEffectResource*                 attachedResource = nullptr;   // what ownedEffect was cloned from
 
         // Code path: attach a borrowed, app-owned effect (tests/samples building effects in code).
         void SetEffect(ParticleEffect& fx)
@@ -72,21 +75,49 @@ export namespace draconic::particles
         }
         // Cooked path: attach a bound ParticleEffectResource. The component clones the cooked template
         // into its own effect (so multiple entities don't share live particle state) and simulates that;
-        // the resolved per-system textures come from the resource (resourceHandle->SystemTexture(i)).
+        // the resolved per-system textures come from the resource (effectAsset->SystemTexture(i)).
         void SetEffect(resource::Proxy<ParticleEffectResource> res)
         {
-            resourceHandle = res;
+            effectAsset.SetProxy(res);
+            AttachResource(res.Get());
+        }
+
+        // (Re)clone `res` as this component's live effect. Called by SetEffect and by the manager
+        // when the ref's resolved product changes.
+        void AttachResource(ParticleEffectResource* res)
+        {
+            attachedResource = res;
             ownedEffect = MakeUnique<ParticleEffect>(DefaultAllocator());
-            if (res) { CloneEffect(res->Effect(), *ownedEffect); }
+            if (res != nullptr) { CloneEffect(res->Effect(), *ownedEffect); }
             effect = ownedEffect.Get();
             instance = MakeUnique<ParticleEffectInstance>(DefaultAllocator(), *ownedEffect);
         }
     };
 
-    class ParticleEffectComponentManager final : public scene::ComponentManager<ParticleEffectComponent>,
+    // Persist the resource refs + tunables; the live instance/clone and the raw view are runtime-only.
+    inline void Serialize(ISerializer& ar, ParticleEffectComponent& c) {
+        draconic::core::Serialize(ar, "effect", c.effectAsset);
+        draconic::core::Serialize(ar, "mesh", c.mesh);
+        draconic::core::Serialize(ar, "material", c.material);
+        draconic::core::Serialize(ar, "meshScale", c.meshScale);
+        draconic::core::Serialize(ar, "lightIntensity", c.lightIntensity);
+        draconic::core::Serialize(ar, "lightRange", c.lightRange);
+        draconic::core::Serialize(ar, "visible", c.visible);
+    }
+
+    inline void ResolveResources(resource::ResourceManager& manager, ParticleEffectComponent& c) {
+        c.effectAsset.Bind(manager);
+        c.mesh.Bind(manager);
+        c.material.Bind(manager);
+    }
+
+    class ParticleEffectComponentManager final : public scene::SerializableComponentManager<ParticleEffectComponent>,
                                                  public render::IRenderDataProvider
     {
     public:
+        ParticleEffectComponentManager()
+            : scene::SerializableComponentManager<ParticleEffectComponent>(u8"particle_effect") {}
+
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
 
@@ -99,6 +130,10 @@ export namespace draconic::particles
             if (phase != scene::ScenePhase::PostUpdate || m_scene == nullptr) { return; }
             DRACONIC_PROFILE_SCOPE("Particles.Simulate");
             ForEach([&](ParticleEffectComponent& c, scene::EntityHandle owner) {
+                // Attach/re-attach when the ref's resolved product changed (a pick, a scene load's
+                // resolve pass, or a hot reload swapping the product behind the proxy).
+                ParticleEffectResource* res = c.effectAsset.Get();
+                if (res != c.attachedResource && res != nullptr) { c.AttachResource(res); }
                 if (!c.instance) { return; }
                 c.instance->position = m_scene->GetWorldPosition(owner);
                 c.instance->Update(deltaTime, m_cameraPos);
@@ -329,9 +364,9 @@ export namespace draconic::particles
         // (hot-reload-following) when this component is resource-driven, else the code-set c.texture.
         [[nodiscard]] static rhi::TextureView* SystemTextureView(const ParticleEffectComponent& c, i32 systemIndex)
         {
-            if (c.resourceHandle)
+            if (ParticleEffectResource* res = c.effectAsset.Get())
             {
-                if (texture::Texture* t = c.resourceHandle->SystemTexture(systemIndex).Get()) { return t->View(); }
+                if (texture::Texture* t = res->SystemTexture(systemIndex).Get()) { return t->View(); }
             }
             return c.texture;
         }
@@ -488,7 +523,10 @@ namespace draconic::particles
 
 DRACONIC_REFLECT_VALUE(ParticleEffectComponent, "draconic::particles")
 {
-    builder.Property<&ParticleEffectComponent::meshScale>("meshScale")
+    builder.Property<&ParticleEffectComponent::effectAsset>("effect")
+           .Property<&ParticleEffectComponent::mesh>("mesh")
+           .Property<&ParticleEffectComponent::material>("material")
+           .Property<&ParticleEffectComponent::meshScale>("meshScale")
            .Property<&ParticleEffectComponent::lightIntensity>("lightIntensity")
            .Property<&ParticleEffectComponent::lightRange>("lightRange")
            .Property<&ParticleEffectComponent::visible>("visible");
