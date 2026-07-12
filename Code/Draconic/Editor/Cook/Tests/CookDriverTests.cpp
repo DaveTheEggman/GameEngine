@@ -234,6 +234,12 @@ TEST_CASE("cook: full cook then clean; products carry the source guid + product 
     CookStats stats = driver.Execute(plan);
     CHECK(stats.cooked == 2u);
     CHECK(stats.failed == 0u);
+    // The hot-reload handoff lists exactly the rebuilt products.
+    REQUIRE(stats.cookedProducts.Size() == 2u);
+    bool sawA = false, sawB = false;
+    for (const Guid& g : stats.cookedProducts) { sawA = sawA || g == a; sawB = sawB || g == b; }
+    CHECK(sawA);
+    CHECK(sawB);
 
     // Product guid = source guid; typed as the builder's product; content is the bake.
     content::Instance* productA = fx.cookedDb->GetInstance(a);
@@ -396,4 +402,39 @@ TEST_CASE("cook: pipeline db persists across sessions; corruption degrades to a 
         CookStats stats = driver.Execute(plan);
         CHECK(stats.cooked == 2u);
     }
+}
+
+// Regression (user-reported segfault): the first big PARALLEL cook (a ~30-asset model drop in
+// the editor) crashed - CookItem_ created product instances on worker threads concurrently,
+// racing the content DB's group tree + GUID index. Products are now pre-created serially;
+// workers only read the DB. This cooks a wide level on a real JobSystem.
+TEST_CASE("cook: a wide dependency level cooks in parallel on the JobSystem")
+{
+    Fixture fx(u8"draconic_cook_test_parallel");
+    constexpr i32 kAssets = 48;
+    Array<Guid> ids;
+    for (i32 i = 0; i < kAssets; ++i)
+    {
+        String name(u8"W");
+        name.PushBack(static_cast<utf8char>('a' + i % 26));
+        name.PushBack(static_cast<utf8char>('a' + (i / 26) % 26));
+        ids.PushBack(fx.AddWidget(name.AsView(), i));
+    }
+
+    JobSystem jobs;
+    CookDriver driver(*fx.sourceDb, *fx.cookedDb, fx.builders, fx.sourcesFs.Get(),
+                      fx.cacheFs.Get(), &jobs);
+
+    CookPlan plan = driver.Plan();
+    REQUIRE(plan.dirty.Size() == static_cast<usize>(kAssets));
+    CookStats stats = driver.Execute(plan);
+    CHECK(stats.cooked == static_cast<usize>(kAssets));
+    CHECK(stats.failed == 0u);
+
+    // Every product exists with the right content; the follow-up plan is clean.
+    for (i32 i = 0; i < kAssets; ++i)
+    {
+        CHECK(fx.CookedValue(ids[static_cast<usize>(i)]) == i);
+    }
+    CHECK(driver.Plan().dirty.IsEmpty());
 }

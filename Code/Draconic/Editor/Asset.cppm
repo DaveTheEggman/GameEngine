@@ -52,6 +52,7 @@ export namespace draconic::editor
     struct AssetBuildContext
     {
         draconic::vfs::IFileSystem* sources = nullptr;       // mount for Asset::fileName + extra files
+        draconic::content::Instance* source = nullptr;       // the SOURCE instance being cooked (embedded data streams)
         draconic::content::Instance* output = nullptr;       // cooked resource is written here
         draconic::content::IContentDatabase* db = nullptr;   // for resolving referenced assets
     };
@@ -60,9 +61,12 @@ export namespace draconic::editor
     // and chains `reads`; `references` only order the cook (see the design doc, §3).
     struct AssetDependencies
     {
-        Array<String> files;      // extra source files read (mount-relative)
-        Array<Guid>   reads;      // instances whose CONTENT this build consumes (hash-chained)
-        Array<Guid>   references; // instances the product refers to at runtime (existence only)
+        Array<String> files;         // extra source files read (mount-relative)
+        Array<String> sourceStreams; // the source instance's data streams the build reads
+                                     // (embedded payloads live in SIDECAR files the envelope
+                                     // hash doesn't cover - declaring them chains their bytes)
+        Array<Guid>   reads;         // instances whose CONTENT this build consumes (hash-chained)
+        Array<Guid>   references;    // instances the product refers to at runtime (existence only)
     };
 
     // Cooks one source asset type into a runtime resource (source -> product).

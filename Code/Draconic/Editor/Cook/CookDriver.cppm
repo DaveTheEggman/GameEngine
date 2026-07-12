@@ -206,6 +206,7 @@ export namespace draconic::editor
         u64 recipeHash = 0;
         AssetDependencies deps;
         i32 level = 0;            // dependency depth (items cook level-by-level, parallel within)
+        draconic::content::Instance* product = nullptr;   // pre-created SERIALLY before workers run
     };
 
     struct CookPlan
@@ -227,6 +228,7 @@ export namespace draconic::editor
         usize cooked = 0;
         usize failed = 0;
         usize orphansSwept = 0;
+        Array<Guid> cookedProducts;   // successfully (re)built products - hot-reload input
     };
 
     class CookDriver
@@ -264,6 +266,15 @@ export namespace draconic::editor
                 item.path = instance->Path();
                 item.builder = builder;
                 item.asset = instance->ReadObject();
+                if (item.asset.Get() == nullptr)
+                {
+                    // Deserialization failed - usually a source written by an OLDER schema
+                    // (no asset compatibility by policy): delete + re-import it.
+                    DRACONIC_LOG_WARNING(u8"Cook",
+                        u8"'{}' failed to deserialize (stale schema? delete + re-import)", item.path);
+                    ++plan.unbuildable;
+                    continue;
+                }
                 Asset* asset = Cast<Asset>(item.asset.Get());
                 if (asset == nullptr)
                 {
@@ -320,6 +331,16 @@ export namespace draconic::editor
                 ++stats.orphansSwept;
             }
 
+            // Pre-create every product instance ON THIS THREAD: the content DB's group tree
+            // and GUID index are not thread-safe, so all DB MUTATION happens before the
+            // parallel build loop - workers then only read the DB and write their own
+            // instance's files. (Without this, the first big parallel cook segfaults on
+            // concurrent CreateInstanceWithId - found by a 30-asset model drop.)
+            for (CookItem& item : plan.dirty)
+            {
+                item.product = EnsureProduct(item);
+            }
+
             Array<bool> results;
             results.Resize(plan.dirty.Size());
             usize done = 0;
@@ -347,6 +368,7 @@ export namespace draconic::editor
                 for (usize i = begin; i < end; ++i)
                 {
                     results[i] ? ++stats.cooked : ++stats.failed;
+                    if (results[i]) { stats.cookedProducts.PushBack(plan.dirty[i].source); }
                     ++done;
                     if (progress != nullptr && progress->onItem)
                     {
@@ -448,6 +470,14 @@ export namespace draconic::editor
             }
             m_pendingMemos.InsertOrAssign(instance.Id(), Move(memos));
 
+            // 2b. Declared embedded streams (sidecar files the envelope hash doesn't cover).
+            for (const String& streamName : deps.sourceStreams)
+            {
+                UniquePtr<IStream> stream = instance.ReadData(streamName.AsView());
+                h = detail::FoldHash(h, 'S',
+                    (stream.Get() != nullptr) ? detail::HashStream(*stream) : 0);
+            }
+
             // 3. Builder version.
             h = detail::FoldHash(h, 'V', builder.Version());
 
@@ -544,26 +574,30 @@ export namespace draconic::editor
             }
         }
 
-        // Cook one item into the cooked DB (product guid = source guid) and update its record.
+        // The product instance for an item: mirrored path, SAME guid, stamped with the
+        // builder's product type. MUTATES the cooked DB - main thread only (see Execute).
+        [[nodiscard]] content::Instance* EnsureProduct(const CookItem& item)
+        {
+            if (content::Instance* existing = m_cookedDb->GetInstance(item.source)) { return existing; }
+            content::Instance* source = m_sourceDb->GetInstance(item.source);
+            const TypeInfo* productType = (item.builder != nullptr) ? item.builder->ProductType() : nullptr;
+            if (source == nullptr || productType == nullptr) { return nullptr; }
+            content::Group* group = MirrorGroup(source->OwningGroup());
+            return group->CreateInstanceWithId(item.source, source->Name(), *productType);
+        }
+
+        // Cook one item into its pre-created product and update its record. Runs on WORKER
+        // threads: no DB mutation here - only reads + the product's own file writes.
         [[nodiscard]] bool CookItem_(CookItem& item)
         {
             content::Instance* source = m_sourceDb->GetInstance(item.source);
             Asset* asset = Cast<Asset>(item.asset.Get());
-            if (source == nullptr || asset == nullptr) { return false; }
-
-            // Product instance: mirrored path, SAME guid, stamped with the builder's product
-            // type. (Instance names/groups mirror the source tree so Cooked/ stays navigable.)
-            content::Instance* product = m_cookedDb->GetInstance(item.source);
-            if (product == nullptr)
-            {
-                content::Group* group = MirrorGroup(source->OwningGroup());
-                const TypeInfo* productType = item.builder->ProductType();
-                if (productType == nullptr) { return false; }
-                product = group->CreateInstanceWithId(item.source, source->Name(), *productType);
-            }
+            content::Instance* product = item.product;
+            if (source == nullptr || asset == nullptr || product == nullptr) { return false; }
 
             AssetBuildContext ctx;
             ctx.sources = m_sources;
+            ctx.source = source;
             ctx.output = product;
             ctx.db = m_cookedDb;   // cross-refs resolve against already-cooked products
             const Status built = item.builder->Build(*asset, ctx);
