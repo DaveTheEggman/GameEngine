@@ -116,7 +116,9 @@ export namespace draconic::editor::app
             if (!m_config.fontPath.IsEmpty())
             {
                 fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
-                const f32 sizes[] = { 14.0f, 16.0f, 24.0f };
+                // A full ramp so styles can pick small (property fields), regular, and
+                // heading sizes without falling back to a mismatched rasterization.
+                const f32 sizes[] = { 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 16.0f, 18.0f, 20.0f, 24.0f, 32.0f };
                 for (f32 size : sizes)
                 {
                     options.pixelHeight = size;
@@ -131,6 +133,12 @@ export namespace draconic::editor::app
             // only apply to themes built afterward), then the editor defaults to dark.
             draconic::ui::ThemeRegistry::RegisterExtension(&m_toolkitTheme);
             m_styleSheet = draconic::ui::DarkTheme::Create();
+            // Editor-specific overrides on top of the stock theme: property-grid fields read
+            // better noticeably smaller and tighter than the theme's 14px/6x4 control chrome
+            // (a full inspector column of them is the densest text in the editor).
+            m_styleSheet->ForClass(u8"property-field")
+                .Set(draconic::ui::StyleProperty::FontSize, 12.0f)
+                .Set(draconic::ui::StyleProperty::Padding, draconic::ui::Thickness{ 5, 2 });
             m_uiHost->Context().SetStyleSheet(m_styleSheet);
 
             m_shell.Build(m_context, m_dockHost.Get(), mainRw->Window().Width(), mainRw->Window().Height());
@@ -323,10 +331,18 @@ export namespace draconic::editor::app
                 m_context.SetStatus(u8"Create failed (no project open?).");
                 return;
             }
-            if (m_project && m_project->Settings().defaultScene.IsEmpty())
+            if (creator.setsDefaultScene && m_project && m_project->Settings().defaultScene.IsEmpty())
             {
                 m_project->Settings().defaultScene = instance->Path();
                 (void)m_project->SaveSettings();
+            }
+            // Surface the new row immediately (the File-menu path bypasses the assets view's own
+            // rebuild) and cook it so builder-backed assets become pickable without a manual
+            // Cook All (a no-op for builder-less scenes: nothing is dirty).
+            if (m_assetsView) { m_assetsView->Rebuild(); }
+            if (m_builders.FindByTypeName(instance->TypeName()) != nullptr)
+            {
+                m_cookService.RequestCook(false);
             }
             (void)OpenInstancePage(*instance);
         }
@@ -437,6 +453,25 @@ export namespace draconic::editor::app
                 edit->AddItem(u8"Undo", [this]() { m_context.Undo(); });
                 edit->AddItem(u8"Redo", [this]() { m_context.Redo(); });
             }
+
+            // Keyboard equivalents via the UI ShortcutManager. Shortcuts dispatch AFTER the
+            // focused view, and text controls mark their key-downs handled - so a focused
+            // textbox keeps Ctrl+Z for its own text undo and these fire everywhere else.
+            draconic::ui::ShortcutManager* shortcuts = m_uiHost->Context().GetShortcuts();
+            shortcuts->AddGlobal(draconic::ui::KeyCode::Z, draconic::ui::KeyModifiers::Ctrl,
+                                 [this]() { m_context.Undo(); });
+            shortcuts->AddGlobal(draconic::ui::KeyCode::Z,
+                                 draconic::ui::KeyModifiers::Ctrl | draconic::ui::KeyModifiers::Shift,
+                                 [this]() { m_context.Redo(); });
+            shortcuts->AddGlobal(draconic::ui::KeyCode::Y, draconic::ui::KeyModifiers::Ctrl,
+                                 [this]() { m_context.Redo(); });
+            shortcuts->AddGlobal(draconic::ui::KeyCode::S, draconic::ui::KeyModifiers::Ctrl, [this]() {
+                if (auto* page = m_context.ActivePage())
+                {
+                    m_context.SetStatus(page->Save().IsOk() ? StringView(u8"Saved.")
+                                                            : StringView(u8"Save FAILED (see console)."));
+                }
+            });
 
             if (draconic::ui::ContextMenu* view = bar->AddMenu(u8"View"))
             {

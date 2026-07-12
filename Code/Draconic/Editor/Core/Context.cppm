@@ -67,6 +67,9 @@ export namespace draconic::editor
         {
             String label;
             Function<draconic::content::Instance*(EditorContext&)> create;
+            // Only document-like creations (scenes) become the project's default scene when it
+            // is unset; data assets (primitive meshes, materials) never should.
+            bool setsDefaultScene = false;
         };
 
         void RegisterCreator(AssetCreator creator)

@@ -188,6 +188,36 @@ export namespace draconic::editor
         }
     };
 
+    /// Decal projection volume: the oriented box the decal clips to (local [-size/2, size/2],
+    /// entity-oriented) + an arrow along local +Z, the projection direction. Decals only land on
+    /// surfaces INSIDE this box facing (within the angle fade) against the arrow - the gizmo is
+    /// what makes "why doesn't my decal show" placement mistakes visible.
+    class DecalGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override
+        {
+            return &TypeOf<drender::DecalComponent>();
+        }
+
+        void Draw(const Instance& component, dscene::EntityHandle owner, GizmoContext& ctx) override
+        {
+            const auto* decal = component.TryGet<drender::DecalComponent>();
+            if (decal == nullptr) { return; }
+
+            const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
+            const Float3 position = detail::WorldPosition(world);
+            ddebug::DebugDraw& dd = *ctx.debug;
+            const Color color{ 1.0f, 0.75f, 0.2f, 1.0f };
+
+            const Float3 he = decal->size * 0.5f;
+            dd.DrawTransformedBox(Float3{} - he, he, world, color);
+            // Projection direction: local +Z (the opposite of the camera-style forward).
+            const Float3 projDir = Float3{} - detail::WorldForward(world);
+            dd.DrawArrow(position, position + projDir * (he.z + 0.35f), color, 0.12f);
+        }
+    };
+
     /// Camera frustum wireframe from the component's projection at the entity's pose.
     class CameraGizmoRenderer final : public IGizmoRenderer
     {
@@ -225,5 +255,7 @@ export namespace draconic::editor
             DefaultAllocator().New<ReflectionProbeGizmoRenderer>(), DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<CameraGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(
+            DefaultAllocator().New<DecalGizmoRenderer>(), DefaultAllocator()));
     }
 }

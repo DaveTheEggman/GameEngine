@@ -521,6 +521,7 @@ export namespace draconic::editor
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Scene");
         creator.create = [](EditorContext& ctx) { return CreateSceneInstance(ctx); };
+        creator.setsDefaultScene = true;
         context.RegisterCreator(Move(creator));
     }
 }

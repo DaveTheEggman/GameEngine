@@ -26,7 +26,10 @@ import draconic.core;
 import draconic.content;
 import draconic.resource;
 import draconic.geometry;
+import draconic.animation;
 import draconic.materials;
+import draconic.texture.resource;
+import draconic.particles.resource;
 import draconic.scene;
 import draconic.ui;
 import draconic.ui.toolkit;
@@ -296,6 +299,36 @@ export namespace draconic::editor
             {
                 BuildResourceRefRow<draconic::materials::Material>(id, type, prop, category,
                     { u8"MaterialAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::Skeleton>>())
+            {
+                BuildResourceRefRow<draconic::animation::Skeleton>(id, type, prop, category,
+                    { u8"SkeletonAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::AnimationClip>>())
+            {
+                BuildResourceRefRow<draconic::animation::AnimationClip>(id, type, prop, category,
+                    { u8"AnimationClipAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::AnimationGraph>>())
+            {
+                BuildResourceRefRow<draconic::animation::AnimationGraph>(id, type, prop, category,
+                    { u8"AnimationGraphAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::texture::Texture>>())
+            {
+                BuildResourceRefRow<draconic::texture::Texture>(id, type, prop, category,
+                    { u8"TextureAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::particles::ParticleEffectResource>>())
+            {
+                BuildResourceRefRow<draconic::particles::ParticleEffectResource>(id, type, prop, category,
+                    { u8"ParticleEffectAsset" });
                 return;
             }
 

@@ -343,11 +343,12 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 {
     GizmoRendererRegistry registry;
     RegisterBuiltinGizmoRenderers(registry);
-    CHECK(registry.Count() == 3u);
+    CHECK(registry.Count() == 4u);
 
     CHECK(registry.Find(&TypeOf<draconic::render::LightComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<draconic::render::ReflectionProbeComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<draconic::render::CameraComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<draconic::render::DecalComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<f32>()) == nullptr);
 
     // Built-ins draw only when selected (design: unselected wireframes everywhere are noise).
