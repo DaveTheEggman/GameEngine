@@ -10,6 +10,7 @@
 
 import draconic.core;
 import draconic.scene;
+import draconic.render.subsystem;
 import draconic.editor.core;
 import draconic.editor.scene;
 
@@ -398,4 +399,40 @@ TEST_CASE("scene-edit: remove-component undo via serialization blob (serializabl
     commands.Undo();
     REQUIRE(health->HasComponent(edit.Resolve(id)));
     CHECK(health->Get(edit.Resolve(id))->amount == 42);   // full fidelity via the blob
+}
+
+// Regression (user-reported): undoing an entity destroy restored the entity but LOST its
+// LightComponent - destroy-undo snapshots components through SERIALIZABLE managers only, and
+// the light/camera/probe managers weren't serializable (which also silently dropped them from
+// scene saves).
+TEST_CASE("edit-context: destroy-undo restores light components (and their values)")
+{
+    dscene::Scene scene;
+    scene.AddSystem<draconic::render::LightComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+
+    const Guid id = edit.CreateEntity(u8"Sun");
+    auto* lights = scene.GetSystem<draconic::render::LightComponentManager>();
+    REQUIRE(lights != nullptr);
+    {
+        draconic::render::LightComponent& light = lights->Add(edit.Resolve(id));
+        light.type = draconic::render::LightType::Spot;
+        light.intensity = 3.5f;
+        light.range = 42.0f;
+        light.castsShadows = true;
+    }
+
+    edit.DestroyEntity(id);
+    CHECK_FALSE(edit.Resolve(id).IsAssigned());
+
+    commands.Undo();
+    const dscene::EntityHandle restored = edit.Resolve(id);
+    REQUIRE(restored.IsAssigned());
+    draconic::render::LightComponent* light = lights->Get(restored);
+    REQUIRE(light != nullptr);   // the component came back...
+    CHECK(light->type == draconic::render::LightType::Spot);   // ...with its exact values
+    CHECK(light->intensity == doctest::Approx(3.5f));
+    CHECK(light->range == doctest::Approx(42.0f));
+    CHECK(light->castsShadows);
 }

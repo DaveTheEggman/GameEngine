@@ -206,12 +206,62 @@ class MeshComponentManager final : public scene::SerializableComponentManager<Me
 public:
     MeshComponentManager() : scene::SerializableComponentManager<MeshComponent>(u8"mesh") {}
 };
+// Data-only components PERSIST (scene round-trip + full destroy-undo restore - a destroyed
+// entity's components are snapshotted through serializable managers only). Sprite/Decal/
+// InstancedMesh still hold raw GPU pointers and stay runtime-only until they move to refs.
+inline void Serialize(ISerializer& ar, LightComponent& c) {
+    u8 type = static_cast<u8>(c.type);
+    u8 shadowUpdate = static_cast<u8>(c.shadowUpdate);
+    draconic::core::Serialize(ar, "type", type);
+    draconic::core::Serialize(ar, "color", c.color);
+    draconic::core::Serialize(ar, "intensity", c.intensity);
+    draconic::core::Serialize(ar, "range", c.range);
+    draconic::core::Serialize(ar, "innerAngle", c.innerAngle);
+    draconic::core::Serialize(ar, "outerAngle", c.outerAngle);
+    draconic::core::Serialize(ar, "shadowUpdate", shadowUpdate);
+    draconic::core::Serialize(ar, "enabled", c.enabled);
+    draconic::core::Serialize(ar, "castsShadows", c.castsShadows);
+    c.type = static_cast<LightType>(type);
+    c.shadowUpdate = static_cast<ShadowUpdateMode>(shadowUpdate);
+}
+
+inline void Serialize(ISerializer& ar, CameraComponent& c) {
+    draconic::core::Serialize(ar, "fovYRadians", c.fovYRadians);
+    draconic::core::Serialize(ar, "aspect", c.aspect);
+    draconic::core::Serialize(ar, "nearZ", c.nearZ);
+    draconic::core::Serialize(ar, "farZ", c.farZ);
+    draconic::core::Serialize(ar, "clearColor", c.clearColor);
+    draconic::core::Serialize(ar, "primary", c.primary);
+}
+
+inline void Serialize(ISerializer& ar, ReflectionProbeComponent& c) {
+    u8 update = static_cast<u8>(c.update);
+    draconic::core::Serialize(ar, "halfExtents", c.halfExtents);
+    draconic::core::Serialize(ar, "blendDistance", c.blendDistance);
+    draconic::core::Serialize(ar, "intensity", c.intensity);
+    draconic::core::Serialize(ar, "resolution", c.resolution);
+    draconic::core::Serialize(ar, "priority", c.priority);
+    draconic::core::Serialize(ar, "update", update);
+    draconic::core::Serialize(ar, "parallax", c.parallax);
+    draconic::core::Serialize(ar, "enabled", c.enabled);
+    c.update = static_cast<ProbeUpdateMode>(update);
+}
+
 class InstancedMeshComponentManager final : public scene::ComponentManager<InstancedMeshComponent> {};
 class SpriteComponentManager final : public scene::ComponentManager<SpriteComponent> {};
 class DecalComponentManager  final : public scene::ComponentManager<DecalComponent>  {};
-class CameraComponentManager final : public scene::ComponentManager<CameraComponent> {};
-class LightComponentManager  final : public scene::ComponentManager<LightComponent>  {};
-class ReflectionProbeComponentManager final : public scene::ComponentManager<ReflectionProbeComponent> {};
+class CameraComponentManager final : public scene::SerializableComponentManager<CameraComponent> {
+public:
+    CameraComponentManager() : scene::SerializableComponentManager<CameraComponent>(u8"camera") {}
+};
+class LightComponentManager final : public scene::SerializableComponentManager<LightComponent> {
+public:
+    LightComponentManager() : scene::SerializableComponentManager<LightComponent>(u8"light") {}
+};
+class ReflectionProbeComponentManager final : public scene::SerializableComponentManager<ReflectionProbeComponent> {
+public:
+    ReflectionProbeComponentManager() : scene::SerializableComponentManager<ReflectionProbeComponent>(u8"reflection_probe") {}
+};
 
 // SkyMode is defined in the snapshot layer (draconic.render :data) and reused here.
 
@@ -276,7 +326,9 @@ DRACONIC_REFLECT_ENUM(ProbeUpdateMode, "draconic::render")
 
 DRACONIC_REFLECT_VALUE(MeshComponent, "draconic::render")
 {
-    builder.Property<&MeshComponent::color>("color")
+    builder.Property<&MeshComponent::mesh>("mesh")
+           .Property<&MeshComponent::material>("material")
+           .Property<&MeshComponent::color>("color")
            .Property<&MeshComponent::visible>("visible");
 }
 
