@@ -22,10 +22,14 @@ import draconic.runtime.client;
 import draconic.runtime.desktop;
 import draconic.scene.subsystem;
 import draconic.render.subsystem;
+import draconic.content;
+import draconic.animation.resource;
 import draconic.animation.subsystem;
+import draconic.particles.resource;
 import draconic.particles.subsystem;
 import draconic.ui.runtime;
 import draconic.resource;
+import draconic.geometry;
 import draconic.geometry.resource;
 import draconic.materials.resource;
 import draconic.texture.resource;
@@ -84,6 +88,63 @@ namespace
         AddBuilder<draconic::particles::ParticleEffectAssetBuilder>(registry);
         AddBuilder<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
     }
+
+    // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
+    // named uniquely (Cube, Cube2, ...). The creator system cooks it right after, so it shows
+    // up in the mesh pickers without further steps (quick prototyping, not whiteboxing).
+    draconic::content::Instance* CreatePrimitiveMeshInstance(
+        ed::EditorContext& ctx, StringView baseName, RefPtr<draconic::geometry::StaticMesh> mesh)
+    {
+        ed::EditorProject* project = ctx.Project();
+        if (project == nullptr || mesh.Get() == nullptr) { return nullptr; }
+        draconic::content::Group* root = project->SourceDb().RootGroup();
+        draconic::content::Group* meshes = root->GetGroup(u8"Meshes");
+        if (meshes == nullptr) { meshes = root->CreateGroup(u8"Meshes"); }
+        if (meshes == nullptr) { return nullptr; }
+
+        String name(baseName);
+        for (i32 counter = 2; meshes->GetInstance(name.AsView()) != nullptr; ++counter)
+        {
+            name = String(baseName);
+            if (counter >= 10) { name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10))); }
+            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
+        }
+
+        draconic::content::Instance* instance =
+            meshes->CreateInstance(name.AsView(), draconic::geometry::StaticMeshAsset::StaticType());
+        if (instance == nullptr) { return nullptr; }
+        draconic::geometry::StaticMeshAsset asset;
+        draconic::geometry::MeshImporter::Import(*mesh, asset);
+        if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+        return instance;
+    }
+
+    void RegisterPrimitiveMeshCreators(ed::EditorContext& context)
+    {
+        namespace geo = draconic::geometry;
+        struct Entry { const utf8char* label; RefPtr<geo::StaticMesh> (*make)(); };
+        static const Entry entries[] = {
+            { u8"Cube Mesh",     []() { return geo::Primitives::Cube(); } },
+            { u8"Sphere Mesh",   []() { return geo::Primitives::Sphere(); } },
+            { u8"Plane Mesh",    []() { return geo::Primitives::Plane(); } },
+            { u8"Cylinder Mesh", []() { return geo::Primitives::Cylinder(); } },
+            { u8"Cone Mesh",     []() { return geo::Primitives::Cone(); } },
+            { u8"Torus Mesh",    []() { return geo::Primitives::Torus(); } },
+        };
+        for (const Entry& e : entries)
+        {
+            ed::EditorContext::AssetCreator creator;
+            creator.label = String(StringView(e.label));
+            auto make = e.make;
+            // The group/instance name drops the " Mesh" suffix ("Cube", "Cube2", ...).
+            const StringView label(e.label);
+            String base(StringView(label.Data(), label.Size() - 5));
+            creator.create = [make, base](ed::EditorContext& ctx) {
+                return CreatePrimitiveMeshInstance(ctx, base.AsView(), make());
+            };
+            context.RegisterCreator(draconic::core::Move(creator));
+        }
+    }
 }
 namespace graphics = draconic::graphics;
 namespace runtime = draconic::runtime;
@@ -134,6 +195,7 @@ int main(int argc, char** argv)
                                 draconic::ui::runtime::UIHost& uiHost) {
         app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>());
         draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost);
+        RegisterPrimitiveMeshCreators(app.Context());
         RegisterAllBuilders(app.Builders());   // the cook service routes through this set
 
         // OS-file importers (drag-drop onto the editor).
@@ -150,6 +212,14 @@ int main(int argc, char** argv)
             DefaultAllocator().New<draconic::geometry::SkinnedMeshFactory>(), DefaultAllocator()));
         app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
             DefaultAllocator().New<draconic::materials::MaterialFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::animation::SkeletonFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::animation::AnimationClipFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::animation::AnimationGraphFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::particles::ParticleEffectFactory>(), DefaultAllocator()));
         app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
             DefaultAllocator().New<draconic::texture::TextureFactory>(*host.Graphics()->Raw()),
             DefaultAllocator()));

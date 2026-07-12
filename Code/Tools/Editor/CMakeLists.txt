@@ -11,7 +11,8 @@ target_link_libraries(RaptorEditor PRIVATE
     Draconic::Resource Draconic::MeshResource Draconic::MaterialResource Draconic::TextureResource
     Draconic::TextureEditor Draconic::ImageEditor Draconic::MeshEditor
     Draconic::AnimationEditor Draconic::MaterialEditor Draconic::ShaderEditor
-    Draconic::ParticlesEditor Draconic::ModelImporter Draconic::ImageResource)
+    Draconic::ParticlesEditor Draconic::ModelImporter Draconic::ImageResource
+    Draconic::AnimationResource)
 target_compile_definitions(RaptorEditor PRIVATE
     DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")
 # Copy SDL3.dll next to the executable on Windows (same as the samples' helper, which is
