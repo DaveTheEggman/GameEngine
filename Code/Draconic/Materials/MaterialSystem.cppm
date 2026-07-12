@@ -275,11 +275,6 @@ private:
         for (const MaterialPropertyDef& p : material->Properties()) {
             if (p.IsTexture()) {
                 rhi::TextureView* view = instance.GetTexture(propIndex);
-                if (Contains(p.name, u8"lbedo")) {   // TEMP diagnostics (remove after the texture hunt)
-                    DRACONIC_LOG_DEBUG(u8"MaterialSys", u8"bindgroup '{}' uid={} albedo={}",
-                                       material->name, material->uid,
-                                       view != nullptr ? StringView(u8"REAL") : StringView(u8"fallback"));
-                }
                 if (view == nullptr) {
                     view = (Contains(p.name, u8"ormal")) ? m_normalView : m_whiteView;   // *N*ormal/*n*ormal fallback
                 }
