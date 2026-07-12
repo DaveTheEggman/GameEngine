@@ -112,6 +112,7 @@ export namespace draconic::ui::toolkit
         RefPtr<VectorNumericField> MakeField(i32 axis, StringView axisText, Color axisColor, f32 initial)
         {
             RefPtr<VectorNumericField> f = MakeRef<VectorNumericField>(DefaultAllocator(), this, axis);
+            f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
             f->SetMin(m_min); f->SetMax(m_max); f->SetStep(m_step);
             f->SetDecimalPlaces(3);

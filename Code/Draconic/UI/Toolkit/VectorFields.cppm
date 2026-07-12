@@ -94,6 +94,7 @@ export namespace draconic::ui::toolkit
         static RefPtr<NumericField> MakeField(StringView axisText, Color axisColor)
         {
             RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
+            f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
             f->SetMin(-1e6); f->SetMax(1e6);
             f->SetStep(0.1);
@@ -401,6 +402,7 @@ export namespace draconic::ui::toolkit
         static RefPtr<NumericField> MakeEulerField(StringView axisText, Color axisColor)
         {
             RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
+            f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
             f->SetMin(-360); f->SetMax(360);
             f->SetStep(1);

@@ -1,4 +1,5 @@
 add_executable(DraconicUIToolkitTests
+    StyleProbeTests.cpp
     StatusBarTests.cpp
     ToolbarTests.cpp
     MenuBarTests.cpp

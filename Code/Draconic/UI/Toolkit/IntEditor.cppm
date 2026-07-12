@@ -64,6 +64,7 @@ export namespace draconic::ui::toolkit
         RefPtr<View> CreateEditorView() override
         {
             RefPtr<IntEditorField> field = MakeRef<IntEditorField>(DefaultAllocator(), this);
+            field->AddClass(u8"property-field");
             m_field = field.Get();
             m_field->SetMin(m_min); m_field->SetMax(m_max); m_field->SetStep(1);
             m_field->SetDecimalPlaces(0);

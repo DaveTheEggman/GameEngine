@@ -103,6 +103,7 @@ export namespace draconic::ui::toolkit
 
             // NumericField (fixed width for precise input).
             RefPtr<RangeNumericField> field = MakeRef<RangeNumericField>(DefaultAllocator(), this);
+            field->AddClass(u8"property-field");
             m_numericField = field.Get();
             m_numericField->SetMin(m_min); m_numericField->SetMax(m_max);
             m_numericField->SetStep((m_step > 0) ? m_step : 0.1);
