@@ -81,7 +81,9 @@ export namespace draconic::ui
         [[nodiscard]] FlattenedTreeAdapter* FlatAdapter() const noexcept { return m_flatAdapter.Get(); }
         [[nodiscard]] ListView* InternalListView() const noexcept { return m_listView.Get(); }
 
-        /// Set the tree adapter and build the flat list. Safe to call repeatedly (rebuild).
+        /// Set the tree adapter and build the flat list. Safe to call repeatedly (rebuild);
+        /// null DETACHES (owners call SetAdapter(nullptr) in their destructors so the view
+        /// never outlives an adapter it doesn't own).
         void SetAdapter(ITreeAdapter* adapter)
         {
             TreeAdapter = adapter;
@@ -89,6 +91,11 @@ export namespace draconic::ui
             // destroys it - ListView::SetAdapter calls SetObserver on its previous adapter,
             // which would be a use-after-free otherwise.
             m_listView->SetAdapter(nullptr);
+            if (adapter == nullptr)
+            {
+                m_flatAdapter.Reset();
+                return;
+            }
             m_flatAdapter = MakeUnique<FlattenedTreeAdapter>(DefaultAllocator(), adapter);
             m_listView->SetAdapter(m_flatAdapter.Get());
         }
