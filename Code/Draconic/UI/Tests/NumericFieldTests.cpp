@@ -98,3 +98,19 @@ TEST_CASE("numeric-field: ShowSpinButtonsDefault")
     auto nf = MakeField();
     CHECK(nf->ShowSpinButtons.Value() == true);
 }
+
+TEST_CASE("numeric-field: SelectAllOnFocus")
+{
+    // Focusing the field (tab or click) selects the whole value for a replacing edit.
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
+    auto nf = MakeField();
+    nf->SetMin(0); nf->SetMax(1000); nf->SetValue(123);
+    root->AddView(nf.Get()); LayoutPass(ctx, root.Get());
+
+    CHECK(!nf->Behavior().HasSelection());
+    ctx.GetFocusManager()->SetFocus(nf.Get());
+    CHECK(nf->IsFocused());
+    CHECK(nf->Behavior().HasSelection());
+    CHECK(nf->Behavior().SelectionStart() == 0);
+    CHECK(nf->Behavior().SelectionLength() == static_cast<i32>(nf->Text().Size()));
+}

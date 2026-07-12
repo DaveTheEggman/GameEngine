@@ -185,6 +185,16 @@ export namespace draconic::ui
                     return;
                 }
             }
+            // The click that FOCUSED the field keeps the select-all from OnFocusGained (type-to-
+            // replace, the DCC-standard numeric UX); caret placement starts from the next click.
+            if (m_selectAllClick && e.ClickCount <= 1)
+            {
+                m_selectAllClick = false;
+                ResetBlink();
+                e.Handled = true;
+                return;
+            }
+            m_selectAllClick = false;
             if (e.ClickCount <= 1) { m_isDragging = true; if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); } }
             m_behavior.HandleMouseDown(e.X, e.Y, e.ClickCount, e.Modifiers);
             ResetBlink();
@@ -237,8 +247,15 @@ export namespace draconic::ui
                 e.Handled = true;
             }
         }
-        void OnFocusGained() override { ResetBlink(); OnEditBegan.Invoke(this); }
-        void OnFocusLost() override { m_isDragging = false; CommitText(); OnEditEnded.Invoke(this); }
+        // Select-all on focus: the whole value is primed for a replacing edit (tab or click).
+        void OnFocusGained() override
+        {
+            m_behavior.SelectAll();
+            m_selectAllClick = true;
+            ResetBlink();
+            OnEditBegan.Invoke(this);
+        }
+        void OnFocusLost() override { m_isDragging = false; m_selectAllClick = false; CommitText(); OnEditEnded.Invoke(this); }
 
         void CommitText()
         {
@@ -548,6 +565,7 @@ export namespace draconic::ui
 
         f32 m_cursorBlinkResetTime = 0.0f;
         bool m_isDragging = false;
+        bool m_selectAllClick = false;   // the focusing click keeps the select-all (see OnMouseDown)
 
         String m_prefixText;
         String m_suffixText;

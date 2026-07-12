@@ -48,7 +48,14 @@ export namespace draconic::ui
         [[nodiscard]] i32 SelectionStart() const noexcept { return Min(m_anchorPos, m_cursorPos); }
         [[nodiscard]] i32 SelectionEnd() const noexcept { return Max(m_anchorPos, m_cursorPos); }
         [[nodiscard]] i32 SelectionLength() const noexcept { return SelectionEnd() - SelectionStart(); }
+        [[nodiscard]] bool HasSelection() const noexcept { return m_cursorPos != m_anchorPos; }
         [[nodiscard]] bool IsSelecting() const noexcept { return HasSelection(); }
+
+        void SelectAll()
+        {
+            m_anchorPos = 0;
+            m_cursorPos = m_host->TextCharCount();
+        }
 
         [[nodiscard]] UndoStack& GetUndoStack() noexcept { return m_undoStack; }
 
@@ -198,7 +205,6 @@ export namespace draconic::ui
         }
 
     private:
-        [[nodiscard]] bool HasSelection() const noexcept { return m_cursorPos != m_anchorPos; }
 
         // Collect the host text as codepoints (mirrors Beef's DecodedChars materialization).
         void CollectChars(Array<char32_t>& out) const
@@ -359,12 +365,6 @@ export namespace draconic::ui
         // =================================================================
         // Selection
         // =================================================================
-
-        void SelectAll()
-        {
-            m_anchorPos = 0;
-            m_cursorPos = m_host->TextCharCount();
-        }
 
         void SelectWord(i32 position)
         {
