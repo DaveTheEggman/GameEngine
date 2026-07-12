@@ -128,6 +128,14 @@ public:
     [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager, draconic::content::Instance& instance) override {
         (void)manager;
         RefPtr<ISerializable> object = instance.ReadObject();
+        // A SkinnedMeshSource IS-A StaticMeshSource, so a Ref<StaticMesh> can legitimately bind
+        // a skinned product (the picker offers both). Build the REAL SkinnedMesh then - FillStatic
+        // would silently drop the skin stream and the mesh could never animate.
+        if (SkinnedMeshSource* skinned = Cast<SkinnedMeshSource>(object.Get())) {
+            RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>(DefaultAllocator());
+            skinned->FillSkinned(*mesh);
+            return mesh;
+        }
         StaticMeshSource* src = Cast<StaticMeshSource>(object.Get());
         if (src == nullptr) { return RefPtr<Object>{}; }
         RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
