@@ -107,6 +107,15 @@ export namespace draconic::resource
 
         void SetDirect(RefPtr<T> object) noexcept { m_direct = Move(object); }
         void SetId(const Guid& guid) noexcept { id = guid; }
+
+        /// Re-point at `id` (editor pickers): drops the direct override AND the previous
+        /// proxy, then binds the new id (nil = cleared reference).
+        void Rebind(ResourceManager* manager)
+        {
+            m_direct = nullptr;
+            m_proxy = Proxy<T>{};
+            if (manager != nullptr && !id.IsNil()) { Bind(*manager); }
+        }
         [[nodiscard]] bool IsBound() const noexcept { return m_proxy.Handle() != nullptr; }
 
         // Attach the runtime proxy for `id` (defined after ResourceManager below).
@@ -210,6 +219,21 @@ export namespace draconic::resource
             return (d != nullptr) ? Span<const Guid>(d->Data(), d->Size()) : Span<const Guid>{};
         }
 
+        /// Frame tick: ages the graveyard of hot-reloaded-away products and releases the
+        /// ones old enough that no in-flight frame can still reference their GPU objects.
+        void CollectGarbage()
+        {
+            usize w = 0;
+            for (usize i = 0; i < m_graveyard.Size(); ++i)
+            {
+                if (m_graveyard[i].framesLeft <= 1) { continue; }   // dropped -> released
+                m_graveyard[i].framesLeft -= 1;
+                if (w != i) { m_graveyard[w] = Move(m_graveyard[i]); }
+                ++w;
+            }
+            m_graveyard.Resize(w);
+        }
+
         // Drops the product from a handle without unbinding it; a later Bind/
         // Reload rebuilds it. False if unbound.
         bool Flush(const Guid& id)
@@ -228,6 +252,13 @@ export namespace draconic::resource
             ClearForwardDeps(id);
 
             handle.SetProductTypeId(productTypeId);
+            // Park the outgoing product instead of destroying it now: GPU products own
+            // views/buffers that in-flight frames may still reference - CollectGarbage
+            // (ticked by the host once per frame) releases them a few frames later.
+            if (Object* old = handle.Get())
+            {
+                m_graveyard.PushBack(Grave{ RefPtr<Object>(old), kGraveFrames });
+            }
             handle.Replace(nullptr);
 
             draconic::content::Instance* instance = m_database->GetInstance(id);
@@ -303,6 +334,14 @@ export namespace draconic::resource
         HashMap<Guid, Array<Guid>> m_dependencies;  // id -> resources it depends on
         HashMap<Guid, Array<Guid>> m_dependents;    // id -> resources that depend on it
         Array<Guid> m_buildStack;                   // ids currently building (auto-edge source)
+
+        static constexpr u32 kGraveFrames = 8;      // > max frames in flight, comfortably
+        struct Grave
+        {
+            RefPtr<Object> product;
+            u32 framesLeft = 0;
+        };
+        Array<Grave> m_graveyard;                   // hot-reloaded-away products awaiting release
     };
 
     template <typename T>
