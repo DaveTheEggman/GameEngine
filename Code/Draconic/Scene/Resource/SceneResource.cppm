@@ -16,6 +16,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
 export module draconic.scene.resource;
@@ -112,10 +113,24 @@ inline void SerializeScene(ISerializer& ar, Scene& scene) {
             draconic::core::Serialize(ar, "active", active);
             detail::SerializeGuid(ar, "parent", parentId);
             detail::SerializeTransform(ar, t);
-            EntityHandle h = scene.CreateEntity(id, ename.AsView());
+            // Corrupt-save recovery: a duplicate entity guid (the pre-fix RNG-collision bug)
+            // gets a FRESH id so every entity stays uniquely addressable. Records addressed
+            // to the shared guid (components, parent links) route to its FIRST holder.
+            EntityHandle h;
+            if (scene.FindEntity(id).IsAssigned())
+            {
+                DRACONIC_LOG_WARNING(u8"Scene",
+                    u8"duplicate entity guid in save for '{}' - assigning a fresh id", ename);
+                h = scene.CreateEntity(ename.AsView());
+                ids.PushBack(scene.GetEntityId(h));   // parent RELINK by the fresh id
+            }
+            else
+            {
+                h = scene.CreateEntity(id, ename.AsView());
+                ids.PushBack(id);
+            }
             scene.SetActive(h, active != 0);
             scene.SetLocalTransform(h, t);
-            ids.PushBack(id);
             parents.PushBack(parentId);
         }
         // relink parents now that every entity exists

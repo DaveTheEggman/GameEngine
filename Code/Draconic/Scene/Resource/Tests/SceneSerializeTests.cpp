@@ -145,3 +145,69 @@ TEST_CASE("scene-serialize: sibling order round-trips after reorders")
     REQUIRE(k2.IsAssigned());
     CHECK(loaded.GetEntityName(k2) == u8"b");
 }
+
+// Regression (user-hit, corrupted a real save): the scene's guid RNG is deterministic and a
+// LOAD does not advance it, so entities created after a load reproduced loaded guids - and
+// since editor commands route BY GUID, edits landed on the wrong entity. CreateEntity now
+// re-rolls on collision; loading a save that already contains duplicates recovers by
+// reassigning fresh ids (warning) instead of asserting.
+TEST_CASE("scene-serialize: fresh guids never collide with loaded entities")
+{
+    // Session 1: create + save.
+    MemoryStream blob;
+    Guid firstId;
+    {
+        Scene scene;
+        firstId = scene.GetEntityId(scene.CreateEntity(u8"First"));
+        BinarySerializer ar(blob, SerializeMode::Write);
+        SerializeScene(ar, scene);
+        REQUIRE(ar.IsOk());
+    }
+
+    // Session 2 (fresh scene = fresh deterministic RNG): load, then create MORE entities.
+    Scene loaded;
+    REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(blob, SerializeMode::Read);
+        SerializeScene(ar, loaded);
+        REQUIRE(ar.IsOk());
+    }
+    CHECK(loaded.FindEntity(firstId).IsAssigned());
+
+    // Without the re-roll these reproduced firstId (same RNG sequence).
+    for (i32 i = 0; i < 4; ++i)
+    {
+        const Guid fresh = loaded.GetEntityId(loaded.CreateEntity(u8"Later"));
+        CHECK(fresh != firstId);
+        CHECK(fresh != Guid{});
+    }
+}
+
+TEST_CASE("scene-serialize: a save with duplicate entity guids loads with recovery")
+{
+    // Forge a corrupt save: two entities sharing one guid (the pre-fix bug's output).
+    MemoryStream blob;
+    Guid shared;
+    {
+        Scene scene;
+        shared = scene.GetEntityId(scene.CreateEntity(u8"Original"));
+        (void)scene.CreateEntity(shared, u8"Impostor");   // explicit-guid create = the corruption
+        BinarySerializer ar(blob, SerializeMode::Write);
+        SerializeScene(ar, scene);
+        REQUIRE(ar.IsOk());
+    }
+
+    Scene loaded;
+    REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(blob, SerializeMode::Read);
+        SerializeScene(ar, loaded);
+        REQUIRE(ar.IsOk());
+    }
+
+    // Both entities exist, uniquely addressable; the shared guid resolves to its first holder.
+    CHECK(loaded.EntityCount() == 2u);
+    const EntityHandle first = loaded.FindEntity(shared);
+    REQUIRE(first.IsAssigned());
+    CHECK(loaded.GetEntityName(first) == StringView(u8"Original"));
+}

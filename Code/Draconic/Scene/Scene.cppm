@@ -44,7 +44,12 @@ public:
 
     // Creates an entity with a fresh random Guid; starts as a root, active, identity transform.
     EntityHandle CreateEntity(StringView name = {}) {
-        return CreateEntityInternal(Guid::Generate(m_rng), name);
+        // The RNG is deterministic and loading a scene does NOT advance it past the loaded
+        // entities, so a fresh id can reproduce a loaded one - re-roll until free (the same
+        // collision the content DB re-rolls; three entities sharing a guid corrupts saves).
+        Guid id = Guid::Generate(m_rng);
+        while (FindEntity(id).IsAssigned()) { id = Guid::Generate(m_rng); }
+        return CreateEntityInternal(id, name);
     }
     // Creates an entity with a specific Guid (used when loading a scene from disk).
     EntityHandle CreateEntity(const Guid& id, StringView name = {}) {

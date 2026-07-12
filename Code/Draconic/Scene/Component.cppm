@@ -205,7 +205,10 @@ public:
         if (T* c = this->Get(entity)) { SerializeOne(ar, *c); }
     }
     void ReadComponent(ISerializer& ar, EntityHandle entity) override {
-        T& c = this->Add(entity);
+        // Overwrite when present: duplicate records (corrupt saves recovered by the scene
+        // loader) must consume their payload instead of asserting in Add.
+        T* existing = this->Get(entity);
+        T& c = (existing != nullptr) ? *existing : this->Add(entity);
         SerializeOne(ar, c);
     }
 
