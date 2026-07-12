@@ -118,6 +118,41 @@ TEST_CASE("primitives: cube + sphere + plane are well-formed")
     CHECK(plane->IndexCount() == 2 * 2 * 6);
 }
 
+TEST_CASE("primitives: cylinder + cone + torus are well-formed (Sedulous ports)")
+{
+    RefPtr<StaticMesh> cyl = Primitives::Cylinder(0.5f, 2.0f, 16);
+    REQUIRE(cyl);
+    CHECK(cyl->VertexCount() == 1 + 16 + 1 + 16 + (16 + 1) * 2);
+    CHECK(cyl->IndexCount() == 16 * 3 * 2 + 16 * 6);
+    CHECK(cyl->bounds.min.y == doctest::Approx(-1.0f));
+    CHECK(cyl->bounds.max.y == doctest::Approx(1.0f));
+    CHECK(cyl->bounds.max.x == doctest::Approx(0.5f));
+    // every vertex sits either on a cap plane or the wall radius
+    for (const StaticMeshVertex& v : cyl->vertices) {
+        const f32 r = Length(Float3{ v.position.x, 0.0f, v.position.z });
+        CHECK((r < 0.5f + 0.001f));
+        CHECK(Abs(v.position.y) == doctest::Approx(1.0f));
+    }
+
+    RefPtr<StaticMesh> cone = Primitives::Cone(0.5f, 1.0f, 16);
+    REQUIRE(cone);
+    CHECK(cone->VertexCount() == 1 + 16 + 1 + 16);
+    CHECK(cone->IndexCount() == 16 * 6);
+    CHECK(cone->bounds.max.y == doctest::Approx(0.5f));
+    CHECK(cone->bounds.min.y == doctest::Approx(-0.5f));
+
+    RefPtr<StaticMesh> torus = Primitives::Torus(1.0f, 0.25f, 16, 8);
+    REQUIRE(torus);
+    CHECK(torus->VertexCount() == (16 + 1) * (8 + 1));
+    CHECK(torus->IndexCount() == 16 * 8 * 6);
+    // every surface point is tubeRadius from its ring center
+    for (const StaticMeshVertex& v : torus->vertices) {
+        const Float3 onRing = Normalized(Float3{ v.position.x, 0.0f, v.position.z });
+        const Float3 center = onRing * 1.0f;
+        CHECK(Length(v.position - center) == doctest::Approx(0.25f).epsilon(0.01));
+    }
+}
+
 TEST_CASE("clear-for-reload empties in place (skinned clears both streams)")
 {
     RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>(DefaultAllocator());
