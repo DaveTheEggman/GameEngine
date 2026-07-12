@@ -5,6 +5,7 @@ add_library(Draconic::MaterialResource ALIAS DraconicMaterialResource)
 
 target_link_libraries(DraconicMaterialResource
     PUBLIC Draconic::Core Draconic::Resource Draconic::Content Draconic::Shaders
+           Draconic::Texture Draconic::TextureResource
            Draconic::ShaderResource Draconic::Materials Draconic::Policy)
 
 target_sources(DraconicMaterialResource

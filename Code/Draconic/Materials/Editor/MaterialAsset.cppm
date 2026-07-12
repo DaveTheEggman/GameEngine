@@ -45,7 +45,17 @@ public:
 class MaterialAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
 public:
     [[nodiscard]] const TypeInfo* AssetType() const override { return &MaterialAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &MaterialSource::StaticType(); }
+    [[nodiscard]] const TypeInfo* ProductType() const override { return &MaterialSource::StaticType(); }
+
+    // Bound textures are runtime REFERENCES: their products must exist, but a texture edit
+    // never re-cooks the material (the factory re-binds at load/reload).
+    void ScanDependencies(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext&,
+                          draconic::editor::AssetDependencies& out) override {
+        const MaterialAsset& ma = static_cast<const MaterialAsset&>(asset);
+        for (const Guid& id : ma.source.textureIds) {
+            if (!id.IsNil()) { out.references.PushBack(id); }
+        }
+    }
 
     [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
         const MaterialAsset& ma = static_cast<const MaterialAsset&>(asset);   // guarded by AssetType()

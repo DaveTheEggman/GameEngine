@@ -50,7 +50,7 @@ struct PropertyOverrideMask {
 // Per-use material with overridable properties + dirty tracking.
 class MaterialInstance {
 public:
-    explicit MaterialInstance(Material* material) : m_material(material) {
+    explicit MaterialInstance(Material* material) : m_material(RefPtr<Material>(material)) {
         if (material != nullptr && material->UniformDataSize() > 0) {
             m_uniformData.Resize(material->UniformDataSize());
             const Span<const u8> defaults = material->DefaultUniformData();
@@ -63,7 +63,7 @@ public:
     MaterialInstance(const MaterialInstance&) = delete;
     MaterialInstance& operator=(const MaterialInstance&) = delete;
 
-    [[nodiscard]] Material* GetMaterial() const noexcept { return m_material; }
+    [[nodiscard]] Material* GetMaterial() const noexcept { return m_material.Get(); }
 
     // --- property setters (write override + mark dirty) ---
     void SetFloat(StringView n, f32 v)  { WriteUniform(n, &v, sizeof(v)); }
@@ -158,7 +158,7 @@ private:
         if (!m_inDirtyList && m_sink != nullptr) { m_sink->MarkInstanceDirty(this); }
     }
 
-    Material* m_material = nullptr;                 // borrowed (shared template)
+    RefPtr<Material> m_material;                    // owned (keeps a reloaded-away material alive while cached)
     IMaterialInstanceSink* m_sink = nullptr;        // borrowed (the MaterialSystem)
     Array<u8> m_uniformData;                        // override uniform buffer
     HashMap<usize, rhi::TextureView*> m_textures;   // override textures by property index

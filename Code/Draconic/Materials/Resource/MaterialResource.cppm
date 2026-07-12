@@ -10,6 +10,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
 export module draconic.materials.resource;
@@ -19,6 +20,8 @@ import draconic.resource;
 import draconic.content;
 import draconic.shaders;
 import draconic.shaders.resource;
+import draconic.texture;
+import draconic.texture.resource;
 import draconic.materials;
 
 using namespace draconic::core;
@@ -49,6 +52,14 @@ public:
     Array<u32>    propSizes;
     Array<u8>     uniformDefaults;
 
+    // Default texture bindings: slot name -> texture product guid (parallel arrays). The
+    // factory resolves each through the manager (recording the dependency edge, so a texture
+    // hot reload cascades into this material) and sets it as the material's default texture.
+    // This makes a cooked material SELF-CONTAINED - previously only the model-spawn composite
+    // wired textures, so a directly-referenced material rendered untextured.
+    Array<String> textureSlots;
+    Array<Guid>   textureIds;
+
     void Serialize(ISerializer& ar) override {
         draconic::core::Serialize(ar, "name", name);
         draconic::core::Serialize(ar, "shaderId", shaderId);
@@ -64,6 +75,8 @@ public:
         draconic::core::Serialize(ar, "propOffsets", propOffsets);
         draconic::core::Serialize(ar, "propSizes", propSizes);
         draconic::core::Serialize(ar, "uniformDefaults", uniformDefaults);
+        draconic::core::Serialize(ar, "textureSlots", textureSlots);
+        draconic::core::Serialize(ar, "textureIds", textureIds);
     }
 
     // Captures a built Material's declared layout + defaults into an authorable source
@@ -139,6 +152,32 @@ public:
         material->pipeline.depthMode    = static_cast<DepthMode>(src->depthMode);
         material->pipeline.cullMode     = static_cast<CullModeConfig>(src->cullMode);
         material->pipeline.vertexLayout = static_cast<VertexLayoutType>(src->vertexLayout);
+
+        // Default texture bindings: resolve each through the manager (the Bind records the
+        // material->texture edge, so a texture reload rebuilds this material) and install as
+        // the material's default. Missing textures (not cooked yet, no GPU factory in
+        // headless tools) just leave the slot unbound.
+        for (usize i = 0; i < src->textureSlots.Size() && i < src->textureIds.Size(); ++i) {
+            if (src->textureIds[i].IsNil()) { continue; }
+            Proxy<texture::Texture> tex = manager.Bind<texture::Texture>(src->textureIds[i]);
+            if (!tex) {
+                DRACONIC_LOG_WARNING(u8"Materials", u8"material '{}': texture for slot '{}' failed to bind (no product / no texture factory?)",
+                                     src->name, src->textureSlots[i]);
+                continue;
+            }
+            if (tex->View() == nullptr) {
+                DRACONIC_LOG_WARNING(u8"Materials", u8"material '{}': texture for slot '{}' has no GPU view",
+                                     src->name, src->textureSlots[i]);
+                continue;
+            }
+            if (material->FindProperty(src->textureSlots[i].AsView()) == nullptr) {
+                DRACONIC_LOG_WARNING(u8"Materials", u8"material '{}': no texture property named '{}' in its layout",
+                                     src->name, src->textureSlots[i]);
+                continue;
+            }
+            material->SetDefaultTexture(src->textureSlots[i].AsView(), tex->View());
+            DRACONIC_LOG_DEBUG(u8"Materials", u8"material '{}': slot '{}' bound", src->name, src->textureSlots[i]);
+        }
         return material;
     }
 };

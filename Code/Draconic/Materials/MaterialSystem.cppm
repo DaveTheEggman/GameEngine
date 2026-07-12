@@ -9,6 +9,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 export module draconic.materials:system;
 
@@ -149,6 +150,18 @@ public:
         m_dirty.Clear();
     }
 
+    // Hand the instance's bind group to the caller (removed from the system) WITHOUT
+    // destroying it - for deferred retirement while in-flight frames may still bind it.
+    [[nodiscard]] rhi::BindGroup* DetachBindGroup(MaterialInstance* instance) {
+        if (instance == nullptr) { return nullptr; }
+        if (rhi::BindGroup** bg = m_bindGroups.Find(instance)) {
+            rhi::BindGroup* g = *bg;
+            m_bindGroups.Remove(instance);
+            return g;
+        }
+        return nullptr;
+    }
+
     void ReleaseInstance(MaterialInstance* instance) override {
         if (instance == nullptr) { return; }
         if (instance->IsInDirtyList()) {
@@ -262,6 +275,11 @@ private:
         for (const MaterialPropertyDef& p : material->Properties()) {
             if (p.IsTexture()) {
                 rhi::TextureView* view = instance.GetTexture(propIndex);
+                if (Contains(p.name, u8"lbedo")) {   // TEMP diagnostics (remove after the texture hunt)
+                    DRACONIC_LOG_DEBUG(u8"MaterialSys", u8"bindgroup '{}' uid={} albedo={}",
+                                       material->name, material->uid,
+                                       view != nullptr ? StringView(u8"REAL") : StringView(u8"fallback"));
+                }
                 if (view == nullptr) {
                     view = (Contains(p.name, u8"ormal")) ? m_normalView : m_whiteView;   // *N*ormal/*n*ormal fallback
                 }

@@ -28,6 +28,10 @@ export namespace draconic::materials {
 class Material final : public Object {
     DRACONIC_OBJECT(Material, Object)
 public:
+    // Unique per-OBJECT id: renderer caches key by THIS, never by pointer (a reloaded
+    // material can reallocate at the freed address - the bind-group versioning rule).
+    const u64 uid = NextUid();
+
     String         name;
     String         shaderName;
     shaders::ShaderFlags shaderFlags = shaders::ShaderFlags::None;
@@ -130,6 +134,11 @@ private:
     Array<UniquePtr<String>>   m_propertyNames;   // stable backing for property name views
     Array<u8>                  m_defaultUniformData;
     u32                        m_uniformDataSize = 0;
+    [[nodiscard]] static u64 NextUid() noexcept {
+        static Atomic<u64> counter{ 0 };
+        return counter.fetch_add(1) + 1;
+    }
+
     HashMap<usize, rhi::TextureView*> m_defaultTextures;
     HashMap<usize, rhi::Sampler*>     m_defaultSamplers;
 };
