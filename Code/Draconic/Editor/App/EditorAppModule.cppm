@@ -11,5 +11,6 @@ export module draconic.editor.app;
 export import :layout;
 export import :log_view;
 export import :ui_page;
+export import :assets_view;
 export import :shell;
 export import :application;

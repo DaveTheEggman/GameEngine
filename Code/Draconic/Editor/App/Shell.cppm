@@ -83,6 +83,13 @@ export namespace draconic::editor::app
         [[nodiscard]] tk::DockablePanel* ConsolePanel() const noexcept { return m_console; }
         [[nodiscard]] tk::DockablePanel* AssetsPanel() const noexcept { return m_assets; }
 
+        /// Replace the Assets panel's placeholder with the real browser (once the project +
+        /// cook service exist).
+        void SetAssetsContent(draconic::ui::View* content)
+        {
+            if (m_assets != nullptr) { m_assets->SetContent(content); }
+        }
+
         /// The Console panel's log view (fed by the app's EditorLogBuffer drain).
         [[nodiscard]] LogView* Console() const noexcept { return m_logView.Get(); }
 

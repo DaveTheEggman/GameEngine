@@ -6,7 +6,7 @@ add_library(Draconic::EditorApp ALIAS DraconicEditorApp)
 
 target_link_libraries(DraconicEditorApp
     PUBLIC
-        Draconic::Core Draconic::VFS Draconic::XmlSerialization
+        Draconic::Core Draconic::VFS Draconic::XmlSerialization Draconic::Editor Draconic::Resource
         Draconic::Shell Draconic::Graphics Draconic::Runtime Draconic::RuntimeClient
         Draconic::RenderApi
         Draconic::Fonts Draconic::FontsTTF
@@ -19,6 +19,7 @@ target_sources(DraconicEditorApp
             Layout.cppm
             LogView.cppm
             UIPage.cppm
+            AssetsView.cppm
             Shell.cppm
             Application.cppm
             EditorAppModule.cppm)

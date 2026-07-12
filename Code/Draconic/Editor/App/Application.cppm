@@ -25,7 +25,10 @@ import draconic.ui.toolkit;
 import draconic.ui.runtime;
 import draconic.ui.application;
 import draconic.content;
+import draconic.resource;
+import draconic.editor;
 import draconic.editor.core;
+import :assets_view;
 import :shell;
 import :ui_page;
 
@@ -51,6 +54,13 @@ export namespace draconic::editor::app
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
         draconic::editor::EditorLogBuffer* logBuffer = nullptr;
 
+        // Smoke-test aid: request a CLEAN shutdown after this many seconds (0 = never).
+        // Exercises the real teardown path, unlike killing the process.
+        f32 autoExitSeconds = 0.0f;
+        // Smoke-test aid: trigger Build > Rebuild All after this many seconds (0 = never).
+        // Exercises the hot-reload cascade exactly like the menu click.
+        f32 autoRebuildSeconds = 0.0f;
+
         // The assembly seams (design doc §3.1) - editor.app never links engine modules or the
         // draconic.<sys>.editor plugin modules; the EXECUTABLE composes them here:
         /// Called from IApplication::Configure - register engine subsystems (scene/render/...).
@@ -68,6 +78,20 @@ export namespace draconic::editor::app
         [[nodiscard]] draconic::editor::EditorContext& Context() noexcept { return m_context; }
         [[nodiscard]] draconic::editor::EditorProject* Project() const noexcept { return m_project.Get(); }
         [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
+        /// The exe registers every engine builder here (from registerEditors), mirroring the
+        /// RaptorCook CLI's set - the cook service routes through it.
+        [[nodiscard]] draconic::editor::BuilderRegistry& Builders() noexcept { return m_builders; }
+        [[nodiscard]] draconic::editor::EditorCookService& CookService() noexcept { return m_cookService; }
+
+        /// The exe registers runtime resource factories here (from registerEditors); the app
+        /// owns them + the ResourceManager over the project's cooked DB.
+        void AddResourceFactory(UniquePtr<draconic::resource::IResourceFactory> factory)
+        {
+            if (!factory) { return; }
+            if (m_resources) { m_resources->AddFactory(factory.Get()); }
+            m_resourceFactories.PushBack(Move(factory));
+        }
+        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept { return m_resources.Get(); }
 
         void Configure(rt::IApplicationHost& host) override
         {
@@ -117,6 +141,39 @@ export namespace draconic::editor::app
             // Per-subsystem editor plugins register here (page factories, creators, ...), and
             // the exe injects the engine interfaces the app drives (SetSceneRenderer).
             if (m_config.registerEditors) { m_config.registerEditors(*this, host, *m_uiHost); }
+
+            // Cook service + the real Assets panel, once the project AND the exe-registered
+            // builders both exist.
+            if (m_project)
+            {
+                m_resources = MakeUnique<draconic::resource::ResourceManager>(DefaultAllocator(),
+                    m_project->CookedDb());
+                for (const auto& factory : m_resourceFactories) { m_resources->AddFactory(factory.Get()); }
+                m_context.SetResources(m_resources.Get());
+                m_cookService.Initialize(*m_project, m_builders);
+                m_assetsView = MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService);
+                AssetsView* assets = m_assetsView.Get();
+                m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance) {
+                    (void)OpenInstancePage(instance);
+                };
+                m_assetsView->OnCreate = [this](const draconic::editor::EditorContext::AssetCreator& creator) {
+                    CreateAndOpen(creator);
+                };
+                m_cookService.OnCookFinished = [this, assets]() {
+                    assets->Rebuild();
+                    // Hot reload: rebuilt products swap in behind the proxy handles - live
+                    // scenes see the new resources with no reopen (dependents reload
+                    // transitively through the manager's recorded edges).
+                    if (m_resources)
+                    {
+                        for (const Guid& product : m_cookService.LastCookedProducts())
+                        {
+                            (void)m_resources->Reload(product);
+                        }
+                    }
+                };
+                m_shell.SetAssetsContent(m_assetsView.Get());
+            }
 
             // Menus AFTER registration - File > New builds from the creator registry.
             BuildMenus();
@@ -189,7 +246,40 @@ export namespace draconic::editor::app
 
         void OnUpdate(rt::IApplicationHost& host, f32 dt) override
         {
+            if (m_config.autoExitSeconds > 0.0f || m_config.autoRebuildSeconds > 0.0f)
+            {
+                m_elapsed += dt;
+                if (m_config.autoExitSeconds > 0.0f && m_elapsed >= m_config.autoExitSeconds)
+                {
+                    host.Shell()->RequestExit();
+                }
+                if (m_config.autoRebuildSeconds > 0.0f && !m_autoRebuilt
+                    && m_elapsed >= m_config.autoRebuildSeconds)
+                {
+                    m_autoRebuilt = true;
+                    m_cookService.RequestCook(true);
+                }
+            }
             DrainLog();
+            // Background-cook progress -> status bar (log lines reach the Console via the
+            // logger); a finished cook refreshes the Assets badges through OnCookFinished.
+            m_cookService.Update(Function<void(StringView)>{ [this](StringView line) {
+                m_context.SetStatus(line);
+            } });
+            if (m_assetsView) { m_assetsView->Refresh(); }
+            if (m_resources) { m_resources->CollectGarbage(); }   // release hot-reloaded-away products
+
+            // OS file drops -> the import pipeline (any editor window; imports land in the
+            // Assets panel's selected group).
+            if (m_assetsView && host.Shell() != nullptr)
+            {
+                m_droppedFiles.Clear();
+                host.Shell()->DrainDroppedFiles(m_droppedFiles);
+                for (const draconic::shell::DroppedFile& drop : m_droppedFiles)
+                {
+                    m_assetsView->ImportFile(drop.path.AsView());
+                }
+            }
             if (m_uiHost) { m_uiHost->Update(dt); }
             if (m_dockHost) { m_dockHost->Tick(); }   // drag-follow for floating OS windows
 
@@ -216,6 +306,7 @@ export namespace draconic::editor::app
 
         void OnShutdown(rt::IApplicationHost&) override
         {
+            m_cookService.Shutdown();   // joins any in-flight cook before the DBs go away
             // Release page resources while the device and windows are still alive.
             for (const PagePanel& entry : m_pagePanels) { entry.page->OnClose(); }
             SaveLayout();
@@ -304,8 +395,15 @@ export namespace draconic::editor::app
         void BuildMenus()
         {
             tk::MenuBar* bar = m_shell.Menus();
+            // Menu order: File FIRST (muscle memory), Build after it, Help-style menus last.
+            draconic::ui::ContextMenu* file = bar->AddMenu(u8"File");
+            if (draconic::ui::ContextMenu* build = bar->AddMenu(u8"Build"))
+            {
+                build->AddItem(u8"Cook All", [this]() { m_cookService.RequestCook(false); });
+                build->AddItem(u8"Rebuild All", [this]() { m_cookService.RequestCook(true); });
+            }
 
-            if (draconic::ui::ContextMenu* file = bar->AddMenu(u8"File"))
+            if (file != nullptr)
             {
                 rt::IApplicationHost* host = m_host;
 
@@ -374,6 +472,14 @@ export namespace draconic::editor::app
 
         draconic::editor::EditorContext m_context;
         UniquePtr<draconic::editor::EditorProject> m_project;
+        draconic::editor::BuilderRegistry m_builders;        // exe-assembled (registerEditors)
+        draconic::editor::EditorCookService m_cookService;
+        RefPtr<AssetsView> m_assetsView;
+        f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
+        bool m_autoRebuilt = false;
+        Array<draconic::shell::DroppedFile> m_droppedFiles;   // per-frame drain buffer
+        Array<UniquePtr<draconic::resource::IResourceFactory>> m_resourceFactories;   // exe-assembled
+        UniquePtr<draconic::resource::ResourceManager> m_resources;
 
         UniquePtr<fonts::TrueTypeFontService> m_fontService;
         tk::ToolkitThemeExtension m_toolkitTheme;
