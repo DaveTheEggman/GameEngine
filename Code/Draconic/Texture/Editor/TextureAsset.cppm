@@ -15,11 +15,13 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
+#include <initializer_list>
 
 export module draconic.texture.editor;
 
 import draconic.core;
 import draconic.editor;
+import draconic.editor.core;
 import draconic.rhi;
 import draconic.texture;
 import draconic.texture.resource;
@@ -32,6 +34,7 @@ using namespace draconic::core;
 export namespace draconic::texture
 {
     namespace image = draconic::image;
+    namespace content = draconic::content;
 
     // Source asset: an image file + how it should become a GPU texture.
     class TextureAsset final : public draconic::editor::Asset
@@ -39,6 +42,10 @@ export namespace draconic::texture
         DRACONIC_OBJECT(TextureAsset, draconic::editor::Asset)
     public:
         image::ImageColorSpace colorSpace = image::ImageColorSpace::Srgb;
+        // Embedded mode (model imports): fileName empty + width/height set; the RGBA8 pixels
+        // live in the source instance's "pixels" data stream instead of an external file.
+        u32 embeddedWidth = 0;
+        u32 embeddedHeight = 0;
         TextureShape shape = TextureShape::Texture2D;
         TextureFilter minFilter = TextureFilter::Linear;
         TextureFilter magFilter = TextureFilter::Linear;
@@ -52,6 +59,8 @@ export namespace draconic::texture
         {
             draconic::editor::Asset::Serialize(ar); // fileName
             draconic::core::Serialize(ar, "colorSpace", colorSpace);
+            draconic::core::Serialize(ar, "embeddedWidth", embeddedWidth);
+            draconic::core::Serialize(ar, "embeddedHeight", embeddedHeight);
             draconic::core::Serialize(ar, "shape", shape);
             draconic::core::Serialize(ar, "minFilter", minFilter);
             draconic::core::Serialize(ar, "magFilter", magFilter);
@@ -104,10 +113,28 @@ export namespace draconic::texture
         [[nodiscard]] const TypeInfo* AssetType() const override { return &TextureAsset::StaticType(); }
         [[nodiscard]] const TypeInfo* ProductType() const override { return &TextureResource::StaticType(); }
 
+        // Embedded-mode textures read the "pixels" sidecar stream - declare it so the recipe
+        // hash chains its bytes (the envelope hash doesn't cover sidecars).
+        void ScanDependencies(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext&,
+                              draconic::editor::AssetDependencies& out) override
+        {
+            const TextureAsset& ta = static_cast<const TextureAsset&>(asset);
+            if (ta.fileName.IsEmpty() && ta.embeddedWidth > 0)
+            {
+                out.sourceStreams.PushBack(String(u8"pixels"));
+            }
+        }
+
         [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
         {
             const TextureAsset& ta = static_cast<const TextureAsset&>(asset); // guarded by AssetType()
             if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+
+            // Embedded mode: the pixels stream IS the decoded RGBA8 image (model imports).
+            if (ta.fileName.IsEmpty() && ta.embeddedWidth > 0 && ta.embeddedHeight > 0)
+            {
+                return BuildEmbedded(ta, ctx);
+            }
 
             Result<Array<byte>> bytes = ReadSourceBytes(ctx, ta.fileName.AsView());
             if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
@@ -137,6 +164,44 @@ export namespace draconic::texture
             const Span<const u8> px = image.PixelData();
             return ctx.output->WriteData(u8"data",
                 Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
+        }
+
+    private:
+        [[nodiscard]] static Status BuildEmbedded(const TextureAsset& ta,
+                                                  draconic::editor::AssetBuildContext& ctx)
+        {
+            if (ctx.source == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            UniquePtr<IStream> stream = ctx.source->ReadData(u8"pixels");
+            if (stream.Get() == nullptr) { return Status{ ErrorCode::NotFound }; }
+            const i64 size = stream->Size();
+            const i64 expected = static_cast<i64>(ta.embeddedWidth) * ta.embeddedHeight * 4;
+            if (size != expected) { return Status{ ErrorCode::InvalidArgument }; }
+            Array<byte> pixels;
+            pixels.Resize(static_cast<usize>(size));
+            if (stream->Read(pixels.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
+            {
+                return Status{ ErrorCode::Unknown };
+            }
+
+            TextureResource resource;
+            resource.width = ta.embeddedWidth;
+            resource.height = ta.embeddedHeight;
+            resource.depthOrArrayLayers = 1;
+            resource.mipLevels = 1;
+            resource.format = (ta.colorSpace == image::ImageColorSpace::Srgb)
+                ? rhi::TextureFormat::RGBA8UnormSrgb : rhi::TextureFormat::RGBA8Unorm;
+            resource.shape = ta.shape;
+            resource.minFilter = ta.minFilter;
+            resource.magFilter = ta.magFilter;
+            resource.wrapU = ta.wrapU;
+            resource.wrapV = ta.wrapV;
+            resource.wrapW = ta.wrapW;
+            resource.generateMipmaps = ta.generateMipmaps;
+            resource.anisotropy = ta.anisotropy;
+
+            const Status wrote = ctx.output->WriteObject(resource);
+            if (!wrote.IsOk()) { return wrote; }
+            return ctx.output->WriteData(u8"data", Span<const byte>(pixels.Data(), pixels.Size()));
         }
     };
 
@@ -237,6 +302,42 @@ export namespace draconic::texture
                 if (a != b) { return false; }
             }
             return true;
+        }
+    };
+
+    // OS-file importer (editor drag-drop): copies the image into Sources/ and creates a
+    // TextureAsset instance (3D preset) named after the file stem in the target group.
+    class TextureFileImporter final : public draconic::editor::IFileImporter
+    {
+    public:
+        [[nodiscard]] StringView Label() const override { return u8"Texture"; }
+
+        [[nodiscard]] bool Accepts(StringView extension) const override
+        {
+            for (StringView ext : { u8"png", u8"jpg", u8"jpeg", u8"tga", u8"bmp", u8"hdr" })
+            {
+                if (extension == ext) { return true; }
+            }
+            return false;
+        }
+
+        [[nodiscard]] Result<content::Instance*> Import(StringView sourcePath,
+                                                        draconic::editor::EditorProject& project,
+                                                        content::Group& group) override
+        {
+            Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
+            if (!fileName.HasValue()) { return Err(fileName.Error()); }
+
+            const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
+            content::Instance* instance = group.CreateInstance(stem, TextureAsset::StaticType());
+            if (instance == nullptr) { return Err(ErrorCode::Unknown); }
+
+            TextureAsset asset;
+            asset.fileName = fileName.Value();
+            asset.SetupFor3D();
+            const Status written = instance->WriteObject(asset);
+            if (!written.IsOk()) { return Err(written.Code()); }
+            return instance;
         }
     };
 

@@ -4,6 +4,7 @@
 // factory (Null RHI backend). Also exercises the TextureImporter authoring helper.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
+#include <initializer_list>
 #include "Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.vfs;
@@ -12,6 +13,7 @@ import draconic.resource;
 import draconic.rhi;
 import draconic.rhi.null;
 import draconic.editor;
+import draconic.editor.core;
 import draconic.image;
 import draconic.image.io;
 import draconic.texture;
@@ -126,4 +128,53 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
 
     RemoveTree();
+}
+
+TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAsset instance")
+{
+    RegisterTextureAsset();
+
+    const StringView dir = u8"draconic_tex_import_project";
+    auto cleanTree = [&]() {
+        FileDelete(PathJoin(dir, u8"Project.xml"));
+        FileDelete(PathJoin(dir, u8"Sources/brick.png"));
+        FileDelete(PathJoin(dir, u8"Content/brick.xasset"));
+        for (StringView sub : { u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache" })
+        {
+            RemoveDirectory(PathJoin(dir, sub));
+        }
+        RemoveDirectory(dir);
+    };
+    cleanTree();
+    REQUIRE(draconic::editor::EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<draconic::editor::EditorProject> project = draconic::editor::EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    // A loose "PNG" (the importer copies bytes + creates the asset; decoding happens at cook).
+    const byte fakePng[6] = { byte{'P'}, byte{'N'}, byte{'G'}, byte{1}, byte{2}, byte{3} };
+    REQUIRE(WriteFile(u8"brick.png", Span<const byte>(fakePng, 6)).IsOk());
+
+    TextureFileImporter importer;
+    CHECK(importer.Accepts(u8"png"));
+    CHECK(importer.Accepts(u8"jpeg"));
+    CHECK_FALSE(importer.Accepts(u8"gltf"));
+
+    Result<draconic::content::Instance*> imported =
+        importer.Import(u8"brick.png", *project, *project->SourceDb().RootGroup());
+    REQUIRE(imported.HasValue());
+    draconic::content::Instance* instance = imported.Value();
+    REQUIRE(instance != nullptr);
+    CHECK(instance->Name() == StringView(u8"brick"));
+    CHECK(instance->TypeName() == StringView(u8"TextureAsset"));
+
+    // The source landed in Sources/ and the asset references it by mount-relative name.
+    CHECK(FileExists(PathJoin(dir, u8"Sources/brick.png").AsView()));
+    RefPtr<ISerializable> object = instance->ReadObject();
+    auto* asset = Cast<TextureAsset>(object.Get());
+    REQUIRE(asset != nullptr);
+    CHECK(asset->fileName == StringView(u8"brick.png"));
+    CHECK(asset->generateMipmaps);   // the 3D preset
+
+    FileDelete(u8"brick.png");
+    cleanTree();
 }
