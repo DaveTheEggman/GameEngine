@@ -5,7 +5,8 @@ add_library(DraconicEditorCore STATIC)
 add_library(Draconic::EditorCore ALIAS DraconicEditorCore)
 
 target_link_libraries(DraconicEditorCore
-    PUBLIC Draconic::Core Draconic::VFS Draconic::Content Draconic::XmlSerialization Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VFS Draconic::Content Draconic::XmlSerialization
+           Draconic::Editor Draconic::EditorCook Draconic::Resource Draconic::Policy)
 
 target_sources(DraconicEditorCore
     PUBLIC
@@ -16,6 +17,8 @@ target_sources(DraconicEditorCore
             Page.cppm
             Context.cppm
             LogBuffer.cppm
+            CookService.cppm
+            Importer.cppm
             EditorCoreModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

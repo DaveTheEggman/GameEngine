@@ -12,6 +12,8 @@ module;
 export module draconic.editor.core:context;
 
 import draconic.core;
+import draconic.resource;
+import :importer;
 import draconic.content;
 import :command;
 import :selection;
@@ -45,6 +47,15 @@ export namespace draconic::editor
             m_assetSelection.Clear();
         }
         [[nodiscard]] EditorProject* Project() const noexcept { return m_project; }
+
+        // === Importers (OS file -> Sources/ + typed Asset instance; exe-registered) ===
+        [[nodiscard]] ImporterRegistry& Importers() noexcept { return m_importers; }
+
+        // === Resources (runtime products over the project's cooked DB) ===
+        // Owned by the application (created at project open); pages resolve scene refs and the
+        // inspector's pickers bind through it. Null until a project is open.
+        void SetResources(draconic::resource::ResourceManager* resources) noexcept { m_resources = resources; }
+        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept { return m_resources; }
 
         // === Registries ===
 
@@ -165,7 +176,9 @@ export namespace draconic::editor
             if (OnPagesChanged) { OnPagesChanged(); }
         }
 
-        EditorProject* m_project = nullptr;   // borrowed
+        EditorProject* m_project = nullptr;
+        draconic::resource::ResourceManager* m_resources = nullptr;   // borrowed (app-owned)
+        ImporterRegistry m_importers;   // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;
         Array<UniquePtr<EditorPage>> m_pages;
