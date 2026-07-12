@@ -8,6 +8,8 @@
 //   run). Defaults to ./EditorProject.
 
 #include <cstdio>
+#include <cstring>
+#include <cstdlib>
 #include "Core/Log/Log.h"
 
 import draconic.core;
@@ -23,12 +25,66 @@ import draconic.render.subsystem;
 import draconic.animation.subsystem;
 import draconic.particles.subsystem;
 import draconic.ui.runtime;
+import draconic.resource;
+import draconic.geometry.resource;
+import draconic.materials.resource;
+import draconic.texture.resource;
+import draconic.editor;
 import draconic.editor.core;
 import draconic.editor.app;
 import draconic.editor.scene;
+import draconic.texture.editor;
+import draconic.image.editor;
+import draconic.image.resource;
+import draconic.geometry.editor;
+import draconic.animation.editor;
+import draconic.materials.editor;
+import draconic.shaders.editor;
+import draconic.particles.editor;
+import draconic.modelimporter;
 
 using namespace draconic::core;
+namespace ed = draconic::editor;
 namespace shell = draconic::shell;
+
+namespace
+{
+    template <typename T>
+    void AddBuilder(ed::BuilderRegistry& registry)
+    {
+        registry.Register(UniquePtr<ed::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+    }
+
+    // Every engine builder (kept in lockstep with the RaptorCook CLI's set).
+    void RegisterAllBuilders(ed::BuilderRegistry& registry)
+    {
+        draconic::texture::RegisterTextureAsset();
+        draconic::image::RegisterImageAsset();
+        draconic::geometry::RegisterMeshAssets();
+        draconic::animation::RegisterAnimationAssets();
+        draconic::materials::RegisterMaterialAsset();
+        draconic::shaders::RegisterShaderAsset();
+        draconic::particles::RegisterParticleEffectAsset();
+        draconic::modelimporter::RegisterModelManifestAsset();
+        // Product/resource types: ReadObject constructs cooked products BY TYPE NAME, so the
+        // runtime-facing types must be registered too (meshes/materials/textures/animation/
+        // manifest via the model-importer helper, plus the image resource).
+        draconic::modelimporter::RegisterModelImporterTypes();
+        draconic::image::RegisterImageResource();
+
+        AddBuilder<draconic::texture::TextureAssetBuilder>(registry);
+        AddBuilder<draconic::image::ImageAssetBuilder>(registry);
+        AddBuilder<draconic::geometry::StaticMeshAssetBuilder>(registry);
+        AddBuilder<draconic::geometry::SkinnedMeshAssetBuilder>(registry);
+        AddBuilder<draconic::animation::SkeletonAssetBuilder>(registry);
+        AddBuilder<draconic::animation::AnimationClipAssetBuilder>(registry);
+        AddBuilder<draconic::animation::AnimationGraphAssetBuilder>(registry);
+        AddBuilder<draconic::materials::MaterialAssetBuilder>(registry);
+        AddBuilder<draconic::shaders::ShaderAssetBuilder>(registry);
+        AddBuilder<draconic::particles::ParticleEffectAssetBuilder>(registry);
+        AddBuilder<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
+    }
+}
 namespace graphics = draconic::graphics;
 namespace runtime = draconic::runtime;
 namespace edapp = draconic::editor::app;
@@ -44,9 +100,20 @@ int main(int argc, char** argv)
     GlobalLogger().SetMinLevel(LogLevel::Debug);   // the Console panel has a Debug filter toggle
 
     edapp::EditorAppConfig config;
-    config.projectDirectory = String(argc > 1
+    config.projectDirectory = String(argc > 1 && argv[1][0] != '-'
         ? StringView(reinterpret_cast<const utf8char*>(argv[1]))
         : StringView(u8"EditorProject"));
+    for (int i = 1; i < argc - 1; ++i)
+    {
+        if (std::strcmp(argv[i], "--exit-after") == 0)
+        {
+            config.autoExitSeconds = static_cast<f32>(std::atof(argv[i + 1]));
+        }
+        if (std::strcmp(argv[i], "--rebuild-after") == 0)
+        {
+            config.autoRebuildSeconds = static_cast<f32>(std::atof(argv[i + 1]));
+        }
+    }
     config.fontPath = String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
     config.logBuffer = &logBuffer;
 
@@ -67,6 +134,25 @@ int main(int argc, char** argv)
                                 draconic::ui::runtime::UIHost& uiHost) {
         app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>());
         draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost);
+        RegisterAllBuilders(app.Builders());   // the cook service routes through this set
+
+        // OS-file importers (drag-drop onto the editor).
+        app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
+            DefaultAllocator().New<draconic::texture::TextureFileImporter>(), DefaultAllocator()));
+        app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
+            DefaultAllocator().New<draconic::modelimporter::ModelFileImporter>(), DefaultAllocator()));
+
+        // Runtime resource factories (scene refs + inspector pickers resolve through these).
+        namespace res = draconic::resource;
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::geometry::StaticMeshFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::geometry::SkinnedMeshFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::materials::MaterialFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::texture::TextureFactory>(*host.Graphics()->Raw()),
+            DefaultAllocator()));
     };
 
     DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
