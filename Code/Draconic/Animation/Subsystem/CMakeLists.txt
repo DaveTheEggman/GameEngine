@@ -6,7 +6,7 @@ add_library(Draconic::AnimationSubsystem ALIAS DraconicAnimationSubsystem)
 
 target_link_libraries(DraconicAnimationSubsystem
     PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
-           Draconic::Animation Draconic::RenderSubsystem Draconic::Policy)
+           Draconic::Animation Draconic::Resource Draconic::RenderSubsystem Draconic::Policy)
 
 target_sources(DraconicAnimationSubsystem
     PUBLIC
@@ -14,3 +14,7 @@ target_sources(DraconicAnimationSubsystem
             Components.cppm
             Subsystem.cppm
             AnimationSubsystemModule.cppm)
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(Tests)
+endif()

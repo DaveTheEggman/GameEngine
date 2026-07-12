@@ -17,6 +17,7 @@ module;
 export module draconic.animation.subsystem:components;
 
 import draconic.core;
+import draconic.resource;
 import draconic.scene;
 import draconic.animation;          // Skeleton, AnimationClip, AnimationPlayer, AnimationGraph(+Player)
 import draconic.render.subsystem;   // MeshComponentManager / MeshComponent (the feed target)
@@ -33,21 +34,45 @@ export namespace draconic::animation {
 // mesh nodes); empty => feed the component's own entity. All borrowed resources must outlive the
 // component (the resource manager / model keeps the skeleton + clip alive).
 struct SkeletalAnimationComponent {
-    animation::Skeleton*                  skeleton = nullptr;   // borrowed; shared across instances
-    animation::AnimationClip*             clip     = nullptr;   // borrowed; the clip to play (autoPlay)
+    // Resource refs: Guid-serialized + proxy-resolved (editor pickers/scene round-trip), or
+    // direct runtime objects (samples/spawn code). The manager rebuilds the player when the
+    // skeleton object changes (a pick or a hot reload).
+    draconic::resource::Ref<animation::Skeleton>      skeleton;
+    draconic::resource::Ref<animation::AnimationClip> clip;
     UniquePtr<animation::AnimationPlayer> player;               // created lazily by the manager
+    animation::Skeleton*                  playerSkeleton = nullptr;   // the skeleton the player was built for
+    animation::AnimationClip*             playerClip     = nullptr;   // the clip last handed to the player
     Array<scene::EntityHandle>          meshEntities;         // feed targets (empty => own entity)
     f32                              speed     = 1.0f;
     f32                              startTime = 0.0f;     // initial clock (desync a herd); applied on first tick
     bool                             autoPlay  = true;     // Play(clip) on first tick
 };
 
+// Persist the refs + tunables; the player and per-frame feed state are runtime-only.
+// (meshEntities are transient handles - the model-spawn workflow re-wires them; they'll persist
+// once entity-reference serialization exists.)
+inline void Serialize(ISerializer& ar, SkeletalAnimationComponent& c) {
+    draconic::core::Serialize(ar, "skeleton", c.skeleton);
+    draconic::core::Serialize(ar, "clip", c.clip);
+    draconic::core::Serialize(ar, "speed", c.speed);
+    draconic::core::Serialize(ar, "startTime", c.startTime);
+    draconic::core::Serialize(ar, "autoPlay", c.autoPlay);
+}
+
+inline void ResolveResources(draconic::resource::ResourceManager& manager, SkeletalAnimationComponent& c) {
+    c.skeleton.Bind(manager);
+    c.clip.Bind(manager);
+}
+
 // Ticks every SkeletalAnimationComponent in ScenePhase::PostUpdate (the "animation" phase, before
 // render extraction): advance each player, then write its current + previous skinning matrices into
 // the target MeshComponent(s) (borrowed for the frame - the player, owned by the component, keeps
 // the matrix storage alive). Lazily creates each component's player on first tick.
-class SkeletalAnimationComponentManager final : public scene::ComponentManager<SkeletalAnimationComponent> {
+class SkeletalAnimationComponentManager final : public scene::SerializableComponentManager<SkeletalAnimationComponent> {
 public:
+    SkeletalAnimationComponentManager()
+        : scene::SerializableComponentManager<SkeletalAnimationComponent>(u8"skeletal_animation") {}
+
     void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
     // Animation is gameplay-side state; only advance it while the scene is simulating? Keep it
@@ -60,11 +85,23 @@ public:
         if (meshes == nullptr) { return; }
 
         ForEach([&](SkeletalAnimationComponent& a, scene::EntityHandle owner) {
-            if (a.skeleton == nullptr) { return; }
-            if (a.player.Get() == nullptr) {
-                a.player = MakeUnique<animation::AnimationPlayer>(DefaultAllocator(), *a.skeleton);
-                if (a.autoPlay && a.clip != nullptr) {
-                    a.player->Play(a.clip);
+            animation::Skeleton* skeleton = a.skeleton.Get();
+            if (skeleton == nullptr) { return; }
+            // (Re)build the player when the skeleton object changed - first tick, an editor
+            // pick, or a hot reload swapping the product behind the ref.
+            if (a.player.Get() == nullptr || a.playerSkeleton != skeleton) {
+                a.player = MakeUnique<animation::AnimationPlayer>(DefaultAllocator(), *skeleton);
+                a.playerSkeleton = skeleton;
+                a.playerClip     = nullptr;   // (re)play below - the new player has no clip yet
+            }
+            // React to the CLIP changing independently of the skeleton (editor picks land one at
+            // a time; a hot reload swaps the product behind the ref mid-play). autoPlay starts the
+            // new clip; manual users drive a.player->Play themselves.
+            animation::AnimationClip* clip = a.clip.Get();
+            if (clip != a.playerClip) {
+                a.playerClip = clip;
+                if (a.autoPlay && clip != nullptr) {
+                    a.player->Play(clip);
                     if (a.startTime != 0.0f) { a.player->SetCurrentTime(a.startTime); }
                 }
             }
@@ -95,19 +132,35 @@ private:
 // feed contract: `meshEntities` are the MeshComponents that receive the matrices (empty => own
 // entity). All borrowed resources must outlive the component.
 struct AnimationGraphComponent {
-    animation::Skeleton*                       skeleton = nullptr;  // borrowed; shared across instances
-    animation::AnimationGraph*                 graph    = nullptr;  // borrowed; the state machine to evaluate
+    draconic::resource::Ref<animation::Skeleton>       skeleton;
+    draconic::resource::Ref<animation::AnimationGraph> graph;
     UniquePtr<animation::AnimationGraphPlayer> player;              // created lazily by the manager
+    animation::Skeleton*       playerSkeleton = nullptr;   // what the player was built for
+    animation::AnimationGraph* playerGraph    = nullptr;
     Array<scene::EntityHandle>               meshEntities;        // feed targets (empty => own entity)
     bool                                  active   = true;     // evaluate this frame?
 };
+
+inline void Serialize(ISerializer& ar, AnimationGraphComponent& c) {
+    draconic::core::Serialize(ar, "skeleton", c.skeleton);
+    draconic::core::Serialize(ar, "graph", c.graph);
+    draconic::core::Serialize(ar, "active", c.active);
+}
+
+inline void ResolveResources(draconic::resource::ResourceManager& manager, AnimationGraphComponent& c) {
+    c.skeleton.Bind(manager);
+    c.graph.Bind(manager);
+}
 
 // Ticks every AnimationGraphComponent in ScenePhase::PostUpdate, same as the skeletal manager but
 // evaluating an AnimationGraphPlayer. Runs at a LOWER UpdateOrder (before SkeletalAnimationComponent-
 // Manager), mirroring Sedulous's graph-before-clip ordering; an entity is expected to use one or the
 // other (mixing both pushes to the same MeshComponent - the later writer wins).
-class AnimationGraphComponentManager final : public scene::ComponentManager<AnimationGraphComponent> {
+class AnimationGraphComponentManager final : public scene::SerializableComponentManager<AnimationGraphComponent> {
 public:
+    AnimationGraphComponentManager()
+        : scene::SerializableComponentManager<AnimationGraphComponent>(u8"animation_graph") {}
+
     void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
     [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
@@ -121,9 +174,14 @@ public:
         if (meshes == nullptr) { return; }
 
         ForEach([&](AnimationGraphComponent& a, scene::EntityHandle owner) {
-            if (a.skeleton == nullptr || a.graph == nullptr) { return; }
-            if (a.player.Get() == nullptr) {
-                a.player = MakeUnique<animation::AnimationGraphPlayer>(DefaultAllocator(), *a.graph, *a.skeleton);
+            animation::Skeleton* skeleton     = a.skeleton.Get();
+            animation::AnimationGraph* graph  = a.graph.Get();
+            if (skeleton == nullptr || graph == nullptr) { return; }
+            // (Re)build the player when either object changed - first tick, a pick, a reload.
+            if (a.player.Get() == nullptr || a.playerSkeleton != skeleton || a.playerGraph != graph) {
+                a.player = MakeUnique<animation::AnimationGraphPlayer>(DefaultAllocator(), *graph, *skeleton);
+                a.playerSkeleton = skeleton;
+                a.playerGraph    = graph;
             }
             if (!a.active) { return; }
             a.player->Update(deltaTime);
@@ -242,14 +300,18 @@ namespace draconic::animation
 
 DRACONIC_REFLECT_VALUE(SkeletalAnimationComponent, "draconic::animation")
 {
-    builder.Property<&SkeletalAnimationComponent::speed>("speed")
+    builder.Property<&SkeletalAnimationComponent::skeleton>("skeleton")
+           .Property<&SkeletalAnimationComponent::clip>("clip")
+           .Property<&SkeletalAnimationComponent::speed>("speed")
            .Property<&SkeletalAnimationComponent::startTime>("startTime")
            .Property<&SkeletalAnimationComponent::autoPlay>("autoPlay");
 }
 
 DRACONIC_REFLECT_VALUE(AnimationGraphComponent, "draconic::animation")
 {
-    builder.Property<&AnimationGraphComponent::active>("active");
+    builder.Property<&AnimationGraphComponent::skeleton>("skeleton")
+           .Property<&AnimationGraphComponent::graph>("graph")
+           .Property<&AnimationGraphComponent::active>("active");
 }
 
 DRACONIC_REFLECT_VALUE(InstancedSkinning, "draconic::animation")
