@@ -7,6 +7,7 @@ add_library(Draconic::RenderSubsystem ALIAS DraconicRenderSubsystem)
 target_link_libraries(DraconicRenderSubsystem
     PUBLIC Draconic::Core Draconic::Scene Draconic::SceneSubsystem Draconic::Render Draconic::Runtime
            Draconic::Geometry Draconic::Materials Draconic::Shaders Draconic::ShaderSystem
+           Draconic::TextureResource Draconic::Resource
            Draconic::PipelineCache Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRenderSubsystem

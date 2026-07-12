@@ -186,3 +186,55 @@ TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent categ
     const auto* md = static_cast<const MeshRenderData*>(snapshot.Items()[0]);
     CHECK(md->category == RenderCategories::Transparent);
 }
+
+TEST_CASE("instanced-mesh: seeded identity instance + entity-relative composition")
+{
+    scene::Scene scene(u8"world");
+    auto* mgr = scene.AddSystem<InstancedMeshComponentManager>();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+
+    // A fresh component is seeded with ONE identity instance (editor workflow: assign a mesh,
+    // see it render at the entity), and instances compose with the entity's world transform.
+    scene::EntityHandle e = scene.CreateEntity(u8"scatter");
+    scene.SetLocalPosition(e, Float3{ 5, 0, 0 });
+    InstancedMeshComponent& c = mgr->Add(e);
+    REQUIRE(c.Count() == 1u);
+    c.mesh = cube;
+    scene.UpdateTransforms();
+
+    ExtractedScene out;
+    ExtractInstancedMeshesInto(scene, out);
+    REQUIRE(out.Items().Size() == 1u);
+    const auto* rd = static_cast<const MultiMeshRenderData*>(out.Items()[0]);
+    REQUIRE(rd->instanceCount == 1u);
+    CHECK(Near(rd->transforms[0].m[3][0], 5.0f));        // identity instance * entity world
+    CHECK(Near(rd->worldCenter.x, 5.0f));
+    const u32 firstVersion = rd->version;
+
+    // Moving the ENTITY moves the set: the composed transforms change and the renderer's upload
+    // key (version) bumps even though the authored set didn't change.
+    scene.SetLocalPosition(e, Float3{ 5, 7, 0 });
+    scene.UpdateTransforms();
+    ExtractedScene out2;
+    ExtractInstancedMeshesInto(scene, out2);
+    const auto* rd2 = static_cast<const MultiMeshRenderData*>(out2.Items()[0]);
+    CHECK(Near(rd2->transforms[0].m[3][1], 7.0f));
+    CHECK(rd2->version != firstVersion);
+
+    // Unmoved + unchanged: no recompose, same version (static sets stay zero-cost).
+    ExtractedScene out3;
+    ExtractInstancedMeshesInto(scene, out3);
+    const auto* rd3 = static_cast<const MultiMeshRenderData*>(out3.Items()[0]);
+    CHECK(rd3->version == rd2->version);
+
+    // Authored instances are entity-relative: replace the seed with two local offsets.
+    const Float4x4 xf[2] = { Float4x4::Translation(Float3{ 1, 0, 0 }),
+                             Float4x4::Translation(Float3{ -1, 0, 0 }) };
+    c.SetInstances(Span<const Float4x4>{ xf, 2 });
+    ExtractedScene out4;
+    ExtractInstancedMeshesInto(scene, out4);
+    const auto* rd4 = static_cast<const MultiMeshRenderData*>(out4.Items()[0]);
+    REQUIRE(rd4->instanceCount == 2u);
+    CHECK(Near(rd4->transforms[0].m[3][0], 6.0f));       // 1 + entity x=5
+    CHECK(Near(rd4->transforms[1].m[3][0], 4.0f));       // -1 + entity x=5
+}

@@ -143,3 +143,164 @@ TEST_CASE("resource-ref: direct objects win over proxies and skip serialization"
     mc.mesh.SetId(Guid::Generate(rng));
     CHECK(mc.mesh.Get() == procedural.Get());
 }
+
+TEST_CASE("resource-ref: sprite + decal texture refs round-trip by guid")
+{
+    // No GPU here: the ids must survive scene serialization through the serializable managers;
+    // resolving to a live texture::Texture is covered by the editor's TextureFactory path.
+    Random rng(42);
+    const Guid spriteTex = Guid::Generate(rng);
+    const Guid decalTex  = Guid::Generate(rng);
+
+    MemoryStream blob;
+    {
+        dscene::Scene scene;
+        scene.AddSystem<SpriteComponentManager>();
+        scene.AddSystem<DecalComponentManager>();
+        const dscene::EntityHandle e = scene.CreateEntity(u8"Deco");
+        SpriteComponent& sc = scene.GetSystem<SpriteComponentManager>()->Add(e);
+        sc.textureAsset.SetId(spriteTex);
+        sc.size = Float2{ 2.0f, 3.0f };
+        sc.additive = true;
+        DecalComponent& dc = scene.GetSystem<DecalComponentManager>()->Add(e);
+        dc.textureAsset.SetId(decalTex);
+        dc.fadeEnd = 0.5f;
+
+        BinarySerializer ar(blob, SerializeMode::Write);
+        dscene::SerializeScene(ar, scene);
+        REQUIRE(ar.IsOk());
+    }
+
+    dscene::Scene loaded;
+    loaded.AddSystem<SpriteComponentManager>();
+    loaded.AddSystem<DecalComponentManager>();
+    REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(blob, SerializeMode::Read);
+        dscene::SerializeScene(ar, loaded);
+        REQUIRE(ar.IsOk());
+    }
+
+    SpriteComponent* sc = nullptr;
+    loaded.GetSystem<SpriteComponentManager>()->ForEach(
+        [&](SpriteComponent& c, dscene::EntityHandle) { sc = &c; });
+    REQUIRE(sc != nullptr);
+    CHECK(sc->textureAsset.id == spriteTex);
+    CHECK(sc->size.x == doctest::Approx(2.0f));
+    CHECK(sc->additive);
+    CHECK(sc->texture == nullptr);   // the raw view override is runtime-only
+
+    DecalComponent* dc = nullptr;
+    loaded.GetSystem<DecalComponentManager>()->ForEach(
+        [&](DecalComponent& c, dscene::EntityHandle) { dc = &c; });
+    REQUIRE(dc != nullptr);
+    CHECK(dc->textureAsset.id == decalTex);
+    CHECK(dc->fadeEnd == doctest::Approx(0.5f));
+}
+
+TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
+{
+    Random rng(7);
+    const Guid meshId = Guid::Generate(rng);
+    const Guid matId  = Guid::Generate(rng);
+
+    MemoryStream blob;
+    {
+        dscene::Scene scene;
+        scene.AddSystem<InstancedMeshComponentManager>();
+        const dscene::EntityHandle e = scene.CreateEntity(u8"Scatter");
+        InstancedMeshComponent& c = scene.GetSystem<InstancedMeshComponentManager>()->Add(e);
+        c.mesh.SetId(meshId);
+        c.material.SetId(matId);
+        // Replace the editor-workflow seed (a fresh component starts with ONE identity instance).
+        REQUIRE(c.Count() == 1u);
+        const Float4x4 xf[2] = { Float4x4::Translation(Float3{ 1, 0, 0 }),
+                                 Float4x4::Translation(Float3{ 0, 2, 0 }) };
+        c.SetInstances(Span<const Float4x4>{ xf, 2 });
+        c.tints.PushBack(Color{ 1, 0, 0, 1 });
+        c.tints.PushBack(Color{ 0, 1, 0, 1 });
+
+        BinarySerializer ar(blob, SerializeMode::Write);
+        dscene::SerializeScene(ar, scene);
+        REQUIRE(ar.IsOk());
+    }
+
+    dscene::Scene loaded;
+    loaded.AddSystem<InstancedMeshComponentManager>();
+    REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(blob, SerializeMode::Read);
+        dscene::SerializeScene(ar, loaded);
+        REQUIRE(ar.IsOk());
+    }
+
+    InstancedMeshComponent* c = nullptr;
+    loaded.GetSystem<InstancedMeshComponentManager>()->ForEach(
+        [&](InstancedMeshComponent& ic, dscene::EntityHandle) { c = &ic; });
+    REQUIRE(c != nullptr);
+    CHECK(c->mesh.id == meshId);
+    CHECK(c->material.id == matId);
+    REQUIRE(c->Count() == 2u);
+    CHECK(c->instances[0].m[3][0] == doctest::Approx(1.0f));
+    CHECK(c->instances[1].m[3][1] == doctest::Approx(2.0f));
+    REQUIRE(c->tints.Size() == 2u);
+    CHECK(c->tints[1].g == doctest::Approx(1.0f));
+    // Runtime state starts fresh: version 1 vs boundsVersion 0 => first extract re-uploads.
+    CHECK(c->version >= 1u);
+    CHECK(c->boundsVersion == 0u);
+    CHECK(c->posePool == nullptr);
+}
+
+TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the skin stream")
+{
+    // The editor's mesh picker offers SkinnedMeshAssets for MeshComponent's Ref<StaticMesh>
+    // (SkinnedMesh IS-A StaticMesh). The StaticMeshFactory must build the REAL SkinnedMesh for
+    // a skinned product - building it as a plain StaticMesh silently drops the skin stream and
+    // the mesh can never animate (the "fox plays but doesn't move" bug).
+    const StringView dir = u8"draconic_skinref_test_db";
+    RemoveTree(dir);
+    (void)CreateDirectory(dir);
+    draconic::vfs::NativeFileSystem mount(dir);
+
+    GlobalTypeRegistry().Register(geo::SkinnedMeshSource::StaticType());
+    RegisterSerializable<geo::SkinnedMeshSource>();
+    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+
+    Guid meshId;
+    {
+        // A skinned cube: the static cube's streams + one skinning entry per vertex.
+        RefPtr<geo::StaticMesh> cube = geo::Primitives::Cube(1.0f);
+        RefPtr<geo::SkinnedMesh> skinned = MakeRef<geo::SkinnedMesh>(DefaultAllocator());
+        skinned->vertices = cube->vertices;
+        skinned->indices  = cube->indices;
+        skinned->subMeshes = cube->subMeshes;
+        skinned->bounds    = cube->bounds;
+        for (usize i = 0; i < skinned->vertices.Size(); ++i) { skinned->skinning.PushBack(geo::VertexSkinning{}); }
+        skinned->skeletonIndex = 0;
+
+        geo::SkinnedMeshSource source;
+        geo::SkinnedMeshSource::FromMesh(*skinned, source);
+        draconic::content::Instance* inst =
+            cookedDb.RootGroup()->CreateInstance(u8"SkinnedCube", geo::SkinnedMeshSource::StaticType());
+        REQUIRE(inst != nullptr);
+        REQUIRE(inst->WriteObject(source).IsOk());
+        meshId = inst->Id();
+    }
+
+    res::ResourceManager resources(cookedDb);
+    geo::StaticMeshFactory meshFactory;
+    resources.AddFactory(&meshFactory);
+
+    MeshComponent mc;
+    mc.mesh.SetId(meshId);
+    mc.mesh.Bind(resources);
+    geo::StaticMesh* live = mc.mesh.Get();
+    REQUIRE(live != nullptr);
+    CHECK(live->IsSkinned());
+    CHECK(live->vertices.Size() == 24u);
+    auto* skinnedLive = Cast<geo::SkinnedMesh>(live);
+    REQUIRE(skinnedLive != nullptr);
+    CHECK(skinnedLive->SkinningStream().Size() == 24u);
+
+    RemoveTree(dir);
+}

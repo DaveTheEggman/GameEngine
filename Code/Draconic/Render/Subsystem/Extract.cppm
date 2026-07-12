@@ -19,6 +19,7 @@ import draconic.scene;
 import draconic.render;          // ExtractedScene / MeshRenderData / ViewCamera / categories
 import draconic.materials;       // BlendMode (category mapping)
 import draconic.geometry;        // StaticMesh::bounds (world bounding sphere for shadow-caster culling)
+import draconic.texture.resource;   // texture::Texture (cooked product behind sprite/decal refs)
 import :components;
 
 using namespace draconic::core;
@@ -142,12 +143,26 @@ inline void ExtractInstancedMeshesInto(scene::Scene& scene, ExtractedScene& out)
     mgr->ForEach([&](InstancedMeshComponent& c, scene::EntityHandle e) {
         if (!c.visible || c.mesh.Get() == nullptr || c.Count() == 0) { return; }
 
-        // Merged bounds: union of the mesh's local AABB transformed by every instance. Cached on the
-        // component and only rebuilt when the instance set changed (boundsVersion tracks version).
-        if (c.boundsVersion != c.version) {
+        // Compose entity-relative instances into world space, cached: rebuilt only when the
+        // authored set changed (version) OR the entity moved (world matrix compare). The renderer
+        // keys uploads on composedVersion, so both kinds of change re-upload the GPU buffer.
+        const Float4x4 entityWorld = scene.GetWorldMatrix(e);
+        if (c.composedFromVersion != c.version || !(c.composedEntityWorld == entityWorld)) {
+            c.worldTransforms.Resize(c.instances.Size());
+            for (usize i = 0; i < c.instances.Size(); ++i) {
+                c.worldTransforms[i] = c.instances[i] * entityWorld;
+            }
+            c.composedEntityWorld = entityWorld;
+            c.composedFromVersion = c.version;
+            ++c.composedVersion;
+        }
+
+        // Merged bounds: union of the mesh's local AABB transformed by every composed instance.
+        // Cached on the component and only rebuilt when the composed set changed.
+        if (c.boundsVersion != c.composedVersion) {
             const AABB lb  = c.mesh->bounds;
             AABB       acc = AABB::Empty();
-            for (const Float4x4& xf : c.instances) {
+            for (const Float4x4& xf : c.worldTransforms) {
                 const Float3 ctr = TransformPoint(lb.Center(), xf);
                 const f32     r   = WorldBoundsRadius(lb, xf);
                 acc.Expand(ctr - Float3{ r, r, r });
@@ -155,17 +170,17 @@ inline void ExtractInstancedMeshesInto(scene::Scene& scene, ExtractedScene& out)
             }
             c.cachedCenter  = acc.Center();
             c.cachedRadius  = Length(acc.Extents());
-            c.boundsVersion = c.version;
+            c.boundsVersion = c.composedVersion;
         }
 
         MultiMeshRenderData* rd = out.Add<MultiMeshRenderData>();
         if (rd == nullptr) { return; }
         rd->multiMesh     = true;
         rd->key           = PackEntity(e);
-        rd->transforms    = c.instances.Data();   // borrowed for the frame (immutable snapshot)
+        rd->transforms    = c.worldTransforms.Data();   // borrowed for the frame (immutable snapshot)
         rd->tints         = (!c.tints.IsEmpty() && c.tints.Size() == c.instances.Size()) ? c.tints.Data() : nullptr;
         rd->instanceCount = c.Count();
-        rd->version       = c.version;
+        rd->version       = c.composedVersion;
         rd->mesh          = c.mesh.Get();
         rd->material      = c.material.Get();
         rd->submeshMaterials     = c.submeshMaterials.IsEmpty() ? nullptr : c.submeshMaterials.Data();
@@ -197,7 +212,13 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
     auto* sprites = scene.GetSystem<SpriteComponentManager>();
     if (sprites == nullptr) { return; }
     sprites->ForEach([&](SpriteComponent& sc, scene::EntityHandle e) {
-        if (!sc.visible || sc.texture == nullptr) { return; }
+        if (!sc.visible) { return; }
+        // Runtime view override wins; otherwise the cooked texture product behind the ref.
+        rhi::TextureView* view = sc.texture;
+        if (view == nullptr) {
+            if (texture::Texture* t = sc.textureAsset.Get()) { view = t->View(); }
+        }
+        if (view == nullptr) { return; }
         SpriteRenderData* rd = out.Add<SpriteRenderData>();
         if (rd == nullptr) { return; }
         rd->category    = RenderCategories::Transparent;
@@ -209,9 +230,9 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
         rd->size        = sc.size;
         rd->uvRect      = sc.uvRect;
         rd->tint        = sc.tint;
-        rd->orientation = sc.orientation;
+        rd->orientation = static_cast<u32>(sc.orientation);
         rd->additive    = sc.additive;
-        rd->texture     = sc.texture;
+        rd->texture     = view;
     });
 }
 
@@ -222,13 +243,18 @@ inline void ExtractDecalsInto(scene::Scene& scene, ExtractedScene& out) {
     auto* decals = scene.GetSystem<DecalComponentManager>();
     if (decals == nullptr) { return; }
     decals->ForEach([&](DecalComponent& dc, scene::EntityHandle e) {
-        if (!dc.visible || dc.texture == nullptr) { return; }
+        if (!dc.visible) { return; }
+        rhi::TextureView* view = dc.texture;
+        if (view == nullptr) {
+            if (texture::Texture* t = dc.textureAsset.Get()) { view = t->View(); }
+        }
+        if (view == nullptr) { return; }
         DecalInstance di;
         di.world     = Float4x4::Scale(dc.size) * scene.GetWorldMatrix(e);
         di.color     = dc.color;
         di.fadeStart = dc.fadeStart;
         di.fadeEnd   = dc.fadeEnd;
-        di.texture   = dc.texture;
+        di.texture   = view;
         out.AddDecal(di);
     });
 }

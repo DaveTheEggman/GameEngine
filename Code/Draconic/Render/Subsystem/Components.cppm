@@ -19,6 +19,7 @@ import draconic.scene;
 import draconic.geometry;
 import draconic.materials;
 import draconic.rhi;      // rhi::TextureView (a SpriteComponent references a texture to draw)
+import draconic.texture.resource;   // texture::Texture (cooked product behind sprite/decal texture refs)
 import draconic.render;   // SkySnapshot/SkyMode (snapshot layer; render.subsystem depends on render)
 
 using namespace draconic::core;
@@ -58,12 +59,20 @@ struct MeshComponent {
 // GPU buffer (and extraction recomputes the merged bounds) ONLY when the version changes. See
 // docs/design/instanced-mesh.md.
 struct InstancedMeshComponent {
-    RefPtr<geometry::StaticMesh> mesh;
-    RefPtr<materials::Material>  material;
+    draconic::resource::Ref<geometry::StaticMesh> mesh;
+    draconic::resource::Ref<materials::Material>  material;
+    // Seed one identity instance so a freshly added component (editor workflow) renders its mesh
+    // at the entity's transform immediately; authored sets replace it (SetInstances/load).
+    InstancedMeshComponent() { instances.PushBack(Float4x4::Identity()); }
     // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
     // non-empty each submesh draws with its own material; otherwise `material` covers the whole mesh.
+    // Runtime-only (RefPtr, not serialized) like MeshComponent's: per-submesh material REFS land
+    // with prefabs (phase 7), which owns the model->entity workflow.
     Array<RefPtr<materials::Material>> submeshMaterials;
-    Array<Float4x4>               instances;                                  // per-instance world transforms
+    // Per-instance transforms, ENTITY-RELATIVE: instance i draws at instances[i] * entityWorld,
+    // so moving the owning entity moves the whole set (extraction composes + caches the world
+    // array; a set on an unmoved identity entity costs the same as before).
+    Array<Float4x4>               instances;
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };  // shared tint (used when `tints` is empty)
     // Optional per-instance tint (parallel to `instances`): when its size matches, each instance uses its
     // own tint; otherwise `color` covers all. Read at upload, so set it BEFORE SetInstances (which bumps version).
@@ -92,8 +101,15 @@ struct InstancedMeshComponent {
     // Change counter: bumped by every mutator so the renderer knows to re-upload and extraction knows to
     // recompute the merged bounds. Starts at 1 so the first extract (uploadedVersion 0) always uploads.
     u32                          version = 1;
+    // Composed world-space transforms (instances[i] * entityWorld), rebuilt by extraction when the
+    // authored set OR the entity's world matrix changed; `composedVersion` is what the renderer
+    // sees, so an entity move re-uploads the GPU buffer like any other mutation. Runtime-only.
+    Array<Float4x4>               worldTransforms;
+    Float4x4                      composedEntityWorld = Float4x4::Identity();
+    u32                          composedFromVersion = 0;   // authored `version` the cache was built from (0 = never)
+    u32                          composedVersion     = 0;   // bumped on every recompose (renderer upload key)
     // Cached merged world-space bounds (center + sphere radius), recomputed at extraction when
-    // `boundsVersion != version`. Lets a static set skip the O(N) bounds pass every frame.
+    // `boundsVersion != composedVersion`. Lets a static set skip the O(N) bounds pass every frame.
     Float3                      cachedCenter  = Float3{ 0, 0, 0 };
     f32                          cachedRadius  = 0.0f;
     u32                          boundsVersion = 0;
@@ -149,12 +165,20 @@ struct LightComponent {
 // A textured billboard on an entity - drawn at the entity's world position, sized in world units,
 // facing the camera (or world-aligned). `texture` is borrowed: the app/resource owns it and must keep
 // it alive while the component is attached. Extraction reads this into a render::SpriteRenderData.
+// How a sprite billboard orients itself (mirrors the shader's orientation mode).
+enum class SpriteOrientation : u32 {
+    CameraFacing  = 0,   // full billboard - always faces the camera
+    CameraFacingY = 1,   // rotates about world-Y only (trees/characters)
+    WorldAligned  = 2,   // fixed world XY plane (decal-like flat art)
+};
+
 struct SpriteComponent {
-    rhi::TextureView* texture = nullptr;
+    rhi::TextureView* texture = nullptr;   // runtime override (samples/procedural); wins over textureAsset
+    draconic::resource::Ref<texture::Texture> textureAsset;   // cooked texture (editor picker/serialized)
     Float2  size        = Float2{ 1.0f, 1.0f };                 // world-unit width/height
     Float4  uvRect      = Float4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h) - whole texture by default
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
-    u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
+    SpriteOrientation orientation = SpriteOrientation::CameraFacing;
     bool  additive    = false;  // false = alpha over, true = additive (glow)
     bool  visible     = true;
 };
@@ -164,7 +188,8 @@ struct SpriteComponent {
 // footprint, z = how far along the projection axis it reaches). Orient the entity so local +Z points
 // into the surface (e.g. rotate so +Z points down to project onto a floor). `texture` is borrowed.
 struct DecalComponent {
-    rhi::TextureView* texture = nullptr;
+    rhi::TextureView* texture = nullptr;   // runtime override (samples/procedural); wins over textureAsset
+    draconic::resource::Ref<texture::Texture> textureAsset;   // cooked texture (editor picker/serialized)
     Float3  size      = Float3{ 1.0f, 1.0f, 1.0f };
     Color color     = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     f32   fadeStart = 0.0f;     // angle-fade start (radians)
@@ -247,9 +272,63 @@ inline void Serialize(ISerializer& ar, ReflectionProbeComponent& c) {
     c.update = static_cast<ProbeUpdateMode>(update);
 }
 
-class InstancedMeshComponentManager final : public scene::ComponentManager<InstancedMeshComponent> {};
-class SpriteComponentManager final : public scene::ComponentManager<SpriteComponent> {};
-class DecalComponentManager  final : public scene::ComponentManager<DecalComponent>  {};
+// Persist the refs + the authored placement data (instances/tints are the authored content of a
+// scatter set); the skinning pose pool + caches are runtime-only. Loaded sets start at version 1
+// with boundsVersion 0, so the first extract re-uploads and recomputes bounds.
+inline void Serialize(ISerializer& ar, InstancedMeshComponent& c) {
+    draconic::core::Serialize(ar, "mesh", c.mesh);
+    draconic::core::Serialize(ar, "material", c.material);
+    draconic::core::Serialize(ar, "instances", c.instances);
+    draconic::core::Serialize(ar, "color", c.color);
+    draconic::core::Serialize(ar, "tints", c.tints);
+    draconic::core::Serialize(ar, "visible", c.visible);
+}
+inline void ResolveResources(draconic::resource::ResourceManager& manager, InstancedMeshComponent& c) {
+    c.mesh.Bind(manager);
+    c.material.Bind(manager);
+}
+
+class InstancedMeshComponentManager final : public scene::SerializableComponentManager<InstancedMeshComponent> {
+public:
+    InstancedMeshComponentManager()
+        : scene::SerializableComponentManager<InstancedMeshComponent>(u8"instanced_mesh") {}
+};
+// Persist the texture ref + plain fields; the raw view override is runtime-only.
+inline void Serialize(ISerializer& ar, SpriteComponent& c) {
+    draconic::core::Serialize(ar, "texture", c.textureAsset);
+    draconic::core::Serialize(ar, "size", c.size);
+    draconic::core::Serialize(ar, "uvRect", c.uvRect);
+    draconic::core::Serialize(ar, "tint", c.tint);
+    u32 orientation = static_cast<u32>(c.orientation);
+    draconic::core::Serialize(ar, "orientation", orientation);
+    c.orientation = static_cast<SpriteOrientation>(orientation);
+    draconic::core::Serialize(ar, "additive", c.additive);
+    draconic::core::Serialize(ar, "visible", c.visible);
+}
+inline void ResolveResources(draconic::resource::ResourceManager& manager, SpriteComponent& c) {
+    c.textureAsset.Bind(manager);
+}
+
+inline void Serialize(ISerializer& ar, DecalComponent& c) {
+    draconic::core::Serialize(ar, "texture", c.textureAsset);
+    draconic::core::Serialize(ar, "size", c.size);
+    draconic::core::Serialize(ar, "color", c.color);
+    draconic::core::Serialize(ar, "fadeStart", c.fadeStart);
+    draconic::core::Serialize(ar, "fadeEnd", c.fadeEnd);
+    draconic::core::Serialize(ar, "visible", c.visible);
+}
+inline void ResolveResources(draconic::resource::ResourceManager& manager, DecalComponent& c) {
+    c.textureAsset.Bind(manager);
+}
+
+class SpriteComponentManager final : public scene::SerializableComponentManager<SpriteComponent> {
+public:
+    SpriteComponentManager() : scene::SerializableComponentManager<SpriteComponent>(u8"sprite") {}
+};
+class DecalComponentManager final : public scene::SerializableComponentManager<DecalComponent> {
+public:
+    DecalComponentManager() : scene::SerializableComponentManager<DecalComponent>(u8"decal") {}
+};
 class CameraComponentManager final : public scene::SerializableComponentManager<CameraComponent> {
 public:
     CameraComponentManager() : scene::SerializableComponentManager<CameraComponent>(u8"camera") {}
@@ -334,7 +413,9 @@ DRACONIC_REFLECT_VALUE(MeshComponent, "draconic::render")
 
 DRACONIC_REFLECT_VALUE(InstancedMeshComponent, "draconic::render")
 {
-    builder.Property<&InstancedMeshComponent::color>("color")
+    builder.Property<&InstancedMeshComponent::mesh>("mesh")
+           .Property<&InstancedMeshComponent::material>("material")
+           .Property<&InstancedMeshComponent::color>("color")
            .Property<&InstancedMeshComponent::visible>("visible");
 }
 
@@ -361,9 +442,17 @@ DRACONIC_REFLECT_VALUE(LightComponent, "draconic::render")
            .Property<&LightComponent::castsShadows>("castsShadows");
 }
 
+DRACONIC_REFLECT_ENUM(SpriteOrientation, "draconic::render")
+{
+    builder.Value("CameraFacing", SpriteOrientation::CameraFacing);
+    builder.Value("CameraFacingY", SpriteOrientation::CameraFacingY);
+    builder.Value("WorldAligned", SpriteOrientation::WorldAligned);
+}
+
 DRACONIC_REFLECT_VALUE(SpriteComponent, "draconic::render")
 {
-    builder.Property<&SpriteComponent::size>("size")
+    builder.Property<&SpriteComponent::textureAsset>("texture")
+           .Property<&SpriteComponent::size>("size")
            .Property<&SpriteComponent::uvRect>("uvRect")
            .Property<&SpriteComponent::tint>("tint")
            .Property<&SpriteComponent::orientation>("orientation")
@@ -373,7 +462,8 @@ DRACONIC_REFLECT_VALUE(SpriteComponent, "draconic::render")
 
 DRACONIC_REFLECT_VALUE(DecalComponent, "draconic::render")
 {
-    builder.Property<&DecalComponent::size>("size")
+    builder.Property<&DecalComponent::textureAsset>("texture")
+           .Property<&DecalComponent::size>("size")
            .Property<&DecalComponent::color>("color")
            .Property<&DecalComponent::fadeStart>("fadeStart")
            .Property<&DecalComponent::fadeEnd>("fadeEnd")
@@ -408,6 +498,7 @@ namespace draconic::render
     {
         static const bool once = []() {
             DraconicRegisterEnum_LightType();
+            DraconicRegisterEnum_SpriteOrientation();
             DraconicRegisterEnum_ShadowUpdateMode();
             DraconicRegisterEnum_ProbeUpdateMode();
             DraconicRegisterValue_MeshComponent();
