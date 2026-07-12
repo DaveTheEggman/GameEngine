@@ -18,10 +18,15 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 #include <limits>
+#include <initializer_list>
 
 export module draconic.editor.scene:inspector;
 
 import draconic.core;
+import draconic.content;
+import draconic.resource;
+import draconic.geometry;
+import draconic.materials;
 import draconic.scene;
 import draconic.ui;
 import draconic.ui.toolkit;
@@ -37,11 +42,46 @@ export namespace draconic::editor
     namespace tk = draconic::ui::toolkit;
     namespace dscene = draconic::scene;
 
+    // A property row for resource::Ref fields: [name | button showing the current asset,
+    // click = picker menu]. The value text refreshes from the ref's Guid each frame.
+    class ResourceRefEditor final : public tk::PropertyEditor
+    {
+        DRACONIC_OBJECT(ResourceRefEditor, tk::PropertyEditor)
+    public:
+        Function<void()> OnPick;   // opens the picker (wired by the inspector)
+
+        ResourceRefEditor(StringView name, StringView valueText, StringView category)
+            : tk::PropertyEditor(name, category), m_valueText(valueText) {}
+
+        void SetValueText(StringView text)
+        {
+            if (m_valueText.AsView() == text) { return; }
+            m_valueText = String(text);
+            if (m_button.Get() != nullptr) { m_button->SetText(m_valueText.AsView()); }
+        }
+
+        void RefreshView() override {}
+
+    protected:
+        RefPtr<ui::View> CreateEditorView() override
+        {
+            m_button = MakeRef<ui::Button>(DefaultAllocator(), m_valueText.AsView());
+            ResourceRefEditor* self = this;
+            m_button->OnClick.Add([self](ui::ButtonBase*) { if (self->OnPick) { self->OnPick(); } });
+            return RefPtr<ui::View>(m_button.Get());
+        }
+
+    private:
+        String m_valueText;
+        RefPtr<ui::Button> m_button;
+    };
+
     class SceneInspectorView : public ui::ViewGroup
     {
         DRACONIC_OBJECT(SceneInspectorView, ui::ViewGroup)
     public:
-        explicit SceneInspectorView(SceneEditContext& edit) : m_edit(&edit)
+        SceneInspectorView(EditorContext& editor, SceneEditContext& edit)
+            : m_editor(&editor), m_edit(&edit)
         {
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
@@ -240,6 +280,24 @@ export namespace draconic::editor
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
             const bool readOnly = (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
             const char* propName = prop.name;
+
+            // Resource references: a picker over the source DB's matching assets. Matched by
+            // EXACT Ref<T> type identity (the TypeInfo pointer), so the unregistered template
+            // type name ("<value>") never matters.
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::geometry::StaticMesh>>())
+            {
+                // SkinnedMeshAsset too: SkinnedMesh IS-A StaticMesh (bind pose when drawn
+                // through the static path), so both asset types are valid targets.
+                BuildResourceRefRow<draconic::geometry::StaticMesh>(id, type, prop, category,
+                    { u8"StaticMeshAsset", u8"SkinnedMeshAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::materials::Material>>())
+            {
+                BuildResourceRefRow<draconic::materials::Material>(id, type, prop, category,
+                    { u8"MaterialAsset" });
+                return;
+            }
 
             // Pulls the current Variant (empty component -> default Variant guards below).
             auto getVariant = [edit, id, type, propName]() -> Variant {
@@ -449,6 +507,94 @@ export namespace draconic::editor
             // Unsupported reflected type: skipped.
         }
 
+        // Current target Guid of a Ref<T> property (nil when unset/unresolvable).
+        template <typename T>
+        [[nodiscard]] Guid RefTarget(const Guid& id, const TypeInfo* type, const char* propName)
+        {
+            dscene::ComponentManagerBase* mgr = m_edit->FindManager(type);
+            const dscene::EntityHandle e = m_edit->Resolve(id);
+            if (mgr == nullptr || !e.IsAssigned()) { return Guid{}; }
+            const Instance component = mgr->GetComponentInstance(e);
+            const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
+            void* address = (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
+            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id : Guid{};
+        }
+
+        [[nodiscard]] StringView AssetNameFor(const Guid& target)
+        {
+            if (target.IsNil()) { return u8"(none)"; }
+            if (m_editor->Project() != nullptr)
+            {
+                if (draconic::content::Instance* inst = m_editor->Project()->SourceDb().GetInstance(target))
+                {
+                    return inst->Name();
+                }
+            }
+            return u8"(missing)";
+        }
+
+        void CollectAssetsOfTypes(draconic::content::Group* group, const Array<String>& typeNames,
+                                  Array<draconic::content::Instance*>& out)
+        {
+            if (group == nullptr) { return; }
+            for (draconic::content::Instance* inst : group->Instances())
+            {
+                for (const String& typeName : typeNames)
+                {
+                    if (inst->TypeName() == typeName.AsView()) { out.PushBack(inst); break; }
+                }
+            }
+            for (draconic::content::Group* child : group->Groups())
+            {
+                CollectAssetsOfTypes(child, typeNames, out);
+            }
+        }
+
+        template <typename T>
+        void BuildResourceRefRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
+                                 StringView category, std::initializer_list<StringView> assetTypeNames)
+        {
+            SceneInspectorView* self = this;
+            SceneEditContext* edit = m_edit;
+            const char* propName = prop.name;
+            const StringView name(reinterpret_cast<const utf8char*>(prop.name));
+
+            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), name,
+                AssetNameFor(RefTarget<T>(id, type, propName)), category);
+            ResourceRefEditor* raw = editor.Get();
+            Array<String> assetTypes;
+            for (StringView typeName : assetTypeNames) { assetTypes.PushBack(String(typeName)); }
+            raw->OnPick = [self, edit, id, type, propName, assetTypes, raw]() {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+                draconic::resource::ResourceManager* resources = self->m_editor->Resources();
+
+                auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+                menu->AddItem(u8"(none)", [edit, id, type, propName, resources]() {
+                    edit->SetComponentResourceRef<T>(id, type, propName, Guid{}, resources);
+                });
+                Array<draconic::content::Instance*> assets;
+                self->CollectAssetsOfTypes(self->m_editor->Project()->SourceDb().RootGroup(),
+                                           assetTypes, assets);
+                for (draconic::content::Instance* asset : assets)
+                {
+                    const Guid target = asset->Id();
+                    // Full path, so same-named assets across groups stay distinguishable
+                    // (v1 menu; the browser-mirroring picker dialog is the planned upgrade).
+                    menu->AddItem(asset->Path().AsView(), [edit, id, type, propName, target, resources]() {
+                        edit->SetComponentResourceRef<T>(id, type, propName, target, resources);
+                    });
+                }
+                // Anchor at the invoking button (was the inspector's top-left corner).
+                ui::View* anchor = (raw->EditorView() != nullptr)
+                    ? raw->EditorView() : static_cast<ui::View*>(self);
+                const Float2 screenPos = anchor->LocalToScreen(Float2{ 0.0f, anchor->Bounds.height });
+                menu->Show(self->Context, screenPos.x, screenPos.y);
+            };
+            AddEditor(raw, [self, id, type, propName, raw]() {
+                raw->SetValueText(self->AssetNameFor(self->RefTarget<T>(id, type, propName)));
+            });
+        }
+
         void AddEditor(tk::PropertyEditor* editor, Function<void()> refresher)
         {
             m_grid->AddProperty(RefPtr<tk::PropertyEditor>(editor));
@@ -484,6 +630,7 @@ export namespace draconic::editor
             menu->Show(Context, screenPos.x, screenPos.y);
         }
 
+        EditorContext* m_editor;    // borrowed (project + resources)
         SceneEditContext* m_edit;   // borrowed (the page owns it)
         RefPtr<tk::PropertyGrid> m_grid;
         RefPtr<ui::Button> m_addButton;
@@ -491,5 +638,6 @@ export namespace draconic::editor
         u64 m_signature = ~0ull;
     };
 
+    DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "draconic::editor")
     DRACONIC_DEFINE_OBJECT(SceneInspectorView, "draconic::editor")
 }

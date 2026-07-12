@@ -73,6 +73,12 @@ export namespace draconic::editor
                 const Status loaded = dscene::LoadScene(instance, *m_scene);
                 if (loaded.IsOk())
                 {
+                    // Bind the scene's resource refs to cooked products (no-op refs stay null;
+                    // a later cook + reopen picks them up - live hot reload is the 6d pass).
+                    if (context.Resources() != nullptr)
+                    {
+                        dscene::ResolveSceneResources(*m_scene, *context.Resources());
+                    }
                     DRACONIC_LOG_INFO(u8"Editor", u8"opened scene '{}'", m_title);
                 }
                 else if (loaded.Code() == ErrorCode::NotFound)
@@ -97,7 +103,7 @@ export namespace draconic::editor
             {
                 m_editContext = MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
                 m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
-                m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), *m_editContext);
+                m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), context, *m_editContext);
                 m_gizmos = MakeUnique<GizmoController>(DefaultAllocator(), *m_editContext);
                 RegisterBuiltinGizmoRenderers(m_componentGizmos);
             }

@@ -170,7 +170,8 @@ TEST_CASE("inspector: rebuilds when the selection switches entities")
     dscene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    SceneInspectorView inspector(edit);
+    EditorContext editor;
+    SceneInspectorView inspector(editor, edit);
 
     const Guid a = edit.CreateEntity(u8"Alpha");
     const Guid b = edit.CreateEntity(u8"Beta");
@@ -193,4 +194,58 @@ TEST_CASE("inspector: rebuilds when the selection switches entities")
     edit.EntitySelection().Clear();
     inspector.Refresh();
     CHECK(inspector.Grid()->PropertyCount() == 0);
+}
+
+// Regression (user-reported): the hierarchy rebuild (any scene-revision change) must keep the
+// selected entity's row selected - identity is the persistent Guid in EntitySelection.
+// (CreateEntity intentionally MOVES the selection to the new entity; every other rebuild
+// trigger must preserve it.)
+TEST_CASE("hierarchy: selection survives snapshot rebuilds")
+{
+    dscene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    SceneHierarchyView hierarchy(edit);
+
+    const Guid a = edit.CreateEntity(u8"A");
+    const Guid b = edit.CreateEntity(u8"B");
+    const Guid c = edit.CreateEntity(u8"C");
+    hierarchy.Refresh();
+
+    auto selectedPos = [&]() {
+        return hierarchy.Tree()->InternalTreeView()->InternalListView()->Selection.FirstSelected();
+    };
+
+    edit.EntitySelection().Set(b);
+    REQUIRE(selectedPos() == 1);   // rows: A=0, B=1, C=2
+
+    // Rename another entity (revision bump).
+    edit.RenameEntity(a, u8"A2");
+    hierarchy.Refresh();
+    CHECK(edit.EntitySelection().Contains(b));
+    CHECK(selectedPos() == 1);
+
+    // Toggle another entity's active flag.
+    edit.SetEntityActive(c, false);
+    hierarchy.Refresh();
+    CHECK(selectedPos() == 1);
+
+    // Destroy ANOTHER entity: B stays selected at its shifted position.
+    edit.DestroyEntity(a);
+    hierarchy.Refresh();
+    CHECK(edit.EntitySelection().Contains(b));
+    CHECK(selectedPos() == 0);   // rows now: B=0, C=1
+
+    // Reparent B under C (keep-world): B stays selected at its new position in the tree.
+    edit.ReparentEntity(b, c);
+    hierarchy.Refresh();
+    CHECK(edit.EntitySelection().Contains(b));
+    CHECK(selectedPos() == 1);   // rows: C=0, B (child)=1
+
+    // Undo the reparent: still selected AND back in its exact old slot (before C) - the
+    // undo used to append to the end of the root list, visually teleporting the row.
+    commands.Undo();
+    hierarchy.Refresh();
+    CHECK(edit.EntitySelection().Contains(b));
+    CHECK(selectedPos() == 0);
 }

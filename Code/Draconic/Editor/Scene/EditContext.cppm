@@ -21,6 +21,7 @@ module;
 export module draconic.editor.scene:edit;
 
 import draconic.core;
+import draconic.resource;
 import draconic.scene;
 import draconic.editor.core;
 
@@ -123,6 +124,21 @@ export namespace draconic::editor
         {
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
                 DefaultAllocator().New<SetComponentPropertyCommand>(*this, entity, componentType, property, value),
+                DefaultAllocator()));
+        }
+
+        /// Point a component's resource::Ref<T> property at a new asset (the inspector's
+        /// picker): writes the Guid through PropertyInfo::address and rebinds through the
+        /// ResourceManager (nullable - the ref then resolves on the next scene open). Undo
+        /// restores the previous target. NOT merged (each pick is its own undo entry).
+        template <typename T>
+        void SetComponentResourceRef(const Guid& entity, const TypeInfo* componentType,
+                                     const char* property, const Guid& value,
+                                     draconic::resource::ResourceManager* resources)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetResourceRefCommand<T>>(*this, entity, componentType,
+                                                                 property, value, resources),
                 DefaultAllocator()));
         }
 
@@ -379,6 +395,8 @@ export namespace draconic::editor
                 if (!m_hasOld)
                 {
                     m_oldParent = scene.GetEntityId(scene.GetParent(e));
+                    // The exact old slot: the sibling the entity sat BEFORE (nil = it was last).
+                    m_oldNextSibling = scene.GetEntityId(scene.GetNextSibling(e));
                     m_oldLocal = scene.GetLocalTransform(e);
                     m_hasOld = true;
                 }
@@ -393,8 +411,13 @@ export namespace draconic::editor
             {
                 const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return; }
-                m_ctx->Scene().SetParent(e, m_ctx->Resolve(m_oldParent));
-                m_ctx->Scene().SetLocalTransform(e, m_oldLocal);   // exact, no decompose drift
+                dscene::Scene& scene = m_ctx->Scene();
+                scene.SetParent(e, m_ctx->Resolve(m_oldParent));
+                // SetParent appends to the END of the sibling list; restore the exact slot
+                // (otherwise the undone entity visibly jumps to the bottom of its list).
+                const dscene::EntityHandle before = m_ctx->Resolve(m_oldNextSibling);
+                if (before.IsAssigned()) { scene.MoveBefore(e, before); }
+                scene.SetLocalTransform(e, m_oldLocal);   // exact, no decompose drift
             }
 
             [[nodiscard]] StringView TypeId() const override { return u8"reparent_entity"; }
@@ -404,6 +427,7 @@ export namespace draconic::editor
             Guid m_entity;
             Guid m_newParent;
             Guid m_oldParent;
+            Guid m_oldNextSibling;
             Transform m_oldLocal;
             bool m_hasOld = false;
         };
@@ -506,6 +530,58 @@ export namespace draconic::editor
             Guid m_entity;
             bool m_active;
             bool m_old = false;
+        };
+
+        template <typename T>
+        class SetResourceRefCommand final : public IEditorCommand
+        {
+        public:
+            SetResourceRefCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type,
+                                  const char* property, const Guid& value,
+                                  draconic::resource::ResourceManager* resources)
+                : m_ctx(&ctx), m_entity(entity), m_type(type), m_property(property)
+                , m_new(value), m_resources(resources) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                draconic::resource::Ref<T>* ref = ResolveRef();
+                if (ref == nullptr) { return false; }
+                if (!m_hasOld) { m_old = ref->id; m_hasOld = true; }
+                ref->SetId(m_new);
+                ref->Rebind(m_resources);
+                return true;
+            }
+            void Undo() override
+            {
+                if (draconic::resource::Ref<T>* ref = ResolveRef())
+                {
+                    ref->SetId(m_old);
+                    ref->Rebind(m_resources);
+                }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_resource_ref"; }
+
+        private:
+            // Component pools move on add/remove, so the address re-derives every apply.
+            [[nodiscard]] draconic::resource::Ref<T>* ResolveRef()
+            {
+                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                if (!e.IsAssigned() || mgr == nullptr) { return nullptr; }
+                const Instance component = mgr->GetComponentInstance(e);
+                const PropertyInfo* prop = component.IsEmpty() ? nullptr : FindProperty(*m_type, m_property);
+                void* address = (prop != nullptr && prop->address != nullptr) ? prop->address(component) : nullptr;
+                return static_cast<draconic::resource::Ref<T>*>(address);
+            }
+
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            const TypeInfo* m_type;
+            const char* m_property;
+            Guid m_new;
+            Guid m_old;
+            bool m_hasOld = false;
+            draconic::resource::ResourceManager* m_resources;
         };
 
         class SetTransformCommand final : public IEditorCommand
