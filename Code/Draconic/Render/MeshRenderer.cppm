@@ -214,6 +214,7 @@ public:
     // re-emit the same geometry into the same rings without starving the forward pass.
     void PrepareFrame(u32 maxDraws, u32 frameIndex) override {
         m_ready = false;
+        PruneStaleMaterialInstances();
         TickRetiredBindGroups();   // free per-frame bind groups retired long enough ago to be idle
         if (maxDraws == 0) { return; }
         // Per-frame ring capacity = draws x (passes that re-emit them): the depth PREPASS + the forward
@@ -1186,11 +1187,14 @@ private:
     // The MaterialInstance the renderer owns for `material` (one per material, created lazily). The
     // instance carries per-draw overrides (textures/uniforms) + caches its bind group in the system.
     [[nodiscard]] materials::MaterialInstance* InstanceFor(materials::Material* material) {
-        if (materials::MaterialInstance** found = m_instances.Find(material)) { return *found; }
+        // Keyed by the material's UID, never its pointer: a hot-reloaded material can
+        // reallocate at the freed address and would silently reuse the STALE instance
+        // (whose bind group references destroyed texture views).
+        if (materials::MaterialInstance** found = m_instances.Find(material->uid)) { return *found; }
         UniquePtr<materials::MaterialInstance> created = MakeUnique<materials::MaterialInstance>(DefaultAllocator(), material);
         materials::MaterialInstance* inst = created.Get();
         m_instanceStorage.PushBack(Move(created));       // owns the instance
-        m_instances.InsertOrAssign(material, inst);       // raw lookup (HashMap can't hold UniquePtr)
+        m_instances.InsertOrAssign(material->uid, inst);   // lookup (storage owns the instance)
         return inst;
     }
 
@@ -1221,6 +1225,26 @@ private:
     void RetireBindGroup(rhi::BindGroup* bg) {
         if (bg != nullptr) { m_retiredBGs.PushBack(RetiredBG{ bg, m_framesInFlight }); }
     }
+    // Drop material instances whose material nobody else references (the resource layer
+    // hot-reloaded it away): retire their bind group (may still be bound by in-flight
+    // frames) and destroy the instance. Without this, stale descriptor sets keep destroyed
+    // texture views referenced forever.
+    void PruneStaleMaterialInstances() {
+        usize w = 0;
+        for (usize i = 0; i < m_instanceStorage.Size(); ++i) {
+            materials::MaterialInstance* inst = m_instanceStorage[i].Get();
+            materials::Material* material = inst->GetMaterial();
+            if (material != nullptr && material->RefCount() <= 1) {
+                RetireBindGroup(m_materials->DetachBindGroup(inst));
+                m_instances.Remove(material->uid);
+                continue;   // UniquePtr slot dropped -> instance destroyed (bg already detached)
+            }
+            if (w != i) { m_instanceStorage[w] = Move(m_instanceStorage[i]); }
+            ++w;
+        }
+        m_instanceStorage.Resize(w);
+    }
+
     void TickRetiredBindGroups() {
         usize w = 0;
         for (usize i = 0; i < m_retiredBGs.Size(); ++i) {
@@ -1541,7 +1565,7 @@ private:
     // Material set-2 resources. The default material (standard PBR) backs draws with no material;
     // instances carry per-material overrides and flow through the material system's data-driven BG path.
     RefPtr<materials::Material>                                m_defaultMaterial;
-    HashMap<materials::Material*, materials::MaterialInstance*> m_instances;        // lookup (raw)
+    HashMap<u64, materials::MaterialInstance*>                  m_instances;        // lookup by Material::uid
     Array<UniquePtr<materials::MaterialInstance>>              m_instanceStorage;  // ownership
 
     DynamicUniformRing m_viewRing;
