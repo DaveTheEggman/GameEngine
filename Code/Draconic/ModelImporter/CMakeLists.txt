@@ -9,7 +9,7 @@ add_library(Draconic::ModelImporter ALIAS DraconicModelImporter)
 
 target_link_libraries(DraconicModelImporter
     PUBLIC
-        Draconic::Core Draconic::Policy
+        Draconic::Core Draconic::EditorCore Draconic::Policy
         Draconic::Model     Draconic::ModelIO  Draconic::ModelGltf  Draconic::ModelFbx
         Draconic::Geometry  Draconic::MeshResource     Draconic::MeshEditor
         Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
@@ -20,6 +20,7 @@ target_link_libraries(DraconicModelImporter
 target_sources(DraconicModelImporter
     PUBLIC
         FILE_SET modelimporter_modules TYPE CXX_MODULES FILES
+            FileImport.cppm
             MeshConvert.cppm
             AnimConvert.cppm
             ModelResource.cppm

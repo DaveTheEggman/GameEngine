@@ -7,12 +7,17 @@ add_executable(DraconicModelImporterTests
 target_link_libraries(DraconicModelImporterTests PRIVATE
     Draconic::ModelImporter Draconic::VFS Draconic::Content Draconic::Resource
     Draconic::Geometry Draconic::MeshResource Draconic::Model
-    Draconic::Animation Draconic::AnimationResource doctest::doctest)
+    Draconic::Animation Draconic::AnimationResource
+    Draconic::EditorCore Draconic::EditorCook
+    Draconic::RHI Draconic::RHINull Draconic::TextureResource Draconic::MaterialResource
+    Draconic::TextureEditor Draconic::MeshEditor Draconic::MaterialEditor
+    Draconic::AnimationEditor doctest::doctest)
 
 target_compile_definitions(DraconicModelImporterTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     DRACONIC_MI_TEST_DUCK="${CMAKE_SOURCE_DIR}/Data/Assets/models/Duck/glTF/Duck.gltf"
-    DRACONIC_MI_TEST_FOX="${CMAKE_SOURCE_DIR}/Data/Assets/models/Fox/glTF/Fox.gltf")
+    DRACONIC_MI_TEST_FOX="${CMAKE_SOURCE_DIR}/Data/Assets/models/Fox/glTF/Fox.gltf"
+    DRACONIC_MI_TEST_GLB="${CMAKE_SOURCE_DIR}/Data/Assets/models/KenneyPlatformerCharacters/GLB/character-oozi.glb")
 
 target_compile_options(DraconicModelImporterTests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
