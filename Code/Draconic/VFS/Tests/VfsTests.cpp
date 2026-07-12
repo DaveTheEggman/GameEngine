@@ -55,7 +55,7 @@ TEST_CASE("vfs: capability queries via As*()")
     REQUIRE(fs.AsEnumerable() != nullptr);
     REQUIRE(fs.AsWritable() != nullptr);
     REQUIRE(fs.AsStat() != nullptr);
-    CHECK(fs.AsWatchable() == nullptr);   // lands with the 6d watcher pass
+    REQUIRE(fs.AsWatchable() != nullptr);
 
     // A router advertises no capabilities of its own.
     VirtualFileSystem vfs;
@@ -134,4 +134,71 @@ TEST_CASE("vfs: NativeFileSystem stat reports size + modified time")
     CHECK_FALSE(st->Stat(u8"", info));
 
     REQUIRE(w->Delete(u8"vfs_stat_test.bin").IsOk());
+}
+
+TEST_CASE("vfs: NativeFileSystem change source detects adds, edits, and removals")
+{
+    const StringView dir = u8"draconic_vfs_watch_dir";
+    NativeFileSystem cleaner(dir);
+    {
+        Array<DirEntry> entries;
+        if (cleaner.AsEnumerable()->Enumerate(u8"sub", entries).IsOk())
+        {
+            for (const DirEntry& e : entries) { (void)cleaner.AsWritable()->Delete(PathJoin(u8"sub", e.name.AsView()).AsView()); }
+        }
+        entries.Clear();
+        if (cleaner.AsEnumerable()->Enumerate(u8"", entries).IsOk())
+        {
+            for (const DirEntry& e : entries) { if (!e.isDirectory) { (void)cleaner.AsWritable()->Delete(e.name.AsView()); } }
+        }
+    }
+    (void)CreateDirectory(dir);
+
+    NativeFileSystem fs(dir);
+    IWatchableFileSystem* watchable = fs.AsWatchable();
+    REQUIRE(watchable != nullptr);
+    IChangeSource* source = watchable->ChangeSource();
+    REQUIRE(source != nullptr);
+
+    // A pre-existing file is part of the baseline, not a change.
+    const byte a[2] = { byte{1}, byte{2} };
+    REQUIRE(fs.AsWritable()->Save(u8"before.bin", Span<const byte>(a, 2)).IsOk());
+    source->Track(u8"");
+
+    Array<String> changed;
+    CHECK_FALSE(source->Poll(changed));
+    CHECK(changed.IsEmpty());
+
+    // Added file (incl. inside a subdirectory) is reported once, then goes quiet.
+    REQUIRE(fs.AsWritable()->Save(u8"sub/new.bin", Span<const byte>(a, 2)).IsOk());
+    CHECK(source->Poll(changed));
+    REQUIRE(changed.Size() == 1u);
+    CHECK(changed[0] == StringView(u8"sub/new.bin"));
+    changed.Clear();
+    CHECK_FALSE(source->Poll(changed));
+
+    // Content edit (different size, so the stat diff can't false-negative on same-second mtime).
+    const byte b[5] = { byte{1}, byte{2}, byte{3}, byte{4}, byte{5} };
+    REQUIRE(fs.AsWritable()->Save(u8"before.bin", Span<const byte>(b, 5)).IsOk());
+    changed.Clear();
+    CHECK(source->Poll(changed));
+    REQUIRE(changed.Size() == 1u);
+    CHECK(changed[0] == StringView(u8"before.bin"));
+
+    // Removal is reported.
+    REQUIRE(fs.AsWritable()->Delete(u8"sub/new.bin").IsOk());
+    changed.Clear();
+    CHECK(source->Poll(changed));
+    REQUIRE(changed.Size() == 1u);
+    CHECK(changed[0] == StringView(u8"sub/new.bin"));
+
+    // Untrack: edits go unreported.
+    source->Untrack(u8"");
+    REQUIRE(fs.AsWritable()->Save(u8"before.bin", Span<const byte>(a, 2)).IsOk());
+    changed.Clear();
+    CHECK_FALSE(source->Poll(changed));
+
+    (void)fs.AsWritable()->Delete(u8"before.bin");
+    (void)RemoveDirectory(PathJoin(dir, u8"sub"));
+    (void)RemoveDirectory(dir);
 }
