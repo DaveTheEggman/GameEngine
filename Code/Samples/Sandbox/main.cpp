@@ -424,13 +424,14 @@ namespace
             rhi::TextureView* logo = LoadLogoTexture();
             if (logo == nullptr) { core::ConsoleWrite(u8"Sandbox: sprite demo skipped (logo import failed)\n"); return; }
 
-            struct Variant { const char8_t* name; core::u32 mode; bool additive; core::Color tint; };
+            using render::SpriteOrientation;
+            struct Variant { const char8_t* name; SpriteOrientation mode; bool additive; core::Color tint; };
             const Variant variants[] = {
-                { u8"spriteFace",   0u, false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing
-                { u8"spriteFaceY",  1u, false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // camera-facing about Y
-                { u8"spriteWorld",  2u, false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },   // world-aligned XY
-                { u8"spriteAdd",    0u, true,  core::Color{ 2.6f, 2.2f, 1.4f, 1.0f } },   // additive glow (HDR tint so it reads over the bright scene)
-                { u8"spriteTint",   0u, false, core::Color{ 0.4f, 0.9f, 1.0f, 1.0f } },   // tinted cyan
+                { u8"spriteFace",   SpriteOrientation::CameraFacing,  false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },
+                { u8"spriteFaceY",  SpriteOrientation::CameraFacingY, false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },
+                { u8"spriteWorld",  SpriteOrientation::WorldAligned,  false, core::Color{ 1.0f, 1.0f, 1.0f, 1.0f } },
+                { u8"spriteAdd",    SpriteOrientation::CameraFacing,  true,  core::Color{ 2.6f, 2.2f, 1.4f, 1.0f } },   // additive glow (HDR tint so it reads over the bright scene)
+                { u8"spriteTint",   SpriteOrientation::CameraFacing,  false, core::Color{ 0.4f, 0.9f, 1.0f, 1.0f } },   // tinted cyan
             };
             const core::f32 spacing = 4.5f;
             const core::f32 x0 = -0.5f * spacing * static_cast<core::f32>((sizeof(variants) / sizeof(variants[0])) - 1);
