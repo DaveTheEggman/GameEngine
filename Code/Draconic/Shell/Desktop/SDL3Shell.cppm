@@ -695,6 +695,20 @@ export namespace draconic::shell
             {
                 switch (event.type)
                 {
+                    case SDL_EVENT_DROP_FILE:
+                    {
+                        if (event.drop.data != nullptr)
+                        {
+                            DroppedFile drop;
+                            drop.window = event.drop.windowID;
+                            drop.x = event.drop.x;
+                            drop.y = event.drop.y;
+                            drop.path = core::String(core::StringView(reinterpret_cast<const core::utf8char*>(event.drop.data)));
+                            m_droppedFiles.PushBack(core::Move(drop));
+                        }
+                        break;
+                    }
+
                     case SDL_EVENT_QUIT:
                         // App-level quit: close the main window and stop the loop.
                         if (IWindow* main = m_windows.MainWindow())
@@ -904,6 +918,12 @@ export namespace draconic::shell
             return m_running && main != nullptr && main->IsOpen();
         }
 
+            void DrainDroppedFiles(core::Array<DroppedFile>& out) override
+        {
+            for (DroppedFile& drop : m_droppedFiles) { out.PushBack(core::Move(drop)); }
+            m_droppedFiles.Clear();
+        }
+
         void RequestExit() override { m_running = false; }
 
         void SetClipboardText(core::StringView text) override
@@ -1068,6 +1088,7 @@ export namespace draconic::shell
         SDL3InputManager m_input;
         bool m_initialized = false;
         bool m_running = true;
+        core::Array<DroppedFile> m_droppedFiles;   // queued during ProcessEvents, drained per frame
     };
 
     // Factory the DRACONIC_APP_MAIN entry point calls to create the shell.

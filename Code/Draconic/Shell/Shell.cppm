@@ -165,6 +165,14 @@ export namespace draconic::shell
         virtual void FlushDestroyed() = 0;
     };
 
+    // One OS file drop: which window, where (window-space), and the absolute path.
+    struct DroppedFile
+    {
+        core::u32 window = 0;
+        core::f32 x = 0.0f, y = 0.0f;
+        core::String path;
+    };
+
     class IShell
     {
     public:
@@ -192,6 +200,11 @@ export namespace draconic::shell
 
         // Ask the shell to quit (flips IsRunning()).
         virtual void RequestExit() = 0;
+
+        // OS drag-and-drop of files onto a window. Backends queue drops during
+        // ProcessEvents; consumers drain once per frame (order preserved). Backends
+        // without drop support leave the default no-op.
+        virtual void DrainDroppedFiles(core::Array<DroppedFile>& /*out*/) {}
 
         // System clipboard (text). Process-global on every desktop backend (SDL's clipboard
         // is not tied to a window), so it lives on the shell rather than a window - the
