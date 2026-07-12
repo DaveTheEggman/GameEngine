@@ -96,7 +96,9 @@ export namespace draconic::resource
 
         Ref() = default;
         Ref(const RefPtr<T>& object) : m_direct(object) {}                     // implicit: `c.mesh = meshPtr`
+        Ref(T* object) : m_direct(RefPtr<T>(object)) {}                        // implicit: raw runtime objects
         Ref& operator=(const RefPtr<T>& object) { m_direct = object; return *this; }
+        Ref& operator=(T* object) { m_direct = RefPtr<T>(object); return *this; }
 
         [[nodiscard]] T* Get() const noexcept
         {
@@ -107,6 +109,9 @@ export namespace draconic::resource
 
         void SetDirect(RefPtr<T> object) noexcept { m_direct = Move(object); }
         void SetId(const Guid& guid) noexcept { id = guid; }
+        /// Adopt an already-bound proxy (runtime code that bound by hand): follows reloads;
+        /// clears any direct override so the proxy is what Get() sees.
+        void SetProxy(Proxy<T> proxy) noexcept { m_proxy = Move(proxy); m_direct = nullptr; }
 
         /// Re-point at `id` (editor pickers): drops the direct override AND the previous
         /// proxy, then binds the new id (nil = cleared reference).
