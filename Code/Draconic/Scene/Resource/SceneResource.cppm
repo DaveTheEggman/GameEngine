@@ -245,8 +245,10 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
 // through the manager. Run after LoadScene once a ResourceManager over the cooked DB exists;
 // idempotent (re-binding an already-bound ref is a cache hit).
 inline void ResolveSceneResources(Scene& scene, draconic::resource::ResourceManager& resources) {
-    scene.ForEachManager([&](ComponentManagerBase& manager) {
-        manager.ResolveResources(resources);
+    // ALL systems, not just component managers: plain systems' settings blocks can hold
+    // resource::Refs too (the environment's sky texture).
+    scene.ForEachSystem([&](SceneSystem& system) {
+        system.ResolveResources(resources);
     });
 }
 

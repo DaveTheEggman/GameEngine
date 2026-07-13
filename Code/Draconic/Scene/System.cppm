@@ -18,6 +18,7 @@ module;
 export module draconic.scene:system;
 
 import draconic.core;
+import draconic.resource;
 import :entity;
 import :phase;
 
@@ -63,6 +64,11 @@ public:
     [[nodiscard]] virtual void* SettingsInstance() noexcept { return nullptr; }
     [[nodiscard]] virtual StringView SettingsId() const noexcept { return {}; }
     virtual void SerializeSettings(ISerializer& /*ar*/) {}
+
+    // Bind every resource::Ref this system holds (settings blocks included) through the
+    // manager - the post-load resolve pass. ComponentManagerBase overrides it for component
+    // pools; plain systems with resource-bearing settings override it too. Default: nothing.
+    virtual void ResolveResources(draconic::resource::ResourceManager& /*manager*/) {}
 
     // Lower runs earlier within a phase.
     [[nodiscard]] virtual i32 UpdateOrder() const noexcept { return 0; }

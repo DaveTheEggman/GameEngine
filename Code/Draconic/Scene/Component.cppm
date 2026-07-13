@@ -61,7 +61,7 @@ public:
 
     // Bind every component's resource::Ref fields through the manager (the post-load
     // resolve pass; asset-pipeline design §8). Default: nothing to resolve.
-    virtual void ResolveResources(draconic::resource::ResourceManager& /*manager*/) {}
+    void ResolveResources(draconic::resource::ResourceManager& /*manager*/) override {}
 
     // Destroying an entity destroys its component in this manager.
     void OnEntityDestroyed(EntityHandle entity) override { RemoveComponent(entity); }
