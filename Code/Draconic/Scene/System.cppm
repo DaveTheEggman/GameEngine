@@ -50,6 +50,20 @@ public:
     virtual void OnUpdate(ScenePhase /*phase*/, f32 /*deltaTime*/) {}
     virtual void OnFixedUpdate(f32 /*fixedDeltaTime*/) {}
 
+    // --- scene-level settings (the Sedulous scene-modules pattern) ---
+    // A system with ONE per-scene settings block (not per-entity state) exposes it here:
+    // the editor inspects it when no entity is selected, and SerializeScene persists it
+    // with the scene. All four override together or not at all.
+    //   SettingsType():      the settings struct's reflected TypeInfo (null = no settings)
+    //   SettingsInstance():  the live struct (property edits write it directly)
+    //   SettingsId():        stable on-disk id (like a manager's SerializationTypeId)
+    //   SerializeSettings(): field serialization (the caller wraps it in the type's
+    //                        versioned payload, so bodies can gate on ar.Version())
+    [[nodiscard]] virtual const TypeInfo* SettingsType() const noexcept { return nullptr; }
+    [[nodiscard]] virtual void* SettingsInstance() noexcept { return nullptr; }
+    [[nodiscard]] virtual StringView SettingsId() const noexcept { return {}; }
+    virtual void SerializeSettings(ISerializer& /*ar*/) {}
+
     // Lower runs earlier within a phase.
     [[nodiscard]] virtual i32 UpdateOrder() const noexcept { return 0; }
     // If true, OnUpdate/OnFixedUpdate are skipped while the scene's simulation is

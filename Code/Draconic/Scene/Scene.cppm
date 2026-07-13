@@ -319,6 +319,12 @@ public:
             if (ComponentManagerBase* m = s->AsComponentManager()) { fn(*m); }
         }
     }
+    // Visits every system (managers AND plain systems), in UpdateOrder - the editor's
+    // scene-settings inspector and SerializeScene walk systems with settings blocks.
+    template <typename Fn>
+    void ForEachSystem(Fn&& fn) {
+        for (SceneSystem* s : m_sortedSystems) { fn(*s); }
+    }
     // The serializable manager with this on-disk type id, or null (used on scene load
     // to route a component record to its pool).
     [[nodiscard]] ComponentManagerBase* FindManagerBySerializationId(StringView typeId) {
