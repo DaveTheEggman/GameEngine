@@ -78,6 +78,34 @@ public:
         // Re-dirty the precompute only for fields baked into the env cube. sunAngularSize is analytic-
         // only (the sky pass draws the disc live each frame), so it updates without a rebuild.
         if (!PrecomputeEqual(s, m_sky)) { m_dirty = true; }
+        // Asset-driven sky texture (scene-authored HDREquirect/Cubemap): (re)build the external
+        // bind group when the PRODUCT changes - detected by uid, never the pointer (reloads reuse
+        // freed addresses; deferred product destruction keeps the old view alive for in-flight
+        // frames). The external group takes precedence over the programmatic pixel paths.
+        if (m_ready && s.textureUid != m_externalUid) {
+            DestroyExternalBindGroups();
+            m_externalUid = s.textureUid;
+            if (s.texture != nullptr) {
+                if (s.textureIsCube) {
+                    if (EnsureCubemapPipeline()) {
+                        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(s.texture),
+                                                     rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+                        rhi::BindGroupDesc bgd{}; bgd.layout = m_envLayout;
+                        bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
+                        if (!m_device->CreateBindGroup(bgd, m_externalCubeBG).IsOk()) { m_externalCubeBG = nullptr; }
+                    }
+                } else {
+                    if (EnsureEquirectPipeline()) {
+                        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(s.texture),
+                                                     rhi::BindGroupEntry::SamplerEntry(m_equirectSampler) };
+                        rhi::BindGroupDesc bgd{}; bgd.layout = m_equirectLayout;
+                        bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
+                        if (!m_device->CreateBindGroup(bgd, m_externalEquirectBG).IsOk()) { m_externalEquirectBG = nullptr; }
+                    }
+                }
+            }
+            m_dirty = true;
+        }
         m_sky = s;   // always store the latest (the sky pass reads sun size/intensity live)
     }
 
@@ -211,12 +239,16 @@ public:
         // (1) Source -> env cube: 6 faces. Procedural (analytic gradient) or HDR equirect (sample the
         // uploaded equirect map); both write the canonical cube faces.
         const rendergraph::RGHandle envH = m_envH;
-        const bool useEquirect = (m_sky.mode == SkyMode::HDREquirect) && m_equirectBindGroup != nullptr;
-        const bool useCubemap  = (m_sky.mode == SkyMode::Cubemap) && m_cubemapBindGroup != nullptr;
+        // Textured modes: the scene-authored ASSET texture wins over the programmatic pixel
+        // path (SetEquirect/SetCubemap) when both are present.
+        rhi::BindGroup* equirectBG = (m_externalEquirectBG != nullptr) ? m_externalEquirectBG : m_equirectBindGroup;
+        rhi::BindGroup* cubemapBG  = (m_externalCubeBG != nullptr) ? m_externalCubeBG : m_cubemapBindGroup;
+        const bool useEquirect = (m_sky.mode == SkyMode::HDREquirect) && equirectBG != nullptr;
+        const bool useCubemap  = (m_sky.mode == SkyMode::Cubemap) && cubemapBG != nullptr;
         const bool useAnalytic = (m_sky.mode == SkyMode::Analytic);
         rhi::RenderPipeline* envPipe = useEquirect ? m_equirectPipeline : useCubemap ? m_cubemapPipeline
                                      : useAnalytic ? m_analyticPipeline : m_envPipeline;
-        rhi::BindGroup*      envBG   = useEquirect ? m_equirectBindGroup : useCubemap ? m_cubemapBindGroup : nullptr;
+        rhi::BindGroup*      envBG   = useEquirect ? equirectBG : useCubemap ? cubemapBG : nullptr;
         for (u32 face = 0; face < 6; ++face) {
             IblPush push = MakeSkyPush(static_cast<i32>(face));
             graph.AddRenderPass(u8"ibl.env.face", [envH, face, push, envPipe, envBG](rendergraph::PassBuilder& b) {
@@ -265,10 +297,16 @@ private:
         return p;
     }
 
+    void DestroyExternalBindGroups() {
+        if (m_externalEquirectBG) { m_device->DestroyBindGroup(m_externalEquirectBG); m_externalEquirectBG = nullptr; }
+        if (m_externalCubeBG) { m_device->DestroyBindGroup(m_externalCubeBG); m_externalCubeBG = nullptr; }
+    }
+
     // Equal w.r.t. the fields baked into the env cube (drives the precompute-rebuild decision).
     // sunAngularSize is EXCLUDED - it only affects the analytic sky-pass sun, not the cube.
     [[nodiscard]] static bool PrecomputeEqual(const SkySnapshot& a, const SkySnapshot& b) {
         return a.mode == b.mode && a.intensity == b.intensity && a.rotation == b.rotation &&
+               a.textureUid == b.textureUid &&
                a.horizon.x == b.horizon.x && a.horizon.y == b.horizon.y && a.horizon.z == b.horizon.z &&
                a.zenith.x == b.zenith.x && a.zenith.y == b.zenith.y && a.zenith.z == b.zenith.z &&
                a.ground.x == b.ground.x && a.ground.y == b.ground.y && a.ground.z == b.ground.z &&
@@ -565,6 +603,8 @@ private:
         if (m_equirectPipelineLayout) { m_device->DestroyPipelineLayout(m_equirectPipelineLayout); m_equirectPipelineLayout = nullptr; }
         if (m_equirectLayout) { m_device->DestroyBindGroupLayout(m_equirectLayout); m_equirectLayout = nullptr; }
         if (m_equirectSampler) { m_device->DestroySampler(m_equirectSampler); m_equirectSampler = nullptr; }
+        DestroyExternalBindGroups();
+        m_externalUid = 0;
         if (m_shBindGroup) { m_device->DestroyBindGroup(m_shBindGroup); m_shBindGroup = nullptr; }
         if (m_envBindGroup) { m_device->DestroyBindGroup(m_envBindGroup); m_envBindGroup = nullptr; }
         for (u32 m = 0; m < kEnvMips; ++m) { if (m_envMipBG[m]) { m_device->DestroyBindGroup(m_envMipBG[m]); m_envMipBG[m] = nullptr; } }
@@ -598,6 +638,10 @@ private:
     rhi::Texture*     m_equirectTex = nullptr;    rhi::TextureView* m_equirectView = nullptr;
     rhi::Buffer*      m_equirectStaging = nullptr;
     rhi::Sampler*     m_equirectSampler = nullptr;
+    // Asset-driven sky texture (external product view - NOT owned): bind groups only.
+    rhi::BindGroup*   m_externalEquirectBG = nullptr;
+    rhi::BindGroup*   m_externalCubeBG = nullptr;
+    u64               m_externalUid = 0;
     rhi::BindGroupLayout* m_equirectLayout = nullptr;
     rhi::PipelineLayout*  m_equirectPipelineLayout = nullptr;
     rhi::RenderPipeline*  m_equirectPipeline = nullptr;

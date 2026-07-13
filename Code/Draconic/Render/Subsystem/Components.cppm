@@ -355,6 +355,10 @@ struct EnvironmentSettings {
     SkyMode skyMode      = SkyMode::Procedural;
     f32     skyIntensity = 1.0f;                                      // multiplier on env radiance
     f32     skyRotation  = 0.0f;                                      // yaw (radians) for HDR/cubemap
+    // The textured modes' source: HDREquirect = a 2D .hdr texture asset; Cubemap = a
+    // cube-shaped texture asset. Ignored by the untextured modes. (The programmatic
+    // RenderSubsystem::SetSkyEquirect/SetSkyCubemap pixel paths remain for tools/samples.)
+    draconic::resource::Ref<texture::Texture> skyTexture;
     // Procedural sky:
     Color   skyHorizon   = Color{ 0.60f, 0.70f, 0.85f, 1.0f };
     Color   skyZenith    = Color{ 0.15f, 0.30f, 0.65f, 1.0f };       // also the Color-mode color
@@ -375,7 +379,13 @@ public:
     [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<EnvironmentSettings>(); }
     [[nodiscard]] void* SettingsInstance() noexcept override { return &m_env; }
     [[nodiscard]] StringView SettingsId() const noexcept override { return u8"environment"; }
+    void ResolveResources(draconic::resource::ResourceManager& manager) override {
+        m_env.skyTexture.Bind(manager);
+    }
     void SerializeSettings(ISerializer& ar) override {
+        if (ar.Version() >= 2) {   // v2 added the sky texture reference
+            draconic::core::Serialize(ar, "skyTexture", m_env.skyTexture);
+        }
         draconic::core::Serialize(ar, "ambientColor",     m_env.ambientColor);
         draconic::core::Serialize(ar, "ambientIntensity", m_env.ambientIntensity);
         u32 mode = static_cast<u32>(m_env.skyMode);
@@ -504,10 +514,11 @@ DRACONIC_REFLECT_ENUM(SkyMode, "draconic::render")
 
 DRACONIC_REFLECT_VALUE(EnvironmentSettings, "draconic::render")
 {
-    builder.DataVersion(1)
+    builder.DataVersion(2)
            .Property<&EnvironmentSettings::ambientColor>("ambientColor")
            .Property<&EnvironmentSettings::ambientIntensity>("ambientIntensity")
            .Property<&EnvironmentSettings::skyMode>("skyMode")
+           .Property<&EnvironmentSettings::skyTexture>("skyTexture")
            .Property<&EnvironmentSettings::skyIntensity>("skyIntensity")
            .Property<&EnvironmentSettings::skyRotation>("skyRotation")
            .Property<&EnvironmentSettings::skyHorizon>("skyHorizon")

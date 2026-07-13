@@ -11,6 +11,9 @@ import draconic.geometry;
 import draconic.materials;
 import draconic.render;             // ExtractedScene / MeshRenderData / ViewCamera (scene-agnostic)
 import draconic.render.subsystem;   // components + ExtractSceneInto / ExtractPrimaryCamera
+import draconic.resource;
+import draconic.rhi;
+import draconic.texture.resource;   // texture::Texture (the sky-texture product)
 
 using namespace draconic::core;
 using namespace draconic::render;
@@ -237,4 +240,29 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
     REQUIRE(rd4->instanceCount == 2u);
     CHECK(Near(rd4->transforms[0].m[3][0], 6.0f));       // 1 + entity x=5
     CHECK(Near(rd4->transforms[1].m[3][0], 4.0f));       // -1 + entity x=5
+}
+
+TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity, cube flag)")
+{
+    draconic::scene::Scene scene(u8"s");
+    auto* env = scene.AddSystem<draconic::render::EnvironmentSystem>();
+    env->Environment().skyMode = draconic::render::SkyMode::Cubemap;
+
+    // A cube-shaped product (no GPU objects needed - identity/shape are what extraction reads).
+    RefPtr<draconic::texture::Texture> sky = MakeRef<draconic::texture::Texture>(DefaultAllocator());
+    sky->Adopt(nullptr, nullptr, nullptr, nullptr, 64, 64, rhi::TextureFormat::RGBA8Unorm, /*isCube*/ true);
+    env->Environment().skyTexture = sky.Get();   // direct override (picker/serialized path binds by guid)
+
+    draconic::render::ExtractedScene out;
+    draconic::render::ExtractEnvironmentInto(scene, out);
+    CHECK(out.Sky().mode == draconic::render::SkyMode::Cubemap);
+    CHECK(out.Sky().textureUid == sky->Uid());
+    CHECK(out.Sky().textureUid != 0u);
+    CHECK(out.Sky().textureIsCube);
+
+    // No texture -> no identity (the IBL keeps its programmatic/procedural source).
+    env->Environment().skyTexture = draconic::resource::Ref<draconic::texture::Texture>{};
+    draconic::render::ExtractedScene out2;
+    draconic::render::ExtractEnvironmentInto(scene, out2);
+    CHECK(out2.Sky().textureUid == 0u);
 }

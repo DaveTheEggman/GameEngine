@@ -466,6 +466,12 @@ struct SkySnapshot {
     SkyMode mode      = SkyMode::Procedural;
     f32     intensity = 1.0f;
     f32     rotation  = 0.0f;                          // yaw (radians) for HDR/cubemap
+    // Resolved sky-texture product (HDREquirect/Cubemap modes; null = the programmatic
+    // pixel path or none). Change detection keys on `textureUid`, NEVER the pointer
+    // (reloads reuse freed addresses); `textureIsCube` routes it to the right env build.
+    rhi::TextureView* texture = nullptr;
+    u64  textureUid    = 0;
+    bool textureIsCube = false;
     Float3    horizon   = Float3{ 0.60f, 0.70f, 0.85f };
     Float3    zenith    = Float3{ 0.15f, 0.30f, 0.65f };   // also the Color-mode color
     Float3    ground    = Float3{ 0.30f, 0.28f, 0.25f };
