@@ -212,6 +212,7 @@ export namespace draconic::ui
         {
             RefPtr<Dialog> dialog = MakeRef<Dialog>(DefaultAllocator(), title);
             RefPtr<Label> label = MakeRef<Label>(DefaultAllocator(), message);
+            label->WordWrap.SetValue(true);   // long messages wrap inside the dialog width
             dialog->SetContent(label.Get());
             dialog->AddButton(u8"OK", DialogResult::OK);
             return dialog;
@@ -222,6 +223,7 @@ export namespace draconic::ui
         {
             RefPtr<Dialog> dialog = MakeRef<Dialog>(DefaultAllocator(), title);
             RefPtr<Label> label = MakeRef<Label>(DefaultAllocator(), message);
+            label->WordWrap.SetValue(true);
             dialog->SetContent(label.Get());
             dialog->AddButton(u8"OK", DialogResult::OK);
             dialog->AddButton(u8"Cancel", DialogResult::Cancel);

@@ -39,6 +39,10 @@ export namespace draconic::ui
         bool ProcessMouseWheel(f32 physicalX, f32 physicalY, f32 deltaX, f32 deltaY, KeyModifiers modifiers = KeyModifiers::None);
 
         // === Keyboard ===
+        /// The modifier state from the most recent key event - stamped into mouse events so
+        /// Ctrl/Shift+click behaviors (multi-select) work.
+        [[nodiscard]] KeyModifiers CurrentModifiers() const noexcept { return m_currentModifiers; }
+
         bool ProcessKeyDown(KeyCode key, KeyModifiers modifiers, bool isRepeat, f32 timestamp = 0.0f);
         bool ProcessKeyUp(KeyCode key, KeyModifiers modifiers, f32 timestamp = 0.0f);
         bool ProcessTextInput(char32_t character);
@@ -84,6 +88,7 @@ export namespace draconic::ui
 
         // Pooled event args (reused each event).
         MouseEventArgs m_mouseArgs;
+        KeyModifiers m_currentModifiers = KeyModifiers::None;
         MouseWheelEventArgs m_wheelArgs;
         KeyEventArgs m_keyArgs;
         TextInputEventArgs m_textArgs;

@@ -49,6 +49,8 @@ export namespace draconic::ui
         Event<void(i32, i32, f32, f32)> OnItemClicked;
         /// (position, localX, localY)
         Event<void(i32, f32, f32)> OnItemRightClicked;
+        /// Right-click on empty space below/between cells (context menus on the container).
+        Event<void(f32, f32)> OnBackgroundRightClicked;
 
         GridView()
         {
@@ -127,6 +129,7 @@ export namespace draconic::ui
                     if (!Selection.IsSelected(pos)) { Selection.Select(pos); }
                     OnItemRightClicked.Invoke(pos, e.X, e.Y);
                 }
+                else { OnBackgroundRightClicked.Invoke(e.X, e.Y); }
                 e.Handled = true;
             }
             else if (e.Button == MouseButton::Left)

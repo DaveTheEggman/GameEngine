@@ -370,7 +370,7 @@ namespace draconic::ui
         if (hitView != nullptr)
         {
             const Float2 local = hitView->ScreenToLocal(Float2{ m_mouseX, m_mouseY });
-            m_mouseArgs.Set(local.x, local.y, button, m_clickCount, totalTime);
+            m_mouseArgs.Set(local.x, local.y, button, m_clickCount, totalTime, m_currentModifiers);
             DispatchMouseDown(hitView, m_mouseArgs);
             return hitView != m_context->ActiveInputRoot();
         }
@@ -430,6 +430,7 @@ namespace draconic::ui
 
     bool InputManager::ProcessKeyDown(KeyCode key, KeyModifiers modifiers, bool isRepeat, f32 timestamp)
     {
+        m_currentModifiers = modifiers;
         // Escape cancels an active drag.
         if (key == KeyCode::Escape && m_context->DragDrop()->IsDragging()) { m_context->DragDrop()->CancelDrag(); return true; }
 
@@ -483,6 +484,7 @@ namespace draconic::ui
 
     bool InputManager::ProcessKeyUp(KeyCode key, KeyModifiers modifiers, f32 timestamp)
     {
+        m_currentModifiers = modifiers;
         View* focused = m_context->GetFocusManager()->FocusedView();
         if (focused == nullptr) { return false; }
         m_keyArgs.Set(key, modifiers, false, timestamp);

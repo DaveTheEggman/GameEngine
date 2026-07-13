@@ -29,12 +29,16 @@ export namespace draconic::ui
         [[nodiscard]] usize SelectedCount() const noexcept { return m_selected.Size(); }
         [[nodiscard]] bool IsSelected(i32 index) const noexcept { return m_selected.Contains(index); }
 
-        /// Select an index. In Single mode, clears the previous selection first.
+        /// Select an index EXCLUSIVELY (a plain click): the previous selection clears in every
+        /// mode - extending is what Toggle (Ctrl) and SelectRange (Shift) are for. (Multiple
+        /// mode used to accumulate here, so plain clicks grew the selection forever.)
         void Select(i32 index)
         {
             if (Mode == SelectionMode::None) { return; }
-            if (Mode == SelectionMode::Single) { m_selected.Clear(); }
-            if (m_selected.Insert(index)) { OnSelectionChanged.Invoke(); }
+            if (m_selected.Size() == 1 && m_selected.Contains(index)) { return; }   // already exactly this
+            m_selected.Clear();
+            m_selected.Insert(index);
+            OnSelectionChanged.Invoke();
         }
 
         /// Deselect an index.

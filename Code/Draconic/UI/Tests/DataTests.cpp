@@ -70,14 +70,27 @@ TEST_CASE("data: SelectionModel_SingleMode_ReplacesSelection")
     CHECK(sel.SelectedCount() == 1u);
 }
 
-TEST_CASE("data: SelectionModel_MultipleMode_Accumulates")
+// DELIBERATE DEVIATION from the Sedulous port (which accumulated here): Select() is a plain
+// click and replaces the selection in EVERY mode - Toggle (Ctrl) and SelectRange (Shift) are
+// the extend paths. Accumulating plain clicks grew multi-select lists forever (user-reported
+// in the asset browser).
+TEST_CASE("data: SelectionModel_MultipleMode_PlainSelectReplaces")
 {
     SelectionModel sel; sel.Mode = SelectionMode::Multiple;
     sel.Select(0); sel.Select(1); sel.Select(2);
-    CHECK(sel.IsSelected(0));
-    CHECK(sel.IsSelected(1));
+    CHECK(!sel.IsSelected(0));
+    CHECK(!sel.IsSelected(1));
     CHECK(sel.IsSelected(2));
-    CHECK(sel.SelectedCount() == 3u);
+    CHECK(sel.SelectedCount() == 1u);
+
+    // Extending still works through Toggle/SelectRange.
+    sel.Toggle(0);
+    CHECK(sel.SelectedCount() == 2u);
+    sel.SelectRange(0, 3);
+    CHECK(sel.SelectedCount() == 4u);
+    sel.Select(1);   // plain click collapses back to one
+    CHECK(sel.SelectedCount() == 1u);
+    CHECK(sel.IsSelected(1));
 }
 
 TEST_CASE("data: SelectionModel_Toggle")
@@ -102,7 +115,7 @@ TEST_CASE("data: SelectionModel_SelectRange")
 TEST_CASE("data: SelectionModel_ClearSelection")
 {
     SelectionModel sel; sel.Mode = SelectionMode::Multiple;
-    sel.Select(0); sel.Select(1);
+    sel.Select(0); sel.Toggle(1);
     sel.ClearSelection();
     CHECK(sel.SelectedCount() == 0u);
 }
@@ -110,7 +123,7 @@ TEST_CASE("data: SelectionModel_ClearSelection")
 TEST_CASE("data: SelectionModel_ShiftIndices_Insert")
 {
     SelectionModel sel; sel.Mode = SelectionMode::Multiple;
-    sel.Select(2); sel.Select(4);
+    sel.Select(2); sel.Toggle(4);
     sel.ShiftIndices(3, 1); // insert at 3
     CHECK(sel.IsSelected(2)); // unchanged
     CHECK(sel.IsSelected(5)); // shifted from 4
