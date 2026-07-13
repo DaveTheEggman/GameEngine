@@ -436,3 +436,131 @@ TEST_CASE("edit-context: destroy-undo restores light components (and their value
     CHECK(light->range == doctest::Approx(42.0f));
     CHECK(light->castsShadows);
 }
+
+TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, one undo")
+{
+    dscene::Scene scene;
+    scene.AddSystem<draconic::render::LightComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+
+    const Guid parent = edit.CreateEntity(u8"Rig");
+    const Guid child  = edit.CreateEntity(u8"Lamp", parent);
+    scene.SetLocalPosition(edit.Resolve(parent), Float3{ 3, 0, 0 });
+    auto* lights = scene.GetSystem<draconic::render::LightComponentManager>();
+    {
+        draconic::render::LightComponent& light = lights->Add(edit.Resolve(child));
+        light.intensity = 7.0f;
+    }
+
+    const Guid copy = edit.DuplicateEntity(parent);
+    REQUIRE(copy != Guid{});
+    CHECK(copy != parent);                                       // fresh identity
+    const dscene::EntityHandle copyRoot = edit.Resolve(copy);
+    REQUIRE(copyRoot.IsAssigned());
+    CHECK(scene.GetEntityName(copyRoot) == u8"Rig (2)");   // copies are distinguishable
+    CHECK(scene.GetLocalTransform(copyRoot).position.x == doctest::Approx(3.0f));
+    CHECK(!scene.GetParent(copyRoot).IsAssigned());              // sibling of the original (root)
+    REQUIRE(edit.EntitySelection().Primary() != nullptr);
+    CHECK(*edit.EntitySelection().Primary() == copy);            // the copy becomes the selection
+
+    // The child came along, with its component values, under the COPY (not the original).
+    REQUIRE(scene.GetChildCount(copyRoot) == 1u);
+    const dscene::EntityHandle copyChild = scene.GetFirstChild(copyRoot);
+    CHECK(scene.GetEntityName(copyChild) == u8"Lamp");
+    CHECK(scene.GetEntityId(copyChild) != child);
+    draconic::render::LightComponent* light = lights->Get(copyChild);
+    REQUIRE(light != nullptr);
+    CHECK(light->intensity == doctest::Approx(7.0f));
+
+    // One undo removes the whole copy; redo brings it back with the SAME fresh guids.
+    commands.Undo();
+    CHECK_FALSE(edit.Resolve(copy).IsAssigned());
+    CHECK(edit.Resolve(parent).IsAssigned());                    // original untouched
+    commands.Redo();
+    REQUIRE(edit.Resolve(copy).IsAssigned());
+    CHECK(lights->Get(scene.GetFirstChild(edit.Resolve(copy))) != nullptr);
+}
+
+TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
+{
+    dscene::Scene sceneA;
+    sceneA.AddSystem<draconic::render::LightComponentManager>();
+    EditorCommandStack commandsA;
+    SceneEditContext editA(sceneA, commandsA);
+
+    const Guid src = editA.CreateEntity(u8"Prop");
+    const Guid srcChild = editA.CreateEntity(u8"Bulb", src);
+    {
+        auto* lights = sceneA.GetSystem<draconic::render::LightComponentManager>();
+        lights->Add(editA.Resolve(srcChild)).range = 12.0f;
+    }
+    const Array<byte> blob = editA.CopyEntity(src);
+    REQUIRE(!blob.IsEmpty());
+
+    // Paste into a DIFFERENT scene (its own command stack), under a chosen parent.
+    dscene::Scene sceneB;
+    sceneB.AddSystem<draconic::render::LightComponentManager>();
+    EditorCommandStack commandsB;
+    SceneEditContext editB(sceneB, commandsB);
+    const Guid target = editB.CreateEntity(u8"Holder");
+
+    const Guid pasted = editB.PasteEntities(Span<const byte>{ blob.Data(), blob.Size() }, target);
+    REQUIRE(pasted != Guid{});
+    const dscene::EntityHandle root = editB.Resolve(pasted);
+    REQUIRE(root.IsAssigned());
+    CHECK(sceneB.GetEntityName(root) == u8"Prop");
+    CHECK(sceneB.GetEntityId(sceneB.GetParent(root)) == target);
+    REQUIRE(sceneB.GetChildCount(root) == 1u);
+    auto* lightsB = sceneB.GetSystem<draconic::render::LightComponentManager>();
+    draconic::render::LightComponent* light = lightsB->Get(sceneB.GetFirstChild(root));
+    REQUIRE(light != nullptr);
+    CHECK(light->range == doctest::Approx(12.0f));
+
+    // The same blob pastes AGAIN (fresh guids every time); the source scene never changed.
+    const Guid pasted2 = editB.PasteEntities(Span<const byte>{ blob.Data(), blob.Size() });
+    REQUIRE(pasted2 != Guid{});
+    CHECK(pasted2 != pasted);
+    CHECK(editA.Resolve(src).IsAssigned());
+
+    // Undo in B removes only the last paste.
+    commandsB.Undo();
+    CHECK_FALSE(editB.Resolve(pasted2).IsAssigned());
+    CHECK(editB.Resolve(pasted).IsAssigned());
+}
+
+TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
+{
+    dscene::Scene scene;
+    scene.AddSystem<draconic::render::LightComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    auto* lights = scene.GetSystem<draconic::render::LightComponentManager>();
+
+    const Guid a = edit.CreateEntity(u8"A");
+    const Guid b = edit.CreateEntity(u8"B");
+    lights->Add(edit.Resolve(a)).intensity = 9.0f;
+
+    const Array<byte> blob =
+        edit.CopyComponent(a, &TypeOf<draconic::render::LightComponent>());
+    REQUIRE(!blob.IsEmpty());
+    CHECK(SceneEditContext::PeekComponentTypeId(
+              Span<const byte>{ blob.Data(), blob.Size() }) == u8"light");
+
+    // Paste onto an entity WITHOUT the component: adds it. Undo removes it again.
+    REQUIRE(edit.PasteComponent(b, Span<const byte>{ blob.Data(), blob.Size() }));
+    REQUIRE(lights->Get(edit.Resolve(b)) != nullptr);
+    CHECK(lights->Get(edit.Resolve(b))->intensity == doctest::Approx(9.0f));
+    commands.Undo();
+    CHECK(lights->Get(edit.Resolve(b)) == nullptr);
+    commands.Redo();
+    REQUIRE(lights->Get(edit.Resolve(b)) != nullptr);
+
+    // Paste onto an entity WITH the component: overwrites; undo restores the prior values.
+    lights->Get(edit.Resolve(b))->intensity = 1.0f;
+    REQUIRE(edit.PasteComponent(b, Span<const byte>{ blob.Data(), blob.Size() }));
+    CHECK(lights->Get(edit.Resolve(b))->intensity == doctest::Approx(9.0f));
+    commands.Undo();
+    REQUIRE(lights->Get(edit.Resolve(b)) != nullptr);
+    CHECK(lights->Get(edit.Resolve(b))->intensity == doctest::Approx(1.0f));
+}
