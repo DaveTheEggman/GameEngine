@@ -160,3 +160,57 @@ TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registra
 
     RemoveTree(dir);
 }
+
+TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh guid")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"draconic_content_clone_db";
+    RemoveTree(dir);
+    FileDelete(JoinPath(dir, u8"materials/copper.xasset"));
+    FileDelete(JoinPath(dir, u8"materials/copper.extra.bin"));
+    NativeFileSystem mount(dir);
+    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+
+    Group* materials = db.RootGroup()->CreateGroup(u8"materials");
+    draconic::content::Instance* steel = materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+    REQUIRE(steel != nullptr);
+    MaterialResource res;
+    res.shininess = 7;
+    res.shader = String(u8"pbr");
+    REQUIRE(steel->WriteObject(res).IsOk());
+    const byte extra[] = { byte{ 9 }, byte{ 8 }, byte{ 7 } };
+    REQUIRE(steel->WriteData(u8"extra", Span<const byte>(extra, 3)).IsOk());
+
+    draconic::content::Instance* copy = db.CloneInstance(steel->Id(), u8"copper");
+    REQUIRE(copy != nullptr);
+    CHECK(copy->Id() != steel->Id());                       // fresh identity
+    CHECK(copy->Name() == u8"copper");
+    CHECK(copy->TypeName() == steel->TypeName());
+    CHECK(&copy->OwningGroup() == materials);
+    CHECK(mount.Exists(u8"materials/copper.xasset"));
+    CHECK(mount.Exists(u8"materials/copper.extra.bin"));
+
+    // Deep copy: the clone's primary object matches the source's content.
+    RefPtr<ISerializable> obj = copy->ReadObject();
+    auto* cloned = Cast<MaterialResource>(obj.Get());
+    REQUIRE(cloned != nullptr);
+    CHECK(cloned->shininess == 7);
+    CHECK(cloned->shader == u8"pbr");
+    UniquePtr<IStream> data = copy->ReadData(u8"extra");
+    REQUIRE(data);
+    byte bytes[3] = {};
+    REQUIRE(data->Read(bytes, 3) == 3u);
+    CHECK(bytes[0] == byte{ 9 });
+    CHECK(bytes[2] == byte{ 7 });
+
+    // Name collisions + unknown ids fail cleanly.
+    CHECK(db.CloneInstance(steel->Id(), u8"copper") == nullptr);
+    Random rng(99);
+    CHECK(db.CloneInstance(Guid::Generate(rng), u8"x") == nullptr);
+
+    (void)db.DeleteInstance(copy->Id());
+    (void)db.DeleteInstance(steel->Id());
+    RemoveTree(dir);
+}

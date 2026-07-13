@@ -178,6 +178,12 @@ export namespace draconic::content
         // sweep + browser Delete.) NotFound when the id is unknown.
         Status DeleteInstance(const Guid& id);
 
+        // Clone an instance under `newName` in the SAME group, with a fresh Guid: the primary
+        // object round-trips through its registered type (so the copy is deep and re-keyed) and
+        // every data-stream sidecar is byte-copied. Null when the id is unknown, the name is
+        // taken, or the primary type isn't registered. (Browser Duplicate.)
+        Instance* CloneInstance(const Guid& id, StringView newName);
+
         [[nodiscard]] Instance* GetInstance(const Guid& id) override
         {
             Instance* const* found = m_byGuid.Find(id);
@@ -447,10 +453,13 @@ export namespace draconic::content
         RefPtr<ISerializable> object = m_db->Serializables().Create(type->id);
         if (object.Get() == nullptr) { return RefPtr<ISerializable>{}; }
 
-        // Deserialize the payload.
+        // Deserialize the payload under the STORED data-version scope (migration branches in
+        // Serialize see the version the envelope was written with).
+        BeginVersionedPayload(ar, *type);
         ar.Key("payload");  ar.BeginObject();
         object->Serialize(ar);
         ar.EndObject();
+        EndVersionedPayload(ar);
         return ar.IsOk() ? object : RefPtr<ISerializable>{};
     }
 
@@ -469,15 +478,18 @@ export namespace draconic::content
         if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
         Serializer& ar = *ctx->serializer;
 
-        // Write header + payload.
+        // Write header + payload (payload wrapped in the object's data-version scope, so
+        // Serialize bodies can branch on ar.Version() for migration).
         String ns(m_typeNamespace);
         String nm(m_typeName);
         ar.Key("guid");     ar.GuidValue(const_cast<Guid&>(m_id));
         ar.Key("typeNamespace");   ar.Text(ns);
         ar.Key("typeName"); ar.Text(nm);
+        BeginVersionedPayload(ar, *object.GetType());
         ar.Key("payload");  ar.BeginObject();
         object.Serialize(ar);
         ar.EndObject();
+        EndVersionedPayload(ar);
 
         // Let the context flush (e.g., XML writes its text output here).
         ctx->Flush(buffer);
@@ -495,6 +507,58 @@ export namespace draconic::content
     inline UniquePtr<IStream> Instance::OpenEnvelope() const
     {
         return m_db->Mount().Open(EnvelopePath().AsView(), FileMode::Read);
+    }
+
+    inline Instance* ContentDatabase::CloneInstance(const Guid& id, StringView newName)
+    {
+        Instance* src = GetInstance(id);
+        if (src == nullptr) { return nullptr; }
+        Group& group = src->OwningGroup();
+        if (group.GetInstance(newName) != nullptr) { return nullptr; }
+
+        // The primary object must round-trip (re-serialized under the clone's identity - a raw
+        // envelope byte-copy would carry the SOURCE guid).
+        RefPtr<ISerializable> object = src->ReadObject();
+        if (object.Get() == nullptr) { return nullptr; }
+
+        Guid cloneId = Guid::Generate(Rng());
+        while (GetInstance(cloneId) != nullptr) { cloneId = Guid::Generate(Rng()); }
+        Instance* copy = group.AddInstance(cloneId, newName, src->TypeNamespace(), src->TypeName());
+        if (copy == nullptr) { return nullptr; }
+        if (!copy->WriteObject(*object).IsOk()) { return nullptr; }
+
+        // Sidecar streams keep no directory - enumerate "<srcName>.<stream>.bin" siblings (the
+        // same prefix scan DeleteInstance uses) and byte-copy each under the clone's name.
+        if (IEnumerableFileSystem* enumerable = m_mount->AsEnumerable())
+        {
+            const String folder = group.Path();
+            String prefix(src->Name());
+            prefix.PushBack(utf8char('.'));
+            Array<DirEntry> entries;
+            if (enumerable->Enumerate(folder.AsView(), entries).IsOk())
+            {
+                for (const DirEntry& entry : entries)
+                {
+                    if (entry.isDirectory || entry.name.Size() <= prefix.Size()) { continue; }
+                    if (entry.name.AsView().SubStr(0, prefix.Size()) != prefix.AsView()) { continue; }
+                    if (!EndsWith(entry.name.AsView(), u8".bin")) { continue; }
+                    // "<src>.<stream>.bin" -> stream name between prefix and ".bin".
+                    const StringView fileName = entry.name.AsView();
+                    const StringView stream = fileName.SubStr(prefix.Size(), fileName.Size() - prefix.Size() - 4);
+                    if (stream.IsEmpty()) { continue; }
+                    if (UniquePtr<IStream> data = src->ReadData(stream))
+                    {
+                        Array<byte> bytes;
+                        bytes.Resize(static_cast<usize>(data->Size()));
+                        if (data->Read(bytes.Data(), bytes.Size()) == bytes.Size())
+                        {
+                            (void)copy->WriteData(stream, Span<const byte>{ bytes.Data(), bytes.Size() });
+                        }
+                    }
+                }
+            }
+        }
+        return copy;
     }
 
     inline Status ContentDatabase::DeleteInstance(const Guid& id)
