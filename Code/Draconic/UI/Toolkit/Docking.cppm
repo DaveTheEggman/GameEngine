@@ -142,6 +142,26 @@ export namespace draconic::ui::toolkit
 
         Event<void(DockablePanel*)> OnCloseRequested;
 
+        /// Veto hook for close requests (the editor prompts on dirty pages): return false to
+        /// swallow the request (the close buttons route through RequestClose; a handler that
+        /// later decides to close invokes OnCloseRequested directly, bypassing the veto).
+        Function<bool(DockablePanel*)> OnCloseInterceptor;
+
+        /// The user-gesture close path (panel/tab close buttons): interceptor first, then the
+        /// close event. Programmatic closers that must not be vetoed invoke the event directly.
+        void RequestClose()
+        {
+            if (OnCloseInterceptor && !OnCloseInterceptor(this)) { return; }
+            OnCloseRequested.Invoke(this);
+        }
+
+        /// ANY press inside this panel's subtree activates it (capture/tunnel phase: this runs
+        /// before the target handles the click and never consumes it). This is what makes the
+        /// ACTIVE panel follow interaction - with side-by-side tab groups, a panel can be
+        /// visible (already its group's selected tab, so SetSelectedIndex early-outs) while a
+        /// DIFFERENT panel is the app-active one; tab clicks alone can't re-announce it.
+        void OnMouseDownCapture(MouseEventArgs&) override;   // out-of-line (needs DockManager)
+
         /// Stable identifier for layout persistence.
         [[nodiscard]] StringView PersistenceId() const { return m_persistenceId.AsView(); }
         void SetPersistenceId(StringView id) { m_persistenceId = String(id); }
@@ -242,7 +262,7 @@ export namespace draconic::ui::toolkit
                 // Close button hit-test.
                 if (m_closable && e.X >= Width() - 22 && e.Y <= HeaderHeight)
                 {
-                    OnCloseRequested.Invoke(this);
+                    RequestClose();
                     e.Handled = true;
                     return;
                 }
@@ -897,6 +917,12 @@ export namespace draconic::ui::toolkit
                     {
                         ctx.VG().FillRect(tabRect, Rgb(42, 44, 54, 255));
                     }
+                    // Selected-tab accent strip (the same 2px indicator ui::TabView draws) -
+                    // dock tabs read as "active" the way regular tabs do.
+                    const Color accentColor = ResolveStyleColor(StyleProperty::AccentColor,
+                        Color{ 80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f });
+                    ctx.VG().FillRect(Rectangle{ tabRect.x, tabRect.y + tabRect.height - 2.0f,
+                                                 tabRect.width, 2.0f }, accentColor);
                 }
                 else if (i == m_hoveredTabIndex)
                 {
@@ -968,7 +994,7 @@ export namespace draconic::ui::toolkit
                 {
                     if (e.X >= cr.x && e.X < cr.x + cr.width && e.Y >= cr.y && e.Y < cr.y + cr.height)
                     {
-                        m_panels[static_cast<usize>(i)]->OnCloseRequested.Invoke(m_panels[static_cast<usize>(i)]);
+                        m_panels[static_cast<usize>(i)]->RequestClose();
                         e.Handled = true;
                         return;
                     }
@@ -2119,6 +2145,18 @@ export namespace draconic::ui::toolkit
     };
 
     // --- DockTabGroup::SetSelectedIndex needs DockManager complete -----------------------------
+    inline void DockablePanel::OnMouseDownCapture(MouseEventArgs&)
+    {
+        for (View* ancestor = Parent; ancestor != nullptr; ancestor = ancestor->Parent)
+        {
+            if (auto* dm = Cast<DockManager>(ancestor))
+            {
+                dm->OnPanelActivated.Invoke(this);
+                return;
+            }
+        }
+    }
+
     inline void DockTabGroup::SetSelectedIndex(i32 value)
     {
         if (value >= -1 && value < static_cast<i32>(m_panels.Size()) && m_selectedIndex != value)

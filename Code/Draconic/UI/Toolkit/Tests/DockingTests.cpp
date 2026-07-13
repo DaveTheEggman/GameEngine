@@ -306,3 +306,79 @@ TEST_CASE("docking: DraggableTreeView_DropIntoZones")
     CHECK(tree->CanAcceptDrop(drag.Get(), 0, 50.0f) == DragDropEffects::None);
     CHECK(tree->OnDrop(drag.Get(), 0, 50.0f) == DragDropEffects::None);
 }
+
+// A press ANYWHERE inside a panel's subtree announces it through OnPanelActivated (capture
+// phase - runs before the target handles the click, never consumes it). This is what keeps the
+// app's ACTIVE page in sync when side-by-side tab groups make a panel visible without tab
+// clicks (its group's SetSelectedIndex early-outs, so tab selection can't re-announce it).
+TEST_CASE("docking: press inside panel content activates the panel")
+{
+    UIContext ctx;
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{ 800, 600 };
+    ctx.AddRootView(root.Get());
+
+    auto dock = MakeRef<DockManager>(DefaultAllocator());
+    root->AddView(dock.Get());
+    auto contentA = MakeLabel(u8"A");
+    auto contentB = MakeLabel(u8"B");
+    DockablePanel* a = dock->AddPanel(u8"A", contentA.Get());
+    DockablePanel* b = dock->AddPanel(u8"B", contentB.Get());
+    // AddPanel only REGISTERS; dock A center, then B RIGHT of A's group - both visible
+    // side-by-side, each its own tab group (the shell's idiom).
+    dock->DockPanel(a, DockPosition::Center);
+    dock->DockPanelRelativeTo(b, DockPosition::Right, a->Parent);
+
+    // Two passes: the dock re-selects tab groups during the first layout; sizes apply next.
+    ctx.BeginFrame(0.016f);
+    ctx.UpdateRootView(root.Get());
+    ctx.BeginFrame(0.016f);
+    ctx.UpdateRootView(root.Get());
+
+    DockablePanel* activated = nullptr;
+    dock->OnPanelActivated.Add(Event<void(DockablePanel*)>::Handler{
+        [&activated](DockablePanel* p) { activated = p; } });
+
+    // Press in the middle of each panel's CONTENT area (not the tab strip).
+    auto pressInside = [&](DockablePanel* panel) {
+        const Float2 screen = panel->LocalToScreen(Float2{ panel->Width() * 0.5f,
+                                                           panel->Height() * 0.7f });
+        (void)ctx.GetInputManager()->ProcessMouseDown(MouseButton::Left, screen.x, screen.y, 0.0f);
+        (void)ctx.GetInputManager()->ProcessMouseUp(MouseButton::Left, screen.x, screen.y);
+    };
+
+    pressInside(a);
+    CHECK(activated == a);
+    pressInside(b);
+    CHECK(activated == b);
+    pressInside(a);
+    CHECK(activated == a);
+}
+
+// The close-gesture veto: RequestClose consults the interceptor (the editor prompts on dirty
+// pages); OnCloseRequested.Invoke stays the un-vetoed programmatic path (the prompt's own
+// Save/Discard buttons use it).
+TEST_CASE("docking: close interceptor vetoes gestures but not direct closes")
+{
+    auto panel = MakeRef<DockablePanel>(DefaultAllocator(), StringView(u8"Doc"));
+    i32 closed = 0;
+    panel->OnCloseRequested.Add([&closed](DockablePanel*) { ++closed; });
+
+    bool allow = false;
+    i32 asked = 0;
+    panel->OnCloseInterceptor = [&](DockablePanel*) { ++asked; return allow; };
+
+    panel->RequestClose();          // vetoed
+    CHECK(asked == 1);
+    CHECK(closed == 0);
+
+    allow = true;
+    panel->RequestClose();          // allowed through
+    CHECK(asked == 2);
+    CHECK(closed == 1);
+
+    allow = false;
+    panel->OnCloseRequested.Invoke(panel.Get());   // direct: no veto consulted
+    CHECK(asked == 2);
+    CHECK(closed == 2);
+}
