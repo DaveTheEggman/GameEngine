@@ -198,7 +198,7 @@ void MipmapSample::OnShutdown() {
     if (m_tex) m_device->DestroyTexture(m_tex); if (m_ub) m_device->DestroyBuffer(m_ub);
     if (m_ib) m_device->DestroyBuffer(m_ib); if (m_vb) m_device->DestroyBuffer(m_vb);
     if (m_ps) m_device->DestroyShaderModule(m_ps); if (m_vs) m_device->DestroyShaderModule(m_vs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { MipmapSample app; return app.Run(argc, argv); }

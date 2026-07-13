@@ -83,7 +83,7 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     }
 
     draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     shaders::ShaderSystem system(*compiler, device);
     shaders::ShaderFactory shaderFactory(system);
     MaterialFactory materialFactory;

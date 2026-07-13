@@ -134,7 +134,7 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     }
 
     // Load with both factories so the effect's Create can Bind the referenced texture.
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     ParticleEffectFactory pfxFactory;
     draconic::texture::TextureFactory texFactory(device);

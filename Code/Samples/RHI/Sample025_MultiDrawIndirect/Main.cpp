@@ -318,7 +318,7 @@ void MultiDrawIndirectSample::OnShutdown() {
     if (m_indirectBuf) m_device->DestroyBuffer(m_indirectBuf);
     if (m_ib) m_device->DestroyBuffer(m_ib);
     if (m_vb) m_device->DestroyBuffer(m_vb);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { MultiDrawIndirectSample app; return app.Run(argc, argv); }

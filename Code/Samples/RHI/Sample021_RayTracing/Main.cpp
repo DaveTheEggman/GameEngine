@@ -557,7 +557,7 @@ void RayTracingSample::OnShutdown() {
     if (m_fence) m_device->DestroyFence(m_fence);
     if (m_pool)  m_device->DestroyCommandPool(m_pool);
 
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { RayTracingSample app; return app.Run(argc, argv); }

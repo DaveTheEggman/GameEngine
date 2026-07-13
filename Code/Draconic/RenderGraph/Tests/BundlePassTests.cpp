@@ -15,7 +15,7 @@ namespace rhi = draconic::rhi;
 
 namespace {
 struct GraphHarness {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::Texture*       tex   = nullptr;
     rhi::TextureView*   view  = nullptr;
     rhi::CommandPool*   pool  = nullptr;

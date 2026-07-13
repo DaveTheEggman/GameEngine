@@ -207,7 +207,7 @@ void ComputeSample::OnShutdown() {
     if (m_ps) m_device->DestroyShaderModule(m_ps);
     if (m_vs) m_device->DestroyShaderModule(m_vs);
     if (m_cs) m_device->DestroyShaderModule(m_cs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { ComputeSample app; return app.Run(argc, argv); }

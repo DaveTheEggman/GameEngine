@@ -16,7 +16,7 @@ namespace rhi = draconic::rhi;
 
 namespace {
 struct Harness {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::Texture*        bb     = nullptr;
     rhi::TextureView*    bbView = nullptr;
     rhi::CommandPool*    pool   = nullptr;

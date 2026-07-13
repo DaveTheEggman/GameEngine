@@ -76,7 +76,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
     }
 
     // --- runtime load: cooked TextureResource -> live GPU Texture (model A) ---
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(outDb);

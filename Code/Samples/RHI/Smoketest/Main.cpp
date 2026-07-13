@@ -297,7 +297,6 @@ int main(int /*argc*/, char** /*argv*/) {
             }
             shaderc->freeResult(cr);
             shaderc->Destroy();
-            delete shaderc;
         }
     }
 #endif

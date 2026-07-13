@@ -160,7 +160,7 @@ void WireframeSample::OnShutdown() {
     if (m_bg) m_device->DestroyBindGroup(m_bg); if (m_bgl) m_device->DestroyBindGroupLayout(m_bgl);
     if (m_ub) m_device->DestroyBuffer(m_ub); if (m_ib) m_device->DestroyBuffer(m_ib); if (m_vb) m_device->DestroyBuffer(m_vb);
     if (m_ps) m_device->DestroyShaderModule(m_ps); if (m_vs) m_device->DestroyShaderModule(m_vs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { WireframeSample app; return app.Run(argc, argv); }

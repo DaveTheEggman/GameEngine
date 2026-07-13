@@ -399,7 +399,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     // Bind the material like the editor does (null GPU device backs the texture factory).
     // Device FIRST: it must outlive the manager's cached products (their destructors release
     // GPU objects through it).
-    draconic::rhi::null::NullDevice device;
+    draconic::rhi::null::NullDevice device{DefaultAllocator()};
     res::ResourceManager resources(project->CookedDb());
     draconic::geometry::StaticMeshFactory meshFactory;
     draconic::materials::MaterialFactory materialFactory;

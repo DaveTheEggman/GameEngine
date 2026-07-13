@@ -183,7 +183,7 @@ void DepthBufferSample::OnShutdown() {
     if (m_depthTex) m_device->DestroyTexture(m_depthTex);
     if (m_ib) m_device->DestroyBuffer(m_ib); if (m_vb) m_device->DestroyBuffer(m_vb);
     if (m_ps) m_device->DestroyShaderModule(m_ps); if (m_vs) m_device->DestroyShaderModule(m_vs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { DepthBufferSample app; return app.Run(argc, argv); }

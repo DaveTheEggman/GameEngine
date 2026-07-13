@@ -35,7 +35,7 @@ namespace
 
 TEST_CASE("ui.viewport: layout creates targets + registers an external texture usable by the renderer")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
     REQUIRE(vs != nullptr);
@@ -77,7 +77,7 @@ TEST_CASE("ui.viewport: layout creates targets + registers an external texture u
 
 TEST_CASE("ui.viewport: RenderContent fires the callback bracketed by transitions")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
 
     ViewportView view;
     view.Initialize(&device, /*renderer*/ nullptr, nullptr, 0);
@@ -110,7 +110,7 @@ TEST_CASE("ui.viewport: RenderContent fires the callback bracketed by transition
 
 TEST_CASE("ui.viewport: resize re-registers; teardown is clean")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
 
@@ -138,7 +138,7 @@ TEST_CASE("ui.viewport: resize re-registers; teardown is clean")
 
 TEST_CASE("ui.viewport: AttachToWindow re-registers into a new renderer (undock path)")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
 
@@ -188,7 +188,7 @@ TEST_CASE("ui.viewport: default fit mode is Stretch; SetFitMode updates it")
 
 TEST_CASE("ui.viewport: owns the RT formats (HDR default) + SetFormats recreates targets")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
 
     ViewportView view;
     CHECK(view.ColorFormat() == rhi::TextureFormat::RGBA16Float);

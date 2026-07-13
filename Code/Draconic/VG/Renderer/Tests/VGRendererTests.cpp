@@ -48,7 +48,7 @@ TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
 
 TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
     REQUIRE(vs != nullptr);
@@ -87,7 +87,7 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
 
 TEST_CASE("vg.renderer: external texture register / rebind / unregister")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
     REQUIRE(vs != nullptr);
@@ -141,7 +141,7 @@ TEST_CASE("vg.renderer: external texture register / rebind / unregister")
 
 TEST_CASE("vg.renderer: Dispose leaves a still-registered external view intact")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
 
@@ -169,7 +169,7 @@ TEST_CASE("vg.renderer: Dispose leaves a still-registered external view intact")
 
 TEST_CASE("vg.renderer: empty batch yields an invalid slice")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
 

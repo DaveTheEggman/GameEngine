@@ -554,7 +554,7 @@ void CubeMapSample::OnShutdown() {
     if (m_shadowVs) m_device->DestroyShaderModule(m_shadowVs);
     if (m_skyboxPs) m_device->DestroyShaderModule(m_skyboxPs);
     if (m_skyboxVs) m_device->DestroyShaderModule(m_skyboxVs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { CubeMapSample app; return app.Run(argc, argv); }

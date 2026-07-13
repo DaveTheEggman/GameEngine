@@ -146,7 +146,7 @@ TEST_CASE("RenderViewPool: Acquire hands out stable views; Begin rewinds")
 
 TEST_CASE("DynamicUniformRing: per-frame regions are disjoint; exhaustion + grow")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     const u32 framesInFlight = 3;
     DynamicUniformRing ring(device, framesInFlight, /*slotSize*/ 256);
     REQUIRE(ring.Reserve(4));                 // 4 slots per frame region
@@ -190,7 +190,7 @@ TEST_CASE("DynamicUniformRing: per-frame regions are disjoint; exhaustion + grow
 
 TEST_CASE("GpuBufferPool sub-allocates within a chunk and grows by adding chunks")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     GpuBufferPool pool(device, rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, /*chunk*/ 1024, u8"test");
 
     GpuBufferPool::Alloc a = pool.Allocate(100, 16);

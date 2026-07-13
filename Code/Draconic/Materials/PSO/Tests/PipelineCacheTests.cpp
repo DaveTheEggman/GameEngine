@@ -29,7 +29,7 @@ TEST_CASE("pso cache: builds + caches a pipeline; shader reload rebuilds via ver
     shaders::Compiler* compiler = nullptr;
     if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk()) { MESSAGE("DXC unavailable; skipping"); return; }
 
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     shaders::ShaderSystem shaderSystem(*compiler, device);
     shaderSystem.RegisterSource(u8"forward", shaders::ShaderStage::Vertex,   kVtx);
     shaderSystem.RegisterSource(u8"forward", shaders::ShaderStage::Fragment, kFrag);
@@ -78,7 +78,7 @@ TEST_CASE("pso cache: depth-only config builds without a fragment shader")
     shaders::Compiler* compiler = nullptr;
     if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk()) { MESSAGE("DXC unavailable; skipping"); return; }
 
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     shaders::ShaderSystem shaderSystem(*compiler, device);
     shaderSystem.RegisterSource(u8"shadow", shaders::ShaderStage::Vertex, kVtx);
     // deliberately no fragment source registered

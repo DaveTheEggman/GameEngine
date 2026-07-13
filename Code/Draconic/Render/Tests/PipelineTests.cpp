@@ -28,7 +28,7 @@ namespace {
 // A small fixture holding the GPU-side systems + a color target + an encoder.
 struct RenderHarness {
     shaders::Compiler* compiler = nullptr;
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     rhi::Texture* color = nullptr;
     rhi::TextureView* colorView = nullptr;
     rhi::CommandPool* pool = nullptr;

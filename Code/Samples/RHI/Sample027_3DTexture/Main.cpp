@@ -372,7 +372,7 @@ void Texture3DSample::OnShutdown() {
     if (m_volumeTexture) m_device->DestroyTexture(m_volumeTexture);
     if (m_ps) m_device->DestroyShaderModule(m_ps);
     if (m_vs) m_device->DestroyShaderModule(m_vs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { Texture3DSample app; return app.Run(argc, argv); }

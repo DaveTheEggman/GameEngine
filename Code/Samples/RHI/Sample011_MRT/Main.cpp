@@ -202,7 +202,7 @@ void MRTSample::OnShutdown() {
     if (m_ib) m_device->DestroyBuffer(m_ib); if (m_vb) m_device->DestroyBuffer(m_vb);
     if (m_compPs) m_device->DestroyShaderModule(m_compPs); if (m_compVs) m_device->DestroyShaderModule(m_compVs);
     if (m_gbPs) m_device->DestroyShaderModule(m_gbPs); if (m_gbVs) m_device->DestroyShaderModule(m_gbVs);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { MRTSample app; return app.Run(argc, argv); }

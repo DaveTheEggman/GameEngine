@@ -60,7 +60,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
     }
 
     // Load through the manager with a device-backed factory (Null backend).
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(db);
@@ -80,7 +80,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
 TEST_CASE("texture.factory: rejects an instance whose object isn't a TextureResource")
 {
     RegisterTextureResource();
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     TextureFactory factory(device);
     CHECK(factory.ProductType() == &Texture::StaticType());
 }

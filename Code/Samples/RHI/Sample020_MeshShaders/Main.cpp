@@ -229,7 +229,7 @@ void MeshShaderSample::OnShutdown() {
     if (m_pipelineLayout) m_device->DestroyPipelineLayout(m_pipelineLayout);
     if (m_fragModule) m_device->DestroyShaderModule(m_fragModule);
     if (m_meshModule) m_device->DestroyShaderModule(m_meshModule);
-    if (m_compiler) { m_compiler->Destroy(); delete m_compiler; }
+    if (m_compiler) { m_compiler->Destroy(); }
 }
 
 int main(int argc, char** argv) { MeshShaderSample app; return app.Run(argc, argv); }

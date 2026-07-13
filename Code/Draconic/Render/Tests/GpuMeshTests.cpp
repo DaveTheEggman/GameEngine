@@ -16,7 +16,7 @@ namespace geometry = draconic::geometry;
 
 TEST_CASE("mesh GPU cache: uploads on first use, reuses after, frees on clear")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     GpuMeshCache cache(device);
 
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
@@ -47,7 +47,7 @@ TEST_CASE("mesh GPU cache: uploads on first use, reuses after, frees on clear")
 
 TEST_CASE("mesh GPU cache: null + empty meshes upload nothing")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     GpuMeshCache cache(device);
     CHECK(cache.GetOrUpload(nullptr) == nullptr);
     geometry::StaticMesh empty;

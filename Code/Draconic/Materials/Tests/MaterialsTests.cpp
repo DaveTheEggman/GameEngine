@@ -53,7 +53,7 @@ TEST_CASE("material builder: lays out uniforms + declares properties")
 
 TEST_CASE("material system: infers bind-group layout from properties + builds instance bind group")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     MaterialSystem system;
     REQUIRE(system.Initialize(device).IsOk());
     CHECK(system.DefaultSampler() != nullptr);
@@ -85,7 +85,7 @@ TEST_CASE("material system: infers bind-group layout from properties + builds in
 
 TEST_CASE("material instance: overrides notify the system + re-prep is driven by the dirty list")
 {
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     MaterialSystem system;
     REQUIRE(system.Initialize(device).IsOk());
 
