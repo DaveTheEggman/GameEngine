@@ -60,7 +60,7 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
     }
 
     draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     ShaderSystem system(*compiler, device);
     ShaderFactory factory(system);
     ResourceManager manager(db);

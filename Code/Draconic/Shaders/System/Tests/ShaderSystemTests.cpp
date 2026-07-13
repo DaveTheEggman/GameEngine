@@ -42,7 +42,7 @@ TEST_CASE("shader system: flags become defines; failures aren't cached")
     Compiler* compiler = MakeCompiler();
     if (compiler == nullptr) { MESSAGE("DXC unavailable; skipping"); return; }
 
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     {
         ShaderSystem ss(*compiler, device);
         ss.RegisterSource(u8"guarded", ShaderStage::Fragment, kNeedsNormalMap);
@@ -73,7 +73,7 @@ TEST_CASE("shader system: distinct variants cache separately; invalidate recompi
     Compiler* compiler = MakeCompiler();
     if (compiler == nullptr) { return; }
 
-    rhi::null::NullDevice device;
+    rhi::null::NullDevice device{DefaultAllocator()};
     {
         ShaderSystem ss(*compiler, device);
         ss.RegisterSource(u8"vs", ShaderStage::Vertex, kTrivialVertex);

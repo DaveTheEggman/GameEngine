@@ -34,6 +34,7 @@ struct CompilerDesc {
 /// HLSL shader compiler backed by DXC (IDxcCompiler3).
 struct Compiler {
     void* state = nullptr;
+    IAllocator* m_allocator = nullptr;
 
     [[nodiscard]] Status compile(const u8* source, usize sourceSize,
                                  ShaderStage stage, StringView entryPoint,
@@ -44,7 +45,7 @@ struct Compiler {
     void Destroy();
 };
 
-[[nodiscard]] Status createCompiler(const CompilerDesc& desc, Compiler*& out);
+[[nodiscard]] Status createCompiler(const CompilerDesc& desc, Compiler*& out, IAllocator& allocator = DefaultAllocator());
 
 } // namespace draconic::shaders (exported)
 
@@ -228,15 +229,18 @@ void Compiler::Destroy() {
 #else
     if (s->dxcompiler) { dlclose(s->dxcompiler);     s->dxcompiler = nullptr; }
 #endif
-    delete s;
+    IAllocator& alloc = *m_allocator;
+    alloc.Delete(s);
     this->state = nullptr;
+    alloc.Delete(this);
 }
 
-Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
+Status createCompiler(const CompilerDesc& desc, Compiler*& out, IAllocator& allocator) {
     out = nullptr;
-    auto* c = new Compiler();
-    auto* s = new CompilerState();
+    auto* c = allocator.New<Compiler>();
+    auto* s = allocator.New<CompilerState>();
     c->state = s;
+    c->m_allocator = &allocator;
 
 #ifdef _WIN32
     {
@@ -257,7 +261,7 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
     }
     if (!s->dxcompiler) {
         std::fprintf(stderr, "draconic.shaders: LoadLibraryW(dxcompiler.dll) failed (error %lu)\n", GetLastError());
-        c->Destroy(); delete c; return ErrorCode::Unknown;
+        c->Destroy(); return ErrorCode::Unknown;
     }
     s->createInst = reinterpret_cast<DxcCreateInstanceProc>(GetProcAddress(s->dxcompiler, "DxcCreateInstance"));
 #else
@@ -277,15 +281,15 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out) {
     }
     if (!s->dxcompiler) {
         std::fprintf(stderr, "draconic.shaders: dlopen(libdxcompiler.so) failed: %s\n", dlerror());
-        c->Destroy(); delete c; return ErrorCode::Unknown;
+        c->Destroy(); return ErrorCode::Unknown;
     }
     s->createInst = reinterpret_cast<DxcCreateInstanceProc>(dlsym(s->dxcompiler, "DxcCreateInstance"));
 #endif
 
-    if (!s->createInst) { std::fprintf(stderr, "draconic.shaders: DXC library missing DxcCreateInstance\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
-    if (FAILED(s->createInst(CLSID_DxcCompiler, IID_PPV_ARGS(&s->dxc)))) { std::fprintf(stderr, "draconic.shaders: DxcCreateInstance(IDxcCompiler3) failed\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
-    if (FAILED(s->createInst(CLSID_DxcUtils, IID_PPV_ARGS(&s->utils)))) { std::fprintf(stderr, "draconic.shaders: DxcCreateInstance(IDxcUtils) failed\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
-    if (FAILED(s->utils->CreateDefaultIncludeHandler(&s->includeHdlr))) { std::fprintf(stderr, "draconic.shaders: CreateDefaultIncludeHandler failed\n"); c->Destroy(); delete c; return ErrorCode::Unknown; }
+    if (!s->createInst) { std::fprintf(stderr, "draconic.shaders: DXC library missing DxcCreateInstance\n"); c->Destroy(); return ErrorCode::Unknown; }
+    if (FAILED(s->createInst(CLSID_DxcCompiler, IID_PPV_ARGS(&s->dxc)))) { std::fprintf(stderr, "draconic.shaders: DxcCreateInstance(IDxcCompiler3) failed\n"); c->Destroy(); return ErrorCode::Unknown; }
+    if (FAILED(s->createInst(CLSID_DxcUtils, IID_PPV_ARGS(&s->utils)))) { std::fprintf(stderr, "draconic.shaders: DxcCreateInstance(IDxcUtils) failed\n"); c->Destroy(); return ErrorCode::Unknown; }
+    if (FAILED(s->utils->CreateDefaultIncludeHandler(&s->includeHdlr))) { std::fprintf(stderr, "draconic.shaders: CreateDefaultIncludeHandler failed\n"); c->Destroy(); return ErrorCode::Unknown; }
 
     out = c;
     return ErrorCode::Ok;
