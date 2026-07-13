@@ -214,3 +214,135 @@ TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh gu
     (void)db.DeleteInstance(steel->Id());
     RemoveTree(dir);
 }
+
+TEST_CASE("content: RenameInstance moves envelope + sidecars; RenameGroup moves the directory")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"draconic_content_rename_db";
+    RemoveTree(dir);
+    FileDelete(JoinPath(dir, u8"materials/bronze.xasset"));
+    FileDelete(JoinPath(dir, u8"materials/bronze.extra.bin"));
+    FileDelete(JoinPath(dir, u8"metals/bronze.xasset"));
+    FileDelete(JoinPath(dir, u8"metals/bronze.extra.bin"));
+    RemoveDirectory(JoinPath(dir, u8"metals"));
+    NativeFileSystem mount(dir);
+    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+
+    Group* materials = db.RootGroup()->CreateGroup(u8"materials");
+    draconic::content::Instance* steel = materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+    REQUIRE(steel != nullptr);
+    const Guid id = steel->Id();
+    MaterialResource res;
+    res.shininess = 5;
+    REQUIRE(steel->WriteObject(res).IsOk());
+    const byte extra[] = { byte{ 1 }, byte{ 2 } };
+    REQUIRE(steel->WriteData(u8"extra", Span<const byte>(extra, 2)).IsOk());
+
+    // Instance rename: files move, guid + group stay, content still reads.
+    REQUIRE(db.RenameInstance(id, u8"bronze").IsOk());
+    CHECK(steel->Name() == u8"bronze");
+    CHECK(db.GetInstance(id) == steel);                       // guid identity untouched
+    CHECK(materials->GetInstance(u8"bronze") == steel);
+    CHECK(materials->GetInstance(u8"steel") == nullptr);
+    CHECK_FALSE(mount.Exists(u8"materials/steel.xasset"));
+    CHECK(mount.Exists(u8"materials/bronze.xasset"));
+    CHECK_FALSE(mount.Exists(u8"materials/steel.extra.bin"));
+    CHECK(mount.Exists(u8"materials/bronze.extra.bin"));
+    {
+        RefPtr<ISerializable> object = steel->ReadObject();
+        auto* loaded = Cast<MaterialResource>(object.Get());
+        REQUIRE(loaded != nullptr);
+        CHECK(loaded->shininess == 5);
+    }
+
+    // Collisions + bad input fail cleanly.
+    draconic::content::Instance* other = materials->CreateInstance(u8"iron", MaterialResource::StaticType());
+    REQUIRE(other != nullptr);
+    CHECK(db.RenameInstance(other->Id(), u8"bronze").Code() == ErrorCode::AlreadyExists);
+    CHECK(db.RenameInstance(id, u8"").Code() == ErrorCode::InvalidArgument);
+
+    // Group rename: the directory moves; child paths derive from the new name.
+    REQUIRE(db.RenameGroup(*materials, u8"metals").IsOk());
+    CHECK(materials->Name() == u8"metals");
+    CHECK(mount.Exists(u8"metals/bronze.xasset"));
+    CHECK_FALSE(mount.Exists(u8"materials/bronze.xasset"));
+    CHECK(steel->Path() == u8"metals/bronze");
+    CHECK(db.RenameGroup(*db.RootGroup(), u8"x").Code() == ErrorCode::NotSupported);
+
+    (void)db.DeleteInstance(id);
+    (void)db.DeleteInstance(other->Id());
+    RemoveDirectory(JoinPath(dir, u8"metals"));
+    RemoveDirectory(dir);
+}
+
+TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, registrations")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"draconic_content_delgroup_db";
+    // Explicit cleanup (RemoveTree only knows the shared fixture paths).
+    auto scrub = [&]() {
+        FileDelete(JoinPath(dir, u8"outer/inner/b.xasset"));
+        FileDelete(JoinPath(dir, u8"outer/a.xasset"));
+        FileDelete(JoinPath(dir, u8"outer/a.extra.bin"));
+        FileDelete(JoinPath(dir, u8"keep.xasset"));
+        RemoveDirectory(JoinPath(dir, u8"outer/inner"));
+        RemoveDirectory(JoinPath(dir, u8"outer"));
+        RemoveDirectory(dir);
+    };
+    scrub();
+    {
+        NativeFileSystem mount(dir);
+        ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+
+        // outer/ { a (+sidecar), inner/ { b } } and an unrelated sibling instance.
+        Group* outer = db.RootGroup()->CreateGroup(u8"outer");
+        Group* inner = outer->CreateGroup(u8"inner");
+        draconic::content::Instance* a = outer->CreateInstance(u8"a", MaterialResource::StaticType());
+        draconic::content::Instance* b = inner->CreateInstance(u8"b", MaterialResource::StaticType());
+        draconic::content::Instance* keep =
+            db.RootGroup()->CreateInstance(u8"keep", MaterialResource::StaticType());
+        REQUIRE(a != nullptr);
+        REQUIRE(b != nullptr);
+        REQUIRE(keep != nullptr);
+        MaterialResource res;
+        REQUIRE(a->WriteObject(res).IsOk());
+        REQUIRE(b->WriteObject(res).IsOk());
+        REQUIRE(keep->WriteObject(res).IsOk());
+        const byte extra[] = { byte{ 7 } };
+        REQUIRE(a->WriteData(u8"extra", Span<const byte>(extra, 1)).IsOk());
+        const Guid aId = a->Id();
+        const Guid bId = b->Id();
+        const Guid keepId = keep->Id();
+
+        // The root refuses.
+        CHECK(db.DeleteGroup(*db.RootGroup()).Code() == ErrorCode::NotSupported);
+
+        REQUIRE(db.DeleteGroup(*outer).IsOk());   // outer/inner/a/b are DANGLING after this
+
+        // Registrations gone (guid index + tree), the sibling untouched.
+        CHECK(db.GetInstance(aId) == nullptr);
+        CHECK(db.GetInstance(bId) == nullptr);
+        CHECK(db.RootGroup()->GetGroup(u8"outer") == nullptr);
+        CHECK(db.GetInstance(keepId) == keep);
+
+        // Files AND directories gone (a rescan must not resurrect ghost groups).
+        CHECK_FALSE(mount.Exists(u8"outer/a.xasset"));
+        CHECK_FALSE(mount.Exists(u8"outer/a.extra.bin"));
+        CHECK_FALSE(mount.Exists(u8"outer/inner/b.xasset"));
+        CHECK_FALSE(mount.Exists(u8"outer/inner"));
+        CHECK_FALSE(mount.Exists(u8"outer"));
+        CHECK(mount.Exists(u8"keep.xasset"));
+    }
+    {
+        // Rescan proves it: a fresh database over the same mount has no ghost of the group.
+        NativeFileSystem mount(dir);
+        ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+        CHECK(db.RootGroup()->GetGroup(u8"outer") == nullptr);
+        CHECK(db.RootGroup()->GetInstance(u8"keep") != nullptr);
+    }
+    scrub();
+}

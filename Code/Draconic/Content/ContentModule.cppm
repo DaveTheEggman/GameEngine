@@ -118,6 +118,7 @@ export namespace draconic::content
         void RemoveInstance(Instance* instance);   // unlinks from this group (DB owns destruction)
 
     private:
+        friend class ContentDatabase;   // rename rewrites m_name after moving the directory
         ContentDatabase* m_db;
         Group* m_parent;
         String m_name;
@@ -183,6 +184,22 @@ export namespace draconic::content
         // every data-stream sidecar is byte-copied. Null when the id is unknown, the name is
         // taken, or the primary type isn't registered. (Browser Duplicate.)
         Instance* CloneInstance(const Guid& id, StringView newName);
+
+        // Rename an instance IN PLACE (same group, same guid): moves the envelope and every
+        // data-stream sidecar on disk (the name IS the filename - envelopes don't store it).
+        // Guid-based references (scene refs, cook records) are untouched by design.
+        // AlreadyExists when the name is taken; NotSupported on read-only mounts.
+        Status RenameInstance(const Guid& id, StringView newName);
+
+        // Rename a group (directory move; child paths derive dynamically, so descendants
+        // need no fixup). NotSupported for the root or read-only mounts.
+        Status RenameGroup(Group& group, StringView newName);
+
+        // Delete a group and EVERYTHING under it: every instance (envelope + sidecars, via
+        // DeleteInstance) and every child group, bottom-up, then the now-empty directories -
+        // a rescan must not resurrect ghost groups. The Group object is destroyed; the caller's
+        // pointer is dangling after success. NotSupported for the root or read-only mounts.
+        Status DeleteGroup(Group& group);
 
         [[nodiscard]] Instance* GetInstance(const Guid& id) override
         {
@@ -561,6 +578,69 @@ export namespace draconic::content
         return copy;
     }
 
+    inline Status ContentDatabase::RenameInstance(const Guid& id, StringView newName)
+    {
+        Instance* instance = GetInstance(id);
+        if (instance == nullptr) { return Status{ ErrorCode::NotFound }; }
+        if (newName.IsEmpty() || newName == instance->Name()) { return Status{ ErrorCode::InvalidArgument }; }
+        if (instance->OwningGroup().GetInstance(newName) != nullptr) { return Status{ ErrorCode::AlreadyExists }; }
+        IWritableFileSystem* writable = m_mount->AsWritable();
+        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+
+        const String folder = instance->OwningGroup().Path();
+        const String oldEnvelope = instance->EnvelopePath();
+
+        // Sidecars first (prefix scan, like delete): "<old>.<stream>.bin" -> "<new>.<stream>.bin".
+        if (IEnumerableFileSystem* enumerable = m_mount->AsEnumerable())
+        {
+            String prefix(instance->Name());
+            prefix.PushBack(utf8char('.'));
+            Array<DirEntry> entries;
+            if (enumerable->Enumerate(folder.AsView(), entries).IsOk())
+            {
+                for (const DirEntry& entry : entries)
+                {
+                    if (entry.isDirectory || entry.name.Size() <= prefix.Size()) { continue; }
+                    if (entry.name.AsView().SubStr(0, prefix.Size()) != prefix.AsView()) { continue; }
+                    if (!EndsWith(entry.name.AsView(), u8".bin")) { continue; }
+                    String renamed(newName);
+                    renamed.Append(entry.name.AsView().SubStr(instance->Name().Size(),
+                        entry.name.Size() - instance->Name().Size()));
+                    (void)writable->Move(JoinPath(folder.AsView(), entry.name.AsView()).AsView(),
+                                         JoinPath(folder.AsView(), renamed.AsView()).AsView());
+                }
+            }
+        }
+
+        // The envelope may not exist yet (instance created, never written) - that's fine.
+        instance->m_name = String(newName);
+        if (m_mount->Exists(oldEnvelope.AsView()))
+        {
+            const Status moved = writable->Move(oldEnvelope.AsView(), instance->EnvelopePath().AsView());
+            if (!moved.IsOk()) { return moved; }
+        }
+        return Status{};
+    }
+
+    inline Status ContentDatabase::RenameGroup(Group& group, StringView newName)
+    {
+        if (group.Parent() == nullptr) { return Status{ ErrorCode::NotSupported }; }   // the root
+        if (newName.IsEmpty() || newName == group.Name()) { return Status{ ErrorCode::InvalidArgument }; }
+        if (group.Parent()->GetGroup(newName) != nullptr) { return Status{ ErrorCode::AlreadyExists }; }
+        IWritableFileSystem* writable = m_mount->AsWritable();
+        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+
+        const String oldPath = group.Path();
+        group.m_name = String(newName);
+        // The directory may not exist yet (group created, nothing written under it).
+        if (!oldPath.IsEmpty() && m_mount->Exists(oldPath.AsView()))
+        {
+            const Status moved = writable->Move(oldPath.AsView(), group.Path().AsView());
+            if (!moved.IsOk()) { return moved; }
+        }
+        return Status{};
+    }
+
     inline Status ContentDatabase::DeleteInstance(const Guid& id)
     {
         Instance* instance = GetInstance(id);
@@ -600,6 +680,43 @@ export namespace draconic::content
             }
         }
         DefaultAllocator().Delete(instance);
+        return Status{};
+    }
+
+    inline Status ContentDatabase::DeleteGroup(Group& group)
+    {
+        if (group.Parent() == nullptr) { return Status{ ErrorCode::NotSupported }; }   // the root
+        IWritableFileSystem* writable = m_mount->AsWritable();
+        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+
+        // Instances first (copy the id list - DeleteInstance unlinks from m_instances)...
+        Array<Guid> ids;
+        for (Instance* instance : group.Instances()) { ids.PushBack(instance->Id()); }
+        for (const Guid& id : ids) { (void)DeleteInstance(id); }
+        // ...then child groups, bottom-up (copy - the recursion unlinks from m_groups).
+        Array<Group*> children;
+        for (Group* child : group.Groups()) { children.PushBack(child); }
+        for (Group* child : children) { (void)DeleteGroup(*child); }
+
+        // The directory may never have materialized (group created, nothing written).
+        const String path = group.Path();
+        if (!path.IsEmpty() && m_mount->Exists(path.AsView()))
+        {
+            const Status removed = writable->DeleteDirectory(path.AsView());
+            if (!removed.IsOk()) { return removed; }
+        }
+
+        // Unregister from the parent and the pool, then destroy.
+        Group* parent = group.Parent();
+        for (usize i = 0; i < parent->m_groups.Size(); ++i)
+        {
+            if (parent->m_groups[i] == &group) { parent->m_groups.RemoveAt(i); break; }
+        }
+        for (usize i = 0; i < m_allGroups.Size(); ++i)
+        {
+            if (m_allGroups[i] == &group) { m_allGroups.RemoveAtSwap(i); break; }
+        }
+        DefaultAllocator().Delete(&group);
         return Status{};
     }
 }
