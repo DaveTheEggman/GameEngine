@@ -16,6 +16,7 @@ import :unique_ptr;
 import :allocator;
 import :function;
 import :io;
+import :array;   // data-version scope stack
 
 export namespace draconic::core
 {
@@ -26,8 +27,37 @@ export namespace draconic::core
         explicit Serializer(SerializeMode mode) noexcept : m_mode(mode) {}
 
         [[nodiscard]] SerializeMode Mode() const noexcept override { return m_mode; }
-        [[nodiscard]] u32 Version() const noexcept override { return m_version; }
-        void SetVersion(u32 version) noexcept { m_version = version; }
+
+        // Data-version scopes: a flat stack of chains ([start,end) per scope). The concrete
+        // type is always entry 0 of its scope.
+        [[nodiscard]] u32 Version() const noexcept override
+        {
+            if (m_scopeStarts.IsEmpty()) { return 0; }
+            const usize start = m_scopeStarts[m_scopeStarts.Size() - 1];
+            return (start < m_versionStack.Size()) ? m_versionStack[start].version : 0;
+        }
+        [[nodiscard]] u32 Version(u64 typeId) const noexcept override
+        {
+            if (m_scopeStarts.IsEmpty()) { return 0; }
+            const usize start = m_scopeStarts[m_scopeStarts.Size() - 1];
+            for (usize i = start; i < m_versionStack.Size(); ++i)
+            {
+                if (m_versionStack[i].typeId == typeId) { return m_versionStack[i].version; }
+            }
+            return 0;
+        }
+        void PushVersionScope(const SerializedDataVersion* chain, usize count) override
+        {
+            m_scopeStarts.PushBack(m_versionStack.Size());
+            for (usize i = 0; i < count; ++i) { m_versionStack.PushBack(chain[i]); }
+        }
+        void PopVersionScope() override
+        {
+            if (m_scopeStarts.IsEmpty()) { return; }
+            const usize start = m_scopeStarts[m_scopeStarts.Size() - 1];
+            m_scopeStarts.PopBack();
+            while (m_versionStack.Size() > start) { m_versionStack.PopBack(); }
+        }
 
         [[nodiscard]] Status GetStatus() const noexcept { return m_status; }
         [[nodiscard]] bool IsOk() const noexcept { return m_status.IsOk(); }
@@ -69,7 +99,8 @@ export namespace draconic::core
         }
 
         SerializeMode m_mode;
-        u32 m_version = 0;
+        Array<SerializedDataVersion> m_versionStack;   // flat entries of all open scopes
+        Array<usize> m_scopeStarts;                    // per-scope start index into the stack
         Status m_status{};
     };
 

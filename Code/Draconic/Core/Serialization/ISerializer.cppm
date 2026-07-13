@@ -39,13 +39,31 @@ export namespace draconic::core
     // that unkeyed formats (e.g. binary) ignore.
     //
     // Keyed/text backends use Key()/object scopes to produce `"name": value`.
+    // One entry of a data-version scope: the stable type id + the version the DATA carries
+    // (write: the type's current version; read: whatever the stream stored).
+    struct SerializedDataVersion
+    {
+        u64 typeId = 0;
+        u32 version = 0;
+    };
+
     class ISerializer
     {
     public:
         virtual ~ISerializer() = default;
 
         [[nodiscard]] virtual SerializeMode Mode() const noexcept = 0;
+
+        // === Data-version scopes (serialization migration, Traktor-style) ===
+        // A scope is pushed around each versioned payload (content envelopes, scene component
+        // records) with the version chain the data carries. Serialize bodies branch:
+        //     if (ar.Version() >= 2) { Serialize(ar, "newField", value); }
+        // Version() = the payload's concrete type; Version(typeId) = a base class in the chain
+        // (0 when absent - unversioned data reads as version 0).
         [[nodiscard]] virtual u32 Version() const noexcept = 0;
+        [[nodiscard]] virtual u32 Version(u64 typeId) const noexcept = 0;
+        virtual void PushVersionScope(const SerializedDataVersion* chain, usize count) = 0;
+        virtual void PopVersionScope() = 0;
 
         // Names the next value within the current object. Ignored by unkeyed
         // formats; keyed/text formats associate it with the value that follows.

@@ -34,6 +34,17 @@ public:                                                                         
         return info;                                                                    \
     }
 
+// DRACONIC_DEFINE_OBJECT with a serialization DATA VERSION (migration): bump the number when
+// the type's serialized layout changes; the Serialize body branches on ar.Version().
+#define DRACONIC_DEFINE_OBJECT_VERSIONED(Type, Namespace, DataVersion)                   \
+    const ::draconic::core::TypeInfo& Type::StaticType() noexcept                         \
+    {                                                                                   \
+        static const ::draconic::core::TypeInfo info =                                    \
+            ::draconic::core::MakeTypeInfo<Type>(#Type, Namespace, &Super::StaticType(),  \
+                                                 DataVersion);                            \
+        return info;                                                                    \
+    }
+
 // Defines StaticType() with a reflection body that configures `builder`, e.g.:
 //   DRACONIC_REFLECT(Entity, "draconic::game")
 //   {

@@ -674,6 +674,13 @@ export namespace draconic::core
         TypeBuilder(const char* name, const char* namespaceName, const TypeInfo* base) noexcept
             : m_name(name), m_namespace(namespaceName), m_base(base) {}
 
+        /// Serialization data version (migration): bump when the serialized layout changes.
+        TypeBuilder& DataVersion(u32 version)
+        {
+            m_dataVersion = version;
+            return *this;
+        }
+
         template <auto Member>
         TypeBuilder& Property(const char* name, PropertyFlags flags = PropertyFlags::None)
         {
@@ -725,7 +732,7 @@ export namespace draconic::core
 
         [[nodiscard]] TypeData Build()
         {
-            m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base);
+            m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base, m_dataVersion);
             m_data.info.properties = m_data.properties.Data();
             m_data.info.propertyCount = static_cast<u32>(m_data.properties.Size());
             m_data.info.methods = m_data.methods.Data();
@@ -743,6 +750,7 @@ export namespace draconic::core
         const char* m_name;
         const char* m_namespace;
         const TypeInfo* m_base;
+        u32 m_dataVersion = 0;
         TypeData m_data;
     };
 }

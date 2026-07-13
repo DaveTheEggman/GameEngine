@@ -51,6 +51,11 @@ export namespace draconic::core
         u32 constantCount = 0;
         const ConstructorInfo* constructors = nullptr; // reflected constructors (overloads)
         u32 constructorCount = 0;
+        // DATA version for serialization migration (Traktor-style): bump when the type's
+        // serialized layout changes; Serialize bodies branch on ar.Version() for old data.
+        // 0 = never versioned. Set via DRACONIC_DEFINE_OBJECT_VERSIONED or
+        // TypeBuilder::DataVersion.
+        u32 dataVersion = 0;
     };
 
     // Stable 64-bit identity from the fully-qualified name.
@@ -63,10 +68,13 @@ export namespace draconic::core
     }
 
     template <typename T>
-    [[nodiscard]] TypeInfo MakeTypeInfo(const char* name, const char* namespaceName, const TypeInfo* base) noexcept
+    [[nodiscard]] TypeInfo MakeTypeInfo(const char* name, const char* namespaceName, const TypeInfo* base,
+                                        u32 dataVersion = 0) noexcept
     {
-        return TypeInfo{ ComputeTypeId(namespaceName, name), name, namespaceName,
-                         static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T)), base };
+        TypeInfo info{ ComputeTypeId(namespaceName, name), name, namespaceName,
+                       static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T)), base };
+        info.dataVersion = dataVersion;
+        return info;
     }
 
     // Lazily-created TypeInfo for any value type. Identity is the returned

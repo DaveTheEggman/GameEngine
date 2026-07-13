@@ -15,6 +15,7 @@ export module draconic.core:serialize;
 import :base;
 import :serializer;
 import :iserializable;
+import :type_info;   // versioned payloads (data-version chains)
 import :math;
 import :color;
 import :float2;
@@ -175,5 +176,49 @@ export namespace draconic::core
     {
         ar.Key(key);
         Serialize(ar, value);
+    }
+}
+
+// === Versioned payloads (serialization migration, Traktor-style) =========================
+//
+// Wrap a payload whose layout may evolve:
+//     BeginVersionedPayload(ar, TypeOf<T>());   // or object->GetType()
+//     ... Serialize fields (branch on ar.Version() for old data) ...
+//     EndVersionedPayload(ar);
+// Write: emits the type's CURRENT data-version chain (concrete first, then every versioned
+// base) and pushes it as the active scope. Read: parses the stored chain and pushes THAT -
+// so the Serialize body sees the version the data was written with.
+export namespace draconic::core
+{
+    inline void BeginVersionedPayload(ISerializer& ar, const TypeInfo& type)
+    {
+        // Chain: concrete type always; bases only when versioned (compact + stable).
+        SerializedDataVersion chain[16];
+        u32 count = 0;
+        if (ar.Mode() == SerializeMode::Write)
+        {
+            chain[count++] = SerializedDataVersion{ type.id, type.dataVersion };
+            for (const TypeInfo* base = type.base; base != nullptr && count < 16; base = base->base)
+            {
+                if (base->dataVersion > 0)
+                {
+                    chain[count++] = SerializedDataVersion{ base->id, base->dataVersion };
+                }
+            }
+        }
+        ar.Key("dataVersions");
+        ar.BeginArray(count);
+        for (u32 i = 0; i < count && i < 16; ++i)
+        {
+            ar.Key("type");    ar.Scalar(&chain[i].typeId, ScalarKind::UInt64);
+            ar.Key("version"); ar.Scalar(&chain[i].version, ScalarKind::UInt32);
+        }
+        ar.EndArray();
+        ar.PushVersionScope(chain, count < 16 ? count : 16);
+    }
+
+    inline void EndVersionedPayload(ISerializer& ar)
+    {
+        ar.PopVersionScope();
     }
 }
