@@ -51,6 +51,9 @@ export namespace draconic::ui
         Event<void(i32, f32, f32)> OnItemRightClicked;
         /// Right-click on empty space below/between cells (context menus on the container).
         Event<void(f32, f32)> OnBackgroundRightClicked;
+        /// Key pressed while an item is selected (position, args) - dispatched before the
+        /// grid's own navigation keys, same contract as ListView::OnItemKeyDown.
+        Event<void(i32, KeyEventArgs&)> OnItemKeyDown;
 
         GridView()
         {
@@ -150,6 +153,14 @@ export namespace draconic::ui
             if (m_adapter == nullptr || m_columnsCount <= 0) { return; }
             const i32 sel = Selection.FirstSelected();
             const i32 count = m_adapter->ItemCount();
+
+            // Item-scoped keys first (F2 rename, Delete, ...), same contract as ListView.
+            if (sel >= 0)
+            {
+                OnItemKeyDown.Invoke(sel, e);
+                if (e.Handled) { return; }
+            }
+
             switch (e.Key)
             {
             case KeyCode::Right: if (sel < count - 1) { Selection.Select(sel + 1); } ScrollToPosition(Selection.FirstSelected()); e.Handled = true; break;
@@ -176,6 +187,13 @@ export namespace draconic::ui
             const i32 pos = row * m_columnsCount + col;
             if (m_adapter != nullptr && pos >= m_adapter->ItemCount()) { return -1; }
             return pos;
+        }
+
+        /// The currently visible view for a position, or null (same contract as ListView).
+        [[nodiscard]] View* GetActiveView(i32 position) const
+        {
+            if (const RefPtr<View>* v = m_activeViews.Find(position)) { return v->Get(); }
+            return nullptr;
         }
 
         void ScrollToPosition(i32 position)
