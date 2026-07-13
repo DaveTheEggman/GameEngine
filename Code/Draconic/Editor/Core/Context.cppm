@@ -66,11 +66,61 @@ export namespace draconic::editor
         struct AssetCreator
         {
             String label;
-            Function<draconic::content::Instance*(EditorContext&)> create;
+            // Menu grouping: creators sharing a category land in a submenu of that name
+            // ("Primitives"); empty = a top-level "New <label>" item.
+            String category;
+            // `group` = the browser group the user invoked the creator FROM (null = no context,
+            // e.g. the File menu - the creator picks its own default group).
+            Function<draconic::content::Instance*(EditorContext&, draconic::content::Group*)> create;
             // Only document-like creations (scenes) become the project's default scene when it
             // is unset; data assets (primitive meshes, materials) never should.
             bool setsDefaultScene = false;
         };
+
+        // === Favorites (pinned asset instances - the browser + picker surface them first) ===
+
+        [[nodiscard]] bool IsFavorite(const Guid& id) const
+        {
+            for (const Guid& f : m_favorites) { if (f == id) { return true; } }
+            return false;
+        }
+        void ToggleFavorite(const Guid& id)
+        {
+            for (usize i = 0; i < m_favorites.Size(); ++i)
+            {
+                if (m_favorites[i] == id)
+                {
+                    m_favorites.RemoveAt(i);
+                    if (OnFavoritesChanged) { OnFavoritesChanged(); }
+                    return;
+                }
+            }
+            m_favorites.PushBack(id);
+            if (OnFavoritesChanged) { OnFavoritesChanged(); }
+        }
+        [[nodiscard]] Span<const Guid> Favorites() const noexcept
+        {
+            return Span<const Guid>{ m_favorites.Data(), m_favorites.Size() };
+        }
+        void SetFavorites(Array<Guid> favorites) { m_favorites = Move(favorites); }
+        /// Fired on every toggle (the app persists to the project's Editor/ state).
+        Function<void()> OnFavoritesChanged;
+
+        // === Editor clipboard (cross-page: entity subtrees, components) ===
+        // One typed slot: `kind` says what the blob is ("entities", "component"); consumers
+        // check the kind before parsing. Cleared by overwrite only.
+
+        void SetClipboard(StringView kind, Array<byte> data)
+        {
+            m_clipboardKind = String(kind);
+            m_clipboard = Move(data);
+        }
+        [[nodiscard]] StringView ClipboardKind() const noexcept { return m_clipboardKind.AsView(); }
+        [[nodiscard]] Span<const byte> ClipboardData(StringView kind) const noexcept
+        {
+            return (m_clipboardKind == kind)
+                ? Span<const byte>{ m_clipboard.Data(), m_clipboard.Size() } : Span<const byte>{};
+        }
 
         void RegisterCreator(AssetCreator creator)
         {
@@ -184,6 +234,9 @@ export namespace draconic::editor
         ImporterRegistry m_importers;   // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;
+        String m_clipboardKind;
+        Array<byte> m_clipboard;
+        Array<Guid> m_favorites;
         Array<UniquePtr<EditorPage>> m_pages;
         EditorPage* m_activePage = nullptr;
         Selection<const draconic::content::Instance*> m_assetSelection;

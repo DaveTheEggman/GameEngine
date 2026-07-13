@@ -96,11 +96,17 @@ export namespace draconic::editor
         /// Fired after any change (execute/undo/redo/clear) - dirty tracking / UI refresh hook.
         Function<void()> OnChanged;
 
+        /// While locked (the editor's Simulate mode), Execute/Undo/Redo refuse: runtime
+        /// mutations don't belong on the edit-history, and undoing into entities the
+        /// simulation replaced (or the stop-restore recreated) is a guid minefield.
+        void SetLocked(bool locked) noexcept { m_locked = locked; }
+        [[nodiscard]] bool IsLocked() const noexcept { return m_locked; }
+
         // Execute `command` and push it. Returns false (command destroyed, stack untouched)
         // if Execute() failed. May merge into the current top instead of pushing.
         bool Execute(UniquePtr<IEditorCommand> command)
         {
-            if (!command) { return false; }
+            if (!command || m_locked) { return false; }
 
             // Same-type merge against the undo top (group markers never match a real TypeId).
             if (m_undoIndex >= 0)
@@ -133,7 +139,7 @@ export namespace draconic::editor
 
         void Undo()
         {
-            if (!CanUndo()) { return; }
+            if (m_locked || !CanUndo()) { return; }
 
             i64 i = m_undoIndex;
             if (m_stack[static_cast<usize>(i)]->TypeId() == detail::kEndGroupTypeId)
@@ -158,7 +164,7 @@ export namespace draconic::editor
 
         void Redo()
         {
-            if (!CanRedo()) { return; }
+            if (m_locked || !CanRedo()) { return; }
 
             i64 i = m_undoIndex + 1;
             if (m_stack[static_cast<usize>(i)]->TypeId() == detail::kBeginGroupTypeId)
@@ -268,6 +274,7 @@ export namespace draconic::editor
         }
 
         Array<UniquePtr<IEditorCommand>> m_stack;
+        bool m_locked = false;
         i64 m_undoIndex = -1;   // index of the last executed (undoable) entry
         bool m_inGroup = false;
         String m_groupType;

@@ -16,3 +16,4 @@ export import :context;
 export import :cook_service;
 export import :importer;
 export import :log_buffer;
+export import :export_pipeline;

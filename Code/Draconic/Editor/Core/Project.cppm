@@ -17,6 +17,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
 export module draconic.editor.core:project;
@@ -25,38 +26,23 @@ import draconic.core;
 import draconic.vfs;
 import draconic.content;
 import draconic.xml.serialization;
+import draconic.project;
 
 using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    inline constexpr StringView kProjectManifestFile   = u8"Project.xml";
-    inline constexpr StringView kProjectContentDir     = u8"Content";
-    inline constexpr StringView kProjectSourcesDir     = u8"Sources";
-    inline constexpr StringView kProjectCookedDir      = u8"Cooked";
-    inline constexpr StringView kProjectEditorDir      = u8"Editor";
-    inline constexpr StringView kProjectCacheDir       = u8".cache";
-    inline constexpr StringView kSourceAssetExtension  = u8".xasset";   // readable/diffable envelopes
-    inline constexpr StringView kCookedAssetExtension  = u8".rasset";   // binary envelopes
-
-    // The shared, committed part of a project (Project.xml payload).
-    class ProjectSettings final : public ISerializable
-    {
-        DRACONIC_OBJECT(ProjectSettings, ISerializable)
-    public:
-        String name;
-        i32 formatVersion = 1;
-        String defaultScene;   // source-DB path of the startup scene ("" = none)
-        String nativeModule;   // RESERVED: optional native game module (tagged for later planning)
-
-        void Serialize(ISerializer& ar) override
-        {
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "formatVersion", formatVersion);
-            draconic::core::Serialize(ar, "defaultScene", defaultScene);
-            draconic::core::Serialize(ar, "nativeModule", nativeModule);
-        }
-    };
+    // The manifest payload + directory layout live in draconic.project (runtime-side,
+    // editor-free - the player/dist builds read the same manifest without editor code).
+    using draconic::project::ProjectSettings;
+    using draconic::project::kProjectManifestFile;
+    using draconic::project::kProjectContentDir;
+    using draconic::project::kProjectSourcesDir;
+    using draconic::project::kProjectCookedDir;
+    using draconic::project::kProjectEditorDir;
+    using draconic::project::kProjectCacheDir;
+    using draconic::project::kSourceAssetExtension;
+    using draconic::project::kCookedAssetExtension;
 
     // An opened project: the manifest + the mounted source and cooked content databases.
     class EditorProject
@@ -91,16 +77,11 @@ export namespace draconic::editor
         [[nodiscard]] static UniquePtr<EditorProject> Open(StringView directory)
         {
             vfs::NativeFileSystem root(directory);
-            UniquePtr<IStream> stream = root.Open(kProjectManifestFile, FileMode::Read);
-            if (!stream) { return UniquePtr<EditorProject>{}; }
-
-            SerializerFactory factory = draconic::xml::XmlSerializerFactory();
-            UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
-            if (!ctx || ctx->serializer == nullptr) { return UniquePtr<EditorProject>{}; }
-
             ProjectSettings settings;
-            settings.Serialize(*ctx->serializer);
-            if (!ctx->serializer->IsOk()) { return UniquePtr<EditorProject>{}; }
+            if (!draconic::project::LoadProjectSettings(root, settings).IsOk())
+            {
+                return UniquePtr<EditorProject>{};
+            }
 
             // Generated dirs may be missing on a fresh checkout (Cooked/Editor/.cache are
             // gitignored) - recreate them so mounts and state saves always have a target.
@@ -111,6 +92,15 @@ export namespace draconic::editor
                 if (!CreateDirectory(PathJoin(directory, dir).AsView())) { return UniquePtr<EditorProject>{}; }
             }
 
+            if (!settings.engineVersion.IsEmpty()
+                && settings.engineVersion != draconic::project::kEngineVersionString)
+            {
+                // Today: informational. The launcher/project-manager (planned) routes projects
+                // to their engine version and drives migration on upgrade.
+                DRACONIC_LOG_WARNING(u8"Project",
+                    u8"project was last saved by engine {} (this editor is {})",
+                    settings.engineVersion, draconic::project::kEngineVersionString);
+            }
             EditorProject* project = DefaultAllocator().New<EditorProject>(directory, settings);
             return UniquePtr<EditorProject>(project, DefaultAllocator());
         }
@@ -152,9 +142,12 @@ export namespace draconic::editor
             , m_cookedDb(MakeUnique<draconic::content::ContentDatabase>(DefaultAllocator(),
                   *m_cookedMount, BinarySerializerFactory(), kCookedAssetExtension))
         {
+            // Per-field move (ISerializable deletes copy/move) - EVERY ProjectSettings field
+            // must appear here; a missed one silently drops manifest data on Open.
             m_settings.name          = Move(settings.name);
-            m_settings.formatVersion = settings.formatVersion;
+            m_settings.engineVersion = Move(settings.engineVersion);
             m_settings.defaultScene  = Move(settings.defaultScene);
+            m_settings.startupScript = Move(settings.startupScript);
             m_settings.nativeModule  = Move(settings.nativeModule);
         }
 
@@ -163,17 +156,9 @@ export namespace draconic::editor
         {
             vfs::IWritableFileSystem* writable = root.AsWritable();
             if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
-
-            MemoryStream buffer;
-            SerializerFactory factory = draconic::xml::XmlSerializerFactory();
-            UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
-            if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
-
-            settings.Serialize(*ctx->serializer);
-            if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
-            ctx->Flush(buffer);
-
-            return writable->Save(kProjectManifestFile, buffer.Bytes());
+            // One manifest format: the lean lib's helpers (versioned payload included) - the
+            // player reads the same file with zero editor code.
+            return draconic::project::SaveProjectSettings(*writable, settings);
         }
 
         String m_directory;
@@ -184,5 +169,4 @@ export namespace draconic::editor
         UniquePtr<draconic::content::ContentDatabase> m_cookedDb;
     };
 
-    DRACONIC_DEFINE_OBJECT(ProjectSettings, "draconic::editor")
 }

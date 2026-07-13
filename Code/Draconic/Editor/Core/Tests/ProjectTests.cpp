@@ -2,6 +2,7 @@
 // §3.9) - manifest, subdirectories, source (XML) + cooked (binary) content databases.
 
 #include <doctest/doctest.h>
+#include <string>
 
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -9,6 +10,8 @@
 import draconic.core;
 import draconic.vfs;
 import draconic.content;
+import draconic.xml.serialization;
+import draconic.project;
 import draconic.editor.core;
 
 using namespace draconic::core;
@@ -65,7 +68,7 @@ TEST_CASE("editor-project: create scaffolds the layout and open round-trips the 
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
     CHECK(project->Name() == u8"Test Project");
-    CHECK(project->Settings().formatVersion == 1);
+    // (The manifest's data version rides the versioned-payload envelope now, not a field.)
     CHECK(project->Settings().defaultScene.IsEmpty());
     CHECK(project->SourceDb().RootGroup() != nullptr);
     CHECK(project->CookedDb().RootGroup() != nullptr);
@@ -149,4 +152,83 @@ TEST_CASE("editor-project: source db is XML, cooked db is binary, both round-tri
     }
 
     RemoveProjectTree(dir);
+}
+
+TEST_CASE("project: manifest round-trips startupScript under a versioned payload")
+{
+    const StringView dir = u8"draconic_project_v2_test";
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)RemoveDirectory(dir);
+
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        REQUIRE(static_cast<bool>(project));
+        CHECK(project->Settings().startupScript.IsEmpty());
+        project->Settings().startupScript = String(u8"Scripts/game.wren");
+        REQUIRE(project->SaveSettings().IsOk());
+    }
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        REQUIRE(static_cast<bool>(project));
+        CHECK(project->Settings().startupScript == u8"Scripts/game.wren");
+    }
+
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+}
+
+TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migrates")
+{
+    const StringView dir = u8"draconic_project_engine_ver_test";
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)RemoveDirectory(dir);
+
+    // Every save stamps the CURRENT engine version (the launcher's routing signal).
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        REQUIRE(static_cast<bool>(project));
+        CHECK(project->Settings().engineVersion == draconic::project::kEngineVersionString);
+    }
+
+    // MIGRATION IN ANGER: a manifest written by the v1 ProjectSettings layout (no
+    // engineVersion key) still opens - Serialize's `ar.Version() >= 2` branch skips the
+    // missing field; the next save upgrades the file to v2 with the stamp.
+    {
+        draconic::vfs::NativeFileSystem root(dir);
+        draconic::project::ProjectSettings v1;
+        v1.name = String(u8"P");
+        v1.defaultScene = String(u8"Scenes/S");
+        MemoryStream buffer;
+        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
+        const SerializedDataVersion chain[] = {
+            { draconic::project::ProjectSettings::StaticType().id, 1u } };
+        ctx->serializer->Key("dataVersions");
+        u32 count = 1;
+        ctx->serializer->BeginArray(count);
+        u64 typeId = chain[0].typeId; u32 version = chain[0].version;
+        ctx->serializer->Key("type");    ctx->serializer->Scalar(&typeId, ScalarKind::UInt64);
+        ctx->serializer->Key("version"); ctx->serializer->Scalar(&version, ScalarKind::UInt32);
+        ctx->serializer->EndArray();
+        ctx->serializer->PushVersionScope(chain, 1);
+        v1.Serialize(*ctx->serializer);   // v1 branch: engineVersion NOT written
+        ctx->serializer->PopVersionScope();
+        REQUIRE(ctx->serializer->IsOk());
+        ctx->Flush(buffer);
+        REQUIRE(root.AsWritable()->Save(u8"Project.xml", buffer.Bytes()).IsOk());
+
+        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        REQUIRE(static_cast<bool>(project));
+        CHECK(project->Settings().defaultScene == u8"Scenes/S");
+        CHECK(project->Settings().engineVersion.IsEmpty());   // v1 data had no stamp
+        REQUIRE(project->SaveSettings().IsOk());
+    }
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        REQUIRE(static_cast<bool>(project));
+        CHECK(project->Settings().engineVersion == draconic::project::kEngineVersionString);
+    }
+
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
 }

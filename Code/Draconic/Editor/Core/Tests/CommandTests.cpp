@@ -274,3 +274,36 @@ TEST_CASE("editor-commands: OnChanged fires on mutations")
     CHECK(stack.Size() == 0);
     CHECK(!stack.CanUndo());
 }
+
+TEST_CASE("command-stack: locked stack refuses execute/undo/redo (Simulate mode)")
+{
+    EditorCommandStack stack;
+    i32 value = 0;
+    auto makeSet = [&](i32 target) {
+        struct SetCommand final : IEditorCommand
+        {
+            i32* slot; i32 to; i32 from = 0;
+            SetCommand(i32* s, i32 t) : slot(s), to(t) {}
+            bool Execute() override { from = *slot; *slot = to; return true; }
+            void Undo() override { *slot = from; }
+            [[nodiscard]] StringView TypeId() const override { return u8"test.set"; }
+        };
+        return UniquePtr<IEditorCommand>(
+            DefaultAllocator().New<SetCommand>(&value, target), DefaultAllocator());
+    };
+
+    REQUIRE(stack.Execute(makeSet(1)));
+    CHECK(value == 1);
+
+    stack.SetLocked(true);
+    CHECK_FALSE(stack.Execute(makeSet(2)));   // refused: no runtime edits on the history
+    CHECK(value == 1);
+    stack.Undo();
+    CHECK(value == 1);                        // undo refused too
+
+    stack.SetLocked(false);
+    stack.Undo();
+    CHECK(value == 0);                        // unlocked: history intact and working
+    stack.Redo();
+    CHECK(value == 1);
+}

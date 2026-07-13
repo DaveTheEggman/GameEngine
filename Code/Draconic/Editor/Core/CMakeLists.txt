@@ -5,7 +5,8 @@ add_library(DraconicEditorCore STATIC)
 add_library(Draconic::EditorCore ALIAS DraconicEditorCore)
 
 target_link_libraries(DraconicEditorCore
-    PUBLIC Draconic::Core Draconic::VFS Draconic::Content Draconic::XmlSerialization
+    PUBLIC Draconic::Core Draconic::VFS Draconic::VFSPak Draconic::Content Draconic::XmlSerialization Draconic::Project
+           Draconic::SceneResource
            Draconic::Editor Draconic::EditorCook Draconic::Resource Draconic::Policy)
 
 target_sources(DraconicEditorCore
@@ -14,6 +15,7 @@ target_sources(DraconicEditorCore
             Command.cppm
             Selection.cppm
             Project.cppm
+            Export.cppm
             Page.cppm
             Context.cppm
             LogBuffer.cppm
