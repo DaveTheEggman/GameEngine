@@ -87,11 +87,17 @@ export namespace draconic::texture
         Texture& operator=(const Texture&) = delete;
 
         void Adopt(rhi::Device* device, rhi::Texture* texture, rhi::TextureView* view, rhi::Sampler* sampler,
-                   u32 width, u32 height, rhi::TextureFormat format) noexcept
+                   u32 width, u32 height, rhi::TextureFormat format, bool isCube = false) noexcept
         {
             m_device = device; m_texture = texture; m_view = view; m_sampler = sampler;
-            m_width = width; m_height = height; m_format = format;
+            m_width = width; m_height = height; m_format = format; m_isCube = isCube;
+            m_uid = NextUid();   // consumers key caches/dirty checks on this, never the pointer
         }
+
+        /// Monotonic identity: a reloaded product is a NEW uid at (possibly) a reused address.
+        [[nodiscard]] u64 Uid() const noexcept { return m_uid; }
+        /// True when the default view is a cube (shape Cubemap - 6 faces).
+        [[nodiscard]] bool IsCube() const noexcept { return m_isCube; }
 
         [[nodiscard]] rhi::Texture* GpuTexture() const noexcept { return m_texture; }
         [[nodiscard]] rhi::TextureView* View() const noexcept { return m_view; }   // default sampled view (full mips)
@@ -101,6 +107,12 @@ export namespace draconic::texture
         [[nodiscard]] rhi::TextureFormat Format() const noexcept { return m_format; }
 
     private:
+        [[nodiscard]] static u64 NextUid() noexcept
+        {
+            static Atomic<u64> counter{ 0 };
+            return counter.fetch_add(1) + 1;
+        }
+
         rhi::Device* m_device = nullptr;     // non-owning
         rhi::Texture* m_texture = nullptr;   // owned (destroyed via device)
         rhi::TextureView* m_view = nullptr;  // owned (default sampled view)
@@ -108,6 +120,8 @@ export namespace draconic::texture
         u32 m_width = 0;
         u32 m_height = 0;
         rhi::TextureFormat m_format = rhi::TextureFormat::RGBA8Unorm;
+        bool m_isCube = false;
+        u64  m_uid = 0;
     };
 
     // Cooked TextureResource -> live GPU Texture (model A). Device-backed.
@@ -137,13 +151,15 @@ export namespace draconic::texture
                 }
             }
 
+            const bool isCube = (res->shape == TextureShape::Cubemap);
+
             rhi::TextureDesc desc{};
             desc.dimension = rhi::TextureDimension::Texture2D;
             desc.format = res->format;
             desc.width = res->width;
             desc.height = res->height;
             desc.depth = 1;
-            desc.arrayLayerCount = res->depthOrArrayLayers;
+            desc.arrayLayerCount = isCube ? 6u : res->depthOrArrayLayers;
             desc.mipLevelCount = res->mipLevels;
             desc.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
 
@@ -151,15 +167,17 @@ export namespace draconic::texture
             if (!m_device->CreateTexture(desc, texture).IsOk()) { return RefPtr<Object>{}; }
 
             // Default sampled view spanning all mips/layers - the currency the material/renderer bind.
+            // Cube-shaped assets (skyboxes) get a real TextureCube view so consumers can sample it as one.
             rhi::TextureViewDesc vd{};
             vd.format = res->format;
-            vd.dimension = rhi::TextureViewDimension::Texture2D;
+            vd.dimension = isCube ? rhi::TextureViewDimension::TextureCube : rhi::TextureViewDimension::Texture2D;
             vd.mipLevelCount = res->mipLevels;
-            vd.arrayLayerCount = res->depthOrArrayLayers;
+            vd.arrayLayerCount = isCube ? 6u : res->depthOrArrayLayers;
             rhi::TextureView* view = nullptr;
             if (!m_device->CreateTextureView(texture, vd, view).IsOk()) { m_device->DestroyTexture(texture); return RefPtr<Object>{}; }
 
-            // Upload mip 0 via a transfer batch.
+            // Upload mip 0 via a transfer batch (cubes: the cooked stream is the 6 faces
+            // concatenated +X,-X,+Y,-Y,+Z,-Z - one layer write each).
             if (!pixels.IsEmpty())
             {
                 rhi::Queue* queue = m_device->GetQueue(rhi::QueueType::Graphics, 0);
@@ -169,8 +187,22 @@ export namespace draconic::texture
                     rhi::TextureDataLayout layout{};
                     layout.bytesPerRow = res->width * TextureData::GetBytesPerPixel(res->format);
                     layout.rowsPerImage = res->height;
-                    batch->WriteTexture(texture, Span<const u8>(pixels.Data(), pixels.Size()),
-                                        layout, rhi::Extent3D{ res->width, res->height, 1 });
+                    if (isCube)
+                    {
+                        const usize faceBytes = static_cast<usize>(layout.bytesPerRow) * res->height;
+                        for (u32 face = 0; face < 6 && (face + 1) * faceBytes <= pixels.Size(); ++face)
+                        {
+                            batch->WriteTexture(texture,
+                                                Span<const u8>(pixels.Data() + face * faceBytes, faceBytes),
+                                                layout, rhi::Extent3D{ res->width, res->height, 1 },
+                                                /*mipLevel*/ 0, /*arrayLayer*/ face);
+                        }
+                    }
+                    else
+                    {
+                        batch->WriteTexture(texture, Span<const u8>(pixels.Data(), pixels.Size()),
+                                            layout, rhi::Extent3D{ res->width, res->height, 1 });
+                    }
                     (void)batch->Submit();
                     queue->DestroyTransferBatch(batch);
                 }
@@ -188,7 +220,7 @@ export namespace draconic::texture
             (void)m_device->CreateSampler(sd, sampler);
 
             RefPtr<Texture> product = MakeRef<Texture>(DefaultAllocator());
-            product->Adopt(m_device, texture, view, sampler, res->width, res->height, res->format);
+            product->Adopt(m_device, texture, view, sampler, res->width, res->height, res->format, isCube);
             return product;
         }
 
