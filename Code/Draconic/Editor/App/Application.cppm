@@ -30,6 +30,7 @@ import draconic.editor;
 import draconic.editor.core;
 import :assets_view;
 import :editor_icons;
+import :settings_dialog;
 import :shell;
 import :ui_page;
 
@@ -231,14 +232,41 @@ export namespace draconic::editor::app
             // Menus AFTER registration - File > New builds from the creator registry.
             BuildMenus();
 
-            // Reopen the project's default document (a full New Scene -> Save -> restart loop).
-            if (m_project && !m_project->Settings().defaultScene.IsEmpty())
+            // Reopen the pages from the last session (falling back to the default document),
+            // THEN restore the dock layout so page panels land back in their arrangement.
+            if (m_project)
             {
-                if (draconic::content::Instance* instance =
-                        m_project->SourceDb().GetInstance(m_project->Settings().defaultScene.AsView()))
+                Array<Guid> pages;
+                Guid activePage;
+                if (LoadOpenPages(m_project->EditorStateRoot().AsView(), pages, activePage).IsOk())
                 {
-                    (void)OpenInstancePage(*instance);
+                    UIEditorPage* toActivate = nullptr;
+                    for (const Guid& id : pages)
+                    {
+                        if (draconic::content::Instance* instance = m_project->SourceDb().GetInstance(id))
+                        {
+                            UIEditorPage* page = OpenInstancePage(*instance);
+                            if (page != nullptr && id == activePage) { toActivate = page; }
+                        }
+                    }
+                    if (toActivate != nullptr) { m_context.SetActivePage(toActivate); }
                 }
+                else
+                {
+                    // No saved page set (first launch): fall back to the default scene -
+                    // guid first (authoritative), path mirror for guid-less manifests.
+                    draconic::content::Instance* instance = nullptr;
+                    if (!m_project->Settings().defaultSceneId.IsNil())
+                    {
+                        instance = m_project->SourceDb().GetInstance(m_project->Settings().defaultSceneId);
+                    }
+                    if (instance == nullptr && !m_project->Settings().defaultScene.IsEmpty())
+                    {
+                        instance = m_project->SourceDb().GetInstance(m_project->Settings().defaultScene.AsView());
+                    }
+                    if (instance != nullptr) { (void)OpenInstancePage(*instance); }
+                }
+                (void)m_shell.RestoreLayout(m_project->EditorStateRoot().AsView());
             }
         }
 
@@ -265,6 +293,13 @@ export namespace draconic::editor::app
             }
 
             tk::DockablePanel* panel = m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
+            {
+                // Guid-keyed persistence id: the saved dock layout re-places this page's panel
+                // when the page reopens on the next launch.
+                utf8char guidChars[37];
+                uiPage->InstanceId().ToChars(guidChars);
+                panel->SetPersistenceId(StringView(guidChars));
+            }
             // (Docking activates the new tab - toolkit behavior since the dock-activates change.)
             // The DockManager's own close handling (wired in AddPanel) destroys the panel through
             // its deferred-delete queue; we additionally tear down the PAGE - deferred through the
@@ -387,8 +422,10 @@ export namespace draconic::editor::app
                 m_context.SetStatus(u8"Create failed (no project open?).");
                 return;
             }
-            if (creator.setsDefaultScene && m_project && m_project->Settings().defaultScene.IsEmpty())
+            if (creator.setsDefaultScene && m_project && m_project->Settings().defaultSceneId.IsNil()
+                && m_project->Settings().defaultScene.IsEmpty())
             {
+                m_project->Settings().defaultSceneId = instance->Id();
                 m_project->Settings().defaultScene = instance->Path();
                 (void)m_project->SaveSettings();
             }
@@ -494,12 +531,17 @@ export namespace draconic::editor::app
         }
 
         // Tab titles mirror dirty state (" *" suffix) - polled per frame; SetTitle no-ops
-        // visually unless the string actually changed.
+        // visually unless the string actually changed. The name comes from the LIVE instance
+        // (the page captured it at open - a browser rename would leave the tab stale).
         void SyncPageTitles()
         {
             for (const PagePanel& entry : m_pagePanels)
             {
-                String title(entry.page->Title());
+                String title;
+                draconic::content::Instance* instance = m_project
+                    ? m_project->SourceDb().GetInstance(entry.page->InstanceId()) : nullptr;
+                if (instance != nullptr) { title = String(instance->Name()); }
+                else { title = String(entry.page->Title()); }
                 if (entry.page->IsDirty()) { title += u8" *"; }
                 if (entry.panel->Title() != title.AsView()) { entry.panel->SetTitle(title.AsView()); }
             }
@@ -547,8 +589,9 @@ export namespace draconic::editor::app
 
             m_context.SetProject(m_project.Get());
 
-            // Per-user layout (falls back to the built default on NotFound).
-            (void)m_shell.RestoreLayout(m_project->EditorStateRoot().AsView());
+            // NOTE: the dock layout restores at the END of OnStartup, after the saved pages
+            // reopen - page panels carry guid PersistenceIds, so their side-by-side/tabbed
+            // arrangement only reconstitutes once the panels exist.
 
             String message(u8"Project: ");
             message += m_project->Name();
@@ -560,6 +603,17 @@ export namespace draconic::editor::app
 
         void SaveLayout()
         {
+            if (m_project)
+            {
+                Array<Guid> pages;
+                Guid activePage;
+                for (const PagePanel& entry : m_pagePanels)
+                {
+                    pages.PushBack(entry.page->InstanceId());
+                    if (m_context.ActivePage() == entry.page) { activePage = entry.page->InstanceId(); }
+                }
+                (void)SaveOpenPages(m_project->EditorStateRoot().AsView(), pages, activePage);
+            }
             if (m_project && m_shell.Docks() != nullptr)
             {
                 (void)m_shell.SaveLayout(m_project->EditorStateRoot().AsView());
@@ -623,6 +677,14 @@ export namespace draconic::editor::app
                 file->AddItem(u8"Save Layout", [this]() {
                     SaveLayout();
                     m_context.SetStatus(u8"Layout saved.");
+                });
+                file->AddSeparator();
+                file->AddItem(u8"Project Settings...", [this]() {
+                    if (m_project)
+                    {
+                        auto dialog = MakeRef<ProjectSettingsDialog>(DefaultAllocator(), m_context);
+                        dialog->Show(&m_uiHost->Context());
+                    }
                 });
                 file->AddItem(u8"Exit", [this, host]() {
                     if (host != nullptr && ConfirmExitAllowed()) { host->RequestExit(); }

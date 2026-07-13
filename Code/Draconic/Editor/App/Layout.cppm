@@ -24,6 +24,7 @@ export namespace draconic::editor::app
 
     inline constexpr StringView kDockLayoutFile = u8"layout.xml";
     inline constexpr StringView kFavoritesFile = u8"favorites.bin";
+    inline constexpr StringView kOpenPagesFile = u8"pages.bin";
 
     // Bidirectional field walk of one node (children recurse via presence flags).
     inline void SerializeLayoutNode(ISerializer& ar, tk::DockLayoutNode& node)
@@ -134,5 +135,50 @@ namespace draconic::editor::app
         if (!ar.IsOk()) { return ar.GetStatus(); }
         context.SetFavorites(Move(favorites));
         return Status{};
+    }
+}
+
+// === Open-page persistence (per-user, <project>/Editor/pages.bin) ===========================
+// The page INSTANCE guids from the last session + which one was active. Restored before the
+// dock layout so page panels (guid PersistenceIds) land back in their saved arrangement -
+// without this only the default document reopened (user-reported: two side-by-side scenes
+// became one on restart).
+namespace draconic::editor::app
+{
+    [[nodiscard]] inline Status SaveOpenPages(StringView directory, const Array<Guid>& pages,
+                                              const Guid& activePage)
+    {
+        MemoryStream buffer;
+        BinarySerializer ar(buffer, SerializeMode::Write);
+        u32 count = static_cast<u32>(pages.Size());
+        draconic::core::Serialize(ar, "count", count);
+        for (const Guid& id : pages) { Guid guid = id; ar.Key("id"); ar.GuidValue(guid); }
+        Guid active = activePage;
+        ar.Key("active"); ar.GuidValue(active);
+        if (!ar.IsOk()) { return ar.GetStatus(); }
+
+        vfs::NativeFileSystem root(directory);
+        vfs::IWritableFileSystem* writable = root.AsWritable();
+        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+        return writable->Save(kOpenPagesFile, buffer.Bytes());
+    }
+
+    [[nodiscard]] inline Status LoadOpenPages(StringView directory, Array<Guid>& outPages,
+                                              Guid& outActivePage)
+    {
+        vfs::NativeFileSystem root(directory);
+        UniquePtr<IStream> stream = root.Open(kOpenPagesFile, FileMode::Read);
+        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        BinarySerializer ar(*stream, SerializeMode::Read);
+        u32 count = 0;
+        draconic::core::Serialize(ar, "count", count);
+        for (u32 i = 0; i < count && ar.IsOk(); ++i)
+        {
+            Guid id;
+            ar.Key("id"); ar.GuidValue(id);
+            outPages.PushBack(id);
+        }
+        ar.Key("active"); ar.GuidValue(outActivePage);
+        return ar.IsOk() ? Status{} : ar.GetStatus();
     }
 }

@@ -13,6 +13,7 @@ export import :log_view;
 export import :ui_page;
 export import :assets_view;
 export import :asset_picker_dialog;
+export import :settings_dialog;
 export import :editor_icons;
 export import :shell;
 export import :application;
