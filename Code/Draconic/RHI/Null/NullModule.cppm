@@ -225,8 +225,9 @@ public:
 class NullDevice : public Device {
 public:
     NullQueue gfxQueue, compQueue, xferQueue;
+    IAllocator& m_allocator;
 
-    NullDevice() {
+    explicit NullDevice(IAllocator& allocator) : m_allocator(allocator) {
         type = DeviceType::Null;
         gfxQueue.queueType  = QueueType::Graphics;
         compQueue.queueType = QueueType::Compute;
@@ -244,50 +245,54 @@ public:
     FormatSupport GetFormatSupport(TextureFormat) override { return FormatSupport::Texture | FormatSupport::ColorAttachment | FormatSupport::DepthStencil; }
 
     Status CreateBuffer(const BufferDesc& d, Buffer*& out) override {
-        auto* b = new NullBuffer(); b->desc = d; b->allocate(d.size); out = b; return ErrorCode::Ok;
+        auto* b = m_allocator.New<NullBuffer>(); b->desc = d; b->allocate(d.size); out = b; return ErrorCode::Ok;
     }
-    Status CreateTexture(const TextureDesc& d, Texture*& out) override { auto* t = new NullTexture(); t->desc = d; out = t; return ErrorCode::Ok; }
-    Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override { auto* v = new NullTextureView(); v->desc = d; v->texture = tex; out = v; return ErrorCode::Ok; }
-    Status CreateSampler(const SamplerDesc& d, Sampler*& out) override { auto* s = new NullSampler(); s->desc = d; out = s; return ErrorCode::Ok; }
-    Status CreateShaderModule(const ShaderModuleDesc&, ShaderModule*& out) override { out = new NullShaderModule(); return ErrorCode::Ok; }
-    Status CreateBindGroupLayout(const BindGroupLayoutDesc&, BindGroupLayout*& out) override { out = new NullBindGroupLayout(); return ErrorCode::Ok; }
-    Status CreateBindGroup(const BindGroupDesc&, BindGroup*& out) override { out = new NullBindGroup(); return ErrorCode::Ok; }
-    Status CreatePipelineLayout(const PipelineLayoutDesc&, PipelineLayout*& out) override { out = new NullPipelineLayout(); return ErrorCode::Ok; }
-    Status CreatePipelineCache(const PipelineCacheDesc&, PipelineCache*& out) override { out = new NullPipelineCache(); return ErrorCode::Ok; }
-    Status CreateRenderPipeline(const RenderPipelineDesc&, RenderPipeline*& out) override { out = new NullRenderPipeline(); return ErrorCode::Ok; }
-    Status CreateComputePipeline(const ComputePipelineDesc&, ComputePipeline*& out) override { out = new NullComputePipeline(); return ErrorCode::Ok; }
-    Status CreateCommandPool(QueueType, CommandPool*& out) override { out = new NullCommandPool(); return ErrorCode::Ok; }
-    Status CreateFence(u64, Fence*& out) override { out = new NullFence(); return ErrorCode::Ok; }
-    Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override { auto* q = new NullQuerySet(); q->type = d.type; q->count = d.count; out = q; return ErrorCode::Ok; }
+    Status CreateTexture(const TextureDesc& d, Texture*& out) override { auto* t = m_allocator.New<NullTexture>(); t->desc = d; out = t; return ErrorCode::Ok; }
+    Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override { auto* v = m_allocator.New<NullTextureView>(); v->desc = d; v->texture = tex; out = v; return ErrorCode::Ok; }
+    Status CreateSampler(const SamplerDesc& d, Sampler*& out) override { auto* s = m_allocator.New<NullSampler>(); s->desc = d; out = s; return ErrorCode::Ok; }
+    Status CreateShaderModule(const ShaderModuleDesc&, ShaderModule*& out) override { out = m_allocator.New<NullShaderModule>(); return ErrorCode::Ok; }
+    Status CreateBindGroupLayout(const BindGroupLayoutDesc&, BindGroupLayout*& out) override { out = m_allocator.New<NullBindGroupLayout>(); return ErrorCode::Ok; }
+    Status CreateBindGroup(const BindGroupDesc&, BindGroup*& out) override { out = m_allocator.New<NullBindGroup>(); return ErrorCode::Ok; }
+    Status CreatePipelineLayout(const PipelineLayoutDesc&, PipelineLayout*& out) override { out = m_allocator.New<NullPipelineLayout>(); return ErrorCode::Ok; }
+    Status CreatePipelineCache(const PipelineCacheDesc&, PipelineCache*& out) override { out = m_allocator.New<NullPipelineCache>(); return ErrorCode::Ok; }
+    Status CreateRenderPipeline(const RenderPipelineDesc&, RenderPipeline*& out) override { out = m_allocator.New<NullRenderPipeline>(); return ErrorCode::Ok; }
+    Status CreateComputePipeline(const ComputePipelineDesc&, ComputePipeline*& out) override { out = m_allocator.New<NullComputePipeline>(); return ErrorCode::Ok; }
+    Status CreateCommandPool(QueueType, CommandPool*& out) override { out = m_allocator.New<NullCommandPool>(); return ErrorCode::Ok; }
+    Status CreateFence(u64, Fence*& out) override { out = m_allocator.New<NullFence>(); return ErrorCode::Ok; }
+    Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override { auto* q = m_allocator.New<NullQuerySet>(); q->type = d.type; q->count = d.count; out = q; return ErrorCode::Ok; }
     Status CreateSwapChain(Surface*, const SwapChainDesc& d, SwapChain*& out) override {
-        auto* sc = new NullSwapChain(); sc->m_format = d.format; sc->m_width = d.width; sc->m_height = d.height; sc->m_count = d.bufferCount; out = sc; return ErrorCode::Ok;
+        auto* sc = m_allocator.New<NullSwapChain>(); sc->m_format = d.format; sc->m_width = d.width; sc->m_height = d.height; sc->m_count = d.bufferCount; out = sc; return ErrorCode::Ok;
     }
 
-    void DestroyBuffer(Buffer*& x)            override { delete x; x = nullptr; }
-    void DestroyTexture(Texture*& x)          override { delete x; x = nullptr; }
-    void DestroyTextureView(TextureView*& x)  override { delete x; x = nullptr; }
-    void DestroySampler(Sampler*& x)          override { delete x; x = nullptr; }
-    void DestroyShaderModule(ShaderModule*& x)override { delete x; x = nullptr; }
-    void DestroyBindGroupLayout(BindGroupLayout*& x) override { delete x; x = nullptr; }
-    void DestroyBindGroup(BindGroup*& x)      override { delete x; x = nullptr; }
-    void DestroyPipelineLayout(PipelineLayout*& x) override { delete x; x = nullptr; }
-    void DestroyPipelineCache(PipelineCache*& x) override { delete x; x = nullptr; }
-    void DestroyRenderPipeline(RenderPipeline*& x) override { delete x; x = nullptr; }
-    void DestroyComputePipeline(ComputePipeline*& x) override { delete x; x = nullptr; }
-    void DestroyCommandPool(CommandPool*& x)  override { delete x; x = nullptr; }
-    void DestroyFence(Fence*& x)              override { delete x; x = nullptr; }
-    void DestroyQuerySet(QuerySet*& x)        override { delete x; x = nullptr; }
-    void DestroySwapChain(SwapChain*& x)      override { delete x; x = nullptr; }
-    void DestroySurface(Surface*& x)          override { delete x; x = nullptr; }
+    void DestroyBuffer(Buffer*& x)            override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyTexture(Texture*& x)          override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyTextureView(TextureView*& x)  override { m_allocator.Delete(x); x = nullptr; }
+    void DestroySampler(Sampler*& x)          override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyShaderModule(ShaderModule*& x)override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyBindGroupLayout(BindGroupLayout*& x) override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyBindGroup(BindGroup*& x)      override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyPipelineLayout(PipelineLayout*& x) override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyPipelineCache(PipelineCache*& x) override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyRenderPipeline(RenderPipeline*& x) override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyComputePipeline(ComputePipeline*& x) override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyCommandPool(CommandPool*& x)  override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyFence(Fence*& x)              override { m_allocator.Delete(x); x = nullptr; }
+    void DestroyQuerySet(QuerySet*& x)        override { m_allocator.Delete(x); x = nullptr; }
+    void DestroySwapChain(SwapChain*& x)      override { m_allocator.Delete(x); x = nullptr; }
+    void DestroySurface(Surface*& x)          override { m_allocator.Delete(x); x = nullptr; }
 
     void WaitIdle() override {}
-    void Destroy() override { delete this; }
+    void Destroy() override { IAllocator& alloc = m_allocator; this->~NullDevice(); alloc.Free(this); }
 };
 
 // ---- Null Adapter ----
 
 class NullAdapter : public Adapter {
 public:
+    IAllocator& m_allocator;
+
+    explicit NullAdapter(IAllocator& allocator) : m_allocator(allocator) {}
+
     void GetInfo(AdapterInfo& out) override {
         out.name     = u8"Null Device";
         out.vendorId = 0;
@@ -295,7 +300,7 @@ public:
         out.type     = AdapterType::Cpu;
     }
     Status CreateDevice(const DeviceDesc&, Device*& out) override {
-        out = new NullDevice();
+        out = m_allocator.New<NullDevice>(m_allocator);
         return ErrorCode::Ok;
     }
 };
@@ -304,24 +309,27 @@ public:
 
 class NullBackend : public Backend {
 public:
+    IAllocator& m_allocator;
     NullAdapter adapter;
     Adapter*    adapterPtr = &adapter;
+
+    explicit NullBackend(IAllocator& allocator) : m_allocator(allocator), adapter(allocator) {}
 
     Span<Adapter* const> EnumerateAdapters() override {
         return Span<Adapter* const>(&adapterPtr, 1);
     }
 
     Status CreateSurface(void*, void*, Surface*& out, SurfacePlatform = SurfacePlatform::Unknown) override {
-        out = new NullSurface();
+        out = m_allocator.New<NullSurface>();
         return ErrorCode::Ok;
     }
 
-    void Destroy() override { delete this; }
+    void Destroy() override { IAllocator& alloc = m_allocator; this->~NullBackend(); alloc.Free(this); }
 };
 
 /// Creates a null backend for headless / GPU-less testing.
-Status CreateNullBackend(Backend*& out) {
-    auto* b = new NullBackend();
+Status CreateNullBackend(Backend*& out, IAllocator& allocator = DefaultAllocator()) {
+    auto* b = allocator.New<NullBackend>(allocator);
     b->isInitialized = true;
     out = b;
     return ErrorCode::Ok;
