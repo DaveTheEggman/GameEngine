@@ -197,3 +197,25 @@ TEST_CASE("keep-world reparent: the entity stays put in the world")
     scene.SetParent(parentB, parentB, true);
     CHECK(scene.GetParent(parentB) == EntityHandle::Invalid());
 }
+
+// Regression (user-reported): a child REPARENTED under a clean (non-dirty) parent kept its
+// stale world matrix until something moved the parent - pasted/duplicated child entities
+// rendered at the origin until the scene reloaded. UpdateTransforms must recurse from every
+// dirty-subtree TOP (dirty node with a clean parent), not only from dirty roots.
+TEST_CASE("transforms: reparent under a clean parent recomputes the child's world matrix")
+{
+    Scene scene;
+    EntityHandle parent = scene.CreateEntity(u8"parent");
+    scene.SetLocalPosition(parent, Float3{ 10, 0, 0 });
+    scene.UpdateTransforms();   // parent world settled + CLEAN
+
+    // The paste/duplicate sequence: create at root, set the authored LOCAL, then parent.
+    EntityHandle child = scene.CreateEntity(u8"child");
+    scene.SetLocalPosition(child, Float3{ 0, 5, 0 });
+    scene.SetParent(child, parent);
+    scene.UpdateTransforms();
+
+    const Float4x4 world = scene.GetWorldMatrix(child);
+    CHECK(world.m[3][0] == doctest::Approx(10.0f));   // parent's offset composed in
+    CHECK(world.m[3][1] == doctest::Approx(5.0f));    // the authored local, relative to it
+}

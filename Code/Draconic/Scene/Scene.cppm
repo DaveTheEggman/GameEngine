@@ -264,9 +264,20 @@ public:
         }
         m_transformsUpdatedThisFrame.Clear();
 
+        // Recurse from every dirty-subtree TOP: a dirty entity whose parent is clean (or who
+        // has none). MarkDirty propagates down, so interior dirty nodes always have a dirty
+        // parent - but a freshly REPARENTED entity under a clean parent is a top that the old
+        // roots-only scan missed (its world matrix stayed stale until something moved the
+        // parent; pasted/duplicated children rendered at the origin).
         for (u32 i = 0; i < count; ++i) {
-            if (m_transforms[i].dirty && m_entities[i].alive && !m_transforms[i].parent.IsAssigned()) {
+            const TransformData& d = m_transforms[i];
+            if (!d.dirty || !m_entities[i].alive) { continue; }
+            if (!d.parent.IsAssigned()) {
                 UpdateTransformRecursive(i, Float4x4::Identity());
+            }
+            else if (!m_transforms[d.parent.index].dirty) {
+                // The parent is clean, so its cached world matrix is current.
+                UpdateTransformRecursive(i, m_transforms[d.parent.index].worldMatrix);
             }
         }
     }
