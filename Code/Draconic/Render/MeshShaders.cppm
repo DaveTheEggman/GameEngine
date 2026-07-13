@@ -554,9 +554,11 @@ float4 main(PSInput input) : SV_Target0 {
         float3 specularIBL = prefiltered * (F_ibl * brdf.x + brdf.y);
         float  Ess   = brdf.x + brdf.y;                          // multi-scatter energy compensation
         specularIBL *= 1.0 + F0 * (1.0 / max(Ess, 1e-3) - 1.0);  // (Kulla-Conty) restore single-scatter's lost energy
-        ambient = (diffuseIBL + specularIBL) * ao;
+        // The authored flat ambient ADDS as a fill term in every sky mode (intensity 0 = pure
+        // IBL) - it is not an either/or with the environment.
+        ambient = (diffuseIBL + specularIBL + albedo * Ambient) * ao;
     } else {
-        ambient = albedo * Ambient * ao;                         // flat fallback (no environment active)
+        ambient = albedo * Ambient * ao;                         // flat-only fallback (no IBL available)
     }
 #ifdef GBUFFER
     // Motion vector: current vs previous screen position, both UNJITTERED so only geometric motion

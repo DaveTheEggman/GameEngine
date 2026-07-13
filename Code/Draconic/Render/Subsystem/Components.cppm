@@ -349,7 +349,9 @@ public:
 // into the snapshot. When IBL is active these sky settings drive shading; `ambientColor ×
 // ambientIntensity` remains the flat fallback used when no environment is active.
 struct EnvironmentSettings {
-    Color   ambientColor     = Color{ 0.10f, 0.12f, 0.16f, 1.0f };   // flat fallback (IBL off)
+    // Flat ambient FILL: adds on top of the environment's image-based ambient in every sky
+    // mode (intensity 0 = pure IBL); when IBL is unavailable it is the only ambient.
+    Color   ambientColor     = Color{ 0.10f, 0.12f, 0.16f, 1.0f };
     f32     ambientIntensity = 0.3f;
 
     SkyMode skyMode      = SkyMode::Procedural;
