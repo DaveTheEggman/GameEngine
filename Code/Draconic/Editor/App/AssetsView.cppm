@@ -4,12 +4,16 @@
 // the truth (Traktor's DatabaseView model, not a directory scan). Left = group tree; right =
 // [breadcrumb | list/grid toggle] over [filter] over the selected group's content. The content
 // area shows SUBGROUPS first (double-click descends; the breadcrumb climbs back up), then
-// instances; a non-empty filter searches instances across ALL groups. Rows show
-// "name - Type [badge]" where the badge is the cook state (cooked/missing/FAILED; builder-less
-// types like scenes show none). Interactions:
+// instances; a non-empty filter searches instances across ALL groups. Rows show the name
+// (gold when favorited) with a trailing "Type [badge]" meta label - the badge is the cook
+// state (cooked/missing/FAILED; builder-less types like scenes show none). Interactions:
 //   - double-click: descend into a group / open the instance's editor page
-//   - right-click row: Open / Duplicate / Cook / Rebuild / Delete (multi-select aware:
-//     Ctrl/Shift extend the selection; Delete acts on every selected instance)
+//   - INLINE RENAME everywhere, same mechanics as the scene hierarchy (Sedulous browser
+//     parity): slow-click the name / F2 / menu Rename edit in place - instances, subgroup
+//     rows, and the group tree alike; double-click stays navigation (never starts an edit)
+//   - right-click row: Open / Rename / Duplicate / Cook / Rebuild / Delete (multi-select
+//     aware: Ctrl/Shift extend the selection; Delete acts on every selected instance);
+//     group rows and tree groups get Open / Rename / Delete Group (recursive, confirmed)
 //   - right-click background (list, grid, or the group TREE): New <creator>... / Cook All /
 //     Rebuild All
 //   - Delete always confirms through a dialog, closes any open page editing the instance
@@ -78,6 +82,21 @@ export namespace draconic::editor::app
                         self->SelectGroup(self->m_groups[static_cast<usize>(nodeId)].group);
                     }
                     self->ShowBackgroundMenu(self->m_tree.Get(), x, y);
+                });
+                m_tree->OnItemKeyDown.Add([self](i32 nodeId, ui::KeyEventArgs& e) {
+                    if (nodeId < 0 || nodeId >= static_cast<i32>(self->m_groups.Size())) { return; }
+                    content::Group* group = self->m_groups[static_cast<usize>(nodeId)].group;
+                    if (group->Parent() == nullptr) { return; }   // the root: no rename/delete
+                    if (e.Key == ui::KeyCode::F2)
+                    {
+                        self->StartRenameGroupInTree(group);
+                        e.Handled = true;
+                    }
+                    else if (e.Key == ui::KeyCode::Delete)
+                    {
+                        self->ConfirmDeleteGroup(group);
+                        e.Handled = true;
+                    }
                 });
             }
 
@@ -158,6 +177,12 @@ export namespace draconic::editor::app
                 });
                 m_grid->OnBackgroundRightClicked.Add([self](f32 x, f32 y) {
                     self->ShowBackgroundMenu(self->m_grid.Get(), x, y);
+                });
+                m_list->OnItemKeyDown.Add([self](i32 position, ui::KeyEventArgs& e) {
+                    self->OnRowKeyDown(&self->m_list->Selection, position, e);
+                });
+                m_grid->OnItemKeyDown.Add([self](i32 position, ui::KeyEventArgs& e) {
+                    self->OnRowKeyDown(&self->m_grid->Selection, position, e);
                 });
                 auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 grow->Grow = 1.0f;
@@ -273,6 +298,50 @@ export namespace draconic::editor::app
             content::Group* group = nullptr;      // non-null => a navigable subgroup row
         };
 
+        // The name element of every row/tile/tree-node: an EditableLabel that knows WHAT it
+        // names, so one commit handler routes to the instance or group rename. Slow-click /
+        // F2 / menu Rename edit in place; double-click is deliberately NOT an edit trigger
+        // (it navigates); single clicks pass through to the list's selection.
+        class NameLabel final : public ui::EditableLabel
+        {
+        public:
+            void BindTarget(const Guid& id, content::Group* group)
+            {
+                m_id = id;
+                m_group = group;
+            }
+            [[nodiscard]] const Guid& TargetId() const noexcept { return m_id; }
+            [[nodiscard]] content::Group* TargetGroup() const noexcept { return m_group; }
+        private:
+            Guid m_id;
+            content::Group* m_group = nullptr;
+        };
+
+        // Shared setup: names are filenames/directory names, so filesystem-hostile
+        // characters never commit; double-click stays navigation.
+        static void ConfigureNameLabel(NameLabel& label, AssetsView& owner)
+        {
+            label.DoubleClickToEdit.SetValue(false);
+            label.ValidateRename = [](StringView name) {
+                for (usize i = 0; i < name.Size(); ++i)
+                {
+                    const utf8char c = name[i];
+                    if (c == utf8char('/') || c == utf8char('\\') || c == utf8char(':')
+                        || c == utf8char('*') || c == utf8char('?') || c == utf8char('"')
+                        || c == utf8char('<') || c == utf8char('>') || c == utf8char('|'))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            AssetsView* self = &owner;
+            NameLabel* raw = &label;
+            label.OnRenameCommitted.Add([self, raw](ui::EditableLabel*, StringView newName) {
+                self->ApplyRename(raw, newName);
+            });
+        }
+
         // === adapters ===
 
         class TreeAdapter final : public ui::ITreeAdapter
@@ -300,23 +369,21 @@ export namespace draconic::editor::app
             [[nodiscard]] bool HasChildren(i32 nodeId) const override { return GetChildCount(nodeId) > 0; }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
-                label->FontSize.SetValue(13.0f);
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                grow->Grow = 1.0f;
-                row->AddView(label.Get(), grow);
+                auto row = MakeRef<NameLabel>(DefaultAllocator());
+                row->FontSize.SetValue(13.0f);
+                ConfigureNameLabel(*row, *m_owner);
                 return RefPtr<ui::View>(row.Get());
             }
             void BindView(ui::View* view, i32 nodeId, i32 depth, bool) override
             {
-                auto* row = Cast<ui::FlexLayout>(view);
-                if (row == nullptr || row->ChildCount() == 0 || !InRange(nodeId)) { return; }
-                auto* label = Cast<ui::Label>(row->GetChildAt(0));
+                if (!InRange(nodeId)) { return; }
+                auto* row = static_cast<NameLabel*>(view);
                 const GroupNode& node = Node(nodeId);
-                const StringView name = node.group->Name();
-                label->SetText(name.IsEmpty() ? StringView(u8"Content") : name);
-                row->Padding = ui::Thickness{ static_cast<f32>(depth + 1) * 18.0f, 0, 0, 0 };
+                const bool isRoot = node.group->Parent() == nullptr;
+                row->BindTarget(Guid{}, node.group);
+                row->SetText(isRoot ? StringView(u8"Content") : node.group->Name());
+                row->SlowClickToEdit.SetValue(!isRoot);   // the root is not renamable
+                row->TextOffsetX.SetValue(static_cast<f32>(depth + 1) * 18.0f);
             }
         private:
             [[nodiscard]] bool InRange(i32 nodeId) const
@@ -348,26 +415,39 @@ export namespace draconic::editor::app
                 iconView->DesiredWidth.SetValue(Optional<f32>(16.0f));
                 iconView->DesiredHeight.SetValue(Optional<f32>(16.0f));
                 row->AddView(iconView.Get());
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
-                label->FontSize.SetValue(13.0f);
+                auto name = MakeRef<NameLabel>(DefaultAllocator());
+                name->FontSize.SetValue(13.0f);
+                ConfigureNameLabel(*name, *m_owner);
                 auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 grow->Grow = 1.0f;
-                row->AddView(label.Get(), grow);
+                row->AddView(name.Get(), grow);
+                auto meta = MakeRef<ui::Label>(DefaultAllocator());
+                meta->FontSize.SetValue(13.0f);
+                row->AddView(meta.Get());
                 return RefPtr<ui::View>(row.Get());
             }
             void BindView(ui::View* view, i32 position) override
             {
                 auto* row = Cast<ui::FlexLayout>(view);
-                if (row == nullptr || row->ChildCount() < 2) { return; }
+                if (row == nullptr || row->ChildCount() < 3) { return; }
                 auto* iconView = Cast<ui::DrawableView>(row->GetChildAt(0));
-                auto* label = Cast<ui::Label>(row->GetChildAt(1));
-                if (iconView == nullptr || label == nullptr) { return; }
+                auto* name = static_cast<NameLabel*>(row->GetChildAt(1));
+                auto* meta = Cast<ui::Label>(row->GetChildAt(2));
+                if (iconView == nullptr || name == nullptr || meta == nullptr) { return; }
                 iconView->Drawable = ui::DrawablePtr(m_owner->RowIcon(position));
+                const Row* target = m_owner->RowAt(position);
+                name->BindTarget(target != nullptr ? target->id : Guid{},
+                                 target != nullptr ? target->group : nullptr);
                 String text;
                 Color color{ 0.85f, 0.85f, 0.85f, 1.0f };
-                m_owner->RowText(position, text, color);
-                label->SetText(text.AsView());
-                label->TextColor.SetValue(Optional<Color>(color));
+                m_owner->RowName(position, text, color);
+                name->SetText(text.AsView());
+                name->TextColor.SetValue(Optional<Color>(color));
+                String metaText;
+                Color metaColor{ 0.55f, 0.58f, 0.65f, 1.0f };
+                m_owner->RowMeta(position, metaText, metaColor);
+                meta->SetText(metaText.AsView());
+                meta->TextColor.SetValue(Optional<Color>(metaColor));
             }
         private:
             AssetsView* m_owner;
@@ -390,13 +470,17 @@ export namespace draconic::editor::app
                 auto iconRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
                 iconRow->Direction = ui::Orientation::Horizontal;
                 iconRow->JustifyContent = ui::Justify::Center;
+                // Cross-axis default is Stretch - without Center the icon fills the row's
+                // height (taller than 40) and the glyph draws vertically stretched.
+                iconRow->AlignItems = ui::Align::Center;
                 auto iconView = MakeRef<ui::DrawableView>(DefaultAllocator());
                 iconView->DesiredWidth.SetValue(Optional<f32>(40.0f));
                 iconView->DesiredHeight.SetValue(Optional<f32>(40.0f));
                 iconRow->AddView(iconView.Get());
-                auto name = MakeRef<ui::Label>(DefaultAllocator());
+                auto name = MakeRef<NameLabel>(DefaultAllocator());
                 name->FontSize.SetValue(12.0f);
                 name->HAlign.SetValue(draconic::fonts::TextAlignment::Center);
+                ConfigureNameLabel(*name, *m_owner);
                 {
                     auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     grow->Grow = 1.0f;
@@ -416,33 +500,19 @@ export namespace draconic::editor::app
                 auto* tile = Cast<ui::FlexLayout>(view);
                 if (tile == nullptr || tile->ChildCount() < 2) { return; }
                 auto* iconRow = Cast<ui::FlexLayout>(tile->GetChildAt(0));
-                auto* name = Cast<ui::Label>(tile->GetChildAt(1));
+                auto* name = static_cast<NameLabel*>(tile->GetChildAt(1));
                 if (iconRow == nullptr || iconRow->ChildCount() < 1 || name == nullptr) { return; }
                 auto* iconView = Cast<ui::DrawableView>(iconRow->GetChildAt(0));
                 const Row* row = m_owner->RowAt(position);
                 if (iconView == nullptr || row == nullptr) { return; }
                 iconView->Drawable = ui::DrawablePtr(m_owner->RowIcon(position));
-                if (row->group != nullptr)
-                {
-                    name->SetText(row->group->Name());
-                    name->TextColor.SetValue(Optional<Color>(Color{ 0.85f, 0.75f, 0.5f, 1.0f }));
-                    return;
-                }
-                content::Instance* instance = m_owner->Resolve(row->id);
-                if (instance == nullptr) { return; }
-                // The name carries the cook badge color (the tile has no badge text).
+                name->BindTarget(row->id, row->group);
+                // The tile has no meta label: the name carries the badge color (favorite
+                // gold wins) and stays PURE (it is the inline-rename edit text).
+                String text;
                 Color color{ 0.85f, 0.85f, 0.85f, 1.0f };
-                switch (m_owner->m_cook->BadgeFor(*instance))
-                {
-                    case draconic::editor::CookBadge::Cooked:  color = Color{ 0.6f, 0.9f, 0.6f, 1.0f }; break;
-                    case draconic::editor::CookBadge::Missing: color = Color{ 0.95f, 0.85f, 0.5f, 1.0f }; break;
-                    case draconic::editor::CookBadge::Failed:  color = Color{ 1.0f, 0.45f, 0.45f, 1.0f }; break;
-                    case draconic::editor::CookBadge::NoBuilder: break;
-                }
-                String tileName;
-                if (m_owner->m_context->IsFavorite(row->id)) { tileName.Append(u8"* "); }
-                tileName.Append(instance->Name());
-                name->SetText(tileName.AsView());
+                m_owner->RowName(position, text, color);
+                name->SetText(text.AsView());
                 name->TextColor.SetValue(Optional<Color>(color));
             }
         private:
@@ -570,23 +640,43 @@ export namespace draconic::editor::app
             return (instance != nullptr) ? icons.ForAssetType(instance->TypeName()) : nullptr;
         }
 
-        void RowText(i32 position, String& text, Color& color)
+        // The name text stays PURE (it doubles as the inline-rename edit text): favorites
+        // show as GOLD, not a "* " prefix; the badge tints it when not favorited.
+        void RowName(i32 position, String& text, Color& color)
         {
             const Row* row = RowAt(position);
             if (row == nullptr) { return; }
             if (row->group != nullptr)
             {
-                text.Append(u8"[");
                 text.Append(row->group->Name());
-                text.Append(u8"]");
                 color = Color{ 0.85f, 0.75f, 0.5f, 1.0f };
                 return;
             }
             content::Instance* instance = Resolve(row->id);
             if (instance == nullptr) { return; }
-            if (m_context->IsFavorite(row->id)) { text.Append(u8"* "); }
             text.Append(instance->Name());
-            text.Append(u8"   -   ");
+            if (m_context->IsFavorite(row->id)) { color = Color{ 0.95f, 0.8f, 0.35f, 1.0f }; return; }
+            switch (m_cook->BadgeFor(*instance))
+            {
+                case draconic::editor::CookBadge::Cooked:  color = Color{ 0.6f, 0.9f, 0.6f, 1.0f }; break;
+                case draconic::editor::CookBadge::Missing: color = Color{ 0.95f, 0.85f, 0.5f, 1.0f }; break;
+                case draconic::editor::CookBadge::Failed:  color = Color{ 1.0f, 0.45f, 0.45f, 1.0f }; break;
+                case draconic::editor::CookBadge::NoBuilder: break;
+            }
+        }
+
+        // The trailing meta label (list mode only): type + cook badge, badge-colored.
+        void RowMeta(i32 position, String& text, Color& color)
+        {
+            const Row* row = RowAt(position);
+            if (row == nullptr) { return; }
+            if (row->group != nullptr)
+            {
+                text.Append(u8"Group");
+                return;
+            }
+            content::Instance* instance = Resolve(row->id);
+            if (instance == nullptr) { return; }
             text.Append(instance->TypeName());
             switch (m_cook->BadgeFor(*instance))
             {
@@ -683,12 +773,15 @@ export namespace draconic::editor::app
             if (row == nullptr) { return; }
             AssetsView* self = this;
 
-            // Group rows: navigation only.
+            // Group rows: navigate / rename in place / delete (recursive, confirmed).
             if (row->group != nullptr)
             {
                 content::Group* group = row->group;
                 auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
                 menu->AddItem(u8"Open", [self, group]() { self->SelectGroup(group); });
+                menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
+                menu->AddSeparator();
+                menu->AddItem(u8"Delete Group", [self, group]() { self->ConfirmDeleteGroup(group); });
                 const Float2 screenPos = anchor->LocalToScreen(Float2{ x, y });
                 menu->Show(Context, screenPos.x, screenPos.y);
                 return;
@@ -706,6 +799,7 @@ export namespace draconic::editor::app
                     if (self->OnOpenInstance) { self->OnOpenInstance(*inst); }
                 }
             });
+            menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
             menu->AddItem(u8"Duplicate", [self, id]() { self->DuplicateInstance(id); });
             menu->AddItem(m_context->IsFavorite(id) ? StringView(u8"Unpin favorite")
                                                     : StringView(u8"Pin favorite"),
@@ -757,6 +851,15 @@ export namespace draconic::editor::app
                 if (!seen) { categories.PushBack(creator.category.AsView()); }
             }
             menu->AddItem(u8"New Group", [self, target]() { self->CreateGroupIn(target); });
+            if (target != nullptr && target->Parent() != nullptr)
+            {
+                menu->AddItem(u8"Rename Group", [self, target]() {
+                    self->StartRenameGroupInTreeDeferred(target);
+                });
+                menu->AddItem(u8"Delete Group", [self, target]() {
+                    self->ConfirmDeleteGroup(target);
+                });
+            }
             if (!categories.IsEmpty()) { menu->AddSeparator(); }
             for (StringView category : categories)
             {
@@ -831,6 +934,179 @@ export namespace draconic::editor::app
             m_cook->RequestCook(false);   // builder-backed clones become pickable right away
         }
 
+        // === inline rename ===
+
+        // NameLabel commit handler: route to the instance or group apply.
+        void ApplyRename(NameLabel* label, StringView newName)
+        {
+            if (label->TargetGroup() != nullptr) { ApplyRenameGroup(label->TargetGroup(), newName); }
+            else { ApplyRenameInstance(label->TargetId(), newName); }
+        }
+
+        void ApplyRenameInstance(const Guid& id, StringView name)
+        {
+            if (m_context->Project() == nullptr) { return; }
+            content::Instance* inst = Resolve(id);
+            if (inst == nullptr) { return; }
+            const String oldPath = inst->Path();
+            const Status renamed = m_context->Project()->SourceDb().RenameInstance(id, name);
+            if (!renamed.IsOk())
+            {
+                m_context->SetStatus(renamed.Code() == ErrorCode::AlreadyExists
+                    ? StringView(u8"Rename failed: name already taken.")
+                    : StringView(u8"Rename FAILED (see console)."));
+                Rebuild();   // snap the label back to the real name
+                return;
+            }
+            // Keep the cooked product's name in step (same guid; purely cosmetic -
+            // everything binds by guid - but stale names in Cooked/ confuse).
+            (void)m_context->Project()->CookedDb().RenameInstance(id, name);
+            // The manifest's default scene is guid-authoritative; refresh the
+            // human-readable path mirror. The path compare covers guid-less
+            // manifests (and adopts the guid while at it).
+            auto* project = m_context->Project();
+            if (project->Settings().defaultSceneId == id
+                || project->Settings().defaultScene == oldPath)
+            {
+                project->Settings().defaultSceneId = id;
+                project->Settings().defaultScene = inst->Path();
+                (void)project->SaveSettings();
+            }
+            DRACONIC_LOG_INFO(u8"Assets", u8"renamed '{}' -> '{}'", oldPath, inst->Path());
+            Rebuild();
+        }
+
+        void ApplyRenameGroup(content::Group* group, StringView name)
+        {
+            if (m_context->Project() == nullptr) { return; }
+            const String oldPath = group->Path();
+            const Status renamed = m_context->Project()->SourceDb().RenameGroup(*group, name);
+            if (!renamed.IsOk())
+            {
+                m_context->SetStatus(renamed.Code() == ErrorCode::AlreadyExists
+                    ? StringView(u8"Rename failed: name already taken.")
+                    : StringView(u8"Rename FAILED (see console)."));
+                Rebuild();
+                return;
+            }
+            // Mirror in the cooked DB when a same-path group exists there.
+            content::Group* cooked = m_context->Project()->CookedDb().RootGroup();
+            usize start = 0;
+            const StringView path = oldPath.AsView();
+            for (usize i = 0; i <= path.Size() && cooked != nullptr; ++i)
+            {
+                if (i == path.Size() || path[i] == utf8char('/'))
+                {
+                    if (i > start) { cooked = cooked->GetGroup(path.SubStr(start, i - start)); }
+                    start = i + 1;
+                }
+            }
+            if (cooked != nullptr)
+            {
+                (void)m_context->Project()->CookedDb().RenameGroup(*cooked, name);
+            }
+            // Refresh the default scene's path mirror if it lived under the renamed
+            // group (guid still resolves; the mirror is cosmetic but shouldn't lie).
+            auto* project = m_context->Project();
+            if (!project->Settings().defaultSceneId.IsNil())
+            {
+                if (content::Instance* ds = project->SourceDb().GetInstance(
+                        project->Settings().defaultSceneId))
+                {
+                    if (project->Settings().defaultScene != ds->Path())
+                    {
+                        project->Settings().defaultScene = ds->Path();
+                        (void)project->SaveSettings();
+                    }
+                }
+            }
+            else
+            {
+                const StringView ds = project->Settings().defaultScene.AsView();
+                if (ds.Size() > oldPath.Size()
+                    && ds.SubStr(0, oldPath.Size()) == oldPath.AsView()
+                    && ds[oldPath.Size()] == utf8char('/'))
+                {
+                    String updated(group->Path());
+                    updated.Append(ds.SubStr(oldPath.Size(), ds.Size() - oldPath.Size()));
+                    project->Settings().defaultScene = Move(updated);
+                    (void)project->SaveSettings();
+                }
+            }
+            DRACONIC_LOG_INFO(u8"Assets", u8"renamed group '{}' -> '{}'", oldPath, group->Path());
+            Rebuild();
+        }
+
+        // Begin the in-place edit of a content-area row (menu Rename path is DOUBLE-deferred
+        // through the mutation queue - Sedulous lesson: BeginEdit's SetFocus must land AFTER
+        // the menu's ClosePopup/PopFocus restored focus, one queue drain is not enough).
+        void StartRename(i32 position)
+        {
+            NameLabel* label = nullptr;
+            if (m_gridMode)
+            {
+                m_grid->ScrollToPosition(position);
+                if (auto* tile = Cast<ui::FlexLayout>(m_grid->GetActiveView(position)))
+                {
+                    if (tile->ChildCount() >= 2) { label = static_cast<NameLabel*>(tile->GetChildAt(1)); }
+                }
+            }
+            else
+            {
+                m_list->ScrollToPosition(position);
+                if (auto* row = Cast<ui::FlexLayout>(m_list->GetActiveView(position)))
+                {
+                    if (row->ChildCount() >= 2) { label = static_cast<NameLabel*>(row->GetChildAt(1)); }
+                }
+            }
+            if (label != nullptr) { label->BeginEdit(); }
+        }
+
+        void StartRenameDeferred(i32 position)
+        {
+            ui::UIContext* ctx = Context;
+            if (ctx == nullptr) { return; }
+            AssetsView* self = this;
+            ctx->MutationQueueRef().QueueAction(Function<void()>{ [self, ctx, position]() {
+                ctx->MutationQueueRef().QueueAction(Function<void()>{ [self, position]() {
+                    self->StartRename(position);
+                } });
+            } });
+        }
+
+        // In-place edit of a group's TREE row (the background/tree menu path).
+        void StartRenameGroupInTree(content::Group* group)
+        {
+            ui::FlattenedTreeAdapter* flat = m_tree->FlatAdapter();
+            if (flat == nullptr) { return; }
+            for (i32 pos = 0; pos < flat->ItemCount(); ++pos)
+            {
+                const i32 nodeId = flat->GetNodeId(pos);
+                if (nodeId >= 0 && nodeId < static_cast<i32>(m_groups.Size())
+                    && m_groups[static_cast<usize>(nodeId)].group == group)
+                {
+                    m_tree->InternalListView()->ScrollToPosition(pos);
+                    if (auto* row = static_cast<NameLabel*>(m_tree->InternalListView()->GetActiveView(pos)))
+                    {
+                        row->BeginEdit();
+                    }
+                    return;
+                }
+            }
+        }
+
+        void StartRenameGroupInTreeDeferred(content::Group* group)
+        {
+            ui::UIContext* ctx = Context;
+            if (ctx == nullptr) { return; }
+            AssetsView* self = this;
+            ctx->MutationQueueRef().QueueAction(Function<void()>{ [self, ctx, group]() {
+                ctx->MutationQueueRef().QueueAction(Function<void()>{ [self, group]() {
+                    self->StartRenameGroupInTree(group);
+                } });
+            } });
+        }
+
         void ConfirmDelete(Array<Guid> ids)
         {
             if (ids.IsEmpty() || Context == nullptr) { return; }
@@ -892,7 +1168,120 @@ export namespace draconic::editor::app
             AppendCount(message, deleted);
             message += u8" asset(s).";
             m_context->SetStatus(message.AsView());
+            ClearDefaultSceneIfGone();
             Rebuild();   // the next cook's plan sweeps the orphaned products
+        }
+
+        // F2 = inline rename, Delete = confirmed delete - dispatched by ListView/GridView
+        // before their own navigation keys.
+        void OnRowKeyDown(ui::SelectionModel* selection, i32 position, ui::KeyEventArgs& e)
+        {
+            const Row* row = RowAt(position);
+            if (row == nullptr) { return; }
+            if (e.Key == ui::KeyCode::F2)
+            {
+                StartRename(position);
+                e.Handled = true;
+            }
+            else if (e.Key == ui::KeyCode::Delete)
+            {
+                if (row->group != nullptr) { ConfirmDeleteGroup(row->group); }
+                else { ConfirmDelete(SelectedInstanceIds(selection, position)); }
+                e.Handled = true;
+            }
+        }
+
+        void ConfirmDeleteGroup(content::Group* group)
+        {
+            if (group == nullptr || group->Parent() == nullptr || Context == nullptr) { return; }
+            usize assetCount = 0;
+            CountInstances(group, assetCount);
+            String message(u8"Delete group '");
+            message += group->Name();
+            message += u8"' and ALL its contents (";
+            AppendCount(message, assetCount);
+            message += u8" asset(s))? Source files and cooked products go away; open pages close.";
+
+            AssetsView* self = this;
+            RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(u8"Delete group", message.AsView());
+            dialog->OnClosed.Add(ui::Event<void(ui::Dialog*, ui::DialogResult)>::Handler{
+                [self, group](ui::Dialog*, ui::DialogResult result) {
+                    if (result != ui::DialogResult::OK) { return; }
+                    ui::UIContext* ctx = self->Context;
+                    if (ctx == nullptr) { return; }
+                    // Deferred: page teardown + DB mutation never run mid-event-dispatch.
+                    ctx->MutationQueueRef().QueueAction(Function<void()>{ [self, group]() {
+                        self->DeleteGroupNow(group);
+                    } });
+                } });
+            dialog->Show(Context);
+        }
+
+        // Runs from the mutation queue: close every page under the group, delete the whole
+        // subtree, navigate the selection out of the dead branch.
+        void DeleteGroupNow(content::Group* group)
+        {
+            if (m_context->Project() == nullptr) { return; }
+            Array<Guid> ids;
+            CollectInstanceIds(group, ids);
+            if (OnCloseInstancePage)
+            {
+                for (const Guid& id : ids) { OnCloseInstancePage(id); }
+            }
+            // Navigate away BEFORE the pointers die.
+            for (content::Group* g = m_selectedGroup; g != nullptr; g = g->Parent())
+            {
+                if (g == group) { m_selectedGroup = group->Parent(); break; }
+            }
+            const String path = group->Path();
+            if (m_context->Project()->SourceDb().DeleteGroup(*group).IsOk())
+            {
+                DRACONIC_LOG_INFO(u8"Assets", u8"deleted group '{}' ({} asset(s))", path, ids.Size());
+                String message(u8"Deleted group '");
+                message += path;
+                message += u8"'.";
+                m_context->SetStatus(message.AsView());
+            }
+            else
+            {
+                DRACONIC_LOG_WARNING(u8"Assets", u8"delete FAILED for group '{}'", path);
+                m_context->SetStatus(u8"Delete group FAILED (see console).");
+            }
+            ClearDefaultSceneIfGone();
+            Rebuild();   // the next cook's plan sweeps the orphaned products
+        }
+
+        static void CountInstances(content::Group* group, usize& count)
+        {
+            count += group->Instances().Size();
+            for (content::Group* child : group->Groups()) { CountInstances(child, count); }
+        }
+
+        static void CollectInstanceIds(content::Group* group, Array<Guid>& out)
+        {
+            for (content::Instance* instance : group->Instances()) { out.PushBack(instance->Id()); }
+            for (content::Group* child : group->Groups()) { CollectInstanceIds(child, out); }
+        }
+
+        // A delete may have taken the default scene with it - clear the manifest reference
+        // instead of leaving a dangling guid (the player would fail with "unresolved").
+        void ClearDefaultSceneIfGone()
+        {
+            auto* project = m_context->Project();
+            if (project == nullptr) { return; }
+            if (project->Settings().defaultSceneId.IsNil()
+                && project->Settings().defaultScene.IsEmpty())
+            {
+                return;
+            }
+            const bool resolves = !project->Settings().defaultSceneId.IsNil()
+                ? project->SourceDb().GetInstance(project->Settings().defaultSceneId) != nullptr
+                : project->SourceDb().GetInstance(project->Settings().defaultScene.AsView()) != nullptr;
+            if (resolves) { return; }
+            project->Settings().defaultSceneId = Guid{};
+            project->Settings().defaultScene = String();
+            (void)project->SaveSettings();
+            DRACONIC_LOG_INFO(u8"Assets", u8"default scene was deleted - cleared it in the manifest");
         }
 
         static void AppendCount(String& out, usize value)
