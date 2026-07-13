@@ -109,6 +109,11 @@ export namespace draconic::core
     [[nodiscard]] inline bool FileExists(StringView path) noexcept { return sys::FileExists(detail::NullTerminated(path).CStr()); }
 
     inline bool FileDelete(StringView path) noexcept { return sys::FileDelete(detail::NullTerminated(path).CStr()); }
+    /// Rename/move a file OR directory (same volume).
+    inline bool FileMove(StringView from, StringView to) noexcept
+    {
+        return sys::FileMove(detail::NullTerminated(from).CStr(), detail::NullTerminated(to).CStr());
+    }
 
     /// File size + last-write time (seconds since epoch). False when `path` is not a regular file.
     [[nodiscard]] inline bool FileStat(StringView path, u64& outSize, i64& outModifiedTime) noexcept

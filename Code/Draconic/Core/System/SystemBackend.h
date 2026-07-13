@@ -55,6 +55,8 @@ namespace draconic::core::sys
     std::int64_t FileSize(FileHandle handle) noexcept;                                      // -1 on error
     bool FileExists(const char* path) noexcept;
     bool FileDelete(const char* path) noexcept;
+    // Rename/move a file OR directory (same volume). True on success.
+    bool FileMove(const char* from, const char* to) noexcept;
     // File size + last-write time (seconds since epoch). False if the file doesn't exist.
     bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept;
     bool DirectoryExists(const char* path) noexcept;

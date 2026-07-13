@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <cstdio>   // std::rename
 
 namespace draconic::core::sys
 {
@@ -147,6 +148,11 @@ namespace draconic::core::sys
     bool FileDelete(const char* path) noexcept
     {
         return unlink(path) == 0;
+    }
+
+    bool FileMove(const char* from, const char* to) noexcept
+    {
+        return std::rename(from, to) == 0;
     }
 
     bool DirectoryExists(const char* path) noexcept

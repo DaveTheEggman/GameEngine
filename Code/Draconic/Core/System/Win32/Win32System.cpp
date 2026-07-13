@@ -135,6 +135,11 @@ namespace draconic::core::sys
 
     bool FileDelete(const char* path) noexcept { return DeleteFileA(path) != 0; }
 
+    bool FileMove(const char* from, const char* to) noexcept
+    {
+        return MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING) != 0;
+    }
+
     bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept
     {
         WIN32_FILE_ATTRIBUTE_DATA data{};
