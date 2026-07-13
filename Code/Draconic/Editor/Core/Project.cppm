@@ -43,6 +43,7 @@ export namespace draconic::editor
     using draconic::project::kProjectCacheDir;
     using draconic::project::kSourceAssetExtension;
     using draconic::project::kCookedAssetExtension;
+    using draconic::project::kEngineVersionString;
 
     // An opened project: the manifest + the mounted source and cooked content databases.
     class EditorProject
@@ -80,6 +81,14 @@ export namespace draconic::editor
             ProjectSettings settings;
             if (!draconic::project::LoadProjectSettings(root, settings).IsOk())
             {
+                // A present-but-unreadable manifest is an ERROR the user must see (the app
+                // shell only reflects failure in the status bar); absent = the scaffold path.
+                if (root.Exists(kProjectManifestFile))
+                {
+                    DRACONIC_LOG_ERROR(u8"Project",
+                        u8"'{}/{}' exists but failed to parse (old or corrupt format?) - project not opened",
+                        directory, kProjectManifestFile);
+                }
                 return UniquePtr<EditorProject>{};
             }
 
@@ -146,6 +155,7 @@ export namespace draconic::editor
             // must appear here; a missed one silently drops manifest data on Open.
             m_settings.name          = Move(settings.name);
             m_settings.engineVersion = Move(settings.engineVersion);
+            m_settings.defaultSceneId = settings.defaultSceneId;
             m_settings.defaultScene  = Move(settings.defaultScene);
             m_settings.startupScript = Move(settings.startupScript);
             m_settings.nativeModule  = Move(settings.nativeModule);

@@ -86,22 +86,79 @@ TEST_CASE("editor-project: open fails without a manifest")
     RemoveProjectTree(dir);
 }
 
+TEST_CASE("editor-project: an unreadable manifest logs an error (missing one stays silent)")
+{
+    struct CaptureSink final : ILogSink
+    {
+        usize errors = 0;
+        String lastMessage;
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
+        {
+            if (level == LogLevel::Error && category == u8"Project")
+            {
+                ++errors;
+                lastMessage = String(message);
+            }
+        }
+    };
+    CaptureSink sink;
+    GlobalLogger().AddSink(&sink);
+
+    // Absent manifest: the scaffold path - no error noise.
+    const StringView missingDir = u8"draconic_editor_test_project_silent";
+    RemoveProjectTree(missingDir);
+    CHECK(!static_cast<bool>(EditorProject::Open(missingDir)));
+    CHECK(sink.errors == 0);
+
+    // Present-but-unparseable manifest (e.g. a pre-versioning format): loud failure -
+    // the app shell only surfaces this in the status bar, the console line is the signal.
+    const StringView dir = u8"draconic_editor_test_project_corrupt";
+    RemoveProjectTree(dir);
+    REQUIRE(CreateDirectory(dir));
+    {
+        draconic::vfs::NativeFileSystem root(dir);
+        const StringView garbage = u8"<root><string name=\"name\">P</string></root>";
+        REQUIRE(root.AsWritable()->Save(u8"Project.xml",
+            Span<const byte>(reinterpret_cast<const byte*>(garbage.Data()), garbage.Size())).IsOk());
+    }
+    CHECK(!static_cast<bool>(EditorProject::Open(dir)));
+    CHECK(sink.errors == 1);
+    const auto contains = [](StringView haystack, StringView needle) {
+        if (needle.Size() > haystack.Size()) { return false; }
+        for (usize i = 0; i + needle.Size() <= haystack.Size(); ++i)
+        {
+            if (haystack.SubStr(i, needle.Size()) == needle) { return true; }
+        }
+        return false;
+    };
+    CHECK(contains(sink.lastMessage.AsView(), u8"Project.xml"));
+
+    GlobalLogger().RemoveSink(&sink);
+    RemoveProjectTree(dir);
+    RemoveProjectTree(missingDir);
+}
+
 TEST_CASE("editor-project: settings changes persist through SaveSettings")
 {
     const StringView dir = u8"draconic_editor_test_project_save";
     RemoveProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    Guid savedId;
 
     {
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
+        REQUIRE(Guid::TryParse(u8"6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+                               project->Settings().defaultSceneId));
         project->Settings().defaultScene = String(u8"scenes/main");
+        savedId = project->Settings().defaultSceneId;
         CHECK(project->SaveSettings().IsOk());
     }
     {
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().defaultScene == u8"scenes/main");
+        CHECK(project->Settings().defaultSceneId == savedId);   // guid is authoritative
     }
 
     RemoveProjectTree(dir);
@@ -222,6 +279,7 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().defaultScene == u8"Scenes/S");
         CHECK(project->Settings().engineVersion.IsEmpty());   // v1 data had no stamp
+        CHECK(project->Settings().defaultSceneId.IsNil());    // ...and no scene guid (v3)
         REQUIRE(project->SaveSettings().IsOk());
     }
     {
