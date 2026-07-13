@@ -202,14 +202,23 @@ public:
     [[nodiscard]] StringView SerializationTypeId() const noexcept override { return m_typeId.AsView(); }
 
     void WriteComponent(ISerializer& ar, EntityHandle entity) override {
-        if (T* c = this->Get(entity)) { SerializeOne(ar, *c); }
+        if (T* c = this->Get(entity)) {
+            // Records carry the component type's data version (TypeOf<T> - the reflected
+            // TypeInfo, patched by DRACONIC_REFLECT_VALUE's builder.DataVersion), so
+            // component Serialize bodies can migrate old scenes/blobs.
+            BeginVersionedPayload(ar, TypeOf<T>());
+            SerializeOne(ar, *c);
+            EndVersionedPayload(ar);
+        }
     }
     void ReadComponent(ISerializer& ar, EntityHandle entity) override {
         // Overwrite when present: duplicate records (corrupt saves recovered by the scene
         // loader) must consume their payload instead of asserting in Add.
         T* existing = this->Get(entity);
         T& c = (existing != nullptr) ? *existing : this->Add(entity);
+        BeginVersionedPayload(ar, TypeOf<T>());
         SerializeOne(ar, c);
+        EndVersionedPayload(ar);
     }
 
     // ADL hook like Serialize: components with resource::Ref fields define

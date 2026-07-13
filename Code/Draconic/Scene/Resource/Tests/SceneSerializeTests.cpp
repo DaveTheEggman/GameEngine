@@ -3,6 +3,7 @@
 // preserving Guids, names, parent links, transforms, and component data.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.scene;
@@ -210,4 +211,98 @@ TEST_CASE("scene-serialize: a save with duplicate entity guids loads with recove
     const EntityHandle first = loaded.FindEntity(shared);
     REQUIRE(first.IsAssigned());
     CHECK(loaded.GetEntityName(first) == StringView(u8"Original"));
+}
+
+TEST_CASE("scene-snapshot: capture -> simulate-style mutations -> restore into the SAME scene")
+{
+    // The editor's Simulate loop: snapshot, let the running scene mutate freely, restore the
+    // exact pre-play state into the same Scene instance (borrowed pointers stay valid; guids
+    // are part of the snapshot so guid-keyed state re-resolves).
+    Scene scene(u8"level");
+    HealthManager* mgr = scene.AddSystem<HealthManager>();
+    EntityHandle hero  = scene.CreateEntity(u8"hero");
+    EntityHandle prop  = scene.CreateEntity(u8"prop");
+    scene.SetLocalPosition(hero, Float3{ 1, 0, 0 });
+    mgr->Add(hero).value = 50.0f;
+    const Guid heroId = scene.GetEntityId(hero);
+    const Guid propId = scene.GetEntityId(prop);
+
+    UniquePtr<SceneSnapshot> snapshot = SceneSnapshot::Capture(scene);
+    REQUIRE(snapshot);
+
+    // "Runtime" mutations: move + damage the hero, destroy the prop, spawn a projectile.
+    scene.SetLocalPosition(hero, Float3{ 9, 9, 9 });
+    mgr->Get(hero)->value = 1.0f;
+    scene.DestroyEntity(prop);
+    EntityHandle projectile = scene.CreateEntity(u8"projectile");
+    const Guid projectileId = scene.GetEntityId(projectile);
+
+    REQUIRE(snapshot->Restore(scene).IsOk());
+
+    // The exact pre-play world: hero back at its pose/value, the prop resurrected under its
+    // ORIGINAL guid, the runtime spawn gone.
+    const EntityHandle heroRestored = scene.FindEntity(heroId);
+    REQUIRE(heroRestored.IsAssigned());
+    CHECK(Near(scene.GetLocalTransform(heroRestored).position.x, 1.0f));
+    REQUIRE(mgr->Get(heroRestored) != nullptr);
+    CHECK(Near(mgr->Get(heroRestored)->value, 50.0f));
+    CHECK(scene.FindEntity(propId).IsAssigned());
+    CHECK_FALSE(scene.FindEntity(projectileId).IsAssigned());
+
+    // Restore is repeatable (the same snapshot supports multiple Simulate rounds).
+    scene.DestroyEntity(scene.FindEntity(heroId));
+    REQUIRE(snapshot->Restore(scene).IsOk());
+    CHECK(scene.FindEntity(heroId).IsAssigned());
+}
+
+namespace
+{
+    struct Turret { f32 range = 5.0f; u32 seenVersion = 0; };
+    void Serialize(ISerializer& ar, Turret& t)
+    {
+        t.seenVersion = ar.Version();   // record what the scope exposes (test probe)
+        draconic::core::Serialize(ar, "range", t.range);
+    }
+    class TurretManager : public SerializableComponentManager<Turret> {
+    public:
+        TurretManager() : SerializableComponentManager<Turret>(u8"demo.Turret") {}
+    };
+}
+
+DRACONIC_REFLECT_VALUE(Turret, "demo")
+{
+    builder.DataVersion(3);
+    builder.Property<&Turret::range>("range");
+}
+
+TEST_CASE("scene-serialize: component records carry the reflected type's data version")
+{
+    DraconicRegisterValue_Turret();   // patches TypeOf<Turret> (name + dataVersion 3)
+    REQUIRE(TypeOf<Turret>().dataVersion == 3u);
+
+    Scene a(u8"level");
+    a.AddSystem<TurretManager>()->Add(a.CreateEntity(u8"t")).range = 9.0f;
+
+    MemoryStream blob;
+    {
+        BinarySerializer ar(blob, SerializeMode::Write);
+        SerializeScene(ar, a);
+        REQUIRE(ar.IsOk());
+    }
+
+    Scene b;
+    TurretManager* mgr = b.AddSystem<TurretManager>();
+    REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(blob, SerializeMode::Read);
+        SerializeScene(ar, b);
+        REQUIRE(ar.IsOk());
+    }
+    Turret* loaded = nullptr;
+    mgr->ForEach([&](Turret& t, EntityHandle) { loaded = &t; });
+    REQUIRE(loaded != nullptr);
+    CHECK(loaded->range == doctest::Approx(9.0f));
+    // The record's stored version was active while the component deserialized - the seam a
+    // component's Serialize migrates through when its layout changes.
+    CHECK(loaded->seenVersion == 3u);
 }

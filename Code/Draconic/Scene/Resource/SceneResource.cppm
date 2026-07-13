@@ -202,6 +202,52 @@ inline Status LoadScene(draconic::content::Instance& instance, Scene& scene) {
     return Status{};
 }
 
+// A full-scene snapshot for the editor's Simulate loop (play-in-editor design: snapshot ->
+// run -> restore). Capture serializes through the SAME path as .scene saves; Restore drains
+// every entity in the target and deserializes back INTO THE SAME Scene instance, so borrowed
+// references to the scene (pages, edit contexts, guid selections) stay valid - entity guids
+// are part of the snapshot, so guid-keyed state re-resolves after restore.
+class SceneSnapshot {
+public:
+    /// Serialize `scene` into a memory snapshot. Null on serializer failure.
+    [[nodiscard]] static UniquePtr<SceneSnapshot> Capture(Scene& scene) {
+        MemoryStream buffer;
+        BinarySerializer ar(buffer, SerializeMode::Write);
+        SerializeScene(ar, scene);
+        if (!ar.IsOk()) { return UniquePtr<SceneSnapshot>{}; }
+        UniquePtr<SceneSnapshot> snapshot = MakeUnique<SceneSnapshot>(DefaultAllocator());
+        const Span<const byte> bytes = buffer.Bytes();
+        snapshot->m_blob.Reserve(bytes.Size());
+        for (byte b : bytes) { snapshot->m_blob.PushBack(b); }
+        return snapshot;
+    }
+
+    /// Drain `scene` and rebuild it from the snapshot. Pass the resource manager to re-bind
+    /// component refs immediately (the same post-load resolve pass scene loading runs).
+    [[nodiscard]] Status Restore(Scene& scene,
+                                 draconic::resource::ResourceManager* resources = nullptr) {
+        // Drain: destroy every root (children go with them). Collect first - destroying
+        // while iterating the entity storage is undefined.
+        Array<EntityHandle> roots;
+        scene.ForEachEntity([&](EntityHandle e) {
+            if (!scene.GetParent(e).IsAssigned()) { roots.PushBack(e); }
+        });
+        for (EntityHandle root : roots) { scene.DestroyEntity(root); }
+
+        MemoryStream buffer;
+        (void)buffer.Write(m_blob.Data(), m_blob.Size());
+        (void)buffer.Seek(0, SeekOrigin::Begin);
+        BinarySerializer ar(buffer, SerializeMode::Read);
+        SerializeScene(ar, scene);
+        if (!ar.IsOk()) { return ar.GetStatus(); }
+        if (resources != nullptr) { ResolveSceneResources(scene, *resources); }
+        return Status{};
+    }
+
+private:
+    Array<byte> m_blob;
+};
+
 DRACONIC_DEFINE_OBJECT(SceneDocument, "draconic::scene")
 
 } // namespace draconic::scene
