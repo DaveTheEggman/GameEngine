@@ -188,6 +188,7 @@ public:
         DRACONIC_PROFILE_SCOPE("Render.Begin");
         if (m_frame.Get() == nullptr) { return; }
         m_sceneCount = 0;
+        m_snapshotOwners.Resize(m_scenes.Size());   // per-frame scene tags for snapshot sharing
         // Provision per-worker extraction arenas for this frame (one per job-system slot, or a
         // single slot when the job system is absent - serial fallback).
         const u32 slotCount = HasGlobalJobSystem() ? GlobalJobs().SlotCount() : 1u;
@@ -215,7 +216,21 @@ public:
                      const TargetState& targetState = {}) override {
         if (m_frame.Get() == nullptr || target == nullptr) { return; }
 
-        ExtractedScene* snapshot = AcquireScene();
+        // ONE extraction per scene per frame: a scene rendered through several views
+        // (split-screen) shares one snapshot - so the per-scene shadow/probe/IBL work
+        // grouped on the snapshot downstream runs once, not per view. (Scenes must not
+        // mutate between RenderScene calls of one frame - the Begin/End bracket contract.)
+        ExtractedScene* snapshot = nullptr;
+        for (usize i = 0; i < m_sceneCount; ++i) {
+            if (m_snapshotOwners[i] == &scene) { snapshot = m_scenes[i].Get(); break; }
+        }
+        const bool firstSight = (snapshot == nullptr);
+        if (firstSight) {
+            snapshot = AcquireScene();
+            if (m_snapshotOwners.Size() < m_sceneCount) { m_snapshotOwners.Resize(m_sceneCount); }
+            m_snapshotOwners[m_sceneCount - 1] = &scene;
+        }
+        if (firstSight)
         {
             DRACONIC_PROFILE_SCOPE("Render.Extract");
             ExtractSceneInto(scene, *snapshot, m_renderCtx);   // parallel when the job system is up (resets snapshot)
@@ -454,6 +469,7 @@ private:
 
     Array<UniquePtr<ExtractedScene>>          m_scenes;       // snapshot pool
     usize                                     m_sceneCount = 0;
+    Array<scene::Scene*>                      m_snapshotOwners;   // [i] = the scene m_scenes[i] holds this frame
     RenderContext                             m_renderCtx;    // per-worker extraction arenas
 };
 
