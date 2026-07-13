@@ -21,13 +21,13 @@ enum class EncoderState { Recording, InRenderPass, InComputePass, Finished };
 class ValidatedCommandEncoder : public CommandEncoder, public RayTracingEncoderExt {
 public:
     RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
-    explicit ValidatedCommandEncoder(CommandEncoder* inner)
-        : m_inner(inner) {}
+    explicit ValidatedCommandEncoder(CommandEncoder* inner, IAllocator& allocator)
+        : m_inner(inner), m_allocator(allocator) {}
 
     ~ValidatedCommandEncoder() override {
         // Bundle encoders (and the bundles they own) live until the command encoder is
         // destroyed - by then its submission has completed, so the inner bundles are done.
-        for (auto* e : m_bundleEncoders) delete e;
+        for (auto* e : m_bundleEncoders) m_allocator.Delete(e);
     }
 
     // Called by sub-encoders when their end() fires.
@@ -62,7 +62,7 @@ public:
         if (!checkState("createRenderBundleEncoder", EncoderState::Recording)) return nullptr;
         auto* inner = m_inner->CreateRenderBundleEncoder(desc);
         if (!inner) return nullptr;   // backend does not support bundles
-        auto* wrapped = new ValidatedRenderBundleEncoder(inner);
+        auto* wrapped = m_allocator.New<ValidatedRenderBundleEncoder>(inner, m_allocator);
         m_bundleEncoders.PushBack(wrapped);   // owned: freed in this encoder's destructor
         return wrapped;
     }
@@ -241,6 +241,7 @@ private:
     }
 
     CommandEncoder* m_inner;
+    IAllocator&     m_allocator;
     EncoderState    m_state = EncoderState::Recording;
     i32             m_debugLabelDepth = 0;
     bool            m_rtPipelineBound = false;

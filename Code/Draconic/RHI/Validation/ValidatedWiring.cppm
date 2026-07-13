@@ -16,15 +16,15 @@ using namespace draconic::core;
 
 namespace draconic::rhi::validation {
 
-ValidatedAdapter* ValidatedBackend::CreateValidatedAdapter(Adapter* inner) {
-    return new ValidatedAdapter(inner);
+ValidatedAdapter* ValidatedBackend::CreateValidatedAdapter(Adapter* inner, IAllocator& allocator) {
+    return allocator.New<ValidatedAdapter>(inner, allocator);
 }
 
 Status ValidatedAdapter::CreateDevice(const DeviceDesc& desc, Device*& out) {
     Device* innerDevice = nullptr;
     Status r = m_inner->CreateDevice(desc, innerDevice);
     if (r != ErrorCode::Ok || !innerDevice) { out = nullptr; return r; }
-    out = new ValidatedDevice(innerDevice);
+    out = m_allocator.New<ValidatedDevice>(innerDevice, m_allocator);
     return ErrorCode::Ok;
 }
 

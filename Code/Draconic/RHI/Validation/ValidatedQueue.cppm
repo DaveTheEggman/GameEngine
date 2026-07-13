@@ -18,7 +18,7 @@ export namespace draconic::rhi::validation {
 
 class ValidatedQueue : public Queue {
 public:
-    explicit ValidatedQueue(Queue* inner) : m_inner(inner) { queueType = inner->queueType; }
+    explicit ValidatedQueue(Queue* inner, IAllocator& allocator) : m_inner(inner), m_allocator(allocator) { queueType = inner->queueType; }
 
     void Submit(Span<CommandBuffer* const> cmdBufs) override {
         for (usize i = 0; i < cmdBufs.Size(); ++i)
@@ -57,7 +57,7 @@ public:
         TransferBatch* innerBatch = nullptr;
         Status r = m_inner->CreateTransferBatch(innerBatch);
         if (r != ErrorCode::Ok || !innerBatch) { out = nullptr; return r; }
-        out = new ValidatedTransferBatch(innerBatch);
+        out = m_allocator.New<ValidatedTransferBatch>(innerBatch);
         return ErrorCode::Ok;
     }
 
@@ -67,7 +67,7 @@ public:
         if (vt) {
             TransferBatch* innerBatch = vt->inner();
             m_inner->DestroyTransferBatch(innerBatch);
-            delete vt;
+            m_allocator.Delete(vt);
         } else {
             m_inner->DestroyTransferBatch(batch);
         }
@@ -80,6 +80,7 @@ public:
 
 private:
     Queue* m_inner;
+    IAllocator& m_allocator;
 };
 
 } // namespace draconic::rhi::validation

@@ -26,8 +26,8 @@ private:
 // forwards to the inner bundle encoder. Owns the ValidatedRenderBundle it produces at Finish.
 class ValidatedRenderBundleEncoder : public RenderBundleEncoder {
 public:
-    explicit ValidatedRenderBundleEncoder(RenderBundleEncoder* inner) : m_inner(inner) {}
-    ~ValidatedRenderBundleEncoder() override { delete m_bundle; }
+    explicit ValidatedRenderBundleEncoder(RenderBundleEncoder* inner, IAllocator& allocator) : m_inner(inner), m_allocator(allocator) {}
+    ~ValidatedRenderBundleEncoder() override { m_allocator.Delete(m_bundle); }
 
     void SetPipeline(RenderPipeline* pipeline) override {
         if (m_finished) { LogError("[Validation] bundle setPipeline: bundle already finished"); return; }
@@ -91,7 +91,7 @@ public:
         m_finished = true;
         RenderBundle* innerBundle = m_inner->Finish();
         if (innerBundle == nullptr) { LogError("[Validation] bundle finish: inner returned null"); return nullptr; }
-        m_bundle = new ValidatedRenderBundle(innerBundle);   // freed by this encoder's destructor
+        m_bundle = m_allocator.New<ValidatedRenderBundle>(innerBundle);   // freed by this encoder's destructor
         return m_bundle;
     }
 
@@ -103,6 +103,7 @@ private:
     }
 
     RenderBundleEncoder*   m_inner;
+    IAllocator&            m_allocator;
     ValidatedRenderBundle* m_bundle = nullptr;
     bool                   m_pipelineBound = false;
     bool                   m_finished      = false;

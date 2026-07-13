@@ -15,7 +15,7 @@ TEST_CASE("rhi.validation: wraps a backend and forwards valid calls")
     Backend* inner = nullptr;
     REQUIRE(null::CreateNullBackend(inner).IsOk());
 
-    validation::ValidatedBackend vb(inner);
+    validation::ValidatedBackend vb(inner, DefaultAllocator());
     auto adapters = vb.EnumerateAdapters();
     REQUIRE(adapters.Size() >= 1u);
 
@@ -35,7 +35,7 @@ TEST_CASE("rhi.validation: catches invalid usage (null texture)")
     Backend* inner = nullptr;
     REQUIRE(null::CreateNullBackend(inner).IsOk());
 
-    validation::ValidatedBackend vb(inner);
+    validation::ValidatedBackend vb(inner, DefaultAllocator());
     Device* device = nullptr;
     REQUIRE(vb.EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
 

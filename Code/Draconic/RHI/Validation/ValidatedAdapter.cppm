@@ -17,7 +17,7 @@ class ValidatedDevice;
 
 class ValidatedAdapter : public Adapter {
 public:
-    explicit ValidatedAdapter(Adapter* inner) : m_inner(inner) {}
+    explicit ValidatedAdapter(Adapter* inner, IAllocator& allocator) : m_inner(inner), m_allocator(allocator) {}
 
     void GetInfo(AdapterInfo& out) override { m_inner->GetInfo(out); }
 
@@ -27,6 +27,7 @@ public:
 
 private:
     Adapter* m_inner;
+    IAllocator& m_allocator;
 };
 
 } // namespace draconic::rhi::validation

@@ -16,13 +16,13 @@ export namespace draconic::rhi::validation {
 
 class ValidatedCommandPool : public CommandPool {
 public:
-    explicit ValidatedCommandPool(CommandPool* inner) : m_inner(inner) {}
+    explicit ValidatedCommandPool(CommandPool* inner, IAllocator& allocator) : m_inner(inner), m_allocator(allocator) {}
 
     Status CreateEncoder(CommandEncoder*& out) override {
         CommandEncoder* innerEnc = nullptr;
         Status r = m_inner->CreateEncoder(innerEnc);
         if (r != ErrorCode::Ok || !innerEnc) { out = nullptr; return r; }
-        out = new ValidatedCommandEncoder(innerEnc);
+        out = m_allocator.New<ValidatedCommandEncoder>(innerEnc, m_allocator);
         return ErrorCode::Ok;
     }
 
@@ -32,7 +32,7 @@ public:
         if (ve) {
             CommandEncoder* innerEnc = ve->inner();
             m_inner->DestroyEncoder(innerEnc);
-            delete ve;
+            m_allocator.Delete(ve);
         } else {
             m_inner->DestroyEncoder(encoder);
         }
@@ -45,6 +45,7 @@ public:
 
 private:
     CommandPool* m_inner;
+    IAllocator& m_allocator;
 };
 
 } // namespace draconic::rhi::validation

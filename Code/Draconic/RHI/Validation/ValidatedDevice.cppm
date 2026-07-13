@@ -21,7 +21,7 @@ export namespace draconic::rhi::validation {
 
 class ValidatedDevice : public Device {
 public:
-    explicit ValidatedDevice(Device* inner) : m_inner(inner) {
+    explicit ValidatedDevice(Device* inner, IAllocator& allocator) : m_inner(inner), m_allocator(allocator) {
         type     = inner->type;
         features = inner->features;
         shaderGroupHandleSize      = inner->shaderGroupHandleSize;
@@ -35,7 +35,7 @@ public:
         Queue* raw = m_inner->GetQueue(t, index);
         if (!raw) return nullptr;
         for (auto& w : m_queueWrappers) if (w.raw == raw) return w.validated;
-        auto* vq = new ValidatedQueue(raw);
+        auto* vq = m_allocator.New<ValidatedQueue>(raw, m_allocator);
         m_queueWrappers.PushBack({ raw, vq });
         return vq;
     }
@@ -77,7 +77,7 @@ public:
         CommandPool* innerPool = nullptr;
         Status r = m_inner->CreateCommandPool(qt, innerPool);
         if (r != ErrorCode::Ok || !innerPool) { out = nullptr; return r; }
-        out = new ValidatedCommandPool(innerPool);
+        out = m_allocator.New<ValidatedCommandPool>(innerPool, m_allocator);
         m_liveCommandPools.PushBack(out);
         return ErrorCode::Ok;
     }
@@ -87,7 +87,7 @@ public:
         Fence* innerFence = nullptr;
         Status r = m_inner->CreateFence(initialValue, innerFence);
         if (r != ErrorCode::Ok || !innerFence) { out = nullptr; return r; }
-        out = new ValidatedFence(innerFence);
+        out = m_allocator.New<ValidatedFence>(innerFence);
         m_liveFences.PushBack(out);
         return ErrorCode::Ok;
     }
@@ -97,7 +97,7 @@ public:
         SwapChain* innerSc = nullptr;
         Status r = m_inner->CreateSwapChain(surface, d, innerSc);
         if (r != ErrorCode::Ok || !innerSc) { out = nullptr; return r; }
-        out = new ValidatedSwapChain(innerSc);
+        out = m_allocator.New<ValidatedSwapChain>(innerSc);
         m_liveSwapChains.PushBack(out);
         return ErrorCode::Ok;
     }
@@ -153,7 +153,7 @@ public:
         if (!pool) return;
         removeFromList(m_liveCommandPools, pool);
         auto* vp = static_cast<ValidatedCommandPool*>(pool);
-        if (vp) { CommandPool* innerPool = vp->inner(); m_inner->DestroyCommandPool(innerPool); delete vp; }
+        if (vp) { CommandPool* innerPool = vp->inner(); m_inner->DestroyCommandPool(innerPool); m_allocator.Delete(vp); }
         else m_inner->DestroyCommandPool(pool);
         pool = nullptr;
     }
@@ -162,7 +162,7 @@ public:
         if (!fence) return;
         removeFromList(m_liveFences, fence);
         auto* vf = static_cast<ValidatedFence*>(fence);
-        if (vf) { Fence* innerFence = vf->inner(); m_inner->DestroyFence(innerFence); delete vf; }
+        if (vf) { Fence* innerFence = vf->inner(); m_inner->DestroyFence(innerFence); m_allocator.Delete(vf); }
         else m_inner->DestroyFence(fence);
         fence = nullptr;
     }
@@ -171,7 +171,7 @@ public:
         if (!sc) return;
         removeFromList(m_liveSwapChains, sc);
         auto* vs = static_cast<ValidatedSwapChain*>(sc);
-        if (vs) { SwapChain* innerSc = vs->inner(); m_inner->DestroySwapChain(innerSc); delete vs; }
+        if (vs) { SwapChain* innerSc = vs->inner(); m_inner->DestroySwapChain(innerSc); m_allocator.Delete(vs); }
         else m_inner->DestroySwapChain(sc);
         sc = nullptr;
     }
@@ -184,10 +184,10 @@ public:
         if (m_destroyed) { LogError("[Validation] Device::destroy: already destroyed"); return; }
         m_destroyed = true;
         reportLeaks();
-        for (auto& w : m_queueWrappers) delete w.validated;
+        for (auto& w : m_queueWrappers) m_allocator.Delete(w.validated);
         m_queueWrappers.Clear();
         m_inner->Destroy();
-        delete this;
+        IAllocator& alloc = m_allocator; this->~ValidatedDevice(); alloc.Free(this);
     }
 
 private:
@@ -231,6 +231,7 @@ private:
     }
 
     Device* m_inner;
+    IAllocator& m_allocator;
     bool    m_destroyed = false;
 
     struct QueueWrap { Queue* raw; ValidatedQueue* validated; };

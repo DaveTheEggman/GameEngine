@@ -17,7 +17,7 @@ export namespace draconic::rhi::validation {
 
 class ValidatedBackend : public Backend {
 public:
-    explicit ValidatedBackend(Backend* inner) : m_inner(inner) {
+    explicit ValidatedBackend(Backend* inner, IAllocator& allocator) : m_inner(inner), m_allocator(allocator) {
         isInitialized = inner->isInitialized;
     }
 
@@ -32,7 +32,7 @@ public:
             m_adapterWrappers.Reserve(innerAdapters.Size());
             m_adapterPtrs.Reserve(innerAdapters.Size());
             for (usize i = 0; i < innerAdapters.Size(); ++i) {
-                auto* w = CreateValidatedAdapter(innerAdapters[i]);
+                auto* w = CreateValidatedAdapter(innerAdapters[i], m_allocator);
                 m_adapterWrappers.PushBack(w);
                 m_adapterPtrs.PushBack(w);
             }
@@ -51,26 +51,27 @@ public:
     }
 
     void Destroy() override {
-        for (auto* w : m_adapterWrappers) delete w;
+        for (auto* w : m_adapterWrappers) m_allocator.Delete(w);
         m_adapterWrappers.Clear();
         m_adapterPtrs.Clear();
         m_inner->Destroy();
-        delete this;
+        IAllocator& alloc = m_allocator; this->~ValidatedBackend(); alloc.Free(this);
     }
 
     Backend* inner() const { return m_inner; }
 
 private:
-    static ValidatedAdapter* CreateValidatedAdapter(Adapter* inner);
+    static ValidatedAdapter* CreateValidatedAdapter(Adapter* inner, IAllocator& allocator);
 
     Backend* m_inner;
+    IAllocator& m_allocator;
     Array<ValidatedAdapter*> m_adapterWrappers;
     Array<Adapter*>          m_adapterPtrs;
 };
 
-Backend* CreateValidatedBackend(Backend* inner) {
+Backend* CreateValidatedBackend(Backend* inner, IAllocator& allocator = DefaultAllocator()) {
     if (!inner) { LogError("[Validation] CreateValidatedBackend: inner is null"); return nullptr; }
-    return new ValidatedBackend(inner);
+    return allocator.New<ValidatedBackend>(inner, allocator);
 }
 
 } // namespace draconic::rhi::validation
