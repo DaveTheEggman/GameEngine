@@ -368,6 +368,29 @@ class EnvironmentSystem final : public scene::SceneSystem {
 public:
     [[nodiscard]] EnvironmentSettings&       Environment()       noexcept { return m_env; }
     [[nodiscard]] const EnvironmentSettings& Environment() const noexcept { return m_env; }
+
+    // Scene-level settings seam: the editor's scene inspector edits m_env through the
+    // reflected type; SerializeScene persists it (wrapped in the type's versioned payload -
+    // reflection registration stamps dataVersion 1, so future fields gate on ar.Version()).
+    [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<EnvironmentSettings>(); }
+    [[nodiscard]] void* SettingsInstance() noexcept override { return &m_env; }
+    [[nodiscard]] StringView SettingsId() const noexcept override { return u8"environment"; }
+    void SerializeSettings(ISerializer& ar) override {
+        draconic::core::Serialize(ar, "ambientColor",     m_env.ambientColor);
+        draconic::core::Serialize(ar, "ambientIntensity", m_env.ambientIntensity);
+        u32 mode = static_cast<u32>(m_env.skyMode);
+        draconic::core::Serialize(ar, "skyMode", mode);
+        if (ar.Mode() == SerializeMode::Read) { m_env.skyMode = static_cast<SkyMode>(mode); }
+        draconic::core::Serialize(ar, "skyIntensity",   m_env.skyIntensity);
+        draconic::core::Serialize(ar, "skyRotation",    m_env.skyRotation);
+        draconic::core::Serialize(ar, "skyHorizon",     m_env.skyHorizon);
+        draconic::core::Serialize(ar, "skyZenith",      m_env.skyZenith);
+        draconic::core::Serialize(ar, "skyGround",      m_env.skyGround);
+        draconic::core::Serialize(ar, "sunIntensity",   m_env.sunIntensity);
+        draconic::core::Serialize(ar, "sunAngularSize", m_env.sunAngularSize);
+        draconic::core::Serialize(ar, "turbidity",      m_env.turbidity);
+    }
+
 private:
     EnvironmentSettings m_env;
 };
@@ -470,6 +493,31 @@ DRACONIC_REFLECT_VALUE(DecalComponent, "draconic::render")
            .Property<&DecalComponent::visible>("visible");
 }
 
+DRACONIC_REFLECT_ENUM(SkyMode, "draconic::render")
+{
+    builder.Value("Procedural", SkyMode::Procedural);
+    builder.Value("Analytic", SkyMode::Analytic);
+    builder.Value("Color", SkyMode::Color);
+    builder.Value("HDREquirect", SkyMode::HDREquirect);
+    builder.Value("Cubemap", SkyMode::Cubemap);
+}
+
+DRACONIC_REFLECT_VALUE(EnvironmentSettings, "draconic::render")
+{
+    builder.DataVersion(1)
+           .Property<&EnvironmentSettings::ambientColor>("ambientColor")
+           .Property<&EnvironmentSettings::ambientIntensity>("ambientIntensity")
+           .Property<&EnvironmentSettings::skyMode>("skyMode")
+           .Property<&EnvironmentSettings::skyIntensity>("skyIntensity")
+           .Property<&EnvironmentSettings::skyRotation>("skyRotation")
+           .Property<&EnvironmentSettings::skyHorizon>("skyHorizon")
+           .Property<&EnvironmentSettings::skyZenith>("skyZenith")
+           .Property<&EnvironmentSettings::skyGround>("skyGround")
+           .Property<&EnvironmentSettings::sunIntensity>("sunIntensity")
+           .Property<&EnvironmentSettings::sunAngularSize>("sunAngularSize")
+           .Property<&EnvironmentSettings::turbidity>("turbidity");
+}
+
 DRACONIC_REFLECT_VALUE(ReflectionProbeComponent, "draconic::render")
 {
     builder.Property<&ReflectionProbeComponent::halfExtents>("halfExtents")
@@ -501,6 +549,8 @@ namespace draconic::render
             DraconicRegisterEnum_SpriteOrientation();
             DraconicRegisterEnum_ShadowUpdateMode();
             DraconicRegisterEnum_ProbeUpdateMode();
+            DraconicRegisterEnum_SkyMode();
+            DraconicRegisterValue_EnvironmentSettings();
             DraconicRegisterValue_MeshComponent();
         DraconicRegisterValue_InstancedMeshComponent();
             DraconicRegisterValue_CameraComponent();
