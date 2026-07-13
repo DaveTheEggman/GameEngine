@@ -93,13 +93,18 @@ namespace
     // named uniquely (Cube, Cube2, ...). The creator system cooks it right after, so it shows
     // up in the mesh pickers without further steps (quick prototyping, not whiteboxing).
     draconic::content::Instance* CreatePrimitiveMeshInstance(
-        ed::EditorContext& ctx, StringView baseName, RefPtr<draconic::geometry::StaticMesh> mesh)
+        ed::EditorContext& ctx, StringView baseName, RefPtr<draconic::geometry::StaticMesh> mesh,
+        draconic::content::Group* target)
     {
         ed::EditorProject* project = ctx.Project();
         if (project == nullptr || mesh.Get() == nullptr) { return nullptr; }
-        draconic::content::Group* root = project->SourceDb().RootGroup();
-        draconic::content::Group* meshes = root->GetGroup(u8"Meshes");
-        if (meshes == nullptr) { meshes = root->CreateGroup(u8"Meshes"); }
+        draconic::content::Group* meshes = target;
+        if (meshes == nullptr)
+        {
+            draconic::content::Group* root = project->SourceDb().RootGroup();
+            meshes = root->GetGroup(u8"Meshes");
+            if (meshes == nullptr) { meshes = root->CreateGroup(u8"Meshes"); }
+        }
         if (meshes == nullptr) { return nullptr; }
 
         String name(baseName);
@@ -124,23 +129,22 @@ namespace
         namespace geo = draconic::geometry;
         struct Entry { const utf8char* label; RefPtr<geo::StaticMesh> (*make)(); };
         static const Entry entries[] = {
-            { u8"Cube Mesh",     []() { return geo::Primitives::Cube(); } },
-            { u8"Sphere Mesh",   []() { return geo::Primitives::Sphere(); } },
-            { u8"Plane Mesh",    []() { return geo::Primitives::Plane(); } },
-            { u8"Cylinder Mesh", []() { return geo::Primitives::Cylinder(); } },
-            { u8"Cone Mesh",     []() { return geo::Primitives::Cone(); } },
-            { u8"Torus Mesh",    []() { return geo::Primitives::Torus(); } },
+            { u8"Cube",     []() { return geo::Primitives::Cube(); } },
+            { u8"Sphere",   []() { return geo::Primitives::Sphere(); } },
+            { u8"Plane",    []() { return geo::Primitives::Plane(); } },
+            { u8"Cylinder", []() { return geo::Primitives::Cylinder(); } },
+            { u8"Cone",     []() { return geo::Primitives::Cone(); } },
+            { u8"Torus",    []() { return geo::Primitives::Torus(); } },
         };
         for (const Entry& e : entries)
         {
             ed::EditorContext::AssetCreator creator;
             creator.label = String(StringView(e.label));
+            creator.category = String(StringView(u8"Primitives"));
             auto make = e.make;
-            // The group/instance name drops the " Mesh" suffix ("Cube", "Cube2", ...).
-            const StringView label(e.label);
-            String base(StringView(label.Data(), label.Size() - 5));
-            creator.create = [make, base](ed::EditorContext& ctx) {
-                return CreatePrimitiveMeshInstance(ctx, base.AsView(), make());
+            String base(StringView(e.label));
+            creator.create = [make, base](ed::EditorContext& ctx, draconic::content::Group* group) {
+                return CreatePrimitiveMeshInstance(ctx, base.AsView(), make(), group);
             };
             context.RegisterCreator(draconic::core::Move(creator));
         }
