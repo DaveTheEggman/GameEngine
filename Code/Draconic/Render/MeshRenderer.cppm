@@ -175,16 +175,6 @@ public:
 
     // This frame's IBL products (SH9 diffuse buffer + prefiltered specular cube + BRDF LUT), bound in
     // set 0. null views -> the neutral 1x1 dummies (zero SH + black cube => flat fallback ambient).
-    void SetIBL(rhi::Buffer* sh, rhi::TextureView* prefilter, rhi::TextureView* brdf,
-                f32 maxLod, u64 generation) override {
-        m_activeShBuffer    = (sh != nullptr) ? sh : m_dummyShBuffer;
-        m_activePrefilter   = (prefilter != nullptr) ? prefilter : m_dummyCubeView;
-        m_activeBrdf        = (brdf != nullptr) ? brdf : m_dummyBrdfView;
-        m_iblMaxLod         = maxLod;
-        m_iblActive         = (sh != nullptr && prefilter != nullptr && brdf != nullptr);
-        m_activeIblGen      = m_iblActive ? generation : 0;
-    }
-
     // Upload this frame's local-shadow entries into the local-shadow ring (bound whole at set 0;
     // the shader reads LocalShadows[LocalShadowBase + shadowIndex]). Called once per frame (after
     // PrepareFrame, which begins the ring). The base is stamped into each view's ViewData in Resolve.
@@ -227,7 +217,7 @@ public:
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
             !m_localShadowRing.Reserve(kMaxLocalShadows) || !m_boneRing.Reserve(kMaxBoneMatrices)) { return; }
         if (!EnsureBoneDevice()) { return; }   // device-local mirror of the bone staging ring (VS reads VRAM)
-        if (!EnsureViewBindGroup() || !EnsureShadowViewBindGroup() ||
+        if (!EnsureShadowViewBindGroup() ||
             !EnsureBindGroup(m_objectRing,   m_objectLayout,   sizeof(ObjectData), m_objectBG,   m_objectBGGen,   /*whole*/ false) ||
             !EnsureBindGroup(m_instanceRing, m_instanceLayout, 0,                  m_instanceBG, m_instanceBGGen, /*whole*/ true)) { return; }
         m_frameIndex = frameIndex;   // frames-in-flight slot for the per-set skinned MultiMesh offsets buffer
@@ -505,6 +495,8 @@ public:
 
     void Resolve(const RenderRecordContext& ctx, Span<const DrawItem> items, Array<ResolvedDraw>& out) override {
         if (!m_ready || items.IsEmpty()) { return; }
+        // This VIEW's set-0 group (its scene's IBL products; per-view slots - see the Ensure doc).
+        if (!EnsureViewBindGroup(ctx)) { return; }
 
         // Upload this view's lights into the light ring (bound whole at set 0; the shader reads
         // Lights[lightOffset + i]). Clamp to the per-frame capacity.
@@ -540,7 +532,9 @@ public:
         vd.view          = ctx.viewMatrix;
         vd.cameraPos     = ctx.cameraPos;
         vd.ambient       = ctx.ambient;
-        vd.iblMaxLod     = m_iblActive ? m_iblMaxLod : -1.0f;   // <0 => forward uses flat ambient
+        const bool iblActive = ctx.ibl.valid && ctx.ibl.shBuffer != nullptr
+                            && ctx.ibl.prefilterView != nullptr && ctx.ibl.brdfView != nullptr;
+        vd.iblMaxLod     = iblActive ? ctx.ibl.maxLod : -1.0f;   // <0 => forward uses flat ambient
         // Probes disabled during probe capture (ctx.probesEnabled=false) -> count 0 so metallics reflect the
         // sky (global IBL), not the not-yet-built probe (which would bake them black - self-reflection).
         // ProbeCenter.x = this view's SCENE's base into the Probes SRV (scenes' records are concatenated
@@ -1276,34 +1270,45 @@ private:
     }
 
     // The set-0 bind group spans two rings: the per-view UBO (dynamic-offset window of one
-    // ViewData) + the light list (whole light buffer, read as Lights[lightOffset + i]). Rebuild
-    // when either ring (re)allocated this frame.
-    bool EnsureViewBindGroup() {
+    // ViewData) + the light list (whole light buffer, read as Lights[lightOffset + i]). PER-VIEW
+    // SLOTS: views of different scenes bind different IBL products in one frame (per-scene sky),
+    // so each view index caches its own group - keyed by the ring generations, the shadow/atlas
+    // generations, and the IBL context generation (unique across contexts, [[bind-group-cache-
+    // versioning]]). Sets m_viewBG (the CURRENT view's group) for the Resolve* bodies.
+    bool EnsureViewBindGroup(const RenderRecordContext& ctx) {
         if (m_activeShadowView == nullptr) { m_activeShadowView = m_dummyShadowView; }
         if (m_activeAtlasView == nullptr)  { m_activeAtlasView  = m_dummyAtlasView; }
-        if (m_activeShBuffer == nullptr)   { m_activeShBuffer   = m_dummyShBuffer; }
-        if (m_activePrefilter == nullptr)  { m_activePrefilter  = m_dummyCubeView; }
-        if (m_activeBrdf == nullptr)       { m_activeBrdf       = m_dummyBrdfView; }
         if (m_activeProbeCube == nullptr)   { m_activeProbeCube   = m_dummyProbeCubeView; }
         if (m_activeProbeBuffer == nullptr) { m_activeProbeBuffer = m_dummyProbeBuffer; }
-        if (m_viewBG != nullptr && m_viewBGViewGen == m_viewRing.Generation() &&
-            m_viewBGLightGen == m_lightRing.Generation() &&
-            m_viewBGShadow == m_activeShadowView && m_viewBGShadowGen == m_activeShadowGen &&
-            m_viewBGAtlas == m_activeAtlasView && m_viewBGAtlasGen == m_activeAtlasGen &&
-            m_viewBGLocalGen == m_localShadowRing.Generation() &&
-            m_viewBGBoneGen == m_boneDeviceGen &&
-            m_viewBGIblGen == m_activeIblGen && m_viewBGPrefilter == m_activePrefilter &&
-            m_viewBGProbeCube == m_activeProbeCube && m_viewBGProbeBuf == m_activeProbeBuffer) {
+        // This view's SCENE's IBL products (dummies when IBL is off/unavailable).
+        const bool iblActive = ctx.ibl.valid && ctx.ibl.shBuffer != nullptr
+                            && ctx.ibl.prefilterView != nullptr && ctx.ibl.brdfView != nullptr;
+        rhi::Buffer*      sh        = iblActive ? ctx.ibl.shBuffer : m_dummyShBuffer;
+        rhi::TextureView* prefilter = iblActive ? ctx.ibl.prefilterView : m_dummyCubeView;
+        rhi::TextureView* brdf      = iblActive ? ctx.ibl.brdfView : m_dummyBrdfView;
+        const u64         iblGen    = iblActive ? ctx.ibl.generation : 0;
+
+        if (m_viewBGs.Size() <= ctx.viewIndex) { m_viewBGs.Resize(ctx.viewIndex + 1u); }
+        ViewBGSlot& slot = m_viewBGs[ctx.viewIndex];
+        if (slot.bg != nullptr && slot.viewGen == m_viewRing.Generation() &&
+            slot.lightGen == m_lightRing.Generation() &&
+            slot.shadow == m_activeShadowView && slot.shadowGen == m_activeShadowGen &&
+            slot.atlas == m_activeAtlasView && slot.atlasGen == m_activeAtlasGen &&
+            slot.localGen == m_localShadowRing.Generation() &&
+            slot.boneGen == m_boneDeviceGen &&
+            slot.iblGen == iblGen && slot.prefilter == prefilter &&
+            slot.probeCube == m_activeProbeCube && slot.probeBuf == m_activeProbeBuffer) {
+            m_viewBG = slot.bg;
             return true;
         }
-        RetireBindGroup(m_viewBG); m_viewBG = nullptr;
+        RetireBindGroup(slot.bg); slot.bg = nullptr; m_viewBG = nullptr;
         rhi::Buffer* viewBuf = m_viewRing.Buffer();
         rhi::Buffer* lightBuf = m_lightRing.Buffer();
         rhi::Buffer* localBuf = m_localShadowRing.Buffer();
         rhi::Buffer* boneBuf  = m_boneDevice;   // VS reads the device mirror, not the staging ring
         if (viewBuf == nullptr || lightBuf == nullptr || localBuf == nullptr || boneBuf == nullptr ||
             m_activeShadowView == nullptr || m_activeAtlasView == nullptr || m_shadowSampler == nullptr ||
-            m_activeShBuffer == nullptr || m_activePrefilter == nullptr || m_activeBrdf == nullptr || m_envSampler == nullptr) { return false; }
+            sh == nullptr || prefilter == nullptr || brdf == nullptr || m_envSampler == nullptr) { return false; }
         // Order must match the set-0 layout: view UBO, lights, cascade map (t1), local atlas (t2),
         // local-shadow entries (t3), comparison sampler (s0), bone-matrix pool (t4), IBL SH9 (t5),
         // prefilter cube (t6), BRDF LUT (t7), env sampler (s1). Buffers bound whole.
@@ -1315,9 +1320,9 @@ private:
             rhi::BindGroupEntry::BufferEntry(localBuf, 0, m_localShadowRing.ByteCapacity()),
             rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),
             rhi::BindGroupEntry::BufferEntry(boneBuf, 0, m_boneDeviceBytes),
-            rhi::BindGroupEntry::BufferEntry(m_activeShBuffer, 0, kShBytes),
-            rhi::BindGroupEntry::TextureEntry(m_activePrefilter),
-            rhi::BindGroupEntry::TextureEntry(m_activeBrdf),
+            rhi::BindGroupEntry::BufferEntry(sh, 0, kShBytes),
+            rhi::BindGroupEntry::TextureEntry(prefilter),
+            rhi::BindGroupEntry::TextureEntry(brdf),
             rhi::BindGroupEntry::SamplerEntry(m_envSampler),
             rhi::BindGroupEntry::TextureEntry(m_activeProbeCube),
             rhi::BindGroupEntry::BufferEntry(m_activeProbeBuffer, 0, kProbeBufferBytes),
@@ -1325,19 +1330,20 @@ private:
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_viewLayout;
         bgd.entries = Span<const rhi::BindGroupEntry>{ entries, 13 };
-        if (!m_device->CreateBindGroup(bgd, m_viewBG).IsOk()) { m_viewBG = nullptr; return false; }
-        m_viewBGViewGen = m_viewRing.Generation();
-        m_viewBGLightGen = m_lightRing.Generation();
-        m_viewBGShadow = m_activeShadowView;
-        m_viewBGShadowGen = m_activeShadowGen;
-        m_viewBGAtlas = m_activeAtlasView;
-        m_viewBGAtlasGen = m_activeAtlasGen;
-        m_viewBGLocalGen = m_localShadowRing.Generation();
-        m_viewBGBoneGen = m_boneDeviceGen;
-        m_viewBGIblGen = m_activeIblGen;
-        m_viewBGPrefilter = m_activePrefilter;
-        m_viewBGProbeCube = m_activeProbeCube;
-        m_viewBGProbeBuf  = m_activeProbeBuffer;
+        if (!m_device->CreateBindGroup(bgd, slot.bg).IsOk()) { slot.bg = nullptr; return false; }
+        slot.viewGen = m_viewRing.Generation();
+        slot.lightGen = m_lightRing.Generation();
+        slot.shadow = m_activeShadowView;
+        slot.shadowGen = m_activeShadowGen;
+        slot.atlas = m_activeAtlasView;
+        slot.atlasGen = m_activeAtlasGen;
+        slot.localGen = m_localShadowRing.Generation();
+        slot.boneGen = m_boneDeviceGen;
+        slot.iblGen = iblGen;
+        slot.prefilter = prefilter;
+        slot.probeCube = m_activeProbeCube;
+        slot.probeBuf  = m_activeProbeBuffer;
+        m_viewBG = slot.bg;
         return true;
     }
 
@@ -1417,9 +1423,6 @@ private:
         pbd.memory = rhi::MemoryLocation::GpuOnly; pbd.label = u8"mesh.dummyProbeBuf";
         if (!m_device->CreateBuffer(pbd, m_dummyProbeBuffer).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
-        m_activeShBuffer    = m_dummyShBuffer;
-        m_activePrefilter   = m_dummyCubeView;
-        m_activeBrdf        = m_dummyBrdfView;
         m_activeProbeCube   = m_dummyProbeCubeView;
         m_activeProbeBuffer = m_dummyProbeBuffer;
         return Status{};
@@ -1498,7 +1501,11 @@ private:
         m_meshes.Clear();
         for (RetiredBG& r : m_retiredBGs) { m_device->DestroyBindGroup(r.bg); }
         m_retiredBGs.Clear();
-        if (m_viewBG)       { m_device->DestroyBindGroup(m_viewBG); m_viewBG = nullptr; }
+        for (ViewBGSlot& slot : m_viewBGs) {
+            if (slot.bg != nullptr) { m_device->DestroyBindGroup(slot.bg); slot.bg = nullptr; }
+        }
+        m_viewBGs.Clear();
+        m_viewBG = nullptr;   // borrowed from a slot - already destroyed above
         if (m_shadowViewBG) { m_device->DestroyBindGroup(m_shadowViewBG); m_shadowViewBG = nullptr; }
         if (m_boneDevice)   { m_device->DestroyBuffer(m_boneDevice); m_boneDevice = nullptr; m_boneDeviceBytes = 0; }
         if (m_dummyShadowView) { m_device->DestroyTextureView(m_dummyShadowView); m_dummyShadowView = nullptr; }
@@ -1630,7 +1637,18 @@ private:
     struct RetiredBG { rhi::BindGroup* bg; u32 framesLeft; };
     Array<RetiredBG> m_retiredBGs;
 
-    rhi::BindGroup* m_viewBG       = nullptr;
+    // Per-view set-0 slots (views of different scenes bind different IBL products) + the
+    // CURRENT view's group (set by EnsureViewBindGroup; read by the Resolve* bodies).
+    struct ViewBGSlot {
+        rhi::BindGroup*   bg = nullptr;
+        u32 viewGen = 0, lightGen = 0, localGen = 0, boneGen = 0;
+        rhi::TextureView* shadow = nullptr;   u64 shadowGen = 0;
+        rhi::TextureView* atlas = nullptr;    u64 atlasGen = 0;
+        u64 iblGen = 0; rhi::TextureView* prefilter = nullptr;
+        rhi::TextureView* probeCube = nullptr; rhi::Buffer* probeBuf = nullptr;
+    };
+    Array<ViewBGSlot> m_viewBGs;
+    rhi::BindGroup* m_viewBG       = nullptr;   // current view's (borrowed from its slot)
     rhi::BindGroup* m_shadowViewBG = nullptr;
     u32             m_shadowViewBGGen = 0;
     u32             m_shadowViewBGBoneGen = 0;
@@ -1638,13 +1656,10 @@ private:
     rhi::BindGroup* m_instanceBG = nullptr;
     // The set-0 bind group spans the view UBO + light SB + shadow map + sampler; rebuild it when any
     // of those change (rings roll over, or the active shadow map view changes).
-    u32 m_viewBGViewGen = 0, m_viewBGLightGen = 0;
     // The set-0 shadow binding is cached by (view pointer, ShadowSystem generation): a freed shadow
     // texture's view address can be reused by a recreated one (5.2 atlas/resolution changes), so the
     // generation - not the pointer alone - is what reliably invalidates the bind group. See the
     // ClusterBinding::version + ShadowSystem::Generation() docs for the same rationale.
-    rhi::TextureView* m_viewBGShadow = nullptr;
-    u64               m_viewBGShadowGen = 0;
     // Shadow set-0 resources: the comparison sampler + a 1x1 dummy map; m_activeShadowView points at
     // the real ShadowSystem map (set each frame) or the dummy.
     rhi::Sampler*     m_shadowSampler    = nullptr;
@@ -1663,10 +1678,6 @@ private:
     rhi::TextureView* m_dummyAtlasView   = nullptr;
     rhi::TextureView* m_activeAtlasView  = nullptr;
     u64               m_activeAtlasGen   = 0;
-    rhi::TextureView* m_viewBGAtlas      = nullptr;
-    u64               m_viewBGAtlasGen   = 0;
-    u32               m_viewBGLocalGen   = 0;
-    u32               m_viewBGBoneGen    = 0;
     u32               m_localShadowBase  = 0;   // this frame's base into m_localShadowRing
     u32               m_localShadowPassCount = 0;   // # atlas depth passes (caster re-emits) this frame
     u32               m_captureFacePasses    = 0;   // # probe-capture face passes (caster re-emits) this frame
@@ -1710,14 +1721,6 @@ private:
     rhi::Buffer*      m_dummyShBuffer = nullptr;
     rhi::Texture*     m_dummyCube     = nullptr;  rhi::TextureView* m_dummyCubeView = nullptr;
     rhi::Texture*     m_dummyBrdf     = nullptr;  rhi::TextureView* m_dummyBrdfView = nullptr;
-    rhi::Buffer*      m_activeShBuffer = nullptr;
-    rhi::TextureView* m_activePrefilter = nullptr;
-    rhi::TextureView* m_activeBrdf      = nullptr;
-    rhi::TextureView* m_viewBGPrefilter = nullptr;   // bind-group cache key (active prefilter view)
-    f32               m_iblMaxLod    = 0.0f;
-    bool              m_iblActive    = false;
-    u64               m_activeIblGen = 0;
-    u64               m_viewBGIblGen = 0;
 
     // Reflection probes (P2-P4): prefiltered cube-ARRAY (t8) + probe-metadata SRV (t9) + probe count.
     static constexpr u64 kProbeBufferBytes = 64u * 16u;   // sizeof(GpuProbe)=64 * kMaxReflectionProbes=16
@@ -1725,8 +1728,6 @@ private:
     rhi::Buffer*      m_dummyProbeBuffer   = nullptr;   // 1 zeroed record for the no-probe path
     rhi::TextureView* m_activeProbeCube    = nullptr;
     rhi::Buffer*      m_activeProbeBuffer  = nullptr;
-    rhi::TextureView* m_viewBGProbeCube    = nullptr;   // bind-group cache key (view is created once => stable)
-    rhi::Buffer*      m_viewBGProbeBuf     = nullptr;
     u32               m_activeProbeCount   = 0;
 
     // set 3 (clustered light lists). A dummy bound when clustering is off; otherwise one bind group

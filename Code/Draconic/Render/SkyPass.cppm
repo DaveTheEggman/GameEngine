@@ -62,11 +62,12 @@ public:
                     const Float4x4& invViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter,
                     const Float3& camPos, f32 intensity,
                     const Float3& sunDir, f32 sunSize, const Float3& sunColor, f32 sunIntensity,
-                    i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
+                    i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex, u64 envUid,
                     rendergraph::RGSubresourceRange colorSub = {}) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(colorFormat, depthFormat);
         if (pipeline == nullptr || envView == nullptr) { return; }
         const u32 slot = (viewIndex % kMaxViews) * m_fif + (frameIndex % m_fif);
+        const u64 uid  = envUid;
         SkyUniform u{};
         u.invViewProj = invViewProj;
         u.prevViewProj = prevViewProj;
@@ -76,15 +77,15 @@ public:
         u.jitter   = Float4{ jitter.x, jitter.y, prevJitter.x, prevJitter.y };
 
         graph.AddRenderPass(u8"sky",
-            [this, color, velocity, depth, envH, envView, pipeline, slot, u, vpX, vpY, vpW, vpH, colorSub](rendergraph::PassBuilder& b) {
+            [this, color, velocity, depth, envH, envView, pipeline, slot, uid, u, vpX, vpY, vpW, vpH, colorSub](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, color, rhi::LoadOp::Load, rhi::StoreOp::Store, rhi::ClearColor::Black(), colorSub);
                 b.SetColorTarget(1, velocity, rhi::LoadOp::Load, rhi::StoreOp::Store);   // camera-motion velocity for TAA
                 b.SetReadOnlyDepthTarget(depth);     // depth test on, no write
                 b.ReadTexture(envH);                 // order precompute -> sky + barrier readable
                 b.SetViewport(vpX, vpY, vpW, vpH);
                 b.NeverCull();
-                b.SetExecute([this, envView, pipeline, slot, u](rhi::RenderPassEncoder& rp) {
-                    rhi::BindGroup* bg = EnsureBindGroup(slot, envView, u);
+                b.SetExecute([this, envView, pipeline, slot, uid, u](rhi::RenderPassEncoder& rp) {
+                    rhi::BindGroup* bg = EnsureBindGroup(slot, envView, uid, u);
                     if (bg == nullptr) { return; }
                     rp.SetPipeline(pipeline);
                     rp.SetBindGroup(0, bg, Span<const u32>{});
@@ -95,7 +96,7 @@ public:
 
 private:
     static constexpr u32 kMaxFIF = 4;
-    static constexpr u32 kMaxViews = 8;
+    static constexpr u32 kMaxViews = 16;   // mains 0..9, probe-capture faces 10..15
     static constexpr u32 kMaxSlots = kMaxViews * kMaxFIF;
     struct SkyUniform { Float4x4 invViewProj; Float4x4 prevViewProj; Float4 camPosIntensity; Float4 sunDir; Float4 sunColor; Float4 jitter; };
 
@@ -130,7 +131,9 @@ private:
         return m_pipeline;
     }
 
-    rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* envView, const SkyUniform& u) {
+    // Env identity = (view pointer, context uid): the uid catches pointer REUSE after an IBL
+    // context eviction, per the versioned-cache rule.
+    rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* envView, u64 envUid, const SkyUniform& u) {
         if (slot >= kMaxSlots) { return nullptr; }
         Slot& s = m_slots[slot];
         if (s.ubo == nullptr) {
@@ -138,7 +141,7 @@ private:
             if (!m_device->CreateBuffer(bd, s.ubo).IsOk()) { s.ubo = nullptr; return nullptr; }
         }
         if (void* p = s.ubo->Map()) { MemCopy(p, &u, sizeof(SkyUniform)); s.ubo->Unmap(); }
-        if (s.bindGroup == nullptr || s.env != envView) {
+        if (s.bindGroup == nullptr || s.env != envView || s.envUid != envUid) {
             if (s.bindGroup != nullptr) { m_device->DestroyBindGroup(s.bindGroup); s.bindGroup = nullptr; }
             rhi::BindGroupEntry be[] = {
                 rhi::BindGroupEntry::BufferEntry(s.ubo, 0, sizeof(SkyUniform)),
@@ -148,6 +151,7 @@ private:
             rhi::BindGroupDesc bgd{}; bgd.layout = m_layout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 3 };
             if (!m_device->CreateBindGroup(bgd, s.bindGroup).IsOk()) { s.bindGroup = nullptr; return nullptr; }
             s.env = envView;
+            s.envUid = envUid;
         }
         return s.bindGroup;
     }
@@ -163,7 +167,7 @@ private:
         if (m_layout) { m_device->DestroyBindGroupLayout(m_layout); m_layout = nullptr; }
     }
 
-    struct Slot { rhi::Buffer* ubo = nullptr; rhi::BindGroup* bindGroup = nullptr; rhi::TextureView* env = nullptr; };
+    struct Slot { rhi::Buffer* ubo = nullptr; rhi::BindGroup* bindGroup = nullptr; rhi::TextureView* env = nullptr; u64 envUid = 0; };
 
     rhi::Device*           m_device;
     shaders::ShaderSystem* m_shaders;

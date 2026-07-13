@@ -1,18 +1,22 @@
 /// Draconic::Render - the `:ibl` partition.
 ///
 /// Image-Based Lighting: the split-sum environment pipeline (ported from Sedulous.Renderer/IBL with
-/// improvements). Owns the precompute products + declares the render-graph passes that build them:
-///   - env cubemap (256², RGBA16F)        : the source radiance, written from the active sky source
-///                                          (procedural gradient now; HDR equirect + analytic later).
+/// improvements), PER SCENE. A frame can render several scenes side-by-side (editor pages), each
+/// with its own authored sky - so the products live in per-scene CONTEXTS pooled by scene identity,
+/// and every view binds ITS scene's products (the set-0 bind group is per-view downstream):
+///   - env cubemap (256², RGBA16F)        : the source radiance, written from the scene's sky source
+///                                          (procedural gradient / analytic / HDR equirect / cubemap).
 ///   - SH9 diffuse irradiance (buffer)    : 9 RGB spherical-harmonic coeffs projected from the env
 ///                                          cube (REPLACES Sedulous's 32² irradiance cube - cheaper,
 ///                                          smoother, seamless). Improvement over Sedulous.
 ///   - GGX prefiltered specular (cube+mips): Karis split-sum, importance-sampled per roughness mip.
-///   - BRDF integration LUT (256², RG16F) : generated at runtime (Sedulous embeds a baked array).
+/// Shared across scenes: the BRDF integration LUT (sky-independent), all pipelines/layouts/samplers,
+/// and the PROGRAMMATIC equirect/cubemap pixel sources (SetEquirect/SetCubemap - tools/samples).
 ///
-/// Precompute runs only when the source is dirty; products are persistent, imported every frame so the
-/// forward pass orders after + samples them (set 0). Multi-scatter energy compensation + prefilter
-/// mip-sampling are forward-shader / follow-up refinements (see [[ibl-plan]]).
+/// Precompute runs only when a context's source is dirty; products are persistent, imported every
+/// frame so the forward pass orders after + samples them (set 0). Context generations come from ONE
+/// system-wide counter, so a generation value never collides across contexts - downstream bind-group
+/// caches can key on it alone ([[bind-group-cache-versioning]]).
 
 module;
 #include "Core/Prelude.h"
@@ -24,7 +28,7 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :data;   // SkySnapshot / SkyMode (the per-frame environment settings)
+import :data;   // SkySnapshot / SkyMode / ExtractedScene (context identity)
 import :ibl_shaders;   // IblFullscreenVS()/IblCommon()/... - HLSL source in IBLShaders.cppm
 
 using namespace draconic::core;
@@ -32,7 +36,7 @@ namespace rhi = draconic::rhi;
 
 export namespace draconic::render {
 
-// Owns the IBL precompute products + the passes that build them. One per renderer (scene-global env).
+// Owns the per-scene IBL contexts + the passes that build their products. One per renderer.
 class IBLSystem {
 public:
     static constexpr u32 kEnvResolution    = 256;
@@ -41,6 +45,68 @@ public:
     static constexpr u32 kPrefilterMips    = 5;     // roughness = mip / (kPrefilterMips - 1)
     static constexpr u32 kBrdfResolution   = 256;
     static constexpr u32 kShCoeffCount     = 9;
+    // A context unused for this many frames is evicted (its scene's page closed). Long enough
+    // that nothing in flight can still reference the products.
+    static constexpr u64 kEvictAfterFrames = 600;
+
+    // ---- Per-scene context: products + sky state for ONE scene ---------------------------------
+    class Context {
+    public:
+        // Products bound into the forward set 0 (per-view downstream).
+        [[nodiscard]] rhi::TextureView* PrefilterView() const noexcept { return m_prefilterView; }
+        [[nodiscard]] rhi::Buffer*      ShBuffer()      const noexcept { return m_shBuffer; }
+        // Unique ACROSS contexts (one system-wide counter) - safe as a sole cache key.
+        [[nodiscard]] u64               Generation()    const noexcept { return m_generation; }
+        // Stable per-context identity (creation-stamped, never reused) - downstream caches
+        // that key on the env VIEW pair it with this (pointer reuse after eviction).
+        [[nodiscard]] u64               Uid()           const noexcept { return m_uid; }
+
+        // This frame's graph handles (valid after Prepare). The forward ReadTexture/ReadBuffer's
+        // these so the graph orders any precompute writes -> forward and barriers the products.
+        [[nodiscard]] rendergraph::RGHandle PrefilterHandle() const noexcept { return m_prefilterH; }
+        [[nodiscard]] rendergraph::RGHandle ShHandle()        const noexcept { return m_shH; }
+        // The full-radiance environment cube - sampled by the sky pass (background) at full detail.
+        [[nodiscard]] rendergraph::RGHandle EnvHandle()       const noexcept { return m_envH; }
+        [[nodiscard]] rhi::TextureView*     EnvView()         const noexcept { return m_envSampleView; }
+        [[nodiscard]] f32                   SkyIntensity()    const noexcept { return m_sky.intensity; }
+        // Sun (from the scene's directional light) for the sky pass's crisp analytic disc.
+        [[nodiscard]] Float3                  SunDir()          const noexcept { return m_sunDir; }
+        [[nodiscard]] f32                   SunIntensity()    const noexcept { return m_sky.sunIntensity; }
+        [[nodiscard]] f32                   SunAngularSize()  const noexcept { return m_sky.sunAngularSize; }
+        // The sky pass draws a crisp analytic sun disc for the untextured skies (procedural +
+        // Preetham); textured envs (HDR/cubemap) carry their own sun, so it's suppressed there.
+        [[nodiscard]] bool                  HasSunDisc()      const noexcept { return m_sky.mode != SkyMode::HDREquirect && m_sky.mode != SkyMode::Cubemap; }
+
+    private:
+        friend class IBLSystem;
+        const void* m_scene = nullptr;   // identity key (the scene's ExtractedScene)
+        u64 m_uid = 0;
+        u64 m_lastUsedFrame = 0;
+
+        rhi::Texture*     m_envCube = nullptr;        rhi::TextureView* m_envSampleView = nullptr;
+        rhi::TextureView* m_envMipView[kEnvMips] = {};
+        rhi::Texture*     m_prefilterCube = nullptr;  rhi::TextureView* m_prefilterView = nullptr;
+        rhi::Buffer*      m_shBuffer = nullptr;
+        rhi::BindGroup*   m_envBindGroup = nullptr;           // env full-chain sample (prefilter input)
+        rhi::BindGroup*   m_envMipBG[kEnvMips] = {};          // mip m as the downsample source
+        rhi::BindGroup*   m_shBindGroup = nullptr;            // env + SH output buffer (compute)
+        // Asset-driven sky texture (external product view - NOT owned): bind groups only.
+        rhi::BindGroup*   m_externalEquirectBG = nullptr;
+        rhi::BindGroup*   m_externalCubeBG = nullptr;
+        u64               m_externalUid = 0;
+
+        rhi::ResourceState m_envState = rhi::ResourceState::Undefined;
+        rhi::ResourceState m_prefilterState = rhi::ResourceState::Undefined;
+        rendergraph::RGHandle m_prefilterH = {};
+        rendergraph::RGHandle m_shH = {};
+        rendergraph::RGHandle m_envH = {};
+
+        SkySnapshot m_sky{};
+        Float3        m_sunDir = Float3{ 0.0f, -1.0f, 0.0f };
+        bool        m_dirty = true;
+        u64         m_generation = 0;
+        u64         m_sourceStamp = 0;   // programmatic SetEquirect/SetCubemap change tick
+    };
 
     IBLSystem(rhi::Device& device, shaders::ShaderSystem& shaders) noexcept
         : m_device(&device), m_shaders(&shaders) {}
@@ -60,85 +126,104 @@ public:
         m_shaders->RegisterSource(u8"ibl_brdf",     shaders::ShaderStage::Fragment, IblBrdfPS());
         m_shaders->RegisterSource(u8"ibl_sh",       shaders::ShaderStage::Compute,  IblShProjectCS());
 
-        if (!CreateResources()) { return Status{ ErrorCode::Unknown }; }
+        if (!CreateSharedResources()) { return Status{ ErrorCode::Unknown }; }
         if (!CreatePipelines()) { return Status{ ErrorCode::Unknown }; }
-        m_dirty = true;   // build once on first ProcessPending
         return Status{};
     }
 
-    // The directional sun feeding the procedural sky (xyz = light direction). A changed direction
-    // re-dirties the precompute so the env reflects the new sun.
-    void SetSun(const Float3& dir) {
-        if (dir.x != m_sunDir.x || dir.y != m_sunDir.y || dir.z != m_sunDir.z) { m_sunDir = dir; m_dirty = true; }
+    // Shared products (sky-independent).
+    [[nodiscard]] rhi::TextureView*     BrdfView()   const noexcept { return m_brdfView; }
+    [[nodiscard]] rendergraph::RGHandle BrdfHandle() const noexcept { return m_brdfH; }
+    [[nodiscard]] u64 ShBytes() const noexcept { return sizeof(f32) * 4 * kShCoeffCount; }
+    [[nodiscard]] f32 MaxLod()  const noexcept { return static_cast<f32>(kPrefilterMips - 1); }
+    [[nodiscard]] bool Ready()  const noexcept { return m_ready; }
+    [[nodiscard]] usize ContextCount() const noexcept { return m_contexts.Size(); }
+
+    // Frame tick: import the shared BRDF into this frame's graph (declare its one-time build),
+    // advance the LRU clock, and evict contexts whose scene hasn't rendered in a long time.
+    void BeginFrame(rendergraph::RenderGraph& graph) {
+        if (!m_ready) { return; }
+        ++m_frame;
+        m_brdfH = graph.ImportTarget(u8"ibl.brdf", m_brdfLut, m_brdfView,
+                                     rhi::ResourceState::ShaderRead, m_brdfState);
+        m_brdfState = rhi::ResourceState::ShaderRead;
+        if (!m_brdfDone) { DeclareBrdf(graph, m_brdfH); m_brdfDone = true; }
+
+        for (usize i = 0; i < m_contexts.Size(); /**/) {
+            if (m_frame - m_contexts[i]->m_lastUsedFrame > kEvictAfterFrames) {
+                DestroyContext(*m_contexts[i]);
+                m_contexts.RemoveAtSwap(i);
+            } else { ++i; }
+        }
     }
 
-    // The scene's sky authoring (mode + intensity + gradient colors + sun + rotation). A changed value
-    // re-dirties the precompute (env/SH/prefilter rebuild to match).
-    void SetSky(const SkySnapshot& s) {
-        // Re-dirty the precompute only for fields baked into the env cube. sunAngularSize is analytic-
-        // only (the sky pass draws the disc live each frame), so it updates without a rebuild.
-        if (!PrecomputeEqual(s, m_sky)) { m_dirty = true; }
-        // Asset-driven sky texture (scene-authored HDREquirect/Cubemap): (re)build the external
-        // bind group when the PRODUCT changes - detected by uid, never the pointer (reloads reuse
-        // freed addresses; deferred product destruction keeps the old view alive for in-flight
-        // frames). The external group takes precedence over the programmatic pixel paths.
-        if (m_ready && s.textureUid != m_externalUid) {
-            DestroyExternalBindGroups();
-            m_externalUid = s.textureUid;
-            if (s.texture != nullptr) {
-                if (s.textureIsCube) {
+    // Get-or-create the SCENE's context, apply its authored sky + sun, import its products into
+    // this frame's graph, and declare the precompute passes when dirty. Null when unavailable.
+    Context* Prepare(const void* scene, const SkySnapshot& sky, const Float3& sunDir,
+                     rendergraph::RenderGraph& graph) {
+        if (!m_ready) { return nullptr; }
+        Context* ctx = nullptr;
+        for (const UniquePtr<Context>& c : m_contexts) {
+            if (c->m_scene == scene) { ctx = c.Get(); break; }
+        }
+        if (ctx == nullptr) {
+            UniquePtr<Context> fresh = MakeUnique<Context>(DefaultAllocator());
+            fresh->m_scene = scene;
+            fresh->m_uid = ++m_nextContextUid;
+            if (!CreateContextResources(*fresh)) { DestroyContext(*fresh); return nullptr; }
+            m_contexts.PushBack(Move(fresh));
+            ctx = m_contexts[m_contexts.Size() - 1].Get();
+        }
+        ctx->m_lastUsedFrame = m_frame;
+
+        // Sky authoring: re-dirty only for fields baked into the env cube (sunAngularSize is
+        // analytic-only - the sky pass draws the disc live). Sun direction feeds the procedural env.
+        if (!PrecomputeEqual(sky, ctx->m_sky)) { ctx->m_dirty = true; }
+        if (sunDir.x != ctx->m_sunDir.x || sunDir.y != ctx->m_sunDir.y || sunDir.z != ctx->m_sunDir.z) {
+            ctx->m_sunDir = sunDir;
+            ctx->m_dirty = true;
+        }
+        // A programmatic pixel source changed (SetEquirect/SetCubemap): textured modes re-bake.
+        if (ctx->m_sourceStamp != m_sourceStamp
+            && (sky.mode == SkyMode::HDREquirect || sky.mode == SkyMode::Cubemap)) {
+            ctx->m_dirty = true;
+        }
+        ctx->m_sourceStamp = m_sourceStamp;
+        // Asset-driven sky texture: (re)build the context's external bind group when the PRODUCT
+        // changes - detected by uid, never the pointer (reloads reuse freed addresses; deferred
+        // product destruction keeps the old view alive for in-flight frames).
+        if (sky.textureUid != ctx->m_externalUid) {
+            DestroyExternalBindGroups(*ctx);
+            ctx->m_externalUid = sky.textureUid;
+            if (sky.texture != nullptr) {
+                if (sky.textureIsCube) {
                     if (EnsureCubemapPipeline()) {
-                        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(s.texture),
+                        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(sky.texture),
                                                      rhi::BindGroupEntry::SamplerEntry(m_sampler) };
                         rhi::BindGroupDesc bgd{}; bgd.layout = m_envLayout;
                         bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
-                        if (!m_device->CreateBindGroup(bgd, m_externalCubeBG).IsOk()) { m_externalCubeBG = nullptr; }
+                        if (!m_device->CreateBindGroup(bgd, ctx->m_externalCubeBG).IsOk()) { ctx->m_externalCubeBG = nullptr; }
                     }
                 } else {
                     if (EnsureEquirectPipeline()) {
-                        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(s.texture),
+                        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(sky.texture),
                                                      rhi::BindGroupEntry::SamplerEntry(m_equirectSampler) };
                         rhi::BindGroupDesc bgd{}; bgd.layout = m_equirectLayout;
                         bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
-                        if (!m_device->CreateBindGroup(bgd, m_externalEquirectBG).IsOk()) { m_externalEquirectBG = nullptr; }
+                        if (!m_device->CreateBindGroup(bgd, ctx->m_externalEquirectBG).IsOk()) { ctx->m_externalEquirectBG = nullptr; }
                     }
                 }
             }
-            m_dirty = true;
+            ctx->m_dirty = true;
         }
-        m_sky = s;   // always store the latest (the sky pass reads sun size/intensity live)
+        ctx->m_sky = sky;   // always store the latest (the sky pass reads sun size/intensity live)
+
+        ProcessContext(*ctx, graph);
+        return ctx;
     }
 
-    // Products bound into the forward set 0. Stable for a renderer's lifetime (textures recreated only
-    // on shutdown), so a plain generation of 1 suffices for bind-group cache keys.
-    [[nodiscard]] rhi::TextureView* PrefilterView() const noexcept { return m_prefilterView; }
-    [[nodiscard]] rhi::TextureView* BrdfView()      const noexcept { return m_brdfView; }
-    [[nodiscard]] rhi::Buffer*      ShBuffer()      const noexcept { return m_shBuffer; }
-    [[nodiscard]] u64               ShBytes()       const noexcept { return sizeof(f32) * 4 * kShCoeffCount; }
-    [[nodiscard]] u64               Generation()    const noexcept { return m_generation; }
-    [[nodiscard]] f32               MaxLod()        const noexcept { return static_cast<f32>(kPrefilterMips - 1); }
-    [[nodiscard]] bool              Ready()         const noexcept { return m_ready; }
-
-    // This frame's graph handles for the products the forward pass samples (valid after ProcessPending).
-    // The forward ReadTexture/ReadBuffer's these so the graph orders any precompute writes -> forward and
-    // barriers the products to a shader-readable layout before the forward bundle samples them.
-    [[nodiscard]] rendergraph::RGHandle PrefilterHandle() const noexcept { return m_prefilterH; }
-    [[nodiscard]] rendergraph::RGHandle BrdfHandle()      const noexcept { return m_brdfH; }
-    [[nodiscard]] rendergraph::RGHandle ShHandle()        const noexcept { return m_shH; }
-    // The full-radiance environment cube - sampled by the sky pass (background) at full detail.
-    [[nodiscard]] rendergraph::RGHandle EnvHandle()       const noexcept { return m_envH; }
-    [[nodiscard]] rhi::TextureView*     EnvView()         const noexcept { return m_envSampleView; }
-    [[nodiscard]] f32                   SkyIntensity()    const noexcept { return m_sky.intensity; }
-    // Sun (from the directional light) for the sky pass's crisp analytic disc.
-    [[nodiscard]] Float3                  SunDir()          const noexcept { return m_sunDir; }
-    [[nodiscard]] f32                   SunIntensity()    const noexcept { return m_sky.sunIntensity; }
-    [[nodiscard]] f32                   SunAngularSize()  const noexcept { return m_sky.sunAngularSize; }
-    // The sky pass draws a crisp analytic sun disc for the untextured skies (procedural + Preetham);
-    // textured envs (HDR/cubemap) carry their own sun, so it's suppressed there.
-    [[nodiscard]] bool                  HasSunDisc()      const noexcept { return m_sky.mode != SkyMode::HDREquirect && m_sky.mode != SkyMode::Cubemap; }
-
-    // Set the HDR equirectangular source (RGBA32F, w*h*4 floats). The env cube rebuilds from it when
-    // the sky mode is HDREquirect. Upload happens on the next frame's encoder (see Upload).
+    // Set the shared PROGRAMMATIC HDR equirectangular source (RGBA32F, w*h*4 floats) - the
+    // tools/samples pixel path; a scene's ASSET sky texture takes precedence per context.
     void SetEquirect(u32 w, u32 h, Span<const f32> rgba) {
         if (!m_ready || w == 0 || h == 0 || rgba.Size() < static_cast<usize>(w) * h * 4u) { return; }
         DestroyEquirect();
@@ -156,11 +241,12 @@ public:
         rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_equirectView), rhi::BindGroupEntry::SamplerEntry(m_equirectSampler) };
         rhi::BindGroupDesc bgd{}; bgd.layout = m_equirectLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
         if (!m_device->CreateBindGroup(bgd, m_equirectBindGroup).IsOk()) { m_equirectBindGroup = nullptr; DestroyEquirect(); return; }
-        m_equirectW = w; m_equirectH = h; m_equirectPending = true; m_dirty = true;
+        m_equirectW = w; m_equirectH = h; m_equirectPending = true;
+        ++m_sourceStamp;
     }
 
-    // Set a cubemap source: 6 RGBA8 faces (+X,-X,+Y,-Y,+Z,-Z) concatenated, each faceSize*faceSize*4
-    // bytes. Resampled into the env cube when the mode is Cubemap (handles size + format conversion).
+    // Set the shared PROGRAMMATIC cubemap source: 6 RGBA8 faces (+X,-X,+Y,-Y,+Z,-Z) concatenated,
+    // each faceSize*faceSize*4 bytes. Same precedence note as SetEquirect.
     void SetCubemap(u32 faceSize, Span<const u8> sixFaces) {
         const u64 faceBytes = static_cast<u64>(faceSize) * faceSize * 4u;
         if (!m_ready || faceSize == 0 || sixFaces.Size() < faceBytes * 6u) { return; }
@@ -181,7 +267,8 @@ public:
         rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_srcCubeView), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
         rhi::BindGroupDesc bgd{}; bgd.layout = m_envLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
         if (!m_device->CreateBindGroup(bgd, m_cubemapBindGroup).IsOk()) { m_cubemapBindGroup = nullptr; DestroyCubemap(); return; }
-        m_cubemapFaceSize = faceSize; m_cubemapPending = true; m_dirty = true;
+        m_cubemapFaceSize = faceSize; m_cubemapPending = true;
+        ++m_sourceStamp;
     }
 
     // Pending texture uploads (equirect/cubemap staging -> texture) on the frame's encoder, BEFORE the
@@ -210,47 +297,36 @@ public:
         }
     }
 
-    // Declare the precompute passes into this frame's graph (before forward). The products are imported
-    // EVERY frame (so the forward can read this frame's handles); the env-dependent write passes only run
-    // when the sky source is dirty, and the BRDF LUT (constant) is written exactly once.
-    void ProcessPending(rendergraph::RenderGraph& graph) {
-        if (!m_ready) { return; }
-
-        // Frame-persistent product imports (handles the forward reads this frame).
-        m_prefilterH = graph.ImportTarget(u8"ibl.prefilter", m_prefilterCube, m_prefilterView,
-                                          rhi::ResourceState::ShaderRead, m_prefilterState);
-        m_prefilterState = rhi::ResourceState::ShaderRead;
-        m_brdfH = graph.ImportTarget(u8"ibl.brdf", m_brdfLut, m_brdfView,
-                                     rhi::ResourceState::ShaderRead, m_brdfState);
-        m_brdfState = rhi::ResourceState::ShaderRead;
-        m_shH = graph.ImportBuffer(u8"ibl.sh", m_shBuffer);
+private:
+    // Declare one context's precompute into this frame's graph. Products are imported EVERY frame
+    // (so the forward can read this frame's handles); the write passes only run when dirty.
+    void ProcessContext(Context& ctx, rendergraph::RenderGraph& graph) {
+        ctx.m_prefilterH = graph.ImportTarget(u8"ibl.prefilter", ctx.m_prefilterCube, ctx.m_prefilterView,
+                                              rhi::ResourceState::ShaderRead, ctx.m_prefilterState);
+        ctx.m_prefilterState = rhi::ResourceState::ShaderRead;
+        ctx.m_shH = graph.ImportBuffer(u8"ibl.sh", ctx.m_shBuffer);
         // The env cube is imported every frame too (the sky pass reads it for the visible background).
-        m_envH = graph.ImportTarget(u8"ibl.env", m_envCube, m_envSampleView,
-                                    rhi::ResourceState::ShaderRead, m_envState);
-        m_envState = rhi::ResourceState::ShaderRead;
+        ctx.m_envH = graph.ImportTarget(u8"ibl.env", ctx.m_envCube, ctx.m_envSampleView,
+                                        rhi::ResourceState::ShaderRead, ctx.m_envState);
+        ctx.m_envState = rhi::ResourceState::ShaderRead;
 
-        // BRDF LUT: constant, generate exactly once.
-        if (!m_brdfDone) { DeclareBrdf(graph, m_brdfH); m_brdfDone = true; }
+        if (!ctx.m_dirty) { return; }
+        ctx.m_dirty = false;
+        ctx.m_generation = ++m_nextGeneration;   // system-wide: never collides across contexts
 
-        if (!m_dirty) { return; }
-        m_dirty = false;
-        ++m_generation;
-
-        // (1) Source -> env cube: 6 faces. Procedural (analytic gradient) or HDR equirect (sample the
-        // uploaded equirect map); both write the canonical cube faces.
-        const rendergraph::RGHandle envH = m_envH;
-        // Textured modes: the scene-authored ASSET texture wins over the programmatic pixel
-        // path (SetEquirect/SetCubemap) when both are present.
-        rhi::BindGroup* equirectBG = (m_externalEquirectBG != nullptr) ? m_externalEquirectBG : m_equirectBindGroup;
-        rhi::BindGroup* cubemapBG  = (m_externalCubeBG != nullptr) ? m_externalCubeBG : m_cubemapBindGroup;
-        const bool useEquirect = (m_sky.mode == SkyMode::HDREquirect) && equirectBG != nullptr;
-        const bool useCubemap  = (m_sky.mode == SkyMode::Cubemap) && cubemapBG != nullptr;
-        const bool useAnalytic = (m_sky.mode == SkyMode::Analytic);
+        // (1) Source -> env cube: 6 faces. The scene-authored ASSET texture wins over the
+        // programmatic pixel path (SetEquirect/SetCubemap) when both are present.
+        const rendergraph::RGHandle envH = ctx.m_envH;
+        rhi::BindGroup* equirectBG = (ctx.m_externalEquirectBG != nullptr) ? ctx.m_externalEquirectBG : m_equirectBindGroup;
+        rhi::BindGroup* cubemapBG  = (ctx.m_externalCubeBG != nullptr) ? ctx.m_externalCubeBG : m_cubemapBindGroup;
+        const bool useEquirect = (ctx.m_sky.mode == SkyMode::HDREquirect) && equirectBG != nullptr;
+        const bool useCubemap  = (ctx.m_sky.mode == SkyMode::Cubemap) && cubemapBG != nullptr;
+        const bool useAnalytic = (ctx.m_sky.mode == SkyMode::Analytic);
         rhi::RenderPipeline* envPipe = useEquirect ? m_equirectPipeline : useCubemap ? m_cubemapPipeline
                                      : useAnalytic ? m_analyticPipeline : m_envPipeline;
         rhi::BindGroup*      envBG   = useEquirect ? equirectBG : useCubemap ? cubemapBG : nullptr;
         for (u32 face = 0; face < 6; ++face) {
-            IblPush push = MakeSkyPush(static_cast<i32>(face));
+            IblPush push = MakeSkyPush(ctx, static_cast<i32>(face));
             graph.AddRenderPass(u8"ibl.env.face", [envH, face, push, envPipe, envBG](rendergraph::PassBuilder& b) {
                 b.SetColorTarget(0, envH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black(),
                                  rendergraph::RGSubresourceRange{ 0, 1, face, 1 });
@@ -268,14 +344,13 @@ public:
         // (2) Build the env mip pyramid: box-downsample each mip from the previous. Reads mip m-1 (a
         // single-mip view) and writes mip m - non-overlapping subresources, so the graph orders + barriers
         // it correctly. SH/prefilter (whole-resource reads) then run after the whole chain is written.
-        DeclareEnvMips(graph, envH);
+        DeclareEnvMips(ctx, graph, envH);
 
         // (3) env -> SH9 diffuse (compute), (4) env -> prefilter mips (PDF-samples the pyramid).
-        DeclareShProjection(graph, envH, m_shH);
-        DeclarePrefilter(graph, envH, m_prefilterH);
+        DeclareShProjection(ctx, graph, envH, ctx.m_shH);
+        DeclarePrefilter(ctx, graph, envH, ctx.m_prefilterH);
     }
 
-private:
     struct IblPush {
         i32 faceIndex = 0; i32 mode = 0; f32 roughness = 0.0f; f32 skyIntensity = 1.0f;
         Float4 sun{};       // xyz = direction, w = sun angular size (deg)
@@ -284,22 +359,22 @@ private:
         Float4 ground{};    // rgb
     };
 
-    // Build the procedural-env push for one cube face from the current sky + sun direction.
-    [[nodiscard]] IblPush MakeSkyPush(i32 face) const {
+    // Build the procedural-env push for one cube face from the context's sky + sun direction.
+    [[nodiscard]] static IblPush MakeSkyPush(const Context& ctx, i32 face) {
         IblPush p{};
         p.faceIndex    = face;
-        p.mode         = static_cast<i32>(m_sky.mode);
-        p.skyIntensity = m_sky.intensity;
-        p.sun     = Float4{ m_sunDir.x, m_sunDir.y, m_sunDir.z, m_sky.sunAngularSize };
-        p.horizon = Float4{ m_sky.horizon.x, m_sky.horizon.y, m_sky.horizon.z, m_sky.sunIntensity };
-        p.zenith  = Float4{ m_sky.zenith.x, m_sky.zenith.y, m_sky.zenith.z, m_sky.rotation };
-        p.ground  = Float4{ m_sky.ground.x, m_sky.ground.y, m_sky.ground.z, m_sky.turbidity };
+        p.mode         = static_cast<i32>(ctx.m_sky.mode);
+        p.skyIntensity = ctx.m_sky.intensity;
+        p.sun     = Float4{ ctx.m_sunDir.x, ctx.m_sunDir.y, ctx.m_sunDir.z, ctx.m_sky.sunAngularSize };
+        p.horizon = Float4{ ctx.m_sky.horizon.x, ctx.m_sky.horizon.y, ctx.m_sky.horizon.z, ctx.m_sky.sunIntensity };
+        p.zenith  = Float4{ ctx.m_sky.zenith.x, ctx.m_sky.zenith.y, ctx.m_sky.zenith.z, ctx.m_sky.rotation };
+        p.ground  = Float4{ ctx.m_sky.ground.x, ctx.m_sky.ground.y, ctx.m_sky.ground.z, ctx.m_sky.turbidity };
         return p;
     }
 
-    void DestroyExternalBindGroups() {
-        if (m_externalEquirectBG) { m_device->DestroyBindGroup(m_externalEquirectBG); m_externalEquirectBG = nullptr; }
-        if (m_externalCubeBG) { m_device->DestroyBindGroup(m_externalCubeBG); m_externalCubeBG = nullptr; }
+    void DestroyExternalBindGroups(Context& ctx) {
+        if (ctx.m_externalEquirectBG) { m_device->DestroyBindGroup(ctx.m_externalEquirectBG); ctx.m_externalEquirectBG = nullptr; }
+        if (ctx.m_externalCubeBG) { m_device->DestroyBindGroup(ctx.m_externalCubeBG); ctx.m_externalCubeBG = nullptr; }
     }
 
     // Equal w.r.t. the fields baked into the env cube (drives the precompute-rebuild decision).
@@ -313,14 +388,16 @@ private:
                a.sunIntensity == b.sunIntensity && a.turbidity == b.turbidity;
     }
 
-    void DeclareShProjection(rendergraph::RenderGraph& graph, rendergraph::RGHandle envH, rendergraph::RGHandle shH) {
-        graph.AddComputePass(u8"ibl.sh", [this, envH, shH](rendergraph::PassBuilder& b) {
+    void DeclareShProjection(Context& ctx, rendergraph::RenderGraph& graph,
+                             rendergraph::RGHandle envH, rendergraph::RGHandle shH) {
+        rhi::BindGroup* shBG = ctx.m_shBindGroup;
+        graph.AddComputePass(u8"ibl.sh", [this, envH, shH, shBG](rendergraph::PassBuilder& b) {
             b.ReadTexture(envH);
             b.WriteStorage(shH);
-            b.SetComputeExecute([this](rhi::ComputePassEncoder& cp) {
-                if (m_shBindGroup == nullptr) { return; }
+            b.SetComputeExecute([this, shBG](rhi::ComputePassEncoder& cp) {
+                if (shBG == nullptr) { return; }
                 cp.SetPipeline(m_shPipeline);
-                cp.SetBindGroup(0, m_shBindGroup, Span<const u32>{});
+                cp.SetBindGroup(0, shBG, Span<const u32>{});
                 cp.Dispatch(1, 1, 1);
             });
         });
@@ -329,10 +406,10 @@ private:
     // Box-downsample the env cube's mip pyramid: mip m from mip m-1 (per face). Each pass reads only the
     // finer mip (a single-mip source view/bind-group) and renders the coarser one, so read + write never
     // touch the same subresource; the graph's per-subresource barriers serialize the chain by mip.
-    void DeclareEnvMips(rendergraph::RenderGraph& graph, rendergraph::RGHandle envH) {
+    void DeclareEnvMips(Context& ctx, rendergraph::RenderGraph& graph, rendergraph::RGHandle envH) {
         for (u32 mip = 1; mip < kEnvMips; ++mip) {
             const u32 res = kEnvResolution >> mip;
-            rhi::BindGroup* srcBG = m_envMipBG[mip - 1];
+            rhi::BindGroup* srcBG = ctx.m_envMipBG[mip - 1];
             for (u32 face = 0; face < 6; ++face) {
                 IblPush push{}; push.faceIndex = static_cast<i32>(face);
                 graph.AddRenderPass(u8"ibl.env.mip", [this, envH, mip, face, res, push, srcBG](rendergraph::PassBuilder& b) {
@@ -352,21 +429,23 @@ private:
         }
     }
 
-    void DeclarePrefilter(rendergraph::RenderGraph& graph, rendergraph::RGHandle envH, rendergraph::RGHandle preH) {
+    void DeclarePrefilter(Context& ctx, rendergraph::RenderGraph& graph,
+                          rendergraph::RGHandle envH, rendergraph::RGHandle preH) {
+        rhi::BindGroup* envBG = ctx.m_envBindGroup;
         for (u32 mip = 0; mip < kPrefilterMips; ++mip) {
             const u32 res = kPrefilterRes >> mip;
             const f32 roughness = (kPrefilterMips > 1) ? static_cast<f32>(mip) / static_cast<f32>(kPrefilterMips - 1) : 0.0f;
             for (u32 face = 0; face < 6; ++face) {
                 IblPush push{}; push.faceIndex = static_cast<i32>(face); push.roughness = roughness;
-                graph.AddRenderPass(u8"ibl.prefilter", [this, envH, preH, mip, face, res, push](rendergraph::PassBuilder& b) {
+                graph.AddRenderPass(u8"ibl.prefilter", [this, envH, preH, mip, face, res, push, envBG](rendergraph::PassBuilder& b) {
                     b.ReadTexture(envH);
                     b.SetColorTarget(0, preH, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::ClearColor::Black(),
                                      rendergraph::RGSubresourceRange{ mip, 1, face, 1 });
                     b.SetViewport(0, 0, res, res);
                     b.NeverCull();
-                    b.SetExecute([this, push](rhi::RenderPassEncoder& rp) {
+                    b.SetExecute([this, push, envBG](rhi::RenderPassEncoder& rp) {
                         rp.SetPipeline(m_prefilterPipeline);
-                        rp.SetBindGroup(0, m_envBindGroup, Span<const u32>{});
+                        rp.SetBindGroup(0, envBG, Span<const u32>{});
                         rp.SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(IblPush), &push);
                         rp.Draw(3, 1, 0, 0);
                     });
@@ -390,38 +469,8 @@ private:
     static constexpr rhi::TextureFormat kCubeFormat = rhi::TextureFormat::RGBA16Float;
     static constexpr rhi::TextureFormat kBrdfFormat = rhi::TextureFormat::RG16Float;
 
-    bool CreateResources() {
-        // Env cube (mip pyramid): mip 0 holds the full-res source radiance; mips 1..N are box-downsampled
-        // so the prefilter can PDF-sample a pre-averaged mip per GGX sample (firefly suppression).
-        rhi::TextureDesc ed{};
-        ed.format = kCubeFormat; ed.width = kEnvResolution; ed.height = kEnvResolution;
-        ed.arrayLayerCount = 6; ed.mipLevelCount = kEnvMips;
-        ed.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled;
-        ed.label = u8"ibl.env";
-        if (!m_device->CreateTexture(ed, m_envCube).IsOk()) { return false; }
-        rhi::TextureViewDesc ev{}; ev.format = kCubeFormat;
-        ev.dimension = rhi::TextureViewDimension::TextureCube; ev.arrayLayerCount = 6; ev.mipLevelCount = kEnvMips;
-        if (!m_device->CreateTextureView(m_envCube, ev, m_envSampleView).IsOk()) { return false; }
-        // Single-mip cube views of each env mip - bound as the source when downsampling the NEXT mip, so
-        // the read descriptor covers only mip m (never the mip m+1 being rendered → no read/write hazard).
-        for (u32 m = 0; m < kEnvMips; ++m) {
-            rhi::TextureViewDesc mv{}; mv.format = kCubeFormat;
-            mv.dimension = rhi::TextureViewDimension::TextureCube;
-            mv.baseMipLevel = m; mv.mipLevelCount = 1; mv.arrayLayerCount = 6;
-            if (!m_device->CreateTextureView(m_envCube, mv, m_envMipView[m]).IsOk()) { return false; }
-        }
-
-        // Prefilter cube (mip chain).
-        rhi::TextureDesc pd{};
-        pd.format = kCubeFormat; pd.width = kPrefilterRes; pd.height = kPrefilterRes;
-        pd.arrayLayerCount = 6; pd.mipLevelCount = kPrefilterMips;
-        pd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled; pd.label = u8"ibl.prefilter";
-        if (!m_device->CreateTexture(pd, m_prefilterCube).IsOk()) { return false; }
-        rhi::TextureViewDesc pv{}; pv.format = kCubeFormat;
-        pv.dimension = rhi::TextureViewDimension::TextureCube; pv.arrayLayerCount = 6; pv.mipLevelCount = kPrefilterMips;
-        if (!m_device->CreateTextureView(m_prefilterCube, pv, m_prefilterView).IsOk()) { return false; }
-
-        // BRDF LUT (2D).
+    // Shared, sky-independent: the BRDF LUT + the env/cube sampler.
+    bool CreateSharedResources() {
         rhi::TextureDesc bd{};
         bd.format = kBrdfFormat; bd.width = kBrdfResolution; bd.height = kBrdfResolution;
         bd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled; bd.label = u8"ibl.brdf";
@@ -429,13 +478,6 @@ private:
         rhi::TextureViewDesc bv{}; bv.format = kBrdfFormat; bv.dimension = rhi::TextureViewDimension::Texture2D;
         if (!m_device->CreateTextureView(m_brdfLut, bv, m_brdfView).IsOk()) { return false; }
 
-        // SH9 coefficient buffer (RW for the compute write, read-only in forward).
-        rhi::BufferDesc sd{};
-        sd.size = ShBytes(); sd.usage = rhi::BufferUsage::Storage; sd.memory = rhi::MemoryLocation::GpuOnly;
-        sd.label = u8"ibl.sh";
-        if (!m_device->CreateBuffer(sd, m_shBuffer).IsOk()) { return false; }
-
-        // Linear-clamp sampler for cube/env sampling.
         rhi::SamplerDesc ss{};
         ss.minFilter = rhi::FilterMode::Linear; ss.magFilter = rhi::FilterMode::Linear;
         ss.mipmapFilter = rhi::MipmapFilterMode::Linear;
@@ -443,6 +485,84 @@ private:
         ss.label = u8"ibl.sampler";
         if (!m_device->CreateSampler(ss, m_sampler).IsOk()) { return false; }
         return true;
+    }
+
+    // One scene's products + the bind groups referencing them.
+    bool CreateContextResources(Context& ctx) {
+        // Env cube (mip pyramid): mip 0 holds the full-res source radiance; mips 1..N are box-downsampled
+        // so the prefilter can PDF-sample a pre-averaged mip per GGX sample (firefly suppression).
+        rhi::TextureDesc ed{};
+        ed.format = kCubeFormat; ed.width = kEnvResolution; ed.height = kEnvResolution;
+        ed.arrayLayerCount = 6; ed.mipLevelCount = kEnvMips;
+        ed.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled;
+        ed.label = u8"ibl.env";
+        if (!m_device->CreateTexture(ed, ctx.m_envCube).IsOk()) { return false; }
+        rhi::TextureViewDesc ev{}; ev.format = kCubeFormat;
+        ev.dimension = rhi::TextureViewDimension::TextureCube; ev.arrayLayerCount = 6; ev.mipLevelCount = kEnvMips;
+        if (!m_device->CreateTextureView(ctx.m_envCube, ev, ctx.m_envSampleView).IsOk()) { return false; }
+        // Single-mip cube views of each env mip - bound as the source when downsampling the NEXT mip, so
+        // the read descriptor covers only mip m (never the mip m+1 being rendered -> no read/write hazard).
+        for (u32 m = 0; m < kEnvMips; ++m) {
+            rhi::TextureViewDesc mv{}; mv.format = kCubeFormat;
+            mv.dimension = rhi::TextureViewDimension::TextureCube;
+            mv.baseMipLevel = m; mv.mipLevelCount = 1; mv.arrayLayerCount = 6;
+            if (!m_device->CreateTextureView(ctx.m_envCube, mv, ctx.m_envMipView[m]).IsOk()) { return false; }
+        }
+
+        // Prefilter cube (mip chain).
+        rhi::TextureDesc pd{};
+        pd.format = kCubeFormat; pd.width = kPrefilterRes; pd.height = kPrefilterRes;
+        pd.arrayLayerCount = 6; pd.mipLevelCount = kPrefilterMips;
+        pd.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::Sampled; pd.label = u8"ibl.prefilter";
+        if (!m_device->CreateTexture(pd, ctx.m_prefilterCube).IsOk()) { return false; }
+        rhi::TextureViewDesc pv{}; pv.format = kCubeFormat;
+        pv.dimension = rhi::TextureViewDimension::TextureCube; pv.arrayLayerCount = 6; pv.mipLevelCount = kPrefilterMips;
+        if (!m_device->CreateTextureView(ctx.m_prefilterCube, pv, ctx.m_prefilterView).IsOk()) { return false; }
+
+        // SH9 coefficient buffer (RW for the compute write, read-only in forward).
+        rhi::BufferDesc sd{};
+        sd.size = ShBytes(); sd.usage = rhi::BufferUsage::Storage; sd.memory = rhi::MemoryLocation::GpuOnly;
+        sd.label = u8"ibl.sh";
+        if (!m_device->CreateBuffer(sd, ctx.m_shBuffer).IsOk()) { return false; }
+
+        // env sample bind group (for prefilter: full mip chain) + per-mip downsample sources.
+        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(ctx.m_envSampleView), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+        rhi::BindGroupDesc bgd{}; bgd.layout = m_envLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
+        if (!m_device->CreateBindGroup(bgd, ctx.m_envBindGroup).IsOk()) { return false; }
+        for (u32 m = 0; m < kEnvMips; ++m) {
+            rhi::BindGroupEntry me[] = { rhi::BindGroupEntry::TextureEntry(ctx.m_envMipView[m]), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
+            rhi::BindGroupDesc md{}; md.layout = m_envLayout; md.entries = Span<const rhi::BindGroupEntry>{ me, 2 };
+            if (!m_device->CreateBindGroup(md, ctx.m_envMipBG[m]).IsOk()) { return false; }
+        }
+
+        // SH compute bind group (t0 env cube + s0 sampler + u0 SH buffer).
+        rhi::BindGroupEntry she[] = {
+            rhi::BindGroupEntry::TextureEntry(ctx.m_envSampleView),
+            rhi::BindGroupEntry::SamplerEntry(m_sampler),
+            rhi::BindGroupEntry::BufferEntry(ctx.m_shBuffer, 0, ShBytes()),
+        };
+        rhi::BindGroupDesc shBgd{}; shBgd.layout = m_shLayout; shBgd.entries = Span<const rhi::BindGroupEntry>{ she, 3 };
+        if (!m_device->CreateBindGroup(shBgd, ctx.m_shBindGroup).IsOk()) { return false; }
+
+        ctx.m_dirty = true;   // build the products on the first Prepare
+        return true;
+    }
+
+    void DestroyContext(Context& ctx) {
+        DestroyExternalBindGroups(ctx);
+        if (ctx.m_shBindGroup) { m_device->DestroyBindGroup(ctx.m_shBindGroup); ctx.m_shBindGroup = nullptr; }
+        if (ctx.m_envBindGroup) { m_device->DestroyBindGroup(ctx.m_envBindGroup); ctx.m_envBindGroup = nullptr; }
+        for (u32 m = 0; m < kEnvMips; ++m) {
+            if (ctx.m_envMipBG[m]) { m_device->DestroyBindGroup(ctx.m_envMipBG[m]); ctx.m_envMipBG[m] = nullptr; }
+        }
+        if (ctx.m_shBuffer) { m_device->DestroyBuffer(ctx.m_shBuffer); ctx.m_shBuffer = nullptr; }
+        if (ctx.m_prefilterView) { m_device->DestroyTextureView(ctx.m_prefilterView); ctx.m_prefilterView = nullptr; }
+        if (ctx.m_prefilterCube) { m_device->DestroyTexture(ctx.m_prefilterCube); ctx.m_prefilterCube = nullptr; }
+        for (u32 m = 0; m < kEnvMips; ++m) {
+            if (ctx.m_envMipView[m]) { m_device->DestroyTextureView(ctx.m_envMipView[m]); ctx.m_envMipView[m] = nullptr; }
+        }
+        if (ctx.m_envSampleView) { m_device->DestroyTextureView(ctx.m_envSampleView); ctx.m_envSampleView = nullptr; }
+        if (ctx.m_envCube) { m_device->DestroyTexture(ctx.m_envCube); ctx.m_envCube = nullptr; }
     }
 
     bool CreatePipelines() {
@@ -479,18 +599,7 @@ private:
         if (m_envPipeline == nullptr || m_analyticPipeline == nullptr || m_downsamplePipeline == nullptr ||
             m_prefilterPipeline == nullptr || m_brdfPipeline == nullptr) { return false; }
 
-        // env sample bind group (for prefilter/SH: full mip chain).
-        rhi::BindGroupEntry be[] = { rhi::BindGroupEntry::TextureEntry(m_envSampleView), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
-        rhi::BindGroupDesc bgd{}; bgd.layout = m_envLayout; bgd.entries = Span<const rhi::BindGroupEntry>{ be, 2 };
-        if (!m_device->CreateBindGroup(bgd, m_envBindGroup).IsOk()) { return false; }
-        // Per-mip source bind groups (mip m as the downsample input for mip m+1).
-        for (u32 m = 0; m < kEnvMips; ++m) {
-            rhi::BindGroupEntry me[] = { rhi::BindGroupEntry::TextureEntry(m_envMipView[m]), rhi::BindGroupEntry::SamplerEntry(m_sampler) };
-            rhi::BindGroupDesc md{}; md.layout = m_envLayout; md.entries = Span<const rhi::BindGroupEntry>{ me, 2 };
-            if (!m_device->CreateBindGroup(md, m_envMipBG[m]).IsOk()) { return false; }
-        }
-
-        // --- SH compute pipeline + bind group (t0 cube + s0 sampler + u0 SH buffer) ---
+        // --- SH compute pipeline (t0 cube + s0 sampler + u0 SH buffer; bind groups are per context) ---
         rhi::ShaderModule* cs = m_shaders->GetVariant(u8"ibl_sh", shaders::ShaderStage::Compute, shaders::ShaderFlags::None);
         if (cs == nullptr) { return false; }
         rhi::BindGroupLayoutEntry shTex = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Compute, rhi::TextureViewDimension::TextureCube);
@@ -505,13 +614,6 @@ private:
         rhi::ComputePipelineDesc cpd{}; cpd.layout = m_shPipelineLayout;
         cpd.compute = rhi::ProgrammableStage{ cs, u8"main", rhi::ShaderStage::Compute }; cpd.label = u8"ibl.sh";
         if (!m_device->CreateComputePipeline(cpd, m_shPipeline).IsOk()) { return false; }
-        rhi::BindGroupEntry she[] = {
-            rhi::BindGroupEntry::TextureEntry(m_envSampleView),
-            rhi::BindGroupEntry::SamplerEntry(m_sampler),
-            rhi::BindGroupEntry::BufferEntry(m_shBuffer, 0, ShBytes()),
-        };
-        rhi::BindGroupDesc shBgd{}; shBgd.layout = m_shLayout; shBgd.entries = Span<const rhi::BindGroupEntry>{ she, 3 };
-        if (!m_device->CreateBindGroup(shBgd, m_shBindGroup).IsOk()) { return false; }
 
         m_ready = true;
         return true;
@@ -596,6 +698,8 @@ private:
     }
 
     void Shutdown() {
+        for (const UniquePtr<Context>& ctx : m_contexts) { DestroyContext(*ctx); }
+        m_contexts.Clear();
         DestroyCubemap();
         if (m_cubemapPipeline) { m_device->DestroyRenderPipeline(m_cubemapPipeline); m_cubemapPipeline = nullptr; }
         DestroyEquirect();
@@ -603,11 +707,6 @@ private:
         if (m_equirectPipelineLayout) { m_device->DestroyPipelineLayout(m_equirectPipelineLayout); m_equirectPipelineLayout = nullptr; }
         if (m_equirectLayout) { m_device->DestroyBindGroupLayout(m_equirectLayout); m_equirectLayout = nullptr; }
         if (m_equirectSampler) { m_device->DestroySampler(m_equirectSampler); m_equirectSampler = nullptr; }
-        DestroyExternalBindGroups();
-        m_externalUid = 0;
-        if (m_shBindGroup) { m_device->DestroyBindGroup(m_shBindGroup); m_shBindGroup = nullptr; }
-        if (m_envBindGroup) { m_device->DestroyBindGroup(m_envBindGroup); m_envBindGroup = nullptr; }
-        for (u32 m = 0; m < kEnvMips; ++m) { if (m_envMipBG[m]) { m_device->DestroyBindGroup(m_envMipBG[m]); m_envMipBG[m] = nullptr; } }
         if (m_shPipeline) { m_device->DestroyComputePipeline(m_shPipeline); m_shPipeline = nullptr; }
         if (m_envPipeline) { m_device->DestroyRenderPipeline(m_envPipeline); m_envPipeline = nullptr; }
         if (m_analyticPipeline) { m_device->DestroyRenderPipeline(m_analyticPipeline); m_analyticPipeline = nullptr; }
@@ -621,12 +720,6 @@ private:
         if (m_shLayout) { m_device->DestroyBindGroupLayout(m_shLayout); m_shLayout = nullptr; }
         if (m_envLayout) { m_device->DestroyBindGroupLayout(m_envLayout); m_envLayout = nullptr; }
         if (m_sampler) { m_device->DestroySampler(m_sampler); m_sampler = nullptr; }
-        if (m_shBuffer) { m_device->DestroyBuffer(m_shBuffer); m_shBuffer = nullptr; }
-        if (m_envSampleView) { m_device->DestroyTextureView(m_envSampleView); m_envSampleView = nullptr; }
-        for (u32 m = 0; m < kEnvMips; ++m) { if (m_envMipView[m]) { m_device->DestroyTextureView(m_envMipView[m]); m_envMipView[m] = nullptr; } }
-        if (m_envCube) { m_device->DestroyTexture(m_envCube); m_envCube = nullptr; }
-        if (m_prefilterView) { m_device->DestroyTextureView(m_prefilterView); m_prefilterView = nullptr; }
-        if (m_prefilterCube) { m_device->DestroyTexture(m_prefilterCube); m_prefilterCube = nullptr; }
         if (m_brdfView) { m_device->DestroyTextureView(m_brdfView); m_brdfView = nullptr; }
         if (m_brdfLut) { m_device->DestroyTexture(m_brdfLut); m_brdfLut = nullptr; }
     }
@@ -634,34 +727,34 @@ private:
     rhi::Device*           m_device;
     shaders::ShaderSystem* m_shaders;
 
-    // HDR equirectangular source (optional): uploaded to a 2D texture, sampled by the equirect->cube pass.
+    // Per-scene contexts (UniquePtr = stable addresses; frame lambdas capture their bind groups).
+    Array<UniquePtr<Context>> m_contexts;
+    u64 m_frame = 0;
+    u64 m_nextGeneration = 0;   // system-wide: context generations never collide
+    u64 m_nextContextUid = 0;   // stable context identities (never reused)
+    u64 m_sourceStamp = 1;      // programmatic SetEquirect/SetCubemap change tick (contexts start at 0)
+
+    // Shared PROGRAMMATIC HDR equirect source: uploaded 2D texture sampled by the equirect->cube pass.
     rhi::Texture*     m_equirectTex = nullptr;    rhi::TextureView* m_equirectView = nullptr;
     rhi::Buffer*      m_equirectStaging = nullptr;
     rhi::Sampler*     m_equirectSampler = nullptr;
-    // Asset-driven sky texture (external product view - NOT owned): bind groups only.
-    rhi::BindGroup*   m_externalEquirectBG = nullptr;
-    rhi::BindGroup*   m_externalCubeBG = nullptr;
-    u64               m_externalUid = 0;
     rhi::BindGroupLayout* m_equirectLayout = nullptr;
     rhi::PipelineLayout*  m_equirectPipelineLayout = nullptr;
     rhi::RenderPipeline*  m_equirectPipeline = nullptr;
     rhi::BindGroup*       m_equirectBindGroup = nullptr;
-    u32  m_equirectW = 0, m_equirectH = 0;
+    u32 m_equirectW = 0, m_equirectH = 0;
     bool m_equirectPending = false;
 
-    // Cubemap source (optional): 6 RGBA8 faces resampled into the env cube by the cubemap->cube pass.
+    // Shared PROGRAMMATIC cubemap source.
     rhi::Texture*        m_srcCube = nullptr;       rhi::TextureView* m_srcCubeView = nullptr;
     rhi::Buffer*         m_cubemapStaging = nullptr;
     rhi::RenderPipeline* m_cubemapPipeline = nullptr;   // reuses m_prefilterLayout + m_envLayout
     rhi::BindGroup*      m_cubemapBindGroup = nullptr;
-    u32  m_cubemapFaceSize = 0;
+    u32 m_cubemapFaceSize = 0;
     bool m_cubemapPending = false;
 
-    rhi::Texture*     m_envCube = nullptr;        rhi::TextureView* m_envSampleView = nullptr;
-    rhi::TextureView* m_envMipView[kEnvMips] = {};   // single-mip cube views (downsample sources)
-    rhi::Texture*     m_prefilterCube = nullptr;  rhi::TextureView* m_prefilterView = nullptr;
+    // Shared products + machinery.
     rhi::Texture*     m_brdfLut = nullptr;        rhi::TextureView* m_brdfView = nullptr;
-    rhi::Buffer*      m_shBuffer = nullptr;
     rhi::Sampler*     m_sampler = nullptr;
 
     rhi::BindGroupLayout* m_envLayout = nullptr;
@@ -676,27 +769,12 @@ private:
     rhi::RenderPipeline*  m_prefilterPipeline = nullptr;
     rhi::RenderPipeline*  m_brdfPipeline = nullptr;
     rhi::ComputePipeline* m_shPipeline = nullptr;
-    rhi::BindGroup*       m_envBindGroup = nullptr;
-    rhi::BindGroup*       m_envMipBG[kEnvMips] = {};       // per-mip source bind groups (downsample)
-    rhi::BindGroup*       m_shBindGroup = nullptr;
 
-    // Imported-target persisted states (carried across frames for the graph's barrier solver).
-    rhi::ResourceState m_envState = rhi::ResourceState::Undefined;
-    rhi::ResourceState m_prefilterState = rhi::ResourceState::Undefined;
     rhi::ResourceState m_brdfState = rhi::ResourceState::Undefined;
-
-    // This frame's product handles (re-imported each ProcessPending; read by the forward pass).
-    rendergraph::RGHandle m_prefilterH = {};
     rendergraph::RGHandle m_brdfH = {};
-    rendergraph::RGHandle m_shH = {};
-    rendergraph::RGHandle m_envH = {};
 
-    Float3        m_sunDir{ 0.0f, -1.0f, 0.0f };   // from the directional light (set per frame)
-    SkySnapshot m_sky{};                          // current sky authoring
     bool m_ready = false;
-    bool m_dirty = false;
     bool m_brdfDone = false;   // the BRDF LUT is constant - generated once, not per sky change
-    u64  m_generation = 0;
 };
 
 } // namespace draconic::render

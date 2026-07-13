@@ -62,6 +62,26 @@ export namespace draconic::render {
                  y * 2.0f / static_cast<f32>(height > 0 ? height : 1u) };
 }
 
+// What the IBL precompute exposes to the forward pass: this frame's graph handles for the products the
+// forward samples in set 0 (prefiltered specular cube, BRDF LUT, SH9 diffuse buffer). ReadTexture'd /
+// ReadBuffer'd so the graph orders any precompute writes -> forward and barriers them shader-readable.
+struct IblBinding {
+    // The ACTUAL per-scene products, bound per view into set 0 (a frame renders several
+    // scenes, each with its own IBL context). `generation` is unique across contexts
+    // (one system-wide counter), so bind-group caches can key on it alone.
+    rhi::Buffer*      shBuffer      = nullptr;
+    rhi::TextureView* prefilterView = nullptr;
+    rhi::TextureView* brdfView      = nullptr;
+    f32               maxLod        = 0.0f;
+    u64               generation    = 0;
+
+    rendergraph::RGHandle prefilterHandle = {};
+    rendergraph::RGHandle brdfHandle = {};
+    rendergraph::RGHandle shHandle = {};
+    bool                  valid = false;
+    [[nodiscard]] bool Valid() const noexcept { return valid; }
+};
+
 // What a Renderer needs to record draws for one view. `pass` is a RenderCommandEncoder - the
 // shared draw-recording surface - so a renderer records identically whether it targets a live
 // render pass or an off-thread render bundle (the basis for parallel command recording).
@@ -80,6 +100,7 @@ struct RenderRecordContext {
     u32                        localShadowEntryBase = 0;         // this view's scene's first GpuLocalShadow entry
     u32                        probeBase  = 0;                   // this view's scene's first probe record
     u32                        probeCount = 0;                   // ...and how many (0 = none)
+    IblBinding                 ibl        = {};                  // this view's SCENE's IBL products (per-scene contexts)
     Span<const GpuLight>       lights      = {};
     ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
     u32                        frameIndex  = 0;
@@ -142,16 +163,6 @@ struct ShadowBinding {
     [[nodiscard]] bool Valid() const noexcept { return valid && sampleView != nullptr; }
 };
 
-// What the IBL precompute exposes to the forward pass: this frame's graph handles for the products the
-// forward samples in set 0 (prefiltered specular cube, BRDF LUT, SH9 diffuse buffer). ReadTexture'd /
-// ReadBuffer'd so the graph orders any precompute writes -> forward and barriers them shader-readable.
-struct IblBinding {
-    rendergraph::RGHandle prefilterHandle = {};
-    rendergraph::RGHandle brdfHandle = {};
-    rendergraph::RGHandle shHandle = {};
-    bool                  valid = false;
-    [[nodiscard]] bool Valid() const noexcept { return valid; }
-};
 
 // Replay one resolved draw into any command sink (a live pass or an off-thread bundle). Pure
 // command emission - touches no shared state, so it is safe to run concurrently.
@@ -232,14 +243,6 @@ public:
     // that binds them in set 0. Called once per frame after PrepareFrame. Default no-op.
     virtual void UploadLocalShadows(Span<const GpuLocalShadow> shadows, u32 frameIndex) { (void)shadows; (void)frameIndex; }
 
-    // Hand this frame's IBL products to a renderer that samples them in set 0 (SH9 diffuse buffer +
-    // prefiltered specular cube + BRDF LUT), with the IBLSystem's generation for bind-group cache
-    // invalidation and the prefilter's max LOD (roughness -> mip). null views => the renderer uses its
-    // neutral fallbacks (flat ambient). Called once per frame before PrepareFrame. Default no-op.
-    virtual void SetIBL(rhi::Buffer* sh, rhi::TextureView* prefilter, rhi::TextureView* brdf,
-                        f32 maxLod, u64 generation) {
-        (void)sh; (void)prefilter; (void)brdf; (void)maxLod; (void)generation;
-    }
 
     // Pre-pass: write this frame's skinning matrices into the renderer's persistent bone pool ONCE
     // (current + previous slab per distinct skeleton instance) and copy staging->device on `encoder`.
@@ -369,8 +372,8 @@ public:
             // array to ShaderRead, incl. uncaptured slices) - the forward samples it (t8) for local reflections.
             if (probeValid) { b.ReadTexture(probeHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, probeValid, probeBase, probeCount](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out, /*sceneDepth*/ nullptr, /*probesEnabled*/ probeValid, probeBase, probeCount);
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, probeValid, probeBase, probeCount](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, ibl, out, /*sceneDepth*/ nullptr, /*probesEnabled*/ probeValid, probeBase, probeCount);
             });
         });
     }
@@ -395,11 +398,11 @@ public:
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, &graph, depth, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, probeBase, probeCount](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+            b.SetBundleExecute([this, &view, &registry, &graph, depth, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, probeBase, probeCount](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
                 // The opaque depth is now DepthStencilRead (read-only depth target) - resolve its sampleable
                 // view and hand it to the renderers for soft particles. No render-graph change; already in state.
                 rhi::TextureView* sceneDepth = graph.GetTextureView(depth);
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out, sceneDepth, /*probesEnabled*/ true, probeBase, probeCount);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, ibl, out, sceneDepth, /*probesEnabled*/ true, probeBase, probeCount);
             });
         });
     }
@@ -411,7 +414,8 @@ private:
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
                         const Float4x4& drawViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter, bool transparentPass,
-                        const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out,
+                        const ClusterBinding& cluster, const ShadowBinding& shadow, const IblBinding& ibl,
+                        Array<rhi::RenderBundle*>& out,
                         rhi::TextureView* sceneDepthView = nullptr, bool probesEnabled = true,
                         u32 probeBase = 0, u32 probeCount = 0) {
         RenderRecordContext ctx{};
@@ -436,6 +440,7 @@ private:
         ctx.probesEnabled = probesEnabled;
         ctx.probeBase   = probeBase;    // this view's scene's record range (multi-scene frames)
         ctx.probeCount  = probeCount;
+        ctx.ibl         = ibl;          // this view's SCENE's IBL products (per-scene contexts)
         ctx.needsMotion = m_motionNeeded;   // skip per-instance prev-world when no temporal effect reads velocity
         ctx.shadowFarFade = m_shadowFarFade;
 
@@ -594,6 +599,10 @@ private:
     return vc;
 }
 
+// Probe-capture faces resolve with their own view indices, far above any real view count -
+// their per-view bind-group cache slots never collide with (and thrash) the main views'.
+inline constexpr u32 kCaptureViewIndexBase = 64;
+
 // The single per-frame driver. Begin resets shared per-frame state; AddView collects a view
 // (extracting its draw list from a scene snapshot); End sizes the renderers' transient once
 // for the whole frame and composes every view. One driver, all views - no per-view object.
@@ -627,6 +636,7 @@ private:
         const ExtractedScene*   lastStaticScene = nullptr;   // pool-slot reuse detection (dirty-all)
         u32                     staticTileBase  = 0;         // scene's first static tile (layout-shift detection)
         u32                     entryBase       = 0;         // scene's first entry in m_localShadows
+        IBLSystem::Context*     ibl             = nullptr;   // this scene's IBL products (per-scene sky)
     };
     // One atlas-tile draw: the tile + the scene whose casters render into it.
     struct AtlasDraw { LocalShadowTile tile; SceneShadowCtx* ctx = nullptr; };
@@ -916,7 +926,6 @@ public:
         // light direction, atlas tiles, static-cache signature - is sourced from the VIEW'S OWN
         // scene via these contexts; the old primary-scene sourcing bled scene A's shadows into
         // scene B and never rendered B's own.
-        const RenderView* primary = (m_views.ActiveCount() > 0) ? m_views.At(0) : nullptr;
         const u32 viewCount = static_cast<u32>(m_views.ActiveCount());
 
         // Distinct scenes in order of first appearance + each view's index into them. Contexts are
@@ -943,6 +952,7 @@ public:
                 ctx.staticTiles.Clear();
                 ctx.staticRenderTiles.Clear();
                 ctx.entryBase = 0;
+                ctx.ibl = nullptr;
                 ++sceneCount;
             }
             m_viewSceneIndex[i] = static_cast<u32>(slot);
@@ -1095,10 +1105,9 @@ public:
             }
             if (m_ibl != nullptr && m_ibl->Ready()) {
                 m_ibl->Upload(*m_encoder);   // pending equirect/cubemap uploads, before the graph executes
-                for (Renderer* r : m_registry->Unique()) {
-                    r->SetIBL(m_ibl->ShBuffer(), m_ibl->PrefilterView(), m_ibl->BrdfView(), m_ibl->MaxLod(), m_ibl->Generation());
-                }
             }
+            // (IBL products are PER SCENE now - each view's binding rides ResolveAndEmit's
+            // RenderRecordContext instead of a frame-global renderer setting.)
             for (Renderer* r : m_registry->Unique()) { r->PrepareFrame(totalDraws, m_frameIndex); }
             for (Renderer* r : m_registry->Unique()) {
                 r->UploadLocalShadows(Span<const GpuLocalShadow>{ m_localShadows.Data(), m_localShadows.Size() }, m_frameIndex);
@@ -1127,21 +1136,20 @@ public:
         // camera and renders them into its layer range (so split-screen views don't share a fit).
         rendergraph::RGHandle shadowH;
         const bool  shadowActive = hasShadow && shadowMap != nullptr;
-        // The IBL/sky sun tracks the PRIMARY scene's key light (IBL products are frame-global - a
-        // known multi-scene limitation; each view's cascades use its OWN scene's light below).
-        const Float3  lightDir      = (primary != nullptr && primary->Scene() != nullptr
-                                       && primary->Scene()->DirectionalShadowData().valid)
-                                    ? primary->Scene()->DirectionalShadowData().direction : Float3{ 0, -1, 0 };
         const u32   cascadeCount  = (m_shadows != nullptr) ? m_shadows->CascadeCount() : 4u;
         const u32   shadowRes     = (m_shadows != nullptr) ? m_shadows->Resolution() : 1024u;
 
-        // IBL precompute: the active sky source builds into persistent products (env/SH/prefilter/BRDF)
-        // when dirty; the forward pass samples them in set 0. The procedural sky tracks the directional
-        // light so its sun disc + ambient match the scene's key light.
-        if (m_ibl != nullptr) {
-            m_ibl->SetSun(lightDir);
-            if (primary != nullptr && primary->Scene() != nullptr) { m_ibl->SetSky(primary->Scene()->Sky()); }
-            m_ibl->ProcessPending(m_graph);
+        // IBL precompute, PER SCENE: each scene's authored sky builds into ITS context's persistent
+        // products (env/SH/prefilter; BRDF LUT shared) when dirty; each view samples its own scene's
+        // set below. The procedural sky tracks the scene's key light (sun disc + ambient match).
+        if (m_ibl != nullptr && m_ibl->Ready()) {
+            m_ibl->BeginFrame(m_graph);
+            for (usize k = 0; k < sceneCount; ++k) {
+                SceneShadowCtx& sctx = *m_sceneShadowPool[k];
+                const DirectionalShadow& ds = sctx.scene->DirectionalShadowData();
+                const Float3 sceneSun = ds.valid ? ds.direction : Float3{ 0.0f, -1.0f, 0.0f };
+                sctx.ibl = m_ibl->Prepare(sctx.scene, sctx.scene->Sky(), sceneSun, m_graph);
+            }
         }
 
         // Local-light shadow atlas (5.3/5.4): a 2-layer array. Layer 0 (realtime) re-renders every
@@ -1251,22 +1259,10 @@ public:
 
         // ---- Reflection probe capture (P1b) --------------------------------------------------------
         // Render each dirty probe's 6 faces (lit forward + sky, HDR) into its captured-cube slices, BEFORE
-        // the main views (which sample the result). Feedback-safe: the capture forward samples the GLOBAL
-        // IBL only, never the probe array. Capped at one probe/frame for P1b.
+        // the main views (which sample the result). Feedback-safe: the capture forward samples its
+        // scene's IBL only, never the probe array. Capped at one probe/frame for P1b.
         if (probeActive && m_ibl != nullptr && m_ibl->Ready() && !m_probeSystem->Captures().IsEmpty()) {
             const rendergraph::RGHandle capturedH = probeCapturedH;
-            IblBinding capIbl;
-            capIbl.prefilterHandle = m_ibl->PrefilterHandle();
-            capIbl.brdfHandle      = m_ibl->BrdfHandle();
-            capIbl.shHandle        = m_ibl->ShHandle();
-            capIbl.valid           = true;
-            // Reuse the primary view's CSM binding (handle + cascades) + the local atlas. The capture
-            // forward's shader statically samples both depth textures, so the binding MUST be valid or the
-            // graph won't barrier them to DEPTH_STENCIL_READ_ONLY (they'd still be in ATTACHMENT layout).
-            // The cascades are geometrically the primary camera's (approximate for a face) - fine for P1b.
-            ShadowBinding capShadow = viewShadows.IsEmpty() ? ShadowBinding{} : viewShadows[0];
-            capShadow.atlasHandle = atlasH;
-            capShadow.atlasValid  = atlasActive;
             const u32 res   = ReflectionProbeSystem::kCaptureRes;
             const f32 nearZ = ReflectionProbeSystem::kCaptureNear;
             const f32 farZ  = ReflectionProbeSystem::kCaptureFar;
@@ -1276,11 +1272,32 @@ public:
             const ReflectionProbeSystem::CaptureTask task = captures[m_probeCaptureCursor % captures.Size()];
             ++m_probeCaptureCursor;
             // The capture renders the probe's OWNING scene (a probe in scene B must never bake
-            // scene A's geometry - multi-scene frames).
+            // scene A's geometry) and lights with ITS scene's IBL context - never another sky's.
             const ExtractedScene* captureScene = task.scene;
-            if (captureScene != nullptr) {
+            IBLSystem::Context* capCtx = nullptr;
+            for (usize k = 0; k < sceneCount; ++k) {
+                if (m_sceneShadowPool[k]->scene == captureScene) { capCtx = m_sceneShadowPool[k]->ibl; break; }
+            }
+            if (captureScene != nullptr && capCtx != nullptr) {
+            IblBinding capIbl;
+            capIbl.prefilterHandle = capCtx->PrefilterHandle();
+            capIbl.brdfHandle      = m_ibl->BrdfHandle();
+            capIbl.shHandle        = capCtx->ShHandle();
+            capIbl.shBuffer        = capCtx->ShBuffer();
+            capIbl.prefilterView   = capCtx->PrefilterView();
+            capIbl.brdfView        = m_ibl->BrdfView();
+            capIbl.maxLod          = m_ibl->MaxLod();
+            capIbl.generation      = capCtx->Generation();
+            capIbl.valid           = true;
+            // Reuse the primary view's CSM binding (handle + cascades) + the local atlas. The capture
+            // forward's shader statically samples both depth textures, so the binding MUST be valid or the
+            // graph won't barrier them to DEPTH_STENCIL_READ_ONLY (they'd still be in ATTACHMENT layout).
+            // The cascades are geometrically the primary camera's (approximate for a face) - fine for P1b.
+            ShadowBinding capShadow = viewShadows.IsEmpty() ? ShadowBinding{} : viewShadows[0];
+            capShadow.atlasHandle = atlasH;
+            capShadow.atlasValid  = atlasActive;
             const u32 layerBase = ReflectionProbeSystem::LayerBase(task.slot);
-            const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
+            const f32 sunInt = capCtx->HasSunDisc() ? capCtx->SunIntensity() : 0.0f;
             for (u32 face = 0; face < 6; ++face) {
                 const ViewCamera fc = ProbeFaceCamera(task.center, face, nearZ, farZ);
                 RenderView& cv = m_captureViews[face];
@@ -1302,7 +1319,7 @@ public:
                 const Float4x4 faceVP = fc.ViewProjection();
                 // Lit forward: cluster {} -> dummy cluster -> all-lights fallback (no per-face build);
                 // clear depth (no prepass); write only color slot 0 into this cube face.
-                m_pass.DeclarePass(cv, *m_registry, m_graph, m_frameIndex, /*viewIndex*/ 0u,
+                m_pass.DeclarePass(cv, *m_registry, m_graph, m_frameIndex, /*viewIndex*/ kCaptureViewIndexBase + face,
                                    capturedH, capDepth, /*clearColor*/ true, ReflectionProbeSystem::kCubeFormat,
                                    capNormal, capVel, capMaterial, faceVP, Float2{ 0, 0 }, Float2{ 0, 0 },
                                    ClusterBinding{}, capShadow, capIbl, rhi::LoadOp::Clear, sub);
@@ -1310,12 +1327,12 @@ public:
                 // Distinct sky uniform slot per capture face (2..7), so the capture never shares SkyPass's
                 // per-view slot with a main view (0,1) or with another face - otherwise the last recorder
                 // wins the shared slot and the captured sky reads a main view's camera (cross-view leak).
-                m_sky->DeclareSky(m_graph, capturedH, capVel, capDepth, m_ibl->EnvHandle(), m_ibl->EnvView(),
+                m_sky->DeclareSky(m_graph, capturedH, capVel, capDepth, capCtx->EnvHandle(), capCtx->EnvView(),
                                   ReflectionProbeSystem::kCubeFormat, m_pass.DepthFormat(),
                                   Inverse(faceVP), faceVP, Float2{ 0, 0 }, Float2{ 0, 0 },
-                                  task.center, m_ibl->SkyIntensity(),
-                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Float3{ 1.0f, 0.98f, 0.92f }, sunInt,
-                                  0, 0, res, res, m_frameIndex, /*viewIndex*/ 2u + face, sub);
+                                  task.center, capCtx->SkyIntensity(),
+                                  capCtx->SunDir(), capCtx->SunAngularSize(), Float3{ 1.0f, 0.98f, 0.92f }, sunInt,
+                                  0, 0, res, res, m_frameIndex, /*viewIndex*/ 10u + face, capCtx->Uid(), sub);
             }
             // Bridge captured -> prefiltered mip 0 (flip blit - corrects the RH-LookAt mirror) so the forward
             // samples a SEPARATE texture, never the captured cube it just wrote; then GGX-convolve mip 0 into
@@ -1323,7 +1340,7 @@ public:
             m_probeSystem->DeclareBlit(m_graph, capturedH, probePrefilteredH, task.slot);
             m_probeSystem->DeclarePrefilter(m_graph, probePrefilteredH, task.slot);
             m_probeSystem->MarkCaptured(task.slot);
-            }   // captureScene != nullptr
+            }   // captureScene + capCtx valid
         }
 
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
@@ -1366,6 +1383,10 @@ public:
             shadow.atlasHandle = atlasH;
             shadow.atlasValid  = atlasActive;
 
+            // This view's scene context (shadow/probe/IBL composition all key off it).
+            SceneShadowCtx* viewScene = (m_viewSceneIndex[i] != ~0u)
+                ? m_sceneShadowPool[m_viewSceneIndex[i]].Get() : nullptr;
+
             // This view's scene's probe-record range (the records buffer is the scenes' ranges
             // concatenated in extraction order; the shader offsets its probe loop by the base).
             ReflectionProbeSystem::ProbeRange probeRange;
@@ -1373,12 +1394,19 @@ public:
                 probeRange = m_probeSystem->RangeFor(v->Scene());
             }
 
-            // IBL products (scene-global) for the forward to sample + barrier-order this frame.
+            // This view's SCENE's IBL products for the forward to sample + barrier-order this
+            // frame (per-scene contexts; the BRDF LUT is the shared piece).
             IblBinding ibl;
-            if (m_ibl != nullptr && m_ibl->Ready()) {
-                ibl.prefilterHandle = m_ibl->PrefilterHandle();
+            IBLSystem::Context* viewIblCtx = (viewScene != nullptr) ? viewScene->ibl : nullptr;
+            if (viewIblCtx != nullptr) {
+                ibl.prefilterHandle = viewIblCtx->PrefilterHandle();
                 ibl.brdfHandle      = m_ibl->BrdfHandle();
-                ibl.shHandle        = m_ibl->ShHandle();
+                ibl.shHandle        = viewIblCtx->ShHandle();
+                ibl.shBuffer        = viewIblCtx->ShBuffer();
+                ibl.prefilterView   = viewIblCtx->PrefilterView();
+                ibl.brdfView        = m_ibl->BrdfView();
+                ibl.maxLod          = m_ibl->MaxLod();
+                ibl.generation      = viewIblCtx->Generation();
                 ibl.valid           = true;
             }
 
@@ -1430,20 +1458,20 @@ public:
 
             // Declare the visible sky into `colorTarget` after the forward pass (if IBL + sky active).
             const auto declareSky = [&](rendergraph::RGHandle colorTarget, rendergraph::RGHandle velocityTarget, rhi::TextureFormat colorFmt) {
-                if (m_sky == nullptr || m_ibl == nullptr || !m_ibl->Ready()) { return; }
+                if (m_sky == nullptr || viewIblCtx == nullptr) { return; }
                 // Reconstruct the sky ray from the UNJITTERED view-proj: the background is at infinity, so
                 // jittering its sampling buys ~no AA but makes it oscillate sub-pixel each frame - which TAA
                 // can only partly cancel, i.e. the wobble. Unjittered => temporally invariant sky under a
                 // static camera; the sky pass still writes a geometric motion vector so rotation reprojects.
                 const Float4x4 invVP  = Inverse(unjitteredVP);
                 // The crisp analytic sun disc is for untextured skies; textured envs carry their own sun.
-                const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
-                m_sky->DeclareSky(m_graph, colorTarget, velocityTarget, depth, m_ibl->EnvHandle(), m_ibl->EnvView(),
+                const f32 sunInt = viewIblCtx->HasSunDisc() ? viewIblCtx->SunIntensity() : 0.0f;
+                m_sky->DeclareSky(m_graph, colorTarget, velocityTarget, depth, viewIblCtx->EnvHandle(), viewIblCtx->EnvView(),
                                   colorFmt, m_pass.DepthFormat(), invVP, prevViewProj, jitter, prevJitter,
-                                  v->Camera().position, m_ibl->SkyIntensity(),
-                                  m_ibl->SunDir(), m_ibl->SunAngularSize(), Float3{ 1.0f, 0.98f, 0.92f }, sunInt,
+                                  v->Camera().position, viewIblCtx->SkyIntensity(),
+                                  viewIblCtx->SunDir(), viewIblCtx->SunAngularSize(), Float3{ 1.0f, 0.98f, 0.92f }, sunInt,
                                   v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                  m_frameIndex, viewIndex);
+                                  m_frameIndex, viewIndex, viewIblCtx->Uid());
             };
 
             if (m_tonemap != nullptr) {

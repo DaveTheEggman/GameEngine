@@ -351,7 +351,7 @@ TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frame
     CHECK(probes.RangeFor(&sceneB).base == 1u);   // ranges rebuilt identically
 }
 
-TEST_CASE("IBLSystem rebuilds env products when the sky-texture PRODUCT changes (uid-keyed)")
+TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-texture product changes")
 {
     RenderHarness h;
     if (!h.Init(64, 64)) { MESSAGE("DXC/Null unavailable; skipping"); return; }
@@ -367,28 +367,54 @@ TEST_CASE("IBLSystem rebuilds env products when the sky-texture PRODUCT changes 
     rhi::TextureView* view = nullptr;
     REQUIRE(h.device.CreateTextureView(tex, vd, view).IsOk());
 
-    const auto generationAfter = [&](const SkySnapshot& s) {
-        ibl.SetSky(s);
+    ExtractedScene sceneA, sceneB;
+    const Float3 sun{ 0.0f, -1.0f, 0.0f };
+
+    SkySnapshot procedural{};
+    SkySnapshot hdr{};
+    hdr.mode = SkyMode::HDREquirect;
+    hdr.texture = view; hdr.textureUid = 101; hdr.textureIsCube = false;
+
+    // Two scenes with DIFFERENT skies get their own contexts and products.
+    IBLSystem::Context *ctxA = nullptr, *ctxB = nullptr;
+    {
         draconic::rendergraph::RenderGraph graph(&h.device);
-        ibl.ProcessPending(graph);
-        return ibl.Generation();
-    };
+        ibl.BeginFrame(graph);
+        ctxA = ibl.Prepare(&sceneA, procedural, sun, graph);
+        ctxB = ibl.Prepare(&sceneB, hdr, sun, graph);
+    }
+    REQUIRE(ctxA != nullptr);
+    REQUIRE(ctxB != nullptr);
+    CHECK(ctxA != ctxB);
+    CHECK(ibl.ContextCount() == 2u);
+    CHECK(ctxA->ShBuffer() != ctxB->ShBuffer());             // distinct products
+    CHECK(ctxA->PrefilterView() != ctxB->PrefilterView());
+    CHECK(ctxA->Generation() != ctxB->Generation());         // system-wide counter: never collides
+    CHECK(ctxA->HasSunDisc());
+    CHECK_FALSE(ctxB->HasSunDisc());                         // textured env carries its own sun
 
-    SkySnapshot sky{};
-    sky.mode = SkyMode::HDREquirect;
-    sky.texture = view; sky.textureUid = 101; sky.textureIsCube = false;
-    const u64 g1 = generationAfter(sky);
-    CHECK(g1 >= 1u);
+    // Steady state: same scenes re-Prepare into the SAME contexts with no rebuild.
+    const u64 genA = ctxA->Generation(), genB = ctxB->Generation();
+    {
+        draconic::rendergraph::RenderGraph graph(&h.device);
+        ibl.BeginFrame(graph);
+        CHECK(ibl.Prepare(&sceneA, procedural, sun, graph) == ctxA);
+        CHECK(ibl.Prepare(&sceneB, hdr, sun, graph) == ctxB);
+    }
+    CHECK(ctxA->Generation() == genA);
+    CHECK(ctxB->Generation() == genB);
 
-    // Same product -> no rebuild. New uid (reload/pick) -> rebuild.
-    CHECK(generationAfter(sky) == g1);
-    sky.textureUid = 102;
-    CHECK(generationAfter(sky) == g1 + 1u);
-
-    // Clearing the texture (back to procedural) rebuilds once more.
-    sky.mode = SkyMode::Procedural;
-    sky.texture = nullptr; sky.textureUid = 0; sky.textureIsCube = false;
-    CHECK(generationAfter(sky) == g1 + 2u);
+    // Scene B's sky-texture PRODUCT changes (pick/hot-reload; uid-keyed, never the pointer):
+    // only B rebuilds.
+    hdr.textureUid = 102;
+    {
+        draconic::rendergraph::RenderGraph graph(&h.device);
+        ibl.BeginFrame(graph);
+        (void)ibl.Prepare(&sceneA, procedural, sun, graph);
+        (void)ibl.Prepare(&sceneB, hdr, sun, graph);
+    }
+    CHECK(ctxA->Generation() == genA);
+    CHECK(ctxB->Generation() > genB);
 
     h.device.DestroyTextureView(view);
     h.device.DestroyTexture(tex);
