@@ -70,6 +70,20 @@ export namespace draconic::vfs
 
         [[nodiscard]] virtual Status Save(StringView path, Span<const byte> data) = 0;
         [[nodiscard]] virtual Status Delete(StringView path) = 0;
+        /// Rename/move a file OR directory within the mount. Default: unsupported (archive
+        /// and read-only backends).
+        [[nodiscard]] virtual Status Move(StringView from, StringView to)
+        {
+            (void)from; (void)to;
+            return Status{ ErrorCode::NotSupported };
+        }
+        /// Remove an EMPTY directory (callers empty it first - deleting a directory tree is
+        /// a policy decision that belongs above the mount). Default: unsupported.
+        [[nodiscard]] virtual Status DeleteDirectory(StringView path)
+        {
+            (void)path;
+            return Status{ ErrorCode::NotSupported };
+        }
     };
 
     // Size + last-write time of one entry.

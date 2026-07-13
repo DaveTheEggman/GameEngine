@@ -220,6 +220,20 @@ export namespace draconic::vfs
             return FileDelete(full.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
         }
 
+        [[nodiscard]] Status Move(StringView from, StringView to) override
+        {
+            const String fullFrom = PathJoin(m_root.AsView(), from, *m_allocator);
+            const String fullTo   = PathJoin(m_root.AsView(), to, *m_allocator);
+            EnsureParentDirectories(fullTo.AsView());
+            return FileMove(fullFrom.AsView(), fullTo.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
+        }
+
+        [[nodiscard]] Status DeleteDirectory(StringView path) override
+        {
+            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            return RemoveDirectory(full.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
+        }
+
     private:
         // Creates every ancestor directory of `full` (idempotent). The final
         // component is the file itself and is left to the caller.
