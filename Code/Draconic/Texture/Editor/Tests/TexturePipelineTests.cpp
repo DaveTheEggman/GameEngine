@@ -178,3 +178,80 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     FileDelete(u8"brick.png");
     cleanTree();
 }
+
+TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end to end)")
+{
+    RegisterTextureResource();
+    RegisterTextureAsset();
+    const StringView faceNames[6] = {
+        u8"draconic_texpipe_sky_px.png", u8"draconic_texpipe_sky_nx.png",
+        u8"draconic_texpipe_sky_py.png", u8"draconic_texpipe_sky_ny.png",
+        u8"draconic_texpipe_sky_pz.png", u8"draconic_texpipe_sky_nz.png",
+    };
+    auto scrub = [&]() {
+        for (StringView f : faceNames) { FileDelete(f); }
+        FileDelete(u8"draconic_texpipe_cube_db/sky.rasset");
+        FileDelete(u8"draconic_texpipe_cube_db/sky.data.bin");
+        RemoveDirectory(u8"draconic_texpipe_cube_db");
+    };
+    scrub();
+
+    // 6 distinct 4x4 faces (each filled with its face index so the concatenation order shows).
+    for (u32 f = 0; f < 6; ++f)
+    {
+        image::Image src(4, 4, image::PixelFormat::RGBA8);
+        Span<u8> px = src.PixelDataMut();
+        for (usize i = 0; i < px.Size(); ++i) { px.Data()[i] = static_cast<u8>(f * 10 + 1); }
+        REQUIRE(image::io::SaveImage(src, faceNames[f], image::io::ImageFileFormat::PNG).IsOk());
+    }
+
+    // The +X face's naming convention derives the whole set (what the builder does at cook).
+    {
+        Array<String> derived;
+        REQUIRE(TextureImporter::DetectCubemapFaces(faceNames[0], derived).IsOk());
+        REQUIRE(derived.Size() == 6u);
+        CHECK(derived[5].AsView() == faceNames[5]);
+    }
+
+    NativeFileSystem outMount(u8"draconic_texpipe_cube_db");
+    Guid id;
+    {
+        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        auto* inst = outDb.RootGroup()->CreateInstance(u8"sky", TextureResource::StaticType());
+        id = inst->Id();
+
+        TextureAsset asset;
+        asset.fileName = String(faceNames[0]);   // the +X face
+        asset.SetupForCubemapSkybox();
+
+        // The recipe must chain ALL faces (editing -nz alone must re-cook the cube).
+        TextureAssetBuilder builder;
+        draconic::editor::AssetBuildContext scanCtx;
+        draconic::editor::AssetDependencies deps;
+        builder.ScanDependencies(asset, scanCtx, deps);
+        CHECK(deps.files.Size() == 5u);   // the 5 non-+X faces (fileName is the implicit dep)
+
+        draconic::vfs::NativeFileSystem srcMount(u8".");
+        draconic::editor::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = inst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+    }
+
+    // Runtime: the factory builds a real cube (6 layers, cube view, per-face upload).
+    rhi::null::NullDevice device{DefaultAllocator()};
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    TextureFactory factory(device);
+    ResourceManager manager(outDb);
+    manager.AddFactory(&factory);
+
+    Proxy<Texture> tex = manager.Bind<Texture>(id);
+    REQUIRE(tex);
+    CHECK(tex->Width() == 4u);
+    CHECK(tex->Height() == 4u);
+    CHECK(tex->IsCube());
+    CHECK(tex->Uid() != 0u);
+    CHECK(tex->GpuTexture() != nullptr);
+
+    scrub();
+}
