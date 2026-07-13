@@ -306,6 +306,19 @@ export namespace draconic::editor
                 DefaultAllocator()));
         }
 
+        /// Point a scene-system setting's resource::Ref<T> at a new asset (the scene
+        /// inspector's picker) - the settings twin of SetComponentResourceRef. NOT merged.
+        template <typename T>
+        void SetSceneSettingResourceRef(const TypeInfo* settingsType, const char* property,
+                                        const Guid& value,
+                                        draconic::resource::ResourceManager* resources)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetSceneSettingRefCommand<T>>(*this, settingsType, property,
+                                                                     value, resources),
+                DefaultAllocator()));
+        }
+
         /// Enum flavor of SetSceneSettingProperty (underlying integer through
         /// PropertyInfo::address - same reason as SetComponentPropertyRaw).
         void SetSceneSettingPropertyRaw(const TypeInfo* settingsType, const char* property, i64 value)
@@ -977,6 +990,57 @@ export namespace draconic::editor
             Guid m_entity;
             bool m_active;
             bool m_old = false;
+        };
+
+        // The settings twin of SetResourceRefCommand: the Ref lives on a scene SYSTEM's
+        // settings block (no entity); the address re-derives from the scene each apply.
+        template <typename T>
+        class SetSceneSettingRefCommand final : public IEditorCommand
+        {
+        public:
+            SetSceneSettingRefCommand(SceneEditContext& ctx, const TypeInfo* settingsType,
+                                      const char* property, const Guid& value,
+                                      draconic::resource::ResourceManager* resources)
+                : m_ctx(&ctx), m_settingsType(settingsType), m_property(property)
+                , m_new(value), m_resources(resources) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                draconic::resource::Ref<T>* ref = ResolveRef();
+                if (ref == nullptr) { return false; }
+                if (!m_hasOld) { m_old = ref->id; m_hasOld = true; }
+                ref->SetId(m_new);
+                ref->Rebind(m_resources);
+                return true;
+            }
+            void Undo() override
+            {
+                if (draconic::resource::Ref<T>* ref = ResolveRef())
+                {
+                    ref->SetId(m_old);
+                    ref->Rebind(m_resources);
+                }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_scene_setting_ref"; }
+
+        private:
+            [[nodiscard]] draconic::resource::Ref<T>* ResolveRef()
+            {
+                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                if (system == nullptr) { return nullptr; }
+                const Instance settings{ system->SettingsInstance(), m_settingsType };
+                const PropertyInfo* prop = FindProperty(*m_settingsType, m_property);
+                void* address = (prop != nullptr && prop->address != nullptr) ? prop->address(settings) : nullptr;
+                return static_cast<draconic::resource::Ref<T>*>(address);
+            }
+
+            SceneEditContext* m_ctx;
+            const TypeInfo* m_settingsType;
+            const char* m_property;
+            Guid m_new;
+            Guid m_old;
+            bool m_hasOld = false;
+            draconic::resource::ResourceManager* m_resources;
         };
 
         template <typename T>

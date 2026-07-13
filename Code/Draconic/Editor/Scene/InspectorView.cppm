@@ -294,6 +294,15 @@ export namespace draconic::editor
                 dscene::SceneSystem* system = edit->FindSystemBySettingsType(type);
                 return (system != nullptr) ? Instance{ system->SettingsInstance(), type } : Instance{};
             };
+
+            // Resource references (the environment's sky texture): the browser-mirroring picker,
+            // writing through the settings-flavored ref command.
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::texture::Texture>>())
+            {
+                BuildSettingResourceRefRow<draconic::texture::Texture>(type, prop, category,
+                    { u8"TextureAsset" });
+                return;
+            }
             auto getVariant = [getInstance, type, propName]() -> Variant {
                 const Instance settings = getInstance();
                 const PropertyInfo* p = settings.IsEmpty() ? nullptr : FindProperty(*type, propName);
@@ -729,6 +738,49 @@ export namespace draconic::editor
                 }
             }
             return u8"(missing)";
+        }
+
+        // The settings twin of RefTarget (the Ref lives on a scene system's settings block).
+        template <typename T>
+        [[nodiscard]] Guid SettingRefTarget(const TypeInfo* type, const char* propName)
+        {
+            dscene::SceneSystem* system = m_edit->FindSystemBySettingsType(type);
+            if (system == nullptr) { return Guid{}; }
+            const Instance settings{ system->SettingsInstance(), type };
+            const PropertyInfo* p = FindProperty(*type, propName);
+            void* address = (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
+            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id : Guid{};
+        }
+
+        // The settings twin of BuildResourceRefRow.
+        template <typename T>
+        void BuildSettingResourceRefRow(const TypeInfo* type, const PropertyInfo& prop,
+                                        StringView category, std::initializer_list<StringView> assetTypeNames)
+        {
+            SceneInspectorView* self = this;
+            SceneEditContext* edit = m_edit;
+            const char* propName = prop.name;
+            const StringView name(reinterpret_cast<const utf8char*>(prop.name));
+
+            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), name,
+                AssetNameFor(SettingRefTarget<T>(type, propName)), category);
+            ResourceRefEditor* raw = editor.Get();
+            Array<String> assetTypes;
+            for (StringView typeName : assetTypeNames) { assetTypes.PushBack(String(typeName)); }
+            raw->OnPick = [self, edit, type, propName, assetTypes]() {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+                draconic::resource::ResourceManager* resources = self->m_editor->Resources();
+                Array<String> typeNames = assetTypes;
+                auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                    DefaultAllocator(), *self->m_editor, Move(typeNames));
+                dialog->OnPicked = [edit, type, propName, resources](const Guid& target) {
+                    edit->SetSceneSettingResourceRef<T>(type, propName, target, resources);
+                };
+                dialog->Show(self->Context);
+            };
+            AddEditor(raw, [self, type, propName, raw]() {
+                raw->SetValueText(self->AssetNameFor(self->SettingRefTarget<T>(type, propName)));
+            });
         }
 
         template <typename T>
