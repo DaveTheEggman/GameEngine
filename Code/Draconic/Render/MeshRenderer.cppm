@@ -564,7 +564,9 @@ public:
             vd.shadowDepthBias     = 0.0009f;
             vd.shadowParams.x      = ctx.shadowFarFade;   // CSM far-fade band (runtime-tunable)
         }
-        vd.localShadowBase = m_localShadowBase;   // base into the local-shadow ring (spot/point atlas)
+        // Ring base + THIS view's scene's entry base (scenes' entries are concatenated per frame;
+        // lights carry scene-relative shadowIndex values).
+        vd.localShadowBase = m_localShadowBase + ctx.localShadowEntryBase;
         if (ctx.cluster.Valid()) {
             vd.clusterGridX = ctx.cluster.gridX; vd.clusterGridY = ctx.cluster.gridY;
             vd.clusterSliceCount = ctx.cluster.sliceCount; vd.clusterTileSize = ctx.cluster.tileSize;
@@ -710,7 +712,7 @@ private:
     // kMaxShadowViews*kCount) + local-shadow atlas tiles (up to kMaxLocalShadows), each × a few
     // categories. Sized with headroom - a slot is tiny (256B).
     static constexpr u32 kMaxShadowPasses  = 256;
-    static constexpr u32 kMaxLocalShadows  = 64;         // spot/point shadow entries per frame (atlas-bound)
+    static constexpr u32 kMaxLocalShadows  = kMaxLocalShadowEntries;   // frame-global entry cap (shared with the pipeline)
     static constexpr u32 kMaxBoneMatrices  = 1u << 20;   // GPU skinning bone-matrix pool slots per frame.
                                                          // The current arch re-uploads each caster's bones
                                                          // PER PASS (forward + 4 CSM cascades + local), so

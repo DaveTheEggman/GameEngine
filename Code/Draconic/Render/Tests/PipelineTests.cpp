@@ -207,3 +207,93 @@ TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
     frame.End();
     CHECK(psoCache.Size() == 0);
 }
+
+TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no bleed)")
+{
+    // The editor renders DIFFERENT scenes side-by-side in one Begin/End bracket (the Sandbox's
+    // multi-view-of-one-scene shape never hit this). Regression for the primary-scene sourcing
+    // bug: scene A's casters shadowed scene B's views, and B's own casters never rendered.
+    RenderHarness h;
+    if (!h.Init(128, 128)) { MESSAGE("DXC/Null unavailable; skipping"); return; }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+    ShadowSystem shadows(h.device, /*framesInFlight*/ 2);
+    REQUIRE(shadows.Initialize().IsOk());
+    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2, nullptr, nullptr, &shadows);
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<materials::Material> material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    const auto addCube = [&](ExtractedScene& scene) {
+        MeshRenderData* rd = scene.Add<MeshRenderData>();
+        rd->world = Float4x4::Identity(); rd->mesh = cube.Get(); rd->material = material.Get();
+        rd->category = RenderCategories::Opaque;
+    };
+    const auto addSpotCaster = [&](ExtractedScene& scene, Float3 pos) {
+        LocalShadowCaster c;
+        c.type = 2; c.positionWS = pos; c.directionWS = Float3{ 0, -1, 0 };
+        c.range = 10.0f; c.outerAngle = 0.8f;
+        scene.AddLocalShadowCaster(c);
+    };
+
+    // Scene A: spot caster only. Scene B: directional caster + spot caster.
+    ExtractedScene sceneA;
+    addCube(sceneA);
+    addSpotCaster(sceneA, Float3{ 0, 5, 0 });
+    ExtractedScene sceneB;
+    addCube(sceneB);
+    addSpotCaster(sceneB, Float3{ 7, 3, 2 });
+    {
+        DirectionalShadow ds;
+        ds.direction = Normalized(Float3{ 0.3f, -1.0f, 0.2f });
+        ds.valid = true;
+        sceneB.SetDirectionalShadow(ds);
+    }
+
+    ViewCamera camera;
+    camera.view       = Float4x4::LookAtRH(Float3{ 0, 0, 5 }, Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 });
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+
+    frame.Begin(*h.encoder, 0);
+    frame.AddView(sceneA, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128, 128);
+    frame.AddView(sceneB, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128, 128);
+    frame.End();
+
+    // Directional: ONLY the scene-B view has one (before the fix: keyed off scene A = none at all;
+    // with A/B swapped, both views would sample A's).
+    const Span<const RenderFrame::ViewShadowDebug> info = frame.ViewShadowInfo();
+    REQUIRE(info.Size() == 2u);
+    CHECK_FALSE(info[0].directional);
+    CHECK(info[1].directional);
+
+    // Local shadows: BOTH scenes' spot casters got entries (before the fix: only scene A's), the
+    // entry buffer is the concatenation, and each view offsets by its scene's base.
+    const Span<const GpuLocalShadow> entries = frame.LocalShadowEntries();
+    REQUIRE(entries.Size() == 2u);
+    CHECK(info[0].localEntryBase == 0u);
+    CHECK(info[1].localEntryBase == 1u);
+    // Distinct atlas tiles (global tile counters) and distinct light matrices (distinct lights).
+    CHECK(entries[0].atlasScaleBias.z != entries[1].atlasScaleBias.z);
+    CHECK(entries[0].atlasScaleBias.x > 0.0f);   // neither entry is degenerate
+    CHECK(entries[1].atlasScaleBias.x > 0.0f);
+
+    // Same-scene multi-view (the Sandbox shape) still shares one context: one entry set, one base.
+    frame.Begin(*h.encoder, 1);
+    frame.AddView(sceneB, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128, 128);
+    frame.AddView(sceneB, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128, 128);
+    frame.End();
+    const Span<const RenderFrame::ViewShadowDebug> info2 = frame.ViewShadowInfo();
+    REQUIRE(info2.Size() == 2u);
+    CHECK(info2[0].directional);
+    CHECK(info2[1].directional);
+    CHECK(info2[0].localEntryBase == 0u);
+    CHECK(info2[1].localEntryBase == 0u);            // same scene -> same context/base
+    CHECK(frame.LocalShadowEntries().Size() == 1u);  // one spot caster, once
+}

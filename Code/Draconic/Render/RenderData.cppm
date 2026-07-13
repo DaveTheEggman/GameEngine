@@ -318,6 +318,9 @@ struct LocalShadowCaster {
 // (cube faces). Extraction assigns each caster's shadowIndex = its BASE tile (0-based, into the
 // GpuLocalShadow buffer) and caps total tiles here; the ShadowSystem's atlas must hold this many.
 inline constexpr u32 kMaxLocalShadowTiles = 16;
+// Frame-global cap on GpuLocalShadow ENTRIES (all scenes concatenated) - the renderer's
+// local-shadow ring is sized to this; the pipeline degenerate-fills instead of exceeding it.
+inline constexpr u32 kMaxLocalShadowEntries = 64;
 
 // How a reflection probe's captured cubemap refreshes (defined in the snapshot layer, reused by the
 // ReflectionProbeComponent). Static = capture once + full prefilter, cache until the probe moves/

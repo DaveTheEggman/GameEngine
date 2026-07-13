@@ -77,6 +77,7 @@ struct RenderRecordContext {
     Float3                       ambient     = Float3{ 0.03f, 0.03f, 0.03f };   // scene environment ambient
     ShadowCascades             cascades    = {};                 // this view's CSM cascades (phase 5.2)
     u32                        cascadeLayerBase = 0;             // this view's first shadow-array layer
+    u32                        localShadowEntryBase = 0;         // this view's scene's first GpuLocalShadow entry
     Span<const GpuLight>       lights      = {};
     ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
     u32                        frameIndex  = 0;
@@ -129,10 +130,13 @@ struct ShadowBinding {
     ShadowCascades        cascades;               // THIS view's cascade matrices/splits
     u32                   layerBase  = 0;         // this view's first array layer (viewIndex * cascades)
     bool                  valid      = false;
-    // Local-light (spot/point) shadow atlas (5.3) - scene-global, one atlas shared by all views.
+    // Local-light (spot/point) shadow atlas (5.3) - ONE physical atlas shared by all views, with
+    // tile space + the GpuLocalShadow entry buffer PARTITIONED PER SCENE (the editor renders
+    // different scenes side-by-side in one frame; extraction assigns shadowIndex scene-relative).
     // ReadTexture'd by every forward pass so the atlas depth pass is ordered + barriered ahead of it.
     rendergraph::RGHandle atlasHandle = {};
     bool                  atlasValid  = false;
+    u32                   localShadowEntryBase = 0;   // this view's scene's first entry in the flat buffer
     [[nodiscard]] bool Valid() const noexcept { return valid && sampleView != nullptr; }
 };
 
@@ -417,6 +421,7 @@ private:
         ctx.ambient     = (view.Scene() != nullptr) ? view.Scene()->Ambient() : Float3{ 0.03f, 0.03f, 0.03f };
         ctx.cascades    = shadow.cascades;            // this view's CSM cascades
         ctx.cascadeLayerBase = shadow.layerBase;      // this view's first shadow-array layer
+        ctx.localShadowEntryBase = shadow.localShadowEntryBase;
         ctx.lights      = (view.Scene() != nullptr) ? view.Scene()->Lights() : Span<const GpuLight>{};
         ctx.cluster     = cluster;
         ctx.frameIndex  = frameIndex;
@@ -594,6 +599,43 @@ public:
                 BloomPass* bloom = nullptr, TaaPass* taa = nullptr, AoPass* ao = nullptr, FxaaPass* fxaa = nullptr) noexcept
         : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
           m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky), m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa) {}
+
+private:
+    // (Declared before the methods below - they appear in member-function SIGNATURES.)
+    struct LocalShadowTile { Float4x4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; Float3 cullCenter; f32 cullRadius = 0.0f; };
+    struct Sphere { Float3 center; f32 radius = 0.0f; };   // a caster's world bounding sphere
+
+    // All shadow inputs sourced from ONE scene. A frame can render several DISTINCT scenes
+    // (editor pages side-by-side); each view reads its scene's context - never another's.
+    // Pooled behind UniquePtrs: graph-execute lambdas capture the pointers, so addresses must
+    // outlive the frame and never move when the pool grows.
+    struct SceneShadowCtx {
+        const ExtractedScene*   scene = nullptr;
+        Array<DrawItem>         casters;            // camera-independent caster list (this scene)
+        Array<Float4>             casterBounds;       // aligned to casters: xyz=worldCenter, w=radius
+        Array<Sphere>           animatedSpheres;    // skinned-caster spheres (static-tile routing)
+        Array<LocalShadowTile>  staticTiles;        // this scene's static-layer tiles (this frame)
+        Array<LocalShadowTile>  staticRenderTiles;  // subset dirty THIS frame (rendered)
+        Array<u32>              staticTileDirty;    // per-static-tile refresh countdown
+        u64                     staticSig = 0;      // static caster-set signature (cache-invalidation)
+        const ExtractedScene*   lastStaticScene = nullptr;   // pool-slot reuse detection (dirty-all)
+        u32                     staticTileBase  = 0;         // scene's first static tile (layout-shift detection)
+        u32                     entryBase       = 0;         // scene's first entry in m_localShadows
+    };
+    // One atlas-tile draw: the tile + the scene whose casters render into it.
+    struct AtlasDraw { LocalShadowTile tile; SceneShadowCtx* ctx = nullptr; };
+
+public:
+
+    // Test/debug introspection of the LAST End()'s shadow composition: which views had a
+    // directional shadow and each view's scene entry base into the local-shadow buffer.
+    struct ViewShadowDebug { bool directional = false; u32 localEntryBase = 0; };
+    [[nodiscard]] Span<const ViewShadowDebug> ViewShadowInfo() const noexcept {
+        return Span<const ViewShadowDebug>{ m_viewShadowDebug.Data(), m_viewShadowDebug.Size() };
+    }
+    [[nodiscard]] Span<const GpuLocalShadow> LocalShadowEntries() const noexcept {
+        return Span<const GpuLocalShadow>{ m_localShadows.Data(), m_localShadows.Size() };
+    }
 
     // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
     void Begin(rhi::CommandEncoder& encoder, u32 frameIndex) {
@@ -803,11 +845,11 @@ public:
     }
 
     // Build the camera-independent shadow-caster list from a scene (opaque + masked meshes), grouped by
-    // (mesh, material) so the depth pass batches them. Used by local-light shadows so their atlas tiles
-    // are stable across camera motion (required for static caching) and include off-camera casters.
-    void BuildShadowCasterList(const ExtractedScene& scene) {
-        m_shadowCasters.Clear();
-        m_animatedSpheres.Clear();
+    // (mesh, material) so the depth pass batches them. Used by BOTH the directional cascades and the
+    // local-light atlas tiles - built PER SCENE into that scene's context (multi-scene frames).
+    void BuildShadowCasterList(const ExtractedScene& scene, SceneShadowCtx& ctx) {
+        ctx.casters.Clear();
+        ctx.animatedSpheres.Clear();
         for (RenderData* data : scene.Items()) {
             if (data == nullptr) { continue; }
             if (data->category != RenderCategories::Opaque && data->category != RenderCategories::Masked) { continue; }
@@ -815,35 +857,35 @@ public:
             // Animated (skinned) casters deform every frame: remember each one's world bounding sphere so
             // only the static atlas tiles whose light volume it overlaps get re-rendered (per-tile routing).
             if (md->boneMatrices != nullptr && md->boneCount > 0) {
-                m_animatedSpheres.PushBack(Sphere{ md->worldCenter, md->worldRadius });
+                ctx.animatedSpheres.PushBack(Sphere{ md->worldCenter, md->worldRadius });
             }
             const usize m = reinterpret_cast<usize>(md->mesh), n = reinterpret_cast<usize>(md->material);
             const u32 stateBits = static_cast<u32>((((m >> 4) * 1099511628211ull + (n >> 4)) & ((1u << kSortStateBits) - 1)));
-            m_shadowCasters.PushBack(DrawItem{ MakeSortKey(data->category, stateBits, 0u), data });
+            ctx.casters.PushBack(DrawItem{ MakeSortKey(data->category, stateBits, 0u), data });
         }
-        RadixSortDrawItems(m_shadowCasters, m_sortScratch);
+        RadixSortDrawItems(ctx.casters, m_sortScratch);
         // Compact bounds SoA (xyz = worldCenter, w = worldRadius) aligned to the SORTED caster order, so the
         // per-cascade frustum cull streams 16B/item linearly (4 per cache line) instead of chasing
         // it.data->worldCenter into scattered ~200B MeshRenderData - the dominant shadow-record cost at scale.
-        m_shadowCasterBounds.Clear();
-        m_shadowCasterBounds.Reserve(m_shadowCasters.Size());
-        for (const DrawItem& it : m_shadowCasters) {
+        ctx.casterBounds.Clear();
+        ctx.casterBounds.Reserve(ctx.casters.Size());
+        for (const DrawItem& it : ctx.casters) {
             const auto* md = static_cast<const MeshRenderData*>(it.data);
-            m_shadowCasterBounds.PushBack(Float4{ md->worldCenter.x, md->worldCenter.y, md->worldCenter.z, md->worldRadius });
+            ctx.casterBounds.PushBack(Float4{ md->worldCenter.x, md->worldCenter.y, md->worldCenter.z, md->worldRadius });
         }
     }
 
     // A signature over the STATIC local casters' transforms (quantized) + count. When it changes, the
     // cached static atlas layer is re-rendered for one frames-in-flight cycle. The Static-mode contract
     // is that caster GEOMETRY doesn't move, so only the lights themselves feed the signature.
-    [[nodiscard]] u64 StaticCasterSignature(const RenderView* primary) const {
-        if (primary == nullptr || primary->Scene() == nullptr) { return 0; }
+    [[nodiscard]] u64 StaticCasterSignature(const ExtractedScene* scene) const {
+        if (scene == nullptr) { return 0; }
         u64 sig = 1469598103934665603ull;   // FNV-1a offset basis
         const auto mix = [&sig](f32 v) {
             const u64 q = static_cast<u64>(static_cast<i64>(v * 1000.0f));   // ~1mm / 0.001 quantization
             sig = (sig ^ q) * 1099511628211ull;
         };
-        for (const LocalShadowCaster& c : primary->Scene()->LocalShadowCasters()) {
+        for (const LocalShadowCaster& c : scene->LocalShadowCasters()) {
             if (!c.isStatic) { continue; }
             mix(static_cast<f32>(c.type));
             mix(c.positionWS.x); mix(c.positionWS.y); mix(c.positionWS.z);
@@ -862,103 +904,170 @@ public:
             totalDraws += static_cast<u32>(m_views.At(i)->DrawList().Size());
         }
 
-        // The directional shadow map is shared by all views this frame (one caster in 5.1). Determine
-        // it from the first view's scene + ensure the texture BEFORE the renderers build set 0 (which
-        // binds the map). Renderers get the real map when a caster exists, else null -> their dummy.
+        // ---- Per-scene shadow composition -------------------------------------------------------
+        // Views can show DIFFERENT scenes in one frame (editor pages side-by-side; the Sandbox's
+        // multi-view-of-one-scene shape never exercised this). Every shadow input - caster list,
+        // light direction, atlas tiles, static-cache signature - is sourced from the VIEW'S OWN
+        // scene via these contexts; the old primary-scene sourcing bled scene A's shadows into
+        // scene B and never rendered B's own.
         const RenderView* primary = (m_views.ActiveCount() > 0) ? m_views.At(0) : nullptr;
-        const bool hasShadow = m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr
-                            && primary->Scene()->DirectionalShadowData().valid;
+        const u32 viewCount = static_cast<u32>(m_views.ActiveCount());
+
+        // Distinct scenes in order of first appearance + each view's index into them. Contexts are
+        // pooled UniquePtrs: stable addresses (graph-execute lambdas capture them), reused arrays.
+        m_viewSceneIndex.Resize(m_views.ActiveCount());
+        usize sceneCount = 0;
+        for (usize i = 0; i < m_views.ActiveCount(); ++i) {
+            const ExtractedScene* scene = m_views.At(i)->Scene();
+            m_viewSceneIndex[i] = static_cast<u32>(~0u);
+            if (scene == nullptr) { continue; }
+            usize slot = sceneCount;
+            for (usize k = 0; k < sceneCount; ++k) {
+                if (m_sceneShadowPool[k]->scene == scene) { slot = k; break; }
+            }
+            if (slot == sceneCount) {
+                if (m_sceneShadowPool.Size() <= slot) {
+                    m_sceneShadowPool.PushBack(MakeUnique<SceneShadowCtx>(DefaultAllocator()));
+                }
+                SceneShadowCtx& ctx = *m_sceneShadowPool[slot];
+                ctx.scene = scene;
+                ctx.casters.Clear();
+                ctx.casterBounds.Clear();
+                ctx.animatedSpheres.Clear();
+                ctx.staticTiles.Clear();
+                ctx.staticRenderTiles.Clear();
+                ctx.entryBase = 0;
+                ++sceneCount;
+            }
+            m_viewSceneIndex[i] = static_cast<u32>(slot);
+        }
+        // Stale pool slots must not alias a fresh frame's scene set.
+        for (usize k = sceneCount; k < m_sceneShadowPool.Size(); ++k) { m_sceneShadowPool[k]->scene = nullptr; }
+
         // One shadow ARRAY shared by all views, sized for per-view cascades (viewCount * cascades
         // layers). Each view fits + renders its OWN cascades into its layer range, and samples them.
-        const u32 viewCount = static_cast<u32>(m_views.ActiveCount());
+        bool anyDirectional = false, anyLocalCasters = false;
+        for (usize k = 0; k < sceneCount; ++k) {
+            const SceneShadowCtx& ctx = *m_sceneShadowPool[k];
+            anyDirectional  = anyDirectional  || ctx.scene->DirectionalShadowData().valid;
+            anyLocalCasters = anyLocalCasters || !ctx.scene->LocalShadowCasters().IsEmpty();
+        }
+        const bool hasShadow = m_shadows != nullptr && anyDirectional;
         rhi::TextureView* shadowMap = hasShadow ? m_shadows->PrepareFrame(m_frameIndex, viewCount) : nullptr;
         const u64 shadowGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
 
-        // Camera-INDEPENDENT caster list (opaque+masked, off-camera casters included), built once per
-        // frame from the primary scene. Shared by BOTH the directional cascades and the local-light atlas
-        // tiles: sourcing shadows from this - not the per-view camera draw list - means view-frustum
-        // culling the camera never drops a shadow caster (and directional shadows now match local lights /
-        // Sedulous: transparent + sprites don't cast). Directional shadows are already primary-scene-based.
-        m_shadowCasters.Clear();
-        m_animatedSpheres.Clear();
-        const bool anyLocalCasters = primary != nullptr && primary->Scene() != nullptr
-                                  && !primary->Scene()->LocalShadowCasters().IsEmpty();
-        if ((hasShadow || anyLocalCasters) && primary != nullptr && primary->Scene() != nullptr) {
-            BuildShadowCasterList(*primary->Scene());
+        // Camera-INDEPENDENT caster lists (opaque+masked, off-camera casters included), one per scene.
+        // Shared by BOTH that scene's directional cascades and its local-light atlas tiles: sourcing
+        // shadows from these - not the per-view camera draw lists - means view-frustum culling the
+        // camera never drops a shadow caster (Sedulous: transparent + sprites don't cast).
+        for (usize k = 0; k < sceneCount; ++k) {
+            SceneShadowCtx& ctx = *m_sceneShadowPool[k];
+            if (ctx.scene->DirectionalShadowData().valid || !ctx.scene->LocalShadowCasters().IsEmpty()) {
+                BuildShadowCasterList(*ctx.scene, ctx);
+            }
         }
 
-        // Local-light (spot) shadows (5.3): build the per-caster perspective matrices + atlas tiles up
-        // front, scene-global (one atlas shared by all views). Doing it here lets the renderers size
-        // their per-object rings (SetShadowAtlas passCount) and upload the data before the forward.
+        // Local-light (spot/point) shadows (5.3): build the per-caster perspective matrices + atlas
+        // tiles up front. ONE physical atlas; its per-layer tile space is handed out across scenes by
+        // GLOBAL counters, and the flat GpuLocalShadow buffer is the scenes' entries CONCATENATED -
+        // each view offsets its scene-relative shadowIndex by its scene's entryBase (ShadowBinding).
+        // Doing it here lets the renderers size their per-object rings (SetShadowAtlas passCount) and
+        // upload the data before the forward.
         m_localShadows.Clear();
-        m_rtTiles.Clear();
-        m_staticTiles.Clear();
+        m_rtAtlasDraws.Clear();
+        m_staticAtlasDraws.Clear();
         rhi::TextureView* atlasView = nullptr;
-        if (m_shadows != nullptr && primary != nullptr && primary->Scene() != nullptr) {
-            const Span<const LocalShadowCaster> casters = primary->Scene()->LocalShadowCasters();
-            const u32 capacity = m_shadows->AtlasTileCapacity();   // per layer
-            if (!casters.IsEmpty()) { atlasView = m_shadows->PrepareAtlas(m_frameIndex); }
-            if (atlasView != nullptr) {
-                // m_shadowCasters already built above (shared by directional + local shadows).
-                const u32 atlasRes = m_shadows->AtlasResolution();
-                const u32 tileRes  = m_shadows->AtlasTileResolution();
-                // Each layer (realtime / static) has its own tile space; the running per-layer tile base
-                // must match the shadowIndex extraction assigned. m_localShadows stays in CASTER order
-                // (so shadowIndex indexes it), each entry tagged with its layer via atlasSelect.
-                u32 rtTile = 0, stTile = 0;
-                for (usize i = 0; i < casters.Size(); ++i) {
-                    const LocalShadowCaster& c = casters[i];
+        u32 staticTileCount = 0;
+        if (m_shadows != nullptr && anyLocalCasters) {
+            atlasView = m_shadows->PrepareAtlas(m_frameIndex);
+        }
+        if (atlasView != nullptr) {
+            const u32 capacity = m_shadows->AtlasTileCapacity();   // per layer, WHOLE frame (all scenes)
+            const u32 atlasRes = m_shadows->AtlasResolution();
+            const u32 tileRes  = m_shadows->AtlasTileResolution();
+            const u32 fif      = m_shadows->FramesInFlight();
+            u32 rtTile = 0, stTile = 0;   // global per-layer tile counters, running across scenes
+            for (usize k = 0; k < sceneCount; ++k) {
+                SceneShadowCtx& ctx = *m_sceneShadowPool[k];
+                ctx.entryBase = static_cast<u32>(m_localShadows.Size());
+                const u32 sceneStaticTileBase = stTile;
+                for (const LocalShadowCaster& c : ctx.scene->LocalShadowCasters()) {
                     const u32 need = (c.type == 1u /*point*/) ? 6u : 1u;
                     u32& tileCtr = c.isStatic ? stTile : rtTile;
-                    if (tileCtr + need > capacity) { continue; }   // matches extraction's per-layer cap
-                    Array<LocalShadowTile>& dst = c.isStatic ? m_staticTiles : m_rtTiles;
+                    // Extraction assigned this caster a shadowIndex (scene-relative, per-scene caps);
+                    // whether it fits HERE depends on the whole frame's tile budget. A caster that
+                    // doesn't fit still consumes its entry slots - as DEGENERATE entries the shader
+                    // treats as unshadowed - so every later caster's shadowIndex stays aligned.
+                    const bool fits = tileCtr + need <= capacity
+                                   && m_localShadows.Size() + need <= kMaxLocalShadowEntries;
+                    if (!fits) {
+                        for (u32 f = 0; f < need && m_localShadows.Size() < kMaxLocalShadowEntries; ++f) {
+                            GpuLocalShadow dead;
+                            dead.atlasScaleBias = Float4{ 0, 0, 0, 0 };   // shader guard -> unshadowed
+                            m_localShadows.PushBack(dead);
+                        }
+                        continue;
+                    }
+                    Array<AtlasDraw>& dst = c.isStatic ? m_staticAtlasDraws : m_rtAtlasDraws;
                     for (u32 f = 0; f < need; ++f) {
                         const u32 ti = tileCtr + f;   // tile index WITHIN the layer
-                        GpuLocalShadow s = (need == 6u) ? BuildPointShadowFace(c, f, ti, atlasRes, tileRes)
-                                                        : BuildSpotShadow(c, ti, atlasRes, tileRes);
-                        s.atlasSelect = c.isStatic ? 1.0f : 0.0f;   // sampled atlas array layer
+                        GpuLocalShadow entry = (need == 6u) ? BuildPointShadowFace(c, f, ti, atlasRes, tileRes)
+                                                            : BuildSpotShadow(c, ti, atlasRes, tileRes);
+                        entry.atlasSelect = c.isStatic ? 1.0f : 0.0f;   // sampled atlas array layer
                         const AtlasTile t = AtlasTileRect(ti, atlasRes, tileRes);
                         // Cull casters to the light's bounding sphere (point/spot share pos + range).
-                        dst.PushBack(LocalShadowTile{ s.viewProj, t.x, t.y, t.w, t.h,
-                                                      c.positionWS, Max(0.1f, c.range) });
-                        m_localShadows.PushBack(s);
+                        dst.PushBack(AtlasDraw{ LocalShadowTile{ entry.viewProj, t.x, t.y, t.w, t.h,
+                                                                 c.positionWS, Max(0.1f, c.range) }, &ctx });
+                        m_localShadows.PushBack(entry);
                     }
                     tileCtr += need;
                 }
+
+                // Static atlas layer, PER SCENE: each tile is cached and re-rendered only when needed,
+                // tracked by a per-tile dirty COUNTDOWN (a tile re-renders for FramesInFlight frames to
+                // refresh every in-flight slot's copy). Dirtied by: the scene's static caster set
+                // changing (signature), the scene landing on a different pool slot / tile range (atlas
+                // layout shifted under it), or an animated caster's sphere overlapping the tile.
+                ctx.staticTiles.Clear();
+                for (const AtlasDraw& d : m_staticAtlasDraws) {
+                    if (d.ctx == &ctx) { ctx.staticTiles.PushBack(d.tile); }
+                }
+                ctx.staticTileDirty.Resize(ctx.staticTiles.Size());
+                const u64 sig = StaticCasterSignature(ctx.scene);
+                if (sig != ctx.staticSig || ctx.scene != ctx.lastStaticScene
+                    || sceneStaticTileBase != ctx.staticTileBase) {
+                    ctx.staticSig        = sig;
+                    ctx.lastStaticScene  = ctx.scene;
+                    ctx.staticTileBase   = sceneStaticTileBase;
+                    for (u32& d : ctx.staticTileDirty) { d = fif; }
+                }
+                for (usize ti = 0; ti < ctx.staticTiles.Size(); ++ti) {
+                    const LocalShadowTile& t = ctx.staticTiles[ti];
+                    for (const Sphere& sp : ctx.animatedSpheres) {
+                        if (Length(sp.center - t.cullCenter) <= t.cullRadius + sp.radius) { ctx.staticTileDirty[ti] = fif; break; }
+                    }
+                }
+                ctx.staticRenderTiles.Clear();
+                for (usize ti = 0; ti < ctx.staticTiles.Size(); ++ti) {
+                    if (ctx.staticTileDirty[ti] > 0) { ctx.staticRenderTiles.PushBack(ctx.staticTiles[ti]); --ctx.staticTileDirty[ti]; }
+                }
+                staticTileCount += static_cast<u32>(ctx.staticTiles.Size());
             }
         }
         const u64 atlasGen = (m_shadows != nullptr) ? m_shadows->Generation() : 0;
 
-        // Static atlas layer: each tile is cached and re-rendered only when needed, tracked by a
-        // per-tile dirty COUNTDOWN (a tile must re-render for FramesInFlight frames to refresh every
-        // in-flight slot's copy). Two things dirty a tile:
-        //   1. The static caster set changed (signature trip) - dirty ALL tiles.
-        //   2. An animated caster's world sphere overlaps the tile's light volume - dirty THAT tile,
-        //      every frame it overlaps (skinned casters deform per frame; node bounds don't move, so
-        //      the signature never trips for them). This is the per-caster routing: only tiles actually
-        //      containing animation re-render; tiles with purely static geometry stay cached.
-        const u32 fif = (m_shadows != nullptr) ? m_shadows->FramesInFlight() : 1u;
-        m_staticTileDirty.Resize(m_staticTiles.Size());   // index-stable: static caster set is stable by contract
-        const u64 staticSig = StaticCasterSignature(primary);
-        if (staticSig != m_staticSig) {
-            m_staticSig = staticSig;
-            for (u32& d : m_staticTileDirty) { d = fif; }
-        }
-        for (usize ti = 0; ti < m_staticTiles.Size(); ++ti) {
-            const LocalShadowTile& t = m_staticTiles[ti];
-            for (const Sphere& s : m_animatedSpheres) {
-                if (Length(s.center - t.cullCenter) <= t.cullRadius + s.radius) { m_staticTileDirty[ti] = fif; break; }
+        // This frame's static tiles to render, across scenes (each knows its scene's casters).
+        m_staticRenderDraws.Clear();
+        for (usize k = 0; k < sceneCount; ++k) {
+            SceneShadowCtx& ctx = *m_sceneShadowPool[k];
+            for (const LocalShadowTile& t : ctx.staticRenderTiles) {
+                m_staticRenderDraws.PushBack(AtlasDraw{ t, &ctx });
             }
         }
-        // Collect this frame's static tiles to render (countdown > 0) and tick the countdowns down.
-        m_staticRenderTiles.Clear();
-        for (usize ti = 0; ti < m_staticTiles.Size(); ++ti) {
-            if (m_staticTileDirty[ti] > 0) { m_staticRenderTiles.PushBack(m_staticTiles[ti]); --m_staticTileDirty[ti]; }
-        }
-        const bool renderStatic = !m_staticRenderTiles.IsEmpty();
+        const bool renderStatic = !m_staticRenderDraws.IsEmpty();
         // Per-renderer ring sizing: count only the atlas passes that actually re-emit casters this frame.
-        const u32 localPassCount = static_cast<u32>(m_rtTiles.Size()) +
-                                   static_cast<u32>(m_staticRenderTiles.Size());
+        const u32 localPassCount = static_cast<u32>(m_rtAtlasDraws.Size()) +
+                                   static_cast<u32>(m_staticRenderDraws.Size());
 
         {
             DRACONIC_PROFILE_SCOPE("Compose.Prepare");   // per-frame GPU buffer sizing + pool resets
@@ -989,10 +1098,12 @@ public:
                 r->UploadLocalShadows(Span<const GpuLocalShadow>{ m_localShadows.Data(), m_localShadows.Size() }, m_frameIndex);
             }
             // Skinning bone upload: write each distinct skeleton instance's matrices ONCE into the bone
-            // pool + copy staging->device, before any pass reads them. Scene-global (the primary scene's
-            // instances cover every view of it). Must run before the graph executes (below).
-            if (m_encoder != nullptr && primary != nullptr && primary->Scene() != nullptr) {
-                for (Renderer* r : m_registry->Unique()) { r->UploadSkinning(*primary->Scene(), *m_encoder); }
+            // pool + copy staging->device, before any pass reads them. Once per DISTINCT scene (a scene's
+            // instances cover every view of it; multi-scene frames upload each scene's skeletons).
+            if (m_encoder != nullptr) {
+                for (usize k = 0; k < sceneCount; ++k) {
+                    for (Renderer* r : m_registry->Unique()) { r->UploadSkinning(*m_sceneShadowPool[k]->scene, *m_encoder); }
+                }
             }
             if (m_clusters != nullptr) { m_clusters->PrepareFrame(m_frameIndex); }   // size the cluster build's per-frame buffers
             m_pass.BeginFrame(m_frameIndex);   // reset per-worker pools once (before any view)
@@ -1010,7 +1121,11 @@ public:
         // camera and renders them into its layer range (so split-screen views don't share a fit).
         rendergraph::RGHandle shadowH;
         const bool  shadowActive = hasShadow && shadowMap != nullptr;
-        const Float3  lightDir      = (hasShadow && primary != nullptr) ? primary->Scene()->DirectionalShadowData().direction : Float3{ 0, -1, 0 };
+        // The IBL/sky sun tracks the PRIMARY scene's key light (IBL products are frame-global - a
+        // known multi-scene limitation; each view's cascades use its OWN scene's light below).
+        const Float3  lightDir      = (primary != nullptr && primary->Scene() != nullptr
+                                       && primary->Scene()->DirectionalShadowData().valid)
+                                    ? primary->Scene()->DirectionalShadowData().direction : Float3{ 0, -1, 0 };
         const u32   cascadeCount  = (m_shadows != nullptr) ? m_shadows->CascadeCount() : 4u;
         const u32   shadowRes     = (m_shadows != nullptr) ? m_shadows->Resolution() : 1024u;
 
@@ -1028,22 +1143,25 @@ public:
         // its layer (subresource), clears it, and renders its tiles (per-tile viewport+scissor). Every
         // forward pass ReadTextures the array, ordering both passes ahead + barriering it readable.
         rendergraph::RGHandle atlasH;
-        const bool atlasActive = atlasView != nullptr && (!m_rtTiles.IsEmpty() || !m_staticTiles.IsEmpty());
+        const bool atlasActive = atlasView != nullptr
+                              && (!m_rtAtlasDraws.IsEmpty() || staticTileCount > 0);
         if (atlasActive) {
             atlasH = m_shadows->ImportAtlas(m_graph, m_frameIndex);
             RendererRegistry* reg  = m_registry;
             const u32 atlasRes     = m_shadows->AtlasResolution();
-            // Declare one layer's depth pass over a tile list. (Lambda-per-pass; the graph runs them
-            // at execute time, ordered before the forward by its ReadTexture of atlasH.)
-            const auto declareLayer = [&](u32 layer, Array<LocalShadowTile>* tiles) {
-                if (tiles->IsEmpty()) { return; }
-                m_graph.AddRenderPass(u8"shadow.atlas", [this, atlasH, reg, tiles, atlasRes, layer](rendergraph::PassBuilder& b) {
+            // Declare one layer's depth pass over a draw list (tiles across ALL scenes; each draw
+            // records ITS scene's casters). (Lambda-per-pass; the graph runs them at execute time,
+            // ordered before the forward by its ReadTexture of atlasH.)
+            const auto declareLayer = [&](u32 layer, Array<AtlasDraw>* draws) {
+                if (draws->IsEmpty()) { return; }
+                m_graph.AddRenderPass(u8"shadow.atlas", [this, atlasH, reg, draws, atlasRes, layer](rendergraph::PassBuilder& b) {
                     rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
                     b.SetDepthTarget(atlasH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
                     b.SetViewport(0, 0, atlasRes, atlasRes);   // pass default; each tile sets its own below
-                    b.SetExecute([this, reg, tiles](rhi::RenderPassEncoder& rp) {
-                        const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
-                        for (const LocalShadowTile& t : *tiles) {
+                    b.SetExecute([this, reg, draws](rhi::RenderPassEncoder& rp) {
+                        for (const AtlasDraw& d : *draws) {
+                            const LocalShadowTile& t = d.tile;
+                            const Span<const DrawItem> casters{ d.ctx->casters.Data(), d.ctx->casters.Size() };
                             rp.SetViewport(static_cast<f32>(t.x), static_cast<f32>(t.y),
                                            static_cast<f32>(t.w), static_cast<f32>(t.h));
                             rp.SetScissor(static_cast<i32>(t.x), static_cast<i32>(t.y), t.w, t.h);
@@ -1052,8 +1170,8 @@ public:
                     });
                 });
             };
-            declareLayer(0u, &m_rtTiles);                                  // realtime layer - every frame
-            if (renderStatic) { declareLayer(1u, &m_staticRenderTiles); }  // static layer - only dirty tiles
+            declareLayer(0u, &m_rtAtlasDraws);                              // realtime layer - every frame
+            if (renderStatic) { declareLayer(1u, &m_staticRenderDraws); }   // static layer - only dirty tiles
         }
         if (shadowActive) { shadowH = m_shadows->ImportTarget(m_graph, m_frameIndex); }
 
@@ -1064,42 +1182,54 @@ public:
         // means every layer is written + barriered to Read before the first forward sample.
         Array<ShadowBinding> viewShadows;
         viewShadows.Resize(m_views.ActiveCount());
-        if (shadowActive) {
-            for (usize i = 0; i < m_views.ActiveCount(); ++i) {
-                if (i >= ShadowSystem::kMaxShadowViews) { break; }
-                RenderView* v = m_views.At(i);
-                // Shadow distance: how far directional shadows reach. Per-cascade frustum culling keeps
-                // this affordable (casters only touch the one cascade they fall in), and SampleCSM
-                // far-fades over the last cascade so the boundary dissolves instead of popping. Larger
-                // reach covers more ground but spreads cascade texel density (softer near shadows).
-                const f32 shadowDistance = Min(v->Camera().farZ, m_shadowDistance);
-                const ShadowCascades cascades = ComputeCascades(v->Camera(), lightDir, shadowDistance, shadowRes);
-                const u32 layerBase = static_cast<u32>(i) * cascadeCount;
-                RendererRegistry* reg = m_registry;
-                for (u32 c = 0; c < cascadeCount; ++c) {
-                    const Float4x4 cascadeVP = cascades.viewProj[c];
-                    const u32  layer     = layerBase + c;
-                    // Casters come from the camera-INDEPENDENT m_shadowCasters (built above), not this
-                    // view's culled draw list - so view-frustum culling can't drop an off-camera caster
-                    // whose shadow is visible. Per-cascade frustum cull then keeps each caster to ~1 cascade.
-                    m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, reg](rendergraph::PassBuilder& b) {
-                        rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
-                        b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
-                        b.SetViewport(0, 0, shadowRes, shadowRes);
-                        b.SetExecute([this, cascadeVP, reg](rhi::RenderPassEncoder& rp) {
-                            const Span<const DrawItem> casters{ m_shadowCasters.Data(), m_shadowCasters.Size() };
-                            const Span<const Float4> bounds{ m_shadowCasterBounds.Data(), m_shadowCasterBounds.Size() };
-                            RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true, bounds);
-                        });
+        m_viewShadowDebug.Clear();
+        m_viewShadowDebug.Resize(m_views.ActiveCount());
+        for (usize i = 0; i < m_views.ActiveCount(); ++i) {
+            // Every view (shadowed or not) carries its scene's local-shadow entry base - its lights'
+            // scene-relative shadowIndex values offset into the frame's concatenated entry buffer.
+            SceneShadowCtx* sctx = (m_viewSceneIndex[i] != ~0u)
+                ? m_sceneShadowPool[m_viewSceneIndex[i]].Get() : nullptr;
+            viewShadows[i].localShadowEntryBase = (sctx != nullptr) ? sctx->entryBase : 0;
+            m_viewShadowDebug[i].localEntryBase = viewShadows[i].localShadowEntryBase;
+
+            if (!shadowActive || i >= ShadowSystem::kMaxShadowViews) { continue; }
+            // Per-view directional: THIS view's scene must have a caster (another scene's key light
+            // must never shadow - or light-leak into - this one).
+            if (sctx == nullptr || !sctx->scene->DirectionalShadowData().valid) { continue; }
+            RenderView* v = m_views.At(i);
+            const Float3 viewLightDir = sctx->scene->DirectionalShadowData().direction;
+            // Shadow distance: how far directional shadows reach. Per-cascade frustum culling keeps
+            // this affordable (casters only touch the one cascade they fall in), and SampleCSM
+            // far-fades over the last cascade so the boundary dissolves instead of popping. Larger
+            // reach covers more ground but spreads cascade texel density (softer near shadows).
+            const f32 shadowDistance = Min(v->Camera().farZ, m_shadowDistance);
+            const ShadowCascades cascades = ComputeCascades(v->Camera(), viewLightDir, shadowDistance, shadowRes);
+            const u32 layerBase = static_cast<u32>(i) * cascadeCount;
+            RendererRegistry* reg = m_registry;
+            for (u32 c = 0; c < cascadeCount; ++c) {
+                const Float4x4 cascadeVP = cascades.viewProj[c];
+                const u32  layer     = layerBase + c;
+                // Casters come from the view's SCENE's camera-independent list (built above), not this
+                // view's culled draw list - so view-frustum culling can't drop an off-camera caster
+                // whose shadow is visible. Per-cascade frustum cull then keeps each caster to ~1 cascade.
+                m_graph.AddRenderPass(u8"shadow.cascade", [this, shadowH, cascadeVP, shadowRes, layer, reg, sctx](rendergraph::PassBuilder& b) {
+                    rendergraph::RGSubresourceRange sub{}; sub.baseArrayLayer = layer; sub.arrayLayerCount = 1;
+                    b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store, /*clearDepth*/ 1.0f, sub);
+                    b.SetViewport(0, 0, shadowRes, shadowRes);
+                    b.SetExecute([this, cascadeVP, reg, sctx](rhi::RenderPassEncoder& rp) {
+                        const Span<const DrawItem> casters{ sctx->casters.Data(), sctx->casters.Size() };
+                        const Span<const Float4> bounds{ sctx->casterBounds.Data(), sctx->casterBounds.Size() };
+                        RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f, /*frustumCull*/ true, bounds);
                     });
-                }
-                ShadowBinding& sb = viewShadows[i];
-                sb.sampleView = shadowMap;
-                sb.handle     = shadowH;
-                sb.cascades   = cascades;
-                sb.layerBase  = layerBase;
-                sb.valid      = true;
+                });
             }
+            ShadowBinding& sb = viewShadows[i];
+            sb.sampleView = shadowMap;
+            sb.handle     = shadowH;
+            sb.cascades   = cascades;
+            sb.layerBase  = layerBase;
+            sb.valid      = true;
+            m_viewShadowDebug[i].directional = true;
         }
 
         // Reflection probe (P2): init the captured-cube layout once (so uncaptured slices are ShaderRead, not
@@ -1492,18 +1622,14 @@ private:
     Array<ResolvedDraw>     m_shadowResolved;       // reused depth-draw buffer for the shadow pass
     // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
     // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
-    struct LocalShadowTile { Float4x4 viewProj; u32 x = 0, y = 0, w = 0, h = 0; Float3 cullCenter; f32 cullRadius = 0.0f; };
-    struct Sphere { Float3 center; f32 radius = 0.0f; };   // a caster's world bounding sphere
-    Array<GpuLocalShadow>   m_localShadows;        // flat buffer in caster order (shadowIndex indexes it)
-    Array<LocalShadowTile>  m_rtTiles;             // realtime atlas layer tiles (re-rendered every frame)
-    Array<LocalShadowTile>  m_staticTiles;         // static atlas layer tiles (cached; re-rendered per-tile on change)
-    Array<LocalShadowTile>  m_staticRenderTiles;   // subset of m_staticTiles dirty THIS frame (rendered)
-    Array<u32>              m_staticTileDirty;     // per-static-tile refresh countdown (index-stable across frames)
-    Array<Sphere>           m_animatedSpheres;     // this frame's skinned-caster world spheres (per-tile routing)
-    Array<DrawItem>         m_shadowCasters;       // camera-independent scene caster list (local shadows)
-    Array<Float4>             m_shadowCasterBounds;  // aligned to m_shadowCasters: xyz=worldCenter, w=radius (cache-friendly cascade cull)
+    Array<UniquePtr<SceneShadowCtx>> m_sceneShadowPool;   // slot k = k-th distinct scene this frame
+    Array<u32>              m_viewSceneIndex;      // per view: index into the pool (~0u = no scene)
+    Array<GpuLocalShadow>   m_localShadows;        // scenes' entries CONCATENATED, caster order per scene
+    Array<AtlasDraw>        m_rtAtlasDraws;        // realtime atlas layer (all scenes; re-rendered every frame)
+    Array<AtlasDraw>        m_staticAtlasDraws;    // static atlas layer, ALL tiles (all scenes; cache source)
+    Array<AtlasDraw>        m_staticRenderDraws;   // static layer tiles dirty THIS frame (all scenes)
     Array<DrawItem>         m_shadowCullScratch;   // per-tile sphere-culled subset (reused)
-    u64                     m_staticSig   = 0;     // signature of the static caster set (cache-invalidation)
+    Array<ViewShadowDebug>  m_viewShadowDebug;     // test/debug: last End()'s per-view composition
     RenderViewPool          m_views;
     Array<DrawItem>         m_sortScratch;   // reused radix-sort ping-pong buffer
     rhi::CommandEncoder*    m_encoder    = nullptr;

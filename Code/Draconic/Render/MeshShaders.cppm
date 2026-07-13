@@ -292,6 +292,7 @@ static const float kAtlasTexel = 1.0 / 2048.0;   // 1 / atlas resolution
 // tile (on its array layer), 3x3 PCF. 1 = lit, 0 = shadowed. Acne is on the caster-side depth bias.
 float SampleLocalShadow(int idx, float3 worldPos) {
     GpuLocalShadow s = LocalShadows[idx];
+    if (s.atlasScaleBias.x <= 0.0) { return 1.0; }   // degenerate entry (no atlas tile) -> unshadowed
     float4 lc = mul(float4(worldPos, 1.0), s.viewProj);
     if (lc.w <= 0.0) { return 1.0; }
     float3 ndc = lc.xyz / lc.w;
