@@ -34,6 +34,7 @@ import draconic.scene;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
+import draconic.editor.app;
 import :edit;
 
 using namespace draconic::core;
@@ -271,6 +272,13 @@ export namespace draconic::editor
             }
 
             SceneEditContext* edit = m_edit;
+            EditorContext* editor = m_editor;
+            auto copy = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Copy"),
+                Function<void()>{ [edit, editor, id, type]() {
+                    Array<byte> blob = edit->CopyComponent(id, type);
+                    if (!blob.IsEmpty()) { editor->SetClipboard(u8"component", Move(blob)); }
+                } }, category);
+            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(copy.Get()));
             auto remove = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove"),
                 Function<void()>{ [edit, id, type]() { edit->RemoveComponent(id, type); } }, category);
             m_grid->AddProperty(RefPtr<tk::PropertyEditor>(remove.Get()));
@@ -566,23 +574,6 @@ export namespace draconic::editor
             return u8"(missing)";
         }
 
-        void CollectAssetsOfTypes(draconic::content::Group* group, const Array<String>& typeNames,
-                                  Array<draconic::content::Instance*>& out)
-        {
-            if (group == nullptr) { return; }
-            for (draconic::content::Instance* inst : group->Instances())
-            {
-                for (const String& typeName : typeNames)
-                {
-                    if (inst->TypeName() == typeName.AsView()) { out.PushBack(inst); break; }
-                }
-            }
-            for (draconic::content::Group* child : group->Groups())
-            {
-                CollectAssetsOfTypes(child, typeNames, out);
-            }
-        }
-
         template <typename T>
         void BuildResourceRefRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
                                  StringView category, std::initializer_list<StringView> assetTypeNames)
@@ -597,31 +588,18 @@ export namespace draconic::editor
             ResourceRefEditor* raw = editor.Get();
             Array<String> assetTypes;
             for (StringView typeName : assetTypeNames) { assetTypes.PushBack(String(typeName)); }
-            raw->OnPick = [self, edit, id, type, propName, assetTypes, raw]() {
+            raw->OnPick = [self, edit, id, type, propName, assetTypes]() {
                 if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
                 draconic::resource::ResourceManager* resources = self->m_editor->Resources();
 
-                auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-                menu->AddItem(u8"(none)", [edit, id, type, propName, resources]() {
-                    edit->SetComponentResourceRef<T>(id, type, propName, Guid{}, resources);
-                });
-                Array<draconic::content::Instance*> assets;
-                self->CollectAssetsOfTypes(self->m_editor->Project()->SourceDb().RootGroup(),
-                                           assetTypes, assets);
-                for (draconic::content::Instance* asset : assets)
-                {
-                    const Guid target = asset->Id();
-                    // Full path, so same-named assets across groups stay distinguishable
-                    // (v1 menu; the browser-mirroring picker dialog is the planned upgrade).
-                    menu->AddItem(asset->Path().AsView(), [edit, id, type, propName, target, resources]() {
-                        edit->SetComponentResourceRef<T>(id, type, propName, target, resources);
-                    });
-                }
-                // Anchor at the invoking button (was the inspector's top-left corner).
-                ui::View* anchor = (raw->EditorView() != nullptr)
-                    ? raw->EditorView() : static_cast<ui::View*>(self);
-                const Float2 screenPos = anchor->LocalToScreen(Float2{ 0.0f, anchor->Bounds.height });
-                menu->Show(self->Context, screenPos.x, screenPos.y);
+                // The browser-mirroring picker (readonly; favorites pinned first; [Clear] = none).
+                Array<String> typeNames = assetTypes;
+                auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                    DefaultAllocator(), *self->m_editor, Move(typeNames));
+                dialog->OnPicked = [edit, id, type, propName, resources](const Guid& target) {
+                    edit->SetComponentResourceRef<T>(id, type, propName, target, resources);
+                };
+                dialog->Show(self->Context);
             };
             AddEditor(raw, [self, id, type, propName, raw]() {
                 raw->SetValueText(self->AssetNameFor(self->RefTarget<T>(id, type, propName)));
@@ -659,6 +637,18 @@ export namespace draconic::editor
                 menu->AddItem(StringView(reinterpret_cast<const utf8char*>(type->name)),
                               [edit, id, type]() { edit->AddComponent(id, type); });
             });
+            // Paste a copied component (adds or overwrites; one undo step).
+            const Span<const byte> clip = m_editor->ClipboardData(u8"component");
+            if (!clip.IsEmpty())
+            {
+                String label(u8"Paste ");
+                label += SceneEditContext::PeekComponentTypeId(clip);
+                EditorContext* editor = m_editor;
+                menu->AddSeparator();
+                menu->AddItem(label.AsView(), [edit, editor, id]() {
+                    (void)edit->PasteComponent(id, editor->ClipboardData(u8"component"));
+                });
+            }
             const Float2 screenPos = m_addButton->LocalToScreen(Float2{ 0.0f, 0.0f });
             menu->Show(Context, screenPos.x, screenPos.y);
         }

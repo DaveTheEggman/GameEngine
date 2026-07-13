@@ -40,6 +40,9 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(SceneHierarchyView, ui::ViewGroup)
     public:
+        /// Cross-page clipboard home (optional - Copy/Paste menu items appear when set).
+        void SetEditorContext(EditorContext* context) noexcept { m_editor = context; }
+
         explicit SceneHierarchyView(SceneEditContext& edit) : m_edit(&edit)
         {
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -288,6 +291,19 @@ export namespace draconic::editor
                 menu->AddItem(u8"Create Child", [edit, id]() { (void)edit->CreateEntity(u8"Entity", id); });
                 menu->AddItem(u8"Rename", [self, id]() { self->BeginRename(id); });
                 menu->AddSeparator();
+                menu->AddItem(u8"Duplicate", [edit, id]() { (void)edit->DuplicateEntity(id); });
+                if (EditorContext* editor = self->m_editor)
+                {
+                    menu->AddItem(u8"Copy", [edit, editor, id]() {
+                        Array<byte> blob = edit->CopyEntity(id);
+                        if (!blob.IsEmpty()) { editor->SetClipboard(u8"entities", Move(blob)); }
+                    });
+                    const Span<const byte> clip = editor->ClipboardData(u8"entities");
+                    menu->AddItem(u8"Paste as Child", [edit, editor, id]() {
+                        (void)edit->PasteEntities(editor->ClipboardData(u8"entities"), id);
+                    }, !clip.IsEmpty());
+                }
+                menu->AddSeparator();
                 menu->AddItem(u8"Delete", [edit, id]() { edit->DestroyEntity(id); });
                 const Float2 screenPos = self->m_tree->InternalTreeView()->LocalToScreen(Float2{ x, y });
                 menu->Show(self->Context, screenPos.x, screenPos.y);
@@ -301,6 +317,13 @@ export namespace draconic::editor
                 SceneEditContext* edit = self->m_edit;
                 auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
                 menu->AddItem(u8"Create Entity", [edit]() { (void)edit->CreateEntity(u8"Entity"); });
+                if (EditorContext* editor = self->m_editor)
+                {
+                    const Span<const byte> clip = editor->ClipboardData(u8"entities");
+                    menu->AddItem(u8"Paste", [edit, editor]() {
+                        (void)edit->PasteEntities(editor->ClipboardData(u8"entities"));
+                    }, !clip.IsEmpty());
+                }
                 const Float2 screenPos =
                     self->m_tree->InternalTreeView()->InternalListView()->LocalToScreen(Float2{ x, y });
                 menu->Show(self->Context, screenPos.x, screenPos.y);
@@ -463,7 +486,8 @@ export namespace draconic::editor
             m_syncing = false;
         }
 
-        SceneEditContext* m_edit;   // borrowed (the page owns it)
+        SceneEditContext* m_edit;            // borrowed (the page owns it)
+        EditorContext* m_editor = nullptr;   // borrowed; clipboard home (optional)
         RefPtr<tk::DraggableTreeView> m_tree;
         RefPtr<ui::EditText> m_filterEdit;
         UniquePtr<Adapter> m_adapter;
