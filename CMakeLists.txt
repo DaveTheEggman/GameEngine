@@ -76,6 +76,7 @@ add_subdirectory(Code/Draconic/Core)
 add_subdirectory(Code/Draconic/Profiler)  # CPU scope profiler over Core (instrumented across the engine)
 add_subdirectory(Code/Draconic/Xml)       # DOM XML parser + writer over Core
 add_subdirectory(Code/Draconic/VFS)       # byte access over Core stream primitives
+add_subdirectory(Code/Draconic/Project)   # project manifest/layout (runtime-side, editor-free)
 add_subdirectory(Code/Draconic/Content)   # content database over Core + VFS
 add_subdirectory(Code/Draconic/Resource)  # resource manager over content
 add_subdirectory(Code/Draconic/Editor)     # asset-pipeline authoring base (tooling)
@@ -112,6 +113,8 @@ add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout pe
 add_subdirectory(Code/Draconic/Editor/Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
 add_subdirectory(Code/Tools/Editor)        # RaptorEditor executable (editor assembly)
 add_subdirectory(Code/Tools/Cook)          # RaptorCook CLI cooker (headless)
+add_subdirectory(Code/Tools/Player)        # RaptorPlayer generic game runner
+add_subdirectory(Code/Tools/Export)        # RaptorExport dist packager
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Code/Draconic/Core/Tests)
