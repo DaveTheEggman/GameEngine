@@ -39,11 +39,12 @@ class VkDeviceImpl; // forward
 class VkSwapChainImpl : public SwapChain {
 public:
     Status init(VkDevice device, VkPhysicalDevice physDevice, VkSurfaceKHR surface,
-                const SwapChainDesc& desc, VkDeviceImpl* owner) {
+                const SwapChainDesc& desc, VkDeviceImpl* owner, IAllocator& allocator) {
         m_device     = device;
         m_physDevice = physDevice;
         m_surface    = surface;
         m_owner      = owner;
+        m_allocator  = &allocator;
         m_presentMode= desc.presentMode;
         return CreateSwapChain(desc.width, desc.height, desc.format, desc.bufferCount, VK_NULL_HANDLE);
     }
@@ -85,6 +86,7 @@ private:
     VkSurfaceKHR     m_surface    = VK_NULL_HANDLE;
     VkSwapchainKHR   m_swapchain  = VK_NULL_HANDLE;
     VkDeviceImpl*    m_owner      = nullptr;
+    IAllocator*      m_allocator  = nullptr;
 
     TextureFormat m_format      = TextureFormat::Undefined;
     PresentMode   m_presentMode = PresentMode::Fifo;
@@ -211,14 +213,14 @@ inline Status VkSwapChainImpl::retrieveImages(VkFormat format) {
         td.width = m_width; td.height = m_height; td.arrayLayerCount = 1; td.mipLevelCount = 1;
         td.sampleCount = 1; td.usage = TextureUsage::RenderTarget;
 
-        auto* tex = new VkTextureImpl();
+        auto* tex = m_allocator->New<VkTextureImpl>();
         tex->initFromExisting(images[i], td);
         m_textures.PushBack(tex);
 
         TextureViewDesc vd{}; vd.format = texFmt; vd.dimension = TextureViewDimension::Texture2D;
         vd.mipLevelCount = 1; vd.arrayLayerCount = 1;
-        auto* view = new VkTextureViewImpl();
-        if (view->init(m_device, tex, vd) != ErrorCode::Ok) { delete view; return ErrorCode::Unknown; }
+        auto* view = m_allocator->New<VkTextureViewImpl>();
+        if (view->init(m_device, tex, vd) != ErrorCode::Ok) { m_allocator->Delete(view); return ErrorCode::Unknown; }
         m_views.PushBack(view);
     }
     return ErrorCode::Ok;
@@ -236,8 +238,8 @@ inline void VkSwapChainImpl::createSyncObjects() {
 }
 
 inline void VkSwapChainImpl::cleanupImages() {
-    for (auto* v : m_views)    { v->cleanup(m_device); delete v; } m_views.Clear();
-    for (auto* t : m_textures) { t->cleanup(m_device); delete t; } m_textures.Clear();
+    for (auto* v : m_views)    { v->cleanup(m_device); m_allocator->Delete(v); } m_views.Clear();
+    for (auto* t : m_textures) { t->cleanup(m_device); m_allocator->Delete(t); } m_textures.Clear();
 }
 
 inline void VkSwapChainImpl::destroySyncObjects() {

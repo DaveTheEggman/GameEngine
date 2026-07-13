@@ -64,7 +64,10 @@ struct VkBackendDesc {
 /// Vulkan implementation of Backend.
 class VkBackendImpl : public Backend {
 public:
+    explicit VkBackendImpl(IAllocator& allocator) noexcept : m_allocator(allocator) {}
     ~VkBackendImpl() override { destroyImpl(); }
+
+    friend Status CreateBackend(const VkBackendDesc&, Backend*&, IAllocator&);
 
     // ---- Backend interface ----
 
@@ -163,19 +166,22 @@ public:
         return ErrorCode::NotSupported;
 #endif
 
-        out = new VkSurfaceImpl(vkSurface, m_instance);
+        out = m_allocator.New<VkSurfaceImpl>(vkSurface, m_instance);
         return ErrorCode::Ok;
     }
 
     void Destroy() override {
         destroyImpl();
-        delete this;
+        IAllocator& alloc = m_allocator;
+        this->~VkBackendImpl();
+        alloc.Free(this);
     }
 
     // ---- Internal ----
 
     [[nodiscard]] VkInstance instance() const { return m_instance; }
     [[nodiscard]] bool validationEnabled() const { return m_validationEnabled; }
+    [[nodiscard]] IAllocator& allocator() const noexcept { return m_allocator; }
 
 private:
     friend Status CreateBackend(const VkBackendDesc& desc, Backend*& out);
@@ -303,7 +309,7 @@ private:
         m_adapters.Reserve(count);
         m_adapterPtrs.Reserve(count);
         for (VkPhysicalDevice pd : devices) {
-            auto* a = new VkAdapterImpl(pd, m_instance);
+            auto* a = m_allocator.New<VkAdapterImpl>(pd, m_instance, m_allocator);
             m_adapters.PushBack(a);
             m_adapterPtrs.PushBack(a);
         }
@@ -313,7 +319,7 @@ private:
     }
 
     void destroyImpl() {
-        for (auto* a : m_adapters) delete a;
+        for (auto* a : m_adapters) m_allocator.Delete(a);
         m_adapters.Clear();
         m_adapterPtrs.Clear();
 
@@ -332,6 +338,7 @@ private:
         isInitialized = false;
     }
 
+    IAllocator&                      m_allocator;
     VkInstance                       m_instance       = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT         m_debugMessenger = VK_NULL_HANDLE;
     bool                             m_validationEnabled = false;
@@ -344,13 +351,15 @@ private:
 #endif
 };
 
-/// Creates a Vulkan backend. Caller owns the returned pointer - dispose via destroy().
-[[nodiscard]] Status CreateBackend(const VkBackendDesc& desc, Backend*& out) {
+/// Creates a Vulkan backend. Caller owns the returned pointer - dispose via Destroy().
+[[nodiscard]] Status CreateBackend(const VkBackendDesc& desc, Backend*& out,
+                                   IAllocator& allocator = DefaultAllocator()) {
     out = nullptr;
-    auto* b = new VkBackendImpl();
+    auto* b = allocator.New<VkBackendImpl>(allocator);
+    if (b == nullptr) { return ErrorCode::OutOfMemory; }
     Status r = b->init(desc.enableValidation);
     if (r != ErrorCode::Ok) {
-        delete b;
+        allocator.Delete(b);
         return r;
     }
     out = b;

@@ -23,8 +23,9 @@ class VkCommandEncoderImpl; // forward
 
 class VkCommandPoolImpl : public CommandPool {
 public:
-    Status init(VkDevice device, VkAdapterImpl* adapter, QueueType queueType) {
+    Status init(VkDevice device, VkAdapterImpl* adapter, QueueType queueType, IAllocator& allocator) {
         m_device = device;
+        m_allocator = &allocator;
 
         i32 familyIndex = adapter->findQueueFamily(queueType);
         if (familyIndex < 0) return ErrorCode::Unknown;
@@ -45,10 +46,10 @@ public:
     void   Reset() override;
 
     void cleanup() {
-        for (auto* cb : m_trackedBuffers) delete cb;
+        for (auto* cb : m_trackedBuffers) m_allocator->Delete(cb);
         m_trackedBuffers.Clear();
         m_freeHandles.Clear();
-        for (auto* e : m_trackedBundleEncoders) delete e;   // each frees its produced bundle
+        for (auto* e : m_trackedBundleEncoders) m_allocator->Delete(e);   // each frees its produced bundle
         m_trackedBundleEncoders.Clear();
         m_liveSecondaries.Clear();
         m_freeSecondaries.Clear();
@@ -82,6 +83,7 @@ public:
 
     [[nodiscard]] VkCommandPool handle() const { return m_pool; }
     [[nodiscard]] VkDevice      vkDevice() const { return m_device; }
+    [[nodiscard]] IAllocator&   allocator() const { return *m_allocator; }
 
     // Stored so the encoder can access it.
     VkDeviceImpl* ownerDevice = nullptr;
@@ -89,6 +91,7 @@ public:
 private:
     VkDevice                          m_device      = VK_NULL_HANDLE;
     VkCommandPool                     m_pool        = VK_NULL_HANDLE;
+    IAllocator*                       m_allocator   = nullptr;
     u32                               m_familyIndex = 0;
     Array<VkCommandBuffer>      m_freeHandles;
     Array<VkCommandBufferImpl*> m_trackedBuffers;

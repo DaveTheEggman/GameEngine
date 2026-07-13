@@ -40,8 +40,8 @@ private:
 // secondary handle and frees this wrapper (+ the produced bundle) on reset.
 class VkRenderBundleEncoderImpl : public RenderBundleEncoder {
 public:
-    explicit VkRenderBundleEncoderImpl(VkCommandBuffer cmdBuf) : m_cmdBuf(cmdBuf) {}
-    ~VkRenderBundleEncoderImpl() override { delete m_bundle; }   // frees the produced bundle wrapper
+    VkRenderBundleEncoderImpl(VkCommandBuffer cmdBuf, IAllocator& allocator) : m_cmdBuf(cmdBuf), m_allocator(allocator) {}
+    ~VkRenderBundleEncoderImpl() override { m_allocator.Delete(m_bundle); }   // frees the produced bundle wrapper
 
     void SetPipeline(RenderPipeline* pipeline) override {
         m_currentPipeline = static_cast<VkRenderPipelineImpl*>(pipeline);
@@ -102,7 +102,7 @@ public:
         if (m_finished) { return m_bundle; }
         m_finished = true;
         vkEndCommandBuffer(m_cmdBuf);
-        m_bundle = new VkRenderBundleImpl(m_cmdBuf);
+        m_bundle = m_allocator.New<VkRenderBundleImpl>(m_cmdBuf);
         return m_bundle;
     }
 
@@ -110,6 +110,7 @@ public:
 
 private:
     VkCommandBuffer       m_cmdBuf = VK_NULL_HANDLE;
+    IAllocator&           m_allocator;
     VkRenderPipelineImpl* m_currentPipeline = nullptr;
     VkRenderBundleImpl*   m_bundle = nullptr;
     bool                  m_finished = false;

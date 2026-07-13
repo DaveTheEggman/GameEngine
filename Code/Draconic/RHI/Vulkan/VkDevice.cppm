@@ -45,6 +45,8 @@ export namespace draconic::rhi::vk {
 
 class VkDeviceImpl : public Device {
 public:
+    explicit VkDeviceImpl(IAllocator& allocator) noexcept : m_allocator(allocator) {}
+
     Status init(VkAdapterImpl* adapter, const DeviceDesc& desc) {
         m_adapter = adapter;
         features = adapter->buildFeatures();
@@ -162,7 +164,7 @@ public:
             for (u32 i = 0; i < count; ++i) {
                 VkQueue q = VK_NULL_HANDLE;
                 vkGetDeviceQueue(m_device, static_cast<u32>(family), offset + i, &q);
-                auto* vkQ = new VkQueueImpl(q, qt, static_cast<u32>(family), tsPeriod, this, m_device, adapter->physicalDevice());
+                auto* vkQ = m_allocator.New<VkQueueImpl>(q, qt, static_cast<u32>(family), tsPeriod, this, m_device, adapter->physicalDevice(), m_allocator);
                 m_allQueues.PushBack(vkQ);
                 switch (qt) {
                 case QueueType::Graphics: m_gfxQueues.PushBack(vkQ); break;
@@ -197,7 +199,7 @@ public:
         }
 
         // Descriptor pool manager.
-        m_poolManager = new VkDescriptorPoolManager(m_device, 256, rtEnabled);
+        m_poolManager = m_allocator.New<VkDescriptorPoolManager>(m_device, 256, rtEnabled);
 
         // Probe depth-stencil format support. D24_S8 is optional (unsupported on AMD/RADV).
         // Configures toVkFormat() to substitute D32F/D32F_S8 when D24 variants aren't supported.
@@ -261,96 +263,96 @@ public:
 
     // ---- Resource creation ----
     Status CreateBuffer(const BufferDesc& d, Buffer*& out) override {
-        auto* b = new VkBufferImpl(); if (b->init(m_device, m_adapter, d) != ErrorCode::Ok) { delete b; out = nullptr; return ErrorCode::Unknown; }
+        auto* b = m_allocator.New<VkBufferImpl>(); if (b->init(m_device, m_adapter, d) != ErrorCode::Ok) { m_allocator.Delete(b); out = nullptr; return ErrorCode::Unknown; }
         out = b; return ErrorCode::Ok;
     }
     Status CreateTexture(const TextureDesc& d, Texture*& out) override {
-        auto* t = new VkTextureImpl(); if (t->init(m_device, m_adapter, d) != ErrorCode::Ok) { delete t; out = nullptr; return ErrorCode::Unknown; }
+        auto* t = m_allocator.New<VkTextureImpl>(); if (t->init(m_device, m_adapter, d) != ErrorCode::Ok) { m_allocator.Delete(t); out = nullptr; return ErrorCode::Unknown; }
         out = t; return ErrorCode::Ok;
     }
     Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override {
-        auto* v = new VkTextureViewImpl(); if (v->init(m_device, static_cast<VkTextureImpl*>(tex), d) != ErrorCode::Ok) { delete v; out = nullptr; return ErrorCode::Unknown; }
+        auto* v = m_allocator.New<VkTextureViewImpl>(); if (v->init(m_device, static_cast<VkTextureImpl*>(tex), d) != ErrorCode::Ok) { m_allocator.Delete(v); out = nullptr; return ErrorCode::Unknown; }
         out = v; return ErrorCode::Ok;
     }
     Status CreateSampler(const SamplerDesc& d, Sampler*& out) override {
-        auto* s = new VkSamplerImpl(); if (s->init(m_device, d) != ErrorCode::Ok) { delete s; out = nullptr; return ErrorCode::Unknown; }
+        auto* s = m_allocator.New<VkSamplerImpl>(); if (s->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(s); out = nullptr; return ErrorCode::Unknown; }
         out = s; return ErrorCode::Ok;
     }
     Status CreateShaderModule(const ShaderModuleDesc& d, ShaderModule*& out) override {
-        auto* m = new VkShaderModuleImpl(); if (m->init(m_device, d) != ErrorCode::Ok) { delete m; out = nullptr; return ErrorCode::Unknown; }
+        auto* m = m_allocator.New<VkShaderModuleImpl>(); if (m->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(m); out = nullptr; return ErrorCode::Unknown; }
         out = m; return ErrorCode::Ok;
     }
     Status CreateBindGroupLayout(const BindGroupLayoutDesc& d, BindGroupLayout*& out) override {
-        auto* l = new VkBindGroupLayoutImpl(); if (l->init(m_device, d, m_bindingShifts) != ErrorCode::Ok) { delete l; out = nullptr; return ErrorCode::Unknown; }
+        auto* l = m_allocator.New<VkBindGroupLayoutImpl>(); if (l->init(m_device, d, m_bindingShifts) != ErrorCode::Ok) { m_allocator.Delete(l); out = nullptr; return ErrorCode::Unknown; }
         out = l; return ErrorCode::Ok;
     }
     Status CreateBindGroup(const BindGroupDesc& d, BindGroup*& out) override {
-        auto* g = new VkBindGroupImpl(); if (g->init(m_device, m_poolManager, d, m_bindingShifts) != ErrorCode::Ok) { delete g; out = nullptr; return ErrorCode::Unknown; }
+        auto* g = m_allocator.New<VkBindGroupImpl>(); if (g->init(m_device, m_poolManager, d, m_bindingShifts) != ErrorCode::Ok) { m_allocator.Delete(g); out = nullptr; return ErrorCode::Unknown; }
         out = g; return ErrorCode::Ok;
     }
     Status CreatePipelineLayout(const PipelineLayoutDesc& d, PipelineLayout*& out) override {
-        auto* l = new VkPipelineLayoutImpl(); if (l->init(m_device, d) != ErrorCode::Ok) { delete l; out = nullptr; return ErrorCode::Unknown; }
+        auto* l = m_allocator.New<VkPipelineLayoutImpl>(); if (l->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(l); out = nullptr; return ErrorCode::Unknown; }
         out = l; return ErrorCode::Ok;
     }
     Status CreatePipelineCache(const PipelineCacheDesc& d, PipelineCache*& out) override {
-        auto* c = new VkPipelineCacheImpl(); if (c->init(m_device, d) != ErrorCode::Ok) { delete c; out = nullptr; return ErrorCode::Unknown; }
+        auto* c = m_allocator.New<VkPipelineCacheImpl>(); if (c->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(c); out = nullptr; return ErrorCode::Unknown; }
         out = c; return ErrorCode::Ok;
     }
     Status CreateRenderPipeline(const RenderPipelineDesc& d, RenderPipeline*& out) override {
-        auto* p = new VkRenderPipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        auto* p = m_allocator.New<VkRenderPipelineImpl>(); if (p->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(p); out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     Status CreateComputePipeline(const ComputePipelineDesc& d, ComputePipeline*& out) override {
-        auto* p = new VkComputePipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        auto* p = m_allocator.New<VkComputePipelineImpl>(); if (p->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(p); out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     Status CreateCommandPool(QueueType qt, CommandPool*& out) override {
-        auto* p = new VkCommandPoolImpl(); p->ownerDevice = this;
-        if (p->init(m_device, m_adapter, qt) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        auto* p = m_allocator.New<VkCommandPoolImpl>(); p->ownerDevice = this;
+        if (p->init(m_device, m_adapter, qt, m_allocator) != ErrorCode::Ok) { m_allocator.Delete(p); out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     Status CreateFence(u64 initialValue, Fence*& out) override {
-        auto* f = new VkFenceImpl(); if (f->init(m_device, initialValue) != ErrorCode::Ok) { delete f; out = nullptr; return ErrorCode::Unknown; }
+        auto* f = m_allocator.New<VkFenceImpl>(); if (f->init(m_device, initialValue) != ErrorCode::Ok) { m_allocator.Delete(f); out = nullptr; return ErrorCode::Unknown; }
         out = f; return ErrorCode::Ok;
     }
     Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override {
-        auto* q = new VkQuerySetImpl(); if (q->init(m_device, d) != ErrorCode::Ok) { delete q; out = nullptr; return ErrorCode::Unknown; }
+        auto* q = m_allocator.New<VkQuerySetImpl>(); if (q->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(q); out = nullptr; return ErrorCode::Unknown; }
         out = q; return ErrorCode::Ok;
     }
     Status CreateSwapChain(Surface* surface, const SwapChainDesc& d, SwapChain*& out) override {
-        auto* sc = new VkSwapChainImpl();
+        auto* sc = m_allocator.New<VkSwapChainImpl>();
         auto* vkSurf = static_cast<VkSurfaceImpl*>(surface);
-        if (sc->init(m_device, m_adapter->physicalDevice(), vkSurf->handle(), d, this) != ErrorCode::Ok)
-        { delete sc; out = nullptr; return ErrorCode::Unknown; }
+        if (sc->init(m_device, m_adapter->physicalDevice(), vkSurf->handle(), d, this, m_allocator) != ErrorCode::Ok)
+        { m_allocator.Delete(sc); out = nullptr; return ErrorCode::Unknown; }
         out = sc; return ErrorCode::Ok;
     }
 
     // ---- Mesh shader (folded in) ----
     Status CreateMeshPipeline(const MeshPipelineDesc& d, MeshPipeline*& out) override {
         if (!m_meshEnabled) { out = nullptr; return ErrorCode::NotSupported; }
-        auto* p = new VkMeshPipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        auto* p = m_allocator.New<VkMeshPipelineImpl>(); if (p->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(p); out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     void DestroyMeshPipeline(MeshPipeline*& p) override {
-        if (p) { static_cast<VkMeshPipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; }
+        if (p) { static_cast<VkMeshPipelineImpl*>(p)->cleanup(m_device); m_allocator.Delete(static_cast<VkMeshPipelineImpl*>(p)); p = nullptr; }
     }
 
     // ---- Ray tracing (folded in) ----
     Status CreateAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override {
         if (!m_rtEnabled) { out = nullptr; return ErrorCode::NotSupported; }
-        auto* a = new VkAccelStructImpl(); if (a->init(m_device, m_adapter, d, 256 * 1024) != ErrorCode::Ok) { delete a; out = nullptr; return ErrorCode::Unknown; }
+        auto* a = m_allocator.New<VkAccelStructImpl>(); if (a->init(m_device, m_adapter, d, 256 * 1024) != ErrorCode::Ok) { m_allocator.Delete(a); out = nullptr; return ErrorCode::Unknown; }
         out = a; return ErrorCode::Ok;
     }
     void DestroyAccelStruct(AccelStruct*& a) override {
-        if (a) { static_cast<VkAccelStructImpl*>(a)->cleanup(m_device); delete a; a = nullptr; }
+        if (a) { static_cast<VkAccelStructImpl*>(a)->cleanup(m_device); m_allocator.Delete(static_cast<VkAccelStructImpl*>(a)); a = nullptr; }
     }
     Status CreateRayTracingPipeline(const RayTracingPipelineDesc& d, RayTracingPipeline*& out) override {
         if (!m_rtEnabled) { out = nullptr; return ErrorCode::NotSupported; }
-        auto* p = new VkRayTracingPipelineImpl(); if (p->init(m_device, d) != ErrorCode::Ok) { delete p; out = nullptr; return ErrorCode::Unknown; }
+        auto* p = m_allocator.New<VkRayTracingPipelineImpl>(); if (p->init(m_device, d) != ErrorCode::Ok) { m_allocator.Delete(p); out = nullptr; return ErrorCode::Unknown; }
         out = p; return ErrorCode::Ok;
     }
     void DestroyRayTracingPipeline(RayTracingPipeline*& p) override {
-        if (p) { static_cast<VkRayTracingPipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; }
+        if (p) { static_cast<VkRayTracingPipelineImpl*>(p)->cleanup(m_device); m_allocator.Delete(static_cast<VkRayTracingPipelineImpl*>(p)); p = nullptr; }
     }
     Status GetShaderGroupHandles(RayTracingPipeline* pipeline, u32 firstGroup, u32 groupCount, Span<u8> outData) override {
         if (!m_rtEnabled) return ErrorCode::NotSupported;
@@ -363,31 +365,31 @@ public:
     }
 
     // ---- Resource destruction ----
-    void DestroyBuffer(Buffer*& b)              override { if (b) { static_cast<VkBufferImpl*>(b)->cleanup(m_device); delete b; b = nullptr; } }
-    void DestroyTexture(Texture*& t)            override { if (t) { static_cast<VkTextureImpl*>(t)->cleanup(m_device); delete t; t = nullptr; } }
-    void DestroyTextureView(TextureView*& v)    override { if (v) { static_cast<VkTextureViewImpl*>(v)->cleanup(m_device); delete v; v = nullptr; } }
-    void DestroySampler(Sampler*& s)            override { if (s) { static_cast<VkSamplerImpl*>(s)->cleanup(m_device); delete s; s = nullptr; } }
-    void DestroyShaderModule(ShaderModule*& m)  override { if (m) { static_cast<VkShaderModuleImpl*>(m)->cleanup(m_device); delete m; m = nullptr; } }
-    void DestroyBindGroupLayout(BindGroupLayout*& l) override { if (l) { static_cast<VkBindGroupLayoutImpl*>(l)->cleanup(m_device); delete l; l = nullptr; } }
-    void DestroyBindGroup(BindGroup*& g)        override { if (g) { static_cast<VkBindGroupImpl*>(g)->cleanup(m_device, m_poolManager); delete g; g = nullptr; } }
-    void DestroyPipelineLayout(PipelineLayout*& l) override { if (l) { static_cast<VkPipelineLayoutImpl*>(l)->cleanup(m_device); delete l; l = nullptr; } }
-    void DestroyPipelineCache(PipelineCache*& c) override { if (c) { static_cast<VkPipelineCacheImpl*>(c)->cleanup(m_device); delete c; c = nullptr; } }
-    void DestroyRenderPipeline(RenderPipeline*& p) override { if (p) { static_cast<VkRenderPipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; } }
-    void DestroyComputePipeline(ComputePipeline*& p) override { if (p) { static_cast<VkComputePipelineImpl*>(p)->cleanup(m_device); delete p; p = nullptr; } }
-    void DestroyCommandPool(CommandPool*& p)    override { if (p) { static_cast<VkCommandPoolImpl*>(p)->cleanup(); delete p; p = nullptr; } }
-    void DestroyFence(Fence*& f)                override { if (f) { static_cast<VkFenceImpl*>(f)->cleanup(m_device); delete f; f = nullptr; } }
-    void DestroyQuerySet(QuerySet*& q)          override { if (q) { static_cast<VkQuerySetImpl*>(q)->cleanup(m_device); delete q; q = nullptr; } }
-    void DestroySwapChain(SwapChain*& sc)       override { if (sc) { static_cast<VkSwapChainImpl*>(sc)->cleanup(); delete sc; sc = nullptr; } }
-    void DestroySurface(Surface*& s)            override { if (s) { static_cast<VkSurfaceImpl*>(s)->Destroy(); delete s; s = nullptr; } }
+    void DestroyBuffer(Buffer*& b)              override { if (b) { static_cast<VkBufferImpl*>(b)->cleanup(m_device); m_allocator.Delete(static_cast<VkBufferImpl*>(b)); b = nullptr; } }
+    void DestroyTexture(Texture*& t)            override { if (t) { static_cast<VkTextureImpl*>(t)->cleanup(m_device); m_allocator.Delete(static_cast<VkTextureImpl*>(t)); t = nullptr; } }
+    void DestroyTextureView(TextureView*& v)    override { if (v) { static_cast<VkTextureViewImpl*>(v)->cleanup(m_device); m_allocator.Delete(static_cast<VkTextureViewImpl*>(v)); v = nullptr; } }
+    void DestroySampler(Sampler*& s)            override { if (s) { static_cast<VkSamplerImpl*>(s)->cleanup(m_device); m_allocator.Delete(static_cast<VkSamplerImpl*>(s)); s = nullptr; } }
+    void DestroyShaderModule(ShaderModule*& m)  override { if (m) { static_cast<VkShaderModuleImpl*>(m)->cleanup(m_device); m_allocator.Delete(static_cast<VkShaderModuleImpl*>(m)); m = nullptr; } }
+    void DestroyBindGroupLayout(BindGroupLayout*& l) override { if (l) { static_cast<VkBindGroupLayoutImpl*>(l)->cleanup(m_device); m_allocator.Delete(static_cast<VkBindGroupLayoutImpl*>(l)); l = nullptr; } }
+    void DestroyBindGroup(BindGroup*& g)        override { if (g) { static_cast<VkBindGroupImpl*>(g)->cleanup(m_device, m_poolManager); m_allocator.Delete(static_cast<VkBindGroupImpl*>(g)); g = nullptr; } }
+    void DestroyPipelineLayout(PipelineLayout*& l) override { if (l) { static_cast<VkPipelineLayoutImpl*>(l)->cleanup(m_device); m_allocator.Delete(static_cast<VkPipelineLayoutImpl*>(l)); l = nullptr; } }
+    void DestroyPipelineCache(PipelineCache*& c) override { if (c) { static_cast<VkPipelineCacheImpl*>(c)->cleanup(m_device); m_allocator.Delete(static_cast<VkPipelineCacheImpl*>(c)); c = nullptr; } }
+    void DestroyRenderPipeline(RenderPipeline*& p) override { if (p) { static_cast<VkRenderPipelineImpl*>(p)->cleanup(m_device); m_allocator.Delete(static_cast<VkRenderPipelineImpl*>(p)); p = nullptr; } }
+    void DestroyComputePipeline(ComputePipeline*& p) override { if (p) { static_cast<VkComputePipelineImpl*>(p)->cleanup(m_device); m_allocator.Delete(static_cast<VkComputePipelineImpl*>(p)); p = nullptr; } }
+    void DestroyCommandPool(CommandPool*& p)    override { if (p) { static_cast<VkCommandPoolImpl*>(p)->cleanup(); m_allocator.Delete(static_cast<VkCommandPoolImpl*>(p)); p = nullptr; } }
+    void DestroyFence(Fence*& f)                override { if (f) { static_cast<VkFenceImpl*>(f)->cleanup(m_device); m_allocator.Delete(static_cast<VkFenceImpl*>(f)); f = nullptr; } }
+    void DestroyQuerySet(QuerySet*& q)          override { if (q) { static_cast<VkQuerySetImpl*>(q)->cleanup(m_device); m_allocator.Delete(static_cast<VkQuerySetImpl*>(q)); q = nullptr; } }
+    void DestroySwapChain(SwapChain*& sc)       override { if (sc) { static_cast<VkSwapChainImpl*>(sc)->cleanup(); m_allocator.Delete(static_cast<VkSwapChainImpl*>(sc)); sc = nullptr; } }
+    void DestroySurface(Surface*& s)            override { if (s) { static_cast<VkSurfaceImpl*>(s)->Destroy(); m_allocator.Delete(static_cast<VkSurfaceImpl*>(s)); s = nullptr; } }
 
     void WaitIdle() override { vkDeviceWaitIdle(m_device); }
     void Destroy() override {
         WaitIdle();
-        if (m_poolManager) { m_poolManager->Destroy(); delete m_poolManager; m_poolManager = nullptr; }
-        for (auto* q : m_allQueues) delete q;
+        if (m_poolManager) { m_poolManager->Destroy(); m_allocator.Delete(m_poolManager); m_poolManager = nullptr; }
+        for (auto* q : m_allQueues) m_allocator.Delete(q);
         m_allQueues.Clear(); m_gfxQueues.Clear(); m_compQueues.Clear(); m_xferQueues.Clear();
         if (m_device != VK_NULL_HANDLE) { vkDestroyDevice(m_device, nullptr); m_device = VK_NULL_HANDLE; }
-        delete this;
+        IAllocator& alloc = m_allocator; this->~VkDeviceImpl(); alloc.Free(this);
     }
 
     // ---- Swap chain sync ----
@@ -424,6 +426,7 @@ public:
     }
 
 private:
+    IAllocator&      m_allocator;
     VkDevice         m_device  = VK_NULL_HANDLE;
     VkAdapterImpl*   m_adapter = nullptr;
     bool             m_meshEnabled      = false;
@@ -443,8 +446,8 @@ private:
 // ---- Adapter::CreateDevice implementation ----
 
 Status VkAdapterImpl::CreateDevice(const DeviceDesc& desc, Device*& out) {
-    auto* dev = new VkDeviceImpl();
-    if (dev->init(this, desc) != ErrorCode::Ok) { delete dev; out = nullptr; return ErrorCode::Unknown; }
+    auto* dev = m_allocator.New<VkDeviceImpl>(m_allocator);
+    if (dev->init(this, desc) != ErrorCode::Ok) { m_allocator.Delete(dev); out = nullptr; return ErrorCode::Unknown; }
     out = dev; return ErrorCode::Ok;
 }
 

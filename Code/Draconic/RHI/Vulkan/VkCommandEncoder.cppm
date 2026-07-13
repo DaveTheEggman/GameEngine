@@ -35,8 +35,8 @@ export namespace draconic::rhi::vk {
 class VkCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt {
 public:
     RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
-    VkCommandEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device, VkCommandPoolImpl* pool)
-        : m_cmdBuf(cmdBuf), m_device(device), m_pool(pool),
+    VkCommandEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device, VkCommandPoolImpl* pool, IAllocator& allocator)
+        : m_cmdBuf(cmdBuf), m_device(device), m_pool(pool), m_allocator(allocator),
           m_rpe(cmdBuf, device), m_cpe(cmdBuf) {}
 
     // ---- CommandEncoder ----
@@ -165,7 +165,7 @@ public:
             vkCmdSetScissor(sec, 0, 1, &scs);
         }
 
-        auto* enc = new VkRenderBundleEncoderImpl(sec);
+        auto* enc = m_allocator.New<VkRenderBundleEncoderImpl>(sec, m_allocator);
         m_pool->trackBundleEncoder(enc);
         return enc;
     }
@@ -423,7 +423,7 @@ public:
 
     CommandBuffer* Finish() override {
         vkEndCommandBuffer(m_cmdBuf);
-        auto* cb = new VkCommandBufferImpl(m_cmdBuf);
+        auto* cb = m_allocator.New<VkCommandBufferImpl>(m_cmdBuf);
         m_pool->trackCommandBuffer(cb);
         return cb;
     }
@@ -454,6 +454,7 @@ private:
     VkCommandBuffer          m_cmdBuf = VK_NULL_HANDLE;
     VkDevice                 m_device = VK_NULL_HANDLE;
     VkCommandPoolImpl*       m_pool   = nullptr;
+    IAllocator&              m_allocator;
     VkRenderPassEncoderImpl  m_rpe;
     VkComputePassEncoderImpl m_cpe;
 
@@ -664,18 +665,18 @@ Status VkCommandPoolImpl::CreateEncoder(CommandEncoder*& out) {
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmdBuf, &bi);
 
-    out = new VkCommandEncoderImpl(cmdBuf, m_device, this);
+    out = m_allocator->New<VkCommandEncoderImpl>(cmdBuf, m_device, this, *m_allocator);
     return ErrorCode::Ok;
 }
 
 void VkCommandPoolImpl::DestroyEncoder(CommandEncoder*& encoder) {
-    if (encoder) { delete encoder; encoder = nullptr; }
+    if (encoder) { m_allocator->Delete(encoder); encoder = nullptr; }
 }
 
 void VkCommandPoolImpl::Reset() {
-    for (auto* cb : m_trackedBuffers) { m_freeHandles.PushBack(cb->handle()); delete cb; }
+    for (auto* cb : m_trackedBuffers) { m_freeHandles.PushBack(cb->handle()); m_allocator->Delete(cb); }
     m_trackedBuffers.Clear();
-    for (auto* e : m_trackedBundleEncoders) delete e;   // each frees its produced bundle
+    for (auto* e : m_trackedBundleEncoders) m_allocator->Delete(e);   // each frees its produced bundle
     m_trackedBundleEncoders.Clear();
     for (auto h : m_liveSecondaries) m_freeSecondaries.PushBack(h);   // recycle (pool reset below)
     m_liveSecondaries.Clear();

@@ -23,8 +23,8 @@ class VkDeviceImpl; // forward
 
 class VkQueueImpl : public Queue {
 public:
-    VkQueueImpl(VkQueue queue, QueueType type, u32 familyIndex, f32 tsPeriod, VkDeviceImpl* device, VkDevice vkDevice, VkPhysicalDevice physDevice)
-        : m_queue(queue), m_familyIndex(familyIndex), m_tsPeriod(tsPeriod), m_device(device), m_vkDevice(vkDevice), m_physDevice(physDevice)
+    VkQueueImpl(VkQueue queue, QueueType type, u32 familyIndex, f32 tsPeriod, VkDeviceImpl* device, VkDevice vkDevice, VkPhysicalDevice physDevice, IAllocator& allocator)
+        : m_queue(queue), m_familyIndex(familyIndex), m_tsPeriod(tsPeriod), m_device(device), m_vkDevice(vkDevice), m_physDevice(physDevice), m_allocator(allocator)
     { queueType = type; }
 
     // ---- Queue interface ----
@@ -51,11 +51,11 @@ public:
     void WaitIdle() override { vkQueueWaitIdle(m_queue); }
 
     Status CreateTransferBatch(TransferBatch*& out) override {
-        out = new VkTransferBatchImpl(m_vkDevice, m_queue, m_familyIndex, m_physDevice);
+        out = m_allocator.New<VkTransferBatchImpl>(m_vkDevice, m_queue, m_familyIndex, m_physDevice);
         return ErrorCode::Ok;
     }
     void DestroyTransferBatch(TransferBatch*& batch) override {
-        if (batch) { static_cast<VkTransferBatchImpl*>(batch)->Destroy(); delete batch; batch = nullptr; }
+        if (batch) { static_cast<VkTransferBatchImpl*>(batch)->Destroy(); m_allocator.Delete(batch); batch = nullptr; }
     }
 
     f32 TimestampPeriod() const override { return m_tsPeriod; }
@@ -65,12 +65,13 @@ public:
     [[nodiscard]] u32     familyIndex() const { return m_familyIndex; }
 
 private:
-    VkQueue       m_queue       = VK_NULL_HANDLE;
-    u32           m_familyIndex = 0;
-    f32           m_tsPeriod    = 0.0f;
+    VkQueue          m_queue       = VK_NULL_HANDLE;
+    u32              m_familyIndex = 0;
+    f32              m_tsPeriod    = 0.0f;
     VkDeviceImpl*    m_device      = nullptr;
     VkDevice         m_vkDevice    = VK_NULL_HANDLE;
     VkPhysicalDevice m_physDevice  = VK_NULL_HANDLE;
+    IAllocator&      m_allocator;
 };
 
 } // namespace draconic::rhi::vk

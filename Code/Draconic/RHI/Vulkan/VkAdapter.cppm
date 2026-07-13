@@ -22,8 +22,8 @@ class VkDeviceImpl; // forward
 
 class VkAdapterImpl : public Adapter {
 public:
-    VkAdapterImpl(VkPhysicalDevice physicalDevice, VkInstance instance)
-        : m_physicalDevice(physicalDevice), m_instance(instance)
+    VkAdapterImpl(VkPhysicalDevice physicalDevice, VkInstance instance, IAllocator& allocator)
+        : m_allocator(allocator), m_physicalDevice(physicalDevice), m_instance(instance)
     {
         vkGetPhysicalDeviceProperties(m_physicalDevice, &m_properties);
         vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_features10);
@@ -171,6 +171,7 @@ public:
     [[nodiscard]] bool supportsDescriptorIndexing() const { return m_supportsDescriptorIndexing; }
     [[nodiscard]] bool supportsMeshShader()         const { return m_supportsMeshShader; }
     [[nodiscard]] bool supportsRayTracing()         const { return m_supportsRayTracing; }
+    [[nodiscard]] IAllocator& allocator()           const noexcept { return m_allocator; }
 
 private:
     void queryExtensionSupport() {
@@ -203,6 +204,7 @@ private:
         }
     }
 
+    IAllocator&                        m_allocator;
     VkPhysicalDevice                   m_physicalDevice = VK_NULL_HANDLE;
     VkInstance                         m_instance       = VK_NULL_HANDLE;
     VkPhysicalDeviceProperties         m_properties{};
