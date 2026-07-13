@@ -10,6 +10,7 @@ import draconic.core;
 import draconic.content;
 import draconic.scene;
 import draconic.scene.resource;
+import draconic.render.subsystem;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -248,4 +249,44 @@ TEST_CASE("hierarchy: selection survives snapshot rebuilds")
     hierarchy.Refresh();
     CHECK(edit.EntitySelection().Contains(b));
     CHECK(selectedPos() == 0);
+}
+
+TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
+{
+    // Fresh scenes must be LIT out of the box - an authored "Sun" entity with a shadow-casting
+    // directional light (saved content, not editor magic), angled down so shading has direction.
+    GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
+    RegisterSerializable<draconic::scene::SceneDocument>();
+
+    const StringView dir = u8"draconic_newscene_seed_project";
+    RemoveProjectTree(dir);
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+    EditorContext ctx;
+    ctx.SetProject(project.Get());
+
+    draconic::content::Instance* instance = CreateSceneInstance(ctx);
+    REQUIRE(instance != nullptr);
+
+    draconic::scene::Scene loaded;
+    loaded.AddSystem<draconic::render::LightComponentManager>();
+    REQUIRE(draconic::scene::LoadScene(*instance, loaded).IsOk());
+
+    draconic::scene::EntityHandle sun{};
+    loaded.ForEachEntity([&](draconic::scene::EntityHandle e) {
+        if (loaded.GetEntityName(e) == u8"Sun") { sun = e; }
+    });
+    REQUIRE(sun.IsAssigned());
+    auto* lights = loaded.GetSystem<draconic::render::LightComponentManager>();
+    draconic::render::LightComponent* light = lights->Get(sun);
+    REQUIRE(light != nullptr);
+    CHECK(light->type == draconic::render::LightType::Directional);
+    CHECK(light->castsShadows);
+    // Angled, not identity: the light's forward must have a downward component.
+    const Transform t = loaded.GetLocalTransform(sun);
+    const Float3 forward = RotateVector(t.rotation, Float3{ 0, 0, -1 });
+    CHECK(forward.y < -0.5f);
+
+    RemoveProjectTree(dir);
 }

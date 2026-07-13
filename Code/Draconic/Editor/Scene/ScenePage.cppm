@@ -70,6 +70,7 @@ export namespace draconic::editor
             if (m_scenes != nullptr)
             {
                 m_scene = m_scenes->CreateScene(instance.Name());
+                m_scene->SetSimulationEnabled(false);   // edit mode is frozen; Simulate un-freezes
                 const Status loaded = dscene::LoadScene(instance, *m_scene);
                 if (loaded.IsOk())
                 {
@@ -102,16 +103,37 @@ export namespace draconic::editor
             if (m_scene != nullptr)
             {
                 m_editContext = MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
+                m_editContext->SetResources(context.Resources());
                 m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
+                m_hierarchy->SetEditorContext(&context);
                 m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), context, *m_editContext);
                 m_gizmos = MakeUnique<GizmoController>(DefaultAllocator(), *m_editContext);
                 RegisterBuiltinGizmoRenderers(m_componentGizmos);
             }
 
+            // Viewport pane: [toolbar strip | viewport]. The toolbar mirrors and drives the
+            // gizmo state the W/E/R/X keys already control - the on-screen answer to "which
+            // space am I in" (the recorded gap: X toggled with no visible state anywhere).
+            BuildViewportToolbar();
+            auto viewportPane = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
+            viewportPane->Direction = draconic::ui::Orientation::Vertical;
+            {
+                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = draconic::ui::SizeSpec::Match();
+                lp->Height = draconic::ui::SizeSpec::Fixed(draconic::ui::Unit::Px(30));
+                viewportPane->AddView(m_toolbar.Get(), lp);
+            }
+            {
+                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = draconic::ui::SizeSpec::Match();
+                lp->Grow = 1.0f;
+                viewportPane->AddView(m_viewport.Get(), lp);
+            }
+
             // Page layout: hierarchy | (viewport | inspector).
             auto inner = MakeRef<draconic::ui::toolkit::SplitView>(DefaultAllocator());
             inner->SetSplitRatio(0.72f);
-            inner->SetPanes(m_viewport.Get(), m_inspector.Get());
+            inner->SetPanes(viewportPane.Get(), m_inspector.Get());
             m_content = MakeRef<draconic::ui::toolkit::SplitView>(DefaultAllocator());
             m_content->SetSplitRatio(0.2f);
             m_content->SetPanes(m_hierarchy.Get(), inner.Get());
@@ -151,13 +173,17 @@ export namespace draconic::editor
             if (m_render != nullptr && m_scene != nullptr)
             {
                 drender::debug::DebugDraw& dd = m_render->DebugScene(*m_scene);
-                dd.DrawGrid(Float3{ 0, 0, 0 }, 20.0f, 20, Color{ 0.35f, 0.35f, 0.38f, 1.0f });
-                dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 1, 0, 0 }, Color{ 0.9f, 0.2f, 0.2f, 1.0f });
-                dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 }, Color{ 0.2f, 0.9f, 0.2f, 1.0f });
-                dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 0, 1 }, Color{ 0.2f, 0.4f, 0.95f, 1.0f });
+                if (m_showGrid)
+                {
+                    dd.DrawGrid(Float3{ 0, 0, 0 }, 20.0f, 20, Color{ 0.35f, 0.35f, 0.38f, 1.0f });
+                    dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 1, 0, 0 }, Color{ 0.9f, 0.2f, 0.2f, 1.0f });
+                    dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 }, Color{ 0.2f, 0.9f, 0.2f, 1.0f });
+                    dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 0, 1 }, Color{ 0.2f, 0.4f, 0.95f, 1.0f });
+                }
                 DrawEntityMarkers(dd);
                 DrawGizmos(dd);
             }
+            SyncToolbar();
         }
 
         // Called only for the MAIN window's frame, inside the app-level scene-renderer bracket
@@ -266,7 +292,9 @@ export namespace draconic::editor
         // drag) - click-picking must skip.
         [[nodiscard]] bool UpdateGizmos(bool viewportActive)
         {
-            if (!m_gizmos) { return false; }
+            // Simulate mode: transforms belong to the running systems; gizmo drags would fight
+            // them (and their commands are refused by the locked stack anyway).
+            if (!m_gizmos || m_isSimulating) { return false; }
             GizmoFrameInput in;
             in.cameraPosition = m_camera.position;
             in.cameraForward = m_camera.Forward();
@@ -330,13 +358,210 @@ export namespace draconic::editor
             });
         }
 
+        // === Viewport toolbar (gizmo mode/space/grid) ===
+
+        void BuildViewportToolbar()
+        {
+            namespace edapp = draconic::editor::app;
+            m_toolbar = MakeRef<tk::Toolbar>(DefaultAllocator());
+            edapp::EditorIcons& icons = edapp::EditorIcons::Get();
+            GizmoController* gizmos = m_gizmos.Get();
+            auto icon = [](draconic::ui::SVGDrawable* drawable) {
+                return Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
+                    [drawable](draconic::ui::UIDrawContext& ctx, Rectangle rect) {
+                        if (drawable != nullptr) { drawable->Draw(ctx, rect); }
+                    } };
+            };
+
+            m_translateToggle = m_toolbar->AddToggle(u8"");
+            m_translateToggle->SetIcon(icon(icons.translate.Get()));
+            m_translateToggle->OnCheckedChanged.Add([gizmos](tk::ToolbarToggle*, bool value) {
+                if (value) { gizmos->SetMode(GizmoMode::Translate); }
+            });
+            m_rotateToggle = m_toolbar->AddToggle(u8"");
+            m_rotateToggle->SetIcon(icon(icons.rotate.Get()));
+            m_rotateToggle->OnCheckedChanged.Add([gizmos](tk::ToolbarToggle*, bool value) {
+                if (value) { gizmos->SetMode(GizmoMode::Rotate); }
+            });
+            m_scaleToggle = m_toolbar->AddToggle(u8"");
+            m_scaleToggle->SetIcon(icon(icons.scale.Get()));
+            m_scaleToggle->OnCheckedChanged.Add([gizmos](tk::ToolbarToggle*, bool value) {
+                if (value) { gizmos->SetMode(GizmoMode::Scale); }
+            });
+
+            m_toolbar->AddSeparator();
+
+            // One toggle whose icon + label read the LIVE space (checked = world).
+            m_spaceToggle = m_toolbar->AddToggle(u8"World");
+            m_spaceToggle->SetIcon(Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
+                [gizmos, &icons](draconic::ui::UIDrawContext& ctx, Rectangle rect) {
+                    draconic::ui::SVGDrawable* drawable = (gizmos->Space() == GizmoSpace::World)
+                        ? icons.worldSpace.Get() : icons.localSpace.Get();
+                    if (drawable != nullptr) { drawable->Draw(ctx, rect); }
+                } });
+            m_spaceToggle->OnCheckedChanged.Add([gizmos](tk::ToolbarToggle* toggle, bool value) {
+                gizmos->SetSpace(value ? GizmoSpace::World : GizmoSpace::Local);
+                toggle->SetText(value ? StringView(u8"World") : StringView(u8"Local"));
+            });
+
+            m_toolbar->AddSeparator();
+
+            ScenePage_GridToggleInit();
+
+            // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
+            {
+                auto spacer = MakeRef<draconic::ui::Panel>(DefaultAllocator());
+                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                m_toolbar->AddView(spacer.Get(), lp);
+            }
+
+            // === Simulate (snapshot -> run -> restore; phase-8a half of play-in-editor) ===
+            SceneEditorPage* self = this;
+            m_playButton = m_toolbar->AddButton(u8"Play");
+            m_playButton->OnClick.Add([self](tk::ToolbarButton*) { self->StartSimulation(); });
+            m_pauseToggle = m_toolbar->AddToggle(u8"Pause");
+            m_pauseToggle->OnCheckedChanged.Add([self](tk::ToolbarToggle*, bool value) {
+                self->PauseSimulation(value);
+            });
+            m_stopButton = m_toolbar->AddButton(u8"Stop");
+            m_stopButton->OnClick.Add([self](tk::ToolbarButton*) { self->StopSimulation(); });
+            // The at-a-glance state readout (user report: Play gave no visual indication).
+            m_simLabel = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8""));
+            m_simLabel->FontSize.SetValue(13.0f);
+            {
+                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Height = draconic::ui::SizeSpec::Match();
+                m_toolbar->AddView(m_simLabel.Get(), lp);
+            }
+            RefreshSimToolbar();
+        }
+
+        // === Simulation lifecycle (Sedulous SceneEditorPage port) ===
+
+        /// Snapshot the scene and flip it live: Scene::Start() fires OnSceneStarted on every
+        /// system, SimulationEnabled un-freezes simulation-only work, and the command stack
+        /// LOCKS (runtime mutations don't belong on the edit history; undoing into entities
+        /// the restore recreates is a guid minefield). No-op if already simulating.
+        void StartSimulation()
+        {
+            if (m_isSimulating || m_scene == nullptr) { return; }
+            m_simSnapshot = dscene::SceneSnapshot::Capture(*m_scene);
+            if (!m_simSnapshot)
+            {
+                DRACONIC_LOG_ERROR(u8"Editor", u8"Simulate: scene snapshot capture failed");
+                return;
+            }
+            m_scene->Start();
+            m_scene->SetSimulationEnabled(true);
+            Commands().SetLocked(true);
+            m_isSimulating = true;
+            m_isPaused = false;
+            RefreshSimToolbar();
+        }
+
+        /// Freeze/resume the running simulation (SimulationEnabled only - the Start/Stop
+        /// system callbacks are for the big transitions, not the per-frame pause).
+        void PauseSimulation(bool paused)
+        {
+            if (!m_isSimulating || m_scene == nullptr) { return; }
+            m_isPaused = paused;
+            m_scene->SetSimulationEnabled(!paused);
+            RefreshSimToolbar();
+        }
+
+        /// Scene::Stop(), then restore the snapshot INTO THE SAME Scene instance (borrowed
+        /// scene pointers stay valid; the guid-keyed selection re-resolves against restored
+        /// entities - runtime-spawned ones drop out naturally). No-op if not simulating.
+        void StopSimulation()
+        {
+            if (!m_isSimulating || m_scene == nullptr) { return; }
+            m_scene->Stop();
+            if (m_simSnapshot)
+            {
+                draconic::resource::ResourceManager* resources =
+                    (m_context != nullptr) ? m_context->Resources() : nullptr;
+                if (!m_simSnapshot->Restore(*m_scene, resources).IsOk())
+                {
+                    DRACONIC_LOG_ERROR(u8"Editor", u8"Simulate: snapshot restore failed");
+                }
+                m_simSnapshot = nullptr;
+            }
+            m_scene->SetSimulationEnabled(false);
+            Commands().SetLocked(false);
+            m_isSimulating = false;
+            m_isPaused = false;
+            // Hierarchy/inspector re-sync off the scene's revisions next frame (the restore
+            // drained + recreated every entity, which bumps them).
+            RefreshSimToolbar();
+        }
+
+        void RefreshSimToolbar()
+        {
+            if (m_playButton == nullptr) { return; }
+            m_playButton->IsEnabled = !m_isSimulating;
+            m_pauseToggle->IsEnabled = m_isSimulating;
+            m_stopButton->IsEnabled = m_isSimulating;
+            m_pauseToggle->SetIsChecked(m_isPaused);
+            if (m_simLabel.Get() != nullptr)
+            {
+                if (!m_isSimulating) { m_simLabel->SetText(u8""); }
+                else
+                {
+                    m_simLabel->SetText(m_isPaused ? StringView(u8" PAUSED ")
+                                                   : StringView(u8" SIMULATING "));
+                    m_simLabel->TextColor.SetValue(Optional<Color>(m_isPaused
+                        ? Color{ 0.95f, 0.85f, 0.4f, 1.0f }     // amber
+                        : Color{ 0.95f, 0.55f, 0.35f, 1.0f })); // orange
+                }
+            }
+            m_playButton->Invalidate();
+            m_pauseToggle->Invalidate();
+            m_stopButton->Invalidate();
+        }
+
+        // (split out so the lambda below can live next to its state)
+        void ScenePage_GridToggleInit()
+        {
+            namespace edapp = draconic::editor::app;
+            m_gridToggle = m_toolbar->AddToggle(u8"");
+            m_gridToggle->SetIcon(Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
+                [](draconic::ui::UIDrawContext& ctx, Rectangle rect) {
+                    if (auto* drawable = edapp::EditorIcons::Get().grid.Get()) { drawable->Draw(ctx, rect); }
+                } });
+            SceneEditorPage* self = this;
+            m_gridToggle->OnCheckedChanged.Add([self](tk::ToolbarToggle*, bool value) {
+                self->m_showGrid = value;
+            });
+        }
+
+        // Reflect externally-driven state (the W/E/R keys, X space toggle) back into the
+        // toolbar. SetIsChecked no-ops when unchanged, and the mode handlers only act on
+        // true, so this settles without feedback loops.
+        void SyncToolbar()
+        {
+            if (m_toolbar.Get() == nullptr || !m_gizmos) { return; }
+            const GizmoMode mode = m_gizmos->Mode();
+            m_translateToggle->SetIsChecked(mode == GizmoMode::Translate);
+            m_rotateToggle->SetIsChecked(mode == GizmoMode::Rotate);
+            m_scaleToggle->SetIsChecked(mode == GizmoMode::Scale);
+            const bool world = (m_gizmos->Space() == GizmoSpace::World);
+            m_spaceToggle->SetIsChecked(world);
+            m_gridToggle->SetIsChecked(m_showGrid);
+        }
+
         // Position markers for every entity (small cross; selected = brighter + boxed) - empty
-        // entities have no renderable, so the editor gives them a visual anchor.
+        // entities have no renderable, so the editor gives them a visual anchor. The selection
+        // box hugs the entity's REAL renderable bounds when it has any (mesh AABB in the
+        // entity's oriented frame; instanced sets use their merged world bounds); the small
+        // fixed cube remains the meshless fallback.
         void DrawEntityMarkers(drender::debug::DebugDraw& dd)
         {
             if (!m_editContext) { return; }
             Selection<Guid>& selection = m_editContext->EntitySelection();
             dscene::Scene& scene = *m_scene;
+            auto* meshes = scene.GetSystem<drender::MeshComponentManager>();
+            auto* instanced = scene.GetSystem<drender::InstancedMeshComponentManager>();
             scene.ForEachEntity([&](dscene::EntityHandle e) {
                 const Float4x4 world = scene.GetWorldMatrix(e);
                 const Float3 p{ world.m[3][0], world.m[3][1], world.m[3][2] };
@@ -347,10 +572,33 @@ export namespace draconic::editor
                 dd.DrawLine(p - Float3{ s, 0, 0 }, p + Float3{ s, 0, 0 }, color);
                 dd.DrawLine(p - Float3{ 0, s, 0 }, p + Float3{ 0, s, 0 }, color);
                 dd.DrawLine(p - Float3{ 0, 0, s }, p + Float3{ 0, 0, s }, color);
-                if (selected)
+                if (!selected) { return; }
+
+                if (meshes != nullptr)
                 {
-                    dd.DrawWireBoxCenter(p, Float3{ 0.35f, 0.35f, 0.35f }, color);
+                    if (drender::MeshComponent* mc = meshes->Get(e))
+                    {
+                        if (draconic::geometry::StaticMesh* mesh = mc->mesh.Get())
+                        {
+                            dd.DrawTransformedBox(mesh->bounds.min, mesh->bounds.max, world, color);
+                            return;
+                        }
+                    }
                 }
+                if (instanced != nullptr)
+                {
+                    if (drender::InstancedMeshComponent* imc = instanced->Get(e))
+                    {
+                        if (imc->mesh.Get() != nullptr && imc->Count() > 0 && imc->cachedRadius > 0.0f)
+                        {
+                            // Merged world bounds (kept current by extraction's compose pass).
+                            const f32 r = imc->cachedRadius;
+                            dd.DrawWireBoxCenter(imc->cachedCenter, Float3{ r, r, r }, color);
+                            return;
+                        }
+                    }
+                }
+                dd.DrawWireBoxCenter(p, Float3{ 0.35f, 0.35f, 0.35f }, color);
             });
         }
 
@@ -443,6 +691,20 @@ export namespace draconic::editor
         UniquePtr<SceneEditContext> m_editContext;   // per-page mutation mediator + selection
         RefPtr<draconic::ui::toolkit::SplitView> m_content;   // hierarchy | viewport
         RefPtr<SceneHierarchyView> m_hierarchy;
+        RefPtr<tk::Toolbar> m_toolbar;
+        tk::ToolbarButton* m_playButton = nullptr;   // borrowed (toolbar-owned)
+        tk::ToolbarToggle* m_pauseToggle = nullptr;
+        tk::ToolbarButton* m_stopButton = nullptr;
+        RefPtr<draconic::ui::Label> m_simLabel;
+        UniquePtr<dscene::SceneSnapshot> m_simSnapshot;
+        bool m_isSimulating = false;
+        bool m_isPaused = false;
+        tk::ToolbarToggle* m_translateToggle = nullptr;   // borrowed (toolbar-owned)
+        tk::ToolbarToggle* m_rotateToggle = nullptr;
+        tk::ToolbarToggle* m_scaleToggle = nullptr;
+        tk::ToolbarToggle* m_spaceToggle = nullptr;
+        tk::ToolbarToggle* m_gridToggle = nullptr;
+        bool m_showGrid = true;
         RefPtr<SceneInspectorView> m_inspector;
         UniquePtr<GizmoController> m_gizmos;
         GizmoRendererRegistry m_componentGizmos;
@@ -482,14 +744,19 @@ export namespace draconic::editor
     // Create a fresh scene instance in the project's source DB under "Scenes/", named uniquely
     // (Scene, Scene2, ...). Writes the SceneDocument primary so the instance materializes; the
     // page treats the missing "scene" stream as an empty scene.
-    inline draconic::content::Instance* CreateSceneInstance(EditorContext& context)
+    inline draconic::content::Instance* CreateSceneInstance(EditorContext& context,
+                                                             draconic::content::Group* target = nullptr)
     {
         EditorProject* project = context.Project();
         if (project == nullptr) { return nullptr; }
 
-        draconic::content::Group* root = project->SourceDb().RootGroup();
-        draconic::content::Group* scenes = root->GetGroup(u8"Scenes");
-        if (scenes == nullptr) { scenes = root->CreateGroup(u8"Scenes"); }
+        draconic::content::Group* scenes = target;
+        if (scenes == nullptr)
+        {
+            draconic::content::Group* root = project->SourceDb().RootGroup();
+            scenes = root->GetGroup(u8"Scenes");
+            if (scenes == nullptr) { scenes = root->CreateGroup(u8"Scenes"); }
+        }
         if (scenes == nullptr) { return nullptr; }
 
         String name(u8"Scene");
@@ -507,6 +774,27 @@ export namespace draconic::editor
         dscene::SceneDocument doc;
         doc.name = name;
         if (!instance->WriteObject(doc).IsOk()) { return nullptr; }
+
+        // Seed default content: a directional Sun so a fresh scene is LIT out of the box
+        // (with no light, meshes render in the dim flat ambient fallback and read as broken -
+        // the classic "why is my duck untextured"). An authored entity, not editor magic: it
+        // saves with the scene, shows in the hierarchy, and is free to edit or delete.
+        {
+            dscene::Scene seeded(name.AsView());
+            seeded.AddSystem<draconic::render::LightComponentManager>();
+            const dscene::EntityHandle sun = seeded.CreateEntity(u8"Sun");
+            Transform t;
+            // Shines along the entity's forward (-Z): tilt ~60 deg down, a slight compass yaw
+            // (the Sandbox key-light default) so shading has direction.
+            t.rotation = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.35f)
+                       * Quaternion::FromAxisAngle(Float3{ 1, 0, 0 }, -1.05f);
+            seeded.SetLocalTransform(sun, t);
+            draconic::render::LightComponent& light =
+                seeded.GetSystem<draconic::render::LightComponentManager>()->Add(sun);
+            light.castsShadows = true;   // intensity stays the component default (the value the
+                                         // duck-scene fix was verified with)
+            (void)dscene::SaveScene(seeded, *instance);
+        }
         return instance;
     }
 
@@ -520,7 +808,9 @@ export namespace draconic::editor
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Scene");
-        creator.create = [](EditorContext& ctx) { return CreateSceneInstance(ctx); };
+        creator.create = [](EditorContext& ctx, draconic::content::Group* group) {
+            return CreateSceneInstance(ctx, group);
+        };
         creator.setsDefaultScene = true;
         context.RegisterCreator(Move(creator));
     }
