@@ -26,9 +26,11 @@ class DxCommandPoolImpl : public CommandPool {
 public:
     Status init(DxDeviceImpl* device, ID3D12Device* d3dDevice, QueueType queueType,
                 DxGpuDescriptorHeap* cpuSrvHeap, DxGpuDescriptorHeap* gpuSrvHeap,
-                DxGpuDescriptorHeap* cpuSamplerHeap, DxGpuDescriptorHeap* gpuSamplerHeap) {
+                DxGpuDescriptorHeap* cpuSamplerHeap, DxGpuDescriptorHeap* gpuSamplerHeap,
+                IAllocator& allocator) {
         m_device    = device;
         m_d3dDevice = d3dDevice;
+        m_allocPtr  = &allocator;
         m_type      = toCommandListType(queueType);
 
         HRESULT hr = d3dDevice->CreateCommandAllocator(m_type, IID_PPV_ARGS(&m_allocator));
@@ -68,6 +70,7 @@ public:
     [[nodiscard]] DxDeviceImpl*           ownerDevice()     const { return m_device; }
     [[nodiscard]] DxDescriptorStaging*    srvStaging()            { return &m_srvStaging; }
     [[nodiscard]] DxDescriptorStaging*    samplerStaging()        { return &m_samplerStaging; }
+    [[nodiscard]] IAllocator&             allocator()       const { return *m_allocPtr; }
 
     /// Called by DxCommandEncoderImpl::finish() to register a command buffer with this pool.
     void trackCommandBuffer(DxCommandBufferImpl* cb) { m_trackedBuffers.PushBack(cb); }
@@ -76,7 +79,7 @@ private:
     void releaseCommandBuffers() {
         for (auto* cb : m_trackedBuffers) {
             cb->release();
-            delete cb;
+            m_allocPtr->Delete(cb);
         }
         m_trackedBuffers.Clear();
     }
@@ -84,6 +87,7 @@ private:
     ComPtr<ID3D12CommandAllocator>      m_allocator;
     ID3D12Device*                       m_d3dDevice = nullptr;
     DxDeviceImpl*                       m_device     = nullptr;
+    IAllocator*                         m_allocPtr   = nullptr;
     D3D12_COMMAND_LIST_TYPE             m_type       = D3D12_COMMAND_LIST_TYPE_DIRECT;
     Array<DxCommandBufferImpl*>          m_trackedBuffers;
     DxDescriptorStaging                 m_srvStaging;

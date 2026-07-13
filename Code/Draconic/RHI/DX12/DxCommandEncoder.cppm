@@ -49,12 +49,12 @@ public:
     RayTracingEncoderExt* AsRayTracingExt() noexcept override { return this; }
     DxCommandEncoderImpl(DxDeviceImpl* device, ID3D12GraphicsCommandList* cmdList,
                          DxCommandPoolImpl* pool, const DxRenderPassContext& rpeCtx,
-                         const DxComputePassContext& cpeCtx)
-        : m_device(device), m_cmdList(cmdList), m_pool(pool),
+                         const DxComputePassContext& cpeCtx, IAllocator& allocator)
+        : m_device(device), m_cmdList(cmdList), m_pool(pool), m_allocator(allocator),
           m_gpuSrvHeap(rpeCtx.gpuSrvHeap), m_gpuSamplerHeap(rpeCtx.gpuSamplerHeap),
           m_rpe(rpeCtx), m_cpe(cpeCtx), m_rpeCtx(rpeCtx) {}
 
-    ~DxCommandEncoderImpl() override { for (auto* e : m_bundleEncoders) delete e; }
+    ~DxCommandEncoderImpl() override { for (auto* e : m_bundleEncoders) m_allocator.Delete(e); }
 
     // ================================================================
     // CommandEncoder interface
@@ -156,7 +156,7 @@ public:
 
         DxRenderPassContext ctx = m_rpeCtx;
         ctx.cmdList = list.Get();
-        auto* enc = new DxRenderBundleEncoderImpl(ctx, list, alloc);
+        auto* enc = m_allocator.New<DxRenderBundleEncoderImpl>(ctx, list, alloc, m_allocator);
         m_bundleEncoders.PushBack(enc);   // owned: freed in this encoder's destructor
         return enc;
     }
@@ -547,7 +547,7 @@ public:
 
     CommandBuffer* Finish() override {
         m_cmdList->Close();
-        auto* cb = new DxCommandBufferImpl(m_cmdList);
+        auto* cb = m_allocator.New<DxCommandBufferImpl>(m_cmdList);
         m_pool->trackCommandBuffer(cb);
         return cb;
     }
@@ -893,6 +893,7 @@ private:
     DxDeviceImpl*                m_device  = nullptr;
     ID3D12GraphicsCommandList*   m_cmdList = nullptr;
     DxCommandPoolImpl*           m_pool    = nullptr;
+    IAllocator&                  m_allocator;
     DxRayTracingPipelineImpl*    m_currentRtPipeline = nullptr;
     bool                         m_descriptorHeapsSet = false;
 

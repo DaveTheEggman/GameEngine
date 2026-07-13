@@ -29,7 +29,7 @@ public:
     Status init(ID3D12Device* device, IDXGIFactory4* factory, ID3D12CommandQueue* gfxQueue,
                 DxSurfaceImpl* surface, const SwapChainDesc& d,
                 DxDescriptorHeapAllocator* srvHeap, DxDescriptorHeapAllocator* rtvHeap,
-                DxDescriptorHeapAllocator* dsvHeap) {
+                DxDescriptorHeapAllocator* dsvHeap, IAllocator& allocator) {
         m_d3dDevice   = device;
         m_format      = d.format;
         m_width       = d.width;
@@ -39,6 +39,7 @@ public:
         m_srvHeap     = srvHeap;
         m_rtvHeap     = rtvHeap;
         m_dsvHeap     = dsvHeap;
+        m_allocator   = &allocator;
 
         DXGI_FORMAT swapFmt = stripSrgb(toDxgiFormat(d.format));
 
@@ -121,7 +122,7 @@ private:
             ID3D12Resource* resource = nullptr;
             if (FAILED(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&resource)))) return ErrorCode::Unknown;
 
-            auto* tex = new DxTextureImpl();
+            auto* tex = m_allocator->New<DxTextureImpl>();
             TextureDesc td{}; td.dimension = TextureDimension::Texture2D; td.format = m_format;
             td.width = m_width; td.height = m_height; td.arrayLayerCount = 1; td.mipLevelCount = 1;
             td.sampleCount = 1; td.usage = TextureUsage::RenderTarget;
@@ -129,7 +130,7 @@ private:
             resource->Release(); // initFromExisting AddRef'd
             m_textures.PushBack(tex);
 
-            auto* view = new DxTextureViewImpl();
+            auto* view = m_allocator->New<DxTextureViewImpl>();
             TextureViewDesc vd{}; vd.format = m_format; vd.dimension = TextureViewDimension::Texture2D;
             vd.mipLevelCount = 1; vd.arrayLayerCount = 1;
             view->init(m_d3dDevice, tex, vd, m_srvHeap, m_rtvHeap, m_dsvHeap);
@@ -139,14 +140,15 @@ private:
     }
 
     void releaseBackBuffers() {
-        for (auto* v : m_views)   { v->cleanup(); delete v; }
+        for (auto* v : m_views)   { v->cleanup(); m_allocator->Delete(v); }
         m_views.Clear();
-        for (auto* t : m_textures) { t->cleanup(); delete t; }
+        for (auto* t : m_textures) { t->cleanup(); m_allocator->Delete(t); }
         m_textures.Clear();
     }
 
     ComPtr<IDXGISwapChain3>          m_swapChain;
     ID3D12Device*                    m_d3dDevice  = nullptr;
+    IAllocator*                      m_allocator  = nullptr;
     TextureFormat                    m_format     = TextureFormat::RGBA8UnormSrgb;
     u32                              m_width = 0, m_height = 0, m_bufferCount = 2;
     u32                              m_currentIndex = 0;

@@ -23,6 +23,8 @@ class DxDeviceImpl; // forward
 
 class DxQueueImpl : public Queue {
 public:
+    explicit DxQueueImpl(IAllocator& allocator) noexcept : m_allocator(allocator) {}
+
     Status init(ID3D12Device* device, QueueType type, DxDeviceImpl* owner) {
         queueType  = type;
         m_device    = owner;
@@ -84,9 +86,9 @@ public:
     }
 
     Status CreateTransferBatch(TransferBatch*& out) override {
-        auto* batch = new DxTransferBatchImpl();
+        auto* batch = m_allocator.New<DxTransferBatchImpl>();
         if (batch->init(m_d3dDevice, m_queue.Get(), queueType) != ErrorCode::Ok) {
-            delete batch;
+            m_allocator.Delete(batch);
             return ErrorCode::Unknown;
         }
         out = batch;
@@ -96,7 +98,7 @@ public:
     void DestroyTransferBatch(TransferBatch*& batch) override {
         if (auto* dx = static_cast<DxTransferBatchImpl*>(batch)) {
             dx->Destroy();
-            delete dx;
+            m_allocator.Delete(dx);
         }
         batch = nullptr;
     }
@@ -121,6 +123,7 @@ private:
     f32                        m_tsPeriod   = 1.0f;
     DxDeviceImpl*              m_device     = nullptr;
     ID3D12Device*              m_d3dDevice  = nullptr;
+    IAllocator&                m_allocator;
 };
 
 } // namespace draconic::rhi::dx12

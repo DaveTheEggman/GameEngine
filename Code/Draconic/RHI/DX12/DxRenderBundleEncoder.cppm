@@ -34,11 +34,12 @@ export namespace draconic::rhi::dx12 {
 class DxRenderBundleEncoderImpl : public RenderBundleEncoder {
 public:
     DxRenderBundleEncoderImpl(const DxRenderPassContext& ctx,
-                              ComPtr<ID3D12GraphicsCommandList> list, ComPtr<ID3D12CommandAllocator> alloc)
-        : m_rec(ctx), m_list(Move(list)), m_alloc(Move(alloc)) {
+                              ComPtr<ID3D12GraphicsCommandList> list, ComPtr<ID3D12CommandAllocator> alloc,
+                              IAllocator& allocator)
+        : m_rec(ctx), m_list(Move(list)), m_alloc(Move(alloc)), m_allocator(allocator) {
         m_rec.begin(RenderPassDesc{});   // reset pipeline-tracking state (no pass attachments needed)
     }
-    ~DxRenderBundleEncoderImpl() override { delete m_bundle; }
+    ~DxRenderBundleEncoderImpl() override { m_allocator.Delete(m_bundle); }
 
     void SetPipeline(RenderPipeline* p) override { m_rec.SetPipeline(p); }
     void SetBindGroup(u32 i, BindGroup* g, Span<const u32> d) override { m_rec.SetBindGroup(i, g, d); }
@@ -53,7 +54,7 @@ public:
     RenderBundle* Finish() override {
         if (m_bundle) return m_bundle;
         m_list->Close();
-        m_bundle = new DxRenderBundleImpl(m_list, m_alloc, m_rec.currentRootSig(), m_rec.currentPso());
+        m_bundle = m_allocator.New<DxRenderBundleImpl>(m_list, m_alloc, m_rec.currentRootSig(), m_rec.currentPso());
         return m_bundle;
     }
 
@@ -61,6 +62,7 @@ private:
     DxRenderPassEncoderImpl           m_rec;
     ComPtr<ID3D12GraphicsCommandList> m_list;
     ComPtr<ID3D12CommandAllocator>    m_alloc;
+    IAllocator&                       m_allocator;
     DxRenderBundleImpl*               m_bundle = nullptr;
 };
 

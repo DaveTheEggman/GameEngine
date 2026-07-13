@@ -22,8 +22,8 @@ class DxDeviceImpl; // forward
 
 class DxAdapterImpl : public Adapter {
 public:
-    DxAdapterImpl(IDXGIAdapter1* adapter, IDXGIFactory4* factory)
-        : m_adapter(adapter), m_factory(factory)
+    DxAdapterImpl(IDXGIAdapter1* adapter, IDXGIFactory4* factory, IAllocator& allocator)
+        : m_allocator(allocator), m_adapter(adapter), m_factory(factory)
     {
         m_adapter->GetDesc1(&m_desc);
     }
@@ -102,8 +102,10 @@ public:
     [[nodiscard]] IDXGIAdapter1*    handle()  const { return m_adapter; }
     [[nodiscard]] IDXGIFactory4*    factory() const { return m_factory; }
     [[nodiscard]] DXGI_ADAPTER_DESC1 adapterDesc() const { return m_desc; }
+    [[nodiscard]] IAllocator& allocator() const noexcept { return m_allocator; }
 
 private:
+    IAllocator&        m_allocator;
     IDXGIAdapter1*     m_adapter = nullptr; // owned, released in destructor
     IDXGIFactory4*     m_factory = nullptr; // not owned (Backend owns it)
     DXGI_ADAPTER_DESC1 m_desc{};
