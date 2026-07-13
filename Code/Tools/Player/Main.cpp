@@ -165,22 +165,31 @@ namespace
             auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
 
-            const StringView scenePath = !m_options.sceneOverride.IsEmpty()
-                ? m_options.sceneOverride.AsView()
-                : m_settings.defaultScene.AsView();
-            if (scenePath.IsEmpty())
+            // Resolution order: --scene path override, the manifest's guid (authoritative,
+            // rename-proof), then the path mirror (v2 manifests).
+            draconic::content::Instance* instance = nullptr;
+            if (!m_options.sceneOverride.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"Player", u8"no scene: the manifest has no defaultScene and no --scene was given");
-                host.RequestExit(1);
-                return;
+                instance = m_sceneDb->GetInstance(m_options.sceneOverride.AsView());
             }
-            draconic::content::Instance* instance = m_sceneDb->GetInstance(scenePath);
+            else
+            {
+                if (!m_settings.defaultSceneId.IsNil())
+                {
+                    instance = m_sceneDb->GetInstance(m_settings.defaultSceneId);
+                }
+                if (instance == nullptr && !m_settings.defaultScene.IsEmpty())
+                {
+                    instance = m_sceneDb->GetInstance(m_settings.defaultScene.AsView());
+                }
+            }
             if (instance == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' not found in the project", scenePath);
+                DRACONIC_LOG_ERROR(u8"Player", u8"no startup scene (manifest defaultScene/--scene unresolved)");
                 host.RequestExit(1);
                 return;
             }
+            const String scenePath = instance->Path();
 
             m_scene = scenes->CreateScene(instance->Name());
             if (m_scene == nullptr || !dscene::LoadScene(*instance, *m_scene).IsOk())

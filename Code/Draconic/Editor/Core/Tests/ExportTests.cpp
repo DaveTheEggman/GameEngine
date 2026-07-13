@@ -98,6 +98,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
             REQUIRE(root.AsWritable()->Save(u8"Scripts/game.wren",
                 Span<const byte>(reinterpret_cast<const byte*>(script.Data()), script.Size())).IsOk());
         }
+        project->Settings().defaultSceneId = sceneId;
         project->Settings().defaultScene = String(u8"Scenes/Main");
         project->Settings().startupScript = String(u8"Scripts/game.wren");
         REQUIRE(project->SaveSettings().IsOk());
@@ -118,6 +119,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     proj::ProjectSettings manifest;
     REQUIRE(proj::LoadProjectSettings(distRoot, manifest, proj::kDistManifestFile).IsOk());
     CHECK(manifest.defaultScene == u8"Scenes/Main");
+    CHECK(manifest.defaultSceneId == sceneId);   // dist manifest carries the guid too
     CHECK(manifest.startupScript == u8"Scripts/game.wren");
 
     draconic::vfs::PakFileSystem pak(PathJoin(distDir, proj::kDistContentPak).AsView());
@@ -126,9 +128,11 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
 
     // The scene loads from the pak under its ORIGINAL guid/path, and its mesh ref resolves
     // against the pak-hosted product through the CPU mesh factory.
-    draconic::content::Instance* sceneInstance = db.GetInstance(manifest.defaultScene.AsView());
+    // Resolve by guid (the player's primary path), then confirm the path mirror agrees.
+    draconic::content::Instance* sceneInstance = db.GetInstance(manifest.defaultSceneId);
     REQUIRE(sceneInstance != nullptr);
     CHECK(sceneInstance->Id() == sceneId);
+    CHECK(db.GetInstance(manifest.defaultScene.AsView()) == sceneInstance);
 
     dscene::Scene scene;
     auto* meshes = scene.AddSystem<draconic::render::MeshComponentManager>();

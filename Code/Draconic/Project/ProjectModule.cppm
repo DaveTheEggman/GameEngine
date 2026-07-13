@@ -48,7 +48,9 @@ export namespace draconic::project
     public:
         String name;
         String engineVersion;  // engine that last saved this project (launcher/migration routing)
-        String defaultScene;   // source-DB path of the startup scene ("" = none)
+        Guid defaultSceneId;   // AUTHORITATIVE startup-scene reference (rename/move-proof)
+        String defaultScene;   // its source-DB path - the human-readable mirror (and the
+                               // fallback for v2 manifests that predate the guid)
         String startupScript;  // project-relative GAME SCRIPT path ("" = none) - the scripted
                                // IApplication counterpart (launch/update/exit), hosted by the
                                // player and play-in-editor
@@ -62,6 +64,11 @@ export namespace draconic::project
             if (ar.Version() >= 2)   // v2 added the engine stamp
             {
                 draconic::core::Serialize(ar, "engineVersion", engineVersion);
+            }
+            if (ar.Version() >= 3)   // v3 made the default scene guid-authoritative
+            {
+                ar.Key("defaultSceneId");
+                ar.GuidValue(defaultSceneId);
             }
             draconic::core::Serialize(ar, "defaultScene", defaultScene);
             draconic::core::Serialize(ar, "startupScript", startupScript);
@@ -102,5 +109,5 @@ export namespace draconic::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 2)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 3)
 }

@@ -226,6 +226,7 @@ export namespace draconic::editor
             draconic::vfs::NativeFileSystem outMount(outDir);
             proj::ProjectSettings dist;
             dist.name = String(project.Settings().name.AsView());
+            dist.defaultSceneId = project.Settings().defaultSceneId;
             dist.defaultScene = String(project.Settings().defaultScene.AsView());
             dist.startupScript = String(project.Settings().startupScript.AsView());
             if (!proj::SaveProjectSettings(*outMount.AsWritable(), dist, proj::kDistManifestFile).IsOk())
