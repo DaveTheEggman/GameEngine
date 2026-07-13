@@ -198,6 +198,11 @@ export namespace draconic::shell
         // window closed). Distinct from Application::IsRunning() (app-level exit).
         [[nodiscard]] virtual bool IsRunning() const noexcept = 0;
 
+        // Consulted when the MAIN window's close is requested (window button / OS quit).
+        // Return false to KEEP RUNNING - the app runs its own confirm flow (e.g. unsaved
+        // changes) and exits later via the host. Unset = close proceeds (default behavior).
+        core::Function<bool()> OnMainWindowCloseRequested;
+
         // Ask the shell to quit (flips IsRunning()).
         virtual void RequestExit() = 0;
 

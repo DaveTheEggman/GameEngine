@@ -710,7 +710,9 @@ export namespace draconic::shell
                     }
 
                     case SDL_EVENT_QUIT:
-                        // App-level quit: close the main window and stop the loop.
+                        // App-level quit: interceptable (unsaved-changes prompts) like the
+                        // main window's close button below.
+                        if (OnMainWindowCloseRequested && !OnMainWindowCloseRequested()) { break; }
                         if (IWindow* main = m_windows.MainWindow())
                         {
                             main->Close();
@@ -721,10 +723,17 @@ export namespace draconic::shell
                     case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
                     {
                         const core::u32 id = static_cast<core::u32>(event.window.windowID);
+                        // MAIN window close is interceptable; when vetoed, nothing happens
+                        // (no event, no teardown - the app exits later via the host).
+                        IWindow* main = m_windows.MainWindow();
+                        if (main != nullptr && main->Id() == id
+                            && OnMainWindowCloseRequested && !OnMainWindowCloseRequested())
+                        {
+                            break;
+                        }
                         m_windows.PushEvent(WindowEvent{ WindowEventType::CloseRequested, id });
                         // Closing the main window stops the shell; the
                         // Application handles secondary-window close via the event.
-                        IWindow* main = m_windows.MainWindow();
                         if (main != nullptr && main->Id() == id) { main->Close(); m_running = false; }
                         break;
                     }
