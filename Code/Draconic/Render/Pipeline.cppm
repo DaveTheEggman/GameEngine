@@ -78,6 +78,8 @@ struct RenderRecordContext {
     ShadowCascades             cascades    = {};                 // this view's CSM cascades (phase 5.2)
     u32                        cascadeLayerBase = 0;             // this view's first shadow-array layer
     u32                        localShadowEntryBase = 0;         // this view's scene's first GpuLocalShadow entry
+    u32                        probeBase  = 0;                   // this view's scene's first probe record
+    u32                        probeCount = 0;                   // ...and how many (0 = none)
     Span<const GpuLight>       lights      = {};
     ClusterBinding             cluster     = {};                 // per-cluster light lists (empty = clustering off)
     u32                        frameIndex  = 0;
@@ -334,11 +336,12 @@ public:
                      const IblBinding& ibl = {},
                      rhi::LoadOp depthLoad = rhi::LoadOp::Load,
                      rendergraph::RGSubresourceRange colorSub = {},
-                     rendergraph::RGHandle probeHandle = {}, bool probeValid = false) {
+                     rendergraph::RGHandle probeHandle = {}, bool probeValid = false,
+                     u32 probeBase = 0, u32 probeCount = 0) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
 
         const rhi::LoadOp colorLoad = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
-        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, materialH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, depthLoad, colorSub, probeHandle, probeValid](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"forward", [this, &view, &registry, depth, colorH, normalH, velocityH, materialH, colorLoad, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, depthLoad, colorSub, probeHandle, probeValid, probeBase, probeCount](rendergraph::PassBuilder& b) {
             // colorSub targets a single layer when capturing into a cube-array face (default {} = whole target).
             b.SetColorTarget(0, colorH, colorLoad, rhi::StoreOp::Store, view.Settings().clear, colorSub);
             // MRT G-buffer aux (cleared each view): view-space normal + motion vector + roughness/metallic (SSR).
@@ -366,8 +369,8 @@ public:
             // array to ShaderRead, incl. uncaptured slices) - the forward samples it (t8) for local reflections.
             if (probeValid) { b.ReadTexture(probeHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, probeValid](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out, /*sceneDepth*/ nullptr, /*probesEnabled*/ probeValid);
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, probeValid, probeBase, probeCount](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, out, /*sceneDepth*/ nullptr, /*probesEnabled*/ probeValid, probeBase, probeCount);
             });
         });
     }
@@ -381,9 +384,9 @@ public:
                             rendergraph::RGHandle colorH, rendergraph::RGHandle depth, rhi::TextureFormat colorFormat,
                             const Float4x4& drawViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter,
                             const ClusterBinding& cluster = {}, const ShadowBinding& shadow = {},
-                            const IblBinding& ibl = {}) {
+                            const IblBinding& ibl = {}, u32 probeBase = 0, u32 probeCount = 0) {
         if (view.Width() == 0 || view.Height() == 0) { return; }
-        graph.AddRenderPass(u8"transparent", [this, &view, &registry, &graph, depth, colorH, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, ibl](rendergraph::PassBuilder& b) {
+        graph.AddRenderPass(u8"transparent", [this, &view, &registry, &graph, depth, colorH, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, probeBase, probeCount](rendergraph::PassBuilder& b) {
             b.SetColorTarget(0, colorH, rhi::LoadOp::Load, rhi::StoreOp::Store, view.Settings().clear);
             b.SetReadOnlyDepthTarget(depth);   // test against opaque depth, no write
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
@@ -392,11 +395,11 @@ public:
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
-            b.SetBundleExecute([this, &view, &registry, &graph, depth, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+            b.SetBundleExecute([this, &view, &registry, &graph, depth, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj, jitter, prevJitter, cluster, shadow, probeBase, probeCount](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
                 // The opaque depth is now DepthStencilRead (read-only depth target) - resolve its sampleable
                 // view and hand it to the renderers for soft particles. No render-graph change; already in state.
                 rhi::TextureView* sceneDepth = graph.GetTextureView(depth);
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out, sceneDepth);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, out, sceneDepth, /*probesEnabled*/ true, probeBase, probeCount);
             });
         });
     }
@@ -409,7 +412,8 @@ private:
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
                         const Float4x4& drawViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter, bool transparentPass,
                         const ClusterBinding& cluster, const ShadowBinding& shadow, Array<rhi::RenderBundle*>& out,
-                        rhi::TextureView* sceneDepthView = nullptr, bool probesEnabled = true) {
+                        rhi::TextureView* sceneDepthView = nullptr, bool probesEnabled = true,
+                        u32 probeBase = 0, u32 probeCount = 0) {
         RenderRecordContext ctx{};
         ctx.view        = &view;
         ctx.viewProj    = drawViewProj;   // opaque = jittered (TAA), transparent = unjittered (drawn post-TAA)
@@ -430,6 +434,8 @@ private:
         ctx.depthFormat = m_depthFormat;
         ctx.sceneDepthView = sceneDepthView;   // opaque depth (transparent pass only) for soft particles
         ctx.probesEnabled = probesEnabled;
+        ctx.probeBase   = probeBase;    // this view's scene's record range (multi-scene frames)
+        ctx.probeCount  = probeCount;
         ctx.needsMotion = m_motionNeeded;   // skip per-instance prev-world when no temporal effect reads velocity
         ctx.shadowFarFade = m_shadowFarFade;
 
@@ -1247,8 +1253,7 @@ public:
         // Render each dirty probe's 6 faces (lit forward + sky, HDR) into its captured-cube slices, BEFORE
         // the main views (which sample the result). Feedback-safe: the capture forward samples the GLOBAL
         // IBL only, never the probe array. Capped at one probe/frame for P1b.
-        if (probeActive && m_ibl != nullptr && m_ibl->Ready() && primary != nullptr &&
-            primary->Scene() != nullptr && !m_probeSystem->Captures().IsEmpty()) {
+        if (probeActive && m_ibl != nullptr && m_ibl->Ready() && !m_probeSystem->Captures().IsEmpty()) {
             const rendergraph::RGHandle capturedH = probeCapturedH;
             IblBinding capIbl;
             capIbl.prefilterHandle = m_ibl->PrefilterHandle();
@@ -1270,12 +1275,16 @@ public:
             const Span<const ReflectionProbeSystem::CaptureTask> captures = m_probeSystem->Captures();
             const ReflectionProbeSystem::CaptureTask task = captures[m_probeCaptureCursor % captures.Size()];
             ++m_probeCaptureCursor;
+            // The capture renders the probe's OWNING scene (a probe in scene B must never bake
+            // scene A's geometry - multi-scene frames).
+            const ExtractedScene* captureScene = task.scene;
+            if (captureScene != nullptr) {
             const u32 layerBase = ReflectionProbeSystem::LayerBase(task.slot);
             const f32 sunInt = m_ibl->HasSunDisc() ? m_ibl->SunIntensity() : 0.0f;
             for (u32 face = 0; face < 6; ++face) {
                 const ViewCamera fc = ProbeFaceCamera(task.center, face, nearZ, farZ);
                 RenderView& cv = m_captureViews[face];
-                cv.Bind(*primary->Scene(), fc, ViewSettings{}, nullptr, ReflectionProbeSystem::kCubeFormat, res, res);
+                cv.Bind(*captureScene, fc, ViewSettings{}, nullptr, ReflectionProbeSystem::kCubeFormat, res, res);
                 cv.BuildDrawList(m_sortScratch);
 
                 const rendergraph::RGHandle capDepth = m_graph.CreateTransient(
@@ -1314,6 +1323,7 @@ public:
             m_probeSystem->DeclareBlit(m_graph, capturedH, probePrefilteredH, task.slot);
             m_probeSystem->DeclarePrefilter(m_graph, probePrefilteredH, task.slot);
             m_probeSystem->MarkCaptured(task.slot);
+            }   // captureScene != nullptr
         }
 
         // Import each distinct target ONCE (so the graph orders/barriers all views writing it as one
@@ -1355,6 +1365,13 @@ public:
             // The local-light atlas is scene-global (one pass for all views) - every view depends on it.
             shadow.atlasHandle = atlasH;
             shadow.atlasValid  = atlasActive;
+
+            // This view's scene's probe-record range (the records buffer is the scenes' ranges
+            // concatenated in extraction order; the shader offsets its probe loop by the base).
+            ReflectionProbeSystem::ProbeRange probeRange;
+            if (m_probeSystem != nullptr && probeActive) {
+                probeRange = m_probeSystem->RangeFor(v->Scene());
+            }
 
             // IBL products (scene-global) for the forward to sample + barrier-order this frame.
             IblBinding ibl;
@@ -1436,7 +1453,8 @@ public:
                     u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr, depth, /*clear*/ true,
                                    m_tonemap->HdrFormat(), normalT, velocityT, materialT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
-                                   rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive);
+                                   rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive,
+                                   probeRange.base, probeRange.count);
                 declareSky(hdr, velocityT, m_tonemap->HdrFormat());   // sky into HDR (+ camera-motion velocity), before TAA
                 // Screen-space decals: project onto the opaque depth + blend into the lit HDR, AFTER sky
                 // and BEFORE AO/TAA (so decals get TAA-resolved). Uses the jittered view-proj (matches the
@@ -1484,7 +1502,8 @@ public:
                 // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
                 // color-only, depth read-only against the opaque depth, back-to-front.
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, sceneColor, depth,
-                                          m_tonemap->HdrFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
+                                          m_tonemap->HdrFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
+                                          probeRange.base, probeRange.count);
                 // Bloom pyramid over the resolved scene, composited by the tonemap.
                 rendergraph::RGHandle bloomH{};
                 if (m_bloom != nullptr && m_bloomIntensity > 0.0f) {
@@ -1520,10 +1539,12 @@ public:
                 // No tonemap: forward writes the LDR target directly.
                 m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth, clearColor,
                                    v->TargetFormat(), normalT, velocityT, materialT, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
-                                   rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive);
+                                   rhi::LoadOp::Load, rendergraph::RGSubresourceRange{}, probePrefilteredH, probeActive,
+                                   probeRange.base, probeRange.count);
                 declareSky(colorH, velocityT, v->TargetFormat());
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
-                                          v->TargetFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl);
+                                          v->TargetFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
+                                          probeRange.base, probeRange.count);
             }
 
             // Debug draw (per view): global + this view's scene gizmos, projected by the UNJITTERED VP,

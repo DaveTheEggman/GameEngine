@@ -15,6 +15,7 @@ import draconic.shaders;
 import draconic.shaders.system;
 import draconic.materials.pso;
 import draconic.render;
+import draconic.rendergraph;
 
 using namespace draconic::core;
 using namespace draconic::render;
@@ -296,4 +297,99 @@ TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no 
     CHECK(info2[0].localEntryBase == 0u);
     CHECK(info2[1].localEntryBase == 0u);            // same scene -> same context/base
     CHECK(frame.LocalShadowEntries().Size() == 1u);  // one spot caster, once
+}
+
+TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frames)")
+{
+    // Frames can render several scenes; each scene's probes Assign() into ONE record buffer as
+    // a contiguous range, and views read their scene's range (regression: Assign used to RESET
+    // per call - the last extracted scene's probes were the only ones anyone saw).
+    RenderHarness h;
+    if (!h.Init(64, 64)) { MESSAGE("DXC/Null unavailable; skipping"); return; }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    ReflectionProbeSystem probes(h.device, shaderSystem);
+    REQUIRE(probes.Initialize().IsOk());
+
+    ExtractedScene sceneA, sceneB;
+    ReflectionProbe pa{};
+    pa.key = 1; pa.center = Float3{ 0, 1, 0 };
+    ReflectionProbe pb0{}, pb1{};
+    pb0.key = 2; pb0.center = Float3{ 5, 1, 0 };
+    pb1.key = 3; pb1.center = Float3{ 9, 1, 0 };
+
+    probes.BeginFrame();
+    ReflectionProbe listA[] = { pa };
+    ReflectionProbe listB[] = { pb0, pb1 };
+    probes.Assign(&sceneA, Span<const ReflectionProbe>{ listA, 1 });
+    probes.Assign(&sceneB, Span<const ReflectionProbe>{ listB, 2 });
+    // Same-scene re-assign (same scene rendered through two views) is a no-op.
+    probes.Assign(&sceneA, Span<const ReflectionProbe>{ listA, 1 });
+
+    CHECK(probes.ActiveCount() == 3u);
+    CHECK(probes.RangeFor(&sceneA).base == 0u);
+    CHECK(probes.RangeFor(&sceneA).count == 1u);
+    CHECK(probes.RangeFor(&sceneB).base == 1u);
+    CHECK(probes.RangeFor(&sceneB).count == 2u);
+    ExtractedScene sceneC;
+    CHECK(probes.RangeFor(&sceneC).count == 0u);   // unknown scene -> no probes
+
+    // Every capture task carries its probe's OWNING scene (captures must render that scene's
+    // geometry, never another's).
+    REQUIRE(probes.Captures().Size() == 3u);
+    for (const ReflectionProbeSystem::CaptureTask& t : probes.Captures())
+    {
+        CHECK(t.scene == ((t.slot == 0u) ? &sceneA : &sceneB));
+    }
+
+    // Captured static probes stop producing tasks on the next frame.
+    for (const ReflectionProbeSystem::CaptureTask& t : probes.Captures()) { probes.MarkCaptured(t.slot); }
+    probes.BeginFrame();
+    probes.Assign(&sceneA, Span<const ReflectionProbe>{ listA, 1 });
+    probes.Assign(&sceneB, Span<const ReflectionProbe>{ listB, 2 });
+    CHECK(probes.Captures().Size() == 0u);
+    CHECK(probes.RangeFor(&sceneB).base == 1u);   // ranges rebuilt identically
+}
+
+TEST_CASE("IBLSystem rebuilds env products when the sky-texture PRODUCT changes (uid-keyed)")
+{
+    RenderHarness h;
+    if (!h.Init(64, 64)) { MESSAGE("DXC/Null unavailable; skipping"); return; }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    IBLSystem ibl(h.device, shaderSystem);
+    REQUIRE(ibl.Initialize().IsOk());
+
+    // An external 2D view standing in for a cooked .hdr product.
+    rhi::Texture* tex = nullptr;
+    REQUIRE(h.device.CreateTexture(rhi::TextureDesc::RenderTarget(rhi::TextureFormat::RGBA8Unorm, 8, 8), tex).IsOk());
+    rhi::TextureViewDesc vd{}; vd.format = rhi::TextureFormat::RGBA8Unorm;
+    rhi::TextureView* view = nullptr;
+    REQUIRE(h.device.CreateTextureView(tex, vd, view).IsOk());
+
+    const auto generationAfter = [&](const SkySnapshot& s) {
+        ibl.SetSky(s);
+        draconic::rendergraph::RenderGraph graph(&h.device);
+        ibl.ProcessPending(graph);
+        return ibl.Generation();
+    };
+
+    SkySnapshot sky{};
+    sky.mode = SkyMode::HDREquirect;
+    sky.texture = view; sky.textureUid = 101; sky.textureIsCube = false;
+    const u64 g1 = generationAfter(sky);
+    CHECK(g1 >= 1u);
+
+    // Same product -> no rebuild. New uid (reload/pick) -> rebuild.
+    CHECK(generationAfter(sky) == g1);
+    sky.textureUid = 102;
+    CHECK(generationAfter(sky) == g1 + 1u);
+
+    // Clearing the texture (back to procedural) rebuilds once more.
+    sky.mode = SkyMode::Procedural;
+    sky.texture = nullptr; sky.textureUid = 0; sky.textureIsCube = false;
+    CHECK(generationAfter(sky) == g1 + 2u);
+
+    h.device.DestroyTextureView(view);
+    h.device.DestroyTexture(tex);
 }

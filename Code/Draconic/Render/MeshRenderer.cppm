@@ -543,9 +543,10 @@ public:
         vd.iblMaxLod     = m_iblActive ? m_iblMaxLod : -1.0f;   // <0 => forward uses flat ambient
         // Probes disabled during probe capture (ctx.probesEnabled=false) -> count 0 so metallics reflect the
         // sky (global IBL), not the not-yet-built probe (which would bake them black - self-reflection).
-        // ProbeCenter.w = the probe count (the forward's loop bound over the Probes SRV); box/slice/etc. per
-        // probe live in the Probes buffer now.
-        vd.probeCenter   = Float4{ 0, 0, 0, ctx.probesEnabled ? static_cast<f32>(m_activeProbeCount) : 0.0f };
+        // ProbeCenter.x = this view's SCENE's base into the Probes SRV (scenes' records are concatenated
+        // per frame), .w = its count (the forward's loop bound); box/slice/etc. per probe live in the buffer.
+        vd.probeCenter   = Float4{ static_cast<f32>(ctx.probeBase), 0, 0,
+                                 ctx.probesEnabled ? static_cast<f32>(ctx.probeCount) : 0.0f };
 
         vd.lightCount    = static_cast<f32>(lightCount);
         vd.lightOffset   = lightOffset;

@@ -205,6 +205,7 @@ public:
         m_frame->SetSsr(m_ssrPass.Get());
         m_frame->SetSsrParams(m_ssrEnabled, m_ssrParams);
         m_frame->SetProbes(m_probeSystem.Get());
+        if (m_probeSystem.Get() != nullptr) { m_probeSystem->BeginFrame(); }   // records re-accumulate per scene
         m_frame->Begin(encoder, frameIndex);
     }
 
@@ -230,7 +231,7 @@ public:
             // the same snapshot - render stays ignorant of their types (scene-free IRenderDataProvider).
             for (const SceneProvider& sp : m_providers) { if (sp.scene == &scene && sp.provider != nullptr) { sp.provider->ExtractRenderData(*snapshot); } }
             if (m_probeSystem.Get() != nullptr) {              // map probes to persistent array slots (capture in P1b)
-                m_probeSystem->Assign(snapshot->ReflectionProbes());
+                m_probeSystem->Assign(snapshot, snapshot->ReflectionProbes());
             }
         }
 

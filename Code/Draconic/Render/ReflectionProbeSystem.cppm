@@ -67,13 +67,28 @@ public:
         return Status{};
     }
 
-    // Map this frame's extracted probes onto persistent array slots (stable per ProbeKey) and build the
-    // CPU-side GpuProbe records. Marks a probe dirty (needs capture) when it takes a NEW slot or its
-    // transform changed since last assign. Returns the number of active probes. (Upload + capture happen
-    // in P1b/P1c.) Probes beyond kMaxProbes are dropped (logged by the caller if it cares).
-    u32 Assign(Span<const ReflectionProbe> probes) {
+    // Reset the frame's record accumulation (records are per-scene ranges appended by Assign;
+    // slot/capture state persists across frames). Call once per frame before any Assign.
+    void BeginFrame() {
         m_active = 0;
         m_captures.Clear();
+        m_sceneRanges.Clear();
+    }
+
+    // Map ONE SCENE's extracted probes onto persistent array slots (stable per ProbeKey) and append
+    // their CPU-side GpuProbe records to this frame's buffer. Called once per extracted scene per
+    // frame (frames can render several scenes side-by-side; each view later reads ITS scene's record
+    // range - see RangeFor). Re-assigning a scene already seen this frame is a no-op (same-scene
+    // multi-view). Marks a probe dirty (needs capture) when it takes a NEW slot or its transform
+    // changed since last assign. Probes beyond kMaxProbes are dropped (logged by the caller if it
+    // cares).
+    u32 Assign(const ExtractedScene* scene, Span<const ReflectionProbe> probes) {
+        for (const SceneRange& r : m_sceneRanges) {
+            if (r.scene == scene) { return m_active; }   // this frame's data is per-scene-identical
+        }
+        SceneRange range;
+        range.scene = scene;
+        range.base  = m_active;
         for (const ReflectionProbe& p : probes) {
             if (m_active >= kMaxProbes) { break; }
             const u32 slot = SlotFor(p.key);
@@ -97,10 +112,27 @@ public:
             }
             st.signature = sig;
             st.probeKey  = p.key;
-            if (st.dirty) { m_captures.PushBack(CaptureTask{ slot, p.center }); }
+            if (st.dirty) {
+                // Dedupe by slot (a scene assigned twice, or key reuse, must not double a task).
+                bool queued = false;
+                for (const CaptureTask& t : m_captures) { if (t.slot == slot) { queued = true; break; } }
+                // The capture renders THIS probe's owning scene (never another scene's geometry).
+                if (!queued) { m_captures.PushBack(CaptureTask{ slot, p.center, scene }); }
+            }
             ++m_active;
         }
+        range.count = m_active - range.base;
+        m_sceneRanges.PushBack(range);
         return m_active;
+    }
+
+    // This frame's record range for a scene (views offset the shader's probe loop by it).
+    struct ProbeRange { u32 base = 0; u32 count = 0; };
+    [[nodiscard]] ProbeRange RangeFor(const ExtractedScene* scene) const noexcept {
+        for (const SceneRange& r : m_sceneRanges) {
+            if (r.scene == scene) { return ProbeRange{ r.base, r.count }; }
+        }
+        return ProbeRange{};
     }
 
     [[nodiscard]] u32 ActiveCount() const noexcept { return m_active; }
@@ -117,9 +149,10 @@ public:
         }
     }
 
-    // A probe that needs (re)capture this frame: its array slot + world capture center. The capture loop
-    // renders the scene into layers [LayerBase(slot) .. +6) then calls MarkCaptured(slot).
-    struct CaptureTask { u32 slot; Float3 center; };
+    // A probe that needs (re)capture this frame: its array slot + world capture center + the scene the
+    // capture must render (ITS owning scene's geometry - multi-scene frames). The capture loop renders
+    // into layers [LayerBase(slot) .. +6) then calls MarkCaptured(slot).
+    struct CaptureTask { u32 slot; Float3 center; const ExtractedScene* scene = nullptr; };
     [[nodiscard]] Span<const CaptureTask> Captures() const noexcept {
         return Span<const CaptureTask>{ m_captures.Data(), m_captures.Size() };
     }
@@ -445,6 +478,10 @@ private:
     rhi::Sampler*     m_sampler             = nullptr;
 
     Array<CaptureTask> m_captures;   // dirty probes to (re)capture this frame
+
+    // This frame's per-scene record ranges (Assign appends in scene order; views read RangeFor).
+    struct SceneRange { const ExtractedScene* scene = nullptr; u32 base = 0; u32 count = 0; };
+    Array<SceneRange> m_sceneRanges;
 
     HashMap<u64, u32> m_slots;                    // ProbeKey -> array slot (persistent)
     u32               m_nextSlot = 0;

@@ -522,11 +522,12 @@ float4 main(PSInput input) : SV_Target0 {
         // blend all by an influence weight that fades to 0 over blendDistance near the box edge (soft seam).
         // The accumulated probe reflection blends over the global IBL by the total weight (parallax = Lagarde
         // box-projected cubemap; a cube captured from a point tracks geometry only after this projection).
+        uint probeBase  = (uint)ProbeCenter.x;   // this view's scene's records (multi-scene frames)
         uint probeCount = (uint)ProbeCenter.w;
         float3 probeAccum = float3(0, 0, 0);
         float  probeWeight = 0.0;
         for (uint pi = 0u; pi < probeCount; ++pi) {
-            GpuProbe pr = Probes[pi];
+            GpuProbe pr = Probes[probeBase + pi];
             float3 bmin = pr.boxMin.xyz, bmax = pr.boxMax.xyz;
             // Influence: distance to the nearest box face (negative outside) -> fade over blendDistance.
             float3 d = min(input.worldPos - bmin, bmax - input.worldPos);
