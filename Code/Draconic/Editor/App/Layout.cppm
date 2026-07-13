@@ -13,6 +13,7 @@ export module draconic.editor.app:layout;
 import draconic.core;
 import draconic.vfs;
 import draconic.xml.serialization;
+import draconic.editor.core;   // EditorContext (favorites persistence)
 import draconic.ui.toolkit;
 
 using namespace draconic::core;
@@ -22,6 +23,7 @@ export namespace draconic::editor::app
     namespace tk = draconic::ui::toolkit;
 
     inline constexpr StringView kDockLayoutFile = u8"layout.xml";
+    inline constexpr StringView kFavoritesFile = u8"favorites.bin";
 
     // Bidirectional field walk of one node (children recurse via presence flags).
     inline void SerializeLayoutNode(ISerializer& ar, tk::DockLayoutNode& node)
@@ -91,6 +93,46 @@ export namespace draconic::editor::app
         if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
 
         dock.ApplyLayout(&layout);
+        return Status{};
+    }
+}
+
+// === Favorites persistence (per-user, <project>/Editor/favorites.bin) =======================
+namespace draconic::editor::app
+{
+    [[nodiscard]] inline Status SaveFavorites(draconic::editor::EditorContext& context, StringView directory)
+    {
+        MemoryStream buffer;
+        BinarySerializer ar(buffer, SerializeMode::Write);
+        Span<const Guid> favorites = context.Favorites();
+        u32 count = static_cast<u32>(favorites.Size());
+        draconic::core::Serialize(ar, "count", count);
+        for (const Guid& f : favorites) { Guid id = f; ar.Key("id"); ar.GuidValue(id); }
+        if (!ar.IsOk()) { return ar.GetStatus(); }
+
+        vfs::NativeFileSystem root(directory);
+        vfs::IWritableFileSystem* writable = root.AsWritable();
+        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+        return writable->Save(kFavoritesFile, buffer.Bytes());
+    }
+
+    [[nodiscard]] inline Status LoadFavorites(draconic::editor::EditorContext& context, StringView directory)
+    {
+        vfs::NativeFileSystem root(directory);
+        UniquePtr<IStream> stream = root.Open(kFavoritesFile, FileMode::Read);
+        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        BinarySerializer ar(*stream, SerializeMode::Read);
+        u32 count = 0;
+        draconic::core::Serialize(ar, "count", count);
+        Array<Guid> favorites;
+        for (u32 i = 0; i < count && ar.IsOk(); ++i)
+        {
+            Guid id;
+            ar.Key("id"); ar.GuidValue(id);
+            favorites.PushBack(id);
+        }
+        if (!ar.IsOk()) { return ar.GetStatus(); }
+        context.SetFavorites(Move(favorites));
         return Status{};
     }
 }

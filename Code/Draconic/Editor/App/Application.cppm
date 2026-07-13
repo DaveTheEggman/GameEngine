@@ -29,6 +29,7 @@ import draconic.resource;
 import draconic.editor;
 import draconic.editor.core;
 import :assets_view;
+import :editor_icons;
 import :shell;
 import :ui_page;
 
@@ -126,6 +127,7 @@ export namespace draconic::editor::app
                 }
             }
 
+            EditorIcons::Get().Initialize();   // shared SVG drawables (toolbar + asset types)
             m_uiHost = MakeUnique<uirt::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
             m_dockHost = MakeUnique<uiapp::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
 
@@ -141,10 +143,36 @@ export namespace draconic::editor::app
                 .Set(draconic::ui::StyleProperty::Padding, draconic::ui::Thickness{ 5, 2 });
             m_uiHost->Context().SetStyleSheet(m_styleSheet);
 
+            // Exit goes through the dirty check: the shell consults this before honoring the
+            // main window's close button / OS quit; File>Exit routes through the same helper.
+            host.Shell()->OnMainWindowCloseRequested = [this]() { return ConfirmExitAllowed(); };
+
             m_shell.Build(m_context, m_dockHost.Get(), mainRw->Window().Width(), mainRw->Window().Height());
+            // The ACTIVE page follows dock-tab activation, not just OpenPage/ClosePage - with
+            // side-by-side tab groups, Save was hitting whichever page opened last, not the tab
+            // the user selected. Non-page panels (Console, Assets) leave the active page alone.
+            m_shell.Docks()->OnPanelActivated.Add(
+                draconic::ui::Event<void(tk::DockablePanel*)>::Handler{ [this](tk::DockablePanel* panel) {
+                    if (panel == nullptr) { return; }
+                    for (const PagePanel& entry : m_pagePanels)
+                    {
+                        if (entry.panel == panel) { m_context.SetActivePage(entry.page); return; }
+                    }
+                } });
             m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
 
             OpenProject();
+            if (m_project)
+            {
+                // Per-user pinned assets (browser + picker surface them first).
+                (void)LoadFavorites(m_context, m_project->EditorStateRoot().AsView());
+                m_context.OnFavoritesChanged = [this]() {
+                    if (m_project)
+                    {
+                        (void)SaveFavorites(m_context, m_project->EditorStateRoot().AsView());
+                    }
+                };
+            }
 
             // Per-subsystem editor plugins register here (page factories, creators, ...), and
             // the exe injects the engine interfaces the app drives (SetSceneRenderer).
@@ -164,8 +192,25 @@ export namespace draconic::editor::app
                 m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance) {
                     (void)OpenInstancePage(instance);
                 };
-                m_assetsView->OnCreate = [this](const draconic::editor::EditorContext::AssetCreator& creator) {
-                    CreateAndOpen(creator);
+                m_assetsView->OnCreate = [this](const draconic::editor::EditorContext::AssetCreator& creator,
+                                                draconic::content::Group* group) {
+                    CreateAndOpen(creator, group);
+                };
+                // Delete-while-open policy: close-then-delete. Called from a mutation-queue
+                // action (never mid-event-dispatch), so synchronous panel + page teardown is
+                // safe here - the same pair of steps the tab close button triggers.
+                m_assetsView->OnCloseInstancePage = [this](const Guid& id) {
+                    for (usize i = 0; i < m_pagePanels.Size(); ++i)
+                    {
+                        if (m_pagePanels[i].page->InstanceId() == id)
+                        {
+                            tk::DockablePanel* panel = m_pagePanels[i].panel;
+                            UIEditorPage* page = m_pagePanels[i].page;
+                            m_shell.Docks()->ClosePanel(panel);
+                            ClosePage(page);
+                            return;
+                        }
+                    }
                 };
                 m_cookService.OnCookFinished = [this, assets]() {
                     assets->Rebuild();
@@ -228,6 +273,14 @@ export namespace draconic::editor::app
                 m_uiHost->Context().MutationQueueRef().QueueAction(
                     Function<void()>{ [this, uiPage]() { ClosePage(uiPage); } });
             });
+            // Dirty pages don't close silently: veto the gesture and prompt Save / Discard /
+            // Cancel. The dialog's buttons invoke OnCloseRequested DIRECTLY (bypassing this
+            // veto), which runs the normal dock + page teardown.
+            panel->OnCloseInterceptor = [this, uiPage](tk::DockablePanel* p) -> bool {
+                if (!uiPage->IsDirty()) { return true; }
+                ShowDirtyCloseDialog(uiPage, p);
+                return false;
+            };
             m_pagePanels.PushBack(PagePanel{ uiPage, panel });
             return uiPage;
         }
@@ -269,6 +322,7 @@ export namespace draconic::editor::app
                 }
             }
             DrainLog();
+            SyncPageTitles();
             // Background-cook progress -> status bar (log lines reach the Console via the
             // logger); a finished cook refreshes the Assets badges through OnCookFinished.
             m_cookService.Update(Function<void(StringView)>{ [this](StringView line) {
@@ -318,14 +372,16 @@ export namespace draconic::editor::app
             // Release page resources while the device and windows are still alive.
             for (const PagePanel& entry : m_pagePanels) { entry.page->OnClose(); }
             SaveLayout();
+            EditorIcons::Get().Shutdown();   // release drawables deterministically
         }
 
     private:
         // File > New <creator>: create the source instance, remember it as the project's default
         // document if none is set yet (so a fresh project reopens where you left off), open it.
-        void CreateAndOpen(const draconic::editor::EditorContext::AssetCreator& creator)
+        void CreateAndOpen(const draconic::editor::EditorContext::AssetCreator& creator,
+                           draconic::content::Group* group = nullptr)
         {
-            draconic::content::Instance* instance = creator.create(m_context);
+            draconic::content::Instance* instance = creator.create(m_context, group);
             if (instance == nullptr)
             {
                 m_context.SetStatus(u8"Create failed (no project open?).");
@@ -345,6 +401,108 @@ export namespace draconic::editor::app
                 m_cookService.RequestCook(false);
             }
             (void)OpenInstancePage(*instance);
+        }
+
+        // True = nothing dirty, exit may proceed. Otherwise shows the exit prompt and returns
+        // false; its buttons finish the job (save-all -> exit / discard -> exit / cancel).
+        [[nodiscard]] bool ConfirmExitAllowed()
+        {
+            usize dirtyCount = 0;
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                if (entry.page->IsDirty()) { ++dirtyCount; }
+            }
+            if (dirtyCount == 0) { return true; }
+
+            String message;
+            AppendCountTo(message, dirtyCount);
+            message += (dirtyCount == 1) ? StringView(u8" page has unsaved changes.")
+                                         : StringView(u8" pages have unsaved changes.");
+            RefPtr<draconic::ui::Dialog> dialog =
+                MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+            RefPtr<draconic::ui::Label> label =
+                MakeRef<draconic::ui::Label>(DefaultAllocator(), message.AsView());
+            label->WordWrap.SetValue(true);
+            dialog->SetContent(label.Get());
+
+            draconic::ui::Dialog* rawDialog = dialog.Get();
+            draconic::ui::Button* saveAll =
+                dialog->AddButton(u8"Save All & Exit", draconic::ui::DialogResult::None);
+            saveAll->OnClick.Add([this, rawDialog](draconic::ui::ButtonBase*) {
+                bool allSaved = true;
+                for (const PagePanel& entry : m_pagePanels)
+                {
+                    if (entry.page->IsDirty() && !entry.page->Save().IsOk()) { allSaved = false; }
+                }
+                if (allSaved) { m_host->RequestExit(); }
+                else { m_context.SetStatus(u8"Save FAILED (see console) - staying open."); }
+                rawDialog->Close(allSaved ? draconic::ui::DialogResult::OK
+                                          : draconic::ui::DialogResult::Cancel);
+            });
+            draconic::ui::Button* discard =
+                dialog->AddButton(u8"Exit Without Saving", draconic::ui::DialogResult::None);
+            discard->OnClick.Add([this, rawDialog](draconic::ui::ButtonBase*) {
+                m_host->RequestExit();
+                rawDialog->Close(draconic::ui::DialogResult::OK);
+            });
+            dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+            dialog->Show(&m_uiHost->Context());
+            return false;
+        }
+
+        static void AppendCountTo(String& out, usize value)
+        {
+            utf8char digits[20];
+            usize n = 0;
+            do { digits[n++] = static_cast<utf8char>('0' + (value % 10)); value /= 10; } while (value != 0);
+            while (n > 0) { out.PushBack(digits[--n]); }
+        }
+
+        void ShowDirtyCloseDialog(UIEditorPage* page, tk::DockablePanel* panel)
+        {
+            String message(u8"'");
+            message += page->Title();
+            message += u8"' has unsaved changes.";
+            RefPtr<draconic::ui::Dialog> dialog =
+                MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+            RefPtr<draconic::ui::Label> label =
+                MakeRef<draconic::ui::Label>(DefaultAllocator(), message.AsView());
+            label->WordWrap.SetValue(true);
+            dialog->SetContent(label.Get());
+
+            draconic::ui::Dialog* rawDialog = dialog.Get();
+            draconic::ui::Button* save = dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
+            save->OnClick.Add([this, page, panel, rawDialog](draconic::ui::ButtonBase*) {
+                if (page->Save().IsOk())
+                {
+                    panel->OnCloseRequested.Invoke(panel);
+                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                }
+                else
+                {
+                    m_context.SetStatus(u8"Save FAILED (see console) - page stays open.");
+                    rawDialog->Close(draconic::ui::DialogResult::Cancel);
+                }
+            });
+            draconic::ui::Button* discard = dialog->AddButton(u8"Discard", draconic::ui::DialogResult::None);
+            discard->OnClick.Add([panel, rawDialog](draconic::ui::ButtonBase*) {
+                panel->OnCloseRequested.Invoke(panel);
+                rawDialog->Close(draconic::ui::DialogResult::OK);
+            });
+            dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+            dialog->Show(&m_uiHost->Context());
+        }
+
+        // Tab titles mirror dirty state (" *" suffix) - polled per frame; SetTitle no-ops
+        // visually unless the string actually changed.
+        void SyncPageTitles()
+        {
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                String title(entry.page->Title());
+                if (entry.page->IsDirty()) { title += u8" *"; }
+                if (entry.panel->Title() != title.AsView()) { entry.panel->SetTitle(title.AsView()); }
+            }
         }
 
         // Buffered engine logs -> the Console panel, once per frame on the main thread.
@@ -424,12 +582,33 @@ export namespace draconic::editor::app
                 rt::IApplicationHost* host = m_host;
 
                 // File > New <creator> from the registry (per-subsystem editor modules).
+                // Categorized creators (e.g. "Primitives") nest in a submenu of that name.
+                Array<StringView> categories;
                 for (const draconic::editor::EditorContext::AssetCreator& creator : m_context.Creators())
                 {
-                    String label(u8"New ");
-                    label += creator.label;
-                    const auto* entry = &creator;
-                    file->AddItem(label.AsView(), [this, entry]() { CreateAndOpen(*entry); });
+                    if (creator.category.IsEmpty())
+                    {
+                        String label(u8"New ");
+                        label += creator.label;
+                        const auto* entry = &creator;
+                        file->AddItem(label.AsView(), [this, entry]() { CreateAndOpen(*entry); });
+                        continue;
+                    }
+                    bool seen = false;
+                    for (StringView c : categories) { if (c == creator.category.AsView()) { seen = true; break; } }
+                    if (!seen) { categories.PushBack(creator.category.AsView()); }
+                }
+                for (StringView category : categories)
+                {
+                    draconic::ui::MenuItem* submenuItem = file->AddSubmenu(category);
+                    auto* submenu = Cast<draconic::ui::ContextMenu>(submenuItem->Submenu.Get());
+                    if (submenu == nullptr) { continue; }
+                    for (const draconic::editor::EditorContext::AssetCreator& creator : m_context.Creators())
+                    {
+                        if (creator.category.AsView() != category) { continue; }
+                        const auto* entry = &creator;
+                        submenu->AddItem(creator.label.AsView(), [this, entry]() { CreateAndOpen(*entry); });
+                    }
                 }
                 if (!m_context.Creators().IsEmpty()) { file->AddSeparator(); }
 
@@ -445,7 +624,9 @@ export namespace draconic::editor::app
                     SaveLayout();
                     m_context.SetStatus(u8"Layout saved.");
                 });
-                file->AddItem(u8"Exit", [host]() { if (host != nullptr) { host->RequestExit(); } });
+                file->AddItem(u8"Exit", [this, host]() {
+                    if (host != nullptr && ConfirmExitAllowed()) { host->RequestExit(); }
+                });
             }
 
             if (draconic::ui::ContextMenu* edit = bar->AddMenu(u8"Edit"))
