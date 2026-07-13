@@ -564,3 +564,59 @@ TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
     REQUIRE(lights->Get(edit.Resolve(b)) != nullptr);
     CHECK(lights->Get(edit.Resolve(b))->intensity == doctest::Approx(1.0f));
 }
+
+namespace
+{
+    // A scene-level settings block (see SceneSerializeTests' FogSystem): the inspector's
+    // no-entity-selected view edits these through SetSceneSettingProperty commands.
+    struct WindSettings
+    {
+        f32 speed = 1.0f;
+    };
+
+    class WindSystem final : public dscene::SceneSystem
+    {
+    public:
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<WindSettings>(); }
+        [[nodiscard]] void* SettingsInstance() noexcept override { return &settings; }
+        [[nodiscard]] StringView SettingsId() const noexcept override { return u8"wind"; }
+        void SerializeSettings(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "speed", settings.speed);
+        }
+        WindSettings settings;
+    };
+
+}
+
+DRACONIC_REFLECT_VALUE(WindSettings, "draconic::editor::test")
+{
+    builder.DataVersion(1).Property<&WindSettings::speed>("speed");
+}
+
+namespace
+{
+    void RegisterWindReflection() { DraconicRegisterValue_WindSettings(); }
+}
+
+TEST_CASE("edit-context: scene-setting edits are undoable commands and merge like scrubs")
+{
+    RegisterWindReflection();
+    dscene::Scene scene(u8"s");
+    WindSystem* wind = scene.AddSystem<WindSystem>();
+    draconic::editor::EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+
+    const TypeInfo* type = &TypeOf<WindSettings>();
+
+    // Two consecutive edits to the same property MERGE into one undo entry...
+    edit.SetSceneSettingProperty(type, "speed", Variant::From<f32>(2.0f));
+    edit.SetSceneSettingProperty(type, "speed", Variant::From<f32>(3.0f));
+    CHECK(wind->settings.speed == 3.0f);
+
+    // ...whose undo restores the ORIGINAL value in one step.
+    commands.Undo();
+    CHECK(wind->settings.speed == 1.0f);
+    commands.Redo();
+    CHECK(wind->settings.speed == 3.0f);
+}

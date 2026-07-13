@@ -294,6 +294,37 @@ export namespace draconic::editor
                 DefaultAllocator()));
         }
 
+        /// Set a reflected property on a SCENE SYSTEM's settings block (the scene inspector,
+        /// shown when no entity is selected). Same merge semantics as SetComponentProperty
+        /// (scrubs collapse into one undo entry); the settings instance is re-derived from
+        /// the scene each apply.
+        void SetSceneSettingProperty(const TypeInfo* settingsType, const char* property,
+                                     const Variant& value)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetSceneSettingCommand>(*this, settingsType, property, value),
+                DefaultAllocator()));
+        }
+
+        /// Enum flavor of SetSceneSettingProperty (underlying integer through
+        /// PropertyInfo::address - same reason as SetComponentPropertyRaw).
+        void SetSceneSettingPropertyRaw(const TypeInfo* settingsType, const char* property, i64 value)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetSceneSettingCommand>(*this, settingsType, property, value),
+                DefaultAllocator()));
+        }
+
+        /// The scene system whose SettingsType() is `settingsType` (null if none).
+        [[nodiscard]] dscene::SceneSystem* FindSystemBySettingsType(const TypeInfo* settingsType)
+        {
+            dscene::SceneSystem* found = nullptr;
+            m_scene->ForEachSystem([&](dscene::SceneSystem& s) {
+                if (found == nullptr && s.SettingsType() == settingsType) { found = &s; }
+            });
+            return found;
+        }
+
         /// Add a default-constructed component (undoable; fails if already present).
         void AddComponent(const Guid& entity, const TypeInfo* componentType)
         {
@@ -1043,6 +1074,119 @@ export namespace draconic::editor
         // One command for both property paths: Variant (typed get/set) and raw integer (enums -
         // a Variant of a type known only by TypeInfo cannot be constructed, so those fields are
         // written in place through PropertyInfo::address).
+        // Mirrors SetComponentPropertyCommand for a SCENE SYSTEM's settings block (no entity;
+        // the instance is re-derived from the scene each apply - systems are stable, but the
+        // re-derive keeps the command valid across snapshot restores).
+        class SetSceneSettingCommand final : public IEditorCommand
+        {
+        public:
+            SetSceneSettingCommand(SceneEditContext& ctx, const TypeInfo* settingsType,
+                                   const char* property, const Variant& value)
+                : m_ctx(&ctx), m_settingsType(settingsType), m_property(property), m_new(value) {}
+
+            SetSceneSettingCommand(SceneEditContext& ctx, const TypeInfo* settingsType,
+                                   const char* property, i64 rawValue)
+                : m_ctx(&ctx), m_settingsType(settingsType), m_property(property)
+                , m_newRaw(rawValue), m_raw(true) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                const PropertyInfo* prop = nullptr;
+                const Instance settings = ResolveSettings(&prop);
+                if (settings.IsEmpty() || prop == nullptr) { return false; }
+
+                if (m_raw)
+                {
+                    void* address = (prop->address != nullptr) ? prop->address(settings) : nullptr;
+                    if (address == nullptr) { return false; }
+                    if (!m_hasOld) { m_oldRaw = ReadRawInt(address, prop->type->size); m_hasOld = true; }
+                    WriteRawInt(address, prop->type->size, m_newRaw);
+                    return true;
+                }
+
+                if (!m_hasOld) { m_old = GetProperty(*prop, settings); m_hasOld = true; }
+                return SetProperty(*prop, settings, m_new).IsOk();
+            }
+
+            void Undo() override
+            {
+                const PropertyInfo* prop = nullptr;
+                const Instance settings = ResolveSettings(&prop);
+                if (settings.IsEmpty() || prop == nullptr) { return; }
+                if (m_raw)
+                {
+                    if (void* address = (prop->address != nullptr) ? prop->address(settings) : nullptr)
+                    {
+                        WriteRawInt(address, prop->type->size, m_oldRaw);
+                    }
+                }
+                else
+                {
+                    (void)SetProperty(*prop, settings, m_old);
+                }
+            }
+
+            [[nodiscard]] StringView TypeId() const override { return u8"set_scene_setting"; }
+            [[nodiscard]] bool MergeInto(IEditorCommand& previous) override
+            {
+                auto& prev = static_cast<SetSceneSettingCommand&>(previous);
+                if (prev.m_settingsType != m_settingsType || prev.m_raw != m_raw
+                    || !CStrEq(prev.m_property, m_property))
+                {
+                    return false;
+                }
+                prev.m_new = m_new;         // previous keeps its ORIGINAL old value
+                prev.m_newRaw = m_newRaw;
+                return true;
+            }
+
+        private:
+            [[nodiscard]] static bool CStrEq(const char* a, const char* b) noexcept
+            {
+                usize i = 0;
+                while (a[i] != 0 && a[i] == b[i]) { ++i; }
+                return a[i] == b[i];
+            }
+            [[nodiscard]] static i64 ReadRawInt(const void* address, u32 size) noexcept
+            {
+                switch (size)
+                {
+                    case 1: return *static_cast<const i8*>(address);
+                    case 2: return *static_cast<const i16*>(address);
+                    case 8: return *static_cast<const i64*>(address);
+                    default: return *static_cast<const i32*>(address);
+                }
+            }
+            static void WriteRawInt(void* address, u32 size, i64 value) noexcept
+            {
+                switch (size)
+                {
+                    case 1: *static_cast<i8*>(address)  = static_cast<i8>(value);  break;
+                    case 2: *static_cast<i16*>(address) = static_cast<i16>(value); break;
+                    case 8: *static_cast<i64*>(address) = value;                   break;
+                    default: *static_cast<i32*>(address) = static_cast<i32>(value); break;
+                }
+            }
+
+            [[nodiscard]] Instance ResolveSettings(const PropertyInfo** outProp)
+            {
+                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                if (system == nullptr) { return {}; }
+                *outProp = FindProperty(*m_settingsType, m_property);
+                return Instance{ system->SettingsInstance(), m_settingsType };
+            }
+
+            SceneEditContext* m_ctx;
+            const TypeInfo* m_settingsType;
+            const char* m_property;
+            Variant m_new;
+            Variant m_old;
+            i64 m_newRaw = 0;
+            i64 m_oldRaw = 0;
+            bool m_raw = false;
+            bool m_hasOld = false;
+        };
+
         class SetComponentPropertyCommand final : public IEditorCommand
         {
         public:

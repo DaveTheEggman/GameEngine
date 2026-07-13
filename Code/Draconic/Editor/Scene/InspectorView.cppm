@@ -181,7 +181,9 @@ export namespace draconic::editor
             const dscene::EntityHandle e = m_edit->Resolve(id);
             m_addButton->Visibility = e.IsAssigned() ? ui::VisibilityValue::Visible
                                                      : ui::VisibilityValue::Gone;
-            if (!e.IsAssigned()) { Invalidate(); return; }
+            // No entity selected: the SCENE's settings (Sedulous scene-modules pattern) -
+            // every scene system exposing a reflected settings block gets a category.
+            if (!e.IsAssigned()) { BuildSceneSettingsSections(); Invalidate(); return; }
 
             BuildEntitySection(id);
             BuildTransformSection(id);
@@ -255,6 +257,161 @@ export namespace draconic::editor
             AddEditor(scale.Get(), [edit, id, raw = scale.Get()]() {
                 raw->SetValue(edit->Scene().GetLocalTransform(edit->Resolve(id)).scale);
             });
+        }
+
+        void BuildSceneSettingsSections()
+        {
+            m_edit->Scene().ForEachSystem([&](dscene::SceneSystem& system) {
+                const TypeInfo* type = system.SettingsType();
+                if (type == nullptr || !IsRegisteredType(type)) { return; }
+                // Category = the settings type minus a trailing "Settings"
+                // ("EnvironmentSettings" -> "Environment").
+                StringView category(reinterpret_cast<const utf8char*>(type->name));
+                const StringView suffix = u8"Settings";
+                if (category.Size() > suffix.Size()
+                    && category.SubStr(category.Size() - suffix.Size(), suffix.Size()) == suffix)
+                {
+                    category = category.SubStr(0, category.Size() - suffix.Size());
+                }
+                for (const PropertyInfo& prop : Properties(*type))
+                {
+                    BuildSettingRow(type, prop, category);
+                }
+            });
+        }
+
+        // A scene-setting property row: same editor kinds as components, but reading the
+        // system's settings instance and writing through SetSceneSettingProperty commands
+        // (merged scrubs, one undo entry). Covers the kinds settings blocks use today.
+        void BuildSettingRow(const TypeInfo* type, const PropertyInfo& prop, StringView category)
+        {
+            SceneEditContext* edit = m_edit;
+            const StringView name(reinterpret_cast<const utf8char*>(prop.name));
+            const bool readOnly = (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
+            const char* propName = prop.name;
+
+            auto getInstance = [edit, type]() -> Instance {
+                dscene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+                return (system != nullptr) ? Instance{ system->SettingsInstance(), type } : Instance{};
+            };
+            auto getVariant = [getInstance, type, propName]() -> Variant {
+                const Instance settings = getInstance();
+                const PropertyInfo* p = settings.IsEmpty() ? nullptr : FindProperty(*type, propName);
+                return (p != nullptr) ? GetProperty(*p, settings) : Variant{};
+            };
+
+            if (IsEnum(*prop.type))
+            {
+                const Span<const EnumValue> values = Enumerators(*prop.type);
+                Array<StringView> items;
+                for (const EnumValue& v : values) { items.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name))); }
+
+                auto rawRead = [getInstance, type, propName]() -> i64 {
+                    const Instance settings = getInstance();
+                    const PropertyInfo* p = settings.IsEmpty() ? nullptr : FindProperty(*type, propName);
+                    void* address = (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
+                    if (address == nullptr) { return 0; }
+                    switch (p->type->size)
+                    {
+                        case 1: return *static_cast<const i8*>(address);
+                        case 2: return *static_cast<const i16*>(address);
+                        case 8: return *static_cast<const i64*>(address);
+                        default: return *static_cast<const i32*>(address);
+                    }
+                };
+                auto indexOf = [values](i64 value) -> i32 {
+                    for (usize i = 0; i < values.Size(); ++i)
+                    {
+                        if (values[i].value == value) { return static_cast<i32>(i); }
+                    }
+                    return 0;
+                };
+                auto editor = MakeRef<tk::EnumEditor>(DefaultAllocator(), name, indexOf(rawRead()),
+                    Span<const StringView>{ items.Data(), items.Size() },
+                    readOnly ? Function<void(i32)>{} : Function<void(i32)>{
+                        [edit, type, propName, values](i32 index) {
+                            if (index >= 0 && index < static_cast<i32>(values.Size()))
+                            {
+                                edit->SetSceneSettingPropertyRaw(type, propName, values[static_cast<usize>(index)].value);
+                            }
+                        } },
+                    category);
+                AddEditor(editor.Get(), [rawRead, indexOf, raw = editor.Get()]() {
+                    raw->SetValue(indexOf(rawRead()));
+                });
+                return;
+            }
+
+            if (prop.type == &TypeOf<f32>())
+            {
+                auto value = [getVariant]() -> f64 {
+                    const Variant v = getVariant();
+                    const f32* f = v.TryGet<f32>();
+                    return (f != nullptr) ? static_cast<f64>(*f) : 0.0;
+                };
+                auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name, value(),
+                    -1e9, 1e9, 0.1, 2,
+                    readOnly ? Function<void(f64)>{} : Function<void(f64)>{
+                        [edit, type, propName](f64 v) {
+                            edit->SetSceneSettingProperty(type, propName, Variant::From<f32>(static_cast<f32>(v)));
+                        } },
+                    category);
+                AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
+                return;
+            }
+
+            if (prop.type == &TypeOf<Color>())
+            {
+                auto value = [getVariant]() -> Color {
+                    const Variant v = getVariant();
+                    const Color* c = v.TryGet<Color>();
+                    return (c != nullptr) ? *c : Color{ 1, 1, 1, 1 };
+                };
+                auto editor = MakeRef<tk::ColorEditor>(DefaultAllocator(), name, value(),
+                    readOnly ? Function<void(Color)>{} : Function<void(Color)>{
+                        [edit, type, propName](Color v) {
+                            edit->SetSceneSettingProperty(type, propName, Variant::From<Color>(v));
+                        } },
+                    category);
+                AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
+                return;
+            }
+
+            if (prop.type == &TypeOf<bool>())
+            {
+                auto value = [getVariant]() -> bool {
+                    const Variant v = getVariant();
+                    const bool* b = v.TryGet<bool>();
+                    return (b != nullptr) && *b;
+                };
+                auto editor = MakeRef<tk::BoolEditor>(DefaultAllocator(), name, value(),
+                    readOnly ? Function<void(bool)>{} : Function<void(bool)>{
+                        [edit, type, propName](bool v) {
+                            edit->SetSceneSettingProperty(type, propName, Variant::From<bool>(v));
+                        } },
+                    category);
+                AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
+                return;
+            }
+
+            if (prop.type == &TypeOf<Float3>())
+            {
+                auto value = [getVariant]() -> Float3 {
+                    const Variant v = getVariant();
+                    const Float3* f = v.TryGet<Float3>();
+                    return (f != nullptr) ? *f : Float3{};
+                };
+                auto editor = MakeRef<tk::Float3Editor>(DefaultAllocator(), name, value(),
+                    -100000.0f, 100000.0f, 0.1f,
+                    readOnly ? Function<void(Float3)>{} : Function<void(Float3)>{
+                        [edit, type, propName](Float3 v) {
+                            edit->SetSceneSettingProperty(type, propName, Variant::From<Float3>(v));
+                        } },
+                    category);
+                AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
+                return;
+            }
+            // Other kinds: extend when a settings block needs them.
         }
 
         void BuildComponentSection(const Guid& id, dscene::ComponentManagerBase& mgr)
