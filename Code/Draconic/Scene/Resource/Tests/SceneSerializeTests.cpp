@@ -306,3 +306,92 @@ TEST_CASE("scene-serialize: component records carry the reflected type's data ve
     // component's Serialize migrates through when its layout changes.
     CHECK(loaded->seenVersion == 3u);
 }
+
+namespace
+{
+    // A scene system with a scene-LEVEL settings block (the Sedulous scene-modules pattern:
+    // environment/sky-style state, one per scene, shown in the inspector when no entity is
+    // selected and persisted with the scene).
+    struct FogSettings
+    {
+        f32 density = 0.5f;
+        Color tint  = Color{ 1, 1, 1, 1 };
+    };
+
+    class FogSystem final : public SceneSystem
+    {
+    public:
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<FogSettings>(); }
+        [[nodiscard]] void* SettingsInstance() noexcept override { return &settings; }
+        [[nodiscard]] StringView SettingsId() const noexcept override { return u8"fog"; }
+        void SerializeSettings(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "density", settings.density);
+            draconic::core::Serialize(ar, "tint", settings.tint);
+        }
+        FogSettings settings;
+    };
+}
+
+TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves still load")
+{
+    // --- round-trip ---
+    Scene a(u8"level");
+    FogSystem* fogA = a.AddSystem<FogSystem>();
+    fogA->settings.density = 2.25f;
+    fogA->settings.tint    = Color{ 0.2f, 0.4f, 0.6f, 1.0f };
+    (void)a.CreateEntity(u8"e");
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+        REQUIRE(writer.IsOk());
+    }
+    {
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        Scene b;
+        FogSystem* fogB = b.AddSystem<FogSystem>();
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b, &stream);
+        REQUIRE(reader.IsOk());
+        CHECK(Near(fogB->settings.density, 2.25f));
+        CHECK(Near(fogB->settings.tint.g, 0.4f));
+    }
+
+    // --- legacy stream (saved BEFORE the settings section existed) ---
+    // Simulate by serializing a scene with NO settings systems and chopping the trailing
+    // settings-count u32 - byte-identical to a pre-settings save. The legacyProbe stream
+    // check must leave defaults standing with the serializer still OK.
+    Scene legacy(u8"old");
+    (void)legacy.CreateEntity(u8"e");
+    MemoryStream legacyFull;
+    {
+        BinarySerializer writer(legacyFull, SerializeMode::Write);
+        SerializeScene(writer, legacy);
+        REQUIRE(writer.IsOk());
+    }
+    MemoryStream legacyStream;
+    REQUIRE(legacyFull.Bytes().Size() > sizeof(u32));
+    (void)legacyStream.Write(legacyFull.Bytes().Data(), legacyFull.Bytes().Size() - sizeof(u32));
+    (void)legacyStream.Seek(0, SeekOrigin::Begin);
+    {
+        Scene c;
+        FogSystem* fogC = c.AddSystem<FogSystem>();
+        BinarySerializer reader(legacyStream, SerializeMode::Read);
+        SerializeScene(reader, c, &legacyStream);
+        REQUIRE(reader.IsOk());
+        CHECK(Near(fogC->settings.density, 0.5f));   // defaults stand
+    }
+
+    // Without the probe (a snapshot restore), the section is expected and reads normally.
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    {
+        Scene d;
+        FogSystem* fogD = d.AddSystem<FogSystem>();
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, d);
+        REQUIRE(reader.IsOk());
+        CHECK(Near(fogD->settings.density, 2.25f));
+    }
+}

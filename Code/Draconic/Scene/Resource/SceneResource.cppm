@@ -53,9 +53,17 @@ namespace detail {
 }
 
 // Bidirectional whole-scene serialization: scene name, the entity table + transform
-// hierarchy, then components. On read, `scene` should be freshly created with its
-// component managers already present (so component records route into their pools).
-inline void SerializeScene(ISerializer& ar, Scene& scene) {
+// hierarchy, components, then SCENE-SYSTEM SETTINGS (environment/sky etc. - systems
+// exposing SettingsType(), serialized under their own versioned payloads). On read,
+// `scene` should be freshly created with its component managers + systems already present
+// (so records route into their pools / settings blocks).
+//
+// `legacyProbe`: the settings section was appended AFTER the format shipped; streams saved
+// before it simply END at the component array. Readers that have the underlying stream
+// pass it here - at the settings boundary, exhausted stream = legacy save, settings keep
+// their defaults (the next save upgrades). Null = the section is expected (fresh writes,
+// snapshots). Write mode always writes it.
+inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe = nullptr) {
     const bool writing = ar.Mode() == SerializeMode::Write;
 
     // --- name ---
@@ -181,6 +189,54 @@ inline void SerializeScene(ISerializer& ar, Scene& scene) {
         }
     }
     ar.EndArray();
+
+    // --- scene-system settings (id, versioned payload) ---
+    // NOTE: like components, reading a record requires its system to be present on `scene`
+    // (systems are injected before load); an unknown id can't be skipped (length-prefixed
+    // records are the same future robustness item as components).
+    if (!writing && legacyProbe != nullptr && legacyProbe->Tell() >= legacyProbe->Size()) {
+        return;   // pre-settings save: defaults stand, the next save upgrades the stream
+    }
+    u32 settingsCount = 0;
+    if (writing) {
+        scene.ForEachSystem([&](SceneSystem& s) { if (s.SettingsType() != nullptr) { ++settingsCount; } });
+    }
+    ar.Key("systemSettings");
+    ar.BeginArray(settingsCount);
+    if (writing) {
+        scene.ForEachSystem([&](SceneSystem& s) {
+            if (s.SettingsType() == nullptr) { return; }
+            String id(s.SettingsId());
+            draconic::core::Serialize(ar, "system", id);
+            draconic::core::BeginVersionedPayload(ar, *s.SettingsType());
+            ar.Key("settings"); ar.BeginObject();
+            s.SerializeSettings(ar);
+            ar.EndObject();
+            draconic::core::EndVersionedPayload(ar);
+        });
+    } else {
+        for (u32 i = 0; i < settingsCount; ++i) {
+            String id;
+            draconic::core::Serialize(ar, "system", id);
+            SceneSystem* target = nullptr;
+            scene.ForEachSystem([&](SceneSystem& s) {
+                if (target == nullptr && s.SettingsType() != nullptr && s.SettingsId() == id.AsView()) {
+                    target = &s;
+                }
+            });
+            if (target == nullptr) {
+                DRACONIC_LOG_WARNING(u8"Scene",
+                    u8"scene save carries settings for unknown system '{}' - rest of the section skipped", id);
+                break;   // binary records aren't skippable; drop the remainder (defaults stand)
+            }
+            draconic::core::BeginVersionedPayload(ar, *target->SettingsType());
+            ar.Key("settings"); ar.BeginObject();
+            target->SerializeSettings(ar);
+            ar.EndObject();
+            draconic::core::EndVersionedPayload(ar);
+        }
+    }
+    ar.EndArray();
 }
 
 // Loads a cooked scene's "scene" data stream into `scene` (which must already have its
@@ -198,7 +254,7 @@ inline Status LoadScene(draconic::content::Instance& instance, Scene& scene) {
     UniquePtr<IStream> stream = instance.ReadData(u8"scene");
     if (stream.Get() == nullptr) { return Status{ ErrorCode::NotFound }; }
     BinarySerializer ser(*stream, SerializeMode::Read);
-    SerializeScene(ser, scene);
+    SerializeScene(ser, scene, stream.Get());   // probe: pre-settings saves end at components
     return Status{};
 }
 
