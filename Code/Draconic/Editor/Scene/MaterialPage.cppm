@@ -328,6 +328,8 @@ export namespace draconic::editor
             material->pipeline.depthMode    = static_cast<mats::DepthMode>(src.depthMode);
             material->pipeline.cullMode     = static_cast<mats::CullModeConfig>(src.cullMode);
             material->pipeline.vertexLayout = static_cast<mats::VertexLayoutType>(src.vertexLayout);
+            material->samplerU = static_cast<rhi::AddressMode>(src.samplerU);
+            material->samplerV = static_cast<rhi::AddressMode>(src.samplerV);
 
             m_previewTextures.Clear();
             m_previewTextureViews.Clear();
@@ -591,17 +593,38 @@ export namespace draconic::editor
                         self->ReadUniform(name.AsView(), &v, sizeof(v));
                         return static_cast<f64>(v);
                     };
-                    auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name.AsView(), value(),
-                        0.0, 1e9, 0.01, 3,
-                        Function<void(f64)>{ [self, name](f64 v) {
-                            self->ApplyEdit(name.AsView(), Function<void(mats::MaterialSource&)>{
-                                [self, name, v](mats::MaterialSource&) {
-                                    const f32 f = static_cast<f32>(v);
-                                    self->WriteUniform(name.AsView(), &f, sizeof(f));
-                                } });
-                        } },
-                        StringView(u8"Properties"));
-                    AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
+                    auto write = [self, name](f32 f) {
+                        self->ApplyEdit(name.AsView(), Function<void(mats::MaterialSource&)>{
+                            [self, name, f](mats::MaterialSource&) {
+                                self->WriteUniform(name.AsView(), &f, sizeof(f));
+                            } });
+                    };
+                    // The standard PBR factors are all 0..1 - slider+field like the scene
+                    // inspector's range rows; unknown floats keep the unbounded field.
+                    const bool zeroToOne = name.AsView() == u8"Metallic"
+                        || name.AsView() == u8"Roughness" || name.AsView() == u8"OcclusionStrength"
+                        || name.AsView() == u8"AlphaCutoff";
+                    const bool zeroToTwo = name.AsView() == u8"NormalScale";
+                    if (zeroToOne || zeroToTwo)
+                    {
+                        auto editor = MakeRef<tk::RangeEditor>(DefaultAllocator(), name.AsView(),
+                            static_cast<f32>(value()), 0.0f, zeroToTwo ? 2.0f : 1.0f, 0.01f,
+                            Function<void(f32)>{ [write](f32 v) { write(v); } },
+                            StringView(u8"Properties"));
+                        editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
+                        AddEditor(editor.Get(), [value, raw = editor.Get()]() {
+                            raw->SetValue(static_cast<f32>(value()));
+                        });
+                    }
+                    else
+                    {
+                        auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name.AsView(), value(),
+                            0.0, 1e9, 0.01, 3,
+                            Function<void(f64)>{ [write](f64 v) { write(static_cast<f32>(v)); } },
+                            StringView(u8"Properties"));
+                        editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
+                        AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
+                    }
                 }
                 else if (type == mats::MaterialPropertyType::Float4)
                 {
@@ -619,6 +642,7 @@ export namespace draconic::editor
                                 } });
                         } },
                         StringView(u8"Properties"));
+                    editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
                     AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 }
                 else if (type == mats::MaterialPropertyType::Texture2D
@@ -667,6 +691,7 @@ export namespace draconic::editor
             };
             auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), slot.AsView(),
                 AssetNameFor(target()), StringView(u8"Textures"));
+            editor->SetDisplayName(PrettifyPropertyName(slot.AsView()).AsView());
             ResourceRefEditor* raw = editor.Get();
             raw->OnPick = [self, slot]() {
                 if (self->Context() == nullptr || self->m_context->Project() == nullptr) { return; }

@@ -150,6 +150,11 @@ float2 DirToEquirect(float3 d) {
 }
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float3 dir = DirForFace(pc.FaceIndex, uv);
+    // Yaw by the sky rotation (Zenith.a) - this and the cubemap pass are where the user's
+    // rotation slider actually lands (the procedural gradient is rotation-invariant).
+    float rot = pc.Zenith.a;
+    float cr = cos(rot), sr = sin(rot);
+    dir = float3(cr * dir.x + sr * dir.z, dir.y, -sr * dir.x + cr * dir.z);
     return float4(EquirectMap.SampleLevel(EquirectSamp, DirToEquirect(dir), 0.0).rgb * max(pc.SkyIntensity, 0.0), 1.0);
 }
 )");
@@ -165,6 +170,9 @@ TextureCube  SrcCube  : register(t0, space0);
 SamplerState SrcSamp  : register(s0, space0);
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float3 dir = DirForFace(pc.FaceIndex, uv);
+    float rot = pc.Zenith.a;   // sky rotation yaw (see the equirect pass)
+    float cr = cos(rot), sr = sin(rot);
+    dir = float3(cr * dir.x + sr * dir.z, dir.y, -sr * dir.x + cr * dir.z);
     return float4(SrcCube.SampleLevel(SrcSamp, dir, 0.0).rgb * max(pc.SkyIntensity, 0.0), 1.0);
 }
 )");
