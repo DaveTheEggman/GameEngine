@@ -41,4 +41,5 @@ export import :docking;
 export import :node_graph_types;
 export import :node_graph_canvas;
 export import :draggable_tree_view;
+export import :toast_host;
 export import :toolkit_theme_extension;

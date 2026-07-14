@@ -660,6 +660,7 @@ private:
 
     // UI.
     RefPtr<ui::RootView>      m_root;
+    RefPtr<tk::ToastHost>     m_toastHost;   // notification overlay (Overlays tab triggers)
     RefPtr<ui::StyleSheet>    m_sheet;
     RefPtr<ui::FlexLayout>    m_main;
     UniquePtr<image::OwnedImageData> m_testImage; // borrowed by the ImageView/DrawableView demos
@@ -850,6 +851,10 @@ void UISandbox::BuildUI()
     // Main vertical layout filling the window, with a TabView (mirrors Sedulous UISandbox).
     m_main = VFlex();
     m_root->AddView(m_main.Get());
+
+    // Toast overlay across the whole window (input-transparent outside the cards).
+    m_toastHost = MakeRef<tk::ToastHost>(DefaultAllocator());
+    m_root->AddView(m_toastHost.Get());
 
     // Theme button above the tabs - cycles Dark / Light / Rounded Dark / Textured / Breeze (Sedulous ApplyTheme).
     {
@@ -1558,6 +1563,48 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
         row->AddView(MakeRef<RichTooltipButton>(DefaultAllocator(), StringView(u8"Rich content")).Get());
         demo->AddView(row.Get());
     }
+
+    // Toasts (bottom-right overlay; timed severities + a sticky action toast).
+    spacer(); section(u8"Toasts (bottom-right)");
+    {
+        auto row = HFlex(8.0f);
+        tk::ToastHost* toasts = m_toastHost.Get();
+        auto toastBtn = [&](const char8_t* text, tk::ToastSeverity severity, const char8_t* message, f32 duration)
+        {
+            auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+            b->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [toasts, severity, message, duration](ui::ButtonBase*) {
+                tk::ToastRequest request;
+                request.message = String(StringView(message));
+                request.severity = severity;
+                request.durationSeconds = duration;
+                (void)toasts->Show(Move(request));
+            } });
+            row->AddView(b.Get());
+        };
+        toastBtn(u8"Info",    tk::ToastSeverity::Info,    u8"For your information.",        4.0f);
+        toastBtn(u8"Success", tk::ToastSeverity::Success, u8"Cook finished: 3 asset(s).",   4.0f);
+        toastBtn(u8"Warning", tk::ToastSeverity::Warning, u8"No importer for 'foo.xyz'.",   4.0f);
+        toastBtn(u8"Error (sticky)", tk::ToastSeverity::Error, u8"Cook: 1 failed (close me).", 0.0f);
+        auto actionBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"With action"));
+        actionBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [toasts](ui::ButtonBase*) {
+            tk::ToastRequest request;
+            request.message = String(u8"Scene saved.");
+            request.severity = tk::ToastSeverity::Success;
+            request.durationSeconds = 0.0f;   // sticky so the action stays reachable
+            request.actionLabel = String(u8"Undo");
+            tk::ToastHost* host = toasts;
+            request.onAction = Function<void()>{ [host]() {
+                tk::ToastRequest ack;
+                ack.message = String(u8"Undone.");
+                ack.severity = tk::ToastSeverity::Info;
+                ack.durationSeconds = 3.0f;
+                (void)host->Show(Move(ack));
+            } };
+            (void)toasts->Show(Move(request));
+        } });
+        row->AddView(actionBtn.Get());
+        demo->AddView(row.Get());
+    }
 }
 
 // === Tab 6: Data Controls (virtualized ListView / TreeView / GridView + adapters) ===
@@ -2126,6 +2173,7 @@ void UISandbox::OnUpdate(runtime::IApplicationHost&, f32 dt)
     // Hold-to-repeat: tick the RepeatButton each frame (mirrors Sedulous UISandbox).
     if (m_repeatBtn) { m_repeatBtn->UpdateRepeat(dt); }
     if (m_uiHost) { m_uiHost->Update(dt); }
+    if (m_toastHost) { m_toastHost->Update(dt); }
     // Drag-follow: move a dragged floating dock window to track the desktop cursor.
     if (m_dockHost) { m_dockHost->Tick(); }
 

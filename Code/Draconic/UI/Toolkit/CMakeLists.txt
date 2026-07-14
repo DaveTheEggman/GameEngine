@@ -12,6 +12,7 @@ target_sources(DraconicUIToolkit
     PUBLIC
         FILE_SET uitoolkit_modules TYPE CXX_MODULES FILES
             StatusBar.cppm
+            ToastHost.cppm
             Toolbar.cppm
             MenuBar.cppm
             SplitView.cppm

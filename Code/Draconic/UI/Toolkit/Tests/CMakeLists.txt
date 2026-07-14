@@ -19,6 +19,7 @@ add_executable(DraconicUIToolkitTests
     Float2EditorTests.cpp Float3EditorTests.cpp Float4EditorTests.cpp
     ColorEditorTests.cpp
     PropertyGridTests.cpp
+    ToastHostTests.cpp
     CurveCanvasTests.cpp
     DockingTests.cpp
     DockPersistenceTests.cpp
