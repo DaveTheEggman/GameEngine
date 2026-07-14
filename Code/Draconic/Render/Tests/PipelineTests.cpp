@@ -273,6 +273,12 @@ TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no 
     REQUIRE(info.Size() == 2u);
     CHECK_FALSE(info[0].directional);
     CHECK(info[1].directional);
+    // BOTH views must bind + declare the cascade map when it exists: the caster-less view's
+    // set-0 group holds the real map (frame-global) and its shader samples it statically -
+    // an undeclared read executes against ATTACHMENT-layout layers (the validation error a
+    // caster-less material-preview page next to a lit scene produced).
+    CHECK(info[0].mapBound);
+    CHECK(info[1].mapBound);
 
     // Local shadows: BOTH scenes' spot casters got entries (before the fix: only scene A's), the
     // entry buffer is the concatenation, and each view offsets by its scene's base.
@@ -418,4 +424,42 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
 
     h.device.DestroyTextureView(view);
     h.device.DestroyTexture(tex);
+}
+
+TEST_CASE("RenderFrame draws an UNLIT material (unlit shader compiles + PSO builds)")
+{
+    RenderHarness h;
+    if (!h.Init(128, 128)) { MESSAGE("DXC/Null unavailable; skipping"); return; }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<materials::Material> unlit = materials::CreateUnlit(u8"flat", Float4{ 1, 0, 0, 1 });
+    CHECK(unlit->shaderName == u8"unlit");
+    CHECK(unlit->FindProperty(u8"BaseColor") != nullptr);
+    CHECK(unlit->FindProperty(u8"AlbedoMap") != nullptr);
+    CHECK(unlit->FindProperty(u8"Metallic") == nullptr);   // the lit set stays out of the preset
+
+    ExtractedScene scene;
+    MeshRenderData* rd = scene.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity(); rd->mesh = cube.Get(); rd->material = unlit.Get();
+    rd->category = RenderCategories::Opaque;
+
+    ViewCamera camera;
+    camera.view       = Float4x4::LookAtRH(Float3{ 0, 0, 5 }, Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 });
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+
+    frame.Begin(*h.encoder, 0);
+    frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128, 128);
+    frame.End();
+    CHECK(psoCache.Size() >= 1);   // the unlit permutation compiled + built
 }

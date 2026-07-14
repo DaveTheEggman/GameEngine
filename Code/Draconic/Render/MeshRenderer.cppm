@@ -64,6 +64,8 @@ public:
     Status Initialize() {
         m_shaders->RegisterSource(u8"forward", shaders::ShaderStage::Vertex,   ForwardVS());
         m_shaders->RegisterSource(u8"forward", shaders::ShaderStage::Fragment, ForwardPS());
+        m_shaders->RegisterSource(u8"unlit",   shaders::ShaderStage::Vertex,   ForwardVS());   // same VS/PSInput
+        m_shaders->RegisterSource(u8"unlit",   shaders::ShaderStage::Fragment, UnlitPS());
 
         // set 0: per-view UBO (ViewProj + camera + light range), dynamic offset, Vertex|Fragment;
         // + the light list as a read-only StructuredBuffer (Fragment), bound whole.
@@ -206,6 +208,7 @@ public:
         m_ready = false;
         PruneStaleMaterialInstances();
         TickRetiredBindGroups();   // free per-frame bind groups retired long enough ago to be idle
+        m_materials->TickRetired();   // same, for material set-2 groups replaced by rebuilds
         if (maxDraws == 0) { return; }
         // Per-frame ring capacity = draws x (passes that re-emit them): the depth PREPASS + the forward
         // (2 camera passes) + per-cascade CSM re-emit + per-spot-tile local-atlas re-emit. Under-counting
@@ -1233,6 +1236,7 @@ private:
             materials::Material* material = inst->GetMaterial();
             if (material != nullptr && material->RefCount() <= 1) {
                 RetireBindGroup(m_materials->DetachBindGroup(inst));
+                RetireBuffer(m_materials->DetachUniformBuffer(inst));
                 m_instances.Remove(material->uid);
                 continue;   // UniquePtr slot dropped -> instance destroyed (bg already detached)
             }
@@ -1250,6 +1254,17 @@ private:
             else { r.framesLeft -= 1; m_retiredBGs[w++] = r; }
         }
         m_retiredBGs.Resize(w);
+        w = 0;
+        for (usize i = 0; i < m_retiredBuffers.Size(); ++i) {
+            RetiredBuffer r = m_retiredBuffers[i];
+            if (r.framesLeft <= 1) { m_device->DestroyBuffer(r.buffer); }
+            else { r.framesLeft -= 1; m_retiredBuffers[w++] = r; }
+        }
+        m_retiredBuffers.Resize(w);
+    }
+
+    void RetireBuffer(rhi::Buffer* buffer) {
+        if (buffer != nullptr) { m_retiredBuffers.PushBack(RetiredBuffer{ buffer, m_framesInFlight }); }
     }
 
     // (Re)create a bind group over a ring's buffer when the ring (re)allocated. `whole` binds
@@ -1501,6 +1516,8 @@ private:
         m_meshes.Clear();
         for (RetiredBG& r : m_retiredBGs) { m_device->DestroyBindGroup(r.bg); }
         m_retiredBGs.Clear();
+        for (RetiredBuffer& r : m_retiredBuffers) { m_device->DestroyBuffer(r.buffer); }
+        m_retiredBuffers.Clear();
         for (ViewBGSlot& slot : m_viewBGs) {
             if (slot.bg != nullptr) { m_device->DestroyBindGroup(slot.bg); slot.bg = nullptr; }
         }
@@ -1636,6 +1653,8 @@ private:
     // buffers; freed by TickRetiredBindGroups once the frame ring has cycled (framesLeft hits 0).
     struct RetiredBG { rhi::BindGroup* bg; u32 framesLeft; };
     Array<RetiredBG> m_retiredBGs;
+    struct RetiredBuffer { rhi::Buffer* buffer; u32 framesLeft; };
+    Array<RetiredBuffer> m_retiredBuffers;   // material uniform buffers of pruned instances
 
     // Per-view set-0 slots (views of different scenes bind different IBL products) + the
     // CURRENT view's group (set by EnsureViewBindGroup; read by the Resolve* bodies).

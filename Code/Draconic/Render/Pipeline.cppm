@@ -161,6 +161,12 @@ struct ShadowBinding {
     bool                  atlasValid  = false;
     u32                   localShadowEntryBase = 0;   // this view's scene's first entry in the flat buffer
     [[nodiscard]] bool Valid() const noexcept { return valid && sampleView != nullptr; }
+    // True whenever the cascade MAP exists this frame - even for a view whose scene has no
+    // directional caster (valid == false). The renderers' set-0 group binds the real map
+    // frame-globally and the forward shader samples it STATICALLY, so EVERY pass must
+    // declare the read (barrier + ordering) or it executes against ATTACHMENT-layout layers
+    // another view's cascade writes just produced (the caster-less-scene hole).
+    [[nodiscard]] bool MapBound() const noexcept { return sampleView != nullptr; }
 };
 
 
@@ -362,7 +368,7 @@ public:
             // spans all layers - every one must be in DepthStencilRead when this pass's secondary CB
             // samples it, even layers belonging to other views (VUID-vkCmdExecuteCommands depth-layout).
             // All cascade passes are declared up front, so depending on the whole array is correctly ordered.
-            if (shadow.Valid()) { b.SampleDepth(shadow.handle); }
+            if (shadow.MapBound()) { b.SampleDepth(shadow.handle); }
             // Read the whole local-shadow atlas (orders the atlas depth pass -> this pass + barriers
             // it readable). One atlas shared by all views, so the whole texture is the dependency.
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
@@ -394,7 +400,7 @@ public:
             b.SetReadOnlyDepthTarget(depth);   // test against opaque depth, no write
             b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
             if (cluster.Valid()) { b.ReadBuffer(cluster.offsetsHandle); b.ReadBuffer(cluster.indicesHandle); }
-            if (shadow.Valid()) { b.SampleDepth(shadow.handle); }
+            if (shadow.MapBound()) { b.SampleDepth(shadow.handle); }
             if (shadow.atlasValid) { b.SampleDepth(shadow.atlasHandle); }
             if (ibl.Valid()) { b.ReadTexture(ibl.prefilterHandle); b.ReadTexture(ibl.brdfHandle); b.ReadBuffer(ibl.shHandle); }
             b.NeverCull();
@@ -645,7 +651,7 @@ public:
 
     // Test/debug introspection of the LAST End()'s shadow composition: which views had a
     // directional shadow and each view's scene entry base into the local-shadow buffer.
-    struct ViewShadowDebug { bool directional = false; u32 localEntryBase = 0; };
+    struct ViewShadowDebug { bool directional = false; bool mapBound = false; u32 localEntryBase = 0; };
     [[nodiscard]] Span<const ViewShadowDebug> ViewShadowInfo() const noexcept {
         return Span<const ViewShadowDebug>{ m_viewShadowDebug.Data(), m_viewShadowDebug.Size() };
     }
@@ -1206,7 +1212,13 @@ public:
             viewShadows[i].localShadowEntryBase = (sctx != nullptr) ? sctx->entryBase : 0;
             m_viewShadowDebug[i].localEntryBase = viewShadows[i].localShadowEntryBase;
 
-            if (!shadowActive || i >= ShadowSystem::kMaxShadowViews) { continue; }
+            if (!shadowActive) { continue; }
+            // The map exists this frame: EVERY view (caster-less scenes + views beyond the
+            // cascade budget included) must bind + DECLARE it - see ShadowBinding::MapBound.
+            viewShadows[i].sampleView = shadowMap;
+            viewShadows[i].handle     = shadowH;
+            m_viewShadowDebug[i].mapBound = true;
+            if (i >= ShadowSystem::kMaxShadowViews) { continue; }
             // Per-view directional: THIS view's scene must have a caster (another scene's key light
             // must never shadow - or light-leak into - this one).
             if (sctx == nullptr || !sctx->scene->DirectionalShadowData().valid) { continue; }
@@ -1238,8 +1250,6 @@ public:
                 });
             }
             ShadowBinding& sb = viewShadows[i];
-            sb.sampleView = shadowMap;
-            sb.handle     = shadowH;
             sb.cascades   = cascades;
             sb.layerBase  = layerBase;
             sb.valid      = true;

@@ -70,7 +70,7 @@ public:
             }
             return nullptr;
         }
-        if (GpuMesh* cached = m_cache.Find(mesh)) { return cached; }
+        if (GpuMesh* cached = m_cache.Find(mesh->uid)) { return cached; }
 
         const GpuBufferPool::Alloc v = m_vertexPool.Allocate(mesh->VertexDataSize(), kVertexAlign);
         const GpuBufferPool::Alloc idx = m_indexPool.Allocate(mesh->indices.DataSize(), kIndexAlign);
@@ -107,8 +107,8 @@ public:
             }
         }
 
-        m_cache.InsertOrAssign(mesh, g);
-        return m_cache.Find(mesh);
+        m_cache.InsertOrAssign(mesh->uid, g);
+        return m_cache.Find(mesh->uid);
     }
 
     // Frees all pooled GPU memory + the cache.
@@ -131,7 +131,10 @@ private:
     GpuBufferPool m_vertexPool;
     GpuBufferPool m_indexPool;
     GpuBufferPool m_skinPool;   // skinning streams (joints+weights) for skinned meshes
-    HashMap<geometry::StaticMesh*, GpuMesh> m_cache;
+    // Keyed by StaticMesh::uid, NEVER the pointer (freed addresses reuse - a new mesh
+    // landing on a dead mesh's address must not inherit its GPU geometry). Entries of dead
+    // meshes idle in the pools until Clear(); reloads re-upload under the new object's uid.
+    HashMap<u64, GpuMesh> m_cache;
 };
 
 } // namespace draconic::render
