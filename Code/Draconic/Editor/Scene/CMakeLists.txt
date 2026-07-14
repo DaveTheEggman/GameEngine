@@ -10,6 +10,7 @@ target_link_libraries(DraconicEditorScene
         Draconic::Runtime Draconic::RuntimeClient
         Draconic::Scene Draconic::SceneSubsystem Draconic::SceneResource Draconic::SceneEditor
         Draconic::Render Draconic::RenderSubsystem Draconic::Animation Draconic::TextureResource Draconic::ParticlesResource
+        Draconic::Geometry Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
         Draconic::UI Draconic::UIRuntime Draconic::UIViewport Draconic::VGRenderer
         Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
 
@@ -23,6 +24,7 @@ target_sources(DraconicEditorScene
             HierarchyView.cppm
             InspectorView.cppm
             ScenePage.cppm
+            MaterialPage.cppm
             EditorSceneModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

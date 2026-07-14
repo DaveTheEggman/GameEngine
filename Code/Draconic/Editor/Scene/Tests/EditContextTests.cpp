@@ -6,6 +6,7 @@
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
+#include <initializer_list>
 #include "Core/Reflection/Reflect.h"
 
 import draconic.core;
@@ -13,6 +14,9 @@ import draconic.scene;
 import draconic.render.subsystem;
 import draconic.editor.core;
 import draconic.editor.scene;
+import draconic.content;
+import draconic.materials;
+import draconic.materials.editor;
 
 using namespace draconic::core;
 using namespace draconic::editor;
@@ -619,4 +623,149 @@ TEST_CASE("edit-context: scene-setting edits are undoable commands and merge lik
     CHECK(wind->settings.speed == 1.0f);
     commands.Redo();
     CHECK(wind->settings.speed == 3.0f);
+}
+
+TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right shader")
+{
+    draconic::materials::RegisterMaterialAsset();
+    const StringView dir = u8"draconic_editor_mat_creator_test";
+    auto scrub = [&]() {
+        FileDelete(PathJoin(dir, u8"Project.xml"));
+        FileDelete(PathJoin(dir, u8"Content/Materials/Material.xasset"));
+        FileDelete(PathJoin(dir, u8"Content/Materials/Material2.xasset"));
+        RemoveDirectory(PathJoin(dir, u8"Content/Materials"));
+        for (StringView sub : { u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache" })
+        {
+            RemoveDirectory(PathJoin(dir, sub));
+        }
+        RemoveDirectory(dir);
+    };
+    scrub();
+    REQUIRE(draconic::editor::EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<draconic::editor::EditorProject> project = draconic::editor::EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+    draconic::editor::EditorContext ctx;
+    ctx.SetProject(project.Get());
+
+    // PBR: the lit property set on the "forward" shader; lands in Materials/ (unique names).
+    draconic::content::Instance* pbr = CreateMaterialInstance(ctx, nullptr, /*unlit*/ false);
+    REQUIRE(pbr != nullptr);
+    CHECK(pbr->Path() == u8"Materials/Material");
+    {
+        RefPtr<ISerializable> object = pbr->ReadObject();
+        auto* asset = Cast<draconic::materials::MaterialAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->source.shaderName == u8"forward");
+        bool hasMetallic = false;
+        for (const String& n : asset->source.propNames) { if (n.AsView() == u8"Metallic") { hasMetallic = true; } }
+        CHECK(hasMetallic);
+    }
+
+    // Unlit: BaseColor + AlbedoMap only, on the "unlit" shader.
+    draconic::content::Instance* unlit = CreateMaterialInstance(ctx, nullptr, /*unlit*/ true);
+    REQUIRE(unlit != nullptr);
+    CHECK(unlit->Path() == u8"Materials/Material2");
+    {
+        RefPtr<ISerializable> object = unlit->ReadObject();
+        auto* asset = Cast<draconic::materials::MaterialAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->source.shaderName == u8"unlit");
+        bool hasMetallic = false, hasBase = false;
+        for (const String& n : asset->source.propNames)
+        {
+            if (n.AsView() == u8"Metallic") { hasMetallic = true; }
+            if (n.AsView() == u8"BaseColor") { hasBase = true; }
+        }
+        CHECK(hasBase);
+        CHECK_FALSE(hasMetallic);
+    }
+
+    project.Reset();
+    scrub();
+}
+
+// --- Inspector property-attribute conventions ---
+
+TEST_CASE("scene-edit: ParsePropertyCondition grammar")
+{
+    PropertyCondition c;
+
+    // Truthy form.
+    CHECK(ParsePropertyCondition(u8"castsShadows", c));
+    CHECK(c.prop.AsView() == StringView(u8"castsShadows"));
+    CHECK(c.values.IsEmpty());
+    CHECK(MatchesPropertyCondition(c, 1));
+    CHECK(!MatchesPropertyCondition(c, 0));
+
+    // Value-list form.
+    CHECK(ParsePropertyCondition(u8"type=1,2", c));
+    CHECK(c.prop.AsView() == StringView(u8"type"));
+    REQUIRE(c.values.Size() == 2u);
+    CHECK(MatchesPropertyCondition(c, 1));
+    CHECK(MatchesPropertyCondition(c, 2));
+    CHECK(!MatchesPropertyCondition(c, 0));
+    CHECK(!MatchesPropertyCondition(c, 3));
+
+    CHECK(ParsePropertyCondition(u8"mode=-1", c));
+    REQUIRE(c.values.Size() == 1u);
+    CHECK(c.values[0] == -1);
+    CHECK(MatchesPropertyCondition(c, -1));
+
+    // Malformed specs refuse cleanly.
+    CHECK(!ParsePropertyCondition(u8"", c));
+    CHECK(!ParsePropertyCondition(u8"=1", c));
+    CHECK(!ParsePropertyCondition(u8"type=", c));
+    CHECK(!ParsePropertyCondition(u8"type=1,,2", c));
+    CHECK(!ParsePropertyCondition(u8"type=x", c));
+}
+
+TEST_CASE("scene-edit: PrettifyPropertyName")
+{
+    CHECK(PrettifyPropertyName(u8"castsShadows").AsView() == StringView(u8"Casts Shadows"));
+    CHECK(PrettifyPropertyName(u8"fovYRadians").AsView() == StringView(u8"Fov Y Radians"));
+    CHECK(PrettifyPropertyName(u8"type").AsView() == StringView(u8"Type"));
+    CHECK(PrettifyPropertyName(u8"skyIntensity").AsView() == StringView(u8"Sky Intensity"));
+    CHECK(PrettifyPropertyName(u8"IBL").AsView() == StringView(u8"IBL"));
+    CHECK(PrettifyPropertyName(u8"ReflectionProbe").AsView() == StringView(u8"Reflection Probe"));
+}
+
+TEST_CASE("scene-edit: render components carry the inspector attribute annotations")
+{
+    draconic::render::RegisterRenderComponentReflection();
+
+    // Spot-only light angles hide behind the type condition; intensity gets a slider.
+    const TypeInfo& light = TypeOf<draconic::render::LightComponent>();
+    const PropertyInfo* inner = FindProperty(light, "innerAngle");
+    REQUIRE(inner != nullptr);
+    const draconic::core::Attribute* vis = FindAttribute(*inner, u8"visibleWhen");
+    REQUIRE(vis != nullptr);
+    PropertyCondition c;
+    REQUIRE(ParsePropertyCondition(vis->value.TryGet<String>()->AsView(), c));
+    CHECK(c.prop.AsView() == StringView(u8"type"));
+    CHECK(MatchesPropertyCondition(c, 2));   // Spot
+    CHECK(!MatchesPropertyCondition(c, 0));  // Directional
+
+    const PropertyInfo* intensity = FindProperty(light, "intensity");
+    REQUIRE(intensity != nullptr);
+    const draconic::core::Attribute* range = FindAttribute(*intensity, u8"range");
+    REQUIRE(range != nullptr);
+    CHECK(range->value.TryGet<Float4>() != nullptr);
+
+    // Environment: turbidity is Analytic-only with a bounded slider.
+    const TypeInfo& env = TypeOf<draconic::render::EnvironmentSettings>();
+    const PropertyInfo* turbidity = FindProperty(env, "turbidity");
+    REQUIRE(turbidity != nullptr);
+    CHECK(FindAttribute(*turbidity, u8"range") != nullptr);
+    const draconic::core::Attribute* tvis = FindAttribute(*turbidity, u8"visibleWhen");
+    REQUIRE(tvis != nullptr);
+    REQUIRE(ParsePropertyCondition(tvis->value.TryGet<String>()->AsView(), c));
+    CHECK(MatchesPropertyCondition(c, 1));   // Analytic
+    CHECK(!MatchesPropertyCondition(c, 3));  // HDREquirect
+
+    // Display-name override on the shared zenith/color slot.
+    const PropertyInfo* zenith = FindProperty(env, "skyZenith");
+    REQUIRE(zenith != nullptr);
+    const draconic::core::Attribute* label = FindAttribute(*zenith, u8"displayName");
+    REQUIRE(label != nullptr);
+    CHECK(label->value.TryGet<String>()->AsView() == StringView(u8"Sky Zenith / Color"));
 }

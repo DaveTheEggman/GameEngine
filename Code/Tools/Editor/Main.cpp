@@ -199,6 +199,7 @@ int main(int argc, char** argv)
                                 draconic::ui::runtime::UIHost& uiHost) {
         app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>());
         draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost);
+        draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
         RegisterPrimitiveMeshCreators(app.Context());
         RegisterAllBuilders(app.Builders());   // the cook service routes through this set
 
