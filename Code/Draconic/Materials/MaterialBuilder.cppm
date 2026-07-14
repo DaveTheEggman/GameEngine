@@ -132,11 +132,28 @@ private:
         .Color(u8"BaseColor", baseColor)
         .Float(u8"Metallic", metallic)
         .Float(u8"Roughness", roughness)
+        .Color(u8"EmissiveColor", Float4{ 0, 0, 0, 1 })   // black = none (rgb x EmissiveMap)
+        .Float(u8"OcclusionStrength", 1.0f)
+        .Float(u8"NormalScale", 1.0f)
+        .Float(u8"AlphaCutoff", 0.5f)
         .Texture(u8"AlbedoMap")
         .Texture(u8"NormalMap")
         .Texture(u8"MetallicRoughnessMap")
         .Texture(u8"OcclusionMap")
         .Texture(u8"EmissiveMap")
+        .Sampler(u8"MainSampler")
+        .Build();
+}
+
+// The standard UNLIT material: albedo * BaseColor, no lighting (the "unlit" builtin shader -
+// same vertex path as forward, so it casts shadows and moves through the post stack normally).
+[[nodiscard]] inline RefPtr<Material> CreateUnlit(StringView name, Float4 baseColor = Float4{ 1, 1, 1, 1 },
+                                                 StringView shaderName = u8"unlit") {
+    return MaterialBuilder(name)
+        .Shader(shaderName)
+        .VertexLayout(VertexLayoutType::Mesh)
+        .Color(u8"BaseColor", baseColor)
+        .Texture(u8"AlbedoMap")
         .Sampler(u8"MainSampler")
         .Build();
 }

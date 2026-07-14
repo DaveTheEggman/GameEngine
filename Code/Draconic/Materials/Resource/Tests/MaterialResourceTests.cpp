@@ -121,3 +121,92 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     RemoveTree();
     compiler->Destroy();
 }
+
+TEST_CASE("material: CreatePBR packs EmissiveColor at the shader's cbuffer offset")
+{
+    // The forward cbuffer: BaseColor(0..16), Metallic(16..20), Roughness(20..24), pads to 32,
+    // EmissiveColor(32..48). The builder's std140-ish packing must land the same offsets.
+    RefPtr<Material> pbr = CreatePBR(u8"m");
+    const MaterialPropertyDef* emissive = pbr->FindProperty(u8"EmissiveColor");
+    REQUIRE(emissive != nullptr);
+    CHECK(emissive->offset == 32u);
+    CHECK(emissive->size == 16u);
+    // The straggler scalars pack sequentially into the row after EmissiveColor.
+    const MaterialPropertyDef* occ = pbr->FindProperty(u8"OcclusionStrength");
+    const MaterialPropertyDef* ns  = pbr->FindProperty(u8"NormalScale");
+    const MaterialPropertyDef* ac  = pbr->FindProperty(u8"AlphaCutoff");
+    REQUIRE(occ != nullptr); REQUIRE(ns != nullptr); REQUIRE(ac != nullptr);
+    CHECK(occ->offset == 48u);
+    CHECK(ns->offset == 52u);
+    CHECK(ac->offset == 56u);
+    // Black default: adding the field changes nothing visually.
+    const Span<const u8> defaults = pbr->DefaultUniformData();
+    REQUIRE(defaults.Size() >= 48u);
+    f32 rgb[3];
+    MemCopy(rgb, defaults.Data() + 32, sizeof(rgb));
+    CHECK(rgb[0] == 0.0f);
+    CHECK(rgb[1] == 0.0f);
+    CHECK(rgb[2] == 0.0f);
+}
+
+TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/idempotent)")
+{
+    // Simulate an asset authored BEFORE EmissiveColor existed: the old CreatePBR property set.
+    RefPtr<Material> old = MaterialBuilder(u8"legacy")
+        .Shader(u8"forward")
+        .VertexLayout(VertexLayoutType::Mesh)
+        .Color(u8"BaseColor", Float4{ 0.5f, 0.25f, 0.125f, 1.0f })
+        .Float(u8"Metallic", 1.0f)
+        .Float(u8"Roughness", 0.25f)
+        .Texture(u8"AlbedoMap")
+        .Sampler(u8"MainSampler")
+        .Build();
+    MaterialSource src;
+    MaterialSource::FromMaterial(*old, Guid{}, src);
+    src.shaderName = String(u8"forward");
+    REQUIRE(src.uniformDefaults.Size() == 24u);   // the pre-emissive block
+
+    UpgradeForwardMaterialSource(src);
+    REQUIRE(src.propNames.Size() == 9u);   // + EmissiveColor/OcclusionStrength/NormalScale/AlphaCutoff
+    // (appended AFTER the texture props - safe: the set-2 layout emits the uniform buffer
+    // first regardless of property order)
+    const auto find = [&](StringView name) -> usize {
+        for (usize i = 0; i < src.propNames.Size(); ++i)
+        {
+            if (src.propNames[i].AsView() == name) { return i; }
+        }
+        return src.propNames.Size();
+    };
+    const usize e = find(u8"EmissiveColor");
+    const usize occ = find(u8"OcclusionStrength");
+    const usize ns = find(u8"NormalScale");
+    const usize ac = find(u8"AlphaCutoff");
+    REQUIRE(e < src.propNames.Size());
+    CHECK(src.propOffsets[e] == 32u);      // 16-aligned past the 24-byte block
+    CHECK(src.propSizes[e] == 16u);
+    REQUIRE(occ < src.propNames.Size());
+    CHECK(src.propOffsets[occ] == 48u);    // matches the shader cbuffer row
+    CHECK(src.propOffsets[ns] == 52u);
+    CHECK(src.propOffsets[ac] == 56u);
+    REQUIRE(src.uniformDefaults.Size() == 60u);
+    // The original bytes are untouched; the appended defaults are the NEUTRALS, not zeros.
+    const auto readF32 = [&](u32 offset) {
+        f32 v = 0.0f;
+        MemCopy(&v, src.uniformDefaults.Data() + offset, sizeof(v));
+        return v;
+    };
+    CHECK(readF32(0) == 0.5f);     // BaseColor.r preserved
+    CHECK(readF32(32) == 0.0f);    // emissive black
+    CHECK(readF32(44) == 1.0f);    // emissive alpha
+    CHECK(readF32(48) == 1.0f);    // occlusion strength
+    CHECK(readF32(52) == 1.0f);    // normal scale
+    CHECK(readF32(56) == 0.5f);    // alpha cutoff
+
+    // Idempotent + non-forward untouched.
+    UpgradeForwardMaterialSource(src);
+    CHECK(src.propNames.Size() == 9u);
+    MaterialSource unlit;
+    unlit.shaderName = String(u8"unlit");
+    UpgradeForwardMaterialSource(unlit);
+    CHECK(unlit.propNames.Size() == 0u);
+}

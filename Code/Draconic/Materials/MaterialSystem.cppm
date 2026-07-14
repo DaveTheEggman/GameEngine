@@ -45,6 +45,7 @@ public:
     [[nodiscard]] rhi::Sampler* DefaultSampler() const noexcept { return m_defaultSampler; }
     [[nodiscard]] rhi::TextureView* WhiteTexture() const noexcept { return m_whiteView; }
     [[nodiscard]] rhi::TextureView* NormalTexture() const noexcept { return m_normalView; }
+    [[nodiscard]] rhi::TextureView* BlackTexture() const noexcept { return m_blackView; }
 
     // Ensures the instance's uniform buffer is up to date and returns it (null if the material
     // declares no uniforms). Lets a renderer assemble its own fixed set-2 layout (UBO + textures)
@@ -139,6 +140,18 @@ public:
         m_dirty.PushBack(instance);
     }
 
+    /// Per-frame: frees retired bind groups once the frame ring has cycled past them.
+    /// The renderer calls this once per frame alongside its own retirement ticks.
+    void TickRetired() {
+        usize w = 0;
+        for (usize i = 0; i < m_retiredBindGroups.Size(); ++i) {
+            RetiredBindGroup r = m_retiredBindGroups[i];
+            if (r.framesLeft <= 1) { m_device->DestroyBindGroup(r.bg); }
+            else { r.framesLeft -= 1; m_retiredBindGroups[w++] = r; }
+        }
+        m_retiredBindGroups.Resize(w);
+    }
+
     // Re-preps every instance dirtied since the last drain (O(dirty)).
     void PrepareDirtyInstances() {
         for (usize i = 0; i < m_dirty.Size(); ++i) {
@@ -148,6 +161,22 @@ public:
             if (inst->IsUniformDirty() || inst->IsBindGroupDirty()) { (void)PrepareInstance(*inst); }
         }
         m_dirty.Clear();
+    }
+
+    // Hand the instance's uniform buffer to the caller (removed from the system) WITHOUT
+    // destroying it - the DetachBindGroup twin. ReleaseInstance frees IMMEDIATELY, so any
+    // instance that may still be referenced by in-flight frames must have BOTH its bind
+    // group AND its uniform buffer detached for deferred retirement before it dies
+    // (destroying only the bind group left vkFreeMemory-in-use validation errors on every
+    // material hot-reload).
+    [[nodiscard]] rhi::Buffer* DetachUniformBuffer(MaterialInstance* instance) {
+        if (instance == nullptr) { return nullptr; }
+        if (rhi::Buffer** buf = m_uniformBuffers.Find(instance)) {
+            rhi::Buffer* b = *buf;
+            m_uniformBuffers.Remove(instance);
+            return b;
+        }
+        return nullptr;
     }
 
     // Hand the instance's bind group to the caller (removed from the system) WITHOUT
@@ -207,6 +236,7 @@ private:
 
         if (!CreateTexture1x1(Color32{ 255, 255, 255, 255 }, m_whiteTex, m_whiteView)) { return Status{ ErrorCode::Unknown }; }
         if (!CreateTexture1x1(Color32{ 128, 128, 255, 255 }, m_normalTex, m_normalView)) { return Status{ ErrorCode::Unknown }; }
+        if (!CreateTexture1x1(Color32{ 0, 0, 0, 255 },       m_blackTex,  m_blackView))  { return Status{ ErrorCode::Unknown }; }
         return Status{};
     }
 
@@ -276,7 +306,12 @@ private:
             if (p.IsTexture()) {
                 rhi::TextureView* view = instance.GetTexture(propIndex);
                 if (view == nullptr) {
-                    view = (Contains(p.name, u8"ormal")) ? m_normalView : m_whiteView;   // *N*ormal/*n*ormal fallback
+                    // Unbound-slot neutrals by intent: normal maps decode to (0,0,1) = geometric
+                    // normal; emissive maps must be BLACK (white would make everything glow);
+                    // everything else (albedo/MR/AO) multiplies, so white = identity.
+                    view = Contains(p.name, u8"ormal")   ? m_normalView
+                         : Contains(p.name, u8"missive") ? m_blackView
+                         : m_whiteView;
                 }
                 if (view != nullptr) { entries.PushBack(rhi::BindGroupEntry::TextureEntry(view)); }
             } else if (p.IsSampler()) {
@@ -289,8 +324,9 @@ private:
         if (entries.IsEmpty()) { return false; }
 
         if (rhi::BindGroup** old = m_bindGroups.Find(&instance)) {
-            rhi::BindGroup* g = *old;
-            m_device->DestroyBindGroup(g);
+            // Defer-free: the replaced group may still be bound by an in-flight frame
+            // (immediate destroy here produced invalid-descriptor draws on hot reload).
+            m_retiredBindGroups.PushBack(RetiredBindGroup{ *old, kRetireFrames });
             m_bindGroups.Remove(&instance);
         }
 
@@ -336,6 +372,8 @@ private:
     void Shutdown() {
         if (m_device == nullptr) { return; }
         for (auto& e : m_bindGroups)     { m_device->DestroyBindGroup(e.value); }
+        for (RetiredBindGroup& r : m_retiredBindGroups) { m_device->DestroyBindGroup(r.bg); }
+        m_retiredBindGroups.Clear();
         for (auto& e : m_uniformBuffers) { m_device->DestroyBuffer(e.value); }
         for (auto& e : m_layoutCache)    { m_device->DestroyBindGroupLayout(e.value); }
         for (auto& e : m_samplerCache)   { m_device->DestroySampler(e.value); }
@@ -343,8 +381,10 @@ private:
 
         if (m_whiteView)  { m_device->DestroyTextureView(m_whiteView); }
         if (m_normalView) { m_device->DestroyTextureView(m_normalView); }
+        if (m_blackView)  { m_device->DestroyTextureView(m_blackView); }
         if (m_whiteTex)   { m_device->DestroyTexture(m_whiteTex); }
         if (m_normalTex)  { m_device->DestroyTexture(m_normalTex); }
+        if (m_blackTex)   { m_device->DestroyTexture(m_blackTex); }
         if (m_defaultSampler) { m_device->DestroySampler(m_defaultSampler); }
         m_device = nullptr;
     }
@@ -352,8 +392,13 @@ private:
     rhi::Device* m_device = nullptr;
     rhi::Queue*  m_queue = nullptr;
     rhi::Sampler* m_defaultSampler = nullptr;
+    static constexpr u32 kRetireFrames = 3;
+    struct RetiredBindGroup { rhi::BindGroup* bg; u32 framesLeft; };
+    Array<RetiredBindGroup> m_retiredBindGroups;
+
     rhi::Texture* m_whiteTex = nullptr;  rhi::TextureView* m_whiteView = nullptr;
     rhi::Texture* m_normalTex = nullptr; rhi::TextureView* m_normalView = nullptr;
+    rhi::Texture*     m_blackTex = nullptr;    rhi::TextureView* m_blackView = nullptr;
 
     HashMap<u64, rhi::BindGroupLayout*> m_layoutCache;
     HashMap<u64, rhi::Sampler*>         m_samplerCache;
