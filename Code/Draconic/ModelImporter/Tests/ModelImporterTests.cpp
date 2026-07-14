@@ -735,3 +735,16 @@ TEST_CASE("import: material sampler modes map from the source texture's sampler"
     CHECK(modelimporter::AddressModeFromWrap(model::TextureWrap::MirroredRepeat) == 1);
     CHECK(modelimporter::AddressModeFromWrap(model::TextureWrap::ClampToEdge) == 2);
 }
+
+TEST_CASE("import: sub-assets keep authored names (sanitized), indexed fallback otherwise")
+{
+    CHECK(modelimporter::ImportedAssetName(u8"Material_MR", u8"mat", 0).AsView()
+          == StringView(u8"Material_MR"));
+    CHECK(modelimporter::ImportedAssetName(u8"mesh_helmet_LP", u8"mesh", 3).AsView()
+          == StringView(u8"mesh_helmet_LP"));
+    // Path-hostile characters sanitize (names become envelope file names).
+    CHECK(modelimporter::ImportedAssetName(u8"body/armor:v2", u8"mesh", 0).AsView()
+          == StringView(u8"body_armor_v2"));
+    // No authored name -> indexed fallback.
+    CHECK(modelimporter::ImportedAssetName(u8"", u8"anim", 4).AsView() == StringView(u8"anim.4"));
+}

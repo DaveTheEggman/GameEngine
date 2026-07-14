@@ -109,7 +109,8 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
 
         // Build a standard PBR material carrying the model's factors, capture it into a source that
         // names the builtin "forward" shader (no cooked ShaderResource needed).
-        RefPtr<materials::Material> built = materials::CreatePBR(Format(u8"{}.mat.{}", namePrefix, i).AsView(),
+        RefPtr<materials::Material> built = materials::CreatePBR(
+            Format(u8"{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mat", i)).AsView(),
                                                      m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
         built->SetDefaultColor(u8"EmissiveColor",
             Float4{ m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z, 1.0f });
@@ -190,7 +191,11 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
         MaterialSamplerModes(model, m, asset.source.samplerU, asset.source.samplerV);
         }
 
-        const String name = Format(u8"{}.mat.{}", namePrefix, i);
+        String name = Format(u8"{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mat", i));
+        for (u32 n = 2; root->GetInstance(name.AsView()) != nullptr; ++n)
+        {
+            name = Format(u8"{}.{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mat", i), n);
+        }
         content::Instance* inst = root->CreateInstance(name.AsView(), materials::MaterialSource::StaticType());
         if (inst == nullptr) { outMatGuids.PushBack(Guid{}); outAlbedo.PushBack(Guid{}); continue; }
         editor::AssetBuildContext ctx;
@@ -244,8 +249,8 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
         const Span<model::ModelAnimation* const> animations = model.animations();
         for (usize a = 0; a < animations.Size(); ++a) {
             animation::AnimationClipAsset clipAsset;
-            AnimationClipSourceFromModel(*animations[a], boneToJoint, Format(u8"{}.anim.{}", namePrefix, a).AsView(), clipAsset.source);
-            content::Instance* clipInst = root->CreateInstance(Format(u8"{}.anim.{}", namePrefix, a).AsView(), animation::AnimationClipSource::StaticType());
+            AnimationClipSourceFromModel(*animations[a], boneToJoint, Format(u8"{}.{}", namePrefix, ImportedAssetName(animations[a]->name(), u8"anim", a)).AsView(), clipAsset.source);
+            content::Instance* clipInst = root->CreateInstance(Format(u8"{}.{}", namePrefix, ImportedAssetName(animations[a]->name(), u8"anim", a)).AsView(), animation::AnimationClipSource::StaticType());
             if (clipInst == nullptr) { continue; }
             editor::AssetBuildContext ctx;
             ctx.output = clipInst;
@@ -259,7 +264,7 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
     for (usize i = 0; i < meshes.Size(); ++i) {
         const model::ModelMesh& m = *meshes[i];
         const bool skinned = IsSkinnedMesh(m) && hasSkin;
-        const String name = Format(u8"{}.mesh.{}", namePrefix, i);
+        const String name = Format(u8"{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mesh", i));
 
         content::Instance* inst = root->CreateInstance(name.AsView(),
             skinned ? geometry::SkinnedMeshSource::StaticType() : geometry::StaticMeshSource::StaticType());

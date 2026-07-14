@@ -129,6 +129,28 @@ void MaterialSamplerModes(const model::Model& mdl, const model::ModelMaterial& m
     }
 }
 
+// Asset name for an imported sub-object: the authored name, sanitized for file paths
+// (instance names become envelope/sidecar file names), else "{fallback}.{index}".
+[[nodiscard]] String ImportedAssetName(core::StringView authored, core::StringView fallback, usize index)
+{
+    String out;
+    for (usize i = 0; i < authored.Size(); ++i)
+    {
+        utf8char c = authored.Data()[i];
+        if (c == u8'/' || c == u8'\\' || c == u8':' || c == u8'*' || c == u8'?' || c == u8'"'
+            || c == u8'<' || c == u8'>' || c == u8'|' || c < 0x20)
+        {
+            c = u8'_';
+        }
+        out.PushBack(c);
+    }
+    if (out.IsEmpty())
+    {
+        out = Format(u8"{}.{}", fallback, index);
+    }
+    return out;
+}
+
 // Display name for an imported texture: the authored texture/image name when present,
 // else the URI's file stem (Default_albedo.jpg -> Default_albedo), else "tex.{index}"
 // (embedded textures with no identity). Callers unique-ify per destination group.
@@ -154,8 +176,7 @@ void MaterialSamplerModes(const model::Model& mdl, const model::ModelMaterial& m
             if (end > start) { base = uri.SubStr(start, end - start); }
         }
     }
-    if (base.IsEmpty()) { return Format(u8"tex.{}", index); }
-    return String(base);
+    return ImportedAssetName(base, u8"tex", index);
 }
 
 // Fill a StaticMeshSource from a model mesh's static streams (pos/normal/uv/color/tangent).

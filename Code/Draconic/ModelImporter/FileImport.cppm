@@ -235,6 +235,18 @@ export namespace draconic::modelimporter
         }
 
         // Decoded RGBA8 pixels -> embedded-mode TextureAsset instances ("pixels" stream).
+        // First free variant of `base` in `group` (CreateInstance returns an existing
+        // same-named instance, so collisions must resolve BEFORE creation).
+        [[nodiscard]] static String UniqueName(content::Group& group, StringView base)
+        {
+            String name(base);
+            for (u32 n = 2; group.GetInstance(name.AsView()) != nullptr; ++n)
+            {
+                name = Format(u8"{}.{}", base, n);
+            }
+            return name;
+        }
+
         static void ImportTextures(const draconic::model::Model& model, content::Group& group,
                                    Array<Guid>& outGuids)
         {
@@ -261,13 +273,8 @@ export namespace draconic::modelimporter
                     : draconic::image::ImageColorSpace::Srgb;    // color maps (albedo/emissive)
                 asset.generateMipmaps = false;
 
-                // Real names when the source has them (rules out slot mix-ups at a glance);
-                // unique-ified because CreateInstance returns an existing same-named instance.
-                String texName = ImportedTextureName(t, i);
-                for (u32 n = 2; group.GetInstance(texName.AsView()) != nullptr; ++n)
-                {
-                    texName = Format(u8"{}.{}", ImportedTextureName(t, i), n);
-                }
+                // Real names when the source has them (rules out slot mix-ups at a glance).
+                const String texName = UniqueName(group, ImportedTextureName(t, i).AsView());
                 content::Instance* inst = group.CreateInstance(
                     texName.AsView(), draconic::texture::TextureAsset::StaticType());
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk()) { outGuids.PushBack(Guid{}); continue; }
@@ -318,7 +325,8 @@ export namespace draconic::modelimporter
             {
                 const draconic::model::ModelMaterial& m = *materials[i];
                 RefPtr<draconic::materials::Material> built = draconic::materials::CreatePBR(
-                    Format(u8"mat.{}", i).AsView(), m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
+                    ImportedAssetName(m.name(), u8"mat", i).AsView(),
+                    m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
                 built->SetDefaultColor(u8"EmissiveColor",
                     Float4{ m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z, 1.0f });
                 built->SetDefaultFloat(u8"OcclusionStrength", m.occlusionStrength);
@@ -373,8 +381,9 @@ export namespace draconic::modelimporter
                     asset.source.cullMode = static_cast<u8>(draconic::materials::CullModeConfig::None);
                 }
 
+                const String matName = UniqueName(group, ImportedAssetName(m.name(), u8"mat", i).AsView());
                 content::Instance* inst = group.CreateInstance(
-                    Format(u8"mat.{}", i).AsView(), draconic::materials::MaterialAsset::StaticType());
+                    matName.AsView(), draconic::materials::MaterialAsset::StaticType());
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk())
                 {
                     manifest.materialGuids.PushBack(Guid{});
@@ -399,8 +408,11 @@ export namespace draconic::modelimporter
 
             draconic::animation::SkeletonAsset skeleton;
             SkeletonSourceFromModel(model, skin, boneToJoint, skeleton.source);
+            const String skelName = skin.name().IsEmpty()
+                ? UniqueName(group, u8"skeleton")
+                : UniqueName(group, ImportedAssetName(skin.name(), u8"skeleton", 0).AsView());
             content::Instance* skelInst = group.CreateInstance(
-                u8"skeleton", draconic::animation::SkeletonAsset::StaticType());
+                skelName.AsView(), draconic::animation::SkeletonAsset::StaticType());
             if (skelInst != nullptr && skelInst->WriteObject(skeleton).IsOk())
             {
                 manifest.skeletonGuid = skelInst->Id();
@@ -409,11 +421,12 @@ export namespace draconic::modelimporter
             const Span<draconic::model::ModelAnimation* const> animations = model.animations();
             for (usize a = 0; a < animations.Size(); ++a)
             {
+                const String clipName =
+                    UniqueName(group, ImportedAssetName(animations[a]->name(), u8"anim", a).AsView());
                 draconic::animation::AnimationClipAsset clip;
-                AnimationClipSourceFromModel(*animations[a], boneToJoint,
-                                             Format(u8"anim.{}", a).AsView(), clip.source);
+                AnimationClipSourceFromModel(*animations[a], boneToJoint, clipName.AsView(), clip.source);
                 content::Instance* clipInst = group.CreateInstance(
-                    Format(u8"anim.{}", a).AsView(), draconic::animation::AnimationClipAsset::StaticType());
+                    clipName.AsView(), draconic::animation::AnimationClipAsset::StaticType());
                 if (clipInst != nullptr && clipInst->WriteObject(clip).IsOk())
                 {
                     manifest.animationGuids.PushBack(clipInst->Id());
@@ -430,7 +443,7 @@ export namespace draconic::modelimporter
             {
                 const draconic::model::ModelMesh& m = *meshes[i];
                 const bool skinned = IsSkinnedMesh(m) && hasSkin;
-                const String name = Format(u8"mesh.{}", i);
+                const String name = UniqueName(group, ImportedAssetName(m.name(), u8"mesh", i).AsView());
 
                 content::Instance* inst = nullptr;
                 Status written;
