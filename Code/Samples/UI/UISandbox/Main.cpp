@@ -1850,18 +1850,26 @@ void UISandbox::BuildTabPlacementTab(ui::TabView* tabView)
     tabView->AddTab(u8"Tab Placement", demo.Get(), true);
 
     auto cell = [](i32 row, i32 col) { auto p = MakeRef<ui::GridLayoutParams>(DefaultAllocator()); p->Row = row; p->Column = col; return p; };
-    auto placed = [&](ui::TabPlacement placement, const char8_t* a, const char8_t* b, i32 row, i32 col)
+    // Each mini TabView is packed with more tabs than its grid cell can show, so the strip overflows:
+    // Top/Bottom overflow HORIZONTALLY, Left/Right overflow VERTICALLY. Wheel over a strip scrolls it;
+    // arrow-keying (or clicking) to an off-screen tab auto-scrolls it into view.
+    auto placed = [&](ui::TabPlacement placement, const char8_t* prefix, i32 count, i32 row, i32 col)
     {
         auto tabs = MakeRef<ui::TabView>(DefaultAllocator());
         tabs->Placement.SetValue(placement);
-        tabs->AddTab(StringView(a), MakeRef<ui::Label>(DefaultAllocator(), StringView(a)).Get());
-        tabs->AddTab(StringView(b), MakeRef<ui::Label>(DefaultAllocator(), StringView(b)).Get());
+        for (i32 i = 1; i <= count; ++i)
+        {
+            StringBuilder sb(DefaultAllocator());
+            sb.Append(StringView(prefix)).Append(StringView(u8" ")).AppendInt(i);
+            const String title = sb.Take();
+            tabs->AddTab(title.AsView(), MakeRef<ui::Label>(DefaultAllocator(), title.AsView()).Get());
+        }
         demo->AddView(tabs.Get(), cell(row, col));
     };
-    placed(ui::TabPlacement::Top,    u8"Top A",    u8"Top B",    0, 0);
-    placed(ui::TabPlacement::Bottom, u8"Bot A",    u8"Bot B",    0, 1);
-    placed(ui::TabPlacement::Left,   u8"Left A",   u8"Left B",   1, 0);
-    placed(ui::TabPlacement::Right,  u8"Right A",  u8"Right B",  1, 1);
+    placed(ui::TabPlacement::Top,    u8"Top",   24, 0, 0);  // horizontal overflow
+    placed(ui::TabPlacement::Bottom, u8"Bot",   24, 0, 1);  // horizontal overflow
+    placed(ui::TabPlacement::Left,   u8"Left",  24, 1, 0);  // vertical overflow
+    placed(ui::TabPlacement::Right,  u8"Right", 24, 1, 1);  // vertical overflow
 }
 
 // === Tab 5: Text Input (EditText / PasswordBox / NumericField / EditableLabel) ===

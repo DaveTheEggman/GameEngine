@@ -134,3 +134,73 @@ TEST_CASE("tab-view: HoverClearsOnMouseLeave")
     ctx.GetInputManager()->ProcessMouseMove(200, 200);
     CHECK(tabs->HoveredTabIndex() == -1);
 }
+
+// Draconic addition (not in Sedulous.UI.Tests): overflow scrolling of the tab strip, ported from the
+// dock tab strip. With no font service each tab uses the 80px fallback width, so six tabs (480px) overflow
+// a 400px view. The scroll shifts m_tabRects (reused for hit-testing), which we observe via HoveredTabIndex:
+// once the strip scrolls right, the leftmost tab moves off-screen and a later tab sits under x=10.
+
+TEST_CASE("tab-view: SelectingHiddenTabScrollsItIntoView")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto tabs = MakeTabs();
+    for (i32 i = 0; i < 6; ++i) { tabs->AddTab(u8"Tab", MakeView(100, 100).Get()); }
+    root->AddView(tabs.Get());
+    LayoutPass(ctx, root.Get());
+
+    // At rest the first tab occupies x[0,80): hovering x=10 selects it, the last tab is off the right edge.
+    ctx.GetInputManager()->ProcessMouseMove(10, 10);
+    CHECK(tabs->HoveredTabIndex() == 0);
+
+    // Select the last (hidden) tab -> the strip scrolls it into view; tab 0 slides off the left edge, so
+    // x=10 now lands on tab 1 and the last tab (index 5) becomes hittable near the right edge.
+    tabs->SetSelectedIndex(5);
+    LayoutPass(ctx, root.Get());
+    ctx.GetInputManager()->ProcessMouseMove(10, 10);
+    CHECK(tabs->HoveredTabIndex() == 1);
+    ctx.GetInputManager()->ProcessMouseMove(390, 10);
+    CHECK(tabs->HoveredTabIndex() == 5);
+}
+
+TEST_CASE("tab-view: WheelScrollsOverflowingStrip")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto tabs = MakeTabs();
+    for (i32 i = 0; i < 6; ++i) { tabs->AddTab(u8"Tab", MakeView(100, 100).Get()); }
+    root->AddView(tabs.Get());
+    LayoutPass(ctx, root.Get());
+
+    ctx.GetInputManager()->ProcessMouseMove(10, 10);
+    CHECK(tabs->HoveredTabIndex() == 0);
+
+    // Wheel down over the strip band scrolls the tabs right (delta * 40, clamped to the 80px overflow).
+    MouseWheelEventArgs wheel; wheel.X = 10; wheel.Y = 10; wheel.DeltaY = -3;
+    tabs->OnMouseWheel(wheel);
+    CHECK(wheel.Handled);
+    LayoutPass(ctx, root.Get());
+
+    ctx.GetInputManager()->ProcessMouseMove(10, 10);
+    CHECK(tabs->HoveredTabIndex() == 1); // tab 0 scrolled off the left edge
+}
+
+TEST_CASE("tab-view: WheelIgnoredWithoutOverflow")
+{
+    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    auto tabs = MakeTabs();
+    for (i32 i = 0; i < 3; ++i) { tabs->AddTab(u8"Tab", MakeView(100, 100).Get()); }
+    root->AddView(tabs.Get());
+    LayoutPass(ctx, root.Get());
+
+    // Three 80px tabs (240px) fit inside 400px: the third sits at x[160,240).
+    ctx.GetInputManager()->ProcessMouseMove(170, 10);
+    CHECK(tabs->HoveredTabIndex() == 2);
+
+    // Wheel is a no-op when the strip doesn't overflow: not handled, and the hit-rects don't move.
+    MouseWheelEventArgs wheel; wheel.X = 170; wheel.Y = 10; wheel.DeltaY = -3;
+    tabs->OnMouseWheel(wheel);
+    CHECK_FALSE(wheel.Handled);
+    LayoutPass(ctx, root.Get());
+
+    ctx.GetInputManager()->ProcessMouseMove(170, 10);
+    CHECK(tabs->HoveredTabIndex() == 2);
+}

@@ -70,6 +70,7 @@ export namespace draconic::ui
             if (value < 0 || value >= static_cast<i32>(m_tabs.Size())) { return; }
             if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<i32>(m_tabs.Size())) { m_tabs[static_cast<usize>(m_selectedIndex)].Content->Visibility = VisibilityValue::Gone; }
             m_selectedIndex = value;
+            m_scrollSelectedIntoView = true;   // an overflowing strip scrolls the new tab into view on rebuild
             m_tabs[static_cast<usize>(m_selectedIndex)].Content->Visibility = VisibilityValue::Visible;
             Invalidate();
             OnTabChanged.Invoke(this, m_selectedIndex);
@@ -152,6 +153,16 @@ export namespace draconic::ui
             }
             }
 
+            // Clip the tabs to the strip band so an overflowing, scrolled strip doesn't spill past it.
+            Rectangle stripClip;
+            switch (place)
+            {
+            case TabPlacement::Top:    stripClip = Rectangle{ 0, 0, Width(), th }; break;
+            case TabPlacement::Bottom: stripClip = Rectangle{ 0, Height() - th, Width(), th }; break;
+            case TabPlacement::Left:   { const f32 sw = ComputeStripWidth(); stripClip = Rectangle{ 0, 0, sw, Height() }; break; }
+            case TabPlacement::Right:  { const f32 sw = ComputeStripWidth(); stripClip = Rectangle{ Width() - sw, 0, sw, Height() }; break; }
+            }
+            ctx.VG().PushClipRect(stripClip);
             for (usize i = 0; i < m_tabs.Size(); ++i)
             {
                 if (i >= m_tabRects.Size()) { break; }
@@ -208,6 +219,7 @@ export namespace draconic::ui
                     }
                 }
             }
+            ctx.VG().PopClip();
 
             DrawChildren(ctx);
         }
@@ -274,6 +286,33 @@ export namespace draconic::ui
             }
         }
 
+        // Wheel over an overflowing tab strip scrolls the clipped tabs into view (there is no room for a
+        // scrollbar in the strip; selection changes auto-scroll too). Ported from the dock tab strip.
+        void OnMouseWheel(MouseWheelEventArgs& e) override
+        {
+            if (!m_tabOverflow) { return; }
+            // Wheel args arrive in root space (unlike the localized mouse events); convert before
+            // testing the strip band, or the check only passes at the window's origin.
+            const Float2 local = ScreenToLocal(Float2{ e.X, e.Y });
+            const TabPlacement place = Placement.Value();
+            const f32 th = TabHeight.Value();
+            Rectangle strip;
+            switch (place)
+            {
+            case TabPlacement::Top:    strip = Rectangle{ 0, 0, Width(), th }; break;
+            case TabPlacement::Bottom: strip = Rectangle{ 0, Height() - th, Width(), th }; break;
+            case TabPlacement::Left:   { const f32 sw = ComputeStripWidth(); strip = Rectangle{ 0, 0, sw, Height() }; break; }
+            case TabPlacement::Right:  { const f32 sw = ComputeStripWidth(); strip = Rectangle{ Width() - sw, 0, sw, Height() }; break; }
+            }
+            if (local.x < strip.x || local.x >= strip.x + strip.width || local.y < strip.y || local.y >= strip.y + strip.height) { return; }
+            const f32 delta = (e.DeltaY != 0.0f) ? e.DeltaY : e.DeltaX;
+            if (delta == 0.0f) { return; }
+            m_tabScroll -= delta * 40.0f;   // clamped in the next rebuild
+            m_hoveredTabIndex = -1;
+            Invalidate();
+            e.Handled = true;
+        }
+
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -334,30 +373,68 @@ export namespace draconic::ui
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
             fonts::CachedFont* font = (Context != nullptr && Context->FontService() != nullptr) ? Context->FontService()->GetFont(ResolveStyleFontFamily(), fontSize) : nullptr;
             const TabPlacement place = Placement.Value();
+            const bool horizontal = (place == TabPlacement::Top || place == TabPlacement::Bottom);
+            const f32 th = TabHeight.Value();
 
-            if (place == TabPlacement::Top || place == TabPlacement::Bottom)
+            // Measure each tab's extent along the strip's main axis (x for Top/Bottom, y for Left/Right)
+            // and the total strip length, so overflow can be detected and the scroll offset clamped.
+            Array<f32> extents;
+            f32 total = 0.0f;
+            if (horizontal)
             {
-                const f32 stripY = (place == TabPlacement::Top) ? 0.0f : Height() - TabHeight.Value();
-                f32 xPos = 0;
                 for (const TabItem& tab : m_tabs)
                 {
                     f32 tabW = 80;
                     if (font != nullptr) { tabW = font->font->MeasureString(tab.Title) + 24; }
                     if (tab.IsClosable) { tabW += CloseButtonSize.Value() + 4; }
                     tabW = core::Max(MinTabWidth.Value(), tabW);
-                    m_tabRects.PushBack(Rectangle{ xPos, stripY, tabW, TabHeight.Value() });
-                    xPos += tabW;
+                    extents.PushBack(tabW);
+                    total += tabW;
+                }
+            }
+            else
+            {
+                for (usize i = 0; i < m_tabs.Size(); ++i) { extents.PushBack(th); total += th; }
+            }
+
+            // Clamp the scroll offset to the overflow, then bring the selected tab into view when a
+            // selection change requested it (mirrors the dock tab strip). Both run on the measured
+            // extents, so the drawn rects — reused for hit-testing — stay aligned with what's on screen.
+            const f32 available = horizontal ? Width() : Height();
+            const f32 maxScroll = core::Max(0.0f, total - available);
+            m_tabScroll = core::Clamp(m_tabScroll, 0.0f, maxScroll);
+            if (m_scrollSelectedIntoView && m_selectedIndex >= 0 && m_selectedIndex < static_cast<i32>(extents.Size()))
+            {
+                f32 selStart = 0.0f;
+                for (i32 i = 0; i < m_selectedIndex; ++i) { selStart += extents[static_cast<usize>(i)]; }
+                const f32 selExtent = extents[static_cast<usize>(m_selectedIndex)];
+                if (selStart - m_tabScroll < 0.0f) { m_tabScroll = selStart; }
+                else if (selStart + selExtent - m_tabScroll > available) { m_tabScroll = selStart + selExtent - available; }
+                m_tabScroll = core::Clamp(m_tabScroll, 0.0f, maxScroll);
+            }
+            m_scrollSelectedIntoView = false;
+            m_tabOverflow = maxScroll > 0.0f;
+
+            // Emit each tab's rect, offset by the scroll along the main axis.
+            if (horizontal)
+            {
+                const f32 stripY = (place == TabPlacement::Top) ? 0.0f : Height() - th;
+                f32 xPos = -m_tabScroll;
+                for (usize i = 0; i < m_tabs.Size(); ++i)
+                {
+                    m_tabRects.PushBack(Rectangle{ xPos, stripY, extents[i], th });
+                    xPos += extents[i];
                 }
             }
             else
             {
                 const f32 stripW = ComputeStripWidth();
                 const f32 stripX = (place == TabPlacement::Left) ? 0.0f : Width() - stripW;
-                f32 yPos = 0;
+                f32 yPos = -m_tabScroll;
                 for (usize i = 0; i < m_tabs.Size(); ++i)
                 {
-                    m_tabRects.PushBack(Rectangle{ stripX, yPos, stripW, TabHeight.Value() });
-                    yPos += TabHeight.Value();
+                    m_tabRects.PushBack(Rectangle{ stripX, yPos, stripW, th });
+                    yPos += th;
                 }
             }
         }
@@ -434,6 +511,9 @@ export namespace draconic::ui
         i32 m_selectedIndex = -1;
         i32 m_hoveredTabIndex = -1;
         Array<Rectangle> m_tabRects;
+        f32 m_tabScroll = 0.0f;                ///< Strip scroll along the main axis (0 = start); clamped in RebuildTabRects.
+        bool m_tabOverflow = false;            ///< Strip longer than the view along the main axis (set in RebuildTabRects).
+        bool m_scrollSelectedIntoView = false; ///< Selection changed; bring the new tab into view on the next rebuild.
     };
 
     DRACONIC_DEFINE_OBJECT(TabView, "draconic::ui")
