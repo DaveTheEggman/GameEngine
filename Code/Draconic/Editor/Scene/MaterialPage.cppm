@@ -22,6 +22,7 @@ module;
 export module draconic.editor.scene:material_page;
 
 import draconic.core;
+import draconic.vfs;
 import draconic.content;
 import draconic.rhi;
 import draconic.graphics;
@@ -91,6 +92,11 @@ export namespace draconic::editor
             m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>();
 
             BuildPreviewScene();
+
+            // Restore this material's saved preview choice (shape or mesh asset) before the
+            // grid builds its rows, so the Shape/Mesh rows show the persisted state.
+            LoadPreviewPref();
+            if (m_previewShape != 0 || !m_previewMeshGuid.IsNil()) { ApplyPreviewMesh(); }
 
             m_viewport = MakeRef<uivp::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.10f, 0.11f, 0.13f, 1.0f };
@@ -354,6 +360,99 @@ export namespace draconic::editor
 
         // Swap the preview geometry: a built-in primitive, or any mesh asset from the
         // project (imported models show the material with their real UVs).
+        // === Preview prefs persistence (<project>/Editor/material-preview.bin) ===
+        // Editor state, NOT on the MaterialAsset: the preview choice is a per-user pref,
+        // never a build input (the Sedulous editor kept these in its asset-cache sidecar).
+        // Flat map: count + { assetGuid, shape u32, meshGuid } records, rewritten whole.
+
+        struct PreviewPref { Guid asset; u32 shape = 0; Guid mesh; };
+
+        [[nodiscard]] static String PreviewPrefsPath(EditorContext& context)
+        {
+            return (context.Project() != nullptr) ? context.Project()->EditorStateRoot() : String();
+        }
+
+        static void LoadPreviewPrefs(EditorContext& context, Array<PreviewPref>& out)
+        {
+            const String dir = PreviewPrefsPath(context);
+            if (dir.IsEmpty()) { return; }
+            draconic::vfs::NativeFileSystem root(dir.AsView());
+            UniquePtr<IStream> stream = root.Open(u8"material-preview.bin", FileMode::Read);
+            if (!stream) { return; }
+            BinarySerializer ar(*stream, SerializeMode::Read);
+            u32 count = 0;
+            draconic::core::Serialize(ar, "count", count);
+            for (u32 i = 0; i < count && ar.IsOk(); ++i)
+            {
+                PreviewPref pref;
+                ar.Key("asset"); ar.GuidValue(pref.asset);
+                draconic::core::Serialize(ar, "shape", pref.shape);
+                ar.Key("mesh"); ar.GuidValue(pref.mesh);
+                out.PushBack(pref);
+            }
+            if (!ar.IsOk()) { out.Clear(); }
+        }
+
+        static void SavePreviewPrefs(EditorContext& context, Span<const PreviewPref> prefs)
+        {
+            const String dir = PreviewPrefsPath(context);
+            if (dir.IsEmpty()) { return; }
+            MemoryStream buffer;
+            BinarySerializer ar(buffer, SerializeMode::Write);
+            u32 count = static_cast<u32>(prefs.Size());
+            draconic::core::Serialize(ar, "count", count);
+            for (const PreviewPref& p : prefs)
+            {
+                PreviewPref copy = p;
+                ar.Key("asset"); ar.GuidValue(copy.asset);
+                draconic::core::Serialize(ar, "shape", copy.shape);
+                ar.Key("mesh"); ar.GuidValue(copy.mesh);
+            }
+            if (!ar.IsOk()) { return; }
+            draconic::vfs::NativeFileSystem root(dir.AsView());
+            if (draconic::vfs::IWritableFileSystem* writable = root.AsWritable())
+            {
+                (void)writable->Save(u8"material-preview.bin", buffer.Bytes());
+            }
+        }
+
+        void LoadPreviewPref()
+        {
+            Array<PreviewPref> prefs;
+            LoadPreviewPrefs(*m_context, prefs);
+            for (const PreviewPref& p : prefs)
+            {
+                if (p.asset == InstanceId())
+                {
+                    m_previewShape = p.shape;
+                    m_previewMeshGuid = p.mesh;
+                    return;
+                }
+            }
+        }
+
+        void SavePreviewPref()
+        {
+            Array<PreviewPref> prefs;
+            LoadPreviewPrefs(*m_context, prefs);
+            bool found = false;
+            for (PreviewPref& p : prefs)
+            {
+                if (p.asset == InstanceId())
+                {
+                    p.shape = m_previewShape;
+                    p.mesh = m_previewMeshGuid;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                prefs.PushBack(PreviewPref{ InstanceId(), m_previewShape, m_previewMeshGuid });
+            }
+            SavePreviewPrefs(*m_context, Span<const PreviewPref>{ prefs.Data(), prefs.Size() });
+        }
+
         void ApplyPreviewMesh()
         {
             if (m_scene == nullptr || !m_sphere.IsAssigned()) { return; }
@@ -426,6 +525,7 @@ export namespace draconic::editor
                         self->m_previewShape = static_cast<u32>(core::Max(0, index));
                         self->m_previewMeshGuid = Guid{};   // shape picks override an asset mesh
                         self->ApplyPreviewMesh();
+                        self->SavePreviewPref();
                     } },
                     StringView(u8"Preview"));
                 m_grid->AddProperty(RefPtr<tk::PropertyEditor>(shape.Get()));
@@ -455,6 +555,7 @@ export namespace draconic::editor
                     dialog->OnPicked = [self, meshRaw, meshName](const Guid& picked) {
                         self->m_previewMeshGuid = picked;   // nil (Clear) = back to the primitive
                         self->ApplyPreviewMesh();
+                        self->SavePreviewPref();
                         meshRaw->SetValueText(meshName());
                     };
                     dialog->Show(self->m_content->Context);
