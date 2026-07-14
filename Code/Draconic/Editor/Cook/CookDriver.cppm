@@ -207,12 +207,14 @@ export namespace draconic::editor
         AssetDependencies deps;
         i32 level = 0;            // dependency depth (items cook level-by-level, parallel within)
         draconic::content::Instance* product = nullptr;   // pre-created SERIALLY before workers run
+        draconic::content::Instance* sourceInstance = nullptr;   // snapshotted in PrepareProducts
     };
 
     struct CookPlan
     {
         Array<CookItem> dirty;    // in dependency order (level ascending)
         Array<Guid> orphans;      // records whose source is gone -> products swept
+        usize orphansSweptCount = 0;   // filled by PrepareProducts
         usize upToDate = 0;
         usize unbuildable = 0;    // instances with no registered builder (informational)
     };
@@ -227,7 +229,7 @@ export namespace draconic::editor
     {
         usize cooked = 0;
         usize failed = 0;
-        usize orphansSwept = 0;
+        usize orphansSwept = 0;   // (CookPlan carries the swept count from PrepareProducts)
         Array<Guid> cookedProducts;   // successfully (re)built products - hot-reload input
     };
 
@@ -316,11 +318,21 @@ export namespace draconic::editor
 
         /// Cook the plan. Items run level-by-level; within a level in parallel when a
         /// JobSystem was provided. Persists the pipeline DB at the end.
+        /// Single-threaded callers (CLI, tests): Prepare + builds back to back.
         CookStats Execute(CookPlan& plan, const CookProgress* progress = nullptr)
         {
-            CookStats stats;
+            PrepareProducts(plan);
+            return ExecuteBuilds(plan, progress);
+        }
 
-            // Sweep orphans first (their products must not survive the cook).
+        /// Phase 1 - MUST run on the thread that owns the content DBs (the editor's main
+        /// thread): sweeps orphans, pre-creates product instances, and snapshots the source
+        /// instance pointers the builds need. The DBs' group trees and GUID indices are not
+        /// thread-safe; doing ANY of this on the cook worker races main-thread imports,
+        /// deletes, and resource loads (the delete->reimport crash: Plan/sweep on the worker
+        /// while the main thread mutated the DBs produced garbage deserialization).
+        void PrepareProducts(CookPlan& plan)
+        {
             for (const Guid& orphan : plan.orphans)
             {
                 if (m_cookedDb->GetInstance(orphan) != nullptr)
@@ -328,18 +340,23 @@ export namespace draconic::editor
                     (void)m_cookedDb->DeleteInstance(orphan);
                 }
                 m_db.Remove(orphan);
-                ++stats.orphansSwept;
+                ++plan.orphansSweptCount;
             }
 
-            // Pre-create every product instance ON THIS THREAD: the content DB's group tree
-            // and GUID index are not thread-safe, so all DB MUTATION happens before the
-            // parallel build loop - workers then only read the DB and write their own
-            // instance's files. (Without this, the first big parallel cook segfaults on
-            // concurrent CreateInstanceWithId - found by a 30-asset model drop.)
             for (CookItem& item : plan.dirty)
             {
                 item.product = EnsureProduct(item);
+                item.sourceInstance = m_sourceDb->GetInstance(item.source);
             }
+        }
+
+        /// Phase 2 - worker-safe: builds only. No DB queries (every instance pointer was
+        /// snapshotted by PrepareProducts); workers read source/product instances they were
+        /// handed and write their own product's files.
+        CookStats ExecuteBuilds(CookPlan& plan, const CookProgress* progress = nullptr)
+        {
+            CookStats stats;
+            stats.orphansSwept = plan.orphansSweptCount;
 
             Array<bool> results;
             results.Resize(plan.dirty.Size());
@@ -578,11 +595,31 @@ export namespace draconic::editor
         // builder's product type. MUTATES the cooked DB - main thread only (see Execute).
         [[nodiscard]] content::Instance* EnsureProduct(const CookItem& item)
         {
-            if (content::Instance* existing = m_cookedDb->GetInstance(item.source)) { return existing; }
-            content::Instance* source = m_sourceDb->GetInstance(item.source);
             const TypeInfo* productType = (item.builder != nullptr) ? item.builder->ProductType() : nullptr;
-            if (source == nullptr || productType == nullptr) { return nullptr; }
+            if (productType == nullptr) { return nullptr; }
+            const StringView typeName(reinterpret_cast<const utf8char*>(productType->name));
+
+            if (content::Instance* existing = m_cookedDb->GetInstance(item.source))
+            {
+                // Identity guard: a guid collision across generations (e.g. a replayed guid
+                // sequence) can leave this guid on a DIFFERENT product type. Writing this
+                // item's product into it would cross-type the envelope - readers then
+                // deserialize garbage. Recreate it with the right type instead.
+                if (existing->TypeName() == typeName) { return existing; }
+                (void)m_cookedDb->DeleteInstance(item.source);
+            }
+            content::Instance* source = m_sourceDb->GetInstance(item.source);
+            if (source == nullptr) { return nullptr; }
             content::Group* group = MirrorGroup(source->OwningGroup());
+
+            // Same guard for a NAME collision: CreateInstanceWithId returns an existing
+            // same-named instance REGARDLESS of its id - a stale product from a previous
+            // source generation (not yet swept) would silently keep its old guid, breaking
+            // the product-guid == source-guid invariant. Remove it first.
+            if (content::Instance* stale = group->GetInstance(source->Name()))
+            {
+                if (stale->Id() != item.source) { (void)m_cookedDb->DeleteInstance(stale->Id()); }
+            }
             return group->CreateInstanceWithId(item.source, source->Name(), *productType);
         }
 
@@ -590,7 +627,7 @@ export namespace draconic::editor
         // threads: no DB mutation here - only reads + the product's own file writes.
         [[nodiscard]] bool CookItem_(CookItem& item)
         {
-            content::Instance* source = m_sourceDb->GetInstance(item.source);
+            content::Instance* source = item.sourceInstance;   // snapshotted (no DB query off-thread)
             Asset* asset = Cast<Asset>(item.asset.Get());
             content::Instance* product = item.product;
             if (source == nullptr || asset == nullptr || product == nullptr) { return false; }
