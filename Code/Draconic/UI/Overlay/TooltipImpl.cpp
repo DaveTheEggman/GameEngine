@@ -31,17 +31,30 @@ namespace draconic::ui
         }
     }
 
+    // The tooltip OWNER for a hovered view: the view itself or its nearest ancestor with
+    // tooltip content (provider or text). Hit-testing returns the LEAF under the cursor, so
+    // a container carrying one tooltip for all its children (e.g. an inspector property row)
+    // would otherwise never show it; resolution also keeps the timer alive while hover moves
+    // between children of the same owner.
+    static View* ResolveTooltipOwner(View* view)
+    {
+        for (View* v = view; v != nullptr; v = v->Parent)
+        {
+            if (v->AsTooltipProvider() != nullptr || v->TooltipText.Size() > 0) { return v; }
+        }
+        return nullptr;
+    }
+
     void TooltipManager::OnHoverChanged(View* newTarget)
     {
-        const ViewId newId = (newTarget != nullptr) ? newTarget->Id : ViewId::Invalid;
+        // Hover onto the tooltip itself never dismisses (checked on the RAW view - the
+        // tooltip's own content carries no TooltipText).
+        if (m_showing && newTarget != nullptr && IsTooltipOrDescendant(newTarget)) { return; }
+
+        View* owner = ResolveTooltipOwner(newTarget);
+        const ViewId newId = (owner != nullptr) ? owner->Id : ViewId::Invalid;
         if (newId != m_hoverTarget)
         {
-            // Don't dismiss if hover moved onto the tooltip itself.
-            if (m_showing && newTarget != nullptr && IsTooltipOrDescendant(newTarget)) { return; }
-
-            // Don't dismiss if hover moved back to the original target while an interactive tooltip shows.
-            if (m_showing && m_interactive && newId == m_hoverTarget) { return; }
-
             Hide();
             m_hoverTarget = newId;
             m_hoverTime = 0;
