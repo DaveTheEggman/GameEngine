@@ -15,6 +15,8 @@
 
 module;
 #include "Core/Prelude.h"
+#include <chrono>
+#include <random>
 
 export module draconic.content;
 
@@ -159,6 +161,19 @@ export namespace draconic::content
             , m_extension(fileExtension)
             , m_serializables(&serializables), m_types(&types)
         {
+            // Entropy-seed the instance-guid generator. core::Random's DEFAULT seed is a
+            // fixed PCG constant, so a default-constructed rng replays the IDENTICAL guid
+            // sequence every session - a delete + reimport in a fresh session then hands a
+            // previous session's guids to DIFFERENT assets, colliding with persisted cook
+            // records/products across types (garbage cross-typed deserialization, editor
+            // crash). Guids must be unique across sessions, not reproducible.
+            std::random_device entropy;
+            const u64 seed = (static_cast<u64>(entropy()) << 32) ^ static_cast<u64>(entropy())
+                           ^ static_cast<u64>(std::chrono::steady_clock::now().time_since_epoch().count());
+            const u64 sequence = (static_cast<u64>(entropy()) << 32) ^ static_cast<u64>(entropy())
+                               ^ reinterpret_cast<u64>(this);
+            m_rng = Random(seed, sequence);
+
             m_root = NewGroup(nullptr, u8"");
             Scan(*m_root, u8"");
         }

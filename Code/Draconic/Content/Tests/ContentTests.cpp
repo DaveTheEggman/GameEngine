@@ -346,3 +346,40 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
     }
     scrub();
 }
+
+TEST_CASE("content: instance guids are unique across database sessions")
+{
+    // Regression: the guid rng was default-seeded (fixed PCG constant), so every session
+    // replayed the SAME guid sequence - a delete + reimport in a fresh session gave old
+    // guids to different assets, cross-typing persisted cook records/products (crash).
+    const StringView dirA = u8"draconic_content_guid_a";
+    const StringView dirB = u8"draconic_content_guid_b";
+    RemoveTree(dirA);
+    RemoveTree(dirB);
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    NativeFileSystem mountA(dirA);
+    NativeFileSystem mountB(dirB);
+    ContentDatabase a(mountA, BinarySerializerFactory(), u8".rasset");
+    ContentDatabase b(mountB, BinarySerializerFactory(), u8".rasset");
+
+    // Two fresh databases minting the same creation sequence must NOT agree on guids.
+    Array<Guid> fromA;
+    Array<Guid> fromB;
+    Group* ga = a.RootGroup()->CreateGroup(u8"materials");
+    Group* gb = b.RootGroup()->CreateGroup(u8"materials");
+    for (int i = 0; i < 4; ++i)
+    {
+        String name(u8"m");
+        name.PushBack(static_cast<char8_t>(u8'0' + i));
+        fromA.PushBack(ga->CreateInstance(name.AsView(), MaterialResource::StaticType())->Id());
+        fromB.PushBack(gb->CreateInstance(name.AsView(), MaterialResource::StaticType())->Id());
+    }
+    usize collisions = 0;
+    for (const Guid& x : fromA) { for (const Guid& y : fromB) { if (x == y) { ++collisions; } } }
+    CHECK(collisions == 0u);
+
+    RemoveTree(dirA);
+    RemoveTree(dirB);
+}
