@@ -82,6 +82,26 @@ protected:
     void SerializeStatic(ISerializer& ar) {
         draconic::core::Serialize(ar, "name", name);
         draconic::core::Serialize(ar, "vertexBlob", vertexBlob);
+        // v1 blobs predate the Float4 tangent (48-byte stride, Float3 tangent at offset 36):
+        // expand each vertex in place with handedness +1 - identical look, no re-authoring.
+        if (ar.Mode() == SerializeMode::Read && ar.Version() < 2) {
+            constexpr usize kOldStride = 48;
+            if (vertexBlob.Size() % kOldStride == 0 && !vertexBlob.IsEmpty()) {
+                const usize count = vertexBlob.Size() / kOldStride;
+                Array<u8> wide;
+                wide.Resize(count * sizeof(StaticMeshVertex));
+                for (usize i = 0; i < count; ++i) {
+                    const u8* src = vertexBlob.Data() + i * kOldStride;
+                    auto* dst = reinterpret_cast<StaticMeshVertex*>(wide.Data() + i * sizeof(StaticMeshVertex));
+                    *dst = StaticMeshVertex{};
+                    MemCopy(dst, src, 36);                                   // pos/normal/uv/color
+                    Float3 t3{ 1, 0, 0 };
+                    MemCopy(&t3, src + 36, sizeof(t3));                      // old Float3 tangent
+                    dst->tangent = Float4{ t3.x, t3.y, t3.z, 1.0f };
+                }
+                vertexBlob = Move(wide);
+            }
+        }
         draconic::core::Serialize(ar, "indexData", indexData);
         draconic::core::Serialize(ar, "subStart", subStart);
         draconic::core::Serialize(ar, "subCount", subCount);
@@ -159,7 +179,7 @@ public:
     }
 };
 
-DRACONIC_DEFINE_OBJECT(StaticMeshSource, "draconic::geometry")
-DRACONIC_DEFINE_OBJECT(SkinnedMeshSource, "draconic::geometry")
+DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "draconic::geometry", 2)
+DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "draconic::geometry", 2)
 
 } // namespace draconic::geometry

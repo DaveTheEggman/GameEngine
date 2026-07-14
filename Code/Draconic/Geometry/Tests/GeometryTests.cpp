@@ -13,9 +13,9 @@ using namespace draconic::geometry;
 
 TEST_CASE("stream layouts are the GPU-canonical sizes")
 {
-    CHECK(sizeof(StaticMeshVertex) == 48);
+    CHECK(sizeof(StaticMeshVertex) == 52);   // Float4 tangent (w = TBN handedness)
     CHECK(sizeof(VertexSkinning) == 24);
-    CHECK(StaticMesh::VertexStride() == 48);
+    CHECK(StaticMesh::VertexStride() == 52);   // Float4 tangent (w = TBN handedness)
     CHECK(SkinnedMesh::SkinningStride() == 24);
 }
 
@@ -49,13 +49,15 @@ TEST_CASE("static mesh: generated normals + tangents + bounds on a quad")
     mesh->GenerateNormals();
     for (const StaticMeshVertex& v : mesh->vertices) {
         CHECK(v.normal.z == doctest::Approx(1.0f));      // quad faces +Z
-        CHECK(LengthSquared(v.tangent) == doctest::Approx(1.0f));   // unit tangents
+        const Float3 t3{ v.tangent.x, v.tangent.y, v.tangent.z };
+        CHECK(LengthSquared(t3) == doctest::Approx(1.0f));          // unit tangent xyz
+        CHECK(Abs(v.tangent.w) == doctest::Approx(1.0f));           // handedness is +-1
     }
 
     mesh->CalculateBounds();
     CHECK(mesh->bounds.min.x == doctest::Approx(-1.0f));
     CHECK(mesh->bounds.max.y == doctest::Approx(1.0f));
-    CHECK(mesh->VertexDataSize() == 4 * 48);
+    CHECK(mesh->VertexDataSize() == 4 * 52);
     CHECK(mesh->VertexData() != nullptr);
 }
 
@@ -164,4 +166,32 @@ TEST_CASE("clear-for-reload empties in place (skinned clears both streams)")
     CHECK(mesh->VertexCount() == 0);
     CHECK(mesh->SkinningStream().Size() == 0);
     CHECK(mesh->skeletonIndex == -1);
+}
+
+TEST_CASE("tangent generation: mirrored UVs produce handedness w = -1")
+{
+    // Two triangles with identical geometry; the second's UVs are U-mirrored. The bitangent
+    // accumulation opposes cross(N, T) there, so tangent.w flips - the shader's TBN then
+    // lights normal maps correctly on mirrored halves.
+    RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+    auto addTri = [&](f32 xBase, bool mirrored) {
+        const u32 base = mesh->VertexCount();
+        const f32 u0 = mirrored ? 1.0f : 0.0f;
+        const f32 u1 = mirrored ? 0.0f : 1.0f;
+        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ xBase,        0, 0 }, Float3{ 0, 0, 1 }, Float2{ u0, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ xBase + 1.0f, 0, 0 }, Float3{ 0, 0, 1 }, Float2{ u1, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ xBase,        1, 0 }, Float3{ 0, 0, 1 }, Float2{ u0, 1 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+        mesh->indices.AddTriangle(base + 0, base + 1, base + 2);
+    };
+    mesh->indices.Resize(6);
+    addTri(0.0f, /*mirrored*/ false);
+    addTri(2.0f, /*mirrored*/ true);
+    mesh->subMeshes.PushBack(SubMesh{ 0, 6, 0, PrimitiveType::Triangles });
+
+    mesh->GenerateTangents();
+    for (u32 i = 0; i < 3; ++i) { CHECK(mesh->vertices[i].tangent.w == 1.0f); }
+    for (u32 i = 3; i < 6; ++i) { CHECK(mesh->vertices[i].tangent.w == -1.0f); }
+    // The mirrored tangent points the other way in X; xyz stays unit length.
+    CHECK(mesh->vertices[0].tangent.x == doctest::Approx(1.0f));
+    CHECK(mesh->vertices[3].tangent.x == doctest::Approx(-1.0f));
 }

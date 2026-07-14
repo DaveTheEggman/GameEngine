@@ -30,19 +30,24 @@ struct SubMesh {
     PrimitiveType primitiveType = PrimitiveType::Triangles;
 };
 
-// The static vertex stream - 48 bytes, matching VertexLayoutType::Mesh (locations
+// The static vertex stream - 52 bytes, matching VertexLayoutType::Mesh (locations
 // 0..4). Trivially copyable so the array uploads straight to a GPU vertex buffer.
+// tangent.w = the TBN HANDEDNESS sign (+-1, glTF convention): the shader's bitangent is
+// cross(N, T.xyz) * T.w, so normal maps on mirrored-UV geometry light correctly.
 struct StaticMeshVertex {
     Float3 position{ 0, 0, 0 };       // 12
     Float3 normal{ 0, 1, 0 };         // 12
     Float2 texCoord{ 0, 0 };          //  8
     u32  color = 0xFFFFFFFFu;       //  4  packed RGBA, R in the low byte (Unorm8x4)
-    Float3 tangent{ 1, 0, 0 };        // 12
-    // total: 48
+    Float4 tangent{ 1, 0, 0, 1 };     // 16  xyz = tangent, w = handedness
+    // total: 52
 
     constexpr StaticMeshVertex() noexcept = default;
-    constexpr StaticMeshVertex(Float3 pos, Float3 nrm, Float2 uv, u32 col, Float3 tan) noexcept
+    constexpr StaticMeshVertex(Float3 pos, Float3 nrm, Float2 uv, u32 col, Float4 tan) noexcept
         : position(pos), normal(nrm), texCoord(uv), color(col), tangent(tan) {}
+    // Float3-tangent convenience (procedural builders): handedness defaults to +1.
+    constexpr StaticMeshVertex(Float3 pos, Float3 nrm, Float2 uv, u32 col, Float3 tan) noexcept
+        : position(pos), normal(nrm), texCoord(uv), color(col), tangent(tan.x, tan.y, tan.z, 1.0f) {}
 };
 
 // The parallel skinning stream - 24 bytes (locations 6/7). One per static vertex; a
@@ -56,7 +61,7 @@ struct VertexSkinning {
 
 // Size + alignment are a hard GPU-layout contract: these use the PACKED Float* math types (tight,
 // 4-byte aligned). A stray SIMD Vector* (16-byte aligned) would change both and trip these.
-static_assert(sizeof(StaticMeshVertex) == 48, "static vertex must stay 48 bytes (VertexLayoutType::Mesh)");
+static_assert(sizeof(StaticMeshVertex) == 52, "static vertex must stay 52 bytes (VertexLayoutType::Mesh)");
 static_assert(alignof(StaticMeshVertex) == 4, "static vertex must stay 4-byte aligned (packed, not SIMD)");
 static_assert(sizeof(VertexSkinning) == 24, "skinning stream must stay 24 bytes (locations 6/7)");
 static_assert(alignof(VertexSkinning) == 4, "skinning stream must stay 4-byte aligned (packed, not SIMD)");

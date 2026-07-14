@@ -29,6 +29,11 @@ export namespace draconic::geometry {
 class StaticMesh : public Object {
     DRACONIC_OBJECT(StaticMesh, Object)
 public:
+    // Unique per-OBJECT id: renderer caches key by THIS, never by pointer (a reloaded or
+    // page-local mesh can reallocate at a freed address - the bind-group versioning rule;
+    // pointer keying made a fresh preview sphere alias a dead mesh's GPU geometry).
+    const u64 uid = NextUid();
+
     String                   name;
     Array<StaticMeshVertex>  vertices;
     IndexBuffer              indices{ IndexBuffer::Format::U32 };
@@ -60,6 +65,11 @@ public:
         bounds = AABB::Empty();
     }
 
+    [[nodiscard]] static u64 NextUid() noexcept {
+        static Atomic<u64> counter{ 0 };
+        return counter.fetch_add(1) + 1;
+    }
+
     // Recomputes `bounds` from the static stream.
     AABB& CalculateBounds() {
         if (vertices.IsEmpty()) { bounds = AABB{ Float3::Zero, Float3::Zero }; return bounds; }
@@ -87,37 +97,62 @@ public:
         }
     }
 
-    // Tangents for normal mapping: per-triangle (deltaUV-weighted) accumulation,
-    // then Gram-Schmidt orthogonalization against the normal.
+    // Tangents for normal mapping: per-triangle (deltaUV-weighted) accumulation of tangent
+    // AND bitangent, then Gram-Schmidt orthogonalization against the normal. The bitangent
+    // accumulation determines each vertex's HANDEDNESS sign (tangent.w): mirrored-UV
+    // triangles produce a bitangent opposing cross(N, T), so w flips to -1 there.
     void GenerateTangents() {
-        const u32 triangles = TriangleCount();
+        GenerateTangentsImpl(Span<StaticMeshVertex>{ vertices.Data(), vertices.Size() },
+                             TriangleCount(), [this](u32 t, u32 c) { return Corner(t, c); });
+    }
+
+    /// Span overload for raw vertex/index storage (the importer's source blobs, before a
+    /// StaticMesh exists). Same math as the member version.
+    static void GenerateTangents(Span<StaticMeshVertex> vertices, Span<const u32> indices) {
+        GenerateTangentsImpl(vertices, static_cast<u32>(indices.Size() / 3),
+                             [indices](u32 t, u32 c) { return indices[t * 3u + c]; });
+    }
+
+private:
+    template <typename GetCorner>
+    static void GenerateTangentsImpl(Span<StaticMeshVertex> vertices, u32 triangles, GetCorner corner) {
         if (triangles == 0) { return; }
-        for (StaticMeshVertex& v : vertices) { v.tangent = Float3::Zero; }
+        Array<Float3> tanAccum;
+        Array<Float3> bitanAccum;
+        tanAccum.Resize(vertices.Size(), Float3::Zero);
+        bitanAccum.Resize(vertices.Size(), Float3::Zero);
         for (u32 t = 0; t < triangles; ++t) {
-            const u32 i0 = Corner(t, 0), i1 = Corner(t, 1), i2 = Corner(t, 2);
+            const u32 i0 = corner(t, 0), i1 = corner(t, 1), i2 = corner(t, 2);
             const Float3 dp1 = vertices[i1].position - vertices[i0].position;
             const Float3 dp2 = vertices[i2].position - vertices[i0].position;
             const Float2 du1 = vertices[i1].texCoord - vertices[i0].texCoord;
             const Float2 du2 = vertices[i2].texCoord - vertices[i0].texCoord;
             const f32 denom = du1.x * du2.y - du2.x * du1.y;
             Float3 tangent = Float3::Zero;
+            Float3 bitangent = Float3::Zero;
             if (Abs(denom) > 0.0001f) {
                 const f32 r = 1.0f / denom;
-                tangent = (dp1 * du2.y - dp2 * du1.y) * r;
+                tangent   = (dp1 * du2.y - dp2 * du1.y) * r;
+                bitangent = (dp2 * du1.x - dp1 * du2.x) * r;
             }
-            vertices[i0].tangent += tangent;
-            vertices[i1].tangent += tangent;
-            vertices[i2].tangent += tangent;
+            tanAccum[i0] += tangent;   tanAccum[i1] += tangent;   tanAccum[i2] += tangent;
+            bitanAccum[i0] += bitangent; bitanAccum[i1] += bitangent; bitanAccum[i2] += bitangent;
         }
-        for (StaticMeshVertex& v : vertices) {
-            if (LengthSquared(v.tangent) > 0.0001f) {
-                v.tangent = v.tangent - v.normal * Dot(v.normal, v.tangent);   // orthogonalize
-                v.tangent = (LengthSquared(v.tangent) > 0.0001f) ? Normalized(v.tangent) : DefaultTangent(v.normal);
+        for (usize i = 0; i < vertices.Size(); ++i) {
+            StaticMeshVertex& v = vertices[i];
+            Float3 t = tanAccum[i];
+            if (LengthSquared(t) > 0.0001f) {
+                t = t - v.normal * Dot(v.normal, t);   // orthogonalize
+                t = (LengthSquared(t) > 0.0001f) ? Normalized(t) : DefaultTangent(v.normal);
             } else {
-                v.tangent = DefaultTangent(v.normal);
+                t = DefaultTangent(v.normal);
             }
+            const f32 w = (Dot(Cross(v.normal, t), bitanAccum[i]) < 0.0f) ? -1.0f : 1.0f;
+            v.tangent = Float4{ t.x, t.y, t.z, w };
         }
     }
+
+public:
 
     // Pack a 0..1 float color to RGBA8 with R in the low byte (Unorm8x4 order).
     [[nodiscard]] static u32 PackColor(Float4 c) {

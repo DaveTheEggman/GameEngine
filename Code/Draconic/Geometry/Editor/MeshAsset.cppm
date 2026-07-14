@@ -92,7 +92,7 @@ inline void RegisterMeshAssets() {
     RegisterSerializable<SkinnedMeshAsset>();
 }
 
-DRACONIC_DEFINE_OBJECT(StaticMeshAsset, "draconic::geometry")
-DRACONIC_DEFINE_OBJECT(SkinnedMeshAsset, "draconic::geometry")
+DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "draconic::geometry", 2)   // v2 = Float4 tangent vertex blobs
+DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "draconic::geometry", 2)   // v2 = Float4 tangent vertex blobs
 
 } // namespace draconic::geometry

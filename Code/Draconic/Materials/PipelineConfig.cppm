@@ -153,11 +153,11 @@ public:
         case VertexLayoutType::PositionOnly:    return 12;
         case VertexLayoutType::PositionUVColor: return 36;
         case VertexLayoutType::MeshNoTangent:   return 32;
-        case VertexLayoutType::Mesh:            return 48;
-        // A skinned mesh's buffer 0 IS the static stream (48B) - the skinning data
+        case VertexLayoutType::Mesh:            return 52;
+        // A skinned mesh's buffer 0 IS the static stream (52B) - the skinning data
         // is a SEPARATE buffer (see SkinningStream*), matching draconic.geometry's
         // SkinnedMesh : StaticMesh layout. So a skinned draw binds two vertex buffers.
-        case VertexLayoutType::SkinnedMesh:     return 48;
+        case VertexLayoutType::SkinnedMesh:     return 52;
         case VertexLayoutType::Custom:          return 0;
         }
         return 0;
@@ -217,7 +217,7 @@ private:
     static constexpr VA kPositionUVColor[3] = { { VF::Float32x3, 0, 0 }, { VF::Float32x2, 12, 1 }, { VF::Float32x4, 20, 2 } };
     static constexpr VA kMeshNoTangent[3]   = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 } };
     static constexpr VA kMesh[5]            = { { VF::Float32x3, 0, 0 }, { VF::Float32x3, 12, 1 }, { VF::Float32x2, 24, 2 },
-                                                { VF::Unorm8x4, 32, 3 }, { VF::Float32x3, 36, 4 } };
+                                                { VF::Unorm8x4, 32, 3 }, { VF::Float32x4, 36, 4 } };   // tangent.w = handedness
     // Skinning stream: joints (uint16x4 packed as uint32x2) + weights, at locations 6/7 (DataOffsets
     // takes 5; skinned draws are always instanced).
     static constexpr VA kSkinningStream[2]  = { { VF::Uint32x2, 0, 6 }, { VF::Float32x4, 8, 7 } };

@@ -129,6 +129,6 @@ TEST_CASE("pipeline config: content hash + equality distinguish render state")
     CHECK_FALSE(a == c);                                 // blend/depth differ
     CHECK(a.HashCode() != c.HashCode());
 
-    CHECK(VertexLayoutHelper::Stride(VertexLayoutType::Mesh) == 48);
+    CHECK(VertexLayoutHelper::Stride(VertexLayoutType::Mesh) == 52);   // Float4 tangent
     CHECK(VertexLayoutHelper::Attributes(VertexLayoutType::Mesh).Size() == 5);
 }
