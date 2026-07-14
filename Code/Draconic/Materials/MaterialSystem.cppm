@@ -229,9 +229,13 @@ public:
 
 private:
     Status CreateDefaultResources() {
+        // Default material sampler wraps (REPEAT) - the glTF spec default. Assets rely on
+        // it: DamagedHelmet's V coords live in [1,2] and clamp smeared the whole texture
+        // into edge rows ("colors in the wrong places"). Materials wanting clamp get it
+        // per-sampler via GetOrCreateSampler.
         rhi::SamplerDesc sd{};
-        sd.addressU = rhi::AddressMode::ClampToEdge; sd.addressV = rhi::AddressMode::ClampToEdge;
-        sd.addressW = rhi::AddressMode::ClampToEdge;
+        sd.addressU = rhi::AddressMode::Repeat; sd.addressV = rhi::AddressMode::Repeat;
+        sd.addressW = rhi::AddressMode::Repeat;
         if (!m_device->CreateSampler(sd, m_defaultSampler).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         if (!CreateTexture1x1(Color32{ 255, 255, 255, 255 }, m_whiteTex, m_whiteView)) { return Status{ ErrorCode::Unknown }; }

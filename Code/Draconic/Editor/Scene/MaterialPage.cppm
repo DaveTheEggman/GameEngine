@@ -93,6 +93,11 @@ export namespace draconic::editor
 
             BuildPreviewScene();
 
+            // The context assigns the page's instance id AFTER construction (OpenPage), but
+            // the preview-pref restore below keys on it - set it from the instance now
+            // (the context's later SetInstanceId writes the same value).
+            SetInstanceId(instance.Id());
+
             // Restore this material's saved preview choice (shape or mesh asset) before the
             // grid builds its rows, so the Shape/Mesh rows show the persisted state.
             LoadPreviewPref();
