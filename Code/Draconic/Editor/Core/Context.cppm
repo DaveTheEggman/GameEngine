@@ -24,6 +24,9 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
+    /// User-facing notification severity (the application maps these to UI toasts).
+    enum class NoticeKind : u8 { Info, Success, Warning, Error };
+
     class EditorContext
     {
     public:
@@ -35,8 +38,26 @@ export namespace draconic::editor
 
         /// Open-pages list or active page changed.
         Function<void()> OnPagesChanged;
+
+        /// Request an incremental cook (wired by the application to its cook service). Pages
+        /// call this after saving a builder-backed asset so the cooked product (and every
+        /// live proxy bound to it) refreshes without a manual Build > Cook All.
+        Function<void(bool /*rebuild*/)> OnCookRequested;
+        void RequestCook(bool rebuild = false)
+        {
+            if (OnCookRequested) { OnCookRequested(rebuild); }
+        }
         /// Transient status-bar text.
         Function<void(StringView)> OnStatus;
+
+        /// Transient user-facing notification (toast). Unwired = falls back to the status bar,
+        /// so pages can Notify unconditionally.
+        Function<void(NoticeKind, StringView)> OnNotice;
+        void Notify(NoticeKind kind, StringView message)
+        {
+            if (OnNotice) { OnNotice(kind, message); }
+            else { SetStatus(message); }
+        }
 
         // === Project ===
 

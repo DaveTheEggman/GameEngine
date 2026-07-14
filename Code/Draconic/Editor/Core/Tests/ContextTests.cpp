@@ -258,3 +258,26 @@ TEST_CASE("editor-selection: set, dedup, primary, toggle")
     sel.Clear();                          // clearing an empty selection does not notify
     CHECK(changes == changesAfterClear);
 }
+
+TEST_CASE("editor-context: Notify routes to OnNotice, falls back to the status bar")
+{
+    EditorContext ctx;
+    Array<String> statuses;
+    ctx.OnStatus = [&statuses](StringView text) { statuses.PushBack(String(text)); };
+
+    // Unwired OnNotice -> status fallback (pages may Notify unconditionally).
+    ctx.Notify(NoticeKind::Info, u8"hello");
+    REQUIRE(statuses.Size() == 1u);
+    CHECK(statuses[0].AsView() == StringView(u8"hello"));
+
+    NoticeKind gotKind = NoticeKind::Info;
+    String gotMessage;
+    ctx.OnNotice = [&gotKind, &gotMessage](NoticeKind kind, StringView message) {
+        gotKind = kind;
+        gotMessage = String(message);
+    };
+    ctx.Notify(NoticeKind::Error, u8"cook failed");
+    CHECK(gotKind == NoticeKind::Error);
+    CHECK(gotMessage.AsView() == StringView(u8"cook failed"));
+    CHECK(statuses.Size() == 1u);   // wired notice does NOT double-post status
+}
