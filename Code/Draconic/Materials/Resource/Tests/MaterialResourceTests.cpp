@@ -210,3 +210,33 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
     UpgradeForwardMaterialSource(unlit);
     CHECK(unlit.propNames.Size() == 0u);
 }
+
+TEST_CASE("material source: sampler address modes round-trip (v2)")
+{
+    using namespace draconic::materials;
+    NativeFileSystem mount(u8"draconic_mat_sampler_db");
+
+    Guid id;
+    {
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        MaterialSource source;
+        source.name = u8"wrapped";
+        source.shaderName = u8"forward";
+        source.samplerU = 2;   // rhi::AddressMode::ClampToEdge
+        source.samplerV = 1;   // rhi::AddressMode::MirrorRepeat
+        auto* inst = db.RootGroup()->CreateInstance(u8"wrapped", MaterialSource::StaticType());
+        id = inst->Id();
+        REQUIRE(inst->WriteObject(source).IsOk());
+    }
+    {
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        RefPtr<ISerializable> object = db.ReadObject(id);
+        auto* read = Cast<MaterialSource>(object.Get());
+        REQUIRE(read != nullptr);
+        CHECK(read->samplerU == 2);   // the v2 envelope round-trips the modes
+        CHECK(read->samplerV == 1);
+    }
+
+    FileDelete(u8"draconic_mat_sampler_db/wrapped.rasset");
+    RemoveDirectory(u8"draconic_mat_sampler_db");
+}

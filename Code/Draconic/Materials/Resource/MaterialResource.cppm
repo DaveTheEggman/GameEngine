@@ -16,6 +16,7 @@ module;
 export module draconic.materials.resource;
 
 import draconic.core;
+import draconic.rhi;
 import draconic.resource;
 import draconic.content;
 import draconic.shaders;
@@ -44,6 +45,10 @@ public:
     u8     depthMode    = static_cast<u8>(DepthMode::ReadWrite);
     u8     cullMode     = static_cast<u8>(CullModeConfig::Back);
     u8     vertexLayout = static_cast<u8>(VertexLayoutType::Mesh);
+    // Sampler address modes (rhi::AddressMode values: 0 Repeat, 1 MirrorRepeat,
+    // 2 ClampToEdge) - wired from the source asset's sampler at import (v2).
+    u8     samplerU     = 0;
+    u8     samplerV     = 0;
 
     Array<String> propNames;
     Array<u8>     propTypes;      // MaterialPropertyType
@@ -77,6 +82,10 @@ public:
         draconic::core::Serialize(ar, "uniformDefaults", uniformDefaults);
         draconic::core::Serialize(ar, "textureSlots", textureSlots);
         draconic::core::Serialize(ar, "textureIds", textureIds);
+        if (ar.Version() >= 2) {   // v2: sampler address modes (older sources read Repeat)
+            draconic::core::Serialize(ar, "samplerU", samplerU);
+            draconic::core::Serialize(ar, "samplerV", samplerV);
+        }
     }
 
     // Captures a built Material's declared layout + defaults into an authorable source
@@ -90,6 +99,8 @@ public:
         out.depthMode    = static_cast<u8>(material.pipeline.depthMode);
         out.cullMode     = static_cast<u8>(material.pipeline.cullMode);
         out.vertexLayout = static_cast<u8>(material.pipeline.vertexLayout);
+        out.samplerU     = static_cast<u8>(material.samplerU);
+        out.samplerV     = static_cast<u8>(material.samplerV);
 
         out.propNames.Clear(); out.propTypes.Clear(); out.propBindings.Clear();
         out.propOffsets.Clear(); out.propSizes.Clear();
@@ -198,6 +209,8 @@ public:
         material->pipeline.depthMode    = static_cast<DepthMode>(src->depthMode);
         material->pipeline.cullMode     = static_cast<CullModeConfig>(src->cullMode);
         material->pipeline.vertexLayout = static_cast<VertexLayoutType>(src->vertexLayout);
+        material->samplerU = static_cast<rhi::AddressMode>(src->samplerU);
+        material->samplerV = static_cast<rhi::AddressMode>(src->samplerV);
 
         // Default texture bindings: resolve each through the manager (the Bind records the
         // material->texture edge, so a texture reload rebuilds this material) and install as
@@ -228,6 +241,6 @@ public:
     }
 };
 
-DRACONIC_DEFINE_OBJECT(MaterialSource, "draconic::materials")
+DRACONIC_DEFINE_OBJECT_VERSIONED(MaterialSource, "draconic::materials", 2)
 
 } // namespace draconic::materials

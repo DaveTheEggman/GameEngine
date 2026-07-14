@@ -728,3 +728,10 @@ TEST_CASE("import: texture assets keep their source names")
     model::ModelTexture bare;   // embedded, no identity -> indexed fallback
     CHECK(modelimporter::ImportedTextureName(bare, 7).AsView() == StringView(u8"tex.7"));
 }
+
+TEST_CASE("import: material sampler modes map from the source texture's sampler")
+{
+    CHECK(modelimporter::AddressModeFromWrap(model::TextureWrap::Repeat) == 0);
+    CHECK(modelimporter::AddressModeFromWrap(model::TextureWrap::MirroredRepeat) == 1);
+    CHECK(modelimporter::AddressModeFromWrap(model::TextureWrap::ClampToEdge) == 2);
+}

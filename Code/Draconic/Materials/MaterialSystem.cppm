@@ -320,6 +320,7 @@ private:
                 if (view != nullptr) { entries.PushBack(rhi::BindGroupEntry::TextureEntry(view)); }
             } else if (p.IsSampler()) {
                 rhi::Sampler* s = instance.GetSampler(propIndex);
+                if (s == nullptr) { s = GetOrCreateSampler(material->samplerU, material->samplerV); }
                 if (s == nullptr) { s = m_defaultSampler; }
                 if (s != nullptr) { entries.PushBack(rhi::BindGroupEntry::SamplerEntry(s)); }
             }

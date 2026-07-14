@@ -327,6 +327,7 @@ export namespace draconic::modelimporter
                 draconic::materials::MaterialAsset asset;
                 draconic::materials::MaterialImporter::Import(*built, Guid{}, asset);
                 asset.source.shaderName = String(u8"forward");
+                MaterialSamplerModes(model, m, asset.source.samplerU, asset.source.samplerV);
 
                 // Wire EVERY authored texture INTO the material source (self-contained cooked
                 // material - a directly-picked material renders fully textured, not just via

@@ -32,6 +32,12 @@ public:
     // material can reallocate at the freed address - the bind-group versioning rule).
     const u64 uid = NextUid();
 
+    // Sampler address modes for the material's texture slots (the importer wires them from
+    // the source asset's sampler; glTF's default is Repeat). The MaterialSystem resolves the
+    // actual rhi::Sampler from these when building the instance's bind group.
+    rhi::AddressMode samplerU = rhi::AddressMode::Repeat;
+    rhi::AddressMode samplerV = rhi::AddressMode::Repeat;
+
     String         name;
     String         shaderName;
     shaders::ShaderFlags shaderFlags = shaders::ShaderFlags::None;

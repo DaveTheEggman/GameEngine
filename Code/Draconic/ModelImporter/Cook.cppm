@@ -187,6 +187,7 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
         if (m.doubleSided) {
             asset.source.cullMode = static_cast<u8>(draconic::materials::CullModeConfig::None);
         }
+        MaterialSamplerModes(model, m, asset.source.samplerU, asset.source.samplerV);
         }
 
         const String name = Format(u8"{}.mat.{}", namePrefix, i);

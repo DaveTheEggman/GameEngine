@@ -95,6 +95,40 @@ void CopyParts(const model::ModelMesh& mesh, geometry::StaticMeshSource& out)
 
 export {
 
+// model::TextureWrap -> rhi::AddressMode VALUE (as u8; enum orders differ - model has
+// {Repeat, ClampToEdge, MirroredRepeat}, rhi has {Repeat, MirrorRepeat, ClampToEdge}).
+[[nodiscard]] u8 AddressModeFromWrap(model::TextureWrap wrap)
+{
+    switch (wrap)
+    {
+        case model::TextureWrap::ClampToEdge:    return 2;   // rhi::AddressMode::ClampToEdge
+        case model::TextureWrap::MirroredRepeat: return 1;   // rhi::AddressMode::MirrorRepeat
+        case model::TextureWrap::Repeat:
+        default:                                 return 0;   // rhi::AddressMode::Repeat
+    }
+}
+
+// The sampler modes a material should use: its base-color texture's sampler (fallback:
+// first slot with one). glTF's empty-sampler default is Repeat/Repeat.
+void MaterialSamplerModes(const model::Model& mdl, const model::ModelMaterial& mat,
+                          u8& outU, u8& outV)
+{
+    outU = 0; outV = 0;
+    const i32 texIndices[] = { mat.baseColorTextureIndex, mat.normalTextureIndex,
+                               mat.metallicRoughnessTextureIndex, mat.emissiveTextureIndex,
+                               mat.occlusionTextureIndex };
+    const Span<const model::TextureSampler> samplers = mdl.samplers();
+    for (i32 t : texIndices)
+    {
+        if (t < 0 || static_cast<usize>(t) >= mdl.textures().Size()) { continue; }
+        const i32 s = mdl.textures()[static_cast<usize>(t)]->samplerIndex;
+        if (s < 0 || static_cast<usize>(s) >= samplers.Size()) { continue; }
+        outU = AddressModeFromWrap(samplers[static_cast<usize>(s)].wrapS);
+        outV = AddressModeFromWrap(samplers[static_cast<usize>(s)].wrapT);
+        return;
+    }
+}
+
 // Display name for an imported texture: the authored texture/image name when present,
 // else the URI's file stem (Default_albedo.jpg -> Default_albedo), else "tex.{index}"
 // (embedded textures with no identity). Callers unique-ify per destination group.
