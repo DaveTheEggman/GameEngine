@@ -794,6 +794,16 @@ export namespace draconic::editor::app
                 content::Group* group = row->group;
                 auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
                 menu->AddItem(u8"Open", [self, group]() { self->SelectGroup(group); });
+                menu->AddItem(u8"Cook Group", [self, group]() {
+                    Array<Guid> ids;
+                    CollectInstanceIds(group, ids);
+                    self->m_cook->RequestCookFor(Move(ids), false);
+                });
+                menu->AddItem(u8"Rebuild Group", [self, group]() {
+                    Array<Guid> ids;
+                    CollectInstanceIds(group, ids);
+                    self->m_cook->RequestCookFor(Move(ids), true);
+                });
                 menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
                 menu->AddSeparator();
                 menu->AddItem(u8"Delete Group", [self, group]() { self->ConfirmDeleteGroup(group); });
@@ -823,8 +833,16 @@ export namespace draconic::editor::app
                               self->RebuildList();
                           });
             menu->AddSeparator();
-            menu->AddItem(u8"Cook", [self]() { self->m_cook->RequestCook(false); });
-            menu->AddItem(u8"Rebuild All", [self]() { self->m_cook->RequestCook(true); });
+            // Scoped: the selected assets + their dependency closure (Build > Cook All stays
+            // the whole-project path) - huge scenes cook one asset/group at a time.
+            menu->AddItem(u8"Cook", [self, targets]() {
+                Array<Guid> ids = targets;
+                self->m_cook->RequestCookFor(Move(ids), false);
+            });
+            menu->AddItem(u8"Rebuild", [self, targets]() {
+                Array<Guid> ids = targets;
+                self->m_cook->RequestCookFor(Move(ids), true);
+            });
             menu->AddSeparator();
             String deleteLabel(u8"Delete");
             if (targets.Size() > 1)
@@ -866,6 +884,19 @@ export namespace draconic::editor::app
                 if (!seen) { categories.PushBack(creator.category.AsView()); }
             }
             menu->AddItem(u8"New Group", [self, target]() { self->CreateGroupIn(target); });
+            if (target != nullptr)
+            {
+                menu->AddItem(u8"Cook Group", [self, target]() {
+                    Array<Guid> ids;
+                    CollectInstanceIds(target, ids);
+                    self->m_cook->RequestCookFor(Move(ids), false);
+                });
+                menu->AddItem(u8"Rebuild Group", [self, target]() {
+                    Array<Guid> ids;
+                    CollectInstanceIds(target, ids);
+                    self->m_cook->RequestCookFor(Move(ids), true);
+                });
+            }
             if (target != nullptr && target->Parent() != nullptr)
             {
                 menu->AddItem(u8"Rename Group", [self, target]() {

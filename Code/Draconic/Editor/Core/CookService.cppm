@@ -122,6 +122,31 @@ export namespace draconic::editor
             });
         }
 
+        /// Scoped cook: the given source instances plus their dependency closure (a group's
+        /// ids, one asset, ...). Same three-phase flow as RequestCook; queued via RunWhenIdle
+        /// when a cook is already in flight. No orphan sweep (whole-project concern).
+        void RequestCookFor(Array<Guid> roots, bool force = false)
+        {
+            if (!IsReady() || roots.IsEmpty()) { return; }
+            if (IsCooking())
+            {
+                EditorCookService* self = this;
+                RunWhenIdle(Function<void()>{ [self, roots = Move(roots), force]() mutable {
+                    self->RequestCookFor(Move(roots), force);
+                } });
+                return;
+            }
+            JoinWorker();
+            m_cooking.store(true);
+            CookDriver* driver = m_driver.Get();
+            EditorCookService* self = this;
+            m_worker = MakeUnique<Thread>(DefaultAllocator(),
+                                          [self, driver, roots = Move(roots), force]() {
+                self->m_plan = driver->PlanFor(Span<const Guid>{ roots.Data(), roots.Size() }, force);
+                self->m_planReady.store(true);
+            });
+        }
+
         /// Phase 2+3 hand-off: PrepareProducts on the main thread, then the build worker.
         void StartBuilds()
         {

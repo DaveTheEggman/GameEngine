@@ -247,6 +247,43 @@ export namespace draconic::editor
 
         [[nodiscard]] CookDb& Db() noexcept { return m_db; }
 
+        /// Scoped plan: the requested roots plus their dependency CLOSURE (reads +
+        /// references, transitively - a material's textures cook with it). `force` re-cooks
+        /// the ROOTS regardless of cleanliness; closure deps keep the normal clean check.
+        /// No orphan sweep (that is a whole-project concern). Lets huge projects cook one
+        /// group/asset at a time instead of everything at once.
+        [[nodiscard]] CookPlan PlanFor(Span<const Guid> roots, bool force = false)
+        {
+            CookPlan plan;
+            m_recipeMemo.Clear();
+
+            Array<Guid> queue;
+            Array<Guid> visited;
+            for (const Guid& id : roots) { queue.PushBack(id); }
+            HashMap<Guid, i32> levels;
+            usize head = 0;
+            while (head < queue.Size())
+            {
+                const Guid id = queue[head++];
+                bool seen = false;
+                for (const Guid& v : visited) { if (v == id) { seen = true; break; } }
+                if (seen) { continue; }
+                visited.PushBack(id);
+
+                content::Instance* instance = m_sourceDb->GetInstance(id);
+                if (instance == nullptr) { continue; }
+                bool isRoot = false;
+                for (const Guid& r : roots) { if (r == id) { isRoot = true; break; } }
+
+                AssetDependencies deps;
+                PlanInstance(*instance, force && isRoot, plan, levels, &deps);
+                for (const Guid& dep : deps.reads) { queue.PushBack(dep); }
+                for (const Guid& dep : deps.references) { queue.PushBack(dep); }
+            }
+            SortByLevel(plan.dirty);
+            return plan;
+        }
+
         /// Compute the dirty set (+ orphans). `force` marks every buildable instance dirty.
         [[nodiscard]] CookPlan Plan(bool force = false)
         {
@@ -260,45 +297,7 @@ export namespace draconic::editor
             HashMap<Guid, i32> levels;   // read-dep depth per source (0 = no reads)
             for (content::Instance* instance : instances)
             {
-                IAssetBuilder* builder = m_builders->FindByTypeName(instance->TypeName());
-                if (builder == nullptr) { ++plan.unbuildable; continue; }
-
-                CookItem item;
-                item.source = instance->Id();
-                item.path = instance->Path();
-                item.builder = builder;
-                item.asset = instance->ReadObject();
-                if (item.asset.Get() == nullptr)
-                {
-                    // Deserialization failed - usually a source written by an OLDER schema
-                    // (no asset compatibility by policy): delete + re-import it.
-                    DRACONIC_LOG_WARNING(u8"Cook",
-                        u8"'{}' failed to deserialize (stale schema? delete + re-import)", item.path);
-                    ++plan.unbuildable;
-                    continue;
-                }
-                Asset* asset = Cast<Asset>(item.asset.Get());
-                if (asset == nullptr)
-                {
-                    DRACONIC_LOG_WARNING(u8"Cook", u8"'{}' has a builder but is not an Asset", item.path);
-                    ++plan.unbuildable;
-                    continue;
-                }
-
-                AssetBuildContext scanCtx;
-                scanCtx.sources = m_sources;
-                scanCtx.db = m_sourceDb;
-                builder->ScanDependencies(*asset, scanCtx, item.deps);
-
-                item.recipeHash = ComputeRecipe(*instance, *asset, *builder, item.deps, 0);
-                item.level = ReadDepth(item.source, item.deps, levels, 0);
-
-                const CookRecord* record = m_db.Find(item.source);
-                const bool productExists = m_cookedDb->GetInstance(item.source) != nullptr;
-                const bool clean = !force && record != nullptr && !record->failed
-                                && record->recipeHash == item.recipeHash && productExists;
-                if (clean) { ++plan.upToDate; }
-                else { plan.dirty.PushBack(Move(item)); }
+                PlanInstance(*instance, force, plan, levels, nullptr);
             }
 
             // Dependency order: stable sort by level (reads cook before their consumers).
@@ -315,6 +314,58 @@ export namespace draconic::editor
             plan.orphans = Move(orphans);
             return plan;
         }
+
+    private:
+        /// Scan one source instance and append it to the plan when dirty (or forced).
+        /// `outDeps` (optional) receives its dependencies even when clean - PlanFor walks
+        /// the closure through clean items too.
+        void PlanInstance(content::Instance& instanceRef, bool force, CookPlan& plan,
+                          HashMap<Guid, i32>& levels, AssetDependencies* outDeps)
+        {
+            content::Instance* instance = &instanceRef;
+            IAssetBuilder* builder = m_builders->FindByTypeName(instance->TypeName());
+            if (builder == nullptr) { ++plan.unbuildable; return; }
+
+            CookItem item;
+            item.source = instance->Id();
+            item.path = instance->Path();
+            item.builder = builder;
+            item.asset = instance->ReadObject();
+            if (item.asset.Get() == nullptr)
+            {
+                // Deserialization failed - usually a source written by an OLDER schema
+                // (no asset compatibility by policy): delete + re-import it.
+                DRACONIC_LOG_WARNING(u8"Cook",
+                    u8"'{}' failed to deserialize (stale schema? delete + re-import)", item.path);
+                ++plan.unbuildable;
+                return;
+            }
+            Asset* asset = Cast<Asset>(item.asset.Get());
+            if (asset == nullptr)
+            {
+                DRACONIC_LOG_WARNING(u8"Cook", u8"'{}' has a builder but is not an Asset", item.path);
+                ++plan.unbuildable;
+                return;
+            }
+
+            AssetBuildContext scanCtx;
+            scanCtx.sources = m_sources;
+            scanCtx.db = m_sourceDb;
+            builder->ScanDependencies(*asset, scanCtx, item.deps);
+            if (outDeps != nullptr) { *outDeps = item.deps; }
+
+            item.recipeHash = ComputeRecipe(*instance, *asset, *builder, item.deps, 0);
+            item.level = ReadDepth(item.source, item.deps, levels, 0);
+
+            const CookRecord* record = m_db.Find(item.source);
+            const bool productExists = m_cookedDb->GetInstance(item.source) != nullptr;
+            const bool clean = !force && record != nullptr && !record->failed
+                            && record->recipeHash == item.recipeHash && productExists;
+            if (clean) { ++plan.upToDate; }
+            else { plan.dirty.PushBack(Move(item)); }
+        }
+
+    public:
 
         /// Cook the plan. Items run level-by-level; within a level in parallel when a
         /// JobSystem was provided. Persists the pipeline DB at the end.
@@ -655,6 +706,10 @@ export namespace draconic::editor
             {
                 DRACONIC_LOG_ERROR(u8"Cook", u8"'{}' failed to cook", item.path);
             }
+            // Release the deserialized source NOW: plans previously kept every item's object
+            // (full mesh vertex blobs, texture tables) alive until the whole cook finished -
+            // large scenes (Sponza) ran the process out of memory.
+            item.asset = RefPtr<ISerializable>{};
             return built.IsOk();
         }
 

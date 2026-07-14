@@ -693,6 +693,33 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
         CHECK(project->CookedDb().GetInstance(foreign) == nullptr);   // stale removed
     }
 
+    // Scoped plans: PlanFor(roots) covers the roots + their dependency closure ONLY.
+    {
+        Guid matGuid, meshGuid;
+        for (draconic::content::Instance* inst : duckGroup2->Instances())
+        {
+            if (inst->TypeName() == StringView(u8"MaterialAsset"))        { matGuid = inst->Id(); }
+            else if (inst->TypeName() == StringView(u8"StaticMeshAsset")) { meshGuid = inst->Id(); }
+        }
+        REQUIRE(!matGuid.IsNil());
+        REQUIRE(!meshGuid.IsNil());
+
+        // Everything is clean after the full cook: a scoped un-forced plan is empty.
+        Guid meshRoots[] = { meshGuid };
+        CookPlan clean = driver.PlanFor(Span<const Guid>{ meshRoots, 1 });
+        CHECK(clean.dirty.IsEmpty());
+        CHECK(clean.orphans.IsEmpty());   // scoped plans never sweep
+
+        // Force re-cooks the ROOT only; its clean dependency closure (textures) stays out.
+        Guid matRoots[] = { matGuid };
+        CookPlan forced = driver.PlanFor(Span<const Guid>{ matRoots, 1 }, true);
+        REQUIRE(forced.dirty.Size() == 1u);
+        CHECK(forced.dirty[0].source == matGuid);
+        CookStats scopedStats = driver.Execute(forced);
+        CHECK(scopedStats.failed == 0u);
+        CHECK(scopedStats.cooked == 1u);
+    }
+
     // The texture product must deserialize to a SANE TextureResource (the crash showed
     // garbage width/height/mips from a misparsed product).
     bool textureChecked = false;
