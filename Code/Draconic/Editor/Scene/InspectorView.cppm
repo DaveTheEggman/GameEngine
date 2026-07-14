@@ -80,6 +80,83 @@ export namespace draconic::editor
         RefPtr<ui::Button> m_button;
     };
 
+
+    // --- Property-attribute conventions (reflection PropAttribute metadata -> inspector) ---
+    //
+    //   "displayName"  String  - row label override (default: prettified property name)
+    //   "description"  String  - row tooltip
+    //   "range"        Float4  - {min, max, step, unused}: f32 rows become slider+field
+    //   "visibleWhen"  String  - "prop" (visible while prop is truthy) or "prop=1,2"
+    //                            (visible while prop's raw int value is in the list)
+
+    /// Parsed "visibleWhen" condition.
+    struct PropertyCondition
+    {
+        String prop;        // the dependent property's reflected name
+        Array<i64> values;  // empty = truthy test
+    };
+
+    [[nodiscard]] inline bool ParsePropertyCondition(StringView spec, PropertyCondition& out)
+    {
+        const utf8char* d = spec.Data();
+        usize eq = spec.Size();
+        for (usize i = 0; i < spec.Size(); ++i) { if (d[i] == u8'=') { eq = i; break; } }
+        if (eq == 0) { return false; }
+        out.prop = String(spec.SubStr(0, eq));
+        out.values.Clear();
+        if (eq == spec.Size()) { return true; }   // truthy form
+        i64 value = 0;
+        bool negative = false;
+        bool any = false;
+        for (usize i = eq + 1; i <= spec.Size(); ++i)
+        {
+            const utf8char c = (i < spec.Size()) ? d[i] : u8',';   // sentinel comma flushes
+            if (c == u8',')
+            {
+                if (!any) { return false; }
+                out.values.PushBack(negative ? -value : value);
+                value = 0; negative = false; any = false;
+            }
+            else if (c == u8'-' && !any && !negative) { negative = true; }
+            else if (c >= u8'0' && c <= u8'9') { value = value * 10 + (c - u8'0'); any = true; }
+            else { return false; }
+        }
+        return !out.values.IsEmpty();
+    }
+
+    [[nodiscard]] inline bool MatchesPropertyCondition(const PropertyCondition& condition, i64 raw)
+    {
+        if (condition.values.IsEmpty()) { return raw != 0; }
+        for (i64 v : condition.values) { if (v == raw) { return true; } }
+        return false;
+    }
+
+    /// "castsShadows" -> "Casts Shadows", "fovYRadians" -> "Fov Y Radians", "IBL" -> "IBL".
+    [[nodiscard]] inline String PrettifyPropertyName(StringView name)
+    {
+        const utf8char* d = name.Data();
+        String out;
+        bool prevLower = false;
+        bool prevUpper = false;
+        for (usize i = 0; i < name.Size(); ++i)
+        {
+            utf8char c = d[i];
+            const bool upper = (c >= u8'A' && c <= u8'Z');
+            const bool lower = (c >= u8'a' && c <= u8'z');
+            if (i == 0 && lower) { c = static_cast<utf8char>(c - (u8'a' - u8'A')); }
+            else if (upper)
+            {
+                const bool nextLower = (i + 1 < name.Size())
+                    && (d[i + 1] >= u8'a' && d[i + 1] <= u8'z');
+                if (prevLower || (prevUpper && nextLower)) { out += u8' '; }
+            }
+            out += c;
+            prevLower = lower;
+            prevUpper = upper;
+        }
+        return out;
+    }
+
     class SceneInspectorView : public ui::ViewGroup
     {
         DRACONIC_OBJECT(SceneInspectorView, ui::ViewGroup)
@@ -275,7 +352,14 @@ export namespace draconic::editor
                 }
                 for (const PropertyInfo& prop : Properties(*type))
                 {
+                    const usize firstRow = m_grid->PropertyCount();
                     BuildSettingRow(type, prop, category);
+                    ApplyPropertyPresentation(type, prop, firstRow,
+                        [edit = m_edit, type]() -> Instance {
+                            dscene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+                            return (system != nullptr)
+                                ? Instance{ system->SettingsInstance(), type } : Instance{};
+                        });
                 }
             });
         }
@@ -358,6 +442,21 @@ export namespace draconic::editor
                     const f32* f = v.TryGet<f32>();
                     return (f != nullptr) ? static_cast<f64>(*f) : 0.0;
                 };
+                // "range" attribute -> bounded slider+field instead of a bare numeric field.
+                if (const Float4* range = RangeOf(prop))
+                {
+                    auto editor = MakeRef<tk::RangeEditor>(DefaultAllocator(), name,
+                        static_cast<f32>(value()), range->x, range->y, range->z,
+                        readOnly ? Function<void(f32)>{} : Function<void(f32)>{
+                            [edit, type, propName](f32 v) {
+                                edit->SetSceneSettingProperty(type, propName, Variant::From<f32>(v));
+                            } },
+                        category);
+                    AddEditor(editor.Get(), [value, raw = editor.Get()]() {
+                        raw->SetValue(static_cast<f32>(value()));
+                    });
+                    return;
+                }
                 auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name, value(),
                     -1e9, 1e9, 0.1, 2,
                     readOnly ? Function<void(f64)>{} : Function<void(f64)>{
@@ -427,14 +526,38 @@ export namespace draconic::editor
         {
             const TypeInfo* type = mgr.ComponentType();
             if (type == nullptr) { return; }
+            // Category = the type name minus a trailing "Component", prettified
+            // ("ReflectionProbeComponent" -> "Reflection Probe").
             const StringView fallback = mgr.SerializationTypeId();
-            const StringView category = IsRegisteredType(type)
-                ? StringView(reinterpret_cast<const utf8char*>(type->name))
-                : (fallback.IsEmpty() ? StringView(u8"(unreflected component)") : fallback);
+            String categoryStorage;
+            if (IsRegisteredType(type))
+            {
+                StringView n(reinterpret_cast<const utf8char*>(type->name));
+                const StringView suffix = u8"Component";
+                if (n.Size() > suffix.Size()
+                    && n.SubStr(n.Size() - suffix.Size(), suffix.Size()) == suffix)
+                {
+                    n = n.SubStr(0, n.Size() - suffix.Size());
+                }
+                categoryStorage = PrettifyPropertyName(n);
+            }
+            else
+            {
+                categoryStorage = fallback.IsEmpty() ? StringView(u8"(unreflected component)") : fallback;
+            }
+            const StringView category = categoryStorage.AsView();
 
             for (const PropertyInfo& prop : Properties(*type))
             {
+                const usize firstRow = m_grid->PropertyCount();
                 BuildPropertyRow(id, type, prop, category);
+                ApplyPropertyPresentation(type, prop, firstRow,
+                    [edit = m_edit, id, type]() -> Instance {
+                        dscene::ComponentManagerBase* mgr = edit->FindManager(type);
+                        const dscene::EntityHandle e = edit->Resolve(id);
+                        return (mgr != nullptr && e.IsAssigned())
+                            ? mgr->GetComponentInstance(e) : Instance{};
+                    });
             }
 
             SceneEditContext* edit = m_edit;
@@ -448,6 +571,75 @@ export namespace draconic::editor
             auto remove = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove"),
                 Function<void()>{ [edit, id, type]() { edit->RemoveComponent(id, type); } }, category);
             m_grid->AddProperty(RefPtr<tk::PropertyEditor>(remove.Get()));
+        }
+
+        // Raw integral value of a bool/enum/int property via the address escape hatch.
+        [[nodiscard]] static i64 RawIntValue(const Instance& obj, const PropertyInfo& p)
+        {
+            void* address = (p.address != nullptr) ? p.address(obj) : nullptr;
+            if (address == nullptr) { return 0; }
+            switch (p.type->size)
+            {
+                case 1: return *static_cast<const i8*>(address);
+                case 2: return *static_cast<const i16*>(address);
+                case 8: return *static_cast<const i64*>(address);
+                default: return *static_cast<const i32*>(address);
+            }
+        }
+
+        // Applies the displayName/description/visibleWhen conventions to every row that
+        // `prop`'s Build*Row call just added (rows firstRow..end). `instance` is a copyable
+        // callable re-reading the owning object each frame so visibleWhen rows follow live
+        // edits (a plain lambda, NOT core::Function - that one is move-only and each row's
+        // refresher needs its own copy).
+        template <typename GetInstance>
+        void ApplyPropertyPresentation(const TypeInfo* type, const PropertyInfo& prop,
+                                       usize firstRow, GetInstance instance)
+        {
+            const core::Attribute* displayName = FindAttribute(prop, u8"displayName");
+            const core::Attribute* description = FindAttribute(prop, u8"description");
+            const core::Attribute* visibleWhen = FindAttribute(prop, u8"visibleWhen");
+
+            // Resolve the dependent property + condition once; refreshers share them.
+            const PropertyInfo* dependent = nullptr;
+            PropertyCondition condition;
+            if (visibleWhen != nullptr)
+            {
+                const String* spec = visibleWhen->value.TryGet<String>();
+                if (spec != nullptr && ParsePropertyCondition(spec->AsView(), condition))
+                {
+                    for (const PropertyInfo& p : Properties(*type))
+                    {
+                        if (StringView(reinterpret_cast<const utf8char*>(p.name)) == condition.prop.AsView())
+                        {
+                            dependent = &p;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            for (usize i = firstRow; i < m_grid->PropertyCount(); ++i)
+            {
+                tk::PropertyEditor* editor = m_grid->PropertyAt(i);
+                const String* label = (displayName != nullptr) ? displayName->value.TryGet<String>() : nullptr;
+                editor->SetDisplayName(label != nullptr ? label->AsView()
+                                                        : PrettifyPropertyName(editor->Name()).AsView());
+                if (description != nullptr)
+                {
+                    if (const String* s = description->value.TryGet<String>()) { editor->SetTooltip(s->AsView()); }
+                }
+                if (dependent != nullptr)
+                {
+                    auto refresh = [editor, dependent, condition, get = instance]() {
+                        const Instance obj = get();
+                        editor->SetRowVisible(!obj.IsEmpty()
+                            && MatchesPropertyCondition(condition, RawIntValue(obj, *dependent)));
+                    };
+                    refresh();
+                    m_refreshers.PushBack(Function<void()>{ Move(refresh) });
+                }
+            }
         }
 
         void BuildPropertyRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
@@ -569,6 +761,21 @@ export namespace draconic::editor
                     const f32* f = v.TryGet<f32>();
                     return (f != nullptr) ? static_cast<f64>(*f) : 0.0;
                 };
+                // "range" attribute -> bounded slider+field instead of a bare numeric field.
+                if (const Float4* range = RangeOf(prop))
+                {
+                    auto editor = MakeRef<tk::RangeEditor>(DefaultAllocator(), name,
+                        static_cast<f32>(value()), range->x, range->y, range->z,
+                        readOnly ? Function<void(f32)>{} : Function<void(f32)>{
+                            [edit, id, type, propName](f32 v) {
+                                edit->SetComponentProperty(id, type, propName, Variant::From<f32>(v));
+                            } },
+                        category);
+                    AddEditor(editor.Get(), [value, raw = editor.Get()]() {
+                        raw->SetValue(static_cast<f32>(value()));
+                    });
+                    return;
+                }
                 auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name, value(),
                     -1e9, 1e9, 0.1, 2,
                     readOnly ? Function<void(f64)>{} : Function<void(f64)>{
@@ -813,6 +1020,13 @@ export namespace draconic::editor
             AddEditor(raw, [self, id, type, propName, raw]() {
                 raw->SetValueText(self->AssetNameFor(self->RefTarget<T>(id, type, propName)));
             });
+        }
+
+        // The "range" attribute's {min, max, step} payload, or null when absent/mistyped.
+        [[nodiscard]] static const Float4* RangeOf(const PropertyInfo& prop)
+        {
+            const core::Attribute* attr = FindAttribute(prop, u8"range");
+            return (attr != nullptr) ? attr->value.TryGet<Float4>() : nullptr;
         }
 
         void AddEditor(tk::PropertyEditor* editor, Function<void()> refresher)
