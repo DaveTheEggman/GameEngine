@@ -61,6 +61,8 @@ export namespace draconic::modelimporter {
 // textures work. Returns one Guid per model texture (nil if it has no usable RGBA8 data).
 inline void CookTextures(const model::Model& model, content::Group* root, StringView namePrefix, Array<Guid>& outGuids)
 {
+    Array<bool> linear;
+    ClassifyLinearTextures(model, linear);
     const Span<model::ModelTexture* const> textures = model.textures();
     for (usize i = 0; i < textures.Size(); ++i) {
         const model::ModelTexture& t = *textures[i];
@@ -73,7 +75,10 @@ inline void CookTextures(const model::Model& model, content::Group* root, String
         texture::TextureResource res;
         res.width  = static_cast<u32>(t.width);
         res.height = static_cast<u32>(t.height);
-        res.format = rhi::TextureFormat::RGBA8UnormSrgb;   // base-color textures are sRGB-encoded
+        // Color space follows USAGE: data maps (normal/MR/AO) stay linear (sRGB-decoding
+        // corrupts them); color maps (albedo/emissive) are sRGB-encoded.
+        res.format = (i < linear.Size() && linear[i]) ? rhi::TextureFormat::RGBA8Unorm
+                                                      : rhi::TextureFormat::RGBA8UnormSrgb;
         res.mipLevels = 1;                                 // factory uploads mip 0 (no mip gen yet)
         res.generateMipmaps = false;
 
@@ -92,6 +97,7 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
                           const Array<Guid>& textureGuids, Array<Guid>& outMatGuids, Array<Guid>& outAlbedo)
 {
     materials::MaterialAssetBuilder builder;
+    HashMap<u64, Guid> bakedMR;   // per-pair bake cache (materials often share maps)
     const Span<model::ModelMaterial* const> materials = model.materials();
     for (usize i = 0; i < materials.Size(); ++i) {
         const model::ModelMaterial& m = *materials[i];
@@ -100,9 +106,83 @@ inline void CookMaterials(const model::Model& model, content::Group* root, Strin
         // names the builtin "forward" shader (no cooked ShaderResource needed).
         RefPtr<materials::Material> built = materials::CreatePBR(Format(u8"{}.mat.{}", namePrefix, i).AsView(),
                                                      m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
+        built->SetDefaultColor(u8"EmissiveColor",
+            Float4{ m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z, 1.0f });
+        built->SetDefaultFloat(u8"OcclusionStrength", m.occlusionStrength);
+        built->SetDefaultFloat(u8"NormalScale", m.normalScale);
+        built->SetDefaultFloat(u8"AlphaCutoff", m.alphaCutoff);
         materials::MaterialAsset asset;
         materials::MaterialImporter::Import(*built, Guid{}, asset);   // nil shaderId -> use shaderName
         asset.source.shaderName = String(u8"forward");
+        // Wire every authored texture (see FileImport::ImportMaterials - same self-contained rule).
+        {
+            const auto wire = [&](i32 texIdx, core::StringView slot) {
+                if (texIdx >= 0 && static_cast<usize>(texIdx) < textureGuids.Size()
+                    && !textureGuids[static_cast<usize>(texIdx)].IsNil())
+                {
+                    asset.source.textureSlots.PushBack(String(slot));
+                    asset.source.textureIds.PushBack(textureGuids[static_cast<usize>(texIdx)]);
+                }
+            };
+            wire(m.baseColorTextureIndex,         u8"AlbedoMap");
+            wire(m.normalTextureIndex,            u8"NormalMap");
+            wire(m.occlusionTextureIndex,         u8"OcclusionMap");
+            wire(m.emissiveTextureIndex,          u8"EmissiveMap");
+            // Metallic-roughness: glTF's packed texture wires directly; FBX's separate maps
+            // bake into a packed product (see FileImport - same rule, product-side here).
+            if (m.metallicRoughnessTextureIndex >= 0)
+            {
+                wire(m.metallicRoughnessTextureIndex, u8"MetallicRoughnessMap");
+            }
+            else if (m.separateRoughnessTextureIndex >= 0 || m.separateMetalnessTextureIndex >= 0)
+            {
+                const u64 key = (static_cast<u64>(static_cast<u32>(m.separateRoughnessTextureIndex)) << 32)
+                              | static_cast<u64>(static_cast<u32>(m.separateMetalnessTextureIndex));
+                Guid packed;
+                if (const Guid* hit = bakedMR.Find(key)) { packed = *hit; }
+                else
+                {
+                    u32 w = 0, h = 0;
+                    Array<u8> pixels = BakePackedMetallicRoughness(
+                        model, m.separateRoughnessTextureIndex, m.separateMetalnessTextureIndex, w, h);
+                    if (!pixels.IsEmpty())
+                    {
+                        texture::TextureResource res;
+                        res.width = w; res.height = h;
+                        res.format = rhi::TextureFormat::RGBA8Unorm;   // data map: linear
+                        res.mipLevels = 1;
+                        res.generateMipmaps = false;
+                        const String texName = Format(u8"{}.mr.packed.{}.{}", namePrefix,
+                                                      m.separateRoughnessTextureIndex,
+                                                      m.separateMetalnessTextureIndex);
+                        content::Instance* texInst = root->CreateInstance(texName.AsView(),
+                            texture::TextureResource::StaticType());
+                        if (texInst != nullptr && texInst->WriteObject(res).IsOk()
+                            && texInst->WriteData(u8"data",
+                                   Span<const byte>{ reinterpret_cast<const byte*>(pixels.Data()), pixels.Size() }).IsOk())
+                        {
+                            packed = texInst->Id();
+                        }
+                    }
+                    bakedMR.InsertOrAssign(key, packed);
+                }
+                if (!packed.IsNil())
+                {
+                    asset.source.textureSlots.PushBack(String(u8"MetallicRoughnessMap"));
+                    asset.source.textureIds.PushBack(packed);
+                }
+            }
+        // Authored pipeline state: alpha mode -> blend (Mask = alpha-tested cutout w/ holey
+        // shadows; Blend = transparent pass) and double-sided -> no culling.
+        if (m.alphaMode == draconic::model::AlphaMode::Mask) {
+            asset.source.blendMode = static_cast<u8>(draconic::materials::BlendMode::Masked);
+        } else if (m.alphaMode == draconic::model::AlphaMode::Blend) {
+            asset.source.blendMode = static_cast<u8>(draconic::materials::BlendMode::AlphaBlend);
+        }
+        if (m.doubleSided) {
+            asset.source.cullMode = static_cast<u8>(draconic::materials::CullModeConfig::None);
+        }
+        }
 
         const String name = Format(u8"{}.mat.{}", namePrefix, i);
         content::Instance* inst = root->CreateInstance(name.AsView(), materials::MaterialSource::StaticType());

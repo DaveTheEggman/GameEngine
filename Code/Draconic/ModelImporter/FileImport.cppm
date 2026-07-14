@@ -238,6 +238,11 @@ export namespace draconic::modelimporter
         static void ImportTextures(const draconic::model::Model& model, content::Group& group,
                                    Array<Guid>& outGuids)
         {
+            // Color space follows USAGE: data maps (normal/MR/AO) stay linear - sRGB-decoding
+            // them corrupts the values (a flat normal 0.5 would linearize to ~0.21).
+            Array<bool> linear;
+            ClassifyLinearTextures(model, linear);
+
             const Span<draconic::model::ModelTexture* const> textures = model.textures();
             for (usize i = 0; i < textures.Size(); ++i)
             {
@@ -251,7 +256,9 @@ export namespace draconic::modelimporter
                 draconic::texture::TextureAsset asset;
                 asset.embeddedWidth = static_cast<u32>(t.width);
                 asset.embeddedHeight = static_cast<u32>(t.height);
-                asset.colorSpace = draconic::image::ImageColorSpace::Srgb;   // base-color maps
+                asset.colorSpace = (i < linear.Size() && linear[i])
+                    ? draconic::image::ImageColorSpace::Linear   // data maps (normal/MR/AO)
+                    : draconic::image::ImageColorSpace::Srgb;    // color maps (albedo/emissive)
                 asset.generateMipmaps = false;
 
                 content::Instance* inst = group.CreateInstance(
@@ -264,28 +271,98 @@ export namespace draconic::modelimporter
         }
 
         // PBR factors -> MaterialAsset instances (builtin "forward" shader by name).
+        // Bake-once cache for FBX separate metal/rough pairs (materials often share maps).
+        static Guid GetOrBakePackedMR(const draconic::model::Model& model, content::Group& group,
+                                      HashMap<u64, Guid>& cache, i32 roughIdx, i32 metalIdx)
+        {
+            const u64 key = (static_cast<u64>(static_cast<u32>(roughIdx)) << 32)
+                          | static_cast<u64>(static_cast<u32>(metalIdx));
+            if (const Guid* hit = cache.Find(key)) { return *hit; }
+
+            u32 w = 0, h = 0;
+            Array<u8> pixels = BakePackedMetallicRoughness(model, roughIdx, metalIdx, w, h);
+            if (pixels.IsEmpty()) { cache.InsertOrAssign(key, Guid{}); return Guid{}; }
+
+            draconic::texture::TextureAsset asset;
+            asset.embeddedWidth = w;
+            asset.embeddedHeight = h;
+            asset.colorSpace = draconic::image::ImageColorSpace::Linear;   // data map
+            asset.generateMipmaps = false;
+            const String name = Format(u8"mr.packed.{}.{}", roughIdx, metalIdx);
+            content::Instance* inst = group.CreateInstance(name.AsView(),
+                draconic::texture::TextureAsset::StaticType());
+            if (inst == nullptr || !inst->WriteObject(asset).IsOk()
+                || !inst->WriteData(u8"pixels",
+                       Span<const byte>{ reinterpret_cast<const byte*>(pixels.Data()), pixels.Size() }).IsOk())
+            {
+                cache.InsertOrAssign(key, Guid{});
+                return Guid{};
+            }
+            cache.InsertOrAssign(key, inst->Id());
+            return inst->Id();
+        }
+
         static void ImportMaterials(const draconic::model::Model& model, content::Group& group,
                                     const Array<Guid>& textureGuids, ModelManifestSource& manifest)
         {
+            HashMap<u64, Guid> bakedMR;   // per-pair bake cache (see GetOrBakePackedMR)
             const Span<draconic::model::ModelMaterial* const> materials = model.materials();
             for (usize i = 0; i < materials.Size(); ++i)
             {
                 const draconic::model::ModelMaterial& m = *materials[i];
                 RefPtr<draconic::materials::Material> built = draconic::materials::CreatePBR(
                     Format(u8"mat.{}", i).AsView(), m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
+                built->SetDefaultColor(u8"EmissiveColor",
+                    Float4{ m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z, 1.0f });
+                built->SetDefaultFloat(u8"OcclusionStrength", m.occlusionStrength);
+                built->SetDefaultFloat(u8"NormalScale", m.normalScale);
+                built->SetDefaultFloat(u8"AlphaCutoff", m.alphaCutoff);
                 draconic::materials::MaterialAsset asset;
                 draconic::materials::MaterialImporter::Import(*built, Guid{}, asset);
                 asset.source.shaderName = String(u8"forward");
 
-                // Wire the albedo texture INTO the material source (self-contained cooked
-                // material - a directly-picked material renders textured, not just via the
-                // model-spawn composite).
-                const i32 texIdx = m.baseColorTextureIndex;
-                if (texIdx >= 0 && static_cast<usize>(texIdx) < textureGuids.Size()
-                    && !textureGuids[static_cast<usize>(texIdx)].IsNil())
+                // Wire EVERY authored texture INTO the material source (self-contained cooked
+                // material - a directly-picked material renders fully textured, not just via
+                // the model-spawn composite). Previously only the albedo made it across.
+                const auto wire = [&](i32 texIdx, StringView slot) {
+                    if (texIdx >= 0 && static_cast<usize>(texIdx) < textureGuids.Size()
+                        && !textureGuids[static_cast<usize>(texIdx)].IsNil())
+                    {
+                        asset.source.textureSlots.PushBack(String(slot));
+                        asset.source.textureIds.PushBack(textureGuids[static_cast<usize>(texIdx)]);
+                    }
+                };
+                wire(m.baseColorTextureIndex,         u8"AlbedoMap");
+                wire(m.normalTextureIndex,            u8"NormalMap");
+                wire(m.occlusionTextureIndex,         u8"OcclusionMap");
+                wire(m.emissiveTextureIndex,          u8"EmissiveMap");
+                // Metallic-roughness: glTF's packed texture wires directly; FBX's separate
+                // grayscale maps BAKE into a packed one (G=rough, B=metal) - feeding either
+                // into the packed slot directly would bleed across channels.
+                if (m.metallicRoughnessTextureIndex >= 0)
                 {
-                    asset.source.textureSlots.PushBack(String(u8"AlbedoMap"));
-                    asset.source.textureIds.PushBack(textureGuids[static_cast<usize>(texIdx)]);
+                    wire(m.metallicRoughnessTextureIndex, u8"MetallicRoughnessMap");
+                }
+                else if (m.separateRoughnessTextureIndex >= 0 || m.separateMetalnessTextureIndex >= 0)
+                {
+                    const Guid packed = GetOrBakePackedMR(model, group, bakedMR,
+                                                          m.separateRoughnessTextureIndex,
+                                                          m.separateMetalnessTextureIndex);
+                    if (!packed.IsNil())
+                    {
+                        asset.source.textureSlots.PushBack(String(u8"MetallicRoughnessMap"));
+                        asset.source.textureIds.PushBack(packed);
+                    }
+                }
+                // Authored pipeline state: alpha mode -> blend (Mask = alpha-tested cutout w/ holey
+                // shadows; Blend = transparent pass) and double-sided -> no culling.
+                if (m.alphaMode == draconic::model::AlphaMode::Mask) {
+                    asset.source.blendMode = static_cast<u8>(draconic::materials::BlendMode::Masked);
+                } else if (m.alphaMode == draconic::model::AlphaMode::Blend) {
+                    asset.source.blendMode = static_cast<u8>(draconic::materials::BlendMode::AlphaBlend);
+                }
+                if (m.doubleSided) {
+                    asset.source.cullMode = static_cast<u8>(draconic::materials::CullModeConfig::None);
                 }
 
                 content::Instance* inst = group.CreateInstance(
