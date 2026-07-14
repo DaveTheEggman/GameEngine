@@ -78,7 +78,7 @@ struct VSInput {
     float3 normal   : TEXCOORD1;
     float2 uv       : TEXCOORD2;
     float4 color    : TEXCOORD3;
-    float3 tangent  : TEXCOORD4;
+    float4 tangent  : TEXCOORD4;   // xyz = tangent, w = TBN handedness (+-1)
 #ifdef INSTANCED
     uint4  dataOffsets : TEXCOORD5;   // .x = index into Instances[] (instance-stepped)
 #endif
@@ -94,7 +94,7 @@ struct VSOutput {
     float3 normalWS  : TEXCOORD0;
     float4 color     : TEXCOORD1;
     float2 uv        : TEXCOORD2;
-    float3 tangentWS : TEXCOORD3;
+    float4 tangentWS : TEXCOORD3;   // xyz world tangent, w handedness
     float3 worldPos  : TEXCOORD4;
     float4 curClip   : TEXCOORD5;   // unjittered current clip pos (motion vectors)
     float4 prevClip  : TEXCOORD6;   // unjittered previous clip pos (motion vectors)
@@ -112,7 +112,7 @@ VSOutput main(VSInput input) {
 #endif
     float3 lp = input.position;
     float3 ln = input.normal;
-    float3 lt = input.tangent;
+    float3 lt = input.tangent.xyz;
     float3 lpPrev = input.position;   // previous-frame local position (differs from lp only when skinned)
 #ifdef SKINNED
     // Blend the four influencing bones (joint indices packed 4x u16 -> 2x u32) into a skin matrix. The
@@ -140,7 +140,7 @@ VSOutput main(VSInput input) {
     o.normalWS  = normalize(mul(float4(ln, 0.0), world).xyz);
     o.color     = input.color * tint;                           // vertex color * per-instance tint
     o.uv        = input.uv;                                     // consume the full vertex layout
-    o.tangentWS = mul(float4(lt, 0.0), world).xyz;
+    o.tangentWS = float4(mul(float4(lt, 0.0), world).xyz, input.tangent.w);
     o.worldPos  = worldPos.xyz;
     o.curClip   = o.clip;                                        // (jitter is baked into ViewProj; PS unjitters)
     o.prevClip  = mul(prevWorldPos, PrevViewProj);
@@ -352,11 +352,17 @@ cbuffer Material : register(b0, space2) {    // data-driven PBR material (inferr
     float  Roughness;
     float  _matPad0;
     float  _matPad1;
+    float4 EmissiveColor;      // rgb x EmissiveMap = emitted radiance (offset 32)
+    float  OcclusionStrength;  // 0..1 blend toward the sampled AO (glTF occlusionStrength; offset 48)
+    float  NormalScale;        // scales the tangent-space XY perturbation (glTF normalScale)
+    float  AlphaCutoff;        // ALPHA_TEST threshold (glTF alphaCutoff; 0.5 = the spec default)
+    float  _matPad2;
+    // (pre-straggler materials upgrade at load: emissive black, strength/scale 1, cutoff 0.5)
 };
 // Standard PBR material maps (the fixed forward set-2 contract, Sedulous-aligned). Unset maps bind a
-// neutral default (white for albedo/MR/AO, flat normal) so untextured materials are unaffected.
-// Sampled now: albedo, metallic-roughness (glTF: G=roughness, B=metallic), occlusion. Normal-map and
-// emissive are bound (importer can populate) but not yet sampled.
+// neutral default (white for albedo/MR/AO, flat normal for NormalMap, BLACK for EmissiveMap) so
+// untextured materials are unaffected. All five are sampled: albedo, normal (tangent-space),
+// metallic-roughness (glTF: G=roughness, B=metallic), occlusion, emissive.
 Texture2D    AlbedoMap            : register(t0, space2);
 Texture2D    NormalMap            : register(t1, space2);
 Texture2D    MetallicRoughnessMap : register(t2, space2);
@@ -368,7 +374,7 @@ struct PSInput {
     float3 normalWS  : TEXCOORD0;
     float4 color     : TEXCOORD1;
     float2 uv        : TEXCOORD2;
-    float3 tangentWS : TEXCOORD3;
+    float4 tangentWS : TEXCOORD3;   // xyz world tangent, w handedness
     float3 worldPos  : TEXCOORD4;
     float4 curClip   : TEXCOORD5;   // motion vectors (unjittered current/previous clip pos)
     float4 prevClip  : TEXCOORD6;
@@ -464,7 +470,22 @@ PSOutput main(PSInput input) {
 #else
 float4 main(PSInput input) : SV_Target0 {
 #endif
+    // Tangent-space normal mapping. The flat default (0.5, 0.5, 1) decodes to (0,0,1) = the
+    // geometric normal, so untextured materials are untouched. tangentWS.w carries the TBN
+    // handedness (glTF convention), so mirrored-UV geometry lights correctly. Degenerate
+    // tangents fall back to the geometric normal.
     float3 N = normalize(input.normalWS);
+    {
+        float3 T = input.tangentWS.xyz - N * dot(input.tangentWS.xyz, N);   // Gram-Schmidt re-orthogonalize
+        float  tLen = length(T);
+        if (tLen > 1e-4) {
+            T /= tLen;
+            float3 B = cross(N, T) * input.tangentWS.w;   // handedness: mirrored UVs flip the bitangent
+            float3 nTex = NormalMap.Sample(MainSampler, input.uv).xyz * 2.0 - 1.0;
+            nTex.xy *= NormalScale;   // authored bump strength (1 = as-authored)
+            N = normalize(nTex.x * T + nTex.y * B + nTex.z * N);
+        }
+    }
     float3 V = normalize(CameraPos - input.worldPos);
 
     float4 albedoTex = AlbedoMap.Sample(MainSampler, input.uv);
@@ -472,8 +493,8 @@ float4 main(PSInput input) : SV_Target0 {
     float  alpha     = saturate(input.color.a * BaseColor.a * albedoTex.a);   // surface opacity (alpha blend)
 #ifdef ALPHA_TEST
     // Masked geometry: cut out sub-cutoff fragments before shading (skips lighting + writes no depth/
-    // G-buffer for the hole). 0.5 matches the glTF alpha-cutoff default.
-    if (alpha < 0.5) { discard; }
+    // G-buffer for the hole). The cutoff is authored (glTF alphaCutoff; 0.5 default).
+    if (alpha < AlphaCutoff) { discard; }
 #endif
     float2 mr        = MetallicRoughnessMap.Sample(MainSampler, input.uv).gb;   // glTF: G=roughness, B=metallic
     float  metallic  = saturate(Metallic * mr.y);
@@ -506,7 +527,7 @@ float4 main(PSInput input) : SV_Target0 {
         }
     }
 
-    float  ao = OcclusionMap.Sample(MainSampler, input.uv).r;
+    float  ao = lerp(1.0, OcclusionMap.Sample(MainSampler, input.uv).r, OcclusionStrength);
     float3 ambient;
     if (IBLMaxLod >= 0.0) {
         // Image-based ambient: SH9 diffuse irradiance + split-sum prefiltered specular.
@@ -565,18 +586,102 @@ float4 main(PSInput input) : SV_Target0 {
     // remains (else the TAA reprojection wobbles with the jitter). The jitter added to projection(2,0/1)
     // shifts NDC by -Jitter (RH: clip.w = -viewZ), so we ADD Jitter back to recover the geometric NDC.
     // NDC.y is flipped vs UV.y, hence the (0.5, -0.5) scale.
+    // Emitted radiance: factor x map, added unlit on top (HDR - feeds bloom). Black default
+    // (factor AND map) keeps pre-emissive materials exact.
+    float3 emissive = EmissiveColor.rgb * EmissiveMap.Sample(MainSampler, input.uv).rgb;
     float2 curNDC  = input.curClip.xy  / input.curClip.w  + Jitter.xy;
     float2 prevNDC = input.prevClip.xy / input.prevClip.w + Jitter.zw;
     float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
 
     PSOutput o;
-    o.color    = float4(ambient + Lo, alpha);
-    o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space normal (octahedral)
+    o.color    = float4(ambient + Lo + emissive, alpha);
+    o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space MAPPED normal (octahedral)
     o.velocity = velocity;
     o.material = float2(roughness, metallic);   // SSR reads these to gate/fade reflections
     return o;
 #else
-    return float4(ambient + Lo, alpha);   // color-only (transparent pass): alpha drives AlphaBlend
+    float3 emissive = EmissiveColor.rgb * EmissiveMap.Sample(MainSampler, input.uv).rgb;
+    return float4(ambient + Lo + emissive, alpha);   // color-only (transparent pass): alpha drives AlphaBlend
+#endif
+}
+)");
+}
+
+// Unlit fragment: albedo texture * BaseColor * vertex color, no lighting - UI-ish surfaces,
+// stylized looks, debug fills. Shares ForwardVS (registered under the "unlit" shader name), so
+// the PSInput layout matches; the GBUFFER permutation still writes normal/velocity/material so
+// the post stack (TAA/GTAO/SSR) treats unlit surfaces as fully rough, non-metallic geometry.
+[[nodiscard]] inline core::StringView UnlitPS() noexcept
+{
+    return core::StringView(u8R"(
+cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
+    row_major float4x4 ViewProj;
+    row_major float4x4 View;
+    row_major float4x4 CascadeViewProj[4];
+    float3 CameraPos; float LightCount;
+    uint   LightOffset; int ClusterVpX; int ClusterVpY; float IBLMaxLod;
+    uint   ClusterGridX; uint ClusterGridY; uint ClusterSliceCount; uint ClusterTileSize;
+    float  ClusterNear;  float ClusterFar;  float ClusterLogScale;  float ClusterLogBias;
+    float3 Ambient; float ShadowCascadeCount;
+    float4 CascadeSplitFar;
+    float4 CascadeTexelSize;
+    float  ShadowNormalBias; float ShadowDepthBias; float CascadeLayerBase; uint LocalShadowBase;
+    row_major float4x4 PrevViewProj;
+    float4 Jitter;
+    float4 ProbeCenter;
+    float4 ProbeBoxMin;
+    float4 ProbeBoxMax;
+    float4 ShadowParams;
+};
+
+cbuffer Material : register(b0, space2) {
+    float4 BaseColor;
+};
+Texture2D    AlbedoMap   : register(t0, space2);
+SamplerState MainSampler : register(s0, space2);
+
+struct PSInput {
+    float4 pos       : SV_Position;
+    float3 normalWS  : TEXCOORD0;
+    float4 color     : TEXCOORD1;
+    float2 uv        : TEXCOORD2;
+    float4 tangentWS : TEXCOORD3;   // xyz world tangent, w handedness
+    float3 worldPos  : TEXCOORD4;
+    float4 curClip   : TEXCOORD5;
+    float4 prevClip  : TEXCOORD6;
+};
+
+float2 OctEncode(float3 n) {
+    n /= (abs(n.x) + abs(n.y) + abs(n.z));
+    float2 e = n.xy;
+    if (n.z < 0.0) { e = (1.0 - abs(float2(e.y, e.x))) * float2(e.x >= 0.0 ? 1.0 : -1.0, e.y >= 0.0 ? 1.0 : -1.0); }
+    return e;
+}
+
+#ifdef GBUFFER
+struct PSOutput {
+    float4 color    : SV_Target0;
+    float2 normal   : SV_Target1;
+    float2 velocity : SV_Target2;
+    float2 material : SV_Target3;
+};
+PSOutput main(PSInput input) {
+#else
+float4 main(PSInput input) : SV_Target0 {
+#endif
+    float4 albedoTex = AlbedoMap.Sample(MainSampler, input.uv);
+    float4 c = input.color * BaseColor * albedoTex;
+#ifdef GBUFFER
+    float2 curNDC  = input.curClip.xy  / input.curClip.w  + Jitter.xy;
+    float2 prevNDC = input.prevClip.xy / input.prevClip.w + Jitter.zw;
+    PSOutput o;
+    o.color    = c;
+    o.normal   = OctEncode(normalize(mul(float4(normalize(input.normalWS), 0.0), View).xyz));
+    o.velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
+    o.material = float2(1.0, 0.0);   // fully rough, non-metallic: SSR/IBL-adjacent passes skip it
+    return o;
+#else
+    return c;
 #endif
 }
 )");
@@ -627,7 +732,7 @@ struct VSInput {
     float3 normal   : TEXCOORD1;
     float2 uv       : TEXCOORD2;
     float4 color    : TEXCOORD3;
-    float3 tangent  : TEXCOORD4;
+    float4 tangent  : TEXCOORD4;   // xyz = tangent, w = TBN handedness (+-1)
 #ifdef INSTANCED
     uint4  dataOffsets : TEXCOORD5;   // .x = index into Instances[] (instance-stepped)
 #endif
