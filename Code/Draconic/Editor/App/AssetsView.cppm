@@ -900,6 +900,15 @@ export namespace draconic::editor::app
 
         void CreateGroupIn(content::Group* parent)
         {
+            // Cook gate: see ImportFile (structural DB mutation while the plan worker reads).
+            if (m_cook->IsCooking())
+            {
+                AssetsView* self = this;
+                m_cook->RunWhenIdle(Function<void()>{ [self, parent]() { self->CreateGroupIn(parent); } });
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"New group queued until the current cook finishes.");
+                return;
+            }
             if (parent == nullptr || m_context->Project() == nullptr) { return; }
             String name(u8"Group");
             for (i32 counter = 2; parent->GetGroup(name.AsView()) != nullptr; ++counter)
@@ -960,6 +969,17 @@ export namespace draconic::editor::app
 
         void ApplyRenameInstance(const Guid& id, StringView name)
         {
+            // Cook gate (renames move files + rewrite both DBs' entries).
+            if (m_cook->IsCooking())
+            {
+                AssetsView* self = this;
+                m_cook->RunWhenIdle(Function<void()>{ [self, id, renamed = String(name)]() {
+                    self->ApplyRenameInstance(id, renamed.AsView());
+                } });
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"Rename queued until the current cook finishes.");
+                return;
+            }
             if (m_context->Project() == nullptr) { return; }
             content::Instance* inst = Resolve(id);
             if (inst == nullptr) { return; }
@@ -993,6 +1013,17 @@ export namespace draconic::editor::app
 
         void ApplyRenameGroup(content::Group* group, StringView name)
         {
+            // Cook gate: see ApplyRenameInstance.
+            if (m_cook->IsCooking())
+            {
+                AssetsView* self = this;
+                m_cook->RunWhenIdle(Function<void()>{ [self, group, renamed = String(name)]() {
+                    self->ApplyRenameGroup(group, renamed.AsView());
+                } });
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"Rename queued until the current cook finishes.");
+                return;
+            }
             if (m_context->Project() == nullptr) { return; }
             const String oldPath = group->Path();
             const Status renamed = m_context->Project()->SourceDb().RenameGroup(*group, name);

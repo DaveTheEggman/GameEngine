@@ -104,21 +104,36 @@ export namespace draconic::editor
             }
             JoinWorker();   // reap the previous worker's handle
 
-            // Plan + product pre-create run HERE on the main thread: they walk and mutate
-            // the live content DBs, which the main thread reads/mutates freely between
-            // frames (imports, deletes, resource loads). Running them on the worker raced
-            // those and corrupted deserialization (the delete->reimport crash). Only the
-            // pure builds go to the worker.
-            CookPlan plan = m_driver->Plan(force);
-            m_driver->PrepareProducts(plan);
-            const usize total = plan.dirty.Size();
-            Post(FormatPlanned(total, plan.orphans.Size()));
-
+            // Three phases so the UI never stalls AND nothing races:
+            //   1. Plan on the WORKER - it only READS the DBs, and their structure is frozen
+            //      while IsCooking(): every main-thread structural mutation (import, delete,
+            //      rename, create) gates through RunWhenIdle. (Planning hashes every source
+            //      file - on the main thread it froze the editor for whole rebuilds.)
+            //   2. PrepareProducts on the MAIN thread (Update drains m_planReady) - the only
+            //      phase that MUTATES the cooked DB, which main-thread resource loads read at
+            //      any time.
+            //   3. Builds on the worker (no DB queries - snapshotted pointers).
             m_cooking.store(true);
             CookDriver* driver = m_driver.Get();
             EditorCookService* self = this;
-            m_worker = MakeUnique<Thread>(DefaultAllocator(),
-                                          [self, driver, plan = Move(plan), total]() mutable {
+            m_worker = MakeUnique<Thread>(DefaultAllocator(), [self, driver, force]() {
+                self->m_plan = driver->Plan(force);
+                self->m_planReady.store(true);
+            });
+        }
+
+        /// Phase 2+3 hand-off: PrepareProducts on the main thread, then the build worker.
+        void StartBuilds()
+        {
+            JoinWorker();   // the plan worker has finished (m_planReady was set)
+            m_driver->PrepareProducts(m_plan);
+            const usize total = m_plan.dirty.Size();
+            Post(FormatPlanned(total, m_plan.orphans.Size()));
+
+            CookDriver* driver = m_driver.Get();
+            EditorCookService* self = this;
+            m_worker = MakeUnique<Thread>(DefaultAllocator(), [self, driver, total]() {
+                CookPlan& plan = self->m_plan;
                 CookProgress progress;
                 progress.onItem = [self, total](usize done, usize, StringView path, bool ok) {
                     String line(ok ? u8"cooked " : u8"FAILED ");
@@ -152,6 +167,10 @@ export namespace draconic::editor
         /// console) and fires OnCookFinished after a cook completes.
         void Update(const Function<void(StringView)>& status)
         {
+            // Phase hand-off: the plan worker finished - run the main-thread product
+            // pre-create and kick the build worker.
+            if (m_planReady.exchange(false)) { StartBuilds(); }
+
             Array<String> drained;
             {
                 ScopedLock lock(m_queueMutex);
@@ -312,6 +331,8 @@ export namespace draconic::editor
         Array<Function<void()>> m_idleQueue;   // main-thread deferred mutations (RunWhenIdle)
         bool m_pendingCook = false;            // a RequestCook arrived while cooking
         bool m_pendingForce = false;
+        CookPlan m_plan;                       // worker-planned, main-prepared, worker-built
+        Atomic<bool> m_planReady{ false };
         draconic::vfs::IChangeSource* m_watcher = nullptr;   // borrowed (sources mount owns it)
         Array<String> m_watchChanged;
         f64 m_lastWatchPoll = 0.0;

@@ -539,6 +539,18 @@ export namespace draconic::editor::app
         void CreateAndOpen(const draconic::editor::EditorContext::AssetCreator& creator,
                            draconic::content::Group* group = nullptr)
         {
+            // Cook gate: the plan worker reads the DBs with their structure frozen -
+            // creating instances mid-plan is a race. Queue and replay when idle.
+            if (m_cookService.IsCooking())
+            {
+                const draconic::editor::EditorContext::AssetCreator* entry = &creator;
+                m_cookService.RunWhenIdle(Function<void()>{ [this, entry, group]() {
+                    CreateAndOpen(*entry, group);
+                } });
+                m_context.Notify(ed::NoticeKind::Info,
+                                 u8"Create queued until the current cook finishes.");
+                return;
+            }
             draconic::content::Instance* instance = creator.create(m_context, group);
             if (instance == nullptr)
             {
