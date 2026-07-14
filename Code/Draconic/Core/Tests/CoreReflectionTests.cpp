@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"  // brings <new> into reach for container instantiation (GCC)
+#include "Core/Reflection/Reflect.h"
 
 import draconic.core;
 
@@ -344,4 +345,68 @@ TEST_CASE("core-reflection: types are in the global registry by qualified name")
 
     CHECK(GlobalTypeRegistry().FindByName("draconic::core", "Guid") == &TypeOf<Guid>());
     CHECK(GlobalTypeRegistry().FindByName("draconic::core", "Nope") == nullptr);
+}
+
+// --- Per-property attributes (PropAttribute) ---
+
+namespace
+{
+    struct AttrWidget
+    {
+        f32 speed = 1.0f;
+        i32 mode = 0;
+        bool active = true;
+    };
+}
+
+DRACONIC_REFLECT_VALUE(AttrWidget, "draconic::tests")
+{
+    builder.Property<&AttrWidget::speed>("speed")
+               .PropAttribute("range", Float4{ 0.0f, 10.0f, 0.5f, 0.0f })
+               .PropAttribute("description", String(u8"How fast"))
+           .Property<&AttrWidget::mode>("mode")
+           .Property<&AttrWidget::active>("active")
+               .PropAttribute("visibleWhen", String(u8"mode=1"));
+    builder.Attribute("category", String(u8"testing"));   // type-level coexists
+}
+
+TEST_CASE("core-reflection: per-property attributes via PropAttribute")
+{
+    EnsureRegistered();
+    DraconicRegisterValue_AttrWidget();
+
+    const TypeInfo& type = TypeOf<AttrWidget>();
+    const PropertyInfo* speed = FindProperty(type, "speed");
+    const PropertyInfo* mode = FindProperty(type, "mode");
+    const PropertyInfo* active = FindProperty(type, "active");
+    REQUIRE(speed != nullptr);
+    REQUIRE(mode != nullptr);
+    REQUIRE(active != nullptr);
+
+    // Attribute-less properties stay clean.
+    CHECK(Attributes(*mode).Size() == 0u);
+    CHECK(FindAttribute(*mode, u8"range") == nullptr);
+
+    CHECK(Attributes(*speed).Size() == 2u);
+    const Attribute* range = FindAttribute(*speed, u8"range");
+    REQUIRE(range != nullptr);
+    const Float4* r = range->value.TryGet<Float4>();
+    REQUIRE(r != nullptr);
+    CHECK(r->x == 0.0f);
+    CHECK(r->y == 10.0f);
+    CHECK(r->z == 0.5f);
+
+    const Attribute* desc = FindAttribute(*speed, u8"description");
+    REQUIRE(desc != nullptr);
+    const String* text = desc->value.TryGet<String>();
+    REQUIRE(text != nullptr);
+    CHECK(text->AsView() == StringView(u8"How fast"));
+
+    const Attribute* vis = FindAttribute(*active, u8"visibleWhen");
+    REQUIRE(vis != nullptr);
+    REQUIRE(vis->value.TryGet<String>() != nullptr);
+    CHECK(vis->value.TryGet<String>()->AsView() == StringView(u8"mode=1"));
+
+    // Type-level attributes are unaffected by the per-property storage.
+    CHECK(FindAttribute(type, "category") != nullptr);
 }

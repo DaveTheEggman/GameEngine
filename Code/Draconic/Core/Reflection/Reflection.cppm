@@ -90,6 +90,10 @@ export namespace draconic::core
         // enum known only by TypeInfo) cannot be CONSTRUCTED at runtime, so editors/binding
         // generators read and write such fields in place through this instead.
         void* (*address)(const Instance&) = nullptr;
+        // Per-PROPERTY attributes (tooling metadata: value ranges, conditional visibility, ...)
+        // - attached fluently via TypeBuilder::PropAttribute after Property().
+        const Attribute* attributes = nullptr;
+        u32 attributeCount = 0;
     };
 
     [[nodiscard]] inline Variant GetProperty(const PropertyInfo& property, const Instance& instance)
@@ -279,6 +283,23 @@ export namespace draconic::core
         const char* key;
         Variant value;
     };
+
+    [[nodiscard]] inline Span<const Attribute> Attributes(const PropertyInfo& property) noexcept
+    {
+        return Span<const Attribute>{ property.attributes, property.attributeCount };
+    }
+
+    [[nodiscard]] inline const Attribute* FindAttribute(const PropertyInfo& property, StringView key) noexcept
+    {
+        for (u32 i = 0; i < property.attributeCount; ++i)
+        {
+            if (StringView(reinterpret_cast<const utf8char*>(property.attributes[i].key)) == key)
+            {
+                return &property.attributes[i];
+            }
+        }
+        return nullptr;
+    }
 
     [[nodiscard]] inline Span<const Attribute> Attributes(const TypeInfo& type) noexcept
     {
@@ -660,6 +681,7 @@ export namespace draconic::core
     struct TypeData
     {
         Array<PropertyInfo> properties;
+        Array<Array<Attribute>> propertyAttributes;   // parallel to `properties`
         Array<MethodInfo> methods;
         Array<Attribute> attributes;
         Array<ConstantInfo> constants;
@@ -711,6 +733,22 @@ export namespace draconic::core
             return *this;
         }
 
+        /// Attach an attribute to the MOST RECENTLY added property (fluent - call right
+        /// after Property()). Tooling metadata: "range" (Float4 min/max/step), "visibleWhen"
+        /// (String "prop" truthy or "prop=1,2" value list), etc.
+        template <typename V>
+        TypeBuilder& PropAttribute(const char* key, V value)
+        {
+            if (m_data.properties.IsEmpty()) { return *this; }
+            while (m_data.propertyAttributes.Size() < m_data.properties.Size())
+            {
+                m_data.propertyAttributes.PushBack(Array<draconic::core::Attribute>{});
+            }
+            m_data.propertyAttributes[m_data.properties.Size() - 1].PushBack(
+                draconic::core::Attribute{ key, Variant::From<V>(Move(value)) });
+            return *this;
+        }
+
         template <typename V>
         TypeBuilder& Constant(const char* name, V value)
         {
@@ -733,6 +771,17 @@ export namespace draconic::core
         [[nodiscard]] TypeData Build()
         {
             m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base, m_dataVersion);
+            // Wire per-property attribute spans (the inner Array buffers survive TypeData's
+            // move - only the outer array's control block moves).
+            while (m_data.propertyAttributes.Size() < m_data.properties.Size())
+            {
+                m_data.propertyAttributes.PushBack(Array<draconic::core::Attribute>{});
+            }
+            for (usize i = 0; i < m_data.properties.Size(); ++i)
+            {
+                m_data.properties[i].attributes = m_data.propertyAttributes[i].Data();
+                m_data.properties[i].attributeCount = static_cast<u32>(m_data.propertyAttributes[i].Size());
+            }
             m_data.info.properties = m_data.properties.Data();
             m_data.info.propertyCount = static_cast<u32>(m_data.properties.Size());
             m_data.info.methods = m_data.methods.Data();
