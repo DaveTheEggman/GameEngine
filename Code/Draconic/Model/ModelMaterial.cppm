@@ -37,7 +37,12 @@ public:
     // -- Metallic-Roughness --
     f32 metallicFactor  = 1.0f;
     f32 roughnessFactor = 1.0f;
+    // glTF-style PACKED texture (G = roughness, B = metallic).
     i32 metallicRoughnessTextureIndex = -1;
+    // FBX-style SEPARATE grayscale maps (the importer bakes them into a packed texture -
+    // feeding either one directly into the packed slot bleeds across channels).
+    i32 separateRoughnessTextureIndex = -1;
+    i32 separateMetalnessTextureIndex = -1;
 
     // -- Normal map --
     f32 normalScale = 1.0f;

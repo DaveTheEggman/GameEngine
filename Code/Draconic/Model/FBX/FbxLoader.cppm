@@ -194,11 +194,13 @@ private:
                 if (mat->pbr.roughness.has_value)
                     material->roughnessFactor = static_cast<f32>(mat->pbr.roughness.value_real);
 
+                // FBX authors SEPARATE grayscale metalness/roughness maps (glTF packs them
+                // G/B). Keep them separate; the importer bakes a packed texture downstream.
                 if (mat->pbr.metalness.texture)
-                    material->metallicRoughnessTextureIndex = getOrCreateTextureIndex(
+                    material->separateMetalnessTextureIndex = getOrCreateTextureIndex(
                         mat->pbr.metalness.texture, model);
-                else if (mat->pbr.roughness.texture)
-                    material->metallicRoughnessTextureIndex = getOrCreateTextureIndex(
+                if (mat->pbr.roughness.texture)
+                    material->separateRoughnessTextureIndex = getOrCreateTextureIndex(
                         mat->pbr.roughness.texture, model);
 
                 // PBR: normal map.
@@ -597,8 +599,8 @@ private:
             mesh->addVertexElement(VertexElement(VertexSemantic::Color, VertexElementFormat::Byte4, colorOffset));
 
             i32 tangentOffset = stride;
-            stride += static_cast<i32>(sizeof(Float3));
-            mesh->addVertexElement(VertexElement(VertexSemantic::Tangent, VertexElementFormat::Float3, tangentOffset));
+            stride += static_cast<i32>(sizeof(Float4));
+            mesh->addVertexElement(VertexElement(VertexSemantic::Tangent, VertexElementFormat::Float4, tangentOffset));
 
             i32 jointsOffset = 0;
             i32 weightsOffset = 0;
@@ -748,8 +750,19 @@ private:
         }
 
         ufbx_vec3 tangent = {{{1, 0, 0}}};
-        if (hasTangent)
+        f32 tangentW = 1.0f;
+        if (hasTangent) {
             tangent = readVec3(fbxMesh->uv_sets.data[0].vertex_tangent, idx);
+            // TBN handedness from ufbx's bitangent: w = sign(dot(cross(N,T), B)) - mirrored
+            // UVs produce a bitangent opposing cross(N,T).
+            if (fbxMesh->uv_sets.data[0].vertex_bitangent.exists) {
+                const ufbx_vec3 bt = readVec3(fbxMesh->uv_sets.data[0].vertex_bitangent, idx);
+                const Float3 n(static_cast<f32>(normal.x), static_cast<f32>(normal.y), static_cast<f32>(normal.z));
+                const Float3 t(static_cast<f32>(tangent.x), static_cast<f32>(tangent.y), static_cast<f32>(tangent.z));
+                const Float3 b(static_cast<f32>(bt.x), static_cast<f32>(bt.y), static_cast<f32>(bt.z));
+                if (Dot(Cross(n, t), b) < 0.0f) { tangentW = -1.0f; }
+            }
+        }
 
         ufbx_vec4 color = {{{1, 1, 1, 1}}};
         if (hasColor) {
@@ -769,6 +782,7 @@ private:
 
         // Compute hash for deduplication.
         size_t hash = hashVertex(pos, normal, uv, tangent, color, isSkinned, joints, weights);
+        hash = hash * 31 + (tangentW < 0.0f ? 1u : 0u);   // handedness splits mirror-seam vertices
 
         if (vtxMap.Find(hash) != nullptr)
             return hash;
@@ -802,9 +816,9 @@ private:
             static_cast<u32>(cr) | (static_cast<u32>(cg) << 8) |
             (static_cast<u32>(cb) << 16) | (static_cast<u32>(ca) << 24);
 
-        // Tangent.
-        *reinterpret_cast<Float3*>(vertex + tangentOffset) =
-            Float3(static_cast<f32>(tangent.x), static_cast<f32>(tangent.y), static_cast<f32>(tangent.z));
+        // Tangent (xyz) + handedness (w).
+        *reinterpret_cast<Float4*>(vertex + tangentOffset) =
+            Float4(static_cast<f32>(tangent.x), static_cast<f32>(tangent.y), static_cast<f32>(tangent.z), tangentW);
 
         // Skinning.
         if (isSkinned) {

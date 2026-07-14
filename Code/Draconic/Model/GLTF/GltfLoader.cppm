@@ -469,8 +469,8 @@ private:
         mesh->addVertexElement(VertexElement(VertexSemantic::Color, VertexElementFormat::Byte4, colorOffset));
 
         i32 tangentOffset = stride;
-        stride += static_cast<i32>(sizeof(Float3));
-        mesh->addVertexElement(VertexElement(VertexSemantic::Tangent, VertexElementFormat::Float3, tangentOffset));
+        stride += static_cast<i32>(sizeof(Float4));
+        mesh->addVertexElement(VertexElement(VertexSemantic::Tangent, VertexElementFormat::Float4, tangentOffset));
 
         i32 jointsOffset = 0;
         i32 weightsOffset = 0;
@@ -608,11 +608,13 @@ private:
 
                 // Tangent.
                 if (tangentAccessor) {
-                    float tangent[4] = {};
+                    float tangent[4] = { 1, 0, 0, 1 };
                     cgltf_accessor_read_float(tangentAccessor, static_cast<cgltf_size>(v), tangent, 4);
-                    *reinterpret_cast<Float3*>(vertex + tangentOffset) = Float3(tangent[0], tangent[1], tangent[2]);
+                    // Keep the vec4: w is the TBN handedness (mirrored UVs = -1).
+                    *reinterpret_cast<Float4*>(vertex + tangentOffset) =
+                        Float4(tangent[0], tangent[1], tangent[2], tangent[3] < 0.0f ? -1.0f : 1.0f);
                 } else {
-                    *reinterpret_cast<Float3*>(vertex + tangentOffset) = Float3(1, 0, 0);
+                    *reinterpret_cast<Float4*>(vertex + tangentOffset) = Float4(1, 0, 0, 1);
                 }
 
                 // Skinning data.
