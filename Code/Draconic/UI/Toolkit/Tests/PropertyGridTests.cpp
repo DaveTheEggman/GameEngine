@@ -47,3 +47,22 @@ TEST_CASE("toolkit-propertygrid: CategoriesAndDisplayName")
     CHECK(grid->PropertyCount() == 1u);
     CHECK(grid->PropertyAt(0)->Category() == StringView(u8"Rendering"));
 }
+
+TEST_CASE("toolkit-propertyeditor: TooltipAndRowVisibility")
+{
+    auto ed = core::MakeRef<FloatEditor>(core::DefaultAllocator(), StringView(u8"Turbidity"), 3.0);
+    CHECK(ed->Tooltip().IsEmpty());
+    ed->SetTooltip(StringView(u8"Preetham haze"));
+    CHECK(ed->Tooltip() == StringView(u8"Preetham haze"));
+
+    // Visibility state applies to the wired row view (PropertyGrid wires it on build).
+    auto row = core::MakeRef<Label>(core::DefaultAllocator());
+    CHECK(ed->RowVisible());
+    ed->SetRowVisible(false);      // before wiring: state only
+    CHECK(!ed->RowVisible());
+    ed->SetRowView(row.Get());     // wiring applies the current state
+    CHECK(row->Visibility == VisibilityValue::Gone);
+    ed->SetRowVisible(true);
+    CHECK(row->Visibility == VisibilityValue::Visible);
+    CHECK(ed->RowVisible());
+}

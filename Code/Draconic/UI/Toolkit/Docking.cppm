@@ -896,13 +896,42 @@ export namespace draconic::ui::toolkit
             const Color borderColor = ResolveStyleColor(StyleProperty::BorderColor, Rgb(35, 37, 46, 255));
             const Color closeColor = ResolvePartColor(u8"close-button", StyleProperty::TextColor, ControlState::Normal, Rgb(180, 185, 200, 150));
 
-            f32 tabX = 2;
+            // Overflow handling: measure the full strip first, clamp the scroll offset (and
+            // bring the selected tab into view when selection just changed), THEN draw every
+            // tab at its scrolled position clipped to the strip. Hit-testing reuses the drawn
+            // m_tabRects, so clicks/hover/close stay aligned with what's on screen for free.
+            Array<f32> tabWidths;
+            f32 stripWidth = 2.0f;
             for (i32 i = 0; i < static_cast<i32>(m_panels.Size()); ++i)
             {
                 DockablePanel* panel = m_panels[static_cast<usize>(i)];
-                const f32 textW = font->font->MeasureString(panel->Title());
-                f32 tabW = textW + 16;
+                f32 tabW = font->font->MeasureString(panel->Title()) + 16;
                 if (panel->Closable()) { tabW += kCloseButtonWidth; }
+                tabWidths.PushBack(tabW);
+                stripWidth += tabW + 2;
+            }
+            const f32 maxScroll = Max(0.0f, stripWidth - Width());
+            m_tabScroll = Clamp(m_tabScroll, 0.0f, maxScroll);
+            if (m_scrollSelectedIntoView && m_selectedIndex >= 0
+                && m_selectedIndex < static_cast<i32>(tabWidths.Size()))
+            {
+                f32 selX = 2.0f;
+                for (i32 i = 0; i < m_selectedIndex; ++i) { selX += tabWidths[static_cast<usize>(i)] + 2; }
+                const f32 selW = tabWidths[static_cast<usize>(m_selectedIndex)];
+                if (selX - m_tabScroll < 0.0f) { m_tabScroll = selX - 2.0f; }
+                else if (selX + selW - m_tabScroll > Width()) { m_tabScroll = selX + selW - Width(); }
+                m_tabScroll = Clamp(m_tabScroll, 0.0f, maxScroll);
+            }
+            m_scrollSelectedIntoView = false;
+            m_tabOverflow = maxScroll > 0.0f;
+
+            ctx.VG().PushClipRect(Rectangle{ 0, 0, Width(), m_tabHeight });
+            f32 tabX = 2 - m_tabScroll;
+            for (i32 i = 0; i < static_cast<i32>(m_panels.Size()); ++i)
+            {
+                DockablePanel* panel = m_panels[static_cast<usize>(i)];
+                const f32 tabW = tabWidths[static_cast<usize>(i)];
+                const f32 textW = tabW - 16 - (panel->Closable() ? kCloseButtonWidth : 0.0f);
                 const Rectangle tabRect{ tabX, 0, tabW, m_tabHeight };
                 m_tabRects.PushBack(tabRect);
 
@@ -978,9 +1007,29 @@ export namespace draconic::ui::toolkit
 
                 tabX += tabW + 2;
             }
+            ctx.VG().PopClip();
         }
 
         // === Input ===
+
+        // Wheel over the strip scrolls clipped tabs into view (there is no room for a
+        // scrollbar in a 24px strip; selection changes also auto-scroll into view).
+        void OnMouseWheel(MouseWheelEventArgs& e) override
+        {
+            // Wheel args arrive in ROOT space (unlike the localized mouse events) - convert
+            // before testing the strip band, or the check only passes at the window's top.
+            const Float2 origin = LocalToScreen(Float2{ 0.0f, 0.0f });
+            const f32 localX = e.X - origin.x;
+            const f32 localY = e.Y - origin.y;
+            if (!m_tabOverflow || localY < 0.0f || localY >= m_tabHeight
+                || localX < 0.0f || localX >= Width()) { return; }
+            const f32 delta = (e.DeltaY != 0.0f) ? e.DeltaY : e.DeltaX;
+            if (delta == 0.0f) { return; }
+            m_tabScroll -= delta * 40.0f;   // clamped in the next draw's pre-pass
+            m_hoveredTabIndex = -1;
+            Invalidate();
+            e.Handled = true;
+        }
 
         void OnMouseDown(MouseEventArgs& e) override
         {
@@ -1175,6 +1224,9 @@ export namespace draconic::ui::toolkit
         Array<DockablePanel*> m_panels;    // Non-owning refs (tree owns via AddView).
         i32 m_selectedIndex = -1;
         f32 m_tabHeight = 24;
+        f32 m_tabScroll = 0;                  // horizontal strip scroll (0 = leftmost)
+        bool m_tabOverflow = false;           // strip wider than the group (from last draw)
+        bool m_scrollSelectedIntoView = false;
         i32 m_hoveredTabIndex = -1;
         Array<Rectangle> m_tabRects;
         Array<Rectangle> m_closeRects;     // Per-tab close button rects.
@@ -2167,6 +2219,7 @@ export namespace draconic::ui::toolkit
             }
 
             m_selectedIndex = value;
+            m_scrollSelectedIntoView = true;   // clipped tab strips scroll the new tab into view
 
             if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<i32>(m_panels.Size()))
             {

@@ -65,6 +65,29 @@ export namespace draconic::ui::toolkit
         /// Sets the display label (for pretty names like "Casts Shadows").
         void SetDisplayName(StringView displayName) { m_displayName = String(displayName); }
 
+        /// Plain-text tooltip for the whole row (empty = none). PropertyGrid copies it onto
+        /// the row view's TooltipText when it builds the row.
+        [[nodiscard]] StringView Tooltip() const { return m_tooltip; }
+        void SetTooltip(StringView tooltip) { m_tooltip = String(tooltip); }
+
+        /// Conditional row visibility (e.g. spot-only light angles). Toggling flips the live
+        /// row (PropertyGrid wires it via SetRowView) without a structural rebuild.
+        [[nodiscard]] bool RowVisible() const noexcept { return m_rowVisible; }
+        void SetRowVisible(bool visible)
+        {
+            if (m_rowVisible == visible) { return; }
+            m_rowVisible = visible;
+            ApplyRowVisibility();
+        }
+
+        /// Called by PropertyGrid each time it (re)builds this editor's row (borrowed; the
+        /// grid's content tree owns the row). Applies the current visibility to the new row.
+        void SetRowView(View* row)
+        {
+            m_rowView = row;
+            ApplyRowVisibility();
+        }
+
         [[nodiscard]] StringView Category() const { return m_category; }
 
         /// Whether an edit gesture is currently in progress.
@@ -118,11 +141,21 @@ export namespace draconic::ui::toolkit
         }
 
     private:
+        void ApplyRowVisibility()
+        {
+            if (m_rowView == nullptr) { return; }
+            m_rowView->Visibility = m_rowVisible ? VisibilityValue::Visible : VisibilityValue::Gone;
+            m_rowView->Invalidate();
+        }
+
         String m_name;             // machine-readable identity
         String m_displayName;      // empty == "use Name"
         String m_category;         // empty == uncategorized
+        String m_tooltip;          // empty == none
         RefPtr<View> m_editorView; // owned; the view tree also refs it once added
+        View* m_rowView = nullptr; // borrowed; PropertyGrid's content tree owns it
         bool m_isEditing = false;
+        bool m_rowVisible = true;
     };
 
     DRACONIC_DEFINE_OBJECT(PropertyEditor, "draconic::ui::toolkit")

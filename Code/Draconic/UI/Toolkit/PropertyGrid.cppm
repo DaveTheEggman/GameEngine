@@ -237,6 +237,10 @@ export namespace draconic::ui::toolkit
                 row->AddView(editorView, lp);
             }
 
+            // Row-level presentation carried by the editor: tooltip + conditional visibility.
+            if (!editor->Tooltip().IsEmpty()) { row->TooltipText = String(editor->Tooltip()); }
+            editor->SetRowView(row.Get());
+
             RefPtr<FlexLayoutParams> rowLp = MakeRef<FlexLayoutParams>(DefaultAllocator());
             rowLp->Width = SizeSpec::Match();
             container->AddView(row.Get(), rowLp);
