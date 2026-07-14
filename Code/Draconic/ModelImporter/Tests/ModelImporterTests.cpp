@@ -714,3 +714,17 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
 
     cleanTree();
 }
+
+TEST_CASE("import: texture assets keep their source names")
+{
+    model::ModelTexture named;
+    named.setName(u8"BaseColor");
+    CHECK(modelimporter::ImportedTextureName(named, 0).AsView() == StringView(u8"BaseColor"));
+
+    model::ModelTexture fromUri;
+    fromUri.setUri(u8"textures/Default_albedo.jpg");
+    CHECK(modelimporter::ImportedTextureName(fromUri, 3).AsView() == StringView(u8"Default_albedo"));
+
+    model::ModelTexture bare;   // embedded, no identity -> indexed fallback
+    CHECK(modelimporter::ImportedTextureName(bare, 7).AsView() == StringView(u8"tex.7"));
+}

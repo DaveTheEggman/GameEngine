@@ -95,6 +95,35 @@ void CopyParts(const model::ModelMesh& mesh, geometry::StaticMeshSource& out)
 
 export {
 
+// Display name for an imported texture: the authored texture/image name when present,
+// else the URI's file stem (Default_albedo.jpg -> Default_albedo), else "tex.{index}"
+// (embedded textures with no identity). Callers unique-ify per destination group.
+[[nodiscard]] String ImportedTextureName(const model::ModelTexture& texture, usize index)
+{
+    StringView base = texture.name();
+    if (base.IsEmpty())
+    {
+        StringView uri = texture.uri();
+        if (!uri.IsEmpty())
+        {
+            usize start = 0;
+            for (usize i = uri.Size(); i > 0; --i)
+            {
+                const utf8char c = uri.Data()[i - 1];
+                if (c == u8'/' || c == u8'\\') { start = i; break; }
+            }
+            usize end = uri.Size();
+            for (usize i = uri.Size(); i > start; --i)
+            {
+                if (uri.Data()[i - 1] == u8'.') { end = i - 1; break; }
+            }
+            if (end > start) { base = uri.SubStr(start, end - start); }
+        }
+    }
+    if (base.IsEmpty()) { return Format(u8"tex.{}", index); }
+    return String(base);
+}
+
 // Fill a StaticMeshSource from a model mesh's static streams (pos/normal/uv/color/tangent).
 void StaticMeshSourceFromModel(const model::ModelMesh& mesh, geometry::StaticMeshSource& out)
 {

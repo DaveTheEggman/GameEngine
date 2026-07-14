@@ -261,8 +261,15 @@ export namespace draconic::modelimporter
                     : draconic::image::ImageColorSpace::Srgb;    // color maps (albedo/emissive)
                 asset.generateMipmaps = false;
 
+                // Real names when the source has them (rules out slot mix-ups at a glance);
+                // unique-ified because CreateInstance returns an existing same-named instance.
+                String texName = ImportedTextureName(t, i);
+                for (u32 n = 2; group.GetInstance(texName.AsView()) != nullptr; ++n)
+                {
+                    texName = Format(u8"{}.{}", ImportedTextureName(t, i), n);
+                }
                 content::Instance* inst = group.CreateInstance(
-                    Format(u8"tex.{}", i).AsView(), draconic::texture::TextureAsset::StaticType());
+                    texName.AsView(), draconic::texture::TextureAsset::StaticType());
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk()) { outGuids.PushBack(Guid{}); continue; }
                 const Status ds = inst->WriteData(u8"pixels",
                     Span<const byte>{ reinterpret_cast<const byte*>(data), static_cast<usize>(size) });

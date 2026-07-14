@@ -82,7 +82,12 @@ inline void CookTextures(const model::Model& model, content::Group* root, String
         res.mipLevels = 1;                                 // factory uploads mip 0 (no mip gen yet)
         res.generateMipmaps = false;
 
-        const String name = Format(u8"{}.tex.{}", namePrefix, i);
+        String texName = ImportedTextureName(t, i);
+        String name = Format(u8"{}.{}", namePrefix, texName);
+        for (u32 n = 2; root->GetInstance(name.AsView()) != nullptr; ++n)
+        {
+            name = Format(u8"{}.{}.{}", namePrefix, texName, n);
+        }
         content::Instance* inst = root->CreateInstance(name.AsView(), texture::TextureResource::StaticType());
         if (inst == nullptr) { outGuids.PushBack(Guid{}); continue; }
         if (!inst->WriteObject(res).IsOk()) { outGuids.PushBack(Guid{}); continue; }
