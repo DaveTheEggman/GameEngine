@@ -9,6 +9,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include <cstdlib>
 
 export module draconic.editor.app:application;
 
@@ -42,6 +43,7 @@ export namespace draconic::editor::app
     namespace graphics = draconic::graphics;
     namespace fonts = draconic::fonts;
     namespace uirt = draconic::ui::runtime;
+    namespace ed = draconic::editor;
     namespace uiapp = draconic::ui::application;
 
     class EditorApplication;
@@ -162,6 +164,15 @@ export namespace draconic::editor::app
                 } });
             m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
 
+            // Toast overlay on the main window root (input passes through outside the cards);
+            // EditorContext::Notify routes here, and also mirrors to the status bar.
+            m_toastHost = MakeRef<tk::ToastHost>(DefaultAllocator());
+            m_shell.Root()->AddView(m_toastHost.Get());
+            m_context.OnNotice = [this](ed::NoticeKind kind, StringView message) {
+                ShowToast(kind, message);
+                m_context.SetStatus(message);
+            };
+
             OpenProject();
             if (m_project)
             {
@@ -188,6 +199,8 @@ export namespace draconic::editor::app
                 for (const auto& factory : m_resourceFactories) { m_resources->AddFactory(factory.Get()); }
                 m_context.SetResources(m_resources.Get());
                 m_cookService.Initialize(*m_project, m_builders);
+                // Pages request re-cooks after saving builder-backed assets (materials etc.).
+                m_context.OnCookRequested = [this](bool rebuild) { m_cookService.RequestCook(rebuild); };
                 m_assetsView = MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService);
                 AssetsView* assets = m_assetsView.Get();
                 m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance) {
@@ -215,6 +228,20 @@ export namespace draconic::editor::app
                 };
                 m_cookService.OnCookFinished = [this, assets]() {
                     assets->Rebuild();
+                    // Result toast: failures are sticky (Console has the log); silent when the
+                    // cook was a no-op (the watcher fires those constantly).
+                    const usize failed = m_cookService.LastFailedCount();
+                    const usize cooked = m_cookService.LastCookedCount();
+                    if (failed > 0)
+                    {
+                        ShowToast(ed::NoticeKind::Error,
+                                  Format(u8"Cook: {} failed, {} cooked (see Console).", failed, cooked).AsView());
+                    }
+                    else if (cooked > 0)
+                    {
+                        ShowToast(ed::NoticeKind::Success,
+                                  Format(u8"Cook finished: {} asset(s).", cooked).AsView());
+                    }
                     // Hot reload: rebuilt products swap in behind the proxy handles - live
                     // scenes see the new resources with no reopen (dependents reload
                     // transitively through the manager's recorded edges).
@@ -322,6 +349,41 @@ export namespace draconic::editor::app
 
         // Tear down a page whose panel is closing/closed (the DockManager owns panel
         // destruction; this handles only the page side).
+        /// Maps a context notice to a toast (errors stick until closed; the rest self-expire).
+        void ShowToast(ed::NoticeKind kind, StringView message)
+        {
+            if (m_toastHost.Get() == nullptr) { return; }
+            tk::ToastRequest request;
+            request.message = String(message);
+            switch (kind)
+            {
+                case ed::NoticeKind::Success: request.severity = tk::ToastSeverity::Success; break;
+                case ed::NoticeKind::Warning: request.severity = tk::ToastSeverity::Warning; break;
+                case ed::NoticeKind::Error:   request.severity = tk::ToastSeverity::Error; break;
+                case ed::NoticeKind::Info:
+                default:                      request.severity = tk::ToastSeverity::Info; break;
+            }
+            request.durationSeconds = (kind == ed::NoticeKind::Error) ? 0.0f : 5.0f;   // errors stick
+            (void)m_toastHost->Show(Move(request));
+        }
+
+        void SaveActivePage()
+        {
+            auto* page = m_context.ActivePage();
+            if (page == nullptr) { return; }
+            if (page->Save().IsOk())
+            {
+                String message(u8"Saved '");
+                message += page->Title();
+                message += u8"'.";
+                m_context.Notify(ed::NoticeKind::Success, message.AsView());
+            }
+            else
+            {
+                m_context.Notify(ed::NoticeKind::Error, u8"Save FAILED (see Console).");
+            }
+        }
+
         void ClosePage(UIEditorPage* page)
         {
             for (usize i = 0; i < m_pagePanels.Size(); ++i)
@@ -356,6 +418,66 @@ export namespace draconic::editor::app
                     m_cookService.RequestCook(true);
                 }
             }
+            // Headless-debug hook: RAPTOR_TEST_OPEN=<guid> opens that instance's page ~2s in
+            // and opens it AGAIN ~4s in (the focus-existing branch) - reproduces the asset
+            // browser's double-click paths in unattended (ASAN/gdb) runs.
+            if (const char* testOpen = std::getenv("RAPTOR_TEST_OPEN"); testOpen != nullptr && m_project)
+            {
+                m_testOpenElapsed += dt;
+                const bool first  = m_testOpenStage == 0 && m_testOpenElapsed >= 2.0f;
+                const bool second = m_testOpenStage == 1 && m_testOpenElapsed >= 4.0f;
+                if (first || second)
+                {
+                    ++m_testOpenStage;
+                    Guid id;
+                    if (Guid::TryParse(StringView(reinterpret_cast<const utf8char*>(testOpen)), id))
+                    {
+                        if (draconic::content::Instance* instance = m_project->SourceDb().GetInstance(id))
+                        {
+                            (void)OpenInstancePage(*instance);
+                        }
+                    }
+                }
+            }
+
+            // Headless-debug hook: RAPTOR_TEST_REIMPORT="<group>;<file>" deletes the named
+            // source group ~2s in and reimports <file> ~4s in (the watcher recook follows) -
+            // scripts the delete->reimport crash repro for unattended ASAN runs.
+            if (const char* reimport = std::getenv("RAPTOR_TEST_REIMPORT"); reimport != nullptr && m_project)
+            {
+                m_testOpenElapsed += dt;   // shared timer with RAPTOR_TEST_OPEN (use one hook per run)
+                const StringView spec(reinterpret_cast<const utf8char*>(reimport));
+                usize semi = spec.Size();
+                for (usize i = 0; i < spec.Size(); ++i) { if (spec.Data()[i] == u8';') { semi = i; break; } }
+                if (semi < spec.Size())
+                {
+                    if (m_testOpenStage == 0 && m_testOpenElapsed >= 2.0f)
+                    {
+                        ++m_testOpenStage;
+                        const String groupName(spec.SubStr(0, semi));
+                        if (draconic::content::Group* group =
+                                m_project->SourceDb().RootGroup()->GetGroup(groupName.AsView()))
+                        {
+                            m_cookService.RunWhenIdle(Function<void()>{ [this, group]() {
+                                (void)m_project->SourceDb().DeleteGroup(*group);
+                                m_context.SetStatus(u8"[test] deleted group");
+                                // Mirror DeleteGroupNow: the assets tree holds raw Group*
+                                // rows - EVERY source-DB group mutation must Rebuild before
+                                // the next layout binds stale pointers.
+                                if (m_assetsView) { m_assetsView->Rebuild(); }
+                            } });
+                        }
+                    }
+                    else if (m_testOpenStage == 1 && m_testOpenElapsed >= 4.0f)
+                    {
+                        ++m_testOpenStage;
+                        const String file(spec.SubStr(semi + 1, spec.Size() - semi - 1));
+                        m_context.SetStatus(u8"[test] reimporting");
+                        if (m_assetsView) { m_assetsView->ImportFile(file.AsView()); }
+                    }
+                }
+            }
+
             DrainLog();
             SyncPageTitles();
             // Background-cook progress -> status bar (log lines reach the Console via the
@@ -378,6 +500,7 @@ export namespace draconic::editor::app
                 }
             }
             if (m_uiHost) { m_uiHost->Update(dt); }
+            if (m_toastHost) { m_toastHost->Update(dt); }
             if (m_dockHost) { m_dockHost->Tick(); }   // drag-follow for floating OS windows
 
             // Page hooks AFTER the UI laid out (viewport rects are current for input gating).
@@ -666,13 +789,7 @@ export namespace draconic::editor::app
                 }
                 if (!m_context.Creators().IsEmpty()) { file->AddSeparator(); }
 
-                file->AddItem(u8"Save", [this]() {
-                    if (auto* page = m_context.ActivePage())
-                    {
-                        m_context.SetStatus(page->Save().IsOk() ? StringView(u8"Saved.")
-                                                                : StringView(u8"Save FAILED (see console)."));
-                    }
-                });
+                file->AddItem(u8"Save", [this]() { SaveActivePage(); });
                 file->AddSeparator();
                 file->AddItem(u8"Save Layout", [this]() {
                     SaveLayout();
@@ -708,13 +825,8 @@ export namespace draconic::editor::app
                                  [this]() { m_context.Redo(); });
             shortcuts->AddGlobal(draconic::ui::KeyCode::Y, draconic::ui::KeyModifiers::Ctrl,
                                  [this]() { m_context.Redo(); });
-            shortcuts->AddGlobal(draconic::ui::KeyCode::S, draconic::ui::KeyModifiers::Ctrl, [this]() {
-                if (auto* page = m_context.ActivePage())
-                {
-                    m_context.SetStatus(page->Save().IsOk() ? StringView(u8"Saved.")
-                                                            : StringView(u8"Save FAILED (see console)."));
-                }
-            });
+            shortcuts->AddGlobal(draconic::ui::KeyCode::S, draconic::ui::KeyModifiers::Ctrl,
+                                 [this]() { SaveActivePage(); });
 
             if (draconic::ui::ContextMenu* view = bar->AddMenu(u8"View"))
             {
@@ -746,14 +858,13 @@ export namespace draconic::editor::app
             UIEditorPage* page = nullptr;         // borrowed (context owns the page)
             tk::DockablePanel* panel = nullptr;   // borrowed (dock manager owns the panel)
         };
-        Array<PagePanel> m_pagePanels;
-
         draconic::editor::EditorContext m_context;
         UniquePtr<draconic::editor::EditorProject> m_project;
         draconic::editor::BuilderRegistry m_builders;        // exe-assembled (registerEditors)
         draconic::editor::EditorCookService m_cookService;
-        RefPtr<AssetsView> m_assetsView;
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
+        f32 m_testOpenElapsed = 0.0f;   // RAPTOR_TEST_OPEN hook
+        u32 m_testOpenStage = 0;
         bool m_autoRebuilt = false;
         Array<draconic::shell::DroppedFile> m_droppedFiles;   // per-frame drain buffer
         Array<UniquePtr<draconic::resource::IResourceFactory>> m_resourceFactories;   // exe-assembled
@@ -762,11 +873,17 @@ export namespace draconic::editor::app
         UniquePtr<fonts::TrueTypeFontService> m_fontService;
         tk::ToolkitThemeExtension m_toolkitTheme;
         RefPtr<draconic::ui::StyleSheet> m_styleSheet;
-        EditorShell m_shell;
-        UniquePtr<uiapp::RuntimeDockableWindowHost> m_dockHost;
 
-        // The UI-on-runtime bridge (owns the UIContext, per-window VG + input). Declared LAST so
-        // it tears down first (the shell's views outlive their windows inside the view tree).
+        // TEARDOWN ORDER RULE: the UIHost (owns the UIContext + InputManager) is declared
+        // BEFORE every view-holding member below, so it destructs AFTER them - view teardown
+        // calls DetachView/Unregister on its context (LogView's ListView does, via
+        // SetAdapter(nullptr) in its dtor), which is a use-after-free once the host is gone.
+        // ASAN caught exactly that with the previous declared-last ordering.
         UniquePtr<uirt::UIHost> m_uiHost;
+        UniquePtr<uiapp::RuntimeDockableWindowHost> m_dockHost;   // references m_uiHost: dies first
+        EditorShell m_shell;
+        RefPtr<AssetsView> m_assetsView;
+        RefPtr<tk::ToastHost> m_toastHost;
+        Array<PagePanel> m_pagePanels;
     };
 }

@@ -221,6 +221,18 @@ export namespace draconic::editor::app
         void ImportFile(StringView path)
         {
             if (m_context->Project() == nullptr) { return; }
+            // A cook in flight reads instance pointers snapshotted at plan time - creating
+            // instances now is a race. Queue the import; the cook service replays it when idle.
+            if (m_cook->IsCooking())
+            {
+                AssetsView* self = this;
+                m_cook->RunWhenIdle(Function<void()>{ [self, file = String(path)]() {
+                    self->ImportFile(file.AsView());
+                } });
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"Import queued until the current cook finishes.");
+                return;
+            }
             const String ext = draconic::editor::FileExtensionLower(path);
             draconic::editor::IFileImporter* importer = m_context->Importers().FindFor(ext.AsView());
             if (importer == nullptr)
@@ -228,7 +240,7 @@ export namespace draconic::editor::app
                 String message(u8"No importer for '");
                 message += draconic::editor::FileNameOf(path);
                 message += u8"'.";
-                m_context->SetStatus(message.AsView());
+                m_context->Notify(draconic::editor::NoticeKind::Warning, message.AsView());
                 return;
             }
             content::Group* group = (m_selectedGroup != nullptr)
@@ -242,11 +254,14 @@ export namespace draconic::editor::app
                 message += u8"' (";
                 message += importer->Label();
                 message += u8").";
-                m_context->SetStatus(message.AsView());
+                m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
             }
             else
             {
-                m_context->SetStatus(u8"Import FAILED (see console).");
+                String message(u8"Import failed: '");
+                message += draconic::editor::FileNameOf(path);
+                message += u8"' (see Console).";
+                m_context->Notify(draconic::editor::NoticeKind::Error, message.AsView());
             }
             Rebuild();
         }
@@ -1145,6 +1160,18 @@ export namespace draconic::editor::app
         // Runs from the mutation queue: close pages, delete, log, refresh.
         void DeleteInstances(const Array<Guid>& ids)
         {
+            // Cook gate: see ImportFile/DeleteGroupNow.
+            if (m_cook->IsCooking())
+            {
+                AssetsView* self = this;
+                Array<Guid> copy = ids;
+                m_cook->RunWhenIdle(Function<void()>{ [self, copy = Move(copy)]() {
+                    self->DeleteInstances(copy);
+                } });
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"Delete queued until the current cook finishes.");
+                return;
+            }
             if (m_context->Project() == nullptr) { return; }
             content::ContentDatabase& db = m_context->Project()->SourceDb();
             usize deleted = 0;
@@ -1222,6 +1249,16 @@ export namespace draconic::editor::app
         void DeleteGroupNow(content::Group* group)
         {
             if (m_context->Project() == nullptr) { return; }
+            // Same cook gate as ImportFile (deleting instances mid-cook dangles the worker's
+            // snapshotted pointers).
+            if (m_cook->IsCooking())
+            {
+                AssetsView* self = this;
+                m_cook->RunWhenIdle(Function<void()>{ [self, group]() { self->DeleteGroupNow(group); } });
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"Delete queued until the current cook finishes.");
+                return;
+            }
             Array<Guid> ids;
             CollectInstanceIds(group, ids);
             if (OnCloseInstancePage)
