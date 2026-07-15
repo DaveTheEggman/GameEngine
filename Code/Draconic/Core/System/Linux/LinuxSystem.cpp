@@ -88,6 +88,21 @@ namespace draconic::core::sys
     const char* GetHostPlatformName() noexcept { return "Linux64"; }
     const char* ExecutableExtension() noexcept { return ""; }
 
+    std::size_t GetExecutablePath(char* out, std::size_t outSize) noexcept
+    {
+        char buffer[4096];
+        const ssize_t n = readlink("/proc/self/exe", buffer, sizeof(buffer));
+        if (n <= 0) { return 0; }
+        const std::size_t length = static_cast<std::size_t>(n);
+        if (out != nullptr && outSize > 0)
+        {
+            const std::size_t k = (length < outSize - 1) ? length : outSize - 1;
+            std::memcpy(out, buffer, k);
+            out[k] = '\0';
+        }
+        return length;
+    }
+
     void* PageAllocate(std::size_t size) noexcept
     {
         if (size == 0)

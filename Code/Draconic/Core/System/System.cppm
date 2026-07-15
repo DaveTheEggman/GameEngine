@@ -218,4 +218,28 @@ export namespace draconic::core
         name += StringView(reinterpret_cast<const utf8char*>(sys::ExecutableExtension()));
         return name;
     }
+
+    // Absolute path of the running executable (empty on failure).
+    [[nodiscard]] inline String GetExecutablePath()
+    {
+        char buffer[4096];
+        const usize length = sys::GetExecutablePath(buffer, sizeof(buffer));
+        if (length == 0) { return String{}; }
+        const usize got = (length < sizeof(buffer)) ? length : sizeof(buffer) - 1;
+        return String(StringView(reinterpret_cast<const utf8char*>(buffer), got));
+    }
+
+    // Directory containing the running executable (its parent), empty on failure. This is the
+    // Bin/<Config>/<Platform> dir - where sibling tools (e.g. RaptorPlayer) live.
+    [[nodiscard]] inline String GetExecutableDirectory()
+    {
+        const String path = GetExecutablePath();
+        usize slash = 0;
+        bool found = false;
+        for (usize i = 0; i < path.Size(); ++i)
+        {
+            if (path[i] == utf8char('/') || path[i] == utf8char('\\')) { slash = i; found = true; }
+        }
+        return found ? String(path.AsView().SubStr(0, slash)) : String{};
+    }
 }

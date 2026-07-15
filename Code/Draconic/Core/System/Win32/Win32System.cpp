@@ -68,6 +68,14 @@ namespace draconic::core::sys
     const char* GetHostPlatformName() noexcept { return "Win64"; }
     const char* ExecutableExtension() noexcept { return ".exe"; }
 
+    std::size_t GetExecutablePath(char* out, std::size_t outSize) noexcept
+    {
+        // GetModuleFileNameA writes the (possibly truncated) null-terminated path and returns the
+        // chars written excl null; == outSize when truncated; 0 on error.
+        const DWORD n = ::GetModuleFileNameA(nullptr, out, static_cast<DWORD>(outSize));
+        return static_cast<std::size_t>(n);
+    }
+
     void* PageAllocate(std::size_t size) noexcept
     {
         if (size == 0) { return nullptr; }

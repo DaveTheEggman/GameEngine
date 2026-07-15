@@ -91,4 +91,12 @@ TEST_CASE("core/system: GetEnvironmentVariable + UserDataDir")
     CHECK(GetEnvironmentVariable(u8"PATH").HasValue());
     CHECK_FALSE(GetEnvironmentVariable(u8"DRACONIC_DEFINITELY_NOT_SET_XYZ_123").HasValue());
     CHECK(GetUserDataDirectory(u8"draconic").Size() > 0u);
+
+    // The running test executable resolves, and its directory is a prefix of the full path.
+    const String exePath = GetExecutablePath();
+    const String exeDir = GetExecutableDirectory();
+    CHECK(exePath.Size() > 0u);
+    CHECK(exeDir.Size() > 0u);
+    CHECK(exeDir.Size() < exePath.Size());
+    CHECK(exePath.AsView().StartsWith(exeDir.AsView()));
 }

@@ -40,6 +40,9 @@ namespace draconic::core::sys
     const char* GetHostPlatformName() noexcept;
     // Executable filename extension for this platform, WITH the dot (".exe" on Windows, "" elsewhere).
     const char* ExecutableExtension() noexcept;
+    // Absolute path of the running executable (readlink /proc/self/exe, GetModuleFileNameA). Same
+    // truncation / return contract as GetEnvironmentVariable; 0 on failure.
+    std::size_t GetExecutablePath(char* out, std::size_t outSize) noexcept;
 
     // --- Virtual memory (page-granular) ------------------------------------
     void* PageAllocate(std::size_t size) noexcept;   // nullptr on failure
