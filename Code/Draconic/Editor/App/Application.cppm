@@ -27,6 +27,7 @@ import draconic.ui.toolkit;
 import draconic.ui.runtime;
 import draconic.ui.application;
 import draconic.content;
+import draconic.vfs;
 import draconic.resource;
 import draconic.editor;
 import draconic.editor.core;
@@ -633,6 +634,92 @@ export namespace draconic::editor::app
             while (n > 0) { out.PushBack(digits[--n]); }
         }
 
+        // === Export ===
+
+        // Build a fresh export template registry + presets and run one preset (or all) via the shared
+        // driver - the SAME ExportOne/ExportAll the RaptorExport CLI calls. The host template comes
+        // from this editor's own Bin dir (where RaptorPlayer + its .runtime-libs live). (Imported
+        // cross-platform templates land with the templates-manager UI; host-platform export works now.)
+        void RunExport(StringView presetName, bool all)
+        {
+            if (!m_project) { return; }
+
+            const String toolDir = GetExecutableDirectory();
+            draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+            ed::TemplateRegistry registry;
+            registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);
+
+            ed::ExportPresetSet presets;
+            {
+                draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
+                if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
+            }
+
+            const String outRoot = PathJoin(m_project->Directory(), u8"Dist");
+            if (all)
+            {
+                const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
+                const Status s = ed::ExportAll(*m_project, span, registry, m_builders, outRoot.AsView(), false);
+                m_context.Notify(s.IsOk() ? ed::NoticeKind::Success : ed::NoticeKind::Error,
+                                 s.IsOk() ? StringView(u8"Export All complete.")
+                                          : StringView(u8"Export All had failures (see Console)."));
+                return;
+            }
+
+            const ed::ExportPreset* preset = presets.Find(presetName);
+            if (preset == nullptr) { m_context.Notify(ed::NoticeKind::Error, u8"Preset not found."); return; }
+
+            ed::ExportResult result;
+            const Status s = ed::ExportOne(*m_project, *preset, registry, m_builders, outRoot.AsView(), false, &result);
+            if (s.IsOk())
+            {
+                String msg(u8"Exported '"); msg += preset->name; msg += u8"' -> "; msg += result.outputDir;
+                m_context.Notify(ed::NoticeKind::Success, msg.AsView());
+            }
+            else { m_context.Notify(ed::NoticeKind::Error, u8"Export failed (see Console)."); }
+        }
+
+        void OpenExportDialog()
+        {
+            if (!m_project) { m_context.Notify(ed::NoticeKind::Info, u8"Open a project first."); return; }
+
+            ed::ExportPresetSet presets;
+            {
+                draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
+                if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
+            }
+
+            auto dialog = MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Export"));
+            auto column = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
+            column->Direction = draconic::ui::Orientation::Vertical;
+
+            auto info = MakeRef<draconic::ui::Label>(DefaultAllocator(),
+                StringView(u8"Export a preset (output: <project>/Dist):"));
+            column->AddView(info.Get());
+
+            draconic::ui::Dialog* raw = dialog.Get();
+            for (const ed::ExportPreset& preset : presets.presets)
+            {
+                String label(u8"Export: "); label += preset.name;
+                auto button = MakeRef<draconic::ui::Button>(DefaultAllocator(), label.AsView());
+                const String name(preset.name.AsView());
+                button->OnClick.Add([this, name, raw](draconic::ui::ButtonBase*) {
+                    RunExport(name.AsView(), false);
+                    raw->Close(draconic::ui::DialogResult::OK);
+                });
+                column->AddView(button.Get());
+            }
+            dialog->SetContent(column.Get());
+
+            draconic::ui::Button* exportAll = dialog->AddButton(u8"Export All", draconic::ui::DialogResult::None);
+            exportAll->OnClick.Add([this, raw](draconic::ui::ButtonBase*) {
+                RunExport(StringView{}, true);
+                raw->Close(draconic::ui::DialogResult::OK);
+            });
+            dialog->AddButton(u8"Close", draconic::ui::DialogResult::Cancel);
+            dialog->Show(&m_uiHost->Context());
+        }
+
         void ShowDirtyCloseDialog(UIEditorPage* page, tk::DockablePanel* panel)
         {
             String message(u8"'");
@@ -818,6 +905,8 @@ export namespace draconic::editor::app
                         dialog->Show(&m_uiHost->Context());
                     }
                 });
+                file->AddSeparator();
+                file->AddItem(u8"Export...", [this]() { OpenExportDialog(); });
                 file->AddItem(u8"Exit", [this, host]() {
                     if (host != nullptr && ConfirmExitAllowed()) { host->RequestExit(); }
                 });
