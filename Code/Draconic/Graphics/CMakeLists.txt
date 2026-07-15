@@ -60,7 +60,9 @@ if(TARGET Draconic::RHIVulkan)
     target_sources(DraconicGraphicsGpu
         PUBLIC
             FILE_SET graphics_gpu_modules TYPE CXX_MODULES FILES
-                GraphicsGpu.cppm)
+                GraphicsGpu.cppm
+        PRIVATE
+            GraphicsGpu.cpp)   # implementation unit: backend imports live here, off consumers' closure
 else()
     message(STATUS "Vulkan RHI not available - skipping Draconic::GraphicsGpu")
 endif()
