@@ -32,29 +32,45 @@ export namespace draconic::shell
     // hands back views into SDL's transient list.)
     using DialogResultCallback = core::Function<void(core::Span<const core::String>)>;
 
-    // Native file/folder open/save dialogs. Every Show* is async: it returns immediately and
-    // `callback` fires later, exactly once. `parentWindowId` (0 = none) makes the dialog modal to
-    // that window where the backend supports it. Headless / null backends invoke the callback
-    // immediately with an empty result (treated as cancel), so callers need no backend check.
+    // Native OS file/folder dialogs + shell "open" actions. Every Show* is async: it returns
+    // immediately and `callback` fires later, exactly once, on the main thread (during the event
+    // pump). Headless / null backends invoke the callback immediately with an empty result (treated as
+    // cancel), so callers need no backend check.
     class IDialogService
     {
     public:
         virtual ~IDialogService() = default;
 
+        /// Show a native "open file" dialog. `filters` restrict the selectable types (empty => all
+        /// files); `defaultPath` is the initial directory or file to focus; `allowMultiple` permits
+        /// selecting several files; `parentWindowId` (0 => none) makes the dialog modal to that window
+        /// where the backend supports it. Async: `callback` fires once with the chosen path(s), or an
+        /// empty span on cancel / error.
         virtual void ShowOpenFile(DialogResultCallback callback,
                                   core::Span<const FileFilter> filters = {},
                                   core::StringView defaultPath = {},
                                   bool allowMultiple = false,
                                   core::u32 parentWindowId = 0) = 0;
 
+        /// Show a native "save file" dialog to pick a (possibly new) file path to write. Same
+        /// `filters` / `defaultPath` / `parentWindowId` / async-callback semantics as ShowOpenFile,
+        /// but always a single path (empty span on cancel).
         virtual void ShowSaveFile(DialogResultCallback callback,
                                   core::Span<const FileFilter> filters = {},
                                   core::StringView defaultPath = {},
                                   core::u32 parentWindowId = 0) = 0;
 
+        /// Show a native "choose folder" dialog. `defaultPath` is the initial directory;
+        /// `allowMultiple` permits selecting several folders; `parentWindowId` as above. Async:
+        /// `callback` fires once with the chosen folder(s), or an empty span on cancel / error.
         virtual void ShowOpenFolder(DialogResultCallback callback,
                                     core::StringView defaultPath = {},
                                     bool allowMultiple = false,
                                     core::u32 parentWindowId = 0) = 0;
+
+        /// Open `path` with the OS default handler: a FOLDER opens in the system file manager, a file
+        /// opens in its associated application. Fire-and-forget (no callback / no result). No-op on
+        /// headless backends. Used e.g. to reveal an export's output directory.
+        virtual void OpenPath(core::StringView path) = 0;
     };
 }

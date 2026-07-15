@@ -251,4 +251,7 @@ TEST_CASE("shell.null: dialog service cancels immediately (empty result, one cal
     dialogs->ShowOpenFolder(cb, u8"/tmp", false, 0);
     CHECK(calls == 3);
     CHECK(lastCount == 0u);
+
+    dialogs->OpenPath(u8"/tmp");   // headless no-op: callable, no callback, must not crash
+    CHECK(calls == 3);
 }

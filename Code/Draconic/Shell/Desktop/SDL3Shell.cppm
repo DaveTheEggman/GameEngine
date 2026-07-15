@@ -680,6 +680,18 @@ export namespace draconic::shell
                                      allowMultiple);
         }
 
+        void OpenPath(core::StringView path) override
+        {
+            if (path.IsEmpty()) { return; }
+            // SDL_OpenURL routes to the OS handler (xdg-open / ShellExecute / open). A local path needs
+            // the file:// scheme; an absolute POSIX path already starts with '/', so file:// + /x =
+            // file:///x. A Windows drive path (C:\...) gets the extra leading slash: file:///C:/...
+            core::String url(u8"file://");
+            if (path[0] != core::utf8char('/')) { url += u8"/"; }
+            url += path;
+            (void)SDL_OpenURL(reinterpret_cast<const char*>(url.CStr()));
+        }
+
     private:
         // Heap-lived across the dialog's async lifetime; freed in Trampoline. Owns the callback, the
         // null-terminated strings the SDL_DialogFileFilter pointers alias, and the default path.

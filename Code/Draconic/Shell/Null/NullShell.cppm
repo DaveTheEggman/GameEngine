@@ -207,6 +207,7 @@ export namespace draconic::shell
                           core::StringView = {}, core::u32 = 0) override { Cancel(callback); }
         void ShowOpenFolder(DialogResultCallback callback, core::StringView = {},
                             bool = false, core::u32 = 0) override { Cancel(callback); }
+        void OpenPath(core::StringView) override {}   // headless: no OS file manager
 
     private:
         static void Cancel(DialogResultCallback& callback)

@@ -716,11 +716,33 @@ export namespace draconic::editor::app
                     return ed::ExportOne(*project, *preset, registry, *builders, outRoot.AsView(),
                                          /*rebuild*/ false, &result, onProgress, /*cook*/ false);
                 },
-                [this](Status s)
+                [this, outRoot](Status s)   // main thread
                 {
-                    m_context.Notify(s.IsOk() ? ed::NoticeKind::Success : ed::NoticeKind::Error,
-                                     s.IsOk() ? StringView(u8"Export complete.")
-                                              : StringView(u8"Export failed (see Console)."));
+                    if (!s.IsOk())
+                    {
+                        m_context.Notify(ed::NoticeKind::Error, u8"Export failed (see Console).");
+                        return;
+                    }
+                    m_context.SetStatus(u8"Export complete.");
+                    // Sticky success toast with a button that reveals the Dist folder in the OS file
+                    // manager (the button click dismisses the toast, per ToastHost's onAction contract).
+                    if (m_toastHost.Get() != nullptr)
+                    {
+                        tk::ToastRequest request;
+                        request.message = String(u8"Export complete.");
+                        request.severity = tk::ToastSeverity::Success;
+                        request.durationSeconds = 0.0f;   // sticky
+                        request.actionLabel = String(u8"Open Folder");
+                        request.onAction = [this, outRoot]()
+                        {
+                            if (m_host != nullptr && m_host->Shell() != nullptr
+                                && m_host->Shell()->Dialogs() != nullptr)
+                            {
+                                m_host->Shell()->Dialogs()->OpenPath(outRoot.AsView());
+                            }
+                        };
+                        (void)m_toastHost->Show(Move(request));
+                    }
                 });
         }
 
