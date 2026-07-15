@@ -19,6 +19,7 @@ target_sources(DraconicEditorCore
             Page.cppm
             Context.cppm
             LogBuffer.cppm
+            ExportPreset.cppm
             CookService.cppm
             Importer.cppm
             EditorCoreModule.cppm)

@@ -158,3 +158,65 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     NukeTree(projectDir);
     NukeTree(distDir);
 }
+
+TEST_CASE("export: preset set round-trips through export_presets.xml")
+{
+    const String dir = PathJoin(
+        StringView(reinterpret_cast<const utf8char*>(
+            std::filesystem::temp_directory_path().string().c_str())),
+        u8"draconic_presets_test");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    // Absent file => NotFound, so callers know to fall back to defaults.
+    {
+        ed::ExportPresetSet loaded;
+        CHECK_FALSE(ed::LoadExportPresets(root, loaded).IsOk());
+    }
+
+    // The built-in default names the host platform and leaves playerSource empty (host tool dir).
+    ed::ExportPresetSet defaults;
+    ed::DefaultExportPresets(defaults);
+    REQUIRE(defaults.presets.Size() == 1u);
+    CHECK(defaults.presets[0].platform == ed::HostPlatformTag());
+    CHECK(defaults.presets[0].playerSource.IsEmpty());
+
+    // Author a two-preset set (one host-sourced, one template-sourced with sidecars) and save it.
+    ed::ExportPresetSet out;
+    ed::ExportPreset a;
+    a.name = String(u8"Linux Desktop"); a.platform = String(u8"Linux64"); a.outputSubdir = String(u8"Linux64");
+    ed::ExportPreset b;
+    b.name = String(u8"Windows Desktop"); b.platform = String(u8"Win64");
+    b.playerSource = String(u8"Templates/Win64"); b.playerName = String(u8"MyGame.exe");
+    b.outputSubdir = String(u8"Win64");
+    b.runtimeFiles.PushBack(String(u8"SDL3.dll"));
+    b.runtimeFiles.PushBack(String(u8"dxcompiler.dll"));
+    out.presets.PushBack(Move(a));
+    out.presets.PushBack(Move(b));
+    REQUIRE(ed::SaveExportPresets(*root.AsWritable(), out).IsOk());
+
+    // Load back and check every field survived, including the runtimeFiles array + lookup.
+    ed::ExportPresetSet loaded;
+    REQUIRE(ed::LoadExportPresets(root, loaded).IsOk());
+    REQUIRE(loaded.presets.Size() == 2u);
+    CHECK(loaded.presets[0].name == u8"Linux Desktop");
+    CHECK(loaded.presets[0].playerSource.IsEmpty());
+    CHECK(loaded.presets[0].ResolvedPlayerName() == u8"RaptorPlayer");
+
+    const ed::ExportPreset* win = loaded.Find(u8"Windows Desktop");
+    REQUIRE(win != nullptr);
+    CHECK(win->platform == u8"Win64");
+    CHECK(win->playerSource == u8"Templates/Win64");
+    CHECK(win->ResolvedPlayerName() == u8"MyGame.exe");
+    REQUIRE(win->runtimeFiles.Size() == 2u);
+    CHECK(win->runtimeFiles[0] == u8"SDL3.dll");
+    CHECK(win->runtimeFiles[1] == u8"dxcompiler.dll");
+    CHECK(loaded.Find(u8"nope") == nullptr);
+
+    // A preset with no explicit playerName defaults to the platform's exe name.
+    CHECK(ed::DefaultPlayerName(u8"Win64") == u8"RaptorPlayer.exe");
+    CHECK(ed::DefaultPlayerName(u8"Linux64") == u8"RaptorPlayer");
+
+    NukeTree(dir.AsView());
+}
