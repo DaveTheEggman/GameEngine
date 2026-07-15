@@ -35,6 +35,12 @@ namespace draconic::core::sys
     // wrapper appends the application name.
     std::size_t GetUserDataDirectory(char* out, std::size_t outSize) noexcept;
 
+    // --- Platform identity -------------------------------------------------
+    // Host platform tag ("Win64" / "Linux64" / "Mac64"), matching the Bin/<Config>/<Platform> layout.
+    const char* GetHostPlatformName() noexcept;
+    // Executable filename extension for this platform, WITH the dot (".exe" on Windows, "" elsewhere).
+    const char* ExecutableExtension() noexcept;
+
     // --- Virtual memory (page-granular) ------------------------------------
     void* PageAllocate(std::size_t size) noexcept;   // nullptr on failure
     void PageFree(void* pointer, std::size_t size) noexcept;

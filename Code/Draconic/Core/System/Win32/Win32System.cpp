@@ -65,6 +65,9 @@ namespace draconic::core::sys
         return GetEnvironmentVariable("LOCALAPPDATA", out, outSize);
     }
 
+    const char* GetHostPlatformName() noexcept { return "Win64"; }
+    const char* ExecutableExtension() noexcept { return ".exe"; }
+
     void* PageAllocate(std::size_t size) noexcept
     {
         if (size == 0) { return nullptr; }

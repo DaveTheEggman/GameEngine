@@ -85,6 +85,9 @@ namespace draconic::core::sys
         return 0;
     }
 
+    const char* GetHostPlatformName() noexcept { return "Linux64"; }
+    const char* ExecutableExtension() noexcept { return ""; }
+
     void* PageAllocate(std::size_t size) noexcept
     {
         if (size == 0)

@@ -201,4 +201,21 @@ export namespace draconic::core
         if (length == 0 || length >= sizeof(buffer)) { return String(appName); }   // unresolved/truncated
         return PathJoin(StringView(reinterpret_cast<const utf8char*>(buffer), length), appName);
     }
+
+    // --- Platform identity -------------------------------------------------
+
+    // Host platform tag ("Win64" / "Linux64" / "Mac64"), matching the Bin/<Config>/<Platform> layout.
+    [[nodiscard]] inline StringView GetHostPlatformName() noexcept
+    {
+        return StringView(reinterpret_cast<const utf8char*>(sys::GetHostPlatformName()));
+    }
+
+    // Platform executable filename for `baseName`: appends this platform's exe extension
+    // ("Game" -> "Game.exe" on Windows, "Game" elsewhere).
+    [[nodiscard]] inline String GetExecutableName(StringView baseName)
+    {
+        String name(baseName);
+        name += StringView(reinterpret_cast<const utf8char*>(sys::ExecutableExtension()));
+        return name;
+    }
 }
