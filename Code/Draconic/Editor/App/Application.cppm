@@ -8,6 +8,7 @@
 // shutdown. Phase 1: chrome + project only; pages/panels grow in later phases.
 
 module;
+#define _CRT_SECURE_NO_WARNINGS
 #include "Core/Prelude.h"
 #include <cstdlib>
 
