@@ -116,8 +116,10 @@ export namespace draconic::ui::toolkit
                 const Color intoColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 160, 255, 255));
                 const f32 y = m_dropIntoPos * m_treeView->ItemHeight() - scrollY;
                 const Rectangle row{ 0, y, Width(), m_treeView->ItemHeight() };
-                ctx.VG().FillRect(row, Color{ intoColor.r, intoColor.g, intoColor.b, 0.25f });
-                ctx.VG().StrokeRect(row, intoColor, 1.0f);
+                const Color fill{ intoColor.r, intoColor.g, intoColor.b, 0.25f };
+                const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);   // round in the rounded theme
+                if (cr > 0.0f) { ctx.VG().FillRoundedRect(row, cr, fill); ctx.VG().StrokeRoundedRect(row, cr, intoColor, 1.0f); }
+                else { ctx.VG().FillRect(row, fill); ctx.VG().StrokeRect(row, intoColor, 1.0f); }
             }
         }
 

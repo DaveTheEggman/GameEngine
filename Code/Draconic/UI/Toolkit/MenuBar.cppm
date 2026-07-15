@@ -93,10 +93,12 @@ export namespace draconic::ui::toolkit
                     {
                         const Rectangle rect = m_itemRects[i];
 
-                        // Hover/active highlight.
+                        // Hover/active highlight (rounded in the rounded theme).
                         if (static_cast<i32>(i) == m_activeIndex || static_cast<i32>(i) == m_hoveredIndex)
                         {
-                            ctx.VG().FillRect(rect, hoverColor);
+                            const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
+                            if (cr > 0.0f) { ctx.VG().FillRoundedRect(rect, cr, hoverColor); }
+                            else { ctx.VG().FillRect(rect, hoverColor); }
                         }
 
                         // Text.
