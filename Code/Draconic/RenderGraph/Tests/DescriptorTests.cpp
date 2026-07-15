@@ -43,6 +43,24 @@ TEST_CASE("rg.descriptor: custom is not resolved")
     CHECK(desc.height == 256u);
 }
 
+TEST_CASE("rg.descriptor: custom size clamps to at least one")
+{
+    // A degenerate viewport size (0) must not produce a zero-extent transient - that reaches
+    // CreateTexture / vkCmdBeginRendering and trips the resize-corruption cascade.
+    RGTextureDesc desc(rhi::TextureFormat::RGBA8Unorm, 0, 0);
+    desc.Resolve(1920, 1080);
+    CHECK(desc.width >= 1u);
+    CHECK(desc.height >= 1u);
+}
+
+TEST_CASE("rg.descriptor: full size clamps to at least one")
+{
+    RGTextureDesc desc(rhi::TextureFormat::RGBA8Unorm, SizeMode::FullSize);
+    desc.Resolve(0, 0);
+    CHECK(desc.width >= 1u);
+    CHECK(desc.height >= 1u);
+}
+
 TEST_CASE("rg.descriptor: half size clamps to at least one")
 {
     RGTextureDesc desc(rhi::TextureFormat::RGBA8Unorm, SizeMode::HalfSize);

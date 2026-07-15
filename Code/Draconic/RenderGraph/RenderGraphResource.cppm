@@ -36,25 +36,38 @@ export namespace draconic::rendergraph
             if (rhi::IsDepthFormat(textureDesc.format)) { rhiDesc.usage = rhiDesc.usage | rhi::TextureUsage::DepthStencil; }
             else                                        { rhiDesc.usage = rhiDesc.usage | rhi::TextureUsage::RenderTarget; }
 
+            // All-or-nothing: assign the members only once every view is created. Leaving `texture`
+            // set with a null `textureView` (the old behaviour on a view-create failure) poisons the
+            // transient pool and desyncs render-pass attachments (see ReturnTransientResources /
+            // ExecuteRenderPass) - the viewport-resize corruption cascade.
             rhi::Texture* tex = nullptr;
             if (!device.CreateTexture(rhiDesc, tex).IsOk()) { return Status{ ErrorCode::Unknown }; }
-            texture = tex;
-            lastKnownState = tex->initialState;
 
             rhi::TextureView* view = nullptr;
-            if (!device.CreateTextureView(tex, rhi::TextureViewDesc{}, view).IsOk()) { return Status{ ErrorCode::Unknown }; }
-            textureView = view;
+            if (!device.CreateTextureView(tex, rhi::TextureViewDesc{}, view).IsOk())
+            {
+                device.DestroyTexture(tex);
+                return Status{ ErrorCode::Unknown };
+            }
 
-            // Depth-only view for depth/stencil textures (shader sampling of depth).
+            rhi::TextureView* depthOnly = nullptr;
             if (rhi::IsDepthFormat(textureDesc.format) && rhi::HasStencil(textureDesc.format))
             {
                 rhi::TextureViewDesc depthDesc{};
                 depthDesc.aspect = rhi::TextureAspect::DepthOnly;
                 depthDesc.label = u8"RGDepthOnlyView";
-                rhi::TextureView* depthOnly = nullptr;
-                if (!device.CreateTextureView(tex, depthDesc, depthOnly).IsOk()) { return Status{ ErrorCode::Unknown }; }
-                depthOnlyView = depthOnly;
+                if (!device.CreateTextureView(tex, depthDesc, depthOnly).IsOk())
+                {
+                    device.DestroyTextureView(view);
+                    device.DestroyTexture(tex);
+                    return Status{ ErrorCode::Unknown };
+                }
             }
+
+            texture = tex;
+            textureView = view;
+            depthOnlyView = depthOnly;
+            lastKnownState = tex->initialState;
             return Status{};
         }
 

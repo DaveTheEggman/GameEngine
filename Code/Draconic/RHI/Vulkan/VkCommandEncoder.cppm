@@ -81,6 +81,9 @@ public:
             if (auto* v = static_cast<VkTextureViewImpl*>(desc.depthStencilAttachment->view))
                 renderArea.extent = { v->Width(), v->Height() };
         }
+        // Never begin with a zero-extent render area (Vulkan requires width/height > 0).
+        renderArea.extent.width  = Max(1u, renderArea.extent.width);
+        renderArea.extent.height = Max(1u, renderArea.extent.height);
 
         VkRenderingInfo ri{};
         ri.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;

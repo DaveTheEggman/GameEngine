@@ -9,6 +9,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 export module draconic.rendergraph:graph;
 
@@ -638,6 +639,12 @@ export namespace draconic::rendergraph
 
         void AllocateTransientResources()
         {
+            // Tally transient texture allocations this frame so a failure (GPU out of memory / too many
+            // allocations) surfaces with graph context: how many were freshly allocated vs served from
+            // the pool, and the first resource + size that failed. See the per-frame warning below.
+            u32 freshAllocs = 0, allocFails = 0, poolHits = 0;
+            StringView firstFailName; u32 firstFailW = 0, firstFailH = 0;
+
             for (RenderGraphResource* res : m_resources)
             {
                 if (res == nullptr || res->lifetime != RGResourceLifetime::Transient || res->refCount == 0) { continue; }
@@ -650,6 +657,7 @@ export namespace draconic::rendergraph
                     u64 pooledGen = 0;
                     if (m_texturePool.Get() != nullptr && m_texturePool->TryAcquire(rhiDesc, tex, view, pooledGen))
                     {
+                        ++poolHits;
                         res->texture = tex;
                         res->textureView = view;
                         res->textureGeneration = pooledGen;   // reused physical texture keeps its id
@@ -664,7 +672,16 @@ export namespace draconic::rendergraph
                     }
                     else
                     {
-                        (void)res->AllocateTexture(*m_device);
+                        ++freshAllocs;
+                        if (!res->AllocateTexture(*m_device).IsOk())
+                        {
+                            ++allocFails;
+                            if (firstFailName.IsEmpty())
+                            {
+                                firstFailName = res->name.AsView();
+                                firstFailW = res->textureDesc.width; firstFailH = res->textureDesc.height;
+                            }
+                        }
                         res->textureGeneration = ++m_nextTransientGeneration;   // freshly created -> new id
                     }
                 }
@@ -672,6 +689,16 @@ export namespace draconic::rendergraph
                 {
                     (void)res->AllocateBuffer(*m_device);
                 }
+            }
+
+            // One warning per frame that had any transient-texture allocation failure (GPU resource
+            // exhaustion). `fresh` = new allocations attempted this frame (pool misses), `poolHit` =
+            // reused from the transient pool. Sustained firing indicates a GPU-memory leak somewhere.
+            if (allocFails > 0)
+            {
+                DRACONIC_LOG_WARNING(u8"RenderGraph",
+                    u8"transient alloc FAILED {}/{} (poolHit={}); first fail '{}' {}x{}",
+                    allocFails, freshAllocs, poolHits, firstFailName, firstFailW, firstFailH);
             }
         }
 
@@ -684,7 +711,11 @@ export namespace draconic::rendergraph
 
                 if (res->resourceType == RGResourceType::Texture && res->texture != nullptr)
                 {
-                    if (m_texturePool.Get() != nullptr)
+                    // Only pool a fully-valid texture. A texture with a NULL view (a partial/failed
+                    // allocation) must never re-enter the pool: a later TryAcquire would hand it back and
+                    // ExecuteRenderPass would drop that attachment, desyncing the render-pass signature
+                    // from the pipelines/bundles - permanently, keyed by size. Destroy it instead.
+                    if (m_texturePool.Get() != nullptr && res->textureView != nullptr)
                     {
                         const rhi::TextureDesc rhiDesc = res->textureDesc.ToTextureDesc(res->name.AsView());
                         m_texturePool->ReturnToPool(rhiDesc, res->texture, res->textureView, res->textureGeneration);
@@ -759,6 +790,18 @@ export namespace draconic::rendergraph
         {
             const bool hasBundles = static_cast<bool>(pass.bundleCallback);
             if (!static_cast<bool>(pass.executeCallback) && !hasBundles) { return; }
+
+            // If any DECLARED color/depth attachment failed to resolve to a view (a transient
+            // allocation failure during a rapid viewport resize, or an unready imported target), SKIP
+            // the whole pass. Beginning it with only the surviving attachments would shift/reduce the
+            // color-attachment count and formats away from the fixed signature the pipelines and
+            // secondary bundles were recorded for - the vkCmdExecuteCommands / colorAttachmentCount /
+            // renderArea-zero validation cascade and corrupt output. Better to drop one frame's pass.
+            for (const RGColorTarget& ct : pass.colorTargets)
+            {
+                if (GetTextureView(ct.handle) == nullptr) { return; }
+            }
+            if (pass.depthTarget.HasValue() && GetTextureView(pass.depthTarget.Value().handle) == nullptr) { return; }
 
             // A bundle pass records its bundles NOW (encoder in recording state, before the pass
             // begins); the graph then begins with secondary contents + replays them. Done before

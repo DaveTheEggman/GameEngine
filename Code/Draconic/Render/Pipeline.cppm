@@ -1617,6 +1617,12 @@ public:
         {
             DRACONIC_PROFILE_SCOPE("Compose.Execute");   // graph compile (barriers/transients) + record all passes
             (void)m_graph.Execute(m_encoder);
+            // Age out the transient texture pool. Execute() only RETURNS transients to the pool; EndFrame()
+            // is the sole caller of TransientTexturePool::EndFrame(), which destroys entries unused for
+            // maxUnusedFrames. Without this, the pool keeps every size ever seen alive forever - invisible
+            // in steady state (one size recurs) but an unbounded VkDeviceMemory leak under viewport-resize
+            // churn (each new size adds a never-evicted set), exhausting VRAM -> clear-color viewports.
+            m_graph.EndFrame();
         }
 
         for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }

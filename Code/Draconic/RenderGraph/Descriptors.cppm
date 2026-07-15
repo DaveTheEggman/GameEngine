@@ -43,13 +43,13 @@ export namespace draconic::rendergraph
             switch (sizeMode)
             {
                 case SizeMode::FullSize:
-                    width = outputWidth; height = outputHeight; break;
+                    width = Max(1u, outputWidth); height = Max(1u, outputHeight); break;
                 case SizeMode::HalfSize:
                     width = Max(1u, outputWidth / 2u); height = Max(1u, outputHeight / 2u); break;
                 case SizeMode::QuarterSize:
                     width = Max(1u, outputWidth / 4u); height = Max(1u, outputHeight / 4u); break;
                 case SizeMode::Custom:
-                    break; // already set
+                    width = Max(1u, width); height = Max(1u, height); break;   // never a zero-extent target
             }
         }
 

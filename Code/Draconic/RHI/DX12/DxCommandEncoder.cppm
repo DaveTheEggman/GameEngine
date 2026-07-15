@@ -71,15 +71,23 @@ public:
                 m_cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, desc.beginTimestampIndex);
         }
 
-        // Collect render target views.
+        // Collect render target views. Pack them CONTIGUOUSLY (write index == rtvCount), skipping any
+        // null view, and clear in the same pass so handles stay aligned. Writing rtvHandles[i] while
+        // counting separately would, on a null gap, leave a null handle inside the count handed to
+        // OMSetRenderTargets. (The render graph already skips a pass with an unresolved attachment -
+        // ExecuteRenderPass - so this is defense in depth.)
         D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[8]{};
         u32 rtvCount = 0;
         auto colorAtts = desc.colorAttachments.View();
-        for (usize i = 0; i < colorAtts.Size() && i < 8; ++i) {
+        for (usize i = 0; i < colorAtts.Size() && rtvCount < 8; ++i) {
             const auto& att = colorAtts[i];
-            if (auto* dxView = static_cast<DxTextureViewImpl*>(att.view)) {
-                rtvHandles[i] = dxView->getRtv();
-                ++rtvCount;
+            auto* dxView = static_cast<DxTextureViewImpl*>(att.view);
+            if (dxView == nullptr) { continue; }
+            const D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxView->getRtv();
+            rtvHandles[rtvCount++] = rtv;
+            if (att.loadOp == LoadOp::Clear) {
+                FLOAT color[4] = { att.clearValue.r, att.clearValue.g, att.clearValue.b, att.clearValue.a };
+                m_cmdList->ClearRenderTargetView(rtv, color, 0, nullptr);
             }
         }
 
@@ -96,14 +104,7 @@ public:
 
         m_cmdList->OMSetRenderTargets(rtvCount, rtvHandles, FALSE, dsvPtr);
 
-        // Clear render targets.
-        for (usize i = 0; i < colorAtts.Size() && i < 8; ++i) {
-            const auto& att = colorAtts[i];
-            if (att.loadOp == LoadOp::Clear) {
-                FLOAT color[4] = { att.clearValue.r, att.clearValue.g, att.clearValue.b, att.clearValue.a };
-                m_cmdList->ClearRenderTargetView(rtvHandles[i], color, 0, nullptr);
-            }
-        }
+        // (color clears are done in the packing loop above, aligned with the packed handles)
 
         // Clear depth/stencil.
         if (desc.depthStencilAttachment.HasValue() && dsvPtr) {
