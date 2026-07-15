@@ -60,8 +60,20 @@ export namespace draconic::ui::toolkit
         {
             const Color bg = ResolveStyleColor(StyleProperty::Background,
                                                Color{ 0.13f, 0.14f, 0.17f, 0.97f });
-            ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, bg);
-            ctx.VG().FillRect(Rectangle{ 0, 0, 3.0f, Height() }, Accent);
+            const f32 r = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
+            const Rectangle bounds{ 0, 0, Width(), Height() };
+            const Rectangle bar{ 0, 0, 3.0f, Height() };
+            if (r > 0.0f)
+            {
+                ctx.VG().FillRoundedRect(bounds, r, bg);
+                // Accent bar hugs the left edge; round its left corners to match the card.
+                ctx.VG().FillRoundedRect(bar, draconic::vg::CornerRadii{ r, 0.0f, 0.0f, r }, Accent);
+            }
+            else
+            {
+                ctx.VG().FillRect(bounds, bg);
+                ctx.VG().FillRect(bar, Accent);
+            }
             DrawChildren(ctx);
         }
     };
@@ -84,7 +96,10 @@ export namespace draconic::ui::toolkit
             const u64 id = m_nextId++;
 
             RefPtr<ToastCard> card = MakeRef<ToastCard>(DefaultAllocator());
-            card->Accent = AccentFor(request.severity);
+            // Info uses the theme accent; Success/Warning/Error keep their semantic colors.
+            card->Accent = (request.severity == ToastSeverity::Info)
+                ? ResolveStyleColor(StyleProperty::AccentColor, AccentFor(request.severity))
+                : AccentFor(request.severity);
 
             RefPtr<Label> message = MakeRef<Label>(DefaultAllocator());
             message->SetText(request.message.AsView());

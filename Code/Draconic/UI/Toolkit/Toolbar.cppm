@@ -258,19 +258,12 @@ export namespace draconic::ui::toolkit
         if (IsHovered())
         {
             Color bgColor = Rgb(50, 52, 62, 255);
-            f32 cornerR = 0.0f;
+            const f32 cornerR = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);   // theme radius
             if (Toolbar* toolbar = Cast<Toolbar>(Parent))
             {
                 Drawable* bg = toolbar->ResolveStyleDrawable(StyleProperty::Background);
-                if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bg))
-                {
-                    bgColor = rrd->FillColor;
-                    cornerR = core::Min(rrd->Radii.topLeft, 3.0f);
-                }
-                else if (ColorDrawable* cd = Cast<ColorDrawable>(bg))
-                {
-                    bgColor = cd->Color;
-                }
+                if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bg)) { bgColor = rrd->FillColor; }
+                else if (ColorDrawable* cd = Cast<ColorDrawable>(bg)) { bgColor = cd->Color; }
             }
             const Color hoverBg = Palette::ComputeHover(bgColor);
             if (cornerR > 0.0f) { ctx.VG().FillRoundedRect(bounds, cornerR, hoverBg); }
@@ -308,15 +301,10 @@ export namespace draconic::ui::toolkit
         // Active toggle: muted accent background from toolbar's SelectionColor.
         if (m_isChecked)
         {
-            f32 cornerR = 0.0f;
+            const f32 cornerR = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);   // theme radius
             Color onColor = Rgb(40, 80, 160, 255);
             if (Toolbar* toolbar = Cast<Toolbar>(Parent))
             {
-                Drawable* bg = toolbar->ResolveStyleDrawable(StyleProperty::Background);
-                if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bg))
-                {
-                    cornerR = core::Min(rrd->Radii.topLeft, 3.0f);
-                }
                 onColor = toolbar->ResolveStyleColor(StyleProperty::SelectionColor, onColor);
             }
             if (cornerR > 0.0f) { ctx.VG().FillRoundedRect(bounds, cornerR, onColor); }

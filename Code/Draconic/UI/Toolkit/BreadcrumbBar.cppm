@@ -86,9 +86,17 @@ export namespace draconic::ui::toolkit
         {
             const f32 h = Height();
 
-            // Background.
+            // Background (rounded to the theme's CornerRadius when the drawable supports it).
             Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background);
-            if (bgDrawable != nullptr)
+            if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable))
+            {
+                const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
+                const draconic::vg::CornerRadii saved = rrd->Radii;
+                rrd->Radii = draconic::vg::CornerRadii{ cr, cr, cr, cr };
+                rrd->Draw(ctx, Rectangle{ 0, 0, Width(), h });
+                rrd->Radii = saved;
+            }
+            else if (bgDrawable != nullptr)
             {
                 bgDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), h });
             }
@@ -118,7 +126,10 @@ export namespace draconic::ui::toolkit
                     Color bgColor = Rgb(40, 42, 52, 255);
                     if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable)) { bgColor = rrd->FillColor; }
                     else if (ColorDrawable* cd = Cast<ColorDrawable>(bgDrawable)) { bgColor = cd->Color; }
-                    ctx.VG().FillRect(rect, Palette::ComputeHover(bgColor));
+                    const Color hc = Palette::ComputeHover(bgColor);
+                    const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
+                    if (cr > 0.0f) { ctx.VG().FillRoundedRect(rect, cr, hc); }
+                    else { ctx.VG().FillRect(rect, hc); }
                 }
 
                 // Segment text.

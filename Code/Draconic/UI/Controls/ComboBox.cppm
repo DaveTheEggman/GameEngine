@@ -202,8 +202,11 @@ export namespace draconic::ui
             }
 
             const Color textColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
-            const Color hoverColor = ResolveStyleColor(StyleProperty::AccentColor, Color{ 60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 100.0f / 255.0f });
-            const Color selectedColor{ 60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 50.0f / 255.0f };
+            // Dropdown hover/selection fill the item rect, so use a TRANSLUCENT tint of the theme accent
+            // (the accent itself is opaque - filling with it would paint solid blocks behind the items).
+            const Color accentBase = ResolveStyleColor(StyleProperty::AccentColor, Color{ 60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 1.0f });
+            const Color hoverColor{ accentBase.r, accentBase.g, accentBase.b, 100.0f / 255.0f };
+            const Color selectedColor{ accentBase.r, accentBase.g, accentBase.b, 50.0f / 255.0f };
             Drawable* hoverDrawable = ResolveStyleDrawable(StyleProperty::MenuItemHoverDrawable);
             const f32 fontSize = m_owner->ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
             fonts::CachedFont* font = ctx.FontService() != nullptr ? ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize) : nullptr;
@@ -319,8 +322,9 @@ export namespace draconic::ui
         const Rectangle screen{ 0, 0, logical.x, logical.y };
 
         dropdown->Measure(BoxConstraints::Loose(screen.width, screen.height));
-        f32 sy = screenPos.y;
-        if (sy + dropdown->MeasuredSize.y > screen.height) { sy = screenPos.y - Height() - dropdown->MeasuredSize.y; } // flip above
+        const f32 gap = 2.0f;   // sit just below the box's bottom border instead of overlapping it
+        f32 sy = screenPos.y + gap;
+        if (sy + dropdown->MeasuredSize.y > screen.height) { sy = screenPos.y - Height() - gap - dropdown->MeasuredSize.y; } // flip above
 
         root->GetPopupLayer()->ShowPopup(dropdown.Get(), this, screenPos.x, sy, true, false, true);
         m_isOpen = true;

@@ -103,6 +103,8 @@ export namespace draconic::editor::app
             // Right: [breadcrumb | view toggle] over [filter] over [list | grid].
             auto right = MakeRef<ui::FlexLayout>(DefaultAllocator());
             right->Direction = ui::Orientation::Vertical;
+            right->Padding = ui::Thickness{ 6, 4 };   // inset the content off the edge (like the group tree)
+            right->Spacing = 4;                        // separate the header row, filter, and content
             {
                 AssetsView* self = this;
 

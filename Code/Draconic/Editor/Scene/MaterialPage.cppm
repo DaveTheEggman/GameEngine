@@ -109,9 +109,19 @@ export namespace draconic::editor
             m_grid = MakeRef<draconic::ui::toolkit::PropertyGrid>(DefaultAllocator());
             RebuildGrid();
 
+            // Inset the property grid off the pane edge (matches the scene inspector / hierarchy).
+            auto gridColumn = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
+            gridColumn->Direction = draconic::ui::Orientation::Vertical;
+            gridColumn->Padding = draconic::ui::Thickness{ 8, 6 };
+            {
+                auto grow = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                grow->Grow = 1.0f;
+                gridColumn->AddView(m_grid.Get(), grow);
+            }
+
             m_content = MakeRef<draconic::ui::toolkit::SplitView>(DefaultAllocator());
             m_content->SetSplitRatio(0.62f);
-            m_content->SetPanes(m_viewport.Get(), m_grid.Get());
+            m_content->SetPanes(m_viewport.Get(), gridColumn.Get());
 
             RebuildPreviewMaterial();
         }

@@ -353,12 +353,15 @@ export namespace draconic::ui
             if (m_adapter != nullptr)
             {
                 const Color selColor = ResolveStyleColor(StyleProperty::SelectionColor, Color{ 60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 80.0f / 255.0f });
+                const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);   // round the row in the rounded theme
                 for (const auto& kv : m_activeViews)
                 {
                     if (Selection.IsSelected(kv.key))
                     {
                         View* v = kv.value.Get();
-                        ctx.VG().FillRect(Rectangle{ v->Bounds.x, v->Bounds.y, v->Width(), v->Height() }, selColor);
+                        const Rectangle r{ v->Bounds.x, v->Bounds.y, v->Width(), v->Height() };
+                        if (cr > 0.0f) { ctx.VG().FillRoundedRect(r, cr, selColor); }
+                        else { ctx.VG().FillRect(r, selColor); }
                     }
                 }
             }

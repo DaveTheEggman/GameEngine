@@ -47,6 +47,25 @@ export namespace draconic::ui
         /// Default dark palette.
         [[nodiscard]] static ThemePalette Dark() noexcept { return ThemePalette{}; }
 
+        /// Warm "Graphite & Amber" dark palette: warm-neutral charcoal surfaces with an amber accent.
+        /// A crafted, distinctive alternative to the cool blue-grey Dark() default (used by the editor).
+        [[nodiscard]] static ThemePalette GraphiteAmber() noexcept
+        {
+            ThemePalette p;
+            p.Primary       = Color{ 226.0f / 255.0f, 164.0f / 255.0f,  58.0f / 255.0f, 1.0f };
+            p.PrimaryAccent = Color{ 242.0f / 255.0f, 188.0f / 255.0f,  88.0f / 255.0f, 1.0f };
+            p.Background     = Color{  25.0f / 255.0f,  24.0f / 255.0f,  23.0f / 255.0f, 1.0f };
+            p.Surface        = Color{  38.0f / 255.0f,  37.0f / 255.0f,  33.0f / 255.0f, 1.0f };
+            p.SurfaceBright  = Color{  51.0f / 255.0f,  49.0f / 255.0f,  43.0f / 255.0f, 1.0f };
+            p.Border         = Color{  69.0f / 255.0f,  66.0f / 255.0f,  59.0f / 255.0f, 1.0f };
+            p.Text           = Color{ 237.0f / 255.0f, 232.0f / 255.0f, 223.0f / 255.0f, 1.0f };
+            p.TextDim        = Color{ 154.0f / 255.0f, 147.0f / 255.0f, 138.0f / 255.0f, 1.0f };
+            p.Error          = Color{ 216.0f / 255.0f,  82.0f / 255.0f,  74.0f / 255.0f, 1.0f };
+            p.Success        = Color{  99.0f / 255.0f, 184.0f / 255.0f, 110.0f / 255.0f, 1.0f };
+            p.Warning        = Color{ 232.0f / 255.0f, 140.0f / 255.0f,  58.0f / 255.0f, 1.0f };
+            return p;
+        }
+
         /// Light palette.
         [[nodiscard]] static ThemePalette Light() noexcept
         {

@@ -224,8 +224,9 @@ export namespace draconic::ui::toolkit
                 ? m_itemRects[static_cast<usize>(index)]
                 : Rectangle{ 0, 0, 0, 0 };
 
-            // Compute screen position below this menu item using LocalToScreen.
-            const Float2 screenPos = LocalToScreen(Float2{ rect.x, m_itemHeight });
+            // Screen position just below this menu item (+2px so the dropdown clears the bar's
+            // bottom border instead of sitting on it).
+            const Float2 screenPos = LocalToScreen(Float2{ rect.x, m_itemHeight + 2.0f });
 
             RootView* root = Root();
             if (root == nullptr) { return; }

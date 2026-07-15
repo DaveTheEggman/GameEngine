@@ -57,19 +57,40 @@ export namespace draconic::ui
     struct RoundedDarkTheme
     {
         [[nodiscard]] static RefPtr<StyleSheet> Create() { return BuildTheme(ThemePalette::Dark()); }
+        [[nodiscard]] static RefPtr<StyleSheet> Create(ThemePalette palette) { return BuildTheme(palette); }
 
     private:
-        [[nodiscard]] static Color C(f32 r, f32 g, f32 b, f32 a) { return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f }; }
-
         [[nodiscard]] static RefPtr<StyleSheet> BuildTheme(ThemePalette p)
         {
             RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(DefaultAllocator());
             StyleSheet& sheet = *sheetRef;
             const f32 R = 6.0f; // consistent corner radius
 
+            // Palette-derived control colors: every surface/border/accent is computed from the palette
+            // so the whole theme follows it (no hardcoded cool-grey/blue literals) - a warm palette like
+            // GraphiteAmber then applies end-to-end, selection highlights included.
+            const auto A = [](Color c, f32 a255) { return Color{ c.r, c.g, c.b, a255 / 255.0f }; };
+            const Color inputBg     = Palette::Darken(p.Surface, 0.25f);     // sunken text-field background
+            const Color trackBg     = Palette::Lighten(p.Surface, 0.12f);    // slider / progress tracks
+            const Color ctrlBorder  = Palette::Lighten(p.Border, 0.35f);     // checkbox / radio outlines
+            const Color menuBorder  = Palette::Lighten(p.Border, 0.20f);
+            const Color dialogBorder= Palette::Lighten(p.Border, 0.30f);
+            const Color iconDim     = Palette::Lighten(p.TextDim, 0.15f);    // arrows / chevrons
+            const Color knob        = p.Text;                                // slider thumb / switch knob
+            const Color selection   = A(p.PrimaryAccent, 90.0f);            // text / list selection
+            const Color menuHi      = A(p.PrimaryAccent, 100.0f);           // menu-item hover / accent
+
             // === Global defaults ===
+            // AccentColor as a global default: controls that ResolveStyleColor(AccentColor, <fallback>)
+            // without a type-specific rule (e.g. tree drop-indicators, node-graph links) then pick up the
+            // palette accent instead of their hardcoded fallback. Type-specific accent rules still win.
+            // Global CornerRadius = the theme's uniform R, so every control that resolves it (focus
+            // borders, self-drawing toolkit controls like DockTabGroup/ToastCard) rounds consistently.
+            // The flat DarkTheme leaves it at 0, so those same controls stay square there.
             sheet.ForType(&View::StaticType())
                 .Set(StyleProperty::TextColor, p.Text)
+                .Set(StyleProperty::AccentColor, p.PrimaryAccent)
+                .Set(StyleProperty::CornerRadius, R)
                 .Set(StyleProperty::FontSize, 16.0f);
 
             // === Button - rounded state drawables ===
@@ -92,7 +113,7 @@ export namespace draconic::ui
             sheet.ForType(&ButtonBase::StaticType())
                 .Set(StyleProperty::Background, btnBg)
                 .Set(StyleProperty::CheckedBackground, btnChecked)
-                .Set(StyleProperty::TextColor, C(240, 240, 245, 255))
+                .Set(StyleProperty::TextColor, p.Text)
                 .Set(StyleProperty::Padding, Thickness{ 12, 8 });
 
             // === Panel ===
@@ -105,7 +126,7 @@ export namespace draconic::ui
             sheet.ForClass(u8"label-dim").Set(StyleProperty::TextColor, p.TextDim);
 
             // === EditText ===
-            RefPtr<Drawable> editBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(30, 32, 42, 255), R, p.Border, 1.0f);
+            RefPtr<Drawable> editBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), inputBg, R, p.Border, 1.0f);
             sheet.OwnDrawable(editBg);
             sheet.ForType(&EditText::StaticType())
                 .Set(StyleProperty::Background, editBg)
@@ -114,11 +135,11 @@ export namespace draconic::ui
                 .Set(StyleProperty::FontSize, 14.0f)
                 .Set(StyleProperty::Padding, Thickness{ 6, 4 })
                 .Set(StyleProperty::CursorColor, p.PrimaryAccent)
-                .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
+                .Set(StyleProperty::SelectionColor, selection);
 
             // === NumericField (shares EditText styling + rounded spin buttons) ===
             {
-                const Color spinColor = C(50, 55, 68, 255);
+                const Color spinColor = p.SurfaceBright;
                 RefPtr<Drawable> spinUp = Palette::CreateStateRounded(spinColor, vg::CornerRadii{ 0, R, 0, 0 });
                 RefPtr<Drawable> spinDown = Palette::CreateStateRounded(spinColor, vg::CornerRadii{ 0, 0, R, 0 });
                 sheet.OwnDrawable(spinUp);
@@ -130,14 +151,14 @@ export namespace draconic::ui
                     .Set(StyleProperty::FontSize, 14.0f)
                     .Set(StyleProperty::Padding, Thickness{ 6, 4 })
                     .Set(StyleProperty::CursorColor, p.PrimaryAccent)
-                    .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
+                    .Set(StyleProperty::SelectionColor, selection);
                 sheet.ForTypePseudo(&NumericField::StaticType(), u8"spin-up").Set(StyleProperty::Background, spinUp);
                 sheet.ForTypePseudo(&NumericField::StaticType(), u8"spin-down").Set(StyleProperty::Background, spinDown);
             }
 
             // === CheckBox - rounded ===
-            const Color cbBorder = C(100, 105, 120, 255);
-            RefPtr<Drawable> cbUnchecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(30, 32, 42, 255), 3.0f, cbBorder, 1.0f);
+            const Color cbBorder = ctrlBorder;
+            RefPtr<Drawable> cbUnchecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), inputBg, 3.0f, cbBorder, 1.0f);
             RefPtr<Drawable> cbChecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 3.0f, cbBorder, 1.0f);
             sheet.OwnDrawable(cbUnchecked);
             sheet.OwnDrawable(cbChecked);
@@ -148,8 +169,8 @@ export namespace draconic::ui
             sheet.ForType(&CheckBox::StaticType()).Set(StyleProperty::Spacing, 6.0f);
 
             // === RadioButton - circular ===
-            const Color rbBorder = C(100, 105, 120, 255);
-            RefPtr<Drawable> rbUnchecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(30, 32, 42, 255), 9.0f, rbBorder, 1.0f);
+            const Color rbBorder = ctrlBorder;
+            RefPtr<Drawable> rbUnchecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), inputBg, 9.0f, rbBorder, 1.0f);
             RefPtr<Drawable> rbChecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 9.0f, rbBorder, 1.0f);
             sheet.OwnDrawable(rbUnchecked);
             sheet.OwnDrawable(rbChecked);
@@ -157,9 +178,9 @@ export namespace draconic::ui
             sheet.ForTypePseudoState(&RadioButton::StaticType(), u8"box", ControlState::Checked).Set(StyleProperty::Background, rbChecked);
 
             // === Slider - rounded track and thumb ===
-            RefPtr<Drawable> sliderTrack = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(50, 52, 62, 255), 2.0f);
+            RefPtr<Drawable> sliderTrack = MakeRef<RoundedRectDrawable>(DefaultAllocator(), trackBg, 2.0f);
             RefPtr<Drawable> sliderFill = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 2.0f);
-            RefPtr<Drawable> sliderThumb = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(220, 220, 230, 255), 8.0f);
+            RefPtr<Drawable> sliderThumb = MakeRef<RoundedRectDrawable>(DefaultAllocator(), knob, 8.0f);
             sheet.OwnDrawable(sliderTrack);
             sheet.OwnDrawable(sliderFill);
             sheet.OwnDrawable(sliderThumb);
@@ -172,7 +193,7 @@ export namespace draconic::ui
                 .Set(StyleProperty::Width, 16.0f);
 
             // === ProgressBar - rounded ===
-            RefPtr<Drawable> progTrack = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(50, 52, 62, 255), 4.0f);
+            RefPtr<Drawable> progTrack = MakeRef<RoundedRectDrawable>(DefaultAllocator(), trackBg, 4.0f);
             RefPtr<Drawable> progFill = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 4.0f);
             sheet.OwnDrawable(progTrack);
             sheet.OwnDrawable(progFill);
@@ -182,7 +203,7 @@ export namespace draconic::ui
             // === ToggleSwitch - pill-shaped track (with border) and round knob ===
             RefPtr<Drawable> switchTrackOff = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 12.0f, p.Border, 1.0f);
             RefPtr<Drawable> switchTrackOn = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 12.0f, p.Border, 1.0f);
-            RefPtr<Drawable> switchKnob = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(230, 230, 235, 255), 10.0f);
+            RefPtr<Drawable> switchKnob = MakeRef<RoundedRectDrawable>(DefaultAllocator(), knob, 10.0f);
             sheet.OwnDrawable(switchTrackOff);
             sheet.OwnDrawable(switchTrackOn);
             sheet.OwnDrawable(switchKnob);
@@ -192,14 +213,14 @@ export namespace draconic::ui
             sheet.ForType(&ToggleSwitch::StaticType()).Set(StyleProperty::BorderColor, p.Border);
 
             // === ComboBox ===
-            RefPtr<Drawable> comboBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(40, 42, 52, 255), R, p.Border, 1.0f);
+            RefPtr<Drawable> comboBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.SurfaceBright, R, p.Border, 1.0f);
             sheet.OwnDrawable(comboBg);
             sheet.ForType(&ComboBox::StaticType()).Set(StyleProperty::Background, comboBg);
-            sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow").Set(StyleProperty::TextColor, C(180, 185, 200, 255));
+            sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow").Set(StyleProperty::TextColor, iconDim);
 
             // === ScrollBar - rounded ===
-            RefPtr<Drawable> scrollTrack = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(40, 42, 50, 150), 5.0f);
-            RefPtr<Drawable> scrollThumb = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(100, 110, 130, 200), 5.0f);
+            RefPtr<Drawable> scrollTrack = MakeRef<RoundedRectDrawable>(DefaultAllocator(), A(Palette::Darken(p.Surface, 0.15f), 150.0f), 5.0f);
+            RefPtr<Drawable> scrollThumb = MakeRef<RoundedRectDrawable>(DefaultAllocator(), A(Palette::Lighten(p.Border, 0.5f), 200.0f), 5.0f);
             sheet.OwnDrawable(scrollTrack);
             sheet.OwnDrawable(scrollThumb);
             sheet.ForTypePseudo(&ScrollBar::StaticType(), u8"track").Set(StyleProperty::Background, scrollTrack);
@@ -209,13 +230,13 @@ export namespace draconic::ui
             sheet.ForType(&Separator::StaticType()).Set(StyleProperty::BorderColor, p.Border);
 
             // === Expander ===
-            RefPtr<Drawable> expanderHeader = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(50, 55, 68, 255), R);
-            RefPtr<Drawable> expanderHover = MakeRef<RoundedRectDrawable>(DefaultAllocator(), Palette::Lighten(C(50, 55, 68, 255), 0.1f), R);
+            RefPtr<Drawable> expanderHeader = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.SurfaceBright, R);
+            RefPtr<Drawable> expanderHover = MakeRef<RoundedRectDrawable>(DefaultAllocator(), Palette::Lighten(p.SurfaceBright, 0.1f), R);
             sheet.OwnDrawable(expanderHeader);
             sheet.OwnDrawable(expanderHover);
             sheet.ForTypePseudo(&Expander::StaticType(), u8"header").Set(StyleProperty::Background, expanderHeader);
             sheet.ForTypePseudoState(&Expander::StaticType(), u8"header", ControlState::Hover).Set(StyleProperty::Background, expanderHover);
-            sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron").Set(StyleProperty::TextColor, C(180, 185, 200, 255));
+            sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron").Set(StyleProperty::TextColor, iconDim);
 
             // === TabView - rounded tab backgrounds ===
             {
@@ -247,24 +268,26 @@ export namespace draconic::ui
             }
 
             // === ContextMenu ===
-            RefPtr<Drawable> menuBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(45, 48, 58, 255), R, C(70, 75, 90, 255), 1.0f);
+            RefPtr<Drawable> menuBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.SurfaceBright, R, menuBorder, 1.0f);
             sheet.OwnDrawable(menuBg);
-            RefPtr<Drawable> menuHover = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(60, 120, 200, 100), 3.0f);
+            RefPtr<Drawable> menuHover = MakeRef<RoundedRectDrawable>(DefaultAllocator(), menuHi, 3.0f);
             sheet.OwnDrawable(menuHover);
             sheet.ForClass(u8"contextmenu")
                 .Set(StyleProperty::Background, menuBg)
                 .Set(StyleProperty::MenuItemHoverDrawable, menuHover)
                 .Set(StyleProperty::TextColor, p.Text)
-                .Set(StyleProperty::BorderColor, C(70, 75, 90, 255))
-                .Set(StyleProperty::AccentColor, C(60, 120, 200, 100));
+                .Set(StyleProperty::BorderColor, menuBorder)
+                .Set(StyleProperty::AccentColor, menuHi);
 
             // === Dialog ===
-            RefPtr<Drawable> dialogBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(50, 52, 62, 255), R, C(80, 85, 100, 255), 1.0f);
+            // Dialog surface sits BELOW the button surface (SurfaceBright) so the dialog's buttons
+            // stand out instead of blending into the background as flat text.
+            RefPtr<Drawable> dialogBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, R, dialogBorder, 1.0f);
             sheet.OwnDrawable(dialogBg);
             sheet.ForType(&Dialog::StaticType()).Set(StyleProperty::Background, dialogBg);
 
             // === Tooltip ===
-            RefPtr<Drawable> tooltipBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(40, 42, 50, 230), R, C(70, 75, 85, 255), 1.0f);
+            RefPtr<Drawable> tooltipBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), A(p.SurfaceBright, 235.0f), R, p.Border, 1.0f);
             sheet.OwnDrawable(tooltipBg);
             sheet.ForType(&TooltipView::StaticType())
                 .Set(StyleProperty::Background, tooltipBg)
@@ -273,11 +296,11 @@ export namespace draconic::ui
             // === ListView / TreeView / GridView ===
             sheet.ForType(&ListView::StaticType())
                 .Set(StyleProperty::Background, sheet.OwnColor(p.Background))
-                .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
+                .Set(StyleProperty::SelectionColor, selection);
             sheet.ForType(&TreeView::StaticType()).Set(StyleProperty::Background, sheet.OwnColor(p.Background));
             sheet.ForType(&GridView::StaticType())
                 .Set(StyleProperty::Background, sheet.OwnColor(p.Background))
-                .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
+                .Set(StyleProperty::SelectionColor, selection);
 
             // === Icons ===
             RegisterIcons(sheet);

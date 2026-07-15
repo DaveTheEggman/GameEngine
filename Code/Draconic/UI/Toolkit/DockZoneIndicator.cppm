@@ -33,6 +33,11 @@ export namespace draconic::ui::toolkit
     {
         DRACONIC_OBJECT(DockZoneIndicator, View)
     public:
+        /// Accent color for the drop zones. Set by the owning DockManager from its resolved theme
+        /// AccentColor (the indicator is drawn manually and never in the styled tree, so it can't
+        /// resolve styles itself). Defaults to the classic blue.
+        Color Accent{ 80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f };
+
         DockZoneIndicator()
         {
             IsHitTestVisible = false;
@@ -85,8 +90,10 @@ export namespace draconic::ui::toolkit
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Color zoneColor = Rgb(80, 150, 240, 80);
-            const Color zoneBorder = Rgb(80, 150, 240, 200);
+            // Use the accent handed down by the DockManager (this overlay isn't in the styled tree),
+            // so the drop zones follow the active theme instead of being hardcoded blue.
+            const Color zoneColor = Color{ Accent.r, Accent.g, Accent.b, 80.0f / 255.0f };
+            const Color zoneBorder = Color{ Accent.r, Accent.g, Accent.b, 200.0f / 255.0f };
             const Color hoverColor = Color{ zoneColor.r, zoneColor.g, zoneColor.b,
                                             Min(1.0f, zoneColor.a + 60.0f / 255.0f) };
 

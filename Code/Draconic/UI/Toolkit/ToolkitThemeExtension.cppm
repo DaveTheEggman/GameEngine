@@ -29,6 +29,7 @@ import :split_view;
 import :breadcrumb_bar;
 import :color_picker;
 import :property_grid;
+import :toast_host;
 
 using namespace draconic::core;
 
@@ -81,11 +82,17 @@ export namespace draconic::ui::toolkit
                     .Set(StyleProperty::Background, sheet.OwnColor(p.Surface));
                 sheet.ForTypePseudo(&DockTabGroup::StaticType(), u8"tab")
                     .Set(StyleProperty::TextColor, inactiveText);
+                // RoundedRectDrawables so DockTabGroup can mask their top corners to the theme's
+                // resolved CornerRadius (rounded in the rounded theme, square/0 in the flat one).
+                RefPtr<RoundedRectDrawable> activeTabD = MakeRef<RoundedRectDrawable>(DefaultAllocator(), activeTab, 0.0f);
+                RefPtr<RoundedRectDrawable> hoverTabD = MakeRef<RoundedRectDrawable>(DefaultAllocator(), hoverTab, 0.0f);
+                sheet.OwnDrawable(activeTabD);
+                sheet.OwnDrawable(hoverTabD);
                 sheet.ForTypePseudoState(&DockTabGroup::StaticType(), u8"tab", ControlState::Checked)
-                    .Set(StyleProperty::Background, sheet.OwnColor(activeTab))
+                    .Set(StyleProperty::Background, activeTabD)
                     .Set(StyleProperty::TextColor, p.Text);
                 sheet.ForTypePseudoState(&DockTabGroup::StaticType(), u8"tab", ControlState::Hover)
-                    .Set(StyleProperty::Background, sheet.OwnColor(hoverTab))
+                    .Set(StyleProperty::Background, hoverTabD)
                     .Set(StyleProperty::TextColor, Palette::Lighten(inactiveText, 0.3f));
                 sheet.ForTypePseudo(&DockTabGroup::StaticType(), u8"close-button")
                     .Set(StyleProperty::TextColor, inactiveText);
@@ -116,7 +123,10 @@ export namespace draconic::ui::toolkit
                 sheet.ForType(&MenuBar::StaticType())
                     .Set(StyleProperty::Background, sheet.OwnColor(menuBg))
                     .Set(StyleProperty::TextColor, p.Text)
-                    .Set(StyleProperty::BorderColor, p.Border);
+                    .Set(StyleProperty::BorderColor, p.Border)
+                    // Menu-item hover fills the whole item rect, so use a MUTED translucent accent (not the
+                    // full accent, which would paint solid blocks behind the titles).
+                    .Set(StyleProperty::AccentColor, WithAlpha(p.PrimaryAccent, 55));
             }
 
             // === Toolbar ===
@@ -145,12 +155,15 @@ export namespace draconic::ui::toolkit
                 sheet.ForType(&SplitView::StaticType())
                     .Set(StyleProperty::BorderColor, divColor)
                     .Set(StyleProperty::AccentColor, divHover)
-                    .Set(StyleProperty::TextDimColor, isDark ? Rgb(100, 105, 120, 180) : Rgb(160, 165, 180, 180));
+                    .Set(StyleProperty::TextDimColor, WithAlpha(p.TextDim, 180));
             }
 
-            // === BreadcrumbBar ===
+            // === BreadcrumbBar === (RoundedRectDrawable so it can round to the theme CornerRadius)
+            RefPtr<RoundedRectDrawable> breadcrumbBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(),
+                isDark ? Palette::Darken(p.Surface, 0.1f) : p.Surface, 0.0f);
+            sheet.OwnDrawable(breadcrumbBg);
             sheet.ForType(&BreadcrumbBar::StaticType())
-                .Set(StyleProperty::Background, sheet.OwnColor(isDark ? Palette::Darken(p.Surface, 0.1f) : p.Surface))
+                .Set(StyleProperty::Background, breadcrumbBg)
                 .Set(StyleProperty::TextColor, p.Text)
                 .Set(StyleProperty::AccentColor, p.PrimaryAccent);
 
@@ -163,6 +176,11 @@ export namespace draconic::ui::toolkit
             sheet.ForType(&PropertyGrid::StaticType())
                 .Set(StyleProperty::Background, sheet.OwnColor(p.Surface))
                 .Set(StyleProperty::BorderColor, p.Border);
+
+            // === ToastCard === (floating notification cards - an elevated, near-opaque surface)
+            sheet.ForType(&ToastCard::StaticType())
+                .Set(StyleProperty::Background, sheet.OwnColor(WithAlpha(p.SurfaceBright, 247)))
+                .Set(StyleProperty::TextColor, p.Text);
         }
 
     private:

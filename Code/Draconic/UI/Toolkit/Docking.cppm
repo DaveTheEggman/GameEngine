@@ -890,7 +890,10 @@ export namespace draconic::ui::toolkit
             m_closeRects.Clear();
             if (ctx.FontService() == nullptr) { return; }
 
-            fonts::CachedFont* font = ctx.FontService()->GetFont(11.0f);
+            // Resolve the tab font from the theme (family + size) like ui::TabView, instead of a
+            // hardcoded 11px - keeps dock tab labels the same size as the rest of the UI.
+            const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
+            fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize);
             if (font == nullptr) { return; }
 
             const Color borderColor = ResolveStyleColor(StyleProperty::BorderColor, Rgb(35, 37, 46, 255));
@@ -926,6 +929,21 @@ export namespace draconic::ui::toolkit
             m_tabOverflow = maxScroll > 0.0f;
 
             ctx.VG().PushClipRect(Rectangle{ 0, 0, Width(), m_tabHeight });
+            // Draw a tab background masked to top-rounded corners at the theme's resolved CornerRadius
+            // (matches ui::TabView: rounded in the rounded theme, square in the flat one).
+            const f32 tabCr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
+            const auto drawTabBg = [&](Drawable* d, const Rectangle& rect, Color fallback)
+            {
+                if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(d))
+                {
+                    const draconic::vg::CornerRadii saved = rrd->Radii;
+                    rrd->Radii = draconic::vg::CornerRadii{ tabCr, tabCr, 0.0f, 0.0f };
+                    rrd->Draw(ctx, rect);
+                    rrd->Radii = saved;
+                }
+                else if (d != nullptr) { d->Draw(ctx, rect); }
+                else { ctx.VG().FillRect(rect, fallback); }
+            };
             f32 tabX = 2 - m_tabScroll;
             for (i32 i = 0; i < static_cast<i32>(m_panels.Size()); ++i)
             {
@@ -938,14 +956,8 @@ export namespace draconic::ui::toolkit
                 // Tab background.
                 if (i == m_selectedIndex)
                 {
-                    if (Drawable* activeTabDrawable = ResolvePartDrawable(u8"tab", StyleProperty::Background, ControlState::Checked))
-                    {
-                        activeTabDrawable->Draw(ctx, tabRect);
-                    }
-                    else
-                    {
-                        ctx.VG().FillRect(tabRect, Rgb(42, 44, 54, 255));
-                    }
+                    drawTabBg(ResolvePartDrawable(u8"tab", StyleProperty::Background, ControlState::Checked),
+                              tabRect, Rgb(42, 44, 54, 255));
                     // Selected-tab accent strip (the same 2px indicator ui::TabView draws) -
                     // dock tabs read as "active" the way regular tabs do.
                     const Color accentColor = ResolveStyleColor(StyleProperty::AccentColor,
@@ -955,14 +967,8 @@ export namespace draconic::ui::toolkit
                 }
                 else if (i == m_hoveredTabIndex)
                 {
-                    if (Drawable* hoverTabDrawable = ResolvePartDrawable(u8"tab", StyleProperty::Background, ControlState::Hover))
-                    {
-                        hoverTabDrawable->Draw(ctx, tabRect);
-                    }
-                    else
-                    {
-                        ctx.VG().FillRect(tabRect, Palette::Lighten(borderColor, 0.1f));
-                    }
+                    drawTabBg(ResolvePartDrawable(u8"tab", StyleProperty::Background, ControlState::Hover),
+                              tabRect, Palette::Lighten(borderColor, 0.1f));
                 }
 
                 // Tab text.
@@ -2120,6 +2126,9 @@ export namespace draconic::ui::toolkit
                 }
             }
 
+            // Hand the indicator our resolved theme accent (it's drawn manually, outside the styled tree).
+            m_zoneIndicator->Accent = ResolveStyleColor(StyleProperty::AccentColor,
+                                                        Color{ 80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f });
             m_zoneIndicator->Visibility = VisibilityValue::Visible;
             m_zoneIndicator->Layout(0, 0, Width(), Height());
         }

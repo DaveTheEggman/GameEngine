@@ -166,6 +166,7 @@ export namespace draconic::editor
         {
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
+            column->Padding = ui::Thickness{ 8, 6 };   // inset the content off the panel edge (like the hierarchy)
 
             m_grid = MakeRef<tk::PropertyGrid>(DefaultAllocator());
             {

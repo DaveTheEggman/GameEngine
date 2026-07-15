@@ -199,6 +199,7 @@ export namespace draconic::editor
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
                 auto row = MakeRef<Row>(DefaultAllocator());
+                row->FontSize.SetValue(Optional<f32>{ 12.0f });   // match the inspector's dense 12px text
                 SceneEditContext* edit = m_owner->m_edit;
                 Row* raw = row.Get();
                 row->OnRenameCommitted.Add([edit, raw](ui::EditableLabel*, StringView newName) {
