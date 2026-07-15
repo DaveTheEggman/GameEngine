@@ -174,7 +174,11 @@ export namespace draconic::ui
                 Optional<StyleValue> val = rule->GetValue(prop);
                 if (!val.HasValue()) { continue; }
                 const i32 specificity = rule->Selector.Specificity();
-                if (specificity > bestSpecificity) { bestSpecificity = specificity; best = val.Value(); }
+                // CSS tie-break: on EQUAL specificity the LAST declared rule wins (source order), so
+                // >= not >. Rules are stored in declaration order (base theme, then per-type, then
+                // extensions appended last), so a later equal-specificity rule correctly overrides an
+                // earlier one - e.g. a per-type FontSize beats the global `View { FontSize }`.
+                if (specificity >= bestSpecificity) { bestSpecificity = specificity; best = val.Value(); }
             }
             return best;
         }
