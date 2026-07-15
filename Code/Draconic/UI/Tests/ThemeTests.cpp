@@ -65,14 +65,14 @@ TEST_CASE("theme: LightPalette_TextIsDark")
     CHECK(p.Text.r < 50 / 255.0f);
 }
 
-TEST_CASE("theme: GraphiteAmberPalette_IsWarmDarkWithAmberAccent")
+TEST_CASE("theme: GraphiteOrangePalette_IsWarmDarkWithOrangeAccent")
 {
-    ThemePalette p = ThemePalette::GraphiteAmber();
+    ThemePalette p = ThemePalette::GraphiteOrange();
     // Warm dark background: dark, and red >= green >= blue (a warm, not cool, neutral).
     CHECK(p.Background.r < 50 / 255.0f);
     CHECK(p.Background.r >= p.Background.g);
     CHECK(p.Background.g >= p.Background.b);
-    // Amber accent: warm and bright (red high, green mid, blue low).
+    // Orange accent: warm and bright (red high, green mid, blue low).
     CHECK(p.PrimaryAccent.r > 200 / 255.0f);
     CHECK(p.PrimaryAccent.b < p.PrimaryAccent.g);
     CHECK(p.PrimaryAccent.g < p.PrimaryAccent.r);
@@ -91,7 +91,7 @@ TEST_CASE("theme: DarkTheme_Creates")
 
 TEST_CASE("theme: RoundedDarkTheme_CreatesWithCustomPalette")
 {
-    auto sheet = RoundedDarkTheme::Create(ThemePalette::GraphiteAmber());
+    auto sheet = RoundedDarkTheme::Create(ThemePalette::GraphiteOrange());
     CHECK(sheet.Get() != nullptr);
     CHECK(sheet->RuleCount() > 0);
 }

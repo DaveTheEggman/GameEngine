@@ -138,9 +138,9 @@ export namespace draconic::editor::app
             // Theme: register the toolkit extension BEFORE creating the stylesheet (extensions
             // only apply to themes built afterward), then the editor defaults to dark.
             draconic::ui::ThemeRegistry::RegisterExtension(&m_toolkitTheme);
-            // Editor theme: the warm "Graphite & Amber" palette on the rounded theme (soft corners
+            // Editor theme: the warm "Graphite & Orange" palette on the rounded theme (soft corners
             // everywhere) - a crafted, less-bland alternative to the stock flat/square cool-grey dark.
-            m_styleSheet = draconic::ui::RoundedDarkTheme::Create(draconic::ui::ThemePalette::GraphiteAmber());
+            m_styleSheet = draconic::ui::RoundedDarkTheme::Create(draconic::ui::ThemePalette::GraphiteOrange());
             // Editor-specific overrides on top of the stock theme: property-grid fields read
             // better noticeably smaller and tighter than the theme's 14px/6x4 control chrome
             // (a full inspector column of them is the densest text in the editor).
