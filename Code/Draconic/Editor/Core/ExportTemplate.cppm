@@ -140,11 +140,25 @@ export namespace draconic::editor
         }
     }
 
-    // The default templates root: <user-data-dir>/templates. The editor may override it (settings);
-    // the full resolution order (env / setting / tool-relative) lands with the CLI/editor wiring.
+    // The built-in default templates root: <user-data-dir>/templates.
     [[nodiscard]] inline String DefaultTemplatesRoot()
     {
         return PathJoin(GetUserDataDirectory(u8"draconic").AsView(), u8"templates");
+    }
+
+    // Resolve the templates root, most-specific first: an explicit `overrideRoot` (the editor's
+    // EditorExportSettings::templatesRoot; empty when unset) wins, then $DRACONIC_TEMPLATES_DIR, then
+    // DefaultTemplatesRoot(). Shared by the CLI (which passes no override) and the editor (which passes
+    // its setting), so both resolve identically.
+    [[nodiscard]] inline String ResolveTemplatesRoot(StringView overrideRoot = {})
+    {
+        if (!overrideRoot.IsEmpty()) { return String(overrideRoot); }
+        if (Optional<String> env = GetEnvironmentVariable(u8"DRACONIC_TEMPLATES_DIR");
+            env.HasValue() && !env->IsEmpty())
+        {
+            return static_cast<String&&>(*env);
+        }
+        return DefaultTemplatesRoot();
     }
 
     // Install a template bundle (a dir holding template.xml + the player + sidecars) into

@@ -17,6 +17,7 @@ export module draconic.editor.core:export_preset;
 import draconic.core;
 import draconic.vfs;
 import draconic.xml.serialization;
+import draconic.settings;
 
 using namespace draconic::core;
 
@@ -129,5 +130,55 @@ export namespace draconic::editor
         return writable.Save(fileName, buffer.Bytes());
     }
 
+    // Editor-level export preferences - a Settings section (draconic.settings store), NOT project-local
+    // and NOT in export_presets.xml. Currently just the templates-root override: when non-empty it wins
+    // over $DRACONIC_TEMPLATES_DIR and the built-in <user-data>/templates default (see
+    // ResolveTemplatesRoot in :export_template), letting the user point the editor at a shared or
+    // checked-out templates directory. Empty (the default) preserves the env-then-default behaviour.
+    class EditorExportSettings final : public ISerializable
+    {
+        DRACONIC_OBJECT(EditorExportSettings, ISerializable)
+    public:
+        String templatesRoot;   // "" => $DRACONIC_TEMPLATES_DIR, else <user-data>/templates
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "templatesRoot", templatesRoot);
+        }
+    };
+
+    namespace settings = draconic::settings;
+
+    // The editor's settings file, in the user-data dir (hand-editable XML, like the project files).
+    inline constexpr StringView kEditorSettingsFile = u8"editor.settings.xml";
+
+    // Register the editor's Settings section types so a Settings store can instantiate them on Load.
+    // Call once at editor startup, before LoadEditorSettings.
+    inline void RegisterEditorSettingsTypes()
+    {
+        GlobalTypeRegistry().Register(EditorExportSettings::StaticType());
+        RegisterSerializable<EditorExportSettings>();
+    }
+
+    // Load the editor settings store from `root` (XML). NotFound when the file is absent (first run =>
+    // the store stays empty and every section reads as its defaults). Types must be registered first.
+    [[nodiscard]] inline Status LoadEditorSettings(vfs::IFileSystem& root, settings::Settings& out,
+                                                   StringView fileName = kEditorSettingsFile)
+    {
+        UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
+        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        return out.Load(*stream, draconic::xml::XmlSerializerFactory());
+    }
+
+    // Persist the editor settings store to `root` (XML).
+    [[nodiscard]] inline Status SaveEditorSettings(vfs::IWritableFileSystem& root, const settings::Settings& in,
+                                                   StringView fileName = kEditorSettingsFile)
+    {
+        MemoryStream buffer;
+        if (Status s = in.Save(buffer, draconic::xml::XmlSerializerFactory()); !s.IsOk()) { return s; }
+        return root.Save(fileName, buffer.Bytes());
+    }
+
     DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "draconic::editor", 1)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "draconic::editor", 1)
 }

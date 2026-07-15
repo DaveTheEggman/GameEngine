@@ -6,7 +6,7 @@ add_library(Draconic::EditorCore ALIAS DraconicEditorCore)
 
 target_link_libraries(DraconicEditorCore
     PUBLIC Draconic::Core Draconic::VFS Draconic::VFSPak Draconic::Content Draconic::XmlSerialization Draconic::Project
-           Draconic::SceneResource
+           Draconic::Settings Draconic::SceneResource
            Draconic::Editor Draconic::EditorCook Draconic::Resource Draconic::Policy)
 
 target_sources(DraconicEditorCore

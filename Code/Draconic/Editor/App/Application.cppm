@@ -31,6 +31,7 @@ import draconic.vfs;
 import draconic.resource;
 import draconic.editor;
 import draconic.editor.core;
+import draconic.settings;
 import :assets_view;
 import :editor_icons;
 import :settings_dialog;
@@ -132,6 +133,7 @@ export namespace draconic::editor::app
                 }
             }
 
+            LoadEditorSettings();              // per-user prefs (templates root, ...); absent on first run
             EditorIcons::Get().Initialize();   // shared SVG drawables (toolbar + asset types)
             m_uiHost = MakeUnique<uirt::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
             m_dockHost = MakeUnique<uiapp::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
@@ -682,20 +684,44 @@ export namespace draconic::editor::app
 
         // Phase 2: pack/stage/player as a background job (the cook already ran). File I/O only - no
         // source/cooked DB MUTATION - so it is safe alongside the main thread's DB reads.
+        // Load per-user editor settings from <userdata>/editor.settings.xml (registering the section
+        // types first). Absent on first run - the store stays empty and sections read as defaults.
+        void LoadEditorSettings()
+        {
+            ed::RegisterEditorSettingsTypes();
+            const String dir = GetUserDataDirectory(u8"draconic");
+            draconic::vfs::NativeFileSystem fs(dir.AsView());
+            (void)ed::LoadEditorSettings(fs, m_editorSettings);   // NotFound on first run is fine
+        }
+
+        // The editor's export templates root: the EditorExportSettings override when set, else
+        // $DRACONIC_TEMPLATES_DIR, else the <user-data>/templates default (same order as the CLI).
+        [[nodiscard]] String TemplatesRoot() const
+        {
+            StringView overrideRoot;
+            if (const ed::EditorExportSettings* s = m_editorSettings.Find<ed::EditorExportSettings>())
+            {
+                overrideRoot = s->templatesRoot.AsView();
+            }
+            return ed::ResolveTemplatesRoot(overrideRoot);
+        }
+
         void SubmitExportJob(String presetName, bool all)
         {
             draconic::editor::EditorProject* project = m_project.Get();
             draconic::editor::BuilderRegistry* builders = &m_builders;
             const String toolDir = GetExecutableDirectory();
+            const String templatesRoot = TemplatesRoot();   // resolve on the main thread (reads settings)
             const String outRoot = PathJoin(m_project->Directory(), u8"Dist");
             const String title(all ? StringView(u8"Export All") : StringView(u8"Export"));
 
             m_jobService.Submit(title.AsView(),
-                [project, builders, toolDir, presetName, all, outRoot](ed::JobContext& ctx) -> Status
+                [project, builders, toolDir, templatesRoot, presetName, all, outRoot](ed::JobContext& ctx) -> Status
                 {
                     draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+                    draconic::vfs::NativeFileSystem rootFs(templatesRoot.AsView());   // imported templates
                     ed::TemplateRegistry registry;
-                    registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);
+                    registry.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
                     ed::ExportPresetSet presets;
                     {
                         draconic::vfs::NativeFileSystem projectFs(project->Directory());
@@ -759,7 +785,7 @@ export namespace draconic::editor::app
                 Function<void(Span<const String>)>{ [this](Span<const String> paths)
                 {
                     if (paths.Size() == 0) { return; }   // cancelled
-                    const String root = ed::DefaultTemplatesRoot();   // TODO: settings-configurable root (phase 2)
+                    const String root = TemplatesRoot();   // settings override / env / default
                     String id;
                     if (ed::ImportTemplate(paths[0].AsView(), root.AsView(), &id).IsOk())
                     {
@@ -1063,6 +1089,7 @@ export namespace draconic::editor::app
         draconic::editor::BuilderRegistry m_builders;        // exe-assembled (registerEditors)
         draconic::editor::EditorCookService m_cookService;
         draconic::editor::EditorJobService m_jobService;     // generic background jobs (export, ...)
+        draconic::settings::Settings m_editorSettings;       // per-user editor prefs (<userdata>/editor.settings.xml)
         struct PendingExport { String presetName; bool all = false; bool waitingCook = false; bool active = false; };
         PendingExport m_pendingExport;                       // export waiting for its pre-cook to finish
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator

@@ -95,16 +95,9 @@ namespace
         return String(StringView(reinterpret_cast<const utf8char*>(dir.c_str())));
     }
 
-    // Templates root: $DRACONIC_TEMPLATES_DIR or <user-data-dir>/templates.
-    [[nodiscard]] String TemplatesRoot()
-    {
-        if (Optional<String> env = GetEnvironmentVariable(u8"DRACONIC_TEMPLATES_DIR");
-            env.HasValue() && !env->IsEmpty())
-        {
-            return static_cast<String&&>(*env);
-        }
-        return ed::DefaultTemplatesRoot();
-    }
+    // Templates root: $DRACONIC_TEMPLATES_DIR or <user-data-dir>/templates (the CLI has no editor
+    // settings, so it passes no override - same resolution the editor uses with an empty setting).
+    [[nodiscard]] String TemplatesRoot() { return ed::ResolveTemplatesRoot(); }
 
     // Build the registry from the templates root (if it exists) + the host template (from toolDir).
     void BuildRegistry(ed::TemplateRegistry& registry, StringView templatesRoot, StringView toolDir)

@@ -25,6 +25,7 @@ import draconic.scene.resource;
 import draconic.scene.editor;
 import draconic.editor;
 import draconic.editor.core;
+import draconic.settings;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -400,4 +401,51 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     CHECK_FALSE(ed::ImportTemplate(empty.AsView(), root.AsView()).IsOk());
 
     NukeTree(src.AsView()); NukeTree(root.AsView()); NukeTree(empty.AsView());
+}
+
+TEST_CASE("export: ResolveTemplatesRoot prefers an explicit override")
+{
+    // An explicit override (the editor's EditorExportSettings::templatesRoot) wins verbatim.
+    CHECK(ed::ResolveTemplatesRoot(u8"/shared/templates") == u8"/shared/templates");
+    // An empty override falls through to env/default - a non-empty root, same as the no-arg form
+    // the CLI uses (the two surfaces resolve identically when no setting is present).
+    const String fallback = ed::ResolveTemplatesRoot(u8"");
+    CHECK_FALSE(fallback.IsEmpty());
+    CHECK(fallback == ed::ResolveTemplatesRoot());
+}
+
+TEST_CASE("export: EditorExportSettings round-trips through the editor settings store")
+{
+    namespace settings = draconic::settings;
+    ed::RegisterEditorSettingsTypes();   // so Settings::Load can instantiate the section
+
+    const String dir = TempDir(u8"draconic_editor_settings");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    // First run: no file => NotFound, and the section is absent (reads as its defaults on access).
+    {
+        settings::Settings store;
+        CHECK_FALSE(ed::LoadEditorSettings(root, store).IsOk());
+        CHECK(store.Find<ed::EditorExportSettings>() == nullptr);
+    }
+
+    // Author a store with a custom templates root and persist it.
+    {
+        settings::Settings store;
+        store.Section<ed::EditorExportSettings>().templatesRoot = String(u8"/shared/templates");
+        REQUIRE(ed::SaveEditorSettings(*root.AsWritable(), store).IsOk());
+    }
+
+    // Load it back into a fresh store - the override survives the XML round-trip.
+    {
+        settings::Settings store;
+        REQUIRE(ed::LoadEditorSettings(root, store).IsOk());
+        const ed::EditorExportSettings* s = store.Find<ed::EditorExportSettings>();
+        REQUIRE(s != nullptr);
+        CHECK(s->templatesRoot == u8"/shared/templates");
+    }
+
+    NukeTree(dir.AsView());
 }
