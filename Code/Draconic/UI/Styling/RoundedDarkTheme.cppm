@@ -68,7 +68,7 @@ export namespace draconic::ui
 
             // Palette-derived control colors: every surface/border/accent is computed from the palette
             // so the whole theme follows it (no hardcoded cool-grey/blue literals) - a warm palette like
-            // GraphiteAmber then applies end-to-end, selection highlights included.
+            // GraphiteOrange then applies end-to-end, selection highlights included.
             const auto A = [](Color c, f32 a255) { return Color{ c.r, c.g, c.b, a255 / 255.0f }; };
             const Color inputBg     = Palette::Darken(p.Surface, 0.25f);     // sunken text-field background
             const Color trackBg     = Palette::Lighten(p.Surface, 0.12f);    // slider / progress tracks
@@ -114,6 +114,7 @@ export namespace draconic::ui
                 .Set(StyleProperty::Background, btnBg)
                 .Set(StyleProperty::CheckedBackground, btnChecked)
                 .Set(StyleProperty::TextColor, p.Text)
+                .Set(StyleProperty::FontSize, 12.0f)
                 .Set(StyleProperty::Padding, Thickness{ 12, 8 });
 
             // === Panel ===
@@ -215,7 +216,9 @@ export namespace draconic::ui
             // === ComboBox ===
             RefPtr<Drawable> comboBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.SurfaceBright, R, p.Border, 1.0f);
             sheet.OwnDrawable(comboBg);
-            sheet.ForType(&ComboBox::StaticType()).Set(StyleProperty::Background, comboBg);
+            sheet.ForType(&ComboBox::StaticType())
+                .Set(StyleProperty::Background, comboBg)
+                .Set(StyleProperty::FontSize, 12.0f);   // match the surrounding editor content density
             sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow").Set(StyleProperty::TextColor, iconDim);
 
             // === ScrollBar - rounded ===
@@ -234,6 +237,7 @@ export namespace draconic::ui
             RefPtr<Drawable> expanderHover = MakeRef<RoundedRectDrawable>(DefaultAllocator(), Palette::Lighten(p.SurfaceBright, 0.1f), R);
             sheet.OwnDrawable(expanderHeader);
             sheet.OwnDrawable(expanderHover);
+            sheet.ForType(&Expander::StaticType()).Set(StyleProperty::FontSize, 14.0f);   // header text (e.g. property-grid category headers)
             sheet.ForTypePseudo(&Expander::StaticType(), u8"header").Set(StyleProperty::Background, expanderHeader);
             sheet.ForTypePseudoState(&Expander::StaticType(), u8"header", ControlState::Hover).Set(StyleProperty::Background, expanderHover);
             sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron").Set(StyleProperty::TextColor, iconDim);

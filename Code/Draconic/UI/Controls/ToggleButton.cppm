@@ -79,6 +79,7 @@ export namespace draconic::ui
             if (m_content)
             {
                 if (m_content->Context == nullptr && Context != nullptr) { Context->AttachView(m_content.Get()); }
+                SyncContentFont();
                 m_content->Measure(inner);
                 cw = m_content->MeasuredSize.x;
                 ch = m_content->MeasuredSize.y;
@@ -134,6 +135,22 @@ export namespace draconic::ui
             IsChecked.SetOwner(this, InvalidationKind::Visual);
             ToggleButton* self = this;
             IsChecked.Changed.Add(Event<void(bool)>::Handler{ [self](bool val) { self->OnCheckedChanged.Invoke(self, val); } });
+        }
+
+        // The default content is a Label, which resolves FontSize on itself (so it'd pick up the global
+        // View default, not the button's ButtonBase FontSize). Push the button's resolved size onto the
+        // content Label so toggle buttons match regular buttons. (No-op for non-Label / explicitly-sized
+        // content, and guarded so it doesn't re-invalidate every measure.)
+        void SyncContentFont()
+        {
+            if (Label* lbl = Cast<Label>(m_content.Get()))
+            {
+                const f32 fs = ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
+                if (!lbl->FontSize.Value().HasValue() || lbl->FontSize.Value().Value() != fs)
+                {
+                    lbl->FontSize.SetValue(Optional<f32>{ fs });
+                }
+            }
         }
 
         RefPtr<View> m_content;

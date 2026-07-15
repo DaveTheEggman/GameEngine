@@ -53,9 +53,10 @@ export namespace draconic::ui
         /// Position to the right of a parent menu; flip left if it clips the right edge.
         [[nodiscard]] static Float2 Submenu(Rectangle parent, Float2 popupSize, Rectangle screen)
         {
-            f32 x = parent.x + parent.width;
+            const f32 gap = 2.0f;   // clear the parent menu's border instead of overlapping it
+            f32 x = parent.x + parent.width + gap;
             f32 y = parent.y;
-            if (x + popupSize.x > screen.x + screen.width) { x = parent.x - popupSize.x; }
+            if (x + popupSize.x > screen.x + screen.width) { x = parent.x - popupSize.x - gap; }
             if (y + popupSize.y > screen.y + screen.height) { y = screen.y + screen.height - popupSize.y; }
             if (y < screen.y) { y = screen.y; }
             return Float2{ x, y };

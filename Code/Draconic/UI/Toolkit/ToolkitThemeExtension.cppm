@@ -75,7 +75,10 @@ export namespace draconic::ui::toolkit
 
                 sheet.ForType(&DockTabGroup::StaticType())
                     .Set(StyleProperty::BorderColor, p.Border)
-                    .Set(StyleProperty::AccentColor, p.PrimaryAccent);
+                    .Set(StyleProperty::AccentColor, p.PrimaryAccent)
+                    // Compact tab-strip text (a specific size so the 24px strip doesn't inherit the
+                    // global 16px default); wins over the View default via CSS last-declared tie-break.
+                    .Set(StyleProperty::FontSize, 12.0f);
                 sheet.ForTypePseudo(&DockTabGroup::StaticType(), u8"strip")
                     .Set(StyleProperty::Background, sheet.OwnColor(tabBg));
                 sheet.ForTypePseudo(&DockTabGroup::StaticType(), u8"content")
@@ -177,9 +180,11 @@ export namespace draconic::ui::toolkit
                 .Set(StyleProperty::Background, sheet.OwnColor(p.Surface))
                 .Set(StyleProperty::BorderColor, p.Border);
 
-            // === ToastCard === (floating notification cards - an elevated, near-opaque surface)
+            // === ToastCard === (floating notification cards). ToastCard resolves Background as a COLOR
+            // (ResolveStyleColor), so this must be a raw color - a themed *drawable* (OwnColor) is ignored
+            // and the card falls back to its hardcoded value. Fully opaque so it reads over any content.
             sheet.ForType(&ToastCard::StaticType())
-                .Set(StyleProperty::Background, sheet.OwnColor(WithAlpha(p.SurfaceBright, 247)))
+                .Set(StyleProperty::Background, p.SurfaceBright)
                 .Set(StyleProperty::TextColor, p.Text);
         }
 

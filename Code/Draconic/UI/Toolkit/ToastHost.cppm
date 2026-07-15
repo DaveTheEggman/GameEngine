@@ -62,17 +62,19 @@ export namespace draconic::ui::toolkit
                                                Color{ 0.13f, 0.14f, 0.17f, 0.97f });
             const f32 r = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
             const Rectangle bounds{ 0, 0, Width(), Height() };
-            const Rectangle bar{ 0, 0, 3.0f, Height() };
             if (r > 0.0f)
             {
                 ctx.VG().FillRoundedRect(bounds, r, bg);
-                // Accent bar hugs the left edge; round its left corners to match the card.
-                ctx.VG().FillRoundedRect(bar, draconic::vg::CornerRadii{ r, 0.0f, 0.0f, r }, Accent);
+                // Accent trim drawn OVER the card's left edge. Its width equals the corner radius so its
+                // rounded left corners coincide exactly with the card's - a thinner bar can't match a
+                // larger radius and reads as a separate rounded box floating inside the card.
+                ctx.VG().FillRoundedRect(Rectangle{ 0, 0, r, Height() },
+                                         draconic::vg::CornerRadii{ r, 0.0f, 0.0f, r }, Accent);
             }
             else
             {
                 ctx.VG().FillRect(bounds, bg);
-                ctx.VG().FillRect(bar, Accent);
+                ctx.VG().FillRect(Rectangle{ 0, 0, 3.0f, Height() }, Accent);
             }
             DrawChildren(ctx);
         }

@@ -176,7 +176,7 @@ export namespace draconic::editor::app
                 auto* label = Cast<ui::Label>(row->GetChildAt(0));
                 const StringView name = Node(nodeId).group->Name();
                 label->SetText(name.IsEmpty() ? StringView(u8"Content") : name);
-                row->Padding = ui::Thickness{ static_cast<f32>(depth + 1) * 14.0f, 0, 0, 0 };
+                row->Padding = ui::Thickness{ static_cast<f32>(depth + 1) * 18.0f, 0, 0, 0 };   // match the asset browser: clear the 20px chevron column + gap
             }
         private:
             [[nodiscard]] bool InRange(i32 nodeId) const

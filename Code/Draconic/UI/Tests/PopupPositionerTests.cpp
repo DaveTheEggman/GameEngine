@@ -53,7 +53,7 @@ TEST_CASE("popup-positioner: Above_PositionsDirectlyAbove")
 TEST_CASE("popup-positioner: Submenu_PositionsToRight")
 {
     const Float2 p = PopupPositioner::Submenu(Rectangle{ 100, 50, 150, 200 }, Float2{ 120, 180 }, Rectangle{ 0, 0, 800, 600 });
-    CHECK(p.x == doctest::Approx(250)); // right edge of parent
+    CHECK(p.x == doctest::Approx(252)); // right edge of parent + 2px gap (clears the border)
     CHECK(p.y == doctest::Approx(50));
 }
 

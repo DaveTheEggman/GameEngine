@@ -890,8 +890,8 @@ export namespace draconic::ui::toolkit
             m_closeRects.Clear();
             if (ctx.FontService() == nullptr) { return; }
 
-            // Resolve the tab font from the theme (family + size) like ui::TabView, instead of a
-            // hardcoded 11px - keeps dock tab labels the same size as the rest of the UI.
+            // Tab label font from the theme (family + size). The theme sets a compact per-type FontSize
+            // on DockTabGroup (12px) which now overrides the global View default via CSS tie-breaking.
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
             fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize);
             if (font == nullptr) { return; }
