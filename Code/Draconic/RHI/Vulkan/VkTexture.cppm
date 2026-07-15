@@ -3,6 +3,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 #include "VkIncludes.h"
 
@@ -15,6 +16,14 @@ import :adapter;
 import :conversions;
 
 using namespace draconic::core;
+
+namespace draconic::rhi::vk {
+    // Live VkDeviceMemory objects backing textures. One vkAllocateMemory per texture (no
+    // sub-allocation), so this both trends toward the driver's maxMemoryAllocationCount and sums the
+    // texture VRAM footprint - handy context in the allocation-failure warning below. Same TU as
+    // init()/cleanup(), so a plain static suffices.
+    static i32 g_liveTexAllocs = 0;
+}
 
 export namespace draconic::rhi::vk {
 
@@ -57,10 +66,22 @@ public:
         ai.allocationSize  = memReqs.size;
         ai.memoryTypeIndex = static_cast<u32>(memType);
 
-        if (vkAllocateMemory(device, &ai, nullptr, &m_memory) != VK_SUCCESS) {
+        const VkResult memRes = vkAllocateMemory(device, &ai, nullptr, &m_memory);
+        if (memRes != VK_SUCCESS) {
+            // GPU texture allocation failed. Log it (throttled so a failure storm can't flood): the
+            // VkResult distinguishes capacity (VK_ERROR_OUT_OF_DEVICE_MEMORY = -2) from the allocation
+            // -count ceiling (VK_ERROR_TOO_MANY_OBJECTS = -10), and liveTexAllocs shows how many texture
+            // allocations were live when it tipped over. The first failure always logs.
+            static u32 s_failN = 0;
+            if ((s_failN++ % 90u) == 0u) {
+                DRACONIC_LOG_WARNING(u8"VkTexture",
+                    u8"vkAllocateMemory FAILED VkResult={} size={}B liveTexAllocs={} (fail#{})",
+                    static_cast<i32>(memRes), static_cast<u64>(memReqs.size), g_liveTexAllocs, s_failN);
+            }
             vkDestroyImage(device, m_image, nullptr); m_image = VK_NULL_HANDLE;
             return ErrorCode::Unknown;
         }
+        ++g_liveTexAllocs;
 
         vkBindImageMemory(device, m_image, m_memory, 0);
         return ErrorCode::Ok;
@@ -74,7 +95,7 @@ public:
     }
 
     void cleanup(VkDevice device) {
-        if (m_memory != VK_NULL_HANDLE) { vkFreeMemory(device, m_memory, nullptr); m_memory = VK_NULL_HANDLE; }
+        if (m_memory != VK_NULL_HANDLE) { vkFreeMemory(device, m_memory, nullptr); m_memory = VK_NULL_HANDLE; --g_liveTexAllocs; }
         if (m_ownsImage && m_image != VK_NULL_HANDLE) vkDestroyImage(device, m_image, nullptr);
         m_image = VK_NULL_HANDLE;
         m_subresourceLayouts.Clear();
