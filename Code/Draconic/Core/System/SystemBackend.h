@@ -23,6 +23,18 @@ namespace draconic::core::sys
     std::uint32_t LogicalCoreCount() noexcept;
     std::size_t PageSize() noexcept;
 
+    // --- Environment -------------------------------------------------------
+    // Copy environment variable `name` into `out` (truncated to outSize-1, always null-terminated
+    // when out/outSize are valid). Returns the value's FULL length excluding the null - so a return
+    // >= outSize signals truncation - or 0 when the variable is unset.
+    std::size_t GetEnvironmentVariable(const char* name, char* out, std::size_t outSize) noexcept;
+
+    // Platform user-data BASE directory (NO app name appended): $XDG_DATA_HOME or ~/.local/share
+    // (Linux), %LOCALAPPDATA% (Windows), ~/Library/Application Support (macOS). Same truncation /
+    // return contract as GetEnvironmentVariable; 0 when it cannot be resolved. The :system module
+    // wrapper appends the application name.
+    std::size_t GetUserDataDirectory(char* out, std::size_t outSize) noexcept;
+
     // --- Virtual memory (page-granular) ------------------------------------
     void* PageAllocate(std::size_t size) noexcept;   // nullptr on failure
     void PageFree(void* pointer, std::size_t size) noexcept;

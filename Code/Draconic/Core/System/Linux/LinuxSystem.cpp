@@ -11,6 +11,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <cstdio>   // std::rename
+#include <cstdlib>  // std::getenv
+#include <cstring>  // std::strlen, std::memcpy
 
 namespace draconic::core::sys
 {
@@ -50,6 +52,37 @@ namespace draconic::core::sys
     {
         const long size = sysconf(_SC_PAGESIZE);
         return (size > 0) ? static_cast<std::size_t>(size) : 4096u;
+    }
+
+    std::size_t GetEnvironmentVariable(const char* name, char* out, std::size_t outSize) noexcept
+    {
+        const char* value = std::getenv(name);
+        if (value == nullptr) { return 0; }
+        const std::size_t length = std::strlen(value);
+        if (out != nullptr && outSize > 0)
+        {
+            const std::size_t n = (length < outSize - 1) ? length : outSize - 1;
+            std::memcpy(out, value, n);
+            out[n] = '\0';
+        }
+        return length;
+    }
+
+    std::size_t GetUserDataDirectory(char* out, std::size_t outSize) noexcept
+    {
+        // XDG spec: $XDG_DATA_HOME, else ~/.local/share. snprintf returns the length it WOULD write
+        // (excl null), matching the truncation contract; it also tolerates out == nullptr.
+        if (const char* xdg = std::getenv("XDG_DATA_HOME"); xdg != nullptr && xdg[0] != '\0')
+        {
+            const int n = std::snprintf(out, outSize, "%s", xdg);
+            return (n > 0) ? static_cast<std::size_t>(n) : 0;
+        }
+        if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0')
+        {
+            const int n = std::snprintf(out, outSize, "%s/.local/share", home);
+            return (n > 0) ? static_cast<std::size_t>(n) : 0;
+        }
+        return 0;
     }
 
     void* PageAllocate(std::size_t size) noexcept

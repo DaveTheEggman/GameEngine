@@ -16,6 +16,7 @@
 // our identically-named backend functions. Undo them; we call the A variants.
 #undef CreateDirectory
 #undef RemoveDirectory
+#undef GetEnvironmentVariable   // windows.h maps it to ...A; we define our own and call ...A directly
 
 namespace draconic::core::sys
 {
@@ -47,6 +48,21 @@ namespace draconic::core::sys
         SYSTEM_INFO info;
         GetSystemInfo(&info);
         return info.dwPageSize;
+    }
+
+    std::size_t GetEnvironmentVariable(const char* name, char* out, std::size_t outSize) noexcept
+    {
+        // ::GetEnvironmentVariableA returns chars written (excl null) on success, the required size
+        // (incl null) if `out` is too small (nothing written), or 0 if the variable is absent.
+        const DWORD n = ::GetEnvironmentVariableA(name, out, static_cast<DWORD>(outSize));
+        if (n == 0) { return 0; }
+        return (n >= outSize) ? static_cast<std::size_t>(n - 1) : static_cast<std::size_t>(n);
+    }
+
+    std::size_t GetUserDataDirectory(char* out, std::size_t outSize) noexcept
+    {
+        // Per-user, machine-local app data (roaming-free): %LOCALAPPDATA%.
+        return GetEnvironmentVariable("LOCALAPPDATA", out, outSize);
     }
 
     void* PageAllocate(std::size_t size) noexcept

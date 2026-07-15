@@ -13,6 +13,7 @@ export module draconic.core:system;
 import :base;
 import :allocator;
 import :string;
+import :path;
 
 namespace draconic::core::detail
 {
@@ -169,4 +170,35 @@ export namespace draconic::core
         return sys::LibrarySymbol(handle, detail::NullTerminated(name).CStr());
     }
     inline void CloseLibrary(LibraryHandle handle) noexcept { sys::LibraryClose(handle); }
+
+    // --- Environment -------------------------------------------------------
+
+    // Value of environment variable `name`, or empty (unset) when it is not defined. Platform-
+    // abstracted (Linux getenv / Win32 GetEnvironmentVariableA); copy the result if you need it past
+    // the next environment mutation.
+    [[nodiscard]] inline Optional<String> GetEnvironmentVariable(StringView name)
+    {
+        detail::NullTerminated n(name);
+        char buffer[1024];
+        const usize length = sys::GetEnvironmentVariable(n.CStr(), buffer, sizeof(buffer));
+        if (length == 0) { return {}; }   // unset (or empty - treated the same for our uses)
+        // Env values in practice are short (paths); anything past the buffer is truncated.
+        const usize got = (length < sizeof(buffer)) ? length : sizeof(buffer) - 1;
+        return String(StringView(reinterpret_cast<const utf8char*>(buffer), got));
+    }
+
+    // --- User data directory ----------------------------------------------
+
+    // User-data directory for `appName` (default "draconic"): the platform base directory (resolved
+    // per-platform in the backend - $XDG_DATA_HOME/~/.local/share on Linux, %LOCALAPPDATA% on Windows,
+    // ~/Library/Application Support on macOS) with `appName` appended. Falls back to the bare app name
+    // when the base can't be resolved. Where global editor settings live - and the default export
+    // templates root (docs/design/export.md §5).
+    [[nodiscard]] inline String GetUserDataDirectory(StringView appName = u8"draconic")
+    {
+        char buffer[1024];
+        const usize length = sys::GetUserDataDirectory(buffer, sizeof(buffer));
+        if (length == 0 || length >= sizeof(buffer)) { return String(appName); }   // unresolved/truncated
+        return PathJoin(StringView(reinterpret_cast<const utf8char*>(buffer), length), appName);
+    }
 }
