@@ -16,6 +16,7 @@ export import :context;
 export import :cook_service;
 export import :importer;
 export import :log_buffer;
+export import :job_service;
 export import :export_preset;
 export import :export_template;
 export import :export_pipeline;

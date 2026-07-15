@@ -1,5 +1,5 @@
 add_executable(DraconicEditorCoreTests TestsMain.cpp CommandTests.cpp ProjectTests.cpp
-    ExportTests.cpp ContextTests.cpp LogBufferTests.cpp ImporterTests.cpp)
+    ExportTests.cpp JobServiceTests.cpp ContextTests.cpp LogBufferTests.cpp ImporterTests.cpp)
 target_link_libraries(DraconicEditorCoreTests PRIVATE Draconic::EditorCore Draconic::MeshEditor Draconic::MeshResource
     Draconic::RenderSubsystem Draconic::SceneResource Draconic::SceneEditor Draconic::VFSPak Draconic::Project Draconic::Content Draconic::VFS doctest::doctest)
 target_compile_definitions(DraconicEditorCoreTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

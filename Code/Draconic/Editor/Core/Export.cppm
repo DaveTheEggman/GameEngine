@@ -183,21 +183,36 @@ export namespace draconic::editor
 
     /// Cook + stage + pack `project` into `outDir`. The builder registry is the exe's full
     /// set (kept in lockstep across cook/editor/export). `rebuild` forces a clean cook.
+    // A step/progress sink: `onProgress(stepLabel, fraction[0..1])`. Optional (the CLI passes none;
+    // the editor's background job wires it to a JobContext for the status-bar progress bar).
+    using ExportProgress = Function<void(StringView, f32)>;
+
     [[nodiscard]] inline Status ExportProject(EditorProject& project, StringView outDir,
                                               BuilderRegistry& builders, bool rebuild,
-                                              ExportStats* outStats = nullptr)
+                                              ExportStats* outStats = nullptr,
+                                              const ExportProgress& onProgress = {})
     {
         namespace proj = draconic::project;
         ExportStats stats;
 
         // --- 1. cook ---
+        if (onProgress) { onProgress(u8"Cooking content...", 0.05f); }
         draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
         draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
         JobSystem jobs;
         CookDriver driver(project.SourceDb(), project.CookedDb(), builders,
                           &sourcesMount, &cacheMount, &jobs);
         CookPlan plan = driver.Plan(rebuild);
-        const CookStats cookStats = driver.Execute(plan, nullptr);
+        CookProgress cookProgress;
+        cookProgress.onItem = [&onProgress](usize done, usize total, StringView path, bool)
+        {
+            if (!onProgress) { return; }
+            const f32 frac = (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
+                                         : 0.6f;   // cook occupies 0.05..0.60 of the export
+            String step(u8"Cooking "); step += path;
+            onProgress(step.AsView(), frac);
+        };
+        const CookStats cookStats = driver.Execute(plan, &cookProgress);
         stats.cooked = cookStats.cooked;
         stats.cookFailed = cookStats.failed;
         if (cookStats.failed > 0)
@@ -208,6 +223,7 @@ export namespace draconic::editor
         }
 
         // --- 2. stage scenes ---
+        if (onProgress) { onProgress(u8"Staging scenes...", 0.65f); }
         if (!CreateDirectory(outDir)) { return Status{ ErrorCode::NotSupported }; }
         const String stagingDir = PathJoin(outDir, u8".stage-scenes");
         (void)CreateDirectory(stagingDir.AsView());
@@ -229,6 +245,7 @@ export namespace draconic::editor
         }
 
         // --- 3. pack ---
+        if (onProgress) { onProgress(u8"Packing Content.pak...", 0.78f); }
         draconic::vfs::PakBuilder pak;
         draconic::vfs::NativeFileSystem cookedMount(
             PathJoin(project.Directory(), proj::kProjectCookedDir).AsView());
@@ -265,6 +282,7 @@ export namespace draconic::editor
         }
 
         // --- 4. dist manifest ---
+        if (onProgress) { onProgress(u8"Writing manifest...", 0.9f); }
         {
             draconic::vfs::NativeFileSystem outMount(outDir);
             proj::ProjectSettings dist;
@@ -297,7 +315,8 @@ export namespace draconic::editor
     /// uniformity extended to the player, replacing the old exe-location walk in the CLI).
     [[nodiscard]] inline Status ExportOne(EditorProject& project, const ExportPreset& preset,
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
-                                          StringView outRoot, bool rebuild, ExportResult* outResult = nullptr)
+                                          StringView outRoot, bool rebuild, ExportResult* outResult = nullptr,
+                                          const ExportProgress& onProgress = {})
     {
         const ExportTemplate* tmpl = templates.Resolve(preset);
         if (tmpl == nullptr)
@@ -319,12 +338,13 @@ export namespace draconic::editor
                 reinterpret_cast<const char*>(result.outputDir.CStr()), ec);
         }
 
-        if (!ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content).IsOk())
+        if (!ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress).IsOk())
         {
             if (outResult != nullptr) { *outResult = result; }
             return Status{ ErrorCode::Internal };
         }
 
+        if (onProgress) { onProgress(u8"Staging player...", 0.93f); }
         // Player: <template dir>/<playerBinary> -> <outDir>/<preset.playerName | template.playerBinary>.
         const String outName = preset.playerName.IsEmpty() ? String(tmpl->playerBinary.AsView())
                                                           : String(preset.playerName.AsView());
@@ -338,6 +358,7 @@ export namespace draconic::editor
         }
         ++result.filesStaged;
 
+        if (onProgress && !tmpl->sidecars.IsEmpty()) { onProgress(u8"Staging runtime libs...", 0.96f); }
         // Template sidecars (runtime libs) from the template dir.
         for (const String& sidecar : tmpl->sidecars)
         {
@@ -366,6 +387,7 @@ export namespace draconic::editor
             }
         }
 
+        if (onProgress) { onProgress(u8"Done", 1.0f); }
         if (outResult != nullptr) { *outResult = result; }
         return Status{};
     }
@@ -374,13 +396,22 @@ export namespace draconic::editor
     /// continue). Returns Ok only when all presets succeeded.
     [[nodiscard]] inline Status ExportAll(EditorProject& project, Span<const ExportPreset> presets,
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
-                                          StringView outRoot, bool rebuild)
+                                          StringView outRoot, bool rebuild, const ExportProgress& onProgress = {})
     {
         usize ok = 0;
-        for (const ExportPreset& preset : presets)
+        const usize n = presets.Size();
+        for (usize i = 0; i < n; ++i)
         {
+            const ExportPreset& preset = presets[i];
+            // Scale each preset's 0..1 into its slice (i..i+1)/n and prefix its name.
+            const ExportProgress scoped = [&onProgress, i, n, &preset](StringView step, f32 frac)
+            {
+                if (!onProgress) { return; }
+                String s(preset.name.AsView()); s += u8": "; s += step;
+                onProgress(s.AsView(), (static_cast<f32>(i) + frac) / static_cast<f32>(n));
+            };
             ExportResult result;
-            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result).IsOk())
+            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped).IsOk())
             {
                 ++ok;
                 DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",
@@ -391,6 +422,6 @@ export namespace draconic::editor
                 DRACONIC_LOG_ERROR(u8"Export", u8"preset '{}' failed", preset.name);
             }
         }
-        return (ok == presets.Size()) ? Status{} : Status{ ErrorCode::Internal };
+        return (ok == n) ? Status{} : Status{ ErrorCode::Internal };
     }
 }
