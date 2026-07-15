@@ -1,10 +1,16 @@
-// RaptorExport - packages a project into a shippable dist. Thin CLI over
-// draconic::editor::ExportProject (the editor's Export menu calls the same library; see
-// docs/design/roadmap.md "Milestone: MVP-to-Export").
+// RaptorExport - packages a project into shippable dist(s). A thin CLI over the export DRIVER in
+// draconic::editor (the editor's Export menu calls the same ExportOne/ExportAll; tests drive it
+// headlessly). The whole dist - content (Content.pak + player.xml) AND the player + its runtime
+// sidecars - comes from an export preset resolving to an export template, so a preset produces the
+// same result whichever surface triggers it. Links ZERO editor code into the result.
 //
-// Usage: RaptorExport <projectDirectory> <outDirectory> [--rebuild]
+// Usage:
+//   RaptorExport <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]
+//   RaptorExport --template list
+//   RaptorExport --template import <templateDir>
 //
-// The result runs with `RaptorPlayer <outDirectory>` - and links ZERO editor code.
+// No export_presets.xml in the project => a host preset for the current platform is synthesized, so a
+// quick dev export works out of the box (the host template = the player next to this tool).
 
 #include <cstdio>
 #include <cstring>
@@ -15,6 +21,7 @@
 #include "Core/Reflection/Reflect.h"
 
 import draconic.core;
+import draconic.vfs;
 import draconic.scene;
 import draconic.scene.resource;
 import draconic.editor;
@@ -32,9 +39,17 @@ import draconic.modelimporter;
 using namespace draconic::core;
 namespace ed = draconic::editor;
 namespace dscene = draconic::scene;
+namespace vfs = draconic::vfs;
+namespace fs = std::filesystem;
 
 namespace
 {
+    [[nodiscard]] StringView Sv(const char* s) { return StringView(reinterpret_cast<const utf8char*>(s)); }
+    // Takes const String& (not StringView): a StringView argument binds an implicit String temporary to
+    // this reference parameter, which lives to the end of the full-expression - so the returned CStr()
+    // is valid for the enclosing printf. (A by-value StringView would return a dangling pointer.)
+    [[nodiscard]] const char* Cs(const String& s) { return reinterpret_cast<const char*>(s.CStr()); }
+
     template <typename T>
     void Add(ed::BuilderRegistry& registry)
     {
@@ -69,66 +84,183 @@ namespace
         Add<draconic::particles::ParticleEffectAssetBuilder>(registry);
         Add<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
     }
+
+    // Directory containing this executable (Bin/... - where RaptorPlayer + its .runtime-libs live,
+    // i.e. the host template's source). argv[0] can be bare/relative, so canonicalize it.
+    [[nodiscard]] String ToolDir(const char* argv0)
+    {
+        std::error_code ec;
+        const fs::path self = fs::weakly_canonical(fs::absolute(fs::path(argv0), ec), ec);
+        const std::string dir = self.parent_path().string();
+        return String(StringView(reinterpret_cast<const utf8char*>(dir.c_str())));
+    }
+
+    // Templates root: $DRACONIC_TEMPLATES_DIR or <user-data-dir>/templates.
+    [[nodiscard]] String TemplatesRoot()
+    {
+        if (Optional<String> env = GetEnvironmentVariable(u8"DRACONIC_TEMPLATES_DIR");
+            env.HasValue() && !env->IsEmpty())
+        {
+            return static_cast<String&&>(*env);
+        }
+        return ed::DefaultTemplatesRoot();
+    }
+
+    // Build the registry from the templates root (if it exists) + the host template (from toolDir).
+    void BuildRegistry(ed::TemplateRegistry& registry, StringView templatesRoot, StringView toolDir)
+    {
+        std::error_code ec;
+        UniquePtr<vfs::NativeFileSystem> rootFs;
+        if (fs::is_directory(Cs(templatesRoot), ec))
+        {
+            rootFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), templatesRoot);
+        }
+        vfs::NativeFileSystem toolFs(toolDir);
+        registry.Refresh(templatesRoot, rootFs.Get(), toolDir, &toolFs);   // reads runtime-libs synchronously
+    }
+
+    int Usage()
+    {
+        std::fprintf(stderr,
+            "usage:\n"
+            "  RaptorExport <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]\n"
+            "  RaptorExport --template list\n"
+            "  RaptorExport --template import <templateDir>\n");
+        return 1;
+    }
+
+    // --- template management ---------------------------------------------------------------------
+
+    int TemplateList(const char* argv0)
+    {
+        ed::TemplateRegistry registry;
+        const String toolDir = ToolDir(argv0);
+        const String root = TemplatesRoot();
+        BuildRegistry(registry, root.AsView(), toolDir.AsView());
+        std::printf("export templates (root: %s):\n", Cs(root.AsView()));
+        for (usize i = 0; i < registry.Count(); ++i)
+        {
+            const ed::ExportTemplate* t = registry.At(i);
+            std::printf("  %-24s %-8s %s%s\n", Cs(t->id.AsView()), Cs(t->platform.AsView()),
+                        Cs(t->name.AsView()), t->isHost ? "  [host]" : "");
+        }
+        return 0;
+    }
+
+    int TemplateImport(const char* argv0, const char* srcDir)
+    {
+        // Validate: the source dir must carry a template.xml with an id.
+        vfs::NativeFileSystem srcFs(Sv(srcDir));
+        ed::ExportTemplate manifest;
+        if (!ed::LoadTemplateManifest(srcFs, manifest).IsOk() || manifest.id.IsEmpty())
+        {
+            std::fprintf(stderr, "RaptorExport: '%s' has no valid template.xml\n", srcDir);
+            return 1;
+        }
+        const String root = TemplatesRoot();
+        std::error_code ec;
+        fs::create_directories(Cs(root.AsView()), ec);
+        const String dst = PathJoin(root.AsView(), manifest.id.AsView());
+        fs::copy(fs::path(srcDir), fs::path(Cs(dst.AsView())),
+                 fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+        if (ec)
+        {
+            std::fprintf(stderr, "RaptorExport: failed to import template into '%s'\n", Cs(dst.AsView()));
+            return 1;
+        }
+        std::printf("imported template '%s' -> %s\n", Cs(manifest.id.AsView()), Cs(dst.AsView()));
+        (void)argv0;
+        return 0;
+    }
 }
 
 int main(int argc, char** argv)
 {
-    if (argc < 3)
-    {
-        std::fprintf(stderr, "usage: RaptorExport <projectDirectory> <outDirectory> [--rebuild]\n");
-        return 1;
-    }
-    bool rebuild = false;
-    for (int i = 3; i < argc; ++i)
-    {
-        if (std::strcmp(argv[i], "--rebuild") == 0) { rebuild = true; }
-        else { std::fprintf(stderr, "unknown option: %s\n", argv[i]); return 1; }
-    }
-
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&consoleSink);
 
-    const StringView projectDir(reinterpret_cast<const utf8char*>(argv[1]));
-    const StringView outDir(reinterpret_cast<const utf8char*>(argv[2]));
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir);
-    if (!project)
+    // --- template mode ---
+    if (argc >= 2 && std::strcmp(argv[1], "--template") == 0)
     {
-        std::fprintf(stderr, "RaptorExport: failed to open project '%s'\n", argv[1]);
+        if (argc < 3) { return Usage(); }
+        if (std::strcmp(argv[2], "list") == 0) { return TemplateList(argv[0]); }
+        if (std::strcmp(argv[2], "import") == 0)
+        {
+            if (argc < 4) { return Usage(); }
+            return TemplateImport(argv[0], argv[3]);
+        }
+        return Usage();
+    }
+
+    // --- export mode ---
+    if (argc < 2) { return Usage(); }
+    const char* projectDir = argv[1];
+    const char* outArg = nullptr;
+    const char* presetName = nullptr;
+    bool all = false;
+    bool rebuild = false;
+    for (int i = 2; i < argc; ++i)
+    {
+        if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc)         { outArg = argv[++i]; }
+        else if (std::strcmp(argv[i], "--preset") == 0 && i + 1 < argc) { presetName = argv[++i]; }
+        else if (std::strcmp(argv[i], "--all") == 0)                    { all = true; }
+        else if (std::strcmp(argv[i], "--rebuild") == 0)               { rebuild = true; }
+        else { std::fprintf(stderr, "unknown option: %s\n", argv[i]); return Usage(); }
+    }
+    if (all && presetName != nullptr) { std::fprintf(stderr, "--all and --preset are mutually exclusive\n"); return 1; }
+
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(Sv(projectDir));
+    if (!project) { std::fprintf(stderr, "RaptorExport: failed to open project '%s'\n", projectDir); return 1; }
+
+    ed::BuilderRegistry builders;
+    RegisterAllBuilders(builders);
+
+    // Presets: from <project>/export_presets.xml, else a synthesized host preset.
+    ed::ExportPresetSet presets;
+    {
+        vfs::NativeFileSystem projectFs(project->Directory());
+        if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
+    }
+
+    ed::TemplateRegistry registry;
+    BuildRegistry(registry, TemplatesRoot().AsView(), ToolDir(argv[0]).AsView());
+
+    const String outRoot = (outArg != nullptr) ? String(Sv(outArg))
+                                               : PathJoin(project->Directory(), u8"Dist");
+
+    if (all)
+    {
+        const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
+        if (!ed::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild).IsOk())
+        {
+            std::fprintf(stderr, "RaptorExport: one or more presets failed (see log)\n");
+            return 1;
+        }
+        std::printf("export done: %zu preset(s) -> %s\n", presets.presets.Size(), Cs(outRoot.AsView()));
+        return 0;
+    }
+
+    const ed::ExportPreset* preset = (presetName != nullptr)
+        ? presets.Find(Sv(presetName))
+        : (presets.presets.Size() > 0 ? &presets.presets[0] : nullptr);
+    if (preset == nullptr)
+    {
+        std::fprintf(stderr, "RaptorExport: no preset%s%s\n",
+                     presetName ? " named " : "", presetName ? presetName : " defined");
         return 1;
     }
 
-    ed::BuilderRegistry registry;
-    RegisterAllBuilders(registry);
-
-    ed::ExportStats stats;
-    if (!ed::ExportProject(*project, outDir, registry, rebuild, &stats).IsOk())
+    ed::ExportResult result;
+    if (!ed::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild, &result).IsOk())
     {
         std::fprintf(stderr, "RaptorExport: export failed (see log)\n");
         return 1;
     }
-    std::printf("cook: %zu cooked, %zu failed | staged %zu scene(s) | packed %zu file(s)\n",
-                stats.cooked, stats.cookFailed, stats.scenesStaged, stats.filesPacked);
-
-    // Stage the player executable when it was built alongside this tool.
-    {
-        namespace fs = std::filesystem;
-        std::error_code ec;
-        // argv[0] can be bare/relative (running from inside the Export dir) - resolve it.
-        const fs::path self = fs::weakly_canonical(fs::absolute(fs::path(argv[0]), ec), ec);
-        const fs::path player = self.parent_path().parent_path() / "Player" / "RaptorPlayer";
-        if (fs::exists(player, ec))
-        {
-            const fs::path target = fs::path(reinterpret_cast<const char*>(String(outDir).CStr())) / "RaptorPlayer";
-            (void)fs::copy_file(player, target, fs::copy_options::overwrite_existing, ec);
-            if (!ec) { std::printf("staged RaptorPlayer\n"); }
-        }
-        else
-        {
-            std::printf("note: RaptorPlayer not found next to RaptorExport - copy it manually\n");
-        }
-    }
+    std::printf("exported '%s' -> %s\n  cook: %zu cooked, %zu scene(s), %zu packed | staged %zu file(s)\n",
+                Cs(preset->name.AsView()), Cs(result.outputDir.AsView()),
+                result.content.cooked, result.content.scenesStaged, result.content.filesPacked,
+                result.filesStaged);
 
     GlobalLogger().RemoveSink(&consoleSink);
-    std::printf("export done: %s\n", reinterpret_cast<const char*>(String(outDir).CStr()));
     return 0;
 }

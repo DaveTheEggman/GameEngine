@@ -15,6 +15,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include <filesystem>   // copy_file (preserves the +x bit on staged executables) + create_directories
 
 export module draconic.editor.core:export_pipeline;
 
@@ -27,6 +28,8 @@ import draconic.scene.resource;
 import draconic.editor;
 import draconic.editor.cook;
 import :project;
+import :export_preset;
+import :export_template;
 
 using namespace draconic::core;
 
@@ -136,6 +139,46 @@ export namespace draconic::editor
             }
             (void)RemoveDirectory(root);
         }
+
+        // Copy srcDir/srcName -> dstDir/dstName, PRESERVING permissions (staged executables need the
+        // +x bit, which a VFS read+write would drop). True on success.
+        inline bool CopyFilePreserving(StringView srcDir, StringView srcName, StringView dstDir, StringView dstName)
+        {
+            namespace fs = std::filesystem;
+            std::error_code ec;
+            const fs::path src = fs::path(reinterpret_cast<const char*>(String(srcDir).CStr()))
+                               / reinterpret_cast<const char*>(String(srcName).CStr());
+            const fs::path dst = fs::path(reinterpret_cast<const char*>(String(dstDir).CStr()))
+                               / reinterpret_cast<const char*>(String(dstName).CStr());
+            fs::copy_file(src, dst, fs::copy_options::overwrite_existing, ec);
+            return !ec;
+        }
+
+        // Last path component of `path` (after the final '/' or '\\').
+        [[nodiscard]] inline StringView BaseName(StringView path)
+        {
+            usize start = 0;
+            for (usize i = 0; i < path.Size(); ++i)
+            {
+                if (path[i] == utf8char('/') || path[i] == utf8char('\\')) { start = i + 1; }
+            }
+            return path.SubStr(start, path.Size() - start);
+        }
+
+        // A filesystem-safe output subdir from a preset name (alnum / - _ . kept, else '-').
+        [[nodiscard]] inline String SanitizeName(StringView name)
+        {
+            String out;
+            for (usize i = 0; i < name.Size(); ++i)
+            {
+                const utf8char c = name[i];
+                const bool ok = (c >= utf8char('a') && c <= utf8char('z')) || (c >= utf8char('A') && c <= utf8char('Z'))
+                             || (c >= utf8char('0') && c <= utf8char('9')) || c == utf8char('-')
+                             || c == utf8char('_') || c == utf8char('.');
+                out += ok ? StringView(&c, 1) : StringView(u8"-");
+            }
+            return out.IsEmpty() ? String(u8"export") : out;
+        }
     }
 
     /// Cook + stage + pack `project` into `outDir`. The builder registry is the exe's full
@@ -239,5 +282,115 @@ export namespace draconic::editor
         detail::RemoveTreeRecursive(stagingDir.AsView());
         if (outStats != nullptr) { *outStats = stats; }
         return Status{};
+    }
+
+    struct ExportResult
+    {
+        ExportStats content;     // cook/stage/pack totals
+        usize filesStaged = 0;   // player + template sidecars + preset additionalFiles copied
+        String outputDir;        // where the dist landed
+    };
+
+    /// Produce ONE preset's dist under `outRoot`: resolve its template, export the content
+    /// (ExportProject), then stage the template's player + sidecars and the preset's additionalFiles.
+    /// The whole dist from one entry point - the CLI and the editor call this identically (the cook
+    /// uniformity extended to the player, replacing the old exe-location walk in the CLI).
+    [[nodiscard]] inline Status ExportOne(EditorProject& project, const ExportPreset& preset,
+                                          const TemplateRegistry& templates, BuilderRegistry& builders,
+                                          StringView outRoot, bool rebuild, ExportResult* outResult = nullptr)
+    {
+        const ExportTemplate* tmpl = templates.Resolve(preset);
+        if (tmpl == nullptr)
+        {
+            DRACONIC_LOG_ERROR(u8"Export", u8"no export template for preset '{}' (platform '{}') - import one",
+                               preset.name, preset.platform);
+            return Status{ ErrorCode::NotFound };
+        }
+
+        ExportResult result;
+        const String subdir = preset.outputSubdir.IsEmpty() ? detail::SanitizeName(preset.name.AsView())
+                                                            : String(preset.outputSubdir.AsView());
+        result.outputDir = PathJoin(outRoot, subdir.AsView());
+
+        // Ensure the output dir (and outRoot) exist before the content pipeline writes into it.
+        {
+            std::error_code ec;
+            std::filesystem::create_directories(
+                reinterpret_cast<const char*>(result.outputDir.CStr()), ec);
+        }
+
+        if (!ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content).IsOk())
+        {
+            if (outResult != nullptr) { *outResult = result; }
+            return Status{ ErrorCode::Internal };
+        }
+
+        // Player: <template dir>/<playerBinary> -> <outDir>/<preset.playerName | template.playerBinary>.
+        const String outName = preset.playerName.IsEmpty() ? String(tmpl->playerBinary.AsView())
+                                                          : String(preset.playerName.AsView());
+        if (!detail::CopyFilePreserving(tmpl->directory.AsView(), tmpl->playerBinary.AsView(),
+                                        result.outputDir.AsView(), outName.AsView()))
+        {
+            DRACONIC_LOG_ERROR(u8"Export", u8"failed to stage player '{}' from template '{}'",
+                               tmpl->playerBinary, tmpl->id);
+            if (outResult != nullptr) { *outResult = result; }
+            return Status{ ErrorCode::Internal };
+        }
+        ++result.filesStaged;
+
+        // Template sidecars (runtime libs) from the template dir.
+        for (const String& sidecar : tmpl->sidecars)
+        {
+            if (detail::CopyFilePreserving(tmpl->directory.AsView(), sidecar.AsView(),
+                                           result.outputDir.AsView(), sidecar.AsView()))
+            {
+                ++result.filesStaged;
+            }
+            else
+            {
+                DRACONIC_LOG_WARNING(u8"Export", u8"sidecar '{}' not found in template '{}'", sidecar, tmpl->id);
+            }
+        }
+
+        // Preset additionalFiles (game extras, project-relative) -> <outDir>/<basename>.
+        for (const String& extra : preset.additionalFiles)
+        {
+            const StringView base = detail::BaseName(extra.AsView());
+            if (detail::CopyFilePreserving(project.Directory(), extra.AsView(), result.outputDir.AsView(), base))
+            {
+                ++result.filesStaged;
+            }
+            else
+            {
+                DRACONIC_LOG_WARNING(u8"Export", u8"additional file '{}' not found", extra);
+            }
+        }
+
+        if (outResult != nullptr) { *outResult = result; }
+        return Status{};
+    }
+
+    /// Produce EVERY preset's dist under `outRoot` (a failing preset is logged and skipped; the others
+    /// continue). Returns Ok only when all presets succeeded.
+    [[nodiscard]] inline Status ExportAll(EditorProject& project, Span<const ExportPreset> presets,
+                                          const TemplateRegistry& templates, BuilderRegistry& builders,
+                                          StringView outRoot, bool rebuild)
+    {
+        usize ok = 0;
+        for (const ExportPreset& preset : presets)
+        {
+            ExportResult result;
+            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result).IsOk())
+            {
+                ++ok;
+                DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",
+                                  preset.name, result.outputDir, result.filesStaged);
+            }
+            else
+            {
+                DRACONIC_LOG_ERROR(u8"Export", u8"preset '{}' failed", preset.name);
+            }
+        }
+        return (ok == presets.Size()) ? Status{} : Status{ ErrorCode::Internal };
     }
 }

@@ -317,3 +317,47 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
 
     NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
 }
+
+TEST_CASE("export: ExportOne stages the resolved template's player + sidecars alongside content")
+{
+    const String projectDir = TempDir(u8"draconic_exportone_proj");
+    const String toolDir = TempDir(u8"draconic_exportone_tool");
+    const String outRoot = TempDir(u8"draconic_exportone_out");
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+
+    // A minimal (asset-less) project - enough for the content pipeline; the driver test is about the
+    // player/sidecar staging on top of it.
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"ExportOneTest").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+    REQUIRE(project->SaveSettings().IsOk());
+
+    // Fake host tool dir: a "player" + its runtime-libs listing one sidecar + the sidecar file.
+    REQUIRE(CreateDirectory(toolDir.AsView()));
+    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    SaveText(toolFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
+    SaveText(toolFs, u8"RaptorPlayer.runtime-libs", u8"libfoo.so\n");
+    SaveText(toolFs, u8"libfoo.so", u8"foo\n");
+
+    ed::TemplateRegistry registry;
+    registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);   // host template only
+
+    ed::ExportPreset preset;
+    preset.name = String(u8"Host Build");
+    preset.platform = String(GetHostPlatformName());   // -> the host template
+    preset.outputSubdir = String(u8"host");
+
+    ed::BuilderRegistry builders;   // no assets -> no builders needed
+    ed::ExportResult result;
+    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+
+    // The dist carries the player, the sidecar, and the content (Content.pak + player.xml).
+    draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    CHECK(distFs.Exists(GetExecutableName(u8"RaptorPlayer").AsView()));
+    CHECK(distFs.Exists(u8"libfoo.so"));
+    CHECK(distFs.Exists(u8"Content.pak"));
+    CHECK(distFs.Exists(u8"player.xml"));
+    CHECK(result.filesStaged == 2u);   // player + one sidecar (no additionalFiles)
+
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+}

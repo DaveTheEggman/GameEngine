@@ -190,6 +190,7 @@ export namespace draconic::editor
         }
 
         [[nodiscard]] usize Count() const noexcept { return m_templates.Size(); }
+        [[nodiscard]] const ExportTemplate* At(usize i) const { return m_templates[i].Get(); }
 
         [[nodiscard]] const ExportTemplate* FindById(StringView id) const
         {
