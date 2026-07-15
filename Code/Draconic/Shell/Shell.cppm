@@ -17,6 +17,7 @@ export module draconic.shell;
 export import :input_types;
 export import :input;
 export import :surface;
+export import :dialog;
 
 import draconic.core;
 
@@ -189,6 +190,10 @@ export namespace draconic::shell
         // Aggregate input devices (keyboard/mouse/gamepad/touch). Always present
         // - the null backend returns a no-op manager, so callers need not check.
         [[nodiscard]] virtual IInputManager* Input() noexcept = 0;
+
+        // Native file/folder dialogs (open/save/folder). Always present - the null backend
+        // returns a no-op service that cancels immediately - so callers need not check.
+        [[nodiscard]] virtual IDialogService* Dialogs() noexcept = 0;
 
         // Pump pending OS events once per frame (the runner calls this). The
         // backend rolls input state (Input()->Update()) before pumping.

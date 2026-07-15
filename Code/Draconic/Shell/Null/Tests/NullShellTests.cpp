@@ -225,3 +225,30 @@ TEST_CASE("shell.null: global mouse position is zero (no OS device)")
     CHECK(mouse->GlobalX() == 0.0f);
     CHECK(mouse->GlobalY() == 0.0f);
 }
+
+TEST_CASE("shell.null: dialog service cancels immediately (empty result, one callback)")
+{
+    NullShell shell(WindowSettings{});
+    IDialogService* dialogs = shell.Dialogs();
+    REQUIRE(dialogs != nullptr);
+
+    // Each Show* must invoke the callback exactly once with an empty result (== cancel), so callers
+    // can drive the dialog path uniformly on a headless backend.
+    int calls = 0;
+    usize lastCount = 999;
+    auto cb = [&](Span<const String> paths) { ++calls; lastCount = paths.Size(); };
+
+    const FileFilter filters[] = { { u8"Images", u8"png;jpg" }, { u8"All", u8"*" } };
+
+    dialogs->ShowOpenFile(cb, Span<const FileFilter>(filters, 2), u8"/tmp", true, 0);
+    CHECK(calls == 1);
+    CHECK(lastCount == 0u);
+
+    dialogs->ShowSaveFile(cb, {}, u8"/tmp/out.scene", 0);
+    CHECK(calls == 2);
+    CHECK(lastCount == 0u);
+
+    dialogs->ShowOpenFolder(cb, u8"/tmp", false, 0);
+    CHECK(calls == 3);
+    CHECK(lastCount == 0u);
+}

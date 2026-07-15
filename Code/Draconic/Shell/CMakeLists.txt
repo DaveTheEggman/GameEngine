@@ -12,6 +12,7 @@ target_sources(DraconicShell
             InputTypes.cppm
             Input.cppm
             InputSurface.cppm
+            Dialog.cppm
             Shell.cppm)
 
 # Null backend needs only the interface. The Desktop (SDL3) backend needs the interface + SDL3

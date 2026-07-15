@@ -196,6 +196,25 @@ export namespace draconic::shell
         NullTouch    m_touch;
     };
 
+    // No-op dialogs: cancel immediately (empty result) so headless callers can drive the dialog
+    // path uniformly without a backend check.
+    class NullDialogService final : public IDialogService
+    {
+    public:
+        void ShowOpenFile(DialogResultCallback callback, core::Span<const FileFilter> = {},
+                          core::StringView = {}, bool = false, core::u32 = 0) override { Cancel(callback); }
+        void ShowSaveFile(DialogResultCallback callback, core::Span<const FileFilter> = {},
+                          core::StringView = {}, core::u32 = 0) override { Cancel(callback); }
+        void ShowOpenFolder(DialogResultCallback callback, core::StringView = {},
+                            bool = false, core::u32 = 0) override { Cancel(callback); }
+
+    private:
+        static void Cancel(DialogResultCallback& callback)
+        {
+            if (callback) { callback(core::Span<const core::String>{}); }
+        }
+    };
+
     class NullShell final : public IShell
     {
     public:
@@ -204,6 +223,7 @@ export namespace draconic::shell
         [[nodiscard]] IWindowManager* WindowManager() noexcept override { return &m_windows; }
         [[nodiscard]] IWindow* MainWindow() noexcept override { return m_windows.MainWindow(); }
         [[nodiscard]] IInputManager* Input() noexcept override { return &m_input; }
+        [[nodiscard]] IDialogService* Dialogs() noexcept override { return &m_dialogs; }
         void ProcessEvents() override {}  // no OS event source
         [[nodiscard]] bool IsRunning() const noexcept override
         {
@@ -222,6 +242,7 @@ export namespace draconic::shell
     private:
         NullWindowManager m_windows;
         NullInputManager m_input;
+        NullDialogService m_dialogs;
         bool m_running = true;
         core::String m_clipboard;
     };

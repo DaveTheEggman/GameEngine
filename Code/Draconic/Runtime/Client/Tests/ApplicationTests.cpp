@@ -26,6 +26,7 @@ namespace
         IWindowManager* WindowManager() noexcept override { return nullptr; }
         IWindow* MainWindow() noexcept override { return nullptr; }
         IInputManager* Input() noexcept override { return nullptr; }
+        IDialogService* Dialogs() noexcept override { return nullptr; }
         void ProcessEvents() override { ++processed; }
         bool IsRunning() const noexcept override { return running; }
         void RequestExit() override { running = false; }

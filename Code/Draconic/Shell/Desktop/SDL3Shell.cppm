@@ -641,6 +641,105 @@ export namespace draconic::shell
         core::u32                 m_focusWindow = 0; // keyboard-focused window
     };
 
+    // Native file/folder dialogs over SDL3 (SDL_Show{Open,Save}FileDialog / SDL_ShowOpenFolderDialog).
+    // Async: each Show* returns immediately; SDL fires Trampoline later (during SDL event processing,
+    // i.e. the shell's ProcessEvents pump), which hands the callback OWNED path copies and frees the
+    // heap context. Modeled on Sedulous's SDL3DialogService, with typed filters + owned result paths.
+    class SDL3DialogService final : public IDialogService
+    {
+    public:
+        explicit SDL3DialogService(SDL3WindowManager& windows) noexcept : m_windows(&windows) {}
+
+        void ShowOpenFile(DialogResultCallback callback, core::Span<const FileFilter> filters,
+                          core::StringView defaultPath, bool allowMultiple, core::u32 parentWindowId) override
+        {
+            Context* ctx = MakeContext(static_cast<DialogResultCallback&&>(callback), filters, defaultPath);
+            SDL_ShowOpenFileDialog(&Trampoline, ctx, ParentHandle(parentWindowId),
+                                   ctx->sdlFilters.IsEmpty() ? nullptr : ctx->sdlFilters.Data(),
+                                   static_cast<int>(ctx->sdlFilters.Size()),
+                                   ctx->defaultPath.IsEmpty() ? nullptr : reinterpret_cast<const char*>(ctx->defaultPath.Data()),
+                                   allowMultiple);
+        }
+
+        void ShowSaveFile(DialogResultCallback callback, core::Span<const FileFilter> filters,
+                          core::StringView defaultPath, core::u32 parentWindowId) override
+        {
+            Context* ctx = MakeContext(static_cast<DialogResultCallback&&>(callback), filters, defaultPath);
+            SDL_ShowSaveFileDialog(&Trampoline, ctx, ParentHandle(parentWindowId),
+                                   ctx->sdlFilters.IsEmpty() ? nullptr : ctx->sdlFilters.Data(),
+                                   static_cast<int>(ctx->sdlFilters.Size()),
+                                   ctx->defaultPath.IsEmpty() ? nullptr : reinterpret_cast<const char*>(ctx->defaultPath.Data()));
+        }
+
+        void ShowOpenFolder(DialogResultCallback callback, core::StringView defaultPath,
+                            bool allowMultiple, core::u32 parentWindowId) override
+        {
+            Context* ctx = MakeContext(static_cast<DialogResultCallback&&>(callback), {}, defaultPath);
+            SDL_ShowOpenFolderDialog(&Trampoline, ctx, ParentHandle(parentWindowId),
+                                     ctx->defaultPath.IsEmpty() ? nullptr : reinterpret_cast<const char*>(ctx->defaultPath.Data()),
+                                     allowMultiple);
+        }
+
+    private:
+        // Heap-lived across the dialog's async lifetime; freed in Trampoline. Owns the callback, the
+        // null-terminated strings the SDL_DialogFileFilter pointers alias, and the default path.
+        struct Context
+        {
+            DialogResultCallback callback;
+            core::Array<core::String> filterStrings;   // name,pattern,name,pattern,... keeps Data() alive
+            core::Array<SDL_DialogFileFilter> sdlFilters;
+            core::String defaultPath;
+        };
+
+        [[nodiscard]] SDL_Window* ParentHandle(core::u32 id) const noexcept
+        {
+            if (id == 0) { return nullptr; }
+            SDL3Window* w = m_windows->Find(id);
+            return (w != nullptr) ? w->Handle() : nullptr;
+        }
+
+        [[nodiscard]] static Context* MakeContext(DialogResultCallback&& callback,
+                                                  core::Span<const FileFilter> filters,
+                                                  core::StringView defaultPath)
+        {
+            Context* ctx = core::DefaultAllocator().New<Context>();
+            ctx->callback = static_cast<DialogResultCallback&&>(callback);
+            ctx->defaultPath = core::String(defaultPath);   // null-terminated copy for the C API
+            // Fill filterStrings FIRST (so the array stops growing), THEN alias sdlFilters at them -
+            // otherwise a PushBack realloc would dangle the SDL filter pointers.
+            for (const FileFilter& f : filters)
+            {
+                ctx->filterStrings.PushBack(core::String(f.name));
+                ctx->filterStrings.PushBack(core::String(f.pattern));
+            }
+            for (core::usize i = 0; i < filters.Size(); ++i)
+            {
+                SDL_DialogFileFilter sf{};
+                sf.name    = reinterpret_cast<const char*>(ctx->filterStrings[i * 2 + 0].Data());
+                sf.pattern = reinterpret_cast<const char*>(ctx->filterStrings[i * 2 + 1].Data());
+                ctx->sdlFilters.PushBack(sf);
+            }
+            return ctx;
+        }
+
+        static void SDLCALL Trampoline(void* userdata, const char* const* filelist, int /*filter*/)
+        {
+            Context* ctx = static_cast<Context*>(userdata);
+            core::Array<core::String> paths;
+            if (filelist != nullptr)   // null => cancelled or error
+            {
+                for (const char* const* p = filelist; *p != nullptr; ++p)
+                {
+                    paths.PushBack(core::String(core::StringView(reinterpret_cast<const core::utf8char*>(*p))));
+                }
+            }
+            if (ctx->callback) { ctx->callback(core::Span<const core::String>(paths.Data(), paths.Size())); }
+            core::DefaultAllocator().Delete(ctx);
+        }
+
+        SDL3WindowManager* m_windows;
+    };
+
     class SDL3Shell final : public IShell
     {
     public:
@@ -682,6 +781,7 @@ export namespace draconic::shell
         [[nodiscard]] IWindowManager* WindowManager() noexcept override { return &m_windows; }
         [[nodiscard]] IWindow* MainWindow() noexcept override { return m_windows.MainWindow(); }
         [[nodiscard]] IInputManager* Input() noexcept override { return &m_input; }
+        [[nodiscard]] IDialogService* Dialogs() noexcept override { return &m_dialogs; }
 
         void ProcessEvents() override
         {
@@ -1095,6 +1195,7 @@ export namespace draconic::shell
 
         SDL3WindowManager m_windows;
         SDL3InputManager m_input;
+        SDL3DialogService m_dialogs{ m_windows };   // ctor takes m_windows (declared above -> init order OK)
         bool m_initialized = false;
         bool m_running = true;
         core::Array<DroppedFile> m_droppedFiles;   // queued during ProcessEvents, drained per frame
