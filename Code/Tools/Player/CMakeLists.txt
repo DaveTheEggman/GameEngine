@@ -12,3 +12,7 @@ target_link_libraries(RaptorPlayer PRIVATE
     Draconic::ModelImporter
     Draconic::Script Draconic::ScriptWren
     Draconic::Project Draconic::VFSPak Draconic::Content Draconic::VFS Draconic::XmlSerialization)
+
+# Stage the player's runtime deps beside it + emit RaptorPlayer.runtime-libs (the export host-template
+# reads that list for its sidecars). SDL3 rides in as EXTRA (no-op when DRACONIC_SDL3_DLL is unset).
+draconic_copy_runtime_deps(RaptorPlayer EXTRA ${DRACONIC_SDL3_DLL})

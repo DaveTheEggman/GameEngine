@@ -38,4 +38,18 @@ function(draconic_copy_runtime_deps target)
                 COMMENT "Staging ${_f} next to ${target}")
         endif()
     endforeach()
+
+    # Config the build is the source of truth for: the basenames of the runtime libs staged next to
+    # <target>, one per line, written to "<target>.runtime-libs". The export host-template reads this
+    # for its sidecar list instead of hard-coding it, so it tracks dep changes (a shell swap changes
+    # the DLLs -> the list follows). On rpath platforms TARGET_RUNTIME_DLLS is empty, so this lists
+    # only EXTRA; on Windows it lists both. See docs/design/export.md.
+    set(_dr_libs "$<TARGET_RUNTIME_DLLS:${target}>")
+    if(ARG_EXTRA)
+        list(APPEND _dr_libs ${ARG_EXTRA})   # configure-time paths (e.g. the vendored SDL3 DLL)
+    endif()
+    file(GENERATE
+        OUTPUT  "$<TARGET_FILE_DIR:${target}>/${target}.runtime-libs"
+        CONTENT "$<JOIN:$<PATH:GET_FILENAME,${_dr_libs}>,\n>\n"
+        TARGET  ${target})
 endfunction()

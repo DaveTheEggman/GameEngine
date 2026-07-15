@@ -175,48 +175,145 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
         CHECK_FALSE(ed::LoadExportPresets(root, loaded).IsOk());
     }
 
-    // The built-in default names the host platform and leaves playerSource empty (host tool dir).
+    // The built-in default names the host platform and leaves templateId blank (resolve by platform).
     ed::ExportPresetSet defaults;
     ed::DefaultExportPresets(defaults);
     REQUIRE(defaults.presets.Size() == 1u);
-    CHECK(defaults.presets[0].platform == ed::HostPlatformTag());
-    CHECK(defaults.presets[0].playerSource.IsEmpty());
+    CHECK(defaults.presets[0].platform == GetHostPlatformName());
+    CHECK(defaults.presets[0].templateId.IsEmpty());
 
-    // Author a two-preset set (one host-sourced, one template-sourced with sidecars) and save it.
+    // Author a two-preset set (one blank-template, one explicit-template with extra files) and save it.
     ed::ExportPresetSet out;
     ed::ExportPreset a;
     a.name = String(u8"Linux Desktop"); a.platform = String(u8"Linux64"); a.outputSubdir = String(u8"Linux64");
     ed::ExportPreset b;
     b.name = String(u8"Windows Desktop"); b.platform = String(u8"Win64");
-    b.playerSource = String(u8"Templates/Win64"); b.playerName = String(u8"MyGame.exe");
+    b.templateId = String(u8"raptor-win64-0.1.0"); b.playerName = String(u8"MyGame.exe");
     b.outputSubdir = String(u8"Win64");
-    b.runtimeFiles.PushBack(String(u8"SDL3.dll"));
-    b.runtimeFiles.PushBack(String(u8"dxcompiler.dll"));
+    b.additionalFiles.PushBack(String(u8"icon.ico"));
+    b.additionalFiles.PushBack(String(u8"config.xml"));
     out.presets.PushBack(Move(a));
     out.presets.PushBack(Move(b));
     REQUIRE(ed::SaveExportPresets(*root.AsWritable(), out).IsOk());
 
-    // Load back and check every field survived, including the runtimeFiles array + lookup.
+    // Load back and check every field survived, including the additionalFiles array + lookup.
     ed::ExportPresetSet loaded;
     REQUIRE(ed::LoadExportPresets(root, loaded).IsOk());
     REQUIRE(loaded.presets.Size() == 2u);
     CHECK(loaded.presets[0].name == u8"Linux Desktop");
-    CHECK(loaded.presets[0].playerSource.IsEmpty());
-    CHECK(loaded.presets[0].ResolvedPlayerName() == u8"RaptorPlayer");
+    CHECK(loaded.presets[0].templateId.IsEmpty());
+    CHECK(loaded.presets[0].playerName.IsEmpty());
 
     const ed::ExportPreset* win = loaded.Find(u8"Windows Desktop");
     REQUIRE(win != nullptr);
     CHECK(win->platform == u8"Win64");
-    CHECK(win->playerSource == u8"Templates/Win64");
-    CHECK(win->ResolvedPlayerName() == u8"MyGame.exe");
-    REQUIRE(win->runtimeFiles.Size() == 2u);
-    CHECK(win->runtimeFiles[0] == u8"SDL3.dll");
-    CHECK(win->runtimeFiles[1] == u8"dxcompiler.dll");
+    CHECK(win->templateId == u8"raptor-win64-0.1.0");
+    CHECK(win->playerName == u8"MyGame.exe");
+    REQUIRE(win->additionalFiles.Size() == 2u);
+    CHECK(win->additionalFiles[0] == u8"icon.ico");
+    CHECK(win->additionalFiles[1] == u8"config.xml");
     CHECK(loaded.Find(u8"nope") == nullptr);
 
-    // A preset with no explicit playerName defaults to the platform's exe name.
-    CHECK(ed::DefaultPlayerName(u8"Win64") == u8"RaptorPlayer.exe");
-    CHECK(ed::DefaultPlayerName(u8"Linux64") == u8"RaptorPlayer");
+    NukeTree(dir.AsView());
+}
+
+namespace
+{
+    String TempDir(StringView leaf)
+    {
+        return PathJoin(StringView(reinterpret_cast<const utf8char*>(
+                            std::filesystem::temp_directory_path().string().c_str())), leaf);
+    }
+    void SaveText(draconic::vfs::NativeFileSystem& fs, StringView name, StringView text)
+    {
+        (void)fs.AsWritable()->Save(name, Span<const byte>(
+            reinterpret_cast<const byte*>(text.Data()), text.Size()));
+    }
+}
+
+TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-libs")
+{
+    const String dir = TempDir(u8"draconic_template_test");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    // template.xml round-trip.
+    ed::ExportTemplate t;
+    t.id = String(u8"raptor-win64-0.1.0"); t.name = String(u8"Windows Desktop 0.1.0");
+    t.platform = String(u8"Win64"); t.engineVersion = String(u8"0.1.0");
+    t.playerBinary = String(u8"RaptorPlayer.exe");
+    t.sidecars.PushBack(String(u8"SDL3.dll"));
+    t.sidecars.PushBack(String(u8"dxcompiler.dll"));
+    REQUIRE(ed::SaveTemplateManifest(*root.AsWritable(), t).IsOk());
+
+    ed::ExportTemplate loaded;
+    REQUIRE(ed::LoadTemplateManifest(root, loaded).IsOk());
+    CHECK(loaded.id == u8"raptor-win64-0.1.0");
+    CHECK(loaded.platform == u8"Win64");
+    CHECK(loaded.playerBinary == u8"RaptorPlayer.exe");
+    REQUIRE(loaded.sidecars.Size() == 2u);
+    CHECK(loaded.sidecars[0] == u8"SDL3.dll");
+    CHECK(loaded.sidecars[1] == u8"dxcompiler.dll");
+
+    // Host synthesis: id/platform/player from the host; sidecars from "<player>.runtime-libs".
+    SaveText(root, u8"RaptorPlayer.runtime-libs", u8"SDL3.dll\r\n\n  dxil.dll  \n");
+    ed::ExportTemplate host;
+    ed::SynthesizeHostTemplate(dir.AsView(), &root, host);
+    CHECK(host.isHost);
+    CHECK(host.platform == GetHostPlatformName());
+    String expectedId(u8"host-"); expectedId += GetHostPlatformName();
+    CHECK(host.id == expectedId.AsView());
+    CHECK(host.playerBinary == GetExecutableName(u8"RaptorPlayer"));
+    CHECK(host.directory == dir);
+    REQUIRE(host.sidecars.Size() == 2u);          // blank line skipped, CR + spaces trimmed
+    CHECK(host.sidecars[0] == u8"SDL3.dll");
+    CHECK(host.sidecars[1] == u8"dxil.dll");
 
     NukeTree(dir.AsView());
+}
+
+TEST_CASE("export: template registry resolves by id, by platform, and host-falls-back")
+{
+    const String rootDir = TempDir(u8"draconic_templates_root");
+    const String hostDir = TempDir(u8"draconic_host_tooldir");
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
+    REQUIRE(CreateDirectory(rootDir.AsView()));
+    REQUIRE(CreateDirectory(hostDir.AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"win-template").AsView()));
+
+    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+
+    // One imported template for Win64 under <root>/win-template/template.xml.
+    ed::ExportTemplate win;
+    win.id = String(u8"raptor-win64-0.1.0"); win.platform = String(u8"Win64");
+    win.playerBinary = String(u8"RaptorPlayer.exe");
+    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), win, u8"win-template/template.xml").IsOk());
+
+    ed::TemplateRegistry reg;
+    reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
+    CHECK(reg.Count() == 2u);   // imported win + synthesized host
+
+    // Explicit id.
+    const ed::ExportTemplate* byId = reg.FindById(u8"raptor-win64-0.1.0");
+    REQUIRE(byId != nullptr);
+    CHECK(byId->directory == PathJoin(rootDir.AsView(), u8"win-template"));
+
+    // By platform: imported wins for Win64; host for the host platform.
+    CHECK(reg.FindByPlatform(u8"Win64") == byId);
+    const ed::ExportTemplate* hostT = reg.FindByPlatform(GetHostPlatformName());
+    REQUIRE(hostT != nullptr);
+    CHECK(hostT->isHost);
+
+    // Resolve a preset: explicit id, blank-id-by-platform, and no-match => null.
+    ed::ExportPreset p;
+    p.platform = String(u8"Win64");
+    CHECK(reg.Resolve(p) == byId);                 // blank templateId -> by platform
+    p.templateId = String(u8"raptor-win64-0.1.0");
+    CHECK(reg.Resolve(p) == byId);                 // explicit id
+    ed::ExportPreset none; none.platform = String(u8"Nonexistent64");
+    CHECK(reg.Resolve(none) == nullptr);
+
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
 }

@@ -1,11 +1,12 @@
 // Draconic::EditorCore - :export_preset partition.
 //
-// Export presets: named, per-platform descriptions of how to produce a shippable dist -
-// which player binary to stage (and from where), what runtime files ride beside it, and
-// where the result goes. Persisted to <project>/export_presets.xml (ProjectSettings-shape
-// versioned XML). The RaptorExport CLI and the editor's Export menu both drive the export
-// from these, so a preset produces the SAME dist whichever surface triggers it (the cook
-// uniformity, extended to the whole dist).
+// Export presets: named, per-platform descriptions of how to produce a shippable dist - which
+// export template (player + runtime sidecars) to use, plus game-specific extra files and output
+// naming. Project-local and committable (references a template by id/platform, never an absolute
+// path). Persisted to <project>/export_presets.xml (ProjectSettings-shape versioned XML). The
+// RaptorExport CLI and the editor's Export menu both drive the export from these, so a preset
+// produces the SAME dist whichever surface triggers it (the cook uniformity, extended to the whole
+// dist).
 
 module;
 #include "Core/Prelude.h"
@@ -23,61 +24,32 @@ export namespace draconic::editor
 {
     namespace vfs = draconic::vfs;
 
-    // The platform tag of the host this tool was built for - matches the Bin/<Config>/<Platform>
-    // segment, so a preset's `platform` can also name a dir under a prebuilt export-templates tree.
-    [[nodiscard]] inline StringView HostPlatformTag() noexcept
-    {
-    #if defined(_WIN32)
-        return u8"Win64";
-    #elif defined(__APPLE__)
-        return u8"Mac64";
-    #elif defined(__linux__)
-        return u8"Linux64";
-    #else
-        return u8"Unknown";
-    #endif
-    }
-
-    // The default player executable basename, platform-suffixed (.exe on Windows).
-    [[nodiscard]] inline String DefaultPlayerName(StringView platform)
-    {
-        String name(u8"RaptorPlayer");
-        if (platform == u8"Win64") { name += u8".exe"; }
-        return name;
-    }
-
     inline constexpr StringView kExportPresetsFile = u8"export_presets.xml";
 
     // One export target. A plain value type (copyable/movable) so a project can hold an
     // Array<ExportPreset>; only the root set below is a versioned-payload object.
     //
-    // `playerSource` empty => stage the host player from the driving tool's own directory (a dev
-    // export straight out of Bin/...); non-empty => a prebuilt export-template directory holding this
-    // platform's player + sidecar files (cross-platform / release). An empty `runtimeFiles` list =>
-    // the driver stages the platform's known sidecars automatically.
+    // References an ExportTemplate (see :export_template) rather than an absolute path, so a preset is
+    // portable/committable: `templateId` picks a template exactly, or blank => the installed template
+    // for `platform` (the host implicit template counts). `additionalFiles` are GAME-specific extras
+    // (icon, config, data) staged into the dist ON TOP of the template's own runtime sidecars.
     struct ExportPreset
     {
-        String name;                 // "Windows Desktop"
-        String platform;             // "Win64" / "Linux64" (the Bin/<Config>/<Platform> tag)
-        String playerSource;         // dir with the player binary + sidecars; "" => host tool dir
-        String playerName;           // output exe name; "" => DefaultPlayerName(platform)
-        String outputSubdir;         // export-root-relative output dir; "" => sanitized `name`
-        Array<String> runtimeFiles;  // extra sidecar files to copy from the source; empty => auto
+        String name;                    // "Windows Desktop"
+        String platform;                // "Win64" / "Linux64" (the Bin/<Config>/<Platform> tag)
+        String templateId;              // which template; "" => resolve by platform
+        String playerName;              // output exe name; "" => the template's player basename
+        String outputSubdir;            // export-root-relative output dir; "" => sanitized `name`
+        Array<String> additionalFiles;  // game-specific extra files (beyond the template's sidecars)
 
         void Serialize(ISerializer& ar)
         {
             draconic::core::Serialize(ar, "name", name);
             draconic::core::Serialize(ar, "platform", platform);
-            draconic::core::Serialize(ar, "playerSource", playerSource);
+            draconic::core::Serialize(ar, "templateId", templateId);
             draconic::core::Serialize(ar, "playerName", playerName);
             draconic::core::Serialize(ar, "outputSubdir", outputSubdir);
-            draconic::core::Serialize(ar, "runtimeFiles", runtimeFiles);
-        }
-
-        // Resolved output exe name (falls back to the platform default).
-        [[nodiscard]] String ResolvedPlayerName() const
-        {
-            return playerName.IsEmpty() ? DefaultPlayerName(platform.AsView()) : playerName;
+            draconic::core::Serialize(ar, "additionalFiles", additionalFiles);
         }
     };
 
@@ -117,7 +89,7 @@ export namespace draconic::editor
     inline void DefaultExportPresets(ExportPresetSet& out)
     {
         ExportPreset host;
-        host.platform = String(HostPlatformTag());
+        host.platform = String(GetHostPlatformName());
         host.name = host.platform;
         host.name += u8" Desktop";
         host.outputSubdir = host.platform;

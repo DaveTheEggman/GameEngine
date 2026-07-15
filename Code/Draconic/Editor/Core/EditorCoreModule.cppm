@@ -17,4 +17,5 @@ export import :cook_service;
 export import :importer;
 export import :log_buffer;
 export import :export_preset;
+export import :export_template;
 export import :export_pipeline;
