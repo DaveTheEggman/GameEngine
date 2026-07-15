@@ -223,36 +223,10 @@ export namespace draconic::ui
             const Rectangle textBounds{ TextOffsetX.Value(), 0, Width() - TextOffsetX.Value(), Height() };
             const fonts::TextAlignment h = HAlign.Value();
 
-            if (Ellipsis.Value() && font->font->MeasureString(text) > textBounds.width)
-            {
-                const StringView ellipsis = u8"...";
-                const f32 ellipsisW = font->font->MeasureString(ellipsis);
-                const f32 availW = textBounds.width - ellipsisW;
-                if (availW <= 0)
-                {
-                    ctx.VG().DrawText(ellipsis, font, textBounds, h, fonts::VerticalAlignment::Middle, textColor);
-                }
-                else
-                {
-                    String truncated;
-                    usize i = 0;
-                    while (i < text.Size())
-                    {
-                        const usize start = i;
-                        const u32 cp = DecodeUtf8(text, i);
-                        const usize prevSize = truncated.Size();
-                        AppendUtf8(truncated, cp);
-                        if (font->font->MeasureString(truncated) > availW) { truncated.Remove(prevSize, truncated.Size() - prevSize); break; }
-                        (void)start;
-                    }
-                    truncated.Append(ellipsis);
-                    ctx.VG().DrawText(truncated, font, textBounds, h, fonts::VerticalAlignment::Middle, textColor);
-                }
-            }
-            else
-            {
-                ctx.VG().DrawText(text, font, textBounds, h, fonts::VerticalAlignment::Middle, textColor);
-            }
+            const String shown = Ellipsis.Value()
+                ? fonts::TruncateToWidth(*font->font, text, textBounds.width)
+                : String(text);
+            ctx.VG().DrawText(shown.AsView(), font, textBounds, h, fonts::VerticalAlignment::Middle, textColor);
         }
 
     private:

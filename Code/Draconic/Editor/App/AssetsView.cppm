@@ -497,6 +497,7 @@ export namespace draconic::editor::app
                 auto name = MakeRef<NameLabel>(DefaultAllocator());
                 name->FontSize.SetValue(12.0f);
                 name->HAlign.SetValue(draconic::fonts::TextAlignment::Center);
+                name->Ellipsis.SetValue(true);   // long asset names truncate with "..." instead of overflowing the tile
                 ConfigureNameLabel(*name, *m_owner);
                 {
                     auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());

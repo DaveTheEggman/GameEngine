@@ -53,6 +53,45 @@ TEST_CASE("ttf.ui: HitTest on empty positions")
     TrueTypeFonts::Shutdown();
 }
 
+TEST_CASE("ttf.ui: TruncateToWidth ellipsizes overflow, keeps fitting text")
+{
+    TrueTypeFonts::Initialize();
+    IFont* font = LoadRoboto();
+    REQUIRE(font != nullptr);
+
+    const StringView text = u8"A fairly long asset name.png";
+    const f32 fullW = font->MeasureString(text);
+
+    // Comfortably wide: returned unchanged.
+    CHECK(TruncateToWidth(*font, text, fullW + 20.0f).AsView() == text);
+
+    // Sub-pixel overflow (within the 1px tolerance) is NOT truncated - a control sized to exactly fit
+    // its text can measure a hair short after layout rounding; it must not collapse (e.g. "OK" -> "...").
+    CHECK(TruncateToWidth(*font, text, fullW - 0.5f).AsView() == text);
+
+    // Too narrow: truncated, ends with the ellipsis, and fits the budget.
+    const f32 budget = fullW * 0.5f;
+    const String cut = TruncateToWidth(*font, text, budget);
+    CHECK(cut.Size() < text.Size());
+    REQUIRE(cut.Size() >= 3);
+    CHECK(StringView(cut.Data() + cut.Size() - 3, 3) == StringView(u8"..."));
+    CHECK(font->MeasureString(cut.AsView()) <= budget);
+
+    // A short label no wider than the ellipsis is left alone even in a too-small box - truncating
+    // "+" to "..." would be WIDER, not narrower.
+    const f32 plusW = font->MeasureString(u8"+");
+    CHECK(TruncateToWidth(*font, u8"+", plusW * 0.4f).AsView() == StringView(u8"+"));
+
+    // A long string in a box narrower than the ellipsis: just the ellipsis.
+    CHECK(TruncateToWidth(*font, text, 1.0f).AsView() == StringView(u8"..."));
+
+    // Empty input stays empty (no measuring).
+    CHECK(TruncateToWidth(*font, StringView{}, 100.0f).Size() == 0);
+
+    DefaultAllocator().Delete(font);
+    TrueTypeFonts::Shutdown();
+}
+
 TEST_CASE("ttf.ui: HitTest before text")
 {
     TrueTypeFonts::Initialize();

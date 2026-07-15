@@ -201,6 +201,7 @@ export namespace draconic::ui::toolkit
         {
             RefPtr<FlexLayout> row = MakeRef<FlexLayout>(DefaultAllocator());
             row->Direction = Orientation::Horizontal;
+            row->Spacing = 6.0f;   // gap between the (ellipsized) label column and the value editor
 
             // Label - editable if editor has OnLabelRenamed set.
             if (editor->OnLabelRenamed)
@@ -208,6 +209,7 @@ export namespace draconic::ui::toolkit
                 RefPtr<EditableLabel> editableLabel = MakeRef<EditableLabel>(DefaultAllocator());
                 editableLabel->SetText(editor->DisplayName());
                 editableLabel->FontSize.SetValue(12.0f);
+                editableLabel->Ellipsis.SetValue(true);   // truncate instead of overflowing into the value when narrow
                 PropertyEditor* boundEditor = editor;
                 editableLabel->OnRenameCommitted.Add([boundEditor](EditableLabel*, StringView newName)
                 {
@@ -223,6 +225,7 @@ export namespace draconic::ui::toolkit
                 label->SetText(editor->DisplayName());
                 label->FontSize.SetValue(12.0f);
                 label->VAlign.SetValue(fonts::VerticalAlignment::Middle);
+                label->Ellipsis.SetValue(true);   // truncate instead of overflowing into the value when narrow
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = LabelWidthRatio;
                 row->AddView(label.Get(), lp);

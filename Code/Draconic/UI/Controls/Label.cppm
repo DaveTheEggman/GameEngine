@@ -147,39 +147,8 @@ export namespace draconic::ui
             }
             else if (Ellipsis.Value())
             {
-                const f32 textW = font->font->MeasureString(text);
-                if (textW <= Width())
-                {
-                    ctx.VG().DrawText(text, font, Rectangle{ 0, 0, Width(), Height() }, h, v, textColor);
-                }
-                else
-                {
-                    const StringView ellipsis = u8"...";
-                    const f32 ellipsisW = font->font->MeasureString(ellipsis);
-                    const f32 availW = Width() - ellipsisW;
-                    if (availW <= 0)
-                    {
-                        ctx.VG().DrawText(ellipsis, font, Rectangle{ 0, 0, Width(), Height() }, h, v, textColor);
-                    }
-                    else
-                    {
-                        String truncated;
-                        f32 w = 0;
-                        usize i = 0;
-                        while (i < text.Size())
-                        {
-                            const usize start = i;
-                            const u32 cp = DecodeUtf8(text, i);
-                            String charStr; AppendUtf8(charStr, cp);
-                            const f32 charW = font->font->MeasureString(charStr);
-                            if (w + charW > availW) { break; }
-                            truncated.Append(text.Data() + start, i - start);
-                            w += charW;
-                        }
-                        truncated.Append(ellipsis);
-                        ctx.VG().DrawText(truncated, font, Rectangle{ 0, 0, Width(), Height() }, h, v, textColor);
-                    }
-                }
+                const String shown = fonts::TruncateToWidth(*font->font, text, Width());
+                ctx.VG().DrawText(shown.AsView(), font, Rectangle{ 0, 0, Width(), Height() }, h, v, textColor);
             }
             else
             {

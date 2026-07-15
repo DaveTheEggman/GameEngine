@@ -11,6 +11,7 @@ module;
 export module draconic.fonts:text_util;
 
 import draconic.core;
+import :interfaces;   // IFont (MeasureString) for TruncateToWidth
 
 using namespace draconic::core;
 
@@ -42,5 +43,39 @@ export namespace draconic::fonts
             ++index;
         }
         return codepoint;
+    }
+
+    // Returns `text` if it fits within `maxWidth` (measured by `font`), otherwise the longest
+    // codepoint-aligned prefix that fits once `ellipsis` is appended, plus the ellipsis. Measuring the
+    // growing prefix (rather than summing per-glyph advances) keeps kerning honest. Used for label /
+    // button / tile text that must not overflow its box.
+    [[nodiscard]] inline String TruncateToWidth(const IFont& font, StringView text, f32 maxWidth,
+                                                StringView ellipsis = u8"...")
+    {
+        const f32 textW = font.MeasureString(text);
+        // 1px tolerance: a control sized to exactly fit its text can measure a sub-pixel short after
+        // layout rounding. Without this, a snug button collapses to "..." (e.g. "OK" -> "...").
+        if (text.Size() == 0 || textW <= maxWidth + 1.0f) { return String(text); }
+        const f32 ellipsisW = font.MeasureString(ellipsis);
+        // If the text is already no wider than the ellipsis, replacing it with "..." can't make it
+        // narrower (and usually makes it WIDER - e.g. a "+" / "x" button) - leave it unchanged.
+        if (textW <= ellipsisW) { return String(text); }
+        const f32 availW = maxWidth - ellipsisW;
+
+        usize fitBytes = 0;
+        usize i = 0;
+        while (availW > 0.0f && i < text.Size())   // ellipsis alone doesn't fit -> just draw "..."
+        {
+            usize probe = i;
+            (void)DecodeCodepoint(text, probe);   // advance past one codepoint (only the index matters)
+            if (font.MeasureString(StringView{ text.Data(), probe }) > availW) { break; }
+            fitBytes = probe;
+            i = probe;
+        }
+
+        String out;
+        out.Append(text.Data(), fitBytes);
+        out.Append(ellipsis);
+        return out;
     }
 }

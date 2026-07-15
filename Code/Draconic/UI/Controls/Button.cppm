@@ -85,7 +85,9 @@ export namespace draconic::ui
                     Color textColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
                     if (HasFlag(state, ControlState::Disabled)) { textColor = Palette::ComputeDisabled(textColor); }
                     const Rectangle textRect{ pad.Left, pad.Top, Width() - pad.TotalHorizontal(), Height() - pad.TotalVertical() };
-                    ctx.VG().DrawText(text, font, textRect, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, textColor);
+                    // Ellipsize when the label doesn't fit (e.g. a button shrunk by its layout).
+                    const String shown = fonts::TruncateToWidth(*font->font, text, textRect.width);
+                    ctx.VG().DrawText(shown.AsView(), font, textRect, fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, textColor);
                 }
             }
         }
