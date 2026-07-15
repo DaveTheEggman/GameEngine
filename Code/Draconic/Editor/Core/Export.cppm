@@ -181,48 +181,20 @@ export namespace draconic::editor
         }
     }
 
-    /// Cook + stage + pack `project` into `outDir`. The builder registry is the exe's full
-    /// set (kept in lockstep across cook/editor/export). `rebuild` forces a clean cook.
     // A step/progress sink: `onProgress(stepLabel, fraction[0..1])`. Optional (the CLI passes none;
     // the editor's background job wires it to a JobContext for the status-bar progress bar).
     using ExportProgress = Function<void(StringView, f32)>;
 
-    [[nodiscard]] inline Status ExportProject(EditorProject& project, StringView outDir,
-                                              BuilderRegistry& builders, bool rebuild,
-                                              ExportStats* outStats = nullptr,
-                                              const ExportProgress& onProgress = {})
+    /// Stage scenes + pack Content.pak + write the dist manifest into `outDir`. Does NOT cook - it
+    /// assumes the project's cooked dir is already up to date (the CLI's ExportProject cooks then calls
+    /// this; the editor cooks via CookService first, then runs this on a background job). Fills
+    /// stats.scenesStaged / stats.filesPacked.
+    [[nodiscard]] inline Status ExportContent(EditorProject& project, StringView outDir,
+                                              ExportStats& stats, const ExportProgress& onProgress = {})
     {
         namespace proj = draconic::project;
-        ExportStats stats;
 
-        // --- 1. cook ---
-        if (onProgress) { onProgress(u8"Cooking content...", 0.05f); }
-        draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
-        draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
-        JobSystem jobs;
-        CookDriver driver(project.SourceDb(), project.CookedDb(), builders,
-                          &sourcesMount, &cacheMount, &jobs);
-        CookPlan plan = driver.Plan(rebuild);
-        CookProgress cookProgress;
-        cookProgress.onItem = [&onProgress](usize done, usize total, StringView path, bool)
-        {
-            if (!onProgress) { return; }
-            const f32 frac = (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
-                                         : 0.6f;   // cook occupies 0.05..0.60 of the export
-            String step(u8"Cooking "); step += path;
-            onProgress(step.AsView(), frac);
-        };
-        const CookStats cookStats = driver.Execute(plan, &cookProgress);
-        stats.cooked = cookStats.cooked;
-        stats.cookFailed = cookStats.failed;
-        if (cookStats.failed > 0)
-        {
-            DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)", cookStats.failed);
-            if (outStats != nullptr) { *outStats = stats; }
-            return Status{ ErrorCode::Internal };
-        }
-
-        // --- 2. stage scenes ---
+        // --- stage scenes ---
         if (onProgress) { onProgress(u8"Staging scenes...", 0.65f); }
         if (!CreateDirectory(outDir)) { return Status{ ErrorCode::NotSupported }; }
         const String stagingDir = PathJoin(outDir, u8".stage-scenes");
@@ -298,8 +270,49 @@ export namespace draconic::editor
         }
 
         detail::RemoveTreeRecursive(stagingDir.AsView());
-        if (outStats != nullptr) { *outStats = stats; }
         return Status{};
+    }
+
+    /// Cook + ExportContent (the all-in-one; the CLI / one-shot path). The builder registry is the
+    /// exe's full set (kept in lockstep across cook/editor/export). `rebuild` forces a clean cook.
+    [[nodiscard]] inline Status ExportProject(EditorProject& project, StringView outDir,
+                                              BuilderRegistry& builders, bool rebuild,
+                                              ExportStats* outStats = nullptr,
+                                              const ExportProgress& onProgress = {})
+    {
+        ExportStats stats;
+
+        // --- cook ---
+        if (onProgress) { onProgress(u8"Cooking content...", 0.05f); }
+        draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
+        draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
+        JobSystem jobs;
+        CookDriver driver(project.SourceDb(), project.CookedDb(), builders,
+                          &sourcesMount, &cacheMount, &jobs);
+        CookPlan plan = driver.Plan(rebuild);
+        CookProgress cookProgress;
+        cookProgress.onItem = [&onProgress](usize done, usize total, StringView path, bool)
+        {
+            if (!onProgress) { return; }
+            const f32 frac = (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
+                                         : 0.6f;   // cook occupies 0.05..0.60 of the export
+            String step(u8"Cooking "); step += path;
+            onProgress(step.AsView(), frac);
+        };
+        const CookStats cookStats = driver.Execute(plan, &cookProgress);
+        stats.cooked = cookStats.cooked;
+        stats.cookFailed = cookStats.failed;
+        if (cookStats.failed > 0)
+        {
+            DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)", cookStats.failed);
+            if (outStats != nullptr) { *outStats = stats; }
+            return Status{ ErrorCode::Internal };
+        }
+
+        // --- content ---
+        const Status s = ExportContent(project, outDir, stats, onProgress);
+        if (outStats != nullptr) { *outStats = stats; }
+        return s;
     }
 
     struct ExportResult
@@ -313,10 +326,13 @@ export namespace draconic::editor
     /// (ExportProject), then stage the template's player + sidecars and the preset's additionalFiles.
     /// The whole dist from one entry point - the CLI and the editor call this identically (the cook
     /// uniformity extended to the player, replacing the old exe-location walk in the CLI).
+    // `cook` = false skips the cook and only packs/stages (ExportContent) - the editor uses this AFTER
+    // cooking through its CookService (so the cook, which mutates the DB the UI reads, never runs on a
+    // background job). The CLI leaves it true (cook + content in one shot).
     [[nodiscard]] inline Status ExportOne(EditorProject& project, const ExportPreset& preset,
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
                                           StringView outRoot, bool rebuild, ExportResult* outResult = nullptr,
-                                          const ExportProgress& onProgress = {})
+                                          const ExportProgress& onProgress = {}, bool cook = true)
     {
         const ExportTemplate* tmpl = templates.Resolve(preset);
         if (tmpl == nullptr)
@@ -338,7 +354,10 @@ export namespace draconic::editor
                 reinterpret_cast<const char*>(result.outputDir.CStr()), ec);
         }
 
-        if (!ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress).IsOk())
+        const Status contentStatus = cook
+            ? ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress)
+            : ExportContent(project, result.outputDir.AsView(), result.content, onProgress);
+        if (!contentStatus.IsOk())
         {
             if (outResult != nullptr) { *outResult = result; }
             return Status{ ErrorCode::Internal };
@@ -396,7 +415,8 @@ export namespace draconic::editor
     /// continue). Returns Ok only when all presets succeeded.
     [[nodiscard]] inline Status ExportAll(EditorProject& project, Span<const ExportPreset> presets,
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
-                                          StringView outRoot, bool rebuild, const ExportProgress& onProgress = {})
+                                          StringView outRoot, bool rebuild, const ExportProgress& onProgress = {},
+                                          bool cook = true)
     {
         usize ok = 0;
         const usize n = presets.Size();
@@ -411,7 +431,7 @@ export namespace draconic::editor
                 onProgress(s.AsView(), (static_cast<f32>(i) + frac) / static_cast<f32>(n));
             };
             ExportResult result;
-            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped).IsOk())
+            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped, cook).IsOk())
             {
                 ++ok;
                 DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",

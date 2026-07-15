@@ -489,6 +489,30 @@ export namespace draconic::editor::app
             m_cookService.Update(Function<void(StringView)>{ [this](StringView line) {
                 m_context.SetStatus(line);
             } });
+
+            // Background jobs: pump, drain job logs, and once an export's pre-cook has finished, submit
+            // the export's pack/stage job. Show the running job's step + percent in the status bar.
+            m_jobService.Update(Function<void(StringView)>{ [this](StringView line) {
+                m_context.SetStatus(line);
+            } });
+            if (m_pendingExport.active && m_pendingExport.waitingCook && !m_cookService.IsCooking())
+            {
+                m_pendingExport.waitingCook = false;
+                SubmitExportJob(m_pendingExport.presetName, m_pendingExport.all);
+                m_pendingExport.active = false;   // the job owns it now
+            }
+            if (m_jobService.IsBusy())
+            {
+                const ed::EditorJobService::ProgressView p = m_jobService.Progress();
+                if (p.active)
+                {
+                    String s(p.title.AsView());
+                    if (!p.step.IsEmpty()) { s += u8": "; s += p.step; }
+                    s += u8" ("; AppendCountTo(s, static_cast<usize>(p.fraction * 100.0f + 0.5f)); s += u8"%)";
+                    m_context.SetStatus(s.AsView());
+                }
+            }
+
             if (m_assetsView) { m_assetsView->Refresh(); }
             if (m_resources) { m_resources->CollectGarbage(); }   // release hot-reloaded-away products
 
@@ -640,43 +664,64 @@ export namespace draconic::editor::app
         // driver - the SAME ExportOne/ExportAll the RaptorExport CLI calls. The host template comes
         // from this editor's own Bin dir (where RaptorPlayer + its .runtime-libs live). (Imported
         // cross-platform templates land with the templates-manager UI; host-platform export works now.)
+        // Export runs in TWO safe phases so the UI never freezes: (1) cook through the CookService
+        // (background + DB-safe - the cook mutates the DB the UI reads), then (2) once the cook finishes
+        // (polled in OnUpdate), a background JobService job packs/stages/player (reader-only, cook=false).
         void RunExport(StringView presetName, bool all)
         {
-            if (!m_project) { return; }
-
-            const String toolDir = GetExecutableDirectory();
-            draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
-            ed::TemplateRegistry registry;
-            registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);
-
-            ed::ExportPresetSet presets;
+            if (!m_project) { m_context.Notify(ed::NoticeKind::Info, u8"Open a project first."); return; }
+            if (m_jobService.IsBusy() || m_pendingExport.active)
             {
-                draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
-                if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
-            }
-
-            const String outRoot = PathJoin(m_project->Directory(), u8"Dist");
-            if (all)
-            {
-                const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
-                const Status s = ed::ExportAll(*m_project, span, registry, m_builders, outRoot.AsView(), false);
-                m_context.Notify(s.IsOk() ? ed::NoticeKind::Success : ed::NoticeKind::Error,
-                                 s.IsOk() ? StringView(u8"Export All complete.")
-                                          : StringView(u8"Export All had failures (see Console)."));
+                m_context.Notify(ed::NoticeKind::Info, u8"An export is already in progress.");
                 return;
             }
+            m_pendingExport = PendingExport{ String(presetName), all, /*waitingCook*/ true, /*active*/ true };
+            m_context.Notify(ed::NoticeKind::Info, u8"Cooking before export...");
+            m_cookService.RequestCook(false);   // safe background cook; OnUpdate fires the export job after it
+        }
 
-            const ed::ExportPreset* preset = presets.Find(presetName);
-            if (preset == nullptr) { m_context.Notify(ed::NoticeKind::Error, u8"Preset not found."); return; }
+        // Phase 2: pack/stage/player as a background job (the cook already ran). File I/O only - no
+        // source/cooked DB MUTATION - so it is safe alongside the main thread's DB reads.
+        void SubmitExportJob(String presetName, bool all)
+        {
+            draconic::editor::EditorProject* project = m_project.Get();
+            draconic::editor::BuilderRegistry* builders = &m_builders;
+            const String toolDir = GetExecutableDirectory();
+            const String outRoot = PathJoin(m_project->Directory(), u8"Dist");
+            const String title(all ? StringView(u8"Export All") : StringView(u8"Export"));
 
-            ed::ExportResult result;
-            const Status s = ed::ExportOne(*m_project, *preset, registry, m_builders, outRoot.AsView(), false, &result);
-            if (s.IsOk())
-            {
-                String msg(u8"Exported '"); msg += preset->name; msg += u8"' -> "; msg += result.outputDir;
-                m_context.Notify(ed::NoticeKind::Success, msg.AsView());
-            }
-            else { m_context.Notify(ed::NoticeKind::Error, u8"Export failed (see Console)."); }
+            m_jobService.Submit(title.AsView(),
+                [project, builders, toolDir, presetName, all, outRoot](ed::JobContext& ctx) -> Status
+                {
+                    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+                    ed::TemplateRegistry registry;
+                    registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);
+                    ed::ExportPresetSet presets;
+                    {
+                        draconic::vfs::NativeFileSystem projectFs(project->Directory());
+                        if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
+                    }
+                    const ed::ExportProgress onProgress = [&ctx](StringView step, f32 frac)
+                    { ctx.SetStep(step); ctx.SetFraction(frac); };
+
+                    if (all)
+                    {
+                        const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
+                        return ed::ExportAll(*project, span, registry, *builders, outRoot.AsView(),
+                                             /*rebuild*/ false, onProgress, /*cook*/ false);
+                    }
+                    const ed::ExportPreset* preset = presets.Find(presetName.AsView());
+                    if (preset == nullptr) { return Status{ ErrorCode::NotFound }; }
+                    ed::ExportResult result;
+                    return ed::ExportOne(*project, *preset, registry, *builders, outRoot.AsView(),
+                                         /*rebuild*/ false, &result, onProgress, /*cook*/ false);
+                },
+                [this](Status s)
+                {
+                    m_context.Notify(s.IsOk() ? ed::NoticeKind::Success : ed::NoticeKind::Error,
+                                     s.IsOk() ? StringView(u8"Export complete.")
+                                              : StringView(u8"Export failed (see Console)."));
+                });
         }
 
         void OpenExportDialog()
@@ -966,6 +1011,9 @@ export namespace draconic::editor::app
         UniquePtr<draconic::editor::EditorProject> m_project;
         draconic::editor::BuilderRegistry m_builders;        // exe-assembled (registerEditors)
         draconic::editor::EditorCookService m_cookService;
+        draconic::editor::EditorJobService m_jobService;     // generic background jobs (export, ...)
+        struct PendingExport { String presetName; bool all = false; bool waitingCook = false; bool active = false; };
+        PendingExport m_pendingExport;                       // export waiting for its pre-cook to finish
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
         f32 m_testOpenElapsed = 0.0f;   // RAPTOR_TEST_OPEN hook
         u32 m_testOpenStage = 0;
