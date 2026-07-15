@@ -149,26 +149,15 @@ namespace
 
     int TemplateImport(const char* argv0, const char* srcDir)
     {
-        // Validate: the source dir must carry a template.xml with an id.
-        vfs::NativeFileSystem srcFs(Sv(srcDir));
-        ed::ExportTemplate manifest;
-        if (!ed::LoadTemplateManifest(srcFs, manifest).IsOk() || manifest.id.IsEmpty())
-        {
-            std::fprintf(stderr, "RaptorExport: '%s' has no valid template.xml\n", srcDir);
-            return 1;
-        }
         const String root = TemplatesRoot();
-        std::error_code ec;
-        fs::create_directories(Cs(root.AsView()), ec);
-        const String dst = PathJoin(root.AsView(), manifest.id.AsView());
-        fs::copy(fs::path(srcDir), fs::path(Cs(dst.AsView())),
-                 fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
-        if (ec)
+        String importedId;
+        if (!ed::ImportTemplate(Sv(srcDir), root.AsView(), &importedId).IsOk())
         {
-            std::fprintf(stderr, "RaptorExport: failed to import template into '%s'\n", Cs(dst.AsView()));
+            std::fprintf(stderr, "RaptorExport: failed to import '%s' (no valid template.xml?)\n", srcDir);
             return 1;
         }
-        std::printf("imported template '%s' -> %s\n", Cs(manifest.id.AsView()), Cs(dst.AsView()));
+        const String dst = PathJoin(root.AsView(), importedId.AsView());
+        std::printf("imported template '%s' -> %s\n", Cs(importedId), Cs(dst));
         (void)argv0;
         return 0;
     }

@@ -746,6 +746,34 @@ export namespace draconic::editor::app
                 });
         }
 
+        // Import an export template bundle: pick a folder (native dialog), copy it into the templates
+        // root under its manifest id. The picked folder must contain a template.xml.
+        void OpenImportTemplateDialog()
+        {
+            if (m_host == nullptr || m_host->Shell() == nullptr || m_host->Shell()->Dialogs() == nullptr)
+            {
+                m_context.Notify(ed::NoticeKind::Error, u8"File dialogs are unavailable.");
+                return;
+            }
+            m_host->Shell()->Dialogs()->ShowOpenFolder(
+                Function<void(Span<const String>)>{ [this](Span<const String> paths)
+                {
+                    if (paths.Size() == 0) { return; }   // cancelled
+                    const String root = ed::DefaultTemplatesRoot();   // TODO: settings-configurable root (phase 2)
+                    String id;
+                    if (ed::ImportTemplate(paths[0].AsView(), root.AsView(), &id).IsOk())
+                    {
+                        String msg(u8"Imported template '"); msg += id; msg += u8"'.";
+                        m_context.Notify(ed::NoticeKind::Success, msg.AsView());
+                    }
+                    else
+                    {
+                        m_context.Notify(ed::NoticeKind::Error,
+                                         u8"Import failed - the folder has no valid template.xml.");
+                    }
+                } });
+        }
+
         void OpenExportDialog()
         {
             if (!m_project) { m_context.Notify(ed::NoticeKind::Info, u8"Open a project first."); return; }
@@ -974,6 +1002,7 @@ export namespace draconic::editor::app
                 });
                 file->AddSeparator();
                 file->AddItem(u8"Export...", [this]() { OpenExportDialog(); });
+                file->AddItem(u8"Import Template...", [this]() { OpenImportTemplateDialog(); });
                 file->AddItem(u8"Exit", [this, host]() {
                     if (host != nullptr && ConfirmExitAllowed()) { host->RequestExit(); }
                 });

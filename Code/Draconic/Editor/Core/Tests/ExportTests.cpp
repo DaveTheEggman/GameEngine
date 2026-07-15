@@ -361,3 +361,43 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 
     NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 }
+
+TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
+{
+    const String src = TempDir(u8"draconic_tmpl_src");
+    const String root = TempDir(u8"draconic_tmpl_root2");
+    NukeTree(src.AsView()); NukeTree(root.AsView());
+    REQUIRE(CreateDirectory(src.AsView()));
+
+    // A source bundle: template.xml + a fake player + a sidecar.
+    draconic::vfs::NativeFileSystem srcFs(src.AsView());
+    ed::ExportTemplate t;
+    t.id = String(u8"raptor-win64-import"); t.platform = String(u8"Win64");
+    t.playerBinary = String(u8"RaptorPlayer.exe"); t.sidecars.PushBack(String(u8"SDL3.dll"));
+    REQUIRE(ed::SaveTemplateManifest(*srcFs.AsWritable(), t).IsOk());
+    SaveText(srcFs, u8"RaptorPlayer.exe", u8"exe\n");
+    SaveText(srcFs, u8"SDL3.dll", u8"dll\n");
+
+    String importedId;
+    REQUIRE(ed::ImportTemplate(src.AsView(), root.AsView(), &importedId).IsOk());
+    CHECK(importedId == u8"raptor-win64-import");
+
+    // The registry over the root now resolves it (alongside the synthesized host template).
+    draconic::vfs::NativeFileSystem rootFs(root.AsView());
+    draconic::vfs::NativeFileSystem toolFs(src.AsView());   // any dir for the host template
+    ed::TemplateRegistry reg;
+    reg.Refresh(root.AsView(), &rootFs, src.AsView(), &toolFs);
+    const ed::ExportTemplate* found = reg.FindById(u8"raptor-win64-import");
+    REQUIRE(found != nullptr);
+    CHECK(found->platform == u8"Win64");
+    REQUIRE(found->sidecars.Size() == 1u);
+    CHECK(found->sidecars[0] == u8"SDL3.dll");
+    CHECK(found->directory == PathJoin(root.AsView(), u8"raptor-win64-import"));
+
+    // A source with no template.xml fails.
+    const String empty = TempDir(u8"draconic_tmpl_empty");
+    NukeTree(empty.AsView()); REQUIRE(CreateDirectory(empty.AsView()));
+    CHECK_FALSE(ed::ImportTemplate(empty.AsView(), root.AsView()).IsOk());
+
+    NukeTree(src.AsView()); NukeTree(root.AsView()); NukeTree(empty.AsView());
+}

@@ -9,6 +9,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
+#include <filesystem>   // recursive dir copy when importing a template bundle
 
 export module draconic.editor.core:export_template;
 
@@ -144,6 +145,33 @@ export namespace draconic::editor
     [[nodiscard]] inline String DefaultTemplatesRoot()
     {
         return PathJoin(GetUserDataDirectory(u8"draconic").AsView(), u8"templates");
+    }
+
+    // Install a template bundle (a dir holding template.xml + the player + sidecars) into
+    // `templatesRoot` under its manifest id, so the registry picks it up. Recursive copy (overwrites
+    // an existing install of the same id). `outId` receives the imported id. NotFound if the source has
+    // no valid template.xml. Shared by the RaptorExport CLI and the editor's Import Template action.
+    [[nodiscard]] inline Status ImportTemplate(StringView srcDir, StringView templatesRoot, String* outId = nullptr)
+    {
+        vfs::NativeFileSystem srcFs(srcDir);
+        ExportTemplate manifest;
+        if (!LoadTemplateManifest(srcFs, manifest).IsOk() || manifest.id.IsEmpty())
+        {
+            return Status{ ErrorCode::NotFound };
+        }
+
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const String rootCopy(templatesRoot);
+        fs::create_directories(reinterpret_cast<const char*>(rootCopy.CStr()), ec);
+        const String dst = PathJoin(templatesRoot, manifest.id.AsView());
+        const String srcCopy(srcDir);
+        fs::copy(fs::path(reinterpret_cast<const char*>(srcCopy.CStr())),
+                 fs::path(reinterpret_cast<const char*>(dst.CStr())),
+                 fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+        if (ec) { return Status{ ErrorCode::Internal }; }
+        if (outId != nullptr) { *outId = manifest.id; }
+        return Status{};
     }
 
     // The installed export templates (imported bundles under a templates root) plus the synthesized
