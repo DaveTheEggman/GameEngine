@@ -24,6 +24,38 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
 endif()
 
+# --- Output layout: Bin/<Config>/<Platform>-<Compiler> at the repo root -------
+# Final artifacts (exes, DLLs/.so, static libs, PDBs) land here instead of being
+# scattered through the build tree mirroring the source layout. Object files and
+# C++20-module BMIs stay in the build tree - only deliverables move. The compiler
+# suffix keeps concurrent toolchains (e.g. clang + gcc, both Debug) from clobbering
+# each other. $<CONFIG> resolves for single- AND multi-config generators, and stops
+# a multi-config generator from appending its own extra per-config subdirectory.
+if(WIN32)
+    set(_dr_plat "Win64")
+elseif(APPLE)
+    set(_dr_plat "Mac64")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(_dr_plat "Linux64")
+else()
+    set(_dr_plat "${CMAKE_SYSTEM_NAME}")
+endif()
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(_dr_comp "GCC")
+else()
+    set(_dr_comp "${CMAKE_CXX_COMPILER_ID}")   # Clang / MSVC / AppleClang / ...
+endif()
+
+set(DRACONIC_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin/$<CONFIG>/${_dr_plat}-${_dr_comp}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY     "${DRACONIC_BIN_DIR}")       # exes + Windows DLLs
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY     "${DRACONIC_BIN_DIR}")       # .so plugins/modules (beside the exe)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY     "${DRACONIC_BIN_DIR}/lib")   # static .a/.lib + MSVC import libs
+set(CMAKE_PDB_OUTPUT_DIRECTORY         "${DRACONIC_BIN_DIR}")       # MSVC linker PDBs (beside the exe)
+set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY "${DRACONIC_BIN_DIR}/lib")   # MSVC static-lib compile PDBs
+
+# Reusable helpers (draconic_copy_runtime_deps, ...).
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DraconicHelpers.cmake)
+
 # --- Options -----------------------------------------------------------------
 option(DRACONIC_BUILD_TESTS "Build Draconic unit tests" ON)
 option(DRACONIC_BUILD_SAMPLES "Build Draconic sample applications" ON)

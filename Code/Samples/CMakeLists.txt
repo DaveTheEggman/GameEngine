@@ -1,12 +1,11 @@
 # Draconic sample applications. Built when their required backends are available.
 
-# Helper: copy SDL3.dll next to sample executables on Windows.
+# Stage runtime deps (SDL3.dll + any other linked DLLs) next to a sample exe.
+# Thin forwarder to the global draconic_copy_runtime_deps so the ~40 sample call
+# sites need no change; the vendored SDL3 DLL rides in as EXTRA (a no-op when
+# DRACONIC_SDL3_DLL is unset, e.g. on Linux).
 function(draconic_copy_sdl3_dll target)
-    if(DRACONIC_SDL3_DLL)
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${DRACONIC_SDL3_DLL}" "$<TARGET_FILE_DIR:${target}>")
-    endif()
+    draconic_copy_runtime_deps(${target} EXTRA ${DRACONIC_SDL3_DLL})
 endfunction()
 
 # HelloWindow and MultiWindow both present through a GraphicsDevice, so both need

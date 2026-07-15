@@ -19,8 +19,4 @@ target_compile_options(DraconicShellDesktopTests PRIVATE
 add_test(NAME DraconicShellDesktopTests COMMAND DraconicShellDesktopTests)
 
 # Copy SDL3.dll next to the test executable on Windows.
-if(DRACONIC_SDL3_DLL)
-    add_custom_command(TARGET DraconicShellDesktopTests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${DRACONIC_SDL3_DLL}" "$<TARGET_FILE_DIR:DraconicShellDesktopTests>")
-endif()
+draconic_copy_runtime_deps(DraconicShellDesktopTests EXTRA ${DRACONIC_SDL3_DLL})

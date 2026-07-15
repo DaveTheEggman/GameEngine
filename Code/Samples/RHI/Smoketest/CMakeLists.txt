@@ -14,8 +14,4 @@ target_compile_options(DraconicSmoketest PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
 
 # Copy SDL3.dll next to the executable on Windows.
-if(DRACONIC_SDL3_DLL)
-    add_custom_command(TARGET DraconicSmoketest POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${DRACONIC_SDL3_DLL}" "$<TARGET_FILE_DIR:DraconicSmoketest>")
-endif()
+draconic_copy_runtime_deps(DraconicSmoketest EXTRA ${DRACONIC_SDL3_DLL})

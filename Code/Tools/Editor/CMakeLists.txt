@@ -17,8 +17,4 @@ target_compile_definitions(RaptorEditor PRIVATE
     DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")
 # Copy SDL3.dll next to the executable on Windows (same as the samples' helper, which is
 # defined in Code/Samples/ and not visible here).
-if(DRACONIC_SDL3_DLL)
-    add_custom_command(TARGET RaptorEditor POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${DRACONIC_SDL3_DLL}" "$<TARGET_FILE_DIR:RaptorEditor>")
-endif()
+draconic_copy_runtime_deps(RaptorEditor EXTRA ${DRACONIC_SDL3_DLL})
