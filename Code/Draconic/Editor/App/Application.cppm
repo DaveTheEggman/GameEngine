@@ -860,6 +860,107 @@ export namespace draconic::editor::app
             dialog->Show(&m_uiHost->Context());
         }
 
+        // Save As: write the page's CURRENT content to a NEW asset beside the original and
+        // rebind the page to it. The original keeps its on-disk state - the escape hatch when
+        // an asset changed under a dirty page (apply-to-prefab) and both versions matter.
+        void SaveActivePageAs()
+        {
+            ed::EditorPage* page = m_context.ActivePage();
+            if (page == nullptr || m_project.Get() == nullptr || m_uiHost.Get() == nullptr) { return; }
+            draconic::content::Instance* original =
+                m_project->SourceDb().GetInstance(page->InstanceId());
+            if (original == nullptr)
+            {
+                m_context.Notify(ed::NoticeKind::Warning, u8"This page has no source asset to copy.");
+                return;
+            }
+            const TypeInfo* type = GlobalTypeRegistry().FindByName(
+                reinterpret_cast<const char*>(String(original->TypeNamespace()).CStr()),
+                reinterpret_cast<const char*>(String(original->TypeName()).CStr()));
+            if (type == nullptr)
+            {
+                m_context.Notify(ed::NoticeKind::Error, u8"Save As: unknown asset type.");
+                return;
+            }
+
+            draconic::content::Group* group = &original->OwningGroup();
+            String suggested(original->Name());
+            suggested += u8" Copy";
+            while (group->GetInstance(suggested.AsView()) != nullptr) { suggested += u8" Copy"; }
+
+            String prompt(u8"New name (created next to '");
+            prompt += original->Name();
+            prompt += u8"'):";
+            RefPtr<draconic::ui::Dialog> dialog =
+                MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Save As"));
+            auto column = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
+            column->Direction = draconic::ui::Orientation::Vertical;
+            column->Spacing = 6.0f;
+            RefPtr<draconic::ui::Label> label =
+                MakeRef<draconic::ui::Label>(DefaultAllocator(), prompt.AsView());
+            label->WordWrap.SetValue(true);
+            {
+                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = draconic::ui::SizeSpec::Match();
+                column->AddView(label.Get(), lp);
+            }
+            auto nameEdit = MakeRef<draconic::ui::EditText>(DefaultAllocator());
+            nameEdit->SetText(suggested.AsView());
+            {
+                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = draconic::ui::SizeSpec::Match();
+                column->AddView(nameEdit.Get(), lp);
+            }
+            dialog->SetContent(column.Get());
+
+            draconic::ui::Dialog* rawDialog = dialog.Get();
+            draconic::ui::EditText* rawEdit = nameEdit.Get();
+            const Guid pageId = page->InstanceId();
+            draconic::ui::Button* save =
+                dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
+            save->OnClick.Add([this, pageId, group, type, rawDialog, rawEdit](draconic::ui::ButtonBase*) {
+                const StringView newName = rawEdit->Text();
+                if (newName.IsEmpty()) { return; }   // keep the dialog up; nothing to create
+                if (group->GetInstance(newName) != nullptr)
+                {
+                    m_context.SetStatus(u8"Save As: that name already exists in the group.");
+                    return;
+                }
+                // Re-resolve the page: the dialog is modal-ish but pages can close under it.
+                ed::EditorPage* target = nullptr;
+                for (const UniquePtr<ed::EditorPage>& open : m_context.OpenPages())
+                {
+                    if (open->InstanceId() == pageId) { target = open.Get(); break; }
+                }
+                if (target == nullptr)
+                {
+                    rawDialog->Close(draconic::ui::DialogResult::Cancel);
+                    return;
+                }
+                draconic::content::Instance* fresh = group->CreateInstance(newName, *type);
+                if (fresh == nullptr)
+                {
+                    m_context.SetStatus(u8"Save As: could not create the asset.");
+                    return;
+                }
+                target->OnSavedAs(*fresh);
+                if (target->Save().IsOk())
+                {
+                    String message(u8"Saved as '");
+                    message += fresh->Name();
+                    message += u8"'.";
+                    m_context.Notify(ed::NoticeKind::Success, message.AsView());
+                }
+                else
+                {
+                    m_context.Notify(ed::NoticeKind::Error, u8"Save As FAILED (see Console).");
+                }
+                rawDialog->Close(draconic::ui::DialogResult::OK);
+            });
+            dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+            dialog->Show(&m_uiHost->Context());
+        }
+
         void ShowDirtyCloseDialog(UIEditorPage* page, tk::DockablePanel* panel)
         {
             String message(u8"'");
@@ -1032,6 +1133,7 @@ export namespace draconic::editor::app
                 if (!m_context.Creators().IsEmpty()) { file->AddSeparator(); }
 
                 file->AddItem(u8"Save", [this]() { SaveActivePage(); });
+                file->AddItem(u8"Save As...", [this]() { SaveActivePageAs(); });
                 file->AddSeparator();
                 file->AddItem(u8"Save Layout", [this]() {
                     SaveLayout();

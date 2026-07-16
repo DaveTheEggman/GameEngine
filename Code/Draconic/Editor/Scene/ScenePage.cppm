@@ -557,6 +557,14 @@ export namespace draconic::editor
             ClearDirty();   // Commands().Clear() notifies OnChanged, which marks dirty
         }
 
+        void OnSavedAs(draconic::content::Instance& instance) override
+        {
+            draconic::editor::EditorPage::OnSavedAs(instance);
+            m_title = String(instance.Name());
+            // SavePrefab stamps the document name from the scene, so the fork gets its own.
+            if (m_scene != nullptr) { m_scene->SetName(instance.Name()); }
+        }
+
         [[nodiscard]] Status Save() override
         {
             if (m_scene == nullptr || m_context->Project() == nullptr) { return Status{ ErrorCode::NotFound }; }

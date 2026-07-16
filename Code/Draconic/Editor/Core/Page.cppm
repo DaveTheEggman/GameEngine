@@ -53,6 +53,11 @@ export namespace draconic::editor
         /// Default no-op; pages that cache loaded content override to refresh themselves.
         virtual void OnAssetExternallyModified() {}
 
+        /// Rebind this page to a DIFFERENT source instance (Save As): the caller created
+        /// `instance` and invokes Save() next, so the page's current content lands there.
+        /// Pages that cache the asset's name override (calling the base) to refresh it.
+        virtual void OnSavedAs(draconic::content::Instance& instance) { m_instanceId = instance.Id(); }
+
         /// The source-DB instance this page edits (zero Guid for instance-less pages).
         [[nodiscard]] const Guid& InstanceId() const noexcept { return m_instanceId; }
         void SetInstanceId(const Guid& id) noexcept { m_instanceId = id; }
