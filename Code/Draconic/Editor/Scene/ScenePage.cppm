@@ -316,10 +316,53 @@ export namespace draconic::editor
             }
         }
 
+        // Apply-to-prefab entry point: rewrites the asset and rebuilds every instance, with
+        // no undo - so it confirms first (mirror of RevertInstance).
+        void ApplyInstanceToPrefab(const Guid& rootId)
+        {
+            if (m_scene == nullptr || m_context->Project() == nullptr
+                || m_content->Context == nullptr)
+            {
+                return;
+            }
+            dscene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
+            if (state == nullptr) { return; }
+            draconic::content::Instance* asset =
+                m_context->Project()->SourceDb().GetInstance(state->prefabId);
+            if (asset == nullptr)
+            {
+                m_context->Notify(draconic::editor::NoticeKind::Warning,
+                                  u8"The instance's prefab asset no longer exists.");
+                return;
+            }
+            dscene::EntityHandle root = m_scene->FindEntity(rootId);
+            String message(u8"Apply '");
+            message += m_scene->GetEntityName(root);
+            message += u8"' to prefab '";
+            message += asset->Name();
+            message += u8"'? The prefab asset is rewritten and every instance in open scenes "
+                       u8"updates to match. This cannot be undone.";
+            SceneEditorPage* page = this;
+            RefPtr<draconic::ui::Dialog> dialog =
+                draconic::ui::Dialog::Confirm(u8"Apply to Prefab", message.AsView());
+            dialog->OnClosed.Add(
+                draconic::ui::Event<void(draconic::ui::Dialog*, draconic::ui::DialogResult)>::Handler{
+                    [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result) {
+                        if (result != draconic::ui::DialogResult::OK) { return; }
+                        // Deferred: rebuilding instances destroys + respawns entities (and
+                        // their hierarchy rows), never mid-event-dispatch.
+                        draconic::ui::UIContext* ctx = page->m_content->Context;
+                        if (ctx == nullptr) { return; }
+                        ctx->MutationQueueRef().QueueAction(Function<void()>{
+                            [page, rootId]() { page->ApplyInstanceToPrefabNow(rootId); } });
+                    } });
+            dialog->Show(m_content->Context);
+        }
+
         // Apply-to-prefab: the instance's CURRENT state becomes the template (source-id
         // keyed, so other instances' deltas stay valid), then every instance everywhere
         // rebuilds from it - including this one, which re-baselines to clean.
-        void ApplyInstanceToPrefab(const Guid& rootId)
+        void ApplyInstanceToPrefabNow(const Guid& rootId)
         {
             if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
             dscene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
@@ -353,6 +396,12 @@ export namespace draconic::editor
                         dscene::ResolveSceneResources(scene, *context->Resources());
                     }
                 });
+            }
+            // An open editor page on the prefab itself shows the TEMPLATE (plain entities,
+            // not an instance) - the rebuild above can't reach it; tell it to refresh.
+            for (const UniquePtr<draconic::editor::EditorPage>& open : m_context->OpenPages())
+            {
+                if (open->InstanceId() == prefabId) { open->OnAssetExternallyModified(); }
             }
             String message(u8"Applied to prefab '");
             message += asset->Name();
@@ -452,6 +501,60 @@ export namespace draconic::editor
                 (void)page->m_editContext->SpawnPrefabInstance(picked, Move(bytes), parent);
             };
             dialog->Show(m_content->Context);
+        }
+
+        // The asset changed under this page (apply-to-prefab from another page): wipe and
+        // reload so the split-view prefab editor shows the new template. Unsaved edits are
+        // never clobbered - the page just warns instead.
+        void OnAssetExternallyModified() override
+        {
+            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            draconic::content::Instance* instance =
+                m_context->Project()->SourceDb().GetInstance(InstanceId());
+            if (instance == nullptr) { return; }
+            if (IsDirty())
+            {
+                String message(u8"'");
+                message += m_title;
+                message += u8"' changed on disk but has unsaved edits here - not refreshed.";
+                m_context->Notify(draconic::editor::NoticeKind::Warning, message.AsView());
+                return;
+            }
+
+            // Same-guid entities come back from the stream; undo history predates the reload
+            // and would replay onto the old content, so it goes.
+            while (m_scene->GetFirstRoot().IsAssigned())
+            {
+                m_scene->DestroyEntity(m_scene->GetFirstRoot());
+            }
+            m_scene->ClearPrefabInstances();
+            m_editContext->EntitySelection().Clear();
+            Commands().Clear();
+
+            if (dscene::LoadScene(*instance, *m_scene).IsOk())
+            {
+                if (m_context->Resources() != nullptr)
+                {
+                    dscene::ResolveSceneResources(*m_scene, *m_context->Resources());
+                }
+                if (m_scene->PendingPrefabInstanceCount() > 0)
+                {
+                    EditorContext* context = m_context;
+                    dscene::ResolveScenePrefabs(*m_scene,
+                        Function<UniquePtr<IStream>(const Guid&)>{
+                            [context](const Guid& prefabId) -> UniquePtr<IStream> {
+                                draconic::content::Instance* prefab =
+                                    context->Project()->SourceDb().GetInstance(prefabId);
+                                return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                           : UniquePtr<IStream>{};
+                            } });
+                    if (m_context->Resources() != nullptr)
+                    {
+                        dscene::ResolveSceneResources(*m_scene, *m_context->Resources());
+                    }
+                }
+            }
+            ClearDirty();   // Commands().Clear() notifies OnChanged, which marks dirty
         }
 
         [[nodiscard]] Status Save() override

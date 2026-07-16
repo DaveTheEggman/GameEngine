@@ -49,6 +49,10 @@ export namespace draconic::editor
 
         [[nodiscard]] EditorCommandStack& Commands() noexcept { return m_commands; }
 
+        /// The asset this page edits changed OUTSIDE the page (apply-to-prefab, re-import).
+        /// Default no-op; pages that cache loaded content override to refresh themselves.
+        virtual void OnAssetExternallyModified() {}
+
         /// The source-DB instance this page edits (zero Guid for instance-less pages).
         [[nodiscard]] const Guid& InstanceId() const noexcept { return m_instanceId; }
         void SetInstanceId(const Guid& id) noexcept { m_instanceId = id; }
