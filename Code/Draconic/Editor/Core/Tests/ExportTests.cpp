@@ -403,8 +403,58 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     CHECK(distFs.Exists(u8"Content.pak"));
     CHECK(distFs.Exists(u8"player.xml"));
     CHECK(result.filesStaged == 2u);   // player + one sidecar (no additionalFiles)
+    // The host template is stamped with this build's engine version, so no soft-mismatch warning.
+    CHECK(result.engineVersionWarning.IsEmpty());
 
     NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+}
+
+TEST_CASE("export: a template built against a different engine version warns but still exports")
+{
+    const String projectDir = TempDir(u8"draconic_ev_proj");
+    const String rootDir = TempDir(u8"draconic_ev_root");
+    const String toolDir = TempDir(u8"draconic_ev_tool");
+    const String outRoot = TempDir(u8"draconic_ev_out");
+    NukeTree(projectDir.AsView()); NukeTree(rootDir.AsView());
+    NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"EngineVersionTest").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+    REQUIRE(project->SaveSettings().IsOk());
+
+    // An imported template for the host platform stamped with a DIFFERENT engine version.
+    REQUIRE(CreateDirectory(rootDir.AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"old-template").AsView()));
+    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    ed::ExportTemplate old;
+    old.id = String(u8"raptor-old-engine"); old.platform = String(GetHostPlatformName());
+    old.engineVersion = String(u8"0.0.0-ancient");
+    old.playerBinary = GetExecutableName(u8"RaptorPlayer");
+    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), old, u8"old-template/template.xml").IsOk());
+    // The player file the driver stages from the template dir.
+    draconic::vfs::NativeFileSystem oldDirFs(PathJoin(rootDir.AsView(), u8"old-template").AsView());
+    SaveText(oldDirFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
+
+    REQUIRE(CreateDirectory(toolDir.AsView()));
+    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    ed::TemplateRegistry registry;
+    registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
+
+    ed::ExportPreset preset;
+    preset.name = String(u8"Old Engine Build");
+    preset.templateId = String(u8"raptor-old-engine");   // resolve to the mismatched template
+    preset.outputSubdir = String(u8"old");
+
+    ed::BuilderRegistry builders;
+    ed::ExportResult result;
+    // Export still SUCCEEDS (soft match) ...
+    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+    // ... but records the version mismatch for the caller to surface.
+    CHECK_FALSE(result.engineVersionWarning.IsEmpty());
+
+    NukeTree(projectDir.AsView()); NukeTree(rootDir.AsView());
+    NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 }
 
 TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")

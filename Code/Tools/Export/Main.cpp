@@ -242,6 +242,10 @@ int main(int argc, char** argv)
                 Cs(preset->name.AsView()), Cs(result.outputDir.AsView()),
                 result.content.cooked, result.content.scenesStaged, result.content.filesPacked,
                 result.filesStaged);
+    if (!result.engineVersionWarning.IsEmpty())
+    {
+        std::printf("  warning: %s\n", Cs(result.engineVersionWarning.AsView()));
+    }
 
     GlobalLogger().RemoveSink(&consoleSink);
     return 0;

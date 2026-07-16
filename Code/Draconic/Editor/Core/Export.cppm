@@ -317,9 +317,12 @@ export namespace draconic::editor
 
     struct ExportResult
     {
-        ExportStats content;     // cook/stage/pack totals
-        usize filesStaged = 0;   // player + template sidecars + preset additionalFiles copied
-        String outputDir;        // where the dist landed
+        ExportStats content;         // cook/stage/pack totals
+        usize filesStaged = 0;       // player + template sidecars + preset additionalFiles copied
+        String outputDir;            // where the dist landed
+        String engineVersionWarning; // set when the resolved template was built against a different
+                                     // engine version (soft mismatch); empty otherwise. The export
+                                     // still runs; callers may surface this to the user.
     };
 
     /// Produce ONE preset's dist under `outRoot`: resolve its template, export the content
@@ -343,6 +346,26 @@ export namespace draconic::editor
         }
 
         ExportResult result;
+
+        // Soft engine-version match (mirrors EditorProject::Open's project-manifest check): a template
+        // built against a different engine version may be binary-incompatible with the cooked content,
+        // but we don't know that it is - so warn and keep going rather than block. Empty version = an
+        // older/hand-written template with no stamp; skip.
+        if (!tmpl->engineVersion.IsEmpty()
+            && tmpl->engineVersion != draconic::project::kEngineVersionString)
+        {
+            DRACONIC_LOG_WARNING(u8"Export",
+                u8"template '{}' was built against engine {} but this build is {} - exporting anyway",
+                tmpl->id, tmpl->engineVersion, draconic::project::kEngineVersionString);
+            result.engineVersionWarning = String(u8"Template '");
+            result.engineVersionWarning += tmpl->id;
+            result.engineVersionWarning += u8"' targets engine ";
+            result.engineVersionWarning += tmpl->engineVersion;
+            result.engineVersionWarning += u8" (this build is ";
+            result.engineVersionWarning += draconic::project::kEngineVersionString;
+            result.engineVersionWarning += u8").";
+        }
+
         const String subdir = preset.outputSubdir.IsEmpty() ? detail::SanitizeName(preset.name.AsView())
                                                             : String(preset.outputSubdir.AsView());
         result.outputDir = PathJoin(outRoot, subdir.AsView());
