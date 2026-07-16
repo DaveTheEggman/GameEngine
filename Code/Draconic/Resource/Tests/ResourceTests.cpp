@@ -302,3 +302,41 @@ TEST_CASE("resource: a rebuild drops stale dependency edges")
 
     RemoveDepTree();
 }
+
+TEST_CASE("resource: deserializing a ref drops the stale binding when the id changes")
+{
+    // A directly-bound ref (procedural or picker-assigned) reads a DIFFERENT id from a blob
+    // (component paste / prefab revert): the old binding must not keep rendering. Reading
+    // the SAME id keeps the binding (steady-state reload of an unchanged component).
+    RefPtr<Material> live = MakeRef<Material>(DefaultAllocator());
+    Ref<Material> ref;
+    ref.SetDirect(RefPtr<Material>(live.Get()));
+    ref.id = Guid{ 0x1, 0x1 };
+    REQUIRE(ref.Get() == live.Get());
+
+    // Write a ref whose id is NIL ("no resource"), then read it over the live one.
+    MemoryStream buffer;
+    {
+        Ref<Material> cleared;
+        BinarySerializer ar(buffer, SerializeMode::Write);
+        Serialize(ar, cleared);
+    }
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer ar(buffer, SerializeMode::Read);
+        Serialize(ar, ref);
+    }
+    CHECK(ref.id == Guid{});
+    CHECK(ref.Get() == nullptr);   // the stale direct binding is gone
+
+    // Same-id read keeps the binding.
+    Ref<Material> stable;
+    stable.SetDirect(RefPtr<Material>(live.Get()));
+    stable.id = Guid{};
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer ar(buffer, SerializeMode::Read);
+        Serialize(ar, stable);
+    }
+    CHECK(stable.Get() == live.Get());
+}

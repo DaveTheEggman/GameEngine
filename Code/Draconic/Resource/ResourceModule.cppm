@@ -123,6 +123,11 @@ export namespace draconic::resource
         }
         [[nodiscard]] bool IsBound() const noexcept { return m_proxy.Handle() != nullptr; }
 
+        /// Drop any runtime binding (proxy AND direct override). Deserialization calls this
+        /// when the incoming identity REPLACES a different one - the old binding must not
+        /// keep rendering the previous resource.
+        void ClearBinding() noexcept { m_proxy = Proxy<T>{}; m_direct = nullptr; }
+
         // Attach the runtime proxy for `id` (defined after ResourceManager below).
         void Bind(ResourceManager& manager);
 
@@ -133,11 +138,16 @@ export namespace draconic::resource
         RefPtr<T> m_direct;    // procedural override (runtime only)
     };
 
-    // Serialization: identity only (found by ADL from component Serialize bodies).
+    // Serialization: identity only (found by ADL from component Serialize bodies). On READ,
+    // blobs replay over LIVE components (paste / prefab revert / undo): when the incoming id
+    // differs from the current one, the stale proxy/direct binding is dropped - critically,
+    // reading a NIL id actually unbinds instead of leaving the old resource rendering.
     template <typename T>
     void Serialize(ISerializer& ar, Ref<T>& ref)
     {
+        const Guid before = ref.id;
         draconic::core::Serialize(ar, ref.id);
+        if (ref.id != before) { ref.ClearBinding(); }
     }
 
     // =======================================================================
