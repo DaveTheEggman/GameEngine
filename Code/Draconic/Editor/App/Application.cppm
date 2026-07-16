@@ -12,6 +12,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 #include <cstdlib>
+#include <filesystem>   // absolutize the export dir for the file:// reveal
 
 export module draconic.editor.app:application;
 
@@ -706,13 +707,27 @@ export namespace draconic::editor::app
             return ed::ResolveTemplatesRoot(overrideRoot);
         }
 
+        // Absolute form of `path`, resolved against the CWD (weakly - the tail need not exist yet).
+        // The project directory can be relative, but a file:// reveal and clean logs need an absolute
+        // path (a relative one becomes file:///relative -> the nonexistent filesystem-root path).
+        [[nodiscard]] static String Absolutize(StringView path)
+        {
+            std::error_code ec;
+            const std::filesystem::path abs = std::filesystem::weakly_canonical(
+                std::filesystem::absolute(
+                    std::filesystem::path(reinterpret_cast<const char*>(String(path).CStr())), ec),
+                ec);
+            const std::string s = abs.string();
+            return String(StringView(reinterpret_cast<const utf8char*>(s.c_str())));
+        }
+
         void SubmitExportJob(String presetName, bool all)
         {
             draconic::editor::EditorProject* project = m_project.Get();
             draconic::editor::BuilderRegistry* builders = &m_builders;
             const String toolDir = GetExecutableDirectory();
             const String templatesRoot = TemplatesRoot();   // resolve on the main thread (reads settings)
-            const String outRoot = PathJoin(m_project->Directory(), u8"Dist");
+            const String outRoot = Absolutize(PathJoin(m_project->Directory(), u8"Dist").AsView());
             const String title(all ? StringView(u8"Export All") : StringView(u8"Export"));
 
             m_jobService.Submit(title.AsView(),
