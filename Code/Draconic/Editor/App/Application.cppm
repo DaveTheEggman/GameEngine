@@ -915,21 +915,33 @@ export namespace draconic::editor::app
                 lp->Width = draconic::ui::SizeSpec::Match();
                 column->AddView(nameEdit.Get(), lp);
             }
+            // Inline validation line: empty until a rejected attempt; the dialog stays up.
+            auto errorLabel = MakeRef<draconic::ui::Label>(DefaultAllocator());
+            errorLabel->WordWrap.SetValue(true);
+            errorLabel->TextColor.SetValue(Color{ 0.90f, 0.35f, 0.35f, 1.0f });
+            {
+                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = draconic::ui::SizeSpec::Match();
+                column->AddView(errorLabel.Get(), lp);
+            }
             dialog->SetContent(column.Get());
 
             draconic::ui::Dialog* rawDialog = dialog.Get();
             draconic::ui::EditText* rawEdit = nameEdit.Get();
+            draconic::ui::Label* rawError = errorLabel.Get();
             const Guid pageId = page->InstanceId();
             draconic::ui::Button* save =
                 dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
-            save->OnClick.Add([this, pageId, group, type, rawDialog, rawEdit](draconic::ui::ButtonBase*) {
+            save->OnClick.Add([this, pageId, group, type, rawDialog, rawEdit, rawError](draconic::ui::ButtonBase*) {
                 const StringView newName = rawEdit->Text();
-                if (newName.IsEmpty()) { return; }   // keep the dialog up; nothing to create
+                if (newName.IsEmpty())
+                {
+                    rawError->SetText(u8"NOT saved: enter a name.");
+                    return;   // dialog stays up for the retry
+                }
                 if (group->GetInstance(newName) != nullptr)
                 {
-                    // Loud + sticky: a quiet status line reads as "saved" - it wasn't.
-                    m_context.Notify(ed::NoticeKind::Error,
-                                     u8"NOT saved: that name already exists in the group - pick another.");
+                    rawError->SetText(u8"NOT saved: that name already exists in the group.");
                     return;   // dialog stays up for the retry
                 }
                 // Re-resolve the page: the dialog is modal-ish but pages can close under it.

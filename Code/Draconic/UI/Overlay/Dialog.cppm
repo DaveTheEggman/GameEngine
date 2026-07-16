@@ -117,13 +117,18 @@ export namespace draconic::ui
             }
         }
 
-        /// Add a button to the button row.
+        /// Add a button to the button row. A result of None makes the button CALLER-MANAGED:
+        /// its click does NOT auto-close - wire OnClick and call Close() yourself, so a
+        /// validation failure can keep the dialog up. Any other result closes with it.
         Button* AddButton(StringView text, DialogResult result)
         {
             RefPtr<Button> btn = MakeRef<Button>(DefaultAllocator(), text);
-            Dialog* self = this;
-            const DialogResult dialogResult = result;
-            btn->OnClick.Add(Event<void(ButtonBase*)>::Handler{ [self, dialogResult](ButtonBase*) { self->Close(dialogResult); } });
+            if (result != DialogResult::None)
+            {
+                Dialog* self = this;
+                const DialogResult dialogResult = result;
+                btn->OnClick.Add(Event<void(ButtonBase*)>::Handler{ [self, dialogResult](ButtonBase*) { self->Close(dialogResult); } });
+            }
             Button* raw = btn.Get();
             m_buttonRow->AddView(btn.Get());
             return raw;
