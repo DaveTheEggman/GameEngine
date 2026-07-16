@@ -83,6 +83,13 @@ public:
         m_scenes.Clear();   // UniquePtr frees each Scene
     }
 
+    /// Visits every live scene (prefab rebuilds after a template save, tooling sweeps).
+    template <typename Fn>
+    void ForEachScene(Fn&& fn)
+    {
+        for (auto& scene : m_scenes) { fn(*scene); }
+    }
+
 private:
     void NotifyCreated(Scene& scene) {
         for (ISceneAware* a : m_aware) { a->OnSceneCreated(scene); }   // pass 1: inject systems

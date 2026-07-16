@@ -371,9 +371,12 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
         SerializeScene(writer, legacy);
         REQUIRE(writer.IsOk());
     }
+    // A pre-settings save ends after components: chop the settings count PLUS the prefab
+    // section (mode tag u8 + instance count u32) that a current write appends after it.
+    const usize legacyChop = sizeof(u32) + sizeof(u8) + sizeof(u32);
     MemoryStream legacyStream;
-    REQUIRE(legacyFull.Bytes().Size() > sizeof(u32));
-    (void)legacyStream.Write(legacyFull.Bytes().Data(), legacyFull.Bytes().Size() - sizeof(u32));
+    REQUIRE(legacyFull.Bytes().Size() > legacyChop);
+    (void)legacyStream.Write(legacyFull.Bytes().Data(), legacyFull.Bytes().Size() - legacyChop);
     (void)legacyStream.Seek(0, SeekOrigin::Begin);
     {
         Scene c;
@@ -382,6 +385,22 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
         SerializeScene(reader, c, &legacyStream);
         REQUIRE(reader.IsOk());
         CHECK(Near(fogC->settings.density, 0.5f));   // defaults stand
+    }
+
+    // A settings-era save from BEFORE the prefab section: chop just that section - the
+    // probe guard must end the read cleanly with no pending instances.
+    MemoryStream prePrefabStream;
+    (void)prePrefabStream.Write(legacyFull.Bytes().Data(),
+                                legacyFull.Bytes().Size() - (sizeof(u8) + sizeof(u32)));
+    (void)prePrefabStream.Seek(0, SeekOrigin::Begin);
+    {
+        Scene c;
+        FogSystem* fogC = c.AddSystem<FogSystem>();
+        BinarySerializer reader(prePrefabStream, SerializeMode::Read);
+        SerializeScene(reader, c, &prePrefabStream);
+        REQUIRE(reader.IsOk());
+        CHECK(Near(fogC->settings.density, 0.5f));
+        CHECK(c.PendingPrefabInstanceCount() == 0u);
     }
 
     // Without the probe (a snapshot restore), the section is expected and reads normally.
@@ -394,4 +413,276 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
         REQUIRE(reader.IsOk());
         CHECK(Near(fogD->settings.density, 2.25f));
     }
+}
+
+// ============================== Prefab P1 =====================================================
+
+TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, baselines)")
+{
+    Scene author(u8"author");
+    HealthManager* authorHealth = author.AddSystem<HealthManager>();
+    EntityHandle root  = author.CreateEntity(u8"Turret");
+    EntityHandle barrel = author.CreateEntity(u8"Barrel");
+    author.SetParent(barrel, root);
+    author.SetLocalPosition(root, Float3{ 9, 9, 9 });   // authoring placement - NOT part of the payload semantics
+    author.SetLocalPosition(barrel, Float3{ 0, 1, 0 });
+    authorHealth->Add(root).value = 40.0f;
+    authorHealth->Add(barrel).value = 10.0f;
+
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, root, payload).IsOk());
+
+    Scene target(u8"level");
+    HealthManager* health = target.AddSystem<HealthManager>();
+    EntityHandle anchor = target.CreateEntity(u8"Anchor");
+
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    const Guid prefabId{ 0xAA, 0xBB };
+    EntityHandle inst1 = SpawnPrefab(target, payload, prefabId, anchor);
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    EntityHandle inst2 = SpawnPrefab(target, payload, prefabId);
+    REQUIRE(inst1.IsAssigned());
+    REQUIRE(inst2.IsAssigned());
+    CHECK(target.GetEntityId(inst1) != target.GetEntityId(inst2));   // fresh guids per spawn
+
+    CHECK(target.GetParent(inst1) == anchor);
+    CHECK(!target.GetParent(inst2).IsAssigned());
+    CHECK(target.GetEntityName(inst1) == StringView(u8"Turret"));
+    EntityHandle barrel1 = target.GetFirstChild(inst1);
+    REQUIRE(barrel1.IsAssigned());
+    CHECK(target.GetEntityName(barrel1) == StringView(u8"Barrel"));
+    CHECK(Near(target.GetLocalTransform(barrel1).position.y, 1.0f));
+    REQUIRE(health->Has(inst1));
+    CHECK(Near(health->Get(inst1)->value, 40.0f));
+    REQUIRE(health->Has(barrel1));
+    CHECK(Near(health->Get(barrel1)->value, 10.0f));
+
+    CHECK(target.PrefabInstanceCount() == 2u);
+    Scene::PrefabInstanceState* state = target.FindPrefabInstanceByRoot(target.GetEntityId(inst1));
+    REQUIRE(state != nullptr);
+    CHECK(state->prefabId == prefabId);
+    CHECK(state->sourceIds.Size() == 2u);
+    CHECK(state->componentBaselines.Size() == 2u);
+}
+
+TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrides survive)")
+{
+    // Author + capture the payload.
+    Scene author(u8"author");
+    HealthManager* authorHealth = author.AddSystem<HealthManager>();
+    EntityHandle root = author.CreateEntity(u8"Tower");
+    EntityHandle top  = author.CreateEntity(u8"Top");
+    EntityHandle flag = author.CreateEntity(u8"Flag");
+    author.SetParent(top, root);
+    author.SetParent(flag, top);
+    authorHealth->Add(root).value = 100.0f;
+    authorHealth->Add(top).value = 50.0f;
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, root, payload).IsOk());
+
+    // Level: one plain entity + one instance with EVERY delta kind.
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    EntityHandle plain = level.CreateEntity(u8"Plain");
+    health->Add(plain).value = 7.0f;
+
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    const Guid prefabId{ 0x11, 0x22 };
+    EntityHandle inst = SpawnPrefab(level, payload, prefabId);
+    REQUIRE(inst.IsAssigned());
+    level.SetLocalPosition(inst, Float3{ 5, 0, 5 });              // instance placement
+    EntityHandle instTop = level.GetFirstChild(inst);
+    EntityHandle instFlag = level.GetFirstChild(instTop);
+    REQUIRE(instFlag.IsAssigned());
+    health->Get(instTop)->value = 51.0f;                          // component MODIFY
+    level.SetLocalPosition(instTop, Float3{ 0, 2, 0 });           // transform override
+    health->Add(instFlag).value = 5.0f;                           // component ADD
+    health->RemoveComponent(inst);                                // component REMOVE (root's)
+    const Guid instId = level.GetEntityId(inst);
+    const Guid instTopId = level.GetEntityId(instTop);
+
+    // Save (Referenced) -> the instance's members are NOT plain records.
+    MemoryStream saved;
+    {
+        BinarySerializer w(saved, SerializeMode::Write);
+        SerializeScene(w, level);
+        REQUIRE(w.IsOk());
+    }
+
+    // Load into a fresh scene + resolve prefabs with a payload resolver.
+    Scene loaded(u8"loaded");
+    HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
+    (void)saved.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer r(saved, SerializeMode::Read);
+        SerializeScene(r, loaded, &saved);
+        REQUIRE(r.IsOk());
+    }
+    CHECK(loaded.EntityCount() == 1u);   // only the plain entity so far
+    CHECK(loaded.PendingPrefabInstanceCount() == 1u);
+    const Span<const byte> payloadBytes = payload.Bytes();
+    ResolveScenePrefabs(loaded, Function<UniquePtr<IStream>(const Guid&)>{
+        [&payloadBytes, prefabId](const Guid& id) -> UniquePtr<IStream> {
+            if (id != prefabId) { return UniquePtr<IStream>{}; }
+            auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
+            (void)stream->Write(payloadBytes.Data(), payloadBytes.Size());
+            (void)stream->Seek(0, SeekOrigin::Begin);
+            return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
+        } });
+
+    // Identity: the instance respawned with its SAVED guids.
+    EntityHandle lInst = loaded.FindEntity(instId);
+    EntityHandle lTop  = loaded.FindEntity(instTopId);
+    REQUIRE(lInst.IsAssigned());
+    REQUIRE(lTop.IsAssigned());
+    CHECK(loaded.PrefabInstanceCount() == 1u);
+
+    // Placement + every delta kind survived.
+    CHECK(Near(loaded.GetLocalTransform(lInst).position.x, 5.0f));
+    CHECK(Near(loaded.GetLocalTransform(lTop).position.y, 2.0f));   // transform override
+    REQUIRE(loadedHealth->Has(lTop));
+    CHECK(Near(loadedHealth->Get(lTop)->value, 51.0f));             // modify
+    EntityHandle lFlag = loaded.GetFirstChild(lTop);
+    REQUIRE(lFlag.IsAssigned());
+    REQUIRE(loadedHealth->Has(lFlag));
+    CHECK(Near(loadedHealth->Get(lFlag)->value, 5.0f));             // add
+    CHECK(!loadedHealth->Has(lInst));                                // remove
+}
+
+TEST_CASE("prefab: destroyed members stay destroyed across save/load")
+{
+    Scene author(u8"author");
+    (void)author.AddSystem<HealthManager>();
+    EntityHandle root = author.CreateEntity(u8"Squad");
+    EntityHandle a = author.CreateEntity(u8"A");
+    EntityHandle b = author.CreateEntity(u8"B");
+    author.SetParent(a, root);
+    author.SetParent(b, root);
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, root, payload).IsOk());
+
+    Scene level(u8"level");
+    (void)level.AddSystem<HealthManager>();
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    const Guid prefabId{ 0x77, 0x88 };
+    EntityHandle inst = SpawnPrefab(level, payload, prefabId);
+    REQUIRE(inst.IsAssigned());
+    EntityHandle memberA = level.GetFirstChild(inst);
+    REQUIRE(memberA.IsAssigned());
+    level.DestroyEntity(memberA);   // user deletes one member
+
+    MemoryStream saved;
+    {
+        BinarySerializer w(saved, SerializeMode::Write);
+        SerializeScene(w, level);
+    }
+    Scene loaded(u8"loaded");
+    (void)loaded.AddSystem<HealthManager>();
+    (void)saved.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer r(saved, SerializeMode::Read);
+        SerializeScene(r, loaded, &saved);
+    }
+    const Span<const byte> payloadBytes = payload.Bytes();
+    ResolveScenePrefabs(loaded, Function<UniquePtr<IStream>(const Guid&)>{
+        [&payloadBytes](const Guid&) -> UniquePtr<IStream> {
+            auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
+            (void)stream->Write(payloadBytes.Data(), payloadBytes.Size());
+            (void)stream->Seek(0, SeekOrigin::Begin);
+            return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
+        } });
+
+    // Root + ONE surviving child (the destroyed member did not respawn).
+    EntityHandle lRoot = loaded.GetFirstRoot();
+    REQUIRE(lRoot.IsAssigned());
+    u32 childCount = 0;
+    for (EntityHandle c = loaded.GetFirstChild(lRoot); c.IsAssigned(); c = loaded.GetNextSibling(c)) { ++childCount; }
+    CHECK(childCount == 1u);
+}
+
+TEST_CASE("prefab: snapshots expand instances and restore their state resolver-free")
+{
+    Scene author(u8"author");
+    HealthManager* authorHealth = author.AddSystem<HealthManager>();
+    EntityHandle root = author.CreateEntity(u8"Prop");
+    authorHealth->Add(root).value = 33.0f;
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, root, payload).IsOk());
+
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    const Guid prefabId{ 0x42, 0x42 };
+    EntityHandle inst = SpawnPrefab(level, payload, prefabId);
+    REQUIRE(inst.IsAssigned());
+    health->Get(inst)->value = 34.0f;   // an override the snapshot must preserve
+    const Guid instId = level.GetEntityId(inst);
+
+    UniquePtr<SceneSnapshot> snapshot = SceneSnapshot::Capture(level);
+    REQUIRE(static_cast<bool>(snapshot));
+
+    // Simulate: mutate hard (destroy the instance), then restore.
+    level.DestroyEntity(inst);
+    CHECK(!level.FindEntity(instId).IsAssigned());
+    REQUIRE(snapshot->Restore(level).IsOk());
+
+    EntityHandle restored = level.FindEntity(instId);
+    REQUIRE(restored.IsAssigned());
+    REQUIRE(health->Has(restored));
+    CHECK(Near(health->Get(restored)->value, 34.0f));
+    CHECK(level.PrefabInstanceCount() == 1u);   // bookkeeping restored WITHOUT a resolver
+    Scene::PrefabInstanceState* state = level.FindPrefabInstanceByRoot(instId);
+    REQUIRE(state != nullptr);
+    CHECK(state->prefabId == prefabId);
+}
+
+TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
+{
+    Scene author(u8"author");
+    HealthManager* authorHealth = author.AddSystem<HealthManager>();
+    EntityHandle root = author.CreateEntity(u8"House");
+    EntityHandle door = author.CreateEntity(u8"Door");
+    author.SetParent(door, root);
+    authorHealth->Add(door).value = 20.0f;
+    MemoryStream payloadV1;
+    REQUIRE(CapturePrefab(author, root, payloadV1).IsOk());
+
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    (void)payloadV1.Seek(0, SeekOrigin::Begin);
+    const Guid prefabId{ 0xF0, 0x0D };
+    EntityHandle inst = SpawnPrefab(level, payloadV1, prefabId);
+    REQUIRE(inst.IsAssigned());
+    const Guid instId = level.GetEntityId(inst);
+    EntityHandle instDoor = level.GetFirstChild(inst);
+    const Guid instDoorId = level.GetEntityId(instDoor);
+    health->Get(instDoor)->value = 21.0f;                 // user override
+    level.SetLocalPosition(inst, Float3{ 3, 0, 0 });      // placement
+
+    // Template v2: door healthier + a brand-new window member.
+    authorHealth->Get(door)->value = 25.0f;
+    EntityHandle window = author.CreateEntity(u8"Window");
+    author.SetParent(window, root);
+    MemoryStream payloadV2;
+    REQUIRE(CapturePrefab(author, root, payloadV2).IsOk());
+
+    const Span<const byte> v2 = payloadV2.Bytes();
+    CHECK(RebuildPrefabInstances(level, prefabId, v2) == 1u);
+
+    // Identity preserved, override preserved, new member present, placement intact.
+    EntityHandle rInst = level.FindEntity(instId);
+    EntityHandle rDoor = level.FindEntity(instDoorId);
+    REQUIRE(rInst.IsAssigned());
+    REQUIRE(rDoor.IsAssigned());
+    CHECK(Near(level.GetLocalTransform(rInst).position.x, 3.0f));
+    CHECK(Near(health->Get(rDoor)->value, 21.0f));        // override beats the template's 25
+    u32 kids = 0;
+    bool sawWindow = false;
+    for (EntityHandle c = level.GetFirstChild(rInst); c.IsAssigned(); c = level.GetNextSibling(c)) {
+        ++kids;
+        if (level.GetEntityName(c) == StringView(u8"Window")) { sawWindow = true; }
+    }
+    CHECK(kids == 2u);
+    CHECK(sawWindow);
+    CHECK(level.PrefabInstanceCount() == 1u);
 }

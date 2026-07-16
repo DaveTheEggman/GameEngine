@@ -111,6 +111,104 @@ public:
 
     [[nodiscard]] u64 Revision() const noexcept { return m_revision; }
 
+    // ---- prefab instances (runtime-only bookkeeping; scene.resource drives it) ----
+    //
+    // One state record per spawned prefab instance. `sourceIds[i]` is the member's guid in
+    // the PREFAB PAYLOAD (the stable delta key), `liveIds[i]` its guid in THIS scene.
+    // Baselines capture the template state as of spawn (per-member local transform +
+    // per-component serialized blob); the scene serializer diffs live state against them at
+    // save time, so overrides are DERIVED - nothing tracks edits, and undo/redo can never
+    // desynchronize the override set. Never serialized as-is: the scene serializer persists
+    // instances as ref+deltas (or expanded, for snapshots) and rebuilds this state on load.
+    struct PrefabComponentBaseline {
+        Guid   sourceEntity;
+        String typeId;        // the owning manager's SerializationTypeId
+        Array<u8> blob;       // binary WriteComponent capture at spawn
+    };
+    struct PrefabInstanceState {
+        Guid prefabId;                       // the prefab asset/product instance guid
+        Guid rootEntityId;                   // live guid of the instance's root entity
+        Array<Guid>      sourceIds;          // payload guids (parallel to liveIds)
+        Array<Guid>      liveIds;
+        Array<Transform> baselineTransforms; // parallel to sourceIds (template local transforms)
+        Array<PrefabComponentBaseline> componentBaselines;
+    };
+
+    void AddPrefabInstance(UniquePtr<PrefabInstanceState> state)
+    {
+        if (state) { m_prefabInstances.PushBack(static_cast<UniquePtr<PrefabInstanceState>&&>(state)); }
+    }
+
+    [[nodiscard]] PrefabInstanceState* FindPrefabInstanceByRoot(const Guid& rootEntityId)
+    {
+        for (auto& s : m_prefabInstances) { if (s->rootEntityId == rootEntityId) { return s.Get(); } }
+        return nullptr;
+    }
+
+    /// Removes the state whose root is `rootEntityId` (the entities are the caller's business).
+    void RemovePrefabInstance(const Guid& rootEntityId)
+    {
+        for (usize i = 0; i < m_prefabInstances.Size(); ++i)
+        {
+            if (m_prefabInstances[i]->rootEntityId == rootEntityId) { m_prefabInstances.RemoveAt(i); return; }
+        }
+    }
+
+    /// Visits every instance whose ROOT still resolves; states whose root entity was
+    /// destroyed are pruned lazily here (no destroy-hook bookkeeping).
+    template <typename Fn>
+    void ForEachPrefabInstance(Fn&& fn)
+    {
+        usize w = 0;
+        for (usize i = 0; i < m_prefabInstances.Size(); ++i)
+        {
+            if (!FindEntity(m_prefabInstances[i]->rootEntityId).IsAssigned()) { continue; }   // prune
+            if (w != i) { m_prefabInstances[w] = static_cast<UniquePtr<PrefabInstanceState>&&>(m_prefabInstances[i]); }
+            fn(*m_prefabInstances[w]);
+            ++w;
+        }
+        m_prefabInstances.Resize(w);
+    }
+
+    [[nodiscard]] usize PrefabInstanceCount() const noexcept { return m_prefabInstances.Size(); }
+
+    /// Drops ALL prefab-instance bookkeeping (snapshot restore repopulates from the stream).
+    void ClearPrefabInstances() { m_prefabInstances.Clear(); }
+
+    // A prefab instance READ from a scene stream, awaiting its payload: the scene serializer
+    // can't resolve prefab assets itself (no DB access), so it parks descriptors here and
+    // ResolveScenePrefabs (scene.resource) respawns them with a caller-supplied resolver -
+    // the same two-phase shape as component resource Refs + ResolveSceneResources.
+    struct PendingPrefabComponentOp {
+        Guid   sourceEntity;
+        String typeId;
+        u8     op = 0;        // 0 = modify, 1 = add, 2 = remove (blob empty)
+        Array<u8> blob;       // binary component payload for modify/add
+    };
+    struct PendingPrefabInstance {
+        Guid prefabId;
+        Guid parentEntityId;                 // nil = scene root
+        Transform rootTransform;
+        Array<Guid> sourceIds;               // parallel member guid map
+        Array<Guid> liveIds;
+        Array<Guid> destroyedMembers;        // source ids the user deleted from the instance
+        Array<Guid>      overrideTransformIds;   // source ids with transform overrides
+        Array<Transform> overrideTransforms;
+        Array<PendingPrefabComponentOp> componentOps;
+    };
+
+    void AddPendingPrefabInstance(UniquePtr<PendingPrefabInstance> pending)
+    {
+        if (pending) { m_pendingPrefabs.PushBack(static_cast<UniquePtr<PendingPrefabInstance>&&>(pending)); }
+    }
+    [[nodiscard]] Array<UniquePtr<PendingPrefabInstance>> TakePendingPrefabInstances()
+    {
+        Array<UniquePtr<PendingPrefabInstance>> out = static_cast<Array<UniquePtr<PendingPrefabInstance>>&&>(m_pendingPrefabs);
+        m_pendingPrefabs = Array<UniquePtr<PendingPrefabInstance>>{};
+        return out;
+    }
+    [[nodiscard]] usize PendingPrefabInstanceCount() const noexcept { return m_pendingPrefabs.Size(); }
+
     // ---- transform hierarchy ----
 
     void SetLocalTransform(EntityHandle entity, const Transform& transform) {
@@ -595,6 +693,8 @@ protected:
     EntityHandle         m_firstRoot = EntityHandle::Invalid();
     EntityHandle         m_lastRoot  = EntityHandle::Invalid();
     Random               m_rng;
+    Array<UniquePtr<PrefabInstanceState>> m_prefabInstances;
+    Array<UniquePtr<PendingPrefabInstance>> m_pendingPrefabs;
     u32                  m_aliveCount = 0;
     u64                  m_revision   = 0;
 
