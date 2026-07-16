@@ -17,6 +17,7 @@
 #undef CreateDirectory
 #undef RemoveDirectory
 #undef GetEnvironmentVariable   // windows.h maps it to ...A; we define our own and call ...A directly
+#undef GetCurrentDirectory      // ditto (GetCurrentDirectoryA)
 
 namespace draconic::core::sys
 {
@@ -74,6 +75,23 @@ namespace draconic::core::sys
         // chars written excl null; == outSize when truncated; 0 on error.
         const DWORD n = ::GetModuleFileNameA(nullptr, out, static_cast<DWORD>(outSize));
         return static_cast<std::size_t>(n);
+    }
+
+    std::size_t GetCurrentDirectory(char* out, std::size_t outSize) noexcept
+    {
+        // Fetch into a local buffer (a cwd is well under this), then copy with truncation so the
+        // full-length return contract holds even when `out` is too small.
+        char buffer[4096];
+        const DWORD n = ::GetCurrentDirectoryA(static_cast<DWORD>(sizeof(buffer)), buffer);
+        if (n == 0) { return 0; }
+        const std::size_t length = static_cast<std::size_t>(n);
+        if (out != nullptr && outSize > 0)
+        {
+            const std::size_t k = (length < outSize - 1) ? length : outSize - 1;
+            std::memcpy(out, buffer, k);
+            out[k] = '\0';
+        }
+        return length;
     }
 
     bool OpenPathInFileManager(const char* path) noexcept

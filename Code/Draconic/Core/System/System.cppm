@@ -251,6 +251,16 @@ export namespace draconic::core
         return String(StringView(reinterpret_cast<const utf8char*>(buffer), got));
     }
 
+    // Current working directory (empty on failure). Used to resolve a relative path to absolute.
+    [[nodiscard]] inline String GetCurrentDirectory()
+    {
+        char buffer[4096];
+        const usize length = sys::GetCurrentDirectory(buffer, sizeof(buffer));
+        if (length == 0) { return String{}; }
+        const usize got = (length < sizeof(buffer)) ? length : sizeof(buffer) - 1;
+        return String(StringView(reinterpret_cast<const utf8char*>(buffer), got));
+    }
+
     // Directory containing the running executable (its parent), empty on failure. This is the
     // Bin/<Config>/<Platform> dir - where sibling tools (e.g. RaptorPlayer) live.
     [[nodiscard]] inline String GetExecutableDirectory()

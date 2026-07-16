@@ -44,6 +44,10 @@ namespace draconic::core::sys
     // truncation / return contract as GetEnvironmentVariable; 0 on failure.
     std::size_t GetExecutablePath(char* out, std::size_t outSize) noexcept;
 
+    // Current working directory (getcwd / GetCurrentDirectoryA). Same truncation / return contract as
+    // GetEnvironmentVariable; 0 on failure. Used to resolve project-relative paths to absolute.
+    std::size_t GetCurrentDirectory(char* out, std::size_t outSize) noexcept;
+
     // --- OS integration ----------------------------------------------------
     // Open `path` (a directory) in the OS file manager: Explorer via CreateProcess on Windows,
     // xdg-open (double-forked) on Linux. NON-BLOCKING - launches detached and returns immediately;

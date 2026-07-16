@@ -128,6 +128,20 @@ namespace draconic::core::sys
         return true;          // launch initiated (xdg-open's own success isn't observable here)
     }
 
+    std::size_t GetCurrentDirectory(char* out, std::size_t outSize) noexcept
+    {
+        char buffer[4096];
+        if (getcwd(buffer, sizeof(buffer)) == nullptr) { return 0; }
+        const std::size_t length = std::strlen(buffer);
+        if (out != nullptr && outSize > 0)
+        {
+            const std::size_t k = (length < outSize - 1) ? length : outSize - 1;
+            std::memcpy(out, buffer, k);
+            out[k] = '\0';
+        }
+        return length;
+    }
+
     void* PageAllocate(std::size_t size) noexcept
     {
         if (size == 0)

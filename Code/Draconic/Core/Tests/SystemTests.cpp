@@ -115,6 +115,13 @@ TEST_CASE("system: OpenPathInFileManager rejects an empty path without launching
     CHECK_FALSE(OpenPathInFileManager(u8""));
 }
 
+TEST_CASE("system: GetCurrentDirectory returns a non-empty absolute path")
+{
+    const String cwd = GetCurrentDirectory();
+    CHECK_FALSE(cwd.IsEmpty());
+    CHECK(PathIsAbsolute(cwd.AsView()));
+}
+
 TEST_CASE("system: CreateDirectories makes every missing segment")
 {
     const StringView root = u8"draconic_sys_mkdirs";
