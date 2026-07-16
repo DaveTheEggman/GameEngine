@@ -43,6 +43,12 @@ export namespace draconic::editor
         /// Cross-page clipboard home (optional - Copy/Paste menu items appear when set).
         void SetEditorContext(EditorContext* context) noexcept { m_editor = context; }
 
+        /// Prefab hooks (wired by the scene page - asset creation/picking lives there):
+        /// turn an entity's subtree into a prefab asset + instance, and spawn an instance
+        /// under `parent` (nil = scene root).
+        Function<void(const Guid&)> OnCreatePrefab;
+        Function<void(const Guid&)> OnSpawnPrefab;
+
         explicit SceneHierarchyView(SceneEditContext& edit) : m_edit(&edit)
         {
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -124,7 +130,11 @@ export namespace draconic::editor
             {
                 auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
                 SceneEditContext* edit = m_edit;
+                SceneHierarchyView* self = this;
                 menu->AddItem(u8"Create Entity", [edit]() { (void)edit->CreateEntity(u8"Entity"); });
+                menu->AddItem(u8"Spawn Prefab...", [self]() {
+                    if (self->OnSpawnPrefab) { self->OnSpawnPrefab(Guid{}); }
+                });
                 const Float2 screenPos = LocalToScreen(Float2{ e.X, e.Y });
                 menu->Show(Context, screenPos.x, screenPos.y);
                 e.Handled = true;
@@ -293,6 +303,12 @@ export namespace draconic::editor
                 menu->AddItem(u8"Rename", [self, id]() { self->BeginRename(id); });
                 menu->AddSeparator();
                 menu->AddItem(u8"Duplicate", [edit, id]() { (void)edit->DuplicateEntity(id); });
+                menu->AddItem(u8"Create Prefab from Selection", [self, id]() {
+                    if (self->OnCreatePrefab) { self->OnCreatePrefab(id); }
+                });
+                menu->AddItem(u8"Spawn Prefab as Child", [self, id]() {
+                    if (self->OnSpawnPrefab) { self->OnSpawnPrefab(id); }
+                });
                 if (EditorContext* editor = self->m_editor)
                 {
                     menu->AddItem(u8"Copy", [edit, editor, id]() {

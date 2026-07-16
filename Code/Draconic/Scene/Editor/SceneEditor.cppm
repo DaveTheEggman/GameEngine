@@ -35,4 +35,20 @@ inline Status SaveScene(Scene& scene, draconic::content::Instance& instance) {
     return instance.WriteData(u8"scene", buffer.Bytes());
 }
 
+// The prefab twin: PrefabDocument primary + the world serialized EXPANDED - any nested
+// prefab instances flatten into plain entities (nesting is P4; expansion degrades it to
+// baked members instead of silently dropping them), and the stream doubles as the spawn
+// payload AND the edit page's load stream (both read plain entity records).
+inline Status SavePrefab(Scene& scene, draconic::content::Instance& instance) {
+    PrefabDocument doc;
+    doc.name = String(scene.Name());
+    const Status wrote = instance.WriteObject(doc);
+    if (!wrote.IsOk()) { return wrote; }
+
+    MemoryStream buffer;
+    BinarySerializer ser(buffer, SerializeMode::Write);
+    SerializeScene(ser, scene, nullptr, ScenePrefabMode::Expanded);
+    return instance.WriteData(u8"scene", buffer.Bytes());
+}
+
 } // namespace draconic::scene

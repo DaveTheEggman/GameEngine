@@ -11,6 +11,7 @@
 
 import draconic.core;
 import draconic.scene;
+import draconic.scene.resource;
 import draconic.render.subsystem;
 import draconic.editor.core;
 import draconic.editor.scene;
@@ -768,4 +769,80 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
     const draconic::core::Attribute* label = FindAttribute(*zenith, u8"displayName");
     REQUIRE(label != nullptr);
     CHECK(label->value.TryGet<String>()->AsView() == StringView(u8"Sky Zenith / Color"));
+}
+
+TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME guids")
+{
+    // Author a template in a scratch scene and capture its payload.
+    dscene::Scene author(u8"author");
+    HealthManager* authorHealth = author.AddSystem<HealthManager>();
+    dscene::EntityHandle root = author.CreateEntity(u8"Barrel");
+    authorHealth->Add(root).amount = 12;
+    MemoryStream payload;
+    REQUIRE(dscene::CapturePrefab(author, root, payload).IsOk());
+    Array<byte> bytes;
+    for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+
+    dscene::Scene scene(u8"level");
+    HealthManager* health = scene.AddSystem<HealthManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+
+    const Guid prefabId{ 0xAB, 0xCD };
+    Array<byte> spawnBytes = bytes;
+    const Guid rootId = edit.SpawnPrefabInstance(prefabId, Move(spawnBytes));
+    REQUIRE(!rootId.IsNil());
+    dscene::EntityHandle live = edit.Resolve(rootId);
+    REQUIRE(live.IsAssigned());
+    CHECK(health->Has(live));
+    CHECK(scene.PrefabInstanceCount() == 1u);
+
+    commands.Undo();
+    CHECK(!edit.Resolve(rootId).IsAssigned());
+    CHECK(scene.PrefabInstanceCount() == 0u);
+
+    commands.Redo();
+    dscene::EntityHandle back = edit.Resolve(rootId);   // the SAME guid
+    REQUIRE(back.IsAssigned());
+    CHECK(health->Has(back));
+    CHECK(scene.PrefabInstanceCount() == 1u);
+}
+
+TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
+{
+    dscene::Scene author(u8"author");
+    (void)author.AddSystem<HealthManager>();
+    dscene::EntityHandle tmpl = author.CreateEntity(u8"Crate");
+    MemoryStream payload;
+    REQUIRE(dscene::CapturePrefab(author, tmpl, payload).IsOk());
+    Array<byte> bytes;
+    for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+
+    dscene::Scene scene(u8"level");
+    (void)scene.AddSystem<HealthManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+
+    const Guid parent = edit.CreateEntity(u8"Props");
+    const Guid original = edit.CreateEntity(u8"OldCrate", parent);
+    {
+        dscene::EntityHandle h = edit.Resolve(original);
+        draconic::core::Transform t = scene.GetLocalTransform(h);
+        t.position = Float3{ 4, 5, 6 };
+        scene.SetLocalTransform(h, t);
+    }
+
+    const Guid prefabId{ 0x99, 0x11 };
+    const Guid instanceRoot = edit.ReplaceWithPrefabInstance(original, prefabId, Move(bytes));
+    REQUIRE(!instanceRoot.IsNil());
+    CHECK(!edit.Resolve(original).IsAssigned());   // original replaced
+    dscene::EntityHandle inst = edit.Resolve(instanceRoot);
+    REQUIRE(inst.IsAssigned());
+    CHECK(scene.GetParent(inst) == edit.Resolve(parent));       // same parent
+    CHECK(Abs(scene.GetLocalTransform(inst).position.x - 4.0f) < 1e-4f);   // same placement
+
+    commands.Undo();   // ONE step: instance gone, original restored
+    CHECK(!edit.Resolve(instanceRoot).IsAssigned());
+    CHECK(edit.Resolve(original).IsAssigned());
+    CHECK(scene.PrefabInstanceCount() == 0u);
 }

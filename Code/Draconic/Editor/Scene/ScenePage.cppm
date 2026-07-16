@@ -80,6 +80,25 @@ export namespace draconic::editor
                     {
                         dscene::ResolveSceneResources(*m_scene, *context.Resources());
                     }
+                    // Prefab instances load as ref+deltas - respawn them from the SOURCE DB
+                    // (payloads are edited assets, not cooked products), then bind the
+                    // spawned components' refs too.
+                    if (m_scene->PendingPrefabInstanceCount() > 0 && context.Project() != nullptr)
+                    {
+                        EditorContext* editorContext = &context;
+                        dscene::ResolveScenePrefabs(*m_scene,
+                            Function<UniquePtr<IStream>(const Guid&)>{
+                                [editorContext](const Guid& prefabId) -> UniquePtr<IStream> {
+                                    draconic::content::Instance* prefab =
+                                        editorContext->Project()->SourceDb().GetInstance(prefabId);
+                                    return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                               : UniquePtr<IStream>{};
+                                } });
+                        if (context.Resources() != nullptr)
+                        {
+                            dscene::ResolveSceneResources(*m_scene, *context.Resources());
+                        }
+                    }
                     DRACONIC_LOG_INFO(u8"Editor", u8"opened scene '{}'", m_title);
                 }
                 else if (loaded.Code() == ErrorCode::NotFound)
@@ -106,6 +125,11 @@ export namespace draconic::editor
                 m_editContext->SetResources(context.Resources());
                 m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
                 m_hierarchy->SetEditorContext(&context);
+                {
+                    SceneEditorPage* page = this;
+                    m_hierarchy->OnCreatePrefab = [page](const Guid& entity) { page->CreatePrefabFromEntity(entity); };
+                    m_hierarchy->OnSpawnPrefab = [page](const Guid& parent) { page->PickAndSpawnPrefab(parent); };
+                }
                 m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), context, *m_editContext);
                 m_gizmos = MakeUnique<GizmoController>(DefaultAllocator(), *m_editContext);
                 RegisterBuiltinGizmoRenderers(m_componentGizmos);
@@ -233,17 +257,130 @@ export namespace draconic::editor
             m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         }
 
+        // Create-from-selection: capture the subtree as a prefab asset (under "Prefabs/",
+        // named after the entity) and replace the original with an instance of it (one undo
+        // group). The payload keeps the captured guids as its stable source ids.
+        void CreatePrefabFromEntity(const Guid& entityId)
+        {
+            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            const dscene::EntityHandle live = m_editContext->Resolve(entityId);
+            if (!live.IsAssigned()) { return; }
+
+            MemoryStream payload;
+            if (!dscene::CapturePrefab(*m_scene, live, payload).IsOk())
+            {
+                m_context->Notify(draconic::editor::NoticeKind::Error, u8"Prefab capture failed.");
+                return;
+            }
+
+            draconic::content::Group* root = m_context->Project()->SourceDb().RootGroup();
+            draconic::content::Group* prefabs = root->GetGroup(u8"Prefabs");
+            if (prefabs == nullptr) { prefabs = root->CreateGroup(u8"Prefabs"); }
+            String name(m_scene->GetEntityName(live));
+            if (name.IsEmpty()) { name = String(u8"Prefab"); }
+            for (u32 n = 2; prefabs->GetInstance(name.AsView()) != nullptr; ++n)
+            {
+                name = String(m_scene->GetEntityName(live));
+                name += u8".";
+                utf8char digits[12];
+                u32 value = n, count = 0;
+                do { digits[count++] = static_cast<utf8char>('0' + (value % 10)); value /= 10; } while (value != 0);
+                while (count > 0) { name.PushBack(digits[--count]); }
+            }
+            draconic::content::Instance* asset =
+                prefabs->CreateInstance(name.AsView(), dscene::PrefabDocument::StaticType());
+            if (asset == nullptr) { return; }
+            dscene::PrefabDocument doc;
+            doc.name = name;
+            if (!asset->WriteObject(doc).IsOk()
+                || !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
+            {
+                m_context->Notify(draconic::editor::NoticeKind::Error, u8"Prefab asset write failed.");
+                return;
+            }
+
+            Array<byte> bytes;
+            const Span<const byte> view = payload.Bytes();
+            bytes.Reserve(view.Size());
+            for (byte b : view) { bytes.PushBack(b); }
+            const Guid instanceRoot =
+                m_editContext->ReplaceWithPrefabInstance(entityId, asset->Id(), Move(bytes));
+            if (!instanceRoot.IsNil())
+            {
+                String message(u8"Created prefab '");
+                message += name;
+                message += u8"'.";
+                m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+            }
+        }
+
+        // Spawn an instance under `parent` (nil = scene root) via the asset picker.
+        void PickAndSpawnPrefab(const Guid& parent)
+        {
+            if (m_context->Project() == nullptr || m_content->Context == nullptr) { return; }
+            Array<String> typeNames;
+            typeNames.PushBack(String(u8"PrefabDocument"));
+            auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                DefaultAllocator(), *m_context, Move(typeNames));
+            SceneEditorPage* page = this;
+            dialog->OnPicked = [page, parent](const Guid& picked) {
+                if (picked.IsNil() || page->m_context->Project() == nullptr) { return; }
+                draconic::content::Instance* prefab =
+                    page->m_context->Project()->SourceDb().GetInstance(picked);
+                UniquePtr<IStream> payload =
+                    (prefab != nullptr) ? prefab->ReadData(u8"scene") : UniquePtr<IStream>{};
+                if (payload.Get() == nullptr)
+                {
+                    page->m_context->Notify(draconic::editor::NoticeKind::Warning,
+                                            u8"Prefab has no content yet (save it once first).");
+                    return;
+                }
+                Array<byte> bytes;
+                bytes.Resize(static_cast<usize>(payload->Size()));
+                (void)payload->Read(bytes.Data(), bytes.Size());
+                (void)page->m_editContext->SpawnPrefabInstance(picked, Move(bytes), parent);
+            };
+            dialog->Show(m_content->Context);
+        }
+
         [[nodiscard]] Status Save() override
         {
             if (m_scene == nullptr || m_context->Project() == nullptr) { return Status{ ErrorCode::NotFound }; }
             draconic::content::Instance* instance = m_context->Project()->SourceDb().GetInstance(InstanceId());
             if (instance == nullptr) { return Status{ ErrorCode::NotFound }; }
 
-            const Status saved = dscene::SaveScene(*m_scene, *instance);
+            const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
+            const Status saved = isPrefab ? dscene::SavePrefab(*m_scene, *instance)
+                                          : dscene::SaveScene(*m_scene, *instance);
             if (saved.IsOk())
             {
                 ClearDirty();
-                DRACONIC_LOG_INFO(u8"Editor", u8"saved scene '{}'", m_title);
+                DRACONIC_LOG_INFO(u8"Editor", u8"saved {} '{}'",
+                                  isPrefab ? StringView(u8"prefab") : StringView(u8"scene"), m_title);
+                // Template changed: rebuild this prefab's instances in every OTHER open
+                // scene, preserving their deltas (capture -> respawn -> reapply).
+                if (isPrefab && m_scenes != nullptr)
+                {
+                    UniquePtr<IStream> payload = instance->ReadData(u8"scene");
+                    if (payload.Get() != nullptr)
+                    {
+                        Array<byte> bytes;
+                        bytes.Resize(static_cast<usize>(payload->Size()));
+                        (void)payload->Read(bytes.Data(), bytes.Size());
+                        const Guid prefabId = InstanceId();
+                        dscene::Scene* self = m_scene;
+                        EditorContext* context = m_context;
+                        m_scenes->ForEachScene([&](dscene::Scene& other) {
+                            if (&other == self) { return; }
+                            const u32 rebuilt = dscene::RebuildPrefabInstances(
+                                other, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() });
+                            if (rebuilt > 0 && context->Resources() != nullptr)
+                            {
+                                dscene::ResolveSceneResources(other, *context->Resources());
+                            }
+                        });
+                    }
+                }
             }
             return saved;
         }
@@ -741,6 +878,67 @@ export namespace draconic::editor
         uirt::UIHost* m_uiHost;
     };
 
+    // Prefab assets open on the SAME editor page - a prefab payload IS a scene stream (the
+    // page's Save branches to SavePrefab + rebuilds open instances).
+    class PrefabEditorPageFactory final : public IEditorPageFactory
+    {
+    public:
+        PrefabEditorPageFactory(rt::IApplicationHost& host, uirt::UIHost& uiHost)
+            : m_host(&host), m_uiHost(&uiHost) {}
+
+        [[nodiscard]] const TypeInfo* PrimaryType() const override
+        {
+            return &dscene::PrefabDocument::StaticType();
+        }
+
+        [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
+                                                       draconic::content::Instance& instance) override
+        {
+            return UniquePtr<EditorPage>(
+                DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
+                DefaultAllocator());
+        }
+
+    private:
+        rt::IApplicationHost* m_host;
+        uirt::UIHost* m_uiHost;
+    };
+
+    // Create a fresh empty prefab instance under "Prefabs/", named uniquely (Prefab,
+    // Prefab2, ...). Content arrives when the user saves the opened page (an unsaved prefab
+    // has no payload; spawning one warns).
+    inline draconic::content::Instance* CreatePrefabInstance(EditorContext& context,
+                                                             draconic::content::Group* target = nullptr)
+    {
+        EditorProject* project = context.Project();
+        if (project == nullptr) { return nullptr; }
+
+        draconic::content::Group* prefabs = target;
+        if (prefabs == nullptr)
+        {
+            draconic::content::Group* root = project->SourceDb().RootGroup();
+            prefabs = root->GetGroup(u8"Prefabs");
+            if (prefabs == nullptr) { prefabs = root->CreateGroup(u8"Prefabs"); }
+        }
+        if (prefabs == nullptr) { return nullptr; }
+
+        String name(u8"Prefab");
+        for (i32 counter = 2; prefabs->GetInstance(name.AsView()) != nullptr; ++counter)
+        {
+            name = String(u8"Prefab");
+            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
+            if (counter >= 10) { name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10))); }
+        }
+
+        draconic::content::Instance* instance =
+            prefabs->CreateInstance(name.AsView(), dscene::PrefabDocument::StaticType());
+        if (instance == nullptr) { return nullptr; }
+        dscene::PrefabDocument doc;
+        doc.name = name;
+        if (!instance->WriteObject(doc).IsOk()) { return nullptr; }
+        return instance;
+    }
+
     // Create a fresh scene instance in the project's source DB under "Scenes/", named uniquely
     // (Scene, Scene2, ...). Writes the SceneDocument primary so the instance materializes; the
     // page treats the missing "scene" stream as an empty scene.
@@ -802,9 +1000,13 @@ export namespace draconic::editor
     {
         GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
         RegisterSerializable<dscene::SceneDocument>();
+        GlobalTypeRegistry().Register(dscene::PrefabDocument::StaticType());
+        RegisterSerializable<dscene::PrefabDocument>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<SceneEditorPageFactory>(host, uiHost), DefaultAllocator()));
+        context.Pages().Register(UniquePtr<IEditorPageFactory>(
+            DefaultAllocator().New<PrefabEditorPageFactory>(host, uiHost), DefaultAllocator()));
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Scene");
@@ -813,5 +1015,12 @@ export namespace draconic::editor
         };
         creator.setsDefaultScene = true;
         context.RegisterCreator(Move(creator));
+
+        EditorContext::AssetCreator prefabCreator;
+        prefabCreator.label = String(u8"Prefab");
+        prefabCreator.create = [](EditorContext& ctx, draconic::content::Group* group) {
+            return CreatePrefabInstance(ctx, group);
+        };
+        context.RegisterCreator(Move(prefabCreator));
     }
 }

@@ -532,6 +532,111 @@ export namespace draconic::editor
             return records;
         }
 
+    public:
+        // === Prefab instances ===
+
+        /// Spawns an instance of a prefab payload as an undoable command (redo recreates the
+        /// SAME member guids). `payload` is the prefab's "scene" stream, captured by value so
+        /// undo/redo stay stable against later asset edits. Returns the instance root's guid
+        /// (nil on failure); it becomes the selection.
+        Guid SpawnPrefabInstance(const Guid& prefabId, Array<byte> payload,
+                                 const Guid& parent = Guid{}, const Transform* rootTransform = nullptr)
+        {
+            SpawnPrefabCommand* raw = DefaultAllocator().New<SpawnPrefabCommand>(
+                *this, prefabId, Move(payload), parent, rootTransform);
+            if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
+            {
+                return Guid{};
+            }
+            const Guid created = raw->RootGuid();
+            m_selection.Set(created);
+            return created;
+        }
+
+        /// Replaces `entity`'s subtree with an instance of `prefabId` (create-from-selection's
+        /// second half): one undo group [spawn at the same parent/transform, destroy original].
+        Guid ReplaceWithPrefabInstance(const Guid& entity, const Guid& prefabId, Array<byte> payload)
+        {
+            const dscene::EntityHandle live = Resolve(entity);
+            if (!live.IsAssigned()) { return Guid{}; }
+            const dscene::EntityHandle parentHandle = m_scene->GetParent(live);
+            const Guid parent = parentHandle.IsAssigned() ? m_scene->GetEntityId(parentHandle) : Guid{};
+            const Transform placement = m_scene->GetLocalTransform(live);
+
+            m_commands->BeginGroup(u8"prefab_replace");
+            const Guid root = SpawnPrefabInstance(prefabId, Move(payload), parent, &placement);
+            if (!root.IsNil()) { DestroyEntity(entity); }
+            m_commands->EndGroup();
+            if (!root.IsNil()) { m_selection.Set(root); }
+            return root;
+        }
+
+        class SpawnPrefabCommand final : public IEditorCommand
+        {
+        public:
+            SpawnPrefabCommand(SceneEditContext& ctx, const Guid& prefabId, Array<byte> payload,
+                               const Guid& parent, const Transform* rootTransform)
+                : m_ctx(&ctx), m_prefabId(prefabId), m_payload(Move(payload)), m_parent(parent)
+            {
+                if (rootTransform != nullptr) { m_rootTransform = *rootTransform; m_hasTransform = true; }
+            }
+
+            [[nodiscard]] bool Execute() override
+            {
+                dscene::Scene& scene = m_ctx->Scene();
+                MemoryStream stream;
+                (void)stream.Write(m_payload.Data(), m_payload.Size());
+                (void)stream.Seek(0, SeekOrigin::Begin);
+                const dscene::EntityHandle parent = m_ctx->Resolve(m_parent);
+                const dscene::EntityHandle root = dscene::SpawnPrefab(
+                    scene, stream, m_prefabId, parent,
+                    m_preassigned.Size() > 0 ? &m_preassigned : nullptr);
+                if (!root.IsAssigned()) { return false; }
+                if (m_hasTransform) { scene.SetLocalTransform(root, m_rootTransform); }
+                m_rootId = scene.GetEntityId(root);
+                if (m_preassigned.Size() == 0)
+                {
+                    // First run: pin the minted member guids so redo recreates them exactly.
+                    if (dscene::Scene::PrefabInstanceState* state = scene.FindPrefabInstanceByRoot(m_rootId))
+                    {
+                        for (usize i = 0; i < state->sourceIds.Size(); ++i)
+                        {
+                            m_preassigned.InsertOrAssign(state->sourceIds[i], state->liveIds[i]);
+                        }
+                    }
+                }
+                m_ctx->ResolveRestoredResources();   // spawned refs render this frame
+                return true;
+            }
+
+            void Undo() override
+            {
+                dscene::Scene& scene = m_ctx->Scene();
+                // Destroy every live member (the root takes its subtree; FindEntity guards
+                // members already gone), then the bookkeeping.
+                for (const auto& kv : m_preassigned)
+                {
+                    const dscene::EntityHandle e = scene.FindEntity(kv.value);
+                    if (e.IsAssigned()) { scene.DestroyEntity(e); }
+                }
+                scene.RemovePrefabInstance(m_rootId);
+            }
+
+            [[nodiscard]] StringView TypeId() const override { return u8"spawn_prefab"; }
+            [[nodiscard]] Guid RootGuid() const { return m_rootId; }
+
+        private:
+            SceneEditContext* m_ctx;
+            Guid m_prefabId;
+            Array<byte> m_payload;
+            Guid m_parent;
+            Transform m_rootTransform{};
+            bool m_hasTransform = false;
+            Guid m_rootId;
+            HashMap<Guid, Guid> m_preassigned;   // source -> live; pinned on first Execute
+        };
+
+    private:
         Guid RunPasteCommand(Array<SubtreeRecord> records, const Guid& parent)
         {
             PasteEntitiesCommand* raw =
