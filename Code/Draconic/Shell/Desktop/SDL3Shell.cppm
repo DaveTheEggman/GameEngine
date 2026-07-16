@@ -683,28 +683,18 @@ export namespace draconic::shell
         void OpenPath(core::StringView path) override
         {
             if (path.IsEmpty()) { return; }
-            // SDL_OpenURL routes a file:// URI to the OS handler (xdg-open / ShellExecute / open),
-            // which opens a directory in the system file manager. Build the URI exactly like the
-            // proven Sedulous path: normalize backslashes to '/' (so Windows C:\a\b becomes C:/a/b -
-            // backslashes in the URI break the Windows handler) and prefix file:/// unconditionally.
-            core::String normalized(path);
-            normalized.Replace(core::utf8char('\\'), core::utf8char('/'));
-            core::String uri(u8"file:///");
-            uri += normalized;
-            // SDL_OpenURL returns true on success; on failure SDL_GetError() explains why. Log both so
-            // "nothing happened" is diagnosable (bad URI, no handler registered, sandbox block, ...).
-            const bool ok = SDL_OpenURL(reinterpret_cast<const char*>(uri.CStr()));
-            if (ok)
+            // Reveal via the native, non-blocking Core/System backend (Explorer / xdg-open), NOT
+            // SDL_OpenURL. SDL_OpenURL wraps ShellExecute on a file:// URL, which on Windows can
+            // synchronously block (or pop a protocol chooser) and hang this UI thread - observed
+            // reliably here and intermittently in the Beef/Sedulous build. OpenPathInFileManager
+            // launches detached and returns immediately.
+            if (core::OpenPathInFileManager(path))
             {
-                DRACONIC_LOG_DEBUG(u8"Shell", u8"OpenPath: SDL_OpenURL('{}') ok", uri.AsView());
+                DRACONIC_LOG_DEBUG(u8"Shell", u8"OpenPath: revealed '{}'", path);
             }
             else
             {
-                const char* err = SDL_GetError();
-                DRACONIC_LOG_WARNING(u8"Shell", u8"OpenPath: SDL_OpenURL('{}') failed: {}",
-                                     uri.AsView(),
-                                     core::StringView(reinterpret_cast<const core::utf8char*>(
-                                         (err != nullptr) ? err : "(null)")));
+                DRACONIC_LOG_WARNING(u8"Shell", u8"OpenPath: could not reveal '{}'", path);
             }
         }
 

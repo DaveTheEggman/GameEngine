@@ -104,3 +104,10 @@ TEST_CASE("system: console write does not crash")
     ConsoleWrite(u8"[draconic-test] console output check\n");
     CHECK(true);
 }
+
+TEST_CASE("system: OpenPathInFileManager rejects an empty path without launching")
+{
+    // Guard only - an empty/whitespace path must return false and NOT spawn a process. A real path is
+    // deliberately not exercised here: it would pop a file-manager window during the test run.
+    CHECK_FALSE(OpenPathInFileManager(u8""));
+}

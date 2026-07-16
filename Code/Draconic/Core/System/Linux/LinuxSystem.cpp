@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include <cstdio>   // std::rename
@@ -101,6 +102,30 @@ namespace draconic::core::sys
             out[k] = '\0';
         }
         return length;
+    }
+
+    bool OpenPathInFileManager(const char* path) noexcept
+    {
+        if (path == nullptr || path[0] == '\0') { return false; }
+        // Double-fork so the grandchild (xdg-open) reparents to init and is reaped there - no zombie,
+        // no global SIGCHLD change. The parent only waits on the intermediate child, which exits
+        // immediately, so this never blocks the UI thread. xdg-open detaches from our stdio via setsid.
+        const pid_t child = fork();
+        if (child < 0) { return false; }
+        if (child == 0)
+        {
+            const pid_t grandchild = fork();
+            if (grandchild == 0)
+            {
+                setsid();
+                execlp("xdg-open", "xdg-open", path, static_cast<char*>(nullptr));
+                _exit(127);   // exec failed
+            }
+            _exit(0);         // intermediate exits right away
+        }
+        int status = 0;
+        (void)waitpid(child, &status, 0);
+        return true;          // launch initiated (xdg-open's own success isn't observable here)
     }
 
     void* PageAllocate(std::size_t size) noexcept

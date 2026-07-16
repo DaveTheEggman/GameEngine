@@ -44,6 +44,13 @@ namespace draconic::core::sys
     // truncation / return contract as GetEnvironmentVariable; 0 on failure.
     std::size_t GetExecutablePath(char* out, std::size_t outSize) noexcept;
 
+    // --- OS integration ----------------------------------------------------
+    // Open `path` (a directory) in the OS file manager: Explorer via CreateProcess on Windows,
+    // xdg-open (double-forked) on Linux. NON-BLOCKING - launches detached and returns immediately;
+    // true once the launch was initiated (not that the manager finished opening), false if it could
+    // not be started or `path` is empty. Must never block the caller (it runs on the UI thread).
+    bool OpenPathInFileManager(const char* path) noexcept;
+
     // --- Virtual memory (page-granular) ------------------------------------
     void* PageAllocate(std::size_t size) noexcept;   // nullptr on failure
     void PageFree(void* pointer, std::size_t size) noexcept;

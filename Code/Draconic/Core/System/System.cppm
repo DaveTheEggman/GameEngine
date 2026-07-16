@@ -242,4 +242,11 @@ export namespace draconic::core
         }
         return found ? String(path.AsView().SubStr(0, slash)) : String{};
     }
+
+    // Open a directory in the OS file manager (Explorer / xdg-open). Non-blocking; true once the
+    // launch was initiated, false if it could not start or `path` is empty. See the backend note.
+    inline bool OpenPathInFileManager(StringView path) noexcept
+    {
+        return sys::OpenPathInFileManager(detail::NullTerminated(path).CStr());
+    }
 }

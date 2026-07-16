@@ -76,6 +76,29 @@ namespace draconic::core::sys
         return static_cast<std::size_t>(n);
     }
 
+    bool OpenPathInFileManager(const char* path) noexcept
+    {
+        if (path == nullptr || path[0] == '\0') { return false; }
+        // Launch Explorer on the folder via CreateProcess (kernel32) - NOT ShellExecute / a file://
+        // URL, both of which can synchronously block or pop a protocol chooser and hang the UI thread.
+        // CreateProcess returns as soon as the child starts (we don't wait), so this can never block.
+        // Quotes let the path contain spaces; explorer parses its own command line. Core needs no
+        // shell32 link this way. Backslash paths are fine (Explorer's native separator).
+        char command[4096];
+        std::snprintf(command, sizeof(command), "explorer.exe \"%s\"", path);
+        STARTUPINFOA startup{};
+        startup.cb = sizeof(startup);
+        PROCESS_INFORMATION process{};
+        if (!::CreateProcessA(nullptr, command, nullptr, nullptr, FALSE, 0, nullptr, nullptr,
+                              &startup, &process))
+        {
+            return false;
+        }
+        ::CloseHandle(process.hThread);
+        ::CloseHandle(process.hProcess);
+        return true;
+    }
+
     void* PageAllocate(std::size_t size) noexcept
     {
         if (size == 0) { return nullptr; }
