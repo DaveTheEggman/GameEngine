@@ -281,40 +281,84 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(hostDir.AsView()));
-    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"win-template").AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"foreign-template").AsView()));
 
     draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
     draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
 
-    // One imported template for Win64 under <root>/win-template/template.xml.
-    ed::ExportTemplate win;
-    win.id = String(u8"raptor-win64-0.1.0"); win.platform = String(u8"Win64");
-    win.playerBinary = String(u8"RaptorPlayer.exe");
-    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), win, u8"win-template/template.xml").IsOk());
+    // One imported template for a NON-host platform, so the host-fallback check below is valid on
+    // every host: if the import shared the host platform it would out-rank the synthesized host
+    // (that branch has its own test). Pick whichever of Win64/Linux64 is not the current host.
+    const StringView hostPlatform = GetHostPlatformName();
+    const String foreignPlatform = (hostPlatform == StringView(u8"Win64"))
+        ? String(u8"Linux64") : String(u8"Win64");
+
+    ed::ExportTemplate foreign;
+    foreign.id = String(u8"raptor-foreign-0.1.0"); foreign.platform = foreignPlatform;
+    foreign.playerBinary = String(u8"RaptorPlayer");
+    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), foreign, u8"foreign-template/template.xml").IsOk());
 
     ed::TemplateRegistry reg;
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
-    CHECK(reg.Count() == 2u);   // imported win + synthesized host
+    CHECK(reg.Count() == 2u);   // imported foreign + synthesized host
 
     // Explicit id.
-    const ed::ExportTemplate* byId = reg.FindById(u8"raptor-win64-0.1.0");
+    const ed::ExportTemplate* byId = reg.FindById(u8"raptor-foreign-0.1.0");
     REQUIRE(byId != nullptr);
-    CHECK(byId->directory == PathJoin(rootDir.AsView(), u8"win-template"));
+    CHECK(byId->directory == PathJoin(rootDir.AsView(), u8"foreign-template"));
 
-    // By platform: imported wins for Win64; host for the host platform.
-    CHECK(reg.FindByPlatform(u8"Win64") == byId);
-    const ed::ExportTemplate* hostT = reg.FindByPlatform(GetHostPlatformName());
+    // By platform: the imported template answers its own platform; the host platform falls back to
+    // the synthesized host template.
+    CHECK(reg.FindByPlatform(foreignPlatform.AsView()) == byId);
+    const ed::ExportTemplate* hostT = reg.FindByPlatform(hostPlatform);
     REQUIRE(hostT != nullptr);
     CHECK(hostT->isHost);
 
-    // Resolve a preset: explicit id, blank-id-by-platform, and no-match => null.
+    // Resolve a preset: blank-id-by-platform, explicit id, and no-match => null.
     ed::ExportPreset p;
-    p.platform = String(u8"Win64");
+    p.platform = foreignPlatform;
     CHECK(reg.Resolve(p) == byId);                 // blank templateId -> by platform
-    p.templateId = String(u8"raptor-win64-0.1.0");
+    p.templateId = String(u8"raptor-foreign-0.1.0");
     CHECK(reg.Resolve(p) == byId);                 // explicit id
     ed::ExportPreset none; none.platform = String(u8"Nonexistent64");
     CHECK(reg.Resolve(none) == nullptr);
+
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
+}
+
+TEST_CASE("export: an imported template out-ranks the synthesized host for the host platform")
+{
+    const String rootDir = TempDir(u8"draconic_templates_hostwin");
+    const String hostDir = TempDir(u8"draconic_host_tooldir2");
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
+    REQUIRE(CreateDirectory(rootDir.AsView()));
+    REQUIRE(CreateDirectory(hostDir.AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"host-template").AsView()));
+
+    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+
+    // An imported template for the SAME platform as this host build.
+    ed::ExportTemplate imported;
+    imported.id = String(u8"raptor-host-import"); imported.platform = String(GetHostPlatformName());
+    imported.playerBinary = String(u8"RaptorPlayer");
+    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), imported, u8"host-template/template.xml").IsOk());
+
+    ed::TemplateRegistry reg;
+    reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
+    CHECK(reg.Count() == 2u);   // imported + synthesized host (same platform)
+
+    // FindByPlatform prefers the real imported bundle over the synthesized host template.
+    const ed::ExportTemplate* byPlatform = reg.FindByPlatform(GetHostPlatformName());
+    REQUIRE(byPlatform != nullptr);
+    CHECK_FALSE(byPlatform->isHost);
+    CHECK(byPlatform->id == u8"raptor-host-import");
+
+    // The synthesized host template is still present, reachable by its "host-<platform>" id.
+    String hostId(u8"host-"); hostId += GetHostPlatformName();
+    const ed::ExportTemplate* host = reg.FindById(hostId.AsView());
+    REQUIRE(host != nullptr);
+    CHECK(host->isHost);
 
     NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
 }
