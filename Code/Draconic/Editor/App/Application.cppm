@@ -35,6 +35,7 @@ import draconic.settings;
 import :assets_view;
 import :editor_icons;
 import :settings_dialog;
+import :preferences_dialog;
 import :shell;
 import :ui_page;
 
@@ -689,9 +690,7 @@ export namespace draconic::editor::app
         void LoadEditorSettings()
         {
             ed::RegisterEditorSettingsTypes();
-            const String dir = GetUserDataDirectory(u8"draconic");
-            draconic::vfs::NativeFileSystem fs(dir.AsView());
-            (void)ed::LoadEditorSettings(fs, m_editorSettings);   // NotFound on first run is fine
+            (void)ed::LoadEditorSettingsFromUserData(m_editorSettings);   // NotFound on first run is fine
         }
 
         // The editor's export templates root: the EditorExportSettings override when set, else
@@ -1025,6 +1024,10 @@ export namespace draconic::editor::app
                         auto dialog = MakeRef<ProjectSettingsDialog>(DefaultAllocator(), m_context);
                         dialog->Show(&m_uiHost->Context());
                     }
+                });
+                file->AddItem(u8"Preferences...", [this]() {
+                    auto dialog = MakeRef<EditorPreferencesDialog>(DefaultAllocator(), m_context, m_editorSettings);
+                    dialog->Show(&m_uiHost->Context());
                 });
                 file->AddSeparator();
                 file->AddItem(u8"Export...", [this]() { OpenExportDialog(); });

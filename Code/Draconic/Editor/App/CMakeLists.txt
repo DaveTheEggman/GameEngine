@@ -22,6 +22,7 @@ target_sources(DraconicEditorApp
             AssetsView.cppm
             AssetPickerDialog.cppm
             SettingsDialog.cppm
+            PreferencesDialog.cppm
             EditorIcons.cppm
             Shell.cppm
             Application.cppm

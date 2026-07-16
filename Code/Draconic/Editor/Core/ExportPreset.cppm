@@ -179,6 +179,21 @@ export namespace draconic::editor
         return root.Save(fileName, buffer.Bytes());
     }
 
+    // Load/save the editor settings at their canonical location (<user-data>/editor.settings.xml).
+    // The editor uses these; tests use the fs-explicit forms above.
+    [[nodiscard]] inline Status LoadEditorSettingsFromUserData(settings::Settings& out)
+    {
+        vfs::NativeFileSystem fs(GetUserDataDirectory(u8"draconic").AsView());
+        return LoadEditorSettings(fs, out);
+    }
+    [[nodiscard]] inline Status SaveEditorSettingsToUserData(const settings::Settings& in)
+    {
+        const String dir = GetUserDataDirectory(u8"draconic");
+        (void)CreateDirectory(dir.AsView());   // ensure the leaf dir exists before writing
+        vfs::NativeFileSystem fs(dir.AsView());
+        return SaveEditorSettings(*fs.AsWritable(), in);
+    }
+
     DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "draconic::editor", 1)
     DRACONIC_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "draconic::editor", 1)
 }
