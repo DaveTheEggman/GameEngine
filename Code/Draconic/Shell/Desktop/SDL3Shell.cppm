@@ -683,13 +683,15 @@ export namespace draconic::shell
         void OpenPath(core::StringView path) override
         {
             if (path.IsEmpty()) { return; }
-            // SDL_OpenURL routes to the OS handler (xdg-open / ShellExecute / open). A local path needs
-            // the file:// scheme; an absolute POSIX path already starts with '/', so file:// + /x =
-            // file:///x. A Windows drive path (C:\...) gets the extra leading slash: file:///C:/...
-            core::String url(u8"file://");
-            if (path[0] != core::utf8char('/')) { url += u8"/"; }
-            url += path;
-            (void)SDL_OpenURL(reinterpret_cast<const char*>(url.CStr()));
+            // SDL_OpenURL routes a file:// URI to the OS handler (xdg-open / ShellExecute / open),
+            // which opens a directory in the system file manager. Build the URI exactly like the
+            // proven Sedulous path: normalize backslashes to '/' (so Windows C:\a\b becomes C:/a/b -
+            // backslashes in the URI break the Windows handler) and prefix file:/// unconditionally.
+            core::String normalized(path);
+            normalized.Replace(core::utf8char('\\'), core::utf8char('/'));
+            core::String uri(u8"file:///");
+            uri += normalized;
+            (void)SDL_OpenURL(reinterpret_cast<const char*>(uri.CStr()));
         }
 
     private:

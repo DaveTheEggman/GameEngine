@@ -237,6 +237,19 @@ export namespace draconic::core
             m_size -= count;
         }
 
+        // In-place replace of every code unit equal to `from` with `to` (size-preserving; no realloc).
+        // Returns the number replaced. Code-unit granular - intended for ASCII/separator characters.
+        usize Replace(CharT from, CharT to)
+        {
+            CharT* data = Data();
+            usize replaced = 0;
+            for (usize i = 0; i < m_size; ++i)
+            {
+                if (data[i] == from) { data[i] = to; ++replaced; }
+            }
+            return replaced;
+        }
+
         // --- access --------------------------------------------------------
         [[nodiscard]] CharT& operator[](usize index) noexcept
         {

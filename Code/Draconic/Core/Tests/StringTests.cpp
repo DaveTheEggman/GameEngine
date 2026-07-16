@@ -223,6 +223,26 @@ TEST_CASE("string: Remove closes the gap and clamps ranges")
     CHECK(u.CStr()[u.Size()] == u'\0');
 }
 
+TEST_CASE("string: Replace swaps every matching code unit in place")
+{
+    String s = u8"C:\\a\\b\\c";
+    const usize n = s.Replace(u8'\\', u8'/');
+    CHECK(n == 3u);
+    CHECK(s == u8"C:/a/b/c");
+    CHECK(s.Size() == 8u);                 // size-preserving
+    CHECK(s.CStr()[s.Size()] == u'\0');    // still null-terminated
+
+    // No match => zero replaced, string untouched.
+    String t = u8"nothing";
+    CHECK(t.Replace(u8'x', u8'y') == 0u);
+    CHECK(t == u8"nothing");
+
+    // Empty string is a no-op.
+    String e;
+    CHECK(e.Replace(u8'a', u8'b') == 0u);
+    CHECK(e.Size() == 0u);
+}
+
 // --- UTF-8 codepoint iteration & encoding ----------------------------------
 
 TEST_CASE("string: DecodeUtf8 walks Unicode scalars")
