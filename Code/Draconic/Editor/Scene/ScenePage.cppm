@@ -360,9 +360,42 @@ export namespace draconic::editor
             m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
         }
 
-        // Revert-instance: discard this instance's deltas (respawn from the current template,
-        // placement kept). Not undoable - the notice says so.
+        // Revert-instance entry point: destructive + not undoable, so it confirms first.
+        // Non-member children under the instance are destroyed too - the dialog says so.
         void RevertInstance(const Guid& rootId)
+        {
+            if (m_scene == nullptr || m_context->Project() == nullptr
+                || m_content->Context == nullptr)
+            {
+                return;
+            }
+            if (m_scene->FindPrefabInstanceByRoot(rootId) == nullptr) { return; }
+            dscene::EntityHandle root = m_scene->FindEntity(rootId);
+            String message(u8"Revert '");
+            message += m_scene->GetEntityName(root);
+            message += u8"' to its prefab? All overrides on this instance are discarded, and "
+                       u8"any non-prefab entities parented under it are destroyed. This cannot "
+                       u8"be undone.";
+            SceneEditorPage* page = this;
+            RefPtr<draconic::ui::Dialog> dialog =
+                draconic::ui::Dialog::Confirm(u8"Revert Instance", message.AsView());
+            dialog->OnClosed.Add(
+                draconic::ui::Event<void(draconic::ui::Dialog*, draconic::ui::DialogResult)>::Handler{
+                    [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result) {
+                        if (result != draconic::ui::DialogResult::OK) { return; }
+                        // Deferred: the revert destroys entities (and their hierarchy rows),
+                        // never mid-event-dispatch.
+                        draconic::ui::UIContext* ctx = page->m_content->Context;
+                        if (ctx == nullptr) { return; }
+                        ctx->MutationQueueRef().QueueAction(Function<void()>{
+                            [page, rootId]() { page->RevertInstanceNow(rootId); } });
+                    } });
+            dialog->Show(m_content->Context);
+        }
+
+        // Revert-instance: discard this instance's deltas (respawn from the current template,
+        // placement kept). Not undoable.
+        void RevertInstanceNow(const Guid& rootId)
         {
             if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
             dscene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
