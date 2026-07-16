@@ -169,14 +169,14 @@ export namespace draconic::editor
         class Row final : public ui::EditableLabel
         {
         public:
-            void Bind(const Guid& entity, StringView name, i32 depth, bool prefabRoot)
+            void Bind(const Guid& entity, StringView name, i32 depth, bool prefabMember)
             {
                 m_entity = entity;
                 SetText(name);
                 TextOffsetX.SetValue(static_cast<f32>(depth + 1) * 20.0f);
-                // Prefab-instance roots read distinctly (the Unity-blue convention); the text
-                // itself stays clean so in-place renames never absorb a marker.
-                if (prefabRoot) { TextColor.SetValue(Color{ 0.45f, 0.72f, 1.0f, 1.0f }); }
+                // Every prefab-instance member reads distinctly (the Unity-blue convention);
+                // the text itself stays clean so in-place renames never absorb a marker.
+                if (prefabMember) { TextColor.SetValue(Color{ 0.45f, 0.72f, 1.0f, 1.0f }); }
                 else { TextColor.SetValue(Optional<Color>{}); }
             }
             [[nodiscard]] const Guid& Entity() const noexcept { return m_entity; }
@@ -227,9 +227,10 @@ export namespace draconic::editor
             {
                 if (!InRange(nodeId)) { return; }
                 const Node& node = m_owner->m_nodes[static_cast<usize>(nodeId)];
-                const bool prefabRoot =
-                    m_owner->m_edit->Scene().FindPrefabInstanceByRoot(node.id) != nullptr;
-                static_cast<Row*>(view)->Bind(node.id, node.name.AsView(), depth, prefabRoot);
+                dscene::PrefabMemberInfo member;
+                const bool prefabMember =
+                    dscene::FindPrefabMember(m_owner->m_edit->Scene(), node.id, member);
+                static_cast<Row*>(view)->Bind(node.id, node.name.AsView(), depth, prefabMember);
             }
 
             // Between-rows reorder: `toPosition` is the insert-before BOUNDARY (0..count;
@@ -320,14 +321,17 @@ export namespace draconic::editor
                 menu->AddItem(u8"Spawn Prefab at Root", [self]() {
                     if (self->OnSpawnPrefab) { self->OnSpawnPrefab(Guid{}); }
                 });
-                if (edit->Scene().FindPrefabInstanceByRoot(id) != nullptr)
+                dscene::PrefabMemberInfo member;
+                if (dscene::FindPrefabMember(edit->Scene(), id, member))
                 {
+                    // Reachable from ANY member, acting on the whole owning instance.
+                    const Guid rootId = member.state->rootEntityId;
                     menu->AddSeparator();
-                    menu->AddItem(u8"Apply to Prefab", [self, id]() {
-                        if (self->OnApplyPrefab) { self->OnApplyPrefab(id); }
+                    menu->AddItem(u8"Apply to Prefab", [self, rootId]() {
+                        if (self->OnApplyPrefab) { self->OnApplyPrefab(rootId); }
                     });
-                    menu->AddItem(u8"Revert Instance", [self, id]() {
-                        if (self->OnRevertPrefab) { self->OnRevertPrefab(id); }
+                    menu->AddItem(u8"Revert Instance", [self, rootId]() {
+                        if (self->OnRevertPrefab) { self->OnRevertPrefab(rootId); }
                     });
                 }
                 if (EditorContext* editor = self->m_editor)

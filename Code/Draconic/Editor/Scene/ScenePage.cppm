@@ -461,6 +461,22 @@ export namespace draconic::editor
             if (instance == nullptr) { return Status{ ErrorCode::NotFound }; }
 
             const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
+            if (isPrefab)
+            {
+                usize rootCount = 0;
+                for (dscene::EntityHandle r = m_scene->GetFirstRoot(); r.IsAssigned();
+                     r = m_scene->GetNextSibling(r))
+                {
+                    ++rootCount;
+                }
+                if (rootCount > 1)
+                {
+                    m_context->Notify(draconic::editor::NoticeKind::Warning,
+                                      u8"A prefab needs exactly one root entity - parent "
+                                      u8"everything under a single root, then save.");
+                    return Status{ ErrorCode::InvalidArgument };
+                }
+            }
             const Status saved = isPrefab ? dscene::SavePrefab(*m_scene, *instance)
                                           : dscene::SaveScene(*m_scene, *instance);
             if (saved.IsOk())
@@ -1047,6 +1063,16 @@ export namespace draconic::editor
         dscene::PrefabDocument doc;
         doc.name = name;
         if (!instance->WriteObject(doc).IsOk()) { return nullptr; }
+
+        // Seed one root entity so the prefab opens in the enforced single-root shape and is
+        // spawnable immediately (an empty payload can't spawn).
+        dscene::Scene seed(u8"seed");
+        dscene::EntityHandle root = seed.CreateEntity(name.AsView());
+        MemoryStream buffer;
+        if (dscene::CapturePrefab(seed, root, buffer).IsOk())
+        {
+            (void)instance->WriteData(u8"scene", buffer.Bytes());
+        }
         return instance;
     }
 
