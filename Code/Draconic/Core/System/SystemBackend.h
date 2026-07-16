@@ -85,6 +85,9 @@ namespace draconic::core::sys
     bool FileDelete(const char* path) noexcept;
     // Rename/move a file OR directory (same volume). True on success.
     bool FileMove(const char* from, const char* to) noexcept;
+    // Copy PRESERVING permissions (staged executables keep +x; Windows CopyFileW does this
+    // natively, POSIX re-applies the source mode). True on success; overwrites dst.
+    bool FileCopyPreserving(const char* from, const char* to) noexcept;
     // File size + last-write time (seconds since epoch). False if the file doesn't exist.
     bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept;
     bool DirectoryExists(const char* path) noexcept;

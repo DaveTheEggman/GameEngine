@@ -190,6 +190,12 @@ namespace draconic::core::sys
         return MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING) != 0;
     }
 
+    bool FileCopyPreserving(const char* from, const char* to) noexcept
+    {
+        // CopyFileA preserves attributes natively (there is no +x bit on Windows).
+        return CopyFileA(from, to, FALSE /*overwrite*/) != 0;
+    }
+
     bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept
     {
         WIN32_FILE_ATTRIBUTE_DATA data{};

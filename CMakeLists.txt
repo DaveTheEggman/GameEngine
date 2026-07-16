@@ -82,6 +82,10 @@ target_compile_definitions(draconic_policy INTERFACE
 
 target_compile_options(draconic_policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-fno-exceptions;-fno-rtti>
+    # GCC modules: eager gcm loading. The default lazy loader intermittently fails to merge
+    # template pendings across module imports ("failed to read compiled module cluster" /
+    # "failed to load pendings for ...") - deterministic in RaptorCook's import mix on GCC 15.2.
+    $<$<CXX_COMPILER_ID:GNU>:-fno-module-lazy>
     $<$<CXX_COMPILER_ID:MSVC>:/EHs-c-;/GR->)
 
 # Warnings

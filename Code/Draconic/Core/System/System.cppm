@@ -111,6 +111,13 @@ export namespace draconic::core
 
     inline bool FileDelete(StringView path) noexcept { return sys::FileDelete(detail::NullTerminated(path).CStr()); }
     /// Rename/move a file OR directory (same volume).
+    /// Copy PRESERVING permissions (staged executables keep their +x bit). Overwrites.
+    inline bool FileCopyPreserving(StringView from, StringView to) noexcept
+    {
+        return sys::FileCopyPreserving(detail::NullTerminated(from).CStr(),
+                                       detail::NullTerminated(to).CStr());
+    }
+
     inline bool FileMove(StringView from, StringView to) noexcept
     {
         return sys::FileMove(detail::NullTerminated(from).CStr(), detail::NullTerminated(to).CStr());
@@ -129,6 +136,21 @@ export namespace draconic::core
 
     [[nodiscard]] inline bool DirectoryExists(StringView path) noexcept { return sys::DirectoryExists(detail::NullTerminated(path).CStr()); }
     inline bool CreateDirectory(StringView path) noexcept { return sys::CreateDirectory(detail::NullTerminated(path).CStr()); }
+    /// Recursive mkdir: creates every missing segment (true if the full path exists after).
+    inline bool CreateDirectories(StringView path) noexcept
+    {
+        if (path.IsEmpty()) { return false; }
+        const utf8char* d = path.Data();
+        for (usize i = 1; i < path.Size(); ++i)
+        {
+            if (d[i] == u8'/' || d[i] == u8'\\')
+            {
+                if (i > 0 && (d[i - 1] == u8'/' || d[i - 1] == u8'\\' || d[i - 1] == u8':')) { continue; }
+                if (!CreateDirectory(path.SubStr(0, i))) { return false; }
+            }
+        }
+        return CreateDirectory(path);
+    }
     inline bool RemoveDirectory(StringView path) noexcept { return sys::RemoveDirectory(detail::NullTerminated(path).CStr()); }
 
     // Lists immediate children of a directory, invoking `cb(ctx, name, isDir)`

@@ -15,7 +15,6 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
-#include <filesystem>   // copy_file (preserves the +x bit on staged executables) + create_directories
 
 export module draconic.editor.core:export_pipeline;
 
@@ -144,14 +143,12 @@ export namespace draconic::editor
         // +x bit, which a VFS read+write would drop). True on success.
         inline bool CopyFilePreserving(StringView srcDir, StringView srcName, StringView dstDir, StringView dstName)
         {
-            namespace fs = std::filesystem;
-            std::error_code ec;
-            const fs::path src = fs::path(reinterpret_cast<const char*>(String(srcDir).CStr()))
-                               / reinterpret_cast<const char*>(String(srcName).CStr());
-            const fs::path dst = fs::path(reinterpret_cast<const char*>(String(dstDir).CStr()))
-                               / reinterpret_cast<const char*>(String(dstName).CStr());
-            fs::copy_file(src, dst, fs::copy_options::overwrite_existing, ec);
-            return !ec;
+            // Core/System backend (POSIX re-applies the source mode; Windows CopyFile preserves
+            // natively). std::filesystem is deliberately NOT used in this module: referencing it
+            // from exported inline code broke GCC's module serialization for importers
+            // ("failed to load pendings for __gnu_cxx::__concurrence_unlock_error").
+            return FileCopyPreserving(PathJoin(srcDir, srcName).AsView(),
+                                      PathJoin(dstDir, dstName).AsView());
         }
 
         // Last path component of `path` (after the final '/' or '\\').
@@ -371,11 +368,7 @@ export namespace draconic::editor
         result.outputDir = PathJoin(outRoot, subdir.AsView());
 
         // Ensure the output dir (and outRoot) exist before the content pipeline writes into it.
-        {
-            std::error_code ec;
-            std::filesystem::create_directories(
-                reinterpret_cast<const char*>(result.outputDir.CStr()), ec);
-        }
+        (void)CreateDirectories(result.outputDir.AsView());
 
         const Status contentStatus = cook
             ? ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress)

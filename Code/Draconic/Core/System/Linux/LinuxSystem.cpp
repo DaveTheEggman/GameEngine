@@ -231,6 +231,37 @@ namespace draconic::core::sys
         return std::rename(from, to) == 0;
     }
 
+    bool FileCopyPreserving(const char* from, const char* to) noexcept
+    {
+        const int src = ::open(from, O_RDONLY);
+        if (src < 0) { return false; }
+        struct stat st{};
+        if (::fstat(src, &st) != 0) { ::close(src); return false; }
+        const int dst = ::open(to, O_WRONLY | O_CREAT | O_TRUNC, st.st_mode & 07777);
+        if (dst < 0) { ::close(src); return false; }
+        bool ok = true;
+        char buffer[64 * 1024];
+        for (;;)
+        {
+            const ssize_t got = ::read(src, buffer, sizeof(buffer));
+            if (got == 0) { break; }
+            if (got < 0) { ok = false; break; }
+            ssize_t written = 0;
+            while (written < got)
+            {
+                const ssize_t put = ::write(dst, buffer + written, static_cast<size_t>(got - written));
+                if (put <= 0) { ok = false; break; }
+                written += put;
+            }
+            if (!ok) { break; }
+        }
+        // O_CREAT mode is masked by umask - re-apply the exact source mode (the +x bit).
+        if (ok && ::fchmod(dst, st.st_mode & 07777) != 0) { ok = false; }
+        ::close(src);
+        ::close(dst);
+        return ok;
+    }
+
     bool DirectoryExists(const char* path) noexcept
     {
         struct stat st{};

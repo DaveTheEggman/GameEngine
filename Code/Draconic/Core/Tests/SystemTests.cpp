@@ -1,6 +1,9 @@
 #include <doctest/doctest.h>
 
 #include <cstring>
+#if !defined(_WIN32)
+#include <sys/stat.h>   // stat/chmod: FileCopyPreserving's +x-preservation check
+#endif
 
 #include "Core/Debug/Assert.h"
 #include "Core/Log/Log.h"
@@ -110,4 +113,44 @@ TEST_CASE("system: OpenPathInFileManager rejects an empty path without launching
     // Guard only - an empty/whitespace path must return false and NOT spawn a process. A real path is
     // deliberately not exercised here: it would pop a file-manager window during the test run.
     CHECK_FALSE(OpenPathInFileManager(u8""));
+}
+
+TEST_CASE("system: CreateDirectories makes every missing segment")
+{
+    const StringView root = u8"draconic_sys_mkdirs";
+    CHECK(CreateDirectories(u8"draconic_sys_mkdirs/a/b/c"));
+    CHECK(DirectoryExists(u8"draconic_sys_mkdirs/a/b/c"));
+    CHECK(CreateDirectories(u8"draconic_sys_mkdirs/a/b/c"));   // idempotent
+    (void)RemoveDirectory(u8"draconic_sys_mkdirs/a/b/c");
+    (void)RemoveDirectory(u8"draconic_sys_mkdirs/a/b");
+    (void)RemoveDirectory(u8"draconic_sys_mkdirs/a");
+    (void)RemoveDirectory(root);
+}
+
+TEST_CASE("system: FileCopyPreserving copies bytes and keeps the mode")
+{
+    const StringView src = u8"draconic_sys_copy_src.bin";
+    const StringView dst = u8"draconic_sys_copy_dst.bin";
+    {
+        FileHandle f = FileOpen(src, FileMode::Write);
+        REQUIRE(FileIsValid(f));
+        const char payload[] = "exec-me";
+        (void)FileWrite(f, payload, sizeof(payload));
+        FileClose(f);
+    }
+#if !defined(_WIN32)
+    (void)::chmod("draconic_sys_copy_src.bin", 0755);   // the +x bit the copy must keep
+#endif
+    CHECK(FileCopyPreserving(src, dst));
+    u64 srcSize = 0, dstSize = 0; i64 t = 0;
+    CHECK(FileStat(src, srcSize, t));
+    CHECK(FileStat(dst, dstSize, t));
+    CHECK(srcSize == dstSize);
+#if !defined(_WIN32)
+    struct stat st{};
+    REQUIRE(::stat("draconic_sys_copy_dst.bin", &st) == 0);
+    CHECK((st.st_mode & 0111) != 0);   // execute bits preserved
+#endif
+    (void)FileDelete(src);
+    (void)FileDelete(dst);
 }
