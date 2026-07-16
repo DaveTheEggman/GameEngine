@@ -316,7 +316,7 @@ export namespace draconic::editor::app
             draconic::editor::EditorPage* page = m_context.OpenPage(instance);
             if (page == nullptr)
             {
-                m_context.SetStatus(u8"No editor registered for this asset type.");
+                m_context.Notify(ed::NoticeKind::Warning, u8"No editor registered for this asset type.");
                 return nullptr;
             }
             // All factories in this app produce UIEditorPages (:ui_page contract).
@@ -590,7 +590,7 @@ export namespace draconic::editor::app
             draconic::content::Instance* instance = creator.create(m_context, group);
             if (instance == nullptr)
             {
-                m_context.SetStatus(u8"Create failed (no project open?).");
+                m_context.Notify(ed::NoticeKind::Error, u8"Create failed (no project open?).");
                 return;
             }
             if (creator.setsDefaultScene && m_project && m_project->Settings().defaultSceneId.IsNil()
@@ -643,7 +643,11 @@ export namespace draconic::editor::app
                     if (entry.page->IsDirty() && !entry.page->Save().IsOk()) { allSaved = false; }
                 }
                 if (allSaved) { m_host->RequestExit(); }
-                else { m_context.SetStatus(u8"Save FAILED (see console) - staying open."); }
+                else
+                {
+                    m_context.Notify(ed::NoticeKind::Error,
+                                     u8"Save FAILED (see console) - staying open.");
+                }
                 rawDialog->Close(allSaved ? draconic::ui::DialogResult::OK
                                           : draconic::ui::DialogResult::Cancel);
             });
@@ -923,8 +927,10 @@ export namespace draconic::editor::app
                 if (newName.IsEmpty()) { return; }   // keep the dialog up; nothing to create
                 if (group->GetInstance(newName) != nullptr)
                 {
-                    m_context.SetStatus(u8"Save As: that name already exists in the group.");
-                    return;
+                    // Loud + sticky: a quiet status line reads as "saved" - it wasn't.
+                    m_context.Notify(ed::NoticeKind::Error,
+                                     u8"NOT saved: that name already exists in the group - pick another.");
+                    return;   // dialog stays up for the retry
                 }
                 // Re-resolve the page: the dialog is modal-ish but pages can close under it.
                 ed::EditorPage* target = nullptr;
@@ -940,7 +946,8 @@ export namespace draconic::editor::app
                 draconic::content::Instance* fresh = group->CreateInstance(newName, *type);
                 if (fresh == nullptr)
                 {
-                    m_context.SetStatus(u8"Save As: could not create the asset.");
+                    m_context.Notify(ed::NoticeKind::Error,
+                                     u8"NOT saved: could not create the new asset.");
                     return;
                 }
                 target->OnSavedAs(*fresh);
@@ -983,7 +990,8 @@ export namespace draconic::editor::app
                 }
                 else
                 {
-                    m_context.SetStatus(u8"Save FAILED (see console) - page stays open.");
+                    m_context.Notify(ed::NoticeKind::Error,
+                                     u8"Save FAILED (see console) - page stays open.");
                     rawDialog->Close(draconic::ui::DialogResult::Cancel);
                 }
             });

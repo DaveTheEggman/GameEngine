@@ -106,7 +106,8 @@ export namespace draconic::editor::app
             }
             else
             {
-                m_context->SetStatus(u8"Preferences save FAILED (see console).");
+                m_context->Notify(draconic::editor::NoticeKind::Error,
+                                  u8"Preferences save FAILED (see console).");
             }
             Close(ui::DialogResult::OK);
         }

@@ -980,7 +980,8 @@ export namespace draconic::editor::app
             content::Instance* copy = db.CloneInstance(id, name.AsView());
             if (copy == nullptr)
             {
-                m_context->SetStatus(u8"Duplicate FAILED (see console).");
+                m_context->Notify(draconic::editor::NoticeKind::Error,
+                                  u8"Duplicate FAILED (see console).");
                 return;
             }
             DRACONIC_LOG_INFO(u8"Assets", u8"duplicated '{}' -> '{}'", src->Path(), copy->Path());
@@ -1021,9 +1022,10 @@ export namespace draconic::editor::app
             const Status renamed = m_context->Project()->SourceDb().RenameInstance(id, name);
             if (!renamed.IsOk())
             {
-                m_context->SetStatus(renamed.Code() == ErrorCode::AlreadyExists
-                    ? StringView(u8"Rename failed: name already taken.")
-                    : StringView(u8"Rename FAILED (see console)."));
+                m_context->Notify(draconic::editor::NoticeKind::Error,
+                    renamed.Code() == ErrorCode::AlreadyExists
+                        ? StringView(u8"NOT renamed: name already taken.")
+                        : StringView(u8"Rename FAILED (see console)."));
                 Rebuild();   // snap the label back to the real name
                 return;
             }
@@ -1063,9 +1065,10 @@ export namespace draconic::editor::app
             const Status renamed = m_context->Project()->SourceDb().RenameGroup(*group, name);
             if (!renamed.IsOk())
             {
-                m_context->SetStatus(renamed.Code() == ErrorCode::AlreadyExists
-                    ? StringView(u8"Rename failed: name already taken.")
-                    : StringView(u8"Rename FAILED (see console)."));
+                m_context->Notify(draconic::editor::NoticeKind::Error,
+                    renamed.Code() == ErrorCode::AlreadyExists
+                        ? StringView(u8"NOT renamed: name already taken.")
+                        : StringView(u8"Rename FAILED (see console)."));
                 Rebuild();
                 return;
             }
@@ -1347,7 +1350,8 @@ export namespace draconic::editor::app
             else
             {
                 DRACONIC_LOG_WARNING(u8"Assets", u8"delete FAILED for group '{}'", path);
-                m_context->SetStatus(u8"Delete group FAILED (see console).");
+                m_context->Notify(draconic::editor::NoticeKind::Error,
+                                  u8"Delete group FAILED (see console).");
             }
             ClearDefaultSceneIfGone();
             Rebuild();   // the next cook's plan sweeps the orphaned products
