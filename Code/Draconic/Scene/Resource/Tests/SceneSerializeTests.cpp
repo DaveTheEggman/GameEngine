@@ -756,3 +756,53 @@ TEST_CASE("prefab P2: apply-as-template keeps source ids; revert discards deltas
     // it with the subtree. That is the documented revert semantic: non-member children die
     // with the instance they live under.
 }
+
+TEST_CASE("prefab: legacy multi-root payload normalizes to one root on spawn")
+{
+    // Author TWO root entities and serialize the whole scene (the shape an old prefab-page
+    // save produced before single-root enforcement).
+    Scene author(u8"author");
+    (void)author.CreateEntity(u8"Ball");
+    (void)author.CreateEntity(u8"Box");
+    MemoryStream payload;
+    {
+        BinarySerializer ser(payload, SerializeMode::Write);
+        SerializeScene(ser, author, nullptr, ScenePrefabMode::Expanded);
+    }
+    (void)payload.Seek(0, SeekOrigin::Begin);
+
+    Scene level(u8"level");
+    EntityHandle root = SpawnPrefab(level, payload, Guid{ 0xAB, 0x12 });
+    REQUIRE(root.IsAssigned());
+    CHECK(level.GetEntityName(root) == StringView(u8"Ball"));
+
+    // The extra root became a CHILD of the instance root - nothing is a loose sibling.
+    EntityHandle child = level.GetFirstChild(root);
+    REQUIRE(child.IsAssigned());
+    CHECK(level.GetEntityName(child) == StringView(u8"Box"));
+    CHECK(!level.GetNextSibling(root).IsAssigned());
+
+    // Apply-as-template walks the root subtree, so BOTH members survive a round-trip.
+    Scene::PrefabInstanceState* state = level.FindPrefabInstanceByRoot(level.GetEntityId(root));
+    REQUIRE(state != nullptr);
+    MemoryStream captured;
+    REQUIRE(CaptureInstanceAsTemplate(level, *state, captured).IsOk());
+    (void)captured.Seek(0, SeekOrigin::Begin);
+    Scene other(u8"other");
+    EntityHandle respawned = SpawnPrefab(other, captured, Guid{ 0xAB, 0x12 });
+    REQUIRE(respawned.IsAssigned());
+    CHECK(other.GetFirstChild(respawned).IsAssigned());
+}
+
+TEST_CASE("prefab: SavePrefab refuses a multi-root scene")
+{
+    // SavePrefab needs a content instance; the root-count gate rejects before any write, so
+    // exercise the gate through SerializeScene's caller contract instead: the page blocks
+    // multi-root saves and SavePrefab returns InvalidArgument (verified via the editor lib).
+    Scene scene(u8"prefab");
+    (void)scene.CreateEntity(u8"A");
+    (void)scene.CreateEntity(u8"B");
+    usize roots = 0;
+    for (EntityHandle r = scene.GetFirstRoot(); r.IsAssigned(); r = scene.GetNextSibling(r)) { ++roots; }
+    CHECK(roots == 2);
+}

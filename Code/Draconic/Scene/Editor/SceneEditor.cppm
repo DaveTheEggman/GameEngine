@@ -40,6 +40,14 @@ inline Status SaveScene(Scene& scene, draconic::content::Instance& instance) {
 // baked members instead of silently dropping them), and the stream doubles as the spawn
 // payload AND the edit page's load stream (both read plain entity records).
 inline Status SavePrefab(Scene& scene, draconic::content::Instance& instance) {
+    // A prefab is a single-rooted subtree; refuse a multi-root layout instead of saving a
+    // template whose apply/capture path would silently drop the sibling roots.
+    usize rootCount = 0;
+    for (EntityHandle r = scene.GetFirstRoot(); r.IsAssigned(); r = scene.GetNextSibling(r)) {
+        ++rootCount;
+    }
+    if (rootCount > 1) { return Status{ ErrorCode::InvalidArgument }; }
+
     PrefabDocument doc;
     doc.name = String(scene.Name());
     const Status wrote = instance.WriteObject(doc);

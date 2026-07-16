@@ -738,12 +738,16 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
     ar.EndArray();
     if (!ar.IsOk() || !firstRoot.IsAssigned()) { return EntityHandle::Invalid(); }
 
-    // Relink: payload-internal parents through the map; payload roots under `parent`.
+    // Relink: payload-internal parents through the map; the instance root under `parent`.
+    // A prefab is SINGLE-rooted (capture, tinting, and apply-to-prefab all walk one root's
+    // subtree); a legacy multi-root payload normalizes by parenting extra roots under the
+    // first so nothing silently falls outside the instance.
     for (usize i = 0; i < state->sourceIds.Size(); ++i) {
         EntityHandle child = scene.FindEntity(state->liveIds[i]);
         if (!child.IsAssigned()) { continue; }
         if (sourceParents[i] == Guid{}) {
-            if (parent.IsAssigned()) { scene.SetParent(child, parent); }
+            if (child != firstRoot) { scene.SetParent(child, firstRoot); }
+            else if (parent.IsAssigned()) { scene.SetParent(child, parent); }
         } else if (const Guid* liveParent = liveBySource.Find(sourceParents[i])) {
             EntityHandle p = scene.FindEntity(*liveParent);
             if (p.IsAssigned()) { scene.SetParent(child, p); }
