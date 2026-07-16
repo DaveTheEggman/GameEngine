@@ -540,10 +540,11 @@ export namespace draconic::editor
         /// undo/redo stay stable against later asset edits. Returns the instance root's guid
         /// (nil on failure); it becomes the selection.
         Guid SpawnPrefabInstance(const Guid& prefabId, Array<byte> payload,
-                                 const Guid& parent = Guid{}, const Transform* rootTransform = nullptr)
+                                 const Guid& parent = Guid{}, const Transform* rootTransform = nullptr,
+                                 const Guid& placeBefore = Guid{})
         {
             SpawnPrefabCommand* raw = DefaultAllocator().New<SpawnPrefabCommand>(
-                *this, prefabId, Move(payload), parent, rootTransform);
+                *this, prefabId, Move(payload), parent, rootTransform, placeBefore);
             if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
             {
                 return Guid{};
@@ -564,7 +565,9 @@ export namespace draconic::editor
             const Transform placement = m_scene->GetLocalTransform(live);
 
             m_commands->BeginGroup(u8"prefab_replace");
-            const Guid root = SpawnPrefabInstance(prefabId, Move(payload), parent, &placement);
+            // placeBefore = the original itself: the instance takes its exact sibling slot
+            // (spawn otherwise appends, dropping the replaced entity to the hierarchy's end).
+            const Guid root = SpawnPrefabInstance(prefabId, Move(payload), parent, &placement, entity);
             if (!root.IsNil()) { DestroyEntity(entity); }
             m_commands->EndGroup();
             if (!root.IsNil()) { m_selection.Set(root); }
@@ -575,8 +578,10 @@ export namespace draconic::editor
         {
         public:
             SpawnPrefabCommand(SceneEditContext& ctx, const Guid& prefabId, Array<byte> payload,
-                               const Guid& parent, const Transform* rootTransform)
-                : m_ctx(&ctx), m_prefabId(prefabId), m_payload(Move(payload)), m_parent(parent)
+                               const Guid& parent, const Transform* rootTransform,
+                               const Guid& placeBefore = Guid{})
+                : m_ctx(&ctx), m_prefabId(prefabId), m_payload(Move(payload)), m_parent(parent),
+                  m_placeBefore(placeBefore)
             {
                 if (rootTransform != nullptr) { m_rootTransform = *rootTransform; m_hasTransform = true; }
             }
@@ -593,6 +598,11 @@ export namespace draconic::editor
                     m_preassigned.Size() > 0 ? &m_preassigned : nullptr);
                 if (!root.IsAssigned()) { return false; }
                 if (m_hasTransform) { scene.SetLocalTransform(root, m_rootTransform); }
+                if (m_placeBefore != Guid{})
+                {
+                    const dscene::EntityHandle before = m_ctx->Resolve(m_placeBefore);
+                    if (before.IsAssigned()) { scene.MoveBefore(root, before); }
+                }
                 m_rootId = scene.GetEntityId(root);
                 if (m_preassigned.Size() == 0)
                 {
@@ -630,6 +640,7 @@ export namespace draconic::editor
             Guid m_prefabId;
             Array<byte> m_payload;
             Guid m_parent;
+            Guid m_placeBefore;   // sibling slot (replace flow: the entity being replaced)
             Transform m_rootTransform{};
             bool m_hasTransform = false;
             Guid m_rootId;

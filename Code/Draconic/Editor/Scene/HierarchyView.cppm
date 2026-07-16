@@ -309,6 +309,9 @@ export namespace draconic::editor
                 menu->AddItem(u8"Spawn Prefab as Child", [self, id]() {
                     if (self->OnSpawnPrefab) { self->OnSpawnPrefab(id); }
                 });
+                menu->AddItem(u8"Spawn Prefab at Root", [self]() {
+                    if (self->OnSpawnPrefab) { self->OnSpawnPrefab(Guid{}); }
+                });
                 if (EditorContext* editor = self->m_editor)
                 {
                     menu->AddItem(u8"Copy", [edit, editor, id]() {

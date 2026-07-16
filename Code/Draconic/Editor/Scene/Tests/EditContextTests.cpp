@@ -824,7 +824,9 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     SceneEditContext edit(scene, commands);
 
     const Guid parent = edit.CreateEntity(u8"Props");
+    const Guid before = edit.CreateEntity(u8"Before", parent);
     const Guid original = edit.CreateEntity(u8"OldCrate", parent);
+    const Guid after = edit.CreateEntity(u8"After", parent);
     {
         dscene::EntityHandle h = edit.Resolve(original);
         draconic::core::Transform t = scene.GetLocalTransform(h);
@@ -840,6 +842,11 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     REQUIRE(inst.IsAssigned());
     CHECK(scene.GetParent(inst) == edit.Resolve(parent));       // same parent
     CHECK(Abs(scene.GetLocalTransform(inst).position.x - 4.0f) < 1e-4f);   // same placement
+    // Same SIBLING SLOT: Before -> instance -> After (spawn otherwise appends at the end).
+    dscene::EntityHandle first = scene.GetFirstChild(edit.Resolve(parent));
+    CHECK(first == edit.Resolve(before));
+    CHECK(scene.GetNextSibling(first) == inst);
+    CHECK(scene.GetNextSibling(inst) == edit.Resolve(after));
 
     commands.Undo();   // ONE step: instance gone, original restored
     CHECK(!edit.Resolve(instanceRoot).IsAssigned());
