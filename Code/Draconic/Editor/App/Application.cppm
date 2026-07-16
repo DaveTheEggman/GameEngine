@@ -776,7 +776,7 @@ export namespace draconic::editor::app
                         request.actionLabel = String(u8"Open Folder");
                         request.onAction = [this, outRoot]()
                         {
-                            DRACONIC_LOG_INFO(u8"Editor", u8"Open Folder clicked -> reveal '{}'", outRoot.AsView());
+                            DRACONIC_LOG_DEBUG(u8"Editor", u8"Open Folder clicked -> reveal '{}'", outRoot.AsView());
                             if (m_host != nullptr && m_host->Shell() != nullptr
                                 && m_host->Shell()->Dialogs() != nullptr)
                             {

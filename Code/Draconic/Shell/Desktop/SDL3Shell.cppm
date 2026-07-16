@@ -696,7 +696,7 @@ export namespace draconic::shell
             const bool ok = SDL_OpenURL(reinterpret_cast<const char*>(uri.CStr()));
             if (ok)
             {
-                DRACONIC_LOG_INFO(u8"Shell", u8"OpenPath: SDL_OpenURL('{}') ok", uri.AsView());
+                DRACONIC_LOG_DEBUG(u8"Shell", u8"OpenPath: SDL_OpenURL('{}') ok", uri.AsView());
             }
             else
             {
