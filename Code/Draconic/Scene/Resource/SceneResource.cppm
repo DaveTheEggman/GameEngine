@@ -781,6 +781,154 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
     return firstRoot;
 }
 
+/// The prefab member owning `entityId`, if any: the instance state + the member's index
+/// (source id = state->sourceIds[index]). Inspector indicators and revert key on this.
+struct PrefabMemberInfo {
+    Scene::PrefabInstanceState* state = nullptr;
+    usize memberIndex = 0;
+};
+[[nodiscard]] inline bool FindPrefabMember(Scene& scene, const Guid& entityId, PrefabMemberInfo& out) {
+    bool found = false;
+    scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState& state) {
+        if (found) { return; }
+        for (usize i = 0; i < state.liveIds.Size(); ++i) {
+            if (state.liveIds[i] == entityId) { out.state = &state; out.memberIndex = i; found = true; return; }
+        }
+    });
+    return found;
+}
+
+[[nodiscard]] inline const Scene::PrefabComponentBaseline*
+FindPrefabBaseline(const Scene::PrefabInstanceState& state, const Guid& sourceId, StringView typeId) {
+    for (const Scene::PrefabComponentBaseline& b : state.componentBaselines) {
+        if (b.sourceEntity == sourceId && b.typeId.AsView() == typeId) { return &b; }
+    }
+    return nullptr;
+}
+
+/// True when the member's component differs from its spawn-time baseline (an OVERRIDE):
+/// modified bytes, added (no baseline), or removed (baseline without a live component).
+[[nodiscard]] inline bool IsPrefabComponentOverridden(Scene& scene, const PrefabMemberInfo& member,
+                                                      ComponentManagerBase& manager) {
+    const Guid sourceId = member.state->sourceIds[member.memberIndex];
+    const Scene::PrefabComponentBaseline* baseline =
+        FindPrefabBaseline(*member.state, sourceId, manager.SerializationTypeId());
+    EntityHandle live = scene.FindEntity(member.state->liveIds[member.memberIndex]);
+    const bool has = live.IsAssigned() && manager.HasComponent(live);
+    if (!has) { return baseline != nullptr; }
+    if (baseline == nullptr) { return true; }
+    Array<u8> blob;
+    detail::ComponentToBlob(manager, live, blob);
+    return !detail::BlobsEqual(Span<const u8>{ blob.Data(), blob.Size() },
+                               Span<const u8>{ baseline->blob.Data(), baseline->blob.Size() });
+}
+
+/// Captures an INSTANCE's current state as a template payload (apply-to-prefab): records are
+/// written with the members' SOURCE ids - other instances' deltas stay keyed correctly -
+/// while entities the user ADDED under the instance keep their live guids as brand-new
+/// source ids. The instance root records a nil parent, and ITS transform is written as the
+/// template's root transform (an applied placement is not part of the template).
+inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState& state, IStream& out) {
+    EntityHandle root = scene.FindEntity(state.rootEntityId);
+    if (!root.IsAssigned()) { return Status{ ErrorCode::NotFound }; }
+
+    // live guid -> source id substitution for every surviving member.
+    HashMap<Guid, Guid> sourceOf;
+    for (usize i = 0; i < state.sourceIds.Size(); ++i) {
+        sourceOf.InsertOrAssign(state.liveIds[i], state.sourceIds[i]);
+    }
+    auto substituted = [&](const Guid& live) -> Guid {
+        const Guid* source = sourceOf.Find(live);
+        return (source != nullptr) ? *source : live;   // user-added entities: live guid = new source id
+    };
+
+    BinarySerializer ar(out, SerializeMode::Write);
+    String name = String(scene.GetEntityName(root));
+    draconic::core::Serialize(ar, "name", name);
+
+    Array<EntityHandle> handles;
+    detail::CollectSubtree(scene, root, handles);
+
+    ar.Key("entities");
+    u32 entityCount = static_cast<u32>(handles.Size());
+    ar.BeginArray(entityCount);
+    for (EntityHandle e : handles) {
+        Guid id = substituted(scene.GetEntityId(e));
+        String ename = String(scene.GetEntityName(e));
+        u8 active = scene.IsActive(e) ? 1u : 0u;
+        Guid parentId = (e == root) ? Guid{} : substituted(scene.GetEntityId(scene.GetParent(e)));
+        Transform t = scene.GetLocalTransform(e);
+        detail::SerializeGuid(ar, "id", id);
+        draconic::core::Serialize(ar, "name", ename);
+        draconic::core::Serialize(ar, "active", active);
+        detail::SerializeGuid(ar, "parent", parentId);
+        detail::SerializeTransform(ar, t);
+    }
+    ar.EndArray();
+
+    struct Record { ComponentManagerBase* manager; EntityHandle owner; };
+    Array<Record> records;
+    scene.ForEachManager([&](ComponentManagerBase& m) {
+        if (!m.IsSerializable()) { return; }
+        for (EntityHandle owner : m.OwnerHandles()) {
+            for (EntityHandle e : handles) {
+                if (e == owner) { records.PushBack(Record{ &m, owner }); break; }
+            }
+        }
+    });
+    ar.Key("components");
+    u32 componentCount = static_cast<u32>(records.Size());
+    ar.BeginArray(componentCount);
+    for (Record& r : records) {
+        Guid ownerId = substituted(scene.GetEntityId(r.owner));
+        String typeId = String(r.manager->SerializationTypeId());
+        detail::SerializeGuid(ar, "owner", ownerId);
+        draconic::core::Serialize(ar, "type", typeId);
+        r.manager->WriteComponent(ar, r.owner);
+    }
+    ar.EndArray();
+
+    u32 settingsCount = 0;
+    ar.Key("systemSettings");
+    ar.BeginArray(settingsCount);
+    ar.EndArray();
+    return ar.IsOk() ? Status{} : ar.GetStatus();
+}
+
+/// Discards an instance's deltas: respawn from `payload` with the PRESERVED member guids and
+/// placement (parent + root transform), applying nothing else. Returns false if the root is
+/// gone or the payload fails to spawn.
+inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<const byte> payload) {
+    Scene::PrefabInstanceState* state = scene.FindPrefabInstanceByRoot(rootEntityId);
+    if (state == nullptr) { return false; }
+    EntityHandle root = scene.FindEntity(rootEntityId);
+    if (!root.IsAssigned()) { return false; }
+    const Guid prefabId = state->prefabId;
+    EntityHandle parentHandle = scene.GetParent(root);
+    const Guid parentId = parentHandle.IsAssigned() ? scene.GetEntityId(parentHandle) : Guid{};
+    const Transform placement = scene.GetLocalTransform(root);
+    HashMap<Guid, Guid> preassigned;
+    for (usize i = 0; i < state->sourceIds.Size(); ++i) {
+        preassigned.InsertOrAssign(state->sourceIds[i], state->liveIds[i]);
+    }
+    Array<Guid> liveIds = state->liveIds;
+
+    for (const Guid& live : liveIds) {
+        EntityHandle e = scene.FindEntity(live);
+        if (e.IsAssigned()) { scene.DestroyEntity(e); }
+    }
+    scene.RemovePrefabInstance(rootEntityId);
+
+    MemoryStream stream;
+    (void)stream.Write(payload.Data(), payload.Size());
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    EntityHandle parent = (parentId != Guid{}) ? scene.FindEntity(parentId) : EntityHandle::Invalid();
+    EntityHandle spawned = SpawnPrefab(scene, stream, prefabId, parent, &preassigned);
+    if (!spawned.IsAssigned()) { return false; }
+    scene.SetLocalTransform(spawned, placement);
+    return true;
+}
+
 /// Resolves the PENDING prefab instances a scene load parked (SerializeScene reads the
 /// ref+delta section but has no DB access): `resolver` maps a prefab id to its payload
 /// stream (editor: source DB; runtime: cooked DB). Respawns each instance with its SAVED

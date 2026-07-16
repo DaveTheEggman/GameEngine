@@ -686,3 +686,73 @@ TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
     CHECK(sawWindow);
     CHECK(level.PrefabInstanceCount() == 1u);
 }
+
+TEST_CASE("prefab P2: apply-as-template keeps source ids; revert discards deltas")
+{
+    Scene author(u8"author");
+    HealthManager* authorHealth = author.AddSystem<HealthManager>();
+    EntityHandle root = author.CreateEntity(u8"Cart");
+    EntityHandle wheel = author.CreateEntity(u8"Wheel");
+    author.SetParent(wheel, root);
+    authorHealth->Add(wheel).value = 10.0f;
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, root, payload).IsOk());
+    const Guid wheelSourceId = author.GetEntityId(wheel);
+
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    const Guid prefabId{ 0xCA, 0x87 };
+    EntityHandle inst = SpawnPrefab(level, payload, prefabId);
+    REQUIRE(inst.IsAssigned());
+    EntityHandle instWheel = level.GetFirstChild(inst);
+
+    // Member queries + override detection.
+    PrefabMemberInfo member;
+    REQUIRE(FindPrefabMember(level, level.GetEntityId(instWheel), member));
+    CHECK(member.state->sourceIds[member.memberIndex] == wheelSourceId);
+    ComponentManagerBase* mgr = level.FindManagerBySerializationId(u8"demo.Health");
+    REQUIRE(mgr != nullptr);
+    CHECK(!IsPrefabComponentOverridden(level, member, *mgr));
+    health->Get(instWheel)->value = 11.0f;
+    CHECK(IsPrefabComponentOverridden(level, member, *mgr));
+
+    // Apply-as-template: edits + a user-added child become the template, keyed by SOURCE ids.
+    EntityHandle lamp = level.CreateEntity(u8"Lamp");
+    level.SetParent(lamp, inst);
+    MemoryStream applied;
+    REQUIRE(CaptureInstanceAsTemplate(level, *member.state, applied).IsOk());
+
+    Scene check(u8"check");
+    HealthManager* checkHealth = check.AddSystem<HealthManager>();
+    (void)applied.Seek(0, SeekOrigin::Begin);
+    HashMap<Guid, Guid> pin;   // spawn with source ids AS live ids to inspect the template
+    pin.InsertOrAssign(wheelSourceId, wheelSourceId);
+    EntityHandle tRoot = SpawnPrefab(check, applied, prefabId, EntityHandle::Invalid(), &pin);
+    REQUIRE(tRoot.IsAssigned());
+    EntityHandle tWheel = check.FindEntity(wheelSourceId);   // SOURCE id preserved
+    REQUIRE(tWheel.IsAssigned());
+    CHECK(Near(checkHealth->Get(tWheel)->value, 11.0f));     // the applied override
+    u32 kids = 0;
+    for (EntityHandle c = check.GetFirstChild(tRoot); c.IsAssigned(); c = check.GetNextSibling(c)) { ++kids; }
+    CHECK(kids == 2u);                                        // wheel + the applied lamp
+
+    // Revert: back to the ORIGINAL template, same guids, deltas gone.
+    const Guid instId = level.GetEntityId(inst);
+    const Guid instWheelId = level.GetEntityId(instWheel);
+    level.SetLocalPosition(inst, Float3{ 7, 0, 0 });          // placement must SURVIVE revert
+    const Span<const byte> original = payload.Bytes();
+    REQUIRE(RevertPrefabInstance(level, instId, original));
+    EntityHandle rInst = level.FindEntity(instId);
+    EntityHandle rWheel = level.FindEntity(instWheelId);
+    REQUIRE(rInst.IsAssigned());
+    REQUIRE(rWheel.IsAssigned());
+    CHECK(Near(health->Get(rWheel)->value, 10.0f));           // override discarded
+    CHECK(Near(level.GetLocalTransform(rInst).position.x, 7.0f));   // placement kept
+    u32 rKids = 0;
+    for (EntityHandle c = level.GetFirstChild(rInst); c.IsAssigned(); c = level.GetNextSibling(c)) { ++rKids; }
+    CHECK(rKids == 1u);                                        // the user-added lamp is gone? NO -
+    // the lamp was parented under the instance but is NOT a member; destroying the root took
+    // it with the subtree. That is the documented revert semantic: non-member children die
+    // with the instance they live under.
+}
