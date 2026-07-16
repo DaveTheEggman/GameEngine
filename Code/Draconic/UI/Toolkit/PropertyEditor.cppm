@@ -62,8 +62,20 @@ export namespace draconic::ui::toolkit
         /// Display label shown in the inspector UI. Falls back to Name if not set.
         [[nodiscard]] StringView DisplayName() const { return m_displayName.IsEmpty() ? StringView(m_name) : StringView(m_displayName); }
 
-        /// Sets the display label (for pretty names like "Casts Shadows").
-        void SetDisplayName(StringView displayName) { m_displayName = String(displayName); }
+        /// Sets the display label (for pretty names like "Casts Shadows"). Live: a built
+        /// row's label follows (PropertyGrid binds the sink like it binds row visibility).
+        void SetDisplayName(StringView displayName)
+        {
+            m_displayName = String(displayName);
+            if (m_displayNameSink) { m_displayNameSink(DisplayName()); }
+        }
+
+        /// Called by PropertyGrid each time it (re)builds this editor's row: keeps the row's
+        /// label view in sync with later SetDisplayName calls.
+        void BindDisplayNameSink(Function<void(StringView)> sink)
+        {
+            m_displayNameSink = static_cast<Function<void(StringView)>&&>(sink);
+        }
 
         /// Plain-text tooltip for the whole row (empty = none). PropertyGrid copies it onto
         /// the row view's TooltipText when it builds the row.
@@ -149,7 +161,8 @@ export namespace draconic::ui::toolkit
         }
 
         String m_name;             // machine-readable identity
-        String m_displayName;      // empty == "use Name"
+        String m_displayName;
+        Function<void(StringView)> m_displayNameSink;   // row label binding (PropertyGrid)      // empty == "use Name"
         String m_category;         // empty == uncategorized
         String m_tooltip;          // empty == none
         RefPtr<View> m_editorView; // owned; the view tree also refs it once added

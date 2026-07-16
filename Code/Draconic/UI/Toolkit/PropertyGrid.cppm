@@ -215,6 +215,7 @@ export namespace draconic::ui::toolkit
                 {
                     if (boundEditor->OnLabelRenamed) { boundEditor->OnLabelRenamed(newName); }
                 });
+                editor->BindDisplayNameSink([raw = editableLabel.Get()](StringView text) { raw->SetText(text); });
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = LabelWidthRatio;
                 row->AddView(editableLabel.Get(), lp);
@@ -226,6 +227,7 @@ export namespace draconic::ui::toolkit
                 label->FontSize.SetValue(12.0f);
                 label->VAlign.SetValue(fonts::VerticalAlignment::Middle);
                 label->Ellipsis.SetValue(true);   // truncate instead of overflowing into the value when narrow
+                editor->BindDisplayNameSink([raw = label.Get()](StringView text) { raw->SetText(text); });
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = LabelWidthRatio;
                 row->AddView(label.Get(), lp);

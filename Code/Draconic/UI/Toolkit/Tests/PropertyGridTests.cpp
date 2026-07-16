@@ -66,3 +66,17 @@ TEST_CASE("toolkit-propertyeditor: TooltipAndRowVisibility")
     CHECK(row->Visibility == VisibilityValue::Visible);
     CHECK(ed->RowVisible());
 }
+
+TEST_CASE("toolkit-propertyeditor: display-name changes reach the bound label sink")
+{
+    // PropertyGrid binds each row's label view through BindDisplayNameSink so a later
+    // SetDisplayName (e.g. the inspector's prefab-override dot) updates the LIVE label
+    // instead of a string nobody re-reads.
+    auto editor = core::MakeRef<ButtonEditor>(core::DefaultAllocator(),
+        StringView(u8"Revert to Prefab"), core::Function<void()>{});
+    String seen;
+    editor->BindDisplayNameSink([&seen](StringView text) { seen = String(text); });
+    editor->SetDisplayName(StringView(u8"Revert to Prefab \u25cf"));
+    CHECK(seen == StringView(u8"Revert to Prefab \u25cf"));
+    CHECK(editor->DisplayName() == StringView(u8"Revert to Prefab \u25cf"));
+}
