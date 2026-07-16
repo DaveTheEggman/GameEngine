@@ -81,3 +81,28 @@ TEST_CASE("jobs: submissions run one at a time, in order")
     CHECK(order[1] == 1);
     CHECK(order[2] == 2);
 }
+
+TEST_CASE("cook service: external mutation lock defers RunWhenIdle until released")
+{
+    // The app wires ExternalMutationLock to the job service (a background export reads the
+    // DBs from its worker) - structural mutations must defer exactly like during a cook.
+    draconic::editor::EditorCookService cook;
+    bool busy = false;
+    cook.ExternalMutationLock = [&busy]() { return busy; };
+    CHECK(!cook.MutationLocked());
+
+    int ran = 0;
+    cook.RunWhenIdle(Function<void()>{ [&ran]() { ++ran; } });
+    CHECK(ran == 1);   // unlocked -> runs immediately
+
+    busy = true;
+    CHECK(cook.MutationLocked());
+    cook.RunWhenIdle(Function<void()>{ [&ran]() { ++ran; } });
+    CHECK(ran == 1);   // locked -> deferred
+    cook.Update({});
+    CHECK(ran == 1);   // still locked
+
+    busy = false;
+    cook.Update({});
+    CHECK(ran == 2);   // released -> the deferred action replays
+}

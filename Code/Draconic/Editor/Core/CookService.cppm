@@ -87,6 +87,19 @@ export namespace draconic::editor
         [[nodiscard]] bool IsReady() const noexcept { return m_driver.Get() != nullptr; }
         [[nodiscard]] bool IsCooking() const noexcept { return m_cooking.load(); }
 
+        /// External contributor to the mutation lock (wired by the app): e.g. a background
+        /// EXPORT job reads the source DB structure and packs cooked files from its worker,
+        /// so DB mutations and new cooks must hold off exactly like during a cook.
+        Function<bool()> ExternalMutationLock;
+
+        /// True while ANY background reader of the DBs is in flight (a cook, or an external
+        /// job via ExternalMutationLock). Every structural-mutation gate and the watcher key
+        /// on THIS, not on IsCooking alone.
+        [[nodiscard]] bool MutationLocked() const
+        {
+            return IsCooking() || (ExternalMutationLock && ExternalMutationLock());
+        }
+
         /// Bumped when a cook finishes - UI (badges) refreshes off it.
         [[nodiscard]] u64 Revision() const noexcept { return m_revision; }
 
@@ -96,7 +109,7 @@ export namespace draconic::editor
         void RequestCook(bool force = false)
         {
             if (!IsReady()) { return; }
-            if (IsCooking())
+            if (MutationLocked())   // cook running OR an external job is reading the DBs
             {
                 m_pendingCook = true;
                 m_pendingForce = m_pendingForce || force;
@@ -128,7 +141,7 @@ export namespace draconic::editor
         void RequestCookFor(Array<Guid> roots, bool force = false)
         {
             if (!IsReady() || roots.IsEmpty()) { return; }
-            if (IsCooking())
+            if (MutationLocked())
             {
                 EditorCookService* self = this;
                 RunWhenIdle(Function<void()>{ [self, roots = Move(roots), force]() mutable {
@@ -221,7 +234,7 @@ export namespace draconic::editor
 
             // Deferred source-DB mutations (imports/deletes queued while the cook worker was
             // reading snapshotted instances) + a cook request that arrived mid-cook.
-            if (!IsCooking())
+            if (!MutationLocked())
             {
                 if (!m_idleQueue.IsEmpty())
                 {
@@ -239,7 +252,9 @@ export namespace draconic::editor
             }
 
             // Watcher: throttled stat sweep; any source change queues an incremental cook.
-            if (m_watcher != nullptr && !IsCooking())
+            // Held off while ANY background DB reader runs (a mid-export cook would rewrite
+            // the very cooked files the export job is packing).
+            if (m_watcher != nullptr && !MutationLocked())
             {
                 const f64 now = TicksToSeconds(GetTicks());
                 if (now - m_lastWatchPoll >= kWatchPollSeconds)
@@ -262,7 +277,7 @@ export namespace draconic::editor
         /// only (like every other DB entry point).
         void RunWhenIdle(Function<void()> action)
         {
-            if (!IsCooking()) { if (action) { action(); } return; }
+            if (!MutationLocked()) { if (action) { action(); } return; }
             m_idleQueue.PushBack(Move(action));
         }
 

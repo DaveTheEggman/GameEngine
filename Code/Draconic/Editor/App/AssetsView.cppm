@@ -225,7 +225,7 @@ export namespace draconic::editor::app
             if (m_context->Project() == nullptr) { return; }
             // A cook in flight reads instance pointers snapshotted at plan time - creating
             // instances now is a race. Queue the import; the cook service replays it when idle.
-            if (m_cook->IsCooking())
+            if (m_cook->MutationLocked())
             {
                 AssetsView* self = this;
                 m_cook->RunWhenIdle(Function<void()>{ [self, file = String(path)]() {
@@ -935,7 +935,7 @@ export namespace draconic::editor::app
         void CreateGroupIn(content::Group* parent)
         {
             // Cook gate: see ImportFile (structural DB mutation while the plan worker reads).
-            if (m_cook->IsCooking())
+            if (m_cook->MutationLocked())
             {
                 AssetsView* self = this;
                 m_cook->RunWhenIdle(Function<void()>{ [self, parent]() { self->CreateGroupIn(parent); } });
@@ -1004,7 +1004,7 @@ export namespace draconic::editor::app
         void ApplyRenameInstance(const Guid& id, StringView name)
         {
             // Cook gate (renames move files + rewrite both DBs' entries).
-            if (m_cook->IsCooking())
+            if (m_cook->MutationLocked())
             {
                 AssetsView* self = this;
                 m_cook->RunWhenIdle(Function<void()>{ [self, id, renamed = String(name)]() {
@@ -1048,7 +1048,7 @@ export namespace draconic::editor::app
         void ApplyRenameGroup(content::Group* group, StringView name)
         {
             // Cook gate: see ApplyRenameInstance.
-            if (m_cook->IsCooking())
+            if (m_cook->MutationLocked())
             {
                 AssetsView* self = this;
                 m_cook->RunWhenIdle(Function<void()>{ [self, group, renamed = String(name)]() {
@@ -1226,7 +1226,7 @@ export namespace draconic::editor::app
         void DeleteInstances(const Array<Guid>& ids)
         {
             // Cook gate: see ImportFile/DeleteGroupNow.
-            if (m_cook->IsCooking())
+            if (m_cook->MutationLocked())
             {
                 AssetsView* self = this;
                 Array<Guid> copy = ids;
@@ -1316,7 +1316,7 @@ export namespace draconic::editor::app
             if (m_context->Project() == nullptr) { return; }
             // Same cook gate as ImportFile (deleting instances mid-cook dangles the worker's
             // snapshotted pointers).
-            if (m_cook->IsCooking())
+            if (m_cook->MutationLocked())
             {
                 AssetsView* self = this;
                 m_cook->RunWhenIdle(Function<void()>{ [self, group]() { self->DeleteGroupNow(group); } });

@@ -137,7 +137,11 @@ export namespace draconic::editor
             return view;
         }
 
-        void Shutdown() { JoinWorker(); }
+        void Shutdown()
+        {
+            CancelActive();   // cooperative - a polling job bails early instead of blocking exit
+            JoinWorker();
+        }
 
     private:
         struct Pending

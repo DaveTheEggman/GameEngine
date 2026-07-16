@@ -210,6 +210,10 @@ export namespace draconic::editor::app
                 m_cookService.Initialize(*m_project, m_builders);
                 // Pages request re-cooks after saving builder-backed assets (materials etc.).
                 m_context.OnCookRequested = [this](bool rebuild) { m_cookService.RequestCook(rebuild); };
+                // Background jobs (export) read the source DB structure and pack cooked FILES
+                // from their worker - DB mutations and new cooks must hold off while one runs,
+                // exactly like during a cook. The cook service folds this into MutationLocked.
+                m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
                 m_assetsView = MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService);
                 AssetsView* assets = m_assetsView.Get();
                 m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance) {
@@ -574,7 +578,7 @@ export namespace draconic::editor::app
         {
             // Cook gate: the plan worker reads the DBs with their structure frozen -
             // creating instances mid-plan is a race. Queue and replay when idle.
-            if (m_cookService.IsCooking())
+            if (m_cookService.MutationLocked())
             {
                 const draconic::editor::EditorContext::AssetCreator* entry = &creator;
                 m_cookService.RunWhenIdle(Function<void()>{ [this, entry, group]() {
