@@ -574,6 +574,37 @@ export namespace draconic::editor
             return root;
         }
 
+        /// Reverts a prefab member's component to its spawn-time baseline, UNDOABLY:
+        /// template components restore their baseline payload (re-added if the user removed
+        /// them), user-ADDED components (no baseline) are removed. No-op for non-members.
+        bool RevertComponentToBaseline(const Guid& entity, const TypeInfo* componentType)
+        {
+            dscene::PrefabMemberInfo member;
+            if (!dscene::FindPrefabMember(*m_scene, entity, member)) { return false; }
+            dscene::ComponentManagerBase* manager = FindManager(componentType);
+            if (manager == nullptr) { return false; }
+            const Guid sourceId = member.state->sourceIds[member.memberIndex];
+            const dscene::Scene::PrefabComponentBaseline* baseline =
+                dscene::FindPrefabBaseline(*member.state, sourceId, manager->SerializationTypeId());
+            if (baseline == nullptr)
+            {
+                // Added by the user: revert = remove (undoable through the existing command).
+                const dscene::EntityHandle live = Resolve(entity);
+                if (live.IsAssigned() && manager->HasComponent(live)) { RemoveComponent(entity, componentType); }
+                return true;
+            }
+            // The clipboard blob format (typeId + payload) rides the undoable paste path.
+            MemoryStream buffer;
+            BinarySerializer ar(buffer, SerializeMode::Write);
+            String typeId = String(manager->SerializationTypeId());
+            draconic::core::Serialize(ar, "type", typeId);
+            if (!ar.IsOk()) { return false; }
+            const usize headerSize = buffer.Bytes().Size();
+            (void)headerSize;
+            (void)buffer.Write(reinterpret_cast<const byte*>(baseline->blob.Data()), baseline->blob.Size());
+            return PasteComponent(entity, buffer.Bytes());
+        }
+
         class SpawnPrefabCommand final : public IEditorCommand
         {
         public:

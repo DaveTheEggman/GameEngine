@@ -853,3 +853,35 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     CHECK(edit.Resolve(original).IsAssigned());
     CHECK(scene.PrefabInstanceCount() == 0u);
 }
+
+TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
+{
+    dscene::Scene author(u8"author");
+    HealthManager* authorHealth = author.AddSystem<HealthManager>();
+    dscene::EntityHandle tmpl = author.CreateEntity(u8"Guard");
+    authorHealth->Add(tmpl).amount = 30;
+    MemoryStream payload;
+    REQUIRE(dscene::CapturePrefab(author, tmpl, payload).IsOk());
+    Array<byte> bytes;
+    for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+
+    dscene::Scene scene(u8"level");
+    HealthManager* health = scene.AddSystem<HealthManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    const Guid rootId = edit.SpawnPrefabInstance(Guid{ 0x5, 0x6 }, Move(bytes));
+    REQUIRE(!rootId.IsNil());
+    dscene::EntityHandle live = edit.Resolve(rootId);
+
+    // Override, then revert (undoable), then undo the revert.
+    health->Get(live)->amount = 31;
+    const TypeInfo* type = scene.FindManagerBySerializationId(u8"test.health")->ComponentType();
+    REQUIRE(edit.RevertComponentToBaseline(rootId, type));
+    CHECK(health->Get(live)->amount == 30);   // back to baseline
+    commands.Undo();
+    CHECK(health->Get(live)->amount == 31);   // the override is restored
+
+    // A user-ADDED component reverts by removal.
+    dscene::EntityHandle plain = scene.CreateEntity(u8"NotAMember");
+    CHECK(!edit.RevertComponentToBaseline(scene.GetEntityId(plain), type));   // non-member no-op
+}

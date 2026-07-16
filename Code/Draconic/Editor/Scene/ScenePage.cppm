@@ -129,6 +129,8 @@ export namespace draconic::editor
                     SceneEditorPage* page = this;
                     m_hierarchy->OnCreatePrefab = [page](const Guid& entity) { page->CreatePrefabFromEntity(entity); };
                     m_hierarchy->OnSpawnPrefab = [page](const Guid& parent) { page->PickAndSpawnPrefab(parent); };
+                    m_hierarchy->OnApplyPrefab = [page](const Guid& root) { page->ApplyInstanceToPrefab(root); };
+                    m_hierarchy->OnRevertPrefab = [page](const Guid& root) { page->RevertInstance(root); };
                 }
                 m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), context, *m_editContext);
                 m_gizmos = MakeUnique<GizmoController>(DefaultAllocator(), *m_editContext);
@@ -311,6 +313,82 @@ export namespace draconic::editor
                 message += name;
                 message += u8"'.";
                 m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+            }
+        }
+
+        // Apply-to-prefab: the instance's CURRENT state becomes the template (source-id
+        // keyed, so other instances' deltas stay valid), then every instance everywhere
+        // rebuilds from it - including this one, which re-baselines to clean.
+        void ApplyInstanceToPrefab(const Guid& rootId)
+        {
+            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            dscene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
+            if (state == nullptr) { return; }
+            draconic::content::Instance* asset =
+                m_context->Project()->SourceDb().GetInstance(state->prefabId);
+            if (asset == nullptr)
+            {
+                m_context->Notify(draconic::editor::NoticeKind::Warning,
+                                  u8"The instance's prefab asset no longer exists.");
+                return;
+            }
+            MemoryStream payload;
+            if (!dscene::CaptureInstanceAsTemplate(*m_scene, *state, payload).IsOk()
+                || !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
+            {
+                m_context->Notify(draconic::editor::NoticeKind::Error, u8"Apply to Prefab failed.");
+                return;
+            }
+            Array<byte> bytes;
+            for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+            const Guid prefabId = state->prefabId;
+            EditorContext* context = m_context;
+            if (m_scenes != nullptr)
+            {
+                m_scenes->ForEachScene([&](dscene::Scene& scene) {
+                    const u32 rebuilt = dscene::RebuildPrefabInstances(
+                        scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() });
+                    if (rebuilt > 0 && context->Resources() != nullptr)
+                    {
+                        dscene::ResolveSceneResources(scene, *context->Resources());
+                    }
+                });
+            }
+            String message(u8"Applied to prefab '");
+            message += asset->Name();
+            message += u8"' (not undoable - the asset changed).";
+            m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+        }
+
+        // Revert-instance: discard this instance's deltas (respawn from the current template,
+        // placement kept). Not undoable - the notice says so.
+        void RevertInstance(const Guid& rootId)
+        {
+            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            dscene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
+            if (state == nullptr) { return; }
+            draconic::content::Instance* asset =
+                m_context->Project()->SourceDb().GetInstance(state->prefabId);
+            UniquePtr<IStream> payload = (asset != nullptr) ? asset->ReadData(u8"scene")
+                                                            : UniquePtr<IStream>{};
+            if (payload.Get() == nullptr)
+            {
+                m_context->Notify(draconic::editor::NoticeKind::Warning,
+                                  u8"The instance's prefab asset no longer exists.");
+                return;
+            }
+            Array<byte> bytes;
+            bytes.Resize(static_cast<usize>(payload->Size()));
+            (void)payload->Read(bytes.Data(), bytes.Size());
+            if (dscene::RevertPrefabInstance(*m_scene, rootId,
+                                             Span<const byte>{ bytes.Data(), bytes.Size() }))
+            {
+                if (m_context->Resources() != nullptr)
+                {
+                    dscene::ResolveSceneResources(*m_scene, *m_context->Resources());
+                }
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"Instance reverted to its prefab (not undoable).");
             }
         }
 

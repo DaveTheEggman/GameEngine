@@ -563,6 +563,30 @@ export namespace draconic::editor
 
             SceneEditContext* edit = m_edit;
             EditorContext* editor = m_editor;
+
+            // Prefab members: a per-component revert row whose label carries a LIVE override
+            // dot (recomputed by the refresher, so it tracks edits and undo without grid
+            // rebuilds). Revert rides the undoable paste-component path.
+            {
+                dscene::PrefabMemberInfo member;
+                if (mgr.IsSerializable() && dscene::FindPrefabMember(edit->Scene(), id, member))
+                {
+                    auto revert = MakeRef<tk::ButtonEditor>(DefaultAllocator(),
+                        StringView(u8"Revert to Prefab"),
+                        Function<void()>{ [edit, id, type]() {
+                            (void)edit->RevertComponentToBaseline(id, type);
+                        } }, category);
+                    dscene::ComponentManagerBase* manager = &mgr;
+                    AddEditor(revert.Get(), [edit, id, manager, raw = revert.Get()]() {
+                        dscene::PrefabMemberInfo m;
+                        const bool overridden = dscene::FindPrefabMember(edit->Scene(), id, m)
+                            && dscene::IsPrefabComponentOverridden(edit->Scene(), m, *manager);
+                        raw->SetDisplayName(overridden ? StringView(u8"Revert to Prefab \u25cf")
+                                                       : StringView(u8"Revert to Prefab"));
+                    });
+                }
+            }
+
             auto copy = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Copy"),
                 Function<void()>{ [edit, editor, id, type]() {
                     Array<byte> blob = edit->CopyComponent(id, type);
