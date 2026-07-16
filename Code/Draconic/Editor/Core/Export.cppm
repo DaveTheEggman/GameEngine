@@ -91,12 +91,23 @@ export namespace draconic::editor
                 }
             }
 
+            // Scenes AND prefabs stage the same way (runtime scenes keep prefab instances as
+            // ref+deltas, so the prefab payloads must ship in the pak for the load-time respawn).
             RefPtr<ISerializable> object = scene.ReadObject();
-            auto* doc = Cast<draconic::scene::SceneDocument>(object.Get());
-            if (doc == nullptr) { return false; }
-            draconic::content::Instance* staged = group->CreateInstanceWithId(
-                scene.Id(), scene.Name(), draconic::scene::SceneDocument::StaticType());
-            if (staged == nullptr || !staged->WriteObject(*doc).IsOk()) { return false; }
+            draconic::content::Instance* staged = nullptr;
+            if (auto* doc = Cast<draconic::scene::SceneDocument>(object.Get()))
+            {
+                staged = group->CreateInstanceWithId(
+                    scene.Id(), scene.Name(), draconic::scene::SceneDocument::StaticType());
+                if (staged == nullptr || !staged->WriteObject(*doc).IsOk()) { return false; }
+            }
+            else if (auto* prefab = Cast<draconic::scene::PrefabDocument>(object.Get()))
+            {
+                staged = group->CreateInstanceWithId(
+                    scene.Id(), scene.Name(), draconic::scene::PrefabDocument::StaticType());
+                if (staged == nullptr || !staged->WriteObject(*prefab).IsOk()) { return false; }
+            }
+            else { return false; }
 
             if (UniquePtr<IStream> stream = scene.ReadData(u8"scene"))
             {
@@ -116,7 +127,8 @@ export namespace draconic::editor
         {
             for (draconic::content::Instance* instance : group.Instances())
             {
-                if (instance->TypeName() == u8"SceneDocument") { out.PushBack(instance); }
+                if (instance->TypeName() == u8"SceneDocument"
+                    || instance->TypeName() == u8"PrefabDocument") { out.PushBack(instance); }
             }
             for (draconic::content::Group* child : group.Groups()) { CollectScenes(*child, out); }
         }

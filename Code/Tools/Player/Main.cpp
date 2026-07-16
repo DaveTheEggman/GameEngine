@@ -199,6 +199,21 @@ namespace
                 return;
             }
             dscene::ResolveSceneResources(*m_scene, *m_resources);
+            // Prefab instances arrive as ref+deltas: respawn them from the same DB the
+            // scene came from (pak mode: the staged payloads; project mode: the sources).
+            if (m_scene->PendingPrefabInstanceCount() > 0)
+            {
+                draconic::content::ContentDatabase* sceneDb = m_sceneDb;
+                dscene::ResolveScenePrefabs(*m_scene,
+                    Function<UniquePtr<IStream>(const Guid&)>{
+                        [sceneDb](const Guid& prefabId) -> UniquePtr<IStream> {
+                            draconic::content::Instance* prefab =
+                                (sceneDb != nullptr) ? sceneDb->GetInstance(prefabId) : nullptr;
+                            return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                       : UniquePtr<IStream>{};
+                        } });
+                dscene::ResolveSceneResources(*m_scene, *m_resources);
+            }
             EnsureCamera();
 
             m_scene->Start();
