@@ -337,6 +337,9 @@ export namespace draconic::editor
                 SceneEditContext* edit = self->m_edit;
                 auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
                 menu->AddItem(u8"Create Entity", [edit]() { (void)edit->CreateEntity(u8"Entity"); });
+                menu->AddItem(u8"Spawn Prefab...", [self]() {
+                    if (self->OnSpawnPrefab) { self->OnSpawnPrefab(Guid{}); }
+                });
                 if (EditorContext* editor = self->m_editor)
                 {
                     const Span<const byte> clip = editor->ClipboardData(u8"entities");
