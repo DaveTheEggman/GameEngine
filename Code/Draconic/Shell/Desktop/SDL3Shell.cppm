@@ -691,7 +691,21 @@ export namespace draconic::shell
             normalized.Replace(core::utf8char('\\'), core::utf8char('/'));
             core::String uri(u8"file:///");
             uri += normalized;
-            (void)SDL_OpenURL(reinterpret_cast<const char*>(uri.CStr()));
+            // SDL_OpenURL returns true on success; on failure SDL_GetError() explains why. Log both so
+            // "nothing happened" is diagnosable (bad URI, no handler registered, sandbox block, ...).
+            const bool ok = SDL_OpenURL(reinterpret_cast<const char*>(uri.CStr()));
+            if (ok)
+            {
+                DRACONIC_LOG_INFO(u8"Shell", u8"OpenPath: SDL_OpenURL('{}') ok", uri.AsView());
+            }
+            else
+            {
+                const char* err = SDL_GetError();
+                DRACONIC_LOG_WARNING(u8"Shell", u8"OpenPath: SDL_OpenURL('{}') failed: {}",
+                                     uri.AsView(),
+                                     core::StringView(reinterpret_cast<const core::utf8char*>(
+                                         (err != nullptr) ? err : "(null)")));
+            }
         }
 
     private:
