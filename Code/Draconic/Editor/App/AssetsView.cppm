@@ -317,7 +317,7 @@ export namespace draconic::editor::app
             }
             content::Group* group = (m_selectedGroup != nullptr)
                 ? m_selectedGroup : m_context->Project()->SourceDb().RootGroup();
-            auto deferred = MakeUnique<Array<draconic::editor::DeferredStreamWrite>>(DefaultAllocator());
+            auto deferred = MakeUnique<Array<draconic::editor::DeferredImportWrite>>(DefaultAllocator());
             Result<content::Instance*> imported =
                 importer->Import(path.AsView(), *m_context->Project(), *group, options.Get(),
                                  prepared.Get(),
@@ -353,11 +353,10 @@ export namespace draconic::editor::app
                         Status result{};
                         for (usize i = 0; i < writes->Size(); ++i)
                         {
-                            draconic::editor::DeferredStreamWrite& write = (*writes)[i];
-                            job.SetStep(write.instance->Name(), i + 1, writes->Size());
+                            draconic::editor::DeferredImportWrite& write = (*writes)[i];
+                            job.SetStep(write.Label(), i + 1, writes->Size());
                             job.SetFraction(static_cast<f32>(i) / static_cast<f32>(writes->Size()));
-                            const Status s = write.instance->WriteData(write.streamName.AsView(),
-                                                                      write.Bytes());
+                            const Status s = write.Execute();
                             if (!s.IsOk()) { result = s; }
                         }
                         (void)prepared;   // keeps the decoded pixels alive for the views

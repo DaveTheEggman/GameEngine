@@ -180,13 +180,28 @@ export namespace draconic::modelimporter
                                                         content::Group& group,
                                                         const ed::ImportOptions* options,
                                                         Object* prepared,
-                                                        Array<ed::DeferredStreamWrite>* deferredWrites) override
+                                                        Array<ed::DeferredImportWrite>* deferredWrites) override
         {
             const ModelImportOptions defaults;
             const ModelImportOptions& opt = (options != nullptr)
                 ? static_cast<const ModelImportOptions&>(*options) : defaults;
-            Result<String> fileName = ed::CopyIntoSources(project, sourcePath);
-            if (!fileName.HasValue()) { return Err(fileName.Error()); }
+            // Source provenance copy: the file NAME is known without copying; the copy
+            // itself (and the .gltf sidecars below) is bulk file IO - deferred when possible.
+            const StringView sourceFileName = ed::FileNameOf(sourcePath);
+            if (sourceFileName.IsEmpty()) { return Err(ErrorCode::InvalidArgument); }
+            Result<String> fileName = Result<String>(String(sourceFileName));
+            if (deferredWrites != nullptr)
+            {
+                ed::DeferredImportWrite copy;
+                copy.copyFrom = String(sourcePath);
+                copy.copyTo = PathJoin(project.SourcesRoot().AsView(), sourceFileName);
+                deferredWrites->PushBack(static_cast<ed::DeferredImportWrite&&>(copy));
+            }
+            else
+            {
+                fileName = ed::CopyIntoSources(project, sourcePath);
+                if (!fileName.HasValue()) { return Err(fileName.Error()); }
+            }
 
             // The slow load either arrived pre-baked from the worker phase, or runs inline
             // (headless/tests). Loading uses the ORIGINAL dropped path: .gltf files
@@ -212,7 +227,7 @@ export namespace draconic::modelimporter
             // Sources/ so the imported source set is complete.
             if (ed::FileExtensionLower(sourcePath) == StringView(u8"gltf"))
             {
-                CopyGltfSidecars(sourcePath, project);
+                CopyGltfSidecars(sourcePath, project, deferredWrites);
             }
 
             const StringView stem = ed::FileStemOf(fileName.Value().AsView());
@@ -231,7 +246,7 @@ export namespace draconic::modelimporter
             else { for (usize i = 0; i < model.textures().Size(); ++i) { textureGuids.PushBack(Guid{}); } }
             if (opt.importMaterials) { ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed, deferredWrites); }
             if (opt.importAnimations) { ImportSkeletonAndClips(model, *modelGroup, manifest, claimed); }
-            const Status meshes = ImportMeshes(model, *modelGroup, manifest, claimed);
+            const Status meshes = ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites);
             if (!meshes.IsOk()) { return Err(meshes.Code()); }
             ImportNodes(model, manifest);
 
@@ -263,7 +278,8 @@ export namespace draconic::modelimporter
         // original file into Sources/, preserving relative subpaths. Data URIs and
         // parent-escaping paths are skipped. A plain text scan (the uris live in JSON string
         // values); failures only log - the import itself already succeeded from the original.
-        static void CopyGltfSidecars(StringView originalPath, ed::EditorProject& project)
+        static void CopyGltfSidecars(StringView originalPath, ed::EditorProject& project,
+                                     Array<ed::DeferredImportWrite>* deferredWrites)
         {
             Result<Array<byte>> bytes = ReadFile(originalPath);
             if (!bytes.HasValue()) { return; }
@@ -305,6 +321,14 @@ export namespace draconic::modelimporter
 
                 String from(dir);
                 from.Append(uri);
+                if (deferredWrites != nullptr)
+                {
+                    ed::DeferredImportWrite copy;
+                    copy.copyFrom = from;
+                    copy.copyTo = PathJoin(project.SourcesRoot().AsView(), uri);
+                    deferredWrites->PushBack(static_cast<ed::DeferredImportWrite&&>(copy));
+                    continue;
+                }
                 Result<Array<byte>> payload = ReadFile(from.AsView());
                 if (!payload.HasValue())
                 {
@@ -355,7 +379,7 @@ export namespace draconic::modelimporter
 
         static void ImportTextures(const draconic::model::Model& model, content::Group& group,
                                    Array<Guid>& outGuids, Array<String>& claimed,
-                                   Array<ed::DeferredStreamWrite>* deferredWrites)
+                                   Array<ed::DeferredImportWrite>* deferredWrites)
         {
             // Color space follows USAGE: data maps (normal/MR/AO) stay linear - sRGB-decoding
             // them corrupts the values (a flat normal 0.5 would linearize to ~0.21).
@@ -391,11 +415,11 @@ export namespace draconic::modelimporter
                     // Decoded pixels are the import's bulk (100s of MB for a big model) -
                     // park them for the worker flush; the view borrows from the prepared
                     // model, which the caller keeps alive until the flush completes.
-                    ed::DeferredStreamWrite write;
+                    ed::DeferredImportWrite write;
                     write.instance = inst;
                     write.streamName = String(u8"pixels");
                     write.view = pixels;
-                    deferredWrites->PushBack(static_cast<ed::DeferredStreamWrite&&>(write));
+                    deferredWrites->PushBack(static_cast<ed::DeferredImportWrite&&>(write));
                     outGuids.PushBack(inst->Id());
                     continue;
                 }
@@ -409,7 +433,7 @@ export namespace draconic::modelimporter
         static Guid GetOrBakePackedMR(const draconic::model::Model& model, content::Group& group,
                                       HashMap<u64, Guid>& cache, i32 roughIdx, i32 metalIdx,
                                       Array<String>& claimed,
-                                      Array<ed::DeferredStreamWrite>* deferredWrites)
+                                      Array<ed::DeferredImportWrite>* deferredWrites)
         {
             const u64 key = (static_cast<u64>(static_cast<u32>(roughIdx)) << 32)
                           | static_cast<u64>(static_cast<u32>(metalIdx));
@@ -435,11 +459,11 @@ export namespace draconic::modelimporter
             if (deferredWrites != nullptr)
             {
                 // Baked pixels are produced HERE, so the deferred write owns them.
-                ed::DeferredStreamWrite write;
+                ed::DeferredImportWrite write;
                 write.instance = inst;
                 write.streamName = String(u8"pixels");
                 for (u8 b : pixels) { write.owned.PushBack(static_cast<byte>(b)); }
-                deferredWrites->PushBack(static_cast<ed::DeferredStreamWrite&&>(write));
+                deferredWrites->PushBack(static_cast<ed::DeferredImportWrite&&>(write));
             }
             else if (!inst->WriteData(u8"pixels",
                          Span<const byte>{ reinterpret_cast<const byte*>(pixels.Data()), pixels.Size() }).IsOk())
@@ -454,7 +478,7 @@ export namespace draconic::modelimporter
         static void ImportMaterials(const draconic::model::Model& model, content::Group& group,
                                     const Array<Guid>& textureGuids, ModelManifestSource& manifest,
                                     Array<String>& claimed,
-                                    Array<ed::DeferredStreamWrite>* deferredWrites)
+                                    Array<ed::DeferredImportWrite>* deferredWrites)
         {
             HashMap<u64, Guid> bakedMR;   // per-pair bake cache (see GetOrBakePackedMR)
             const Span<draconic::model::ModelMaterial* const> materials = model.materials();
@@ -573,7 +597,8 @@ export namespace draconic::modelimporter
 
         [[nodiscard]] static Status ImportMeshes(const draconic::model::Model& model,
                                                  content::Group& group, ModelManifestSource& manifest,
-                                                 Array<String>& claimed)
+                                                 Array<String>& claimed,
+                                                 Array<ed::DeferredImportWrite>* deferredWrites)
         {
             const bool hasSkin = model.skins().Size() > 0;
             const Span<draconic::model::ModelMesh* const> meshes = model.meshes();
@@ -584,23 +609,39 @@ export namespace draconic::modelimporter
                 const String baseName = ImportedAssetName(m.name(), u8"mesh", i);
                 const StringView name = baseName.AsView();
 
+                // Mesh envelopes are the import's largest SERIALIZATION cost (a big mesh
+                // source rendered to XML) - defer object + write to the worker flush.
                 content::Instance* inst = nullptr;
                 Status written;
                 if (skinned)
                 {
-                    draconic::geometry::SkinnedMeshAsset asset;
-                    SkinnedMeshSourceFromModel(m, 0, asset.source);
+                    auto asset = MakeRef<draconic::geometry::SkinnedMeshAsset>(DefaultAllocator());
+                    SkinnedMeshSourceFromModel(m, 0, asset->source);
                     inst = ClaimInstance(group, name, draconic::geometry::SkinnedMeshAsset::StaticType(), claimed);
                     if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
-                    written = inst->WriteObject(asset);
+                    if (deferredWrites != nullptr)
+                    {
+                        ed::DeferredImportWrite write;
+                        write.instance = inst;
+                        write.object = RefPtr<ISerializable>(asset.Get());
+                        deferredWrites->PushBack(static_cast<ed::DeferredImportWrite&&>(write));
+                    }
+                    else { written = inst->WriteObject(*asset); }
                 }
                 else
                 {
-                    draconic::geometry::StaticMeshAsset asset;
-                    StaticMeshSourceFromModel(m, asset.source);
+                    auto asset = MakeRef<draconic::geometry::StaticMeshAsset>(DefaultAllocator());
+                    StaticMeshSourceFromModel(m, asset->source);
                     inst = ClaimInstance(group, name, draconic::geometry::StaticMeshAsset::StaticType(), claimed);
                     if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
-                    written = inst->WriteObject(asset);
+                    if (deferredWrites != nullptr)
+                    {
+                        ed::DeferredImportWrite write;
+                        write.instance = inst;
+                        write.object = RefPtr<ISerializable>(asset.Get());
+                        deferredWrites->PushBack(static_cast<ed::DeferredImportWrite&&>(write));
+                    }
+                    else { written = inst->WriteObject(*asset); }
                 }
                 if (!written.IsOk()) { return written; }
 

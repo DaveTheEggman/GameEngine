@@ -44,21 +44,62 @@ export namespace draconic::editor
         void Serialize(ISerializer&) override {}
     };
 
-    /// A BULK data-stream write an importer defers to the worker flush: Instance::WriteData
-    /// is pure mount IO (path composition + file save - no in-memory DB mutation), so it is
-    /// safe off the UI thread while the job lock excludes cooks and queues deletes. `view`
-    /// borrows from the importer's prepared payload (kept alive through the flush); `owned`
-    /// carries bytes produced during the fan-out itself (e.g. baked textures).
-    struct DeferredStreamWrite
+    /// A BULK write an importer defers to the worker flush. Three shapes, one struct:
+    ///  - data-stream write: `instance` + `streamName` (+ view/owned bytes)
+    ///  - envelope write:    `instance` + `object` (SERIALIZATION runs on the worker too -
+    ///    a big mesh source rendered to XML is the single most expensive part of an import)
+    ///  - raw file copy:     `copyFrom` -> `copyTo` (source + sidecar provenance copies;
+    ///    identical bytes skip so mtimes don't churn recooks)
+    /// All three are pure file/mount IO with NO in-memory DB mutation, so they are safe off
+    /// the UI thread while the job lock excludes cooks and queues deletes. `view` borrows
+    /// from the importer's prepared payload (kept alive through the flush).
+    struct DeferredImportWrite
     {
         draconic::content::Instance* instance = nullptr;   // borrowed; the DB owns it
-        String streamName;
+        RefPtr<ISerializable> object;                      // envelope write when set
+        String streamName;                                  // data-stream write when set
         Span<const byte> view{};
         Array<byte> owned;
+        String copyFrom;                                    // raw copy when both paths set
+        String copyTo;
 
         [[nodiscard]] Span<const byte> Bytes() const noexcept
         {
             return owned.IsEmpty() ? view : Span<const byte>{ owned.Data(), owned.Size() };
+        }
+
+        /// Execute on the worker. Returns the write's status.
+        [[nodiscard]] Status Execute() const
+        {
+            if (!copyFrom.IsEmpty() && !copyTo.IsEmpty())
+            {
+                Result<Array<byte>> bytes = ReadFile(copyFrom.AsView());
+                if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+                if (FileExists(copyTo.AsView()))
+                {
+                    Result<Array<byte>> existing = ReadFile(copyTo.AsView());
+                    if (existing.HasValue() && existing.Value().Size() == bytes.Value().Size())
+                    {
+                        bool same = true;
+                        for (usize i = 0; i < bytes.Value().Size(); ++i)
+                        {
+                            if (existing.Value()[i] != bytes.Value()[i]) { same = false; break; }
+                        }
+                        if (same) { return Status{}; }
+                    }
+                }
+                return WriteFile(copyTo.AsView(),
+                                 Span<const byte>(bytes.Value().Data(), bytes.Value().Size()));
+            }
+            if (instance == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (object.Get() != nullptr) { return instance->WriteObject(*object); }
+            return instance->WriteData(streamName.AsView(), Bytes());
+        }
+
+        [[nodiscard]] StringView Label() const noexcept
+        {
+            if (!copyTo.IsEmpty()) { return copyTo.AsView(); }
+            return (instance != nullptr) ? instance->Name() : StringView(u8"?");
         }
     };
 
@@ -92,13 +133,13 @@ export namespace draconic::editor
         /// `options` is the object CreateOptions() returned after the user edited it in the
         /// dialog (null when the importer has none or the import runs headless). `prepared`
         /// is PrepareOnWorker's payload when the two-phase path ran (null = load inline).
-        /// `deferredWrites`: when non-null, the importer MAY park its bulk data-stream
-        /// writes there instead of writing inline - the caller flushes them on a worker
-        /// (null = headless/tests: everything writes inline).
+        /// `deferredWrites`: when non-null, the importer MAY park its bulk writes there
+        /// instead of writing inline - the caller flushes them on a worker (null =
+        /// headless/tests: everything writes inline).
         [[nodiscard]] virtual Result<draconic::content::Instance*> Import(
             StringView sourcePath, EditorProject& project, draconic::content::Group& group,
             const ImportOptions* options = nullptr, Object* prepared = nullptr,
-            Array<DeferredStreamWrite>* deferredWrites = nullptr) = 0;
+            Array<DeferredImportWrite>* deferredWrites = nullptr) = 0;
     };
 
     DRACONIC_DEFINE_OBJECT(ImportOptions, "draconic::editor")
