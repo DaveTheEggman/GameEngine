@@ -143,10 +143,22 @@ export namespace draconic::editor
             if (!IsReady() || roots.IsEmpty()) { return; }
             if (MutationLocked())
             {
-                EditorCookService* self = this;
-                RunWhenIdle(Function<void()>{ [self, roots = Move(roots), force]() mutable {
-                    self->RequestCookFor(Move(roots), force);
-                } });
+                // MERGE, don't queue closures: concurrent requests for overlapping roots
+                // (several pages opening over the same uncooked assets) replay as ONE
+                // scoped cook. A pending FULL cook supersedes - its plan covers any roots.
+                if (!m_pendingCook)
+                {
+                    for (const Guid& id : roots)
+                    {
+                        bool seen = false;
+                        for (const Guid& existing : m_pendingRoots)
+                        {
+                            if (existing == id) { seen = true; break; }
+                        }
+                        if (!seen) { m_pendingRoots.PushBack(id); }
+                    }
+                    m_pendingRootsForce = m_pendingRootsForce || force;
+                }
                 return;
             }
             JoinWorker();
@@ -166,7 +178,12 @@ export namespace draconic::editor
             JoinWorker();   // the plan worker has finished (m_planReady was set)
             m_driver->PrepareProducts(m_plan);
             const usize total = m_plan.dirty.Size();
-            Post(FormatPlanned(total, m_plan.orphans.Size()));
+            // Zero-work plans run SILENTLY (no "cooking 0 asset(s)" line): page-open and
+            // import requests are cheap to make and often find everything already cooked.
+            if (total > 0 || !m_plan.orphans.IsEmpty())
+            {
+                Post(FormatPlanned(total, m_plan.orphans.Size()));
+            }
 
             CookDriver* driver = m_driver.Get();
             EditorCookService* self = this;
@@ -184,12 +201,15 @@ export namespace draconic::editor
                     self->Post(Move(line));
                 };
                 CookStats stats = driver->ExecuteBuilds(plan, &progress);
-                String done(u8"cook finished: ");
-                AppendCount(done, stats.cooked);
-                done.Append(u8" cooked, ");
-                AppendCount(done, stats.failed);
-                done.Append(u8" failed");
-                self->Post(Move(done));
+                if (stats.cooked + stats.failed + stats.orphansSwept > 0)
+                {
+                    String done(u8"cook finished: ");
+                    AppendCount(done, stats.cooked);
+                    done.Append(u8" cooked, ");
+                    AppendCount(done, stats.failed);
+                    done.Append(u8" failed");
+                    self->Post(Move(done));
+                }
                 {
                     ScopedLock lock(self->m_queueMutex);
                     self->m_lastCooked = Move(stats.cookedProducts);
@@ -247,7 +267,17 @@ export namespace draconic::editor
                     m_pendingCook = false;
                     const bool force = m_pendingForce;
                     m_pendingForce = false;
+                    m_pendingRoots.Clear();   // the full plan covers any scoped roots
+                    m_pendingRootsForce = false;
                     RequestCook(force);
+                }
+                else if (!m_pendingRoots.IsEmpty())
+                {
+                    Array<Guid> roots = Move(m_pendingRoots);
+                    m_pendingRoots = Array<Guid>{};
+                    const bool force = m_pendingRootsForce;
+                    m_pendingRootsForce = false;
+                    RequestCookFor(Move(roots), force);
                 }
             }
 
@@ -371,6 +401,8 @@ export namespace draconic::editor
         Array<Function<void()>> m_idleQueue;   // main-thread deferred mutations (RunWhenIdle)
         bool m_pendingCook = false;            // a RequestCook arrived while cooking
         bool m_pendingForce = false;
+        Array<Guid> m_pendingRoots;            // merged scoped requests that arrived mid-cook
+        bool m_pendingRootsForce = false;
         CookPlan m_plan;                       // worker-planned, main-prepared, worker-built
         Atomic<bool> m_planReady{ false };
         draconic::vfs::IChangeSource* m_watcher = nullptr;   // borrowed (sources mount owns it)
