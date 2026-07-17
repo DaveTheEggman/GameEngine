@@ -1426,6 +1426,17 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     xmlOut.GetOutput(text1);
     REQUIRE(text1.Size() > 0);
     CHECK(text1[0] == utf8char('<'));
+    // The override is REAL text - the component op's type and its field VALUE appear
+    // verbatim (no hex blob): the diffability the whole format exists for.
+    auto contains = [](const String& hay, StringView needle) {
+        if (needle.Size() > hay.Size()) { return false; }
+        for (usize i = 0; i + needle.Size() <= hay.Size(); ++i) {
+            if (hay.AsView().SubStr(i, needle.Size()) == needle) { return true; }
+        }
+        return false;
+    };
+    CHECK(contains(text1, u8"demo.Health"));
+    CHECK(contains(text1, u8">77<"));
 
     // Hop 2: load the XML (sniffed), resolve the instance.
     Scene loaded(u8"loaded");

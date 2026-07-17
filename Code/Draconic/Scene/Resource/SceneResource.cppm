@@ -345,7 +345,12 @@ namespace detail {
     // One nested-instance record, serialized (the ref+delta shape shared by scene files'
     // prefab sections and prefab payloads' trailing records). `wireNested` gates the P4
     // link fields for pre-nesting saves.
-    inline void WritePrefabRecord(ISerializer& ar, Scene::PendingPrefabInstance& d) {
+    // `scene` supplies the component managers the TEXT encoding needs: an op's blob
+    // deserializes into a transient scratch entity so its FIELDS serialize inline
+    // (diffable), then the scratch is removed. Binary keeps the blob wire. An op whose
+    // manager is unknown falls back to the hex blob (form=0) so it survives transcodes.
+    inline void WritePrefabRecord(ISerializer& ar, Scene& scene, Scene::PendingPrefabInstance& d,
+                                  bool text) {
         SerializeGuid(ar, "prefab", d.prefabId);
         SerializeGuid(ar, "parent", d.parentEntityId);
         SerializeTransform(ar, d.rootTransform);
@@ -383,12 +388,38 @@ namespace detail {
         u32 opCount = static_cast<u32>(d.componentOps.Size());
         ar.Key("componentOps");
         ar.BeginArray(opCount);
+        EntityHandle scratch = EntityHandle::Invalid();
         for (Scene::PendingPrefabComponentOp& op : d.componentOps) {
+            if (text) {
+                ar.BeginObject();
+                SerializeGuid(ar, "src", op.sourceEntity);
+                draconic::core::Serialize(ar, "type", op.typeId);
+                draconic::core::Serialize(ar, "op", op.op);
+                if (op.op != 2u) {   // remove ops carry no payload
+                    ComponentManagerBase* m = scene.FindManagerBySerializationId(op.typeId.AsView());
+                    u8 form = (m != nullptr) ? 1u : 0u;
+                    draconic::core::Serialize(ar, "form", form);
+                    if (m != nullptr) {
+                        if (!scratch.IsAssigned()) { scratch = scene.CreateEntity(u8"__op_write"); }
+                        ComponentFromBlob(*m, scratch, Span<const u8>{ op.blob.Data(), op.blob.Size() });
+                        ar.Key("data");
+                        ar.BeginObject();
+                        m->WriteComponent(ar, scratch);
+                        ar.EndObject();
+                        m->RemoveComponent(scratch);
+                    } else {
+                        draconic::core::Serialize(ar, "blob", op.blob);
+                    }
+                }
+                ar.EndObject();
+                continue;
+            }
             SerializeGuid(ar, "src", op.sourceEntity);
             draconic::core::Serialize(ar, "type", op.typeId);
             draconic::core::Serialize(ar, "op", op.op);
             draconic::core::Serialize(ar, "blob", op.blob);
         }
+        if (scratch.IsAssigned()) { scene.DestroyEntity(scratch); }
         ar.EndArray();
     }
 
@@ -398,8 +429,8 @@ namespace detail {
     // mode-2 layout was refused outright).
     constexpr u32 kMaxPrefabRecordEntries = 1u << 20;
 
-    inline void ReadPrefabRecord(ISerializer& ar, Scene::PendingPrefabInstance& pending,
-                                 bool wireNested) {
+    inline void ReadPrefabRecord(ISerializer& ar, Scene& scene, Scene::PendingPrefabInstance& pending,
+                                 bool wireNested, bool text) {
         SerializeGuid(ar, "prefab", pending.prefabId);
         SerializeGuid(ar, "parent", pending.parentEntityId);
         SerializeTransform(ar, pending.rootTransform);
@@ -454,14 +485,53 @@ namespace detail {
         ar.Key("componentOps");
         ar.BeginArray(opCount);
         if (opCount > kMaxPrefabRecordEntries) { return; }
+        EntityHandle scratch = EntityHandle::Invalid();
         for (u32 i = 0; i < opCount; ++i) {
             Scene::PendingPrefabComponentOp op;
+            if (text) {
+                ar.BeginObject();
+                SerializeGuid(ar, "src", op.sourceEntity);
+                draconic::core::Serialize(ar, "type", op.typeId);
+                draconic::core::Serialize(ar, "op", op.op);
+                bool keep = true;
+                if (op.op != 2u) {
+                    u8 form = 0;
+                    draconic::core::Serialize(ar, "form", form);
+                    if (form == 1u) {
+                        ComponentManagerBase* m =
+                            scene.FindManagerBySerializationId(op.typeId.AsView());
+                        if (m != nullptr) {
+                            if (!scratch.IsAssigned()) { scratch = scene.CreateEntity(u8"__op_read"); }
+                            ar.Key("data");
+                            ar.BeginObject();
+                            m->ReadComponent(ar, scratch);
+                            ar.EndObject();
+                            ComponentToBlob(*m, scratch, op.blob);
+                            m->RemoveComponent(scratch);
+                        } else {
+                            // Inline fields need the manager to decode - the op drops,
+                            // like any unknown-type record.
+                            DRACONIC_LOG_WARNING(u8"Scene",
+                                u8"dropping override of unknown component type '{}'", op.typeId);
+                            keep = false;
+                        }
+                    } else {
+                        draconic::core::Serialize(ar, "blob", op.blob);
+                    }
+                }
+                ar.EndObject();
+                if (keep) {
+                    pending.componentOps.PushBack(static_cast<Scene::PendingPrefabComponentOp&&>(op));
+                }
+                continue;
+            }
             SerializeGuid(ar, "src", op.sourceEntity);
             draconic::core::Serialize(ar, "type", op.typeId);
             draconic::core::Serialize(ar, "op", op.op);
             draconic::core::Serialize(ar, "blob", op.blob);
             pending.componentOps.PushBack(static_cast<Scene::PendingPrefabComponentOp&&>(op));
         }
+        if (scratch.IsAssigned()) { scene.DestroyEntity(scratch); }
         ar.EndArray();
     }
 
@@ -897,15 +967,15 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
             scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState& state) {
                 // Overrides are DERIVED here: live state vs the spawn-time baselines.
                 UniquePtr<Scene::PendingPrefabInstance> d = detail::ComputeInstanceDeltas(scene, state);
-                detail::WritePrefabRecord(ar, *d);
+                detail::WritePrefabRecord(ar, scene, *d, text);
             });
             scene.ForEachPendingPrefabInstance([&](Scene::PendingPrefabInstance& pending) {
-                detail::WritePrefabRecord(ar, pending);
+                detail::WritePrefabRecord(ar, scene, pending, text);
             });
         } else {
             for (u32 n = 0; n < instanceCount; ++n) {
                 auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
-                detail::ReadPrefabRecord(ar, *pending, wireNested);
+                detail::ReadPrefabRecord(ar, scene, *pending, wireNested, text);
                 scene.AddPendingPrefabInstance(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(pending));
             }
         }
@@ -1119,7 +1189,7 @@ inline Status CapturePrefabBody(Serializer& ar, bool text, Scene& scene, EntityH
         if (!state->nestedRootSourceId.IsNil()) { d->rootLiveId = state->nestedRootSourceId; }
         d->ownerRootEntityId = Guid{};
         d->nestedRootSourceId = Guid{};
-        detail::WritePrefabRecord(ar, *d);
+        detail::WritePrefabRecord(ar, scene, *d, text);
     }
     ar.EndArray();
     return ar.IsOk() ? Status{} : ar.GetStatus();
@@ -1332,7 +1402,7 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
     Array<UniquePtr<Scene::PendingPrefabInstance>> records;
     for (u32 n = 0; n < recordCount && ar.IsOk(); ++n) {
         auto record = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
-        detail::ReadPrefabRecord(ar, *record, wireNested);
+        detail::ReadPrefabRecord(ar, scene, *record, wireNested, text);
         records.PushBack(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(record));
     }
     ar.EndArray();
@@ -1777,7 +1847,7 @@ inline Status CaptureInstanceAsTemplateBody(Serializer& ar, bool text, Scene& sc
         d->nextSiblingId = substituted(d->nextSiblingId);
         d->ownerRootEntityId = Guid{};
         d->nestedRootSourceId = Guid{};
-        detail::WritePrefabRecord(ar, *d);
+        detail::WritePrefabRecord(ar, scene, *d, text);
     }
     ar.EndArray();
     return ar.IsOk() ? Status{} : ar.GetStatus();
