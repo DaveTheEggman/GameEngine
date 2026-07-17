@@ -91,22 +91,13 @@ export namespace draconic::editor
             drender::MeshComponent& mc = meshes->Add(entities[i]);
             mc.mesh.SetId(manifest.meshGuids[meshIndex]);
 
-            // Whole-mesh material = the mesh's first part; per-submesh refs (indexed by
-            // SubMesh::materialIndex = model material index) when the model is multi-material.
-            const i32 matIdx = (meshIndex < manifest.meshMaterial.Size())
-                ? manifest.meshMaterial[meshIndex] : -1;
-            if (matIdx >= 0 && static_cast<usize>(matIdx) < manifest.materialGuids.Size())
+            // The unified material list: submeshes index it by SubMesh::materialIndex, and
+            // slot 0 covers single-material meshes and out-of-range indexes.
+            for (const Guid& g : manifest.materialGuids)
             {
-                mc.material.SetId(manifest.materialGuids[static_cast<usize>(matIdx)]);
-            }
-            if (manifest.materialGuids.Size() > 1)
-            {
-                for (const Guid& g : manifest.materialGuids)
-                {
-                    draconic::resource::Ref<draconic::materials::Material> r;
-                    r.SetId(g);
-                    mc.submeshMaterialRefs.PushBack(r);
-                }
+                draconic::resource::Ref<draconic::materials::Material> r;
+                r.SetId(g);
+                mc.materials.PushBack(r);
             }
 
             const bool skinned = (meshIndex < manifest.meshSkinned.Size())

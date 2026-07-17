@@ -141,17 +141,16 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
         if (c.mesh.id == meshStatic)
         {
             sawStatic = true;
-            CHECK(c.material.id == matB);                       // first-part material
-            REQUIRE(c.submeshMaterialRefs.Size() == 2u);        // multi-material model
-            CHECK(c.submeshMaterialRefs[0].id == matA);
-            CHECK(c.submeshMaterialRefs[1].id == matB);
+            REQUIRE(c.materials.Size() == 2u);                  // the unified material list
+            CHECK(c.materials[0].id == matA);
+            CHECK(c.materials[1].id == matB);
             const Transform t = level.GetLocalTransform(e);
             CHECK(t.position.x == 1.0f);
         }
         if (c.mesh.id == meshSkinned)
         {
             sawSkinned = true;
-            CHECK(c.material.id == matA);
+            REQUIRE(c.materials.Size() == 2u);
         }
     });
     CHECK(meshCount == 2u);

@@ -368,7 +368,7 @@ export namespace draconic::editor
             {
                 if (drender::MeshComponent* mc = meshes->Get(m_sphere))
                 {
-                    mc->material = m_previewMaterial.Get();   // direct override
+                    mc->SetMaterial(RefPtr<draconic::materials::Material>(m_previewMaterial.Get()));   // direct override
                 }
             }
         }

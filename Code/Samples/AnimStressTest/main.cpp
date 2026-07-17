@@ -130,7 +130,7 @@ namespace
                 m_scene->SetLocalPosition(m_floor, core::Float3{ 0.0f, -7.0f, 0.0f });
                 render::MeshComponent& fmc = meshes->Add(m_floor);
                 fmc.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                fmc.material = materials::CreatePBR(u8"lit", core::Float4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
+                fmc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f));
             }
 
             // One directional shadow-casting key light - the whole scene (skinning benchmark, kept light
@@ -259,12 +259,7 @@ namespace
                 render::MeshComponent& mc = meshes->Add(entities[i]);
                 mc.mesh  = core::RefPtr<geometry::StaticMesh>(mesh);
                 mc.color = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
-                mc.submeshMaterials = m_modelMats;
-                const core::i32 matIdx = (static_cast<core::usize>(node.meshIndex) < m_model->meshMaterial.Size())
-                                           ? m_model->meshMaterial[static_cast<core::usize>(node.meshIndex)] : -1;
-                if (matIdx >= 0 && static_cast<core::usize>(matIdx) < m_modelMats.Size()) {
-                    mc.material = m_modelMats[static_cast<core::usize>(matIdx)];
-                }
+                mc.SetMaterials(m_modelMats);   // unified list; slot 0 covers out-of-range
                 if (mesh->IsSkinned()) { skinnedEntities.PushBack(entities[i]); }
             }
 

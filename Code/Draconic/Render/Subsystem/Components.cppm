@@ -34,18 +34,30 @@ export namespace draconic::render {
 // many share one mesh + material, so it rides the per-instance data path.
 struct MeshComponent {
     draconic::resource::Ref<geometry::StaticMesh> mesh;
-    draconic::resource::Ref<materials::Material>  material;
-    // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
-    // non-empty the renderer draws each submesh with its own material; otherwise `material` covers all.
-    // TWO-PHASE like the single refs, but at array granularity: `submeshMaterialRefs` is the
-    // SERIALIZED identity (model->prefab wires cooked material guids here) and the resolve pass
-    // materializes it into `submeshMaterials`, the raw RefPtr array extraction reads (the renderer
-    // stays resource-agnostic). Runtime code (samples) may fill `submeshMaterials` directly and
-    // leave the refs empty - resolve never clobbers a direct fill unless refs exist.
-    Array<draconic::resource::Ref<materials::Material>> submeshMaterialRefs;
-    Array<RefPtr<materials::Material>> submeshMaterials;
+    // THE material list, indexed by SubMesh::materialIndex. Slot 0 doubles as the whole-mesh
+    // material: single-material meshes hold ONE entry, and a submesh whose index is out of
+    // range (or whose slot is unresolved) falls back to slot 0. Serialized identity lives in
+    // `materials`; `materialCache` is the raw-pointer view EXTRACTION refreshes from the ref
+    // proxies EVERY frame - late cooks and hot reloads heal live (the previous design
+    // snapshotted RefPtrs once at resolve, pinning pre-cook nulls until a page reopen), and
+    // the renderer stays resource-agnostic.
+    Array<draconic::resource::Ref<materials::Material>> materials;
+    Array<RefPtr<materials::Material>> materialCache;   // runtime-only; refreshed at extract
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     bool                         visible = true;
+    // Slot-0 conveniences for runtime code (samples/spawners) - refs and raw objects both fit
+    // (resource::Ref adopts direct pointers).
+    void SetMaterial(const RefPtr<materials::Material>& m) {
+        materials.Clear();
+        materials.PushBack(draconic::resource::Ref<materials::Material>(m));
+    }
+    void SetMaterials(const Array<RefPtr<materials::Material>>& list) {
+        materials.Clear();
+        for (const RefPtr<materials::Material>& m : list) {
+            materials.PushBack(draconic::resource::Ref<materials::Material>(m));
+        }
+    }
+
     // GPU skinning: per-bone skinning matrices for a skinned mesh, supplied per frame by the owner
     // (e.g. an AnimationPlayer's GetSkinningMatrices()). Borrowed - valid for the frame it's set;
     // null => the mesh draws static (bind pose). Extraction copies the pointer into MeshRenderData.
@@ -221,24 +233,37 @@ struct ReflectionProbeComponent {
 // pointers and per-frame skinning state never touch disk.
 inline void Serialize(ISerializer& ar, MeshComponent& c) {
     draconic::core::Serialize(ar, "mesh", c.mesh);
-    draconic::core::Serialize(ar, "material", c.material);
-    draconic::core::Serialize(ar, "color", c.color);
-    draconic::core::Serialize(ar, "visible", c.visible);
-    if (ar.Version() >= 2) {   // v2: per-submesh material refs (model->prefab import)
-        draconic::core::Serialize(ar, "submeshMaterials", c.submeshMaterialRefs);
+    if (ar.Version() >= 3) {   // v3: ONE materials array (slot 0 = whole-mesh)
+        draconic::core::Serialize(ar, "materials", c.materials);
+        draconic::core::Serialize(ar, "color", c.color);
+        draconic::core::Serialize(ar, "visible", c.visible);
+    } else {
+        // v1/v2 migration: singular `material` + optional v2 submesh array fold into the
+        // unified list (submesh array wins - it was the complete per-index set).
+        draconic::resource::Ref<materials::Material> single;
+        draconic::core::Serialize(ar, "material", single);
+        draconic::core::Serialize(ar, "color", c.color);
+        draconic::core::Serialize(ar, "visible", c.visible);
+        Array<draconic::resource::Ref<materials::Material>> submesh;
+        if (ar.Version() >= 2) {
+            draconic::core::Serialize(ar, "submeshMaterials", submesh);
+        }
+        if (ar.Mode() == SerializeMode::Read) {
+            c.materials.Clear();
+            if (!submesh.IsEmpty()) {
+                c.materials = static_cast<Array<draconic::resource::Ref<materials::Material>>&&>(submesh);
+            } else if (!single.id.IsNil() || single.Get() != nullptr) {
+                c.materials.PushBack(single);
+            }
+        }
     }
 }
 
 inline void ResolveResources(draconic::resource::ResourceManager& manager, MeshComponent& c) {
     c.mesh.Bind(manager);
-    c.material.Bind(manager);
-    if (!c.submeshMaterialRefs.IsEmpty()) {
-        c.submeshMaterials.Clear();
-        for (draconic::resource::Ref<materials::Material>& r : c.submeshMaterialRefs) {
-            r.Bind(manager);
-            c.submeshMaterials.PushBack(RefPtr<materials::Material>(r.Get()));
-        }
-    }
+    for (draconic::resource::Ref<materials::Material>& r : c.materials) { r.Bind(manager); }
+    // materialCache is refreshed at EXTRACT time (per frame, through the proxies) - resolve
+    // only attaches the bindings.
 }
 
 class MeshComponentManager final : public scene::SerializableComponentManager<MeshComponent> {
@@ -454,9 +479,8 @@ DRACONIC_REFLECT_ENUM(ProbeUpdateMode, "draconic::render")
 
 DRACONIC_REFLECT_VALUE(MeshComponent, "draconic::render")
 {
-    builder.DataVersion(2)   // v2: per-submesh material refs
+    builder.DataVersion(3)   // v3: unified materials array (slot 0 = whole-mesh)
            .Property<&MeshComponent::mesh>("mesh")
-           .Property<&MeshComponent::material>("material")
            .Property<&MeshComponent::color>("color")
            .Property<&MeshComponent::visible>("visible");
 }

@@ -333,8 +333,8 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
         draconic::resource::Ref<draconic::materials::Material> ra, rb;
         ra.SetId(matA);
         rb.SetId(matB);
-        mc.submeshMaterialRefs.PushBack(ra);
-        mc.submeshMaterialRefs.PushBack(rb);
+        mc.materials.PushBack(ra);
+        mc.materials.PushBack(rb);
 
         BinarySerializer ar(blob, SerializeMode::Write);
         dscene::SerializeScene(ar, scene);
@@ -353,19 +353,12 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
     loaded.GetSystem<MeshComponentManager>()->ForEach(
         [&](MeshComponent& c, dscene::EntityHandle) { mc = &c; });
     REQUIRE(mc != nullptr);
-    REQUIRE(mc->submeshMaterialRefs.Size() == 2u);
-    CHECK(mc->submeshMaterialRefs[0].id == matA);
-    CHECK(mc->submeshMaterialRefs[1].id == matB);
-    CHECK(mc->submeshMaterials.IsEmpty());   // not materialized until resolve
+    REQUIRE(mc->materials.Size() == 2u);
+    CHECK(mc->materials[0].id == matA);
+    CHECK(mc->materials[1].id == matB);
 
-    dscene::ResolveSceneResources(loaded, resources);
-    CHECK(mc->submeshMaterials.Size() == 2u);   // materialized parallel to the refs
-
-    // A DIRECT runtime fill (samples) with NO refs is never clobbered by resolve.
-    MeshComponent direct;
-    direct.submeshMaterials.PushBack(RefPtr<draconic::materials::Material>{});
-    ResolveResources(resources, direct);
-    CHECK(direct.submeshMaterials.Size() == 1u);
+    dscene::ResolveSceneResources(loaded, resources);   // attaches bindings (cache fills at extract)
+    CHECK(mc->materials.Size() == 2u);
 
     RemoveTree(dir);
 }

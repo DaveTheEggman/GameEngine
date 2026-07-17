@@ -100,7 +100,7 @@ namespace
                 m_scene->SetLocalPosition(m_ground, core::Float3{ 0.0f, 0.0f, 0.0f });
                 render::MeshComponent& gm = meshes->Add(m_ground);
                 gm.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                gm.material = materials::CreatePBR(u8"stress.ground", core::Float4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f);
+                gm.SetMaterial(materials::CreatePBR(u8"stress.ground", core::Float4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f));
             }
 
             // Directional key light.
@@ -362,11 +362,11 @@ namespace
                 const core::f32 hue = static_cast<core::f32>(index % 360) / 360.0f;
                 const core::Float3 c = HsvToRgb(hue, 0.8f, 0.9f);
                 core::RefPtr<materials::Material> m = materials::CreatePBR(u8"stress.unique", core::Float4{ c.x, c.y, c.z, 1.0f }, 0.1f, 0.4f);
-                mc.material = m;
+                mc.SetMaterial(m);
                 mc.color    = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
                 m_uniqueMats.PushBack(static_cast<core::RefPtr<materials::Material>&&>(m));
             } else {
-                mc.material = m_sharedMat;
+                mc.SetMaterial(m_sharedMat);
                 mc.color    = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
             }
         }

@@ -39,11 +39,11 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
 
     scene::EntityHandle a = scene.CreateEntity(u8"a");
     scene.SetLocalPosition(a, Float3{ -2, 0, 0 });
-    { MeshComponent& m = meshes->Add(a); m.mesh = cube; m.material = material; m.color = Color{ 0.2f, 0.4f, 0.8f, 1.0f }; }
+    { MeshComponent& m = meshes->Add(a); m.mesh = cube; m.SetMaterial(material); m.color = Color{ 0.2f, 0.4f, 0.8f, 1.0f }; }
 
     scene::EntityHandle b = scene.CreateEntity(u8"b");
     scene.SetLocalPosition(b, Float3{ 3, 0, 0 });
-    { MeshComponent& m = meshes->Add(b); m.mesh = cube; m.material = material; }
+    { MeshComponent& m = meshes->Add(b); m.mesh = cube; m.SetMaterial(material); }
 
     scene.UpdateTransforms();
 
@@ -123,7 +123,7 @@ void BuildBigScene(scene::Scene& scene, int n, RefPtr<geometry::StaticMesh>& mes
     for (int i = 0; i < n; ++i) {
         scene::EntityHandle e = scene.CreateEntity();
         scene.SetLocalPosition(e, Float3{ static_cast<f32>(i), 0, 0 });
-        MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.material = material;
+        MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.SetMaterial(material);
     }
     scene.UpdateTransforms();
 }
@@ -180,7 +180,7 @@ TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent categ
     RefPtr<materials::Material> glass = materials::MaterialBuilder(u8"glass").Shader(u8"forward").Transparent().Build();
 
     scene::EntityHandle e = scene.CreateEntity();
-    { MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.material = glass; }
+    { MeshComponent& m = meshes->Add(e); m.mesh = mesh; m.SetMaterial(glass); }
     scene.UpdateTransforms();
 
     ExtractedScene snapshot;
@@ -265,4 +265,58 @@ TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity,
     draconic::render::ExtractedScene out2;
     draconic::render::ExtractEnvironmentInto(scene, out2);
     CHECK(out2.Sky().textureUid == 0u);
+}
+
+TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (late binds heal)")
+{
+    // The Sponza symptom: multi-materials that resolve AFTER the first frame (cook finishing
+    // in the background) used to stay null forever - the cache was a one-shot resolve-time
+    // snapshot. Extraction now re-reads the refs per frame.
+    scene::Scene scene(u8"world");
+    auto* meshes = scene.AddSystem<MeshComponentManager>();
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<materials::Material> matA = materials::MaterialBuilder(u8"a").Shader(u8"forward").Build();
+    RefPtr<materials::Material> matB = materials::MaterialBuilder(u8"b").Shader(u8"forward").Build();
+
+    scene::EntityHandle e = scene.CreateEntity(u8"multi");
+    MeshComponent& mc = meshes->Add(e);
+    mc.mesh = cube;
+    // Two slots: slot 0 resolved, slot 1 UNRESOLVED (a bare guid - the pre-cook state).
+    mc.materials.PushBack(draconic::resource::Ref<materials::Material>(matA));
+    draconic::resource::Ref<materials::Material> late;
+    late.SetId(Guid{ 0x1, 0x2 });
+    mc.materials.PushBack(late);
+
+    ExtractedScene first;
+    ExtractSceneInto(scene, first);
+    REQUIRE(first.Items().Size() == 1u);
+    {
+        const auto* rd = static_cast<const MeshRenderData*>(first.Items()[0]);
+        CHECK(rd->material == matA.Get());              // slot 0 = the whole-mesh primary
+        REQUIRE(rd->submeshMaterialCount == 2u);
+        CHECK(rd->submeshMaterials[1].Get() == nullptr);   // not cooked yet
+    }
+
+    // "The cook lands": the slot resolves (direct adopt stands in for the proxy binding).
+    mc.materials[1].SetDirect(RefPtr<materials::Material>(matB.Get()));
+
+    ExtractedScene second;
+    ExtractSceneInto(scene, second);
+    REQUIRE(second.Items().Size() == 1u);
+    {
+        const auto* rd = static_cast<const MeshRenderData*>(second.Items()[0]);
+        CHECK(rd->submeshMaterials[1].Get() == matB.Get());   // healed - no reopen needed
+    }
+
+    // Single-entry list = whole-mesh path (no submesh routing), serving the old single-
+    // material setup through the same array.
+    mc.materials.Resize(1);
+    ExtractedScene third;
+    ExtractSceneInto(scene, third);
+    {
+        const auto* rd = static_cast<const MeshRenderData*>(third.Items()[0]);
+        CHECK(rd->material == matA.Get());
+        CHECK(rd->submeshMaterialCount == 0u);
+    }
 }

@@ -169,7 +169,7 @@ namespace
                 fmc.mesh = geometry::Primitives::Plane(120.0f, 120.0f);
                 // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
                 // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
-                fmc.material = materials::CreatePBR(u8"lit", core::Float4{ 0.12f, 0.45f, 0.22f, 1.0f }, 0.0f, 0.45f);
+                fmc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{ 0.12f, 0.45f, 0.22f, 1.0f }, 0.0f, 0.45f));
 
                 core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -184,7 +184,7 @@ namespace
                     scene::EntityHandle b = m_scene->CreateEntity(u8"floorBox");
                     m_scene->SetLocalPosition(b, core::Float3{ -7.5f + 5.0f * static_cast<core::f32>(k), kFloorY + kBoxSize * 0.5f, 10.0f });
                     render::MeshComponent& bmc = meshes->Add(b);
-                    bmc.mesh = box; bmc.material = boxMat;
+                    bmc.mesh = box; bmc.SetMaterial(boxMat);
                 }
 
                 // Spheres resting ON the floor (bottom flush) - their contact shadow is mostly hidden
@@ -200,7 +200,7 @@ namespace
                     scene::EntityHandle s = m_scene->CreateEntity(u8"floorBall");
                     m_scene->SetLocalPosition(s, core::Float3{ -7.5f + 5.0f * static_cast<core::f32>(k), kFloorY + kBallR, 16.0f });
                     render::MeshComponent& smc = meshes->Add(s);
-                    smc.mesh = ball; smc.material = ballMat;
+                    smc.mesh = ball; smc.SetMaterial(ballMat);
                 }
 
                 // Transparent (alpha-blended) spheres hovering in front of the opaque row - exercises the
@@ -215,7 +215,7 @@ namespace
                     // from the chrome spheres while inspecting reflections.
                     m_scene->SetLocalPosition(g, core::Float3{ -26.0f, kFloorY + 6.0f + 3.0f * static_cast<core::f32>(k), 16.0f });
                     render::MeshComponent& gmc = meshes->Add(g);
-                    gmc.mesh = ball; gmc.material = glassMat;
+                    gmc.mesh = ball; gmc.SetMaterial(glassMat);
                 }
 
                 // Masked (alpha-tested) spheres: a checkerboard alpha-cutout texture drives the discard,
@@ -229,7 +229,7 @@ namespace
                             scene::EntityHandle m = m_scene->CreateEntity(u8"maskedBall");
                             m_scene->SetLocalPosition(m, core::Float3{ -5.0f + 5.0f * static_cast<core::f32>(k), kFloorY + 3.5f, 24.0f });
                             render::MeshComponent& mmc = meshes->Add(m);
-                            mmc.mesh = ball; mmc.material = maskMat;
+                            mmc.mesh = ball; mmc.SetMaterial(maskMat);
                         }
                     }
                 }
@@ -508,16 +508,9 @@ namespace
                 mc.mesh  = core::RefPtr<geometry::StaticMesh>(mesh);   // hold a ref (manager owns the handle)
                 mc.color = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 
-                // Per-submesh materials (the mesh's submeshes index modelMats); + a single-material
-                // fallback (first submesh's material) for the whole-mesh path.
-                mc.submeshMaterials = modelMats;
-                const core::i32 matIdx = (static_cast<core::usize>(node.meshIndex) < model->meshMaterial.Size())
-                                           ? model->meshMaterial[static_cast<core::usize>(node.meshIndex)] : -1;
-                if (matIdx >= 0 && static_cast<core::usize>(matIdx) < model->materials.Size()) {
-                    if (materials::Material* material = model->materials[static_cast<core::usize>(matIdx)].Get()) {
-                        mc.material = core::RefPtr<materials::Material>(material);
-                    }
-                }
+                // The unified material list: submeshes index it by SubMesh::materialIndex,
+                // slot 0 covers anything out of range.
+                mc.SetMaterials(modelMats);
                 if (mesh->IsSkinned()) { skinnedEntities.PushBack(entities[i]); }
             }
             m_models.PushBack(model);   // keep the model (and its resources) alive
@@ -1071,12 +1064,12 @@ namespace
                     render::MeshComponent& mc = meshes.Add(e);
                     mc.mesh = cube;
                     if (instanced) {
-                        mc.material = shared;
+                        mc.SetMaterial(shared);
                         mc.color = core::Color{ baseColor.x, baseColor.y, baseColor.z, 1.0f };   // per-instance hue
                     } else {
                         const core::f32 rough = 0.05f + 0.95f * static_cast<core::f32>(x) / (kGrid - 1);
                         const core::f32 metal = (y >= kGrid / 2) ? 1.0f : 0.0f;
-                        mc.material = materials::CreatePBR(u8"lit", baseColor, metal, rough);
+                        mc.SetMaterial(materials::CreatePBR(u8"lit", baseColor, metal, rough));
                         mc.color = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
                     }
                     m_cubes.PushBack(e);

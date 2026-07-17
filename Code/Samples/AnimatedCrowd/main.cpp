@@ -135,7 +135,7 @@ namespace
                 m_scene->SetLocalPosition(m_floor, core::Float3{ 0.0f, -7.0f, 0.0f });
                 render::MeshComponent& fmc = meshes->Add(m_floor);
                 fmc.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                fmc.material = materials::CreatePBR(u8"lit", core::Float4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f);
+                fmc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{ 0.5f, 0.5f, 0.53f, 1.0f }, 0.0f, 0.65f));
             }
 
             // One directional shadow-casting key light - the whole scene (skinning benchmark, kept light

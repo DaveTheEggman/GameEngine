@@ -57,25 +57,36 @@ inline constexpr u32 kParallelExtractThreshold = 256;
 
 // Fill one MeshRenderData from a component (a pure read of precomputed transforms + borrowed
 // resource pointers - safe to call concurrently across components after UpdateTransforms).
-inline void FillMeshRenderData(scene::Scene& scene, const MeshComponent& mc, scene::EntityHandle e,
+inline void FillMeshRenderData(scene::Scene& scene, MeshComponent& mc, scene::EntityHandle e,
                                MeshRenderData& rd) {
+    // Refresh the raw material cache from the ref proxies EVERY frame: a few pointer loads,
+    // and late cooks / hot reloads heal live instead of pinning resolve-time nulls.
+    mc.materialCache.Resize(mc.materials.Size());
+    for (usize i = 0; i < mc.materials.Size(); ++i) {
+        mc.materialCache[i] = RefPtr<materials::Material>(mc.materials[i].Get());
+    }
+    materials::Material* primary = mc.materialCache.IsEmpty() ? nullptr : mc.materialCache[0].Get();
+
     rd.world       = scene.GetWorldMatrix(e);
     const AABB lb  = (mc.mesh.Get() != nullptr) ? mc.mesh->bounds : AABB{ Float3{ 0, 0, 0 }, Float3{ 0, 0, 0 } };
     rd.worldCenter = TransformPoint(lb.Center(), rd.world);       // bounds center (cull + depth sort)
     rd.worldRadius = WorldBoundsRadius(lb, rd.world);
     rd.color       = mc.color;
     rd.mesh        = mc.mesh.Get();
-    rd.material    = mc.material.Get();
+    rd.material    = primary;
     rd.entityId    = PackEntity(e);
-    rd.category    = CategoryForMaterial(mc.material.Get());
+    rd.category    = CategoryForMaterial(primary);
     // Batch-cluster key for the sort (opaque draws stay contiguous by mesh+material). rendererId keeps
     // its default 0 - the MeshRenderer is the first-registered renderer, so mesh data routes to it.
-    rd.sortBatchKey = BatchKey(mc.mesh.Get(), mc.material.Get());
+    rd.sortBatchKey = BatchKey(mc.mesh.Get(), primary);
     rd.boneMatrices = mc.boneMatrices;   // borrowed for the frame (GPU skinning); null => static
     rd.prevBoneMatrices = mc.prevBoneMatrices;   // borrowed; null => reuse current (no motion)
     rd.boneCount    = mc.boneCount;
-    rd.submeshMaterials     = mc.submeshMaterials.IsEmpty() ? nullptr : mc.submeshMaterials.Data();
-    rd.submeshMaterialCount = static_cast<u32>(mc.submeshMaterials.Size());
+    // Submesh routing only when the mesh is genuinely multi-material; a single entry is the
+    // whole-mesh path (slot 0 IS rd.material), preserving batching.
+    rd.submeshMaterials     = mc.materialCache.Size() > 1 ? mc.materialCache.Data() : nullptr;
+    rd.submeshMaterialCount = mc.materialCache.Size() > 1
+        ? static_cast<u32>(mc.materialCache.Size()) : 0u;
 }
 
 // Fills `out` with one MeshRenderData per visible MeshComponent in `scene`, allocating from
@@ -109,7 +120,9 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
     if (parallel) {
         JobSystem& jobs = GlobalJobs();
         jobs.ParallelFor(count, [&](u32 i) {
-            const MeshComponent& mc = comps[i];
+            // Non-const: the fill refreshes the component's per-frame material cache.
+            // Safe under ParallelFor - each component is touched by exactly one job.
+            MeshComponent& mc = const_cast<MeshComponent&>(comps[i]);
             if (!mc.visible || mc.mesh.Get() == nullptr) { return; }
             const u32 slot = jobs.CurrentSlot();
             MeshRenderData* rd = ctx.Arena(slot).New<MeshRenderData>();
@@ -121,7 +134,7 @@ inline void ExtractSceneInto(scene::Scene& scene, ExtractedScene& out, RenderCon
         FrameArena& arena = ctx.Arena(0);
         Array<RenderData*>& items = ctx.Items(0);
         for (u32 i = 0; i < count; ++i) {
-            const MeshComponent& mc = comps[i];
+            MeshComponent& mc = const_cast<MeshComponent&>(comps[i]);
             if (!mc.visible || mc.mesh.Get() == nullptr) { continue; }
             MeshRenderData* rd = arena.New<MeshRenderData>();
             if (rd == nullptr) { continue; }

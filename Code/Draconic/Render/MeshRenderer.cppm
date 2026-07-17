@@ -777,6 +777,7 @@ private:
             for (const geometry::SubMesh& sub : md.mesh->subMeshes) {
                 materials::Material* m = (sub.materialIndex >= 0 && static_cast<u32>(sub.materialIndex) < md.submeshMaterialCount)
                                             ? md.submeshMaterials[sub.materialIndex].Get() : nullptr;
+                if (m == nullptr) { m = md.material; }   // OOB/unresolved slot -> slot 0
                 emit(m, mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride, static_cast<u32>(sub.indexCount));
             }
         } else {
@@ -856,6 +857,7 @@ private:
             for (const geometry::SubMesh& sub : head.mesh->subMeshes) {
                 materials::Material* m = (sub.materialIndex >= 0 && static_cast<u32>(sub.materialIndex) < head.submeshMaterialCount)
                                             ? head.submeshMaterials[sub.materialIndex].Get() : nullptr;
+                if (m == nullptr) { m = head.material; }   // OOB/unresolved slot -> slot 0
                 emit(m, mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride, static_cast<u32>(sub.indexCount));
             }
         } else {
@@ -1021,6 +1023,7 @@ private:
             for (const geometry::SubMesh& sub : mm.mesh->subMeshes) {
                 materials::Material* m = (sub.materialIndex >= 0 && static_cast<u32>(sub.materialIndex) < mm.submeshMaterialCount)
                                             ? mm.submeshMaterials[sub.materialIndex].Get() : nullptr;
+                if (m == nullptr) { m = mm.material; }   // OOB/unresolved slot -> slot 0
                 emit(m, mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride, static_cast<u32>(sub.indexCount));
             }
         } else {

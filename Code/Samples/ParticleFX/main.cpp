@@ -103,7 +103,7 @@ namespace
                 m_scene->SetLocalPosition(floor, core::Float3{ 0.0f, 0.0f, 0.0f });
                 render::MeshComponent& mc = meshes->Add(floor);
                 mc.mesh = geometry::Primitives::Plane(80.0f, 80.0f);
-                mc.material = materials::CreatePBR(u8"floor", core::Float4{ 0.20f, 0.22f, 0.26f, 1.0f }, 0.0f, 0.8f);
+                mc.SetMaterial(materials::CreatePBR(u8"floor", core::Float4{ 0.20f, 0.22f, 0.26f, 1.0f }, 0.0f, 0.8f));
             }
             if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
                 scene::EntityHandle key = m_scene->CreateEntity(u8"key");
@@ -150,7 +150,7 @@ namespace
                 px::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
                 dc.SetEffect(m_debris);
                 dc.mesh      = geometry::Primitives::Cube(1.0f);
-                dc.material  = materials::CreatePBR(u8"shards-solid", core::Float4{ 0.35f, 0.6f, 0.9f, 1.0f }, 0.1f, 0.5f);
+                dc.material = materials::CreatePBR(u8"shards-solid", core::Float4{ 0.35f, 0.6f, 0.9f, 1.0f }, 0.1f, 0.5f);
                 dc.meshScale = 0.5f;
 
                 m_glowEmitter = m_scene->CreateEntity(u8"shards-glow");
@@ -194,7 +194,7 @@ namespace
                     m_scene->SetLocalPosition(ob, obstacle);
                     render::MeshComponent& omc = meshes->Add(ob);
                     omc.mesh = geometry::Primitives::Sphere(obRadius);
-                    omc.material = materials::CreatePBR(u8"obstacle", core::Float4{ 0.7f, 0.7f, 0.72f, 1.0f }, 0.1f, 0.4f);
+                    omc.SetMaterial(materials::CreatePBR(u8"obstacle", core::Float4{ 0.7f, 0.7f, 0.72f, 1.0f }, 0.1f, 0.4f));
                 }
 
                 // Cell 7: local-space puff - orbits its emitter (animated in OnUpdate); cloud follows rigidly.
