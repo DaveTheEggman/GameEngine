@@ -108,8 +108,23 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         ed::BuilderRegistry registry;
         registry.Register(UniquePtr<ed::IAssetBuilder>(
             DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
+        // Pre-transcode the scene stream like the editor/CLI do: the staged pak carries
+        // the BINARY wire even though the source (SaveScene) is XML now.
+        HashMap<Guid, Array<byte>> sceneStreams;
+        {
+            UniquePtr<IStream> src = sceneInstance->ReadData(u8"scene");
+            REQUIRE(src.Get() != nullptr);
+            dscene::Scene scratch(u8"scratch");
+            scratch.AddSystem<draconic::render::MeshComponentManager>();
+            Result<Array<byte>> bytes =
+                dscene::TranscodeSceneStreamToBinary(*src, scratch, /*includeSettings=*/true);
+            REQUIRE(bytes.HasValue());
+            REQUIRE(bytes.Value().Size() > 0);
+            CHECK(bytes.Value()[0] != static_cast<byte>(u8'<'));   // binary, not the XML source
+            sceneStreams.InsertOrAssign(sceneId, Move(bytes.Value()));
+        }
         ed::ExportStats stats;
-        REQUIRE(ed::ExportProject(*project, distDir, registry, false, &stats).IsOk());
+        REQUIRE(ed::ExportProject(*project, distDir, registry, false, &stats, {}, &sceneStreams).IsOk());
         CHECK(stats.cooked == 1u);        // the cube
         CHECK(stats.scenesStaged == 1u);
         CHECK(stats.filesPacked >= 3u);   // product + scene envelope + scene stream + script
@@ -135,6 +150,14 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     CHECK(sceneInstance->Id() == sceneId);
     CHECK(db.GetInstance(manifest.defaultScene.AsView()) == sceneInstance);
 
+    // The PACKED stream is the binary wire (the transcode map was honored).
+    {
+        UniquePtr<IStream> packed = sceneInstance->ReadData(u8"scene");
+        REQUIRE(packed.Get() != nullptr);
+        byte first = static_cast<byte>(0);
+        REQUIRE(packed->Read(&first, 1) == 1u);
+        CHECK(first != static_cast<byte>(u8'<'));
+    }
     dscene::Scene scene;
     auto* meshes = scene.AddSystem<draconic::render::MeshComponentManager>();
     REQUIRE(dscene::LoadScene(*sceneInstance, scene).IsOk());

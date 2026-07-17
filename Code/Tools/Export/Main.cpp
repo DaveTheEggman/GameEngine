@@ -22,6 +22,7 @@
 
 import draconic.core;
 import draconic.vfs;
+import draconic.content;
 import draconic.scene;
 import draconic.scene.resource;
 import draconic.editor;
@@ -35,6 +36,9 @@ import draconic.materials.editor;
 import draconic.shaders.editor;
 import draconic.particles.editor;
 import draconic.modelimporter;
+import draconic.render.subsystem;
+import draconic.animation.subsystem;
+import draconic.particles.subsystem;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -54,6 +58,51 @@ namespace
     void Add(ed::BuilderRegistry& registry)
     {
         registry.Register(UniquePtr<ed::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+    }
+
+    // Same manager set the subsystems inject into every scene (kept in lockstep, like the
+    // builder set below): the scene-stream transcode must know EVERY serializable component
+    // type, or staged scenes would silently drop records. Managers are plain value pools -
+    // no device, no subsystem lifecycle needed.
+    void AddAllSceneManagers(dscene::Scene& scene)
+    {
+        namespace render = draconic::render;
+        namespace anim = draconic::animation;
+        namespace particles = draconic::particles;
+        scene.AddSystem<render::MeshComponentManager>();
+        scene.AddSystem<render::InstancedMeshComponentManager>();
+        scene.AddSystem<render::SpriteComponentManager>();
+        scene.AddSystem<render::DecalComponentManager>();
+        scene.AddSystem<render::CameraComponentManager>();
+        scene.AddSystem<render::LightComponentManager>();
+        scene.AddSystem<render::ReflectionProbeComponentManager>();
+        scene.AddSystem<render::EnvironmentSystem>();
+        scene.AddSystem<anim::AnimationGraphComponentManager>();
+        scene.AddSystem<anim::SkeletalAnimationComponentManager>();
+        scene.AddSystem<anim::InstancedSkinningManager>();
+        scene.AddSystem<particles::ParticleEffectComponentManager>();
+    }
+
+    // Pre-transcode every scene/prefab TEXT source stream to the binary wire (the editor
+    // does the same on its main thread before the pack job) - the staged pak then matches
+    // an editor export exactly. A stream that fails to transcode stages verbatim (the
+    // runtime sniffs), so this can only improve the output.
+    void CollectSceneStreams(draconic::content::Group& group, HashMap<Guid, Array<byte>>& out)
+    {
+        for (draconic::content::Instance* instance : group.Instances())
+        {
+            const bool isScene = instance->TypeName() == StringView(u8"SceneDocument");
+            const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
+            if (!isScene && !isPrefab) { continue; }
+            UniquePtr<IStream> stream = instance->ReadData(u8"scene");
+            if (stream.Get() == nullptr) { continue; }
+            dscene::Scene scratch(u8"__export_transcode");
+            AddAllSceneManagers(scratch);
+            Result<Array<byte>> bytes =
+                dscene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
+            if (bytes.HasValue()) { out.InsertOrAssign(instance->Id(), Move(bytes.Value())); }
+        }
+        for (draconic::content::Group* child : group.Groups()) { CollectSceneStreams(*child, out); }
     }
 
     // Same builder set as RaptorCook/RaptorEditor (kept in lockstep).
@@ -197,6 +246,13 @@ int main(int argc, char** argv)
     ed::BuilderRegistry builders;
     RegisterAllBuilders(builders);
 
+    // Component reflection (data-version gates) before any scene stream deserializes.
+    draconic::render::RegisterRenderComponentReflection();
+    draconic::animation::RegisterAnimationComponentReflection();
+    draconic::particles::RegisterParticleComponentReflection();
+    HashMap<Guid, Array<byte>> sceneStreams;
+    CollectSceneStreams(*project->SourceDb().RootGroup(), sceneStreams);
+
     // Presets: from <project>/export_presets.xml, else a synthesized host preset.
     ed::ExportPresetSet presets;
     {
@@ -213,7 +269,8 @@ int main(int argc, char** argv)
     if (all)
     {
         const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
-        if (!ed::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild).IsOk())
+        if (!ed::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild, {}, true,
+                           &sceneStreams).IsOk())
         {
             std::fprintf(stderr, "RaptorExport: one or more presets failed (see log)\n");
             return 1;
@@ -233,7 +290,8 @@ int main(int argc, char** argv)
     }
 
     ed::ExportResult result;
-    if (!ed::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild, &result).IsOk())
+    if (!ed::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild, &result, {}, true,
+                       &sceneStreams).IsOk())
     {
         std::fprintf(stderr, "RaptorExport: export failed (see log)\n");
         return 1;

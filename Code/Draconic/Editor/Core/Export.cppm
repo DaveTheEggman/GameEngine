@@ -301,7 +301,8 @@ export namespace draconic::editor
     [[nodiscard]] inline Status ExportProject(EditorProject& project, StringView outDir,
                                               BuilderRegistry& builders, bool rebuild,
                                               ExportStats* outStats = nullptr,
-                                              const ExportProgress& onProgress = {})
+                                              const ExportProgress& onProgress = {},
+                                              const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
     {
         ExportStats stats;
 
@@ -333,7 +334,7 @@ export namespace draconic::editor
         }
 
         // --- content ---
-        const Status s = ExportContent(project, outDir, stats, onProgress);
+        const Status s = ExportContent(project, outDir, stats, onProgress, sceneStreams);
         if (outStats != nullptr) { *outStats = stats; }
         return s;
     }
