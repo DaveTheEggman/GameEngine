@@ -202,12 +202,13 @@ export namespace draconic::modelimporter
             manifest.boundsMin = model.bounds().min;
             manifest.boundsMax = model.bounds().max;
 
+            Array<String> claimed;   // names claimed THIS run (ClaimInstance's dedup scope)
             Array<Guid> textureGuids;
-            if (opt.importTextures) { ImportTextures(model, *modelGroup, textureGuids); }
+            if (opt.importTextures) { ImportTextures(model, *modelGroup, textureGuids, claimed); }
             else { for (usize i = 0; i < model.textures().Size(); ++i) { textureGuids.PushBack(Guid{}); } }
-            if (opt.importMaterials) { ImportMaterials(model, *modelGroup, textureGuids, manifest); }
-            if (opt.importAnimations) { ImportSkeletonAndClips(model, *modelGroup, manifest); }
-            const Status meshes = ImportMeshes(model, *modelGroup, manifest);
+            if (opt.importMaterials) { ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed); }
+            if (opt.importAnimations) { ImportSkeletonAndClips(model, *modelGroup, manifest, claimed); }
+            const Status meshes = ImportMeshes(model, *modelGroup, manifest, claimed);
             if (!meshes.IsOk()) { return Err(meshes.Code()); }
             ImportNodes(model, manifest);
 
@@ -281,21 +282,41 @@ export namespace draconic::modelimporter
             }
         }
 
-        // Decoded RGBA8 pixels -> embedded-mode TextureAsset instances ("pixels" stream).
-        // First free variant of `base` in `group` (CreateInstance returns an existing
-        // same-named instance, so collisions must resolve BEFORE creation).
-        [[nodiscard]] static String UniqueName(content::Group& group, StringView base)
+        // Reuse-or-claim (re-import semantics): a same-named instance OF THE SAME TYPE from a
+        // previous import is REUSED - its guid survives, so cooked products overwrite in place
+        // and everything referencing it (materials, prefabs, placed scenes) follows the
+        // re-imported content. Names already claimed THIS run (two source textures named
+        // alike) or squatted by a DIFFERENT type get numeric suffixes, like UniqueName did.
+        [[nodiscard]] static content::Instance* ClaimInstance(content::Group& group, StringView base,
+                                                              const TypeInfo& type,
+                                                              Array<String>& claimed)
         {
             String name(base);
-            for (u32 n = 2; group.GetInstance(name.AsView()) != nullptr; ++n)
+            for (u32 n = 2;; ++n)
             {
+                bool taken = false;
+                for (const String& c : claimed)
+                {
+                    if (c.AsView() == name.AsView()) { taken = true; break; }
+                }
+                if (!taken)
+                {
+                    content::Instance* existing = group.GetInstance(name.AsView());
+                    const StringView typeName(reinterpret_cast<const utf8char*>(type.name));
+                    if (existing == nullptr || existing->TypeName() == typeName)
+                    {
+                        content::Instance* instance = (existing != nullptr)
+                            ? existing : group.CreateInstance(name.AsView(), type);
+                        if (instance != nullptr) { claimed.PushBack(Move(name)); }
+                        return instance;
+                    }
+                }
                 name = Format(u8"{}.{}", base, n);
             }
-            return name;
         }
 
         static void ImportTextures(const draconic::model::Model& model, content::Group& group,
-                                   Array<Guid>& outGuids)
+                                   Array<Guid>& outGuids, Array<String>& claimed)
         {
             // Color space follows USAGE: data maps (normal/MR/AO) stay linear - sRGB-decoding
             // them corrupts the values (a flat normal 0.5 would linearize to ~0.21).
@@ -321,9 +342,8 @@ export namespace draconic::modelimporter
                 asset.generateMipmaps = false;
 
                 // Real names when the source has them (rules out slot mix-ups at a glance).
-                const String texName = UniqueName(group, ImportedTextureName(t, i).AsView());
-                content::Instance* inst = group.CreateInstance(
-                    texName.AsView(), draconic::texture::TextureAsset::StaticType());
+                content::Instance* inst = ClaimInstance(group, ImportedTextureName(t, i).AsView(),
+                    draconic::texture::TextureAsset::StaticType(), claimed);
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk()) { outGuids.PushBack(Guid{}); continue; }
                 const Status ds = inst->WriteData(u8"pixels",
                     Span<const byte>{ reinterpret_cast<const byte*>(data), static_cast<usize>(size) });
@@ -334,7 +354,8 @@ export namespace draconic::modelimporter
         // PBR factors -> MaterialAsset instances (builtin "forward" shader by name).
         // Bake-once cache for FBX separate metal/rough pairs (materials often share maps).
         static Guid GetOrBakePackedMR(const draconic::model::Model& model, content::Group& group,
-                                      HashMap<u64, Guid>& cache, i32 roughIdx, i32 metalIdx)
+                                      HashMap<u64, Guid>& cache, i32 roughIdx, i32 metalIdx,
+                                      Array<String>& claimed)
         {
             const u64 key = (static_cast<u64>(static_cast<u32>(roughIdx)) << 32)
                           | static_cast<u64>(static_cast<u32>(metalIdx));
@@ -350,8 +371,8 @@ export namespace draconic::modelimporter
             asset.colorSpace = draconic::image::ImageColorSpace::Linear;   // data map
             asset.generateMipmaps = false;
             const String name = Format(u8"mr.packed.{}.{}", roughIdx, metalIdx);
-            content::Instance* inst = group.CreateInstance(name.AsView(),
-                draconic::texture::TextureAsset::StaticType());
+            content::Instance* inst = ClaimInstance(group, name.AsView(),
+                draconic::texture::TextureAsset::StaticType(), claimed);
             if (inst == nullptr || !inst->WriteObject(asset).IsOk()
                 || !inst->WriteData(u8"pixels",
                        Span<const byte>{ reinterpret_cast<const byte*>(pixels.Data()), pixels.Size() }).IsOk())
@@ -364,7 +385,8 @@ export namespace draconic::modelimporter
         }
 
         static void ImportMaterials(const draconic::model::Model& model, content::Group& group,
-                                    const Array<Guid>& textureGuids, ModelManifestSource& manifest)
+                                    const Array<Guid>& textureGuids, ModelManifestSource& manifest,
+                                    Array<String>& claimed)
         {
             HashMap<u64, Guid> bakedMR;   // per-pair bake cache (see GetOrBakePackedMR)
             const Span<draconic::model::ModelMaterial* const> materials = model.materials();
@@ -410,7 +432,7 @@ export namespace draconic::modelimporter
                 {
                     const Guid packed = GetOrBakePackedMR(model, group, bakedMR,
                                                           m.separateRoughnessTextureIndex,
-                                                          m.separateMetalnessTextureIndex);
+                                                          m.separateMetalnessTextureIndex, claimed);
                     if (!packed.IsNil())
                     {
                         asset.source.textureSlots.PushBack(String(u8"MetallicRoughnessMap"));
@@ -428,9 +450,9 @@ export namespace draconic::modelimporter
                     asset.source.cullMode = static_cast<u8>(draconic::materials::CullModeConfig::None);
                 }
 
-                const String matName = UniqueName(group, ImportedAssetName(m.name(), u8"mat", i).AsView());
-                content::Instance* inst = group.CreateInstance(
-                    matName.AsView(), draconic::materials::MaterialAsset::StaticType());
+                content::Instance* inst = ClaimInstance(group,
+                    ImportedAssetName(m.name(), u8"mat", i).AsView(),
+                    draconic::materials::MaterialAsset::StaticType(), claimed);
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk())
                 {
                     manifest.materialGuids.PushBack(Guid{});
@@ -447,7 +469,7 @@ export namespace draconic::modelimporter
         }
 
         static void ImportSkeletonAndClips(const draconic::model::Model& model, content::Group& group,
-                                           ModelManifestSource& manifest)
+                                           ModelManifestSource& manifest, Array<String>& claimed)
         {
             if (model.skins().Size() == 0) { return; }
             const draconic::model::ModelSkin& skin = *model.skins()[0];
@@ -455,11 +477,10 @@ export namespace draconic::modelimporter
 
             draconic::animation::SkeletonAsset skeleton;
             SkeletonSourceFromModel(model, skin, boneToJoint, skeleton.source);
-            const String skelName = skin.name().IsEmpty()
-                ? UniqueName(group, u8"skeleton")
-                : UniqueName(group, ImportedAssetName(skin.name(), u8"skeleton", 0).AsView());
-            content::Instance* skelInst = group.CreateInstance(
-                skelName.AsView(), draconic::animation::SkeletonAsset::StaticType());
+            content::Instance* skelInst = ClaimInstance(group,
+                skin.name().IsEmpty() ? StringView(u8"skeleton")
+                                      : ImportedAssetName(skin.name(), u8"skeleton", 0).AsView(),
+                draconic::animation::SkeletonAsset::StaticType(), claimed);
             if (skelInst != nullptr && skelInst->WriteObject(skeleton).IsOk())
             {
                 manifest.skeletonGuid = skelInst->Id();
@@ -468,12 +489,12 @@ export namespace draconic::modelimporter
             const Span<draconic::model::ModelAnimation* const> animations = model.animations();
             for (usize a = 0; a < animations.Size(); ++a)
             {
-                const String clipName =
-                    UniqueName(group, ImportedAssetName(animations[a]->name(), u8"anim", a).AsView());
+                content::Instance* clipInst = ClaimInstance(group,
+                    ImportedAssetName(animations[a]->name(), u8"anim", a).AsView(),
+                    draconic::animation::AnimationClipAsset::StaticType(), claimed);
                 draconic::animation::AnimationClipAsset clip;
-                AnimationClipSourceFromModel(*animations[a], boneToJoint, clipName.AsView(), clip.source);
-                content::Instance* clipInst = group.CreateInstance(
-                    clipName.AsView(), draconic::animation::AnimationClipAsset::StaticType());
+                AnimationClipSourceFromModel(*animations[a], boneToJoint,
+                    (clipInst != nullptr) ? clipInst->Name() : StringView(u8"anim"), clip.source);
                 if (clipInst != nullptr && clipInst->WriteObject(clip).IsOk())
                 {
                     manifest.animationGuids.PushBack(clipInst->Id());
@@ -482,7 +503,8 @@ export namespace draconic::modelimporter
         }
 
         [[nodiscard]] static Status ImportMeshes(const draconic::model::Model& model,
-                                                 content::Group& group, ModelManifestSource& manifest)
+                                                 content::Group& group, ModelManifestSource& manifest,
+                                                 Array<String>& claimed)
         {
             const bool hasSkin = model.skins().Size() > 0;
             const Span<draconic::model::ModelMesh* const> meshes = model.meshes();
@@ -490,7 +512,8 @@ export namespace draconic::modelimporter
             {
                 const draconic::model::ModelMesh& m = *meshes[i];
                 const bool skinned = IsSkinnedMesh(m) && hasSkin;
-                const String name = UniqueName(group, ImportedAssetName(m.name(), u8"mesh", i).AsView());
+                const String baseName = ImportedAssetName(m.name(), u8"mesh", i);
+                const StringView name = baseName.AsView();
 
                 content::Instance* inst = nullptr;
                 Status written;
@@ -498,7 +521,7 @@ export namespace draconic::modelimporter
                 {
                     draconic::geometry::SkinnedMeshAsset asset;
                     SkinnedMeshSourceFromModel(m, 0, asset.source);
-                    inst = group.CreateInstance(name.AsView(), draconic::geometry::SkinnedMeshAsset::StaticType());
+                    inst = ClaimInstance(group, name, draconic::geometry::SkinnedMeshAsset::StaticType(), claimed);
                     if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
                     written = inst->WriteObject(asset);
                 }
@@ -506,7 +529,7 @@ export namespace draconic::modelimporter
                 {
                     draconic::geometry::StaticMeshAsset asset;
                     StaticMeshSourceFromModel(m, asset.source);
-                    inst = group.CreateInstance(name.AsView(), draconic::geometry::StaticMeshAsset::StaticType());
+                    inst = ClaimInstance(group, name, draconic::geometry::StaticMeshAsset::StaticType(), claimed);
                     if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
                     written = inst->WriteObject(asset);
                 }

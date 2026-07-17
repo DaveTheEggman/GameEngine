@@ -776,6 +776,46 @@ TEST_CASE("import: sub-assets keep authored names (sanitized), indexed fallback 
     CHECK(modelimporter::ImportedAssetName(u8"", u8"anim", 4).AsView() == StringView(u8"anim.4"));
 }
 
+namespace
+{
+    // Recursive best-effort cleanup so EditorProject::Create starts from a clean slate
+    // across test runs (same shape as the first test's cleanTree lambda, two levels deep).
+    void CleanProjectTree(StringView dir)
+    {
+        for (StringView sub : { u8"Content", u8"Cooked", u8"Sources", u8".cache" })
+        {
+            draconic::vfs::NativeFileSystem fs(draconic::core::PathJoin(dir, sub).AsView());
+            draconic::core::Array<draconic::vfs::DirEntry> tops;
+            if (!fs.AsEnumerable()->Enumerate(u8"", tops).IsOk()) { continue; }
+            for (const auto& top : tops)
+            {
+                if (!top.isDirectory) { (void)fs.AsWritable()->Delete(top.name.AsView()); continue; }
+                draconic::core::Array<draconic::vfs::DirEntry> inner;
+                if (fs.AsEnumerable()->Enumerate(top.name.AsView(), inner).IsOk())
+                {
+                    for (const auto& e : inner)
+                    {
+                        draconic::core::String path = draconic::core::PathJoin(top.name.AsView(), e.name.AsView());
+                        (void)fs.AsWritable()->Delete(path.AsView());
+                    }
+                }
+                (void)fs.AsWritable()->Delete(top.name.AsView());
+            }
+            (void)draconic::core::RemoveDirectory(draconic::core::PathJoin(dir, sub).AsView());
+        }
+        draconic::vfs::NativeFileSystem fs(dir);
+        draconic::core::Array<draconic::vfs::DirEntry> entries;
+        if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
+        {
+            for (const auto& e : entries)
+            {
+                if (!e.isDirectory) { (void)fs.AsWritable()->Delete(e.name.AsView()); }
+            }
+        }
+        (void)draconic::core::RemoveDirectory(dir);
+    }
+}
+
 TEST_CASE("model-import: options gate textures/materials/animations")
 {
     using namespace draconic::editor;
@@ -787,7 +827,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     draconic::animation::RegisterAnimationAssets();
 
     const StringView dir = u8"draconic_model_import_options_project";
-    (void)RemoveDirectory(dir);   // best-effort; Create scaffolds fresh trees
+    CleanProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
@@ -830,5 +870,56 @@ TEST_CASE("model-import: options gate textures/materials/animations")
         CHECK(inst->TypeName() != StringView(u8"MaterialAsset"));
         CHECK(inst->TypeName() != StringView(u8"SkeletonAsset"));
         CHECK(inst->TypeName() != StringView(u8"AnimationClipAsset"));
+    }
+}
+
+TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, no duplicates)")
+{
+    using namespace draconic::editor;
+    namespace mi = draconic::modelimporter;
+    mi::RegisterModelManifestAsset();
+    draconic::texture::RegisterTextureAsset();
+    draconic::geometry::RegisterMeshAssets();
+    draconic::materials::RegisterMaterialAsset();
+    draconic::animation::RegisterAnimationAssets();
+
+    const StringView dir = u8"draconic_model_reimport_project";
+    CleanProjectTree(dir);
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    mi::ModelFileImporter importer;
+    Result<draconic::content::Instance*> first = importer.Import(
+        reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
+        *project, *project->SourceDb().RootGroup(), nullptr);
+    REQUIRE(first.HasValue());
+
+    draconic::content::Group* duck = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
+    REQUIRE(duck != nullptr);
+    HashMap<String, Guid> before;
+    for (draconic::content::Instance* inst : duck->Instances())
+    {
+        before.InsertOrAssign(String(inst->Name()), inst->Id());
+    }
+    const usize assetCount = before.Size();
+    REQUIRE(assetCount >= 3u);
+
+    // Re-drop the SAME file with the group intact: every instance is REUSED by (name, type) -
+    // guids survive (placed refs + the prefab keep working) and nothing duplicates as ".2".
+    Result<draconic::content::Instance*> second = importer.Import(
+        reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
+        *project, *project->SourceDb().RootGroup(), nullptr);
+    REQUIRE(second.HasValue());
+    CHECK(second.Value()->Id() == first.Value()->Id());
+
+    draconic::content::Group* duckAfter = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
+    REQUIRE(duckAfter != nullptr);
+    CHECK(duckAfter->Instances().Size() == assetCount);   // no duplicates
+    for (draconic::content::Instance* inst : duckAfter->Instances())
+    {
+        const Guid* old = before.Find(String(inst->Name()));
+        REQUIRE(old != nullptr);           // same name set as the first import
+        CHECK(*old == inst->Id());         // same guid: reuse, not re-mint
     }
 }

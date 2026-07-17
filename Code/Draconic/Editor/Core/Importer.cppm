@@ -137,22 +137,34 @@ export namespace draconic::editor
     }
 
     /// Copy an OS file into the project's Sources/ tree. Returns the sources-relative name the
-    /// Asset should reference. An existing file of the same name is REUSED (same-source
-    /// reimports are the common case); the copy goes through the core file API and the project
-    /// path only - the pipeline reads it back through the sources MOUNT.
+    /// Asset should reference. An existing SAME-CONTENT file is reused untouched; changed
+    /// bytes OVERWRITE it (a re-import must see the edited file - the old skip-if-exists
+    /// behavior silently kept stale sources). The copy goes through the core file API and the
+    /// project path only - the pipeline reads it back through the sources MOUNT.
     [[nodiscard]] inline Result<String> CopyIntoSources(EditorProject& project, StringView sourcePath)
     {
         const StringView fileName = FileNameOf(sourcePath);
         if (fileName.IsEmpty()) { return Err(ErrorCode::InvalidArgument); }
         const String target = PathJoin(project.SourcesRoot().AsView(), fileName);
 
-        if (!FileExists(target.AsView()))
+        Result<Array<byte>> bytes = ReadFile(sourcePath);
+        if (!bytes.HasValue()) { return Err(bytes.Error()); }
+        if (FileExists(target.AsView()))
         {
-            Result<Array<byte>> bytes = ReadFile(sourcePath);
-            if (!bytes.HasValue()) { return Err(bytes.Error()); }
-            const Status written = WriteFile(target.AsView(), Span<const byte>(bytes.Value().Data(), bytes.Value().Size()));
-            if (!written.IsOk()) { return Err(written.Code()); }
+            Result<Array<byte>> existing = ReadFile(target.AsView());
+            if (existing.HasValue() && existing.Value().Size() == bytes.Value().Size())
+            {
+                bool same = true;
+                for (usize i = 0; i < bytes.Value().Size(); ++i)
+                {
+                    if (existing.Value()[i] != bytes.Value()[i]) { same = false; break; }
+                }
+                if (same) { return String(fileName); }   // identical: no touch, no recook churn
+            }
         }
+        const Status written = WriteFile(target.AsView(),
+                                         Span<const byte>(bytes.Value().Data(), bytes.Value().Size()));
+        if (!written.IsOk()) { return Err(written.Code()); }
         return String(fileName);
     }
 }
