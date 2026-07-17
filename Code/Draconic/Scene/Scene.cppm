@@ -132,6 +132,16 @@ public:
         Array<Guid>      liveIds;
         Array<Transform> baselineTransforms; // parallel to sourceIds (template local transforms)
         Array<PrefabComponentBaseline> componentBaselines;
+
+        // NESTING (P4): an instance spawned BY another instance's payload record links to its
+        // owner; nestedRootSourceId is this instance's stable identity in the owner's
+        // namespace (the payload record's root id) - rebuilds match on it. Nil = top-level.
+        Guid ownerRootEntityId{};
+        Guid nestedRootSourceId{};
+        // Top-level only, TRANSIENT (recomputed at spawn): every prefab id this instance's
+        // payload consumed (own + nested records) - template edits to any of them rebuild
+        // this instance through its owner payload.
+        Array<Guid> referencedPrefabIds;
     };
 
     void AddPrefabInstance(UniquePtr<PrefabInstanceState> state)
@@ -195,6 +205,15 @@ public:
         Array<Guid>      overrideTransformIds;   // source ids with transform overrides
         Array<Transform> overrideTransforms;
         Array<PendingPrefabComponentOp> componentOps;
+        // NESTING (P4): mirror of PrefabInstanceState's links (see there). rootLiveId is the
+        // instance root's live id (in a PAYLOAD record: the owner-namespace id nested scene
+        // records match against).
+        Guid rootLiveId{};
+        Guid ownerRootEntityId{};
+        Guid nestedRootSourceId{};
+        // Transient (never serialized): revert passes sub-records that preserve member guids
+        // but must NOT re-apply the scene placement/parent (the template's placement wins).
+        bool applyPlacement = true;
     };
 
     void AddPendingPrefabInstance(UniquePtr<PendingPrefabInstance> pending)

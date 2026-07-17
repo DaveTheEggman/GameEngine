@@ -45,6 +45,35 @@ namespace detail {
         draconic::core::Serialize(ar, "hi", g.high);
         draconic::core::Serialize(ar, "lo", g.low);
     }
+    // Scene-stream header (v2+): a magic sentinel no legacy stream can start with (a legacy
+    // stream begins with the scene NAME's u32 length - always small), then the format
+    // version. v2 adds length-prefixed component + system-settings records, so readers SKIP
+    // unknown types instead of aborting (and template payloads can be sliced without a
+    // live scene).
+    constexpr u32 kSceneStreamMagic   = 0xD5C35CEEu;
+    constexpr u32 kSceneStreamVersion = 2;
+
+    // Peek the stream version. Leaves the stream positioned AFTER the header (v2+) or back
+    // at the start (legacy v1 - no header).
+    inline u32 ReadSceneStreamVersion(IStream& stream) {
+        const i64 start = stream.Tell();
+        u32 first = 0;
+        if (stream.Read(&first, sizeof(first)) != sizeof(first) || first != kSceneStreamMagic) {
+            (void)stream.Seek(start, SeekOrigin::Begin);
+            return 1;
+        }
+        u32 version = 1;
+        if (stream.Read(&version, sizeof(version)) != sizeof(version)) { return 1; }
+        return version;
+    }
+
+    inline void WriteSceneStreamHeader(ISerializer& ar) {
+        u32 magic = kSceneStreamMagic;
+        u32 version = kSceneStreamVersion;
+        draconic::core::Serialize(ar, "magic", magic);
+        draconic::core::Serialize(ar, "version", version);
+    }
+
     inline void SerializeTransform(ISerializer& ar, Transform& t) {
         draconic::core::Serialize(ar, "pos", t.position);
         draconic::core::Serialize(ar, "rot", t.rotation);
@@ -114,6 +143,9 @@ namespace detail {
         pending->rootTransform = root.IsAssigned() ? scene.GetLocalTransform(root) : Transform{};
         pending->sourceIds = state.sourceIds;
         pending->liveIds = state.liveIds;
+        pending->rootLiveId = state.rootEntityId;
+        pending->ownerRootEntityId = state.ownerRootEntityId;
+        pending->nestedRootSourceId = state.nestedRootSourceId;
 
         for (usize i = 0; i < state.sourceIds.Size(); ++i) {
             EntityHandle live = scene.FindEntity(state.liveIds[i]);
@@ -192,6 +224,154 @@ namespace detail {
             }
         }
     }
+
+    // One nested-instance record, serialized (the ref+delta shape shared by scene files'
+    // prefab sections and prefab payloads' trailing records). `wireNested` gates the P4
+    // link fields for pre-nesting saves.
+    inline void WritePrefabRecord(ISerializer& ar, Scene::PendingPrefabInstance& d) {
+        SerializeGuid(ar, "prefab", d.prefabId);
+        SerializeGuid(ar, "parent", d.parentEntityId);
+        SerializeTransform(ar, d.rootTransform);
+        SerializeGuid(ar, "rootLive", d.rootLiveId);
+        SerializeGuid(ar, "owner", d.ownerRootEntityId);
+        SerializeGuid(ar, "nestedSrcRoot", d.nestedRootSourceId);
+
+        u32 memberCount = static_cast<u32>(d.sourceIds.Size());
+        ar.Key("members");
+        ar.BeginArray(memberCount);
+        for (u32 i = 0; i < memberCount; ++i) {
+            SerializeGuid(ar, "src", d.sourceIds[i]);
+            SerializeGuid(ar, "live", d.liveIds[i]);
+        }
+        ar.EndArray();
+
+        u32 destroyedCount = static_cast<u32>(d.destroyedMembers.Size());
+        ar.Key("destroyed");
+        ar.BeginArray(destroyedCount);
+        for (Guid& dead : d.destroyedMembers) { SerializeGuid(ar, "src", dead); }
+        ar.EndArray();
+
+        u32 transformCount = static_cast<u32>(d.overrideTransformIds.Size());
+        ar.Key("transformOverrides");
+        ar.BeginArray(transformCount);
+        for (u32 i = 0; i < transformCount; ++i) {
+            SerializeGuid(ar, "src", d.overrideTransformIds[i]);
+            SerializeTransform(ar, d.overrideTransforms[i]);
+        }
+        ar.EndArray();
+
+        u32 opCount = static_cast<u32>(d.componentOps.Size());
+        ar.Key("componentOps");
+        ar.BeginArray(opCount);
+        for (Scene::PendingPrefabComponentOp& op : d.componentOps) {
+            SerializeGuid(ar, "src", op.sourceEntity);
+            draconic::core::Serialize(ar, "type", op.typeId);
+            draconic::core::Serialize(ar, "op", op.op);
+            draconic::core::Serialize(ar, "blob", op.blob);
+        }
+        ar.EndArray();
+    }
+
+    inline void ReadPrefabRecord(ISerializer& ar, Scene::PendingPrefabInstance& pending,
+                                 bool wireNested) {
+        SerializeGuid(ar, "prefab", pending.prefabId);
+        SerializeGuid(ar, "parent", pending.parentEntityId);
+        SerializeTransform(ar, pending.rootTransform);
+        if (wireNested) {
+            SerializeGuid(ar, "rootLive", pending.rootLiveId);
+            SerializeGuid(ar, "owner", pending.ownerRootEntityId);
+            SerializeGuid(ar, "nestedSrcRoot", pending.nestedRootSourceId);
+        }
+
+        u32 memberCount = 0;
+        ar.Key("members");
+        ar.BeginArray(memberCount);
+        for (u32 i = 0; i < memberCount; ++i) {
+            Guid src, live;
+            SerializeGuid(ar, "src", src);
+            SerializeGuid(ar, "live", live);
+            pending.sourceIds.PushBack(src);
+            pending.liveIds.PushBack(live);
+        }
+        ar.EndArray();
+
+        u32 destroyedCount = 0;
+        ar.Key("destroyed");
+        ar.BeginArray(destroyedCount);
+        for (u32 i = 0; i < destroyedCount; ++i) {
+            Guid d;
+            SerializeGuid(ar, "src", d);
+            pending.destroyedMembers.PushBack(d);
+        }
+        ar.EndArray();
+
+        u32 transformCount = 0;
+        ar.Key("transformOverrides");
+        ar.BeginArray(transformCount);
+        for (u32 i = 0; i < transformCount; ++i) {
+            Guid src; Transform t;
+            SerializeGuid(ar, "src", src);
+            SerializeTransform(ar, t);
+            pending.overrideTransformIds.PushBack(src);
+            pending.overrideTransforms.PushBack(t);
+        }
+        ar.EndArray();
+
+        u32 opCount = 0;
+        ar.Key("componentOps");
+        ar.BeginArray(opCount);
+        for (u32 i = 0; i < opCount; ++i) {
+            Scene::PendingPrefabComponentOp op;
+            SerializeGuid(ar, "src", op.sourceEntity);
+            draconic::core::Serialize(ar, "type", op.typeId);
+            draconic::core::Serialize(ar, "op", op.op);
+            draconic::core::Serialize(ar, "blob", op.blob);
+            pending.componentOps.PushBack(static_cast<Scene::PendingPrefabComponentOp&&>(op));
+        }
+        ar.EndArray();
+    }
+
+    // Instances whose ROOT lies inside `root`'s subtree (excluding `root`'s own instance):
+    // captures turn these into nested records; their members leave the flat arrays.
+    inline void CollectContainedInstances(Scene& scene, EntityHandle root,
+                                          Array<Scene::PrefabInstanceState*>& outStates,
+                                          HashMap<Guid, u8>& outMembers) {
+        scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
+            EntityHandle e = scene.FindEntity(s.rootEntityId);
+            if (!e.IsAssigned() || e == root) { return; }
+            bool inside = false;
+            for (EntityHandle p = scene.GetParent(e); p.IsAssigned(); p = scene.GetParent(p)) {
+                if (p == root) { inside = true; break; }
+            }
+            if (!inside) { return; }
+            outStates.PushBack(&s);
+            for (const Guid& live : s.liveIds) { outMembers.InsertOrAssign(live, 1u); }
+        });
+    }
+
+    // Re-captures an instance's baselines from its CURRENT state. Nesting uses this after
+    // applying an owner payload's record deltas: the owner's customization of a nested
+    // instance becomes part of the BASELINE (so scene saves record only scene-level edits,
+    // and owner-template changes propagate on rebuild instead of being pinned as overrides).
+    inline void RecaptureBaselines(Scene& scene, Scene::PrefabInstanceState& state) {
+        state.componentBaselines.Clear();
+        for (usize i = 0; i < state.sourceIds.Size(); ++i) {
+            EntityHandle live = scene.FindEntity(state.liveIds[i]);
+            if (!live.IsAssigned()) { continue; }
+            if (i < state.baselineTransforms.Size()) {
+                state.baselineTransforms[i] = scene.GetLocalTransform(live);
+            }
+            scene.ForEachManager([&](ComponentManagerBase& m) {
+                if (!m.IsSerializable() || !m.HasComponent(live)) { return; }
+                Scene::PrefabComponentBaseline baseline;
+                baseline.sourceEntity = state.sourceIds[i];
+                baseline.typeId = String(m.SerializationTypeId());
+                ComponentToBlob(m, live, baseline.blob);
+                state.componentBaselines.PushBack(
+                    static_cast<Scene::PrefabComponentBaseline&&>(baseline));
+            });
+        }
+    }
 }
 
 // Bidirectional whole-scene serialization: scene name, the entity table + transform
@@ -214,9 +394,32 @@ namespace detail {
 //    rebuilds exact prefab bookkeeping WITHOUT needing a payload resolver.
 enum class ScenePrefabMode : u8 { Referenced = 0, Expanded = 1 };
 
+// Wire values of the prefab-section mode tag. 0/1 = the P1..P3 formats (no nesting links);
+// 2/3 = the same sections plus per-record nesting links (rootLive/owner/nestedSrcRoot).
+// Writers emit 2/3; readers accept all four (older saves upgrade on the next write).
+namespace detail {
+    constexpr u8 kPrefabWireReferenced   = 0;
+    constexpr u8 kPrefabWireExpanded     = 1;
+    constexpr u8 kPrefabWireReferenced2  = 2;
+    constexpr u8 kPrefabWireExpanded2    = 3;
+}
+
+// `includeSettings`: prefab payloads write an EMPTY system-settings section (a prefab is a
+// subtree template, not a world - and SpawnPrefab must be able to walk PAST the section to
+// reach the nested-instance records without applying settings to the target scene).
 inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe = nullptr,
-                           ScenePrefabMode prefabMode = ScenePrefabMode::Referenced) {
+                           ScenePrefabMode prefabMode = ScenePrefabMode::Referenced,
+                           bool includeSettings = true) {
     const bool writing = ar.Mode() == SerializeMode::Write;
+
+    // Stream version: writers emit the v2 header; readers sniff it THROUGH the serializer -
+    // a legacy stream has no header, so the first u32 is the scene NAME's length (always
+    // small, never the magic), whose characters are then consumed as a raw blob. Scene
+    // streams are binary-only by design, which is what makes the sniff well-defined.
+    u32 streamVersion = detail::kSceneStreamVersion;
+    if (writing) {
+        detail::WriteSceneStreamHeader(ar);
+    }
 
     // Referenced writes exclude prefab-instance members from the plain entity/component
     // arrays (they respawn from their prefab at load; only deltas persist).
@@ -227,10 +430,26 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
         });
     }
 
-    // --- name ---
+    // --- name (read side doubles as the version sniff - see above) ---
     String name = writing ? String(scene.Name()) : String{};
-    draconic::core::Serialize(ar, "name", name);
-    if (!writing) { scene.SetName(name.AsView()); }
+    if (writing) {
+        draconic::core::Serialize(ar, "name", name);
+    } else {
+        u32 first = 0;
+        draconic::core::Serialize(ar, "magic", first);
+        if (first == detail::kSceneStreamMagic) {
+            draconic::core::Serialize(ar, "version", streamVersion);
+            draconic::core::Serialize(ar, "name", name);
+        } else {
+            streamVersion = 1;
+            Array<u8> chars;
+            chars.Resize(first);
+            if (first > 0) { ar.Blob(chars.Data(), first); }
+            name = String(StringView(reinterpret_cast<const utf8char*>(chars.Data()),
+                                     static_cast<usize>(first)));
+        }
+        scene.SetName(name.AsView());
+    }
 
     // --- entities (id, name, active, parent-id, local transform) ---
     u32 entityCount = 0;
@@ -337,22 +556,41 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
     ar.Key("components");
     ar.BeginArray(componentCount);
     if (writing) {
+        // v2: records are length-prefixed BLOBS (the same bytes WriteComponent emits), so
+        // readers can skip types this build doesn't know.
         for (Record& r : records) {
             Guid ownerId = scene.GetEntityId(r.owner);
             String typeId = String(r.manager->SerializationTypeId());
             detail::SerializeGuid(ar, "owner", ownerId);
             draconic::core::Serialize(ar, "type", typeId);
-            r.manager->WriteComponent(ar, r.owner);
+            Array<u8> blob;
+            detail::ComponentToBlob(*r.manager, r.owner, blob);
+            draconic::core::Serialize(ar, "data", blob);
         }
     } else {
+        HashMap<String, u8> warned;
         for (u32 i = 0; i < componentCount; ++i) {
             Guid ownerId; String typeId;
             detail::SerializeGuid(ar, "owner", ownerId);
             draconic::core::Serialize(ar, "type", typeId);
             EntityHandle owner = scene.FindEntity(ownerId);
             ComponentManagerBase* manager = scene.FindManagerBySerializationId(typeId.AsView());
-            if (owner.IsAssigned() && manager != nullptr) {
-                manager->ReadComponent(ar, owner);
+            if (streamVersion >= 2) {
+                Array<u8> blob;
+                draconic::core::Serialize(ar, "data", blob);
+                if (owner.IsAssigned() && manager != nullptr) {
+                    detail::ComponentFromBlob(*manager, owner,
+                                              Span<const u8>{ blob.Data(), blob.Size() });
+                } else if (manager == nullptr && warned.Find(typeId) == nullptr) {
+                    warned.InsertOrAssign(typeId, 1u);
+                    DRACONIC_LOG_WARNING(u8"Scene",
+                        u8"skipping records of unknown component type '{}'", typeId);
+                }
+            } else {
+                // Legacy inline records: not skippable - the manager must exist.
+                if (owner.IsAssigned() && manager != nullptr) {
+                    manager->ReadComponent(ar, owner);
+                }
             }
         }
     }
@@ -366,21 +604,32 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
         return;   // pre-settings save: defaults stand, the next save upgrades the stream
     }
     u32 settingsCount = 0;
-    if (writing) {
+    if (writing && includeSettings) {
         scene.ForEachSystem([&](SceneSystem& s) { if (s.SettingsType() != nullptr) { ++settingsCount; } });
     }
     ar.Key("systemSettings");
     ar.BeginArray(settingsCount);
     if (writing) {
+        // v2: each system's settings serialize into a length-prefixed blob - readers skip
+        // systems this build doesn't have instead of aborting the section.
         scene.ForEachSystem([&](SceneSystem& s) {
-            if (s.SettingsType() == nullptr) { return; }
+            if (s.SettingsType() == nullptr || !includeSettings) { return; }
             String id(s.SettingsId());
             draconic::core::Serialize(ar, "system", id);
-            draconic::core::BeginVersionedPayload(ar, *s.SettingsType());
-            ar.Key("settings"); ar.BeginObject();
-            s.SerializeSettings(ar);
-            ar.EndObject();
-            draconic::core::EndVersionedPayload(ar);
+            MemoryStream buffer;
+            {
+                BinarySerializer sub(buffer, SerializeMode::Write);
+                draconic::core::BeginVersionedPayload(sub, *s.SettingsType());
+                sub.Key("settings"); sub.BeginObject();
+                s.SerializeSettings(sub);
+                sub.EndObject();
+                draconic::core::EndVersionedPayload(sub);
+            }
+            Array<u8> blob;
+            const Span<const byte> bytes = buffer.Bytes();
+            blob.Reserve(bytes.Size());
+            for (byte b : bytes) { blob.PushBack(static_cast<u8>(b)); }
+            draconic::core::Serialize(ar, "data", blob);
         });
     } else {
         for (u32 i = 0; i < settingsCount; ++i) {
@@ -392,16 +641,35 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
                     target = &s;
                 }
             });
-            if (target == nullptr) {
-                DRACONIC_LOG_WARNING(u8"Scene",
-                    u8"scene save carries settings for unknown system '{}' - rest of the section skipped", id);
-                break;   // binary records aren't skippable; drop the remainder (defaults stand)
+            if (streamVersion >= 2) {
+                Array<u8> blob;
+                draconic::core::Serialize(ar, "data", blob);
+                if (target == nullptr) {
+                    DRACONIC_LOG_WARNING(u8"Scene",
+                        u8"skipping settings of unknown system '{}'", id);
+                    continue;
+                }
+                MemoryStream buffer;
+                (void)buffer.Write(reinterpret_cast<const byte*>(blob.Data()), blob.Size());
+                (void)buffer.Seek(0, SeekOrigin::Begin);
+                BinarySerializer sub(buffer, SerializeMode::Read);
+                draconic::core::BeginVersionedPayload(sub, *target->SettingsType());
+                sub.Key("settings"); sub.BeginObject();
+                target->SerializeSettings(sub);
+                sub.EndObject();
+                draconic::core::EndVersionedPayload(sub);
+            } else {
+                if (target == nullptr) {
+                    DRACONIC_LOG_WARNING(u8"Scene",
+                        u8"scene save carries settings for unknown system '{}' - rest of the section skipped", id);
+                    break;   // legacy records aren't skippable; drop the remainder
+                }
+                draconic::core::BeginVersionedPayload(ar, *target->SettingsType());
+                ar.Key("settings"); ar.BeginObject();
+                target->SerializeSettings(ar);
+                ar.EndObject();
+                draconic::core::EndVersionedPayload(ar);
             }
-            draconic::core::BeginVersionedPayload(ar, *target->SettingsType());
-            ar.Key("settings"); ar.BeginObject();
-            target->SerializeSettings(ar);
-            ar.EndObject();
-            draconic::core::EndVersionedPayload(ar);
         }
     }
     ar.EndArray();
@@ -410,10 +678,15 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
     if (!writing && legacyProbe != nullptr && legacyProbe->Tell() >= legacyProbe->Size()) {
         return;   // pre-prefab save: no instances to restore
     }
-    u8 sectionMode = static_cast<u8>(prefabMode);
+    u8 sectionMode = (prefabMode == ScenePrefabMode::Referenced)
+        ? detail::kPrefabWireReferenced2 : detail::kPrefabWireExpanded2;
     draconic::core::Serialize(ar, "prefabMode", sectionMode);
+    const bool wireNested = sectionMode == detail::kPrefabWireReferenced2
+                         || sectionMode == detail::kPrefabWireExpanded2;
+    const bool wireReferenced = sectionMode == detail::kPrefabWireReferenced
+                             || sectionMode == detail::kPrefabWireReferenced2;
 
-    if (static_cast<ScenePrefabMode>(sectionMode) == ScenePrefabMode::Referenced) {
+    if (wireReferenced) {
         // Ref + deltas: prefab id, placement, the SAVED member guid map (respawn preserves
         // entity identity across load), and overrides DERIVED right here by comparing live
         // state against the spawn-time baselines.
@@ -427,99 +700,12 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
             scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState& state) {
                 // Overrides are DERIVED here: live state vs the spawn-time baselines.
                 UniquePtr<Scene::PendingPrefabInstance> d = detail::ComputeInstanceDeltas(scene, state);
-                detail::SerializeGuid(ar, "prefab", d->prefabId);
-                detail::SerializeGuid(ar, "parent", d->parentEntityId);
-                detail::SerializeTransform(ar, d->rootTransform);
-
-                u32 memberCount = static_cast<u32>(d->sourceIds.Size());
-                ar.Key("members");
-                ar.BeginArray(memberCount);
-                for (u32 i = 0; i < memberCount; ++i) {
-                    detail::SerializeGuid(ar, "src", d->sourceIds[i]);
-                    detail::SerializeGuid(ar, "live", d->liveIds[i]);
-                }
-                ar.EndArray();
-
-                u32 destroyedCount = static_cast<u32>(d->destroyedMembers.Size());
-                ar.Key("destroyed");
-                ar.BeginArray(destroyedCount);
-                for (Guid& dead : d->destroyedMembers) { detail::SerializeGuid(ar, "src", dead); }
-                ar.EndArray();
-
-                u32 transformCount = static_cast<u32>(d->overrideTransformIds.Size());
-                ar.Key("transformOverrides");
-                ar.BeginArray(transformCount);
-                for (u32 i = 0; i < transformCount; ++i) {
-                    detail::SerializeGuid(ar, "src", d->overrideTransformIds[i]);
-                    detail::SerializeTransform(ar, d->overrideTransforms[i]);
-                }
-                ar.EndArray();
-
-                u32 opCount = static_cast<u32>(d->componentOps.Size());
-                ar.Key("componentOps");
-                ar.BeginArray(opCount);
-                for (Scene::PendingPrefabComponentOp& op : d->componentOps) {
-                    detail::SerializeGuid(ar, "src", op.sourceEntity);
-                    draconic::core::Serialize(ar, "type", op.typeId);
-                    draconic::core::Serialize(ar, "op", op.op);
-                    draconic::core::Serialize(ar, "blob", op.blob);
-                }
-                ar.EndArray();
+                detail::WritePrefabRecord(ar, *d);
             });
         } else {
             for (u32 n = 0; n < instanceCount; ++n) {
                 auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
-                detail::SerializeGuid(ar, "prefab", pending->prefabId);
-                detail::SerializeGuid(ar, "parent", pending->parentEntityId);
-                detail::SerializeTransform(ar, pending->rootTransform);
-
-                u32 memberCount = 0;
-                ar.Key("members");
-                ar.BeginArray(memberCount);
-                for (u32 i = 0; i < memberCount; ++i) {
-                    Guid src, live;
-                    detail::SerializeGuid(ar, "src", src);
-                    detail::SerializeGuid(ar, "live", live);
-                    pending->sourceIds.PushBack(src);
-                    pending->liveIds.PushBack(live);
-                }
-                ar.EndArray();
-
-                u32 destroyedCount = 0;
-                ar.Key("destroyed");
-                ar.BeginArray(destroyedCount);
-                for (u32 i = 0; i < destroyedCount; ++i) {
-                    Guid d;
-                    detail::SerializeGuid(ar, "src", d);
-                    pending->destroyedMembers.PushBack(d);
-                }
-                ar.EndArray();
-
-                u32 transformCount = 0;
-                ar.Key("transformOverrides");
-                ar.BeginArray(transformCount);
-                for (u32 i = 0; i < transformCount; ++i) {
-                    Guid src; Transform t;
-                    detail::SerializeGuid(ar, "src", src);
-                    detail::SerializeTransform(ar, t);
-                    pending->overrideTransformIds.PushBack(src);
-                    pending->overrideTransforms.PushBack(t);
-                }
-                ar.EndArray();
-
-                u32 opCount = 0;
-                ar.Key("componentOps");
-                ar.BeginArray(opCount);
-                for (u32 i = 0; i < opCount; ++i) {
-                    Scene::PendingPrefabComponentOp op;
-                    detail::SerializeGuid(ar, "src", op.sourceEntity);
-                    draconic::core::Serialize(ar, "type", op.typeId);
-                    draconic::core::Serialize(ar, "op", op.op);
-                    draconic::core::Serialize(ar, "blob", op.blob);
-                    pending->componentOps.PushBack(static_cast<Scene::PendingPrefabComponentOp&&>(op));
-                }
-                ar.EndArray();
-
+                detail::ReadPrefabRecord(ar, *pending, wireNested);
                 scene.AddPendingPrefabInstance(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(pending));
             }
         }
@@ -537,6 +723,8 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
             scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState& state) {
                 detail::SerializeGuid(ar, "prefab", state.prefabId);
                 detail::SerializeGuid(ar, "root", state.rootEntityId);
+                detail::SerializeGuid(ar, "owner", state.ownerRootEntityId);
+                detail::SerializeGuid(ar, "nestedSrcRoot", state.nestedRootSourceId);
                 u32 memberCount = static_cast<u32>(state.sourceIds.Size());
                 ar.Key("members");
                 ar.BeginArray(memberCount);
@@ -561,6 +749,10 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
                 auto state = MakeUnique<Scene::PrefabInstanceState>(DefaultAllocator());
                 detail::SerializeGuid(ar, "prefab", state->prefabId);
                 detail::SerializeGuid(ar, "root", state->rootEntityId);
+                if (wireNested) {
+                    detail::SerializeGuid(ar, "owner", state->ownerRootEntityId);
+                    detail::SerializeGuid(ar, "nestedSrcRoot", state->nestedRootSourceId);
+                }
                 u32 memberCount = 0;
                 ar.Key("members");
                 ar.BeginArray(memberCount);
@@ -626,17 +818,29 @@ public:
 
 
 /// Captures `root`'s subtree into a LoadScene-compatible stream (entities + components + an
-/// empty settings section): the prefab PAYLOAD. Written with the subtree's OWN guids - they
-/// become the stable sourceEntityIds that every instance's deltas key on.
+/// empty settings section + nested-instance records): the prefab PAYLOAD. Written with the
+/// subtree's OWN guids - they become the stable sourceEntityIds that every instance's deltas
+/// key on. Prefab instances INSIDE the subtree capture as nested RECORDS (ref + the
+/// instance's current deltas), not flattened entities - selecting a group that contains
+/// instances and making it a prefab preserves the links.
 inline Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out) {
     if (!root.IsAssigned()) { return Status{ ErrorCode::NotFound }; }
     BinarySerializer ar(out, SerializeMode::Write);
+    detail::WriteSceneStreamHeader(ar);
 
     String name = String(scene.GetEntityName(root));
     draconic::core::Serialize(ar, "name", name);
 
+    Array<Scene::PrefabInstanceState*> contained;
+    HashMap<Guid, u8> nestedMembers;
+    detail::CollectContainedInstances(scene, root, contained, nestedMembers);
+
+    Array<EntityHandle> allHandles;
+    detail::CollectSubtree(scene, root, allHandles);
     Array<EntityHandle> handles;
-    detail::CollectSubtree(scene, root, handles);
+    for (EntityHandle e : allHandles) {
+        if (nestedMembers.Find(scene.GetEntityId(e)) == nullptr) { handles.PushBack(e); }
+    }
 
     ar.Key("entities");
     u32 entityCount = static_cast<u32>(handles.Size());
@@ -674,27 +878,63 @@ inline Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out) {
         String typeId = String(r.manager->SerializationTypeId());
         detail::SerializeGuid(ar, "owner", ownerId);
         draconic::core::Serialize(ar, "type", typeId);
-        r.manager->WriteComponent(ar, r.owner);
+        Array<u8> blob;
+        detail::ComponentToBlob(*r.manager, r.owner, blob);
+        draconic::core::Serialize(ar, "data", blob);
     }
     ar.EndArray();
 
     // Empty settings section: keeps the stream LoadScene-compatible (the prefab EDIT page
-    // loads it like any scene; spawn stops reading before this point).
+    // loads it like any scene; spawn walks PAST it to the nested records).
     u32 settingsCount = 0;
     ar.Key("systemSettings");
     ar.BeginArray(settingsCount);
     ar.EndArray();
+
+    // Nested-instance records (P4): contained instances as ref + current deltas, in the
+    // payload's namespace (live guids ARE the namespace ids here; a previously-nested
+    // instance keeps its stable identity so existing spawns keep matching).
+    u8 sectionMode = detail::kPrefabWireReferenced2;
+    draconic::core::Serialize(ar, "prefabMode", sectionMode);
+    u32 recordCount = static_cast<u32>(contained.Size());
+    ar.Key("prefabInstances");
+    ar.BeginArray(recordCount);
+    for (Scene::PrefabInstanceState* state : contained) {
+        UniquePtr<Scene::PendingPrefabInstance> d = detail::ComputeInstanceDeltas(scene, *state);
+        if (!state->nestedRootSourceId.IsNil()) { d->rootLiveId = state->nestedRootSourceId; }
+        d->ownerRootEntityId = Guid{};
+        d->nestedRootSourceId = Guid{};
+        detail::WritePrefabRecord(ar, *d);
+    }
+    ar.EndArray();
     return ar.IsOk() ? Status{} : ar.GetStatus();
 }
+
+/// Maps a prefab id to its payload stream (editor: source DB; player: cooked DB).
+using PrefabPayloadResolver = Function<UniquePtr<IStream>(const Guid&)>;
 
 /// Spawns a prefab payload into `scene`: creates every payload entity with a FRESH guid
 /// (or the caller's preassigned one - scene loading preserves saved identities this way),
 /// relinks parents inside the instance, parents payload roots under `parent` (invalid =
 /// scene root), and registers a PrefabInstanceState with spawn-time baselines. Returns the
 /// instance root (the FIRST payload root), or invalid on a malformed payload.
+///
+/// NESTING (P4): payloads written since nesting carry a trailing record section - the FLAT
+/// FOREST of every instance the template contains at any depth (each relative to its OWN
+/// template, so spawning never recurses and reference cycles cannot loop). With a `resolver`
+/// each record's template spawns as a linked nested instance: the record's deltas (the
+/// owner's customization) apply and then the baselines RE-capture, so scene saves record
+/// only scene-level edits and owner-template changes propagate on rebuild. Without a
+/// resolver the records are skipped with a warning (entities absent).
+/// `nestedSceneDeltas` = the scene's saved sub-records for this instance's nested children
+/// (matched by nestedRootSourceId == record rootLive): preserved guids + scene-level deltas.
 inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& prefabId,
                                 EntityHandle parent = EntityHandle::Invalid(),
-                                const HashMap<Guid, Guid>* preassigned = nullptr) {
+                                const HashMap<Guid, Guid>* preassigned = nullptr,
+                                const PrefabPayloadResolver* resolver = nullptr,
+                                const Array<const Scene::PendingPrefabInstance*>* nestedSceneDeltas = nullptr,
+                                bool spawnNested = true) {
+    const u32 streamVersion = detail::ReadSceneStreamVersion(payload);
     BinarySerializer ar(payload, SerializeMode::Read);
 
     String name;
@@ -755,6 +995,8 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
     }
 
     // Components: route to remapped owners, then capture each as a spawn-time baseline.
+    // v2 payloads carry BLOB records: the blob applies to the live component AND becomes
+    // the baseline directly (no re-serialize), and unknown types SKIP instead of failing.
     u32 componentCount = 0;
     ar.Key("components");
     ar.BeginArray(componentCount);
@@ -765,23 +1007,152 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
         const Guid* liveId = liveBySource.Find(sourceOwner);
         EntityHandle owner = (liveId != nullptr) ? scene.FindEntity(*liveId) : EntityHandle::Invalid();
         ComponentManagerBase* manager = scene.FindManagerBySerializationId(typeId.AsView());
-        if (!owner.IsAssigned() || manager == nullptr) {
-            DRACONIC_LOG_WARNING(u8"Scene", u8"prefab component record '{}' has no owner/manager - payload out of sync", typeId);
-            return EntityHandle::Invalid();   // binary records are not skippable
+        if (streamVersion >= 2) {
+            Array<u8> blob;
+            draconic::core::Serialize(ar, "data", blob);
+            if (!owner.IsAssigned() || manager == nullptr) {
+                DRACONIC_LOG_WARNING(u8"Scene",
+                    u8"prefab component record '{}' skipped (no owner/manager)", typeId);
+                continue;
+            }
+            detail::ComponentFromBlob(*manager, owner, Span<const u8>{ blob.Data(), blob.Size() });
+            // Baseline = RE-serialized from the live component, NOT the payload bytes: a
+            // component data-version bump would otherwise read as a phantom override on
+            // every instance (old-version blob != current-version blob for equal state).
+            Scene::PrefabComponentBaseline baseline;
+            baseline.sourceEntity = sourceOwner;
+            baseline.typeId = typeId;
+            detail::ComponentToBlob(*manager, owner, baseline.blob);
+            state->componentBaselines.PushBack(static_cast<Scene::PrefabComponentBaseline&&>(baseline));
+        } else {
+            if (!owner.IsAssigned() || manager == nullptr) {
+                DRACONIC_LOG_WARNING(u8"Scene", u8"prefab component record '{}' has no owner/manager - payload out of sync", typeId);
+                return EntityHandle::Invalid();   // legacy records are not skippable
+            }
+            manager->ReadComponent(ar, owner);
+            Scene::PrefabComponentBaseline baseline;
+            baseline.sourceEntity = sourceOwner;
+            baseline.typeId = typeId;
+            detail::ComponentToBlob(*manager, owner, baseline.blob);
+            state->componentBaselines.PushBack(static_cast<Scene::PrefabComponentBaseline&&>(baseline));
         }
-        manager->ReadComponent(ar, owner);
-        Scene::PrefabComponentBaseline baseline;
-        baseline.sourceEntity = sourceOwner;
-        baseline.typeId = typeId;
-        detail::ComponentToBlob(*manager, owner, baseline.blob);
-        state->componentBaselines.PushBack(static_cast<Scene::PrefabComponentBaseline&&>(baseline));
     }
     ar.EndArray();
     if (!ar.IsOk()) { return EntityHandle::Invalid(); }
-    // (the trailing settings section is deliberately not read - spawn needs none of it)
 
-    state->rootEntityId = scene.GetEntityId(firstRoot);
+    const Guid rootGuid = scene.GetEntityId(firstRoot);
+    state->rootEntityId = rootGuid;
+    state->referencedPrefabIds.PushBack(prefabId);
+    Scene::PrefabInstanceState* ownState = state.Get();
     scene.AddPrefabInstance(static_cast<UniquePtr<Scene::PrefabInstanceState>&&>(state));
+
+    // ---- nested records (P4) ----
+    // Reach the trailing section: new payloads write an EMPTY settings section; a NON-empty
+    // one is a legacy Expanded save (members already spawned flat above - old behavior), and
+    // a stream that simply ends here is a pre-nesting capture. Both skip cleanly.
+    if (!spawnNested) { return firstRoot; }
+    u32 settingsCount = 0;
+    ar.Key("systemSettings");
+    ar.BeginArray(settingsCount);
+    ar.EndArray();
+    if (!ar.IsOk() || settingsCount != 0) { return firstRoot; }
+    if (payload.Tell() >= payload.Size()) { return firstRoot; }
+
+    u8 sectionMode = 0;
+    draconic::core::Serialize(ar, "prefabMode", sectionMode);
+    if (sectionMode != detail::kPrefabWireReferenced2
+        && sectionMode != detail::kPrefabWireReferenced) {
+        return firstRoot;   // Expanded payload (legacy flatten): states already implicit
+    }
+    const bool wireNested = sectionMode == detail::kPrefabWireReferenced2;
+
+    u32 recordCount = 0;
+    ar.Key("prefabInstances");
+    ar.BeginArray(recordCount);
+    Array<UniquePtr<Scene::PendingPrefabInstance>> records;
+    for (u32 n = 0; n < recordCount && ar.IsOk(); ++n) {
+        auto record = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+        detail::ReadPrefabRecord(ar, *record, wireNested);
+        records.PushBack(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(record));
+    }
+    ar.EndArray();
+    if (!ar.IsOk()) { return firstRoot; }
+
+    // Owner-namespace id -> live guid: the payload's own entities, then each spawned
+    // record's members (records were saved in registration order, so parents precede).
+    HashMap<Guid, Guid> ownerNsToLive;
+    for (const auto& kv : liveBySource) { ownerNsToLive.InsertOrAssign(kv.key, kv.value); }
+
+    for (auto& recordPtr : records) {
+        Scene::PendingPrefabInstance& r = *recordPtr;
+        UniquePtr<IStream> childPayload = (resolver != nullptr && *resolver)
+            ? (*resolver)(r.prefabId) : UniquePtr<IStream>{};
+        if (childPayload.Get() == nullptr) {
+            DRACONIC_LOG_WARNING(u8"Scene",
+                u8"nested prefab record skipped - payload did not resolve (no resolver or missing asset)");
+            continue;
+        }
+
+        // The scene's saved sub-record for THIS nested instance, if any.
+        const Scene::PendingPrefabInstance* sub = nullptr;
+        if (nestedSceneDeltas != nullptr) {
+            for (const Scene::PendingPrefabInstance* candidate : *nestedSceneDeltas) {
+                if (candidate != nullptr && candidate->nestedRootSourceId == r.rootLiveId) {
+                    sub = candidate;
+                    break;
+                }
+            }
+        }
+
+        HashMap<Guid, Guid> childPreassigned;
+        if (sub != nullptr) {
+            for (usize i = 0; i < sub->sourceIds.Size() && i < sub->liveIds.Size(); ++i) {
+                childPreassigned.InsertOrAssign(sub->sourceIds[i], sub->liveIds[i]);
+            }
+        }
+
+        EntityHandle recordParent = firstRoot;
+        if (const Guid* liveParent = ownerNsToLive.Find(r.parentEntityId)) {
+            EntityHandle p = scene.FindEntity(*liveParent);
+            if (p.IsAssigned()) { recordParent = p; }
+        }
+
+        EntityHandle child = SpawnPrefab(scene, *childPayload, r.prefabId, recordParent,
+                                         &childPreassigned, nullptr, nullptr,
+                                         /*spawnNested=*/false);
+        if (!child.IsAssigned()) { continue; }
+        const Guid childRootGuid = scene.GetEntityId(child);
+        Scene::PrefabInstanceState* childState = scene.FindPrefabInstanceByRoot(childRootGuid);
+        if (childState == nullptr) { continue; }
+        childState->ownerRootEntityId = rootGuid;
+        childState->nestedRootSourceId = r.rootLiveId;
+
+        // Owner customization -> then it BECOMES the baseline; scene-level deltas stay
+        // overrides on top.
+        scene.SetLocalTransform(child, r.rootTransform);
+        detail::ApplyPendingDeltas(scene, childState, r);
+        detail::RecaptureBaselines(scene, *childState);
+        if (sub != nullptr) {
+            if (sub->applyPlacement) {
+                if (sub->parentEntityId != Guid{}) {
+                    EntityHandle sceneParent = scene.FindEntity(sub->parentEntityId);
+                    if (sceneParent.IsAssigned()) { scene.SetParent(child, sceneParent); }
+                }
+                scene.SetLocalTransform(child, sub->rootTransform);
+            }
+            detail::ApplyPendingDeltas(scene, childState, *sub);
+        }
+
+        ownState->referencedPrefabIds.PushBack(r.prefabId);
+        for (usize i = 0; i < r.sourceIds.Size() && i < r.liveIds.Size(); ++i) {
+            for (usize k = 0; k < childState->sourceIds.Size(); ++k) {
+                if (childState->sourceIds[k] == r.sourceIds[i]) {
+                    ownerNsToLive.InsertOrAssign(r.liveIds[i], childState->liveIds[k]);
+                    break;
+                }
+            }
+        }
+    }
     return firstRoot;
 }
 
@@ -832,7 +1203,113 @@ FindPrefabBaseline(const Scene::PrefabInstanceState& state, const Guid& sourceId
 /// while entities the user ADDED under the instance keep their live guids as brand-new
 /// source ids. The instance root records a nil parent, and ITS transform is written as the
 /// template's root transform (an applied placement is not part of the template).
-inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState& state, IStream& out) {
+// Live-vs-PURE-TEMPLATE deltas for one instance: what apply-to-prefab writes into the OWNER
+// payload's nested record (the instance's baselines have the owner customization folded in,
+// so a plain baseline diff would lose it). v2 payloads carry length-prefixed component
+// blobs, so the template baselines read STRAIGHT off the stream - no scene mutation. Legacy
+// payloads fall back to the (degraded) baseline diff.
+inline UniquePtr<Scene::PendingPrefabInstance> ComputeInstanceDeltasVsTemplate(
+        Scene& scene, Scene::PrefabInstanceState& state, IStream& templatePayload) {
+    const u32 streamVersion = detail::ReadSceneStreamVersion(templatePayload);
+    if (streamVersion < 2) {
+        DRACONIC_LOG_WARNING(u8"Scene",
+            u8"apply-to-prefab: legacy nested template - owner customization may fold into the record");
+        return detail::ComputeInstanceDeltas(scene, state);
+    }
+    BinarySerializer ar(templatePayload, SerializeMode::Read);
+
+    String name;
+    draconic::core::Serialize(ar, "name", name);
+
+    HashMap<Guid, Transform> templateTransforms;
+    u32 entityCount = 0;
+    ar.Key("entities");
+    ar.BeginArray(entityCount);
+    for (u32 i = 0; i < entityCount; ++i) {
+        Guid id; String ename; u8 active = 0; Guid parentId; Transform t;
+        detail::SerializeGuid(ar, "id", id);
+        draconic::core::Serialize(ar, "name", ename);
+        draconic::core::Serialize(ar, "active", active);
+        detail::SerializeGuid(ar, "parent", parentId);
+        detail::SerializeTransform(ar, t);
+        templateTransforms.InsertOrAssign(id, t);
+    }
+    ar.EndArray();
+
+    struct TemplateBlob { Guid source; String typeId; Array<u8> blob; };
+    Array<TemplateBlob> templateBlobs;
+    u32 componentCount = 0;
+    ar.Key("components");
+    ar.BeginArray(componentCount);
+    for (u32 i = 0; i < componentCount && ar.IsOk(); ++i) {
+        TemplateBlob record;
+        detail::SerializeGuid(ar, "owner", record.source);
+        draconic::core::Serialize(ar, "type", record.typeId);
+        draconic::core::Serialize(ar, "data", record.blob);
+        templateBlobs.PushBack(static_cast<TemplateBlob&&>(record));
+    }
+    ar.EndArray();
+    if (!ar.IsOk()) { return detail::ComputeInstanceDeltas(scene, state); }
+
+    auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+    pending->prefabId = state.prefabId;
+    EntityHandle liveRoot = scene.FindEntity(state.rootEntityId);
+    EntityHandle parent = liveRoot.IsAssigned() ? scene.GetParent(liveRoot) : EntityHandle::Invalid();
+    pending->parentEntityId = parent.IsAssigned() ? scene.GetEntityId(parent) : Guid{};
+    pending->rootTransform = liveRoot.IsAssigned() ? scene.GetLocalTransform(liveRoot) : Transform{};
+    pending->sourceIds = state.sourceIds;
+    pending->liveIds = state.liveIds;
+    pending->rootLiveId = state.rootEntityId;
+
+    for (usize i = 0; i < state.sourceIds.Size(); ++i) {
+        EntityHandle live = scene.FindEntity(state.liveIds[i]);
+        if (!live.IsAssigned()) { pending->destroyedMembers.PushBack(state.sourceIds[i]); continue; }
+        if (state.liveIds[i] != state.rootEntityId) {
+            const Transform* baseline = templateTransforms.Find(state.sourceIds[i]);
+            Transform t = scene.GetLocalTransform(live);
+            if (baseline == nullptr || !detail::TransformsEqual(t, *baseline)) {
+                pending->overrideTransformIds.PushBack(state.sourceIds[i]);
+                pending->overrideTransforms.PushBack(t);
+            }
+        }
+        scene.ForEachManager([&](ComponentManagerBase& m) {
+            if (!m.IsSerializable()) { return; }
+            const TemplateBlob* baseline = nullptr;
+            for (const TemplateBlob& b : templateBlobs) {
+                if (b.source == state.sourceIds[i] && b.typeId.AsView() == m.SerializationTypeId()) {
+                    baseline = &b;
+                    break;
+                }
+            }
+            Scene::PendingPrefabComponentOp op;
+            op.sourceEntity = state.sourceIds[i];
+            op.typeId = String(m.SerializationTypeId());
+            if (m.HasComponent(live)) {
+                Array<u8> blob;
+                detail::ComponentToBlob(m, live, blob);
+                if (baseline == nullptr) {
+                    op.op = 1u;
+                    op.blob = static_cast<Array<u8>&&>(blob);
+                } else if (!detail::BlobsEqual(Span<const u8>{ blob.Data(), blob.Size() },
+                                               Span<const u8>{ baseline->blob.Data(), baseline->blob.Size() })) {
+                    op.op = 0u;
+                    op.blob = static_cast<Array<u8>&&>(blob);
+                } else {
+                    return;
+                }
+            } else if (baseline != nullptr) {
+                op.op = 2u;
+            } else {
+                return;
+            }
+            pending->componentOps.PushBack(static_cast<Scene::PendingPrefabComponentOp&&>(op));
+        });
+    }
+    return pending;
+}
+
+inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState& state, IStream& out,
+                                        const PrefabPayloadResolver* resolver = nullptr) {
     EntityHandle root = scene.FindEntity(state.rootEntityId);
     if (!root.IsAssigned()) { return Status{ ErrorCode::NotFound }; }
 
@@ -847,11 +1324,22 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
     };
 
     BinarySerializer ar(out, SerializeMode::Write);
+    detail::WriteSceneStreamHeader(ar);
     String name = String(scene.GetEntityName(root));
     draconic::core::Serialize(ar, "name", name);
 
+    // Instances inside the subtree become nested RECORDS (owner-linked ones keep their
+    // stable identity; a user-spawned instance inside gets ABSORBED as a new record).
+    Array<Scene::PrefabInstanceState*> contained;
+    HashMap<Guid, u8> nestedMembers;
+    detail::CollectContainedInstances(scene, root, contained, nestedMembers);
+
+    Array<EntityHandle> allHandles;
+    detail::CollectSubtree(scene, root, allHandles);
     Array<EntityHandle> handles;
-    detail::CollectSubtree(scene, root, handles);
+    for (EntityHandle e : allHandles) {
+        if (nestedMembers.Find(scene.GetEntityId(e)) == nullptr) { handles.PushBack(e); }
+    }
 
     // The root's live transform is this instance's PLACEMENT, not template content (root
     // transforms never propagate between instances - the Unity semantic); write the
@@ -900,7 +1388,9 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
         String typeId = String(r.manager->SerializationTypeId());
         detail::SerializeGuid(ar, "owner", ownerId);
         draconic::core::Serialize(ar, "type", typeId);
-        r.manager->WriteComponent(ar, r.owner);
+        Array<u8> blob;
+        detail::ComponentToBlob(*r.manager, r.owner, blob);
+        draconic::core::Serialize(ar, "data", blob);
     }
     ar.EndArray();
 
@@ -908,13 +1398,41 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
     ar.Key("systemSettings");
     ar.BeginArray(settingsCount);
     ar.EndArray();
+
+    // Nested records: deltas vs the PURE child template when the resolver provides it (the
+    // instance's baselines already absorbed this owner's customization - a baseline diff
+    // would silently drop it); baseline diff is the degraded fallback.
+    u8 sectionMode = detail::kPrefabWireReferenced2;
+    draconic::core::Serialize(ar, "prefabMode", sectionMode);
+    u32 recordCount = static_cast<u32>(contained.Size());
+    ar.Key("prefabInstances");
+    ar.BeginArray(recordCount);
+    for (Scene::PrefabInstanceState* nested : contained) {
+        UniquePtr<IStream> childPayload = (resolver != nullptr && *resolver)
+            ? (*resolver)(nested->prefabId) : UniquePtr<IStream>{};
+        UniquePtr<Scene::PendingPrefabInstance> d;
+        if (childPayload.Get() != nullptr) {
+            d = ComputeInstanceDeltasVsTemplate(scene, *nested, *childPayload);
+        } else {
+            DRACONIC_LOG_WARNING(u8"Scene",
+                u8"apply-to-prefab: nested template unresolved - owner customization may be lost");
+            d = detail::ComputeInstanceDeltas(scene, *nested);
+        }
+        if (!nested->nestedRootSourceId.IsNil()) { d->rootLiveId = nested->nestedRootSourceId; }
+        d->parentEntityId = substituted(d->parentEntityId);
+        d->ownerRootEntityId = Guid{};
+        d->nestedRootSourceId = Guid{};
+        detail::WritePrefabRecord(ar, *d);
+    }
+    ar.EndArray();
     return ar.IsOk() ? Status{} : ar.GetStatus();
 }
 
 /// Discards an instance's deltas: respawn from `payload` with the PRESERVED member guids and
 /// placement (parent + root transform), applying nothing else. Returns false if the root is
 /// gone or the payload fails to spawn.
-inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<const byte> payload) {
+inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<const byte> payload,
+                                 const PrefabPayloadResolver* resolver = nullptr) {
     Scene::PrefabInstanceState* state = scene.FindPrefabInstanceByRoot(rootEntityId);
     if (state == nullptr) { return false; }
     EntityHandle root = scene.FindEntity(rootEntityId);
@@ -929,17 +1447,45 @@ inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<co
     }
     Array<Guid> liveIds = state->liveIds;
 
+    // Nested instances revert with the owner: keep their member GUIDS (cross-references
+    // stay valid) but none of their deltas, and let the template's placement win.
+    Array<Scene::PrefabInstanceState*> contained;
+    HashMap<Guid, u8> nestedMembers;
+    detail::CollectContainedInstances(scene, root, contained, nestedMembers);
+    Array<UniquePtr<Scene::PendingPrefabInstance>> subs;
+    Array<Guid> subRoots;
+    for (Scene::PrefabInstanceState* nested : contained) {
+        auto sub = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+        sub->prefabId = nested->prefabId;
+        sub->sourceIds = nested->sourceIds;
+        sub->liveIds = nested->liveIds;
+        sub->nestedRootSourceId = nested->nestedRootSourceId.IsNil()
+            ? nested->rootEntityId : nested->nestedRootSourceId;
+        sub->applyPlacement = false;
+        subs.PushBack(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(sub));
+        subRoots.PushBack(nested->rootEntityId);
+        for (const Guid& live : nested->liveIds) {
+            EntityHandle e = scene.FindEntity(live);
+            if (e.IsAssigned()) { scene.DestroyEntity(e); }
+        }
+    }
+    for (const Guid& subRoot : subRoots) { scene.RemovePrefabInstance(subRoot); }
+
     for (const Guid& live : liveIds) {
         EntityHandle e = scene.FindEntity(live);
         if (e.IsAssigned()) { scene.DestroyEntity(e); }
     }
     scene.RemovePrefabInstance(rootEntityId);
 
+    Array<const Scene::PendingPrefabInstance*> subPtrs;
+    for (const auto& sub : subs) { subPtrs.PushBack(sub.Get()); }
+
     MemoryStream stream;
     (void)stream.Write(payload.Data(), payload.Size());
     (void)stream.Seek(0, SeekOrigin::Begin);
     EntityHandle parent = (parentId != Guid{}) ? scene.FindEntity(parentId) : EntityHandle::Invalid();
-    EntityHandle spawned = SpawnPrefab(scene, stream, prefabId, parent, &preassigned);
+    EntityHandle spawned = SpawnPrefab(scene, stream, prefabId, parent, &preassigned,
+                                       resolver, &subPtrs);
     if (!spawned.IsAssigned()) { return false; }
     scene.SetLocalTransform(spawned, placement);
     return true;
@@ -950,10 +1496,14 @@ inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<co
 /// stream (editor: source DB; runtime: cooked DB). Respawns each instance with its SAVED
 /// member guids, re-applies the root placement and the deltas. Unresolvable prefabs are
 /// skipped with a warning (their entities are simply absent).
-inline void ResolveScenePrefabs(Scene& scene,
-                                const Function<UniquePtr<IStream>(const Guid&)>& resolver) {
+inline void ResolveScenePrefabs(Scene& scene, const PrefabPayloadResolver& resolver) {
     Array<UniquePtr<Scene::PendingPrefabInstance>> pendings = scene.TakePendingPrefabInstances();
+
+    // Nested records (owner set) don't spawn on their own - their OWNER's spawn consumes
+    // them (preserved guids + scene-level deltas layered over the owner customization).
     for (auto& p : pendings) {
+        if (!p->ownerRootEntityId.IsNil()) { continue; }
+
         UniquePtr<IStream> payload = resolver ? resolver(p->prefabId) : UniquePtr<IStream>{};
         if (payload.Get() == nullptr) {
             DRACONIC_LOG_WARNING(u8"Scene", u8"prefab instance skipped - payload for its prefab did not resolve");
@@ -963,54 +1513,211 @@ inline void ResolveScenePrefabs(Scene& scene,
         for (usize i = 0; i < p->sourceIds.Size() && i < p->liveIds.Size(); ++i) {
             preassigned.InsertOrAssign(p->sourceIds[i], p->liveIds[i]);
         }
+        Array<const Scene::PendingPrefabInstance*> subPtrs;
+        for (const auto& candidate : pendings) {
+            if (candidate->ownerRootEntityId == p->rootLiveId && !candidate->ownerRootEntityId.IsNil()) {
+                subPtrs.PushBack(candidate.Get());
+            }
+        }
         EntityHandle parent = (p->parentEntityId != Guid{}) ? scene.FindEntity(p->parentEntityId)
                                                             : EntityHandle::Invalid();
-        EntityHandle root = SpawnPrefab(scene, *payload, p->prefabId, parent, &preassigned);
+        EntityHandle root = SpawnPrefab(scene, *payload, p->prefabId, parent, &preassigned,
+                                        &resolver, &subPtrs);
+        if (!root.IsAssigned()) { continue; }
+        scene.SetLocalTransform(root, p->rootTransform);
+        detail::ApplyPendingDeltas(scene, scene.FindPrefabInstanceByRoot(scene.GetEntityId(root)), *p);
+    }
+
+    // Orphaned nested records (their owner record vanished): spawn standalone so the
+    // entities aren't silently lost - they become plain top-level instances.
+    for (auto& p : pendings) {
+        if (p->ownerRootEntityId.IsNil()) { continue; }
+        if (scene.FindEntity(p->rootLiveId).IsAssigned()) { continue; }   // owner spawned it
+        UniquePtr<IStream> payload = resolver ? resolver(p->prefabId) : UniquePtr<IStream>{};
+        if (payload.Get() == nullptr) { continue; }
+        DRACONIC_LOG_WARNING(u8"Scene", u8"nested prefab record lost its owner - spawning standalone");
+        HashMap<Guid, Guid> preassigned;
+        for (usize i = 0; i < p->sourceIds.Size() && i < p->liveIds.Size(); ++i) {
+            preassigned.InsertOrAssign(p->sourceIds[i], p->liveIds[i]);
+        }
+        EntityHandle parent = (p->parentEntityId != Guid{}) ? scene.FindEntity(p->parentEntityId)
+                                                            : EntityHandle::Invalid();
+        EntityHandle root = SpawnPrefab(scene, *payload, p->prefabId, parent, &preassigned,
+                                        &resolver, nullptr);
         if (!root.IsAssigned()) { continue; }
         scene.SetLocalTransform(root, p->rootTransform);
         detail::ApplyPendingDeltas(scene, scene.FindPrefabInstanceByRoot(scene.GetEntityId(root)), *p);
     }
 }
 
-/// The template changed (its asset was saved / its product reloaded): rebuild every instance
-/// of `prefabId` in `scene` from the NEW payload, preserving the user's deltas - compute the
-/// current overrides, destroy the members, respawn with the PRESERVED member guids (members
-/// the new template dropped simply don't respawn; new template members spawn fresh), and
-/// re-apply the deltas. Returns the number of instances rebuilt.
-inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const byte> payload) {
-    // Snapshot the pendings FIRST (destroying entities mutates the state list).
-    Array<UniquePtr<Scene::PendingPrefabInstance>> pendings;
-    Array<Guid> roots;
+/// The template changed (its asset was saved / its product reloaded): rebuild every affected
+/// TOP-LEVEL instance in `scene` from its template, preserving the user's deltas. An instance
+/// is affected when it IS `prefabId` or its payload REFERENCES it (nested at any depth -
+/// referencedPrefabIds, recorded at spawn); referencing instances rebuild from their OWN
+/// template via `resolver`. Owned nested instances rebuild with their owner (scene-level
+/// deltas + member guids preserved); a user-spawned instance INSIDE a rebuilt one respawns
+/// standalone afterwards, and plain user entities parented under members are detached before
+/// the teardown and re-attached after (they used to be silently destroyed). Returns the
+/// number of instances rebuilt.
+inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const byte> payload,
+                                  const PrefabPayloadResolver* resolver = nullptr) {
+    struct RescuedChild { Guid child; Guid parentSourceId; };
+    struct Item {
+        UniquePtr<Scene::PendingPrefabInstance> own;
+        Array<UniquePtr<Scene::PendingPrefabInstance>> subs;
+        Array<Guid> subRoots;
+        Array<RescuedChild> rescued;
+        Guid root;
+    };
+
+    // Snapshot phase: nothing is destroyed until every affected instance's deltas (and its
+    // nested instances') are captured.
+    Array<Item> items;
+    HashMap<Guid, u8> absorbedRoots;   // nested/contained roots handled via an owner item
     scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState& state) {
-        if (state.prefabId != prefabId) { return; }
-        pendings.PushBack(detail::ComputeInstanceDeltas(scene, state));
-        roots.PushBack(state.rootEntityId);
+        if (!state.ownerRootEntityId.IsNil()) { return; }   // rebuilds ride their owner
+        bool affected = state.prefabId == prefabId;
+        if (!affected) {
+            for (const Guid& referenced : state.referencedPrefabIds) {
+                if (referenced == prefabId) { affected = true; break; }
+            }
+        }
+        if (!affected || absorbedRoots.Find(state.rootEntityId) != nullptr) { return; }
+        EntityHandle root = scene.FindEntity(state.rootEntityId);
+        if (!root.IsAssigned()) { return; }
+
+        Item item;
+        item.root = state.rootEntityId;
+        item.own = detail::ComputeInstanceDeltas(scene, state);
+
+        Array<Scene::PrefabInstanceState*> contained;
+        HashMap<Guid, u8> nestedMembers;
+        detail::CollectContainedInstances(scene, root, contained, nestedMembers);
+        for (Scene::PrefabInstanceState* nested : contained) {
+            auto sub = detail::ComputeInstanceDeltas(scene, *nested);
+            sub->nestedRootSourceId = nested->nestedRootSourceId.IsNil()
+                ? nested->rootEntityId : nested->nestedRootSourceId;
+            item.subs.PushBack(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(sub));
+            item.subRoots.PushBack(nested->rootEntityId);
+            absorbedRoots.InsertOrAssign(nested->rootEntityId, 1u);
+        }
+
+        // Plain user entities parented under members: detach now, re-attach post-respawn
+        // (destroying a member destroys its whole subtree).
+        HashMap<Guid, Guid> memberSource;   // live -> source for every member incl. nested
+        for (usize i = 0; i < state.sourceIds.Size(); ++i) {
+            memberSource.InsertOrAssign(state.liveIds[i], state.sourceIds[i]);
+        }
+        HashMap<Guid, u8> allMembers;
+        for (const Guid& live : state.liveIds) { allMembers.InsertOrAssign(live, 1u); }
+        for (const auto& kv : nestedMembers) { allMembers.InsertOrAssign(kv.key, 1u); }
+        for (const auto& kv : allMembers) {
+            EntityHandle member = scene.FindEntity(kv.key);
+            if (!member.IsAssigned()) { continue; }
+            Array<EntityHandle> kids;
+            for (EntityHandle c = scene.GetFirstChild(member); c.IsAssigned(); c = scene.GetNextSibling(c)) {
+                kids.PushBack(c);
+            }
+            for (EntityHandle child : kids) {
+                const Guid childGuid = scene.GetEntityId(child);
+                if (allMembers.Find(childGuid) != nullptr) { continue; }
+                const Guid* src = memberSource.Find(kv.key);
+                if (src == nullptr) { continue; }   // nested member parents re-resolve via subs
+                item.rescued.PushBack(RescuedChild{ childGuid, *src });
+                scene.SetParent(child, EntityHandle::Invalid(), true);
+            }
+        }
+        items.PushBack(static_cast<Item&&>(item));
     });
 
     u32 rebuilt = 0;
-    for (usize n = 0; n < pendings.Size(); ++n) {
-        Scene::PendingPrefabInstance& p = *pendings[n];
-        // Tear down the old instance: every still-live member (destroying a parent takes its
-        // subtree; FindEntity guards the rest), then the bookkeeping.
+    for (Item& item : items) {
+        Scene::PendingPrefabInstance& p = *item.own;
+        for (usize n = 0; n < item.subs.Size(); ++n) {
+            for (const Guid& live : item.subs[n]->liveIds) {
+                EntityHandle e = scene.FindEntity(live);
+                if (e.IsAssigned()) { scene.DestroyEntity(e); }
+            }
+        }
+        for (const Guid& subRoot : item.subRoots) { scene.RemovePrefabInstance(subRoot); }
         for (const Guid& live : p.liveIds) {
             EntityHandle e = scene.FindEntity(live);
             if (e.IsAssigned()) { scene.DestroyEntity(e); }
         }
-        scene.RemovePrefabInstance(roots[n]);
+        scene.RemovePrefabInstance(item.root);
 
+        // This instance's template bytes: the changed payload when it IS the changed prefab,
+        // else its own template via the resolver.
         MemoryStream stream;
-        (void)stream.Write(payload.Data(), payload.Size());
+        if (p.prefabId == prefabId) {
+            (void)stream.Write(payload.Data(), payload.Size());
+        } else {
+            UniquePtr<IStream> own = (resolver != nullptr && *resolver)
+                ? (*resolver)(p.prefabId) : UniquePtr<IStream>{};
+            if (own.Get() == nullptr) {
+                DRACONIC_LOG_WARNING(u8"Scene",
+                    u8"instance referencing the changed prefab could not rebuild - its own template did not resolve");
+                continue;
+            }
+            Array<byte> bytes;
+            bytes.Resize(static_cast<usize>(own->Size()));
+            (void)own->Read(bytes.Data(), bytes.Size());
+            (void)stream.Write(bytes.Data(), bytes.Size());
+        }
         (void)stream.Seek(0, SeekOrigin::Begin);
+
         HashMap<Guid, Guid> preassigned;
         for (usize i = 0; i < p.sourceIds.Size() && i < p.liveIds.Size(); ++i) {
             preassigned.InsertOrAssign(p.sourceIds[i], p.liveIds[i]);
         }
+        Array<const Scene::PendingPrefabInstance*> subPtrs;
+        for (const auto& sub : item.subs) { subPtrs.PushBack(sub.Get()); }
+
         EntityHandle parent = (p.parentEntityId != Guid{}) ? scene.FindEntity(p.parentEntityId)
                                                            : EntityHandle::Invalid();
-        EntityHandle root = SpawnPrefab(scene, stream, prefabId, parent, &preassigned);
+        EntityHandle root = SpawnPrefab(scene, stream, p.prefabId, parent, &preassigned,
+                                        resolver, &subPtrs);
         if (!root.IsAssigned()) { continue; }
         scene.SetLocalTransform(root, p.rootTransform);
-        detail::ApplyPendingDeltas(scene, scene.FindPrefabInstanceByRoot(scene.GetEntityId(root)), p);
+        Scene::PrefabInstanceState* newState =
+            scene.FindPrefabInstanceByRoot(scene.GetEntityId(root));
+        detail::ApplyPendingDeltas(scene, newState, p);
+
+        // Contained instances the template does NOT record (user-spawned inside): respawn
+        // standalone so a template edit never eats user content.
+        for (auto& sub : item.subs) {
+            if (scene.FindEntity(sub->rootLiveId).IsAssigned()) { continue; }   // record consumed it
+            UniquePtr<IStream> subPayload = (resolver != nullptr && *resolver)
+                ? (*resolver)(sub->prefabId) : UniquePtr<IStream>{};
+            if (subPayload.Get() == nullptr) { continue; }
+            HashMap<Guid, Guid> subPreassigned;
+            for (usize i = 0; i < sub->sourceIds.Size() && i < sub->liveIds.Size(); ++i) {
+                subPreassigned.InsertOrAssign(sub->sourceIds[i], sub->liveIds[i]);
+            }
+            EntityHandle subParent = (sub->parentEntityId != Guid{})
+                ? scene.FindEntity(sub->parentEntityId) : EntityHandle::Invalid();
+            EntityHandle subRoot = SpawnPrefab(scene, *subPayload, sub->prefabId, subParent,
+                                               &subPreassigned, resolver, nullptr);
+            if (!subRoot.IsAssigned()) { continue; }
+            scene.SetLocalTransform(subRoot, sub->rootTransform);
+            detail::ApplyPendingDeltas(scene,
+                scene.FindPrefabInstanceByRoot(scene.GetEntityId(subRoot)), *sub);
+        }
+
+        // Re-attach rescued user children to their (respawned) member parents.
+        if (newState != nullptr) {
+            for (const RescuedChild& rescue : item.rescued) {
+                EntityHandle child = scene.FindEntity(rescue.child);
+                if (!child.IsAssigned()) { continue; }
+                for (usize i = 0; i < newState->sourceIds.Size(); ++i) {
+                    if (newState->sourceIds[i] == rescue.parentSourceId) {
+                        EntityHandle member = scene.FindEntity(newState->liveIds[i]);
+                        if (member.IsAssigned()) { scene.SetParent(child, member, true); }
+                        break;
+                    }
+                }
+            }
+        }
         ++rebuilt;
     }
     return rebuilt;

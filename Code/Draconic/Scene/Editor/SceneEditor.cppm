@@ -48,6 +48,14 @@ inline Status SavePrefab(Scene& scene, draconic::content::Instance& instance) {
     }
     if (rootCount > 1) { return Status{ ErrorCode::InvalidArgument }; }
 
+    // Self-nesting guard: a prefab whose edit scene contains an instance of ITSELF would
+    // reference itself forever.
+    bool selfReference = false;
+    scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState& state) {
+        if (state.prefabId == instance.Id()) { selfReference = true; }
+    });
+    if (selfReference) { return Status{ ErrorCode::InvalidArgument }; }
+
     PrefabDocument doc;
     doc.name = String(scene.Name());
     const Status wrote = instance.WriteObject(doc);
@@ -55,7 +63,9 @@ inline Status SavePrefab(Scene& scene, draconic::content::Instance& instance) {
 
     MemoryStream buffer;
     BinarySerializer ser(buffer, SerializeMode::Write);
-    SerializeScene(ser, scene, nullptr, ScenePrefabMode::Expanded);
+    // Referenced + no settings (P4): nested instances persist as ref+delta RECORDS - the
+    // flat forest SpawnPrefab replays - instead of flattening into plain entities.
+    SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false);
     return instance.WriteData(u8"scene", buffer.Bytes());
 }
 

@@ -842,3 +842,347 @@ TEST_CASE("prefab: apply-as-template keeps the template root transform, not the 
     CHECK(t.position.y == 2.0f);
     CHECK(t.position.z == 3.0f);
 }
+
+// ============================== P4: nesting ==================================
+
+namespace {
+    // Author a Q template: root "Wheel" (health 10) + child "Hub" (health 5).
+    Array<byte> AuthorInnerTemplate()
+    {
+        Scene author(u8"author");
+        HealthManager* health = author.AddSystem<HealthManager>();
+        EntityHandle wheel = author.CreateEntity(u8"Wheel");
+        EntityHandle hub = author.CreateEntity(u8"Hub");
+        author.SetParent(hub, wheel);
+        health->Add(wheel).value = 10.0f;
+        health->Add(hub).value = 5.0f;
+        MemoryStream payload;
+        REQUIRE(CapturePrefab(author, wheel, payload).IsOk());
+        Array<byte> bytes;
+        for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+        return bytes;
+    }
+
+    // Author the OUTER template "Cart" in an edit scene: own entity "Body" (health 40) + an
+    // instance of the inner template whose Wheel is customized to 11. Saved via the
+    // SavePrefab path (Referenced, no settings) so nesting persists as a RECORD.
+    struct OuterAuthoring { Array<byte> payload; Guid innerRootSource; };
+    OuterAuthoring AuthorOuterTemplate(const Guid& innerId, const Array<byte>& innerPayload)
+    {
+        Scene edit(u8"Cart");
+        HealthManager* health = edit.AddSystem<HealthManager>();
+        EntityHandle body = edit.CreateEntity(u8"Body");
+        health->Add(body).value = 40.0f;
+
+        MemoryStream innerStream;
+        (void)innerStream.Write(innerPayload.Data(), innerPayload.Size());
+        (void)innerStream.Seek(0, SeekOrigin::Begin);
+        EntityHandle wheel = SpawnPrefab(edit, innerStream, innerId, body);
+        REQUIRE(wheel.IsAssigned());
+        // Owner customization: the Wheel's health becomes 11 INSIDE the Cart template.
+        health->Get(wheel)->value = 11.0f;
+
+        MemoryStream out;
+        BinarySerializer ser(out, SerializeMode::Write);
+        SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false);
+        REQUIRE(ser.IsOk());
+        OuterAuthoring result;
+        for (byte b : out.Bytes()) { result.payload.PushBack(b); }
+        result.innerRootSource = edit.GetEntityId(wheel);
+        return result;
+    }
+
+    PrefabPayloadResolver MakeResolver(const Guid& innerId, const Array<byte>* innerPayload,
+                                       const Guid& outerId = Guid{}, const Array<byte>* outerPayload = nullptr)
+    {
+        return PrefabPayloadResolver{ [=](const Guid& id) -> UniquePtr<IStream> {
+            const Array<byte>* source = nullptr;
+            if (id == innerId) { source = innerPayload; }
+            else if (id == outerId) { source = outerPayload; }
+            if (source == nullptr) { return UniquePtr<IStream>{}; }
+            auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
+            (void)stream->Write(source->Data(), source->Size());
+            (void)stream->Seek(0, SeekOrigin::Begin);
+            return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
+        } };
+    }
+}
+
+TEST_CASE("prefab P4: nested instance spawns linked, owner customization is BASELINE")
+{
+    const Guid innerId{ 0xAA, 0x1 };
+    const Guid outerId{ 0xBB, 0x2 };
+    Array<byte> inner = AuthorInnerTemplate();
+    OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
+
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    MemoryStream outerStream;
+    (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
+    (void)outerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
+                                    nullptr, &resolver);
+    REQUIRE(cart.IsAssigned());
+
+    // Two states: the Cart (top-level) + the nested Wheel instance linked to it.
+    Scene::PrefabInstanceState* cartState = level.FindPrefabInstanceByRoot(level.GetEntityId(cart));
+    REQUIRE(cartState != nullptr);
+    CHECK(cartState->ownerRootEntityId.IsNil());
+    REQUIRE(cartState->referencedPrefabIds.Size() == 2u);   // own + inner
+    Scene::PrefabInstanceState* wheelState = nullptr;
+    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
+        if (s.prefabId == innerId) { wheelState = &s; }
+    });
+    REQUIRE(wheelState != nullptr);
+    CHECK(wheelState->ownerRootEntityId == cartState->rootEntityId);
+    CHECK(wheelState->nestedRootSourceId == outer.innerRootSource);
+
+    // The owner's customization (11) applied AND became the baseline: no override reads.
+    EntityHandle wheel = level.FindEntity(wheelState->rootEntityId);
+    REQUIRE(wheel.IsAssigned());
+    CHECK(health->Get(wheel)->value == doctest::Approx(11.0f));
+    PrefabMemberInfo member;
+    REQUIRE(FindPrefabMember(level, wheelState->rootEntityId, member));
+    ComponentManagerBase* manager = level.FindManagerBySerializationId(u8"demo.Health");
+    CHECK(!IsPrefabComponentOverridden(level, member, *manager));
+    // The Hub kept its pure-template value.
+    EntityHandle hub = level.GetFirstChild(wheel);
+    REQUIRE(hub.IsAssigned());
+    CHECK(health->Get(hub)->value == doctest::Approx(5.0f));
+}
+
+TEST_CASE("prefab P4: scene round-trip preserves nesting links, guids, and scene overrides")
+{
+    const Guid innerId{ 0xAA, 0x11 };
+    const Guid outerId{ 0xBB, 0x22 };
+    Array<byte> inner = AuthorInnerTemplate();
+    OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
+
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    MemoryStream outerStream;
+    (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
+    (void)outerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
+                                    nullptr, &resolver);
+    REQUIRE(cart.IsAssigned());
+    Scene::PrefabInstanceState* wheelState = nullptr;
+    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
+        if (s.prefabId == innerId) { wheelState = &s; }
+    });
+    REQUIRE(wheelState != nullptr);
+    EntityHandle wheel = level.FindEntity(wheelState->rootEntityId);
+    const Guid wheelGuid = wheelState->rootEntityId;
+    EntityHandle hub = level.GetFirstChild(wheel);
+    const Guid hubGuid = level.GetEntityId(hub);
+
+    // SCENE-level override on the nested Hub (owner baseline is 5).
+    health->Get(hub)->value = 7.0f;
+
+    MemoryStream saved;
+    {
+        BinarySerializer w(saved, SerializeMode::Write);
+        SerializeScene(w, level);
+        REQUIRE(w.IsOk());
+    }
+    (void)saved.Seek(0, SeekOrigin::Begin);
+    Scene loaded(u8"loaded");
+    HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
+    {
+        BinarySerializer r(saved, SerializeMode::Read);
+        SerializeScene(r, loaded, &saved);
+        REQUIRE(r.IsOk());
+    }
+    ResolveScenePrefabs(loaded, resolver);
+
+    // Guids preserved through the nested merge; owner customization + scene override layered.
+    EntityHandle loadedWheel = loaded.FindEntity(wheelGuid);
+    EntityHandle loadedHub = loaded.FindEntity(hubGuid);
+    REQUIRE(loadedWheel.IsAssigned());
+    REQUIRE(loadedHub.IsAssigned());
+    CHECK(loadedHealth->Get(loadedWheel)->value == doctest::Approx(11.0f));   // owner custom
+    CHECK(loadedHealth->Get(loadedHub)->value == doctest::Approx(7.0f));      // scene override
+    Scene::PrefabInstanceState* loadedWheelState = loaded.FindPrefabInstanceByRoot(wheelGuid);
+    REQUIRE(loadedWheelState != nullptr);
+    CHECK(!loadedWheelState->ownerRootEntityId.IsNil());
+    // Scene override still reads as an override (baseline = owner-customized template).
+    PrefabMemberInfo member;
+    REQUIRE(FindPrefabMember(loaded, hubGuid, member));
+    ComponentManagerBase* manager = loaded.FindManagerBySerializationId(u8"demo.Health");
+    CHECK(IsPrefabComponentOverridden(loaded, member, *manager));
+}
+
+TEST_CASE("prefab P4: inner-template edits propagate THROUGH the outer instance")
+{
+    const Guid innerId{ 0xAA, 0x21 };
+    const Guid outerId{ 0xBB, 0x32 };
+    Array<byte> inner = AuthorInnerTemplate();
+    OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
+
+    // The edited inner template: Hub health becomes 50 (Wheel stays 10).
+    Array<byte> innerV2;
+    {
+        Scene author(u8"author");
+        HealthManager* health = author.AddSystem<HealthManager>();
+        EntityHandle wheel = author.CreateEntity(u8"Wheel");
+        EntityHandle hub = author.CreateEntity(u8"Hub");
+        author.SetParent(hub, wheel);
+        health->Add(wheel).value = 10.0f;
+        health->Add(hub).value = 50.0f;
+        MemoryStream payload;
+        REQUIRE(CapturePrefab(author, wheel, payload).IsOk());
+        for (byte b : payload.Bytes()) { innerV2.PushBack(b); }
+    }
+
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    MemoryStream outerStream;
+    (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
+    (void)outerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
+                                    nullptr, &resolver);
+    REQUIRE(cart.IsAssigned());
+    const Guid cartGuid = level.GetEntityId(cart);
+
+    // Rebuild with the NEW inner template: the resolver serves innerV2 now.
+    PrefabPayloadResolver resolverV2 = MakeResolver(innerId, &innerV2, outerId, &outer.payload);
+    const u32 rebuilt = RebuildPrefabInstances(level, innerId,
+        Span<const byte>{ innerV2.Data(), innerV2.Size() }, &resolverV2);
+    CHECK(rebuilt == 1u);   // the CART rebuilt (it references the inner prefab)
+
+    Scene::PrefabInstanceState* wheelState = nullptr;
+    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
+        if (s.prefabId == innerId) { wheelState = &s; }
+    });
+    REQUIRE(wheelState != nullptr);
+    EntityHandle wheel = level.FindEntity(wheelState->rootEntityId);
+    REQUIRE(wheel.IsAssigned());
+    EntityHandle hub = level.GetFirstChild(wheel);
+    REQUIRE(hub.IsAssigned());
+    CHECK(health->Get(wheel)->value == doctest::Approx(11.0f));   // owner custom STILL wins
+    CHECK(health->Get(hub)->value == doctest::Approx(50.0f));     // template edit propagated
+    CHECK(level.FindPrefabInstanceByRoot(cartGuid) != nullptr);   // cart intact
+}
+
+TEST_CASE("prefab P4: apply-to-prefab keeps nested records with owner customization")
+{
+    const Guid innerId{ 0xAA, 0x31 };
+    const Guid outerId{ 0xBB, 0x42 };
+    Array<byte> inner = AuthorInnerTemplate();
+    OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
+
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    MemoryStream outerStream;
+    (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
+    (void)outerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
+                                    nullptr, &resolver);
+    REQUIRE(cart.IsAssigned());
+    Scene::PrefabInstanceState* cartState = level.FindPrefabInstanceByRoot(level.GetEntityId(cart));
+    REQUIRE(cartState != nullptr);
+
+    // Scene tweak: Wheel 11 -> 13, then apply the CART as the new template.
+    Scene::PrefabInstanceState* wheelState = nullptr;
+    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
+        if (s.prefabId == innerId) { wheelState = &s; }
+    });
+    REQUIRE(wheelState != nullptr);
+    EntityHandle wheel = level.FindEntity(wheelState->rootEntityId);
+    health->Get(wheel)->value = 13.0f;
+
+    MemoryStream captured;
+    REQUIRE(CaptureInstanceAsTemplate(level, *cartState, captured, &resolver).IsOk());
+
+    // Fresh spawn of the captured template elsewhere: nested link + the 13 travel.
+    Scene other(u8"other");
+    HealthManager* otherHealth = other.AddSystem<HealthManager>();
+    (void)captured.Seek(0, SeekOrigin::Begin);
+    EntityHandle fresh = SpawnPrefab(other, captured, outerId, EntityHandle::Invalid(),
+                                     nullptr, &resolver);
+    REQUIRE(fresh.IsAssigned());
+    Scene::PrefabInstanceState* freshWheelState = nullptr;
+    other.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
+        if (s.prefabId == innerId) { freshWheelState = &s; }
+    });
+    REQUIRE(freshWheelState != nullptr);
+    EntityHandle freshWheel = other.FindEntity(freshWheelState->rootEntityId);
+    REQUIRE(freshWheel.IsAssigned());
+    CHECK(otherHealth->Get(freshWheel)->value == doctest::Approx(13.0f));
+    EntityHandle freshHub = other.GetFirstChild(freshWheel);
+    REQUIRE(freshHub.IsAssigned());
+    CHECK(otherHealth->Get(freshHub)->value == doctest::Approx(5.0f));
+}
+
+TEST_CASE("prefab P4: rebuild preserves user entities under members and user-spawned instances inside")
+{
+    const Guid innerId{ 0xAA, 0x41 };
+    Array<byte> inner = AuthorInnerTemplate();
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
+
+    Scene level(u8"level");
+    HealthManager* health = level.AddSystem<HealthManager>();
+    MemoryStream innerStream;
+    (void)innerStream.Write(inner.Data(), inner.Size());
+    (void)innerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle wheel = SpawnPrefab(level, innerStream, innerId);
+    REQUIRE(wheel.IsAssigned());
+    const Guid wheelGuid = level.GetEntityId(wheel);
+
+    // A plain USER entity parented under a member, and a USER-SPAWNED instance inside.
+    EntityHandle userChild = level.CreateEntity(u8"Sticker");
+    level.SetParent(userChild, wheel);
+    const Guid userChildGuid = level.GetEntityId(userChild);
+    MemoryStream innerStream2;
+    (void)innerStream2.Write(inner.Data(), inner.Size());
+    (void)innerStream2.Seek(0, SeekOrigin::Begin);
+    EntityHandle userWheel = SpawnPrefab(level, innerStream2, innerId, wheel);
+    REQUIRE(userWheel.IsAssigned());
+    const Guid userWheelGuid = level.GetEntityId(userWheel);
+    health->Get(userWheel)->value = 99.0f;   // scene delta on the user-spawned instance
+
+    const u32 rebuilt = RebuildPrefabInstances(level, innerId,
+        Span<const byte>{ inner.Data(), inner.Size() }, &resolver);
+    CHECK(rebuilt >= 1u);
+
+    // Everything survives: the user child re-attached, the user-spawned instance respawned
+    // standalone with its guid + delta.
+    EntityHandle survivedChild = level.FindEntity(userChildGuid);
+    REQUIRE(survivedChild.IsAssigned());
+    CHECK(level.GetParent(survivedChild).IsAssigned());
+    CHECK(level.GetEntityId(level.GetParent(survivedChild)) == wheelGuid);
+    EntityHandle survivedWheel = level.FindEntity(userWheelGuid);
+    REQUIRE(survivedWheel.IsAssigned());
+    CHECK(health->Get(survivedWheel)->value == doctest::Approx(99.0f));
+}
+
+TEST_CASE("scene v2: unknown component and settings records SKIP instead of aborting")
+{
+    // Save with health components; load into a scene WITHOUT the manager: entities +
+    // hierarchy load, records skip with a warning, and the stream stays consumable to the
+    // END (the prefab section after them still parses).
+    Scene a(u8"level");
+    HealthManager* mgr = a.AddSystem<HealthManager>();
+    EntityHandle hero = a.CreateEntity(u8"Hero");
+    mgr->Add(hero).value = 42.0f;
+
+    MemoryStream saved;
+    {
+        BinarySerializer w(saved, SerializeMode::Write);
+        SerializeScene(w, a);
+        REQUIRE(w.IsOk());
+    }
+    (void)saved.Seek(0, SeekOrigin::Begin);
+    Scene b(u8"loaded");   // NO HealthManager
+    {
+        BinarySerializer r(saved, SerializeMode::Read);
+        SerializeScene(r, b, &saved);
+        REQUIRE(r.IsOk());
+    }
+    CHECK(b.EntityCount() == 1u);
+    CHECK(b.FindEntity(a.GetEntityId(hero)).IsAssigned());
+}
