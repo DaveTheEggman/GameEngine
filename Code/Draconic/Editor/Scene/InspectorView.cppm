@@ -576,8 +576,7 @@ export namespace draconic::editor
                         Function<void()>{ [edit, id, type]() {
                             (void)edit->RevertComponentToBaseline(id, type);
                         } }, category);
-                    revert->SetTooltip(u8"Reverts this component to the prefab's values "
-                                       u8"(undoable). Grayed out while it matches the prefab.");
+                    revert->SetTooltip(u8"Reverts this component to the prefab's values (undoable).");
                     revert->SetButtonEnabled(false);   // refresher enables it on an override
                     dscene::ComponentManagerBase* manager = &mgr;
                     AddEditor(revert.Get(), [edit, id, manager, raw = revert.Get()]() {
