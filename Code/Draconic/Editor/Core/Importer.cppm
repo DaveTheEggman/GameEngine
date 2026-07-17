@@ -59,13 +59,24 @@ export namespace draconic::editor
         /// and the import runs immediately on drop, no dialog.
         [[nodiscard]] virtual RefPtr<ImportOptions> CreateOptions() const { return {}; }
 
+        /// Slow importers split in two: PrepareOnWorker runs OFF the UI thread (pure
+        /// parse/decode of the source file - NO project or DB access) and its payload is
+        /// then handed to Import on the MAIN thread for the fast DB fan-out. Default: no
+        /// worker phase (Import does everything inline).
+        [[nodiscard]] virtual bool WantsWorkerPrepare() const { return false; }
+        [[nodiscard]] virtual RefPtr<Object> PrepareOnWorker(StringView /*sourcePath*/)
+        {
+            return {};
+        }
+
         /// Import `sourcePath` (absolute OS path): copy the source under Sources/ and create
         /// the typed Asset instance(s) in `group`. Returns the primary created instance.
         /// `options` is the object CreateOptions() returned after the user edited it in the
-        /// dialog (null when the importer has none or the import runs headless).
+        /// dialog (null when the importer has none or the import runs headless). `prepared`
+        /// is PrepareOnWorker's payload when the two-phase path ran (null = load inline).
         [[nodiscard]] virtual Result<draconic::content::Instance*> Import(
             StringView sourcePath, EditorProject& project, draconic::content::Group& group,
-            const ImportOptions* options = nullptr) = 0;
+            const ImportOptions* options = nullptr, Object* prepared = nullptr) = 0;
     };
 
     DRACONIC_DEFINE_OBJECT(ImportOptions, "draconic::editor")

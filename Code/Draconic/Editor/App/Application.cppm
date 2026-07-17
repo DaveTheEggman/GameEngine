@@ -213,7 +213,7 @@ export namespace draconic::editor::app
                 // from their worker - DB mutations and new cooks must hold off while one runs,
                 // exactly like during a cook. The cook service folds this into MutationLocked.
                 m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
-                m_assetsView = MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService);
+                m_assetsView = MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService, &m_jobService);
                 AssetsView* assets = m_assetsView.Get();
                 m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance) {
                     (void)OpenInstancePage(instance);

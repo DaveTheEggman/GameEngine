@@ -132,6 +132,15 @@ export namespace draconic::modelimporter
         }
     };
 
+    /// PrepareOnWorker's payload: the fully loaded model (parse + texture decode = the slow
+    /// 95% of a model import, safely off the UI thread).
+    class LoadedModel final : public Object
+    {
+        DRACONIC_OBJECT(LoadedModel, Object)
+    public:
+        draconic::model::Model model;
+    };
+
     /// OS-file importer for model files: loads through draconic.model and fans out source
     /// instances into a subgroup named after the file stem.
     class ModelFileImporter final : public ed::IFileImporter
@@ -142,6 +151,19 @@ export namespace draconic::modelimporter
         [[nodiscard]] RefPtr<ed::ImportOptions> CreateOptions() const override
         {
             return RefPtr<ed::ImportOptions>(MakeRef<ModelImportOptions>(DefaultAllocator()).Get());
+        }
+
+        [[nodiscard]] bool WantsWorkerPrepare() const override { return true; }
+
+        [[nodiscard]] RefPtr<Object> PrepareOnWorker(StringView sourcePath) override
+        {
+            RefPtr<LoadedModel> loaded = MakeRef<LoadedModel>(DefaultAllocator());
+            if (LoadModelFrom(sourcePath, loaded->model)
+                != draconic::model::ModelLoadResult::Ok)
+            {
+                return {};
+            }
+            return RefPtr<Object>(loaded.Get());
         }
 
         [[nodiscard]] bool Accepts(StringView extension) const override
@@ -156,7 +178,8 @@ export namespace draconic::modelimporter
         [[nodiscard]] Result<content::Instance*> Import(StringView sourcePath,
                                                         ed::EditorProject& project,
                                                         content::Group& group,
-                                                        const ed::ImportOptions* options) override
+                                                        const ed::ImportOptions* options,
+                                                        Object* prepared) override
         {
             const ModelImportOptions defaults;
             const ModelImportOptions& opt = (options != nullptr)
@@ -164,26 +187,25 @@ export namespace draconic::modelimporter
             Result<String> fileName = ed::CopyIntoSources(project, sourcePath);
             if (!fileName.HasValue()) { return Err(fileName.Error()); }
 
-            // Load from the ORIGINAL dropped path: .gltf files reference sibling sidecars
-            // (.bin buffers, image files) that live next to the original, not in Sources/.
-            // The sidecars are copied into Sources/ below for provenance/re-import.
-            const StringView loadPath = sourcePath;
-            draconic::model::Model model;
-            draconic::model::gltf::GltfLoader gltfLoader;
-            draconic::model::fbx::FbxLoader fbxLoader;
-            draconic::model::io::registerLoader(&gltfLoader);
-            draconic::model::io::registerLoader(&fbxLoader);
-            const draconic::model::ModelLoadResult loaded =
-                draconic::model::io::loadModel(loadPath, model);
-            draconic::model::io::unregisterLoader(&fbxLoader);
-            draconic::model::io::unregisterLoader(&gltfLoader);
-            if (loaded != draconic::model::ModelLoadResult::Ok)
+            // The slow load either arrived pre-baked from the worker phase, or runs inline
+            // (headless/tests). Loading uses the ORIGINAL dropped path: .gltf files
+            // reference sibling sidecars living next to the original, not in Sources/.
+            draconic::model::Model inlineModel;
+            draconic::model::Model* modelPtr = nullptr;
+            if (auto* loadedPayload = Cast<LoadedModel>(prepared))
             {
-                DRACONIC_LOG_ERROR(u8"Import", u8"model load failed ({}): {}",
-                                   static_cast<u32>(loaded), fileName.Value());
-                return Err(ErrorCode::InvalidArgument);
+                modelPtr = &loadedPayload->model;
             }
-            model.calculateBounds();
+            else
+            {
+                if (LoadModelFrom(sourcePath, inlineModel) != draconic::model::ModelLoadResult::Ok)
+                {
+                    DRACONIC_LOG_ERROR(u8"Import", u8"model load failed: {}", fileName.Value());
+                    return Err(ErrorCode::InvalidArgument);
+                }
+                modelPtr = &inlineModel;
+            }
+            draconic::model::Model& model = *modelPtr;
 
             // .gltf: copy the referenced sidecars (buffers/images by relative uri) into
             // Sources/ so the imported source set is complete.
@@ -221,6 +243,21 @@ export namespace draconic::modelimporter
         }
 
     private:
+        [[nodiscard]] static draconic::model::ModelLoadResult LoadModelFrom(
+            StringView sourcePath, draconic::model::Model& model)
+        {
+            draconic::model::gltf::GltfLoader gltfLoader;
+            draconic::model::fbx::FbxLoader fbxLoader;
+            draconic::model::io::registerLoader(&gltfLoader);
+            draconic::model::io::registerLoader(&fbxLoader);
+            const draconic::model::ModelLoadResult loaded =
+                draconic::model::io::loadModel(sourcePath, model);
+            draconic::model::io::unregisterLoader(&fbxLoader);
+            draconic::model::io::unregisterLoader(&gltfLoader);
+            if (loaded == draconic::model::ModelLoadResult::Ok) { model.calculateBounds(); }
+            return loaded;
+        }
+
         // Copy every relative "uri" the .gltf references (buffers, images) from next to the
         // original file into Sources/, preserving relative subpaths. Data URIs and
         // parent-escaping paths are skipped. A plain text scan (the uris live in JSON string
@@ -570,4 +607,5 @@ export namespace draconic::modelimporter
 
     DRACONIC_DEFINE_OBJECT(ModelManifestAsset, "draconic::modelimporter")
     DRACONIC_DEFINE_OBJECT(ModelImportOptions, "draconic::modelimporter")
+    DRACONIC_DEFINE_OBJECT(LoadedModel, "draconic::modelimporter")
 }

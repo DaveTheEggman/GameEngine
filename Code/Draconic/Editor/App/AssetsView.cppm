@@ -58,8 +58,9 @@ export namespace draconic::editor::app
         /// application; called from a mutation-queue action, so synchronous teardown is safe).
         Function<void(const Guid&)> OnCloseInstancePage;
 
-        AssetsView(draconic::editor::EditorContext& context, draconic::editor::EditorCookService& cook)
-            : m_context(&context), m_cook(&cook)
+        AssetsView(draconic::editor::EditorContext& context, draconic::editor::EditorCookService& cook,
+                   draconic::editor::EditorJobService* jobs = nullptr)
+            : m_context(&context), m_cook(&cook), m_jobs(jobs)
         {
             auto split = MakeRef<tk::SplitView>(DefaultAllocator());
             split->SetSplitRatio(0.3f);
@@ -254,10 +255,52 @@ export namespace draconic::editor::app
             dialog->Show(Context);
         }
 
-        /// Runs the import (post-dialog). Re-checks the cook build-lock HERE, so a dialog
-        /// that sat open across a cook start still queues instead of racing the planner.
+        /// Runs the import (post-dialog). Slow importers (models) split: the parse/decode
+        /// runs on the JOB worker so the UI stays live (with the status-bar progress), and
+        /// only the fast DB fan-out lands back on the main thread in CommitImport.
         void ExecuteImport(String path, draconic::editor::IFileImporter* importer,
                            RefPtr<draconic::editor::ImportOptions> options)
+        {
+            if (m_context->Project() == nullptr) { return; }
+            if (importer->WantsWorkerPrepare() && m_jobs != nullptr)
+            {
+                String title(u8"Importing ");
+                title += draconic::editor::FileNameOf(path.AsView());
+                auto* holder = DefaultAllocator().New<RefPtr<Object>>();
+                AssetsView* self = this;
+                m_jobs->Submit(title.AsView(),
+                    Function<Status(draconic::editor::JobContext&)>{
+                        [importer, path, holder](draconic::editor::JobContext& job) -> Status {
+                            job.SetStep(u8"loading + decoding", 1, 2);
+                            *holder = importer->PrepareOnWorker(path.AsView());
+                            return (holder->Get() != nullptr) ? Status{}
+                                                              : Status{ ErrorCode::InvalidArgument };
+                        } },
+                    Function<void(Status)>{
+                        [self, path, importer, options, holder](Status result) {
+                            RefPtr<Object> prepared = *holder;
+                            DefaultAllocator().Delete(holder);
+                            if (!result.IsOk())
+                            {
+                                String message(u8"Import failed: '");
+                                message += draconic::editor::FileNameOf(path.AsView());
+                                message += u8"' (see Console).";
+                                self->m_context->Notify(draconic::editor::NoticeKind::Error,
+                                                        message.AsView());
+                                return;
+                            }
+                            self->CommitImport(path, importer, options, prepared);
+                        } });
+                return;
+            }
+            CommitImport(path, importer, options, {});
+        }
+
+        /// The main-thread tail: DB fan-out (+ the build-lock re-check, so a cook that
+        /// started while the dialog/worker was busy still queues instead of racing).
+        void CommitImport(String path, draconic::editor::IFileImporter* importer,
+                          RefPtr<draconic::editor::ImportOptions> options,
+                          RefPtr<Object> prepared)
         {
             if (m_context->Project() == nullptr) { return; }
             // A cook in flight reads instance pointers snapshotted at plan time - creating
@@ -265,8 +308,8 @@ export namespace draconic::editor::app
             if (m_cook->MutationLocked())
             {
                 AssetsView* self = this;
-                m_cook->RunWhenIdle(Function<void()>{ [self, path, importer, options]() {
-                    self->ExecuteImport(path, importer, options);
+                m_cook->RunWhenIdle(Function<void()>{ [self, path, importer, options, prepared]() {
+                    self->CommitImport(path, importer, options, prepared);
                 } });
                 m_context->Notify(draconic::editor::NoticeKind::Info,
                                   u8"Import queued until the current cook finishes.");
@@ -275,7 +318,8 @@ export namespace draconic::editor::app
             content::Group* group = (m_selectedGroup != nullptr)
                 ? m_selectedGroup : m_context->Project()->SourceDb().RootGroup();
             Result<content::Instance*> imported =
-                importer->Import(path.AsView(), *m_context->Project(), *group, options.Get());
+                importer->Import(path.AsView(), *m_context->Project(), *group, options.Get(),
+                                 prepared.Get());
             if (imported.HasValue() && imported.Value() != nullptr)
             {
                 String message(u8"Imported '");
@@ -1434,6 +1478,7 @@ export namespace draconic::editor::app
 
         draconic::editor::EditorContext* m_context;      // borrowed
         draconic::editor::EditorCookService* m_cook;     // borrowed (app-owned)
+        draconic::editor::EditorJobService* m_jobs = nullptr;
         RefPtr<ui::TreeView> m_tree;
         RefPtr<ui::ListView> m_list;
         RefPtr<ui::GridView> m_grid;

@@ -410,7 +410,8 @@ export namespace draconic::texture
         [[nodiscard]] Result<content::Instance*> Import(StringView sourcePath,
                                                         draconic::editor::EditorProject& project,
                                                         content::Group& group,
-                                                        const draconic::editor::ImportOptions*) override
+                                                        const draconic::editor::ImportOptions*,
+                                                        Object*) override
         {
             // Cubemap intent: the dropped file's stem matches a face convention (px/nx/...,
             // _posx/..., right/left/...) AND all 6 sibling faces exist beside it. Any one
