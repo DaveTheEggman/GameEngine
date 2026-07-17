@@ -31,6 +31,7 @@ import draconic.materials;
 import draconic.texture.resource;
 import draconic.particles.resource;
 import draconic.scene;
+import draconic.render.subsystem;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -156,6 +157,87 @@ export namespace draconic::editor
         }
         return out;
     }
+
+    // Bespoke editor for MeshComponent's material SLOTS (one grid row whose editor view is
+    // a column): per slot a picker button + remove + reorder, plus an add button. Rebuilt by
+    // the inspector's structural rebuild after every mutation, so it never needs live sync.
+    class MaterialSlotsEditor final : public tk::PropertyEditor
+    {
+        DRACONIC_OBJECT(MaterialSlotsEditor, tk::PropertyEditor)
+    public:
+        Function<void(usize)> OnPickSlot;
+        Function<void(usize)> OnRemoveSlot;
+        Function<void(usize, bool)> OnMoveSlot;   // true = up
+        Function<void()> OnAddSlot;
+        Array<String> slotNames;   // display names, set before the row builds
+
+        MaterialSlotsEditor(StringView name, StringView category)
+            : tk::PropertyEditor(name, category) {}
+
+        void RefreshView() override {}
+
+    protected:
+        RefPtr<ui::View> CreateEditorView() override
+        {
+            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            column->Direction = ui::Orientation::Vertical;
+            column->Spacing = 2.0f;
+
+            MaterialSlotsEditor* self = this;
+            for (usize i = 0; i < slotNames.Size(); ++i)
+            {
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
+                row->Spacing = 4.0f;
+
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), slotNames[i].AsView());
+                pick->FontSize.SetValue(Optional<f32>{ 12.0f });
+                pick->OnClick.Add([self, i](ui::ButtonBase*) {
+                    if (self->OnPickSlot) { self->OnPickSlot(i); }
+                });
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    row->AddView(pick.Get(), lp);
+                }
+                auto up = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"^"));
+                up->IsEnabled = i > 0;
+                up->OnClick.Add([self, i](ui::ButtonBase*) {
+                    if (self->OnMoveSlot) { self->OnMoveSlot(i, true); }
+                });
+                row->AddView(up.Get());
+                auto down = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"v"));
+                down->IsEnabled = i + 1 < slotNames.Size();
+                down->OnClick.Add([self, i](ui::ButtonBase*) {
+                    if (self->OnMoveSlot) { self->OnMoveSlot(i, false); }
+                });
+                row->AddView(down.Get());
+                auto remove = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"x"));
+                remove->OnClick.Add([self, i](ui::ButtonBase*) {
+                    if (self->OnRemoveSlot) { self->OnRemoveSlot(i); }
+                });
+                row->AddView(remove.Get());
+
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                column->AddView(row.Get(), lp);
+            }
+
+            auto add = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+ Add Material Slot"));
+            add->FontSize.SetValue(Optional<f32>{ 12.0f });
+            add->OnClick.Add([self](ui::ButtonBase*) {
+                if (self->OnAddSlot) { self->OnAddSlot(); }
+            });
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                column->AddView(add.Get(), lp);
+            }
+            return column;
+        }
+    };
 
     class SceneInspectorView : public ui::ViewGroup
     {
@@ -564,6 +646,12 @@ export namespace draconic::editor
             SceneEditContext* edit = m_edit;
             EditorContext* editor = m_editor;
 
+            // MeshComponent: the material SLOT list (unified array; slot 0 = whole-mesh).
+            if (mgr.SerializationTypeId() == StringView(u8"mesh"))
+            {
+                BuildMaterialSlots(id, category);
+            }
+
             // Prefab members: a per-component revert row whose label carries a LIVE override
             // dot (recomputed by the refresher, so it tracks edits and undo without grid
             // rebuilds). Revert rides the undoable paste-component path.
@@ -965,6 +1053,97 @@ export namespace draconic::editor
             return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id : Guid{};
         }
 
+        // One undoable mutation of the selected entity's MeshComponent materials: copy the
+        // live value, mutate live, snapshot to a clipboard blob, restore, PASTE (the paste
+        // command captures the pre-state, so every slot action is one undo step).
+        void MutateMeshMaterials(const Guid& id,
+                                 const Function<void(draconic::render::MeshComponent&)>& mutate)
+        {
+            const dscene::EntityHandle e = m_edit->Resolve(id);
+            auto* manager = m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
+            draconic::render::MeshComponent* live =
+                (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
+            if (live == nullptr) { return; }
+            const draconic::render::MeshComponent before = *live;
+            mutate(*live);
+            Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<draconic::render::MeshComponent>());
+            *live = before;
+            if (!blob.IsEmpty())
+            {
+                (void)m_edit->PasteComponent(id, Span<const byte>{ blob.Data(), blob.Size() });
+            }
+        }
+
+        void BuildMaterialSlots(const Guid& id, StringView category)
+        {
+            const dscene::EntityHandle e = m_edit->Resolve(id);
+            auto* manager = m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
+            draconic::render::MeshComponent* mc =
+                (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
+            if (mc == nullptr) { return; }
+
+            auto slots = MakeRef<MaterialSlotsEditor>(DefaultAllocator(),
+                                                      StringView(u8"Materials"), category);
+            slots->SetTooltip(u8"Material slots, indexed by the mesh's submesh material index. "
+                              u8"Slot 0 also covers single-material meshes and any submesh "
+                              u8"whose index has no slot.");
+            for (usize i = 0; i < mc->materials.Size(); ++i)
+            {
+                const Guid target = mc->materials[i].id;
+                if (!target.IsNil())
+                {
+                    slots->slotNames.PushBack(String(AssetNameFor(target)));
+                }
+                else if (mc->materials[i].Get() != nullptr)
+                {
+                    slots->slotNames.PushBack(String(u8"(runtime)"));
+                }
+                else
+                {
+                    slots->slotNames.PushBack(String(u8"(none)"));
+                }
+            }
+
+            SceneInspectorView* self = this;
+            slots->OnAddSlot = [self, id]() {
+                self->MutateMeshMaterials(id, [](draconic::render::MeshComponent& c) {
+                    c.materials.PushBack(draconic::resource::Ref<draconic::materials::Material>{});
+                });
+            };
+            slots->OnRemoveSlot = [self, id](usize slot) {
+                self->MutateMeshMaterials(id, [slot](draconic::render::MeshComponent& c) {
+                    if (slot < c.materials.Size()) { c.materials.RemoveAt(slot); }
+                });
+            };
+            slots->OnMoveSlot = [self, id](usize slot, bool up) {
+                self->MutateMeshMaterials(id, [slot, up](draconic::render::MeshComponent& c) {
+                    const usize other = up ? slot - 1 : slot + 1;
+                    if (slot < c.materials.Size() && other < c.materials.Size())
+                    {
+                        draconic::resource::Ref<draconic::materials::Material> tmp = c.materials[slot];
+                        c.materials[slot] = c.materials[other];
+                        c.materials[other] = tmp;
+                    }
+                });
+            };
+            slots->OnPickSlot = [self, id](usize slot) {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+                Array<String> typeNames;
+                typeNames.PushBack(String(u8"MaterialAsset"));
+                auto picker = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                    DefaultAllocator(), *self->m_editor, Move(typeNames));
+                picker->OnPicked = [self, id, slot](const Guid& picked) {
+                    self->MutateMeshMaterials(id, [slot, picked](draconic::render::MeshComponent& c) {
+                        if (slot >= c.materials.Size()) { return; }
+                        c.materials[slot] = draconic::resource::Ref<draconic::materials::Material>{};
+                        c.materials[slot].SetId(picked);
+                    });
+                };
+                picker->Show(self->Context);
+            };
+            AddEditor(slots.Get(), []() {});
+        }
+
         [[nodiscard]] StringView AssetNameFor(const Guid& target)
         {
             if (target.IsNil()) { return u8"(none)"; }
@@ -1116,5 +1295,6 @@ export namespace draconic::editor
     };
 
     DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "draconic::editor")
+    DRACONIC_DEFINE_OBJECT(MaterialSlotsEditor, "draconic::editor")
     DRACONIC_DEFINE_OBJECT(SceneInspectorView, "draconic::editor")
 }
