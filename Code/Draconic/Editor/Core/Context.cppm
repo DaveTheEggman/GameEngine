@@ -237,6 +237,22 @@ export namespace draconic::editor
             return m_assetSelection;
         }
 
+        // === Import notifications ===
+
+        /// Subscribe to successful file imports (fired by the import flow AFTER the importer
+        /// returned; `options` is the dialog-edited options object, null when none). Used for
+        /// post-import steps that live above the importer's layer - e.g. model->prefab
+        /// generation, which needs scene machinery the importer library never links.
+        void AddImportListener(Function<void(draconic::content::Instance&, const ImportOptions*)> listener)
+        {
+            m_importListeners.PushBack(Move(listener));
+        }
+
+        void NotifyImported(draconic::content::Instance& instance, const ImportOptions* options)
+        {
+            for (const auto& listener : m_importListeners) { listener(instance, options); }
+        }
+
         // === Status ===
 
         void SetStatus(StringView text)
@@ -258,6 +274,7 @@ export namespace draconic::editor
         String m_clipboardKind;
         Array<byte> m_clipboard;
         Array<Guid> m_favorites;
+        Array<Function<void(draconic::content::Instance&, const ImportOptions*)>> m_importListeners;
         Array<UniquePtr<EditorPage>> m_pages;
         EditorPage* m_activePage = nullptr;
         Selection<const draconic::content::Instance*> m_assetSelection;

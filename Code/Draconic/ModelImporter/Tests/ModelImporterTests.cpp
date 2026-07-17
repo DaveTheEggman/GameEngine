@@ -194,7 +194,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     CHECK(importer.Accepts(u8"glb"));
     Result<draconic::content::Instance*> imported = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_GLB),
-        *project, *project->SourceDb().RootGroup());
+        *project, *project->SourceDb().RootGroup(), nullptr);
     REQUIRE(imported.HasValue());
     draconic::content::Instance* manifestInst = imported.Value();
     REQUIRE(manifestInst != nullptr);
@@ -295,7 +295,7 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
     mi::ModelFileImporter importer;
     Result<draconic::content::Instance*> imported = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_FOX),
-        *project, *project->SourceDb().RootGroup());
+        *project, *project->SourceDb().RootGroup(), nullptr);
     REQUIRE(imported.HasValue());
     REQUIRE(imported.Value() != nullptr);
 
@@ -368,7 +368,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     mi::ModelFileImporter importer;
     Result<draconic::content::Instance*> imported = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
-        *project, *project->SourceDb().RootGroup());
+        *project, *project->SourceDb().RootGroup(), nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -605,7 +605,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     mi::ModelFileImporter importer;
     Result<draconic::content::Instance*> firstImport = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
-        *project, *project->SourceDb().RootGroup());
+        *project, *project->SourceDb().RootGroup(), nullptr);
     REQUIRE(firstImport.HasValue());
 
     draconic::content::Group* duckGroup = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
@@ -626,7 +626,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     // === user step 2: reimport the same file ===
     Result<draconic::content::Instance*> secondImport = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
-        *project, *project->SourceDb().RootGroup());
+        *project, *project->SourceDb().RootGroup(), nullptr);
     REQUIRE(secondImport.HasValue());
     draconic::content::Group* duckGroup2 = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
     REQUIRE(duckGroup2 != nullptr);
@@ -774,4 +774,61 @@ TEST_CASE("import: sub-assets keep authored names (sanitized), indexed fallback 
           == StringView(u8"body_armor_v2"));
     // No authored name -> indexed fallback.
     CHECK(modelimporter::ImportedAssetName(u8"", u8"anim", 4).AsView() == StringView(u8"anim.4"));
+}
+
+TEST_CASE("model-import: options gate textures/materials/animations")
+{
+    using namespace draconic::editor;
+    namespace mi = draconic::modelimporter;
+    mi::RegisterModelManifestAsset();
+    draconic::texture::RegisterTextureAsset();
+    draconic::geometry::RegisterMeshAssets();
+    draconic::materials::RegisterMaterialAsset();
+    draconic::animation::RegisterAnimationAssets();
+
+    const StringView dir = u8"draconic_model_import_options_project";
+    (void)RemoveDirectory(dir);   // best-effort; Create scaffolds fresh trees
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    mi::ModelFileImporter importer;
+
+    // The importer advertises options, and their defaults import everything.
+    RefPtr<ImportOptions> base = importer.CreateOptions();
+    REQUIRE(base.Get() != nullptr);
+    auto* options = static_cast<mi::ModelImportOptions*>(base.Get());
+    CHECK(options->importTextures);
+    CHECK(options->importMaterials);
+    CHECK(options->importAnimations);
+    CHECK(options->generatePrefab);
+    CHECK(options->Toggles().Size() == 4u);
+
+    // Geometry-only import: no textures, no materials, no skeleton/clips in the fan-out.
+    options->importTextures = false;
+    options->importMaterials = false;
+    options->importAnimations = false;
+    Result<draconic::content::Instance*> imported = importer.Import(
+        reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_GLB),
+        *project, *project->SourceDb().RootGroup(), options);
+    REQUIRE(imported.HasValue());
+
+    RefPtr<ISerializable> object = imported.Value()->ReadObject();
+    auto* manifest = Cast<mi::ModelManifestAsset>(object.Get());
+    REQUIRE(manifest != nullptr);
+    CHECK(manifest->manifest.meshGuids.Size() >= 1u);         // geometry always imports
+    CHECK(manifest->manifest.materialGuids.IsEmpty());
+    CHECK(manifest->manifest.skeletonGuid.IsNil());
+    CHECK(manifest->manifest.animationGuids.IsEmpty());
+
+    draconic::content::Group* modelGroup =
+        project->SourceDb().RootGroup()->GetGroup(u8"character-oozi");
+    REQUIRE(modelGroup != nullptr);
+    for (draconic::content::Instance* inst : modelGroup->Instances())
+    {
+        CHECK(inst->TypeName() != StringView(u8"TextureAsset"));
+        CHECK(inst->TypeName() != StringView(u8"MaterialAsset"));
+        CHECK(inst->TypeName() != StringView(u8"SkeletonAsset"));
+        CHECK(inst->TypeName() != StringView(u8"AnimationClipAsset"));
+    }
 }

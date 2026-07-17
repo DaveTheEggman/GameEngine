@@ -24,7 +24,8 @@ namespace
             return extension == StringView(u8"fak");
         }
         [[nodiscard]] Result<draconic::content::Instance*> Import(
-            StringView, EditorProject&, draconic::content::Group&) override
+            StringView, EditorProject&, draconic::content::Group&,
+            const ImportOptions*) override
         {
             return Err(ErrorCode::NotSupported);
         }

@@ -95,12 +95,54 @@ export namespace draconic::modelimporter
         }
     };
 
+    /// Options for one model import (the import dialog renders the toggles).
+    class ModelImportOptions final : public ed::ImportOptions
+    {
+        DRACONIC_OBJECT(ModelImportOptions, ed::ImportOptions)
+    public:
+        bool importTextures = true;     // embedded/sidecar images -> TextureAssets
+        bool importMaterials = true;    // PBR materials (texture slots wired when textures import)
+        bool importAnimations = true;   // skeleton + clips
+        bool generatePrefab = true;     // hierarchy prefab beside the manifest (post-import step)
+
+        [[nodiscard]] Array<Toggle> Toggles() override
+        {
+            Array<Toggle> toggles;
+            toggles.PushBack(Toggle{ u8"Textures", u8"Import the model's images as texture assets", &importTextures });
+            toggles.PushBack(Toggle{ u8"Materials", u8"Import PBR materials (textures wire in when they import too)", &importMaterials });
+            toggles.PushBack(Toggle{ u8"Animations", u8"Import the skeleton and animation clips", &importAnimations });
+            toggles.PushBack(Toggle{ u8"Generate prefab", u8"Create a spawnable prefab of the model's node hierarchy; re-import regenerates it", &generatePrefab });
+            return toggles;
+        }
+
+        void Serialize(ISerializer& ar) override
+        {
+            u8 textures = importTextures ? 1u : 0u;
+            u8 materials = importMaterials ? 1u : 0u;
+            u8 animations = importAnimations ? 1u : 0u;
+            u8 prefab = generatePrefab ? 1u : 0u;
+            draconic::core::Serialize(ar, "textures", textures);
+            draconic::core::Serialize(ar, "materials", materials);
+            draconic::core::Serialize(ar, "animations", animations);
+            draconic::core::Serialize(ar, "prefab", prefab);
+            importTextures = textures != 0;
+            importMaterials = materials != 0;
+            importAnimations = animations != 0;
+            generatePrefab = prefab != 0;
+        }
+    };
+
     /// OS-file importer for model files: loads through draconic.model and fans out source
     /// instances into a subgroup named after the file stem.
     class ModelFileImporter final : public ed::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Model"; }
+
+        [[nodiscard]] RefPtr<ed::ImportOptions> CreateOptions() const override
+        {
+            return RefPtr<ed::ImportOptions>(MakeRef<ModelImportOptions>(DefaultAllocator()).Get());
+        }
 
         [[nodiscard]] bool Accepts(StringView extension) const override
         {
@@ -113,8 +155,12 @@ export namespace draconic::modelimporter
 
         [[nodiscard]] Result<content::Instance*> Import(StringView sourcePath,
                                                         ed::EditorProject& project,
-                                                        content::Group& group) override
+                                                        content::Group& group,
+                                                        const ed::ImportOptions* options) override
         {
+            const ModelImportOptions defaults;
+            const ModelImportOptions& opt = (options != nullptr)
+                ? static_cast<const ModelImportOptions&>(*options) : defaults;
             Result<String> fileName = ed::CopyIntoSources(project, sourcePath);
             if (!fileName.HasValue()) { return Err(fileName.Error()); }
 
@@ -157,9 +203,10 @@ export namespace draconic::modelimporter
             manifest.boundsMax = model.bounds().max;
 
             Array<Guid> textureGuids;
-            ImportTextures(model, *modelGroup, textureGuids);
-            ImportMaterials(model, *modelGroup, textureGuids, manifest);
-            ImportSkeletonAndClips(model, *modelGroup, manifest);
+            if (opt.importTextures) { ImportTextures(model, *modelGroup, textureGuids); }
+            else { for (usize i = 0; i < model.textures().Size(); ++i) { textureGuids.PushBack(Guid{}); } }
+            if (opt.importMaterials) { ImportMaterials(model, *modelGroup, textureGuids, manifest); }
+            if (opt.importAnimations) { ImportSkeletonAndClips(model, *modelGroup, manifest); }
             const Status meshes = ImportMeshes(model, *modelGroup, manifest);
             if (!meshes.IsOk()) { return Err(meshes.Code()); }
             ImportNodes(model, manifest);
@@ -499,4 +546,5 @@ export namespace draconic::modelimporter
     }
 
     DRACONIC_DEFINE_OBJECT(ModelManifestAsset, "draconic::modelimporter")
+    DRACONIC_DEFINE_OBJECT(ModelImportOptions, "draconic::modelimporter")
 }

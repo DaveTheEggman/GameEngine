@@ -13,6 +13,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module draconic.editor.core:importer;
 
@@ -24,6 +25,25 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
+    /// Importer-specific options, shown by the import dialog before the import runs. The
+    /// dialog renders one checkbox per Toggle (each points into the options object) - a
+    /// declarative description, no reflection required. Subclasses add their fields and
+    /// return the toggle list; the base is intentionally empty (no options = no dialog).
+    class ImportOptions : public ISerializable
+    {
+        DRACONIC_OBJECT(ImportOptions, ISerializable)
+    public:
+        struct Toggle
+        {
+            StringView label;         // checkbox text ("Generate prefab")
+            StringView description;   // tooltip (empty = none)
+            bool* value = nullptr;    // points into the options object
+        };
+
+        [[nodiscard]] virtual Array<Toggle> Toggles() { return {}; }
+        void Serialize(ISerializer&) override {}
+    };
+
     class IFileImporter
     {
     public:
@@ -35,11 +55,20 @@ export namespace draconic::editor
         /// Does this importer claim the extension (lowercase, no dot: "png")?
         [[nodiscard]] virtual bool Accepts(StringView extension) const = 0;
 
+        /// Fresh options for one import (defaults set). Null = this importer has no options
+        /// and the import runs immediately on drop, no dialog.
+        [[nodiscard]] virtual RefPtr<ImportOptions> CreateOptions() const { return {}; }
+
         /// Import `sourcePath` (absolute OS path): copy the source under Sources/ and create
         /// the typed Asset instance(s) in `group`. Returns the primary created instance.
+        /// `options` is the object CreateOptions() returned after the user edited it in the
+        /// dialog (null when the importer has none or the import runs headless).
         [[nodiscard]] virtual Result<draconic::content::Instance*> Import(
-            StringView sourcePath, EditorProject& project, draconic::content::Group& group) = 0;
+            StringView sourcePath, EditorProject& project, draconic::content::Group& group,
+            const ImportOptions* options = nullptr) = 0;
     };
+
+    DRACONIC_DEFINE_OBJECT(ImportOptions, "draconic::editor")
 
     class ImporterRegistry
     {

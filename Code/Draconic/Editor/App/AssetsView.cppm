@@ -35,6 +35,7 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
 import :editor_icons;
+import :import_dialog;
 
 using namespace draconic::core;
 
@@ -219,22 +220,11 @@ export namespace draconic::editor::app
         }
 
         /// Import an OS file (drag-dropped onto the editor) into the selected group via the
-        /// registered importers. Reports through the context status line.
+        /// registered importers. An importer with options gets the pre-import dialog first;
+        /// the actual import runs in ExecuteImport.
         void ImportFile(StringView path)
         {
-            if (m_context->Project() == nullptr) { return; }
-            // A cook in flight reads instance pointers snapshotted at plan time - creating
-            // instances now is a race. Queue the import; the cook service replays it when idle.
-            if (m_cook->MutationLocked())
-            {
-                AssetsView* self = this;
-                m_cook->RunWhenIdle(Function<void()>{ [self, file = String(path)]() {
-                    self->ImportFile(file.AsView());
-                } });
-                m_context->Notify(draconic::editor::NoticeKind::Info,
-                                  u8"Import queued until the current cook finishes.");
-                return;
-            }
+            if (m_context->Project() == nullptr || Context == nullptr) { return; }
             const String ext = draconic::editor::FileExtensionLower(path);
             draconic::editor::IFileImporter* importer = m_context->Importers().FindFor(ext.AsView());
             if (importer == nullptr)
@@ -245,10 +235,47 @@ export namespace draconic::editor::app
                 m_context->Notify(draconic::editor::NoticeKind::Warning, message.AsView());
                 return;
             }
+
+            RefPtr<draconic::editor::ImportOptions> options = importer->CreateOptions();
+            if (options.Get() == nullptr)
+            {
+                ExecuteImport(String(path), importer, {});
+                return;
+            }
+            content::Group* group = (m_selectedGroup != nullptr)
+                ? m_selectedGroup : m_context->Project()->SourceDb().RootGroup();
+            auto dialog = MakeRef<ImportOptionsDialog>(DefaultAllocator(), path,
+                                                       group->Path().AsView(), options);
+            AssetsView* self = this;
+            dialog->OnImport = [self, file = String(path), importer,
+                                opts = RefPtr<draconic::editor::ImportOptions>(options.Get())]() {
+                self->ExecuteImport(file, importer, opts);
+            };
+            dialog->Show(Context);
+        }
+
+        /// Runs the import (post-dialog). Re-checks the cook build-lock HERE, so a dialog
+        /// that sat open across a cook start still queues instead of racing the planner.
+        void ExecuteImport(String path, draconic::editor::IFileImporter* importer,
+                           RefPtr<draconic::editor::ImportOptions> options)
+        {
+            if (m_context->Project() == nullptr) { return; }
+            // A cook in flight reads instance pointers snapshotted at plan time - creating
+            // instances now is a race. Queue the import; the cook service replays it when idle.
+            if (m_cook->MutationLocked())
+            {
+                AssetsView* self = this;
+                m_cook->RunWhenIdle(Function<void()>{ [self, path, importer, options]() {
+                    self->ExecuteImport(path, importer, options);
+                } });
+                m_context->Notify(draconic::editor::NoticeKind::Info,
+                                  u8"Import queued until the current cook finishes.");
+                return;
+            }
             content::Group* group = (m_selectedGroup != nullptr)
                 ? m_selectedGroup : m_context->Project()->SourceDb().RootGroup();
             Result<content::Instance*> imported =
-                importer->Import(path, *m_context->Project(), *group);
+                importer->Import(path.AsView(), *m_context->Project(), *group, options.Get());
             if (imported.HasValue() && imported.Value() != nullptr)
             {
                 String message(u8"Imported '");
@@ -257,11 +284,12 @@ export namespace draconic::editor::app
                 message += importer->Label();
                 message += u8").";
                 m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+                m_context->NotifyImported(*imported.Value(), options.Get());
             }
             else
             {
                 String message(u8"Import failed: '");
-                message += draconic::editor::FileNameOf(path);
+                message += draconic::editor::FileNameOf(path.AsView());
                 message += u8"' (see Console).";
                 m_context->Notify(draconic::editor::NoticeKind::Error, message.AsView());
             }
