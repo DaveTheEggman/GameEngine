@@ -54,6 +54,17 @@ export namespace draconic::editor
             if (m_resources != nullptr) { dscene::ResolveSceneResources(*m_scene, *m_resources); }
         }
 
+        /// Payload resolver for NESTED prefab records (wired by the page from the source DB).
+        /// Without it, spawning a prefab that contains other prefabs skips the nested parts.
+        void SetPrefabResolver(dscene::PrefabPayloadResolver resolver)
+        {
+            m_prefabResolver = static_cast<dscene::PrefabPayloadResolver&&>(resolver);
+        }
+        [[nodiscard]] const dscene::PrefabPayloadResolver* PrefabResolver() const noexcept
+        {
+            return m_prefabResolver ? &m_prefabResolver : nullptr;
+        }
+
         /// Per-page entity selection, by persistent Guid (survives destroy/undo round-trips).
         [[nodiscard]] Selection<Guid>& EntitySelection() noexcept { return m_selection; }
 
@@ -624,9 +635,13 @@ export namespace draconic::editor
                 (void)stream.Write(m_payload.Data(), m_payload.Size());
                 (void)stream.Seek(0, SeekOrigin::Begin);
                 const dscene::EntityHandle parent = m_ctx->Resolve(m_parent);
+                Array<const dscene::Scene::PendingPrefabInstance*> subPtrs;
+                for (const auto& sub : m_nestedPins) { subPtrs.PushBack(sub.Get()); }
                 const dscene::EntityHandle root = dscene::SpawnPrefab(
                     scene, stream, m_prefabId, parent,
-                    m_preassigned.Size() > 0 ? &m_preassigned : nullptr);
+                    m_preassigned.Size() > 0 ? &m_preassigned : nullptr,
+                    m_ctx->PrefabResolver(),
+                    subPtrs.IsEmpty() ? nullptr : &subPtrs);
                 if (!root.IsAssigned()) { return false; }
                 if (m_hasTransform) { scene.SetLocalTransform(root, m_rootTransform); }
                 if (m_placeBefore != Guid{})
@@ -637,7 +652,9 @@ export namespace draconic::editor
                 m_rootId = scene.GetEntityId(root);
                 if (m_preassigned.Size() == 0)
                 {
-                    // First run: pin the minted member guids so redo recreates them exactly.
+                    // First run: pin the minted member guids so redo recreates them exactly -
+                    // including every NESTED instance's members (as sub-records with the
+                    // template placement).
                     if (dscene::Scene::PrefabInstanceState* state = scene.FindPrefabInstanceByRoot(m_rootId))
                     {
                         for (usize i = 0; i < state->sourceIds.Size(); ++i)
@@ -645,6 +662,16 @@ export namespace draconic::editor
                             m_preassigned.InsertOrAssign(state->sourceIds[i], state->liveIds[i]);
                         }
                     }
+                    scene.ForEachPrefabInstance([&](dscene::Scene::PrefabInstanceState& nested) {
+                        if (nested.ownerRootEntityId != m_rootId) { return; }
+                        auto pin = MakeUnique<dscene::Scene::PendingPrefabInstance>(DefaultAllocator());
+                        pin->prefabId = nested.prefabId;
+                        pin->sourceIds = nested.sourceIds;
+                        pin->liveIds = nested.liveIds;
+                        pin->nestedRootSourceId = nested.nestedRootSourceId;
+                        pin->applyPlacement = false;
+                        m_nestedPins.PushBack(static_cast<UniquePtr<dscene::Scene::PendingPrefabInstance>&&>(pin));
+                    });
                 }
                 m_ctx->ResolveRestoredResources();   // spawned refs render this frame
                 return true;
@@ -675,7 +702,8 @@ export namespace draconic::editor
             Transform m_rootTransform{};
             bool m_hasTransform = false;
             Guid m_rootId;
-            HashMap<Guid, Guid> m_preassigned;   // source -> live; pinned on first Execute
+            HashMap<Guid, Guid> m_preassigned;
+            Array<UniquePtr<dscene::Scene::PendingPrefabInstance>> m_nestedPins;   // source -> live; pinned on first Execute
         };
 
     private:
@@ -1622,7 +1650,8 @@ export namespace draconic::editor
         };
 
         dscene::Scene* m_scene;
-        draconic::resource::ResourceManager* m_resources = nullptr;   // borrowed (optional)              // borrowed (SceneSubsystem owns it via the page)
+        draconic::resource::ResourceManager* m_resources = nullptr;
+        dscene::PrefabPayloadResolver m_prefabResolver;   // borrowed (optional)              // borrowed (SceneSubsystem owns it via the page)
         EditorCommandStack* m_commands;      // borrowed (the page owns its stack)
         Selection<Guid> m_selection;
     };

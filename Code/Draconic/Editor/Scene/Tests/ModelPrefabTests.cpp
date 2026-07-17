@@ -33,7 +33,23 @@ namespace
         {
             for (const auto& e : entries)
             {
-                if (!e.isDirectory) { (void)fs.AsWritable()->Delete(e.name.AsView()); }
+                if (!e.isDirectory)
+                {
+                    (void)fs.AsWritable()->Delete(e.name.AsView());
+                    continue;
+                }
+                // One level of group subdirectories (the model group) - a stale "Prefab"
+                // instance in there flips the regeneration check on reruns.
+                Array<draconic::vfs::DirEntry> inner;
+                if (fs.AsEnumerable()->Enumerate(e.name.AsView(), inner).IsOk())
+                {
+                    for (const auto& f : inner)
+                    {
+                        String path = PathJoin(e.name.AsView(), f.name.AsView());
+                        (void)fs.AsWritable()->Delete(path.AsView());
+                    }
+                }
+                (void)fs.AsWritable()->Delete(e.name.AsView());
             }
         }
         (void)RemoveDirectory(root);

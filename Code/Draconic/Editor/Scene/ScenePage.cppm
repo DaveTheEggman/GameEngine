@@ -124,6 +124,15 @@ export namespace draconic::editor
             {
                 m_editContext = MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
                 m_editContext->SetResources(context.Resources());
+                EditorContext* resolverContext = &context;
+                m_editContext->SetPrefabResolver(dscene::PrefabPayloadResolver{
+                    [resolverContext](const Guid& prefabId) -> UniquePtr<IStream> {
+                        if (resolverContext->Project() == nullptr) { return UniquePtr<IStream>{}; }
+                        draconic::content::Instance* prefab =
+                            resolverContext->Project()->SourceDb().GetInstance(prefabId);
+                        return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                   : UniquePtr<IStream>{};
+                    } });
                 m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
                 m_hierarchy->SetEditorContext(&context);
                 {
@@ -377,7 +386,8 @@ export namespace draconic::editor
                 return;
             }
             MemoryStream payload;
-            if (!dscene::CaptureInstanceAsTemplate(*m_scene, *state, payload).IsOk()
+            if (!dscene::CaptureInstanceAsTemplate(*m_scene, *state, payload,
+                                                   m_editContext->PrefabResolver()).IsOk()
                 || !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
             {
                 m_context->Notify(draconic::editor::NoticeKind::Error, u8"Apply to Prefab failed.");
@@ -391,7 +401,8 @@ export namespace draconic::editor
             {
                 m_scenes->ForEachScene([&](dscene::Scene& scene) {
                     const u32 rebuilt = dscene::RebuildPrefabInstances(
-                        scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() });
+                        scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() },
+                        m_editContext->PrefabResolver());
                     if (rebuilt > 0 && context->Resources() != nullptr)
                     {
                         dscene::ResolveSceneResources(scene, *context->Resources());
@@ -464,7 +475,8 @@ export namespace draconic::editor
             bytes.Resize(static_cast<usize>(payload->Size()));
             (void)payload->Read(bytes.Data(), bytes.Size());
             if (dscene::RevertPrefabInstance(*m_scene, rootId,
-                                             Span<const byte>{ bytes.Data(), bytes.Size() }))
+                                             Span<const byte>{ bytes.Data(), bytes.Size() },
+                                             m_editContext->PrefabResolver()))
             {
                 if (m_context->Resources() != nullptr)
                 {
@@ -499,6 +511,12 @@ export namespace draconic::editor
                 Array<byte> bytes;
                 bytes.Resize(static_cast<usize>(payload->Size()));
                 (void)payload->Read(bytes.Data(), bytes.Size());
+                if (picked == page->InstanceId())
+                {
+                    page->m_context->Notify(draconic::editor::NoticeKind::Warning,
+                        u8"A prefab cannot contain an instance of itself.");
+                    return;
+                }
                 (void)page->m_editContext->SpawnPrefabInstance(picked, Move(bytes), parent);
             };
             dialog->Show(m_content->Context);
@@ -588,6 +606,17 @@ export namespace draconic::editor
                                       u8"everything under a single root, then save.");
                     return Status{ ErrorCode::InvalidArgument };
                 }
+                bool selfReference = false;
+                m_scene->ForEachPrefabInstance([&](dscene::Scene::PrefabInstanceState& state) {
+                    if (state.prefabId == InstanceId()) { selfReference = true; }
+                });
+                if (selfReference)
+                {
+                    m_context->Notify(draconic::editor::NoticeKind::Warning,
+                                      u8"A prefab cannot contain an instance of itself - "
+                                      u8"remove it, then save.");
+                    return Status{ ErrorCode::InvalidArgument };
+                }
             }
             const Status saved = isPrefab ? dscene::SavePrefab(*m_scene, *instance)
                                           : dscene::SaveScene(*m_scene, *instance);
@@ -612,7 +641,8 @@ export namespace draconic::editor
                         m_scenes->ForEachScene([&](dscene::Scene& other) {
                             if (&other == self) { return; }
                             const u32 rebuilt = dscene::RebuildPrefabInstances(
-                                other, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() });
+                                other, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() },
+                                m_editContext->PrefabResolver());
                             if (rebuilt > 0 && context->Resources() != nullptr)
                             {
                                 dscene::ResolveSceneResources(other, *context->Resources());
@@ -1303,11 +1333,20 @@ export namespace draconic::editor
                     bytes.Resize(static_cast<usize>(payload->Size()));
                     (void)payload->Read(bytes.Data(), bytes.Size());
                     const Guid prefabId = generated.instance->Id();
+                    dscene::PrefabPayloadResolver resolver{
+                        [editorContext](const Guid& id) -> UniquePtr<IStream> {
+                            if (editorContext->Project() == nullptr) { return UniquePtr<IStream>{}; }
+                            draconic::content::Instance* prefab =
+                                editorContext->Project()->SourceDb().GetInstance(id);
+                            return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                       : UniquePtr<IStream>{};
+                        } };
                     if (auto* scenes = appHost->Ctx().GetSubsystem<dscene::SceneSubsystem>())
                     {
                         scenes->ForEachScene([&](dscene::Scene& scene) {
                             const u32 rebuilt = dscene::RebuildPrefabInstances(
-                                scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() });
+                                scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() },
+                                &resolver);
                             if (rebuilt > 0 && editorContext->Resources() != nullptr)
                             {
                                 dscene::ResolveSceneResources(scene, *editorContext->Resources());
