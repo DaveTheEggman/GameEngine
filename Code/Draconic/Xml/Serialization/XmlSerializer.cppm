@@ -201,12 +201,22 @@ export namespace draconic::xml
             {
                 const StringView name(reinterpret_cast<const utf8char*>(m_pendingKey));
                 m_pendingKey = nullptr;
-                for (XmlNode* c = scope.element->FirstChild(); c != nullptr; c = c->NextSibling())
+                // Search FORWARD from the scope cursor, consuming on a hit. Writes emit
+                // fields sequentially, so reads are sequential too - and starting at
+                // FirstChild every time made an ARRAY of keyed structs (repeated flat key
+                // groups, e.g. a model manifest's nodes) read every element as a copy of
+                // the FIRST group. A miss leaves the cursor untouched (the caller fails
+                // loudly; the scope stays consumable).
+                for (XmlNode* c = scope.cursor; c != nullptr; c = c->NextSibling())
                 {
                     if (c->NodeType() == XmlNodeType::Element)
                     {
                         XmlElement* e = static_cast<XmlElement*>(c);
-                        if (e->GetAttribute(u8"name") == name) { return e; }
+                        if (e->GetAttribute(u8"name") == name)
+                        {
+                            scope.cursor = c->NextSibling();
+                            return e;
+                        }
                     }
                 }
                 return nullptr;

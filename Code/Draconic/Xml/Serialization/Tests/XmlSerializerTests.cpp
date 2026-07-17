@@ -159,3 +159,57 @@ TEST_CASE("xml.serialize: missing field reports error on read")
     CHECK_FALSE(r.IsOk());
     CHECK(r.GetStatus().Code() == ErrorCode::NotFound);
 }
+
+namespace
+{
+    // A struct whose fields serialize as a FLAT keyed group (no per-element object wrapper) -
+    // the model-manifest ModelNode shape that exposed the repeated-key bug.
+    struct FlatNode { String name; i32 parent = -1; i32 mesh = -1; };
+    void Serialize(ISerializer& ar, FlatNode& n)
+    {
+        draconic::core::Serialize(ar, "name", n.name);
+        draconic::core::Serialize(ar, "parent", n.parent);
+        draconic::core::Serialize(ar, "mesh", n.mesh);
+    }
+}
+
+TEST_CASE("xml.serialize: array of keyed structs round-trips each element distinctly")
+{
+    // Regression: keyed lookup used to restart at FirstChild for every field, so every
+    // element of a flat keyed-struct array read as a copy of the FIRST one (the Fox model
+    // manifest lost every node's meshIndex - and with it, its prefab's components).
+    Array<FlatNode> nodes;
+    for (i32 i = 0; i < 3; ++i)
+    {
+        FlatNode n;
+        n.name = Format(u8"node{}", i);
+        n.parent = i - 1;
+        n.mesh = (i == 2) ? 0 : -1;
+        nodes.PushBack(static_cast<FlatNode&&>(n));
+    }
+
+    String out;
+    {
+        XmlSerializer w;
+        draconic::core::Serialize(w, "nodes", nodes);
+        REQUIRE(w.IsOk());
+        w.GetOutput(out);
+    }
+
+    XmlDocument parsed;
+    REQUIRE(parsed.Parse(out.AsView()) == XmlResult::Ok);
+    XmlSerializer r(parsed);
+    Array<FlatNode> loaded;
+    draconic::core::Serialize(r, "nodes", loaded);
+    REQUIRE(r.IsOk());
+    REQUIRE(loaded.Size() == 3u);
+    CHECK(loaded[0].name == StringView(u8"node0"));
+    CHECK(loaded[1].name == StringView(u8"node1"));
+    CHECK(loaded[2].name == StringView(u8"node2"));
+    CHECK(loaded[0].parent == -1);
+    CHECK(loaded[1].parent == 0);
+    CHECK(loaded[2].parent == 1);
+    CHECK(loaded[0].mesh == -1);
+    CHECK(loaded[1].mesh == -1);
+    CHECK(loaded[2].mesh == 0);   // the field the Fox manifest lost
+}
