@@ -273,8 +273,9 @@ export namespace draconic::editor
         void Refresh()
         {
             const u64 signature = Signature();
-            if (signature != m_signature)
+            if (m_forceRebuild || signature != m_signature)
             {
+                m_forceRebuild = false;
                 m_signature = signature;
                 Rebuild();
             }
@@ -1074,6 +1075,32 @@ export namespace draconic::editor
             }
         }
 
+        /// The display names the slots editor renders - recomputed by its refresher to
+        /// detect shape/content changes (the inspector Signature only sees selection +
+        /// component PRESENCE, so a data-only slot mutation or its undo changes nothing it
+        /// watches).
+        [[nodiscard]] Array<String> MaterialSlotNames(const draconic::render::MeshComponent& mc)
+        {
+            Array<String> names;
+            for (usize i = 0; i < mc.materials.Size(); ++i)
+            {
+                const Guid target = mc.materials[i].id;
+                if (!target.IsNil())
+                {
+                    names.PushBack(String(AssetNameFor(target)));
+                }
+                else if (mc.materials[i].Get() != nullptr)
+                {
+                    names.PushBack(String(u8"(runtime)"));
+                }
+                else
+                {
+                    names.PushBack(String(u8"(none)"));
+                }
+            }
+            return names;
+        }
+
         void BuildMaterialSlots(const Guid& id, StringView category)
         {
             const dscene::EntityHandle e = m_edit->Resolve(id);
@@ -1087,22 +1114,7 @@ export namespace draconic::editor
             slots->SetTooltip(u8"Material slots, indexed by the mesh's submesh material index. "
                               u8"Slot 0 also covers single-material meshes and any submesh "
                               u8"whose index has no slot.");
-            for (usize i = 0; i < mc->materials.Size(); ++i)
-            {
-                const Guid target = mc->materials[i].id;
-                if (!target.IsNil())
-                {
-                    slots->slotNames.PushBack(String(AssetNameFor(target)));
-                }
-                else if (mc->materials[i].Get() != nullptr)
-                {
-                    slots->slotNames.PushBack(String(u8"(runtime)"));
-                }
-                else
-                {
-                    slots->slotNames.PushBack(String(u8"(none)"));
-                }
-            }
+            slots->slotNames = MaterialSlotNames(*mc);
 
             SceneInspectorView* self = this;
             slots->OnAddSlot = [self, id]() {
@@ -1141,7 +1153,21 @@ export namespace draconic::editor
                 };
                 picker->Show(self->Context);
             };
-            AddEditor(slots.Get(), []() {});
+            RefPtr<MaterialSlotsEditor> slotsRef = slots;
+            AddEditor(slots.Get(), [self, id, slotsRef]() {
+                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr = self->m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
+                draconic::render::MeshComponent* c =
+                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                if (c == nullptr) { return; }   // presence loss flips the Signature anyway
+                const Array<String> names = self->MaterialSlotNames(*c);
+                bool same = names.Size() == slotsRef->slotNames.Size();
+                for (usize i = 0; same && i < names.Size(); ++i)
+                {
+                    same = names[i] == slotsRef->slotNames[i];
+                }
+                if (!same) { self->m_forceRebuild = true; }
+            });
         }
 
         [[nodiscard]] StringView AssetNameFor(const Guid& target)
@@ -1292,6 +1318,7 @@ export namespace draconic::editor
         RefPtr<ui::Button> m_addButton;
         Array<Function<void()>> m_refreshers;
         u64 m_signature = ~0ull;
+        bool m_forceRebuild = false;   // set when a data-only mutation changed a section's SHAPE
     };
 
     DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "draconic::editor")
