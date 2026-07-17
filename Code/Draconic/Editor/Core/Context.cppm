@@ -248,6 +248,13 @@ export namespace draconic::editor
             m_importListeners.PushBack(Move(listener));
         }
 
+        /// Export seam: transcodes a scene/prefab instance's TEXT source stream to the
+        /// binary wire for staging. Registered by the scene editor plugin (needs scene
+        /// machinery editor.core never links); returns false for non-scene instances or
+        /// on failure (the exporter then stages the source verbatim - the runtime sniffs).
+        /// MAIN-THREAD only (creates a scratch scene through the SceneSubsystem).
+        Function<bool(draconic::content::Instance&, Array<byte>&)> SceneStreamStager;
+
         void NotifyImported(draconic::content::Instance& instance, const ImportOptions* options)
         {
             for (const auto& listener : m_importListeners) { listener(instance, options); }

@@ -725,6 +725,21 @@ export namespace draconic::editor::app
         // source/cooked DB MUTATION - so it is safe alongside the main thread's DB reads.
         // Load per-user editor settings from <userdata>/editor.settings.xml (registering the section
         // types first). Absent on first run - the store stays empty and sections read as defaults.
+        // Recursive walk feeding the export pre-transcode (main thread; scene/prefab typed
+        // instances only - the stager filters).
+        void CollectSceneStreams(draconic::content::Group& group)
+        {
+            for (draconic::content::Instance* instance : group.Instances())
+            {
+                Array<byte> bytes;
+                if (m_context.SceneStreamStager(*instance, bytes))
+                {
+                    m_exportSceneStreams.InsertOrAssign(instance->Id(), Move(bytes));
+                }
+            }
+            for (draconic::content::Group* child : group.Groups()) { CollectSceneStreams(*child); }
+        }
+
         void LoadEditorSettings()
         {
             ed::RegisterEditorSettingsTypes();
@@ -757,13 +772,23 @@ export namespace draconic::editor::app
         {
             draconic::editor::EditorProject* project = m_project.Get();
             draconic::editor::BuilderRegistry* builders = &m_builders;
+
+            // MAIN-THREAD pre-pass: transcode scene/prefab TEXT sources to the binary wire
+            // (the stager needs the SceneSubsystem). One export at a time (IsBusy-guarded),
+            // so the member map stays valid for the job's lifetime.
+            m_exportSceneStreams.Clear();
+            if (m_context.SceneStreamStager)
+            {
+                CollectSceneStreams(*m_project->SourceDb().RootGroup());
+            }
+            const HashMap<Guid, Array<byte>>* sceneStreams = &m_exportSceneStreams;
             const String toolDir = GetExecutableDirectory();
             const String templatesRoot = TemplatesRoot();   // resolve on the main thread (reads settings)
             const String outRoot = Absolutize(PathJoin(m_project->Directory(), u8"Dist").AsView());
             const String title(all ? StringView(u8"Export All") : StringView(u8"Export"));
 
             m_jobService.Submit(title.AsView(),
-                [project, builders, toolDir, templatesRoot, presetName, all, outRoot](ed::JobContext& ctx) -> Status
+                [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams](ed::JobContext& ctx) -> Status
                 {
                     draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
                     draconic::vfs::NativeFileSystem rootFs(templatesRoot.AsView());   // imported templates
@@ -781,13 +806,13 @@ export namespace draconic::editor::app
                     {
                         const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
                         return ed::ExportAll(*project, span, registry, *builders, outRoot.AsView(),
-                                             /*rebuild*/ false, onProgress, /*cook*/ false);
+                                             /*rebuild*/ false, onProgress, /*cook*/ false, sceneStreams);
                     }
                     const ed::ExportPreset* preset = presets.Find(presetName.AsView());
                     if (preset == nullptr) { return Status{ ErrorCode::NotFound }; }
                     ed::ExportResult result;
                     return ed::ExportOne(*project, *preset, registry, *builders, outRoot.AsView(),
-                                         /*rebuild*/ false, &result, onProgress, /*cook*/ false);
+                                         /*rebuild*/ false, &result, onProgress, /*cook*/ false, sceneStreams);
                 },
                 [this, outRoot](Status s)   // main thread
                 {
@@ -1265,7 +1290,8 @@ export namespace draconic::editor::app
         draconic::editor::EditorJobService m_jobService;     // generic background jobs (export, ...)
         draconic::settings::Settings m_editorSettings;       // per-user editor prefs (<userdata>/editor.settings.xml)
         struct PendingExport { String presetName; bool all = false; bool waitingCook = false; bool active = false; };
-        PendingExport m_pendingExport;                       // export waiting for its pre-cook to finish
+        PendingExport m_pendingExport;
+        HashMap<Guid, Array<byte>> m_exportSceneStreams;   // export pre-transcoded scene wires                       // export waiting for its pre-cook to finish
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
         f32 m_testOpenElapsed = 0.0f;   // RAPTOR_TEST_OPEN hook
         u32 m_testOpenStage = 0;

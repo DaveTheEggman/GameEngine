@@ -234,6 +234,12 @@ public:
         return out;
     }
     [[nodiscard]] usize PendingPrefabInstanceCount() const noexcept { return m_pendingPrefabs.Size(); }
+    /// Non-consuming walk of the parked pendings (transcode re-emits them verbatim so a
+    /// load->save cycle without ResolveScenePrefabs stays lossless).
+    void ForEachPendingPrefabInstance(const Function<void(PendingPrefabInstance&)>& fn)
+    {
+        for (const UniquePtr<PendingPrefabInstance>& p : m_pendingPrefabs) { if (p) { fn(*p); } }
+    }
 
     // ---- transform hierarchy ----
 

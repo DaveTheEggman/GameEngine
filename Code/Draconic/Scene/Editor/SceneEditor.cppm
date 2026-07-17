@@ -15,6 +15,7 @@ import draconic.core;
 import draconic.content;
 import draconic.scene;
 import draconic.scene.resource;
+import draconic.xml.serialization;
 
 using namespace draconic::core;
 
@@ -29,10 +30,16 @@ inline Status SaveScene(Scene& scene, draconic::content::Instance& instance) {
     const Status wrote = instance.WriteObject(doc);
     if (!wrote.IsOk()) { return wrote; }
 
-    MemoryStream buffer;
-    BinarySerializer ser(buffer, SerializeMode::Write);
-    SerializeScene(ser, scene);
-    return instance.WriteData(u8"scene", buffer.Bytes());
+    // Sources are TEXT (docs/design/text-scenes.md): diffable, mergeable, hand-editable.
+    // Export staging transcodes to the binary wire for the player.
+    draconic::xml::XmlSerializer ser;
+    SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, true,
+                   detail::SceneStreamEncoding::Text);
+    if (!ser.IsOk()) { return ser.GetStatus(); }
+    String text;
+    ser.GetOutput(text);
+    return instance.WriteData(u8"scene",
+        Span<const byte>{ reinterpret_cast<const byte*>(text.CStr()), text.Size() });
 }
 
 // The prefab twin: PrefabDocument primary + the world serialized EXPANDED - any nested
@@ -61,12 +68,17 @@ inline Status SavePrefab(Scene& scene, draconic::content::Instance& instance) {
     const Status wrote = instance.WriteObject(doc);
     if (!wrote.IsOk()) { return wrote; }
 
-    MemoryStream buffer;
-    BinarySerializer ser(buffer, SerializeMode::Write);
     // Referenced + no settings (P4): nested instances persist as ref+delta RECORDS - the
-    // flat forest SpawnPrefab replays - instead of flattening into plain entities.
-    SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false);
-    return instance.WriteData(u8"scene", buffer.Bytes());
+    // flat forest SpawnPrefab replays - instead of flattening into plain entities. TEXT
+    // like scene saves (export transcodes).
+    draconic::xml::XmlSerializer ser;
+    SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false,
+                   detail::SceneStreamEncoding::Text);
+    if (!ser.IsOk()) { return ser.GetStatus(); }
+    String text;
+    ser.GetOutput(text);
+    return instance.WriteData(u8"scene",
+        Span<const byte>{ reinterpret_cast<const byte*>(text.CStr()), text.Size() });
 }
 
 } // namespace draconic::scene

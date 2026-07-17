@@ -72,7 +72,8 @@ export namespace draconic::editor
 
         // Re-encode a scene instance into a binary envelope in the staging DB - SAME guid/path.
         inline bool StageScene(draconic::content::Instance& scene,
-                               draconic::content::ContentDatabase& staging)
+                               draconic::content::ContentDatabase& staging,
+                               const HashMap<Guid, Array<byte>>* sceneStreams)
         {
             draconic::content::Group* group = staging.RootGroup();
             const String path = scene.OwningGroup().Path();
@@ -109,6 +110,18 @@ export namespace draconic::editor
             }
             else { return false; }
 
+            // Pre-transcoded BINARY stream (editor's main-thread pass) when available; else
+            // the source stream verbatim - the runtime SNIFFS the encoding, so an XML source
+            // staged as-is (headless CLI, no engine subsystems to transcode with) still
+            // loads, just with text-parse cost.
+            if (sceneStreams != nullptr)
+            {
+                if (const Array<byte>* pre = sceneStreams->Find(scene.Id()))
+                {
+                    return staged->WriteData(u8"scene",
+                        Span<const byte>{ pre->Data(), pre->Size() }).IsOk();
+                }
+            }
             if (UniquePtr<IStream> stream = scene.ReadData(u8"scene"))
             {
                 Array<byte> bytes;
@@ -199,7 +212,8 @@ export namespace draconic::editor
     /// this; the editor cooks via CookService first, then runs this on a background job). Fills
     /// stats.scenesStaged / stats.filesPacked.
     [[nodiscard]] inline Status ExportContent(EditorProject& project, StringView outDir,
-                                              ExportStats& stats, const ExportProgress& onProgress = {})
+                                              ExportStats& stats, const ExportProgress& onProgress = {},
+                                              const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
     {
         namespace proj = draconic::project;
 
@@ -216,7 +230,7 @@ export namespace draconic::editor
             detail::CollectScenes(*project.SourceDb().RootGroup(), scenes);
             for (draconic::content::Instance* scene : scenes)
             {
-                if (!detail::StageScene(*scene, staging))
+                if (!detail::StageScene(*scene, staging, sceneStreams))
                 {
                     DRACONIC_LOG_ERROR(u8"Export", u8"failed to stage scene '{}'", scene->Path());
                     return Status{ ErrorCode::Internal };
@@ -344,7 +358,8 @@ export namespace draconic::editor
     [[nodiscard]] inline Status ExportOne(EditorProject& project, const ExportPreset& preset,
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
                                           StringView outRoot, bool rebuild, ExportResult* outResult = nullptr,
-                                          const ExportProgress& onProgress = {}, bool cook = true)
+                                          const ExportProgress& onProgress = {}, bool cook = true,
+                                          const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
     {
         const ExportTemplate* tmpl = templates.Resolve(preset);
         if (tmpl == nullptr)
@@ -384,7 +399,8 @@ export namespace draconic::editor
 
         const Status contentStatus = cook
             ? ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress)
-            : ExportContent(project, result.outputDir.AsView(), result.content, onProgress);
+            : ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
+                            sceneStreams);
         if (!contentStatus.IsOk())
         {
             if (outResult != nullptr) { *outResult = result; }
@@ -444,7 +460,8 @@ export namespace draconic::editor
     [[nodiscard]] inline Status ExportAll(EditorProject& project, Span<const ExportPreset> presets,
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
                                           StringView outRoot, bool rebuild, const ExportProgress& onProgress = {},
-                                          bool cook = true)
+                                          bool cook = true,
+                                          const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
     {
         usize ok = 0;
         const usize n = presets.Size();
@@ -459,7 +476,8 @@ export namespace draconic::editor
                 onProgress(s.AsView(), (static_cast<f32>(i) + frac) / static_cast<f32>(n));
             };
             ExportResult result;
-            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped, cook).IsOk())
+            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped, cook,
+                          sceneStreams).IsOk())
             {
                 ++ok;
                 DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",

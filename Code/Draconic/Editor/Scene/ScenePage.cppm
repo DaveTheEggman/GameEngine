@@ -1309,6 +1309,30 @@ export namespace draconic::editor
         // open scene and an open prefab page refreshes like any external asset change.
         EditorContext* editorContext = &context;
         rt::IApplicationHost* appHost = &host;
+
+        // Export seam: scene/prefab TEXT sources transcode to the binary wire on the main
+        // thread before the pack job. The scratch scene comes from the SceneSubsystem so
+        // ISceneAware injection gives it the app's FULL manager set - a hand-listed set
+        // would silently drop component types.
+        context.SceneStreamStager = [appHost](draconic::content::Instance& instance,
+                                              Array<byte>& out) -> bool {
+            const bool isScene = instance.TypeName() == StringView(u8"SceneDocument");
+            const bool isPrefab = instance.TypeName() == StringView(u8"PrefabDocument");
+            if (!isScene && !isPrefab) { return false; }
+            UniquePtr<IStream> stream = instance.ReadData(u8"scene");
+            if (stream.Get() == nullptr) { return false; }
+            auto* scenes = appHost->Ctx().GetSubsystem<dscene::SceneSubsystem>();
+            if (scenes == nullptr) { return false; }
+            dscene::Scene* scratch = scenes->CreateScene(u8"__export_transcode");
+            if (scratch == nullptr) { return false; }
+            Result<Array<byte>> bytes =
+                dscene::TranscodeSceneStreamToBinary(*stream, *scratch, /*includeSettings=*/isScene);
+            scenes->DestroyScene(scratch);
+            if (!bytes.HasValue()) { return false; }
+            out = Move(bytes.Value());
+            return true;
+        };
+
         context.AddImportListener([editorContext, appHost](draconic::content::Instance& instance,
                                                            const ImportOptions* options) {
             if (instance.TypeName() != StringView(u8"ModelManifestAsset")) { return; }

@@ -8,6 +8,7 @@
 import draconic.core;
 import draconic.scene;
 import draconic.scene.resource;
+import draconic.xml.serialization;
 
 using namespace draconic::core;
 using namespace draconic::scene;
@@ -1394,6 +1395,196 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
     }
     CHECK(foundPlain);
     CHECK(loaded.TakePendingPrefabInstances().IsEmpty());
+}
+
+TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and stable")
+{
+    const Guid innerId{ 0xAA, 0x91 };
+    Array<byte> inner = AuthorInnerTemplate();
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
+
+    Scene scene(u8"level");
+    HealthManager* health = scene.AddSystem<HealthManager>();
+    EntityHandle hero = scene.CreateEntity(u8"Hero");
+    Transform t{};
+    t.position = Float3{ 1.25f, -3.5f, 0.0078125f };
+    scene.SetLocalTransform(hero, t);
+    health->Add(hero).value = 41.5f;
+    MemoryStream innerStream;
+    (void)innerStream.Write(inner.Data(), inner.Size());
+    (void)innerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle wheel = SpawnPrefab(scene, innerStream, innerId);
+    REQUIRE(wheel.IsAssigned());
+    health->Get(wheel)->value = 77.0f;   // an override that must survive every hop
+
+    // Hop 1: XML text.
+    draconic::xml::XmlSerializer xmlOut;
+    SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
+                   draconic::scene::detail::SceneStreamEncoding::Text);
+    REQUIRE(xmlOut.IsOk());
+    String text1;
+    xmlOut.GetOutput(text1);
+    REQUIRE(text1.Size() > 0);
+    CHECK(text1[0] == utf8char('<'));
+
+    // Hop 2: load the XML (sniffed), resolve the instance.
+    Scene loaded(u8"loaded");
+    loaded.AddSystem<HealthManager>();
+    MemoryStream textStream;
+    (void)textStream.Write(reinterpret_cast<const byte*>(text1.CStr()), text1.Size());
+    (void)textStream.Seek(0, SeekOrigin::Begin);
+    {
+        draconic::scene::detail::SceneStreamReader reader;
+        Serializer* ar = reader.Open(textStream);
+        REQUIRE(ar != nullptr);
+        REQUIRE(reader.Encoding() == draconic::scene::detail::SceneStreamEncoding::Text);
+        SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+        REQUIRE(ar->IsOk());
+    }
+    ResolveScenePrefabs(loaded, resolver);
+
+    // Hop 3: binary out of the loaded scene, load THAT, compare against the original.
+    MemoryStream binary;
+    {
+        BinarySerializer ar(binary, SerializeMode::Write);
+        SerializeScene(ar, loaded, nullptr, ScenePrefabMode::Referenced, true,
+                       draconic::scene::detail::SceneStreamEncoding::Binary);
+        REQUIRE(ar.IsOk());
+    }
+    (void)binary.Seek(0, SeekOrigin::Begin);
+    Scene last(u8"last");
+    HealthManager* lastHealth = last.AddSystem<HealthManager>();
+    {
+        draconic::scene::detail::SceneStreamReader reader;
+        Serializer* ar = reader.Open(binary);
+        REQUIRE(ar != nullptr);
+        REQUIRE(reader.Encoding() == draconic::scene::detail::SceneStreamEncoding::Binary);
+        SerializeScene(*ar, last, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+    }
+    ResolveScenePrefabs(last, resolver);
+
+    EntityHandle lastHero = last.FindEntity(scene.GetEntityId(hero));
+    REQUIRE(lastHero.IsAssigned());
+    const Transform ft = last.GetLocalTransform(lastHero);
+    CHECK(ft.position.x == t.position.x);   // EXACT float round-trip, not Approx
+    CHECK(ft.position.y == t.position.y);
+    CHECK(ft.position.z == t.position.z);
+    REQUIRE(lastHealth->Get(lastHero) != nullptr);
+    CHECK(lastHealth->Get(lastHero)->value == 41.5f);
+    EntityHandle lastWheel = last.FindEntity(scene.GetEntityId(wheel));
+    REQUIRE(lastWheel.IsAssigned());
+    REQUIRE(lastHealth->Get(lastWheel) != nullptr);
+    CHECK(lastHealth->Get(lastWheel)->value == 77.0f);
+
+    // Stability: re-saving the loaded scene as XML reproduces the SAME text - saves can
+    // never generate noise diffs.
+    draconic::xml::XmlSerializer xmlAgain;
+    SerializeScene(xmlAgain, loaded, nullptr, ScenePrefabMode::Referenced, true,
+                   draconic::scene::detail::SceneStreamEncoding::Text);
+    String text2;
+    xmlAgain.GetOutput(text2);
+    CHECK(text1 == text2);
+}
+
+TEST_CASE("text scenes: unknown component types SKIP; later records still load")
+{
+    Scene scene(u8"author");
+    HealthManager* health = scene.AddSystem<HealthManager>();
+    EntityHandle a = scene.CreateEntity(u8"A");
+    EntityHandle b = scene.CreateEntity(u8"B");
+    health->Add(a).value = 1.0f;
+    health->Add(b).value = 2.0f;
+
+    draconic::xml::XmlSerializer xmlOut;
+    SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
+                   draconic::scene::detail::SceneStreamEncoding::Text);
+    String text;
+    xmlOut.GetOutput(text);
+
+    // Corrupt the FIRST health record's type only (the id is "demo.Health").
+    String mutated;
+    bool replaced = false;
+    const StringView typeId(u8"demo.Health");
+    for (usize i = 0; i < text.Size(); ++i) {
+        if (!replaced && i + typeId.Size() <= text.Size()
+            && text.AsView().SubStr(i, typeId.Size()) == typeId) {
+            mutated.Append(u8"demo.Bogus1");
+            i += typeId.Size() - 1;
+            replaced = true;
+            continue;
+        }
+        mutated.PushBack(text[i]);
+    }
+    REQUIRE(replaced);
+
+    Scene loaded(u8"loaded");
+    HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
+    MemoryStream stream;
+    (void)stream.Write(reinterpret_cast<const byte*>(mutated.CStr()), mutated.Size());
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    draconic::scene::detail::SceneStreamReader reader;
+    Serializer* ar = reader.Open(stream);
+    REQUIRE(ar != nullptr);
+    SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+
+    // A's record was the bogus one - skipped; B's still loads.
+    EntityHandle loadedA = loaded.FindEntity(scene.GetEntityId(a));
+    EntityHandle loadedB = loaded.FindEntity(scene.GetEntityId(b));
+    REQUIRE(loadedA.IsAssigned());
+    REQUIRE(loadedB.IsAssigned());
+    CHECK(loadedHealth->Get(loadedA) == nullptr);
+    REQUIRE(loadedHealth->Get(loadedB) != nullptr);
+    CHECK(loadedHealth->Get(loadedB)->value == 2.0f);
+}
+
+TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
+{
+    const Guid innerId{ 0xAA, 0xA1 };
+    Array<byte> inner = AuthorInnerTemplate();
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
+
+    Scene scene(u8"level");
+    HealthManager* health = scene.AddSystem<HealthManager>();
+    MemoryStream innerStream;
+    (void)innerStream.Write(inner.Data(), inner.Size());
+    (void)innerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle wheel = SpawnPrefab(scene, innerStream, innerId);
+    REQUIRE(wheel.IsAssigned());
+    health->Get(wheel)->value = 55.0f;
+    draconic::xml::XmlSerializer xmlOut;
+    SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
+                   draconic::scene::detail::SceneStreamEncoding::Text);
+    String text;
+    xmlOut.GetOutput(text);
+
+    // Transcode WITHOUT a resolver: pendings park and must re-emit verbatim.
+    Scene scratch(u8"scratch");
+    scratch.AddSystem<HealthManager>();
+    MemoryStream in;
+    (void)in.Write(reinterpret_cast<const byte*>(text.CStr()), text.Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    Result<Array<byte>> binary = TranscodeSceneStreamToBinary(in, scratch, true);
+    REQUIRE(binary.HasValue());
+    REQUIRE(binary.Value().Size() > 0);
+    CHECK(binary.Value()[0] != static_cast<byte>(u8'<'));
+
+    // The binary loads like a player would: pendings restore + resolve into the instance
+    // with its override intact.
+    Scene player(u8"player");
+    HealthManager* playerHealth = player.AddSystem<HealthManager>();
+    MemoryStream binStream;
+    (void)binStream.Write(binary.Value().Data(), binary.Value().Size());
+    (void)binStream.Seek(0, SeekOrigin::Begin);
+    draconic::scene::detail::SceneStreamReader reader;
+    Serializer* ar = reader.Open(binStream);
+    REQUIRE(ar != nullptr);
+    SerializeScene(*ar, player, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+    ResolveScenePrefabs(player, resolver);
+
+    EntityHandle playerWheel = player.FindEntity(scene.GetEntityId(wheel));
+    REQUIRE(playerWheel.IsAssigned());
+    REQUIRE(playerHealth->Get(playerWheel) != nullptr);
+    CHECK(playerHealth->Get(playerWheel)->value == 55.0f);
 }
 
 TEST_CASE("scene v2: unknown component and settings records SKIP instead of aborting")

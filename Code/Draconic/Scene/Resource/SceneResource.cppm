@@ -25,6 +25,8 @@ import draconic.core;
 import draconic.resource;
 import draconic.content;
 import draconic.scene;
+import draconic.xml;
+import draconic.xml.serialization;
 
 using namespace draconic::core;
 
@@ -66,6 +68,63 @@ namespace detail {
         if (stream.Read(&version, sizeof(version)) != sizeof(version)) { return 1; }
         return version;
     }
+
+    // The scene stream's on-disk encoding. Sources are TEXT (XML - diffable, mergeable);
+    // staged/cooked products and in-memory snapshots are BINARY. One SerializeScene path
+    // feeds both encoders (docs/design/text-scenes.md).
+    enum class SceneStreamEncoding : u8 { Binary, Text };
+
+    // First non-whitespace byte '<' = XML. Binary streams start with the magic or a name
+    // length, never '<'. Leaves the stream where it found it.
+    [[nodiscard]] inline SceneStreamEncoding DetectSceneStreamEncoding(IStream& stream) {
+        const i64 start = stream.Tell();
+        SceneStreamEncoding encoding = SceneStreamEncoding::Binary;
+        u8 b = 0;
+        while (stream.Read(&b, 1) == 1) {
+            if (b == u8' ' || b == u8'\t' || b == u8'\r' || b == u8'\n') { continue; }
+            encoding = (b == u8'<') ? SceneStreamEncoding::Text : SceneStreamEncoding::Binary;
+            break;
+        }
+        (void)stream.Seek(start, SeekOrigin::Begin);
+        return encoding;
+    }
+
+    // Read-side seam: sniffs the encoding and owns whichever serializer (and, for text,
+    // the parsed document) the stream needs. Open() returns null on an unparseable text
+    // stream. For BINARY the stream is left at the start - SerializeScene's own
+    // serializer-level sniff handles the header; for TEXT the header elements are read
+    // the same way through the XML serializer.
+    class SceneStreamReader {
+    public:
+        [[nodiscard]] Serializer* Open(IStream& stream) {
+            m_encoding = DetectSceneStreamEncoding(stream);
+            if (m_encoding == SceneStreamEncoding::Binary) {
+                m_binary = MakeUnique<BinarySerializer>(DefaultAllocator(), stream, SerializeMode::Read);
+                return m_binary.Get();
+            }
+            Array<byte> bytes;
+            bytes.Resize(static_cast<usize>(stream.Size() - stream.Tell()));
+            if (!bytes.IsEmpty() && stream.Read(bytes.Data(), bytes.Size()) != bytes.Size()) {
+                return nullptr;
+            }
+            const StringView text(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
+            if (m_doc.Parse(text) != draconic::xml::XmlResult::Ok) { return nullptr; }
+            m_xml = MakeUnique<draconic::xml::XmlSerializer>(DefaultAllocator(), m_doc);
+            return m_xml.Get();
+        }
+        [[nodiscard]] SceneStreamEncoding Encoding() const noexcept { return m_encoding; }
+
+    private:
+        SceneStreamEncoding m_encoding = SceneStreamEncoding::Binary;
+        draconic::xml::XmlDocument m_doc;
+        UniquePtr<BinarySerializer> m_binary;
+        UniquePtr<draconic::xml::XmlSerializer> m_xml;
+    };
+
+    // One component record, in the section's encoding: TEXT = own object scope with the
+    // component fields inline (diffable, skippable by scope); BINARY = v2 blob record.
+    inline void WriteComponentRecord(ISerializer& ar, Scene& scene, ComponentManagerBase& m,
+                                     EntityHandle owner, bool text);
 
     inline void WriteSceneStreamHeader(ISerializer& ar) {
         u32 magic = kSceneStreamMagic;
@@ -113,6 +172,28 @@ namespace detail {
         (void)buffer.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(buffer, SerializeMode::Read);
         manager.ReadComponent(ar, owner);
+    }
+
+    inline void WriteComponentRecord(ISerializer& ar, Scene& scene, ComponentManagerBase& m,
+                                     EntityHandle owner, bool text) {
+        Guid ownerId = scene.GetEntityId(owner);
+        String typeId = String(m.SerializationTypeId());
+        if (text) {
+            ar.BeginObject();
+            SerializeGuid(ar, "owner", ownerId);
+            draconic::core::Serialize(ar, "type", typeId);
+            ar.Key("data");
+            ar.BeginObject();
+            m.WriteComponent(ar, owner);
+            ar.EndObject();
+            ar.EndObject();
+            return;
+        }
+        SerializeGuid(ar, "owner", ownerId);
+        draconic::core::Serialize(ar, "type", typeId);
+        Array<u8> blob;
+        ComponentToBlob(m, owner, blob);
+        draconic::core::Serialize(ar, "data", blob);
     }
 
     [[nodiscard]] inline bool BlobsEqual(Span<const u8> a, Span<const u8> b) {
@@ -465,8 +546,11 @@ namespace detail {
 // reach the nested-instance records without applying settings to the target scene).
 inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe = nullptr,
                            ScenePrefabMode prefabMode = ScenePrefabMode::Referenced,
-                           bool includeSettings = true) {
+                           bool includeSettings = true,
+                           detail::SceneStreamEncoding encoding = detail::SceneStreamEncoding::Binary) {
     const bool writing = ar.Mode() == SerializeMode::Write;
+    const bool text = encoding == detail::SceneStreamEncoding::Text;
+    (void)text;
 
     // Stream version: writers emit the v2 header; readers sniff it THROUGH the serializer -
     // a legacy stream has no header, so the first u32 is the scene NAME's length (always
@@ -612,20 +696,34 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
     ar.Key("components");
     ar.BeginArray(componentCount);
     if (writing) {
-        // v2: records are length-prefixed BLOBS (the same bytes WriteComponent emits), so
-        // readers can skip types this build doesn't know.
+        // TEXT: records inline in object scopes (diffable, skip-by-scope); BINARY v2:
+        // length-prefixed blobs so readers can skip types this build doesn't know.
         for (Record& r : records) {
-            Guid ownerId = scene.GetEntityId(r.owner);
-            String typeId = String(r.manager->SerializationTypeId());
-            detail::SerializeGuid(ar, "owner", ownerId);
-            draconic::core::Serialize(ar, "type", typeId);
-            Array<u8> blob;
-            detail::ComponentToBlob(*r.manager, r.owner, blob);
-            draconic::core::Serialize(ar, "data", blob);
+            detail::WriteComponentRecord(ar, scene, *r.manager, r.owner, text);
         }
     } else {
         HashMap<String, u8> warned;
         for (u32 i = 0; i < componentCount; ++i) {
+            if (text) {
+                ar.BeginObject();
+                Guid ownerId; String typeId;
+                detail::SerializeGuid(ar, "owner", ownerId);
+                draconic::core::Serialize(ar, "type", typeId);
+                EntityHandle owner = scene.FindEntity(ownerId);
+                ComponentManagerBase* manager = scene.FindManagerBySerializationId(typeId.AsView());
+                if (owner.IsAssigned() && manager != nullptr) {
+                    ar.Key("data");
+                    ar.BeginObject();
+                    manager->ReadComponent(ar, owner);
+                    ar.EndObject();
+                } else if (manager == nullptr && warned.Find(typeId) == nullptr) {
+                    warned.InsertOrAssign(typeId, 1u);
+                    DRACONIC_LOG_WARNING(u8"Scene",
+                        u8"skipping records of unknown component type '{}'", typeId);
+                }
+                ar.EndObject();
+                continue;
+            }
             Guid ownerId; String typeId;
             detail::SerializeGuid(ar, "owner", ownerId);
             draconic::core::Serialize(ar, "type", typeId);
@@ -666,11 +764,23 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
     ar.Key("systemSettings");
     ar.BeginArray(settingsCount);
     if (writing) {
-        // v2: each system's settings serialize into a length-prefixed blob - readers skip
-        // systems this build doesn't have instead of aborting the section.
+        // v2 binary: each system's settings serialize into a length-prefixed blob - readers
+        // skip systems this build doesn't have instead of aborting the section. TEXT gets
+        // the same skippability from per-record object scopes with the payload INLINE.
         scene.ForEachSystem([&](SceneSystem& s) {
             if (s.SettingsType() == nullptr || !includeSettings) { return; }
             String id(s.SettingsId());
+            if (text) {
+                ar.BeginObject();
+                draconic::core::Serialize(ar, "system", id);
+                draconic::core::BeginVersionedPayload(ar, *s.SettingsType());
+                ar.Key("settings"); ar.BeginObject();
+                s.SerializeSettings(ar);
+                ar.EndObject();
+                draconic::core::EndVersionedPayload(ar);
+                ar.EndObject();
+                return;
+            }
             draconic::core::Serialize(ar, "system", id);
             MemoryStream buffer;
             {
@@ -689,6 +799,30 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
         });
     } else {
         for (u32 i = 0; i < settingsCount; ++i) {
+            if (text) {
+                ar.BeginObject();
+                String id;
+                draconic::core::Serialize(ar, "system", id);
+                SceneSystem* textTarget = nullptr;
+                scene.ForEachSystem([&](SceneSystem& s) {
+                    if (textTarget == nullptr && s.SettingsType() != nullptr
+                        && s.SettingsId() == id.AsView()) {
+                        textTarget = &s;
+                    }
+                });
+                if (textTarget != nullptr) {
+                    draconic::core::BeginVersionedPayload(ar, *textTarget->SettingsType());
+                    ar.Key("settings"); ar.BeginObject();
+                    textTarget->SerializeSettings(ar);
+                    ar.EndObject();
+                    draconic::core::EndVersionedPayload(ar);
+                } else {
+                    DRACONIC_LOG_WARNING(u8"Scene",
+                        u8"skipping settings of unknown system '{}'", id);
+                }
+                ar.EndObject();
+                continue;
+            }
             String id;
             draconic::core::Serialize(ar, "system", id);
             SceneSystem* target = nullptr;
@@ -753,6 +887,9 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
         u32 instanceCount = 0;
         if (writing) {
             scene.ForEachPrefabInstance([&](Scene::PrefabInstanceState&) { ++instanceCount; });
+            // Parked pendings re-emit VERBATIM: a load->save cycle that never ran
+            // ResolveScenePrefabs (the export transcode) must not lose the section.
+            instanceCount += static_cast<u32>(scene.PendingPrefabInstanceCount());
         }
         ar.Key("prefabInstances");
         ar.BeginArray(instanceCount);
@@ -761,6 +898,9 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
                 // Overrides are DERIVED here: live state vs the spawn-time baselines.
                 UniquePtr<Scene::PendingPrefabInstance> d = detail::ComputeInstanceDeltas(scene, state);
                 detail::WritePrefabRecord(ar, *d);
+            });
+            scene.ForEachPendingPrefabInstance([&](Scene::PendingPrefabInstance& pending) {
+                detail::WritePrefabRecord(ar, pending);
             });
         } else {
             for (u32 n = 0; n < instanceCount; ++n) {
@@ -883,9 +1023,30 @@ public:
 /// key on. Prefab instances INSIDE the subtree capture as nested RECORDS (ref + the
 /// instance's current deltas), not flattened entities - selecting a group that contains
 /// instances and making it a prefab preserves the links.
-inline Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out) {
+namespace detail {
+inline Status CapturePrefabBody(Serializer& ar, bool text, Scene& scene, EntityHandle root);
+}
+
+/// Sources capture as TEXT (XML) by default; Binary remains for in-memory/test payloads
+/// (spawn sniffs, so either reads back).
+inline Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out,
+                            detail::SceneStreamEncoding encoding = detail::SceneStreamEncoding::Text) {
     if (!root.IsAssigned()) { return Status{ ErrorCode::NotFound }; }
-    BinarySerializer ar(out, SerializeMode::Write);
+    if (encoding == detail::SceneStreamEncoding::Binary) {
+        BinarySerializer ar(out, SerializeMode::Write);
+        return detail::CapturePrefabBody(ar, false, scene, root);
+    }
+    draconic::xml::XmlSerializer ar;
+    const Status body = detail::CapturePrefabBody(ar, true, scene, root);
+    if (!body.IsOk()) { return body; }
+    String textOut;
+    ar.GetOutput(textOut);
+    return (out.Write(reinterpret_cast<const byte*>(textOut.CStr()), textOut.Size())
+            == textOut.Size()) ? Status{} : Status{ ErrorCode::Unknown };
+}
+
+namespace detail {
+inline Status CapturePrefabBody(Serializer& ar, bool text, Scene& scene, EntityHandle root) {
     detail::WriteSceneStreamHeader(ar);
 
     String name = String(scene.GetEntityName(root));
@@ -934,13 +1095,7 @@ inline Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out) {
     u32 componentCount = static_cast<u32>(records.Size());
     ar.BeginArray(componentCount);
     for (Record& r : records) {
-        Guid ownerId = scene.GetEntityId(r.owner);
-        String typeId = String(r.manager->SerializationTypeId());
-        detail::SerializeGuid(ar, "owner", ownerId);
-        draconic::core::Serialize(ar, "type", typeId);
-        Array<u8> blob;
-        detail::ComponentToBlob(*r.manager, r.owner, blob);
-        draconic::core::Serialize(ar, "data", blob);
+        detail::WriteComponentRecord(ar, scene, *r.manager, r.owner, text);
     }
     ar.EndArray();
 
@@ -969,6 +1124,7 @@ inline Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out) {
     ar.EndArray();
     return ar.IsOk() ? Status{} : ar.GetStatus();
 }
+} // namespace detail
 
 /// Maps a prefab id to its payload stream (editor: source DB; player: cooked DB).
 using PrefabPayloadResolver = Function<UniquePtr<IStream>(const Guid&)>;
@@ -994,8 +1150,19 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
                                 const PrefabPayloadResolver* resolver = nullptr,
                                 const Array<const Scene::PendingPrefabInstance*>* nestedSceneDeltas = nullptr,
                                 bool spawnNested = true) {
-    const u32 streamVersion = detail::ReadSceneStreamVersion(payload);
-    BinarySerializer ar(payload, SerializeMode::Read);
+    detail::SceneStreamReader reader;
+    Serializer* opened = reader.Open(payload);
+    if (opened == nullptr) { return EntityHandle::Invalid(); }
+    Serializer& ar = *opened;
+    const bool text = reader.Encoding() == detail::SceneStreamEncoding::Text;
+    u32 streamVersion = detail::kSceneStreamVersion;
+    if (text) {
+        u32 magic = 0;
+        draconic::core::Serialize(ar, "magic", magic);
+        draconic::core::Serialize(ar, "version", streamVersion);
+    } else {
+        streamVersion = detail::ReadSceneStreamVersion(payload);
+    }
 
     String name;
     draconic::core::Serialize(ar, "name", name);
@@ -1061,6 +1228,32 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
     ar.Key("components");
     ar.BeginArray(componentCount);
     for (u32 i = 0; i < componentCount; ++i) {
+        if (text) {
+            ar.BeginObject();
+            Guid sourceOwner; String typeId;
+            detail::SerializeGuid(ar, "owner", sourceOwner);
+            draconic::core::Serialize(ar, "type", typeId);
+            const Guid* liveId = liveBySource.Find(sourceOwner);
+            EntityHandle owner = (liveId != nullptr) ? scene.FindEntity(*liveId)
+                                                     : EntityHandle::Invalid();
+            ComponentManagerBase* manager = scene.FindManagerBySerializationId(typeId.AsView());
+            if (owner.IsAssigned() && manager != nullptr) {
+                ar.Key("data");
+                ar.BeginObject();
+                manager->ReadComponent(ar, owner);
+                ar.EndObject();
+                Scene::PrefabComponentBaseline baseline;
+                baseline.sourceEntity = sourceOwner;
+                baseline.typeId = typeId;
+                detail::ComponentToBlob(*manager, owner, baseline.blob);
+                state->componentBaselines.PushBack(static_cast<Scene::PrefabComponentBaseline&&>(baseline));
+            } else {
+                DRACONIC_LOG_WARNING(u8"Scene",
+                    u8"prefab component record '{}' skipped (no owner/manager)", typeId);
+            }
+            ar.EndObject();
+            continue;
+        }
         Guid sourceOwner; String typeId;
         detail::SerializeGuid(ar, "owner", sourceOwner);
         draconic::core::Serialize(ar, "type", typeId);
@@ -1116,7 +1309,9 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
     ar.BeginArray(settingsCount);
     ar.EndArray();
     if (!ar.IsOk() || settingsCount != 0) { return firstRoot; }
-    if (payload.Tell() >= payload.Size()) { return firstRoot; }
+    // Binary: a stream that ENDS here is a pre-nesting capture. Text payloads always carry
+    // the section (the format is new), so no probe applies.
+    if (!text && payload.Tell() >= payload.Size()) { return firstRoot; }
 
     u8 sectionMode = 0;
     draconic::core::Serialize(ar, "prefabMode", sectionMode);
@@ -1285,13 +1480,29 @@ FindPrefabBaseline(const Scene::PrefabInstanceState& state, const Guid& sourceId
 // payloads fall back to the (degraded) baseline diff.
 inline UniquePtr<Scene::PendingPrefabInstance> ComputeInstanceDeltasVsTemplate(
         Scene& scene, Scene::PrefabInstanceState& state, IStream& templatePayload) {
-    const u32 streamVersion = detail::ReadSceneStreamVersion(templatePayload);
-    if (streamVersion < 2) {
-        DRACONIC_LOG_WARNING(u8"Scene",
-            u8"apply-to-prefab: legacy nested template - owner customization may fold into the record");
-        return detail::ComputeInstanceDeltas(scene, state);
+    detail::SceneStreamReader reader;
+    const bool text = detail::DetectSceneStreamEncoding(templatePayload)
+        == detail::SceneStreamEncoding::Text;
+    u32 streamVersion = detail::kSceneStreamVersion;
+    if (!text) {
+        streamVersion = detail::ReadSceneStreamVersion(templatePayload);
+        if (streamVersion < 2) {
+            DRACONIC_LOG_WARNING(u8"Scene",
+                u8"apply-to-prefab: legacy nested template - owner customization may fold into the record");
+            return detail::ComputeInstanceDeltas(scene, state);
+        }
+        (void)templatePayload.Seek(0, SeekOrigin::Begin);   // reader re-consumes the header
     }
-    BinarySerializer ar(templatePayload, SerializeMode::Read);
+    Serializer* opened = reader.Open(templatePayload);
+    if (opened == nullptr) { return detail::ComputeInstanceDeltas(scene, state); }
+    Serializer& ar = *opened;
+    if (!text) {
+        (void)detail::ReadSceneStreamVersion(templatePayload);   // advance past the header
+    } else {
+        u32 magic = 0;
+        draconic::core::Serialize(ar, "magic", magic);
+        draconic::core::Serialize(ar, "version", streamVersion);
+    }
 
     String name;
     draconic::core::Serialize(ar, "name", name);
@@ -1316,14 +1527,34 @@ inline UniquePtr<Scene::PendingPrefabInstance> ComputeInstanceDeltasVsTemplate(
     u32 componentCount = 0;
     ar.Key("components");
     ar.BeginArray(componentCount);
+    EntityHandle scratch = EntityHandle::Invalid();   // text reads need a manager to re-blob
     for (u32 i = 0; i < componentCount && ar.IsOk(); ++i) {
         TemplateBlob record;
+        if (text) {
+            ar.BeginObject();
+            detail::SerializeGuid(ar, "owner", record.source);
+            draconic::core::Serialize(ar, "type", record.typeId);
+            ComponentManagerBase* manager = scene.FindManagerBySerializationId(record.typeId.AsView());
+            if (manager != nullptr) {
+                if (!scratch.IsAssigned()) { scratch = scene.CreateEntity(u8"__template_read"); }
+                ar.Key("data");
+                ar.BeginObject();
+                manager->ReadComponent(ar, scratch);
+                ar.EndObject();
+                detail::ComponentToBlob(*manager, scratch, record.blob);
+                manager->RemoveComponent(scratch);
+                templateBlobs.PushBack(static_cast<TemplateBlob&&>(record));
+            }
+            ar.EndObject();
+            continue;
+        }
         detail::SerializeGuid(ar, "owner", record.source);
         draconic::core::Serialize(ar, "type", record.typeId);
         draconic::core::Serialize(ar, "data", record.blob);
         templateBlobs.PushBack(static_cast<TemplateBlob&&>(record));
     }
     ar.EndArray();
+    if (scratch.IsAssigned()) { scene.DestroyEntity(scratch); }
     if (!ar.IsOk()) { return detail::ComputeInstanceDeltas(scene, state); }
 
     auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
@@ -1396,8 +1627,33 @@ inline UniquePtr<Scene::PendingPrefabInstance> ComputeInstanceDeltasVsTemplate(
     return pending;
 }
 
+namespace detail {
+inline Status CaptureInstanceAsTemplateBody(Serializer& ar, bool text, Scene& scene,
+                                            Scene::PrefabInstanceState& state,
+                                            const PrefabPayloadResolver* resolver);
+}
+
+/// Sources capture as TEXT (XML) by default - the payload lands in the prefab ASSET.
 inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState& state, IStream& out,
-                                        const PrefabPayloadResolver* resolver = nullptr) {
+                                        const PrefabPayloadResolver* resolver = nullptr,
+                                        detail::SceneStreamEncoding encoding = detail::SceneStreamEncoding::Text) {
+    if (encoding == detail::SceneStreamEncoding::Binary) {
+        BinarySerializer ar(out, SerializeMode::Write);
+        return detail::CaptureInstanceAsTemplateBody(ar, false, scene, state, resolver);
+    }
+    draconic::xml::XmlSerializer ar;
+    const Status body = detail::CaptureInstanceAsTemplateBody(ar, true, scene, state, resolver);
+    if (!body.IsOk()) { return body; }
+    String textOut;
+    ar.GetOutput(textOut);
+    return (out.Write(reinterpret_cast<const byte*>(textOut.CStr()), textOut.Size())
+            == textOut.Size()) ? Status{} : Status{ ErrorCode::Unknown };
+}
+
+namespace detail {
+inline Status CaptureInstanceAsTemplateBody(Serializer& ar, bool text, Scene& scene,
+                                            Scene::PrefabInstanceState& state,
+                                            const PrefabPayloadResolver* resolver) {
     EntityHandle root = scene.FindEntity(state.rootEntityId);
     if (!root.IsAssigned()) { return Status{ ErrorCode::NotFound }; }
 
@@ -1411,7 +1667,6 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
         return (source != nullptr) ? *source : live;   // user-added entities: live guid = new source id
     };
 
-    BinarySerializer ar(out, SerializeMode::Write);
     detail::WriteSceneStreamHeader(ar);
     String name = String(scene.GetEntityName(root));
     draconic::core::Serialize(ar, "name", name);
@@ -1474,6 +1729,17 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
     for (Record& r : records) {
         Guid ownerId = substituted(scene.GetEntityId(r.owner));
         String typeId = String(r.manager->SerializationTypeId());
+        if (text) {
+            ar.BeginObject();
+            detail::SerializeGuid(ar, "owner", ownerId);
+            draconic::core::Serialize(ar, "type", typeId);
+            ar.Key("data");
+            ar.BeginObject();
+            r.manager->WriteComponent(ar, r.owner);
+            ar.EndObject();
+            ar.EndObject();
+            continue;
+        }
         detail::SerializeGuid(ar, "owner", ownerId);
         draconic::core::Serialize(ar, "type", typeId);
         Array<u8> blob;
@@ -1516,6 +1782,7 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
     ar.EndArray();
     return ar.IsOk() ? Status{} : ar.GetStatus();
 }
+} // namespace detail
 
 /// Discards an instance's deltas: respawn from `payload` with the PRESERVED member guids and
 /// placement (parent + root transform), applying nothing else. Returns false if the root is
@@ -1819,11 +2086,51 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
     return rebuilt;
 }
 
+/// Export staging: re-encode a scene/prefab SOURCE stream (text or binary) to the BINARY
+/// wire the player loads. `scratch` must be an EMPTY scene carrying the app's FULL manager
+/// set (create it through the SceneSubsystem so ISceneAware injection covers every
+/// component type - a hand-listed set would silently drop components). Parked prefab
+/// pendings re-emit verbatim (SerializeScene write), so no resolver/spawn is needed.
+/// The caller clears `scratch` afterwards.
+[[nodiscard]] inline Result<Array<byte>> TranscodeSceneStreamToBinary(
+        IStream& in, Scene& scratch, bool includeSettings) {
+    if (detail::DetectSceneStreamEncoding(in) == detail::SceneStreamEncoding::Binary) {
+        Array<byte> bytes;
+        bytes.Resize(static_cast<usize>(in.Size() - in.Tell()));
+        if (!bytes.IsEmpty() && in.Read(bytes.Data(), bytes.Size()) != bytes.Size()) {
+            return Err(ErrorCode::Unknown);
+        }
+        return bytes;
+    }
+    detail::SceneStreamReader reader;
+    Serializer* ar = reader.Open(in);
+    if (ar == nullptr) { return Err(ErrorCode::Internal); }
+    SerializeScene(*ar, scratch, nullptr, ScenePrefabMode::Referenced, true,
+                   detail::SceneStreamEncoding::Text);
+    if (!ar->IsOk()) { return Err(ar->GetStatus().Code()); }
+
+    MemoryStream out;
+    BinarySerializer writer(out, SerializeMode::Write);
+    SerializeScene(writer, scratch, nullptr, ScenePrefabMode::Referenced, includeSettings,
+                   detail::SceneStreamEncoding::Binary);
+    if (!writer.IsOk()) { return Err(writer.GetStatus().Code()); }
+    Array<byte> bytes;
+    const Span<const byte> view = out.Bytes();
+    bytes.Reserve(view.Size());
+    for (byte b : view) { bytes.PushBack(b); }
+    return bytes;
+}
+
 inline Status LoadScene(draconic::content::Instance& instance, Scene& scene) {
     UniquePtr<IStream> stream = instance.ReadData(u8"scene");
     if (stream.Get() == nullptr) { return Status{ ErrorCode::NotFound }; }
-    BinarySerializer ser(*stream, SerializeMode::Read);
-    SerializeScene(ser, scene, stream.Get());   // probe: pre-settings saves end at components
+    detail::SceneStreamReader reader;
+    Serializer* ar = reader.Open(*stream);
+    if (ar == nullptr) { return Status{ ErrorCode::Internal }; }   // unparseable text stream
+    const bool text = reader.Encoding() == detail::SceneStreamEncoding::Text;
+    // Probe: pre-settings BINARY saves end at components; text streams are always complete.
+    SerializeScene(*ar, scene, text ? nullptr : stream.Get(), ScenePrefabMode::Referenced,
+                   true, reader.Encoding());
     return Status{};
 }
 
