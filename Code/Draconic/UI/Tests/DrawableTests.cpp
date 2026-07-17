@@ -114,3 +114,22 @@ TEST_CASE("drawable: Drawable_StateAwareDraw_DelegatesToStateless")
     ShapeDrawable sd{ ShapeDrawable::DrawFn{ [&](UIDrawContext&, const core::Rectangle&) { called = true; } } };
     CHECK_FALSE(called);
 }
+
+TEST_CASE("drawable: statelist Disabled dominates interaction flags")
+{
+    // A disabled control under the mouse is Disabled|Hover: it must render DISABLED, not
+    // light up with the hover layer (the generic high->low flag stripping got this wrong).
+    auto list = core::MakeRef<StateListDrawable>(core::DefaultAllocator());
+    auto normal = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Black);
+    auto hover = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Green);
+    auto disabled = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red);
+    list->Set(ControlState::Normal, core::RefPtr<Drawable>(normal.Get()));
+    list->Set(ControlState::Hover, core::RefPtr<Drawable>(hover.Get()));
+    list->Set(ControlState::Disabled, core::RefPtr<Drawable>(disabled.Get()));
+
+    CHECK(list->Get(ControlState::Disabled | ControlState::Hover) == disabled.Get());
+    CHECK(list->Get(ControlState::Disabled | ControlState::Pressed) == disabled.Get());
+    CHECK(list->Get(ControlState::Disabled | ControlState::Focused | ControlState::Hover) == disabled.Get());
+    CHECK(list->Get(ControlState::Hover) == hover.Get());                       // unchanged
+    CHECK(list->Get(ControlState::Hover | ControlState::Focused) == hover.Get());   // generic fallback intact
+}

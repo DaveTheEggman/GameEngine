@@ -32,10 +32,25 @@ export namespace draconic::ui
         }
 
         /// Get the drawable for a state: exact match, then strip flags high->low, then Normal.
+        /// Disabled DOMINATES: interaction flags (hover/pressed/focused) strip first when
+        /// Disabled is set - the generic high->low order would strip Disabled before Hover,
+        /// making a disabled control light up under the mouse and read as clickable.
         [[nodiscard]] Drawable* Get(ControlState state) const
         {
             const u32 key = static_cast<u32>(state);
             if (const RefPtr<Drawable>* exact = m_drawables.Find(key)) { return exact->Get(); }
+
+            constexpr u32 kDisabled = static_cast<u32>(ControlState::Disabled);
+            constexpr u32 kInteraction = static_cast<u32>(ControlState::Hover)
+                                       | static_cast<u32>(ControlState::Pressed)
+                                       | static_cast<u32>(ControlState::Focused);
+            if ((key & kDisabled) != 0u && (key & kInteraction) != 0u)
+            {
+                if (const RefPtr<Drawable>* d = m_drawables.Find(key & ~kInteraction))
+                {
+                    return d->Get();
+                }
+            }
 
             u32 remaining = key;
             static constexpr u32 kFlags[] = { 32u, 16u, 8u, 4u, 2u, 1u };
