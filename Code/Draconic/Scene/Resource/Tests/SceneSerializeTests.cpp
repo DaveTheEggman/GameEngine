@@ -1355,6 +1355,47 @@ TEST_CASE("prefab P4: un-overridden nested placement follows the outer template"
     CHECK(level.GetLocalTransform(wheel).position.z == doctest::Approx(9.0f));
 }
 
+TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
+{
+    // A mode-2 (pre-order/placement) prefab section misreads as garbage array counts
+    // under the current record layout - the reader must bail at the mode byte instead of
+    // looping on a bogus count (the old behavior was an effective OOM/hang on project
+    // open). Forge one: serialize a scene, then stamp the retired mode over the section
+    // byte and garbage over the instance count.
+    Scene author(u8"author");
+    author.AddSystem<HealthManager>();
+    (void)author.CreateEntity(u8"Plain");
+    MemoryStream out;
+    BinarySerializer ser(out, SerializeMode::Write);
+    SerializeScene(ser, author, nullptr, ScenePrefabMode::Referenced, true);
+    REQUIRE(ser.IsOk());
+
+    Array<byte> bytes;
+    for (byte b : out.Bytes()) { bytes.PushBack(b); }
+    // Tail of a no-instance Referenced save: [mode u8][instanceCount u32].
+    REQUIRE(bytes.Size() > 5);
+    REQUIRE(static_cast<u8>(bytes[bytes.Size() - 5]) == 4u);   // kPrefabWireReferenced3
+    bytes[bytes.Size() - 5] = static_cast<byte>(2u);           // retired mode
+    for (usize i = bytes.Size() - 4; i < bytes.Size(); ++i) {
+        bytes[i] = static_cast<byte>(0xFFu);                   // garbage count
+    }
+
+    MemoryStream in;
+    (void)in.Write(bytes.Data(), bytes.Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    Scene loaded(u8"loaded");
+    loaded.AddSystem<HealthManager>();
+    BinarySerializer read(in, SerializeMode::Read);
+    SerializeScene(read, loaded, &in);   // must return promptly: entities in, section out
+
+    bool foundPlain = false;
+    for (EntityHandle r = loaded.GetFirstRoot(); r.IsAssigned(); r = loaded.GetNextSibling(r)) {
+        if (loaded.GetEntityName(r) == StringView(u8"Plain")) { foundPlain = true; }
+    }
+    CHECK(foundPlain);
+    CHECK(loaded.TakePendingPrefabInstances().IsEmpty());
+}
+
 TEST_CASE("scene v2: unknown component and settings records SKIP instead of aborting")
 {
     // Save with health components; load into a scene WITHOUT the manager: entities +

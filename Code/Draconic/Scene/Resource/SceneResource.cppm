@@ -311,6 +311,12 @@ namespace detail {
         ar.EndArray();
     }
 
+    // Corruption guard for the count-driven loops below: a record with more entries than
+    // this is a misparse (ISerializer exposes no error state to poll mid-read, and a
+    // garbage count must not allocate unbounded - it hung project open before the retired
+    // mode-2 layout was refused outright).
+    constexpr u32 kMaxPrefabRecordEntries = 1u << 20;
+
     inline void ReadPrefabRecord(ISerializer& ar, Scene::PendingPrefabInstance& pending,
                                  bool wireNested) {
         SerializeGuid(ar, "prefab", pending.prefabId);
@@ -329,6 +335,7 @@ namespace detail {
         u32 memberCount = 0;
         ar.Key("members");
         ar.BeginArray(memberCount);
+        if (memberCount > kMaxPrefabRecordEntries) { return; }
         for (u32 i = 0; i < memberCount; ++i) {
             Guid src, live;
             SerializeGuid(ar, "src", src);
@@ -341,6 +348,7 @@ namespace detail {
         u32 destroyedCount = 0;
         ar.Key("destroyed");
         ar.BeginArray(destroyedCount);
+        if (destroyedCount > kMaxPrefabRecordEntries) { return; }
         for (u32 i = 0; i < destroyedCount; ++i) {
             Guid d;
             SerializeGuid(ar, "src", d);
@@ -351,6 +359,7 @@ namespace detail {
         u32 transformCount = 0;
         ar.Key("transformOverrides");
         ar.BeginArray(transformCount);
+        if (transformCount > kMaxPrefabRecordEntries) { return; }
         for (u32 i = 0; i < transformCount; ++i) {
             Guid src; Transform t;
             SerializeGuid(ar, "src", src);
@@ -363,6 +372,7 @@ namespace detail {
         u32 opCount = 0;
         ar.Key("componentOps");
         ar.BeginArray(opCount);
+        if (opCount > kMaxPrefabRecordEntries) { return; }
         for (u32 i = 0; i < opCount; ++i) {
             Scene::PendingPrefabComponentOp op;
             SerializeGuid(ar, "src", op.sourceEntity);
@@ -441,10 +451,13 @@ enum class ScenePrefabMode : u8 { Referenced = 0, Expanded = 1 };
 // 2/3 = the same sections plus per-record nesting links (rootLive/owner/nestedSrcRoot).
 // Writers emit 2/3; readers accept all four (older saves upgrade on the next write).
 namespace detail {
-    constexpr u8 kPrefabWireReferenced   = 0;
+    constexpr u8 kPrefabWireReferenced   = 0;   // pre-P4 (no nesting links) - still read
     constexpr u8 kPrefabWireExpanded     = 1;
-    constexpr u8 kPrefabWireReferenced2  = 2;
+    constexpr u8 kPrefabWireReferenced2  = 2;   // RETIRED P4 layout: readers REFUSE it (a
+                                                // misparse turns array counts into garbage
+                                                // -> OOM); the section skips with a warning
     constexpr u8 kPrefabWireExpanded2    = 3;
+    constexpr u8 kPrefabWireReferenced3  = 4;   // nesting links + sibling order + placement
 }
 
 // `includeSettings`: prefab payloads write an EMPTY system-settings section (a prefab is a
@@ -722,12 +735,16 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
         return;   // pre-prefab save: no instances to restore
     }
     u8 sectionMode = (prefabMode == ScenePrefabMode::Referenced)
-        ? detail::kPrefabWireReferenced2 : detail::kPrefabWireExpanded2;
+        ? detail::kPrefabWireReferenced3 : detail::kPrefabWireExpanded2;
     draconic::core::Serialize(ar, "prefabMode", sectionMode);
-    const bool wireNested = sectionMode == detail::kPrefabWireReferenced2
-                         || sectionMode == detail::kPrefabWireExpanded2;
+    if (!writing && sectionMode == detail::kPrefabWireReferenced2) {
+        DRACONIC_LOG_WARNING(u8"Scene",
+            u8"prefab section uses the retired nested layout - instances skipped (re-save the scene's prefabs and re-place them)");
+        return;   // the prefab section is the stream's tail: bailing loses only instances
+    }
+    const bool wireNested = sectionMode == detail::kPrefabWireReferenced3;
     const bool wireReferenced = sectionMode == detail::kPrefabWireReferenced
-                             || sectionMode == detail::kPrefabWireReferenced2;
+                             || sectionMode == detail::kPrefabWireReferenced3;
 
     if (wireReferenced) {
         // Ref + deltas: prefab id, placement, the SAVED member guid map (respawn preserves
@@ -937,7 +954,7 @@ inline Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out) {
     // Nested-instance records (P4): contained instances as ref + current deltas, in the
     // payload's namespace (live guids ARE the namespace ids here; a previously-nested
     // instance keeps its stable identity so existing spawns keep matching).
-    u8 sectionMode = detail::kPrefabWireReferenced2;
+    u8 sectionMode = detail::kPrefabWireReferenced3;
     draconic::core::Serialize(ar, "prefabMode", sectionMode);
     u32 recordCount = static_cast<u32>(contained.Size());
     ar.Key("prefabInstances");
@@ -1103,11 +1120,16 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
 
     u8 sectionMode = 0;
     draconic::core::Serialize(ar, "prefabMode", sectionMode);
-    if (sectionMode != detail::kPrefabWireReferenced2
+    if (sectionMode == detail::kPrefabWireReferenced2) {
+        DRACONIC_LOG_WARNING(u8"Scene",
+            u8"prefab payload uses the retired nested layout - nested instances skipped (re-save the prefab)");
+        return firstRoot;
+    }
+    if (sectionMode != detail::kPrefabWireReferenced3
         && sectionMode != detail::kPrefabWireReferenced) {
         return firstRoot;   // Expanded payload (legacy flatten): states already implicit
     }
-    const bool wireNested = sectionMode == detail::kPrefabWireReferenced2;
+    const bool wireNested = sectionMode == detail::kPrefabWireReferenced3;
 
     u32 recordCount = 0;
     ar.Key("prefabInstances");
@@ -1468,7 +1490,7 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
     // Nested records: deltas vs the PURE child template when the resolver provides it (the
     // instance's baselines already absorbed this owner's customization - a baseline diff
     // would silently drop it); baseline diff is the degraded fallback.
-    u8 sectionMode = detail::kPrefabWireReferenced2;
+    u8 sectionMode = detail::kPrefabWireReferenced3;
     draconic::core::Serialize(ar, "prefabMode", sectionMode);
     u32 recordCount = static_cast<u32>(contained.Size());
     ar.Key("prefabInstances");
