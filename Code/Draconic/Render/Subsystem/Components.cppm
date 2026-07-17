@@ -37,8 +37,12 @@ struct MeshComponent {
     draconic::resource::Ref<materials::Material>  material;
     // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
     // non-empty the renderer draws each submesh with its own material; otherwise `material` covers all.
-    // Runtime-only for now (RefPtr, not serialized): the model-spawn path fills it; per-submesh
-    // material REFS land with prefabs (phase 7), which owns the model->entity workflow.
+    // TWO-PHASE like the single refs, but at array granularity: `submeshMaterialRefs` is the
+    // SERIALIZED identity (model->prefab wires cooked material guids here) and the resolve pass
+    // materializes it into `submeshMaterials`, the raw RefPtr array extraction reads (the renderer
+    // stays resource-agnostic). Runtime code (samples) may fill `submeshMaterials` directly and
+    // leave the refs empty - resolve never clobbers a direct fill unless refs exist.
+    Array<draconic::resource::Ref<materials::Material>> submeshMaterialRefs;
     Array<RefPtr<materials::Material>> submeshMaterials;
     Color                        color   = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     bool                         visible = true;
@@ -220,11 +224,21 @@ inline void Serialize(ISerializer& ar, MeshComponent& c) {
     draconic::core::Serialize(ar, "material", c.material);
     draconic::core::Serialize(ar, "color", c.color);
     draconic::core::Serialize(ar, "visible", c.visible);
+    if (ar.Version() >= 2) {   // v2: per-submesh material refs (model->prefab import)
+        draconic::core::Serialize(ar, "submeshMaterials", c.submeshMaterialRefs);
+    }
 }
 
 inline void ResolveResources(draconic::resource::ResourceManager& manager, MeshComponent& c) {
     c.mesh.Bind(manager);
     c.material.Bind(manager);
+    if (!c.submeshMaterialRefs.IsEmpty()) {
+        c.submeshMaterials.Clear();
+        for (draconic::resource::Ref<materials::Material>& r : c.submeshMaterialRefs) {
+            r.Bind(manager);
+            c.submeshMaterials.PushBack(RefPtr<materials::Material>(r.Get()));
+        }
+    }
 }
 
 class MeshComponentManager final : public scene::SerializableComponentManager<MeshComponent> {
@@ -440,7 +454,8 @@ DRACONIC_REFLECT_ENUM(ProbeUpdateMode, "draconic::render")
 
 DRACONIC_REFLECT_VALUE(MeshComponent, "draconic::render")
 {
-    builder.Property<&MeshComponent::mesh>("mesh")
+    builder.DataVersion(2)   // v2: per-submesh material refs
+           .Property<&MeshComponent::mesh>("mesh")
            .Property<&MeshComponent::material>("material")
            .Property<&MeshComponent::color>("color")
            .Property<&MeshComponent::visible>("visible");

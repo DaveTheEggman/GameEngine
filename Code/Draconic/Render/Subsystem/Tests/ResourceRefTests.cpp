@@ -13,6 +13,8 @@ import draconic.content;
 import draconic.resource;
 import draconic.geometry;
 import draconic.geometry.resource;
+import draconic.materials;
+import draconic.materials.resource;
 import draconic.scene;
 import draconic.scene.resource;
 import draconic.render.subsystem;
@@ -301,6 +303,69 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
     auto* skinnedLive = Cast<geo::SkinnedMesh>(live);
     REQUIRE(skinnedLive != nullptr);
     CHECK(skinnedLive->SkinningStream().Size() == 24u);
+
+    RemoveTree(dir);
+}
+
+TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the RefPtr array")
+{
+    // Serialized identity (submeshMaterialRefs) -> resolve pass -> the raw RefPtr array
+    // extraction reads. Binding itself is Ref::Bind (covered by the mesh tests above);
+    // real Material products would drag the shader stack in, so the manager here has no
+    // material factory and the materialized entries stay null - the SHAPE is what's under
+    // test: ids round-trip, the array materializes on resolve, direct fills survive.
+    RegisterRenderComponentReflection();   // patches TypeOf<MeshComponent>().dataVersion (v2 gate)
+    const StringView dir = u8"draconic_submesh_ref_test_db";
+    RemoveTree(dir);
+    (void)CreateDirectory(dir);
+    draconic::vfs::NativeFileSystem mount(dir);
+    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    res::ResourceManager resources(cookedDb);
+
+    const Guid matA{ 0xA1, 0x1 };
+    const Guid matB{ 0xB2, 0x2 };
+    MemoryStream blob;
+    {
+        dscene::Scene scene;
+        scene.AddSystem<MeshComponentManager>();
+        const dscene::EntityHandle e = scene.CreateEntity(u8"Multi");
+        MeshComponent& mc = scene.GetSystem<MeshComponentManager>()->Add(e);
+        draconic::resource::Ref<draconic::materials::Material> ra, rb;
+        ra.SetId(matA);
+        rb.SetId(matB);
+        mc.submeshMaterialRefs.PushBack(ra);
+        mc.submeshMaterialRefs.PushBack(rb);
+
+        BinarySerializer ar(blob, SerializeMode::Write);
+        dscene::SerializeScene(ar, scene);
+        REQUIRE(ar.IsOk());
+    }
+
+    dscene::Scene loaded;
+    loaded.AddSystem<MeshComponentManager>();
+    REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(blob, SerializeMode::Read);
+        dscene::SerializeScene(ar, loaded);
+        REQUIRE(ar.IsOk());
+    }
+    MeshComponent* mc = nullptr;
+    loaded.GetSystem<MeshComponentManager>()->ForEach(
+        [&](MeshComponent& c, dscene::EntityHandle) { mc = &c; });
+    REQUIRE(mc != nullptr);
+    REQUIRE(mc->submeshMaterialRefs.Size() == 2u);
+    CHECK(mc->submeshMaterialRefs[0].id == matA);
+    CHECK(mc->submeshMaterialRefs[1].id == matB);
+    CHECK(mc->submeshMaterials.IsEmpty());   // not materialized until resolve
+
+    dscene::ResolveSceneResources(loaded, resources);
+    CHECK(mc->submeshMaterials.Size() == 2u);   // materialized parallel to the refs
+
+    // A DIRECT runtime fill (samples) with NO refs is never clobbered by resolve.
+    MeshComponent direct;
+    direct.submeshMaterials.PushBack(RefPtr<draconic::materials::Material>{});
+    ResolveResources(resources, direct);
+    CHECK(direct.submeshMaterials.Size() == 1u);
 
     RemoveTree(dir);
 }

@@ -6,7 +6,7 @@ add_executable(DraconicRenderSubsystemTests
     ExtractTests.cpp)
 
 target_link_libraries(DraconicRenderSubsystemTests PRIVATE
-    Draconic::RenderSubsystem Draconic::MeshResource Draconic::SceneResource
+    Draconic::RenderSubsystem Draconic::MeshResource Draconic::MaterialResource Draconic::SceneResource
     Draconic::Resource Draconic::VFS Draconic::Content doctest::doctest)
 
 target_compile_definitions(DraconicRenderSubsystemTests PRIVATE
