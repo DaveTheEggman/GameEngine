@@ -135,6 +135,54 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
     RemoveTree();
 }
 
+TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    // This case adds late.rasset, which the shared RemoveTree doesn't know about - a
+    // leftover from a previous run would make the "missing" id resolve immediately.
+    FileDelete(u8"draconic_resource_test_db/late.rasset");
+    RemoveTree();
+    NativeFileSystem mount(u8"draconic_resource_test_db");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    MaterialFactory factory;
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+
+    auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
+    WriteSource(db, steel->Id(), 64, u8"pbr");
+    Proxy<Material> good = manager.Bind<Material>(steel->Id());
+    REQUIRE(good);
+
+    // A bind against an id with no backing instance stays cached with a null product
+    // (an editor page referencing a not-yet-cooked asset) - it must be reported.
+    const Guid missing{ 7, 7 };
+    Proxy<Material> pending = manager.Bind<Material>(missing);
+    CHECK_FALSE(pending);
+
+    Array<Guid> unresolved;
+    manager.CollectUnresolved(unresolved);
+    REQUIRE(unresolved.Size() == 1);
+    CHECK(unresolved[0] == missing);
+
+    // The missing instance appears (a cook landed) - after the reload the id resolves
+    // and drops off the unresolved list; the ORIGINAL proxy heals through the handle.
+    auto* late = db.RootGroup()->CreateInstanceWithId(missing, u8"late", MaterialResource::StaticType());
+    REQUIRE(late != nullptr);
+    WriteSource(db, missing, 32, u8"unlit");
+    CHECK(manager.Reload(missing));
+    REQUIRE(pending);
+    CHECK(pending->shader == u8"unlit");
+
+    unresolved.Clear();
+    manager.CollectUnresolved(unresolved);
+    CHECK(unresolved.IsEmpty());
+
+    FileDelete(u8"draconic_resource_test_db/late.rasset");
+    RemoveTree();
+}
+
 TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
 {
     GlobalTypeRegistry().Register(MaterialResource::StaticType());

@@ -309,6 +309,34 @@ export namespace draconic::editor::app
             }
         }
 
+        /// Opening a page over uncooked content queues a scoped cook: every resource id
+        /// that was requested during the page's resolve but has no product (the
+        /// ResourceManager caches a null-product handle for each miss, and product guid ==
+        /// source guid, so those ids are the exact missing-dependency roots), plus the
+        /// page's own asset when its cook is missing/failed. Fully cooked pages request
+        /// nothing - no worker spin-up on every open (six restored pages = six no-op cooks
+        /// otherwise).
+        void CookMissingForPage(draconic::content::Instance& instance)
+        {
+            if (m_project.Get() == nullptr) { return; }
+            Array<Guid> unresolved;
+            if (m_resources) { m_resources->CollectUnresolved(unresolved); }
+            // Only ids with a live SOURCE instance can cook - a stale ref to a deleted
+            // asset stays unresolved forever and must not re-request a cook on every open.
+            Array<Guid> roots;
+            for (const Guid& id : unresolved)
+            {
+                if (m_project->SourceDb().GetInstance(id) != nullptr) { roots.PushBack(id); }
+            }
+            const CookBadge badge = m_cookService.BadgeFor(instance);
+            if (badge == CookBadge::Missing || badge == CookBadge::Failed)
+            {
+                roots.PushBack(instance.Id());
+            }
+            if (roots.IsEmpty()) { return; }
+            m_cookService.RequestCookFor(Move(roots), false);
+        }
+
         /// Open (or focus) a page for `instance` and dock its content as a center tab.
         UIEditorPage* OpenInstancePage(draconic::content::Instance& instance)
         {
@@ -356,6 +384,7 @@ export namespace draconic::editor::app
                 return false;
             };
             m_pagePanels.PushBack(PagePanel{ uiPage, panel });
+            CookMissingForPage(instance);   // uncooked dependencies cook without a manual step
             return uiPage;
         }
 

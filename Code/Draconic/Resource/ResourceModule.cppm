@@ -241,6 +241,18 @@ export namespace draconic::resource
             return (d != nullptr) ? Span<const Guid>(d->Data(), d->Size()) : Span<const Guid>{};
         }
 
+        /// Appends every id that was requested (Bind) but has no product - the backing
+        /// instance was missing or its factory failed. Editor tooling cooks exactly this
+        /// set when a page opens over uncooked content (product guid == source guid, so
+        /// an unresolved id IS a valid cook root).
+        void CollectUnresolved(Array<Guid>& out)
+        {
+            for (auto& [id, handle] : m_handles)
+            {
+                if (handle->Get() == nullptr) { out.PushBack(id); }
+            }
+        }
+
         /// Frame tick: ages the graveyard of hot-reloaded-away products and releases the
         /// ones old enough that no in-flight frame can still reference their GPU objects.
         void CollectGarbage()
