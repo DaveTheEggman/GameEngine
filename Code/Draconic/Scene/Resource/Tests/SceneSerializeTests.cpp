@@ -806,3 +806,39 @@ TEST_CASE("prefab: SavePrefab refuses a multi-root scene")
     for (EntityHandle r = scene.GetFirstRoot(); r.IsAssigned(); r = scene.GetNextSibling(r)) { ++roots; }
     CHECK(roots == 2);
 }
+
+TEST_CASE("prefab: apply-as-template keeps the template root transform, not the placement")
+{
+    Scene author(u8"author");
+    EntityHandle tmpl = author.CreateEntity(u8"Lamp");
+    Transform authored;
+    authored.position = Float3{ 1.0f, 2.0f, 3.0f };
+    author.SetLocalTransform(tmpl, authored);
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, tmpl, payload).IsOk());
+
+    Scene level(u8"level");
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    EntityHandle inst = SpawnPrefab(level, payload, Guid{ 0x77, 0x3 });
+    REQUIRE(inst.IsAssigned());
+
+    // Move the instance root - that's PLACEMENT, not template content.
+    Transform placed;
+    placed.position = Float3{ 50.0f, 0.0f, -9.0f };
+    level.SetLocalTransform(inst, placed);
+
+    Scene::PrefabInstanceState* state = level.FindPrefabInstanceByRoot(level.GetEntityId(inst));
+    REQUIRE(state != nullptr);
+    MemoryStream captured;
+    REQUIRE(CaptureInstanceAsTemplate(level, *state, captured).IsOk());
+
+    // Respawn the captured template elsewhere: the root sits at the AUTHORED transform.
+    Scene other(u8"other");
+    (void)captured.Seek(0, SeekOrigin::Begin);
+    EntityHandle fresh = SpawnPrefab(other, captured, Guid{ 0x77, 0x3 });
+    REQUIRE(fresh.IsAssigned());
+    const Transform t = other.GetLocalTransform(fresh);
+    CHECK(t.position.x == 1.0f);
+    CHECK(t.position.y == 2.0f);
+    CHECK(t.position.z == 3.0f);
+}

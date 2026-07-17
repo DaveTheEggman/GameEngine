@@ -853,6 +853,18 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
     Array<EntityHandle> handles;
     detail::CollectSubtree(scene, root, handles);
 
+    // The root's live transform is this instance's PLACEMENT, not template content (root
+    // transforms never propagate between instances - the Unity semantic); write the
+    // spawn-time baseline (the template-authored root transform) instead, so an applied
+    // placement never leaks into the asset.
+    Transform rootTemplateTransform = scene.GetLocalTransform(root);
+    for (usize i = 0; i < state.liveIds.Size(); ++i) {
+        if (state.liveIds[i] == state.rootEntityId && i < state.baselineTransforms.Size()) {
+            rootTemplateTransform = state.baselineTransforms[i];
+            break;
+        }
+    }
+
     ar.Key("entities");
     u32 entityCount = static_cast<u32>(handles.Size());
     ar.BeginArray(entityCount);
@@ -861,7 +873,7 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
         String ename = String(scene.GetEntityName(e));
         u8 active = scene.IsActive(e) ? 1u : 0u;
         Guid parentId = (e == root) ? Guid{} : substituted(scene.GetEntityId(scene.GetParent(e)));
-        Transform t = scene.GetLocalTransform(e);
+        Transform t = (e == root) ? rootTemplateTransform : scene.GetLocalTransform(e);
         detail::SerializeGuid(ar, "id", id);
         draconic::core::Serialize(ar, "name", ename);
         draconic::core::Serialize(ar, "active", active);
