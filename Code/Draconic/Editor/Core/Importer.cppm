@@ -44,6 +44,24 @@ export namespace draconic::editor
         void Serialize(ISerializer&) override {}
     };
 
+    /// A BULK data-stream write an importer defers to the worker flush: Instance::WriteData
+    /// is pure mount IO (path composition + file save - no in-memory DB mutation), so it is
+    /// safe off the UI thread while the job lock excludes cooks and queues deletes. `view`
+    /// borrows from the importer's prepared payload (kept alive through the flush); `owned`
+    /// carries bytes produced during the fan-out itself (e.g. baked textures).
+    struct DeferredStreamWrite
+    {
+        draconic::content::Instance* instance = nullptr;   // borrowed; the DB owns it
+        String streamName;
+        Span<const byte> view{};
+        Array<byte> owned;
+
+        [[nodiscard]] Span<const byte> Bytes() const noexcept
+        {
+            return owned.IsEmpty() ? view : Span<const byte>{ owned.Data(), owned.Size() };
+        }
+    };
+
     class IFileImporter
     {
     public:
@@ -74,9 +92,13 @@ export namespace draconic::editor
         /// `options` is the object CreateOptions() returned after the user edited it in the
         /// dialog (null when the importer has none or the import runs headless). `prepared`
         /// is PrepareOnWorker's payload when the two-phase path ran (null = load inline).
+        /// `deferredWrites`: when non-null, the importer MAY park its bulk data-stream
+        /// writes there instead of writing inline - the caller flushes them on a worker
+        /// (null = headless/tests: everything writes inline).
         [[nodiscard]] virtual Result<draconic::content::Instance*> Import(
             StringView sourcePath, EditorProject& project, draconic::content::Group& group,
-            const ImportOptions* options = nullptr, Object* prepared = nullptr) = 0;
+            const ImportOptions* options = nullptr, Object* prepared = nullptr,
+            Array<DeferredStreamWrite>* deferredWrites = nullptr) = 0;
     };
 
     DRACONIC_DEFINE_OBJECT(ImportOptions, "draconic::editor")

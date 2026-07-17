@@ -179,7 +179,8 @@ export namespace draconic::modelimporter
                                                         ed::EditorProject& project,
                                                         content::Group& group,
                                                         const ed::ImportOptions* options,
-                                                        Object* prepared) override
+                                                        Object* prepared,
+                                                        Array<ed::DeferredStreamWrite>* deferredWrites) override
         {
             const ModelImportOptions defaults;
             const ModelImportOptions& opt = (options != nullptr)
@@ -226,9 +227,9 @@ export namespace draconic::modelimporter
 
             Array<String> claimed;   // names claimed THIS run (ClaimInstance's dedup scope)
             Array<Guid> textureGuids;
-            if (opt.importTextures) { ImportTextures(model, *modelGroup, textureGuids, claimed); }
+            if (opt.importTextures) { ImportTextures(model, *modelGroup, textureGuids, claimed, deferredWrites); }
             else { for (usize i = 0; i < model.textures().Size(); ++i) { textureGuids.PushBack(Guid{}); } }
-            if (opt.importMaterials) { ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed); }
+            if (opt.importMaterials) { ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed, deferredWrites); }
             if (opt.importAnimations) { ImportSkeletonAndClips(model, *modelGroup, manifest, claimed); }
             const Status meshes = ImportMeshes(model, *modelGroup, manifest, claimed);
             if (!meshes.IsOk()) { return Err(meshes.Code()); }
@@ -353,7 +354,8 @@ export namespace draconic::modelimporter
         }
 
         static void ImportTextures(const draconic::model::Model& model, content::Group& group,
-                                   Array<Guid>& outGuids, Array<String>& claimed)
+                                   Array<Guid>& outGuids, Array<String>& claimed,
+                                   Array<ed::DeferredStreamWrite>* deferredWrites)
         {
             // Color space follows USAGE: data maps (normal/MR/AO) stay linear - sRGB-decoding
             // them corrupts the values (a flat normal 0.5 would linearize to ~0.21).
@@ -382,8 +384,22 @@ export namespace draconic::modelimporter
                 content::Instance* inst = ClaimInstance(group, ImportedTextureName(t, i).AsView(),
                     draconic::texture::TextureAsset::StaticType(), claimed);
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk()) { outGuids.PushBack(Guid{}); continue; }
-                const Status ds = inst->WriteData(u8"pixels",
-                    Span<const byte>{ reinterpret_cast<const byte*>(data), static_cast<usize>(size) });
+                const Span<const byte> pixels{ reinterpret_cast<const byte*>(data),
+                                               static_cast<usize>(size) };
+                if (deferredWrites != nullptr)
+                {
+                    // Decoded pixels are the import's bulk (100s of MB for a big model) -
+                    // park them for the worker flush; the view borrows from the prepared
+                    // model, which the caller keeps alive until the flush completes.
+                    ed::DeferredStreamWrite write;
+                    write.instance = inst;
+                    write.streamName = String(u8"pixels");
+                    write.view = pixels;
+                    deferredWrites->PushBack(static_cast<ed::DeferredStreamWrite&&>(write));
+                    outGuids.PushBack(inst->Id());
+                    continue;
+                }
+                const Status ds = inst->WriteData(u8"pixels", pixels);
                 outGuids.PushBack(ds.IsOk() ? inst->Id() : Guid{});
             }
         }
@@ -392,7 +408,8 @@ export namespace draconic::modelimporter
         // Bake-once cache for FBX separate metal/rough pairs (materials often share maps).
         static Guid GetOrBakePackedMR(const draconic::model::Model& model, content::Group& group,
                                       HashMap<u64, Guid>& cache, i32 roughIdx, i32 metalIdx,
-                                      Array<String>& claimed)
+                                      Array<String>& claimed,
+                                      Array<ed::DeferredStreamWrite>* deferredWrites)
         {
             const u64 key = (static_cast<u64>(static_cast<u32>(roughIdx)) << 32)
                           | static_cast<u64>(static_cast<u32>(metalIdx));
@@ -410,9 +427,22 @@ export namespace draconic::modelimporter
             const String name = Format(u8"mr.packed.{}.{}", roughIdx, metalIdx);
             content::Instance* inst = ClaimInstance(group, name.AsView(),
                 draconic::texture::TextureAsset::StaticType(), claimed);
-            if (inst == nullptr || !inst->WriteObject(asset).IsOk()
-                || !inst->WriteData(u8"pixels",
-                       Span<const byte>{ reinterpret_cast<const byte*>(pixels.Data()), pixels.Size() }).IsOk())
+            if (inst == nullptr || !inst->WriteObject(asset).IsOk())
+            {
+                cache.InsertOrAssign(key, Guid{});
+                return Guid{};
+            }
+            if (deferredWrites != nullptr)
+            {
+                // Baked pixels are produced HERE, so the deferred write owns them.
+                ed::DeferredStreamWrite write;
+                write.instance = inst;
+                write.streamName = String(u8"pixels");
+                for (u8 b : pixels) { write.owned.PushBack(static_cast<byte>(b)); }
+                deferredWrites->PushBack(static_cast<ed::DeferredStreamWrite&&>(write));
+            }
+            else if (!inst->WriteData(u8"pixels",
+                         Span<const byte>{ reinterpret_cast<const byte*>(pixels.Data()), pixels.Size() }).IsOk())
             {
                 cache.InsertOrAssign(key, Guid{});
                 return Guid{};
@@ -423,7 +453,8 @@ export namespace draconic::modelimporter
 
         static void ImportMaterials(const draconic::model::Model& model, content::Group& group,
                                     const Array<Guid>& textureGuids, ModelManifestSource& manifest,
-                                    Array<String>& claimed)
+                                    Array<String>& claimed,
+                                    Array<ed::DeferredStreamWrite>* deferredWrites)
         {
             HashMap<u64, Guid> bakedMR;   // per-pair bake cache (see GetOrBakePackedMR)
             const Span<draconic::model::ModelMaterial* const> materials = model.materials();
@@ -469,7 +500,8 @@ export namespace draconic::modelimporter
                 {
                     const Guid packed = GetOrBakePackedMR(model, group, bakedMR,
                                                           m.separateRoughnessTextureIndex,
-                                                          m.separateMetalnessTextureIndex, claimed);
+                                                          m.separateMetalnessTextureIndex, claimed,
+                                                          deferredWrites);
                     if (!packed.IsNil())
                     {
                         asset.source.textureSlots.PushBack(String(u8"MetallicRoughnessMap"));

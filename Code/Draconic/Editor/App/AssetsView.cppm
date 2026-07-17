@@ -317,26 +317,78 @@ export namespace draconic::editor::app
             }
             content::Group* group = (m_selectedGroup != nullptr)
                 ? m_selectedGroup : m_context->Project()->SourceDb().RootGroup();
+            auto deferred = MakeUnique<Array<draconic::editor::DeferredStreamWrite>>(DefaultAllocator());
             Result<content::Instance*> imported =
                 importer->Import(path.AsView(), *m_context->Project(), *group, options.Get(),
-                                 prepared.Get());
-            if (imported.HasValue() && imported.Value() != nullptr)
-            {
-                String message(u8"Imported '");
-                message += imported.Value()->Name();
-                message += u8"' (";
-                message += importer->Label();
-                message += u8").";
-                m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
-                m_context->NotifyImported(*imported.Value(), options.Get());
-            }
-            else
+                                 prepared.Get(),
+                                 (m_jobs != nullptr) ? deferred.Get() : nullptr);
+            if (!imported.HasValue() || imported.Value() == nullptr)
             {
                 String message(u8"Import failed: '");
                 message += draconic::editor::FileNameOf(path.AsView());
                 message += u8"' (see Console).";
                 m_context->Notify(draconic::editor::NoticeKind::Error, message.AsView());
+                Rebuild();
+                return;
             }
+
+            content::Instance* primary = imported.Value();
+            if (deferred->IsEmpty() || m_jobs == nullptr)
+            {
+                FinishImport(*primary, importer, options);
+                return;
+            }
+
+            // Flush the BULK stream writes on the worker (pure mount IO; the job lock keeps
+            // cooks out and queues deletes). The prepared payload stays alive - the views
+            // borrow its decoded pixels.
+            String title(u8"Writing ");
+            title += draconic::editor::FileNameOf(path.AsView());
+            AssetsView* self = this;
+            auto* writes = deferred.Release();
+            const Guid primaryId = primary->Id();
+            m_jobs->Submit(title.AsView(),
+                Function<Status(draconic::editor::JobContext&)>{
+                    [writes, prepared](draconic::editor::JobContext& job) -> Status {
+                        Status result{};
+                        for (usize i = 0; i < writes->Size(); ++i)
+                        {
+                            draconic::editor::DeferredStreamWrite& write = (*writes)[i];
+                            job.SetStep(write.instance->Name(), i + 1, writes->Size());
+                            job.SetFraction(static_cast<f32>(i) / static_cast<f32>(writes->Size()));
+                            const Status s = write.instance->WriteData(write.streamName.AsView(),
+                                                                      write.Bytes());
+                            if (!s.IsOk()) { result = s; }
+                        }
+                        (void)prepared;   // keeps the decoded pixels alive for the views
+                        return result;
+                    } },
+                Function<void(Status)>{
+                    [self, writes, importer, options, primaryId](Status result) {
+                        DefaultAllocator().Delete(writes);
+                        content::Instance* primary = (self->m_context->Project() != nullptr)
+                            ? self->m_context->Project()->SourceDb().GetInstance(primaryId) : nullptr;
+                        if (!result.IsOk() || primary == nullptr)
+                        {
+                            self->m_context->Notify(draconic::editor::NoticeKind::Error,
+                                u8"Import data write FAILED (see Console).");
+                            self->Rebuild();
+                            return;
+                        }
+                        self->FinishImport(*primary, importer, options);
+                    } });
+        }
+
+        void FinishImport(content::Instance& primary, draconic::editor::IFileImporter* importer,
+                          const RefPtr<draconic::editor::ImportOptions>& options)
+        {
+            String message(u8"Imported '");
+            message += primary.Name();
+            message += u8"' (";
+            message += importer->Label();
+            message += u8").";
+            m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+            m_context->NotifyImported(primary, options.Get());
             Rebuild();
         }
 

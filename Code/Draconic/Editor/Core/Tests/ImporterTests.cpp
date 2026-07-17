@@ -25,7 +25,7 @@ namespace
         }
         [[nodiscard]] Result<draconic::content::Instance*> Import(
             StringView, EditorProject&, draconic::content::Group&,
-            const ImportOptions*, Object*) override
+            const ImportOptions*, Object*, Array<DeferredStreamWrite>*) override
         {
             return Err(ErrorCode::NotSupported);
         }

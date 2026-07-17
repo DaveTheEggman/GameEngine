@@ -160,7 +160,7 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     CHECK_FALSE(importer.Accepts(u8"gltf"));
 
     Result<draconic::content::Instance*> imported =
-        importer.Import(u8"brick.png", *project, *project->SourceDb().RootGroup(), nullptr, nullptr);
+        importer.Import(u8"brick.png", *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     draconic::content::Instance* instance = imported.Value();
     REQUIRE(instance != nullptr);

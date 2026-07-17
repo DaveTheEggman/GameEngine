@@ -411,7 +411,8 @@ export namespace draconic::texture
                                                         draconic::editor::EditorProject& project,
                                                         content::Group& group,
                                                         const draconic::editor::ImportOptions*,
-                                                        Object*) override
+                                                        Object*,
+                                                        Array<draconic::editor::DeferredStreamWrite>*) override
         {
             // Cubemap intent: the dropped file's stem matches a face convention (px/nx/...,
             // _posx/..., right/left/...) AND all 6 sibling faces exist beside it. Any one
