@@ -1214,6 +1214,147 @@ TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance 
     CHECK(level.GetEntityId(level.GetParent(survived)) == wheelLive);
 }
 
+TEST_CASE("prefab P4: nested instances keep their captured sibling order")
+{
+    const Guid innerId{ 0xAA, 0x61 };
+    const Guid outerId{ 0xBB, 0x61 };
+    Array<byte> inner = AuthorInnerTemplate();
+
+    // Outer authored as: Body > [ Inner instance, Cone ] - the nested instance FIRST.
+    Array<byte> outerPayload;
+    Guid wheelNs{};
+    {
+        Scene edit(u8"Outer");
+        edit.AddSystem<HealthManager>();
+        EntityHandle body = edit.CreateEntity(u8"Body");
+        MemoryStream innerStream;
+        (void)innerStream.Write(inner.Data(), inner.Size());
+        (void)innerStream.Seek(0, SeekOrigin::Begin);
+        EntityHandle wheel = SpawnPrefab(edit, innerStream, innerId, body);
+        REQUIRE(wheel.IsAssigned());
+        wheelNs = edit.GetEntityId(wheel);
+        EntityHandle cone = edit.CreateEntity(u8"Cone");
+        edit.SetParent(cone, body);
+        MemoryStream out;
+        BinarySerializer ser(out, SerializeMode::Write);
+        SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, false);
+        REQUIRE(ser.IsOk());
+        for (byte b : out.Bytes()) { outerPayload.PushBack(b); }
+    }
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outerPayload);
+
+    auto childNames = [](Scene& sc, EntityHandle parent) {
+        Array<String> names;
+        for (EntityHandle c = sc.GetFirstChild(parent); c.IsAssigned(); c = sc.GetNextSibling(c)) {
+            names.PushBack(String(sc.GetEntityName(c)));
+        }
+        return names;
+    };
+
+    Scene level(u8"level");
+    level.AddSystem<HealthManager>();
+    MemoryStream outerStream;
+    (void)outerStream.Write(outerPayload.Data(), outerPayload.Size());
+    (void)outerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle body = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
+                                    nullptr, &resolver);
+    REQUIRE(body.IsAssigned());
+
+    // Spawn: the record used to APPEND after Cone; the captured order has Wheel first.
+    Array<String> names = childNames(level, body);
+    REQUIRE(names.Size() == 2);
+    CHECK(names[0] == u8"Wheel");
+    CHECK(names[1] == u8"Cone");
+
+    // Rebuild keeps it too (the root guid survives via preassignment).
+    const Guid bodyGuid = level.GetEntityId(body);
+    const u32 rebuilt = RebuildPrefabInstances(level, outerId,
+        Span<const byte>{ outerPayload.Data(), outerPayload.Size() }, &resolver);
+    CHECK(rebuilt == 1u);
+    body = level.FindEntity(bodyGuid);
+    REQUIRE(body.IsAssigned());
+    Array<String> after = childNames(level, body);
+    REQUIRE(after.Size() == 2);
+    CHECK(after[0] == u8"Wheel");
+    CHECK(after[1] == u8"Cone");
+}
+
+TEST_CASE("prefab P4: un-overridden nested placement follows the outer template")
+{
+    const Guid innerId{ 0xAA, 0x71 };
+    const Guid outerId{ 0xBB, 0x71 };
+    Array<byte> inner = AuthorInnerTemplate();
+
+    // Author the outer with the inner instance at a given placement.
+    auto authorOuter = [&](const Transform& wheelPlacement) {
+        Scene edit(u8"Outer");
+        edit.AddSystem<HealthManager>();
+        EntityHandle body = edit.CreateEntity(u8"Body");
+        MemoryStream innerStream;
+        (void)innerStream.Write(inner.Data(), inner.Size());
+        (void)innerStream.Seek(0, SeekOrigin::Begin);
+        EntityHandle wheel = SpawnPrefab(edit, innerStream, innerId, body);
+        REQUIRE(wheel.IsAssigned());
+        edit.SetLocalTransform(wheel, wheelPlacement);
+        MemoryStream out;
+        BinarySerializer ser(out, SerializeMode::Write);
+        SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, false);
+        REQUIRE(ser.IsOk());
+        Array<byte> bytes;
+        for (byte b : out.Bytes()) { bytes.PushBack(b); }
+        return bytes;
+    };
+
+    Transform placementV1{};
+    placementV1.position = Float3{ 1.0f, 0.0f, 0.0f };
+    Transform placementV2{};
+    placementV2.position = Float3{ 0.0f, 5.0f, 0.0f };
+    Array<byte> outerV1 = authorOuter(placementV1);
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outerV1);
+
+    Scene level(u8"level");
+    level.AddSystem<HealthManager>();
+    MemoryStream outerStream;
+    (void)outerStream.Write(outerV1.Data(), outerV1.Size());
+    (void)outerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle body = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
+                                    nullptr, &resolver);
+    REQUIRE(body.IsAssigned());
+    Guid wheelLive{};
+    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& st) {
+        if (st.prefabId == innerId && !st.ownerRootEntityId.IsNil()) { wheelLive = st.rootEntityId; }
+    });
+    REQUIRE(!wheelLive.IsNil());
+    CHECK(level.GetLocalTransform(level.FindEntity(wheelLive)).position.x == doctest::Approx(1.0f));
+
+    // Template moves the inner instance; the scene never touched it -> it follows.
+    Array<byte> outerV2 = authorOuter(placementV2);
+    PrefabPayloadResolver resolver2 = MakeResolver(innerId, &inner, outerId, &outerV2);
+    u32 rebuilt = RebuildPrefabInstances(level, outerId,
+        Span<const byte>{ outerV2.Data(), outerV2.Size() }, &resolver2);
+    CHECK(rebuilt == 1u);
+    EntityHandle wheel = level.FindEntity(wheelLive);
+    REQUIRE(wheel.IsAssigned());
+    CHECK(level.GetLocalTransform(wheel).position.y == doctest::Approx(5.0f));
+    CHECK(level.GetLocalTransform(wheel).position.x == doctest::Approx(0.0f));
+
+    // Now the SCENE moves it (an override) - a further template change must NOT clobber it.
+    Transform sceneOverride{};
+    sceneOverride.position = Float3{ 9.0f, 9.0f, 9.0f };
+    level.SetLocalTransform(wheel, sceneOverride);
+    Transform placementV3{};
+    placementV3.position = Float3{ 0.0f, 0.0f, 7.0f };
+    Array<byte> outerV3 = authorOuter(placementV3);
+    PrefabPayloadResolver resolver3 = MakeResolver(innerId, &inner, outerId, &outerV3);
+    rebuilt = RebuildPrefabInstances(level, outerId,
+        Span<const byte>{ outerV3.Data(), outerV3.Size() }, &resolver3);
+    CHECK(rebuilt == 1u);
+    wheel = level.FindEntity(wheelLive);
+    REQUIRE(wheel.IsAssigned());
+    CHECK(level.GetLocalTransform(wheel).position.x == doctest::Approx(9.0f));
+    CHECK(level.GetLocalTransform(wheel).position.z == doctest::Approx(9.0f));
+}
+
 TEST_CASE("scene v2: unknown component and settings records SKIP instead of aborting")
 {
     // Save with health components; load into a scene WITHOUT the manager: entities +

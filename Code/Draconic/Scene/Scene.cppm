@@ -211,8 +211,15 @@ public:
         Guid rootLiveId{};
         Guid ownerRootEntityId{};
         Guid nestedRootSourceId{};
-        // Transient (never serialized): revert passes sub-records that preserve member guids
-        // but must NOT re-apply the scene placement/parent (the template's placement wins).
+        // The sibling immediately AFTER the root at capture time (nil = it was the last
+        // child): spawn appends records after the plain members, then restores list order
+        // from this link. Namespace follows the record's (owner template / live scene).
+        Guid nextSiblingId{};
+        // False = the root transform matched its baseline at capture: the scene never moved
+        // this NESTED instance, so on respawn the owner TEMPLATE's placement wins (a moved
+        // root is a scene override and re-applies). Top-level placements always apply.
+        // Revert forces it false. Serialized with the record since the order/placement wire
+        // change (no pre-change compat).
         bool applyPlacement = true;
     };
 

@@ -146,6 +146,20 @@ namespace detail {
         pending->rootLiveId = state.rootEntityId;
         pending->ownerRootEntityId = state.ownerRootEntityId;
         pending->nestedRootSourceId = state.nestedRootSourceId;
+        EntityHandle nextSibling = root.IsAssigned() ? scene.GetNextSibling(root)
+                                                     : EntityHandle::Invalid();
+        pending->nextSiblingId = nextSibling.IsAssigned() ? scene.GetEntityId(nextSibling) : Guid{};
+        // Un-moved root = no scene placement override: nested respawns let the owner
+        // template's placement through (and pick up template edits to it).
+        for (usize i = 0; i < state.liveIds.Size(); ++i) {
+            if (state.liveIds[i] == state.rootEntityId) {
+                if (root.IsAssigned() && i < state.baselineTransforms.Size()) {
+                    pending->applyPlacement =
+                        !TransformsEqual(pending->rootTransform, state.baselineTransforms[i]);
+                }
+                break;
+            }
+        }
 
         for (usize i = 0; i < state.sourceIds.Size(); ++i) {
             EntityHandle live = scene.FindEntity(state.liveIds[i]);
@@ -225,6 +239,28 @@ namespace detail {
         }
     }
 
+    // Restores captured sibling order after spawns APPENDED entities at the end of their
+    // parents: each fix moves `entity` immediately before `nextSibling`. A target that is
+    // itself a moved entity settles over multiple passes (chains anchor on entities that
+    // never move); a parent mismatch skips the fix - order restoration never REPARENTS.
+    struct SiblingOrderFix { Guid entity{}; Guid nextSibling{}; };
+    inline void RestoreSiblingOrder(Scene& scene, const Array<SiblingOrderFix>& fixes) {
+        for (usize pass = 0; pass <= fixes.Size(); ++pass) {
+            bool changed = false;
+            for (const SiblingOrderFix& fix : fixes) {
+                if (fix.nextSibling == Guid{}) { continue; }
+                EntityHandle entity = scene.FindEntity(fix.entity);
+                EntityHandle sibling = scene.FindEntity(fix.nextSibling);
+                if (!entity.IsAssigned() || !sibling.IsAssigned()) { continue; }
+                if (scene.GetParent(entity) != scene.GetParent(sibling)) { continue; }
+                if (scene.GetNextSibling(entity) == sibling) { continue; }
+                scene.MoveBefore(entity, sibling);
+                changed = true;
+            }
+            if (!changed) { break; }
+        }
+    }
+
     // One nested-instance record, serialized (the ref+delta shape shared by scene files'
     // prefab sections and prefab payloads' trailing records). `wireNested` gates the P4
     // link fields for pre-nesting saves.
@@ -235,6 +271,9 @@ namespace detail {
         SerializeGuid(ar, "rootLive", d.rootLiveId);
         SerializeGuid(ar, "owner", d.ownerRootEntityId);
         SerializeGuid(ar, "nestedSrcRoot", d.nestedRootSourceId);
+        SerializeGuid(ar, "nextSibling", d.nextSiblingId);
+        u8 placement = d.applyPlacement ? 1u : 0u;
+        draconic::core::Serialize(ar, "placement", placement);
 
         u32 memberCount = static_cast<u32>(d.sourceIds.Size());
         ar.Key("members");
@@ -281,6 +320,10 @@ namespace detail {
             SerializeGuid(ar, "rootLive", pending.rootLiveId);
             SerializeGuid(ar, "owner", pending.ownerRootEntityId);
             SerializeGuid(ar, "nestedSrcRoot", pending.nestedRootSourceId);
+            SerializeGuid(ar, "nextSibling", pending.nextSiblingId);
+            u8 placement = 1;
+            draconic::core::Serialize(ar, "placement", placement);
+            pending.applyPlacement = placement != 0;
         }
 
         u32 memberCount = 0;
@@ -1083,6 +1126,7 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
     HashMap<Guid, Guid> ownerNsToLive;
     for (const auto& kv : liveBySource) { ownerNsToLive.InsertOrAssign(kv.key, kv.value); }
 
+    Array<detail::SiblingOrderFix> recordOrder;   // targets in owner namespace until resolved
     for (auto& recordPtr : records) {
         Scene::PendingPrefabInstance& r = *recordPtr;
         UniquePtr<IStream> childPayload = (resolver != nullptr && *resolver)
@@ -1143,6 +1187,7 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
             detail::ApplyPendingDeltas(scene, childState, *sub);
         }
 
+        recordOrder.PushBack(detail::SiblingOrderFix{ childRootGuid, r.nextSiblingId });
         ownState->referencedPrefabIds.PushBack(r.prefabId);
         for (usize i = 0; i < r.sourceIds.Size() && i < r.liveIds.Size(); ++i) {
             for (usize k = 0; k < childState->sourceIds.Size(); ++k) {
@@ -1153,6 +1198,14 @@ inline EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& pref
             }
         }
     }
+
+    // Records spawned APPENDED after the plain members - restore the captured sibling
+    // order (targets resolve through the owner-namespace map, which is complete now).
+    for (detail::SiblingOrderFix& fix : recordOrder) {
+        const Guid* live = ownerNsToLive.Find(fix.nextSibling);
+        fix.nextSibling = (live != nullptr) ? *live : Guid{};
+    }
+    detail::RestoreSiblingOrder(scene, recordOrder);
     return firstRoot;
 }
 
@@ -1260,6 +1313,19 @@ inline UniquePtr<Scene::PendingPrefabInstance> ComputeInstanceDeltasVsTemplate(
     pending->sourceIds = state.sourceIds;
     pending->liveIds = state.liveIds;
     pending->rootLiveId = state.rootEntityId;
+    EntityHandle liveNext = liveRoot.IsAssigned() ? scene.GetNextSibling(liveRoot)
+                                                  : EntityHandle::Invalid();
+    pending->nextSiblingId = liveNext.IsAssigned() ? scene.GetEntityId(liveNext) : Guid{};
+    for (usize i = 0; i < state.liveIds.Size(); ++i) {
+        if (state.liveIds[i] == state.rootEntityId) {
+            const Transform* templateRoot = templateTransforms.Find(state.sourceIds[i]);
+            if (liveRoot.IsAssigned() && templateRoot != nullptr) {
+                pending->applyPlacement =
+                    !detail::TransformsEqual(pending->rootTransform, *templateRoot);
+            }
+            break;
+        }
+    }
 
     for (usize i = 0; i < state.sourceIds.Size(); ++i) {
         EntityHandle live = scene.FindEntity(state.liveIds[i]);
@@ -1420,6 +1486,7 @@ inline Status CaptureInstanceAsTemplate(Scene& scene, Scene::PrefabInstanceState
         }
         if (!nested->nestedRootSourceId.IsNil()) { d->rootLiveId = nested->nestedRootSourceId; }
         d->parentEntityId = substituted(d->parentEntityId);
+        d->nextSiblingId = substituted(d->nextSiblingId);
         d->ownerRootEntityId = Guid{};
         d->nestedRootSourceId = Guid{};
         detail::WritePrefabRecord(ar, *d);
@@ -1441,6 +1508,8 @@ inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<co
     EntityHandle parentHandle = scene.GetParent(root);
     const Guid parentId = parentHandle.IsAssigned() ? scene.GetEntityId(parentHandle) : Guid{};
     const Transform placement = scene.GetLocalTransform(root);
+    EntityHandle nextSibling = scene.GetNextSibling(root);
+    const Guid nextSiblingId = nextSibling.IsAssigned() ? scene.GetEntityId(nextSibling) : Guid{};
     HashMap<Guid, Guid> preassigned;
     for (usize i = 0; i < state->sourceIds.Size(); ++i) {
         preassigned.InsertOrAssign(state->sourceIds[i], state->liveIds[i]);
@@ -1488,6 +1557,9 @@ inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<co
                                        resolver, &subPtrs);
     if (!spawned.IsAssigned()) { return false; }
     scene.SetLocalTransform(spawned, placement);
+    Array<detail::SiblingOrderFix> order;
+    order.PushBack(detail::SiblingOrderFix{ scene.GetEntityId(spawned), nextSiblingId });
+    detail::RestoreSiblingOrder(scene, order);
     return true;
 }
 
@@ -1498,6 +1570,7 @@ inline bool RevertPrefabInstance(Scene& scene, const Guid& rootEntityId, Span<co
 /// skipped with a warning (their entities are simply absent).
 inline void ResolveScenePrefabs(Scene& scene, const PrefabPayloadResolver& resolver) {
     Array<UniquePtr<Scene::PendingPrefabInstance>> pendings = scene.TakePendingPrefabInstances();
+    Array<detail::SiblingOrderFix> sceneOrder;   // targets are live scene guids
 
     // Nested records (owner set) don't spawn on their own - their OWNER's spawn consumes
     // them (preserved guids + scene-level deltas layered over the owner customization).
@@ -1526,7 +1599,9 @@ inline void ResolveScenePrefabs(Scene& scene, const PrefabPayloadResolver& resol
         if (!root.IsAssigned()) { continue; }
         scene.SetLocalTransform(root, p->rootTransform);
         detail::ApplyPendingDeltas(scene, scene.FindPrefabInstanceByRoot(scene.GetEntityId(root)), *p);
+        sceneOrder.PushBack(detail::SiblingOrderFix{ scene.GetEntityId(root), p->nextSiblingId });
     }
+    detail::RestoreSiblingOrder(scene, sceneOrder);
 
     // Orphaned nested records (their owner record vanished): spawn standalone so the
     // entities aren't silently lost - they become plain top-level instances.
@@ -1629,6 +1704,7 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
     });
 
     u32 rebuilt = 0;
+    Array<detail::SiblingOrderFix> rebuildOrder;   // live-guid targets captured pre-teardown
     for (Item& item : items) {
         Scene::PendingPrefabInstance& p = *item.own;
         for (usize n = 0; n < item.subs.Size(); ++n) {
@@ -1676,6 +1752,7 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
         EntityHandle root = SpawnPrefab(scene, stream, p.prefabId, parent, &preassigned,
                                         resolver, &subPtrs);
         if (!root.IsAssigned()) { continue; }
+        rebuildOrder.PushBack(detail::SiblingOrderFix{ scene.GetEntityId(root), p.nextSiblingId });
         scene.SetLocalTransform(root, p.rootTransform);
         Scene::PrefabInstanceState* newState =
             scene.FindPrefabInstanceByRoot(scene.GetEntityId(root));
@@ -1697,6 +1774,8 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
             EntityHandle subRoot = SpawnPrefab(scene, *subPayload, sub->prefabId, subParent,
                                                &subPreassigned, resolver, nullptr);
             if (!subRoot.IsAssigned()) { continue; }
+            rebuildOrder.PushBack(detail::SiblingOrderFix{ scene.GetEntityId(subRoot),
+                                                           sub->nextSiblingId });
             scene.SetLocalTransform(subRoot, sub->rootTransform);
             detail::ApplyPendingDeltas(scene,
                 scene.FindPrefabInstanceByRoot(scene.GetEntityId(subRoot)), *sub);
@@ -1714,6 +1793,7 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
         }
         ++rebuilt;
     }
+    detail::RestoreSiblingOrder(scene, rebuildOrder);
     return rebuilt;
 }
 
