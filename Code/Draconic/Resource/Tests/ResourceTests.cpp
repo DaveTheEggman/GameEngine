@@ -340,3 +340,188 @@ TEST_CASE("resource: deserializing a ref drops the stale binding when the id cha
     }
     CHECK(stable.Get() == live.Get());
 }
+
+namespace
+{
+    // A product whose DESTRUCTOR re-enters the manager (drops a proxy + triggers a reload
+    // that pushes a fresh grave) - the graveyard-collection re-entrancy scenario.
+    class Reentrant final : public Object
+    {
+        DRACONIC_OBJECT(Reentrant, Object)
+    public:
+        static inline bool reenterOnDestroy = false;   // off during manager teardown
+        ResourceManager* manager = nullptr;
+        Guid other;
+        Proxy<Material> child;
+        ~Reentrant() override
+        {
+            child = Proxy<Material>{};                      // handle bookkeeping re-entry
+            if (reenterOnDestroy && manager != nullptr && !other.IsNil())
+            {
+                (void)manager->Reload(other);               // pushes a NEW grave mid-collect
+            }
+        }
+    };
+
+    class ReentrantSource final : public ISerializable
+    {
+        DRACONIC_OBJECT(ReentrantSource, ISerializable)
+    public:
+        Guid other;
+        void Serialize(ISerializer& ar) override { draconic::core::Serialize(ar, other); }
+    };
+    DRACONIC_DEFINE_OBJECT(ReentrantSource, "test")
+
+    class ReentrantFactory final : public IResourceFactory
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &Reentrant::StaticType(); }
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+                                            draconic::content::Instance& instance) override
+        {
+            RefPtr<ISerializable> object = instance.ReadObject();
+            auto* src = Cast<ReentrantSource>(object.Get());
+            RefPtr<Reentrant> product = MakeRef<Reentrant>(DefaultAllocator());
+            product->manager = &manager;
+            if (src != nullptr) { product->other = src->other; }
+            return product;
+        }
+    };
+}
+
+DRACONIC_DEFINE_OBJECT(Reentrant, "test")
+
+TEST_CASE("resource: garbage collection survives destructor re-entry into the manager")
+{
+    GlobalTypeRegistry().Register(ReentrantSource::StaticType());
+    RegisterSerializable<ReentrantSource>();
+    GlobalTypeRegistry().Register(Reentrant::StaticType());
+
+    RemoveTree();
+    NativeFileSystem mount(u8"draconic_res_reentry_db");
+    (void)CreateDirectory(u8"draconic_res_reentry_db");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+
+    auto* a = db.RootGroup()->CreateInstance(u8"A", ReentrantSource::StaticType());
+    auto* b = db.RootGroup()->CreateInstance(u8"B", ReentrantSource::StaticType());
+    REQUIRE(a != nullptr);
+    REQUIRE(b != nullptr);
+    ReentrantSource sa, sb;
+    sa.other = b->Id();   // A's destructor reloads B (pushing B's old product to the grave)
+    REQUIRE(a->WriteObject(sa).IsOk());
+    REQUIRE(b->WriteObject(sb).IsOk());
+
+    ResourceManager resources(db);
+    ReentrantFactory factory;
+    resources.AddFactory(&factory);
+
+    Proxy<Reentrant> pa = resources.Bind<Reentrant>(a->Id());
+    Proxy<Reentrant> pb = resources.Bind<Reentrant>(b->Id());
+    REQUIRE(pa.Get() != nullptr);
+    REQUIRE(pb.Get() != nullptr);
+
+    // Reload BOTH: two graves. Age them out together - dropping A's old product re-enters
+    // the manager (reloads B again -> pushes ANOTHER grave) while collection is walking.
+    Reentrant::reenterOnDestroy = true;
+    REQUIRE(resources.Reload(a->Id()));
+    REQUIRE(resources.Reload(b->Id()));
+    for (int frame = 0; frame < 16; ++frame) { resources.CollectGarbage(); }
+    Reentrant::reenterOnDestroy = false;   // manager teardown must not re-enter
+
+    CHECK(pa.Get() != nullptr);
+    CHECK(pb.Get() != nullptr);
+}
+
+namespace
+{
+    // A factory whose SECOND build binds a burst of fresh children - forcing the handle map
+    // to grow (rehash) in the middle of a Reload cascade.
+    class Burst final : public Object
+    {
+        DRACONIC_OBJECT(Burst, Object)
+    public:
+        i32 generation = 0;
+    };
+
+    class BurstSource final : public ISerializable
+    {
+        DRACONIC_OBJECT(BurstSource, ISerializable)
+    public:
+        Array<Guid> children;
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "children", children);
+        }
+    };
+    DRACONIC_DEFINE_OBJECT(BurstSource, "test")
+
+    class BurstFactory final : public IResourceFactory
+    {
+    public:
+        i32 builds = 0;
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &Burst::StaticType(); }
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+                                            draconic::content::Instance& instance) override
+        {
+            ++builds;
+            RefPtr<ISerializable> object = instance.ReadObject();
+            auto* src = Cast<BurstSource>(object.Get());
+            RefPtr<Burst> product = MakeRef<Burst>(DefaultAllocator());
+            product->generation = builds;
+            // Second-generation build: bind every child (fresh handle-map inserts).
+            if (src != nullptr && builds > 1)
+            {
+                for (const Guid& child : src->children) { (void)manager.Bind<Burst>(child); }
+            }
+            return product;
+        }
+    };
+}
+
+DRACONIC_DEFINE_OBJECT(Burst, "test")
+
+TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
+{
+    // Regression for the Sponza post-cook crash: Reload held a raw pointer into the handle
+    // map across the recursive rebuild; the rebuild's child Binds grew the map, a rehash
+    // moved the slots, and the dangling pointer read freed memory. Bind's cached branch had
+    // the same hazard (returning *cached after BuildInto).
+    GlobalTypeRegistry().Register(BurstSource::StaticType());
+    RegisterSerializable<BurstSource>();
+    GlobalTypeRegistry().Register(Burst::StaticType());
+
+    RemoveTree();
+    NativeFileSystem mount(u8"draconic_res_rehash_db");
+    (void)CreateDirectory(u8"draconic_res_rehash_db");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+
+    BurstSource parentSource;
+    Array<draconic::content::Instance*> children;
+    for (i32 i = 0; i < 64; ++i)
+    {
+        String name = Format(u8"child{}", i);
+        auto* child = db.RootGroup()->CreateInstance(name.AsView(), BurstSource::StaticType());
+        REQUIRE(child != nullptr);
+        BurstSource empty;
+        REQUIRE(child->WriteObject(empty).IsOk());
+        parentSource.children.PushBack(child->Id());
+        children.PushBack(child);
+    }
+    auto* parent = db.RootGroup()->CreateInstance(u8"parent", BurstSource::StaticType());
+    REQUIRE(parent != nullptr);
+    REQUIRE(parent->WriteObject(parentSource).IsOk());
+
+    ResourceManager resources(db);
+    BurstFactory factory;
+    resources.AddFactory(&factory);
+
+    // First bind: tiny map (just the parent). Reload: the rebuild binds 64 fresh children,
+    // guaranteeing growth + rehash while the cascade is in flight.
+    Proxy<Burst> proxy = resources.Bind<Burst>(parent->Id());
+    REQUIRE(proxy.Get() != nullptr);
+    CHECK(proxy->generation == 1);
+
+    CHECK(resources.Reload(parent->Id()));
+    REQUIRE(proxy.Get() != nullptr);
+    CHECK(proxy->generation == 2);
+}

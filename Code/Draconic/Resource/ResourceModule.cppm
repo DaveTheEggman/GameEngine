@@ -197,8 +197,12 @@ export namespace draconic::resource
 
             if (RefPtr<ResourceHandle>* cached = m_handles.Find(id))
             {
-                if ((*cached)->Get() == nullptr) { BuildInto(**cached, productType.id, id); }
-                return *cached;
+                // COPY the ref out of the map slot BEFORE building: the factory Binds child
+                // resources, growing the handle map - a rehash dangles the slot pointer.
+                // (The handle OBJECT itself is heap-stable; only the slot moves.)
+                RefPtr<ResourceHandle> handle = *cached;
+                if (handle->Get() == nullptr) { BuildInto(*handle, productType.id, id); }
+                return handle;
             }
             RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(DefaultAllocator());
             BuildInto(*handle, productType.id, id);
@@ -217,11 +221,14 @@ export namespace draconic::resource
         // All proxies see the new products. False if `id` is unbound.
         bool Reload(const Guid& id)
         {
-            RefPtr<ResourceHandle>* handle = m_handles.Find(id);
-            if (handle == nullptr) { return false; }
+            if (m_handles.Find(id) == nullptr) { return false; }
             Array<Guid> visited;
             ReloadRecursive(id, visited);
-            return (*handle)->Get() != nullptr;
+            // RE-find: the recursive rebuild binds children, growing the handle map - the
+            // pre-reload slot pointer dangles after a rehash. (This was the Sponza crash:
+            // the post-cook mass reload of 167 products rehashed mid-cascade.)
+            RefPtr<ResourceHandle>* handle = m_handles.Find(id);
+            return handle != nullptr && (*handle)->Get() != nullptr;
         }
 
         // The ids that directly depend on `id` (introspection/tooling). Empty if none.
@@ -238,15 +245,28 @@ export namespace draconic::resource
         /// ones old enough that no in-flight frame can still reference their GPU objects.
         void CollectGarbage()
         {
-            usize w = 0;
-            for (usize i = 0; i < m_graveyard.Size(); ++i)
+            // Take the graveyard OUT of the member first: releasing a product runs its
+            // destructor, which can RE-ENTER the manager (a dying composite drops child
+            // proxies; bookkeeping may push new graves) - mutating m_graveyard while a loop
+            // walks it is a use-after-free (the Sponza mass-reload crash: hundreds of
+            // products landing in one cook aged out together).
+            Array<Grave> graves = Move(m_graveyard);
+            m_graveyard = Array<Grave>{};
+
+            Array<Grave> dropped;
+            for (Grave& grave : graves)
             {
-                if (m_graveyard[i].framesLeft <= 1) { continue; }   // dropped -> released
-                m_graveyard[i].framesLeft -= 1;
-                if (w != i) { m_graveyard[w] = Move(m_graveyard[i]); }
-                ++w;
+                if (grave.framesLeft <= 1)
+                {
+                    dropped.PushBack(Move(grave));
+                    continue;
+                }
+                grave.framesLeft -= 1;
+                m_graveyard.PushBack(Move(grave));
             }
-            m_graveyard.Resize(w);
+            // Destructors run HERE, with m_graveyard consistent; re-entrant pushes append
+            // to the fresh member array safely.
+            dropped.Clear();
         }
 
         // Drops the product from a handle without unbinding it; a later Bind/
