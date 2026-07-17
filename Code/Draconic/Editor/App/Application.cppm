@@ -337,6 +337,44 @@ export namespace draconic::editor::app
             m_cookService.RequestCookFor(Move(roots), false);
         }
 
+        /// Open (or focus) the singleton Game tab (play-in-editor: the player behavior
+        /// in-process; the page's own toolbar runs Play/Stop). Created through the scene
+        /// editor plugin's factory seam - editor.app never links scene modules.
+        void OpenGamePage()
+        {
+            if (m_gamePage != nullptr)
+            {
+                for (const PagePanel& entry : m_pagePanels)
+                {
+                    if (entry.page == m_gamePage)
+                    {
+                        m_shell.Docks()->ActivatePanel(entry.panel);
+                        m_context.SetActivePage(m_gamePage);
+                        return;
+                    }
+                }
+            }
+            if (!m_context.GamePageFactory)
+            {
+                m_context.Notify(ed::NoticeKind::Info, u8"No game page registered in this build.");
+                return;
+            }
+            UniquePtr<draconic::editor::EditorPage> page = m_context.GamePageFactory();
+            if (!page) { return; }
+            // All pages in this app are UIEditorPages (:ui_page contract), the Game page too.
+            UIEditorPage* uiPage = static_cast<UIEditorPage*>(m_context.AdoptPage(Move(page)));
+            if (uiPage == nullptr) { return; }
+            m_gamePage = uiPage;
+
+            tk::DockablePanel* panel = m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
+            panel->SetPersistenceId(u8"game-page");
+            panel->OnCloseRequested.Add([this, uiPage](tk::DockablePanel*) {
+                m_uiHost->Context().MutationQueueRef().QueueAction(
+                    Function<void()>{ [this, uiPage]() { ClosePage(uiPage); } });
+            });
+            m_pagePanels.PushBack(PagePanel{ uiPage, panel });
+        }
+
         /// Open (or focus) a page for `instance` and dock its content as a center tab.
         UIEditorPage* OpenInstancePage(draconic::content::Instance& instance)
         {
@@ -427,6 +465,7 @@ export namespace draconic::editor::app
 
         void ClosePage(UIEditorPage* page)
         {
+            if (page == m_gamePage) { m_gamePage = nullptr; }
             for (usize i = 0; i < m_pagePanels.Size(); ++i)
             {
                 if (m_pagePanels[i].page == page)
@@ -1149,6 +1188,9 @@ export namespace draconic::editor::app
                 Guid activePage;
                 for (const PagePanel& entry : m_pagePanels)
                 {
+                    // Instance-less pages (the Game tab) don't persist in the page set - a
+                    // nil guid would just fail the restore lookup.
+                    if (entry.page->InstanceId().IsNil()) { continue; }
                     pages.PushBack(entry.page->InstanceId());
                     if (m_context.ActivePage() == entry.page) { activePage = entry.page->InstanceId(); }
                 }
@@ -1253,6 +1295,10 @@ export namespace draconic::editor::app
             shortcuts->AddGlobal(draconic::ui::KeyCode::S, draconic::ui::KeyModifiers::Ctrl,
                                  [this]() { SaveActivePage(); });
 
+            if (draconic::ui::ContextMenu* game = bar->AddMenu(u8"Game"))
+            {
+                game->AddItem(u8"Play", [this]() { OpenGamePage(); });
+            }
             if (draconic::ui::ContextMenu* view = bar->AddMenu(u8"View"))
             {
                 view->AddItem(u8"Reset Layout", [this]() {
@@ -1291,7 +1337,8 @@ export namespace draconic::editor::app
         draconic::settings::Settings m_editorSettings;       // per-user editor prefs (<userdata>/editor.settings.xml)
         struct PendingExport { String presetName; bool all = false; bool waitingCook = false; bool active = false; };
         PendingExport m_pendingExport;
-        HashMap<Guid, Array<byte>> m_exportSceneStreams;   // export pre-transcoded scene wires                       // export waiting for its pre-cook to finish
+        HashMap<Guid, Array<byte>> m_exportSceneStreams;   // export pre-transcoded scene wires
+        UIEditorPage* m_gamePage = nullptr;                // borrowed singleton (context owns)                       // export waiting for its pre-cook to finish
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
         f32 m_testOpenElapsed = 0.0f;   // RAPTOR_TEST_OPEN hook
         u32 m_testOpenStage = 0;

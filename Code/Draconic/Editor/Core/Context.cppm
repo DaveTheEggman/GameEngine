@@ -188,6 +188,18 @@ export namespace draconic::editor
             return raw;
         }
 
+        /// Adopt an instance-LESS page (the Game tab): same ownership + active-page flow as
+        /// OpenPage, but the caller constructs it (no instance, no factory dispatch).
+        EditorPage* AdoptPage(UniquePtr<EditorPage> page)
+        {
+            if (!page) { return nullptr; }
+            EditorPage* raw = page.Get();
+            m_pages.PushBack(Move(page));
+            m_activePage = raw;
+            NotifyPagesChanged();
+            return raw;
+        }
+
         /// Close a page (the caller is responsible for save-prompting dirty pages first).
         void ClosePage(EditorPage* page)
         {
@@ -247,6 +259,10 @@ export namespace draconic::editor
         {
             m_importListeners.PushBack(Move(listener));
         }
+
+        /// Play-in-editor seam: creates the singleton Game page (the player behavior in a
+        /// tab). Registered by the scene editor plugin; unset = the Game menu item notifies.
+        Function<UniquePtr<EditorPage>()> GamePageFactory;
 
         /// Export seam: transcodes a scene/prefab instance's TEXT source stream to the
         /// binary wire for staging. Registered by the scene editor plugin (needs scene

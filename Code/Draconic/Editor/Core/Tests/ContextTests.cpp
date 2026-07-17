@@ -175,6 +175,28 @@ TEST_CASE("editor-context: open, focus, and close pages")
     RemoveDbTree(dir);
 }
 
+TEST_CASE("editor-context: adopted instance-less pages share the ownership flow")
+{
+    EditorContext context;
+
+    // Adopt (the Game tab's path): owned by the context, becomes active, nil instance id.
+    auto page = MakeUnique<TestPage>(DefaultAllocator(), u8"Game");
+    EditorPage* raw = context.AdoptPage(UniquePtr<EditorPage>(page.Release(), DefaultAllocator()));
+    REQUIRE(raw != nullptr);
+    CHECK(context.OpenPages().Size() == 1);
+    CHECK(context.ActivePage() == raw);
+    CHECK(raw->InstanceId().IsNil());
+
+    // Close destroys through the same path as instance pages.
+    context.ClosePage(raw);
+    CHECK(context.OpenPages().Size() == 0);
+    CHECK(context.ActivePage() == nullptr);
+
+    // Null adopt is a no-op.
+    CHECK(context.AdoptPage(UniquePtr<EditorPage>{}) == nullptr);
+    CHECK(context.OpenPages().Size() == 0);
+}
+
 TEST_CASE("editor-context: undo/redo routes to the active page")
 {
     RegisterTestTypes();

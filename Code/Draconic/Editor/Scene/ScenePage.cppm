@@ -41,6 +41,7 @@ import draconic.editor.app;
 import :camera;
 import :edit;
 import :model_prefab;
+import :game_page;
 import :gizmo;
 import :component_gizmos;
 import :hierarchy;
@@ -1309,6 +1310,13 @@ export namespace draconic::editor
         // open scene and an open prefab page refreshes like any external asset change.
         EditorContext* editorContext = &context;
         rt::IApplicationHost* appHost = &host;
+
+        // Play-in-editor: the singleton Game tab (player behavior in-process).
+        context.GamePageFactory = [editorContext, appHost]() -> UniquePtr<EditorPage> {
+            return UniquePtr<EditorPage>(
+                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost),
+                DefaultAllocator());
+        };
 
         // Export seam: scene/prefab TEXT sources transcode to the binary wire on the main
         // thread before the pack job. The scratch scene comes from the SceneSubsystem so

@@ -25,6 +25,7 @@ target_sources(DraconicEditorScene
             HierarchyView.cppm
             InspectorView.cppm
             ScenePage.cppm
+            GamePage.cppm
             MaterialPage.cppm
             ModelPrefab.cppm
             EditorSceneModule.cppm)

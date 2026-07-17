@@ -14,5 +14,6 @@ export import :component_gizmos;
 export import :hierarchy;
 export import :inspector;
 export import :page;
+export import :game_page;
 export import :material_page;
 export import :model_prefab;
