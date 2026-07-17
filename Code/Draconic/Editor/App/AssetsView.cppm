@@ -388,6 +388,13 @@ export namespace draconic::editor::app
             message += u8").";
             m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
             m_context->NotifyImported(primary, options.Get());
+            // Cook the imported assets explicitly (scoped to the primary's group; the plan
+            // skips anything clean). Auto-cook used to ride on the Sources/ watcher noticing
+            // the provenance copy - a re-import of identical bytes skips that copy, so the
+            // watcher never fires and the new instances sat uncooked until a manual cook.
+            Array<Guid> ids;
+            CollectInstanceIds(&primary.OwningGroup(), ids);
+            m_cook->RequestCookFor(Move(ids), false);
             Rebuild();
         }
 
