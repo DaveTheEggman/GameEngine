@@ -33,14 +33,33 @@ export namespace draconic::ui::toolkit
 
         void RefreshView() override {}
 
+        /// Enable/disable the live button (grayed + click-inert while disabled). Safe to
+        /// call before the view exists - the state applies at creation.
+        void SetButtonEnabled(bool enabled)
+        {
+            m_buttonEnabled = enabled;
+            if (m_button != nullptr && m_button->IsEnabled != enabled)
+            {
+                m_button->IsEnabled = enabled;
+                m_button->Invalidate();
+            }
+        }
+        [[nodiscard]] bool ButtonEnabled() const noexcept { return m_buttonEnabled; }
+
     protected:
         RefPtr<View> CreateEditorView() override
         {
             RefPtr<Button> btn = MakeRef<Button>(DefaultAllocator(), Name());
+            btn->IsEnabled = m_buttonEnabled;
             ButtonEditor* self = this;
             btn->OnClick.Add([self](ButtonBase*) { if (self->Action) { self->Action(); } });
+            m_button = btn.Get();
             return btn;
         }
+
+    private:
+        Button* m_button = nullptr;   // borrowed; the cached editor view owns it
+        bool m_buttonEnabled = true;
     };
 
     DRACONIC_DEFINE_OBJECT(ButtonEditor, "draconic::ui::toolkit")

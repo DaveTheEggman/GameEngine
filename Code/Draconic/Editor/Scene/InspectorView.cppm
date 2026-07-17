@@ -576,11 +576,15 @@ export namespace draconic::editor
                         Function<void()>{ [edit, id, type]() {
                             (void)edit->RevertComponentToBaseline(id, type);
                         } }, category);
+                    revert->SetTooltip(u8"Reverts this component to the prefab's values "
+                                       u8"(undoable). Grayed out while it matches the prefab.");
+                    revert->SetButtonEnabled(false);   // refresher enables it on an override
                     dscene::ComponentManagerBase* manager = &mgr;
                     AddEditor(revert.Get(), [edit, id, manager, raw = revert.Get()]() {
                         dscene::PrefabMemberInfo m;
                         const bool overridden = dscene::FindPrefabMember(edit->Scene(), id, m)
                             && dscene::IsPrefabComponentOverridden(edit->Scene(), m, *manager);
+                        raw->SetButtonEnabled(overridden);
                         // " *" matches the dirty-tab convention AND stays inside the editor
                         // font's rasterized range (ExtendedLatin = codepoints <= 255; a
                         // U+25CF dot has no glyph and silently renders as nothing).

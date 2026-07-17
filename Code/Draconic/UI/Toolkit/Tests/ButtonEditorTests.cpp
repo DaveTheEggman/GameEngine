@@ -24,3 +24,20 @@ TEST_CASE("toolkit-buttoneditor: ClickInvokesAction")
 
     ed->RefreshView(); // no-op
 }
+
+TEST_CASE("toolkit-buttoneditor: SetButtonEnabled applies before and after view creation")
+{
+    auto editor = core::MakeRef<ButtonEditor>(core::DefaultAllocator(),
+        StringView(u8"Revert"), core::Function<void()>{});
+    CHECK(editor->ButtonEnabled());
+
+    // Set BEFORE the lazy view exists: the created button starts disabled.
+    editor->SetButtonEnabled(false);
+    View* view = editor->EditorView();
+    REQUIRE(view != nullptr);
+    CHECK(!view->IsEnabled);
+
+    // Live toggle on the existing button.
+    editor->SetButtonEnabled(true);
+    CHECK(view->IsEnabled);
+}
