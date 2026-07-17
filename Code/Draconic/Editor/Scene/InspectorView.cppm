@@ -581,7 +581,10 @@ export namespace draconic::editor
                         dscene::PrefabMemberInfo m;
                         const bool overridden = dscene::FindPrefabMember(edit->Scene(), id, m)
                             && dscene::IsPrefabComponentOverridden(edit->Scene(), m, *manager);
-                        raw->SetDisplayName(overridden ? StringView(u8"Revert to Prefab \u25cf")
+                        // " *" matches the dirty-tab convention AND stays inside the editor
+                        // font's rasterized range (ExtendedLatin = codepoints <= 255; a
+                        // U+25CF dot has no glyph and silently renders as nothing).
+                        raw->SetDisplayName(overridden ? StringView(u8"Revert to Prefab *")
                                                        : StringView(u8"Revert to Prefab"));
                     });
                 }
