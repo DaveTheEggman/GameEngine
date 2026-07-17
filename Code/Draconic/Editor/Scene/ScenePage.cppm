@@ -40,6 +40,7 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 import :edit;
+import :model_prefab;
 import :gizmo;
 import :component_gizmos;
 import :hierarchy;
@@ -1270,5 +1271,60 @@ export namespace draconic::editor
             return CreatePrefabInstance(ctx, group);
         };
         context.RegisterCreator(Move(prefabCreator));
+
+        // Model imports: generate/refresh the hierarchy prefab beside the manifest (the
+        // "Generate prefab" import option). Lives here - not in the importer - because it
+        // needs scene machinery the importer library (linked by the headless cooker) never
+        // links. Re-import reuses the prefab's guid, so placed instances rebuild in every
+        // open scene and an open prefab page refreshes like any external asset change.
+        EditorContext* editorContext = &context;
+        rt::IApplicationHost* appHost = &host;
+        context.AddImportListener([editorContext, appHost](draconic::content::Instance& instance,
+                                                           const ImportOptions* options) {
+            if (instance.TypeName() != StringView(u8"ModelManifestAsset")) { return; }
+            if (options != nullptr)
+            {
+                auto* modelOptions = Cast<draconic::modelimporter::ModelImportOptions>(
+                    const_cast<ImportOptions*>(options));
+                if (modelOptions != nullptr && !modelOptions->generatePrefab) { return; }
+            }
+            ModelPrefabResult generated = GenerateModelPrefab(instance);
+            if (generated.instance == nullptr)
+            {
+                editorContext->Notify(NoticeKind::Error, u8"Model prefab generation failed.");
+                return;
+            }
+            if (generated.regenerated)
+            {
+                UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
+                if (payload.Get() != nullptr)
+                {
+                    Array<byte> bytes;
+                    bytes.Resize(static_cast<usize>(payload->Size()));
+                    (void)payload->Read(bytes.Data(), bytes.Size());
+                    const Guid prefabId = generated.instance->Id();
+                    if (auto* scenes = appHost->Ctx().GetSubsystem<dscene::SceneSubsystem>())
+                    {
+                        scenes->ForEachScene([&](dscene::Scene& scene) {
+                            const u32 rebuilt = dscene::RebuildPrefabInstances(
+                                scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() });
+                            if (rebuilt > 0 && editorContext->Resources() != nullptr)
+                            {
+                                dscene::ResolveSceneResources(scene, *editorContext->Resources());
+                            }
+                        });
+                    }
+                    for (const UniquePtr<EditorPage>& open : editorContext->OpenPages())
+                    {
+                        if (open->InstanceId() == prefabId) { open->OnAssetExternallyModified(); }
+                    }
+                }
+            }
+            String message(u8"Prefab '");
+            message += generated.instance->Name();
+            message += generated.regenerated ? StringView(u8"' regenerated (placed instances updated).")
+                                             : StringView(u8"' generated.");
+            editorContext->Notify(NoticeKind::Success, message.AsView());
+        });
     }
 }

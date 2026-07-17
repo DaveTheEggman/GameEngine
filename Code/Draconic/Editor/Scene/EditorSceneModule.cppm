@@ -15,3 +15,4 @@ export import :hierarchy;
 export import :inspector;
 export import :page;
 export import :material_page;
+export import :model_prefab;
