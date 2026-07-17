@@ -1561,7 +1561,7 @@ inline void ResolveScenePrefabs(Scene& scene, const PrefabPayloadResolver& resol
 /// number of instances rebuilt.
 inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const byte> payload,
                                   const PrefabPayloadResolver* resolver = nullptr) {
-    struct RescuedChild { Guid child; Guid parentSourceId; };
+    struct RescuedChild { Guid child; Guid parentLiveId; };
     struct Item {
         UniquePtr<Scene::PendingPrefabInstance> own;
         Array<UniquePtr<Scene::PendingPrefabInstance>> subs;
@@ -1603,11 +1603,11 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
         }
 
         // Plain user entities parented under members: detach now, re-attach post-respawn
-        // (destroying a member destroys its whole subtree).
-        HashMap<Guid, Guid> memberSource;   // live -> source for every member incl. nested
-        for (usize i = 0; i < state.sourceIds.Size(); ++i) {
-            memberSource.InsertOrAssign(state.liveIds[i], state.sourceIds[i]);
-        }
+        // (destroying a member destroys its whole subtree). Keyed by the member's LIVE
+        // guid - preassignment preserves member guids through the respawn for OWN and
+        // NESTED members alike, so one path rescues children of both. (The old
+        // source-id mapping only covered the owner's members; a child under a nested
+        // sub-instance member was skipped and died with the teardown.)
         HashMap<Guid, u8> allMembers;
         for (const Guid& live : state.liveIds) { allMembers.InsertOrAssign(live, 1u); }
         for (const auto& kv : nestedMembers) { allMembers.InsertOrAssign(kv.key, 1u); }
@@ -1621,9 +1621,7 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
             for (EntityHandle child : kids) {
                 const Guid childGuid = scene.GetEntityId(child);
                 if (allMembers.Find(childGuid) != nullptr) { continue; }
-                const Guid* src = memberSource.Find(kv.key);
-                if (src == nullptr) { continue; }   // nested member parents re-resolve via subs
-                item.rescued.PushBack(RescuedChild{ childGuid, *src });
+                item.rescued.PushBack(RescuedChild{ childGuid, kv.key });
                 scene.SetParent(child, EntityHandle::Invalid(), true);
             }
         }
@@ -1704,19 +1702,15 @@ inline u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const
                 scene.FindPrefabInstanceByRoot(scene.GetEntityId(subRoot)), *sub);
         }
 
-        // Re-attach rescued user children to their (respawned) member parents.
-        if (newState != nullptr) {
-            for (const RescuedChild& rescue : item.rescued) {
-                EntityHandle child = scene.FindEntity(rescue.child);
-                if (!child.IsAssigned()) { continue; }
-                for (usize i = 0; i < newState->sourceIds.Size(); ++i) {
-                    if (newState->sourceIds[i] == rescue.parentSourceId) {
-                        EntityHandle member = scene.FindEntity(newState->liveIds[i]);
-                        if (member.IsAssigned()) { scene.SetParent(child, member, true); }
-                        break;
-                    }
-                }
-            }
+        // Re-attach rescued user children: the member guid survived the respawn
+        // (preassigned), so a plain lookup finds the new parent. A member the template
+        // no longer has falls back to the instance root - the child stays with the
+        // instance instead of being orphaned at scene root (or destroyed, pre-fix).
+        for (const RescuedChild& rescue : item.rescued) {
+            EntityHandle child = scene.FindEntity(rescue.child);
+            if (!child.IsAssigned()) { continue; }
+            EntityHandle member = scene.FindEntity(rescue.parentLiveId);
+            scene.SetParent(child, member.IsAssigned() ? member : root, true);
         }
         ++rebuilt;
     }

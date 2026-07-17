@@ -1160,6 +1160,60 @@ TEST_CASE("prefab P4: rebuild preserves user entities under members and user-spa
     CHECK(health->Get(survivedWheel)->value == doctest::Approx(99.0f));
 }
 
+TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance members")
+{
+    const Guid innerId{ 0xAA, 0x51 };
+    const Guid outerId{ 0xBB, 0x51 };
+    Array<byte> inner = AuthorInnerTemplate();
+    OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
+    PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
+
+    Scene level(u8"level");
+    level.AddSystem<HealthManager>();
+    MemoryStream outerStream;
+    (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
+    (void)outerStream.Seek(0, SeekOrigin::Begin);
+    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
+                                    nullptr, &resolver);
+    REQUIRE(cart.IsAssigned());
+
+    // The nested inner sub-instance's root (the Wheel) - a NESTED member: children
+    // parented here used to be skipped by the rescue (it only mapped the owner's own
+    // members) and died with the teardown.
+    Guid wheelLive{};
+    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& st) {
+        if (st.prefabId == innerId && !st.ownerRootEntityId.IsNil()) {
+            wheelLive = st.rootEntityId;
+        }
+    });
+    REQUIRE(!wheelLive.IsNil());
+    EntityHandle wheel = level.FindEntity(wheelLive);
+    REQUIRE(wheel.IsAssigned());
+
+    EntityHandle sticker = level.CreateEntity(u8"Sticker");
+    level.SetParent(sticker, wheel);
+    const Guid stickerGuid = level.GetEntityId(sticker);
+
+    // Rebuild triggered by the OUTER template (the user's failing flow: edit Outer's
+    // page + save).
+    u32 rebuilt = RebuildPrefabInstances(level, outerId,
+        Span<const byte>{ outer.payload.Data(), outer.payload.Size() }, &resolver);
+    CHECK(rebuilt == 1u);
+    EntityHandle survived = level.FindEntity(stickerGuid);
+    REQUIRE(survived.IsAssigned());
+    REQUIRE(level.GetParent(survived).IsAssigned());
+    CHECK(level.GetEntityId(level.GetParent(survived)) == wheelLive);
+
+    // And again through the INNER template (rebuild via referencedPrefabIds).
+    rebuilt = RebuildPrefabInstances(level, innerId,
+        Span<const byte>{ inner.Data(), inner.Size() }, &resolver);
+    CHECK(rebuilt == 1u);
+    survived = level.FindEntity(stickerGuid);
+    REQUIRE(survived.IsAssigned());
+    REQUIRE(level.GetParent(survived).IsAssigned());
+    CHECK(level.GetEntityId(level.GetParent(survived)) == wheelLive);
+}
+
 TEST_CASE("scene v2: unknown component and settings records SKIP instead of aborting")
 {
     // Save with health components; load into a scene WITHOUT the manager: entities +
