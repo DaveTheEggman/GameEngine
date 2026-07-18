@@ -11,6 +11,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 #include "Core/Log/Log.h"
+#include <cstdlib>
 
 export module draconic.editor.input;
 
@@ -149,6 +150,8 @@ export namespace draconic::editor
                 case din::BindingSource::GamepadStick:
                     return String(static_cast<din::StickCode>(b.code) == din::StickCode::Left
                                   ? u8"Left Stick" : u8"Right Stick");
+                case din::BindingSource::TouchButton: return String(u8"Touch Region");
+                case din::BindingSource::TouchStick: return String(u8"Touch Stick");
                 case din::BindingSource::Composite2D:
                 {
                     String s(u8"Keys ");
@@ -160,6 +163,53 @@ export namespace draconic::editor
                 }
             }
             return String(u8"?");
+        }
+
+        [[nodiscard]] inline StringView SourceName(din::BindingSource source)
+        {
+            switch (source)
+            {
+                case din::BindingSource::Key: return u8"Key";
+                case din::BindingSource::MouseButton: return u8"MouseBtn";
+                case din::BindingSource::MouseAxis: return u8"MouseAxis";
+                case din::BindingSource::MouseDelta: return u8"MouseDelta";
+                case din::BindingSource::GamepadButton: return u8"PadBtn";
+                case din::BindingSource::GamepadAxis: return u8"PadAxis";
+                case din::BindingSource::GamepadStick: return u8"PadStick";
+                case din::BindingSource::Composite2D: return u8"Keys4";
+                case din::BindingSource::TouchButton: return u8"TouchBtn";
+                case din::BindingSource::TouchStick: return u8"TouchStick";
+            }
+            return u8"?";
+        }
+
+        // The sources an action of `kind` accepts, in cycle order (mirrors ValidateInputMap).
+        inline usize ValidSources(din::ActionKind kind, din::BindingSource out[8])
+        {
+            usize n = 0;
+            switch (kind)
+            {
+                case din::ActionKind::Button:
+                    out[n++] = din::BindingSource::Key;
+                    out[n++] = din::BindingSource::MouseButton;
+                    out[n++] = din::BindingSource::GamepadButton;
+                    out[n++] = din::BindingSource::TouchButton;
+                    break;
+                case din::ActionKind::Axis1D:
+                    out[n++] = din::BindingSource::Key;
+                    out[n++] = din::BindingSource::MouseButton;
+                    out[n++] = din::BindingSource::GamepadButton;
+                    out[n++] = din::BindingSource::MouseAxis;
+                    out[n++] = din::BindingSource::GamepadAxis;
+                    break;
+                case din::ActionKind::Axis2D:
+                    out[n++] = din::BindingSource::GamepadStick;
+                    out[n++] = din::BindingSource::Composite2D;
+                    out[n++] = din::BindingSource::MouseDelta;
+                    out[n++] = din::BindingSource::TouchStick;
+                    break;
+            }
+            return n;
         }
 
         [[nodiscard]] inline StringView KindName(din::ActionKind kind)
@@ -271,12 +321,21 @@ export namespace draconic::editor
                 const usize set = m_listenSet;
                 const usize action = m_listenAction;
                 const usize binding = m_listenBinding;
+                const i32 direction = m_listenDirection;
                 m_listening = false;
-                Mutate([set, action, binding, captured](din::InputMap& map) {
+                m_listenDirection = -1;
+                Mutate([set, action, binding, direction, captured](din::InputMap& map) {
                     if (set >= map.sets.Size()) { return; }
                     if (action >= map.sets[set].actions.Size()) { return; }
                     auto& bindings = map.sets[set].actions[action].bindings;
-                    if (binding < bindings.Size()) { bindings[binding] = captured; }
+                    if (binding >= bindings.Size()) { return; }
+                    if (direction < 0) { bindings[binding] = captured; return; }
+                    // Composite direction: swap in just the captured KEY code.
+                    u32* slot = direction == 0 ? &bindings[binding].negX
+                              : direction == 1 ? &bindings[binding].posX
+                              : direction == 2 ? &bindings[binding].negY
+                                               : &bindings[binding].posY;
+                    *slot = captured.code;
                 });
             }
         }
@@ -355,6 +414,39 @@ export namespace draconic::editor
             else if (width > 0.0f) { lp->Width = iui::SizeSpec::Fixed(iui::Unit::Px(width)); }
             lp->Height = iui::SizeSpec::Match();
             row.AddView(label.Get(), lp);
+        }
+
+        // A small labeled numeric field: click-to-edit value, committed via parse. The
+        // mutation receives the parsed float.
+        void AddFloatField(iui::FlexLayout& row, StringView label, f32 value,
+                           Function<void(f32)> commit, f32 width = 46.0f)
+        {
+            AddLabel(row, label, 0.0f, static_cast<f32>(label.Size()) * 7.0f + 6.0f);
+            auto field = MakeRef<iui::EditableLabel>(DefaultAllocator());
+            String text;
+            AppendValue(text, value);
+            field->SetText(text.AsView());
+            field->FontSize.SetValue(12.0f);
+            field->OnRenameCommitted.Add(
+                [fn = Move(commit)](iui::EditableLabel*, StringView committed) {
+                    if (!fn || committed.IsEmpty()) { return; }
+                    String buffer(committed);
+                    char* end = nullptr;
+                    const f32 parsed = std::strtof(reinterpret_cast<const char*>(buffer.CStr()), &end);
+                    if (end != reinterpret_cast<const char*>(buffer.CStr())) { fn(parsed); }
+                });
+            auto lp = MakeRef<iui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = iui::SizeSpec::Fixed(iui::Unit::Px(width));
+            lp->Height = iui::SizeSpec::Match();
+            row.AddView(field.Get(), lp);
+        }
+
+        void AddToggle(iui::FlexLayout& row, StringView label, bool value, Function<void(bool)> commit)
+        {
+            String text(label);
+            text += value ? StringView(u8":on") : StringView(u8":off");
+            MakeButton(row, text.AsView(), static_cast<f32>(text.Size()) * 7.0f + 14.0f,
+                       [fn = Move(commit), value]() { if (fn) { fn(!value); } });
         }
 
         void AddNameEditor(iui::FlexLayout& row, StringView name, Function<void(StringView)> commit)
@@ -467,12 +559,32 @@ export namespace draconic::editor
 
                     for (usize b = 0; b < action.bindings.Size(); ++b)
                     {
+                        const din::Binding& binding = action.bindings[b];
                         auto bindingRow = MakeRow(40.0f, 22.0f);
                         const bool isListening = m_listening && m_listenSet == s
                                               && m_listenAction == a && m_listenBinding == b;
+                        // Source cycles through the KIND's valid sources.
+                        MakeButton(*bindingRow, detail::SourceName(binding.source), 76.0f,
+                                   [self, s, a, b]() {
+                            self->Mutate([s, a, b](din::InputMap& m) {
+                                if (s >= m.sets.Size() || a >= m.sets[s].actions.Size()) { return; }
+                                auto& act = m.sets[s].actions[a];
+                                if (b >= act.bindings.Size()) { return; }
+                                din::BindingSource valid[8];
+                                const usize n = detail::ValidSources(act.kind, valid);
+                                usize current = 0;
+                                for (usize i = 0; i < n; ++i)
+                                {
+                                    if (valid[i] == act.bindings[b].source) { current = i; break; }
+                                }
+                                din::Binding fresh;   // source change resets source-specifics
+                                fresh.source = valid[(current + 1) % n];
+                                act.bindings[b] = fresh;
+                            });
+                        });
                         AddLabel(*bindingRow,
                                  isListening ? StringView(u8"<press an input...>")
-                                             : detail::DescribeBinding(action.bindings[b]).AsView(),
+                                             : detail::DescribeBinding(binding).AsView(),
                                  1.0f);
                         MakeButton(*bindingRow, u8"Listen", 54.0f, [self, s, a, b]() {
                             self->BeginListen(s, a, b);
@@ -484,6 +596,53 @@ export namespace draconic::editor
                                 if (b < bindings.Size()) { bindings.RemoveAt(b); }
                             });
                         });
+                        BuildBindingDetail(s, a, b, binding);
+                    }
+
+                    // Processors (+ interaction window) on their own line.
+                    {
+                        auto proc = MakeRow(40.0f, 20.0f);
+                        if (action.interaction.kind != din::InteractionKind::None)
+                        {
+                            AddFloatField(*proc, u8"sec", action.interaction.seconds,
+                                          [self, s, a](f32 v) {
+                                self->MutateAction(s, a, [v](din::Action& x) {
+                                    x.interaction.seconds = v;
+                                });
+                            });
+                        }
+                        if (action.kind != din::ActionKind::Button)
+                        {
+                            AddFloatField(*proc, u8"sens", action.processors.sensitivity,
+                                          [self, s, a](f32 v) {
+                                self->MutateAction(s, a, [v](din::Action& x) {
+                                    x.processors.sensitivity = v;
+                                });
+                            });
+                            AddFloatField(*proc, u8"grav", action.processors.gravity,
+                                          [self, s, a](f32 v) {
+                                self->MutateAction(s, a, [v](din::Action& x) {
+                                    x.processors.gravity = v;
+                                });
+                            });
+                            AddToggle(*proc, u8"snap", action.processors.snap, [self, s, a](bool v) {
+                                self->MutateAction(s, a, [v](din::Action& x) {
+                                    x.processors.snap = v;
+                                });
+                            });
+                            AddFloatField(*proc, u8"curve", action.processors.responseExponent,
+                                          [self, s, a](f32 v) {
+                                self->MutateAction(s, a, [v](din::Action& x) {
+                                    x.processors.responseExponent = v;
+                                });
+                            });
+                            AddToggle(*proc, u8"tScale", action.processors.timeScale,
+                                      [self, s, a](bool v) {
+                                self->MutateAction(s, a, [v](din::Action& x) {
+                                    x.processors.timeScale = v;
+                                });
+                            });
+                        }
                     }
                 }
             }
@@ -501,12 +660,23 @@ export namespace draconic::editor
             m_content->Invalidate();
         }
 
-        void BeginListen(usize set, usize action, usize binding)
+        void BeginListen(usize set, usize action, usize binding, i32 compositeDirection = -1)
         {
             m_listening = true;
             m_listenSet = set;
             m_listenAction = action;
             m_listenBinding = binding;
+            m_listenDirection = compositeDirection;
+            if (compositeDirection >= 0)
+            {
+                // A composite direction rebind is always a single KEY.
+                din::CaptureFilter keysOnly;
+                keysOnly.mouseButtons = false;
+                keysOnly.gamepadButtons = false;
+                m_listenFilter = keysOnly;
+                Rebuild();
+                return;
+            }
             // Filter by the action's declared kind: a Button rebind ignores stick noise,
             // an Axis2D rebind captures sticks only.
             din::CaptureFilter filter;
@@ -528,6 +698,113 @@ export namespace draconic::editor
             }
             m_listenFilter = filter;
             Rebuild();
+        }
+
+        // Per-field mutation shorthand.
+        template <typename Apply>
+        void MutateAction(usize s, usize a, Apply&& apply)
+        {
+            Mutate([s, a, apply](din::InputMap& m) {
+                if (s >= m.sets.Size() || a >= m.sets[s].actions.Size()) { return; }
+                apply(m.sets[s].actions[a]);
+            });
+        }
+
+        template <typename Apply>
+        void MutateBinding(usize s, usize a, usize b, Apply&& apply)
+        {
+            Mutate([s, a, b, apply](din::InputMap& m) {
+                if (s >= m.sets.Size() || a >= m.sets[s].actions.Size()) { return; }
+                auto& bindings = m.sets[s].actions[a].bindings;
+                if (b < bindings.Size()) { apply(bindings[b]); }
+            });
+        }
+
+        // The source-specific scalar fields, on their own indented line. Only fields the
+        // source actually reads appear.
+        void BuildBindingDetail(usize s, usize a, usize b, const din::Binding& binding)
+        {
+            using Source = din::BindingSource;
+            const Source source = binding.source;
+            const bool hasDeadZone = source == Source::MouseAxis || source == Source::GamepadAxis
+                                  || source == Source::GamepadStick || source == Source::TouchStick;
+            const bool hasScale = source != Source::TouchButton;
+            const bool hasInvert = source == Source::MouseAxis || source == Source::MouseDelta
+                                || source == Source::GamepadAxis || source == Source::GamepadStick
+                                || source == Source::TouchStick || source == Source::Composite2D;
+            const bool hasDevice = source == Source::GamepadButton || source == Source::GamepadAxis
+                                || source == Source::GamepadStick;
+            const bool hasRegion = source == Source::TouchButton || source == Source::TouchStick;
+            InputMapEditorPage* self = this;
+
+            auto detail = MakeRow(62.0f, 20.0f);
+            if (hasDeadZone)
+            {
+                AddFloatField(*detail, u8"dz", binding.deadZone, [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.deadZone = v; });
+                });
+            }
+            if (hasScale)
+            {
+                AddFloatField(*detail, u8"scale", binding.scale, [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.scale = v; });
+                });
+            }
+            if (hasInvert)
+            {
+                AddToggle(*detail, u8"inv", binding.invert, [self, s, a, b](bool v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.invert = v; });
+                });
+            }
+            if (hasDevice)
+            {
+                AddFloatField(*detail, u8"pad", static_cast<f32>(binding.device),
+                              [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) {
+                        x.device = static_cast<i32>(v);
+                    });
+                });
+            }
+            if (source == Source::Composite2D)
+            {
+                AddToggle(*detail, u8"norm", binding.normalize, [self, s, a, b](bool v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.normalize = v; });
+                });
+                // Per-direction key capture: -X +X -Y +Y each Listen for one key.
+                const StringView labels[] = { u8"-X", u8"+X", u8"-Y", u8"+Y" };
+                for (u32 d = 0; d < 4; ++d)
+                {
+                    String text(labels[d]);
+                    text += u8" ";
+                    const u32 code = d == 0 ? binding.negX : d == 1 ? binding.posX
+                                   : d == 2 ? binding.negY : binding.posY;
+                    text += detail::KeyName(code);
+                    MakeButton(*detail, text.AsView(), 74.0f, [self, s, a, b, d]() {
+                        self->BeginListen(s, a, b, static_cast<i32>(d));
+                    });
+                }
+            }
+            if (hasRegion)
+            {
+                AddFloatField(*detail, u8"rx", binding.regionX, [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.regionX = v; });
+                });
+                AddFloatField(*detail, u8"ry", binding.regionY, [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.regionY = v; });
+                });
+                AddFloatField(*detail, u8"rw", binding.regionW, [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.regionW = v; });
+                });
+                AddFloatField(*detail, u8"rh", binding.regionH, [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.regionH = v; });
+                });
+            }
+            if (source == Source::TouchStick)
+            {
+                AddFloatField(*detail, u8"radius", binding.stickRadius, [self, s, a, b](f32 v) {
+                    self->MutateBinding(s, a, b, [v](din::Binding& x) { x.stickRadius = v; });
+                });
+            }
         }
 
         void RefreshStatus()
@@ -563,6 +840,7 @@ export namespace draconic::editor
         usize m_listenSet = 0;
         usize m_listenAction = 0;
         usize m_listenBinding = 0;
+        i32 m_listenDirection = -1;   // >= 0: capturing one Composite2D direction key
         din::CaptureFilter m_listenFilter;
     };
 

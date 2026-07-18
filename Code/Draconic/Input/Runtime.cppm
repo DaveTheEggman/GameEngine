@@ -37,6 +37,9 @@ export namespace draconic::input
         [[nodiscard]] virtual dshell::IMouse* Mouse() = 0;
         [[nodiscard]] virtual i32 GamepadCount() const = 0;
         [[nodiscard]] virtual dshell::IGamepad* Gamepad(i32 index) = 0;
+        // Defaulted (not every provider has one): touch coordinates are NORMALIZED window
+        // space, matching the touch bindings' region model.
+        [[nodiscard]] virtual dshell::ITouch* Touch() { return nullptr; }
     };
 
     // The common case: the whole app's devices, straight off the shell.
@@ -49,6 +52,7 @@ export namespace draconic::input
         [[nodiscard]] dshell::IMouse* Mouse() override { return m_input != nullptr ? m_input->Mouse() : nullptr; }
         [[nodiscard]] i32 GamepadCount() const override { return m_input != nullptr ? m_input->GamepadCount() : 0; }
         [[nodiscard]] dshell::IGamepad* Gamepad(i32 index) override { return m_input != nullptr ? m_input->GetGamepad(index) : nullptr; }
+        [[nodiscard]] dshell::ITouch* Touch() override { return m_input != nullptr ? m_input->Touch() : nullptr; }
 
     private:
         dshell::IInputManager* m_input = nullptr;   // borrowed
@@ -343,6 +347,9 @@ export namespace draconic::input
             f32 heldSeconds = 0.0f;
             f32 sinceLastTap = 1.0e9f;       // DoubleTap window timer
             bool holdFired = false;
+            // Virtual-stick tracking (TouchStick): the owning touch + its anchor.
+            u64 touchId = 0;
+            Float2 touchAnchor{ 0.0f, 0.0f };
         };
         struct Candidate { u32 set = 0; u32 flatIndex = 0; };
         struct RefEntry { String name; Array<Candidate> candidates; };
@@ -486,6 +493,9 @@ export namespace draconic::input
                     });
                     break;
                 }
+                case BindingSource::TouchButton:
+                case BindingSource::TouchStick:
+                    break;   // stateful: handled by EvaluateTouchBinding at the call site
                 case BindingSource::Composite2D:
                 {
                     dshell::IKeyboard* keyboard = devices.Keyboard();
@@ -519,6 +529,83 @@ export namespace draconic::input
             }
         }
 
+        // Touch bindings carry per-action STATE (the stick's owning touch + anchor), so
+        // they evaluate here rather than in the stateless per-binding helper.
+        [[nodiscard]] static Contribution EvaluateTouchBinding(const Binding& b,
+                                                               IInputSourceProvider& devices,
+                                                               ActionState& state)
+        {
+            Contribution out;
+            dshell::ITouch* touch = devices.Touch();
+            if (touch == nullptr)
+            {
+                state.touchId = 0;
+                return out;
+            }
+            auto inRegion = [&](f32 x, f32 y) {
+                return x >= b.regionX && x <= b.regionX + b.regionW
+                    && y >= b.regionY && y <= b.regionY + b.regionH;
+            };
+            if (b.source == BindingSource::TouchButton)
+            {
+                const i32 count = touch->TouchCount();
+                for (i32 i = 0; i < count; ++i)
+                {
+                    dshell::TouchPoint point;
+                    if (touch->GetTouchPoint(i, point) && inRegion(point.x, point.y))
+                    {
+                        out.value.x = b.scale;
+                        out.digitalDown = true;
+                        break;
+                    }
+                }
+                return out;
+            }
+
+            // TouchStick: a floating stick anchored where its owning touch STARTED.
+            const i32 count = touch->TouchCount();
+            if (state.touchId != 0)
+            {
+                bool alive = false;
+                dshell::TouchPoint point;
+                for (i32 i = 0; i < count; ++i)
+                {
+                    if (touch->GetTouchPoint(i, point) && point.id == state.touchId)
+                    {
+                        alive = true;
+                        break;
+                    }
+                }
+                if (!alive) { state.touchId = 0; }
+                else
+                {
+                    const f32 radius = b.stickRadius > 0.0f ? b.stickRadius : 0.15f;
+                    Float2 v{ (point.x - state.touchAnchor.x) / radius,
+                              (point.y - state.touchAnchor.y) / radius };
+                    const f32 length = std::sqrt(v.x * v.x + v.y * v.y);
+                    if (length > 1.0f) { v.x /= length; v.y /= length; }
+                    v = ApplyCircularDeadZone(v, b.deadZone);
+                    out.value.x = v.x * b.scale;
+                    out.value.y = v.y * b.scale * (b.invert ? -1.0f : 1.0f);
+                    out.digitalDown = length > b.deadZone;
+                }
+            }
+            if (state.touchId == 0)
+            {
+                for (i32 i = 0; i < count; ++i)
+                {
+                    dshell::TouchPoint point;
+                    if (touch->GetTouchPoint(i, point) && inRegion(point.x, point.y))
+                    {
+                        state.touchId = point.id;
+                        state.touchAnchor = Float2{ point.x, point.y };
+                        break;   // value starts at 0 this frame (anchor == position)
+                    }
+                }
+            }
+            return out;
+        }
+
         [[nodiscard]] static f32 ApplyResponse(f32 v, f32 exponent)
         {
             if (exponent == 1.0f || v == 0.0f) { return v; }
@@ -542,7 +629,11 @@ export namespace draconic::input
             bool digitalDown = false;
             for (const Binding& b : action.bindings)
             {
-                const Contribution c = EvaluateBinding(b, devices);
+                const Contribution c =
+                    (b.source == BindingSource::TouchButton
+                     || b.source == BindingSource::TouchStick)
+                        ? EvaluateTouchBinding(b, devices, state)
+                        : EvaluateBinding(b, devices);
                 if (std::fabs(c.value.x) > std::fabs(target.x)) { target.x = c.value.x; }
                 if (std::fabs(c.value.y) > std::fabs(target.y)) { target.y = c.value.y; }
                 digitalDown = digitalDown || c.digitalDown;

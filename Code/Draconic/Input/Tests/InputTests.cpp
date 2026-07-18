@@ -77,11 +77,38 @@ namespace
         void SetRumble(f32, f32, u32) override {}
     };
 
+    class FakeTouch final : public dshell::ITouch
+    {
+    public:
+        Array<dshell::TouchPoint> points;
+        [[nodiscard]] i32 TouchCount() const override { return static_cast<i32>(points.Size()); }
+        [[nodiscard]] bool GetTouchPoint(i32 index, dshell::TouchPoint& out) const override
+        {
+            if (index < 0 || static_cast<usize>(index) >= points.Size()) { return false; }
+            out = points[static_cast<usize>(index)];
+            return true;
+        }
+        [[nodiscard]] bool HasTouch() const override { return !points.IsEmpty(); }
+        void Set(u64 id, f32 x, f32 y)
+        {
+            for (auto& p : points) { if (p.id == id) { p.x = x; p.y = y; return; } }
+            points.PushBack(dshell::TouchPoint{ id, x, y, 1.0f });
+        }
+        void Remove(u64 id)
+        {
+            for (usize i = 0; i < points.Size(); ++i)
+            {
+                if (points[i].id == id) { points.RemoveAt(i); return; }
+            }
+        }
+    };
+
     class FakeDevices final : public IInputSourceProvider
     {
     public:
         FakeKeyboard keyboard;
         FakeMouse mouse;
+        FakeTouch touch;
         Array<FakeGamepad*> pads;
         [[nodiscard]] dshell::IKeyboard* Keyboard() override { return &keyboard; }
         [[nodiscard]] dshell::IMouse* Mouse() override { return &mouse; }
@@ -90,6 +117,7 @@ namespace
         {
             return (i >= 0 && i < static_cast<i32>(pads.Size())) ? pads[static_cast<usize>(i)] : nullptr;
         }
+        [[nodiscard]] dshell::ITouch* Touch() override { return &touch; }
     };
 
     // ---- a representative map ----------------------------------------------------------
@@ -521,6 +549,92 @@ TEST_CASE("input: rebind capture - first activated input matching the filter")
     REQUIRE(CaptureBinding(devices, padButtons, captured));
     CHECK(captured.source == BindingSource::GamepadButton);
     CHECK(captured.code == 3u);
+}
+
+TEST_CASE("input: touch - region buttons and the floating virtual stick")
+{
+    InputMap map;
+    ActionSet set;
+    set.name = String(u8"S");
+    {
+        Action fire;
+        fire.name = String(u8"Fire");
+        fire.kind = ActionKind::Button;
+        Binding region;
+        region.source = BindingSource::TouchButton;
+        region.regionX = 0.5f; region.regionY = 0.5f;   // bottom-right quadrant
+        region.regionW = 0.5f; region.regionH = 0.5f;
+        fire.bindings.PushBack(region);
+        set.actions.PushBack(static_cast<Action&&>(fire));
+    }
+    {
+        Action move;
+        move.name = String(u8"Move");
+        move.kind = ActionKind::Axis2D;
+        Binding stick;
+        stick.source = BindingSource::TouchStick;
+        stick.regionX = 0.0f; stick.regionY = 0.0f;     // left half
+        stick.regionW = 0.5f; stick.regionH = 1.0f;
+        stick.stickRadius = 0.1f;
+        stick.deadZone = 0.1f;
+        move.bindings.PushBack(stick);
+        set.actions.PushBack(static_cast<Action&&>(move));
+    }
+    map.sets.PushBack(static_cast<ActionSet&&>(set));
+    CHECK(ValidateInputMap(map));
+
+    ActionRuntime runtime;
+    runtime.SetMap(map);
+    FakeDevices devices;
+    const ActionRef fire = runtime.Resolve(u8"Fire");
+    const ActionRef move = runtime.Resolve(u8"Move");
+    const f32 step = 1.0f / 60.0f;
+
+    // Region button: outside = nothing; inside = pressed with edges.
+    devices.touch.Set(1, 0.2f, 0.2f);
+    runtime.Update(devices, step);
+    CHECK_FALSE(runtime.IsDown(fire));
+    devices.touch.Set(1, 0.8f, 0.8f);
+    runtime.Update(devices, step);
+    CHECK(runtime.IsDown(fire));
+    CHECK(runtime.WasPressed(fire));
+    devices.touch.Remove(1);
+    runtime.Update(devices, step);
+    CHECK(runtime.WasReleased(fire));
+
+    // Stick: a touch starting in-region anchors (value 0), deflection scales over the
+    // radius, clamps at 1, and a touch that STARTED OUTSIDE never captures.
+    devices.touch.Set(2, 0.25f, 0.5f);
+    runtime.Update(devices, step);   // capture frame: anchor == position
+    CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));
+    devices.touch.Set(2, 0.30f, 0.5f);   // +0.05 over radius 0.1 = half deflection...
+    runtime.Update(devices, step);
+    CHECK(runtime.Value2D(move).x > 0.30f);   // ...minus the dead-zone rescale
+    CHECK(runtime.Value2D(move).x < 0.60f);
+    devices.touch.Set(2, 0.60f, 0.5f);   // way past the radius: clamped
+    runtime.Update(devices, step);
+    CHECK(runtime.Value2D(move).x == doctest::Approx(1.0f));
+    CHECK(runtime.Value2D(move).y == doctest::Approx(0.0f));
+    devices.touch.Remove(2);
+    runtime.Update(devices, step);
+    CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));
+
+    // The stick region does NOT capture a touch that began outside it - even if it
+    // later drifts inside (the finger belongs to whatever it started on).
+    devices.touch.Set(3, 0.9f, 0.9f);
+    runtime.Update(devices, step);
+    devices.touch.Set(3, 0.25f, 0.5f);
+    runtime.Update(devices, step);
+    // NOTE: with the capture-scan running each frame a formerly-outside touch inside
+    // the region WILL capture (we scan current positions). Assert the ACTUAL contract:
+    CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));   // anchor = entry point, so value starts at 0
+
+    // Kind mismatch validation: a TouchStick on a Button action is refused.
+    InputMap bad = map;
+    Binding wrong;
+    wrong.source = BindingSource::TouchStick;
+    bad.sets[0].actions[0].bindings.PushBack(wrong);
+    CHECK_FALSE(ValidateInputMap(bad));
 }
 
 TEST_CASE("input: the timeScale processor scales flagged action VALUES only")

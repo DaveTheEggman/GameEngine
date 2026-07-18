@@ -38,6 +38,9 @@ export namespace draconic::input
         GamepadAxis,     // Axis1D: code = shell::GamepadAxis; deadZone/invert/scale
         GamepadStick,    // Axis2D: code = StickCode; circular dead zone
         Composite2D,     // Axis2D from four digital keys (WASD); normalize flag
+        TouchButton,     // Button: any touch inside the normalized screen region
+        TouchStick,      // Axis2D: a floating virtual stick - the touch that STARTS inside
+                         // the region anchors there; deflection/stickRadius = the value
     };
 
     enum class MouseAxisCode : u32 { DeltaX = 0, DeltaY = 1, Wheel = 2 };
@@ -59,6 +62,13 @@ export namespace draconic::input
         u32 posX = 0;
         u32 negY = 0;
         u32 posY = 0;
+        // Touch sources: the activation region in NORMALIZED window coordinates (SDL
+        // finger coords are [0,1]); sticks deflect over stickRadius (also normalized).
+        f32 regionX = 0.0f;
+        f32 regionY = 0.0f;
+        f32 regionW = 1.0f;
+        f32 regionH = 1.0f;
+        f32 stickRadius = 0.15f;
     };
 
     // Button-action trigger shaping (P2; a small per-action state machine none of the
@@ -110,9 +120,9 @@ export namespace draconic::input
 
     // ---- serialization (shared by the source asset and the cooked resource) ----
 
-    inline constexpr u32 kInputMapVersion = 1;
+    inline constexpr u32 kInputMapVersion = 2;   // v2: touch sources + region fields
 
-    inline void SerializeBinding(ISerializer& ar, Binding& b)
+    inline void SerializeBinding(ISerializer& ar, Binding& b, u32 version = kInputMapVersion)
     {
         u8 source = static_cast<u8>(b.source);
         draconic::core::Serialize(ar, "source", source);
@@ -128,6 +138,14 @@ export namespace draconic::input
         draconic::core::Serialize(ar, "posX", b.posX);
         draconic::core::Serialize(ar, "negY", b.negY);
         draconic::core::Serialize(ar, "posY", b.posY);
+        if (version >= 2)
+        {
+            draconic::core::Serialize(ar, "regionX", b.regionX);
+            draconic::core::Serialize(ar, "regionY", b.regionY);
+            draconic::core::Serialize(ar, "regionW", b.regionW);
+            draconic::core::Serialize(ar, "regionH", b.regionH);
+            draconic::core::Serialize(ar, "stickRadius", b.stickRadius);
+        }
     }
 
     inline void SerializeInputMap(ISerializer& ar, InputMap& map)
@@ -171,7 +189,7 @@ export namespace draconic::input
                 if (!writing) { action.bindings.Resize(bindingCount); }
                 for (u32 b = 0; b < bindingCount; ++b)
                 {
-                    SerializeBinding(ar, action.bindings[b]);
+                    SerializeBinding(ar, action.bindings[b], version);
                 }
                 ar.EndArray();
             }
@@ -213,7 +231,7 @@ export namespace draconic::input
                 ar.Key("bindings");
                 ar.BeginArray(bindingCount);
                 if (!writing) { o.bindings.Resize(bindingCount); }
-                for (u32 b = 0; b < bindingCount; ++b) { SerializeBinding(ar, o.bindings[b]); }
+                for (u32 b = 0; b < bindingCount; ++b) { SerializeBinding(ar, o.bindings[b]); }   // current version
                 ar.EndArray();
             }
             ar.EndArray();
@@ -296,7 +314,8 @@ export namespace draconic::input
                 {
                     const bool is2D = b.source == BindingSource::GamepadStick
                                    || b.source == BindingSource::Composite2D
-                                   || b.source == BindingSource::MouseDelta;
+                                   || b.source == BindingSource::MouseDelta
+                                   || b.source == BindingSource::TouchStick;
                     const bool isAxis = b.source == BindingSource::MouseAxis
                                      || b.source == BindingSource::GamepadAxis;
                     switch (action.kind)

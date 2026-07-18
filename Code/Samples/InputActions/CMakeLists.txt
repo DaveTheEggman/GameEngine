@@ -10,5 +10,6 @@ target_link_libraries(InputActions PRIVATE
     Draconic::Graphics
     Draconic::GraphicsGpu
     Draconic::Input Draconic::InputSubsystem
+    Draconic::Settings Draconic::XmlSerialization Draconic::Imgui
     Draconic::Policy)
 draconic_copy_sdl3_dll(InputActions)
