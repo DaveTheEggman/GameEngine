@@ -15,7 +15,8 @@ target_link_libraries(DraconicModelImporter
         Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
         Draconic::TextureResource  Draconic::TextureEditor  Draconic::Image
         Draconic::Animation Draconic::AnimationResource Draconic::AnimationEditor
-        Draconic::Content   Draconic::Resource   Draconic::Editor)
+        Draconic::Content   Draconic::Resource   Draconic::Editor
+        Draconic::Physics   Draconic::PhysicsResource  Draconic::PhysicsEditor)
 
 target_sources(DraconicModelImporter
     PUBLIC

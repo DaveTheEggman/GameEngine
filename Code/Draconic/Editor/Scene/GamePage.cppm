@@ -36,6 +36,7 @@ import draconic.shell;
 import draconic.input;
 import draconic.input.resource;
 import draconic.input.subsystem;
+import draconic.physics.subsystem;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -111,6 +112,7 @@ export namespace draconic::editor
             m_scenes = host.Ctx().GetSubsystem<gscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<grender::RenderSubsystem>();
             m_input = host.Ctx().GetSubsystem<draconic::input::InputSubsystem>();
+            m_physics = host.Ctx().GetSubsystem<draconic::physics::PhysicsSubsystem>();
             m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
             m_viewport = MakeRef<guivp::ViewportView>(DefaultAllocator());
@@ -377,12 +379,14 @@ export namespace draconic::editor
             const StringView source(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
 
             draconic::input::RegisterInputScriptApi();   // scripts get the Input facade
+            draconic::physics::RegisterPhysicsScriptApi();   // ...and the Physics facade
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
             m_scriptErrors.context = m_context;
             m_scriptContext->SetErrorHandler(&m_scriptErrors);
             if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
+            if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
             if (!m_scriptContext->Load(source, scriptPath).IsOk())
             {
                 m_context->Notify(NoticeKind::Error,
@@ -448,6 +452,7 @@ export namespace draconic::editor
         grender::RenderSubsystem* m_render = nullptr;
         gscene::Scene* m_scene = nullptr;
         draconic::input::InputSubsystem* m_input = nullptr;
+        draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::shell::IInputManager* m_shellInput = nullptr;
         GameViewportInputSource m_viewportSource;
 

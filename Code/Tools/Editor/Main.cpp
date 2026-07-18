@@ -51,6 +51,8 @@ import draconic.input.editor;
 import draconic.editor.input;
 import draconic.input.subsystem;
 import draconic.physics;
+import draconic.physics.resource;
+import draconic.physics.editor;
 import draconic.physics.subsystem;
 import draconic.modelimporter;
 
@@ -83,6 +85,8 @@ namespace
         // manifest via the model-importer helper, plus the image resource).
         draconic::modelimporter::RegisterModelImporterTypes();
         draconic::image::RegisterImageResource();
+        draconic::physics::RegisterPhysicsAssets();
+        draconic::physics::RegisterPhysicsResource();
 
         AddBuilder<draconic::texture::TextureAssetBuilder>(registry);
         AddBuilder<draconic::image::ImageAssetBuilder>(registry);
@@ -96,6 +100,8 @@ namespace
         AddBuilder<draconic::particles::ParticleEffectAssetBuilder>(registry);
         AddBuilder<draconic::input::InputMapAssetBuilder>(registry);
         AddBuilder<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
+        AddBuilder<draconic::physics::CollisionShapeAssetBuilder>(registry);
+        AddBuilder<draconic::physics::PhysicalMaterialAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
@@ -234,6 +240,42 @@ int main(int argc, char** argv)
             };
             app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(inputCreator));
         }
+        {
+            // New Asset > Physical Material (surface properties; edited in the inspector).
+            ed::EditorContext::AssetCreator materialCreator;
+            materialCreator.label = String(u8"Physical Material");
+            materialCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance = target->CreateInstance(
+                    u8"PhysicalMaterial", draconic::physics::PhysicalMaterialAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::physics::PhysicalMaterialAsset asset;
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(materialCreator));
+        }
+        {
+            // New Asset > Collision Shape (point its sourceMesh at a mesh in the inspector).
+            ed::EditorContext::AssetCreator shapeCreator;
+            shapeCreator.label = String(u8"Collision Shape");
+            shapeCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance = target->CreateInstance(
+                    u8"CollisionShape", draconic::physics::CollisionShapeAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::physics::CollisionShapeAsset asset;
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(shapeCreator));
+        }
         RegisterAllBuilders(app.Builders());   // the cook service routes through this set
 
         // OS-file importers (drag-drop onto the editor).
@@ -258,6 +300,10 @@ int main(int argc, char** argv)
             DefaultAllocator().New<draconic::animation::AnimationGraphFactory>(), DefaultAllocator()));
         app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
             DefaultAllocator().New<draconic::particles::ParticleEffectFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::physics::CollisionShapeFactory>(), DefaultAllocator()));
+        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
+            DefaultAllocator().New<draconic::physics::PhysicalMaterialFactory>(), DefaultAllocator()));
         app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
             DefaultAllocator().New<draconic::texture::TextureFactory>(*host.Graphics()->Raw()),
             DefaultAllocator()));

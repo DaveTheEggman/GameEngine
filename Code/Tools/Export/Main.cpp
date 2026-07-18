@@ -43,6 +43,8 @@ import draconic.render.subsystem;
 import draconic.animation.subsystem;
 import draconic.particles.subsystem;
 import draconic.physics;
+import draconic.physics.resource;
+import draconic.physics.editor;
 import draconic.physics.subsystem;
 
 using namespace draconic::core;
@@ -128,6 +130,8 @@ namespace
         draconic::modelimporter::RegisterModelManifestAsset();
         draconic::modelimporter::RegisterModelImporterTypes();
         draconic::image::RegisterImageResource();
+        draconic::physics::RegisterPhysicsAssets();
+        draconic::physics::RegisterPhysicsResource();
         GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
         RegisterSerializable<dscene::SceneDocument>();
 
@@ -143,6 +147,8 @@ namespace
         Add<draconic::particles::ParticleEffectAssetBuilder>(registry);
         Add<draconic::input::InputMapAssetBuilder>(registry);
         Add<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
+        Add<draconic::physics::CollisionShapeAssetBuilder>(registry);
+        Add<draconic::physics::PhysicalMaterialAssetBuilder>(registry);
     }
 
     // Directory containing this executable (Bin/... - where RaptorPlayer + its .runtime-libs live,

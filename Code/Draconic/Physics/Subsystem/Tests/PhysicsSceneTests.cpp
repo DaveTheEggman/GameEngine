@@ -10,7 +10,10 @@
 import draconic.core;
 import draconic.scene;
 import draconic.physics;
+import draconic.physics.resource;
 import draconic.physics.subsystem;
+import draconic.script;
+import draconic.script.wren;
 
 using namespace draconic::core;
 using namespace draconic::physics;
@@ -184,4 +187,143 @@ TEST_CASE("physics.scene: trigger components raise enter events with entity user
         }
     }
     CHECK(entered);
+}
+
+TEST_CASE("physics.scene: cooked collision shape drives a body via the component ref")
+{
+    // Cook a unit-cube hull, wrap it in a CollisionShape product, and hand it to the
+    // component DIRECTLY (Ref procedural override) - no content db in this harness.
+    Array<byte> blob;
+    Array<Float3> corners;
+    const f32 ends[2] = { -0.5f, 0.5f };
+    for (f32 x : ends) for (f32 y : ends) for (f32 z : ends) { corners.PushBack(Float3{ x, y, z }); }
+    REQUIRE(CookConvexHull(Span<const Float3>(corners.Data(), corners.Size()), blob));
+    RefPtr<CollisionShape> shape = MakeRef<CollisionShape>(DefaultAllocator());
+    shape->blob.Resize(blob.Size());
+    MemCopy(shape->blob.Data(), blob.Data(), blob.Size());
+
+    PlayScene play;
+    play.AddFloor();
+    dscene::EntityHandle crate = play.AddBox(3.0f);
+    {
+        RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(crate);
+        REQUIRE(body != nullptr);
+        body->shape = ShapeKind::Cooked;
+        body->collisionShape = shape;   // Ref direct override
+        // Entity scale doubles the cooked hull: rest height = scaled half extent.
+        Transform t = play.scene.GetLocalTransform(crate);
+        t.scale = Float3{ 2.0f, 2.0f, 2.0f };
+        play.scene.SetLocalTransform(crate, t);
+    }
+    play.Start();
+    play.Step(300);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(crate).y == doctest::Approx(1.0f).epsilon(0.08));
+}
+
+TEST_CASE("physics.scene: a referenced PhysicalMaterial overrides inline surface fields")
+{
+    RefPtr<PhysicalMaterial> bouncy = MakeRef<PhysicalMaterial>(DefaultAllocator());
+    bouncy->friction = 0.1f;
+    bouncy->restitution = 0.9f;
+
+    PlayScene play;
+    play.AddFloor();
+    dscene::EntityHandle ball = play.AddBox(3.0f);
+    {
+        RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(ball);
+        REQUIRE(body != nullptr);
+        body->restitution = 0.0f;      // inline says dead drop...
+        body->material = bouncy;       // ...material says bounce
+    }
+    play.Start();
+
+    // Track the maximum height AFTER the first impact; a dead drop stays ~at rest.
+    bool impacted = false;
+    f32 apex = 0.0f;
+    for (int i = 0; i < 600; ++i)
+    {
+        play.Step();
+        play.physics->ApplyInterpolation(1.0f);
+        play.scene.UpdateTransforms();
+        const f32 y = play.scene.GetWorldPosition(ball).y;
+        if (!impacted && y < 0.6f) { impacted = true; }
+        else if (impacted) { apex = y > apex ? y : apex; }
+    }
+    CHECK(apex > 1.0f);   // bounced well above the rest height
+}
+
+TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
+{
+    PlayScene play;
+    dscene::EntityHandle ground = play.scene.CreateEntity(u8"ramp");
+    {
+        RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(ground);
+        body.motion = MotionKind::Static;
+        body.layer = PhysicsLayer::Static;
+        body.shape = ShapeKind::Plane;   // entity's local XZ plane; rotation tilts it
+        body.friction = 0.0f;
+        Transform t = play.scene.GetLocalTransform(ground);
+        t.rotation = Quaternion::FromAxisAngle(Float3{ 0.0f, 0.0f, 1.0f }, 0.3f);
+        play.scene.SetLocalTransform(ground, t);
+    }
+    dscene::EntityHandle box = play.AddBox(3.0f);
+    {
+        RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(box);
+        body->friction = 0.0f;
+    }
+    play.Start();
+    play.Step(240);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    // Frictionless on a plane tilted around +Z: the box slides toward -x downhill... the
+    // tilt raises +x, so it slides to NEGATIVE x and keeps contact (no tunnel-through).
+    const Float3 position = play.scene.GetWorldPosition(box);
+    CHECK(position.x < -1.0f);
+    CHECK(position.y > -30.0f);
+}
+
+TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the service")
+{
+    RegisterPhysicsScriptApi();
+
+    PlayScene play;
+    play.AddFloor();
+    dscene::EntityHandle box = play.AddBox(0.5f);   // resting on the floor at y=0.5
+    play.Start();
+    play.Step(10);
+
+    PhysicsScriptBinding binding;
+    binding.system = play.physics;
+
+    RefPtr<draconic::script::IScriptManager> manager =
+        draconic::script::wren::CreateScriptManager();
+    draconic::script::RegisterReflectedTypes(*manager);
+    RefPtr<draconic::script::IScriptContext> ctx = manager->CreateContext();
+    REQUIRE(ctx.Get() != nullptr);
+    ctx->SetService(kPhysicsScriptService, &binding);
+
+    const StringView script =
+        u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n"
+        u8"var Top = Physics.hitY()\n"
+        u8"var UpN = Physics.hitNormalY()\n"
+        u8"var Bodies = Physics.bodyCount()\n"
+        u8"Physics.impulseOnHit(8000, 0, 0)\n";   // the box weighs ~1000kg (default density)
+    REQUIRE(ctx->Load(script, u8"main").IsOk());
+    CHECK(ctx->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(4.0).epsilon(0.02));
+    CHECK(ctx->GetGlobal(u8"Top").Get<f64>() == doctest::Approx(1.0).epsilon(0.02));
+    CHECK(ctx->GetGlobal(u8"UpN").Get<f64>() == doctest::Approx(1.0).epsilon(0.01));
+    CHECK(ctx->GetGlobal(u8"Bodies").Get<f64>() == doctest::Approx(2.0));
+
+    // The scripted impulse actually moved the box.
+    play.Step(30);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(box).x > 0.2f);
+
+    // No service bound: released misses, never a crash.
+    RefPtr<draconic::script::IScriptContext> bare = manager->CreateContext();
+    REQUIRE(bare->Load(u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n", u8"main").IsOk());
+    CHECK(bare->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(-1.0));
 }

@@ -5,7 +5,8 @@ add_library(Draconic::PhysicsSubsystem ALIAS DraconicPhysicsSubsystem)
 
 target_link_libraries(DraconicPhysicsSubsystem
     PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
-           Draconic::Physics Draconic::RenderSubsystem Draconic::Policy)
+           Draconic::Physics Draconic::PhysicsResource Draconic::Resource Draconic::Script
+           Draconic::RenderSubsystem Draconic::Policy)
 
 target_sources(DraconicPhysicsSubsystem
     PRIVATE

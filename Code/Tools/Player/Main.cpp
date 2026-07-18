@@ -60,6 +60,7 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.input;
 import draconic.physics;
+import draconic.physics.resource;
 import draconic.physics.subsystem;
 import draconic.input.resource;
 import draconic.input.subsystem;
@@ -92,7 +93,7 @@ namespace
         {
             rt::DefaultApplication::Configure(host);
             host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
-            host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
+            m_physics = host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
             // FIRST in tick order matters not (input polls devices, scenes read the runtime);
             // shell devices wire in OnStartup once the shell exists.
             m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
@@ -103,6 +104,7 @@ namespace
             draconic::image::RegisterImageResource();
             draconic::particles::RegisterParticleEffectResource();
             draconic::input::RegisterInputMapResource();
+            draconic::physics::RegisterPhysicsResource();
             GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
             RegisterSerializable<dscene::SceneDocument>();
         }
@@ -164,6 +166,8 @@ namespace
             m_resources->AddFactory(&m_graphFactory);
             m_resources->AddFactory(&m_effectFactory);
             m_resources->AddFactory(&m_inputMapFactory);
+            m_resources->AddFactory(&m_collisionShapeFactory);
+            m_resources->AddFactory(&m_physicalMaterialFactory);
             if (graphics::GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = MakeUnique<draconic::texture::TextureFactory>(DefaultAllocator(), *gfx->Raw());
@@ -339,10 +343,12 @@ namespace
             const StringView source(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
 
             draconic::input::RegisterInputScriptApi();   // scripts get the Input facade
+            draconic::physics::RegisterPhysicsScriptApi();   // ...and the Physics facade
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
             if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
+            if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
             if (!m_scriptContext->Load(source, scriptPath).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Player", u8"startup script '{}' failed to compile", scriptPath);
@@ -362,7 +368,10 @@ namespace
         f32 m_elapsed = 0.0f;
         draconic::project::ProjectSettings m_settings;
         draconic::input::InputSubsystem* m_input = nullptr;
+        draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::input::InputMapFactory m_inputMapFactory;
+        draconic::physics::CollisionShapeFactory m_collisionShapeFactory;
+        draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
         UniquePtr<draconic::vfs::NativeFileSystem> m_root;
         UniquePtr<draconic::vfs::PakFileSystem> m_pak;             // dist mode only
         UniquePtr<draconic::vfs::NativeFileSystem> m_contentMount; // project mode only

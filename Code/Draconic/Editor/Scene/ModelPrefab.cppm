@@ -27,6 +27,8 @@ import draconic.scene;
 import draconic.scene.resource;
 import draconic.render.subsystem;
 import draconic.animation.subsystem;
+import draconic.physics;
+import draconic.physics.subsystem;
 import draconic.modelimporter;
 import draconic.editor.core;
 
@@ -60,6 +62,11 @@ export namespace draconic::editor
         dscene::Scene scene(manifestInstance.Name());
         auto* meshes = scene.AddSystem<drender::MeshComponentManager>();
         auto* anims = scene.AddSystem<danim::SkeletalAnimationComponentManager>();
+        const bool hasCollision = !manifest.collisionGuids.IsEmpty();
+        auto* rigidBodies = hasCollision
+            ? scene.AddSystem<draconic::physics::RigidBodyComponentManager>() : nullptr;
+        auto* colliders = hasCollision
+            ? scene.AddSystem<draconic::physics::ColliderComponentManager>() : nullptr;
 
         dscene::EntityHandle root = scene.CreateEntity(manifestInstance.Name());
         Array<dscene::EntityHandle> entities;
@@ -100,6 +107,16 @@ export namespace draconic::editor
                 mc.materials.PushBack(r);
             }
 
+            // Generated collision: each mesh node gets a cooked-shape collider that folds
+            // into the STATIC RigidBody on the prefab root (hierarchy compounding).
+            if (colliders != nullptr && meshIndex < manifest.collisionGuids.Size()
+                && !manifest.collisionGuids[meshIndex].IsNil())
+            {
+                draconic::physics::ColliderComponent& cc = colliders->Add(entities[i]);
+                cc.shape = draconic::physics::ShapeKind::Cooked;
+                cc.collisionShape.SetId(manifest.collisionGuids[meshIndex]);
+            }
+
             const bool skinned = (meshIndex < manifest.meshSkinned.Size())
                 && manifest.meshSkinned[meshIndex] != 0;
             if (skinned && animated)
@@ -108,6 +125,21 @@ export namespace draconic::editor
                 danim::SkeletalAnimationComponent& ac = anims->Add(entities[i]);
                 ac.skeleton.SetId(manifest.skeletonGuid);
                 ac.clip.SetId(manifest.animationGuids[0]);
+            }
+        }
+
+        if (rigidBodies != nullptr)
+        {
+            bool anyCollider = false;
+            for (const Guid& g : manifest.collisionGuids) { anyCollider = anyCollider || !g.IsNil(); }
+            if (anyCollider)
+            {
+                draconic::physics::RigidBodyComponent& body = rigidBodies->Add(root);
+                body.motion = draconic::physics::MotionKind::Static;
+                body.layer = draconic::physics::PhysicsLayer::Static;
+                // The root body's OWN shape stays a degenerate box; the real geometry
+                // comes from the descendant cooked colliders compounding in.
+                body.halfExtents = Float3{ 0.01f, 0.01f, 0.01f };
             }
         }
 

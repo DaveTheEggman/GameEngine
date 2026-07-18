@@ -3,7 +3,7 @@ add_executable(DraconicPhysicsSceneTests
     PhysicsSceneTests.cpp)
 
 target_link_libraries(DraconicPhysicsSceneTests PRIVATE
-    Draconic::PhysicsSubsystem Draconic::Scene doctest::doctest)
+    Draconic::PhysicsSubsystem Draconic::Scene Draconic::Script Draconic::ScriptWren doctest::doctest)
 
 target_compile_definitions(DraconicPhysicsSceneTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

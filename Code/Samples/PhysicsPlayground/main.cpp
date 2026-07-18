@@ -25,6 +25,7 @@ import draconic.scene.subsystem;
 import draconic.render.subsystem;
 import draconic.imgui;
 import draconic.physics;
+import draconic.physics.resource;
 import draconic.physics.subsystem;
 
 #include "../Common/FlyCamera.h"   // after the imports: uses draconic::core/runtime types
@@ -103,6 +104,8 @@ namespace
                     m_physics->World()->AddImpulse(hit.body,
                         core::Float3{ forward.x * 400.0f, forward.y * 400.0f + 120.0f,
                                       forward.z * 400.0f });
+                    m_lastSurface = hit.surface;   // ramp panels report 1 / 2
+                    m_haveSurface = true;
                 }
             }
 
@@ -146,14 +149,80 @@ namespace
         {
             auto* bodies = m_scene->GetSystem<physics::RigidBodyComponentManager>();
 
-            // Floor.
+            // Ground: an infinite plane (P2) - crates land anywhere, not just on a slab.
             {
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(e, core::Float3{ 0.0f, -0.5f, 0.0f });
+                dscene::EntityHandle e = m_scene->CreateEntity(u8"ground");
                 physics::RigidBodyComponent& body = bodies->Add(e);
                 body.motion = physics::MotionKind::Static;
                 body.layer = physics::PhysicsLayer::Static;
-                body.halfExtents = core::Float3{ 25.0f, 0.5f, 25.0f };
+                body.shape = physics::ShapeKind::Plane;
+                body.planeHalfExtent = 200.0f;
+            }
+            // A cooked TRIANGLE-MESH ramp (P2): two panels, two material slots - the
+            // crosshair ray reports which slot it hit (HUD "surface").
+            {
+                const core::Float3 positions[] = {
+                    { 6.0f, 0.0f, -3.0f }, { 6.0f, 0.0f, 3.0f },      // low edge
+                    { 12.0f, 3.0f, 3.0f }, { 12.0f, 3.0f, -3.0f },    // high edge
+                    { 18.0f, 3.0f, 3.0f }, { 18.0f, 3.0f, -3.0f },    // flat top end
+                };
+                const core::u32 indices[] = { 0, 1, 2, 0, 2, 3,       // sloped panel
+                                              3, 2, 4, 3, 4, 5 };     // flat panel
+                const core::u32 slots[] = { 1, 1, 2, 2 };
+                core::Array<core::byte> blob;
+                if (physics::CookTriangleMesh(
+                        core::Span<const core::Float3>(positions, 6),
+                        core::Span<const core::u32>(indices, 12),
+                        core::Span<const core::u32>(slots, 4), blob))
+                {
+                    m_rampShape = core::MakeRef<physics::CollisionShape>(core::DefaultAllocator());
+                    m_rampShape->blob.Resize(blob.Size());
+                    core::MemCopy(m_rampShape->blob.Data(), blob.Data(), blob.Size());
+                    core::Array<core::Float3> outline;
+                    if (physics::ExtractShapeTriangles(
+                            core::Span<const core::byte>(blob.Data(), blob.Size()), outline))
+                    {
+                        m_rampShape->outline = static_cast<core::Array<core::Float3>&&>(outline);
+                    }
+                    dscene::EntityHandle e = m_scene->CreateEntity(u8"ramp");
+                    physics::RigidBodyComponent& body = bodies->Add(e);
+                    body.motion = physics::MotionKind::Static;
+                    body.layer = physics::PhysicsLayer::Static;
+                    body.shape = physics::ShapeKind::Cooked;
+                    body.collisionShape = m_rampShape;
+                }
+            }
+            // A cooked CONVEX boulder (P2) dropped onto the ramp - hulls may be dynamic.
+            {
+                core::Array<core::Float3> points;
+                const core::f32 axes[3][3] = { { 0.9f, 0, 0 }, { 0, 0.7f, 0 }, { 0, 0, 0.8f } };
+                for (const auto& a : axes)
+                {
+                    points.PushBack(core::Float3{ a[0], a[1], a[2] });
+                    points.PushBack(core::Float3{ -a[0], -a[1], -a[2] });
+                }
+                points.PushBack(core::Float3{ 0.5f, 0.5f, 0.5f });
+                points.PushBack(core::Float3{ -0.5f, 0.5f, -0.5f });
+                core::Array<core::byte> blob;
+                if (physics::CookConvexHull(
+                        core::Span<const core::Float3>(points.Data(), points.Size()), blob))
+                {
+                    m_boulderShape = core::MakeRef<physics::CollisionShape>(core::DefaultAllocator());
+                    m_boulderShape->blob.Resize(blob.Size());
+                    core::MemCopy(m_boulderShape->blob.Data(), blob.Data(), blob.Size());
+                    core::Array<core::Float3> outline;
+                    if (physics::ExtractShapeTriangles(
+                            core::Span<const core::byte>(blob.Data(), blob.Size()), outline))
+                    {
+                        m_boulderShape->outline = static_cast<core::Array<core::Float3>&&>(outline);
+                    }
+                    m_boulder = m_scene->CreateEntity(u8"boulder");
+                    m_scene->SetLocalPosition(m_boulder, core::Float3{ 14.0f, 8.0f, 0.0f });
+                    physics::RigidBodyComponent& body = bodies->Add(m_boulder);
+                    body.shape = physics::ShapeKind::Cooked;
+                    body.collisionShape = m_boulderShape;
+                    body.friction = 0.4f;
+                }
             }
             // The crate stack (5x4 wall).
             for (int row = 0; row < 4; ++row)
@@ -229,6 +298,7 @@ namespace
             {
                 host.Ctx().SetTimeScale(scale);
             }
+            if (m_haveSurface) { ImGui::Text("last hit surface slot: %u", m_lastSurface); }
             ImGui::Text("LMB shove | R respawn | Esc quit");
             ImGui::End();
 
@@ -256,6 +326,11 @@ namespace
         dscene::EntityHandle m_camera;
         dscene::EntityHandle m_sweeper;
         core::Array<dscene::EntityHandle> m_crates;
+        dscene::EntityHandle m_boulder;
+        core::RefPtr<physics::CollisionShape> m_rampShape;
+        core::RefPtr<physics::CollisionShape> m_boulderShape;
+        core::u32 m_lastSurface = 0;
+        bool m_haveSurface = false;
         draconic::samples::FlyCamera m_fly;
         f32 m_sweepAngle = 0.0f;
     };

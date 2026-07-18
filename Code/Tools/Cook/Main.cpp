@@ -28,6 +28,9 @@ import draconic.input;
 import draconic.input.resource;
 import draconic.input.editor;
 import draconic.modelimporter;
+import draconic.physics;
+import draconic.physics.resource;
+import draconic.physics.editor;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -58,6 +61,8 @@ namespace
         // manifest via the model-importer helper, plus the image resource).
         draconic::modelimporter::RegisterModelImporterTypes();
         draconic::image::RegisterImageResource();
+        draconic::physics::RegisterPhysicsAssets();
+        draconic::physics::RegisterPhysicsResource();
 
         Add<draconic::texture::TextureAssetBuilder>(registry);
         Add<draconic::image::ImageAssetBuilder>(registry);
@@ -71,6 +76,8 @@ namespace
         Add<draconic::particles::ParticleEffectAssetBuilder>(registry);
         Add<draconic::input::InputMapAssetBuilder>(registry);
         Add<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
+        Add<draconic::physics::CollisionShapeAssetBuilder>(registry);
+        Add<draconic::physics::PhysicalMaterialAssetBuilder>(registry);
     }
 }
 

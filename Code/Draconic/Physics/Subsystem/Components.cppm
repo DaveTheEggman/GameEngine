@@ -13,7 +13,9 @@ export module draconic.physics.subsystem:components;
 
 import draconic.core;
 import draconic.scene;
+import draconic.resource;
 import draconic.physics;
+import draconic.physics.resource;
 
 using namespace draconic::core;
 
@@ -28,11 +30,18 @@ export namespace draconic::physics
         Float3 halfExtents{ 0.5f, 0.5f, 0.5f };
         f32 radius = 0.5f;
         f32 halfHeight = 0.5f;
+        // shape == ShapeKind::Plane: the entity's local XZ plane (+Y solid-below),
+        // collidable within +-planeHalfExtent of the entity (static/kinematic only).
+        f32 planeHalfExtent = 1000.0f;
         f32 friction = 0.5f;
         f32 restitution = 0.0f;
         f32 linearDamping = 0.05f;
         f32 angularDamping = 0.05f;
         bool isTrigger = false;
+        // shape == ShapeKind::Cooked: the cooked collision-shape resource to use.
+        draconic::resource::Ref<CollisionShape> collisionShape;
+        // Optional surface override: when set, wins over the inline friction/restitution.
+        draconic::resource::Ref<PhysicalMaterial> material;
 
         // Runtime (transient):
         BodyId body;
@@ -50,6 +59,8 @@ export namespace draconic::physics
         Float3 halfExtents{ 0.5f, 0.5f, 0.5f };
         f32 radius = 0.5f;
         f32 halfHeight = 0.5f;
+        f32 planeHalfExtent = 1000.0f;                            // shape == Plane
+        draconic::resource::Ref<CollisionShape> collisionShape;   // shape == Cooked
     };
 
     inline void Serialize(ISerializer& ar, RigidBodyComponent& c)
@@ -66,11 +77,20 @@ export namespace draconic::physics
         draconic::core::Serialize(ar, "halfExtents", c.halfExtents);
         draconic::core::Serialize(ar, "radius", c.radius);
         draconic::core::Serialize(ar, "halfHeight", c.halfHeight);
+        draconic::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
         draconic::core::Serialize(ar, "friction", c.friction);
         draconic::core::Serialize(ar, "restitution", c.restitution);
         draconic::core::Serialize(ar, "linearDamping", c.linearDamping);
         draconic::core::Serialize(ar, "angularDamping", c.angularDamping);
         draconic::core::Serialize(ar, "isTrigger", c.isTrigger);
+        draconic::core::Serialize(ar, "collisionShape", c.collisionShape);
+        draconic::core::Serialize(ar, "material", c.material);
+    }
+
+    inline void ResolveResources(draconic::resource::ResourceManager& manager, RigidBodyComponent& c)
+    {
+        c.collisionShape.Bind(manager);
+        c.material.Bind(manager);
     }
 
     inline void Serialize(ISerializer& ar, ColliderComponent& c)
@@ -81,6 +101,13 @@ export namespace draconic::physics
         draconic::core::Serialize(ar, "halfExtents", c.halfExtents);
         draconic::core::Serialize(ar, "radius", c.radius);
         draconic::core::Serialize(ar, "halfHeight", c.halfHeight);
+        draconic::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
+        draconic::core::Serialize(ar, "collisionShape", c.collisionShape);
+    }
+
+    inline void ResolveResources(draconic::resource::ResourceManager& manager, ColliderComponent& c)
+    {
+        c.collisionShape.Bind(manager);
     }
 
     class RigidBodyComponentManager final

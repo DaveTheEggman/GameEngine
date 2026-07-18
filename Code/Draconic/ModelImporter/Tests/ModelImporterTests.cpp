@@ -17,6 +17,7 @@ import draconic.animation.resource;
 import draconic.model;
 import draconic.model.io;
 import draconic.modelimporter;
+import draconic.physics.editor;
 import draconic.editor;
 import draconic.editor.core;
 import draconic.editor.cook;
@@ -842,7 +843,9 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     CHECK(options->importMaterials);
     CHECK(options->importAnimations);
     CHECK(options->generatePrefab);
-    CHECK(options->Toggles().Size() == 4u);
+    CHECK_FALSE(options->generateCollision);   // opt-in
+    CHECK_FALSE(options->collisionConvex);
+    CHECK(options->Toggles().Size() == 6u);
 
     // Geometry-only import: no textures, no materials, no skeleton/clips in the fan-out.
     options->importTextures = false;
@@ -871,6 +874,60 @@ TEST_CASE("model-import: options gate textures/materials/animations")
         CHECK(inst->TypeName() != StringView(u8"SkeletonAsset"));
         CHECK(inst->TypeName() != StringView(u8"AnimationClipAsset"));
     }
+}
+
+TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to the meshes")
+{
+    using namespace draconic::editor;
+    namespace mi = draconic::modelimporter;
+    mi::RegisterModelManifestAsset();
+    draconic::texture::RegisterTextureAsset();
+    draconic::geometry::RegisterMeshAssets();
+    draconic::materials::RegisterMaterialAsset();
+    draconic::animation::RegisterAnimationAssets();
+    draconic::physics::RegisterPhysicsAssets();
+
+    const StringView dir = u8"draconic_model_import_collision_project";
+    CleanProjectTree(dir);
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    mi::ModelFileImporter importer;
+    RefPtr<ImportOptions> base = importer.CreateOptions();
+    auto* options = static_cast<mi::ModelImportOptions*>(base.Get());
+    options->generateCollision = true;
+    options->collisionConvex = true;
+    Result<draconic::content::Instance*> imported = importer.Import(
+        reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_GLB),
+        *project, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
+    REQUIRE(imported.HasValue());
+
+    RefPtr<ISerializable> object = imported.Value()->ReadObject();
+    auto* manifest = Cast<mi::ModelManifestAsset>(object.Get());
+    REQUIRE(manifest != nullptr);
+    // collisionGuids parallels meshGuids; STATIC meshes get shapes (skinned stay nil).
+    REQUIRE(manifest->manifest.collisionGuids.Size() == manifest->manifest.meshGuids.Size());
+    usize shapeCount = 0;
+    for (usize i = 0; i < manifest->manifest.collisionGuids.Size(); ++i)
+    {
+        const Guid& g = manifest->manifest.collisionGuids[i];
+        if (manifest->manifest.meshSkinned[i] != 0) { CHECK(g.IsNil()); continue; }
+        REQUIRE(!g.IsNil());
+        ++shapeCount;
+        draconic::content::Instance* inst = project->SourceDb().GetInstance(g);
+        REQUIRE(inst != nullptr);
+        RefPtr<ISerializable> shapeObject = inst->ReadObject();
+        auto* shape = Cast<draconic::physics::CollisionShapeAsset>(shapeObject.Get());
+        REQUIRE(shape != nullptr);
+        CHECK(shape->sourceMesh == manifest->manifest.meshGuids[i]);
+        CHECK(shape->cook == draconic::physics::CollisionCookKind::ConvexHull);
+    }
+    const bool anySkinned = [&] {
+        for (u8 skinned : manifest->manifest.meshSkinned) { if (skinned != 0) { return true; } }
+        return false;
+    }();
+    CHECK((shapeCount > 0 || anySkinned));
 }
 
 TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, no duplicates)")

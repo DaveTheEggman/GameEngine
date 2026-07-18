@@ -41,6 +41,7 @@ import draconic.vfs;
 import draconic.content;
 import draconic.editor;
 import draconic.editor.core;
+import draconic.physics.editor;
 import :mesh_convert;
 import :anim_convert;
 import :resource;
@@ -104,6 +105,8 @@ export namespace draconic::modelimporter
         bool importMaterials = true;    // PBR materials (texture slots wired when textures import)
         bool importAnimations = true;   // skeleton + clips
         bool generatePrefab = true;     // hierarchy prefab beside the manifest (post-import step)
+        bool generateCollision = false; // CollisionShapeAsset per mesh + colliders on the prefab
+        bool collisionConvex = false;   // hull (dynamic-capable) instead of exact triangle mesh
 
         [[nodiscard]] Array<Toggle> Toggles() override
         {
@@ -112,6 +115,8 @@ export namespace draconic::modelimporter
             toggles.PushBack(Toggle{ u8"Materials", u8"Import PBR materials (textures wire in when they import too)", &importMaterials });
             toggles.PushBack(Toggle{ u8"Animations", u8"Import the skeleton and animation clips", &importAnimations });
             toggles.PushBack(Toggle{ u8"Generate prefab", u8"Create a spawnable prefab of the model's node hierarchy; re-import regenerates it", &generatePrefab });
+            toggles.PushBack(Toggle{ u8"Generate collision", u8"Cook a collision shape per mesh and add colliders (+ a static rigid body) to the generated prefab", &generateCollision });
+            toggles.PushBack(Toggle{ u8"Convex collision", u8"Simplified convex hulls (dynamic-capable) instead of exact triangle meshes", &collisionConvex });
             return toggles;
         }
 
@@ -121,14 +126,20 @@ export namespace draconic::modelimporter
             u8 materials = importMaterials ? 1u : 0u;
             u8 animations = importAnimations ? 1u : 0u;
             u8 prefab = generatePrefab ? 1u : 0u;
+            u8 collision = generateCollision ? 1u : 0u;
+            u8 convex = collisionConvex ? 1u : 0u;
             draconic::core::Serialize(ar, "textures", textures);
             draconic::core::Serialize(ar, "materials", materials);
             draconic::core::Serialize(ar, "animations", animations);
             draconic::core::Serialize(ar, "prefab", prefab);
+            draconic::core::Serialize(ar, "collision", collision);
+            draconic::core::Serialize(ar, "collisionConvex", convex);
             importTextures = textures != 0;
             importMaterials = materials != 0;
             importAnimations = animations != 0;
             generatePrefab = prefab != 0;
+            generateCollision = collision != 0;
+            collisionConvex = convex != 0;
         }
     };
 
@@ -248,6 +259,10 @@ export namespace draconic::modelimporter
             if (opt.importAnimations) { ImportSkeletonAndClips(model, *modelGroup, manifest, claimed); }
             const Status meshes = ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites);
             if (!meshes.IsOk()) { return Err(meshes.Code()); }
+            if (opt.generateCollision)
+            {
+                ImportCollisionShapes(*modelGroup, manifest, opt.collisionConvex, claimed);
+            }
             ImportNodes(model, manifest);
 
             content::Instance* instance =
@@ -651,6 +666,46 @@ export namespace draconic::modelimporter
                 manifest.meshMaterial.PushBack(parts.Size() > 0 ? parts[0].materialIndex : -1);
             }
             return Status{};
+        }
+
+        // One CollisionShapeAsset per STATIC mesh (skinned meshes don't get collision);
+        // the guid lands in manifest.collisionGuids (parallel; nil = none) for the
+        // prefab generator to wire colliders from.
+        static void ImportCollisionShapes(content::Group& group, ModelManifestSource& manifest,
+                                          bool convex, Array<String>& claimed)
+        {
+            for (usize i = 0; i < manifest.meshGuids.Size(); ++i)
+            {
+                if (manifest.meshSkinned[i] != 0)
+                {
+                    manifest.collisionGuids.PushBack(Guid{});
+                    continue;
+                }
+                content::Instance* meshInstance = nullptr;
+                for (content::Instance* candidate : group.Instances())
+                {
+                    if (candidate->Id() == manifest.meshGuids[i]) { meshInstance = candidate; break; }
+                }
+                String name(meshInstance != nullptr ? meshInstance->Name() : StringView(u8"mesh"));
+                name.Append(u8".collision");
+                content::Instance* inst = ClaimInstance(
+                    group, name.AsView(), draconic::physics::CollisionShapeAsset::StaticType(), claimed);
+                if (inst == nullptr)
+                {
+                    manifest.collisionGuids.PushBack(Guid{});
+                    continue;
+                }
+                draconic::physics::CollisionShapeAsset asset;
+                asset.sourceMesh = manifest.meshGuids[i];
+                asset.cook = convex ? draconic::physics::CollisionCookKind::ConvexHull
+                                    : draconic::physics::CollisionCookKind::TriangleMesh;
+                if (!inst->WriteObject(asset).IsOk())
+                {
+                    manifest.collisionGuids.PushBack(Guid{});
+                    continue;
+                }
+                manifest.collisionGuids.PushBack(inst->Id());
+            }
         }
 
         static void ImportNodes(const draconic::model::Model& model, ModelManifestSource& manifest)

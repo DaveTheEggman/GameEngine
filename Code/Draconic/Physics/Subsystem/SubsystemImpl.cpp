@@ -14,7 +14,9 @@ module draconic.physics.subsystem;
 import draconic.core;
 import draconic.runtime;
 import draconic.scene;
+import draconic.resource;
 import draconic.physics;
+import draconic.physics.resource;
 import draconic.render;
 import draconic.render.subsystem;
 
@@ -33,7 +35,7 @@ namespace draconic::physics
             if (world == nullptr || scene == nullptr) { return; }
             auto* bodies = scene->GetSystem<RigidBodyComponentManager>();
             if (bodies == nullptr) { return; }
-            bodies->ForEach([&](RigidBodyComponent& c, draconic::scene::EntityHandle) {
+            bodies->ForEach([&](RigidBodyComponent& c, draconic::scene::EntityHandle e) {
                 if (!c.body.IsValid()) { return; }
                 Float3 position;
                 Quaternion rotation;
@@ -62,6 +64,43 @@ namespace draconic::physics
                             Float3{ c.radius, c.halfHeight + c.radius, c.radius },
                             worldMatrix, color);
                         break;
+                    case ShapeKind::Plane:
+                    {
+                        // A bounded grid patch reads better than one huge quad.
+                        const f32 extent = c.planeHalfExtent < 25.0f ? c.planeHalfExtent : 25.0f;
+                        const i32 kCells = 10;
+                        for (i32 g = -kCells; g <= kCells; ++g)
+                        {
+                            const f32 offset = extent * static_cast<f32>(g) / kCells;
+                            draw.DrawLine(TransformPoint(Float3{ offset, 0, -extent }, worldMatrix),
+                                          TransformPoint(Float3{ offset, 0, extent }, worldMatrix), color);
+                            draw.DrawLine(TransformPoint(Float3{ -extent, 0, offset }, worldMatrix),
+                                          TransformPoint(Float3{ extent, 0, offset }, worldMatrix), color);
+                        }
+                        break;
+                    }
+                    case ShapeKind::Cooked:
+                        if (const CollisionShape* cooked = c.collisionShape.Get())
+                        {
+                            // Outline is authored unit-scale; re-apply the entity's scale.
+                            Float3 sp, ss;
+                            Quaternion sr;
+                            const Float4x4 shapeMatrix =
+                                Decompose(scene->GetWorldMatrix(e), sp, sr, ss)
+                                    ? Transform{ position, rotation, ss }.ToMatrix()
+                                    : worldMatrix;
+                            const Array<Float3>& outline = cooked->outline;
+                            for (usize t = 0; t + 2 < outline.Size(); t += 3)
+                            {
+                                const Float3 a = TransformPoint(outline[t + 0], shapeMatrix);
+                                const Float3 b = TransformPoint(outline[t + 1], shapeMatrix);
+                                const Float3 d = TransformPoint(outline[t + 2], shapeMatrix);
+                                draw.DrawLine(a, b, color);
+                                draw.DrawLine(b, d, color);
+                                draw.DrawLine(d, a, color);
+                            }
+                        }
+                        break;
                 }
             });
         }
@@ -73,8 +112,13 @@ namespace draconic::physics
         if (context == nullptr) { return; }
         const f32 alpha = context->FixedAlpha();
         auto* render = context->GetSubsystem<draconic::render::RenderSubsystem>();
+        m_scriptBinding.system = nullptr;
         for (const SceneEntry& entry : Systems())
         {
+            if (m_scriptBinding.system == nullptr && entry.system->World() != nullptr)
+            {
+                m_scriptBinding.system = entry.system;   // scripts act on the live world
+            }
             entry.system->ApplyInterpolation(alpha);
             if (render != nullptr && entry.system->Settings().debugDraw)
             {
@@ -107,6 +151,8 @@ namespace draconic::physics
         builder.Value("Box", ShapeKind::Box);
         builder.Value("Sphere", ShapeKind::Sphere);
         builder.Value("Capsule", ShapeKind::Capsule);
+        builder.Value("Cooked", ShapeKind::Cooked);
+        builder.Value("Plane", ShapeKind::Plane);
     }
 
     DRACONIC_REFLECT_VALUE(RigidBodyComponent, "draconic::physics")
@@ -118,11 +164,14 @@ namespace draconic::physics
         builder.Property<&RigidBodyComponent::halfExtents>("halfExtents");
         builder.Property<&RigidBodyComponent::radius>("radius");
         builder.Property<&RigidBodyComponent::halfHeight>("halfHeight");
+        builder.Property<&RigidBodyComponent::planeHalfExtent>("planeHalfExtent");
         builder.Property<&RigidBodyComponent::friction>("friction");
         builder.Property<&RigidBodyComponent::restitution>("restitution");
         builder.Property<&RigidBodyComponent::linearDamping>("linearDamping");
         builder.Property<&RigidBodyComponent::angularDamping>("angularDamping");
         builder.Property<&RigidBodyComponent::isTrigger>("isTrigger");
+        builder.Property<&RigidBodyComponent::collisionShape>("collisionShape");
+        builder.Property<&RigidBodyComponent::material>("material");
     }
 
     DRACONIC_REFLECT_VALUE(ColliderComponent, "draconic::physics")
@@ -132,6 +181,8 @@ namespace draconic::physics
         builder.Property<&ColliderComponent::halfExtents>("halfExtents");
         builder.Property<&ColliderComponent::radius>("radius");
         builder.Property<&ColliderComponent::halfHeight>("halfHeight");
+        builder.Property<&ColliderComponent::planeHalfExtent>("planeHalfExtent");
+        builder.Property<&ColliderComponent::collisionShape>("collisionShape");
     }
 
     DRACONIC_REFLECT_VALUE(PhysicsSceneSettings, "draconic::physics")
@@ -140,6 +191,29 @@ namespace draconic::physics
         builder.Property<&PhysicsSceneSettings::gravity>("gravity");
         builder.Property<&PhysicsSceneSettings::collisionSteps>("collisionSteps");
         builder.Property<&PhysicsSceneSettings::debugDraw>("debugDraw");
+    }
+
+    DRACONIC_REFLECT(Physics, "draconic::physics")
+    {
+        builder.Method<&Physics::rayCast>("rayCast");
+        builder.Method<&Physics::hitX>("hitX");
+        builder.Method<&Physics::hitY>("hitY");
+        builder.Method<&Physics::hitZ>("hitZ");
+        builder.Method<&Physics::hitNormalX>("hitNormalX");
+        builder.Method<&Physics::hitNormalY>("hitNormalY");
+        builder.Method<&Physics::hitNormalZ>("hitNormalZ");
+        builder.Method<&Physics::hitSurface>("hitSurface");
+        builder.Method<&Physics::impulseOnHit>("impulseOnHit");
+        builder.Method<&Physics::setGravity>("setGravity");
+        builder.Method<&Physics::gravityY>("gravityY");
+        builder.Method<&Physics::bodyCount>("bodyCount");
+        // The Wren emitter only materializes CONSTRUCTIBLE types as foreign classes.
+        builder.Constructor();
+    }
+
+    void RegisterPhysicsScriptApi()
+    {
+        GlobalTypeRegistry().Register(Physics::StaticType());
     }
 
     void RegisterPhysicsComponentReflection()

@@ -62,6 +62,7 @@ public:
     Array<Guid>      meshGuids;     // cooked mesh resources
     Array<u8>        meshSkinned;   // 1 if the mesh is skinned (parallel to meshGuids)
     Array<i32>       meshMaterial;  // material index per mesh (-1 = none); parallel to meshGuids
+    Array<Guid>      collisionGuids; // cooked collision shape per mesh (nil = none); parallel to meshGuids
     Array<Guid>      materialGuids; // cooked material resources
     Array<Guid>      materialAlbedo;// albedo texture per material (nil = none); parallel to materialGuids
     Array<ModelNode> nodes;         // node hierarchy
@@ -75,6 +76,7 @@ public:
         draconic::core::Serialize(ar, "meshGuids",      meshGuids);
         draconic::core::Serialize(ar, "meshSkinned",    meshSkinned);
         draconic::core::Serialize(ar, "meshMaterial",   meshMaterial);
+        draconic::core::Serialize(ar, "collisionGuids", collisionGuids);
         draconic::core::Serialize(ar, "materialGuids",  materialGuids);
         draconic::core::Serialize(ar, "materialAlbedo", materialAlbedo);
         draconic::core::Serialize(ar, "nodes",          nodes);

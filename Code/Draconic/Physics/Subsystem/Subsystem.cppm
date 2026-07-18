@@ -13,6 +13,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Core/Reflection/Reflect.h"   // DRACONIC_OBJECT (the Physics facade)
 #include <cmath>
 
 export module draconic.physics.subsystem;
@@ -23,6 +24,7 @@ import draconic.core;
 import draconic.runtime;
 import draconic.scene;
 import draconic.scene.subsystem;
+import draconic.script;
 import draconic.physics;
 // NOTE: no render imports HERE - the debug-draw path lives in SubsystemImpl.cpp (a module
 // implementation unit). Keeping heavyweight imports out of the interface matters for
@@ -185,11 +187,29 @@ export namespace draconic::physics
                 const Guid id = scene.GetEntityId(e);
                 desc.userData = id.low;
 
+                Float3 position, scale;
+                Quaternion rotation;
+                if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale)) { return; }
+
                 ShapeDesc own;
                 own.kind = c.shape;
                 own.halfExtents = c.halfExtents;
                 own.radius = c.radius;
                 own.halfHeight = c.halfHeight;
+                own.planeHalfExtent = c.planeHalfExtent;
+                if (c.shape == ShapeKind::Cooked)
+                {
+                    CollisionShape* cooked = c.collisionShape.Get();
+                    if (cooked == nullptr)
+                    {
+                        DRACONIC_LOG_WARNING(u8"Physics",
+                            u8"'{}': cooked shape has no collision-shape resource - body skipped",
+                            scene.GetEntityName(e));
+                        return;
+                    }
+                    own.cooked = cooked->Blob();
+                    own.scale = scale;   // cooked geometry is authored unit-scale
+                }
                 desc.shapes.PushBack(own);
 
                 // Hierarchy compounding: descendant ColliderComponents fold in at their
@@ -210,17 +230,30 @@ export namespace draconic::physics
                         shape.halfExtents = extra.halfExtents;
                         shape.radius = extra.radius;
                         shape.halfHeight = extra.halfHeight;
+                        shape.planeHalfExtent = extra.planeHalfExtent;
+                        if (extra.shape == ShapeKind::Cooked)
+                        {
+                            CollisionShape* cooked = extra.collisionShape.Get();
+                            if (cooked == nullptr) { return; }
+                            shape.cooked = cooked->Blob();
+                            shape.scale = ls;
+                        }
                         shape.localPosition = lp;
                         shape.localRotation = lr;
                         desc.shapes.PushBack(shape);
                     });
                 }
 
-                Float3 position, scale;
-                Quaternion rotation;
-                if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale)) { return; }
                 desc.position = position;
                 desc.rotation = rotation;
+
+                // A referenced PhysicalMaterial wins over the inline surface fields.
+                if (PhysicalMaterial* material = c.material.Get())
+                {
+                    desc.friction = material->friction;
+                    desc.restitution = material->restitution;
+                    desc.density = material->density;
+                }
 
                 c.body = m_world->CreateBody(desc);
                 c.prevPosition = c.currPosition = position;
@@ -251,10 +284,29 @@ export namespace draconic::physics
 
     // The runtime subsystem: injects the managers + system into every scene (ISceneAware)
     // and drives render-frame interpolation + debug draw with the engine's fixed alpha.
+    /// The service key ExposeToScript binds and the scripting facade resolves.
+    inline constexpr StringView kPhysicsScriptService = u8"physics.runtime";
+
+    /// Per-context script binding: which scene's world `Physics.*` calls act on, plus the
+    /// last ray hit (Wren methods return one number - the hit accessors read this).
+    struct PhysicsScriptBinding
+    {
+        PhysicsSceneSystem* system = nullptr;
+        RayHit lastHit;
+        bool lastHitValid = false;
+    };
+
     class PhysicsSubsystem final : public draconic::runtime::Subsystem,
                                    public dscene::ISceneAware
     {
     public:
+        /// Binds THIS subsystem's script seam into `context` - the Physics facade acts on
+        /// the first STARTED scene's world (the player's/Game tab's single scene).
+        void ExposeToScript(draconic::script::IScriptContext& context)
+        {
+            context.SetService(kPhysicsScriptService, &m_scriptBinding);
+        }
+
         // BEFORE the scene subsystem (-500): the interpolation's local-transform writes
         // must land before Scene::Update recomputes world matrices, or rendering (which
         // extracts world matrices) would lag the physics poses by a frame.
@@ -275,7 +327,8 @@ export namespace draconic::physics
             }
         }
 
-        // Defined in SubsystemImpl.cpp: interpolation + debug wireframes (render dep).
+        // Defined in SubsystemImpl.cpp: interpolation + debug wireframes (render dep)
+        // + retargeting the script binding at the first live world.
         void Update(f32 deltaTime) override;
 
     protected:
@@ -311,7 +364,81 @@ export namespace draconic::physics
             return Span<const SceneEntry>{ m_systems.Data(), m_systems.Size() };
         }
 
+    protected:
+        PhysicsScriptBinding m_scriptBinding;
+
     private:
         Array<SceneEntry> m_systems;
     };
+
+    // The scripting facade: a foreign class named `Physics` whose STATIC methods resolve
+    // the CURRENT script context's bound PhysicsScriptBinding (same seam as the Input
+    // facade - no process globals; contexts without the service read released/miss).
+    class Physics final : public Object
+    {
+        DRACONIC_OBJECT(Physics, Object)
+    public:
+        [[nodiscard]] static PhysicsScriptBinding* Resolve()
+        {
+            draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
+            return context != nullptr
+                ? static_cast<PhysicsScriptBinding*>(context->GetService(kPhysicsScriptService))
+                : nullptr;
+        }
+        [[nodiscard]] static PhysicsWorld* World()
+        {
+            PhysicsScriptBinding* binding = Resolve();
+            return binding != nullptr && binding->system != nullptr ? binding->system->World()
+                                                                    : nullptr;
+        }
+
+        /// Distance to the nearest hit, or -1 on a miss. Hit details via the hit* accessors.
+        [[nodiscard]] static f32 rayCast(f32 fromX, f32 fromY, f32 fromZ,
+                                         f32 directionX, f32 directionY, f32 directionZ,
+                                         f32 maxDistance)
+        {
+            PhysicsScriptBinding* binding = Resolve();
+            PhysicsWorld* world = World();
+            if (binding == nullptr || world == nullptr) { return -1.0f; }
+            binding->lastHitValid = world->RayCast(
+                Float3{ fromX, fromY, fromZ }, Float3{ directionX, directionY, directionZ },
+                maxDistance, binding->lastHit);
+            return binding->lastHitValid ? binding->lastHit.fraction * maxDistance : -1.0f;
+        }
+        [[nodiscard]] static f32 hitX() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.position.x : 0.0f; }
+        [[nodiscard]] static f32 hitY() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.position.y : 0.0f; }
+        [[nodiscard]] static f32 hitZ() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.position.z : 0.0f; }
+        [[nodiscard]] static f32 hitNormalX() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.normal.x : 0.0f; }
+        [[nodiscard]] static f32 hitNormalY() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.normal.y : 0.0f; }
+        [[nodiscard]] static f32 hitNormalZ() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.normal.z : 0.0f; }
+        /// Material slot of the hit face (cooked triangle meshes; 0 otherwise).
+        [[nodiscard]] static f32 hitSurface() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? static_cast<f32>(b->lastHit.surface) : 0.0f; }
+
+        /// Impulse on the body the last successful rayCast hit.
+        static void impulseOnHit(f32 x, f32 y, f32 z)
+        {
+            PhysicsScriptBinding* binding = Resolve();
+            PhysicsWorld* world = World();
+            if (binding == nullptr || world == nullptr || !binding->lastHitValid) { return; }
+            world->AddImpulse(binding->lastHit.body, Float3{ x, y, z });
+        }
+
+        static void setGravity(f32 x, f32 y, f32 z)
+        {
+            if (PhysicsWorld* world = World()) { world->SetGravity(Float3{ x, y, z }); }
+        }
+        [[nodiscard]] static f32 gravityY()
+        {
+            PhysicsWorld* world = World();
+            return world != nullptr ? world->Gravity().y : 0.0f;
+        }
+        [[nodiscard]] static f32 bodyCount()
+        {
+            PhysicsWorld* world = World();
+            return world != nullptr ? static_cast<f32>(world->BodyCount()) : 0.0f;
+        }
+    };
+
+    /// Registers the facade type (RegisterReflectedTypes then sweeps it into managers).
+    void RegisterPhysicsScriptApi();
 }
