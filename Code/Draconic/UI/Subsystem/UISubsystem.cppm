@@ -260,6 +260,11 @@ export namespace draconic::ui
         f32 m_prevWheel = 0.0f;
         bool m_pointerConsumed = false;
 
+        // gamepad focus navigation (hold-repeat per direction)
+        f32 m_navRepeat[4] = { 0.0f, 0.0f, 0.0f, 0.0f };   // Up/Down/Left/Right
+        bool m_navHeld[4] = { false, false, false, false };
+        f32 m_navDeltaTime = 0.0f;
+
         // impl-side render state (VG contexts/renderers/shaders), opaque here
         struct RenderState;
         UniquePtr<RenderState> m_render;

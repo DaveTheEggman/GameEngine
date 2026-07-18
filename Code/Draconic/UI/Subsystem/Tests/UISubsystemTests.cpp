@@ -12,6 +12,9 @@ import draconic.ui;
 import draconic.ui.resource;
 import draconic.ui.subsystem;
 import draconic.render.subsystem;
+import draconic.shell;
+import draconic.input;
+import draconic.input.subsystem;
 
 using namespace draconic::core;
 using namespace draconic::ui;
@@ -226,6 +229,93 @@ TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing"
     View* blocked = root->HitTest(Float2{ 20.0f, 20.0f });
     REQUIRE(blocked != nullptr);
     CHECK(blocked->Name.AsView() != u8"btn");
+
+    ctx.Shutdown();
+}
+
+namespace
+{
+    // Minimal pad/provider fakes for the nav pump (the input tests' pattern).
+    struct NavFakePad final : draconic::shell::IGamepad
+    {
+        bool down[static_cast<u32>(draconic::shell::GamepadButton::Count)] = {};
+        bool pressed[static_cast<u32>(draconic::shell::GamepadButton::Count)] = {};
+        f32 axes[static_cast<u32>(draconic::shell::GamepadAxis::Count)] = {};
+        [[nodiscard]] i32 Index() const override { return 0; }
+        [[nodiscard]] StringView Name() const override { return u8"fake"; }
+        [[nodiscard]] bool Connected() const override { return true; }
+        [[nodiscard]] bool IsButtonDown(draconic::shell::GamepadButton b) const override
+        { return down[static_cast<u32>(b)]; }
+        [[nodiscard]] bool IsButtonPressed(draconic::shell::GamepadButton b) const override
+        { return pressed[static_cast<u32>(b)]; }
+        [[nodiscard]] bool IsButtonReleased(draconic::shell::GamepadButton) const override { return false; }
+        [[nodiscard]] f32 Axis(draconic::shell::GamepadAxis a) const override
+        { return axes[static_cast<u32>(a)]; }
+        void SetRumble(f32, f32, u32) override {}
+    };
+
+    struct NavFakeDevices final : draconic::input::IInputSourceProvider
+    {
+        NavFakePad pad;
+        [[nodiscard]] draconic::shell::IMouse* Mouse() override { return nullptr; }
+        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override { return nullptr; }
+        [[nodiscard]] i32 GamepadCount() const override { return 1; }
+        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32 index) override
+        { return index == 0 ? &pad : nullptr; }
+    };
+}
+
+TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activates")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    NavFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    dscene::Scene* scene = scenes->CreateScene(u8"menu");
+    dscene::EntityHandle e = scene->CreateEntity(u8"pause");
+    UICanvasComponent& canvas = scene->GetSystem<UICanvasComponentManager>()->Add(e);
+    canvas.document = MakeDocument(
+        u8"<Flex direction=\"vertical\" spacing=\"4\">"
+        u8"<Button id=\"top\" text=\"Top\" width=\"200\" height=\"36\"/>"
+        u8"<Button id=\"bottom\" text=\"Bottom\" width=\"200\" height=\"36\"/>"
+        u8"</Flex>");
+    ctx.BeginFrame(1.0f / 60.0f);
+    REQUIRE(canvas.root.Get() != nullptr);
+    RootView* root = ui->ScreenRoot();
+    root->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(root);
+
+    FocusManager* focus = ui->Context().GetFocusManager();
+    REQUIRE(focus != nullptr);
+    CHECK(focus->FocusedView() == nullptr);
+
+    // First Down press bootstraps focus to the first focusable...
+    devices.pad.down[static_cast<u32>(draconic::shell::GamepadButton::DPadDown)] = true;
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    REQUIRE(focus->FocusedView() != nullptr);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"top");
+
+    // ...held: no move until the initial repeat delay elapses, then it advances.
+    ctx.BeginFrame(0.1f);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"top");
+    ctx.BeginFrame(0.35f);   // crosses the 0.4s initial delay
+    CHECK(focus->FocusedView()->Name.AsView() == u8"bottom");
+    devices.pad.down[static_cast<u32>(draconic::shell::GamepadButton::DPadDown)] = false;
+    ctx.BeginFrame(1.0f / 60.0f);
+
+    // South = Submit: the focused button activates through the Return path.
+    bool clicked = false;
+    Cast<ViewGroup>(canvas.root.Get())->FindByName<Button>(u8"bottom")->OnClick.Add(
+        [&clicked](ButtonBase*) { clicked = true; });
+    devices.pad.pressed[static_cast<u32>(draconic::shell::GamepadButton::South)] = true;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicked);
 
     ctx.Shutdown();
 }

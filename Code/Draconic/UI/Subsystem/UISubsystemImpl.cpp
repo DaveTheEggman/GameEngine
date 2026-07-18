@@ -190,6 +190,7 @@ namespace draconic::ui
         // UNSCALED time: menus animate while the game is paused (BeginFrame receives the
         // raw host dt - the whole reason this runs here and not in Update).
         m_context.BeginFrame(deltaTime);
+        m_navDeltaTime = deltaTime;
         SyncCanvases();
         PumpInput();
     }
@@ -319,6 +320,67 @@ namespace draconic::ui
             if (wheel != 0.0f)
             {
                 inputManager.ProcessMouseWheel(x, y, mouse->ScrollX(), wheel);
+            }
+        }
+
+        // ---- gamepad focus navigation (game-ui.md P2): dpad/left stick move focus
+        // through the framework's geometric MoveFocus; South = Submit (synthesized
+        // Return - the existing dispatch-first activation path), East = Cancel
+        // (synthesized Escape). Hold-repeat: 0.4s initial, 0.12s after. The pad is
+        // deliberately NOT a consumption class - gameplay pad actions keep working
+        // (menus that want exclusivity push an input SET, the existing mechanism). ----
+        draconic::shell::IGamepad* pad = devices.Gamepad(0);
+        if (pad != nullptr && pad->Connected() && m_screenRoot.Get() != nullptr)
+        {
+            const f32 stickX = pad->Axis(draconic::shell::GamepadAxis::LeftX);
+            const f32 stickY = pad->Axis(draconic::shell::GamepadAxis::LeftY);
+            constexpr f32 kThreshold = 0.6f;
+            const bool wants[4] = {
+                pad->IsButtonDown(draconic::shell::GamepadButton::DPadUp) || stickY < -kThreshold,
+                pad->IsButtonDown(draconic::shell::GamepadButton::DPadDown) || stickY > kThreshold,
+                pad->IsButtonDown(draconic::shell::GamepadButton::DPadLeft) || stickX < -kThreshold,
+                pad->IsButtonDown(draconic::shell::GamepadButton::DPadRight) || stickX > kThreshold,
+            };
+            const FocusDirection directions[4] = {
+                FocusDirection::Up, FocusDirection::Down,
+                FocusDirection::Left, FocusDirection::Right };
+            FocusManager* focus = m_context.GetFocusManager();
+            for (u32 i = 0; i < 4; ++i)
+            {
+                if (!wants[i]) { m_navHeld[i] = false; continue; }
+                bool fire = false;
+                if (!m_navHeld[i])
+                {
+                    fire = true;
+                    m_navHeld[i] = true;
+                    m_navRepeat[i] = 0.4f;
+                }
+                else
+                {
+                    m_navRepeat[i] -= m_navDeltaTime;
+                    if (m_navRepeat[i] <= 0.0f)
+                    {
+                        fire = true;
+                        m_navRepeat[i] = 0.12f;
+                    }
+                }
+                if (!fire || focus == nullptr) { continue; }
+                if (focus->FocusedView() == nullptr) { focus->FocusNext(); }   // bootstrap
+                else { (void)focus->MoveFocus(directions[i]); }
+            }
+            if (pad->IsButtonPressed(draconic::shell::GamepadButton::South))
+            {
+                inputManager.ProcessKeyDown(KeyCode::Return, KeyModifiers::None, false,
+                                            m_context.TotalTime());
+                inputManager.ProcessKeyUp(KeyCode::Return, KeyModifiers::None,
+                                          m_context.TotalTime());
+            }
+            if (pad->IsButtonPressed(draconic::shell::GamepadButton::East))
+            {
+                inputManager.ProcessKeyDown(KeyCode::Escape, KeyModifiers::None, false,
+                                            m_context.TotalTime());
+                inputManager.ProcessKeyUp(KeyCode::Escape, KeyModifiers::None,
+                                          m_context.TotalTime());
             }
         }
 
