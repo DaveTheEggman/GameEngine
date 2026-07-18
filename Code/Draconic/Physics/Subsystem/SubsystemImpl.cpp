@@ -125,7 +125,6 @@ namespace draconic::physics
     {
         draconic::runtime::Context* context = GetContext();
         if (context == nullptr) { return; }
-        const f32 alpha = context->FixedAlpha();
         auto* render = context->GetSubsystem<draconic::render::RenderSubsystem>();
         m_scriptBinding.system = nullptr;
         for (const SceneEntry& entry : Systems())
@@ -134,7 +133,8 @@ namespace draconic::physics
             {
                 m_scriptBinding.system = entry.system;   // scripts act on the live world
             }
-            entry.system->ApplyInterpolation(alpha);
+            // Per-scene alpha: each scene steps on its OWN accumulator/time scale.
+            entry.system->ApplyInterpolation(entry.scene->FixedAlpha());
             if (render != nullptr && entry.system->Settings().debugDraw)
             {
                 DrawPhysicsDebug(*entry.system, render->DebugScene(*entry.scene));

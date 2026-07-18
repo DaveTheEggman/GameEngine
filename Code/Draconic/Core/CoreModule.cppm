@@ -41,6 +41,7 @@ export import :float4;
 export import :color;
 export import :random;
 export import :guid;
+export import :fixed_stepper;
 export import :float4x4;
 export import :float3x3;
 export import :simd;

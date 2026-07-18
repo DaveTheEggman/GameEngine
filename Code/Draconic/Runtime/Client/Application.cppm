@@ -50,27 +50,9 @@ export namespace draconic::runtime
     // Advance() returns how many fixed steps this frame runs (clamped; excess time dropped);
     // Alpha() is the leftover fraction of a step in [0,1) - the interpolation weight render
     // consumers (physics pose smoothing) blend prev->current poses with.
-    struct FixedStepper
-    {
-        core::f32 step = 1.0f / 60.0f;
-        core::u32 maxSteps = 4;
-        core::f32 accumulator = 0.0f;
-
-        [[nodiscard]] core::u32 Advance(core::f32 deltaTime)
-        {
-            if (step <= 0.0f) { accumulator = 0.0f; return 0; }   // a zero step must not spin
-            if (deltaTime > 0.0f) { accumulator += deltaTime; }
-            core::u32 steps = 0;
-            while (accumulator >= step) { accumulator -= step; ++steps; }
-            if (steps > maxSteps) { steps = maxSteps; }   // the excess was already drained: dropped
-            return steps;
-        }
-
-        [[nodiscard]] core::f32 Alpha() const noexcept
-        {
-            return (step > 0.0f) ? (accumulator / step) : 0.0f;
-        }
-    };
+    // The fixed-timestep accumulator moved to draconic.core (scenes own one each
+    // since per-scene time); re-exposed here for the host's app-level lane.
+    using FixedStepper = core::FixedStepper;
 
     // The host as seen by the application: register subsystems via Ctx(), reach the
     // shell/graphics services, manage runtime windows, request exit. Implemented

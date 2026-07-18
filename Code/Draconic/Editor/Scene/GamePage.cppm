@@ -277,7 +277,8 @@ export namespace draconic::editor
             if (m_running && m_game.Get() != nullptr)
             {
                 // Gameplay time: the script's update(dt) sees the SCALED clock.
-                Variant dtArg = Variant::From(dt * host.Ctx().TimeScale());
+                Variant dtArg = Variant::From(
+                    dt * host.Ctx().TimeScale() * (m_scene != nullptr ? m_scene->TimeScale() : 1.0f));
                 if (auto result = m_game->Invoke(u8"update", Span<Variant>{ &dtArg, 1 });
                     !result.HasValue())
                 {

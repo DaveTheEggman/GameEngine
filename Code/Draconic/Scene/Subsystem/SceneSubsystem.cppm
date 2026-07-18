@@ -66,14 +66,27 @@ public:
 
     // ---- subsystem frame phases ----
 
+    // Fixed stepping is PER SCENE (each scene owns a FixedStepper + time scale): it runs
+    // in BeginFrame so fixed-rate state (physics poses + alpha) is fresh BEFORE any
+    // subsystem's Update reads it (physics interpolation runs at order -600, before us).
+    // BeginFrame receives the RAW host dt - the context scale is applied here; Update
+    // receives context-scaled dt - only the scene factor is applied there.
+    void BeginFrame(f32 deltaTime) override {
+        const f32 contextScale = GetContext() != nullptr ? GetContext()->TimeScale() : 1.0f;
+        const f32 contextStep = GetContext() != nullptr ? GetContext()->FixedTimeStep() : 0.0f;
+        for (Scene* s : m_active) {
+            if (contextStep > 0.0f && s->FixedTimeStep() != contextStep) {
+                s->SetFixedTiming(contextStep, 4);
+            }
+            (void)s->AdvanceTime(deltaTime * contextScale * s->TimeScale());
+        }
+    }
+
     void Update(f32 deltaTime) override {
         m_updating = true;
-        for (Scene* s : m_active) { s->Update(deltaTime); }
+        for (Scene* s : m_active) { s->Update(deltaTime * s->TimeScale()); }
         m_updating = false;
         ProcessPendingRemoves();
-    }
-    void FixedUpdate(f32 fixedDeltaTime) override {
-        for (Scene* s : m_active) { s->FixedUpdate(fixedDeltaTime); }
     }
 
     void OnShutdown() override {

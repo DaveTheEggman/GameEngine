@@ -472,6 +472,38 @@ public:
     [[nodiscard]] bool SimulationEnabled() const noexcept { return m_simulationEnabled; }
     void SetSimulationEnabled(bool enabled) noexcept { m_simulationEnabled = enabled; }
 
+    // ---- per-scene time (the scene IS the simulatable unit) ----
+    // Each scene owns its time scale and fixed-step accumulator, so pausing/slowing one
+    // scene (the Game tab) never affects another (a Simulate page beside it). The
+    // effective frame dt a scene sees = host dt x context TimeScale x scene TimeScale
+    // (the SceneSubsystem applies the scene factor; the context factor is already in
+    // the dt it receives).
+
+    void SetTimeScale(f32 scale) noexcept { m_timeScale = scale < 0.0f ? 0.0f : scale; }
+    [[nodiscard]] f32 TimeScale() const noexcept { return m_timeScale; }
+
+    /// Fixed-lane configuration (step seconds + spiral-of-death clamp).
+    void SetFixedTiming(f32 step, u32 maxSteps) noexcept
+    {
+        m_stepper.step = step;
+        m_stepper.maxSteps = maxSteps;
+    }
+    [[nodiscard]] f32 FixedTimeStep() const noexcept { return m_stepper.step; }
+    /// Interpolation weight for fixed-rate consumers (physics pose smoothing);
+    /// published by AdvanceTime after its steps.
+    [[nodiscard]] f32 FixedAlpha() const noexcept { return m_fixedAlpha; }
+
+    /// The frame drive (SceneSubsystem::BeginFrame): accumulates `scaledDelta` (already
+    /// context- AND scene-scaled), runs FixedUpdate for each whole step, publishes the
+    /// leftover as FixedAlpha. Tests wanting exact-step control call FixedUpdate directly.
+    u32 AdvanceTime(f32 scaledDelta)
+    {
+        const u32 steps = m_stepper.Advance(scaledDelta);
+        for (u32 i = 0; i < steps; ++i) { FixedUpdate(m_stepper.step); }
+        m_fixedAlpha = m_stepper.Alpha();
+        return steps;
+    }
+
     // Enters play mode: simulation on, notify systems. (Editor "stop" calls Stop.)
     void Start() {
         if (m_started) { return; }
@@ -742,6 +774,9 @@ protected:
     bool                 m_isUpdating       = false;
     bool                 m_started          = false;
     bool                 m_simulationEnabled = true;
+    f32                  m_timeScale = 1.0f;
+    core::FixedStepper   m_stepper;
+    f32                  m_fixedAlpha = 0.0f;
 };
 
 } // namespace draconic::scene

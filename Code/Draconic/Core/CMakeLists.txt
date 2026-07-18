@@ -55,6 +55,7 @@ target_sources(DraconicCore
             Math/Color.cppm
             Random.cppm
             Guid.cppm
+            FixedStepper.cppm
             Math/Float4x4.cppm
             Math/Float3x3.cppm
             Math/Simd.cppm
