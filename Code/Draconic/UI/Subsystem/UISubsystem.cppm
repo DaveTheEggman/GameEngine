@@ -237,6 +237,21 @@ export namespace draconic::ui
         /// (DefaultApplication's startup). Idempotent; without it RenderOverlay no-ops.
         void EnsureRenderReady(rhi::Device& device, i32 frameCount);
 
+        // ---- editor preview seam (the UIDocumentPage) ----
+        // Previews render through THIS context - the GAME's fonts, theme, style
+        // resolution, and VG path - into a DEDICATED RootView that is never attached to
+        // the screen root (it cannot leak into game targets) and receives no input
+        // (view-only; the ActiveInputRoot stays the screen root).
+
+        /// Instantiates `document` into a fresh preview root. Null on parse failure.
+        [[nodiscard]] RefPtr<RootView> CreatePreview(const UIDocument& document);
+        void DestroyPreview(RootView* root);
+        /// Draws a preview root into `target` via a Load-op pass on the caller's encoder
+        /// (target in RenderTarget state; left there). Lays out at the given size.
+        void RenderPreview(RootView& root, rhi::CommandEncoder& encoder,
+                           rhi::TextureView* target, rhi::TextureFormat format,
+                           u32 width, u32 height, i32 frameIndex);
+
         /// True when any interactive canvas is under the pointer or holds text focus -
         /// mirrors the published consumption mask (tests + gameplay diagnostics).
         [[nodiscard]] bool PointerOverUI() const noexcept { return m_pointerConsumed; }
@@ -244,6 +259,8 @@ export namespace draconic::ui
     private:
         void SyncCanvases();
         void PumpInput();
+        void DrawRootInto(RootView& root, rhi::CommandEncoder& encoder, rhi::TextureView* target,
+                          rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
 
         String m_fontPath;
         UIContext m_context;

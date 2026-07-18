@@ -319,3 +319,36 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
 
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.subsystem: preview roots live in the context but never on the screen root")
+{
+    rt::Context ctx;
+    ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    // Parse failure -> null (the page keeps its last good preview).
+    UIDocument bad;
+    bad.markup = String(u8"<NoSuchControl>");
+    CHECK(ui->CreatePreview(bad).Get() == nullptr);
+
+    UIDocument good;
+    good.markup = String(u8"<FlexLayout><Label id=\"pv\" text=\"preview\" /></FlexLayout>");
+    RefPtr<RootView> preview = ui->CreatePreview(good);
+    REQUIRE(preview.Get() != nullptr);
+
+    // The document instantiated under the preview root...
+    REQUIRE(preview->ChildCount() == 1u);
+    CHECK(Cast<ViewGroup>(preview.Get())->FindByName(u8"pv") != nullptr);
+    // ...which is NOT parented to the screen root (RenderOverlay draws only the screen
+    // root, so a preview can never leak into game targets)...
+    const u32 screenChildren = ui->ScreenRoot()->ChildCount();
+    CHECK(Cast<ViewGroup>(ui->ScreenRoot())->FindByName(u8"pv") == nullptr);
+    // ...and frames tick without disturbing the screen tier.
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->ScreenRoot()->ChildCount() == screenChildren);
+
+    ui->DestroyPreview(preview.Get());
+    ctx.BeginFrame(1.0f / 60.0f);
+    ctx.Shutdown();
+}

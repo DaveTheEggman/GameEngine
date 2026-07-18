@@ -503,11 +503,20 @@ namespace draconic::ui
             return;
         }
 
-        m_screenRoot->ViewportSize = Float2{ static_cast<f32>(width), static_cast<f32>(height) };
-        m_context.UpdateRootView(m_screenRoot.Get());
+        DrawRootInto(*m_screenRoot, encoder, target, format, width, height, frameIndex);
+    }
+
+    // Shared draw body: layout the root at the target size, batch through the shared
+    // VGContext, draw via the per-format renderer in a Load-op pass.
+    void UISubsystem::DrawRootInto(RootView& root, rhi::CommandEncoder& encoder,
+                                   rhi::TextureView* target, rhi::TextureFormat format,
+                                   u32 width, u32 height, i32 frameIndex)
+    {
+        root.ViewportSize = Float2{ static_cast<f32>(width), static_cast<f32>(height) };
+        m_context.UpdateRootView(&root);
 
         m_render->vgContext.Clear();
-        m_context.DrawRootView(m_screenRoot.Get(), m_render->vgContext);
+        m_context.DrawRootView(&root, m_render->vgContext);
         vg::VGBatch& batch = m_render->vgContext.GetBatch();
         if (batch.commands.IsEmpty()) { return; }
 
@@ -527,6 +536,34 @@ namespace draconic::ui
             renderer->Render(*rp, width, height, frameIndex, slice);
             rp->End();
         }
+    }
+
+    RefPtr<RootView> UISubsystem::CreatePreview(const UIDocument& document)
+    {
+        if (document.markup.IsEmpty()) { return {}; }
+        RefPtr<View> tree = MarkupLoader::LoadFromString(document.markup.AsView(), &m_context);
+        if (tree.Get() == nullptr) { return {}; }
+        RefPtr<RootView> root = MakeRef<RootView>(DefaultAllocator());
+        root->AddView(tree.Get());
+        // Registered on the GAME context (styles/fonts/ids resolve there) but NEVER on
+        // the screen root - RenderOverlay only draws m_screenRoot, so previews cannot
+        // appear in game targets; input stays with the ActiveInputRoot (view-only).
+        m_context.AddRootView(root.Get());
+        return root;
+    }
+
+    void UISubsystem::DestroyPreview(RootView* root)
+    {
+        if (root != nullptr) { m_context.RemoveRootView(root); }
+    }
+
+    void UISubsystem::RenderPreview(RootView& root, rhi::CommandEncoder& encoder,
+                                    rhi::TextureView* target, rhi::TextureFormat format,
+                                    u32 width, u32 height, i32 frameIndex)
+    {
+        if (target == nullptr || width == 0 || height == 0) { return; }
+        if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
+        DrawRootInto(root, encoder, target, format, width, height, frameIndex);
     }
 
     // Device/shader bring-up, called once by the application layer that owns graphics.
