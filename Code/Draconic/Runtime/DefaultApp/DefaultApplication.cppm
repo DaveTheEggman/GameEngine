@@ -34,6 +34,18 @@ import draconic.input;              // the action model/runtime
 import draconic.input.subsystem;    // InputSubsystem + the Wren Input facade
 import draconic.script;             // IScriptManager/Context (the game script)
 import draconic.script.wren;        // the Wren backend
+import draconic.resource;           // ResourceManager (owned or borrowed - see the preset seam)
+import draconic.content;            // IContentDatabase (preset by the entry point)
+import draconic.scene.resource;     // SceneDocument (product-type registration)
+import draconic.geometry.resource;  // mesh factories
+import draconic.materials.resource; // material factory
+import draconic.animation.resource; // skeleton/clip/graph factories
+import draconic.particles.resource; // particle-effect factory
+import draconic.input.resource;     // input-map factory
+import draconic.physics.resource;   // collision-shape/physical-material factories
+import draconic.texture.resource;   // texture factory (device-backed)
+import draconic.image.resource;     // image resource registration
+import draconic.model.resource;     // cooked-model family types + registration
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
@@ -104,6 +116,73 @@ export namespace draconic::runtime
 
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
+
+        // ---- infrastructure preset (Sedulous PresetInfrastructure lineage): shared
+        // pieces are handed in BEFORE Startup; anything not preset the app creates for
+        // itself and owns. The editor presets its EXISTING manager (a second manager
+        // over the same cooked DB would load every product twice); the player presets
+        // its cooked DB and lets the app build the manager. ----
+
+        /// Borrow an existing manager (editor). Wins over SetContentDatabase.
+        void SetResourceManager(draconic::resource::ResourceManager* borrowed) noexcept
+        {
+            m_borrowedResources = borrowed;
+        }
+        /// The cooked-content database the app should build its OWN manager over (player).
+        void SetContentDatabase(draconic::content::IContentDatabase* database) noexcept
+        {
+            m_contentDatabase = database;
+        }
+        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept
+        {
+            return m_borrowedResources != nullptr ? m_borrowedResources : m_ownedResources.Get();
+        }
+
+        // Registers the runtime product types + the STANDARD resource factories into the
+        // preset/created manager. Subclasses overriding OnStartup call the base AFTER
+        // presetting the database/manager.
+        void OnStartup(IApplicationHost& host) override
+        {
+            // Product/runtime types: factories construct cooked products BY TYPE NAME.
+            draconic::model::RegisterModelResourceTypes();
+            draconic::image::RegisterImageResource();
+            draconic::particles::RegisterParticleEffectResource();
+            draconic::input::RegisterInputMapResource();
+            draconic::physics::RegisterPhysicsResource();
+            core::GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
+            core::RegisterSerializable<draconic::scene::SceneDocument>();
+
+            if (m_borrowedResources == nullptr && m_contentDatabase != nullptr)
+            {
+                m_ownedResources = core::MakeUnique<draconic::resource::ResourceManager>(
+                    core::DefaultAllocator(), *m_contentDatabase);
+            }
+            draconic::resource::ResourceManager* resources = Resources();
+            if (resources == nullptr) { return; }   // headless/no-content apps
+            resources->AddFactory(&m_meshFactory);
+            resources->AddFactory(&m_skinnedMeshFactory);
+            resources->AddFactory(&m_materialFactory);
+            resources->AddFactory(&m_skeletonFactory);
+            resources->AddFactory(&m_animationClipFactory);
+            resources->AddFactory(&m_animationGraphFactory);
+            resources->AddFactory(&m_particleEffectFactory);
+            resources->AddFactory(&m_inputMapFactory);
+            resources->AddFactory(&m_collisionShapeFactory);
+            resources->AddFactory(&m_physicalMaterialFactory);
+            resources->AddFactory(&m_modelFactory);
+            if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+            {
+                m_textureFactory = core::MakeUnique<draconic::texture::TextureFactory>(
+                    core::DefaultAllocator(), *gfx->Raw());
+                resources->AddFactory(m_textureFactory.Get());
+            }
+        }
+
+        void OnShutdown(IApplicationHost&) override
+        {
+            m_ownedResources = nullptr;   // release products while the device is alive
+            m_textureFactory = nullptr;
+        }
 
         // ---- the game script (a Wren class `Game`: construct new(), launch(), update(dt),
         // exit() - all optional except the class). Faults disable the SCRIPT, not the game. ----
@@ -194,6 +273,21 @@ export namespace draconic::runtime
         }
 
     private:
+        draconic::geometry::StaticMeshFactory m_meshFactory;
+        draconic::geometry::SkinnedMeshFactory m_skinnedMeshFactory;
+        draconic::materials::MaterialFactory m_materialFactory;
+        draconic::animation::SkeletonFactory m_skeletonFactory;
+        draconic::animation::AnimationClipFactory m_animationClipFactory;
+        draconic::animation::AnimationGraphFactory m_animationGraphFactory;
+        draconic::particles::ParticleEffectFactory m_particleEffectFactory;
+        draconic::input::InputMapFactory m_inputMapFactory;
+        draconic::physics::CollisionShapeFactory m_collisionShapeFactory;
+        draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
+        draconic::model::ModelFactory m_modelFactory;
+        core::UniquePtr<draconic::texture::TextureFactory> m_textureFactory;
+        draconic::resource::ResourceManager* m_borrowedResources = nullptr;
+        draconic::content::IContentDatabase* m_contentDatabase = nullptr;
+        core::UniquePtr<draconic::resource::ResourceManager> m_ownedResources;
         draconic::input::InputSubsystem* m_input = nullptr;
         draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::scene::Scene* m_primaryScene = nullptr;

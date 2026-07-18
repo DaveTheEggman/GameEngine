@@ -12,6 +12,10 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::Scene Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
            Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
            Draconic::Input Draconic::InputSubsystem Draconic::Script Draconic::ScriptWren
+           Draconic::Resource Draconic::Content Draconic::SceneResource
+           Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource
+           Draconic::ParticlesResource Draconic::InputResource Draconic::PhysicsResource
+           Draconic::TextureResource Draconic::ImageResource Draconic::ModelResource
            Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRuntimeDefaultApp
