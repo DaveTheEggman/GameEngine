@@ -193,3 +193,39 @@ TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and sta
     CHECK(ui->ScreenOverlayCount() == 0);
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+    dscene::Scene* scene = scenes->CreateScene(u8"level");
+    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    UICanvasComponent& canvas = scene->GetSystem<UICanvasComponentManager>()->Add(e);
+    canvas.document = MakeDocument(
+        u8"<Flex direction=\"vertical\"><Button id=\"btn\" text=\"hit me\" width=\"200\" height=\"40\"/></Flex>");
+    ctx.BeginFrame(1.0f / 60.0f);
+    REQUIRE(canvas.root.Get() != nullptr);
+
+    // Lay out at a known size, then hit-test where the button is.
+    RootView* root = ui->ScreenRoot();
+    root->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(root);
+    View* hit = root->HitTest(Float2{ 20.0f, 20.0f });
+    REQUIRE(hit != nullptr);
+    CHECK(hit->Name.AsView() == u8"btn");   // NOT the (empty) overlay layer
+
+    // With a pushed overlay the layer DOES block (a modal loading screen must).
+    RefPtr<UIDocument> loading = MakeRef<UIDocument>(DefaultAllocator());
+    loading->markup = String(u8"<Panel width=\"800\" height=\"600\"><Label text=\"Loading\"/></Panel>");
+    RefPtr<View> overlay = ui->PushScreenOverlay(*loading);
+    REQUIRE(overlay.Get() != nullptr);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    View* blocked = root->HitTest(Float2{ 20.0f, 20.0f });
+    REQUIRE(blocked != nullptr);
+    CHECK(blocked->Name.AsView() != u8"btn");
+
+    ctx.Shutdown();
+}

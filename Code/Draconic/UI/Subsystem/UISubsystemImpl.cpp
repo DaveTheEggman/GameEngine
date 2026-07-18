@@ -147,8 +147,11 @@ namespace draconic::ui
         m_billboardLayer = layer;
         m_screenRoot->AddView(m_billboardLayer.Get());
         // The scene-LESS screen tier (global overlays) sits above everything; canvas
-        // attaches re-append it so it stays topmost (draw order = child order).
+        // attaches re-append it so it stays topmost (draw order = child order). It only
+        // hit-tests while it HOLDS overlays - an empty full-screen layer must never
+        // swallow the clicks meant for the canvases below it.
         auto overlay = MakeRef<FrameLayout>(DefaultAllocator());
+        overlay->IsHitTestVisible = false;
         m_overlayLayer = overlay;
         m_screenRoot->AddView(m_overlayLayer.Get());
     }
@@ -278,6 +281,11 @@ namespace draconic::ui
 
     void UISubsystem::PumpInput()
     {
+        // The global-overlay layer eats input only while occupied (see OnInit).
+        if (m_overlayLayer.Get() != nullptr)
+        {
+            m_overlayLayer->IsHitTestVisible = m_overlayLayer->ChildCount() > 0;
+        }
         // The SAME facades the action layer evaluates: window coords in the player,
         // content coords in the Game tab (the InputSurface transform) - transparently.
         if (m_input == nullptr) { return; }
