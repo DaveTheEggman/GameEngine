@@ -1315,9 +1315,10 @@ export namespace draconic::editor
         rt::IApplicationHost* appHost = &host;
 
         // Play-in-editor: the singleton Game tab (player behavior in-process).
-        context.GamePageFactory = [editorContext, appHost, embeddedApp]() -> UniquePtr<EditorPage> {
+        context.GamePageFactory = [editorContext, appHost, appUiHost = &uiHost, embeddedApp]()
+            -> UniquePtr<EditorPage> {
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, embeddedApp),
+                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost, embeddedApp),
                 DefaultAllocator());
         };
 

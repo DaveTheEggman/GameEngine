@@ -29,6 +29,7 @@ import draconic.rhi;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
+import draconic.vg.renderer;
 import draconic.ui.viewport;
 import draconic.script;
 import draconic.script.wren;
@@ -51,6 +52,7 @@ export namespace draconic::editor
     namespace gscene = draconic::scene;
     namespace grender = draconic::render;
     namespace gtk = draconic::ui::toolkit;
+    namespace gvgr = draconic::vg::renderer;
 
     // The play-in-editor device seam (input P3): keyboard/mouse come from the Game
     // viewport's GATED InputSurface facades (hover = mouse, focus = keyboard - click the
@@ -108,8 +110,8 @@ export namespace draconic::editor
     {
     public:
         GameEditorPage(EditorContext& context, grt::IApplicationHost& host,
-                       grt::DefaultApplication* embeddedApp)
-            : m_context(&context), m_host(&host), m_app(embeddedApp)
+                       guirt::UIHost& uiHost, grt::DefaultApplication* embeddedApp)
+            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_app(embeddedApp)
         {
             m_scenes = host.Ctx().GetSubsystem<gscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<grender::RenderSubsystem>();
@@ -118,13 +120,6 @@ export namespace draconic::editor
 
             m_viewport = MakeRef<guivp::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.05f, 0.05f, 0.06f, 1.0f };
-
-            // The viewport's gated facades are the runtime InputSubsystem's PERMANENT
-            // source (v3): the runtime context's input serves ONLY the game, so there is
-            // nothing to swap back to on Stop.
-            m_viewportSource.viewport = m_viewport.Get();
-            m_viewportSource.shellInput = m_shellInput;
-            if (m_input != nullptr) { m_input->SetSourceProvider(&m_viewportSource); }
 
             // "Exit" from embedded game code = stop this play session (deferred by the
             // app to after the page-update loop - never torn down mid-script-dispatch).
@@ -289,8 +284,38 @@ export namespace draconic::editor
             RefreshToolbar();
         }
 
+        // Bind (and re-bind after dock/float moves) the viewport to the window hosting it -
+        // the same RendererFor dance as ScenePage. Without this the viewport never gets a
+        // DEVICE: no color target, IsReady() false, and the tab renders only its clear color.
+        void EnsureViewportBound()
+        {
+            draconic::ui::RootView* root = m_viewport->Root();
+            if (root == nullptr) { return; }
+            draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+            if (window == nullptr || window == m_hostWindow) { return; }
+
+            gvgr::VGRenderer* renderer = m_uiHost->RendererFor(window);
+            if (renderer == nullptr) { return; }   // float's AttachWindow hasn't run yet
+
+            if (m_hostWindow == nullptr)
+            {
+                m_viewport->Initialize(m_host->Graphics()->Raw(), renderer,
+                                       m_host->Shell()->Input(), window->Window().Id());
+                // The (now-existing) gated surface is the runtime input's permanent source.
+                m_viewportSource.viewport = m_viewport.Get();
+                m_viewportSource.shellInput = m_shellInput;
+                if (m_input != nullptr) { m_input->SetSourceProvider(&m_viewportSource); }
+            }
+            else
+            {
+                m_viewport->AttachToWindow(renderer, window->Window().Id());
+            }
+            m_hostWindow = window;
+        }
+
         void OnUpdate(grt::IApplicationHost& host, f32 dt) override
         {
+            EnsureViewportBound();
             m_viewport->SyncInputRegion();
             // The play bracket: the embedded app updates ONLY while a run is live (its
             // OnUpdate ticks the game script with the primary scene's scaled time).
@@ -437,7 +462,9 @@ export namespace draconic::editor
 
         EditorContext* m_context = nullptr;
         grt::IApplicationHost* m_host = nullptr;
+        guirt::UIHost* m_uiHost = nullptr;
         grt::DefaultApplication* m_app = nullptr;   // the embedded game application (v3)
+        draconic::graphics::RenderWindow* m_hostWindow = nullptr;   // borrowed; tracks dock/float moves
         gscene::SceneSubsystem* m_scenes = nullptr;
         grender::RenderSubsystem* m_render = nullptr;
         gscene::Scene* m_scene = nullptr;
