@@ -31,6 +31,7 @@ import draconic.fonts;
 import draconic.fonts.ttf;
 import draconic.input;
 import draconic.input.subsystem;
+import draconic.render.api;   // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
 import draconic.ui;
 import draconic.ui.resource;
 
@@ -154,7 +155,9 @@ export namespace draconic::ui
     void RegisterUIComponentReflection();
 
     class UISubsystem final : public draconic::runtime::Subsystem,
-                              public dscene::ISceneAware
+                              public dscene::ISceneAware,
+                              public draconic::render::ISceneOverlay,
+                              public draconic::render::IScreenOverlay
     {
     public:
         UISubsystem();   // defined in the impl unit (RenderState is opaque here)
@@ -169,7 +172,16 @@ export namespace draconic::ui
         void SetFontPath(StringView path) { m_fontPath = String(path); }
 
         [[nodiscard]] UIContext& Context() noexcept { return m_context; }
+        /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
+        /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
+        /// The scene tier's root for `scene` (canvases above a shared billboard layer);
+        /// null if the scene is unknown.
+        [[nodiscard]] RootView* SceneRoot(dscene::Scene& scene) noexcept
+        {
+            SceneUI* ui = FindSceneUI(scene);
+            return ui != nullptr ? ui->root.Get() : nullptr;
+        }
 
         // ---- the scene-less SCREEN tier (Sedulous ScreenUIView) ----
         // Global overlays OUTSIDE any scene: they survive scene swaps (loading screens,
@@ -214,27 +226,53 @@ export namespace draconic::ui
         {
             scene.AddSystem<UICanvasComponentManager>();
             scene.AddSystem<UIBillboardComponentManager>();
-            m_scenes.PushBack(&scene);
+            // The scene tier: each scene gets its own root (billboard layer BELOW its
+            // canvases) that the scene-overlay pass draws wherever this scene renders.
+            SceneUI ui;
+            ui.scene = &scene;
+            ui.root = MakeRef<RootView>(DefaultAllocator());
+            auto billboards = MakeRef<AbsoluteLayout>(DefaultAllocator());
+            billboards->IsHitTestVisible = false;   // nameplates never eat clicks
+            ui.billboardLayer = billboards;
+            ui.root->AddView(ui.billboardLayer.Get());
+            m_context.AddRootView(ui.root.Get());
+            m_sceneUIs.PushBack(Move(ui));
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
         {
-            for (usize i = 0; i < m_scenes.Size(); ++i)
+            for (usize i = 0; i < m_sceneUIs.Size(); ++i)
             {
-                if (m_scenes[i] == &scene) { m_scenes.RemoveAt(i); break; }
+                if (m_sceneUIs[i].scene != &scene) { continue; }
+                if (m_sceneUIs[i].root.Get() != nullptr)
+                {
+                    m_context.RemoveRootView(m_sceneUIs[i].root.Get());
+                }
+                m_sceneUIs.RemoveAt(i);
+                break;
             }
         }
 
-        /// Draws `scene`'s screen tier (its canvases + billboards ONLY - a Simulate
-        /// page's UI never bleeds into the Game tab) into `target` via a Load-op pass on
-        /// the SAME encoder, AFTER the scene composed (post-EndRendering). Billboards
-        /// project through the scene's primary camera. The target must be in
-        /// RenderTarget state; it is left there. Lays out against the live target size.
-        void RenderOverlay(dscene::Scene& scene, rhi::CommandEncoder& encoder,
-                           rhi::TextureView* target, rhi::TextureFormat format,
-                           u32 width, u32 height, i32 frameIndex);
+        // ---- overlay roles (the render layer's two-tier model) ----
+        // The subsystem registers itself for BOTH: the scene tier draws each scene's
+        // canvases + billboards inside the compose wherever that scene renders (with the
+        // view's REAL camera); the screen tier draws the scene-less overlays once per
+        // window target when the host calls IScreenRenderer::RenderOverlays.
+
+        [[nodiscard]] i32 OverlayOrder() const noexcept override { return 0; }   // both roles
+        /// Scene tier: draws the view's scene root (matched by SceneKey). Sub-rect views
+        /// (split-screen) are skipped for now - positioning a VG draw inside a sub-rect
+        /// needs a VG renderer viewport seam (consult-first per the standing rule).
+        void Render(rhi::RenderPassEncoder& encoder, const render::SceneOverlayView& view) override;
+        /// Screen tier: draws the global overlay root.
+        void Render(rhi::RenderPassEncoder& encoder, const render::ScreenOverlayView& view) override;
+
+        /// The scene-tier per-view sync, split out for headless tests: canvas visibility
+        /// plus billboard projection/scaling through the VIEW's camera (world -> clip ->
+        /// NDC -> px in the target; behind-camera parks off-screen).
+        void UpdateSceneView(dscene::Scene& scene, const render::SceneOverlayView& view);
 
         /// One-time GPU bring-up (shader compile + device wire) by whoever owns graphics
-        /// (DefaultApplication's startup). Idempotent; without it RenderOverlay no-ops.
+        /// (DefaultApplication's startup). Idempotent; without it overlay draws no-op.
         void EnsureRenderReady(rhi::Device& device, i32 frameCount);
 
         // ---- editor preview seam (the UIDocumentPage) ----
@@ -257,20 +295,39 @@ export namespace draconic::ui
         [[nodiscard]] bool PointerOverUI() const noexcept { return m_pointerConsumed; }
 
     private:
+        // Per-scene UI state: the scene tier's root + its billboard layer.
+        struct SceneUI
+        {
+            dscene::Scene* scene = nullptr;
+            RefPtr<RootView> root;
+            RefPtr<ViewGroup> billboardLayer;   // BELOW the scene's canvases; one batch
+        };
+        [[nodiscard]] SceneUI* FindSceneUI(dscene::Scene& scene) noexcept
+        {
+            for (SceneUI& ui : m_sceneUIs) { if (ui.scene == &scene) { return &ui; } }
+            return nullptr;
+        }
+
         void SyncCanvases();
         void PumpInput();
         void DrawRootInto(RootView& root, rhi::CommandEncoder& encoder, rhi::TextureView* target,
                           rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
+        // Records one root into an ALREADY-ACTIVE render pass (the overlay-role contract).
+        void DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
+                            rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
 
         String m_fontPath;
         UIContext m_context;
         RefPtr<RootView> m_screenRoot;
-        RefPtr<ViewGroup> m_billboardLayer;   // shared, BELOW the canvases; one batch
         RefPtr<ViewGroup> m_overlayLayer;     // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;
         UniquePtr<draconic::fonts::TrueTypeFontService> m_fonts;
-        Array<dscene::Scene*> m_scenes;
+        Array<SceneUI> m_sceneUIs;
         draconic::input::InputSubsystem* m_input = nullptr;
+        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;    // overlay registration seam
+        draconic::render::IScreenRenderer* m_screenRenderer = nullptr;
+        u64 m_frameSerial = 0;                // gates VGRenderer::BeginFrame to once per frame
+        bool m_subRectWarned = false;         // log the split-screen skip once
 
         // pointer edge tracking for the polled pump
         bool m_prevButtons[3] = { false, false, false };

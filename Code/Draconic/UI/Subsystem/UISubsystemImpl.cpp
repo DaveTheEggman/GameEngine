@@ -26,8 +26,8 @@ import draconic.vg;
 import draconic.vg.renderer;
 import draconic.ui;
 import draconic.ui.resource;
-import draconic.render;
-import draconic.render.subsystem;   // ExtractPrimaryCamera (billboard projection)
+import draconic.render.api;
+import draconic.render.subsystem;   // RenderSubsystem (overlay-role registration)
 
 using namespace draconic::core;
 
@@ -47,6 +47,7 @@ namespace draconic::ui
         {
             rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
             UniquePtr<vgr::VGRenderer> renderer;
+            u64 begunSerial = 0;   // last UI frame this renderer's ring was reset for
         };
         Array<FormatRenderer> renderers;
         i32 frameCount = 2;
@@ -94,24 +95,40 @@ namespace draconic::ui
             return ok;
         }
 
-        [[nodiscard]] vgr::VGRenderer* RendererFor(rhi::TextureFormat format)
+        // Fetch (or lazily create) the renderer for a target format, with its per-frame
+        // ring reset EXACTLY once per UI frame (`frameSerial`): BeginFrame rewinds the
+        // vertex/uniform rings and clears the command list, so calling it before every
+        // draw would clobber the slices of draws recorded earlier in the SAME frame
+        // (scene overlay + screen overlay + preview all share a format's renderer now).
+        [[nodiscard]] vgr::VGRenderer* RendererFor(rhi::TextureFormat format, u64 frameSerial,
+                                                   i32 frameIndex)
         {
+            FormatRenderer* found = nullptr;
             for (auto& entry : renderers)
             {
-                if (entry.format == format) { return entry.renderer.Get(); }
+                if (entry.format == format) { found = &entry; break; }
             }
-            if (vertexShader == nullptr || fragmentShader == nullptr) { return nullptr; }
-            auto renderer = MakeUnique<vgr::VGRenderer>(DefaultAllocator());
-            if (!renderer->Initialize(*device, *vertexShader, *fragmentShader, format,
-                                      frameCount).IsOk())
+            if (found == nullptr)
             {
-                return nullptr;
+                if (vertexShader == nullptr || fragmentShader == nullptr) { return nullptr; }
+                auto renderer = MakeUnique<vgr::VGRenderer>(DefaultAllocator());
+                if (!renderer->Initialize(*device, *vertexShader, *fragmentShader, format,
+                                          frameCount).IsOk())
+                {
+                    return nullptr;
+                }
+                FormatRenderer entry;
+                entry.format = format;
+                entry.renderer = Move(renderer);
+                renderers.PushBack(Move(entry));
+                found = &renderers[renderers.Size() - 1];
             }
-            FormatRenderer entry;
-            entry.format = format;
-            entry.renderer = Move(renderer);
-            renderers.PushBack(Move(entry));
-            return renderers[renderers.Size() - 1].renderer.Get();
+            if (found->begunSerial != frameSerial)
+            {
+                found->renderer->BeginFrame(frameIndex);
+                found->begunSerial = frameSerial;
+            }
+            return found->renderer.Get();
         }
     };
 
@@ -139,17 +156,12 @@ namespace draconic::ui
         m_context.SetFontService(m_fonts.Get());
         m_theme = GameTheme::Create();
         m_context.SetStyleSheet(m_theme);
+        // The scene-LESS screen tier: the screen root holds ONLY the global overlay
+        // layer (each scene's canvases + billboards live in that scene's own root). It
+        // only hit-tests while it HOLDS overlays - an empty full-screen layer must never
+        // swallow the clicks meant for the scene canvases below it.
         m_screenRoot = MakeRef<RootView>(DefaultAllocator());
         m_context.AddRootView(m_screenRoot.Get());
-        // Billboards live in one shared absolute layer BELOW the canvases (one batch).
-        auto layer = MakeRef<AbsoluteLayout>(DefaultAllocator());
-        layer->IsHitTestVisible = false;   // nameplates never eat clicks (P2 scope)
-        m_billboardLayer = layer;
-        m_screenRoot->AddView(m_billboardLayer.Get());
-        // The scene-LESS screen tier (global overlays) sits above everything; canvas
-        // attaches re-append it so it stays topmost (draw order = child order). It only
-        // hit-tests while it HOLDS overlays - an empty full-screen layer must never
-        // swallow the clicks meant for the canvases below it.
         auto overlay = MakeRef<FrameLayout>(DefaultAllocator());
         overlay->IsHitTestVisible = false;
         m_overlayLayer = overlay;
@@ -165,11 +177,31 @@ namespace draconic::ui
             {
                 scenes->RegisterSceneAware(this);   // injects the canvas manager per scene
             }
+            // The overlay roles: scene tier draws inside the compose per view; screen
+            // tier draws when the host calls RenderOverlays per window target. Headless
+            // contexts (tests, cooker) have no render subsystem - both stay unregistered.
+            if (auto* render = context->GetSubsystem<draconic::render::RenderSubsystem>())
+            {
+                m_sceneRenderer = render;
+                m_screenRenderer = render;
+                m_sceneRenderer->RegisterOverlay(static_cast<draconic::render::ISceneOverlay*>(this));
+                m_screenRenderer->RegisterOverlay(static_cast<draconic::render::IScreenOverlay*>(this));
+            }
         }
     }
 
     void UISubsystem::OnShutdown()
     {
+        if (m_sceneRenderer != nullptr)
+        {
+            m_sceneRenderer->UnregisterOverlay(static_cast<draconic::render::ISceneOverlay*>(this));
+            m_sceneRenderer = nullptr;
+        }
+        if (m_screenRenderer != nullptr)
+        {
+            m_screenRenderer->UnregisterOverlay(static_cast<draconic::render::IScreenOverlay*>(this));
+            m_screenRenderer = nullptr;
+        }
         if (draconic::runtime::Context* context = GetContext())
         {
             if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
@@ -177,7 +209,11 @@ namespace draconic::ui
                 scenes->UnregisterSceneAware(this);
             }
         }
-        m_billboardLayer = nullptr;
+        for (SceneUI& ui : m_sceneUIs)
+        {
+            if (ui.root.Get() != nullptr) { m_context.RemoveRootView(ui.root.Get()); }
+        }
+        m_sceneUIs.Clear();
         m_overlayLayer = nullptr;
         if (m_screenRoot.Get() != nullptr) { m_context.RemoveRootView(m_screenRoot.Get()); }
         m_screenRoot = nullptr;
@@ -189,6 +225,7 @@ namespace draconic::ui
     {
         // UNSCALED time: menus animate while the game is paused (BeginFrame receives the
         // raw host dt - the whole reason this runs here and not in Update).
+        ++m_frameSerial;   // one VG ring reset per UI frame (see RenderState::RendererFor)
         m_context.BeginFrame(deltaTime);
         m_navDeltaTime = deltaTime;
         SyncCanvases();
@@ -200,8 +237,11 @@ namespace draconic::ui
         // Instantiate/rebuild each canvas's view tree from its cooked document. Documents
         // are TEMPLATES: a fresh tree per canvas; a document reload (different product
         // pointer) rebuilds; theme overrides parse per canvas as a LOCAL stylesheet.
-        for (dscene::Scene* scene : m_scenes)
+        // Canvases and billboards parent into THEIR SCENE's root (the scene tier) - a
+        // Simulate page's UI can never bleed into the Game tab by construction.
+        for (SceneUI& sceneUI : m_sceneUIs)
         {
+            dscene::Scene* scene = sceneUI.scene;
             auto* canvases = scene->GetSystem<UICanvasComponentManager>();
             if (canvases == nullptr) { continue; }
             canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
@@ -210,7 +250,7 @@ namespace draconic::ui
                 {
                     if (c.root.Get() != nullptr)
                     {
-                        m_screenRoot->RemoveView(c.root.Get());
+                        sceneUI.root->RemoveView(c.root.Get());
                         c.root = nullptr;
                     }
                     if (document != nullptr && !document->markup.IsEmpty())
@@ -218,13 +258,7 @@ namespace draconic::ui
                         c.root = MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
                         if (c.root.Get() != nullptr)
                         {
-                            m_screenRoot->AddView(c.root.Get());
-                            if (m_overlayLayer.Get() != nullptr)
-                            {
-                                RefPtr<View> keep = m_overlayLayer;
-                                m_screenRoot->RemoveView(keep.Get());
-                                m_screenRoot->AddView(keep.Get());
-                            }
+                            sceneUI.root->AddView(c.root.Get());
                         }
                         else
                         {
@@ -261,7 +295,7 @@ namespace draconic::ui
                 {
                     if (c.root.Get() != nullptr)
                     {
-                        m_billboardLayer->RemoveView(c.root.Get());
+                        sceneUI.billboardLayer->RemoveView(c.root.Get());
                         c.root = nullptr;
                     }
                     if (document != nullptr && !document->markup.IsEmpty())
@@ -271,7 +305,7 @@ namespace draconic::ui
                         {
                             auto lp = MakeRef<AbsoluteLayoutParams>(DefaultAllocator());
                             c.root->LayoutParams = lp;
-                            m_billboardLayer->AddView(c.root.Get());
+                            sceneUI.billboardLayer->AddView(c.root.Get());
                         }
                     }
                     c.builtFrom = document;
@@ -283,9 +317,11 @@ namespace draconic::ui
     void UISubsystem::PumpInput()
     {
         // The global-overlay layer eats input only while occupied (see OnInit).
+        const bool overlayActive =
+            m_overlayLayer.Get() != nullptr && m_overlayLayer->ChildCount() > 0;
         if (m_overlayLayer.Get() != nullptr)
         {
-            m_overlayLayer->IsHitTestVisible = m_overlayLayer->ChildCount() > 0;
+            m_overlayLayer->IsHitTestVisible = overlayActive;
         }
         // The SAME facades the action layer evaluates: window coords in the player,
         // content coords in the Game tab (the InputSurface transform) - transparently.
@@ -293,6 +329,46 @@ namespace draconic::ui
         draconic::input::IInputSourceProvider& devices = m_input->ActiveSource();
         draconic::shell::IMouse* mouse = devices.Mouse();
         InputManager& inputManager = *m_context.GetInputManager();
+
+        // The context dispatches input through ONE ActiveInputRoot (the UIHost multi-
+        // window precedent) - with the tiers split across roots, pick it per frame:
+        // an OCCUPIED screen tier is modal and always wins; otherwise the root under
+        // the pointer; otherwise (pad/keyboard-only) the first scene root with canvas
+        // content, so gamepad nav reaches a pause menu no pointer ever hovered.
+        {
+            RootView* target = nullptr;
+            if (overlayActive) { target = m_screenRoot.Get(); }
+            if (target == nullptr && mouse != nullptr)
+            {
+                const Float2 point{ mouse->X(), mouse->Y() };
+                if (m_screenRoot.Get() != nullptr)
+                {
+                    View* hit = m_screenRoot->HitTest(point);
+                    if (hit != nullptr && hit != m_screenRoot.Get()) { target = m_screenRoot.Get(); }
+                }
+                for (usize i = 0; target == nullptr && i < m_sceneUIs.Size(); ++i)
+                {
+                    RootView* root = m_sceneUIs[i].root.Get();
+                    if (root == nullptr) { continue; }
+                    View* hit = root->HitTest(point);
+                    if (hit != nullptr && hit != root) { target = root; }
+                }
+            }
+            if (target == nullptr)
+            {
+                for (SceneUI& ui : m_sceneUIs)
+                {
+                    // Beyond the billboard layer = at least one canvas instantiated.
+                    if (ui.root.Get() != nullptr && ui.root->ChildCount() > 1)
+                    {
+                        target = ui.root.Get();
+                        break;
+                    }
+                }
+            }
+            if (target == nullptr) { target = m_screenRoot.Get(); }
+            if (target != nullptr) { m_context.SetActiveInputRoot(target); }
+        }
         if (mouse != nullptr)
         {
             const f32 x = mouse->X();
@@ -386,12 +462,24 @@ namespace draconic::ui
 
         // Consumption: pointer = an INTERACTIVE canvas under the cursor (or a pressed
         // view); keyboard = a focused text editor. Published to the action layer -
-        // UI-consumed input never reaches gameplay actions.
+        // UI-consumed input never reaches gameplay actions. The pointer probes the
+        // screen tier first (topmost), then every scene root.
         bool pointer = false;
-        if (mouse != nullptr && m_screenRoot.Get() != nullptr)
+        if (mouse != nullptr)
         {
-            View* hit = m_screenRoot->HitTest(Float2{ mouse->X(), mouse->Y() });
-            pointer = hit != nullptr && hit != m_screenRoot.Get();
+            const Float2 point{ mouse->X(), mouse->Y() };
+            if (m_screenRoot.Get() != nullptr)
+            {
+                View* hit = m_screenRoot->HitTest(point);
+                pointer = hit != nullptr && hit != m_screenRoot.Get();
+            }
+            for (usize i = 0; !pointer && i < m_sceneUIs.Size(); ++i)
+            {
+                RootView* root = m_sceneUIs[i].root.Get();
+                if (root == nullptr) { continue; }
+                View* hit = root->HitTest(point);
+                pointer = hit != nullptr && hit != root;
+            }
         }
         pointer = pointer || inputManager.PressedId() != ViewId{};
         const bool keyboard = m_context.WantsTextInput();
@@ -400,51 +488,27 @@ namespace draconic::ui
             draconic::input::ActionRuntime::ConsumptionMask{ pointer, keyboard });
     }
 
-    void UISubsystem::RenderOverlay(dscene::Scene& scene, rhi::CommandEncoder& encoder,
-                                    rhi::TextureView* target, rhi::TextureFormat format,
-                                    u32 width, u32 height, i32 frameIndex)
+    // The scene-tier per-view sync: canvas visibility from the authored flag, then
+    // billboard projection through the VIEW's real camera (world -> clip -> NDC -> px;
+    // behind-camera parks at (-10000,-10000); distance scale as a 2D view-transform).
+    // Public + encoder-free so headless tests drive it with a synthetic view.
+    void UISubsystem::UpdateSceneView(dscene::Scene& scene, const render::SceneOverlayView& view)
     {
-        if (m_screenRoot.Get() == nullptr || target == nullptr || width == 0 || height == 0)
+        if (auto* canvases = scene.GetSystem<UICanvasComponentManager>())
         {
-            return;
+            canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
+                if (c.root.Get() != nullptr)
+                {
+                    c.root->Visibility = c.visible ? VisibilityValue::Visible
+                                                   : VisibilityValue::Gone;
+                }
+            });
         }
-
-        // Per-scene gating: only THIS scene's canvases/billboards draw into this target.
-        for (dscene::Scene* owned : m_scenes)
-        {
-            const bool active = owned == &scene;
-            if (auto* canvases = owned->GetSystem<UICanvasComponentManager>())
-            {
-                canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
-                    if (c.root.Get() != nullptr)
-                    {
-                        c.root->Visibility = (active && c.visible) ? VisibilityValue::Visible
-                                                                   : VisibilityValue::Gone;
-                    }
-                });
-            }
-            if (auto* billboards = owned->GetSystem<UIBillboardComponentManager>())
-            {
-                billboards->ForEach([&](UIBillboardComponent& c, dscene::EntityHandle) {
-                    if (c.root.Get() != nullptr && (!active || !c.visible))
-                    {
-                        c.root->Visibility = VisibilityValue::Gone;
-                    }
-                });
-            }
-        }
-
-        // Billboards: project this scene's anchors through its primary camera (the
-        // reference recipe: world -> clip -> NDC -> screen px; behind-camera parks at
-        // (-10000,-10000); distance scale as a 2D view-transform).
-        draconic::render::ViewCamera camera;
-        const bool hasCamera = draconic::render::ExtractPrimaryCamera(scene, camera);
         if (auto* billboards = scene.GetSystem<UIBillboardComponentManager>())
         {
-            const Float4x4 viewProjection = camera.ViewProjection();
             billboards->ForEach([&](UIBillboardComponent& c, dscene::EntityHandle e) {
-                if (c.root.Get() == nullptr || !c.visible) { return; }
-                if (!hasCamera)
+                if (c.root.Get() == nullptr) { return; }
+                if (!c.visible)
                 {
                     c.root->Visibility = VisibilityValue::Gone;
                     return;
@@ -463,7 +527,7 @@ namespace draconic::ui
                     worldPos = TransformPoint(c.offset, entity);
                 }
                 const Float4 clip =
-                    Float4{ worldPos.x, worldPos.y, worldPos.z, 1.0f } * viewProjection;
+                    Float4{ worldPos.x, worldPos.y, worldPos.z, 1.0f } * view.viewProjection;
                 auto* lp = Cast<AbsoluteLayoutParams>(c.root->LayoutParams.Get());
                 if (lp == nullptr) { return; }
                 if (clip.w <= 0.0f)
@@ -475,42 +539,74 @@ namespace draconic::ui
                 {
                     const f32 ndcX = clip.x / clip.w;
                     const f32 ndcY = clip.y / clip.w;
-                    lp->X = (ndcX * 0.5f + 0.5f) * static_cast<f32>(width);
-                    lp->Y = (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<f32>(height);
+                    lp->X = (ndcX * 0.5f + 0.5f) * static_cast<f32>(view.targetWidth);
+                    lp->Y = (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<f32>(view.targetHeight);
                 }
                 f32 scale = 1.0f;
                 if (c.scaleMode == BillboardScale::Distance)
                 {
-                    const Float3 toCamera{ worldPos.x - camera.position.x,
-                                           worldPos.y - camera.position.y,
-                                           worldPos.z - camera.position.z };
+                    const Float3 toCamera{ worldPos.x - view.cameraPosition.x,
+                                           worldPos.y - view.cameraPosition.y,
+                                           worldPos.z - view.cameraPosition.z };
                     const f32 distance = Max(Length(toCamera), 0.001f);
                     scale = Clamp(c.referenceDistance / distance, c.minScale, c.maxScale);
                 }
                 c.root->Transform.Scale = Float2{ scale, scale };
             });
         }
-        if (m_render.Get() == nullptr)
-        {
-            draconic::runtime::Context* context = GetContext();
-            (void)context;
-            m_render = MakeUnique<RenderState>(DefaultAllocator(), m_fonts.Get());
-        }
-        if (m_render->device == nullptr)
-        {
-            // Lazily wire the device from the first caller's encoder? The device comes
-            // from the graphics host - callers set it via EnsureDevice below.
-            return;
-        }
-
-        DrawRootInto(*m_screenRoot, encoder, target, format, width, height, frameIndex);
     }
 
-    // Shared draw body: layout the root at the target size, batch through the shared
-    // VGContext, draw via the per-format renderer in a Load-op pass.
-    void UISubsystem::DrawRootInto(RootView& root, rhi::CommandEncoder& encoder,
-                                   rhi::TextureView* target, rhi::TextureFormat format,
-                                   u32 width, u32 height, i32 frameIndex)
+    // Scene tier (ISceneOverlay): called inside the compose's shared overlay pass, once
+    // per view. Draws the view's scene root - matched by SceneKey - with the view's
+    // REAL camera, so scene UI lands wherever the scene renders and billboards project
+    // correctly in every viewport.
+    void UISubsystem::Render(rhi::RenderPassEncoder& encoder, const render::SceneOverlayView& view)
+    {
+        if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
+        if (view.targetWidth == 0 || view.targetHeight == 0) { return; }
+        SceneUI* sceneUI = nullptr;
+        for (SceneUI& ui : m_sceneUIs)
+        {
+            if (static_cast<const void*>(ui.scene) == view.sceneKey) { sceneUI = &ui; break; }
+        }
+        if (sceneUI == nullptr || sceneUI->root.Get() == nullptr) { return; }
+        // Sub-rect views (split-screen): the VG renderer draws at the target origin, so
+        // positioning inside a sub-rect needs a VG viewport seam (consult-first rule).
+        const bool fullRect = view.viewportX == 0 && view.viewportY == 0 &&
+                              view.viewportWidth == view.targetWidth &&
+                              view.viewportHeight == view.targetHeight;
+        if (!fullRect)
+        {
+            if (!m_subRectWarned)
+            {
+                m_subRectWarned = true;
+                DRACONIC_LOG_WARNING(u8"UI",
+                    u8"scene UI skipped for a sub-rect view (split-screen scene HUD needs a VG viewport seam)");
+            }
+            return;
+        }
+        UpdateSceneView(*sceneUI->scene, view);
+        DrawRootInPass(*sceneUI->root, encoder, view.targetFormat,
+                       view.targetWidth, view.targetHeight, static_cast<i32>(view.frameIndex));
+    }
+
+    // Screen tier (IScreenOverlay): called from the host's RenderOverlays per window
+    // target, after the scene composed. Draws the scene-less global overlays.
+    void UISubsystem::Render(rhi::RenderPassEncoder& encoder, const render::ScreenOverlayView& view)
+    {
+        if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
+        if (m_screenRoot.Get() == nullptr || view.width == 0 || view.height == 0) { return; }
+        DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, view.width, view.height,
+                       static_cast<i32>(view.frameIndex));
+    }
+
+    // Records one root into an ALREADY-ACTIVE render pass: layout at the target size,
+    // batch through the shared VGContext, upload a slice (pure mapped-memory writes -
+    // legal during pass recording), draw. The per-format renderer's ring resets once
+    // per UI frame (m_frameSerial) so same-frame draws never clobber each other.
+    void UISubsystem::DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
+                                     rhi::TextureFormat format, u32 width, u32 height,
+                                     i32 frameIndex)
     {
         root.ViewportSize = Float2{ static_cast<f32>(width), static_cast<f32>(height) };
         m_context.UpdateRootView(&root);
@@ -520,11 +616,18 @@ namespace draconic::ui
         vg::VGBatch& batch = m_render->vgContext.GetBatch();
         if (batch.commands.IsEmpty()) { return; }
 
-        vgr::VGRenderer* renderer = m_render->RendererFor(format);
+        vgr::VGRenderer* renderer = m_render->RendererFor(format, m_frameSerial, frameIndex);
         if (renderer == nullptr) { return; }
-        renderer->BeginFrame(frameIndex);
         const vgr::VGRenderSlice slice = renderer->Prepare(batch, frameIndex, width, height);
+        renderer->Render(encoder, width, height, frameIndex, slice);
+    }
 
+    // Pass-owning draw body (the preview seam): opens its own Load-op pass on the
+    // caller's encoder, then records through DrawRootInPass.
+    void UISubsystem::DrawRootInto(RootView& root, rhi::CommandEncoder& encoder,
+                                   rhi::TextureView* target, rhi::TextureFormat format,
+                                   u32 width, u32 height, i32 frameIndex)
+    {
         rhi::RenderPassDesc pass;
         rhi::ColorAttachment color;
         color.view = target;
@@ -533,7 +636,7 @@ namespace draconic::ui
         pass.colorAttachments.Add(color);
         if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
         {
-            renderer->Render(*rp, width, height, frameIndex, slice);
+            DrawRootInPass(root, *rp, format, width, height, frameIndex);
             rp->End();
         }
     }
@@ -546,8 +649,8 @@ namespace draconic::ui
         RefPtr<RootView> root = MakeRef<RootView>(DefaultAllocator());
         root->AddView(tree.Get());
         // Registered on the GAME context (styles/fonts/ids resolve there) but NEVER on
-        // the screen root - RenderOverlay only draws m_screenRoot, so previews cannot
-        // appear in game targets; input stays with the ActiveInputRoot (view-only).
+        // the screen root or a scene root - the overlay roles only draw those, so
+        // previews cannot appear in game targets; input stays with the active roots.
         m_context.AddRootView(root.Get());
         return root;
     }

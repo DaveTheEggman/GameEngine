@@ -39,7 +39,6 @@ import draconic.input.resource;
 import draconic.input.subsystem;
 import draconic.physics.subsystem;
 import draconic.runtime.defaultapp;
-import draconic.ui.subsystem;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -354,23 +353,24 @@ export namespace draconic::editor
         void OnAfterSceneRender(grt::IApplicationHost& host,
                                 draconic::graphics::FrameContext& frame) override
         {
-            // The game's SCREEN-TIER UI composites onto the viewport AFTER the scene graph
-            // composed it (RenderScene is collect-only; content exists only post-
-            // EndRendering). Same subsystem, same path as the player's backbuffer overlay.
+            // Scene-tier UI (HUD canvases/billboards) already landed in the viewport
+            // inside the compose. This composites the game's WINDOW-SPACE overlays
+            // (screen-tier UI, diagnostics) onto the viewport through the generic
+            // registry - the tab shows the same full output as the player's window.
             if (!m_running || m_scene == nullptr || !m_viewport->IsReady() || !frame.valid)
             {
                 return;
             }
-            auto* ui = host.Ctx().GetSubsystem<draconic::ui::UISubsystem>();
-            if (ui == nullptr) { return; }
+            auto* render = host.Ctx().GetSubsystem<grender::RenderSubsystem>();
+            if (render == nullptr) { return; }
             const u32 w = m_viewport->RenderWidth();
             const u32 h = m_viewport->RenderHeight();
             if (w == 0 || h == 0) { return; }
             frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
                                              m_viewport->ColorState(),
                                              rhi::ResourceState::RenderTarget);
-            ui->RenderOverlay(*m_scene, *frame.encoder, m_viewport->ColorTargetView(),
-                              m_viewport->ColorFormat(), w, h, frame.frameIndex);
+            render->RenderOverlays(*frame.encoder, m_viewport->ColorTargetView(),
+                                   m_viewport->ColorFormat(), w, h, frame.frameIndex);
             frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
                                              rhi::ResourceState::RenderTarget,
                                              rhi::ResourceState::ShaderRead);

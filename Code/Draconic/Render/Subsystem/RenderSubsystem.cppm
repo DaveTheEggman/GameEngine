@@ -39,6 +39,7 @@ export namespace draconic::render {
 
 class RenderSubsystem final : public draconic::runtime::Subsystem,
                               public ISceneRenderer,
+                              public IScreenRenderer,
                               public scene::ISceneAware {
 public:
     RenderSubsystem(rhi::Device& device, u32 framesInFlight) noexcept
@@ -202,6 +203,7 @@ public:
         m_frame->SetInstanceSharing(m_instanceSharing);
         m_frame->SetViewCulling(m_viewCulling);
         m_frame->SetDebug(m_debugPass.Get(), &m_debugGlobal, &m_debugScreen);
+        m_frame->SetSceneOverlays(&m_sceneOverlays.Items());
         m_frame->SetDecal(m_decalPass.Get());
         m_frame->SetSsr(m_ssrPass.Get());
         m_frame->SetSsrParams(m_ssrEnabled, m_ssrParams);
@@ -265,7 +267,8 @@ public:
         {
             DRACONIC_PROFILE_SCOPE("Render.AddView");   // binds the view + builds/sorts its draw list
             const void* sceneDebug = m_debugScenes.Find(&scene);   // this scene's per-scene gizmo list (or null)
-            m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height, sceneDebug);
+            m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height, sceneDebug,
+                             /*sceneKey*/ &scene);
         }
     }
 
@@ -277,6 +280,40 @@ public:
         m_debugGlobal.Clear();
         m_debugScreen.Clear();
         for (auto& kv : m_debugScenes) { kv.value.Clear(); }
+    }
+
+    // Scene-tier overlay sources: drawn per view inside the compose (after post, before
+    // debug draw), matched to views by SceneKey. Idempotent, non-owning.
+    void RegisterOverlay(ISceneOverlay* overlay) override { m_sceneOverlays.Add(overlay); }
+    void UnregisterOverlay(ISceneOverlay* overlay) override { m_sceneOverlays.Remove(overlay); }
+
+    // ---- IScreenRenderer ----
+
+    void RegisterOverlay(IScreenOverlay* overlay) override { m_screenOverlays.Add(overlay); }
+    void UnregisterOverlay(IScreenOverlay* overlay) override { m_screenOverlays.Remove(overlay); }
+
+    // Window-space overlays: one shared Load-op pass against `target` (in RenderTarget
+    // state; left there), every registered source in OverlayOrder. The HOST calls this once
+    // per window target after the scene composed (post-EndRendering).
+    void RenderOverlays(rhi::CommandEncoder& encoder, rhi::TextureView* target,
+                        rhi::TextureFormat targetFormat, u32 width, u32 height,
+                        u32 frameIndex) override {
+        if (target == nullptr || width == 0 || height == 0 || m_screenOverlays.IsEmpty()) { return; }
+        rhi::RenderPassDesc pass;
+        rhi::ColorAttachment color;
+        color.view = target;
+        color.loadOp = rhi::LoadOp::Load;
+        color.storeOp = rhi::StoreOp::Store;
+        pass.colorAttachments.Add(color);
+        if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass)) {
+            ScreenOverlayView view;
+            view.width = width;
+            view.height = height;
+            view.targetFormat = targetFormat;
+            view.frameIndex = frameIndex;
+            for (IScreenOverlay* overlay : m_screenOverlays.Items()) { overlay->Render(*rp, view); }
+            rp->End();
+        }
     }
 
 protected:
@@ -465,6 +502,8 @@ private:
     RendererRegistry                          m_registry;
     struct SceneProvider { scene::Scene* scene; IRenderDataProvider* provider; };
     Array<SceneProvider>                      m_providers;    // per-scene render-data contributors (borrowed)
+    OverlayRegistry<ISceneOverlay>            m_sceneOverlays;    // scene-tier overlay sources (borrowed)
+    OverlayRegistry<IScreenOverlay>           m_screenOverlays;   // window-space overlay sources (borrowed)
     UniquePtr<RenderFrame>                    m_frame;
 
     Array<UniquePtr<ExtractedScene>>          m_scenes;       // snapshot pool

@@ -287,18 +287,12 @@ export namespace draconic::runtime
                 render->RenderScene(*scene, frame.backbufferView, colorFormat,
                                     frame.width, frame.height);   // clear comes from the scene's camera
             }
-            render->EndRendering();
+            render->EndRendering();   // scene-tier overlays (HUD/billboards) draw inside the compose
 
-            // The game screen tier composites over the finished scenes, PER SCENE (its
-            // canvases + billboards only; billboards project through the scene camera).
-            if (m_ui != nullptr)
-            {
-                for (draconic::scene::Scene* scene : scenes->ActiveScenes())
-                {
-                    m_ui->RenderOverlay(*scene, *frame.encoder, frame.backbufferView, colorFormat,
-                                        frame.width, frame.height, frame.frameIndex);
-                }
-            }
+            // Window-space overlays (screen-tier UI, diagnostics, ...) composite over the
+            // finished frame through the generic registry - the host names no source.
+            render->RenderOverlays(*frame.encoder, frame.backbufferView, colorFormat,
+                                   frame.width, frame.height, frame.frameIndex);
         }
 
     private:

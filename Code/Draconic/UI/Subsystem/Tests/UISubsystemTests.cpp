@@ -11,6 +11,7 @@ import draconic.scene.subsystem;
 import draconic.ui;
 import draconic.ui.resource;
 import draconic.ui.subsystem;
+import draconic.render.api;
 import draconic.render.subsystem;
 import draconic.shell;
 import draconic.input;
@@ -54,7 +55,13 @@ TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
     auto* group = Cast<ViewGroup>(canvas.root.Get());
     REQUIRE(group != nullptr);
     CHECK(group->FindByName(u8"resume-btn") != nullptr);
-    CHECK(ui->ScreenRoot()->ChildCount() == 3u);   // billboard layer + canvas + overlay layer
+    // The tier split: the canvas parents into ITS SCENE's root (above that scene's
+    // billboard layer); the screen root holds only the global overlay layer.
+    RootView* sceneRoot = ui->SceneRoot(*scene);
+    REQUIRE(sceneRoot != nullptr);
+    CHECK(sceneRoot->ChildCount() == 2u);          // billboard layer + canvas
+    CHECK(ui->ScreenRoot()->ChildCount() == 1u);   // overlay layer only
+    CHECK(Cast<ViewGroup>(sceneRoot)->FindByName(u8"resume-btn") != nullptr);
 
     // Hot reload: a NEW document product rebuilds the tree (structure proves it - a
     // pointer compare can false-negative on allocator address reuse).
@@ -139,14 +146,31 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     REQUIRE(a.root.Get() != nullptr);
     REQUIRE(b.root.Get() != nullptr);
 
-    // Project via the render path (no GPU: the projection happens before the batch check
-    // and a null target early-out... so call through a null-target-tolerant path):
-    // RenderOverlay requires a target; drive the projection by calling with none is not
-    // possible - so test the math through the same helper the impl uses: front should be
-    // CENTERED (on-axis), behind should PARK. We reach it via RenderOverlay with a fake
-    // 1x1 extent and null target -> early return... instead assert post-BeginFrame state
-    // by invoking the projection indirectly: SKIPPED here; covered by the sample+smoke.
-    // What IS testable headless: scene-gating leaves the other scene's canvas hidden.
+    // The overlay-role split made the per-view sync directly testable: drive it with a
+    // synthetic view whose VP has clip.w = -z_view (camera at origin looking down -Z),
+    // the shape every real perspective produces. front (z=-10) is on-axis -> centered;
+    // behind (z=+10) gets clip.w < 0 -> parks off-screen.
+    draconic::render::SceneOverlayView view;
+    view.sceneKey = scene;
+    view.viewProjection = Float4x4::Identity();
+    view.viewProjection(2, 3) = -1.0f;   // clip.w = -z (row-vector convention)
+    view.viewProjection(3, 3) = 0.0f;
+    view.targetWidth = 800;
+    view.targetHeight = 600;
+    view.viewportWidth = 800;
+    view.viewportHeight = 600;
+    ui->UpdateSceneView(*scene, view);
+
+    auto* lpFront = Cast<AbsoluteLayoutParams>(a.root->LayoutParams.Get());
+    auto* lpBehind = Cast<AbsoluteLayoutParams>(b.root->LayoutParams.Get());
+    REQUIRE(lpFront != nullptr);
+    REQUIRE(lpBehind != nullptr);
+    CHECK(lpFront->X == doctest::Approx(400.0f));   // on-axis -> target center
+    CHECK(lpFront->Y == doctest::Approx(300.0f));
+    CHECK(lpBehind->X == doctest::Approx(-10000.0f));   // behind the camera -> parked
+    CHECK(lpBehind->Y == doctest::Approx(-10000.0f));
+
+    // Scene isolation is structural now: another scene's canvas parents into ITS root.
     dscene::Scene* other = scenes->CreateScene(u8"other");
     auto* otherCanvases = other->GetSystem<UICanvasComponentManager>();
     dscene::EntityHandle e = other->CreateEntity(u8"hud");
@@ -154,6 +178,8 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     canvas.document = MakeDocument(u8"<Label id=\"x\" text=\"other\"/>");
     ctx.BeginFrame(1.0f / 60.0f);
     REQUIRE(canvas.root.Get() != nullptr);
+    CHECK(Cast<ViewGroup>(ui->SceneRoot(*other))->FindByName(u8"x") != nullptr);
+    CHECK(Cast<ViewGroup>(ui->SceneRoot(*scene))->FindByName(u8"x") == nullptr);
 
     ctx.Shutdown();
 }
@@ -179,14 +205,13 @@ TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and sta
 
     ctx.BeginFrame(1.0f / 60.0f);
 
-    // The overlay layer is the LAST child (topmost) even after the canvas attached.
-    RootView* root = ui->ScreenRoot();
-    REQUIRE(root->ChildCount() >= 2u);
-    View* last = root->GetChildAt(root->ChildCount() - 1);
-    REQUIRE(Cast<ViewGroup>(last) != nullptr);
-    CHECK(Cast<ViewGroup>(last)->FindByName(u8"loading") != nullptr);
+    // The tier split keeps the screen root scene-free: the canvas lives in ITS scene's
+    // root; the overlay rides the screen root (drawn per window target, above scenes).
+    CHECK(Cast<ViewGroup>(ui->ScreenRoot())->FindByName(u8"loading") != nullptr);
+    CHECK(Cast<ViewGroup>(ui->ScreenRoot())->FindByName(u8"hud") == nullptr);
+    CHECK(Cast<ViewGroup>(ui->SceneRoot(*scene))->FindByName(u8"hud") != nullptr);
 
-    // Destroying the scene kills its canvas - the GLOBAL overlay survives.
+    // Destroying the scene kills its root+canvas - the GLOBAL overlay survives.
     scenes->DestroyScene(scene);
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK(ui->ScreenOverlayCount() == 1);
@@ -211,24 +236,31 @@ TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing"
     ctx.BeginFrame(1.0f / 60.0f);
     REQUIRE(canvas.root.Get() != nullptr);
 
-    // Lay out at a known size, then hit-test where the button is.
-    RootView* root = ui->ScreenRoot();
-    root->ViewportSize = Float2{ 800.0f, 600.0f };
-    ui->Context().UpdateRootView(root);
-    View* hit = root->HitTest(Float2{ 20.0f, 20.0f });
+    // Lay out both tiers at a known size: the scene root holds the button; the EMPTY
+    // screen tier must not intercept anything above it.
+    RootView* sceneRoot = ui->SceneRoot(*scene);
+    RootView* screenRoot = ui->ScreenRoot();
+    REQUIRE(sceneRoot != nullptr);
+    sceneRoot->ViewportSize = Float2{ 800.0f, 600.0f };
+    screenRoot->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(sceneRoot);
+    ui->Context().UpdateRootView(screenRoot);
+    View* screenHit = screenRoot->HitTest(Float2{ 20.0f, 20.0f });
+    CHECK((screenHit == nullptr || screenHit == screenRoot));   // empty tier: transparent
+    View* hit = sceneRoot->HitTest(Float2{ 20.0f, 20.0f });
     REQUIRE(hit != nullptr);
-    CHECK(hit->Name.AsView() == u8"btn");   // NOT the (empty) overlay layer
+    CHECK(hit->Name.AsView() == u8"btn");
 
-    // With a pushed overlay the layer DOES block (a modal loading screen must).
+    // With a pushed overlay the screen tier DOES block (a modal loading screen must).
     RefPtr<UIDocument> loading = MakeRef<UIDocument>(DefaultAllocator());
     loading->markup = String(u8"<Panel width=\"800\" height=\"600\"><Label text=\"Loading\"/></Panel>");
     RefPtr<View> overlay = ui->PushScreenOverlay(*loading);
     REQUIRE(overlay.Get() != nullptr);
     ctx.BeginFrame(1.0f / 60.0f);
-    ui->Context().UpdateRootView(root);
-    View* blocked = root->HitTest(Float2{ 20.0f, 20.0f });
+    ui->Context().UpdateRootView(screenRoot);
+    View* blocked = screenRoot->HitTest(Float2{ 20.0f, 20.0f });
     REQUIRE(blocked != nullptr);
-    CHECK(blocked->Name.AsView() != u8"btn");
+    CHECK(blocked != screenRoot);   // the occupied overlay layer eats the point
 
     ctx.Shutdown();
 }
@@ -286,9 +318,13 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
         u8"</Flex>");
     ctx.BeginFrame(1.0f / 60.0f);
     REQUIRE(canvas.root.Get() != nullptr);
-    RootView* root = ui->ScreenRoot();
+    // The menu lives in the SCENE root; with no pointer and no overlay, the pump routes
+    // input there (pad-only nav must reach a pause menu no pointer ever hovered).
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
     root->ViewportSize = Float2{ 800.0f, 600.0f };
     ui->Context().UpdateRootView(root);
+    CHECK(ui->Context().ActiveInputRoot() == root);
 
     FocusManager* focus = ui->Context().GetFocusManager();
     REQUIRE(focus != nullptr);
@@ -316,6 +352,18 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
     devices.pad.pressed[static_cast<u32>(draconic::shell::GamepadButton::South)] = true;
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK(clicked);
+    devices.pad.pressed[static_cast<u32>(draconic::shell::GamepadButton::South)] = false;
+
+    // An OCCUPIED screen tier is modal: input routing flips to the screen root.
+    RefPtr<UIDocument> modal = MakeRef<UIDocument>(DefaultAllocator());
+    modal->markup = String(u8"<Panel><Label text=\"Loading\"/></Panel>");
+    RefPtr<View> overlay = ui->PushScreenOverlay(*modal);
+    REQUIRE(overlay.Get() != nullptr);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == ui->ScreenRoot());
+    ui->RemoveScreenOverlay(overlay.Get());
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == root);   // back to the scene tier
 
     ctx.Shutdown();
 }

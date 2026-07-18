@@ -675,10 +675,11 @@ public:
     // the GPU recording is deferred to End so transient buffers are sized once per frame.
     RenderView* AddView(const ExtractedScene& scene, const ViewCamera& camera, const ViewSettings& settings,
                         rhi::TextureView* target, rhi::TextureFormat targetFormat, u32 width, u32 height,
-                        const void* debugScene = nullptr) {
+                        const void* debugScene = nullptr, const void* sceneKey = nullptr) {
         RenderView* view = m_views.Acquire();
         view->Bind(scene, camera, settings, target, targetFormat, width, height);
         view->SetDebugScene(debugScene);
+        view->SetSceneKey(sceneKey);
         view->BuildDrawList(m_sortScratch, m_viewCulling);
         return view;
     }
@@ -688,6 +689,11 @@ public:
     void SetDebug(DebugDrawPass* pass, const debug::DebugDraw* global, const debug::DebugDraw* screen) noexcept {
         m_debugPass = pass; m_debugGlobal = global; m_debugScreen = screen;
     }
+
+    // Scene-tier overlay sources (borrowed registry, owned by the subsystem; null/empty = no
+    // overlay pass). Each view gets one shared Load-op pass on its final LDR output, after
+    // post, before debug draw. Set once per frame before End.
+    void SetSceneOverlays(const Array<ISceneOverlay*>* overlays) noexcept { m_sceneOverlays = overlays; }
 
     // Per-frame decal pass (borrowed); null = no decals. Declared per view after sky, before AO.
     void SetDecal(DecalPass* pass) noexcept { m_decalPass = pass; }
@@ -1585,6 +1591,34 @@ public:
                                           probeRange.base, probeRange.count);
             }
 
+            // Scene-tier overlays (game UI: HUD canvases, billboards): one shared Load-op pass on the
+            // view's final LDR output, after post (never TAA-smeared / tonemapped over), BEFORE debug
+            // draw so gizmos and diagnostic text stay on top (the Sedulous OverlayPass ordering).
+            // Sources match views by SceneKey and draw with the view's REAL camera.
+            if (m_sceneOverlays != nullptr && !m_sceneOverlays->IsEmpty()) {
+                SceneOverlayView overlayView;
+                overlayView.sceneKey       = v->SceneKey();
+                overlayView.viewProjection = unjitteredVP;
+                overlayView.cameraPosition = v->Camera().position;
+                overlayView.viewportX      = v->ViewportX();
+                overlayView.viewportY      = v->ViewportY();
+                overlayView.viewportWidth  = v->ViewportWidth();
+                overlayView.viewportHeight = v->ViewportHeight();
+                overlayView.targetWidth    = v->Width();
+                overlayView.targetHeight   = v->Height();
+                overlayView.targetFormat   = v->TargetFormat();
+                overlayView.frameIndex     = m_frameIndex;
+                const Array<ISceneOverlay*>* overlays = m_sceneOverlays;
+                m_graph.AddRenderPass(u8"scene.overlay",
+                    [colorH, overlays, overlayView](rendergraph::PassBuilder& b) {
+                        b.SetColorTarget(0, colorH, rhi::LoadOp::Load, rhi::StoreOp::Store, rhi::ClearColor::Black());
+                        b.NeverCull();
+                        b.SetExecute([overlays, overlayView](rhi::RenderPassEncoder& rp) {
+                            for (ISceneOverlay* overlay : *overlays) { overlay->Render(rp, overlayView); }
+                        });
+                    });
+            }
+
             // Debug draw (per view): global + this view's scene gizmos, projected by the UNJITTERED VP,
             // into the final LDR (geometry depth-tested against the scene depth; screen text on top).
             // Keyed per-scene (+ global) so side-by-side scenes/views don't bleed.
@@ -1657,6 +1691,7 @@ private:
     DebugDrawPass*          m_debugPass = nullptr;  // borrowed; per-view debug gizmo/text pass
     const debug::DebugDraw* m_debugGlobal = nullptr;   // borrowed; global (all-views) debug list
     const debug::DebugDraw* m_debugScreen = nullptr;   // borrowed; whole-window screen HUD (drawn once)
+    const Array<ISceneOverlay*>* m_sceneOverlays = nullptr;   // borrowed; scene-tier overlay sources
     f32                     m_exposure = 1.0f;      // linear exposure multiplier (tonemap input)
     bool                    m_fxaaEnabled = false;
     f32                     m_fxaaSubpixel = 0.75f;

@@ -230,3 +230,49 @@ TEST_CASE("RendererRegistry routes categories to renderers")
     CHECK(registry.ById(999) == nullptr);   // unregistered id
     CHECK(registry.Unique().Size() == 1);
 }
+
+// ---- overlay registries (the two-tier overlay coordination model) ----
+
+namespace
+{
+    struct FakeSceneOverlay final : draconic::render::ISceneOverlay
+    {
+        i32 order = 0;
+        explicit FakeSceneOverlay(i32 o) : order(o) {}
+        [[nodiscard]] i32 OverlayOrder() const noexcept override { return order; }
+        void Render(rhi::RenderPassEncoder&, const draconic::render::SceneOverlayView&) override {}
+    };
+}
+
+TEST_CASE("overlay registry: sorted by order, stable ties, idempotent, removable")
+{
+    draconic::render::OverlayRegistry<draconic::render::ISceneOverlay> registry;
+    CHECK(registry.IsEmpty());
+
+    FakeSceneOverlay foreground{ 10 };
+    FakeSceneOverlay backgroundA{ 0 };
+    FakeSceneOverlay backgroundB{ 0 };   // ties keep registration order
+    FakeSceneOverlay middle{ 5 };
+
+    registry.Add(&foreground);
+    registry.Add(&backgroundA);
+    registry.Add(&backgroundB);
+    registry.Add(&middle);
+    registry.Add(&middle);      // idempotent re-register
+    registry.Add(nullptr);      // ignored
+
+    REQUIRE(registry.Items().Size() == 4u);
+    CHECK(registry.Items()[0] == &backgroundA);
+    CHECK(registry.Items()[1] == &backgroundB);
+    CHECK(registry.Items()[2] == &middle);
+    CHECK(registry.Items()[3] == &foreground);
+
+    registry.Remove(&backgroundB);
+    registry.Remove(&backgroundB);   // no-op
+    REQUIRE(registry.Items().Size() == 3u);
+    CHECK(registry.Items()[0] == &backgroundA);
+    CHECK(registry.Items()[1] == &middle);
+    CHECK(registry.Items()[2] == &foreground);
+    CHECK_FALSE(registry.Contains(&backgroundB));
+    CHECK(registry.Contains(&middle));
+}

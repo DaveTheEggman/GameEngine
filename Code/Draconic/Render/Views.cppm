@@ -136,6 +136,10 @@ public:
     // Stored as void* to keep Views decoupled from the :debug_draw partition.
     void                                    SetDebugScene(const void* d) noexcept { m_debugScene = d; }
     [[nodiscard]] const void*               DebugScene()  const noexcept { return m_debugScene; }
+    // Opaque scene identity for this view (set by the subsystem), handed to ISceneOverlay
+    // sources so per-scene overlay state matches views without the renderer knowing scenes.
+    void                                    SetSceneKey(const void* key) noexcept { m_sceneKey = key; }
+    [[nodiscard]] const void*               SceneKey()    const noexcept { return m_sceneKey; }
 
 private:
     const ExtractedScene* m_scene        = nullptr;
@@ -150,6 +154,7 @@ private:
     u32                   m_viewportW     = 0;
     u32                   m_viewportH     = 0;
     const void*           m_debugScene    = nullptr;   // opaque debug::DebugDraw* for this view's scene
+    const void*           m_sceneKey      = nullptr;   // opaque scene identity (overlay matching)
     Array<DrawItem>       m_drawList;   // per-view, owned (pooled storage)
     u32                   m_sceneItemCount = 0;   // items considered by the last BuildDrawList
     u32                   m_culledCount    = 0;   // of those, rejected by the view-frustum cull
