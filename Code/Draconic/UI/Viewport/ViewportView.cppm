@@ -205,6 +205,26 @@ export namespace draconic::ui::viewport
 
         // === 3D render ===
 
+        /// Clears the color target to ClearColor and leaves it SHADER-READ - for hosts
+        /// whose content is sometimes idle (the Game tab before Play): the UI samples the
+        /// texture every frame, so an undrawn frame must still define its layout.
+        void ClearContent(rhi::CommandEncoder& encoder)
+        {
+            if (!IsReady()) { return; }
+            encoder.TransitionTexture(m_colorTexture, m_colorState, rhi::ResourceState::RenderTarget);
+            rhi::RenderPassDesc pass;
+            rhi::ColorAttachment color;
+            color.view = m_colorView;
+            color.loadOp = rhi::LoadOp::Clear;
+            color.storeOp = rhi::StoreOp::Store;
+            color.clearValue = ClearColor;
+            pass.colorAttachments.Add(color);
+            if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass)) { rp->End(); }
+            encoder.TransitionTexture(m_colorTexture, rhi::ResourceState::RenderTarget,
+                                      rhi::ResourceState::ShaderRead);
+            m_colorState = rhi::ResourceState::ShaderRead;
+        }
+
         /// Render the 3D content into the offscreen targets. Call from OnRenderWindow BEFORE the UIHost
         /// draws the window's UI (which samples this view's color target). Brackets the app's OnRender
         /// callback with the required color/depth state transitions.

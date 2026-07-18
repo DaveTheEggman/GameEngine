@@ -325,7 +325,15 @@ export namespace draconic::editor
         void OnRenderWindow(grt::IApplicationHost&, draconic::graphics::FrameContext& frame) override
         {
             if (!m_viewport->IsReady() || !frame.valid) { return; }
-            if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr) { return; }
+            // Idle (no run): the editor UI still SAMPLES the viewport texture every frame,
+            // so it must be in a defined shader-read layout - clear it once per frame.
+            // (Every other viewport page renders every frame; only the Game tab idles.)
+            if (m_scene == nullptr)
+            {
+                m_viewport->ClearContent(*frame.encoder);
+                return;
+            }
+            if (m_render == nullptr || !m_render->IsReady()) { return; }
             const u32 w = m_viewport->RenderWidth();
             const u32 h = m_viewport->RenderHeight();
             if (w == 0 || h == 0) { return; }
