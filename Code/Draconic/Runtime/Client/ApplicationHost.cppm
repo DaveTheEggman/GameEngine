@@ -23,6 +23,7 @@ module;
 export module draconic.runtime.client;
 
 export import :app;   // ApplicationSettings, IApplicationHost, IApplication
+export import :embedded_host;   // EmbeddedApplicationHost (editor-embedded runtime)
 
 import draconic.core;
 import draconic.runtime;

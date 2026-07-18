@@ -7,7 +7,7 @@ add_library(Draconic::EditorApp ALIAS DraconicEditorApp)
 target_link_libraries(DraconicEditorApp
     PUBLIC
         Draconic::Core Draconic::VFS Draconic::XmlSerialization Draconic::Editor Draconic::Resource
-        Draconic::Shell Draconic::Graphics Draconic::Runtime Draconic::RuntimeClient
+        Draconic::Shell Draconic::Graphics Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDefaultApp
         Draconic::RenderApi
         Draconic::Fonts Draconic::FontsTTF
         Draconic::UI Draconic::UIToolkit Draconic::UIRuntime Draconic::UIApplication

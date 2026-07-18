@@ -200,18 +200,8 @@ int main(int argc, char** argv)
     // Assembly (design doc §3.1): THIS is where the engine subsystems and per-subsystem editor
     // plugins are chosen - the editor core/app libraries never link engine modules; the app
     // drives scene rendering only through the ISceneRenderer interface injected below.
-    config.configureEngine = [](draconic::runtime::IApplicationHost& host) {
-        // Order matters: scene first, render registers as ISceneAware in OnReady, animation
-        // needs the render managers.
-        host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
-        host.Ctx().AddSubsystem<draconic::render::RenderSubsystem>(
-            *host.Graphics()->Raw(), host.Graphics()->FramesInFlight());
-        host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
-        host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
-        host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
-        host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
-            host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
-    };
+    // Gameplay subsystems are registered by the embedded DefaultApplication against the
+    // editor's runtime context (runtime-host.md v3) - the editor registers NONE itself.
     config.registerEditors = [](edapp::EditorApplication& app,
                                 draconic::runtime::IApplicationHost& host,
                                 draconic::ui::runtime::UIHost& uiHost) {
@@ -284,29 +274,8 @@ int main(int argc, char** argv)
         app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
             DefaultAllocator().New<draconic::modelimporter::ModelFileImporter>(), DefaultAllocator()));
 
-        // Runtime resource factories (scene refs + inspector pickers resolve through these).
-        namespace res = draconic::resource;
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::geometry::StaticMeshFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::geometry::SkinnedMeshFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::materials::MaterialFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::animation::SkeletonFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::animation::AnimationClipFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::animation::AnimationGraphFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::particles::ParticleEffectFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::physics::CollisionShapeFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::physics::PhysicalMaterialFactory>(), DefaultAllocator()));
-        app.AddResourceFactory(UniquePtr<res::IResourceFactory>(
-            DefaultAllocator().New<draconic::texture::TextureFactory>(*host.Graphics()->Raw()),
-            DefaultAllocator()));
+        // Resource factories come from the embedded DefaultApplication (registered into
+        // the editor's preset ResourceManager at its OnStartup) - none registered here.
     };
 
     DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);

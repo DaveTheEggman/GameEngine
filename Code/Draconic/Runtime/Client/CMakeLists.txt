@@ -11,6 +11,7 @@ target_sources(DraconicRuntimeClient
     PUBLIC
         FILE_SET runtime_client_modules TYPE CXX_MODULES FILES
             Application.cppm
+            EmbeddedHost.cppm
             ApplicationHost.cppm)
 
 if(DRACONIC_BUILD_TESTS)

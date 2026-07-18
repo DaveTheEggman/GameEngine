@@ -22,6 +22,7 @@ import draconic.fonts;
 import draconic.fonts.ttf;
 import draconic.runtime;
 import draconic.runtime.client;
+import draconic.runtime.defaultapp;   // the embedded game application (v3)
 import draconic.render.api;
 import draconic.ui;
 import draconic.ui.toolkit;
@@ -194,18 +195,42 @@ export namespace draconic::editor::app
                 };
             }
 
-            // Per-subsystem editor plugins register here (page factories, creators, ...), and
-            // the exe injects the engine interfaces the app drives (SetSceneRenderer).
-            if (m_config.registerEditors) { m_config.registerEditors(*this, host, *m_uiHost); }
-
-            // Cook service + the real Assets panel, once the project AND the exe-registered
-            // builders both exist.
+            // ---- the EMBEDDED RUNTIME (runtime-host.md v3) ----
+            // The editor owns a second, persistent runtime Context populated by the SAME
+            // DefaultApplication the player runs: gameplay subsystems live THERE, and every
+            // scene (editing pages, Simulate, previews, the Game tab) is hosted there. The
+            // editor's own context carries no gameplay subsystems. The editor's existing
+            // ResourceManager is PRESET into the app (a second manager over the same cooked
+            // DB would load every product twice), so it must exist first.
             if (m_project)
             {
                 m_resources = MakeUnique<draconic::resource::ResourceManager>(DefaultAllocator(),
                     m_project->CookedDb());
                 for (const auto& factory : m_resourceFactories) { m_resources->AddFactory(factory.Get()); }
                 m_context.SetResources(m_resources.Get());
+            }
+            m_embeddedHost = MakeUnique<rt::EmbeddedApplicationHost>(DefaultAllocator(),
+                host, m_runtimeContext);
+            m_embeddedHost->SetExitHandler(Function<void(int)>{ [](int code) {
+                // "Exit" from embedded game code means "stop the play session" - wired to
+                // the Game page's Stop in H4; until then, log-and-drop is the safe meaning.
+                DRACONIC_LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
+            } });
+            m_embeddedApp = MakeUnique<rt::DefaultApplication>(DefaultAllocator());
+            if (m_resources) { m_embeddedApp->SetResourceManager(m_resources.Get()); }
+            m_embeddedApp->Configure(*m_embeddedHost);
+            m_runtimeContext.Startup();
+            m_embeddedApp->OnStartup(*m_embeddedHost);
+
+            // Per-subsystem editor plugins register here (page factories, creators, ...), and
+            // the exe injects the engine interfaces the app drives (SetSceneRenderer). They
+            // receive the EMBEDDED host: every page's Ctx() resolves to the runtime context.
+            if (m_config.registerEditors) { m_config.registerEditors(*this, *m_embeddedHost, *m_uiHost); }
+
+            // Cook service + the real Assets panel, once the project AND the exe-registered
+            // builders both exist.
+            if (m_project)
+            {
                 m_cookService.Initialize(*m_project, m_builders);
                 // Pages request re-cooks after saving builder-backed assets (materials etc.).
                 m_context.OnCookRequested = [this](bool rebuild) { m_cookService.RequestCook(rebuild); };
@@ -484,6 +509,19 @@ export namespace draconic::editor::app
 
         void OnUpdate(rt::IApplicationHost& host, f32 dt) override
         {
+            // Drive the embedded runtime's frame lanes FIRST: per-scene fixed stepping runs
+            // in BeginFrame, physics interpolation in Update - pages then read fresh state.
+            // (EndFrame closes in OnRenderWindow after the scene bracket.) Mirrors the middle
+            // of ApplicationHost::Tick; the embedded app's OnUpdate itself (game script) is
+            // driven by the Game page's play bracket, not here.
+            if (m_embeddedApp)
+            {
+                const f32 scaled = dt * m_runtimeContext.TimeScale();
+                m_runtimeContext.BeginFrame(dt);
+                m_runtimeContext.Update(scaled);
+                m_runtimeContext.PostUpdate(scaled);
+            }
+
             if (m_config.autoExitSeconds > 0.0f || m_config.autoRebuildSeconds > 0.0f)
             {
                 m_elapsed += dt;
@@ -624,6 +662,7 @@ export namespace draconic::editor::app
                 if (m_sceneRenderer != nullptr) { m_sceneRenderer->BeginRendering(*frame.encoder, frame.frameIndex); }
                 for (const PagePanel& entry : m_pagePanels) { entry.page->OnRenderWindow(host, frame); }
                 if (m_sceneRenderer != nullptr) { m_sceneRenderer->EndRendering(); }
+                if (m_embeddedApp) { m_runtimeContext.EndFrame(); }
             }
             if (m_uiHost) { m_uiHost->RenderWindow(frame); }
         }
@@ -631,9 +670,15 @@ export namespace draconic::editor::app
         void OnShutdown(rt::IApplicationHost&) override
         {
             m_cookService.Shutdown();   // joins any in-flight cook before the DBs go away
-            // Release page resources while the device and windows are still alive.
+            // Release page resources while the device and windows are still alive. Pages
+            // destroy their scenes in the RUNTIME context, so it must outlive them.
             for (const PagePanel& entry : m_pagePanels) { entry.page->OnClose(); }
             SaveLayout();
+            if (m_embeddedApp)
+            {
+                m_embeddedApp->OnShutdown(*m_embeddedHost);
+                m_runtimeContext.Shutdown();
+            }
             EditorIcons::Get().Shutdown();   // release drawables deterministically
         }
 
@@ -1317,7 +1362,11 @@ export namespace draconic::editor::app
 
         EditorAppConfig m_config;
         rt::IApplicationHost* m_host = nullptr;   // borrowed
-        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;   // borrowed (exe injects)
+        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;
+        // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
+        rt::Context m_runtimeContext;
+        UniquePtr<rt::EmbeddedApplicationHost> m_embeddedHost;
+        UniquePtr<rt::DefaultApplication> m_embeddedApp;   // borrowed (exe injects)
 
         // Log drain state (see DrainLog).
         Array<draconic::editor::EditorLogEntry> m_pendingLog;
