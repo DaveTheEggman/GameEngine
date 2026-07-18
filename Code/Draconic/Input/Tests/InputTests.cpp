@@ -11,6 +11,7 @@ import draconic.input;
 import draconic.settings;
 import draconic.script;
 import draconic.script.wren;
+import draconic.input.subsystem;
 import draconic.xml;
 import draconic.xml.serialization;
 
@@ -426,43 +427,57 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
     CHECK(loaded->overrides[0].bindings[0].code == static_cast<u32>(dshell::KeyCode::K));
 }
 
-TEST_CASE("input: the Wren Input facade reads the bound runtime")
+TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
 {
-    RegisterInputScriptApi();
-    ActionRuntime runtime;
-    runtime.SetMap(MakeGameplayMap());
-    runtime.DisableSet(u8"Menu");
-    Input::BindRuntime(&runtime);
+    draconic::input::RegisterInputScriptApi();
+
+    // Two runtimes, two contexts - each script reads ITS OWN bound runtime (players /
+    // editor-vs-game). No process globals anywhere.
+    ActionRuntime runtimeA;
+    runtimeA.SetMap(MakeGameplayMap());
+    runtimeA.DisableSet(u8"Menu");
+    ActionRuntime runtimeB;
+    runtimeB.SetMap(MakeGameplayMap());
+    runtimeB.DisableSet(u8"Menu");
+
     FakeDevices devices;
     devices.keyboard.Set(dshell::KeyCode::Space, true);
     devices.keyboard.Set(dshell::KeyCode::W, true);
-    runtime.Update(devices, 1.0f / 60.0f);
+    runtimeA.Update(devices, 1.0f / 60.0f);   // A sees the press...
+    FakeDevices idle;
+    runtimeB.Update(idle, 1.0f / 60.0f);      // ...B sees nothing
 
     RefPtr<draconic::script::IScriptManager> manager =
         draconic::script::wren::CreateScriptManager();
     draconic::script::RegisterReflectedTypes(*manager);
-    RefPtr<draconic::script::IScriptContext> ctx = manager->CreateContext();
-    REQUIRE(ctx.Get() != nullptr);
-    REQUIRE(ctx->Load(
+
+    RefPtr<draconic::script::IScriptContext> ctxA = manager->CreateContext();
+    RefPtr<draconic::script::IScriptContext> ctxB = manager->CreateContext();
+    RefPtr<draconic::script::IScriptContext> ctxNone = manager->CreateContext();
+    REQUIRE(ctxA.Get() != nullptr);
+    ctxA->SetService(draconic::input::kInputRuntimeService, &runtimeA);
+    ctxB->SetService(draconic::input::kInputRuntimeService, &runtimeB);
+
+    const StringView script =
         u8"var Down = Input.isDown(\"Jump\")\n"
-        u8"var Pressed = Input.wasPressed(\"Jump\")\n"
-        u8"var MoveY = Input.valueY(\"Move\")\n"
-        u8"var Ghost = Input.isDown(\"NoSuchAction\")\n",
-        u8"main").IsOk());
-    CHECK(ctx->GetGlobal(u8"Down").Get<bool>() == true);
-    CHECK(ctx->GetGlobal(u8"Pressed").Get<bool>() == true);
-    CHECK(ctx->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(1.0));
-    CHECK(ctx->GetGlobal(u8"Ghost").Get<bool>() == false);
+        u8"var MoveY = Input.valueY(\"Move\")\n";
+    REQUIRE(ctxA->Load(script, u8"main").IsOk());
+    CHECK(ctxA->GetGlobal(u8"Down").Get<bool>() == true);
+    CHECK(ctxA->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(1.0));
 
-    // Exclusive push from SCRIPT: gameplay suppresses.
-    runtime.EnableSet(u8"Menu");
-    REQUIRE(ctx->Load(u8"Input.pushSet(\"Menu\")\n", u8"main").IsOk());   // same module: the foreign classes live there
-    runtime.Update(devices, 1.0f / 60.0f);
-    CHECK_FALSE(runtime.IsDown(runtime.Resolve(u8"Jump")));
+    REQUIRE(ctxB->Load(script, u8"main").IsOk());
+    CHECK(ctxB->GetGlobal(u8"Down").Get<bool>() == false);   // B's runtime saw nothing
+    CHECK(ctxB->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(0.0));
 
-    Input::BindRuntime(nullptr);
-    REQUIRE(ctx->Load(u8"var Unbound = Input.isDown(\"Jump\")\n", u8"main").IsOk());
-    CHECK(ctx->GetGlobal(u8"Unbound").Get<bool>() == false);
+    // No service bound: released, never a crash.
+    REQUIRE(ctxNone->Load(script, u8"main").IsOk());
+    CHECK(ctxNone->GetGlobal(u8"Down").Get<bool>() == false);
+
+    // Script-driven exclusive push lands on the CONTEXT's runtime only.
+    runtimeA.EnableSet(u8"Menu");
+    REQUIRE(ctxA->Load(u8"Input.pushSet(\"Menu\")\n", u8"main").IsOk());
+    CHECK(runtimeA.ExclusiveDepth() == 1);
+    CHECK(runtimeB.ExclusiveDepth() == 0);
 }
 
 TEST_CASE("input: rebind capture - first activated input matching the filter")

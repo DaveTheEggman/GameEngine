@@ -294,8 +294,14 @@ namespace draconic::script::wren
         return g_table[slot];
     }
 
+    // Defined after WrenContext (the user data holds a WrenContext*).
+    [[nodiscard]] IScriptContext* OwningContext(WrenVM* vm);
+
     void Dispatch(WrenVM* vm, const Binding& binding)
     {
+        // Every reflected call runs under its context: native facades resolve their
+        // per-context services through CurrentScriptContext().
+        ScriptCallScope scope(OwningContext(vm));
         switch (binding.kind)
         {
             case BindKind::Constructor:
@@ -439,7 +445,7 @@ namespace draconic::script::wren
             config.bindForeignClassFn = &BindForeignClass;
             config.bindForeignMethodFn = &BindForeignMethod;
             m_vm = wrenNewVM(&config);
-            wrenSetUserData(m_vm, this);
+            wrenSetUserData(m_vm, this);   // OwningContext() maps a vm back to us
 
             m_module = core::String(reinterpret_cast<const core::utf8char*>("main"));
             GenerateForeignClasses();
@@ -715,6 +721,11 @@ namespace draconic::script::wren
     private:
         core::Array<const core::TypeInfo*> m_types;
     };
+
+    [[nodiscard]] IScriptContext* OwningContext(WrenVM* vm)
+    {
+        return static_cast<WrenContext*>(wrenGetUserData(vm));
+    }
 }
 
 export namespace draconic::script::wren

@@ -341,6 +341,7 @@ export namespace draconic::editor
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
+            if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
             if (!m_scriptContext->Load(source, scriptPath).IsOk())
             {
                 m_context->Notify(NoticeKind::Error,

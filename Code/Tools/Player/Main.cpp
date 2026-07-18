@@ -338,6 +338,7 @@ namespace
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
+            if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
             if (!m_scriptContext->Load(source, scriptPath).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Player", u8"startup script '{}' failed to compile", scriptPath);

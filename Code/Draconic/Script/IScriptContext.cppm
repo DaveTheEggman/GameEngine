@@ -84,5 +84,51 @@ export namespace draconic::script
         // faults. The returned object outlives this call and retains the context.
         [[nodiscard]] virtual core::RefPtr<ScriptObject> CreateInstance(
             core::StringView className, core::Span<core::Variant> args) = 0;
+
+        // ---- host services (per-context) ----
+        // Name-keyed host objects native facades resolve DURING a scripted call (via
+        // CurrentScriptContext below). This is how engine singletons reach scripts
+        // without process globals: each context binds its OWN service set - two
+        // contexts can see two different input runtimes (players, editor vs game).
+        void SetService(core::StringView name, void* service)
+        {
+            m_services.InsertOrAssign(core::String(name), service);
+        }
+        [[nodiscard]] void* GetService(core::StringView name) const
+        {
+            void* const* found = m_services.Find(core::String(name));
+            return found != nullptr ? *found : nullptr;
+        }
+
+    private:
+        core::HashMap<core::String, void*> m_services;
+    };
+
+    // The context whose script code is EXECUTING right now on this thread (null outside
+    // scripted calls). Backends push it around every reflected dispatch; native facades
+    // (the Input class) resolve their per-context services through it. Nesting-safe
+    // (script -> native -> script restores the previous).
+    namespace detail
+    {
+        inline thread_local IScriptContext* g_currentContext = nullptr;
+    }
+    [[nodiscard]] inline IScriptContext* CurrentScriptContext() noexcept
+    {
+        return detail::g_currentContext;
+    }
+    class ScriptCallScope
+    {
+    public:
+        explicit ScriptCallScope(IScriptContext* context) noexcept
+            : m_previous(detail::g_currentContext)
+        {
+            detail::g_currentContext = context;
+        }
+        ~ScriptCallScope() { detail::g_currentContext = m_previous; }
+        ScriptCallScope(const ScriptCallScope&) = delete;
+        ScriptCallScope& operator=(const ScriptCallScope&) = delete;
+
+    private:
+        IScriptContext* m_previous;
     };
 }

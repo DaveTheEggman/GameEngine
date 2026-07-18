@@ -4,7 +4,7 @@ add_executable(DraconicInputTests
 
 target_link_libraries(DraconicInputTests PRIVATE
     Draconic::Input Draconic::XmlSerialization Draconic::Settings
-    Draconic::Script Draconic::ScriptWren doctest::doctest)
+    Draconic::Script Draconic::ScriptWren Draconic::InputSubsystem Draconic::Runtime doctest::doctest)
 
 target_compile_definitions(DraconicInputTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
