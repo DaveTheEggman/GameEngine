@@ -25,6 +25,7 @@ import draconic.graphics;
 import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
+import draconic.runtime.defaultapp;
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.scene.resource;
@@ -1276,7 +1277,9 @@ export namespace draconic::editor
         return instance;
     }
 
-    inline void RegisterSceneEditor(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost)
+    inline void RegisterSceneEditor(EditorContext& context, rt::IApplicationHost& host,
+                             uirt::UIHost& uiHost,
+                             draconic::runtime::DefaultApplication* embeddedApp = nullptr)
     {
         GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
         RegisterSerializable<dscene::SceneDocument>();
@@ -1312,9 +1315,9 @@ export namespace draconic::editor
         rt::IApplicationHost* appHost = &host;
 
         // Play-in-editor: the singleton Game tab (player behavior in-process).
-        context.GamePageFactory = [editorContext, appHost]() -> UniquePtr<EditorPage> {
+        context.GamePageFactory = [editorContext, appHost, embeddedApp]() -> UniquePtr<EditorPage> {
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost),
+                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, embeddedApp),
                 DefaultAllocator());
         };
 

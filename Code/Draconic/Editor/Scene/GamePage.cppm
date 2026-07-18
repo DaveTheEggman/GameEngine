@@ -37,6 +37,7 @@ import draconic.input;
 import draconic.input.resource;
 import draconic.input.subsystem;
 import draconic.physics.subsystem;
+import draconic.runtime.defaultapp;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -106,17 +107,28 @@ export namespace draconic::editor
     class GameEditorPage final : public app::UIEditorPage
     {
     public:
-        GameEditorPage(EditorContext& context, grt::IApplicationHost& host)
-            : m_context(&context)
+        GameEditorPage(EditorContext& context, grt::IApplicationHost& host,
+                       grt::DefaultApplication* embeddedApp)
+            : m_context(&context), m_host(&host), m_app(embeddedApp)
         {
             m_scenes = host.Ctx().GetSubsystem<gscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<grender::RenderSubsystem>();
             m_input = host.Ctx().GetSubsystem<draconic::input::InputSubsystem>();
-            m_physics = host.Ctx().GetSubsystem<draconic::physics::PhysicsSubsystem>();
             m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
             m_viewport = MakeRef<guivp::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.05f, 0.05f, 0.06f, 1.0f };
+
+            // The viewport's gated facades are the runtime InputSubsystem's PERMANENT
+            // source (v3): the runtime context's input serves ONLY the game, so there is
+            // nothing to swap back to on Stop.
+            m_viewportSource.viewport = m_viewport.Get();
+            m_viewportSource.shellInput = m_shellInput;
+            if (m_input != nullptr) { m_input->SetSourceProvider(&m_viewportSource); }
+
+            // "Exit" from embedded game code = stop this play session (deferred by the
+            // app to after the page-update loop - never torn down mid-script-dispatch).
+            context.StopGameRun = Function<void()>{ [this]() { Stop(); } };
 
             // Toolbar: Play / Stop / Restart + the run-state readout.
             GameEditorPage* self = this;
@@ -237,7 +249,17 @@ export namespace draconic::editor
             if (m_pauseToggle != nullptr) { m_pauseToggle->SetIsChecked(false); }
             m_sceneTitle = String(instance->Name());
             BindInput();
-            StartGameScript();
+            // The play bracket + game script are the EMBEDDED APP's (same lifecycle as
+            // the standalone player); the page only resolves the script SOURCE (editor
+            // project layout) and surfaces notices.
+            if (m_app != nullptr)
+            {
+                m_app->SetPrimaryScene(m_scene);
+                m_app->OnLaunch(*m_host);
+                m_scriptErrors.context = m_context;
+                m_app->SetGameScriptErrorHandler(&m_scriptErrors);
+                StartGameScriptFromProject();
+            }
             DRACONIC_LOG_INFO(u8"Editor", u8"Game: running scene '{}'", m_sceneTitle);
             RefreshToolbar();
         }
@@ -246,21 +268,17 @@ export namespace draconic::editor
         void Stop()
         {
             if (!m_running && m_scene == nullptr) { return; }
-            // Input detaches first (scripts/scenes must not read actions mid-teardown).
-            if (m_input != nullptr)
+            // The map clears (no actions bound between runs); the SOURCE stays - it is
+            // the runtime input's permanent provider (v3).
+            if (m_input != nullptr) { m_input->SetMap(draconic::input::InputMap{}); }
+            // Script exits first (it may still observe the world), then the scene.
+            if (m_app != nullptr)
             {
-                m_input->SetSourceProvider(nullptr);
-                m_input->SetMap(draconic::input::InputMap{});
+                m_app->StopGameScript();
+                m_app->SetGameScriptErrorHandler(nullptr);
+                m_app->SetPrimaryScene(nullptr);
+                m_app->OnExit(*m_host);
             }
-            // Script next (its exit() may still observe the world), then the scene.
-            if (m_game.Get() != nullptr)
-            {
-                (void)m_game->Invoke(u8"exit", Span<Variant>{});
-                m_game = nullptr;
-            }
-            if (m_scriptContext.Get() != nullptr) { m_scriptContext->SetErrorHandler(nullptr); }
-            m_scriptContext = nullptr;
-            m_scriptManager = nullptr;
             if (m_scene != nullptr)
             {
                 m_scene->Stop();
@@ -274,19 +292,9 @@ export namespace draconic::editor
         void OnUpdate(grt::IApplicationHost& host, f32 dt) override
         {
             m_viewport->SyncInputRegion();
-            if (m_running && m_game.Get() != nullptr)
-            {
-                // Gameplay time: the script's update(dt) sees the SCALED clock.
-                Variant dtArg = Variant::From(
-                    dt * host.Ctx().TimeScale() * (m_scene != nullptr ? m_scene->TimeScale() : 1.0f));
-                if (auto result = m_game->Invoke(u8"update", Span<Variant>{ &dtArg, 1 });
-                    !result.HasValue())
-                {
-                    DRACONIC_LOG_ERROR(u8"Editor",
-                        u8"Game: script update() faulted - stopping script (run continues)");
-                    m_game = nullptr;
-                }
-            }
+            // The play bracket: the embedded app updates ONLY while a run is live (its
+            // OnUpdate ticks the game script with the primary scene's scaled time).
+            if (m_running && m_app != nullptr) { m_app->OnUpdate(host, dt); }
         }
 
         void OnRenderWindow(grt::IApplicationHost&, draconic::graphics::FrameContext& frame) override
@@ -312,6 +320,7 @@ export namespace draconic::editor
         void OnClose() override
         {
             Stop();
+            m_context->StopGameRun = Function<void()>{};
             m_viewport->Shutdown();
         }
 
@@ -360,10 +369,9 @@ export namespace draconic::editor
             }
         }
 
-        // The project's game script (Wren `Game` class: construct new() + optional
-        // launch/update(dt)/exit) - RaptorPlayer's exact contract, per run: Play compiles a
-        // FRESH context, Stop tears it down. Faults disable the script, never the run.
-        void StartGameScript()
+        // Resolves the startup script's SOURCE (editor project layout); the lifecycle -
+        // facades, services, launch/update/exit, fault handling - is the embedded app's.
+        void StartGameScriptFromProject()
         {
             const StringView scriptPath = m_context->Project()->Settings().startupScript.AsView();
             if (scriptPath.IsEmpty()) { return; }
@@ -377,34 +385,13 @@ export namespace draconic::editor
             Array<byte> bytes;
             bytes.Resize(static_cast<usize>(stream->Size()));
             if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size()) { return; }
-            const StringView source(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
-
-            draconic::input::RegisterInputScriptApi();   // scripts get the Input facade
-            draconic::physics::RegisterPhysicsScriptApi();   // ...and the Physics facade
-            m_scriptManager = draconic::script::wren::CreateScriptManager();
-            draconic::script::RegisterReflectedTypes(*m_scriptManager);
-            m_scriptContext = m_scriptManager->CreateContext();
-            m_scriptErrors.context = m_context;
-            m_scriptContext->SetErrorHandler(&m_scriptErrors);
-            if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
-            if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
-            if (!m_scriptContext->Load(source, scriptPath).IsOk())
+            if (!m_app->StartGameScript(
+                    StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()),
+                    scriptPath))
             {
                 m_context->Notify(NoticeKind::Error,
-                    u8"Game: startup script failed to compile (see Console).");
-                m_scriptContext = nullptr;
-                m_scriptManager = nullptr;
-                return;
+                    u8"Game: startup script failed to start (see Console).");
             }
-            m_game = m_scriptContext->CreateInstance(u8"Game", Span<Variant>{});
-            if (m_game.Get() == nullptr)
-            {
-                m_context->Notify(NoticeKind::Warning,
-                    u8"Game: startup script has no `Game` class (construct new()).");
-                return;
-            }
-            (void)m_game->Invoke(u8"launch", Span<Variant>{});
-            DRACONIC_LOG_INFO(u8"Editor", u8"Game: script '{}' launched", scriptPath);
         }
 
         void CycleResolution()
@@ -449,11 +436,12 @@ export namespace draconic::editor
         }
 
         EditorContext* m_context = nullptr;
+        grt::IApplicationHost* m_host = nullptr;
+        grt::DefaultApplication* m_app = nullptr;   // the embedded game application (v3)
         gscene::SceneSubsystem* m_scenes = nullptr;
         grender::RenderSubsystem* m_render = nullptr;
         gscene::Scene* m_scene = nullptr;
         draconic::input::InputSubsystem* m_input = nullptr;
-        draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::shell::IInputManager* m_shellInput = nullptr;
         GameViewportInputSource m_viewportSource;
 
@@ -469,9 +457,6 @@ export namespace draconic::editor
         RefPtr<draconic::ui::Label> m_statusLabel;
         RefPtr<guivp::ViewportView> m_viewport;
 
-        RefPtr<draconic::script::IScriptManager> m_scriptManager;
-        RefPtr<draconic::script::IScriptContext> m_scriptContext;
-        RefPtr<draconic::script::ScriptObject> m_game;
 
         String m_sceneTitle;
         bool m_running = false;

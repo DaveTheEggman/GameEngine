@@ -102,6 +102,12 @@ export namespace draconic::editor::app
             m_resourceFactories.PushBack(Move(factory));
         }
         [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept { return m_resources.Get(); }
+        /// The embedded game application (valid after OnStartup; the Game page drives its
+        /// play bracket through it).
+        [[nodiscard]] rt::DefaultApplication* EmbeddedApplication() const noexcept
+        {
+            return m_embeddedApp.Get();
+        }
 
         void Configure(rt::IApplicationHost& host) override
         {
@@ -211,10 +217,12 @@ export namespace draconic::editor::app
             }
             m_embeddedHost = MakeUnique<rt::EmbeddedApplicationHost>(DefaultAllocator(),
                 host, m_runtimeContext);
-            m_embeddedHost->SetExitHandler(Function<void(int)>{ [](int code) {
-                // "Exit" from embedded game code means "stop the play session" - wired to
-                // the Game page's Stop in H4; until then, log-and-drop is the safe meaning.
+            m_embeddedHost->SetExitHandler(Function<void(int)>{ [this](int code) {
+                // "Exit" from embedded game code = stop the play session. DEFERRED to
+                // after the page-update loop: the request usually fires from inside the
+                // game script's update(), and Stop tears the script down.
                 DRACONIC_LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
+                m_stopGameRequested = true;
             } });
             m_embeddedApp = MakeUnique<rt::DefaultApplication>(DefaultAllocator());
             if (m_resources) { m_embeddedApp->SetResourceManager(m_resources.Get()); }
@@ -647,6 +655,13 @@ export namespace draconic::editor::app
 
             // Page hooks AFTER the UI laid out (viewport rects are current for input gating).
             for (const PagePanel& entry : m_pagePanels) { entry.page->OnUpdate(host, dt); }
+
+            // Deferred embedded-exit: safe here - no script dispatch is on the stack.
+            if (m_stopGameRequested)
+            {
+                m_stopGameRequested = false;
+                if (m_context.StopGameRun) { m_context.StopGameRun(); }
+            }
         }
 
         void OnRenderWindow(rt::IApplicationHost& host, graphics::FrameContext& frame) override
@@ -1366,7 +1381,8 @@ export namespace draconic::editor::app
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
         rt::Context m_runtimeContext;
         UniquePtr<rt::EmbeddedApplicationHost> m_embeddedHost;
-        UniquePtr<rt::DefaultApplication> m_embeddedApp;   // borrowed (exe injects)
+        UniquePtr<rt::DefaultApplication> m_embeddedApp;
+        bool m_stopGameRequested = false;   // borrowed (exe injects)
 
         // Log drain state (see DrainLog).
         Array<draconic::editor::EditorLogEntry> m_pendingLog;

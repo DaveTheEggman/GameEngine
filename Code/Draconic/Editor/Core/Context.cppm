@@ -263,6 +263,9 @@ export namespace draconic::editor
         /// Play-in-editor seam: creates the singleton Game page (the player behavior in a
         /// tab). Registered by the scene editor plugin; unset = the Game menu item notifies.
         Function<UniquePtr<EditorPage>()> GamePageFactory;
+        /// Stops the Game tab's live run, if any (the embedded app's RequestExit lands
+        /// here, deferred to after the page-update loop). Set by the Game page.
+        Function<void()> StopGameRun;
 
         /// Export seam: transcodes a scene/prefab instance's TEXT source stream to the
         /// binary wire for staging. Registered by the scene editor plugin (needs scene

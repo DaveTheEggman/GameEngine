@@ -206,7 +206,7 @@ int main(int argc, char** argv)
                                 draconic::runtime::IApplicationHost& host,
                                 draconic::ui::runtime::UIHost& uiHost) {
         app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>());
-        draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost);
+        draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost, app.EmbeddedApplication());
         draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterInputEditor(app.Context(), host);
         RegisterPrimitiveMeshCreators(app.Context());
