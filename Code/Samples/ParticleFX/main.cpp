@@ -69,7 +69,6 @@ namespace
         void Configure(runtime::IApplicationHost& host) override
         {
             runtime::DefaultApplication::Configure(host);
-            host.Ctx().AddSubsystem<px::ParticleSubsystem>();
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
             }

@@ -14,6 +14,7 @@ target_link_libraries(PhysicsPlayground PRIVATE
     Draconic::SceneSubsystem
     Draconic::RenderSubsystem
     Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
+    Draconic::UI Draconic::UIResource Draconic::UISubsystem
     Draconic::Imgui
     Draconic::Policy)
 draconic_copy_sdl3_dll(PhysicsPlayground)

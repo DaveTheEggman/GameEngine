@@ -27,6 +27,9 @@ import draconic.imgui;
 import draconic.physics;
 import draconic.physics.resource;
 import draconic.physics.subsystem;
+import draconic.ui;
+import draconic.ui.resource;
+import draconic.ui.subsystem;
 
 #include "../Common/FlyCamera.h"   // after the imports: uses draconic::core/runtime types
 
@@ -48,8 +51,9 @@ namespace
     public:
         void Configure(runtime::IApplicationHost& host) override
         {
+            // Physics/input/UI come from DefaultApplication (H2) - only the sample-local
+            // extras register here (double-adding a subsystem = two instances ticking).
             runtime::DefaultApplication::Configure(host);
-            host.Ctx().AddSubsystem<physics::PhysicsSubsystem>();
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -109,8 +113,38 @@ namespace
                 }
             }
 
+            // HUD button binding (once the subsystem instantiated the tree).
+            if (!m_hudBound && m_scene != nullptr)
+            {
+                if (auto* canvases = m_scene->GetSystem<draconic::ui::UICanvasComponentManager>())
+                {
+                    if (auto* canvas = canvases->Get(m_hudEntity); canvas != nullptr && canvas->root.Get() != nullptr)
+                    {
+                        if (auto* button = core::Cast<draconic::ui::ViewGroup>(canvas->root.Get())
+                                               ->FindByName<draconic::ui::Button>(u8"hud-btn"))
+                        {
+                            PlaygroundApp* self = this;
+                            draconic::ui::Button* raw = button;
+                            button->OnClick.Add([self, raw](draconic::ui::ButtonBase*) {
+                                ++self->m_hudClicks;
+                                core::String text(u8"Clicks: ");
+                                const core::u32 n = self->m_hudClicks;
+                                if (n >= 10) { text.PushBack(static_cast<core::utf8char>('0' + n / 10 % 10)); }
+                                text.PushBack(static_cast<core::utf8char>('0' + n % 10));
+                                raw->SetText(text.AsView());
+                                core::ConsoleWrite(u8"HUD button clicked\n");
+                            });
+                            m_hudBound = true;
+                        }
+                    }
+                }
+            }
+
             // Crosshair shove: ray along the camera forward; impulse along the ray.
-            if (input->Mouse()->IsButtonPressed(shell::MouseButton::Left)
+            // Gated on UI consumption: a click that lands ON the HUD never shoves.
+            auto* gameUi = host.Ctx().GetSubsystem<draconic::ui::UISubsystem>();
+            const bool uiAte = gameUi != nullptr && gameUi->PointerOverUI();
+            if (!uiAte && input->Mouse()->IsButtonPressed(shell::MouseButton::Left)
                 && m_physics != nullptr && m_physics->World() != nullptr)
             {
                 physics::RayHit hit;
@@ -275,6 +309,25 @@ namespace
                 joint.motorEnabled = true;
                 joint.motorTargetVelocity = 2.0f;
             }
+            // Game-UI P1 proof: a screen-tier HUD canvas (runtime document - the cooked
+            // asset path is exercised by the editor flow). The button proves CONSUMPTION:
+            // clicking it must NOT fire the crosshair shove.
+            {
+                m_hudDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
+                m_hudDocument->markup = core::String(
+                    u8"<FlexLayout direction=\"Vertical\" spacing=\"6\">"
+                    u8"<Label id=\"hud-title\" text=\"PhysicsPlayground\" fontSize=\"20\" />"
+                    u8"<Button id=\"hud-btn\" text=\"Clicks: 0\" />"
+                    u8"</FlexLayout>");
+                dscene::EntityHandle e = m_scene->CreateEntity(u8"hud");
+                auto* canvases = m_scene->GetSystem<draconic::ui::UICanvasComponentManager>();
+                if (canvases != nullptr)
+                {
+                    draconic::ui::UICanvasComponent& canvas = canvases->Add(e);
+                    canvas.document = m_hudDocument;
+                    m_hudEntity = e;
+                }
+            }
             // A kinematic sweeper the update drives in a circle (knocks crates around).
             {
                 m_sweeper = m_scene->CreateEntity(u8"sweeper");
@@ -373,6 +426,10 @@ namespace
         core::Array<dscene::EntityHandle> m_crates;
         dscene::EntityHandle m_boulder;
         dscene::EntityHandle m_hero;
+        dscene::EntityHandle m_hudEntity;
+        core::RefPtr<draconic::ui::UIDocument> m_hudDocument;
+        bool m_hudBound = false;
+        core::u32 m_hudClicks = 0;
         core::RefPtr<physics::CollisionShape> m_rampShape;
         core::RefPtr<physics::CollisionShape> m_boulderShape;
         core::u32 m_lastSurface = 0;
