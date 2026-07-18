@@ -327,3 +327,26 @@ TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the 
     REQUIRE(bare->Load(u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n", u8"main").IsOk());
     CHECK(bare->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(-1.0));
 }
+
+TEST_CASE("physics.scene: bodies build from authored positions even without a prior UpdateTransforms")
+{
+    // Regression: Scene::Start does NOT refresh world matrices; if the system builds from
+    // never-updated (Identity) matrices, every body spawns at the origin interpenetrating
+    // and depenetration blasts the stack apart (the PhysicsPlayground startup bug).
+    PlayScene play;
+    play.AddFloor();
+    dscene::EntityHandle left = play.AddBox(0.5f);
+    dscene::EntityHandle right = play.AddBox(0.5f);
+    play.scene.SetLocalPosition(left, Float3{ -3.0f, 0.5f, 0.0f });
+    play.scene.SetLocalPosition(right, Float3{ 3.0f, 0.5f, 0.0f });
+
+    // Deliberately NO UpdateTransforms before Start - the system must self-refresh.
+    play.scene.Start();
+    play.scene.SetSimulationEnabled(true);
+    play.Step(60);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(left).x == doctest::Approx(-3.0f).epsilon(0.05));
+    CHECK(play.scene.GetWorldPosition(right).x == doctest::Approx(3.0f).epsilon(0.05));
+    CHECK(play.scene.GetWorldPosition(left).y == doctest::Approx(0.5f).epsilon(0.05));
+}

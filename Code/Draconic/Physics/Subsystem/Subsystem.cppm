@@ -68,6 +68,11 @@ export namespace draconic::physics
 
         void OnSceneStarted() override
         {
+            // World matrices are Identity until the first UpdateTransforms - building from
+            // stale/never-updated matrices spawns EVERY body at the origin (interpenetrating,
+            // then depenetration blasts them apart). Guarantee freshness here rather than
+            // trusting every caller of Scene::Start to have updated first.
+            m_scene->UpdateTransforms();
             PhysicsWorldSettings settings;
             settings.gravity = m_settings.gravity;
             m_world = MakeUnique<PhysicsWorld>(DefaultAllocator(), settings);
