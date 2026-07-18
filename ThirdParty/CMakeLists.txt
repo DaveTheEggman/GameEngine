@@ -91,3 +91,18 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/msdfgen/CMakeLists.txt)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
     add_library(Draconic::MsdfgenCore ALIAS msdfgen-core)
 endif()
+
+# Jolt Physics v5.3.0 — vendored BY COPY (Jolt/ source tree + LICENSE; no submodule).
+# Compiled from source as one static lib with a fixed, engine-chosen configuration
+# (deterministic-enough defaults; no Jolt CMake options surface). Include dir is
+# PUBLIC + SYSTEM so draconic.physics can #include <Jolt/...>; consumers MUST define
+# the same JPH_* macros, so they are PUBLIC compile definitions here. Does not link
+# draconic_policy (vendored code builds without our -Werror).
+file(GLOB_RECURSE draconic_jolt_sources ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics/Jolt/*.cpp)
+add_library(draconic_jolt STATIC ${draconic_jolt_sources})
+add_library(Draconic::Jolt ALIAS draconic_jolt)
+target_include_directories(draconic_jolt SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics)
+target_compile_features(draconic_jolt PUBLIC cxx_std_17)
+target_compile_definitions(draconic_jolt PUBLIC
+    $<$<CONFIG:Debug>:JPH_ENABLE_ASSERTS>)
+set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
