@@ -330,6 +330,18 @@ export namespace draconic::editor
                 DefaultAllocator()));
         }
 
+        /// Whole-block scene-settings edit (shapes reflection rows can't express - e.g.
+        /// the collision-group matrix): `newBlob` = the settings serialized via the
+        /// system's own SerializeSettings; undo restores the prior serialized state.
+        /// The caller builds the blob from an EDITED COPY - the live settings are only
+        /// touched through the command (so undo/redo replay cleanly).
+        bool ApplySceneSettingsBlock(const TypeInfo* settingsType, Array<byte> newBlob)
+        {
+            SetSceneSettingsBlockCommand* raw = DefaultAllocator().New<SetSceneSettingsBlockCommand>(
+                *this, settingsType, static_cast<Array<byte>&&>(newBlob));
+            return m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator()));
+        }
+
         /// Enum flavor of SetSceneSettingProperty (underlying integer through
         /// PropertyInfo::address - same reason as SetComponentPropertyRaw).
         void SetSceneSettingPropertyRaw(const TypeInfo* settingsType, const char* property, i64 value)
@@ -1316,6 +1328,53 @@ export namespace draconic::editor
         // Mirrors SetComponentPropertyCommand for a SCENE SYSTEM's settings block (no entity;
         // the instance is re-derived from the scene each apply - systems are stable, but the
         // re-derive keeps the command valid across snapshot restores).
+        class SetSceneSettingsBlockCommand final : public IEditorCommand
+        {
+        public:
+            SetSceneSettingsBlockCommand(SceneEditContext& ctx, const TypeInfo* settingsType,
+                                         Array<byte>&& newBlob)
+                : m_ctx(&ctx), m_settingsType(settingsType)
+                , m_new(static_cast<Array<byte>&&>(newBlob)) {}
+
+            [[nodiscard]] bool Execute() override
+            {
+                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                if (system == nullptr) { return false; }
+                if (m_old.IsEmpty())
+                {
+                    MemoryStream buffer;
+                    BinarySerializer writer(buffer, SerializeMode::Write);
+                    system->SerializeSettings(writer);
+                    const Span<const byte> bytes = buffer.Bytes();
+                    m_old.Reserve(bytes.Size());
+                    for (byte b : bytes) { m_old.PushBack(b); }
+                }
+                return Apply(*system, m_new);
+            }
+            void Undo() override
+            {
+                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                if (system != nullptr) { (void)Apply(*system, m_old); }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_scene_settings_block"; }
+
+        private:
+            static bool Apply(dscene::SceneSystem& system, const Array<byte>& blob)
+            {
+                MemoryStream buffer;
+                if (buffer.Write(blob.Data(), blob.Size()) != blob.Size()) { return false; }
+                (void)buffer.Seek(0, SeekOrigin::Begin);
+                BinarySerializer reader(buffer, SerializeMode::Read);
+                system.SerializeSettings(reader);
+                return true;
+            }
+
+            SceneEditContext* m_ctx;
+            const TypeInfo* m_settingsType;
+            Array<byte> m_new;
+            Array<byte> m_old;
+        };
+
         class SetSceneSettingCommand final : public IEditorCommand
         {
         public:

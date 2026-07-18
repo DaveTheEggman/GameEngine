@@ -32,6 +32,8 @@ import draconic.texture.resource;
 import draconic.particles.resource;
 import draconic.scene;
 import draconic.render.subsystem;
+import draconic.physics;
+import draconic.physics.subsystem;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -157,6 +159,91 @@ export namespace draconic::editor
         }
         return out;
     }
+
+    // Bespoke editor for the physics collision-group matrix (a shape reflection rows
+    // can't express): one row per named group - name field + a toggle per column group.
+    // Symmetric by construction (a toggle writes BOTH directions); every edit is one
+    // whole-block undoable command, and the inspector's structural rebuild re-reads.
+    class CollisionMatrixEditor final : public tk::PropertyEditor
+    {
+        DRACONIC_OBJECT(CollisionMatrixEditor, tk::PropertyEditor)
+    public:
+        Array<String> names;                     // display names (index = group)
+        Array<u32> matrix;                       // parallel collide masks
+        Function<void(usize, String)> OnRename;
+        Function<void(usize, usize)> OnToggle;   // (row group, column group)
+        Function<void()> OnAddGroup;
+
+        CollisionMatrixEditor(StringView name, StringView category)
+            : tk::PropertyEditor(name, category) {}
+
+        void RefreshView() override {}
+
+    protected:
+        RefPtr<ui::View> CreateEditorView() override
+        {
+            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            column->Direction = ui::Orientation::Vertical;
+            column->Spacing = 2.0f;
+
+            CollisionMatrixEditor* self = this;
+            const usize count = names.Size();
+            for (usize i = 0; i < count; ++i)
+            {
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
+                row->Spacing = 2.0f;
+
+                auto name = MakeRef<ui::EditText>(DefaultAllocator());
+                name->SetText(names[i].AsView());
+                ui::EditText* nameRaw = name.Get();
+                name->OnSubmit.Add([self, i, nameRaw](ui::EditText*) {
+                    if (self->OnRename) { self->OnRename(i, String(nameRaw->Text())); }
+                });
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    row->AddView(name.Get(), lp);
+                }
+
+                for (usize j = 0; j < count; ++j)
+                {
+                    const bool collides = i < matrix.Size() && (matrix[i] & (1u << j)) != 0;
+                    auto cell = MakeRef<ui::Button>(DefaultAllocator(),
+                                                    collides ? StringView(u8"+") : StringView(u8"-"));
+                    cell->FontSize.SetValue(Optional<f32>{ 12.0f });
+                    String tip(u8"vs ");
+                    tip.Append(names[j].AsView());
+                    cell->TooltipText = Move(tip);
+                    cell->OnClick.Add([self, i, j](ui::ButtonBase*) {
+                        if (self->OnToggle) { self->OnToggle(i, j); }
+                    });
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                    row->AddView(cell.Get(), lp);
+                }
+
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                column->AddView(row.Get(), lp);
+            }
+
+            if (count < draconic::physics::kCollisionGroupCount)
+            {
+                auto add = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+ Add Group"));
+                add->FontSize.SetValue(Optional<f32>{ 12.0f });
+                add->OnClick.Add([self](ui::ButtonBase*) {
+                    if (self->OnAddGroup) { self->OnAddGroup(); }
+                });
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                column->AddView(add.Get(), lp);
+            }
+            return column;
+        }
+    };
 
     // Bespoke editor for MeshComponent's material SLOTS (one grid row whose editor view is
     // a column): per slot a picker button + remove + reorder, plus an add button. Rebuilt by
@@ -445,7 +532,82 @@ export namespace draconic::editor
                                 ? Instance{ system->SettingsInstance(), type } : Instance{};
                         });
                 }
+                if (type == &TypeOf<draconic::physics::PhysicsSceneSettings>())
+                {
+                    BuildCollisionMatrixRow(type, category);
+                }
             });
+        }
+
+        // The collision-group matrix (physics settings): a bespoke grid row editing the
+        // names + symmetric collide matrix through whole-block undoable commands.
+        void BuildCollisionMatrixRow(const TypeInfo* type, StringView category)
+        {
+            using draconic::physics::PhysicsSceneSettings;
+            SceneEditContext* edit = m_edit;
+            dscene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+            if (system == nullptr) { return; }
+            auto* live = static_cast<PhysicsSceneSettings*>(system->SettingsInstance());
+
+            auto matrix = MakeRef<CollisionMatrixEditor>(DefaultAllocator(),
+                StringView(u8"Collision Groups"), category);
+            // Display copy: at least one row ("Default"); rows without a stored mask
+            // read as collide-with-everything.
+            matrix->names = live->groupNames;
+            if (matrix->names.IsEmpty()) { matrix->names.PushBack(String(u8"Default")); }
+            matrix->matrix = live->groupCollides;
+            while (matrix->matrix.Size() < matrix->names.Size())
+            {
+                matrix->matrix.PushBack(0xFFFFFFFFu);
+            }
+
+            auto commit = [edit, type](PhysicsSceneSettings copy) {
+                MemoryStream buffer;
+                BinarySerializer writer(buffer, SerializeMode::Write);
+                draconic::physics::SerializePhysicsSceneSettings(writer, copy);
+                Array<byte> blob;
+                const Span<const byte> bytes = buffer.Bytes();
+                blob.Reserve(bytes.Size());
+                for (byte b : bytes) { blob.PushBack(b); }
+                (void)edit->ApplySceneSettingsBlock(type, Move(blob));
+            };
+            auto editedCopy = [live, raw = matrix.Get()]() {
+                PhysicsSceneSettings copy = *live;
+                copy.groupNames = raw->names;
+                copy.groupCollides = raw->matrix;
+                return copy;
+            };
+
+            matrix->OnRename = [commit, editedCopy, raw = matrix.Get()](usize i, String name) {
+                if (i >= raw->names.Size()) { return; }
+                raw->names[i] = Move(name);
+                commit(editedCopy());
+            };
+            matrix->OnToggle = [commit, editedCopy, raw = matrix.Get()](usize i, usize j) {
+                if (i >= raw->matrix.Size() || j >= raw->matrix.Size()) { return; }
+                const bool collides = (raw->matrix[i] & (1u << j)) != 0;
+                if (collides)
+                {
+                    raw->matrix[i] &= ~(1u << j);
+                    raw->matrix[j] &= ~(1u << i);   // symmetric
+                }
+                else
+                {
+                    raw->matrix[i] |= (1u << j);
+                    raw->matrix[j] |= (1u << i);
+                }
+                commit(editedCopy());
+            };
+            matrix->OnAddGroup = [commit, editedCopy, raw = matrix.Get()]() {
+                String name(u8"Group ");
+                const usize index = raw->names.Size();
+                if (index >= 10) { name.PushBack(static_cast<utf8char>('0' + index / 10 % 10)); }
+                name.PushBack(static_cast<utf8char>('0' + index % 10));
+                raw->names.PushBack(Move(name));
+                raw->matrix.PushBack(0xFFFFFFFFu);
+                commit(editedCopy());
+            };
+            AddEditor(matrix.Get(), []() {});
         }
 
         // A scene-setting property row: same editor kinds as components, but reading the
@@ -1322,6 +1484,7 @@ export namespace draconic::editor
     };
 
     DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "draconic::editor")
+    DRACONIC_DEFINE_OBJECT(CollisionMatrixEditor, "draconic::editor")
     DRACONIC_DEFINE_OBJECT(MaterialSlotsEditor, "draconic::editor")
     DRACONIC_DEFINE_OBJECT(SceneInspectorView, "draconic::editor")
 }
