@@ -11,7 +11,8 @@ target_sources(DraconicInput
         FILE_SET input_modules TYPE CXX_MODULES FILES
             InputModule.cppm
             Model.cppm
-            Runtime.cppm)
+            Runtime.cppm
+            Script.cppm)
 
 add_subdirectory(Resource)
 add_subdirectory(Editor)

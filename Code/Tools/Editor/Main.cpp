@@ -48,6 +48,8 @@ import draconic.particles.editor;
 import draconic.input;
 import draconic.input.resource;
 import draconic.input.editor;
+import draconic.editor.input;
+import draconic.input.subsystem;
 import draconic.modelimporter;
 
 using namespace draconic::core;
@@ -198,6 +200,8 @@ int main(int argc, char** argv)
             *host.Graphics()->Raw(), host.Graphics()->FramesInFlight());
         host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
         host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
+        host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
+            host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
     };
     config.registerEditors = [](edapp::EditorApplication& app,
                                 draconic::runtime::IApplicationHost& host,
@@ -205,6 +209,7 @@ int main(int argc, char** argv)
         app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>());
         draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
+        draconic::editor::RegisterInputEditor(app.Context(), host);
         RegisterPrimitiveMeshCreators(app.Context());
         {
             // New Asset > Input Map: seeded with the conventional Gameplay starter set.

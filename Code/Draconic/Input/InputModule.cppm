@@ -10,3 +10,4 @@ export module draconic.input;
 
 export import :model;
 export import :runtime;
+export import :script;

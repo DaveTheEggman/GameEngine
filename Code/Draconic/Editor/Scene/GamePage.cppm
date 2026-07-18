@@ -32,6 +32,10 @@ import draconic.ui.runtime;
 import draconic.ui.viewport;
 import draconic.script;
 import draconic.script.wren;
+import draconic.shell;
+import draconic.input;
+import draconic.input.resource;
+import draconic.input.subsystem;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -46,6 +50,36 @@ export namespace draconic::editor
     namespace grender = draconic::render;
     namespace gtk = draconic::ui::toolkit;
 
+    // The play-in-editor device seam (input P3): keyboard/mouse come from the Game
+    // viewport's GATED InputSurface facades (hover = mouse, focus = keyboard - click the
+    // viewport to play), gamepads pass through from the shell only while the viewport has
+    // focus. This is the by-construction fix for "the editor viewport forwards nothing".
+    class GameViewportInputSource final : public draconic::input::IInputSourceProvider
+    {
+    public:
+        guivp::ViewportView* viewport = nullptr;          // borrowed
+        draconic::shell::IInputManager* shellInput = nullptr;   // borrowed
+
+        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override
+        {
+            return viewport != nullptr ? viewport->Keyboard() : nullptr;
+        }
+        [[nodiscard]] draconic::shell::IMouse* Mouse() override
+        {
+            return viewport != nullptr ? viewport->Mouse() : nullptr;
+        }
+        [[nodiscard]] i32 GamepadCount() const override
+        {
+            const bool focused = viewport != nullptr && viewport->IsFocused();
+            return (focused && shellInput != nullptr) ? shellInput->GamepadCount() : 0;
+        }
+        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32 index) override
+        {
+            const bool focused = viewport != nullptr && viewport->IsFocused();
+            return (focused && shellInput != nullptr) ? shellInput->GetGamepad(index) : nullptr;
+        }
+    };
+
     class GameEditorPage final : public app::UIEditorPage
     {
     public:
@@ -54,6 +88,8 @@ export namespace draconic::editor
         {
             m_scenes = host.Ctx().GetSubsystem<gscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<grender::RenderSubsystem>();
+            m_input = host.Ctx().GetSubsystem<draconic::input::InputSubsystem>();
+            m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
             m_viewport = MakeRef<guivp::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.05f, 0.05f, 0.06f, 1.0f };
@@ -161,6 +197,7 @@ export namespace draconic::editor
             m_scene->SetSimulationEnabled(true);
             m_running = true;
             m_sceneTitle = String(instance->Name());
+            BindInput();
             StartGameScript();
             DRACONIC_LOG_INFO(u8"Editor", u8"Game: running scene '{}'", m_sceneTitle);
             RefreshToolbar();
@@ -170,7 +207,13 @@ export namespace draconic::editor
         void Stop()
         {
             if (!m_running && m_scene == nullptr) { return; }
-            // Script first (its exit() may still observe the world), then the scene.
+            // Input detaches first (scripts/scenes must not read actions mid-teardown).
+            if (m_input != nullptr)
+            {
+                m_input->SetSourceProvider(nullptr);
+                m_input->SetMap(draconic::input::InputMap{});
+            }
+            // Script next (its exit() may still observe the world), then the scene.
             if (m_game.Get() != nullptr)
             {
                 (void)m_game->Invoke(u8"exit", Span<Variant>{});
@@ -251,6 +294,30 @@ export namespace draconic::editor
             cameras->Add(e);
         }
 
+        // Play-in-editor input: the project's default map into the shared InputSubsystem,
+        // devices swapped to the Game viewport's gated facades. Stop restores the shell.
+        void BindInput()
+        {
+            if (m_input == nullptr) { return; }
+            m_viewportSource.viewport = m_viewport.Get();
+            m_viewportSource.shellInput = m_shellInput;
+            m_input->SetSourceProvider(&m_viewportSource);
+            const Guid mapId = m_context->Project()->Settings().defaultInputMapId;
+            if (mapId.IsNil() || m_context->Resources() == nullptr) { return; }
+            auto proxy = m_context->Resources()->Bind<draconic::input::InputMapResource>(mapId);
+            if (proxy)
+            {
+                m_input->SetMap(proxy->Map());
+                DRACONIC_LOG_INFO(u8"Editor", u8"Game: input map bound ({} set(s))",
+                                  proxy->Map().sets.Size());
+            }
+            else
+            {
+                m_context->Notify(NoticeKind::Warning,
+                    u8"Game: default input map is not cooked yet.");
+            }
+        }
+
         // The project's game script (Wren `Game` class: construct new() + optional
         // launch/update(dt)/exit) - RaptorPlayer's exact contract, per run: Play compiles a
         // FRESH context, Stop tears it down. Faults disable the script, never the run.
@@ -270,6 +337,7 @@ export namespace draconic::editor
             if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size()) { return; }
             const StringView source(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
 
+            draconic::input::RegisterInputScriptApi();   // scripts get the Input facade
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
@@ -313,6 +381,9 @@ export namespace draconic::editor
         gscene::SceneSubsystem* m_scenes = nullptr;
         grender::RenderSubsystem* m_render = nullptr;
         gscene::Scene* m_scene = nullptr;
+        draconic::input::InputSubsystem* m_input = nullptr;
+        draconic::shell::IInputManager* m_shellInput = nullptr;
+        GameViewportInputSource m_viewportSource;
 
         RefPtr<draconic::ui::View> m_content;
         RefPtr<gtk::Toolbar> m_toolbar;

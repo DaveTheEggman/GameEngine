@@ -25,7 +25,14 @@ export namespace draconic::input
     public:
         /// `input` = the shell's device hub (null tolerated: headless runs read released).
         explicit InputSubsystem(draconic::shell::IInputManager* input)
-            : m_shellSource(input) {}
+            : m_shellSource(input)
+        {
+            Input::BindRuntime(&m_runtime);   // the scripting facade reads THIS runtime
+        }
+        ~InputSubsystem() override
+        {
+            if (Input::BoundRuntime() == &m_runtime) { Input::BindRuntime(nullptr); }
+        }
 
         [[nodiscard]] ActionRuntime& Runtime() noexcept { return m_runtime; }
 

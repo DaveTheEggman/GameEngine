@@ -9,6 +9,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module draconic.input:model;
 
@@ -60,6 +61,19 @@ export namespace draconic::input
         u32 posY = 0;
     };
 
+    // Button-action trigger shaping (P2; a small per-action state machine none of the
+    // surveyed engines had - the UE-style trio). None = plain press/release edges.
+    //   Hold:      the pressed edge fires only once the press has been HELD `seconds`.
+    //   Tap:       a one-frame pulse at RELEASE, only if the press lasted <= `seconds`.
+    //   DoubleTap: a one-frame pulse on the second press within `seconds` of the first.
+    enum class InteractionKind : u8 { None, Hold, Tap, DoubleTap };
+
+    struct Interaction
+    {
+        InteractionKind kind = InteractionKind::None;
+        f32 seconds = 0.3f;
+    };
+
     // Per-action value conditioning (applied to the folded target each frame).
     struct ActionProcessors
     {
@@ -77,6 +91,7 @@ export namespace draconic::input
         ActionKind kind = ActionKind::Button;
         Array<Binding> bindings;
         ActionProcessors processors;
+        Interaction interaction;   // Button actions only (validated)
     };
 
     // A context: "Gameplay" / "Menu" / "Vehicle". Priority orders QUERY resolution when the
@@ -146,6 +161,10 @@ export namespace draconic::input
                 draconic::core::Serialize(ar, "snap", action.processors.snap);
                 draconic::core::Serialize(ar, "responseExponent", action.processors.responseExponent);
                 draconic::core::Serialize(ar, "timeScale", action.processors.timeScale);
+                u8 interaction = static_cast<u8>(action.interaction.kind);
+                draconic::core::Serialize(ar, "interaction", interaction);
+                action.interaction.kind = static_cast<InteractionKind>(interaction);
+                draconic::core::Serialize(ar, "interactionSeconds", action.interaction.seconds);
                 u32 bindingCount = writing ? static_cast<u32>(action.bindings.Size()) : 0;
                 ar.Key("bindings");
                 ar.BeginArray(bindingCount);
@@ -159,6 +178,99 @@ export namespace draconic::input
             ar.EndArray();
         }
         ar.EndArray();
+    }
+
+    // ---- user rebind overlay (docs/design/input.md §4) ----
+    // NOT part of the asset: a settings SECTION persisted in the user file. Per-action
+    // REPLACEMENT binding lists apply over a pristine asset copy at load and after each
+    // rebind; reset-to-default = remove the override (the asset never mutates).
+    struct InputBindingOverride
+    {
+        String setName;
+        String actionName;
+        Array<Binding> bindings;
+    };
+
+    class InputBindingOverrides final : public ISerializable
+    {
+        DRACONIC_OBJECT(InputBindingOverrides, ISerializable)
+    public:
+        Array<InputBindingOverride> overrides;
+
+        void Serialize(ISerializer& ar) override
+        {
+            const bool writing = ar.Mode() == SerializeMode::Write;
+            u32 count = writing ? static_cast<u32>(overrides.Size()) : 0;
+            ar.Key("overrides");
+            ar.BeginArray(count);
+            if (!writing) { overrides.Clear(); overrides.Resize(count); }
+            for (u32 i = 0; i < count; ++i)
+            {
+                InputBindingOverride& o = overrides[i];
+                draconic::core::Serialize(ar, "set", o.setName);
+                draconic::core::Serialize(ar, "action", o.actionName);
+                u32 bindingCount = writing ? static_cast<u32>(o.bindings.Size()) : 0;
+                ar.Key("bindings");
+                ar.BeginArray(bindingCount);
+                if (!writing) { o.bindings.Resize(bindingCount); }
+                for (u32 b = 0; b < bindingCount; ++b) { SerializeBinding(ar, o.bindings[b]); }
+                ar.EndArray();
+            }
+            ar.EndArray();
+        }
+
+        /// Upsert the replacement list for one action.
+        void Set(StringView set, StringView action, Array<Binding> bindings)
+        {
+            for (InputBindingOverride& o : overrides)
+            {
+                if (o.setName.AsView() == set && o.actionName.AsView() == action)
+                {
+                    o.bindings = static_cast<Array<Binding>&&>(bindings);
+                    return;
+                }
+            }
+            InputBindingOverride fresh;
+            fresh.setName = String(set);
+            fresh.actionName = String(action);
+            fresh.bindings = static_cast<Array<Binding>&&>(bindings);
+            overrides.PushBack(static_cast<InputBindingOverride&&>(fresh));
+        }
+
+        /// Reset one action to the asset's bindings (drop its override).
+        void Clear(StringView set, StringView action)
+        {
+            for (usize i = 0; i < overrides.Size(); ++i)
+            {
+                if (overrides[i].setName.AsView() == set
+                    && overrides[i].actionName.AsView() == action)
+                {
+                    overrides.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+    };
+
+    /// Applies the overlay onto `map` (a COPY of the asset - the caller owns keeping the
+    /// asset pristine; SetMap copies anyway, so load -> Apply -> SetMap is the flow).
+    /// Overrides naming unknown sets/actions are ignored (a map edit invalidated them).
+    inline void ApplyBindingOverrides(InputMap& map, const InputBindingOverrides& overlay)
+    {
+        for (const InputBindingOverride& o : overlay.overrides)
+        {
+            for (ActionSet& set : map.sets)
+            {
+                if (set.name.AsView() != o.setName.AsView()) { continue; }
+                for (Action& action : set.actions)
+                {
+                    if (action.name.AsView() == o.actionName.AsView())
+                    {
+                        action.bindings = o.bindings;
+                    }
+                }
+            }
+        }
     }
 
     // ---- validation (asset save + cook share it) ----
@@ -175,6 +287,11 @@ export namespace draconic::input
             for (const Action& action : set.actions)
             {
                 if (action.name.IsEmpty()) { return fail(u8"action with an empty name"); }
+                if (action.interaction.kind != InteractionKind::None
+                    && action.kind != ActionKind::Button)
+                {
+                    return fail(u8"interaction on a non-Button action");
+                }
                 for (const Binding& b : action.bindings)
                 {
                     const bool is2D = b.source == BindingSource::GamepadStick
@@ -199,4 +316,14 @@ export namespace draconic::input
         }
         return true;
     }
+
+    /// Registers the input model's serializable types (the rebind-overlay settings
+    /// section). Call once at startup wherever the overlay is persisted/loaded.
+    inline void RegisterInputTypes()
+    {
+        GlobalTypeRegistry().Register(InputBindingOverrides::StaticType());
+        RegisterSerializable<InputBindingOverrides>();
+    }
+
+    DRACONIC_DEFINE_OBJECT(InputBindingOverrides, "draconic::input")
 }

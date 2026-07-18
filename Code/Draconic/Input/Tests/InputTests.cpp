@@ -8,6 +8,9 @@
 import draconic.core;
 import draconic.shell;
 import draconic.input;
+import draconic.settings;
+import draconic.script;
+import draconic.script.wren;
 import draconic.xml;
 import draconic.xml.serialization;
 
@@ -22,9 +25,10 @@ namespace
     {
     public:
         bool down[512] = {};
+        bool pressed[512] = {};
         dshell::KeyModifiers mods = dshell::KeyModifiers::None;
         [[nodiscard]] bool IsKeyDown(dshell::KeyCode key) const override { return down[static_cast<u32>(key) & 511]; }
-        [[nodiscard]] bool IsKeyPressed(dshell::KeyCode) const override { return false; }
+        [[nodiscard]] bool IsKeyPressed(dshell::KeyCode key) const override { return pressed[static_cast<u32>(key) & 511]; }
         [[nodiscard]] bool IsKeyReleased(dshell::KeyCode) const override { return false; }
         [[nodiscard]] dshell::KeyModifiers Modifiers() const override { return mods; }
         void Set(dshell::KeyCode key, bool value) { down[static_cast<u32>(key) & 511] = value; }
@@ -64,8 +68,9 @@ namespace
         [[nodiscard]] i32 Index() const override { return index; }
         [[nodiscard]] StringView Name() const override { return u8"fake"; }
         [[nodiscard]] bool Connected() const override { return connected; }
+        bool buttonsPressed[32] = {};
         [[nodiscard]] bool IsButtonDown(dshell::GamepadButton b) const override { return buttons[static_cast<u32>(b) & 31]; }
-        [[nodiscard]] bool IsButtonPressed(dshell::GamepadButton) const override { return false; }
+        [[nodiscard]] bool IsButtonPressed(dshell::GamepadButton b) const override { return buttonsPressed[static_cast<u32>(b) & 31]; }
         [[nodiscard]] bool IsButtonReleased(dshell::GamepadButton) const override { return false; }
         [[nodiscard]] f32 Axis(dshell::GamepadAxis a) const override { return axes[static_cast<u32>(a) % 6]; }
         void SetRumble(f32, f32, u32) override {}
@@ -357,6 +362,241 @@ TEST_CASE("input: exclusive sets - priority resolution, suppression, and held la
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.IsDown(jump));
     CHECK(runtime.WasPressed(jump));
+}
+
+TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, persists")
+{
+    RegisterInputTypes();
+    InputMap asset = MakeGameplayMap();
+
+    // Override: Jump moves from Space to J.
+    InputBindingOverrides overlay;
+    {
+        Array<Binding> replacement;
+        Binding j;
+        j.source = BindingSource::Key;
+        j.code = static_cast<u32>(dshell::KeyCode::J);
+        replacement.PushBack(j);
+        overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
+    }
+
+    InputMap effective = asset;   // pristine copy
+    ApplyBindingOverrides(effective, overlay);
+    REQUIRE(effective.sets[0].actions[0].bindings.Size() == 1);
+    CHECK(effective.sets[0].actions[0].bindings[0].code == static_cast<u32>(dshell::KeyCode::J));
+    CHECK(asset.sets[0].actions[0].bindings.Size() == 2);   // the asset never mutates
+
+    ActionRuntime runtime;
+    runtime.SetMap(effective);
+    runtime.DisableSet(u8"Menu");
+    FakeDevices devices;
+    const ActionRef jump = runtime.Resolve(u8"Jump");
+    devices.keyboard.Set(dshell::KeyCode::Space, true);   // the OLD binding: dead
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK_FALSE(runtime.IsDown(jump));
+    devices.keyboard.Set(dshell::KeyCode::J, true);
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(runtime.IsDown(jump));
+
+    // Reset-to-default = clear the override; the pristine asset re-applies.
+    overlay.Clear(u8"Gameplay", u8"Jump");
+    InputMap restored = asset;
+    ApplyBindingOverrides(restored, overlay);
+    CHECK(restored.sets[0].actions[0].bindings.Size() == 2);
+
+    // The section round-trips through the settings store (user file persistence).
+    {
+        Array<Binding> replacement;
+        Binding k;
+        k.source = BindingSource::Key;
+        k.code = static_cast<u32>(dshell::KeyCode::K);
+        replacement.PushBack(k);
+        overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
+    }
+    draconic::settings::Settings store;
+    store.Section<InputBindingOverrides>().overrides = overlay.overrides;   // sections are non-copyable objects
+    MemoryStream file;
+    REQUIRE(store.Save(file, BinarySerializerFactory()).IsOk());
+    (void)file.Seek(0, SeekOrigin::Begin);
+    draconic::settings::Settings loadedStore;
+    REQUIRE(loadedStore.Load(file, BinarySerializerFactory()).IsOk());
+    const InputBindingOverrides* loaded = loadedStore.Find<InputBindingOverrides>();
+    REQUIRE(loaded != nullptr);
+    REQUIRE(loaded->overrides.Size() == 1);
+    CHECK(loaded->overrides[0].bindings[0].code == static_cast<u32>(dshell::KeyCode::K));
+}
+
+TEST_CASE("input: the Wren Input facade reads the bound runtime")
+{
+    RegisterInputScriptApi();
+    ActionRuntime runtime;
+    runtime.SetMap(MakeGameplayMap());
+    runtime.DisableSet(u8"Menu");
+    Input::BindRuntime(&runtime);
+    FakeDevices devices;
+    devices.keyboard.Set(dshell::KeyCode::Space, true);
+    devices.keyboard.Set(dshell::KeyCode::W, true);
+    runtime.Update(devices, 1.0f / 60.0f);
+
+    RefPtr<draconic::script::IScriptManager> manager =
+        draconic::script::wren::CreateScriptManager();
+    draconic::script::RegisterReflectedTypes(*manager);
+    RefPtr<draconic::script::IScriptContext> ctx = manager->CreateContext();
+    REQUIRE(ctx.Get() != nullptr);
+    REQUIRE(ctx->Load(
+        u8"var Down = Input.isDown(\"Jump\")\n"
+        u8"var Pressed = Input.wasPressed(\"Jump\")\n"
+        u8"var MoveY = Input.valueY(\"Move\")\n"
+        u8"var Ghost = Input.isDown(\"NoSuchAction\")\n",
+        u8"main").IsOk());
+    CHECK(ctx->GetGlobal(u8"Down").Get<bool>() == true);
+    CHECK(ctx->GetGlobal(u8"Pressed").Get<bool>() == true);
+    CHECK(ctx->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(1.0));
+    CHECK(ctx->GetGlobal(u8"Ghost").Get<bool>() == false);
+
+    // Exclusive push from SCRIPT: gameplay suppresses.
+    runtime.EnableSet(u8"Menu");
+    REQUIRE(ctx->Load(u8"Input.pushSet(\"Menu\")\n", u8"main").IsOk());   // same module: the foreign classes live there
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK_FALSE(runtime.IsDown(runtime.Resolve(u8"Jump")));
+
+    Input::BindRuntime(nullptr);
+    REQUIRE(ctx->Load(u8"var Unbound = Input.isDown(\"Jump\")\n", u8"main").IsOk());
+    CHECK(ctx->GetGlobal(u8"Unbound").Get<bool>() == false);
+}
+
+TEST_CASE("input: rebind capture - first activated input matching the filter")
+{
+    FakeDevices devices;
+    FakeGamepad pad;
+    devices.pads.PushBack(&pad);
+    Binding captured;
+
+    // Nothing active: keeps listening.
+    CaptureFilter keysOnly;
+    keysOnly.mouseButtons = false;
+    keysOnly.gamepadButtons = false;
+    CHECK_FALSE(CaptureBinding(devices, keysOnly, captured));
+
+    // A key press captures as a Key binding.
+    devices.keyboard.pressed[static_cast<u32>(dshell::KeyCode::F)] = true;
+    REQUIRE(CaptureBinding(devices, keysOnly, captured));
+    CHECK(captured.source == BindingSource::Key);
+    CHECK(captured.code == static_cast<u32>(dshell::KeyCode::F));
+    devices.keyboard.pressed[static_cast<u32>(dshell::KeyCode::F)] = false;
+
+    // Stick noise is IGNORED for a key rebind; an opted-in stick filter captures it.
+    pad.axes[static_cast<u32>(dshell::GamepadAxis::RightX)] = 0.9f;
+    CHECK_FALSE(CaptureBinding(devices, keysOnly, captured));
+    CaptureFilter stickFilter;
+    stickFilter.keys = false;
+    stickFilter.mouseButtons = false;
+    stickFilter.gamepadButtons = false;
+    stickFilter.gamepadSticks = true;
+    REQUIRE(CaptureBinding(devices, stickFilter, captured));
+    CHECK(captured.source == BindingSource::GamepadStick);
+    CHECK(captured.code == static_cast<u32>(StickCode::Right));
+
+    // Gamepad button (must-not-have keys still capturing pads).
+    pad.axes[static_cast<u32>(dshell::GamepadAxis::RightX)] = 0.0f;
+    pad.buttonsPressed[3] = true;
+    CaptureFilter padButtons;
+    padButtons.keys = false;
+    padButtons.mouseButtons = false;
+    REQUIRE(CaptureBinding(devices, padButtons, captured));
+    CHECK(captured.source == BindingSource::GamepadButton);
+    CHECK(captured.code == 3u);
+}
+
+TEST_CASE("input: interactions - hold, tap, and double tap")
+{
+    auto makeButtonMap = [](InteractionKind kind, f32 seconds) {
+        InputMap map;
+        ActionSet set;
+        set.name = String(u8"S");
+        Action action;
+        action.name = String(u8"Act");
+        action.kind = ActionKind::Button;
+        Binding key;
+        key.source = BindingSource::Key;
+        key.code = static_cast<u32>(dshell::KeyCode::Space);
+        action.bindings.PushBack(key);
+        action.interaction.kind = kind;
+        action.interaction.seconds = seconds;
+        set.actions.PushBack(static_cast<Action&&>(action));
+        map.sets.PushBack(static_cast<ActionSet&&>(set));
+        return map;
+    };
+    const f32 step = 1.0f / 60.0f;
+    FakeDevices devices;
+
+    // HOLD 0.2s: pressing does nothing until the threshold; then one pressed edge; the
+    // release edge fires on release as usual.
+    {
+        ActionRuntime runtime;
+        runtime.SetMap(makeButtonMap(InteractionKind::Hold, 0.2f));
+        const ActionRef act = runtime.Resolve(u8"Act");
+        devices.keyboard.Set(dshell::KeyCode::Space, true);
+        for (int i = 0; i < 6; ++i)
+        {
+            runtime.Update(devices, step);
+            CHECK_FALSE(runtime.IsDown(act));   // 6 frames = 0.1s, below the threshold
+        }
+        bool edged = false;
+        for (int i = 0; i < 8; ++i)
+        {
+            runtime.Update(devices, step);
+            if (runtime.WasPressed(act)) { edged = true; }
+        }
+        CHECK(edged);
+        CHECK(runtime.IsDown(act));
+        devices.keyboard.Set(dshell::KeyCode::Space, false);
+        runtime.Update(devices, step);
+        CHECK_FALSE(runtime.IsDown(act));
+        CHECK(runtime.WasReleased(act));
+    }
+
+    // TAP 0.15s: a short press pulses ONE frame at release; a long press never fires.
+    {
+        ActionRuntime runtime;
+        runtime.SetMap(makeButtonMap(InteractionKind::Tap, 0.15f));
+        const ActionRef act = runtime.Resolve(u8"Act");
+        devices.keyboard.Set(dshell::KeyCode::Space, true);
+        for (int i = 0; i < 4; ++i) { runtime.Update(devices, step); CHECK_FALSE(runtime.IsDown(act)); }
+        devices.keyboard.Set(dshell::KeyCode::Space, false);
+        runtime.Update(devices, step);
+        CHECK(runtime.WasPressed(act));   // the pulse
+        CHECK(runtime.IsDown(act));
+        runtime.Update(devices, step);
+        CHECK_FALSE(runtime.IsDown(act));
+        CHECK(runtime.WasReleased(act));
+
+        devices.keyboard.Set(dshell::KeyCode::Space, true);   // long press: no fire
+        for (int i = 0; i < 20; ++i) { runtime.Update(devices, step); }
+        devices.keyboard.Set(dshell::KeyCode::Space, false);
+        runtime.Update(devices, step);
+        CHECK_FALSE(runtime.WasPressed(act));
+    }
+
+    // DOUBLE TAP 0.25s: two quick presses pulse on the SECOND; slow presses never fire.
+    {
+        ActionRuntime runtime;
+        runtime.SetMap(makeButtonMap(InteractionKind::DoubleTap, 0.25f));
+        const ActionRef act = runtime.Resolve(u8"Act");
+        auto tap = [&](int gapFrames) {
+            devices.keyboard.Set(dshell::KeyCode::Space, true);
+            runtime.Update(devices, step);
+            const bool fired = runtime.WasPressed(act);
+            devices.keyboard.Set(dshell::KeyCode::Space, false);
+            runtime.Update(devices, step);
+            for (int i = 0; i < gapFrames; ++i) { runtime.Update(devices, step); }
+            return fired;
+        };
+        CHECK_FALSE(tap(2));   // first tap arms
+        CHECK(tap(2));         // second within the window fires
+        CHECK_FALSE(tap(30));  // slow: arms again (previous consumed), gap too long...
+        CHECK_FALSE(tap(30));  // ...and a second slow tap still does not fire
+    }
 }
 
 TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")

@@ -63,6 +63,112 @@ export namespace draconic::input
         [[nodiscard]] bool IsValid() const noexcept { return index != kInvalid; }
     };
 
+    // Rebind capture (ez GetPressedInputSlot shape): poll once per frame from the rebind
+    // UI; the first ACTIVATED input matching the filter comes back as a ready-made Binding.
+    // Returns false while nothing qualifies (the UI keeps listening; Esc-to-cancel is the
+    // UI's affair). Axis/stick activation threshold is deliberately high (0.6) so drift
+    // never binds.
+    struct CaptureFilter
+    {
+        bool keys = true;
+        bool mouseButtons = true;
+        bool gamepadButtons = true;
+        bool gamepadAxes = false;   // axis rebinds opt in (a key rebind must ignore stick noise)
+        bool gamepadSticks = false;
+    };
+
+    [[nodiscard]] inline bool CaptureBinding(IInputSourceProvider& devices,
+                                             const CaptureFilter& filter, Binding& out)
+    {
+        constexpr f32 kActivate = 0.6f;
+        if (filter.keys)
+        {
+            if (dshell::IKeyboard* keyboard = devices.Keyboard())
+            {
+                for (u32 code = 1; code < static_cast<u32>(dshell::KeyCode::Count); ++code)
+                {
+                    if (keyboard->IsKeyPressed(static_cast<dshell::KeyCode>(code)))
+                    {
+                        out = Binding{};
+                        out.source = BindingSource::Key;
+                        out.code = code;
+                        return true;
+                    }
+                }
+            }
+        }
+        if (filter.mouseButtons)
+        {
+            if (dshell::IMouse* mouse = devices.Mouse())
+            {
+                for (u32 code = 0; code < static_cast<u32>(dshell::MouseButton::Count); ++code)
+                {
+                    if (mouse->IsButtonPressed(static_cast<dshell::MouseButton>(code)))
+                    {
+                        out = Binding{};
+                        out.source = BindingSource::MouseButton;
+                        out.code = code;
+                        return true;
+                    }
+                }
+            }
+        }
+        const i32 pads = devices.GamepadCount();
+        for (i32 p = 0; p < pads; ++p)
+        {
+            dshell::IGamepad* pad = devices.Gamepad(p);
+            if (pad == nullptr || !pad->Connected()) { continue; }
+            if (filter.gamepadButtons)
+            {
+                for (u32 code = 0; code < static_cast<u32>(dshell::GamepadButton::Count); ++code)
+                {
+                    if (pad->IsButtonPressed(static_cast<dshell::GamepadButton>(code)))
+                    {
+                        out = Binding{};
+                        out.source = BindingSource::GamepadButton;
+                        out.code = code;
+                        return true;
+                    }
+                }
+            }
+            if (filter.gamepadSticks)
+            {
+                const f32 lx = pad->Axis(dshell::GamepadAxis::LeftX);
+                const f32 ly = pad->Axis(dshell::GamepadAxis::LeftY);
+                const f32 rx = pad->Axis(dshell::GamepadAxis::RightX);
+                const f32 ry = pad->Axis(dshell::GamepadAxis::RightY);
+                if (lx * lx + ly * ly > kActivate * kActivate)
+                {
+                    out = Binding{};
+                    out.source = BindingSource::GamepadStick;
+                    out.code = static_cast<u32>(StickCode::Left);
+                    return true;
+                }
+                if (rx * rx + ry * ry > kActivate * kActivate)
+                {
+                    out = Binding{};
+                    out.source = BindingSource::GamepadStick;
+                    out.code = static_cast<u32>(StickCode::Right);
+                    return true;
+                }
+            }
+            if (filter.gamepadAxes)
+            {
+                for (u32 code = 0; code < static_cast<u32>(dshell::GamepadAxis::Count); ++code)
+                {
+                    if (std::fabs(pad->Axis(static_cast<dshell::GamepadAxis>(code))) > kActivate)
+                    {
+                        out = Binding{};
+                        out.source = BindingSource::GamepadAxis;
+                        out.code = code;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     class ActionRuntime
     {
     public:
@@ -226,6 +332,11 @@ export namespace draconic::input
             bool latched = false;            // held through a suppression: stays released
             u64 pressedFrame = 0;
             u64 releasedFrame = 0;
+            // Interaction machine (Button actions with kind != None):
+            bool rawHeld = false;            // last frame's effective press, pre-interaction
+            f32 heldSeconds = 0.0f;
+            f32 sinceLastTap = 1.0e9f;       // DoubleTap window timer
+            bool holdFired = false;
         };
         struct Candidate { u32 set = 0; u32 flatIndex = 0; };
         struct RefEntry { String name; Array<Candidate> candidates; };
@@ -464,9 +575,68 @@ export namespace draconic::input
             const bool effective = physicallyPressed && !suppressed && !state.latched;
 
             state.value = (suppressed || state.latched) ? Float2{ 0.0f, 0.0f } : state.smoothed;
-            if (effective && !state.pressed) { state.pressedFrame = m_frame; }
-            if (!effective && state.pressed) { state.releasedFrame = m_frame; }
-            state.pressed = effective;
+
+            // Interactions reshape the EFFECTIVE press into the reported one (Hold delays
+            // it, Tap/DoubleTap turn it into one-frame pulses); None passes through.
+            bool reported = effective;
+            switch (action.interaction.kind)
+            {
+                case InteractionKind::None: break;
+                case InteractionKind::Hold:
+                {
+                    if (effective)
+                    {
+                        state.heldSeconds += deltaTime;
+                        reported = state.holdFired || state.heldSeconds >= action.interaction.seconds;
+                        state.holdFired = reported;
+                    }
+                    else
+                    {
+                        state.heldSeconds = 0.0f;
+                        state.holdFired = false;
+                        reported = false;
+                    }
+                    break;
+                }
+                case InteractionKind::Tap:
+                {
+                    reported = false;
+                    if (effective) { state.heldSeconds += deltaTime; }
+                    else
+                    {
+                        // Release: a short-enough press pulses for exactly this frame.
+                        if (state.rawHeld && state.heldSeconds <= action.interaction.seconds)
+                        {
+                            reported = true;
+                        }
+                        state.heldSeconds = 0.0f;
+                    }
+                    break;
+                }
+                case InteractionKind::DoubleTap:
+                {
+                    state.sinceLastTap += deltaTime;
+                    reported = false;
+                    if (effective && !state.rawHeld)   // a fresh press
+                    {
+                        if (state.sinceLastTap <= action.interaction.seconds)
+                        {
+                            reported = true;
+                            state.sinceLastTap = 1.0e9f;   // consumed
+                        }
+                        else
+                        {
+                            state.sinceLastTap = 0.0f;     // first tap: arm the window
+                        }
+                    }
+                    break;
+                }
+            }
+            state.rawHeld = effective;
+
+            if (reported && !state.pressed) { state.pressedFrame = m_frame; }
+            if (!reported && state.pressed) { state.releasedFrame = m_frame; }
+            state.pressed = reported;
         }
 
         InputMap m_map;

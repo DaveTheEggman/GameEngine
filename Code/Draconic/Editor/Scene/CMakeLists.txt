@@ -14,6 +14,7 @@ target_link_libraries(DraconicEditorScene
         Draconic::Geometry Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
         Draconic::UI Draconic::UIRuntime Draconic::UIViewport Draconic::VGRenderer
         Draconic::Script Draconic::ScriptWren
+        Draconic::Input Draconic::InputResource Draconic::InputSubsystem
         Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
 
 target_sources(DraconicEditorScene

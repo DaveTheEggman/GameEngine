@@ -334,6 +334,7 @@ namespace
             }
             const StringView source(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
 
+            draconic::input::RegisterInputScriptApi();   // scripts get the Input facade
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
