@@ -16,6 +16,7 @@ export module draconic.editor.scene:game_page;
 
 import draconic.core;
 import draconic.content;
+import draconic.vfs;
 import draconic.resource;
 import draconic.scene;
 import draconic.scene.resource;
@@ -29,6 +30,8 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
 import draconic.ui.viewport;
+import draconic.script;
+import draconic.script.wren;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -158,6 +161,7 @@ export namespace draconic::editor
             m_scene->SetSimulationEnabled(true);
             m_running = true;
             m_sceneTitle = String(instance->Name());
+            StartGameScript();
             DRACONIC_LOG_INFO(u8"Editor", u8"Game: running scene '{}'", m_sceneTitle);
             RefreshToolbar();
         }
@@ -166,6 +170,14 @@ export namespace draconic::editor
         void Stop()
         {
             if (!m_running && m_scene == nullptr) { return; }
+            // Script first (its exit() may still observe the world), then the scene.
+            if (m_game.Get() != nullptr)
+            {
+                (void)m_game->Invoke(u8"exit", Span<Variant>{});
+                m_game = nullptr;
+            }
+            m_scriptContext = nullptr;
+            m_scriptManager = nullptr;
             if (m_scene != nullptr)
             {
                 m_scene->Stop();
@@ -176,9 +188,20 @@ export namespace draconic::editor
             RefreshToolbar();
         }
 
-        void OnUpdate(grt::IApplicationHost&, f32) override
+        void OnUpdate(grt::IApplicationHost&, f32 dt) override
         {
             m_viewport->SyncInputRegion();
+            if (m_running && m_game.Get() != nullptr)
+            {
+                Variant dtArg = Variant::From(dt);
+                if (auto result = m_game->Invoke(u8"update", Span<Variant>{ &dtArg, 1 });
+                    !result.HasValue())
+                {
+                    DRACONIC_LOG_ERROR(u8"Editor",
+                        u8"Game: script update() faulted - stopping script (run continues)");
+                    m_game = nullptr;
+                }
+            }
         }
 
         void OnRenderWindow(grt::IApplicationHost&, draconic::graphics::FrameContext& frame) override
@@ -228,6 +251,47 @@ export namespace draconic::editor
             cameras->Add(e);
         }
 
+        // The project's game script (Wren `Game` class: construct new() + optional
+        // launch/update(dt)/exit) - RaptorPlayer's exact contract, per run: Play compiles a
+        // FRESH context, Stop tears it down. Faults disable the script, never the run.
+        void StartGameScript()
+        {
+            const StringView scriptPath = m_context->Project()->Settings().startupScript.AsView();
+            if (scriptPath.IsEmpty()) { return; }
+            draconic::vfs::NativeFileSystem root(m_context->Project()->Directory());
+            UniquePtr<IStream> stream = root.Open(scriptPath, FileMode::Read);
+            if (!stream)
+            {
+                m_context->Notify(NoticeKind::Warning, u8"Game: startup script not found.");
+                return;
+            }
+            Array<byte> bytes;
+            bytes.Resize(static_cast<usize>(stream->Size()));
+            if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size()) { return; }
+            const StringView source(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
+
+            m_scriptManager = draconic::script::wren::CreateScriptManager();
+            draconic::script::RegisterReflectedTypes(*m_scriptManager);
+            m_scriptContext = m_scriptManager->CreateContext();
+            if (!m_scriptContext->Load(source, scriptPath).IsOk())
+            {
+                m_context->Notify(NoticeKind::Error,
+                    u8"Game: startup script failed to compile (see Console).");
+                m_scriptContext = nullptr;
+                m_scriptManager = nullptr;
+                return;
+            }
+            m_game = m_scriptContext->CreateInstance(u8"Game", Span<Variant>{});
+            if (m_game.Get() == nullptr)
+            {
+                m_context->Notify(NoticeKind::Warning,
+                    u8"Game: startup script has no `Game` class (construct new()).");
+                return;
+            }
+            (void)m_game->Invoke(u8"launch", Span<Variant>{});
+            DRACONIC_LOG_INFO(u8"Editor", u8"Game: script '{}' launched", scriptPath);
+        }
+
         void RefreshToolbar()
         {
             if (m_statusLabel.Get() != nullptr)
@@ -257,6 +321,10 @@ export namespace draconic::editor
         gtk::ToolbarButton* m_restartButton = nullptr;
         RefPtr<draconic::ui::Label> m_statusLabel;
         RefPtr<guivp::ViewportView> m_viewport;
+
+        RefPtr<draconic::script::IScriptManager> m_scriptManager;
+        RefPtr<draconic::script::IScriptContext> m_scriptContext;
+        RefPtr<draconic::script::ScriptObject> m_game;
 
         String m_sceneTitle;
         bool m_running = false;
