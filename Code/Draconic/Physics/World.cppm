@@ -37,9 +37,9 @@ export namespace draconic::physics
 
     enum class MotionKind : u8 { Static, Kinematic, Dynamic };
 
-    enum class ShapeKind : u8 { Box, Sphere, Capsule };
+    enum class ShapeKind : u8 { Box, Sphere, Capsule, Cooked, Plane };
 
-    // One primitive shape (a body carries one or more; >1 = compound).
+    // One shape (a body carries one or more; >1 = compound).
     struct ShapeDesc
     {
         ShapeKind kind = ShapeKind::Box;
@@ -48,6 +48,20 @@ export namespace draconic::physics
         f32 halfHeight = 0.5f;                    // Capsule (cylinder half-length)
         Float3 localPosition{ 0.0f, 0.0f, 0.0f }; // compound child placement
         Quaternion localRotation = Quaternion::Identity;
+        /// ShapeKind::Cooked: a blob from CookConvexHull/CookTriangleMesh (self-describing;
+        /// convex hulls may be dynamic, triangle meshes MUST be static/kinematic). The span
+        /// is only read during CreateBody - the caller keeps ownership (resource memory).
+        Span<const byte> cooked;
+        /// Non-uniform shape scale (cooked level/prop geometry authored at unit scale);
+        /// {1,1,1} = none. Triangle meshes accept any scale, convex hulls uniform-ish only.
+        Float3 scale{ 1.0f, 1.0f, 1.0f };
+        /// ShapeKind::Plane: dot(planeNormal, p) + planeDistance = 0, the NEGATIVE half
+        /// space solid; infinite in principle but only collidable within +-planeHalfExtent
+        /// of the shape origin (keep as tight as the scene allows - broad-phase cost).
+        /// Planes must be static/kinematic, never dynamic.
+        Float3 planeNormal{ 0.0f, 1.0f, 0.0f };
+        f32 planeDistance = 0.0f;
+        f32 planeHalfExtent = 1000.0f;
     };
 
     struct BodyDesc
@@ -80,6 +94,9 @@ export namespace draconic::physics
         Float3 position{ 0, 0, 0 };
         Float3 normal{ 0, 0, 0 };
         f32 fraction = 1.0f;
+        /// Material-slot index of the hit face for cooked TRIANGLE-MESH shapes (whatever
+        /// the cooker stored per triangle - the source mesh's material slot); 0 otherwise.
+        u32 surface = 0;
     };
 
     enum class ContactKind : u8 { Begin, End, TriggerEnter, TriggerExit };
@@ -100,6 +117,28 @@ export namespace draconic::physics
         u32 maxBodyPairs = 4096;
         u32 maxContactConstraints = 2048;
     };
+
+    // ---- offline shape cooking (builder/editor side; blobs feed ShapeKind::Cooked) ----
+    // The blob format is Jolt's binary shape state: self-describing (convex vs mesh),
+    // versioned by Jolt - cooked products must recook on a Jolt upgrade, which the
+    // asset pipeline's builder-version bump handles.
+
+    /// Convex hull from a point cloud. `hullTolerance` trades vertex count for fidelity
+    /// (points may sit this far outside the hull; larger = simpler hull).
+    /// False on degenerate input (< 4 non-coplanar points).
+    [[nodiscard]] bool CookConvexHull(Span<const Float3> points, Array<byte>& outBlob,
+                                      f32 hullTolerance = 1.0e-3f);
+
+    /// Static triangle mesh. `triangleMaterialSlots` (optional: empty = all 0) carries one
+    /// material-slot index per triangle, surfaced on ray hits as RayHit::surface.
+    /// `indices` size must be a multiple of 3. False on empty/malformed input.
+    [[nodiscard]] bool CookTriangleMesh(Span<const Float3> positions, Span<const u32> indices,
+                                        Span<const u32> triangleMaterialSlots,
+                                        Array<byte>& outBlob);
+
+    /// Triangles of a cooked blob (debug/gizmo outline geometry: 3 positions per triangle).
+    /// False if the blob doesn't restore.
+    [[nodiscard]] bool ExtractShapeTriangles(Span<const byte> blob, Array<Float3>& outTriangles);
 
     class PhysicsWorld
     {

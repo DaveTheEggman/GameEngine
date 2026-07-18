@@ -208,3 +208,154 @@ TEST_CASE("physics: point query finds containing bodies")
     world.QueryPoint(Float3{ 10.0f, 0.0f, 0.0f }, hits);
     CHECK(hits.IsEmpty());
 }
+
+// ---- cooked shapes (P2: builder-cooked convex hulls + triangle meshes) ----
+
+namespace
+{
+    // Unit-cube corner cloud (half extent 0.5) for hull cooking.
+    [[nodiscard]] Array<Float3> CubeCorners(f32 half)
+    {
+        Array<Float3> points;
+        const f32 ends[2] = { -half, half };
+        for (f32 x : ends)
+            for (f32 y : ends)
+                for (f32 z : ends)
+                    points.PushBack(Float3{ x, y, z });
+        return points;
+    }
+}
+
+TEST_CASE("physics: cooked convex hull simulates like a box")
+{
+    Array<byte> blob;
+    const Array<Float3> corners = CubeCorners(0.5f);
+    REQUIRE(CookConvexHull(Span<const Float3>(corners.Data(), corners.Size()), blob));
+    REQUIRE(!blob.IsEmpty());
+
+    PhysicsWorld world;
+    (void)world.CreateBody(FloorDesc());
+    BodyDesc drop;
+    drop.position = Float3{ 0.0f, 5.0f, 0.0f };
+    ShapeDesc shape;
+    shape.kind = ShapeKind::Cooked;
+    shape.cooked = Span<const byte>(blob.Data(), blob.Size());
+    drop.shapes.PushBack(shape);
+    const BodyId body = world.CreateBody(drop);
+    REQUIRE(body.IsValid());
+
+    for (int i = 0; i < 300; ++i) { world.Step(1.0f / 60.0f); }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(body, position, rotation);
+    // Rests with its half extent above the floor top (convex radius slop allowed).
+    CHECK(position.y == doctest::Approx(0.5f).epsilon(0.05));
+}
+
+TEST_CASE("physics: cooked triangle mesh carries per-face material slots to ray hits")
+{
+    // Two-triangle ground quad: -x triangle slot 7, +x triangle slot 3.
+    const Float3 positions[] = {
+        { -2.0f, 0.0f, -2.0f }, { -2.0f, 0.0f, 2.0f }, { 2.0f, 0.0f, 2.0f },
+        { 2.0f, 0.0f, -2.0f },
+    };
+    const u32 indices[] = { 0, 1, 3, 1, 2, 3 };   // left tri (uses corner 0), right tri (corner 2)
+    const u32 slots[] = { 7, 3 };
+    Array<byte> blob;
+    REQUIRE(CookTriangleMesh(Span<const Float3>(positions, 4), Span<const u32>(indices, 6),
+                             Span<const u32>(slots, 2), blob));
+
+    PhysicsWorld world;
+    BodyDesc ground;
+    ground.motion = MotionKind::Static;
+    ground.layer = PhysicsLayer::Static;
+    ShapeDesc shape;
+    shape.kind = ShapeKind::Cooked;
+    shape.cooked = Span<const byte>(blob.Data(), blob.Size());
+    ground.shapes.PushBack(shape);
+    REQUIRE(world.CreateBody(ground).IsValid());
+
+    RayHit hit;
+    REQUIRE(world.RayCast(Float3{ -1.5f, 1.0f, -1.5f }, Float3{ 0.0f, -1.0f, 0.0f }, 5.0f, hit));
+    CHECK(hit.surface == 7);
+    CHECK(hit.normal.y == doctest::Approx(1.0f).epsilon(0.01));
+    REQUIRE(world.RayCast(Float3{ 1.5f, 1.0f, 1.5f }, Float3{ 0.0f, -1.0f, 0.0f }, 5.0f, hit));
+    CHECK(hit.surface == 3);
+
+    // A dynamic box rests ON the mesh (mesh collides, not just queries).
+    BodyDesc drop = BoxAt(3.0f);
+    const BodyId box = world.CreateBody(drop);
+    for (int i = 0; i < 300; ++i) { world.Step(1.0f / 60.0f); }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(box, position, rotation);
+    CHECK(position.y == doctest::Approx(0.5f).epsilon(0.05));
+}
+
+TEST_CASE("physics: cooked shapes scale; garbage blobs fail gracefully")
+{
+    Array<byte> blob;
+    const Array<Float3> corners = CubeCorners(0.5f);
+    REQUIRE(CookConvexHull(Span<const Float3>(corners.Data(), corners.Size()), blob));
+
+    PhysicsWorld world;
+    (void)world.CreateBody(FloorDesc());
+    BodyDesc drop;
+    drop.position = Float3{ 0.0f, 5.0f, 0.0f };
+    ShapeDesc shape;
+    shape.kind = ShapeKind::Cooked;
+    shape.cooked = Span<const byte>(blob.Data(), blob.Size());
+    shape.scale = Float3{ 2.0f, 2.0f, 2.0f };
+    drop.shapes.PushBack(shape);
+    const BodyId body = world.CreateBody(drop);
+    REQUIRE(body.IsValid());
+    for (int i = 0; i < 300; ++i) { world.Step(1.0f / 60.0f); }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(body, position, rotation);
+    CHECK(position.y == doctest::Approx(1.0f).epsilon(0.05));   // doubled half extent
+
+    // Garbage blob -> invalid body, no crash.
+    const byte garbage[] = { byte{ 0xde }, byte{ 0xad }, byte{ 0xbe }, byte{ 0xef } };
+    BodyDesc bad;
+    ShapeDesc badShape;
+    badShape.kind = ShapeKind::Cooked;
+    badShape.cooked = Span<const byte>(garbage, 4);
+    bad.shapes.PushBack(badShape);
+    CHECK_FALSE(world.CreateBody(bad).IsValid());
+
+    // Debug outline geometry extracts from a good blob.
+    Array<Float3> triangles;
+    CHECK(ExtractShapeTriangles(Span<const byte>(blob.Data(), blob.Size()), triangles));
+    CHECK(triangles.Size() % 3 == 0);
+    CHECK(!triangles.IsEmpty());
+    Array<Float3> none;
+    CHECK_FALSE(ExtractShapeTriangles(Span<const byte>(garbage, 4), none));
+}
+
+TEST_CASE("physics: an infinite plane catches bodies anywhere within its half extent")
+{
+    PhysicsWorld world;
+    BodyDesc ground;
+    ground.motion = MotionKind::Static;
+    ground.layer = PhysicsLayer::Static;
+    ShapeDesc plane;
+    plane.kind = ShapeKind::Plane;                 // +Y normal through origin
+    ground.shapes.PushBack(plane);
+    REQUIRE(world.CreateBody(ground).IsValid());
+
+    // Far outside any box-sized floor, still well inside the plane's half extent.
+    BodyDesc drop = BoxAt(5.0f);
+    drop.position = Float3{ 800.0f, 5.0f, -650.0f };
+    const BodyId box = world.CreateBody(drop);
+    for (int i = 0; i < 300; ++i) { world.Step(1.0f / 60.0f); }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(box, position, rotation);
+    CHECK(position.y == doctest::Approx(0.5f).epsilon(0.05));
+
+    // Rays see it too, with an up normal.
+    RayHit hit;
+    REQUIRE(world.RayCast(Float3{ -300.0f, 2.0f, 40.0f }, Float3{ 0.0f, -1.0f, 0.0f }, 5.0f, hit));
+    CHECK(hit.normal.y == doctest::Approx(1.0f).epsilon(0.01));
+}

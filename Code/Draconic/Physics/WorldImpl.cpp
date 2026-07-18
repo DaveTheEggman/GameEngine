@@ -18,6 +18,12 @@ module;
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
+#include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
+#include <Jolt/Physics/Collision/Shape/ScaledShape.h>
+#include <Jolt/Physics/Collision/Shape/PlaneShape.h>
+#include <Jolt/Core/StreamIn.h>
+#include <Jolt/Core/StreamOut.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
@@ -26,6 +32,7 @@ module;
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 
 #include <atomic>
+#include <cstring>
 
 module draconic.physics;
 
@@ -124,18 +131,84 @@ namespace draconic::physics
             }
         }
 
-        [[nodiscard]] JPH::Ref<JPH::Shape> BuildOne(const ShapeDesc& desc)
+        // Cooked blobs are Jolt binary shape state; these adapters bridge it to Array<byte>.
+        struct BlobOut final : JPH::StreamOut
         {
+            Array<byte>& blob;
+            explicit BlobOut(Array<byte>& b) : blob(b) {}
+            void WriteBytes(const void* data, size_t count) override
+            {
+                const usize offset = blob.Size();
+                blob.Resize(offset + count);
+                std::memcpy(blob.Data() + offset, data, count);
+            }
+            [[nodiscard]] bool IsFailed() const override { return false; }
+        };
+
+        struct BlobIn final : JPH::StreamIn
+        {
+            Span<const byte> blob;
+            usize cursor = 0;
+            bool failed = false;
+            explicit BlobIn(Span<const byte> b) : blob(b) {}
+            void ReadBytes(void* out, size_t count) override
+            {
+                if (cursor + count > blob.Size()) { failed = true; return; }
+                std::memcpy(out, blob.Data() + cursor, count);
+                cursor += count;
+            }
+            // istream semantics: EOF only trips when a read runs PAST the end - Jolt
+            // checks IsEOF() after a fully-consumed successful restore.
+            [[nodiscard]] bool IsEOF() const override { return failed; }
+            [[nodiscard]] bool IsFailed() const override { return failed; }
+        };
+
+        [[nodiscard]] JPH::Ref<JPH::Shape> RestoreCooked(Span<const byte> blob)
+        {
+            // Jolt indexes its construct table with the leading subtype byte UNVALIDATED -
+            // reject out-of-range values before handing over a corrupt/foreign blob.
+            if (blob.IsEmpty()
+                || static_cast<JPH::uint>(blob[0]) >= JPH::NumSubShapeTypes) { return {}; }
+            BlobIn in(blob);
+            JPH::Shape::ShapeResult result = JPH::Shape::sRestoreFromBinaryState(in);
+            if (in.IsFailed() || !result.IsValid()) { return {}; }
+            return result.Get();
+        }
+
+        [[nodiscard]] JPH::Ref<JPH::Shape> BuildOne(const ShapeDesc& desc, f32 density)
+        {
+            JPH::Ref<JPH::Shape> shape;
             switch (desc.kind)
             {
                 case ShapeKind::Box:
-                    return new JPH::BoxShape(ToJph(desc.halfExtents));
+                    shape = new JPH::BoxShape(ToJph(desc.halfExtents));
+                    break;
                 case ShapeKind::Sphere:
-                    return new JPH::SphereShape(desc.radius);
+                    shape = new JPH::SphereShape(desc.radius);
+                    break;
                 case ShapeKind::Capsule:
-                    return new JPH::CapsuleShape(desc.halfHeight, desc.radius);
+                    shape = new JPH::CapsuleShape(desc.halfHeight, desc.radius);
+                    break;
+                case ShapeKind::Cooked:
+                    shape = RestoreCooked(desc.cooked);
+                    break;
+                case ShapeKind::Plane:
+                    shape = new JPH::PlaneShape(
+                        JPH::Plane(ToJph(desc.planeNormal).Normalized(), desc.planeDistance),
+                        nullptr, desc.planeHalfExtent);
+                    break;
             }
-            return nullptr;
+            // Density drives CalculateMassAndInertia (kg/m^3); only convex shapes carry it.
+            if (shape != nullptr && shape->GetType() == JPH::EShapeType::Convex && density > 0.0f)
+            {
+                static_cast<JPH::ConvexShape*>(shape.GetPtr())->SetDensity(density);
+            }
+            if (shape != nullptr
+                && (desc.scale.x != 1.0f || desc.scale.y != 1.0f || desc.scale.z != 1.0f))
+            {
+                shape = new JPH::ScaledShape(shape, ToJph(desc.scale));
+            }
+            return shape;
         }
 
         [[nodiscard]] JPH::Ref<JPH::Shape> BuildShape(const BodyDesc& desc)
@@ -146,12 +219,12 @@ namespace draconic::physics
                 && desc.shapes[0].localPosition.y == 0.0f
                 && desc.shapes[0].localPosition.z == 0.0f)
             {
-                return BuildOne(desc.shapes[0]);
+                return BuildOne(desc.shapes[0], desc.density);
             }
             JPH::StaticCompoundShapeSettings compound;
             for (const ShapeDesc& child : desc.shapes)
             {
-                JPH::Ref<JPH::Shape> shape = BuildOne(child);
+                JPH::Ref<JPH::Shape> shape = BuildOne(child, desc.density);
                 if (shape == nullptr) { return nullptr; }
                 compound.AddShape(ToJph(child.localPosition), ToJph(child.localRotation), shape);
             }
@@ -193,6 +266,91 @@ namespace draconic::physics
                 events.PushBack(e);
             }
         };
+    }
+
+    bool CookConvexHull(Span<const Float3> points, Array<byte>& outBlob, f32 hullTolerance)
+    {
+        if (points.Size() < 4) { return false; }
+        AcquireJolt();   // Factory/type registry must exist for shape construction
+        JPH::Array<JPH::Vec3> hull;
+        hull.reserve(points.Size());
+        for (const Float3& p : points) { hull.push_back(ToJph(p)); }
+        JPH::ConvexHullShapeSettings settings(hull);
+        settings.mHullTolerance = hullTolerance;
+        const JPH::Shape::ShapeResult result = settings.Create();
+        bool ok = false;
+        if (result.IsValid())
+        {
+            BlobOut out(outBlob);
+            result.Get()->SaveBinaryState(out);
+            ok = true;
+        }
+        ReleaseJolt();
+        return ok;
+    }
+
+    bool CookTriangleMesh(Span<const Float3> positions, Span<const u32> indices,
+                          Span<const u32> triangleMaterialSlots, Array<byte>& outBlob)
+    {
+        if (positions.IsEmpty() || indices.IsEmpty() || indices.Size() % 3 != 0) { return false; }
+        const usize triangleCount = indices.Size() / 3;
+        if (!triangleMaterialSlots.IsEmpty() && triangleMaterialSlots.Size() != triangleCount)
+        {
+            return false;
+        }
+        AcquireJolt();
+        JPH::VertexList vertices;
+        vertices.reserve(positions.Size());
+        for (const Float3& p : positions) { vertices.push_back(JPH::Float3(p.x, p.y, p.z)); }
+        JPH::IndexedTriangleList triangles;
+        triangles.reserve(triangleCount);
+        for (usize t = 0; t < triangleCount; ++t)
+        {
+            // Material slot rides in the per-triangle USER DATA (RayHit::surface); Jolt's
+            // own material index stays 0 (we don't use JPH::PhysicsMaterial).
+            triangles.push_back(JPH::IndexedTriangle(
+                indices[t * 3 + 0], indices[t * 3 + 1], indices[t * 3 + 2], 0,
+                triangleMaterialSlots.IsEmpty() ? 0 : triangleMaterialSlots[t]));
+        }
+        JPH::MeshShapeSettings settings(std::move(vertices), std::move(triangles));
+        settings.mPerTriangleUserData = true;
+        const JPH::Shape::ShapeResult result = settings.Create();
+        bool ok = false;
+        if (result.IsValid())
+        {
+            BlobOut out(outBlob);
+            result.Get()->SaveBinaryState(out);
+            ok = true;
+        }
+        ReleaseJolt();
+        return ok;
+    }
+
+    bool ExtractShapeTriangles(Span<const byte> blob, Array<Float3>& outTriangles)
+    {
+        AcquireJolt();
+        JPH::Ref<JPH::Shape> shape = RestoreCooked(blob);
+        bool ok = false;
+        if (shape != nullptr)
+        {
+            JPH::Shape::GetTrianglesContext context;
+            shape->GetTrianglesStart(context, JPH::AABox::sBiggest(), JPH::Vec3::sZero(),
+                                     JPH::Quat::sIdentity(), JPH::Vec3::sOne());
+            JPH::Float3 buffer[3 * JPH::Shape::cGetTrianglesMinTrianglesRequested];
+            for (;;)
+            {
+                const int count = shape->GetTrianglesNext(
+                    context, JPH::Shape::cGetTrianglesMinTrianglesRequested, buffer);
+                if (count <= 0) { break; }
+                for (int v = 0; v < count * 3; ++v)
+                {
+                    outTriangles.PushBack(Float3{ buffer[v].x, buffer[v].y, buffer[v].z });
+                }
+            }
+            ok = !outTriangles.IsEmpty();
+        }
+        ReleaseJolt();
+        return ok;
     }
 
     struct PhysicsWorld::Impl
@@ -341,11 +499,19 @@ namespace draconic::physics
                                from.y + direction.y * maxDistance * hit.mFraction,
                                from.z + direction.z * maxDistance * hit.mFraction };
         out.userData = UserData(out.body);
+        out.surface = 0;
         JPH::BodyLockRead lock(m_impl->system->GetBodyLockInterface(), hit.mBodyID);
         if (lock.Succeeded())
         {
-            out.normal = FromJph(lock.GetBody().GetWorldSpaceSurfaceNormal(
+            const JPH::Body& body = lock.GetBody();
+            out.normal = FromJph(body.GetWorldSpaceSurfaceNormal(
                 hit.mSubShapeID2, ray.GetPointOnRay(hit.mFraction)));
+            JPH::SubShapeID remainder;
+            const JPH::Shape* leaf = body.GetShape()->GetLeafShape(hit.mSubShapeID2, remainder);
+            if (leaf != nullptr && leaf->GetSubType() == JPH::EShapeSubType::Mesh)
+            {
+                out.surface = static_cast<const JPH::MeshShape*>(leaf)->GetTriangleUserData(remainder);
+            }
         }
         return true;
     }
