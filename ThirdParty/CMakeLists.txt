@@ -56,6 +56,14 @@ add_library(draconic_ufbx INTERFACE)
 add_library(Draconic::Ufbx ALIAS draconic_ufbx)
 target_include_directories(draconic_ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
 
+# miniaudio — vendored single-header audio library (github.com/mackron/miniaudio v0.11.25,
+# public domain / MIT-0). Header include-dir INTERFACE target; the MINIAUDIO_IMPLEMENTATION
+# translation unit lives in draconic.audio. Ogg Vorbis decoding is provided by
+# ThirdParty/stb/stb_vorbis.c (public domain), compiled inside the same implementation TU.
+add_library(draconic_miniaudio INTERFACE)
+add_library(Draconic::Miniaudio ALIAS draconic_miniaudio)
+target_include_directories(draconic_miniaudio SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/miniaudio)
+
 # doctest — vendored single-header test framework (github.com/doctest/doctest v2.4.11, MIT).
 # A copy of the source (not a submodule / not FetchContent); tests link doctest::doctest.
 add_library(draconic_doctest INTERFACE)
