@@ -49,6 +49,14 @@ namespace
     class PlaygroundApp final : public runtime::DefaultApplication
     {
     public:
+        PlaygroundApp()
+        {
+#ifdef DRACONIC_PLAYGROUND_FONT
+            SetUIFontPath(reinterpret_cast<const core::utf8char*>(DRACONIC_PLAYGROUND_FONT));
+#endif
+        }
+
+    public:
         void Configure(runtime::IApplicationHost& host) override
         {
             // Physics/input/UI come from DefaultApplication (H2) - only the sample-local
@@ -314,11 +322,18 @@ namespace
             // clicking it must NOT fire the crosshair shove.
             {
                 m_hudDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
+                // The proven UISandbox pause-menu vocabulary: kebab-case attributes,
+                // EXPLICIT sizes (an unsized child in a root Flex stretches to a bar).
                 m_hudDocument->markup = core::String(
-                    u8"<FlexLayout direction=\"Vertical\" spacing=\"6\">"
-                    u8"<Label id=\"hud-title\" text=\"PhysicsPlayground\" fontSize=\"20\" />"
-                    u8"<Button id=\"hud-btn\" text=\"Clicks: 0\" />"
-                    u8"</FlexLayout>");
+                    u8"<Flex direction=\"vertical\" align=\"start\" padding=\"12\" spacing=\"8\">"
+                    u8"  <Panel padding=\"12\" width=\"220\""
+                    u8"         style=\"background: rounded-rect(rgb(28, 32, 40), radius=8);\">"
+                    u8"    <Flex direction=\"vertical\" spacing=\"8\">"
+                    u8"      <Label id=\"hud-title\" text=\"PhysicsPlayground\" font-size=\"18\"/>"
+                    u8"      <Button id=\"hud-btn\" text=\"Clicks: 0\" width=\"180\" height=\"36\"/>"
+                    u8"    </Flex>"
+                    u8"  </Panel>"
+                    u8"</Flex>");
                 dscene::EntityHandle e = m_scene->CreateEntity(u8"hud");
                 auto* canvases = m_scene->GetSystem<draconic::ui::UICanvasComponentManager>();
                 if (canvases != nullptr)

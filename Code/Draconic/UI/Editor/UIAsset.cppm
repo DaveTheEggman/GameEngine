@@ -30,11 +30,19 @@ using namespace draconic::core;
 
 export namespace draconic::ui
 {
+    // The UISandbox pause-menu vocabulary (kebab-case attributes, explicit sizes -
+    // unsized children in a root Flex stretch into bars).
     inline constexpr StringView kUIDocumentStarter =
-        u8"<FlexLayout direction=\"Vertical\" spacing=\"8\">\n"
-        u8"  <Label id=\"title\" text=\"New Document\" fontSize=\"24\" />\n"
-        u8"  <Button id=\"ok-btn\" text=\"OK\" />\n"
-        u8"</FlexLayout>\n";
+        u8"<Flex direction=\"vertical\" justify=\"center\" align=\"center\" padding=\"32\">\n"
+        u8"  <Panel padding=\"24\"\n"
+        u8"         style=\"background: rounded-rect(rgb(35, 38, 48), radius=12);\">\n"
+        u8"    <Flex direction=\"vertical\" align=\"center\" spacing=\"8\" width=\"260\">\n"
+        u8"      <Label id=\"title\" text=\"New Document\" font-size=\"24\"/>\n"
+        u8"      <Spacer spacer-height=\"12\"/>\n"
+        u8"      <Button id=\"ok-btn\" text=\"OK\" height=\"40\"/>\n"
+        u8"    </Flex>\n"
+        u8"  </Panel>\n"
+        u8"</Flex>\n";
 
     inline constexpr StringView kUIThemeStarter =
         u8"/* Game theme overrides - selectors match control types and .classes. */\n"

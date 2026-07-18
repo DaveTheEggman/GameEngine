@@ -18,3 +18,6 @@ target_link_libraries(PhysicsPlayground PRIVATE
     Draconic::Imgui
     Draconic::Policy)
 draconic_copy_sdl3_dll(PhysicsPlayground)
+
+target_compile_definitions(PhysicsPlayground PRIVATE
+    DRACONIC_PLAYGROUND_FONT="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")
