@@ -30,6 +30,12 @@ module;
 #include <Jolt/Physics/Collision/CollidePointResult.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Constraints/FixedConstraint.h>
+#include <Jolt/Physics/Constraints/PointConstraint.h>
+#include <Jolt/Physics/Constraints/HingeConstraint.h>
+#include <Jolt/Physics/Constraints/SliderConstraint.h>
+#include <Jolt/Physics/Constraints/DistanceConstraint.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
 
 #include <atomic>
 #include <cstring>
@@ -43,6 +49,9 @@ using namespace draconic::core;
 namespace draconic::physics
 {
     // ---- layers ----
+    // ObjectLayer encoding: (semantic << 8) | designer group. Semantics keep the fixed
+    // hard-coded rules (static-static never, trigger sensing); groups add the designer
+    // matrix on top.
     namespace layers
     {
         constexpr JPH::ObjectLayer kStatic    = 0;
@@ -52,14 +61,23 @@ namespace draconic::physics
         constexpr JPH::BroadPhaseLayer kBpMoving{ 1 };
         constexpr JPH::uint kBpCount = 2;
 
-        [[nodiscard]] inline JPH::ObjectLayer From(PhysicsLayer layer)
+        [[nodiscard]] inline JPH::ObjectLayer From(PhysicsLayer layer, u8 group)
         {
-            return static_cast<JPH::ObjectLayer>(layer);
+            return static_cast<JPH::ObjectLayer>(
+                (static_cast<u32>(layer) << 8) | (group & 0x1Fu));
+        }
+        [[nodiscard]] inline JPH::ObjectLayer Semantic(JPH::ObjectLayer layer)
+        {
+            return static_cast<JPH::ObjectLayer>(layer >> 8);
+        }
+        [[nodiscard]] inline u32 Group(JPH::ObjectLayer layer)
+        {
+            return static_cast<u32>(layer & 0x1Fu);
         }
 
-        // The hard-coded matrix: statics never pair with statics; triggers sense
-        // everything that moves; everything else collides.
-        [[nodiscard]] inline bool Collides(JPH::ObjectLayer a, JPH::ObjectLayer b)
+        // Semantic rules: statics never pair with statics; triggers sense everything
+        // that moves; everything else collides.
+        [[nodiscard]] inline bool SemanticCollides(JPH::ObjectLayer a, JPH::ObjectLayer b)
         {
             if (a == kStatic && b == kStatic) { return false; }
             if (a == kTrigger && b == kTrigger) { return false; }
@@ -76,7 +94,8 @@ namespace draconic::physics
             [[nodiscard]] JPH::uint GetNumBroadPhaseLayers() const override { return layers::kBpCount; }
             [[nodiscard]] JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer layer) const override
             {
-                return layer == layers::kStatic ? layers::kBpStatic : layers::kBpMoving;
+                return layers::Semantic(layer) == layers::kStatic ? layers::kBpStatic
+                                                                  : layers::kBpMoving;
             }
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
             [[nodiscard]] const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer) const override { return "bp"; }
@@ -88,7 +107,7 @@ namespace draconic::physics
         public:
             [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer layer, JPH::BroadPhaseLayer bp) const override
             {
-                if (layer == layers::kStatic) { return bp == layers::kBpMoving; }
+                if (layers::Semantic(layer) == layers::kStatic) { return bp == layers::kBpMoving; }
                 return true;
             }
         };
@@ -96,10 +115,32 @@ namespace draconic::physics
         class ObjectPairFilter final : public JPH::ObjectLayerPairFilter
         {
         public:
+            u32 groupCollides[kCollisionGroupCount] = {};   // copied from world settings
+
             [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer a, JPH::ObjectLayer b) const override
             {
-                return layers::Collides(a, b);
+                if (!layers::SemanticCollides(layers::Semantic(a), layers::Semantic(b)))
+                {
+                    return false;
+                }
+                const u32 groupA = layers::Group(a);
+                const u32 groupB = layers::Group(b);
+                return (groupCollides[groupA] & (1u << groupB)) != 0
+                    && (groupCollides[groupB] & (1u << groupA)) != 0;
             }
+        };
+
+        // Query-side filter: match bodies whose GROUP bit is in the mask.
+        class GroupMaskFilter final : public JPH::ObjectLayerFilter
+        {
+        public:
+            explicit GroupMaskFilter(u32 mask) : m_mask(mask) {}
+            [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer layer) const override
+            {
+                return (m_mask & (1u << layers::Group(layer))) != 0;
+            }
+        private:
+            u32 m_mask;
         };
 
         [[nodiscard]] JPH::Vec3 ToJph(Float3 v) { return JPH::Vec3(v.x, v.y, v.z); }
@@ -111,7 +152,7 @@ namespace draconic::physics
         }
 
         // Process-wide Jolt bring-up (allocator/factory/types), refcounted across worlds.
-        std::atomic<int> g_joltUsers{ 0 };
+        Atomic<i32> g_joltUsers{ 0 };
         void AcquireJolt()
         {
             if (g_joltUsers.fetch_add(1) == 0)
@@ -362,6 +403,9 @@ namespace draconic::physics
         UniquePtr<JPH::TempAllocatorImpl> tempAllocator;
         UniquePtr<JPH::JobSystemThreadPool> jobSystem;
         UniquePtr<JPH::PhysicsSystem> system;
+        Array<JPH::Ref<JPH::Constraint>> joints;   // JointId = slot index; null = freed
+        Array<JPH::Ref<JPH::CharacterVirtual>> characters;   // CharacterId = slot; null = freed
+        Array<Float2> characterSteps;                        // (stepUp, stepDown) per slot
     };
 
     PhysicsWorld::PhysicsWorld(const PhysicsWorldSettings& settings)
@@ -374,6 +418,10 @@ namespace draconic::physics
             JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
             static_cast<int>(JPH::thread::hardware_concurrency()) - 1);
         m_impl->system = MakeUnique<JPH::PhysicsSystem>(DefaultAllocator());
+        for (u32 i = 0; i < kCollisionGroupCount; ++i)
+        {
+            m_impl->pairFilter.groupCollides[i] = settings.groupCollides[i];
+        }
         m_impl->system->Init(settings.maxBodies, 0, settings.maxBodyPairs,
                              settings.maxContactConstraints,
                              m_impl->broadPhaseLayers, m_impl->objectVsBroadPhase,
@@ -397,12 +445,13 @@ namespace draconic::physics
         if (shape == nullptr) { return BodyId{}; }
 
         const PhysicsLayer layer = desc.isTrigger ? PhysicsLayer::Trigger : desc.layer;
+        const u8 group = static_cast<u8>(desc.group & 0x1Fu);
         const JPH::EMotionType motion =
             desc.motion == MotionKind::Static ? JPH::EMotionType::Static
             : desc.motion == MotionKind::Kinematic ? JPH::EMotionType::Kinematic
                                                    : JPH::EMotionType::Dynamic;
         JPH::BodyCreationSettings settings(shape, ToJph(desc.position), ToJph(desc.rotation),
-                                           motion, layers::From(layer));
+                                           motion, layers::From(layer, group));
         settings.mFriction = desc.friction;
         settings.mRestitution = desc.restitution;
         settings.mLinearDamping = desc.linearDamping;
@@ -488,11 +537,13 @@ namespace draconic::physics
         return m_impl->system->GetBodyInterface().GetUserData(JPH::BodyID(id.value));
     }
 
-    bool PhysicsWorld::RayCast(Float3 from, Float3 direction, f32 maxDistance, RayHit& out) const
+    bool PhysicsWorld::RayCast(Float3 from, Float3 direction, f32 maxDistance, RayHit& out,
+                               u32 groupMask) const
     {
         const JPH::RRayCast ray{ ToJph(from), ToJph(direction) * maxDistance };
         JPH::RayCastResult hit;
-        if (!m_impl->system->GetNarrowPhaseQuery().CastRay(ray, hit)) { return false; }
+        const GroupMaskFilter filter(groupMask);
+        if (!m_impl->system->GetNarrowPhaseQuery().CastRay(ray, hit, {}, filter)) { return false; }
         out.body = BodyId{ hit.mBodyID.GetIndexAndSequenceNumber() };
         out.fraction = hit.mFraction;
         out.position = Float3{ from.x + direction.x * maxDistance * hit.mFraction,
@@ -516,10 +567,11 @@ namespace draconic::physics
         return true;
     }
 
-    void PhysicsWorld::QueryPoint(Float3 point, Array<BodyId>& out) const
+    void PhysicsWorld::QueryPoint(Float3 point, Array<BodyId>& out, u32 groupMask) const
     {
         JPH::AllHitCollisionCollector<JPH::CollidePointCollector> collector;
-        m_impl->system->GetNarrowPhaseQuery().CollidePoint(ToJph(point), collector);
+        const GroupMaskFilter filter(groupMask);
+        m_impl->system->GetNarrowPhaseQuery().CollidePoint(ToJph(point), collector, {}, filter);
         for (const JPH::CollidePointResult& result : collector.mHits)
         {
             out.PushBack(BodyId{ result.mBodyID.GetIndexAndSequenceNumber() });
@@ -531,5 +583,247 @@ namespace draconic::physics
         ScopedLock lock(m_impl->contacts.mutex);
         for (ContactEvent& e : m_impl->contacts.events) { out.PushBack(e); }
         m_impl->contacts.events.Clear();
+    }
+
+    // ---- character controllers ----
+
+    CharacterId PhysicsWorld::CreateCharacter(const CharacterDesc& desc)
+    {
+        JPH::CharacterVirtualSettings settings;
+        settings.mShape = new JPH::CapsuleShape(desc.capsuleHalfHeight, desc.capsuleRadius);
+        // Support only on the bottom sphere: standing on a ledge edge at waist height
+        // must not count as grounded.
+        settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -desc.capsuleHalfHeight);
+        settings.mMaxSlopeAngle = JPH::DegreesToRadians(desc.maxSlopeDegrees);
+        settings.mMass = desc.mass;
+        settings.mMaxStrength = desc.maxStrength;
+        JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(
+            &settings, ToJph(desc.position), JPH::Quat::sIdentity(), desc.userData,
+            m_impl->system.Get());
+        // Stash the step settings per character (uniform across the world would also do,
+        // but they're authored per character).
+        character->SetUserData(desc.userData);
+
+        for (usize i = 0; i < m_impl->characters.Size(); ++i)
+        {
+            if (m_impl->characters[i] == nullptr)
+            {
+                m_impl->characters[i] = character;
+                m_impl->characterSteps[i] = Float2{ desc.stepUp, desc.stepDown };
+                return CharacterId{ static_cast<u32>(i) };
+            }
+        }
+        m_impl->characters.PushBack(character);
+        m_impl->characterSteps.PushBack(Float2{ desc.stepUp, desc.stepDown });
+        return CharacterId{ static_cast<u32>(m_impl->characters.Size() - 1) };
+    }
+
+    void PhysicsWorld::DestroyCharacter(CharacterId id)
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size()) { return; }
+        m_impl->characters[id.value] = nullptr;
+    }
+
+    void PhysicsWorld::SetCharacterVelocity(CharacterId id, Float3 velocity)
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size()
+            || m_impl->characters[id.value] == nullptr) { return; }
+        m_impl->characters[id.value]->SetLinearVelocity(ToJph(velocity));
+    }
+
+    Float3 PhysicsWorld::CharacterVelocity(CharacterId id) const
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size()
+            || m_impl->characters[id.value] == nullptr) { return Float3{ 0, 0, 0 }; }
+        return FromJph(m_impl->characters[id.value]->GetLinearVelocity());
+    }
+
+    void PhysicsWorld::UpdateCharacter(CharacterId id, f32 deltaTime)
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size()
+            || m_impl->characters[id.value] == nullptr) { return; }
+        JPH::CharacterVirtual& character = *m_impl->characters[id.value];
+        const Float2 steps = m_impl->characterSteps[id.value];
+        JPH::CharacterVirtual::ExtendedUpdateSettings update;
+        update.mWalkStairsStepUp = JPH::Vec3(0.0f, steps.x, 0.0f);
+        update.mStickToFloorStepDown = JPH::Vec3(0.0f, -steps.y, 0.0f);
+        character.ExtendedUpdate(deltaTime, m_impl->system->GetGravity(), update,
+            m_impl->system->GetDefaultBroadPhaseLayerFilter(
+                layers::From(PhysicsLayer::Dynamic, 0)),
+            m_impl->system->GetDefaultLayerFilter(layers::From(PhysicsLayer::Dynamic, 0)),
+            {}, {}, *m_impl->tempAllocator);
+    }
+
+    Float3 PhysicsWorld::CharacterPosition(CharacterId id) const
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size()
+            || m_impl->characters[id.value] == nullptr) { return Float3{ 0, 0, 0 }; }
+        return FromJph(m_impl->characters[id.value]->GetPosition());
+    }
+
+    void PhysicsWorld::SetCharacterPosition(CharacterId id, Float3 position)
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size()
+            || m_impl->characters[id.value] == nullptr) { return; }
+        m_impl->characters[id.value]->SetPosition(ToJph(position));
+    }
+
+    CharacterGround PhysicsWorld::GetCharacterGround(CharacterId id) const
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size()
+            || m_impl->characters[id.value] == nullptr) { return CharacterGround::InAir; }
+        switch (m_impl->characters[id.value]->GetGroundState())
+        {
+            case JPH::CharacterBase::EGroundState::OnGround: return CharacterGround::OnGround;
+            case JPH::CharacterBase::EGroundState::OnSteepGround: return CharacterGround::OnSteepGround;
+            case JPH::CharacterBase::EGroundState::NotSupported: return CharacterGround::NotSupported;
+            case JPH::CharacterBase::EGroundState::InAir: break;
+        }
+        return CharacterGround::InAir;
+    }
+
+    // ---- joints ----
+
+    JointId PhysicsWorld::CreateJoint(const JointDesc& desc)
+    {
+        if (!desc.bodyA.IsValid()) { return JointId{}; }
+        // Main-thread creation outside Step (same threading contract as CreateBody).
+        const JPH::BodyLockInterfaceNoLock& bodies = m_impl->system->GetBodyLockInterfaceNoLock();
+        JPH::Body* a = bodies.TryGetBody(JPH::BodyID(desc.bodyA.value));
+        JPH::Body* b = desc.bodyB.IsValid() ? bodies.TryGetBody(JPH::BodyID(desc.bodyB.value))
+                                            : &JPH::Body::sFixedToWorld;
+        if (a == nullptr || b == nullptr) { return JointId{}; }
+
+        const JPH::RVec3 anchor = ToJph(desc.anchor);
+        const JPH::Vec3 axis = ToJph(desc.axis).NormalizedOr(JPH::Vec3::sAxisY());
+        const bool limited = desc.limitMin <= desc.limitMax;
+        JPH::Ref<JPH::Constraint> joint;
+        switch (desc.kind)
+        {
+            case JointKind::Fixed:
+            {
+                JPH::FixedConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+                settings.mAutoDetectPoint = true;
+                joint = settings.Create(*a, *b);
+                break;
+            }
+            case JointKind::Point:
+            {
+                JPH::PointConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+                settings.mPoint1 = anchor;
+                settings.mPoint2 = anchor;
+                joint = settings.Create(*a, *b);
+                break;
+            }
+            case JointKind::Hinge:
+            {
+                JPH::HingeConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+                settings.mPoint1 = settings.mPoint2 = anchor;
+                settings.mHingeAxis1 = settings.mHingeAxis2 = axis;
+                settings.mNormalAxis1 = settings.mNormalAxis2 = axis.GetNormalizedPerpendicular();
+                if (limited)
+                {
+                    settings.mLimitsMin = desc.limitMin;
+                    settings.mLimitsMax = desc.limitMax;
+                }
+                settings.mMotorSettings.SetTorqueLimit(desc.motorLimit);
+                joint = settings.Create(*a, *b);
+                if (desc.motorEnabled)
+                {
+                    auto* hinge = static_cast<JPH::HingeConstraint*>(joint.GetPtr());
+                    hinge->SetTargetAngularVelocity(desc.motorTargetVelocity);
+                    hinge->SetMotorState(JPH::EMotorState::Velocity);
+                }
+                break;
+            }
+            case JointKind::Slider:
+            {
+                JPH::SliderConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+                settings.mAutoDetectPoint = true;
+                settings.SetSliderAxis(axis);
+                if (limited)
+                {
+                    settings.mLimitsMin = desc.limitMin;
+                    settings.mLimitsMax = desc.limitMax;
+                }
+                settings.mMotorSettings.SetForceLimit(desc.motorLimit);
+                joint = settings.Create(*a, *b);
+                if (desc.motorEnabled)
+                {
+                    auto* slider = static_cast<JPH::SliderConstraint*>(joint.GetPtr());
+                    slider->SetTargetVelocity(desc.motorTargetVelocity);
+                    slider->SetMotorState(JPH::EMotorState::Velocity);
+                }
+                break;
+            }
+            case JointKind::Distance:
+            {
+                JPH::DistanceConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+                // Rope semantics: from each body's center (world-attached: from `anchor`).
+                settings.mPoint1 = a->GetCenterOfMassPosition();
+                settings.mPoint2 = desc.bodyB.IsValid() ? b->GetCenterOfMassPosition() : anchor;
+                settings.mMinDistance = desc.minDistance;
+                settings.mMaxDistance = desc.maxDistance;
+                joint = settings.Create(*a, *b);
+                break;
+            }
+        }
+        if (joint == nullptr) { return JointId{}; }
+        m_impl->system->AddConstraint(joint.GetPtr());
+
+        for (usize i = 0; i < m_impl->joints.Size(); ++i)
+        {
+            if (m_impl->joints[i] == nullptr)
+            {
+                m_impl->joints[i] = joint;
+                return JointId{ static_cast<u32>(i) };
+            }
+        }
+        m_impl->joints.PushBack(joint);
+        return JointId{ static_cast<u32>(m_impl->joints.Size() - 1) };
+    }
+
+    void PhysicsWorld::DestroyJoint(JointId id)
+    {
+        if (!id.IsValid() || id.value >= m_impl->joints.Size()
+            || m_impl->joints[id.value] == nullptr) { return; }
+        JPH::Constraint* joint = m_impl->joints[id.value].GetPtr();
+        // Wake the connected bodies: a body held asleep by the joint must respond to
+        // gravity again once released (RemoveConstraint alone leaves it sleeping).
+        auto* twoBody = static_cast<JPH::TwoBodyConstraint*>(joint);
+        JPH::BodyInterface& bodies = m_impl->system->GetBodyInterface();
+        for (JPH::Body* body : { twoBody->GetBody1(), twoBody->GetBody2() })
+        {
+            if (body != nullptr && body != &JPH::Body::sFixedToWorld && !body->IsStatic())
+            {
+                bodies.ActivateBody(body->GetID());
+            }
+        }
+        m_impl->system->RemoveConstraint(joint);
+        m_impl->joints[id.value] = nullptr;
+    }
+
+    void PhysicsWorld::SetJointMotor(JointId id, bool enabled, f32 targetVelocity)
+    {
+        if (!id.IsValid() || id.value >= m_impl->joints.Size()) { return; }
+        JPH::Constraint* joint = m_impl->joints[id.value].GetPtr();
+        if (joint == nullptr) { return; }
+        if (joint->GetSubType() == JPH::EConstraintSubType::Hinge)
+        {
+            auto* hinge = static_cast<JPH::HingeConstraint*>(joint);
+            hinge->SetTargetAngularVelocity(targetVelocity);
+            hinge->SetMotorState(enabled ? JPH::EMotorState::Velocity : JPH::EMotorState::Off);
+        }
+        else if (joint->GetSubType() == JPH::EConstraintSubType::Slider)
+        {
+            auto* slider = static_cast<JPH::SliderConstraint*>(joint);
+            slider->SetTargetVelocity(targetVelocity);
+            slider->SetMotorState(enabled ? JPH::EMotorState::Velocity : JPH::EMotorState::Off);
+        }
     }
 }

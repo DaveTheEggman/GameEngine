@@ -350,3 +350,130 @@ TEST_CASE("physics.scene: bodies build from authored positions even without a pr
     CHECK(play.scene.GetWorldPosition(right).x == doctest::Approx(3.0f).epsilon(0.05));
     CHECK(play.scene.GetWorldPosition(left).y == doctest::Approx(0.5f).epsilon(0.05));
 }
+
+TEST_CASE("physics.scene: a motorized hinge joint spins a door to the world")
+{
+    PlayScene play;
+    play.scene.AddSystem<JointComponentManager>();
+    dscene::EntityHandle door = play.scene.CreateEntity(u8"door");
+    play.scene.SetLocalPosition(door, Float3{ 0.0f, 2.0f, 0.0f });
+    {
+        RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(door);
+        body.halfExtents = Float3{ 1.0f, 1.0f, 0.05f };
+        JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(door);
+        joint.kind = JointKind::Hinge;         // no ancestor body -> world attachment
+        joint.localAxis = Float3{ 0.0f, 1.0f, 0.0f };
+        joint.motorEnabled = true;
+        joint.motorTargetVelocity = 3.0f;
+    }
+    play.Start();
+    play.Step(120);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+
+    // Held at its pivot, meaningfully rotated by the motor.
+    const Float3 position = play.scene.GetWorldPosition(door);
+    CHECK(position.y == doctest::Approx(2.0f).epsilon(0.02));
+    const Quaternion rotation = play.scene.GetLocalTransform(door).rotation;
+    CHECK((rotation.w > 0 ? rotation.w : -rotation.w) < 0.99f);
+}
+
+TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body; guid targets bind explicitly")
+{
+    PlayScene play;
+    play.scene.AddSystem<JointComponentManager>();
+    play.AddFloor();
+
+    // anchor (static, elevated) > bob (dynamic child on a distance rope, nil target).
+    dscene::EntityHandle anchor = play.scene.CreateEntity(u8"anchor");
+    play.scene.SetLocalPosition(anchor, Float3{ 0.0f, 6.0f, 0.0f });
+    {
+        RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(anchor);
+        body.motion = MotionKind::Static;
+        body.layer = PhysicsLayer::Static;
+        body.halfExtents = Float3{ 0.2f, 0.2f, 0.2f };
+    }
+    dscene::EntityHandle bob = play.scene.CreateEntity(u8"bob");
+    play.scene.SetParent(bob, anchor);
+    play.scene.SetLocalPosition(bob, Float3{ 0.0f, -1.0f, 0.0f });   // world y = 5
+    {
+        RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(bob);
+        body.shape = ShapeKind::Sphere;
+        body.radius = 0.25f;
+        JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(bob);
+        joint.kind = JointKind::Distance;      // nil target -> ancestor body
+        joint.maxDistance = 2.0f;
+        joint.minDistance = 0.0f;
+    }
+
+    // Explicit-guid pair on the floor: two boxes fixed together side by side.
+    dscene::EntityHandle left = play.AddBox(0.5f);
+    dscene::EntityHandle right = play.AddBox(0.5f);
+    play.scene.SetLocalPosition(left, Float3{ 4.0f, 0.5f, 0.0f });
+    play.scene.SetLocalPosition(right, Float3{ 5.2f, 0.5f, 0.0f });
+    {
+        JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(right);
+        joint.kind = JointKind::Fixed;
+        joint.targetEntity = play.scene.GetEntityId(left);
+    }
+
+    play.Start();
+    play.Step(300);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+
+    // The bob hangs on the rope 2 below the anchor - it did NOT fall to the floor.
+    CHECK(play.scene.GetWorldPosition(bob).y == doctest::Approx(4.0f).epsilon(0.05));
+
+    // The fixed pair stays welded: push LEFT, RIGHT follows at the same offset.
+    RigidBodyComponent* leftBody = play.scene.GetSystem<RigidBodyComponentManager>()->Get(left);
+    play.physics->World()->AddImpulse(leftBody->body, Float3{ 0.0f, 0.0f, 4000.0f });
+    play.Step(60);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    // The welded pair may rotate as one rigid unit from the off-center push - the
+    // invariant is the CENTER DISTANCE, not per-axis offsets.
+    const Float3 a = play.scene.GetWorldPosition(left);
+    const Float3 b = play.scene.GetWorldPosition(right);
+    const f32 distance = Length(Float3{ b.x - a.x, b.y - a.y, b.z - a.z });
+    CHECK(distance == doctest::Approx(1.2f).epsilon(0.02));
+}
+
+TEST_CASE("physics.scene: the character component walks, jumps, and lands (interpolated)")
+{
+    PlayScene play;
+    play.scene.AddSystem<CharacterComponentManager>();
+    play.AddFloor();
+    dscene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
+    play.scene.SetLocalPosition(hero, Float3{ 0.0f, 0.9f, 0.0f });
+    CharacterComponent& character = play.scene.GetSystem<CharacterComponentManager>()->Add(hero);
+    play.Start();
+
+    // Settle to the ground.
+    play.Step(30);
+    CHECK(character.ground == CharacterGround::OnGround);
+
+    // Walk +x for 1s.
+    character.moveVelocity = Float3{ 3.0f, 0.0f, 0.0f };
+    play.Step(60);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(hero).x == doctest::Approx(3.0f).epsilon(0.1));
+    CHECK(play.scene.GetWorldPosition(hero).y == doctest::Approx(0.9f).epsilon(0.03));
+
+    // Jump: rises, then lands back at standing height.
+    character.moveVelocity = Float3{ 0.0f, 0.0f, 0.0f };
+    character.jumpSpeed = 5.0f;
+    f32 apex = 0.0f;
+    for (int i = 0; i < 120; ++i)
+    {
+        play.Step();
+        play.physics->ApplyInterpolation(1.0f);
+        play.scene.UpdateTransforms();
+        const f32 y = play.scene.GetWorldPosition(hero).y;
+        apex = y > apex ? y : apex;
+    }
+    CHECK(apex > 1.8f);                                   // cleared ~1m of air
+    CHECK(character.ground == CharacterGround::OnGround); // landed
+    CHECK(play.scene.GetWorldPosition(hero).y == doctest::Approx(0.9f).epsilon(0.03));
+}

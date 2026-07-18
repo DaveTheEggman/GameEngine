@@ -103,6 +103,21 @@ namespace draconic::physics
                         break;
                 }
             });
+
+            if (auto* characters = scene->GetSystem<CharacterComponentManager>())
+            {
+                characters->ForEach([&](CharacterComponent& c, draconic::scene::EntityHandle) {
+                    if (!c.character.IsValid()) { return; }
+                    const Float3 position = world->CharacterPosition(c.character);
+                    const Color color = c.ground == CharacterGround::OnGround
+                        ? Color{ 0.2f, 0.9f, 0.9f, 1.0f } : Color{ 0.9f, 0.5f, 0.9f, 1.0f };
+                    draw.DrawWireSphere(Float3{ position.x, position.y + c.halfHeight, position.z },
+                                        c.radius, color);
+                    draw.DrawWireSphere(Float3{ position.x, position.y - c.halfHeight, position.z },
+                                        c.radius, color);
+                    draw.DrawWireBoxCenter(position, Float3{ c.radius, c.halfHeight, c.radius }, color);
+                });
+            }
         }
     }
 
@@ -146,6 +161,15 @@ namespace draconic::physics
         builder.Value("Trigger", PhysicsLayer::Trigger);
     }
 
+    DRACONIC_REFLECT_ENUM(JointKind, "draconic::physics")
+    {
+        builder.Value("Fixed", JointKind::Fixed);
+        builder.Value("Point", JointKind::Point);
+        builder.Value("Hinge", JointKind::Hinge);
+        builder.Value("Slider", JointKind::Slider);
+        builder.Value("Distance", JointKind::Distance);
+    }
+
     DRACONIC_REFLECT_ENUM(ShapeKind, "draconic::physics")
     {
         builder.Value("Box", ShapeKind::Box);
@@ -170,6 +194,7 @@ namespace draconic::physics
         builder.Property<&RigidBodyComponent::linearDamping>("linearDamping");
         builder.Property<&RigidBodyComponent::angularDamping>("angularDamping");
         builder.Property<&RigidBodyComponent::isTrigger>("isTrigger");
+        builder.Property<&RigidBodyComponent::collisionGroup>("collisionGroup");
         builder.Property<&RigidBodyComponent::collisionShape>("collisionShape");
         builder.Property<&RigidBodyComponent::material>("material");
     }
@@ -183,6 +208,34 @@ namespace draconic::physics
         builder.Property<&ColliderComponent::halfHeight>("halfHeight");
         builder.Property<&ColliderComponent::planeHalfExtent>("planeHalfExtent");
         builder.Property<&ColliderComponent::collisionShape>("collisionShape");
+    }
+
+    DRACONIC_REFLECT_VALUE(CharacterComponent, "draconic::physics")
+    {
+        builder.DataVersion(1);
+        builder.Property<&CharacterComponent::radius>("radius");
+        builder.Property<&CharacterComponent::halfHeight>("halfHeight");
+        builder.Property<&CharacterComponent::maxSlopeDegrees>("maxSlopeDegrees");
+        builder.Property<&CharacterComponent::mass>("mass");
+        builder.Property<&CharacterComponent::maxStrength>("maxStrength");
+        builder.Property<&CharacterComponent::stepUp>("stepUp");
+        builder.Property<&CharacterComponent::stepDown>("stepDown");
+    }
+
+    DRACONIC_REFLECT_VALUE(JointComponent, "draconic::physics")
+    {
+        builder.DataVersion(1);
+        builder.Property<&JointComponent::kind>("kind");
+        builder.Property<&JointComponent::targetEntity>("targetEntity");
+        builder.Property<&JointComponent::localAnchor>("localAnchor");
+        builder.Property<&JointComponent::localAxis>("localAxis");
+        builder.Property<&JointComponent::limitMin>("limitMin");
+        builder.Property<&JointComponent::limitMax>("limitMax");
+        builder.Property<&JointComponent::minDistance>("minDistance");
+        builder.Property<&JointComponent::maxDistance>("maxDistance");
+        builder.Property<&JointComponent::motorEnabled>("motorEnabled");
+        builder.Property<&JointComponent::motorTargetVelocity>("motorTargetVelocity");
+        builder.Property<&JointComponent::motorLimit>("motorLimit");
     }
 
     DRACONIC_REFLECT_VALUE(PhysicsSceneSettings, "draconic::physics")
@@ -207,6 +260,12 @@ namespace draconic::physics
         builder.Method<&Physics::setGravity>("setGravity");
         builder.Method<&Physics::gravityY>("gravityY");
         builder.Method<&Physics::bodyCount>("bodyCount");
+        builder.Method<&Physics::moveCharacter>("moveCharacter");
+        builder.Method<&Physics::jumpCharacter>("jumpCharacter");
+        builder.Method<&Physics::characterGrounded>("characterGrounded");
+        builder.Method<&Physics::characterX>("characterX");
+        builder.Method<&Physics::characterY>("characterY");
+        builder.Method<&Physics::characterZ>("characterZ");
         // The Wren emitter only materializes CONSTRUCTIBLE types as foreign classes.
         builder.Constructor();
     }
@@ -222,8 +281,11 @@ namespace draconic::physics
             DraconicRegisterEnum_MotionKind();
             DraconicRegisterEnum_PhysicsLayer();
             DraconicRegisterEnum_ShapeKind();
+            DraconicRegisterEnum_JointKind();
             DraconicRegisterValue_RigidBodyComponent();
             DraconicRegisterValue_ColliderComponent();
+            DraconicRegisterValue_JointComponent();
+            DraconicRegisterValue_CharacterComponent();
             DraconicRegisterValue_PhysicsSceneSettings();
             return true;
         }();

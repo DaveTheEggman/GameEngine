@@ -38,6 +38,9 @@ export namespace draconic::physics
         f32 linearDamping = 0.05f;
         f32 angularDamping = 0.05f;
         bool isTrigger = false;
+        // Designer collision group [0, 32) - pairs collide when the scene's group matrix
+        // allows it (PhysicsSceneSettings::groupCollides).
+        u8 collisionGroup = 0;
         // shape == ShapeKind::Cooked: the cooked collision-shape resource to use.
         draconic::resource::Ref<CollisionShape> collisionShape;
         // Optional surface override: when set, wins over the inline friction/restitution.
@@ -83,6 +86,7 @@ export namespace draconic::physics
         draconic::core::Serialize(ar, "linearDamping", c.linearDamping);
         draconic::core::Serialize(ar, "angularDamping", c.angularDamping);
         draconic::core::Serialize(ar, "isTrigger", c.isTrigger);
+        draconic::core::Serialize(ar, "collisionGroup", c.collisionGroup);
         draconic::core::Serialize(ar, "collisionShape", c.collisionShape);
         draconic::core::Serialize(ar, "material", c.material);
     }
@@ -126,6 +130,99 @@ export namespace draconic::physics
             : SerializableComponentManager<ColliderComponent>(u8"physics.Collider") {}
     };
 
+    // Jolt CharacterVirtual on this entity: a kinematic capsule with slope/step/stair
+    // handling that pushes dynamic bodies (maxStrength newtons). The entity transform's
+    // POSITION is the capsule CENTER and is physics-owned while simulating (interpolated
+    // like dynamic bodies); rotation stays scene-owned (gameplay yaw). Gameplay drives
+    // moveVelocity (world space; y ignored while grounded) and one-shot jumpSpeed.
+    struct CharacterComponent
+    {
+        // Authored:
+        f32 radius = 0.35f;
+        f32 halfHeight = 0.55f;         // cylinder half-length (total = 2*(halfHeight+radius))
+        f32 maxSlopeDegrees = 50.0f;
+        f32 mass = 70.0f;
+        f32 maxStrength = 500.0f;       // push force cap (Jolt's 100 barely nudges props)
+        f32 stepUp = 0.4f;
+        f32 stepDown = 0.5f;
+
+        // Runtime input (gameplay/scripts write):
+        Float3 moveVelocity{ 0.0f, 0.0f, 0.0f };
+        f32 jumpSpeed = 0.0f;           // consumed at the next grounded step
+
+        // Runtime (transient):
+        CharacterId character;
+        CharacterGround ground = CharacterGround::InAir;
+        Float3 prevPosition{ 0, 0, 0 };
+        Float3 currPosition{ 0, 0, 0 };
+    };
+
+    inline void Serialize(ISerializer& ar, CharacterComponent& c)
+    {
+        draconic::core::Serialize(ar, "radius", c.radius);
+        draconic::core::Serialize(ar, "halfHeight", c.halfHeight);
+        draconic::core::Serialize(ar, "maxSlopeDegrees", c.maxSlopeDegrees);
+        draconic::core::Serialize(ar, "mass", c.mass);
+        draconic::core::Serialize(ar, "maxStrength", c.maxStrength);
+        draconic::core::Serialize(ar, "stepUp", c.stepUp);
+        draconic::core::Serialize(ar, "stepDown", c.stepDown);
+    }
+
+    class CharacterComponentManager final
+        : public draconic::scene::SerializableComponentManager<CharacterComponent>
+    {
+    public:
+        CharacterComponentManager()
+            : SerializableComponentManager<CharacterComponent>(u8"physics.Character") {}
+    };
+
+    // A joint on THIS entity's rigid body. Target resolution: explicit entity guid; nil =
+    // the nearest ANCESTOR entity with a rigid body (prefab-safe - guids inside prefab
+    // payloads are remapped per instance, so hierarchy is the stable reference); no
+    // ancestor body = anchored to the WORLD.
+    struct JointComponent
+    {
+        JointKind kind = JointKind::Fixed;
+        Guid targetEntity;                       // nil = nearest ancestor body / world
+        Float3 localAnchor{ 0.0f, 0.0f, 0.0f };  // pivot in THIS entity's space
+        Float3 localAxis{ 0.0f, 1.0f, 0.0f };    // hinge/slider axis in THIS entity's space
+        f32 limitMin = 1.0f;                     // min > max = unlimited
+        f32 limitMax = -1.0f;
+        f32 minDistance = -1.0f;                 // Distance: negative = starting distance
+        f32 maxDistance = -1.0f;
+        bool motorEnabled = false;
+        f32 motorTargetVelocity = 0.0f;          // rad/s (hinge) / m/s (slider)
+        f32 motorLimit = 1.0e6f;                 // torque / force cap
+
+        // Runtime (transient):
+        JointId joint;
+    };
+
+    inline void Serialize(ISerializer& ar, JointComponent& c)
+    {
+        u8 kind = static_cast<u8>(c.kind);
+        draconic::core::Serialize(ar, "kind", kind);
+        c.kind = static_cast<JointKind>(kind);
+        draconic::core::Serialize(ar, "targetEntity", c.targetEntity);
+        draconic::core::Serialize(ar, "localAnchor", c.localAnchor);
+        draconic::core::Serialize(ar, "localAxis", c.localAxis);
+        draconic::core::Serialize(ar, "limitMin", c.limitMin);
+        draconic::core::Serialize(ar, "limitMax", c.limitMax);
+        draconic::core::Serialize(ar, "minDistance", c.minDistance);
+        draconic::core::Serialize(ar, "maxDistance", c.maxDistance);
+        draconic::core::Serialize(ar, "motorEnabled", c.motorEnabled);
+        draconic::core::Serialize(ar, "motorTargetVelocity", c.motorTargetVelocity);
+        draconic::core::Serialize(ar, "motorLimit", c.motorLimit);
+    }
+
+    class JointComponentManager final
+        : public draconic::scene::SerializableComponentManager<JointComponent>
+    {
+    public:
+        JointComponentManager()
+            : SerializableComponentManager<JointComponent>(u8"physics.Joint") {}
+    };
+
     // Scene-level physics settings (the editor's scene inspector edits the reflected type;
     // SerializeScene persists it like the environment block).
     struct PhysicsSceneSettings
@@ -133,7 +230,24 @@ export namespace draconic::physics
         Float3 gravity{ 0.0f, -9.81f, 0.0f };
         i32 collisionSteps = 1;
         bool debugDraw = false;
+        // Designer collision groups: names give the matrix rows meaning in the editor
+        // (index = group; missing names show as "Group N"). Matrix rows beyond the
+        // array's size default to collide-with-everything.
+        Array<String> groupNames;
+        Array<u32> groupCollides;
     };
+
+    // ONE serializer for the settings block - the scene system persists through it, and
+    // the editor's collision-matrix editor round-trips edited COPIES through the same
+    // code (the whole-block undo command replays these exact bytes).
+    inline void SerializePhysicsSceneSettings(ISerializer& ar, PhysicsSceneSettings& settings)
+    {
+        draconic::core::Serialize(ar, "gravity", settings.gravity);
+        draconic::core::Serialize(ar, "collisionSteps", settings.collisionSteps);
+        draconic::core::Serialize(ar, "debugDraw", settings.debugDraw);
+        draconic::core::Serialize(ar, "groupNames", settings.groupNames);
+        draconic::core::Serialize(ar, "groupCollides", settings.groupCollides);
+    }
 
     // Defined in SubsystemImpl.cpp: the DRACONIC_REFLECT_* bodies live there because
     // GCC's module serializer emits an unreadable gcm cluster when they sit in this

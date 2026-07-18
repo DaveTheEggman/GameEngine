@@ -93,6 +93,22 @@ namespace
             if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Escape)) { host.RequestExit(0); }
             if (input->Keyboard()->IsKeyPressed(shell::KeyCode::R)) { RespawnStack(); }
 
+            // Arrow-key character drive (world axes) + Space jump.
+            if (auto* characters = m_scene->GetSystem<physics::CharacterComponentManager>())
+            {
+                if (physics::CharacterComponent* hero = characters->Get(m_hero))
+                {
+                    const f32 speed = 4.0f;
+                    core::Float3 move{ 0.0f, 0.0f, 0.0f };
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Right)) { move.x += speed; }
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Left)) { move.x -= speed; }
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Up)) { move.z -= speed; }
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Down)) { move.z += speed; }
+                    hero->moveVelocity = move;
+                    if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Space)) { hero->jumpSpeed = 6.0f; }
+                }
+            }
+
             // Crosshair shove: ray along the camera forward; impulse along the ray.
             if (input->Mouse()->IsButtonPressed(shell::MouseButton::Left)
                 && m_physics != nullptr && m_physics->World() != nullptr)
@@ -238,6 +254,27 @@ namespace
                     m_crates.PushBack(e);
                 }
             }
+            // The character (P3): arrow keys drive it, Space jumps; it climbs the ramp
+            // (stairs + slopes) and shoves crates with its 500N of push.
+            {
+                m_hero = m_scene->CreateEntity(u8"hero");
+                m_scene->SetLocalPosition(m_hero, core::Float3{ -6.0f, 0.9f, 4.0f });
+                m_scene->GetSystem<physics::CharacterComponentManager>()->Add(m_hero);
+            }
+            // A motorized hinge spinner (P3 joints): a blade welded to the world pivot,
+            // spinning at 2 rad/s - walk the character into it to get batted away.
+            {
+                dscene::EntityHandle e = m_scene->CreateEntity(u8"spinner");
+                m_scene->SetLocalPosition(e, core::Float3{ -6.0f, 1.0f, -4.0f });
+                physics::RigidBodyComponent& body = bodies->Add(e);
+                body.halfExtents = core::Float3{ 2.0f, 0.1f, 0.1f };
+                physics::JointComponent& joint =
+                    m_scene->GetSystem<physics::JointComponentManager>()->Add(e);
+                joint.kind = physics::JointKind::Hinge;
+                joint.localAxis = core::Float3{ 0.0f, 1.0f, 0.0f };
+                joint.motorEnabled = true;
+                joint.motorTargetVelocity = 2.0f;
+            }
             // A kinematic sweeper the update drives in a circle (knocks crates around).
             {
                 m_sweeper = m_scene->CreateEntity(u8"sweeper");
@@ -299,7 +336,15 @@ namespace
                 host.Ctx().SetTimeScale(scale);
             }
             if (m_haveSurface) { ImGui::Text("last hit surface slot: %u", m_lastSurface); }
-            ImGui::Text("LMB shove | R respawn | Esc quit");
+            if (auto* characters = m_scene->GetSystem<physics::CharacterComponentManager>())
+            {
+                if (physics::CharacterComponent* hero = characters->Get(m_hero))
+                {
+                    ImGui::Text("character: %s", hero->ground == physics::CharacterGround::OnGround
+                                                     ? "grounded" : "airborne");
+                }
+            }
+            ImGui::Text("LMB shove | R respawn | arrows+Space character | Esc quit");
             ImGui::End();
 
             // Drive the sweeper in a circle through SCENE transforms (kinematic follow).
@@ -327,6 +372,7 @@ namespace
         dscene::EntityHandle m_sweeper;
         core::Array<dscene::EntityHandle> m_crates;
         dscene::EntityHandle m_boulder;
+        dscene::EntityHandle m_hero;
         core::RefPtr<physics::CollisionShape> m_rampShape;
         core::RefPtr<physics::CollisionShape> m_boulderShape;
         core::u32 m_lastSurface = 0;

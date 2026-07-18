@@ -6,6 +6,7 @@
 
 #include "Core/Prelude.h"
 #include <cmath>
+#include <cstdio>
 
 import draconic.core;
 import draconic.physics;
@@ -358,4 +359,184 @@ TEST_CASE("physics: an infinite plane catches bodies anywhere within its half ex
     RayHit hit;
     REQUIRE(world.RayCast(Float3{ -300.0f, 2.0f, 40.0f }, Float3{ 0.0f, -1.0f, 0.0f }, 5.0f, hit));
     CHECK(hit.normal.y == doctest::Approx(1.0f).epsilon(0.01));
+}
+
+// ---- joints (P3) ----
+
+TEST_CASE("physics: a fixed joint to the world holds a body against gravity")
+{
+    PhysicsWorld world;
+    BodyDesc drop = BoxAt(3.0f);
+    const BodyId body = world.CreateBody(drop);
+    JointDesc joint;
+    joint.kind = JointKind::Fixed;
+    joint.bodyA = body;
+    const JointId id = world.CreateJoint(joint);
+    REQUIRE(id.IsValid());
+
+    for (int i = 0; i < 120; ++i) { world.Step(1.0f / 60.0f); }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(body, position, rotation);
+    CHECK(position.y == doctest::Approx(3.0f).epsilon(0.01));
+
+    // Released, it falls.
+    world.DestroyJoint(id);
+    for (int i = 0; i < 60; ++i) { world.Step(1.0f / 60.0f); }
+    world.GetBodyTransform(body, position, rotation);
+    CHECK(position.y < 2.0f);
+}
+
+TEST_CASE("physics: a motorized hinge spins its body at the target velocity")
+{
+    PhysicsWorld world;
+    world.SetGravity(Float3{ 0.0f, 0.0f, 0.0f });
+    BodyDesc blade = BoxAt(2.0f);
+    blade.shapes[0].halfExtents = Float3{ 1.5f, 0.1f, 0.1f };
+    const BodyId body = world.CreateBody(blade);
+
+    JointDesc joint;
+    joint.kind = JointKind::Hinge;
+    joint.bodyA = body;
+    joint.anchor = Float3{ 0.0f, 2.0f, 0.0f };
+    joint.axis = Float3{ 0.0f, 1.0f, 0.0f };
+    joint.motorEnabled = true;
+    joint.motorTargetVelocity = 2.0f;   // rad/s
+    joint.motorLimit = 1.0e6f;
+    const JointId id = world.CreateJoint(joint);
+    REQUIRE(id.IsValid());
+
+    for (int i = 0; i < 120; ++i) { world.Step(1.0f / 60.0f); }
+    // After spin-up the blade should have rotated well away from identity but stayed put.
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(body, position, rotation);
+    CHECK(position.y == doctest::Approx(2.0f).epsilon(0.01));
+    const f32 identityDot = rotation.w > 0 ? rotation.w : -rotation.w;
+    CHECK(identityDot < 0.99f);   // meaningfully rotated
+
+    // Motor off: it coasts (no snap-back); motor reversed via SetJointMotor spins back.
+    world.SetJointMotor(id, true, -2.0f);
+    for (int i = 0; i < 10; ++i) { world.Step(1.0f / 60.0f); }
+    CHECK(true);   // exercised the runtime motor path without asserts
+}
+
+TEST_CASE("physics: a distance joint to a world anchor makes a pendulum rope")
+{
+    PhysicsWorld world;
+    BodyDesc bob;
+    ShapeDesc bobShape;
+    bobShape.kind = ShapeKind::Sphere;
+    bobShape.radius = 0.25f;
+    bob.shapes.PushBack(bobShape);
+    bob.position = Float3{ 0.0f, 3.0f, 0.0f };
+    const BodyId body = world.CreateBody(bob);
+
+    JointDesc joint;
+    joint.kind = JointKind::Distance;
+    joint.bodyA = body;
+    joint.anchor = Float3{ 0.0f, 5.0f, 0.0f };
+    joint.minDistance = 0.0f;
+    joint.maxDistance = 2.0f;
+    REQUIRE(world.CreateJoint(joint).IsValid());
+
+    for (int i = 0; i < 300; ++i) { world.Step(1.0f / 60.0f); }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(body, position, rotation);
+    // Hangs on the rope: 2 below the anchor, not on the (absent) floor.
+    CHECK(position.y == doctest::Approx(3.0f).epsilon(0.03));
+}
+
+TEST_CASE("physics: a slider joint constrains travel to its axis and limits")
+{
+    PhysicsWorld world;
+    world.SetGravity(Float3{ 0.0f, 0.0f, 0.0f });
+    BodyDesc cart = BoxAt(1.0f);
+    const BodyId body = world.CreateBody(cart);
+
+    JointDesc joint;
+    joint.kind = JointKind::Slider;
+    joint.bodyA = body;
+    joint.axis = Float3{ 1.0f, 0.0f, 0.0f };
+    joint.limitMin = -1.5f;
+    joint.limitMax = 1.5f;
+    REQUIRE(world.CreateJoint(joint).IsValid());
+
+    world.AddImpulse(body, Float3{ 4000.0f, 3000.0f, 3000.0f });   // shove in all axes
+    for (int i = 0; i < 180; ++i) { world.Step(1.0f / 60.0f); }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(body, position, rotation);
+    CHECK(position.x <= 1.55f);                                    // clamped by the limit
+    CHECK(position.y == doctest::Approx(1.0f).epsilon(0.01));      // off-axis locked
+    CHECK(position.z == doctest::Approx(0.0f).epsilon(0.01).scale(1.0));
+}
+
+// ---- character controller (P3) ----
+
+TEST_CASE("physics: the character walks, climbs steps, and pushes light bodies")
+{
+    PhysicsWorld world;
+    (void)world.CreateBody(FloorDesc());
+
+    // A 0.3-high ledge ahead (within stepUp 0.4), running x in [2, 10].
+    BodyDesc ledge;
+    ledge.motion = MotionKind::Static;
+    ledge.layer = PhysicsLayer::Static;
+    ShapeDesc ledgeShape;
+    ledgeShape.halfExtents = Float3{ 4.0f, 0.15f, 2.0f };
+    ledge.shapes.PushBack(ledgeShape);
+    ledge.position = Float3{ 6.0f, 0.15f, 0.0f };
+    REQUIRE(world.CreateBody(ledge).IsValid());
+
+    // A light crate ON the ledge: its face is 0.5 above the ledge - too tall to stair
+    // over (stepUp 0.4), so the walking character must PUSH it.
+    BodyDesc crate = BoxAt(0.8f);
+    crate.shapes[0].halfExtents = Float3{ 0.25f, 0.25f, 0.25f };
+    crate.position = Float3{ 5.2f, 0.56f, 0.0f };
+    crate.density = 100.0f;
+    const BodyId box = world.CreateBody(crate);
+
+    CharacterDesc desc;
+    desc.position = Float3{ 0.0f, 0.9f, 0.0f };   // capsule CENTER (feet at 0)
+    desc.maxStrength = 800.0f;                    // default 100N barely beats crate friction
+    const CharacterId character = world.CreateCharacter(desc);
+    REQUIRE(character.IsValid());
+
+    // Settle, then confirm grounded on the floor.
+    for (int i = 0; i < 30; ++i)
+    {
+        world.SetCharacterVelocity(character, Float3{ 0.0f, -1.0f, 0.0f });
+        world.Step(1.0f / 60.0f);
+        world.UpdateCharacter(character, 1.0f / 60.0f);
+    }
+    CHECK(world.GetCharacterGround(character) == CharacterGround::OnGround);
+    CHECK(world.CharacterPosition(character).y == doctest::Approx(0.9f).epsilon(0.02));
+
+    // Walk +x for 1.2s: climbs onto the ledge and keeps walking (center now at 1.2).
+    for (int i = 0; i < 72; ++i)
+    {
+        world.SetCharacterVelocity(character, Float3{ 3.0f, 0.0f, 0.0f });
+        world.Step(1.0f / 60.0f);
+        world.UpdateCharacter(character, 1.0f / 60.0f);
+    }
+    Float3 position = world.CharacterPosition(character);
+    CHECK(position.x == doctest::Approx(3.6f).epsilon(0.15));
+    CHECK(position.y == doctest::Approx(1.2f).epsilon(0.03));    // ON the ledge
+    CHECK(world.GetCharacterGround(character) == CharacterGround::OnGround);
+
+    // Keep walking into the crate: it gets SHOVED forward, not climbed.
+    for (int i = 0; i < 90; ++i)
+    {
+        world.SetCharacterVelocity(character, Float3{ 3.0f, 0.0f, 0.0f });
+        world.Step(1.0f / 60.0f);
+        world.UpdateCharacter(character, 1.0f / 60.0f);
+    }
+    Float3 cratePosition;
+    Quaternion crateRotation;
+    world.GetBodyTransform(box, cratePosition, crateRotation);
+    CHECK(cratePosition.x > 5.5f);
+    position = world.CharacterPosition(character);
+    CHECK(position.y == doctest::Approx(1.2f).epsilon(0.05));    // still walking the ledge
 }

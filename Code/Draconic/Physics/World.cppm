@@ -77,8 +77,14 @@ export namespace draconic::physics
         f32 linearDamping = 0.05f;
         f32 angularDamping = 0.05f;
         bool isTrigger = false;                   // sensor (forces layer Trigger)
+        /// Designer collision group [0, 32): pairs collide only when the world matrix
+        /// allows BOTH directions' bits (PhysicsWorldSettings::groupCollides). The
+        /// semantic layer rules (static-static never, trigger sensing) still apply.
+        u8 group = 0;
         u64 userData = 0;                         // scene-entity reverse map (guid low bits)
     };
+
+    inline constexpr u32 kCollisionGroupCount = 32;
 
     struct BodyId
     {
@@ -110,12 +116,83 @@ export namespace draconic::physics
         u64 userB = 0;
     };
 
+    // ---- joints (P3) ----
+
+    enum class JointKind : u8 { Fixed, Point, Hinge, Slider, Distance };
+
+    struct JointDesc
+    {
+        JointKind kind = JointKind::Fixed;
+        BodyId bodyA;                    // required
+        BodyId bodyB;                    // invalid = anchored to the WORLD
+        Float3 anchor{ 0.0f, 0.0f, 0.0f };   // world-space pivot (hinge/point/slider origin)
+        Float3 axis{ 0.0f, 1.0f, 0.0f };     // world-space hinge rotation / slider travel axis
+        /// Hinge: radians (min in [-pi,0], max in [0,pi]); Slider: meters around the rest
+        /// point. min > max = unlimited.
+        f32 limitMin = 1.0f;
+        f32 limitMax = -1.0f;
+        /// Distance joints: negative = keep the starting distance.
+        f32 minDistance = -1.0f;
+        f32 maxDistance = -1.0f;
+        /// Velocity motor (hinge: rad/s + torque limit; slider: m/s + force limit).
+        bool motorEnabled = false;
+        f32 motorTargetVelocity = 0.0f;
+        f32 motorLimit = 3.4e38f;
+    };
+
+    struct JointId
+    {
+        u32 value = 0xFFFFFFFFu;
+        [[nodiscard]] bool IsValid() const noexcept { return value != 0xFFFFFFFFu; }
+        friend bool operator==(JointId a, JointId b) noexcept { return a.value == b.value; }
+    };
+
+    // ---- character controller (P3): Jolt CharacterVirtual ----
+    // Not a rigid body: a kinematic capsule swept by UpdateCharacter with slope/step
+    // handling; pushes dynamic bodies up to maxStrength. The caller owns the velocity
+    // policy (gravity/jump folded into SetCharacterVelocity each step - the component
+    // layer implements the standard recipe).
+
+    struct CharacterDesc
+    {
+        f32 capsuleRadius = 0.35f;
+        f32 capsuleHalfHeight = 0.55f;    // cylinder half-length (total height = 2*(hh+r))
+        f32 maxSlopeDegrees = 50.0f;
+        f32 mass = 70.0f;                 // kg (impulses given to pushed bodies)
+        f32 maxStrength = 100.0f;         // max push force (N)
+        f32 stepUp = 0.4f;                // stair climb per step
+        f32 stepDown = 0.5f;              // stick-to-floor scan below
+        Float3 position{ 0.0f, 0.0f, 0.0f };
+        u64 userData = 0;
+    };
+
+    struct CharacterId
+    {
+        u32 value = 0xFFFFFFFFu;
+        [[nodiscard]] bool IsValid() const noexcept { return value != 0xFFFFFFFFu; }
+        friend bool operator==(CharacterId a, CharacterId b) noexcept { return a.value == b.value; }
+    };
+
+    enum class CharacterGround : u8 { OnGround, OnSteepGround, NotSupported, InAir };
+
     struct PhysicsWorldSettings
     {
         Float3 gravity{ 0.0f, -9.81f, 0.0f };
         u32 maxBodies = 4096;
         u32 maxBodyPairs = 4096;
         u32 maxContactConstraints = 2048;
+        /// Group matrix: bit j of entry i = "group i collides with group j" (kept
+        /// symmetric by writers; the filter tests i->j only). Default: everything
+        /// collides with everything.
+        u32 groupCollides[kCollisionGroupCount] = {
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu };
     };
 
     // ---- offline shape cooking (builder/editor side; blobs feed ShapeKind::Cooked) ----
@@ -176,9 +253,31 @@ export namespace draconic::physics
         [[nodiscard]] u64 UserData(BodyId id) const;
 
         // ---- queries ----
-        [[nodiscard]] bool RayCast(Float3 from, Float3 direction, f32 maxDistance, RayHit& out) const;
+        /// `groupMask`: bit g = consider bodies in group g (default: all groups).
+        [[nodiscard]] bool RayCast(Float3 from, Float3 direction, f32 maxDistance, RayHit& out,
+                                   u32 groupMask = 0xFFFFFFFFu) const;
         /// Bodies whose shapes contain `point` (triggers included).
-        void QueryPoint(Float3 point, Array<BodyId>& out) const;
+        void QueryPoint(Float3 point, Array<BodyId>& out, u32 groupMask = 0xFFFFFFFFu) const;
+
+        // ---- joints ----
+        [[nodiscard]] JointId CreateJoint(const JointDesc& desc);
+        void DestroyJoint(JointId id);
+        /// Velocity-motor control on hinge/slider joints (no-op on other kinds). The
+        /// target is rad/s (hinge) or m/s (slider); `enabled` false turns the motor off.
+        void SetJointMotor(JointId id, bool enabled, f32 targetVelocity);
+
+        // ---- character controllers ----
+        [[nodiscard]] CharacterId CreateCharacter(const CharacterDesc& desc);
+        void DestroyCharacter(CharacterId id);
+        /// The FULL velocity for the coming update (the caller folds gravity/jump in).
+        void SetCharacterVelocity(CharacterId id, Float3 velocity);
+        [[nodiscard]] Float3 CharacterVelocity(CharacterId id) const;
+        /// Sweeps the character (slide + stairs + stick-to-floor) against the world.
+        /// Call once per fixed step, after Step().
+        void UpdateCharacter(CharacterId id, f32 deltaTime);
+        [[nodiscard]] Float3 CharacterPosition(CharacterId id) const;
+        void SetCharacterPosition(CharacterId id, Float3 position);   // teleport
+        [[nodiscard]] CharacterGround GetCharacterGround(CharacterId id) const;
 
         // ---- contact events ----
         /// Moves the events buffered since the last drain (worker-thread listeners append

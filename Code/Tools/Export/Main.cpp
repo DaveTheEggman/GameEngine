@@ -91,6 +91,8 @@ namespace
         namespace physics = draconic::physics;
         scene.AddSystem<physics::RigidBodyComponentManager>();
         scene.AddSystem<physics::ColliderComponentManager>();
+        scene.AddSystem<physics::JointComponentManager>();
+        scene.AddSystem<physics::CharacterComponentManager>();
         scene.AddSystem<physics::PhysicsSceneSystem>();   // carries the settings block
     }
 
