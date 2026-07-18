@@ -56,7 +56,7 @@ export namespace draconic::editor
         RefPtr<ISerializable> object = manifestInstance.ReadObject();
         auto* asset = Cast<mi::ModelManifestAsset>(object.Get());
         if (asset == nullptr) { return result; }
-        const mi::ModelManifestSource& manifest = asset->manifest;
+        const draconic::model::ModelManifestSource& manifest = asset->manifest;
 
         // Author the hierarchy in a throwaway scene, then capture it as a prefab payload.
         dscene::Scene scene(manifestInstance.Name());
@@ -71,7 +71,7 @@ export namespace draconic::editor
         dscene::EntityHandle root = scene.CreateEntity(manifestInstance.Name());
         Array<dscene::EntityHandle> entities;
         entities.Reserve(manifest.nodes.Size());
-        for (const mi::ModelNode& node : manifest.nodes)
+        for (const draconic::model::ModelNode& node : manifest.nodes)
         {
             dscene::EntityHandle e = scene.CreateEntity(node.name.AsView());
             scene.SetLocalTransform(e, node.localTransform);
@@ -80,7 +80,7 @@ export namespace draconic::editor
         const bool animated = !manifest.skeletonGuid.IsNil() && !manifest.animationGuids.IsEmpty();
         for (usize i = 0; i < manifest.nodes.Size(); ++i)
         {
-            const mi::ModelNode& node = manifest.nodes[i];
+            const draconic::model::ModelNode& node = manifest.nodes[i];
             if (node.parentIndex >= 0 && static_cast<usize>(node.parentIndex) < entities.Size())
             {
                 scene.SetParent(entities[i], entities[static_cast<usize>(node.parentIndex)]);

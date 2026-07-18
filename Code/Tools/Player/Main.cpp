@@ -55,7 +55,7 @@ import draconic.materials.resource;
 import draconic.texture;
 import draconic.texture.resource;
 import draconic.image.resource;
-import draconic.modelimporter;
+import draconic.model.resource;
 import draconic.script;
 import draconic.script.wren;
 import draconic.input;
@@ -89,21 +89,6 @@ namespace
     public:
         explicit PlayerApplication(PlayerOptions options) : m_options(Move(options)) {}
 
-        void Configure(rt::IApplicationHost& host) override
-        {
-            // ALL gameplay subsystems come from DefaultApplication (runtime-host.md v3) -
-            // the player registers only its content-pipeline plumbing below.
-            rt::DefaultApplication::Configure(host);
-
-            // Product/runtime types: factories construct cooked products BY TYPE NAME.
-            draconic::modelimporter::RegisterModelImporterTypes();
-            draconic::image::RegisterImageResource();
-            draconic::particles::RegisterParticleEffectResource();
-            draconic::input::RegisterInputMapResource();
-            draconic::physics::RegisterPhysicsResource();
-            GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
-            RegisterSerializable<dscene::SceneDocument>();
-        }
 
         void OnStartup(rt::IApplicationHost& host) override
         {
@@ -153,22 +138,10 @@ namespace
                 return;
             }
 
-            m_resources = MakeUnique<res::ResourceManager>(DefaultAllocator(), *m_contentDb);
-            m_resources->AddFactory(&m_meshFactory);
-            m_resources->AddFactory(&m_skinnedFactory);
-            m_resources->AddFactory(&m_materialFactory);
-            m_resources->AddFactory(&m_skeletonFactory);
-            m_resources->AddFactory(&m_clipFactory);
-            m_resources->AddFactory(&m_graphFactory);
-            m_resources->AddFactory(&m_effectFactory);
-            m_resources->AddFactory(&m_inputMapFactory);
-            m_resources->AddFactory(&m_collisionShapeFactory);
-            m_resources->AddFactory(&m_physicalMaterialFactory);
-            if (graphics::GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
-            {
-                m_textureFactory = MakeUnique<draconic::texture::TextureFactory>(DefaultAllocator(), *gfx->Raw());
-                m_resources->AddFactory(m_textureFactory.Get());
-            }
+            // The app builds the resource manager + standard factories over this DB
+            // (product types registered there too - runtime-host.md v3 infra preset).
+            SetContentDatabase(m_contentDb.Get());
+            rt::DefaultApplication::OnStartup(host);
         }
 
         void OnLaunch(rt::IApplicationHost& host) override
@@ -210,7 +183,7 @@ namespace
                 host.RequestExit(1);
                 return;
             }
-            dscene::ResolveSceneResources(*m_scene, *m_resources);
+            dscene::ResolveSceneResources(*m_scene, *Resources());
             // Prefab instances arrive as ref+deltas: respawn them from the same DB the
             // scene came from (pak mode: the staged payloads; project mode: the sources).
             if (m_scene->PendingPrefabInstanceCount() > 0)
@@ -224,7 +197,7 @@ namespace
                             return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                        : UniquePtr<IStream>{};
                         } });
-                dscene::ResolveSceneResources(*m_scene, *m_resources);
+                dscene::ResolveSceneResources(*m_scene, *Resources());
             }
             EnsureCamera();
 
@@ -236,7 +209,7 @@ namespace
             // ActionRuntime. Nil/unresolved = the runtime simply has no actions bound.
             if (Input() != nullptr && !m_settings.defaultInputMapId.IsNil())
             {
-                auto mapProxy = m_resources->Bind<draconic::input::InputMapResource>(
+                auto mapProxy = Resources()->Bind<draconic::input::InputMapResource>(
                     m_settings.defaultInputMapId);
                 if (mapProxy)
                 {
@@ -271,9 +244,9 @@ namespace
             if (m_scene != nullptr) { m_scene->Stop(); }
         }
 
-        void OnShutdown(rt::IApplicationHost&) override
+        void OnShutdown(rt::IApplicationHost& host) override
         {
-            m_resources = nullptr;   // release products while the device is alive
+            rt::DefaultApplication::OnShutdown(host);   // releases products device-alive
         }
 
     private:
@@ -327,9 +300,6 @@ namespace
         PlayerOptions m_options;
         f32 m_elapsed = 0.0f;
         draconic::project::ProjectSettings m_settings;
-        draconic::input::InputMapFactory m_inputMapFactory;
-        draconic::physics::CollisionShapeFactory m_collisionShapeFactory;
-        draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
         UniquePtr<draconic::vfs::NativeFileSystem> m_root;
         UniquePtr<draconic::vfs::PakFileSystem> m_pak;             // dist mode only
         UniquePtr<draconic::vfs::NativeFileSystem> m_contentMount; // project mode only
@@ -337,15 +307,6 @@ namespace
         UniquePtr<draconic::content::ContentDatabase> m_sourceDb;  // project mode: authored scenes
         UniquePtr<draconic::content::ContentDatabase> m_contentDb; // products (and dist scenes)
         draconic::content::ContentDatabase* m_sceneDb = nullptr;   // where scenes come from
-        UniquePtr<res::ResourceManager> m_resources;
-        draconic::geometry::StaticMeshFactory m_meshFactory;
-        draconic::geometry::SkinnedMeshFactory m_skinnedFactory;
-        draconic::materials::MaterialFactory m_materialFactory;
-        draconic::animation::SkeletonFactory m_skeletonFactory;
-        draconic::animation::AnimationClipFactory m_clipFactory;
-        draconic::animation::AnimationGraphFactory m_graphFactory;
-        draconic::particles::ParticleEffectFactory m_effectFactory;
-        UniquePtr<draconic::texture::TextureFactory> m_textureFactory;
         dscene::Scene* m_scene = nullptr;   // owned by the SceneSubsystem
     };
 }

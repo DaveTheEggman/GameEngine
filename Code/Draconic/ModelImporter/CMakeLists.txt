@@ -16,6 +16,7 @@ target_link_libraries(DraconicModelImporter
         Draconic::TextureResource  Draconic::TextureEditor  Draconic::Image
         Draconic::Animation Draconic::AnimationResource Draconic::AnimationEditor
         Draconic::Content   Draconic::Resource   Draconic::Editor
+        Draconic::ModelResource
         Draconic::Physics   Draconic::PhysicsResource  Draconic::PhysicsEditor)
 
 target_sources(DraconicModelImporter
@@ -24,7 +25,6 @@ target_sources(DraconicModelImporter
             FileImport.cppm
             MeshConvert.cppm
             AnimConvert.cppm
-            ModelResource.cppm
             Cook.cppm
             Load.cppm
             ModelImporterModule.cppm)

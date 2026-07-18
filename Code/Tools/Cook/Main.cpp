@@ -59,7 +59,7 @@ namespace
         // Product/resource types: ReadObject constructs cooked products BY TYPE NAME, so the
         // runtime-facing types must be registered too (meshes/materials/textures/animation/
         // manifest via the model-importer helper, plus the image resource).
-        draconic::modelimporter::RegisterModelImporterTypes();
+        draconic::model::RegisterModelResourceTypes();
         draconic::image::RegisterImageResource();
         draconic::physics::RegisterPhysicsAssets();
         draconic::physics::RegisterPhysicsResource();

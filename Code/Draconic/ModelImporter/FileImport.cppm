@@ -44,13 +44,18 @@ import draconic.editor.core;
 import draconic.physics.editor;
 import :mesh_convert;
 import :anim_convert;
-import :resource;
+import draconic.model.resource;
 import :cook;   // IsSkinnedMesh + the conversion helpers' home
 
 using namespace draconic::core;
 
 export namespace draconic::modelimporter
 {
+    // The cooked-model runtime types now live in draconic::model (draconic.model.resource).
+    using draconic::model::ModelNode;
+    using draconic::model::ModelManifestSource;
+    using draconic::model::ModelResource;
+
     namespace content = draconic::content;
     namespace ed = draconic::editor;
 

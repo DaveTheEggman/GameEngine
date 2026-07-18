@@ -130,7 +130,7 @@ namespace
         draconic::particles::RegisterParticleEffectAsset();
         draconic::input::RegisterInputMapAsset();
         draconic::modelimporter::RegisterModelManifestAsset();
-        draconic::modelimporter::RegisterModelImporterTypes();
+        draconic::model::RegisterModelResourceTypes();
         draconic::image::RegisterImageResource();
         draconic::physics::RegisterPhysicsAssets();
         draconic::physics::RegisterPhysicsResource();

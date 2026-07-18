@@ -9,7 +9,7 @@ target_link_libraries(RaptorPlayer PRIVATE
     Draconic::RenderSubsystem Draconic::AnimationSubsystem Draconic::ParticlesSubsystem
     Draconic::Resource Draconic::MeshResource Draconic::MaterialResource Draconic::TextureResource
     Draconic::AnimationResource Draconic::ParticlesResource Draconic::ImageResource
-    Draconic::ModelImporter
+    Draconic::ModelResource
     Draconic::Script Draconic::ScriptWren
     Draconic::Input Draconic::InputResource Draconic::InputSubsystem
     Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem

@@ -349,7 +349,7 @@ namespace
                 m_textureFactory = core::MakeUnique<texture::TextureFactory>(core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
-            modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
+            model::RegisterModelResourceTypes();   // make the cooked types deserializable
 
             // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
             SpawnModel(u8"Duck", core::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(), core::Float3{ -5.0f, 3.0f, 6.0f });
@@ -465,7 +465,7 @@ namespace
                                             static_cast<core::u32>(r), prefix));
                 return;
             }
-            resource::Proxy<modelimporter::ModelResource> model = m_resources->Bind<modelimporter::ModelResource>(modelGuid);
+            resource::Proxy<model::ModelResource> model = m_resources->Bind<model::ModelResource>(modelGuid);
             if (!model) { core::ConsoleWrite(u8"Sandbox: model bind failed\n"); return; }
 
             // Auto-fit: the model-root scales the model's largest extent to a target size (models come in
@@ -544,7 +544,7 @@ namespace
         // Build a simple state-machine graph over a model's clips: one Clip state per animation, plus a
         // "Next" trigger that cross-fades each state to the following one (wrapping). Demonstrates the
         // AnimationGraph machinery (states, transitions, parameters, cross-fades) without authored data.
-        core::RefPtr<animation::AnimationGraph> BuildClipCyclerGraph(modelimporter::ModelResource& model)
+        core::RefPtr<animation::AnimationGraph> BuildClipCyclerGraph(model::ModelResource& model)
         {
             core::RefPtr<animation::AnimationGraph> graph = core::MakeRef<animation::AnimationGraph>(core::DefaultAllocator());
             const core::i32 nextParam = graph->AddParameter(u8"Next", animation::AnimationParameterType::Trigger);
@@ -1119,8 +1119,8 @@ namespace
         animation::AnimationClipFactory           m_clipFactory;
         core::UniquePtr<texture::TextureFactory>   m_textureFactory;   // needs the device
         resource::Proxy<texture::Texture>             m_logoTex;          // sprite-demo logo (kept alive for its GPU view)
-        modelimporter::ModelFactory                     m_modelFactory;
-        core::Array<resource::Proxy<modelimporter::ModelResource>> m_models;   // keep cooked models + their resources alive
+        model::ModelFactory                     m_modelFactory;
+        core::Array<resource::Proxy<model::ModelResource>> m_models;   // keep cooked models + their resources alive
 
         // Animation graphs owned by the demo (the AnimationGraphComponents borrow them); the entity whose
         // graph the G key advances (the Character). Skinned models are otherwise driven by the subsystem.

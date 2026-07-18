@@ -32,7 +32,7 @@ import draconic.content;
 import draconic.editor;
 import :mesh_convert;
 import :anim_convert;
-import :resource;
+import draconic.model.resource;
 
 using namespace draconic::core;
 namespace rhi  = draconic::rhi;
@@ -45,6 +45,11 @@ namespace content   = draconic::content;
 namespace editor   = draconic::editor;
 
 export namespace draconic::modelimporter {
+    // The cooked-model runtime types now live in draconic::model (draconic.model.resource).
+    using draconic::model::ModelNode;
+    using draconic::model::ModelManifestSource;
+    using draconic::model::ModelResource;
+
 
 // True if the model mesh carries skinning (Joints/Weights vertex elements).
 [[nodiscard]] inline bool IsSkinnedMesh(const model::ModelMesh& mesh) noexcept

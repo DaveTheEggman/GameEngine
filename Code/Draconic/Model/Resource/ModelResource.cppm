@@ -1,18 +1,16 @@
-/// Draconic::ModelImporter:resource - the imported model as a cooked composite resource.
-///
-/// A model import produces many leaf resources (meshes, later materials/textures/
-/// skeleton/animations) PLUS a manifest tying them together with the node hierarchy.
-/// The manifest is itself a resource: `ModelManifestSource` (authored/cooked data) is
-/// built by `ModelFactory` into a runtime `ModelResource` that resolves every leaf via
-/// manager.Bind (so the model->mesh edges are recorded automatically, Traktor-style).
-/// The runtime binds ONE ModelResource and instantiates its node hierarchy - like a
-/// prefab. Spawning into a scene lives in the app/engine (keeps scene/render deps out).
+// Draconic::ModelResource - the `draconic.model.resource` module.
+//
+// The RUNTIME side of the cooked model family: ModelNode + ModelManifestSource (the
+// cooked manifest tying mesh/material/skeleton/animation guids + node hierarchy
+// together), the ModelResource runtime composite + ModelFactory, and the family-wide
+// type registration. Moved OUT of draconic.modelimporter (tooling) - the player/runtime
+// must not link importer/editor libraries for its cooked types.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.modelimporter:resource;
+export module draconic.model.resource;
 
 import draconic.core;
 import draconic.geometry;
@@ -33,7 +31,7 @@ namespace materials  = draconic::materials;
 namespace texture  = draconic::texture;
 namespace animation = draconic::animation;
 
-export namespace draconic::modelimporter {
+export namespace draconic::model {
 
 // One node of the imported hierarchy: local TRS + an optional mesh reference (index into
 // the manifest's mesh list, -1 = no mesh). Plain copyable struct (free Serialize via ADL).
@@ -161,7 +159,9 @@ DRACONIC_DEFINE_OBJECT(ModelResource, "draconic::modelimporter")
 // reads back) with the global type + serializable registries. Registration is explicit in
 // Draconic (DRACONIC_DEFINE_OBJECT only defines StaticType); call this once before binding cooked
 // models so the content DB can polymorphically deserialize them. Idempotent.
-inline void RegisterModelImporterTypes()
+// Registers the whole cooked-model family's product/source types (model manifest +
+// mesh/material/texture/animation) for by-type-name construction at runtime.
+inline void RegisterModelResourceTypes()
 {
     GlobalTypeRegistry().Register(ModelManifestSource::StaticType());
     RegisterSerializable<ModelManifestSource>();
@@ -191,4 +191,4 @@ inline void RegisterModelImporterTypes()
     GlobalTypeRegistry().Register(animation::AnimationClip::StaticType());
 }
 
-} // namespace draconic::modelimporter
+} // namespace draconic::model

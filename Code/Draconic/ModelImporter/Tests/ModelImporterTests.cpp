@@ -52,7 +52,7 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
     const StringView duck(reinterpret_cast<const utf8char*>(DRACONIC_MI_TEST_DUCK));
     if (duck.IsEmpty()) { return; }   // path not configured (skip)
 
-    modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
+    model::RegisterModelResourceTypes();   // make the cooked types deserializable
 
     vfs::NativeFileSystem mount(u8"draconic_modelimporter_test_db");
     content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
@@ -66,11 +66,11 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
     // Bind the composite model: ModelFactory resolves its meshes via StaticMeshFactory.
     resource::ResourceManager manager(db);
     geometry::StaticMeshFactory meshFactory;
-    modelimporter::ModelFactory       modelFactory;
+    model::ModelFactory       modelFactory;
     manager.AddFactory(&meshFactory);
     manager.AddFactory(&modelFactory);
 
-    resource::Proxy<modelimporter::ModelResource> model = manager.Bind<modelimporter::ModelResource>(modelGuid);
+    resource::Proxy<model::ModelResource> model = manager.Bind<model::ModelResource>(modelGuid);
     REQUIRE(model);
     CHECK(model->nodes.Size() > 0);
     CHECK(model->meshes.Size() > 0);
@@ -94,7 +94,7 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
     const StringView fox(reinterpret_cast<const utf8char*>(DRACONIC_MI_TEST_FOX));
     if (fox.IsEmpty()) { return; }
 
-    modelimporter::RegisterModelImporterTypes();
+    model::RegisterModelResourceTypes();
 
     vfs::NativeFileSystem mount(u8"draconic_modelimporter_fox_db");
     content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
@@ -105,7 +105,7 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
     resource::ResourceManager manager(db);
     geometry::StaticMeshFactory   meshFactory;
     geometry::SkinnedMeshFactory  skinnedFactory;
-    modelimporter::ModelFactory         modelFactory;
+    model::ModelFactory         modelFactory;
     draconic::animation::SkeletonFactory      skeletonFactory;
     draconic::animation::AnimationClipFactory clipFactory;
     manager.AddFactory(&meshFactory);
@@ -114,7 +114,7 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
     manager.AddFactory(&skeletonFactory);
     manager.AddFactory(&clipFactory);
 
-    resource::Proxy<modelimporter::ModelResource> model = manager.Bind<modelimporter::ModelResource>(modelGuid);
+    resource::Proxy<model::ModelResource> model = manager.Bind<model::ModelResource>(modelGuid);
     REQUIRE(model);
 
     // The Fox is skinned + animated: a resolved skeleton with bones + animation clips.
@@ -326,7 +326,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     namespace res = draconic::resource;
 
     mi::RegisterModelManifestAsset();
-    mi::RegisterModelImporterTypes();
+    draconic::model::RegisterModelResourceTypes();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
     draconic::materials::RegisterMaterialAsset();

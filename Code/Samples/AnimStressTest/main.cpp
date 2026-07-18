@@ -182,7 +182,7 @@ namespace
                 m_textureFactory = core::MakeUnique<texture::TextureFactory>(core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
-            modelimporter::RegisterModelImporterTypes();   // make the cooked types deserializable
+            model::RegisterModelResourceTypes();   // make the cooked types deserializable
 
             // Cook the Quaternius humanoid once, then replicate it across a grid (each instance gets its
             // own AnimationPlayer; all share the cooked mesh/skeleton/clips/materials).
@@ -204,7 +204,7 @@ namespace
                 core::ConsoleWrite(core::Format(u8"AnimStressTest: model import failed ({})\n", static_cast<core::u32>(r)));
                 return false;
             }
-            m_model = m_resources->Bind<modelimporter::ModelResource>(modelGuid);
+            m_model = m_resources->Bind<model::ModelResource>(modelGuid);
             if (!m_model) { core::ConsoleWrite(u8"AnimStressTest: model bind failed\n"); return false; }
 
             // Auto-fit: scale the model's largest extent to a target size.
@@ -489,8 +489,8 @@ namespace
         animation::SkeletonFactory                m_skeletonFactory;
         animation::AnimationClipFactory           m_clipFactory;
         core::UniquePtr<texture::TextureFactory>   m_textureFactory;   // needs the device
-        modelimporter::ModelFactory                     m_modelFactory;
-        resource::Proxy<modelimporter::ModelResource>        m_model;       // the one cooked model, shared by every instance
+        model::ModelFactory                     m_modelFactory;
+        resource::Proxy<model::ModelResource>        m_model;       // the one cooked model, shared by every instance
         core::Array<core::RefPtr<materials::Material>> m_modelMats;   // its materials (indexed by submesh material index)
         core::Array<animation::AnimationClip*>      m_clips;       // clips for random per-instance selection
         core::f32                              m_fit = 1.0f;  // auto-fit scale

@@ -88,17 +88,17 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     asset.manifest.skeletonGuid = skeleton;
     asset.manifest.animationGuids.PushBack(clip);
     {
-        mi::ModelNode rootNode;
+        draconic::model::ModelNode rootNode;
         rootNode.name = String(u8"Armature");
         rootNode.parentIndex = -1;
         asset.manifest.nodes.PushBack(Move(rootNode));
-        mi::ModelNode meshNode;
+        draconic::model::ModelNode meshNode;
         meshNode.name = String(u8"Body");
         meshNode.parentIndex = 0;
         meshNode.meshIndex = 0;
         meshNode.localTransform.position = Float3{ 1.0f, 2.0f, 3.0f };
         asset.manifest.nodes.PushBack(Move(meshNode));
-        mi::ModelNode skinNode;
+        draconic::model::ModelNode skinNode;
         skinNode.name = String(u8"Skin");
         skinNode.parentIndex = 0;
         skinNode.meshIndex = 1;
