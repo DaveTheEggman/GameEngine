@@ -7,7 +7,10 @@
 JPH_NAMESPACE_BEGIN
 
 /// The constant \f$\pi\f$
-static constexpr float JPH_PI = 3.14159265358979323846f;
+// DRACONIC VENDORED PATCH: `inline` (external linkage) instead of `static` - GCC's
+// C++20-modules checker rejects module-attached code referencing a TU-local entity
+// from a global-module-fragment header. Semantics identical.
+inline constexpr float JPH_PI = 3.14159265358979323846f;
 
 /// A large floating point value which, when squared, is still much smaller than FLT_MAX
 static constexpr float cLargeFloat = 1.0e15f;
