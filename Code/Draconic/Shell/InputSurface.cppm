@@ -109,7 +109,13 @@ export namespace draconic::shell
         core::i32       m_index = 0;
     };
 
-    // Touch, gated by hover (coordinate transform is a v1 follow-up; the demo path
+    // Touch, transformed + spatially gated: raw finger coords (NORMALIZED window space,
+    // SDL semantics) map through the surface's ContentFit into CONTENT-NORMALIZED [0,1]
+    // points; fingers outside the drawn content (other panels, letterbox bars) are
+    // FILTERED OUT entirely. The REGION is the gate - unlike mouse/keyboard, touch does
+    // not follow hover (a touch-only device never moves the hover pointer), so a finger
+    // in the rect is the surface's regardless of pointer state. Needs SetWindowSize
+    // (pushed with the region each frame) to convert normalized->pixel space.
     // is mouse/keyboard).
     class SurfaceTouch final : public ITouch
     {
@@ -144,6 +150,8 @@ export namespace draconic::shell
         void SetRegion(core::Rectangle region) noexcept        { m_fit.region = region; }
         void SetContentSize(core::Float2 size) noexcept     { m_fit.contentSize = size; }
         void SetFitMode(core::FitMode mode) noexcept      { m_fit.mode = mode; }
+        void SetWindowSize(core::Float2 size) noexcept    { m_windowSize = size; }
+        [[nodiscard]] core::Float2 WindowSize() const noexcept { return m_windowSize; }
         // Re-target the surface to a different window (e.g. a dockable panel hosting the surface is
         // undocked into a floating OS window - the router hover-tests by window id).
         void SetWindow(core::u32 window) noexcept         { m_window = window; }
@@ -186,6 +194,7 @@ export namespace draconic::shell
         core::u32        m_window;
         core::ContentFit m_fit;
 
+        core::Float2 m_windowSize{ 0, 0 };   // pixel size of the OS window (touch transform)
         bool m_hovered = false, m_focused = false, m_captured = false;
         core::Float2 m_contentMouse{ 0, 0 };
         core::Float2 m_contentDelta{ 0, 0 };
@@ -291,17 +300,62 @@ export namespace draconic::shell
         if (g != nullptr) { g->SetRumble(lo, hi, durationMs); }
     }
 
+    namespace detail
+    {
+        // Window-normalized -> content-normalized through the surface's fit; false when the
+        // finger is outside the drawn content (spatial gating).
+        [[nodiscard]] inline bool TransformTouch(const InputSurface& s, const TouchPoint& raw,
+                                                 TouchPoint& out)
+        {
+            const core::Float2 window = s.WindowSize();
+            const core::Float2 content = s.Fit().contentSize;
+            if (window.x <= 0.0f || window.y <= 0.0f) { return false; }
+            if (content.x <= 0.0f || content.y <= 0.0f) { return false; }
+            core::Float2 mapped;
+            if (!s.Fit().ToContent(core::Float2{ raw.x * window.x, raw.y * window.y }, mapped))
+            {
+                return false;
+            }
+            out = TouchPoint{ raw.id, mapped.x / content.x, mapped.y / content.y, raw.pressure };
+            return true;
+        }
+    }
+
     inline core::i32 SurfaceTouch::TouchCount() const
     {
-        return m_s->Hovered() ? m_s->Raw()->Touch()->TouchCount() : 0;
+        ITouch* raw = m_s->Raw() != nullptr ? m_s->Raw()->Touch() : nullptr;
+        if (raw == nullptr) { return 0; }
+        core::i32 count = 0;
+        const core::i32 total = raw->TouchCount();
+        for (core::i32 i = 0; i < total; ++i)
+        {
+            TouchPoint point;
+            TouchPoint mapped;
+            if (raw->GetTouchPoint(i, point) && detail::TransformTouch(*m_s, point, mapped)) { ++count; }
+        }
+        return count;
     }
     inline bool SurfaceTouch::GetTouchPoint(core::i32 index, TouchPoint& out) const
     {
-        return m_s->Hovered() && m_s->Raw()->Touch()->GetTouchPoint(index, out);
+        ITouch* raw = m_s->Raw() != nullptr ? m_s->Raw()->Touch() : nullptr;
+        if (raw == nullptr || index < 0) { return false; }
+        core::i32 seen = 0;
+        const core::i32 total = raw->TouchCount();
+        for (core::i32 i = 0; i < total; ++i)
+        {
+            TouchPoint point;
+            TouchPoint mapped;
+            if (raw->GetTouchPoint(i, point) && detail::TransformTouch(*m_s, point, mapped))
+            {
+                if (seen == index) { out = mapped; return true; }
+                ++seen;
+            }
+        }
+        return false;
     }
     inline bool SurfaceTouch::HasTouch() const
     {
-        return m_s->Hovered() && m_s->Raw()->Touch()->HasTouch();
+        return TouchCount() > 0;
     }
 
     // --- InputRouter ------------------------------------------------------------

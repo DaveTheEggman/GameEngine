@@ -551,6 +551,71 @@ TEST_CASE("input: rebind capture - first activated input matching the filter")
     CHECK(captured.code == 3u);
 }
 
+TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentFit")
+{
+    // A minimal IInputManager over the fakes (the surface polls through it).
+    class Manager final : public dshell::IInputManager
+    {
+    public:
+        FakeKeyboard keyboard;
+        FakeMouse mouse;
+        FakeTouch touch;
+        [[nodiscard]] dshell::IKeyboard* Keyboard() override { return &keyboard; }
+        [[nodiscard]] dshell::IMouse* Mouse() override { return &mouse; }
+        [[nodiscard]] dshell::ITouch* Touch() override { return &touch; }
+        [[nodiscard]] i32 GamepadCount() const override { return 0; }
+        [[nodiscard]] dshell::IGamepad* GetGamepad(i32) override { return nullptr; }
+        [[nodiscard]] Span<const dshell::InputEvent> Events() const override { return {}; }
+        [[nodiscard]] u32 HoverWindow() const override { return 1u; }
+        [[nodiscard]] u32 FocusedWindow() const override { return 1u; }
+        void Update() override {}
+    };
+    Manager manager;
+
+    // A 1920x1080 window hosting a viewport at (100,100)-(900,700): 800x600 region showing
+    // 800x600 content (stretch = identity within the region).
+    dshell::InputSurface surface(&manager, 1u, ContentFit{});
+    surface.SetRegion(Rectangle{ 100.0f, 100.0f, 800.0f, 600.0f });
+    surface.SetContentSize(Float2{ 800.0f, 600.0f });
+    surface.SetWindowSize(Float2{ 1920.0f, 1080.0f });
+    dshell::ITouch* touch = surface.Touch();
+    REQUIRE(touch != nullptr);
+
+    // A finger OUTSIDE the region (window-normalized 0.01, 0.01 = 19,10 px): filtered.
+    manager.touch.Set(1, 0.01f, 0.01f);
+    CHECK(touch->TouchCount() == 0);
+    CHECK_FALSE(touch->HasTouch());
+
+    // Center of the region: window px (500, 400) -> content px (400, 300) -> normalized
+    // (0.5, 0.5).
+    manager.touch.Set(1, 500.0f / 1920.0f, 400.0f / 1080.0f);
+    REQUIRE(touch->TouchCount() == 1);
+    dshell::TouchPoint mapped;
+    REQUIRE(touch->GetTouchPoint(0, mapped));
+    CHECK(mapped.x == doctest::Approx(0.5f).epsilon(0.01));
+    CHECK(mapped.y == doctest::Approx(0.5f).epsilon(0.01));
+    CHECK(mapped.id == 1u);
+
+    // Letterbox: 800x600 region showing 1280x800 content (16:10 in 4:3) - vertical bars
+    // ABOVE/BELOW? 16:10 content in 4:3 region: content wider -> bars top+bottom. A
+    // finger in the bar band is filtered ("no hit" contract); one in the content maps.
+    surface.SetContentSize(Float2{ 1280.0f, 800.0f });
+    surface.SetFitMode(FitMode::Letterbox);
+    // dst: width 800, height 800*800/1280 = 500, centered in the 600-tall region ->
+    // region-local y in [50, 550) = window px [150, 650). Content center = window (500, 400).
+    manager.touch.Set(1, 500.0f / 1920.0f, 130.0f / 1080.0f);   // in the top bar (region y 30)
+    CHECK(touch->TouchCount() == 0);
+    manager.touch.Set(1, 500.0f / 1920.0f, 400.0f / 1080.0f);   // content center
+    REQUIRE(touch->TouchCount() == 1);
+    REQUIRE(touch->GetTouchPoint(0, mapped));
+    CHECK(mapped.x == doctest::Approx(0.5f).epsilon(0.01));
+    CHECK(mapped.y == doctest::Approx(0.5f).epsilon(0.01));
+
+    // No window size published: everything filters (never a divide-by-zero).
+    surface.SetWindowSize(Float2{ 0.0f, 0.0f });
+    CHECK(touch->TouchCount() == 0);
+}
+
 TEST_CASE("input: touch - region buttons and the floating virtual stick")
 {
     InputMap map;

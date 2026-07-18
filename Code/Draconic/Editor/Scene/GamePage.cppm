@@ -54,11 +54,15 @@ export namespace draconic::editor
     // viewport's GATED InputSurface facades (hover = mouse, focus = keyboard - click the
     // viewport to play), gamepads pass through from the shell only while the viewport has
     // focus. This is the by-construction fix for "the editor viewport forwards nothing".
+    // Pure forwarding: EVERY facade comes from the viewport's InputSurface, which owns all
+    // gating and transformation (mouse hover+transform, keyboard focus, gamepads gated on
+    // focus via SurfaceGamepad, touch transformed + spatially gated). This class only
+    // adapts the surface to the input runtime's provider seam - no gating logic here.
     class GameViewportInputSource final : public draconic::input::IInputSourceProvider
     {
     public:
         guivp::ViewportView* viewport = nullptr;          // borrowed
-        draconic::shell::IInputManager* shellInput = nullptr;   // borrowed
+        draconic::shell::IInputManager* shellInput = nullptr;   // borrowed (count only)
 
         [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override
         {
@@ -70,13 +74,31 @@ export namespace draconic::editor
         }
         [[nodiscard]] i32 GamepadCount() const override
         {
-            const bool focused = viewport != nullptr && viewport->IsFocused();
-            return (focused && shellInput != nullptr) ? shellInput->GamepadCount() : 0;
+            // Count is structural; the surface's per-pad facades gate the actual reads.
+            return shellInput != nullptr ? Min(shellInput->GamepadCount(), 8) : 0;
         }
         [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32 index) override
         {
-            const bool focused = viewport != nullptr && viewport->IsFocused();
-            return (focused && shellInput != nullptr) ? shellInput->GetGamepad(index) : nullptr;
+            auto* surface = viewport != nullptr ? viewport->Surface() : nullptr;
+            return surface != nullptr ? surface->Gamepad(index) : nullptr;
+        }
+        [[nodiscard]] draconic::shell::ITouch* Touch() override
+        {
+            return viewport != nullptr ? viewport->Touch() : nullptr;
+        }
+    };
+
+    // Wren runtime faults during play surface as editor notices, not console-only lines.
+    class GameScriptErrorSink final : public draconic::script::IScriptErrorHandler
+    {
+    public:
+        EditorContext* context = nullptr;
+        void OnError(const draconic::script::ScriptError& error) override
+        {
+            if (context == nullptr) { return; }
+            String message(u8"Game script error: ");
+            message += error.message;
+            context->Notify(NoticeKind::Error, message.AsView());
         }
     };
 
@@ -99,6 +121,13 @@ export namespace draconic::editor
             m_toolbar = MakeRef<gtk::Toolbar>(DefaultAllocator());
             m_playButton = m_toolbar->AddButton(u8"Play");
             m_playButton->OnClick.Add([self](gtk::ToolbarButton*) { self->Play(); });
+            m_pauseToggle = m_toolbar->AddToggle(u8"Pause");
+            m_pauseToggle->OnCheckedChanged.Add([self](gtk::ToolbarToggle*, bool paused) {
+                if (self->m_scene != nullptr && self->m_running)
+                {
+                    self->m_scene->SetSimulationEnabled(!paused);
+                }
+            });
             m_stopButton = m_toolbar->AddButton(u8"Stop");
             m_stopButton->OnClick.Add([self](gtk::ToolbarButton*) { self->Stop(); });
             m_restartButton = m_toolbar->AddButton(u8"Restart");
@@ -106,6 +135,10 @@ export namespace draconic::editor
                 self->Stop();
                 self->Play();
             });
+            // Preview resolution: Auto (panel size) / Deck 1280x800 / 1080p - letterboxed,
+            // with mouse AND touch input mapping through the same fit.
+            m_resolutionButton = m_toolbar->AddButton(u8"Res: Auto");
+            m_resolutionButton->OnClick.Add([self](gtk::ToolbarButton*) { self->CycleResolution(); });
             m_statusLabel = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8""));
             m_statusLabel->FontSize.SetValue(13.0f);
             {
@@ -161,6 +194,9 @@ export namespace draconic::editor
                 return;
             }
 
+            // Nudge a background incremental cook so just-edited content is fresh; the
+            // run starts immediately and late products heal via the hot-reload path.
+            if (m_context->OnCookRequested) { m_context->OnCookRequested(false); }
             m_scene = m_scenes->CreateScene(instance->Name());
             if (m_scene == nullptr || !gscene::LoadScene(*instance, *m_scene).IsOk())
             {
@@ -196,6 +232,7 @@ export namespace draconic::editor
             m_scene->Start();
             m_scene->SetSimulationEnabled(true);
             m_running = true;
+            if (m_pauseToggle != nullptr) { m_pauseToggle->SetIsChecked(false); }
             m_sceneTitle = String(instance->Name());
             BindInput();
             StartGameScript();
@@ -219,6 +256,7 @@ export namespace draconic::editor
                 (void)m_game->Invoke(u8"exit", Span<Variant>{});
                 m_game = nullptr;
             }
+            if (m_scriptContext.Get() != nullptr) { m_scriptContext->SetErrorHandler(nullptr); }
             m_scriptContext = nullptr;
             m_scriptManager = nullptr;
             if (m_scene != nullptr)
@@ -342,6 +380,8 @@ export namespace draconic::editor
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
+            m_scriptErrors.context = m_context;
+            m_scriptContext->SetErrorHandler(&m_scriptErrors);
             if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
             if (!m_scriptContext->Load(source, scriptPath).IsOk())
             {
@@ -360,6 +400,30 @@ export namespace draconic::editor
             }
             (void)m_game->Invoke(u8"launch", Span<Variant>{});
             DRACONIC_LOG_INFO(u8"Editor", u8"Game: script '{}' launched", scriptPath);
+        }
+
+        void CycleResolution()
+        {
+            m_resolutionMode = (m_resolutionMode + 1u) % 3u;
+            switch (m_resolutionMode)
+            {
+                case 0u:
+                    m_viewport->SetFixedResolution(0, 0);
+                    m_viewport->SetFitMode(FitMode::Stretch);
+                    m_resolutionButton->SetText(u8"Res: Auto");
+                    break;
+                case 1u:
+                    m_viewport->SetFixedResolution(1280, 800);
+                    m_viewport->SetFitMode(FitMode::Letterbox);
+                    m_resolutionButton->SetText(u8"Res: 1280x800");
+                    break;
+                case 2u:
+                    m_viewport->SetFixedResolution(1920, 1080);
+                    m_viewport->SetFitMode(FitMode::Letterbox);
+                    m_resolutionButton->SetText(u8"Res: 1920x1080");
+                    break;
+                default: break;
+            }
         }
 
         void RefreshToolbar()
@@ -391,7 +455,11 @@ export namespace draconic::editor
         RefPtr<gtk::Toolbar> m_toolbar;
         gtk::ToolbarButton* m_playButton = nullptr;
         gtk::ToolbarButton* m_stopButton = nullptr;
+        gtk::ToolbarToggle* m_pauseToggle = nullptr;
         gtk::ToolbarButton* m_restartButton = nullptr;
+        gtk::ToolbarButton* m_resolutionButton = nullptr;
+        u32 m_resolutionMode = 0;
+        GameScriptErrorSink m_scriptErrors;
         RefPtr<draconic::ui::Label> m_statusLabel;
         RefPtr<guivp::ViewportView> m_viewport;
 

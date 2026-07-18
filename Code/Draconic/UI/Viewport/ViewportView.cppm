@@ -150,6 +150,25 @@ export namespace draconic::ui::viewport
         [[nodiscard]] u32 RenderWidth() const noexcept { return m_textureWidth; }
         [[nodiscard]] u32 RenderHeight() const noexcept { return m_textureHeight; }
 
+        // === Fixed render resolution (preview modes) ===
+        // 0x0 = follow the panel layout (default). A fixed size renders the content at that
+        // resolution regardless of panel size - pair with FitMode::Letterbox so presentation
+        // AND input (mouse + touch map through the same ContentFit) stay aspect-correct.
+        void SetFixedResolution(u32 fixedWidth, u32 fixedHeight)
+        {
+            if (m_fixedWidth == fixedWidth && m_fixedHeight == fixedHeight) { return; }
+            m_fixedWidth = fixedWidth;
+            m_fixedHeight = fixedHeight;
+            if (fixedWidth > 0 && fixedHeight > 0) { ResizeRenderTarget(fixedWidth, fixedHeight); }
+            else if (Width() > 0.0f && Height() > 0.0f)
+            {
+                ResizeRenderTarget(static_cast<u32>(Max(1.0f, Width())),
+                                   static_cast<u32>(Max(1.0f, Height())));
+            }
+        }
+        [[nodiscard]] u32 FixedWidth() const noexcept { return m_fixedWidth; }
+        [[nodiscard]] u32 FixedHeight() const noexcept { return m_fixedHeight; }
+
         /// For content renderers that manage target transitions THEMSELVES (e.g. a frame graph
         /// importing the color target via current/final states, like render::TargetState): read
         /// the tracked color state to feed the import, then record what the graph left behind.
@@ -162,6 +181,9 @@ export namespace draconic::ui::viewport
         [[nodiscard]] shell::InputSurface* Surface() const noexcept { return m_surface.Get(); }
         [[nodiscard]] shell::IMouse* Mouse() const noexcept { return m_surface ? m_surface->Mouse() : nullptr; }
         [[nodiscard]] shell::IKeyboard* Keyboard() const noexcept { return m_surface ? m_surface->Keyboard() : nullptr; }
+        /// Content-normalized [0,1] touch points inside the drawn content only (the surface
+        /// transforms + spatially gates - see InputSurface).
+        [[nodiscard]] shell::ITouch* Touch() const noexcept { return m_surface ? m_surface->Touch() : nullptr; }
 
         /// Sync the input surface's region to this view's laid-out window-space rect (+ content size /
         /// fit). Call each frame after the UI has laid out and before the router's Update(). The region
@@ -174,6 +196,11 @@ export namespace draconic::ui::viewport
             m_surface->SetRegion(Rectangle{ tl.x, tl.y, Width(), Height() });
             m_surface->SetContentSize(Float2{ static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight) });
             m_surface->SetFitMode(m_fitMode);
+            // Window pixel size (the root view spans the client area): the touch transform
+            // converts normalized finger coords through it.
+            const View* root = this;
+            while (root->Parent != nullptr) { root = root->Parent; }
+            m_surface->SetWindowSize(Float2{ root->Width(), root->Height() });
         }
 
         // === 3D render ===
@@ -207,8 +234,8 @@ export namespace draconic::ui::viewport
 
         void OnLayout(f32 /*left*/, f32 /*top*/, f32 width, f32 height) override
         {
-            const u32 w = static_cast<u32>(Max(1.0f, width));
-            const u32 h = static_cast<u32>(Max(1.0f, height));
+            const u32 w = m_fixedWidth > 0 ? m_fixedWidth : static_cast<u32>(Max(1.0f, width));
+            const u32 h = m_fixedHeight > 0 ? m_fixedHeight : static_cast<u32>(Max(1.0f, height));
             if (w != m_textureWidth || h != m_textureHeight) { ResizeRenderTarget(w, h); }
         }
 
@@ -313,6 +340,8 @@ export namespace draconic::ui::viewport
         rhi::ResourceState m_colorState = rhi::ResourceState::Undefined;
         rhi::ResourceState m_depthState = rhi::ResourceState::Undefined;
 
+        u32 m_fixedWidth = 0;
+        u32 m_fixedHeight = 0;
         u32 m_textureWidth = 0;
         u32 m_textureHeight = 0;
         bool m_registered = false;
